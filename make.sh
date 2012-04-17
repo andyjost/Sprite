@@ -1,6 +1,7 @@
 #!/bin/bash
 
-CFLAGS="-I$HOME/build/dmain/3rdparty/boost/1_46_0 -I. -Wall -O0 -ggdb"
+CFLAGS="-I$HOME/build/dmain/3rdparty/boost_1_42/ -I. -Wall -O0 -ggdb"
+#CFLAGS="-I$HOME/build/dmain/3rdparty/boost/1_46_0 -I. -Wall -O0 -ggdb"
 
 g++ -c sprite/builtins.cpp -o obj/builtins.o $CFLAGS &
 g++ -c sprite/exec.cpp -o obj/exec.o $CFLAGS &

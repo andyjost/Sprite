@@ -63,7 +63,11 @@ namespace sprite
       // Handle node types without children.
       template<typename NodeType>
       result_type operator()(NodeType &) const
-        { return result_type(); }
+      {
+        // Build an empty range without using singular pointers.
+        static NodePtr tmp;
+        return result_type(&tmp,&tmp);
+      }
     };
   }
 
@@ -96,7 +100,7 @@ namespace sprite
     {
       // A forwarding node should never be obtained for use (correct?).
       result_type operator()(FwdNode const &, size_t) const
-        { assert(0); }
+        { throw RuntimeError("Unexpected forward node."); }
 
       // Handle node types with children.
       result_type operator()(InPlaceNode1 const & node, size_t i) const
@@ -122,10 +126,7 @@ namespace sprite
       // Handle node types without children.
       template<typename NodeType>
       result_type operator()(NodeType const &, size_t) const
-      {
-        assert(0); // TODO: runtime error
-        return result_type();
-      }
+        { throw RuntimeError("Child index is out of range."); }
     };
   }
 
@@ -180,7 +181,7 @@ namespace sprite
       // Handle node types without children.
       template<typename NodeType>
       result_type operator()(NodeType const &, NodePtr const &) const
-        { assert(0); return result_type(); }
+        { throw RuntimeError("Invalid parent node."); }
     };
   }
 
