@@ -1,0 +1,104 @@
+\section{sprite/rewrite.hpp File Reference}
+\label{rewrite_8hpp}\index{sprite/rewrite.hpp@{sprite/rewrite.hpp}}
+Defines the rewrite operation. 
+
+{\tt \#include \char`\"{}sprite/node.hpp\char`\"{}}\par
+
+
+Include dependency graph for rewrite.hpp:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=332pt]{rewrite_8hpp__incl}
+\end{center}
+\end{figure}
+
+
+This graph shows which files directly or indirectly include this file:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=179pt]{rewrite_8hpp__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Namespaces}
+\begin{CompactItemize}
+\item 
+namespace {\bf sprite}
+\end{CompactItemize}
+\subsection*{Classes}
+\begin{CompactItemize}
+\item 
+struct {\bf sprite::rewrite$<$ Ctor\-Or\-Oper $>$}
+\begin{CompactList}\small\item\em Rewrite a node to a CTOR or OPER node. \item\end{CompactList}\item 
+struct {\bf sprite::rewrite$<$ FAIL $>$}
+\begin{CompactList}\small\item\em Rewrite a node to a FAIL. \item\end{CompactList}\item 
+struct {\bf sprite::rewrite$<$ CHOICE $>$}
+\begin{CompactList}\small\item\em Rewrite a node to a CHOICE. \item\end{CompactList}\item 
+struct {\bf sprite::rewrite$<$ FWD $>$}
+\begin{CompactList}\small\item\em Rewrite a node to a FWD. \item\end{CompactList}\item 
+struct {\bf sprite::rewrite$<$ INT $>$}
+\begin{CompactList}\small\item\em Rewrite a node to an INT. \item\end{CompactList}\item 
+struct {\bf sprite::rewrite$<$ FLOAT $>$}
+\begin{CompactList}\small\item\em Rewrite a node to a FLOAT. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Defines}
+\begin{CompactItemize}
+\item 
+\#define {\bf F}(z, n, \_\-)
+\end{CompactItemize}
+\subsection*{Variables}
+\begin{CompactItemize}
+\item 
+rewrite$<$ CTOR $>$ const {\bf rewrite\_\-ctor} = rewrite$<$CTOR$>$()\label{namespacesprite_a38}
+
+\begin{CompactList}\small\item\em Rewrites a node to type CTOR. \item\end{CompactList}\item 
+rewrite$<$ OPER $>$ const {\bf rewrite\_\-oper} = rewrite$<$OPER$>$()\label{namespacesprite_a39}
+
+\begin{CompactList}\small\item\em Rewrites a node to type OPER. \item\end{CompactList}\item 
+rewrite$<$ FAIL $>$ const {\bf rewrite\_\-fail} = rewrite$<$FAIL$>$()\label{namespacesprite_a40}
+
+\begin{CompactList}\small\item\em Rewrites a node to type FAIL. \item\end{CompactList}\item 
+rewrite$<$ CHOICE $>$ const {\bf rewrite\_\-choice} = rewrite$<$CHOICE$>$()\label{namespacesprite_a41}
+
+\begin{CompactList}\small\item\em Rewrites a node to type CHOICE. \item\end{CompactList}\item 
+rewrite$<$ FWD $>$ const {\bf rewrite\_\-fwd} = rewrite$<$FWD$>$()\label{namespacesprite_a42}
+
+\begin{CompactList}\small\item\em Rewrites a node to type FWD. \item\end{CompactList}\item 
+rewrite$<$ INT $>$ const {\bf rewrite\_\-int} = rewrite$<$INT$>$()\label{namespacesprite_a43}
+
+\begin{CompactList}\small\item\em Rewrites a node to type INT. \item\end{CompactList}\item 
+rewrite$<$ FLOAT $>$ const {\bf rewrite\_\-float} = rewrite$<$FLOAT$>$()\label{namespacesprite_a44}
+
+\begin{CompactList}\small\item\em Rewrites a node to type FLOAT. \item\end{CompactList}\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+Defines the rewrite operation. 
+
+
+
+Definition in file {\bf rewrite.hpp}.
+
+\subsection{Define Documentation}
+\index{rewrite.hpp@{rewrite.hpp}!F@{F}}
+\index{F@{F}!rewrite.hpp@{rewrite.hpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define F(z, n, \_\-)}\label{rewrite_8hpp_a0}
+
+
+{\bf Value:}
+
+\footnotesize\begin{verbatim}void operator()(                                         \
+            Node & node, size_t id                               \
+            BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const & arg) \
+          ) const                                                \
+        {                                                        \
+          node.destroy_payload();                                \
+          new(node._payload()) payloads::InPlace<n>(             \
+              BOOST_PP_ENUM_PARAMS(n,arg)                        \
+            );                                                   \
+          node.m_id = id;                                        \
+          node.m_arity = n;                                      \
+          node.m_tag = CtorOrOper;                               \
+        }                                                        \
+\end{verbatim}\normalsize 
+
+
+Definition at line 15 of file rewrite.hpp.

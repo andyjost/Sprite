@@ -1,0 +1,69 @@
+\section{sprite/operators.hpp File Reference}
+\label{operators_8hpp}\index{sprite/operators.hpp@{sprite/operators.hpp}}
+Implements built-in operators used by the implementation. 
+
+{\tt \#include \char`\"{}sprite/common.hpp\char`\"{}}\par
+{\tt \#include \char`\"{}sprite/exec.hpp\char`\"{}}\par
+{\tt \#include \char`\"{}sprite/node.hpp\char`\"{}}\par
+{\tt \#include $<$boost/mpl/has\_\-xxx.hpp$>$}\par
+
+
+Include dependency graph for operators.hpp:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=166pt]{operators_8hpp__incl}
+\end{center}
+\end{figure}
+
+
+This graph shows which files directly or indirectly include this file:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=149pt]{operators_8hpp__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Namespaces}
+\begin{CompactItemize}
+\item 
+namespace {\bf sprite}
+\item 
+namespace {\bf sprite::manipulators}
+\item 
+namespace {\bf sprite::manipulators::detail}
+\item 
+namespace {\bf sprite::meta}
+\item 
+namespace {\bf sprite::visitors}
+\item 
+namespace {\bf sprite::operators}
+\end{CompactItemize}
+\subsection*{Classes}
+\begin{CompactItemize}
+\item 
+struct {\bf sprite::manipulators::setprogram}
+\begin{CompactList}\small\item\em I/O manipulator to set the program. \item\end{CompactList}\item 
+struct {\bf sprite::visitors::Stream\-Out$<$ Stream $>$}
+\begin{CompactList}\small\item\em Implements operator$<$$<$ for nodes. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Functions}
+\begin{CompactItemize}
+\item 
+Program const $\ast$\& {\bf pgm\_\-data} (std::ios\_\-base \&stream)\label{namespacesprite_1_1manipulators_1_1detail_a0}
+
+\item 
+std::ios\_\-base \& {\bf clearprogram} (std::ios\_\-base \&stream)\label{namespacesprite_1_1manipulators_a0}
+
+\begin{CompactList}\small\item\em I/O manipulator to clear the program. \item\end{CompactList}\item 
+{\bf BOOST\_\-MPL\_\-HAS\_\-XXX\_\-TRAIT\_\-DEF} (value\_\-type)\label{namespacesprite_1_1meta_a0}
+
+\item 
+template$<$typename Stream$>$ Stream \& {\bf operator$<$$<$} (Stream \&stream, Node const \&node)\label{namespacesprite_1_1operators_a0}
+
+\begin{CompactList}\small\item\em Output a representation of the node to the given stream. \item\end{CompactList}\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+Implements built-in operators used by the implementation. 
+
+
+
+Definition in file {\bf operators.hpp}.

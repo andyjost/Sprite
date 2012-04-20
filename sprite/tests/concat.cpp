@@ -7,31 +7,32 @@
 
 #include "sprite/tests/test_common.hpp"
 #include "sprite/operators.hpp"
-#include "sprite/program.hpp"
+#include "sprite/user_module.hpp"
 
 /**
  * @brief The built-in list module.
  */
-struct ListModule : sprite::Module
+struct ListModule : sprite::UserModule
 {
+  // Constructor and operation ids.
   size_t c_Cons;
   size_t c_Nil;
   size_t op_concat;
 
-  ListModule(Loader & loader)
-    : c_Cons(loader.add_ctor("Cons"))
-    , c_Nil(loader.add_ctor("Nil"))
-    , op_concat(
-          loader.add_oper(
-              "concat"
-            , tr1::bind<void>(&ListModule::h_concat, this, _1)
-            )
-        )
-  {}
+  /// Initializes the module.
+  ListModule(Loader & loader) : UserModule(loader)
+  {
+    c_Cons = install_ctor("Cons");
+    c_Nil = install_ctor("Nil");
+    op_concat = install_oper("concat", &ListModule::h_concat);
+  }
 
   virtual ~ListModule() {}
   
-  void h_concat(Node & node)
+private:
+
+  // ====== H function(s) ======
+  void h_concat(Node & node) const
   {
     assert(node.arity() == 2);
     NodePtr child = node[0];
@@ -43,48 +44,56 @@ struct ListModule : sprite::Module
       case FAIL: return rewrite_fail(node);
       // H.2
       case OPER: return head_normalize(*child);
+      // H.3
       case CTOR:
       {
         if(child->id() == c_Nil)
-        {
-          rewrite_fwd(node, node[1]);
-          return;
-        }
+          return rewrite_fwd(node, node[1]);
         else
         {
           assert(child->id() == c_Cons);
           assert(child->arity() == 2);
-          rewrite_oper(
+          rewrite_ctor(
               node, c_Cons, (*child)[0]
             , Node::create<OPER>(op_concat, (*child)[1], node[1])
             );
           return;
         }
       }
-      default:;
+      default: throw RuntimeError("Type error in concat");
     }
   }
 };
 
+/// Loads the list module.
 shared_ptr<Module> load_list(sprite::Loader & loader)
-{
-  shared_ptr<sprite::Module> module(
-      boost::make_shared<ListModule>(tr1::ref(loader))
-    );
+  { return boost::make_shared<ListModule>(tr1::ref(loader)); }
 
-  return module;
-}
-
-
+// This is a sample program to demonstrate the use of concat.  The output is
+// meant to be inspected visually.
 int test_main(int, char**)
 {
+  // ====== DEFINE THE PROGRAM ======
+
+  // Create a new program and make it the context for output.
   Program pgm;
+  std::cout << setprogram(pgm);
+
+  // Import the list module and capture a reference to it.
+  shared_ptr<Module const> const _list = pgm.import("List");
+
+  // Downcast the list module (alternatively, the abstract Module interface
+  // could be used).
   shared_ptr<ListModule const> const list(
-      dynamic_pointer_cast<ListModule const>(pgm.import("List"))
+      dynamic_pointer_cast<ListModule const>(_list)
     );
 
-  // ====== Test addition ======
-  // concat [1] [2]
+  // DEBUG - print the linked program.
+  std::cout << pgm << std::endl;
+
+  // ====== FORM THE GOAL ======
+
+  // Construct this goal: concat [1] [2]
   NodePtr lhs = Node::create<CTOR>(
       list->c_Cons, Node::create<INT>(1), Node::create<CTOR>(list->c_Nil)
     );
@@ -92,8 +101,12 @@ int test_main(int, char**)
       list->c_Cons, Node::create<INT>(2), Node::create<CTOR>(list->c_Nil)
     );
   NodePtr goal = Node::create<OPER>(list->op_concat, lhs, rhs);
-  execute(pgm, *goal);
-  std::cout << setprogram(pgm) << *goal << std::endl;
+  std::cout << *goal << std::endl;
+
+  // ====== EXECUTE THE GOAL ======
+
+  execute(pgm, *goal, TRACE);
+  std::cout << *goal << std::endl;
 
   return 0;
 }

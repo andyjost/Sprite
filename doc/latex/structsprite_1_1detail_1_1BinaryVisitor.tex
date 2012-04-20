@@ -1,0 +1,36 @@
+\section{sprite::detail::Binary\-Visitor$<$ Visitor $>$ Struct Template Reference}
+\label{structsprite_1_1detail_1_1BinaryVisitor}\index{sprite::detail::BinaryVisitor@{sprite::detail::BinaryVisitor}}
+{\tt \#include $<$visit.hpp$>$}
+
+\subsection*{Public Types}
+\begin{CompactItemize}
+\item 
+typedef Visitor::result\_\-type {\bf result\_\-type}\label{structsprite_1_1detail_1_1BinaryVisitor_w0}
+
+\end{CompactItemize}
+\subsection*{Public Member Functions}
+\begin{CompactItemize}
+\item 
+result\_\-type {\bf operator()} (Visitor const \&visitor, {\bf Node} const \&lhs, {\bf Node} const \&rhs) const \label{structsprite_1_1detail_1_1BinaryVisitor_a0}
+
+\item 
+template$<$typename Lhs$>$ result\_\-type {\bf operator()} (Visitor const \&visitor, Lhs const \&lhs, {\bf Node} const \&rhs) const \label{structsprite_1_1detail_1_1BinaryVisitor_a1}
+
+\item 
+template$<$typename Lhs, typename Rhs$>$ result\_\-type {\bf operator()} (Visitor const \&visitor, Lhs const \&lhs, Rhs const \&rhs) const \label{structsprite_1_1detail_1_1BinaryVisitor_a2}
+
+\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$typename Visitor$>$ struct sprite::detail::Binary\-Visitor$<$ Visitor $>$}
+
+A helper for implementing the binary form of the visit function. This uses the unary visit to resolve each abstract {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} argument step-by-step. 
+
+
+
+Definition at line 101 of file visit.hpp.
+
+The documentation for this struct was generated from the following file:\begin{CompactItemize}
+\item 
+sprite/visit.hpp\end{CompactItemize}

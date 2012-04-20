@@ -4,6 +4,7 @@
  */
 #include "sprite/exec.hpp"
 #include "sprite/node.hpp"
+#include "sprite/operators.hpp"
 #include <deque>
 
 namespace sprite
@@ -93,14 +94,32 @@ namespace sprite
     };
   }
 
+  /// Prints a trace message to the output.
+  static void tracef(std::string const & tag, Node const & expr)
+    { std::cout << "TRACE> " << tag << ":: " << expr << std::endl; }
+
   // See header for brief description.
-  void execute(Program const & pgm, Node & goal, YieldHandler const & out)
+  void execute(
+      Program const & pgm, Node & goal, YieldHandler const & out
+    , TraceOption trace
+    )
   {
     // Set the global program pointer and then restore it when this scope
     // exits.
     Program const * _p = &pgm;
     std::swap(g_program, _p);
     BOOST_SCOPE_EXIT((&_p)) { std::swap(g_program, _p); } BOOST_SCOPE_EXIT_END
+
+    // If tracing, set the output program.  Restore the old value when this
+    // scope exits.
+    Program const * _pp = manipulators::detail::pgm_data(std::cout);
+
+    if(trace)
+      std::cout << setprogram(pgm);
+
+    BOOST_SCOPE_EXIT((&_pp))
+      { std::cout << setprogram(*_pp); }
+    BOOST_SCOPE_EXIT_END
 
     // Set up the computation pool.
     ComputationPool pool;
@@ -116,9 +135,11 @@ namespace sprite
       // This dereference will remove FWD nodes (it must come after the
       // execution step, above).
       Node & node = *item.node;
+      if(trace) tracef("step", node);
 
       if(is_norm(node))
       {
+        if(trace) tracef("value", node);
         out.yield(node);
         pool.pop();
       }
@@ -126,9 +147,13 @@ namespace sprite
       {
         switch(node.tag())
         {
-          case FAIL: pool.pop(); break;
+          case FAIL:
+            if(trace) tracef("fail", node);
+            pool.pop();
+            break;
           case CHOICE:
           {
+            if(trace) tracef("choice", node);
             size_t const id = node.id();
             if(fp.has(id))
             {
@@ -159,5 +184,8 @@ namespace sprite
         }
       }
     }
-  };
+  }
+
+  void print_node(Node const & node)
+    { std::cout << node << std::endl; }
 }

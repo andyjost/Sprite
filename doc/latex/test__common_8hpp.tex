@@ -1,0 +1,39 @@
+\section{sprite/tests/test\_\-common.hpp File Reference}
+\label{test__common_8hpp}\index{sprite/tests/test_common.hpp@{sprite/tests/test\_\-common.hpp}}
+Common statements for test files. 
+
+{\tt \#include $<$boost/test/minimal.hpp$>$}\par
+{\tt \#include $<$iostream$>$}\par
+{\tt \#include \char`\"{}sprite/create.hpp\char`\"{}}\par
+{\tt \#include \char`\"{}sprite/exec.hpp\char`\"{}}\par
+{\tt \#include \char`\"{}sprite/node.hpp\char`\"{}}\par
+
+
+Include dependency graph for test\_\-common.hpp:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=236pt]{test__common_8hpp__incl}
+\end{center}
+\end{figure}
+
+
+This graph shows which files directly or indirectly include this file:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=112pt]{test__common_8hpp__dep__incl}
+\end{center}
+\end{figure}
+
+
+\subsection{Detailed Description}
+Common statements for test files. 
+
+This file defines a main() function. Test files should include this header and then define a function test\_\-main. The following asserts may be used:
+
+\begin{itemize}
+\item BOOST\_\-CHECK(predicate)\item BOOST\_\-REQUIRE(predicate)\item BOOST\_\-ERROR(message)\item BOOST\_\-FAIL(message)\end{itemize}
+
+
+For more information, refer to the Boost.Test documentation at www.boost.org.
+
+Definition in file {\bf test\_\-common.hpp}.

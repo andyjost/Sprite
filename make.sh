@@ -5,6 +5,7 @@ CFLAGS="-I$HOME/build/dmain/3rdparty/boost_1_42/ -I. -Wall -O0 -ggdb"
 
 g++ -c sprite/builtins.cpp -o obj/builtins.o $CFLAGS &
 g++ -c sprite/exec.cpp -o obj/exec.o $CFLAGS &
+g++ -c sprite/program.cpp -o obj/program.o $CFLAGS &
 
 g++ -c sprite/tests/int.cpp -o obj/test_int.o $CFLAGS &
 g++ -c sprite/tests/io.cpp -o obj/test_io.o $CFLAGS &
@@ -15,7 +16,7 @@ wait
 if [ $? -eq 0 ]; then
 
   rm obj/sprite.a
-  ar -r obj/sprite.a obj/builtins.o obj/exec.o
+  ar -r obj/sprite.a obj/builtins.o obj/exec.o obj/program.o
   
   g++ obj/test_int.o obj/sprite.a -o bin/test_int &
   g++ obj/test_io.o obj/sprite.a -o bin/test_io &

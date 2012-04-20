@@ -20,10 +20,15 @@ namespace sprite
     assert(sizeof(AbstractNode) == bytes);
     void * px = reinterpret_cast<void *>(node_allocator.malloc());
 
+    // Note: a custom raw memory allocator would need to be specified to
+    // object_pool to meet this requirement.
+
+    #if 0
     // We're aiming for exactly 2 nodes per cache line (on modern x86_64
     // hardware).  Verify the alignment to ensure that nodes don't span cache
     // line boundaries.
     assert(reinterpret_cast<size_t>(px) % NODE_BYTES == 0);
+    #endif
     return px;
 
   }

@@ -1,0 +1,64 @@
+\section{sprite::Node\-Ptr Struct Reference}
+\label{structsprite_1_1NodePtr}\index{sprite::NodePtr@{sprite::NodePtr}}
+A reference-counting pointer for {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} objects.  
+
+
+{\tt \#include $<$pointer.hpp$>$}
+
+\subsection*{Public Types}
+\begin{CompactItemize}
+\item 
+typedef {\bf Node} {\bf element\_\-type}\label{structsprite_1_1NodePtr_w0}
+
+\end{CompactItemize}
+\subsection*{Public Member Functions}
+\begin{CompactItemize}
+\item 
+{\bf Node\-Ptr} ({\bf Node} $\ast$p, bool add\_\-ref=true)\label{structsprite_1_1NodePtr_a1}
+
+\item 
+{\bf Node\-Ptr} ({\bf Node\-Ptr} const \&r)\label{structsprite_1_1NodePtr_a2}
+
+\item 
+{\bf Node} $\ast$ {\bf get} () const \label{structsprite_1_1NodePtr_a3}
+
+\begin{CompactList}\small\item\em Get the pointer value, after skipping any FWD nodes. \item\end{CompactList}\item 
+{\bf Node} \& {\bf operator $\ast$} () const 
+\begin{CompactList}\small\item\em Dereference the pointer, after skipping any FWD nodes. \item\end{CompactList}\item 
+{\bf Node} $\ast$ {\bf operator $\rightarrow$ } () const 
+\begin{CompactList}\small\item\em Call a member through the pointer, after skipping any FWD nodes. \item\end{CompactList}\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+A reference-counting pointer for {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} objects. 
+
+This is based on boost::intrusive\_\-ptr, so the reference count is stored within the {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} object itself (to maximize performance). All dereferencing operations skip over FWD nodes, which are nodes that simply forward their reference to a new target. Those may occur when a node with multiple external references is rewritten. 
+
+
+
+Definition at line 23 of file pointer.hpp.
+
+\subsection{Member Function Documentation}
+\index{sprite::NodePtr@{sprite::Node\-Ptr}!operator *@{operator $\ast$}}
+\index{operator *@{operator $\ast$}!sprite::NodePtr@{sprite::Node\-Ptr}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}{\bf Node}\& sprite::Node\-Ptr::operator $\ast$ () const\hspace{0.3cm}{\tt  [inline]}}\label{structsprite_1_1NodePtr_a4}
+
+
+Dereference the pointer, after skipping any FWD nodes. 
+
+Precondition: the pointer is not NULL. 
+
+Definition at line 66 of file pointer.hpp.\index{sprite::NodePtr@{sprite::Node\-Ptr}!operator->@{operator-$>$}}
+\index{operator->@{operator-$>$}!sprite::NodePtr@{sprite::Node\-Ptr}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}{\bf Node}$\ast$ sprite::Node\-Ptr::operator $\rightarrow$  () const\hspace{0.3cm}{\tt  [inline]}}\label{structsprite_1_1NodePtr_a5}
+
+
+Call a member through the pointer, after skipping any FWD nodes. 
+
+Precondition: the pointer is not NULL. 
+
+Definition at line 77 of file pointer.hpp.
+
+The documentation for this struct was generated from the following file:\begin{CompactItemize}
+\item 
+sprite/{\bf pointer.hpp}\end{CompactItemize}

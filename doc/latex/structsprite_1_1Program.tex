@@ -1,0 +1,71 @@
+\section{sprite::Program Struct Reference}
+\label{structsprite_1_1Program}\index{sprite::Program@{sprite::Program}}
+A program definition.  
+
+
+{\tt \#include $<$program.hpp$>$}
+
+Inheritance diagram for sprite::Program:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=60pt]{structsprite_1_1Program__inherit__graph}
+\end{center}
+\end{figure}
+Collaboration diagram for sprite::Program:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=60pt]{structsprite_1_1Program__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Types}
+\begin{CompactItemize}
+\item 
+typedef std::vector$<$ {\bf h\_\-func\_\-type} $>$ {\bf oper\_\-t}\label{structsprite_1_1Program_w0}
+
+\begin{CompactList}\small\item\em Type of a dynamically-sized table of H functions. \item\end{CompactList}\item 
+typedef std::vector$<$ std::string $>$ {\bf label\_\-t}\label{structsprite_1_1Program_w1}
+
+\begin{CompactList}\small\item\em Type of a dynamically-sized table of labels. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Public Member Functions}
+\begin{CompactItemize}
+\item 
+shared\_\-ptr$<$ {\bf Module} const  $>$ {\bf import} (std::string name)\label{structsprite_1_1Program_a1}
+
+\begin{CompactList}\small\item\em Import the named module. \item\end{CompactList}\item 
+virtual size\_\-t {\bf insert\_\-ctor} (std::string const \&name)\label{structsprite_1_1Program_a3}
+
+\begin{CompactList}\small\item\em Add a constructor to the program definition. \item\end{CompactList}\item 
+virtual size\_\-t {\bf insert\_\-oper} (std::string const \&name, {\bf h\_\-func\_\-type} h)\label{structsprite_1_1Program_a4}
+
+\begin{CompactList}\small\item\em Add an operation to the program definition. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Public Attributes}
+\begin{CompactItemize}
+\item 
+{\bf oper\_\-t} {\bf oper}\label{structsprite_1_1Program_o0}
+
+\begin{CompactList}\small\item\em The table of H functions. \item\end{CompactList}\item 
+{\bf label\_\-t} {\bf ctor\_\-label}\label{structsprite_1_1Program_o1}
+
+\begin{CompactList}\small\item\em The table of constructor labels. \item\end{CompactList}\item 
+{\bf label\_\-t} {\bf oper\_\-label}\label{structsprite_1_1Program_o2}
+
+\begin{CompactList}\small\item\em The table of operation labels. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Friends}
+\begin{CompactItemize}
+\item 
+template$<$typename Stream$>$ Stream \& {\bf operator$<$$<$} (Stream \&out, {\bf Program} const \&pgm)\label{structsprite_1_1Program_n0}
+
+\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+A program definition. 
+
+
+
+Definition at line 31 of file program.hpp.
+
+The documentation for this struct was generated from the following files:\begin{CompactItemize}
+\item 
+sprite/{\bf program.hpp}\item 
+sprite/program.cpp\end{CompactItemize}

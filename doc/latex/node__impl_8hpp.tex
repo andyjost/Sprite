@@ -1,0 +1,56 @@
+\section{sprite/detail/node\_\-impl.hpp File Reference}
+\label{node__impl_8hpp}\index{sprite/detail/node_impl.hpp@{sprite/detail/node\_\-impl.hpp}}
+Implements Node members. 
+
+{\tt \#include \char`\"{}sprite/visit.hpp\char`\"{}}\par
+{\tt \#include $<$boost/pool/object\_\-pool.hpp$>$}\par
+
+
+Include dependency graph for node\_\-impl.hpp:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=324pt]{node__impl_8hpp__incl}
+\end{center}
+\end{figure}
+
+
+This graph shows which files directly or indirectly include this file:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=284pt]{node__impl_8hpp__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Namespaces}
+\begin{CompactItemize}
+\item 
+namespace {\bf sprite}
+\item 
+namespace {\bf sprite::visitors}
+\end{CompactItemize}
+\subsection*{Classes}
+\begin{CompactItemize}
+\item 
+struct {\bf sprite::visitors::Iter}
+\begin{CompactList}\small\item\em Implements {\bf Node::iter}{\rm (p.\,\pageref{structsprite_1_1Node_a7})}. \item\end{CompactList}\item 
+struct {\bf sprite::visitors::At}
+\begin{CompactList}\small\item\em Implements Node::operator[]. \item\end{CompactList}\item 
+struct {\bf sprite::visitors::Position}
+\begin{CompactList}\small\item\em Implements {\bf Node::position}{\rm (p.\,\pageref{structsprite_1_1Node_a11})}. \item\end{CompactList}\item 
+struct {\bf sprite::visitors::Clone}
+\begin{CompactList}\small\item\em Implements {\bf Node::clone}{\rm (p.\,\pageref{structsprite_1_1Node_a4})}. \item\end{CompactList}\item 
+struct {\bf sprite::visitors::Destroy\-Payload}
+\begin{CompactList}\small\item\em Implements Node::destroy\_\-payload. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Variables}
+\begin{CompactItemize}
+\item 
+boost::object\_\-pool$<$ {\bf Abstract\-Node} $>$ {\bf node\_\-allocator}\label{namespacesprite_a21}
+
+\begin{CompactList}\small\item\em Global memory pool for allocating nodes. \item\end{CompactList}\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+Implements Node members. 
+
+
+
+Definition in file {\bf node\_\-impl.hpp}.

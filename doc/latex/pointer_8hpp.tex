@@ -1,0 +1,59 @@
+\section{sprite/pointer.hpp File Reference}
+\label{pointer_8hpp}\index{sprite/pointer.hpp@{sprite/pointer.hpp}}
+Defines Node\-Ptr, the smart pointer that manages nodes. 
+
+{\tt \#include $<$boost/intrusive\_\-ptr.hpp$>$}\par
+
+
+Include dependency graph for pointer.hpp:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=76pt]{pointer_8hpp__incl}
+\end{center}
+\end{figure}
+
+
+This graph shows which files directly or indirectly include this file:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=237pt]{pointer_8hpp__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Namespaces}
+\begin{CompactItemize}
+\item 
+namespace {\bf sprite}
+\end{CompactItemize}
+\subsection*{Classes}
+\begin{CompactItemize}
+\item 
+struct {\bf sprite::Node\-Ptr}
+\begin{CompactList}\small\item\em A reference-counting pointer for {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} objects. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Defines}
+\begin{CompactItemize}
+\item 
+\#define {\bf SPRITE\_\-BINARY\_\-OP\_\-DECL}(op)
+\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+Defines Node\-Ptr, the smart pointer that manages nodes. 
+
+
+
+Definition in file {\bf pointer.hpp}.
+
+\subsection{Define Documentation}
+\index{pointer.hpp@{pointer.hpp}!SPRITE_BINARY_OP_DECL@{SPRITE\_\-BINARY\_\-OP\_\-DECL}}
+\index{SPRITE_BINARY_OP_DECL@{SPRITE\_\-BINARY\_\-OP\_\-DECL}!pointer.hpp@{pointer.hpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define SPRITE\_\-BINARY\_\-OP\_\-DECL(op)}\label{pointer_8hpp_a0}
+
+
+{\bf Value:}
+
+\footnotesize\begin{verbatim}inline bool operator op(NodePtr const & a, NodePtr const & b) \
+      { return a.get() op b.get(); }                              \
+\end{verbatim}\normalsize 
+
+
+Definition at line 85 of file pointer.hpp.

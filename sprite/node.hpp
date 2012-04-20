@@ -298,6 +298,7 @@ namespace sprite
     template<> struct NodeOf<OPER,2> : mpl::identity<InPlaceNode2> {};
     template<size_t N> struct NodeOf<OPER,N> : NodeOf<OPER,-1> {};
     template<> struct NodeOf<CHOICE,-1> : mpl::identity<ChoiceNode> {};
+    template<> struct NodeOf<FWD,-1> : mpl::identity<FwdNode> {};
     template<> struct NodeOf<INT,-1> : mpl::identity<IntNode> {};
     template<> struct NodeOf<FLOAT,-1> : mpl::identity<FloatNode> {};
   }

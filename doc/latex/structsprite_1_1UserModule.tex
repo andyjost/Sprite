@@ -1,0 +1,57 @@
+\section{sprite::User\-Module Struct Reference}
+\label{structsprite_1_1UserModule}\index{sprite::UserModule@{sprite::UserModule}}
+A basic implementation of the {\bf Module}{\rm (p.\,\pageref{structsprite_1_1Module})} interface.  
+
+
+{\tt \#include $<$user\_\-module.hpp$>$}
+
+Inheritance diagram for sprite::User\-Module:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=68pt]{structsprite_1_1UserModule__inherit__graph}
+\end{center}
+\end{figure}
+Collaboration diagram for sprite::User\-Module:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=107pt]{structsprite_1_1UserModule__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{CompactItemize}
+\item 
+virtual size\_\-t {\bf find\_\-ctor} (std::string const \&label)\label{structsprite_1_1UserModule_a0}
+
+\begin{CompactList}\small\item\em Returns the ID of the named constructor in the associated program. \item\end{CompactList}\item 
+virtual size\_\-t {\bf find\_\-oper} (std::string const \&label)\label{structsprite_1_1UserModule_a1}
+
+\begin{CompactList}\small\item\em Returns the ID of the named operation in the associated program. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Protected Member Functions}
+\begin{CompactItemize}
+\item 
+{\bf User\-Module} ({\bf Loader} \&loader)\label{structsprite_1_1UserModule_b0}
+
+\item 
+template$<$typename Derived$>$ size\_\-t {\bf install\_\-oper} (std::string const \&label, void(Derived::$\ast$memfun)({\bf Node} \&) const )\label{structsprite_1_1UserModule_b2}
+
+\begin{CompactList}\small\item\em Installs an operation as a member function. \item\end{CompactList}\item 
+size\_\-t {\bf install\_\-oper} (std::string const \&label, {\bf h\_\-func\_\-type} h)\label{structsprite_1_1UserModule_b3}
+
+\begin{CompactList}\small\item\em Installs an operation as an h\_\-func\_\-type. \item\end{CompactList}\item 
+size\_\-t {\bf install\_\-ctor} (std::string const \&label)\label{structsprite_1_1UserModule_b4}
+
+\begin{CompactList}\small\item\em Installs a constructor. \item\end{CompactList}\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+A basic implementation of the {\bf Module}{\rm (p.\,\pageref{structsprite_1_1Module})} interface. 
+
+Derived classes may use the install\_\-$\ast$ members to conveniently define a module. 
+
+
+
+Definition at line 18 of file user\_\-module.hpp.
+
+The documentation for this struct was generated from the following file:\begin{CompactItemize}
+\item 
+sprite/{\bf user\_\-module.hpp}\end{CompactItemize}

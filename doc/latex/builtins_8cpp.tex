@@ -1,0 +1,117 @@
+\section{sprite/builtins.cpp File Reference}
+\label{builtins_8cpp}\index{sprite/builtins.cpp@{sprite/builtins.cpp}}
+Implementation of built-in types. 
+
+{\tt \#include \char`\"{}sprite/builtins.hpp\char`\"{}}\par
+{\tt \#include \char`\"{}sprite/exec.hpp\char`\"{}}\par
+
+
+Include dependency graph for builtins.cpp:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=233pt]{builtins_8cpp__incl}
+\end{center}
+\end{figure}
+\subsection*{Namespaces}
+\begin{CompactItemize}
+\item 
+namespace {\bf sprite}
+\end{CompactItemize}
+\subsection*{Classes}
+\begin{CompactItemize}
+\item 
+struct {\bf No\-Guard}
+\begin{CompactList}\small\item\em An arithmetic guard that allows all operands. \item\end{CompactList}\item 
+struct {\bf Div\-Guard}
+\begin{CompactList}\small\item\em An arithmetic guard that disallows a rhs of zero. \item\end{CompactList}\item 
+struct {\bf Guard\-Of$<$ Op $>$}
+\begin{CompactList}\small\item\em A metafunction that returns the guard associated with an operation. \item\end{CompactList}\item 
+struct {\bf Guard\-Of$<$ OP\_\-INT\_\-DIV $>$}
+\item 
+struct {\bf Guard\-Of$<$ OP\_\-FLOAT\_\-DIV $>$}
+\item 
+struct {\bf Guarded\-Execute$<$ Op $>$}
+\begin{CompactList}\small\item\em Executes an operation with a guard. \item\end{CompactList}\item 
+struct {\bf Builtin\-Impl$<$ Op $>$}
+\begin{CompactList}\small\item\em Implements the built in operation Op. \item\end{CompactList}\item 
+struct {\bf Dispatch$<$ Op, 1 $>$}
+\begin{CompactList}\small\item\em Dispatches a unary built-in operation. \item\end{CompactList}\item 
+struct {\bf Dispatch$<$ Op, 2 $>$}
+\begin{CompactList}\small\item\em Dispatches a binary built-in operation. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Defines}
+\begin{CompactItemize}
+\item 
+\#define {\bf SPRITE\_\-DEFINE\_\-OP}(builtin\_\-op, op)
+\end{CompactItemize}
+\subsection*{Functions}
+\begin{CompactItemize}
+\item 
+template$<$Builtin\-Op Op$>$ void {\bf h\_\-func} ({\bf Node} \&node)\label{namespacesprite_a46}
+
+\begin{CompactList}\small\item\em Implements the H function for a built in operation. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Variables}
+\begin{CompactItemize}
+\item 
+{\bf h\_\-func\_\-type} {\bf builtin\_\-h} [OP\_\-END]
+\begin{CompactList}\small\item\em The table of built-in H routines. \item\end{CompactList}\item 
+std::string {\bf builtin\_\-ctor} [C\_\-END] = \{\}\label{namespacesprite_a1}
+
+\begin{CompactList}\small\item\em The tables of built-in constructor labels. \item\end{CompactList}\item 
+std::string {\bf builtin\_\-oper} [OP\_\-END] = \{ \char`\"{}+\char`\"{}, \char`\"{}-\char`\"{}, \char`\"{}$\ast$\char`\"{}, \char`\"{}/\char`\"{}, \char`\"{}+\char`\"{}, \char`\"{}-\char`\"{}, \char`\"{}$\ast$\char`\"{}, \char`\"{}/\char`\"{} \}\label{namespacesprite_a2}
+
+\begin{CompactList}\small\item\em The tables of built-in operation labels. \item\end{CompactList}\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+Implementation of built-in types. 
+
+
+
+Definition in file {\bf builtins.cpp}.
+
+\subsection{Define Documentation}
+\index{builtins.cpp@{builtins.cpp}!SPRITE_DEFINE_OP@{SPRITE\_\-DEFINE\_\-OP}}
+\index{SPRITE_DEFINE_OP@{SPRITE\_\-DEFINE\_\-OP}!builtins.cpp@{builtins.cpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define SPRITE\_\-DEFINE\_\-OP(builtin\_\-op, op)}\label{builtins_8cpp_a0}
+
+
+{\bf Value:}
+
+\footnotesize\begin{verbatim}template<> struct UnguardedExecute<builtin_op>     \
+      {                                                  \
+        UnguardedExecute() {}                            \
+                                                         \
+        template<typename T>                             \
+        T operator()(T const & lhs, T const & rhs) const \
+          { return (lhs op rhs); }                       \
+      };                                                 \
+\end{verbatim}\normalsize 
+
+
+Definition at line 45 of file builtins.cpp.
+
+\subsection{Variable Documentation}
+\index{builtins.cpp@{builtins.cpp}!builtin_h@{builtin\_\-h}}
+\index{builtin_h@{builtin\_\-h}!builtins.cpp@{builtins.cpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}{\bf h\_\-func\_\-type} {\bf sprite::builtin\_\-h}}\label{namespacesprite_file_a0}
+
+
+{\bf Initial value:}
+
+\footnotesize\begin{verbatim}
+  {
+      &h_func<OP_INT_ADD>
+    , &h_func<OP_INT_SUB>
+    , &h_func<OP_INT_MUL>
+    , &h_func<OP_INT_DIV>
+    , &h_func<OP_FLOAT_ADD>
+    , &h_func<OP_FLOAT_SUB>
+    , &h_func<OP_FLOAT_MUL>
+    , &h_func<OP_FLOAT_DIV>
+  }
+\end{verbatim}\normalsize 
+The table of built-in H routines. 
+
+
+
+Definition at line 189 of file builtins.cpp.

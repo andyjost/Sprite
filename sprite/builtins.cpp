@@ -159,7 +159,7 @@ namespace sprite
     // H.4
     // Q. can this just check against CTOR?
     // Q. how can this be needed?  The only call is from head_normalize.
-    // if(is_ctor(node.tag())) return;
+    if(is_ctor(node.tag())) return;
   
     BOOST_FOREACH(NodePtr & child, node.iter())
     {
@@ -198,6 +198,6 @@ namespace sprite
     , &h_func<OP_FLOAT_DIV>
   };
 
-  std::string builtin_ctor[C_END] = { "Cons", "Nil" };
+  std::string builtin_ctor[C_END] = {};
   std::string builtin_oper[OP_END] = { "+", "-", "*", "/", "+", "-", "*", "/" };
 }

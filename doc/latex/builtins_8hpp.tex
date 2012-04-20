@@ -1,0 +1,120 @@
+\section{sprite/builtins.hpp File Reference}
+\label{builtins_8hpp}\index{sprite/builtins.hpp@{sprite/builtins.hpp}}
+Interface to built-in types. 
+
+{\tt \#include \char`\"{}sprite/node.hpp\char`\"{}}\par
+{\tt \#include $<$algorithm$>$}\par
+{\tt \#include $<$iterator$>$}\par
+{\tt \#include $<$vector$>$}\par
+
+
+Include dependency graph for builtins.hpp:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=341pt]{builtins_8hpp__incl}
+\end{center}
+\end{figure}
+
+
+This graph shows which files directly or indirectly include this file:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=188pt]{builtins_8hpp__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Namespaces}
+\begin{CompactItemize}
+\item 
+namespace {\bf sprite}
+\item 
+namespace {\bf sprite::meta}
+\end{CompactItemize}
+\subsection*{Classes}
+\begin{CompactItemize}
+\item 
+struct {\bf sprite::meta::Tag\-Value\-Of$<$ OP\_\-INT\_\-ADD $>$}
+\item 
+struct {\bf sprite::meta::Tag\-Value\-Of$<$ OP\_\-INT\_\-SUB $>$}
+\item 
+struct {\bf sprite::meta::Tag\-Value\-Of$<$ OP\_\-INT\_\-MUL $>$}
+\item 
+struct {\bf sprite::meta::Tag\-Value\-Of$<$ OP\_\-INT\_\-DIV $>$}
+\item 
+struct {\bf sprite::meta::Tag\-Value\-Of$<$ OP\_\-FLOAT\_\-ADD $>$}
+\item 
+struct {\bf sprite::meta::Tag\-Value\-Of$<$ OP\_\-FLOAT\_\-SUB $>$}
+\item 
+struct {\bf sprite::meta::Tag\-Value\-Of$<$ OP\_\-FLOAT\_\-MUL $>$}
+\item 
+struct {\bf sprite::meta::Tag\-Value\-Of$<$ OP\_\-FLOAT\_\-DIV $>$}
+\item 
+struct {\bf sprite::meta::Arity\-Of$<$ OP\_\-INT\_\-ADD $>$}
+\item 
+struct {\bf sprite::meta::Arity\-Of$<$ OP\_\-INT\_\-SUB $>$}
+\item 
+struct {\bf sprite::meta::Arity\-Of$<$ OP\_\-INT\_\-MUL $>$}
+\item 
+struct {\bf sprite::meta::Arity\-Of$<$ OP\_\-INT\_\-DIV $>$}
+\item 
+struct {\bf sprite::meta::Arity\-Of$<$ OP\_\-FLOAT\_\-ADD $>$}
+\item 
+struct {\bf sprite::meta::Arity\-Of$<$ OP\_\-FLOAT\_\-SUB $>$}
+\item 
+struct {\bf sprite::meta::Arity\-Of$<$ OP\_\-FLOAT\_\-MUL $>$}
+\item 
+struct {\bf sprite::meta::Arity\-Of$<$ OP\_\-FLOAT\_\-DIV $>$}
+\end{CompactItemize}
+\subsection*{Defines}
+\begin{CompactItemize}
+\item 
+\#define {\bf SPRITE\_\-SEQ\_\-ALL\_\-OP}
+\end{CompactItemize}
+\subsection*{Enumerations}
+\begin{CompactItemize}
+\item 
+enum {\bf Builtin\-Ctor} \{ {\bf C\_\-END}
+ \}
+\begin{CompactList}\small\item\em The built-in data constructors. \item\end{CompactList}\item 
+enum {\bf Builtin\-Op} \{ \par
+{\bf OP\_\-INT\_\-ADD}, 
+{\bf OP\_\-INT\_\-SUB}, 
+{\bf OP\_\-INT\_\-MUL}, 
+{\bf OP\_\-INT\_\-DIV}, 
+\par
+{\bf OP\_\-FLOAT\_\-ADD}, 
+{\bf OP\_\-FLOAT\_\-SUB}, 
+{\bf OP\_\-FLOAT\_\-MUL}, 
+{\bf OP\_\-FLOAT\_\-DIV}, 
+\par
+{\bf OP\_\-END}
+ \}
+\begin{CompactList}\small\item\em The built-in operations. \item\end{CompactList}\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+Interface to built-in types. 
+
+
+
+Definition in file {\bf builtins.hpp}.
+
+\subsection{Define Documentation}
+\index{builtins.hpp@{builtins.hpp}!SPRITE_SEQ_ALL_OP@{SPRITE\_\-SEQ\_\-ALL\_\-OP}}
+\index{SPRITE_SEQ_ALL_OP@{SPRITE\_\-SEQ\_\-ALL\_\-OP}!builtins.hpp@{builtins.hpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define SPRITE\_\-SEQ\_\-ALL\_\-OP}\label{builtins_8hpp_a0}
+
+
+{\bf Value:}
+
+\footnotesize\begin{verbatim}((OP_INT_ADD,   INT,   +, 2, 1)) \
+      ((OP_INT_SUB,   INT,   -, 2, 1)) \
+      ((OP_INT_MUL,   INT,   *, 2, 1)) \
+      ((OP_INT_DIV,   INT,   /, 2, 1)) \
+      ((OP_FLOAT_ADD, FLOAT, +, 2, 1)) \
+      ((OP_FLOAT_SUB, FLOAT, -, 2, 1)) \
+      ((OP_FLOAT_MUL, FLOAT, *, 2, 1)) \
+      ((OP_FLOAT_DIV, FLOAT, /, 2, 1)) \
+\end{verbatim}\normalsize 
+Preprocessor table defining of built-in types. The format is: (op,type,rep,arity,infix) 
+
+Definition at line 17 of file builtins.hpp.

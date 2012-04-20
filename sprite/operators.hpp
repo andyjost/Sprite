@@ -14,7 +14,7 @@ namespace sprite
   {
     namespace detail
     {
-      Program const * & pgm_data(std::ios_base & stream)
+      inline Program const * & pgm_data(std::ios_base & stream)
       {
         static int const index = std::ios::xalloc();
         return (Program const * &)(stream.pword(index));
@@ -44,7 +44,7 @@ namespace sprite
     };
 
     /// I/O manipulator to clear the program.
-    std::ios_base & clearprogram(std::ios_base & stream)
+    inline std::ios_base & clearprogram(std::ios_base & stream)
     {
       detail::pgm_data(stream) = 0;
       return stream;
@@ -62,7 +62,17 @@ namespace sprite
 
   namespace visitors
   {
-    /// Implements operator<< for nodes.
+    /**
+     * @brief Implements operator<< for nodes.
+     *
+     * @param stream
+     *   The output stream.
+     * @param first
+     *   True if this is the outermost invocation (avoids surrounding the
+     *   whole expression in parentheses.
+     * @param node
+     *   The head of the expression to print.
+     */
     template<typename Stream>
     struct StreamOut : static_visitor<Stream &>
     {
@@ -75,7 +85,7 @@ namespace sprite
        */
       template<typename Payload>
       typename enable_if<meta::has_value_type<Payload>, result_type>::type
-      operator()(Stream & stream, Node_<Payload> const & node) const
+      operator()(Stream & stream, bool, Node_<Payload> const & node) const
         { return (stream << node.payload.value); }
 
       /**
@@ -83,29 +93,71 @@ namespace sprite
        * constructorss and defined operations.
        */
       template<typename NodeType>
-      result_type operator()(Stream & stream, NodeType const & node) const
+      result_type operator()(
+          Stream & stream, bool first, NodeType const & node
+        ) const
       {
+        // Get the program associated with this stream.
         Program const * pgm = manipulators::detail::pgm_data(stream);
+
+        bool need_close = false;
 
         // Print the label.
         if(pgm)
         {
           switch(node.tag())
           {
-            case OPER: stream << pgm->oper_label[node.id()]; break;
-            case CTOR: stream << pgm->ctor_label[node.id()]; break;
+            case OPER:
+                if(!first && node.arity() > 0)
+                {
+                  stream << "(";
+                  need_close = true;
+                }
+                stream << pgm->oper_label[node.id()];
+                break;
+            case CTOR:
+                if(!first && node.arity() > 0)
+                {
+                  stream << "(";
+                  need_close = true;
+                }
+                stream << pgm->ctor_label[node.id()];
+                break;
             case FAIL: stream << "**FAIL**"; break;
-            case CHOICE: stream << "?_" << node.id(); break;
+            case CHOICE:
+              if(!first)
+              {
+                stream << "(";
+                need_close = true;
+              }
+              stream << "?_" << node.id();
+              break;
             default:
               throw RuntimeError("mishandled node in operator<<");
           }
         }
         else
+        {
+          if(!first)
+          {
+            stream << "(";
+            need_close = true;
+          }
           stream << "<unknown-ctor>";
+        }
 
-        // Print children.
+        // Print the children.
         BOOST_FOREACH(NodePtr const & child, node.iter())
-          { stream << " " << *child; }
+        {
+          stream << " ";
+
+          visit(
+              tr1::bind<Stream &>(*this, tr1::ref(stream), false, _1)
+            , *child
+            );
+        }
+
+        if(need_close) stream << ")";
         return stream;
       }
     };
@@ -118,7 +170,9 @@ namespace sprite
     Stream & operator<<(Stream & stream, Node const & node)
     {
       static visitors::StreamOut<Stream> const visitor;
-      return visit(tr1::bind<Stream &>(visitor, tr1::ref(stream), _1), node);
+      return visit(
+          tr1::bind<Stream &>(visitor, tr1::ref(stream), true, _1), node
+        );
     }
   }
   using operators::operator<<;

@@ -17,6 +17,8 @@ namespace sprite
   /// Global pointer to the currently executing program.
   extern Program const * g_program;
 
+  enum TraceOption { NO_TRACE=false, TRACE=true };
+
   /**
    * @brief Base of a class that handles computation results as they are generated.
    *
@@ -68,18 +70,30 @@ namespace sprite
    * @param handler
    *   (optional) Defaults to a handler that discards the generated results.
    *   The object that handles output as it is generated.
+   * @param trace
+   *   (optional) Defaults to true.
+   *   Enables debug tracing.
    */
   void execute(
       Program const & program, Node & goal
     , YieldHandler const & handler = YieldHandler_<void>()
+    , TraceOption trace=NO_TRACE
     );
+
+  inline void execute(
+      Program const & program, Node & goal, TraceOption trace
+    )
+  { execute(program, goal, YieldHandler_<void>(), trace); }
   
   /// Alternate form of execute; results are written to the given iterator.
   template<typename OutputIterator>
-  inline void execute(Program const & pgm, Node & goal, OutputIterator out)
+  inline void execute(
+      Program const & pgm, Node & goal, OutputIterator out
+    , TraceOption trace=NO_TRACE
+    )
   {
     YieldHandler_<OutputIterator> handler(out);
-    execute(pgm, goal, static_cast<YieldHandler const &>(handler));
+    execute(pgm, goal, static_cast<YieldHandler const &>(handler), trace);
   }
 
   /// Traverses an expression and returns true if it is found to be in cnf.
@@ -151,8 +165,8 @@ namespace sprite
             case CTOR: fair_normalize(fp, *child); break;
             case OPER: head_normalize(*child); break;
             case CHOICE: return pull_tab(node, child);
-            case INT: case FLOAT: return;
-            case FWD: assert(0);
+            case INT: case FLOAT: break;
+            case FWD: throw RuntimeError("Unexpected FWD node.");
           }
         }
         break;
@@ -162,4 +176,11 @@ namespace sprite
       default:;
     }
   }
+
+  /**
+   * @brief Print an expression.
+   *
+   * @note Alias for operator<<, callable from the debugger.
+   */
+  void print_node(Node const &);
 }

@@ -1,0 +1,123 @@
+\section{sprite/exec.hpp File Reference}
+\label{exec_8hpp}\index{sprite/exec.hpp@{sprite/exec.hpp}}
+Interface to the execution components. 
+
+{\tt \#include \char`\"{}sprite/builtins.hpp\char`\"{}}\par
+{\tt \#include \char`\"{}sprite/common.hpp\char`\"{}}\par
+{\tt \#include \char`\"{}sprite/fingerprint.hpp\char`\"{}}\par
+{\tt \#include \char`\"{}sprite/node.hpp\char`\"{}}\par
+{\tt \#include \char`\"{}sprite/program.hpp\char`\"{}}\par
+{\tt \#include \char`\"{}sprite/rewrite.hpp\char`\"{}}\par
+
+
+Include dependency graph for exec.hpp:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=243pt]{exec_8hpp__incl}
+\end{center}
+\end{figure}
+
+
+This graph shows which files directly or indirectly include this file:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=179pt]{exec_8hpp__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Namespaces}
+\begin{CompactItemize}
+\item 
+namespace {\bf sprite}
+\end{CompactItemize}
+\subsection*{Classes}
+\begin{CompactItemize}
+\item 
+struct {\bf sprite::Yield\-Handler}
+\begin{CompactList}\small\item\em Base of a class that handles computation results as they are generated. \item\end{CompactList}\item 
+struct {\bf sprite::Yield\-Handler\_\-$<$ Output\-Iterator $>$}
+\begin{CompactList}\small\item\em A concrete {\bf Yield\-Handler}{\rm (p.\,\pageref{structsprite_1_1YieldHandler})} for a particular output iterator type. \item\end{CompactList}\item 
+struct {\bf sprite::Yield\-Handler\_\-$<$ void $>$}
+\begin{CompactList}\small\item\em A yield handler that simply discards the output. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Enumerations}
+\begin{CompactItemize}
+\item 
+enum {\bf Trace\-Option} \{ {\bf NO\_\-TRACE} = false, 
+{\bf TRACE} = true
+ \}
+\end{CompactItemize}
+\subsection*{Functions}
+\begin{CompactItemize}
+\item 
+void {\bf execute} (Program const \&program, Node \&goal, Trace\-Option trace)\label{namespacesprite_a52}
+
+\item 
+template$<$typename Output\-Iterator$>$ void {\bf execute} (Program const \&pgm, Node \&goal, Output\-Iterator out, Trace\-Option trace=NO\_\-TRACE)\label{namespacesprite_a53}
+
+\begin{CompactList}\small\item\em Alternate form of execute; results are written to the given iterator. \item\end{CompactList}\item 
+bool {\bf is\_\-norm} (Node const \&node)\label{namespacesprite_a54}
+
+\begin{CompactList}\small\item\em Traverses an expression and returns true if it is found to be in cnf. \item\end{CompactList}\item 
+void {\bf pull\_\-tab} (Node \&g, Node\-Ptr const \&p)
+\begin{CompactList}\small\item\em Performs the pull-tab transformation. \item\end{CompactList}\item 
+void {\bf head\_\-normalize} (Node \&node)
+\begin{CompactList}\small\item\em The head-normalizing (H) function from the fair scheme. \item\end{CompactList}\item 
+void {\bf fair\_\-normalize} (Fingerprint const \&fp, Node \&node)\label{namespacesprite_a57}
+
+\begin{CompactList}\small\item\em The normalizing (N) function from the fair scheme. \item\end{CompactList}\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+Interface to the execution components. 
+
+
+
+Definition in file {\bf exec.hpp}.
+
+\subsection{Function Documentation}
+\index{exec.hpp@{exec.hpp}!head_normalize@{head\_\-normalize}}
+\index{head_normalize@{head\_\-normalize}!exec.hpp@{exec.hpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void head\_\-normalize (Node \& {\em node})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_file_a56}
+
+
+The head-normalizing (H) function from the fair scheme. 
+
+This is a generic H function that dispatches to the correct implementation for the given operation. 
+
+Definition at line 135 of file exec.hpp.
+
+References sprite::g\_\-program, sprite::Node::id(), sprite::Program::oper, and sprite::Node::tag().
+
+Referenced by sprite::fair\_\-normalize(), and sprite::h\_\-func().
+
+Here is the call graph for this function:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=140pt]{namespacesprite_a56_cgraph}
+\end{center}
+\end{figure}
+\index{exec.hpp@{exec.hpp}!pull_tab@{pull\_\-tab}}
+\index{pull_tab@{pull\_\-tab}!exec.hpp@{exec.hpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void pull\_\-tab (Node \& {\em g}, Node\-Ptr const \& {\em p})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_file_a55}
+
+
+Performs the pull-tab transformation. 
+
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em g}]The source of the transformation. \item[{\em p}]The target of the transformation. Must be a direct descendant of g. \end{description}
+\end{Desc}
+
+
+Definition at line 118 of file exec.hpp.
+
+References sprite::Node::clone(), sprite::Node::position(), and sprite::rewrite\_\-choice.
+
+Referenced by sprite::fair\_\-normalize(), and sprite::h\_\-func().
+
+Here is the call graph for this function:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=248pt]{namespacesprite_a55_cgraph}
+\end{center}
+\end{figure}

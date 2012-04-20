@@ -1,0 +1,85 @@
+\section{sprite/payloads.hpp File Reference}
+\label{payloads_8hpp}\index{sprite/payloads.hpp@{sprite/payloads.hpp}}
+Defines the payload types. See documentation of Node. 
+
+{\tt \#include \char`\"{}sprite/common.hpp\char`\"{}}\par
+{\tt \#include \char`\"{}sprite/pointer.hpp\char`\"{}}\par
+
+
+Include dependency graph for payloads.hpp:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=124pt]{payloads_8hpp__incl}
+\end{center}
+\end{figure}
+
+
+This graph shows which files directly or indirectly include this file:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=237pt]{payloads_8hpp__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Namespaces}
+\begin{CompactItemize}
+\item 
+namespace {\bf sprite}
+\item 
+namespace {\bf sprite::payloads}
+\end{CompactItemize}
+\subsection*{Classes}
+\begin{CompactItemize}
+\item 
+struct {\bf sprite::payloads::Unused$<$ Bytes $>$}
+\begin{CompactList}\small\item\em The unused payload; for abstract and failure nodes. \item\end{CompactList}\item 
+struct {\bf sprite::payloads::In\-Place$<$ 0 $>$}
+\begin{CompactList}\small\item\em Zero children. \item\end{CompactList}\item 
+struct {\bf sprite::payloads::In\-Place$<$ 1 $>$}
+\begin{CompactList}\small\item\em One child, in place. \item\end{CompactList}\item 
+struct {\bf sprite::payloads::In\-Place$<$ 2 $>$}
+\begin{CompactList}\small\item\em Two children, in place. \item\end{CompactList}\item 
+struct {\bf sprite::payloads::Child\-List}
+\begin{CompactList}\small\item\em A payload containing an arbitrary-length list of children. \item\end{CompactList}\item 
+struct {\bf sprite::payloads::Choice}
+\begin{CompactList}\small\item\em A payload containing exactly two children for choice nodes. \item\end{CompactList}\item 
+struct {\bf sprite::payloads::Fwd}
+\begin{CompactList}\small\item\em A payload for forward reference nodes. \item\end{CompactList}\item 
+struct {\bf sprite::payloads::Int}
+\begin{CompactList}\small\item\em An integer payload (64 bit) for the built in {\bf Int}{\rm (p.\,\pageref{structsprite_1_1payloads_1_1Int})} type. \item\end{CompactList}\item 
+struct {\bf sprite::payloads::Float}
+\begin{CompactList}\small\item\em A floating-point payload for the built in {\bf Float}{\rm (p.\,\pageref{structsprite_1_1payloads_1_1Float})} type. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Functions}
+\begin{CompactItemize}
+\item 
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof(In\-Place$<$ 0 $>$)==PAYLOAD\_\-BYTES)\label{namespacesprite_1_1payloads_a0}
+
+\item 
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof(In\-Place$<$ 1 $>$)==PAYLOAD\_\-BYTES)\label{namespacesprite_1_1payloads_a1}
+
+\item 
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof(In\-Place$<$ 2 $>$)==PAYLOAD\_\-BYTES)\label{namespacesprite_1_1payloads_a2}
+
+\item 
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof(Child\-List)==PAYLOAD\_\-BYTES)\label{namespacesprite_1_1payloads_a3}
+
+\item 
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof(Choice)==PAYLOAD\_\-BYTES)\label{namespacesprite_1_1payloads_a4}
+
+\item 
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof(Fwd)==PAYLOAD\_\-BYTES)\label{namespacesprite_1_1payloads_a5}
+
+\item 
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof(Int)==PAYLOAD\_\-BYTES)\label{namespacesprite_1_1payloads_a6}
+
+\item 
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof(Float)==PAYLOAD\_\-BYTES)\label{namespacesprite_1_1payloads_a7}
+
+\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+Defines the payload types. See documentation of Node. 
+
+
+
+Definition in file {\bf payloads.hpp}.

@@ -1,0 +1,58 @@
+\section{sprite::Fingerprint Struct Reference}
+\label{structsprite_1_1Fingerprint}\index{sprite::Fingerprint@{sprite::Fingerprint}}
+A fingerprint specification.  
+
+
+{\tt \#include $<$fingerprint.hpp$>$}
+
+\subsection*{Public Member Functions}
+\begin{CompactItemize}
+\item 
+{\bf Fingerprint} (size\_\-t sz=0)
+\item 
+bool {\bf has} (size\_\-t id) const \label{structsprite_1_1Fingerprint_a1}
+
+\begin{CompactList}\small\item\em Returns true if the fingerprint contains the given id. \item\end{CompactList}\item 
+Choice\-Direction {\bf at} (size\_\-t id) const \label{structsprite_1_1Fingerprint_a2}
+
+\begin{CompactList}\small\item\em Returns the value at id. Precondition: this-$>$has(id). \item\end{CompactList}\item 
+void {\bf resize} (size\_\-t sz)\label{structsprite_1_1Fingerprint_a3}
+
+\begin{CompactList}\small\item\em Extend or shrink the fingerprint without changing any values. \item\end{CompactList}\item 
+void {\bf set} (size\_\-t id, Choice\-Direction x)\label{structsprite_1_1Fingerprint_a4}
+
+\begin{CompactList}\small\item\em Set the value at id. \item\end{CompactList}\item 
+size\_\-t {\bf size} () const \label{structsprite_1_1Fingerprint_a5}
+
+\begin{CompactList}\small\item\em Returns the size of the fingerprint (largest id + 1). \item\end{CompactList}\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+A fingerprint specification. 
+
+A fingerprint is an array of a known number of slots. Each slot may be used or unused and used slots may have the value LEFT or RIGHT. 
+
+
+
+Definition at line 18 of file fingerprint.hpp.
+
+\subsection{Constructor \& Destructor Documentation}
+\index{sprite::Fingerprint@{sprite::Fingerprint}!Fingerprint@{Fingerprint}}
+\index{Fingerprint@{Fingerprint}!sprite::Fingerprint@{sprite::Fingerprint}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}sprite::Fingerprint::Fingerprint (size\_\-t {\em sz} = {\tt 0})\hspace{0.3cm}{\tt  [inline]}}\label{structsprite_1_1Fingerprint_a0}
+
+
+Build an empty fingerprint.
+
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em sz}]The size (number of slots) in the fingerprint. Initially, they will all be valueless. \end{description}
+\end{Desc}
+
+
+Definition at line 27 of file fingerprint.hpp.
+
+The documentation for this struct was generated from the following file:\begin{CompactItemize}
+\item 
+sprite/{\bf fingerprint.hpp}\end{CompactItemize}

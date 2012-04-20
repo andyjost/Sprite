@@ -46,7 +46,7 @@ namespace sprite
           default: return SPRITE_visit(OPER,-1);
         }
       }
-      case FWD: throw RuntimeError("a FWD node was visited");
+      case FWD: return SPRITE_visit(FWD,-1);
       default: throw RuntimeError("a corrupted node was encountered");
 
       #undef SPRITE_visit

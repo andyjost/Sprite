@@ -1,0 +1,4 @@
+base referer
+rect $structsprite_1_1UserModule.html 57,98 190,125
+rect $structsprite_1_1Module.html 8,8 112,34
+rect $structsprite_1_1Loader.html 136,8 240,34

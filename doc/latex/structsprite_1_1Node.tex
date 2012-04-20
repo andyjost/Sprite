@@ -1,0 +1,147 @@
+\section{sprite::Node Struct Reference}
+\label{structsprite_1_1Node}\index{sprite::Node@{sprite::Node}}
+An expression node.  
+
+
+{\tt \#include $<$node.hpp$>$}
+
+Inheritance diagram for sprite::Node:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=82pt]{structsprite_1_1Node__inherit__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Types}
+\begin{CompactItemize}
+\item 
+typedef boost::iterator\_\-range$<$ {\bf Node\-Ptr} $\ast$ $>$ {\bf range\_\-type}\label{structsprite_1_1Node_w0}
+
+\begin{CompactList}\small\item\em A range of child pointers; somewhat analogous to pair(Node$\ast$$\ast$,Node$\ast$$\ast$). \item\end{CompactList}\item 
+typedef boost::iterator\_\-range$<$ {\bf Node\-Ptr} const $\ast$ $>$ {\bf const\_\-range\_\-type}\label{structsprite_1_1Node_w1}
+
+\begin{CompactList}\small\item\em A non-mutable range of children. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Public Member Functions}
+\begin{CompactItemize}
+\item 
+uint32 {\bf refcount} () const \label{structsprite_1_1Node_a0}
+
+\begin{CompactList}\small\item\em Returns the reference count. \item\end{CompactList}\item 
+{\bf Tag\-Value} {\bf tag} () const \label{structsprite_1_1Node_a1}
+
+\begin{CompactList}\small\item\em Returns the tag member. \item\end{CompactList}\item 
+uint32 {\bf id} () const \label{structsprite_1_1Node_a2}
+
+\begin{CompactList}\small\item\em Returns the id member. \item\end{CompactList}\item 
+uint32 {\bf arity} () const \label{structsprite_1_1Node_a3}
+
+\begin{CompactList}\small\item\em Returns the arity member. \item\end{CompactList}\item 
+{\bf Node\-Ptr} {\bf clone} ()
+\begin{CompactList}\small\item\em Clone this node, including its payload. \item\end{CompactList}\item 
+void $\ast$ {\bf \_\-payload} ()\label{structsprite_1_1Node_a5}
+
+\begin{CompactList}\small\item\em Get the raw address of the payload region. \item\end{CompactList}\item 
+void const $\ast$ {\bf \_\-payload} () const \label{structsprite_1_1Node_a6}
+
+\item 
+{\bf range\_\-type} {\bf iter} ()\label{structsprite_1_1Node_a7}
+
+\begin{CompactList}\small\item\em Returns a mutable range containing the children of this node. \item\end{CompactList}\item 
+{\bf const\_\-range\_\-type} {\bf iter} () const \label{structsprite_1_1Node_a8}
+
+\begin{CompactList}\small\item\em Returns a constant range containing the children of this node. \item\end{CompactList}\item 
+{\bf Node\-Ptr} \& {\bf operator[$\,$]} (size\_\-t i)\label{structsprite_1_1Node_a9}
+
+\begin{CompactList}\small\item\em Returns the child at position i. The first child is at index 0. \item\end{CompactList}\item 
+{\bf Node\-Ptr} const \& {\bf operator[$\,$]} (size\_\-t i) const \label{structsprite_1_1Node_a10}
+
+\begin{CompactList}\small\item\em Returns the child at position i. The first child is at index 0. \item\end{CompactList}\item 
+size\_\-t {\bf position} ({\bf Node\-Ptr} const \&child) const 
+\begin{CompactList}\small\item\em Returns the position of the given child. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Friends}
+\begin{CompactItemize}
+\item 
+struct {\bf visitors::Clone}\label{structsprite_1_1Node_n0}
+
+\item 
+struct {\bf Node\_\-}\label{structsprite_1_1Node_n1}
+
+\item 
+struct {\bf rewrite}\label{structsprite_1_1Node_n2}
+
+\item 
+void {\bf intrusive\_\-ptr\_\-add\_\-ref} ({\bf Node} $\ast$node)\label{structsprite_1_1Node_n3}
+
+\begin{CompactList}\small\item\em Increment the refcount. Do not call this directly. \item\end{CompactList}\item 
+void {\bf intrusive\_\-ptr\_\-release} ({\bf Node} $\ast$node)\label{structsprite_1_1Node_n4}
+
+\begin{CompactList}\small\item\em Decrement the refcount. Do not call this directly. \item\end{CompactList}\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+An expression node. 
+
+The subject of computations in this system. Expressions are graphs made up of {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} instances, and computations are changes to the graph that come about by rewriting nodes.
+
+Every node has a fixed region consisting of recount, tag, id, and arity, and a variable region called the payload. This class defines only the fixed region. A complete node is an instance of Node\_\-$<$Payload$>$ for some Payload type. The node is a discriminated union, where the tag member determines the type of the payload contents. In certain cases, the arity is also used to determine the payload type. The possible payload types are defined in the payloads namespace.
+
+For constructor and operation nodes, the id member identifies which constructor or operation is used. The id is an index into a corresponding table in the program. That index can be used to get information about the program entity, such as its name (label) or implementation (H) function. For choice nodes, the id is the choice identifier.
+
+The arity is stored within a node simply as an optimization. This prevents us having to repeatedly look up the arity in the program description.
+
+Data members that are either unused or that can have only one possible value for a given tag are not updated during a rewrite. For instance, a node with the tag FAIL (representing a failed computation) will not have meaningful values for id or arity. Less obvious, perhaps, is that a node with the tag CHOICE, will have no meaningful value for arity, even though it always has exactly two children. In general, it should be obvious from the tag and the above characterization which data members have meaningful values.
+
+Nodes are managed through intrusive reference counting. The smart pointer type {\bf Node\-Ptr}{\rm (p.\,\pageref{structsprite_1_1NodePtr})} is used throughout this program to refer to nodes. It manages the refcount member and, when the count drops to zero, deletes the {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} instance. All memory allocation for nodes is pooled. 
+
+
+
+Definition at line 74 of file node.hpp.
+
+\subsection{Member Function Documentation}
+\index{sprite::Node@{sprite::Node}!clone@{clone}}
+\index{clone@{clone}!sprite::Node@{sprite::Node}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}{\bf Node\-Ptr} sprite::Node::clone ()\hspace{0.3cm}{\tt  [inline]}}\label{structsprite_1_1Node_a4}
+
+
+Clone this node, including its payload. 
+
+This will produce a complete node, i.e., an instance of Node\_\-$<$Payload$>$. 
+
+Definition at line 219 of file node\_\-impl.hpp.
+
+References sprite::visit().
+
+Referenced by sprite::pull\_\-tab().
+
+Here is the call graph for this function:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=184pt]{structsprite_1_1Node_a4_cgraph}
+\end{center}
+\end{figure}
+\index{sprite::Node@{sprite::Node}!position@{position}}
+\index{position@{position}!sprite::Node@{sprite::Node}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}size\_\-t sprite::Node::position ({\bf Node\-Ptr} const \& {\em child}) const\hspace{0.3cm}{\tt  [inline]}}\label{structsprite_1_1Node_a11}
+
+
+Returns the position of the given child. 
+
+Precondition: child = node[i] for some i. 
+
+Definition at line 193 of file node\_\-impl.hpp.
+
+References sprite::visit().
+
+Referenced by sprite::pull\_\-tab().
+
+Here is the call graph for this function:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=189pt]{structsprite_1_1Node_a11_cgraph}
+\end{center}
+\end{figure}
+
+
+The documentation for this struct was generated from the following files:\begin{CompactItemize}
+\item 
+sprite/{\bf node.hpp}\item 
+sprite/detail/{\bf node\_\-impl.hpp}\end{CompactItemize}
