@@ -33,7 +33,7 @@ uint32&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="st
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Returns the reference count. <br></td></tr>
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a1" doxytag="sprite::Node::tag"></a>
-<a class="el" href="namespacesprite.html#a74">TagValue</a>&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="structsprite_1_1Node.html#a1">tag</a> () const </td></tr>
+<a class="el" href="namespacesprite.html#a72">TagValue</a>&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="structsprite_1_1Node.html#a1">tag</a> () const </td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Returns the tag member. <br></td></tr>
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a2" doxytag="sprite::Node::id"></a>
@@ -96,15 +96,16 @@ void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="stru
 An expression node. 
 <p>
 The subject of computations in this system. Expressions are graphs made up of <a class="el" href="structsprite_1_1Node.html">Node</a> instances, and computations are changes to the graph that come about by rewriting nodes.<p>
-Every node has a fixed region consisting of recount, tag, id, and arity, and a variable region called the payload. This class defines only the fixed region. A complete node is an instance of Node_&lt;Payload&gt; for some Payload type. The node is a discriminated union, where the tag member determines the type of the payload contents. In certain cases, the arity is also used to determine the payload type. The possible payload types are defined in the payloads namespace.<p>
-For constructor and operation nodes, the id member identifies which constructor or operation is used. The id is an index into a corresponding table in the program. That index can be used to get information about the program entity, such as its name (label) or implementation (H) function. For choice nodes, the id is the choice identifier.<p>
+Every node has a fixed region consisting of its refcount, tag, id, and arity, and a variable region called the payload. This class defines only the fixed region. A complete node is an instance of Node_&lt;Payload&gt; for some Payload type. The node is a discriminated union, where the tag member determines the type of the payload contents. In certain cases, the arity is also used to determine the payload type. The possible payload types are defined in the payloads namespace.<p>
+For constructor nodes, the tag member encodes the identity of the constructor. The constructors for any given type are numbered sequentially beginning at OPER.<p>
+For operation nodes, the id member identifies which operation is used. The id is an index into a corresponding table in the program, which can be used to get information about the program entity, such as its name (label) or implementation (H) function. For choice nodes, the id is the choice identifier.<p>
 The arity is stored within a node simply as an optimization. This prevents us having to repeatedly look up the arity in the program description.<p>
 Data members that are either unused or that can have only one possible value for a given tag are not updated during a rewrite. For instance, a node with the tag FAIL (representing a failed computation) will not have meaningful values for id or arity. Less obvious, perhaps, is that a node with the tag CHOICE, will have no meaningful value for arity, even though it always has exactly two children. In general, it should be obvious from the tag and the above characterization which data members have meaningful values.<p>
 Nodes are managed through intrusive reference counting. The smart pointer type <a class="el" href="structsprite_1_1NodePtr.html">NodePtr</a> is used throughout this program to refer to nodes. It manages the refcount member and, when the count drops to zero, deletes the <a class="el" href="structsprite_1_1Node.html">Node</a> instance. All memory allocation for nodes is pooled. 
 <p>
 
 <p>
-Definition at line <a class="el" href="node_8hpp-source.html#l00074">74</a> of file <a class="el" href="node_8hpp-source.html">node.hpp</a>.<hr><h2>Member Function Documentation</h2>
+Definition at line <a class="el" href="node_8hpp-source.html#l00078">78</a> of file <a class="el" href="node_8hpp-source.html">node.hpp</a>.<hr><h2>Member Function Documentation</h2>
 <a class="anchor" name="a4" doxytag="sprite::Node::clone"></a><p>
 <table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
   <tr>
@@ -137,14 +138,14 @@ Definition at line <a class="el" href="node__impl_8hpp-source.html#l00219">219</
 <p>
 References <a class="el" href="visit_8hpp-source.html#l00018">sprite::visit()</a>.
 <p>
-Referenced by <a class="el" href="exec_8hpp-source.html#l00118">sprite::pull_tab()</a>.    </td>
+Referenced by <a class="el" href="exec_8hpp-source.html#l00120">sprite::pull_tab()</a>.    </td>
   </tr>
 </table>
 
 <p>
 Here is the call graph for this function:<p><center><img src="structsprite_1_1Node_a4_cgraph.png" border="0" usemap="#structsprite_1_1Node_a4_cgraph_map" alt=""></center>
 <map name="structsprite_1_1Node_a4_cgraph_map">
-<area href="namespacesprite.html#a68" shape="rect" coords="189,33,274,59" alt="">
+<area href="namespacesprite.html#a67" shape="rect" coords="189,33,274,59" alt="">
 <area href="structsprite_1_1Node.html#a3" shape="rect" coords="324,7,449,34" alt="">
 <area href="structsprite_1_1Node.html#a1" shape="rect" coords="326,58,446,85" alt="">
 </map>
@@ -175,26 +176,26 @@ Here is the call graph for this function:<p><center><img src="structsprite_1_1No
 <p>
 Returns the position of the given child. 
 <p>
-Precondition: child = node[i] for some i. 
+Precondition: child is node[i] for some i. 
 <p>
 Definition at line <a class="el" href="node__impl_8hpp-source.html#l00193">193</a> of file <a class="el" href="node__impl_8hpp-source.html">node_impl.hpp</a>.
 <p>
 References <a class="el" href="visit_8hpp-source.html#l00018">sprite::visit()</a>.
 <p>
-Referenced by <a class="el" href="exec_8hpp-source.html#l00118">sprite::pull_tab()</a>.    </td>
+Referenced by <a class="el" href="exec_8hpp-source.html#l00120">sprite::pull_tab()</a>.    </td>
   </tr>
 </table>
 
 <p>
 Here is the call graph for this function:<p><center><img src="structsprite_1_1Node_a11_cgraph.png" border="0" usemap="#structsprite_1_1Node_a11_cgraph_map" alt=""></center>
 <map name="structsprite_1_1Node_a11_cgraph_map">
-<area href="namespacesprite.html#a68" shape="rect" coords="202,33,288,59" alt="">
+<area href="namespacesprite.html#a67" shape="rect" coords="202,33,288,59" alt="">
 <area href="structsprite_1_1Node.html#a3" shape="rect" coords="337,7,462,34" alt="">
 <area href="structsprite_1_1Node.html#a1" shape="rect" coords="340,58,460,85" alt="">
 </map>
 <hr>The documentation for this struct was generated from the following files:<ul>
 <li>sprite/<a class="el" href="node_8hpp-source.html">node.hpp</a><li>sprite/detail/<a class="el" href="node__impl_8hpp-source.html">node_impl.hpp</a></ul>
-<hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:45 2012 for sprite by&nbsp;
+<hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:36 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

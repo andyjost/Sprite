@@ -25,7 +25,7 @@
 00020   {
 00021     <span class="comment">// Initializes the refcount, leaves the tag and other members</span>
 00022     <span class="comment">// uninitialized.</span>
-00023     Node * p = <span class="keyword">new</span> <a class="code" href="namespacesprite.html#a28">AbstractNode</a>();
+00023     Node * p = <span class="keyword">new</span> <a class="code" href="namespacesprite.html#a26">AbstractNode</a>();
 00024   
 00025     <span class="comment">// TODO -- if rewrite were made nothrow, then this try block could be</span>
 00026     <span class="comment">// eliminated.</span>
@@ -38,17 +38,19 @@
 00033     <span class="keywordflow">catch</span>(...)
 00034     {
 00035       <span class="comment">// Node::delete, i.e., not the same as "delete p".  This does not call</span>
-00036       <span class="comment">// ~Node, so the Node constructor must not have claimed resources.</span>
-00037       operator delete(p);
-00038       <span class="keywordflow">throw</span>;
-00039     }
-00040     NodePtr q = NodePtr(p);
-00041     <span class="keywordflow">return</span> q;
-00042   }
-00043 
-00044 <span class="preprocessor">  #undef N</span>
-00045 <span class="preprocessor"></span><span class="preprocessor">#endif</span>
-</pre></div><hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:31 2012 for sprite by&nbsp;
+00036       <span class="comment">// ~Node, so a precondition is that the Node must not have claimed</span>
+00037       <span class="comment">// resources, which is the case if the call to rewrite failed (since</span>
+00038       <span class="comment">// AbstractNode claims no resources in its payload).</span>
+00039       operator delete(p);
+00040       <span class="keywordflow">throw</span>;
+00041     }
+00042     NodePtr q = NodePtr(p);
+00043     <span class="keywordflow">return</span> q;
+00044   }
+00045 
+00046 <span class="preprocessor">  #undef N</span>
+00047 <span class="preprocessor"></span><span class="preprocessor">#endif</span>
+</pre></div><hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:26 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

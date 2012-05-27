@@ -21,7 +21,7 @@
  * function (i.e., not counting the node).  Not a tight bound, so one less than
  * this number of arguments will be supported.
  */
-#define SPRITE_REWRITE_ARG_BOUND 4
+#define SPRITE_REWRITE_ARG_BOUND 5
 
 namespace sprite
 {
@@ -39,19 +39,23 @@ namespace sprite
    * up of Node instances, and computations are changes to the graph that come
    * about by rewriting nodes.
    *
-   * Every node has a fixed region consisting of recount, tag, id, and arity,
-   * and a variable region called the payload.  This class defines only the
-   * fixed region.  A complete node is an instance of Node_<Payload> for some
-   * Payload type.  The node is a discriminated union, where the tag member
-   * determines the type of the payload contents.  In certain cases, the arity
-   * is also used to determine the payload type.  The possible payload types
-   * are defined in the payloads namespace.
+   * Every node has a fixed region consisting of its refcount, tag, id, and
+   * arity, and a variable region called the payload.  This class defines only
+   * the fixed region.  A complete node is an instance of Node_<Payload> for
+   * some Payload type.  The node is a discriminated union, where the tag
+   * member determines the type of the payload contents.  In certain cases, the
+   * arity is also used to determine the payload type.  The possible payload
+   * types are defined in the payloads namespace.
    *
-   * For constructor and operation nodes, the id member identifies which
-   * constructor or operation is used.  The id is an index into a corresponding
-   * table in the program.  That index can be used to get information about the
-   * program entity, such as its name (label) or implementation (H) function.
-   * For choice nodes, the id is the choice identifier.
+   * For constructor nodes, the tag member encodes the identity of the
+   * constructor.  The constructors for any given type are numbered
+   * sequentially beginning at OPER.
+   *
+   * For operation nodes, the id member identifies which operation is used.
+   * The id is an index into a corresponding table in the program, which can be
+   * used to get information about the program entity, such as its name (label)
+   * or implementation (H) function.  For choice nodes, the id is the choice
+   * identifier.
    *
    * The arity is stored within a node simply as an optimization.  This
    * prevents us having to repeatedly look up the arity in the program
@@ -173,7 +177,7 @@ namespace sprite
     /** 
      * @brief Returns the position of the given child.
      *
-     * Precondition: child = node[i] for some i.
+     * Precondition: child is node[i] for some i.
      */
     size_t position(NodePtr const & child) const;
 
@@ -197,8 +201,14 @@ namespace sprite
     TagValue m_tag : 32;
     uint32 m_id;
     uint32 m_arity;
-
   };
+
+  // Implementation of NodePtr::operator[] (relies on definition of Node).
+  inline NodePtr & NodePtr::operator[](size_t i) const { return (**this)[i]; }
+
+  // Implementation of NodePtr::operator= (relies on definition of Node).
+  inline NodePtr & NodePtr::operator=(Node & node)
+    { return (*this = NodePtr(&node)); }
 
   /**
    * @brief A complete node.  The payload contains tag-specific data.
@@ -284,14 +294,12 @@ namespace sprite
      * an unsigned int, the actual value in that case is a large
      * implementation-defined integer, but that detail is irrelevant to the
      * usage.
+     *
+     * All constructor types should use the value CTOR to query this function,
+     * even though many have tag values strictly greater than CTOR.
      */
     template<sprite::TagValue,size_t Arity=-1> struct NodeOf;
     template<> struct NodeOf<FAIL,-1> : mpl::identity<AbstractNode> {};
-    template<> struct NodeOf<CTOR,-1> : mpl::identity<ChildListNode> {};
-    template<> struct NodeOf<CTOR,0> : mpl::identity<InPlaceNode0> {};
-    template<> struct NodeOf<CTOR,1> : mpl::identity<InPlaceNode1> {};
-    template<> struct NodeOf<CTOR,2> : mpl::identity<InPlaceNode2> {};
-    template<size_t N> struct NodeOf<CTOR,N> : NodeOf<CTOR,-1> {};
     template<> struct NodeOf<OPER,-1> : mpl::identity<ChildListNode> {};
     template<> struct NodeOf<OPER,0> : mpl::identity<InPlaceNode0> {};
     template<> struct NodeOf<OPER,1> : mpl::identity<InPlaceNode1> {};
@@ -301,6 +309,11 @@ namespace sprite
     template<> struct NodeOf<FWD,-1> : mpl::identity<FwdNode> {};
     template<> struct NodeOf<INT,-1> : mpl::identity<IntNode> {};
     template<> struct NodeOf<FLOAT,-1> : mpl::identity<FloatNode> {};
+    template<> struct NodeOf<CTOR,-1> : mpl::identity<ChildListNode> {};
+    template<> struct NodeOf<CTOR,0> : mpl::identity<InPlaceNode0> {};
+    template<> struct NodeOf<CTOR,1> : mpl::identity<InPlaceNode1> {};
+    template<> struct NodeOf<CTOR,2> : mpl::identity<InPlaceNode2> {};
+    template<size_t N> struct NodeOf<CTOR,N> : NodeOf<CTOR,-1> {};
   }
 }
 

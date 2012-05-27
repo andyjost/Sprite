@@ -76,31 +76,35 @@ This graph shows which files directly or indirectly include this file:<p><center
 <tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::ValueType&lt; FLOAT &gt;</b></td></tr>
 
 <tr><td colspan="2"><br><h2>Typedefs</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a13" doxytag="common.hpp::uint32"></a>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a11" doxytag="common.hpp::uint32"></a>
 typedef boost::uint_t&lt;<br>
  32 &gt;::exact&nbsp;</td><td class="memItemRight" valign="bottom"><b>uint32</b></td></tr>
 
 <tr><td colspan="2"><br><h2>Enumerations</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a74">TagValue</a> { <br>
-&nbsp;&nbsp;<b>FAIL</b>, 
-<b>CTOR</b>, 
+<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a72">TagValue</a> { <br>
+&nbsp;&nbsp;<b>FAIL</b> = 0, 
 <b>OPER</b>, 
 <b>CHOICE</b>, 
+<b>FWD</b>, 
 <br>
-&nbsp;&nbsp;<b>FWD</b>, 
-<b>INT</b>, 
-<b>FLOAT</b>
+&nbsp;&nbsp;<b>INT</b>, 
+<b>FLOAT</b>, 
+<b>CTOR</b>
 <br>
  }</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Identifies the type of a node. <br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Identifies the type of a node. CTOR must be last!  <a href="#a72">More...</a><br></td></tr>
 <tr><td colspan="2"><br><h2>Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a47" doxytag="common.hpp::is_ctor"></a>
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a47">is_ctor</a> (<a class="el" href="namespacesprite.html#a74">TagValue</a> x)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a45" doxytag="common.hpp::make_ctor_tag"></a>
+<a class="el" href="namespacesprite.html#a72">TagValue</a>&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a45">make_ctor_tag</a> (int i)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Indicates whether a tag represents a constructor. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a48" doxytag="common.hpp::is_builtin"></a>
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a48">is_builtin</a> (<a class="el" href="namespacesprite.html#a74">TagValue</a> x)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Generates a constructor tag. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a46" doxytag="common.hpp::is_ctor"></a>
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a46">is_ctor</a> (<a class="el" href="namespacesprite.html#a72">TagValue</a> x)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Indicates whether a tag represents a constructor (built-in or not). <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a47" doxytag="common.hpp::is_builtin"></a>
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a47">is_builtin</a> (<a class="el" href="namespacesprite.html#a72">TagValue</a> x)</td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Indicates whether a tag represents a built-in type. <br></td></tr>
 </table>
@@ -109,7 +113,37 @@ Common includes and definitions.
 <p>
 
 <p>
-Definition in file <a class="el" href="common_8hpp-source.html">common.hpp</a>.<hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:33 2012 for sprite by&nbsp;
+Definition in file <a class="el" href="common_8hpp-source.html">common.hpp</a>.<hr><h2>Enumeration Type Documentation</h2>
+<a class="anchor" name="file_a72" doxytag="common.hpp::TagValue"></a><p>
+<table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
+  <tr>
+    <td class="mdRow">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top">enum <a class="el" href="namespacesprite.html#a72">TagValue</a>          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing="5" cellpadding="0" border="0">
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+Identifies the type of a node. CTOR must be last! 
+<p>
+The constructors for any type are assigned the sequential tags CTOR, CTOR+1, CTOR+2,... Said another way, this type is abused in that any value &gt;= CTOR can be a valid TagValue. 
+<p>
+Definition at line <a class="el" href="common_8hpp-source.html#l00066">66</a> of file <a class="el" href="common_8hpp-source.html">common.hpp</a>.
+<p>
+Referenced by <a class="el" href="common_8hpp-source.html#l00069">sprite::make_ctor_tag()</a>, and <a class="el" href="node_8hpp-source.html#l00086">sprite::Node::tag()</a>.    </td>
+  </tr>
+</table>
+<hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:27 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

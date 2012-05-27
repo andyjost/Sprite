@@ -64,16 +64,6 @@ This graph shows which files directly or indirectly include this file:<p><center
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A complete node. The payload contains tag-specific data.  <a href="structsprite_1_1Node__.html#_details">More...</a><br></td></tr>
 <tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; FAIL,-1 &gt;</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; CTOR,-1 &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; CTOR, 0 &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; CTOR, 1 &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; CTOR, 2 &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; CTOR, N &gt;</b></td></tr>
-
 <tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; OPER,-1 &gt;</b></td></tr>
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; OPER, 0 &gt;</b></td></tr>
@@ -92,86 +82,96 @@ This graph shows which files directly or indirectly include this file:<p><center
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; FLOAT,-1 &gt;</b></td></tr>
 
+<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; CTOR,-1 &gt;</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; CTOR, 0 &gt;</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; CTOR, 1 &gt;</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; CTOR, 2 &gt;</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>sprite::meta::NodeOf&lt; CTOR, N &gt;</b></td></tr>
+
 <tr><td colspan="2"><br><h2>Defines</h2></td></tr>
 <tr><td class="memItemLeft" nowrap align="right" valign="top">#define&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="node_8hpp.html#a0">SPRITE_INPLACE_BOUND</a>&nbsp;&nbsp;&nbsp;3</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top">#define&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="node_8hpp.html#a1">SPRITE_REWRITE_ARG_BOUND</a>&nbsp;&nbsp;&nbsp;4</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">#define&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="node_8hpp.html#a1">SPRITE_REWRITE_ARG_BOUND</a>&nbsp;&nbsp;&nbsp;5</td></tr>
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top">#define&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="node_8hpp.html#a2">F</a>(z, n, _)</td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Create a new complete node.  <a href="#a2"></a><br></td></tr>
 <tr><td colspan="2"><br><h2>Typedefs</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a28" doxytag="node.hpp::AbstractNode"></a>
-typedef Node_&lt; payloads::Unused&lt;&gt; &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a28">AbstractNode</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a26" doxytag="node.hpp::AbstractNode"></a>
+typedef Node_&lt; payloads::Unused&lt;&gt; &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a26">AbstractNode</a></td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A complete node where the payload is unknown. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a29" doxytag="node.hpp::InPlaceNode0"></a>
-typedef Node_&lt; payloads::InPlace&lt; 0 &gt; &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a29">InPlaceNode0</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a27" doxytag="node.hpp::InPlaceNode0"></a>
+typedef Node_&lt; payloads::InPlace&lt; 0 &gt; &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a27">InPlaceNode0</a></td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A complete node with exactly zero children. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a30" doxytag="node.hpp::InPlaceNode1"></a>
-typedef Node_&lt; payloads::InPlace&lt; 1 &gt; &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a30">InPlaceNode1</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a28" doxytag="node.hpp::InPlaceNode1"></a>
+typedef Node_&lt; payloads::InPlace&lt; 1 &gt; &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a28">InPlaceNode1</a></td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A complete node with exactly one child. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a31" doxytag="node.hpp::InPlaceNode2"></a>
-typedef Node_&lt; payloads::InPlace&lt; 2 &gt; &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a31">InPlaceNode2</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a29" doxytag="node.hpp::InPlaceNode2"></a>
+typedef Node_&lt; payloads::InPlace&lt; 2 &gt; &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a29">InPlaceNode2</a></td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A complete node with exactly two children. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a32" doxytag="node.hpp::ChildListNode"></a>
-typedef Node_&lt; payloads::ChildList &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a32">ChildListNode</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a30" doxytag="node.hpp::ChildListNode"></a>
+typedef Node_&lt; payloads::ChildList &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a30">ChildListNode</a></td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A complete node with more than two children. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a33" doxytag="node.hpp::ChoiceNode"></a>
-typedef Node_&lt; payloads::Choice &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a33">ChoiceNode</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a31" doxytag="node.hpp::ChoiceNode"></a>
+typedef Node_&lt; payloads::Choice &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a31">ChoiceNode</a></td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A complete node representing a choice. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">typedef Node_&lt; payloads::Fwd &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a34">FwdNode</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">typedef Node_&lt; payloads::Fwd &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a32">FwdNode</a></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A complete node representing a forward reference.  <a href="#a34"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a35" doxytag="node.hpp::IntNode"></a>
-typedef Node_&lt; payloads::Int &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a35">IntNode</a></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A complete node representing a forward reference.  <a href="#a32"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a33" doxytag="node.hpp::IntNode"></a>
+typedef Node_&lt; payloads::Int &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a33">IntNode</a></td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A complete node representing an integer. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a36" doxytag="node.hpp::FloatNode"></a>
-typedef Node_&lt; payloads::Float &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a36">FloatNode</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a34" doxytag="node.hpp::FloatNode"></a>
+typedef Node_&lt; payloads::Float &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a34">FloatNode</a></td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A complete node representing a floating-point value. <br></td></tr>
 <tr><td colspan="2"><br><h2>Functions</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a57" doxytag="node.hpp::BOOST_STATIC_ASSERT"></a>
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a26">AbstractNode</a>)==<a class="el" href="namespacesprite.html#a25">NODE_BYTES</a>)</td></tr>
+
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a58" doxytag="node.hpp::BOOST_STATIC_ASSERT"></a>
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a28">AbstractNode</a>)==<a class="el" href="namespacesprite.html#a27">NODE_BYTES</a>)</td></tr>
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a27">InPlaceNode0</a>)==<a class="el" href="namespacesprite.html#a25">NODE_BYTES</a>)</td></tr>
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a59" doxytag="node.hpp::BOOST_STATIC_ASSERT"></a>
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a29">InPlaceNode0</a>)==<a class="el" href="namespacesprite.html#a27">NODE_BYTES</a>)</td></tr>
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a28">InPlaceNode1</a>)==<a class="el" href="namespacesprite.html#a25">NODE_BYTES</a>)</td></tr>
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a60" doxytag="node.hpp::BOOST_STATIC_ASSERT"></a>
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a30">InPlaceNode1</a>)==<a class="el" href="namespacesprite.html#a27">NODE_BYTES</a>)</td></tr>
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a29">InPlaceNode2</a>)==<a class="el" href="namespacesprite.html#a25">NODE_BYTES</a>)</td></tr>
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a61" doxytag="node.hpp::BOOST_STATIC_ASSERT"></a>
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a31">InPlaceNode2</a>)==<a class="el" href="namespacesprite.html#a27">NODE_BYTES</a>)</td></tr>
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a30">ChildListNode</a>)==<a class="el" href="namespacesprite.html#a25">NODE_BYTES</a>)</td></tr>
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a62" doxytag="node.hpp::BOOST_STATIC_ASSERT"></a>
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a32">ChildListNode</a>)==<a class="el" href="namespacesprite.html#a27">NODE_BYTES</a>)</td></tr>
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a31">ChoiceNode</a>)==<a class="el" href="namespacesprite.html#a25">NODE_BYTES</a>)</td></tr>
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a63" doxytag="node.hpp::BOOST_STATIC_ASSERT"></a>
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a33">ChoiceNode</a>)==<a class="el" href="namespacesprite.html#a27">NODE_BYTES</a>)</td></tr>
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a32">FwdNode</a>)==<a class="el" href="namespacesprite.html#a25">NODE_BYTES</a>)</td></tr>
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a64" doxytag="node.hpp::BOOST_STATIC_ASSERT"></a>
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a34">FwdNode</a>)==<a class="el" href="namespacesprite.html#a27">NODE_BYTES</a>)</td></tr>
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a33">IntNode</a>)==<a class="el" href="namespacesprite.html#a25">NODE_BYTES</a>)</td></tr>
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a65" doxytag="node.hpp::BOOST_STATIC_ASSERT"></a>
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a35">IntNode</a>)==<a class="el" href="namespacesprite.html#a27">NODE_BYTES</a>)</td></tr>
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a34">FloatNode</a>)==<a class="el" href="namespacesprite.html#a25">NODE_BYTES</a>)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a66" doxytag="node.hpp::BOOST_STATIC_ASSERT"></a>
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>BOOST_STATIC_ASSERT</b> (sizeof(<a class="el" href="namespacesprite.html#a36">FloatNode</a>)==<a class="el" href="namespacesprite.html#a27">NODE_BYTES</a>)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a67" doxytag="node.hpp::skip_fwd_ref"></a>
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a67">skip_fwd_ref</a> (NodePtr &amp;ptr, Node &amp;ref)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a66" doxytag="node.hpp::skip_fwd_ref"></a>
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a66">skip_fwd_ref</a> (NodePtr &amp;ptr, Node &amp;ref)</td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Tells <a class="el" href="structsprite_1_1NodePtr.html">NodePtr</a> how to skip FWD nodes. <br></td></tr>
 <tr><td colspan="2"><br><h2>Variables</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">size_t const&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a27">NODE_BYTES</a> = 32</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">size_t const&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a25">NODE_BYTES</a> = 32</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The size of a complete node.  <a href="#a27"></a><br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The size of a complete node.  <a href="#a25"></a><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
 Defines the Node type. 
@@ -216,7 +216,7 @@ Definition in file <a class="el" href="node_8hpp-source.html">node.hpp</a>.<hr><
 <p>
 
 <p>
-Definition at line <a class="el" href="node_8hpp-source.html#l00100">100</a> of file <a class="el" href="node_8hpp-source.html">node.hpp</a>.    </td>
+Definition at line <a class="el" href="node_8hpp-source.html#l00104">104</a> of file <a class="el" href="node_8hpp-source.html">node.hpp</a>.    </td>
   </tr>
 </table>
 <a class="anchor" name="a0" doxytag="node.hpp::SPRITE_INPLACE_BOUND"></a><p>
@@ -250,7 +250,7 @@ Definition at line <a class="el" href="node_8hpp-source.html#l00017">17</a> of f
     <td class="mdRow">
       <table cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td class="md" nowrap valign="top">#define SPRITE_REWRITE_ARG_BOUND&nbsp;&nbsp;&nbsp;4          </td>
+          <td class="md" nowrap valign="top">#define SPRITE_REWRITE_ARG_BOUND&nbsp;&nbsp;&nbsp;5          </td>
         </tr>
       </table>
     </td>
@@ -270,7 +270,7 @@ Definition at line <a class="el" href="node_8hpp-source.html#l00024">24</a> of f
   </tr>
 </table>
 <hr><h2>Typedef Documentation</h2>
-<a class="anchor" name="file_a34" doxytag="node.hpp::FwdNode"></a><p>
+<a class="anchor" name="file_a32" doxytag="node.hpp::FwdNode"></a><p>
 <table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
   <tr>
     <td class="mdRow">
@@ -294,17 +294,17 @@ A complete node representing a forward reference.
 <p>
 This is simply a node that refers to another, which sometimes comes up during rewriting. 
 <p>
-Definition at line <a class="el" href="node_8hpp-source.html#l00252">252</a> of file <a class="el" href="node_8hpp-source.html">node.hpp</a>.    </td>
+Definition at line <a class="el" href="node_8hpp-source.html#l00262">262</a> of file <a class="el" href="node_8hpp-source.html">node.hpp</a>.    </td>
   </tr>
 </table>
 <hr><h2>Variable Documentation</h2>
-<a class="anchor" name="file_a27" doxytag="node.hpp::NODE_BYTES"></a><p>
+<a class="anchor" name="file_a25" doxytag="node.hpp::NODE_BYTES"></a><p>
 <table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
   <tr>
     <td class="mdRow">
       <table cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td class="md" nowrap valign="top">size_t const <a class="el" href="namespacesprite.html#a27">sprite::NODE_BYTES</a> = 32          </td>
+          <td class="md" nowrap valign="top">size_t const <a class="el" href="namespacesprite.html#a25">sprite::NODE_BYTES</a> = 32          </td>
         </tr>
       </table>
     </td>
@@ -322,10 +322,10 @@ The size of a complete node.
 <p>
 Constrining every complete node type to have the same size simplifies memory pooling and rewriting. 
 <p>
-Definition at line <a class="el" href="node_8hpp-source.html#l00218">218</a> of file <a class="el" href="node_8hpp-source.html">node.hpp</a>.    </td>
+Definition at line <a class="el" href="node_8hpp-source.html#l00228">228</a> of file <a class="el" href="node_8hpp-source.html">node.hpp</a>.    </td>
   </tr>
 </table>
-<hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:37 2012 for sprite by&nbsp;
+<hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:30 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

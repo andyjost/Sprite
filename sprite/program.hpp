@@ -16,14 +16,16 @@ namespace sprite
   extern h_func_type builtin_h[OP_END];
 
   /// The tables of built-in constructor labels.
-  extern std::string builtin_ctor[C_END];
+  // extern std::string builtin_ctor[C_END];
 
   /// The tables of built-in operation labels.
   extern std::string builtin_oper[OP_END];
+
+  struct Program;
 }
 
 // TODO remove this hard reference
-extern boost::shared_ptr<sprite::Module> load_list(sprite::Loader &);
+extern boost::shared_ptr<sprite::Module> load_list(sprite::Program &);
 
 namespace sprite
 {

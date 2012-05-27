@@ -24,7 +24,7 @@
 00018     <span class="comment">// Bare Node objects should not be allocated directly.  Instead, a concrete</span>
 00019     <span class="comment">// instance of Node_&lt;Payload&gt; should be allocated.</span>
 00020     assert(<span class="keyword">sizeof</span>(AbstractNode) == bytes);
-00021     <span class="keywordtype">void</span> * px = reinterpret_cast&lt;void *&gt;(<a class="code" href="namespacesprite.html#a21">node_allocator</a>.malloc());
+00021     <span class="keywordtype">void</span> * px = reinterpret_cast&lt;void *&gt;(<a class="code" href="namespacesprite.html#a19">node_allocator</a>.malloc());
 00022 
 00023     <span class="comment">// Note: a custom raw memory allocator would need to be specified to</span>
 00024     <span class="comment">// object_pool to meet this requirement.</span>
@@ -39,7 +39,7 @@
 00033 
 00034   }
 00035   <span class="keyword">inline</span> <span class="keywordtype">void</span> Node::operator delete(<span class="keywordtype">void</span> * p)
-00036     { <a class="code" href="namespacesprite.html#a21">node_allocator</a>.free(reinterpret_cast&lt;AbstractNode*&gt;(p)); }
+00036     { <a class="code" href="namespacesprite.html#a19">node_allocator</a>.free(reinterpret_cast&lt;AbstractNode*&gt;(p)); }
 00037 }
 00038 
 00039 <span class="comment">//==============================</span>
@@ -67,7 +67,7 @@
 00062       result_type operator()(<a class="code" href="structsprite_1_1Node__.html">ChildListNode</a> &amp; node)<span class="keyword"> const</span>
 00063 <span class="keyword">      </span>{ 
 00064         <a class="code" href="structsprite_1_1payloads_1_1ChildList.html">payloads::ChildList</a> <span class="keyword">const</span> &amp; list = node.<a class="code" href="structsprite_1_1Node__.html#o0">payload</a>;
-00065         <span class="keywordflow">return</span> result_type(&amp;list.<a class="code" href="structsprite_1_1payloads_1_1ChildList.html#o1">children</a>[0], &amp;list.<a class="code" href="structsprite_1_1payloads_1_1ChildList.html#o1">children</a>[node.<a class="code" href="structsprite_1_1Node.html#a3">arity</a>()]);
+00065         <span class="keywordflow">return</span> result_type(&amp;list.<a class="code" href="structsprite_1_1payloads_1_1ChildList.html#a5">args</a>()[0], &amp;list.<a class="code" href="structsprite_1_1payloads_1_1ChildList.html#a5">args</a>()[node.<a class="code" href="structsprite_1_1Node.html#a3">arity</a>()]);
 00066       }
 00067 
 00068       <span class="comment">// Handle node types without children.</span>
@@ -89,12 +89,12 @@
 <a name="l00084"></a><a class="code" href="structsprite_1_1Node.html#a7">00084</a>   <span class="keyword">inline</span> Node::range_type Node::iter()
 00085   {
 00086     <span class="keyword">static</span> <a class="code" href="structsprite_1_1visitors_1_1Iter.html">visitors::Iter</a> <span class="keyword">const</span> visitor;
-00087     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a68">visit</a>(visitor, *<span class="keyword">this</span>);
+00087     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a67">visit</a>(visitor, *<span class="keyword">this</span>);
 00088   }
 <a name="l00089"></a><a class="code" href="structsprite_1_1Node.html#a8">00089</a>   <span class="keyword">inline</span> Node::const_range_type Node::iter()<span class="keyword"> const</span>
 00090 <span class="keyword">  </span>{
 00091     <span class="keyword">static</span> <a class="code" href="structsprite_1_1visitors_1_1Iter.html">visitors::Iter</a> <span class="keyword">const</span> visitor;
-00092     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a68">visit</a>(visitor, const_cast&lt;Node &amp;&gt;(*<span class="keyword">this</span>));
+00092     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a67">visit</a>(visitor, const_cast&lt;Node &amp;&gt;(*<span class="keyword">this</span>));
 00093   }
 00094 }
 00095 
@@ -107,7 +107,7 @@
 00102   {
 <a name="l00104"></a><a class="code" href="structsprite_1_1visitors_1_1At.html">00104</a>     <span class="keyword">struct </span><a class="code" href="structsprite_1_1visitors_1_1At.html">At</a> : static_visitor&lt;NodePtr const &amp;&gt;
 00105     {
-00106       <span class="comment">// A forwarding node should never be obtained for use (correct?).</span>
+00106       <span class="comment">// A forwarding node should never be obtained for use here.</span>
 00107       result_type operator()(<a class="code" href="structsprite_1_1Node__.html">FwdNode</a> <span class="keyword">const</span> &amp;, size_t)<span class="keyword"> const</span>
 00108 <span class="keyword">        </span>{ <span class="keywordflow">throw</span> <a class="code" href="structsprite_1_1RuntimeError.html">RuntimeError</a>(<span class="stringliteral">"Unexpected forward node."</span>); }
 00109 
@@ -123,13 +123,13 @@
 00119         {
 00120           <span class="keywordflow">case</span> 0: <span class="keywordflow">return</span> node.<a class="code" href="structsprite_1_1Node__.html#o0">payload</a>.arg0;
 00121           <span class="keywordflow">case</span> 1: <span class="keywordflow">return</span> node.<a class="code" href="structsprite_1_1Node__.html#o0">payload</a>.arg1;
-00122           <span class="keywordflow">default</span>: assert(0);
+00122           <span class="keywordflow">default</span>: <span class="keywordflow">throw</span> <a class="code" href="structsprite_1_1RuntimeError.html">RuntimeError</a>(<span class="stringliteral">"Child index is out of range."</span>);
 00123         }
 00124       }
 00125       result_type operator()(<a class="code" href="structsprite_1_1Node__.html">ChildListNode</a> <span class="keyword">const</span> &amp; node, size_t i)<span class="keyword"> const</span>
 00126 <span class="keyword">      </span>{ 
 00127         assert(i&lt;node.<a class="code" href="structsprite_1_1Node.html#a3">arity</a>());
-00128         <span class="keywordflow">return</span> node.<a class="code" href="structsprite_1_1Node__.html#o0">payload</a>.children[i];
+00128         <span class="keywordflow">return</span> node.<a class="code" href="structsprite_1_1Node__.html#o0">payload</a>.args()[i];
 00129       }
 00130 
 00131       <span class="comment">// Handle node types without children.</span>
@@ -148,7 +148,7 @@
 <a name="l00144"></a><a class="code" href="structsprite_1_1Node.html#a10">00144</a>   <span class="keyword">inline</span> <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; Node::operator[](size_t i)<span class="keyword"> const</span>
 00145 <span class="keyword">  </span>{
 00146     <span class="keyword">static</span> <a class="code" href="structsprite_1_1visitors_1_1At.html">visitors::At</a> <span class="keyword">const</span> visitor;
-00147     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a68">visit</a>(tr1::bind&lt;NodePtr const &amp;&gt;(visitor, _1, i), *<span class="keyword">this</span>);
+00147     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a67">visit</a>(tr1::bind&lt;NodePtr const &amp;&gt;(visitor, _1, i), *<span class="keyword">this</span>);
 00148   }
 00149 }
 00150 
@@ -181,7 +181,7 @@
 00178           <a class="code" href="structsprite_1_1Node__.html">ChildListNode</a> <span class="keyword">const</span> &amp; node, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; child
 00179         )<span class="keyword"> const</span>
 00180 <span class="keyword">      </span>{ 
-00181         size_t <span class="keyword">const</span> i = &amp;child - &amp;node.<a class="code" href="structsprite_1_1Node__.html#o0">payload</a>.children[0];
+00181         size_t <span class="keyword">const</span> i = &amp;child - &amp;node.<a class="code" href="structsprite_1_1Node__.html#o0">payload</a>.args()[0];
 00182         assert(i&lt;node.<a class="code" href="structsprite_1_1Node.html#a3">arity</a>());
 00183         <span class="keywordflow">return</span> i;
 00184       }
@@ -196,7 +196,7 @@
 <a name="l00193"></a><a class="code" href="structsprite_1_1Node.html#a11">00193</a>   <span class="keyword">inline</span> size_t Node::position(<a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; child)<span class="keyword"> const</span>
 00194 <span class="keyword">  </span>{
 00195     <span class="keyword">static</span> <a class="code" href="structsprite_1_1visitors_1_1Position.html">visitors::Position</a> <span class="keyword">const</span> visitor;
-00196     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a68">visit</a>(tr1::bind&lt;size_t&gt;(visitor, _1, tr1::cref(child)), *<span class="keyword">this</span>);
+00196     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a67">visit</a>(tr1::bind&lt;size_t&gt;(visitor, _1, tr1::cref(child)), *<span class="keyword">this</span>);
 00197   }
 00198 }
 00199 
@@ -221,7 +221,7 @@
 <a name="l00219"></a><a class="code" href="structsprite_1_1Node.html#a4">00219</a>   <span class="keyword">inline</span> <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> Node::clone()
 00220   {
 00221     <span class="keyword">static</span> <a class="code" href="structsprite_1_1visitors_1_1Clone.html">visitors::Clone</a> <span class="keyword">const</span> visitor;
-00222     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a68">visit</a>(visitor, *<span class="keyword">this</span>);
+00222     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a67">visit</a>(visitor, *<span class="keyword">this</span>);
 00223   }
 00224 }
 00225 
@@ -243,10 +243,10 @@
 00242   <span class="keyword">inline</span> <span class="keywordtype">void</span> Node::destroy_payload()
 00243   {
 00244     <span class="keyword">static</span> <a class="code" href="structsprite_1_1visitors_1_1DestroyPayload.html">visitors::DestroyPayload</a> <span class="keyword">const</span> visitor;
-00245     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a68">visit</a>(visitor, *<span class="keyword">this</span>);
+00245     <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a67">visit</a>(visitor, *<span class="keyword">this</span>);
 00246   }
 00247 }
-</pre></div><hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:31 2012 for sprite by&nbsp;
+</pre></div><hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:26 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

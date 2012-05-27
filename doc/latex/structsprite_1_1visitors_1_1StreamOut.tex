@@ -15,9 +15,10 @@ typedef Stream\-Out::result\_\-type {\bf result\_\-type}\label{structsprite_1_1v
 \begin{CompactItemize}
 \item 
 template$<$typename Payload$>$ enable\_\-if$<$ meta::has\_\-value\_\-type$<$ Payload $>$, result\_\-type $>$::type {\bf operator()} (Stream \&stream, bool, {\bf Node\_\-}$<$ Payload $>$ const \&node) const 
-\item 
-template$<$typename Node\-Type$>$ result\_\-type {\bf operator()} (Stream \&stream, bool first, Node\-Type const \&node) const 
-\end{CompactItemize}
+\begin{CompactList}\small\item\em Handles built-in types, which define a value\_\-type in the payload. \item\end{CompactList}\item 
+template$<$typename Node\-Type$>$ result\_\-type {\bf operator()} (Stream \&stream, bool first, Node\-Type const \&node) const \label{structsprite_1_1visitors_1_1StreamOut_a2}
+
+\begin{CompactList}\small\item\em Handles nodes without any value\_\-type, such as user-defined constructors and defined operations. \item\end{CompactList}\end{CompactItemize}
 
 
 \subsection{Detailed Description}
@@ -39,29 +40,14 @@ Definition at line 77 of file operators.hpp.
 \subsection{Member Function Documentation}
 \index{sprite::visitors::StreamOut@{sprite::visitors::Stream\-Out}!operator()@{operator()}}
 \index{operator()@{operator()}!sprite::visitors::StreamOut@{sprite::visitors::Stream\-Out}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}template$<$typename Stream$>$ template$<$typename Node\-Type$>$ result\_\-type {\bf sprite::visitors::Stream\-Out}$<$ Stream $>$::operator() (Stream \& {\em stream}, bool {\em first}, Node\-Type const \& {\em node}) const\hspace{0.3cm}{\tt  [inline]}}\label{structsprite_1_1visitors_1_1StreamOut_a2}
-
-
-Handles nodes without any value\_\-type, such as user-defined constructorss and defined operations. 
-
-Definition at line 96 of file operators.hpp.
-
-References sprite::Program::ctor\_\-label, sprite::Program::oper\_\-label, and sprite::visit().
-
-Here is the call graph for this function:\begin{figure}[H]
-\begin{center}
-\leavevmode
-\includegraphics[width=159pt]{structsprite_1_1visitors_1_1StreamOut_a2_cgraph}
-\end{center}
-\end{figure}
-\index{sprite::visitors::StreamOut@{sprite::visitors::Stream\-Out}!operator()@{operator()}}
-\index{operator()@{operator()}!sprite::visitors::StreamOut@{sprite::visitors::Stream\-Out}}
 \subsubsection{\setlength{\rightskip}{0pt plus 5cm}template$<$typename Stream$>$ template$<$typename Payload$>$ enable\_\-if$<$meta::has\_\-value\_\-type$<$Payload$>$, result\_\-type$>$::type {\bf sprite::visitors::Stream\-Out}$<$ Stream $>$::operator() (Stream \& {\em stream}, bool, {\bf Node\_\-}$<$ Payload $>$ const \& {\em node}) const\hspace{0.3cm}{\tt  [inline]}}\label{structsprite_1_1visitors_1_1StreamOut_a1}
 
 
-Handles built-in types, which define a value\_\-type in the payload. For these, we don't print the constructor name, just the value instead. 
+Handles built-in types, which define a value\_\-type in the payload. 
 
-Definition at line 88 of file operators.hpp.
+For these, don't print the constructor name, just the value instead. 
+
+Definition at line 89 of file operators.hpp.
 
 References sprite::Node\_\-$<$ Payload $>$::payload.
 

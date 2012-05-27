@@ -1,0 +1,468 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.5.4	//
+AbstractNode	./node.hpp	/^  typedef Node_<payloads::Unused<> > AbstractNode;$/;"	t	namespace:sprite
+ArityOf	./builtins.hpp	/^    template<> struct ArityOf<OP_FLOAT_ADD> : mpl::size_t<2> {};$/;"	s	namespace:sprite::meta
+ArityOf	./builtins.hpp	/^    template<> struct ArityOf<OP_FLOAT_DIV> : mpl::size_t<2> {};$/;"	s	namespace:sprite::meta
+ArityOf	./builtins.hpp	/^    template<> struct ArityOf<OP_FLOAT_MUL> : mpl::size_t<2> {};$/;"	s	namespace:sprite::meta
+ArityOf	./builtins.hpp	/^    template<> struct ArityOf<OP_FLOAT_SUB> : mpl::size_t<2> {};$/;"	s	namespace:sprite::meta
+ArityOf	./builtins.hpp	/^    template<> struct ArityOf<OP_INT_ADD> : mpl::size_t<2> {};$/;"	s	namespace:sprite::meta
+ArityOf	./builtins.hpp	/^    template<> struct ArityOf<OP_INT_DIV> : mpl::size_t<2> {};$/;"	s	namespace:sprite::meta
+ArityOf	./builtins.hpp	/^    template<> struct ArityOf<OP_INT_MUL> : mpl::size_t<2> {};$/;"	s	namespace:sprite::meta
+ArityOf	./builtins.hpp	/^    template<> struct ArityOf<OP_INT_SUB> : mpl::size_t<2> {};$/;"	s	namespace:sprite::meta
+At	./detail/node_impl.hpp	/^    struct At : static_visitor<NodePtr const &>$/;"	s	namespace:sprite::visitors
+BOOST_PP_ENUM_BINARY_PARAMS	./detail/create.hpp	/^      BOOST_PP_ENUM_BINARY_PARAMS(N,T,const & t)$/;"	f	class:Node
+BOOST_PP_FILENAME_1	./create.hpp	11;"	d
+BOOST_PP_ITERATION_LIMITS	./create.hpp	12;"	d
+BinaryVisitor	./visit.hpp	/^    template<typename Visitor> struct BinaryVisitor$/;"	s	namespace:sprite::detail
+BuiltinImpl	./builtins.cpp	/^    BuiltinImpl(Node & node) : m_out(node) {}$/;"	f	struct:<anonymous>::BuiltinImpl
+BuiltinImpl	./builtins.cpp	/^  template<BuiltinOp Op> struct BuiltinImpl : static_visitor<void>$/;"	s	file:
+BuiltinOp	./builtins.hpp	/^  enum BuiltinOp$/;"	g	namespace:sprite
+CHOICE	./common.hpp	/^  enum TagValue { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CTOR };$/;"	e	enum:sprite::TagValue
+CTOR	./common.hpp	/^  enum TagValue { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CTOR };$/;"	e	enum:sprite::TagValue
+ChildList	./payloads.hpp	/^      ChildList(ChildList const & arg)$/;"	f	struct:sprite::payloads::ChildList
+ChildList	./payloads.hpp	/^      ChildList(NodePtr * args, size_t size)$/;"	f	struct:sprite::payloads::ChildList
+ChildList	./payloads.hpp	/^    struct ChildList : Unused<PAYLOAD_BYTES - sizeof(size_t) - sizeof(NodePtr*)>$/;"	s	namespace:sprite::payloads
+ChildListNode	./node.hpp	/^  typedef Node_<payloads::ChildList> ChildListNode;$/;"	t	namespace:sprite
+Choice	./payloads.hpp	/^      Choice(NodePtr const & lhs_, NodePtr const & rhs_)$/;"	f	struct:sprite::payloads::Choice
+Choice	./payloads.hpp	/^    struct Choice : Unused<PAYLOAD_BYTES-2*sizeof(NodePtr)>$/;"	s	namespace:sprite::payloads
+ChoiceDirection	./fingerprint.hpp	/^  enum ChoiceDirection { LEFT=0, RIGHT=1 };$/;"	g	namespace:sprite
+ChoiceNode	./node.hpp	/^  typedef Node_<payloads::Choice> ChoiceNode;$/;"	t	namespace:sprite
+Clone	./detail/node_impl.hpp	/^    struct Clone : static_visitor<NodePtr>$/;"	s	namespace:sprite::visitors
+ComputationPool	./exec.cpp	/^    struct ComputationPool$/;"	s	namespace:sprite::<anonymous>	file:
+Constructor	./tests/concat.cpp	/^  enum Constructor$/;"	g	namespace:sprite::user::m_9firstlist	file:
+DestroyPayload	./detail/node_impl.hpp	/^    struct DestroyPayload : static_visitor<void>$/;"	s	namespace:sprite::visitors
+Dispatch	./builtins.cpp	/^  template<BuiltinOp Op> struct Dispatch<Op,1>$/;"	s	file:
+Dispatch	./builtins.cpp	/^  template<BuiltinOp Op> struct Dispatch<Op,2>$/;"	s	file:
+DivGuard	./builtins.cpp	/^    DivGuard() {}$/;"	f	struct:<anonymous>::DivGuard
+DivGuard	./builtins.cpp	/^  struct DivGuard$/;"	s	file:
+F	./node.hpp	104;"	d
+F	./node.hpp	109;"	d
+F	./rewrite.hpp	18;"	d
+F	./rewrite.hpp	34;"	d
+F	./rewrite.hpp	64;"	d
+F	./rewrite.hpp	81;"	d
+FAIL	./common.hpp	/^  enum TagValue { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CTOR };$/;"	e	enum:sprite::TagValue
+FLOAT	./common.hpp	/^  enum TagValue { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CTOR };$/;"	e	enum:sprite::TagValue
+FWD	./common.hpp	/^  enum TagValue { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CTOR };$/;"	e	enum:sprite::TagValue
+Fingerprint	./fingerprint.hpp	/^    Fingerprint(size_t sz=0) : m_has(sz), m_at(sz) {}$/;"	f	struct:sprite::Fingerprint
+Fingerprint	./fingerprint.hpp	/^  struct Fingerprint$/;"	s	namespace:sprite
+Float	./payloads.hpp	/^      Float(meta::ValueType<FLOAT>::type value_) : value(value_) {}$/;"	f	struct:sprite::payloads::Float
+Float	./payloads.hpp	/^    struct Float : Unused<PAYLOAD_BYTES - sizeof(meta::ValueType<FLOAT>::type)>$/;"	s	namespace:sprite::payloads
+FloatNode	./node.hpp	/^  typedef Node_<payloads::Float> FloatNode;$/;"	t	namespace:sprite
+Fwd	./payloads.hpp	/^      Fwd(NodePtr const & dest_) : dest(dest_) {}$/;"	f	struct:sprite::payloads::Fwd
+Fwd	./payloads.hpp	/^    struct Fwd : Unused<PAYLOAD_BYTES-sizeof(NodePtr*)>$/;"	s	namespace:sprite::payloads
+FwdNode	./node.hpp	/^  typedef Node_<payloads::Fwd> FwdNode;$/;"	t	namespace:sprite
+GuardOf	./builtins.cpp	/^  template<> struct GuardOf<OP_FLOAT_DIV> : mpl::identity<DivGuard> {};$/;"	s	file:
+GuardOf	./builtins.cpp	/^  template<> struct GuardOf<OP_INT_DIV> : mpl::identity<DivGuard> {};$/;"	s	file:
+GuardOf	./builtins.cpp	/^  template<BuiltinOp Op> struct GuardOf : mpl::identity<NoGuard> {};$/;"	s	file:
+GuardedExecute	./builtins.cpp	/^    GuardedExecute() {}$/;"	f	struct:<anonymous>::GuardedExecute
+GuardedExecute	./builtins.cpp	/^  template<BuiltinOp Op> struct GuardedExecute$/;"	s	file:
+INT	./common.hpp	/^  enum TagValue { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CTOR };$/;"	e	enum:sprite::TagValue
+InPlace	./payloads.hpp	/^      InPlace(NodePtr const & arg0_, NodePtr const & arg1_)$/;"	f	struct:sprite::payloads::InPlace
+InPlace	./payloads.hpp	/^      InPlace(NodePtr const & arg_) : arg(arg_) {}$/;"	f	struct:sprite::payloads::InPlace
+InPlace	./payloads.hpp	/^    template<> struct InPlace<0> : Unused<> {};$/;"	s	namespace:sprite::payloads
+InPlace	./payloads.hpp	/^    template<> struct InPlace<1> : Unused<PAYLOAD_BYTES-1*sizeof(NodePtr*)>$/;"	s	namespace:sprite::payloads
+InPlace	./payloads.hpp	/^    template<> struct InPlace<2> : Unused<PAYLOAD_BYTES-2*sizeof(NodePtr*)>$/;"	s	namespace:sprite::payloads
+InPlaceNode0	./node.hpp	/^  typedef Node_<payloads::InPlace<0> > InPlaceNode0;$/;"	t	namespace:sprite
+InPlaceNode1	./node.hpp	/^  typedef Node_<payloads::InPlace<1> > InPlaceNode1;$/;"	t	namespace:sprite
+InPlaceNode2	./node.hpp	/^  typedef Node_<payloads::InPlace<2> > InPlaceNode2;$/;"	t	namespace:sprite
+Int	./payloads.hpp	/^      Int(meta::ValueType<INT>::type value_) : value(value_) {}$/;"	f	struct:sprite::payloads::Int
+Int	./payloads.hpp	/^    struct Int : Unused<PAYLOAD_BYTES - sizeof(meta::ValueType<INT>::type)>$/;"	s	namespace:sprite::payloads
+IntNode	./node.hpp	/^  typedef Node_<payloads::Int> IntNode;$/;"	t	namespace:sprite
+Iter	./detail/node_impl.hpp	/^    struct Iter : static_visitor<Node::range_type>$/;"	s	namespace:sprite::visitors
+LEFT	./fingerprint.hpp	/^  enum ChoiceDirection { LEFT=0, RIGHT=1 };$/;"	e	enum:sprite::ChoiceDirection
+Loader	./system.hpp	/^  struct Loader$/;"	s	namespace:sprite
+Module	./system.hpp	/^  struct Module$/;"	s	namespace:sprite
+Module	./tests/concat.cpp	/^    Module(Program & pgm) : UserModule(pgm)$/;"	f	struct:sprite::user::m_9firstlist::Module
+Module	./tests/concat.cpp	/^  struct Module : sprite::UserModule$/;"	s	namespace:sprite::user::m_9firstlist	file:
+N	./detail/create.hpp	13;"	d
+N	./detail/create.hpp	46;"	d
+NODE_BYTES	./node.hpp	/^  BOOST_STATIC_ASSERT(sizeof(AbstractNode) == NODE_BYTES);$/;"	v
+NODE_BYTES	./node.hpp	/^  BOOST_STATIC_ASSERT(sizeof(ChildListNode) == NODE_BYTES);$/;"	v
+NODE_BYTES	./node.hpp	/^  BOOST_STATIC_ASSERT(sizeof(ChoiceNode) == NODE_BYTES);$/;"	v
+NODE_BYTES	./node.hpp	/^  BOOST_STATIC_ASSERT(sizeof(FloatNode) == NODE_BYTES);$/;"	v
+NODE_BYTES	./node.hpp	/^  BOOST_STATIC_ASSERT(sizeof(FwdNode) == NODE_BYTES);$/;"	v
+NODE_BYTES	./node.hpp	/^  BOOST_STATIC_ASSERT(sizeof(InPlaceNode0) == NODE_BYTES);$/;"	v
+NODE_BYTES	./node.hpp	/^  BOOST_STATIC_ASSERT(sizeof(InPlaceNode1) == NODE_BYTES);$/;"	v
+NODE_BYTES	./node.hpp	/^  BOOST_STATIC_ASSERT(sizeof(InPlaceNode2) == NODE_BYTES);$/;"	v
+NODE_BYTES	./node.hpp	/^  BOOST_STATIC_ASSERT(sizeof(IntNode) == NODE_BYTES);$/;"	v
+NODE_BYTES	./node.hpp	/^  size_t const NODE_BYTES = 32;$/;"	v
+NO_TRACE	./exec.hpp	/^  enum TraceOption { NO_TRACE=false, TRACE=true };$/;"	e	enum:sprite::TraceOption
+NoGuard	./builtins.cpp	/^    NoGuard() {}$/;"	f	struct:<anonymous>::NoGuard
+NoGuard	./builtins.cpp	/^  struct NoGuard$/;"	s	file:
+Node	./node.hpp	/^    Node() : m_refcount(0) {}$/;"	f	struct:sprite::Node
+Node	./node.hpp	/^    Node(Node const & x)$/;"	f	struct:sprite::Node
+Node	./node.hpp	/^  struct Node$/;"	s	namespace:sprite
+NodeOf	./node.hpp	/^    template<> struct NodeOf<CHOICE,-1> : mpl::identity<ChoiceNode> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<CTOR,-1> : mpl::identity<ChildListNode> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<CTOR,0> : mpl::identity<InPlaceNode0> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<CTOR,1> : mpl::identity<InPlaceNode1> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<CTOR,2> : mpl::identity<InPlaceNode2> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<FAIL,-1> : mpl::identity<AbstractNode> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<FLOAT,-1> : mpl::identity<FloatNode> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<FWD,-1> : mpl::identity<FwdNode> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<INT,-1> : mpl::identity<IntNode> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<OPER,-1> : mpl::identity<ChildListNode> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<OPER,0> : mpl::identity<InPlaceNode0> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<OPER,1> : mpl::identity<InPlaceNode1> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<> struct NodeOf<OPER,2> : mpl::identity<InPlaceNode2> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<size_t N> struct NodeOf<CTOR,N> : NodeOf<CTOR,-1> {};$/;"	s	namespace:sprite::meta
+NodeOf	./node.hpp	/^    template<size_t N> struct NodeOf<OPER,N> : NodeOf<OPER,-1> {};$/;"	s	namespace:sprite::meta
+NodePtr	./pointer.hpp	/^    NodePtr() {}$/;"	f	struct:sprite::NodePtr
+NodePtr	./pointer.hpp	/^    NodePtr(Node * p, bool add_ref = true) : base_type(p,add_ref) {}$/;"	f	struct:sprite::NodePtr
+NodePtr	./pointer.hpp	/^    NodePtr(NodePtr const & r) : base_type(r) {}$/;"	f	struct:sprite::NodePtr
+NodePtr	./pointer.hpp	/^  struct NodePtr : private boost::intrusive_ptr<Node>$/;"	s	namespace:sprite
+NodeType	./builtins.cpp	/^    typedef typename meta::NodeOf<TagType::value>::type NodeType;$/;"	t	struct:<anonymous>::BuiltinImpl	file:
+Node_	./node.hpp	/^  template<typename Payload> struct Node_ : Node$/;"	s	namespace:sprite
+OPER	./common.hpp	/^  enum TagValue { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CTOR };$/;"	e	enum:sprite::TagValue
+OP_END	./builtins.hpp	/^    , OP_END \/\/ Must be last.$/;"	e	enum:sprite::BuiltinOp
+OP_FLOAT_ADD	./builtins.hpp	/^    , OP_FLOAT_ADD, OP_FLOAT_SUB, OP_FLOAT_MUL, OP_FLOAT_DIV$/;"	e	enum:sprite::BuiltinOp
+OP_FLOAT_DIV	./builtins.hpp	/^    , OP_FLOAT_ADD, OP_FLOAT_SUB, OP_FLOAT_MUL, OP_FLOAT_DIV$/;"	e	enum:sprite::BuiltinOp
+OP_FLOAT_MUL	./builtins.hpp	/^    , OP_FLOAT_ADD, OP_FLOAT_SUB, OP_FLOAT_MUL, OP_FLOAT_DIV$/;"	e	enum:sprite::BuiltinOp
+OP_FLOAT_SUB	./builtins.hpp	/^    , OP_FLOAT_ADD, OP_FLOAT_SUB, OP_FLOAT_MUL, OP_FLOAT_DIV$/;"	e	enum:sprite::BuiltinOp
+OP_INT_ADD	./builtins.hpp	/^      OP_INT_ADD, OP_INT_SUB, OP_INT_MUL, OP_INT_DIV$/;"	e	enum:sprite::BuiltinOp
+OP_INT_DIV	./builtins.hpp	/^      OP_INT_ADD, OP_INT_SUB, OP_INT_MUL, OP_INT_DIV$/;"	e	enum:sprite::BuiltinOp
+OP_INT_MUL	./builtins.hpp	/^      OP_INT_ADD, OP_INT_SUB, OP_INT_MUL, OP_INT_DIV$/;"	e	enum:sprite::BuiltinOp
+OP_INT_SUB	./builtins.hpp	/^      OP_INT_ADD, OP_INT_SUB, OP_INT_MUL, OP_INT_DIV$/;"	e	enum:sprite::BuiltinOp
+PAYLOAD_BYTES	./payloads.hpp	/^    BOOST_STATIC_ASSERT(sizeof(ChildList) == PAYLOAD_BYTES);$/;"	v
+PAYLOAD_BYTES	./payloads.hpp	/^    BOOST_STATIC_ASSERT(sizeof(Choice) == PAYLOAD_BYTES);$/;"	v
+PAYLOAD_BYTES	./payloads.hpp	/^    BOOST_STATIC_ASSERT(sizeof(Float) == PAYLOAD_BYTES);$/;"	v
+PAYLOAD_BYTES	./payloads.hpp	/^    BOOST_STATIC_ASSERT(sizeof(Fwd) == PAYLOAD_BYTES);$/;"	v
+PAYLOAD_BYTES	./payloads.hpp	/^    BOOST_STATIC_ASSERT(sizeof(InPlace<0>) == PAYLOAD_BYTES);$/;"	v
+PAYLOAD_BYTES	./payloads.hpp	/^    BOOST_STATIC_ASSERT(sizeof(InPlace<1>) == PAYLOAD_BYTES);$/;"	v
+PAYLOAD_BYTES	./payloads.hpp	/^    BOOST_STATIC_ASSERT(sizeof(InPlace<2>) == PAYLOAD_BYTES);$/;"	v
+PAYLOAD_BYTES	./payloads.hpp	/^    BOOST_STATIC_ASSERT(sizeof(Int) == PAYLOAD_BYTES);$/;"	v
+PAYLOAD_BYTES	./payloads.hpp	/^  static size_t const PAYLOAD_BYTES = 16;$/;"	v
+PoolItem	./exec.cpp	/^      PoolItem(Fingerprint const & fp_, NodePtr const & node_)$/;"	f	struct:sprite::<anonymous>::PoolItem
+PoolItem	./exec.cpp	/^    struct PoolItem$/;"	s	namespace:sprite::<anonymous>	file:
+Position	./detail/node_impl.hpp	/^    struct Position : static_visitor<size_t>$/;"	s	namespace:sprite::visitors
+Program	./program.cpp	/^  Program::Program() : oper(), \/*ctor_label(),*\/ oper_label()$/;"	f	class:sprite::Program
+Program	./program.hpp	/^    Program();$/;"	p	struct:sprite::Program
+Program	./program.hpp	/^  struct Program : Loader$/;"	s	namespace:sprite
+R	./tests/concat.cpp	35;"	d	file:
+RIGHT	./fingerprint.hpp	/^  enum ChoiceDirection { LEFT=0, RIGHT=1 };$/;"	e	enum:sprite::ChoiceDirection
+RuntimeError	./common.hpp	/^    explicit RuntimeError(std::string const & msg = std::string())$/;"	f	struct:sprite::RuntimeError
+RuntimeError	./common.hpp	/^  struct RuntimeError : std::exception$/;"	s	namespace:sprite
+SPRITE_BINARY_OP_DECL	./pointer.hpp	100;"	d
+SPRITE_BINARY_OP_DECL	./pointer.hpp	107;"	d
+SPRITE_DEFINE_OP	./builtins.cpp	45;"	d	file:
+SPRITE_DEFINE_OP	./builtins.cpp	65;"	d	file:
+SPRITE_INPLACE_BOUND	./node.hpp	17;"	d
+SPRITE_REWRITE_ARG_BOUND	./node.hpp	24;"	d
+SPRITE_SEQ_ALL_OP	./builtins.hpp	17;"	d
+SPRITE_SWITCH_BEGIN	./user_module.hpp	136;"	d
+SPRITE_SWITCH_END	./user_module.hpp	149;"	d
+SPRITE_VALUE_SWITCH_BEGIN	./user_module.hpp	161;"	d
+SPRITE_VALUE_SWITCH_END	./user_module.hpp	172;"	d
+SPRITE_index_step	./user_module.hpp	106;"	d
+SPRITE_visit	./visit.hpp	22;"	d
+SPRITE_visit	./visit.hpp	51;"	d
+StreamOut	./operators.hpp	/^      StreamOut() {}$/;"	f	struct:sprite::visitors::StreamOut
+StreamOut	./operators.hpp	/^    struct StreamOut : static_visitor<Stream &>$/;"	s	namespace:sprite::visitors
+TRACE	./exec.hpp	/^  enum TraceOption { NO_TRACE=false, TRACE=true };$/;"	e	enum:sprite::TraceOption
+TagType	./builtins.cpp	/^    typedef typename meta::TagValueOf<Op>::type TagType;$/;"	t	struct:<anonymous>::BuiltinImpl	file:
+TagValue	./common.hpp	/^    template<sprite::TagValue C> struct TagValue$/;"	s	namespace:sprite::meta
+TagValue	./common.hpp	/^  enum TagValue { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CTOR };$/;"	g	namespace:sprite
+TagValueOf	./builtins.hpp	/^    template<> struct TagValueOf<OP_FLOAT_ADD> : TagValue<FLOAT> {};$/;"	s	namespace:sprite::meta
+TagValueOf	./builtins.hpp	/^    template<> struct TagValueOf<OP_FLOAT_DIV> : TagValue<FLOAT> {};$/;"	s	namespace:sprite::meta
+TagValueOf	./builtins.hpp	/^    template<> struct TagValueOf<OP_FLOAT_MUL> : TagValue<FLOAT> {};$/;"	s	namespace:sprite::meta
+TagValueOf	./builtins.hpp	/^    template<> struct TagValueOf<OP_FLOAT_SUB> : TagValue<FLOAT> {};$/;"	s	namespace:sprite::meta
+TagValueOf	./builtins.hpp	/^    template<> struct TagValueOf<OP_INT_ADD> : TagValue<INT> {};$/;"	s	namespace:sprite::meta
+TagValueOf	./builtins.hpp	/^    template<> struct TagValueOf<OP_INT_DIV> : TagValue<INT> {};$/;"	s	namespace:sprite::meta
+TagValueOf	./builtins.hpp	/^    template<> struct TagValueOf<OP_INT_MUL> : TagValue<INT> {};$/;"	s	namespace:sprite::meta
+TagValueOf	./builtins.hpp	/^    template<> struct TagValueOf<OP_INT_SUB> : TagValue<INT> {};$/;"	s	namespace:sprite::meta
+TraceOption	./exec.hpp	/^  enum TraceOption { NO_TRACE=false, TRACE=true };$/;"	g	namespace:sprite
+USE_TEST	./tests/concat.cpp	12;"	d	file:
+Unused	./payloads.hpp	/^      struct Unused { char unused[Bytes]; };$/;"	s	namespace:sprite::payloads
+UnwrapConst	./visit.hpp	/^      explicit UnwrapConst(Visitor const & visitor) : m_visitor(visitor) {}$/;"	f	struct:sprite::detail::UnwrapConst
+UnwrapConst	./visit.hpp	/^    template<typename Visitor> struct UnwrapConst$/;"	s	namespace:sprite::detail
+UserModule	./user_module.hpp	/^    UserModule(Program & pgm) : m_pgm(pgm) {}$/;"	f	struct:sprite::UserModule
+UserModule	./user_module.hpp	/^  struct UserModule : Module$/;"	s	namespace:sprite
+ValueType	./common.hpp	/^    template<> struct ValueType<FLOAT> { typedef double type; };$/;"	s	namespace:sprite::meta
+ValueType	./common.hpp	/^    template<> struct ValueType<INT> { typedef boost::int_t<64>::exact type; };$/;"	s	namespace:sprite::meta
+YieldHandler	./exec.hpp	/^  struct YieldHandler$/;"	s	namespace:sprite
+YieldHandler_	./exec.hpp	/^    explicit YieldHandler_(OutputIterator out) : m_out(out) {}$/;"	f	struct:sprite::YieldHandler_
+YieldHandler_	./exec.hpp	/^  struct YieldHandler_ : YieldHandler$/;"	s	namespace:sprite
+YieldHandler_	./exec.hpp	/^  template<> struct YieldHandler_<void> : YieldHandler$/;"	s	namespace:sprite
+_lookup	./user_module.hpp	/^    size_t _lookup(std::string const & label, map_type const & map) const$/;"	f	struct:sprite::UserModule
+_payload	./node.hpp	/^    void * _payload() { return this + 1; }$/;"	f	struct:sprite::Node
+_payload	./node.hpp	/^    void const * _payload() const { return this + 1; }$/;"	f	struct:sprite::Node
+allocator	./exec.cpp	/^      static boost::object_pool<PoolItem> allocator;$/;"	m	struct:sprite::<anonymous>::PoolItem	file:
+allocator	./exec.cpp	/^    boost::object_pool<PoolItem> PoolItem::allocator;$/;"	m	class:sprite::<anonymous>::PoolItem	file:
+arg	./payloads.hpp	/^      NodePtr arg;$/;"	m	struct:sprite::payloads::InPlace
+arg0	./payloads.hpp	/^      NodePtr arg0, arg1;$/;"	m	struct:sprite::payloads::InPlace
+arg1	./payloads.hpp	/^      NodePtr arg0, arg1;$/;"	m	struct:sprite::payloads::InPlace
+args	./payloads.hpp	/^      NodePtr * args() const { return m_args; }$/;"	f	struct:sprite::payloads::ChildList
+arity	./node.hpp	/^    uint32 arity() const { return this->m_arity; }$/;"	f	struct:sprite::Node
+at	./fingerprint.hpp	/^    ChoiceDirection at(size_t id) const$/;"	f	struct:sprite::Fingerprint
+base_type	./pointer.hpp	/^    typedef boost::intrusive_ptr<Node> base_type;$/;"	t	struct:sprite::NodePtr
+builtin_h	./builtins.cpp	/^  h_func_type builtin_h[OP_END] =$/;"	v
+builtin_h	./program.hpp	/^  extern h_func_type builtin_h[OP_END];$/;"	x
+builtin_oper	./builtins.cpp	/^  std::string builtin_oper[OP_END] = { "+", "-", "*", "\/", "+", "-", "*", "\/" };$/;"	v
+builtin_oper	./program.hpp	/^  extern std::string builtin_oper[OP_END];$/;"	x
+c_3Nil	./tests/concat.cpp	/^    c_3Nil,$/;"	e	enum:sprite::user::m_9firstlist::Constructor	file:
+c_4Cons	./tests/concat.cpp	/^    c_4Cons = CTOR,$/;"	e	enum:sprite::user::m_9firstlist::Constructor	file:
+c_Cons	./tests/concat.cpp	/^  size_t c_Cons;$/;"	m	struct:firstlistModule	file:
+c_Nil	./tests/concat.cpp	/^  size_t c_Nil;$/;"	m	struct:firstlistModule	file:
+clearprogram	./operators.hpp	/^    inline std::ios_base & clearprogram(std::ios_base & stream)$/;"	f	namespace:sprite::manipulators
+clone	./detail/node_impl.hpp	/^  inline NodePtr Node::clone()$/;"	f	class:sprite::Node
+clone	./node.hpp	/^    NodePtr clone();$/;"	p	struct:sprite::Node
+const_range_type	./node.hpp	/^    typedef boost::iterator_range<NodePtr const *> const_range_type;$/;"	t	struct:sprite::Node
+ctor_label	./program.hpp	/^    label_t ctor_label;$/;"	m	struct:sprite::Program
+dest	./payloads.hpp	/^      NodePtr dest;$/;"	m	struct:sprite::payloads::Fwd
+destroy_payload	./detail/node_impl.hpp	/^  inline void Node::destroy_payload()$/;"	f	class:sprite::Node
+destroy_payload	./node.hpp	/^    void destroy_payload();$/;"	p	struct:sprite::Node
+detail	./operators.hpp	/^    namespace detail$/;"	n	namespace:sprite::manipulators
+detail	./visit.hpp	/^  namespace detail$/;"	n	namespace:sprite
+dt_concat	./tests/concat.cpp	/^  DTree dt_concat;$/;"	m	struct:firstlistModule	file:
+element_type	./pointer.hpp	/^    typedef Node element_type;$/;"	t	struct:sprite::NodePtr
+empty	./exec.cpp	/^      bool empty() const { return m_storage.empty(); }$/;"	f	struct:sprite::<anonymous>::ComputationPool
+execute	./exec.cpp	/^  void execute($/;"	f	namespace:sprite
+execute	./exec.hpp	/^  inline void execute($/;"	f	namespace:sprite
+execute	./exec.hpp	/^  void execute($/;"	p	namespace:sprite
+fair_normalize	./exec.hpp	/^  inline void fair_normalize(Fingerprint const & fp, Node & node)$/;"	f	namespace:sprite
+find_ctor	./user_module.hpp	/^    virtual size_t find_ctor(std::string const & label) const$/;"	f	struct:sprite::UserModule
+find_oper	./system.hpp	/^    virtual size_t find_oper(std::string const & label) const = 0;$/;"	p	struct:sprite::Module
+find_oper	./user_module.hpp	/^    virtual size_t find_oper(std::string const & label) const$/;"	f	struct:sprite::UserModule
+firstlistModule	./tests/concat.cpp	/^  firstlistModule(Program & pgm) : UserModule(pgm)$/;"	f	struct:firstlistModule
+firstlistModule	./tests/concat.cpp	/^struct firstlistModule : sprite::UserModule$/;"	s	file:
+fp	./exec.cpp	/^      Fingerprint fp;$/;"	m	struct:sprite::<anonymous>::PoolItem	file:
+front	./exec.cpp	/^      PoolItem & front() { return *m_storage.front(); }$/;"	f	struct:sprite::<anonymous>::ComputationPool
+front	./exec.cpp	/^      PoolItem const & front() const { return *m_storage.front(); }$/;"	f	struct:sprite::<anonymous>::ComputationPool
+g_program	./exec.cpp	/^  Program const * g_program = NULL;$/;"	v
+g_program	./exec.hpp	/^  extern Program const * g_program;$/;"	x
+get	./pointer.hpp	/^    Node * get() const$/;"	f	struct:sprite::NodePtr
+get_program	./user_module.hpp	/^    Program & get_program() const { return m_pgm; }$/;"	f	struct:sprite::UserModule
+h_4main	./tests/concat.cpp	/^    void h_4main(Node & root) const$/;"	f	struct:sprite::user::m_9firstlist::Module	file:
+h_6concat	./tests/concat.cpp	/^    void h_6concat(Node & root) const$/;"	f	struct:sprite::user::m_9firstlist::Module	file:
+h_func	./builtins.cpp	/^  template<BuiltinOp Op> void h_func(Node & node)$/;"	f	namespace:sprite
+h_func_type	./system.hpp	/^  typedef tr1::function<void(Node &)> h_func_type;$/;"	t	namespace:sprite
+has	./fingerprint.hpp	/^    bool has(size_t id) const { return this->m_has[id]; }$/;"	f	struct:sprite::Fingerprint
+head_normalize	./exec.hpp	/^  inline void head_normalize(Node & node)$/;"	f	namespace:sprite
+id	./node.hpp	/^    uint32 id() const { return this->m_id; }$/;"	f	struct:sprite::Node
+import	./program.cpp	/^  shared_ptr<Module const> Program::import(std::string name)$/;"	f	class:sprite::Program
+import	./program.hpp	/^    shared_ptr<Module const> import(std::string name);$/;"	p	struct:sprite::Program
+insert_ctor	./program.cpp	/^  size_t Program::insert_ctor(std::string const & name)$/;"	f	class:sprite::Program
+insert_ctor	./program.hpp	/^    virtual size_t insert_ctor(std::string const & name);$/;"	p	struct:sprite::Program
+insert_oper	./program.cpp	/^  size_t Program::insert_oper(std::string const & name, h_func_type h)$/;"	f	class:sprite::Program
+insert_oper	./program.hpp	/^    virtual size_t insert_oper(std::string const & name, h_func_type h);$/;"	p	struct:sprite::Program
+insert_oper	./system.hpp	/^    virtual size_t insert_oper(std::string const & name, h_func_type) = 0;$/;"	p	struct:sprite::Loader
+install_ctor	./user_module.hpp	/^    size_t install_ctor(std::string const & label)$/;"	f	struct:sprite::UserModule
+install_oper	./user_module.hpp	/^    size_t install_oper($/;"	f	struct:sprite::UserModule
+install_oper	./user_module.hpp	/^    size_t install_oper(std::string const & label, h_func_type const & h)$/;"	f	struct:sprite::UserModule
+intrusive_ptr_add_ref	./node.hpp	/^    friend void intrusive_ptr_add_ref(Node * node)$/;"	f	struct:sprite::Node
+intrusive_ptr_release	./node.hpp	/^    friend void intrusive_ptr_release(Node * node)$/;"	f	struct:sprite::Node
+is_builtin	./common.hpp	/^  inline bool is_builtin(TagValue x)$/;"	f	namespace:sprite
+is_ctor	./common.hpp	/^  inline bool is_ctor(TagValue x)$/;"	f	namespace:sprite
+is_norm	./exec.hpp	/^  inline bool is_norm(Node const & node)$/;"	f	namespace:sprite
+iter	./detail/node_impl.hpp	/^  inline Node::const_range_type Node::iter() const$/;"	f	class:sprite::Node
+iter	./detail/node_impl.hpp	/^  inline Node::range_type Node::iter()$/;"	f	class:sprite::Node
+iter	./node.hpp	/^    const_range_type iter() const;$/;"	p	struct:sprite::Node
+iter	./node.hpp	/^    range_type iter();$/;"	p	struct:sprite::Node
+label_t	./program.hpp	/^    typedef std::vector<std::string> label_t;$/;"	t	struct:sprite::Program
+lhs	./payloads.hpp	/^      NodePtr lhs, rhs;$/;"	m	struct:sprite::payloads::Choice
+load_list	./program.hpp	/^extern boost::shared_ptr<sprite::Module> load_list(sprite::Program &);$/;"	p
+load_list	./tests/concat.cpp	/^shared_ptr<Module> load_list(sprite::Program & pgm)$/;"	f
+load_list	./tests/int.cpp	/^shared_ptr<Module> load_list(sprite::Program &)$/;"	f
+load_list	./tests/io.cpp	/^shared_ptr<Module> load_list(sprite::Program &)$/;"	f
+m_9firstlist	./tests/concat.cpp	/^namespace sprite { namespace user { namespace m_9firstlist$/;"	n	namespace:sprite::user	file:
+m_args	./payloads.hpp	/^      NodePtr * m_args;$/;"	m	struct:sprite::payloads::ChildList
+m_arity	./node.hpp	/^    uint32 m_arity;$/;"	m	struct:sprite::Node
+m_at	./fingerprint.hpp	/^    storage_type m_has, m_at;$/;"	m	struct:sprite::Fingerprint
+m_ctors	./user_module.hpp	/^    map_type m_ctors;$/;"	m	struct:sprite::UserModule
+m_has	./fingerprint.hpp	/^    storage_type m_has, m_at;$/;"	m	struct:sprite::Fingerprint
+m_id	./node.hpp	/^    uint32 m_id;$/;"	m	struct:sprite::Node
+m_imported	./program.hpp	/^    tr1::unordered_map<std::string, shared_ptr<Module> > m_imported;$/;"	m	struct:sprite::Program
+m_msg	./common.hpp	/^    std::string m_msg;$/;"	m	struct:sprite::RuntimeError
+m_opers	./user_module.hpp	/^    map_type m_opers;$/;"	m	struct:sprite::UserModule
+m_out	./builtins.cpp	/^    Node & m_out;$/;"	m	struct:<anonymous>::BuiltinImpl	file:
+m_out	./exec.hpp	/^    OutputIterator m_out;$/;"	m	struct:sprite::YieldHandler_
+m_pgm	./operators.hpp	/^      Program const & m_pgm;$/;"	m	struct:sprite::manipulators::setprogram
+m_pgm	./user_module.hpp	/^    Program & m_pgm;$/;"	m	struct:sprite::UserModule
+m_prev	./operators.hpp	/^      void * m_prev;$/;"	m	struct:sprite::manipulators::setprogram
+m_refcount	./node.hpp	/^    uint32 m_refcount;$/;"	m	struct:sprite::Node
+m_size	./payloads.hpp	/^      size_t m_size;$/;"	m	struct:sprite::payloads::ChildList
+m_storage	./exec.cpp	/^      storage_type m_storage;$/;"	m	struct:sprite::<anonymous>::ComputationPool	file:
+m_tag	./node.hpp	/^    TagValue m_tag : 32;$/;"	m	struct:sprite::Node
+m_visitor	./visit.hpp	/^      Visitor const & m_visitor;$/;"	m	struct:sprite::detail::UnwrapConst
+make_ctor_tag	./common.hpp	/^  inline TagValue make_ctor_tag(int i)$/;"	f	namespace:sprite
+manipulators	./operators.hpp	/^  namespace manipulators$/;"	n	namespace:sprite
+map_type	./user_module.hpp	/^    typedef boost::bimap<std::string, size_t> map_type;$/;"	t	struct:sprite::UserModule
+meta	./builtins.hpp	/^  namespace meta$/;"	n	namespace:sprite
+meta	./common.hpp	/^  namespace meta$/;"	n	namespace:sprite
+meta	./node.hpp	/^  namespace meta$/;"	n	namespace:sprite
+meta	./operators.hpp	/^  namespace meta$/;"	n	namespace:sprite
+node	./exec.cpp	/^      NodePtr node;$/;"	m	struct:sprite::<anonymous>::PoolItem	file:
+node_allocator	./detail/node_impl.hpp	/^  extern boost::object_pool<AbstractNode> node_allocator;$/;"	x
+node_allocator	./exec.cpp	/^  boost::object_pool<AbstractNode> node_allocator;$/;"	v
+op_4main	./tests/concat.cpp	/^    size_t op_4main;$/;"	m	struct:sprite::user::m_9firstlist::Module	file:
+op_6concat	./tests/concat.cpp	/^    size_t op_6concat;$/;"	m	struct:sprite::user::m_9firstlist::Module	file:
+op_concat	./tests/concat.cpp	/^  size_t op_concat;$/;"	m	struct:firstlistModule	file:
+oper	./program.hpp	/^    oper_t oper;$/;"	m	struct:sprite::Program
+oper_label	./program.hpp	/^    label_t oper_label;$/;"	m	struct:sprite::Program
+oper_t	./program.hpp	/^    typedef std::vector<h_func_type> oper_t;$/;"	t	struct:sprite::Program
+operator ()	./builtins.cpp	/^      bool operator()(Lhs const &, Rhs const & rhs) const { return rhs != 0; }$/;"	f	struct:<anonymous>::DivGuard
+operator ()	./builtins.cpp	/^      bool operator()(Lhs const &, Rhs const &) const { return true; }$/;"	f	struct:<anonymous>::NoGuard
+operator ()	./builtins.cpp	/^    template<typename Arg> bool operator()(Arg const &) const { return true; }$/;"	f	struct:<anonymous>::NoGuard
+operator ()	./builtins.cpp	/^    void operator()(Lhs const &, Rhs const &) const$/;"	f	struct:<anonymous>::BuiltinImpl
+operator ()	./builtins.cpp	/^    void operator()(Node & node)$/;"	f	struct:<anonymous>::Dispatch
+operator ()	./builtins.cpp	/^    void operator()(Node & out, T const & lhs, T const & rhs) const$/;"	f	struct:<anonymous>::GuardedExecute
+operator ()	./builtins.cpp	/^    void operator()(NodeType const & lhs, NodeType const & rhs) const$/;"	f	struct:<anonymous>::BuiltinImpl
+operator ()	./detail/node_impl.hpp	/^      result_type operator()($/;"	f	struct:sprite::visitors::Position
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(ChildListNode & node) const$/;"	f	struct:sprite::visitors::Iter
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(ChildListNode const & node, size_t i) const$/;"	f	struct:sprite::visitors::At
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(FwdNode const &, size_t) const$/;"	f	struct:sprite::visitors::At
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(InPlaceNode1 & node) const$/;"	f	struct:sprite::visitors::Iter
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(InPlaceNode1 const & node, size_t i) const$/;"	f	struct:sprite::visitors::At
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(InPlaceNode2 & node) const$/;"	f	struct:sprite::visitors::Iter
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(InPlaceNode2 const & node, size_t i) const$/;"	f	struct:sprite::visitors::At
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(NodeType &) const$/;"	f	struct:sprite::visitors::Iter
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(NodeType const & node) const$/;"	f	struct:sprite::visitors::Clone
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(NodeType const &, NodePtr const &) const$/;"	f	struct:sprite::visitors::Position
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(NodeType const &, size_t) const$/;"	f	struct:sprite::visitors::At
+operator ()	./detail/node_impl.hpp	/^      result_type operator()(Node_<Payload> & node) const$/;"	f	struct:sprite::visitors::DestroyPayload
+operator ()	./operators.hpp	/^      operator()(Stream & stream, bool, Node_<Payload> const & node) const$/;"	f	struct:sprite::visitors::StreamOut
+operator ()	./operators.hpp	/^      result_type operator()($/;"	f	struct:sprite::visitors::StreamOut
+operator ()	./rewrite.hpp	/^    void operator()($/;"	f	struct:rewrite
+operator ()	./rewrite.hpp	/^    void operator()($/;"	f	struct:sprite::rewrite
+operator ()	./rewrite.hpp	/^    void operator()(Node & node) const$/;"	f	struct:rewrite
+operator ()	./rewrite.hpp	/^    void operator()(Node & node, NodePtr const & dest) const$/;"	f	struct:rewrite
+operator ()	./rewrite.hpp	/^    void operator()(Node & node, meta::ValueType<FLOAT>::type value) const$/;"	f	struct:rewrite
+operator ()	./rewrite.hpp	/^    void operator()(Node & node, meta::ValueType<INT>::type value) const$/;"	f	struct:rewrite
+operator ()	./visit.hpp	/^      result_type operator()($/;"	f	struct:sprite::detail::BinaryVisitor
+operator ()	./visit.hpp	/^      result_type operator()($/;"	f	struct:sprite::detail::UnwrapConst
+operator ()	./visit.hpp	/^      result_type operator()(Node_<Payload> const & node) const$/;"	f	struct:sprite::detail::UnwrapConst
+operator *	./pointer.hpp	/^    Node & operator*() const$/;"	f	struct:sprite::NodePtr
+operator ->	./pointer.hpp	/^    Node * operator->() const$/;"	f	struct:sprite::NodePtr
+operator <<	./operators.hpp	/^      friend Stream & operator<<(Stream & stream, setprogram const & manip)$/;"	f	struct:sprite::manipulators::setprogram
+operator <<	./operators.hpp	/^    Stream & operator<<(Stream & stream, Node const & node)$/;"	f	namespace:sprite::operators
+operator <<	./program.hpp	/^    friend Stream & operator<<(Stream & out, Program const & pgm)$/;"	f	struct:sprite::Program
+operator =	./node.hpp	/^    Node & operator=(Node const & x)$/;"	f	struct:sprite::Node
+operator =	./node.hpp	/^  inline NodePtr & NodePtr::operator=(Node & node)$/;"	f	class:sprite::NodePtr
+operator =	./payloads.hpp	/^      ChildList & operator=(ChildList const & arg)$/;"	f	struct:sprite::payloads::ChildList
+operator =	./pointer.hpp	/^    NodePtr & operator=(Node &);$/;"	p	struct:sprite::NodePtr
+operator []	./detail/node_impl.hpp	/^  inline NodePtr & Node::operator[](size_t i)$/;"	f	class:sprite::Node
+operator []	./detail/node_impl.hpp	/^  inline NodePtr const & Node::operator[](size_t i) const$/;"	f	class:sprite::Node
+operator []	./node.hpp	/^    NodePtr & operator[](size_t i);$/;"	p	struct:sprite::Node
+operator []	./node.hpp	/^    NodePtr const & operator[](size_t i) const;$/;"	p	struct:sprite::Node
+operator []	./node.hpp	/^  inline NodePtr & NodePtr::operator[](size_t i) const { return (**this)[i]; }$/;"	f	class:sprite::NodePtr
+operator []	./pointer.hpp	/^    NodePtr & operator[](size_t i) const;$/;"	p	struct:sprite::NodePtr
+operator delete	./detail/node_impl.hpp	/^  inline void Node::operator delete(void * p)$/;"	f	class:sprite::Node
+operator delete	./exec.cpp	/^      void operator delete(void * p)$/;"	f	struct:sprite::<anonymous>::PoolItem
+operator delete	./node.hpp	/^    void operator delete(void *);$/;"	p	struct:sprite::Node
+operator new	./detail/node_impl.hpp	/^  inline void * Node::operator new(size_t bytes)$/;"	f	class:sprite::Node
+operator new	./exec.cpp	/^      void * operator new(size_t sz)$/;"	f	struct:sprite::<anonymous>::PoolItem
+operator new	./node.hpp	/^    void * operator new(size_t bytes);$/;"	p	struct:sprite::Node
+operator sprite::TagValue	./common.hpp	/^      operator sprite::TagValue() const { return value; }$/;"	f	struct:sprite::meta::TagValue
+operators	./operators.hpp	/^  namespace operators$/;"	n	namespace:sprite
+payload	./node.hpp	/^    Payload payload;$/;"	m	struct:sprite::Node_
+payload_type	./node.hpp	/^    typedef Payload payload_type;$/;"	t	struct:sprite::Node_
+payloads	./payloads.hpp	/^  namespace payloads$/;"	n	namespace:sprite
+pgm_data	./operators.hpp	/^      inline Program const * & pgm_data(std::ios_base & stream)$/;"	f	namespace:sprite::manipulators::detail
+pop	./exec.cpp	/^      void pop()$/;"	f	struct:sprite::<anonymous>::ComputationPool
+position	./detail/node_impl.hpp	/^  inline size_t Node::position(NodePtr const & child) const$/;"	f	class:sprite::Node
+position	./node.hpp	/^    size_t position(NodePtr const & child) const;$/;"	p	struct:sprite::Node
+print_node	./exec.cpp	/^  void print_node(Node const & node)$/;"	f	namespace:sprite
+print_node	./exec.hpp	/^  void print_node(Node const &);$/;"	p	namespace:sprite
+pull_tab	./exec.hpp	/^  inline void pull_tab(Node & g, NodePtr const & p)$/;"	f	namespace:sprite
+push	./exec.cpp	/^      void push(Fingerprint const & fp, NodePtr const & node)$/;"	f	struct:sprite::<anonymous>::ComputationPool
+range_type	./node.hpp	/^    typedef boost::iterator_range<NodePtr *> range_type;$/;"	t	struct:sprite::Node
+refcount	./node.hpp	/^    uint32 refcount() const { return this->m_refcount; }$/;"	f	struct:sprite::Node
+resize	./fingerprint.hpp	/^    void resize(size_t sz)$/;"	f	struct:sprite::Fingerprint
+result_type	./operators.hpp	/^      typedef typename StreamOut::result_type result_type;$/;"	t	struct:sprite::visitors::StreamOut
+result_type	./visit.hpp	/^      typedef typename Visitor::result_type result_type;$/;"	t	struct:sprite::detail::BinaryVisitor
+result_type	./visit.hpp	/^      typedef typename Visitor::result_type result_type;$/;"	t	struct:sprite::detail::UnwrapConst
+rewrite	./rewrite.hpp	/^    rewrite() {}$/;"	f	struct:rewrite
+rewrite	./rewrite.hpp	/^    rewrite() {}$/;"	f	struct:sprite::rewrite
+rewrite	./rewrite.hpp	/^  template<> struct rewrite<CHOICE>$/;"	s
+rewrite	./rewrite.hpp	/^  template<> struct rewrite<CTOR>$/;"	s
+rewrite	./rewrite.hpp	/^  template<> struct rewrite<FAIL>$/;"	s
+rewrite	./rewrite.hpp	/^  template<> struct rewrite<FLOAT>$/;"	s
+rewrite	./rewrite.hpp	/^  template<> struct rewrite<FWD>$/;"	s
+rewrite	./rewrite.hpp	/^  template<> struct rewrite<INT>$/;"	s
+rewrite	./rewrite.hpp	/^  template<> struct rewrite<OPER>$/;"	s	namespace:sprite
+rewrite_choice	./rewrite.hpp	/^  rewrite<CHOICE> const rewrite_choice = rewrite<CHOICE>();$/;"	v
+rewrite_ctor	./rewrite.hpp	/^  rewrite<CTOR> const rewrite_ctor = rewrite<CTOR>();$/;"	v
+rewrite_fail	./rewrite.hpp	/^  rewrite<FAIL> const rewrite_fail = rewrite<FAIL>();$/;"	v
+rewrite_float	./rewrite.hpp	/^  rewrite<FLOAT> const rewrite_float = rewrite<FLOAT>();$/;"	v
+rewrite_fwd	./rewrite.hpp	/^  rewrite<FWD> const rewrite_fwd = rewrite<FWD>();$/;"	v
+rewrite_int	./rewrite.hpp	/^  rewrite<INT> const rewrite_int = rewrite<INT>();$/;"	v
+rewrite_oper	./rewrite.hpp	/^  rewrite<OPER> const rewrite_oper = rewrite<OPER>();$/;"	v
+rhs	./payloads.hpp	/^      NodePtr lhs, rhs;$/;"	m	struct:sprite::payloads::Choice
+rotate	./exec.cpp	/^      void rotate()$/;"	f	struct:sprite::<anonymous>::ComputationPool
+rule0	./tests/concat.cpp	/^  void rule0(Node & root, Node & \/*unused*\/) const { rewrite_fwd(root, root[1]); }$/;"	f	struct:firstlistModule	file:
+rule1	./tests/concat.cpp	/^  void rule1(Node & root, Node & \/*unused*\/) const$/;"	f	struct:firstlistModule	file:
+s_rule0_ctor0	./tests/concat.cpp	/^  size_t s_rule0_ctor0;$/;"	m	struct:firstlistModule	file:
+set	./fingerprint.hpp	/^    void set(size_t id, ChoiceDirection x)$/;"	f	struct:sprite::Fingerprint
+setprogram	./operators.hpp	/^      setprogram(Program const & pgm) : m_pgm(pgm) {}$/;"	f	struct:sprite::manipulators::setprogram
+setprogram	./operators.hpp	/^    struct setprogram$/;"	s	namespace:sprite::manipulators
+size	./fingerprint.hpp	/^    size_t size() const$/;"	f	struct:sprite::Fingerprint
+size	./payloads.hpp	/^      size_t size() const { return m_size; }$/;"	f	struct:sprite::payloads::ChildList
+skip_fwd_ref	./node.hpp	/^  inline bool skip_fwd_ref(NodePtr & ptr, Node & ref)$/;"	f	namespace:sprite
+skip_fwd_ref	./pointer.hpp	/^  bool skip_fwd_ref(NodePtr & ptr, Node & ref);$/;"	p	namespace:sprite
+sprite	./builtins.cpp	/^namespace sprite$/;"	n	file:
+sprite	./builtins.hpp	/^namespace sprite$/;"	n
+sprite	./common.hpp	/^namespace sprite$/;"	n
+sprite	./create.hpp	/^namespace sprite$/;"	n
+sprite	./detail/node_impl.hpp	/^namespace sprite$/;"	n
+sprite	./exec.cpp	/^namespace sprite$/;"	n	file:
+sprite	./exec.hpp	/^namespace sprite$/;"	n
+sprite	./fingerprint.hpp	/^namespace sprite$/;"	n
+sprite	./node.hpp	/^namespace sprite$/;"	n
+sprite	./operators.hpp	/^namespace sprite$/;"	n
+sprite	./payloads.hpp	/^namespace sprite$/;"	n
+sprite	./pointer.hpp	/^namespace sprite$/;"	n
+sprite	./program.cpp	/^namespace sprite$/;"	n	file:
+sprite	./program.hpp	/^namespace sprite$/;"	n
+sprite	./rewrite.hpp	/^namespace sprite$/;"	n
+sprite	./system.hpp	/^namespace sprite$/;"	n
+sprite	./tests/concat.cpp	/^namespace sprite { namespace user { namespace m_9firstlist$/;"	n	file:
+sprite	./user_module.hpp	/^namespace sprite$/;"	n
+sprite	./visit.hpp	/^namespace sprite$/;"	n
+storage_type	./exec.cpp	/^      typedef std::deque<PoolItem *> storage_type;$/;"	t	struct:sprite::<anonymous>::ComputationPool	file:
+storage_type	./fingerprint.hpp	/^    typedef boost::dynamic_bitset<> storage_type;$/;"	t	struct:sprite::Fingerprint
+tag	./node.hpp	/^    TagValue tag() const { return this->m_tag; }$/;"	f	struct:sprite::Node
+test_main	./tests/concat.cpp	/^int test_main(int, char**)$/;"	f
+test_main	./tests/int.cpp	/^int test_main(int, char**)$/;"	f
+test_main	./tests/io.cpp	/^int test_main(int, char**)$/;"	f
+tracef	./exec.cpp	/^  static void tracef(std::string const & tag, Node const & expr)$/;"	f	namespace:sprite	file:
+type	./common.hpp	/^      typedef TagValue<C> type;$/;"	t	struct:sprite::meta::TagValue
+type	./common.hpp	/^    template<> struct ValueType<FLOAT> { typedef double type; };$/;"	t	struct:sprite::meta::ValueType
+type	./common.hpp	/^    template<> struct ValueType<INT> { typedef boost::int_t<64>::exact type; };$/;"	t	struct:sprite::meta::ValueType
+uint32	./common.hpp	/^  typedef boost::uint_t<32>::exact uint32;$/;"	t	namespace:sprite
+unused	./payloads.hpp	/^      struct Unused { char unused[Bytes]; };$/;"	m	struct:sprite::payloads::Unused
+user	./tests/concat.cpp	/^namespace sprite { namespace user { namespace m_9firstlist$/;"	n	namespace:sprite	file:
+value	./common.hpp	/^      static sprite::TagValue const value = C;$/;"	m	class:sprite::meta::TagValue::sprite
+value	./payloads.hpp	/^      value_type value;$/;"	m	struct:sprite::payloads::Float
+value	./payloads.hpp	/^      value_type value;$/;"	m	struct:sprite::payloads::Int
+value_type	./common.hpp	/^      typedef sprite::TagValue value_type;$/;"	t	struct:sprite::meta::TagValue
+value_type	./operators.hpp	/^    BOOST_MPL_HAS_XXX_TRAIT_DEF(value_type);$/;"	v
+value_type	./payloads.hpp	/^      typedef meta::ValueType<FLOAT>::type value_type;$/;"	t	struct:sprite::payloads::Float
+value_type	./payloads.hpp	/^      typedef meta::ValueType<INT>::type value_type;$/;"	t	struct:sprite::payloads::Int
+visit	./visit.hpp	/^  visit(Visitor const & visitor, Node & lhs, Node & rhs)$/;"	f	namespace:sprite
+visit	./visit.hpp	/^  visit(Visitor const & visitor, Node & node)$/;"	f	namespace:sprite
+visit	./visit.hpp	/^  visit(Visitor const & visitor, Node const & lhs, Node const & rhs)$/;"	f	namespace:sprite
+visit	./visit.hpp	/^  visit(Visitor const & visitor, Node const & node)$/;"	f	namespace:sprite
+visitors	./detail/node_impl.hpp	/^  namespace visitors$/;"	n	namespace:sprite
+visitors	./node.hpp	/^  namespace visitors { struct Clone; }$/;"	n	namespace:sprite
+visitors	./operators.hpp	/^  namespace visitors$/;"	n	namespace:sprite
+what	./common.hpp	/^    virtual char const * what() const throw() { return m_msg.c_str(); }$/;"	f	struct:sprite::RuntimeError
+yield	./exec.hpp	/^    virtual void yield(Node const & result) const = 0;$/;"	p	struct:sprite::YieldHandler
+yield	./exec.hpp	/^    virtual void yield(Node const & result) const$/;"	f	struct:sprite::YieldHandler_
+yield	./exec.hpp	/^    virtual void yield(Node const &) const {}$/;"	f	struct:sprite::YieldHandler_
+~ChildList	./payloads.hpp	/^      ~ChildList() { delete[] m_args; }$/;"	f	struct:sprite::payloads::ChildList
+~ComputationPool	./exec.cpp	/^      ~ComputationPool()$/;"	f	struct:sprite::<anonymous>::ComputationPool
+~Loader	./system.hpp	/^    virtual ~Loader() {}$/;"	f	struct:sprite::Loader
+~Module	./system.hpp	/^    virtual ~Module() {}$/;"	f	struct:sprite::Module
+~Module	./tests/concat.cpp	/^    virtual ~Module() {}$/;"	f	struct:sprite::user::m_9firstlist::Module
+~Node	./node.hpp	/^    ~Node() { this->destroy_payload(); }$/;"	f	struct:sprite::Node
+~Program	./program.hpp	/^    virtual ~Program() {}$/;"	f	struct:sprite::Program
+~RuntimeError	./common.hpp	/^    virtual ~RuntimeError() throw() {}$/;"	f	struct:sprite::RuntimeError
+~UserModule	./user_module.hpp	/^    virtual ~UserModule() {}$/;"	f	struct:sprite::UserModule
+~YieldHandler	./exec.hpp	/^    virtual ~YieldHandler() {}$/;"	f	struct:sprite::YieldHandler
+~YieldHandler_	./exec.hpp	/^    virtual ~YieldHandler_() {}$/;"	f	struct:sprite::YieldHandler_
+~firstlistModule	./tests/concat.cpp	/^  virtual ~firstlistModule() {}$/;"	f	struct:firstlistModule

@@ -58,30 +58,33 @@ struct {\bf sprite::meta::Value\-Type$<$ FLOAT $>$}
 \subsection*{Typedefs}
 \begin{CompactItemize}
 \item 
-typedef boost::uint\_\-t$<$ 32 $>$::exact {\bf uint32}\label{namespacesprite_a13}
+typedef boost::uint\_\-t$<$ 32 $>$::exact {\bf uint32}\label{namespacesprite_a11}
 
 \end{CompactItemize}
 \subsection*{Enumerations}
 \begin{CompactItemize}
 \item 
 enum {\bf Tag\-Value} \{ \par
-{\bf FAIL}, 
-{\bf CTOR}, 
+{\bf FAIL} = 0, 
 {\bf OPER}, 
 {\bf CHOICE}, 
-\par
 {\bf FWD}, 
+\par
 {\bf INT}, 
-{\bf FLOAT}
+{\bf FLOAT}, 
+{\bf CTOR}
  \}
-\begin{CompactList}\small\item\em Identifies the type of a node. \item\end{CompactList}\end{CompactItemize}
+\begin{CompactList}\small\item\em Identifies the type of a node. CTOR must be last! \item\end{CompactList}\end{CompactItemize}
 \subsection*{Functions}
 \begin{CompactItemize}
 \item 
-bool {\bf is\_\-ctor} ({\bf Tag\-Value} x)\label{namespacesprite_a47}
+{\bf Tag\-Value} {\bf make\_\-ctor\_\-tag} (int i)\label{namespacesprite_a45}
 
-\begin{CompactList}\small\item\em Indicates whether a tag represents a constructor. \item\end{CompactList}\item 
-bool {\bf is\_\-builtin} ({\bf Tag\-Value} x)\label{namespacesprite_a48}
+\begin{CompactList}\small\item\em Generates a constructor tag. \item\end{CompactList}\item 
+bool {\bf is\_\-ctor} ({\bf Tag\-Value} x)\label{namespacesprite_a46}
+
+\begin{CompactList}\small\item\em Indicates whether a tag represents a constructor (built-in or not). \item\end{CompactList}\item 
+bool {\bf is\_\-builtin} ({\bf Tag\-Value} x)\label{namespacesprite_a47}
 
 \begin{CompactList}\small\item\em Indicates whether a tag represents a built-in type. \item\end{CompactList}\end{CompactItemize}
 
@@ -92,3 +95,17 @@ Common includes and definitions.
 
 
 Definition in file {\bf common.hpp}.
+
+\subsection{Enumeration Type Documentation}
+\index{common.hpp@{common.hpp}!TagValue@{TagValue}}
+\index{TagValue@{TagValue}!common.hpp@{common.hpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}enum {\bf Tag\-Value}}\label{namespacesprite_file_a72}
+
+
+Identifies the type of a node. CTOR must be last! 
+
+The constructors for any type are assigned the sequential tags CTOR, CTOR+1, CTOR+2,... Said another way, this type is abused in that any value $>$= CTOR can be a valid Tag\-Value. 
+
+Definition at line 66 of file common.hpp.
+
+Referenced by sprite::make\_\-ctor\_\-tag(), and sprite::Node::tag().

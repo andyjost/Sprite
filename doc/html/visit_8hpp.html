@@ -60,21 +60,21 @@ This graph shows which files directly or indirectly include this file:<p><center
 
 <tr><td colspan="2"><br><h2>Functions</h2></td></tr>
 <tr><td class="memTemplParams" nowrap colspan="2">template&lt;typename Visitor&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">Visitor::result_type&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a68">visit</a> (Visitor const &amp;visitor, Node const &amp;node)</td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">Visitor::result_type&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a67">visit</a> (Visitor const &amp;visitor, Node const &amp;node)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Unary visitation; calls visitor((Type)(node)).  <a href="#a68"></a><br></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="a69" doxytag="visit.hpp::visit"></a>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Unary visitation; calls visitor((Type)(node)).  <a href="#a67"></a><br></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="a68" doxytag="visit.hpp::visit"></a>
 template&lt;typename Visitor&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">Visitor::result_type&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a69">visit</a> (Visitor const &amp;visitor, Node &amp;node)</td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">Visitor::result_type&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a68">visit</a> (Visitor const &amp;visitor, Node &amp;node)</td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Non-const form of visitation. <br></td></tr>
 <tr><td class="memTemplParams" nowrap colspan="2">template&lt;typename Visitor&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">Visitor::result_type&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a70">visit</a> (Visitor const &amp;visitor, Node const &amp;lhs, Node const &amp;rhs)</td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">Visitor::result_type&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a69">visit</a> (Visitor const &amp;visitor, Node const &amp;lhs, Node const &amp;rhs)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Binary visitation; calls visitor((TypeLhs)(lhs), (TypeRhs)(rhs)).  <a href="#a70"></a><br></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="a71" doxytag="visit.hpp::visit"></a>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Binary visitation; calls visitor((TypeLhs)(lhs), (TypeRhs)(rhs)).  <a href="#a69"></a><br></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="a70" doxytag="visit.hpp::visit"></a>
 template&lt;typename Visitor&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">Visitor::result_type&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a71">visit</a> (Visitor const &amp;visitor, Node &amp;lhs, Node &amp;rhs)</td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">Visitor::result_type&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a70">visit</a> (Visitor const &amp;visitor, Node &amp;lhs, Node &amp;rhs)</td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Non-const form of binary visitation. <br></td></tr>
 </table>
@@ -84,7 +84,7 @@ Implements visitation for nodes.
 
 <p>
 Definition in file <a class="el" href="visit_8hpp-source.html">visit.hpp</a>.<hr><h2>Function Documentation</h2>
-<a class="anchor" name="file_a70" doxytag="visit.hpp::visit"></a><p>
+<a class="anchor" name="file_a69" doxytag="visit.hpp::visit"></a><p>
 <table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
   <tr>
     <td class="mdRow">
@@ -133,10 +133,10 @@ Binary visitation; calls visitor((TypeLhs)(lhs), (TypeRhs)(rhs)).
 Determines the type of each node, then calls the visitor with both nodes cast to those types.<p>
 Rather than support all four possible overloads related to the const qualifier on <a class="el" href="structsprite_1_1Node.html">Node</a> arguments, just support the cases where both are qualified or neither one is. 
 <p>
-Definition at line <a class="el" href="visit_8hpp-source.html#l00143">143</a> of file <a class="el" href="visit_8hpp-source.html">visit.hpp</a>.    </td>
+Definition at line <a class="el" href="visit_8hpp-source.html#l00142">142</a> of file <a class="el" href="visit_8hpp-source.html">visit.hpp</a>.    </td>
   </tr>
 </table>
-<a class="anchor" name="file_a68" doxytag="visit.hpp::visit"></a><p>
+<a class="anchor" name="file_a67" doxytag="visit.hpp::visit"></a><p>
 <table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
   <tr>
     <td class="mdRow">
@@ -180,19 +180,19 @@ Determines the type of the node, based on its tag and arity, then calls the visi
 <p>
 Definition at line <a class="el" href="visit_8hpp-source.html#l00018">18</a> of file <a class="el" href="visit_8hpp-source.html">visit.hpp</a>.
 <p>
-References <a class="el" href="node_8hpp-source.html#l00088">sprite::Node::arity()</a>, and <a class="el" href="node_8hpp-source.html#l00082">sprite::Node::tag()</a>.
+References <a class="el" href="node_8hpp-source.html#l00092">sprite::Node::arity()</a>, and <a class="el" href="node_8hpp-source.html#l00086">sprite::Node::tag()</a>.
 <p>
 Referenced by <a class="el" href="node__impl_8hpp-source.html#l00219">sprite::Node::clone()</a>, <a class="el" href="node__impl_8hpp-source.html#l00084">sprite::Node::iter()</a>, <a class="el" href="node__impl_8hpp-source.html#l00144">sprite::Node::operator[]()</a>, and <a class="el" href="node__impl_8hpp-source.html#l00193">sprite::Node::position()</a>.    </td>
   </tr>
 </table>
 
 <p>
-Here is the call graph for this function:<p><center><img src="namespacesprite_a68_cgraph.png" border="0" usemap="#namespacesprite_a68_cgraph_map" alt=""></center>
-<map name="namespacesprite_a68_cgraph_map">
+Here is the call graph for this function:<p><center><img src="namespacesprite_a67_cgraph.png" border="0" usemap="#namespacesprite_a67_cgraph_map" alt=""></center>
+<map name="namespacesprite_a67_cgraph_map">
 <area href="structsprite_1_1Node.html#a3" shape="rect" coords="142,7,267,34" alt="">
 <area href="structsprite_1_1Node.html#a1" shape="rect" coords="145,58,265,85" alt="">
 </map>
-<hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:43 2012 for sprite by&nbsp;
+<hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:34 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

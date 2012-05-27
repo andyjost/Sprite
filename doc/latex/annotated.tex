@@ -1,7 +1,7 @@
 \section{sprite Class List}
 Here are the classes, structs, unions and interfaces with brief descriptions:\begin{CompactList}
 \item\contentsline{section}{{\bf sprite::visitors::At} (Implements Node::operator[] )}{\pageref{structsprite_1_1visitors_1_1At}}{}
-\item\contentsline{section}{{\bf sprite::payloads::Child\-List} (A payload containing an arbitrary-length list of children )}{\pageref{structsprite_1_1payloads_1_1ChildList}}{}
+\item\contentsline{section}{{\bf sprite::payloads::Child\-List} (A payload containing a dynamically-sized list of children )}{\pageref{structsprite_1_1payloads_1_1ChildList}}{}
 \item\contentsline{section}{{\bf sprite::payloads::Choice} (A payload containing exactly two children for choice nodes )}{\pageref{structsprite_1_1payloads_1_1Choice}}{}
 \item\contentsline{section}{{\bf sprite::visitors::Clone} (Implements {\bf Node::clone}{\rm (p.\,\pageref{structsprite_1_1Node_a4})} )}{\pageref{structsprite_1_1visitors_1_1Clone}}{}
 \item\contentsline{section}{{\bf sprite::visitors::Destroy\-Payload} (Implements Node::destroy\_\-payload )}{\pageref{structsprite_1_1visitors_1_1DestroyPayload}}{}
@@ -13,7 +13,6 @@ Here are the classes, structs, unions and interfaces with brief descriptions:\be
 \item\contentsline{section}{{\bf sprite::payloads::In\-Place$<$ 2 $>$} (Two children, in place )}{\pageref{structsprite_1_1payloads_1_1InPlace_3_012_01_4}}{}
 \item\contentsline{section}{{\bf sprite::payloads::Int} (An integer payload (64 bit) for the built in {\bf Int}{\rm (p.\,\pageref{structsprite_1_1payloads_1_1Int})} type )}{\pageref{structsprite_1_1payloads_1_1Int}}{}
 \item\contentsline{section}{{\bf sprite::visitors::Iter} (Implements {\bf Node::iter}{\rm (p.\,\pageref{structsprite_1_1Node_a7})} )}{\pageref{structsprite_1_1visitors_1_1Iter}}{}
-\item\contentsline{section}{{\bf List\-Module} (The built-in list module )}{\pageref{structListModule}}{}
 \item\contentsline{section}{{\bf sprite::Loader} (Interface to the module loader )}{\pageref{structsprite_1_1Loader}}{}
 \item\contentsline{section}{{\bf sprite::Module} (Interface to a module )}{\pageref{structsprite_1_1Module}}{}
 \item\contentsline{section}{{\bf sprite::Node} (An expression node )}{\pageref{structsprite_1_1Node}}{}
@@ -21,12 +20,13 @@ Here are the classes, structs, unions and interfaces with brief descriptions:\be
 \item\contentsline{section}{{\bf sprite::Node\-Ptr} (A reference-counting pointer for {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} objects )}{\pageref{structsprite_1_1NodePtr}}{}
 \item\contentsline{section}{{\bf sprite::visitors::Position} (Implements {\bf Node::position}{\rm (p.\,\pageref{structsprite_1_1Node_a11})} )}{\pageref{structsprite_1_1visitors_1_1Position}}{}
 \item\contentsline{section}{{\bf sprite::Program} (A program definition )}{\pageref{structsprite_1_1Program}}{}
-\item\contentsline{section}{{\bf sprite::rewrite$<$ Ctor\-Or\-Oper $>$} (Rewrite a node to a CTOR or OPER node )}{\pageref{structsprite_1_1rewrite}}{}
-\item\contentsline{section}{{\bf sprite::rewrite$<$ CHOICE $>$} (Rewrite a node to a CHOICE )}{\pageref{structsprite_1_1rewrite_3_01CHOICE_01_4}}{}
-\item\contentsline{section}{{\bf sprite::rewrite$<$ FAIL $>$} (Rewrite a node to a FAIL )}{\pageref{structsprite_1_1rewrite_3_01FAIL_01_4}}{}
-\item\contentsline{section}{{\bf sprite::rewrite$<$ FLOAT $>$} (Rewrite a node to a FLOAT )}{\pageref{structsprite_1_1rewrite_3_01FLOAT_01_4}}{}
-\item\contentsline{section}{{\bf sprite::rewrite$<$ FWD $>$} (Rewrite a node to a FWD )}{\pageref{structsprite_1_1rewrite_3_01FWD_01_4}}{}
-\item\contentsline{section}{{\bf sprite::rewrite$<$ INT $>$} (Rewrite a node to an INT )}{\pageref{structsprite_1_1rewrite_3_01INT_01_4}}{}
+\item\contentsline{section}{{\bf sprite::rewrite$<$ CHOICE $>$} (Rewrites a node to CHOICE )}{\pageref{structsprite_1_1rewrite_3_01CHOICE_01_4}}{}
+\item\contentsline{section}{{\bf sprite::rewrite$<$ CTOR $>$} (Rewrites a node to a CTOR node )}{\pageref{structsprite_1_1rewrite_3_01CTOR_01_4}}{}
+\item\contentsline{section}{{\bf sprite::rewrite$<$ FAIL $>$} (Rewrites a node to FAIL )}{\pageref{structsprite_1_1rewrite_3_01FAIL_01_4}}{}
+\item\contentsline{section}{{\bf sprite::rewrite$<$ FLOAT $>$} (Rewrites a node to FLOAT )}{\pageref{structsprite_1_1rewrite_3_01FLOAT_01_4}}{}
+\item\contentsline{section}{{\bf sprite::rewrite$<$ FWD $>$} (Rewrites a node to FWD )}{\pageref{structsprite_1_1rewrite_3_01FWD_01_4}}{}
+\item\contentsline{section}{{\bf sprite::rewrite$<$ INT $>$} (Rewrites a node to INT )}{\pageref{structsprite_1_1rewrite_3_01INT_01_4}}{}
+\item\contentsline{section}{{\bf sprite::rewrite$<$ OPER $>$} (Rewrites a node to an OPER node )}{\pageref{structsprite_1_1rewrite_3_01OPER_01_4}}{}
 \item\contentsline{section}{{\bf sprite::Runtime\-Error} (Thrown to indicate a runtime error in the execution system )}{\pageref{structsprite_1_1RuntimeError}}{}
 \item\contentsline{section}{{\bf sprite::manipulators::setprogram} (I/O manipulator to set the program )}{\pageref{structsprite_1_1manipulators_1_1setprogram}}{}
 \item\contentsline{section}{{\bf sprite::visitors::Stream\-Out$<$ Stream $>$} (Implements operator$<$$<$ for nodes )}{\pageref{structsprite_1_1visitors_1_1StreamOut}}{}

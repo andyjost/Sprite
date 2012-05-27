@@ -41,15 +41,51 @@ namespace sprite
     };
     BOOST_STATIC_ASSERT(sizeof(InPlace<2>) == PAYLOAD_BYTES);
 
-    /// A payload containing an arbitrary-length list of children.
+    /**
+     * @brief A payload containing a dynamically-sized list of children.
+     *
+     * @note Storing an extra copy of the arity here simplfies copy and
+     * assignment.
+     */
     struct ChildList : Unused<PAYLOAD_BYTES - sizeof(size_t) - sizeof(NodePtr*)>
     {
-      // TODO copy, construct
-      size_t n;
-      NodePtr * children;
-      ChildList(size_t n_) : n(n_), children(new NodePtr[n])
-        { assert(n>2); }
-      ~ChildList() { delete[] children; }
+      ChildList(NodePtr * args, size_t size)
+        : m_size(size), m_args(new NodePtr[m_size])
+      {
+        assert(m_size>2);
+      }
+
+      ChildList(ChildList const & arg)
+        : m_size(arg.m_size), m_args(new NodePtr[arg.m_size])
+      {
+        std::copy(&arg.m_args[0], &arg.m_args[m_size], &this->m_args[0]);
+      }
+
+      ChildList & operator=(ChildList const & arg)
+      {
+        size_t const size = m_size;
+        NodePtr * const args = m_args;
+
+        try
+          { new(this) ChildList(arg); }
+        catch(...)
+        {
+          this->m_size = size;
+          this->m_args = args;
+          throw;
+        }
+
+        delete[] args;
+        return *this;
+      }
+      ~ChildList() { delete[] m_args; }
+
+      size_t size() const { return m_size; }
+      NodePtr * args() const { return m_args; }
+
+    private:
+      size_t m_size;
+      NodePtr * m_args;
     };
     BOOST_STATIC_ASSERT(sizeof(ChildList) == PAYLOAD_BYTES);
 

@@ -42,16 +42,6 @@ struct {\bf sprite::Node\_\-$<$ Payload $>$}
 \begin{CompactList}\small\item\em A complete node. The payload contains tag-specific data. \item\end{CompactList}\item 
 struct {\bf sprite::meta::Node\-Of$<$ FAIL,-1 $>$}
 \item 
-struct {\bf sprite::meta::Node\-Of$<$ CTOR,-1 $>$}
-\item 
-struct {\bf sprite::meta::Node\-Of$<$ CTOR, 0 $>$}
-\item 
-struct {\bf sprite::meta::Node\-Of$<$ CTOR, 1 $>$}
-\item 
-struct {\bf sprite::meta::Node\-Of$<$ CTOR, 2 $>$}
-\item 
-struct {\bf sprite::meta::Node\-Of$<$ CTOR, N $>$}
-\item 
 struct {\bf sprite::meta::Node\-Of$<$ OPER,-1 $>$}
 \item 
 struct {\bf sprite::meta::Node\-Of$<$ OPER, 0 $>$}
@@ -69,76 +59,86 @@ struct {\bf sprite::meta::Node\-Of$<$ FWD,-1 $>$}
 struct {\bf sprite::meta::Node\-Of$<$ INT,-1 $>$}
 \item 
 struct {\bf sprite::meta::Node\-Of$<$ FLOAT,-1 $>$}
+\item 
+struct {\bf sprite::meta::Node\-Of$<$ CTOR,-1 $>$}
+\item 
+struct {\bf sprite::meta::Node\-Of$<$ CTOR, 0 $>$}
+\item 
+struct {\bf sprite::meta::Node\-Of$<$ CTOR, 1 $>$}
+\item 
+struct {\bf sprite::meta::Node\-Of$<$ CTOR, 2 $>$}
+\item 
+struct {\bf sprite::meta::Node\-Of$<$ CTOR, N $>$}
 \end{CompactItemize}
 \subsection*{Defines}
 \begin{CompactItemize}
 \item 
 \#define {\bf SPRITE\_\-INPLACE\_\-BOUND}\ 3
 \item 
-\#define {\bf SPRITE\_\-REWRITE\_\-ARG\_\-BOUND}\ 4
+\#define {\bf SPRITE\_\-REWRITE\_\-ARG\_\-BOUND}\ 5
 \item 
 \#define {\bf F}(z, n, \_\-)
 \begin{CompactList}\small\item\em Create a new complete node. \item\end{CompactList}\end{CompactItemize}
 \subsection*{Typedefs}
 \begin{CompactItemize}
 \item 
-typedef Node\_\-$<$ payloads::Unused$<$$>$ $>$ {\bf Abstract\-Node}\label{namespacesprite_a28}
+typedef Node\_\-$<$ payloads::Unused$<$$>$ $>$ {\bf Abstract\-Node}\label{namespacesprite_a26}
 
 \begin{CompactList}\small\item\em A complete node where the payload is unknown. \item\end{CompactList}\item 
-typedef Node\_\-$<$ payloads::In\-Place$<$ 0 $>$ $>$ {\bf In\-Place\-Node0}\label{namespacesprite_a29}
+typedef Node\_\-$<$ payloads::In\-Place$<$ 0 $>$ $>$ {\bf In\-Place\-Node0}\label{namespacesprite_a27}
 
 \begin{CompactList}\small\item\em A complete node with exactly zero children. \item\end{CompactList}\item 
-typedef Node\_\-$<$ payloads::In\-Place$<$ 1 $>$ $>$ {\bf In\-Place\-Node1}\label{namespacesprite_a30}
+typedef Node\_\-$<$ payloads::In\-Place$<$ 1 $>$ $>$ {\bf In\-Place\-Node1}\label{namespacesprite_a28}
 
 \begin{CompactList}\small\item\em A complete node with exactly one child. \item\end{CompactList}\item 
-typedef Node\_\-$<$ payloads::In\-Place$<$ 2 $>$ $>$ {\bf In\-Place\-Node2}\label{namespacesprite_a31}
+typedef Node\_\-$<$ payloads::In\-Place$<$ 2 $>$ $>$ {\bf In\-Place\-Node2}\label{namespacesprite_a29}
 
 \begin{CompactList}\small\item\em A complete node with exactly two children. \item\end{CompactList}\item 
-typedef Node\_\-$<$ payloads::Child\-List $>$ {\bf Child\-List\-Node}\label{namespacesprite_a32}
+typedef Node\_\-$<$ payloads::Child\-List $>$ {\bf Child\-List\-Node}\label{namespacesprite_a30}
 
 \begin{CompactList}\small\item\em A complete node with more than two children. \item\end{CompactList}\item 
-typedef Node\_\-$<$ payloads::Choice $>$ {\bf Choice\-Node}\label{namespacesprite_a33}
+typedef Node\_\-$<$ payloads::Choice $>$ {\bf Choice\-Node}\label{namespacesprite_a31}
 
 \begin{CompactList}\small\item\em A complete node representing a choice. \item\end{CompactList}\item 
 typedef Node\_\-$<$ payloads::Fwd $>$ {\bf Fwd\-Node}
 \begin{CompactList}\small\item\em A complete node representing a forward reference. \item\end{CompactList}\item 
-typedef Node\_\-$<$ payloads::Int $>$ {\bf Int\-Node}\label{namespacesprite_a35}
+typedef Node\_\-$<$ payloads::Int $>$ {\bf Int\-Node}\label{namespacesprite_a33}
 
 \begin{CompactList}\small\item\em A complete node representing an integer. \item\end{CompactList}\item 
-typedef Node\_\-$<$ payloads::Float $>$ {\bf Float\-Node}\label{namespacesprite_a36}
+typedef Node\_\-$<$ payloads::Float $>$ {\bf Float\-Node}\label{namespacesprite_a34}
 
 \begin{CompactList}\small\item\em A complete node representing a floating-point value. \item\end{CompactList}\end{CompactItemize}
 \subsection*{Functions}
 \begin{CompactItemize}
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Abstract\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a58}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Abstract\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a57}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node0})=={\bf NODE\_\-BYTES})\label{namespacesprite_a59}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node0})=={\bf NODE\_\-BYTES})\label{namespacesprite_a58}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node1})=={\bf NODE\_\-BYTES})\label{namespacesprite_a60}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node1})=={\bf NODE\_\-BYTES})\label{namespacesprite_a59}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node2})=={\bf NODE\_\-BYTES})\label{namespacesprite_a61}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node2})=={\bf NODE\_\-BYTES})\label{namespacesprite_a60}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Child\-List\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a62}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Child\-List\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a61}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Choice\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a63}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Choice\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a62}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Fwd\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a64}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Fwd\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a63}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Int\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a65}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Int\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a64}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Float\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a66}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Float\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a65}
 
 \item 
-bool {\bf skip\_\-fwd\_\-ref} (Node\-Ptr \&ptr, Node \&ref)\label{namespacesprite_a67}
+bool {\bf skip\_\-fwd\_\-ref} (Node\-Ptr \&ptr, Node \&ref)\label{namespacesprite_a66}
 
 \begin{CompactList}\small\item\em Tells {\bf Node\-Ptr}{\rm (p.\,\pageref{structsprite_1_1NodePtr})} how to skip FWD nodes. \item\end{CompactList}\end{CompactItemize}
 \subsection*{Variables}
@@ -170,7 +170,7 @@ Create a new complete node.
 
 
 
-Definition at line 100 of file node.hpp.\index{node.hpp@{node.hpp}!SPRITE_INPLACE_BOUND@{SPRITE\_\-INPLACE\_\-BOUND}}
+Definition at line 104 of file node.hpp.\index{node.hpp@{node.hpp}!SPRITE_INPLACE_BOUND@{SPRITE\_\-INPLACE\_\-BOUND}}
 \index{SPRITE_INPLACE_BOUND@{SPRITE\_\-INPLACE\_\-BOUND}!node.hpp@{node.hpp}}
 \subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define SPRITE\_\-INPLACE\_\-BOUND\ 3}\label{node_8hpp_a0}
 
@@ -179,7 +179,7 @@ The upper bound on the number of children that can be stored in-place in a node.
 
 Definition at line 17 of file node.hpp.\index{node.hpp@{node.hpp}!SPRITE_REWRITE_ARG_BOUND@{SPRITE\_\-REWRITE\_\-ARG\_\-BOUND}}
 \index{SPRITE_REWRITE_ARG_BOUND@{SPRITE\_\-REWRITE\_\-ARG\_\-BOUND}!node.hpp@{node.hpp}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define SPRITE\_\-REWRITE\_\-ARG\_\-BOUND\ 4}\label{node_8hpp_a1}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define SPRITE\_\-REWRITE\_\-ARG\_\-BOUND\ 5}\label{node_8hpp_a1}
 
 
 Upper bound on the maximum number of additional parameters to the rewrite function (i.e., not counting the node). Not a tight bound, so one less than this number of arguments will be supported. 
@@ -189,23 +189,23 @@ Definition at line 24 of file node.hpp.
 \subsection{Typedef Documentation}
 \index{node.hpp@{node.hpp}!FwdNode@{FwdNode}}
 \index{FwdNode@{FwdNode}!node.hpp@{node.hpp}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}typedef Node\_\-$<$payloads::Fwd$>$ {\bf sprite::Fwd\-Node}}\label{namespacesprite_file_a34}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}typedef Node\_\-$<$payloads::Fwd$>$ {\bf sprite::Fwd\-Node}}\label{namespacesprite_file_a32}
 
 
 A complete node representing a forward reference. 
 
 This is simply a node that refers to another, which sometimes comes up during rewriting. 
 
-Definition at line 252 of file node.hpp.
+Definition at line 262 of file node.hpp.
 
 \subsection{Variable Documentation}
 \index{node.hpp@{node.hpp}!NODE_BYTES@{NODE\_\-BYTES}}
 \index{NODE_BYTES@{NODE\_\-BYTES}!node.hpp@{node.hpp}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}size\_\-t const {\bf sprite::NODE\_\-BYTES} = 32}\label{namespacesprite_file_a27}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}size\_\-t const {\bf sprite::NODE\_\-BYTES} = 32}\label{namespacesprite_file_a25}
 
 
 The size of a complete node. 
 
 Constrining every complete node type to have the same size simplifies memory pooling and rewriting. 
 
-Definition at line 218 of file node.hpp.
+Definition at line 228 of file node.hpp.

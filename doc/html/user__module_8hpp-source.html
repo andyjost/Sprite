@@ -15,78 +15,117 @@
 00009 
 00010 <span class="keyword">namespace </span>sprite
 00011 {
-<a name="l00018"></a><a class="code" href="structsprite_1_1UserModule.html">00018</a>   <span class="keyword">struct </span><a class="code" href="structsprite_1_1UserModule.html">UserModule</a> : <a class="code" href="structsprite_1_1Module.html">Module</a>
-00019   {
-00020   <span class="keyword">protected</span>:
-00021     <a class="code" href="structsprite_1_1UserModule.html">UserModule</a>(<a class="code" href="structsprite_1_1Loader.html">Loader</a> &amp; loader) : m_loader(loader) {}
-00022     <span class="keyword">virtual</span> ~<a class="code" href="structsprite_1_1UserModule.html">UserModule</a>() {}
-00023   <span class="keyword">private</span>:
-00024   
-00030     <a class="code" href="structsprite_1_1Loader.html">Loader</a> &amp; m_loader;
-00031   
-00033     <span class="keyword">typedef</span> boost::bimap&lt;std::string, size_t&gt; map_type;
-00034   
-00036     map_type m_opers;
-00037   
-00039     map_type m_ctors;
-00040   
-00041   <span class="keyword">protected</span>:
+00012   <span class="comment">// typedef std::tr1::function&lt;void(Node &amp;, Node &amp;)&gt; DTree;</span>
+00013 
+<a name="l00020"></a><a class="code" href="structsprite_1_1UserModule.html">00020</a>   <span class="keyword">struct </span><a class="code" href="structsprite_1_1UserModule.html">UserModule</a> : <a class="code" href="structsprite_1_1Module.html">Module</a>
+00021   {
+00022   <span class="keyword">protected</span>:
+00023     <a class="code" href="structsprite_1_1UserModule.html">UserModule</a>(<a class="code" href="structsprite_1_1Program.html">Program</a> &amp; pgm) : m_pgm(pgm) {}
+00024     <span class="keyword">virtual</span> ~<a class="code" href="structsprite_1_1UserModule.html">UserModule</a>() {}
+00025   <span class="keyword">private</span>:
+00026   
+00032     <a class="code" href="structsprite_1_1Program.html">Program</a> &amp; m_pgm;
+00033   
+00035     <span class="keyword">typedef</span> boost::bimap&lt;std::string, size_t&gt; map_type;
+00036   
+00038     map_type m_opers;
+00039   
+00041     map_type m_ctors;
 00042   
-00044     <span class="keyword">template</span>&lt;<span class="keyword">typename</span> Derived&gt;
-<a name="l00045"></a><a class="code" href="structsprite_1_1UserModule.html#b2">00045</a>     size_t install_oper(
-00046         std::string <span class="keyword">const</span> &amp; label, <span class="keywordtype">void</span> (Derived::*memfun)(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp;) <span class="keyword">const</span>
-00047       )
-00048     {
-00049       <span class="keywordflow">return</span> this-&gt;install_oper(
-00050           label
-00051         , tr1::bind&lt;void&gt;(memfun, static_cast&lt;Derived const *&gt;(<span class="keyword">this</span>), _1)
-00052         );
-00053     }
-00054   
-<a name="l00056"></a><a class="code" href="structsprite_1_1UserModule.html#b3">00056</a>     size_t install_oper(std::string <span class="keyword">const</span> &amp; label, h_func_type h)
-00057     {
-00058       <span class="comment">// Register the operation with the program.</span>
-00059       size_t <span class="keyword">const</span> <span class="keywordtype">id</span> = m_loader.insert_oper(label, h);
-00060   
-00061       <span class="comment">// Install the label and ID in the symbol table for this module.</span>
-00062       boost::assign::insert(this-&gt;m_opers.left)(label,id);
-00063   
-00064       <span class="comment">// Return the ID.</span>
-00065       <span class="keywordflow">return</span> id;
-00066     }
+00043   <span class="keyword">protected</span>:
+00044 
+00045     <a class="code" href="structsprite_1_1Program.html">Program</a> &amp; get_program()<span class="keyword"> const </span>{ <span class="keywordflow">return</span> m_pgm; }
+00046   
+00048     <span class="keyword">template</span>&lt;<span class="keyword">typename</span> Derived&gt;
+<a name="l00049"></a><a class="code" href="structsprite_1_1UserModule.html#b3">00049</a>     size_t install_oper(
+00050         std::string <span class="keyword">const</span> &amp; label, <span class="keywordtype">void</span> (Derived::*memfun)(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp;) <span class="keyword">const</span>
+00051       )
+00052     {
+00053       <span class="keywordflow">return</span> this-&gt;install_oper(
+00054           label
+00055         , tr1::bind&lt;void&gt;(memfun, static_cast&lt;Derived *&gt;(<span class="keyword">this</span>), _1)
+00056         );
+00057     }
+00058 
+<a name="l00060"></a><a class="code" href="structsprite_1_1UserModule.html#b4">00060</a>     size_t install_oper(std::string <span class="keyword">const</span> &amp; label, h_func_type <span class="keyword">const</span> &amp; h)
+00061     {
+00062       <span class="comment">// Register the operation with the program.</span>
+00063       size_t <span class="keyword">const</span> <span class="keywordtype">id</span> = m_pgm.insert_oper(label, h);
+00064   
+00065       <span class="comment">// Install the label and ID in the symbol table for this module.</span>
+00066       boost::assign::insert(this-&gt;m_opers.left)(label,id);
 00067   
-<a name="l00069"></a><a class="code" href="structsprite_1_1UserModule.html#b4">00069</a>     size_t install_ctor(std::string <span class="keyword">const</span> &amp; label)
-00070     {
-00071       <span class="comment">// Register the constructor with the program.</span>
-00072       size_t <span class="keyword">const</span> <span class="keywordtype">id</span> = m_loader.insert_ctor(label);
-00073   
-00074       <span class="comment">// Install the label and ID in the symbol table for this module.</span>
-00075       boost::assign::insert(this-&gt;m_ctors.left)(label,id);
-00076   
-00077       <span class="comment">// Return the ID.</span>
-00078       <span class="keywordflow">return</span> id;
-00079     }
+00068       <span class="comment">// Return the ID.</span>
+00069       <span class="keywordflow">return</span> id;
+00070     }
+00071   
+<a name="l00073"></a><a class="code" href="structsprite_1_1UserModule.html#b5">00073</a>     size_t install_ctor(std::string <span class="keyword">const</span> &amp; label)
+00074     {
+00075       <span class="comment">// Register the constructor with the program.</span>
+00076       size_t <span class="keyword">const</span> <span class="keywordtype">id</span> = m_pgm.insert_ctor(label);
+00077   
+00078       <span class="comment">// Install the label and ID in the symbol table for this module.</span>
+00079       boost::assign::insert(this-&gt;m_ctors.left)(label,id);
 00080   
-00081   <span class="keyword">private</span>:
-00082     size_t _lookup(std::string <span class="keyword">const</span> &amp; label, map_type &amp; map)<span class="keyword"> const</span>
-00083 <span class="keyword">    </span>{
-00084       <span class="keyword">typedef</span> map_type::left_map::const_iterator iterator;
-00085       iterator <span class="keyword">const</span> p = map.left.find(label);
-00086       <span class="keywordflow">if</span>(p == map.left.end())
-00087         { <span class="keywordflow">throw</span> <a class="code" href="structsprite_1_1RuntimeError.html">RuntimeError</a>(<span class="stringliteral">"Failed constructor or operation lookup."</span>); }
-00088       <span class="keywordflow">return</span> p-&gt;second;
-00089     }
-00090   <span class="keyword">public</span>:
-00091   
-00092     <span class="comment">// ====== Module API ======</span>
-<a name="l00093"></a><a class="code" href="structsprite_1_1UserModule.html#a0">00093</a>     <span class="keyword">virtual</span> size_t find_ctor(std::string <span class="keyword">const</span> &amp; label)
-00094       { <span class="keywordflow">return</span> _lookup(label, this-&gt;m_ctors); }
+00081       <span class="comment">// Return the ID.</span>
+00082       <span class="keywordflow">return</span> id;
+00083     }
+00084   
+00085   <span class="keyword">private</span>:
+00086     size_t _lookup(std::string <span class="keyword">const</span> &amp; label, map_type <span class="keyword">const</span> &amp; map)<span class="keyword"> const</span>
+00087 <span class="keyword">    </span>{
+00088       <span class="keyword">typedef</span> map_type::left_map::const_iterator iterator;
+00089       iterator <span class="keyword">const</span> p = map.left.find(label);
+00090       <span class="keywordflow">if</span>(p == map.left.end())
+00091         { <span class="keywordflow">throw</span> <a class="code" href="structsprite_1_1RuntimeError.html">RuntimeError</a>(<span class="stringliteral">"Failed constructor or operation lookup."</span>); }
+00092       <span class="keywordflow">return</span> p-&gt;second;
+00093     }
+00094   <span class="keyword">public</span>:
 00095   
-<a name="l00096"></a><a class="code" href="structsprite_1_1UserModule.html#a1">00096</a>     <span class="keyword">virtual</span> size_t find_oper(std::string <span class="keyword">const</span> &amp; label)
-00097       { <span class="keywordflow">return</span> _lookup(label, this-&gt;m_opers); }
-00098   };
-00099 }
-</pre></div><hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:31 2012 for sprite by&nbsp;
+00096     <span class="comment">// ====== Module API ======</span>
+00097     <span class="keyword">virtual</span> size_t find_ctor(std::string <span class="keyword">const</span> &amp; label)<span class="keyword"> const</span>
+00098 <span class="keyword">      </span>{ <span class="keywordflow">return</span> _lookup(label, this-&gt;m_ctors); }
+00099   
+<a name="l00100"></a><a class="code" href="structsprite_1_1UserModule.html#a1">00100</a>     <span class="keyword">virtual</span> size_t find_oper(std::string <span class="keyword">const</span> &amp; label)<span class="keyword"> const</span>
+00101 <span class="keyword">      </span>{ <span class="keywordflow">return</span> _lookup(label, this-&gt;m_opers); }
+00102   };
+00103 }
+00104 
+<a name="l00106"></a><a class="code" href="user__module_8hpp.html#a0">00106</a> <span class="preprocessor">#define SPRITE_index_step(r,_,elem) [elem]</span>
+00107 <span class="preprocessor"></span>
+<a name="l00136"></a><a class="code" href="user__module_8hpp.html#a1">00136</a> <span class="preprocessor">#define SPRITE_SWITCH_BEGIN(root, parent, inductive, start, path)        \</span>
+00137 <span class="preprocessor">    parent = (start) BOOST_PP_SEQ_FOR_EACH(                              \</span>
+00138 <span class="preprocessor">        SPRITE_index_step,,BOOST_PP_SEQ_POP_BACK(path)                   \</span>
+00139 <span class="preprocessor">      );                                                                 \</span>
+00140 <span class="preprocessor">    inductive = &amp;parent [BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path))]; \</span>
+00141 <span class="preprocessor">    switch((*inductive)-&gt;tag())                                          \</span>
+00142 <span class="preprocessor">    {                                                                    \</span>
+00143 <span class="preprocessor">      case FAIL: return rewrite_fail(root);                              \</span>
+00144 <span class="preprocessor">      case CHOICE: return pull_tab(*parent, *inductive);                 \</span>
+00145 <span class="preprocessor">      case OPER: return head_normalize(**inductive);                     \</span>
+00146 <span class="preprocessor">    </span>
+00147 <span class="preprocessor"></span>
+<a name="l00149"></a><a class="code" href="user__module_8hpp.html#a2">00149</a> <span class="preprocessor">#define SPRITE_SWITCH_END                                                    \</span>
+00150 <span class="preprocessor">      default: throw RuntimeError("unhandled case in generated H function"); \</span>
+00151 <span class="preprocessor">    }                                                                        \</span>
+00152 <span class="preprocessor">    </span>
+00153 <span class="preprocessor"></span>  
+<a name="l00161"></a><a class="code" href="user__module_8hpp.html#a3">00161</a> <span class="preprocessor">#define SPRITE_VALUE_SWITCH_BEGIN(type, root, parent, inductive, start, path) \</span>
+00162 <span class="preprocessor">    SPRITE_SWITCH_BEGIN(root, parent, inductive, start, path)                 \</span>
+00163 <span class="preprocessor">    case type:                                                                \</span>
+00164 <span class="preprocessor">    {                                                                         \</span>
+00165 <span class="preprocessor">      switch((static_cast&lt;meta::NodeOf&lt;type,-1&gt;::type const &amp;&gt;                \</span>
+00166 <span class="preprocessor">          (*inductive)).value()                                               \</span>
+00167 <span class="preprocessor">        )                                                                     \</span>
+00168 <span class="preprocessor">      {                                                                       \</span>
+00169 <span class="preprocessor">    </span>
+00170 <span class="preprocessor"></span>      
+<a name="l00172"></a><a class="code" href="user__module_8hpp.html#a4">00172</a> <span class="preprocessor">#define SPRITE_VALUE_SWITCH_END                                              \</span>
+00173 <span class="preprocessor">      }                                                                      \</span>
+00174 <span class="preprocessor">    }                                                                        \</span>
+00175 <span class="preprocessor">    SPRITE_SWITCH_END                                                        \</span>
+00176 <span class="preprocessor">    </span>
+</pre></div><hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:26 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

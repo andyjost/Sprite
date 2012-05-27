@@ -12,104 +12,270 @@
 00009 <span class="preprocessor">#include "<a class="code" href="operators_8hpp.html">sprite/operators.hpp</a>"</span>
 00010 <span class="preprocessor">#include "<a class="code" href="user__module_8hpp.html">sprite/user_module.hpp</a>"</span>
 00011 
-<a name="l00015"></a><a class="code" href="structListModule.html">00015</a> <span class="keyword">struct </span><a class="code" href="structListModule.html">ListModule</a> : sprite::<a class="code" href="structsprite_1_1UserModule.html">UserModule</a>
-00016 {
-00017   <span class="comment">// Constructor and operation ids.</span>
-00018   size_t c_Cons;
-00019   size_t c_Nil;
-00020   size_t op_concat;
-00021 
-<a name="l00023"></a><a class="code" href="structListModule.html#a0">00023</a>   <a class="code" href="structListModule.html#a0">ListModule</a>(<a class="code" href="structsprite_1_1Loader.html">Loader</a> &amp; loader) : <a class="code" href="structsprite_1_1UserModule.html">UserModule</a>(loader)
-00024   {
-00025     c_Cons = <a class="code" href="structsprite_1_1UserModule.html#b4">install_ctor</a>(<span class="stringliteral">"Cons"</span>);
-00026     c_Nil = <a class="code" href="structsprite_1_1UserModule.html#b4">install_ctor</a>(<span class="stringliteral">"Nil"</span>);
-00027     op_concat = <a class="code" href="structsprite_1_1UserModule.html#b2">install_oper</a>(<span class="stringliteral">"concat"</span>, &amp;ListModule::h_concat);
-00028   }
-00029 
-00030   <span class="keyword">virtual</span> ~<a class="code" href="structListModule.html">ListModule</a>() {}
-00031   
-00032 <span class="keyword">private</span>:
-00033 
-00034   <span class="comment">// ====== H function(s) ======</span>
-00035   <span class="keywordtype">void</span> h_concat(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node)<span class="keyword"> const</span>
-00036 <span class="keyword">  </span>{
-00037     assert(node.<a class="code" href="structsprite_1_1Node.html#a3">arity</a>() == 2);
-00038     <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> child = node[0];
-00039     <span class="keywordflow">switch</span>(child-&gt;tag())
-00040     {
-00041       <span class="comment">// H.1</span>
-00042       <span class="keywordflow">case</span> CHOICE: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a55">pull_tab</a>(node, child);
-00043       <span class="comment">// H.5</span>
-00044       <span class="keywordflow">case</span> FAIL: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a40">rewrite_fail</a>(node);
-00045       <span class="comment">// H.2</span>
-00046       <span class="keywordflow">case</span> OPER: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a56">head_normalize</a>(*child);
-00047       <span class="comment">// H.3</span>
-00048       <span class="keywordflow">case</span> CTOR:
-00049       {
-00050         <span class="keywordflow">if</span>(child-&gt;id() == c_Nil)
-00051           <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a42">rewrite_fwd</a>(node, node[1]);
-00052         <span class="keywordflow">else</span>
-00053         {
-00054           assert(child-&gt;id() == c_Cons);
-00055           assert(child-&gt;arity() == 2);
-00056           <a class="code" href="namespacesprite.html#a38">rewrite_ctor</a>(
-00057               node, c_Cons, (*child)[0]
-00058             , Node::create&lt;OPER&gt;(op_concat, (*child)[1], node[1])
-00059             );
-00060           <span class="keywordflow">return</span>;
-00061         }
-00062       }
-00063       <span class="keywordflow">default</span>: <span class="keywordflow">throw</span> <a class="code" href="structsprite_1_1RuntimeError.html">RuntimeError</a>(<span class="stringliteral">"Type error in concat"</span>);
-00064     }
-00065   }
-00066 };
-00067 
-<a name="l00069"></a><a class="code" href="concat_8cpp.html#a0">00069</a> shared_ptr&lt;Module&gt; <a class="code" href="io_8cpp.html#a0">load_list</a>(<a class="code" href="structsprite_1_1Loader.html">sprite::Loader</a> &amp; loader)
-00070   { <span class="keywordflow">return</span> boost::make_shared&lt;ListModule&gt;(tr1::ref(loader)); }
-00071 
-00072 <span class="comment">// This is a sample program to demonstrate the use of concat.  The output is</span>
-00073 <span class="comment">// meant to be inspected visually.</span>
-00074 <span class="keywordtype">int</span> test_main(<span class="keywordtype">int</span>, <span class="keywordtype">char</span>**)
-00075 {
-00076   <span class="comment">// ====== DEFINE THE PROGRAM ======</span>
-00077 
-00078   <span class="comment">// Create a new program and make it the context for output.</span>
-00079   <a class="code" href="structsprite_1_1Program.html">Program</a> pgm;
-00080   std::cout &lt;&lt; <a class="code" href="structsprite_1_1manipulators_1_1setprogram.html">setprogram</a>(pgm);
-00081 
-00082   <span class="comment">// Import the list module and capture a reference to it.</span>
-00083   shared_ptr&lt;Module const&gt; <span class="keyword">const</span> _list = pgm.<a class="code" href="structsprite_1_1Program.html#a1">import</a>(<span class="stringliteral">"List"</span>);
-00084 
-00085   <span class="comment">// Downcast the list module (alternatively, the abstract Module interface</span>
-00086   <span class="comment">// could be used).</span>
-00087   shared_ptr&lt;ListModule const&gt; <span class="keyword">const</span> list(
-00088       dynamic_pointer_cast&lt;ListModule const&gt;(_list)
-00089     );
-00090 
-00091   <span class="comment">// DEBUG - print the linked program.</span>
-00092   std::cout &lt;&lt; pgm &lt;&lt; std::endl;
-00093 
-00094   <span class="comment">// ====== FORM THE GOAL ======</span>
-00095 
-00096   <span class="comment">// Construct this goal: concat [1] [2]</span>
-00097   <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> lhs = Node::create&lt;CTOR&gt;(
-00098       list-&gt;c_Cons, Node::create&lt;INT&gt;(1), Node::create&lt;CTOR&gt;(list-&gt;c_Nil)
-00099     );
-00100   <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> rhs = Node::create&lt;CTOR&gt;(
-00101       list-&gt;c_Cons, Node::create&lt;INT&gt;(2), Node::create&lt;CTOR&gt;(list-&gt;c_Nil)
-00102     );
-00103   <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> goal = Node::create&lt;OPER&gt;(list-&gt;op_concat, lhs, rhs);
-00104   std::cout &lt;&lt; *goal &lt;&lt; std::endl;
-00105 
-00106   <span class="comment">// ====== EXECUTE THE GOAL ======</span>
-00107 
-00108   <a class="code" href="namespacesprite.html#a53">execute</a>(pgm, *goal, TRACE);
-00109   std::cout &lt;&lt; *goal &lt;&lt; std::endl;
-00110 
-00111   <span class="keywordflow">return</span> 0;
-00112 }
-00113 
-</pre></div><hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:31 2012 for sprite by&nbsp;
+00012 <span class="preprocessor">#define USE_TEST</span>
+00013 <span class="preprocessor"></span>
+00014 <span class="preprocessor">#ifndef USE_TEST</span>
+00015 <span class="preprocessor"></span><span class="preprocessor">#if 0</span>
+00016 <span class="preprocessor"></span>
+00019 <span class="keyword">struct </span>firstlistModule : sprite::<a class="code" href="structsprite_1_1UserModule.html">UserModule</a>
+00020 {
+00021   <span class="comment">// Constructor and operation ids.</span>
+00022   size_t c_Cons;
+00023   size_t c_Nil;
+00024   size_t op_concat;
+00025 
+00027   firstlistModule(<a class="code" href="structsprite_1_1Program.html">Program</a> &amp; pgm) : <a class="code" href="structsprite_1_1UserModule.html">UserModule</a>(pgm)
+00028   {
+00029     c_Cons = <a class="code" href="structsprite_1_1UserModule.html#b5">install_ctor</a>(<span class="stringliteral">"Cons"</span>);
+00030     c_Nil = <a class="code" href="structsprite_1_1UserModule.html#b5">install_ctor</a>(<span class="stringliteral">"Nil"</span>);
+00031     op_concat = <a class="code" href="structsprite_1_1UserModule.html#b3">install_oper</a>(<span class="stringliteral">"concat"</span>, dt_concat);
+00032 
+00033     <span class="keyword">typedef</span> firstlistModule M;
+00034     <span class="keyword">using</span> boost::assign::list_of;
+00035 
+00036 <span class="preprocessor">    #define R(fun) std::tr1::bind&lt;void&gt;(&amp;M::fun, this, _1, _2)</span>
+00037 <span class="preprocessor"></span>    dt_concat = DtSelect(list_of(0)
+00038       , DtCase(c_Nil, R(rule0)
+00039       , DtCase(c_Cons, R(rule1)
+00040       )));
+00041 
+00042     <span class="comment">// s_rule0_ctor0 = get_program().import("List")-&gt;find_ctor("Cons");</span>
+00043   }
+00044 
+00045   <span class="keyword">virtual</span> ~firstlistModule() {}
+00046   
+00047 <span class="keyword">private</span>:
+00048 
+00049   <span class="comment">// Definitional trees.</span>
+00050   DTree dt_concat;
+00051 
+00052   <span class="comment">// Local symbols (used in rule bodies).</span>
+00053   size_t s_rule0_ctor0;
+00054 
+00055   <span class="keywordtype">void</span> rule0(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; root, <a class="code" href="structsprite_1_1Node.html">Node</a> &amp; <span class="comment">/*unused*/</span>)<span class="keyword"> const </span>{ <a class="code" href="namespacesprite.html#a40">rewrite_fwd</a>(root, root[1]); }
+00056   <span class="keywordtype">void</span> rule1(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; root, <a class="code" href="structsprite_1_1Node.html">Node</a> &amp; <span class="comment">/*unused*/</span>)<span class="keyword"> const</span>
+00057 <span class="keyword">  </span>{
+00058     <a class="code" href="namespacesprite.html#a36">rewrite_ctor</a>(
+00059         root, c_Cons, root[0][0]
+00060       , Node::create&lt;OPER&gt;(op_concat, root[0][1], root[1])
+00061       );
+00062   }
+00063 
+00064   <span class="comment">// ====== H function(s) ======</span>
+00065 <span class="preprocessor">  #if 0</span>
+00066 <span class="preprocessor"></span>  <span class="keyword">struct </span>HConcat
+00067   {
+00068     HConcat(firstlistModule <span class="keyword">const</span> &amp; this_) : This(this_) {}
+00069   <span class="keyword">private</span>:
+00070     firstlistModule <span class="keyword">const</span> &amp; This;
+00071   <span class="keyword">public</span>:
+00072     <span class="keywordtype">void</span> operator()(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> &amp; child)<span class="keyword"> const</span>
+00073 <span class="keyword">    </span>{
+00074       <span class="keywordflow">if</span>(child-&gt;id() == This.c_Nil)
+00075         <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a40">rewrite_fwd</a>(node, node[1]);
+00076       <span class="keywordflow">else</span>
+00077       {
+00078         assert(child-&gt;id() == This.c_Cons);
+00079         assert(child-&gt;arity() == 2);
+00080         <a class="code" href="namespacesprite.html#a36">rewrite_ctor</a>(
+00081             node, This.c_Cons, (*child)[0]
+00082           , Node::create&lt;OPER&gt;(This.op_concat, (*child)[1], node[1])
+00083           );
+00084         <span class="keywordflow">return</span>;
+00085       }
+00086     }
+00087   };
+00088 
+00089   <span class="keywordtype">void</span> h_concat(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node)<span class="keyword"> const</span>
+00090 <span class="keyword">  </span>{
+00091     assert(node.<a class="code" href="structsprite_1_1Node.html#a3">arity</a>() == 2);
+00092     HConcat rule(*<span class="keyword">this</span>);
+00093     generic_hfunc&lt;0&gt;(node, rule);
+00094 
+00095     <span class="comment">// NodePtr child = node[0];</span>
+00096     <span class="comment">// switch(child-&gt;tag())</span>
+00097     <span class="comment">// {</span>
+00098     <span class="comment">//   // H.1</span>
+00099     <span class="comment">//   case CHOICE: return pull_tab(node, child);</span>
+00100     <span class="comment">//   // H.5</span>
+00101     <span class="comment">//   case FAIL: return rewrite_fail(node);</span>
+00102     <span class="comment">//   // H.2</span>
+00103     <span class="comment">//   case OPER: return head_normalize(*child);</span>
+00104     <span class="comment">//   // H.3</span>
+00105     <span class="comment">//   case CTOR:</span>
+00106     <span class="comment">//   {</span>
+00107     <span class="comment">//     if(child-&gt;id() == c_Nil)</span>
+00108     <span class="comment">//       return rewrite_fwd(node, node[1]);</span>
+00109     <span class="comment">//     else</span>
+00110     <span class="comment">//     {</span>
+00111     <span class="comment">//       assert(child-&gt;id() == c_Cons);</span>
+00112     <span class="comment">//       assert(child-&gt;arity() == 2);</span>
+00113     <span class="comment">//       rewrite_ctor(</span>
+00114     <span class="comment">//           node, c_Cons, (*child)[0]</span>
+00115     <span class="comment">//         , Node::create&lt;OPER&gt;(op_concat, (*child)[1], node[1])</span>
+00116     <span class="comment">//         );</span>
+00117     <span class="comment">//       return;</span>
+00118     <span class="comment">//     }</span>
+00119     <span class="comment">//   }</span>
+00120     <span class="comment">//   default: throw RuntimeError("Type error in concat");</span>
+00121     <span class="comment">// }</span>
+00122   }
+00123 <span class="preprocessor">  #endif</span>
+00124 <span class="preprocessor"></span>};
+00125 <span class="preprocessor">#endif</span>
+00126 <span class="preprocessor"></span>
+00127 <span class="preprocessor">#else</span>
+00128 <span class="preprocessor"></span>
+00129 <span class="preprocessor">#if 0</span>
+00130 <span class="preprocessor"></span><span class="keyword">namespace </span>sprite { <span class="keyword">namespace </span>user { <span class="keyword">namespace </span>m_9firstlist
+00131 {
+00132   <span class="keyword">enum</span> Constructor
+00133   {
+00134     c_4Cons = CTOR,
+00135     c_3Nil,
+00136   };
+00137   
+00138   <span class="comment">// ====== BEGIN GENERATED CODE ======</span>
+00139   <span class="keyword">struct </span><a class="code" href="structsprite_1_1Module.html">Module</a> : sprite::<a class="code" href="structsprite_1_1UserModule.html">UserModule</a>
+00140   {
+00141     size_t op_main;
+00142     size_t op_concat;
+00143   
+00144     <a class="code" href="structsprite_1_1Module.html">Module</a>(<a class="code" href="structsprite_1_1Program.html">Program</a> &amp; pgm) : <a class="code" href="structsprite_1_1UserModule.html">UserModule</a>(pgm)
+00145     {
+00146       <span class="comment">// Operation initialization.  Each one is added to the program, which</span>
+00147       <span class="comment">// returns a unique ID.  Afterwards, the symbols are referred to only by</span>
+00148       <span class="comment">// their IDs.</span>
+00149       op_main = install_oper(<span class="stringliteral">"main"</span>, &amp;Module::H_main);
+00150       op_concat = install_oper(<span class="stringliteral">"concat"</span>, &amp;Module::H_concat);
+00151     }
+00152   
+00153     <span class="keyword">virtual</span> ~<a class="code" href="structsprite_1_1Module.html">Module</a>() {}
+00154   
+00155     <span class="keyword">private</span>:
+00156     <span class="keywordtype">void</span> H_main(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; root)<span class="keyword"> const</span>
+00157 <span class="keyword">    </span>{
+00158       <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a37">rewrite_oper</a>(root, op_concat, Node::create&lt;CTOR&gt;(c_4Cons, Node::create&lt;INT&gt;(1), Node::create&lt;CTOR&gt;(c_3Nil)), Node::create&lt;CTOR&gt;(c_4Cons, Node::create&lt;INT&gt;(2), Node::create&lt;CTOR&gt;(c_3Nil)));
+00159     }
+00160 
+00161     <span class="keywordtype">void</span> H_concat(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; root)<span class="keyword"> const</span>
+00162 <span class="keyword">    </span>{
+00163       <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> parent, *inductive;
+00164       <a class="code" href="user__module_8hpp.html#a1">SPRITE_SWITCH_BEGIN</a>(root, parent, inductive, root, (0))
+00165         case c_4Cons:
+00166         {
+00167           <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a36">rewrite_ctor</a>(root, c_4Cons, root[0][0], Node::create&lt;OPER&gt;(op_concat, root[0][1], root[1]));
+00168         }
+00169         <span class="keywordflow">case</span> c_3Nil:
+00170         {
+00171           <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a40">rewrite_fwd</a>(root, root[1]);
+00172         }
+00173       <a class="code" href="user__module_8hpp.html#a2">SPRITE_SWITCH_END</a>
+00174     }
+00175   };
+00176 }}}
+00177 <span class="preprocessor">#endif</span>
+00178 <span class="preprocessor"></span><span class="keyword">namespace </span>sprite { <span class="keyword">namespace </span>user { <span class="keyword">namespace </span>m_9firstlist
+00179 {
+00180   <span class="keyword">enum</span> Constructor
+00181   {
+00182     c_4Cons = CTOR,
+00183     c_3Nil,
+00184   };
+00185 
+00186 <span class="preprocessor">  #ifndef SPRITE_HEADER_ONLY</span>
+00187 <span class="preprocessor"></span>  <span class="keyword">struct </span><a class="code" href="structsprite_1_1Module.html">Module</a> : sprite::<a class="code" href="structsprite_1_1UserModule.html">UserModule</a>
+00188   {
+00189     size_t op_4main;
+00190     size_t op_6concat;
+00191     size_t cl_4Cons;
+00192     size_t cl_3Nil;
+00193 
+00194     <a class="code" href="structsprite_1_1Module.html">Module</a>(<a class="code" href="structsprite_1_1Program.html">Program</a> &amp; pgm) : <a class="code" href="structsprite_1_1UserModule.html">UserModule</a>(pgm)
+00195     {
+00196       <span class="comment">// Operation and constructor label initialization.  Each one is added to</span>
+00197       <span class="comment">// the program, which returns a unique ID.  Afterwards, the symbols are</span>
+00198       <span class="comment">// referred to only by their IDs.</span>
+00199       op_4main = install_oper(<span class="stringliteral">"main"</span>, &amp;Module::h_4main);
+00200       op_6concat = install_oper(<span class="stringliteral">"concat"</span>, &amp;Module::h_6concat);
+00201       cl_4Cons = install_ctor(<span class="stringliteral">"Cons"</span>);
+00202       cl_3Nil = install_ctor(<span class="stringliteral">"Nil"</span>);
+00203     }
+00204 
+00205     <span class="keyword">virtual</span> ~<a class="code" href="structsprite_1_1Module.html">Module</a>() {}
+00206 
+00207   <span class="keyword">private</span>:
+00208     <span class="keywordtype">void</span> h_4main(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; root)<span class="keyword"> const</span>
+00209 <span class="keyword">    </span>{
+00210       <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a37">rewrite_oper</a>(root, op_6concat, Node::create&lt;CTOR&gt;(c_4Cons, cl_4Cons, Node::create&lt;INT&gt;(1), Node::create&lt;CTOR&gt;(c_3Nil, cl_3Nil)), Node::create&lt;CTOR&gt;(c_4Cons, cl_4Cons, Node::create&lt;INT&gt;(2), Node::create&lt;CTOR&gt;(c_3Nil, cl_3Nil)));
+00211     }
+00212 
+00213     <span class="keywordtype">void</span> h_6concat(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; root)<span class="keyword"> const</span>
+00214 <span class="keyword">    </span>{
+00215       <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> parent, *inductive;
+00216       <a class="code" href="user__module_8hpp.html#a1">SPRITE_SWITCH_BEGIN</a>(root, parent, inductive, root, (0))
+00217         case c_3Nil: { <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a40">rewrite_fwd</a>(root, root[1]);}
+00218         <span class="keywordflow">case</span> c_4Cons: { <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a36">rewrite_ctor</a>(root, c_4Cons, cl_4Cons, root[0][0], Node::create&lt;OPER&gt;(op_6concat, root[0][1], root[1]));}
+00219       <a class="code" href="user__module_8hpp.html#a2">SPRITE_SWITCH_END</a>
+00220     }
+00221 
+00222   };
+00223 <span class="preprocessor">  #endif // SPRITE_HEADER_ONLY</span>
+00224 <span class="preprocessor"></span>}}}
+00225 
+00226 <span class="preprocessor">#endif</span>
+00227 <span class="preprocessor"></span><span class="comment">// ====== END GENERATED CODE ======</span>
+00228 
+<a name="l00230"></a><a class="code" href="concat_8cpp.html#a3">00230</a> shared_ptr&lt;Module&gt; <a class="code" href="io_8cpp.html#a0">load_list</a>(<a class="code" href="structsprite_1_1Program.html">sprite::Program</a> &amp; pgm)
+00231   { <span class="keywordflow">return</span> boost::make_shared&lt;sprite::user::m_9firstlist::Module&gt;(tr1::ref(pgm)); }
+00232 
+00233 <span class="comment">// This is a sample program to demonstrate the use of concat.  The output is</span>
+00234 <span class="comment">// meant to be inspected visually.</span>
+00235 <span class="keywordtype">int</span> test_main(<span class="keywordtype">int</span>, <span class="keywordtype">char</span>**)
+00236 {
+00237   <span class="keyword">using</span> <span class="keyword">namespace </span>sprite::user;
+00238 
+00239   <span class="comment">// ====== DEFINE THE PROGRAM ======</span>
+00240 
+00241   <span class="comment">// Create a new program and make it the context for output.</span>
+00242   <a class="code" href="structsprite_1_1Program.html">Program</a> pgm;
+00243   std::cout &lt;&lt; <a class="code" href="structsprite_1_1manipulators_1_1setprogram.html">setprogram</a>(pgm);
+00244 
+00245   <span class="comment">// Import the list module and capture a reference to it.</span>
+00246   shared_ptr&lt;Module const&gt; <span class="keyword">const</span> _list = pgm.<a class="code" href="structsprite_1_1Program.html#a1">import</a>(<span class="stringliteral">"List"</span>);
+00247 
+00248   <span class="comment">// Downcast the list module (alternatively, the abstract Module interface</span>
+00249   <span class="comment">// could be used).</span>
+00250   shared_ptr&lt;m_9firstlist::Module const&gt; <span class="keyword">const</span> list(
+00251       dynamic_pointer_cast&lt;m_9firstlist::Module const&gt;(_list)
+00252     );
+00253 
+00254   <span class="comment">// DEBUG - print the linked program.</span>
+00255   std::cout &lt;&lt; pgm &lt;&lt; std::endl;
+00256 
+00257   <span class="comment">// ====== FORM THE GOAL ======</span>
+00258 
+00259   <span class="comment">// Construct this goal: concat [1] [2]</span>
+00260   <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> lhs = Node::create&lt;CTOR&gt;(
+00261       m_9firstlist::c_4Cons, list-&gt;cl_4Cons
+00262     , Node::create&lt;INT&gt;(1), Node::create&lt;CTOR&gt;(m_9firstlist::c_3Nil, list-&gt;cl_3Nil)
+00263     );
+00264   <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> rhs = Node::create&lt;CTOR&gt;(
+00265       m_9firstlist::c_4Cons, list-&gt;cl_4Cons
+00266     , Node::create&lt;INT&gt;(2), Node::create&lt;CTOR&gt;(m_9firstlist::c_3Nil, list-&gt;cl_3Nil)
+00267     );
+00268   <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> goal = Node::create&lt;OPER&gt;(list-&gt;op_6concat, lhs, rhs);
+00269   std::cout &lt;&lt; *goal &lt;&lt; std::endl;
+00270 
+00271   <span class="comment">// ====== EXECUTE THE GOAL ======</span>
+00272 
+00273   <a class="code" href="namespacesprite.html#a52">execute</a>(pgm, *goal, TRACE);
+00274   std::cout &lt;&lt; *goal &lt;&lt; std::endl;
+00275 
+00276   <span class="keywordflow">return</span> 0;
+00277 }
+00278 
+</pre></div><hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:26 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

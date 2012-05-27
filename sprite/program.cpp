@@ -2,18 +2,18 @@
 
 namespace sprite
 {
-  Program::Program() : oper(), ctor_label(), oper_label()
+  Program::Program() : oper(), /*ctor_label(),*/ oper_label()
   {
     // Copy the built-in H functions to the operation table.
     oper.reserve(OP_END);
     std::copy(&builtin_h[0], &builtin_h[OP_END], std::back_inserter(oper));
 
     // Same for the labels.
-    ctor_label.reserve(C_END);
-    std::copy(
-        &builtin_ctor[0], &builtin_ctor[C_END]
-      , std::back_inserter(ctor_label)
-      );
+    // ctor_label.reserve(C_END);
+    // std::copy(
+    //     &builtin_ctor[0], &builtin_ctor[C_END]
+    //   , std::back_inserter(ctor_label)
+    //   );
 
     oper_label.reserve(OP_END);
     std::copy(
@@ -32,7 +32,7 @@ namespace sprite
       // hard-coded step.
 
       typedef shared_ptr<Module> module_ptr_type;
-      tr1::function<module_ptr_type(Loader &)> module_initializer;
+      tr1::function<module_ptr_type(Program &)> module_initializer;
       if(name == "List")
         { module_initializer = load_list; }
       else

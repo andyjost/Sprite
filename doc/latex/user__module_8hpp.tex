@@ -31,6 +31,20 @@ namespace {\bf sprite}
 \item 
 struct {\bf sprite::User\-Module}
 \begin{CompactList}\small\item\em A basic implementation of the {\bf Module}{\rm (p.\,\pageref{structsprite_1_1Module})} interface. \item\end{CompactList}\end{CompactItemize}
+\subsection*{Defines}
+\begin{CompactItemize}
+\item 
+\#define {\bf SPRITE\_\-index\_\-step}(r, \_\-, elem)\ [elem]\label{user__module_8hpp_a0}
+
+\begin{CompactList}\small\item\em (private) Expands to [elem]. \item\end{CompactList}\item 
+\#define {\bf SPRITE\_\-SWITCH\_\-BEGIN}(root, parent, inductive, start, path)
+\begin{CompactList}\small\item\em Generates code to process one level of a definitional tree. \item\end{CompactList}\item 
+\#define {\bf SPRITE\_\-SWITCH\_\-END}
+\begin{CompactList}\small\item\em Generates code to close a switch opened by SPRITE\_\-SWITCH\_\-BEGIN. \item\end{CompactList}\item 
+\#define {\bf SPRITE\_\-VALUE\_\-SWITCH\_\-BEGIN}(type, root, parent, inductive, start, path)
+\begin{CompactList}\small\item\em Generates code to process one level of a definitional tree for a built-in type. \item\end{CompactList}\item 
+\#define {\bf SPRITE\_\-VALUE\_\-SWITCH\_\-END}
+\begin{CompactList}\small\item\em Generates code to close a switch opened by SPRITE\_\-VALUE\_\-SWITCH\_\-BEGIN. \item\end{CompactList}\end{CompactItemize}
 
 
 \subsection{Detailed Description}
@@ -39,3 +53,84 @@ Defines a basic implementation of the Module interface.
 
 
 Definition in file {\bf user\_\-module.hpp}.
+
+\subsection{Define Documentation}
+\index{user_module.hpp@{user\_\-module.hpp}!SPRITE_SWITCH_BEGIN@{SPRITE\_\-SWITCH\_\-BEGIN}}
+\index{SPRITE_SWITCH_BEGIN@{SPRITE\_\-SWITCH\_\-BEGIN}!user_module.hpp@{user\_\-module.hpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define SPRITE\_\-SWITCH\_\-BEGIN(root, parent, inductive, start, path)}\label{user__module_8hpp_a1}
+
+
+{\bf Value:}
+
+\footnotesize\begin{verbatim}parent = (start) BOOST_PP_SEQ_FOR_EACH(                              \
+        SPRITE_index_step,,BOOST_PP_SEQ_POP_BACK(path)                   \
+      );                                                                 \
+    inductive = &parent [BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path))]; \
+    switch((*inductive)->tag())                                          \
+    {                                                                    \
+      case FAIL: return rewrite_fail(root);                              \
+      case CHOICE: return pull_tab(*parent, *inductive);                 \
+      case OPER: return head_normalize(**inductive);                     \
+\end{verbatim}\normalsize 
+Generates code to process one level of a definitional tree. 
+
+Expands to statements that index the inductive node, begin a switch, and handle all default cases that do not depend on the user program. A user-defined H function will normally generate additional cases to exhaustively handle the constructors of one type.
+
+In the case a pull-tab step is applied, the parent and inductive node are both needed, so this requires the names of two variables to hold the inductive node and its parent. The inductive node is indexed relative to node {\tt start} along path .
+
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em root}]an lvalue of type Node \&, which marks the root of the entire expression; used as the target of rewrite actions \item[{\em parent}]an lvalue of type Node\-Ptr that will hold the parent node; used as the source for pull-tab steps \item[{\em inductive}]an lvalue of type Node\-Ptr $\ast$ that will hold the inductive node; used as the target for pull-tab steps \item[{\em start}]an rvalue of type Node\-Ptr or Node; the node where indexing starts \item[{\em path}]a preprocessor sequence of path components (size\_\-t) that specifies the path from {\tt start} to the inductive node; must not be empty \end{description}
+\end{Desc}
+
+
+Definition at line 136 of file user\_\-module.hpp.\index{user_module.hpp@{user\_\-module.hpp}!SPRITE_SWITCH_END@{SPRITE\_\-SWITCH\_\-END}}
+\index{SPRITE_SWITCH_END@{SPRITE\_\-SWITCH\_\-END}!user_module.hpp@{user\_\-module.hpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define SPRITE\_\-SWITCH\_\-END}\label{user__module_8hpp_a2}
+
+
+{\bf Value:}
+
+\footnotesize\begin{verbatim}default: throw RuntimeError("unhandled case in generated H function"); \
+    }                                                                        \
+\end{verbatim}\normalsize 
+Generates code to close a switch opened by SPRITE\_\-SWITCH\_\-BEGIN. 
+
+
+
+Definition at line 149 of file user\_\-module.hpp.\index{user_module.hpp@{user\_\-module.hpp}!SPRITE_VALUE_SWITCH_BEGIN@{SPRITE\_\-VALUE\_\-SWITCH\_\-BEGIN}}
+\index{SPRITE_VALUE_SWITCH_BEGIN@{SPRITE\_\-VALUE\_\-SWITCH\_\-BEGIN}!user_module.hpp@{user\_\-module.hpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define SPRITE\_\-VALUE\_\-SWITCH\_\-BEGIN(type, root, parent, inductive, start, path)}\label{user__module_8hpp_a3}
+
+
+{\bf Value:}
+
+\footnotesize\begin{verbatim}SPRITE_SWITCH_BEGIN(root, parent, inductive, start, path)                 \
+    case type:                                                                \
+    {                                                                         \
+      switch((static_cast<meta::NodeOf<type,-1>::type const &>                \
+          (*inductive)).value()                                               \
+        )                                                                     \
+      {                                                                       \
+\end{verbatim}\normalsize 
+Generates code to process one level of a definitional tree for a built-in type. 
+
+This is similar to SPRITE\_\-SWITCH\_\-BEGIN, except that the node value (rather than tag()) is used in the switch. The type should be either INT or CHAR. 
+
+Definition at line 161 of file user\_\-module.hpp.\index{user_module.hpp@{user\_\-module.hpp}!SPRITE_VALUE_SWITCH_END@{SPRITE\_\-VALUE\_\-SWITCH\_\-END}}
+\index{SPRITE_VALUE_SWITCH_END@{SPRITE\_\-VALUE\_\-SWITCH\_\-END}!user_module.hpp@{user\_\-module.hpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define SPRITE\_\-VALUE\_\-SWITCH\_\-END}\label{user__module_8hpp_a4}
+
+
+{\bf Value:}
+
+\footnotesize\begin{verbatim}}                                                                      \
+    }                                                                        \
+    SPRITE_SWITCH_END                                                        \
+\end{verbatim}\normalsize 
+Generates code to close a switch opened by SPRITE\_\-VALUE\_\-SWITCH\_\-BEGIN. 
+
+
+
+Definition at line 172 of file user\_\-module.hpp.

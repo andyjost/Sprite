@@ -1,0 +1,53 @@
+\section{sprite::rewrite$<$ OPER $>$ Struct Template Reference}
+\label{structsprite_1_1rewrite_3_01OPER_01_4}\index{sprite::rewrite< OPER >@{sprite::rewrite$<$ OPER $>$}}
+Rewrites a node to an OPER node.  
+
+
+{\tt \#include $<$rewrite.hpp$>$}
+
+\subsection*{Public Member Functions}
+\begin{CompactItemize}
+\item 
+{\bf rewrite} ()\label{structsprite_1_1rewrite_3_01OPER_01_4_a0}
+
+\item 
+void {\bf operator()} ({\bf Node} \&node, size\_\-t id, size\_\-t arity, {\bf Node\-Ptr} $\ast$args) const 
+\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$$>$ struct sprite::rewrite$<$ OPER $>$}
+
+Rewrites a node to an OPER node. 
+
+The tag is set to OPER, and {\tt id} is the operation ID. 
+
+
+
+Definition at line 15 of file rewrite.hpp.
+
+\subsection{Member Function Documentation}
+\index{sprite::rewrite< OPER >@{sprite::rewrite$<$ OPER $>$}!operator()@{operator()}}
+\index{operator()@{operator()}!sprite::rewrite< OPER >@{sprite::rewrite$<$ OPER $>$}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void sprite::rewrite$<$ OPER $>$::operator() ({\bf Node} \& {\em node}, size\_\-t {\em id}, size\_\-t {\em arity}, {\bf Node\-Ptr} $\ast$ {\em args}) const\hspace{0.3cm}{\tt  [inline]}}\label{structsprite_1_1rewrite_3_01OPER_01_4_a1}
+
+
+\begin{Desc}
+\item[Note:]This function \_\-claims\_\- ownership of the pointer and will delete it with delete[]. \end{Desc}
+
+
+Definition at line 40 of file rewrite.hpp.
+
+References sprite::Node::\_\-payload(), sprite::Node::destroy\_\-payload(), sprite::Node::m\_\-arity, sprite::Node::m\_\-id, and sprite::Node::m\_\-tag.
+
+Here is the call graph for this function:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=197pt]{structsprite_1_1rewrite_3_01OPER_01_4_a1_cgraph}
+\end{center}
+\end{figure}
+
+
+The documentation for this struct was generated from the following file:\begin{CompactItemize}
+\item 
+sprite/{\bf rewrite.hpp}\end{CompactItemize}

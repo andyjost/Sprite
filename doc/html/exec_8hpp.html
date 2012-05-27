@@ -56,31 +56,32 @@ This graph shows which files directly or indirectly include this file:<p><center
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A yield handler that simply discards the output.  <a href="structsprite_1_1YieldHandler___3_01void_01_4.html#_details">More...</a><br></td></tr>
 <tr><td colspan="2"><br><h2>Enumerations</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><b>TraceOption</b> { <b>NO_TRACE</b> = false, 
+<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a73">TraceOption</a> { <b>NO_TRACE</b> = false, 
 <b>TRACE</b> = true
  }</td></tr>
 
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Indicates whether tracing is enabled. <br></td></tr>
 <tr><td colspan="2"><br><h2>Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a52" doxytag="exec.hpp::execute"></a>
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>execute</b> (Program const &amp;program, Node &amp;goal, TraceOption trace)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a51" doxytag="exec.hpp::execute"></a>
+void&nbsp;</td><td class="memItemRight" valign="bottom"><b>execute</b> (Program const &amp;program, Node &amp;goal, <a class="el" href="namespacesprite.html#a73">TraceOption</a> trace)</td></tr>
 
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="a53" doxytag="exec.hpp::execute"></a>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="a52" doxytag="exec.hpp::execute"></a>
 template&lt;typename OutputIterator&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a53">execute</a> (Program const &amp;pgm, Node &amp;goal, OutputIterator out, TraceOption trace=NO_TRACE)</td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a52">execute</a> (Program const &amp;pgm, Node &amp;goal, OutputIterator out, <a class="el" href="namespacesprite.html#a73">TraceOption</a> trace=NO_TRACE)</td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Alternate form of execute; results are written to the given iterator. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a54" doxytag="exec.hpp::is_norm"></a>
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a54">is_norm</a> (Node const &amp;node)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a53" doxytag="exec.hpp::is_norm"></a>
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a53">is_norm</a> (Node const &amp;node)</td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Traverses an expression and returns true if it is found to be in cnf. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a55">pull_tab</a> (Node &amp;g, NodePtr const &amp;p)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a54">pull_tab</a> (Node &amp;g, NodePtr const &amp;p)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Performs the pull-tab transformation.  <a href="#a55"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a56">head_normalize</a> (Node &amp;node)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Performs the pull-tab transformation.  <a href="#a54"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a55">head_normalize</a> (Node &amp;node)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The head-normalizing (H) function from the fair scheme.  <a href="#a56"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a57" doxytag="exec.hpp::fair_normalize"></a>
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a57">fair_normalize</a> (Fingerprint const &amp;fp, Node &amp;node)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The head-normalizing (H) function from the fair scheme.  <a href="#a55"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a56" doxytag="exec.hpp::fair_normalize"></a>
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesprite.html#a56">fair_normalize</a> (Fingerprint const &amp;fp, Node &amp;node)</td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The normalizing (N) function from the fair scheme. <br></td></tr>
 </table>
@@ -90,7 +91,7 @@ Interface to the execution components.
 
 <p>
 Definition in file <a class="el" href="exec_8hpp-source.html">exec.hpp</a>.<hr><h2>Function Documentation</h2>
-<a class="anchor" name="file_a56" doxytag="exec.hpp::head_normalize"></a><p>
+<a class="anchor" name="file_a55" doxytag="exec.hpp::head_normalize"></a><p>
 <table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
   <tr>
     <td class="mdRow">
@@ -117,23 +118,23 @@ Definition in file <a class="el" href="exec_8hpp-source.html">exec.hpp</a>.<hr><
 <p>
 The head-normalizing (H) function from the fair scheme. 
 <p>
-This is a generic H function that dispatches to the correct implementation for the given operation. 
+This is a generic H function that dispatches to the correct implementation for the given operation. The H.6 rule, which ignors constructor-rooted expressions, is implemented here so that user-compiled H rules can ignore it. 
 <p>
-Definition at line <a class="el" href="exec_8hpp-source.html#l00135">135</a> of file <a class="el" href="exec_8hpp-source.html">exec.hpp</a>.
+Definition at line <a class="el" href="exec_8hpp-source.html#l00139">139</a> of file <a class="el" href="exec_8hpp-source.html">exec.hpp</a>.
 <p>
-References <a class="el" href="exec_8cpp-source.html#l00013">sprite::g_program</a>, <a class="el" href="node_8hpp-source.html#l00085">sprite::Node::id()</a>, <a class="el" href="program_8hpp-source.html#l00046">sprite::Program::oper</a>, and <a class="el" href="node_8hpp-source.html#l00082">sprite::Node::tag()</a>.
+References <a class="el" href="exec_8cpp-source.html#l00013">sprite::g_program</a>, <a class="el" href="node_8hpp-source.html#l00089">sprite::Node::id()</a>, <a class="el" href="program_8hpp-source.html#l00048">sprite::Program::oper</a>, and <a class="el" href="node_8hpp-source.html#l00086">sprite::Node::tag()</a>.
 <p>
-Referenced by <a class="el" href="exec_8hpp-source.html#l00153">sprite::fair_normalize()</a>, and <a class="el" href="builtins_8cpp-source.html#l00157">sprite::h_func()</a>.    </td>
+Referenced by <a class="el" href="exec_8hpp-source.html#l00161">sprite::fair_normalize()</a>, and <a class="el" href="builtins_8cpp-source.html#l00157">sprite::h_func()</a>.    </td>
   </tr>
 </table>
 
 <p>
-Here is the call graph for this function:<p><center><img src="namespacesprite_a56_cgraph.png" border="0" usemap="#namespacesprite_a56_cgraph_map" alt=""></center>
-<map name="namespacesprite_a56_cgraph_map">
+Here is the call graph for this function:<p><center><img src="namespacesprite_a55_cgraph.png" border="0" usemap="#namespacesprite_a55_cgraph_map" alt=""></center>
+<map name="namespacesprite_a55_cgraph_map">
 <area href="structsprite_1_1Node.html#a2" shape="rect" coords="217,7,329,34" alt="">
 <area href="structsprite_1_1Node.html#a1" shape="rect" coords="213,58,333,85" alt="">
 </map>
-<a class="anchor" name="file_a55" doxytag="exec.hpp::pull_tab"></a><p>
+<a class="anchor" name="file_a54" doxytag="exec.hpp::pull_tab"></a><p>
 <table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
   <tr>
     <td class="mdRow">
@@ -177,24 +178,24 @@ Performs the pull-tab transformation.
 </dl>
 
 <p>
-Definition at line <a class="el" href="exec_8hpp-source.html#l00118">118</a> of file <a class="el" href="exec_8hpp-source.html">exec.hpp</a>.
+Definition at line <a class="el" href="exec_8hpp-source.html#l00120">120</a> of file <a class="el" href="exec_8hpp-source.html">exec.hpp</a>.
 <p>
-References <a class="el" href="node__impl_8hpp-source.html#l00219">sprite::Node::clone()</a>, <a class="el" href="node__impl_8hpp-source.html#l00193">sprite::Node::position()</a>, and <a class="el" href="rewrite_8hpp-source.html#l00123">sprite::rewrite_choice</a>.
+References <a class="el" href="node__impl_8hpp-source.html#l00219">sprite::Node::clone()</a>, <a class="el" href="node__impl_8hpp-source.html#l00193">sprite::Node::position()</a>, and <a class="el" href="rewrite_8hpp-source.html#l00177">sprite::rewrite_choice</a>.
 <p>
-Referenced by <a class="el" href="exec_8hpp-source.html#l00153">sprite::fair_normalize()</a>, and <a class="el" href="builtins_8cpp-source.html#l00157">sprite::h_func()</a>.    </td>
+Referenced by <a class="el" href="exec_8hpp-source.html#l00161">sprite::fair_normalize()</a>, and <a class="el" href="builtins_8cpp-source.html#l00157">sprite::h_func()</a>.    </td>
   </tr>
 </table>
 
 <p>
-Here is the call graph for this function:<p><center><img src="namespacesprite_a55_cgraph.png" border="0" usemap="#namespacesprite_a55_cgraph_map" alt=""></center>
-<map name="namespacesprite_a55_cgraph_map">
+Here is the call graph for this function:<p><center><img src="namespacesprite_a54_cgraph.png" border="0" usemap="#namespacesprite_a54_cgraph_map" alt=""></center>
+<map name="namespacesprite_a54_cgraph_map">
 <area href="structsprite_1_1Node.html#a4" shape="rect" coords="171,7,305,34" alt="">
 <area href="structsprite_1_1Node.html#a11" shape="rect" coords="165,58,311,85" alt="">
-<area href="namespacesprite.html#a68" shape="rect" coords="359,33,445,59" alt="">
+<area href="namespacesprite.html#a67" shape="rect" coords="359,33,445,59" alt="">
 <area href="structsprite_1_1Node.html#a3" shape="rect" coords="494,7,619,34" alt="">
 <area href="structsprite_1_1Node.html#a1" shape="rect" coords="497,58,617,85" alt="">
 </map>
-<hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:36 2012 for sprite by&nbsp;
+<hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:29 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

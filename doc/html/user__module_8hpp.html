@@ -36,13 +36,208 @@ This graph shows which files directly or indirectly include this file:<p><center
 <tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="structsprite_1_1UserModule.html">sprite::UserModule</a></td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">A basic implementation of the <a class="el" href="structsprite_1_1Module.html">Module</a> interface.  <a href="structsprite_1_1UserModule.html#_details">More...</a><br></td></tr>
+<tr><td colspan="2"><br><h2>Defines</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a0" doxytag="user_module.hpp::SPRITE_index_step"></a>
+#define&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="user__module_8hpp.html#a0">SPRITE_index_step</a>(r, _, elem)&nbsp;&nbsp;&nbsp;[elem]</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">(private) Expands to [elem]. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">#define&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="user__module_8hpp.html#a1">SPRITE_SWITCH_BEGIN</a>(root, parent, inductive, start, path)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Generates code to process one level of a definitional tree.  <a href="#a1"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">#define&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="user__module_8hpp.html#a2">SPRITE_SWITCH_END</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Generates code to close a switch opened by SPRITE_SWITCH_BEGIN.  <a href="#a2"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">#define&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="user__module_8hpp.html#a3">SPRITE_VALUE_SWITCH_BEGIN</a>(type, root, parent, inductive, start, path)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Generates code to process one level of a definitional tree for a built-in type.  <a href="#a3"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">#define&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="user__module_8hpp.html#a4">SPRITE_VALUE_SWITCH_END</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Generates code to close a switch opened by SPRITE_VALUE_SWITCH_BEGIN.  <a href="#a4"></a><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
 Defines a basic implementation of the Module interface. 
 <p>
 
 <p>
-Definition in file <a class="el" href="user__module_8hpp-source.html">user_module.hpp</a>.<hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:43 2012 for sprite by&nbsp;
+Definition in file <a class="el" href="user__module_8hpp-source.html">user_module.hpp</a>.<hr><h2>Define Documentation</h2>
+<a class="anchor" name="a1" doxytag="user_module.hpp::SPRITE_SWITCH_BEGIN"></a><p>
+<table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
+  <tr>
+    <td class="mdRow">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top">#define SPRITE_SWITCH_BEGIN          </td>
+          <td class="md" valign="top">(&nbsp;</td>
+          <td class="md" nowrap valign="top">root,         <tr>
+          <td class="md" nowrap align="right"></td>
+          <td class="md"></td>
+          <td class="md" nowrap>parent,         <tr>
+          <td class="md" nowrap align="right"></td>
+          <td class="md"></td>
+          <td class="md" nowrap>inductive,         <tr>
+          <td class="md" nowrap align="right"></td>
+          <td class="md"></td>
+          <td class="md" nowrap>start,         <tr>
+          <td class="md" nowrap align="right"></td>
+          <td class="md"></td>
+          <td class="md" nowrap>path&nbsp;</td>
+          <td class="mdname1" valign="top" nowrap>          </td>
+          <td class="md" valign="top">&nbsp;)&nbsp;</td>
+          <td class="md" nowrap></td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing="5" cellpadding="0" border="0">
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+<b>Value:</b><div class="fragment"><pre class="fragment">parent = (start) BOOST_PP_SEQ_FOR_EACH(                              \
+        SPRITE_index_step,,BOOST_PP_SEQ_POP_BACK(path)                   \
+      );                                                                 \
+    inductive = &amp;parent [BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path))]; \
+    <span class="keywordflow">switch</span>((*inductive)-&gt;tag())                                          \
+    {                                                                    \
+      <span class="keywordflow">case</span> FAIL: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a38">rewrite_fail</a>(root);                              \
+      <span class="keywordflow">case</span> CHOICE: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a54">pull_tab</a>(*parent, *inductive);                 \
+      <span class="keywordflow">case</span> OPER: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a55">head_normalize</a>(**inductive);                     \
+</pre></div>Generates code to process one level of a definitional tree. 
+<p>
+Expands to statements that index the inductive node, begin a switch, and handle all default cases that do not depend on the user program. A user-defined H function will normally generate additional cases to exhaustively handle the constructors of one type.<p>
+In the case a pull-tab step is applied, the parent and inductive node are both needed, so this requires the names of two variables to hold the inductive node and its parent. The inductive node is indexed relative to node <code>start</code> along path .<p>
+<dl compact><dt><b>Parameters:</b></dt><dd>
+  <table border="0" cellspacing="2" cellpadding="0">
+    <tr><td valign="top"></td><td valign="top"><em>root</em>&nbsp;</td><td>an lvalue of type Node &amp;, which marks the root of the entire expression; used as the target of rewrite actions </td></tr>
+    <tr><td valign="top"></td><td valign="top"><em>parent</em>&nbsp;</td><td>an lvalue of type NodePtr that will hold the parent node; used as the source for pull-tab steps </td></tr>
+    <tr><td valign="top"></td><td valign="top"><em>inductive</em>&nbsp;</td><td>an lvalue of type NodePtr * that will hold the inductive node; used as the target for pull-tab steps </td></tr>
+    <tr><td valign="top"></td><td valign="top"><em>start</em>&nbsp;</td><td>an rvalue of type NodePtr or Node; the node where indexing starts </td></tr>
+    <tr><td valign="top"></td><td valign="top"><em>path</em>&nbsp;</td><td>a preprocessor sequence of path components (size_t) that specifies the path from <code>start</code> to the inductive node; must not be empty </td></tr>
+  </table>
+</dl>
+
+<p>
+Definition at line <a class="el" href="user__module_8hpp-source.html#l00136">136</a> of file <a class="el" href="user__module_8hpp-source.html">user_module.hpp</a>.    </td>
+  </tr>
+</table>
+<a class="anchor" name="a2" doxytag="user_module.hpp::SPRITE_SWITCH_END"></a><p>
+<table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
+  <tr>
+    <td class="mdRow">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top">#define SPRITE_SWITCH_END          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing="5" cellpadding="0" border="0">
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+<b>Value:</b><div class="fragment"><pre class="fragment"><span class="keywordflow">default</span>: <span class="keywordflow">throw</span> RuntimeError(<span class="stringliteral">"unhandled case in generated H function"</span>); \
+    }                                                                        \
+</pre></div>Generates code to close a switch opened by SPRITE_SWITCH_BEGIN. 
+<p>
+
+<p>
+Definition at line <a class="el" href="user__module_8hpp-source.html#l00149">149</a> of file <a class="el" href="user__module_8hpp-source.html">user_module.hpp</a>.    </td>
+  </tr>
+</table>
+<a class="anchor" name="a3" doxytag="user_module.hpp::SPRITE_VALUE_SWITCH_BEGIN"></a><p>
+<table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
+  <tr>
+    <td class="mdRow">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top">#define SPRITE_VALUE_SWITCH_BEGIN          </td>
+          <td class="md" valign="top">(&nbsp;</td>
+          <td class="md" nowrap valign="top">type,         <tr>
+          <td class="md" nowrap align="right"></td>
+          <td class="md"></td>
+          <td class="md" nowrap>root,         <tr>
+          <td class="md" nowrap align="right"></td>
+          <td class="md"></td>
+          <td class="md" nowrap>parent,         <tr>
+          <td class="md" nowrap align="right"></td>
+          <td class="md"></td>
+          <td class="md" nowrap>inductive,         <tr>
+          <td class="md" nowrap align="right"></td>
+          <td class="md"></td>
+          <td class="md" nowrap>start,         <tr>
+          <td class="md" nowrap align="right"></td>
+          <td class="md"></td>
+          <td class="md" nowrap>path&nbsp;</td>
+          <td class="mdname1" valign="top" nowrap>          </td>
+          <td class="md" valign="top">&nbsp;)&nbsp;</td>
+          <td class="md" nowrap></td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing="5" cellpadding="0" border="0">
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+<b>Value:</b><div class="fragment"><pre class="fragment"><a class="code" href="user__module_8hpp.html#a1">SPRITE_SWITCH_BEGIN</a>(root, parent, inductive, start, path)                 \
+    <span class="keywordflow">case</span> type:                                                                \
+    {                                                                         \
+      <span class="keywordflow">switch</span>((<span class="keyword">static_cast</span>&lt;meta::NodeOf&lt;type,-1&gt;::type <span class="keyword">const</span> &amp;&gt;                \
+          (*inductive)).value()                                               \
+        )                                                                     \
+      {                                                                       \
+</pre></div>Generates code to process one level of a definitional tree for a built-in type. 
+<p>
+This is similar to SPRITE_SWITCH_BEGIN, except that the node value (rather than tag()) is used in the switch. The type should be either INT or CHAR. 
+<p>
+Definition at line <a class="el" href="user__module_8hpp-source.html#l00161">161</a> of file <a class="el" href="user__module_8hpp-source.html">user_module.hpp</a>.    </td>
+  </tr>
+</table>
+<a class="anchor" name="a4" doxytag="user_module.hpp::SPRITE_VALUE_SWITCH_END"></a><p>
+<table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
+  <tr>
+    <td class="mdRow">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top">#define SPRITE_VALUE_SWITCH_END          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing="5" cellpadding="0" border="0">
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+<b>Value:</b><div class="fragment"><pre class="fragment">}                                                                      \
+    }                                                                        \
+    <a class="code" href="user__module_8hpp.html#a2">SPRITE_SWITCH_END</a>                                                        \
+</pre></div>Generates code to close a switch opened by SPRITE_VALUE_SWITCH_BEGIN. 
+<p>
+
+<p>
+Definition at line <a class="el" href="user__module_8hpp-source.html#l00172">172</a> of file <a class="el" href="user__module_8hpp-source.html">user_module.hpp</a>.    </td>
+  </tr>
+</table>
+<hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:33 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

@@ -1,6 +1,6 @@
 \section{sprite::payloads::Child\-List Struct Reference}
 \label{structsprite_1_1payloads_1_1ChildList}\index{sprite::payloads::ChildList@{sprite::payloads::ChildList}}
-A payload containing an arbitrary-length list of children.  
+A payload containing a dynamically-sized list of children.  
 
 
 {\tt \#include $<$payloads.hpp$>$}
@@ -20,26 +20,33 @@ Collaboration diagram for sprite::payloads::Child\-List:\begin{figure}[H]
 \subsection*{Public Member Functions}
 \begin{CompactItemize}
 \item 
-{\bf Child\-List} (size\_\-t n\_\-)\label{structsprite_1_1payloads_1_1ChildList_a0}
-
-\end{CompactItemize}
-\subsection*{Public Attributes}
-\begin{CompactItemize}
-\item 
-size\_\-t {\bf n}\label{structsprite_1_1payloads_1_1ChildList_o0}
+{\bf Child\-List} ({\bf Node\-Ptr} $\ast$args, size\_\-t size)\label{structsprite_1_1payloads_1_1ChildList_a0}
 
 \item 
-{\bf Node\-Ptr} $\ast$ {\bf children}\label{structsprite_1_1payloads_1_1ChildList_o1}
+{\bf Child\-List} ({\bf Child\-List} const \&arg)\label{structsprite_1_1payloads_1_1ChildList_a1}
+
+\item 
+{\bf Child\-List} \& {\bf operator=} ({\bf Child\-List} const \&arg)\label{structsprite_1_1payloads_1_1ChildList_a2}
+
+\item 
+size\_\-t {\bf size} () const \label{structsprite_1_1payloads_1_1ChildList_a4}
+
+\item 
+{\bf Node\-Ptr} $\ast$ {\bf args} () const \label{structsprite_1_1payloads_1_1ChildList_a5}
 
 \end{CompactItemize}
 
 
 \subsection{Detailed Description}
-A payload containing an arbitrary-length list of children. 
+A payload containing a dynamically-sized list of children. 
+
+\begin{Desc}
+\item[Note:]Storing an extra copy of the arity here simplfies copy and assignment. \end{Desc}
 
 
 
-Definition at line 45 of file payloads.hpp.
+
+Definition at line 50 of file payloads.hpp.
 
 The documentation for this struct was generated from the following file:\begin{CompactItemize}
 \item 

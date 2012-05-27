@@ -26,13 +26,20 @@ typedef <a class="el" href="structsprite_1_1Node.html">Node</a>&nbsp;</td><td cl
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a3" doxytag="sprite::NodePtr::get"></a>
 <a class="el" href="structsprite_1_1Node.html">Node</a> *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="structsprite_1_1NodePtr.html#a3">get</a> () const </td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Get the pointer value, after skipping any FWD nodes. <br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Gets the pointer value, after skipping any FWD nodes. <br></td></tr>
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="el" href="structsprite_1_1Node.html">Node</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="structsprite_1_1NodePtr.html#a4">operator *</a> () const </td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Dereference the pointer, after skipping any FWD nodes.  <a href="#a4"></a><br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Dereferences the pointer, after skipping any FWD nodes.  <a href="#a4"></a><br></td></tr>
 <tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="el" href="structsprite_1_1Node.html">Node</a> *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="structsprite_1_1NodePtr.html#a5">operator-&gt;</a> () const </td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Call a member through the pointer, after skipping any FWD nodes.  <a href="#a5"></a><br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Calls a member through the pointer, after skipping any FWD nodes.  <a href="#a5"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="el" href="structsprite_1_1NodePtr.html">NodePtr</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="structsprite_1_1NodePtr.html#a6">operator[]</a> (size_t i) const </td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Dereferences a node pointer and then indexes the node.  <a href="#a6"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a7" doxytag="sprite::NodePtr::operator="></a>
+<a class="el" href="structsprite_1_1NodePtr.html">NodePtr</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="structsprite_1_1NodePtr.html#a7">operator=</a> (<a class="el" href="structsprite_1_1Node.html">Node</a> &amp;)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Enables assignment from a <a class="el" href="structsprite_1_1Node.html">Node</a> (simplifies some parts of the implementation). <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
 A reference-counting pointer for <a class="el" href="structsprite_1_1Node.html">Node</a> objects. 
@@ -66,7 +73,7 @@ Definition at line <a class="el" href="pointer_8hpp-source.html#l00023">23</a> o
     <td>
 
 <p>
-Dereference the pointer, after skipping any FWD nodes. 
+Dereferences the pointer, after skipping any FWD nodes. 
 <p>
 Precondition: the pointer is not NULL. 
 <p>
@@ -97,16 +104,49 @@ Definition at line <a class="el" href="pointer_8hpp-source.html#l00066">66</a> o
     <td>
 
 <p>
-Call a member through the pointer, after skipping any FWD nodes. 
+Calls a member through the pointer, after skipping any FWD nodes. 
 <p>
 Precondition: the pointer is not NULL. 
 <p>
 Definition at line <a class="el" href="pointer_8hpp-source.html#l00077">77</a> of file <a class="el" href="pointer_8hpp-source.html">pointer.hpp</a>.    </td>
   </tr>
 </table>
-<hr>The documentation for this struct was generated from the following file:<ul>
-<li>sprite/<a class="el" href="pointer_8hpp-source.html">pointer.hpp</a></ul>
-<hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:45 2012 for sprite by&nbsp;
+<a class="anchor" name="a6" doxytag="sprite::NodePtr::operator[]"></a><p>
+<table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
+  <tr>
+    <td class="mdRow">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top"><a class="el" href="structsprite_1_1NodePtr.html">NodePtr</a> &amp; sprite::NodePtr::operator[]           </td>
+          <td class="md" valign="top">(&nbsp;</td>
+          <td class="md" nowrap valign="top">size_t&nbsp;</td>
+          <td class="mdname1" valign="top" nowrap> <em>i</em>          </td>
+          <td class="md" valign="top">&nbsp;)&nbsp;</td>
+          <td class="md" nowrap> const<code> [inline]</code></td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing="5" cellpadding="0" border="0">
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+Dereferences a node pointer and then indexes the node. 
+<p>
+This function provides a simplified syntax for indexing.<p>
+Precondition: the point is not NULL, and the index is in-bounds. 
+<p>
+Definition at line <a class="el" href="node_8hpp-source.html#l00207">207</a> of file <a class="el" href="node_8hpp-source.html">node.hpp</a>.    </td>
+  </tr>
+</table>
+<hr>The documentation for this struct was generated from the following files:<ul>
+<li>sprite/<a class="el" href="pointer_8hpp-source.html">pointer.hpp</a><li>sprite/<a class="el" href="node_8hpp-source.html">node.hpp</a></ul>
+<hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:36 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

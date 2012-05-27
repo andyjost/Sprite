@@ -62,7 +62,7 @@ namespace sprite
       result_type operator()(ChildListNode & node) const
       { 
         payloads::ChildList const & list = node.payload;
-        return result_type(&list.children[0], &list.children[node.arity()]);
+        return result_type(&list.args()[0], &list.args()[node.arity()]);
       }
 
       // Handle node types without children.
@@ -103,7 +103,7 @@ namespace sprite
     /// Implements Node::operator[].
     struct At : static_visitor<NodePtr const &>
     {
-      // A forwarding node should never be obtained for use (correct?).
+      // A forwarding node should never be obtained for use here.
       result_type operator()(FwdNode const &, size_t) const
         { throw RuntimeError("Unexpected forward node."); }
 
@@ -119,13 +119,13 @@ namespace sprite
         {
           case 0: return node.payload.arg0;
           case 1: return node.payload.arg1;
-          default: assert(0);
+          default: throw RuntimeError("Child index is out of range.");
         }
       }
       result_type operator()(ChildListNode const & node, size_t i) const
       { 
         assert(i<node.arity());
-        return node.payload.children[i];
+        return node.payload.args()[i];
       }
 
       // Handle node types without children.
@@ -178,7 +178,7 @@ namespace sprite
           ChildListNode const & node, NodePtr const & child
         ) const
       { 
-        size_t const i = &child - &node.payload.children[0];
+        size_t const i = &child - &node.payload.args()[0];
         assert(i<node.arity());
         return i;
       }

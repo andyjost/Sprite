@@ -28,18 +28,20 @@ struct {\bf sprite::Node\-Ptr}
 \begin{CompactList}\small\item\em A reference-counting pointer for {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} objects. \item\end{CompactList}\item 
 struct {\bf sprite::Program}
 \begin{CompactList}\small\item\em A program definition. \item\end{CompactList}\item 
-struct {\bf sprite::rewrite$<$ Ctor\-Or\-Oper $>$}
-\begin{CompactList}\small\item\em Rewrite a node to a CTOR or OPER node. \item\end{CompactList}\item 
+struct {\bf sprite::rewrite$<$ OPER $>$}
+\begin{CompactList}\small\item\em Rewrites a node to an OPER node. \item\end{CompactList}\item 
+struct {\bf sprite::rewrite$<$ CTOR $>$}
+\begin{CompactList}\small\item\em Rewrites a node to a CTOR node. \item\end{CompactList}\item 
 struct {\bf sprite::rewrite$<$ FAIL $>$}
-\begin{CompactList}\small\item\em Rewrite a node to a FAIL. \item\end{CompactList}\item 
+\begin{CompactList}\small\item\em Rewrites a node to FAIL. \item\end{CompactList}\item 
 struct {\bf sprite::rewrite$<$ CHOICE $>$}
-\begin{CompactList}\small\item\em Rewrite a node to a CHOICE. \item\end{CompactList}\item 
+\begin{CompactList}\small\item\em Rewrites a node to CHOICE. \item\end{CompactList}\item 
 struct {\bf sprite::rewrite$<$ FWD $>$}
-\begin{CompactList}\small\item\em Rewrite a node to a FWD. \item\end{CompactList}\item 
+\begin{CompactList}\small\item\em Rewrites a node to FWD. \item\end{CompactList}\item 
 struct {\bf sprite::rewrite$<$ INT $>$}
-\begin{CompactList}\small\item\em Rewrite a node to an INT. \item\end{CompactList}\item 
+\begin{CompactList}\small\item\em Rewrites a node to INT. \item\end{CompactList}\item 
 struct {\bf sprite::rewrite$<$ FLOAT $>$}
-\begin{CompactList}\small\item\em Rewrite a node to a FLOAT. \item\end{CompactList}\item 
+\begin{CompactList}\small\item\em Rewrites a node to FLOAT. \item\end{CompactList}\item 
 struct {\bf sprite::Loader}
 \begin{CompactList}\small\item\em Interface to the module loader. \item\end{CompactList}\item 
 struct {\bf sprite::Module}
@@ -49,44 +51,41 @@ struct {\bf sprite::User\-Module}
 \subsection*{Typedefs}
 \begin{CompactItemize}
 \item 
-typedef boost::uint\_\-t$<$ 32 $>$::exact {\bf uint32}\label{namespacesprite_a13}
+typedef boost::uint\_\-t$<$ 32 $>$::exact {\bf uint32}\label{namespacesprite_a11}
 
 \item 
-typedef {\bf Node\_\-}$<$ {\bf payloads::Unused}$<$$>$ $>$ {\bf Abstract\-Node}\label{namespacesprite_a28}
+typedef {\bf Node\_\-}$<$ {\bf payloads::Unused}$<$$>$ $>$ {\bf Abstract\-Node}\label{namespacesprite_a26}
 
 \begin{CompactList}\small\item\em A complete node where the payload is unknown. \item\end{CompactList}\item 
-typedef {\bf Node\_\-}$<$ payloads::In\-Place$<$ 0 $>$ $>$ {\bf In\-Place\-Node0}\label{namespacesprite_a29}
+typedef {\bf Node\_\-}$<$ payloads::In\-Place$<$ 0 $>$ $>$ {\bf In\-Place\-Node0}\label{namespacesprite_a27}
 
 \begin{CompactList}\small\item\em A complete node with exactly zero children. \item\end{CompactList}\item 
-typedef {\bf Node\_\-}$<$ payloads::In\-Place$<$ 1 $>$ $>$ {\bf In\-Place\-Node1}\label{namespacesprite_a30}
+typedef {\bf Node\_\-}$<$ payloads::In\-Place$<$ 1 $>$ $>$ {\bf In\-Place\-Node1}\label{namespacesprite_a28}
 
 \begin{CompactList}\small\item\em A complete node with exactly one child. \item\end{CompactList}\item 
-typedef {\bf Node\_\-}$<$ payloads::In\-Place$<$ 2 $>$ $>$ {\bf In\-Place\-Node2}\label{namespacesprite_a31}
+typedef {\bf Node\_\-}$<$ payloads::In\-Place$<$ 2 $>$ $>$ {\bf In\-Place\-Node2}\label{namespacesprite_a29}
 
 \begin{CompactList}\small\item\em A complete node with exactly two children. \item\end{CompactList}\item 
-typedef {\bf Node\_\-}$<$ {\bf payloads::Child\-List} $>$ {\bf Child\-List\-Node}\label{namespacesprite_a32}
+typedef {\bf Node\_\-}$<$ {\bf payloads::Child\-List} $>$ {\bf Child\-List\-Node}\label{namespacesprite_a30}
 
 \begin{CompactList}\small\item\em A complete node with more than two children. \item\end{CompactList}\item 
-typedef {\bf Node\_\-}$<$ {\bf payloads::Choice} $>$ {\bf Choice\-Node}\label{namespacesprite_a33}
+typedef {\bf Node\_\-}$<$ {\bf payloads::Choice} $>$ {\bf Choice\-Node}\label{namespacesprite_a31}
 
 \begin{CompactList}\small\item\em A complete node representing a choice. \item\end{CompactList}\item 
 typedef {\bf Node\_\-}$<$ {\bf payloads::Fwd} $>$ {\bf Fwd\-Node}
 \begin{CompactList}\small\item\em A complete node representing a forward reference. \item\end{CompactList}\item 
-typedef {\bf Node\_\-}$<$ {\bf payloads::Int} $>$ {\bf Int\-Node}\label{namespacesprite_a35}
+typedef {\bf Node\_\-}$<$ {\bf payloads::Int} $>$ {\bf Int\-Node}\label{namespacesprite_a33}
 
 \begin{CompactList}\small\item\em A complete node representing an integer. \item\end{CompactList}\item 
-typedef {\bf Node\_\-}$<$ {\bf payloads::Float} $>$ {\bf Float\-Node}\label{namespacesprite_a36}
+typedef {\bf Node\_\-}$<$ {\bf payloads::Float} $>$ {\bf Float\-Node}\label{namespacesprite_a34}
 
 \begin{CompactList}\small\item\em A complete node representing a floating-point value. \item\end{CompactList}\item 
-typedef tr1::function$<$ void({\bf Node} \&) {\bf h\_\-func\_\-type} )\label{namespacesprite_a45}
+typedef tr1::function$<$ void({\bf Node} \&) {\bf h\_\-func\_\-type} )\label{namespacesprite_a43}
 
 \begin{CompactList}\small\item\em The type of an H function. \item\end{CompactList}\end{CompactItemize}
 \subsection*{Enumerations}
 \begin{CompactItemize}
 \item 
-enum {\bf Builtin\-Ctor} \{ {\bf C\_\-END}
- \}
-\begin{CompactList}\small\item\em The built-in data constructors. \item\end{CompactList}\item 
 enum {\bf Builtin\-Op} \{ \par
 {\bf OP\_\-INT\_\-ADD}, 
 {\bf OP\_\-INT\_\-SUB}, 
@@ -102,20 +101,20 @@ enum {\bf Builtin\-Op} \{ \par
  \}
 \begin{CompactList}\small\item\em The built-in operations. \item\end{CompactList}\item 
 enum {\bf Tag\-Value} \{ \par
-{\bf FAIL}, 
-{\bf CTOR}, 
+{\bf FAIL} = 0, 
 {\bf OPER}, 
 {\bf CHOICE}, 
-\par
 {\bf FWD}, 
+\par
 {\bf INT}, 
-{\bf FLOAT}
+{\bf FLOAT}, 
+{\bf CTOR}
  \}
-\begin{CompactList}\small\item\em Identifies the type of a node. \item\end{CompactList}\item 
+\begin{CompactList}\small\item\em Identifies the type of a node. CTOR must be last! \item\end{CompactList}\item 
 enum {\bf Trace\-Option} \{ {\bf NO\_\-TRACE} = false, 
 {\bf TRACE} = true
  \}
-\item 
+\begin{CompactList}\small\item\em Indicates whether tracing is enabled. \item\end{CompactList}\item 
 enum {\bf Choice\-Direction} \{ {\bf LEFT} = 0, 
 {\bf RIGHT} = 1
  \}
@@ -123,73 +122,76 @@ enum {\bf Choice\-Direction} \{ {\bf LEFT} = 0,
 \subsection*{Functions}
 \begin{CompactItemize}
 \item 
-template$<$Builtin\-Op Op$>$ void {\bf h\_\-func} ({\bf Node} \&node)\label{namespacesprite_a46}
+template$<$Builtin\-Op Op$>$ void {\bf h\_\-func} ({\bf Node} \&node)\label{namespacesprite_a44}
 
 \begin{CompactList}\small\item\em Implements the H function for a built in operation. \item\end{CompactList}\item 
-bool {\bf is\_\-ctor} ({\bf Tag\-Value} x)\label{namespacesprite_a47}
+{\bf Tag\-Value} {\bf make\_\-ctor\_\-tag} (int i)\label{namespacesprite_a45}
 
-\begin{CompactList}\small\item\em Indicates whether a tag represents a constructor. \item\end{CompactList}\item 
-bool {\bf is\_\-builtin} ({\bf Tag\-Value} x)\label{namespacesprite_a48}
+\begin{CompactList}\small\item\em Generates a constructor tag. \item\end{CompactList}\item 
+bool {\bf is\_\-ctor} ({\bf Tag\-Value} x)\label{namespacesprite_a46}
+
+\begin{CompactList}\small\item\em Indicates whether a tag represents a constructor (built-in or not). \item\end{CompactList}\item 
+bool {\bf is\_\-builtin} ({\bf Tag\-Value} x)\label{namespacesprite_a47}
 
 \begin{CompactList}\small\item\em Indicates whether a tag represents a built-in type. \item\end{CompactList}\item 
-void {\bf execute} ({\bf Program} const \&pgm, {\bf Node} \&goal, {\bf Yield\-Handler} const \&out, Trace\-Option trace)
+void {\bf execute} ({\bf Program} const \&pgm, {\bf Node} \&goal, {\bf Yield\-Handler} const \&out, {\bf Trace\-Option} trace)
 \begin{CompactList}\small\item\em Execute a goal in the context of the given program. \item\end{CompactList}\item 
 void {\bf print\_\-node} ({\bf Node} const \&node)
 \begin{CompactList}\small\item\em Print an expression. \item\end{CompactList}\item 
-void {\bf execute} ({\bf Program} const \&program, {\bf Node} \&goal, Trace\-Option trace)\label{namespacesprite_a52}
+void {\bf execute} ({\bf Program} const \&program, {\bf Node} \&goal, {\bf Trace\-Option} trace)\label{namespacesprite_a51}
 
 \item 
-template$<$typename Output\-Iterator$>$ void {\bf execute} ({\bf Program} const \&pgm, {\bf Node} \&goal, Output\-Iterator out, Trace\-Option trace=NO\_\-TRACE)\label{namespacesprite_a53}
+template$<$typename Output\-Iterator$>$ void {\bf execute} ({\bf Program} const \&pgm, {\bf Node} \&goal, Output\-Iterator out, {\bf Trace\-Option} trace=NO\_\-TRACE)\label{namespacesprite_a52}
 
 \begin{CompactList}\small\item\em Alternate form of execute; results are written to the given iterator. \item\end{CompactList}\item 
-bool {\bf is\_\-norm} ({\bf Node} const \&node)\label{namespacesprite_a54}
+bool {\bf is\_\-norm} ({\bf Node} const \&node)\label{namespacesprite_a53}
 
 \begin{CompactList}\small\item\em Traverses an expression and returns true if it is found to be in cnf. \item\end{CompactList}\item 
 void {\bf pull\_\-tab} ({\bf Node} \&g, {\bf Node\-Ptr} const \&p)
 \begin{CompactList}\small\item\em Performs the pull-tab transformation. \item\end{CompactList}\item 
 void {\bf head\_\-normalize} ({\bf Node} \&node)
 \begin{CompactList}\small\item\em The head-normalizing (H) function from the fair scheme. \item\end{CompactList}\item 
-void {\bf fair\_\-normalize} ({\bf Fingerprint} const \&fp, {\bf Node} \&node)\label{namespacesprite_a57}
+void {\bf fair\_\-normalize} ({\bf Fingerprint} const \&fp, {\bf Node} \&node)\label{namespacesprite_a56}
 
 \begin{CompactList}\small\item\em The normalizing (N) function from the fair scheme. \item\end{CompactList}\item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Abstract\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a58}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Abstract\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a57}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node0})=={\bf NODE\_\-BYTES})\label{namespacesprite_a59}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node0})=={\bf NODE\_\-BYTES})\label{namespacesprite_a58}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node1})=={\bf NODE\_\-BYTES})\label{namespacesprite_a60}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node1})=={\bf NODE\_\-BYTES})\label{namespacesprite_a59}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node2})=={\bf NODE\_\-BYTES})\label{namespacesprite_a61}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf In\-Place\-Node2})=={\bf NODE\_\-BYTES})\label{namespacesprite_a60}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Child\-List\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a62}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Child\-List\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a61}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Choice\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a63}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Choice\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a62}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Fwd\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a64}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Fwd\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a63}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Int\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a65}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Int\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a64}
 
 \item 
-{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Float\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a66}
+{\bf BOOST\_\-STATIC\_\-ASSERT} (sizeof({\bf Float\-Node})=={\bf NODE\_\-BYTES})\label{namespacesprite_a65}
 
 \item 
-bool {\bf skip\_\-fwd\_\-ref} ({\bf Node\-Ptr} \&ptr, {\bf Node} \&ref)\label{namespacesprite_a67}
+bool {\bf skip\_\-fwd\_\-ref} ({\bf Node\-Ptr} \&ptr, {\bf Node} \&ref)\label{namespacesprite_a66}
 
 \begin{CompactList}\small\item\em Tells {\bf Node\-Ptr}{\rm (p.\,\pageref{structsprite_1_1NodePtr})} how to skip FWD nodes. \item\end{CompactList}\item 
 template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, {\bf Node} const \&node)
 \begin{CompactList}\small\item\em Unary visitation; calls visitor((Type)(node)). \item\end{CompactList}\item 
-template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, {\bf Node} \&node)\label{namespacesprite_a69}
+template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, {\bf Node} \&node)\label{namespacesprite_a68}
 
 \begin{CompactList}\small\item\em Non-const form of visitation. \item\end{CompactList}\item 
 template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, {\bf Node} const \&lhs, {\bf Node} const \&rhs)
 \begin{CompactList}\small\item\em Binary visitation; calls visitor((Type\-Lhs)(lhs), (Type\-Rhs)(rhs)). \item\end{CompactList}\item 
-template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, {\bf Node} \&lhs, {\bf Node} \&rhs)\label{namespacesprite_a71}
+template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, {\bf Node} \&lhs, {\bf Node} \&rhs)\label{namespacesprite_a70}
 
 \begin{CompactList}\small\item\em Non-const form of binary visitation. \item\end{CompactList}\end{CompactItemize}
 \subsection*{Variables}
@@ -197,39 +199,36 @@ template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor cons
 \item 
 {\bf h\_\-func\_\-type} {\bf builtin\_\-h} [OP\_\-END]
 \begin{CompactList}\small\item\em The table of built-in H routines. \item\end{CompactList}\item 
-std::string {\bf builtin\_\-ctor} [C\_\-END] = \{\}\label{namespacesprite_a1}
-
-\begin{CompactList}\small\item\em The tables of built-in constructor labels. \item\end{CompactList}\item 
-std::string {\bf builtin\_\-oper} [OP\_\-END] = \{ \char`\"{}+\char`\"{}, \char`\"{}-\char`\"{}, \char`\"{}$\ast$\char`\"{}, \char`\"{}/\char`\"{}, \char`\"{}+\char`\"{}, \char`\"{}-\char`\"{}, \char`\"{}$\ast$\char`\"{}, \char`\"{}/\char`\"{} \}\label{namespacesprite_a2}
+std::string {\bf builtin\_\-oper} [OP\_\-END] = \{ \char`\"{}+\char`\"{}, \char`\"{}-\char`\"{}, \char`\"{}$\ast$\char`\"{}, \char`\"{}/\char`\"{}, \char`\"{}+\char`\"{}, \char`\"{}-\char`\"{}, \char`\"{}$\ast$\char`\"{}, \char`\"{}/\char`\"{} \}\label{namespacesprite_a1}
 
 \begin{CompactList}\small\item\em The tables of built-in operation labels. \item\end{CompactList}\item 
-boost::object\_\-pool$<$ {\bf Abstract\-Node} $>$ {\bf node\_\-allocator}\label{namespacesprite_a21}
+boost::object\_\-pool$<$ {\bf Abstract\-Node} $>$ {\bf node\_\-allocator}\label{namespacesprite_a19}
 
 \begin{CompactList}\small\item\em Global memory pool for allocating nodes. \item\end{CompactList}\item 
-{\bf Program} const $\ast$ {\bf g\_\-program} = NULL\label{namespacesprite_a22}
+{\bf Program} const $\ast$ {\bf g\_\-program} = NULL\label{namespacesprite_a20}
 
 \begin{CompactList}\small\item\em Global pointer to the currently executing program. \item\end{CompactList}\item 
 size\_\-t const {\bf NODE\_\-BYTES} = 32
 \begin{CompactList}\small\item\em The size of a complete node. \item\end{CompactList}\item 
-{\bf rewrite}$<$ CTOR $>$ const {\bf rewrite\_\-ctor} = {\bf rewrite}$<$CTOR$>$()\label{namespacesprite_a38}
+rewrite$<$ CTOR $>$ const {\bf rewrite\_\-ctor} = rewrite$<$CTOR$>$()\label{namespacesprite_a36}
 
 \begin{CompactList}\small\item\em Rewrites a node to type CTOR. \item\end{CompactList}\item 
-{\bf rewrite}$<$ OPER $>$ const {\bf rewrite\_\-oper} = {\bf rewrite}$<$OPER$>$()\label{namespacesprite_a39}
+rewrite$<$ OPER $>$ const {\bf rewrite\_\-oper} = rewrite$<$OPER$>$()\label{namespacesprite_a37}
 
 \begin{CompactList}\small\item\em Rewrites a node to type OPER. \item\end{CompactList}\item 
-{\bf rewrite}$<$ FAIL $>$ const {\bf rewrite\_\-fail} = {\bf rewrite}$<$FAIL$>$()\label{namespacesprite_a40}
+rewrite$<$ FAIL $>$ const {\bf rewrite\_\-fail} = rewrite$<$FAIL$>$()\label{namespacesprite_a38}
 
 \begin{CompactList}\small\item\em Rewrites a node to type FAIL. \item\end{CompactList}\item 
-{\bf rewrite}$<$ CHOICE $>$ const {\bf rewrite\_\-choice} = {\bf rewrite}$<$CHOICE$>$()\label{namespacesprite_a41}
+rewrite$<$ CHOICE $>$ const {\bf rewrite\_\-choice} = rewrite$<$CHOICE$>$()\label{namespacesprite_a39}
 
 \begin{CompactList}\small\item\em Rewrites a node to type CHOICE. \item\end{CompactList}\item 
-{\bf rewrite}$<$ FWD $>$ const {\bf rewrite\_\-fwd} = {\bf rewrite}$<$FWD$>$()\label{namespacesprite_a42}
+rewrite$<$ FWD $>$ const {\bf rewrite\_\-fwd} = rewrite$<$FWD$>$()\label{namespacesprite_a40}
 
 \begin{CompactList}\small\item\em Rewrites a node to type FWD. \item\end{CompactList}\item 
-{\bf rewrite}$<$ INT $>$ const {\bf rewrite\_\-int} = {\bf rewrite}$<$INT$>$()\label{namespacesprite_a43}
+rewrite$<$ INT $>$ const {\bf rewrite\_\-int} = rewrite$<$INT$>$()\label{namespacesprite_a41}
 
 \begin{CompactList}\small\item\em Rewrites a node to type INT. \item\end{CompactList}\item 
-{\bf rewrite}$<$ FLOAT $>$ const {\bf rewrite\_\-float} = {\bf rewrite}$<$FLOAT$>$()\label{namespacesprite_a44}
+rewrite$<$ FLOAT $>$ const {\bf rewrite\_\-float} = rewrite$<$FLOAT$>$()\label{namespacesprite_a42}
 
 \begin{CompactList}\small\item\em Rewrites a node to type FLOAT. \item\end{CompactList}\end{CompactItemize}
 
@@ -240,19 +239,33 @@ The main namespace for sprite.
 \subsection{Typedef Documentation}
 \index{sprite@{sprite}!FwdNode@{FwdNode}}
 \index{FwdNode@{FwdNode}!sprite@{sprite}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}typedef {\bf Node\_\-}$<${\bf payloads::Fwd}$>$ {\bf sprite::Fwd\-Node}}\label{namespacesprite_a34}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}typedef {\bf Node\_\-}$<${\bf payloads::Fwd}$>$ {\bf sprite::Fwd\-Node}}\label{namespacesprite_a32}
 
 
 A complete node representing a forward reference. 
 
 This is simply a node that refers to another, which sometimes comes up during rewriting. 
 
-Definition at line 252 of file node.hpp.
+Definition at line 262 of file node.hpp.
+
+\subsection{Enumeration Type Documentation}
+\index{sprite@{sprite}!TagValue@{TagValue}}
+\index{TagValue@{TagValue}!sprite@{sprite}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}enum {\bf Tag\-Value}}\label{namespacesprite_a72}
+
+
+Identifies the type of a node. CTOR must be last! 
+
+The constructors for any type are assigned the sequential tags CTOR, CTOR+1, CTOR+2,... Said another way, this type is abused in that any value $>$= CTOR can be a valid Tag\-Value. 
+
+Definition at line 66 of file common.hpp.
+
+Referenced by make\_\-ctor\_\-tag(), and sprite::Node::tag().
 
 \subsection{Function Documentation}
 \index{sprite@{sprite}!execute@{execute}}
 \index{execute@{execute}!sprite@{sprite}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void sprite::execute (Program const \& {\em program}, Node \& {\em goal}, Yield\-Handler const \& {\em handler} = {\tt YieldHandler\_\-$<$\ void\ $>$()}, Trace\-Option {\em trace} = {\tt NO\_\-TRACE})}\label{namespacesprite_a50}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void sprite::execute (Program const \& {\em program}, Node \& {\em goal}, Yield\-Handler const \& {\em handler} = {\tt YieldHandler\_\-$<$\ void\ $>$()}, {\bf Trace\-Option} {\em trace} = {\tt NO\_\-TRACE})}\label{namespacesprite_a49}
 
 
 Execute a goal in the context of the given program. 
@@ -273,19 +286,19 @@ References sprite::Fingerprint::at(), fair\_\-normalize(), g\_\-program, sprite:
 Here is the call graph for this function:\begin{figure}[H]
 \begin{center}
 \leavevmode
-\includegraphics[width=282pt]{namespacesprite_a50_cgraph}
+\includegraphics[width=282pt]{namespacesprite_a49_cgraph}
 \end{center}
 \end{figure}
 \index{sprite@{sprite}!head_normalize@{head\_\-normalize}}
 \index{head_normalize@{head\_\-normalize}!sprite@{sprite}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void head\_\-normalize (Node \& {\em node})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_a56}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void head\_\-normalize (Node \& {\em node})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_a55}
 
 
 The head-normalizing (H) function from the fair scheme. 
 
-This is a generic H function that dispatches to the correct implementation for the given operation. 
+This is a generic H function that dispatches to the correct implementation for the given operation. The H.6 rule, which ignors constructor-rooted expressions, is implemented here so that user-compiled H rules can ignore it. 
 
-Definition at line 135 of file exec.hpp.
+Definition at line 139 of file exec.hpp.
 
 References g\_\-program, sprite::Node::id(), sprite::Program::oper, and sprite::Node::tag().
 
@@ -294,12 +307,12 @@ Referenced by fair\_\-normalize(), and h\_\-func().
 Here is the call graph for this function:\begin{figure}[H]
 \begin{center}
 \leavevmode
-\includegraphics[width=140pt]{namespacesprite_a56_cgraph}
+\includegraphics[width=140pt]{namespacesprite_a55_cgraph}
 \end{center}
 \end{figure}
 \index{sprite@{sprite}!print_node@{print\_\-node}}
 \index{print_node@{print\_\-node}!sprite@{sprite}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void sprite::print\_\-node (Node const \&)}\label{namespacesprite_a51}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void sprite::print\_\-node (Node const \&)}\label{namespacesprite_a50}
 
 
 Print an expression. 
@@ -308,9 +321,9 @@ Print an expression.
 \item[Note:]Alias for operator$<$$<$, callable from the debugger. \end{Desc}
 
 
-Definition at line 189 of file exec.cpp.\index{sprite@{sprite}!pull_tab@{pull\_\-tab}}
+Definition at line 190 of file exec.cpp.\index{sprite@{sprite}!pull_tab@{pull\_\-tab}}
 \index{pull_tab@{pull\_\-tab}!sprite@{sprite}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void pull\_\-tab (Node \& {\em g}, Node\-Ptr const \& {\em p})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_a55}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void pull\_\-tab (Node \& {\em g}, Node\-Ptr const \& {\em p})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_a54}
 
 
 Performs the pull-tab transformation. 
@@ -322,7 +335,7 @@ Performs the pull-tab transformation.
 \end{Desc}
 
 
-Definition at line 118 of file exec.hpp.
+Definition at line 120 of file exec.hpp.
 
 References sprite::Node::clone(), sprite::Node::position(), and rewrite\_\-choice.
 
@@ -331,12 +344,12 @@ Referenced by fair\_\-normalize(), and h\_\-func().
 Here is the call graph for this function:\begin{figure}[H]
 \begin{center}
 \leavevmode
-\includegraphics[width=248pt]{namespacesprite_a55_cgraph}
+\includegraphics[width=248pt]{namespacesprite_a54_cgraph}
 \end{center}
 \end{figure}
 \index{sprite@{sprite}!visit@{visit}}
 \index{visit@{visit}!sprite@{sprite}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}template$<$typename Visitor$>$ Visitor::result\_\-type visit (Visitor const \& {\em visitor}, Node const \& {\em lhs}, Node const \& {\em rhs})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_a70}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}template$<$typename Visitor$>$ Visitor::result\_\-type visit (Visitor const \& {\em visitor}, Node const \& {\em lhs}, Node const \& {\em rhs})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_a69}
 
 
 Binary visitation; calls visitor((Type\-Lhs)(lhs), (Type\-Rhs)(rhs)). 
@@ -345,9 +358,9 @@ Determines the type of each node, then calls the visitor with both nodes cast to
 
 Rather than support all four possible overloads related to the const qualifier on {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} arguments, just support the cases where both are qualified or neither one is. 
 
-Definition at line 143 of file visit.hpp.\index{sprite@{sprite}!visit@{visit}}
+Definition at line 142 of file visit.hpp.\index{sprite@{sprite}!visit@{visit}}
 \index{visit@{visit}!sprite@{sprite}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}template$<$typename Visitor$>$ Visitor::result\_\-type visit (Visitor const \& {\em visitor}, Node const \& {\em node})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_a68}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}template$<$typename Visitor$>$ Visitor::result\_\-type visit (Visitor const \& {\em visitor}, Node const \& {\em node})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_a67}
 
 
 Unary visitation; calls visitor((Type)(node)). 
@@ -363,7 +376,7 @@ Referenced by sprite::Node::clone(), sprite::Node::iter(), sprite::Node::operato
 Here is the call graph for this function:\begin{figure}[H]
 \begin{center}
 \leavevmode
-\includegraphics[width=116pt]{namespacesprite_a68_cgraph}
+\includegraphics[width=116pt]{namespacesprite_a67_cgraph}
 \end{center}
 \end{figure}
 
@@ -394,11 +407,11 @@ The table of built-in H routines.
 
 Definition at line 189 of file builtins.cpp.\index{sprite@{sprite}!NODE_BYTES@{NODE\_\-BYTES}}
 \index{NODE_BYTES@{NODE\_\-BYTES}!sprite@{sprite}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}size\_\-t const {\bf sprite::NODE\_\-BYTES} = 32}\label{namespacesprite_a27}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}size\_\-t const {\bf sprite::NODE\_\-BYTES} = 32}\label{namespacesprite_a25}
 
 
 The size of a complete node. 
 
 Constrining every complete node type to have the same size simplifies memory pooling and rewriting. 
 
-Definition at line 218 of file node.hpp.
+Definition at line 228 of file node.hpp.

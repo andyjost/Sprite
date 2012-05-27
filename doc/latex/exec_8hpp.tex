@@ -44,24 +44,24 @@ struct {\bf sprite::Yield\-Handler\_\-$<$ void $>$}
 enum {\bf Trace\-Option} \{ {\bf NO\_\-TRACE} = false, 
 {\bf TRACE} = true
  \}
-\end{CompactItemize}
+\begin{CompactList}\small\item\em Indicates whether tracing is enabled. \item\end{CompactList}\end{CompactItemize}
 \subsection*{Functions}
 \begin{CompactItemize}
 \item 
-void {\bf execute} (Program const \&program, Node \&goal, Trace\-Option trace)\label{namespacesprite_a52}
+void {\bf execute} (Program const \&program, Node \&goal, {\bf Trace\-Option} trace)\label{namespacesprite_a51}
 
 \item 
-template$<$typename Output\-Iterator$>$ void {\bf execute} (Program const \&pgm, Node \&goal, Output\-Iterator out, Trace\-Option trace=NO\_\-TRACE)\label{namespacesprite_a53}
+template$<$typename Output\-Iterator$>$ void {\bf execute} (Program const \&pgm, Node \&goal, Output\-Iterator out, {\bf Trace\-Option} trace=NO\_\-TRACE)\label{namespacesprite_a52}
 
 \begin{CompactList}\small\item\em Alternate form of execute; results are written to the given iterator. \item\end{CompactList}\item 
-bool {\bf is\_\-norm} (Node const \&node)\label{namespacesprite_a54}
+bool {\bf is\_\-norm} (Node const \&node)\label{namespacesprite_a53}
 
 \begin{CompactList}\small\item\em Traverses an expression and returns true if it is found to be in cnf. \item\end{CompactList}\item 
 void {\bf pull\_\-tab} (Node \&g, Node\-Ptr const \&p)
 \begin{CompactList}\small\item\em Performs the pull-tab transformation. \item\end{CompactList}\item 
 void {\bf head\_\-normalize} (Node \&node)
 \begin{CompactList}\small\item\em The head-normalizing (H) function from the fair scheme. \item\end{CompactList}\item 
-void {\bf fair\_\-normalize} (Fingerprint const \&fp, Node \&node)\label{namespacesprite_a57}
+void {\bf fair\_\-normalize} (Fingerprint const \&fp, Node \&node)\label{namespacesprite_a56}
 
 \begin{CompactList}\small\item\em The normalizing (N) function from the fair scheme. \item\end{CompactList}\end{CompactItemize}
 
@@ -76,14 +76,14 @@ Definition in file {\bf exec.hpp}.
 \subsection{Function Documentation}
 \index{exec.hpp@{exec.hpp}!head_normalize@{head\_\-normalize}}
 \index{head_normalize@{head\_\-normalize}!exec.hpp@{exec.hpp}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void head\_\-normalize (Node \& {\em node})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_file_a56}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void head\_\-normalize (Node \& {\em node})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_file_a55}
 
 
 The head-normalizing (H) function from the fair scheme. 
 
-This is a generic H function that dispatches to the correct implementation for the given operation. 
+This is a generic H function that dispatches to the correct implementation for the given operation. The H.6 rule, which ignors constructor-rooted expressions, is implemented here so that user-compiled H rules can ignore it. 
 
-Definition at line 135 of file exec.hpp.
+Definition at line 139 of file exec.hpp.
 
 References sprite::g\_\-program, sprite::Node::id(), sprite::Program::oper, and sprite::Node::tag().
 
@@ -92,12 +92,12 @@ Referenced by sprite::fair\_\-normalize(), and sprite::h\_\-func().
 Here is the call graph for this function:\begin{figure}[H]
 \begin{center}
 \leavevmode
-\includegraphics[width=140pt]{namespacesprite_a56_cgraph}
+\includegraphics[width=140pt]{namespacesprite_a55_cgraph}
 \end{center}
 \end{figure}
 \index{exec.hpp@{exec.hpp}!pull_tab@{pull\_\-tab}}
 \index{pull_tab@{pull\_\-tab}!exec.hpp@{exec.hpp}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void pull\_\-tab (Node \& {\em g}, Node\-Ptr const \& {\em p})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_file_a55}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}void pull\_\-tab (Node \& {\em g}, Node\-Ptr const \& {\em p})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_file_a54}
 
 
 Performs the pull-tab transformation. 
@@ -109,7 +109,7 @@ Performs the pull-tab transformation.
 \end{Desc}
 
 
-Definition at line 118 of file exec.hpp.
+Definition at line 120 of file exec.hpp.
 
 References sprite::Node::clone(), sprite::Node::position(), and sprite::rewrite\_\-choice.
 
@@ -118,6 +118,6 @@ Referenced by sprite::fair\_\-normalize(), and sprite::h\_\-func().
 Here is the call graph for this function:\begin{figure}[H]
 \begin{center}
 \leavevmode
-\includegraphics[width=248pt]{namespacesprite_a55_cgraph}
+\includegraphics[width=248pt]{namespacesprite_a54_cgraph}
 \end{center}
 \end{figure}

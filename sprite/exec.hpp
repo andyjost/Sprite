@@ -17,10 +17,12 @@ namespace sprite
   /// Global pointer to the currently executing program.
   extern Program const * g_program;
 
+  /// Indicates whether tracing is enabled.
   enum TraceOption { NO_TRACE=false, TRACE=true };
 
   /**
-   * @brief Base of a class that handles computation results as they are generated.
+   * @brief Base of a class that handles computation results as they are
+   * generated.
    *
    * Whenever execution yields a result in constructor normal form, this
    * handler will be called to handle it.
@@ -120,9 +122,9 @@ namespace sprite
     size_t const i = g.position(p);
     assert(p->tag() == CHOICE);
     NodePtr lhs = g.clone();
-    (*lhs)[i] = (*p)[0];
+    lhs[i] = p[0];
     NodePtr rhs = g.clone();
-    (*rhs)[i] = (*p)[1];
+    rhs[i] = p[1];
     rewrite_choice(g, p->id(), lhs, rhs);
   }
 
@@ -130,38 +132,53 @@ namespace sprite
    * @brief The head-normalizing (H) function from the fair scheme.
    *
    * This is a generic H function that dispatches to the correct implementation
-   * for the given operation.
+   * for the given operation.  The H.6 rule, which ignors constructor-rooted
+   * expressions, is implemented here so that user-compiled H rules can ignore
+   * it.
    */
   inline void head_normalize(Node & node)
   {
     switch(node.tag())
     {
-      case OPER: return g_program->oper[node.id()](node);
-      case INT:
-      case FLOAT:
-      case CTOR: return;
-      default:
+      // For operations, call the H function.
+      case OPER:
+        return g_program->oper[node.id()](node);
+
+      // For non-constructors, throw.
+      case FAIL: case CHOICE: case FWD:
         throw RuntimeError(
             "defined operation or constructor expected in "
               + std::string(BOOST_CURRENT_FUNCTION)
           );
+
+      // Ignore constructor types.
+      case INT: case FLOAT: case CTOR: default:
+        return; // H.6
     }
   }
 
-  
   /// The normalizing (N) function from the fair scheme.
   inline void fair_normalize(Fingerprint const & fp, Node & node)
   {
     switch(node.tag())
     {
-      case OPER: return head_normalize(node);
-      case CTOR:
+      case OPER:
+        return head_normalize(node);
+
+      case INT: // Always a cnf.
+      case FLOAT: // Always a cnf.
+        return;
+
+      default:
       {
+        // TODO: must rewrite this section to match the paper.
+        // In particular, the choice and fail rules must be applied
+        // BEFORE any recursive calls to fair_normalize.
         BOOST_FOREACH(NodePtr & child, node.iter())
         {
           switch(child->tag())
           {
-            case FAIL: rewrite_fail(node); break;
+            case FAIL: return rewrite_fail(node);
             case CTOR: fair_normalize(fp, *child); break;
             case OPER: head_normalize(*child); break;
             case CHOICE: return pull_tab(node, child);
@@ -169,11 +186,7 @@ namespace sprite
             case FWD: throw RuntimeError("Unexpected FWD node.");
           }
         }
-        break;
       }
-      case INT: // Always a cnf.
-      case FLOAT: // Always a cnf.
-      default:;
     }
   }
 

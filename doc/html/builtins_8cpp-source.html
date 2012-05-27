@@ -79,9 +79,9 @@
 00082       <span class="keyword">static</span> UnguardedExecute&lt;Op&gt; <span class="keyword">const</span> exec;
 00083 
 00084       <span class="keywordflow">if</span>(guard(lhs,rhs))
-00085         { <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;meta::TagValueOf&lt;Op&gt;</a>::value&gt;()(out, exec(lhs,rhs)); }
+00085         { rewrite&lt;meta::TagValueOf&lt;Op&gt;::value&gt;()(out, exec(lhs,rhs)); }
 00086       <span class="keywordflow">else</span>
-00087         { <a class="code" href="namespacesprite.html#a40">rewrite_fail</a>(out); }
+00087         { <a class="code" href="namespacesprite.html#a38">rewrite_fail</a>(out); }
 00088     }
 00089   };
 00090 
@@ -121,7 +121,7 @@
 00134     <span class="keywordtype">void</span> operator()(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node)
 00135     {
 00136       assert(node.<a class="code" href="structsprite_1_1Node.html#a3">arity</a>() == 1);
-00137       <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a71">visit</a>(BuiltinImpl&lt;Op&gt;(node), *node[0]);
+00137       <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a70">visit</a>(BuiltinImpl&lt;Op&gt;(node), *node[0]);
 00138     }
 00139   };
 00140 
@@ -130,7 +130,7 @@
 00144     <span class="keywordtype">void</span> operator()(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node)
 00145     {
 00146       assert(node.<a class="code" href="structsprite_1_1Node.html#a3">arity</a>() == 2);
-00147       <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a71">visit</a>(BuiltinImpl&lt;Op&gt;(node), *node[0], *node[1]);
+00147       <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a70">visit</a>(BuiltinImpl&lt;Op&gt;(node), *node[0], *node[1]);
 00148     }
 00149   };
 00150 }
@@ -139,38 +139,38 @@
 00153 {
 00154   <span class="comment">// ====== h_func ======</span>
 00155 
-<a name="l00157"></a><a class="code" href="namespacesprite.html#a46">00157</a>   <span class="keyword">template</span>&lt;BuiltinOp Op&gt; <span class="keywordtype">void</span> <a class="code" href="namespacesprite.html#a46">h_func</a>(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node)
+<a name="l00157"></a><a class="code" href="namespacesprite.html#a44">00157</a>   <span class="keyword">template</span>&lt;BuiltinOp Op&gt; <span class="keywordtype">void</span> <a class="code" href="namespacesprite.html#a44">h_func</a>(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node)
 00158   {
-00159     <span class="comment">// H.4</span>
+00159     <span class="comment">// H.4 TODO</span>
 00160     <span class="comment">// Q. can this just check against CTOR?</span>
 00161     <span class="comment">// Q. how can this be needed?  The only call is from head_normalize.</span>
-00162     <span class="keywordflow">if</span>(<a class="code" href="namespacesprite.html#a47">is_ctor</a>(node.<a class="code" href="structsprite_1_1Node.html#a1">tag</a>())) <span class="keywordflow">return</span>;
+00162     <span class="keywordflow">if</span>(<a class="code" href="namespacesprite.html#a46">is_ctor</a>(node.<a class="code" href="structsprite_1_1Node.html#a1">tag</a>())) <span class="keywordflow">return</span>;
 00163   
 00164     BOOST_FOREACH(<a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> &amp; child, node.<a class="code" href="structsprite_1_1Node.html#a7">iter</a>())
 00165     {
 00166       <span class="keywordflow">switch</span>(child-&gt;tag())
 00167       {
-00168         <span class="comment">// H.1</span>
-00169         <span class="keywordflow">case</span> CHOICE: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a55">pull_tab</a>(node, child);
-00170         <span class="comment">// H.5</span>
-00171         <span class="keywordflow">case</span> FAIL: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a40">rewrite_fail</a>(node);
-00172         <span class="comment">// H.2</span>
-00173         <span class="keywordflow">case</span> OPER: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a56">head_normalize</a>(*child);
+00168         <span class="comment">// H.1 TODO</span>
+00169         <span class="keywordflow">case</span> CHOICE: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a54">pull_tab</a>(node, child);
+00170         <span class="comment">// H.5 TODO</span>
+00171         <span class="keywordflow">case</span> FAIL: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a38">rewrite_fail</a>(node);
+00172         <span class="comment">// H.2 TODO</span>
+00173         <span class="keywordflow">case</span> OPER: <span class="keywordflow">return</span> <a class="code" href="namespacesprite.html#a55">head_normalize</a>(*child);
 00174         <span class="keywordflow">default</span>:;
 00175       }
 00176     }
 00177   
 00178 <span class="preprocessor">    #ifndef NDEBUG</span>
 00179 <span class="preprocessor"></span>    BOOST_FOREACH(<a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; child, node.<a class="code" href="structsprite_1_1Node.html#a7">iter</a>())
-00180       { assert(<a class="code" href="namespacesprite.html#a48">is_builtin</a>(child-&gt;tag())); }
+00180       { assert(<a class="code" href="namespacesprite.html#a47">is_builtin</a>(child-&gt;tag())); }
 00181 <span class="preprocessor">    #endif</span>
 00182 <span class="preprocessor"></span>  
-00183     <span class="comment">// H.3</span>
+00183     <span class="comment">// H.3 TODO</span>
 00184     <span class="comment">// Compute the result and rewrite the node.</span>
 00185     Dispatch&lt;Op&gt;()(node);
 00186   }
 00187 
-<a name="l00189"></a><a class="code" href="namespacesprite.html#a0">00189</a>   <a class="code" href="namespacesprite.html#a45">h_func_type</a> <a class="code" href="namespacesprite.html#a0">builtin_h</a>[OP_END] =
+<a name="l00189"></a><a class="code" href="namespacesprite.html#a0">00189</a>   <a class="code" href="namespacesprite.html#a43">h_func_type</a> <a class="code" href="namespacesprite.html#a0">builtin_h</a>[OP_END] =
 00190   {
 00191       &amp;h_func&lt;OP_INT_ADD&gt;
 00192     , &amp;h_func&lt;OP_INT_SUB&gt;
@@ -182,10 +182,10 @@
 00198     , &amp;h_func&lt;OP_FLOAT_DIV&gt;
 00199   };
 00200 
-<a name="l00201"></a><a class="code" href="namespacesprite.html#a1">00201</a>   std::string <a class="code" href="namespacesprite.html#a1">builtin_ctor</a>[C_END] = {};
-<a name="l00202"></a><a class="code" href="namespacesprite.html#a2">00202</a>   std::string <a class="code" href="namespacesprite.html#a2">builtin_oper</a>[OP_END] = { <span class="stringliteral">"+"</span>, <span class="stringliteral">"-"</span>, <span class="stringliteral">"*"</span>, <span class="stringliteral">"/"</span>, <span class="stringliteral">"+"</span>, <span class="stringliteral">"-"</span>, <span class="stringliteral">"*"</span>, <span class="stringliteral">"/"</span> };
+00201   <span class="comment">// std::string builtin_ctor[C_END] = {};</span>
+<a name="l00202"></a><a class="code" href="namespacesprite.html#a1">00202</a>   std::string <a class="code" href="namespacesprite.html#a1">builtin_oper</a>[OP_END] = { <span class="stringliteral">"+"</span>, <span class="stringliteral">"-"</span>, <span class="stringliteral">"*"</span>, <span class="stringliteral">"/"</span>, <span class="stringliteral">"+"</span>, <span class="stringliteral">"-"</span>, <span class="stringliteral">"*"</span>, <span class="stringliteral">"/"</span> };
 00203 }
-</pre></div><hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:31 2012 for sprite by&nbsp;
+</pre></div><hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:26 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

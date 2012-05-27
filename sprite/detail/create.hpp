@@ -33,7 +33,9 @@
     catch(...)
     {
       // Node::delete, i.e., not the same as "delete p".  This does not call
-      // ~Node, so the Node constructor must not have claimed resources.
+      // ~Node, so a precondition is that the Node must not have claimed
+      // resources, which is the case if the call to rewrite failed (since
+      // AbstractNode claims no resources in its payload).
       operator delete(p);
       throw;
     }

@@ -7,7 +7,7 @@
 <div class="qindex"><a class="qindex" href="index.html">Main&nbsp;Page</a> | <a class="qindex" href="namespaces.html">Namespace List</a> | <a class="qindex" href="hierarchy.html">Class&nbsp;Hierarchy</a> | <a class="qindex" href="classes.html">Alphabetical&nbsp;List</a> | <a class="qindexHL" href="annotated.html">Class&nbsp;List</a> | <a class="qindex" href="files.html">File&nbsp;List</a> | <a class="qindex" href="namespacemembers.html">Namespace&nbsp;Members</a> | <a class="qindex" href="functions.html">Class&nbsp;Members</a> | <a class="qindex" href="globals.html">File&nbsp;Members</a></div>
 <h1>sprite Class List</h1>Here are the classes, structs, unions and interfaces with brief descriptions:<table>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1visitors_1_1At.html">sprite::visitors::At</a></td><td class="indexvalue">Implements Node::operator[] </td></tr>
-  <tr><td class="indexkey"><a class="el" href="structsprite_1_1payloads_1_1ChildList.html">sprite::payloads::ChildList</a></td><td class="indexvalue">A payload containing an arbitrary-length list of children </td></tr>
+  <tr><td class="indexkey"><a class="el" href="structsprite_1_1payloads_1_1ChildList.html">sprite::payloads::ChildList</a></td><td class="indexvalue">A payload containing a dynamically-sized list of children </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1payloads_1_1Choice.html">sprite::payloads::Choice</a></td><td class="indexvalue">A payload containing exactly two children for choice nodes </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1visitors_1_1Clone.html">sprite::visitors::Clone</a></td><td class="indexvalue">Implements <a class="el" href="structsprite_1_1Node.html#a4">Node::clone</a> </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1visitors_1_1DestroyPayload.html">sprite::visitors::DestroyPayload</a></td><td class="indexvalue">Implements Node::destroy_payload </td></tr>
@@ -19,7 +19,6 @@
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1payloads_1_1InPlace_3_012_01_4.html">sprite::payloads::InPlace&lt; 2 &gt;</a></td><td class="indexvalue">Two children, in place </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1payloads_1_1Int.html">sprite::payloads::Int</a></td><td class="indexvalue">An integer payload (64 bit) for the built in <a class="el" href="structsprite_1_1payloads_1_1Int.html">Int</a> type </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1visitors_1_1Iter.html">sprite::visitors::Iter</a></td><td class="indexvalue">Implements <a class="el" href="structsprite_1_1Node.html#a7">Node::iter</a> </td></tr>
-  <tr><td class="indexkey"><a class="el" href="structListModule.html">ListModule</a></td><td class="indexvalue">The built-in list module </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1Loader.html">sprite::Loader</a></td><td class="indexvalue">Interface to the module loader </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1Module.html">sprite::Module</a></td><td class="indexvalue">Interface to a module </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1Node.html">sprite::Node</a></td><td class="indexvalue">An expression node </td></tr>
@@ -27,12 +26,13 @@
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1NodePtr.html">sprite::NodePtr</a></td><td class="indexvalue">A reference-counting pointer for <a class="el" href="structsprite_1_1Node.html">Node</a> objects </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1visitors_1_1Position.html">sprite::visitors::Position</a></td><td class="indexvalue">Implements <a class="el" href="structsprite_1_1Node.html#a11">Node::position</a> </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1Program.html">sprite::Program</a></td><td class="indexvalue">A program definition </td></tr>
-  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite.html">sprite::rewrite&lt; CtorOrOper &gt;</a></td><td class="indexvalue">Rewrite a node to a CTOR or OPER node </td></tr>
-  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01CHOICE_01_4.html">sprite::rewrite&lt; CHOICE &gt;</a></td><td class="indexvalue">Rewrite a node to a CHOICE </td></tr>
-  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01FAIL_01_4.html">sprite::rewrite&lt; FAIL &gt;</a></td><td class="indexvalue">Rewrite a node to a FAIL </td></tr>
-  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01FLOAT_01_4.html">sprite::rewrite&lt; FLOAT &gt;</a></td><td class="indexvalue">Rewrite a node to a FLOAT </td></tr>
-  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01FWD_01_4.html">sprite::rewrite&lt; FWD &gt;</a></td><td class="indexvalue">Rewrite a node to a FWD </td></tr>
-  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01INT_01_4.html">sprite::rewrite&lt; INT &gt;</a></td><td class="indexvalue">Rewrite a node to an INT </td></tr>
+  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01CHOICE_01_4.html">sprite::rewrite&lt; CHOICE &gt;</a></td><td class="indexvalue">Rewrites a node to CHOICE </td></tr>
+  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01CTOR_01_4.html">sprite::rewrite&lt; CTOR &gt;</a></td><td class="indexvalue">Rewrites a node to a CTOR node </td></tr>
+  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01FAIL_01_4.html">sprite::rewrite&lt; FAIL &gt;</a></td><td class="indexvalue">Rewrites a node to FAIL </td></tr>
+  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01FLOAT_01_4.html">sprite::rewrite&lt; FLOAT &gt;</a></td><td class="indexvalue">Rewrites a node to FLOAT </td></tr>
+  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01FWD_01_4.html">sprite::rewrite&lt; FWD &gt;</a></td><td class="indexvalue">Rewrites a node to FWD </td></tr>
+  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01INT_01_4.html">sprite::rewrite&lt; INT &gt;</a></td><td class="indexvalue">Rewrites a node to INT </td></tr>
+  <tr><td class="indexkey"><a class="el" href="structsprite_1_1rewrite_3_01OPER_01_4.html">sprite::rewrite&lt; OPER &gt;</a></td><td class="indexvalue">Rewrites a node to an OPER node </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1RuntimeError.html">sprite::RuntimeError</a></td><td class="indexvalue">Thrown to indicate a runtime error in the execution system </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1manipulators_1_1setprogram.html">sprite::manipulators::setprogram</a></td><td class="indexvalue">I/O manipulator to set the program </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1visitors_1_1StreamOut.html">sprite::visitors::StreamOut&lt; Stream &gt;</a></td><td class="indexvalue">Implements operator&lt;&lt; for nodes </td></tr>
@@ -43,7 +43,7 @@
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1YieldHandler__.html">sprite::YieldHandler_&lt; OutputIterator &gt;</a></td><td class="indexvalue">A concrete <a class="el" href="structsprite_1_1YieldHandler.html">YieldHandler</a> for a particular output iterator type </td></tr>
   <tr><td class="indexkey"><a class="el" href="structsprite_1_1YieldHandler___3_01void_01_4.html">sprite::YieldHandler_&lt; void &gt;</a></td><td class="indexvalue">A yield handler that simply discards the output </td></tr>
 </table>
-<hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:43 2012 for sprite by&nbsp;
+<hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:34 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

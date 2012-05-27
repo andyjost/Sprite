@@ -42,52 +42,83 @@
 00041     };
 00042     BOOST_STATIC_ASSERT(<span class="keyword">sizeof</span>(InPlace&lt;2&gt;) == PAYLOAD_BYTES);
 00043 
-<a name="l00045"></a><a class="code" href="structsprite_1_1payloads_1_1ChildList.html">00045</a>     <span class="keyword">struct </span><a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a> : <a class="code" href="structsprite_1_1payloads_1_1Unused.html">Unused</a>&lt;PAYLOAD_BYTES - sizeof(size_t) - sizeof(NodePtr*)&gt;
-00046     {
-00047       <span class="comment">// TODO copy, construct</span>
-00048       size_t n;
-00049       <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> * children;
-00050       <a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a>(size_t n_) : n(n_), children(<span class="keyword">new</span> <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a>[n])
-00051         { assert(n&gt;2); }
-00052       ~<a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a>() { <span class="keyword">delete</span>[] children; }
-00053     };
-00054     BOOST_STATIC_ASSERT(<span class="keyword">sizeof</span>(<a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a>) == PAYLOAD_BYTES);
-00055 
-<a name="l00057"></a><a class="code" href="structsprite_1_1payloads_1_1Choice.html">00057</a>     <span class="keyword">struct </span><a class="code" href="structsprite_1_1payloads_1_1Choice.html">Choice</a> : <a class="code" href="structsprite_1_1payloads_1_1Unused.html">Unused</a>&lt;PAYLOAD_BYTES-2*sizeof(NodePtr)&gt;
-00058     {
-00059       <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> lhs, rhs;
-00060       <a class="code" href="structsprite_1_1payloads_1_1Choice.html">Choice</a>(<a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; lhs_, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; rhs_)
-00061         : lhs(lhs_), rhs(rhs_)
-00062       {}
-00063     };
-00064     BOOST_STATIC_ASSERT(<span class="keyword">sizeof</span>(<a class="code" href="structsprite_1_1payloads_1_1Choice.html">Choice</a>) == PAYLOAD_BYTES);
-00065 
-<a name="l00071"></a><a class="code" href="structsprite_1_1payloads_1_1Fwd.html">00071</a>     <span class="keyword">struct </span><a class="code" href="structsprite_1_1payloads_1_1Fwd.html">Fwd</a> : <a class="code" href="structsprite_1_1payloads_1_1Unused.html">Unused</a>&lt;PAYLOAD_BYTES-sizeof(NodePtr*)&gt;
-00072     {
-00073       <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> dest;
-00074       <a class="code" href="structsprite_1_1payloads_1_1Fwd.html">Fwd</a>(<a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; dest_) : dest(dest_) {}
-00075     };
-00076     BOOST_STATIC_ASSERT(<span class="keyword">sizeof</span>(<a class="code" href="structsprite_1_1payloads_1_1Fwd.html">Fwd</a>) == PAYLOAD_BYTES);
+<a name="l00050"></a><a class="code" href="structsprite_1_1payloads_1_1ChildList.html">00050</a>     <span class="keyword">struct </span><a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a> : <a class="code" href="structsprite_1_1payloads_1_1Unused.html">Unused</a>&lt;PAYLOAD_BYTES - sizeof(size_t) - sizeof(NodePtr*)&gt;
+00051     {
+00052       <a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a>(<a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> * args, size_t size)
+00053         : m_size(size), m_args(<span class="keyword">new</span> <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a>[m_size])
+00054       {
+00055         assert(m_size&gt;2);
+00056       }
+00057 
+00058       <a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a>(<a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a> <span class="keyword">const</span> &amp; arg)
+00059         : m_size(arg.<a class="code" href="structsprite_1_1payloads_1_1ChildList.html#r0">m_size</a>), m_args(<span class="keyword">new</span> <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a>[arg.<a class="code" href="structsprite_1_1payloads_1_1ChildList.html#r0">m_size</a>])
+00060       {
+00061         std::copy(&amp;arg.<a class="code" href="structsprite_1_1payloads_1_1ChildList.html#r1">m_args</a>[0], &amp;arg.<a class="code" href="structsprite_1_1payloads_1_1ChildList.html#r1">m_args</a>[m_size], &amp;this-&gt;m_args[0]);
+00062       }
+00063 
+00064       <a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a> &amp; operator=(<a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a> <span class="keyword">const</span> &amp; arg)
+00065       {
+00066         size_t <span class="keyword">const</span> size = m_size;
+00067         NodePtr * <span class="keyword">const</span> args = m_args;
+00068 
+00069         <span class="keywordflow">try</span>
+00070           { <span class="keyword">new</span>(<span class="keyword">this</span>) <a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a>(arg); }
+00071         <span class="keywordflow">catch</span>(...)
+00072         {
+00073           this-&gt;m_size = size;
+00074           this-&gt;m_args = args;
+00075           <span class="keywordflow">throw</span>;
+00076         }
 00077 
-<a name="l00079"></a><a class="code" href="structsprite_1_1payloads_1_1Int.html">00079</a>     <span class="keyword">struct </span><a class="code" href="structsprite_1_1payloads_1_1Int.html">Int</a> : <a class="code" href="structsprite_1_1payloads_1_1Unused.html">Unused</a>&lt;PAYLOAD_BYTES - sizeof(meta::ValueType&lt;INT&gt;::type)&gt;
-00080     { 
-00081       <span class="keyword">typedef</span> meta::ValueType&lt;INT&gt;::type value_type;
-00082       value_type value;
-00083       <a class="code" href="structsprite_1_1payloads_1_1Int.html">Int</a>(meta::ValueType&lt;INT&gt;::type value_) : value(value_) {}
-00084     };
-00085     BOOST_STATIC_ASSERT(<span class="keyword">sizeof</span>(<a class="code" href="structsprite_1_1payloads_1_1Int.html">Int</a>) == PAYLOAD_BYTES);
-00086 
-<a name="l00088"></a><a class="code" href="structsprite_1_1payloads_1_1Float.html">00088</a>     <span class="keyword">struct </span><a class="code" href="structsprite_1_1payloads_1_1Float.html">Float</a> : <a class="code" href="structsprite_1_1payloads_1_1Unused.html">Unused</a>&lt;PAYLOAD_BYTES - sizeof(meta::ValueType&lt;FLOAT&gt;::type)&gt;
-00089     { 
-00090       <span class="keyword">typedef</span> meta::ValueType&lt;FLOAT&gt;::type value_type;
-00091       value_type value;
-00092       <a class="code" href="structsprite_1_1payloads_1_1Float.html">Float</a>(meta::ValueType&lt;FLOAT&gt;::type value_) : value(value_) {}
-00093     };
-00094     BOOST_STATIC_ASSERT(<span class="keyword">sizeof</span>(<a class="code" href="structsprite_1_1payloads_1_1Float.html">Float</a>) == PAYLOAD_BYTES);
-00095   }
-00096 }
-00097 
-</pre></div><hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:31 2012 for sprite by&nbsp;
+00078         <span class="keyword">delete</span>[] args;
+00079         <span class="keywordflow">return</span> *<span class="keyword">this</span>;
+00080       }
+00081       ~<a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a>() { <span class="keyword">delete</span>[] m_args; }
+00082 
+00083       size_t size()<span class="keyword"> const </span>{ <span class="keywordflow">return</span> m_size; }
+00084       NodePtr * args()<span class="keyword"> const </span>{ <span class="keywordflow">return</span> m_args; }
+00085 
+00086     <span class="keyword">private</span>:
+00087       size_t m_size;
+00088       NodePtr * m_args;
+00089     };
+00090     BOOST_STATIC_ASSERT(<span class="keyword">sizeof</span>(<a class="code" href="structsprite_1_1payloads_1_1ChildList.html">ChildList</a>) == PAYLOAD_BYTES);
+00091 
+<a name="l00093"></a><a class="code" href="structsprite_1_1payloads_1_1Choice.html">00093</a>     <span class="keyword">struct </span><a class="code" href="structsprite_1_1payloads_1_1Choice.html">Choice</a> : <a class="code" href="structsprite_1_1payloads_1_1Unused.html">Unused</a>&lt;PAYLOAD_BYTES-2*sizeof(NodePtr)&gt;
+00094     {
+00095       <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> lhs, rhs;
+00096       <a class="code" href="structsprite_1_1payloads_1_1Choice.html">Choice</a>(<a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; lhs_, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; rhs_)
+00097         : lhs(lhs_), rhs(rhs_)
+00098       {}
+00099     };
+00100     BOOST_STATIC_ASSERT(<span class="keyword">sizeof</span>(<a class="code" href="structsprite_1_1payloads_1_1Choice.html">Choice</a>) == PAYLOAD_BYTES);
+00101 
+<a name="l00107"></a><a class="code" href="structsprite_1_1payloads_1_1Fwd.html">00107</a>     <span class="keyword">struct </span><a class="code" href="structsprite_1_1payloads_1_1Fwd.html">Fwd</a> : <a class="code" href="structsprite_1_1payloads_1_1Unused.html">Unused</a>&lt;PAYLOAD_BYTES-sizeof(NodePtr*)&gt;
+00108     {
+00109       <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> dest;
+00110       <a class="code" href="structsprite_1_1payloads_1_1Fwd.html">Fwd</a>(<a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; dest_) : dest(dest_) {}
+00111     };
+00112     BOOST_STATIC_ASSERT(<span class="keyword">sizeof</span>(<a class="code" href="structsprite_1_1payloads_1_1Fwd.html">Fwd</a>) == PAYLOAD_BYTES);
+00113 
+<a name="l00115"></a><a class="code" href="structsprite_1_1payloads_1_1Int.html">00115</a>     <span class="keyword">struct </span><a class="code" href="structsprite_1_1payloads_1_1Int.html">Int</a> : <a class="code" href="structsprite_1_1payloads_1_1Unused.html">Unused</a>&lt;PAYLOAD_BYTES - sizeof(meta::ValueType&lt;INT&gt;::type)&gt;
+00116     { 
+00117       <span class="keyword">typedef</span> meta::ValueType&lt;INT&gt;::type value_type;
+00118       value_type value;
+00119       <a class="code" href="structsprite_1_1payloads_1_1Int.html">Int</a>(meta::ValueType&lt;INT&gt;::type value_) : value(value_) {}
+00120     };
+00121     BOOST_STATIC_ASSERT(<span class="keyword">sizeof</span>(<a class="code" href="structsprite_1_1payloads_1_1Int.html">Int</a>) == PAYLOAD_BYTES);
+00122 
+<a name="l00124"></a><a class="code" href="structsprite_1_1payloads_1_1Float.html">00124</a>     <span class="keyword">struct </span><a class="code" href="structsprite_1_1payloads_1_1Float.html">Float</a> : <a class="code" href="structsprite_1_1payloads_1_1Unused.html">Unused</a>&lt;PAYLOAD_BYTES - sizeof(meta::ValueType&lt;FLOAT&gt;::type)&gt;
+00125     { 
+00126       <span class="keyword">typedef</span> meta::ValueType&lt;FLOAT&gt;::type value_type;
+00127       value_type value;
+00128       <a class="code" href="structsprite_1_1payloads_1_1Float.html">Float</a>(meta::ValueType&lt;FLOAT&gt;::type value_) : value(value_) {}
+00129     };
+00130     BOOST_STATIC_ASSERT(<span class="keyword">sizeof</span>(<a class="code" href="structsprite_1_1payloads_1_1Float.html">Float</a>) == PAYLOAD_BYTES);
+00131   }
+00132 }
+00133 
+</pre></div><hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:26 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

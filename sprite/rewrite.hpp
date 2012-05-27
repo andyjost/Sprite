@@ -7,11 +7,14 @@
 
 namespace sprite
 {
-  /// Rewrite a node to a CTOR or OPER node.
-  template<TagValue CtorOrOper> struct rewrite
+  /**
+   * @brief Rewrites a node to an OPER node.
+   *
+   * The tag is set to OPER, and @p id is the operation ID.
+   */
+  template<> struct rewrite<OPER>
   {
     rewrite() {}
-    BOOST_STATIC_ASSERT(CtorOrOper==CTOR || CtorOrOper==OPER);
     #define F(z,n,_)                                             \
         void operator()(                                         \
             Node & node, size_t id                               \
@@ -22,29 +25,80 @@ namespace sprite
           new(node._payload()) payloads::InPlace<n>(             \
               BOOST_PP_ENUM_PARAMS(n,arg)                        \
             );                                                   \
-          node.m_id = id;                                        \
           node.m_arity = n;                                      \
-          node.m_tag = CtorOrOper;                               \
+          node.m_id = id;                                        \
+          node.m_tag = OPER;                                     \
         }                                                        \
         /**/
     BOOST_PP_REPEAT(SPRITE_INPLACE_BOUND,F,)
     #undef F
 
-    #if 0
-    // TODO
+    /**
+     * @note This function _claims_ ownership of the pointer and will delete it
+     * with delete[].
+     */
     void operator()(
-        Node & node, size_t id, NodePtr const & arg0, NodePtr const & arg1
+        Node & node, size_t id, size_t arity, NodePtr * args
       ) const
     {
       node.destroy_payload();
-      // new(node._payload()) payloads::ChildList(arg0,arg1);
+      new(node._payload()) payloads::ChildList(args, arity);
+      node.m_arity = arity;
       node.m_id = id;
-      node.m_tag = CHOICE;
+      node.m_tag = OPER;
     }
-    #endif
   };
 
-  /// Rewrite a node to a FAIL.
+  /**
+   * @brief Rewrites a node to a CTOR node.
+   *
+   * The tag member holds the static constructor identifier, which is a value
+   * greater than or equal to CTOR.  The tag is set to that.  The id is
+   * set to the dynamic constructor identifer (which is assigned at program load
+   * time).
+   */
+  template<> struct rewrite<CTOR>
+  {
+    rewrite() {}
+    #define F(z,n,_)                                             \
+        template<typename Enum>                                  \
+        void operator()(                                         \
+            Node & node, Enum tag, size_t id                     \
+            BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const & arg) \
+          ) const                                                \
+        {                                                        \
+          node.destroy_payload();                                \
+          new(node._payload()) payloads::InPlace<n>(             \
+              BOOST_PP_ENUM_PARAMS(n,arg)                        \
+            );                                                   \
+          node.m_arity = n;                                      \
+          assert((int)tag >= (int)CTOR);                         \
+          node.m_tag = make_ctor_tag(tag);                       \
+          node.m_id  = id;                                       \
+        }                                                        \
+        /**/
+    BOOST_PP_REPEAT(SPRITE_INPLACE_BOUND,F,)
+    #undef F
+
+    /**
+     * @note This function _claims_ ownership of the pointer and will delete it
+     * with delete[].
+     */
+    template<typename Enum>
+    void operator()(
+        Node & node, Enum tag, size_t id, size_t arity, NodePtr * args
+      ) const
+    {
+      node.destroy_payload();
+      new(node._payload()) payloads::ChildList(args, arity);
+      node.m_arity = arity;
+      assert((int)tag >= (int)CTOR);
+      node.m_tag = make_ctor_tag(tag);
+      node.m_id = id;
+    }
+  };
+
+  /// Rewrites a node to FAIL.
   template<> struct rewrite<FAIL>
   {
     rewrite() {}
@@ -55,7 +109,7 @@ namespace sprite
     }
   };
 
-  /// Rewrite a node to a CHOICE.
+  /// Rewrites a node to CHOICE.
   template<> struct rewrite<CHOICE>
   {
     rewrite() {}
@@ -70,7 +124,7 @@ namespace sprite
     }
   };
 
-  /// Rewrite a node to a FWD.
+  /// Rewrites a node to FWD.
   template<> struct rewrite<FWD>
   {
     rewrite() {}
@@ -82,7 +136,7 @@ namespace sprite
     }
   };
 
-  /// Rewrite a node to an INT.
+  /// Rewrites a node to INT.
   template<> struct rewrite<INT>
   {
     rewrite() {}
@@ -94,7 +148,7 @@ namespace sprite
     }
   };
 
-  /// Rewrite a node to a FLOAT.
+  /// Rewrites a node to FLOAT.
   template<> struct rewrite<FLOAT>
   {
     rewrite() {}
@@ -107,8 +161,8 @@ namespace sprite
   };
 
   // A minor convenience, perhaps.  These aliases prevent having to construct
-  // an instance of rewrite<Tag> to perform a rewrite step when the Tag is
-  // not a variable.
+  // an instance of rewrite<Tag> to perform a rewrite step when Tag is not a
+  // variable (i.e., a template parameter).
 
   /// Rewrites a node to type CTOR.
   rewrite<CTOR> const rewrite_ctor = rewrite<CTOR>();

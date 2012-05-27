@@ -16,9 +16,9 @@
 00010 <span class="keyword">namespace </span>sprite
 00011 {
 00012   <span class="comment">// Documented in the header.</span>
-<a name="l00013"></a><a class="code" href="namespacesprite.html#a22">00013</a>   <a class="code" href="structsprite_1_1Program.html">Program</a> <span class="keyword">const</span> * <a class="code" href="namespacesprite.html#a22">g_program</a> = NULL;
+<a name="l00013"></a><a class="code" href="namespacesprite.html#a20">00013</a>   <a class="code" href="structsprite_1_1Program.html">Program</a> <span class="keyword">const</span> * <a class="code" href="namespacesprite.html#a20">g_program</a> = NULL;
 00014 
-<a name="l00016"></a><a class="code" href="namespacesprite.html#a21">00016</a>   boost::object_pool&lt;AbstractNode&gt; node_allocator;
+<a name="l00016"></a><a class="code" href="namespacesprite.html#a19">00016</a>   boost::object_pool&lt;AbstractNode&gt; node_allocator;
 00017 
 00018   <span class="keyword">namespace </span>
 00019 <span class="keyword">  </span>{
@@ -92,7 +92,7 @@
 00099     { std::cout &lt;&lt; <span class="stringliteral">"TRACE&gt; "</span> &lt;&lt; tag &lt;&lt; <span class="stringliteral">":: "</span> &lt;&lt; expr &lt;&lt; std::endl; }
 00100 
 00101   <span class="comment">// See header for brief description.</span>
-<a name="l00102"></a><a class="code" href="namespacesprite.html#a50">00102</a>   <span class="keywordtype">void</span> <a class="code" href="namespacesprite.html#a53">execute</a>(
+<a name="l00102"></a><a class="code" href="namespacesprite.html#a49">00102</a>   <span class="keywordtype">void</span> <a class="code" href="namespacesprite.html#a52">execute</a>(
 00103       <a class="code" href="structsprite_1_1Program.html">Program</a> <span class="keyword">const</span> &amp; pgm, <a class="code" href="structsprite_1_1Node.html">Node</a> &amp; goal, <a class="code" href="structsprite_1_1YieldHandler.html">YieldHandler</a> <span class="keyword">const</span> &amp; out
 00104     , TraceOption trace
 00105     )
@@ -100,8 +100,8 @@
 00107     <span class="comment">// Set the global program pointer and then restore it when this scope</span>
 00108     <span class="comment">// exits.</span>
 00109     <a class="code" href="structsprite_1_1Program.html">Program</a> <span class="keyword">const</span> * _p = &amp;pgm;
-00110     std::swap(<a class="code" href="namespacesprite.html#a22">g_program</a>, _p);
-00111     BOOST_SCOPE_EXIT((&amp;_p)) { std::swap(<a class="code" href="namespacesprite.html#a22">g_program</a>, _p); } BOOST_SCOPE_EXIT_END
+00110     std::swap(<a class="code" href="namespacesprite.html#a20">g_program</a>, _p);
+00111     BOOST_SCOPE_EXIT((&amp;_p)) { std::swap(<a class="code" href="namespacesprite.html#a20">g_program</a>, _p); } BOOST_SCOPE_EXIT_END
 00112 
 00113     <span class="comment">// If tracing, set the output program.  Restore the old value when this</span>
 00114     <span class="comment">// scope exits.</span>
@@ -111,78 +111,79 @@
 00118       std::cout &lt;&lt; <a class="code" href="structsprite_1_1manipulators_1_1setprogram.html">setprogram</a>(pgm);
 00119 
 00120     BOOST_SCOPE_EXIT((&amp;_pp))
-00121       { std::cout &lt;&lt; setprogram(*_pp); }
-00122     BOOST_SCOPE_EXIT_END
-00123 
-00124     <span class="comment">// Set up the computation pool.</span>
-00125     ComputationPool pool;
-00126     pool.push(<a class="code" href="structsprite_1_1Fingerprint.html">Fingerprint</a>(), <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a>(&amp;goal));
-00127 
-00128     <span class="keywordflow">while</span>(!pool.empty())
-00129     {
-00130       PoolItem &amp; item = pool.front();
-00131       <a class="code" href="structsprite_1_1Fingerprint.html">Fingerprint</a> <span class="keyword">const</span> &amp; fp = item.fp;
-00132 
-00133       <a class="code" href="namespacesprite.html#a57">fair_normalize</a>(item.fp, *item.node);
-00134 
-00135       <span class="comment">// This dereference will remove FWD nodes (it must come after the</span>
-00136       <span class="comment">// execution step, above).</span>
-00137       <a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node = *item.node;
-00138       <span class="keywordflow">if</span>(trace) tracef(<span class="stringliteral">"step"</span>, node);
-00139 
-00140       <span class="keywordflow">if</span>(<a class="code" href="namespacesprite.html#a54">is_norm</a>(node))
-00141       {
-00142         <span class="keywordflow">if</span>(trace) tracef(<span class="stringliteral">"value"</span>, node);
-00143         out.<a class="code" href="structsprite_1_1YieldHandler.html#a0">yield</a>(node);
-00144         pool.pop();
-00145       }
-00146       <span class="keywordflow">else</span>
-00147       {
-00148         <span class="keywordflow">switch</span>(node.<a class="code" href="structsprite_1_1Node.html#a1">tag</a>())
-00149         {
-00150           <span class="keywordflow">case</span> FAIL:
-00151             <span class="keywordflow">if</span>(trace) tracef(<span class="stringliteral">"fail"</span>, node);
-00152             pool.pop();
-00153             <span class="keywordflow">break</span>;
-00154           <span class="keywordflow">case</span> CHOICE:
-00155           {
-00156             <span class="keywordflow">if</span>(trace) tracef(<span class="stringliteral">"choice"</span>, node);
-00157             size_t <span class="keyword">const</span> <span class="keywordtype">id</span> = node.<a class="code" href="structsprite_1_1Node.html#a2">id</a>();
-00158             <span class="keywordflow">if</span>(fp.<a class="code" href="structsprite_1_1Fingerprint.html#a1">has</a>(<span class="keywordtype">id</span>))
-00159             {
-00160               <span class="comment">// Recycle the current front of the computation pool (since it is</span>
-00161               <span class="comment">// being killed, and its replacement uses the same fingerprint).</span>
-00162               <span class="comment">// Change its node pointer, then rotate it to the back of the pool.</span>
-00163               assert(fp.<a class="code" href="structsprite_1_1Fingerprint.html#a2">at</a>(<span class="keywordtype">id</span>) == 0 || fp.<a class="code" href="structsprite_1_1Fingerprint.html#a2">at</a>(<span class="keywordtype">id</span>) == 1);
-00164               item.node = node[fp.<a class="code" href="structsprite_1_1Fingerprint.html#a2">at</a>(<span class="keywordtype">id</span>)];
-00165               pool.rotate();
-00166             }
-00167             <span class="keywordflow">else</span>
-00168             {
-00169               <a class="code" href="structsprite_1_1Fingerprint.html">Fingerprint</a> fpl = fp;
-00170               <span class="keywordflow">if</span>(fpl.<a class="code" href="structsprite_1_1Fingerprint.html#a5">size</a>() &lt;= id) { fpl.<a class="code" href="structsprite_1_1Fingerprint.html#a3">resize</a>(<span class="keywordtype">id</span>); }
-00171               fpl.<a class="code" href="structsprite_1_1Fingerprint.html#a4">set</a>(<span class="keywordtype">id</span>, LEFT);
-00172               pool.push(fpl, node[LEFT]);
-00173 
-00174               <a class="code" href="structsprite_1_1Fingerprint.html">Fingerprint</a> fpr = fp;
-00175               <span class="keywordflow">if</span>(fpr.<a class="code" href="structsprite_1_1Fingerprint.html#a5">size</a>() &lt;= id) { fpr.<a class="code" href="structsprite_1_1Fingerprint.html#a3">resize</a>(<span class="keywordtype">id</span>); }
-00176               fpr.<a class="code" href="structsprite_1_1Fingerprint.html#a4">set</a>(<span class="keywordtype">id</span>, RIGHT);
-00177               pool.push(fpr, node[RIGHT]);
-00178 
-00179               pool.pop();
-00180             }
-00181             <span class="keywordflow">break</span>;
-00182           }
-00183           <span class="keywordflow">default</span>: pool.rotate(); <span class="keywordflow">break</span>;
-00184         }
-00185       }
-00186     }
-00187   }
-00188 
-<a name="l00189"></a><a class="code" href="namespacesprite.html#a51">00189</a>   <span class="keywordtype">void</span> <a class="code" href="namespacesprite.html#a51">print_node</a>(<a class="code" href="structsprite_1_1Node.html">Node</a> <span class="keyword">const</span> &amp; node)
-00190     { std::cout &lt;&lt; node &lt;&lt; std::endl; }
-00191 }
-</pre></div><hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:31 2012 for sprite by&nbsp;
+00121       <span class="comment">// TODO !! Can _pp be NULL ? !!</span>
+00122       { std::cout &lt;&lt; setprogram(*_pp); }
+00123     BOOST_SCOPE_EXIT_END
+00124 
+00125     <span class="comment">// Set up the computation pool.</span>
+00126     ComputationPool pool;
+00127     pool.push(<a class="code" href="structsprite_1_1Fingerprint.html">Fingerprint</a>(), <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a>(&amp;goal));
+00128 
+00129     <span class="keywordflow">while</span>(!pool.empty())
+00130     {
+00131       PoolItem &amp; item = pool.front();
+00132       <a class="code" href="structsprite_1_1Fingerprint.html">Fingerprint</a> <span class="keyword">const</span> &amp; fp = item.fp;
+00133 
+00134       <a class="code" href="namespacesprite.html#a56">fair_normalize</a>(item.fp, *item.node);
+00135 
+00136       <span class="comment">// This dereference will remove FWD nodes (it must come after the</span>
+00137       <span class="comment">// execution step, above).</span>
+00138       <a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node = *item.node;
+00139       <span class="keywordflow">if</span>(trace) tracef(<span class="stringliteral">"step"</span>, node);
+00140 
+00141       <span class="keywordflow">if</span>(<a class="code" href="namespacesprite.html#a53">is_norm</a>(node))
+00142       {
+00143         <span class="keywordflow">if</span>(trace) tracef(<span class="stringliteral">"value"</span>, node);
+00144         out.<a class="code" href="structsprite_1_1YieldHandler.html#a0">yield</a>(node);
+00145         pool.pop();
+00146       }
+00147       <span class="keywordflow">else</span>
+00148       {
+00149         <span class="keywordflow">switch</span>(node.<a class="code" href="structsprite_1_1Node.html#a1">tag</a>())
+00150         {
+00151           <span class="keywordflow">case</span> FAIL:
+00152             <span class="keywordflow">if</span>(trace) tracef(<span class="stringliteral">"fail"</span>, node);
+00153             pool.pop();
+00154             <span class="keywordflow">break</span>;
+00155           <span class="keywordflow">case</span> CHOICE:
+00156           {
+00157             <span class="keywordflow">if</span>(trace) tracef(<span class="stringliteral">"choice"</span>, node);
+00158             size_t <span class="keyword">const</span> <span class="keywordtype">id</span> = node.<a class="code" href="structsprite_1_1Node.html#a2">id</a>();
+00159             <span class="keywordflow">if</span>(fp.<a class="code" href="structsprite_1_1Fingerprint.html#a1">has</a>(<span class="keywordtype">id</span>))
+00160             {
+00161               <span class="comment">// Recycle the current front of the computation pool (since it is</span>
+00162               <span class="comment">// being killed, and its replacement uses the same fingerprint).</span>
+00163               <span class="comment">// Change its node pointer, then rotate it to the back of the pool.</span>
+00164               assert(fp.<a class="code" href="structsprite_1_1Fingerprint.html#a2">at</a>(<span class="keywordtype">id</span>) == 0 || fp.<a class="code" href="structsprite_1_1Fingerprint.html#a2">at</a>(<span class="keywordtype">id</span>) == 1);
+00165               item.node = node[fp.<a class="code" href="structsprite_1_1Fingerprint.html#a2">at</a>(<span class="keywordtype">id</span>)];
+00166               pool.rotate();
+00167             }
+00168             <span class="keywordflow">else</span>
+00169             {
+00170               <a class="code" href="structsprite_1_1Fingerprint.html">Fingerprint</a> fpl = fp;
+00171               <span class="keywordflow">if</span>(fpl.<a class="code" href="structsprite_1_1Fingerprint.html#a5">size</a>() &lt;= id) { fpl.<a class="code" href="structsprite_1_1Fingerprint.html#a3">resize</a>(<span class="keywordtype">id</span>); }
+00172               fpl.<a class="code" href="structsprite_1_1Fingerprint.html#a4">set</a>(<span class="keywordtype">id</span>, LEFT);
+00173               pool.push(fpl, node[LEFT]);
+00174 
+00175               <a class="code" href="structsprite_1_1Fingerprint.html">Fingerprint</a> fpr = fp;
+00176               <span class="keywordflow">if</span>(fpr.<a class="code" href="structsprite_1_1Fingerprint.html#a5">size</a>() &lt;= id) { fpr.<a class="code" href="structsprite_1_1Fingerprint.html#a3">resize</a>(<span class="keywordtype">id</span>); }
+00177               fpr.<a class="code" href="structsprite_1_1Fingerprint.html#a4">set</a>(<span class="keywordtype">id</span>, RIGHT);
+00178               pool.push(fpr, node[RIGHT]);
+00179 
+00180               pool.pop();
+00181             }
+00182             <span class="keywordflow">break</span>;
+00183           }
+00184           <span class="keywordflow">default</span>: pool.rotate(); <span class="keywordflow">break</span>;
+00185         }
+00186       }
+00187     }
+00188   }
+00189 
+<a name="l00190"></a><a class="code" href="namespacesprite.html#a50">00190</a>   <span class="keywordtype">void</span> <a class="code" href="namespacesprite.html#a50">print_node</a>(<a class="code" href="structsprite_1_1Node.html">Node</a> <span class="keyword">const</span> &amp; node)
+00191     { std::cout &lt;&lt; node &lt;&lt; std::endl; }
+00192 }
+</pre></div><hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:26 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

@@ -80,8 +80,9 @@ namespace sprite
       StreamOut() {}
 
       /**
-       * Handles built-in types, which define a value_type in the payload.  For
-       * these, we don't print the constructor name, just the value instead.
+       * @brief Handles built-in types, which define a value_type in the payload.
+       *
+       * For these, don't print the constructor name, just the value instead.
        */
       template<typename Payload>
       typename enable_if<meta::has_value_type<Payload>, result_type>::type
@@ -89,8 +90,8 @@ namespace sprite
         { return (stream << node.payload.value); }
 
       /**
-       * Handles nodes without any value_type, such as user-defined
-       * constructorss and defined operations.
+       * @brief Handles nodes without any value_type, such as user-defined
+       * constructors and defined operations.
        */
       template<typename NodeType>
       result_type operator()(
@@ -107,23 +108,8 @@ namespace sprite
         {
           switch(node.tag())
           {
-            case OPER:
-                if(!first && node.arity() > 0)
-                {
-                  stream << "(";
-                  need_close = true;
-                }
-                stream << pgm->oper_label[node.id()];
-                break;
-            case CTOR:
-                if(!first && node.arity() > 0)
-                {
-                  stream << "(";
-                  need_close = true;
-                }
-                stream << pgm->ctor_label[node.id()];
-                break;
             case FAIL: stream << "**FAIL**"; break;
+
             case CHOICE:
               if(!first)
               {
@@ -132,8 +118,31 @@ namespace sprite
               }
               stream << "?_" << node.id();
               break;
+
+            case OPER:
+                if(!first && node.arity() > 0)
+                {
+                  stream << "(";
+                  need_close = true;
+                }
+                stream << pgm->oper_label[node.id()];
+                break;
+
+            case CTOR:
             default:
-              throw RuntimeError("mishandled node in operator<<");
+              if(node.tag() >= CTOR)
+              {
+                if(!first && node.arity() > 0)
+                {
+                  stream << "(";
+                  need_close = true;
+                }
+                // DEBUG: I need the type id to get the CTOR label, now.
+                stream << pgm->ctor_label[node.id()];
+                // stream << "TODO:CTOR";
+                break;
+              }
+              else throw RuntimeError("mishandled node in operator<<");
           }
         }
         else

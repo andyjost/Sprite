@@ -82,9 +82,11 @@ An expression node.
 
 The subject of computations in this system. Expressions are graphs made up of {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} instances, and computations are changes to the graph that come about by rewriting nodes.
 
-Every node has a fixed region consisting of recount, tag, id, and arity, and a variable region called the payload. This class defines only the fixed region. A complete node is an instance of Node\_\-$<$Payload$>$ for some Payload type. The node is a discriminated union, where the tag member determines the type of the payload contents. In certain cases, the arity is also used to determine the payload type. The possible payload types are defined in the payloads namespace.
+Every node has a fixed region consisting of its refcount, tag, id, and arity, and a variable region called the payload. This class defines only the fixed region. A complete node is an instance of Node\_\-$<$Payload$>$ for some Payload type. The node is a discriminated union, where the tag member determines the type of the payload contents. In certain cases, the arity is also used to determine the payload type. The possible payload types are defined in the payloads namespace.
 
-For constructor and operation nodes, the id member identifies which constructor or operation is used. The id is an index into a corresponding table in the program. That index can be used to get information about the program entity, such as its name (label) or implementation (H) function. For choice nodes, the id is the choice identifier.
+For constructor nodes, the tag member encodes the identity of the constructor. The constructors for any given type are numbered sequentially beginning at OPER.
+
+For operation nodes, the id member identifies which operation is used. The id is an index into a corresponding table in the program, which can be used to get information about the program entity, such as its name (label) or implementation (H) function. For choice nodes, the id is the choice identifier.
 
 The arity is stored within a node simply as an optimization. This prevents us having to repeatedly look up the arity in the program description.
 
@@ -94,7 +96,7 @@ Nodes are managed through intrusive reference counting. The smart pointer type {
 
 
 
-Definition at line 74 of file node.hpp.
+Definition at line 78 of file node.hpp.
 
 \subsection{Member Function Documentation}
 \index{sprite::Node@{sprite::Node}!clone@{clone}}
@@ -125,7 +127,7 @@ Here is the call graph for this function:\begin{figure}[H]
 
 Returns the position of the given child. 
 
-Precondition: child = node[i] for some i. 
+Precondition: child is node[i] for some i. 
 
 Definition at line 193 of file node\_\-impl.hpp.
 

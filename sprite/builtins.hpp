@@ -26,10 +26,10 @@ namespace sprite
       /**/
 
   /// The built-in data constructors.
-  enum BuiltinCtor
-  {
-    C_END // Must be last.
-  };
+  // enum BuiltinCtor
+  // {
+  //   C_END // Must be last.
+  // };
 
   /// The built-in operations.
   enum BuiltinOp

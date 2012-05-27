@@ -60,43 +60,49 @@
 00056 
 00057   <span class="keyword">typedef</span> boost::uint_t&lt;32&gt;::exact uint32;
 00058 
-<a name="l00060"></a><a class="code" href="namespacesprite.html#a74">00060</a>   <span class="keyword">enum</span> <a class="code" href="namespacesprite.html#a74">TagValue</a> { FAIL, CTOR, OPER, CHOICE, FWD, INT, FLOAT };
-00061 
-<a name="l00063"></a><a class="code" href="namespacesprite.html#a47">00063</a>   <span class="keyword">inline</span> <span class="keywordtype">bool</span> <a class="code" href="namespacesprite.html#a47">is_ctor</a>(TagValue x)
-00064   {
-00065     <span class="keywordflow">switch</span>(x)
-00066     {
-00067       <span class="keywordflow">case</span> CTOR: <span class="keywordflow">case</span> INT: <span class="keywordflow">case</span> FLOAT: <span class="keywordflow">return</span> <span class="keyword">true</span>;
-00068       <span class="keywordflow">default</span>: <span class="keywordflow">return</span> <span class="keyword">false</span>;
-00069     }
-00070   }
-00071 
-<a name="l00073"></a><a class="code" href="namespacesprite.html#a48">00073</a>   <span class="keyword">inline</span> <span class="keywordtype">bool</span> <a class="code" href="namespacesprite.html#a48">is_builtin</a>(TagValue x)
-00074   {
-00075     <span class="keywordflow">switch</span>(x)
-00076     {
-00077       <span class="keywordflow">case</span> INT: <span class="keywordflow">case</span> FLOAT: <span class="keywordflow">return</span> <span class="keyword">true</span>;
-00078       <span class="keywordflow">default</span>: <span class="keywordflow">return</span> <span class="keyword">false</span>;
-00079     }
-00080   }
-00081 
-00083   <span class="keyword">namespace </span>meta
-00084   {
-<a name="l00090"></a><a class="code" href="structsprite_1_1meta_1_1TagValue.html">00090</a>     <span class="keyword">template</span>&lt;sprite::TagValue C&gt; <span class="keyword">struct </span><a class="code" href="structsprite_1_1meta_1_1TagValue.html">TagValue</a>
-00091     {
-00092       <span class="keyword">static</span> sprite::TagValue <span class="keyword">const</span> value = C;
-00093       <span class="keyword">typedef</span> <a class="code" href="structsprite_1_1meta_1_1TagValue.html">TagValue&lt;C&gt;</a> <a class="code" href="structsprite_1_1meta_1_1TagValue.html">type</a>;
-00094       <span class="keyword">typedef</span> sprite::TagValue value_type;
-00095       <a class="code" href="namespacesprite.html#a74">operator sprite::TagValue</a>()<span class="keyword"> const </span>{ <span class="keywordflow">return</span> value; }
-00096     };
-00097   
-00099     <span class="keyword">template</span>&lt;sprite::TagValue&gt; <span class="keyword">struct </span>ValueType;
-00100     <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span>ValueType&lt;INT&gt; { <span class="keyword">typedef</span> boost::int_t&lt;64&gt;::exact type; };
-00101     <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span>ValueType&lt;FLOAT&gt; { <span class="keyword">typedef</span> <span class="keywordtype">double</span> type; };
-00102   }
-00103 }
-00104 
-</pre></div><hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:31 2012 for sprite by&nbsp;
+<a name="l00066"></a><a class="code" href="namespacesprite.html#a72">00066</a>   <span class="keyword">enum</span> <a class="code" href="namespacesprite.html#a72">TagValue</a> { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CTOR };
+00067 
+<a name="l00069"></a><a class="code" href="namespacesprite.html#a45">00069</a>   <span class="keyword">inline</span> <a class="code" href="namespacesprite.html#a72">TagValue</a> <a class="code" href="namespacesprite.html#a45">make_ctor_tag</a>(<span class="keywordtype">int</span> i)
+00070   {
+00071     assert(i&gt;=CTOR);
+00072     <span class="keywordflow">return</span> static_cast&lt;TagValue&gt;(i);
+00073   }
+00074 
+<a name="l00076"></a><a class="code" href="namespacesprite.html#a46">00076</a>   <span class="keyword">inline</span> <span class="keywordtype">bool</span> <a class="code" href="namespacesprite.html#a46">is_ctor</a>(TagValue x)
+00077   {
+00078     <span class="keywordflow">switch</span>(x)
+00079     {
+00080       <span class="keywordflow">case</span> FAIL: <span class="keywordflow">case</span> OPER: <span class="keywordflow">case</span> CHOICE: <span class="keywordflow">case</span> FWD: <span class="keywordflow">return</span> <span class="keyword">false</span>;
+00081       <span class="keywordflow">default</span>: <span class="keywordflow">return</span> <span class="keyword">true</span>;
+00082     }
+00083   }
+00084 
+<a name="l00086"></a><a class="code" href="namespacesprite.html#a47">00086</a>   <span class="keyword">inline</span> <span class="keywordtype">bool</span> <a class="code" href="namespacesprite.html#a47">is_builtin</a>(TagValue x)
+00087   {
+00088     <span class="keywordflow">switch</span>(x)
+00089     {
+00090       <span class="keywordflow">case</span> INT: <span class="keywordflow">case</span> FLOAT: <span class="keywordflow">return</span> <span class="keyword">true</span>;
+00091       <span class="keywordflow">default</span>: <span class="keywordflow">return</span> <span class="keyword">false</span>;
+00092     }
+00093   }
+00094 
+00096   <span class="keyword">namespace </span>meta
+00097   {
+<a name="l00103"></a><a class="code" href="structsprite_1_1meta_1_1TagValue.html">00103</a>     <span class="keyword">template</span>&lt;sprite::TagValue C&gt; <span class="keyword">struct </span><a class="code" href="structsprite_1_1meta_1_1TagValue.html">TagValue</a>
+00104     {
+00105       <span class="keyword">static</span> sprite::TagValue <span class="keyword">const</span> value = C;
+00106       <span class="keyword">typedef</span> <a class="code" href="structsprite_1_1meta_1_1TagValue.html">TagValue&lt;C&gt;</a> <a class="code" href="structsprite_1_1meta_1_1TagValue.html">type</a>;
+00107       <span class="keyword">typedef</span> sprite::TagValue value_type;
+00108       <a class="code" href="namespacesprite.html#a72">operator sprite::TagValue</a>()<span class="keyword"> const </span>{ <span class="keywordflow">return</span> value; }
+00109     };
+00110   
+00112     <span class="keyword">template</span>&lt;sprite::TagValue&gt; <span class="keyword">struct </span>ValueType;
+00113     <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span>ValueType&lt;INT&gt; { <span class="keyword">typedef</span> boost::int_t&lt;64&gt;::exact type; };
+00114     <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span>ValueType&lt;FLOAT&gt; { <span class="keyword">typedef</span> <span class="keywordtype">double</span> type; };
+00115   }
+00116 }
+00117 
+</pre></div><hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:26 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

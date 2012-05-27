@@ -44,12 +44,12 @@ struct {\bf sprite::detail::Binary\-Visitor$<$ Visitor $>$}
 \item 
 template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, Node const \&node)
 \begin{CompactList}\small\item\em Unary visitation; calls visitor((Type)(node)). \item\end{CompactList}\item 
-template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, Node \&node)\label{namespacesprite_a69}
+template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, Node \&node)\label{namespacesprite_a68}
 
 \begin{CompactList}\small\item\em Non-const form of visitation. \item\end{CompactList}\item 
 template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, Node const \&lhs, Node const \&rhs)
 \begin{CompactList}\small\item\em Binary visitation; calls visitor((Type\-Lhs)(lhs), (Type\-Rhs)(rhs)). \item\end{CompactList}\item 
-template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, Node \&lhs, Node \&rhs)\label{namespacesprite_a71}
+template$<$typename Visitor$>$ Visitor::result\_\-type {\bf visit} (Visitor const \&visitor, Node \&lhs, Node \&rhs)\label{namespacesprite_a70}
 
 \begin{CompactList}\small\item\em Non-const form of binary visitation. \item\end{CompactList}\end{CompactItemize}
 
@@ -64,7 +64,7 @@ Definition in file {\bf visit.hpp}.
 \subsection{Function Documentation}
 \index{visit.hpp@{visit.hpp}!visit@{visit}}
 \index{visit@{visit}!visit.hpp@{visit.hpp}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}template$<$typename Visitor$>$ Visitor::result\_\-type visit (Visitor const \& {\em visitor}, Node const \& {\em lhs}, Node const \& {\em rhs})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_file_a70}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}template$<$typename Visitor$>$ Visitor::result\_\-type visit (Visitor const \& {\em visitor}, Node const \& {\em lhs}, Node const \& {\em rhs})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_file_a69}
 
 
 Binary visitation; calls visitor((Type\-Lhs)(lhs), (Type\-Rhs)(rhs)). 
@@ -73,9 +73,9 @@ Determines the type of each node, then calls the visitor with both nodes cast to
 
 Rather than support all four possible overloads related to the const qualifier on {\bf Node}{\rm (p.\,\pageref{structsprite_1_1Node})} arguments, just support the cases where both are qualified or neither one is. 
 
-Definition at line 143 of file visit.hpp.\index{visit.hpp@{visit.hpp}!visit@{visit}}
+Definition at line 142 of file visit.hpp.\index{visit.hpp@{visit.hpp}!visit@{visit}}
 \index{visit@{visit}!visit.hpp@{visit.hpp}}
-\subsubsection{\setlength{\rightskip}{0pt plus 5cm}template$<$typename Visitor$>$ Visitor::result\_\-type visit (Visitor const \& {\em visitor}, Node const \& {\em node})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_file_a68}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}template$<$typename Visitor$>$ Visitor::result\_\-type visit (Visitor const \& {\em visitor}, Node const \& {\em node})\hspace{0.3cm}{\tt  [inline]}}\label{namespacesprite_file_a67}
 
 
 Unary visitation; calls visitor((Type)(node)). 
@@ -91,6 +91,6 @@ Referenced by sprite::Node::clone(), sprite::Node::iter(), sprite::Node::operato
 Here is the call graph for this function:\begin{figure}[H]
 \begin{center}
 \leavevmode
-\includegraphics[width=116pt]{namespacesprite_a68_cgraph}
+\includegraphics[width=116pt]{namespacesprite_a67_cgraph}
 \end{center}
 \end{figure}

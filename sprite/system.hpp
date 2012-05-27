@@ -15,7 +15,7 @@ namespace sprite
   struct Loader
   {
     /// Inserts a constructor into the associated program.
-    virtual size_t insert_ctor(std::string const & name) = 0;
+    // virtual size_t insert_ctor(std::string const & name) = 0;
 
     /// Inserts an operation into the associated program.
     virtual size_t insert_oper(std::string const & name, h_func_type) = 0;
@@ -27,13 +27,12 @@ namespace sprite
   struct Module
   {
     /// Returns the ID of the named constructor in the associated program.
-    virtual size_t find_ctor(std::string const & label) = 0;
+    // virtual size_t find_ctor(std::string const & label) const = 0;
 
     /// Returns the ID of the named operation in the associated program.
-    virtual size_t find_oper(std::string const & label) = 0;
+    virtual size_t find_oper(std::string const & label) const = 0;
 
     virtual ~Module() {}
   };
-
 }
 

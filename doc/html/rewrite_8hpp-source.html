@@ -13,118 +13,152 @@
 00007 
 00008 <span class="keyword">namespace </span>sprite
 00009 {
-<a name="l00011"></a><a class="code" href="structsprite_1_1rewrite.html">00011</a>   <span class="keyword">template</span>&lt;TagValue CtorOrOper&gt; <span class="keyword">struct </span><a class="code" href="structsprite_1_1rewrite.html">rewrite</a>
-00012   {
-00013     <a class="code" href="structsprite_1_1rewrite.html">rewrite</a>() {}
-00014     BOOST_STATIC_ASSERT(CtorOrOper==CTOR || CtorOrOper==OPER);
-00015 <span class="preprocessor">    #define F(z,n,_)                                             \</span>
-00016 <span class="preprocessor">        void operator()(                                         \</span>
-00017 <span class="preprocessor">            Node &amp; node, size_t id                               \</span>
-00018 <span class="preprocessor">            BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const &amp; arg) \</span>
-00019 <span class="preprocessor">          ) const                                                \</span>
-00020 <span class="preprocessor">        {                                                        \</span>
-00021 <span class="preprocessor">          node.destroy_payload();                                \</span>
-00022 <span class="preprocessor">          new(node._payload()) payloads::InPlace&lt;n&gt;(             \</span>
-00023 <span class="preprocessor">              BOOST_PP_ENUM_PARAMS(n,arg)                        \</span>
-00024 <span class="preprocessor">            );                                                   \</span>
-00025 <span class="preprocessor">          node.m_id = id;                                        \</span>
-00026 <span class="preprocessor">          node.m_arity = n;                                      \</span>
-00027 <span class="preprocessor">          node.m_tag = CtorOrOper;                               \</span>
-00028 <span class="preprocessor">        }                                                        \</span>
-00029 <span class="preprocessor">        </span>
-00030 <span class="preprocessor"></span>    BOOST_PP_REPEAT(<a class="code" href="node_8hpp.html#a0">SPRITE_INPLACE_BOUND</a>,<a class="code" href="node_8hpp.html#a2">F</a>,)
-00031     #undef <a class="code" href="node_8hpp.html#a2">F</a>
-00032 
-00033 <span class="preprocessor">    #if 0</span>
-00034 <span class="preprocessor"></span>    <span class="comment">// TODO</span>
-00035     <span class="keywordtype">void</span> operator()(
-00036         <a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, size_t <span class="keywordtype">id</span>, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; arg0, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; arg1
-00037       )<span class="keyword"> const</span>
-00038 <span class="keyword">    </span>{
-00039       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
-00040       <span class="comment">// new(node._payload()) payloads::ChildList(arg0,arg1);</span>
-00041       node.<a class="code" href="structsprite_1_1Node.html#r2">m_id</a> = id;
-00042       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = CHOICE;
-00043     }
-00044 <span class="preprocessor">    #endif</span>
-00045 <span class="preprocessor"></span>  };
-00046 
-<a name="l00048"></a><a class="code" href="structsprite_1_1rewrite_3_01FAIL_01_4.html">00048</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span><a class="code" href="structsprite_1_1rewrite.html">rewrite</a>&lt;FAIL&gt;
-00049   {
-00050     <a class="code" href="structsprite_1_1rewrite.html">rewrite</a>() {}
-00051     <span class="keywordtype">void</span> operator()(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node)<span class="keyword"> const</span>
-00052 <span class="keyword">    </span>{
-00053       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
-00054       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = FAIL;
-00055     }
-00056   };
-00057 
-<a name="l00059"></a><a class="code" href="structsprite_1_1rewrite_3_01CHOICE_01_4.html">00059</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span><a class="code" href="structsprite_1_1rewrite.html">rewrite</a>&lt;CHOICE&gt;
-00060   {
-00061     <a class="code" href="structsprite_1_1rewrite.html">rewrite</a>() {}
-00062     <span class="keywordtype">void</span> operator()(
-00063         <a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, size_t <span class="keywordtype">id</span>, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; lhs, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; rhs
-00064       )<span class="keyword"> const</span>
-00065 <span class="keyword">    </span>{
-00066       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
-00067       <span class="keyword">new</span>(node.<a class="code" href="structsprite_1_1Node.html#a5">_payload</a>()) <a class="code" href="structsprite_1_1payloads_1_1Choice.html">payloads::Choice</a>(lhs,rhs);
-00068       node.<a class="code" href="structsprite_1_1Node.html#r2">m_id</a> = id;
-00069       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = CHOICE;
-00070     }
-00071   };
-00072 
-<a name="l00074"></a><a class="code" href="structsprite_1_1rewrite_3_01FWD_01_4.html">00074</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span><a class="code" href="structsprite_1_1rewrite.html">rewrite</a>&lt;FWD&gt;
-00075   {
-00076     <a class="code" href="structsprite_1_1rewrite.html">rewrite</a>() {}
-00077     <span class="keywordtype">void</span> operator()(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; dest)<span class="keyword"> const</span>
-00078 <span class="keyword">    </span>{
-00079       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
-00080       <span class="keyword">new</span>(node.<a class="code" href="structsprite_1_1Node.html#a5">_payload</a>()) <a class="code" href="structsprite_1_1payloads_1_1Fwd.html">payloads::Fwd</a>(dest);
-00081       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = FWD;
-00082     }
-00083   };
-00084 
-<a name="l00086"></a><a class="code" href="structsprite_1_1rewrite_3_01INT_01_4.html">00086</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span><a class="code" href="structsprite_1_1rewrite.html">rewrite</a>&lt;INT&gt;
-00087   {
-00088     <a class="code" href="structsprite_1_1rewrite.html">rewrite</a>() {}
-00089     <span class="keywordtype">void</span> operator()(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, meta::ValueType&lt;INT&gt;::type value)<span class="keyword"> const</span>
-00090 <span class="keyword">    </span>{
-00091       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
-00092       <span class="keyword">new</span>(node.<a class="code" href="structsprite_1_1Node.html#a5">_payload</a>()) <a class="code" href="structsprite_1_1payloads_1_1Int.html">payloads::Int</a>(value);
-00093       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = INT;
-00094     }
-00095   };
-00096 
-<a name="l00098"></a><a class="code" href="structsprite_1_1rewrite_3_01FLOAT_01_4.html">00098</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span><a class="code" href="structsprite_1_1rewrite.html">rewrite</a>&lt;FLOAT&gt;
-00099   {
-00100     <a class="code" href="structsprite_1_1rewrite.html">rewrite</a>() {}
-00101     <span class="keywordtype">void</span> operator()(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, meta::ValueType&lt;FLOAT&gt;::type value)<span class="keyword"> const</span>
-00102 <span class="keyword">    </span>{
-00103       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
-00104       <span class="keyword">new</span>(node.<a class="code" href="structsprite_1_1Node.html#a5">_payload</a>()) <a class="code" href="structsprite_1_1payloads_1_1Float.html">payloads::Float</a>(value);
-00105       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = FLOAT;
-00106     }
-00107   };
-00108 
-00109   <span class="comment">// A minor convenience, perhaps.  These aliases prevent having to construct</span>
-00110   <span class="comment">// an instance of rewrite&lt;Tag&gt; to perform a rewrite step when the Tag is</span>
-00111   <span class="comment">// not a variable.</span>
-00112 
-<a name="l00114"></a><a class="code" href="namespacesprite.html#a38">00114</a>   <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;CTOR&gt;</a> <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a38">rewrite_ctor</a> = <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;CTOR&gt;</a>();
-00115 
-<a name="l00117"></a><a class="code" href="namespacesprite.html#a39">00117</a>   <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;OPER&gt;</a> <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a39">rewrite_oper</a> = <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;OPER&gt;</a>();
-00118 
-<a name="l00120"></a><a class="code" href="namespacesprite.html#a40">00120</a>   <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;FAIL&gt;</a> <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a40">rewrite_fail</a> = <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;FAIL&gt;</a>();
-00121 
-<a name="l00123"></a><a class="code" href="namespacesprite.html#a41">00123</a>   <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;CHOICE&gt;</a> <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a41">rewrite_choice</a> = <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;CHOICE&gt;</a>();
-00124 
-<a name="l00126"></a><a class="code" href="namespacesprite.html#a42">00126</a>   <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;FWD&gt;</a> <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a42">rewrite_fwd</a> = <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;FWD&gt;</a>();
-00127 
-<a name="l00129"></a><a class="code" href="namespacesprite.html#a43">00129</a>   <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;INT&gt;</a> <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a43">rewrite_int</a> = <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;INT&gt;</a>();
-00130 
-<a name="l00132"></a><a class="code" href="namespacesprite.html#a44">00132</a>   <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;FLOAT&gt;</a> <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a44">rewrite_float</a> = <a class="code" href="structsprite_1_1rewrite.html">rewrite&lt;FLOAT&gt;</a>();
-00133 }
-</pre></div><hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:31 2012 for sprite by&nbsp;
+<a name="l00015"></a><a class="code" href="structsprite_1_1rewrite_3_01OPER_01_4.html">00015</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span>rewrite&lt;OPER&gt;
+00016   {
+00017     rewrite() {}
+00018 <span class="preprocessor">    #define F(z,n,_)                                             \</span>
+00019 <span class="preprocessor">        void operator()(                                         \</span>
+00020 <span class="preprocessor">            Node &amp; node, size_t id                               \</span>
+00021 <span class="preprocessor">            BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const &amp; arg) \</span>
+00022 <span class="preprocessor">          ) const                                                \</span>
+00023 <span class="preprocessor">        {                                                        \</span>
+00024 <span class="preprocessor">          node.destroy_payload();                                \</span>
+00025 <span class="preprocessor">          new(node._payload()) payloads::InPlace&lt;n&gt;(             \</span>
+00026 <span class="preprocessor">              BOOST_PP_ENUM_PARAMS(n,arg)                        \</span>
+00027 <span class="preprocessor">            );                                                   \</span>
+00028 <span class="preprocessor">          node.m_arity = n;                                      \</span>
+00029 <span class="preprocessor">          node.m_id = id;                                        \</span>
+00030 <span class="preprocessor">          node.m_tag = OPER;                                     \</span>
+00031 <span class="preprocessor">        }                                                        \</span>
+00032 <span class="preprocessor">        </span>
+00033 <span class="preprocessor"></span>    BOOST_PP_REPEAT(<a class="code" href="node_8hpp.html#a0">SPRITE_INPLACE_BOUND</a>,<a class="code" href="node_8hpp.html#a2">F</a>,)
+00034     #undef <a class="code" href="node_8hpp.html#a2">F</a>
+00035 
+<a name="l00040"></a><a class="code" href="structsprite_1_1rewrite_3_01OPER_01_4.html#a1">00040</a>     <span class="keywordtype">void</span> operator()(
+00041         <a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, size_t <span class="keywordtype">id</span>, size_t arity, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> * args
+00042       )<span class="keyword"> const</span>
+00043 <span class="keyword">    </span>{
+00044       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
+00045       <span class="keyword">new</span>(node.<a class="code" href="structsprite_1_1Node.html#a5">_payload</a>()) <a class="code" href="structsprite_1_1payloads_1_1ChildList.html">payloads::ChildList</a>(args, arity);
+00046       node.<a class="code" href="structsprite_1_1Node.html#r3">m_arity</a> = arity;
+00047       node.<a class="code" href="structsprite_1_1Node.html#r2">m_id</a> = id;
+00048       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = OPER;
+00049     }
+00050   };
+00051 
+<a name="l00060"></a><a class="code" href="structsprite_1_1rewrite_3_01CTOR_01_4.html">00060</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span>rewrite&lt;CTOR&gt;
+00061   {
+00062     rewrite() {}
+00063 <span class="preprocessor">    #define F(z,n,_)                                             \</span>
+00064 <span class="preprocessor">        template&lt;typename Enum&gt;                                  \</span>
+00065 <span class="preprocessor">        void operator()(                                         \</span>
+00066 <span class="preprocessor">            Node &amp; node, Enum tag, size_t id                     \</span>
+00067 <span class="preprocessor">            BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const &amp; arg) \</span>
+00068 <span class="preprocessor">          ) const                                                \</span>
+00069 <span class="preprocessor">        {                                                        \</span>
+00070 <span class="preprocessor">          node.destroy_payload();                                \</span>
+00071 <span class="preprocessor">          new(node._payload()) payloads::InPlace&lt;n&gt;(             \</span>
+00072 <span class="preprocessor">              BOOST_PP_ENUM_PARAMS(n,arg)                        \</span>
+00073 <span class="preprocessor">            );                                                   \</span>
+00074 <span class="preprocessor">          node.m_arity = n;                                      \</span>
+00075 <span class="preprocessor">          assert((int)tag &gt;= (int)CTOR);                         \</span>
+00076 <span class="preprocessor">          node.m_tag = make_ctor_tag(tag);                       \</span>
+00077 <span class="preprocessor">          node.m_id  = id;                                       \</span>
+00078 <span class="preprocessor">        }                                                        \</span>
+00079 <span class="preprocessor">        </span>
+00080 <span class="preprocessor"></span>    BOOST_PP_REPEAT(<a class="code" href="node_8hpp.html#a0">SPRITE_INPLACE_BOUND</a>,<a class="code" href="node_8hpp.html#a2">F</a>,)
+00081     #undef <a class="code" href="node_8hpp.html#a2">F</a>
+00082 
+00087     <span class="keyword">template</span>&lt;<span class="keyword">typename</span> Enum&gt;
+<a name="l00088"></a><a class="code" href="structsprite_1_1rewrite_3_01CTOR_01_4.html#a1">00088</a>     <span class="keywordtype">void</span> operator()(
+00089         <a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, Enum tag, size_t <span class="keywordtype">id</span>, size_t arity, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> * args
+00090       )<span class="keyword"> const</span>
+00091 <span class="keyword">    </span>{
+00092       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
+00093       <span class="keyword">new</span>(node.<a class="code" href="structsprite_1_1Node.html#a5">_payload</a>()) <a class="code" href="structsprite_1_1payloads_1_1ChildList.html">payloads::ChildList</a>(args, arity);
+00094       node.<a class="code" href="structsprite_1_1Node.html#r3">m_arity</a> = arity;
+00095       assert((<span class="keywordtype">int</span>)tag &gt;= (<span class="keywordtype">int</span>)CTOR);
+00096       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = <a class="code" href="namespacesprite.html#a45">make_ctor_tag</a>(tag);
+00097       node.<a class="code" href="structsprite_1_1Node.html#r2">m_id</a> = id;
+00098     }
+00099   };
+00100 
+<a name="l00102"></a><a class="code" href="structsprite_1_1rewrite_3_01FAIL_01_4.html">00102</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span>rewrite&lt;FAIL&gt;
+00103   {
+00104     rewrite() {}
+00105     <span class="keywordtype">void</span> operator()(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node)<span class="keyword"> const</span>
+00106 <span class="keyword">    </span>{
+00107       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
+00108       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = FAIL;
+00109     }
+00110   };
+00111 
+<a name="l00113"></a><a class="code" href="structsprite_1_1rewrite_3_01CHOICE_01_4.html">00113</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span>rewrite&lt;CHOICE&gt;
+00114   {
+00115     rewrite() {}
+00116     <span class="keywordtype">void</span> operator()(
+00117         <a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, size_t <span class="keywordtype">id</span>, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; lhs, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; rhs
+00118       )<span class="keyword"> const</span>
+00119 <span class="keyword">    </span>{
+00120       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
+00121       <span class="keyword">new</span>(node.<a class="code" href="structsprite_1_1Node.html#a5">_payload</a>()) <a class="code" href="structsprite_1_1payloads_1_1Choice.html">payloads::Choice</a>(lhs,rhs);
+00122       node.<a class="code" href="structsprite_1_1Node.html#r2">m_id</a> = id;
+00123       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = CHOICE;
+00124     }
+00125   };
+00126 
+<a name="l00128"></a><a class="code" href="structsprite_1_1rewrite_3_01FWD_01_4.html">00128</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span>rewrite&lt;FWD&gt;
+00129   {
+00130     rewrite() {}
+00131     <span class="keywordtype">void</span> operator()(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, <a class="code" href="structsprite_1_1NodePtr.html">NodePtr</a> <span class="keyword">const</span> &amp; dest)<span class="keyword"> const</span>
+00132 <span class="keyword">    </span>{
+00133       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
+00134       <span class="keyword">new</span>(node.<a class="code" href="structsprite_1_1Node.html#a5">_payload</a>()) <a class="code" href="structsprite_1_1payloads_1_1Fwd.html">payloads::Fwd</a>(dest);
+00135       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = FWD;
+00136     }
+00137   };
+00138 
+<a name="l00140"></a><a class="code" href="structsprite_1_1rewrite_3_01INT_01_4.html">00140</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span>rewrite&lt;INT&gt;
+00141   {
+00142     rewrite() {}
+00143     <span class="keywordtype">void</span> operator()(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, meta::ValueType&lt;INT&gt;::type value)<span class="keyword"> const</span>
+00144 <span class="keyword">    </span>{
+00145       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
+00146       <span class="keyword">new</span>(node.<a class="code" href="structsprite_1_1Node.html#a5">_payload</a>()) <a class="code" href="structsprite_1_1payloads_1_1Int.html">payloads::Int</a>(value);
+00147       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = INT;
+00148     }
+00149   };
+00150 
+<a name="l00152"></a><a class="code" href="structsprite_1_1rewrite_3_01FLOAT_01_4.html">00152</a>   <span class="keyword">template</span>&lt;&gt; <span class="keyword">struct </span>rewrite&lt;FLOAT&gt;
+00153   {
+00154     rewrite() {}
+00155     <span class="keywordtype">void</span> operator()(<a class="code" href="structsprite_1_1Node.html">Node</a> &amp; node, meta::ValueType&lt;FLOAT&gt;::type value)<span class="keyword"> const</span>
+00156 <span class="keyword">    </span>{
+00157       node.<a class="code" href="structsprite_1_1Node.html#d3">destroy_payload</a>();
+00158       <span class="keyword">new</span>(node.<a class="code" href="structsprite_1_1Node.html#a5">_payload</a>()) <a class="code" href="structsprite_1_1payloads_1_1Float.html">payloads::Float</a>(value);
+00159       node.<a class="code" href="structsprite_1_1Node.html#r1">m_tag</a> = FLOAT;
+00160     }
+00161   };
+00162 
+00163   <span class="comment">// A minor convenience, perhaps.  These aliases prevent having to construct</span>
+00164   <span class="comment">// an instance of rewrite&lt;Tag&gt; to perform a rewrite step when Tag is not a</span>
+00165   <span class="comment">// variable (i.e., a template parameter).</span>
+00166 
+<a name="l00168"></a><a class="code" href="namespacesprite.html#a36">00168</a>   rewrite&lt;CTOR&gt; <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a36">rewrite_ctor</a> = rewrite&lt;CTOR&gt;();
+00169 
+<a name="l00171"></a><a class="code" href="namespacesprite.html#a37">00171</a>   rewrite&lt;OPER&gt; <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a37">rewrite_oper</a> = rewrite&lt;OPER&gt;();
+00172 
+<a name="l00174"></a><a class="code" href="namespacesprite.html#a38">00174</a>   rewrite&lt;FAIL&gt; <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a38">rewrite_fail</a> = rewrite&lt;FAIL&gt;();
+00175 
+<a name="l00177"></a><a class="code" href="namespacesprite.html#a39">00177</a>   rewrite&lt;CHOICE&gt; <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a39">rewrite_choice</a> = rewrite&lt;CHOICE&gt;();
+00178 
+<a name="l00180"></a><a class="code" href="namespacesprite.html#a40">00180</a>   rewrite&lt;FWD&gt; <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a40">rewrite_fwd</a> = rewrite&lt;FWD&gt;();
+00181 
+<a name="l00183"></a><a class="code" href="namespacesprite.html#a41">00183</a>   rewrite&lt;INT&gt; <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a41">rewrite_int</a> = rewrite&lt;INT&gt;();
+00184 
+<a name="l00186"></a><a class="code" href="namespacesprite.html#a42">00186</a>   rewrite&lt;FLOAT&gt; <span class="keyword">const</span> <a class="code" href="namespacesprite.html#a42">rewrite_float</a> = rewrite&lt;FLOAT&gt;();
+00187 }
+</pre></div><hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:26 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

@@ -1,3 +1,0 @@
-This directory contains hard-coded tests.  Each file defines a main function
-that performs a computation.  Linking sprite.a to one of these files builds a
-test executable that should exit with status 0.

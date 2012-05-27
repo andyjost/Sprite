@@ -37,7 +37,7 @@ namespace sprite
     using base_type::operator unspecified_bool_type;
     using base_type::operator!;
 
-    /// Get the pointer value, after skipping any FWD nodes.
+    /// Gets the pointer value, after skipping any FWD nodes.
     Node * get() const
     {
       // It is okay to update this pointer by removing FWD nodes, even if the
@@ -59,7 +59,7 @@ namespace sprite
     }
 
     /**
-     * @brief Dereference the pointer, after skipping any FWD nodes.
+     * @brief Dereferences the pointer, after skipping any FWD nodes.
      *
      * Precondition: the pointer is not NULL.
      */
@@ -70,7 +70,7 @@ namespace sprite
     }
 
     /**
-     * @brief Call a member through the pointer, after skipping any FWD nodes.
+     * @brief Calls a member through the pointer, after skipping any FWD nodes.
      *
      * Precondition: the pointer is not NULL.
      */
@@ -79,6 +79,21 @@ namespace sprite
       assert(this->get() != 0);
       return this->get();
     }
+
+    /**
+     * @brief Dereferences a node pointer and then indexes the node.
+     *
+     * This function provides a simplified syntax for indexing.
+     *
+     * Precondition: the point is not NULL, and the index is in-bounds.
+     */
+    NodePtr & operator[](size_t i) const;
+
+    /**
+     * @brief Enables assignment from a Node (simplifies some parts of the
+     * implementation).
+     */
+    NodePtr & operator=(Node &);
   };
 
   // Define operators ==, != and < for NodePtr.

@@ -156,7 +156,7 @@ namespace sprite
   /// Implements the H function for a built in operation.
   template<BuiltinOp Op> void h_func(Node & node)
   {
-    // H.4
+    // H.4 TODO
     // Q. can this just check against CTOR?
     // Q. how can this be needed?  The only call is from head_normalize.
     if(is_ctor(node.tag())) return;
@@ -165,11 +165,11 @@ namespace sprite
     {
       switch(child->tag())
       {
-        // H.1
+        // H.1 TODO
         case CHOICE: return pull_tab(node, child);
-        // H.5
+        // H.5 TODO
         case FAIL: return rewrite_fail(node);
-        // H.2
+        // H.2 TODO
         case OPER: return head_normalize(*child);
         default:;
       }
@@ -180,7 +180,7 @@ namespace sprite
       { assert(is_builtin(child->tag())); }
     #endif
   
-    // H.3
+    // H.3 TODO
     // Compute the result and rewrite the node.
     Dispatch<Op>()(node);
   }
@@ -198,6 +198,6 @@ namespace sprite
     , &h_func<OP_FLOAT_DIV>
   };
 
-  std::string builtin_ctor[C_END] = {};
+  // std::string builtin_ctor[C_END] = {};
   std::string builtin_oper[OP_END] = { "+", "-", "*", "/", "+", "-", "*", "/" };
 }

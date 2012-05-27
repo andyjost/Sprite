@@ -11,18 +11,18 @@
 00002 
 00003 <span class="keyword">namespace </span>sprite
 00004 {
-00005   Program::Program() : oper(), ctor_label(), oper_label()
+00005   Program::Program() : oper(), <span class="comment">/*ctor_label(),*/</span> oper_label()
 00006   {
 00007     <span class="comment">// Copy the built-in H functions to the operation table.</span>
 00008     oper.reserve(OP_END);
 00009     std::copy(&amp;builtin_h[0], &amp;builtin_h[OP_END], std::back_inserter(oper));
 00010 
 00011     <span class="comment">// Same for the labels.</span>
-00012     ctor_label.reserve(C_END);
-00013     std::copy(
-00014         &amp;builtin_ctor[0], &amp;builtin_ctor[C_END]
-00015       , std::back_inserter(ctor_label)
-00016       );
+00012     <span class="comment">// ctor_label.reserve(C_END);</span>
+00013     <span class="comment">// std::copy(</span>
+00014     <span class="comment">//     &amp;builtin_ctor[0], &amp;builtin_ctor[C_END]</span>
+00015     <span class="comment">//   , std::back_inserter(ctor_label)</span>
+00016     <span class="comment">//   );</span>
 00017 
 00018     oper_label.reserve(OP_END);
 00019     std::copy(
@@ -41,7 +41,7 @@
 00032       <span class="comment">// hard-coded step.</span>
 00033 
 00034       <span class="keyword">typedef</span> shared_ptr&lt;Module&gt; module_ptr_type;
-00035       tr1::function&lt;module_ptr_type(Loader &amp;)&gt; module_initializer;
+00035       tr1::function&lt;module_ptr_type(Program &amp;)&gt; module_initializer;
 00036       <span class="keywordflow">if</span>(name == <span class="stringliteral">"List"</span>)
 00037         { module_initializer = load_list; }
 00038       <span class="keywordflow">else</span>
@@ -74,7 +74,7 @@
 00065     <span class="keywordflow">return</span> <a class="code" href="structsprite_1_1Program.html#o2">oper_label</a>.size() - 1;
 00066   }
 00067 }
-</pre></div><hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:31 2012 for sprite by&nbsp;
+</pre></div><hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:26 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>

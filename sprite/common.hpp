@@ -56,16 +56,29 @@ namespace sprite
 
   typedef boost::uint_t<32>::exact uint32;
 
-  /// Identifies the type of a node.
-  enum TagValue { FAIL, CTOR, OPER, CHOICE, FWD, INT, FLOAT };
+  /**
+   * @brief Identifies the type of a node.  CTOR must be last!
+   *
+   * The constructors for any type are assigned the sequential tags CTOR,
+   * CTOR+1, CTOR+2,...  Said another way, this type is abused in that any
+   * value >= CTOR can be a valid TagValue.
+   */
+  enum TagValue { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CTOR };
 
-  /// Indicates whether a tag represents a constructor.
+  /// Generates a constructor tag.
+  inline TagValue make_ctor_tag(int i)
+  {
+    assert(i>=CTOR);
+    return static_cast<TagValue>(i);
+  }
+
+  /// Indicates whether a tag represents a constructor (built-in or not).
   inline bool is_ctor(TagValue x)
   {
     switch(x)
     {
-      case CTOR: case INT: case FLOAT: return true;
-      default: return false;
+      case FAIL: case OPER: case CHOICE: case FWD: return false;
+      default: return true;
     }
   }
 

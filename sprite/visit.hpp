@@ -23,19 +23,6 @@ namespace sprite
           visitor(static_cast<meta::NodeOf<tag,arity>::type const &>(node));
 
       case FAIL:   return SPRITE_visit(FAIL,-1);
-      case CHOICE: return SPRITE_visit(CHOICE,-1);
-      case INT:    return SPRITE_visit(INT,-1);
-      case FLOAT:  return SPRITE_visit(FLOAT,-1);
-      case CTOR:
-      {
-        switch(node.arity())
-        {
-          case 0:  return SPRITE_visit(CTOR,0);
-          case 1:  return SPRITE_visit(CTOR,1);
-          case 2:  return SPRITE_visit(CTOR,2);
-          default: return SPRITE_visit(CTOR,-1);
-        }
-      }
       case OPER:
       {
         switch(node.arity())
@@ -46,9 +33,21 @@ namespace sprite
           default: return SPRITE_visit(OPER,-1);
         }
       }
+      case CHOICE: return SPRITE_visit(CHOICE,-1);
       case FWD: return SPRITE_visit(FWD,-1);
-      default: throw RuntimeError("a corrupted node was encountered");
-
+      case INT:    return SPRITE_visit(INT,-1);
+      case FLOAT:  return SPRITE_visit(FLOAT,-1);
+      default:
+      {
+        assert(node.tag() >= CTOR);
+        switch(node.arity())
+        {
+          case 0:  return SPRITE_visit(CTOR,0);
+          case 1:  return SPRITE_visit(CTOR,1);
+          case 2:  return SPRITE_visit(CTOR,2);
+          default: return SPRITE_visit(CTOR,-1);
+        }
+      }
       #undef SPRITE_visit
     }
   }

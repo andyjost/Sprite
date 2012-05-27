@@ -118,6 +118,7 @@ namespace sprite
       std::cout << setprogram(pgm);
 
     BOOST_SCOPE_EXIT((&_pp))
+      // TODO !! Can _pp be NULL ? !!
       { std::cout << setprogram(*_pp); }
     BOOST_SCOPE_EXIT_END
 

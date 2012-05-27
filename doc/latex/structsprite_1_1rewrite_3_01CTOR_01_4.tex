@@ -1,0 +1,53 @@
+\section{sprite::rewrite$<$ CTOR $>$ Struct Template Reference}
+\label{structsprite_1_1rewrite_3_01CTOR_01_4}\index{sprite::rewrite< CTOR >@{sprite::rewrite$<$ CTOR $>$}}
+Rewrites a node to a CTOR node.  
+
+
+{\tt \#include $<$rewrite.hpp$>$}
+
+\subsection*{Public Member Functions}
+\begin{CompactItemize}
+\item 
+{\bf rewrite} ()\label{structsprite_1_1rewrite_3_01CTOR_01_4_a0}
+
+\item 
+template$<$typename Enum$>$ void {\bf operator()} ({\bf Node} \&node, Enum tag, size\_\-t id, size\_\-t arity, {\bf Node\-Ptr} $\ast$args) const 
+\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$$>$ struct sprite::rewrite$<$ CTOR $>$}
+
+Rewrites a node to a CTOR node. 
+
+The tag member holds the static constructor identifier, which is a value greater than or equal to CTOR. The tag is set to that. The id is set to the dynamic constructor identifer (which is assigned at program load time). 
+
+
+
+Definition at line 60 of file rewrite.hpp.
+
+\subsection{Member Function Documentation}
+\index{sprite::rewrite< CTOR >@{sprite::rewrite$<$ CTOR $>$}!operator()@{operator()}}
+\index{operator()@{operator()}!sprite::rewrite< CTOR >@{sprite::rewrite$<$ CTOR $>$}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}template$<$typename Enum$>$ void sprite::rewrite$<$ CTOR $>$::operator() ({\bf Node} \& {\em node}, Enum {\em tag}, size\_\-t {\em id}, size\_\-t {\em arity}, {\bf Node\-Ptr} $\ast$ {\em args}) const\hspace{0.3cm}{\tt  [inline]}}\label{structsprite_1_1rewrite_3_01CTOR_01_4_a1}
+
+
+\begin{Desc}
+\item[Note:]This function \_\-claims\_\- ownership of the pointer and will delete it with delete[]. \end{Desc}
+
+
+Definition at line 88 of file rewrite.hpp.
+
+References sprite::Node::\_\-payload(), sprite::Node::destroy\_\-payload(), sprite::Node::m\_\-arity, sprite::Node::m\_\-id, sprite::Node::m\_\-tag, and sprite::make\_\-ctor\_\-tag().
+
+Here is the call graph for this function:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=197pt]{structsprite_1_1rewrite_3_01CTOR_01_4_a1_cgraph}
+\end{center}
+\end{figure}
+
+
+The documentation for this struct was generated from the following file:\begin{CompactItemize}
+\item 
+sprite/{\bf rewrite.hpp}\end{CompactItemize}

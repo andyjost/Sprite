@@ -27,45 +27,49 @@ namespace {\bf sprite}
 \subsection*{Classes}
 \begin{CompactItemize}
 \item 
-struct {\bf sprite::rewrite$<$ Ctor\-Or\-Oper $>$}
-\begin{CompactList}\small\item\em Rewrite a node to a CTOR or OPER node. \item\end{CompactList}\item 
+struct {\bf sprite::rewrite$<$ OPER $>$}
+\begin{CompactList}\small\item\em Rewrites a node to an OPER node. \item\end{CompactList}\item 
+struct {\bf sprite::rewrite$<$ CTOR $>$}
+\begin{CompactList}\small\item\em Rewrites a node to a CTOR node. \item\end{CompactList}\item 
 struct {\bf sprite::rewrite$<$ FAIL $>$}
-\begin{CompactList}\small\item\em Rewrite a node to a FAIL. \item\end{CompactList}\item 
+\begin{CompactList}\small\item\em Rewrites a node to FAIL. \item\end{CompactList}\item 
 struct {\bf sprite::rewrite$<$ CHOICE $>$}
-\begin{CompactList}\small\item\em Rewrite a node to a CHOICE. \item\end{CompactList}\item 
+\begin{CompactList}\small\item\em Rewrites a node to CHOICE. \item\end{CompactList}\item 
 struct {\bf sprite::rewrite$<$ FWD $>$}
-\begin{CompactList}\small\item\em Rewrite a node to a FWD. \item\end{CompactList}\item 
+\begin{CompactList}\small\item\em Rewrites a node to FWD. \item\end{CompactList}\item 
 struct {\bf sprite::rewrite$<$ INT $>$}
-\begin{CompactList}\small\item\em Rewrite a node to an INT. \item\end{CompactList}\item 
+\begin{CompactList}\small\item\em Rewrites a node to INT. \item\end{CompactList}\item 
 struct {\bf sprite::rewrite$<$ FLOAT $>$}
-\begin{CompactList}\small\item\em Rewrite a node to a FLOAT. \item\end{CompactList}\end{CompactItemize}
+\begin{CompactList}\small\item\em Rewrites a node to FLOAT. \item\end{CompactList}\end{CompactItemize}
 \subsection*{Defines}
 \begin{CompactItemize}
+\item 
+\#define {\bf F}(z, n, \_\-)
 \item 
 \#define {\bf F}(z, n, \_\-)
 \end{CompactItemize}
 \subsection*{Variables}
 \begin{CompactItemize}
 \item 
-rewrite$<$ CTOR $>$ const {\bf rewrite\_\-ctor} = rewrite$<$CTOR$>$()\label{namespacesprite_a38}
+rewrite$<$ CTOR $>$ const {\bf rewrite\_\-ctor} = rewrite$<$CTOR$>$()\label{namespacesprite_a36}
 
 \begin{CompactList}\small\item\em Rewrites a node to type CTOR. \item\end{CompactList}\item 
-rewrite$<$ OPER $>$ const {\bf rewrite\_\-oper} = rewrite$<$OPER$>$()\label{namespacesprite_a39}
+rewrite$<$ OPER $>$ const {\bf rewrite\_\-oper} = rewrite$<$OPER$>$()\label{namespacesprite_a37}
 
 \begin{CompactList}\small\item\em Rewrites a node to type OPER. \item\end{CompactList}\item 
-rewrite$<$ FAIL $>$ const {\bf rewrite\_\-fail} = rewrite$<$FAIL$>$()\label{namespacesprite_a40}
+rewrite$<$ FAIL $>$ const {\bf rewrite\_\-fail} = rewrite$<$FAIL$>$()\label{namespacesprite_a38}
 
 \begin{CompactList}\small\item\em Rewrites a node to type FAIL. \item\end{CompactList}\item 
-rewrite$<$ CHOICE $>$ const {\bf rewrite\_\-choice} = rewrite$<$CHOICE$>$()\label{namespacesprite_a41}
+rewrite$<$ CHOICE $>$ const {\bf rewrite\_\-choice} = rewrite$<$CHOICE$>$()\label{namespacesprite_a39}
 
 \begin{CompactList}\small\item\em Rewrites a node to type CHOICE. \item\end{CompactList}\item 
-rewrite$<$ FWD $>$ const {\bf rewrite\_\-fwd} = rewrite$<$FWD$>$()\label{namespacesprite_a42}
+rewrite$<$ FWD $>$ const {\bf rewrite\_\-fwd} = rewrite$<$FWD$>$()\label{namespacesprite_a40}
 
 \begin{CompactList}\small\item\em Rewrites a node to type FWD. \item\end{CompactList}\item 
-rewrite$<$ INT $>$ const {\bf rewrite\_\-int} = rewrite$<$INT$>$()\label{namespacesprite_a43}
+rewrite$<$ INT $>$ const {\bf rewrite\_\-int} = rewrite$<$INT$>$()\label{namespacesprite_a41}
 
 \begin{CompactList}\small\item\em Rewrites a node to type INT. \item\end{CompactList}\item 
-rewrite$<$ FLOAT $>$ const {\bf rewrite\_\-float} = rewrite$<$FLOAT$>$()\label{namespacesprite_a44}
+rewrite$<$ FLOAT $>$ const {\bf rewrite\_\-float} = rewrite$<$FLOAT$>$()\label{namespacesprite_a42}
 
 \begin{CompactList}\small\item\em Rewrites a node to type FLOAT. \item\end{CompactList}\end{CompactItemize}
 
@@ -79,6 +83,31 @@ Definition in file {\bf rewrite.hpp}.
 
 \subsection{Define Documentation}
 \index{rewrite.hpp@{rewrite.hpp}!F@{F}}
+\index{F@{F}!rewrite.hpp@{rewrite.hpp}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define F(z, n, \_\-)}\label{rewrite_8hpp_a1}
+
+
+{\bf Value:}
+
+\footnotesize\begin{verbatim}template<typename Enum>                                  \
+        void operator()(                                         \
+            Node & node, Enum tag, size_t id                     \
+            BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const & arg) \
+          ) const                                                \
+        {                                                        \
+          node.destroy_payload();                                \
+          new(node._payload()) payloads::InPlace<n>(             \
+              BOOST_PP_ENUM_PARAMS(n,arg)                        \
+            );                                                   \
+          node.m_arity = n;                                      \
+          assert((int)tag >= (int)CTOR);                         \
+          node.m_tag = make_ctor_tag(tag);                       \
+          node.m_id  = id;                                       \
+        }                                                        \
+\end{verbatim}\normalsize 
+
+
+Definition at line 63 of file rewrite.hpp.\index{rewrite.hpp@{rewrite.hpp}!F@{F}}
 \index{F@{F}!rewrite.hpp@{rewrite.hpp}}
 \subsubsection{\setlength{\rightskip}{0pt plus 5cm}\#define F(z, n, \_\-)}\label{rewrite_8hpp_a0}
 
@@ -94,11 +123,11 @@ Definition in file {\bf rewrite.hpp}.
           new(node._payload()) payloads::InPlace<n>(             \
               BOOST_PP_ENUM_PARAMS(n,arg)                        \
             );                                                   \
-          node.m_id = id;                                        \
           node.m_arity = n;                                      \
-          node.m_tag = CtorOrOper;                               \
+          node.m_id = id;                                        \
+          node.m_tag = OPER;                                     \
         }                                                        \
 \end{verbatim}\normalsize 
 
 
-Definition at line 15 of file rewrite.hpp.
+Definition at line 63 of file rewrite.hpp.

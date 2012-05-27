@@ -22,9 +22,12 @@ typedef StreamOut::result_type&nbsp;</td><td class="memItemRight" valign="bottom
  Payload &gt;, result_type <br>
 &gt;::type&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structsprite_1_1visitors_1_1StreamOut.html#a1">operator()</a> (Stream &amp;stream, bool, <a class="el" href="structsprite_1_1Node__.html">Node_</a>&lt; Payload &gt; const &amp;node) const </td></tr>
 
-<tr><td class="memTemplParams" nowrap colspan="2">template&lt;typename NodeType&gt; </td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Handles built-in types, which define a value_type in the payload.  <a href="#a1"></a><br></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="a2" doxytag="sprite::visitors::StreamOut::operator()"></a>
+template&lt;typename NodeType&gt; </td></tr>
 <tr><td class="memTemplItemLeft" nowrap align="right" valign="top">result_type&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structsprite_1_1visitors_1_1StreamOut.html#a2">operator()</a> (Stream &amp;stream, bool first, NodeType const &amp;node) const </td></tr>
 
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Handles nodes without any value_type, such as user-defined constructors and defined operations. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
 <h3>template&lt;typename Stream&gt;<br>
@@ -44,67 +47,6 @@ Implements operator&lt;&lt; for nodes.
 
 <p>
 Definition at line <a class="el" href="operators_8hpp-source.html#l00077">77</a> of file <a class="el" href="operators_8hpp-source.html">operators.hpp</a>.<hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="a2" doxytag="sprite::visitors::StreamOut::operator()"></a><p>
-<table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
-  <tr>
-    <td class="mdRow">
-      <table cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td class="md" colspan="4">
-template&lt;typename Stream&gt; </td>
-        </tr>
-        <tr>
-          <td class="md" colspan="4">
-template&lt;typename NodeType&gt; </td>
-        </tr>
-        <tr>
-          <td class="md" nowrap valign="top">result_type <a class="el" href="structsprite_1_1visitors_1_1StreamOut.html">sprite::visitors::StreamOut</a>&lt; Stream &gt;::operator()           </td>
-          <td class="md" valign="top">(&nbsp;</td>
-          <td class="md" nowrap valign="top">Stream &amp;&nbsp;</td>
-          <td class="mdname" nowrap> <em>stream</em>, </td>
-        </tr>
-        <tr>
-          <td class="md" nowrap align="right"></td>
-          <td class="md"></td>
-          <td class="md" nowrap>bool&nbsp;</td>
-          <td class="mdname" nowrap> <em>first</em>, </td>
-        </tr>
-        <tr>
-          <td class="md" nowrap align="right"></td>
-          <td class="md"></td>
-          <td class="md" nowrap>NodeType const &amp;&nbsp;</td>
-          <td class="mdname" nowrap> <em>node</em></td>
-        </tr>
-        <tr>
-          <td class="md"></td>
-          <td class="md">)&nbsp;</td>
-          <td class="md" colspan="2"> const<code> [inline]</code></td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
-<table cellspacing="5" cellpadding="0" border="0">
-  <tr>
-    <td>
-      &nbsp;
-    </td>
-    <td>
-
-<p>
-Handles nodes without any value_type, such as user-defined constructorss and defined operations. 
-<p>
-Definition at line <a class="el" href="operators_8hpp-source.html#l00096">96</a> of file <a class="el" href="operators_8hpp-source.html">operators.hpp</a>.
-<p>
-References <a class="el" href="program_8hpp-source.html#l00052">sprite::Program::ctor_label</a>, <a class="el" href="program_8hpp-source.html#l00055">sprite::Program::oper_label</a>, and <a class="el" href="visit_8hpp-source.html#l00149">sprite::visit()</a>.    </td>
-  </tr>
-</table>
-
-<p>
-Here is the call graph for this function:<p><center><img src="structsprite_1_1visitors_1_1StreamOut_a2_cgraph.png" border="0" usemap="#structsprite_1_1visitors_1_1StreamOut_a2_cgraph_map" alt=""></center>
-<map name="structsprite_1_1visitors_1_1StreamOut_a2_cgraph_map">
-<area href="namespacesprite.html#a71" shape="rect" coords="298,8,384,34" alt="">
-</map>
 <a class="anchor" name="a1" doxytag="sprite::visitors::StreamOut::operator()"></a><p>
 <table class="mdTable" width="100%" cellpadding="2" cellspacing="0">
   <tr>
@@ -153,16 +95,18 @@ template&lt;typename Payload&gt; </td>
     <td>
 
 <p>
-Handles built-in types, which define a value_type in the payload. For these, we don't print the constructor name, just the value instead. 
+Handles built-in types, which define a value_type in the payload. 
 <p>
-Definition at line <a class="el" href="operators_8hpp-source.html#l00088">88</a> of file <a class="el" href="operators_8hpp-source.html">operators.hpp</a>.
+For these, don't print the constructor name, just the value instead. 
 <p>
-References <a class="el" href="node_8hpp-source.html#l00209">sprite::Node_&lt; Payload &gt;::payload</a>.    </td>
+Definition at line <a class="el" href="operators_8hpp-source.html#l00089">89</a> of file <a class="el" href="operators_8hpp-source.html">operators.hpp</a>.
+<p>
+References <a class="el" href="node_8hpp-source.html#l00219">sprite::Node_&lt; Payload &gt;::payload</a>.    </td>
   </tr>
 </table>
 <hr>The documentation for this struct was generated from the following file:<ul>
 <li>sprite/<a class="el" href="operators_8hpp-source.html">operators.hpp</a></ul>
-<hr size="1"><address style="align: right;"><small>Generated on Fri Apr 20 08:28:48 2012 for sprite by&nbsp;
+<hr size="1"><address style="align: right;"><small>Generated on Sun May 27 14:50:40 2012 for sprite by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.3.9.1 </small></address>
 </body>
