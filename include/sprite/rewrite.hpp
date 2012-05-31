@@ -10,25 +10,27 @@ namespace sprite
   /**
    * @brief Rewrites a node to an OPER node.
    *
-   * The tag is set to OPER, and @p id is the operation ID.
+   * The tag is set to OPER, and @p id is the operation ID.  The @p NodePtr
+   * arguments are taken by value, since the root payload is destroyed first
+   * and may refer to them.
    */
   template<> struct rewrite<OPER>
   {
     rewrite() {}
-    #define F(z,n,_)                                             \
-        void operator()(                                         \
-            Node & node, size_t id                               \
-            BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const & arg) \
-          ) const                                                \
-        {                                                        \
-          node.destroy_payload();                                \
-          new(node._payload()) payloads::InPlace<n>(             \
-              BOOST_PP_ENUM_PARAMS(n,arg)                        \
-            );                                                   \
-          node.m_arity = n;                                      \
-          node.m_id = id;                                        \
-          node.m_tag = OPER;                                     \
-        }                                                        \
+    #define F(z,n,_)                                           \
+        void operator()(                                       \
+            Node & node, size_t id                             \
+            BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const arg) \
+          ) const                                              \
+        {                                                      \
+          node.destroy_payload();                              \
+          new(node._payload()) payloads::InPlace<n>(           \
+              BOOST_PP_ENUM_PARAMS(n,arg)                      \
+            );                                                 \
+          node.m_arity = n;                                    \
+          node.m_id = id;                                      \
+          node.m_tag = OPER;                                   \
+        }                                                      \
         /**/
     BOOST_PP_REPEAT(SPRITE_INPLACE_BOUND,F,)
     #undef F
@@ -60,22 +62,22 @@ namespace sprite
   template<> struct rewrite<CTOR>
   {
     rewrite() {}
-    #define F(z,n,_)                                             \
-        template<typename Enum>                                  \
-        void operator()(                                         \
-            Node & node, Enum tag, size_t id                     \
-            BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const & arg) \
-          ) const                                                \
-        {                                                        \
-          node.destroy_payload();                                \
-          new(node._payload()) payloads::InPlace<n>(             \
-              BOOST_PP_ENUM_PARAMS(n,arg)                        \
-            );                                                   \
-          node.m_arity = n;                                      \
-          assert((int)tag >= (int)CTOR);                         \
-          node.m_tag = make_ctor_tag(tag);                       \
-          node.m_id  = id;                                       \
-        }                                                        \
+    #define F(z,n,_)                                           \
+        template<typename Enum>                                \
+        void operator()(                                       \
+            Node & node, Enum tag, size_t id                   \
+            BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const arg) \
+          ) const                                              \
+        {                                                      \
+          node.destroy_payload();                              \
+          new(node._payload()) payloads::InPlace<n>(           \
+              BOOST_PP_ENUM_PARAMS(n,arg)                      \
+            );                                                 \
+          node.m_arity = n;                                    \
+          assert((int)tag >= (int)CTOR);                       \
+          node.m_tag = make_ctor_tag(tag);                     \
+          node.m_id  = id;                                     \
+        }                                                      \
         /**/
     BOOST_PP_REPEAT(SPRITE_INPLACE_BOUND,F,)
     #undef F
@@ -114,7 +116,7 @@ namespace sprite
   {
     rewrite() {}
     void operator()(
-        Node & node, size_t id, NodePtr const & lhs, NodePtr const & rhs
+        Node & node, size_t id, NodePtr const lhs, NodePtr const rhs
       ) const
     {
       node.destroy_payload();
@@ -128,7 +130,7 @@ namespace sprite
   template<> struct rewrite<FWD>
   {
     rewrite() {}
-    void operator()(Node & node, NodePtr const & dest) const
+    void operator()(Node & node, NodePtr const dest) const
     {
       node.destroy_payload();
       new(node._payload()) payloads::Fwd(dest);

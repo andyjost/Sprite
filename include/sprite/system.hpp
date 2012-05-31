@@ -1,27 +1,45 @@
 /**
  * @file
- * @brief Defines a basic implementation of the Module interface.
+ * @brief Defines the system interface.
  */
+
 #pragma once
-#include "sprite/system.hpp"
+#include "sprite/builtins.hpp"
+#include "sprite/common.hpp"
+#include <iomanip>
 #include <boost/assign.hpp>
 #include <boost/bimap.hpp>
+#include <boost/format.hpp>
+#include <boost/tr1/unordered_map.hpp>
 
 namespace sprite
 {
-  // typedef std::tr1::function<void(Node &, Node &)> DTree;
+  struct Node;
+
+  /// The type of an H function.
+  typedef tr1::function<void(Node &)> h_func_type;
+
+  /// The table of built-in H routines.
+  extern h_func_type builtin_h[OP_END];
+
+  /// The tables of built-in constructor labels.
+  // extern std::string builtin_ctor[C_END];
+
+  /// The tables of built-in operation labels.
+  extern std::string builtin_oper[OP_END];
+
+  struct Program;
 
   /**
-   * @brief A basic implementation of the Module interface.
+   * @brief Represents a program module.
    * 
    * Derived classes may use the install_* members to conveniently define a
    * module.
    */
-  struct UserModule : Module
+  struct Module
   {
   protected:
-    UserModule(Program & pgm) : m_pgm(pgm) {}
-    virtual ~UserModule() {}
+    Module(Program & pgm) : m_pgm(pgm) {}
   private:
   
     /**
@@ -57,48 +75,69 @@ namespace sprite
     }
 
     /// Installs an operation as an h_func_type.
-    size_t install_oper(std::string const & label, h_func_type const & h)
-    {
-      // Register the operation with the program.
-      size_t const id = m_pgm.insert_oper(label, h);
-  
-      // Install the label and ID in the symbol table for this module.
-      boost::assign::insert(this->m_opers.left)(label,id);
-  
-      // Return the ID.
-      return id;
-    }
+    size_t install_oper(std::string const & label, h_func_type const & h);
   
     /// Installs a constructor.
-    size_t install_ctor(std::string const & label)
-    {
-      // Register the constructor with the program.
-      size_t const id = m_pgm.insert_ctor(label);
-  
-      // Install the label and ID in the symbol table for this module.
-      boost::assign::insert(this->m_ctors.left)(label,id);
-  
-      // Return the ID.
-      return id;
-    }
+    size_t install_ctor(std::string const & label);
   
   private:
-    size_t _lookup(std::string const & label, map_type const & map) const
-    {
-      typedef map_type::left_map::const_iterator iterator;
-      iterator const p = map.left.find(label);
-      if(p == map.left.end())
-        { throw RuntimeError("Failed constructor or operation lookup."); }
-      return p->second;
-    }
+    size_t _lookup(std::string const & label, map_type const & map) const;
+
   public:
-  
-    // ====== Module API ======
-    virtual size_t find_ctor(std::string const & label) const
+    size_t find_ctor(std::string const & label) const
       { return _lookup(label, this->m_ctors); }
   
-    virtual size_t find_oper(std::string const & label) const
+    size_t find_oper(std::string const & label) const
       { return _lookup(label, this->m_opers); }
+  };
+
+  /// A program definition.
+  struct Program
+  {
+    Program();
+  private:
+    tr1::unordered_map<std::string, shared_ptr<Module> > m_imported;
+  public:
+    /// Import the named module.
+    // shared_ptr<Module const> import(std::string name);
+
+    /// Type of a dynamically-sized table of H functions.
+    typedef std::vector<h_func_type> oper_t;
+
+    /// The table of H functions.
+    oper_t oper;
+
+    /// Type of a dynamically-sized table of labels.
+    typedef std::vector<std::string> label_t;
+
+    /// The table of constructor labels.
+    label_t ctor_label;
+
+    /// The table of operation labels.
+    label_t oper_label;
+
+    /// Add a constructor to the program definition.
+    size_t insert_ctor(std::string const & name);
+
+    /// Add an operation to the program definition.
+    size_t insert_oper(std::string const & name, h_func_type h);
+
+    template<typename Stream>
+    friend Stream & operator<<(Stream & out, Program const & pgm)
+    {
+      boost::format fmt("%6d \"%s\"\n");
+      out << "Program @ " << &pgm;
+      
+      out << "\n====== CONSTRUCTORS ======\n";
+      for(size_t i=0; i<pgm.ctor_label.size(); ++i)
+        { out << fmt % i % pgm.ctor_label.at(i); } 
+
+      out << "\n====== OPERATIONS ======\n";
+      for(size_t i=0; i<pgm.oper_label.size(); ++i)
+        { out << fmt % i % pgm.oper_label.at(i); }
+
+      return (out << std::endl);
+    }
   };
 }
 
@@ -138,7 +177,7 @@ namespace sprite
         SPRITE_index_step,,BOOST_PP_SEQ_POP_BACK(path)                   \
       );                                                                 \
     inductive = &parent [BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path))]; \
-    switch((*inductive)->tag())                                          \
+    switch((int)(*inductive)->tag())                                     \
     {                                                                    \
       case FAIL: return rewrite_fail(root);                              \
       case CHOICE: return pull_tab(*parent, *inductive);                 \

@@ -7,8 +7,8 @@
 #include "sprite/common.hpp"
 #include "sprite/fingerprint.hpp"
 #include "sprite/node.hpp"
-#include "sprite/program.hpp"
 #include "sprite/rewrite.hpp"
+#include "sprite/system.hpp"
 
 namespace sprite
 {
@@ -179,11 +179,13 @@ namespace sprite
           switch(child->tag())
           {
             case FAIL: return rewrite_fail(node);
-            case CTOR: fair_normalize(fp, *child); break;
             case OPER: head_normalize(*child); break;
             case CHOICE: return pull_tab(node, child);
             case INT: case FLOAT: break;
             case FWD: throw RuntimeError("Unexpected FWD node.");
+            default: case CTOR:
+              assert(child->tag() >= CTOR);
+              fair_normalize(fp, *child);
           }
         }
       }

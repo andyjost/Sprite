@@ -2,6 +2,7 @@
  * @file
  * @brief Implements built-in operators used by the implementation.
  */
+#pragma once
 #include "sprite/common.hpp"
 #include "sprite/exec.hpp"
 #include "sprite/node.hpp"

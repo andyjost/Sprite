@@ -2,3 +2,6 @@ log
 *.log
 *.o
 *.a
+lib/libsprite.a
+*.curry/*
+*.swp

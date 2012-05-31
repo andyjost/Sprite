@@ -1,4 +1,4 @@
-#include "sprite/program.hpp"
+#include "sprite/system.hpp"
 
 namespace sprite
 {
@@ -22,6 +22,7 @@ namespace sprite
       );
   }
 
+  #if 0
   shared_ptr<Module const> Program::import(std::string name)
   {
     // Only import if the named module was not previously imported.
@@ -47,6 +48,7 @@ namespace sprite
     }
     return m_imported[name];
   }
+  #endif
 
   size_t Program::insert_ctor(std::string const & name)
   {
@@ -63,5 +65,38 @@ namespace sprite
     oper.push_back(h);
     oper_label.push_back(name);
     return oper_label.size() - 1;
+  }
+
+  size_t Module::install_oper(std::string const & label, h_func_type const & h)
+  {
+    // Register the operation with the program.
+    size_t const id = m_pgm.insert_oper(label, h);
+  
+    // Install the label and ID in the symbol table for this module.
+    boost::assign::insert(this->m_opers.left)(label,id);
+  
+    // Return the ID.
+    return id;
+  }
+  
+  size_t Module::install_ctor(std::string const & label)
+  {
+    // Register the constructor with the program.
+    size_t const id = m_pgm.insert_ctor(label);
+  
+    // Install the label and ID in the symbol table for this module.
+    boost::assign::insert(this->m_ctors.left)(label,id);
+  
+    // Return the ID.
+    return id;
+  }
+
+  size_t Module::_lookup(std::string const & label, map_type const & map) const
+  {
+    typedef map_type::left_map::const_iterator iterator;
+    iterator const p = map.left.find(label);
+    if(p == map.left.end())
+      { throw RuntimeError("Failed constructor or operation lookup."); }
+    return p->second;
   }
 }
