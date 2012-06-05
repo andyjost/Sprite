@@ -1,0 +1,45 @@
+#!/bin/bash
+
+USAGE="Usage: sprite curryfile"
+
+if [ "$#" != "1" ]; then
+  echo "$USAGE"
+  exit 1
+fi
+
+if [ -z "${SPRITE_HOME:-}" ]; then
+  SPRITE_HOME=`(cd "\`dirname \"$0\"\`" > /dev/null ; cd ..; pwd)`
+fi
+export SPRITE_HOME
+
+trap "exit 1" ERR
+
+# 1. Parse the curry module (and all dependent modules)
+parsecurry --flat $1
+
+# 2. Make a link to each FlatCurry file in the .sprite directory.
+mkdir -p .sprite
+cd .sprite
+for fcy in ../.curry/*.fcy ; do
+  ln -sf $fcy
+done
+cd ..
+
+# 3. Generate the makefile
+cat > .sprite/makefile <<EOF
+MODULES := $1
+MAIN_MODULE := $1
+EXE := $1
+
+include \$(SPRITE_HOME)/config/makefile
+
+EOF
+
+# cp .sprite.save/go-main.cpp .sprite
+
+# 4. Build
+make -f .sprite/makefile
+
+# 5. Execute
+./$1
+
