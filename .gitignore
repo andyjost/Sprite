@@ -6,3 +6,4 @@ lib/libsprite.a
 *.swp
 lib/.curry
 tools/.curry
+trash/
