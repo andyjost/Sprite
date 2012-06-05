@@ -1,4 +1,4 @@
-module LOISToSprite(translate) where
+module LOISToSprite(translate, translateMain) where
 
 import Char(isAlphaNum)
 import CompactFlatCurry
@@ -245,9 +245,6 @@ translate fh modname' (LOIS.Program types' opers') = do
   -- Generate the module initialization code.
   hPutStrLn fh ("    Module(Program & pgm) : sprite::Module(pgm)")
   hPutStrLn fh  "    {"
-  hPutStrLn fh  "      // Operation and constructor label initialization.  Each one is added to"
-  hPutStrLn fh  "      // the program, which returns a unique ID.  Afterwards, the symbols are"
-  hPutStrLn fh  "      // referred to only by their IDs."
   hPutStrLn fh ("      " ++ mkString "\n      " (map operInstall opers))
   hPutStrLn fh ("      " ++ mkString "\n      " (concat (map ctorInstall types)))
   hPutStrLn fh  "    }"
@@ -283,6 +280,31 @@ translate fh modname' (LOIS.Program types' opers') = do
                   aux (LOIS.ConstructorDecl (_,s) _) =
                       ctorLabelName s ++ " = install_ctor(\"" ++ s ++ "\");"
 
+-- Translate the main module file.
+translateMain fh modname' = do
+  hPutStrLn  fh "#include <iostream>"
+  hPutStrLn  fh "#include \"sprite/sprite.hpp\""
+  hPutStrLn  fh ""
+  hPutStrLn  fh ("#include \"" ++ modname' ++ ".cpp\"")
+  hPutStrLn  fh ""
+  hPutStrLn  fh "using namespace sprite;"
+  hPutStrLn  fh ""
+  hPutStrLn  fh "int main()"
+  hPutStrLn  fh "{"
+  hPutStrLn  fh "  Program pgm;"
+  hPutStrLn  fh "  std::cout << setprogram(pgm);"
+  hPutStrLn  fh ""
+  hPutStrLn  fh ("  user::" ++ modname ++ "::Module m(pgm);")
+  hPutStrLn  fh ""
+  hPutStrLn  fh "  NodePtr goal = Node::create<OPER>(m.op_4main);"
+  hPutStrLn  fh "  execute(pgm, *goal, TRACE);"
+  hPutStrLn  fh "  std::cout << setprogram(pgm) << *goal << std::endl;"
+  hPutStrLn  fh ""
+  hPutStrLn  fh "  return 0;"
+  hPutStrLn  fh "}"
+      where
+          modname = moduleName modname'
+
 ctorQname (LOIS.ConstructorDecl qn _) = qn
 operQname (LOIS.OperationDecl qn _ _) = qn
 
@@ -295,6 +317,7 @@ symbols prog@(LOIS.Program _ types) =
 -- Extracts a unique list of used modules from a LOIS program.
 depends prog = nub $ map fst $ symbols prog
 
+{-
 main = do
   args <- getArgs
   let progname' = last args
@@ -323,4 +346,6 @@ main = do
         dropRight n l = take (length l - n) l
         stripExtension fn = 
         	     if (takeRight 6 fn) == ".curry" then dropRight 6 fn else fn
+-}
+
          

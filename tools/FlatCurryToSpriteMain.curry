@@ -1,4 +1,4 @@
-module FlatCurryToSprite where
+module FlatCurryToSpriteMain where
 
 import FileGoodies
 import IO
@@ -9,13 +9,13 @@ import System
 
 main = do
   args <- getArgs
-  let input = args !! 0 -- flat curry file
+  let modname = args !! 0 -- module name
   let output = args !! 1 -- output file
 
   -- Open the input and output files.
-  curryProg <- FlatCurry.readFlatCurryFile input
+  -- curryProg <- FlatCurry.readFlatCurryFile input
   fh <- openFile output WriteMode
 
-  let prog = FlatCurryToLOIS.process curryProg
-  let modname = stripSuffix $ baseName input
-  LOISToSprite.translate fh modname prog
+  -- let prog = FlatCurryToLOIS.process curryProg
+  -- let modname = stripSuffix $ baseName input
+  LOISToSprite.translateMain fh modname
