@@ -35,8 +35,6 @@ include \$(SPRITE_HOME)/config/makefile
 
 EOF
 
-# cp .sprite.save/go-main.cpp .sprite
-
 # 4. Build
 make -f .sprite/makefile
 
