@@ -1,9 +1,11 @@
+.curry/
+lib/.curry
+lib/libsprite.a
 log
 *.log
 *.o
-lib/libsprite.a
-.curry/
 *.swp
-lib/.curry
+test/*/.curry
+test/*/.sprite
 tools/.curry
 trash/
