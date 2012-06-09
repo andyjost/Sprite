@@ -12,6 +12,13 @@ if [ -z "${SPRITE_HOME:-}" ]; then
 fi
 export SPRITE_HOME
 
+if [ -n "$CURRYPATH" ]; then
+  CURRYPATH="$SPRITE_HOME/lib:$CURRYPATH"
+else
+  CURRYPATH="$SPRITE_HOME/lib"
+fi
+export CURRYPATH
+
 trap "exit 1" ERR
 
 # 1. Parse the curry module (and all dependent modules)

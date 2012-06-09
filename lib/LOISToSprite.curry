@@ -216,7 +216,7 @@ compile (LOIS.OperationDecl (_,s) _ dtree) =
 -- Generates the C++ code for a Curry module in Sprite.
 --
 -- Only the definitions qualified by the given named module are generated.
-translate fh modname' (LOIS.Program types' opers') = do
+translate fh modname' (LOIS.Program _ types' opers') = do
   -- Select only the relevant definitions.
   let types = filter (\(LOIS.TypeDecl (m,_) _) -> m == modname') types'
   let opers = filter (\(LOIS.OperationDecl (m,_) _ _) -> m == modname') opers'
@@ -310,7 +310,7 @@ operQname (LOIS.OperationDecl qn _ _) = qn
 
 -- Extracts the list of used symbols from a LOIS program.
 symbols :: LOIS.Program -> [LOIS.QName]
-symbols prog@(LOIS.Program _ types) =
+symbols prog@(LOIS.Program _ _ types) =
     (map ctorQname (LOIS.constructors prog)) ++
     (map operQname types)
 

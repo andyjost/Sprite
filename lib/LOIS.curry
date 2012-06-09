@@ -15,7 +15,12 @@ A complete program made up of a list of constructors and operations.
 
 The order of the lists is not important. Forward references and recursion are allowed without any special handling.
 -}
-data Program = Program [TypeDecl] [OperationDecl]
+data Program = Program Imports [TypeDecl] [OperationDecl]
+
+{-
+List of imported modules
+-}
+type Imports = [String]
 
 {-
 How we identify local variables.
@@ -154,7 +159,7 @@ pattern pat = Branch pat unknown unknown unknown
 pattern pat = Rule pat unknown
 pattern pat = Exempt pat
 
-constructors (Program types _) = concatMap (\(TypeDecl _ l) -> l) types
+constructors (Program _ types _) = concatMap (\(TypeDecl _ l) -> l) types
 
 symbolIsHNF (OperationSym _) = False
 symbolIsHNF (ConstructorSym _) = True

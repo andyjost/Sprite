@@ -1,6 +1,7 @@
 module ShowLOIS(
                 showProgram,
                 showQName,
+		showImports,
                 showConstructorDecl,
                 showOperationDecl,
                 showDefinitionalTree,
@@ -19,9 +20,12 @@ Functions to pretty print LOIS data as a string. The functions are called show[t
 
 showQName (m, n) = m ++ "." ++ n
 
-showProgram (Program types ops) = mkString "\n" types' ++ "\n\n\n" ++ mkString "\n" ops'
-              where types' = map showTypeDecl types
+showProgram (Program imports types ops) = mkString "\n" imports' ++ mkString "\n" types' ++ "\n\n\n" ++ mkString "\n" ops'
+              where imports' = map showImports imports
+	            types' = map showTypeDecl types
                     ops' = map showOperationDecl ops
+
+showImports imports = "import " ++ imports
 
 showTypeDecl (TypeDecl name cons) = "data " ++ showQName name ++ " =\n" ++ mkString "\n" cons'
 	      where cons' = map showConstructorDecl cons

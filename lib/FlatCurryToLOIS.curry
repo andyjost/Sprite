@@ -20,8 +20,8 @@ requiredSymbols = [alwaysRequired ("Prelude","?")] ++ defaultRequired
 
 main name = do
      _ <- system ("parsecurry -"++"-flat " ++ name)
-     curryProg <- computeCompactFlatCurry [Main "main", Required requiredSymbols] name
-     --curryProg <- readFlatCurry name
+     -- curryProg <- computeCompactFlatCurry [Main "main", Required requiredSymbols] name
+     curryProg <- readFlatCurry name
      putStrLn (showFlatProg curryProg)
      let r = process curryProg
      putStrLn (ShowLOIS.showProgram r)
@@ -81,7 +81,7 @@ getTypeByConstr (Prog _ _ types _ _) name =
           hasThisCons l = any (\(Cons n _ _ _)-> n == name) l 
 
 -- Actual FlatCurry processing
-process p@(Prog pname imports types funcs _) = Program (concatMap procType types) 
+process p@(Prog pname imports types funcs _) = Program imports (concatMap procType types) 
                     (removeDuplicateFuncs $ concatMap (procFunc (newState p)) funcs)
 
 removeDuplicateFuncs l = nubBy sameName l

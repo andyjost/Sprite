@@ -25,11 +25,13 @@ $(EXE) : $(OBJECTS) $(MAIN_CURRY:.fcy=.o)
 
 # Translates FlatCurry to C++
 $(subst .fcy,.cpp,$(FLAT_CURRY)): %.cpp: %.fcy
-	$(SPRITE_HOME)/tools/FlatCurryToSprite.state $< $@
+	# $(SPRITE_HOME)/tools/FlatCurryToSprite.state $< $@
+	pakcs -q -r $(SPRITE_HOME)/tools/FlatCurryToSprite.curry $< $@
 
 # Generates the main source file.
 $(MAIN_CURRY:.fcy=.cpp) :
-	$(SPRITE_HOME)/tools/FlatCurryToSpriteMain.state $(MAIN_MODULE) $@
+	# $(SPRITE_HOME)/tools/FlatCurryToSpriteMain.state $(MAIN_MODULE) $@
+	pakcs -q -r $(SPRITE_HOME)/tools/FlatCurryToSpriteMain.curry $(MAIN_MODULE) $@
 
 # Compiles C++.
 .cpp.o:
