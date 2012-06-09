@@ -5,31 +5,30 @@
 #     MAIN_MODULE - The Curry module containing the main function
 #     EXE         - The name of the final executable
 #
-# The section below may be modified to configure the build.
 
 include $(SPRITE_HOME)/config/makesetup
 
-# ------ DON'T CHANGE ANYTHING BELOW THIS LINE ------
+vpath %.fcy ../.curry
 
-FLAT_CURRY := $(foreach m,$(MODULES),.sprite/$m.fcy)
-MAIN_CURRY := .sprite/$(MAIN_MODULE)-main.fcy
+FLAT_CURRY := $(foreach m,$(MODULES),$m.fcy)
+MAIN_SOURCE := $(MAIN_MODULE)-main.cpp
 
-INCLUDES := -I$(BOOST_HOME) -I$(SPRITE_HOME)/include -I.sprite
+INCLUDES := -I$(BOOST_HOME) -I$(SPRITE_HOME)/include -I.
 LIBS := -L$(SPRITE_HOME)/lib -lsprite
 SOURCES := $(FLAT_CURRY:.fcy=.cpp)
 OBJECTS := $(FLAT_CURRY:.fcy=.o)
 
 # Builds the executable
-$(EXE) : $(OBJECTS) $(MAIN_CURRY:.fcy=.o)
+$(EXE) : $(OBJECTS) $(MAIN_SOURCE:.cpp=.o)
 	$(CC) $(LDFLAGS) $^ -o $@ $(LIBS)
 
 # Translates FlatCurry to C++
-$(subst .fcy,.cpp,$(FLAT_CURRY)): %.cpp: %.fcy
+%.cpp: %.fcy
 	# $(SPRITE_HOME)/tools/FlatCurryToSprite.state $< $@
 	pakcs -q -r $(SPRITE_HOME)/tools/FlatCurryToSprite.curry $< $@
 
 # Generates the main source file.
-$(MAIN_CURRY:.fcy=.cpp) :
+$(MAIN_SOURCE) :
 	# $(SPRITE_HOME)/tools/FlatCurryToSpriteMain.state $(MAIN_MODULE) $@
 	pakcs -q -r $(SPRITE_HOME)/tools/FlatCurryToSpriteMain.curry $(MAIN_MODULE) $@
 
@@ -38,5 +37,4 @@ $(MAIN_CURRY:.fcy=.cpp) :
 	$(CC) $(CFLAGS) -c $< -o $@ $(INCLUDES)
 
 # Additional dependencies for the main file.
-$(MAIN_CURRY:.fcy=.o) : $(MAIN_FCY) $(SOURCES)
-
+$(MAIN_SOURCE:.cpp=.o) : $(SOURCES)
