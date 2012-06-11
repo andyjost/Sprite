@@ -9,6 +9,12 @@ INCLUDES := -I$(BOOST_HOME) -Iinclude
 OBJECTS := $(addprefix $(OBJDIR)/, builtins.o exec.o system.o)
 LIB := lib/libsprite.a
 
+install: $(LIB) states
+
+.PHONY: states
+states : 
+	./compileStates
+
 $(LIB) : $(OBJECTS)
 	rm -f $@
 	ar -r $@ $^

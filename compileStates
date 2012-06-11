@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -e
+
+if [ -z "${SPRITE_HOME:-}" ]; then
+  SPRITE_HOME=`(cd "\`dirname \"$0\"\`" > /dev/null ; pwd)`
+fi
+export SPRITE_HOME
+
+if [ -n "$CURRYPATH" ]; then
+  CURRYPATH="$SPRITE_HOME/lib:$CURRYPATH"
+else
+  CURRYPATH="$SPRITE_HOME/lib"
+fi
+export CURRYPATH
+
+cd tools
+
+# Create the states
+pakcs -q -s FlatCurryToSpriteMain
+pakcs -q -s FlatCurryToSprite
+
