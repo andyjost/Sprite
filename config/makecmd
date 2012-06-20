@@ -1,1 +1,1 @@
-make -j
+make -j "$@"

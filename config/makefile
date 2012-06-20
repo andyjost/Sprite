@@ -15,15 +15,14 @@ MAIN_SOURCE := $(MAIN_MODULE)-main.cpp
 
 INCLUDES := -I$(BOOST_HOME) -I$(SPRITE_HOME)/include -I.
 LIBS := -L$(SPRITE_HOME)/lib -lsprite
-SOURCES := $(FLAT_CURRY:.fcy=.cpp)
-OBJECTS := $(FLAT_CURRY:.fcy=.o)
+HEADERS := $(FLAT_CURRY:.fcy=.hpp)
 
 # Builds the executable
-$(EXE) : $(OBJECTS) $(MAIN_SOURCE:.cpp=.o)
+$(EXE) : $(MAIN_SOURCE:.cpp=.o)
 	$(CC) $(LDFLAGS) $^ -o $@ $(LIBS)
 
 # Translates FlatCurry to C++
-%.cpp: %.fcy
+%.hpp: %.fcy
 	$(SPRITE_HOME)/tools/FlatCurryToSprite.state $< $@
 	# pakcs -q -r $(SPRITE_HOME)/tools/FlatCurryToSprite.curry $< $@
 
@@ -37,4 +36,4 @@ $(MAIN_SOURCE) :
 	$(CC) $(CFLAGS) -c $< -o $@ $(INCLUDES)
 
 # Additional dependencies for the main file.
-$(MAIN_SOURCE:.cpp=.o) : $(SOURCES)
+$(MAIN_SOURCE:.cpp=.o) : $(HEADERS)

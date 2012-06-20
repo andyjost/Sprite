@@ -1,6 +1,26 @@
 #!/bin/bash
 
-USAGE="Usage: sprite curryfile"
+USAGE="Usage: sprite [-c] curryfile"
+
+COMPILEONLY=0
+while getopts "ch" OPTION
+do
+  case $OPTION in
+    h)
+      echo "$USAGE"
+      exit 0
+      ;;
+    c)
+      COMPILEONLY=1
+      ;;
+    ?)
+      echo "$USAGE"
+      exit 1
+      ;;
+  esac
+done
+
+shift $(($OPTIND - 1))
 
 if [ "$#" != "1" ]; then
   echo "$USAGE"
@@ -37,10 +57,18 @@ EOF
 
 # 3. Build
 cd .sprite
-$SPRITE_HOME/config/makecmd
-mv $1 ..
+if [ "$COMPILEONLY" -eq 0 ]; then
+  # Compile the executable.
+  $SPRITE_HOME/config/makecmd
+  mv $1 ..
+else
+  # Compile objects only.
+  $SPRITE_HOME/config/makecmd objects
+fi
 cd ..
 
 # 4. Execute
-./$1
+if [ "$COMPILEONLY" -eq 0 ]; then
+  ./$1
+fi
 
