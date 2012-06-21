@@ -1,20 +1,31 @@
 #!/bin/bash
 
-USAGE="Usage: sprite [-c] curryfile"
+set -e
+
+usage() {
+  echo "Usage: sprite [-c|h|r] curryfile"
+  echo "    -c  Compile the file as a module"
+  echo "    -h  Display this help message"
+  echo "    -r  Rebuild from scratch"
+}
 
 COMPILEONLY=0
-while getopts "ch" OPTION
+REBUILD=0
+while getopts "chr" OPTION
 do
   case $OPTION in
     h)
-      echo "$USAGE"
+      usage
       exit 0
       ;;
     c)
       COMPILEONLY=1
       ;;
+    r)
+      REBUILD=1
+      ;;
     ?)
-      echo "$USAGE"
+      usage
       exit 1
       ;;
   esac
@@ -23,7 +34,7 @@ done
 shift $(($OPTIND - 1))
 
 if [ "$#" != "1" ]; then
-  echo "$USAGE"
+  usage
   exit 1
 fi
 
@@ -41,6 +52,11 @@ export CURRYPATH
 
 trap "exit 1" ERR
 
+# 0. Clean if rebuilding
+if [ "$REBUILD" -eq 1 ]; then
+  rm -rf .curry .sprite
+fi
+
 # 1. Parse the curry module (and all dependent modules)
 parsecurry --flat $1
 
@@ -54,6 +70,9 @@ EXE := $1
 include \$(SPRITE_HOME)/config/makefile
 
 EOF
+
+# Work around an annoying clock skew warning when working over NFS.
+sleep 1
 
 # 3. Build
 cd .sprite

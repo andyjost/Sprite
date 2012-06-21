@@ -2,7 +2,7 @@ include config/makesetup
 
 vpath %.cpp src
 vpath %.hpp include
-#vpath %.o obj
+vpath %.curry tools currylib
 OBJDIR=obj
 CURRYLIBDIR=currylib/.sprite
 
@@ -15,20 +15,20 @@ STATES = $(addprefix tools/, FlatCurryToSpriteMain.state FlatCurryToSprite.state
 # The headers files in currylib.
 CURRYLIBHEADERS := $(addprefix $(CURRYLIBDIR)/, SpritePrelude.hpp)
 
-install: $(LIB) $(STATES) currylib
+install: $(LIB) states currylib
 
 # Builds the state files.
-tools/%.state : 
+states: $(STATES)
+tools/%.state: %.curry
 	cd tools && ./compileState $(basename $(notdir $@))
 
 # Builds libsprite.a.
-$(LIB) : $(OBJECTS)
+$(LIB): $(OBJECTS)
 	rm -f $@
 	ar -r $@ $^
 
-currylib : $(CURRYLIBHEADERS)
-
 # Builds the Curry library files.
+currylib: $(CURRYLIBHEADERS)
 $(OBJDIR)/%.o: %.cpp
 	mkdir -p $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@ $(INCLUDES)

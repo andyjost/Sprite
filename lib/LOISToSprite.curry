@@ -282,27 +282,29 @@ translate fh modname' (LOIS.Program _ types' opers') = do
 
 -- Translate the main module file.
 translateMain fh modname' = do
-  hPutStrLn  fh "#include <iostream>"
-  hPutStrLn  fh "#include \"sprite/sprite.hpp\""
-  hPutStrLn  fh ""
-  hPutStrLn  fh "#include \"currylib/SpritePrelude.hpp\""
-  hPutStrLn  fh ("#include \"" ++ modname' ++ ".hpp\"")
-  hPutStrLn  fh ""
-  hPutStrLn  fh "using namespace sprite;"
-  hPutStrLn  fh ""
-  hPutStrLn  fh "int main()"
-  hPutStrLn  fh "{"
-  hPutStrLn  fh "  Program pgm;"
-  hPutStrLn  fh "  std::cout << setprogram(pgm);"
-  hPutStrLn  fh ""
-  hPutStrLn  fh ("  user::" ++ modname ++ "::Module m(pgm);")
-  hPutStrLn  fh ""
-  hPutStrLn  fh "  NodePtr goal = Node::create<OPER>(m.op_4main);"
-  hPutStrLn  fh "  execute(pgm, *goal, TRACE);"
-  hPutStrLn  fh "  std::cout << setprogram(pgm) << *goal << std::endl;"
-  hPutStrLn  fh ""
-  hPutStrLn  fh "  return 0;"
-  hPutStrLn  fh "}"
+  hPutStrLn fh  "#include <iostream>"
+  hPutStrLn fh  "#include \"sprite/sprite.hpp\""
+  hPutStrLn fh  "#include \"sprite/currylib/SpritePrelude.hpp\""
+  hPutStrLn fh  ""
+  hPutStrLn fh ("#include \"" ++ modname' ++ ".hpp\"")
+  hPutStrLn fh  ""
+  hPutStrLn fh  "using namespace sprite;"
+  hPutStrLn fh  ""
+  hPutStrLn fh  "int main()"
+  hPutStrLn fh  "{"
+  hPutStrLn fh  "  Program pgm;"
+  hPutStrLn fh  "  std::cout << setprogram(pgm);"
+  hPutStrLn fh  ""
+  hPutStrLn fh  "  // Set up the prelude."
+  hPutStrLn fh  "  user::m_13SpritePrelude::Module prelude(pgm);"
+  hPutStrLn fh ("  user::" ++ modname ++ "::Module m(pgm);")
+  hPutStrLn fh  ""
+  hPutStrLn fh  "  NodePtr goal = Node::create<OPER>(m.op_4main);"
+  hPutStrLn fh  "  execute(pgm, *goal, TRACE);"
+  hPutStrLn fh  "  std::cout << setprogram(pgm) << *goal << std::endl;"
+  hPutStrLn fh  ""
+  hPutStrLn fh  "  return 0;"
+  hPutStrLn fh  "}"
       where
           modname = moduleName modname'
 
@@ -318,35 +320,3 @@ symbols prog@(LOIS.Program _ _ types) =
 -- Extracts a unique list of used modules from a LOIS program.
 depends prog = nub $ map fst $ symbols prog
 
-{-
-main = do
-  args <- getArgs
-  let progname' = last args
-  let progname = stripExtension progname'
-
-  curryProg <- computeCompactFlatCurry
-     [Main "main", Required FlatCurryToLOIS.requiredSymbols] progname
-  let p = FlatCurryToLOIS.process curryProg
-
-  -- putStrLn "------ CURRY ------\n\n"
-  -- putStrLn (ShowLOIS.showProgram p)
-  -- putStrLn (show curryProg)
-  -- putStrLn "------ LOIS ------\n\n"
-  -- putStrLn (show p)
-  -- putStrLn (show fcy)
-  -- putStrLn (show $ depends p)
-  -- p <- FlatCurryToLOIS.load "firstlist"
-  -- putStrLn "------ C++ ------"
-  -- fh <- openFile (progname ++ ".cpp") WriteMode
-  -- translate fh progname p
-  fh <- openFile (progname ++ ".cpp") WriteMode
-  translate fh progname p
-
-    where
-        takeRight n l = drop (length l - n) l
-        dropRight n l = take (length l - n) l
-        stripExtension fn = 
-        	     if (takeRight 6 fn) == ".curry" then dropRight 6 fn else fn
--}
-
-         
