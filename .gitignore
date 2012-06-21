@@ -1,4 +1,5 @@
 .curry/
+currylib/.sprite
 lib/.curry
 lib/libsprite.a
 log

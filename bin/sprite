@@ -62,8 +62,8 @@ if [ "$COMPILEONLY" -eq 0 ]; then
   $SPRITE_HOME/config/makecmd
   mv $1 ..
 else
-  # Compile objects only.
-  $SPRITE_HOME/config/makecmd objects
+  # Create the headers only.
+  $SPRITE_HOME/config/makecmd modules
 fi
 cd ..
 

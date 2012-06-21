@@ -285,6 +285,7 @@ translateMain fh modname' = do
   hPutStrLn  fh "#include <iostream>"
   hPutStrLn  fh "#include \"sprite/sprite.hpp\""
   hPutStrLn  fh ""
+  hPutStrLn  fh "#include \"currylib/SpritePrelude.hpp\""
   hPutStrLn  fh ("#include \"" ++ modname' ++ ".hpp\"")
   hPutStrLn  fh ""
   hPutStrLn  fh "using namespace sprite;"

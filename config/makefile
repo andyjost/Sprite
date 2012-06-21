@@ -21,6 +21,9 @@ HEADERS := $(FLAT_CURRY:.fcy=.hpp)
 $(EXE) : $(MAIN_SOURCE:.cpp=.o)
 	$(CC) $(LDFLAGS) $^ -o $@ $(LIBS)
 
+# Build the module headers only.
+modules : $(HEADERS)
+
 # Translates FlatCurry to C++
 %.hpp: %.fcy
 	$(SPRITE_HOME)/tools/FlatCurryToSprite.state $< $@

@@ -2,8 +2,13 @@
 
 set -e
 
+if [ "$#" != "1" ]; then
+  echo "Usage: compileState curryfile"
+  exit 1
+fi
+
 if [ -z "${SPRITE_HOME:-}" ]; then
-  SPRITE_HOME=`(cd "\`dirname \"$0\"\`" > /dev/null ; pwd)`
+  SPRITE_HOME=`(cd "\`dirname \"$0\"\`"/.. > /dev/null ; pwd)`
 fi
 export SPRITE_HOME
 
@@ -14,9 +19,5 @@ else
 fi
 export CURRYPATH
 
-cd tools
-
-# Create the states
-pakcs -q -s FlatCurryToSpriteMain
-pakcs -q -s FlatCurryToSprite
+pakcs -q -s $1
 
