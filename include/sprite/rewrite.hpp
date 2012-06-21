@@ -162,6 +162,18 @@ namespace sprite
     }
   };
 
+  /// Rewrites a node to CHAR.
+  template<> struct rewrite<CHAR>
+  {
+    rewrite() {}
+    void operator()(Node & node, meta::ValueType<CHAR>::type value) const
+    {
+      node.destroy_payload();
+      new(node._payload()) payloads::Char(value);
+      node.m_tag = CHAR;
+    }
+  };
+
   // A minor convenience, perhaps.  These aliases prevent having to construct
   // an instance of rewrite<Tag> to perform a rewrite step when Tag is not a
   // variable (i.e., a template parameter).
@@ -186,4 +198,7 @@ namespace sprite
 
   /// Rewrites a node to type FLOAT.
   rewrite<FLOAT> const rewrite_float = rewrite<FLOAT>();
+
+  /// Rewrites a node to type CHAR.
+  rewrite<CHAR> const rewrite_char = rewrite<CHAR>();
 }

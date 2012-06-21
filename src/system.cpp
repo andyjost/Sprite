@@ -76,12 +76,12 @@ namespace
   SPRITE_DEFINE_OP(OP_INT_MUL, T, *)
   SPRITE_DEFINE_OP(OP_INT_DIV, T, /)
   SPRITE_DEFINE_OP(OP_INT_MOD, T, %)
-  SPRITE_DEFINE_OP(OP_INT_LT, bool, <)
-  SPRITE_DEFINE_OP(OP_INT_LE, bool, <=)
-  SPRITE_DEFINE_OP(OP_INT_EQ, bool, ==)
-  SPRITE_DEFINE_OP(OP_INT_NE, bool, !=)
-  SPRITE_DEFINE_OP(OP_INT_GE, bool, >=)
-  SPRITE_DEFINE_OP(OP_INT_GT, bool, >)
+  SPRITE_DEFINE_OP(OP_LT, bool, <)
+  SPRITE_DEFINE_OP(OP_LE, bool, <=)
+  SPRITE_DEFINE_OP(OP_EQ, bool, ==)
+  SPRITE_DEFINE_OP(OP_NE, bool, !=)
+  SPRITE_DEFINE_OP(OP_GE, bool, >=)
+  SPRITE_DEFINE_OP(OP_GT, bool, >)
   SPRITE_DEFINE_OP(OP_FLOAT_ADD, T, +)
   SPRITE_DEFINE_OP(OP_FLOAT_SUB, T, -)
   SPRITE_DEFINE_OP(OP_FLOAT_MUL, T, *)
@@ -91,6 +91,9 @@ namespace
 
   // ====== GuardedExecute ======
 
+  template<BuiltinOp Op, bool Comparison=meta::IsComparison<Op>::value>
+      struct GuardedExecute;
+
   /**
    * @brief Executes an built-in operation with a guard.
    *
@@ -98,8 +101,7 @@ namespace
    * specialization handles operations whose result is a built-in type, e.g.,
    * Int + Int -> Int.
    */
-  template<BuiltinOp Op, bool Comparison=meta::IsComparison<Op>::value >
-  struct GuardedExecute
+  template<BuiltinOp Op> struct GuardedExecute<Op, false>
   {
     GuardedExecute() {}
 
@@ -150,8 +152,15 @@ namespace
 
   // ====== BuiltinImpl ======
 
-  /// Implements the built in operation Op.
-  template<BuiltinOp Op> struct BuiltinImpl : static_visitor<void>
+  template<BuiltinOp Op, bool Comparison=meta::IsComparison<Op>::value>
+      struct BuiltinImpl;
+      
+  /**
+   * @brief Implements a non-comparison built-in operation.
+   *
+   * These operations are valid for only the type designated by TagValueOf.
+   */
+  template<BuiltinOp Op> struct BuiltinImpl<Op,false> : static_visitor<void>
   {
     BuiltinImpl(Prelude const & prelude, Node & node)
       : m_prelude(prelude), m_out(node)
@@ -180,6 +189,40 @@ namespace
         );
     }
   };
+
+  /**
+   * @brief Implements a built-in comparison operation.
+   *
+   * Comparisons are valid for all built-in types.
+   */
+  template<BuiltinOp Op> struct BuiltinImpl<Op,true> : static_visitor<void>
+  {
+    BuiltinImpl(Prelude const & prelude, Node & node)
+      : m_prelude(prelude), m_out(node)
+    {}
+  private:
+    Prelude const & m_prelude;
+    Node & m_out;
+  public:
+    /// Handles valid cases.
+    template<typename Payload>
+    typename enable_if<meta::IsBuiltinPayload<Payload>, void>::type
+    operator()(Node_<Payload> const & lhs, Node_<Payload> const & rhs) const
+    {
+      static GuardedExecute<Op> const exec;
+      exec(m_prelude, m_out, lhs.payload.value, rhs.payload.value);
+    }
+
+    /// Handles cases where the argument nodes do not have the expected type.
+    template<typename Lhs, typename Rhs>
+    void operator()(Lhs const &, Rhs const &) const
+    {
+      throw RuntimeError(
+          "type error while executing " BOOST_PP_STRINGIZE(op)
+        );
+    }
+  };
+
 
   // ====== Dispatch ======
 
@@ -258,18 +301,18 @@ namespace sprite
     // their indices are known and can be accessed through the corresponding
     // enum values.  The order here must match the declaration order in enum
     // BuiltinOp.
-    this->insert_oper("+", 0);
-    this->insert_oper("-", 0);
-    this->insert_oper("*", 0);
-    this->insert_oper("div", 0);
-    this->insert_oper("mod", 0);
-    this->insert_oper("<", 0);
+    this->insert_oper("<", 0);   // Comparison
     this->insert_oper("<=", 0);
     this->insert_oper("==", 0);
     this->insert_oper("/=", 0);
     this->insert_oper(">=", 0);
     this->insert_oper(">", 0);
-    this->insert_oper("+", 0);
+    this->insert_oper("+", 0);   // Integer
+    this->insert_oper("-", 0);
+    this->insert_oper("*", 0);
+    this->insert_oper("div", 0);
+    this->insert_oper("mod", 0);
+    this->insert_oper("+", 0);   // Float
     this->insert_oper("-", 0);
     this->insert_oper("*", 0);
     this->insert_oper("/", 0);
@@ -281,17 +324,17 @@ namespace sprite
     m_imported["Prelude"] = prelude;
 
     // Now, update the built-in H functions, which require the prelude.
+    oper[OP_LT] = tr1::bind(&h_func<OP_LT>, *prelude, _1);
+    oper[OP_LE] = tr1::bind(&h_func<OP_LE>, *prelude, _1);
+    oper[OP_EQ] = tr1::bind(&h_func<OP_EQ>, *prelude, _1);
+    oper[OP_NE] = tr1::bind(&h_func<OP_NE>, *prelude, _1);
+    oper[OP_GE] = tr1::bind(&h_func<OP_GE>, *prelude, _1);
+    oper[OP_GT] = tr1::bind(&h_func<OP_GT>, *prelude, _1);
     oper[OP_INT_ADD] = tr1::bind(&h_func<OP_INT_ADD>, *prelude, _1);
     oper[OP_INT_SUB] = tr1::bind(&h_func<OP_INT_SUB>, *prelude, _1);
     oper[OP_INT_MUL] = tr1::bind(&h_func<OP_INT_MUL>, *prelude, _1);
     oper[OP_INT_DIV] = tr1::bind(&h_func<OP_INT_DIV>, *prelude, _1);
     oper[OP_INT_MOD] = tr1::bind(&h_func<OP_INT_MOD>, *prelude, _1);
-    oper[OP_INT_LT] = tr1::bind(&h_func<OP_INT_LT>, *prelude, _1);
-    oper[OP_INT_LE] = tr1::bind(&h_func<OP_INT_LE>, *prelude, _1);
-    oper[OP_INT_EQ] = tr1::bind(&h_func<OP_INT_EQ>, *prelude, _1);
-    oper[OP_INT_NE] = tr1::bind(&h_func<OP_INT_NE>, *prelude, _1);
-    oper[OP_INT_GE] = tr1::bind(&h_func<OP_INT_GE>, *prelude, _1);
-    oper[OP_INT_GT] = tr1::bind(&h_func<OP_INT_GT>, *prelude, _1);
     oper[OP_FLOAT_ADD] = tr1::bind(&h_func<OP_FLOAT_ADD>, *prelude, _1);
     oper[OP_FLOAT_SUB] = tr1::bind(&h_func<OP_FLOAT_SUB>, *prelude, _1);
     oper[OP_FLOAT_MUL] = tr1::bind(&h_func<OP_FLOAT_MUL>, *prelude, _1);

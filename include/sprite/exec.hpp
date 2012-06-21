@@ -152,7 +152,7 @@ namespace sprite
           );
 
       // Ignore constructor types.
-      case INT: case FLOAT: case CTOR: default:
+      case INT: case FLOAT: case CHAR: case CTOR: default:
         return; // H.6
     }
   }
@@ -167,6 +167,7 @@ namespace sprite
 
       case INT: // Always a cnf.
       case FLOAT: // Always a cnf.
+      case CHAR: // Always a cnf.
         return;
 
       default:
@@ -181,7 +182,7 @@ namespace sprite
             case FAIL: return rewrite_fail(node);
             case OPER: head_normalize(*child); break;
             case CHOICE: return pull_tab(node, child);
-            case INT: case FLOAT: break;
+            case INT: case FLOAT: case CHAR: break;
             case FWD: throw RuntimeError("Unexpected FWD node.");
             default: case CTOR:
               assert(child->tag() >= CTOR);

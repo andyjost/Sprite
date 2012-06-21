@@ -11,8 +11,8 @@ namespace sprite
   /// The built-in operations.
   enum BuiltinOp
   {
-      OP_INT_ADD, OP_INT_SUB, OP_INT_MUL, OP_INT_DIV, OP_INT_MOD
-    , OP_INT_LT, OP_INT_LE, OP_INT_EQ, OP_INT_NE, OP_INT_GE, OP_INT_GT
+      OP_LT, OP_LE, OP_EQ, OP_NE, OP_GE, OP_GT
+    , OP_INT_ADD, OP_INT_SUB, OP_INT_MUL, OP_INT_DIV, OP_INT_MOD
     , OP_FLOAT_ADD, OP_FLOAT_SUB, OP_FLOAT_MUL, OP_FLOAT_DIV
     , OP_END // Must be last.
   };
@@ -26,12 +26,7 @@ namespace sprite
     template<> struct TagValueOf<OP_INT_MUL> : TagValue<INT> {};
     template<> struct TagValueOf<OP_INT_DIV> : TagValue<INT> {};
     template<> struct TagValueOf<OP_INT_MOD> : TagValue<INT> {};
-    template<> struct TagValueOf<OP_INT_LT>  : TagValue<INT> {};
-    template<> struct TagValueOf<OP_INT_LE>  : TagValue<INT> {};
-    template<> struct TagValueOf<OP_INT_EQ>  : TagValue<INT> {};
-    template<> struct TagValueOf<OP_INT_NE>  : TagValue<INT> {};
-    template<> struct TagValueOf<OP_INT_GE>  : TagValue<INT> {};
-    template<> struct TagValueOf<OP_INT_GT>  : TagValue<INT> {};
+    // No TagValueOf (result) for comparisons.
     template<> struct TagValueOf<OP_FLOAT_ADD> : TagValue<FLOAT> {};
     template<> struct TagValueOf<OP_FLOAT_SUB> : TagValue<FLOAT> {};
     template<> struct TagValueOf<OP_FLOAT_MUL> : TagValue<FLOAT> {};
@@ -39,38 +34,29 @@ namespace sprite
 
     /// Returns the arity of each builtin function.
     template<BuiltinOp> struct ArityOf;
+    template<> struct ArityOf<OP_LT> : mpl::size_t<2> {};
+    template<> struct ArityOf<OP_LE> : mpl::size_t<2> {};
+    template<> struct ArityOf<OP_EQ> : mpl::size_t<2> {};
+    template<> struct ArityOf<OP_NE> : mpl::size_t<2> {};
+    template<> struct ArityOf<OP_GE> : mpl::size_t<2> {};
+    template<> struct ArityOf<OP_GT> : mpl::size_t<2> {};
     template<> struct ArityOf<OP_INT_ADD> : mpl::size_t<2> {};
     template<> struct ArityOf<OP_INT_SUB> : mpl::size_t<2> {};
     template<> struct ArityOf<OP_INT_MUL> : mpl::size_t<2> {};
     template<> struct ArityOf<OP_INT_DIV> : mpl::size_t<2> {};
     template<> struct ArityOf<OP_INT_MOD> : mpl::size_t<2> {};
-    template<> struct ArityOf<OP_INT_LT> : mpl::size_t<2> {};
-    template<> struct ArityOf<OP_INT_LE> : mpl::size_t<2> {};
-    template<> struct ArityOf<OP_INT_EQ> : mpl::size_t<2> {};
-    template<> struct ArityOf<OP_INT_NE> : mpl::size_t<2> {};
-    template<> struct ArityOf<OP_INT_GE> : mpl::size_t<2> {};
-    template<> struct ArityOf<OP_INT_GT> : mpl::size_t<2> {};
     template<> struct ArityOf<OP_FLOAT_ADD> : mpl::size_t<2> {};
     template<> struct ArityOf<OP_FLOAT_SUB> : mpl::size_t<2> {};
     template<> struct ArityOf<OP_FLOAT_MUL> : mpl::size_t<2> {};
     template<> struct ArityOf<OP_FLOAT_DIV> : mpl::size_t<2> {};
 
     /// Tells whether the builtin is a comparison function.
-    template<BuiltinOp> struct IsComparison;
-    template<> struct IsComparison<OP_INT_ADD> : mpl::false_ {};
-    template<> struct IsComparison<OP_INT_SUB> : mpl::false_ {};
-    template<> struct IsComparison<OP_INT_MUL> : mpl::false_ {};
-    template<> struct IsComparison<OP_INT_DIV> : mpl::false_ {};
-    template<> struct IsComparison<OP_INT_MOD> : mpl::false_ {};
-    template<> struct IsComparison<OP_INT_LT>  : mpl::true_ {};
-    template<> struct IsComparison<OP_INT_LE>  : mpl::true_ {};
-    template<> struct IsComparison<OP_INT_EQ>  : mpl::true_ {};
-    template<> struct IsComparison<OP_INT_NE>  : mpl::true_ {};
-    template<> struct IsComparison<OP_INT_GE>  : mpl::true_ {};
-    template<> struct IsComparison<OP_INT_GT>  : mpl::true_ {};
-    template<> struct IsComparison<OP_FLOAT_ADD> : mpl::false_ {};
-    template<> struct IsComparison<OP_FLOAT_SUB> : mpl::false_ {};
-    template<> struct IsComparison<OP_FLOAT_MUL> : mpl::false_ {};
-    template<> struct IsComparison<OP_FLOAT_DIV> : mpl::false_ {};
+    template<BuiltinOp> struct IsComparison : mpl::false_ {};
+    template<> struct IsComparison<OP_LT>  : mpl::true_ {};
+    template<> struct IsComparison<OP_LE>  : mpl::true_ {};
+    template<> struct IsComparison<OP_EQ>  : mpl::true_ {};
+    template<> struct IsComparison<OP_NE>  : mpl::true_ {};
+    template<> struct IsComparison<OP_GE>  : mpl::true_ {};
+    template<> struct IsComparison<OP_GT>  : mpl::true_ {};
   }
 }

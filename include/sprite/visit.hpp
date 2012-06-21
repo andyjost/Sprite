@@ -34,9 +34,10 @@ namespace sprite
         }
       }
       case CHOICE: return SPRITE_visit(CHOICE,-1);
-      case FWD: return SPRITE_visit(FWD,-1);
+      case FWD:    return SPRITE_visit(FWD,-1);
       case INT:    return SPRITE_visit(INT,-1);
       case FLOAT:  return SPRITE_visit(FLOAT,-1);
+      case CHAR:   return SPRITE_visit(CHAR,-1);
       default:
       {
         assert(node.tag() >= CTOR);

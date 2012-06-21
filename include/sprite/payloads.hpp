@@ -128,6 +128,23 @@ namespace sprite
       Float(meta::ValueType<FLOAT>::type value_) : value(value_) {}
     };
     BOOST_STATIC_ASSERT(sizeof(Float) == PAYLOAD_BYTES);
+
+    /// An char payload for the built in Char type.
+    struct Char : Unused<PAYLOAD_BYTES - sizeof(meta::ValueType<CHAR>::type)>
+    { 
+      typedef meta::ValueType<CHAR>::type value_type;
+      value_type value;
+      Char(meta::ValueType<CHAR>::type value_) : value(value_) {}
+    };
+    BOOST_STATIC_ASSERT(sizeof(Char) == PAYLOAD_BYTES);
+  }
+
+  namespace meta
+  {
+    template<typename Payload> struct IsBuiltinPayload : mpl::false_ {};
+    template<> struct IsBuiltinPayload<payloads::Int> : mpl::true_ {};
+    template<> struct IsBuiltinPayload<payloads::Float> : mpl::true_ {};
+    template<> struct IsBuiltinPayload<payloads::Char> : mpl::true_ {};
   }
 }
 

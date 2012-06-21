@@ -117,12 +117,12 @@ symRewriteHead modname (LOIS.OperationSym qn@(q,n)) = aux
             | qn == ("Prelude","*") = "OP_INT_MUL"
             | qn == ("Prelude","div") = "OP_INT_DIV"
             | qn == ("Prelude","mod") = "OP_INT_MOD"
-            | qn == ("Prelude","<") = "OP_INT_LT"
-            | qn == ("Prelude","<=") = "OP_INT_LE"
-            | qn == ("Prelude","==") = "OP_INT_EQ"
-            | qn == ("Prelude","/=") = "OP_INT_NE"
-            | qn == ("Prelude",">=") = "OP_INT_GE"
-            | qn == ("Prelude",">") = "OP_INT_GT"
+            | qn == ("Prelude","<") = "OP_LT"
+            | qn == ("Prelude","<=") = "OP_LE"
+            | qn == ("Prelude","==") = "OP_EQ"
+            | qn == ("Prelude","/=") = "OP_NE"
+            | qn == ("Prelude",">=") = "OP_GE"
+            | qn == ("Prelude",">") = "OP_GT"
             | True = qualifyName modname q "->" (operName n)
 
 symRewriteHead modname (LOIS.ConstructorSym (q,n)) =

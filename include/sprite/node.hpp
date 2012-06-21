@@ -270,6 +270,10 @@ namespace sprite
   typedef Node_<payloads::Float> FloatNode;
   BOOST_STATIC_ASSERT(sizeof(FloatNode) == NODE_BYTES);
 
+  /// A complete node representing an integer.
+  typedef Node_<payloads::Char> CharNode;
+  BOOST_STATIC_ASSERT(sizeof(CharNode) == NODE_BYTES);
+
  
   /// Tells NodePtr how to skip FWD nodes.
   inline bool skip_fwd_ref(NodePtr & ptr, Node & ref)
@@ -309,6 +313,7 @@ namespace sprite
     template<> struct NodeOf<FWD,-1> : mpl::identity<FwdNode> {};
     template<> struct NodeOf<INT,-1> : mpl::identity<IntNode> {};
     template<> struct NodeOf<FLOAT,-1> : mpl::identity<FloatNode> {};
+    template<> struct NodeOf<CHAR,-1> : mpl::identity<CharNode> {};
     template<> struct NodeOf<CTOR,-1> : mpl::identity<ChildListNode> {};
     template<> struct NodeOf<CTOR,0> : mpl::identity<InPlaceNode0> {};
     template<> struct NodeOf<CTOR,1> : mpl::identity<InPlaceNode1> {};

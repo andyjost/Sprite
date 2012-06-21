@@ -63,7 +63,7 @@ namespace sprite
    * CTOR+1, CTOR+2,...  Said another way, this type is abused in that any
    * value >= CTOR can be a valid TagValue.
    */
-  enum TagValue { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CTOR };
+  enum TagValue { FAIL=0, OPER, CHOICE, FWD, INT, FLOAT, CHAR, CTOR };
 
   /// Generates a constructor tag.
   inline TagValue make_ctor_tag(int i)
@@ -87,7 +87,7 @@ namespace sprite
   {
     switch(x)
     {
-      case INT: case FLOAT: return true;
+      case INT: case FLOAT: case CHAR: return true;
       default: return false;
     }
   }
@@ -112,6 +112,13 @@ namespace sprite
     template<sprite::TagValue> struct ValueType;
     template<> struct ValueType<INT> { typedef boost::int_t<64>::exact type; };
     template<> struct ValueType<FLOAT> { typedef double type; };
+    template<> struct ValueType<CHAR> { typedef char type; };
+
+    template<sprite::TagValue C> struct IsBuiltin : mpl::false_ {};
+    template<> struct IsBuiltin<INT> : mpl::true_ {};
+    template<> struct IsBuiltin<FLOAT> : mpl::true_ {};
+    template<> struct IsBuiltin<CHAR> : mpl::true_ {};
+
   }
 }
 
