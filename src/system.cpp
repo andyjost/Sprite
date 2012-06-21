@@ -274,8 +274,11 @@ namespace sprite
     this->insert_oper("*", 0);
     this->insert_oper("/", 0);
 
-    // Import the prelude.
-    shared_ptr<Prelude const> prelude = this->add_module<Prelude>("Prelude");
+    // Import the prelude.  It is given the name SpritePrelude.
+    shared_ptr<Prelude const> prelude = this->import<Prelude>();
+
+    // Add an alias for the Prelude (with the proper name).
+    m_imported["Prelude"] = prelude;
 
     // Now, update the built-in H functions, which require the prelude.
     oper[OP_INT_ADD] = tr1::bind(&h_func<OP_INT_ADD>, *prelude, _1);

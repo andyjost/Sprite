@@ -19,17 +19,6 @@ namespace sprite
   /// The type of an H function.
   typedef tr1::function<void(Node &)> h_func_type;
 
-  #if 0
-  /// The table of built-in H routines.
-  extern h_func_type builtin_h[OP_END];
-
-  /// The tables of built-in constructor labels.
-  // extern std::string builtin_ctor[C_END];
-
-  /// The tables of built-in operation labels.
-  // extern std::string builtin_oper[OP_END];
-  #endif
-
   struct Program;
 
   /**
@@ -103,6 +92,7 @@ namespace sprite
   private:
     tr1::unordered_map<std::string, shared_ptr<Module const> > m_imported;
   public:
+    #if 0
     /// Get the named module, which must have been previously added.
     shared_ptr<Module const> get_module(std::string const & name)
     {
@@ -113,6 +103,7 @@ namespace sprite
         throw RuntimeError("Module " + name + " was not found");
       }
     }
+    #endif
 
     /**
      * @brief Adds a module to the program.
@@ -121,15 +112,27 @@ namespace sprite
      * the module is instantiated and added to the program.
      */
     template<typename ModuleType>
-    shared_ptr<ModuleType const> add_module(std::string name)
+    shared_ptr<ModuleType const> import()
     {
+      std::string const name = ModuleType::name();
       if(m_imported.count(name) > 0)
       {
-        return dynamic_pointer_cast<ModuleType const>(m_imported[name]);
+        // The return value may be null for the prelude because the prelude
+        // recursively imports itself.  It's easier to simply return a null
+        // pointer than to special-case the translator for module Prelude.
+        shared_ptr<ModuleType const> const m =
+            dynamic_pointer_cast<ModuleType const>(m_imported[name]);
+
+        if(name != "SpritePrelude" && !m)
+          throw RuntimeError("Inconsistent imports for module " + name);
+        return m;
       }
       else
       {
-        shared_ptr<ModuleType const> m(new ModuleType(*this));
+        // Create the module.  Initialize its slot to null first to properly
+        // handle circular imports.
+        m_imported[name] = shared_ptr<Module const>();
+        shared_ptr<ModuleType const> const m(new ModuleType(*this));
         m_imported[name] = m;
         return m;
       }

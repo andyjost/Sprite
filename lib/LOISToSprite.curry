@@ -98,17 +98,19 @@ fmtPathForLookup dtree var root =
         aux x i = x ++ "[" ++ (show i) ++ "]"
 
 -- Returns an symbol name.
-symName (LOIS.OperationSym (q,n)) = qualifyName q (operName n)
-symName (LOIS.ConstructorSym (q,n)) = qualifyName q (ctorName n)
+symName modname (LOIS.OperationSym (q,n)) =
+    qualifyName modname q "->" (operName n)
+symName modname (LOIS.ConstructorSym (q,n)) =
+    qualifyName modname q "::" (ctorName n)
 
 -- Qualify a symbol name (the symbol is already mangled, so mangle the module
 -- name and prepend it).
--- DEBUG
--- qualifyName mod sym = (moduleName mod) ++ "::" ++ sym
-qualifyName _ sym = sym
+qualifyName modname mod sep sym
+    | modname == mod = sym
+    | True           = (moduleName mod) ++ sep ++ sym
 
 -- Returns the symbol info for rewriting (or creating).
-symRewriteHead (LOIS.OperationSym qn@(q,n)) = aux
+symRewriteHead modname (LOIS.OperationSym qn@(q,n)) = aux
     where
         aux | qn == ("Prelude","+") = "OP_INT_ADD"
             | qn == ("Prelude","-") = "OP_INT_SUB"
@@ -121,26 +123,23 @@ symRewriteHead (LOIS.OperationSym qn@(q,n)) = aux
             | qn == ("Prelude","/=") = "OP_INT_NE"
             | qn == ("Prelude",">=") = "OP_INT_GE"
             | qn == ("Prelude",">") = "OP_INT_GT"
-            | True = qualifyName q (operName n)
+            | True = qualifyName modname q "->" (operName n)
 
-symRewriteHead (LOIS.ConstructorSym (q,n)) =
-  qualifyName q (ctorName n) ++ ", " ++ qualifyName q (ctorLabelName n)
+symRewriteHead modname (LOIS.ConstructorSym (q,n)) =
+  qualifyName modname q "::" (ctorName n) ++
+  ", " ++
+  qualifyName modname q "->" (ctorLabelName n)
 
 -- Looks up a symbol name.
-{-
-    FIXME: Currently, all names are looked up as if they are local to the
-    module being compiled.  In reality, we need to separate names that belong
-    in other modules and add an import statement to get access to them.
- -}
-symLookup (LOIS.NodePattern p _) = symName p
-symLookup (LOIS.LitPattern (LOIS.LInt x)) = show x
-symLookup (LOIS.LitPattern (LOIS.LChar x)) = "'" ++ show x ++ "'"
+symLookup modname (LOIS.NodePattern p _) = symName modname p
+symLookup _ (LOIS.LitPattern (LOIS.LInt x)) = show x
+symLookup _ (LOIS.LitPattern (LOIS.LChar x)) = "'" ++ show x ++ "'"
 -- Can't case-match a float.
--- symLookup (LOIS.LitPattern (LOIS.LFloat x)) = ""
+-- symLookup _ (LOIS.LitPattern (LOIS.LFloat x)) = ""
 
 -- Compiles an operation definition into Sprite C++ code.
-compile :: LOIS.OperationDecl -> String
-compile (LOIS.OperationDecl (_,s) _ dtree) =
+compile :: String -> LOIS.OperationDecl -> String
+compile modname (LOIS.OperationDecl (_,s) _ dtree) =
     "    void " ++ (hfuncName s) ++ "(Node & root) const \n" ++
     "    {                                               \n" ++
     (aux0 0 dtree) ++
@@ -173,7 +172,7 @@ compile (LOIS.OperationDecl (_,s) _ dtree) =
         -- Utility for generating a case clause.
         caseBegin lvl pat = case lvl of
             0 -> indent lvl
-            _ -> indent lvl ++ "case " ++ symLookup pat ++ ": { "
+            _ -> indent lvl ++ "case " ++ symLookup modname pat ++ ": { "
 
         caseEnd lvl = case lvl of
             0 -> "\n"
@@ -210,7 +209,7 @@ compile (LOIS.OperationDecl (_,s) _ dtree) =
                 body
 
         aux1 first (LOIS.Node sym exprs) =
-            let body = symRewriteHead sym ++ mkStringTrailing ", " (map (aux1 False) exprs) in
+            let body = symRewriteHead modname sym ++ mkStringTrailing ", " (map (aux1 False) exprs) in
             if first then
                 "return " ++ (symRewrite sym) ++ "(root, " ++ body ++ ");"
               else
@@ -260,8 +259,13 @@ translate fh modname' (LOIS.Program _ types' opers') = do
   -- Generate the Module definition.
   hPutStrLn fh ("  struct Module : sprite::Module")
   hPutStrLn fh  "  {"
+  hPutStrLn fh ("    static std::string name() { return \"" ++ modname' ++ "\"; }")
+
   hPutStrLn fh ("    " ++ mkString "\n    " (map operDecl opers))
   hPutStrLn fh ("    " ++ mkString "\n    " (concat (map ctorLabelDecl types)))
+  hPutStrLn fh  ""
+  hPutStrLn fh  "    typedef user::m_13SpritePrelude::Module Prelude;"
+  hPutStrLn fh  "    shared_ptr<Prelude const> m_7Prelude;"
   hPutStrLn fh  ""
 
   -- Generate the module initialization code.
@@ -269,13 +273,14 @@ translate fh modname' (LOIS.Program _ types' opers') = do
   hPutStrLn fh  "    {"
   hPutStrLn fh ("      " ++ mkString "\n      " (map operInstall opers))
   hPutStrLn fh ("      " ++ mkString "\n      " (concat (map ctorInstall types)))
+  hPutStrLn fh  "      m_7Prelude = pgm.import<Prelude>();"
   hPutStrLn fh  "    }"
   hPutStrLn fh  ""
 
   -- Generate the rule definitions.
   hPutStrLn fh  ""
   hPutStrLn fh  "  private:"
-  hPutStrLn fh (mkString "\n" (map compile opers))
+  hPutStrLn fh (mkString "\n" (map (\op -> compile modname' op) opers))
   hPutStrLn fh  "  };"
   hPutStrLn fh  "}}}"
 
@@ -316,11 +321,10 @@ translateMain fh modname' = do
   hPutStrLn fh  "  Program pgm;"
   hPutStrLn fh  "  std::cout << setprogram(pgm);"
   hPutStrLn fh  ""
-  hPutStrLn fh  "  // Set up the prelude."
-  hPutStrLn fh  "  user::m_13SpritePrelude::Module prelude(pgm);"
-  hPutStrLn fh ("  user::" ++ modname ++ "::Module m(pgm);")
+  hPutStrLn fh ("  typedef user::" ++ modname ++ "::Module MainModule;")
+  hPutStrLn fh  "  shared_ptr<MainModule const> main = pgm.import<MainModule>();"
   hPutStrLn fh  ""
-  hPutStrLn fh  "  NodePtr goal = Node::create<OPER>(m.op_4main);"
+  hPutStrLn fh  "  NodePtr goal = Node::create<OPER>(main->op_4main);"
   hPutStrLn fh  "  execute(pgm, *goal, TRACE);"
   hPutStrLn fh  "  std::cout << setprogram(pgm) << *goal << std::endl;"
   hPutStrLn fh  ""

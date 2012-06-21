@@ -13,3 +13,16 @@
 
 // This file is created during the Sprite installation.
 #include "sprite/currylib/SpritePrelude.hpp"
+
+
+
+// Make "Prelude" an alias for "SpritePrelude"
+//
+// Note: there is a circular dependency between this file and SpritePrelude.hpp.
+// This section will work regarless of the include order.
+namespace sprite { namespace user
+{
+  namespace m_13SpritePrelude {}
+  namespace m_7Prelude = m_13SpritePrelude;
+}}
+

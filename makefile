@@ -7,7 +7,7 @@ OBJDIR=obj
 CURRYLIBDIR=currylib/.sprite
 
 INCLUDES := -I$(BOOST_HOME) -Iinclude
-OBJECTS := $(addprefix $(OBJDIR)/, builtins.o exec.o system.o)
+OBJECTS := $(addprefix $(OBJDIR)/, exec.o system.o)
 LIB := lib/libsprite.a
 
 STATES = $(addprefix tools/, FlatCurryToSpriteMain.state FlatCurryToSprite.state)
