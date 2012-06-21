@@ -19,5 +19,8 @@ else
 fi
 export CURRYPATH
 
+# Avoid a race condition.  PAKCS sometimes fails when simultaneous
+# jobs try to create the .curry subdirectory.
+mkdir -p .curry
 pakcs -q -s $1
 

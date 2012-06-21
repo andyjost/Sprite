@@ -3,7 +3,7 @@
 set -e
 
 usage() {
-  echo "Usage: sprite [-c|h|r] curryfile"
+  echo "Usage: sprite [-c|-h|-r] curryfile"
   echo "    -c  Compile the file as a module"
   echo "    -h  Display this help message"
   echo "    -r  Rebuild from scratch"

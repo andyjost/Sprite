@@ -97,13 +97,34 @@ fmtPathForLookup dtree var root =
     where
         aux x i = x ++ "[" ++ (show i) ++ "]"
 
--- Returns an unqualified symbol name.
-symName (LOIS.OperationSym (_,n)) = operName n
-symName (LOIS.ConstructorSym (_,n)) = ctorName n
+-- Returns an symbol name.
+symName (LOIS.OperationSym (q,n)) = qualifyName q (operName n)
+symName (LOIS.ConstructorSym (q,n)) = qualifyName q (ctorName n)
+
+-- Qualify a symbol name (the symbol is already mangled, so mangle the module
+-- name and prepend it).
+-- DEBUG
+-- qualifyName mod sym = (moduleName mod) ++ "::" ++ sym
+qualifyName _ sym = sym
 
 -- Returns the symbol info for rewriting (or creating).
-symRewriteHead (LOIS.OperationSym (_,n)) = operName n
-symRewriteHead (LOIS.ConstructorSym (_,n)) = ctorName n ++ ", " ++ ctorLabelName n
+symRewriteHead (LOIS.OperationSym qn@(q,n)) = aux
+    where
+        aux | qn == ("Prelude","+") = "OP_INT_ADD"
+            | qn == ("Prelude","-") = "OP_INT_SUB"
+            | qn == ("Prelude","*") = "OP_INT_MUL"
+            | qn == ("Prelude","div") = "OP_INT_DIV"
+            | qn == ("Prelude","mod") = "OP_INT_MOD"
+            | qn == ("Prelude","<") = "OP_INT_LT"
+            | qn == ("Prelude","<=") = "OP_INT_LE"
+            | qn == ("Prelude","==") = "OP_INT_EQ"
+            | qn == ("Prelude","/=") = "OP_INT_NE"
+            | qn == ("Prelude",">=") = "OP_INT_GE"
+            | qn == ("Prelude",">") = "OP_INT_GT"
+            | True = qualifyName q (operName n)
+
+symRewriteHead (LOIS.ConstructorSym (q,n)) =
+  qualifyName q (ctorName n) ++ ", " ++ qualifyName q (ctorLabelName n)
 
 -- Looks up a symbol name.
 {-
@@ -222,10 +243,11 @@ translate fh modname' (LOIS.Program _ types' opers') = do
   let opers = filter (\(LOIS.OperationDecl (m,_) _ _) -> m == modname') opers'
 
   -- Generate the symbol definitions for this module.
-  hPutStrLn  fh "#include \"sprite/sprite.hpp\""
-  hPutStrLn  fh ""
-  hPutStrLn  fh ("namespace sprite { namespace user { namespace " ++ modname)
-  hPutStrLn  fh "{"
+  hPutStrLn fh  "#pragma once"
+  hPutStrLn fh  "#include \"sprite/sprite.hpp\""
+  hPutStrLn fh  ""
+  hPutStrLn fh ("namespace sprite { namespace user { namespace " ++ modname)
+  hPutStrLn fh  "{"
 
   -- Generate the construtor definitions.
   hPutStrLn fh ("  enum Constructor")
@@ -284,7 +306,6 @@ translate fh modname' (LOIS.Program _ types' opers') = do
 translateMain fh modname' = do
   hPutStrLn fh  "#include <iostream>"
   hPutStrLn fh  "#include \"sprite/sprite.hpp\""
-  hPutStrLn fh  "#include \"sprite/currylib/SpritePrelude.hpp\""
   hPutStrLn fh  ""
   hPutStrLn fh ("#include \"" ++ modname' ++ ".hpp\"")
   hPutStrLn fh  ""

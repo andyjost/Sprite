@@ -19,6 +19,7 @@ namespace sprite
   /// The type of an H function.
   typedef tr1::function<void(Node &)> h_func_type;
 
+  #if 0
   /// The table of built-in H routines.
   extern h_func_type builtin_h[OP_END];
 
@@ -26,7 +27,8 @@ namespace sprite
   // extern std::string builtin_ctor[C_END];
 
   /// The tables of built-in operation labels.
-  extern std::string builtin_oper[OP_END];
+  // extern std::string builtin_oper[OP_END];
+  #endif
 
   struct Program;
 
@@ -40,6 +42,9 @@ namespace sprite
   {
   protected:
     Module(Program & pgm) : m_pgm(pgm) {}
+
+    // Polymorphism needed for dynamic_pointer_cast.
+    virtual ~Module() {}
   private:
   
     /**
@@ -48,7 +53,7 @@ namespace sprite
      * @note This is only referenced during construction.
      */
     Program & m_pgm;
-  
+
     /// The type of a bidirectional label-to-ID map.
     typedef boost::bimap<std::string, size_t> map_type;
   
@@ -96,10 +101,39 @@ namespace sprite
   {
     Program();
   private:
-    tr1::unordered_map<std::string, shared_ptr<Module> > m_imported;
+    tr1::unordered_map<std::string, shared_ptr<Module const> > m_imported;
   public:
-    /// Import the named module.
-    // shared_ptr<Module const> import(std::string name);
+    /// Get the named module, which must have been previously added.
+    shared_ptr<Module const> get_module(std::string const & name)
+    {
+      if(m_imported.count(name) > 0)
+        return m_imported[name];
+      else
+      {
+        throw RuntimeError("Module " + name + " was not found");
+      }
+    }
+
+    /**
+     * @brief Adds a module to the program.
+     *
+     * If the module was previously added, a reference is returned.  Otherwise,
+     * the module is instantiated and added to the program.
+     */
+    template<typename ModuleType>
+    shared_ptr<ModuleType const> add_module(std::string name)
+    {
+      if(m_imported.count(name) > 0)
+      {
+        return dynamic_pointer_cast<ModuleType const>(m_imported[name]);
+      }
+      else
+      {
+        shared_ptr<ModuleType const> m(new ModuleType(*this));
+        m_imported[name] = m;
+        return m;
+      }
+    }
 
     /// Type of a dynamically-sized table of H functions.
     typedef std::vector<h_func_type> oper_t;

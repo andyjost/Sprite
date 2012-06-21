@@ -1,54 +1,299 @@
 #include "sprite/system.hpp"
+#include "sprite/builtins.hpp"
+#include "sprite/exec.hpp"
+#include "sprite/currylib/SpritePrelude.hpp"
 
-namespace sprite
+// ====== Guards ======
+
+// The type of the Prelude module.
+typedef sprite::user::m_13SpritePrelude::Module Prelude;
+
+namespace
 {
-  Program::Program() : oper(), /*ctor_label(),*/ oper_label()
+  using namespace sprite;
+
+  // Rewrite a node to Prelude.True.
+  inline void rewrite_true(Prelude const & prelude, Node & node)
   {
-    // Copy the built-in H functions to the operation table.
-    oper.reserve(OP_END);
-    std::copy(&builtin_h[0], &builtin_h[OP_END], std::back_inserter(oper));
-
-    // Same for the labels.
-    // ctor_label.reserve(C_END);
-    // std::copy(
-    //     &builtin_ctor[0], &builtin_ctor[C_END]
-    //   , std::back_inserter(ctor_label)
-    //   );
-
-    oper_label.reserve(OP_END);
-    std::copy(
-        &builtin_oper[0], &builtin_oper[OP_END]
-      , std::back_inserter(oper_label)
+    return rewrite_ctor(
+        node, user::m_13SpritePrelude::c_4True, prelude.cl_4True
       );
   }
 
-  #if 0
-  shared_ptr<Module const> Program::import(std::string name)
+  // Rewrite a node to Prelude.False.
+  inline void rewrite_false(Prelude const & prelude, Node & node)
   {
-    // Only import if the named module was not previously imported.
-    if(m_imported.count(name) == 0)
-    {
-      // Magic.  The name lookup needs to be generalized and eventually
-      // trigger a dlopen, but for now we just look up the module name in a
-      // hard-coded step.
-
-      typedef shared_ptr<Module> module_ptr_type;
-      tr1::function<module_ptr_type(Program &)> module_initializer;
-      if(name == "List")
-        { module_initializer = load_list; }
-      else
-        throw RuntimeError("Unknown module: " + name);
-
-      assert(module_initializer);
-
-      // Load the module into this program.
-      module_ptr_type const module = module_initializer(*this);
-      m_imported[name] = module;
-      return module;
-    }
-    return m_imported[name];
+    return rewrite_ctor(
+        node, user::m_13SpritePrelude::c_5False, prelude.cl_5False
+      );
   }
-  #endif
+
+  // The guard function determines which operands to a builtin operation are
+  // valid.
+
+  /// An arithmetic guard that allows all operands.
+  struct NoGuard
+  {
+    NoGuard() {}
+    // Unary
+    template<typename Arg> bool operator()(Arg const &) const { return true; }
+    // Binary
+    template<typename Lhs, typename Rhs>
+      bool operator()(Lhs const &, Rhs const &) const { return true; }
+  };
+
+  /// An arithmetic guard that disallows a rhs of zero.
+  struct DivGuard
+  {
+    DivGuard() {}
+    template<typename Lhs, typename Rhs>
+      bool operator()(Lhs const &, Rhs const & rhs) const { return rhs != 0; }
+  };
+
+  /// A metafunction that returns the guard associated with an operation.
+  template<BuiltinOp Op> struct GuardOf : mpl::identity<NoGuard> {};
+  template<> struct GuardOf<OP_INT_DIV> : mpl::identity<DivGuard> {};
+  template<> struct GuardOf<OP_INT_MOD> : mpl::identity<DivGuard> {};
+  template<> struct GuardOf<OP_FLOAT_DIV> : mpl::identity<DivGuard> {};
+
+  // ====== UnguardedExecute ======
+
+  /// Executes an operation without any guard.
+  template<BuiltinOp Op> struct UnguardedExecute;
+  #define SPRITE_DEFINE_OP(builtin_op, rv, op)            \
+      template<> struct UnguardedExecute<builtin_op>      \
+      {                                                   \
+        UnguardedExecute() {}                             \
+                                                          \
+        template<typename T>                              \
+        rv operator()(T const & lhs, T const & rhs) const \
+          { return (lhs op rhs); }                        \
+      };                                                  \
+      /**/
+
+  SPRITE_DEFINE_OP(OP_INT_ADD, T, +)
+  SPRITE_DEFINE_OP(OP_INT_SUB, T, -)
+  SPRITE_DEFINE_OP(OP_INT_MUL, T, *)
+  SPRITE_DEFINE_OP(OP_INT_DIV, T, /)
+  SPRITE_DEFINE_OP(OP_INT_MOD, T, %)
+  SPRITE_DEFINE_OP(OP_INT_LT, bool, <)
+  SPRITE_DEFINE_OP(OP_INT_LE, bool, <=)
+  SPRITE_DEFINE_OP(OP_INT_EQ, bool, ==)
+  SPRITE_DEFINE_OP(OP_INT_NE, bool, !=)
+  SPRITE_DEFINE_OP(OP_INT_GE, bool, >=)
+  SPRITE_DEFINE_OP(OP_INT_GT, bool, >)
+  SPRITE_DEFINE_OP(OP_FLOAT_ADD, T, +)
+  SPRITE_DEFINE_OP(OP_FLOAT_SUB, T, -)
+  SPRITE_DEFINE_OP(OP_FLOAT_MUL, T, *)
+  SPRITE_DEFINE_OP(OP_FLOAT_DIV, T, /)
+
+  #undef SPRITE_DEFINE_OP
+
+  // ====== GuardedExecute ======
+
+  /**
+   * @brief Executes an built-in operation with a guard.
+   *
+   * If the guard fails, then FAIL is written to the destination node.  This
+   * specialization handles operations whose result is a built-in type, e.g.,
+   * Int + Int -> Int.
+   */
+  template<BuiltinOp Op, bool Comparison=meta::IsComparison<Op>::value >
+  struct GuardedExecute
+  {
+    GuardedExecute() {}
+
+    template<typename T>
+    void operator()(
+        Prelude const &, Node & out, T const & lhs, T const & rhs
+      ) const
+    {
+      static typename GuardOf<Op>::type const guard;
+      static UnguardedExecute<Op> const exec;
+
+      if(guard(lhs,rhs))
+        { rewrite<meta::TagValueOf<Op>::value>()(out, exec(lhs,rhs)); }
+      else
+        { rewrite_fail(out); }
+    }
+  };
+
+  /**
+   * @brief Specialization of GuardedExecute for comparison operations.
+   * 
+   * This specialization handles operations whose result is a Bool, e.g., Int <
+   * Int -> Bool.  The Bool type is defined in the prelude.
+   */
+  template<BuiltinOp Op> struct GuardedExecute<Op, true>
+  {
+    GuardedExecute() {}
+
+    template<typename T>
+    void operator()(
+        Prelude const & prelude, Node & out, T const & lhs, T const & rhs
+      ) const
+    {
+      static typename GuardOf<Op>::type const guard;
+      static UnguardedExecute<Op> const exec;
+
+      if(guard(lhs,rhs))
+      {
+        if(exec(lhs,rhs))
+          { rewrite_true(prelude, out); }
+        else
+          { rewrite_false(prelude, out); }
+      }
+      else
+        { rewrite_fail(out); }
+    }
+  };
+
+  // ====== BuiltinImpl ======
+
+  /// Implements the built in operation Op.
+  template<BuiltinOp Op> struct BuiltinImpl : static_visitor<void>
+  {
+    BuiltinImpl(Prelude const & prelude, Node & node)
+      : m_prelude(prelude), m_out(node)
+    {}
+  private:
+    Prelude const & m_prelude;
+    Node & m_out;
+
+    /// Determine the node type for this Op.
+    typedef typename meta::TagValueOf<Op>::type TagType;
+    typedef typename meta::NodeOf<TagType::value>::type NodeType;
+  public:
+    /// Handles valid cases.
+    void operator()(NodeType const & lhs, NodeType const & rhs) const
+    {
+      static GuardedExecute<Op> const exec;
+      exec(m_prelude, m_out, lhs.payload.value, rhs.payload.value);
+    }
+
+    /// Handles cases where the argument nodes do not have the expected type.
+    template<typename Lhs, typename Rhs>
+    void operator()(Lhs const &, Rhs const &) const
+    {
+      throw RuntimeError(
+          "type error while executing " BOOST_PP_STRINGIZE(op)
+        );
+    }
+  };
+
+  // ====== Dispatch ======
+
+  /**
+   * @brief Dispatches a built-in operation.
+   *
+   * Evaluates the operation and rewrites the node with the result.
+   */
+  template<BuiltinOp Op, size_t Arity=meta::ArityOf<Op>::value>
+    struct Dispatch;
+
+  /// Dispatches a unary built-in operation.
+  template<BuiltinOp Op> struct Dispatch<Op,1>
+  {
+    void operator()(Prelude const & prelude, Node & node)
+    {
+      assert(node.arity() == 1);
+      return visit(BuiltinImpl<Op>(prelude, node), *node[0]);
+    }
+  };
+
+  /// Dispatches a binary built-in operation.
+  template<BuiltinOp Op> struct Dispatch<Op,2>
+  {
+    void operator()(Prelude const & prelude, Node & node)
+    {
+      assert(node.arity() == 2);
+      return visit(BuiltinImpl<Op>(prelude, node), *node[0], *node[1]);
+    }
+  };
+}
+
+namespace sprite
+{
+  // ====== h_func ======
+
+  /// Implements the H function for a built in operation.
+  template<BuiltinOp Op> void h_func(Prelude const & prelude, Node & node)
+  {
+    // H.4 TODO
+    // Q. can this just check against CTOR?
+    // Q. how can this be needed?  The only call is from head_normalize.
+    if(is_ctor(node.tag())) return;
+  
+    BOOST_FOREACH(NodePtr & child, node.iter())
+    {
+      switch(child->tag())
+      {
+        // H.1 TODO
+        case CHOICE: return pull_tab(node, child);
+        // H.5 TODO
+        case FAIL: return rewrite_fail(node);
+        // H.2 TODO
+        case OPER: return head_normalize(*child);
+        default:;
+      }
+    }
+  
+    #ifndef NDEBUG
+    BOOST_FOREACH(NodePtr const & child, node.iter())
+      { assert(is_builtin(child->tag())); }
+    #endif
+  
+    // H.3 TODO
+    // Compute the result and rewrite the node.
+    Dispatch<Op>()(prelude, node);
+  }
+}
+namespace sprite
+{
+  Program::Program() : oper(), ctor_label(), oper_label()
+  {
+    // Program Initialization.
+
+    // Create placeholders for all of the built-in operations.  This is so that
+    // their indices are known and can be accessed through the corresponding
+    // enum values.  The order here must match the declaration order in enum
+    // BuiltinOp.
+    this->insert_oper("+", 0);
+    this->insert_oper("-", 0);
+    this->insert_oper("*", 0);
+    this->insert_oper("div", 0);
+    this->insert_oper("mod", 0);
+    this->insert_oper("<", 0);
+    this->insert_oper("<=", 0);
+    this->insert_oper("==", 0);
+    this->insert_oper("/=", 0);
+    this->insert_oper(">=", 0);
+    this->insert_oper(">", 0);
+    this->insert_oper("+", 0);
+    this->insert_oper("-", 0);
+    this->insert_oper("*", 0);
+    this->insert_oper("/", 0);
+
+    // Import the prelude.
+    shared_ptr<Prelude const> prelude = this->add_module<Prelude>("Prelude");
+
+    // Now, update the built-in H functions, which require the prelude.
+    oper[OP_INT_ADD] = tr1::bind(&h_func<OP_INT_ADD>, *prelude, _1);
+    oper[OP_INT_SUB] = tr1::bind(&h_func<OP_INT_SUB>, *prelude, _1);
+    oper[OP_INT_MUL] = tr1::bind(&h_func<OP_INT_MUL>, *prelude, _1);
+    oper[OP_INT_DIV] = tr1::bind(&h_func<OP_INT_DIV>, *prelude, _1);
+    oper[OP_INT_MOD] = tr1::bind(&h_func<OP_INT_MOD>, *prelude, _1);
+    oper[OP_INT_LT] = tr1::bind(&h_func<OP_INT_LT>, *prelude, _1);
+    oper[OP_INT_LE] = tr1::bind(&h_func<OP_INT_LE>, *prelude, _1);
+    oper[OP_INT_EQ] = tr1::bind(&h_func<OP_INT_EQ>, *prelude, _1);
+    oper[OP_INT_NE] = tr1::bind(&h_func<OP_INT_NE>, *prelude, _1);
+    oper[OP_INT_GE] = tr1::bind(&h_func<OP_INT_GE>, *prelude, _1);
+    oper[OP_INT_GT] = tr1::bind(&h_func<OP_INT_GT>, *prelude, _1);
+    oper[OP_FLOAT_ADD] = tr1::bind(&h_func<OP_FLOAT_ADD>, *prelude, _1);
+    oper[OP_FLOAT_SUB] = tr1::bind(&h_func<OP_FLOAT_SUB>, *prelude, _1);
+    oper[OP_FLOAT_MUL] = tr1::bind(&h_func<OP_FLOAT_MUL>, *prelude, _1);
+    oper[OP_FLOAT_DIV] = tr1::bind(&h_func<OP_FLOAT_DIV>, *prelude, _1);
+  }
 
   size_t Program::insert_ctor(std::string const & name)
   {

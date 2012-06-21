@@ -1,5 +1,11 @@
-f 0 = 0
-f 1 = 1
-f n | n > 1 = f(n-1) + f(n-2)
+int_arith = ((1 + 2 -3 * 4 `div` 5) `mod` 2) == 1
+-- int_cmp | (1<2) && (1<=1) && (1==1) && (1/=2) && (1>=1) && (2>1) = True
+--         | True = False
 
-main = f
+-- char_arith = 'a' == 'b'
+-- char_cmp = 'a' < 'b'
+main = int_arith
+-- main = 1 + 2
+-- main = 1 + 2 < 5
+-- main = True
+
