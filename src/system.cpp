@@ -317,6 +317,23 @@ namespace sprite
     this->insert_oper("*", 0);
     this->insert_oper("/", 0);
 
+    // Add the built-in constructors.  Each one has an expected (fixed) id.
+    #define F(label, id)                                                    \
+        if(this->insert_ctor(label) != id)                                  \
+        {                                                                   \
+          throw RuntimeError("Built-in constructor initialization failed"); \
+        }                                                                   \
+        /**/
+    F("(,)", CL_TUPLE2);
+    F("(,,)", CL_TUPLE3);
+    F("(,,,)", CL_TUPLE4);
+    F("(,,,,)", CL_TUPLE5);
+    F("(,,,,,)", CL_TUPLE6);
+    F("(,,,,,,)", CL_TUPLE7);
+    F("(,,,,,,,)", CL_TUPLE8);
+    F("(,,,,,,,,)", CL_TUPLE9);
+    #undef F
+
     // Import the prelude.  It is given the name SpritePrelude.
     shared_ptr<Prelude const> prelude = this->import<Prelude>();
 

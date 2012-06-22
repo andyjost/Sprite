@@ -92,19 +92,6 @@ namespace sprite
   private:
     tr1::unordered_map<std::string, shared_ptr<Module const> > m_imported;
   public:
-    #if 0
-    /// Get the named module, which must have been previously added.
-    shared_ptr<Module const> get_module(std::string const & name)
-    {
-      if(m_imported.count(name) > 0)
-        return m_imported[name];
-      else
-      {
-        throw RuntimeError("Module " + name + " was not found");
-      }
-    }
-    #endif
-
     /**
      * @brief Adds a module to the program.
      *

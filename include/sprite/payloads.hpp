@@ -50,7 +50,7 @@ namespace sprite
     struct ChildList : Unused<PAYLOAD_BYTES - sizeof(size_t) - sizeof(NodePtr*)>
     {
       ChildList(NodePtr * args, size_t size)
-        : m_size(size), m_args(new NodePtr[m_size])
+        : m_size(size), m_args(args)
       {
         assert(m_size>2);
       }
@@ -58,7 +58,15 @@ namespace sprite
       ChildList(ChildList const & arg)
         : m_size(arg.m_size), m_args(new NodePtr[arg.m_size])
       {
-        std::copy(&arg.m_args[0], &arg.m_args[m_size], &this->m_args[0]);
+        try
+        {
+          std::copy(&arg.m_args[0], &arg.m_args[m_size], &this->m_args[0]);
+        }
+        catch(...)
+        {
+          delete[] m_args;
+          throw;
+        }
       }
 
       ChildList & operator=(ChildList const & arg)

@@ -52,6 +52,9 @@ fullCtorName (m,s) = (moduleName m) ++ "::" ++ (ctorName s)
 fullOperName :: LOIS.QName -> String
 fullOperName (m,s) = (moduleName m) ++ "::" ++ (operName s)
 
+-- DEBUG
+myFromJust x | isJust x = fromJust x
+             | True = [157]
 {-
     Generates the path to a variable in a definitional tree.  The path returned
     uses zero-based indexing, i.e., the first child has index 0.  Since the
@@ -66,7 +69,7 @@ getPath dtree var = aux dtree
             if (isJust elem) then elem else
                 let path = listToMaybe (catMaybes (map aux tree)) in
                 let this = checkPat pat id in -- must succeed
-                if (isNothing path) then Nothing else Just (fromJust this ++ fromJust path)
+                if (isNothing path) then Nothing else Just (myFromJust this ++ myFromJust path)
         aux (LOIS.Rule pat _) = checkPat pat var
         aux (LOIS.Exempt pat) = checkPat pat var
         aux (LOIS.BuiltIn _) = Nothing
@@ -84,7 +87,7 @@ getPath dtree var = aux dtree
 fmtPathForInit :: LOIS.DefinitionalTree -> Int -> String
 fmtPathForInit dtree var =
   let path = getPath dtree var in
-  "(" ++ (mkString ")(" (map show (fromJust path))) ++ ")"
+  "(" ++ (mkString ")(" (map show (myFromJust path))) ++ ")"
 
 {-
     Gets a path (exactly like getPath) but formats it for output to the Sprite
@@ -93,7 +96,7 @@ fmtPathForInit dtree var =
 fmtPathForLookup :: LOIS.DefinitionalTree -> Int -> String -> String
 fmtPathForLookup dtree var root =
   let path = getPath dtree var in
-  foldl aux root (fromJust path)
+  foldl aux root (myFromJust path)
     where
         aux x i = x ++ "[" ++ (show i) ++ "]"
 
@@ -125,10 +128,19 @@ symRewriteHead modname (LOIS.OperationSym qn@(q,n)) = aux
             | qn == ("Prelude",">") = "OP_GT"
             | True = qualifyName modname q "->" (operName n)
 
-symRewriteHead modname (LOIS.ConstructorSym (q,n)) =
-  qualifyName modname q "::" (ctorName n) ++
-  ", " ++
-  qualifyName modname q "->" (ctorLabelName n)
+symRewriteHead modname (LOIS.ConstructorSym qn@(q,n)) = aux
+    where
+        aux | qn == ("Prelude","(,)") = "C_TUPLE2, CL_TUPLE2"
+            | qn == ("Prelude","(,,)") = "C_TUPLE3, CL_TUPLE3"
+            | qn == ("Prelude","(,,,)") = "C_TUPLE4, CL_TUPLE4"
+            | qn == ("Prelude","(,,,,)") = "C_TUPLE5, CL_TUPLE5"
+            | qn == ("Prelude","(,,,,,)") = "C_TUPLE6, CL_TUPLE6"
+            | qn == ("Prelude","(,,,,,,)") = "C_TUPLE7, CL_TUPLE7"
+            | qn == ("Prelude","(,,,,,,,)") = "C_TUPLE8, CL_TUPLE8"
+            | qn == ("Prelude","(,,,,,,,,)") = "C_TUPLE9, CL_TUPLE9"
+            | True = qualifyName modname q "::" (ctorName n) ++
+                     ", " ++
+                     qualifyName modname q "->" (ctorLabelName n)
 
 -- Looks up a symbol name.
 symLookup modname (LOIS.NodePattern p _) = symName modname p

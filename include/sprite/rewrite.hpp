@@ -36,19 +36,27 @@ namespace sprite
     #undef F
 
     /**
-     * @note This function _claims_ ownership of the pointer and will delete it
-     * with delete[].
+     * @note: ChildList takes ownership of the args pointer.  There's no need
+     * to be exception-safe, since all errors are unrecoverable.
      */
-    void operator()(
-        Node & node, size_t id, size_t arity, NodePtr * args
-      ) const
-    {
-      node.destroy_payload();
-      new(node._payload()) payloads::ChildList(args, arity);
-      node.m_arity = arity;
-      node.m_id = id;
-      node.m_tag = OPER;
-    }
+    #define F(z,n,_)                                          \
+        void operator()(                                      \
+            Node & node, size_t id                            \
+          , BOOST_PP_ENUM_PARAMS(n, NodePtr const & arg)      \
+          ) const                                             \
+        {                                                     \
+          node.destroy_payload();                             \
+          NodePtr args_[n] = { BOOST_PP_ENUM_PARAMS(n,arg) }; \
+          NodePtr * args = new NodePtr[n];                    \
+          std::copy(&args_[0], &args_[n], &args[0]);          \
+          new(node._payload()) payloads::ChildList(args, n);  \
+          node.m_arity = n;                                   \
+          node.m_tag = OPER;                                  \
+          node.m_id = id;                                     \
+        } \
+    /**/
+    BOOST_PP_REPEAT_FROM_TO(SPRITE_INPLACE_BOUND,SPRITE_REWRITE_ARG_BOUND,F,)
+    #undef F
   };
 
   /**
@@ -83,21 +91,29 @@ namespace sprite
     #undef F
 
     /**
-     * @note This function _claims_ ownership of the pointer and will delete it
-     * with delete[].
+     * @note: ChildList takes ownership of the args pointer.  There's no need
+     * to be exception-safe, since all errors are unrecoverable.
      */
-    template<typename Enum>
-    void operator()(
-        Node & node, Enum tag, size_t id, size_t arity, NodePtr * args
-      ) const
-    {
-      node.destroy_payload();
-      new(node._payload()) payloads::ChildList(args, arity);
-      node.m_arity = arity;
-      assert((int)tag >= (int)CTOR);
-      node.m_tag = make_ctor_tag(tag);
-      node.m_id = id;
-    }
+    #define F(z,n,_)                                          \
+        template<typename Enum>                               \
+        void operator()(                                      \
+            Node & node, Enum tag, size_t id                  \
+          , BOOST_PP_ENUM_PARAMS(n, NodePtr const & arg)      \
+          ) const                                             \
+        {                                                     \
+          node.destroy_payload();                             \
+          NodePtr args_[n] = { BOOST_PP_ENUM_PARAMS(n,arg) }; \
+          NodePtr * args = new NodePtr[n];                    \
+          std::copy(&args_[0], &args_[n], &args[0]);          \
+          new(node._payload()) payloads::ChildList(args, n);  \
+          node.m_arity = n;                                   \
+          assert((int)tag >= (int)CTOR);                      \
+          node.m_tag = make_ctor_tag(tag);                    \
+          node.m_id = id;                                     \
+        } \
+    /**/
+    BOOST_PP_REPEAT_FROM_TO(SPRITE_INPLACE_BOUND,SPRITE_REWRITE_ARG_BOUND,F,)
+    #undef F
   };
 
   /// Rewrites a node to FAIL.

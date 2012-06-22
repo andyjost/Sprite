@@ -21,7 +21,7 @@
  * function (i.e., not counting the node).  Not a tight bound, so one less than
  * this number of arguments will be supported.
  */
-#define SPRITE_REWRITE_ARG_BOUND 5
+#define SPRITE_REWRITE_ARG_BOUND 10
 
 namespace sprite
 {
@@ -105,7 +105,9 @@ namespace sprite
         template<TagValue Value BOOST_PP_ENUM_TRAILING_PARAMS(n,typename T)> \
         static NodePtr create(BOOST_PP_ENUM_BINARY_PARAMS(n,T,const & t));   \
         /**/
-    BOOST_PP_REPEAT(SPRITE_REWRITE_ARG_BOUND,F,)
+    // Increment by 3, because rewrite_* takes up to 3 arguments before the
+    // child nodes.
+    BOOST_PP_REPEAT(BOOST_PP_ADD(3,SPRITE_REWRITE_ARG_BOUND),F,)
     #undef F
 
     /// Get the raw address of the payload region.

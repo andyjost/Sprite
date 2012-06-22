@@ -17,6 +17,34 @@ namespace sprite
     , OP_END // Must be last.
   };
 
+  /// The built-in constructors (numbered from CTOR for each type).
+  enum BuiltinCtor
+  {
+      C_TUPLE2 = CTOR
+    , C_TUPLE3 = CTOR
+    , C_TUPLE4 = CTOR
+    , C_TUPLE5 = CTOR
+    , C_TUPLE6 = CTOR
+    , C_TUPLE7 = CTOR
+    , C_TUPLE8 = CTOR
+    , C_TUPLE9 = CTOR
+    , C_END
+  };
+
+  /// The built-in constructor labels (sequentially numbered).
+  enum BuiltinCtorLabel
+  {
+      CL_TUPLE2 = 0
+    , CL_TUPLE3
+    , CL_TUPLE4
+    , CL_TUPLE5
+    , CL_TUPLE6
+    , CL_TUPLE7
+    , CL_TUPLE8
+    , CL_TUPLE9
+    , CL_END
+  };
+
   namespace meta
   {
     /// Computes the TagValue (e.g., INT) associated with a builtin operation.
