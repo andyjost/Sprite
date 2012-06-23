@@ -28,6 +28,8 @@ namespace sprite
     , C_TUPLE7 = CTOR
     , C_TUPLE8 = CTOR
     , C_TUPLE9 = CTOR
+    , C_CONS = CTOR
+    , C_NIL
     , C_END
   };
 
@@ -42,6 +44,8 @@ namespace sprite
     , CL_TUPLE7
     , CL_TUPLE8
     , CL_TUPLE9
+    , CL_CONS
+    , CL_NIL
     , CL_END
   };
 

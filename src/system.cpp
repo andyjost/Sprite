@@ -332,6 +332,8 @@ namespace sprite
     F("(,,,,,,)", CL_TUPLE7);
     F("(,,,,,,,)", CL_TUPLE8);
     F("(,,,,,,,,)", CL_TUPLE9);
+    F(":", CL_CONS);
+    F("[]", CL_NIL);
     #undef F
 
     // Import the prelude.  It is given the name SpritePrelude.

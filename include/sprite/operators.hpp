@@ -7,6 +7,7 @@
 #include "sprite/exec.hpp"
 #include "sprite/node.hpp"
 #include <boost/mpl/has_xxx.hpp>
+#include <stack>
 
 namespace sprite
 {
@@ -68,7 +69,7 @@ namespace sprite
      *
      * @param stream
      *   The output stream.
-     * @param first
+     * @param outer
      *   True if this is the outermost invocation (avoids surrounding the
      *   whole expression in parentheses.
      * @param node
@@ -79,6 +80,9 @@ namespace sprite
     {
       typedef typename StreamOut::result_type result_type;
       StreamOut() {}
+    private:
+      mutable std::stack<char> m_delim;
+    public:
 
       /**
        * @brief Handles built-in types, which define a value_type in the payload.
@@ -96,13 +100,14 @@ namespace sprite
        */
       template<typename NodeType>
       result_type operator()(
-          Stream & stream, bool first, NodeType const & node
+          Stream & stream, bool outer, NodeType const & node
         ) const
       {
         // Get the program associated with this stream.
         Program const * pgm = manipulators::detail::pgm_data(stream);
 
-        bool need_close = false;
+        char close_char = '\0';
+        m_delim.push(' ');
 
         // Print the label.
         if(pgm)
@@ -112,35 +117,73 @@ namespace sprite
             case FAIL: stream << "**FAIL**"; break;
 
             case CHOICE:
-              if(!first)
+              if(!outer)
               {
                 stream << "(";
-                need_close = true;
+                close_char = ')';
               }
-              stream << "?_" << node.id();
+              stream << "?_" << node.id() << " ";
               break;
 
             case OPER:
-                if(!first && node.arity() > 0)
+                if(!outer && node.arity() > 0)
                 {
                   stream << "(";
-                  need_close = true;
+                  close_char = ')';
                 }
-                stream << pgm->oper_label[node.id()];
+                stream << pgm->oper_label[node.id()] << " ";
                 break;
 
             case CTOR:
             default:
+              // Handle certain built-in types specially.
               if(node.tag() >= CTOR)
               {
-                if(!first && node.arity() > 0)
+                switch(node.id())
                 {
-                  stream << "(";
-                  need_close = true;
+                  case CL_TUPLE2:
+                  case CL_TUPLE3:
+                  case CL_TUPLE4:
+                  case CL_TUPLE5:
+                  case CL_TUPLE6:
+                  case CL_TUPLE7:
+                  case CL_TUPLE8:
+                  case CL_TUPLE9:
+                    stream << "(";
+                    close_char = ')';
+                    m_delim.pop();
+                    m_delim.push(',');
+                    break;
+                  case CL_CONS:
+                  case CL_NIL:
+                  {
+                    stream << "[";
+                    Node const * p = &node;
+                    while(true)
+                    {
+                      visit(
+                          tr1::bind<Stream &>(
+                              *this, tr1::ref(stream), false, _1
+                            )
+                        , *(*p)[0]
+                        );
+                      p = (*p)[1].get();
+                      if(p->id() == CL_NIL) break;
+                      stream << ",";
+                    }
+                    stream << "]";
+                    m_delim.pop();
+                    return stream;
+                  }
+                  default:
+                    if(!outer && node.arity() > 0)
+                    {
+                      stream << "(";
+                      close_char = ')';
+                    }
+                    stream << pgm->ctor_label[node.id()] << " ";
+                    break;
                 }
-                // DEBUG: I need the type id to get the CTOR label, now.
-                stream << pgm->ctor_label[node.id()];
-                // stream << "TODO:CTOR";
                 break;
               }
               else throw RuntimeError("mishandled node in operator<<");
@@ -148,26 +191,28 @@ namespace sprite
         }
         else
         {
-          if(!first)
+          if(!outer)
           {
             stream << "(";
-            need_close = true;
+            close_char = ')';
           }
-          stream << "<unknown-ctor>";
+          stream << "<unknown-ctor> ";
         }
 
         // Print the children.
+        bool first = true;
         BOOST_FOREACH(NodePtr const & child, node.iter())
         {
-          stream << " ";
-
+          if(!first) stream << m_delim.top();
+          first = false;
           visit(
               tr1::bind<Stream &>(*this, tr1::ref(stream), false, _1)
             , *child
             );
         }
 
-        if(need_close) stream << ")";
+        m_delim.pop();
+        if(close_char) stream << close_char;
         return stream;
       }
     };

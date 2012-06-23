@@ -138,8 +138,9 @@ symRewriteHead modname (LOIS.ConstructorSym qn@(q,n)) = aux
             | qn == ("Prelude","(,,,,,,)") = "C_TUPLE7, CL_TUPLE7"
             | qn == ("Prelude","(,,,,,,,)") = "C_TUPLE8, CL_TUPLE8"
             | qn == ("Prelude","(,,,,,,,,)") = "C_TUPLE9, CL_TUPLE9"
-            | True = qualifyName modname q "::" (ctorName n) ++
-                     ", " ++
+            | qn == ("Prelude",":") = "C_CONS, CL_CONS"
+            | qn == ("Prelude","[]") = "C_NIL, CL_NIL"
+            | True = qualifyName modname q "::" (ctorName n) ++ ", " ++
                      qualifyName modname q "->" (ctorLabelName n)
 
 -- Looks up a symbol name.
