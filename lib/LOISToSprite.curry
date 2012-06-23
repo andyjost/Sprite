@@ -206,7 +206,10 @@ compile modname (LOIS.OperationDecl (_,s) _ dtree) =
                 caseEnd lvl
         aux0 lvl (LOIS.Rule pat expr) = caseBegin lvl pat ++ aux1 True expr ++ caseEnd lvl
         aux0 lvl (LOIS.Exempt pat) = caseBegin lvl pat ++ "return rewrite_fail(root);" ++ caseEnd lvl
-        aux0 _ (LOIS.BuiltIn _) = "TODO"
+        aux0 lvl (LOIS.BuiltIn name) = indent lvl ++ "return rewrite_oper(root, " ++ aux2 ++ ");\n"
+            where
+                aux2 | name == "SpritePrelude.failed" = "OP_FAILED"
+                     | True = failed
 
         {-
             Generates C++ code for a rewrite step, according to the given

@@ -12,7 +12,10 @@ namespace
 {
   using namespace sprite;
 
-  // Rewrite a node to Prelude.True.
+  /// Rewrites a node to FAIL.
+  void op_failed(Node & node) { return rewrite_fail(node); }
+
+  /// Rewrites a node to Prelude.True.
   inline void rewrite_true(Prelude const & prelude, Node & node)
   {
     return rewrite_ctor(
@@ -20,7 +23,7 @@ namespace
       );
   }
 
-  // Rewrite a node to Prelude.False.
+  /// Rewrites a node to Prelude.False.
   inline void rewrite_false(Prelude const & prelude, Node & node)
   {
     return rewrite_ctor(
@@ -301,6 +304,7 @@ namespace sprite
     // their indices are known and can be accessed through the corresponding
     // enum values.  The order here must match the declaration order in enum
     // BuiltinOp.
+    this->insert_oper("OP_FAILED", &op_failed);
     this->insert_oper("<", 0);   // Comparison
     this->insert_oper("<=", 0);
     this->insert_oper("==", 0);
@@ -342,7 +346,7 @@ namespace sprite
     // Add an alias for the Prelude (with the proper name).
     m_imported["Prelude"] = prelude;
 
-    // Now, update the built-in H functions, which require the prelude.
+    // Now, update the arithmetic H functions, which require the prelude.
     oper[OP_LT] = tr1::bind(&h_func<OP_LT>, *prelude, _1);
     oper[OP_LE] = tr1::bind(&h_func<OP_LE>, *prelude, _1);
     oper[OP_EQ] = tr1::bind(&h_func<OP_EQ>, *prelude, _1);

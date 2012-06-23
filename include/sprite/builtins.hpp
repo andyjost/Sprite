@@ -11,7 +11,8 @@ namespace sprite
   /// The built-in operations.
   enum BuiltinOp
   {
-      OP_LT, OP_LE, OP_EQ, OP_NE, OP_GE, OP_GT
+      OP_FAILED
+    , OP_LT, OP_LE, OP_EQ, OP_NE, OP_GE, OP_GT
     , OP_INT_ADD, OP_INT_SUB, OP_INT_MUL, OP_INT_DIV, OP_INT_MOD
     , OP_FLOAT_ADD, OP_FLOAT_SUB, OP_FLOAT_MUL, OP_FLOAT_DIV
     , OP_END // Must be last.

@@ -29,5 +29,5 @@ xor False False = False
 --- A non-reducible polymorphic function.
 --- It is useful to express a failure in a search branch of the execution.
 --- It could be defined by: <code>failed = head []</code>
--- failed :: _ 
-failed = 1 `div` 0
+failed :: _ 
+failed external
