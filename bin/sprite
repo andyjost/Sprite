@@ -3,26 +3,37 @@
 set -e
 
 usage() {
-  echo "Usage: sprite [-c|-h|-r] curryfile"
-  echo "    -c  Compile the file as a module"
-  echo "    -h  Display this help message"
-  echo "    -r  Rebuild from scratch"
+  echo "Usage: sprite [-B|-c|-h|-r|-t] curryfile"
+  echo "    -B  Unconditionally rebuilds everything (cf. make)"
+  echo "    -c  Compiles the file as a module"
+  echo "    -h  Displays this help message"
+  echo "    -r  Runs the program after a successful build"
+  echo "    -t  Enables trace when running the program"
 }
 
 COMPILEONLY=0
 REBUILD=0
-while getopts "chr" OPTION
+RUN=0
+TRACE=
+
+while getopts "Bchrt" OPTION
 do
   case $OPTION in
-    h)
-      usage
-      exit 0
+    B)
+      REBUILD=1
       ;;
     c)
       COMPILEONLY=1
       ;;
+    h)
+      usage
+      exit 0
+      ;;
     r)
-      REBUILD=1
+      RUN=1
+      ;;
+    t)
+      TRACE="--trace"
       ;;
     ?)
       usage
@@ -87,7 +98,7 @@ fi
 cd ..
 
 # 4. Execute
-if [ "$COMPILEONLY" -eq 0 ]; then
-  ./$1
+if [ "$RUN" -ne 0 ]; then
+  ./$1 $TRACE
 fi
 

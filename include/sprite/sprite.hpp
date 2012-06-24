@@ -4,6 +4,7 @@
  */
 
 #pragma once
+#include "sprite/cmdline.hpp"
 #include "sprite/create.hpp"
 #include "sprite/exec.hpp"
 #include "sprite/node.hpp"

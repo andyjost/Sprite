@@ -11,7 +11,7 @@ CFLAGS := -Wall -O0 -ggdb
 ######
 ## Set the linker flags.
 ######
-LDFLAGS := 
+LDFLAGS := /usr/lib/libboost_program_options.so.1.42.0
 
 ######
 ## Provide the path to Boost 1.42 or later, if necessary.
