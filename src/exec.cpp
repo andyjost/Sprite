@@ -12,8 +12,10 @@ namespace sprite
   // Documented in the header.
   Program const * g_program = NULL;
 
+  #ifdef SPRITE_USE_POOLING
   /// Global memory pool for allocating nodes.
   boost::object_pool<AbstractNode> node_allocator;
+  #endif
 
   namespace 
   {
@@ -27,23 +29,36 @@ namespace sprite
         : fp(fp_), node(node_)
       {}
 
+      #ifdef SPRITE_USE_POOLING
       /// A memory pool for items in the computation pool.
       static boost::object_pool<PoolItem> allocator;
+      #endif
 
       /// Overloaded new that uses the memory pool.
       void * operator new(size_t sz)
       {
         assert(sz == sizeof(PoolItem));
+        #ifdef SPRITE_USE_POOLING
         return allocator.malloc();
+        #else
+        return std::malloc(sizeof(PoolItem));
+        #endif
       }
 
       /// Overloaded delete that uses the memory pool.
       void operator delete(void * p)
+      #ifdef SPRITE_USE_POOLING
+        // Does not call p's destructor.
         { allocator.free(static_cast<PoolItem*>(p)); }
+      #else
+        { std::free(p); }
+      #endif
     };
 
+    #ifdef SPRITE_USE_POOLING
     // Storage declaration for the above item.
     boost::object_pool<PoolItem> PoolItem::allocator;
+    #endif
 
     /// A computation pool.
     struct ComputationPool

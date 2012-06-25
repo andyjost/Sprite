@@ -23,6 +23,7 @@
 #include <boost/type_traits/is_same.hpp>
 #include <boost/utility/enable_if.hpp>
 #include <boost/variant/static_visitor.hpp>
+#include <cstdlib>
 
 /// The main namespace for sprite.
 namespace sprite

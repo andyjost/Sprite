@@ -3,7 +3,12 @@
  * @brief Implements Node members.
  */
 #include "sprite/visit.hpp"
+
+#ifdef SPRITE_USE_POOLING
 #include <boost/pool/object_pool.hpp>
+#else
+#include <cstdlib>
+#endif
 
 //==============================================
 // Implementation of Node::new and Node::delete.
@@ -11,14 +16,20 @@
 namespace sprite
 {
   // This memory pool calls the node object destructors upon destruction.
+  #ifdef SPRITE_USE_POOLING
   extern boost::object_pool<AbstractNode> node_allocator;
+  #endif
 
   inline void * Node::operator new(size_t bytes)
   {
     // Bare Node objects should not be allocated directly.  Instead, a concrete
     // instance of Node_<Payload> should be allocated.
-    assert(sizeof(AbstractNode) == bytes);
+    assert(NODE_BYTES == bytes);
+    #ifdef SPRITE_USE_POOLING
     void * px = reinterpret_cast<void *>(node_allocator.malloc());
+    #else
+    void * px = std::malloc(NODE_BYTES);
+    #endif
 
     // Note: a custom raw memory allocator would need to be specified to
     // object_pool to meet this requirement.
@@ -33,7 +44,12 @@ namespace sprite
 
   }
   inline void Node::operator delete(void * p)
+  #ifdef SPRITE_USE_POOLING
+    // Does not call p's destructor
     { node_allocator.free(reinterpret_cast<AbstractNode*>(p)); }
+  #else
+    { std::free(p); }
+  #endif
 }
 
 //==============================
