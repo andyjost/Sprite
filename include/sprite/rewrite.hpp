@@ -36,13 +36,16 @@ namespace sprite
     #undef F
 
     /**
+     * The @p NodePtr arguments are taken by value, since the root payload is
+     * destroyed first and may refer to them.
+     *
      * @note: ChildList takes ownership of the args pointer.  There's no need
      * to be exception-safe, since all errors are unrecoverable.
      */
     #define F(z,n,_)                                          \
         void operator()(                                      \
             Node & node, size_t id                            \
-          , BOOST_PP_ENUM_PARAMS(n, NodePtr const & arg)      \
+          , BOOST_PP_ENUM_PARAMS(n, NodePtr const arg)        \
           ) const                                             \
         {                                                     \
           node.destroy_payload();                             \
@@ -91,6 +94,9 @@ namespace sprite
     #undef F
 
     /**
+     * The @p NodePtr arguments are taken by value, since the root payload is
+     * destroyed first and may refer to them.
+     *
      * @note: ChildList takes ownership of the args pointer.  There's no need
      * to be exception-safe, since all errors are unrecoverable.
      */
@@ -98,7 +104,7 @@ namespace sprite
         template<typename Enum>                               \
         void operator()(                                      \
             Node & node, Enum tag, size_t id                  \
-          , BOOST_PP_ENUM_PARAMS(n, NodePtr const & arg)      \
+          , BOOST_PP_ENUM_PARAMS(n, NodePtr const arg)        \
           ) const                                             \
         {                                                     \
           node.destroy_payload();                             \
