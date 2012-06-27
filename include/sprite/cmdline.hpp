@@ -5,6 +5,7 @@ namespace sprite
 {
   struct CmdlineOptions
   {
+    size_t grain;
     TraceOption trace;
   };
 

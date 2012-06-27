@@ -30,6 +30,7 @@ namespace sprite
           node.m_arity = n;                                    \
           node.m_id = id;                                      \
           node.m_tag = OPER;                                   \
+          node.m_cnf = 0;                                      \
         }                                                      \
         /**/
     BOOST_PP_REPEAT(SPRITE_INPLACE_BOUND,F,)
@@ -56,7 +57,8 @@ namespace sprite
           node.m_arity = n;                                   \
           node.m_tag = OPER;                                  \
           node.m_id = id;                                     \
-        } \
+          node.m_cnf = 0;                                     \
+        }                                                     \
     /**/
     BOOST_PP_REPEAT_FROM_TO(SPRITE_INPLACE_BOUND,SPRITE_REWRITE_ARG_BOUND,F,)
     #undef F
@@ -87,7 +89,8 @@ namespace sprite
           node.m_arity = n;                                    \
           assert((int)tag >= (int)CTOR);                       \
           node.m_tag = make_ctor_tag(tag);                     \
-          node.m_id  = id;                                     \
+          node.m_id = id;                                      \
+          node.m_cnf = 0;                                      \
         }                                                      \
         /**/
     BOOST_PP_REPEAT(SPRITE_INPLACE_BOUND,F,)
@@ -116,7 +119,8 @@ namespace sprite
           assert((int)tag >= (int)CTOR);                      \
           node.m_tag = make_ctor_tag(tag);                    \
           node.m_id = id;                                     \
-        } \
+          node.m_cnf = 0;                                     \
+        }                                                     \
     /**/
     BOOST_PP_REPEAT_FROM_TO(SPRITE_INPLACE_BOUND,SPRITE_REWRITE_ARG_BOUND,F,)
     #undef F
@@ -130,6 +134,7 @@ namespace sprite
     {
       node.destroy_payload();
       node.m_tag = FAIL;
+      node.m_cnf = 0;
     }
   };
 
@@ -145,6 +150,7 @@ namespace sprite
       new(node._payload()) payloads::Choice(lhs,rhs);
       node.m_id = id;
       node.m_tag = CHOICE;
+      node.m_cnf = 0;
     }
   };
 
@@ -157,6 +163,7 @@ namespace sprite
       node.destroy_payload();
       new(node._payload()) payloads::Fwd(dest);
       node.m_tag = FWD;
+      node.m_cnf = dest->m_cnf;
     }
   };
 
@@ -169,6 +176,7 @@ namespace sprite
       node.destroy_payload();
       new(node._payload()) payloads::Int(value);
       node.m_tag = INT;
+      node.m_cnf = 1;
     }
   };
 
@@ -181,6 +189,7 @@ namespace sprite
       node.destroy_payload();
       new(node._payload()) payloads::Float(value);
       node.m_tag = FLOAT;
+      node.m_cnf = 1;
     }
   };
 
@@ -193,6 +202,7 @@ namespace sprite
       node.destroy_payload();
       new(node._payload()) payloads::Char(value);
       node.m_tag = CHAR;
+      node.m_cnf = 1;
     }
   };
 

@@ -11,10 +11,11 @@ namespace sprite
 {
   // Documented in the header.
   Program const * g_program = NULL;
+  size_t g_steps;
 
   #ifdef SPRITE_USE_POOLING
   /// Global memory pool for allocating nodes.
-  boost::object_pool<AbstractNode> node_allocator;
+  boost::pool<> node_allocator(NODE_BYTES);
   #endif
 
   namespace 
@@ -31,7 +32,7 @@ namespace sprite
 
       #ifdef SPRITE_USE_POOLING
       /// A memory pool for items in the computation pool.
-      static boost::object_pool<PoolItem> allocator;
+      static boost::pool<> allocator;
       #endif
 
       /// Overloaded new that uses the memory pool.
@@ -57,7 +58,7 @@ namespace sprite
 
     #ifdef SPRITE_USE_POOLING
     // Storage declaration for the above item.
-    boost::object_pool<PoolItem> PoolItem::allocator;
+    boost::pool<> PoolItem::allocator(sizeof(PoolItem));
     #endif
 
     /// A computation pool.
@@ -115,8 +116,8 @@ namespace sprite
 
   // See header for brief description.
   void execute(
-      Program const & pgm, Node & goal, YieldHandler const & out
-    , TraceOption trace
+      Program const & pgm, Node & goal, size_t grain
+    , YieldHandler const & out, TraceOption trace
     )
   {
     // Set the global program pointer and then restore it when this scope
@@ -128,6 +129,9 @@ namespace sprite
     // If tracing, set the output program.  Restore the old value when this
     // scope exits.
     Program const * _pp = manipulators::detail::pgm_data(std::cout);
+
+    if(grain==0)
+      throw RuntimeError("a granularity of zero steps was specified");
 
     if(trace)
       std::cout << setprogram(pgm);
@@ -146,6 +150,10 @@ namespace sprite
       PoolItem & item = pool.front();
       Fingerprint const & fp = item.fp;
 
+      // Reset the number of allowed steps before calling fair_normalize.
+      g_steps = grain;
+
+      // Perform some computation steps.
       fair_normalize(item.fp, *item.node);
 
       // This dereference will remove FWD nodes (it must come after the
@@ -153,7 +161,7 @@ namespace sprite
       Node & node = *item.node;
       if(trace) tracef("step", node);
 
-      if(is_norm(node))
+      if(node.is_cnf())
       {
         if(trace) tracef("value", node);
         out.yield(node);

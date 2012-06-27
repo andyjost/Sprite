@@ -55,6 +55,7 @@ namespace sprite
     std::string m_msg;
   };
 
+  typedef boost::uint_t<16>::exact uint16;
   typedef boost::uint_t<32>::exact uint32;
 
   /**

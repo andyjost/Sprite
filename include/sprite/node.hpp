@@ -39,10 +39,10 @@ namespace sprite
    * up of Node instances, and computations are changes to the graph that come
    * about by rewriting nodes.
    *
-   * Every node has a fixed region consisting of its refcount, tag, id, and
-   * arity, and a variable region called the payload.  This class defines only
-   * the fixed region.  A complete node is an instance of Node_<Payload> for
-   * some Payload type.  The node is a discriminated union, where the tag
+   * Every node has a fixed region consisting of its refcount, tag, id, arity
+   * and flags, plus a variable region called the payload.  This class defines
+   * only the fixed region.  A complete node is an instance of Node_<Payload>
+   * for some Payload type.  The node is a discriminated union, where the tag
    * member determines the type of the payload contents.  In certain cases, the
    * arity is also used to determine the payload type.  The possible payload
    * types are defined in the payloads namespace.
@@ -61,6 +61,9 @@ namespace sprite
    * prevents us having to repeatedly look up the arity in the program
    * description.
    *
+   * The flags are used for optimization (e.g., to indicate when a node is
+   * known to be in CNF, due to a previous test).
+   *
    * Data members that are either unused or that can have only one possible
    * value for a given tag are not updated during a rewrite.  For instance, a
    * node with the tag FAIL (representing a failed computation) will not have
@@ -77,7 +80,7 @@ namespace sprite
    */
   struct Node
   {
-    // ====== Data accessors. ======
+    // ====== Data Accessors. ======
 
     /// Returns the reference count.
     uint32 refcount() const { return this->m_refcount; }
@@ -89,7 +92,23 @@ namespace sprite
     uint32 id() const { return this->m_id; }
 
     /// Returns the arity member.
-    uint32 arity() const { return this->m_arity; }
+    uint16 arity() const { return this->m_arity; }
+
+    // ====== Attribute Accessors ======
+
+    /// Returns true if the node is in CNF.
+    bool is_cnf() const
+    {
+      if(this->m_cnf) return true;
+      if(!is_ctor(this->tag())) return false;
+
+      BOOST_FOREACH(NodePtr const & child, this->iter())
+        { if(!child->is_cnf()) return false; }
+
+      this->m_cnf = 1;
+      return true;
+    }
+
 
     // ====== Abstract Object Management. ======
 
@@ -131,6 +150,7 @@ namespace sprite
     /// Copy construction (resets the refcount).
     Node(Node const & x)
       : m_refcount(0), m_tag(x.m_tag), m_id(x.m_id), m_arity(x.m_arity)
+      , m_cnf(x.m_cnf)
     {}
 
     /// Assignment (inherits the previous refcount).
@@ -139,6 +159,7 @@ namespace sprite
       this->m_tag = x.m_tag;
       this->m_id = x.m_id;
       this->m_arity = x.m_arity;
+      this->m_cnf = x.m_cnf;
       return *this;
     }
 
@@ -179,7 +200,7 @@ namespace sprite
     /** 
      * @brief Returns the position of the given child.
      *
-     * Precondition: child is node[i] for some i.
+     * Precondition: child is node[i] (not a copy) for some i.
      */
     size_t position(NodePtr const & child) const;
 
@@ -202,7 +223,8 @@ namespace sprite
     uint32 m_refcount;
     TagValue m_tag : 32;
     uint32 m_id;
-    uint32 m_arity;
+    uint16 m_arity;
+    mutable uint16 m_cnf;
   };
 
   // Implementation of NodePtr::operator[] (relies on definition of Node).
@@ -210,7 +232,10 @@ namespace sprite
 
   // Implementation of NodePtr::operator= (relies on definition of Node).
   inline NodePtr & NodePtr::operator=(Node & node)
-    { return (*this = NodePtr(&node)); }
+  {
+    if(this->base_type::get() != &node) { *this = NodePtr(&node); }
+    return *this;
+  }
 
   /**
    * @brief A complete node.  The payload contains tag-specific data.

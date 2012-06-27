@@ -343,7 +343,7 @@ translateMain fh modname' = do
   hPutStrLn fh  "  shared_ptr<MainModule const> main = pgm.import<MainModule>();"
   hPutStrLn fh  ""
   hPutStrLn fh  "  NodePtr goal = Node::create<OPER>(main->op_4main);"
-  hPutStrLn fh  "  execute(pgm, *goal, opt.trace);"
+  hPutStrLn fh  "  execute(pgm, *goal, opt.grain, opt.trace);"
   hPutStrLn fh  "  std::cout << setprogram(pgm) << *goal << std::endl;"
   hPutStrLn fh  ""
   hPutStrLn fh  "  return 0;"

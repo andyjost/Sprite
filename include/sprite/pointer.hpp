@@ -37,6 +37,9 @@ namespace sprite
     using base_type::operator unspecified_bool_type;
     using base_type::operator!;
 
+    /// Removes any FWD references.
+    void remove_fwd() { *this = *this; }
+
     /// Gets the pointer value, after skipping any FWD nodes.
     Node * get() const
     {

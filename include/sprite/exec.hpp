@@ -20,6 +20,9 @@ namespace sprite
   /// Indicates whether tracing is enabled.
   enum TraceOption { NO_TRACE=false, TRACE=true };
 
+  /// The number of remaining computation steps for the current pool item.
+  extern size_t g_steps;
+
   /**
    * @brief Base of a class that handles computation results as they are
    * generated.
@@ -69,6 +72,9 @@ namespace sprite
    *   carry out execution as a series of rewrite steps.
    * @param goal
    *   The goal statement.  Modified in place.
+   * @param grain
+   *   The computation granularity, i.e., the maximum number of steps performed
+   *   until a forced context switch.
    * @param handler
    *   (optional) Defaults to a handler that discards the generated results.
    *   The object that handles output as it is generated.
@@ -77,36 +83,27 @@ namespace sprite
    *   Enables debug tracing.
    */
   void execute(
-      Program const & program, Node & goal
+      Program const & program, Node & goal, size_t grain
     , YieldHandler const & handler = YieldHandler_<void>()
     , TraceOption trace=NO_TRACE
     );
 
   inline void execute(
-      Program const & program, Node & goal, TraceOption trace
+      Program const & program, Node & goal, size_t grain, TraceOption trace
     )
-  { execute(program, goal, YieldHandler_<void>(), trace); }
+  { execute(program, goal, grain, YieldHandler_<void>(), trace); }
   
   /// Alternate form of execute; results are written to the given iterator.
   template<typename OutputIterator>
   inline void execute(
-      Program const & pgm, Node & goal, OutputIterator out
-    , TraceOption trace=NO_TRACE
+      Program const & pgm, Node & goal, size_t grain
+    , OutputIterator out, TraceOption trace=NO_TRACE
     )
   {
     YieldHandler_<OutputIterator> handler(out);
-    execute(pgm, goal, static_cast<YieldHandler const &>(handler), trace);
-  }
-
-  /// Traverses an expression and returns true if it is found to be in cnf.
-  inline bool is_norm(Node const & node)
-  {
-    if(!is_ctor(node.tag())) return false;
-
-    BOOST_FOREACH(NodePtr const & child, node.iter())
-      { if(!is_norm(*child)) return false; }
-
-    return true;
+    execute(
+        pgm, goal, grain, static_cast<YieldHandler const &>(handler), trace
+      );
   }
 
   /**
@@ -142,7 +139,17 @@ namespace sprite
     {
       // For operations, call the H function.
       case OPER:
-        return g_program->oper[node.id()](node);
+      {
+        NodePtr tmp(&node);
+        do
+        {
+          // Call the H function.
+          g_program->oper[tmp->id()](*tmp);
+          tmp.remove_fwd();
+        }
+        while(--g_steps && tmp->tag() == OPER);
+      }
+      break;
 
       // For non-constructors, throw.
       case FAIL: case CHOICE: case FWD:

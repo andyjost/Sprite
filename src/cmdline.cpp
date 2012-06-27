@@ -8,6 +8,10 @@ namespace sprite
     namespace opt = boost::program_options;
     opt::options_description desc("Allowed options");
     desc.add_options()
+        ("grain,g"
+           , opt::value<size_t>()->default_value(1000)
+           , "Specifies the granularity (number of steps between context "
+             "switches)")
         ("help,h", "Displays this help message")
         ("trace,t"
            , opt::value<int>()->implicit_value(1)->default_value(0)
@@ -25,6 +29,7 @@ namespace sprite
     }
 
     CmdlineOptions x;
+    x.grain = var["grain"].as<size_t>();
     x.trace = var["trace"].as<int>() ? TRACE : NO_TRACE;
     return x;
   }

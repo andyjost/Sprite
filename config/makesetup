@@ -12,7 +12,7 @@ CC := g++
 ##       Enables memory pooling for nodes and computation steps (the default is
 ##       to use malloc)
 ######
-CFLAGS := -Wall -O0 -ggdb -DSPRITE_USE_POOLING
+CFLAGS := -Wall -O5 -DSPRITE_USE_POOLING -DNDEBUG
 
 ######
 ## Set the linker flags.
