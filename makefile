@@ -37,7 +37,7 @@ $(OBJDIR)/%.o: %.cpp currylib
 # Builds the files under currylib.
 currylib: $(CURRYLIBHEADERS)
 $(CURRYLIBDIR)/%.hpp: states
-	cd currylib && sprite -c $(basename $(notdir $@))
+	cd currylib && ../bin/sprite -c $(basename $(notdir $@))
 
 .PHONY: clean
 clean:

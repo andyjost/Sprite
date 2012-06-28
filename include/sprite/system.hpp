@@ -163,6 +163,18 @@ namespace sprite
       return (out << std::endl);
     }
   };
+
+  /**
+   * @brief An lvalue of type NodePtr that will hold the parent node; used as
+   * the source for pull-tab steps
+   */
+  extern NodePtr g_parent;
+  
+  /**
+   * @brief An lvalue of type NodePtr * that will hold the inductive node; used
+   * as the target for pull-tab steps
+   */
+  extern NodePtr * g_inductive;
 }
 
 /// @brief (private) Expands to [elem].
@@ -181,31 +193,27 @@ namespace sprite
  * inductive node and its parent.  The inductive node is indexed relative to
  * node @p start along path @path.
  *
+ * This macro modifies the global variables g_parent and g_inductive.
+ *
  * @param root
  *     an lvalue of type Node &, which marks the root of the entire expression;
  *     used as the target of rewrite actions
- * @param parent
- *     an lvalue of type NodePtr that will hold the parent node; used as the
- *     source for pull-tab steps
- * @param inductive
- *     an lvalue of type NodePtr * that will hold the inductive node; used
- *     as the target for pull-tab steps
  * @param start
  *     an rvalue of type NodePtr or Node; the node where indexing starts
  * @param path
  *     a preprocessor sequence of path components (size_t) that specifies the
  *     path from @p start to the inductive node; must not be empty
  */
-#define SPRITE_SWITCH_BEGIN(root, parent, inductive, start, path)        \
-    parent = (start) BOOST_PP_SEQ_FOR_EACH(                              \
-        SPRITE_index_step,,BOOST_PP_SEQ_POP_BACK(path)                   \
-      );                                                                 \
-    inductive = &parent [BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path))]; \
-    switch((int)(*inductive)->tag())                                     \
-    {                                                                    \
-      case FAIL: return rewrite_fail(root);                              \
-      case CHOICE: return pull_tab(*parent, *inductive);                 \
-      case OPER: return head_normalize(**inductive);                     \
+#define SPRITE_SWITCH_BEGIN(root, start, path)                               \
+    g_parent = (start) BOOST_PP_SEQ_FOR_EACH(                                \
+        SPRITE_index_step,,BOOST_PP_SEQ_POP_BACK(path)                       \
+      );                                                                     \
+    g_inductive = &g_parent [BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path))]; \
+    switch((int)(*g_inductive)->tag())                                       \
+    {                                                                        \
+      case FAIL: return rewrite_fail(root);                                  \
+      case CHOICE: return pull_tab(*g_parent, *g_inductive);                 \
+      case OPER: return head_normalize(**g_inductive);                       \
     /**/
 
 /// Generates code to close a switch opened by SPRITE_SWITCH_BEGIN.
@@ -221,19 +229,19 @@ namespace sprite
  * This is similar to SPRITE_SWITCH_BEGIN, except that the node value (rather
  * than tag()) is used in the switch.  The type should be either INT or CHAR.
  */
-#define SPRITE_VALUE_SWITCH_BEGIN(type, root, parent, inductive, start, path) \
-    SPRITE_SWITCH_BEGIN(root, parent, inductive, start, path)                 \
-    case type:                                                                \
-    {                                                                         \
-      switch((static_cast<meta::NodeOf<type,-1>::type const &>                \
-          (*inductive)).value()                                               \
-        )                                                                     \
-      {                                                                       \
+#define SPRITE_VALUE_SWITCH_BEGIN(type, root, start, path)     \
+    SPRITE_SWITCH_BEGIN(root, start, path)                     \
+    case type:                                                 \
+    {                                                          \
+      switch((static_cast<meta::NodeOf<type,-1>::type const &> \
+          (*inductive)).value()                                \
+        )                                                      \
+      {                                                        \
     /**/
       
 /// Generates code to close a switch opened by SPRITE_VALUE_SWITCH_BEGIN.
-#define SPRITE_VALUE_SWITCH_END                                              \
-      }                                                                      \
-    }                                                                        \
-    SPRITE_SWITCH_END                                                        \
+#define SPRITE_VALUE_SWITCH_END \
+      }                         \
+    }                           \
+    SPRITE_SWITCH_END           \
     /**/

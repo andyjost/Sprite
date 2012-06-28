@@ -18,6 +18,11 @@ namespace sprite
   boost::pool<> node_allocator(NODE_BYTES);
   #endif
 
+  // Globals used in generated H functions.  g_parent must be declared *after*
+  // node_allocator to ensure the proper static destruction order.
+  NodePtr g_parent;
+  NodePtr * g_inductive;
+
   namespace 
   {
     /// An item in the computation pool.

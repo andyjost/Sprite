@@ -52,9 +52,6 @@ fullCtorName (m,s) = (moduleName m) ++ "::" ++ (ctorName s)
 fullOperName :: LOIS.QName -> String
 fullOperName (m,s) = (moduleName m) ++ "::" ++ (operName s)
 
--- DEBUG
-myFromJust x | isJust x = fromJust x
-             | True = [157]
 {-
     Generates the path to a variable in a definitional tree.  The path returned
     uses zero-based indexing, i.e., the first child has index 0.  Since the
@@ -69,7 +66,7 @@ getPath dtree var = aux dtree
             if (isJust elem) then elem else
                 let path = listToMaybe (catMaybes (map aux tree)) in
                 let this = checkPat pat id in -- must succeed
-                if (isNothing path) then Nothing else Just (myFromJust this ++ myFromJust path)
+                if (isNothing path) then Nothing else Just (fromJust this ++ fromJust path)
         aux (LOIS.Rule pat _) = checkPat pat var
         aux (LOIS.Exempt pat) = checkPat pat var
         aux (LOIS.BuiltIn _) = Nothing
@@ -87,7 +84,7 @@ getPath dtree var = aux dtree
 fmtPathForInit :: LOIS.DefinitionalTree -> Int -> String
 fmtPathForInit dtree var =
   let path = getPath dtree var in
-  "(" ++ (mkString ")(" (map show (myFromJust path))) ++ ")"
+  "(" ++ (mkString ")(" (map show (fromJust path))) ++ ")"
 
 {-
     Gets a path (exactly like getPath) but formats it for output to the Sprite
@@ -96,7 +93,7 @@ fmtPathForInit dtree var =
 fmtPathForLookup :: LOIS.DefinitionalTree -> Int -> String -> String
 fmtPathForLookup dtree var root =
   let path = getPath dtree var in
-  foldl aux root (myFromJust path)
+  foldl aux root (fromJust path)
     where
         aux x i = x ++ "[" ++ (show i) ++ "]"
 
@@ -178,7 +175,9 @@ compile modname (LOIS.OperationDecl (_,s) _ dtree) =
             let path = fmtPathForInit dtree id in
             let idt = indent lvl in
             let (swBegin,swEnd) = switchDelim (tree!!0) in
-            idt ++ swBegin ++ "root, parent, inductive, root, " ++ path ++ ")\n" ++
+            -- DEBUG
+            -- idt ++ swBegin ++ "root, parent, inductive, root, " ++ path ++ ")\n" ++
+            idt ++ swBegin ++ "root, root, " ++ path ++ ")\n" ++
             mkString "\n" (map (aux0 (lvl+1)) tree) ++ "\n" ++
             idt ++ swEnd ++ "\n"
 
@@ -198,7 +197,9 @@ compile modname (LOIS.OperationDecl (_,s) _ dtree) =
         aux0 lvl r@(LOIS.Branch pat _ _ _) =
             if lvl == 0 then
                 -- Declare the local variables and generate a top-level switch.
-                (indent lvl) ++ "NodePtr parent, *inductive;\n" ++ switch lvl r
+                -- DEBUG
+                -- (indent lvl) ++ "NodePtr parent, *inductive;\n" ++ switch lvl r
+                switch lvl r
               else
                 -- Generate a nested switch, indented.
                 caseBegin lvl pat ++ "\n" ++
