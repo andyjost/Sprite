@@ -24,6 +24,9 @@ $(EXE) : $(MAIN_SOURCE:.cpp=.o)
 # Build the module headers only.
 modules : $(HEADERS)
 
+# Perform translation, but don't compile anything.
+sources : $(HEADERS) $(MAIN_SOURCE)
+
 # Translates FlatCurry to C++
 # pakcs -q -r $(SPRITE_HOME)/tools/FlatCurryToSprite.curry $< $@
 %.hpp: %.fcy

@@ -3,11 +3,12 @@
 set -e
 
 usage() {
-  echo "Usage: sprite [-B|-c|-h|-r|-t] curryfile"
+  echo "Usage: sprite [-B|-c|-h|-r|-s|-t|-T] curryfile"
   echo "    -B  Unconditionally rebuilds everything (cf. make)"
   echo "    -c  Compiles the file as a module"
   echo "    -h  Displays this help message"
   echo "    -r  Runs the program after a successful build"
+  echo "    -s  Translates the source files then exits"
   echo "    -t  Enables trace when running the program"
   echo "    -T  Execute under the \time builtin (implies -r)"
 }
@@ -15,10 +16,11 @@ usage() {
 COMPILEONLY=0
 REBUILD=0
 RUN=0
+SOURCES=0
 TRACE=
 TIME=
 
-while getopts "BchrtT" OPTION
+while getopts "BchrstT" OPTION
 do
   case $OPTION in
     B)
@@ -33,6 +35,9 @@ do
       ;;
     r)
       RUN=1
+      ;;
+    s)
+      SOURCES=1
       ;;
     t)
       TRACE="--trace"
@@ -54,6 +59,8 @@ if [ "$#" != "1" ]; then
   usage
   exit 1
 fi
+
+# TODO: if more than one of -c -r -s is set, then raise error.
 
 if [ -z "${SPRITE_HOME:-}" ]; then
   SPRITE_HOME=`(cd "\`dirname \"$0\"\`" > /dev/null ; cd ..; pwd)`
@@ -99,7 +106,11 @@ sleep 1
 
 # 3. Build
 cd .sprite
-if [ "$COMPILEONLY" -eq 0 ]; then
+if [ "$SOURCES" -ne 0 ]; then
+  # Generate source files.
+  $SPRITE_HOME/config/makecmd sources
+  exit
+elif [ "$COMPILEONLY" -eq 0 ]; then
   # Compile the executable.
   $SPRITE_HOME/config/makecmd
   mv $SRC ..

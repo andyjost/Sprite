@@ -36,9 +36,15 @@ $(OBJDIR)/%.o: %.cpp currylib
 
 # Builds the files under currylib.
 currylib: $(CURRYLIBHEADERS)
-$(CURRYLIBDIR)/%.hpp: states
+$(CURRYLIBDIR)/%.hpp: $(STATES)
 	cd currylib && ../bin/sprite -c $(basename $(notdir $@))
 
 .PHONY: clean
 clean:
 	rm -rf $(OBJDIR) tools/*.state lib/libsprite.a currylib/.sprite
+
+# This target is intended to leave things that require pakcs so that a build
+# can be moved to a machine that has no packs installed.
+.PHONY: cleancpp
+cleancpp:
+	rm -rf $(OBJDIR) lib/libsprite.a
