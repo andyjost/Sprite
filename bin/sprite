@@ -68,15 +68,21 @@ if [ "$REBUILD" -eq 1 ]; then
   rm -rf .curry .sprite
 fi
 
+DIR=$(dirname $1)
+SRC=$(basename $1 ".curry")
+
+# 0.5.  Change to compilation directory
+cd $DIR
+
 # 1. Parse the curry module (and all dependent modules)
-parsecurry --flat $1
+parsecurry --flat $SRC
 
 # 2. Generate the makefile
 mkdir -p .sprite
 cat > .sprite/makefile <<EOF
-MODULES := $1
-MAIN_MODULE := $1
-EXE := $1
+MODULES := $SRC
+MAIN_MODULE := $SRC
+EXE := $SRC
 
 include \$(SPRITE_HOME)/config/makefile
 
@@ -90,7 +96,7 @@ cd .sprite
 if [ "$COMPILEONLY" -eq 0 ]; then
   # Compile the executable.
   $SPRITE_HOME/config/makecmd
-  mv $1 ..
+  mv $SRC ..
 else
   # Create the headers only.
   $SPRITE_HOME/config/makecmd modules
@@ -99,6 +105,6 @@ cd ..
 
 # 4. Execute
 if [ "$RUN" -ne 0 ]; then
-  ./$1 $TRACE
+  ./$SRC $TRACE
 fi
 
