@@ -9,14 +9,16 @@ usage() {
   echo "    -h  Displays this help message"
   echo "    -r  Runs the program after a successful build"
   echo "    -t  Enables trace when running the program"
+  echo "    -T  Execute under the \time builtin (implies -r)"
 }
 
 COMPILEONLY=0
 REBUILD=0
 RUN=0
 TRACE=
+TIME=
 
-while getopts "Bchrt" OPTION
+while getopts "BchrtT" OPTION
 do
   case $OPTION in
     B)
@@ -34,6 +36,10 @@ do
       ;;
     t)
       TRACE="--trace"
+      ;;
+    T)
+      TIME="time"
+      RUN=1
       ;;
     ?)
       usage
@@ -105,6 +111,7 @@ cd ..
 
 # 4. Execute
 if [ "$RUN" -ne 0 ]; then
-  ./$SRC $TRACE
+  echo "Executing $SRC..."
+  $TIME ./$SRC $TRACE
 fi
 
