@@ -13,21 +13,21 @@ namespace
   using namespace sprite;
 
   /// Rewrites a node to FAIL.
-  void op_failed(Node & node) { return rewrite_fail(node); }
+  bool op_failed() { rewrite_fail(*g_redex); return false; }
 
   /// Rewrites a node to Prelude.True.
-  inline void rewrite_true(Prelude const & prelude, Node & node)
+  inline void rewrite_true()
   {
     return rewrite_ctor(
-        node, user::m_13SpritePrelude::c_4True, prelude.cl_4True
+        *g_redex, user::m_13SpritePrelude::c_4True, ((Prelude *)g_context)->cl_4True
       );
   }
 
   /// Rewrites a node to Prelude.False.
-  inline void rewrite_false(Prelude const & prelude, Node & node)
+  inline void rewrite_false()
   {
     return rewrite_ctor(
-        node, user::m_13SpritePrelude::c_5False, prelude.cl_5False
+        *g_redex, user::m_13SpritePrelude::c_5False, ((Prelude *)g_context)->cl_5False
       );
   }
 
@@ -109,17 +109,15 @@ namespace
     GuardedExecute() {}
 
     template<typename T>
-    void operator()(
-        Prelude const &, Node & out, T const & lhs, T const & rhs
-      ) const
+    void operator()(T const & lhs, T const & rhs) const
     {
       static typename GuardOf<Op>::type const guard;
       static UnguardedExecute<Op> const exec;
 
       if(guard(lhs,rhs))
-        { rewrite<meta::TagValueOf<Op>::value>()(out, exec(lhs,rhs)); }
+        { rewrite<meta::TagValueOf<Op>::value>()(*g_redex, exec(lhs,rhs)); }
       else
-        { rewrite_fail(out); }
+        { rewrite_fail(*g_redex); }
     }
   };
 
@@ -134,9 +132,7 @@ namespace
     GuardedExecute() {}
 
     template<typename T>
-    void operator()(
-        Prelude const & prelude, Node & out, T const & lhs, T const & rhs
-      ) const
+    void operator()(T const & lhs, T const & rhs) const
     {
       static typename GuardOf<Op>::type const guard;
       static UnguardedExecute<Op> const exec;
@@ -144,12 +140,12 @@ namespace
       if(guard(lhs,rhs))
       {
         if(exec(lhs,rhs))
-          { rewrite_true(prelude, out); }
+          { rewrite_true(); }
         else
-          { rewrite_false(prelude, out); }
+          { rewrite_false(); }
       }
       else
-        { rewrite_fail(out); }
+        { rewrite_fail(*g_redex); }
     }
   };
 
@@ -165,13 +161,6 @@ namespace
    */
   template<BuiltinOp Op> struct BuiltinImpl<Op,false> : static_visitor<void>
   {
-    BuiltinImpl(Prelude const & prelude, Node & node)
-      : m_prelude(prelude), m_out(node)
-    {}
-  private:
-    Prelude const & m_prelude;
-    Node & m_out;
-
     /// Determine the node type for this Op.
     typedef typename meta::TagValueOf<Op>::type TagType;
     typedef typename meta::NodeOf<TagType::value>::type NodeType;
@@ -180,7 +169,7 @@ namespace
     void operator()(NodeType const & lhs, NodeType const & rhs) const
     {
       static GuardedExecute<Op> const exec;
-      exec(m_prelude, m_out, lhs.payload.value, rhs.payload.value);
+      exec(lhs.payload.value, rhs.payload.value);
     }
 
     /// Handles cases where the argument nodes do not have the expected type.
@@ -200,20 +189,13 @@ namespace
    */
   template<BuiltinOp Op> struct BuiltinImpl<Op,true> : static_visitor<void>
   {
-    BuiltinImpl(Prelude const & prelude, Node & node)
-      : m_prelude(prelude), m_out(node)
-    {}
-  private:
-    Prelude const & m_prelude;
-    Node & m_out;
-  public:
     /// Handles valid cases.
     template<typename Payload>
     typename enable_if<meta::IsBuiltinPayload<Payload>, void>::type
     operator()(Node_<Payload> const & lhs, Node_<Payload> const & rhs) const
     {
       static GuardedExecute<Op> const exec;
-      exec(m_prelude, m_out, lhs.payload.value, rhs.payload.value);
+      exec(lhs.payload.value, rhs.payload.value);
     }
 
     /// Handles cases where the argument nodes do not have the expected type.
@@ -232,7 +214,7 @@ namespace
   /**
    * @brief Dispatches a built-in operation.
    *
-   * Evaluates the operation and rewrites the node with the result.
+   * Evaluates the operation and rewrites the node g_redex with the result.
    */
   template<BuiltinOp Op, size_t Arity=meta::ArityOf<Op>::value>
     struct Dispatch;
@@ -240,58 +222,61 @@ namespace
   /// Dispatches a unary built-in operation.
   template<BuiltinOp Op> struct Dispatch<Op,1>
   {
-    void operator()(Prelude const & prelude, Node & node)
+    void operator()() const
     {
-      assert(node.arity() == 1);
-      return visit(BuiltinImpl<Op>(prelude, node), *node[0]);
+      assert(g_redex->arity() == 1);
+      return visit(BuiltinImpl<Op>(), *(*g_redex)[0]);
     }
   };
 
   /// Dispatches a binary built-in operation.
   template<BuiltinOp Op> struct Dispatch<Op,2>
   {
-    void operator()(Prelude const & prelude, Node & node)
+    void operator()()
     {
-      assert(node.arity() == 2);
-      return visit(BuiltinImpl<Op>(prelude, node), *node[0], *node[1]);
+      assert(g_redex->arity() == 2);
+      return visit(BuiltinImpl<Op>(), *(*g_redex)[0], *(*g_redex)[1]);
     }
   };
 }
 
 namespace sprite
 {
-  // ====== h_func ======
+  // ====== builtin_h_func ======
 
   /// Implements the H function for a built in operation.
-  template<BuiltinOp Op> void h_func(Prelude const & prelude, Node & node)
+  template<BuiltinOp Op> bool builtin_h_func()
   {
     // H.4 TODO
     // Q. can this just check against CTOR?
     // Q. how can this be needed?  The only call is from head_normalize.
-    if(is_ctor(node.tag())) return;
+    if(is_ctor(g_redex->tag())) return false;
   
-    BOOST_FOREACH(NodePtr & child, node.iter())
+    BOOST_FOREACH(NodePtr & child, g_redex->iter())
     {
       switch(child->tag())
       {
         // H.1 TODO
-        case CHOICE: return pull_tab(node, child);
+        case CHOICE: pull_tab(*g_redex, child); return false;
         // H.5 TODO
-        case FAIL: return rewrite_fail(node);
+        case FAIL: rewrite_fail(*g_redex); return false;
         // H.2 TODO
-        case OPER: return head_normalize(*child);
+        case OPER: // head_normalize(*child); return false;
+          g_inductive = &child;
+          return true;
         default:;
       }
     }
   
     #ifndef NDEBUG
-    BOOST_FOREACH(NodePtr const & child, node.iter())
+    BOOST_FOREACH(NodePtr const & child, g_redex->iter())
       { assert(is_builtin(child->tag())); }
     #endif
   
     // H.3 TODO
-    // Compute the result and rewrite the node.
-    Dispatch<Op>()(prelude, node);
+    // Compute the result and rewrite the redex.
+    Dispatch<Op>()();
+    return false;
   }
 }
 namespace sprite
@@ -304,22 +289,22 @@ namespace sprite
     // their indices are known and can be accessed through the corresponding
     // enum values.  The order here must match the declaration order in enum
     // BuiltinOp.
-    this->insert_oper("OP_FAILED", &op_failed);
-    this->insert_oper("<", 0);   // Comparison
-    this->insert_oper("<=", 0);
-    this->insert_oper("==", 0);
-    this->insert_oper("/=", 0);
-    this->insert_oper(">=", 0);
-    this->insert_oper(">", 0);
-    this->insert_oper("+", 0);   // Integer
-    this->insert_oper("-", 0);
-    this->insert_oper("*", 0);
-    this->insert_oper("div", 0);
-    this->insert_oper("mod", 0);
-    this->insert_oper("+", 0);   // Float
-    this->insert_oper("-", 0);
-    this->insert_oper("*", 0);
-    this->insert_oper("/", 0);
+    this->insert_oper("OP_FAILED", HFunc(&op_failed));
+    this->insert_oper("<");   // Comparison
+    this->insert_oper("<=");
+    this->insert_oper("==");
+    this->insert_oper("/=");
+    this->insert_oper(">=");
+    this->insert_oper(">");
+    this->insert_oper("+");   // Integer
+    this->insert_oper("-");
+    this->insert_oper("*");
+    this->insert_oper("div");
+    this->insert_oper("mod");
+    this->insert_oper("+");   // Float
+    this->insert_oper("-");
+    this->insert_oper("*");
+    this->insert_oper("/");
 
     // Add the built-in constructors.  Each one has an expected (fixed) id.
     #define F(label, id)                                                    \
@@ -347,21 +332,21 @@ namespace sprite
     m_imported["Prelude"] = prelude;
 
     // Now, update the arithmetic H functions, which require the prelude.
-    oper[OP_LT] = tr1::bind(&h_func<OP_LT>, *prelude, _1);
-    oper[OP_LE] = tr1::bind(&h_func<OP_LE>, *prelude, _1);
-    oper[OP_EQ] = tr1::bind(&h_func<OP_EQ>, *prelude, _1);
-    oper[OP_NE] = tr1::bind(&h_func<OP_NE>, *prelude, _1);
-    oper[OP_GE] = tr1::bind(&h_func<OP_GE>, *prelude, _1);
-    oper[OP_GT] = tr1::bind(&h_func<OP_GT>, *prelude, _1);
-    oper[OP_INT_ADD] = tr1::bind(&h_func<OP_INT_ADD>, *prelude, _1);
-    oper[OP_INT_SUB] = tr1::bind(&h_func<OP_INT_SUB>, *prelude, _1);
-    oper[OP_INT_MUL] = tr1::bind(&h_func<OP_INT_MUL>, *prelude, _1);
-    oper[OP_INT_DIV] = tr1::bind(&h_func<OP_INT_DIV>, *prelude, _1);
-    oper[OP_INT_MOD] = tr1::bind(&h_func<OP_INT_MOD>, *prelude, _1);
-    oper[OP_FLOAT_ADD] = tr1::bind(&h_func<OP_FLOAT_ADD>, *prelude, _1);
-    oper[OP_FLOAT_SUB] = tr1::bind(&h_func<OP_FLOAT_SUB>, *prelude, _1);
-    oper[OP_FLOAT_MUL] = tr1::bind(&h_func<OP_FLOAT_MUL>, *prelude, _1);
-    oper[OP_FLOAT_DIV] = tr1::bind(&h_func<OP_FLOAT_DIV>, *prelude, _1);
+    oper[OP_LT] = HFunc(prelude.get(), &builtin_h_func<OP_LT>);
+    oper[OP_LE] = HFunc(prelude.get(), &builtin_h_func<OP_LE>);
+    oper[OP_EQ] = HFunc(prelude.get(), &builtin_h_func<OP_EQ>);
+    oper[OP_NE] = HFunc(prelude.get(), &builtin_h_func<OP_NE>);
+    oper[OP_GE] = HFunc(prelude.get(), &builtin_h_func<OP_GE>);
+    oper[OP_GT] = HFunc(prelude.get(), &builtin_h_func<OP_GT>);
+    oper[OP_INT_ADD] = HFunc(prelude.get(), &builtin_h_func<OP_INT_ADD>);
+    oper[OP_INT_SUB] = HFunc(prelude.get(), &builtin_h_func<OP_INT_SUB>);
+    oper[OP_INT_MUL] = HFunc(prelude.get(), &builtin_h_func<OP_INT_MUL>);
+    oper[OP_INT_DIV] = HFunc(prelude.get(), &builtin_h_func<OP_INT_DIV>);
+    oper[OP_INT_MOD] = HFunc(prelude.get(), &builtin_h_func<OP_INT_MOD>);
+    oper[OP_FLOAT_ADD] = HFunc(prelude.get(), &builtin_h_func<OP_FLOAT_ADD>);
+    oper[OP_FLOAT_SUB] = HFunc(prelude.get(), &builtin_h_func<OP_FLOAT_SUB>);
+    oper[OP_FLOAT_MUL] = HFunc(prelude.get(), &builtin_h_func<OP_FLOAT_MUL>);
+    oper[OP_FLOAT_DIV] = HFunc(prelude.get(), &builtin_h_func<OP_FLOAT_DIV>);
   }
 
   size_t Program::insert_ctor(std::string const & name)
@@ -371,7 +356,7 @@ namespace sprite
     return ctor_label.size() - 1;
   }
 
-  size_t Program::insert_oper(std::string const & name, h_func_type h)
+  size_t Program::insert_oper(std::string const & name, HFunc h)
   {
     // TODO: find name collisions?
     assert(oper.size() == oper_label.size());
@@ -381,7 +366,7 @@ namespace sprite
     return oper_label.size() - 1;
   }
 
-  size_t Module::install_oper(std::string const & label, h_func_type const & h)
+  size_t Module::install_oper(std::string const & label, HFunc const & h)
   {
     // Register the operation with the program.
     size_t const id = m_pgm.insert_oper(label, h);

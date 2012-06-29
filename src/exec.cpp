@@ -12,6 +12,8 @@ namespace sprite
   // Documented in the header.
   Program const * g_program = NULL;
   size_t g_steps;
+  void const * g_context;
+  Node * g_redex;
 
   #ifdef SPRITE_USE_POOLING
   /// Global memory pool for allocating nodes.
@@ -125,6 +127,9 @@ namespace sprite
     , YieldHandler const & out, TraceOption trace
     )
   {
+    if(grain==0)
+      throw RuntimeError("a granularity of zero steps was specified");
+
     // Set the global program pointer and then restore it when this scope
     // exits.
     Program const * _p = &pgm;
@@ -134,9 +139,6 @@ namespace sprite
     // If tracing, set the output program.  Restore the old value when this
     // scope exits.
     Program const * _pp = manipulators::detail::pgm_data(std::cout);
-
-    if(grain==0)
-      throw RuntimeError("a granularity of zero steps was specified");
 
     if(trace)
       std::cout << setprogram(pgm);

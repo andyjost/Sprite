@@ -16,8 +16,38 @@ namespace sprite
 {
   struct Node;
 
+  extern void const * g_context;
+  extern Node * g_redex;
+
   /// The type of an H function.
-  typedef tr1::function<void(Node &)> h_func_type;
+  // DEBUG
+  // typedef tr1::function<void(Node &)> h_func_type;
+
+  struct HFunc
+  {
+    // Null H function or one with no context.
+    explicit HFunc(bool (*fp_)() = 0)
+      : context(0), fp(fp_)
+    {
+    }
+
+    // H function with context.
+    template<typename T>
+    HFunc(T const * context_, bool (*fp_)())
+      : context(reinterpret_cast<void const *>(context_)), fp(fp_)
+    {
+    }
+
+    bool operator()(Node & node) const
+    {
+      g_context = context;
+      g_redex = &node;
+      return fp();
+    }
+  private:
+    void const * context;
+    bool (*fp)();
+  };
 
   struct Program;
 
@@ -57,6 +87,7 @@ namespace sprite
     Program & get_program() const { return m_pgm; }
   
     /// Installs an operation as a member function.
+    #if 0
     template<typename Derived>
     size_t install_oper(
         std::string const & label, void (Derived::*memfun)(Node &) const
@@ -67,9 +98,10 @@ namespace sprite
         , tr1::bind<void>(memfun, static_cast<Derived *>(this), _1)
         );
     }
+    #endif
 
     /// Installs an operation as an h_func_type.
-    size_t install_oper(std::string const & label, h_func_type const & h);
+    size_t install_oper(std::string const & label, HFunc const & h);
   
     /// Installs a constructor.
     size_t install_ctor(std::string const & label);
@@ -126,7 +158,7 @@ namespace sprite
     }
 
     /// Type of a dynamically-sized table of H functions.
-    typedef std::vector<h_func_type> oper_t;
+    typedef std::vector<HFunc> oper_t;
 
     /// The table of H functions.
     oper_t oper;
@@ -144,7 +176,7 @@ namespace sprite
     size_t insert_ctor(std::string const & name);
 
     /// Add an operation to the program definition.
-    size_t insert_oper(std::string const & name, h_func_type h);
+    size_t insert_oper(std::string const & name, HFunc=HFunc());
 
     template<typename Stream>
     friend Stream & operator<<(Stream & out, Program const & pgm)
@@ -195,25 +227,22 @@ namespace sprite
  *
  * This macro modifies the global variables g_parent and g_inductive.
  *
- * @param root
- *     an lvalue of type Node &, which marks the root of the entire expression;
- *     used as the target of rewrite actions
  * @param start
  *     an rvalue of type NodePtr or Node; the node where indexing starts
  * @param path
  *     a preprocessor sequence of path components (size_t) that specifies the
  *     path from @p start to the inductive node; must not be empty
  */
-#define SPRITE_SWITCH_BEGIN(root, start, path)                               \
+#define SPRITE_SWITCH_BEGIN(start, path)                                     \
     g_parent = (start) BOOST_PP_SEQ_FOR_EACH(                                \
         SPRITE_index_step,,BOOST_PP_SEQ_POP_BACK(path)                       \
       );                                                                     \
     g_inductive = &g_parent [BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path))]; \
     switch((int)(*g_inductive)->tag())                                       \
     {                                                                        \
-      case FAIL: return rewrite_fail(root);                                  \
-      case CHOICE: return pull_tab(*g_parent, *g_inductive);                 \
-      case OPER: return head_normalize(**g_inductive);                       \
+      case FAIL: rewrite_fail(*g_redex); return false;                       \
+      case CHOICE: pull_tab(*g_parent, *g_inductive); return false;          \
+      case OPER: return true;                                                \
     /**/
 
 /// Generates code to close a switch opened by SPRITE_SWITCH_BEGIN.
@@ -229,8 +258,8 @@ namespace sprite
  * This is similar to SPRITE_SWITCH_BEGIN, except that the node value (rather
  * than tag()) is used in the switch.  The type should be either INT or CHAR.
  */
-#define SPRITE_VALUE_SWITCH_BEGIN(type, root, start, path)     \
-    SPRITE_SWITCH_BEGIN(root, start, path)                     \
+#define SPRITE_VALUE_SWITCH_BEGIN(type, start, path)           \
+    SPRITE_SWITCH_BEGIN(start, path)                           \
     case type:                                                 \
     {                                                          \
       switch((static_cast<meta::NodeOf<type,-1>::type const &> \

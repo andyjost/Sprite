@@ -9,6 +9,7 @@
 #include "sprite/node.hpp"
 #include "sprite/rewrite.hpp"
 #include "sprite/system.hpp"
+#include <stack>
 
 namespace sprite
 {
@@ -129,7 +130,7 @@ namespace sprite
    * @brief The head-normalizing (H) function from the fair scheme.
    *
    * This is a generic H function that dispatches to the correct implementation
-   * for the given operation.  The H.6 rule, which ignors constructor-rooted
+   * for the given operation.  The H.6 rule, which ignores constructor-rooted
    * expressions, is implemented here so that user-compiled H rules can ignore
    * it.
    */
@@ -144,10 +145,21 @@ namespace sprite
         do
         {
           // Call the H function.
-          g_program->oper[tmp->id()](*tmp);
-          tmp.remove_fwd();
+          if(g_program->oper[tmp->id()](*tmp))
+          {
+            // The H function returns true if a recusive call to head_normalize
+            // (on the most recent inductive position) is required.  Returning
+            // here first make better use of the stack, since the generated H
+            // functions have enormous stack frames.
+            head_normalize(**g_inductive);
+          }
+          else
+          {
+            --g_steps;
+            tmp.remove_fwd();
+          }
         }
-        while(--g_steps && tmp->tag() == OPER);
+        while(g_steps && tmp->tag() == OPER);
       }
       break;
 
@@ -169,33 +181,36 @@ namespace sprite
   {
     switch(node.tag())
     {
-      case OPER:
-        return head_normalize(node);
+      // N.4
+      case OPER: return head_normalize(node);
 
-      case INT: // Always a cnf.
-      case FLOAT: // Always a cnf.
-      case CHAR: // Always a cnf.
-        return;
+      // N.3 (always a cnf.)
+      case INT: case FLOAT: case CHAR: return;
 
       default:
       {
-        // TODO: must rewrite this section to match the paper.
-        // In particular, the choice and fail rules must be applied
-        // BEFORE any recursive calls to fair_normalize.
+        // N.1
+        // Borrow g_inductive to point to the first choice child.
+        g_inductive = 0;
         BOOST_FOREACH(NodePtr & child, node.iter())
         {
           switch(child->tag())
           {
             case FAIL: return rewrite_fail(node);
-            case OPER: head_normalize(*child); break;
-            case CHOICE: return pull_tab(node, child);
-            case INT: case FLOAT: case CHAR: break;
+            case CHOICE: if(!g_inductive) g_inductive = &child;
             case FWD: throw RuntimeError("Unexpected FWD node.");
-            default: case CTOR:
-              assert(child->tag() >= CTOR);
-              fair_normalize(fp, *child);
+            case INT: case FLOAT: case CHAR: break;
+            case CTOR: default:; // pass
           }
         }
+
+        // N.2
+        // g_inductive was set to the first choice encountered in the children.
+        if(g_inductive) return pull_tab(node, *g_inductive);
+
+        // N.3
+        BOOST_FOREACH(NodePtr & child, node.iter())
+          { fair_normalize(fp, *child); }
       }
     }
   }
