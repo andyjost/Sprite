@@ -12,6 +12,8 @@ namespace sprite
   // Documented in the header.
   Program const * g_program = NULL;
   size_t g_steps;
+  void const * g_context;
+  Node * g_redex;
 
   #ifdef SPRITE_USE_POOLING
   /// Global memory pool for allocating nodes.

@@ -98,16 +98,19 @@ fmtPathForLookup dtree var root =
         aux x i = x ++ "[" ++ (show i) ++ "]"
 
 -- Returns an symbol name.
-symName modname (LOIS.OperationSym (q,n)) =
-    qualifyName modname q "->" (operName n)
-symName modname (LOIS.ConstructorSym (q,n)) =
-    qualifyName modname q "::" (ctorName n)
+symName modname (LOIS.OperationSym (q,n)) = qualifyName2 modname q (operName n)
+symName modname (LOIS.ConstructorSym (q,n)) = qualifyName modname q (ctorName n)
 
--- Qualify a symbol name (the symbol is already mangled, so mangle the module
--- name and prepend it).
-qualifyName modname mod sep sym
+-- Qualify a symbol name by mangling and prepending the module name, but only
+-- if the module name is not the current module.
+qualifyName modname mod sym
     | modname == mod = sym
-    | True           = (moduleName mod) ++ sep ++ sym
+    | True           = (moduleName mod) ++ "::" ++ sym
+
+-- Qualify a symbol name by referencing it through the global context pointer.
+qualifyName2 modname mod sym
+    | modname == mod = "((Module *)g_context)->" ++ sym
+    | True           = "((Module *)g_context)->" ++ (moduleName mod) ++ "->" ++ sym
 
 -- Returns the symbol info for rewriting (or creating).
 symRewriteHead modname (LOIS.OperationSym qn@(q,n)) = aux
@@ -123,7 +126,7 @@ symRewriteHead modname (LOIS.OperationSym qn@(q,n)) = aux
             | qn == ("Prelude","/=") = "OP_NE"
             | qn == ("Prelude",">=") = "OP_GE"
             | qn == ("Prelude",">") = "OP_GT"
-            | True = qualifyName modname q "->" (operName n)
+            | True = qualifyName2 modname q (operName n)
 
 symRewriteHead modname (LOIS.ConstructorSym qn@(q,n)) = aux
     where
@@ -137,8 +140,8 @@ symRewriteHead modname (LOIS.ConstructorSym qn@(q,n)) = aux
             | qn == ("Prelude","(,,,,,,,,)") = "C_TUPLE9, CL_TUPLE9"
             | qn == ("Prelude",":") = "C_CONS, CL_CONS"
             | qn == ("Prelude","[]") = "C_NIL, CL_NIL"
-            | True = qualifyName modname q "::" (ctorName n) ++ ", " ++
-                     qualifyName modname q "->" (ctorLabelName n)
+            | True = qualifyName modname q (ctorName n) ++ ", " ++
+                     qualifyName2 modname q (ctorLabelName n)
 
 -- Looks up a symbol name.
 symLookup modname (LOIS.NodePattern p _) = symName modname p
@@ -150,7 +153,7 @@ symLookup _ (LOIS.LitPattern (LOIS.LChar x)) = "'" ++ show x ++ "'"
 -- Compiles an operation definition into Sprite C++ code.
 compile :: String -> LOIS.OperationDecl -> String
 compile modname (LOIS.OperationDecl (_,s) _ dtree) =
-    "    void " ++ (hfuncName s) ++ "(Node & root) const \n" ++
+    "    static void " ++ (hfuncName s) ++ "()\n" ++
     "    {                                               \n" ++
     (aux0 0 dtree) ++
     "    }                                               \n" ++
@@ -177,7 +180,7 @@ compile modname (LOIS.OperationDecl (_,s) _ dtree) =
             let (swBegin,swEnd) = switchDelim (tree!!0) in
             -- DEBUG
             -- idt ++ swBegin ++ "root, parent, inductive, root, " ++ path ++ ")\n" ++
-            idt ++ swBegin ++ "root, root, " ++ path ++ ")\n" ++
+            idt ++ swBegin ++ "(*g_redex), " ++ path ++ ")\n" ++
             mkString "\n" (map (aux0 (lvl+1)) tree) ++ "\n" ++
             idt ++ swEnd ++ "\n"
 
@@ -206,8 +209,8 @@ compile modname (LOIS.OperationDecl (_,s) _ dtree) =
                 switch (lvl+1) r ++
                 caseEnd lvl
         aux0 lvl (LOIS.Rule pat expr) = caseBegin lvl pat ++ aux1 True expr ++ caseEnd lvl
-        aux0 lvl (LOIS.Exempt pat) = caseBegin lvl pat ++ "return rewrite_fail(root);" ++ caseEnd lvl
-        aux0 lvl (LOIS.BuiltIn name) = indent lvl ++ "return rewrite_oper(root, " ++ aux2 ++ ");\n"
+        aux0 lvl (LOIS.Exempt pat) = caseBegin lvl pat ++ "return rewrite_fail();" ++ caseEnd lvl
+        aux0 lvl (LOIS.BuiltIn name) = indent lvl ++ "return rewrite_oper(*g_redex, " ++ aux2 ++ ");\n"
             where
                 aux2 | name == "SpritePrelude.failed" = "OP_FAILED"
                      | True = failed
@@ -219,29 +222,29 @@ compile modname (LOIS.OperationDecl (_,s) _ dtree) =
             (in the same expression) just create a node.
          -}
         aux1 first (LOIS.Variable id) =
-            let body = fmtPathForLookup dtree id "root" in
+            let body = fmtPathForLookup dtree id "(*g_redex)" in
             if first then
-                "return rewrite_fwd(root, " ++ body ++ ");"
+                "return rewrite_fwd(*g_redex, " ++ body ++ ");"
               else
                 body
 
         aux1 first (LOIS.Node sym exprs) =
             let body = symRewriteHead modname sym ++ mkStringTrailing ", " (map (aux1 False) exprs) in
             if first then
-                "return " ++ (symRewrite sym) ++ "(root, " ++ body ++ ");"
+                "return " ++ (symRewrite sym) ++ "(*g_redex, " ++ body ++ ");"
               else
                 (symCreate sym) ++ "(" ++ body ++ ")"
 
         aux1 first (LOIS.Choice lhs rhs) =
             let body = aux1 False lhs ++ ", " ++ aux1 False rhs in
             if first then
-                "return rewrite_choice(root, " ++ body ++ ");"
+                "return rewrite_choice(*g_redex, " ++ body ++ ");"
               else
                 "Node::create<CHOICE>(" ++ body ++ ")"
 
-        aux1 True (LOIS.LitNode (LOIS.LInt x)) = "return rewrite_int(root, " ++ show x ++ ");"
-        aux1 True (LOIS.LitNode (LOIS.LChar x)) = "return rewrite_char(root, " ++ show x ++ ");"
-        aux1 True (LOIS.LitNode (LOIS.LFloat x)) = "return rewrite_float(root, " ++ show x ++ ");"
+        aux1 True (LOIS.LitNode (LOIS.LInt x)) = "return rewrite_int(*g_redex, " ++ show x ++ ");"
+        aux1 True (LOIS.LitNode (LOIS.LChar x)) = "return rewrite_char(*g_redex, " ++ show x ++ ");"
+        aux1 True (LOIS.LitNode (LOIS.LFloat x)) = "return rewrite_float(*g_redex, " ++ show x ++ ");"
 
         aux1 False (LOIS.LitNode (LOIS.LInt x)) = "Node::create<INT>(" ++ show x ++ ")"
         aux1 False (LOIS.LitNode (LOIS.LChar x)) = "Node::create<CHAR>(" ++ show x ++ ")"
@@ -317,7 +320,7 @@ translate fh modname' (LOIS.Program _ types' opers') = do
           operDecl (LOIS.OperationDecl (_,s) _ _) = "size_t " ++ operName s ++ ";"
 
           operInstall (LOIS.OperationDecl (_,s) _ _) = 
-              (operName s) ++ " = install_oper(\"" ++ s ++ "\", &Module::" ++ (hfuncName s) ++ ");"
+              (operName s) ++ " = install_oper(\"" ++ s ++ "\", HFunc(this, &Module::" ++ (hfuncName s) ++ "));"
 
           ctorInstall (LOIS.TypeDecl _ ctors) = map aux ctors
               where
