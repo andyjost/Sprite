@@ -1,5 +1,6 @@
 #include "sprite/cmdline.hpp"
 #include <boost/program_options.hpp>
+#include <iostream>
 
 namespace sprite
 {
@@ -31,6 +32,15 @@ namespace sprite
     CmdlineOptions x;
     x.grain = var["grain"].as<size_t>();
     x.trace = var["trace"].as<int>() ? TRACE : NO_TRACE;
+
+    if(x.trace && x.grain != 1)
+    {
+      std::cout
+        << "Overriding --grain from " << x.grain
+        << " to 1 because tracing was enabled"
+        << std::endl;
+      x.grain = 1;
+    }
     return x;
   }
 }
