@@ -26,19 +26,19 @@ namespace sprite
   struct HFunc
   {
     // Null H function or one with no context.
-    explicit HFunc(void (*fp_)() = 0)
+    explicit HFunc(bool (*fp_)() = 0)
       : context(0), fp(fp_)
     {
     }
 
     // H function with context.
     template<typename T>
-    HFunc(T const * context_, void (*fp_)())
+    HFunc(T const * context_, bool (*fp_)())
       : context(reinterpret_cast<void const *>(context_)), fp(fp_)
     {
     }
 
-    void operator()(Node & node) const
+    bool operator()(Node & node) const
     {
       g_context = context;
       g_redex = &node;
@@ -46,7 +46,7 @@ namespace sprite
     }
   private:
     void const * context;
-    void (*fp)();
+    bool (*fp)();
   };
 
   struct Program;
@@ -240,9 +240,9 @@ namespace sprite
     g_inductive = &g_parent [BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path))]; \
     switch((int)(*g_inductive)->tag())                                       \
     {                                                                        \
-      case FAIL: return rewrite_fail(*g_redex);                              \
-      case CHOICE: return pull_tab(*g_parent, *g_inductive);                 \
-      case OPER: return head_normalize(**g_inductive);                       \
+      case FAIL: rewrite_fail(*g_redex); return false;                       \
+      case CHOICE: pull_tab(*g_parent, *g_inductive); return false;          \
+      case OPER: return true;                                                \
     /**/
 
 /// Generates code to close a switch opened by SPRITE_SWITCH_BEGIN.

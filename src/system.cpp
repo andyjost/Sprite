@@ -13,7 +13,7 @@ namespace
   using namespace sprite;
 
   /// Rewrites a node to FAIL.
-  void op_failed() { return rewrite_fail(*g_redex); }
+  bool op_failed() { rewrite_fail(*g_redex); return false; }
 
   /// Rewrites a node to Prelude.True.
   inline void rewrite_true()
@@ -245,23 +245,25 @@ namespace sprite
   // ====== builtin_h_func ======
 
   /// Implements the H function for a built in operation.
-  template<BuiltinOp Op> void builtin_h_func()
+  template<BuiltinOp Op> bool builtin_h_func()
   {
     // H.4 TODO
     // Q. can this just check against CTOR?
     // Q. how can this be needed?  The only call is from head_normalize.
-    if(is_ctor(g_redex->tag())) return;
+    if(is_ctor(g_redex->tag())) return false;
   
     BOOST_FOREACH(NodePtr & child, g_redex->iter())
     {
       switch(child->tag())
       {
         // H.1 TODO
-        case CHOICE: return pull_tab(*g_redex, child);
+        case CHOICE: pull_tab(*g_redex, child); return false;
         // H.5 TODO
-        case FAIL: return rewrite_fail(*g_redex);
+        case FAIL: rewrite_fail(*g_redex); return false;
         // H.2 TODO
-        case OPER: return head_normalize(*child);
+        case OPER: // head_normalize(*child); return false;
+          g_inductive = &child;
+          return true;
         default:;
       }
     }
@@ -274,6 +276,7 @@ namespace sprite
     // H.3 TODO
     // Compute the result and rewrite the redex.
     Dispatch<Op>()();
+    return false;
   }
 }
 namespace sprite
@@ -329,23 +332,6 @@ namespace sprite
     m_imported["Prelude"] = prelude;
 
     // Now, update the arithmetic H functions, which require the prelude.
-    #if 0
-    oper[OP_LT] = tr1::bind(&builtin_h_func<OP_LT>, *prelude, _1);
-    oper[OP_LE] = tr1::bind(&builtin_h_func<OP_LE>, *prelude, _1);
-    oper[OP_EQ] = tr1::bind(&builtin_h_func<OP_EQ>, *prelude, _1);
-    oper[OP_NE] = tr1::bind(&builtin_h_func<OP_NE>, *prelude, _1);
-    oper[OP_GE] = tr1::bind(&builtin_h_func<OP_GE>, *prelude, _1);
-    oper[OP_GT] = tr1::bind(&builtin_h_func<OP_GT>, *prelude, _1);
-    oper[OP_INT_ADD] = tr1::bind(&builtin_h_func<OP_INT_ADD>, *prelude, _1);
-    oper[OP_INT_SUB] = tr1::bind(&builtin_h_func<OP_INT_SUB>, *prelude, _1);
-    oper[OP_INT_MUL] = tr1::bind(&builtin_h_func<OP_INT_MUL>, *prelude, _1);
-    oper[OP_INT_DIV] = tr1::bind(&builtin_h_func<OP_INT_DIV>, *prelude, _1);
-    oper[OP_INT_MOD] = tr1::bind(&builtin_h_func<OP_INT_MOD>, *prelude, _1);
-    oper[OP_FLOAT_ADD] = tr1::bind(&builtin_h_func<OP_FLOAT_ADD>, *prelude, _1);
-    oper[OP_FLOAT_SUB] = tr1::bind(&builtin_h_func<OP_FLOAT_SUB>, *prelude, _1);
-    oper[OP_FLOAT_MUL] = tr1::bind(&builtin_h_func<OP_FLOAT_MUL>, *prelude, _1);
-    oper[OP_FLOAT_DIV] = tr1::bind(&builtin_h_func<OP_FLOAT_DIV>, *prelude, _1);
-    #endif
     oper[OP_LT] = HFunc(prelude.get(), &builtin_h_func<OP_LT>);
     oper[OP_LE] = HFunc(prelude.get(), &builtin_h_func<OP_LE>);
     oper[OP_EQ] = HFunc(prelude.get(), &builtin_h_func<OP_EQ>);
