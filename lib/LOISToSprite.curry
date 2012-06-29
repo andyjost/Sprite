@@ -153,7 +153,7 @@ symLookup _ (LOIS.LitPattern (LOIS.LChar x)) = "'" ++ show x ++ "'"
 -- Compiles an operation definition into Sprite C++ code.
 compile :: String -> LOIS.OperationDecl -> String
 compile modname (LOIS.OperationDecl (_,s) _ dtree) =
-    "    static bool " ++ (hfuncName s) ++ "()\n" ++
+    "    static void " ++ (hfuncName s) ++ "()\n" ++
     "    {                                               \n" ++
     (aux0 0 dtree) ++
     "    }                                               \n" ++
@@ -209,8 +209,8 @@ compile modname (LOIS.OperationDecl (_,s) _ dtree) =
                 switch (lvl+1) r ++
                 caseEnd lvl
         aux0 lvl (LOIS.Rule pat expr) = caseBegin lvl pat ++ aux1 True expr ++ caseEnd lvl
-        aux0 lvl (LOIS.Exempt pat) = caseBegin lvl pat ++ "rewrite_fail(); return false;" ++ caseEnd lvl
-        aux0 lvl (LOIS.BuiltIn name) = indent lvl ++ "rewrite_oper(*g_redex, " ++ aux2 ++ "); return false;\n"
+        aux0 lvl (LOIS.Exempt pat) = caseBegin lvl pat ++ "return rewrite_fail();" ++ caseEnd lvl
+        aux0 lvl (LOIS.BuiltIn name) = indent lvl ++ "return rewrite_oper(*g_redex, " ++ aux2 ++ ");\n"
             where
                 aux2 | name == "SpritePrelude.failed" = "OP_FAILED"
                      | True = failed
@@ -224,27 +224,27 @@ compile modname (LOIS.OperationDecl (_,s) _ dtree) =
         aux1 first (LOIS.Variable id) =
             let body = fmtPathForLookup dtree id "(*g_redex)" in
             if first then
-                "rewrite_fwd(*g_redex, " ++ body ++ "); return false;"
+                "return rewrite_fwd(*g_redex, " ++ body ++ ");"
               else
                 body
 
         aux1 first (LOIS.Node sym exprs) =
             let body = symRewriteHead modname sym ++ mkStringTrailing ", " (map (aux1 False) exprs) in
             if first then
-                (symRewrite sym) ++ "(*g_redex, " ++ body ++ "); return false;"
+                "return " ++ (symRewrite sym) ++ "(*g_redex, " ++ body ++ ");"
               else
                 (symCreate sym) ++ "(" ++ body ++ ")"
 
         aux1 first (LOIS.Choice lhs rhs) =
             let body = aux1 False lhs ++ ", " ++ aux1 False rhs in
             if first then
-                "rewrite_choice(*g_redex, " ++ body ++ "); return false;"
+                "return rewrite_choice(*g_redex, " ++ body ++ ");"
               else
                 "Node::create<CHOICE>(" ++ body ++ ")"
 
-        aux1 True (LOIS.LitNode (LOIS.LInt x)) = "rewrite_int(*g_redex, " ++ show x ++ "); return false;"
-        aux1 True (LOIS.LitNode (LOIS.LChar x)) = "rewrite_char(*g_redex, " ++ show x ++ "); return false;"
-        aux1 True (LOIS.LitNode (LOIS.LFloat x)) = "rewrite_float(*g_redex, " ++ show x ++ "); return false;"
+        aux1 True (LOIS.LitNode (LOIS.LInt x)) = "return rewrite_int(*g_redex, " ++ show x ++ ");"
+        aux1 True (LOIS.LitNode (LOIS.LChar x)) = "return rewrite_char(*g_redex, " ++ show x ++ ");"
+        aux1 True (LOIS.LitNode (LOIS.LFloat x)) = "return rewrite_float(*g_redex, " ++ show x ++ ");"
 
         aux1 False (LOIS.LitNode (LOIS.LInt x)) = "Node::create<INT>(" ++ show x ++ ")"
         aux1 False (LOIS.LitNode (LOIS.LChar x)) = "Node::create<CHAR>(" ++ show x ++ ")"

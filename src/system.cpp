@@ -13,7 +13,7 @@ namespace
   using namespace sprite;
 
   /// Rewrites a node to FAIL.
-  bool op_failed() { rewrite_fail(*g_redex); return false; }
+  void op_failed() { return rewrite_fail(*g_redex); }
 
   /// Rewrites a node to Prelude.True.
   inline void rewrite_true()
@@ -245,25 +245,23 @@ namespace sprite
   // ====== builtin_h_func ======
 
   /// Implements the H function for a built in operation.
-  template<BuiltinOp Op> bool builtin_h_func()
+  template<BuiltinOp Op> void builtin_h_func()
   {
     // H.4 TODO
     // Q. can this just check against CTOR?
     // Q. how can this be needed?  The only call is from head_normalize.
-    if(is_ctor(g_redex->tag())) return false;
+    if(is_ctor(g_redex->tag())) return;
   
     BOOST_FOREACH(NodePtr & child, g_redex->iter())
     {
       switch(child->tag())
       {
         // H.1 TODO
-        case CHOICE: pull_tab(*g_redex, child); return false;
+        case CHOICE: return pull_tab(*g_redex, child);
         // H.5 TODO
-        case FAIL: rewrite_fail(*g_redex); return false;
+        case FAIL: return rewrite_fail(*g_redex);
         // H.2 TODO
-        case OPER: // head_normalize(*child); return false;
-          g_inductive = &child;
-          return true;
+        case OPER: return head_normalize(*child);
         default:;
       }
     }
@@ -276,7 +274,6 @@ namespace sprite
     // H.3 TODO
     // Compute the result and rewrite the redex.
     Dispatch<Op>()();
-    return false;
   }
 }
 namespace sprite
