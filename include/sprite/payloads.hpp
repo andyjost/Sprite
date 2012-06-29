@@ -5,10 +5,14 @@
 #pragma once
 #include "sprite/common.hpp"
 #include "sprite/pointer.hpp"
+#include <boost/pool/pool.hpp>
 
 namespace sprite
 {
   static size_t const PAYLOAD_BYTES = 16;
+
+  /// Pools for child lists of length 1,2,...,n.
+  extern boost::pool<> * childpool;
 
   namespace payloads
   {
@@ -64,7 +68,7 @@ namespace sprite
         }
         catch(...)
         {
-          delete[] m_args;
+          delete_(m_args, m_size);
           throw;
         }
       }
@@ -83,15 +87,24 @@ namespace sprite
           throw;
         }
 
-        delete[] args;
+        delete_(args, size);
         return *this;
       }
-      ~ChildList() { delete[] m_args; }
+      ~ChildList()
+      {
+        delete_(m_args, m_size);
+      }
 
       size_t size() const { return m_size; }
       NodePtr * args() const { return m_args; }
 
     private:
+      void delete_(NodePtr * p, size_t size)
+      {
+        assert(size < SPRITE_REWRITE_ARG_BOUND);
+        for(size_t i=0; i<size; ++i) { p[i].~NodePtr(); }
+        childpool[size].free(p);
+      }
       size_t m_size;
       NodePtr * m_args;
     };

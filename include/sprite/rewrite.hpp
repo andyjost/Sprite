@@ -36,6 +36,23 @@ namespace sprite
     BOOST_PP_REPEAT(SPRITE_INPLACE_BOUND,F,)
     #undef F
 
+    #ifdef SPRITE_USE_POOLING
+      #define SPRITE_INIT_CHILD(z,i,_)                 \
+          new(&args[i]) NodePtr(BOOST_PP_CAT(arg, i)); \
+        /**/
+
+      #define SPRITE_INIT_CHILDREN(z,n)                      \
+          NodePtr * args = (NodePtr *)childpool[n].malloc(); \
+          BOOST_PP_REPEAT_ ## z(n,SPRITE_INIT_CHILD,)        \
+          /**/
+    #else
+      #define SPRITE_INIT_CHILDREN(z,n)                       \
+          NodePtr args_[n] = { BOOST_PP_ENUM_PARAMS(n,arg) }; \
+          NodePtr * args = new NodePtr[n];                    \
+          std::copy(&args_[0], &args_[n], &args[0]);          \
+        /**/
+    #endif
+
     /**
      * The @p NodePtr arguments are taken by value, since the root payload is
      * destroyed first and may refer to them.
@@ -50,9 +67,7 @@ namespace sprite
           ) const                                             \
         {                                                     \
           node.destroy_payload();                             \
-          NodePtr args_[n] = { BOOST_PP_ENUM_PARAMS(n,arg) }; \
-          NodePtr * args = new NodePtr[n];                    \
-          std::copy(&args_[0], &args_[n], &args[0]);          \
+          SPRITE_INIT_CHILDREN(z,n);                          \
           new(node._payload()) payloads::ChildList(args, n);  \
           node.m_arity = n;                                   \
           node.m_tag = OPER;                                  \
@@ -111,9 +126,7 @@ namespace sprite
           ) const                                             \
         {                                                     \
           node.destroy_payload();                             \
-          NodePtr args_[n] = { BOOST_PP_ENUM_PARAMS(n,arg) }; \
-          NodePtr * args = new NodePtr[n];                    \
-          std::copy(&args_[0], &args_[n], &args[0]);          \
+          SPRITE_INIT_CHILDREN(z,n);                          \
           new(node._payload()) payloads::ChildList(args, n);  \
           node.m_arity = n;                                   \
           assert((int)tag >= (int)CTOR);                      \

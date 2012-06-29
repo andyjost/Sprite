@@ -18,6 +18,20 @@ namespace sprite
   #ifdef SPRITE_USE_POOLING
   /// Global memory pool for allocating nodes.
   boost::pool<> node_allocator(NODE_BYTES);
+  
+  /// Memory pools for child lists of various length.
+  boost::pool<> * init_pool()
+  {
+    boost::pool<> * p = reinterpret_cast<boost::pool<> *>(
+        new char[sizeof(boost::pool<>) * SPRITE_REWRITE_ARG_BOUND]
+      );
+    #define F(z,i,_) new(&p[i]) boost::pool<>(i * sizeof(NodePtr));
+    BOOST_PP_REPEAT(SPRITE_REWRITE_ARG_BOUND,F,)
+    #undef F
+    return p;
+  };
+  boost::pool<> * childpool = init_pool();
+
   #endif
 
   // Globals used in generated H functions.  g_parent must be declared *after*

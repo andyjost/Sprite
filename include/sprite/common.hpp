@@ -25,6 +25,20 @@
 #include <boost/variant/static_visitor.hpp>
 #include <cstdlib>
 
+/**
+ * The upper bound on the number of children that can be stored in-place in a
+ * node.  The bound is not tight, so a value of 3 means up to 2 children fit in
+ * the payload.
+ */
+#define SPRITE_INPLACE_BOUND 3
+
+/**
+ * Upper bound on the maximum number of additional parameters to the rewrite
+ * function (i.e., not counting the node).  Not a tight bound, so one less than
+ * this number of arguments will be supported.
+ */
+#define SPRITE_REWRITE_ARG_BOUND 10
+
 /// The main namespace for sprite.
 namespace sprite
 {
