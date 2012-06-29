@@ -9,6 +9,7 @@
 #include "sprite/node.hpp"
 #include "sprite/rewrite.hpp"
 #include "sprite/system.hpp"
+#include <stack>
 
 namespace sprite
 {
@@ -129,7 +130,7 @@ namespace sprite
    * @brief The head-normalizing (H) function from the fair scheme.
    *
    * This is a generic H function that dispatches to the correct implementation
-   * for the given operation.  The H.6 rule, which ignors constructor-rooted
+   * for the given operation.  The H.6 rule, which ignores constructor-rooted
    * expressions, is implemented here so that user-compiled H rules can ignore
    * it.
    */
