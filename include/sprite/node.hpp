@@ -115,9 +115,12 @@ namespace sprite
     BOOST_PP_REPEAT(BOOST_PP_ADD(3,SPRITE_REWRITE_ARG_BOUND),F,)
     #undef F
 
-    /// Get the raw address of the payload region.
+    /// Gets the raw address of the payload region.
     void * _payload() { return this + 1; }
     void const * _payload() const { return this + 1; }
+
+    /// Gets the target of a FWD node without checking the tag.
+    NodePtr & _fwdtarget();
 
   private:
 
@@ -287,7 +290,10 @@ namespace sprite
   typedef Node_<payloads::Char> CharNode;
   BOOST_STATIC_ASSERT(sizeof(CharNode) == NODE_BYTES);
 
- 
+  // Documented above.
+  inline NodePtr & Node::_fwdtarget()
+    { return static_cast<FwdNode *>(this)->payload.dest; }
+
   /// Tells NodePtr how to skip FWD nodes.
   inline bool skip_fwd_ref(NodePtr & ptr, Node & ref)
   {
@@ -298,7 +304,6 @@ namespace sprite
     }
     return false;
   }
-
 
   namespace meta
   {

@@ -38,9 +38,27 @@ namespace sprite
     using base_type::operator!;
 
     /// Removes any FWD references.
-    void remove_fwd() { *this = *this; }
+    // void remove_fwd() { *this = *this; }
+    void remove_fwd()
+    {
+      // Skip FWD nodes.  The implementation is supplied externally by the function
+      // skip_fwd_ref.
+      Node * ref = this->base_type::get();
+      if(!ref) return;
+
+      while(true)
+      {
+        if(!skip_fwd_ref(*this, *ref)) break;
+        ref = this->base_type::get();
+        assert(ref);
+      }
+    }
 
     /// Gets the pointer value, after skipping any FWD nodes.
+    using base_type::get;
+    using base_type::operator*;
+    using base_type::operator->;
+    #if 0
     Node * get() const
     {
       // It is okay to update this pointer by removing FWD nodes, even if the
@@ -82,6 +100,7 @@ namespace sprite
       assert(this->get() != 0);
       return this->get();
     }
+    #endif
 
     /**
      * @brief Dereferences a node pointer and then indexes the node.

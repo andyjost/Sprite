@@ -39,21 +39,22 @@ namespace sprite
   NodePtr g_parent;
   NodePtr * g_inductive;
 
-  void head_normalize(Node & node)
+  void head_normalize(Node * node)
   {
-    switch(node.tag())
+    switch(node->tag())
     {
       // For operations, call the H function.
       case OPER:
       {
-        NodePtr tmp(&node);
-        do
+        // Call the H function.
+        loop: g_program->call_h(*node);
+
+        switch(node->tag())
         {
-          // Call the H function.
-          g_program->call_h(*tmp);
-          tmp.remove_fwd();
+          case FWD: node = node->_fwdtarget().get(); break;
+          case OPER: if(--g_steps) goto loop; break;
+          default: --g_steps; return;
         }
-        while(--g_steps && tmp->tag() == OPER);
       }
       break;
 
@@ -162,9 +163,9 @@ namespace sprite
     };
 
     /// The normalizing (N) function from the fair scheme.
-    void fair_normalize(Fingerprint const & fp, Node & node)
+    void fair_normalize(Fingerprint const & fp, Node * node)
     {
-      switch(node.tag())
+      switch(node->tag())
       {
         case OPER:
           return head_normalize(node);
@@ -179,18 +180,18 @@ namespace sprite
           // TODO: must rewrite this section to match the paper.  In
           // particular, the choice and fail rules must be applied BEFORE any
           // recursive calls to fair_normalize.
-          BOOST_FOREACH(NodePtr & child, node.iter())
+          BOOST_FOREACH(NodePtr & child, node->iter())
           {
             switch(child->tag())
             {
-              case FAIL: return rewrite_fail(node);
-              case OPER: head_normalize(*child); break;
-              case CHOICE: return pull_tab(node, child);
+              case FAIL: return rewrite_fail(*node);
+              case OPER: head_normalize(child.get()); break;
+              case CHOICE: return pull_tab(*node, child);
               case INT: case FLOAT: case CHAR: break;
               case FWD: throw RuntimeError("Unexpected FWD node.");
               default: case CTOR:
                 assert(child->tag() >= CTOR);
-                fair_normalize(fp, *child);
+                fair_normalize(fp, child.get());
             }
           }
         }
@@ -242,7 +243,7 @@ namespace sprite
       g_steps = grain;
 
       // Perform some computation steps.
-      fair_normalize(item.fp, *item.node);
+      fair_normalize(item.fp, item.node.get());
 
       // This dereference will remove FWD nodes (it must come after the
       // execution step, above).

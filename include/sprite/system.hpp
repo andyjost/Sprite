@@ -242,11 +242,12 @@ namespace sprite
         SPRITE_index_step,,BOOST_PP_SEQ_POP_BACK(path)                       \
       );                                                                     \
     g_inductive = &g_parent [BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path))]; \
+    g_inductive->remove_fwd();                                               \
     switch((int)(*g_inductive)->tag())                                       \
     {                                                                        \
       case FAIL: return rewrite_fail(*g_redex);                              \
       case CHOICE: return pull_tab(*g_parent, *g_inductive);                 \
-      case OPER: return head_normalize(**g_inductive);                       \
+      case OPER: return head_normalize(g_inductive->get());                  \
     /**/
 
 /// Generates code to close a switch opened by SPRITE_SWITCH_BEGIN.

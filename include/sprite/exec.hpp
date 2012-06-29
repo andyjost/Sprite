@@ -134,7 +134,7 @@ namespace sprite
    * constructor-rooted expressions, is implemented here so that
    * user-compiled H rules can ignore it.
    */
-  void head_normalize(Node & node);
+  void head_normalize(Node * node);
 
   /**
    * @brief Print an expression.

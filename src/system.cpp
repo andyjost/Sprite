@@ -254,14 +254,15 @@ namespace sprite
   
     BOOST_FOREACH(NodePtr & child, g_redex->iter())
     {
-      switch(child->tag())
+      redo: switch(child->tag())
       {
         // H.1 TODO
         case CHOICE: return pull_tab(*g_redex, child);
         // H.5 TODO
         case FAIL: return rewrite_fail(*g_redex);
         // H.2 TODO
-        case OPER: return head_normalize(*child);
+        case OPER: return head_normalize(child.get());
+        case FWD: child = child->_fwdtarget(); goto redo;
         default:;
       }
     }
