@@ -25,6 +25,37 @@ namespace sprite
   NodePtr g_parent;
   NodePtr * g_inductive;
 
+  void head_normalize(Node & node)
+  {
+    switch(node.tag())
+    {
+      // For operations, call the H function.
+      case OPER:
+      {
+        NodePtr tmp(&node);
+        do
+        {
+          // Call the H function.
+          g_program->call_h(*tmp);
+          tmp.remove_fwd();
+        }
+        while(--g_steps && tmp->tag() == OPER);
+      }
+      break;
+
+      // For non-constructors, throw.
+      case FAIL: case CHOICE: case FWD:
+        throw RuntimeError(
+            "defined operation or constructor expected in "
+              + std::string(BOOST_CURRENT_FUNCTION)
+          );
+
+      // Ignore constructor types.
+      case INT: case FLOAT: case CHAR: case CTOR: default:
+        return; // H.6
+    }
+  }
+
   namespace 
   {
     /// An item in the computation pool.
@@ -115,6 +146,42 @@ namespace sprite
       typedef std::deque<PoolItem *> storage_type;
       storage_type m_storage;
     };
+
+    /// The normalizing (N) function from the fair scheme.
+    void fair_normalize(Fingerprint const & fp, Node & node)
+    {
+      switch(node.tag())
+      {
+        case OPER:
+          return head_normalize(node);
+
+        case INT: // Always a cnf.
+        case FLOAT: // Always a cnf.
+        case CHAR: // Always a cnf.
+          return;
+
+        default:
+        {
+          // TODO: must rewrite this section to match the paper.  In
+          // particular, the choice and fail rules must be applied BEFORE any
+          // recursive calls to fair_normalize.
+          BOOST_FOREACH(NodePtr & child, node.iter())
+          {
+            switch(child->tag())
+            {
+              case FAIL: return rewrite_fail(node);
+              case OPER: head_normalize(*child); break;
+              case CHOICE: return pull_tab(node, child);
+              case INT: case FLOAT: case CHAR: break;
+              case FWD: throw RuntimeError("Unexpected FWD node.");
+              default: case CTOR:
+                assert(child->tag() >= CTOR);
+                fair_normalize(fp, *child);
+            }
+          }
+        }
+      }
+    }
   }
 
   /// Prints a trace message to the output.

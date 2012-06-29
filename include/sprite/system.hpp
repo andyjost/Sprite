@@ -178,6 +178,10 @@ namespace sprite
     /// Add an operation to the program definition.
     size_t insert_oper(std::string const & name, HFunc=HFunc());
 
+    /// Invoke the H routine associted with the given redex.
+    void call_h(Node & node) const
+      { return this->oper[node.id()](node); }
+
     template<typename Stream>
     friend Stream & operator<<(Stream & out, Program const & pgm)
     {

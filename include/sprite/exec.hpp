@@ -129,77 +129,12 @@ namespace sprite
   /**
    * @brief The head-normalizing (H) function from the fair scheme.
    *
-   * This is a generic H function that dispatches to the correct implementation
-   * for the given operation.  The H.6 rule, which ignores constructor-rooted
-   * expressions, is implemented here so that user-compiled H rules can ignore
-   * it.
+   * This is a generic H function that dispatches to the correct
+   * implementation for the given operation.  The H.6 rule, which ignores
+   * constructor-rooted expressions, is implemented here so that
+   * user-compiled H rules can ignore it.
    */
-  inline void head_normalize(Node & node)
-  {
-    switch(node.tag())
-    {
-      // For operations, call the H function.
-      case OPER:
-      {
-        NodePtr tmp(&node);
-        do
-        {
-          // Call the H function.
-          g_program->oper[tmp->id()](*tmp);
-          tmp.remove_fwd();
-        }
-        while(--g_steps && tmp->tag() == OPER);
-      }
-      break;
-
-      // For non-constructors, throw.
-      case FAIL: case CHOICE: case FWD:
-        throw RuntimeError(
-            "defined operation or constructor expected in "
-              + std::string(BOOST_CURRENT_FUNCTION)
-          );
-
-      // Ignore constructor types.
-      case INT: case FLOAT: case CHAR: case CTOR: default:
-        return; // H.6
-    }
-  }
-
-  /// The normalizing (N) function from the fair scheme.
-  inline void fair_normalize(Fingerprint const & fp, Node & node)
-  {
-    switch(node.tag())
-    {
-      case OPER:
-        return head_normalize(node);
-
-      case INT: // Always a cnf.
-      case FLOAT: // Always a cnf.
-      case CHAR: // Always a cnf.
-        return;
-
-      default:
-      {
-        // TODO: must rewrite this section to match the paper.
-        // In particular, the choice and fail rules must be applied
-        // BEFORE any recursive calls to fair_normalize.
-        BOOST_FOREACH(NodePtr & child, node.iter())
-        {
-          switch(child->tag())
-          {
-            case FAIL: return rewrite_fail(node);
-            case OPER: head_normalize(*child); break;
-            case CHOICE: return pull_tab(node, child);
-            case INT: case FLOAT: case CHAR: break;
-            case FWD: throw RuntimeError("Unexpected FWD node.");
-            default: case CTOR:
-              assert(child->tag() >= CTOR);
-              fair_normalize(fp, *child);
-          }
-        }
-      }
-    }
-  }
+  void head_normalize(Node & node);
 
   /**
    * @brief Print an expression.
