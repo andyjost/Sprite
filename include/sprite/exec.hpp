@@ -153,9 +153,13 @@ namespace sprite
             // functions have enormous stack frames.
             head_normalize(**g_inductive);
           }
-          tmp.remove_fwd();
+          else
+          {
+            --g_steps;
+            tmp.remove_fwd();
+          }
         }
-        while(--g_steps && tmp->tag() == OPER);
+        while(g_steps && tmp->tag() == OPER);
       }
       break;
 
