@@ -1,4 +1,5 @@
 /**
+
  * @file
  * @brief Defines the Node type.
  */

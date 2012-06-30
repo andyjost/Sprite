@@ -126,6 +126,16 @@ namespace sprite
     rewrite_choice(g, p->id(), lhs, rhs);
   }
 
+  inline void pull_tab(Node * g, Node * p, size_t i)
+  {
+    assert(p->tag() == CHOICE);
+    NodePtr lhs = g->clone();
+    lhs[i] = p[0];
+    NodePtr rhs = g->clone();
+    rhs[i] = p[1];
+    rewrite_choice(*g, p->id(), lhs, rhs);
+  }
+
   /**
    * @brief The head-normalizing (H) function from the fair scheme.
    *

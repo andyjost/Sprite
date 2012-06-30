@@ -38,13 +38,12 @@ namespace sprite
     using base_type::operator!;
 
     /// Removes any FWD references.
-    // void remove_fwd() { *this = *this; }
-    void remove_fwd()
+    NodePtr & remove_fwd()
     {
       // Skip FWD nodes.  The implementation is supplied externally by the function
       // skip_fwd_ref.
       Node * ref = this->base_type::get();
-      if(!ref) return;
+      if(!ref) return *this;
 
       while(true)
       {
@@ -52,55 +51,13 @@ namespace sprite
         ref = this->base_type::get();
         assert(ref);
       }
+      return *this;
     }
 
     /// Gets the pointer value, after skipping any FWD nodes.
     using base_type::get;
     using base_type::operator*;
     using base_type::operator->;
-    #if 0
-    Node * get() const
-    {
-      // It is okay to update this pointer by removing FWD nodes, even if the
-      // pointer is const.
-      NodePtr * this_ = const_cast<NodePtr *>(this);
-
-      // Skip FWD nodes.  The implementation is supplied externally by the function
-      // skip_fwd_ref.
-      Node * ref = this->base_type::get();
-      if(!ref) return 0;
-
-      while(true)
-      {
-        if(!skip_fwd_ref(*this_, *ref)) break;
-        ref = this->base_type::get();
-        assert(ref);
-      }
-      return ref;
-    }
-
-    /**
-     * @brief Dereferences the pointer, after skipping any FWD nodes.
-     *
-     * Precondition: the pointer is not NULL.
-     */
-    Node & operator*() const
-    {
-      assert(this->get() != 0);
-      return *this->get();
-    }
-
-    /**
-     * @brief Calls a member through the pointer, after skipping any FWD nodes.
-     *
-     * Precondition: the pointer is not NULL.
-     */
-    Node * operator->() const
-    {
-      assert(this->get() != 0);
-      return this->get();
-    }
-    #endif
 
     /**
      * @brief Dereferences a node pointer and then indexes the node.

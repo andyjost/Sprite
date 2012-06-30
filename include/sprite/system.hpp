@@ -210,7 +210,7 @@ namespace sprite
    * @brief An lvalue of type NodePtr * that will hold the inductive node; used
    * as the target for pull-tab steps
    */
-  extern NodePtr * g_inductive;
+  extern Node * g_inductive;
 }
 
 /// @brief (private) Expands to [elem].
@@ -241,13 +241,13 @@ namespace sprite
     g_parent = (start) BOOST_PP_SEQ_FOR_EACH(                                \
         SPRITE_index_step,,BOOST_PP_SEQ_POP_BACK(path)                       \
       );                                                                     \
-    g_inductive = &g_parent [BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path))]; \
-    g_inductive->remove_fwd();                                               \
-    switch((int)(*g_inductive)->tag())                                       \
+    static const size_t idx = BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path)); \
+    g_inductive = g_parent[idx].remove_fwd().get();                          \
+    switch((int)(g_inductive->tag()))                                        \
     {                                                                        \
       case FAIL: return rewrite_fail(*g_redex);                              \
-      case CHOICE: return pull_tab(*g_parent, *g_inductive);                 \
-      case OPER: return head_normalize(g_inductive->get());                  \
+      case CHOICE: return pull_tab(g_parent.get(), g_inductive, idx);        \
+      case OPER: return head_normalize(g_inductive);                         \
     /**/
 
 /// Generates code to close a switch opened by SPRITE_SWITCH_BEGIN.

@@ -37,7 +37,7 @@ namespace sprite
   // Globals used in generated H functions.  g_parent must be declared *after*
   // node_allocator to ensure the proper static destruction order.
   NodePtr g_parent;
-  NodePtr * g_inductive;
+  Node * g_inductive;
 
   void head_normalize(Node * node)
   {
