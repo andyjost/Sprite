@@ -178,8 +178,6 @@ compile modname (LOIS.OperationDecl (_,s) _ dtree) =
             let path = fmtPathForInit dtree id in
             let idt = indent lvl in
             let (swBegin,swEnd) = switchDelim (tree!!0) in
-            -- DEBUG
-            -- idt ++ swBegin ++ "root, parent, inductive, root, " ++ path ++ ")\n" ++
             idt ++ swBegin ++ "(*g_redex), " ++ path ++ ")\n" ++
             mkString "\n" (map (aux0 (lvl+1)) tree) ++ "\n" ++
             idt ++ swEnd ++ "\n"
@@ -200,8 +198,6 @@ compile modname (LOIS.OperationDecl (_,s) _ dtree) =
         aux0 lvl r@(LOIS.Branch pat _ _ _) =
             if lvl == 0 then
                 -- Declare the local variables and generate a top-level switch.
-                -- DEBUG
-                -- (indent lvl) ++ "NodePtr parent, *inductive;\n" ++ switch lvl r
                 switch lvl r
               else
                 -- Generate a nested switch, indented.

@@ -122,8 +122,8 @@ namespace sprite
     struct At : static_visitor<NodePtr const &>
     {
       // A forwarding node should never be obtained for use here.
-      result_type operator()(FwdNode const &, size_t) const
-        { throw RuntimeError("Unexpected forward node."); }
+      result_type operator()(FwdNode const & node, size_t i) const
+        { return node.payload.dest[i]; }
 
       // Handle node types with children.
       result_type operator()(InPlaceNode1 const & node, size_t i) const

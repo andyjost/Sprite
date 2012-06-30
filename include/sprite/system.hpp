@@ -231,6 +231,8 @@ namespace sprite
  *
  * This macro modifies the global variables g_parent and g_inductive.
  *
+ * @param label
+ *     a unique label
  * @param start
  *     an rvalue of type NodePtr or Node; the node where indexing starts
  * @param path
@@ -242,12 +244,14 @@ namespace sprite
         SPRITE_index_step,,BOOST_PP_SEQ_POP_BACK(path)                       \
       );                                                                     \
     static const size_t idx = BOOST_PP_SEQ_HEAD(BOOST_PP_SEQ_REVERSE(path)); \
-    g_inductive = g_parent[idx].remove_fwd().get();                          \
-    switch((int)(g_inductive->tag()))                                        \
+    g_inductive = g_parent[idx].get();                                       \
+    BOOST_PP_CAT(label,__LINE__): switch((int)(g_inductive->tag()))          \
     {                                                                        \
       case FAIL: return rewrite_fail(*g_redex);                              \
       case CHOICE: return pull_tab(g_parent.get(), g_inductive, idx);        \
       case OPER: return head_normalize(g_inductive);                         \
+      case FWD: g_inductive = g_inductive->_fwdtarget().get();               \
+                goto BOOST_PP_CAT(label,__LINE__);                           \
     /**/
 
 /// Generates code to close a switch opened by SPRITE_SWITCH_BEGIN.
@@ -268,7 +272,7 @@ namespace sprite
     case type:                                                 \
     {                                                          \
       switch((static_cast<meta::NodeOf<type,-1>::type const &> \
-          (*inductive)).value()                                \
+          (*g_inductive)).value()                              \
         )                                                      \
       {                                                        \
     /**/
