@@ -41,13 +41,18 @@ namespace sprite
 
   void head_normalize(Node * node)
   {
+    SPRITE_COUNT(CNT_H);
     switch(node->tag())
     {
       // For operations, call the H function.
       case OPER:
       {
+        SPRITE_UNCOUNT(CNT_H);
+
         // Call the H function.
-        loop: g_program->call_h(*node);
+        loop:
+        g_program->call_h(*node);
+        SPRITE_COUNT(CNT_H);
 
         switch(node->tag())
         {
@@ -165,6 +170,7 @@ namespace sprite
     /// The normalizing (N) function from the fair scheme.
     void fair_normalize(Fingerprint const & fp, Node * node)
     {
+      SPRITE_COUNT(CNT_N);
       switch(node->tag())
       {
         case OPER:
@@ -229,6 +235,11 @@ namespace sprite
       // TODO !! Can _pp be NULL ? !!
       { std::cout << setprogram(*_pp); }
     BOOST_SCOPE_EXIT_END
+
+    // Clear the counters.
+    #ifdef SPRITE_USE_COUNTING
+    std::fill_n(&g_counts[0], (size_t)(CNT_END), 0);
+    #endif
 
     // Set up the computation pool.
     ComputationPool pool;
@@ -297,6 +308,18 @@ namespace sprite
         }
       }
     }
+
+    // Print the counters.
+    #ifdef SPRITE_USE_COUNTING
+    std::cout << "============ Event Counts ============\n"
+                 "  Fair Normalize (N): " << g_counts[CNT_N] << "\n"
+                 "  Head Normalize (H): " << g_counts[CNT_H] << "\n"
+                 "  Rewrite:            " << g_counts[CNT_RW] << "\n"
+                 "  Create:             " << g_counts[CNT_CR] << "\n"
+                 "  Pull-Tab:           " << g_counts[CNT_PT] << "\n"
+                 "======================================\n"
+                 << std::endl;
+    #endif
   }
 
   void print_node(Node const & node)

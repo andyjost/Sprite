@@ -23,6 +23,7 @@ namespace sprite
             BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const arg) \
           ) const                                              \
         {                                                      \
+          SPRITE_COUNT(CNT_RW);                                \
           node.destroy_payload();                              \
           new(node._payload()) payloads::InPlace<n>(           \
               BOOST_PP_ENUM_PARAMS(n,arg)                      \
@@ -66,6 +67,7 @@ namespace sprite
           , BOOST_PP_ENUM_PARAMS(n, NodePtr const arg)        \
           ) const                                             \
         {                                                     \
+          SPRITE_COUNT(CNT_RW);                               \
           node.destroy_payload();                             \
           SPRITE_INIT_CHILDREN(z,n);                          \
           new(node._payload()) payloads::ChildList(args, n);  \
@@ -97,6 +99,7 @@ namespace sprite
             BOOST_PP_ENUM_TRAILING_PARAMS(n,NodePtr const arg) \
           ) const                                              \
         {                                                      \
+          SPRITE_COUNT(CNT_RW);                                \
           node.destroy_payload();                              \
           new(node._payload()) payloads::InPlace<n>(           \
               BOOST_PP_ENUM_PARAMS(n,arg)                      \
@@ -125,6 +128,7 @@ namespace sprite
           , BOOST_PP_ENUM_PARAMS(n, NodePtr const arg)        \
           ) const                                             \
         {                                                     \
+          SPRITE_COUNT(CNT_RW);                               \
           node.destroy_payload();                             \
           SPRITE_INIT_CHILDREN(z,n);                          \
           new(node._payload()) payloads::ChildList(args, n);  \
@@ -145,6 +149,7 @@ namespace sprite
     rewrite() {}
     void operator()(Node & node) const
     {
+      SPRITE_COUNT(CNT_RW);
       node.destroy_payload();
       node.m_tag = FAIL;
       node.m_cnf = 0;
@@ -159,6 +164,7 @@ namespace sprite
         Node & node, size_t id, NodePtr const lhs, NodePtr const rhs
       ) const
     {
+      SPRITE_COUNT(CNT_RW);
       node.destroy_payload();
       new(node._payload()) payloads::Choice(lhs,rhs);
       node.m_id = id;
@@ -173,6 +179,7 @@ namespace sprite
     rewrite() {}
     void operator()(Node & node, NodePtr const dest) const
     {
+      SPRITE_COUNT(CNT_RW);
       node.destroy_payload();
       new(node._payload()) payloads::Fwd(dest);
       node.m_tag = FWD;
@@ -186,6 +193,7 @@ namespace sprite
     rewrite() {}
     void operator()(Node & node, meta::ValueType<INT>::type value) const
     {
+      SPRITE_COUNT(CNT_RW);
       node.destroy_payload();
       new(node._payload()) payloads::Int(value);
       node.m_tag = INT;
@@ -199,6 +207,7 @@ namespace sprite
     rewrite() {}
     void operator()(Node & node, meta::ValueType<FLOAT>::type value) const
     {
+      SPRITE_COUNT(CNT_RW);
       node.destroy_payload();
       new(node._payload()) payloads::Float(value);
       node.m_tag = FLOAT;
@@ -212,6 +221,7 @@ namespace sprite
     rewrite() {}
     void operator()(Node & node, meta::ValueType<CHAR>::type value) const
     {
+      SPRITE_COUNT(CNT_RW);
       node.destroy_payload();
       new(node._payload()) payloads::Char(value);
       node.m_tag = CHAR;

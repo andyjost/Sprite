@@ -242,6 +242,10 @@ namespace
 
 namespace sprite
 {
+  #ifdef SPRITE_USE_COUNTING
+  size_t g_counts[CNT_END];
+  #endif
+
   // ====== builtin_h_func ======
 
   /// Implements the H function for a built in operation.

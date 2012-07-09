@@ -18,6 +18,9 @@
       BOOST_PP_ENUM_BINARY_PARAMS(N,T,const & t)
     )
   {
+    SPRITE_COUNT(CNT_CR);
+    SPRITE_UNCOUNT(CNT_RW);
+
     // Initializes the refcount, leaves the tag and other members
     // uninitialized.
     Node * p = new AbstractNode();

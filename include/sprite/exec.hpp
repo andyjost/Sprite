@@ -117,6 +117,7 @@ namespace sprite
    */
   inline void pull_tab(Node & g, NodePtr const & p)
   {
+    SPRITE_COUNT(CNT_PT);
     size_t const i = g.position(p);
     assert(p->tag() == CHOICE);
     NodePtr lhs = g.clone();
@@ -128,6 +129,7 @@ namespace sprite
 
   inline void pull_tab(Node * g, Node * p, size_t i)
   {
+    SPRITE_COUNT(CNT_PT);
     assert(p->tag() == CHOICE);
     NodePtr lhs = g->clone();
     lhs[i] = p[0];

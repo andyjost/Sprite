@@ -72,6 +72,27 @@ namespace sprite
   typedef boost::uint_t<16>::exact uint16;
   typedef boost::uint_t<32>::exact uint32;
 
+  // Counters for manual profiling.
+  #ifdef SPRITE_USE_COUNTING
+  enum Counters {
+      CNT_N   // A call to fair normalize
+    , CNT_H   // A call to head normalize
+    , CNT_RW  // A rewrite step
+    , CNT_CR  // A node creation
+    , CNT_PT  // A pull-tab step
+    , CNT_END // The end of the list
+    };
+  extern size_t g_counts[CNT_END];
+
+  #define SPRITE_COUNT(counter) (++g_counts[counter])
+  #define SPRITE_UNCOUNT(counter) (--g_counts[counter])
+
+  #else
+
+  #define SPRITE_COUNT(counter)
+  #define SPRITE_UNCOUNT(counter)
+  #endif
+
   /**
    * @brief Identifies the type of a node.  CTOR must be last!
    *
