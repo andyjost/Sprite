@@ -10,7 +10,7 @@ namespace sprite
     opt::options_description desc("Allowed options");
     desc.add_options()
         ("grain,g"
-           , opt::value<size_t>()->default_value(1000)
+           , opt::value<size_t>()->default_value(10000)
            , "Specifies the granularity (number of steps between context "
              "switches)")
         ("help,h", "Displays this help message")

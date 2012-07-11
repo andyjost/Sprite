@@ -6,6 +6,22 @@
 #include "sprite/node.hpp"
 #include "sprite/operators.hpp"
 #include <deque>
+#include <csetjmp>
+
+namespace
+{
+  /**
+   * @brief The jump buffer used for returning when the available computation
+   * steps are exhausted.
+   *
+   * The setjmp/longjmp functions are not safe in C++!  It is essential that
+   * any stack frames skipped in the jump have no local variables with
+   * non-trivial desctructors.  Functions that perform some part of a
+   * computation (e.g., fair_normalize, head_normalize, generated H functions)
+   * should in all cases use global variables instead of local variables.
+   */
+  jmp_buf g_jmppt;
+}
 
 namespace sprite
 {
@@ -51,14 +67,14 @@ namespace sprite
 
         // Call the H function.
         loop:
-        g_program->call_h(*node);
         SPRITE_COUNT(CNT_H);
+        g_program->call_h(*node);
 
-        switch(node->tag())
+        redo: switch(node->tag())
         {
-          case FWD: node = node->_fwdtarget().get(); break;
-          case OPER: if(--g_steps) goto loop; break;
-          default: --g_steps; return;
+          case FWD: node = node->_fwdtarget().get(); goto redo;
+          case OPER: if(--g_steps == 0) longjmp(g_jmppt, 1); goto loop;
+          default: if(--g_steps == 0) longjmp(g_jmppt, 1); return;
         }
       }
       break;
@@ -253,12 +269,15 @@ namespace sprite
       // Reset the number of allowed steps before calling fair_normalize.
       g_steps = grain;
 
-      // Perform some computation steps.
-      fair_normalize(item.fp, item.node.get());
+      // Perform some computation steps.  If fair_normalize exhausts its
+      // allotment of steps, it will return through setjmp with a nonzero
+      // value.
+      if(setjmp(g_jmppt) == 0)
+        fair_normalize(item.fp, item.node.get());
 
       // This dereference will remove FWD nodes (it must come after the
       // execution step, above).
-      Node & node = *item.node;
+      Node & node = *item.node.remove_fwd();
       if(trace) tracef("step", node);
 
       if(node.is_cnf())
