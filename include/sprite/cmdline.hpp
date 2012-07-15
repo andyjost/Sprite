@@ -7,6 +7,7 @@ namespace sprite
   {
     size_t grain;
     TraceOption trace;
+    int verbosity;
   };
 
   /// Parses the command line options.

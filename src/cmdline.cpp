@@ -1,6 +1,7 @@
 #include "sprite/cmdline.hpp"
 #include <boost/program_options.hpp>
 #include <iostream>
+#include <iomanip>
 
 namespace sprite
 {
@@ -17,21 +18,24 @@ namespace sprite
         ("trace,t"
            , opt::value<int>()->implicit_value(1)->default_value(0)
            , "Enables tracing")
+        ("verbosity,v"
+           , opt::value<int>()->implicit_value(5)->default_value(0)
+           , "Sets the verbosity level")
       ;
     opt::variables_map var;
     int const style = opt::command_line_style::unix_style;
     opt::store(opt::parse_command_line(argc, argv, desc, style), var);
 
-
     if (var.count("help"))
     {
       std::cout << desc << "\n";
-      std::exit(EXIT_FAILURE);
+      std::exit(EXIT_SUCCESS);
     }
 
     CmdlineOptions x;
     x.grain = var["grain"].as<size_t>();
     x.trace = var["trace"].as<int>() ? TRACE : NO_TRACE;
+    x.verbosity = var["verbosity"].as<int>();
 
     if(x.trace && x.grain != 1)
     {
@@ -40,6 +44,16 @@ namespace sprite
         << " to 1 because tracing was enabled"
         << std::endl;
       x.grain = 1;
+    }
+
+    if(x.verbosity > 0)
+    {
+      std::cout
+        << "Parameters are:\n"
+        << "  grain     = " << x.grain << "\n"
+        << "  trace     = " << std::boolalpha << x.trace << "\n"
+        << "  verbosity = " << std::boolalpha << x.verbosity
+        << std::endl;
     }
     return x;
   }
