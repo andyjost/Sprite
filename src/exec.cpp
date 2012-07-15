@@ -187,35 +187,50 @@ namespace sprite
     void fair_normalize(Fingerprint const & fp, Node * node)
     {
       SPRITE_COUNT(CNT_N);
-      switch(node->tag())
+      redo: switch(node->tag())
       {
-        case OPER:
-          return head_normalize(node);
+        case FWD: node = node->_fwdtarget().get(); goto redo;
 
-        case INT: // Always a cnf.
-        case FLOAT: // Always a cnf.
-        case CHAR: // Always a cnf.
-          return;
+        // N.4
+        case OPER: return head_normalize(node);
+
+        // N.3 (always a cnf.)
+        case INT: case FLOAT: case CHAR: return;
 
         default:
         {
-          // TODO: must rewrite this section to match the paper.  In
-          // particular, the choice and fail rules must be applied BEFORE any
-          // recursive calls to fair_normalize.
+          // Borrow g_inductive to point to the first choice child (if there is
+          // one).
+          g_inductive = 0;
+          size_t pos = 0;
           BOOST_FOREACH(NodePtr & child, node->iter())
           {
-            switch(child->tag())
+            redo2: switch(child->tag())
             {
+              case FWD: child.remove_fwd(); goto redo2;
+
+              // N.1
               case FAIL: return rewrite_fail(*node);
-              case OPER: head_normalize(child.get()); break;
-              case CHOICE: return pull_tab(*node, child);
-              case INT: case FLOAT: case CHAR: break;
-              case FWD: throw RuntimeError("Unexpected FWD node.");
-              default: case CTOR:
-                assert(child->tag() >= CTOR);
-                fair_normalize(fp, child.get());
+              case CHOICE:
+                if(!g_inductive)
+                {
+                  g_inductive = child.get();
+                  pos = node->position(child);
+                }
+                break;
+              // pass other cases.
+              default:;
             }
           }
+
+          // N.2
+          // If g_inductive was set to something, it is the first choice
+          // encountered in the list of children.
+          if(g_inductive) return pull_tab(node, g_inductive, pos);
+
+          // N.3
+          BOOST_FOREACH(NodePtr & child, node->iter())
+            { fair_normalize(fp, child.get()); }
         }
       }
     }
