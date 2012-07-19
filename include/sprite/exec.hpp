@@ -13,6 +13,7 @@
 
 namespace sprite
 {
+  struct CmdlineOptions;
   struct Program;
 
   /// Global pointer to the currently executing program.
@@ -73,37 +74,27 @@ namespace sprite
    *   carry out execution as a series of rewrite steps.
    * @param goal
    *   The goal statement.  Modified in place.
-   * @param grain
-   *   The computation granularity, i.e., the maximum number of steps performed
-   *   until a forced context switch.
+   * @param opt
+   *   The bundle of command line options.
    * @param handler
    *   (optional) Defaults to a handler that discards the generated results.
    *   The object that handles output as it is generated.
-   * @param trace
-   *   (optional) Defaults to true.
-   *   Enables debug tracing.
    */
   void execute(
-      Program const & program, Node & goal, size_t grain
+      Program const & program, Node & goal, CmdlineOptions const & opt
     , YieldHandler const & handler = YieldHandler_<void>()
-    , TraceOption trace=NO_TRACE
     );
 
-  inline void execute(
-      Program const & program, Node & goal, size_t grain, TraceOption trace
-    )
-  { execute(program, goal, grain, YieldHandler_<void>(), trace); }
-  
   /// Alternate form of execute; results are written to the given iterator.
   template<typename OutputIterator>
   inline void execute(
-      Program const & pgm, Node & goal, size_t grain
-    , OutputIterator out, TraceOption trace=NO_TRACE
+      Program const & pgm, Node & goal, CmdlineOptions const & opt
+    , OutputIterator out
     )
   {
     YieldHandler_<OutputIterator> handler(out);
     execute(
-        pgm, goal, grain, static_cast<YieldHandler const &>(handler), trace
+        pgm, goal, opt, static_cast<YieldHandler const &>(handler)
       );
   }
 

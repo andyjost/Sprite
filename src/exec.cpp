@@ -2,6 +2,7 @@
  * @file
  * @brief Implements functions related to execution.
  */
+#include "sprite/cmdline.hpp"
 #include "sprite/exec.hpp"
 #include "sprite/node.hpp"
 #include "sprite/operators.hpp"
@@ -234,6 +235,32 @@ namespace sprite
         }
       }
     }
+
+    /**
+     * @brief A simplified version of the normalizing (FN) function.
+     *
+     * This is intended to be a very minimal function to bue used for benchmarking
+     * test cases that do not involve failures of choices.
+     */
+    void fast_normalize(Node * node)
+    {
+      SPRITE_COUNT(CNT_N);
+      redo: switch(node->tag())
+      {
+        case FWD: node = node->_fwdtarget().get(); goto redo;
+
+        // N.4
+        case OPER: return head_normalize(node);
+
+        // N.3 (always a cnf.)
+        case INT: case FLOAT: case CHAR: return;
+
+        default:
+          // N.3
+          BOOST_FOREACH(NodePtr & child, node->iter())
+            { fast_normalize(child.get()); }
+      }
+    }
   }
 
   /// Prints a trace message to the output.
@@ -242,11 +269,11 @@ namespace sprite
 
   // See header for brief description.
   void execute(
-      Program const & pgm, Node & goal, size_t grain
-    , YieldHandler const & out, TraceOption trace
+      Program const & pgm, Node & goal, CmdlineOptions const & opt
+    , YieldHandler const & out
     )
   {
-    if(grain==0)
+    if(opt.grain==0)
       throw RuntimeError("a granularity of zero steps was specified");
 
     // Set the global program pointer and then restore it when this scope
@@ -259,7 +286,7 @@ namespace sprite
     // scope exits.
     Program const * _pp = manipulators::detail::pgm_data(std::cout);
 
-    if(trace)
+    if(opt.trace)
       std::cout << setprogram(pgm);
 
     BOOST_SCOPE_EXIT((&_pp))
@@ -272,6 +299,13 @@ namespace sprite
     std::fill_n(&g_counts[0], (size_t)(CNT_END), 0);
     #endif
 
+    if(opt.fastnormalize)
+    {
+      g_steps = opt.grain;
+      fast_normalize(&goal);
+      return;
+    }
+
     // Set up the computation pool.
     ComputationPool pool;
     pool.push(Fingerprint(), NodePtr(&goal));
@@ -282,7 +316,7 @@ namespace sprite
       Fingerprint const & fp = item.fp;
 
       // Reset the number of allowed steps before calling fair_normalize.
-      g_steps = grain;
+      g_steps = opt.grain;
 
       // Perform some computation steps.  If fair_normalize exhausts its
       // allotment of steps, it will return through setjmp with a nonzero
@@ -293,11 +327,11 @@ namespace sprite
       // This dereference will remove FWD nodes (it must come after the
       // execution step, above).
       Node & node = *item.node.remove_fwd();
-      if(trace) tracef("step", node);
+      if(opt.trace) tracef("step", node);
 
       if(node.is_cnf())
       {
-        if(trace) tracef("value", node);
+        if(opt.trace) tracef("value", node);
         out.yield(node);
         pool.pop();
       }
@@ -306,12 +340,12 @@ namespace sprite
         switch(node.tag())
         {
           case FAIL:
-            if(trace) tracef("fail", node);
+            if(opt.trace) tracef("fail", node);
             pool.pop();
             break;
           case CHOICE:
           {
-            if(trace) tracef("choice", node);
+            if(opt.trace) tracef("choice", node);
             size_t const id = node.id();
             if(fp.has(id))
             {
