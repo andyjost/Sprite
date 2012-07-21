@@ -254,10 +254,15 @@ namespace sprite
                 goto BOOST_PP_CAT(label,__LINE__);                           \
     /**/
 
-/// Generates code to close a switch opened by SPRITE_SWITCH_BEGIN.
-#define SPRITE_SWITCH_END                                                    \
-      default: throw RuntimeError("unhandled case in generated H function"); \
-    }                                                                        \
+/**
+ * @brief Generates code to close a switch opened by SPRITE_SWITCH_BEGIN.
+ *
+ * The default case is hit if the user code is not exhaustive, which is a
+ * failure (not a runtime error).
+ */
+#define SPRITE_SWITCH_END                     \
+      default: return rewrite_fail(*g_redex); \
+    }                                         \
     /**/
   
 /**
