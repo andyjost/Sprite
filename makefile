@@ -10,7 +10,7 @@ INCLUDES := -I$(BOOST_HOME) -Iinclude
 OBJECTS := $(addprefix $(OBJDIR)/, cmdline.o exec.o system.o)
 LIB := lib/libsprite.a
 
-STATES = $(addprefix tools/, FlatCurryToSpriteMain.state FlatCurryToSprite.state)
+STATES = $(addprefix tools/, FlatCurryToSpriteMain.state FlatCurryToSprite.state CatLOIS.state)
 
 # The headers files in currylib.
 CURRYLIBHEADERS := $(addprefix $(CURRYLIBDIR)/, SpritePrelude.hpp)
