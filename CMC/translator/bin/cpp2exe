@@ -1,0 +1,93 @@
+#!/bin/sh
+
+BASE=$(dirname $(dirname $(dirname $(readlink -f $0))))
+# echo BASE $BASE
+BASE=$BASE/runtime
+
+EXEC=''
+QUIET=''
+while [ $1 ]
+do
+  case $1 in
+    -e) EXEC='-e'; shift;;
+    -q) QUIET='-q'; shift;;
+    -*) echo `basename $0`: ignored flag \"$1\"; shift;;
+    *) break;;
+  esac
+done
+
+# ------------------------------------------------------------------
+# Check the curry version exists
+
+FILENAME=$(basename $1 ".curry")
+FILE=$(dirname $1)/$FILENAME
+if [ ! -f $FILE.curry ]
+then
+  echo `basename $0`: \"$FILENAME.curry\" not found. 1>&2
+  exit 1
+fi
+
+# ------------------------------------------------------------------
+# Check the icurry version is OK
+
+TARGET=$(dirname $1)/.curry/$(basename $1 ".curry")
+
+# echo TARGET $TARGET
+
+if [ -f $TARGET.icur -a $TARGET.icur -nt $FILE.curry ]
+then
+  [ -n "$QUIET" ] || echo `basename $0`: \"$FILENAME.icur\" up to date
+else
+  echo `basename $0`: please run curry2icur \"$FILENAME\". 1>&2
+  exit 1
+fi
+
+# ------------------------------------------------------------------
+# Check the cpp version is OK
+
+# TODO: there is something wrong with this test ???
+
+if [ -e $TARGET.cpp -a $TARGET.cpp -nt $TARGET.icur ]
+then
+  [ -n "$QUIET" ] || echo `basename $0`: \"$FILENAME.cpp\" up to date
+else
+  echo `basename $0`: please run icur2cpp \"$FILENAME\". 1>&2
+#xa   stat $TARGET.icur
+#xa   stat $TARGET.cpp
+#xa   if [ -e $TARGET.cpp ]; then echo +++ $TARGET.cpp exists; fi
+#xa   if [ $TARGET.cpp -nt $TARGET.icur ]; then echo +++ newer; fi
+#xa   exit
+fi  
+
+# ------------------------------------------------------------------
+# Compile
+
+COMPILE="g++ -I $BASE/engine -I $BASE/lib -c -o $TARGET.o  $TARGET.cpp -g -O0"
+[ -n "$QUIET" ] || echo `basename $0`: executing $COMPILE in directory `pwd`
+$COMPILE
+
+ISMAIN=`egrep "^M$" $TARGET.make`
+
+if [ "$ISMAIN" = "M" ]
+then
+  LINK="g++ $BASE/engine/Engine.o $BASE/lib/Prelude.o $BASE/lib/External.o $BASE/lib/Litint.o $BASE/lib/Litchar.o -o $FILE $TARGET.o -g -O0"
+  [ -n "$QUIET" ] || echo `basename $0`: Executing $LINK
+  $LINK
+  [ -z "$EXEC" ] || timeout 1 $FILE | head -200
+else
+  [ -z "$EXEC" ] || echo `basename $0`: No main, no linking, no execution
+fi
+
+#  g++ -I /home/antoy/COMMON/programs/CMC/runtime/engine 
+#      -I /home/antoy/COMMON/programs/CMC/runtime/lib 
+#      -c -o Examples/.curry/plain.o 
+#      Examples/.curry/plain.cpp 
+#      -g -O0
+#  g++ /home/antoy/COMMON/programs/CMC/runtime/engine/Engine.o 
+#      /home/antoy/COMMON/programs/CMC/runtime/lib/Prelude.o 
+#      /home/antoy/COMMON/programs/CMC/runtime/lib/External.o 
+#      /home/antoy/COMMON/programs/CMC/runtime/lib/Litint.o 
+#      /home/antoy/COMMON/programs/CMC/runtime/lib/Litchar.o 
+#      -o Examples/plain 
+#      Examples/.curry/plain.o 
+#      -g -O0

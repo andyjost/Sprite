@@ -1,0 +1,12 @@
+ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+CC := gcc
+CXX := g++
+
+CFLAGS += -Wall -I$(ROOT_DIR) -O3
+CXXFLAGS += $(CFLAGS) -std=c++11
+
+include $(ROOT_DIR)/Make.depends
+
+clean: 
+	rm -rf *.o .d
+

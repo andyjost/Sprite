@@ -1,0 +1,21 @@
+#!/bin/sh
+
+BASE=$(dirname $(dirname $(dirname $(readlink -f $0))))
+# echo $BASE
+
+cd $BASE/runtime/lib
+
+echo "Make sure Prelude.curry is the correct version"
+
+if [ -f Prelude.curry ]
+then
+    rm -rf .curry/Prelude.*
+    rm -rf Prelude.o Prelude.cpp Prelude.hpp
+    $BASE/translator/bin/curry2icur -q Prelude
+    $BASE/translator/bin/icur2cpp -q Prelude
+    mv .curry/Prelude.cpp .curry/Prelude.hpp .
+    g++ -I $BASE/runtime/engine -I $BASE/runtime/lib -c -o Prelude.o  Prelude.cpp -g -O0
+    rm -f .curry/Prelude.fcy .curry/Prelude.fint .curry/Prelude.icurry
+else
+  echo File Prelude.curry is missing
+fi

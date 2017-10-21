@@ -1,0 +1,6 @@
+*.d
+*.o
+*.pyc
+CMC/translator/json/.curry
+CMC/translator/icurry/.curry
+CMC/Examples/.curry

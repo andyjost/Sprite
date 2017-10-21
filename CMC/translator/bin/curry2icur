@@ -1,0 +1,66 @@
+#!/bin/bash
+
+BASEDIR=$(dirname $(dirname $(readlink -f $0)))
+# echo $BASEDIR
+
+QUIET=''
+WARN=''
+while [ $1 ]
+do
+  case $1 in
+    -q) QUIET='-q'; shift;;
+    -w) WARN=':set -warn'; shift;;
+    -*) echo `basename $0`: ignored flag \"$1\"; shift;;
+    *) break;;
+  esac
+done
+
+if [ "$*" = "" ]
+then
+  echo `basename $0`: no input file. 1>&2
+  exit 1
+fi
+
+FILE=$(dirname $1)/$(basename $1 ".curry")
+if [ ! -f $FILE.curry ]
+then
+  echo `basename $0`: \"$FILE.curry\" not found. 1>&2
+  exit 1
+fi
+
+# ------------------------------------------------------------------
+# create ICurry
+
+# Next path is required to compile Examples/RegExp.curry
+# CURRYPATH=$(dirname $1):$BASEDIR/icurry:$BASEDIR/poly
+# Next path is required to compile the Prelude
+CURRYPATH=$PAKCSHOME/lib:$BASEDIR/icurry:$BASEDIR/poly
+export CURRYPATH
+
+TARGET=$(dirname $1)/.curry/$(basename $1 ".curry")
+
+# echo TARGET $TARGET
+
+if [ -f $TARGET.read -a $TARGET.read -nt $FILE.curry ]
+then
+    [ -n "$QUIET" ] || echo `basename $0`: \"read\" up to date
+else
+  rm -f $FILE.read 
+  # command="pakcs -Dkeepfiles=yes :set v3 :set args $FILE :load $BASEDIR/icurry/Main.curry :eval main :quit"
+
+  command="pakcs $QUIET $WARN :set args $FILE :load $BASEDIR/icurry/Main.curry :eval Main.main :quit" 
+
+  [ -n "$QUIET" ] || echo `basename $0`: CURRYPATH $CURRYPATH
+  [ -n "$QUIET" ] || echo `basename $0`: Running $command
+# grep to fix a bug in pakcs
+  $command | egrep -v "^Reading FlatCurry files"
+
+  if [ -f $FILE.read ]
+  then
+    mv -f $FILE.icur $TARGET.icur
+    mv -f $FILE.read $TARGET.read
+  else
+    echo `basename $0`: failed to create \"$FILE.read\". 1>&2
+    exit 1
+  fi
+fi

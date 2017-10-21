@@ -1,0 +1,43 @@
+#!/bin/sh
+
+BASE=$(dirname $(dirname $(readlink -f $0)))
+# echo BASE $BASE
+
+EXEC=''
+QUIET=''
+WARN=''
+while [ $1 ]
+do
+  case $1 in
+    -e) EXEC='-e'; shift;;
+    -q) QUIET='-q'; shift;;
+    -w) WARN='-w'; shift;;
+    -*) echo `basename $0`: ignored flag \"$1\"; shift;;
+    *) break;;
+  esac
+done
+
+
+$BASE/translator/bin/curry2icur $QUIET $WARN $1
+[ 0 -eq $? ] || exit $?
+# fix the -nt problem ???
+sleep 1
+$BASE/translator/bin/icur2cpp $QUIET $1
+[ 0 -eq $? ] || exit $?
+$BASE/translator/bin/cpp2exe $QUIET $EXEC $1
+[ 0 -eq $? ] || exit $?
+
+# Do not execute here
+
+exit
+
+FILE=$(dirname $1)/$(basename $1 ".curry")
+if [ -n "$EXEC" ]
+then
+  if [ -f "$FILE" ]
+  then 
+    [ -n "$QUIET" ] || echo `basename $0`: Executing $FILE
+    timeout 1 $FILE | head -200
+  fi
+fi
+

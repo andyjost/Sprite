@@ -1,0 +1,16 @@
+Decider('timestamp-newer')
+
+root='..'
+
+Repository(root+'/engine')
+Repository(root+'/lib')
+
+env = Environment(CPPPATH=['.'])
+
+env.Object('Litint.cpp')
+env.Object('Litchar.cpp')
+env.Object('External.cpp')
+
+# make sure Prelude.cpp is fresh
+
+env.Object('Prelude.cpp')

@@ -1,0 +1,16 @@
+In empty directory, say DIST, get the repository
+
+    git init
+    git pull https://github.com/andyjost/CMC master
+
+Compile the engine
+
+    cd DIST/runtime/engine
+    scons
+
+Compile the Prelude and the libraries
+
+    cd DIST/runtime/lib
+    ../bin/makePrelude 
+    scons
+
