@@ -1,0 +1,46 @@
+[{
+    "__class__": "IModule"
+  , "name": "example"
+  , "imports": ["Prelude"]
+  , "types": [
+        ["example.AB", [{"__class__": "IConstructor", "ident": "example.A", "arity": 0}
+                       ,{"__class__": "IConstructor", "ident": "example.B", "arity": 1}]
+          ]
+      ]
+  , "functions": [
+        {"__class__": "IFunction", "ident": "example.f", "arity": 2, "code": [
+            {"__class__": "Declare", "var": {"__class__": "Variable", "vid": 1, "scope": {"__class__": "ILhs", "index": ["example.f", 1]}}}
+          , {"__class__": "Declare", "var": {"__class__": "Variable", "vid": 2, "scope": {"__class__": "ILhs", "index": ["example.f", 2]}}}
+          , {"__class__": "Return", "expr": {"__class__": "IOr"
+              , "lhs": {"__class__": "Applic", "ident": "example.f_case_#1", "args": [{"__class__": "Reference", "vid": 1}]}
+              , "rhs": {"__class__": "Applic", "ident": "example.g", "args": [{"__class__": "Reference", "vid": 2}]}
+              }}
+          ]}
+      , {"__class__": "IFunction", "ident": "example.f_case_#1", "arity": 1, "code": [
+            {"__class__": "Declare", "var": {"__class__": "Variable", "vid": 1, "scope": {"__class__": "ILhs", "index": ["example.f_case_#1", 1]}}}
+          , {"__class__": "BTable", "counter": 1, "isflex": true
+              , "expr": {"__class__": "Reference", "vid": 1}
+              , "cases": [[0, [{"__class__": "Return", "expr": 0}]]]
+              }
+          , {"__class__": "Return", "expr": {"__class__": "Reference", "vid": 1}}
+          ]}
+      , {"__class__": "IFunction", "ident": "example.g", "arity": 1, "code": [
+            {"__class__": "Declare", "var": {"__class__": "Variable", "vid": 1, "scope": {"__class__": "ILhs", "index": ["example.g", 1]}}}
+          , {"__class__": "ATable", "counter": 1, "isflex": false
+              , "expr": {"__class__": "Reference", "vid": 1}
+              , "cases": [
+                    [{"__class__": "IConstructor", "ident": "example.A", "arity": 0}, [{"__class__": "Return", "expr": {"__class__": "Applic", "ident": "Prelude.negate", "args": [1]}}]]
+                  , [{"__class__": "IConstructor", "ident": "example.B", "arity": 1}, [
+                        {"__class__": "Declare", "var": {"__class__": "Variable", "vid": 2, "scope": {"__class__": "IVar", "vid": 1, "index": ["example.B", 1]}}}
+                      , {"__class__": "Return", "expr": {"__class__": "Reference", "vid": 2}}
+                      ]]
+                  ]
+              }
+          , {"__class__": "Return", "expr": {"__class__": "Reference", "vid": 1}}
+          ]}
+      , {"__class__": "IFunction", "ident": "example.main", "arity": 0, "code": [
+            {"__class__": "Return", "expr": {"__class__": "Applic", "ident": "example.f"
+              , "args": [1,{"__class__": "Applic", "ident": "example.A", "args": []}]}}
+          ]}
+      ]
+  }]

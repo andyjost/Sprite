@@ -1,0 +1,27 @@
+Module:
+-------
+  name: example
+  imports: Prelude
+
+  types:
+  ------
+    AB = A | B
+
+  functions:
+  ----------
+    f:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      return (example.f_case_#1 $1) ? (example.g $2)
+    f_case_#1:
+      $1 <- LHS[1]
+      case $1 of 0 -> return 0
+      return $1
+    g:
+      $1 <- LHS[1]
+      case $1 of example.A -> return (Prelude.negate 1)
+                 example.B -> $2 <- $1[1]
+                              return $2
+      return $1
+    main:
+      return (example.f 1 ((example.A )))
