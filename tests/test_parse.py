@@ -4,8 +4,9 @@ import cytest
 GENERATE_GOLDENS = False
 
 class ParseJSON(cytest.TestCase):
-  def test_parse_JSON(self):
-    json = open('json/1.json', 'rb').read()
+  '''Tests parsing the ICurry JSON format.'''
+  def test_parseJSON(self):
+    json = open('data/json/1.json', 'rb').read()
     icur = icurry.parse(json)[0]
 
     # Test equality.
@@ -18,4 +19,4 @@ class ParseJSON(cytest.TestCase):
     self.assertEqual(icur, icur2)
 
     # Check against the golden.
-    self.compareGolden(icur, 'json/1.au', GENERATE_GOLDENS)
+    self.compareGolden(icur, 'data/json/1.au', GENERATE_GOLDENS)

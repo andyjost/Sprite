@@ -1,0 +1,27 @@
+Sprite unit tests
+=================
+
+1. USAGE
+--------
+
+        make ['testall' | pattern...]
+
+Use 'make' or 'make testall' to run all tests.  Use 'make test_parse.py' to run
+parser tests.
+
+
+2. FILE LAYOUT
+--------------
+
+        data/       Test data files (e.g., sample input, golden results).
+        lib/        Test harness code.
+        test_*.py   Unit test source code.
+
+
+3. EDITOR INTEGRATION
+---------------------
+
+A makefile is used to simplify integration with text editors.  For instance, in
+vim <Enter> runs "make" by default, so that key can be used to easily run the
+tests after editing something.
+

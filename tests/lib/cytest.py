@@ -7,7 +7,7 @@ class TestCase(unittest.TestCase):
     '''
     Compare an object or objects against a golden file.
 
-    If update is True, then the golden file will be updated instead.
+    If ``update`` tests true, then just update the golden file instead.
     '''
     buf = StringIO()
     if isinstance(objs, collections.Sequence):
