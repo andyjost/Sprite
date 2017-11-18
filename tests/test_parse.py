@@ -3,8 +3,8 @@ import cytest
 
 GENERATE_GOLDENS = False
 
-class ParseTC(cytest.TestCase):
-  def test1(self):
+class ParseJSON(cytest.TestCase):
+  def test_parse_JSON(self):
     json = open('json/1.json', 'rb').read()
     icur = icurry.parse(json)[0]
 
