@@ -17,4 +17,3 @@ main.o: main.cpp
 all:
 	./build
 
-include $(wildcard $(patsubst %,$(DEPDIR)/%.d,$(basename $(SRCS))))

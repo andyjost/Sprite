@@ -1,0 +1,24 @@
+1. Overview
+-----------
+
+
+2. Makefile organization
+------------------------
+
+Sprite uses GNU "make" in straightforward fashion.  There are two things to
+note:
+
+    a. Make.include.  Each Makefile includes the Make.include file found one
+       level higher in the filesystem tree.
+    b. Make.depends.  The root contains this file, which implements dependency
+       tracking.  Dependency files are placed under directories named .d.
+
+3. Software
+-----------
+
+Sprite was developed and tested with the following software.
+
+    - Ubuntu 16.04.1 LTS (xenial); 4.4.0-72-generic #93-Ubuntu
+    - GNU make 4.1
+    - MPS 1.116.0 (www.ravenbrook.com/project/mps)
+

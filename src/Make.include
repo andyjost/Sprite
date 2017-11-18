@@ -1,12 +1,24 @@
+# Predefined variables.
+SRCS := $(wildcard *.c *.cpp)
+OBJS := $(patsubst %,%.o,$(basename $(SRCS)))
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+
+# Predefined targets.
+.PHONY=objs
+objs: $(OBJS) # ==== default target ====
+clean: 
+	rm -rf *.o .d
+
+
+# Compiler setup.
 CC := gcc
 CXX := g++
-
 CFLAGS += -Wall -I$(ROOT_DIR) -O3
 CXXFLAGS += $(CFLAGS) -std=c++11
 
+
+# Automatic dependency detection.
 include $(ROOT_DIR)/Make.depends
 
-clean: 
-	rm -rf *.o .d
 

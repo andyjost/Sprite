@@ -1,9 +1,13 @@
+/**
+ * @file
+ * @brief Defines a global variables list and configures MPS to scan it.
+ */
 #include <cassert>
 #include <iostream>
 #include <list>
 #include <stdexcept>
-#include "gc/globals.h"
-#include "gc/defs.h"
+#include "memory/globals.h"
+#include "memory/defs.h"
 
 extern "C"
 {

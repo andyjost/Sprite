@@ -1,0 +1,10 @@
+1. Description
+--------------
+
+This module builds MPS with the Sprite object format inlined.  See
+http://www.ravenbrook.com/project/mps/master/manual/html/guide/build.html#optimizing-for-your-object-format.
+
+MPS is written in C, but the implementation of global (globals.cpp) variables
+requires a dynamically-allocated list, and so is more conveniently implemented
+using C++.
+

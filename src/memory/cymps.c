@@ -1,8 +1,13 @@
-// This file is an instance of the  Memory Pool System (MPS) compiled with the
-// Sprite object format inlined.
-#include "mps.c"
-#include "gc/defs.h"
-#include "gc/globals.h"
+/**
+ * @file An instance of the  Memory Pool System (MPS) compiled with the Sprite
+ * object format inlined.
+ */
+
+#include "mps.c" // All of MPS; the Sprite object format is defined below.
+
+#include "memory/cymps.h"
+#include "memory/defs.h"
+#include "memory/globals.h"
 #include "stdio.h"
 #include "stdlib.h"
 #define ASADDR(addr) (*({mps_addr_t * tmp = (mps_addr_t*)(&addr); tmp;}))
@@ -10,18 +15,24 @@
 #define SIZE_BOUND (1<<16)
 #define error(what) do { fprintf(stderr, what); exit(1); } while(0)
 
+/**
+ * @brief An info table.  Every heap object begins with an info pointer, whose
+ * type is info_t*.
+ */
 typedef struct info_t
 {
   int tag;
-  size_t size; // in bytes offset from *payload*
+  size_t size; // heap object size in bytes offset from *payload*.
 } info_t;
 
+/// The basic object used for any Curry expression.
 typedef struct heapobj_t
 {
   info_t * info;
   char payload[]; // dynamically sized.
 } heapobj_t;
 
+/// Used internally by MPS to fill unused space.
 typedef struct pad_t
 {
   info_t * info;
@@ -31,21 +42,28 @@ typedef struct pad_t
 static info_t pad1_info = {PAD1, 0};
 static info_t pad_info = {PAD, 0};
 
-// An ordinary object is failure, choice, operation or constructor.
-// Extraordinary objects are used for padding and forwarding.
-int is_ordinary(heapobj_t * obj)
+/**
+ * @brief Indicates whether an object is a Curry object.
+ *
+ * Curry objects are the node types appearing in the Fair Scheme: failure,
+ * choice, operation, and constructor.  Other objects are used by MPS for
+ * administration (padding and forwarding).
+ */
+int is_curry_object(heapobj_t * obj)
 {
   return !HASBIT(obj->info, FLAGMASK)
       && obj->info->tag != PAD
       && obj->info->tag != PAD1;
 }
 
+/// Gets the size of a forwarding object.
 size_t fwd_obj_size(heapobj_t * obj)
 {
   assert(HASBIT(obj->info, FLAGMASK));
   return ((size_t)(obj->info)) >> 48;
 }
 
+/// Get the size of a padding object.
 size_t pad_obj_size(heapobj_t * obj)
 {
   assert(obj->info->tag == PAD);
@@ -135,17 +153,19 @@ void obj_pad(mps_addr_t addr, size_t size)
   }
 }
 
+///@{
+/// Iteration support for heap objects.
 heapobj_t ** begin(heapobj_t * obj)
 {
   SKIPFWD(obj);
   return &ASOBJ(obj->payload[0]);
 }
-
 heapobj_t ** end(heapobj_t * obj)
 {
   SKIPFWD(obj);
   return &ASOBJ(obj->payload[obj->info->size]);
 }
+///@}
 
 static mps_arena_t arena;
 static mps_fmt_t obj_fmt;
@@ -155,7 +175,13 @@ static mps_thr_t thread;
 static mps_root_t stack_root;
 static mps_ap_t obj_ap;
 
-void init_memory_system(void * marker)
+/**
+ * @brief Initializes MPS.
+ *
+ * Must be called after "main" begins.  @p top_of_stack should be passed the
+ * address of a stack variable that remains valid until main returns.
+ */
+void init_memory_system(void * top_of_stack)
 {
   mps_res_t res;
 
@@ -197,7 +223,7 @@ void init_memory_system(void * marker)
   if(res != MPS_RES_OK) error("Couldn't register thread");
 
   // Stack
-  res = mps_root_create_thread(&stack_root, arena, thread, marker);
+  res = mps_root_create_thread(&stack_root, arena, thread, top_of_stack);
   if(res != MPS_RES_OK) error("Couldn't create root");
 
   // Allocation point.
