@@ -1,0 +1,50 @@
+# Tool setup.
+CC := /usr/bin/gcc
+CXX := /usr/bin/g++
+PYTHON_INCLUDE_PATH := /usr/include/python2.7
+
+
+# Compiler setup.
+CFLAGS += -Wall -I$(ROOT_DIR)/src -O3
+CXXFLAGS += $(CFLAGS) -std=c++17
+
+
+# Variable.s
+ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+# The root of the directory tree holding object files.
+OBJECT_ROOT := $(abspath $(ROOT_DIR)/object-root)
+# The object subdirectory being targeted.  The working dir contains source
+# files.
+OBJECT_DIR := $(OBJECT_ROOT)/$(shell realpath --relative-to $(ROOT_DIR)/src $(shell pwd))
+$(shell mkdir -p $(OBJECT_DIR))
+
+SRCS := $(wildcard *.c *.cpp)
+OBJS := $(patsubst %,$(OBJECT_DIR)/%.o,$(basename $(SRCS)))
+# SHARED_LIBS is defined in leaf directories that provides shared libraries.
+SHLIBS := $(patsubst %,$(OBJECT_DIR)/%.so,$(SHARED_LIBS))
+SUBMODULES = $(dir $(wildcard */.))
+
+# Rules and targets.
+TOP_TARGETS := all shlibs objs clean $(SUBMODULES)
+.PHONY: $(TOP_TARGETS)
+
+all: objs shlibs $(SUBMODULES)
+shlibs: $(SHLIBS)
+objs: $(OBJS)
+clean:
+	rm -rf $(OBJS) $(SHLIBS) .d/
+$(SUBMODULES):
+	$(MAKE) -C $@
+
+$(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
+$(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
+	$(CXX) -shared $< $(LDFLAGS) $(OUTPUT_OPTION)
+
+# E.g., print-ROOT_DIR
+print-% : ; $(info $* is a $(flavor $*) variable set to [$($*)]) @true
+
+
+# Automated dependency handling.
+include $(ROOT_DIR)/Make.depends
+
+

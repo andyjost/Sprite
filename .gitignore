@@ -1,3 +1,4 @@
+object-root/*
 *.d
 *.o
 *.pyc

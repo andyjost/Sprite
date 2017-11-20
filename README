@@ -1,0 +1,12 @@
+1. Software used
+----------------
+
+Sprite was developed and tested with the following software.
+
+    - Ubuntu 16.04.1 LTS (xenial); 4.4.0-72-generic #93-Ubuntu
+    - GCC 5.4.0
+    - LLVM 4.0
+    - GNU make 4.1
+    - MPS 1.116.0 (www.ravenbrook.com/project/mps)
+		- Python 2.7.12
+

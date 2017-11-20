@@ -1,3 +1,4 @@
+#include "memory.hpp"
 #include "memory/cymps.h"
 
 namespace sprite

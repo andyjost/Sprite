@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief Master include for the Sprite memory manager.
+ * @brief Master include for the Sprite memory system.
  */
 
 namespace sprite
@@ -8,9 +8,9 @@ namespace sprite
   /**
    * @brief The Sprite memory manager.
    *
-   * To initialize the memory manager, an object of this type is placed on the
-   * stack inside the main function.  @p top_of_stack is the address of a stack
-   * variable above that object.
+	 * To initialize the memory manager, an object of this type should be placed
+	 * on the stack inside the main function.  @p top_of_stack is the address of
+	 * a stack variable above that object.
    */
   struct MemoryManager
   {

@@ -1,0 +1,7 @@
+CFLAGS += -fPIC -I$(PYTHON_INCLUDE_PATH)
+LDFLAGS += -lpython2.7 -lboost_python
+# Each source file in this directory creates one shared library.
+SHARED_LIBS = $(basename $(SRCS))
+
+# Include the Make.include file one level up in the directory hierarchy.
+include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
