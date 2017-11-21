@@ -31,7 +31,6 @@ ifneq ($(INSTALLING),)
   PYLIB_PY_FILES := $(patsubst %,$(PYLIB_INSTALL_DIR)/%,$(wildcard *.py))
   PYLIB_SO_FILES := $(patsubst %,$(PYLIB_INSTALL_DIR)/%.so,$(SHLIBS))
 
-  .PHONY: blah
   install: $(PYLIB_PY_FILES) $(PYLIB_SO_FILES)
   uninstall:
 		-rm $(PYLIB_PY_FILES) $(PYLIB_SO_FILES)       2>&1 > /dev/null
