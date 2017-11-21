@@ -1,0 +1,2503 @@
+GNU Make 4.1
+Built for x86_64-pc-linux-gnu
+Copyright (C) 1988-2014 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Reading makefiles...
+Reading makefile 'Makefile'...
+Reading makefile 'Make.include' (search path) (no ~ expansion)...
+Reading makefile '/home/andy/sprite4/src/memory//../Make.include' (search path) (no ~ expansion)...
+Reading makefile '/home/andy/sprite4/src//../Make.include' (search path) (no ~ expansion)...
+Reading makefile '/home/andy/sprite4//Make.config' (search path) (no ~ expansion)...
+Reading makefile '/home/andy/sprite4//Make.depends' (search path) (no ~ expansion)...
+Reading makefile '/home/andy/sprite4/object-root/memory/.d/cymps.d' (search path) (no ~ expansion)...
+Reading makefile '/home/andy/sprite4/object-root/memory/.d/globals.d' (search path) (no ~ expansion)...
+Updating makefiles....
+ Considering target file '/home/andy/sprite4/object-root/memory/.d/globals.d'.
+  Looking for an implicit rule for '/home/andy/sprite4/object-root/memory/.d/globals.d'.
+  Trying pattern rule with stem 'globals'.
+  Found an implicit rule for '/home/andy/sprite4/object-root/memory/.d/globals.d'.
+  Finished prerequisites of target file '/home/andy/sprite4/object-root/memory/.d/globals.d'.
+ No need to remake target '/home/andy/sprite4/object-root/memory/.d/globals.d'.
+ Considering target file '/home/andy/sprite4/object-root/memory/.d/cymps.d'.
+  Looking for an implicit rule for '/home/andy/sprite4/object-root/memory/.d/cymps.d'.
+  Trying pattern rule with stem 'cymps'.
+  Found an implicit rule for '/home/andy/sprite4/object-root/memory/.d/cymps.d'.
+  Finished prerequisites of target file '/home/andy/sprite4/object-root/memory/.d/cymps.d'.
+ No need to remake target '/home/andy/sprite4/object-root/memory/.d/cymps.d'.
+ Considering target file '/home/andy/sprite4//Make.depends'.
+  Looking for an implicit rule for '/home/andy/sprite4//Make.depends'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.o'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.c'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.cc'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.C'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.cpp'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.p'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.f'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.F'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.m'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.r'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.s'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.S'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.mod'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.sh'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends,v'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends,v'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.o'.
+  Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.o'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.c'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.cc'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.C'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.cpp'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.p'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.f'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.F'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.m'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.r'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.s'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.S'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.mod'.
+   Trying pattern rule with stem 'Make.depends.o'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.o,v'.
+   Trying pattern rule with stem 'Make.depends.o'.
+   Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.o,v'.
+   Trying pattern rule with stem 'Make.depends.o'.
+   Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.o'.
+   Trying pattern rule with stem 'Make.depends.o'.
+   Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.o'.
+   Trying pattern rule with stem 'Make.depends.o'.
+   Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.o'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.c'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.c'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.y'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.l'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.w'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.w'.
+    Trying pattern rule with stem 'Make.depends.c'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.c,v'.
+    Trying pattern rule with stem 'Make.depends.c'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.c,v'.
+    Trying pattern rule with stem 'Make.depends.c'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.c'.
+    Trying pattern rule with stem 'Make.depends.c'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.c'.
+    Trying pattern rule with stem 'Make.depends.c'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.c'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.y'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.y'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.depends.y'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.depends.y,v'.
+     Trying pattern rule with stem 'Make.depends.y'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.y,v'.
+     Trying pattern rule with stem 'Make.depends.y'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.y'.
+     Trying pattern rule with stem 'Make.depends.y'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.y'.
+     Trying pattern rule with stem 'Make.depends.y'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.y'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.l'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.l'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.depends.l'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.depends.l,v'.
+     Trying pattern rule with stem 'Make.depends.l'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.l,v'.
+     Trying pattern rule with stem 'Make.depends.l'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.l'.
+     Trying pattern rule with stem 'Make.depends.l'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.l'.
+     Trying pattern rule with stem 'Make.depends.l'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.l'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.w'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.w'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.depends.w'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.depends.w,v'.
+     Trying pattern rule with stem 'Make.depends.w'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.w,v'.
+     Trying pattern rule with stem 'Make.depends.w'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.w'.
+     Trying pattern rule with stem 'Make.depends.w'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.w'.
+     Trying pattern rule with stem 'Make.depends.w'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.w'.
+    Trying pattern rule with stem 'Make.depends'.
+    Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.w'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.cc'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.cc'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.depends.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.cc,v'.
+    Trying pattern rule with stem 'Make.depends.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.cc,v'.
+    Trying pattern rule with stem 'Make.depends.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.cc'.
+    Trying pattern rule with stem 'Make.depends.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.cc'.
+    Trying pattern rule with stem 'Make.depends.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.cc'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.C'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.C'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.depends.C'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.C,v'.
+    Trying pattern rule with stem 'Make.depends.C'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.C,v'.
+    Trying pattern rule with stem 'Make.depends.C'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.C'.
+    Trying pattern rule with stem 'Make.depends.C'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.C'.
+    Trying pattern rule with stem 'Make.depends.C'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.C'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.cpp'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.cpp'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.depends.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.cpp,v'.
+    Trying pattern rule with stem 'Make.depends.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.cpp,v'.
+    Trying pattern rule with stem 'Make.depends.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.cpp'.
+    Trying pattern rule with stem 'Make.depends.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.cpp'.
+    Trying pattern rule with stem 'Make.depends.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.cpp'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.p'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.p'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.web'.
+    Trying pattern rule with stem 'Make.depends.p'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.p,v'.
+    Trying pattern rule with stem 'Make.depends.p'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.p,v'.
+    Trying pattern rule with stem 'Make.depends.p'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.p'.
+    Trying pattern rule with stem 'Make.depends.p'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.p'.
+    Trying pattern rule with stem 'Make.depends.p'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.p'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.web'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.web'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.depends.web'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.depends.web,v'.
+     Trying pattern rule with stem 'Make.depends.web'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.web,v'.
+     Trying pattern rule with stem 'Make.depends.web'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.web'.
+     Trying pattern rule with stem 'Make.depends.web'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.web'.
+     Trying pattern rule with stem 'Make.depends.web'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.web'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.f'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.f'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.F'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.r'.
+    Trying pattern rule with stem 'Make.depends.f'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.f,v'.
+    Trying pattern rule with stem 'Make.depends.f'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.f,v'.
+    Trying pattern rule with stem 'Make.depends.f'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.f'.
+    Trying pattern rule with stem 'Make.depends.f'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.f'.
+    Trying pattern rule with stem 'Make.depends.f'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.f'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.F'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.F'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.depends.F'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.depends.F,v'.
+     Trying pattern rule with stem 'Make.depends.F'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.F,v'.
+     Trying pattern rule with stem 'Make.depends.F'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.F'.
+     Trying pattern rule with stem 'Make.depends.F'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.F'.
+     Trying pattern rule with stem 'Make.depends.F'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.F'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.r'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.r'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.depends'.
+     Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.l'.
+     Trying pattern rule with stem 'Make.depends.r'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.depends.r,v'.
+     Trying pattern rule with stem 'Make.depends.r'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.r,v'.
+     Trying pattern rule with stem 'Make.depends.r'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.r'.
+     Trying pattern rule with stem 'Make.depends.r'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.r'.
+     Trying pattern rule with stem 'Make.depends.r'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.r'.
+   Trying pattern rule with stem 'Make.depends'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.F'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.m'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.m'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.ym'.
+    Trying pattern rule with stem 'Make.depends.m'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.m,v'.
+    Trying pattern rule with stem 'Make.depends.m'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.m,v'.
+    Trying pattern rule with stem 'Make.depends.m'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.m'.
+    Trying pattern rule with stem 'Make.depends.m'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.m'.
+    Trying pattern rule with stem 'Make.depends.m'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.m'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.ym'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.ym'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.depends.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.depends.ym,v'.
+     Trying pattern rule with stem 'Make.depends.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.ym,v'.
+     Trying pattern rule with stem 'Make.depends.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.ym'.
+     Trying pattern rule with stem 'Make.depends.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.ym'.
+     Trying pattern rule with stem 'Make.depends.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.ym'.
+   Trying pattern rule with stem 'Make.depends'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.r'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.s'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.s'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.S'.
+    Trying pattern rule with stem 'Make.depends.s'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.s,v'.
+    Trying pattern rule with stem 'Make.depends.s'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.s,v'.
+    Trying pattern rule with stem 'Make.depends.s'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.s'.
+    Trying pattern rule with stem 'Make.depends.s'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.s'.
+    Trying pattern rule with stem 'Make.depends.s'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.s'.
+    Trying pattern rule with stem 'Make.depends'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.S'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.S'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.depends.S'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.depends.S,v'.
+     Trying pattern rule with stem 'Make.depends.S'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.S,v'.
+     Trying pattern rule with stem 'Make.depends.S'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.S'.
+     Trying pattern rule with stem 'Make.depends.S'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.S'.
+     Trying pattern rule with stem 'Make.depends.S'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.S'.
+   Trying pattern rule with stem 'Make.depends'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.S'.
+   Trying pattern rule with stem 'Make.depends'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.mod'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.mod'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.depends.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.depends.mod,v'.
+    Trying pattern rule with stem 'Make.depends.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.mod,v'.
+    Trying pattern rule with stem 'Make.depends.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.mod'.
+    Trying pattern rule with stem 'Make.depends.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.mod'.
+    Trying pattern rule with stem 'Make.depends.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.mod'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.c'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.cc'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.C'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.cpp'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.p'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.f'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.F'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.m'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.r'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.s'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.S'.
+  Trying pattern rule with stem 'Make.depends'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.depends.mod'.
+  Trying pattern rule with stem 'Make.depends'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.depends.sh'.
+  Looking for a rule with intermediate file '/home/andy/sprite4//Make.depends.sh'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Make.depends.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.depends.sh,v'.
+   Trying pattern rule with stem 'Make.depends.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.sh,v'.
+   Trying pattern rule with stem 'Make.depends.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.depends.sh'.
+   Trying pattern rule with stem 'Make.depends.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4//s.Make.depends.sh'.
+   Trying pattern rule with stem 'Make.depends.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.depends.sh'.
+  No implicit rule found for '/home/andy/sprite4//Make.depends'.
+  Finished prerequisites of target file '/home/andy/sprite4//Make.depends'.
+ No need to remake target '/home/andy/sprite4//Make.depends'.
+ Considering target file '/home/andy/sprite4//Make.config'.
+  Looking for an implicit rule for '/home/andy/sprite4//Make.config'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.o'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.c'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.cc'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.C'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.cpp'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.p'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.f'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.F'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.m'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.r'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.s'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.S'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.mod'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.sh'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config,v'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config,v'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//s.Make.config'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.o'.
+  Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.o'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.c'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.cc'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.C'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.cpp'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.p'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.f'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.F'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.m'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.r'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.s'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.S'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.mod'.
+   Trying pattern rule with stem 'Make.config.o'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.o,v'.
+   Trying pattern rule with stem 'Make.config.o'.
+   Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.o,v'.
+   Trying pattern rule with stem 'Make.config.o'.
+   Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.o'.
+   Trying pattern rule with stem 'Make.config.o'.
+   Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.o'.
+   Trying pattern rule with stem 'Make.config.o'.
+   Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.o'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.c'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.c'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.y'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.l'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.w'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.w'.
+    Trying pattern rule with stem 'Make.config.c'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.c,v'.
+    Trying pattern rule with stem 'Make.config.c'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.c,v'.
+    Trying pattern rule with stem 'Make.config.c'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.c'.
+    Trying pattern rule with stem 'Make.config.c'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.c'.
+    Trying pattern rule with stem 'Make.config.c'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.c'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.y'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.y'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.config.y'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.config.y,v'.
+     Trying pattern rule with stem 'Make.config.y'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.y,v'.
+     Trying pattern rule with stem 'Make.config.y'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.y'.
+     Trying pattern rule with stem 'Make.config.y'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.y'.
+     Trying pattern rule with stem 'Make.config.y'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.y'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.l'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.l'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.config.l'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.config.l,v'.
+     Trying pattern rule with stem 'Make.config.l'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.l,v'.
+     Trying pattern rule with stem 'Make.config.l'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.l'.
+     Trying pattern rule with stem 'Make.config.l'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.l'.
+     Trying pattern rule with stem 'Make.config.l'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.l'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.w'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.w'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.config.w'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.config.w,v'.
+     Trying pattern rule with stem 'Make.config.w'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.w,v'.
+     Trying pattern rule with stem 'Make.config.w'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.w'.
+     Trying pattern rule with stem 'Make.config.w'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.w'.
+     Trying pattern rule with stem 'Make.config.w'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.w'.
+    Trying pattern rule with stem 'Make.config'.
+    Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.w'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.cc'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.cc'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.config.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.cc,v'.
+    Trying pattern rule with stem 'Make.config.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.cc,v'.
+    Trying pattern rule with stem 'Make.config.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.cc'.
+    Trying pattern rule with stem 'Make.config.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.cc'.
+    Trying pattern rule with stem 'Make.config.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.cc'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.C'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.C'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.config.C'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.C,v'.
+    Trying pattern rule with stem 'Make.config.C'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.C,v'.
+    Trying pattern rule with stem 'Make.config.C'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.C'.
+    Trying pattern rule with stem 'Make.config.C'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.C'.
+    Trying pattern rule with stem 'Make.config.C'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.C'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.cpp'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.cpp'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.config.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.cpp,v'.
+    Trying pattern rule with stem 'Make.config.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.cpp,v'.
+    Trying pattern rule with stem 'Make.config.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.cpp'.
+    Trying pattern rule with stem 'Make.config.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.cpp'.
+    Trying pattern rule with stem 'Make.config.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.cpp'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.p'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.p'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.web'.
+    Trying pattern rule with stem 'Make.config.p'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.p,v'.
+    Trying pattern rule with stem 'Make.config.p'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.p,v'.
+    Trying pattern rule with stem 'Make.config.p'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.p'.
+    Trying pattern rule with stem 'Make.config.p'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.p'.
+    Trying pattern rule with stem 'Make.config.p'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.p'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.web'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.web'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.config.web'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.config.web,v'.
+     Trying pattern rule with stem 'Make.config.web'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.web,v'.
+     Trying pattern rule with stem 'Make.config.web'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.web'.
+     Trying pattern rule with stem 'Make.config.web'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.web'.
+     Trying pattern rule with stem 'Make.config.web'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.web'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.f'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.f'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.F'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.r'.
+    Trying pattern rule with stem 'Make.config.f'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.f,v'.
+    Trying pattern rule with stem 'Make.config.f'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.f,v'.
+    Trying pattern rule with stem 'Make.config.f'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.f'.
+    Trying pattern rule with stem 'Make.config.f'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.f'.
+    Trying pattern rule with stem 'Make.config.f'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.f'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.F'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.F'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.config.F'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.config.F,v'.
+     Trying pattern rule with stem 'Make.config.F'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.F,v'.
+     Trying pattern rule with stem 'Make.config.F'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.F'.
+     Trying pattern rule with stem 'Make.config.F'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.F'.
+     Trying pattern rule with stem 'Make.config.F'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.F'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.r'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.r'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.config'.
+     Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.l'.
+     Trying pattern rule with stem 'Make.config.r'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.config.r,v'.
+     Trying pattern rule with stem 'Make.config.r'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.r,v'.
+     Trying pattern rule with stem 'Make.config.r'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.r'.
+     Trying pattern rule with stem 'Make.config.r'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.r'.
+     Trying pattern rule with stem 'Make.config.r'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.r'.
+   Trying pattern rule with stem 'Make.config'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.F'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.m'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.m'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.ym'.
+    Trying pattern rule with stem 'Make.config.m'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.m,v'.
+    Trying pattern rule with stem 'Make.config.m'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.m,v'.
+    Trying pattern rule with stem 'Make.config.m'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.m'.
+    Trying pattern rule with stem 'Make.config.m'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.m'.
+    Trying pattern rule with stem 'Make.config.m'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.m'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.ym'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.ym'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.config.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.config.ym,v'.
+     Trying pattern rule with stem 'Make.config.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.ym,v'.
+     Trying pattern rule with stem 'Make.config.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.ym'.
+     Trying pattern rule with stem 'Make.config.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.ym'.
+     Trying pattern rule with stem 'Make.config.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.ym'.
+   Trying pattern rule with stem 'Make.config'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.r'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.s'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.s'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.S'.
+    Trying pattern rule with stem 'Make.config.s'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.s,v'.
+    Trying pattern rule with stem 'Make.config.s'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.s,v'.
+    Trying pattern rule with stem 'Make.config.s'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.s'.
+    Trying pattern rule with stem 'Make.config.s'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.s'.
+    Trying pattern rule with stem 'Make.config.s'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.s'.
+    Trying pattern rule with stem 'Make.config'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.S'.
+    Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.S'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.config.S'.
+     Trying implicit prerequisite '/home/andy/sprite4//Make.config.S,v'.
+     Trying pattern rule with stem 'Make.config.S'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.S,v'.
+     Trying pattern rule with stem 'Make.config.S'.
+     Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.S'.
+     Trying pattern rule with stem 'Make.config.S'.
+     Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.S'.
+     Trying pattern rule with stem 'Make.config.S'.
+     Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.S'.
+   Trying pattern rule with stem 'Make.config'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.S'.
+   Trying pattern rule with stem 'Make.config'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.mod'.
+   Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.mod'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.config.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4//Make.config.mod,v'.
+    Trying pattern rule with stem 'Make.config.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.mod,v'.
+    Trying pattern rule with stem 'Make.config.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.mod'.
+    Trying pattern rule with stem 'Make.config.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.mod'.
+    Trying pattern rule with stem 'Make.config.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.mod'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.c'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.cc'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.C'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.cpp'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.p'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.f'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.F'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.m'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.r'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.s'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.S'.
+  Trying pattern rule with stem 'Make.config'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4//Make.config.mod'.
+  Trying pattern rule with stem 'Make.config'.
+  Trying implicit prerequisite '/home/andy/sprite4//Make.config.sh'.
+  Looking for a rule with intermediate file '/home/andy/sprite4//Make.config.sh'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Make.config.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4//Make.config.sh,v'.
+   Trying pattern rule with stem 'Make.config.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.sh,v'.
+   Trying pattern rule with stem 'Make.config.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4//RCS/Make.config.sh'.
+   Trying pattern rule with stem 'Make.config.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4//s.Make.config.sh'.
+   Trying pattern rule with stem 'Make.config.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4//SCCS/s.Make.config.sh'.
+  No implicit rule found for '/home/andy/sprite4//Make.config'.
+  Finished prerequisites of target file '/home/andy/sprite4//Make.config'.
+ No need to remake target '/home/andy/sprite4//Make.config'.
+ Considering target file '/home/andy/sprite4/src//../Make.include'.
+  Looking for an implicit rule for '/home/andy/sprite4/src//../Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.o'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.c'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.cc'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.C'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.cpp'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.p'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.f'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.F'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.m'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.r'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.s'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.S'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.mod'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.sh'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include,v'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include,v'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.o'.
+  Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.o'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.c'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.cc'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.C'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.cpp'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.p'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.f'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.F'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.m'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.r'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.s'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.S'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.mod'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.o,v'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.o,v'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.o'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.o'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.o'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.c'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.c'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.y'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.l'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.w'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.w'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.c,v'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.c,v'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.c'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.c'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.c'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.y'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.y'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.y,v'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.y,v'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.y'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.y'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.y'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.l'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.l'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.l,v'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.l,v'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.l'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.l'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.l'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.w'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.w'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.w,v'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.w,v'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.w'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.w'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.w'.
+    Trying pattern rule with stem 'Make.include'.
+    Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.w'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.cc'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.cc'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.cc,v'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.cc,v'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.cc'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.cc'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.cc'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.C'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.C'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.C,v'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.C,v'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.C'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.C'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.C'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.cpp'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.cpp'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.cpp,v'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.cpp,v'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.cpp'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.cpp'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.cpp'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.p'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.p'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.web'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.p,v'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.p,v'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.p'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.p'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.p'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.web'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.web'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.web,v'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.web,v'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.web'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.web'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.web'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.f'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.f'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.F'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.r'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.f,v'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.f,v'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.f'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.f'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.f'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.F'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.F'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.F,v'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.F,v'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.F'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.F'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.F'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.r'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.r'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include'.
+     Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.l'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.r,v'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.r,v'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.r'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.r'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.r'.
+   Trying pattern rule with stem 'Make.include'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.F'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.m'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.m'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.ym'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.m,v'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.m,v'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.m'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.m'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.m'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.ym'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.ym'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.ym,v'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.ym,v'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.ym'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.ym'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.ym'.
+   Trying pattern rule with stem 'Make.include'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.r'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.s'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.s'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.S'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.s,v'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.s,v'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.s'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.s'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.s'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.S'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.S'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.S,v'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.S,v'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.S'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.S'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.S'.
+   Trying pattern rule with stem 'Make.include'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.S'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.mod'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.mod'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.mod,v'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.mod,v'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.mod'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.mod'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.mod'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.c'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.cc'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.C'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.cpp'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.p'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.f'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.F'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.m'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.r'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.s'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.S'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src//../Make.include.mod'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.sh'.
+  Looking for a rule with intermediate file '/home/andy/sprite4/src//../Make.include.sh'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../Make.include.sh,v'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.sh,v'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../RCS/Make.include.sh'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../s.Make.include.sh'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4/src//../SCCS/s.Make.include.sh'.
+  No implicit rule found for '/home/andy/sprite4/src//../Make.include'.
+  Finished prerequisites of target file '/home/andy/sprite4/src//../Make.include'.
+ No need to remake target '/home/andy/sprite4/src//../Make.include'.
+ Considering target file '/home/andy/sprite4/src/memory//../Make.include'.
+  Looking for an implicit rule for '/home/andy/sprite4/src/memory//../Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.o'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.c'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.cc'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.C'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.cpp'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.p'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.f'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.F'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.m'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.r'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.s'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.S'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.mod'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.sh'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include,v'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include,v'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.o'.
+  Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.o'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.c'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.cc'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.C'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.cpp'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.p'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.f'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.F'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.m'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.r'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.s'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.S'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.mod'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.o,v'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.o,v'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.o'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.o'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.o'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.c'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.c'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.y'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.l'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.w'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.w'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.c,v'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.c,v'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.c'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.c'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.c'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.y'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.y'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.y,v'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.y,v'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.y'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.y'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.y'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.l'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.l'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.l,v'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.l,v'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.l'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.l'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.l'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.w'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.w'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.w,v'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.w,v'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.w'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.w'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.w'.
+    Trying pattern rule with stem 'Make.include'.
+    Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.w'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.cc'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.cc'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.cc,v'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.cc,v'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.cc'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.cc'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.cc'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.C'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.C'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.C,v'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.C,v'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.C'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.C'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.C'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.cpp'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.cpp'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.cpp,v'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.cpp,v'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.cpp'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.cpp'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.cpp'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.p'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.p'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.web'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.p,v'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.p,v'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.p'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.p'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.p'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.web'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.web'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.web,v'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.web,v'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.web'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.web'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.web'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.f'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.f'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.F'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.r'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.f,v'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.f,v'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.f'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.f'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.f'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.F'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.F'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.F,v'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.F,v'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.F'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.F'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.F'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.r'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.r'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include'.
+     Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.l'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.r,v'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.r,v'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.r'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.r'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.r'.
+   Trying pattern rule with stem 'Make.include'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.F'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.m'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.m'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.ym'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.m,v'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.m,v'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.m'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.m'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.m'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.ym'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.ym'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.ym,v'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.ym,v'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.ym'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.ym'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.ym'.
+   Trying pattern rule with stem 'Make.include'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.r'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.s'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.s'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.S'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.s,v'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.s,v'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.s'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.s'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.s'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.S'.
+    Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.S'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.S,v'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.S,v'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.S'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.S'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.S'.
+   Trying pattern rule with stem 'Make.include'.
+   Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.S'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.mod'.
+   Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.mod'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.mod,v'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.mod,v'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.mod'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.mod'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.mod'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.c'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.cc'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.C'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.cpp'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.p'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.f'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.F'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.m'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.r'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.s'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.S'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.mod'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.sh'.
+  Looking for a rule with intermediate file '/home/andy/sprite4/src/memory//../Make.include.sh'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../Make.include.sh,v'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.sh,v'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../RCS/Make.include.sh'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../s.Make.include.sh'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite '/home/andy/sprite4/src/memory//../SCCS/s.Make.include.sh'.
+  No implicit rule found for '/home/andy/sprite4/src/memory//../Make.include'.
+  Finished prerequisites of target file '/home/andy/sprite4/src/memory//../Make.include'.
+ No need to remake target '/home/andy/sprite4/src/memory//../Make.include'.
+ Considering target file 'Make.include'.
+  Looking for an implicit rule for 'Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.o'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.c'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.cc'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.C'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.cpp'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.p'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.f'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.F'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.m'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.r'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.s'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.S'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.mod'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.sh'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include,v'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'RCS/Make.include,v'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'RCS/Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 's.Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'SCCS/s.Make.include'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.o'.
+  Looking for a rule with intermediate file 'Make.include.o'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.c'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.cc'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.C'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.cpp'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.p'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.f'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.F'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.m'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.r'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.s'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.S'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.mod'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite 'Make.include.o,v'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite 'RCS/Make.include.o,v'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite 'RCS/Make.include.o'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite 's.Make.include.o'.
+   Trying pattern rule with stem 'Make.include.o'.
+   Trying implicit prerequisite 'SCCS/s.Make.include.o'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.c'.
+   Looking for a rule with intermediate file 'Make.include.c'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.y'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.l'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.w'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.w'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite 'Make.include.c,v'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite 'RCS/Make.include.c,v'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite 'RCS/Make.include.c'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite 's.Make.include.c'.
+    Trying pattern rule with stem 'Make.include.c'.
+    Trying implicit prerequisite 'SCCS/s.Make.include.c'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.y'.
+    Looking for a rule with intermediate file 'Make.include.y'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite 'Make.include.y,v'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite 'RCS/Make.include.y,v'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite 'RCS/Make.include.y'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite 's.Make.include.y'.
+     Trying pattern rule with stem 'Make.include.y'.
+     Trying implicit prerequisite 'SCCS/s.Make.include.y'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.l'.
+    Looking for a rule with intermediate file 'Make.include.l'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite 'Make.include.l,v'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite 'RCS/Make.include.l,v'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite 'RCS/Make.include.l'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite 's.Make.include.l'.
+     Trying pattern rule with stem 'Make.include.l'.
+     Trying implicit prerequisite 'SCCS/s.Make.include.l'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.w'.
+    Looking for a rule with intermediate file 'Make.include.w'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite 'Make.include.w,v'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite 'RCS/Make.include.w,v'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite 'RCS/Make.include.w'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite 's.Make.include.w'.
+     Trying pattern rule with stem 'Make.include.w'.
+     Trying implicit prerequisite 'SCCS/s.Make.include.w'.
+    Trying pattern rule with stem 'Make.include'.
+    Rejecting impossible implicit prerequisite 'Make.include.w'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.cc'.
+   Looking for a rule with intermediate file 'Make.include.cc'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite 'Make.include.cc,v'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite 'RCS/Make.include.cc,v'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite 'RCS/Make.include.cc'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite 's.Make.include.cc'.
+    Trying pattern rule with stem 'Make.include.cc'.
+    Trying implicit prerequisite 'SCCS/s.Make.include.cc'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.C'.
+   Looking for a rule with intermediate file 'Make.include.C'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite 'Make.include.C,v'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite 'RCS/Make.include.C,v'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite 'RCS/Make.include.C'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite 's.Make.include.C'.
+    Trying pattern rule with stem 'Make.include.C'.
+    Trying implicit prerequisite 'SCCS/s.Make.include.C'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.cpp'.
+   Looking for a rule with intermediate file 'Make.include.cpp'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite 'Make.include.cpp,v'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite 'RCS/Make.include.cpp,v'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite 'RCS/Make.include.cpp'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite 's.Make.include.cpp'.
+    Trying pattern rule with stem 'Make.include.cpp'.
+    Trying implicit prerequisite 'SCCS/s.Make.include.cpp'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.p'.
+   Looking for a rule with intermediate file 'Make.include.p'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.web'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite 'Make.include.p,v'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite 'RCS/Make.include.p,v'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite 'RCS/Make.include.p'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite 's.Make.include.p'.
+    Trying pattern rule with stem 'Make.include.p'.
+    Trying implicit prerequisite 'SCCS/s.Make.include.p'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.web'.
+    Looking for a rule with intermediate file 'Make.include.web'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite 'Make.include.web,v'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite 'RCS/Make.include.web,v'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite 'RCS/Make.include.web'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite 's.Make.include.web'.
+     Trying pattern rule with stem 'Make.include.web'.
+     Trying implicit prerequisite 'SCCS/s.Make.include.web'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.f'.
+   Looking for a rule with intermediate file 'Make.include.f'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.F'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.r'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite 'Make.include.f,v'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite 'RCS/Make.include.f,v'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite 'RCS/Make.include.f'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite 's.Make.include.f'.
+    Trying pattern rule with stem 'Make.include.f'.
+    Trying implicit prerequisite 'SCCS/s.Make.include.f'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.F'.
+    Looking for a rule with intermediate file 'Make.include.F'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite 'Make.include.F,v'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite 'RCS/Make.include.F,v'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite 'RCS/Make.include.F'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite 's.Make.include.F'.
+     Trying pattern rule with stem 'Make.include.F'.
+     Trying implicit prerequisite 'SCCS/s.Make.include.F'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.r'.
+    Looking for a rule with intermediate file 'Make.include.r'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include'.
+     Rejecting impossible implicit prerequisite 'Make.include.l'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite 'Make.include.r,v'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite 'RCS/Make.include.r,v'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite 'RCS/Make.include.r'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite 's.Make.include.r'.
+     Trying pattern rule with stem 'Make.include.r'.
+     Trying implicit prerequisite 'SCCS/s.Make.include.r'.
+   Trying pattern rule with stem 'Make.include'.
+   Rejecting impossible implicit prerequisite 'Make.include.F'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.m'.
+   Looking for a rule with intermediate file 'Make.include.m'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.ym'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite 'Make.include.m,v'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite 'RCS/Make.include.m,v'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite 'RCS/Make.include.m'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite 's.Make.include.m'.
+    Trying pattern rule with stem 'Make.include.m'.
+    Trying implicit prerequisite 'SCCS/s.Make.include.m'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.ym'.
+    Looking for a rule with intermediate file 'Make.include.ym'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite 'Make.include.ym,v'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite 'RCS/Make.include.ym,v'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite 'RCS/Make.include.ym'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite 's.Make.include.ym'.
+     Trying pattern rule with stem 'Make.include.ym'.
+     Trying implicit prerequisite 'SCCS/s.Make.include.ym'.
+   Trying pattern rule with stem 'Make.include'.
+   Rejecting impossible implicit prerequisite 'Make.include.r'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.s'.
+   Looking for a rule with intermediate file 'Make.include.s'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.S'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite 'Make.include.s,v'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite 'RCS/Make.include.s,v'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite 'RCS/Make.include.s'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite 's.Make.include.s'.
+    Trying pattern rule with stem 'Make.include.s'.
+    Trying implicit prerequisite 'SCCS/s.Make.include.s'.
+    Trying pattern rule with stem 'Make.include'.
+    Trying implicit prerequisite 'Make.include.S'.
+    Looking for a rule with intermediate file 'Make.include.S'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite 'Make.include.S,v'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite 'RCS/Make.include.S,v'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite 'RCS/Make.include.S'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite 's.Make.include.S'.
+     Trying pattern rule with stem 'Make.include.S'.
+     Trying implicit prerequisite 'SCCS/s.Make.include.S'.
+   Trying pattern rule with stem 'Make.include'.
+   Rejecting impossible implicit prerequisite 'Make.include.S'.
+   Trying pattern rule with stem 'Make.include'.
+   Trying implicit prerequisite 'Make.include.mod'.
+   Looking for a rule with intermediate file 'Make.include.mod'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite 'Make.include.mod,v'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite 'RCS/Make.include.mod,v'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite 'RCS/Make.include.mod'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite 's.Make.include.mod'.
+    Trying pattern rule with stem 'Make.include.mod'.
+    Trying implicit prerequisite 'SCCS/s.Make.include.mod'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.c'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.cc'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.C'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.cpp'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.p'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.f'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.F'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.m'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.r'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.s'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.S'.
+  Trying pattern rule with stem 'Make.include'.
+  Rejecting impossible implicit prerequisite 'Make.include.mod'.
+  Trying pattern rule with stem 'Make.include'.
+  Trying implicit prerequisite 'Make.include.sh'.
+  Looking for a rule with intermediate file 'Make.include.sh'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite 'Make.include.sh,v'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite 'RCS/Make.include.sh,v'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite 'RCS/Make.include.sh'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite 's.Make.include.sh'.
+   Trying pattern rule with stem 'Make.include.sh'.
+   Trying implicit prerequisite 'SCCS/s.Make.include.sh'.
+  No implicit rule found for 'Make.include'.
+  Finished prerequisites of target file 'Make.include'.
+ No need to remake target 'Make.include'.
+ Considering target file 'Makefile'.
+  Looking for an implicit rule for 'Makefile'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.o'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.c'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.cc'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.C'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.cpp'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.p'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.f'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.F'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.m'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.r'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.s'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.S'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.mod'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.sh'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile,v'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'RCS/Makefile,v'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'RCS/Makefile'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 's.Makefile'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'SCCS/s.Makefile'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.o'.
+  Looking for a rule with intermediate file 'Makefile.o'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.c'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.cc'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.C'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.cpp'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.p'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.f'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.F'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.m'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.r'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.s'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.S'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.mod'.
+   Trying pattern rule with stem 'Makefile.o'.
+   Trying implicit prerequisite 'Makefile.o,v'.
+   Trying pattern rule with stem 'Makefile.o'.
+   Trying implicit prerequisite 'RCS/Makefile.o,v'.
+   Trying pattern rule with stem 'Makefile.o'.
+   Trying implicit prerequisite 'RCS/Makefile.o'.
+   Trying pattern rule with stem 'Makefile.o'.
+   Trying implicit prerequisite 's.Makefile.o'.
+   Trying pattern rule with stem 'Makefile.o'.
+   Trying implicit prerequisite 'SCCS/s.Makefile.o'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.c'.
+   Looking for a rule with intermediate file 'Makefile.c'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.y'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.l'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.w'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.w'.
+    Trying pattern rule with stem 'Makefile.c'.
+    Trying implicit prerequisite 'Makefile.c,v'.
+    Trying pattern rule with stem 'Makefile.c'.
+    Trying implicit prerequisite 'RCS/Makefile.c,v'.
+    Trying pattern rule with stem 'Makefile.c'.
+    Trying implicit prerequisite 'RCS/Makefile.c'.
+    Trying pattern rule with stem 'Makefile.c'.
+    Trying implicit prerequisite 's.Makefile.c'.
+    Trying pattern rule with stem 'Makefile.c'.
+    Trying implicit prerequisite 'SCCS/s.Makefile.c'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.y'.
+    Looking for a rule with intermediate file 'Makefile.y'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Makefile.y'.
+     Trying implicit prerequisite 'Makefile.y,v'.
+     Trying pattern rule with stem 'Makefile.y'.
+     Trying implicit prerequisite 'RCS/Makefile.y,v'.
+     Trying pattern rule with stem 'Makefile.y'.
+     Trying implicit prerequisite 'RCS/Makefile.y'.
+     Trying pattern rule with stem 'Makefile.y'.
+     Trying implicit prerequisite 's.Makefile.y'.
+     Trying pattern rule with stem 'Makefile.y'.
+     Trying implicit prerequisite 'SCCS/s.Makefile.y'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.l'.
+    Looking for a rule with intermediate file 'Makefile.l'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Makefile.l'.
+     Trying implicit prerequisite 'Makefile.l,v'.
+     Trying pattern rule with stem 'Makefile.l'.
+     Trying implicit prerequisite 'RCS/Makefile.l,v'.
+     Trying pattern rule with stem 'Makefile.l'.
+     Trying implicit prerequisite 'RCS/Makefile.l'.
+     Trying pattern rule with stem 'Makefile.l'.
+     Trying implicit prerequisite 's.Makefile.l'.
+     Trying pattern rule with stem 'Makefile.l'.
+     Trying implicit prerequisite 'SCCS/s.Makefile.l'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.w'.
+    Looking for a rule with intermediate file 'Makefile.w'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Makefile.w'.
+     Trying implicit prerequisite 'Makefile.w,v'.
+     Trying pattern rule with stem 'Makefile.w'.
+     Trying implicit prerequisite 'RCS/Makefile.w,v'.
+     Trying pattern rule with stem 'Makefile.w'.
+     Trying implicit prerequisite 'RCS/Makefile.w'.
+     Trying pattern rule with stem 'Makefile.w'.
+     Trying implicit prerequisite 's.Makefile.w'.
+     Trying pattern rule with stem 'Makefile.w'.
+     Trying implicit prerequisite 'SCCS/s.Makefile.w'.
+    Trying pattern rule with stem 'Makefile'.
+    Rejecting impossible implicit prerequisite 'Makefile.w'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.cc'.
+   Looking for a rule with intermediate file 'Makefile.cc'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Makefile.cc'.
+    Trying implicit prerequisite 'Makefile.cc,v'.
+    Trying pattern rule with stem 'Makefile.cc'.
+    Trying implicit prerequisite 'RCS/Makefile.cc,v'.
+    Trying pattern rule with stem 'Makefile.cc'.
+    Trying implicit prerequisite 'RCS/Makefile.cc'.
+    Trying pattern rule with stem 'Makefile.cc'.
+    Trying implicit prerequisite 's.Makefile.cc'.
+    Trying pattern rule with stem 'Makefile.cc'.
+    Trying implicit prerequisite 'SCCS/s.Makefile.cc'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.C'.
+   Looking for a rule with intermediate file 'Makefile.C'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Makefile.C'.
+    Trying implicit prerequisite 'Makefile.C,v'.
+    Trying pattern rule with stem 'Makefile.C'.
+    Trying implicit prerequisite 'RCS/Makefile.C,v'.
+    Trying pattern rule with stem 'Makefile.C'.
+    Trying implicit prerequisite 'RCS/Makefile.C'.
+    Trying pattern rule with stem 'Makefile.C'.
+    Trying implicit prerequisite 's.Makefile.C'.
+    Trying pattern rule with stem 'Makefile.C'.
+    Trying implicit prerequisite 'SCCS/s.Makefile.C'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.cpp'.
+   Looking for a rule with intermediate file 'Makefile.cpp'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Makefile.cpp'.
+    Trying implicit prerequisite 'Makefile.cpp,v'.
+    Trying pattern rule with stem 'Makefile.cpp'.
+    Trying implicit prerequisite 'RCS/Makefile.cpp,v'.
+    Trying pattern rule with stem 'Makefile.cpp'.
+    Trying implicit prerequisite 'RCS/Makefile.cpp'.
+    Trying pattern rule with stem 'Makefile.cpp'.
+    Trying implicit prerequisite 's.Makefile.cpp'.
+    Trying pattern rule with stem 'Makefile.cpp'.
+    Trying implicit prerequisite 'SCCS/s.Makefile.cpp'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.p'.
+   Looking for a rule with intermediate file 'Makefile.p'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.web'.
+    Trying pattern rule with stem 'Makefile.p'.
+    Trying implicit prerequisite 'Makefile.p,v'.
+    Trying pattern rule with stem 'Makefile.p'.
+    Trying implicit prerequisite 'RCS/Makefile.p,v'.
+    Trying pattern rule with stem 'Makefile.p'.
+    Trying implicit prerequisite 'RCS/Makefile.p'.
+    Trying pattern rule with stem 'Makefile.p'.
+    Trying implicit prerequisite 's.Makefile.p'.
+    Trying pattern rule with stem 'Makefile.p'.
+    Trying implicit prerequisite 'SCCS/s.Makefile.p'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.web'.
+    Looking for a rule with intermediate file 'Makefile.web'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Makefile.web'.
+     Trying implicit prerequisite 'Makefile.web,v'.
+     Trying pattern rule with stem 'Makefile.web'.
+     Trying implicit prerequisite 'RCS/Makefile.web,v'.
+     Trying pattern rule with stem 'Makefile.web'.
+     Trying implicit prerequisite 'RCS/Makefile.web'.
+     Trying pattern rule with stem 'Makefile.web'.
+     Trying implicit prerequisite 's.Makefile.web'.
+     Trying pattern rule with stem 'Makefile.web'.
+     Trying implicit prerequisite 'SCCS/s.Makefile.web'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.f'.
+   Looking for a rule with intermediate file 'Makefile.f'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.F'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.r'.
+    Trying pattern rule with stem 'Makefile.f'.
+    Trying implicit prerequisite 'Makefile.f,v'.
+    Trying pattern rule with stem 'Makefile.f'.
+    Trying implicit prerequisite 'RCS/Makefile.f,v'.
+    Trying pattern rule with stem 'Makefile.f'.
+    Trying implicit prerequisite 'RCS/Makefile.f'.
+    Trying pattern rule with stem 'Makefile.f'.
+    Trying implicit prerequisite 's.Makefile.f'.
+    Trying pattern rule with stem 'Makefile.f'.
+    Trying implicit prerequisite 'SCCS/s.Makefile.f'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.F'.
+    Looking for a rule with intermediate file 'Makefile.F'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Makefile.F'.
+     Trying implicit prerequisite 'Makefile.F,v'.
+     Trying pattern rule with stem 'Makefile.F'.
+     Trying implicit prerequisite 'RCS/Makefile.F,v'.
+     Trying pattern rule with stem 'Makefile.F'.
+     Trying implicit prerequisite 'RCS/Makefile.F'.
+     Trying pattern rule with stem 'Makefile.F'.
+     Trying implicit prerequisite 's.Makefile.F'.
+     Trying pattern rule with stem 'Makefile.F'.
+     Trying implicit prerequisite 'SCCS/s.Makefile.F'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.r'.
+    Looking for a rule with intermediate file 'Makefile.r'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Makefile'.
+     Rejecting impossible implicit prerequisite 'Makefile.l'.
+     Trying pattern rule with stem 'Makefile.r'.
+     Trying implicit prerequisite 'Makefile.r,v'.
+     Trying pattern rule with stem 'Makefile.r'.
+     Trying implicit prerequisite 'RCS/Makefile.r,v'.
+     Trying pattern rule with stem 'Makefile.r'.
+     Trying implicit prerequisite 'RCS/Makefile.r'.
+     Trying pattern rule with stem 'Makefile.r'.
+     Trying implicit prerequisite 's.Makefile.r'.
+     Trying pattern rule with stem 'Makefile.r'.
+     Trying implicit prerequisite 'SCCS/s.Makefile.r'.
+   Trying pattern rule with stem 'Makefile'.
+   Rejecting impossible implicit prerequisite 'Makefile.F'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.m'.
+   Looking for a rule with intermediate file 'Makefile.m'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.ym'.
+    Trying pattern rule with stem 'Makefile.m'.
+    Trying implicit prerequisite 'Makefile.m,v'.
+    Trying pattern rule with stem 'Makefile.m'.
+    Trying implicit prerequisite 'RCS/Makefile.m,v'.
+    Trying pattern rule with stem 'Makefile.m'.
+    Trying implicit prerequisite 'RCS/Makefile.m'.
+    Trying pattern rule with stem 'Makefile.m'.
+    Trying implicit prerequisite 's.Makefile.m'.
+    Trying pattern rule with stem 'Makefile.m'.
+    Trying implicit prerequisite 'SCCS/s.Makefile.m'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.ym'.
+    Looking for a rule with intermediate file 'Makefile.ym'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Makefile.ym'.
+     Trying implicit prerequisite 'Makefile.ym,v'.
+     Trying pattern rule with stem 'Makefile.ym'.
+     Trying implicit prerequisite 'RCS/Makefile.ym,v'.
+     Trying pattern rule with stem 'Makefile.ym'.
+     Trying implicit prerequisite 'RCS/Makefile.ym'.
+     Trying pattern rule with stem 'Makefile.ym'.
+     Trying implicit prerequisite 's.Makefile.ym'.
+     Trying pattern rule with stem 'Makefile.ym'.
+     Trying implicit prerequisite 'SCCS/s.Makefile.ym'.
+   Trying pattern rule with stem 'Makefile'.
+   Rejecting impossible implicit prerequisite 'Makefile.r'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.s'.
+   Looking for a rule with intermediate file 'Makefile.s'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.S'.
+    Trying pattern rule with stem 'Makefile.s'.
+    Trying implicit prerequisite 'Makefile.s,v'.
+    Trying pattern rule with stem 'Makefile.s'.
+    Trying implicit prerequisite 'RCS/Makefile.s,v'.
+    Trying pattern rule with stem 'Makefile.s'.
+    Trying implicit prerequisite 'RCS/Makefile.s'.
+    Trying pattern rule with stem 'Makefile.s'.
+    Trying implicit prerequisite 's.Makefile.s'.
+    Trying pattern rule with stem 'Makefile.s'.
+    Trying implicit prerequisite 'SCCS/s.Makefile.s'.
+    Trying pattern rule with stem 'Makefile'.
+    Trying implicit prerequisite 'Makefile.S'.
+    Looking for a rule with intermediate file 'Makefile.S'.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Avoiding implicit rule recursion.
+     Trying pattern rule with stem 'Makefile.S'.
+     Trying implicit prerequisite 'Makefile.S,v'.
+     Trying pattern rule with stem 'Makefile.S'.
+     Trying implicit prerequisite 'RCS/Makefile.S,v'.
+     Trying pattern rule with stem 'Makefile.S'.
+     Trying implicit prerequisite 'RCS/Makefile.S'.
+     Trying pattern rule with stem 'Makefile.S'.
+     Trying implicit prerequisite 's.Makefile.S'.
+     Trying pattern rule with stem 'Makefile.S'.
+     Trying implicit prerequisite 'SCCS/s.Makefile.S'.
+   Trying pattern rule with stem 'Makefile'.
+   Rejecting impossible implicit prerequisite 'Makefile.S'.
+   Trying pattern rule with stem 'Makefile'.
+   Trying implicit prerequisite 'Makefile.mod'.
+   Looking for a rule with intermediate file 'Makefile.mod'.
+    Avoiding implicit rule recursion.
+    Avoiding implicit rule recursion.
+    Trying pattern rule with stem 'Makefile.mod'.
+    Trying implicit prerequisite 'Makefile.mod,v'.
+    Trying pattern rule with stem 'Makefile.mod'.
+    Trying implicit prerequisite 'RCS/Makefile.mod,v'.
+    Trying pattern rule with stem 'Makefile.mod'.
+    Trying implicit prerequisite 'RCS/Makefile.mod'.
+    Trying pattern rule with stem 'Makefile.mod'.
+    Trying implicit prerequisite 's.Makefile.mod'.
+    Trying pattern rule with stem 'Makefile.mod'.
+    Trying implicit prerequisite 'SCCS/s.Makefile.mod'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.c'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.cc'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.C'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.cpp'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.p'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.f'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.F'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.m'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.r'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.s'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.S'.
+  Trying pattern rule with stem 'Makefile'.
+  Rejecting impossible implicit prerequisite 'Makefile.mod'.
+  Trying pattern rule with stem 'Makefile'.
+  Trying implicit prerequisite 'Makefile.sh'.
+  Looking for a rule with intermediate file 'Makefile.sh'.
+   Avoiding implicit rule recursion.
+   Trying pattern rule with stem 'Makefile.sh'.
+   Trying implicit prerequisite 'Makefile.sh,v'.
+   Trying pattern rule with stem 'Makefile.sh'.
+   Trying implicit prerequisite 'RCS/Makefile.sh,v'.
+   Trying pattern rule with stem 'Makefile.sh'.
+   Trying implicit prerequisite 'RCS/Makefile.sh'.
+   Trying pattern rule with stem 'Makefile.sh'.
+   Trying implicit prerequisite 's.Makefile.sh'.
+   Trying pattern rule with stem 'Makefile.sh'.
+   Trying implicit prerequisite 'SCCS/s.Makefile.sh'.
+  No implicit rule found for 'Makefile'.
+  Finished prerequisites of target file 'Makefile'.
+ No need to remake target 'Makefile'.
+Updating goal targets....
+Considering target file 'install'.
+ File 'install' does not exist.
+  Considering target file 'require-prefix'.
+   File 'require-prefix' does not exist.
+   Finished prerequisites of target file 'require-prefix'.
+  Must remake target 'require-prefix'.
+Putting child 0x1fad030 (require-prefix) PID 31025 on the chain.
+Live child 0x1fad030 (require-prefix) PID 31025 
+Reaping winning child 0x1fad030 PID 31025 
+Removing child 0x1fad030 PID 31025 from chain.
+  Successfully remade target file 'require-prefix'.
+ Finished prerequisites of target file 'install'.
+Must remake target 'install'.
+Successfully remade target file 'install'.

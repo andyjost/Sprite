@@ -1,50 +1,79 @@
-# Tool setup.
-CC := /usr/bin/gcc
-CXX := /usr/bin/g++
-PYTHON_INCLUDE_PATH := /usr/include/python2.7
-
-
-# Compiler setup.
-CFLAGS += -Wall -I$(ROOT_DIR)/src -O3
-CXXFLAGS += $(CFLAGS) -std=c++17
-
-
-# Variable.s
+# Project variables
+# =================
+# These have the same value in all makefiles.
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-# The root of the directory tree holding object files.
 OBJECT_ROOT := $(abspath $(ROOT_DIR)/object-root)
-# The object subdirectory being targeted.  The working dir contains source
-# files.
+include $(ROOT_DIR)/Make.config
+
+# Contextual variables
+# ====================
+# These take values that depend on the submodule being built.
+
+# Get the directory under $(OBJECT_ROOT) corresponding to the current source
+# directory and make sure it exists.
 OBJECT_DIR := $(OBJECT_ROOT)/$(shell realpath --relative-to $(ROOT_DIR)/src $(shell pwd))
 $(shell mkdir -p $(OBJECT_DIR))
 
-SRCS := $(wildcard *.c *.cpp)
-OBJS := $(patsubst %,$(OBJECT_DIR)/%.o,$(basename $(SRCS)))
-# SHARED_LIBS is defined in leaf directories that provides shared libraries.
-SHLIBS := $(patsubst %,$(OBJECT_DIR)/%.so,$(SHARED_LIBS))
-SUBMODULES = $(dir $(wildcard */.))
+# Submodules may override SRCS.
+ifndef SRCS
+  SRCS := $(wildcard *.c *.cpp)
+endif
 
-# Rules and targets.
-TOP_TARGETS := all shlibs objs clean $(SUBMODULES)
-.PHONY: $(TOP_TARGETS)
+# Submodules may override OBJS.
+ifndef OBJS
+  OBJS := $(patsubst %,%.o,$(basename $(SRCS)))
+endif
+OBJS_OUT := $(patsubst %,$(OBJECT_DIR)/%,$(OBJS))
 
-all: objs shlibs $(SUBMODULES)
-shlibs: $(SHLIBS)
-objs: $(OBJS)
-clean:
-	rm -rf $(OBJS) $(SHLIBS) .d/
+# Submodules may override SHLIBS.
+ifndef SHLIBS
+  SHLIBS :=
+endif
+SHLIBS_OUT := $(patsubst %,$(OBJECT_DIR)/%.so,$(SHLIBS))
+
+# Files passed to the "clean" target.  Additional ones can be added with +=.
+FILES_TO_CLEAN += $(OBJS_OUT) $(SHLIBS_OUT) .d/
+
+
+# Recursion
+# =========
+# For defined submodules (default: all directories) and certain targets,
+# recursively invoke make.
+ifndef SUBMODULES
+  SUBMODULES = $(dir $(wildcard */.))
+endif
+RECURSIVE_TARGETS := all shlibs objs clean install uninstall
+.PHONY: $(RECURSIVE_TARGETS) $(SUBMODULES)
+$(RECURSIVE_TARGETS): $(SUBMODULES)
 $(SUBMODULES):
-	$(MAKE) -C $@
+	$(MAKE) -C $@ $(MAKECMDGOALS)
+
+
+# Rules and targets
+# =================
+all: objs shlibs # DEFAULT RULE
+shlibs: $(SHLIBS_OUT)
+objs: $(OBJS_OUT)
+clean:
+	rm -rf $(FILES_TO_CLEAN)
+
+install uninstall: require-prefix
+require-prefix:
+	@:$(if $(PREFIX),, $(error PREFIX must be defined))
+	@test -d $(PREFIX) -o \! -e $(PREFIX) || { echo "PREFIX \"$(PREFIX)\" exists but is not a directory."; exit 1; }
 
 $(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
 $(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
 	$(CXX) -shared $< $(LDFLAGS) $(OUTPUT_OPTION)
 
+
+# Debugging
+# =========
 # E.g., print-ROOT_DIR
 print-% : ; $(info $* is a $(flavor $*) variable set to [$($*)]) @true
 
 
-# Automated dependency handling.
+# Dependencies
+# ============
 include $(ROOT_DIR)/Make.depends
-
 

@@ -1,4 +1,27 @@
-1. Software used
+1. Dependencies
+---------------
+
+Paths to the required software are listed in Make.config.  Versions can be
+found at the end of this file.
+
+
+2. Installation
+---------------
+
+To compile all objects and executables:
+
+    make all
+
+To run tests:
+
+    make tests
+
+To install:
+
+    make install PREFIX=<your-prefix-dir>
+
+
+3. Software used
 ----------------
 
 Sprite was developed and tested with the following software.
