@@ -9,8 +9,8 @@ include $(ROOT_DIR)/Make.config
 # ====================
 # These take values that depend on the submodule being built.
 
-# Get the directory under $(OBJECT_ROOT) corresponding to the current source
-# directory and make sure it exists.
+# Create the directory under $(OBJECT_ROOT) corresponding to the current source
+# directory.
 OBJECT_DIR := $(OBJECT_ROOT)/$(shell realpath --relative-to $(ROOT_DIR)/src $(shell pwd))
 $(shell mkdir -p $(OBJECT_DIR))
 
@@ -57,14 +57,27 @@ objs: $(OBJS_OUT)
 clean:
 	rm -rf $(FILES_TO_CLEAN)
 
-install uninstall: require-prefix
-require-prefix:
-	@:$(if $(PREFIX),, $(error PREFIX must be defined))
-	@test -d $(PREFIX) -o \! -e $(PREFIX) || { echo "PREFIX \"$(PREFIX)\" exists but is not a directory."; exit 1; }
-
 $(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
 $(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
 	$(CXX) -shared $< $(LDFLAGS) $(OUTPUT_OPTION)
+
+
+# Installation
+# ============
+INSTALLING = $(findstring install, $(MAKECMDGOALS))
+ifneq ($(INSTALLING),)
+  # Validate PREFIX.
+  ifndef PREFIX
+    $(error PREFIX is not defined.  Please spcify it when invoking make))
+  endif
+  ifneq ($(shell test -d $(PREFIX) -o \! -e $(PREFIX); echo $$?),0)
+    $(error PREFIX "$(PREFIX)" exists but is not a directory)
+  endif
+endif
+
+# require-prefix:
+# 	@:$(if $(PREFIX),, $(error PREFIX must be defined))
+# 	@test -d $(PREFIX) -o \! -e $(PREFIX) || { echo "PREFIX \"$(PREFIX)\" exists but is not a directory."; exit 1; }
 
 
 # Debugging
