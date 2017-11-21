@@ -1,4 +1,5 @@
 #include <boost/python.hpp>
+#include "sprite/llvm/module.hpp"
 
 char const * greet() { return "hello"; }
 

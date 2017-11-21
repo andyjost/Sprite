@@ -6,8 +6,8 @@
 #include <iostream>
 #include <list>
 #include <stdexcept>
-#include "memory/globals.h"
-#include "memory/defs.h"
+#include "sprite/gc/globals.h"
+#include "sprite/gc/defs.h"
 
 extern "C"
 {

@@ -27,8 +27,8 @@ To install:
 Sprite was developed and tested with the following software.
 
     - Ubuntu 16.04.1 LTS (xenial); 4.4.0-72-generic #93-Ubuntu
-    - GCC 5.4.0
-    - LLVM 4.0
+    - GCC 7.2.0
+    - LLVM 5.0.1
     - GNU make 4.1
     - MPS 1.116.0 (www.ravenbrook.com/project/mps)
 		- Python 2.7.14

@@ -5,9 +5,9 @@
 
 #include "mps.c" // All of MPS; the Sprite object format is defined below.
 
-#include "memory/cymps.h"
-#include "memory/defs.h"
-#include "memory/globals.h"
+#include "sprite/gc/cymps.h"
+#include "sprite/gc/defs.h"
+#include "sprite/gc/globals.h"
 #include "stdio.h"
 #include "stdlib.h"
 #define ASADDR(addr) (*({mps_addr_t * tmp = (mps_addr_t*)(&addr); tmp;}))
