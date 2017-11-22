@@ -1,5 +1,5 @@
-#include "memory.hpp"
-#include "memory/cymps.h"
+#include "sprite/memory.hpp"
+#include "sprite/gc/cymps.h"
 
 namespace sprite
 {

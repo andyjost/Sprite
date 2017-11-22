@@ -69,7 +69,7 @@
   /**/
 
 
-namespace sprite { namespace backend
+namespace sprite { namespace llvm
 {
   SPRITE_DEF_ISOBJ_CHECK(object)    // is_object
   SPRITE_DEF_ISOBJ_CHECK(typeobj)   // is_typeobj

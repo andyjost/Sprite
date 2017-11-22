@@ -5,34 +5,27 @@ ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 OBJECT_ROOT := $(abspath $(ROOT_DIR)/object-root)
 include $(ROOT_DIR)/Make.config
 
-# Contextual variables
-# ====================
-# These take values that depend on the submodule being built.
-
-# Create the directory under $(OBJECT_ROOT) corresponding to the current source
-# directory.
-OBJECT_DIR := $(OBJECT_ROOT)/$(shell realpath --relative-to $(ROOT_DIR)/src $(shell pwd))
-$(shell mkdir -p $(OBJECT_DIR))
-
-# Submodules may override SRCS.
-ifndef SRCS
-  SRCS := $(wildcard *.c *.cpp)
-endif
-
-# Submodules may override OBJS.
-ifndef OBJS
-  OBJS := $(patsubst %,%.o,$(basename $(SRCS)))
-endif
-OBJS_OUT := $(patsubst %,$(OBJECT_DIR)/%,$(OBJS))
-
-# Submodules may override SHLIBS.
-ifndef SHLIBS
-  SHLIBS :=
-endif
-SHLIBS_OUT := $(patsubst %,$(OBJECT_DIR)/%.so,$(SHLIBS))
-
-# Files passed to the "clean" target.  Additional ones can be added with +=.
-FILES_TO_CLEAN += $(OBJS_OUT) $(SHLIBS_OUT) .d/
+# Usage
+# =====
+.PHONY: usage
+usage: # DEFAULT RULE
+	@echo "Usage: make [target ...] [var=value ...]"
+	@echo "Build targets:"
+	@echo "    all     : compile and link all objects and executables"
+	@echo "    clean   : remove generated files"
+	@echo "    objs    : compile object files"
+	@echo "    shlibs  : compile and link shared libraries"
+	@echo ""
+	@echo "Install targets:"
+	@echo "    install PREFIX=<dirname>   : install files under <dirname>"
+	@echo "    uninstall PREFIX=<dirname> : uninstall files under <dirname>"
+	@echo ""
+	@echo "Debug targets:"
+	@echo "    print-<varname>: print the value of make variable <varname>"
+	@echo ""
+	@echo "Example:"
+	@echo "    make -j8 all           --build in parallel using 8 CPUs"
+	@echo "    make install ~/sprite  --install under home directory"
 
 
 # Recursion
@@ -49,21 +42,8 @@ $(SUBMODULES):
 	$(MAKE) -C $@ $(MAKECMDGOALS)
 
 
-# Rules and targets
-# =================
-all: objs shlibs # DEFAULT RULE
-shlibs: $(SHLIBS_OUT)
-objs: $(OBJS_OUT)
-clean:
-	rm -rf $(FILES_TO_CLEAN)
-
-$(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
-$(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
-	$(CXX) -shared $< $(LDFLAGS) $(OUTPUT_OPTION)
-
-
-# Installation
-# ============
+# Installation checks
+# ===================
 INSTALLING = $(findstring install, $(MAKECMDGOALS))
 ifneq ($(INSTALLING),)
   # Validate PREFIX.
@@ -73,20 +53,14 @@ ifneq ($(INSTALLING),)
   ifneq ($(shell test -d $(PREFIX) -o \! -e $(PREFIX); echo $$?),0)
     $(error PREFIX "$(PREFIX)" exists but is not a directory)
   endif
+  ifneq ($(PREFIX),$(abspath $(PREFIX)))
+    $(error PREFIX must be an absolute path)
+  endif
 endif
-
-# require-prefix:
-# 	@:$(if $(PREFIX),, $(error PREFIX must be defined))
-# 	@test -d $(PREFIX) -o \! -e $(PREFIX) || { echo "PREFIX \"$(PREFIX)\" exists but is not a directory."; exit 1; }
 
 
 # Debugging
 # =========
 # E.g., print-ROOT_DIR
 print-% : ; $(info $* is a $(flavor $*) variable set to [$($*)]) @true
-
-
-# Dependencies
-# ============
-include $(ROOT_DIR)/Make.depends
 

@@ -12,8 +12,11 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 
-namespace sprite { namespace backend
+namespace sprite { namespace llvm
 {
+  /// Get the LLVM context.
+  LLVMContext & getContext();
+
   /**
    * @brief
    * Represents an LLVM module.
@@ -26,29 +29,27 @@ namespace sprite { namespace backend
    *
    * @snippet types.cpp Creating basic types
    */
-  struct module : object<llvm::Module>
+  struct module : object<Module>
   {
-    typedef object<llvm::Module> base_type;
+    typedef object<Module> base_type;
 
   public:
 
-    using object<llvm::Module>::object;
+    using object<Module>::object;
 
     /// Creates a new module.
     explicit module(
         string_ref const & name
-      , llvm::LLVMContext & context = SPRITE_APICALL(llvm::getGlobalContext())
+      , LLVMContext & context = getContext()
       )
-      : base_type(SPRITE_APICALL(new llvm::Module(name, context)))
+      : base_type(SPRITE_APICALL(new Module(name, context)))
     {}
 
     // Default copy, assignment, and destructor are fine.
 
     /// Gets the associated LLVM context.
-    llvm::LLVMContext & context() const
-    {
-      return px ? px->getContext() : SPRITE_APICALL(llvm::getGlobalContext());
-    }
+    LLVMContext & context() const
+      { return px ? px->getContext() : getContext(); }
 
     /**
      * Returns the named global value.  Raises value_error if the global does

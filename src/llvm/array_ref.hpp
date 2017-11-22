@@ -7,13 +7,13 @@
 #include <memory>
 #include <type_traits>
 
-namespace sprite { namespace backend
+namespace sprite { namespace llvm
 {
   // Defined below.
   namespace aux { template<typename Derived> struct check_extents; }
 
   /**
-   * @brief Extends llvm::ArrayRef<T>.
+   * @brief Extends ::llvm::ArrayRef<T>.
    *
    * The LLVM @p ArrayRef cannot be constructed from
    * <tt>std::initializer_list</tt> or <tt>std::array</tt>.  This class is
@@ -29,22 +29,22 @@ namespace sprite { namespace backend
   // Using integral_constant is a simple workaround.
   template<typename T, typename Extent>
   struct array_ref
-    : llvm::ArrayRef<T>
+    : ::llvm::ArrayRef<T>
     , private aux::check_extents<array_ref<T,Extent>>
   {
-    using llvm::ArrayRef<T>::ArrayRef;
-    using value_type = T; 
+    using ::llvm::ArrayRef<T>::ArrayRef;
+    using value_type = T;
     static size_t constexpr required_extent = Extent::value;
     template<typename> friend class aux::check_extents;
 
     array_ref(std::initializer_list<T> args)
-      : llvm::ArrayRef<T>(args.begin(), args.size())
+      : ::llvm::ArrayRef<T>(args.begin(), args.size())
     {}
 
     // Corrects the buggy implementation provided by LLVM.
     template<typename A>
     array_ref(const std::vector<T, A> &Vec)
-      : llvm::ArrayRef<T>(
+      : ::llvm::ArrayRef<T>(
             Vec.empty() ? (T*)0 : std::addressof(Vec.front())
           , Vec.size()
           )
@@ -53,12 +53,12 @@ namespace sprite { namespace backend
     /// Initializes from std::array.
     template<size_t N>
     array_ref(std::array<T,N> const & args)
-      : llvm::ArrayRef<T>(args.begin(), N)
+      : ::llvm::ArrayRef<T>(args.begin(), N)
     {}
 
     /// Accept zero-sized arrays.
     array_ref(T(&arr)[0])
-      : llvm::ArrayRef<T>()
+      : ::llvm::ArrayRef<T>()
     {}
   };
 
@@ -97,7 +97,7 @@ namespace sprite { namespace backend
   {
     /**
      * @brief Validator run by @p array_ref during construction, after
-     * <tt>llvm::ArrayRef</tt> has been constructed.
+     * <tt>::llvm::ArrayRef</tt> has been constructed.
      */
     template<typename Derived> struct check_extents
     {

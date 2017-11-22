@@ -1,4 +1,2 @@
-CFLAGS += -I$(LLVM_INCLUDE) -I$(LLVM_C_INCLUDE)
-
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include

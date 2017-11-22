@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <type_traits>
 
-namespace sprite { namespace backend
+namespace sprite { namespace llvm
 {
   /**
    * @brief Base class used to wrap an LLVM API object.

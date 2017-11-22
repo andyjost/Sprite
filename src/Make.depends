@@ -2,6 +2,7 @@
 
 DEPDIR := $(OBJECT_DIR)/.d
 $(shell mkdir -p $(DEPDIR) >/dev/null)
+FILES_TO_CLEAN += $(DEPDIR)
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.Td
 
 COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c

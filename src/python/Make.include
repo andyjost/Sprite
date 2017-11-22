@@ -33,9 +33,9 @@ ifneq ($(INSTALLING),)
 
   install: $(PYLIB_PY_FILES) $(PYLIB_SO_FILES)
   uninstall:
-		-rm $(PYLIB_PY_FILES) $(PYLIB_SO_FILES)       2>&1 > /dev/null
-		-rm $(PYLIB_PY_FILES:.py=.pyc)                2>&1 > /dev/null
-		-rmdir $(shell realpath $(PYLIB_INSTALL_DIR)) 2>&1 > /dev/null
+		rm -f $(PYLIB_PY_FILES) $(PYLIB_SO_FILES)
+		rm -f $(PYLIB_PY_FILES:.py=.pyc)
+		rmdir $(shell realpath $(PYLIB_INSTALL_DIR))
 
   $(PYLIB_INSTALL_DIR)/%.py : %.py
 		cp $< $@

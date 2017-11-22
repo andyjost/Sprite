@@ -1,2 +1,61 @@
+CFLAGS += -I$(LLVM_INCLUDE) -I$(LLVM_C_INCLUDE)
+
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
+
+# Contextual variables
+# ====================
+# These take values that depend on the submodule being built.
+
+# Create the directory under $(OBJECT_ROOT) corresponding to the current source
+# directory.
+OBJECT_DIR := $(shell realpath --relative-to $(ROOT_DIR)/src $(shell pwd))
+OBJECT_DIR := $(abspath $(OBJECT_ROOT)/$(OBJECT_DIR))
+$(shell mkdir -p $(OBJECT_DIR) >/dev/null)
+DIRS_TO_CLEAN += $(OBJECT_DIR)
+
+# Submodules may override SRCS.
+ifndef SRCS
+  SRCS := $(wildcard *.c *.cpp)
+endif
+
+# Submodules may override OBJS.
+ifndef OBJS
+  OBJS := $(patsubst %,%.o,$(basename $(SRCS)))
+endif
+OBJS_OUT := $(patsubst %,$(OBJECT_DIR)/%,$(OBJS))
+
+# Submodules may override SHLIBS.
+ifndef SHLIBS
+  SHLIBS :=
+endif
+SHLIBS_OUT := $(patsubst %,$(OBJECT_DIR)/%.so,$(SHLIBS))
+
+# Files passed to the "clean" target.  Additional ones can be added with +=.
+FILES_TO_CLEAN += $(OBJS_OUT) $(SHLIBS_OUT)
+
+
+# Rules and targets
+# =================
+all: objs shlibs
+shlibs: $(SHLIBS_OUT)
+objs: $(OBJS_OUT)
+
+clean:
+ifdef FILES_TO_CLEAN
+	-rm -rf $(FILES_TO_CLEAN)
+endif
+ifdef DIRS_TO_CLEAN
+	-rmdir $(DIRS_TO_CLEAN)
+endif
+
+$(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
+$(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
+	$(CXX) -shared $< $(LDFLAGS) $(OUTPUT_OPTION)
+
+
+# Dependencies
+# ============
+include $(ROOT_DIR)/src/Make.depends
+
+

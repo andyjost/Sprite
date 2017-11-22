@@ -1,7 +1,7 @@
 #pragma once
 #include "sprite/llvm/config.hpp"
 
-namespace sprite { namespace backend
+namespace sprite { namespace llvm
 {
   class module;
   template<typename T> class object;
@@ -43,7 +43,7 @@ namespace sprite { namespace backend
   using constant_int = constobj<ConstantInt>;
   using constant_struct = constobj<ConstantStruct>;
   using globalvaraddr = constobj<GlobalVariable>;
-  using block_address = constobj<llvm::BlockAddress>;
+  using block_address = constobj<BlockAddress>;
 
 
   // ==========================================================================
