@@ -5,7 +5,7 @@
 
 #pragma once
 #include <array>
-#include "sprite/support/typenames.hpp"
+#include "sprite/misc/typenames.hpp"
 #include "llvm/IR/Type.h"
 
 /**

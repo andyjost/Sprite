@@ -1,4 +1,4 @@
-#include "sprite/support/typenames.hpp"
+#include "sprite/misc/typenames.hpp"
 
 
 namespace sprite { namespace llvm

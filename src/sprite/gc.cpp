@@ -1,4 +1,4 @@
-#include "sprite/memory.hpp"
+#include "sprite/gc.hpp"
 #include "sprite/gc/cymps.h"
 
 namespace sprite

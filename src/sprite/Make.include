@@ -1,0 +1,7 @@
+.SECONDEXPANSION:
+LIB := sprite/sprite
+LIB_DEPENDS := $$(OBJS_OUT)
+SHLIB_DEPENDS := $$(LIB_OUT)
+
+# Include the Make.include file one level up in the directory hierarchy.
+include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include

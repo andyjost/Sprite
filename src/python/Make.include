@@ -1,13 +1,19 @@
+.SECONDEXPANSION:
 # Compilation
 # ===========
 CFLAGS += -fPIC -I$(PYTHON_INCLUDE_PATH)
 LDFLAGS += -L $(PYTHON_LIBRARY_PATH) -l$(PYTHON_LIBRARY) -lboost_python
-SHLIBS = $(basename $(SRCS))
 
+# In this Python library, each subdirectory is a submodule that creates exactly
+# one .so file.
+THIS_DIR = $(notdir $(basename $(shell pwd)))
+ifneq ($(THIS_DIR),python)
+  SHLIB = _$(THIS_DIR)
+  SHLIB_DEPENDS = $$(OBJS_OUT)
+endif
 
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
-
 
 # Installation
 # ============
@@ -29,7 +35,7 @@ ifneq ($(INSTALLING),)
   # The Python library consists of the .py files in this directory and .so files
   # under $(OBJECT_DIR).
   PYLIB_PY_FILES := $(patsubst %,$(PYLIB_INSTALL_DIR)/%,$(wildcard *.py))
-  PYLIB_SO_FILES := $(patsubst %,$(PYLIB_INSTALL_DIR)/%.so,$(SHLIBS))
+  PYLIB_SO_FILES := $(patsubst %,$(PYLIB_INSTALL_DIR)/%.so,$(SHLIB)) # FIXME
 
   install: $(PYLIB_PY_FILES) $(PYLIB_SO_FILES)
   uninstall:

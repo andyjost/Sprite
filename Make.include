@@ -14,6 +14,7 @@ usage: # DEFAULT RULE
 	@echo "    all     : compile and link all objects and executables"
 	@echo "    clean   : remove generated files"
 	@echo "    objs    : compile object files"
+	@echo "    libs    : compile and link static libraries"
 	@echo "    shlibs  : compile and link shared libraries"
 	@echo ""
 	@echo "Install targets:"
@@ -24,7 +25,7 @@ usage: # DEFAULT RULE
 	@echo "    print-<varname>: print the value of make variable <varname>"
 	@echo ""
 	@echo "Example:"
-	@echo "    make -j8 all           --build in parallel using 8 CPUs"
+	@echo "    make -j all            --build in parallel"
 	@echo "    make install ~/sprite  --install under home directory"
 
 
@@ -35,7 +36,7 @@ usage: # DEFAULT RULE
 ifndef SUBMODULES
   SUBMODULES = $(dir $(wildcard */.))
 endif
-RECURSIVE_TARGETS := all shlibs objs clean install uninstall
+RECURSIVE_TARGETS := all clean install libs objs shlibs uninstall
 .PHONY: $(RECURSIVE_TARGETS) $(SUBMODULES)
 $(RECURSIVE_TARGETS): $(SUBMODULES)
 $(SUBMODULES):
@@ -53,7 +54,12 @@ ifneq ($(INSTALLING),)
   ifneq ($(shell test -d $(PREFIX) -o \! -e $(PREFIX); echo $$?),0)
     $(error PREFIX "$(PREFIX)" exists but is not a directory)
   endif
-  ifneq ($(PREFIX),$(abspath $(PREFIX)))
+	1 = $(shell echo $(PREFIX)) # expand ~
+	2 = $(shell python -c 'from __future__ import print_function; \
+	                       import os;                             \
+												 print(os.path.isabs("""$1"""))         \
+												')
+  ifneq ($(strip $2),True)
     $(error PREFIX must be an absolute path)
   endif
 endif

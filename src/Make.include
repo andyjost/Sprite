@@ -24,22 +24,48 @@ ifndef OBJS
   OBJS := $(patsubst %,%.o,$(basename $(SRCS)))
 endif
 OBJS_OUT := $(patsubst %,$(OBJECT_DIR)/%,$(OBJS))
+FILES_TO_CLEAN += $(OBJS_OUT)
 
-# Submodules may override SHLIBS.
-ifndef SHLIBS
-  SHLIBS :=
+# Submodules may set LIB to generate a static library.  Static libraries are
+# placed relative to $(OBJECT_ROOT) because they are built by appending and
+# that simplifies the recursion.
+ifdef LIB
+  LIB_OUT := $(OBJECT_ROOT)/$(LIB).a
+  FILES_TO_CLEAN += $(LIB_OUT)
 endif
-SHLIBS_OUT := $(patsubst %,$(OBJECT_DIR)/%.so,$(SHLIBS))
 
-# Files passed to the "clean" target.  Additional ones can be added with +=.
-FILES_TO_CLEAN += $(OBJS_OUT) $(SHLIBS_OUT)
+# Submodules may set SHLIB to generate a dynamic library.
+ifdef SHLIB
+  SHLIB_OUT := $(OBJECT_DIR)/$(SHLIB).so
+  FILES_TO_CLEAN += $(SHLIB_OUT)
+endif
 
+LOCKFILE := $(OBJECT_ROOT)/lock
 
 # Rules and targets
 # =================
-all: objs shlibs
-shlibs: $(SHLIBS_OUT)
+all: objs libs shlibs
 objs: $(OBJS_OUT)
+
+# A submodule may set LIB to create a static library.  Its dependencies are to
+# be found in LIB_DEPENDS.
+ifdef LIB
+  $(LIB_OUT): $(LIB_OUT)($(LIB_DEPENDS))
+  libs: $(LIB_OUT)
+endif
+libs: $(LIB_DEPENDS)
+# Update archives from .o files using a lock to prevent concurrent access.
+.o.a:
+	flock $(LOCKFILE) $(AR) $(ARFLAGS) $@ $<
+
+# A submodule may set SHLIB to create a shared library.  Its dependencies are
+# to be found in SHLIB_DEPENDS.
+ifdef SHLIB
+  $(SHLIB_OUT): $(SHLIB_DEPENDS)
+		$(CXX) -shared $< $(LDFLAGS) -o $@
+  shlibs: $(SHLIB_OUT)
+endif
+shlibs: $(SHLIB_DEPENDS)
 
 clean:
 ifdef FILES_TO_CLEAN
@@ -48,11 +74,6 @@ endif
 ifdef DIRS_TO_CLEAN
 	-rmdir $(DIRS_TO_CLEAN)
 endif
-
-$(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
-$(OBJECT_DIR)/%.so : $(OBJECT_DIR)/%.o
-	$(CXX) -shared $< $(LDFLAGS) $(OUTPUT_OPTION)
-
 
 # Dependencies
 # ============
