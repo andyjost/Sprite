@@ -3,6 +3,9 @@ CFLAGS += -I$(LLVM_INCLUDE) -I$(LLVM_C_INCLUDE)
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
 
+LOCKFILE := $(OBJECT_ROOT)/lock
+FILES_TO_CLEAN += $(LOCKFILE)
+
 # Contextual variables
 # ====================
 # These take values that depend on the submodule being built.
@@ -40,7 +43,29 @@ ifdef SHLIB
   FILES_TO_CLEAN += $(SHLIB_OUT)
 endif
 
-LOCKFILE := $(OBJECT_ROOT)/lock
+ifdef INSTALL_DIR
+  $(shell mkdir -p $(INSTALL_DIR))
+  DIRS_TO_CLEAN += $(INSTALL_DIR)
+
+  # Install static libs.
+  ifdef LIB
+    LIB_BASENAME := $(notdir $(basename $(LIB)))
+    LIB_INSTALL = $(INSTALL_DIR)/$(LIB_BASENAME).a
+    # FILES_TO_CLEAN += $(LIB_INSTALL)
+    $(LIB_INSTALL): $(LIB_OUT)
+			cp $< $@
+    install: $(LIB_INSTALL)
+  endif
+
+  ifdef SHLIB
+    # Install shared libs.
+    SHLIB_INSTALL = $(INSTALL_DIR)/$(SHLIB).so
+    # FILES_TO_CLEAN += $(SHLIB_INSTALL)
+    $(SHLIB_INSTALL): $(SHLIB_OUT)
+			cp $< $@
+    install: $(SHLIB_INSTALL)
+  endif
+endif
 
 # Rules and targets
 # =================

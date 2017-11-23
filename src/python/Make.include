@@ -35,11 +35,11 @@ ifneq ($(INSTALLING),)
   # The Python library consists of the .py files in this directory and .so files
   # under $(OBJECT_DIR).
   PYLIB_PY_FILES := $(patsubst %,$(PYLIB_INSTALL_DIR)/%,$(wildcard *.py))
-  PYLIB_SO_FILES := $(patsubst %,$(PYLIB_INSTALL_DIR)/%.so,$(SHLIB)) # FIXME
+  PYLIB_SO_FILE := $(patsubst %,$(PYLIB_INSTALL_DIR)/%.so,$(SHLIB))
 
-  install: $(PYLIB_PY_FILES) $(PYLIB_SO_FILES)
+  install: $(PYLIB_PY_FILES) $(PYLIB_SO_FILE)
   uninstall:
-		rm -f $(PYLIB_PY_FILES) $(PYLIB_SO_FILES)
+		rm -f $(PYLIB_PY_FILES) $(PYLIB_SO_FILE)
 		rm -f $(PYLIB_PY_FILES:.py=.pyc)
 		rmdir $(shell realpath $(PYLIB_INSTALL_DIR))
 
