@@ -1,7 +1,7 @@
 .SECONDEXPANSION:
 # Compilation
 # ===========
-CFLAGS += -fPIC -I$(PYTHON_INCLUDE_PATH)
+CFLAGS  += -fPIC -I$(PYTHON_INCLUDE_PATH)
 LDFLAGS += -L $(PYTHON_LIBRARY_PATH) -l$(PYTHON_LIBRARY) -lboost_python
 
 # In this Python library, each subdirectory is a submodule that creates exactly

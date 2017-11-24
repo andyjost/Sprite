@@ -49,7 +49,7 @@ INSTALLING = $(findstring install, $(MAKECMDGOALS))
 ifneq ($(INSTALLING),)
   # Validate PREFIX.
   ifndef PREFIX
-    $(error PREFIX is not defined.  Please spcify it when invoking make))
+    $(error PREFIX is not defined.  Please specify it when invoking make))
   endif
   ifneq ($(shell test -d $(PREFIX) -o \! -e $(PREFIX); echo $$?),0)
     $(error PREFIX "$(PREFIX)" exists but is not a directory)

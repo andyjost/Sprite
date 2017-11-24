@@ -1,4 +1,5 @@
-CFLAGS += -I$(LLVM_INCLUDE) -I$(LLVM_C_INCLUDE)
+CFLAGS  += -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH)
+LDFLAGS += $(LLVM_LIBRARY_PATH)/libLLVM.so
 
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
@@ -87,7 +88,7 @@ libs: $(LIB_DEPENDS)
 # to be found in SHLIB_DEPENDS.
 ifdef SHLIB
   $(SHLIB_OUT): $(SHLIB_DEPENDS)
-		$(CXX) -shared $< $(LDFLAGS) -o $@
+		$(CXX) -shared -o $@ $< $(LDFLAGS)
   shlibs: $(SHLIB_OUT)
 endif
 shlibs: $(SHLIB_DEPENDS)
