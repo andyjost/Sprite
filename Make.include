@@ -45,7 +45,7 @@ $(SUBMODULES):
 
 # Installation checks
 # ===================
-INSTALLING = $(findstring install, $(MAKECMDGOALS))
+INSTALLING := $(findstring install, $(MAKECMDGOALS))
 ifneq ($(INSTALLING),)
   # Validate PREFIX.
   ifndef PREFIX

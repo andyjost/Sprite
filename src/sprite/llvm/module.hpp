@@ -11,6 +11,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include <string>
 
 namespace sprite { namespace llvm
 {
@@ -39,7 +40,7 @@ namespace sprite { namespace llvm
 
     /// Creates a new module.
     explicit module(
-        string_ref const & name
+        std::string const & name
       , LLVMContext & context = getContext()
       )
       : base_type(SPRITE_APICALL(new Module(name, context)))

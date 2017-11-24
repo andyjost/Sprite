@@ -1,12 +1,16 @@
 #include <boost/python.hpp>
 #include "sprite/llvm/module.hpp"
 
-char const * greet() { return "hello"; }
+using namespace boost::python;
 
 BOOST_PYTHON_MODULE(_compiler)
 {
-  using namespace boost::python;
-  def("greet", greet);
+  class_<sprite::llvm::module>(
+      "module", init<std::string const &>()
+    )
+    .def(self == other<sprite::llvm::module>())
+    ;
+
 }
 
 

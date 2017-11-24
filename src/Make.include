@@ -1,5 +1,5 @@
-CFLAGS  += -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH)
-LDFLAGS += $(LLVM_LIBRARY_PATH)/libLLVM.so
+CFLAGS  += -fPIC -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH)
+LDFLAGS += -L $(LLVM_LIBRARY_PATH)/ -lLLVM
 
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
@@ -44,27 +44,29 @@ ifdef SHLIB
   FILES_TO_CLEAN += $(SHLIB_OUT)
 endif
 
-ifdef INSTALL_DIR
-  $(shell mkdir -p $(INSTALL_DIR))
-  DIRS_TO_CLEAN += $(INSTALL_DIR)
-
-  # Install static libs.
-  ifdef LIB
-    LIB_BASENAME := $(notdir $(basename $(LIB)))
-    LIB_INSTALL = $(INSTALL_DIR)/$(LIB_BASENAME).a
-    # FILES_TO_CLEAN += $(LIB_INSTALL)
-    $(LIB_INSTALL): $(LIB_OUT)
-			cp $< $@
-    install: $(LIB_INSTALL)
-  endif
-
-  ifdef SHLIB
-    # Install shared libs.
-    SHLIB_INSTALL = $(INSTALL_DIR)/$(SHLIB).so
-    # FILES_TO_CLEAN += $(SHLIB_INSTALL)
-    $(SHLIB_INSTALL): $(SHLIB_OUT)
-			cp $< $@
-    install: $(SHLIB_INSTALL)
+ifneq ($(INSTALLING),)
+  ifdef INSTALL_DIR
+    $(shell mkdir -p $(INSTALL_DIR))
+    DIRS_TO_CLEAN += $(INSTALL_DIR)
+  
+    # Install static libs.
+    ifdef LIB
+      LIB_BASENAME := $(notdir $(basename $(LIB)))
+      LIB_INSTALL = $(INSTALL_DIR)/$(LIB_BASENAME).a
+      # FILES_TO_CLEAN += $(LIB_INSTALL)
+      $(LIB_INSTALL): $(LIB_OUT)
+				cp $< $@
+      install: $(LIB_INSTALL)
+    endif
+  
+    ifdef SHLIB
+      # Install shared libs.
+      SHLIB_INSTALL = $(INSTALL_DIR)/$(SHLIB).so
+      # FILES_TO_CLEAN += $(SHLIB_INSTALL)
+      $(SHLIB_INSTALL): $(SHLIB_OUT)
+				cp $< $@
+      install: $(SHLIB_INSTALL)
+    endif
   endif
 endif
 
@@ -88,7 +90,7 @@ libs: $(LIB_DEPENDS)
 # to be found in SHLIB_DEPENDS.
 ifdef SHLIB
   $(SHLIB_OUT): $(SHLIB_DEPENDS)
-		$(CXX) -shared -o $@ $< $(LDFLAGS)
+		$(CXX) -shared -o $@ $(SHLIB_PREDEP_LDFLAGS) $< $(SHLIB_POSTDEP_LDFLAGS) $(LDFLAGS)
   shlibs: $(SHLIB_OUT)
 endif
 shlibs: $(SHLIB_DEPENDS)

@@ -1,5 +1,6 @@
-SHLIB := sprite
+SHLIB := libsprite
 INSTALL_DIR := $(PREFIX)/lib
+
 include Make.include
 
 # install: $(LIB_INSTALL) $(SHLIB_INSTALL)
