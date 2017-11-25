@@ -4,34 +4,12 @@
 
 namespace sprite { namespace llvm
 {
-  class module;
   template<typename T> class object;
-  #ifdef SPRITE3
-  template<typename T=Type> class typeobj;
-  #else
+  class module;
   class type;
-  #endif
   template<typename T=Value> class valueobj;
   template<typename T=Constant> class constobj;
   template<typename T=GlobalValue> class globalobj;
-
-  // Types.
-  #ifdef SPRITE3
-  using type = typeobj<>;
-  using array_type = typeobj<ArrayType>;
-  using integer_type = typeobj<IntegerType>;
-  using function_type = typeobj<FunctionType>;
-  using fp_type = typeobj<FPType>;
-  using pointer_type = typeobj<PointerType>;
-  using struct_type = typeobj<StructType>;
-  #else
-  using array_type = type;
-  using integer_type = type;
-  using function_type = type;
-  using fp_type = type;
-  using pointer_type = type;
-  using struct_type = type;
-  #endif
 
   // Globals (anything the linker sees, even symbols marked private).
   using global = globalobj<GlobalValue>;

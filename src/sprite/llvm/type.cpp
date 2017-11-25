@@ -9,20 +9,20 @@
 
 namespace sprite { namespace llvm
 {
-  pointer_type type::operator*() const
-    { return pointer_type(SPRITE_APICALL(this->ptr()->getPointerTo())); }
+  type type::operator*() const
+    { return type(SPRITE_APICALL(this->ptr()->getPointerTo())); }
 
-  array_type type::operator[](size_t size) const
+  type type::operator[](size_t size) const
   {
     auto const size_ = static_cast<uint64_t>(size);
-    return array_type(SPRITE_APICALL(ArrayType::get(this->ptr(), size_)));
+    return type(SPRITE_APICALL(ArrayType::get(this->ptr(), size_)));
   }
 
-  function_type type::make_function(
+  type type::make_function(
       std::vector<::llvm::Type*> const & args, bool is_varargs
     ) const
   {
-    return function_type(SPRITE_APICALL(
+    return type(SPRITE_APICALL(
         FunctionType::get(this->ptr(), args, is_varargs)
       ));
   }
@@ -36,24 +36,25 @@ namespace sprite { namespace llvm
 
 namespace sprite { namespace llvm { namespace types
 {
-  integer_type int_(unsigned numBits)
+  type int_(unsigned numBits)
   {
     auto & cxt = scope::current_context();
-    return integer_type(SPRITE_APICALL(IntegerType::get(cxt, numBits)));
+    return type(SPRITE_APICALL(IntegerType::get(cxt, numBits)));
   }
 
-  integer_type long_() { return int_(sizeof(long) * 8); }
-  integer_type long_long() { return int_(sizeof(long long) * 8); }
-  integer_type char_() { return int_(8); }
-  integer_type bool_() { return int_(1); }
+  type int_() { return int_(sizeof(int) * 8); }
+  type long_() { return int_(sizeof(long) * 8); }
+  type longlong() { return int_(sizeof(long long) * 8); }
+  type char_() { return int_(8); }
+  type bool_() { return int_(1); }
 
-  fp_type float_(size_t numBits)
+  type float_(size_t numBits)
   {
     switch(numBits)
     {
       case 32: return float_();
       case 64: return double_();
-      case 128: return long_double();
+      case 128: return longdouble();
       default:
       {
         throw type_error(
@@ -64,25 +65,25 @@ namespace sprite { namespace llvm { namespace types
     }
   }
 
-  fp_type float_()
+  type float_()
   {
     auto & cxt = scope::current_context();
     auto const p = SPRITE_APICALL(Type::getFloatTy(cxt));
-    return fp_type(reinterpret_cast<FPType*>(p));
+    return type(reinterpret_cast<FPType*>(p));
   }
 
-  fp_type double_()
+  type double_()
   {
     auto & cxt = scope::current_context();
     auto const p = SPRITE_APICALL(Type::getDoubleTy(cxt));
-    return fp_type(reinterpret_cast<FPType*>(p));
+    return type(reinterpret_cast<FPType*>(p));
   }
 
-  fp_type long_double()
+  type longdouble()
   {
     auto & cxt = scope::current_context();
     auto const p = SPRITE_APICALL(Type::getFP128Ty(cxt));
-    return fp_type(reinterpret_cast<FPType*>(p));
+    return type(reinterpret_cast<FPType*>(p));
   }
 
   type void_()
@@ -97,8 +98,9 @@ namespace sprite { namespace llvm { namespace types
     auto & cxt = scope::current_context();
     return type(SPRITE_APICALL(Type::getLabelTy(cxt)));
   }
+  #endif
 
-  struct_type struct_(array_ref<type> const & elements)
+  type struct_(std::vector<type> const & elements)
   {
     auto & cxt = scope::current_context();
     std::vector<Type*> tmp;
@@ -108,10 +110,10 @@ namespace sprite { namespace llvm { namespace types
         throw type_error("Invalid struct element type.");
       tmp.emplace_back(e.ptr());
     }
-    return struct_type(SPRITE_APICALL(StructType::get(cxt, tmp)));
+    return type(SPRITE_APICALL(StructType::get(cxt, tmp)));
   }
 
-  struct_type struct_(string_ref const & name)
+  type struct_(std::string const & name)
   {
     module const mod = scope::current_module();
     if(!mod.ptr())
@@ -120,21 +122,21 @@ namespace sprite { namespace llvm { namespace types
           "No current module (needed to lookup named struct)."
         );
     }
-    StructType * ty = mod->getTypeByName(name);
-    if(!ty)
-      ty = SPRITE_APICALL(StructType::create(mod.context(), name));
-    return struct_type(ty);
+    StructType * ST = mod->getTypeByName(name);
+    if(!ST)
+      ST = SPRITE_APICALL(StructType::create(mod.context(), name));
+    return type(ST);
   }
 
-  struct_type struct_(
-      string_ref const & name, array_ref<type> const & elements
+  type struct_(
+      std::string const & name, std::vector<type> const & elements
     )
   {
-    struct_type const tp = struct_(name);
+    type ty = struct_(name);
+    auto * ST = ::llvm::cast<StructType>(ty.ptr());
     std::vector<Type*> body;
     for(auto e: elements) { body.emplace_back(e.ptr()); }
-    SPRITE_APICALL(tp->setBody(body, /*isPacked*/ false));
-    return tp;
+    SPRITE_APICALL(ST->setBody(body, /*isPacked*/ false));
+    return ty;
   }
-  #endif
 }}}

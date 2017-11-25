@@ -8,11 +8,11 @@
 
 using namespace boost::python;
 using sprite::llvm::type_error;
+using sprite::llvm::type;
 
 namespace
 {
-  sprite::llvm::function_type
-  type__call__(tuple args, dict kwds)
+  type type__call__(tuple args, dict kwds)
   {
     assert(len(args) > 0);
     sprite::llvm::type self = extract<sprite::llvm::type>(args[0]);
@@ -62,7 +62,7 @@ namespace
         else throw;
       }
     }
-    return self.make_function(types, is_varargs);
+    return self.make_function(types, is_varargs==1);
   }
 }
 
@@ -71,13 +71,13 @@ namespace sprite { namespace python
   void register_type()
   {
     using self_ns::str;
-    class_<sprite::llvm::type>("type", no_init)
+    class_<type>("type", no_init)
       .def(str(self))
       .def(repr(self))
-      .add_property("p", &sprite::llvm::type::operator*
+      .add_property("p", &type::operator*
         , "Creates a pointer type."
         )
-      .def("__getitem__", &sprite::llvm::type::operator[]
+      .def("__getitem__", &type::operator[]
         , "Creates an array type."
         )
       .def("__call__", raw_function(&type__call__, 0)
@@ -87,20 +87,6 @@ namespace sprite { namespace python
         )
       .def("sizeof", sprite::llvm::sizeof_)
       ;
-
-    // Module-level functions.
-    def("int_", &sprite::llvm::types::int_, arg("numBits")
-      , "Creates an integer type.");
-    def("long", &sprite::llvm::types::long_
-      , "Creates a long integer type.");
-    def("long_long", &sprite::llvm::types::long_long
-      , "Creates a long long integer type.");
-    def("float_", (sprite::llvm::fp_type (*)())(&sprite::llvm::types::float_)
-      , "Creates a 32-bit floating-point type.");
-    def("double", &sprite::llvm::types::double_
-      , "Creates a 64-bit floating-point type.");
-    def("long_double", &sprite::llvm::types::long_double
-      , "Creates a 128-bit floating-point type.");
   }
 }}
 
