@@ -90,7 +90,7 @@ libs: $(LIB_DEPENDS)
 # to be found in SHLIB_DEPENDS.
 ifdef SHLIB
   $(SHLIB_OUT): $(SHLIB_DEPENDS)
-		$(CXX) -shared -o $@ $(SHLIB_PREDEP_LDFLAGS) $< $(SHLIB_POSTDEP_LDFLAGS) $(LDFLAGS)
+		$(CXX) -shared -o $@ $(SHLIB_PREDEP_LDFLAGS) $^ $(SHLIB_POSTDEP_LDFLAGS) $(LDFLAGS)
   shlibs: $(SHLIB_OUT)
 endif
 shlibs: $(SHLIB_DEPENDS)

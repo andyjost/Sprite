@@ -4,9 +4,9 @@
  */
 
 #pragma once
-#include <array>
 #include "sprite/misc/typenames.hpp"
 #include "llvm/IR/Type.h"
+#include <array>
 
 /**
  * @brief Calls to the LLVM C++-API are wrapped in this macro.
@@ -114,10 +114,7 @@ namespace sprite { namespace llvm
   SPRITE_SPECIALIZE_TYPENAME(StructType)
 
   /// Overload typename_ to return human-readable LLVM type names.
-  std::string typename_(Type const &);
-
-  /// Returns a human-readable version of an LLVM type name.
-  inline std::string typename_(Type const * tp) { return typename_(*tp); }
+  std::string typename_(::llvm::Type const &);
 
   /**
    * @brief Represents a floating-point type.

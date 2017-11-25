@@ -1,0 +1,27 @@
+make -C src objs
+make[1]: Entering directory '/home/andy/sprite4/src'
+make -C python/ objs
+make[2]: Entering directory '/home/andy/sprite4/src/python'
+make -C compiler/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/python/compiler'
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/python/compiler/_compiler.o -MMD -MP -MF /home/andy/sprite4/object-root/python/compiler/.d/_compiler.Td -I/usr/include/python2.7 -fPIC -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -Wall -I/home/andy/sprite4//src -O3 -std=c++17   -c -o /home/andy/sprite4/object-root/python/compiler/_compiler.o _compiler.cpp
+make[3]: Leaving directory '/home/andy/sprite4/src/python/compiler'
+make[2]: Leaving directory '/home/andy/sprite4/src/python'
+make -C sprite/ objs
+make[2]: Entering directory '/home/andy/sprite4/src/sprite'
+make -C llvm/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/sprite/llvm'
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/llvm/scope.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/llvm/.d/scope.Td -fPIC -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -Wall -I/home/andy/sprite4//src -O3 -std=c++17   -c -o /home/andy/sprite4/object-root/sprite/llvm/scope.o scope.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/llvm/type.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/llvm/.d/type.Td -fPIC -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -Wall -I/home/andy/sprite4//src -O3 -std=c++17   -c -o /home/andy/sprite4/object-root/sprite/llvm/type.o type.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/llvm/module.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/llvm/.d/module.Td -fPIC -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -Wall -I/home/andy/sprite4//src -O3 -std=c++17   -c -o /home/andy/sprite4/object-root/sprite/llvm/module.o module.cpp
+make[3]: Leaving directory '/home/andy/sprite4/src/sprite/llvm'
+make -C misc/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/sprite/misc'
+make[3]: Nothing to be done for 'objs'.
+make[3]: Leaving directory '/home/andy/sprite4/src/sprite/misc'
+make -C gc/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/sprite/gc'
+make[3]: Nothing to be done for 'objs'.
+make[3]: Leaving directory '/home/andy/sprite4/src/sprite/gc'
+make[2]: Leaving directory '/home/andy/sprite4/src/sprite'
+make[1]: Leaving directory '/home/andy/sprite4/src'

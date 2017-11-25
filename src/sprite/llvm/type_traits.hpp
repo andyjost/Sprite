@@ -3,6 +3,8 @@
 #include "sprite/llvm/special_values.hpp"
 #include <type_traits>
 
+#ifdef TEMPORARILY_DISABLED
+
 #define SPRITE_DEF_ISOBJ_CHECK(name)                                    \
     template<typename T> struct is_##name : std::false_type {};         \
     template<typename T> struct is_##name<name<T>> : std::true_type {}; \
@@ -499,3 +501,4 @@ namespace sprite { namespace llvm
 
 #undef SPRITE_DEF_ISOBJ_CHECK
 
+#endif

@@ -1,16 +1,22 @@
 #pragma once
 #include "sprite/llvm/config.hpp"
+#include "llvm/IR/DerivedTypes.h"
 
 namespace sprite { namespace llvm
 {
   class module;
   template<typename T> class object;
+  #ifdef SPRITE3
   template<typename T=Type> class typeobj;
+  #else
+  class type;
+  #endif
   template<typename T=Value> class valueobj;
   template<typename T=Constant> class constobj;
   template<typename T=GlobalValue> class globalobj;
 
   // Types.
+  #ifdef SPRITE3
   using type = typeobj<>;
   using array_type = typeobj<ArrayType>;
   using integer_type = typeobj<IntegerType>;
@@ -18,6 +24,14 @@ namespace sprite { namespace llvm
   using fp_type = typeobj<FPType>;
   using pointer_type = typeobj<PointerType>;
   using struct_type = typeobj<StructType>;
+  #else
+  using array_type = type;
+  using integer_type = type;
+  using function_type = type;
+  using fp_type = type;
+  using pointer_type = type;
+  using struct_type = type;
+  #endif
 
   // Globals (anything the linker sees, even symbols marked private).
   using global = globalobj<GlobalValue>;
@@ -50,6 +64,7 @@ namespace sprite { namespace llvm
   // Constructs related to flags.
   // ==========================================================================
 
+  #ifdef SPRITE3
   namespace aux
   {
     struct operator_flags;
@@ -67,6 +82,7 @@ namespace sprite { namespace llvm
   using type_with_flags = typeobj_with_flags<Type>;
   using array_type_with_flags = typeobj_with_flags<ArrayType>;
   using integer_type_with_flags = typeobj_with_flags<IntegerType>;
+  #endif
 
   // ==========================================================================
   // Support constructs.
