@@ -11,7 +11,6 @@
 #include "sprite/llvm/module.hpp"
 #include "sprite/llvm/scope.hpp"
 #include "sprite/llvm/exceptions.hpp"
-#include <exception>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -251,7 +250,12 @@ namespace sprite { namespace llvm
   {}
   #endif
 
-  module scope::current_module() { return g_current_module; }
+  module scope::current_module()
+  {
+    if(!g_current_module.ptr())
+      throw scope_error("No current module.");
+    return g_current_module;
+  }
 
   #ifdef TEMPORARILY_DISABLED
   function scope::current_function() { return g_current_function; }

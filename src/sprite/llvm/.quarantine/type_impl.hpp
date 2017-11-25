@@ -198,11 +198,3 @@ namespace sprite { namespace llvm
   }
 }}
 
-namespace sprite { namespace llvm { namespace types
-{
-  inline integer_type long_() { return int_(sizeof(long) * 8); }
-  inline integer_type long_long() { return int_(sizeof(long long) * 8); }
-  inline integer_type char_() { return int_(8); }
-  inline integer_type bool_() { return int_(1); }
-}}}
-

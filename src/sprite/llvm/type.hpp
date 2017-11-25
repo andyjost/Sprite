@@ -42,34 +42,19 @@ namespace sprite { namespace llvm
      */
     array_type operator[](size_t size) const;
 
+    /// Creates a function type.
     function_type make_function(
-        std::vector<::llvm::Type*> const &
-      , bool is_varargs = false
+        std::vector<::llvm::Type*> const &, bool is_varargs = false
       ) const;
 
-    template<typename ... Args>
-    function_type operator()(Args && ... argtypes) const
-      { return (*this)({argtypes.ptr()...}, false); }
-
-    template<typename ... Args>
-    function_type operator()(Args && ... argtypes, ellipsis) const
-      { return (*this)({argtypes.ptr()...}, true); }
+    // template<typename ... Args>
+    // function_type operator()(Args && ... argtypes) const
+    //   { return (*this)({argtypes.ptr()...}, false); }
 
     // template<typename ... Args>
-    // function_type operator()(Args && ... argtypes, ellipsis e) const
-    //   { return (*this)({std::forward<Args>(argtypes)...}); }
+    // function_type operator()(Args && ... argtypes, ellipsis) const
+    //   { return (*this)({argtypes.ptr()...}, true); }
 
-    /**
-     * @brief Creates a function type.
-     *
-     * If the last argument is @p dots, then the function is marked varargs.
-     *
-     * @param[in] argtypes
-     *   An argument pack containing any number of arguments that are
-     *   convertible to ::llvm::Type *.
-     *
-     * @snippet types.cpp Creating function types
-     */
     #ifdef TEMPORARILY_DISABLED
     template<
         typename... Args
@@ -118,10 +103,10 @@ namespace sprite { namespace llvm
   inline bool operator!=(type const & lhs, type const & rhs)
     { return !(lhs == rhs); }
 
-  #ifdef TEMPORARILY_DISABLED
   /// Returns the size in bytes.
   uint64_t sizeof_(type const &);
 
+  #ifdef TEMPORARILY_DISABLED
   // Array query functions.
   // Returns the array element type.
   type element_type(array_type const &);

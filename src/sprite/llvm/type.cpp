@@ -2,7 +2,8 @@
 #include "sprite/llvm/scope.hpp"
 #include "sprite/llvm/type.hpp"
 #include "sprite/llvm/exceptions.hpp"
-#include "llvm/IR/DataLayout.h"
+// #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Constants.h"
 #include <string>
 #include <vector>
 

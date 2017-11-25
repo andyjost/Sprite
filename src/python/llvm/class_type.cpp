@@ -2,11 +2,12 @@
 #include <boost/python/raw_function.hpp>
 #include "python/llvm/_llvm.hpp"
 #include "sprite/llvm/type.hpp"
+#include <boost/format.hpp>
 #include <initializer_list>
-#include <stdexcept>
 #include <vector>
 
 using namespace boost::python;
+using sprite::llvm::type_error;
 
 namespace
 {
@@ -15,9 +16,26 @@ namespace
   {
     assert(len(args) > 0);
     sprite::llvm::type self = extract<sprite::llvm::type>(args[0]);
+
+    object kw;
+    object pop = kwds.attr("pop");
+    try { kw = pop("varargs"); }
+    catch(error_already_set const &) { PyErr_Clear(); }
+    int is_varargs = (kw.ptr() == Py_None) ? -1
+        : bool(extract<bool>(kw)) ? 1 : 0;
+
     if(len(kwds) != 0)
-      throw std::invalid_argument("Keyword arguments are not allowed.");
-    bool is_varargs = false;
+    {
+      std::string arg = extract<std::string>(
+          kwds.attr("__iter__")().attr("next")()
+        );
+      throw type_error(
+          boost::format(
+              "'%s' is an invalid keyword argument for this function."
+            ) % arg
+        );
+    }
+
     std::vector<::llvm::Type*> types;
     for(size_t i=1, n=len(args); i<n; ++i)
     {
@@ -27,10 +45,21 @@ namespace
         sprite::llvm::type ty = extract<sprite::llvm::type>(arg);
         types.push_back(ty.ptr());
       }
-      catch(error_already_set const & e)
+      catch(error_already_set const &)
       {
-        if(i==n-1 && arg.attr("__class__").attr("__name__") == "ellipsis")
-          is_varargs = true;
+        if(arg.attr("__class__").attr("__name__") == "ellipsis")
+        {
+          if(i != n-1)
+            throw type_error("An ellipsis must be the final argument.");
+          if(is_varargs != -1)
+          {
+            throw type_error(
+                "Got both an Ellipsis and 'varargs' keyword argument."
+              );
+          }
+          is_varargs = 1;
+        }
+        else throw;
       }
     }
     return self.make_function(types, is_varargs);
@@ -52,8 +81,11 @@ namespace sprite { namespace python
         , "Creates an array type."
         )
       .def("__call__", raw_function(&type__call__, 0)
-        , "Creates a function type."
+        , "Creates a function type.  Keyword 'varargs' may be supplied or "
+          "the Ellipsis object may be passed as the final positional argument "
+          "to indicate a variadic function."
         )
+      .def("sizeof", sprite::llvm::sizeof_)
       ;
 
     // Module-level functions.
@@ -63,16 +95,12 @@ namespace sprite { namespace python
       , "Creates a long integer type.");
     def("long_long", &sprite::llvm::types::long_long
       , "Creates a long long integer type.");
-    def("char", &sprite::llvm::types::char_, "Creates a char type.");
-    def("bool", &sprite::llvm::types::bool_, "Creates a Boolean type.");
-    def("float", (sprite::llvm::fp_type (*)())(&sprite::llvm::types::float_)
+    def("float_", (sprite::llvm::fp_type (*)())(&sprite::llvm::types::float_)
       , "Creates a 32-bit floating-point type.");
     def("double", &sprite::llvm::types::double_
       , "Creates a 64-bit floating-point type.");
     def("long_double", &sprite::llvm::types::long_double
       , "Creates a 128-bit floating-point type.");
-    def("void", &sprite::llvm::types::void_, "Creates the void type.");
-
   }
 }}
 

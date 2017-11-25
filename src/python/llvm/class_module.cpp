@@ -18,9 +18,7 @@ namespace
   }
 
   void module__exit__(sprite::llvm::module const &, object, object, object)
-  {
-    module_stack.pop();
-  }
+    { module_stack.pop(); }
 }
 
 namespace sprite { namespace python
@@ -34,6 +32,10 @@ namespace sprite { namespace python
       .def("__enter__", &module__enter__)
       .def("__exit__", &module__exit__)
       ;
+
+    // The .default module holds an example of the current target.  It is needed
+    // for certain type calculations (e.g., sizeof).
+    module_stack.push(sprite::llvm::module(".default"));
   }
 }}
 

@@ -6,6 +6,7 @@
 #pragma once
 #include <string>
 #include <exception>
+#include <boost/format.hpp>
 #include "llvm/ADT/Twine.h"
 
 namespace sprite { namespace llvm
@@ -36,9 +37,12 @@ namespace sprite { namespace llvm
   };
 
   /// Declares a new exception type.
-  #define SPRITE_DECLARE_ERROR_TYPE(name)                                      \
-      struct name : error                                                      \
-        { name(::llvm::Twine const & msg = "") : error(#name, msg.str()) {} }; \
+  #define SPRITE_DECLARE_ERROR_TYPE(name)                                 \
+      struct name : error                                                 \
+      {                                                                   \
+        name(::llvm::Twine const & msg = "") : error(#name, msg.str()) {} \
+        name(::boost::format const & fmt) : name(fmt.str()) {}            \
+      };                                                                  \
     /**/
 
   /// Indicates an incorrect object type was used.
