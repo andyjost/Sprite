@@ -9,13 +9,30 @@
 
 namespace sprite { namespace llvm
 {
+  type element_type(type const & ty)
+  {
+    if(auto * ST = ::llvm::dyn_cast<::llvm::SequentialType>(ty.ptr()))
+      return type(SPRITE_APICALL(ST->getElementType()));
+    else if(auto * PT = ::llvm::dyn_cast<PointerType>(ty.ptr()))
+      return type(SPRITE_APICALL(PT->getElementType()));
+    throw type_error(boost::format("no element_type for type '%s'") % ty);
+  }
+
+  std::vector<type> subtypes(type const & ty)
+    { return std::vector<type>(ty->subtype_begin(), ty->subtype_end()); }
+
   type type::operator*() const
     { return type(SPRITE_APICALL(this->ptr()->getPointerTo())); }
 
+  type type::operator*(size_t size) const
+    { return type(SPRITE_APICALL(VectorType::get(this->ptr(), size))); }
+
+  type operator*(size_t size, type ty)
+    { return ty * size; }
+
   type type::operator[](size_t size) const
   {
-    auto const size_ = static_cast<uint64_t>(size);
-    return type(SPRITE_APICALL(ArrayType::get(this->ptr(), size_)));
+    return type(SPRITE_APICALL(ArrayType::get(this->ptr(), size)));
   }
 
   type type::make_function(
@@ -27,16 +44,44 @@ namespace sprite { namespace llvm
       ));
   }
 
-  uint64_t sizeof_(type const & tp)
+  bool is_array(type ty) { return ty->isArrayTy(); }
+  bool is_floating_point(type ty) { return ty->isFloatingPointTy(); }
+  bool is_function(type ty) { return ty->isFunctionTy(); }
+  bool is_integer(type ty) { return ty->isIntegerTy(); }
+  bool is_pointer(type ty) { return ty->isPointerTy(); }
+  bool is_struct(type ty) { return ty->isStructTy(); }
+  bool is_vector(type ty) { return ty->isVectorTy(); }
+  bool is_void(type ty) { return ty->isVoidTy(); }
+
+  std::vector<size_t> array_extents(type const & ty)
   {
+    if(!is_array(ty))
+      throw type_error(boost::format("expected an array, got '%s'.") % ty);
+    std::vector<size_t> v;
+    for(Type * TY=ty.ptr(); TY->isArrayTy(); TY=TY->getArrayElementType())
+      v.push_back(TY->getArrayNumElements());
+    return v;
+  }
+
+  size_t sizeof_(type const & tp)
+  {
+    if(!tp->isSized())
+      throw type_error(boost::format("type '%s' is unsized.") % tp);
     ::llvm::DataLayout const layout(scope::current_module().ptr());
     return SPRITE_APICALL(layout.getTypeAllocSize(tp.ptr()));
+  }
+
+  std::string struct_name(type const & ty)
+  {
+    if(!is_struct(ty))
+      throw type_error(boost::format("expected a struct, got '%s'.") % ty);
+    return ty->getStructName();
   }
 }}
 
 namespace sprite { namespace llvm { namespace types
 {
-  type int_(unsigned numBits)
+  type int_(size_t numBits)
   {
     auto & cxt = scope::current_context();
     return type(SPRITE_APICALL(IntegerType::get(cxt, numBits)));
@@ -58,7 +103,7 @@ namespace sprite { namespace llvm { namespace types
       default:
       {
         throw type_error(
-            "Unsupported floating-point width (" + std::to_string(numBits) +
+            "unsupported floating-point width (" + std::to_string(numBits) +
             " bits): expected 32/64/128 bits."
           );
       }
@@ -107,7 +152,7 @@ namespace sprite { namespace llvm { namespace types
     for(auto e: elements)
     {
       if(!::llvm::StructType::isValidElementType(e.ptr()))
-        throw type_error("Invalid struct element type.");
+        throw type_error("invalid struct element type.");
       tmp.emplace_back(e.ptr());
     }
     return type(SPRITE_APICALL(StructType::get(cxt, tmp)));
@@ -116,12 +161,6 @@ namespace sprite { namespace llvm { namespace types
   type struct_(std::string const & name)
   {
     module const mod = scope::current_module();
-    if(!mod.ptr())
-    {
-      throw compile_error(
-          "No current module (needed to lookup named struct)."
-        );
-    }
     StructType * ST = mod->getTypeByName(name);
     if(!ST)
       ST = SPRITE_APICALL(StructType::create(mod.context(), name));

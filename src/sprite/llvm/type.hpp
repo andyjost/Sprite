@@ -28,19 +28,15 @@ namespace sprite { namespace llvm
     using basic_type = Type;
     using object<::llvm::Type>::object;
 
-    /**
-     * @brief Creates a pointer type.
-     *
-     * @snippet types.cpp Creating pointer types
-     */
+    /// Creates a pointer type.
     type operator*() const;
 
-    /**
-     * @brief Creates an array type.
-     *
-     * @snippet types.cpp Creating array types
-     */
-    type operator[](size_t size) const;
+    /// Creates a vector type.
+    type operator*(size_t) const;
+    friend type operator*(size_t, type);
+
+    /// Creates an array type.
+    type operator[](size_t) const;
 
     /// Creates a function type.
     type make_function(
@@ -95,51 +91,12 @@ namespace sprite { namespace llvm
   inline bool operator!=(type const & lhs, type const & rhs)
     { return !(lhs == rhs); }
 
-  /// Returns the size in bytes.
-  uint64_t sizeof_(type const &);
-
-  #ifdef TEMPORARILY_DISABLED
-  // Array query functions.
-  // Returns the array element type.
-  type element_type(type const &);
-  type_with_flags element_type(type const &);
-
-  /// Returns the array length.
-  uint64_t len(type const &);
-  /// Removes all array extents.
-  type remove_all_extents(type const &);
-
-  // Pointer query functions.
-  // Returns the pointer element type.
-  type element_type(type const &);
-
-  // Function query functions.
-  // Returns the function result type.
-  type result_type(type const &);
-  // Returns the type of function parameter i.
-  type element_type(type const &, unsigned);
-  // Returns the number of function parameters.
-  unsigned len(type const &);
-
-  // Struct query functions.
-  /// Returns the number of elements in the struct.
-  uint64_t len(type const &);
-  /// Returns the type at index i.
-  type element_type(type const &, unsigned i);
-
-  // Generic query functions.
-  type_with_flags element_type(type_with_flags const &);
-  type element_type(type const &, unsigned);
-  uint64_t len(type const &);
-  type remove_all_extents(type const &);
-  type result_type(type const &);
-  #endif
 }}
 
 namespace sprite { namespace llvm { namespace types
 {
   /// Creates an integer type of the specified bit width.
-  type int_(unsigned numBits);
+  type int_(size_t numBits);
 
   /// Creates an integer type the width of a native int.
   type int_();
@@ -200,4 +157,31 @@ namespace sprite { namespace llvm { namespace types
       std::string const & name, std::vector<type> const & elements
     );
 }}}
+
+namespace sprite { namespace llvm
+{
+  /// Returns the array, pointer, or vector element type.
+  // type element_type(type const &);
+
+  /// Returns the array extents.
+  std::vector<size_t> array_extents(type const &);
+
+  bool is_array(type);
+  bool is_floating_point(type);
+  bool is_function(type);
+  bool is_integer(type);
+  bool is_pointer(type);
+  bool is_struct(type);
+  bool is_vector(type);
+  bool is_void(type);
+
+  /// Returns the size in bytes.
+  size_t sizeof_(type const &);
+
+  /// Returns the name for struct types.
+  std::string struct_name(type const &);
+
+  /// Returns the subtypes, as defined by LLVM.
+  std::vector<type> subtypes(type const &);
+}}
 

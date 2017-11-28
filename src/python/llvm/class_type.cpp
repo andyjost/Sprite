@@ -1,9 +1,10 @@
 #include <boost/python.hpp>
+#include <boost/format.hpp>
 #include <boost/python/raw_function.hpp>
+#include <initializer_list>
 #include "python/llvm/_llvm.hpp"
 #include "sprite/llvm/type.hpp"
-#include <boost/format.hpp>
-#include <initializer_list>
+#include "sprite/misc/python_conversions.hpp"
 #include <vector>
 
 using namespace boost::python;
@@ -64,28 +65,51 @@ namespace
     }
     return self.make_function(types, is_varargs==1);
   }
+
+  size_t type_ptr(type const & ty)
+  {
+    void * p = ty.ptr();
+    return (size_t) p;
+  }
 }
 
 namespace sprite { namespace python
 {
   void register_type()
   {
+    VectorConversion<type>::init();
+    VectorConversion<size_t>::init();
+
     using self_ns::str;
-    class_<type>("type", no_init)
+    class_<type>("type_", no_init)
       .def(str(self))
       .def(repr(self))
-      .add_property("p", &type::operator*
+      .add_property("ptr", &type_ptr)
+      .add_property("p", (type(type::*)() const)(&type::operator*)
         , "Creates a pointer type."
         )
-      .def("__getitem__", &type::operator[]
-        , "Creates an array type."
-        )
-      .def("__call__", raw_function(&type__call__, 0)
+      .def(other<size_t>() * self)
+      .def(self * other<size_t>())
+      .def(self == other<type>())
+      .def(self != other<type>())
+      .def("__getitem__", &type::operator[], "Creates an array type.")
+      .def("__call__", raw_function(type__call__, 0)
         , "Creates a function type.  Keyword 'varargs' may be supplied or "
           "the Ellipsis object may be passed as the final positional argument "
           "to indicate a variadic function."
         )
-      .def("sizeof", sprite::llvm::sizeof_)
+      .add_property("array_extents", sprite::llvm::array_extents)
+      .add_property("is_array", sprite::llvm::is_array)
+      .add_property("is_floating_point", sprite::llvm::is_floating_point)
+      .add_property("is_function", sprite::llvm::is_function)
+      .add_property("is_integer", sprite::llvm::is_integer)
+      .add_property("is_pointer", sprite::llvm::is_pointer)
+      .add_property("is_struct", sprite::llvm::is_struct)
+      .add_property("is_vector", sprite::llvm::is_vector)
+      .add_property("is_void", sprite::llvm::is_void)
+      .add_property("sizeof", sprite::llvm::sizeof_)
+      .add_property("struct_name", sprite::llvm::struct_name)
+      .add_property("subtypes", sprite::llvm::subtypes)
       ;
   }
 }}

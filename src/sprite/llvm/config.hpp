@@ -62,6 +62,7 @@ namespace llvm
   class IntegerType;
   class PointerType;
   class StructType;
+  class VectorType;
 
   // Constants.
   class Constant;
@@ -105,6 +106,7 @@ namespace sprite { namespace llvm
   using ::llvm::IntegerType;
   using ::llvm::PointerType;
   using ::llvm::StructType;
+  using ::llvm::VectorType;
 
   SPRITE_SPECIALIZE_TYPENAME(Type)
   SPRITE_SPECIALIZE_TYPENAME(ArrayType)
@@ -112,6 +114,7 @@ namespace sprite { namespace llvm
   SPRITE_SPECIALIZE_TYPENAME(IntegerType)
   SPRITE_SPECIALIZE_TYPENAME(PointerType)
   SPRITE_SPECIALIZE_TYPENAME(StructType)
+  SPRITE_SPECIALIZE_TYPENAME(VectorType)
 
   /// Overload typename_ to return human-readable LLVM type names.
   std::string typename_(::llvm::Type const &);

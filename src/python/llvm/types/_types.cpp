@@ -22,7 +22,7 @@ namespace
 
 BOOST_PYTHON_MODULE(_types)
 {
-  def("int_", (type (*)(unsigned))(&sprite::llvm::types::int_)
+  def("int_", (type (*)(size_t))(&sprite::llvm::types::int_)
     , arg("numBits")=sizeof(int)*8, "Creates an integer type.");
   def("long", &sprite::llvm::types::long_
     , "Creates a long integer type.");
