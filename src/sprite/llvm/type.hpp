@@ -2,7 +2,6 @@
 #include "sprite/llvm/config.hpp"
 #include "sprite/llvm/fwd.hpp"
 #include "sprite/llvm/object.hpp"
-// #include "sprite/llvm/core/operator_flags.hpp"
 #include "sprite/llvm/array_ref.hpp"
 #include "sprite/llvm/special_values.hpp"
 #include "sprite/llvm/type_traits.hpp"
@@ -43,6 +42,13 @@ namespace sprite { namespace llvm
         std::vector<::llvm::Type*> const &, bool is_varargs = false
       ) const;
 
+    /// Create a value of this type from another value.
+    // Defined in value.cpp.
+    value operator()(
+        value, bool src_is_signed=true, bool dst_is_signed=true
+      ) const;
+
+
     #ifdef TEMPORARILY_DISABLED
     template<
         typename... Args
@@ -72,25 +78,11 @@ namespace sprite { namespace llvm
      */
     constant operator()(any_array_ref const &) const;
     #endif
-
-    friend std::ostream & operator<<(std::ostream & os, type const & ty)
-      { return os << typename_(*ty.ptr()); }
-
-  private:
-
-    #ifdef SPRITE3
-    static_assert(
-        std::is_base_of<basic_type, T>::value, "Expected an LLVM Type object"
-      );
-    #endif
   };
 
-  inline bool operator==(type const & lhs, type const & rhs)
-    { return lhs.ptr() == rhs.ptr(); }
-
-  inline bool operator!=(type const & lhs, type const & rhs)
-    { return !(lhs == rhs); }
-
+  std::ostream & operator<<(std::ostream &, type const &);
+  bool operator==(type const &, type const &);
+  bool operator!=(type const &, type const &);
 }}
 
 namespace sprite { namespace llvm { namespace types
@@ -165,6 +157,21 @@ namespace sprite { namespace llvm
 
   /// Returns the array extents.
   std::vector<size_t> array_extents(type const &);
+
+  /**
+   * @brief Applies type transformations as when passing a value to a function.
+   *
+   * See std::type_traits::decay.
+   */
+
+  type decay(type);
+
+  /**
+   * @brief Determines the common type of a group of types.
+   *
+   * See std::type_traits::common_type.
+   */
+  type common_type(type, type);
 
   bool is_array(type);
   bool is_floating_point(type);

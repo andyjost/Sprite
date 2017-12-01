@@ -9,7 +9,8 @@ LDFLAGS += -L $(OBJECT_ROOT)/sprite -lsprite -L $(PYTHON_LIBRARY_PATH) -l$(PYTHO
 THIS_DIR = $(notdir $(basename $(shell pwd)))
 ifneq ($(THIS_DIR),python)
   SHLIB = _$(THIS_DIR)
-  SHLIB_DEPENDS = $$(OBJS_OUT) $(OBJECT_ROOT)/sprite/libsprite.so
+  SHLIB_DEPENDS = $$(OBJS_OUT)
+  SHLIB_EXTRA_DEPENDS = $(OBJECT_ROOT)/sprite/libsprite.so
 endif
 
 # Include the Make.include file one level up in the directory hierarchy.

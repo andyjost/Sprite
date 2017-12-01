@@ -1,0 +1,27 @@
+#!/bin/bash
+if [ -z "$SPRITE_HOME" ]; then
+  1>&2 echo SPRITE_HOME is not set.
+  exit 1
+fi
+if [ ! -d "$SPRITE_HOME" ]; then
+  1>&2 echo SPRITE_HOME is not a directory.
+  exit 1
+fi
+
+cd $( dirname "${BASH_SOURCE[0]}" )
+export PYTHONPATH=`pwd`/lib:$PYTHONPATH
+export LD_LIBRARY_PATH=$SPRITE_HOME/lib:$LD_LIBRARY_PATH
+
+case `basename $0` in
+  "run_tests")
+    echo python -B -m unittest discover -v `pwd` "$@"
+    python -B -m unittest discover -v `pwd` "$@"
+    ;;
+  "debug_tests")
+    python=`which python`
+    python=`readlink -f $python`
+    echo gdb --args $python -B -m unittest discover -v `pwd` "$@"
+    gdb --args $python -B -m unittest discover -v `pwd` "$@"
+    ;;
+esac
+

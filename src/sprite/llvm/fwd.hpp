@@ -4,12 +4,12 @@
 
 namespace sprite { namespace llvm
 {
-  template<typename T> class object;
-  class module;
-  class type;
-  template<typename T=Value> class valueobj;
-  template<typename T=Constant> class constobj;
-  template<typename T=GlobalValue> class globalobj;
+  template<typename T> struct object;
+  struct module;
+  struct type;
+  struct value;
+  template<typename T=Constant> struct constobj;
+  template<typename T=GlobalValue> struct globalobj;
 
   // Globals (anything the linker sees, even symbols marked private).
   using global = globalobj<GlobalValue>;
@@ -17,25 +17,25 @@ namespace sprite { namespace llvm
   using globalvar = globalobj<GlobalVariable>;
 
   // Values and references.
-  using value = valueobj<>;
-  using instruction = valueobj<Instruction>;
-  using switch_instruction = valueobj<SwitchInst>;
-  using metadata = valueobj<MDNode>;
-  struct label;
-  template<typename AddressType=value, typename ValueType=value>
-    struct basic_reference;
-  using ref = basic_reference<>;
+  // using value = valueobj<>;
+  // using instruction = valueobj<Instruction>;
+  // using switch_instruction = valueobj<SwitchInst>;
+  // using metadata = valueobj<MDNode>;
+  // struct label;
+  // template<typename AddressType=value, typename ValueType=value>
+  //   struct basic_reference;
+  // using ref = basic_reference<>;
 
   // Constants.
-  using constant = constobj<>;
-  using constexpr_ = constobj<ConstantExpr>;
-  using nullptr_ = constobj<ConstantPointerNull>;
-  using constant_array = constobj<ConstantArray>;
-  using constant_fp = constobj<ConstantFP>;
-  using constant_int = constobj<ConstantInt>;
-  using constant_struct = constobj<ConstantStruct>;
-  using globalvaraddr = constobj<GlobalVariable>;
-  using block_address = constobj<BlockAddress>;
+  // using constant = constobj<>;
+  // using constexpr_ = constobj<ConstantExpr>;
+  // using nullptr_ = constobj<ConstantPointerNull>;
+  // using constant_array = constobj<ConstantArray>;
+  // using constant_fp = constobj<ConstantFP>;
+  // using constant_int = constobj<ConstantInt>;
+  // using constant_struct = constobj<ConstantStruct>;
+  // using globalvaraddr = constobj<GlobalVariable>;
+  // using block_address = constobj<BlockAddress>;
 
 
   // ==========================================================================

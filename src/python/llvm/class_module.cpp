@@ -38,4 +38,3 @@ namespace sprite { namespace python
     module_stack.push(sprite::llvm::module(".default"));
   }
 }}
-

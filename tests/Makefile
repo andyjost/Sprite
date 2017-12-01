@@ -3,8 +3,8 @@
 
 .PHONY=test
 test:
-	@stdbuf -i0 -o0 -e0 ./lib/run_tests
+	@stdbuf -i0 -o0 -e0 ./run_tests
 
 .PHONY: test_*.py
 test_*.py:
-	@stdbuf -i0 -o0 -e0 ./lib/run_tests $@
+	@stdbuf -i0 -o0 -e0 ./run_tests $@

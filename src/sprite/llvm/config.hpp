@@ -195,4 +195,8 @@ namespace sprite { namespace llvm
 
   SPRITE_SPECIALIZE_TYPENAME(APInt);
   SPRITE_SPECIALIZE_TYPENAME(APFloat);
+
+  using ::llvm::cast;
+  using ::llvm::dyn_cast;
+  using ::llvm::isa;
 }}

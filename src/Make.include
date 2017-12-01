@@ -1,5 +1,5 @@
 CFLAGS  += -fPIC -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH)
-LDFLAGS += -L $(LLVM_LIBRARY_PATH)/ -lLLVM
+LDFLAGS += -L $(LLVM_LIBRARY_PATH)/ -lLLVM -Wl,--no-undefined
 
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
@@ -89,7 +89,7 @@ libs: $(LIB_DEPENDS)
 # A submodule may set SHLIB to create a shared library.  Its dependencies are
 # to be found in SHLIB_DEPENDS.
 ifdef SHLIB
-  $(SHLIB_OUT): $(SHLIB_DEPENDS)
+  $(SHLIB_OUT): $(SHLIB_DEPENDS) | $(SHLIB_EXTRA_DEPENDS)
 		$(CXX) -shared -o $@ $(SHLIB_PREDEP_LDFLAGS) $^ $(SHLIB_POSTDEP_LDFLAGS) $(LDFLAGS)
   shlibs: $(SHLIB_OUT)
 endif

@@ -1,7 +1,6 @@
 # The llvm.types submodule provides the predefined types.  Star-import is
 # intended.
 from curry.llvm.types import *
-import curry.llvm as ll
 import cytest
 import ctypes
 
@@ -43,7 +42,7 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(str(struct("abc")), "%abc = type opaque")
     self.assertEqual(str(struct([char,i32,fp32])), "{ i8, i32, float }")
     self.assertEqual(str(struct("abc", [bool_, char])), "%abc = type { i1, i8 }")
-    
+
   def test_type_traits(self):
     self.assertTrue(i32[2].is_array)
     self.assertTrue(fp32.is_floating_point)

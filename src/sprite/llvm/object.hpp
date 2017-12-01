@@ -37,7 +37,7 @@ namespace sprite { namespace llvm
         typename U
       , typename = typename std::enable_if<std::is_base_of<T,U>::value>::type
       >
-    explicit object(U * p) : px(p)
+    object(U * p) : px(p)
     {}
 
     /// Implicitly-converting constructor.
@@ -51,13 +51,16 @@ namespace sprite { namespace llvm
     // Default copy and assignment are OK.
 
     /// Conversion to the LLVM object.
-    explicit operator T *() const { return px; }
+    operator T *() const { return px; }
 
     /// Named conversion to the LLVM object.
     T * ptr() const { return px; }
 
     /// Member access for the LLVM object.
     T * operator->() const { assert(px); return px; }
+
+    /// Returns the object pointer as an integer.
+    size_t id() const { return (size_t) px; }
   };
 
   // ptr() extracts an LLVM API pointer from any suitable object.

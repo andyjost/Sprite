@@ -1,8 +1,8 @@
+#include "sprite/llvm/exceptions.hpp"
 #include "sprite/llvm/module.hpp"
 #include "sprite/llvm/scope.hpp"
 #include "sprite/llvm/type.hpp"
-#include "sprite/llvm/exceptions.hpp"
-// #include "llvm/IR/DataLayout.h"
+#include "sprite/llvm/value.hpp"
 #include "llvm/IR/Constants.h"
 #include <string>
 #include <vector>
@@ -11,10 +11,10 @@ namespace sprite { namespace llvm
 {
   type element_type(type const & ty)
   {
-    if(auto * ST = ::llvm::dyn_cast<::llvm::SequentialType>(ty.ptr()))
-      return type(SPRITE_APICALL(ST->getElementType()));
-    else if(auto * PT = ::llvm::dyn_cast<PointerType>(ty.ptr()))
-      return type(SPRITE_APICALL(PT->getElementType()));
+    if(auto * ST = dyn_cast<::llvm::SequentialType>(ty.ptr()))
+      return ST->getElementType();
+    else if(auto * PT = dyn_cast<PointerType>(ty.ptr()))
+      return PT->getElementType();
     throw type_error(boost::format("no element_type for type '%s'") % ty);
   }
 
@@ -22,26 +22,79 @@ namespace sprite { namespace llvm
     { return std::vector<type>(ty->subtype_begin(), ty->subtype_end()); }
 
   type type::operator*() const
-    { return type(SPRITE_APICALL(this->ptr()->getPointerTo())); }
+    { return this->ptr()->getPointerTo(); }
 
   type type::operator*(size_t size) const
-    { return type(SPRITE_APICALL(VectorType::get(this->ptr(), size))); }
+    { return VectorType::get(this->ptr(), size); }
 
   type operator*(size_t size, type ty)
     { return ty * size; }
 
   type type::operator[](size_t size) const
   {
-    return type(SPRITE_APICALL(ArrayType::get(this->ptr(), size)));
+    return type(ArrayType::get(this->ptr(), size));
   }
 
   type type::make_function(
       std::vector<::llvm::Type*> const & args, bool is_varargs
     ) const
   {
-    return type(SPRITE_APICALL(
-        FunctionType::get(this->ptr(), args, is_varargs)
-      ));
+    return type(FunctionType::get(this->ptr(), args, is_varargs));
+  }
+
+  bool operator==(type const & lhs, type const & rhs)
+    { return lhs.ptr() == rhs.ptr(); }
+
+  bool operator!=(type const & lhs, type const & rhs)
+    { return !(lhs == rhs); }
+
+  std::ostream & operator<<(std::ostream & os, type const & ty)
+    { return os << typename_(*ty.ptr()); }
+
+  type decay(type ty)
+  {
+    if(ty->isArrayTy())
+      return ty->getContainedType(0)->getPointerTo();
+    else if (ty->isFunctionTy())
+      return ty->getPointerTo();
+    else
+      return ty;
+  }
+
+  type common_type(type a, type b)
+  {
+    if(a == b) return a;
+
+    type a_ = decay(a);
+    type b_ = decay(b);
+    if(a != a_ || b != b_)
+      return common_type(a_, b_);
+
+    if(a->isIntegerTy())
+    {
+      if(b->isIntegerTy())
+        return a->getPrimitiveSizeInBits() < b->getPrimitiveSizeInBits()
+          ? b : a;
+      else if(b->isFloatingPointTy())
+        return b;
+    }
+    else if(a->isFloatingPointTy())
+    {
+      if(b->isIntegerTy())
+        return a;
+      else if(b->isFloatingPointTy())
+        return a->getPrimitiveSizeInBits() < b->getPrimitiveSizeInBits()
+          ? b : a;
+    }
+    else if(a->isPointerTy() && b->isPointerTy())
+    {
+      // Different pointer types.
+      if(a->getPointerElementType()->isVoidTy())
+        return b;
+      if(b->getPointerElementType()->isVoidTy())
+        return a;
+    }
+    throw type_error(boost::format("no common type for '%s' and '%s'") % a % b);
   }
 
   bool is_array(type ty) { return ty->isArrayTy(); }
@@ -68,7 +121,7 @@ namespace sprite { namespace llvm
     if(!tp->isSized())
       throw type_error(boost::format("type '%s' is unsized.") % tp);
     ::llvm::DataLayout const layout(scope::current_module().ptr());
-    return SPRITE_APICALL(layout.getTypeAllocSize(tp.ptr()));
+    return layout.getTypeAllocSize(tp.ptr());
   }
 
   std::string struct_name(type const & ty)
@@ -84,7 +137,7 @@ namespace sprite { namespace llvm { namespace types
   type int_(size_t numBits)
   {
     auto & cxt = scope::current_context();
-    return type(SPRITE_APICALL(IntegerType::get(cxt, numBits)));
+    return type(IntegerType::get(cxt, numBits));
   }
 
   type int_() { return int_(sizeof(int) * 8); }
@@ -113,35 +166,35 @@ namespace sprite { namespace llvm { namespace types
   type float_()
   {
     auto & cxt = scope::current_context();
-    auto const p = SPRITE_APICALL(Type::getFloatTy(cxt));
+    auto const p = Type::getFloatTy(cxt);
     return type(reinterpret_cast<FPType*>(p));
   }
 
   type double_()
   {
     auto & cxt = scope::current_context();
-    auto const p = SPRITE_APICALL(Type::getDoubleTy(cxt));
+    auto const p = Type::getDoubleTy(cxt);
     return type(reinterpret_cast<FPType*>(p));
   }
 
   type longdouble()
   {
     auto & cxt = scope::current_context();
-    auto const p = SPRITE_APICALL(Type::getFP128Ty(cxt));
+    auto const p = Type::getFP128Ty(cxt);
     return type(reinterpret_cast<FPType*>(p));
   }
 
   type void_()
   {
     auto & cxt = scope::current_context();
-    return type(SPRITE_APICALL(Type::getVoidTy(cxt)));
+    return type(Type::getVoidTy(cxt));
   }
 
   #ifdef TEMPORARILY_DISABLED
   type label()
   {
     auto & cxt = scope::current_context();
-    return type(SPRITE_APICALL(Type::getLabelTy(cxt)));
+    return type(Type::getLabelTy(cxt));
   }
   #endif
 
@@ -155,7 +208,7 @@ namespace sprite { namespace llvm { namespace types
         throw type_error("invalid struct element type.");
       tmp.emplace_back(e.ptr());
     }
-    return type(SPRITE_APICALL(StructType::get(cxt, tmp)));
+    return type(StructType::get(cxt, tmp));
   }
 
   type struct_(std::string const & name)
@@ -163,7 +216,7 @@ namespace sprite { namespace llvm { namespace types
     module const mod = scope::current_module();
     StructType * ST = mod->getTypeByName(name);
     if(!ST)
-      ST = SPRITE_APICALL(StructType::create(mod.context(), name));
+      ST = StructType::create(mod.context(), name);
     return type(ST);
   }
 
@@ -175,7 +228,7 @@ namespace sprite { namespace llvm { namespace types
     auto * ST = ::llvm::cast<StructType>(ty.ptr());
     std::vector<Type*> body;
     for(auto e: elements) { body.emplace_back(e.ptr()); }
-    SPRITE_APICALL(ST->setBody(body, /*isPacked*/ false));
+    ST->setBody(body, /*isPacked*/ false);
     return ty;
   }
 }}}

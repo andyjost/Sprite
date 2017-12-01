@@ -1,5 +1,0 @@
-#!/bin/bash
-cd $( dirname "${BASH_SOURCE[0]}" )/..
-export PYTHONPATH=`pwd`/../python:`pwd`/lib
-python -B -m unittest discover -v `pwd` "$@"
-

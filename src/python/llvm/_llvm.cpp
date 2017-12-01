@@ -27,4 +27,5 @@ BOOST_PYTHON_MODULE(_llvm)
   register_exception<scope_error>(PyExc_RuntimeError);
   sprite::python::register_module();
   sprite::python::register_type();
+  sprite::python::register_value();
 }

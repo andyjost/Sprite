@@ -1,15 +1,16 @@
 #include <boost/python.hpp>
 #include <boost/format.hpp>
 #include <boost/python/raw_function.hpp>
-#include <initializer_list>
 #include "python/llvm/_llvm.hpp"
 #include "sprite/llvm/type.hpp"
+#include "sprite/llvm/value.hpp"
 #include "sprite/misc/python_conversions.hpp"
 #include <vector>
 
 using namespace boost::python;
 using sprite::llvm::type_error;
 using sprite::llvm::type;
+using sprite::llvm::value;
 
 namespace
 {
@@ -66,11 +67,6 @@ namespace
     return self.make_function(types, is_varargs==1);
   }
 
-  size_t type_ptr(type const & ty)
-  {
-    void * p = ty.ptr();
-    return (size_t) p;
-  }
 }
 
 namespace sprite { namespace python
@@ -84,7 +80,7 @@ namespace sprite { namespace python
     class_<type>("type_", no_init)
       .def(str(self))
       .def(repr(self))
-      .add_property("ptr", &type_ptr)
+      .add_property("id", &type::id)
       .add_property("p", (type(type::*)() const)(&type::operator*)
         , "Creates a pointer type."
         )
@@ -97,6 +93,10 @@ namespace sprite { namespace python
         , "Creates a function type.  Keyword 'varargs' may be supplied or "
           "the Ellipsis object may be passed as the final positional argument "
           "to indicate a variadic function."
+        )
+      .def("__call__"
+        , (value (type::*)(value, bool, bool) const)(&type::operator())
+        , (arg("value"), arg("src_is_signed")=true, arg("dst_is_signed")=true)
         )
       .add_property("array_extents", sprite::llvm::array_extents)
       .add_property("is_array", sprite::llvm::is_array)
@@ -113,4 +113,3 @@ namespace sprite { namespace python
       ;
   }
 }}
-
