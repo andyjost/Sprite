@@ -22,7 +22,7 @@ $(OBJECT_ROOT)/sprite/libsprite.so:
 
 # Installation
 # ============
-ifneq ($(INSTALLING),)
+# ifneq ($(INSTALLING),)
   ifndef PYTHON_PACKAGE_NAME
     $(error PYTHON_PACKAGE_NAME must be defined))
   endif
@@ -52,5 +52,5 @@ ifneq ($(INSTALLING),)
 		cp $< $@
   $(PYLIB_INSTALL_DIR)/%.so : $(OBJECT_DIR)/%.so
 		cp $< $@
-endif
+# endif
 

@@ -1,9 +1,8 @@
 SHLIB := libsprite
-INSTALL_DIR := $(PREFIX)/lib
+SHLIB_RELATIVE_INSTALL_DIR := lib
 
 include Make.include
 
-# install: $(LIB_INSTALL) $(SHLIB_INSTALL)
 uninstall:
 	rm $(LIB_INSTALL) $(SHLIB_INSTALL)
 

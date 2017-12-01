@@ -44,29 +44,42 @@ ifdef SHLIB
   FILES_TO_CLEAN += $(SHLIB_OUT)
 endif
 
-ifneq ($(INSTALLING),)
-  ifdef INSTALL_DIR
-    $(shell mkdir -p $(INSTALL_DIR))
-    DIRS_TO_CLEAN += $(INSTALL_DIR)
-  
-    # Install static libs.
-    ifdef LIB
-      LIB_BASENAME := $(notdir $(basename $(LIB)))
-      LIB_INSTALL = $(INSTALL_DIR)/$(LIB_BASENAME).a
-      # FILES_TO_CLEAN += $(LIB_INSTALL)
-      $(LIB_INSTALL): $(LIB_OUT)
-				cp $< $@
-      install: $(LIB_INSTALL)
+# Install static libs.
+ifdef LIB
+  ifndef LIB_INSTALL_DIR
+    ifdef LIB_RELATIVE_INSTALL_DIR
+      LIB_INSTALL_DIR = $(PREFIX)/$(LIB_RELATIVE_INSTALL_DIR)
     endif
+  endif
+
+  ifdef LIB_INSTALL_DIR
+    $(shell mkdir -p $(LIB_INSTALL_DIR))
+    DIRS_TO_CLEAN += $(LIB_INSTALL_DIR)
   
-    ifdef SHLIB
-      # Install shared libs.
-      SHLIB_INSTALL = $(INSTALL_DIR)/$(SHLIB).so
-      # FILES_TO_CLEAN += $(SHLIB_INSTALL)
-      $(SHLIB_INSTALL): $(SHLIB_OUT)
-				cp $< $@
-      install: $(SHLIB_INSTALL)
+    LIB_BASENAME := $(notdir $(basename $(LIB)))
+    LIB_INSTALL = $(LIB_INSTALL_DIR)/$(LIB_BASENAME).a
+    $(LIB_INSTALL): $(LIB_OUT)
+ 			cp $< $@
+    install: $(LIB_INSTALL)
+  endif
+endif
+
+# Install shared libs.
+ifdef SHLIB
+  ifndef SHLIB_INSTALL_DIR
+    ifdef SHLIB_RELATIVE_INSTALL_DIR
+      SHLIB_INSTALL_DIR = $(PREFIX)/$(SHLIB_RELATIVE_INSTALL_DIR)
     endif
+  endif
+
+  ifdef SHLIB_INSTALL_DIR
+    $(shell mkdir -p $(SHLIB_INSTALL_DIR))
+    DIRS_TO_CLEAN += $(SHLIB_INSTALL_DIR)
+  
+    SHLIB_INSTALL = $(SHLIB_INSTALL_DIR)/$(SHLIB).so
+    $(SHLIB_INSTALL): $(SHLIB_OUT)
+	 		cp $< $@
+    install: $(SHLIB_INSTALL)
   endif
 endif
 

@@ -2,8 +2,12 @@
 LIB := sprite/libsprite
 LIB_DEPENDS := $$(OBJS_OUT)
 SHLIB_DEPENDS := $$(LIB_OUT)
+SHLIB_EXTRA_DEPENDS := shlib_extra
 SHLIB_PREDEP_LDFLAGS := -Wl,--whole-archive
 SHLIB_POSTDEP_LDFLAGS := -Wl,--no-whole-archive -lpthread
 
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
+
+shlib_extra:
+	$(MAKE) -C $(ROOT_DIR)/src/sprite libs

@@ -1,4 +1,6 @@
 object-root/*
+install/*
+!install/README
 CMC/translator/json/.curry
 CMC/translator/icurry/.curry
 CMC/Examples/.curry

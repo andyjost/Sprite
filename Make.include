@@ -4,6 +4,9 @@
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 OBJECT_ROOT := $(abspath $(ROOT_DIR)/object-root)
 include $(ROOT_DIR)/Make.config
+ifndef PREFIX
+  PREFIX = $(ROOT_DIR)/install
+endif
 
 # Usage
 # =====
@@ -45,23 +48,21 @@ $(SUBMODULES):
 
 # Installation checks
 # ===================
-INSTALLING := $(findstring install, $(MAKECMDGOALS))
-ifneq ($(INSTALLING),)
-  # Validate PREFIX.
-  ifndef PREFIX
-    $(error PREFIX is not defined.  Please specify it when invoking make))
-  endif
-  ifneq ($(shell test -d $(PREFIX) -o \! -e $(PREFIX); echo $$?),0)
-    $(error PREFIX "$(PREFIX)" exists but is not a directory)
-  endif
-	1 = $(shell echo $(PREFIX)) # expand ~
-	2 = $(shell python -c 'from __future__ import print_function; \
-	                       import os;                             \
-												 print(os.path.isabs("""$1"""))         \
-												')
-  ifneq ($(strip $2),True)
-    $(error PREFIX must be an absolute path)
-  endif
+# Validate PREFIX.
+ifndef PREFIX
+  # Should never happen
+  $(error PREFIX is not defined.  Please specify it when invoking make))
+endif
+ifneq ($(shell test -d $(PREFIX) -o \! -e $(PREFIX); echo $$?),0)
+  $(error PREFIX "$(PREFIX)" exists but is not a directory)
+endif
+1 = $(shell echo $(PREFIX)) # expand ~
+2 = $(shell python -c 'from __future__ import print_function; \
+                       import os;                             \
+                       print(os.path.isabs("""$1"""))         \
+                       ')
+ifneq ($(strip $2),True)
+  $(error PREFIX must be an absolute path)
 endif
 
 
