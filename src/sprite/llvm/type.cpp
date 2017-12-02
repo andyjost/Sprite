@@ -97,6 +97,16 @@ namespace sprite { namespace llvm
     throw type_error(boost::format("no common type for '%s' and '%s'") % a % b);
   }
 
+  type common_type(std::vector<type> const & types)
+  {
+    if(types.size() == 0)
+      throw value_error("no common type for empty sequence");
+    type arg = types[0];
+    for(auto && ty: types)
+      arg = common_type(arg, ty);
+    return arg;
+  }
+
   bool is_array(type ty) { return ty->isArrayTy(); }
   bool is_floating_point(type ty) { return ty->isFloatingPointTy(); }
   bool is_function(type ty) { return ty->isFunctionTy(); }

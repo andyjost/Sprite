@@ -14,18 +14,8 @@ using sprite::llvm::value;
 
 namespace
 {
-  type type__call__(tuple args, dict kwds)
+  void reject_kwds(dict kwds)
   {
-    assert(len(args) > 0);
-    sprite::llvm::type self = extract<sprite::llvm::type>(args[0]);
-
-    object kw;
-    object pop = kwds.attr("pop");
-    try { kw = pop("varargs"); }
-    catch(error_already_set const &) { PyErr_Clear(); }
-    int is_varargs = (kw.ptr() == Py_None) ? -1
-        : bool(extract<bool>(kw)) ? 1 : 0;
-
     if(len(kwds) != 0)
     {
       std::string arg = extract<std::string>(
@@ -37,6 +27,21 @@ namespace
             ) % arg
         );
     }
+
+  }
+
+  type type__call__(tuple args, dict kwds)
+  {
+    assert(len(args) > 0);
+    sprite::llvm::type self = extract<sprite::llvm::type>(args[0]);
+
+    object kw;
+    object pop = kwds.attr("pop");
+    try { kw = pop("varargs"); }
+    catch(error_already_set const &) { PyErr_Clear(); }
+    int is_varargs = (kw.ptr() == Py_None) ? -1
+        : bool(extract<bool>(kw)) ? 1 : 0;
+    reject_kwds(kwds);
 
     std::vector<::llvm::Type*> types;
     for(size_t i=1, n=len(args); i<n; ++i)
@@ -67,6 +72,16 @@ namespace
     return self.make_function(types, is_varargs==1);
   }
 
+  type py_common_type(tuple args, dict kwds)
+  {
+    reject_kwds(kwds);
+    using iterator = stl_input_iterator<type>;
+    auto begin = iterator(args);
+    auto end = iterator();
+    std::vector<type> types(begin, end);
+
+    return sprite::llvm::common_type(types);
+  }
 }
 
 namespace sprite { namespace python
@@ -99,6 +114,7 @@ namespace sprite { namespace python
         , (arg("value"), arg("src_is_signed")=true, arg("dst_is_signed")=true)
         )
       .add_property("array_extents", sprite::llvm::array_extents)
+      .add_property("decay", sprite::llvm::decay)
       .add_property("is_array", sprite::llvm::is_array)
       .add_property("is_floating_point", sprite::llvm::is_floating_point)
       .add_property("is_function", sprite::llvm::is_function)
@@ -111,5 +127,6 @@ namespace sprite { namespace python
       .add_property("struct_name", sprite::llvm::struct_name)
       .add_property("subtypes", sprite::llvm::subtypes)
       ;
+    def("common_type", raw_function(py_common_type, 0));
   }
 }}

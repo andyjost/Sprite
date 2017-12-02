@@ -53,7 +53,7 @@ namespace sprite { namespace llvm
     }
   }
 
-  // bool operator==(value lhs, value rhs);
+  // bool operator==(value lhs, value rhs)
   // bool operator!=(value lhs, value rhs);
   std::ostream & operator<<(std::ostream & os, value const & v)
     { return os << v.str(); }

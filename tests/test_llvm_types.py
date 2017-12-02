@@ -1,12 +1,12 @@
 # The llvm.types submodule provides the predefined types.  Star-import is
 # intended.
+import curry.llvm as ll
 from curry.llvm.types import *
 import cytest
 import ctypes
 
 class TestLLVMTypes(cytest.TestCase):
-  def test_types(self):
-    # Predefined types.
+  def test_predefined_types(self):
     self.assertEqual(str(void) , "void")
     self.assertEqual(str(bool_), "i1")
     self.assertEqual(str(char) , "i8")
@@ -19,7 +19,8 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(str(fp32) , "float")
     self.assertEqual(str(fp64) , "double")
     self.assertEqual(str(fp128), "fp128")
-    # Type constructors.
+
+  def test_primitive_type_constructors(self):
     isz = lambda ty: "i%d" % (8 * ctypes.sizeof(ty))
     self.assertEqual(str(int_())      , isz(ctypes.c_int))
     self.assertEqual(str(int_(12))    , "i12")
@@ -28,7 +29,8 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(str(float_())    , "float")
     self.assertEqual(str(double())    , "double")
     self.assertEqual(str(longdouble()), "fp128")
-    # Compound types.
+
+  def test_type_composers(self):
     self.assertEqual(str(i8.p), "i8*")
     self.assertEqual(str(char[7]), "[7 x i8]")
     self.assertEqual(str(fp32[2].p), "[2 x float]*")
@@ -43,7 +45,7 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(str(struct([char,i32,fp32])), "{ i8, i32, float }")
     self.assertEqual(str(struct("abc", [bool_, char])), "%abc = type { i1, i8 }")
 
-  def test_type_traits(self):
+  def test_isa_checks(self):
     self.assertTrue(i32[2].is_array)
     self.assertTrue(fp32.is_floating_point)
     self.assertTrue(i32().is_function)
@@ -61,7 +63,8 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertFalse(i8.is_struct)
     self.assertFalse(i8[8].is_vector)
     self.assertFalse(i8.is_void)
-    #
+
+  def test_subtypes(self):
     self.assertEqual(int_(32), int_(32))
     self.assertEqual(i32, int_(32))
     self.assertEqual(i32.subtypes, [])
@@ -71,10 +74,12 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(void(i32,i8).subtypes, [void,i32,i8])
     self.assertEqual((16*i8).subtypes, [i8])
     self.assertEqual(struct([fp32, i8[2], i8.p]).subtypes, [fp32, i8[2], i8.p])
-    #
+
+  def test_struct_name(self):
     self.assertEqual(struct('foo', [i32,void.p]).struct_name, 'foo')
     self.assertRaisesRegexp(TypeError, "expected a struct, got 'i8'", lambda: i8.struct_name)
-    #
+
+  def test_array_extents(self):
     self.assertEqual(i8[2][3][7].array_extents, [7,3,2])
     self.assertRaisesRegexp(TypeError, "expected an array, got 'i8'", lambda: i8.array_extents)
 
@@ -95,3 +100,20 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(struct({i8,i32}).sizeof, 2*i32.sizeof)
     self.assertRaisesRegexp(TypeError, "type 'void' is unsized", lambda: void.sizeof)
     self.assertRaisesRegexp(TypeError, "type 'i8 \(\)' is unsized", lambda: i8().sizeof)
+
+  def test_decay(self):
+    self.assertEqual(i8().decay, i8().p) # function -> pointer
+    self.assertEqual(i32[2].decay, i32.p) # array -> pointer
+    self.assertEqual(i8.decay, i8)
+
+  def test_common_type(self):
+    self.assertEqual(ll.common_type(i32,fp32), fp32)
+    self.assertEqual(ll.common_type(bool_,i8,i32,i64), i64)
+    self.assertEqual(ll.common_type(bool_, fp64), fp64)
+    self.assertEqual(ll.common_type(i8(), i8().p), i8().p)
+    self.assertEqual(ll.common_type(i8.p(), i8.p().p), i8.p().p)
+    self.assertRaisesRegexp(TypeError, 'no common type', lambda: ll.common_type(i8(), i8.p().p))
+    self.assertEqual(ll.common_type(i8[3], i8[4]), i8.p)
+    self.assertEqual(ll.common_type(struct([i8,i32]), struct([i8,i32])), struct([i8,i32]))
+    self.assertRaisesRegexp(TypeError, 'no common type', lambda: ll.common_type(struct([i8,i32]), struct([i8.p,i32])))
+

@@ -23,7 +23,7 @@ if [ ! -d "$SPRITE_HOME" ]; then
 fi
 
 export SPRITE_HOME
-export PYTHONPATH=`pwd`/lib:$PYTHONPATH
+export PYTHONPATH=`pwd`/lib/:$SPRITE_HOME/lib/python2.7/:$PYTHONPATH
 export LD_LIBRARY_PATH=$SPRITE_HOME/lib:$LD_LIBRARY_PATH
 
 case `basename $0` in

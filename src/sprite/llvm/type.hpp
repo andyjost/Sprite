@@ -171,7 +171,7 @@ namespace sprite { namespace llvm
    *
    * See std::type_traits::common_type.
    */
-  type common_type(type, type);
+  type common_type(std::vector<type> const &);
 
   bool is_array(type);
   bool is_floating_point(type);
