@@ -1,19 +1,17 @@
 #include <boost/python.hpp>
 #include <boost/python/enum.hpp>
 #include <boost/format.hpp>
+#include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/python/raw_function.hpp>
-#include <boost/preprocessor.hpp>
 #include "python/llvm/_llvm.hpp"
+#include "sprite/llvm/isa.hpp"
 #include "sprite/llvm/type.hpp"
 #include "sprite/llvm/value.hpp"
 #include "sprite/misc/python_conversions.hpp"
-#include <unordered_map>
 #include <vector>
 
 using namespace boost::python;
-using sprite::llvm::type_error;
-using sprite::llvm::type;
-using sprite::llvm::value;
+using namespace sprite::llvm;
 
 namespace
 {
@@ -83,24 +81,6 @@ namespace
     std::vector<type> types(begin, end);
     return sprite::llvm::common_type(types);
   }
-
-  #define DERIVED_TYPES                                     \
-      (ArrayType)(CompositeType)(FunctionType)(IntegerType) \
-      (PointerType)(SequentialType)(StructType)(VectorType) \
-    /**/
-  enum DerivedType { BOOST_PP_SEQ_ENUM(DERIVED_TYPES) };
-  bool isa_type(type ty, DerivedType cls)
-  {
-    using namespace llvm;
-    static std::unordered_map<DerivedType, std::function<bool(type)>> values = {
-      #define EXPR(text) {text, [](type ty) { return isa<llvm::text>(ty.ptr());}}
-      #define OP(z,i,_) EXPR(BOOST_PP_SEQ_ELEM(i,DERIVED_TYPES))
-      BOOST_PP_ENUM(BOOST_PP_SEQ_SIZE(DERIVED_TYPES), OP,)
-      #undef OP
-      #undef EXPR
-      };
-    return values.at(cls)(ty);
-  }
 }
 
 namespace sprite { namespace python
@@ -134,24 +114,16 @@ namespace sprite { namespace python
         )
       .add_property("array_extents", sprite::llvm::array_extents)
       .add_property("decay", sprite::llvm::decay)
-      .def("isa", isa_type)
-      .add_property("is_array", sprite::llvm::is_array)
-      .add_property("is_floating_point", sprite::llvm::is_floating_point)
-      .add_property("is_function", sprite::llvm::is_function)
-      .add_property("is_integer", sprite::llvm::is_integer)
-      .add_property("is_pointer", sprite::llvm::is_pointer)
-      .add_property("is_struct", sprite::llvm::is_struct)
-      .add_property("is_vector", sprite::llvm::is_vector)
-      .add_property("is_void", sprite::llvm::is_void)
+      .def("isa", (bool(*)(type, TypeTy))(isa))
       .add_property("sizeof", sprite::llvm::sizeof_)
       .add_property("struct_name", sprite::llvm::struct_name)
       .add_property("subtypes", sprite::llvm::subtypes)
       ;
     def("common_type", raw_function(py_common_type, 0));
 
-    enum_<DerivedType>("DerivedType")
-        #define OP(r,_,text) .value(BOOST_PP_STRINGIZE(text), text)
-        BOOST_PP_SEQ_FOR_EACH(OP,,DERIVED_TYPES)
+    enum_<TypeTy>("TypeTy")
+        #define OP(r,_,name) .value(BOOST_PP_STRINGIZE(name), TypeTy::name)
+        BOOST_PP_SEQ_FOR_EACH(OP,,SPRITE_LLVM_TYPES)
         #undef OP
         .export_values();
   }

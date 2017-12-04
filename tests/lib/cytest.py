@@ -1,6 +1,7 @@
 from cStringIO import StringIO
 import collections
 import unittest
+from curry.llvm import isa
 
 class TestCase(unittest.TestCase):
   def compareGolden(self, objs, filename, update=False):
@@ -20,4 +21,10 @@ class TestCase(unittest.TestCase):
     else:
       with open(filename, 'rb') as au:
         self.assertEqual(buf.getvalue(), au.read())
+
+  def assertIsa(self, obj, llvmty):
+    self.assertTrue(isa(obj, llvmty))
+
+  def assertIsNotA(self, obj, llvmty):
+    self.assertFalse(isa(obj, llvmty))
 

@@ -5,7 +5,7 @@
 
 #pragma once
 #include "sprite/llvm/config.hpp"
-#include "sprite/llvm/object.hpp"
+#include "sprite/llvm/llvmobj.hpp"
 #include "sprite/llvm/array_ref.hpp"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -30,13 +30,13 @@ namespace sprite { namespace llvm
    *
    * @snippet types.cpp Creating basic types
    */
-  struct module : object<Module>
+  struct module : llvmobj<Module>
   {
-    typedef object<Module> base_type;
+    typedef llvmobj<Module> base_type;
 
   public:
 
-    using object<Module>::object;
+    using llvmobj<Module>::llvmobj;
 
     /// Creates a new module.
     explicit module(

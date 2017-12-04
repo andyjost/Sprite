@@ -1,7 +1,7 @@
 #pragma once
 #include "sprite/llvm/config.hpp"
 #include "sprite/llvm/fwd.hpp"
-#include "sprite/llvm/object.hpp"
+#include "sprite/llvm/llvmobj.hpp"
 #include "sprite/llvm/array_ref.hpp"
 #include "sprite/llvm/special_values.hpp"
 #include "sprite/llvm/type_traits.hpp"
@@ -12,7 +12,7 @@
 namespace sprite { namespace llvm
 {
   /**
-   * @brief Wrapper for @p ::llvm::Type objects.
+   * @brief Wrapper for @p Type objects.
    *
    * Elaborated types can be created by using the @p * operator (to create
    * pointers), the @p [] operator (to create arrays), or the @p () operator
@@ -22,10 +22,10 @@ namespace sprite { namespace llvm
    * <tt>i32(42)</tt> to create a 32-bit integer constant with value @p 42
    * (assuming @p i32 is a type wrapper for the 32-bit integer type).
    */
-  struct type : object<::llvm::Type>
+  struct type : llvmobj<Type>
   {
     using basic_type = Type;
-    using object<::llvm::Type>::object;
+    using llvmobj<Type>::llvmobj;
 
     /// Creates a pointer type.
     type operator*() const;
@@ -39,7 +39,7 @@ namespace sprite { namespace llvm
 
     /// Creates a function type.
     type make_function(
-        std::vector<::llvm::Type*> const &, bool is_varargs = false
+        std::vector<Type*> const &, bool is_varargs = false
       ) const;
 
     /// Create a value of this type from another value.
@@ -172,15 +172,6 @@ namespace sprite { namespace llvm
    * See std::type_traits::common_type.
    */
   type common_type(std::vector<type> const &);
-
-  bool is_array(type);
-  bool is_floating_point(type);
-  bool is_function(type);
-  bool is_integer(type);
-  bool is_pointer(type);
-  bool is_struct(type);
-  bool is_vector(type);
-  bool is_void(type);
 
   /// Returns the size in bytes.
   size_t sizeof_(type const &);

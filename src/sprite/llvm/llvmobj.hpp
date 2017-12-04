@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief Defines class @p object.
+ * @brief Defines class @p llvmobj.
  */
 
 #pragma once
@@ -17,7 +17,7 @@ namespace sprite { namespace llvm
    * instance of this type can be created directly, though normally it's easier
    * to use one of the module::wrap methods.
    */
-  template<typename T> class object
+  template<typename T> class llvmobj
   {
   protected:
 
@@ -30,14 +30,14 @@ namespace sprite { namespace llvm
     typedef T element_type;
 
     /// Explicit null construction.
-    object(std::nullptr_t) : px(nullptr) {}
+    llvmobj(std::nullptr_t) : px(nullptr) {}
 
     /// Regular constructor to capture an LLVM API object.
     template<
         typename U
       , typename = typename std::enable_if<std::is_base_of<T,U>::value>::type
       >
-    object(U * p) : px(p)
+    llvmobj(U * p) : px(p)
     {}
 
     /// Implicitly-converting constructor.
@@ -45,7 +45,7 @@ namespace sprite { namespace llvm
         typename U
       , typename = typename std::enable_if<std::is_base_of<T,U>::value>::type
       >
-    object(object<U> const & arg) : px(arg.ptr())
+    llvmobj(llvmobj<U> const & arg) : px(arg.ptr())
     {}
 
     // Default copy and assignment are OK.
@@ -64,7 +64,7 @@ namespace sprite { namespace llvm
   };
 
   // ptr() extracts an LLVM API pointer from any suitable object.
-  template<typename T> T * ptr(object<T> const & tp) { return tp.ptr(); }
+  template<typename T> T * ptr(llvmobj<T> const & tp) { return tp.ptr(); }
   template<typename T> T * ptr(T * t) { return t; }
   // This version allows more flexibilty with constant expressions (cf.
   // is_constarg, which needs to match a function signature for arguments it

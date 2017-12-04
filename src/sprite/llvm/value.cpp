@@ -60,5 +60,5 @@ namespace sprite { namespace llvm
 
   type typeof_(value v) { return type(v->getType()); }
 
-  bool is_constdata(value v) { return ::llvm::isa<ConstantData>(v.ptr()); }
+  // bool is_constdata(value v) { return ::llvm::isa<ConstantData>(v.ptr()); }
 }}

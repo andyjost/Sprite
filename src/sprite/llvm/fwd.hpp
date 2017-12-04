@@ -4,7 +4,7 @@
 
 namespace sprite { namespace llvm
 {
-  template<typename T> struct object;
+  template<typename T> struct llvmobj;
   struct module;
   struct type;
   struct value;

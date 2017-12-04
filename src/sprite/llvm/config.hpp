@@ -4,9 +4,10 @@
  */
 
 #pragma once
-#include "sprite/misc/typenames.hpp"
-#include "llvm/IR/Type.h"
 #include <array>
+#include <boost/preprocessor.hpp>
+#include "llvm/IR/Type.h"
+#include "sprite/misc/typenames.hpp"
 
 /**
  * @brief Calls to the LLVM C++-API are wrapped in this macro.
@@ -56,34 +57,74 @@ namespace llvm
   class LLVMContext;
 
   // Types.
-  class Type;
-  class ArrayType;
-  class FunctionType;
-  class IntegerType;
-  class PointerType;
-  class StructType;
-  class VectorType;
+  #define SPRITE_LLVM_TYPES \
+      (Type)                \
+      (ArrayType)           \
+      (CompositeType)       \
+      (FPType)              \
+      (FunctionType)        \
+      (IntegerType)         \
+      (PointerType)         \
+      (SequentialType)      \
+      (StructType)          \
+      (VectorType)          \
+      (VoidType)            \
+    /**/
 
-  // Constants.
-  class Constant;
-  class ConstantAggregateZero;
-  class ConstantArray;
-  class ConstantExpr;
-  class ConstantFP;
-  class ConstantInt;
-  class ConstantPointerNull;
-  class ConstantStruct;
-  class BlockAddress;
+  #define OP(r,_,name) class name;
+  BOOST_PP_SEQ_FOR_EACH(OP,,SPRITE_LLVM_TYPES)
+  #undef OP
+
+  /// Extends llvm::isa for floating-point types.
+  struct FPType : ::llvm::Type
+  {
+    static bool classof(Type const * tp)
+      { return tp->isFloatingPointTy(); }
+  };
+
+  /// Extends llvm::isa for the void type.
+  struct VoidType : ::llvm::Type
+  {
+    static bool classof(Type const * tp)
+      { return tp->isVoidTy(); }
+  };
 
   // Values.
-  class Value;
-  class BasicBlock;
-  class Function;
-  class GlobalValue;
-  class GlobalVariable;
+  #define SPRITE_LLVM_VALUES       \
+    (Value)                        \
+    (Argument)                     \
+    (BasicBlock)                   \
+    (InlineAsm)                    \
+    (MetadataAsValue)              \
+    (User)                         \
+      (Constant)                   \
+        (BlockAddress)             \
+        (ConstantAggregate)        \
+          (ConstantArray)          \
+          (ConstantStruct)         \
+          (ConstantVector)         \
+        (ConstantData)             \
+          (ConstantAggregateZero)  \
+          (ConstantDataSequential) \
+            (ConstantDataArray)    \
+            (ConstantDataVector)   \
+          (ConstantFP)             \
+          (ConstantInt)            \
+          (ConstantPointerNull)    \
+        (ConstantExpr)             \
+        (GlobalValue)              \
+          (Function)               \
+          (GlobalVariable)         \
+      (Instruction)                \
+      (Operator)                   \
+    /**/
+
+  #define OP(r,_,name) class name;
+  BOOST_PP_SEQ_FOR_EACH(OP,,SPRITE_LLVM_VALUES)
+  #undef OP
+
+  // Metadata.
   class MDNode;
-  class Instruction;
-  class SwitchInst;
 
   // ADTs.
   class StringRef;
@@ -98,89 +139,19 @@ namespace sprite { namespace llvm
   // Modules.
   using ::llvm::Module;
   using ::llvm::LLVMContext;
+  using ::llvm::Type; // DEBUG
 
-  // Types.
-  using ::llvm::Type;
-  using ::llvm::ArrayType;
-  using ::llvm::FunctionType;
-  using ::llvm::IntegerType;
-  using ::llvm::PointerType;
-  using ::llvm::StructType;
-  using ::llvm::VectorType;
-
-  SPRITE_SPECIALIZE_TYPENAME(Type)
-  SPRITE_SPECIALIZE_TYPENAME(ArrayType)
-  SPRITE_SPECIALIZE_TYPENAME(FunctionType)
-  SPRITE_SPECIALIZE_TYPENAME(IntegerType)
-  SPRITE_SPECIALIZE_TYPENAME(PointerType)
-  SPRITE_SPECIALIZE_TYPENAME(StructType)
-  SPRITE_SPECIALIZE_TYPENAME(VectorType)
+  // Bring the LLVM Types and Values into this namespace and specialize
+  // typename_ to handle them.
+  #define OP(r,_,name)                 \
+      using ::llvm::name;              \
+      SPRITE_SPECIALIZE_TYPENAME(name) \
+    /**/
+  BOOST_PP_SEQ_FOR_EACH(OP,,SPRITE_LLVM_TYPES SPRITE_LLVM_VALUES)
+  #undef OP
 
   /// Overload typename_ to return human-readable LLVM type names.
   std::string typename_(::llvm::Type const &);
-
-  /**
-   * @brief Represents a floating-point type.
-   *
-   * LLVM does not define a type class for floating-point types as it does for
-   * other types such as @p IntegerType.  Instead, floating-point types are
-   * handled using the generic class @p Type.  That poses a real problem for @p
-   * typeobj, which uses the type of the wrapped object to activate the
-   * relevant operators.
-   *
-   * To work around that problem, this type is invented.  When a floating-point
-   * type is produced, this library will cast its <tt>Type *</tt> to a
-   * <tt>FPType *</tt> before applying the wrapping.  In that way, it is
-   * possible to carry the type information.  When the type is ultimately used
-   * (by an LLVM API function), it will be converted back to <tt>Type *</tt>,
-   * since, obviously, no function defined by LLVM accepts this type.
-   */
-  struct FPType : ::llvm::Type
-  {
-    static bool classof(Type const * tp)
-      { return tp->isFloatingPointTy(); }
-  };
-
-  SPRITE_SPECIALIZE_TYPENAME(FPType)
-
-  // Constants.
-  using ::llvm::Constant;
-  using ::llvm::ConstantAggregateZero;
-  using ::llvm::ConstantArray;
-  using ::llvm::ConstantExpr;
-  using ::llvm::ConstantFP;
-  using ::llvm::ConstantInt;
-  using ::llvm::ConstantPointerNull;
-  using ::llvm::ConstantStruct;
-  using ::llvm::BlockAddress;
-
-  SPRITE_SPECIALIZE_TYPENAME(ConstantAggregateZero);
-  SPRITE_SPECIALIZE_TYPENAME(ConstantArray);
-  SPRITE_SPECIALIZE_TYPENAME(ConstantExpr);
-  SPRITE_SPECIALIZE_TYPENAME(ConstantFP);
-  SPRITE_SPECIALIZE_TYPENAME(ConstantInt);
-  SPRITE_SPECIALIZE_TYPENAME(ConstantPointerNull);
-  SPRITE_SPECIALIZE_TYPENAME(ConstantStruct);
-  SPRITE_SPECIALIZE_TYPENAME(BlockAddress);
-
-  // Values.
-  using ::llvm::Value;
-  using ::llvm::BasicBlock;
-  using ::llvm::Function;
-  using ::llvm::GlobalValue;
-  using ::llvm::GlobalVariable;
-  using ::llvm::MDNode;
-  using ::llvm::Instruction;
-  using ::llvm::SwitchInst;
-
-  SPRITE_SPECIALIZE_TYPENAME(Value)
-  SPRITE_SPECIALIZE_TYPENAME(BasicBlock)
-  SPRITE_SPECIALIZE_TYPENAME(Function)
-  SPRITE_SPECIALIZE_TYPENAME(GlobalValue)
-  SPRITE_SPECIALIZE_TYPENAME(GlobalVariable)
-  SPRITE_SPECIALIZE_TYPENAME(Instruction)
-  SPRITE_SPECIALIZE_TYPENAME(SwitchInst)
-  SPRITE_SPECIALIZE_TYPENAME(MDNode)
 
   // ADTs.
   using string_ref = ::llvm::StringRef;

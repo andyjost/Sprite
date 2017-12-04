@@ -91,7 +91,7 @@ namespace sprite { namespace llvm
         }
         return *this;
       }
-      
+
       /// Destroy.
       ~any_containerref_impl()
         { this->store()->~concept(); }

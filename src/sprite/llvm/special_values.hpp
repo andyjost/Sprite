@@ -4,9 +4,13 @@
  */
 
 #pragma once
+#include "sprite/llvm/config.hpp"
+#include "llvm/IR/Type.h"
 
 namespace sprite { namespace llvm
 {
+  using ::llvm::Type;
+
   /// Represents the ... token in function type definitions.
   struct ellipsis {};
 

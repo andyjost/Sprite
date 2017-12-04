@@ -73,7 +73,7 @@
 
 namespace sprite { namespace llvm
 {
-  SPRITE_DEF_ISOBJ_CHECK(object)    // is_object
+  SPRITE_DEF_ISOBJ_CHECK(llvmobj)    // is_object
   SPRITE_DEF_ISOBJ_CHECK(typeobj)   // is_typeobj
   SPRITE_DEF_ISOBJ_CHECK(valueobj)  // is_valueobj
   SPRITE_DEF_ISOBJ_CHECK(constobj)  // is_constobj
@@ -253,7 +253,7 @@ namespace sprite { namespace llvm
   struct remove_object_wrapper<Obj<U>>
   {
     using type = typename std::conditional<
-        std::is_base_of<object<U>, Obj<U>>::value, U, Obj<U>
+        std::is_base_of<llvmobj<U>, Obj<U>>::value, U, Obj<U>
       >::type;
   };
   //@}

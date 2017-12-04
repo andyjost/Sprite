@@ -6,11 +6,11 @@
 
 namespace sprite { namespace llvm
 {
-  /// Wrapper for @p ::llvm::Value objects.
-  struct value : object<::llvm::Value>
+  /// Wrapper for @p Value objects.
+  struct value : llvmobj<Value>
   {
     using basic_type = Type;
-    using object<::llvm::Value>::object;
+    using llvmobj<Value>::llvmobj;
 
     /// Create a literal integer.
     value(int64_t);
@@ -27,5 +27,5 @@ namespace sprite { namespace llvm
   std::ostream & operator<<(std::ostream &, value const &);
   type typeof_(value);
 
-  bool is_constdata(value);
+  // bool is_constdata(value);
 }}
