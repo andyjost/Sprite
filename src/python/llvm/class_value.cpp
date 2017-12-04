@@ -26,6 +26,7 @@ namespace sprite { namespace python
       // .def(self != other<value>())
       .add_property("id", &value::id)
       .add_property("typeof", &sprite::llvm::typeof_)
+      .add_property("is_constdata", &sprite::llvm::is_constdata)
       ;
 
     implicitly_convertible<int64_t, value>();

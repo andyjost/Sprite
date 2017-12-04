@@ -1,6 +1,6 @@
 # The llvm.types submodule provides the predefined types.  Star-import is
 # intended.
-import curry.llvm as ll
+from curry.llvm import *
 from curry.llvm.types import *
 import cytest
 import ctypes
@@ -107,13 +107,17 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(i8.decay, i8)
 
   def test_common_type(self):
-    self.assertEqual(ll.common_type(i32,fp32), fp32)
-    self.assertEqual(ll.common_type(bool_,i8,i32,i64), i64)
-    self.assertEqual(ll.common_type(bool_, fp64), fp64)
-    self.assertEqual(ll.common_type(i8(), i8().p), i8().p)
-    self.assertEqual(ll.common_type(i8.p(), i8.p().p), i8.p().p)
-    self.assertRaisesRegexp(TypeError, 'no common type', lambda: ll.common_type(i8(), i8.p().p))
-    self.assertEqual(ll.common_type(i8[3], i8[4]), i8.p)
-    self.assertEqual(ll.common_type(struct([i8,i32]), struct([i8,i32])), struct([i8,i32]))
-    self.assertRaisesRegexp(TypeError, 'no common type', lambda: ll.common_type(struct([i8,i32]), struct([i8.p,i32])))
+    self.assertEqual(common_type(i32,fp32), fp32)
+    self.assertEqual(common_type(bool_,i8,i32,i64), i64)
+    self.assertEqual(common_type(bool_, fp64), fp64)
+    self.assertEqual(common_type(i8(), i8().p), i8().p)
+    self.assertEqual(common_type(i8.p(), i8.p().p), i8.p().p)
+    self.assertRaisesRegexp(TypeError, 'no common type', lambda: common_type(i8(), i8.p().p))
+    self.assertEqual(common_type(i8[3], i8[4]), i8.p)
+    self.assertEqual(common_type(struct([i8,i32]), struct([i8,i32])), struct([i8,i32]))
+    self.assertRaisesRegexp(TypeError, 'no common type', lambda: common_type(struct([i8,i32]), struct([i8.p,i32])))
+
+  def test_isa(self):
+    self.assertTrue(i32.isa(IntegerType))
+
 

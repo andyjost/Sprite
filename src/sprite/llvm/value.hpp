@@ -26,4 +26,6 @@ namespace sprite { namespace llvm
   // bool operator!=(value, value);
   std::ostream & operator<<(std::ostream &, value const &);
   type typeof_(value);
+
+  bool is_constdata(value);
 }}
