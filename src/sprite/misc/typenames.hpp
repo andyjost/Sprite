@@ -12,13 +12,8 @@
 
 namespace sprite { namespace llvm
 {
-  /// Demangles a symbol name (e.g., one returned by typeinfo).
+  /// Demangles a symbol name (e.g., one returned through std::typeinfo).
   std::string demangle(std::string const &);
-
-  /// Returns a human-readable version of a type name.
-  template<typename T>
-  inline std::string typename_(T const & arg)
-    { return demangle(typeid(arg).name()); }
 
   /// Returns a human-readable name for certain types.
   template<typename T> struct typename_impl
@@ -29,5 +24,15 @@ namespace sprite { namespace llvm
       template<> struct typename_impl<name_>              \
         { static std::string name() { return #name_; } }; \
     /**/
+
+  /// Returns a human-readable version of a type name.
+  template<typename T>
+  inline std::string typename_()
+    { return demangle(typename_impl<T>::name()); }
+
+  /// Returns a human-readable version of a type name.
+  template<typename T>
+  inline std::string typename_(T const &)
+    { return demangle(typename_impl<T>::name()); }
 }}
 

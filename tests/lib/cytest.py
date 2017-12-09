@@ -1,7 +1,8 @@
 from cStringIO import StringIO
-import collections
-import unittest
 from curry.llvm import isa
+import collections
+import sys
+import unittest
 
 class TestCase(unittest.TestCase):
   def compareGolden(self, objs, filename, update=False):
@@ -27,4 +28,22 @@ class TestCase(unittest.TestCase):
 
   def assertIsNotA(self, obj, llvmty):
     self.assertFalse(isa(obj, llvmty))
+
+  def assertMayRaise(self, exception, expr, msg=None):
+    if exception is None:
+      try:
+        expr()
+      except:
+        info = sys.exc_info()
+        tail = '' if msg is None else ' %s' % msg
+        self.fail('%s raised%s' % (repr(info[0]), tail))
+    else:
+      try:
+        self.assertRaises(exception, expr)
+      except:
+        ty,val,tb = sys.exc_info()
+        tail = '' if msg is None else ' %s' % msg
+        raise ty, ty(str(val) + tail), tb
+  
+  unittest.TestCase.assertMayRaise = assertMayRaise
 

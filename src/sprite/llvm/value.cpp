@@ -7,19 +7,23 @@ using namespace ::llvm;
 
 namespace sprite { namespace llvm
 {
-  value::value(int64_t v)
-    : value(({
-          auto * TY = types::int_(64).ptr();
-          ConstantInt::getSigned(TY, v);
-        }))
-  {}
+  value value::from_bool(bool v)
+  {
+    auto * TY = types::bool_().ptr();
+    return v ? ConstantInt::getTrue(TY) : ConstantInt::getFalse(TY);
+  }
 
-  value::value(double v)
-    : value(({
-          auto * TY = types::double_().ptr();
-          ConstantFP::get(TY, v);
-        }))
-  {}
+  value value::from_int64(int64_t v)
+  {
+    auto * TY = types::int_(64).ptr();
+    return ConstantInt::getSigned(TY, v);
+  }
+
+  value value::from_double(double v)
+  {
+    auto * TY = types::double_().ptr();
+    return ConstantFP::get(TY, v);
+  }
 
   std::string value::str() const
   {
@@ -59,6 +63,4 @@ namespace sprite { namespace llvm
     { return os << v.str(); }
 
   type typeof_(value v) { return type(v->getType()); }
-
-  // bool is_constdata(value v) { return ::llvm::isa<ConstantData>(v.ptr()); }
 }}

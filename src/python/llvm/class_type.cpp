@@ -3,33 +3,20 @@
 #include <boost/format.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/python/raw_function.hpp>
+#include "python/llvm/conversions.hpp"
 #include "python/llvm/_llvm.hpp"
+#include "python/llvm/utility.hpp"
 #include "sprite/llvm/isa.hpp"
 #include "sprite/llvm/type.hpp"
 #include "sprite/llvm/value.hpp"
-#include "sprite/misc/python_conversions.hpp"
 #include <vector>
 
 using namespace boost::python;
 using namespace sprite::llvm;
+using namespace sprite::python;
 
 namespace
 {
-  void reject_kwds(dict kwds)
-  {
-    if(len(kwds) != 0)
-    {
-      std::string arg = extract<std::string>(
-          kwds.attr("__iter__")().attr("next")()
-        );
-      throw type_error(
-          boost::format(
-              "'%s' is an invalid keyword argument for this function."
-            ) % arg
-        );
-    }
-  }
-
   type type__call__(tuple args, dict kwds)
   {
     assert(len(args) > 0);
@@ -37,6 +24,7 @@ namespace
 
     object kw;
     object pop = kwds.attr("pop");
+    size_t const nargs = len(args);
     try { kw = pop("varargs"); }
     catch(error_already_set const &) { PyErr_Clear(); }
     int is_varargs = (kw.ptr() == Py_None) ? -1
@@ -44,21 +32,21 @@ namespace
     reject_kwds(kwds);
 
     std::vector<::llvm::Type*> types;
-    for(size_t i=1, n=len(args); i<n; ++i)
+    for(size_t i=1; i<nargs; ++i)
     {
       object arg = args[i];
       try
       {
-        sprite::llvm::type ty = extract<sprite::llvm::type>(arg);
+        type ty = extract<sprite::llvm::type>(arg);
         types.push_back(ty.ptr());
       }
       catch(error_already_set const &)
       {
         if(arg.attr("__class__").attr("__name__") == "ellipsis")
         {
-          if(i != n-1)
+          if(i != nargs-1)
             throw type_error("An ellipsis must be the final argument.");
-          if(is_varargs != -1)
+          else if(is_varargs != -1)
           {
             throw type_error(
                 "Got both an Ellipsis and 'varargs' keyword argument."
