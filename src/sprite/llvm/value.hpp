@@ -6,9 +6,12 @@
 #include "llvm/IR/Value.h"
 #include <type_traits>
 #include <boost/numeric/conversion/cast.hpp>
+#include <boost/variant.hpp>
 
 namespace sprite { namespace llvm
 {
+  using literal_value = boost::variant<int64_t, double>;
+
   /// Wrapper for @p Value objects.
   struct value : llvmobj<Value>
   {
@@ -23,17 +26,20 @@ namespace sprite { namespace llvm
     value(param<bool> const & v) : value(from_bool(v)) {}
 
     /// Create a value from a literal Boolean.
-    static value from_int64(int64_t);
-    value(param<signed char, int64_t> const & v) : value(from_int64(v)) {}
-    value(param<unsigned char, int64_t> const & v) : value(from_int64(v)) {}
-    value(param<int16_t, int64_t> const & v) : value(from_int64(v)) {}
-    value(param<int32_t, int64_t> const & v) : value(from_int64(v)) {}
-    value(param<int64_t> const & v) : value(from_int64(v)) {}
+    static value from_int(int64_t);
+    value(param<signed char, int64_t> const & v) : value(from_int(v)) {}
+    value(param<unsigned char, int64_t> const & v) : value(from_int(v)) {}
+    value(param<int16_t, int64_t> const & v) : value(from_int(v)) {}
+    value(param<int32_t, int64_t> const & v) : value(from_int(v)) {}
+    value(param<int64_t> const & v) : value(from_int(v)) {}
 
     /// Create a value from a literal floating-point value.
     static value from_double(double);
     value(param<float> const & v) : value(from_double(v)) {}
     value(param<double> const & v) : value(from_double(v)) {}
+
+    /// Evaluate constexprs, return the value.
+    literal_value eval() const;
 
     /// Get the string representation.
     std::string str() const;

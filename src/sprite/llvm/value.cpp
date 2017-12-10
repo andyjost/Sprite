@@ -13,7 +13,7 @@ namespace sprite { namespace llvm
     return v ? ConstantInt::getTrue(TY) : ConstantInt::getFalse(TY);
   }
 
-  value value::from_int64(int64_t v)
+  value value::from_int(int64_t v)
   {
     auto * TY = types::int_(64).ptr();
     return ConstantInt::getSigned(TY, v);
@@ -23,6 +23,28 @@ namespace sprite { namespace llvm
   {
     auto * TY = types::double_().ptr();
     return ConstantFP::get(TY, v);
+  }
+
+  literal_value value::eval() const
+  {
+    if(auto * IV = dyn_cast<ConstantInt>(ptr()))
+    {
+      assert(IV->getBitWidth() <= 64);
+      int64_t const value = IV->getValue().getLimitedValue();
+      return value;
+    }
+    else if(auto * FV = dyn_cast<ConstantFP>(ptr()))
+    {
+      double const value = FV->getValueAPF().convertToDouble();
+      return value;
+    }
+    else
+    {
+      throw value_error(
+          boost::format("cannot get constexpr value from this '%s' object")
+              % typeof_(*this)
+        );
+    }
   }
 
   std::string value::str() const

@@ -39,8 +39,12 @@ class TestLLVMValues(cytest.TestCase):
         , msg='with value %s at i=%d' % (val, i)
         )
 
-  def test_valueCasts(self):
-    pass
+  def test_castingRange(self):
+    for b in [1, 8, 16, 32, 64]:
+      ty = int_(b)
+      minval = -2**(b-1)
+      maxval = 2**(b-1)-1
+
     # self.assertRaisesRegexp(TypeError, r"cannot cast 'i64' to 'void \*'", lambda: void.p(value(1)))
 
     # Equality among values.
@@ -53,12 +57,24 @@ class TestLLVMValues(cytest.TestCase):
     # self.assertEqual(value(1), value(1.0))
 
   def test_implicitConversion(self):
+    # These exercise implicit conversion because the Python number must be
+    # converted to a "value" object for type.__call__ to accept it.
+    # From int.
     self.assertEqual(i8(1).typeof, i8)
     self.assertEqual(i16(1).typeof, i16)
     self.assertEqual(i32(1).typeof, i32)
     self.assertEqual(i64(1).typeof, i64)
     self.assertEqual(fp32(1).typeof, fp32)
     self.assertEqual(fp64(1).typeof, fp64)
+    # From float.
+    self.assertEqual(i8(1.).typeof, i8)
+    self.assertEqual(i16(1.).typeof, i16)
+    self.assertEqual(i32(1.).typeof, i32)
+    self.assertEqual(i64(1.).typeof, i64)
+    self.assertEqual(fp32(1.).typeof, fp32)
+    self.assertEqual(fp64(1.).typeof, fp64)
+    # Overflow.
+    # self.assertEqual(i8(300).typeof, i8)
 
-    # import code
-    # code.interact(local=dict(globals(), **locals()))
+    import code
+    code.interact(local=dict(globals(), **locals()))

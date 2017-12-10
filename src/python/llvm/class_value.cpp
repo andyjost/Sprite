@@ -2,6 +2,7 @@
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/python/enum.hpp>
 #include <boost/python/raw_function.hpp>
+#include "python/llvm/conversions.hpp"
 #include "python/llvm/_llvm.hpp"
 #include "sprite/llvm/isa.hpp"
 #include "python/llvm/utility.hpp"
@@ -36,7 +37,7 @@ namespace
     if(PyInt_Check(arg.ptr()))
     {
       int64_t v = extract<int64_t>(arg);
-      return self.attr("__init__")(value::from_int64(v));
+      return self.attr("__init__")(value::from_int(v));
     }
     if(PyFloat_Check(arg.ptr()))
     {
@@ -57,6 +58,8 @@ namespace sprite { namespace python
 {
   void register_value()
   {
+    VariantConversion<literal_value>::init();
+
     using self_ns::str;
     class_<value>("value", no_init)
       .def(init<int64_t>())
@@ -70,6 +73,7 @@ namespace sprite { namespace python
       .add_property("id", &value::id)
       .add_property("typeof", &sprite::llvm::typeof_)
       .def("isa", (bool(*)(value, ValueTy))(isa))
+      .def("eval", &value::eval)
       ;
 
     implicitly_convertible<int64_t, value>();

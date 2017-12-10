@@ -15,6 +15,6 @@ namespace sprite { namespace llvm
     {}
     operator To const &() const { return stored; }
     To stored;
-  };  
+  };
 }}
 
