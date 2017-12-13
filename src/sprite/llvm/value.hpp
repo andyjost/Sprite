@@ -1,12 +1,12 @@
 #pragma once
+#include <boost/numeric/conversion/cast.hpp>
+#include <boost/variant.hpp>
+#include "llvm/IR/Value.h"
 #include "sprite/llvm/config.hpp"
 #include "sprite/llvm/fwd.hpp"
 #include "sprite/llvm/param.hpp"
 #include "sprite/llvm/type.hpp"
-#include "llvm/IR/Value.h"
 #include <type_traits>
-#include <boost/numeric/conversion/cast.hpp>
-#include <boost/variant.hpp>
 
 namespace sprite { namespace llvm
 {
@@ -18,8 +18,8 @@ namespace sprite { namespace llvm
     using basic_type = Type;
     using llvmobj<Value>::llvmobj;
 
-    /// Create a value from any convertible type.
-    // template<typename T> value(T);
+    /// Create an undef value (used for default initialization).
+    value(boost::none_t);
 
     /// Create a value from a literal integer.
     static value from_bool(bool);
@@ -39,14 +39,19 @@ namespace sprite { namespace llvm
     value(param<double> const & v) : value(from_double(v)) {}
 
     /// Evaluate constexprs, return the value.
-    literal_value eval() const;
-
-    /// Get the string representation.
-    std::string str() const;
+    literal_value constexpr_value() const;
   };
 
   // bool operator==(value, value);
   // bool operator!=(value, value);
+
+  value cast_(value, type, bool src_is_signed=true, bool dst_is_signed=true);
+  value bitcast_(value, type);
+
   std::ostream & operator<<(std::ostream &, value const &);
   type typeof_(value);
+
+  /// Produces a default-initialized value.
+  value null_value(type);
+
 }}

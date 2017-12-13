@@ -1,6 +1,9 @@
+#include <boost/lexical_cast.hpp>
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/Support/raw_os_ostream.h"
+#include "sprite/llvm/isa.hpp"
 #include "sprite/llvm/value.hpp"
 
 using namespace ::llvm;
@@ -25,7 +28,7 @@ namespace sprite { namespace llvm
     return ConstantFP::get(TY, v);
   }
 
-  literal_value value::eval() const
+  literal_value value::constexpr_value() const
   {
     if(auto * IV = dyn_cast<ConstantInt>(ptr()))
     {
@@ -47,42 +50,68 @@ namespace sprite { namespace llvm
     }
   }
 
-  std::string value::str() const
+  std::ostream & operator<<(std::ostream & os, value const & v)
   {
-    SmallVector<char, 64> buffer;
-    if(auto * IV = dyn_cast<ConstantInt>(ptr()))
-      IV->getValue().toString(buffer, /*radix*/ 10, /*signed*/ true);
-    else if(auto * FV = dyn_cast<ConstantFP>(ptr()))
-      FV->getValueAPF().toString(buffer);
-    else
-      return "<value?>";
-    return std::string(&buffer[0], buffer.size());
+    auto && out = ::llvm::raw_os_ostream(os);
+    out << *v.ptr();
+    return os;
   }
 
-  value type::operator()(value v, bool src_is_signed, bool dst_is_signed) const
+  value cast_(value v, type dst_ty, bool src_is_signed, bool dst_is_signed)
   {
     auto src_ty = typeof_(v);
-    auto dst_ty = ptr();
     if(!CastInst::isCastable(src_ty, dst_ty))
     {
       throw type_error(
           boost::format("cannot cast '%s' to '%s'") % src_ty % dst_ty
         );
     }
-    auto castop = CastInst::getCastOpcode(v, src_is_signed, dst_ty, dst_is_signed);
-    if(auto * CV = dyn_cast<Constant>(v.ptr()))
-      return value(ConstantExpr::getCast(castop, CV, dst_ty));
-    else
-    {
-      throw type_error("not implemented");
-      // CastInst::Create(castop, v.ptr(), dst_ty);
-    }
+    auto const castop = CastInst::getCastOpcode(v, src_is_signed, dst_ty, dst_is_signed);
+    // if(!CastInst::castIsValid(castop, v, dst_ty))
+    //   throw internal_error();
+    return CastInst::Create(castop, v, dst_ty);
   }
+
+  value bitcast_(value v, type dst_ty)
+  {
+    auto src_ty = typeof_(v);
+    if(!CastInst::isBitCastable(src_ty, dst_ty))
+    {
+      throw type_error(
+          boost::format("cannot bitcast '%s' to '%s'") % src_ty % dst_ty
+        );
+    }
+    auto const castop = Instruction::BitCast;
+    // if(!CastInst::castIsValid(castop, v, dst_ty))
+    //   throw internal_error();
+    return CastInst::Create(castop, v, dst_ty);
+  }
+
+  value::value(boost::none_t)
+    : value(UndefValue::get(types::void_()))
+  {}
 
   // bool operator==(value lhs, value rhs)
   // bool operator!=(value lhs, value rhs);
-  std::ostream & operator<<(std::ostream & os, value const & v)
-    { return os << v.str(); }
 
   type typeof_(value v) { return type(v->getType()); }
+
+  value null_value(type ty)
+  {
+    switch(kind(ty))
+    {
+      case TypeTy::IntegerType:
+      case TypeTy::FPType:
+      case TypeTy::ArrayType:
+      case TypeTy::StructType:    
+      case TypeTy::VectorType:
+      case TypeTy::PointerType:  return Constant::getNullValue(ty);
+      case TypeTy::FunctionType:
+      case TypeTy::VoidType:     return UndefValue::get(ty);
+      default:
+        throw type_error(
+            boost::format("cannot create a null value of type '%s'") % ty
+          );
+    }
+  }
 }}

@@ -42,13 +42,6 @@ namespace sprite { namespace llvm
         std::vector<Type*> const &, bool is_varargs = false
       ) const;
 
-    /// Create a value of this type from another value.
-    // Defined in value.cpp.
-    value operator()(
-        value, bool src_is_signed=true, bool dst_is_signed=true
-      ) const;
-
-
     #ifdef TEMPORARILY_DISABLED
     template<
         typename... Args
@@ -152,11 +145,14 @@ namespace sprite { namespace llvm { namespace types
 
 namespace sprite { namespace llvm
 {
-  /// Returns the array, pointer, or vector element type.
-  // type element_type(type const &);
-
   /// Returns the array extents.
   std::vector<size_t> array_extents(type const &);
+
+  /// Indicates whether the specified cast is permitted.
+  bool is_castable(type src, type dst);
+
+  /// Indicates whether the specified bitcast is permitted.
+  bool is_bitcastable(type src, type dst);
 
   /**
    * @brief Applies type transformations as when passing a value to a function.
@@ -173,8 +169,11 @@ namespace sprite { namespace llvm
    */
   type common_type(std::vector<type> const &);
 
-  /// Returns the size in bytes.
+  /// Returns the size in bytes (with alignment padding).
   size_t sizeof_(type const &);
+
+  /// Returns the size in bits (without padding).
+  size_t bitwidth(type const &);
 
   /// Returns the name for struct types.
   std::string struct_name(type const &);

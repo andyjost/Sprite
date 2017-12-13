@@ -17,11 +17,10 @@ using namespace sprite::python;
 
 namespace
 {
-  type type__call__(tuple args, dict kwds)
+  type py_type__call__(tuple args, dict kwds)
   {
     assert(len(args) > 0);
-    sprite::llvm::type self = extract<sprite::llvm::type>(args[0]);
-
+    type self = extract<type>(args[0]);
     object kw;
     object pop = kwds.attr("pop");
     size_t const nargs = len(args);
@@ -37,7 +36,7 @@ namespace
       object arg = args[i];
       try
       {
-        type ty = extract<sprite::llvm::type>(arg);
+        type ty = extract<type>(arg);
         types.push_back(ty.ptr());
       }
       catch(error_already_set const &)
@@ -59,6 +58,9 @@ namespace
     }
     return self.make_function(types, is_varargs==1);
   }
+  
+  value py_type_cast(type dst_ty, value v, bool src_is_signed, bool dst_is_signed)
+    { return cast_(v, dst_ty, src_is_signed, dst_is_signed); }
 
   type py_common_type(tuple args, dict kwds)
   {
@@ -67,7 +69,7 @@ namespace
     auto begin = iterator(args);
     auto end = iterator();
     std::vector<type> types(begin, end);
-    return sprite::llvm::common_type(types);
+    return common_type(types);
   }
 }
 
@@ -75,6 +77,7 @@ namespace sprite { namespace python
 {
   void register_type()
   {
+    NoneConversion::init();
     VectorConversion<type>::init();
     VectorConversion<size_t>::init();
 
@@ -91,22 +94,30 @@ namespace sprite { namespace python
       .def(self == other<type>())
       .def(self != other<type>())
       .def("__getitem__", &type::operator[], "Creates an array type.")
-      .def("__call__", raw_function(type__call__, 0)
+      .def("__call__", raw_function(py_type__call__, 0)
         , "Creates a function type.  Keyword 'varargs' may be supplied or "
           "the Ellipsis object may be passed as the final positional argument "
           "to indicate a variadic function."
         )
-      .def("__call__"
-        , (value (type::*)(value, bool, bool) const)(&type::operator())
+      .def("__call__", py_type_cast
         , (arg("value"), arg("src_is_signed")=true, arg("dst_is_signed")=true)
         )
-      .add_property("array_extents", sprite::llvm::array_extents)
-      .add_property("decay", sprite::llvm::decay)
+      .add_property("array_extents", array_extents)
+      .add_property("bitwidth", bitwidth)
+      .add_property("decay", decay)
+      .add_property("null_value", null_value)
+      .add_property("kind", (TypeTy(*)(type))(kind))
+      .add_property("sizeof", sizeof_)
+      .add_property("struct_name", struct_name)
+      .add_property("subtypes", subtypes)
       .def("isa", (bool(*)(type, TypeTy))(isa))
-      .add_property("sizeof", sprite::llvm::sizeof_)
-      .add_property("struct_name", sprite::llvm::struct_name)
-      .add_property("subtypes", sprite::llvm::subtypes)
       ;
+    def("bitcast", bitcast_, (arg("value"), arg("type")));
+    def("cast", cast_
+      , (arg("value"), arg("type"), arg("src_is_signed")=true, arg("dst_is_signed")=true)
+      );
+    def("is_bitcastable", is_bitcastable);
+    def("is_castable", is_castable);
     def("common_type", raw_function(py_common_type, 0));
 
     enum_<TypeTy>("TypeTy")

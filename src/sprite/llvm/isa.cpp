@@ -4,6 +4,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/Type.h"
 #include <boost/preprocessor/enum.hpp>
 #include <boost/preprocessor/seq/elem.hpp>
 #include <boost/preprocessor/seq/size.hpp>
@@ -22,6 +23,32 @@ namespace sprite { namespace llvm
       #undef EXPR
       };
     return table.at(tyty)(ty);
+  }
+
+  TypeTy kind(type ty)
+  {
+    using ::llvm::Type;
+    switch(ty->getTypeID())
+    {
+      case Type::VoidTyID:      return TypeTy::VoidType;
+      case Type::HalfTyID:
+      case Type::FloatTyID:
+      case Type::DoubleTyID:
+      case Type::X86_FP80TyID:
+      case Type::FP128TyID:
+      case Type::PPC_FP128TyID: return TypeTy::FPType;
+      case Type::IntegerTyID:   return TypeTy::IntegerType;
+      case Type::FunctionTyID:  return TypeTy::FunctionType;
+      case Type::StructTyID:    return TypeTy::StructType;
+      case Type::ArrayTyID:     return TypeTy::ArrayType;
+      case Type::PointerTyID:   return TypeTy::PointerType;
+      case Type::VectorTyID:    return TypeTy::VectorType;
+      case Type::LabelTyID:
+      case Type::MetadataTyID:
+      case Type::X86_MMXTyID:
+      case Type::TokenTyID:     throw type_error("bad type kind");
+      default:                  throw internal_error();
+    }
   }
 
   bool isa(value val, ValueTy valty)

@@ -1,8 +1,42 @@
 from cStringIO import StringIO
 from curry.llvm import isa
+import __builtin__
 import collections
+import contextlib
 import sys
 import unittest
+
+def breakpoint(msg='', depth=0):
+  '''(Built-in) Starts an interactive prompt.  For development and debugging.'''
+  import code, inspect, pydoc
+  frame = inspect.currentframe()
+  for i in xrange(depth+1):
+    frame = frame.f_back
+  namespace = dict(help=pydoc.help)
+  namespace.update(frame.f_globals)
+  namespace.update(frame.f_locals)
+  if msg:
+    msg = " - " + msg
+  banner = "\n[%s:%s%s]" % (namespace['__file__'], frame.f_lineno, msg)
+  code.interact(banner=banner, local=namespace)
+__builtin__.breakpoint = breakpoint
+
+@contextlib.contextmanager
+def trap():
+  '''
+  (Built-in) Traps test failures for debugging.
+
+      with trap():
+        self.assertTrue(...)
+  '''
+  try:
+    yield None
+  except AssertionError as e:
+    breakpoint(msg=repr(str(e)), depth=2)
+    raise
+
+__builtin__.trap = trap
+
 
 class TestCase(unittest.TestCase):
   def compareGolden(self, objs, filename, update=False):
@@ -45,5 +79,18 @@ class TestCase(unittest.TestCase):
         tail = '' if msg is None else ' %s' % msg
         raise ty, ty(str(val) + tail), tb
   
-  unittest.TestCase.assertMayRaise = assertMayRaise
-
+  def assertMayRaiseRegexp(self, exception, regexp, expr, msg=None):
+    if exception is None:
+      try:
+        expr()
+      except:
+        info = sys.exc_info()
+        tail = '' if msg is None else ' %s' % msg
+        self.fail('%s raised%s' % (repr(info[0]), tail))
+    else:
+      try:
+        self.assertRaisesRegexp(exception, regexp, expr)
+      except:
+        ty,val,tb = sys.exc_info()
+        tail = '' if msg is None else ' %s' % msg
+        raise ty, ty(str(val) + tail), tb

@@ -4,14 +4,17 @@
 #include "sprite/llvm/type.hpp"
 #include "sprite/llvm/value.hpp"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/InstrTypes.h"
 #include <string>
 #include <vector>
+
+using namespace ::llvm;
 
 namespace sprite { namespace llvm
 {
   type element_type(type const & ty)
   {
-    if(auto * ST = dyn_cast<::llvm::SequentialType>(ty.ptr()))
+    if(auto * ST = dyn_cast<SequentialType>(ty.ptr()))
       return ST->getElementType();
     else if(auto * PT = dyn_cast<PointerType>(ty.ptr()))
       return PT->getElementType();
@@ -36,7 +39,7 @@ namespace sprite { namespace llvm
   }
 
   type type::make_function(
-      std::vector<::llvm::Type*> const & args, bool is_varargs
+      std::vector<Type*> const & args, bool is_varargs
     ) const
   {
     return type(FunctionType::get(this->ptr(), args, is_varargs));
@@ -126,13 +129,22 @@ namespace sprite { namespace llvm
     return v;
   }
 
+  bool is_castable(type src, type dst)
+    { return CastInst::isCastable(src, dst); }
+
+  bool is_bitcastable(type src, type dst)
+    { return CastInst::isBitCastable(src, dst); }
+
   size_t sizeof_(type const & tp)
   {
     if(!tp->isSized())
       throw type_error(boost::format("type '%s' is unsized.") % tp);
-    ::llvm::DataLayout const layout(scope::current_module().ptr());
+    DataLayout const layout(scope::current_module().ptr());
     return layout.getTypeAllocSize(tp.ptr());
   }
+
+  size_t bitwidth(type const & ty)
+    { return ty->getPrimitiveSizeInBits(); }
 
   std::string struct_name(type const & ty)
   {
@@ -214,7 +226,7 @@ namespace sprite { namespace llvm { namespace types
     std::vector<Type*> tmp;
     for(auto e: elements)
     {
-      if(!::llvm::StructType::isValidElementType(e.ptr()))
+      if(!StructType::isValidElementType(e.ptr()))
         throw type_error("invalid struct element type.");
       tmp.emplace_back(e.ptr());
     }
@@ -235,7 +247,7 @@ namespace sprite { namespace llvm { namespace types
     )
   {
     type ty = struct_(name);
-    auto * ST = ::llvm::cast<StructType>(ty.ptr());
+    auto * ST = cast<StructType>(ty.ptr());
     std::vector<Type*> body;
     for(auto e: elements) { body.emplace_back(e.ptr()); }
     ST->setBody(body, /*isPacked*/ false);

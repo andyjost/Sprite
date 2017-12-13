@@ -16,14 +16,12 @@ using namespace sprite::python;
 
 namespace
 {
-  std::string value_repr(value v)
-    { return (boost::format("%s(%s)") % typeof_(v) % v).str(); }
-
   object value__init__(tuple args, dict kwds)
   {
-    reject_kwds(kwds);
-    if(len(args) != 2)
-      type_error(boost::format("expected 2 arguments, got %d") % len(args));
+    char const * keywords[] = {"self", "value", nullptr};
+    PyObject *arg1, *arg2;
+    PyArg_ParseTupleAndKeywords(args.ptr(), kwds.ptr(), "OO:value", (char**)keywords, &arg1, &arg2)
+        || (({throw error_already_set(); false;}));
 
     object self = args[0];
     object arg = args[1];
@@ -62,20 +60,23 @@ namespace sprite { namespace python
 
     using self_ns::str;
     class_<value>("value", no_init)
+      .def(init<boost::none_t>("creates an undefined value"))
       .def(init<int64_t>())
       .def(init<double>())
       .def("__init__", raw_function(value__init__))
       .def(init<value>())
+      .add_property("id", &value::id)
+      .add_property("type", &typeof_)
+      .def("constexpr_value", &value::constexpr_value)
+      .def("isa", (bool(*)(value, ValueTy))(isa))
+      .def(repr(self))
       .def(str(self))
-      .def("__repr__", value_repr)
+      //.def("__repr__", value_repr)
       // .def(self == other<value>())
       // .def(self != other<value>())
-      .add_property("id", &value::id)
-      .add_property("typeof", &sprite::llvm::typeof_)
-      .def("isa", (bool(*)(value, ValueTy))(isa))
-      .def("eval", &value::eval)
       ;
 
+    implicitly_convertible<boost::none_t, value>();
     implicitly_convertible<int64_t, value>();
     implicitly_convertible<double, value>();
 

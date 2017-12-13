@@ -12,10 +12,10 @@
 namespace sprite { namespace llvm
 {
   /// Base class for all error types defined in this module.
-  struct error : std::exception
+  struct exception : std::exception
   {
     /// Creates a error instance with optional message.
-    error(std::string const & type, std::string const & msg = "")
+    exception(std::string const & type, std::string const & msg = "")
       : _msg()
     {
       if(msg.empty())
@@ -37,12 +37,12 @@ namespace sprite { namespace llvm
   };
 
   /// Declares a new exception type.
-  #define SPRITE_DECLARE_ERROR_TYPE(name)                                 \
-      struct name : error                                                 \
-      {                                                                   \
-        name(::llvm::Twine const & msg = "") : error(#name, msg.str()) {} \
-        name(::boost::format const & fmt) : name(fmt.str()) {}            \
-      };                                                                  \
+  #define SPRITE_DECLARE_ERROR_TYPE(name)                                     \
+      struct name : exception                                                 \
+      {                                                                       \
+        name(::llvm::Twine const & msg = "") : exception(#name, msg.str()) {} \
+        name(::boost::format const & fmt) : name(fmt.str()) {}                \
+      };                                                                      \
     /**/
 
   /// Indicates an incorrect object type was used.
@@ -53,6 +53,9 @@ namespace sprite { namespace llvm
 
   /// Indicates an error using class scope.
   SPRITE_DECLARE_ERROR_TYPE(scope_error)
+
+  /// An error in this library.
+  SPRITE_DECLARE_ERROR_TYPE(internal_error)
 
   #ifdef TEMPORARILY_DISABLED
   /// Indicates an incorrect parameter was supplied.

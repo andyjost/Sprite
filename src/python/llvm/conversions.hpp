@@ -4,6 +4,7 @@
 #include <boost/python.hpp>
 #include <boost/python/stl_iterator.hpp>
 #include <boost/variant.hpp>
+#include <boost/none.hpp>
 
 #define DECL_PYTHON_CONVERSION(name, type, prereqs)              \
     struct name {                                                \
@@ -93,6 +94,9 @@ namespace sprite
     object const o(borrowed(obj));
     data->convertible = new(storage) IterableRange<ValueType>(o);
   }
+
+  // ====== NoneConversion ======
+  DECL_PYTHON_CONVERSION(NoneConversion, boost::none_t,);
 
   // ====== VectorConversion ======
 

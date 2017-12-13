@@ -3,6 +3,5 @@
 
 namespace sprite { namespace python
 {
-  /// Raises an error if any keyword arguments are set.
-  void reject_kwds(boost::python::dict);
+  void reject_kwds(boost::python::dict kwds);
 }}
