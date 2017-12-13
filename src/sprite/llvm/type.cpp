@@ -51,9 +51,6 @@ namespace sprite { namespace llvm
   bool operator!=(type const & lhs, type const & rhs)
     { return !(lhs == rhs); }
 
-  std::ostream & operator<<(std::ostream & os, type const & ty)
-    { return os << typename_(*ty.ptr()); }
-
   type decay(type ty)
   {
     if(ty->isArrayTy())

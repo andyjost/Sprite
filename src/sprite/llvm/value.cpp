@@ -50,13 +50,6 @@ namespace sprite { namespace llvm
     }
   }
 
-  std::ostream & operator<<(std::ostream & os, value const & v)
-  {
-    auto && out = ::llvm::raw_os_ostream(os);
-    out << *v.ptr();
-    return os;
-  }
-
   value cast_(value v, type dst_ty, bool src_is_signed, bool dst_is_signed)
   {
     auto src_ty = typeof_(v);
@@ -113,5 +106,10 @@ namespace sprite { namespace llvm
             boost::format("cannot create a null value of type '%s'") % ty
           );
     }
+  }
+
+  value operator+(value lhs, value rhs)
+  {
+    return lhs; // FIXME
   }
 }}

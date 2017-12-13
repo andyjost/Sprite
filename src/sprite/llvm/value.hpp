@@ -38,6 +38,8 @@ namespace sprite { namespace llvm
     value(param<float> const & v) : value(from_double(v)) {}
     value(param<double> const & v) : value(from_double(v)) {}
 
+    friend value operator+(value, value);
+
     /// Evaluate constexprs, return the value.
     literal_value constexpr_value() const;
   };
@@ -48,7 +50,6 @@ namespace sprite { namespace llvm
   value cast_(value, type, bool src_is_signed=true, bool dst_is_signed=true);
   value bitcast_(value, type);
 
-  std::ostream & operator<<(std::ostream &, value const &);
   type typeof_(value);
 
   /// Produces a default-initialized value.

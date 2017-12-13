@@ -1,6 +1,5 @@
 #include "sprite/llvm/module.hpp"
 
-
 namespace sprite { namespace llvm
 {
   ::llvm::LLVMContext & getContext()

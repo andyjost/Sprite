@@ -25,12 +25,14 @@ namespace sprite { namespace python
 {
   void register_module()
   {
+    using self_ns::str;
     class_<sprite::llvm::module>(
         "module", init<std::string const &>()
       )
       .def(self == other<sprite::llvm::module>())
       .def("__enter__", &module__enter__)
       .def("__exit__", &module__exit__)
+      .def(str(self))
       ;
 
     // The .default module holds an example of the current target.  It is needed

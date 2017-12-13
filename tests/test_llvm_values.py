@@ -8,6 +8,9 @@ import re
 import sys
 
 class TestLLVMValues(cytest.TestCase):
+  def test_debug(self):
+    breakpoint()
+
   def test_literalValueTypes(self):
     '''Literal value coercion'''
     # All integral types map to i64 and all floating point types to fp64.

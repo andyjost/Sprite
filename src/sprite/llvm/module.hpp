@@ -60,12 +60,12 @@ namespace sprite { namespace llvm
 
     /// True if the named global value exists in this module.
     bool hasglobal(string_ref) const;
-
-    friend bool operator==(module const & lhs, module const & rhs)
-      { return lhs.ptr() == rhs.ptr(); }
-
-    friend bool operator!=(module const & lhs, module const & rhs)
-      { return !(lhs == rhs); }
   };
+
+  inline bool operator==(module const & lhs, module const & rhs)
+    { return lhs.ptr() == rhs.ptr(); }
+
+  inline bool operator!=(module const & lhs, module const & rhs)
+    { return !(lhs == rhs); }
 }}
 

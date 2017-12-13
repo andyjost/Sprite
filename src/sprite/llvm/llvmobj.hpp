@@ -7,6 +7,8 @@
 #include "sprite/llvm/fwd.hpp"
 #include <cstddef>
 #include <type_traits>
+#include <iosfwd>
+#include "llvm/Support/raw_os_ostream.h"
 
 namespace sprite { namespace llvm
 {
@@ -70,5 +72,14 @@ namespace sprite { namespace llvm
   // is_constarg, which needs to match a function signature for arguments it
   // will eventually reject).  There is no definition.
   void * ptr(...);
+
+  /// Streams the LLVM representation of an object.
+  template<typename T>
+  std::ostream & operator<<(std::ostream & os, llvmobj<T> const & obj)
+  {
+    auto && out = ::llvm::raw_os_ostream(os);
+    out << *obj.ptr();
+    return os;
+  }
 }}
 

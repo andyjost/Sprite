@@ -71,7 +71,6 @@ namespace sprite { namespace python
       .def("isa", (bool(*)(value, ValueTy))(isa))
       .def(repr(self))
       .def(str(self))
-      //.def("__repr__", value_repr)
       // .def(self == other<value>())
       // .def(self != other<value>())
       ;

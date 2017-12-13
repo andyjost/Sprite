@@ -73,7 +73,6 @@ namespace sprite { namespace llvm
     #endif
   };
 
-  std::ostream & operator<<(std::ostream &, type const &);
   bool operator==(type const &, type const &);
   bool operator!=(type const &, type const &);
 }}
