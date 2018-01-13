@@ -41,12 +41,12 @@ static_assert(sizeof(size_t) == sizeof(void*), "");
  * choice, operation, and constructor.  Other objects are used by MPS for
  * administration (padding and forwarding).
  */
-#define IS_CURRY_OBJECT(__obj)           \
-    ({  heapobj_t const * obj = (__obj); \
-        !HASBIT(obj->info, FLAGMASK)     \
-             && obj->info->tag != PAD    \
-             && obj->info->tag != PAD1;  \
-      })
+#define IS_CURRY_OBJECT(obj)              \
+    ({  heapobj_t const * __obj = (obj);  \
+        !HASBIT(__obj->info, FLAGMASK)    \
+             && __obj->info->tag != PAD   \
+             && __obj->info->tag != PAD1; \
+     })
   /**/
 
 

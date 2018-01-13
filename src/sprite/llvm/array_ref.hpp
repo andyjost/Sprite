@@ -35,7 +35,7 @@ namespace sprite { namespace llvm
     using ::llvm::ArrayRef<T>::ArrayRef;
     using value_type = T;
     static size_t constexpr required_extent = Extent::value;
-    template<typename> friend class aux::check_extents;
+    template<typename> friend struct aux::check_extents;
 
     array_ref(std::initializer_list<T> args)
       : ::llvm::ArrayRef<T>(args.begin(), args.size())

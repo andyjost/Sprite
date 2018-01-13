@@ -117,7 +117,7 @@ namespace
     // is pushed onto the label stack.  In that case, @p check=false is set
     // when called from @p function_frame, otherwise, this constructor would
     // check against the previous function.
-    label_frame(label && l = label(nullptr), bool check = true)
+    label_frame(label const & l = label(nullptr), bool check = true)
       : m_prev_label(std::move(l)), m_prev_builder(nullptr)
     {
       if(check) check_function(m_prev_label);
@@ -172,7 +172,7 @@ namespace
   struct function_frame : label_frame
   {
     #ifdef TEMPORARILY_DISABLED
-    function_frame(function && f = function(nullptr), bool check=true)
+    function_frame(function const & f = function(nullptr), bool check=true)
       : label_frame(f.ptr() ? f.entry() : label(nullptr), false), m_prev_function(f)
     {
       if(check) check_module(m_prev_function);
@@ -209,7 +209,7 @@ namespace
 
   struct module_frame : function_frame
   {
-    module_frame(module && m = module(nullptr))
+    module_frame(module const & m = module(nullptr))
       :
       #ifdef TEMPORARILY_DISABLED
       function_frame(function(nullptr), false),
@@ -236,17 +236,17 @@ namespace sprite { namespace llvm
 
   scope::~scope() {}
 
-  scope::scope(module m)
-    : m_frame(new module_frame(std::move(m)))
+  scope::scope(module const & m)
+    : m_frame(new module_frame(m))
   {}
 
   #ifdef TEMPORARILY_DISABLED
-  scope::scope(function f)
-    : m_frame(new function_frame(std::move(f)))
+  scope::scope(function const & f)
+    : m_frame(new function_frame(f))
   {}
 
-  scope::scope(label l)
-    : m_frame(new label_frame(std::move(l)))
+  scope::scope(label const & l)
+    : m_frame(new label_frame(l))
   {}
   #endif
 

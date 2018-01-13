@@ -1,7 +1,8 @@
 #pragma once
+#include <boost/python.hpp>
+//
 #include <boost/mpl/for_each.hpp>
 #include <boost/mpl/identity.hpp>
-#include <boost/python.hpp>
 #include <boost/python/stl_iterator.hpp>
 #include <boost/variant.hpp>
 #include <boost/none.hpp>
@@ -151,35 +152,35 @@ namespace sprite
   template<typename VariantType>
   DECL_PYTHON_CONVERSION(VariantConversion, VariantType, );
 
-  namespace aux 
+  namespace aux
   {
     struct VariantToPython : boost::static_visitor<PyObject *>
-    {   
+    {
       template<typename T>
       result_type operator()(T const & t) const
         { return incref(object(t).ptr()); }
-    };  
+    };
   }
 
   template<typename VariantType>
   inline PyObject * VariantConversion<VariantType>::convert(
-      VariantType const & arg 
-    )   
+      VariantType const & arg
+    )
   { return apply_visitor(aux::VariantToPython(), arg); }
 
-  namespace aux 
+  namespace aux
   {
     // Checks or performs a conversion to an instance of Variant.
-    //  
+    //
     // If no void * is provided then this simply checks the conversion (i.e.,
     // sets result).  Otherwise, an instance is created at the given location.
     template<typename VariantType> struct PythonToVariantConverter
-    {   
+    {
       PythonToVariantConverter(
-          PyObject * obj, bool & result, void * storage = 0 
-        )   
+          PyObject * obj, bool & result, void * storage = 0
+        )
         : m_obj(obj), m_result(result), m_storage(storage)
-      {}  
+      {}
 
       PyObject * m_obj;
       bool & m_result;
@@ -191,9 +192,9 @@ namespace sprite
       // supplied, a new variant is constructed there.  Otherwise, m_result can
       // be used simply to check whether a conversion is possible.
       template<typename T> void operator()(boost::mpl::identity<T>) const
-      {   
+      {
         if(!m_result)
-        {   
+        {
           extract<T> const e(m_obj);
           if(e.check())
           {

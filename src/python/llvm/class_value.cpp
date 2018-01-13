@@ -5,6 +5,7 @@
 #include "python/llvm/conversions.hpp"
 #include "python/llvm/_llvm.hpp"
 #include "sprite/llvm/isa.hpp"
+#include "sprite/llvm/module.hpp"
 #include "python/llvm/utility.hpp"
 #include "sprite/llvm/value.hpp"
 #include <memory>
@@ -57,6 +58,7 @@ namespace sprite { namespace python
   void register_value()
   {
     VariantConversion<literal_value>::init();
+    VariantConversion<value::parent_type>::init();
 
     using self_ns::str;
     class_<value>("value", no_init)
@@ -69,10 +71,14 @@ namespace sprite { namespace python
       .add_property("type", &typeof_)
       .def("constexpr_value", &value::constexpr_value)
       .def("isa", (bool(*)(value, ValueTy))(isa))
+      .def("erase", &value::erase)
+      .add_property("name", &value::getName, &value::setName)
+      .add_property("is_const", &value::getIsConst, &value::setIsConst)
+      .add_property("linkage", &value::getLinkage, &value::setLinkage)
+      .add_property("init", &value::getInitializer, &value::setInitializer)
+      .add_property("parent", &value::parent)
       .def(repr(self))
       .def(str(self))
-      // .def(self == other<value>())
-      // .def(self != other<value>())
       ;
 
     implicitly_convertible<boost::none_t, value>();

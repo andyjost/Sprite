@@ -25,7 +25,19 @@ namespace sprite { namespace llvm
     { return std::vector<type>(ty->subtype_begin(), ty->subtype_end()); }
 
   type type::operator*() const
-    { return this->ptr()->getPointerTo(); }
+  {
+    if(!PointerType::isValidElementType(ptr()))
+    {
+      if(ptr()->isVoidTy())
+      {
+        throw type_error(
+            "forming a pointer to void is not permitted in LLVM; use i8* instead"
+          );
+      }
+      throw type_error(boost::format("invalid pointer element type: %s") % *this);
+    }
+    return ptr()->getPointerTo();
+  }
 
   type type::operator*(size_t size) const
     { return VectorType::get(this->ptr(), size); }
@@ -127,10 +139,10 @@ namespace sprite { namespace llvm
   }
 
   bool is_castable(type src, type dst)
-    { return CastInst::isCastable(src, dst); }
+    { return CastInst::isCastable(src, dst) || (src == dst); }
 
   bool is_bitcastable(type src, type dst)
-    { return CastInst::isBitCastable(src, dst); }
+    { return CastInst::isBitCastable(src, dst) || (src == dst); }
 
   size_t sizeof_(type const & tp)
   {
@@ -245,6 +257,8 @@ namespace sprite { namespace llvm { namespace types
   {
     type ty = struct_(name);
     auto * ST = cast<StructType>(ty.ptr());
+    if(!ST->isOpaque())
+      throw value_error("struct body is already set");
     std::vector<Type*> body;
     for(auto e: elements) { body.emplace_back(e.ptr()); }
     ST->setBody(body, /*isPacked*/ false);

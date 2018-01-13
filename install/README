@@ -1,3 +1,0 @@
-This directory is the root of a staging area used for testing.  Running "make
-install" (with no PREFIX) installs to this directory and the unit tests look
-here by default for obtaining Sprite.

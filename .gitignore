@@ -4,3 +4,4 @@ install/*
 CMC/translator/json/.curry
 CMC/translator/icurry/.curry
 CMC/Examples/.curry
+.clang_complete

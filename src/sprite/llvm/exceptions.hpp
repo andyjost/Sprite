@@ -45,26 +45,10 @@ namespace sprite { namespace llvm
       };                                                                      \
     /**/
 
-  /// Indicates an incorrect object type was used.
-  SPRITE_DECLARE_ERROR_TYPE(type_error)
-
-  /// Indicates an incorrect value was encountered.
-  SPRITE_DECLARE_ERROR_TYPE(value_error)
-
-  /// Indicates an error using class scope.
-  SPRITE_DECLARE_ERROR_TYPE(scope_error)
-
-  /// An error in this library.
   SPRITE_DECLARE_ERROR_TYPE(internal_error)
-
-  #ifdef TEMPORARILY_DISABLED
-  /// Indicates an incorrect parameter was supplied.
-  SPRITE_DECLARE_ERROR_TYPE(parameter_error)
-
-  /// Indicates an error at compile time.
-  SPRITE_DECLARE_ERROR_TYPE(compile_error)
-
-  /// Indicates a naming error, such as a conflict with a previous definition.
-  SPRITE_DECLARE_ERROR_TYPE(name_error)
-  #endif
+  SPRITE_DECLARE_ERROR_TYPE(key_error)
+  SPRITE_DECLARE_ERROR_TYPE(scope_error)
+  SPRITE_DECLARE_ERROR_TYPE(type_error)
+  SPRITE_DECLARE_ERROR_TYPE(value_error)
+  SPRITE_DECLARE_ERROR_TYPE(index_error)
 }}

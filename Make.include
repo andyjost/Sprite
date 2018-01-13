@@ -8,6 +8,13 @@ ifndef PREFIX
   PREFIX = $(ROOT_DIR)/install
 endif
 
+
+# Compiler flags
+CFLAGS   += -I$(ROOT_DIR)/src -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH) \
+            -I$(BOOST_HOME)/include -I$(PYTHON_INCLUDE_PATH)
+LDFLAGS  += -L $(LLVM_LIBRARY_PATH) -L $(PYTHON_LIBRARY_PATH) -L $(BOOST_HOME)/lib \
+            -Wl,-rpath=$(LLVM_LIBRARY_PATH) -Wl,-rpath=$(PYTHON_LIBRARY_PATH) -Wl,-rpath=$(BOOST_HOME)/lib
+
 # Usage
 # =====
 .PHONY: usage

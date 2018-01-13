@@ -22,18 +22,33 @@ if [ ! -d "$SPRITE_HOME" ]; then
   exit 1
 fi
 
+python=$SPRITE_HOME/bin/python
 export SPRITE_HOME
 export PYTHONPATH=`pwd`/lib/:$SPRITE_HOME/lib/python2.7/:$PYTHONPATH
 export LD_LIBRARY_PATH=$SPRITE_HOME/lib:$LD_LIBRARY_PATH
 
 case `basename $0` in
   "run_tests")
-    python -B -m unittest discover -v `pwd` "$@"
+    $python -B -m unittest discover -v `pwd` "$@"
     ;;
   "debug_tests")
-    python=`which python`
-    python=`readlink -f $python`
+    ldd ../install/lib/python2.7/curry/llvm/_llvm.so
     gdb --args $python -B -m unittest discover -v `pwd` "$@"
+    ;;
+  "valgrind_tests")
+    # To use valgrind, follow directions in Python's Misc/README.valgrind to
+    # rebuild Python:
+    #
+    #     sudo apt-get build-dep python2.7
+    #     apt-get source python2.7
+    #     "Uncomment Py_USING_MEMORY_DEBUGGER in Objects/obmalloc.c"
+    #     ./configure --prefix=$HOME/python2.7 --without-pymalloc --with-pydebug --with-valgrind
+    #     make OPT=-g -j
+    #     make install
+    #
+    # You may also want to replace the valgrind-python.supp file in this
+    # directory with the one that came with your version of Python.
+    valgrind --suppressions=valgrind-python.supp $python -B -m unittest discover -v `pwd` "$@"
     ;;
 esac
 

@@ -1,8 +1,9 @@
 .SECONDEXPANSION:
 # Compilation
 # ===========
-CFLAGS  += -I$(PYTHON_INCLUDE_PATH)
-LDFLAGS += -L $(OBJECT_ROOT)/sprite -lsprite -L $(PYTHON_LIBRARY_PATH) -l$(PYTHON_LIBRARY) -lboost_python
+# CFLAGS  += -I$(PYTHON_INCLUDE_PATH)
+# LDFLAGS += -L $(OBJECT_ROOT)/sprite -lsprite -L $(PYTHON_LIBRARY_PATH) -l$(PYTHON_LIBRARY) -L $(BOOST_HOME)/lib -lboost_python
+LDFLAGS += -L $(OBJECT_ROOT)/sprite -lsprite -l$(PYTHON_LIBRARY) -lboost_python
 
 # In this Python library, each subdirectory is a submodule that creates exactly
 # one .so file.

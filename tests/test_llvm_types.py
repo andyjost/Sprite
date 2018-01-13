@@ -44,6 +44,7 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(str(struct("abc")), "%abc = type opaque")
     self.assertEqual(str(struct([char,i32,fp32])), "{ i8, i32, float }")
     self.assertEqual(str(struct("abc", [bool_, char])), "%abc = type { i1, i8 }")
+    self.assertRaisesRegexp(TypeError, 'pointer to void is not permitted', lambda: void.p)
 
   def test_isa_checks(self):
     self.assertIsa(i32[2], ArrayType)
@@ -76,7 +77,7 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(struct([fp32, i8[2], i8.p]).subtypes, [fp32, i8[2], i8.p])
 
   def test_struct_name(self):
-    self.assertEqual(struct('foo', [i32,void.p]).struct_name, 'foo')
+    self.assertEqual(struct('foo', [i32,i8.p]).struct_name, 'foo')
     self.assertRaisesRegexp(TypeError, "expected a struct, got 'i8'", lambda: i8.struct_name)
 
   def test_array_extents(self):

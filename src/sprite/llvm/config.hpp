@@ -76,15 +76,17 @@ namespace llvm
   #undef OP
 
   /// Extends llvm::isa for floating-point types.
-  struct FPType : ::llvm::Type
+  class FPType : public ::llvm::Type
   {
+  public:
     static bool classof(Type const * tp)
       { return tp->isFloatingPointTy(); }
   };
 
   /// Extends llvm::isa for the void type.
-  struct VoidType : ::llvm::Type
+  class VoidType : public ::llvm::Type
   {
+  public:
     static bool classof(Type const * tp)
       { return tp->isVoidTy(); }
   };
@@ -168,6 +170,8 @@ namespace sprite { namespace llvm
   SPRITE_SPECIALIZE_TYPENAME(APFloat);
 
   using ::llvm::cast;
+  using ::llvm::cast_or_null;
   using ::llvm::dyn_cast;
+  using ::llvm::dyn_cast_or_null;
   using ::llvm::isa;
 }}

@@ -8,9 +8,6 @@ import re
 import sys
 
 class TestLLVMValues(cytest.TestCase):
-  def test_debug(self):
-    breakpoint()
-
   def test_literalValueTypes(self):
     '''Literal value coercion'''
     # All integral types map to i64 and all floating point types to fp64.
@@ -49,7 +46,7 @@ class TestLLVMValues(cytest.TestCase):
   def test_casting(self):
     types = [
         i1, i8, i16, i32, i64, fp32, fp64   # Numbers
-      , i8.p, void.p, struct([]).p, i32().p # Pointers
+      , i8.p, struct([]).p, i32().p # Pointers
       , i32[4], i32[5], i64[2]              # Arrays
       , void, i32(i32)                      # Void and function
       , 4*fp32, 2*fp64, 3*fp32              # Vectors

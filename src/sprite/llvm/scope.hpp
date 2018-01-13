@@ -27,10 +27,10 @@ namespace sprite { namespace llvm
     ~scope();
 
     // Scope creation.
-    scope(module);
+    scope(module const &);
     #ifdef TEMPORARILY_DISABLED
-    scope(function);
-    scope(label);
+    scope(function const &);
+    scope(label const &);
     #endif
 
     // Scope access.

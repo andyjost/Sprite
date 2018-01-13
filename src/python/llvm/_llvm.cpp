@@ -22,11 +22,14 @@ namespace
 
 BOOST_PYTHON_MODULE(_llvm)
 {
+  register_exception<index_error>(PyExc_IndexError);
+  register_exception<internal_error>(PyExc_SystemError);
+  register_exception<key_error>(PyExc_KeyError);
+  register_exception<scope_error>(PyExc_RuntimeError);
   register_exception<type_error>(PyExc_TypeError);
   register_exception<value_error>(PyExc_ValueError);
-  register_exception<scope_error>(PyExc_RuntimeError);
-  register_exception<internal_error>(PyExc_SystemError);
-  sprite::python::register_module();
+  sprite::python::register_globalvalues();
   sprite::python::register_type();
   sprite::python::register_value();
+  sprite::python::register_module(); // depends on value
 }

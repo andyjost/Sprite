@@ -22,10 +22,10 @@ namespace sprite { namespace llvm
    * <tt>i32(42)</tt> to create a 32-bit integer constant with value @p 42
    * (assuming @p i32 is a type wrapper for the 32-bit integer type).
    */
-  struct type : llvmobj<Type>
+  struct type : llvmobj<Type, custodian<Type, no_delete>>
   {
-    using basic_type = Type;
-    using llvmobj<Type>::llvmobj;
+    // Inherit constructors.
+    using llvmobj_base_type::llvmobj;
 
     /// Creates a pointer type.
     type operator*() const;

@@ -58,9 +58,9 @@ namespace
     }
     return self.make_function(types, is_varargs==1);
   }
-  
+
   value py_type_cast(type dst_ty, value v, bool src_is_signed, bool dst_is_signed)
-    { return cast_(v, dst_ty, src_is_signed, dst_is_signed); }
+    { return cast(v, dst_ty, src_is_signed, dst_is_signed); }
 
   type py_common_type(tuple args, dict kwds)
   {
@@ -83,9 +83,10 @@ namespace sprite { namespace python
 
     using self_ns::str;
     class_<type>("type_", no_init)
-      .def(str(self))
-      .def(repr(self))
       .add_property("id", &type::id)
+      .def(repr(self))
+      .def(str(self))
+
       .add_property("p", (type(type::*)() const)(&type::operator*)
         , "Creates a pointer type."
         )
@@ -112,8 +113,8 @@ namespace sprite { namespace python
       .add_property("subtypes", subtypes)
       .def("isa", (bool(*)(type, TypeTy))(isa))
       ;
-    def("bitcast", bitcast_, (arg("value"), arg("type")));
-    def("cast", cast_
+    def("bitcast", bitcast, (arg("value"), arg("type")));
+    def("cast", (value(*)(value, type, bool, bool))(cast)
       , (arg("value"), arg("type"), arg("src_is_signed")=true, arg("dst_is_signed")=true)
       );
     def("is_bitcastable", is_bitcastable);

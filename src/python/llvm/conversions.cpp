@@ -16,6 +16,6 @@ namespace sprite
         boost::none_t
       > * storage_type;
     void * storage = (reinterpret_cast<storage_type>(data))->storage.bytes;
-    data->convertible = new(storage) boost::none_t();
+    data->convertible = new(storage) boost::none_t(boost::none);
   }
 }

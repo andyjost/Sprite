@@ -1,8 +1,8 @@
-CFLAGS  += -fPIC -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH)
-LDFLAGS += -L $(LLVM_LIBRARY_PATH)/ -lLLVM -Wl,--no-undefined
-
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
+
+CFLAGS  += -fPIC
+LDFLAGS += -lLLVM -Wl,--no-undefined
 
 LOCKFILE := $(OBJECT_ROOT)/lock
 FILES_TO_CLEAN += $(LOCKFILE)
@@ -55,7 +55,7 @@ ifdef LIB
   ifdef LIB_INSTALL_DIR
     $(shell mkdir -p $(LIB_INSTALL_DIR))
     DIRS_TO_CLEAN += $(LIB_INSTALL_DIR)
-  
+
     LIB_BASENAME := $(notdir $(basename $(LIB)))
     LIB_INSTALL = $(LIB_INSTALL_DIR)/$(LIB_BASENAME).a
     $(LIB_INSTALL): $(LIB_OUT)
@@ -75,7 +75,7 @@ ifdef SHLIB
   ifdef SHLIB_INSTALL_DIR
     $(shell mkdir -p $(SHLIB_INSTALL_DIR))
     DIRS_TO_CLEAN += $(SHLIB_INSTALL_DIR)
-  
+
     SHLIB_INSTALL = $(SHLIB_INSTALL_DIR)/$(SHLIB).so
     $(SHLIB_INSTALL): $(SHLIB_OUT)
 	 		cp $< $@
