@@ -3,7 +3,7 @@ from collections import OrderedDict, namedtuple
 import json
 
 class _Base(object):
-  # Make objects comparable by equality.
+  # Make objects comparable by their contents.
   def __eq__(lhs, rhs):
     if rhs is None:
       return False

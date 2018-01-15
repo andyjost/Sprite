@@ -75,8 +75,6 @@ class TestLLVMModule(cytest.TestCase):
     del m.globals['y']
     str(y2)
 
-    # breakpoint()
-
 # @mod.function(i64(i64), "n", linkage=EXTERNAL)
 # def fact(n):
 #   if n < 2:
