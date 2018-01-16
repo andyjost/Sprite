@@ -2,6 +2,8 @@ import cytest
 import re
 import unittest
 from curry.compiler.visitation import dispatch
+from curry.compiler import icurry
+import collections
 
 class TestVisitation(unittest.TestCase):
   @classmethod
@@ -90,4 +92,40 @@ class TestVisitation(unittest.TestCase):
       def h(): pass
     self.assertRaisesRegexp(TypeError, "'h' has no parameter 'a'", go)
 
+  def testVisitICurry(self):
+    '''Visit elements of an ICurry module.'''
+    tally = collections.defaultdict(int)
+
+    @dispatch.on('node')
+    def count(node):
+      if isinstance(node, collections.Sequence):
+        map(count, node)
+      elif isinstance(node, collections.Mapping):
+        map(count, node.values())
+      else:
+        raise TypeError("'%s' not handled" % str(type(node)))
+
+    @count.when(icurry.IModule)
+    def count(node):
+      tally['modules'] += 1
+      count(node.types)
+      count(node.functions)
+
+    @count.when(icurry.IConstructor)
+    def count(node):
+      tally['constructors'] += 1
+
+    @count.when(icurry.IFunction)
+    def count(node):
+      tally['functions'] += 1
+      count(node.code)
+
+    @count.when(icurry.Statement)
+    def count(node):
+      tally['statements'] += 1
+
+    json = open('data/json/1.json', 'rb').read()
+    icur = icurry.parse(json)
+    count(icur)
+    self.assertEqual(tally, {'modules':1, 'constructors':2, 'functions':4, 'statements':10})
 
