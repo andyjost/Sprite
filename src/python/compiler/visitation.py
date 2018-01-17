@@ -2,7 +2,6 @@
 # See https://chris-lamb.co.uk/posts/visitor-pattern-in-python
 import functools
 import inspect
-import operator
 
 # From http://code.activestate.com/recipes/577413-topological-sort/
 def toposort(data):
@@ -37,6 +36,7 @@ class Visitable(object):
     '''
     The ordering sorts classes by their (possibly abstract) subclass
     relationships.  This is used when no handler provides an exact match.
+    Computing the ordering is O(n^2) w.r.t. the number of handlers.
     '''
     if self._ordering is None:
       classes = self.handlers.keys()
@@ -44,26 +44,32 @@ class Visitable(object):
           cls: set(filter(lambda subcls: issubclass(subcls, cls), classes))
               for cls in classes
         }
-      self._ordering = reduce(operator.add, map(list, toposort(data)), [])
+      self._ordering = [item for group in toposort(data) for item in group]
     return self._ordering
 
   def __call__(self, *args, **kwds):
+    '''
+    Visitor application.
+
+    Finds the selector argument, gets its type, identifies the appropriate
+    handler, and then dispatches the call to there.
+    '''
     try:
       bindings = inspect.getcallargs(self.default, *args, **kwds)
     except:
-      target = self.default
+      handler = self.default
     else:
       ty = type(bindings[self.selector])
       if ty in self.handlers:
-        target = self.handlers[ty]
+        handler = self.handlers[ty]
       else:
         for cls in self.ordering:
           if issubclass(ty, cls):
-            target = self.handlers[cls]
+            handler = self.handlers[cls]
             break
         else:
-          target = self.default
-    return target(*args, **kwds)
+          handler = self.default
+    return handler(*args, **kwds)
 
   def when(self, ty, replacement):
     def decorator(handler):

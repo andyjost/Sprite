@@ -1,6 +1,6 @@
 from curry.llvm import *
-import curry.llvm as ll
 from curry.llvm.types import *
+import curry.llvm as ll
 import cytest
 
 class TestLLVMModule(cytest.TestCase):
