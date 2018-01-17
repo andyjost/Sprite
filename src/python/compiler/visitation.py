@@ -1,5 +1,6 @@
 '''Implementation of the visitor pattern.'''
 # See https://chris-lamb.co.uk/posts/visitor-pattern-in-python
+import functools
 import inspect
 import operator
 
@@ -64,11 +65,11 @@ class Visitable(object):
           target = self.default
     return target(*args, **kwds)
 
-  def when(self, ty):
-    def decorator(f):
-      self.handlers[ty] = f
+  def when(self, ty, replacement):
+    def decorator(handler):
+      self.handlers[ty] = handler
       self._ordering = None
-      return self
+      return replacement
     return decorator
 
 class dispatch(object):
@@ -84,6 +85,11 @@ class dispatch(object):
         raise TypeError(
             "'%s' has no parameter '%s'" % (f.__name__, selector)
           )
-      return Visitable(selector, default=f)
+      visitor = Visitable(selector, default=f)
+      @functools.wraps(f)
+      def replacement(*args, **kwds):
+        return visitor(*args, **kwds)
+      replacement.when = lambda ty: visitor.when(ty, replacement)
+      return replacement
     return decorator
 

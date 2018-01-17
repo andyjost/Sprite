@@ -1,9 +1,9 @@
+from curry.compiler import icurry
+from curry.compiler.visitation import dispatch
+import collections
 import cytest
 import re
 import unittest
-from curry.compiler.visitation import dispatch
-from curry.compiler import icurry
-import collections
 
 class TestVisitation(unittest.TestCase):
   @classmethod
