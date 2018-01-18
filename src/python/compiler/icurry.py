@@ -35,8 +35,13 @@ class IModule(_Base):
         all(isinstance(ctor, IConstructor) for ctor in ctors)
             for ctors in self.types.values()
       )
-    self.functions = tuple(functions)
-    assert all(isinstance(x, IFunction) for x in self.functions)
+    if isinstance(functions, OrderedDict):
+      self.functions = functions
+    else:
+      self.functions = OrderedDict([(f.ident,f) for f in functions])
+    assert all(isinstance(x, IFunction) for x in self.functions.values())
+    # self.functions = tuple(functions)
+    # assert all(isinstance(x, IFunction) for x in self.functions)
   def __str__(self):
     return '\n'.join(
         [
@@ -56,7 +61,7 @@ class IModule(_Base):
           , '  functions:'
           , '  ----------'
           ]
-      + [   '    ' + line for func in self.functions
+      + [   '    ' + line for func in self.functions.values()
                           for line in str(func).split('\n')
           ]
       )

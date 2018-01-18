@@ -16,5 +16,14 @@ class TestEmulation(cytest.TestCase):
   def testWIP(self):
     icur = self.ICURRY[0]
     em = Emulator()
-    em.compile_(icur)
+    example = em.import_(icur)
+    self.assertEqual(em.modules.keys(), ['example'])
+    # self.assertIs(em.modules['example'], example)
+    breakpoint()
+
+
+    # self.assertEqual(em.modules.keys(), ['example'])
+    # example = em.modules['example']
+    # self.assertEqual([ty.basename for ty in example.types.keys()], ['AB'])
+    # self.assertEqual([f.basename for f in example.functions.keys()], ['f', 'f_case_#1', 'g', 'main'])
 
