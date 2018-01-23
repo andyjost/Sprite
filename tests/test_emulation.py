@@ -13,17 +13,24 @@ class TestEmulation(cytest.TestCase):
   def tearDownClass(cls):
     del cls.ICURRY
 
-  def testWIP(self):
+  def testImport(self):
     icur = self.ICURRY[0]
     em = Emulator()
-    example = em.import_(icur)
+    imported = em.import_(icur)
     self.assertEqual(em.modules.keys(), ['example'])
-    # self.assertIs(em.modules['example'], example)
-    breakpoint()
+    self.assertEqual(len(imported), 1)
+    example = imported[0]
+    self.assertFalse(set('A B f f_case_#1 g main'.split()) - set(dir(example)))
+    self.assertIs(em.modules['example'], example)
 
+  def testBuilding(self):
+    em = Emulator()
+    one = em.build(1)
+    self.assertEqual(repr(one), '<Int [1]>')
+    self.assertEqual(str(one), '1')
 
-    # self.assertEqual(em.modules.keys(), ['example'])
-    # example = em.modules['example']
-    # self.assertEqual([ty.basename for ty in example.types.keys()], ['AB'])
-    # self.assertEqual([f.basename for f in example.functions.keys()], ['f', 'f_case_#1', 'g', 'main'])
+    example = em.import_(self.ICURRY[0])[0]
+    A = em.build(example.A)
+    self.assertEqual(repr(A), '<A ()>')
+    self.assertEqual(str(A), 'A')
 
