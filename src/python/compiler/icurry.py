@@ -17,20 +17,43 @@ class IName(str):
       ident = arg1
       parts = ident.split('.')
       module, basename = parts[0], '.'.join(parts[1:])
+      if basename == '':
+        module, basename = None, module
     else:
       module, basename = arg1, arg2
-      ident = '.'.join(arg1, arg2)
+      ident = '.'.join([arg1, arg2])
     self = str.__new__(cls, ident)
     self.module = module
     self.basename = basename
     return self
+  def setmodule(self, modname):
+    if self.module == modname:
+      return self
+    elif self.module is None:
+      return IName(modname, self.basename)
+    else:
+      raise ValueError(
+          'expected module name "%s," got "%s"' % (self.module, modname)
+        )
 
 class IModule(_Base):
   def __init__(self, name, imports, types, functions):
+    '''
+    Parameters:
+    -----------
+      name        The module name.
+      imports     A list of imported module names.
+      types       A mapping or sequence of pairs: IName -> [IConstructor].
+      functions   A sequence of IFunctions, or a mapping or sequence of pairs:
+                  IName -> IFunction.
+    '''
     self.name = str(name)
     self.imports = tuple(str(x) for x in imports)
     self.types = dict(types)
-    self.types = {IName(k):tuple(v) for k,v in self.types.iteritems()}
+    self.types = {
+        IName(k):tuple(v.setmodule(self.name) for v in vs)
+            for k,vs in self.types.iteritems()
+      }
     assert all(
         all(isinstance(ctor, IConstructor) for ctor in ctors)
             for ctors in self.types.values()
@@ -72,10 +95,14 @@ class IModule(_Base):
       )
 
 class IConstructor(_Base):
-  def __init__(self, ident, arity):
+  def __init__(self, ident, arity, format=None):
     assert arity >= 0
     self.ident = IName(ident)
     self.arity = int(arity)
+    self.format = format
+  def setmodule(self, name):
+    self.ident = self.ident.setmodule(name)
+    return self
   def __str__(self):
     return self.ident.basename
   def __repr__(self):

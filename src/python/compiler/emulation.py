@@ -26,15 +26,16 @@ class TypeInfo(object):
   def __init__(self, info):
     self.info = info
 
-  def check_call(self, args):
+  def _check_call(self, args):
     if len(args) != self.info.arity:
       raise TypeError(
-          '"%s" takes %d args, not %d' % (self.info.name, self.info.arity, len(args))
+          'cannot construct "%s" (arity=%d), with %d args'
+              % (self.info.name, self.info.arity, len(args))
         )
-    # TODO: Add type checking
 
-  def construct(self, *args):
-    self.check_call(args)
+  def __call__(self, *args):
+    '''Constructs an object of this type.'''
+    self._check_call(args)
     return Node(self.info, args)
 
 
@@ -110,7 +111,7 @@ class Emulator(object):
 
   @__compile_impl.when(IConstructor)
   def __compile_impl(self, icons, emmodule):
-    info = InfoTable(icons.ident.basename, icons.arity, ctor_show)
+    info = InfoTable(icons.ident.basename, icons.arity, Show(icons.format))
     setattr(emmodule, icons.ident.basename, TypeInfo(info))
 
   @__compile_impl.when(IFunction)
@@ -125,17 +126,17 @@ class Emulator(object):
 
   @build.when(numbers.Integral)
   def build(self, arg, *args):
-    ti_int.check_call(args)
+    ti_int._check_call(args)
     return Node(ti_int.info, [int(arg)])
 
   @build.when(numbers.Real)
   def build(self, arg, *args):
-    ti_float.check_call(args)
+    ti_float._check_call(args)
     return Node(ti_float.info, [float(arg)])
 
   @build.when(TypeInfo)
   def build(self, info, *args):
-    return info.construct(*map(self.build, args))
+    return info(*map(self.build, args))
 
   @build.when(Node)
   def build(self, node):
@@ -143,37 +144,51 @@ class Emulator(object):
 
 # Misc.
 # =====
-def show_gen(node, xform):
-  yield node.info.name
-  for arg in node.args:
-    yield xform(arg)
+class Show(object):
+  def __init__(self, format=None):
+    self.format = getattr(format, 'format', None) # i.e., str.format.
 
-@dispatch.on('arg')
-def ctor_show(arg):
-  return str(arg)
+  @dispatch.on('arg')
+  def __call__(self, arg):
+    return str(arg)
 
-@ctor_show.when(Node)
-def ctor_show(node):
-  return ' '.join(show_gen(node, ctor_show_inner))
+  @__call__.when(Node)
+  def __call__(self, node):
+    subexprs = self.generate(node, self._showinner)
+    if self.format is None:
+      return ' '.join(subexprs)
+    else:
+      subexprs = list(subexprs)
+      try:
+        return self.format(*subexprs)
+      except:
+        breakpoint()
 
-@dispatch.on('arg')
-def ctor_show_inner(arg):
-  return str(arg)
+  @staticmethod
+  def generate(node, xform):
+    yield node.info.name
+    for arg in node.args:
+      yield xform(arg)
 
-@ctor_show_inner.when(Node)
-def ctor_show_inner(node):
-  if len(node.args) > 1:
-    return '(%s)' % ctor_show(node)
-  else:
-    return ctor_show(node)
+  @dispatch.on('arg')
+  def _showinner(self, arg):
+    return str(arg)
+
+  @_showinner.when(Node)
+  def _showinner(self, node):
+    show = node.info.show
+    if len(node.args) > 1:
+      return '(%s)' % show(node)
+    else:
+      return show(node)
 
 def show_value(node):
   assert len(node.args) == 1
-  return str(node.args[0])
+  return str(node.args[1])
 
 
 # Built-in types.
 # ===============
-ti_int = TypeInfo(InfoTable('Int', 0, show_value))
-ti_float = TypeInfo(InfoTable('Float', 0, show_value))
+ti_int = TypeInfo(InfoTable('Int', 0, Show(format='{1}')))
+ti_float = TypeInfo(InfoTable('Float', 0, Show(format='{1}')))
 
