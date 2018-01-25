@@ -1,5 +1,5 @@
 from abc import ABCMeta
-from collections import OrderedDict, namedtuple
+from collections import Mapping, namedtuple, OrderedDict
 import json
 
 class _Base(object):
@@ -8,11 +8,17 @@ class _Base(object):
     if rhs is None:
       return False
     return type(lhs) == type(rhs) and lhs.__dict__ == rhs.__dict__
+
   def __ne__(lhs, rhs):
     return not (lhs == rhs)
 
+  @classmethod
+  def construct(cls, x, modname=None):
+    result = x if isinstance(x, cls) else cls(*x)
+    return result.setmodule(modname)
+
 class IName(str):
-  def __new__(cls, arg1, arg2=None):
+  def __new__(cls, arg1, arg2=None, modname=None):
     if arg2 is None:
       ident = arg1
       parts = ident.split('.')
@@ -25,9 +31,9 @@ class IName(str):
     self = str.__new__(cls, ident)
     self.module = module
     self.basename = basename
-    return self
+    return self.setmodule(modname)
   def setmodule(self, modname):
-    if self.module == modname:
+    if modname is None or self.module == modname:
       return self
     elif self.module is None:
       return IName(modname, self.basename)
@@ -35,6 +41,32 @@ class IName(str):
       raise ValueError(
           'expected module name "%s," got "%s"' % (self.module, modname)
         )
+
+def _build_symboltable(modname, data, value_type):
+  '''
+  Builds an ordered mapping from ``IName`` to ``value_type`` where
+  ``value_type`` also has the name embedded.  Sets the module name for all
+  items.
+
+  Parameters:
+  -----------
+    ``modname``    The module name.
+    ``data``       A mapping or sequence of pairs used to create the table.
+    ``value_type`` The mapping value type.  Must be a subclass of ``_Base``.
+  '''
+  if isinstance(data, Mapping):
+    data = OrderedDict(
+        (IName(k, modname=modname), value_type.construct(v, modname))
+            for k,v in data.items()
+      )
+  else:
+    data = OrderedDict(
+        (v.ident, v)
+            for v in (value_type.construct(v, modname) for v in data)
+      )
+  assert all(isinstance(v, value_type) for v in data.values())
+  assert all(k == v.ident for k,v in data.items())
+  return data
 
 class IModule(_Base):
   def __init__(self, name, imports, types, functions):
@@ -49,22 +81,8 @@ class IModule(_Base):
     '''
     self.name = str(name)
     self.imports = tuple(str(x) for x in imports)
-    self.types = dict(types)
-    self.types = {
-        IName(k):tuple(v.setmodule(self.name) for v in vs)
-            for k,vs in self.types.iteritems()
-      }
-    assert all(
-        all(isinstance(ctor, IConstructor) for ctor in ctors)
-            for ctors in self.types.values()
-      )
-    if isinstance(functions, OrderedDict):
-      self.functions = functions
-    else:
-      self.functions = OrderedDict([(f.ident,f) for f in functions])
-    assert all(isinstance(x, IFunction) for x in self.functions.values())
-    # self.functions = tuple(functions)
-    # assert all(isinstance(x, IFunction) for x in self.functions)
+    self.types = _build_symboltable(name, types, IType)
+    self.functions = _build_symboltable(name, functions, IFunction)
   def __str__(self):
     return '\n'.join(
         [
@@ -76,9 +94,7 @@ class IModule(_Base):
           , '  types:'
           , '  ------'
           ]
-      + ['    %s = %s' % (typename.basename, ' | '.join(map(str, ctors)))
-              for typename,ctors in self.types.iteritems()
-          ]
+      + [   '    ' + str(ty) for ty in self.types.values() ]
       + [
             ''
           , '  functions:'
@@ -94,14 +110,35 @@ class IModule(_Base):
         repr(self.name), repr(self.imports), repr(self.types), repr(self.functions)
       )
 
+class IType(tuple, _Base):
+  def __new__(cls, ident, constructors, format=None):
+    self = tuple.__new__(cls, [IConstructor.construct(c) for c in constructors])
+    self.ident = IName(ident)
+    self.format = format
+    return self
+  def setmodule(self, modname):
+    self.ident = self.ident.setmodule(modname)
+    for constructor in self.constructors:
+      constructor.setmodule(modname)
+    return self
+  @property
+  def constructors(self):
+    return self
+  def __str__(self):
+    return '%s = %s' % (self.ident.basename, ' | '.join(map(str, self.constructors)))
+  def __repr__(self):
+    return 'IType(ident=%s, constructors=%s, format=%s)' % (
+        repr(self.ident), repr(list(self.constructors)), repr(self.format)
+      )
+
 class IConstructor(_Base):
   def __init__(self, ident, arity, format=None):
     assert arity >= 0
     self.ident = IName(ident)
     self.arity = int(arity)
     self.format = format
-  def setmodule(self, name):
-    self.ident = self.ident.setmodule(name)
+  def setmodule(self, modname):
+    self.ident = self.ident.setmodule(modname)
     return self
   def __str__(self):
     return self.ident.basename
@@ -114,6 +151,9 @@ class IFunction(_Base):
     self.ident = IName(ident)
     self.arity = int(arity)
     self.code = tuple(code)
+  def setmodule(self, modname):
+    self.ident = self.ident.setmodule(modname)
+    return self
   def __str__(self):
     return '\n'.join(
         [self.ident.basename + ':']

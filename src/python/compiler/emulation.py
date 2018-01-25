@@ -145,6 +145,9 @@ class Emulator(object):
 # Misc.
 # =====
 class Show(object):
+  def __new__(cls, format=None):
+    return format if callable(format) else object.__new__(cls, format)
+
   def __init__(self, format=None):
     self.format = getattr(format, 'format', None) # i.e., str.format.
 
@@ -159,10 +162,7 @@ class Show(object):
       return ' '.join(subexprs)
     else:
       subexprs = list(subexprs)
-      try:
-        return self.format(*subexprs)
-      except:
-        breakpoint()
+      return self.format(*subexprs)
 
   @staticmethod
   def generate(node, xform):
@@ -181,10 +181,6 @@ class Show(object):
       return '(%s)' % show(node)
     else:
       return show(node)
-
-def show_value(node):
-  assert len(node.args) == 1
-  return str(node.args[1])
 
 
 # Built-in types.
