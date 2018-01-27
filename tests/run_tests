@@ -50,5 +50,7 @@ case `basename $0` in
     # directory with the one that came with your version of Python.
     valgrind --suppressions=valgrind-python.supp $python -B -m unittest discover -v `pwd` "$@"
     ;;
+  "shell")
+    exec $SHELL
 esac
 

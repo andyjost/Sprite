@@ -1,5 +1,5 @@
 from curry.compiler import icurry
-from curry.compiler.visitation import dispatch
+from curry.visitation import dispatch
 import collections
 import cytest
 import re

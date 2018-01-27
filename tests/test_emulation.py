@@ -1,6 +1,6 @@
-from curry.compiler.emulation import Emulator
+from curry.emulator import Emulator, Prelude
 from curry.compiler import icurry
-from curry.compiler.visitation import dispatch
+from curry.visitation import dispatch
 import cytest
 from cStringIO import StringIO
 
@@ -102,4 +102,11 @@ class TestEmulation(cytest.TestCase):
       goal = em.expr(value)
       em.eval(goal, stream.write)
       self.assertEqual(stream.getvalue(), result)
+
+  # def testBuildChoice(self):
+  #   '''Build and evaluate simple expressions involving the choice operator.'''
+  #   em = Emulator()
+  #   PL = em.import_(Prelude)
+  #   a = em.expr(PL.Choice, 1, 2)
+
 
