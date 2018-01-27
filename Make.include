@@ -8,8 +8,34 @@ ifndef PREFIX
   PREFIX = $(ROOT_DIR)/install
 endif
 
+# Derived variables
+# =================
+# Variables derived from Make.config variables.
+
+ifndef PYTHON_INCLUDE_PATH
+  # Added to CFLAGS as -I$(PYTHON_INCLUDE_PATH) for certain targets.
+  PYTHON_INCLUDE_PATH := $(PYTHON_HOME)/include/$(PYTHON_VERSION)
+endif
+
+ifndef PYTHON_EXECUTABLE
+  # The Python executable corresponding to PYTHON_LIBRARY_PATH.
+  PYTHON_EXECUTABLE := $(PYTHON_HOME)/bin/python
+endif
+
+ifndef PYTHON_LIBRARY_PATH
+  # Added to LDFLAGS as -L$(PYTHON_LIBRARY_PATH) for certain targets.
+  # PYTHON_LIBRARY_PATH := /usr/lib/python2.7
+  PYTHON_LIBRARY_PATH := $(PYTHON_HOME)/lib
+endif
+
+ifndef PYTHON_LIBRARY
+  # Added to LDFLAGS as -l$(PYTHON_LIBRARY) for certain targets.
+  PYTHON_LIBRARY := $(PYTHON_VERSION)
+endif
+
 
 # Compiler flags
+# ==============
 CFLAGS   += -I$(ROOT_DIR)/src -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH) \
             -I$(BOOST_HOME)/include -I$(PYTHON_INCLUDE_PATH)
 LDFLAGS  += -L $(LLVM_LIBRARY_PATH) -L $(PYTHON_LIBRARY_PATH) -L $(BOOST_HOME)/lib \

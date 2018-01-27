@@ -6,9 +6,10 @@
 LDFLAGS += -L $(OBJECT_ROOT)/sprite -lsprite -l$(PYTHON_LIBRARY) -lboost_python
 
 # In this Python library, each subdirectory is a submodule that creates exactly
-# one .so file.
-THIS_DIR = $(notdir $(basename $(shell pwd)))
-ifneq ($(THIS_DIR),python)
+# one .so file.  Subdirectories that do not require an .so should say "SHLIB
+# :=" in their Makefile.
+ifeq ($(origin SHLIB), undefined)
+  THIS_DIR = $(notdir $(basename $(shell pwd)))
   SHLIB = _$(THIS_DIR)
   SHLIB_DEPENDS = $$(OBJS_OUT)
   SHLIB_EXTRA_DEPENDS = $(OBJECT_ROOT)/sprite/libsprite.so
