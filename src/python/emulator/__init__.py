@@ -36,10 +36,14 @@ class Emulator(object):
   def __new__(cls):
     self = object.__new__(cls)
     self.modules = {}
+    self.__prelude = None
     return self
 
-  def __init__(self):
-    self._prelude = self.import_(Prelude)
+  @property
+  def prelude(self):
+    if self.__prelude is None:
+      self.__prelude = self.import_(Prelude)
+    return self.__prelude
 
   # Importing.
   # ==========
@@ -87,7 +91,8 @@ class Emulator(object):
   @__compile_impl.when(IConstructor)
   def __compile_impl(self, icons, emmodule):
     info = InfoTable(
-        icons.ident.basename, icons.arity, evaluator.ctor_step
+        icons.ident.basename, icons.arity
+      , evaluator.ctor_step if icons.step is None else icons.step
       , Show(icons.format)
       )
     setattr(emmodule, icons.ident.basename, TypeInfo(info))
@@ -110,14 +115,14 @@ class Emulator(object):
   @expr.when(numbers.Integral)
   def expr(self, arg, *args):
     args = (int(arg),) + args
-    self._prelude.Int._check_call(args)
-    return Node(self._prelude.Int.info, args)
+    self.prelude.Int._check_call(args)
+    return Node(self.prelude.Int.info, args)
 
   @expr.when(numbers.Real)
   def expr(self, arg, *args):
     args = (float(arg),) + args
-    self._prelude.Float._check_call(args)
-    return Node(self._prelude.Float.info, args)
+    self.prelude.Float._check_call(args)
+    return Node(self.prelude.Float.info, args)
 
   @expr.when(TypeInfo)
   def expr(self, info, *args):
@@ -130,5 +135,10 @@ class Emulator(object):
   # Evaluating.
   # ===========
   def eval(self, goal, sink=print):
-    evaluator.Evaluator(goal, sink).run()
+    evaluator.Evaluator(self, goal, sink).run()
+
+  # Queries.
+  # ========
+  def is_choice(self, node):
+    return node.info is self.prelude.Choice.info
 

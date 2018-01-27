@@ -132,11 +132,12 @@ class IType(tuple, _Base):
       )
 
 class IConstructor(_Base):
-  def __init__(self, ident, arity, format=None):
+  def __init__(self, ident, arity, format=None, step=None):
     assert arity >= 0
     self.ident = IName(ident)
     self.arity = int(arity)
     self.format = format
+    self.step = step
   def setmodule(self, modname):
     self.ident = self.ident.setmodule(modname)
     return self

@@ -21,14 +21,17 @@ class TypeInfo(object):
 
 class Node(object):
   '''An expression node.'''
-  def __new__(cls, info, args):
+  def __new__(cls, info, successors):
     self = object.__new__(cls)
-    self.info = info
-    self.args = list(args)
+    self.replace(info, successors)
     return self
 
+  def replace(self, info, successors):
+    self.info = info
+    self.successors = list(successors)
+
   def __eq__(self, rhs):
-    return self.info == rhs.info and self.args == rhs.args
+    return self.info == rhs.info and self.successors == rhs.successors
 
   def __ne__(self, rhs):
     return not (self == rhs)
@@ -37,5 +40,5 @@ class Node(object):
     return self.info.show(self)
 
   def __repr__(self):
-    return '<%s %s>' % (self.info.name, self.args)
+    return '<%s %s>' % (self.info.name, self.successors)
 

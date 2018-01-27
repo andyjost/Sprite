@@ -9,13 +9,13 @@ class Show(object):
   def __init__(self, format=None):
     self.format = getattr(format, 'format', None) # i.e., str.format.
 
-  @dispatch.on('arg')
-  def __call__(self, arg):
+  @dispatch.on('expr')
+  def __call__(self, expr):
     '''
     Main entry point.  Applies type-specific formatting after recursing to
     subexpressions.
     '''
-    return str(arg)
+    return str(expr)
 
   @__call__.when(Node)
   def __call__(self, node):
@@ -29,18 +29,18 @@ class Show(object):
   @staticmethod
   def generate(node, xform):
     yield node.info.name
-    for arg in node.args:
-      yield xform(arg)
+    for expr in node.successors:
+      yield xform(expr)
 
-  @dispatch.on('arg')
-  def _recurse_(self, arg):
+  @dispatch.on('expr')
+  def _recurse_(self, expr):
     '''Recursively application.  Parenthesizes subexpressions.'''
-    return str(arg)
+    return str(expr)
 
   @_recurse_.when(Node)
   def _recurse_(self, node):
     show = node.info.show
-    if len(node.args) > 1:
+    if len(node.successors) > 1:
       return '(%s)' % show(node)
     else:
       return show(node)
