@@ -2,6 +2,7 @@ from curry.compiler.emulation import Emulator
 from curry.compiler import icurry
 from curry.compiler.visitation import dispatch
 import cytest
+from cStringIO import StringIO
 
 SRCS = ['data/json/1.json']
 
@@ -47,31 +48,58 @@ class TestEmulation(cytest.TestCase):
     self.assertFalse(set('A B f f_case_#1 g main'.split()) - set(dir(example)))
     self.assertIs(em.modules['example'], example)
 
-  def testBuildExpr(self):
+  def testExpr(self):
+    '''Use Emulator.expr to build expressions.'''
     em = Emulator()
-    one = em.build(1)
+
+    # Int.
+    one = em.expr(1)
     self.assertEqual(repr(one), '<Int [1]>')
     self.assertEqual(str(one), '1')
 
-    pi = em.build(3.14)
+    # Float.
+    pi = em.expr(3.14)
     self.assertEqual(repr(pi), '<Float [3.14]>')
     self.assertEqual(str(pi), '3.14')
 
+    # Node.
     example = em.import_(self.ICURRY[0])[0]
-    A = em.build(example.A)
+    A = em.expr(example.A)
     self.assertEqual(repr(A), '<A ()>')
     self.assertEqual(str(A), 'A')
 
+    # Nodes with nonzero arity.
     mylist = em.import_(self.MYLIST)
-    nil = em.build(mylist.Nil)
+    nil = em.expr(mylist.Nil)
     self.assertEqual(repr(nil), '<Nil ()>')
     self.assertEqual(str(nil), '[]')
     #
-    cons = em.build(mylist.Cons, 1, mylist.Nil)
+    cons = em.expr(mylist.Cons, 1, mylist.Nil)
     self.assertEqual(repr(cons), '<Cons (<Int [1]>, <Nil ()>)>')
     self.assertEqual(str(cons), '[1]')
     #
-    cons = em.build(mylist.Cons, 0, cons)
+    cons = em.expr(mylist.Cons, 0, cons)
     self.assertEqual(str(cons), '[0, 1]')
 
+    # Nested data specifications.
+    list2 = em.expr(mylist.Cons, 0, [mylist.Cons, 1, mylist.Nil])
+    self.assertEqual(cons, list2)
+    list3 = em.expr(mylist.Cons, 1, [mylist.Cons, 2, mylist.Nil])
+    self.assertNotEqual(list2, list3)
+
+
+  def testEvalValues(self):
+    '''Evaluate simple goals that are already values.'''
+    em = Emulator()
+    l = em.import_(self.MYLIST)
+    TESTS = [
+        [1, '1\n']
+      , [2.0, '2.0\n']
+      , [[l.Cons, 0, [l.Cons, 1, l.Nil]], '[0, 1]\n']
+      ]
+    for value, result in TESTS:
+      stream = StringIO()
+      goal = em.expr(value)
+      em.eval(goal, stream.write)
+      self.assertEqual(stream.getvalue(), result)
 

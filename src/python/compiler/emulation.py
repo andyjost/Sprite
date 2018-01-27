@@ -2,6 +2,7 @@
 A pure-Python Curry emulator.
 '''
 
+from __future__ import print_function
 from .icurry import *
 from .visitation import dispatch
 import collections
@@ -19,7 +20,7 @@ logging.basicConfig(
 # Type Info.
 # ==========
 # Run-time type info.
-InfoTable = collections.namedtuple('InfoTable', ['name', 'arity', 'show'])
+InfoTable = collections.namedtuple('InfoTable', ['name', 'arity', 'step', 'show'])
 
 class TypeInfo(object):
   '''Compile-time type info.'''
@@ -46,6 +47,12 @@ class Node(object):
     self.info = info
     self.args = args
     return self
+
+  def __eq__(self, rhs):
+    return self.info == rhs.info and self.args == rhs.args
+
+  def __ne__(self, rhs):
+    return not (self == rhs)
 
   def __str__(self):
     return self.info.show(self)
@@ -111,7 +118,7 @@ class Emulator(object):
 
   @__compile_impl.when(IConstructor)
   def __compile_impl(self, icons, emmodule):
-    info = InfoTable(icons.ident.basename, icons.arity, Show(icons.format))
+    info = InfoTable(icons.ident.basename, icons.arity, ctor_step, Show(icons.format))
     setattr(emmodule, icons.ident.basename, TypeInfo(info))
 
   @__compile_impl.when(IFunction)
@@ -121,26 +128,77 @@ class Emulator(object):
   # Expression building.
   # ====================
   @dispatch.on('arg')
-  def build(self, arg, *args):
+  def expr(self, arg, *args):
     raise RuntimeError('unhandled argument type')
 
-  @build.when(numbers.Integral)
-  def build(self, arg, *args):
+  @expr.when(collections.Sequence)
+  def expr(self, arg):
+    # Supports nested structures, e.g., Cons 0 [Cons 1 Nil].
+    return self.expr(*arg)
+
+  @expr.when(numbers.Integral)
+  def expr(self, arg, *args):
     ti_int._check_call(args)
     return Node(ti_int.info, [int(arg)])
 
-  @build.when(numbers.Real)
-  def build(self, arg, *args):
+  @expr.when(numbers.Real)
+  def expr(self, arg, *args):
     ti_float._check_call(args)
     return Node(ti_float.info, [float(arg)])
 
-  @build.when(TypeInfo)
-  def build(self, info, *args):
-    return info(*map(self.build, args))
+  @expr.when(TypeInfo)
+  def expr(self, info, *args):
+    return info(*map(self.expr, args))
 
-  @build.when(Node)
-  def build(self, node):
+  @expr.when(Node)
+  def expr(self, node):
     return node
+
+  # Evaluating.
+  # ===========
+  def eval(self, goal, sink=print):
+    Evaluator(goal, sink).run()
+
+
+# Emulator runtime.
+# =================
+class RewriteStepTaken(Exception):
+  '''
+  Raised after a rewrite step is taken.  Used to return control to the main
+  evaluator loop.
+  '''
+  pass
+
+class Evaluator(object):
+  def __new__(cls, goal, sink):
+    self = object.__new__(cls)
+    self.sink = sink
+    self.queue = [goal]
+    return self
+
+  def run(self):
+    while self.queue:
+      expr = self.queue.pop(0)
+      try:
+        is_value = expr.info.step(expr, NORMALIZE, self.sink)
+        if is_value:
+          self.sink(str(expr))
+          self.sink('\n')
+        # TODO: choice handled here?
+        # else expr is a failure, so discard it.
+      except RewriteStepTaken:
+        self.queue.append(expr)
+
+NORMALIZE = 0
+HEADNORMALIZE = 1
+
+def ctor_step(node, mode, sink):
+  return all(
+      arg.info.step(arg, mode, sink)
+          for arg in node.args
+          if isinstance(arg, Node)
+    )
+
 
 # Misc.
 # =====
@@ -185,6 +243,6 @@ class Show(object):
 
 # Built-in types.
 # ===============
-ti_int = TypeInfo(InfoTable('Int', 0, Show(format='{1}')))
-ti_float = TypeInfo(InfoTable('Float', 0, Show(format='{1}')))
+ti_int = TypeInfo(InfoTable('Int', 0, ctor_step, Show(format='{1}')))
+ti_float = TypeInfo(InfoTable('Float', 0, ctor_step, Show(format='{1}')))
 
