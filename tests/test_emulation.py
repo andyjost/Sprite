@@ -42,7 +42,7 @@ class TestEmulation(cytest.TestCase):
     icur = self.ICURRY[0]
     em = Emulator()
     imported = em.import_(icur)
-    self.assertEqual(em.modules.keys(), ['example'])
+    self.assertEqual(sorted(em.modules.keys()), ['Prelude', 'example'])
     self.assertEqual(len(imported), 1)
     example = imported[0]
     self.assertFalse(set('A B f f_case_#1 g main'.split()) - set(dir(example)))
@@ -65,17 +65,17 @@ class TestEmulation(cytest.TestCase):
     # Node.
     example = em.import_(self.ICURRY[0])[0]
     A = em.expr(example.A)
-    self.assertEqual(repr(A), '<A ()>')
+    self.assertEqual(repr(A), '<A []>')
     self.assertEqual(str(A), 'A')
 
     # Nodes with nonzero arity.
     mylist = em.import_(self.MYLIST)
     nil = em.expr(mylist.Nil)
-    self.assertEqual(repr(nil), '<Nil ()>')
+    self.assertEqual(repr(nil), '<Nil []>')
     self.assertEqual(str(nil), '[]')
     #
     cons = em.expr(mylist.Cons, 1, mylist.Nil)
-    self.assertEqual(repr(cons), '<Cons (<Int [1]>, <Nil ()>)>')
+    self.assertEqual(repr(cons), '<Cons [<Int [1]>, <Nil []>]>')
     self.assertEqual(str(cons), '[1]')
     #
     cons = em.expr(mylist.Cons, 0, cons)
@@ -91,11 +91,11 @@ class TestEmulation(cytest.TestCase):
   def testEvalValues(self):
     '''Evaluate simple goals that are already values.'''
     em = Emulator()
-    l = em.import_(self.MYLIST)
+    L = em.import_(self.MYLIST)
     TESTS = [
         [1, '1\n']
       , [2.0, '2.0\n']
-      , [[l.Cons, 0, [l.Cons, 1, l.Nil]], '[0, 1]\n']
+      , [[L.Cons, 0, [L.Cons, 1, L.Nil]], '[0, 1]\n']
       ]
     for value, result in TESTS:
       stream = StringIO()
@@ -106,7 +106,8 @@ class TestEmulation(cytest.TestCase):
   # def testBuildChoice(self):
   #   '''Build and evaluate simple expressions involving the choice operator.'''
   #   em = Emulator()
-  #   PL = em.import_(Prelude)
-  #   a = em.expr(PL.Choice, 1, 2)
+  #   P = em.import_(Prelude)
+  #   breakpoint()
+  #   a = em.expr(P.Choice, 1, 2)
 
 
