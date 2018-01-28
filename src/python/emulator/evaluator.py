@@ -3,55 +3,46 @@ from .node import Node
 NORMALIZE = 0
 HEADNORMALIZE = 1
 
-class RewriteStepTaken(Exception):
-  '''
-  Raised after a rewrite step is taken.  Used to return control to the main
-  evaluator loop.
-  '''
-  pass
-
-class UnhandledChoice(Exception):
-  '''Raised when a choice is encountered.  The parent must handle it.'''
-  pass
-
 class Evaluator(object):
-  def __new__(cls, emulator, goal, sink):
+  def __new__(cls, emulator, goal):
     self = object.__new__(cls)
     self.emulator = emulator
-    self.sink = sink
     self.queue = [goal]
     return self
 
   def run(self):
     while self.queue:
       expr = self.queue.pop(0)
-      try:
-        is_value = expr.info.step(expr, self.emulator, NORMALIZE, self.sink)
-        if is_value:
-          self.sink(str(expr))
-          self.sink('\n')
-        # else expr is a failure, so discard it.
-      except UnhandledChoice:
-        assert self.emulator.is_choice(expr)
+      is_value = False
+      if not isinstance(expr, Node):
+        is_value = True
+      elif self.emulator.is_choice(expr):
         self.queue += expr.successors
-      except RewriteStepTaken:
+        continue
+      elif self.emulator.is_failure(expr):
+        continue
+      else:
+        is_value = expr.info.step(expr, self.emulator, NORMALIZE)
+      if is_value:
+        yield expr
+      else:
         self.queue.append(expr)
 
-def ctor_step(ctor, emulator, mode, sink):
+def ctor_step(ctor, emulator, mode):
   '''Step function for constructors.'''
-  args = iter(enumerate(expr for expr in ctor.successors if isinstance(expr, Node)))
-  try:
-    return all(expr.info.step(expr, emulator, mode, sink) for _,expr in args)
-  except UnhandledChoice:
-    i,_ = next(args, (0,None))
-    # expr = ctor.successors[i-1]
-    # assert emulator.is_choice(expr)
-    pull_tab(ctor, [i])
-    raise RewriteStepTaken()
-
-def choice_step(choice, *args, **kwds):
-  assert choice.info.name == 'Choice'
-  raise UnhandledChoice()
+  is_value = True
+  for i,expr in enumerate(ctor.successors):
+    if not isinstance(expr, Node):
+      continue
+    if emulator.is_choice(expr):
+      pull_tab(ctor, [i])
+      return False
+    elif emulator.is_failure(expr):
+      ctor.rewrite(emulator.prelude.Failure)
+      return False
+    else:
+      is_value = is_value and expr.info.step(expr, emulator, mode)
+  return is_value
 
 def pull_tab(source, targetpath):
   '''
@@ -80,6 +71,4 @@ def pull_tab(source, targetpath):
   rhs = Node(source.info, rsucc)
   #
   source.replace(target.info, [lhs, rhs])
-
-
 

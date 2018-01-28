@@ -40,8 +40,6 @@ class Show(object):
   @_recurse_.when(Node)
   def _recurse_(self, node):
     show = node.info.show
-    if len(node.successors) > 1:
-      return '(%s)' % show(node)
-    else:
-      return show(node)
+    s = show(node)
+    return '(%s)' % s if ' ' in s else s
 

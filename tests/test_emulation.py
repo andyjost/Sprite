@@ -2,7 +2,6 @@ from curry.emulator import Emulator, Prelude
 from curry.compiler import icurry
 from curry.visitation import dispatch
 import cytest
-from cStringIO import StringIO
 
 SRCS = ['data/json/1.json']
 
@@ -99,37 +98,22 @@ class TestEmulation(cytest.TestCase):
 
 
   def testEvalValues(self):
-    '''Evaluate simple goals that are already values.'''
+    '''Evaluate constructor goals.'''
     em = Emulator()
     L = em.import_(self.MYLIST)
-    TESTS = [
-        [1, '1\n']
-      , [2.0, '2.0\n']
-      , [[L.Cons, 0, [L.Cons, 1, L.Nil]], '[0, 1]\n']
-      ]
-    for value, result in TESTS:
-      stream = StringIO()
-      goal = em.expr(value)
-      em.eval(goal, stream.write)
-      self.assertEqual(stream.getvalue(), result)
-
-  def testBuildChoice(self):
-    '''Build and evaluate simple expressions involving the choice operator.'''
-    em = Emulator()
-    X = em.import_(self.X).X
+    X = em.import_(self.X)
     P = em.import_(Prelude)
-
-    # 1 ? 2
-    one_or_two = em.expr(P.Choice, 1, 2)
-    self.assertEqual(str(one_or_two), '1 ? 2')
-    stream = StringIO()
-    em.eval(one_or_two, stream.write)
-    self.assertEqual(sorted(stream.getvalue().split()), ['1','2'])
-
-    # X (1 ? 2)
-    goal = em.expr(X, [P.Choice, 1, 2])
-    stream = StringIO()
-    em.eval(goal, stream.write)
-    results = sorted(x for x in stream.getvalue().split('\n') if x)
-    self.assertEqual(results, ['X 1', 'X 2'])
-
+    TESTS = [
+        [1, ['1']]
+      , [2.0, ['2.0']]
+      , [[L.Cons, 0, [L.Cons, 1, L.Nil]], ['[0, 1]']]
+      , [[P.Choice, 1, 2], ['1', '2']]
+      , [[X.X, [P.Choice, 1, 2]], ['X 1', 'X 2']]
+      , [[X.X, [P.Choice, 1, [X.X, [P.Choice, 2, [P.Choice, 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
+      , [P.Failure, []]
+      , [[P.Choice, P.Failure, 0], ['0']]
+      ]
+    for value, expected in TESTS:
+      goal = em.expr(value)
+      result = map(str, em.eval(goal))
+      self.assertEqual(set(result), set(expected))

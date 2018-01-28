@@ -2,7 +2,6 @@
 A pure-Python Curry emulator.
 '''
 
-from __future__ import print_function
 from ..compiler.icurry import *
 from . import evaluator
 from . import prelude
@@ -23,6 +22,9 @@ logging.basicConfig(
   , format='%(asctime)s [%(levelname)s] %(message)s'
   , datefmt='%m/%d/%Y %H:%M:%S'
   )
+
+def _unreachable(*args, **kwds):
+  raise RuntimeError('Unreachable')
 
 # Emulation.
 # ==========
@@ -92,7 +94,7 @@ class Emulator(object):
   def __compile_impl(self, icons, emmodule):
     info = InfoTable(
         icons.ident.basename, icons.arity
-      , evaluator.ctor_step if icons.step is None else icons.step
+      , _unreachable if icons.noexec else evaluator.ctor_step
       , Show(icons.format)
       )
     setattr(emmodule, icons.ident.basename, TypeInfo(info))
@@ -134,11 +136,14 @@ class Emulator(object):
 
   # Evaluating.
   # ===========
-  def eval(self, goal, sink=print):
-    evaluator.Evaluator(self, goal, sink).run()
+  def eval(self, goal):
+    return evaluator.Evaluator(self, goal).run()
 
   # Queries.
   # ========
   def is_choice(self, node):
     return node.info is self.prelude.Choice.info
+
+  def is_failure(self, node):
+    return node.info is self.prelude.Failure.info
 
