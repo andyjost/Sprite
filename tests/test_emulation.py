@@ -51,7 +51,7 @@ class TestEmulation(cytest.TestCase):
     icur = self.ICURRY[0]
     em = Emulator()
     imported = em.import_(icur)
-    self.assertEqual(sorted(em.modules.keys()), ['example'])
+    self.assertEqual(set(em.modules.keys()), set(['example', 'Prelude']))
     self.assertEqual(len(imported), 1)
     example = imported[0]
     self.assertFalse(set('A B f f_case_#1 g main'.split()) - set(dir(example)))
@@ -117,3 +117,14 @@ class TestEmulation(cytest.TestCase):
       goal = em.expr(value)
       result = map(str, em.eval(goal))
       self.assertEqual(set(result), set(expected))
+
+# def g(root):
+#   _1 = lhs[1]
+#   if _1.info.tag == 0:
+#     return Node(negate, 1)
+#   elif _1.info.tag == 1:
+#     _2 = _1[1]
+#     return _2
+#   return _1
+# 
+# ['def g(root):', ['_1 = lhs[1]', 'if _1.info.tag == 0:', ['return Node(negate, 1)'], 'elif _1.info.tag == 1:', ['_2 = _1[1]', 'return _2'], 'return _1']]

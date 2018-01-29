@@ -1,10 +1,25 @@
-import collections
+class InfoTable(object):
+  '''The runtime data stored in the ``info`` slot of every node.'''
+  __slots__ = ['name', 'arity', 'step', 'show']
+  def __init__(self, name, arity, step, show):
+    self.name = name
+    self.arity = arity
+    self.step = step
+    self.show = show
 
-InfoTable = collections.namedtuple('InfoTable', ['name', 'arity', 'step', 'show'])
+  def __repr__(self):
+    return ''.join([
+        'InfoTable('
+      , ', '.join('%s=%s' % (
+            slot, getattr(self, slot)) for slot in self.__slots__
+          )
+      , ')'
+      ])
 
 class TypeInfo(object):
   '''Compile-time type info.'''
-  def __init__(self, info):
+  def __init__(self, ident, info):
+    self.ident = ident
     self.info = info
 
   def _check_call(self, args):
@@ -19,6 +34,10 @@ class TypeInfo(object):
     self._check_call(args)
     return Node(self.info, args)
 
+  def __str__(self):
+    return 'TypeInfo for %s' % self.ident
+
+ 
 class Node(object):
   '''An expression node.'''
   def __new__(cls, info, successors=[]):
@@ -29,6 +48,9 @@ class Node(object):
   def replace(self, info, successors=[]):
     self.info = info
     self.successors = list(successors)
+
+  def __getitem__(self, i):
+    return self.successors[i]
 
   def __eq__(self, rhs):
     return self.info == rhs.info and self.successors == rhs.successors

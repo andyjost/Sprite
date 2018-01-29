@@ -23,9 +23,9 @@ logging.basicConfig(
   , datefmt='%m/%d/%Y %H:%M:%S'
   )
 
-def _unreachable(*args, **kwds):
-  raise RuntimeError('Unreachable')
-
+class SymbolLookupError(AttributeError):
+  pass
+  
 # Emulation.
 # ==========
 class Emulator(object):
@@ -38,14 +38,8 @@ class Emulator(object):
   def __new__(cls):
     self = object.__new__(cls)
     self.modules = {}
-    self.__prelude = None
+    self.prelude = self.import_(Prelude)
     return self
-
-  @property
-  def prelude(self):
-    if self.__prelude is None:
-      self.__prelude = self.import_(Prelude)
-    return self.__prelude
 
   # Importing.
   # ==========
@@ -60,48 +54,78 @@ class Emulator(object):
   @import_.when(IModule)
   def import_(self, imodule):
     if imodule.name not in self.modules:
-      self.modules[imodule.name] = self.compile(imodule)
+      moduleobj = types.ModuleType(imodule.name)
+      self.modules[imodule.name] = moduleobj
+      self._loadsymbols(imodule, moduleobj)
+      self._compile(imodule, moduleobj)
     return self.modules[imodule.name]
 
-  # Compiling.
-  # ============
-  def compile(self, imodule):
-    assert isinstance(imodule, IModule)
-    emmodule = types.ModuleType(imodule.name)
-    return self.__compile_impl(imodule, emmodule)
+  # Loading Symbols.
+  # ================
+  @dispatch.on('idef')
+  def _loadsymbols(self, idef, moduleobj):
+    '''
+    Load symbols (i.e., constructor and functions names) from the ICurry
+    definition ``idef`` into module ``moduleobj``.
+    '''
+    raise RuntimeError("unhandled ICurry type during symbol loading: '%s'" % type(idef))
 
-  @dispatch.on('node')
-  def __compile_impl(self, node, emmodule):
-    raise RuntimeError('unhandled node type')
+  @_loadsymbols.when(collections.Sequence)
+  def _loadsymbols(self, seq, *args, **kwds):
+    for item in seq:
+      self._loadsymbols(item, *args, **kwds)
 
-  @__compile_impl.when(collections.Sequence)
-  def __compile_impl(self, seq, *args, **kwds):
-    return [self.__compile_impl(item, *args, **kwds) for item in seq]
+  @_loadsymbols.when(collections.Mapping)
+  def _loadsymbols(self, mapping, *args, **kwds):
+    for item in mapping.itervalues():
+     self._loadsymbols(item, *args, **kwds)
 
-  @__compile_impl.when(collections.Mapping)
-  def __compile_impl(self, mapping, *args, **kwds):
-    return OrderedDict([
-        (k, self.__compile_impl(v, *args, **kwds)) for k,v in mapping.iteritems()
-      ])
+  @_loadsymbols.when(IModule)
+  def _loadsymbols(self, imodule, moduleobj):
+    # TODO: imports
+    self._loadsymbols(imodule.types, moduleobj)
+    self._loadsymbols(imodule.functions, moduleobj)
 
-  @__compile_impl.when(IModule)
-  def __compile_impl(self, imodule, emmodule):
-    self.__compile_impl(imodule.types, emmodule)
-    self.__compile_impl(imodule.functions, emmodule)
-    return emmodule
-
-  @__compile_impl.when(IConstructor)
-  def __compile_impl(self, icons, emmodule):
+  @_loadsymbols.when(IConstructor)
+  def _loadsymbols(self, icons, moduleobj):
     info = InfoTable(
-        icons.ident.basename, icons.arity
+        icons.ident.basename
+      , icons.arity
       , _unreachable if icons.noexec else evaluator.ctor_step
       , Show(icons.format)
       )
-    setattr(emmodule, icons.ident.basename, TypeInfo(info))
+    setattr(moduleobj, icons.ident.basename, TypeInfo(icons.ident, info))
 
-  @__compile_impl.when(IFunction)
-  def __compile_impl(self, ifun, emmodule):
-    setattr(emmodule, ifun.ident.basename, ifun) # FIXME: put an impl, not ICurry, here.
+  @_loadsymbols.when(IFunction)
+  def _loadsymbols(self, ifun, moduleobj):
+    info = InfoTable(ifun.ident.basename, ifun.arity, None, Show('{0}'))
+    setattr(moduleobj, ifun.ident.basename, TypeInfo(ifun.ident, info))
+
+  # Compiling.
+  # ==========
+  @dispatch.on('idef')
+  def _compile(self, idef, moduleobj):
+    '''Compile the ICurry definitions from ``idef`` into module ``moduleobj``'''
+    raise RuntimeError("unhandled ICurry type during compilation: '%s'" % type(idef))
+
+  @_compile.when(collections.Sequence)
+  def _compile(self, seq, *args, **kwds):
+    for item in seq:
+      self._compile(item, *args, **kwds)
+
+  @_compile.when(collections.Mapping)
+  def _compile(self, mapping, *args, **kwds):
+    for item in mapping.itervalues():
+     self._compile(item, *args, **kwds)
+
+  @_compile.when(IModule)
+  def _compile(self, imodule, moduleobj):
+    self._compile(imodule.functions, moduleobj)
+
+  @_compile.when(IFunction)
+  def _compile(self, ifun, moduleobj):
+    info = getattr(moduleobj, ifun.ident.basename).info
+    info.step = evaluator.compile_function(self, ifun)
 
   # Expression building.
   # ====================
@@ -134,6 +158,26 @@ class Emulator(object):
   def expr(self, node):
     return node
 
+  # Symbol lookup.
+  # ==============
+  @dispatch.on('key')
+  def __getitem__(self, key):
+    return self[IName(key)]
+
+  @__getitem__.when(IName)
+  def __getitem__(self, iname):
+    try:
+      module = self.modules[iname.module]
+    except KeyError:
+      raise SymbolLookupError("module '%s' not found" % iname.module)
+
+    try:
+      return getattr(module, iname.basename)
+    except AttributeError:
+      raise SymbolLookupError(
+          "module '%s' has no symbol '%s'" % (iname.module, iname.basename)
+        )
+
   # Evaluating.
   # ===========
   def eval(self, goal):
@@ -146,4 +190,9 @@ class Emulator(object):
 
   def is_failure(self, node):
     return node.info is self.prelude.Failure.info
+
+# Misc.
+# =====
+def _unreachable(*args, **kwds):
+  raise RuntimeError('Unreachable')
 
