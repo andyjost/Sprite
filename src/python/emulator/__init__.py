@@ -2,23 +2,29 @@
 A pure-Python Curry emulator.
 '''
 
+from .function_compiler import compile_function
 from ..compiler.icurry import *
 from . import evaluator
 from . import prelude
-from .node import InfoTable, TypeInfo, Node
+from .node import InfoTable, TypeInfo, Node, T_FAIL, T_FUNC, T_CHOICE, T_CTOR
 from .show import Show
 from ..visitation import dispatch
 import collections
 import logging
 import numbers
+import os
 import types
 
 # For export.
 Prelude = prelude.Prelude
 
+# Logging setup.
+# ==============
 logger = logging.getLogger(__name__)
+LOG_LEVELS = {k:getattr(logging, k) for k in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']}
+DEFAULT_LOG_LEVEL = 'INFO'
 logging.basicConfig(
-    level=logging.DEBUG
+    level=LOG_LEVELS[os.environ.get('SPRITE_LOG_LEVEL', DEFAULT_LOG_LEVEL).upper()]
   , format='%(asctime)s [%(levelname)s] %(message)s'
   , datefmt='%m/%d/%Y %H:%M:%S'
   )
@@ -88,17 +94,23 @@ class Emulator(object):
 
   @_loadsymbols.when(IConstructor)
   def _loadsymbols(self, icons, moduleobj):
+    # The emulator uses the metadata slot to identify built-in nodes.  If set,
+    # it contains the tag (T_FAIL or T_CHOICE).
+    not_builtin = icons.metadata is None
     info = InfoTable(
         icons.ident.basename
       , icons.arity
-      , _unreachable if icons.noexec else evaluator.ctor_step
+      , T_CTOR + icons.index if not_builtin else icons.metadata
+      , evaluator.ctor_step if not_builtin else _unreachable
       , Show(icons.format)
       )
     setattr(moduleobj, icons.ident.basename, TypeInfo(icons.ident, info))
 
   @_loadsymbols.when(IFunction)
   def _loadsymbols(self, ifun, moduleobj):
-    info = InfoTable(ifun.ident.basename, ifun.arity, None, Show('{0}'))
+    info = InfoTable(
+        ifun.ident.basename, ifun.arity, T_FUNC, None, Show('{0}')
+      )
     setattr(moduleobj, ifun.ident.basename, TypeInfo(ifun.ident, info))
 
   # Compiling.
@@ -125,7 +137,7 @@ class Emulator(object):
   @_compile.when(IFunction)
   def _compile(self, ifun, moduleobj):
     info = getattr(moduleobj, ifun.ident.basename).info
-    info.step = evaluator.compile_function(self, ifun)
+    info.step = compile_function(self, ifun)
 
   # Expression building.
   # ====================

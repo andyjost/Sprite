@@ -1,24 +1,33 @@
 from abc import ABCMeta
-from collections import Mapping, namedtuple, OrderedDict
+from collections import Mapping, namedtuple, OrderedDict, Sequence
 import json
+import weakref
 
 class _Base(object):
   # Make objects comparable by their contents.
   def __eq__(lhs, rhs):
     if rhs is None:
       return False
-    return type(lhs) == type(rhs) and lhs.__dict__ == rhs.__dict__
+    if type(lhs) != type(rhs):
+      return False
+
+    # Compare dicts, ignoring parents.
+    d_lhs = {k:v for k,v in lhs.__dict__.iteritems() if k != 'parent'}
+    d_rhs = {k:v for k,v in rhs.__dict__.iteritems() if k != 'parent'}
+    return d_lhs == d_rhs
 
   def __ne__(lhs, rhs):
     return not (lhs == rhs)
 
   @classmethod
-  def construct(cls, x, modname=None):
-    result = x if isinstance(x, cls) else cls(*x)
-    return result.setmodule(modname)
+  def construct(cls, arg, parent):
+    '''Construct an object of the specified type and specify its parent.'''
+    obj = arg if isinstance(arg, cls) else cls(*arg)
+    return obj.setparent(parent)
+
 
 class IName(str):
-  def __new__(cls, arg1, arg2=None, modname=None):
+  def __new__(cls, arg1, arg2=None, modulename=None):
     if arg2 is None:
       ident = arg1
       parts = ident.split('.')
@@ -31,18 +40,19 @@ class IName(str):
     self = str.__new__(cls, ident)
     self.module = module
     self.basename = basename
-    return self.setmodule(modname)
-  def setmodule(self, modname):
-    if modname is None or self.module == modname:
+    return self.setmodule(modulename)
+
+  def setmodule(self, modulename):
+    if modulename is None or self.module == modulename:
       return self
     elif self.module is None:
-      return IName(modname, self.basename)
+      return IName(modulename, self.basename)
     else:
       raise ValueError(
-          'expected module name "%s," got "%s"' % (self.module, modname)
+          'expected module name "%s," got "%s"' % (self.module, modulename)
         )
 
-def _build_symboltable(modname, data, value_type):
+def _build_symboltable(imodule, data, value_type):
   '''
   Builds an ordered mapping from ``IName`` to ``value_type`` where
   ``value_type`` also has the name embedded.  Sets the module name for all
@@ -50,20 +60,18 @@ def _build_symboltable(modname, data, value_type):
 
   Parameters:
   -----------
-    ``modname``    The module name.
+    ``imodule``    The IModule instance that owns the symbols.
     ``data``       A mapping or sequence of pairs used to create the table.
     ``value_type`` The mapping value type.  Must be a subclass of ``_Base``.
   '''
+  construct = lambda obj: value_type.construct(obj, parent=imodule)
   if isinstance(data, Mapping):
     data = OrderedDict(
-        (IName(k, modname=modname), value_type.construct(v, modname))
+        (IName(k, modulename=imodule.name), construct(v))
             for k,v in data.items()
       )
   else:
-    data = OrderedDict(
-        (v.ident, v)
-            for v in (value_type.construct(v, modname) for v in data)
-      )
+    data = OrderedDict((v.ident, v) for v in (construct(v) for v in data))
   assert all(isinstance(v, value_type) for v in data.values())
   assert all(k == v.ident for k,v in data.items())
   return data
@@ -81,8 +89,8 @@ class IModule(_Base):
     '''
     self.name = str(name)
     self.imports = tuple(str(x) for x in imports)
-    self.types = _build_symboltable(name, types, IType)
-    self.functions = _build_symboltable(name, functions, IFunction)
+    self.types = _build_symboltable(self, types, IType)
+    self.functions = _build_symboltable(self, functions, IFunction)
   def __str__(self):
     return '\n'.join(
         [
@@ -110,39 +118,61 @@ class IModule(_Base):
         repr(self.name), repr(self.imports), repr(self.types), repr(self.functions)
       )
 
-class IType(tuple, _Base):
-  def __new__(cls, ident, constructors, format=None):
-    self = tuple.__new__(cls, [IConstructor.construct(c) for c in constructors])
+class IType(_Base, Sequence):
+  def __init__(self, ident, constructors, format=None):
     self.ident = IName(ident)
+    self.constructors = tuple(
+        arg if isinstance(arg, IConstructor) else IConstructor(*arg)
+            for arg in constructors
+      )
     self.format = format
-    return self
-  def setmodule(self, modname):
-    self.ident = self.ident.setmodule(modname)
+
+  def setparent(self, parent):
+    assert isinstance(parent, IModule)
+    self.parent = weakref.ref(parent)
+    self.ident = IName(self.ident, modulename=parent.name)
     for constructor in self.constructors:
-      constructor.setmodule(modname)
+      constructor.setparent(self)
     return self
-  @property
-  def constructors(self):
-    return self
+
+  def __iter__(self):
+    return iter(self.constructors)
+
+  def __getitem__(self, i):
+    return self.constructors[i]
+
+  def __len__(self):
+    return len(self.constructors)
+
   def __str__(self):
     return '%s = %s' % (self.ident.basename, ' | '.join(map(str, self.constructors)))
+
   def __repr__(self):
     return 'IType(ident=%s, constructors=%s, format=%s)' % (
         repr(self.ident), repr(list(self.constructors)), repr(self.format)
       )
 
 class IConstructor(_Base):
-  def __init__(self, ident, arity, format=None, noexec=False):
+  def __init__(self, ident, arity, format=None, metadata=None):
     assert arity >= 0
     self.ident = IName(ident)
     self.arity = int(arity)
     self.format = format
-    self.noexec = noexec
-  def setmodule(self, modname):
-    self.ident = self.ident.setmodule(modname)
+    self.metadata = metadata
+
+  def setparent(self, parent):
+    assert isinstance(parent, IType)
+    self.parent = weakref.ref(parent)
+    self.ident = IName(self.ident, modulename=parent.parent().name)
     return self
+
+  @property
+  def index(self):
+    return self.parent().index(self)
+
   def __str__(self):
     return self.ident.basename
+
   def __repr__(self):
     return 'IConstructor(ident=%s, arity=%d)' % (repr(self.ident), self.arity)
 
@@ -152,14 +182,19 @@ class IFunction(_Base):
     self.ident = IName(ident)
     self.arity = int(arity)
     self.code = tuple(code)
-  def setmodule(self, modname):
-    self.ident = self.ident.setmodule(modname)
+
+  def setparent(self, parent):
+    assert isinstance(parent, IModule)
+    self.parent = weakref.ref(parent)
+    self.ident = IName(self.ident, modulename=parent.name)
     return self
+
   def __str__(self):
     return '\n'.join(
         [self.ident.basename + ':']
       + ['  %s' % line for line in '\n'.join(map(str, self.code)).split('\n')]
       )
+
   def __repr__(self):
     return 'IFunction(ident=%s, arity=%d, code=%s)' % (
         repr(self.ident), self.arity, repr(self.code)

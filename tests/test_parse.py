@@ -16,7 +16,8 @@ class ParseJSON(cytest.TestCase):
     local={}
     exec 'from curry.compiler.icurry import *' in local
     icur2 = eval(repr(icur), local)
-    self.assertEqual(icur, icur2)
+    with trap():
+      self.assertEqual(icur, icur2)
 
     # Check against the golden.
     self.compareGolden(icur, 'data/json/1.au', GENERATE_GOLDENS)

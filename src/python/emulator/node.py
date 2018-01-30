@@ -1,9 +1,19 @@
+from ..visitation import dispatch
+
+# Node tag categories.
+T_FAIL   = -4
+T_FWD    = -3
+T_CHOICE = -2
+T_FUNC   = -1
+T_CTOR   =  0
+
 class InfoTable(object):
   '''The runtime data stored in the ``info`` slot of every node.'''
-  __slots__ = ['name', 'arity', 'step', 'show']
-  def __init__(self, name, arity, step, show):
+  __slots__ = ['name', 'arity', 'tag', 'step', 'show']
+  def __init__(self, name, arity, tag, step, show):
     self.name = name
     self.arity = arity
+    self.tag = tag
     self.step = step
     self.show = show
 
@@ -42,10 +52,10 @@ class Node(object):
   '''An expression node.'''
   def __new__(cls, info, successors=[]):
     self = object.__new__(cls)
-    self.replace(info, successors)
+    self.rewrite(info, successors)
     return self
 
-  def replace(self, info, successors=[]):
+  def rewrite(self, info, successors=[]):
     self.info = info
     self.successors = list(successors)
 
@@ -63,4 +73,12 @@ class Node(object):
 
   def __repr__(self):
     return '<%s %s>' % (self.info.name, self.successors)
+
+  # An alias for ``Node.rewrite``.  This gives a consistent syntax for node
+  # creation and rewriting.  For example, ``node(*args)`` creates a node and
+  # ``lhs.node(*args)`` rewrites ``lhs``.
+  node = rewrite
+
+# An alias for node creation.
+node = Node
 
