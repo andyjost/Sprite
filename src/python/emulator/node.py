@@ -1,11 +1,18 @@
 from ..visitation import dispatch
+import textwrap
 
-# Node tag categories.
 T_FAIL   = -4
 T_FWD    = -3
 T_CHOICE = -2
 T_FUNC   = -1
 T_CTOR   =  0
+
+class E_SYMBOL(BaseException):
+  '''
+  Indicates a symbol requiring exceptional handing (i.e., FAIL or CHOICE) was
+  encountered in a needed position.  
+  '''
+  pass
 
 class InfoTable(object):
   '''The runtime data stored in the ``info`` slot of every node.'''
@@ -60,7 +67,12 @@ class Node(object):
     self.successors = list(successors)
 
   def __getitem__(self, i):
-    return self.successors[i]
+    '''Get a successor, skipping over FWD nodes.'''
+    assert self.info.tag != T_FWD
+    x = self.successors[i]
+    while x.info.tag == T_FWD:
+      x = x[0] 
+    return x
 
   def __eq__(self, rhs):
     return self.info == rhs.info and self.successors == rhs.successors

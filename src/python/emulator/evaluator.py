@@ -1,7 +1,6 @@
-from .node import Node
-
-NORMALIZE = 0
-HEADNORMALIZE = 1
+from .node import Node, T_FAIL, T_CHOICE, E_SYMBOL
+from ..compiler import icurry
+from ..visitation import dispatch
 
 class Evaluator(object):
   def __new__(cls, emulator, goal):
@@ -15,34 +14,45 @@ class Evaluator(object):
       expr = self.queue.pop(0)
       is_value = False
       if not isinstance(expr, Node):
-        is_value = True
-      elif self.emulator.is_choice(expr):
+        yield expr
+      elif expr.info.tag == T_CHOICE:
         self.queue += expr.successors
         continue
-      elif self.emulator.is_failure(expr):
-        continue
+      elif expr.info.tag == T_FAIL:
+        continue # discard
       else:
-        is_value = expr.info.step(expr, self.emulator, NORMALIZE)
-      if is_value:
-        yield expr
-      else:
-        self.queue.append(expr)
+        try:
+          is_value = expr.info.step(expr)
+        except E_SYMBOL:
+          self.queue.append(expr)
+        else:
+          if is_value:
+            yield expr
+          else:
+            self.queue.append(expr)
 
-def ctor_step(ctor, emulator, mode):
-  '''Step function for constructors.'''
-  is_value = True
-  for i,expr in enumerate(ctor.successors):
-    if not isinstance(expr, Node):
-      continue
-    if emulator.is_choice(expr):
-      pull_tab(ctor, [i])
-      return False
-    elif emulator.is_failure(expr):
-      ctor.rewrite(emulator.prelude.Failure)
-      return False
-    else:
-      is_value = is_value and expr.info.step(expr, emulator, mode)
-  return is_value
+def ctor_step(emulator):
+  def step_function(ctor):
+    '''
+    Step function for constructors.  Corresponds to applying the Fair Scheme N
+    procedure.
+    '''
+    is_value = True
+    for i,expr in enumerate(ctor.successors):
+      if not isinstance(expr, Node):
+        assert isinstance(expr, icurry.BuiltinVariant)
+        continue
+      tag = expr.info.tag
+      if tag == T_CHOICE:
+        pull_tab(ctor, [i])
+        return False
+      elif tag == T_FAIL:
+        ctor.rewrite(emulator.ti_Failure)
+        return False
+      else:
+        is_value = is_value and expr.info.step(expr)
+    return is_value
+  return step_function
 
 def pull_tab(source, targetpath):
   '''
@@ -72,7 +82,28 @@ def pull_tab(source, targetpath):
   #
   source.rewrite(target.info, [lhs, rhs])
 
-def hnf(node):
-  '''Reduce a node to head-normal form.'''
-  pass
-
+def hnf(emulator):
+  def hnf(lhs, target):
+    '''
+    Attempts to reduce the target node to head-normal form.
+  
+    If a needed failure or choice symbol is encountered, the lhs is overwritten
+    with failure or via a pull-tab, respectively, and E_SYMBOL is raised.
+    '''
+    while True:
+      tag = target.info.tag
+      if tag == T_FAIL:
+        return lhs.rewrite(emulator.ti_Failure)
+        raise E_SYMBOL
+      elif tag == T_CHOICE:
+        pull_tab(lhs, target)
+        raise E_SYMBOL
+      elif tag == T_OPER:
+        try:
+          target.info.step(target)
+        except E_SYMBOL:
+          pass
+      else:
+        assert tag != T_FWD
+        return target
+  return hnf

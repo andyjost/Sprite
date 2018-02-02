@@ -113,18 +113,21 @@ class TestEmulation(cytest.TestCase):
       , [P.Failure, []]
       , [[P.Choice, P.Failure, 0], ['0']]
       ]
-    for value, expected in TESTS:
-      goal = em.expr(value)
+    for expr, expected in TESTS:
+      goal = em.expr(expr)
       result = map(str, em.eval(goal))
       self.assertEqual(set(result), set(expected))
 
-# def g(root):
-#   _1 = lhs[1]
-#   if _1.info.tag == 0:
-#     return Node(negate, 1)
-#   elif _1.info.tag == 1:
-#     _2 = _1[1]
-#     return _2
-#   return _1
-# 
-# ['def g(root):', ['_1 = lhs[1]', 'if _1.info.tag == 0:', ['return Node(negate, 1)'], 'elif _1.info.tag == 1:', ['_2 = _1[1]', 'return _2'], 'return _1']]
+
+  # def testEvaluateBuiltins(self):
+  #   em = Emulator()
+  #   P = em.import_(Prelude)
+  #   TESTS = [
+  #       [[P.negate, 1], -1]
+  #     ]
+  #   for expr, expected in TESTS:
+  #     goal = em.expr(expr)
+  #     breakpoint()
+  #     result = map(str, em.eval(goal))
+  #     self.assertEqual(set(result), set(expected))
+

@@ -40,12 +40,20 @@ class Emulator(object):
 
   Use ``import_`` to add modules to the system.  Then use ``eval`` to evaluate
   expressions.
+
+  Supported flags:
+  ----------------
+      ``debug`` (True|False)
+          Sacrifice speed to add more consistency checks.
   '''
-  def __new__(cls):
+  def __new__(cls, flags={}):
     self = object.__new__(cls)
     self.modules = {}
-    self.prelude = self.import_(Prelude)
+    self.flags = flags
     return self
+  
+  def __init__(self):
+    self.prelude = self.import_(Prelude)
 
   # Importing.
   # ==========
@@ -95,13 +103,13 @@ class Emulator(object):
   @_loadsymbols.when(IConstructor)
   def _loadsymbols(self, icons, moduleobj):
     # The emulator uses the metadata slot to identify built-in nodes.  If set,
-    # it contains the tag (T_FAIL or T_CHOICE).
+    # it contains the tag (T_FAIL, T_CHOICE or T_FWD).
     not_builtin = icons.metadata is None
     info = InfoTable(
         icons.ident.basename
       , icons.arity
       , T_CTOR + icons.index if not_builtin else icons.metadata
-      , evaluator.ctor_step if not_builtin else _unreachable
+      , evaluator.ctor_step(self) if not_builtin else _unreachable
       , Show(icons.format)
       )
     setattr(moduleobj, icons.ident.basename, TypeInfo(icons.ident, info))
@@ -197,6 +205,14 @@ class Emulator(object):
 
   # Queries.
   # ========
+  @property
+  def ti_Choice(self):
+    return self.prelude.Choice.info
+
+  @property
+  def ti_Failure(self):
+    return self.prelude.Failure.info
+  
   def is_choice(self, node):
     return node.info is self.prelude.Choice.info
 

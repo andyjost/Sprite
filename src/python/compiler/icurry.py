@@ -177,11 +177,12 @@ class IConstructor(_Base):
     return 'IConstructor(ident=%s, arity=%d)' % (repr(self.ident), self.arity)
 
 class IFunction(_Base):
-  def __init__(self, ident, arity, code):
+  def __init__(self, ident, arity, code=[], metadata=None):
     assert arity >= 0
     self.ident = IName(ident)
     self.arity = int(arity)
     self.code = tuple(code)
+    self.metadata = metadata
 
   def setparent(self, parent):
     assert isinstance(parent, IModule)

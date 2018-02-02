@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 def compile_function(emulator, ifun):
   '''Compiles an ICurry function into a Python step function.'''
   assert isinstance(ifun, icurry.IFunction)
+  if ifun.metadata:
+    return compile_primitive_builtin(emulator, ifun)
   compiler = FunctionCompiler(emulator)
   compiler.compile(ifun.code)
 
@@ -31,6 +33,30 @@ def compile_function(emulator, ifun):
       ]
   return compiler.get()
 
+def compile_primitive_builtin(emulator, ifun):
+  '''
+  Compiles code for built-in functions on primitive data
+
+  For these, the IFunction.metadata is bound to a function that implements the
+  function.
+  '''
+  func = ifun.metadata
+  hnf = evaluator.hnf(emulator)
+  if emulator.flags.get('debug', True):
+    def step(lhs):
+      hnfs = (hnf(lhs, succ) for succ in lhs.successors)
+      tys, args = zip([(s.info, s[0]) for s in hnfs])
+      assert all(isinstance(icurry.BuiltinVariant, arg) for arg in args)
+      tys = set(tys)
+      ti_result = tys.pop()
+      assert not tys
+      result = func(*args)
+      lhs.rewrite(ti_result, result)
+  else:
+    def step(lhs):
+      args = (hnf(lhs, s)[0] for s in lhs.successors)
+      lhs.rewrite(lhs[0].info, func(*args))
+  return step
 
 class FunctionCompiler(object):
   '''
@@ -220,13 +246,13 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.ATable)
   def statement(self, atable):
-    self.closure['hnf'] = evaluator.hnf
+    self.closure['hnf'] = evaluator.hnf(self.emulator)
     if hasattr(atable.expr, 'vid'):
       ref = '_%s' % atable.expr.vid
     else:
       yield 'expr = %s' % self.expression(atable.expr)
       ref = 'expr'
-    yield 'selector = hnf(%s).info.tag' % ref
+    yield 'selector = hnf(lhs, %s).info.tag' % ref
     cf = 'if'
     for iname,stmt in atable.cases.iteritems():
       yield '%s selector == %s:' % (cf, self.typeinfo(iname).info.tag)
