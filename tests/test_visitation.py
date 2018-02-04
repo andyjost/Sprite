@@ -1,4 +1,4 @@
-from curry.compiler import icurry
+from curry import icurry
 from curry.visitation import dispatch
 import collections
 import cytest

@@ -1,4 +1,4 @@
-from ..compiler import icurry
+from .. import icurry
 from ..visitation import dispatch
 from . import evaluator
 from . import node
@@ -9,12 +9,12 @@ import re
 
 logger = logging.getLogger(__name__)
 
-def compile_function(emulator, ifun):
+def compile_function(interpreter, ifun):
   '''Compiles an ICurry function into a Python step function.'''
   assert isinstance(ifun, icurry.IFunction)
   if ifun.metadata:
-    return compile_primitive_builtin(emulator, ifun)
-  compiler = FunctionCompiler(emulator)
+    return compile_primitive_builtin(interpreter, ifun)
+  compiler = FunctionCompiler(interpreter)
   compiler.compile(ifun.code)
 
   if logger.isEnabledFor(logging.DEBUG):
@@ -33,7 +33,7 @@ def compile_function(emulator, ifun):
       ]
   return compiler.get()
 
-def compile_primitive_builtin(emulator, ifun):
+def compile_primitive_builtin(interpreter, ifun):
   '''
   Compiles code for built-in functions on primitive data
 
@@ -41,8 +41,8 @@ def compile_primitive_builtin(emulator, ifun):
   function.
   '''
   func = ifun.metadata
-  hnf = evaluator.hnf(emulator)
-  if emulator.flags.get('debug', True):
+  hnf = evaluator.hnf(interpreter)
+  if interpreter.flags.get('debug', True):
     def step(lhs):
       hnfs = (hnf(lhs, succ) for succ in lhs.successors)
       tys, args = zip(*[(s.info, s[0]) for s in hnfs])
@@ -66,9 +66,9 @@ class FunctionCompiler(object):
   Assembles list-formatted Python code (see ``render``).  Needed symbols, including
   node ``TypeInfo`` and system functions, are placed in the closure within which
   the step function is compiled.
-  
+
   The following naming conventions are used:
-  
+
     Type Info:
         ``ti_$name``, where $name is a symbol name as defined in the source
         program with whatever modifications are required to avoid conflicts and
@@ -83,10 +83,10 @@ class FunctionCompiler(object):
         selector).  No special rules; must not begin with an underscore or
         conflict with the above.
   '''
-  def __new__(self, emulator):
+  def __new__(self, interpreter):
     self = object.__new__(self)
-    self.emulator = emulator
-    self.closure = Closure(emulator)
+    self.interpreter = interpreter
+    self.closure = Closure(interpreter)
     # Every program should create or rewrite a node.
     self.closure['node'] = node.node
     body = []
@@ -96,12 +96,12 @@ class FunctionCompiler(object):
   def get(self):
     '''Returns the compiled step function.'''
     local = {}
-    exec render(self.program) in self.closure.context, local 
+    exec render(self.program) in self.closure.context, local
     return local['step']
 
   def typeinfo(self, iname):
     '''Get the TypeInfo object for a program symbol.'''
-    return self.emulator[iname]
+    return self.interpreter[iname]
 
   def __str__(self):
     maxlen = max(map(len, self.closure.context.keys()) or [0])
@@ -247,7 +247,7 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.ATable)
   def statement(self, atable):
-    self.closure['hnf'] = evaluator.hnf(self.emulator)
+    self.closure['hnf'] = evaluator.hnf(self.interpreter)
     if hasattr(atable.expr, 'vid'):
       ref = '_%s' % atable.expr.vid
     else:
@@ -285,8 +285,8 @@ class Closure(object):
 
   See ``FunctionCompiler`` for naming conventions.
   '''
-  def __init__(self, emulator):
-    self.emulator = emulator
+  def __init__(self, interpreter):
+    self.interpreter = interpreter
     self.context = {}
 
   PATTERN = re.compile('[^0-9a-zA-Z_ ]') # Identifier characters.
@@ -317,7 +317,7 @@ class Closure(object):
 
   @__getitem__.when(icurry.IName)
   def __getitem__(self, iname):
-    symbol = self.emulator[iname]
+    symbol = self.interpreter[iname]
     for k,v in self.context.iteritems():
       if v is symbol:
         return k
@@ -357,7 +357,7 @@ def indent(seq, level=-1):
 def render(pycode):
   '''
   Renders list-formatted Python code into a string containing valid Python.
-  
+
   The input is possibly-nested lists of strings.  The list nestings correspond
   to indentation levels.
   '''

@@ -10,7 +10,7 @@ T_CTOR   =  0
 class E_SYMBOL(BaseException):
   '''
   Indicates a symbol requiring exceptional handing (i.e., FAIL or CHOICE) was
-  encountered in a needed position.  
+  encountered in a needed position.
   '''
   pass
 
@@ -54,7 +54,7 @@ class TypeInfo(object):
   def __str__(self):
     return 'TypeInfo for %s' % self.ident
 
- 
+
 class Node(object):
   '''An expression node.'''
   def __new__(cls, info, *args):
@@ -71,7 +71,7 @@ class Node(object):
     assert self.info.tag != T_FWD
     x = self.successors[i]
     while hasattr(x, 'info') and x.info.tag == T_FWD:
-      x = x[0] 
+      x = x[0]
     return x
 
   def __eq__(self, rhs):

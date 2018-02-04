@@ -1,5 +1,5 @@
-from curry.emulator import Emulator, Prelude
-from curry.compiler import icurry
+from curry.interpreter import Interpreter, Prelude
+from curry import icurry
 from curry.visitation import dispatch
 import cytest
 
@@ -49,60 +49,60 @@ class TestEmulation(cytest.TestCase):
 
   def testImport(self):
     icur = self.ICURRY[0]
-    em = Emulator()
-    imported = em.import_(icur)
-    self.assertEqual(set(em.modules.keys()), set(['example', 'Prelude']))
+    interp = Interpreter()
+    imported = interp.import_(icur)
+    self.assertEqual(set(interp.modules.keys()), set(['example', 'Prelude']))
     self.assertEqual(len(imported), 1)
     example = imported[0]
     self.assertFalse(set('A B f f_case_#1 g main'.split()) - set(dir(example)))
-    self.assertIs(em.modules['example'], example)
+    self.assertIs(interp.modules['example'], example)
 
   def testExpr(self):
-    '''Use Emulator.expr to build expressions.'''
-    em = Emulator()
+    '''Use Interpreter.expr to build expressions.'''
+    interp = Interpreter()
 
     # Int.
-    one = em.expr(1)
+    one = interp.expr(1)
     self.assertEqual(repr(one), '<Int [1]>')
     self.assertEqual(str(one), '1')
 
     # Float.
-    pi = em.expr(3.14)
+    pi = interp.expr(3.14)
     self.assertEqual(repr(pi), '<Float [3.14]>')
     self.assertEqual(str(pi), '3.14')
 
     # Node.
-    example = em.import_(self.ICURRY[0])[0]
-    A = em.expr(example.A)
+    example = interp.import_(self.ICURRY[0])[0]
+    A = interp.expr(example.A)
     self.assertEqual(repr(A), '<A []>')
     self.assertEqual(str(A), 'A')
 
     # Nodes with nonzero arity.
-    mylist = em.import_(self.MYLIST)
-    nil = em.expr(mylist.Nil)
+    mylist = interp.import_(self.MYLIST)
+    nil = interp.expr(mylist.Nil)
     self.assertEqual(repr(nil), '<Nil []>')
     self.assertEqual(str(nil), '[]')
     #
-    cons = em.expr(mylist.Cons, 1, mylist.Nil)
+    cons = interp.expr(mylist.Cons, 1, mylist.Nil)
     self.assertEqual(repr(cons), '<Cons [<Int [1]>, <Nil []>]>')
     self.assertEqual(str(cons), '[1]')
     #
-    cons = em.expr(mylist.Cons, 0, cons)
+    cons = interp.expr(mylist.Cons, 0, cons)
     self.assertEqual(str(cons), '[0, 1]')
 
     # Nested data specifications.
-    list2 = em.expr(mylist.Cons, 0, [mylist.Cons, 1, mylist.Nil])
+    list2 = interp.expr(mylist.Cons, 0, [mylist.Cons, 1, mylist.Nil])
     self.assertEqual(cons, list2)
-    list3 = em.expr(mylist.Cons, 1, [mylist.Cons, 2, mylist.Nil])
+    list3 = interp.expr(mylist.Cons, 1, [mylist.Cons, 2, mylist.Nil])
     self.assertNotEqual(list2, list3)
 
 
   def testEvalValues(self):
     '''Evaluate constructor goals.'''
-    em = Emulator()
-    L = em.import_(self.MYLIST)
-    X = em.import_(self.X)
-    P = em.import_(Prelude)
+    interp = Interpreter()
+    L = interp.import_(self.MYLIST)
+    X = interp.import_(self.X)
+    P = interp.import_(Prelude)
     TESTS = [
         [1, ['1']]
       , [2.0, ['2.0']]
@@ -114,19 +114,19 @@ class TestEmulation(cytest.TestCase):
       , [[P.Choice, P.Failure, 0], ['0']]
       ]
     for expr, expected in TESTS:
-      goal = em.expr(expr)
-      result = map(str, em.eval(goal))
+      goal = interp.expr(expr)
+      result = map(str, interp.eval(goal))
       self.assertEqual(set(result), set(expected))
 
 
   def testEvaluateBuiltins(self):
-    em = Emulator()
-    P = em.import_(Prelude)
+    interp = Interpreter()
+    P = interp.import_(Prelude)
     TESTS = [
         [[P.negate, 1], ['-1']]
       ]
     for expr, expected in TESTS:
-      goal = em.expr(expr)
-      result = map(str, em.eval(goal))
+      goal = interp.expr(expr)
+      result = map(str, interp.eval(goal))
       self.assertEqual(set(result), set(expected))
 

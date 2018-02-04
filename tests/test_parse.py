@@ -1,4 +1,4 @@
-from curry.compiler import icurry
+from curry import icurry
 import cytest
 
 GENERATE_GOLDENS = False
@@ -14,7 +14,7 @@ class ParseJSON(cytest.TestCase):
 
     # Test repr.
     local={}
-    exec 'from curry.compiler.icurry import *' in local
+    exec 'from curry.icurry import *' in local
     icur2 = eval(repr(icur), local)
     with trap():
       self.assertEqual(icur, icur2)

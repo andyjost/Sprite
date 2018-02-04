@@ -1,11 +1,11 @@
 from .node import *
-from ..compiler import icurry
+from .. import icurry
 from ..visitation import dispatch
 
 class Evaluator(object):
-  def __new__(cls, emulator, goal):
+  def __new__(cls, interpreter, goal):
     self = object.__new__(cls)
-    self.emulator = emulator
+    self.interpreter = interpreter
     self.queue = [goal]
     return self
 
@@ -31,7 +31,7 @@ class Evaluator(object):
           else:
             self.queue.append(expr)
 
-def ctor_step(emulator):
+def ctor_step(interpreter):
   def step_function(ctor):
     '''
     Step function for constructors.  Corresponds to applying the Fair Scheme N
@@ -47,7 +47,7 @@ def ctor_step(emulator):
         pull_tab(ctor, [i])
         return False
       elif tag == T_FAIL:
-        ctor.rewrite(emulator.ti_Failure)
+        ctor.rewrite(interpreter.ti_Failure)
         return False
       else:
         is_value = is_value and expr.info.step(expr)
@@ -82,18 +82,18 @@ def pull_tab(source, targetpath):
   #
   source.rewrite(target.info, lhs, rhs)
 
-def hnf(emulator):
+def hnf(interpreter):
   def hnf(lhs, target):
     '''
     Attempts to reduce the target node to head-normal form.
-  
+
     If a needed failure or choice symbol is encountered, the lhs is overwritten
     with failure or via a pull-tab, respectively, and E_SYMBOL is raised.
     '''
     while True:
       tag = target.info.tag
       if tag == T_FAIL:
-        return lhs.rewrite(emulator.ti_Failure)
+        return lhs.rewrite(interpreter.ti_Failure)
         raise E_SYMBOL
       elif tag == T_CHOICE:
         pull_tab(lhs, target)

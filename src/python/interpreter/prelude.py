@@ -1,4 +1,4 @@
-from ..compiler.icurry import *
+from ..icurry import *
 from .node import TypeInfo, T_FAIL, T_CHOICE, T_FWD
 import operator as op
 

@@ -1,9 +1,9 @@
 '''
-A pure-Python Curry emulator.
+A pure-Python Curry interpreter.
 '''
 
 from .function_compiler import compile_function
-from ..compiler.icurry import *
+from ..icurry import *
 from . import evaluator
 from . import prelude
 from .node import InfoTable, TypeInfo, Node, T_FAIL, T_FUNC, T_CHOICE, T_CTOR
@@ -31,12 +31,12 @@ logging.basicConfig(
 
 class SymbolLookupError(AttributeError):
   pass
-  
-# Emulation.
-# ==========
-class Emulator(object):
+
+# Inpterpretation.
+# ================
+class Interpreter(object):
   '''
-  Implements a Curry emulator.
+  Implements a Curry interpreter.
 
   Use ``import_`` to add modules to the system.  Then use ``eval`` to evaluate
   expressions.
@@ -51,7 +51,7 @@ class Emulator(object):
     self.modules = {}
     self.flags = flags
     return self
-  
+
   def __init__(self):
     self.prelude = self.import_(Prelude)
 
@@ -59,6 +59,7 @@ class Emulator(object):
   # ==========
   @dispatch.on('arg')
   def import_(self, arg):
+    breakpoint()
     raise RuntimeError('unhandled argument type')
 
   @import_.when(collections.Sequence)
@@ -102,8 +103,8 @@ class Emulator(object):
 
   @_loadsymbols.when(IConstructor)
   def _loadsymbols(self, icons, moduleobj):
-    # The emulator uses the metadata slot to identify built-in nodes.  If set,
-    # it contains the tag (T_FAIL, T_CHOICE or T_FWD).
+    # The interpreter uses the metadata slot to identify built-in nodes.  If
+    # set, it contains the tag (T_FAIL, T_CHOICE or T_FWD).
     not_builtin = icons.metadata is None
     info = InfoTable(
         icons.ident.basename
@@ -212,7 +213,7 @@ class Emulator(object):
   @property
   def ti_Failure(self):
     return self.prelude.Failure.info
-  
+
   def is_choice(self, node):
     return node.info is self.prelude.Choice.info
 
