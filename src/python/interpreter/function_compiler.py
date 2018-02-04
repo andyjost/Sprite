@@ -1,7 +1,6 @@
 from .. import icurry
 from ..visitation import dispatch
-from . import evaluator
-from . import node
+from . import runtime
 import collections
 import itertools
 import logging
@@ -41,7 +40,7 @@ def compile_primitive_builtin(interpreter, ifun):
   function.
   '''
   func = ifun.metadata
-  hnf = evaluator.hnf(interpreter)
+  hnf = runtime.hnf(interpreter)
   if interpreter.flags.get('debug', True):
     def step(lhs):
       hnfs = (hnf(lhs, succ) for succ in lhs.successors)
@@ -63,9 +62,9 @@ class FunctionCompiler(object):
   Compiles an ICurry function description into a step function implemented as a
   Python function.
 
-  Assembles list-formatted Python code (see ``render``).  Needed symbols, including
-  node ``TypeInfo`` and system functions, are placed in the closure within which
-  the step function is compiled.
+  Assembles list-formatted Python code (see ``render``).  Needed symbols,
+  including node ``TypeInfo`` and system functions, are placed in the closure
+  within which the step function is compiled.
 
   The following naming conventions are used:
 
@@ -88,7 +87,7 @@ class FunctionCompiler(object):
     self.interpreter = interpreter
     self.closure = Closure(interpreter)
     # Every program should create or rewrite a node.
-    self.closure['node'] = node.node
+    self.closure['node'] = runtime.node
     body = []
     self.program = ['def step(lhs):', body]
     return self
@@ -247,7 +246,7 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.ATable)
   def statement(self, atable):
-    self.closure['hnf'] = evaluator.hnf(self.interpreter)
+    self.closure['hnf'] = runtime.hnf(self.interpreter)
     if hasattr(atable.expr, 'vid'):
       ref = '_%s' % atable.expr.vid
     else:

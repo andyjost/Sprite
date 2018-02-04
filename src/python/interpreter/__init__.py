@@ -4,9 +4,8 @@ A pure-Python Curry interpreter.
 
 from .function_compiler import compile_function
 from ..icurry import *
-from . import evaluator
 from . import prelude
-from .node import InfoTable, TypeInfo, Node, T_FAIL, T_FUNC, T_CHOICE, T_CTOR
+from .runtime import InfoTable, TypeInfo, Node, T_FAIL, T_FUNC, T_CHOICE, T_CTOR
 from .show import Show
 from ..visitation import dispatch
 import collections
@@ -110,7 +109,7 @@ class Interpreter(object):
         icons.ident.basename
       , icons.arity
       , T_CTOR + icons.index if not_builtin else icons.metadata
-      , evaluator.ctor_step(self) if not_builtin else _unreachable
+      , runtime.ctor_step(self) if not_builtin else _unreachable
       , Show(icons.format)
       )
     setattr(moduleobj, icons.ident.basename, TypeInfo(icons.ident, info))
@@ -202,7 +201,7 @@ class Interpreter(object):
   # Evaluating.
   # ===========
   def eval(self, goal):
-    return evaluator.Evaluator(self, goal).run()
+    return runtime.Evaluator(self, goal).run()
 
   # Queries.
   # ========
