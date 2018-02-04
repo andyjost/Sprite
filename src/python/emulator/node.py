@@ -39,7 +39,7 @@ class TypeInfo(object):
     self.ident = ident
     self.info = info
 
-  def _check_call(self, args):
+  def _check_call(self, *args):
     if len(args) != self.info.arity:
       raise TypeError(
           'cannot construct "%s" (arity=%d), with %d args'
@@ -48,8 +48,8 @@ class TypeInfo(object):
 
   def __call__(self, *args):
     '''Constructs an object of this type.'''
-    self._check_call(args)
-    return Node(self.info, args)
+    self._check_call(*args)
+    return Node(self.info, *args)
 
   def __str__(self):
     return 'TypeInfo for %s' % self.ident
@@ -57,20 +57,20 @@ class TypeInfo(object):
  
 class Node(object):
   '''An expression node.'''
-  def __new__(cls, info, successors=[]):
+  def __new__(cls, info, *args):
     self = object.__new__(cls)
-    self.rewrite(info, successors)
+    self.rewrite(info, *args)
     return self
 
-  def rewrite(self, info, successors=[]):
+  def rewrite(self, info, *args):
     self.info = info
-    self.successors = list(successors)
+    self.successors = list(args)
 
   def __getitem__(self, i):
     '''Get a successor, skipping over FWD nodes.'''
     assert self.info.tag != T_FWD
     x = self.successors[i]
-    while x.info.tag == T_FWD:
+    while hasattr(x, 'info') and x.info.tag == T_FWD:
       x = x[0] 
     return x
 
@@ -86,7 +86,7 @@ class Node(object):
   def __repr__(self):
     return '<%s %s>' % (self.info.name, self.successors)
 
-  # An alias for ``Node.rewrite``.  This gives a consistent syntax for node
+  # An alias for ``Node.write``.  This gives a consistent syntax for node
   # creation and rewriting.  For example, ``node(*args)`` creates a node and
   # ``lhs.node(*args)`` rewrites ``lhs``.
   node = rewrite

@@ -119,15 +119,14 @@ class TestEmulation(cytest.TestCase):
       self.assertEqual(set(result), set(expected))
 
 
-  # def testEvaluateBuiltins(self):
-  #   em = Emulator()
-  #   P = em.import_(Prelude)
-  #   TESTS = [
-  #       [[P.negate, 1], -1]
-  #     ]
-  #   for expr, expected in TESTS:
-  #     goal = em.expr(expr)
-  #     breakpoint()
-  #     result = map(str, em.eval(goal))
-  #     self.assertEqual(set(result), set(expected))
+  def testEvaluateBuiltins(self):
+    em = Emulator()
+    P = em.import_(Prelude)
+    TESTS = [
+        [[P.negate, 1], ['-1']]
+      ]
+    for expr, expected in TESTS:
+      goal = em.expr(expr)
+      result = map(str, em.eval(goal))
+      self.assertEqual(set(result), set(expected))
 

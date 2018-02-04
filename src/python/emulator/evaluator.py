@@ -1,4 +1,4 @@
-from .node import Node, T_FAIL, T_CHOICE, E_SYMBOL
+from .node import *
 from ..compiler import icurry
 from ..visitation import dispatch
 
@@ -74,13 +74,13 @@ def pull_tab(source, targetpath):
   #
   lsucc = source.successors
   lsucc[i] = target[0]
-  lhs = Node(source.info, lsucc)
+  lhs = Node(source.info, *lsucc)
   #
   rsucc = source.successors
   rsucc[i] = target[1]
-  rhs = Node(source.info, rsucc)
+  rhs = Node(source.info, *rsucc)
   #
-  source.rewrite(target.info, [lhs, rhs])
+  source.rewrite(target.info, lhs, rhs)
 
 def hnf(emulator):
   def hnf(lhs, target):
@@ -98,7 +98,7 @@ def hnf(emulator):
       elif tag == T_CHOICE:
         pull_tab(lhs, target)
         raise E_SYMBOL
-      elif tag == T_OPER:
+      elif tag == T_FUNC:
         try:
           target.info.step(target)
         except E_SYMBOL:

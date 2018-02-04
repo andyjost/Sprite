@@ -45,8 +45,8 @@ def compile_primitive_builtin(emulator, ifun):
   if emulator.flags.get('debug', True):
     def step(lhs):
       hnfs = (hnf(lhs, succ) for succ in lhs.successors)
-      tys, args = zip([(s.info, s[0]) for s in hnfs])
-      assert all(isinstance(icurry.BuiltinVariant, arg) for arg in args)
+      tys, args = zip(*[(s.info, s[0]) for s in hnfs])
+      assert all(isinstance(arg, icurry.BuiltinVariant) for arg in args)
       tys = set(tys)
       ti_result = tys.pop()
       assert not tys
@@ -187,8 +187,9 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.Applic)
   def expression(self, applic):
-    return 'node(%s, %s)' % (
-        self.closure[applic.ident], ', '.join(self.expression(applic.args))
+    return 'node(%s%s)' % (
+        self.closure[applic.ident]
+      , ''.join(', '+e for e in self.expression(applic.args))
       )
 
   @expression.when(icurry.PartApplic)
@@ -198,7 +199,7 @@ class FunctionCompiler(object):
   @expression.when(icurry.IOr)
   def expression(self, ior):
     choice = self.closure['Prelude.Choice']
-    return 'node(%s, [%s, %s])' % (
+    return 'node(%s, %s, %s)' % (
         choice, self.expression(ior.lhs), self.expression(ior.rhs)
       )
 

@@ -161,14 +161,14 @@ class Emulator(object):
   @expr.when(numbers.Integral)
   def expr(self, arg, *args):
     args = (int(arg),) + args
-    self.prelude.Int._check_call(args)
-    return Node(self.prelude.Int.info, args)
+    self.prelude.Int._check_call(*args)
+    return Node(self.prelude.Int.info, *args)
 
   @expr.when(numbers.Real)
   def expr(self, arg, *args):
     args = (float(arg),) + args
-    self.prelude.Float._check_call(args)
-    return Node(self.prelude.Float.info, args)
+    self.prelude.Float._check_call(*args)
+    return Node(self.prelude.Float.info, *args)
 
   @expr.when(TypeInfo)
   def expr(self, info, *args):
