@@ -1,6 +1,8 @@
 from .. import icurry
 from ..visitation import dispatch
 import textwrap
+from collections import Sequence
+from numbers import Integral
 
 T_FAIL   = -4
 T_FWD    = -3
@@ -27,6 +29,9 @@ class InfoTable(object):
     self.step = step
     self.show = show
 
+  def __str__(self):
+    return 'Info for "%s"' % self.name
+
   def __repr__(self):
     return ''.join([
         'InfoTable('
@@ -35,28 +40,6 @@ class InfoTable(object):
           )
       , ')'
       ])
-
-
-class TypeInfo(object):
-  '''Compile-time type info.'''
-  def __init__(self, ident, info):
-    self.ident = ident
-    self.info = info
-
-  def _check_call(self, *args):
-    if len(args) != self.info.arity:
-      raise TypeError(
-          'cannot construct "%s" (arity=%d), with %d args'
-              % (self.info.name, self.info.arity, len(args))
-        )
-
-  def __call__(self, *args):
-    '''Constructs an object of this type.'''
-    self._check_call(*args)
-    return Node(self.info, *args)
-
-  def __str__(self):
-    return 'TypeInfo for %s' % self.ident
 
 
 class Node(object):
@@ -70,13 +53,36 @@ class Node(object):
     self.info = info
     self.successors = list(args)
 
+  @dispatch.on('i')
+  def __getitem__(self, i):
+    raise RuntimeError('unhandled type')
+
+  @__getitem__.when(Integral)
   def __getitem__(self, i):
     '''Get a successor, skipping over FWD nodes.'''
-    assert self.info.tag != T_FWD
-    x = self.successors[i]
-    while hasattr(x, 'info') and x.info.tag == T_FWD:
-      x = x[0]
-    return x
+    self = self[()]
+    obj = self.successors[i]
+    while hasattr(obj, 'info') and obj.info.tag == T_FWD:
+      obj = obj.successors[0]
+    self.successors[i] = obj
+    return obj
+
+  @__getitem__.when(Sequence)
+  def __getitem__(self, path):
+    if not path:
+      # Returns self.  If self if a FWD node, skips to a returns the target.
+      if self.info.tag == T_FWD:
+        self_ = self.successors[0]
+        while hasattr(self_, 'info') and self_.info.tag == T_FWD:
+          self_ = self_.successors[0]
+        self.successors[0] = self_
+        return self_
+      else:
+        return self
+    else:
+      for p in path:
+        self = self[p]
+      return self
 
   def __eq__(self, rhs):
     return self.info == rhs.info and self.successors == rhs.successors
@@ -90,9 +96,9 @@ class Node(object):
   def __repr__(self):
     return '<%s %s>' % (self.info.name, self.successors)
 
-  # An alias for ``Node.write``.  This gives a consistent syntax for node
+  # An alias for ``Node.rewrite``.  This gives a consistent syntax for node
   # creation and rewriting.  For example, ``node(*args)`` creates a node and
-  # ``lhs.node(*args)`` rewrites ``lhs``.
+  # ``lhs.node(*args)`` rewrites ``lhs``.  This simplifies the code generator.
   node = rewrite
 
 # An alias for node creation.
@@ -100,62 +106,132 @@ node = Node
 
 
 class Evaluator(object):
-  '''
-  Curry expression evaluator.
-
-  Implements the dispatch (D) Fair Scheme procedure.
-  '''
+  '''Evaluates Curry expressions.'''
   def __new__(cls, interpreter, goal):
     self = object.__new__(cls)
     self.interpreter = interpreter
     self.queue = [goal]
     return self
 
-  def run(self):
+  def eval(self):
+    '''Implements the dispatch (D) Fair Scheme procedure.'''
     while self.queue:
       expr = self.queue.pop(0)
-      is_value = False
-      if not isinstance(expr, Node):
-        yield expr
-      elif expr.info.tag == T_CHOICE:
-        self.queue += expr.successors
-        continue
-      elif expr.info.tag == T_FAIL:
-        continue # discard
-      else:
-        try:
-          is_value = expr.info.step(expr)
-        except E_SYMBOL:
-          self.queue.append(expr)
-        else:
-          if is_value:
-            yield expr
-          else:
-            self.queue.append(expr)
-
-
-def ctor_step(interpreter):
-  def step_function(ctor):
-    '''
-    Step function for constructors.  Corresponds to applying the Fair Scheme N
-    procedure.
-    '''
-    is_value = True
-    for i,expr in enumerate(ctor.successors):
       if not isinstance(expr, Node):
         assert isinstance(expr, icurry.BuiltinVariant)
-        continue
+        yield expr
       tag = expr.info.tag
       if tag == T_CHOICE:
-        pull_tab(ctor, [i])
-        return False
+        self.queue += expr.successors
+        continue
       elif tag == T_FAIL:
-        ctor.rewrite(interpreter.ti_Failure)
-        return False
+        continue # discard
+      elif tag == T_FWD:
+        target = target[()]
       else:
-        is_value = is_value and expr.info.step(expr)
-    return is_value
-  return step_function
+        try:
+          yield self.interpreter.nf(expr)
+        except E_SYMBOL:
+          self.queue.append(expr)
+
+
+def hnf(interpreter, expr, targetpath=[]):
+  '''
+  Head-normalize ``expr`` at ``targetpath``.
+
+  If a needed failure or choice symbol is encountered, ``expr`` is overwritten
+  with a failure or choice, respectively, and then E_SYMBOL is raised.
+
+  Parameters:
+  -----------
+    ``expr``
+        An expression.
+
+    ``targetpath``
+        A path to the descendant of ``expr`` to normalize.  If empty, ``expr``
+        itself will be normalized.  In that case, its tag must not be T_FAIL or
+        T_CHOICE.
+
+  Returns:
+  --------
+    The target node.
+  '''
+  # In the degenerate case where ``expr`` and ``target`` are the same node,
+  # that node is required to be a function or operation (i.e., the caller needs
+  # to handle special symbols before calling this function).
+  assert not targetpath or expr.info.tag >= T_FUNC
+  target = expr[targetpath]
+  while True:
+    if not isinstance(target, Node):
+      assert isinstance(target, icurry.BuiltinVariant)
+      return target
+    tag = target.info.tag
+    if tag == T_FAIL:
+      if targetpath:
+        expr.rewrite(interpreter.ti_Failure)
+      raise E_SYMBOL()
+    elif tag == T_CHOICE:
+      if targetpath:
+        pull_tab(expr, targetpath)
+      raise E_SYMBOL()
+    elif tag == T_FWD:
+      target = target[()]
+    elif tag == T_FUNC:
+      try:
+        target.info.step(target)
+      except E_SYMBOL:
+        pass
+    else:
+      return target
+
+
+def nf(interpreter, expr, targetpath=[], rec=float('inf')):
+  '''
+  Normalize ``expr`` at ``targetpath``.
+
+  Parameters:
+  -----------
+    ``expr``
+        An expression.
+
+    ``targetpath``
+        A path to the descendant of ``expr`` to normalize.  If empty, ``expr``
+        itself will be normalized.  In that case, its tag must not be T_FAIL or
+        T_CHOICE.
+
+    ``rec``
+        Recurse at most this many times.  Recursing to *every* successor counts
+        as one recursion.  If zero, that target is head-normalized.  If
+        negative, this function does nothing.  Used mainly for testing and
+        debugging.
+
+  Returns:
+  --------
+    Nothing.
+  '''
+  if rec >= 0:
+    try:
+      target = hnf(interpreter, expr, targetpath)
+    except E_SYMBOL:
+      assert expr.info.tag in [T_FAIL, T_CHOICE]
+      raise
+    if not isinstance(target, Node):
+      assert isinstance(target, icurry.BuiltinVariant)
+      return
+    if rec > 0:
+      for i in xrange(target.info.arity):
+        try:
+          nf(interpreter, target, [i], rec-1)
+        except E_SYMBOL:
+          if targetpath:
+            tag = target.info.tag
+            if tag == T_FAIL:
+              expr.rewrite(interpreter.ti_Failure)
+            elif tag == T_CHOICE:
+              pull_tab(expr, targetpath)
+            else:
+              assert False
+          raise
 
 
 def pull_tab(source, targetpath):
@@ -171,7 +247,11 @@ def pull_tab(source, targetpath):
       A sequence of integers giving the path from ``source`` to the target
       (descendent).
   '''
-  assert targetpath
+  try:
+    assert targetpath
+  except:
+    breakpoint()
+    raise
   i, = targetpath # temporary
   target = source[i]
   assert target.info.name == 'Choice'
@@ -186,29 +266,3 @@ def pull_tab(source, targetpath):
   #
   source.rewrite(target.info, lhs, rhs)
 
-
-def hnf(interpreter):
-  def hnf(lhs, target):
-    '''
-    Attempts to reduce the target node to head-normal form.
-
-    If a needed failure or choice symbol is encountered, the lhs is overwritten
-    with failure or via a pull-tab, respectively, and E_SYMBOL is raised.
-    '''
-    while True:
-      tag = target.info.tag
-      if tag == T_FAIL:
-        return lhs.rewrite(interpreter.ti_Failure)
-        raise E_SYMBOL
-      elif tag == T_CHOICE:
-        pull_tab(lhs, target)
-        raise E_SYMBOL
-      elif tag == T_FUNC:
-        try:
-          target.info.step(target)
-        except E_SYMBOL:
-          pass
-      else:
-        assert tag != T_FWD
-        return target
-  return hnf

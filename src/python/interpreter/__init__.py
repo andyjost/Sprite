@@ -5,7 +5,7 @@ A pure-Python Curry interpreter.
 from .function_compiler import compile_function
 from ..icurry import *
 from . import prelude
-from .runtime import InfoTable, TypeInfo, Node, T_FAIL, T_FUNC, T_CHOICE, T_CTOR
+from .runtime import InfoTable, Node, T_FAIL, T_FUNC, T_CHOICE, T_CTOR
 from .show import Show
 from ..visitation import dispatch
 import collections
@@ -31,11 +31,33 @@ logging.basicConfig(
 class SymbolLookupError(AttributeError):
   pass
 
+class TypeInfo(object):
+  '''Compile-time type info.'''
+  def __init__(self, ident, info):
+    self.ident = ident
+    self.info = info
+
+  def _check_call(self, *args):
+    if len(args) != self.info.arity:
+      raise TypeError(
+          'cannot construct "%s" (arity=%d), with %d args'
+              % (self.info.name, self.info.arity, len(args))
+        )
+
+  def __call__(self, *args):
+    '''Constructs an object of this type.'''
+    self._check_call(*args)
+    return Node(self.info, *args)
+
+  def __str__(self):
+    return 'TypeInfo for %s' % self.ident
+
+
 # Inpterpretation.
 # ================
 class Interpreter(object):
   '''
-  Implements a Curry interpreter.
+  A Curry interpreter.
 
   Use ``import_`` to add modules to the system.  Then use ``eval`` to evaluate
   expressions.
@@ -109,7 +131,7 @@ class Interpreter(object):
         icons.ident.basename
       , icons.arity
       , T_CTOR + icons.index if not_builtin else icons.metadata
-      , runtime.ctor_step(self) if not_builtin else _unreachable
+      , _no_step if not_builtin else _unreachable
       , Show(icons.format)
       )
     setattr(moduleobj, icons.ident.basename, TypeInfo(icons.ident, info))
@@ -201,7 +223,13 @@ class Interpreter(object):
   # Evaluating.
   # ===========
   def eval(self, goal):
-    return runtime.Evaluator(self, goal).run()
+    return runtime.Evaluator(self, goal).eval()
+
+  # Head-normalizing function.
+  hnf = runtime.hnf
+
+  # Normalizing function.
+  nf = runtime.nf
 
   # Queries.
   # ========
@@ -223,4 +251,7 @@ class Interpreter(object):
 # =====
 def _unreachable(*args, **kwds):
   raise RuntimeError('Unreachable')
+
+def _no_step(*args, **kwds):
+  pass
 

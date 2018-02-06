@@ -1,5 +1,6 @@
 from .. import icurry
 from ..visitation import dispatch
+from . import analysis
 from . import runtime
 import collections
 import itertools
@@ -40,7 +41,7 @@ def compile_primitive_builtin(interpreter, ifun):
   function.
   '''
   func = ifun.metadata
-  hnf = runtime.hnf(interpreter)
+  hnf = interpreter.hnf
   if interpreter.flags.get('debug', True):
     def step(lhs):
       hnfs = (hnf(lhs, succ) for succ in lhs.successors)
@@ -86,7 +87,7 @@ class FunctionCompiler(object):
     self = object.__new__(self)
     self.interpreter = interpreter
     self.closure = Closure(interpreter)
-    # Every program should create or rewrite a node.
+    # Every function should create or rewrite a node.
     self.closure['node'] = runtime.node
     body = []
     self.program = ['def step(lhs):', body]
@@ -242,11 +243,14 @@ class FunctionCompiler(object):
   @statement.when(icurry.Return)
   def statement(self, return_):
     yield 'lhs.%s' % self.expression(return_.expr)
-    yield 'return'
+    if analysis.is_value(return_.expr):
+      yield 'return True'
+    else:
+      yield 'return False'
 
   @statement.when(icurry.ATable)
   def statement(self, atable):
-    self.closure['hnf'] = runtime.hnf(self.interpreter)
+    self.closure['hnf'] = self.interpreter.hnf
     if hasattr(atable.expr, 'vid'):
       ref = '_%s' % atable.expr.vid
     else:
@@ -316,7 +320,7 @@ class Closure(object):
 
   @__getitem__.when(icurry.IName)
   def __getitem__(self, iname):
-    symbol = self.interpreter[iname]
+    symbol = self.interpreter[iname].info
     for k,v in self.context.iteritems():
       if v is symbol:
         return k

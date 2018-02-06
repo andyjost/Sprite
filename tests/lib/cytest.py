@@ -3,7 +3,10 @@ from curry.llvm import isa
 import __builtin__
 import collections
 import contextlib
+import inspect
 import sys
+import textwrap
+import types
 import unittest
 
 def breakpoint(msg='', depth=0):
@@ -36,7 +39,6 @@ def trap():
     raise
 
 __builtin__.trap = trap
-
 
 class TestCase(unittest.TestCase):
   def compareGolden(self, objs, filename, update=False):

@@ -24,4 +24,4 @@ Module:
                               return $2
       return $1
     main:
-      return (example.f 1 ((example.A )))
+      return (example.f 1 (example.A))

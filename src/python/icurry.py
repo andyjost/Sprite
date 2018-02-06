@@ -278,14 +278,13 @@ def _fmtTerm(term):
   return '(%s)' % text if len(text.split(' ')) > 1 else text
 
 class Applic(_Base):
-  def __init__(self, ident, args):
+  def __init__(self, ident, args=[]):
     self.ident = IName(ident)
     self.args = tuple(args)
     # assert all(isinstance(x, object) for x in self.args)
   def __str__(self):
-    return '(%s %s)' % (
-        self.ident, ' '.join(_fmtTerm(term) for term in self.args)
-      )
+    args = [self.ident] + [_fmtTerm(term) for term in self.args]
+    return '(' + ' '.join(args) + ')'
   def __repr__(self):
     return 'Applic(ident=%s, args=%s)' % (repr(self.ident), repr(self.args))
 
