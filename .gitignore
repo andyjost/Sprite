@@ -6,3 +6,6 @@ CMC/translator/icurry/.curry
 CMC/Examples/.curry
 .clang_complete
 *scratch
+.coverage
+*.pyc
+tests/htmlcov

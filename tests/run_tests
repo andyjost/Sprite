@@ -1,4 +1,5 @@
 #!/bin/bash
+
 cd $( dirname "${BASH_SOURCE[0]}" )
 
 if [ -z "$SPRITE_HOME" ]; then
@@ -34,6 +35,18 @@ case `basename $0` in
   "debug_tests")
     ldd ../install/lib/python2.7/curry/llvm/_llvm.so
     gdb --args $python -B -m unittest discover -v `pwd` "$@"
+    ;;
+  "cov_tests")
+    if [ ! -e `readlink -f $SPRITE_HOME/bin/coverage` ]; then
+      $(dirname $(readlink $python))/pip install coverage || {
+          1>&2 echo "Failed to pip install coverage.  Please install it manually.";
+          exit 1;
+        }
+    fi
+    $SPRITE_HOME/bin/coverage run -m --source=$SPRITE_HOME unittest discover -v `pwd` "$@" || exit 1
+    $SPRITE_HOME/bin/coverage report
+    $SPRITE_HOME/bin/coverage html
+    echo "See HTML output at `readlink -f htmlcov/index.html`"
     ;;
   "valgrind_tests")
     # To use valgrind, follow directions in Python's Misc/README.valgrind to
