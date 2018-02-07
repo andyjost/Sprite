@@ -125,7 +125,7 @@ class TestPyRuntime(cytest.TestCase):
           , [[W, [U, [Q, 0, 1]]]  , [W, [Q, [U, 0], [U, 1]]]]
           , [[W, [U, ZF]]         , [W, F]                  ]
           ]
-      # [rec=inf] Tests for descendant normalization.
+      # [rec=inf] Tests for descendant normalization (i.e., full normalization).
       , float('inf'): [
           # Descendant step.
             [[U, [U, ZN]]    , [U, [U, N]]   ]
@@ -135,7 +135,11 @@ class TestPyRuntime(cytest.TestCase):
           , [[U, [U, ZF]]           , F]
           , [[B, [U, N], [B, ZF, N]], F]
           # Choice.
+          , [[B, [W, ZN], [U, [U, [Q, 0, 1]]]], [Q, [B, N, [U, [U, 0]]], [B, N, [U, [U, 1]]]]]
           # Fwd.
+            # Repeated W nodes are contracted, but the leading one should not
+            # be removed (see note above in the rec=1 section).
+          , [[W, [W, [W, [U, [B, ZN, ZN]]]]], [W, [U, [B, N, N]]]]
           ]
       }
     for rec, testlist in TESTS.items():
@@ -260,13 +264,13 @@ class TestPyInterp(cytest.TestCase):
     P = interp.import_(Prelude)
     TESTS = [
         [[1], ['1']]
-      # , [[2.0], ['2.0']]
-      # , [[L.Cons, 0, [L.Cons, 1, L.Nil]], ['[0, 1]']]
-      # , [[P.Choice, 1, 2], ['1', '2']]
-      # , [[X.X, [P.Choice, 1, 2]], ['X 1', 'X 2']]
-      # , [[X.X, [P.Choice, 1, [X.X, [P.Choice, 2, [P.Choice, 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
-      # , [[P.Failure], []]
-      # , [[P.Choice, P.Failure, 0], ['0']]
+      , [[2.0], ['2.0']]
+      , [[L.Cons, 0, [L.Cons, 1, L.Nil]], ['[0, 1]']]
+      , [[P.Choice, 1, 2], ['1', '2']]
+      , [[X.X, [P.Choice, 1, 2]], ['X 1', 'X 2']]
+      , [[X.X, [P.Choice, 1, [X.X, [P.Choice, 2, [P.Choice, 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
+      , [[P.Failure], []]
+      , [[P.Choice, P.Failure, 0], ['0']]
       ]
     for expr, expected in TESTS:
       goal = interp.expr(expr)
