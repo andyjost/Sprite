@@ -55,7 +55,7 @@ class Node(object):
 
   @dispatch.on('i')
   def __getitem__(self, i):
-    raise RuntimeError('unhandled type')
+    raise RuntimeError('unhandled type: %s' % type(i))
 
   @__getitem__.when(Integral)
   def __getitem__(self, i):
@@ -130,9 +130,11 @@ class Evaluator(object):
         target = target[()]
       else:
         try:
-          yield self.interpreter.nf(expr)
+          self.interpreter.nf(expr)
         except E_SYMBOL:
           self.queue.append(expr)
+        else:
+          yield expr
 
 
 def hnf(interpreter, expr, targetpath=[]):

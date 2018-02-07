@@ -44,7 +44,7 @@ def compile_primitive_builtin(interpreter, ifun):
   hnf = interpreter.hnf
   if interpreter.flags.get('debug', True):
     def step(lhs):
-      hnfs = (hnf(lhs, succ) for succ in lhs.successors)
+      hnfs = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
       tys, args = zip(*[(s.info, s[0]) for s in hnfs])
       assert all(isinstance(arg, icurry.BuiltinVariant) for arg in args)
       tys = set(tys)
@@ -54,7 +54,7 @@ def compile_primitive_builtin(interpreter, ifun):
       lhs.rewrite(ti_result, result)
   else:
     def step(lhs):
-      args = (hnf(lhs, s)[0] for s in lhs.successors)
+      args = (hnf(lhs, [i])[0] for i in xrange(len(lhs.successors)))
       lhs.rewrite(lhs[0].info, func(*args))
   return step
 
