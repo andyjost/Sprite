@@ -46,7 +46,9 @@ class Node(object):
   '''An expression node.'''
   def __new__(cls, info, *args):
     self = object.__new__(cls)
-    self.rewrite(info, *args)
+    # self.rewrite(info, *args)
+    self.info = info
+    self.successors = list(args)
     return self
 
   def rewrite(self, info, *args):
@@ -74,13 +76,13 @@ class Node(object):
   @__getitem__.when(Sequence)
   def __getitem__(self, path):
     if not path:
-      # Returns self.  If self if a FWD node, skips to a returns the target.
+      # Returns self.  If self if a FWD node, returns its non-FWD target.
       if self.info.tag == T_FWD:
-        self_ = self.successors[0]
-        while hasattr(self_, 'info') and self_.info.tag == T_FWD:
-          self_ = self_.successors[0]
-        self.successors[0] = self_
-        return self_
+        p = self.successors[0]
+        while hasattr(p, 'info') and p.info.tag == T_FWD:
+          p = p.successors[0]
+        self.successors[0] = p
+        return p
       else:
         return self
     else:
@@ -136,7 +138,7 @@ class Evaluator(object):
         except E_SYMBOL:
           self.queue.append(expr)
         else:
-          yield expr
+          yield expr[()]
 
 
 def hnf(interpreter, expr, targetpath=[]):

@@ -16,41 +16,45 @@ def listformat(node):
       p = p.successors[1]
   return '[' + ', '.join(gen()) + ']'
 
+def getbootstrap():
+  return IModule(
+      name='bootstrap'
+    , imports=['Prelude']
+    , types=[
+          IType(
+              ident='NUM'
+            , constructors=[
+                  IConstructor('N', 0) # Nullary
+                , IConstructor('M', 0) # A distinct nullary, to test choices.
+                , IConstructor('U', 1) # Unary
+                , IConstructor('B', 2) # Binary
+                ]
+            )
+        ]
+    , functions=[
+        IFunction('ZN', 0, [Return(Applic('bootstrap.N'))])
+      , IFunction('ZF', 0, [Return(Applic('Prelude.Failure'))])
+      , IFunction('ZQ', 0, [Return(Applic('Prelude.Choice', [Applic('bootstrap.N'), Applic('bootstrap.M')]))])
+      , IFunction('ZW', 0, [Return(Applic('Prelude.Fwd', [Applic('bootstrap.N')]))])
+        # Evaluates its argument and then returns a FWD node refering to it.
+      , IFunction('Z' , 1, [
+            Declare(Variable(vid=1, scope=ILhs(index=["bootstrap.Z", 1])))
+          , ATable(0, True, Reference(1)
+              , [
+                    ("bootstrap.N", [Return(Reference(1))])
+                  , ("bootstrap.M", [Return(Reference(1))])
+                    # U,B -> failure
+                  ]
+              )
+          ])
+      ]
+    )
 
 class TestPyRuntime(cytest.TestCase):
   '''Tests for the Python runtime functions.'''
   @classmethod
   def setUpClass(cls):
-    cls.BOOTSTRAP = IModule(
-        name='bootstrap'
-      , imports=['Prelude']
-      , types=[
-            IType(
-                ident='NUM'
-              , constructors=[
-                    IConstructor('N', 0) # Nullary
-                  , IConstructor('M', 0) # A distinct nullary, to test choices.
-                  , IConstructor('U', 1) # Unary
-                  , IConstructor('B', 2) # Binary
-                  ]
-              )
-          ]
-      , functions=[
-          IFunction('ZN', 0, [Return(Applic('bootstrap.N'))])
-        , IFunction('ZF', 0, [Return(Applic('Prelude.Failure'))])
-        , IFunction('ZQ', 0, [Return(Applic('Prelude.Choice', [Applic('bootstrap.N'), Applic('bootstrap.M')]))])
-        , IFunction('ZW', 0, [Return(Applic('Prelude.Fwd', [Applic('bootstrap.N')]))])
-          # Evaluates its argument and then returns a FWD node refering to it.
-        , IFunction('Z' , 1, [
-              Declare(Variable(vid=1, scope=ILhs(index=["bootstrap.Z", 1])))
-            , ATable(0, True, Reference(1)
-                , [
-                      ("bootstrap.N", [Return(Reference(1))])
-                    ]
-                )
-            ])
-        ]
-      )
+    cls.BOOTSTRAP = getbootstrap()
 
   @classmethod
   def tearDownClass(cls):
@@ -67,7 +71,7 @@ class TestPyRuntime(cytest.TestCase):
     self.assertRaisesRegexp(RuntimeError, 'unhandled type: str', lambda: n['foo'])
     self.assertRaisesRegexp(RuntimeError, 'unhandled type: float', lambda: n[1.])
 
-  def testNormalizeCtor(self):
+  def testNormalization(self):
     '''
     Tests the built-in normalizing function (nf) applied to constructors.
 
@@ -90,8 +94,6 @@ class TestPyRuntime(cytest.TestCase):
     F,Q,W = prelude.Failure, prelude.Choice, prelude.Fwd
     special_tags = [runtime.T_FAIL, runtime.T_CHOICE]
 
-    # None -> no step.
-    # The topmost symbol is expected to be a constructor.
     TESTS = {
       # [rec=0] Tests for head normalization.
           #  input     output
@@ -168,7 +170,8 @@ class TestPyRuntime(cytest.TestCase):
           # function symbol, another function appears in a needed postition and
           # rewrites to  a Failure, Choice, or FWD node.
           , [[Z, ZF], F]
-          # , [[Z, ZQ], [Q, N, M]] ## FIXME ##
+            # The step function aborts when the choice reaches the root position.
+          , [[Z, ZQ], [Q, [Z, N], [Z, M]]]
           , [[Z, ZW], [W, N]]
           ]
       }
@@ -195,21 +198,6 @@ class TestPyRuntime(cytest.TestCase):
   def testPullTab(self):
     '''Tests the pull-tab step.'''
     pass
-
-  # def testHnf(self):
-  #   '''Tests the head-normalizing function.'''
-  #   # Most cases are covered in testNormalizeCtor.  Coverage analysis shows a
-  #   # need for the following additional tests: while head-normalizing a
-  #   # function symbol, another function appears in a needed postition and
-  #   # rewrites to  a Failure, Choice, or FWD node.
-  #   interp = Interpreter()
-  #   bs = interp.import_(self.BOOTSTRAP)
-  #   N,U,B,ZN,ZF,ZQ,ZW = bs.N, bs.U, bs.B, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
-
-
-
-
-
 
 
 class TestPyInterp(cytest.TestCase):
@@ -240,12 +228,14 @@ class TestPyInterp(cytest.TestCase):
               )
           ]
       )
+    cls.BOOTSTRAP = getbootstrap()
 
   @classmethod
   def tearDownClass(cls):
     del cls.ICURRY
     del cls.MYLIST
     del cls.X
+    del cls.BOOTSTRAP
 
   def testImport(self):
     icur = self.ICURRY[0]
@@ -314,6 +304,8 @@ class TestPyInterp(cytest.TestCase):
     L = interp.import_(self.MYLIST)
     X = interp.import_(self.X)
     P = interp.import_(Prelude)
+    bs = interp.import_(self.BOOTSTRAP)
+    N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
     TESTS = [
         [[1], ['1']]
       , [[2.0], ['2.0']]
@@ -323,6 +315,8 @@ class TestPyInterp(cytest.TestCase):
       , [[X.X, [P.Choice, 1, [X.X, [P.Choice, 2, [P.Choice, 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
       , [[P.Failure], []]
       , [[P.Choice, P.Failure, 0], ['0']]
+      , [[Z, ZQ], ['N', 'M']]
+      , [[Z, ZW], ['N']]
       ]
     for expr, expected in TESTS:
       goal = interp.expr(expr)

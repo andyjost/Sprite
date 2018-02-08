@@ -64,13 +64,15 @@ class Interpreter(object):
 
   Supported flags:
   ----------------
-      ``debug`` (True|False)
+      ``debug`` (*True*|False)
           Sacrifice speed to add more consistency checks.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self.modules = {}
-    self.flags = flags
+    self.flags = {}
+    self.flags.setdefault('debug', True)
+    self.flags.update(flags)
     return self
 
   def __init__(self):
@@ -138,7 +140,7 @@ class Interpreter(object):
   @_loadsymbols.when(IFunction)
   def _loadsymbols(self, ifun, moduleobj):
     info = InfoTable(
-        ifun.ident.basename, ifun.arity, T_FUNC, None, Show('{0}')
+        ifun.ident.basename, ifun.arity, T_FUNC, None, Show()
       )
     setattr(moduleobj, ifun.ident.basename, TypeInfo(ifun.ident, info))
 

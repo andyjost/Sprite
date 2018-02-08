@@ -42,7 +42,7 @@ def compile_primitive_builtin(interpreter, ifun):
   '''
   func = ifun.metadata
   hnf = interpreter.hnf
-  if interpreter.flags.get('debug', True):
+  if interpreter.flags['debug']:
     def step(lhs):
       hnfs = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
       tys, args = zip(*[(s.info, s[0]) for s in hnfs])
@@ -96,7 +96,10 @@ class FunctionCompiler(object):
   def get(self):
     '''Returns the compiled step function.'''
     local = {}
-    exec render(self.program) in self.closure.context, local
+    source = render(self.program)
+    exec source in self.closure.context, local
+    if self.interpreter.flags['debug']:
+      local['step'].source = source
     return local['step']
 
   def typeinfo(self, iname):
