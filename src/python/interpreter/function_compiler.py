@@ -154,11 +154,11 @@ class FunctionCompiler(object):
 
   @varscope.when(icurry.ILhs)
   def varscope(self, ilhs):
-    return 'lhs[%d]' % ilhs.index.position
+    return 'lhs[%d]' % (ilhs.index.position-1) # 1-based indexing
 
   @varscope.when(icurry.IVar)
   def varscope(self, ivar):
-    return '_%s[%d]' % (ivar.vid, ivar.index.position)
+    return '_%s[%d]' % (ivar.vid, ivar.index.position-1) # 1-based indexing
 
   @varscope.when(icurry.IBind)
   def varscope(self, ibind):
@@ -166,6 +166,28 @@ class FunctionCompiler(object):
 
   @varscope.when(icurry.IFree)
   def varscope(self, ifree):
+    raise RuntimeError('IFree not handled')
+
+  # VarPath.
+  # Add a variable's path to the closure.
+  @dispatch.on('varscope')
+  def setvarpath(self, vid, varscope):
+    raise RuntimeError('unhandled VarScope: %s' % type(varscope))
+
+  @setvarpath.when(icurry.ILhs)
+  def setvarpath(self, vid, ilhs):
+    self.closure['p_%s' % vid] = (ilhs.index.position-1,) # 1-based indexing
+
+  @setvarpath.when(icurry.IVar)
+  def setvarpath(self, vid, ivar):
+    self.closure['p_%s' % vid] = self.closure['p_%s' % ivar.vid] + (vid,)
+
+  @setvarpath.when(icurry.IBind)
+  def setvarpath(self, vid, ibind):
+    raise RuntimeError('IBind not handled')
+
+  @setvarpath.when(icurry.IFree)
+  def setvarpath(self, vid, ifree):
     raise RuntimeError('IFree not handled')
 
   # Expression.
@@ -230,6 +252,7 @@ class FunctionCompiler(object):
   def statement(self, declare):
     vid = declare.var.vid
     scope = declare.var.scope
+    self.setvarpath(vid, scope)
     yield '_%s = %s' % (vid, self.varscope(scope))
 
   @statement.when(icurry.Assign)
@@ -251,18 +274,16 @@ class FunctionCompiler(object):
   @statement.when(icurry.ATable)
   def statement(self, atable):
     self.closure['hnf'] = self.interpreter.hnf
-    if hasattr(atable.expr, 'vid'):
-      ref = '_%s' % atable.expr.vid
-    else:
-      yield 'expr = %s' % self.expression(atable.expr)
-      ref = 'expr'
-    yield 'selector = hnf(lhs, %s).info.tag' % ref
+    # How would one pull-tab a detached expression?  It cannot be done.  So the
+    # selector must be a variable.
+    assert hasattr(atable.expr, 'vid')
+    yield 'selector = hnf(lhs, p_%s).info.tag' % atable.expr.vid
     cf = 'if'
     for iname,stmt in atable.cases.iteritems():
       yield '%s selector == %s:' % (cf, self.typeinfo(iname).info.tag)
       yield list(self.statement(stmt))
       cf = 'elif'
-    if not atable.isflex:
+    if atable.isflex:
       yield 'else:'
       yield [
           'lhs.node(%s)' % self.closure['Prelude.Failure']

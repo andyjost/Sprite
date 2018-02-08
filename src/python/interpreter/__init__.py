@@ -80,7 +80,6 @@ class Interpreter(object):
   # ==========
   @dispatch.on('arg')
   def import_(self, arg):
-    breakpoint()
     raise RuntimeError('unhandled argument type')
 
   @import_.when(collections.Sequence)
@@ -223,6 +222,8 @@ class Interpreter(object):
   # Evaluating.
   # ===========
   def eval(self, goal):
+    if not isinstance(goal, Node):
+      goal = self.expr(goal)
     return runtime.Evaluator(self, goal).eval()
 
   # Head-normalizing function.

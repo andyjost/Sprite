@@ -55,7 +55,11 @@ class Node(object):
 
   @dispatch.on('i')
   def __getitem__(self, i):
-    raise RuntimeError('unhandled type: %s' % type(i))
+    raise RuntimeError('unhandled type: %s' % type(i).__name__)
+
+  @__getitem__.when(str)
+  def __getitem__(self, i):
+    raise RuntimeError('unhandled type: str')
 
   @__getitem__.when(Integral)
   def __getitem__(self, i):
@@ -117,9 +121,6 @@ class Evaluator(object):
     '''Implements the dispatch (D) Fair Scheme procedure.'''
     while self.queue:
       expr = self.queue.pop(0)
-      if not isinstance(expr, Node):
-        assert isinstance(expr, icurry.BuiltinVariant)
-        yield expr
       tag = expr.info.tag
       if tag == T_CHOICE:
         self.queue += expr.successors
@@ -127,7 +128,8 @@ class Evaluator(object):
       elif tag == T_FAIL:
         continue # discard
       elif tag == T_FWD:
-        target = target[()]
+        expr = expr[()]
+        self.queue.append(expr)
       else:
         try:
           self.interpreter.nf(expr)
@@ -229,10 +231,9 @@ def nf(interpreter, expr, targetpath=[], rec=float('inf')):
             tag = target.info.tag
             if tag == T_FAIL:
               expr.rewrite(interpreter.ti_Failure)
-            elif tag == T_CHOICE:
-              pull_tab(expr, targetpath)
             else:
-              assert False
+              assert tag == T_CHOICE
+              pull_tab(expr, targetpath)
           raise
 
 
@@ -249,11 +250,7 @@ def pull_tab(source, targetpath):
       A sequence of integers giving the path from ``source`` to the target
       (descendent).
   '''
-  try:
-    assert targetpath
-  except:
-    breakpoint()
-    raise
+  assert targetpath
   i, = targetpath # temporary
   target = source[i]
   assert target.info.name == 'Choice'
