@@ -40,8 +40,12 @@ class TypeInfo(object):
   def _check_call(self, *args):
     if len(args) != self.info.arity:
       raise TypeError(
-          'cannot construct "%s" (arity=%d), with %d args'
-              % (self.info.name, self.info.arity, len(args))
+          'cannot construct "%s" (arity=%d), with %d arg%s' % (
+              self.info.name
+            , self.info.arity
+            , len(args)
+            , '' if len(args) == 1 else 's'
+            )
         )
 
   def __call__(self, *args):
@@ -50,7 +54,7 @@ class TypeInfo(object):
     return Node(self.info, *args)
 
   def __str__(self):
-    return 'TypeInfo for %s' % self.ident
+    return 'TypeInfo for "%s"' % self.ident
 
 
 # Inpterpretation.
@@ -75,14 +79,15 @@ class Interpreter(object):
     self.flags.update(flags)
     return self
 
-  def __init__(self):
+  def __init__(self, flags={}):
     self.prelude = self.import_(Prelude)
+    self.ti_Failure = self['Prelude.Failure'].info # cached
 
   # Importing.
   # ==========
   @dispatch.on('arg')
   def import_(self, arg):
-    raise RuntimeError('unhandled argument type')
+    raise TypeError('cannot import type "%s"' % type(arg).__name__)
 
   @import_.when(collections.Sequence)
   def import_(self, seq):
@@ -100,7 +105,7 @@ class Interpreter(object):
   # Loading Symbols.
   # ================
   @dispatch.on('idef')
-  def _loadsymbols(self, idef, moduleobj):
+  def _loadsymbols(self, idef, moduleobj): #pragma: no cover
     '''
     Load symbols (i.e., constructor and functions names) from the ICurry
     definition ``idef`` into module ``moduleobj``.
@@ -147,14 +152,9 @@ class Interpreter(object):
   # Compiling.
   # ==========
   @dispatch.on('idef')
-  def _compile(self, idef, moduleobj):
+  def _compile(self, idef, moduleobj): # pragma: no cover
     '''Compile the ICurry definitions from ``idef`` into module ``moduleobj``'''
-    raise RuntimeError("unhandled ICurry type during compilation: '%s'" % type(idef))
-
-  @_compile.when(collections.Sequence)
-  def _compile(self, seq, *args, **kwds):
-    for item in seq:
-      self._compile(item, *args, **kwds)
+    assert False
 
   @_compile.when(collections.Mapping)
   def _compile(self, mapping, *args, **kwds):
@@ -174,7 +174,9 @@ class Interpreter(object):
   # ====================
   @dispatch.on('arg')
   def expr(self, arg, *args):
-    raise RuntimeError('unhandled argument type')
+    raise TypeError(
+        'cannot build a Curry expression from type "%s"' % type(arg).__name__
+      )
 
   @expr.when(collections.Sequence)
   def expr(self, arg):
@@ -212,13 +214,13 @@ class Interpreter(object):
     try:
       module = self.modules[iname.module]
     except KeyError:
-      raise SymbolLookupError("module '%s' not found" % iname.module)
+      raise SymbolLookupError('module "%s" not found' % iname.module)
 
     try:
       return getattr(module, iname.basename)
     except AttributeError:
       raise SymbolLookupError(
-          "module '%s' has no symbol '%s'" % (iname.module, iname.basename)
+          'module "%s" has no symbol "%s"' % (iname.module, iname.basename)
         )
 
   # Evaluating.
@@ -234,27 +236,12 @@ class Interpreter(object):
   # Normalizing function.
   nf = runtime.nf
 
-  # Queries.
-  # ========
-  @property
-  def ti_Choice(self):
-    return self.prelude.Choice.info
-
-  @property
-  def ti_Failure(self):
-    return self.prelude.Failure.info
-
-  def is_choice(self, node):
-    return node.info is self.prelude.Choice.info
-
-  def is_failure(self, node):
-    return node.info is self.prelude.Failure.info
 
 # Misc.
 # =====
-def _unreachable(*args, **kwds):
-  raise RuntimeError('Unreachable')
+def _unreachable(*args, **kwds): #pragma: no cover
+  assert False
 
-def _no_step(*args, **kwds):
+def _no_step(*args, **kwds): #pragma: no cover
   pass
 

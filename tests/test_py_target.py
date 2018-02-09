@@ -1,6 +1,6 @@
 '''Tests for Curry code targeted to Python.'''
 from curry.icurry import *
-from curry.interpreter import Interpreter, Prelude
+from curry.interpreter import Interpreter, Prelude, SymbolLookupError
 from curry.interpreter import runtime
 from curry.visitation import dispatch
 import cytest
@@ -64,12 +64,28 @@ class TestPyRuntime(cytest.TestCase):
     '''Tests to improve line coverage.'''
     interp = Interpreter()
     prelude = interp.import_(Prelude)
+    self.assertEqual(str(prelude.negate), 'TypeInfo for "Prelude.negate"')
     self.assertEqual(str(prelude.negate.info), 'Info for "negate"')
     self.assertTrue(repr(prelude.negate.info).startswith('InfoTable'))
 
     n = runtime.Node(prelude.negate.info)
     self.assertRaisesRegexp(RuntimeError, 'unhandled type: str', lambda: n['foo'])
     self.assertRaisesRegexp(RuntimeError, 'unhandled type: float', lambda: n[1.])
+
+    self.assertRaisesRegexp(
+        TypeError
+      , r'cannot construct "Int" \(arity=1\), with 2 args'
+      , lambda: interp.expr(prelude.Int, 1, 2)
+      )
+    self.assertRaisesRegexp(
+        TypeError
+      , r'cannot construct "Choice" \(arity=2\), with 1 arg'
+      , lambda: interp.expr(prelude.Choice, 1)
+      )
+    self.assertRaisesRegexp(
+        TypeError, r'cannot import type "int"', lambda: interp.import_(1)
+      )
+
 
   def testNormalization(self):
     '''
@@ -87,7 +103,14 @@ class TestPyRuntime(cytest.TestCase):
     the behavior when a special symbol is uncovered while normalizing a
     constructor.
     '''
-    interp = Interpreter()
+    interp_debug = Interpreter(flags={'debug':True})
+    self.checkNormalization(interp_debug)
+    #
+    interp_nodebug = Interpreter(flags={'debug':False})
+    self.checkNormalization(interp_nodebug)
+
+
+  def checkNormalization(self, interp):
     bs = interp.import_(self.BOOTSTRAP)
     N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
     prelude = interp.import_(Prelude)
@@ -247,6 +270,17 @@ class TestPyInterp(cytest.TestCase):
     self.assertFalse(set('A B f f_case_#1 g main'.split()) - set(dir(example)))
     self.assertIs(interp.modules['example'], example)
 
+    # Symbol lookup.
+    self.assertIs(interp['Prelude.Int'], interp.modules['Prelude'].Int)
+    self.assertRaisesRegexp(
+        SymbolLookupError, r'module "blah" not found', lambda: interp['blah.x']
+      )
+    self.assertRaisesRegexp(
+        SymbolLookupError, r'module "Prelude" has no symbol "foo"'
+      , lambda: interp['Prelude.foo']
+      )
+    
+
   def testExpr(self):
     '''Use Interpreter.expr to build expressions.'''
     interp = Interpreter()
@@ -286,6 +320,13 @@ class TestPyInterp(cytest.TestCase):
     list3 = interp.expr(mylist.Cons, 1, [mylist.Cons, 2, mylist.Nil])
     self.assertNotEqual(list2, list3)
 
+    # Negative tests.
+    self.assertRaisesRegexp(
+        TypeError
+      , r'cannot build a Curry expression from type "dict"'
+      , lambda: interp.expr({})
+      )
+
   def testCoverage(self):
     '''Tests to get complete line coverage.'''
     interp = Interpreter()
@@ -300,7 +341,14 @@ class TestPyInterp(cytest.TestCase):
 
   def testEvalValues(self):
     '''Evaluate constructor goals.'''
-    interp = Interpreter()
+    interp_debug = Interpreter(flags={'debug':True})
+    self.checkEvalValues(interp_debug)
+    #
+    interp_nodebug = Interpreter(flags={'debug':False})
+    self.checkEvalValues(interp_nodebug)
+
+
+  def checkEvalValues(self, interp):
     L = interp.import_(self.MYLIST)
     X = interp.import_(self.X)
     P = interp.import_(Prelude)
@@ -325,7 +373,13 @@ class TestPyInterp(cytest.TestCase):
 
 
   def testEvaluateBuiltins(self):
-    interp = Interpreter()
+    interp_debug = Interpreter(flags={'debug':True})
+    self.checkEvaluateBuiltins(interp_debug)
+    #
+    interp_nodebug = Interpreter(flags={'debug':False})
+    self.checkEvaluateBuiltins(interp_nodebug)
+
+  def checkEvaluateBuiltins(self, interp):
     P = interp.import_(Prelude)
     TESTS = [
         [[P.negate, 1], ['-1']]

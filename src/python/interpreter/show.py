@@ -9,16 +9,9 @@ class Show(object):
   def __init__(self, format=None):
     self.format = getattr(format, 'format', None) # i.e., str.format.
 
-  @dispatch.on('expr')
-  def __call__(self, expr):
-    '''
-    Main entry point.  Applies type-specific formatting after recursing to
-    subexpressions.
-    '''
-    return str(expr)
-
-  @__call__.when(Node)
   def __call__(self, node):
+    '''Applies type-specific formatting after recursing to subexpressions.'''
+    assert isinstance(node, Node)
     subexprs = self.generate(node, self._recurse_)
     if self.format is None:
       return ' '.join(subexprs)
@@ -39,11 +32,7 @@ class Show(object):
 
   @_recurse_.when(Node)
   def _recurse_(self, node):
-    try:
-      show = node.info.show
-    except:
-      breakpoint()
-      raise
+    show = node.info.show
     s = show(node)
     return '(%s)' % s if ' ' in s else s
 

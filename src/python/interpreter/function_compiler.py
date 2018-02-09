@@ -42,6 +42,7 @@ def compile_primitive_builtin(interpreter, ifun):
   '''
   func = ifun.metadata
   hnf = interpreter.hnf
+  print 'While compiling %s: debug=%s' % (ifun.ident, interpreter.flags['debug'])
   if interpreter.flags['debug']:
     def step(lhs):
       hnfs = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
@@ -127,8 +128,8 @@ class FunctionCompiler(object):
 
   # Compile top-level ICurry objects.
   @dispatch.on('iobj')
-  def _compile(self, iobj):
-    raise RuntimeError('unhandled ICurry type: %s' % type(iobj))
+  def _compile(self, iobj): #pragma: no cover
+    assert False
 
   @_compile.when(collections.Sequence)
   def _compile(self, seq):
@@ -152,8 +153,8 @@ class FunctionCompiler(object):
 
   # VarScope.
   @dispatch.on('varscope')
-  def varscope(self, varscope):
-    raise RuntimeError('unhandled VarScope: %s' % type(varscope))
+  def varscope(self, varscope): #pragma: no cover
+    assert False
 
   @varscope.when(icurry.ILhs)
   def varscope(self, ilhs):
@@ -174,8 +175,8 @@ class FunctionCompiler(object):
   # VarPath.
   # Add a variable's path to the closure.
   @dispatch.on('varscope')
-  def setvarpath(self, vid, varscope):
-    raise RuntimeError('unhandled VarScope: %s' % type(varscope))
+  def setvarpath(self, vid, varscope): #pragma: no cover
+    assert False
 
   @setvarpath.when(icurry.ILhs)
   def setvarpath(self, vid, ilhs):
@@ -195,8 +196,8 @@ class FunctionCompiler(object):
 
   # Expression.
   @dispatch.on('expression')
-  def expression(self, expression):
-    raise RuntimeError('unhandled Expression: %s' % type(expression))
+  def expression(self, expression): #pragma: no cover
+    assert False
 
   @expression.when(collections.Sequence)
   def expression(self, seq):
