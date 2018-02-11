@@ -1,0 +1,5 @@
+The make files in this directory download Curry examples and convert them to
+ICurry/JSON.  They are intended to help Sprite developers manage tests rather
+than be used by Sprite's users.  In particular, the results of building this
+directory are expected to be checked in.
+

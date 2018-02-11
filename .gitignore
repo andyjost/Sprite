@@ -9,3 +9,5 @@ CMC/Examples/.curry
 .coverage
 *.pyc
 tests/htmlcov
+robots.txt*
+*.curry/

@@ -1,0 +1,628 @@
+[ 
+  { 
+    "__class__" : "IModule" , 
+    "name" : "escher_cond" , 
+    "imports" : [ 
+      "Prelude" 
+    ] , 
+    "types" : [ 
+      [ 
+        "escher_cond.Alpha" , 
+        [ 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "escher_cond.A" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "escher_cond.B" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "escher_cond.C" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "escher_cond.D" , 
+            "arity" : 0 
+          } 
+        ] 
+      ] 
+    ] , 
+    "functions" : [ 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "escher_cond.membercheck" , 
+        "arity" : 1 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "escher_cond.membercheck" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 1 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.(,)" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 2 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 1 , 
+                        "index" : [ 
+                          "Prelude.(,)" , 
+                          1 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 3 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 1 , 
+                        "index" : [ 
+                          "Prelude.(,)" , 
+                          2 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "escher_cond.membercheck_case_#1" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 3 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 2 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 1 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "escher_cond.membercheck_case_#1" , 
+        "arity" : 2 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "escher_cond.membercheck_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "escher_cond.membercheck_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 3 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.[]" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.False" , 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.:" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 4 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 3 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          1 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 5 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 3 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          2 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "escher_cond.membercheck_case_#1_case_#1" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 2 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 4 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 5 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 3 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "escher_cond.membercheck_case_#1_case_#1" , 
+        "arity" : 3 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "escher_cond.membercheck_case_#1_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 4 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "escher_cond.membercheck_case_#1_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "escher_cond.membercheck_case_#1_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "escher_cond.membercheck_case_#1_case_#1_case_#1" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.==" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Reference" , 
+                      "vid" : 2 
+                    } , 
+                    { 
+                      "__class__" : "Reference" , 
+                      "vid" : 4 
+                    } 
+                  ] 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 2 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 4 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 5 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "escher_cond.membercheck_case_#1_case_#1_case_#1" , 
+        "arity" : 4 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 6 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "escher_cond.membercheck_case_#1_case_#1_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "escher_cond.membercheck_case_#1_case_#1_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 4 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "escher_cond.membercheck_case_#1_case_#1_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "escher_cond.membercheck_case_#1_case_#1_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : false, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 6 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.False" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "escher_cond.membercheck" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.(,)" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 2 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 5 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.True" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.True" , 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 6 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "escher_cond.goal1" , 
+        "arity" : 0 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "escher_cond.membercheck" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.(,)" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "escher_cond.B" , 
+                      "args" : []
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "escher_cond.A" , 
+                          "args" : []
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.:" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "escher_cond.B" , 
+                              "args" : []
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.[]" , 
+                              "args" : []
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "escher_cond.goal2" , 
+        "arity" : 0 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "escher_cond.membercheck" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.(,)" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "escher_cond.C" , 
+                      "args" : []
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "escher_cond.A" , 
+                          "args" : []
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.:" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "escher_cond.B" , 
+                              "args" : []
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.[]" , 
+                              "args" : []
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "escher_cond.goal3" , 
+        "arity" : 0 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "IBind" 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "escher_cond.membercheck" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.(,)" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Reference" , 
+                      "vid" : 1 
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "escher_cond.A" , 
+                          "args" : []
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.:" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "escher_cond.B" , 
+                              "args" : []
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.[]" , 
+                              "args" : []
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } 
+    ] 
+  } 
+] 

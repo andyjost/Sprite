@@ -31,5 +31,5 @@ Sprite was developed and tested with the following software.
     - LLVM 5.0.1
     - GNU make 4.1
     - MPS 1.116.0 (www.ravenbrook.com/project/mps)
-		- Python 2.7.14
+		- Python 2.7.12 and 2.7.14
 

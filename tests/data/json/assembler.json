@@ -1,0 +1,2846 @@
+[ 
+  { 
+    "__class__" : "IModule" , 
+    "name" : "assembler" , 
+    "imports" : [ 
+      "Prelude" 
+    ] , 
+    "types" : [ 
+      [ 
+        "assembler.Instruction" , 
+        [ 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.Jump" , 
+            "arity" : 1 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.Label" , 
+            "arity" : 1 
+          } 
+        ] 
+      ] , 
+      [ 
+        "assembler.LabelId" , 
+        [ 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.L0" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.L1" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.L2" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.L3" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.L4" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.L5" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.L6" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.L7" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.L8" , 
+            "arity" : 0 
+          } , 
+          { 
+            "__class__" : "IConstructor" , 
+            "ident" : "assembler.L9" , 
+            "arity" : 0 
+          } 
+        ] 
+      ] 
+    ] , 
+    "functions" : [ 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.assembler" , 
+        "arity" : 3 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 1 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.[]" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.[]" , 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.:" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 4 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 1 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          1 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 5 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 1 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          2 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "assembler.assembler_case_#1" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 4 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 2 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 5 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 3 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 1 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.assembler_case_#1" , 
+        "arity" : 4 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 4 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 4 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "assembler.Jump" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 6 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 4 , 
+                        "index" : [ 
+                          "assembler.Jump" , 
+                          1 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 7 , 
+                      "scope" : { 
+                        "__class__" : "IBind" 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 8 , 
+                      "scope" : { 
+                        "__class__" : "IBind" 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "assembler.assembler_case_#1_case_#1" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 6 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 2 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 7 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 8 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 5 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 3 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "assembler.Label" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 9 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 4 , 
+                        "index" : [ 
+                          "assembler.Label" , 
+                          1 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 10 , 
+                      "scope" : { 
+                        "__class__" : "IBind" 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "assembler.assembler_case_#1_case_#2" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 10 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 9 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 3 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 2 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 5 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 4 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.assembler_case_#1_case_#2" , 
+        "arity" : 5 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 10 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#2" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 9 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#2" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#2" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#2" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#2" , 
+                  5 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "assembler.assembler_case_#1_case_#2_case_#1" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.=:=" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Reference" , 
+                      "vid" : 10 
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "assembler.insertST" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 9 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 3 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 2 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 10 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 9 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 3 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 2 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 5 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.assembler_case_#1_case_#2_case_#1" , 
+        "arity" : 6 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 11 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#2_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 10 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#2_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 9 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#2_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#2_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#2_case_#1" , 
+                  5 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#2_case_#1" , 
+                  6 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : false, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 11 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.False" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.failed" , 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.True" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "assembler.assembler" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 5 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 10 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 3 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 11 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.assembler_case_#1_case_#1" , 
+        "arity" : 6 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 6 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 7 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 8 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1" , 
+                  5 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1" , 
+                  6 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "assembler.assembler_case_#1_case_#1_case_#1" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "assembler.lookupST" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Reference" , 
+                      "vid" : 6 
+                    } , 
+                    { 
+                      "__class__" : "Reference" , 
+                      "vid" : 2 
+                    } , 
+                    { 
+                      "__class__" : "Reference" , 
+                      "vid" : 7 
+                    } , 
+                    { 
+                      "__class__" : "Reference" , 
+                      "vid" : 8 
+                    } 
+                  ] 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 6 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 2 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 7 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 8 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 5 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 3 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.assembler_case_#1_case_#1_case_#1" , 
+        "arity" : 7 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 9 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 6 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 7 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 8 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1_case_#1" , 
+                  5 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1_case_#1" , 
+                  6 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.assembler_case_#1_case_#1_case_#1" , 
+                  7 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : false, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 9 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.False" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.failed" , 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.True" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "BuiltinVariant" , 
+                          "expr" : 9 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.:" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 7 
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "assembler.assembler" , 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "Reference" , 
+                                  "vid" : 5 
+                                } , 
+                                { 
+                                  "__class__" : "Reference" , 
+                                  "vid" : 8 
+                                } , 
+                                { 
+                                  "__class__" : "Applic" , 
+                                  "ident" : "Prelude.+" , 
+                                  "args" : [ 
+                                    { 
+                                      "__class__" : "Reference" , 
+                                      "vid" : 3 
+                                    } , 
+                                    { 
+                                      "__class__" : "BuiltinVariant" , 
+                                      "expr" : 2 
+                                    } 
+                                  ] 
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 9 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.insertST" , 
+        "arity" : 3 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 3 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.[]" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.(,)" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 1 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 2 
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.[]" , 
+                          "args" : []
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.:" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 4 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 3 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          1 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 5 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 3 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          2 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "assembler.insertST_case_#1" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 4 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 1 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 2 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 5 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 3 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.insertST_case_#1" , 
+        "arity" : 4 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 4 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 4 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.(,)" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 6 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 4 , 
+                        "index" : [ 
+                          "Prelude.(,)" , 
+                          1 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 7 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 4 , 
+                        "index" : [ 
+                          "Prelude.(,)" , 
+                          2 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "IOr" , 
+                      "lhs" : { 
+                        "__class__" : "Applic" , 
+                        "ident" : "assembler.insertST_case_#1_case_#1" , 
+                        "args" : [ 
+                          { 
+                            "__class__" : "Reference" , 
+                            "vid" : 1 
+                          } , 
+                          { 
+                            "__class__" : "Reference" , 
+                            "vid" : 6 
+                          } , 
+                          { 
+                            "__class__" : "Reference" , 
+                            "vid" : 2 
+                          } , 
+                          { 
+                            "__class__" : "Reference" , 
+                            "vid" : 7 
+                          } , 
+                          { 
+                            "__class__" : "Reference" , 
+                            "vid" : 5 
+                          } 
+                        ] 
+                      } , 
+                      "rhs" : { 
+                        "__class__" : "Applic" , 
+                        "ident" : "assembler.insertST_case_#1_case_#2" , 
+                        "args" : [ 
+                          { 
+                            "__class__" : "Reference" , 
+                            "vid" : 1 
+                          } , 
+                          { 
+                            "__class__" : "Reference" , 
+                            "vid" : 6 
+                          } , 
+                          { 
+                            "__class__" : "Reference" , 
+                            "vid" : 7 
+                          } , 
+                          { 
+                            "__class__" : "Reference" , 
+                            "vid" : 2 
+                          } , 
+                          { 
+                            "__class__" : "Reference" , 
+                            "vid" : 5 
+                          } 
+                        ] 
+                      } 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 4 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.insertST_case_#1_case_#2" , 
+        "arity" : 5 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#2" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 6 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#2" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 7 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#2" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#2" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#2" , 
+                  5 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "assembler.insertST_case_#1_case_#2_case_#1" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.=:=" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.==" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 1 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 6 
+                        } 
+                      ] 
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.False" , 
+                      "args" : []
+                    } 
+                  ] 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 1 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 6 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 7 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 2 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 5 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.insertST_case_#1_case_#2_case_#1" , 
+        "arity" : 6 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 8 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#2_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#2_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 6 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#2_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 7 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#2_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#2_case_#1" , 
+                  5 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#2_case_#1" , 
+                  6 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : false, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 8 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.False" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.failed" , 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.True" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.(,)" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 6 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 7 
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "assembler.insertST" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 1 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 2 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 5 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 8 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.insertST_case_#1_case_#1" , 
+        "arity" : 5 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 6 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 7 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#1" , 
+                  5 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "assembler.insertST_case_#1_case_#1_case_#1" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.&" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.=:=" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.==" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 1 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 6 
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.True" , 
+                          "args" : []
+                        } 
+                      ] 
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.=:=" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 2 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 7 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 1 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 6 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 2 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 7 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 5 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.insertST_case_#1_case_#1_case_#1" , 
+        "arity" : 6 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 8 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#1_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#1_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 6 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#1_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#1_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 7 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#1_case_#1" , 
+                  5 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.insertST_case_#1_case_#1_case_#1" , 
+                  6 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : false, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 8 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.False" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.failed" , 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.True" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.(,)" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 6 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 7 
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 5 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 8 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.lookupST" , 
+        "arity" : 4 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 4 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 2 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.[]" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.=:=" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 4 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.:" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.(,)" , 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "Reference" , 
+                                  "vid" : 1 
+                                } , 
+                                { 
+                                  "__class__" : "Reference" , 
+                                  "vid" : 3 
+                                } 
+                              ] 
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.[]" , 
+                              "args" : []
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.:" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 5 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 2 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          1 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 6 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 2 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          2 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "assembler.lookupST_case_#1" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 5 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 1 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 3 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 4 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 6 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 2 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.lookupST_case_#1" , 
+        "arity" : 5 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 5 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 4 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 6 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1" , 
+                  5 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 5 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.(,)" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 7 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 5 , 
+                        "index" : [ 
+                          "Prelude.(,)" , 
+                          1 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 8 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 5 , 
+                        "index" : [ 
+                          "Prelude.(,)" , 
+                          2 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "assembler.lookupST_case_#1_case_#1" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 1 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 7 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 3 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 8 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 4 
+                        } , 
+                        { 
+                          "__class__" : "Reference" , 
+                          "vid" : 6 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 5 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.lookupST_case_#1_case_#1" , 
+        "arity" : 6 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 7 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 8 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 4 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1" , 
+                  5 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 6 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1" , 
+                  6 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "assembler.lookupST_case_#1_case_#1_case_#1" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.==" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Reference" , 
+                      "vid" : 1 
+                    } , 
+                    { 
+                      "__class__" : "Reference" , 
+                      "vid" : 7 
+                    } 
+                  ] 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 1 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 7 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 3 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 8 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 4 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 6 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.lookupST_case_#1_case_#1_case_#1" , 
+        "arity" : 7 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 10 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1_case_#1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1_case_#1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 7 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1_case_#1" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1_case_#1" , 
+                  4 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 8 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1_case_#1" , 
+                  5 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 4 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1_case_#1" , 
+                  6 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 6 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "assembler.lookupST_case_#1_case_#1_case_#1" , 
+                  7 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : false, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 10 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.False" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 9 , 
+                      "scope" : { 
+                        "__class__" : "IBind" 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.&" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "assembler.lookupST" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 1 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 6 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 3 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 9 
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.=:=" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 4 
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.:" , 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "Applic" , 
+                                  "ident" : "Prelude.(,)" , 
+                                  "args" : [ 
+                                    { 
+                                      "__class__" : "Reference" , 
+                                      "vid" : 7 
+                                    } , 
+                                    { 
+                                      "__class__" : "Reference" , 
+                                      "vid" : 8 
+                                    } 
+                                  ] 
+                                } , 
+                                { 
+                                  "__class__" : "Reference" , 
+                                  "vid" : 9 
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.True" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.&" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.=:=" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 3 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 8 
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.=:=" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 4 
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.:" , 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "Applic" , 
+                                  "ident" : "Prelude.(,)" , 
+                                  "args" : [ 
+                                    { 
+                                      "__class__" : "Reference" , 
+                                      "vid" : 7 
+                                    } , 
+                                    { 
+                                      "__class__" : "Reference" , 
+                                      "vid" : 8 
+                                    } 
+                                  ] 
+                                } , 
+                                { 
+                                  "__class__" : "Reference" , 
+                                  "vid" : 6 
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 10 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "assembler.goal" , 
+        "arity" : 0 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "assembler.assembler" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.:" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "assembler.Label" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "assembler.L0" , 
+                          "args" : []
+                        } 
+                      ] 
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "assembler.Jump" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "assembler.L1" , 
+                              "args" : []
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.:" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "assembler.Jump" , 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "Applic" , 
+                                  "ident" : "assembler.L0" , 
+                                  "args" : []
+                                } 
+                              ] 
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.:" , 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "Applic" , 
+                                  "ident" : "assembler.Label" , 
+                                  "args" : [ 
+                                    { 
+                                      "__class__" : "Applic" , 
+                                      "ident" : "assembler.L1" , 
+                                      "args" : []
+                                    } 
+                                  ] 
+                                } , 
+                                { 
+                                  "__class__" : "Applic" , 
+                                  "ident" : "Prelude.[]" , 
+                                  "args" : []
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } , 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.[]" , 
+                  "args" : []
+                } , 
+                { 
+                  "__class__" : "BuiltinVariant" , 
+                  "expr" : 0 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } 
+    ] 
+  } 
+] 

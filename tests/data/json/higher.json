@@ -1,0 +1,761 @@
+[ 
+  { 
+    "__class__" : "IModule" , 
+    "name" : "higher" , 
+    "imports" : [ 
+      "Prelude" 
+    ] , 
+    "types" : [], 
+    "functions" : [ 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "higher.map_" , 
+        "arity" : 2 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "higher.map_" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "higher.map_" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 2 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.[]" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.[]" , 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.:" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 3 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 2 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          1 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 4 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 2 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          2 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.apply" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 1 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 3 
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "higher.map_" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 1 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 4 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 2 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "higher.foldr_" , 
+        "arity" : 3 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "higher.foldr_" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "higher.foldr_" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 3 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "higher.foldr_" , 
+                  3 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable" , 
+            "counter" : 1 , 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 3 
+            } , 
+            "switch" : [ 
+              { 
+                "case" : "Prelude.[]" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Reference" , 
+                      "vid" : 2 
+                    } 
+                  } 
+                ] 
+              } , 
+              { 
+                "case" : "Prelude.:" , 
+                "statements" : [ 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 4 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 3 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          1 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare" , 
+                    "var" : { 
+                      "__class__" : "Variable" , 
+                      "vid" : 5 , 
+                      "scope" : { 
+                        "__class__" : "IVar" , 
+                        "vid" : 3 , 
+                        "index" : [ 
+                          "Prelude.:" , 
+                          2 
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return" , 
+                    "expr" : { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.apply" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.apply" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 1 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 4 
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "higher.foldr_" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 1 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 2 
+                            } , 
+                            { 
+                              "__class__" : "Reference" , 
+                              "vid" : 5 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              } 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Reference" , 
+              "vid" : 3 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "higher.inc" , 
+        "arity" : 1 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "higher.inc" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "Prelude.+" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 1 
+                } , 
+                { 
+                  "__class__" : "BuiltinVariant" , 
+                  "expr" : 1 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "higher.g1" , 
+        "arity" : 0 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "Prelude.map" , 
+              "args" : [ 
+                { 
+                  "__class__" : "PartApplic" , 
+                  "missing" : 1 , 
+                  "expr" : { 
+                    "__class__" : "Applic" , 
+                    "ident" : "higher.inc" , 
+                    "args" : []
+                  } 
+                } , 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.:" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "BuiltinVariant" , 
+                      "expr" : 0 
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "BuiltinVariant" , 
+                          "expr" : 2 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.:" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "BuiltinVariant" , 
+                              "expr" : 1 
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.[]" , 
+                              "args" : []
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "higher.g2" , 
+        "arity" : 0 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "Prelude.map" , 
+              "args" : [ 
+                { 
+                  "__class__" : "PartApplic" , 
+                  "missing" : 1 , 
+                  "expr" : { 
+                    "__class__" : "Applic" , 
+                    "ident" : "Prelude.flip" , 
+                    "args" : [ 
+                      { 
+                        "__class__" : "PartApplic" , 
+                        "missing" : 2 , 
+                        "expr" : { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.+" , 
+                          "args" : []
+                        } 
+                      } , 
+                      { 
+                        "__class__" : "BuiltinVariant" , 
+                        "expr" : 1 
+                      } 
+                    ] 
+                  } 
+                } , 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.:" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "BuiltinVariant" , 
+                      "expr" : 0 
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "BuiltinVariant" , 
+                          "expr" : 2 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.:" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "BuiltinVariant" , 
+                              "expr" : 1 
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.[]" , 
+                              "args" : []
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "higher.g3" , 
+        "arity" : 0 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "Prelude.foldr" , 
+              "args" : [ 
+                { 
+                  "__class__" : "PartApplic" , 
+                  "missing" : 2 , 
+                  "expr" : { 
+                    "__class__" : "Applic" , 
+                    "ident" : "Prelude.+" , 
+                    "args" : []
+                  } 
+                } , 
+                { 
+                  "__class__" : "BuiltinVariant" , 
+                  "expr" : 0 
+                } , 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.:" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "BuiltinVariant" , 
+                      "expr" : 1 
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "BuiltinVariant" , 
+                          "expr" : 0 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.:" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "BuiltinVariant" , 
+                              "expr" : 2 
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.[]" , 
+                              "args" : []
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "higher.g4" , 
+        "arity" : 0 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "Prelude.foldr" , 
+              "args" : [ 
+                { 
+                  "__class__" : "PartApplic" , 
+                  "missing" : 2 , 
+                  "expr" : { 
+                    "__class__" : "Applic" , 
+                    "ident" : "Prelude.*" , 
+                    "args" : []
+                  } 
+                } , 
+                { 
+                  "__class__" : "BuiltinVariant" , 
+                  "expr" : 1 
+                } , 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.:" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "BuiltinVariant" , 
+                      "expr" : 1 
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "BuiltinVariant" , 
+                          "expr" : 2 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.:" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "BuiltinVariant" , 
+                              "expr" : 3 
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.:" , 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "BuiltinVariant" , 
+                                  "expr" : 4 
+                                } , 
+                                { 
+                                  "__class__" : "Applic" , 
+                                  "ident" : "Prelude.:" , 
+                                  "args" : [ 
+                                    { 
+                                      "__class__" : "BuiltinVariant" , 
+                                      "expr" : 5 
+                                    } , 
+                                    { 
+                                      "__class__" : "Applic" , 
+                                      "ident" : "Prelude.[]" , 
+                                      "args" : []
+                                    } 
+                                  ] 
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "higher.g5" , 
+        "arity" : 0 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "Prelude.foldr" , 
+              "args" : [ 
+                { 
+                  "__class__" : "PartApplic" , 
+                  "missing" : 2 , 
+                  "expr" : { 
+                    "__class__" : "Applic" , 
+                    "ident" : "higher.g5._#lambda1" , 
+                    "args" : []
+                  } 
+                } , 
+                { 
+                  "__class__" : "BuiltinVariant" , 
+                  "expr" : 1 
+                } , 
+                { 
+                  "__class__" : "Applic" , 
+                  "ident" : "Prelude.:" , 
+                  "args" : [ 
+                    { 
+                      "__class__" : "BuiltinVariant" , 
+                      "expr" : 1 
+                    } , 
+                    { 
+                      "__class__" : "Applic" , 
+                      "ident" : "Prelude.:" , 
+                      "args" : [ 
+                        { 
+                          "__class__" : "BuiltinVariant" , 
+                          "expr" : 2 
+                        } , 
+                        { 
+                          "__class__" : "Applic" , 
+                          "ident" : "Prelude.:" , 
+                          "args" : [ 
+                            { 
+                              "__class__" : "BuiltinVariant" , 
+                              "expr" : 3 
+                            } , 
+                            { 
+                              "__class__" : "Applic" , 
+                              "ident" : "Prelude.:" , 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "BuiltinVariant" , 
+                                  "expr" : 4 
+                                } , 
+                                { 
+                                  "__class__" : "Applic" , 
+                                  "ident" : "Prelude.:" , 
+                                  "args" : [ 
+                                    { 
+                                      "__class__" : "BuiltinVariant" , 
+                                      "expr" : 5 
+                                    } , 
+                                    { 
+                                      "__class__" : "Applic" , 
+                                      "ident" : "Prelude.[]" , 
+                                      "args" : []
+                                    } 
+                                  ] 
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction" , 
+        "ident" : "higher.g5._#lambda1" , 
+        "arity" : 2 , 
+        "statements" : [ 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 1 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "higher.g5._#lambda1" , 
+                  1 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare" , 
+            "var" : { 
+              "__class__" : "Variable" , 
+              "vid" : 2 , 
+              "scope" : { 
+                "__class__" : "ILhs" , 
+                "index" : [ 
+                  "higher.g5._#lambda1" , 
+                  2 
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return" , 
+            "expr" : { 
+              "__class__" : "Applic" , 
+              "ident" : "Prelude.*" , 
+              "args" : [ 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 1 
+                } , 
+                { 
+                  "__class__" : "Reference" , 
+                  "vid" : 2 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } 
+    ] 
+  } 
+] 
