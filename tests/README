@@ -18,10 +18,20 @@ parser tests.
         test_*.py   Unit test source code.
 
 
-3. EDITOR INTEGRATION
+3. TEST RUNNERS
+---------------
+
+        run_tests       Run unit tests.
+        debug_tests     Run unit tests under gdb.
+        valgrind_tests  Run unit tests under valgrind.
+        cov_tests       Run unit tests under coverage.py.
+        shell           Start a shell in the test environment.
+
+
+4. EDITOR INTEGRATION
 ---------------------
 
 A makefile is used to simplify integration with text editors.  For instance, in
 vim <Enter> runs "make" by default, so that key can be used to easily run the
-tests after editing something.
+tests right from the text editor.
 

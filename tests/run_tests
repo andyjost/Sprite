@@ -30,13 +30,16 @@ export LD_LIBRARY_PATH=$SPRITE_HOME/lib:$LD_LIBRARY_PATH
 
 case `basename $0` in
   "run_tests")
+    # Run the Python unit tests.
     $python -B -m unittest discover -v `pwd` "$@"
     ;;
   "debug_tests")
+    # Run the Python unit tests under gdb.
     ldd ../install/lib/python2.7/curry/llvm/_llvm.so
     gdb --args $python -B -m unittest discover -v `pwd` "$@"
     ;;
   "cov_tests")
+    # Run the Python unit tests under coverage.py to get line coverage information.
     if [ ! -e `readlink -f $SPRITE_HOME/bin/coverage` ]; then
       $(dirname $(readlink $python))/pip install coverage || {
           1>&2 echo "Failed to pip install coverage.  Please install it manually.";
@@ -49,6 +52,8 @@ case `basename $0` in
     echo "See HTML output at `readlink -f htmlcov/index.html`"
     ;;
   "valgrind_tests")
+    # Run the Python unit tests under valgrind.
+    #
     # To use valgrind, follow directions in Python's Misc/README.valgrind to
     # rebuild Python:
     #
@@ -64,6 +69,7 @@ case `basename $0` in
     valgrind --suppressions=valgrind-python.supp $python -B -m unittest discover -v `pwd` "$@"
     ;;
   "shell")
+    # Start a new shell with the  environment used to run Python unit tests.
     exec $SHELL
 esac
 
