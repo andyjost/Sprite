@@ -1,7 +1,7 @@
 In empty directory, say DIST, get the repository
 
     git init
-    git pull https://github.com/andyjost/CMC master
+    git pull https://projects.cecs.pdx.edu/git/antoy-cmc
 
 Compile the engine
 

@@ -1,7 +1,13 @@
 1. Dependencies
 ---------------
 
-Paths to the required software are listed in Make.config.  Versions can be
+This project requires the Curry Meta-Compiler (CMC).  If it is not already
+there, you should place in the project root directory.  Assuming you have
+access to PSU computer systems, the following command can be used:
+
+    git clone https://yourusername@projects.cecs.pdx.edu/git/antoy-cmc CMC
+
+Paths to other required software are listed in Make.config.  Versions can be
 found at the end of this file.
 
 

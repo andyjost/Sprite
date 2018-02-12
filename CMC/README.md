@@ -1,2 +1,0 @@
-# CMC
-Curry Midnight Compiler
