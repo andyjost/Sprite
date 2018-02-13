@@ -53,7 +53,7 @@ makeStmt ttable stmt =
     Typed expr _
        -> makeStmt ttable expr
     Let _ expr
-       -> makeLet ttable stmt ++ makeStmt ttable expr
+       -> makeLet ttable stmt 
     plain
        -> [Return (makeExpr ttable plain)]
 
