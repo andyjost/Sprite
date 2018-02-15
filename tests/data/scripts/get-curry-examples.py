@@ -3,7 +3,17 @@
 
 # ----------------------- CONFIG --------------------------
 INCLUDE = ['funprogs']
-EXCLUDE = ['guicurry', 'tkcurry']
+EXCLUDE = [
+    # Exclude GUI programs.  I have not tried them.
+    'guicurry', 'tkcurry'
+    # These fail with the following error:
+    #     ERROR: FlatToICurry found a free variable while making an expression
+  , 'escher_perm', 'family_con', 'family_fun', 'family_rel'
+    # Other failures.
+  ,  'prolog'      # Unexpected token `\'
+  ,  'daVinciTest' # Interface for module DaVinci not found
+  ,  'iodemo'      # `findfirst' is undefined
+  ]
 # ---------------------------------------------------------
 
 import collections
@@ -46,7 +56,8 @@ with open('index.html', 'r') as src:
     m_item = re.match(r'<li> <a href="\w+\.curry">(\w+)\.curry</a>', line)
     if m_item and current_section is not None:
       curryfile = m_item.group(1)
-      index[current_section].add(curryfile)
+      if curryfile not in EXCLUDE:
+        index[current_section].add(curryfile)
 
 # Clean up files.
 for filename in glob.glob('robots.txt*'):
@@ -60,10 +71,4 @@ with open('../index.py', 'w') as tocfile:
 # Get the Curry files.
 cmd = 'wget -A *.curry -nd -nc --no-parent -r %s' % REMOTE_DIR
 subprocess.check_call(cmd.split())
-
-# # Build a makefile to generate JSON from each file.  For convenience, keep all
-# # of the .curry files downloaded, but generate JSON according to the INCLUDE
-# # and EXCLUDE variables, above.
-# with open('Makefile') as makefile:
-#   print '.PHONY : json'
 

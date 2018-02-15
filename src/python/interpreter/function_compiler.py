@@ -270,10 +270,10 @@ class FunctionCompiler(object):
   @statement.when(icurry.Return)
   def statement(self, return_):
     yield 'lhs.%s' % self.expression(return_.expr)
-    if analysis.is_value(return_.expr):
-      yield 'return True'
-    else:
-      yield 'return False'
+    # if analysis.is_value(return_.expr):
+    #   yield 'return True'
+    # else:
+    #   yield 'return False'
 
   @statement.when(icurry.ATable)
   def statement(self, atable):
@@ -283,7 +283,7 @@ class FunctionCompiler(object):
     assert hasattr(atable.expr, 'vid')
     yield 'selector = hnf(lhs, p_%s).info.tag' % atable.expr.vid
     cf = 'if'
-    for iname,stmt in atable.cases.iteritems():
+    for iname,stmt in atable.switch.iteritems():
       yield '%s selector == %s:' % (cf, self.typeinfo(iname).info.tag)
       yield list(self.statement(stmt))
       cf = 'elif'
@@ -356,10 +356,8 @@ class Closure(object):
 
   def __setitem__(self, key, obj):
     '''Add a non-symbol, such as a system function, to the closure.'''
-    if key.startswith('ti_') or key.startswith('_') or '.' in key:
-      raise RuntimeError('Illegal system name in step function closure')
-    if self.context.get(key, obj) is not obj:
-      raise RuntimeError('Name conflict in step function closure')
+    assert not (key.startswith('ti_') or key.startswith('_') or '.' in key)
+    assert not (self.context.get(key, obj) is not obj)
     self.context[key] = obj
 
 # Rendering.

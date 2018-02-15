@@ -12,7 +12,7 @@ jbool True = JTrue
 jbool False = JFalse
 
 icurryToJson (IModule name imported_list data_list funct_list) =
-  JA [                            -- why an array for a single module?
+  JA [             -- an array allows for multiple modules in a JSON file
      JO [ xclass "IModule"
         , ("name", JS name)
         , ("imports", JA (map JS imported_list))
@@ -31,12 +31,12 @@ toConstructor (IConstructor qname arity) =
      , ("ident", JS (fullname qname))
      , ("arity", jint arity)
      ]
-     
+
 toFunction (IFunction qname arity stmt_list) =
   JO [ xclass "IFunction"
      , ("ident", JS (fullname qname))
      , ("arity", jint arity)
-     , ("statements", JA (map toStmt stmt_list))
+     , ("code", JA (map toStmt stmt_list))
      ]
 
 ------------------------------------------------------------------
@@ -56,12 +56,12 @@ toStmt (IExternal string) =
   JO [ xclass "IExternal"
      , ("name", JS string)
      ]
-       
+
 toStmt (Comment string) =
   JO [ xclass "Comment"
-     , ("name", JS string)
+     , ("text", JS string)
      ]
-       
+
 toStmt (Assign i expr) =
   JO [ xclass "Assign"
      , ("vid", jint i)
@@ -76,7 +76,7 @@ toStmt (Fill i path j) =
      ]
   where toPath (qname, index) =
           JO [ ("name", JS (fullname qname))
-	     , ("index", jint index)	  
+	     , ("index", jint index)
 	     ]
 
 toStmt (Return expr) =
@@ -92,8 +92,8 @@ toStmt (ATable suffix flex expr branch_list) =
      , ("switch", JA (map toABranch branch_list))
      ]
   where toABranch (IConstructor qname arity, stmt_list) =
-          JO [ ("case", JS (fullname qname))
-             , ("statements", JA (map toStmt stmt_list))
+          JA [ JS (fullname qname)
+             , JA (map toStmt stmt_list)
              ]
 
 toStmt (BTable suffix flex expr branch_list) =
@@ -104,8 +104,8 @@ toStmt (BTable suffix flex expr branch_list) =
      , ("switch", JA (map toBBranch branch_list))
      ]
   where toBBranch (biv, stmt_list) =
-          JO [ ("case", toVariant biv)
-             , ("statements", JA (map toStmt stmt_list))
+          JA [ toVariant biv
+             , JA (map toStmt stmt_list)
              ]
 
 ------------------------------------------------------------------
@@ -135,20 +135,16 @@ toScope IFree =
 toExpr Exempt =
   JO [ xclass "Exempt"
      ]
-     
+
 toExpr (Reference i) =
   JO [ xclass "Reference"
      , ("vid", jint i)
      ]
-     
-toExpr (BuiltinVariant biv) =
-  JO [ xclass "BuiltinVariant"
-     , ("expr", toVariant biv)
-     ]
+
+toExpr (BuiltinVariant biv) = toVariant biv
 
 toExpr (Applic constr qname expr_list) =
   JO [ xclass "Applic"
-     -- , ("dataconstr", jbool constr)
      , ("ident", JS (fullname qname))
      , ("args", JA (map toExpr expr_list))
      ]
@@ -165,6 +161,30 @@ toExpr (IOr arg1 arg2) =
      , ("rhs", toExpr arg2)
      ]
 
-toVariant (Bint int)     = jint int 
-toVariant (Bfloat float) = JN float 
-toVariant (Bchar char)   = JS [char]
+toVariant (Bint int)     = jint int
+toVariant (Bfloat float) = JN float
+toVariant (Bchar char)   = JS (
+     case char of
+       '\t' -> "\\t"
+       '\b' -> "\\b"
+       '\n' -> "\\n"
+       '\r' -> "\\r"
+       '\f' -> "\\f"
+       '\'' -> "\\'"
+       '\"' -> "\\\""
+       '\\' -> "\\\\"
+       _    -> [char]
+   )
+
+{-
+https://docs.oracle.com/javase/tutorial/java/data/characters.html
+
+\t 	Insert a tab in the text at this point.
+\b 	Insert a backspace in the text at this point.
+\n 	Insert a newline in the text at this point.
+\r 	Insert a carriage return in the text at this point.
+\f 	Insert a formfeed in the text at this point.
+\' 	Insert a single quote character in the text at this point.
+\" 	Insert a double quote character in the text at this point.
+\\ 	Insert a backslash character in the text at this point.
+-}

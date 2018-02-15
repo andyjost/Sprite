@@ -263,6 +263,8 @@ class Variable(_Base):
 class Exempt(_Base):
   def __str__(self):
     return 'Exempt'
+  def __repr__(self):
+    return 'Exempt()'
 
 class Reference(_Base):
   def __init__(self, vid):
@@ -383,49 +385,49 @@ class Return(_Base):
 class _XTable(_Base):
   def __str__(self):
     head = 'case %s of ' % str(self.expr)
-    patlen = max(len(pat) for pat in map(str, self.cases))
+    patlen = max(len(pat) for pat in map(str, self.switch))
     fmt = '%%-%ds -> %%s' % patlen
     indent = '\n' + (' ' * len(head))
     indent2 = '\n' + (' ' * (len(head) + len(' -> ') + patlen))
     body = indent.join(
         fmt % (str(pat), indent2.join(map(str,expr)))
-            for pat,expr in self.cases.iteritems()
+            for pat,expr in self.switch.iteritems()
       )
     return head + body
   def __repr__(self):
-    return '%s(counter=%d, isflex=%s, expr=%s, cases=%s)' % (
+    return '%s(counter=%d, isflex=%s, expr=%s, switch=%s)' % (
         self.__class__.__name__, self.counter, repr(self.isflex), repr(self.expr)
-      , repr(self.cases)
+      , repr(self.switch)
       )
 
 class ATable(_XTable):
-  def __init__(self, counter, isflex, expr, cases):
+  def __init__(self, counter, isflex, expr, switch):
     assert counter >= 0
     assert isinstance(expr, Expression)
     self.counter = int(counter)
     self.isflex = bool(isflex)
     self.expr = expr
-    self.cases = OrderedDict(cases)
-    self.cases = OrderedDict(
+    self.switch = dict(switch)
+    self.switch = dict(
         [k.ident if hasattr(k,'ident') else IName(k), v]
-            for k,v in self.cases.iteritems()
+            for k,v in self.switch.iteritems()
       )
     assert all(
         isinstance(k,IName) and all(isinstance(s,Statement) for s in v)
-            for k,v in self.cases.iteritems()
+            for k,v in self.switch.iteritems()
       )
 
 class BTable(_XTable):
-  def __init__(self, counter, isflex, expr, cases):
+  def __init__(self, counter, isflex, expr, switch):
     assert counter >= 0
     assert isinstance(expr, Expression)
     self.counter = int(counter)
     self.isflex = bool(isflex)
     self.expr = expr
-    self.cases = OrderedDict(cases)
+    self.switch = dict(switch)
     assert all(
         isinstance(k,BuiltinVariant) and all(isinstance(s,Statement) for s in v)
-            for k,v in self.cases.iteritems()
+            for k,v in self.switch.iteritems()
       )
 
 class Statement(object):
@@ -440,8 +442,12 @@ Statement.register(ATable)
 Statement.register(BTable)
 
 def _object_hook(kwds):
-  cls = kwds.pop('__class__')
-  return globals()[cls](**kwds)
+  try:
+    cls = kwds.pop('__class__')
+  except KeyError:
+    return kwds
+  else:
+    return globals()[cls](**kwds)
 
 def get_decoder():
   return json.JSONDecoder(object_hook=_object_hook)

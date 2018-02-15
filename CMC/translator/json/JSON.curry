@@ -59,10 +59,10 @@ ppJsonText x = ppJson mode_text 0 x ++ "\n"
 
 -- ----------------------------------------------------------------
 --- Print with passed in decoration
-ppJson _ _ (JS jstring) = "\"" ++ jstring ++ "\" "
+ppJson _ _ (JS jstring) = "\"" ++ jstring ++ "\""
 
 ppJson mode _ (JN jnumber)
-  = number mode ++ adjust (show jnumber) ++ reset mode ++ " "
+  = number mode ++ adjust (show jnumber) ++ reset mode
   where adjust x = case reverse x of
                     '0':'.':y -> reverse y
                     _         -> x

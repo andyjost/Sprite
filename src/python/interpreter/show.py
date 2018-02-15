@@ -32,7 +32,6 @@ class Show(object):
 
   @_recurse_.when(Node)
   def _recurse_(self, node):
-    show = node.info.show
-    s = show(node)
-    return '(%s)' % s if ' ' in s else s
+    x = node.info.show(node)
+    return '(%s)' % x if ' ' in x else x
 

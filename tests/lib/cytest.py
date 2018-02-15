@@ -3,6 +3,7 @@ from curry.llvm import isa
 import __builtin__
 import collections
 import contextlib
+import gzip
 import inspect
 import sys
 import textwrap
@@ -52,11 +53,12 @@ class TestCase(unittest.TestCase):
       for obj in objs: buf.write(str(obj))
     else:
       buf.write(str(objs))
+    open_ = gzip.open if filename.endswith('.gz') else open
     if update:
-      with open(filename, 'wb') as au:
+      with open_(filename, 'wb') as au:
         au.write(buf.getvalue())
     else:
-      with open(filename, 'rb') as au:
+      with open_(filename, 'rb') as au:
         self.assertEqual(buf.getvalue(), au.read())
 
   def assertIsa(self, obj, llvmty):

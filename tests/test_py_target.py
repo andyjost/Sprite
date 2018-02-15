@@ -4,8 +4,9 @@ from curry.interpreter import Interpreter, Prelude, SymbolLookupError
 from curry.interpreter import runtime
 from curry.visitation import dispatch
 import cytest
+import gzip
 
-SRCS = ['data/json/1.json']
+SRCS = ['data/json/1.json.gz']
 
 def listformat(node):
   def gen():
@@ -229,7 +230,7 @@ class TestPyInterp(cytest.TestCase):
   '''
   @classmethod
   def setUpClass(cls):
-    cls.ICURRY = map(lambda src: parse(open(src, 'rb').read()), SRCS)
+    cls.ICURRY = map(lambda src: parse(gzip.open(src, 'rb').read()), SRCS)
     cls.MYLIST = IModule(
         name='mylist', imports=[], functions=[]
       , types=[
