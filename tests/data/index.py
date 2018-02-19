@@ -1,1 +1,1 @@
-{'funprogs': ['nondetfunc', 'quicksort', 'assembler', 'england', 'qsortlet', 'horseman', 'best', 'nats', 'rev', 'member', 'family_nd', 'sportsdb', 'relational', 'higher', 'mergesort', 'digit', 'diamond', 'colormap', 'allsols', 'search', 'escher_cond', 'rigidadd', 'account', 'last', 'chords', 'colormap_nd', 'inflists', 'escher_higher', 'infresiduate', 'first']}
+{'logprogs': ['colormap'], 'funprogs': ['rev', 'quicksort', 'inflists', 'escher_higher', 'qsortlet', 'higher'], 'flprogs': ['mergesort', 'last', 'assembler', 'member', 'family_nd', 'horseman', 'first']}

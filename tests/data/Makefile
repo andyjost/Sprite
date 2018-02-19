@@ -8,8 +8,6 @@ all : Makefile2
 # examples, delete it and then re-make.
 index.py : scripts/get-curry-examples.py
 	(cd scripts && ./get-curry-examples.py)
-	# Remove unsupported Curry files that use findall.
-	grep -l findall curry/*.curry | xargs rm
 
 Makefile2 : scripts/write-makefile2.py index.py
 	(cd scripts && ./write-makefile2.py)

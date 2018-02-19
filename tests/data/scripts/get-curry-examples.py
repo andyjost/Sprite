@@ -2,7 +2,7 @@
 '''Get Curry examples by parsing the public webpage hosted at uni-kiel.'''
 
 # ----------------------- CONFIG --------------------------
-INCLUDE = ['funprogs']
+INCLUDE = ['funprogs', 'logprogs', 'flprogs']
 EXCLUDE = [
     # Exclude GUI programs.  I have not tried them.
     'guicurry', 'tkcurry'
@@ -10,9 +10,10 @@ EXCLUDE = [
     #     ERROR: FlatToICurry found a free variable while making an expression
   , 'escher_perm', 'family_con', 'family_fun', 'family_rel'
     # Other failures.
-  ,  'prolog'      # Unexpected token `\'
-  ,  'daVinciTest' # Interface for module DaVinci not found
-  ,  'iodemo'      # `findfirst' is undefined
+  , 'prolog'      # Unexpected token `\'
+  , 'daVinciTest' # Interface for module DaVinci not found
+  , 'iodemo'      # `findfirst' is undefined
+  , 'best', 'chords', 'england', 'nats', 'search', 'sportsdb' # uses obsolete 'findall'
   ]
 # ---------------------------------------------------------
 
@@ -48,8 +49,7 @@ with open('index.html', 'r') as src:
     m_head = re.match(r'<h3><a name="(\w+)">', line)
     if m_head:
       section_name = m_head.group(1)
-      if section_name in index:
-        current_section = section_name
+      current_section = section_name if section_name in index else None
       continue
     del m_head
 
