@@ -42,7 +42,6 @@ def compile_primitive_builtin(interpreter, ifun):
   '''
   func = ifun.metadata
   hnf = interpreter.hnf
-  print 'While compiling %s: debug=%s' % (ifun.ident, interpreter.flags['debug'])
   if interpreter.flags['debug']:
     def step(lhs):
       hnfs = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
