@@ -69,6 +69,7 @@ with open('../index.py', 'w') as tocfile:
   tocfile.write(str({k:list(v) for k,v in index.iteritems()}))
 
 # Get the Curry files.
+os.chdir('kiel')
 cmd = 'wget -A *.curry -nd -nc --no-parent -r %s' % REMOTE_DIR
 subprocess.check_call(cmd.split())
 

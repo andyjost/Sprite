@@ -121,10 +121,6 @@ class FunctionCompiler(object):
 
   def compile(self, iobj):
     self._compile(iobj)
-    # Tolerate empty functions.
-    body = self.program[-1]
-    if not body:
-      body += ['pass']
 
   # Compile top-level ICurry objects.
   @dispatch.on('iobj')
@@ -153,8 +149,8 @@ class FunctionCompiler(object):
 
   # VarScope.
   @dispatch.on('varscope')
-  def varscope(self, varscope): #pragma: no cover
-    assert False
+  def varscope(self, varscope):
+    assert False #pragma: no cover
 
   @varscope.when(icurry.ILhs)
   def varscope(self, ilhs):
@@ -175,8 +171,8 @@ class FunctionCompiler(object):
   # VarPath.
   # Add a variable's path to the closure.
   @dispatch.on('varscope')
-  def setvarpath(self, vid, varscope): #pragma: no cover
-    assert False
+  def setvarpath(self, vid, varscope):
+    assert False #pragma: no cover
 
   @setvarpath.when(icurry.ILhs)
   def setvarpath(self, vid, ilhs):
@@ -250,7 +246,7 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.Comment)
   def statement(self, comment):
-    raise RuntimeError('Comment not handled')
+    pass
 
   @statement.when(icurry.Declare)
   def statement(self, declare):
