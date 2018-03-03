@@ -4,7 +4,7 @@ A pure-Python Curry interpreter.
 
 from .function_compiler import compile_function
 from ..icurry import *
-from . import prelude
+from .prelude import Prelude, System
 from .runtime import InfoTable, Node, T_FAIL, T_FUNC, T_CHOICE, T_CTOR
 from .show import Show
 from ..visitation import dispatch
@@ -13,9 +13,6 @@ import logging
 import numbers
 import os
 import types
-
-# For export.
-Prelude = prelude.Prelude
 
 # Logging setup.
 # ==============
@@ -85,7 +82,8 @@ class Interpreter(object):
 
   def __init__(self, flags={}):
     self.prelude = self.import_(Prelude)
-    self.ti_Failure = self['Prelude.Failure'].info # cached
+    self.import_(System)
+    self.ti_Failure = self['_System.Failure'].info # cached
 
   # Importing.
   # ==========

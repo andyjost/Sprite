@@ -2,15 +2,29 @@ from ..icurry import *
 from .runtime import T_FAIL, T_CHOICE, T_FWD
 import operator as op
 
+# ====================
+# The _System module.
+# ====================
+_types_ = [
+    IType('Failure', [IConstructor('Failure', 0, metadata={'py.format':'failure', 'py.tag':T_FAIL})])
+  , IType('Choice', [IConstructor('Choice', 2, metadata={'py.format':'{1} ? {2}', 'py.tag':T_CHOICE})])
+  , IType('Fwd', [IConstructor('Fwd', 1, metadata={'py.tag':T_FWD})])
+  ]
+System = IModule(name='_System', imports=[], types=_types_, functions=[])
+
+
+# ===================
+# The Prelude module.
+# ===================
+
 # Types.
 # ======
-Failure = IType('Failure', [IConstructor('Failure', 0, metadata={'py.format':'failure', 'py.tag':T_FAIL})])
-Choice = IType('Choice', [IConstructor('Choice', 2, metadata={'py.format':'{1} ? {2}', 'py.tag':T_CHOICE})])
-Fwd = IType('Fwd', [IConstructor('Fwd', 1, metadata={'py.tag':T_FWD})])
-Float = IType('Float', [IConstructor('Float', 1, metadata={'py.format':'{1}'})])
-Int = IType('Int', [IConstructor('Int', 1, metadata={'py.format':'{1}'})])
-Char = IType('Char', [IConstructor('Char', 1, metadata={'py.format':lambda node: chr(node[0])})])
-Bool = IType('Bool', [IConstructor('True', 0), IConstructor('False', 0)])
+_types_ = [
+   IType('Bool', [IConstructor('True', 0), IConstructor('False', 0)])
+ , IType('Char', [IConstructor('Char', 1, metadata={'py.format':lambda node: chr(node[0])})])
+ , IType('Float', [IConstructor('Float', 1, metadata={'py.format':'{1}'})])
+ , IType('Int', [IConstructor('Int', 1, metadata={'py.format':'{1}'})])
+ ]
 
 # List
 def _listformat(node):
@@ -22,15 +36,13 @@ def _listformat(node):
       p = p[1]
   return '[' + ', '.join(gen()) + ']'
 
-List = IType('List', [
-    IConstructor(':', 2, metadata={'py.format':_listformat})
-  , IConstructor('[]', 0, metadata={'py.format':_listformat})
-  ])
+_types_.append(
+    IType('List', [
+        IConstructor(':', 2, metadata={'py.format':_listformat})
+      , IConstructor('[]', 0, metadata={'py.format':_listformat})
+      ])
+  )
 del _listformat
-
-
-_types_ = [Failure, Choice, Fwd, Float, Int, Char, Bool, List]
-
 
 # Tuples
 MAX_TUPLE_SIZE = 10
@@ -64,7 +76,7 @@ _functions_ = [
   , IFunction('&&', 2, metadata={'py.func':op.and_})
   , IFunction('||', 2, metadata={'py.func':op.or_})
 	# The following are defined in the Prelude as pure Curry, but have a better
-  # external implementation.
+  # implementation here.
   , IFunction('negate', 1, metadata={'py.func':op.neg})
 
 # ====== Missing from the following ======
@@ -238,7 +250,6 @@ _functions_ = [
 # failure :: _ -> _ -> _
 # failure external
   ]
-
-# The Prelude module.
-# ===================
-Prelude = IModule(name='Prelude', imports=[], types=_types_, functions=_functions_)
+Prelude = IModule(
+    name='Prelude', imports=['.System'], types=_types_, functions=_functions_
+  )

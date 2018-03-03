@@ -1,12 +1,12 @@
 '''Tests for Curry code targeted to Python.'''
 from curry.icurry import *
-from curry.interpreter import Interpreter, Prelude, SymbolLookupError
+from curry.interpreter import Interpreter, Prelude, SymbolLookupError, System
 from curry.interpreter import runtime
 from curry.visitation import dispatch
 import cytest
+from glob import glob
 import gzip
-
-SRCS = ['data/json/1.json.gz']
+import unittest
 
 def listformat(node):
   def gen():
@@ -20,7 +20,7 @@ def listformat(node):
 def getbootstrap():
   return IModule(
       name='bootstrap'
-    , imports=['Prelude']
+    , imports=['_System']
     , types=[
           IType(
               ident='NUM'
@@ -34,9 +34,9 @@ def getbootstrap():
         ]
     , functions=[
         IFunction('ZN', 0, [Return(Applic('bootstrap.N'))])
-      , IFunction('ZF', 0, [Return(Applic('Prelude.Failure'))])
-      , IFunction('ZQ', 0, [Return(Applic('Prelude.Choice', [Applic('bootstrap.N'), Applic('bootstrap.M')]))])
-      , IFunction('ZW', 0, [Return(Applic('Prelude.Fwd', [Applic('bootstrap.N')]))])
+      , IFunction('ZF', 0, [Return(Applic('_System.Failure'))])
+      , IFunction('ZQ', 0, [Return(Applic('_System.Choice', [Applic('bootstrap.N'), Applic('bootstrap.M')]))])
+      , IFunction('ZW', 0, [Return(Applic('_System.Fwd', [Applic('bootstrap.N')]))])
         # Evaluates its argument and then returns a FWD node refering to it.
       , IFunction('Z' , 1, [
             Declare(Variable(vid=1, scope=ILhs(index=["bootstrap.Z", 1])))
@@ -65,6 +65,7 @@ class TestPyRuntime(cytest.TestCase):
     '''Tests to improve line coverage.'''
     interp = Interpreter()
     prelude = interp.import_(Prelude)
+    system = interp.import_(System)
     self.assertEqual(str(prelude.negate), 'TypeInfo for "Prelude.negate"')
     self.assertEqual(str(prelude.negate.info), 'Info for "negate"')
     self.assertTrue(repr(prelude.negate.info).startswith('InfoTable'))
@@ -81,7 +82,7 @@ class TestPyRuntime(cytest.TestCase):
     self.assertRaisesRegexp(
         TypeError
       , r'cannot construct "Choice" \(arity=2\), with 1 arg'
-      , lambda: interp.expr(prelude.Choice, 1)
+      , lambda: interp.expr(system.Choice, 1)
       )
     self.assertRaisesRegexp(
         TypeError, r'cannot import type "int"', lambda: interp.import_(1)
@@ -115,7 +116,8 @@ class TestPyRuntime(cytest.TestCase):
     bs = interp.import_(self.BOOTSTRAP)
     N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
     prelude = interp.import_(Prelude)
-    F,Q,W = prelude.Failure, prelude.Choice, prelude.Fwd
+    system = interp.import_(System)
+    F,Q,W = system.Failure, system.Choice, system.Fwd
     special_tags = [runtime.T_FAIL, runtime.T_CHOICE]
 
     TESTS = {
@@ -230,7 +232,7 @@ class TestPyInterp(cytest.TestCase):
   '''
   @classmethod
   def setUpClass(cls):
-    cls.ICURRY = map(lambda src: parse(gzip.open(src, 'rb').read()), SRCS)
+    cls.ONECURRY = parse(gzip.open('data/json/1.json.gz', 'rb').read())
     cls.MYLIST = IModule(
         name='mylist', imports=[], functions=[]
       , types=[
@@ -256,16 +258,16 @@ class TestPyInterp(cytest.TestCase):
 
   @classmethod
   def tearDownClass(cls):
-    del cls.ICURRY
+    del cls.ONECURRY
     del cls.MYLIST
     del cls.X
     del cls.BOOTSTRAP
 
   def testImport(self):
-    icur = self.ICURRY[0]
+    icur = self.ONECURRY
     interp = Interpreter()
     imported = interp.import_(icur)
-    self.assertEqual(set(interp.modules.keys()), set(['example', 'Prelude']))
+    self.assertEqual(set(interp.modules.keys()), set(['example', 'Prelude', '_System']))
     self.assertEqual(len(imported), 1)
     example = imported[0]
     self.assertFalse(set('A B f f_case_#1 g main'.split()) - set(dir(example)))
@@ -280,7 +282,6 @@ class TestPyInterp(cytest.TestCase):
         SymbolLookupError, r'module "Prelude" has no symbol "foo"'
       , lambda: interp['Prelude.foo']
       )
-    
 
   def testExpr(self):
     '''Use Interpreter.expr to build expressions.'''
@@ -297,7 +298,7 @@ class TestPyInterp(cytest.TestCase):
     self.assertEqual(str(pi), '3.14')
 
     # Node.
-    example = interp.import_(self.ICURRY[0])[0]
+    example = interp.import_(self.ONECURRY)[0]
     A = interp.expr(example.A)
     self.assertEqual(repr(A), '<A []>')
     self.assertEqual(str(A), 'A')
@@ -328,6 +329,14 @@ class TestPyInterp(cytest.TestCase):
       , lambda: interp.expr({})
       )
 
+  @unittest.expectedFailure
+  def testPrelude(self):
+    '''Test the prelude for the Python interpreter.'''
+    interp = Interpreter()
+    prelude = interp.import_(Prelude)
+    # TODO: List, tuples, Bool, Char
+    self.assertTrue(False)
+
   def testCoverage(self):
     '''Tests to get complete line coverage.'''
     interp = Interpreter()
@@ -336,7 +345,8 @@ class TestPyInterp(cytest.TestCase):
 
     # Evaluate an expressionw ith a leading FWD node.  It should be removed.
     P = interp.import_(Prelude)
-    W = P.Fwd
+    S = interp.import_(System)
+    W = S.Fwd
     self.assertEqual(list(interp.eval([W, 1])), [interp.expr(1)])
 
 
@@ -353,17 +363,18 @@ class TestPyInterp(cytest.TestCase):
     L = interp.import_(self.MYLIST)
     X = interp.import_(self.X)
     P = interp.import_(Prelude)
+    S = interp.import_(System)
     bs = interp.import_(self.BOOTSTRAP)
     N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
     TESTS = [
         [[1], ['1']]
       , [[2.0], ['2.0']]
       , [[L.Cons, 0, [L.Cons, 1, L.Nil]], ['[0, 1]']]
-      , [[P.Choice, 1, 2], ['1', '2']]
-      , [[X.X, [P.Choice, 1, 2]], ['X 1', 'X 2']]
-      , [[X.X, [P.Choice, 1, [X.X, [P.Choice, 2, [P.Choice, 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
-      , [[P.Failure], []]
-      , [[P.Choice, P.Failure, 0], ['0']]
+      , [[S.Choice, 1, 2], ['1', '2']]
+      , [[X.X, [S.Choice, 1, 2]], ['X 1', 'X 2']]
+      , [[X.X, [S.Choice, 1, [X.X, [S.Choice, 2, [S.Choice, 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
+      , [[S.Failure], []]
+      , [[S.Choice, S.Failure, 0], ['0']]
       , [[Z, ZQ], ['N', 'M']]
       , [[Z, ZW], ['N']]
       ]
@@ -389,4 +400,19 @@ class TestPyInterp(cytest.TestCase):
       goal = interp.expr(expr)
       result = map(str, interp.eval(goal))
       self.assertEqual(set(result), set(expected))
+
+  @unittest.skip('need to implement Prelude')
+  def testKielExamples(self):
+    '''Run example programs from Kiel.'''
+    for jsonfile in glob('data/json/kiel-*.json*'):
+      print jsonfile
+      try:
+        icur = parse(gzip.open(jsonfile, 'rb').read())
+        interp = Interpreter()
+        mod = interp.import_(icur)
+      except Exception as e:
+        print 'Error>', str(e)
+        continue
+      print '\n\n\n\IT WORKED\n\n\n\n'
+      breakpoint()
 

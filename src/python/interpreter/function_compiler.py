@@ -200,7 +200,7 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.Reference)
   def expression(self, ref):
-    return 'node(%s, _%s)' % (self.closure['Prelude.Fwd'], ref.vid)
+    return 'node(%s, _%s)' % (self.closure['_System.Fwd'], ref.vid)
 
   @expression.when(icurry.Applic)
   def expression(self, applic):
@@ -215,7 +215,7 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.IOr)
   def expression(self, ior):
-    choice = self.closure['Prelude.Choice']
+    choice = self.closure['_System.Choice']
     return 'node(%s, %s, %s)' % (
         choice, self.expression(ior.lhs), self.expression(ior.rhs)
       )
@@ -281,7 +281,7 @@ class FunctionCompiler(object):
     if atable.isflex:
       yield 'else:'
       yield [
-          'lhs.node(%s)' % self.closure['Prelude.Failure']
+          'lhs.node(%s)' % self.closure['_System.Failure']
         , 'return'
         ]
 
