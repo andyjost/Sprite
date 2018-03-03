@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 def compile_function(interpreter, ifun):
   '''Compiles an ICurry function into a Python step function.'''
   assert isinstance(ifun, icurry.IFunction)
-  if ifun.metadata:
-    return compile_primitive_builtin(interpreter, ifun)
+  if 'py.func' in ifun.metadata:
+    return compile_primitive_builtin(interpreter, ifun.metadata['py.func'])
   compiler = FunctionCompiler(interpreter)
   compiler.compile(ifun.code)
 
@@ -33,14 +33,10 @@ def compile_function(interpreter, ifun):
       ]
   return compiler.get()
 
-def compile_primitive_builtin(interpreter, ifun):
+def compile_primitive_builtin(interpreter, func):
   '''
   Compiles code for built-in functions on primitive data
-
-  For these, the IFunction.metadata is bound to a function that implements the
-  function.
   '''
-  func = ifun.metadata
   hnf = interpreter.hnf
   if interpreter.flags['debug']:
     def step(lhs):

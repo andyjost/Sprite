@@ -18,33 +18,35 @@ class _TreeNode(object):
         '%s=%s' % (slot, str(getattr(self, slot)))
             for slot in self.__slots__
       )
+  def __iter__(self):
+    return iter(self.__slots__)
+  def __getattr__(self, attr):
+    if not attr: return self
+    for part in attr.split(DELIMITER):
+      assert not (part.startswith('__') and part.endswith('__'))
+      self = object.__getattribute__(self, part)
+    return self
+  def __setattr__(self, attr, value):
+    parts = attr.split(DELIMITER)
+    self = getattr(self, '.'.join(parts[:-1]))
+    object.__setattr__(self, parts[-1], value)
+  def __getitem__(self, key):
+    try:
+      return getattr(self, key)
+    except AttributeError:
+      raise KeyError(key)
+  def __setitem__(self, key, value):
+    try:
+      setattr(self, key, value)
+    except AttributeError:
+      raise KeyError(key)
   def __contains__(self, key):
     try:
-      self[key]
-    except:
+      getattr(self, key)
+    except AttributeError:
       return False
     else:
       return True
-  def __iter__(self):
-    return iter(self.__slots__)
-  def __getitem__(self, key):
-    try:
-      for part in key.split(DELIMITER):
-        assert not (part.startswith('__') and part.endswith('__'))
-        self = getattr(self, part)
-    except AttributeError:
-      raise KeyError(key)
-    else:
-      return self
-  def __setitem__(self, key, value):
-    parts = key.split(DELIMITER)
-    try:
-      for part in parts[:-1]:
-        assert not (part.startswith('__') and part.endswith('__'))
-        self = getattr(self, part)
-      setattr(self, parts[-1], value)
-    except AttributeError:
-      raise KeyError(key)
   def __eq__(self, rhs):
     return all(k==l and self[k]==rhs[k] for k,l in zip(self,rhs))
   def __ne__(self, rhs):

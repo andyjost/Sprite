@@ -20,10 +20,14 @@ Prelude = prelude.Prelude
 # Logging setup.
 # ==============
 logger = logging.getLogger(__name__)
-LOG_LEVELS = {k:getattr(logging, k) for k in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']}
+LOG_LEVELS = {k:getattr(logging, k)
+    for k in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+  }
 DEFAULT_LOG_LEVEL = 'INFO'
 logging.basicConfig(
-    level=LOG_LEVELS[os.environ.get('SPRITE_LOG_LEVEL', DEFAULT_LOG_LEVEL).upper()]
+    level=LOG_LEVELS[
+        os.environ.get('SPRITE_LOG_LEVEL', DEFAULT_LOG_LEVEL).upper()
+      ]
   , format='%(asctime)s [%(levelname)s] %(message)s'
   , datefmt='%m/%d/%Y %H:%M:%S'
   )
@@ -130,15 +134,14 @@ class Interpreter(object):
 
   @_loadsymbols.when(IConstructor)
   def _loadsymbols(self, icons, moduleobj):
-    # The interpreter uses the metadata slot to identify built-in nodes.  If
-    # set, it contains the tag (T_FAIL, T_CHOICE or T_FWD).
-    not_builtin = icons.metadata is None
+    # For builtins, the 'py.tag' metadata contains the tag.
+    builtin = 'py.tag' in icons.metadata
     info = InfoTable(
         icons.ident.basename
       , icons.arity
-      , T_CTOR + icons.index if not_builtin else icons.metadata
-      , _no_step if not_builtin else _unreachable
-      , Show(icons.format)
+      , T_CTOR + icons.index if not builtin else icons.metadata['py.tag']
+      , _no_step if not builtin else _unreachable
+      , Show(getattr(icons.metadata, 'py.format', None))
       )
     setattr(moduleobj, icons.ident.basename, TypeInfo(icons.ident, info))
 

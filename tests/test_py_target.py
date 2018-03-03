@@ -237,8 +237,8 @@ class TestPyInterp(cytest.TestCase):
             IType(
                 ident='List'
               , constructors=[
-                  IConstructor('Cons', 2, format=listformat)
-                , IConstructor('Nil', 0, format=listformat)
+                  IConstructor('Cons', 2, metadata={'py.format':listformat})
+                , IConstructor('Nil', 0, metadata={'py.format':listformat})
                 ]
               )
           ]

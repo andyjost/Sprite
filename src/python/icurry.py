@@ -1,5 +1,6 @@
 from abc import ABCMeta
 from collections import Mapping, namedtuple, OrderedDict, Sequence
+from .proptree import proptree
 import json
 import weakref
 
@@ -115,17 +116,18 @@ class IModule(_Base):
 
   def __repr__(self):
     return 'IModule(name=%s, imports=%s, types=%s, functions=%s)' % (
-        repr(self.name), repr(self.imports), repr(self.types), repr(self.functions)
+        repr(self.name), repr(self.imports), repr(self.types)
+      , repr(self.functions)
       )
 
 class IType(_Base, Sequence):
-  def __init__(self, ident, constructors, format=None):
+  def __init__(self, ident, constructors, metadata={}):
     self.ident = IName(ident)
     self.constructors = tuple(
         arg if isinstance(arg, IConstructor) else IConstructor(*arg)
             for arg in constructors
       )
-    self.format = format
+    self.metadata = proptree(metadata)
 
   def setparent(self, parent):
     assert isinstance(parent, IModule)
@@ -148,17 +150,16 @@ class IType(_Base, Sequence):
     return '%s = %s' % (self.ident.basename, ' | '.join(map(str, self.constructors)))
 
   def __repr__(self):
-    return 'IType(ident=%s, constructors=%s, format=%s)' % (
-        repr(self.ident), repr(list(self.constructors)), repr(self.format)
+    return 'IType(ident=%s, constructors=%s)' % (
+        repr(self.ident), repr(list(self.constructors))
       )
 
 class IConstructor(_Base):
-  def __init__(self, ident, arity, format=None, metadata=None):
+  def __init__(self, ident, arity, metadata={}):
     assert arity >= 0
     self.ident = IName(ident)
     self.arity = int(arity)
-    self.format = format
-    self.metadata = metadata
+    self.metadata = proptree(metadata)
 
   def setparent(self, parent):
     assert isinstance(parent, IType)
@@ -177,12 +178,12 @@ class IConstructor(_Base):
     return 'IConstructor(ident=%s, arity=%d)' % (repr(self.ident), self.arity)
 
 class IFunction(_Base):
-  def __init__(self, ident, arity, code=[], metadata=None):
+  def __init__(self, ident, arity, code=[], metadata={}):
     assert arity >= 0
     self.ident = IName(ident)
     self.arity = int(arity)
     self.code = tuple(code)
-    self.metadata = metadata
+    self.metadata = proptree(metadata)
 
   def setparent(self, parent):
     assert isinstance(parent, IModule)
