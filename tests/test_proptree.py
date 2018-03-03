@@ -2,17 +2,22 @@ import cytest
 from curry.proptree import proptree
 from collections import OrderedDict
 
-class PropertyTee(cytest.TestCase):
+class PropertyTree(cytest.TestCase):
   def test_proptree(self):
     self.assertRaisesRegexp(
-        TypeError, r"Key 'a.b' cannot be created at 'b'"
+        TypeError, r"key 'a.b' cannot be created at 'b'"
       , lambda: proptree(OrderedDict([('a',0), ('a.b',1)]))
       )
     self.assertRaisesRegexp(
-        TypeError, r"Key 'a.b' cannot be created at 'b'"
+        TypeError, r"key 'a.b' cannot be created at 'b'"
       , lambda: proptree(OrderedDict([('a.b.c',0), ('a.b',1)]))
       )
+    self.assertIs(proptree(None), None)
+    self.assertIs(proptree(1), 1)
+
     pt = proptree({'a.b.a':0, 'a.b.b':1, 'a.b.c':2, 'b.a':3, 'a.a':4})
+    self.assertIs(proptree(pt), pt)
+
     # __str__.
     self.assertEqual(str(pt), '[a=[a=4,b=[a=0,b=1,c=2]],b=[a=3]]')
 
@@ -42,6 +47,9 @@ class PropertyTee(cytest.TestCase):
     self.assertIn('b', pt.a.b)
     self.assertIn('c', pt.a.b)
     self.assertNotIn('d', pt.a.b)
+    #
+    self.assertIn('a.b.c', pt)
+    self.assertNotIn('a.x.c', pt)
 
     # __iter__.
     self.assertEqual(list(pt), ['a','b'])
@@ -49,18 +57,15 @@ class PropertyTee(cytest.TestCase):
 
     # __getitem__.
     self.assertEqual(pt['a'], pt.a)
-    self.assertRaisesRegexp(
-        AttributeError, r"'proptreenode_a_b' object has no attribute 'x'"
-      , lambda: pt.a['x']
-      )
+    self.assertRaisesRegexp(KeyError, "'x'", lambda: pt.a['x'])
 
     # __setitem__.
     pt.a['a'] = 97
     self.assertEqual(pt.a.a, 97)
-    with self.assertRaisesRegexp(
-        AttributeError, r"'proptreenode_a_b' object has no attribute 'x'"
-      ):
+    with self.assertRaisesRegexp(KeyError, "'x'"):
       pt.a['x'] = None
+    with self.assertRaisesRegexp(KeyError, "'a.x'"):
+      pt['a.x'] = None
 
     # Equality.
     x = proptree({'a':0})

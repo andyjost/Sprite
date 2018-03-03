@@ -4,10 +4,14 @@ Implements a property tree.  Used for metadata.
 import collections
 
 __all__ = ['proptree']
-
-_types_ = {}
+NODE_TYPES = {}
+DELIMITER = '.'
 
 class _TreeNode(object):
+  '''
+  Base class of property tree nodes; implements methods.  Derived classes
+  should provide __slots__.
+  '''
   __slots__ = ()
   def __repr__(self):
     return '[%s]' % ','.join(
@@ -15,18 +19,34 @@ class _TreeNode(object):
             for slot in self.__slots__
       )
   def __contains__(self, key):
-    return key in self.__slots__
+    try:
+      self[key]
+    except:
+      return False
+    else:
+      return True
   def __iter__(self):
     return iter(self.__slots__)
   def __getitem__(self, key):
-    assert not (key.startswith('__') and key.endswith('__'))
-    return getattr(self, key)
+    try:
+      for part in key.split(DELIMITER):
+        assert not (part.startswith('__') and part.endswith('__'))
+        self = getattr(self, part)
+    except AttributeError:
+      raise KeyError(key)
+    else:
+      return self
   def __setitem__(self, key, value):
-    assert not (key.startswith('__') and key.endswith('__'))
-    return setattr(self, key, value)
+    parts = key.split(DELIMITER)
+    try:
+      for part in parts[:-1]:
+        assert not (part.startswith('__') and part.endswith('__'))
+        self = getattr(self, part)
+      setattr(self, parts[-1], value)
+    except AttributeError:
+      raise KeyError(key)
   def __eq__(self, rhs):
     return all(k==l and self[k]==rhs[k] for k,l in zip(self,rhs))
-
   def __ne__(self, rhs):
     return not (self == rhs)
   def __lt__(self, rhs): return NotImplemented
@@ -38,25 +58,24 @@ def _buildtree(data):
   # Return non-aggregate data.
   if not isinstance(data, collections.Mapping):
     return data
-
   # Build a property tree node from mappings.
   slots = tuple(sorted(data.keys()))
   name = '_'.join(slots)
-  if name not in _types_:
-    _types_[name] = type('proptreenode_'+name, (_TreeNode,), {'__slots__': slots})
-  obj = _types_[name]()
+  if name not in NODE_TYPES:
+    NODE_TYPES[name] = type('proptreenode_'+name, (_TreeNode,), {'__slots__': slots})
+  obj = NODE_TYPES[name]()
   for slot in slots:
     setattr(obj, slot, _buildtree(data[slot]))
   return obj
 
 def _error(key, part):
-  raise TypeError("Key '%s' cannot be created at '%s'" % (key, part))
+  raise TypeError("key '%s' cannot be created at '%s'" % (key, part))
 
-def proptree(flat, delim='.'):
+def proptree(flat):
   '''
   Convert a dict into a property tree.
 
-  The dictionary may contain delimited keys.  It will be converted into a
+  The dictionary may contain dot-delimited keys.  It will be converted into a
   property tree consisting of nested objects whose members correspond to
   dictionary keys.
 
@@ -64,12 +83,14 @@ def proptree(flat, delim='.'):
   such that the expressions ``t.a.b``, ``t.a.c`` and ``t.x`` are bound to 1, 2,
   and 3, respectively.
   '''
+  if not isinstance(flat, collections.Mapping):
+    return flat
   tree = {}
   for k,v in flat.items():
     t = tree
-    parts = k.split(delim)
+    parts = k.split(DELIMITER)
     for part in parts[:-1]:
-      if delim in t:
+      if DELIMITER in t:
         return _error(k, part)
       t = t.setdefault(part, {})
     part = parts[-1]
