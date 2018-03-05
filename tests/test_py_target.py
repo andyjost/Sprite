@@ -6,6 +6,7 @@ from curry.visitation import dispatch
 import cytest
 from glob import glob
 import gzip
+import operator as op
 import unittest
 
 def listformat(node):
@@ -329,13 +330,72 @@ class TestPyInterp(cytest.TestCase):
       , lambda: interp.expr({})
       )
 
-  @unittest.expectedFailure
-  def testPrelude(self):
-    '''Test the prelude for the Python interpreter.'''
+  def testBuiltinPreludeTypes(self):
+    '''
+    Tests the built-in types defined in python/interpreter/prelude.py.
+    Also tests the ``isa`` function.
+    '''
     interp = Interpreter()
     prelude = interp.import_(Prelude)
-    # TODO: List, tuples, Bool, Char
-    self.assertTrue(False)
+    e2s = lambda expr: str(interp.eval(expr).next())
+
+    # Int, Char, Float.
+    Int = getattr(prelude, 'Int')
+    Char = getattr(prelude, 'Char')
+    Float = getattr(prelude, 'Float')
+    int_ = interp.eval(1).next()
+    char_ = interp.eval('a').next()
+    float_ = interp.eval(1.).next()
+
+    self.assertIsa(int_, Int)
+    self.assertIsNotA(int_, Char)
+    self.assertIsNotA(int_, Float)
+    self.assertIsNotA(char_, Int)
+    self.assertIsa(char_, Char)
+    self.assertIsNotA(char_, Float)
+    self.assertIsNotA(float_, Int)
+    self.assertIsNotA(float_, Char)
+    self.assertIsa(float_, Float)
+
+    # List.
+    Cons,Nil = getattr(prelude, ':'), getattr(prelude, '[]')
+    self.assertEqual(e2s([Cons, 1, Nil]), '[1]')
+    self.assertEqual(e2s([Cons, 1, [Cons, 2, Nil]]), '[1, 2]')
+    # TODO: check isa(..., prelude.List)
+    # TODO: check isctorof(Nil, prelude.List)
+    # TODO: design and test .topy() and .frompy() (I guess that's just
+    #     Interprerter.expr; maybe frompy is a better name?).
+
+
+    # Tuples.
+    Unit = getattr(prelude, '()')
+    self.assertEqual(e2s([Unit]), '()')
+    Pair = getattr(prelude, '(,)')
+    self.assertEqual(e2s([Pair, 1, 2]), '(1, 2)')
+    T = getattr(prelude, '(,,)')
+    self.assertEqual(e2s([T, 1, 2, 3]), '(1, 2, 3)')
+    T = getattr(prelude, '(,,,)')
+    self.assertEqual(e2s([T, 1, 2, 3, 4]), '(1, 2, 3, 4)')
+    T = getattr(prelude, '(,,,,)')
+    self.assertEqual(e2s([T, 1, 2, 3, 4, 5]), '(1, 2, 3, 4, 5)')
+    T = getattr(prelude, '(,,,,,)')
+    self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6]), '(1, 2, 3, 4, 5, 6)')
+    T = getattr(prelude, '(,,,,,,)')
+    self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6, 7]), '(1, 2, 3, 4, 5, 6, 7)')
+    T = getattr(prelude, '(,,,,,,,)')
+    self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6, 7, 8]), '(1, 2, 3, 4, 5, 6, 7, 8)')
+    T = getattr(prelude, '(,,,,,,,,)')
+    self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6, 7, 8, 9]), '(1, 2, 3, 4, 5, 6, 7, 8, 9)')
+
+    # Bool.
+    T,F = getattr(prelude, 'True'), getattr(prelude, 'False')
+    self.assertEqual(e2s([Cons, T, [Cons, F, Nil]]), '[True, False]')
+
+  # def testPreludeExternals(self):
+  #   '''
+  #   Tests the externally-defined functions defined in
+  #   python/interpreter/prelude.py.
+  #   '''
 
   def testCoverage(self):
     '''Tests to get complete line coverage.'''

@@ -1,5 +1,7 @@
 from cStringIO import StringIO
-from curry.llvm import isa
+from curry.llvm import isa as llvm_isa
+from curry.interpreter import isa as cy_isa
+from curry.interpreter.runtime import Node
 import __builtin__
 import collections
 import contextlib
@@ -61,11 +63,13 @@ class TestCase(unittest.TestCase):
       with open_(filename, 'rb') as au:
         self.assertEqual(buf.getvalue(), au.read())
 
-  def assertIsa(self, obj, llvmty):
-    self.assertTrue(isa(obj, llvmty))
+  def assertIsa(self, obj, ty):
+    isa = cy_isa if isinstance(obj, Node) else llvm_isa
+    self.assertTrue(isa(obj, ty))
 
-  def assertIsNotA(self, obj, llvmty):
-    self.assertFalse(isa(obj, llvmty))
+  def assertIsNotA(self, obj, ty):
+    isa = cy_isa if isinstance(obj, Node) else llvm_isa
+    self.assertFalse(isa(obj, ty))
 
   def assertMayRaise(self, exception, expr, msg=None):
     if exception is None:

@@ -57,6 +57,24 @@ class TypeInfo(object):
   def __str__(self):
     return 'TypeInfo for "%s"' % self.ident
 
+# TODO: move to analysis.
+def isa(curryobj, typeinfo):
+  '''
+  Checks whether the given Curry object is an instance of the given type.  The
+  second argument may be a sequence of types to check against.
+  '''
+  if not isinstance(curryobj, Node):
+    return False
+  if isinstance(typeinfo, TypeInfo):
+    return id(curryobj.info) == id(typeinfo.info)
+  elif isinstance(typeinfo, collections.Sequence):
+    if not all(isinstance(ti, TypeInfo) for ti in typeinfo):
+      raise TypeError(
+          'arg 2 must be an instance or sequence of curry.interpreter.TypeInfo '
+          'objects.')
+    return id(curryobj) in (id(ti.info) for ti in typeinfo)
+
+# TODO: add isctorof.  : and [] are constructors of prelude.List.
 
 # Inpterpretation.
 # ================
@@ -178,6 +196,15 @@ class Interpreter(object):
     raise TypeError(
         'cannot build a Curry expression from type "%s"' % type(arg).__name__
       )
+
+  @expr.when(str) # Char or [Char].
+  def expr(self, arg, *args):
+    if len(arg) == 1:
+      args = (arg,) + args
+      self.prelude.Char._check_call(*args)
+      return Node(self.prelude.Char.info, *args)
+    else:
+      raise RuntimeError('multi-char strings not supported yet.')
 
   @expr.when(collections.Sequence)
   def expr(self, arg):

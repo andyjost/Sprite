@@ -19,22 +19,27 @@ System = IModule(name='_System', imports=[], types=_types_, functions=[])
 
 # Types.
 # ======
+md0 = { # Builtin type metadata.
+    'py.format': '{1}'
+  , 'py.topy'  : lambda node: node[1]
+  # , 'py.frompy': lambda x: x[1]
+  }
 _types_ = [
    IType('Bool', [IConstructor('True', 0), IConstructor('False', 0)])
- , IType('Char', [IConstructor('Char', 1, metadata={'py.format':lambda node: chr(node[0])})])
- , IType('Float', [IConstructor('Float', 1, metadata={'py.format':'{1}'})])
- , IType('Int', [IConstructor('Int', 1, metadata={'py.format':'{1}'})])
+ , IType('Char', [IConstructor('Char', 1, metadata=md0)])
+ , IType('Float', [IConstructor('Float', 1, metadata=md0)])
+ , IType('Int', [IConstructor('Int', 1, metadata=md0)])
  ]
 
 # List
+def _listvalues(node):
+  n = node[()]
+  while n.info.name == ':':
+    v,n = n
+    yield v.info.show(v)
+
 def _listformat(node):
-  def gen():
-    p = node
-    while p.info.name == 'Cons':
-      value = p[0]
-      yield value.info.show(value)
-      p = p[1]
-  return '[' + ', '.join(gen()) + ']'
+  return '[%s]' % ', '.join(_listvalues(node))
 
 _types_.append(
     IType('List', [
