@@ -57,25 +57,6 @@ class TypeInfo(object):
   def __str__(self):
     return 'TypeInfo for "%s"' % self.ident
 
-# TODO: move to analysis.
-def isa(curryobj, typeinfo):
-  '''
-  Checks whether the given Curry object is an instance of the given type.  The
-  second argument may be a sequence of types to check against.
-  '''
-  if not isinstance(curryobj, Node):
-    return False
-  if isinstance(typeinfo, TypeInfo):
-    return id(curryobj.info) == id(typeinfo.info)
-  elif isinstance(typeinfo, collections.Sequence):
-    if not all(isinstance(ti, TypeInfo) for ti in typeinfo):
-      raise TypeError(
-          'arg 2 must be an instance or sequence of curry.interpreter.TypeInfo '
-          'objects.')
-    return id(curryobj) in (id(ti.info) for ti in typeinfo)
-
-# TODO: add isctorof.  : and [] are constructors of prelude.List.
-
 # Inpterpretation.
 # ================
 class Interpreter(object):
@@ -101,7 +82,7 @@ class Interpreter(object):
   def __init__(self, flags={}):
     self.prelude = self.import_(Prelude)
     self.import_(System)
-    self.ti_Failure = self['_System.Failure'].info # cached
+    self.ti_Failure = self.symbol('_System.Failure').info
 
   # Importing.
   # ==========
@@ -117,6 +98,7 @@ class Interpreter(object):
   def import_(self, imodule):
     if imodule.name not in self.modules:
       moduleobj = types.ModuleType(imodule.name)
+      setattr(moduleobj, '.types', {})
       self.modules[imodule.name] = moduleobj
       self._loadsymbols(imodule, moduleobj)
       self._compile(imodule, moduleobj)
@@ -147,6 +129,14 @@ class Interpreter(object):
     # TODO: imports
     self._loadsymbols(imodule.types, moduleobj)
     self._loadsymbols(imodule.functions, moduleobj)
+    # Stash the type tables in the module; e.g.:
+    #   .types = {'Bool': [<TypeInfo for True>, <TypeInfo for False>]}
+    setattr(moduleobj, '.types'
+      , { typename.basename:
+            [getattr(moduleobj, ctor.ident.basename) for ctor in ctors]
+            for typename,ctors in imodule.types.items()
+          }
+      )
 
   @_loadsymbols.when(IConstructor)
   def _loadsymbols(self, icons, moduleobj):
@@ -231,24 +221,34 @@ class Interpreter(object):
   def expr(self, node):
     return node
 
-  # Symbol lookup.
-  # ==============
-  @dispatch.on('key')
-  def __getitem__(self, key):
-    return self[IName(key)]
-
-  @__getitem__.when(IName)
-  def __getitem__(self, iname):
+  # Symbol/type lookup.
+  # ===================
+  def module(self, name):
+    iname = IName(name)
     try:
-      module = self.modules[iname.module]
+      return self.modules[iname.module]
     except KeyError:
       raise SymbolLookupError('module "%s" not found' % iname.module)
 
+  def symbol(self, name):
+    module = self.module(name)
+    iname = IName(name)
     try:
       return getattr(module, iname.basename)
     except AttributeError:
       raise SymbolLookupError(
           'module "%s" has no symbol "%s"' % (iname.module, iname.basename)
+        )
+
+  def type(self, name):
+    '''Returns the constructor info tables for the named type.'''
+    module = self.module(name)
+    iname = IName(name)
+    try:
+      return getattr(module, '.types')[iname.basename]
+    except KeyError:
+      raise SymbolLookupError(
+          'module "%s" has no type "%s"' % (iname.module, iname.basename)
         )
 
   # Evaluating.

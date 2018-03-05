@@ -275,13 +275,25 @@ class TestPyInterp(cytest.TestCase):
     self.assertIs(interp.modules['example'], example)
 
     # Symbol lookup.
-    self.assertIs(interp['Prelude.Int'], interp.modules['Prelude'].Int)
+    self.assertIs(interp.symbol('Prelude.Int'), interp.modules['Prelude'].Int)
     self.assertRaisesRegexp(
-        SymbolLookupError, r'module "blah" not found', lambda: interp['blah.x']
+        SymbolLookupError, r'module "blah" not found'
+      , lambda: interp.symbol('blah.x')
       )
     self.assertRaisesRegexp(
         SymbolLookupError, r'module "Prelude" has no symbol "foo"'
-      , lambda: interp['Prelude.foo']
+      , lambda: interp.symbol('Prelude.foo')
+      )
+
+    # Type lookup.
+    self.assertEqual(interp.type('Prelude.Int'), [interp.symbol('Prelude.Int')])
+    self.assertRaisesRegexp(
+        SymbolLookupError, r'module "blah" not found'
+      , lambda: interp.type('blah.x')
+      )
+    self.assertRaisesRegexp(
+        SymbolLookupError, r'module "Prelude" has no type "foo"'
+      , lambda: interp.type('Prelude.foo')
       )
 
   def testExpr(self):
@@ -361,11 +373,15 @@ class TestPyInterp(cytest.TestCase):
     Cons,Nil = getattr(prelude, ':'), getattr(prelude, '[]')
     self.assertEqual(e2s([Cons, 1, Nil]), '[1]')
     self.assertEqual(e2s([Cons, 1, [Cons, 2, Nil]]), '[1, 2]')
-    # TODO: check isa(..., prelude.List)
-    # TODO: check isctorof(Nil, prelude.List)
+    l0 = Nil()
+    l1 = Cons(1, l0)
+    self.assertIsa(l0, interp.symbol('Prelude.[]'))
+    self.assertIsNotA(l0, interp.symbol('Prelude.:'))
+    self.assertIsa(l0, interp.type('Prelude.List'))
+    self.assertIsa(l1, interp.type('Prelude.List'))
+    self.assertIsNotA(int_, interp.type('Prelude.List'))
     # TODO: design and test .topy() and .frompy() (I guess that's just
     #     Interprerter.expr; maybe frompy is a better name?).
-
 
     # Tuples.
     Unit = getattr(prelude, '()')

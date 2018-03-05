@@ -1,6 +1,6 @@
 from cStringIO import StringIO
 from curry.llvm import isa as llvm_isa
-from curry.interpreter import isa as cy_isa
+from curry.interpreter.analysis import isa as cy_isa
 from curry.interpreter.runtime import Node
 import __builtin__
 import collections

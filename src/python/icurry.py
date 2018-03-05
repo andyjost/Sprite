@@ -53,6 +53,11 @@ class IName(str):
           'expected module name "%s," got "%s"' % (self.module, modulename)
         )
 
+  @property
+  def parts(self):
+    return self.module, self.basename
+
+
 def _build_symboltable(imodule, data, value_type):
   '''
   Builds an ordered mapping from ``IName`` to ``value_type`` where

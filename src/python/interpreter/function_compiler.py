@@ -1,6 +1,6 @@
 from .. import icurry
 from ..visitation import dispatch
-from . import analysis
+# from . import analysis
 from . import runtime
 import collections
 import itertools
@@ -100,7 +100,7 @@ class FunctionCompiler(object):
 
   def typeinfo(self, iname):
     '''Get the TypeInfo object for a program symbol.'''
-    return self.interpreter[iname]
+    return self.interpreter.symbol(iname)
 
   def __str__(self):
     maxlen = max(map(len, self.closure.context.keys()) or [0])
@@ -336,7 +336,7 @@ class Closure(object):
 
   @__getitem__.when(icurry.IName)
   def __getitem__(self, iname):
-    symbol = self.interpreter[iname].info
+    symbol = self.interpreter.symbol(iname).info
     for k,v in self.context.iteritems():
       if v is symbol:
         return k
