@@ -407,11 +407,38 @@ class TestPyInterp(cytest.TestCase):
     T,F = getattr(prelude, 'True'), getattr(prelude, 'False')
     self.assertEqual(e2s([Cons, T, [Cons, F, Nil]]), '[True, False]')
 
-  # def testPreludeExternals(self):
-  #   '''
-  #   Tests the externally-defined functions defined in
-  #   python/interpreter/prelude.py.
-  #   '''
+  def testPreludeExternals(self):
+    '''
+    Tests the externally-defined functions defined in
+    python/interpreter/prelude.py.
+    '''
+    interp = Interpreter()
+    p = interp.import_(Prelude)
+    self.assertEqual(interp.eval([getattr(p, '*'), 3, 4]).next(), interp.expr(12))
+    self.assertEqual(interp.eval([getattr(p, '+'), 3, 4]).next(), interp.expr(7))
+    self.assertEqual(interp.eval([getattr(p, '-'), 3, 4]).next(), interp.expr(-1))
+    self.assertEqual(interp.eval([getattr(p, '=='), 3, 4]).next(), interp.expr(False))
+    self.assertEqual(interp.eval([getattr(p, '=='), 3, 3]).next(), interp.expr(True))
+    self.assertEqual(interp.eval([getattr(p, '/='), 3, 4]).next(), interp.expr(True))
+    self.assertEqual(interp.eval([getattr(p, '/='), 3, 3]).next(), interp.expr(False))
+    self.assertEqual(interp.eval([getattr(p, '<'), 3, 4]).next(), interp.expr(True))
+    self.assertEqual(interp.eval([getattr(p, '>'), 3, 4]).next(), interp.expr(False))
+    self.assertEqual(interp.eval([getattr(p, '<='), 3, 4]).next(), interp.expr(True))
+    self.assertEqual(interp.eval([getattr(p, '>='), 3, 4]).next(), interp.expr(False))
+    self.assertEqual(interp.eval([getattr(p, '&&'), True, True]).next(), interp.expr(True))
+    self.assertEqual(interp.eval([getattr(p, '&&'), False, True]).next(), interp.expr(False))
+    self.assertEqual(interp.eval([getattr(p, '||'), False, False]).next(), interp.expr(False))
+    self.assertEqual(interp.eval([getattr(p, '||'), True, False]).next(), interp.expr(True))
+    self.assertEqual(interp.eval([getattr(p, 'negate'), 4]).next(), interp.expr(-4))
+    self.assertEqual(interp.eval([getattr(p, 'div'), 13, 5]).next(), interp.expr(2))
+    self.assertEqual(interp.eval([getattr(p, 'div'), -15, 4]).next(), interp.expr(-4))
+    self.assertEqual(interp.eval([getattr(p, 'mod'), 13, 5]).next(), interp.expr(3))
+    self.assertEqual(interp.eval([getattr(p, 'mod'), -15, 4]).next(), interp.expr(1))
+    self.assertEqual(interp.eval([getattr(p, 'quot'), 13, 5]).next(), interp.expr(2))
+    self.assertEqual(interp.eval([getattr(p, 'quot'), -15, 4]).next(), interp.expr(-3))
+    self.assertEqual(interp.eval([getattr(p, 'rem'), 13, 5]).next(), interp.expr(3))
+    self.assertEqual(interp.eval([getattr(p, 'rem'), -15, 4]).next(), interp.expr(-3))
+    self.assertEqual(interp.eval([getattr(p, 'prim_negateFloat'), 3.14]).next(), interp.expr(-3.14))
 
   def testCoverage(self):
     '''Tests to get complete line coverage.'''

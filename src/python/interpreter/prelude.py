@@ -91,7 +91,7 @@ _functions_ = [
 # --- Integer division. The value is the integer quotient of its arguments
 # --- and always truncated towards negative infinity.
 # --- Thus, the value of <code>13 `div` 5</code> is <code>2</code>,
-# --- and the value of <code>-15 `div` 4</code> is <code>-4</code>.
+# --- and the value of <code>-15 `div` 4</code> is <code>-3</code>.
 # div   :: Int -> Int -> Int
 # div external
   , IFunction('div', 2, metadata={'py.func':op.floordiv})
