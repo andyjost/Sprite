@@ -22,6 +22,18 @@ ifndef PYTHON_EXECUTABLE
   PYTHON_EXECUTABLE := $(PYTHON_HOME)/bin/python
 endif
 
+ifndef PYTHON_COVERAGE_EXECUTABLE
+  PYTHON_COVERAGE_EXECUTABLE := $(PYTHON_HOME)/bin/coverage
+endif
+
+ifndef CMC_HOME
+  CMC_HOME := $(ROOT_DIR)/CMC
+endif
+
+ifndef CURRY2JSON
+  CURRY2JSON := $(CMC_HOME)/translator/bin/curry2json
+endif
+
 ifndef PYTHON_LIBRARY_PATH
   # Added to LDFLAGS as -L$(PYTHON_LIBRARY_PATH) for certain targets.
   # PYTHON_LIBRARY_PATH := /usr/lib/python2.7

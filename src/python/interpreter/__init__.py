@@ -77,6 +77,7 @@ class Interpreter(object):
     self.flags = {}
     self.flags.setdefault('debug', True)
     self.flags.update(flags)
+    self.path = os.environ.get('CURRYPATH', '')
     return self
 
   def __init__(self, flags={}):
@@ -89,6 +90,10 @@ class Interpreter(object):
   @dispatch.on('arg')
   def import_(self, arg):
     raise TypeError('cannot import type "%s"' % type(arg).__name__)
+
+  @import_.when(str)
+  def import_(self, module_name):
+    breakpoint()
 
   @import_.when(collections.Sequence)
   def import_(self, seq):
