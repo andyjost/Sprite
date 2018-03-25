@@ -1,0 +1,124 @@
+[ 
+  { 
+    "__class__" : "IModule", 
+    "name" : "hello", 
+    "imports" : [ 
+      "Prelude"
+    ] , 
+    "types" : [], 
+    "functions" : [ 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "hello.main", 
+        "arity" : 0, 
+        "code" : [ 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Applic", 
+              "ident" : "Prelude.putStr", 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic", 
+                  "ident" : "Prelude.:", 
+                  "args" : [ 
+                    "H", 
+                    { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.:", 
+                      "args" : [ 
+                        "e", 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "Prelude.:", 
+                          "args" : [ 
+                            "l", 
+                            { 
+                              "__class__" : "Applic", 
+                              "ident" : "Prelude.:", 
+                              "args" : [ 
+                                "l", 
+                                { 
+                                  "__class__" : "Applic", 
+                                  "ident" : "Prelude.:", 
+                                  "args" : [ 
+                                    "o", 
+                                    { 
+                                      "__class__" : "Applic", 
+                                      "ident" : "Prelude.:", 
+                                      "args" : [ 
+                                        ",", 
+                                        { 
+                                          "__class__" : "Applic", 
+                                          "ident" : "Prelude.:", 
+                                          "args" : [ 
+                                            " ", 
+                                            { 
+                                              "__class__" : "Applic", 
+                                              "ident" : "Prelude.:", 
+                                              "args" : [ 
+                                                "W", 
+                                                { 
+                                                  "__class__" : "Applic", 
+                                                  "ident" : "Prelude.:", 
+                                                  "args" : [ 
+                                                    "o", 
+                                                    { 
+                                                      "__class__" : "Applic", 
+                                                      "ident" : "Prelude.:", 
+                                                      "args" : [ 
+                                                        "r", 
+                                                        { 
+                                                          "__class__" : "Applic", 
+                                                          "ident" : "Prelude.:", 
+                                                          "args" : [ 
+                                                            "l", 
+                                                            { 
+                                                              "__class__" : "Applic", 
+                                                              "ident" : "Prelude.:", 
+                                                              "args" : [ 
+                                                                "d", 
+                                                                { 
+                                                                  "__class__" : "Applic", 
+                                                                  "ident" : "Prelude.:", 
+                                                                  "args" : [ 
+                                                                    "!", 
+                                                                    { 
+                                                                      "__class__" : "Applic", 
+                                                                      "ident" : "Prelude.[]", 
+                                                                      "args" : []
+                                                                    } 
+                                                                  ] 
+                                                                } 
+                                                              ] 
+                                                            } 
+                                                          ] 
+                                                        } 
+                                                      ] 
+                                                    } 
+                                                  ] 
+                                                } 
+                                              ] 
+                                            } 
+                                          ] 
+                                        } 
+                                      ] 
+                                    } 
+                                  ] 
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } 
+    ] 
+  } 
+] 
