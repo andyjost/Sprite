@@ -1,5 +1,6 @@
 # Encoding: utf-8
 from curry import getsource
+from curry import icurry
 import cytest
 import os
 import shutil
@@ -90,23 +91,40 @@ class TestFindCurry(cytest.TestCase):
       )
 
   def test_getICurryForModule(self):
+    '''Check that curry2json is invoked to produce ICurry-JSON files.'''
+    # If the JSON file already exists, this should find it, just like
+    # findCurryModule does.
     self.assertEqual(
-        getsource.getICurryForModule('a', ['data/filetree/a'])
+        getsource.findOrBuildICurryForModule('a', ['data/filetree/a'])
       , os.path.abspath('data/filetree/a/.curry/a.json')
       )
-    #
-    jsonfile = 'data/curry/.curry/hello.json'
+    # Otherwise, it builds the JSON.
+    jsondir = 'data/curry/.curry'
+    jsonfile = os.path.join(jsondir, 'hello.json')
+    goldenfile = 'data/curry/hello.json.au'
+    def rmfiles():
+      try:
+        shutil.rmtree(jsondir)
+      except OSError:
+        pass
     try:
-      os.remove(jsonfile)
-    except OSError:
-      pass
-    self.assertFalse(os.path.exists(jsonfile))
-    self.assertEqual(
-        getsource.getICurryForModule('hello', ['data/curry'])
-      , os.path.abspath(jsonfile)
-      )
-    self.assertEqual(
-        open('data/curry/hello.json.au', 'r').read()
-      , open('data/curry/.curry/hello.json', 'r').read()
-      )
+      rmfiles()
+      self.assertFalse(os.path.exists(jsonfile))
+      self.assertEqual(
+          getsource.findOrBuildICurryForModule('hello', ['data/curry'])
+        , os.path.abspath(jsonfile)
+        )
+      self.assertTrue(os.path.exists(jsonfile))
+      self.assertEqual(
+          open(goldenfile, 'r').read()
+        , open('data/curry/.curry/hello.json', 'r').read()
+        )
+      rmfiles()
+      # Finally, check getICurryForModule.  It just parses the file found by
+      # findOrBuildICurryForModule.
+      icur = getsource.getICurryForModule('hello', ['data/curry'])
+      au = icurry.parse(open(goldenfile, 'r').read())
+      self.assertEqual(icur, au)
+    finally:
+      rmfiles()
 
