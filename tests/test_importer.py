@@ -10,7 +10,7 @@ class TestFindCurry(cytest.TestCase):
     '''
     Tests the low-level findfile function with the following tree:
 
-        data/filetree
+        data/findFile
         ├── a
         │   ├── a.foo
         │   └── .curry
@@ -28,66 +28,66 @@ class TestFindCurry(cytest.TestCase):
     self.assertEqual(
         list(ff(
             names=['a.curry']
-          , searchpaths=['data/filetree/a']
+          , searchpaths=['data/findFile/a']
           ))
       , []
       )
-    self.assertEqual(list(ff(['data/filetree/a'], ['a.curry'])), [])
+    self.assertEqual(list(ff(['data/findFile/a'], ['a.curry'])), [])
     self.assertEqual(
-        list(ff(['data/filetree/b'], ['a.curry']))
-      , ['data/filetree/b/a.curry']
+        list(ff(['data/findFile/b'], ['a.curry']))
+      , ['data/findFile/b/a.curry']
       )
     self.assertEqual(
-        list(ff(['data/filetree/b/a'], ['a.curry']))
-      , ['data/filetree/b/a/a.curry']
+        list(ff(['data/findFile/b/a'], ['a.curry']))
+      , ['data/findFile/b/a/a.curry']
       )
     self.assertEqual(
-        list(ff(['data/filetree/b'], ['a/a.curry']))
-      , ['data/filetree/b/a/a.curry']
+        list(ff(['data/findFile/b'], ['a/a.curry']))
+      , ['data/findFile/b/a/a.curry']
       )
     self.assertEqual(
         list(ff(
-            ['data/filetree/a', 'data/filetree/b', 'data/filetree/b/a']
+            ['data/findFile/a', 'data/findFile/b', 'data/findFile/b/a']
           , ['a.curry']
           ))
-      , ['data/filetree/b/a.curry', 'data/filetree/b/a/a.curry']
+      , ['data/findFile/b/a.curry', 'data/findFile/b/a/a.curry']
       )
     self.assertEqual(
-        list(ff(['data/filetree/a'], ['a.foo']))
-      , ['data/filetree/a/a.foo']
+        list(ff(['data/findFile/a'], ['a.foo']))
+      , ['data/findFile/a/a.foo']
       )
     self.assertEqual(
         list(ff(
-            ['data/filetree/a', 'data/filetree/b/a']
+            ['data/findFile/a', 'data/findFile/b/a']
           , ['a.curry', 'a.foo']
           ))
-      , [   'data/filetree/a/a.foo'
-          , 'data/filetree/b/a/a.curry'
-          , 'data/filetree/b/a/a.foo'
+      , [   'data/findFile/a/a.foo'
+          , 'data/findFile/b/a/a.curry'
+          , 'data/findFile/b/a/a.foo'
           ]
       )
     self.assertEqual(
-        list(ff(['data/filetree/c'], ['a']))
-      , ['data/filetree/c/a']
+        list(ff(['data/findFile/c'], ['a']))
+      , ['data/findFile/c/a']
       )
 
   def test_findCurryModule(self):
     self.assertEqual(
-        importer.findCurryModule('c', searchpaths=['data/filetree/c'])
-      , os.path.abspath('data/filetree/c/c.curry')
+        importer.findCurryModule('c', searchpaths=['data/findFile/c'])
+      , os.path.abspath('data/findFile/c/c.curry')
       )
     self.assertEqual(
-        importer.findCurryModule('a', searchpaths=['data/filetree/b'])
-      , os.path.abspath('data/filetree/b/a.curry')
+        importer.findCurryModule('a', searchpaths=['data/findFile/b'])
+      , os.path.abspath('data/findFile/b/a.curry')
       )
     # Under a/ there is no a.curry, but there is a .curry/a.json file.
     # It should be found before b/a.curry is located.
     self.assertEqual(
         importer.findCurryModule(
             'a'
-          , searchpaths=['data/filetree/'+a_or_b for a_or_b in 'ab']
+          , searchpaths=['data/findFile/'+a_or_b for a_or_b in 'ab']
           )
-      , os.path.abspath('data/filetree/a/.curry/a.json')
+      , os.path.abspath('data/findFile/a/.curry/a.json')
       )
 
   def test_getICurryForModule(self):
@@ -95,10 +95,10 @@ class TestFindCurry(cytest.TestCase):
     # If the JSON file already exists, this should find it, just like
     # findCurryModule does.
     self.assertEqual(
-        importer.findOrBuildICurryForModule('a', ['data/filetree/a'])
-      , os.path.abspath('data/filetree/a/.curry/a.json')
+        importer.findOrBuildICurryForModule('a', ['data/findFile/a'])
+      , os.path.abspath('data/findFile/a/.curry/a.json')
       )
-    # Otherwise, it builds the JSON.
+
     jsondir = 'data/curry/.curry'
     jsonfile = os.path.join(jsondir, 'hello.json')
     goldenfile = 'data/curry/hello.json.au'
@@ -107,7 +107,9 @@ class TestFindCurry(cytest.TestCase):
         shutil.rmtree(jsondir)
       except OSError:
         pass
+
     try:
+      # Otherwise, it builds the JSON.
       rmfiles()
       self.assertFalse(os.path.exists(jsonfile))
       self.assertEqual(
@@ -120,7 +122,7 @@ class TestFindCurry(cytest.TestCase):
         , open('data/curry/.curry/hello.json', 'r').read()
         )
       rmfiles()
-      # Finally, check getICurryForModule.  It just parses the file found by
+      # Check getICurryForModule.  It just parses the file found by
       # findOrBuildICurryForModule.
       icur = importer.getICurryForModule('hello', ['data/curry'])
       au = icurry.parse(open(goldenfile, 'r').read())
