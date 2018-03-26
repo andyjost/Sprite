@@ -1,6 +1,6 @@
 # Encoding: utf-8
-from curry import getsource
 from curry import icurry
+from curry import importer
 import cytest
 import os
 import shutil
@@ -24,7 +24,7 @@ class TestFindCurry(cytest.TestCase):
             ├── a
             └── c.curry
     '''
-    ff = getsource.findfiles
+    ff = importer.findfiles
     self.assertEqual(
         list(ff(
             names=['a.curry']
@@ -73,17 +73,17 @@ class TestFindCurry(cytest.TestCase):
 
   def test_findCurryModule(self):
     self.assertEqual(
-        getsource.findCurryModule('c', searchpaths=['data/filetree/c'])
+        importer.findCurryModule('c', searchpaths=['data/filetree/c'])
       , os.path.abspath('data/filetree/c/c.curry')
       )
     self.assertEqual(
-        getsource.findCurryModule('a', searchpaths=['data/filetree/b'])
+        importer.findCurryModule('a', searchpaths=['data/filetree/b'])
       , os.path.abspath('data/filetree/b/a.curry')
       )
     # Under a/ there is no a.curry, but there is a .curry/a.json file.
     # It should be found before b/a.curry is located.
     self.assertEqual(
-        getsource.findCurryModule(
+        importer.findCurryModule(
             'a'
           , searchpaths=['data/filetree/'+a_or_b for a_or_b in 'ab']
           )
@@ -95,7 +95,7 @@ class TestFindCurry(cytest.TestCase):
     # If the JSON file already exists, this should find it, just like
     # findCurryModule does.
     self.assertEqual(
-        getsource.findOrBuildICurryForModule('a', ['data/filetree/a'])
+        importer.findOrBuildICurryForModule('a', ['data/filetree/a'])
       , os.path.abspath('data/filetree/a/.curry/a.json')
       )
     # Otherwise, it builds the JSON.
@@ -111,7 +111,7 @@ class TestFindCurry(cytest.TestCase):
       rmfiles()
       self.assertFalse(os.path.exists(jsonfile))
       self.assertEqual(
-          getsource.findOrBuildICurryForModule('hello', ['data/curry'])
+          importer.findOrBuildICurryForModule('hello', ['data/curry'])
         , os.path.abspath(jsonfile)
         )
       self.assertTrue(os.path.exists(jsonfile))
@@ -122,7 +122,7 @@ class TestFindCurry(cytest.TestCase):
       rmfiles()
       # Finally, check getICurryForModule.  It just parses the file found by
       # findOrBuildICurryForModule.
-      icur = getsource.getICurryForModule('hello', ['data/curry'])
+      icur = importer.getICurryForModule('hello', ['data/curry'])
       au = icurry.parse(open(goldenfile, 'r').read())
       self.assertEqual(icur, au)
     finally:

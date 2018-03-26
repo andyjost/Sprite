@@ -4,6 +4,7 @@ A pure-Python Curry interpreter.
 
 from .function_compiler import compile_function
 from ..icurry import *
+from .. import importer
 from .prelude import Prelude, System
 from .runtime import InfoTable, Node, T_FAIL, T_FUNC, T_CHOICE, T_CTOR
 from .show import Show
