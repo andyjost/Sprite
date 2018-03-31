@@ -99,7 +99,7 @@ class Node(object):
     self.successors[i] = obj
     return obj
 
-  @__getitem__.when(Sequence)
+  @__getitem__.when(Sequence, no=str)
   def __getitem__(self, path):
     if not path:
       # Returns self.  If self if a FWD node, returns its non-FWD target.

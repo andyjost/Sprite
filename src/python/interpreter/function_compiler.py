@@ -123,7 +123,7 @@ class FunctionCompiler(object):
   def _compile(self, iobj): #pragma: no cover
     assert False
 
-  @_compile.when(collections.Sequence)
+  @_compile.when(collections.Sequence, no=str)
   def _compile(self, seq):
     map(self._compile, seq)
 
@@ -229,13 +229,12 @@ class FunctionCompiler(object):
     return repr(value)
 
 
-
   # Statement.
   @dispatch.on('statement')
   def statement(self, statement):
     raise RuntimeError('unhandled Statement: %s' % type(statement))
 
-  @statement.when(collections.Sequence)
+  @statement.when(collections.Sequence, no=str)
   def statement(self, seq):
     for lines in map(self.statement, seq):
       for line in lines:
@@ -367,7 +366,7 @@ def indent(arg, level=-1):
 def indent(line, level=-1):
   yield '  ' * level + line
 
-@indent.when(collections.Sequence)
+@indent.when(collections.Sequence, no=str)
 def indent(seq, level=-1):
   for line in seq:
     for rline in indent(line, level+1):

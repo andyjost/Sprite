@@ -27,7 +27,7 @@ def expr(interp, arg, *args):
   else:
     raise RuntimeError('multi-char strings not supported yet.')
 
-@expr.when(collections.Sequence)
+@expr.when(collections.Sequence, no=str)
 def expr(interp, arg):
   # Supports nested structures, e.g., Cons 0 [Cons 1 Nil].
   return interp.expr(*arg)

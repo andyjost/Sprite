@@ -29,7 +29,7 @@ def _isa(addr, what):
 def _isa(addr, typeinfo):
   return addr == id(typeinfo.info)
 
-@_isa.when(collections.Sequence)
+@_isa.when(collections.Sequence, no=str)
 def _isa(addr, seq):
   if not all(isinstance(ti, runtime.TypeInfo) for ti in seq):
     _isa(None, None) # raise error

@@ -75,7 +75,7 @@ class Interpreter(object):
       icur = importer.getICurryForModule(modulename, self.path)
       self.import_(icur)
 
-  @import_.when(collections.Sequence)
+  @import_.when(collections.Sequence, no=str)
   def import_(self, seq):
     return [self.import_(item) for item in seq]
 
@@ -99,7 +99,7 @@ class Interpreter(object):
     '''
     raise RuntimeError("unhandled ICurry type during symbol loading: '%s'" % type(idef))
 
-  @_loadsymbols.when(collections.Sequence)
+  @_loadsymbols.when(collections.Sequence, no=str)
   def _loadsymbols(self, seq, *args, **kwds):
     for item in seq:
       self._loadsymbols(item, *args, **kwds)
