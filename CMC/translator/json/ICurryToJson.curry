@@ -161,10 +161,16 @@ toExpr (IOr arg1 arg2) =
      , ("rhs", toExpr arg2)
      ]
 
-toVariant (Bint int)     = jint int
-toVariant (Bfloat float) = JN float
-toVariant (Bchar char)   = JS (
-     case char of
+toVariant (Bint int)     = JO [ xclass "Applic"
+                              , ("ident", JS (fullname ("Prelude", "Int")))
+                              , ("args", JA [jint int])
+                              ]
+toVariant (Bfloat float) = JO [ xclass "Applic"
+                              , ("ident", JS (fullname ("Prelude", "Float")))
+                              , ("args", JA [JN float])
+                              ]
+toVariant (Bchar char)   =
+  let charval = case char of
        '\t' -> "\\t"
        '\b' -> "\\b"
        '\n' -> "\\n"
@@ -174,7 +180,10 @@ toVariant (Bchar char)   = JS (
        '\"' -> "\\\""
        '\\' -> "\\\\"
        _    -> [char]
-   )
+  in JO [ xclass "Applic"
+        , ("ident", JS (fullname ("Prelude", "Char")))
+        , ("args", JA [JS charval])
+        ]
 
 {-
 https://docs.oracle.com/javase/tutorial/java/data/characters.html

@@ -256,5 +256,5 @@ _functions_ = [
 # failure external
   ]
 Prelude = IModule(
-    name='Prelude', imports=['.System'], types=_types_, functions=_functions_
+    name='Prelude', imports=[], types=_types_, functions=_functions_
   )

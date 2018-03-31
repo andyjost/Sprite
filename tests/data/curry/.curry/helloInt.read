@@ -1,0 +1,8 @@
+
+module "helloInt"
+  import
+    "Prelude"
+  function "helloInt.main" 0
+    code
+      return
+        int 0

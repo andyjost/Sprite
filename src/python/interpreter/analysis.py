@@ -1,5 +1,4 @@
-from curry.interpreter.runtime import Node
-from curry import interpreter as interp
+from . import runtime
 from ..visitation import dispatch
 import collections
 
@@ -16,7 +15,7 @@ def isa(cyobj, what):
   Checks whether the given Curry object is an instance of the given type or
   constructor.  The second argument may be a sequence to check against.
   '''
-  if not isinstance(cyobj, Node):
+  if not isinstance(cyobj, runtime.Node):
     return False
   return _isa(id(cyobj.info), what)
 
@@ -26,13 +25,13 @@ def _isa(addr, what):
       'arg 2 must be an instance or sequence of curry.interpreter.TypeInfo '
       'objects.')
 
-@_isa.when(interp.TypeInfo)
+@_isa.when(runtime.TypeInfo)
 def _isa(addr, typeinfo):
   return addr == id(typeinfo.info)
 
 @_isa.when(collections.Sequence)
 def _isa(addr, seq):
-  if not all(isinstance(ti, interp.TypeInfo) for ti in seq):
+  if not all(isinstance(ti, runtime.TypeInfo) for ti in seq):
     _isa(None, None) # raise error
   return addr in (id(ti.info) for ti in seq)
 

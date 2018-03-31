@@ -38,10 +38,11 @@ def compile_primitive_builtin(interpreter, func):
   Compiles code for built-in functions on primitive data
   '''
   hnf = interpreter.hnf
+  unbox = interpreter.unbox
   if interpreter.flags['debug']:
     def step(lhs):
       hnfs = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
-      tys, args = zip(*[(s.info, s[0]) for s in hnfs])
+      tys, args = zip(*[(s.info, unbox(s)) for s in hnfs])
       assert all(isinstance(arg, icurry.BuiltinVariant) for arg in args)
       tys = set(tys)
       ti_result = tys.pop()
@@ -50,7 +51,7 @@ def compile_primitive_builtin(interpreter, func):
       lhs.rewrite(ti_result, result)
   else:
     def step(lhs):
-      args = (hnf(lhs, [i])[0] for i in xrange(len(lhs.successors)))
+      args = (unbox(hnf(lhs, [i])) for i in xrange(len(lhs.successors)))
       lhs.rewrite(lhs[0].info, func(*args))
   return step
 
@@ -188,10 +189,13 @@ class FunctionCompiler(object):
   # Expression.
   @dispatch.on('expression')
   def expression(self, expression): #pragma: no cover
+    breakpoint()
     assert False
 
-  @expression.when(collections.Sequence)
+  @expression.when(collections.Sequence, no=str)
   def expression(self, seq):
+    if isinstance(seq, str):
+      breakpoint()
     return map(self.expression, seq)
 
   @expression.when(icurry.Exempt)
@@ -223,6 +227,8 @@ class FunctionCompiler(object):
   @expression.when(icurry.BuiltinVariant)
   def expression(self, value):
     return repr(value)
+
+
 
   # Statement.
   @dispatch.on('statement')
@@ -261,10 +267,6 @@ class FunctionCompiler(object):
   @statement.when(icurry.Return)
   def statement(self, return_):
     yield 'lhs.%s' % self.expression(return_.expr)
-    # if analysis.is_value(return_.expr):
-    #   yield 'return True'
-    # else:
-    #   yield 'return False'
 
   @statement.when(icurry.ATable)
   def statement(self, atable):

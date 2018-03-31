@@ -1,0 +1,5 @@
+Prog "helloFloat"
+["Prelude"]
+[]
+[Func ("helloFloat","main") 0 Public (TCons ("Prelude","Float") []) (Rule [] (Lit (Floatc  0.1)))]
+[]

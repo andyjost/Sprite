@@ -2,7 +2,8 @@
 A pure-Python Curry interpreter.
 '''
 
-from .function_compiler import compile_function
+from . import function_compiler
+from . import expressions
 from ..icurry import *
 from .. import importer
 from .prelude import Prelude, System
@@ -11,7 +12,6 @@ from .show import Show
 from ..visitation import dispatch
 import collections
 import logging
-import numbers
 import os
 import types
 
@@ -33,31 +33,6 @@ logging.basicConfig(
 class SymbolLookupError(AttributeError):
   pass
 
-class TypeInfo(object):
-  '''Compile-time type info.'''
-  def __init__(self, ident, info):
-    self.ident = ident
-    self.info = info
-
-  def _check_call(self, *args):
-    if len(args) != self.info.arity:
-      raise TypeError(
-          'cannot construct "%s" (arity=%d), with %d arg%s' % (
-              self.info.name
-            , self.info.arity
-            , len(args)
-            , '' if len(args) == 1 else 's'
-            )
-        )
-
-  def __call__(self, *args):
-    '''Constructs an object of this type.'''
-    self._check_call(*args)
-    return Node(self.info, *args)
-
-  def __str__(self):
-    return 'TypeInfo for "%s"' % self.ident
-
 # Inpterpretation.
 # ================
 class Interpreter(object):
@@ -78,7 +53,7 @@ class Interpreter(object):
     self.flags = {}
     self.flags.setdefault('debug', True)
     self.flags.update(flags)
-    self.path = os.environ.get('CURRYPATH', '')
+    self.path = os.environ.get('CURRYPATH', '').split(':')
     return self
 
   def __init__(self, flags={}):
@@ -93,8 +68,12 @@ class Interpreter(object):
     raise TypeError('cannot import type "%s"' % type(arg).__name__)
 
   @import_.when(str)
-  def import_(self, module_name):
-    breakpoint()
+  def import_(self, modulename):
+    try:
+      return self.modules[modulename]
+    except KeyError:
+      icur = importer.getICurryForModule(modulename, self.path)
+      self.import_(icur)
 
   @import_.when(collections.Sequence)
   def import_(self, seq):
@@ -132,7 +111,8 @@ class Interpreter(object):
 
   @_loadsymbols.when(IModule)
   def _loadsymbols(self, imodule, moduleobj):
-    # TODO: imports
+    for modulename in imodule.imports:
+      self.import_(modulename)
     self._loadsymbols(imodule.types, moduleobj)
     self._loadsymbols(imodule.functions, moduleobj)
     # Stash the type tables in the module; e.g.:
@@ -155,14 +135,14 @@ class Interpreter(object):
       , _no_step if not builtin else _unreachable
       , Show(getattr(icons.metadata, 'py.format', None))
       )
-    setattr(moduleobj, icons.ident.basename, TypeInfo(icons.ident, info))
+    setattr(moduleobj, icons.ident.basename, runtime.TypeInfo(icons.ident, info))
 
   @_loadsymbols.when(IFunction)
   def _loadsymbols(self, ifun, moduleobj):
     info = InfoTable(
         ifun.ident.basename, ifun.arity, T_FUNC, None, Show()
       )
-    setattr(moduleobj, ifun.ident.basename, TypeInfo(ifun.ident, info))
+    setattr(moduleobj, ifun.ident.basename, runtime.TypeInfo(ifun.ident, info))
 
   # Compiling.
   # ==========
@@ -183,49 +163,13 @@ class Interpreter(object):
   @_compile.when(IFunction)
   def _compile(self, ifun, moduleobj):
     info = getattr(moduleobj, ifun.ident.basename).info
-    info.step = compile_function(self, ifun)
+    info.step = function_compiler.compile_function(self, ifun)
 
   # Expression building.
   # ====================
-  @dispatch.on('arg')
-  def expr(self, arg, *args):
-    raise TypeError(
-        'cannot build a Curry expression from type "%s"' % type(arg).__name__
-      )
-
-  @expr.when(str) # Char or [Char].
-  def expr(self, arg, *args):
-    if len(arg) == 1:
-      args = (arg,) + args
-      self.prelude.Char._check_call(*args)
-      return Node(self.prelude.Char.info, *args)
-    else:
-      raise RuntimeError('multi-char strings not supported yet.')
-
-  @expr.when(collections.Sequence)
-  def expr(self, arg):
-    # Supports nested structures, e.g., Cons 0 [Cons 1 Nil].
-    return self.expr(*arg)
-
-  @expr.when(numbers.Integral)
-  def expr(self, arg, *args):
-    args = (int(arg),) + args
-    self.prelude.Int._check_call(*args)
-    return Node(self.prelude.Int.info, *args)
-
-  @expr.when(numbers.Real)
-  def expr(self, arg, *args):
-    args = (float(arg),) + args
-    self.prelude.Float._check_call(*args)
-    return Node(self.prelude.Float.info, *args)
-
-  @expr.when(TypeInfo)
-  def expr(self, info, *args):
-    return info(*map(self.expr, args))
-
-  @expr.when(Node)
-  def expr(self, node):
-    return node
+  expr = expressions.expr
+  box = expressions.box
+  unbox = expressions.unbox
 
   # Symbol/type lookup.
   # ===================

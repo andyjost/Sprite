@@ -1,0 +1,8 @@
+
+module "helloFloat"
+  import
+    "Prelude"
+  function "helloFloat.main" 0
+    code
+      return
+        float 0.1

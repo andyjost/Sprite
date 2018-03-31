@@ -1,0 +1,1 @@
+(IModule "helloInt" ["Prelude"] [] [(IFunction ("helloInt","main") 0 [(Return (BuiltinVariant (Bint 0)))])])

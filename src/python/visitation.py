@@ -71,7 +71,9 @@ class Visitable(object):
           handler = self.default
     return handler(*args, **kwds)
 
-  def when(self, ty, replacement):
+  def when(self, ty, replacement, no):
+    if no is not None:
+      ty = instance_checker(ty, no)
     def decorator(handler):
       self.handlers[ty] = handler
       self._ordering = None
@@ -95,7 +97,34 @@ class dispatch(object):
       @functools.wraps(f)
       def replacement(*args, **kwds):
         return visitor(*args, **kwds)
-      replacement.when = lambda ty: visitor.when(ty, replacement)
+      replacement.when = lambda ty,no=None: visitor.when(ty, replacement, no)
       return replacement
     return decorator
+
+def instance_checker(yes, no):
+  '''
+  Builds a this-but-not-that instance checker class.
+
+  The class returned is intended to be used with ``isinstance`` and
+  ``issubclass``.  An object will be an instance of the returned class if it is
+  an instance of ``yes`` but not an instance of ``no``.  Likewise for
+  subclasses.  Either argument may be a tuple of classes.
+
+  Identical calls to this function are guaranteed to return the same object, so
+  the result may be used as a key.
+  '''
+  assert yes and no
+  memoized = instance_checker.__dict__.setdefault('_memoized', {})
+  key = tuple(tuple(set(x if type(x) == tuple else [x])) for x in [yes,no])
+  if key not in memoized:
+    class InstanceChecker(object):
+      class __metaclass__(type):
+        def __instancecheck__(self, obj):
+          return isinstance(obj, yes) and not isinstance(obj, no)
+        def __subclasscheck__(self, cls):
+          return issubclass(cls, yes) and not issubclass(cls, no)
+    print 'Created instance_checker(yes=%s, no=%s)' % (yes, no)
+    memoized[key] = InstanceChecker
+  return memoized[key]
+
 

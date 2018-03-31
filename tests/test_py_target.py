@@ -264,7 +264,7 @@ class TestPyInterp(cytest.TestCase):
     del cls.X
     del cls.BOOTSTRAP
 
-  def testImport(self):
+  def testImportICurry(self):
     icur = self.ONECURRY
     interp = Interpreter()
     imported = interp.import_(icur)
@@ -295,6 +295,13 @@ class TestPyInterp(cytest.TestCase):
         SymbolLookupError, r'module "Prelude" has no type "foo"'
       , lambda: interp.type('Prelude.foo')
       )
+
+  def testImportFile(self):
+    interp = Interpreter()
+    interp.path = ['data/curry']
+    self.assertMayRaise(None, lambda: interp.import_('helloInt'))
+    self.assertMayRaise(None, lambda: interp.import_('helloFloat'))
+    self.assertMayRaise(None, lambda: interp.import_('helloChar'))
 
   def testExpr(self):
     '''Use Interpreter.expr to build expressions.'''

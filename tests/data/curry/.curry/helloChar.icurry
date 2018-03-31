@@ -1,0 +1,5 @@
+interface helloChar where {
+import Prelude;
+hiding data Prelude.Char;
+main 0 :: Prelude.Char
+}

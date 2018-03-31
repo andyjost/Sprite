@@ -1,6 +1,7 @@
 from abc import ABCMeta
 from collections import Mapping, namedtuple, OrderedDict, Sequence
 from .proptree import proptree
+from .visitation import dispatch
 import json
 import weakref
 
@@ -447,13 +448,34 @@ Statement.register(Return)
 Statement.register(ATable)
 Statement.register(BTable)
 
+@dispatch.on('arg')
+def uni2str(arg):
+  '''Convert unicode to str in a nested structure.'''
+  return arg
+
+@uni2str.when(str)
+def uni2str(arg):
+  return arg
+
+@uni2str.when(unicode)
+def uni2str(arg):
+  return arg.encode('utf-8')
+
+@uni2str.when(Sequence)
+def uni2str(arg):
+  return type(arg)(uni2str(x) for x in arg)
+
+@uni2str.when(Mapping)
+def uni2str(arg):
+  return type(arg)((uni2str(k),uni2str(v)) for k,v in arg.items())
+
 def _object_hook(kwds):
   try:
     cls = kwds.pop('__class__')
   except KeyError:
-    return kwds
+    return uni2str(kwds)
   else:
-    return globals()[cls](**kwds)
+    return globals()[cls](**uni2str(kwds))
 
 def get_decoder():
   return json.JSONDecoder(object_hook=_object_hook)

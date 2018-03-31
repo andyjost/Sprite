@@ -52,7 +52,7 @@ def findCurryModule(modulename, searchpaths):
   try:
     file_ = next(files)
   except StopIteration:
-    raise ValueError('module "%s" not found' % name)
+    raise ValueError('module "%s" not found' % modulename)
   return os.path.abspath(file_)
 
 def curry2json():

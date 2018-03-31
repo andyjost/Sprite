@@ -42,6 +42,32 @@ class InfoTable(object):
       ])
 
 
+class TypeInfo(object):
+  '''Compile-time type info.'''
+  def __init__(self, ident, info):
+    self.ident = ident
+    self.info = info
+
+  def _check_call(self, *args):
+    if len(args) != self.info.arity:
+      raise TypeError(
+          'cannot construct "%s" (arity=%d), with %d arg%s' % (
+              self.info.name
+            , self.info.arity
+            , len(args)
+            , '' if len(args) == 1 else 's'
+            )
+        )
+
+  def __call__(self, *args):
+    '''Constructs an object of this type.'''
+    self._check_call(*args)
+    return Node(self.info, *args)
+
+  def __str__(self):
+    return 'TypeInfo for "%s"' % self.ident
+
+
 class Node(object):
   '''An expression node.'''
   def __new__(cls, info, *args):
@@ -107,7 +133,7 @@ class Node(object):
   # ``lhs.node(*args)`` rewrites ``lhs``.  This simplifies the code generator.
   node = rewrite
 
-# An alias for node creation.
+# An alias for the node-creating function.
 node = Node
 
 
