@@ -25,8 +25,7 @@ fi
 
 python=$SPRITE_HOME/bin/python
 export SPRITE_HOME
-export PYTHONPATH=`pwd`/lib/:$SPRITE_HOME/lib/python2.7/:$PYTHONPATH
-export LD_LIBRARY_PATH=$SPRITE_HOME/lib:$LD_LIBRARY_PATH
+export PYTHONPATH=`pwd`/lib/
 
 case `basename $0` in
   "run_tests")

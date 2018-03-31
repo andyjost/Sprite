@@ -1,0 +1,13 @@
+#!/bin/bash
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOT=$( realpath $DIR/.. )
+#
+dir=$ROOT/lib/python2.7/
+test -d $dir || ( echo 2>&1 "Python library not found at \"$dir\"."; exit 1 )
+export PYTHONPATH=$dir:$PYTHONPATH
+#
+dir=$ROOT/lib/
+test -d $dir || ( echo 2>&1 "Sprite library not found at \"$dir\"."; exit 1 )
+export LD_LIBRARY_PATH=$dir:$LD_LIBRARY_PATH
+#
+exec $DIR/.python "$@"
