@@ -123,7 +123,6 @@ def instance_checker(yes, no):
           return isinstance(obj, yes) and not isinstance(obj, no)
         def __subclasscheck__(self, cls):
           return issubclass(cls, yes) and not issubclass(cls, no)
-    print 'Created instance_checker(yes=%s, no=%s)' % (yes, no)
     memoized[key] = InstanceChecker
   return memoized[key]
 

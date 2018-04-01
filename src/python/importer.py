@@ -105,5 +105,7 @@ def getICurryForModule(modulename, searchpaths):
   '''
   filename = findOrBuildICurryForModule(modulename, searchpaths)
   assert os.path.exists(filename)
-  return icurry.parse(open(filename, 'r').read())
+  icur = icurry.parse(open(filename, 'r').read())
+  assert len(icur) == 1
+  return icur[0]
 

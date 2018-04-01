@@ -65,7 +65,20 @@ class TypeInfo(object):
     return Node(self.info, *args)
 
   def __str__(self):
-    return 'TypeInfo for "%s"' % self.ident
+    return self.ident
+
+  def __repr__(self):
+    if self.info.tag >= T_CTOR:
+      return "<curry constructor '%s'>" % self.ident
+    if self.info.tag == T_FUNC:
+      return "<curry function '%s'>" % self.ident
+    if self.info.tag == T_CHOICE:
+      return "<curry choice symbol>"
+    if self.info.tag == T_FWD:
+      return "<curry forward symbol>"
+    if self.info.tag == T_FAIL:
+      return "<curry failure symbol>"
+    return "<invalid curry symbol>"
 
 
 class Node(object):

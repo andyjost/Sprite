@@ -33,6 +33,11 @@ logging.basicConfig(
 class SymbolLookupError(AttributeError):
   pass
 
+class CurryModule(types.ModuleType):
+  def __repr__(self):
+    return "<curry module '%s'>" % self.__name__
+  __str__ = __repr__
+
 # Inpterpretation.
 # ================
 class Interpreter(object):
@@ -53,7 +58,7 @@ class Interpreter(object):
     self.flags = {}
     self.flags.setdefault('debug', True)
     self.flags.update(flags)
-    self.path = os.environ.get('CURRYPATH', '').split(':')
+    self.path = filter(lambda x:x, os.environ.get('CURRYPATH', '').split(':'))
     return self
 
   def __init__(self, flags={}):
@@ -73,7 +78,7 @@ class Interpreter(object):
       return self.modules[modulename]
     except KeyError:
       icur = importer.getICurryForModule(modulename, self.path)
-      self.import_(icur)
+      return self.import_(icur)
 
   @import_.when(collections.Sequence, no=str)
   def import_(self, seq):
@@ -82,7 +87,7 @@ class Interpreter(object):
   @import_.when(IModule)
   def import_(self, imodule):
     if imodule.name not in self.modules:
-      moduleobj = types.ModuleType(imodule.name)
+      moduleobj = CurryModule(imodule.name)
       setattr(moduleobj, '.types', {})
       self.modules[imodule.name] = moduleobj
       self._loadsymbols(imodule, moduleobj)

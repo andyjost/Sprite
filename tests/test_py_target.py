@@ -67,7 +67,7 @@ class TestPyRuntime(cytest.TestCase):
     interp = Interpreter()
     prelude = interp.import_(Prelude)
     system = interp.import_(System)
-    self.assertEqual(str(prelude.negate), 'TypeInfo for "Prelude.negate"')
+    self.assertEqual(str(prelude.negate), 'Prelude.negate')
     self.assertEqual(str(prelude.negate.info), 'Info for "negate"')
     self.assertTrue(repr(prelude.negate.info).startswith('InfoTable'))
 
