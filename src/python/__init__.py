@@ -5,7 +5,6 @@ This module wraps an instance of ``curry.interpreter.Interpreter`` and provides 
 API to interact with it.
 '''
 from . import interpreter
-from . import extern
 
 _i = interpreter.Interpreter()
 box = _i.box

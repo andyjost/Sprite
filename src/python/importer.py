@@ -1,4 +1,5 @@
 from curry import icurry
+import curry
 import inspect
 import os
 import subprocess
@@ -108,4 +109,26 @@ def getICurryForModule(modulename, searchpaths):
   icur = icurry.parse(open(filename, 'r').read())
   assert len(icur) == 1
   return icur[0]
+
+class CurryImporter(object):
+  '''An importer that loads Curry modules as Python.'''
+  def find_module(self, fullname, path=None):
+    if fullname.startswith('curry.lib.'):
+      return self
+    return None
+  def load_module(self, fullname):
+    if fullname not in sys.modules:
+      name = fullname[len('curry.lib.'):]
+      try:
+        moduleobj = curry.import_(name)
+      except ImportError:
+        raise
+      except Exception as e:
+        raise ImportError(str(e))
+      this = sys.modules[__name__]
+      head = name.split('.')[0]
+      assert head
+      setattr(this, head, moduleobj)
+      sys.modules[fullname] = moduleobj
+    return sys.modules[fullname]
 
