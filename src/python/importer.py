@@ -1,5 +1,4 @@
-from curry import icurry
-import curry
+from . import icurry
 import inspect
 import os
 import subprocess
@@ -112,6 +111,8 @@ def getICurryForModule(modulename, searchpaths):
 
 class CurryImporter(object):
   '''An importer that loads Curry modules as Python.'''
+  def __init__(self):
+    self.curry = __import__(__name__.split('.')[0])
   def find_module(self, fullname, path=None):
     if fullname.startswith('curry.lib.'):
       return self
@@ -120,7 +121,7 @@ class CurryImporter(object):
     if fullname not in sys.modules:
       name = fullname[len('curry.lib.'):]
       try:
-        moduleobj = curry.import_(name)
+        moduleobj = self.curry.import_(name)
       except ImportError:
         raise
       except Exception as e:

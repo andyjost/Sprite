@@ -6,7 +6,7 @@ It will be located using CURRYPATH and imported into ``curry._i`` via the
 ``import_`` method.
 '''
 import sys
-from curry import importer
+from .. import importer
 sys.meta_path.insert(0, importer.CurryImporter())
 del importer, sys # Leave it empty so that imported Curry moduels cannot clash.
 
