@@ -17,7 +17,7 @@ def isa(cyobj, what):
   '''
   if not isinstance(cyobj, runtime.Node):
     return False
-  return _isa(id(cyobj.info), what)
+  return _isa(id(cyobj[()].info), what)
 
 @dispatch.on('what')
 def _isa(addr, what):

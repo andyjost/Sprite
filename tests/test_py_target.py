@@ -6,6 +6,7 @@ from curry.visitation import dispatch
 import cytest
 from glob import glob
 import gzip
+import itertools
 import operator as op
 import unittest
 
@@ -510,6 +511,48 @@ class TestPyInterp(cytest.TestCase):
       goal = interp.expr(expr)
       result = map(str, interp.eval(goal))
       self.assertEqual(set(result), set(expected))
+
+  def testToPython(self):
+    '''Test the conversions from Curry to Python.'''
+    interp = Interpreter(flags={'debug':True})
+    # Int
+    x = interp.expr(1)
+    self.assertNotEqual(x, 1)
+    self.assertEqual(interp.topython(x), 1)
+    # Float
+    x = interp.expr(1.2)
+    self.assertNotEqual(x, 1.2)
+    self.assertEqual(interp.topython(x), 1.2)
+    # Char
+    x = interp.expr('a')
+    self.assertNotEqual(x, 'a')
+    self.assertEqual(interp.topython(x), 'a')
+    # List
+    x = interp.tocurry([1,2,3])
+    self.assertNotEqual(x, [1,2,3])
+    self.assertEqual(interp.topython(x), [1,2,3])
+    # Tuple
+    x = interp.tocurry((1,2,3))
+    self.assertNotEqual(x, (1,2,3))
+    self.assertEqual(interp.topython(x), (1,2,3))
+    # TODO: it needs to make an I/O type.
+    # # Iterator.
+    # interp.path.insert(0, 'data/curry')
+    # interp.import_('head')
+    # seq = itertools.count() # infinite sequence.
+    # x = interp.tocurry(seq)
+
+    # Complex/nested.
+    v = [[('a', 1.2, [1,2]), ('b', 3.1, [3,4])]]
+    x = interp.tocurry(v)
+    self.assertNotEqual(x, v)
+    self.assertEqual(interp.topython(x), v)
+
+    # Test the list type check.
+    self.assertRaisesRegexp(
+        TypeError, r"malformed Curry list containing types \('Float', 'Int'\)"
+      , lambda: interp.tocurry([1,2.,3])
+      )
 
   @unittest.skip('need to implement Prelude')
   def testKielExamples(self):

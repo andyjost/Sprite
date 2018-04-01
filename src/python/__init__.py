@@ -6,19 +6,21 @@ API to interact with it.
 '''
 from . import interpreter
 
-_i = interpreter.Interpreter()
-box = _i.box
-eval = _i.eval
-expr = _i.expr
-flags = _i.flags
-hnf = _i.hnf
-import_ = _i.import_
-module = _i.module
-modules = _i.modules
-nf = _i.nf
-path = _i.path
-symbol = _i.symbol
-type = _i.type
-unbox = _i.unbox
+_interp = interpreter.Interpreter()
+box = _interp.box
+eval = _interp.eval
+expr = _interp.expr
+flags = _interp.flags
+hnf = _interp.hnf
+import_ = _interp.import_
+module = _interp.module
+modules = _interp.modules
+nf = _interp.nf
+path = _interp.path
+symbol = _interp.symbol
+type = _interp.type
+unbox = _interp.unbox
+tocurry = _interp.tocurry
+topython = _interp.topython
 
-# del _i, interpreter
+del interpreter

@@ -3,7 +3,7 @@ A pure-Python Curry interpreter.
 '''
 
 from . import function_compiler
-from . import expressions
+from . import conversions
 from ..icurry import *
 from .. import importer
 from .prelude import Prelude, System
@@ -170,11 +170,13 @@ class Interpreter(object):
     info = getattr(moduleobj, ifun.ident.basename).info
     info.step = function_compiler.compile_function(self, ifun)
 
-  # Expression building.
-  # ====================
-  expr = expressions.expr
-  box = expressions.box
-  unbox = expressions.unbox
+  # Conversions.
+  # ============
+  expr = conversions.expr
+  box = conversions.box
+  unbox = conversions.unbox
+  tocurry = conversions.tocurry
+  topython = conversions.topython
 
   # Symbol/type lookup.
   # ===================
@@ -205,6 +207,13 @@ class Interpreter(object):
       raise SymbolLookupError(
           'module "%s" has no type "%s"' % (iname.module, iname.basename)
         )
+
+  # Type Classification.
+  # ====================
+  @property
+  def BuiltinVariant(self):
+    p = self.prelude
+    return p.Int, p.Char, p.Float
 
   # Evaluating.
   # ===========

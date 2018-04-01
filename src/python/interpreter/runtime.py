@@ -130,6 +130,8 @@ class Node(object):
       return self
 
   def __eq__(self, rhs):
+    if not isinstance(rhs, Node):
+      return False
     return self.info == rhs.info and self.successors == rhs.successors
 
   def __ne__(self, rhs):
