@@ -4,6 +4,11 @@ import os
 import subprocess
 import sys
 
+try:
+  from tempfile import TemporaryDirectory # Py3
+except ImportError:
+  from ._tempfile import TemporaryDirectory # Py2
+
 def findfiles(searchpaths, names):
   '''
   Searches the specified paths for a file with the given name and suffix.
@@ -55,13 +60,31 @@ def findCurryModule(modulename, searchpaths):
     raise ValueError('module "%s" not found' % modulename)
   return os.path.abspath(file_)
 
-def curry2json():
+def curry2jsontool():
   thispath = inspect.getsourcefile(sys.modules[__name__])
   curry2json = os.path.abspath(
       os.path.join(thispath, '../../../../bin/curry2json')
     )
   assert os.path.exists(curry2json)
   return curry2json
+
+def curry2json(curryfile):
+  '''
+  Calls curry2json to produce an ICurry-JSON file.
+
+  Returns:
+  -------
+  The JSON file name.
+  '''
+  jsonfile = jsonFilename(curryfile)
+  assert not os.path.exists(jsonfile)
+  sink = open('/dev/null', 'w')
+  retcode = subprocess.call(
+      [curry2jsontool(), curryfile], stdout=sink, stderr=sink
+    )
+  if retcode or not os.path.exists(jsonfile):
+    raise RuntimeError('curry2json "%s" failed' % curryfile)
+  return jsonfile
 
 def jsonFilename(curryfile):
   assert curryfile.endswith('.curry')
@@ -73,17 +96,23 @@ def findOrBuildICurryForModule(modulename, searchpaths):
   See getICurryForModule.  This function returns the name of the ICurry-JSON
   file and builds the file, if necessary.
   '''
-  curryfile = findCurryModule(modulename, searchpaths)
-  if curryfile.endswith('.json'):
-    return curryfile
-  # curryfile is a .curry file.  Call curry2json to produce the ICurry-JSON file.
-  json = jsonFilename(curryfile)
-  assert not os.path.exists(json)
-  sink = open('/dev/null', 'w')
-  retcode = subprocess.call([curry2json(), curryfile], stdout=sink, stderr=sink)
-  if retcode or not os.path.exists(json): #pragma: no cover
-    raise RuntimeError('curry2json "%s" failed' % curryfile)
-  return json
+  filename = findCurryModule(modulename, searchpaths)
+  if filename.endswith('.json'):
+    return filename
+  elif filename.endswith('.curry'):
+    return curry2json(filename)
+  else:
+    raise RuntimeError('Expected a JSON or CURRY file.')
+
+def getICurryFromJson(jsonfile):
+  '''
+  Reads an ICurry-JSON file and returns the ICurry.  The file
+  must contain one Curry module.
+  '''
+  assert os.path.exists(jsonfile)
+  icur = icurry.parse(open(jsonfile, 'r').read())
+  assert len(icur) == 1
+  return icur[0]
 
 def getICurryForModule(modulename, searchpaths):
   '''
@@ -104,10 +133,19 @@ def getICurryForModule(modulename, searchpaths):
   The name of the ICurry-JSON file.
   '''
   filename = findOrBuildICurryForModule(modulename, searchpaths)
-  assert os.path.exists(filename)
-  icur = icurry.parse(open(filename, 'r').read())
-  assert len(icur) == 1
-  return icur[0]
+  return getICurryFromJson(filename)
+
+def str2icurry(string, modulename='_interactive_'):
+  '''
+  Compile a string into ICurry.  The string is interpreted as a module
+  definition.
+  '''
+  with TemporaryDirectory() as tmpd:
+    curryfile = os.path.join(tmpd, modulename + '.curry')
+    with open(curryfile, 'w') as out:
+      out.write(string)
+    jsonfile = curry2json(curryfile)
+    return getICurryFromJson(jsonfile)
 
 class CurryImporter(object):
   '''An importer that loads Curry modules as Python.'''

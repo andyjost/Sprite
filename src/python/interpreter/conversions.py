@@ -136,3 +136,9 @@ def topython(interp, expr, _):
   n = expr.info.arity
   return tuple([topython(interp, x) for x in expr])
 
+def getconverter(converter):
+  if converter is None or callable(converter):
+    return converter
+  elif converter == 'topython':
+    return topython
+

@@ -6,8 +6,9 @@ API to interact with it.
 '''
 from . import interpreter
 
-_interp = interpreter.Interpreter()
+_interp = interpreter.Interpreter(flags={'defaultconverter':'topython'})
 box = _interp.box
+compile = _interp.compile
 eval = _interp.eval
 expr = _interp.expr
 flags = _interp.flags

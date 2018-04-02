@@ -51,12 +51,15 @@ class Interpreter(object):
   ----------------
       ``debug`` (*True*|False)
           Sacrifice speed to add more consistency checks.
+      ``defaultconverter`` (*'topython'*|None)
+          Indicates the conversion to apply to results of eval.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self.modules = {}
     self.flags = {}
     self.flags.setdefault('debug', True)
+    self.flags.setdefault('defaultconverter', None)
     self.flags.update(flags)
     self.path = filter(lambda x:x, os.environ.get('CURRYPATH', '').split(':'))
     return self
@@ -215,12 +218,28 @@ class Interpreter(object):
     p = self.prelude
     return p.Int, p.Char, p.Float
 
+  # Compiling.
+  # ==========
+  def compile(self, string, mode='module'):
+    icur = importer.str2icurry(string)
+    module = self.import_(icur)
+    del self.modules[icur.name]
+    return module
+
   # Evaluating.
   # ===========
-  def eval(self, goal):
+  def eval(self, goal, converter='default'):
     if not isinstance(goal, Node):
       goal = self.expr(goal)
-    return runtime.Evaluator(self, goal).eval()
+    convert = conversions.getconverter(
+        converter if converter != 'default'
+                  else self.flags['defaultconverter']
+      )
+    results = runtime.Evaluator(self, goal).eval()
+    if convert is None:
+      return results
+    else:
+      return (convert(self, result) for result in results)
 
   # Head-normalizing function.
   hnf = runtime.hnf
