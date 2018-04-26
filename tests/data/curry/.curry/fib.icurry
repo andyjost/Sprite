@@ -1,0 +1,5 @@
+interface fib where {
+import Prelude;
+hiding data Prelude.Int;
+fib 1 :: Prelude.Int -> Prelude.Int
+}

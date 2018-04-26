@@ -1,0 +1,18 @@
+4/26/2018
+
+- I'm trying to get a simple example compiling fib as a string to work.  It
+  appears I need the full Prelude (need "failure," for instance, and surely
+  more).
+
+    - I also need "otherwise," but I can work around that for now.
+
+- To get the prelude, I will copy from CMC/runtime/lib.  But there is already a
+  Prelude module in the interpreter that defines the built-ins.  I somehow need
+  to resolve this.
+
+    - Maybe give the built-ins a special name like _Prelude.  And then merge
+      the two with custom code.
+    - Or is there an equivalent to 'from _Prelude import *' that I can put in
+      the real prelude?  I don't think so, because the Prelude actually
+      forward-declares, with "external," the things it expects the
+      implementation to provide.
