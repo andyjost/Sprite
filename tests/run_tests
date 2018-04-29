@@ -25,11 +25,15 @@ fi
 
 python=$SPRITE_HOME/bin/python
 export SPRITE_HOME
-export PYTHONPATH=`pwd`/lib/
+export PYTHONPATH=`pwd`/lib/:$PYTHONPATH
+export CURRYPATH=$SPRITE_HOME/lib/curry
 
 case `basename $0` in
   "run_tests")
-    # Run the Python unit tests.
+    # Run the Python unit tests.  The unittest module is really weird.  There doesn't
+    # seem to be a way to run tests by specifying a list of filenames.  So the arguments
+    # to this script must either be empty (run all tests) or the name of a test file (which
+    # is then taken as a pattern, meaning just that file will be run).
     $python -B -m unittest discover -v `pwd` "$@"
     ;;
   "debug_tests")
@@ -69,6 +73,7 @@ case `basename $0` in
     ;;
   "shell")
     # Start a new shell with the  environment used to run Python unit tests.
+    export PATH=$SPRITE_HOME/bin/:$PATH
     exec $SHELL
 esac
 

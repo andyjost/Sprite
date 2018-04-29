@@ -48,7 +48,15 @@ class TypeInfo(object):
     self.ident = ident
     self.info = info
 
-  def _check_call(self, *args):
+  def construct(self, *args):
+    '''
+    Constructs an object of this type.
+    
+    The argument list must be complete.
+    
+    This low-level function is intended for internal use only.  To construct an
+    expression, use ``Interpreter.expr``.
+    '''
     if len(args) != self.info.arity:
       raise TypeError(
           'cannot construct "%s" (arity=%d), with %d arg%s' % (
@@ -58,10 +66,6 @@ class TypeInfo(object):
             , '' if len(args) == 1 else 's'
             )
         )
-
-  def __call__(self, *args):
-    '''Constructs an object of this type.'''
-    self._check_call(*args)
     return Node(self.info, *args)
 
   def __str__(self):

@@ -23,8 +23,7 @@ def expr(interp, arg, *args):
 def expr(interp, arg, *args):
   if len(arg) == 1:
     args = (arg,) + args
-    interp.prelude.Char._check_call(*args)
-    return runtime.Node(interp.prelude.Char.info, *args)
+    return interp.prelude.Char.construct(*args)
   else:
     raise RuntimeError('multi-char strings not supported yet.')
 
@@ -36,18 +35,16 @@ def expr(interp, arg):
 @expr.when(numbers.Integral)
 def expr(interp, arg, *args):
   args = (int(arg),) + args
-  interp.prelude.Int._check_call(*args)
-  return runtime.Node(interp.prelude.Int.info, *args)
+  return interp.prelude.Int.construct(*args)
 
 @expr.when(numbers.Real)
 def expr(interp, arg, *args):
   args = (float(arg),) + args
-  interp.prelude.Float._check_call(*args)
-  return runtime.Node(interp.prelude.Float.info, *args)
+  return interp.prelude.Float.construct(*args)
 
 @expr.when(runtime.TypeInfo)
 def expr(interp, info, *args):
-  return info(*map(interp.expr, args))
+  return info.construct(*map(interp.expr, args))
 
 @expr.when(runtime.Node)
 def expr(interp, node):
