@@ -22,7 +22,7 @@ def expr(interp, arg, *args):
 @expr.when(str) # Char or [Char].
 def expr(interp, arg, *args):
   if len(arg) == 1:
-    args = (arg,) + args
+    args = (str(arg),) + args
     return interp.prelude.Char.construct(*args)
   else:
     raise RuntimeError('multi-char strings not supported yet.')
