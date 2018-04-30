@@ -5,6 +5,7 @@ from . import runtime
 import collections
 import itertools
 import logging
+import metadata
 import re
 
 logger = logging.getLogger(__name__)
@@ -12,8 +13,11 @@ logger = logging.getLogger(__name__)
 def compile_function(interpreter, ifun):
   '''Compiles an ICurry function into a Python step function.'''
   assert isinstance(ifun, icurry.IFunction)
-  if 'py.func' in ifun.metadata:
-    return compile_primitive_builtin(interpreter, ifun.metadata['py.func'])
+  if 'py.primfunc' in ifun.metadata:
+    assert('py.func' not in ifun.metadata)
+    return compile_primitive_builtin(interpreter, ifun.metadata['py.primfunc'])
+  elif 'py.func' in ifun.metadata:
+    return compile_builtin(interpreter, ifun.metadata['py.func'])
   compiler = FunctionCompiler(interpreter)
   compiler.compile(ifun.code)
 
@@ -35,7 +39,7 @@ def compile_function(interpreter, ifun):
 
 def compile_primitive_builtin(interpreter, func):
   '''
-  Compiles code for built-in functions on primitive data
+  Compiles code for built-in functions on primitive data.  See metadata.py.
   '''
   hnf = interpreter.hnf
   unbox = interpreter.unbox
@@ -53,6 +57,20 @@ def compile_primitive_builtin(interpreter, func):
     def step(lhs):
       args = (unbox(hnf(lhs, [i])) for i in xrange(len(lhs.successors)))
       lhs.rewrite(lhs[0].info, func(*args))
+  return step
+
+def compile_builtin(interpreter, func):
+  '''
+  Compiles code for a built-in function.  See metadata.py.
+
+  The Python implementation function must accept the arguments in head-normal
+  form, but without any other preprocessing (e.g., unboxing).  It returns a
+  sequence of arguments suitable for passing to Node.rewrite.
+  '''
+  hnf = interpreter.hnf
+  def step(lhs):
+    args = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
+    lhs.rewrite(*func(interpreter, *args))
   return step
 
 class FunctionCompiler(object):
@@ -189,13 +207,10 @@ class FunctionCompiler(object):
   # Expression.
   @dispatch.on('expression')
   def expression(self, expression): #pragma: no cover
-    breakpoint()
     assert False
 
   @expression.when(collections.Sequence, no=str)
   def expression(self, seq):
-    if isinstance(seq, str):
-      breakpoint()
     return map(self.expression, seq)
 
   @expression.when(icurry.Exempt)
@@ -215,13 +230,18 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.PartApplic)
   def expression(self, partapplic):
-    raise RuntimeError('PartApplilc not handled')
+    return 'node(%s, %s, %s)' % (
+        self.closure['_System.PartApplic']
+      , self.expression(partapplic.missing)
+      , self.expression(partapplic.expr)
+      )
 
   @expression.when(icurry.IOr)
   def expression(self, ior):
-    choice = self.closure['_System.Choice']
     return 'node(%s, %s, %s)' % (
-        choice, self.expression(ior.lhs), self.expression(ior.rhs)
+        self.closure['_System.Choice']
+      , self.expression(ior.lhs)
+      , self.expression(ior.rhs)
       )
 
   @expression.when(icurry.BuiltinVariant)

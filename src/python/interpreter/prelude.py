@@ -1,5 +1,6 @@
 from ..icurry import *
-from .runtime import T_FAIL, T_CHOICE, T_FWD
+from .runtime import T_FAIL, T_CHOICE, T_FWD, T_CTOR
+from .apply import apply_impl
 import operator as op
 
 # ====================
@@ -9,6 +10,7 @@ _types_ = [
     IType('Failure', [IConstructor('Failure', 0, metadata={'py.format':'failure', 'py.tag':T_FAIL})])
   , IType('Choice', [IConstructor('Choice', 2, metadata={'py.format':'{1} ? {2}', 'py.tag':T_CHOICE})])
   , IType('Fwd', [IConstructor('Fwd', 1, metadata={'py.tag':T_FWD})])
+  , IType('PartApplic', [IConstructor('PartApplic', 2, metadata={'py.tag':T_CTOR})])
   ]
 System = IModule(name='_System', imports=[], types=_types_, functions=[])
 
@@ -69,20 +71,20 @@ for i in range(2, MAX_TUPLE_SIZE):
 # Functions.
 # ==========
 _functions_ = [
-    IFunction('*', 2, metadata={'py.func':op.mul})
-  , IFunction('+', 2, metadata={'py.func':op.add})
-  , IFunction('-', 2, metadata={'py.func':op.sub})
-  , IFunction('==', 2, metadata={'py.func':op.eq})
-  , IFunction('/=', 2, metadata={'py.func':op.ne})
-  , IFunction('<', 2, metadata={'py.func':op.lt})
-  , IFunction('>', 2, metadata={'py.func':op.gt})
-  , IFunction('<=', 2, metadata={'py.func':op.le})
-  , IFunction('>=', 2, metadata={'py.func':op.ge})
-  , IFunction('&&', 2, metadata={'py.func':op.and_})
-  , IFunction('||', 2, metadata={'py.func':op.or_})
+    IFunction('*', 2, metadata={'py.primfunc':op.mul})
+  , IFunction('+', 2, metadata={'py.primfunc':op.add})
+  , IFunction('-', 2, metadata={'py.primfunc':op.sub})
+  , IFunction('==', 2, metadata={'py.primfunc':op.eq})
+  , IFunction('/=', 2, metadata={'py.primfunc':op.ne})
+  , IFunction('<', 2, metadata={'py.primfunc':op.lt})
+  , IFunction('>', 2, metadata={'py.primfunc':op.gt})
+  , IFunction('<=', 2, metadata={'py.primfunc':op.le})
+  , IFunction('>=', 2, metadata={'py.primfunc':op.ge})
+  , IFunction('&&', 2, metadata={'py.primfunc':op.and_})
+  , IFunction('||', 2, metadata={'py.primfunc':op.or_})
 	# The following are defined in the Prelude as pure Curry, but have a better
   # implementation here.
-  , IFunction('negate', 1, metadata={'py.func':op.neg})
+  , IFunction('negate', 1, metadata={'py.primfunc':op.neg})
 
 # ====== Missing from the following ======
 # ++ =:= =:<= =:<<=
@@ -94,7 +96,7 @@ _functions_ = [
 # --- and the value of <code>-15 `div` 4</code> is <code>-4</code>.
 # div   :: Int -> Int -> Int
 # div external
-  , IFunction('div', 2, metadata={'py.func':op.floordiv})
+  , IFunction('div', 2, metadata={'py.primfunc':op.floordiv})
 #
 # --- Integer remainder. The value is the remainder of the integer division and
 # --- it obeys the rule <code>x `mod` y = x - y * (x `div` y)</code>.
@@ -102,14 +104,14 @@ _functions_ = [
 # --- and the value of <code>-15 `mod` 4</code> is <code>-3</code>.
 # mod   :: Int -> Int -> Int
 # mod external
-  , IFunction('mod', 2, metadata={'py.func':lambda x, y: x - y * op.floordiv(x,y)})
+  , IFunction('mod', 2, metadata={'py.primfunc':lambda x, y: x - y * op.floordiv(x,y)})
 # --- Integer division. The value is the integer quotient of its arguments
 # --- and always truncated towards zero.
 # --- Thus, the value of <code>13 `quot` 5</code> is <code>2</code>,
 # --- and the value of <code>-15 `quot` 4</code> is <code>-3</code>.
 # quot   :: Int -> Int -> Int
 # quot external
-  , IFunction('quot', 2, metadata={'py.func':lambda x, y: int(op.truediv(x, y))})
+  , IFunction('quot', 2, metadata={'py.primfunc':lambda x, y: int(op.truediv(x, y))})
 #
 # --- Integer remainder. The value is the remainder of the integer division and
 # --- it obeys the rule <code>x `rem` y = x - y * (x `quot` y)</code>.
@@ -117,8 +119,8 @@ _functions_ = [
 # --- and the value of <code>-15 `rem` 4</code> is <code>-3</code>.
 # rem   :: Int -> Int -> Int
 # rem external
-  , IFunction('rem', 2, metadata={'py.func':lambda x, y: x - y * int(op.truediv(x, y))})
-  , IFunction('prim_negateFloat', 1, metadata={'py.func':op.neg})
+  , IFunction('rem', 2, metadata={'py.primfunc':lambda x, y: x - y * int(op.truediv(x, y))})
+  , IFunction('prim_negateFloat', 1, metadata={'py.primfunc':op.neg})
 # --- Right-associative application with strict evaluation of its argument
 # --- to head normal form.
 # ($!)    :: (a -> b) -> a -> b
@@ -226,6 +228,8 @@ _functions_ = [
 # -- Representation of higher-order applications in FlatCurry.
 # apply :: (a -> b) -> a -> b
 # apply external
+  , IFunction('apply', 2, metadata={'py.func':apply_impl})
+
 #
 # -- Only for internal use:
 # -- Representation of conditional rules in FlatCurry.

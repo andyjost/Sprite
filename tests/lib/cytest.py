@@ -12,6 +12,7 @@ import textwrap
 import types
 import unittest
 
+# Install the breakpoint function into the built-ins so it can be used anywhere.
 def breakpoint(msg='', depth=0):
   '''(Built-in) Starts an interactive prompt.  For development and debugging.'''
   import code, inspect, pydoc
@@ -26,6 +27,18 @@ def breakpoint(msg='', depth=0):
   banner = "\n[%s:%s%s]" % (namespace['__file__'], frame.f_lineno, msg)
   code.interact(banner=banner, local=namespace)
 __builtin__.breakpoint = breakpoint
+
+# Create wrappers that trigger a break for certain exception types.
+def breakOn(exception_name):
+  exception = getattr(__builtin__, exception_name)
+  def __init__(self, *args, **kwds):
+    breakpoint(depth=1)
+    return super(self, exception_name).__init__(*args, **kwds)
+  replacement = type(exception_name, (exception,), {'__init__': __init__})
+  setattr(__builtin__, exception_name, replacement)
+
+# breakOn('AssertionError')
+# breakOn('RuntimeError')
 
 @contextlib.contextmanager
 def trap():

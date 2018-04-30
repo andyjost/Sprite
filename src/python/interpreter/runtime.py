@@ -10,7 +10,6 @@ T_CHOICE = -2
 T_FUNC   = -1
 T_CTOR   =  0
 
-
 class E_SYMBOL(BaseException):
   '''
   Indicates a symbol requiring exceptional handing (i.e., FAIL or CHOICE) was
@@ -50,16 +49,32 @@ class TypeInfo(object):
 
   def construct(self, *args):
     '''
-    Constructs an object of this type.
-    
-    The argument list must be complete.
-    
+    Constructs an object of this type.  Its argument list must be complete.
+
     This low-level function is intended for internal use only.  To construct an
     expression, use ``Interpreter.expr``.
     '''
     if len(args) != self.info.arity:
       raise TypeError(
           'cannot construct "%s" (arity=%d), with %d arg%s' % (
+              self.info.name
+            , self.info.arity
+            , len(args)
+            , '' if len(args) == 1 else 's'
+            )
+        )
+    return Node(self.info, *args)
+
+  def curry(self, *args):
+    '''
+    Constructs a partial appliction of this type.  Its argument list must not be complete.
+
+    This low-level function is intended for internal use only.  To construct an
+    expression, use ``Interpreter.expr``.
+    '''
+    if len(args) >= self.info.arity:
+      raise TypeError(
+          'cannot curry "%s" (arity=%d), with %d arg%s' % (
               self.info.name
             , self.info.arity
             , len(args)

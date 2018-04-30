@@ -1,5 +1,0 @@
-Prog "fib"
-["Prelude"]
-[]
-[Func ("fib","fib") 1 Public (FuncType (TCons ("Prelude","Int") []) (TCons ("Prelude","Int") [])) (Rule [1] (Case  Rigid (Comb FuncCall ("Prelude","<") [Var 1,Lit (Intc  2)]) [Branch (Pattern ("Prelude","True") []) (Lit (Intc  1)),Branch (Pattern ("Prelude","False") []) (Case  Rigid (Comb FuncCall ("Prelude","otherwise") []) [Branch (Pattern ("Prelude","True") []) (Comb FuncCall ("Prelude","+") [Comb FuncCall ("fib","fib") [Comb FuncCall ("Prelude","-") [Var 1,Lit (Intc  1)]],Comb FuncCall ("fib","fib") [Comb FuncCall ("Prelude","-") [Var 1,Lit (Intc  2)]]]),Branch (Pattern ("Prelude","False") []) (Comb FuncCall ("Prelude","failed") [])])]))]
-[]

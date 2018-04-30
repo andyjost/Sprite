@@ -82,11 +82,6 @@ class TestPyRuntime(cytest.TestCase):
       , lambda: interp.expr(prelude.Int, 1, 2)
       )
     self.assertRaisesRegexp(
-        TypeError
-      , r'cannot construct "Choice" \(arity=2\), with 1 arg'
-      , lambda: interp.expr(system.Choice, 1)
-      )
-    self.assertRaisesRegexp(
         TypeError, r'cannot import type "int"', lambda: interp.import_(1)
       )
 
@@ -223,9 +218,10 @@ class TestPyRuntime(cytest.TestCase):
         self.assertEqual(exc, expected[()].info.tag in special_tags) # (2)
 
 
+  @unittest.expectedFailure
   def testPullTab(self):
     '''Tests the pull-tab step.'''
-    pass
+    self.assertTrue(False) # TODO
 
 
 class TestPyInterp(cytest.TestCase):
@@ -349,104 +345,6 @@ class TestPyInterp(cytest.TestCase):
       , r'cannot build a Curry expression from type "dict"'
       , lambda: interp.expr({})
       )
-
-  def testBuiltinPreludeTypes(self):
-    '''
-    Tests the built-in types defined in python/interpreter/prelude.py.
-    Also tests the ``isa`` function.
-    '''
-    interp = Interpreter()
-    prelude = interp.import_(Prelude)
-    e2s = lambda expr: str(interp.eval(expr).next())
-
-    # Int, Char, Float.
-    Int = getattr(prelude, 'Int')
-    Char = getattr(prelude, 'Char')
-    Float = getattr(prelude, 'Float')
-    int_ = interp.eval(1).next()
-    char_ = interp.eval('a').next()
-    float_ = interp.eval(1.).next()
-
-    self.assertIsa(int_, Int)
-    self.assertIsNotA(int_, Char)
-    self.assertIsNotA(int_, Float)
-    self.assertIsNotA(char_, Int)
-    self.assertIsa(char_, Char)
-    self.assertIsNotA(char_, Float)
-    self.assertIsNotA(float_, Int)
-    self.assertIsNotA(float_, Char)
-    self.assertIsa(float_, Float)
-
-    # List.
-    Cons,Nil = getattr(prelude, ':'), getattr(prelude, '[]')
-    self.assertEqual(e2s([Cons, 1, Nil]), '[1]')
-    self.assertEqual(e2s([Cons, 1, [Cons, 2, Nil]]), '[1, 2]')
-    l0 = Nil.construct()
-    l1 = Cons.construct(1, l0)
-    self.assertIsa(l0, interp.symbol('Prelude.[]'))
-    self.assertIsNotA(l0, interp.symbol('Prelude.:'))
-    self.assertIsa(l0, interp.type('Prelude.List'))
-    self.assertIsa(l1, interp.type('Prelude.List'))
-    self.assertIsNotA(int_, interp.type('Prelude.List'))
-    # TODO: design and test .topy() and .frompy() (I guess that's just
-    #     Interprerter.expr; maybe frompy is a better name?).
-
-    # Tuples.
-    Unit = getattr(prelude, '()')
-    self.assertEqual(e2s([Unit]), '()')
-    Pair = getattr(prelude, '(,)')
-    self.assertEqual(e2s([Pair, 1, 2]), '(1, 2)')
-    T = getattr(prelude, '(,,)')
-    self.assertEqual(e2s([T, 1, 2, 3]), '(1, 2, 3)')
-    T = getattr(prelude, '(,,,)')
-    self.assertEqual(e2s([T, 1, 2, 3, 4]), '(1, 2, 3, 4)')
-    T = getattr(prelude, '(,,,,)')
-    self.assertEqual(e2s([T, 1, 2, 3, 4, 5]), '(1, 2, 3, 4, 5)')
-    T = getattr(prelude, '(,,,,,)')
-    self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6]), '(1, 2, 3, 4, 5, 6)')
-    T = getattr(prelude, '(,,,,,,)')
-    self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6, 7]), '(1, 2, 3, 4, 5, 6, 7)')
-    T = getattr(prelude, '(,,,,,,,)')
-    self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6, 7, 8]), '(1, 2, 3, 4, 5, 6, 7, 8)')
-    T = getattr(prelude, '(,,,,,,,,)')
-    self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6, 7, 8, 9]), '(1, 2, 3, 4, 5, 6, 7, 8, 9)')
-
-    # Bool.
-    T,F = getattr(prelude, 'True'), getattr(prelude, 'False')
-    self.assertEqual(e2s([Cons, T, [Cons, F, Nil]]), '[True, False]')
-
-  def testPreludeExternals(self):
-    '''
-    Tests the externally-defined functions defined in
-    python/interpreter/prelude.py.
-    '''
-    interp = Interpreter()
-    p = interp.import_(Prelude)
-    self.assertEqual(interp.eval([getattr(p, '*'), 3, 4]).next(), interp.expr(12))
-    self.assertEqual(interp.eval([getattr(p, '+'), 3, 4]).next(), interp.expr(7))
-    self.assertEqual(interp.eval([getattr(p, '-'), 3, 4]).next(), interp.expr(-1))
-    self.assertEqual(interp.eval([getattr(p, '=='), 3, 4]).next(), interp.expr(False))
-    self.assertEqual(interp.eval([getattr(p, '=='), 3, 3]).next(), interp.expr(True))
-    self.assertEqual(interp.eval([getattr(p, '/='), 3, 4]).next(), interp.expr(True))
-    self.assertEqual(interp.eval([getattr(p, '/='), 3, 3]).next(), interp.expr(False))
-    self.assertEqual(interp.eval([getattr(p, '<'), 3, 4]).next(), interp.expr(True))
-    self.assertEqual(interp.eval([getattr(p, '>'), 3, 4]).next(), interp.expr(False))
-    self.assertEqual(interp.eval([getattr(p, '<='), 3, 4]).next(), interp.expr(True))
-    self.assertEqual(interp.eval([getattr(p, '>='), 3, 4]).next(), interp.expr(False))
-    self.assertEqual(interp.eval([getattr(p, '&&'), True, True]).next(), interp.expr(True))
-    self.assertEqual(interp.eval([getattr(p, '&&'), False, True]).next(), interp.expr(False))
-    self.assertEqual(interp.eval([getattr(p, '||'), False, False]).next(), interp.expr(False))
-    self.assertEqual(interp.eval([getattr(p, '||'), True, False]).next(), interp.expr(True))
-    self.assertEqual(interp.eval([getattr(p, 'negate'), 4]).next(), interp.expr(-4))
-    self.assertEqual(interp.eval([getattr(p, 'div'), 13, 5]).next(), interp.expr(2))
-    self.assertEqual(interp.eval([getattr(p, 'div'), -15, 4]).next(), interp.expr(-4))
-    self.assertEqual(interp.eval([getattr(p, 'mod'), 13, 5]).next(), interp.expr(3))
-    self.assertEqual(interp.eval([getattr(p, 'mod'), -15, 4]).next(), interp.expr(1))
-    self.assertEqual(interp.eval([getattr(p, 'quot'), 13, 5]).next(), interp.expr(2))
-    self.assertEqual(interp.eval([getattr(p, 'quot'), -15, 4]).next(), interp.expr(-3))
-    self.assertEqual(interp.eval([getattr(p, 'rem'), 13, 5]).next(), interp.expr(3))
-    self.assertEqual(interp.eval([getattr(p, 'rem'), -15, 4]).next(), interp.expr(-3))
-    self.assertEqual(interp.eval([getattr(p, 'prim_negateFloat'), 3.14]).next(), interp.expr(-3.14))
 
   def testCoverage(self):
     '''Tests to get complete line coverage.'''

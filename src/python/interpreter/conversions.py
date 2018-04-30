@@ -43,8 +43,14 @@ def expr(interp, arg, *args):
   return interp.prelude.Float.construct(*args)
 
 @expr.when(runtime.TypeInfo)
-def expr(interp, info, *args):
-  return info.construct(*map(interp.expr, args))
+def expr(interp, ti, *args):
+  missing =  ti.info.arity - len(args)
+  if missing > 0:
+    partial = interp.symbol('_System.PartApplic')
+    expr = ti.curry(*map(interp.expr, args))
+    return partial.construct(missing, expr) # note: unboxed int "missing".
+  else:
+    return ti.construct(*map(interp.expr, args))
 
 @expr.when(runtime.Node)
 def expr(interp, node):

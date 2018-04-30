@@ -47,6 +47,11 @@ class _TreeNode(object):
       return False
     else:
       return True
+  def get(self, key, default=None):
+    try:
+      return getattr(self, key)
+    except AttributeError:
+      return default
   def __eq__(self, rhs):
     return all(k==l and self[k]==rhs[k] for k,l in zip(self,rhs))
   def __ne__(self, rhs):

@@ -16,3 +16,23 @@
       the real prelude?  I don't think so, because the Prelude actually
       forward-declares, with "external," the things it expects the
       implementation to provide.
+
+TODO
+  - Clean up the name Prelude from system.py
+  - Change the name of system.py.  It looks like a Python module, but it is
+    really a Curry module.
+  - It seems annoying to import _System and then copy everything into the
+    Prelude.  All references to _System would need to be updated.  Perhaps it
+    would be better to call the _System module Prelude after all, and then 1)
+    import it, 2) delete it from interp.modules, 3) import the "real" Prelude,
+    and 4) merge the contents.
+
+4/29/2018
+
+- I should split up and rename tests/test_py_target.py.  A lot of things in
+  there are not specifically related to the Python backend.  Those are really
+  interpreter tests that don't relate the the backend at all.  Furthermore, the
+  file is just too big and unweildy.  For now, I'm taking the step to create a
+  new file to test Prelude.apply.  I think it would be better to make a
+  directory containing interpreter/test_*.py files.
+
