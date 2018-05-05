@@ -125,7 +125,7 @@ class TestVisitation(unittest.TestCase):
     def count(node):
       tally['statements'] += 1
 
-    json = gzip.open('data/json/1.json.gz', 'rb').read()
+    json = gzip.open('data/json/example.json.gz', 'rb').read()
     icur = icurry.parse(json)
     count(icur)
     self.assertEqual(tally, {'modules':1, 'constructors':2, 'functions':4, 'statements':10})

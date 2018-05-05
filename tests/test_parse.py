@@ -1,7 +1,9 @@
+import curry
 from curry import icurry
 from glob import glob
 import cytest
 import gzip
+import unittest
 
 GENERATE_GOLDENS = False
 
@@ -29,4 +31,31 @@ class ParseJSON(cytest.TestCase):
       except:
         print 'Error while processing', jsonfile
         raise
+
+  def test_exempt(self):
+    curry.import_('head')
+
+  def test_atableFlex(self):
+    curry.import_('atableFlex')
+
+  @unittest.expectedFailure # TODO: Needs Prelude.failed.
+  def test_atableNoflex(self):
+    curry.import_('atableNoflex')
+
+  def test_btable(self):
+    curry.import_('btable')
+
+  @unittest.skip('need to implement Prelude')
+  def testKielExamples(self):
+    '''Run example programs from Kiel.'''
+    for jsonfile in glob('data/json/kiel-*.json*'):
+      print jsonfile
+      try:
+        icur = parse(gzip.open(jsonfile, 'rb').read())
+        interp = Interpreter()
+        mod = interp.import_(icur)
+      except Exception as e:
+        print 'Error>', str(e)
+        continue
+      print '\n\n\n\IT WORKED\n\n\n\n'
 

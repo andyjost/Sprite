@@ -36,3 +36,61 @@ TODO
   new file to test Prelude.apply.  I think it would be better to make a
   directory containing interpreter/test_*.py files.
 
+5/1/2018
+
+- I got this explanation regarding flexible/rigid tables from Sergio:
+
+      The meaning of flexible/rigid (it applies ot both a case and a function)
+      is whether a variable can be instantiated by a pattern.  Consider the
+      following program:
+
+        mynot x  = case x of {True -> False; False -> True}
+        main = mynot x where x free
+
+      Since the case is rigid the evaluation of main suspends.
+
+      However, if you replace "case" with "fcase" the evaluation of main
+      produces both False and True because x is bound to True and False,
+      respectively.
+
+5/2/2018
+
+- I fixed an error in the icurry _Base class.  There were comparison methods,
+  but no hash.  I took a while to track that one down.
+- I'm working on adding support for ICurry BTables.  I got down to the place
+  in function_compiler.py where the BTable just needs to be handled  The code
+  will be similar to the code handling ATables.
+
+5/3/2018
+
+- I added the sendMoreMoney cryptarithmetic puzzle.  It is a good test for
+  residuation: with residuation it finishes instantly whereas a narrowing
+  strategy exhausts all memory.  Sergio suggests the following implementation:
+
+      In a flex case, you have code to instantiate a variable.  In a rigid
+      case, you could have code to put the expression at the end of the queue.
+      If in the queue you have only expressions that were put there for this
+      reason, the program suspends.
+
+5/5/2018
+
+- I finished up the BTable code in function_compiler.py.  The BTables can be
+  compiled and run.
+- I refactored the unit tests.  test_py_target was too big, so I broke it into
+  several smaller files for testing interpretation, compiling, and the runtime
+  aspects.
+- I reworked the isa function a little and added helpers like isa_list and
+  isa_tuple.
+
+BUGS:
+  - I noticed that test_atable and similar tests are slow even in subsequent
+    runs.  I don't think curry2json should be invoked if the .json file already
+    exists, so this is unexpected.
+  - After I change a .curry file, curry.import_ fails to rerun curry2json.  I
+    was using test_atable in test_py_evaluation.py.
+  -When curry2json fails, there is no informative error message.
+
+NEXT:
+  - I should pare down the prelude so it can be loaded and then try to get the
+    fib program working.
+

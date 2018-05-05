@@ -8,7 +8,6 @@ from . import runtime
 from ..visitation import dispatch
 import collections
 import numbers
-import re
 
 @dispatch.on('arg')
 def expr(interp, arg, *args):
@@ -56,19 +55,19 @@ def expr(interp, ti, *args):
 def expr(interp, node):
   return node
 
-def box(interp, x):
+def box(interp, arg):
   '''Box a built-in primitive.'''
   if interp.flags['debug']:
-    assert isinstance(x, (str, numbers.Integral, numbers.Real))
-    assert not isinstance(x, str) or len(x) == 1 # Char, not [Char].
-  return expr(interp, x)
+    assert isinstance(arg, (str, numbers.Integral, numbers.Real))
+    assert not isinstance(arg, str) or len(arg) == 1 # Char, not [Char].
+  return expr(interp, arg)
 
-def unbox(interp, x):
+def unbox(interp, arg):
   '''Unbox a built-in primitive.'''
   if interp.flags['debug']:
-    assert isinstance(x, runtime.Node)
-    assert analysis.isa(x, interp.BuiltinVariant)
-  return x[0]
+    assert isinstance(arg, runtime.Node)
+    assert analysis.isa_primitive(interp, arg)
+  return arg[0]
 
 @dispatch.on('data')
 def tocurry(interp, data):
@@ -86,7 +85,7 @@ def tocurry(interp, data):
   g = lambda: f(next(seq, sentinel), g)
   result = expr(interp, g())
   if interp.flags['debug']:
-    types = set(x[()].info for x in _listgen(interp, result))
+    types = set(x[()].info for x in _iter_(interp, result))
     if len(types) != 1:
       raise TypeError(
           'malformed Curry list containing types %s'
@@ -111,33 +110,24 @@ def tocurry(interp, data):
 #   FIXME: this needs to create an I/O type.
 #   return (tocurry(interp, x) for x in data)
 
-@dispatch.on('guide')
-def topython(interp, expr, guide=None):
+def topython(interp, expr):
   '''Converts a Curry value to Python by substituting built-in types.'''
-  isa = analysis.isa
-  if isa(expr, interp.BuiltinVariant):
+  if analysis.isa_primitive(interp, expr):
     return unbox(interp, expr)
-  elif isa(expr, interp.type('Prelude.List')):
-    return topython(interp, expr, [])
-  elif re.match(r'\(,*\)$', expr[()].info.name):
-    return topython(interp, expr, ())
+  elif analysis.isa_bool(interp, expr):
+    return analysis.isa_true(interp, expr)
+  elif analysis.isa_list(interp, expr):
+    return list(topython(interp, x) for x in _iter_(interp, expr))
+  elif analysis.isa_tuple(interp, expr):
+    return tuple(topython(interp, x) for x in expr)
   return expr
 
-def _listgen(interp, x):
+def _iter_(interp, arg):
+  '''Iterate through a Curry list.'''
   Cons = getattr(interp.prelude, ':')
-  while analysis.isa(x, Cons):
-    yield x[0]
-    x = x[1]
-
-@topython.when(list)
-def topython(interp, expr, _):
-  return list(topython(interp, x) for x in _listgen(interp, expr))
-
-@topython.when(tuple)
-def topython(interp, expr, _):
-  expr = expr[()]
-  n = expr.info.arity
-  return tuple([topython(interp, x) for x in expr])
+  while analysis.isa(arg, Cons):
+    yield arg[0]
+    arg = arg[1]
 
 def getconverter(converter):
   if converter is None or callable(converter):

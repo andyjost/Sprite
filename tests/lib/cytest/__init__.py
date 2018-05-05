@@ -1,4 +1,5 @@
 from cStringIO import StringIO
+import curry
 from curry.llvm import isa as llvm_isa
 from curry.interpreter.analysis import isa as cy_isa
 from curry.interpreter.runtime import Node
@@ -7,6 +8,7 @@ import collections
 import contextlib
 import gzip
 import inspect
+import os
 import sys
 import textwrap
 import types
@@ -29,16 +31,17 @@ def breakpoint(msg='', depth=0):
 __builtin__.breakpoint = breakpoint
 
 # Create wrappers that trigger a break for certain exception types.
-def breakOn(exception_name):
-  exception = getattr(__builtin__, exception_name)
+def breakOn(exc_name):
+  exception = getattr(__builtin__, exc_name)
   def __init__(self, *args, **kwds):
     breakpoint(depth=1)
-    return super(self, exception_name).__init__(*args, **kwds)
-  replacement = type(exception_name, (exception,), {'__init__': __init__})
-  setattr(__builtin__, exception_name, replacement)
+    return super(self, exc_name).__init__(*args, **kwds)
+  replacement = type(exc_name, (exception,), {'__init__': __init__})
+  setattr(__builtin__, exc_name, replacement)
 
-# breakOn('AssertionError')
-# breakOn('RuntimeError')
+for exc_name in os.environ.get('SPRITE_CATCH_ERRORS', '').split(','):
+  if exc_name:
+    breakOn(exc_name)
 
 @contextlib.contextmanager
 def trap():
@@ -57,6 +60,10 @@ def trap():
 __builtin__.trap = trap
 
 class TestCase(unittest.TestCase):
+  def tearDown(self):
+    # Reset Curry after running each test to clear loaded modules, etc.
+    reload(curry)
+
   def compareGolden(self, objs, filename, update=False):
     '''
     Compare an object or objects against a golden file.
@@ -74,7 +81,10 @@ class TestCase(unittest.TestCase):
         au.write(buf.getvalue())
     else:
       with open_(filename, 'rb') as au:
-        self.assertEqual(buf.getvalue(), au.read())
+        try:
+          self.assertEqual(buf.getvalue(), au.read())
+        except:
+          breakpoint()
 
   def assertIsa(self, obj, ty):
     isa = cy_isa if isinstance(obj, Node) else llvm_isa

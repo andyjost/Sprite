@@ -26,7 +26,7 @@ fi
 python=$SPRITE_HOME/bin/python
 export SPRITE_HOME
 export PYTHONPATH=`pwd`/lib/:$PYTHONPATH
-export CURRYPATH=$SPRITE_HOME/lib/curry
+export CURRYPATH=$SPRITE_HOME/lib/curry:`pwd`/data/curry
 
 case `basename $0` in
   "run_tests")

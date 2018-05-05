@@ -11,5 +11,5 @@ CMC/Examples/.curry
 tests/htmlcov
 tests/data/Makefile2
 robots.txt*
-tests/data/curry/.curry/hello.*
+tests/data/curry/.curry/*
 tests/data/curry/kiel/.curry/*

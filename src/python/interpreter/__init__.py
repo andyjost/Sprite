@@ -211,13 +211,6 @@ class Interpreter(object):
           'module "%s" has no type "%s"' % (iname.module, iname.basename)
         )
 
-  # Type Classification.
-  # ====================
-  @property
-  def BuiltinVariant(self):
-    p = self.prelude
-    return p.Int, p.Char, p.Float
-
   # Compiling.
   # ==========
   def compile(self, string, mode='module'):

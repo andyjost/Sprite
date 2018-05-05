@@ -215,7 +215,7 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.Exempt)
   def expression(self, exempt):
-    raise RuntimeError('Exempt not handled')
+    return 'node(%s)' % self.closure['_System.Failure']
 
   @expression.when(icurry.Reference)
   def expression(self, ref):
@@ -286,32 +286,30 @@ class FunctionCompiler(object):
   @statement.when(icurry.Return)
   def statement(self, return_):
     yield 'lhs.%s' % self.expression(return_.expr)
+    yield 'return'
 
   @statement.when(icurry.ATable)
   def statement(self, atable):
     self.closure['hnf'] = self.interpreter.hnf
-    # How would one pull-tab a detached expression?  It cannot be done.  So the
-    # selector must be a variable.
-    assert hasattr(atable.expr, 'vid')
+    assert hasattr(atable.expr, 'vid') # the selector is always a variable
     yield 'selector = hnf(lhs, p_%s).info.tag' % atable.expr.vid
-    cf = 'if'
+    el = ''
     for iname,stmt in atable.switch.iteritems():
-      yield '%s selector == %s:' % (cf, self.typeinfo(iname).info.tag)
+      yield '%sif selector == %s:' % (el, self.typeinfo(iname).info.tag)
       yield list(self.statement(stmt))
-      cf = 'elif'
-    if atable.isflex:
-      yield 'else:'
-      yield [
-          'lhs.node(%s)' % self.closure['_System.Failure']
-        , 'return'
-        ]
+      el = 'el'
 
   @statement.when(icurry.BTable)
   def statement(self, btable):
-    yield ''
-    # builtins
-    # raise RuntimeError('BTable not handled')
-
+    self.closure['hnf'] = self.interpreter.hnf
+    self.closure['unbox'] = self.interpreter.unbox
+    assert hasattr(btable.expr, 'vid') # the selector is always a variable
+    yield 'selector = unbox(hnf(lhs, p_%s))' % btable.expr.vid
+    el = ''
+    for iname,stmt in btable.switch.iteritems():
+      yield '%sif selector == %s:' % (el, icurry.unbox(iname))
+      yield list(self.statement(stmt))
+      el = 'el'
 
 # Closure.
 # ========

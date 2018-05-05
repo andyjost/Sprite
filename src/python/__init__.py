@@ -1,27 +1,25 @@
 '''
 An interactive Curry environment.
 
-This module wraps an instance of ``curry.interpreter.Interpreter`` and provides an
-API to interact with it.
+This module wraps an instance of ``curry.interpreter.Interpreter`` and provides
+an API to interact with it.  To reset the interpreter, just reload this module.
 '''
 from . import interpreter
 
-_interp = interpreter.Interpreter(flags={'defaultconverter':'topython'})
-box = _interp.box
-compile = _interp.compile
-eval = _interp.eval
-expr = _interp.expr
-flags = _interp.flags
-hnf = _interp.hnf
-import_ = _interp.import_
-module = _interp.module
-modules = _interp.modules
-nf = _interp.nf
-path = _interp.path
-symbol = _interp.symbol
-type = _interp.type
-unbox = _interp.unbox
-tocurry = _interp.tocurry
-topython = _interp.topython
-
-del interpreter
+_interpreter_ = interpreter.Interpreter(flags={'defaultconverter':'topython'})
+box = _interpreter_.box
+compile = _interpreter_.compile
+eval = _interpreter_.eval
+expr = _interpreter_.expr
+flags = _interpreter_.flags
+hnf = _interpreter_.hnf
+import_ = _interpreter_.import_
+module = _interpreter_.module
+modules = _interpreter_.modules
+nf = _interpreter_.nf
+path = _interpreter_.path
+symbol = _interpreter_.symbol
+type = _interpreter_.type
+unbox = _interpreter_.unbox
+tocurry = _interpreter_.tocurry
+topython = _interpreter_.topython

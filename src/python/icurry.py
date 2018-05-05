@@ -21,6 +21,11 @@ class _Base(object):
   def __ne__(lhs, rhs):
     return not (lhs == rhs)
 
+  def __hash__(self):
+    return hash(tuple(sorted(
+        (k,v) for k,v in self.__dict__.iteritems() if k != 'parent'
+      )))
+
   @classmethod
   def construct(cls, arg, parent):
     '''Construct an object of the specified type and specify its parent.'''
@@ -408,6 +413,21 @@ class _XTable(_Base):
       )
 
 class ATable(_XTable):
+  '''
+  A case table over constructors.
+
+  The meaning of flexible/rigid (it applies ot both a case and a function) is
+  whether a variable can be instantiated by a pattern.  Consider the following
+  program:
+
+    mynot x  = case x of {True -> False; False -> True}
+    main = mynot x where x free
+
+  Since the case is rigid the evaluation of main suspends.
+
+  However, if you replace "case" with "fcase" the evaluation of main produces
+  both False and True because x is bound to True and False, respectively.
+  '''
   def __init__(self, counter, isflex, expr, switch):
     assert counter >= 0
     assert isinstance(expr, Expression)
@@ -425,6 +445,11 @@ class ATable(_XTable):
       )
 
 class BTable(_XTable):
+  '''
+  A case table over built-in values.
+
+  ``isflex`` has the same meaning as for ``ATable``.
+  '''
   def __init__(self, counter, isflex, expr, switch):
     assert counter >= 0
     assert isinstance(expr, Expression)
@@ -433,7 +458,8 @@ class BTable(_XTable):
     self.expr = expr
     self.switch = dict(switch)
     assert all(
-        isinstance(k,BuiltinVariant) and all(isinstance(s,Statement) for s in v)
+        isinstance(k.ident, BuiltinVariant)
+            and all(isinstance(s,Statement) for s in v)
             for k,v in self.switch.iteritems()
       )
 
@@ -488,4 +514,16 @@ def despace(data):
   '''Remove unnecessary spaces from JSON.'''
   # Remove all spaces not in a double-quoted string.
   return re.sub('("[^"]*")|\\s', lambda m: m.group(1), data)
+
+@dispatch.on('arg')
+def unbox(arg):
+  '''Unapplies a built-in-type wrapper.'''
+  raise TypeError('expected an Applic')
+  
+@unbox.when(Applic)
+def unbox(applic):
+  if applic.ident not in ['Prelude.' + s for s in ['Int', 'Float', 'Char']]:
+    raise TypeError('expected an Int, Float, or Char')
+  assert len(applic.args) == 1
+  return applic.args[0]
 

@@ -1,6 +1,7 @@
 from . import runtime
 from ..visitation import dispatch
 import collections
+import re
 
 # def is_value(iexpr):
 #   '''Indicates whether the ICurry expression is a value.'''
@@ -31,7 +32,27 @@ def _isa(addr, typeinfo):
 
 @_isa.when(collections.Sequence, no=str)
 def _isa(addr, seq):
-  if not all(isinstance(ti, runtime.TypeInfo) for ti in seq):
-    _isa(None, None) # raise error
-  return addr in (id(ti.info) for ti in seq)
+  return any(_isa(addr, ti) for ti in seq)
 
+def isa_primitive(interp, arg):
+  '''The primitive types are Int, Char, Float.'''
+  p = interp.prelude
+  return isa(arg, (p.Int, p.Char, p.Float))
+
+def isa_bool(interp, arg):
+  p = interp.prelude
+  return isa(arg, (p.True, p.False))
+
+def isa_true(interp, arg):
+  return isa(arg, interp.prelude.True)
+
+def isa_false(interp, arg):
+  return isa(arg, interp.prelude.False)
+
+def isa_list(interp, arg):
+  return isa(arg, interp.type('Prelude.List'))
+
+_TUPLE_PATTERN = re.compile(r'\(,*\)$')
+
+def isa_tuple(interp, arg):
+  return re.match(_TUPLE_PATTERN, arg[()].info.name)
