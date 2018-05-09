@@ -94,3 +94,8 @@ NEXT:
   - I should pare down the prelude so it can be loaded and then try to get the
     fib program working.
 
+5/9/2018
+
+- I started trying to cut down the Prelude, but quickly ran into the issue from
+  5/5.  I fixed the importer module so that the JSON is rebuilt when the source
+  file is newer.
