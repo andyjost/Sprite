@@ -1,20 +1,7 @@
-from cStringIO import StringIO
-import curry
-from curry.llvm import isa as llvm_isa
-from curry.interpreter.analysis import isa as cy_isa
-from curry.interpreter.runtime import Node
-import __builtin__
-import collections
-import contextlib
-import gzip
-import inspect
-import os
-import sys
-import textwrap
-import types
-import unittest
-
-# Install the breakpoint function into the built-ins so it can be used anywhere.
+# ================================================================================
+# Install the breakpoint function into the built-in module so it can be used
+# anywhere.  This is the VERY FIRST THING done, so that breakpoint can be used
+# in the curry module itself when debugging.
 def breakpoint(msg='', depth=0):
   '''(Built-in) Starts an interactive prompt.  For development and debugging.'''
   import code, inspect, pydoc
@@ -28,9 +15,28 @@ def breakpoint(msg='', depth=0):
     msg = " - " + msg
   banner = "\n[%s:%s%s]" % (namespace['__file__'], frame.f_lineno, msg)
   code.interact(banner=banner, local=namespace)
+import __builtin__
 __builtin__.breakpoint = breakpoint
+# ================================================================================
 
-# Create wrappers that trigger a break for certain exception types.
+from cStringIO import StringIO
+from curry.interpreter.analysis import isa as cy_isa
+from curry.interpreter.runtime import Node
+from curry.llvm import isa as llvm_isa
+import collections
+import contextlib
+import curry
+import gzip
+import inspect
+import os
+import sys
+import textwrap
+import types
+import unittest
+
+# Enable a break when certain exceptions occur.  For instance, this can be used
+# to break whenever a RuntimeError or AssertionError occurs (n.b., that's an
+# assertion failure, NOT a unittest.assert* failure).
 def breakOn(exc_name):
   exception = getattr(__builtin__, exc_name)
   def __init__(self, *args, **kwds):

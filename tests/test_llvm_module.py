@@ -1,7 +1,7 @@
+import cytest # from ./lib; must be first
 from curry.llvm import *
 from curry.llvm.types import *
 import curry.llvm as ll
-import cytest
 
 class TestLLVMModule(cytest.TestCase):
   def testGlobals(self):

@@ -1,7 +1,7 @@
 # Encoding: utf-8
+import cytest # from ./lib; must be first
 from curry import icurry
 from curry import importer
-import cytest
 import os
 import shutil
 

@@ -1,4 +1,4 @@
-import cytest
+import cytest # from ./lib; must be first
 from curry.proptree import proptree
 from collections import OrderedDict
 

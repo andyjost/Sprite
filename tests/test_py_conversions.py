@@ -1,6 +1,6 @@
+import cytest # from ./lib; must be first
 from curry.interpreter import Interpreter
 from cytest import bootstrap
-import cytest # from ./lib
 
 class TestPyConversions(cytest.TestCase):
   '''Tests conversions between Python and Curry.'''

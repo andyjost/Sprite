@@ -1,8 +1,8 @@
 # The llvm.types submodule provides the predefined types.  Star-import is
 # intended.
+import cytest # from ./lib; must be first
 from curry.llvm import *
 from curry.llvm.types import *
-import cytest
 import ctypes
 
 class TestLLVMTypes(cytest.TestCase):

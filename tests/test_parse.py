@@ -1,7 +1,7 @@
+import cytest # from ./lib; must be first
 import curry
 from curry import icurry
 from glob import glob
-import cytest
 import gzip
 import unittest
 

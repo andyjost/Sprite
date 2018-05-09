@@ -1,11 +1,15 @@
 '''Tests for the pure-Python Curry interpreter.'''
+import cytest # from ./lib; must be first
+import curry
 from curry.icurry import *
+from curry import importer
 from curry.interpreter import Interpreter, Prelude, SymbolLookupError, System
 from curry.interpreter import runtime
 from curry.visitation import dispatch
 from cytest import bootstrap
 from glob import glob
-import cytest # from ./lib
+import os
+import shutil
 import unittest
 
 class TestPyInterp(cytest.TestCase):
@@ -58,6 +62,9 @@ class TestPyInterp(cytest.TestCase):
 
   def testImportFile(self):
     interp = Interpreter()
+    interp.path = []
+    self.assertRaises(Exception, lambda: interp.import_('helloInt'))
+    #
     interp.path = ['data/curry']
     self.assertMayRaise(None, lambda: interp.import_('helloInt'))
     self.assertMayRaise(None, lambda: interp.import_('helloFloat'))

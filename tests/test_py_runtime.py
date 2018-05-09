@@ -1,8 +1,8 @@
+import cytest # from ./lib; must be first
 from curry.interpreter import Interpreter, Prelude, System
 from curry.interpreter import runtime
 from cytest import bootstrap
 from glob import glob
-import cytest # from ./lib
 import unittest
 
 class TestPyRuntime(cytest.TestCase):

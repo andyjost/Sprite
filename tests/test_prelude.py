@@ -1,5 +1,5 @@
+import cytest # from ./lib; must be first
 import curry
-import cytest
 
 class TestPrelude(cytest.TestCase):
   def testBuiltinPreludeTypes(self):

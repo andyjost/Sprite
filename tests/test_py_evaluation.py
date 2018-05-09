@@ -1,6 +1,6 @@
 '''Tests for code evaluation in the Curry interpreter.'''
+import cytest # from ./lib; must be first
 import curry
-import cytest # from ./lib
 import unittest
 
 class TestPyEvaluation(cytest.TestCase):

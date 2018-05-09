@@ -1,7 +1,7 @@
+import cytest # from ./lib; must be first
 from curry.llvm import *
 import curry.llvm as ll
 from curry.llvm.types import *
-import cytest
 import itertools
 
 class TestLLVMObjectLifetimes(cytest.TestCase):
