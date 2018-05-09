@@ -9,6 +9,10 @@ try:
 except ImportError:
   from ._tempfile import TemporaryDirectory # Py2
 
+def newer(a, b):
+  '''Indicates whether file a is newer than file b.'''
+  return os.path.getmtime(a) > os.path.getmtime(b)
+
 def findfiles(searchpaths, names):
   '''
   Searches the specified paths for a file with the given name and suffix.
@@ -55,10 +59,25 @@ def findCurryModule(modulename, searchpaths):
   names = [os.path.join('.curry', modulename + '.json'), modulename + '.curry']
   files = findfiles(searchpaths, names)
   try:
-    file_ = next(files)
+    tgtfile = next(files)
+    assert tgtfile.endswith('.curry') or tgtfile.endswith('.json')
   except StopIteration:
     raise ValueError('module "%s" not found' % modulename)
-  return os.path.abspath(file_)
+
+  # If a .json file was found, then check whether the corresponding .curry file
+  # is newer.
+  if tgtfile.endswith('.json'):
+    try:
+      srcfile = next(files)
+    except StopIteration:
+      pass
+    else:
+      # Check whether the source file is newer than the JSON file.
+      if newer(srcfile, tgtfile):
+        if srcfile.endswith('.curry') and jsonFilename(srcfile) == tgtfile:
+          print 'd', srcfile
+          tgtfile = srcfile
+  return os.path.abspath(tgtfile)
 
 def curry2jsontool():
   thispath = inspect.getsourcefile(sys.modules[__name__])
@@ -77,7 +96,7 @@ def curry2json(curryfile):
   The JSON file name.
   '''
   jsonfile = jsonFilename(curryfile)
-  assert not os.path.exists(jsonfile)
+  assert not os.path.exists(jsonfile) or newer(curryfile, jsonfile)
   sink = open('/dev/null', 'w')
   retcode = subprocess.call(
       [curry2jsontool(), curryfile], stdout=sink, stderr=sink

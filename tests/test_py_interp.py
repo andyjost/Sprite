@@ -70,6 +70,39 @@ class TestPyInterp(cytest.TestCase):
     self.assertMayRaise(None, lambda: interp.import_('helloFloat'))
     self.assertMayRaise(None, lambda: interp.import_('helloChar'))
 
+  def testImportTimeStamp(self):
+    def myeval(tempd, srcfile):
+      '''Copy srcfile to tempd and evaluate it in a fresh interpreter.'''
+      interp = Interpreter()
+      interp.path = [tempd]
+      tgtfile = os.path.join(tempd, 'test.curry')
+      if srcfile is None:
+        os.remove(tgtfile)
+      else:
+        shutil.copy(srcfile, tgtfile)
+      module = interp.import_('test')
+      value = next(interp.eval(interp.expr(module.main), converter='topython'))
+      mtime = os.path.getmtime(importer.jsonFilename(tgtfile))
+      return value, mtime
+
+    with importer.TemporaryDirectory() as tempd:
+      # Copy the helloInt module into the temp dir and run it.
+      a_value, a_mtime = myeval(tempd, 'data/curry/helloInt.curry')
+      self.assertEqual(a_value, 0)
+
+      # Repeat with helloChar, overwriting the previous source file.
+      b_value, b_mtime = myeval(tempd, 'data/curry/helloChar.curry')
+      self.assertEqual(b_value, 'a')
+
+      # Check that the "b" JSON file is newer than the "a" JSON file.
+      self.assertGreater(b_mtime, a_mtime)
+
+      # Finally, remove the .curry file and ensure the module is still
+      # loadable.
+      c_value, c_mtime = myeval(tempd, None)
+      self.assertEqual(c_value, 'a')
+      self.assertEqual(b_mtime, c_mtime)
+
   def testCoverage(self):
     '''Tests to get complete line coverage.'''
     interp = Interpreter()
