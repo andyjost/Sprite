@@ -44,12 +44,10 @@ def compile_primitive_builtin(interpreter, func):
   '''
   hnf = interpreter.hnf
   unbox = interpreter.unbox
-  tocurry = interpreter.tocurry
+  expr = interpreter.expr
   def step(lhs):
     args = (unbox(hnf(lhs, [i])) for i in xrange(len(lhs.successors)))
-    result = func(*args)
-    ty = tocurry(type(result))
-    lhs.rewrite(ty.info, result)
+    return expr(func(*args), target=lhs)
   return step
 
 def compile_builtin(interpreter, func):

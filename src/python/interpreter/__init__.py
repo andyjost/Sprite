@@ -67,7 +67,12 @@ class Interpreter(object):
   def __init__(self, flags={}):
     self.prelude = self.import_(Prelude)
     self.import_(System)
+    # FIXME: the naming is inconsistent.  These are named like typeinfo, but
+    # refer to info tables.
     self.ti_Failure = self.symbol('_System.Failure').info
+    self.ti_Choice = self.symbol('_System.Choice').info
+    self.ti_Fwd = self.symbol('_System.Fwd').info
+    self.ti_PartApplic = self.symbol('_System.PartApplic') # FIXME: inconsistent
 
   # Importing.
   # ==========

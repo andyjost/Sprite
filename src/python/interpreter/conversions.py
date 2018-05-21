@@ -10,49 +10,52 @@ import collections
 import numbers
 
 @dispatch.on('arg')
-def expr(interp, arg, *args):
+def expr(interp, arg, *args, **kwds):
   '''
-  Builds a Curry expression from Python.
+  Builds a Curry expression from Python.  The keyword 'target' specifies a
+  target node.  If one is supplied, the result will be placed there.
   '''
   raise TypeError(
       'cannot build a Curry expression from type "%s"' % type(arg).__name__
     )
 
 @expr.when(str) # Char or [Char].
-def expr(interp, arg, *args):
+def expr(interp, arg, *args, **kwds):
   if len(arg) == 1:
     args = (str(arg),) + args
-    return interp.prelude.Char.construct(*args)
+    target = kwds.get('target', None)
+    return interp.prelude.Char.construct(*args, target=target)
   else:
     raise RuntimeError('multi-char strings not supported yet.')
 
 @expr.when(collections.Sequence, no=str)
-def expr(interp, arg):
+def expr(interp, arg, target=None):
   # Supports nested structures, e.g., Cons 0 [Cons 1 Nil].
-  return interp.expr(*arg)
+  return expr(interp, *arg, target=target)
 
 @expr.when(numbers.Integral)
-def expr(interp, arg, *args):
-  args = (int(arg),) + args
-  return interp.prelude.Int.construct(*args)
+def expr(interp, arg, target=None):
+  return interp.prelude.Int.construct(int(arg), target=target)
 
 @expr.when(numbers.Real)
-def expr(interp, arg, *args):
-  args = (float(arg),) + args
-  return interp.prelude.Float.construct(*args)
+def expr(interp, arg, target=None):
+  return interp.prelude.Float.construct(float(arg), target=target)
 
 @expr.when(runtime.TypeInfo)
-def expr(interp, ti, *args):
+def expr(interp, ti, *args, **kwds):
+  target = kwds.get('target', None)
   missing =  ti.info.arity - len(args)
   if missing > 0:
-    partial = interp.symbol('_System.PartApplic')
     expr = ti.curry(*map(interp.expr, args))
-    return partial.construct(missing, expr) # note: unboxed int "missing".
+    # note: "missing" is deliberately an unboxed int.
+    return interp.ti_PartApplic.construct(missing, expr, target=target)
   else:
-    return ti.construct(*map(interp.expr, args))
+    return ti.construct(*map(interp.expr, args), target=target)
 
 @expr.when(runtime.Node)
-def expr(interp, node):
+def expr(interp, node, target=None):
+  if target is not None:
+    target.rewrite(interp.ti_Fwd, node)
   return node
 
 def box(interp, arg):

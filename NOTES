@@ -99,3 +99,15 @@ NEXT:
 - I started trying to cut down the Prelude, but quickly ran into the issue from
   5/5.  I fixed the importer module so that the JSON is rebuilt when the source
   file is newer.
+
+5/20/2018
+
+- In conversions.py, I'd really like to use Python 3 keyword-only parameters.
+
+      def expr(interp, arg, *args, target=None)
+
+  Maybe it's worth migrating to Python 3 if it's not difficult.
+
+- I need to clean up the typeinfo stuff.  The naming is not consistent.  In
+  Interpreter there are things like ti_Failure, but it refers not to the typeinfo, but to the info table.
+

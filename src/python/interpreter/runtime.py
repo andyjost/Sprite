@@ -47,12 +47,13 @@ class TypeInfo(object):
     self.ident = ident
     self.info = info
 
-  def construct(self, *args):
+  def construct(self, *args, **kwds):
     '''
     Constructs an object of this type.  Its argument list must be complete.
 
-    This low-level function is intended for internal use only.  To construct an
-    expression, use ``Interpreter.expr``.
+    If the keyword 'target' is supplied, then the object will be constructed
+    there.  This low-level function is intended for internal use only.  To
+    construct an expression, use ``Interpreter.expr``.
     '''
     if len(args) != self.info.arity:
       raise TypeError(
@@ -63,7 +64,13 @@ class TypeInfo(object):
             , '' if len(args) == 1 else 's'
             )
         )
-    return Node(self.info, *args)
+
+    target = kwds.get('target', None)
+    if target is None:
+      return Node(self.info, *args)
+    else:
+      target.rewrite(self.info, *args)
+      return target
 
   def curry(self, *args):
     '''
