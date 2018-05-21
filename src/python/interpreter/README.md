@@ -35,10 +35,8 @@ e.g., operator.add, or math.cos.
 
 Such a function is adapted to Curry as follows:
 
-  - Compute the return type as the type of the first argument (in debug
-    mode, assert that all arguments have identical types).
   - Head-normalize and then unbox each argument.
-  - Invoke py.func with the arguments prepared in the previous step.
+  - Invoke py.primfunc with the arguments prepared in the previous step.
   - Rewrite the LHS to be a boxed value of the type computed in the first
     step, with the value returned from py.func.  The implementation function
     must return a scalar that can be interpreted as the appropriate type in
