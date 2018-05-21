@@ -38,7 +38,6 @@ class ParseJSON(cytest.TestCase):
   def test_atableFlex(self):
     curry.import_('atableFlex')
 
-  @unittest.expectedFailure # TODO: Needs Prelude.failed.
   def test_atableNoflex(self):
     curry.import_('atableNoflex')
 
