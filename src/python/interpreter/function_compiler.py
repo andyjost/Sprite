@@ -43,10 +43,10 @@ def compile_primitive_builtin(interpreter, func):
   Compiles code for built-in functions on primitive data.  See metadata.py.
   '''
   hnf = interpreter.hnf
-  unbox = interpreter.unbox
   expr = interpreter.expr
+  topython = interpreter.topython
   def step(lhs):
-    args = (unbox(hnf(lhs, [i])) for i in xrange(len(lhs.successors)))
+    args = (topython(hnf(lhs, [i])) for i in xrange(len(lhs.successors)))
     return expr(func(*args), target=lhs)
   return step
 

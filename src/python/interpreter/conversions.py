@@ -33,6 +33,14 @@ def expr(interp, arg, target=None):
   # Supports nested structures, e.g., Cons 0 [Cons 1 Nil].
   return expr(interp, *arg, target=target)
 
+@expr.when(bool)
+def expr(interp, arg, **kwds):
+  target = kwds.get('target', None)
+  if arg:
+    return interp.prelude.True.construct(target=target)
+  else:
+    return interp.prelude.False.construct(target=target)
+
 @expr.when(numbers.Integral)
 def expr(interp, arg, target=None):
   return interp.prelude.Int.construct(int(arg), target=target)
@@ -74,8 +82,8 @@ def unbox(interp, arg):
 
 @dispatch.on('data')
 def tocurry(interp, data):
-  '''Converts Python data to Curry by substituting built-in types.'''
-  return data
+  '''Converts Python data or types to Curry by substituting built-in types.'''
+  return expr(interp, data)
 
 @tocurry.when(list)
 def tocurry(interp, data):

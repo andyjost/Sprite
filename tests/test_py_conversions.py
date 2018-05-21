@@ -63,6 +63,13 @@ class TestPyConversions(cytest.TestCase):
   def testToPython(self):
     '''Test the conversions from Curry to Python.'''
     interp = Interpreter(flags={'debug':True})
+    # Bool
+    x = interp.expr(True)
+    self.assertNotEqual(x, True)
+    self.assertEqual(interp.topython(x), True)
+    x = interp.expr(False)
+    self.assertNotEqual(x, False)
+    self.assertEqual(interp.topython(x), False)
     # Int
     x = interp.expr(1)
     self.assertNotEqual(x, 1)
