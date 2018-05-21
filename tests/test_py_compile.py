@@ -9,8 +9,8 @@ class TestPyCompile(cytest.TestCase):
       fib n | n < 3 = 1
             | True  = (fib (n-1)) + (fib (n-2))
     '''
-    fib = curry.compile(text)
-    eight = curry.eval([fib.fib, 6])
+    fib = curry.compile(text).fib
+    eight = curry.eval([fib, 6])
     self.assertEqual(eight.next(), 8)
 
     # Compile another version (zero-based index this time).  Ensure each one
@@ -19,8 +19,8 @@ class TestPyCompile(cytest.TestCase):
       fib n | n < 2 = 1
             | True  = (fib (n-1)) + (fib (n-2))
     '''
-    fib2 = curry.compile(text2)
-    five = curry.eval([fib2.fib, 4])
+    fib2 = curry.compile(text2).fib
+    five = curry.eval([fib2, 4])
     self.assertEqual(five.next(), 5)
-    two = curry.eval([fib.fib, 3])
+    two = curry.eval([fib, 3])
     self.assertEqual(two.next(), 2)
