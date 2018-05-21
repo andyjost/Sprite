@@ -20,7 +20,7 @@ $(PREFIX)/bin/coverage : | $(PREFIX)/bin
 $(PREFIX)/bin/curry2json : | $(PREFIX)/bin
 	ln -s $(CURRY2JSON) $@
 $(PREFIX)/lib/curry/Prelude.curry : | $(PREFIX)/lib/curry
-	cp $(ROOT_DIR)/CMC/runtime/lib/Prelude.curry $(PREFIX)/lib/curry/Prelude.curry
+	cp $(ROOT_DIR)/currylib/Prelude.curry $(PREFIX)/lib/curry/Prelude.curry
 install: $(PREFIX)/bin/python              \
          $(PREFIX)/bin/.python             \
          $(PREFIX)/bin/coverage            \
