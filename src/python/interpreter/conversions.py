@@ -124,12 +124,16 @@ def tocurry(interp, data):
 @tocurry.when(type)
 def tocurry(interp, ty):
   '''Converts a Python type to the corresponding built-in Curry type.'''
+  if issubclass(ty, bool):
+    return interp.type('Prelude.Bool')
   if issubclass(ty, str):
-    return interp.prelude.Char
+    return interp.type('Prelude.Char')
   if issubclass(ty, numbers.Integral):
-    return interp.prelude.Int
+    return interp.type('Prelude.Int')
   if issubclass(ty, numbers.Real):
-    return interp.prelude.Float
+    return interp.type('Prelude.Float')
+  if issubclass(ty, list):
+    return interp.type('Prelude.List')
   raise TypeError('cannot convert "%s" to a Curry type' % ty.__name__)
 
 def topython(interp, expr):

@@ -1,6 +1,7 @@
 import cytest # from ./lib; must be first
 from curry.interpreter import Interpreter
 from cytest import bootstrap
+import numpy as np
 
 class TestPyConversions(cytest.TestCase):
   '''Tests conversions between Python and Curry.'''
@@ -108,3 +109,21 @@ class TestPyConversions(cytest.TestCase):
         TypeError, r"malformed Curry list containing types \('Float', 'Int'\)"
       , lambda: interp.tocurry([1,2.,3])
       )
+
+  def testTypesToPython(self):
+    interp = Interpreter()
+    self.assertEqual(interp.tocurry(int), interp.type('Prelude.Int'))
+    self.assertEqual(interp.tocurry(float), interp.type('Prelude.Float'))
+    self.assertEqual(interp.tocurry(str), interp.type('Prelude.Char'))
+    self.assertEqual(interp.tocurry(bool), interp.type('Prelude.Bool'))
+    self.assertEqual(interp.tocurry(list), interp.type('Prelude.List'))
+    #
+    self.assertEqual(interp.tocurry(np.float16), interp.type('Prelude.Float'))
+    self.assertEqual(interp.tocurry(np.float32), interp.type('Prelude.Float'))
+    self.assertEqual(interp.tocurry(np.int8), interp.type('Prelude.Int'))
+    self.assertEqual(interp.tocurry(np.byte), interp.type('Prelude.Int'))
+    #
+    # Note: the Python tuple type has no analog in Curry, where each arity is a
+    # distinct type.
+    self.assertRaises(TypeError, lambda: interp.tocurry(tuple))
+    self.assertRaises(TypeError, lambda: interp.tocurry(np.complex64))
