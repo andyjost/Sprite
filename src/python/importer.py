@@ -99,11 +99,14 @@ def curry2json(curryfile):
   jsonfile = jsonFilename(curryfile)
   assert not os.path.exists(jsonfile) or newer(curryfile, jsonfile)
   sink = open('/dev/null', 'w')
-  retcode = subprocess.call(
-      [curry2jsontool(), curryfile], stdout=sink, stderr=sink
+  child = subprocess.Popen(
+      [curry2jsontool(), '-q', curryfile]
+    , stdout=sink, stderr=subprocess.PIPE
     )
+  _,errs = child.communicate()
+  retcode = child.wait()
   if retcode or not os.path.exists(jsonfile):
-    raise RuntimeError('curry2json "%s" failed' % curryfile)
+    raise RuntimeError(errs)
   return jsonfile
 
 def jsonFilename(curryfile):
