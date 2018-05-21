@@ -2,8 +2,6 @@ import cytest # from ./lib; must be first
 import curry
 import unittest
 
-curry.flags['trace'] = True
-
 class TestPyCompile(cytest.TestCase):
   def testCompileString(self):
     '''Test direct compilation of a string.'''
@@ -14,3 +12,15 @@ class TestPyCompile(cytest.TestCase):
     fib = curry.compile(text)
     eight = curry.eval([fib.fib, 6])
     self.assertEqual(eight.next(), 8)
+
+    # Compile another version (zero-based index this time).  Ensure each one
+    # works independently.
+    text2 = '''
+      fib n | n < 2 = 1
+            | True  = (fib (n-1)) + (fib (n-2))
+    '''
+    fib2 = curry.compile(text2)
+    five = curry.eval([fib2.fib, 4])
+    self.assertEqual(five.next(), 5)
+    two = curry.eval([fib.fib, 3])
+    self.assertEqual(two.next(), 2)

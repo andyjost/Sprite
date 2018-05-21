@@ -69,6 +69,10 @@ class Interpreter(object):
     return self
 
   def __init__(self, flags={}):
+    ###### in-dev
+    # breakpoint()
+    # self.import_('Prelude')
+    ######
     self.import_(System)
     self.prelude = self.import_(Prelude)
     # FIXME: the naming is inconsistent.  These are named like typeinfo, but
