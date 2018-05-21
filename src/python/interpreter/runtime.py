@@ -104,12 +104,12 @@ class Node(object):
   '''An expression node.'''
   def __new__(cls, info, *args):
     self = object.__new__(cls)
-    # self.rewrite(info, *args)
     self.info = info
     self.successors = list(args)
     return self
 
   def rewrite(self, info, *args):
+    assert isinstance(info, InfoTable)
     self.info = info
     self.successors = list(args)
 
