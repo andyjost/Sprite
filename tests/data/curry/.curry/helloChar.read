@@ -1,8 +1,0 @@
-
-module "helloChar"
-  import
-    "Prelude"
-  function "helloChar.main" 0
-    code
-      return
-        char 'a'

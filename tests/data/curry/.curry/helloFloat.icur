@@ -1,1 +1,0 @@
-(IModule "helloFloat" ["Prelude"] [] [(IFunction ("helloFloat","main") 0 [(Return (BuiltinVariant (Bfloat 0.1)))])])

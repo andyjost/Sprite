@@ -1,5 +1,0 @@
-Prog "helloChar"
-["Prelude"]
-[]
-[Func ("helloChar","main") 0 Public (TCons ("Prelude","Char") []) (Rule [] (Lit (Charc  'a')))]
-[]

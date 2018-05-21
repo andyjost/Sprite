@@ -1,1 +1,0 @@
-(IModule "helloChar" ["Prelude"] [] [(IFunction ("helloChar","main") 0 [(Return (BuiltinVariant (Bchar 'a')))])])

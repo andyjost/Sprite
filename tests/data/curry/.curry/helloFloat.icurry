@@ -1,5 +1,0 @@
-interface helloFloat where {
-import Prelude;
-hiding data Prelude.Float;
-main 0 :: Prelude.Float
-}
