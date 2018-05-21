@@ -328,14 +328,52 @@ class Closure(object):
     self.context = {}
 
   PATTERN = re.compile('[^0-9a-zA-Z_ ]') # Identifier characters.
+  TR = {
+      '&' : '_amp_'
+    , '@' : '_at_'
+    , '!' : '_bang_'
+    , '`' : '_bt_'
+    , '^' : '_car_'
+    , ':' : '_col_'
+    , ',' : '_com_'
+    , '$' : '_dolr_'
+    , '.' : '_dot_'
+    , '"' : '_dq_'
+    , '=' : '_eq_'
+    , '\\ ': '_esc_'
+    , '>' : '_gt_'
+    , '{' : '_lbc_'
+    , '[' : '_lbk_'
+    , '(' : '_lp_'
+    , '<' : '_lt_'
+    , '-' : '_neg_'
+    , '#' : '_hsh_'
+    , '%' : '_pct_'
+    , '|' : '_pipe_'
+    , '+' : '_pos_'
+    , '?' : '_q_'
+    , '}' : '_rbc_'
+    , ']' : '_rbk_'
+    , ')' : '_rp_'
+    , ';' : '_semi_'
+    , '/' : '_sep_'
+    , '\'': '_sq_'
+    , '*' : '_star_'
+    , '~' : '_til_'
+    }
+
+  def clean(self, s):
+    # Clean up a string by encoding or removing non-alphanumeric characters.
+    a = ''.join(self.TR.get(ch, ch) for ch in s)
+    return str(re.sub(self.PATTERN, '', a))
 
   def encode(self, iname):
-    # First, try just the basename (with illegal characters removed).
-    a = str(re.sub(self.PATTERN, '', iname.basename))
-    k = 'ti_' + a
+    # First, try just the basename.
+    a = self.clean(iname.basename)
+    k = 'ti_%s' % a
     if k in self.context:
       # If it conflicts, try prepending the module name.
-      k = 'ti_%s_%s' % (iname.module, a)
+      k = 'ti_%s_%s' % (self.clean(iname.module), a)
       if k in self.context:
         # Finally, append a number.
         k_ = k
