@@ -222,6 +222,14 @@ class Interpreter(object):
   # Evaluating.
   # ===========
   def eval(self, goal, converter='default'):
+    '''
+    Evaluate a Curry goal.
+
+    The first argument may be a Curry expression or a list of arguments
+    used to construct one (as ``expr`` would).
+
+    A converter may be specified to control the way results are returned.
+    '''
     if not isinstance(goal, Node):
       goal = self.expr(goal)
     convert = conversions.getconverter(
