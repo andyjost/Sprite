@@ -31,7 +31,7 @@ logging.basicConfig(
   )
 
 class SymbolLookupError(AttributeError):
-  pass
+  '''Raised when a Curry symbol is not found.'''
 
 class CurryModule(types.ModuleType):
   def __repr__(self):
