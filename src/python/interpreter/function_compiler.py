@@ -43,20 +43,12 @@ def compile_primitive_builtin(interpreter, func):
   '''
   hnf = interpreter.hnf
   unbox = interpreter.unbox
-  if interpreter.flags['debug']:
-    def step(lhs):
-      hnfs = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
-      tys, args = zip(*[(s.info, unbox(s)) for s in hnfs])
-      assert all(isinstance(arg, icurry.BuiltinVariant) for arg in args)
-      tys = set(tys)
-      ti_result = tys.pop()
-      assert not tys
-      result = func(*args)
-      lhs.rewrite(ti_result, result)
-  else:
-    def step(lhs):
-      args = (unbox(hnf(lhs, [i])) for i in xrange(len(lhs.successors)))
-      lhs.rewrite(lhs[0].info, func(*args))
+  tocurry = interpreter.tocurry
+  def step(lhs):
+    args = (unbox(hnf(lhs, [i])) for i in xrange(len(lhs.successors)))
+    result = func(*args)
+    ty = tocurry(type(result))
+    lhs.rewrite(ty.info, result)
   return step
 
 def compile_builtin(interpreter, func):

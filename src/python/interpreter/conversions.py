@@ -110,6 +110,17 @@ def tocurry(interp, data):
 #   FIXME: this needs to create an I/O type.
 #   return (tocurry(interp, x) for x in data)
 
+@tocurry.when(type)
+def tocurry(interp, ty):
+  '''Converts a Python type to the corresponding built-in Curry type.'''
+  if issubclass(ty, str):
+    return interp.prelude.Char
+  if issubclass(ty, numbers.Integral):
+    return interp.prelude.Int
+  if issubclass(ty, numbers.Real):
+    return interp.prelude.Float
+  raise TypeError('cannot convert "%s" to a Curry type' % ty.__name__)
+
 def topython(interp, expr):
   '''Converts a Curry value to Python by substituting built-in types.'''
   if analysis.isa_primitive(interp, expr):
