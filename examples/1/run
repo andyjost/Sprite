@@ -1,0 +1,2 @@
+#!/bin/bash
+CURRYPATH=. ../../install/bin/python $@ main.py

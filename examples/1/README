@@ -1,0 +1,4 @@
+Demonstrates the following features:
+  - Importing the curry module.
+  - Compiling a string.
+  - Evaluating Curry code.

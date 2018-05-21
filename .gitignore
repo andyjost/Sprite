@@ -1,9 +1,6 @@
-object-root/*
-install/*
+object-root
+install/**
 !install/README
-CMC/translator/json/.curry
-CMC/translator/icurry/.curry
-CMC/Examples/.curry
 .clang_complete
 *scratch
 .coverage
@@ -11,6 +8,5 @@ CMC/Examples/.curry
 tests/htmlcov
 tests/data/Makefile2
 robots.txt*
-tests/data/curry/.curry/*
-tests/data/curry/kiel/.curry/*
-*/.src/*
+**/.src/**
+**/.curry/**
