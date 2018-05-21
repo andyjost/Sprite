@@ -207,6 +207,22 @@ class Evaluator(object):
         else:
           yield expr[()]
 
+def get_stepper(interpreter):
+  '''
+  Returns a function to apply steps, according to the interpreter
+  configuration.
+  '''
+  if interpreter.flags['trace']:
+    def step(target):
+      print 'S <<<', str(target)
+      try:
+        target.info.step(target)
+      finally:
+        print 'S >>>', str(target)
+  else:
+    def step(target):
+      target.info.step(target)
+  return step
 
 def hnf(interpreter, expr, targetpath=[]):
   '''
@@ -234,6 +250,7 @@ def hnf(interpreter, expr, targetpath=[]):
   # to handle special symbols before calling this function).
   assert not targetpath or expr.info.tag >= T_FUNC
   target = expr[targetpath]
+  step = interpreter.step
   while True:
     if not isinstance(target, Node):
       assert isinstance(target, icurry.BuiltinVariant)
@@ -251,7 +268,7 @@ def hnf(interpreter, expr, targetpath=[]):
       target = target[()]
     elif tag == T_FUNC:
       try:
-        target.info.step(target)
+        step(target)
       except E_SYMBOL:
         pass
     else:

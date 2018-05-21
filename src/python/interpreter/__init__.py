@@ -50,9 +50,12 @@ class Interpreter(object):
   Supported flags:
   ----------------
       ``debug`` (*True*|False)
-          Sacrifice speed to add more consistency checks.
+          Sacrifice speed to add more consistency checks and enable debugging
+          with PDB.
       ``defaultconverter`` (*'topython'*|None)
           Indicates the conversion to apply to results of eval.
+      ``trace`` (True|*False*)
+          Shows the effect of each step in a computation.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
@@ -60,19 +63,23 @@ class Interpreter(object):
     self.flags = {}
     self.flags.setdefault('debug', True)
     self.flags.setdefault('defaultconverter', None)
+    self.flags.setdefault('trace', False)
     self.flags.update(flags)
     self.path = filter(lambda x:x, os.environ.get('CURRYPATH', '').split(':'))
     return self
 
   def __init__(self, flags={}):
-    self.prelude = self.import_(Prelude)
     self.import_(System)
+    self.prelude = self.import_(Prelude)
     # FIXME: the naming is inconsistent.  These are named like typeinfo, but
     # refer to info tables.
     self.ti_Failure = self.symbol('_System.Failure').info
     self.ti_Choice = self.symbol('_System.Choice').info
     self.ti_Fwd = self.symbol('_System.Fwd').info
     self.ti_PartApplic = self.symbol('_System.PartApplic') # FIXME: inconsistent
+    # The function used to take steps.  The flags (e.g., 'trace') can influence
+    # this.
+    self.step = runtime.get_stepper(self)
 
   # Importing.
   # ==========
