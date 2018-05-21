@@ -1,4 +1,5 @@
 from .. import icurry
+from .. import importer
 from ..visitation import dispatch
 # from . import analysis
 from . import runtime
@@ -18,7 +19,7 @@ def compile_function(interpreter, ifun):
     return compile_primitive_builtin(interpreter, ifun.metadata['py.primfunc'])
   elif 'py.func' in ifun.metadata:
     return compile_builtin(interpreter, ifun.metadata['py.func'])
-  compiler = FunctionCompiler(interpreter)
+  compiler = FunctionCompiler(interpreter, ifun.ident)
   compiler.compile(ifun.code)
 
   if logger.isEnabledFor(logging.DEBUG):
@@ -90,8 +91,9 @@ class FunctionCompiler(object):
         selector).  No special rules; must not begin with an underscore or
         conflict with the above.
   '''
-  def __new__(self, interpreter):
+  def __new__(self, interpreter, ident):
     self = object.__new__(self)
+    self.ident = ident
     self.interpreter = interpreter
     self.closure = Closure(interpreter)
     # Every function should create or rewrite a node.
@@ -104,9 +106,17 @@ class FunctionCompiler(object):
     '''Returns the compiled step function.'''
     local = {}
     source = render(self.program)
-    exec source in self.closure.context, local
     if self.interpreter.flags['debug']:
-      local['step'].source = source
+      # If debugging, write a source file so that PDB can step into this
+      # function.
+      srcdir = importer.getDebugSourceDir()
+      srcfile = importer.makeNewfile(srcdir, self.ident)
+      with open(srcfile, 'w') as out:
+        out.write(source)
+      co = compile(source, srcfile, 'exec')
+      exec co in self.closure.context, local
+    else:
+      exec source in self.closure.context, local
     return local['step']
 
   def typeinfo(self, iname):

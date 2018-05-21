@@ -1,6 +1,7 @@
 from . import icurry
 import inspect
 import os
+import shutil
 import subprocess
 import sys
 
@@ -189,4 +190,32 @@ class CurryImporter(object):
       setattr(this, head, moduleobj)
       sys.modules[fullname] = moduleobj
     return sys.modules[fullname]
+
+debug_source_dir_init = True
+
+def getDebugSourceDir():
+  '''
+  Returns a directory in which the source code of dynamically-compiled
+  functions can be placed.  This is used to make the source code available to
+  PDB when debugging.
+  '''
+  srcdir = os.path.abspath('.src')
+  global debug_source_dir_init
+  if debug_source_dir_init:
+    try:
+      shutil.rmtree(srcdir)
+    except OSError:
+      pass
+    os.mkdir(srcdir)
+    debug_source_dir_init = False
+  return srcdir
+
+def makeNewfile(*args):
+  filename = os.path.join(*args)
+  if os.path.exists(filename):
+    i = 0
+    while os.path.exists(filename + '.' + str(i)):
+      i += 1
+    return filename + '.' + str(i)
+  return filename
 

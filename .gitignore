@@ -13,3 +13,4 @@ tests/data/Makefile2
 robots.txt*
 tests/data/curry/.curry/*
 tests/data/curry/kiel/.curry/*
+*/.src/*
