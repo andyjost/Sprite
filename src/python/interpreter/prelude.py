@@ -9,7 +9,7 @@ import operator as op
 _types_ = [
     IType('Failure', [IConstructor('Failure', 0, metadata={'py.format':'failure', 'py.tag':T_FAIL})])
   , IType('Choice', [IConstructor('Choice', 2, metadata={'py.format':'{1} ? {2}', 'py.tag':T_CHOICE})])
-  , IType('Fwd', [IConstructor('Fwd', 1, metadata={'py.tag':T_FWD})])
+  , IType('Fwd', [IConstructor('Fwd', 1, metadata={'py.format':'{1}', 'py.tag':T_FWD})])
   , IType('PartApplic', [IConstructor('PartApplic', 2, metadata={'py.tag':T_CTOR})])
   ]
 System = IModule(name='_System', imports=[], types=_types_, functions=[])
