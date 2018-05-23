@@ -3,8 +3,8 @@ import curry
 import unittest
 
 class TestPyCompile(cytest.TestCase):
-  def testCompileString(self):
-    '''Test direct compilation of a string.'''
+  def testCompileStringModule(self):
+    '''Test dynamic module compilation.'''
     text = '''
       fib n | n < 3 = 1
             | True  = (fib (n-1)) + (fib (n-2))
@@ -24,3 +24,19 @@ class TestPyCompile(cytest.TestCase):
     self.assertEqual(five.next(), 5)
     two = curry.eval([fib, 3])
     self.assertEqual(two.next(), 2)
+
+  def testCompielStringExpr(self):
+    '''Test dynamic expression compilation.'''
+    Or = curry.compile(
+        '''
+        or 0 0 = 0
+        or 1 0 = 1
+        or 0 1 = 1
+        or 1 1 = 1
+        '''
+      , modulename='Or'
+      )
+    e = curry.compile('Or.or 0 0', mode='expr')
+    self.assertEqual(next(curry.eval(e)), 0)
+    e = curry.compile('Or.or 0 1', mode='expr')
+    self.assertEqual(next(curry.eval(e)), 1)

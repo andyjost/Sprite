@@ -73,11 +73,11 @@ class TestFindCurry(cytest.TestCase):
 
   def test_findCurryModule(self):
     self.assertEqual(
-        importer.findCurryModule('c', searchpaths=['data/findFile/c'])
+        importer.findCurryModule('c', currypath=['data/findFile/c'])
       , os.path.abspath('data/findFile/c/c.curry')
       )
     self.assertEqual(
-        importer.findCurryModule('a', searchpaths=['data/findFile/b'])
+        importer.findCurryModule('a', currypath=['data/findFile/b'])
       , os.path.abspath('data/findFile/b/a.curry')
       )
     # Under a/ there is no a.curry, but there is a .curry/a.json file.
@@ -85,7 +85,7 @@ class TestFindCurry(cytest.TestCase):
     self.assertEqual(
         importer.findCurryModule(
             'a'
-          , searchpaths=['data/findFile/'+a_or_b for a_or_b in 'ab']
+          , currypath=['data/findFile/'+a_or_b for a_or_b in 'ab']
           )
       , os.path.abspath('data/findFile/a/.curry/a.json')
       )

@@ -115,3 +115,12 @@ NEXT:
 
 - Working on docs and minor fixes that I come across in so doing.
 
+5/23/2018
+
+- I'm fixing the imports when compiling Curry expressions.  To import a dynamic
+  module, it is necessary to keep its temporary directory around and update the
+  CURRYPATH temporarily if an expression requires that module.
+
+TODO:
+  - Test the changes to Interpreter.import.  It now accepts a currypath argument.
+

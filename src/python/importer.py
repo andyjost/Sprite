@@ -1,9 +1,11 @@
 from . import icurry
+from .visitation import dispatch
 import inspect
 import os
 import shutil
 import subprocess
 import sys
+import types
 
 try:
   from tempfile import TemporaryDirectory # Py3
@@ -36,7 +38,7 @@ def findfiles(searchpaths, names):
       if os.path.exists(filename):
         yield filename
 
-def findCurryModule(modulename, searchpaths):
+def findCurryModule(modulename, currypath):
   '''
   Searches for a Curry module.
 
@@ -44,7 +46,7 @@ def findCurryModule(modulename, searchpaths):
   -----------
   ``modulename``
       The module modulename.
-  ``searchpaths``
+  ``currypath``
       A sequence of paths to search (i.e., CURRYPATH split on ':').
 
   Raises:
@@ -58,7 +60,7 @@ def findCurryModule(modulename, searchpaths):
   '''
   # Search for the ICurry-JSON file first, then the .curry file.
   names = [os.path.join('.curry', modulename + '.json'), modulename + '.curry']
-  files = findfiles(searchpaths, names)
+  files = findfiles(currypath, names)
   try:
     tgtfile = next(files)
     assert tgtfile.endswith('.curry') or tgtfile.endswith('.json')
@@ -87,9 +89,16 @@ def curry2jsontool():
   assert os.path.exists(curry2json)
   return curry2json
 
-def curry2json(curryfile):
+def curry2json(curryfile, currypath):
   '''
   Calls curry2json to produce an ICurry-JSON file.
+
+  Parameters:
+  -----------
+  ``curryfile``
+      The name of the Curry file to convert.
+  ``currypath``
+      The list of Curry code search paths.
 
   Returns:
   -------
@@ -98,10 +107,15 @@ def curry2json(curryfile):
   jsonfile = jsonFilename(curryfile)
   assert not os.path.exists(jsonfile) or newer(curryfile, jsonfile)
   sink = open('/dev/null', 'w')
-  child = subprocess.Popen(
-      [curry2jsontool(), '-q', curryfile]
-    , stdout=sink, stderr=subprocess.PIPE
-    )
+  prev = os.environ['CURRYPATH']
+  os.environ['CURRYPATH'] = ':'.join(currypath)
+  try:
+    child = subprocess.Popen(
+        [curry2jsontool(), '-q', curryfile]
+      , stdout=sink, stderr=subprocess.PIPE
+      )
+  finally:
+    os.environ['CURRYPATH'] = prev
   _,errs = child.communicate()
   retcode = child.wait()
   if retcode or not os.path.exists(jsonfile):
@@ -113,16 +127,16 @@ def jsonFilename(curryfile):
   path,name = os.path.split(curryfile)
   return os.path.join(path, '.curry', name[:-6]+'.json')
 
-def findOrBuildICurryForModule(modulename, searchpaths):
+def findOrBuildICurryForModule(modulename, currypath):
   '''
   See getICurryForModule.  This function returns the name of the ICurry-JSON
   file and builds the file, if necessary.
   '''
-  filename = findCurryModule(modulename, searchpaths)
+  filename = findCurryModule(modulename, currypath)
   if filename.endswith('.json'):
     return filename
   elif filename.endswith('.curry'):
-    return curry2json(filename)
+    return curry2json(filename, currypath)
   else:
     raise RuntimeError('Expected a JSON or CURRY file.')
 
@@ -136,7 +150,7 @@ def getICurryFromJson(jsonfile):
   assert len(icur) == 1
   return icur[0]
 
-def getICurryForModule(modulename, searchpaths):
+def getICurryForModule(modulename, currypath):
   '''
   Gets the ICurry source for a module.  May invoke curry2json.
 
@@ -144,7 +158,7 @@ def getICurryForModule(modulename, searchpaths):
   -----------
   ``modulename``
       The module name.
-  ``searchpaths``
+  ``currypath``
       A sequence of paths to search (i.e., CURRYPATH split on ':').
 
   Raises:
@@ -154,20 +168,35 @@ def getICurryForModule(modulename, searchpaths):
   Returns:
   The name of the ICurry-JSON file.
   '''
-  filename = findOrBuildICurryForModule(modulename, searchpaths)
+  filename = findOrBuildICurryForModule(modulename, currypath)
   return getICurryFromJson(filename)
 
-def str2icurry(string, modulename='_interactive_'):
+class TmpDir(TemporaryDirectory):
+  '''
+  Like TemporaryDirectory, but does not issue warnings when __del__ is used to
+  clean up.
+  '''
+  def __del__(self):
+    self.cleanup()
+
+def str2icurry(string, currypath, modulename='_interactive_'):
   '''
   Compile a string into ICurry.  The string is interpreted as a module
   definition.
+
+  Returns:
+  --------
+  The ICurry object.  The attributes __file__ and _tmpd_ will be set.
   '''
-  with TemporaryDirectory() as tmpd:
-    curryfile = os.path.join(tmpd, modulename + '.curry')
-    with open(curryfile, 'w') as out:
-      out.write(string)
-    jsonfile = curry2json(curryfile)
-    return getICurryFromJson(jsonfile)
+  tmpd = TmpDir()
+  curryfile = os.path.join(tmpd.name, modulename + '.curry')
+  with open(curryfile, 'w') as out:
+    out.write(string)
+  jsonfile = curry2json(curryfile, currypath)
+  icur = getICurryFromJson(jsonfile)
+  icur.__file__ = curryfile
+  icur._tmpd_ = tmpd
+  return icur
 
 class CurryImporter(object):
   '''An importer that loads Curry modules as Python.'''
@@ -221,3 +250,45 @@ def makeNewfile(*args):
     return filename + '.' + str(i)
   return filename
 
+def getImportSpecForExpr(interpreter, modules):
+  '''
+  Generates the import statements and the CURRYPATH to use when compiling a
+  standalone Curry expression.
+
+  Parameters:
+  -----------
+  ``interpreter``
+      The interpreter.
+  ``modules``
+      The list of modules to import.  Each one may be a string or a Curry
+      module object.
+
+  Returns:
+  --------
+  A pair consisting of a list of Curry import statements and the updated search
+  path.
+  '''
+  stmts = []
+  currypath = list(interpreter.path)
+  for module in modules:
+    _updateImports(interpreter, module, stmts, currypath)
+  return stmts, currypath
+
+@dispatch.on('module')
+def _updateImports(interpreter, module, stmts, currypath):
+  raise TypeError('Expected a string or module object.')
+
+@_updateImports.when(str)
+def _updateImports(interpreter, modulename, stmts, currypath):
+  module = interpreter.modules[modulename]
+  return _updateImports(interpreter, module, stmts, currypath)
+
+@_updateImports.when(types.ModuleType)
+def _updateImports(interpreter, module, stmts, currypath):
+  if module.__name__ != '_System':
+    stmts.append('import ' + module.__name__)
+    # If this is a dynamic module, add its directory to the search path.
+    try:
+      currypath.insert(0, module._tmpd_.name)
+    except AttributeError:
+      pass

@@ -84,23 +84,24 @@ class Interpreter(object):
   # Importing.
   # ==========
   @dispatch.on('arg')
-  def import_(self, arg):
+  def import_(self, arg, currypath=None):
     raise TypeError('cannot import type "%s"' % type(arg).__name__)
 
   @import_.when(str)
-  def import_(self, modulename):
+  def import_(self, modulename, currypath=None):
     try:
       return self.modules[modulename]
     except KeyError:
-      icur = importer.getICurryForModule(modulename, self.path)
+      currypath = self.path if currypath is None else currypath
+      icur = importer.getICurryForModule(modulename, currypath)
       return self.import_(icur)
 
   @import_.when(collections.Sequence, no=str)
-  def import_(self, seq):
-    return [self.import_(item) for item in seq]
+  def import_(self, seq, currypath=None):
+    return [self.import_(item, currypath=currypath) for item in seq]
 
   @import_.when(IModule)
-  def import_(self, imodule):
+  def import_(self, imodule, currypath=None):
     if imodule.name not in self.modules:
       moduleobj = CurryModule(imodule.name)
       setattr(moduleobj, '.types', {})
@@ -230,18 +231,53 @@ class Interpreter(object):
 
   # Compiling.
   # ==========
-  def compile(self, string, mode='module'):
+  def compile(
+      self, string, mode='module', imports=None, modulename='_interactive_'
+    ):
+    '''
+    Compile a string containing Curry code.  In mode "module", the string is
+    interpreted as a Curry module.  In mode "expr", the string is interpreted
+    as a Curry expression.
+
+    Parameters:
+    -----------
+    ``string``
+        A string containing Curry code.
+    ``mode``
+        Indicates how to interpret the string (see above).
+    ``imports``
+        Names the modules to import when compiling an expresion.  Unused in
+        "module" mode.  By default, all modules loaded in the current
+        interpreter are imported.
+    ``modulename``
+        Specifies the module name.  Used only in "module" mode.  If the name
+        begins with an underscore, then it will not be placed in
+        ``Interpreter.modules``.
+
+    Returns:
+    --------
+    In "module" mode, a Curry module.  In "expr" mode, a Curry expression.
+    '''
     if mode == 'module':
-      icur = importer.str2icurry(string)
-      module = self.import_(icur)
-      del self.modules[icur.name]
-      return module
+      if modulename in self.modules:
+        raise RuntimeError("module %s is already defined" % modulename)
+      icur = importer.str2icurry(string, self.path, modulename=modulename)
+      try:
+        module = self.import_(icur)
+        module.__file__ = icur.__file__
+        module._tmpd_ = icur._tmpd_
+        return module
+      finally:
+        if icur.name.startswith('_') and icur.name in self.modules:
+          del self.modules[icur.name]
     elif mode == 'expr':
-      # FIXME
-      lines = ['import ' + s for s in self.modules.keys() if s != '_System']
-      lines += ['expression = ' + string]
-      string = '\n'.join(lines)
-      icur = importer.str2icurry(string)
+      stmts, currypath = importer.getImportSpecForExpr(
+          self
+        , self.modules.keys() if imports is None else imports
+        )
+      stmts += ['expression = ' + string]
+      string = '\n'.join(stmts)
+      icur = importer.str2icurry(string, currypath)
       module = self.import_(icur)
       del self.modules[icur.name]
       expr = self.expr(module.expression)

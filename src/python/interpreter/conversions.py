@@ -12,9 +12,10 @@ import numbers
 def expr(interp, arg, *args, **kwds):
   # Special case: if the argument is a single string, interpret it as a Curry
   # expression.  To convert a Python string to a Curry string, put it into a
-  # list or use ``tocurry``.
-  if isinstance(arg, str) and not len(args) and not len(kwds):
-    return interp.compile(arg, mode='expr')
+  # list or use ``tocurry``.  Keyword arguments are forwarded so that the
+  # import list can be specified.
+  if isinstance(arg, str) and not len(args):
+    return interp.compile(arg, mode='expr', **kwds)
   else:
     return _expr(interp, arg, *args, **kwds)
 
