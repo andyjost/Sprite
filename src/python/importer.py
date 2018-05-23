@@ -76,7 +76,6 @@ def findCurryModule(modulename, searchpaths):
       # Check whether the source file is newer than the JSON file.
       if newer(srcfile, tgtfile):
         if srcfile.endswith('.curry') and jsonFilename(srcfile) == tgtfile:
-          print 'd', srcfile
           tgtfile = srcfile
   return os.path.abspath(tgtfile)
 

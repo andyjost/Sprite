@@ -48,7 +48,6 @@ class ParseJSON(cytest.TestCase):
   def testKielExamples(self):
     '''Run example programs from Kiel.'''
     for jsonfile in glob('data/json/kiel-*.json*'):
-      print jsonfile
       try:
         icur = parse(gzip.open(jsonfile, 'rb').read())
         interp = Interpreter()

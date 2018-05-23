@@ -80,7 +80,7 @@ def box(interp, arg):
   if interp.flags['debug']:
     assert isinstance(arg, (str, numbers.Integral, numbers.Real))
     assert not isinstance(arg, str) or len(arg) == 1 # Char, not [Char].
-  return expr(interp, arg)
+  return _expr(interp, arg)
 
 def unbox(interp, arg):
   '''Unbox a built-in primitive.'''
@@ -92,18 +92,18 @@ def unbox(interp, arg):
 @dispatch.on('data')
 def tocurry(interp, data):
   '''Converts Python data or types to Curry by substituting built-in types.'''
-  return expr(interp, data)
+  return _expr(interp, data)
 
 @tocurry.when(list)
 def tocurry(interp, data):
-  # [a,b] -> expr([Cons, tocurry(a), [Cons, tocurry(b), Nil])
+  # [a,b] -> _expr([Cons, tocurry(a), [Cons, tocurry(b), Nil])
   Cons = getattr(interp.prelude, ':')
   Nil = getattr(interp.prelude, '[]')
   sentinel = object()
   seq = iter(data)
   f = lambda x,g: [Cons, tocurry(interp, x), g()] if x is not sentinel else Nil
   g = lambda: f(next(seq, sentinel), g)
-  result = expr(interp, g())
+  result = _expr(interp, g())
   if interp.flags['debug']:
     types = set(x[()].info for x in _iter_(interp, result))
     if len(types) != 1:
@@ -123,7 +123,7 @@ def tocurry(interp, data):
   else:
     typename = '(%s)' % (','*(n-1))
   TupleType = interp.symbol('Prelude.%s' % typename)
-  return expr(interp, [TupleType] + [tocurry(interp, x) for x in data])
+  return _expr(interp, [TupleType] + [tocurry(interp, x) for x in data])
 
 # @tocurry.when(collections.Iterator)
 # def tocurry(interp, data):

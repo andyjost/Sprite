@@ -69,10 +69,6 @@ class Interpreter(object):
     return self
 
   def __init__(self, flags={}):
-    ###### in-dev
-    # breakpoint()
-    # self.import_('Prelude')
-    ######
     self.import_(System)
     self.prelude = self.import_(Prelude)
     # FIXME: the naming is inconsistent.  These are named like typeinfo, but
@@ -81,7 +77,6 @@ class Interpreter(object):
     self.ti_Choice = self.symbol('_System.Choice').info
     self.ti_Fwd = self.symbol('_System.Fwd').info
     self.ti_PartApplic = self.symbol('_System.PartApplic') # FIXME: inconsistent
-    self.ti_Unit = self.symbol('Prelude.()').info
     # The function used to take steps.  The flags (e.g., 'trace') can influence
     # this.
     self.step = runtime.get_stepper(self)
@@ -242,6 +237,7 @@ class Interpreter(object):
       del self.modules[icur.name]
       return module
     elif mode == 'expr':
+      # FIXME
       lines = ['import ' + s for s in self.modules.keys() if s != '_System']
       lines += ['expression = ' + string]
       string = '\n'.join(lines)
