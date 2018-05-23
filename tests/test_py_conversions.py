@@ -21,28 +21,28 @@ class TestPyConversions(cytest.TestCase):
 
     # Int.
     one = interp.expr(1)
-    self.assertEqual(repr(one), '<Int [1]>')
+    self.assertEqual(repr(one), '<Int 1>')
     self.assertEqual(str(one), '1')
 
     # Float.
     pi = interp.expr(3.14)
-    self.assertEqual(repr(pi), '<Float [3.14]>')
+    self.assertEqual(repr(pi), '<Float 3.14>')
     self.assertEqual(str(pi), '3.14')
 
     # Node.
     example = interp.import_(self.EXAMPLE)[0]
     A = interp.expr(example.A)
-    self.assertEqual(repr(A), '<A []>')
+    self.assertEqual(repr(A), '<A >')
     self.assertEqual(str(A), 'A')
 
     # Nodes with nonzero arity.
     mylist = interp.import_(self.MYLIST)
     nil = interp.expr(mylist.Nil)
-    self.assertEqual(repr(nil), '<Nil []>')
+    self.assertEqual(repr(nil), '<Nil >')
     self.assertEqual(str(nil), '[]')
     #
     cons = interp.expr(mylist.Cons, 1, mylist.Nil)
-    self.assertEqual(repr(cons), '<Cons [<Int [1]>, <Nil []>]>')
+    self.assertEqual(repr(cons), '<Cons <Int 1> <Nil >>')
     self.assertEqual(str(cons), '[1]')
     #
     cons = interp.expr(mylist.Cons, 0, cons)
@@ -80,7 +80,8 @@ class TestPyConversions(cytest.TestCase):
     self.assertNotEqual(x, 1.2)
     self.assertEqual(interp.topython(x), 1.2)
     # Char
-    x = interp.expr('a')
+    # The extra list avoids interpreting the string as Curry code.
+    x = interp.expr(['a'])
     self.assertNotEqual(x, 'a')
     self.assertEqual(interp.topython(x), 'a')
     # List

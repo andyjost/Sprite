@@ -185,7 +185,6 @@ class Evaluator(object):
     self = object.__new__(cls)
     self.interpreter = interpreter
     self.queue = [goal]
-    self.goal = weakref.ref(goal)
     return self
 
   def eval(self):
@@ -208,10 +207,6 @@ class Evaluator(object):
           self.queue.append(expr)
         else:
           yield expr[()]
-    # Destroy whatever remains of the goal.
-    goal = self.goal()
-    if goal:
-      goal.rewrite(self.interpreter.ti_Unit)
 
 def get_stepper(interpreter):
   '''
