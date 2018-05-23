@@ -168,7 +168,7 @@ class Node(object):
     return self.info.show(self)
 
   def __repr__(self):
-    return '<%s %s>' % (self.info.name, self.successors)
+    return '<%s %s>' % (self.info.name, ' '.join(map(repr, self.successors)))
 
   # An alias for ``Node.rewrite``.  This gives a consistent syntax for node
   # creation and rewriting.  For example, ``node(*args)`` creates a node and
