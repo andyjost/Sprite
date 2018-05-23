@@ -111,3 +111,7 @@ NEXT:
 - I need to clean up the typeinfo stuff.  The naming is not consistent.  In
   Interpreter there are things like ti_Failure, but it refers not to the typeinfo, but to the info table.
 
+5/22/2018
+
+- Working on docs and minor fixes that I come across in so doing.
+
