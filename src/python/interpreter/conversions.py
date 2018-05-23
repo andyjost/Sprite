@@ -9,8 +9,17 @@ from ..visitation import dispatch
 import collections
 import numbers
 
-@dispatch.on('arg')
 def expr(interp, arg, *args, **kwds):
+  # Special case: if the argument is a single string, interpret it as a Curry
+  # expression.  To convert a Python string to a Curry string, put it into a
+  # list or use ``tocurry``.
+  if isinstance(arg, str) and not len(args) and not len(kwds):
+    return interp.compile(arg, mode='expr')
+  else:
+    return _expr(interp, arg, *args, **kwds)
+
+@dispatch.on('arg')
+def _expr(interp, arg, *args, **kwds):
   '''
   Builds a Curry expression from Python.  The keyword 'target' specifies a
   target node.  If one is supplied, the result will be placed there.
@@ -19,8 +28,8 @@ def expr(interp, arg, *args, **kwds):
       'cannot build a Curry expression from type "%s"' % type(arg).__name__
     )
 
-@expr.when(str) # Char or [Char].
-def expr(interp, arg, *args, **kwds):
+@_expr.when(str) # Char or [Char].
+def _expr(interp, arg, *args, **kwds):
   if len(arg) == 1:
     args = (str(arg),) + args
     target = kwds.get('target', None)
@@ -28,40 +37,40 @@ def expr(interp, arg, *args, **kwds):
   else:
     raise RuntimeError('multi-char strings not supported yet.')
 
-@expr.when(collections.Sequence, no=str)
-def expr(interp, arg, target=None):
+@_expr.when(collections.Sequence, no=str)
+def _expr(interp, arg, target=None):
   # Supports nested structures, e.g., Cons 0 [Cons 1 Nil].
-  return expr(interp, *arg, target=target)
+  return _expr(interp, *arg, target=target)
 
-@expr.when(bool)
-def expr(interp, arg, **kwds):
+@_expr.when(bool)
+def _expr(interp, arg, **kwds):
   target = kwds.get('target', None)
   if arg:
     return interp.prelude.True.construct(target=target)
   else:
     return interp.prelude.False.construct(target=target)
 
-@expr.when(numbers.Integral)
-def expr(interp, arg, target=None):
+@_expr.when(numbers.Integral)
+def _expr(interp, arg, target=None):
   return interp.prelude.Int.construct(int(arg), target=target)
 
-@expr.when(numbers.Real)
-def expr(interp, arg, target=None):
+@_expr.when(numbers.Real)
+def _expr(interp, arg, target=None):
   return interp.prelude.Float.construct(float(arg), target=target)
 
-@expr.when(runtime.TypeInfo)
-def expr(interp, ti, *args, **kwds):
+@_expr.when(runtime.TypeInfo)
+def _expr(interp, ti, *args, **kwds):
   target = kwds.get('target', None)
   missing =  ti.info.arity - len(args)
   if missing > 0:
-    expr = ti.curry(*map(interp.expr, args))
+    expr = ti.curry(*map(lambda s: _expr(interp, s), args))
     # note: "missing" is deliberately an unboxed int.
     return interp.ti_PartApplic.construct(missing, expr, target=target)
   else:
-    return ti.construct(*map(interp.expr, args), target=target)
+    return ti.construct(*map(lambda s: _expr(interp, s), args), target=target)
 
-@expr.when(runtime.Node)
-def expr(interp, node, target=None):
+@_expr.when(runtime.Node)
+def _expr(interp, node, target=None):
   if target is not None:
     target.rewrite(interp.ti_Fwd, node)
   return node

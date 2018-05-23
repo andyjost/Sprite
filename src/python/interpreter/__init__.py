@@ -236,10 +236,23 @@ class Interpreter(object):
   # Compiling.
   # ==========
   def compile(self, string, mode='module'):
-    icur = importer.str2icurry(string)
-    module = self.import_(icur)
-    del self.modules[icur.name]
-    return module
+    if mode == 'module':
+      icur = importer.str2icurry(string)
+      module = self.import_(icur)
+      del self.modules[icur.name]
+      return module
+    elif mode == 'expr':
+      lines = ['import ' + s for s in self.modules.keys() if s != '_System']
+      lines += ['expression = ' + string]
+      string = '\n'.join(lines)
+      icur = importer.str2icurry(string)
+      module = self.import_(icur)
+      del self.modules[icur.name]
+      expr = self.expr(module.expression)
+      self.step(expr)
+      return expr
+    else:
+      raise TypeError('expected mode "module" or "expr"')
 
   # Evaluating.
   # ===========
