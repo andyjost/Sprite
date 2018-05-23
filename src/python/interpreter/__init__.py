@@ -157,14 +157,19 @@ class Interpreter(object):
       , icons.arity
       , T_CTOR + icons.index if not builtin else icons.metadata['py.tag']
       , _no_step if not builtin else _unreachable
-      , Show(getattr(icons.metadata, 'py.format', None))
+      , Show(
+            # Note: this is called once when loading _System, i.e., before
+            # ti_Fwd exists.
+            getattr(self, 'ti_Fwd', None)
+          , getattr(icons.metadata, 'py.format', None)
+          )
       )
     setattr(moduleobj, icons.ident.basename, runtime.TypeInfo(icons.ident, info))
 
   @_loadsymbols.when(IFunction)
   def _loadsymbols(self, ifun, moduleobj):
     info = InfoTable(
-        ifun.ident.basename, ifun.arity, T_FUNC, None, Show()
+        ifun.ident.basename, ifun.arity, T_FUNC, None, Show(getattr(self, 'ti_Fwd', None))
       )
     setattr(moduleobj, ifun.ident.basename, runtime.TypeInfo(ifun.ident, info))
 
