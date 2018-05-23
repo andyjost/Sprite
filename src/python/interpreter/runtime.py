@@ -3,6 +3,7 @@ from ..visitation import dispatch
 import textwrap
 from collections import Sequence
 from numbers import Integral
+import weakref
 
 T_FAIL   = -4
 T_FWD    = -3
@@ -167,7 +168,7 @@ class Node(object):
     return self.info.show(self)
 
   def __repr__(self):
-    return '<%s %s>' % (self.info.name, self.successors)
+    return '<%s %s>' % (self.info.name, ' '.join(map(repr, self.successors)))
 
   # An alias for ``Node.rewrite``.  This gives a consistent syntax for node
   # creation and rewriting.  For example, ``node(*args)`` creates a node and
@@ -184,6 +185,7 @@ class Evaluator(object):
     self = object.__new__(cls)
     self.interpreter = interpreter
     self.queue = [goal]
+    self.goal = weakref.ref(goal)
     return self
 
   def eval(self):
@@ -206,6 +208,10 @@ class Evaluator(object):
           self.queue.append(expr)
         else:
           yield expr[()]
+    # Destroy whatever remains of the goal.
+    goal = self.goal()
+    if goal:
+      goal.rewrite(self.interpreter.ti_Unit)
 
 def get_stepper(interpreter):
   '''

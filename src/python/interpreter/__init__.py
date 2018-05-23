@@ -81,6 +81,7 @@ class Interpreter(object):
     self.ti_Choice = self.symbol('_System.Choice').info
     self.ti_Fwd = self.symbol('_System.Fwd').info
     self.ti_PartApplic = self.symbol('_System.PartApplic') # FIXME: inconsistent
+    self.ti_Unit = self.symbol('Prelude.()').info
     # The function used to take steps.  The flags (e.g., 'trace') can influence
     # this.
     self.step = runtime.get_stepper(self)
