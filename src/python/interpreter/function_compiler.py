@@ -6,7 +6,6 @@ from . import runtime
 import collections
 import itertools
 import logging
-import metadata
 import re
 
 logger = logging.getLogger(__name__)
