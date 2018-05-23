@@ -1,12 +1,12 @@
-=============================
-Using Sprite Interactive Mode
-=============================
+============================
+Using Sprite Python Bindings
+============================
 
-This introduction shows how to use Sprite to interact with Curry via Python.
-It assumes familiarity with Curry.
+This introduction shows how to interact with the Sprite Curry system via its
+Python interface.  It assumes familiarity with Curry.
 
-To get started, invoke the Python executable found at $PREFIX/bin/python.  It
-automatically sets up the PYTHONPATH environment variable so that Sprite is
+To get started, invoke the Python executable found at $PREFIX/bin/python.  This
+will automatically set up the PYTHONPATH environment variable, making Sprite
 available.
 
 The Sprite Curry system is in the ``curry`` module.
@@ -17,9 +17,8 @@ The Sprite Curry system is in the ``curry`` module.
 Using Modules
 =============
 
-Sprite lets you interact with Curry modules.  Modules can be loaded from files
-or defined dynamically.  This section describes how to work with modules in the
-Curry interactive mode.
+Curry modules can be loaded from files or defined dynamically.  This section
+describes how to work with modules in Sprite.
 
 
 Loading Curry modules
@@ -30,20 +29,21 @@ Curry source files should be imported from ``curry.lib``.
 
     >>> from curry.lib import Peano
 
-The search path for Curry code is given by ``curry.path``.  This list can be
-modified to update the search paths dynamically.
+This searches for a file named "Peano.curry" in the paths specified in
+``curry.path``.  That list can be modified to update the search paths
+dynamically.
 
     >>> curry.path[:] = ['.']
 
 (Be sure to update this list rather than rebind the variable.  So, assign to a
 slice, as shown above, or use methods like ``list.insert`` and ``list.pop``.)
 
-The default ``curry.path`` comes from the CURRYPATH environment
-variable.  It is a colon-separated list of paths.
+The default value of ``curry.path`` comes from the CURRYPATH environment
+variable.  Paths are therein provided as a colon-separated list.
 
-A module can also be specified as a string.  Compiling a string with
-``curry.compile`` has the same effect as importing its definitions from a Curry
-source file.
+Modules can also be defined dynamically by passing a string to
+``curry.compile``.  This has the same effect as importing a Curry source file
+with the same content.
 
     >>> Fib = curry.compile(
     ...   '''
@@ -66,9 +66,9 @@ attributes.
     >>> Fib.fib
     <curry function '_interactive_.fib'>
 
-To evaluate anything, one must first build a goal expression.  This is done
-with the help of ``curry.expr``.  There are two ways to use this function.  The first
-is to pass a string into ``curry.expr``.
+To evaluate Curry code, it is necessary to first build a goal.  The function
+``curry.expr`` builds Curry expressions.  There are two ways to use it: the
+first is to pass a string containing Curry code.
 
     >>> goal = curry.expr('add (S (S O)) (S O)')
     >>> print goal
