@@ -45,7 +45,7 @@ fi
 # ------------------------------------------------------------------
 # create C++
 
-CURRYPATH=$PAKCSHOME/lib:$BASEDIR/icurry:$BASEDIR/poly:$BASEDIR/backtrack:$BASEDIR/format:$BASEDIR/flat
+CURRYPATH=$CURRYPATH:$PAKCSHOME/lib:$BASEDIR/icurry:$BASEDIR/poly:$BASEDIR/backtrack:$BASEDIR/format:$BASEDIR/flat
 
 export CURRYPATH
 [ -n "$QUIET" ] || echo `basename $0`: CURRYPATH $CURRYPATH    

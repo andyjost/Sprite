@@ -36,7 +36,7 @@ fi
 # Next path is required to compile Examples/RegExp.curry
 # CURRYPATH=$(dirname $1):$BASEDIR/icurry:$BASEDIR/json
 # Next path is required to compile the Prelude
-CURRYPATH=$PAKCSHOME/lib:$PAKCSHOME/lib/meta:$BASEDIR/icurry:$BASEDIR/json
+CURRYPATH=$CURRYPATH:$PAKCSHOME/lib:$PAKCSHOME/lib/meta:$BASEDIR/icurry:$BASEDIR/json
 export CURRYPATH
 
 TARGET=$(dirname $1)/.curry/$(basename $1 ".curry")
