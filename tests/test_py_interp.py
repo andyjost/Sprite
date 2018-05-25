@@ -3,7 +3,7 @@ import cytest # from ./lib; must be first
 import curry
 from curry.icurry import *
 from curry import importer
-from curry.interpreter import Interpreter, Prelude, SymbolLookupError, System
+from curry.interpreter import Interpreter, Prelude, System
 from curry.interpreter import runtime
 from curry.visitation import dispatch
 from cytest import bootstrap
@@ -11,6 +11,8 @@ from glob import glob
 import os
 import shutil
 import unittest
+
+from curry.interpreter import ModuleLookupError, SymbolLookupError, TypeLookupError
 
 class TestPyInterp(cytest.TestCase):
   '''Tests for the pure-Python Curry interpreter.'''
@@ -35,13 +37,13 @@ class TestPyInterp(cytest.TestCase):
     self.assertEqual(set(interp.modules.keys()), set(['example', 'Prelude', '_System']))
     self.assertEqual(len(imported), 1)
     example = imported[0]
-    self.assertFalse(set('A B f f_case_#1 g main'.split()) - set(dir(example)))
+    self.assertFalse(set('A B f g main'.split()) - set(dir(example)))
     self.assertIs(interp.modules['example'], example)
 
     # Symbol lookup.
     self.assertIs(interp.symbol('Prelude.Int'), interp.modules['Prelude'].Int)
     self.assertRaisesRegexp(
-        SymbolLookupError, r'module "blah" not found'
+        ModuleLookupError, r'module "blah" not found'
       , lambda: interp.symbol('blah.x')
       )
     self.assertRaisesRegexp(
@@ -52,11 +54,11 @@ class TestPyInterp(cytest.TestCase):
     # Type lookup.
     self.assertEqual(interp.type('Prelude.Int'), [interp.symbol('Prelude.Int')])
     self.assertRaisesRegexp(
-        SymbolLookupError, r'module "blah" not found'
+        ModuleLookupError, r'module "blah" not found'
       , lambda: interp.type('blah.x')
       )
     self.assertRaisesRegexp(
-        SymbolLookupError, r'module "Prelude" has no type "foo"'
+        TypeLookupError, r'module "Prelude" has no type "foo"'
       , lambda: interp.type('Prelude.foo')
       )
 

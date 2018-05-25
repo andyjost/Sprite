@@ -40,3 +40,9 @@ class TestPyCompile(cytest.TestCase):
     self.assertEqual(next(curry.eval(e)), 0)
     e = curry.compile('Or.or 0 1', mode='expr')
     self.assertEqual(next(curry.eval(e)), 1)
+
+    # Check that ICurry-generated symbols are hidden.  There are multiple
+    # symbols in .symbols, but only one at the top of the module.
+    self.assertGreater(len(getattr(Or, '.symbols')), 1)
+    is_public = lambda k: not (k.startswith('_') or k.startswith('.'))
+    self.assertEqual(len([k for k in Or.__dict__ if is_public(k)]), 1)

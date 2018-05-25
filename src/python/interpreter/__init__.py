@@ -2,10 +2,11 @@
 A pure-Python Curry interpreter.
 '''
 
-from . import function_compiler
-from . import conversions
 from ..icurry import *
+from . import conversions
+from . import function_compiler
 from .. import importer
+from . import symbols
 from .prelude import Prelude, System
 from .runtime import InfoTable, Node, T_FAIL, T_FUNC, T_CHOICE, T_CTOR
 from .show import Show
@@ -30,13 +31,22 @@ logging.basicConfig(
   , datefmt='%m/%d/%Y %H:%M:%S'
   )
 
-class SymbolLookupError(AttributeError):
-  '''Raised when a Curry symbol is not found.'''
-
 class CurryModule(types.ModuleType):
+  def __init__(self, *args, **kwds):
+    super(CurryModule, self).__init__(*args, **kwds)
+    setattr(self, '.symbols', {})
+    setattr(self, '.types', {})
   def __repr__(self):
     return "<curry module '%s'>" % self.__name__
   __str__ = __repr__
+
+SymbolLookupError = symbols.SymbolLookupError
+
+class ModuleLookupError(AttributeError):
+  '''Raised when a Curry module is not found.'''
+
+class TypeLookupError(AttributeError):
+  '''Raised when a Curry type is not found.'''
 
 # Inpterpretation.
 # ================
@@ -104,7 +114,6 @@ class Interpreter(object):
   def import_(self, imodule, currypath=None):
     if imodule.name not in self.modules:
       moduleobj = CurryModule(imodule.name)
-      setattr(moduleobj, '.types', {})
       self.modules[imodule.name] = moduleobj
       self._loadsymbols(imodule, moduleobj)
       self._compile(imodule, moduleobj)
@@ -161,14 +170,19 @@ class Interpreter(object):
           , getattr(icons.metadata, 'py.format', None)
           )
       )
-    setattr(moduleobj, icons.ident.basename, runtime.TypeInfo(icons.ident, info))
+    symbols.insert(
+        moduleobj, icons.ident.basename, runtime.TypeInfo(icons.ident, info)
+      )
 
   @_loadsymbols.when(IFunction)
   def _loadsymbols(self, ifun, moduleobj):
     info = InfoTable(
-        ifun.ident.basename, ifun.arity, T_FUNC, None, Show(getattr(self, 'ti_Fwd', None))
+        ifun.ident.basename
+      , ifun.arity, T_FUNC, None, Show(getattr(self, 'ti_Fwd', None))
       )
-    setattr(moduleobj, ifun.ident.basename, runtime.TypeInfo(ifun.ident, info))
+    symbols.insert(
+        moduleobj, ifun.ident.basename, runtime.TypeInfo(ifun.ident, info)
+      )
 
   # Compiling.
   # ==========
@@ -188,7 +202,7 @@ class Interpreter(object):
 
   @_compile.when(IFunction)
   def _compile(self, ifun, moduleobj):
-    info = getattr(moduleobj, ifun.ident.basename).info
+    info = symbols.lookupSymbol(moduleobj, ifun.ident).info
     info.step = function_compiler.compile_function(self, ifun)
 
   # Conversions.
@@ -206,26 +220,20 @@ class Interpreter(object):
     try:
       return self.modules[iname.module]
     except KeyError:
-      raise SymbolLookupError('module "%s" not found' % iname.module)
+      raise ModuleLookupError('module "%s" not found' % iname.module)
 
   def symbol(self, name):
-    module = self.module(name)
-    iname = IName(name)
-    try:
-      return getattr(module, iname.basename)
-    except AttributeError:
-      raise SymbolLookupError(
-          'module "%s" has no symbol "%s"' % (iname.module, iname.basename)
-        )
+    return symbols.lookupSymbol(self.module(name), IName(name))
 
   def type(self, name):
     '''Returns the constructor info tables for the named type.'''
     module = self.module(name)
     iname = IName(name)
+    types = getattr(module, '.types')
     try:
-      return getattr(module, '.types')[iname.basename]
+      return types[iname.basename]
     except KeyError:
-      raise SymbolLookupError(
+      raise TypeLookupError(
           'module "%s" has no type "%s"' % (iname.module, iname.basename)
         )
 

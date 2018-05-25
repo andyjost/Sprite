@@ -124,3 +124,16 @@ NEXT:
 TODO:
   - Test the changes to Interpreter.import.  It now accepts a currypath argument.
 
+5/24/2018
+
+- I checked in some changes to CMC to append to rather than overwrite CURRYPATH.
+
+- The import system needs further modifications.  Chapter 6 of the Curry report
+  describes the import features.  I need to support symbol hiding, for one
+  thing.  Also, symbols added by CMC appear in the main module.  Once symbols
+  can be hidden, it would be nice to hide those as well.
+
+5/25/2018
+
+- I implemented what symbol-hiding I could without ICurry indicating which
+  symbols are private.

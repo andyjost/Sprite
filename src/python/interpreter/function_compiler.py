@@ -1,12 +1,10 @@
 from .. import icurry
 from .. import importer
-from ..visitation import dispatch
-# from . import analysis
 from . import runtime
+from . import symbols
+from ..visitation import dispatch
 import collections
-import itertools
 import logging
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -326,64 +324,6 @@ class Closure(object):
     self.interpreter = interpreter
     self.context = {}
 
-  PATTERN = re.compile('[^0-9a-zA-Z_ ]') # Identifier characters.
-  TR = {
-      '&' : '_amp_'
-    , '@' : '_at_'
-    , '!' : '_bang_'
-    , '`' : '_bt_'
-    , '^' : '_car_'
-    , ':' : '_col_'
-    , ',' : '_com_'
-    , '$' : '_dolr_'
-    , '.' : '_dot_'
-    , '"' : '_dq_'
-    , '=' : '_eq_'
-    , '\\ ': '_esc_'
-    , '>' : '_gt_'
-    , '{' : '_lbc_'
-    , '[' : '_lbk_'
-    , '(' : '_lp_'
-    , '<' : '_lt_'
-    , '-' : '_neg_'
-    , '#' : '_hsh_'
-    , '%' : '_pct_'
-    , '|' : '_pipe_'
-    , '+' : '_pos_'
-    , '?' : '_q_'
-    , '}' : '_rbc_'
-    , ']' : '_rbk_'
-    , ')' : '_rp_'
-    , ';' : '_semi_'
-    , '/' : '_sep_'
-    , '\'': '_sq_'
-    , '*' : '_star_'
-    , '~' : '_til_'
-    }
-
-  def clean(self, s):
-    # Clean up a string by encoding or removing non-alphanumeric characters.
-    a = ''.join(self.TR.get(ch, ch) for ch in s)
-    return str(re.sub(self.PATTERN, '', a))
-
-  def encode(self, iname):
-    # First, try just the basename.
-    a = self.clean(iname.basename)
-    k = 'ti_%s' % a
-    if k in self.context:
-      # If it conflicts, try prepending the module name.
-      k = 'ti_%s_%s' % (self.clean(iname.module), a)
-      if k in self.context:
-        # Finally, append a number.
-        k_ = k
-        i = itertools.count()
-        while k_ in self.context:
-          k_ = '%s_%d' % (k, next(i))
-        k = k_
-    assert k not in self.context
-    assert k.startswith('ti_')
-    return k
-
   @dispatch.on('key')
   def __getitem__(self, key):
     '''Look up the given symbol.  Returns a variable name in the context.'''
@@ -397,7 +337,7 @@ class Closure(object):
       if v is symbol:
         return k
     else:
-      k = self.encode(iname)
+      k = symbols.encode(iname, self.context)
       self.context[k] = symbol
       return k
 
