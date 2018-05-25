@@ -4,8 +4,9 @@
 module TypeTable where
 
 import FlatCurry.Types
+import List
 
-execute modules = concatMap get_type_list modules
+execute modules = nub (concatMap get_type_list modules)
 
 -- ignore type synonyms
 get_type_list (Prog _ _ type_list _ _)

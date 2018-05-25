@@ -74,10 +74,7 @@ fi
 
 if [ -f $TARGET.json -a $TARGET.json -nt $TARGET.icur ]
 then
-    if [ -z "$QUIET" ]
-    then
-        echo \"json\" up to date
-    fi
+    [ -n "$QUIET" ] || echo \"json\" up to date
 else
     rm -f $FILE.json
     command="pakcs $QUIET :set args $TARGET :load $BASEDIR/json/Main.curry :eval Main.main :quit"
@@ -90,13 +87,9 @@ else
         $command
     fi
     
-    if [ -f $TARGET.json ]
+    if [ ! -f $TARGET.json ]
     then
-        if [ -z "$QUIET" ]
-        then
-            echo \"$FILE.json\" created
-        fi
-        cat $TARGET.json
+	echo failed to create \"$FILE.json\"
     fi
 fi
 

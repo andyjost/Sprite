@@ -55,7 +55,6 @@ namespace _Prelude {
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_2))->arg2;
       return new ::_Prelude::_apply(::_Prelude::_apply::make(mvar_1, mvar_3), mvar_4);
-    return *(mvar_2);
   }
 
   Node* _flip::hfun() { // flip
@@ -69,14 +68,14 @@ namespace _Prelude {
     Node** mvar_1 = arg1;
     Node** mvar_2 = arg2;
     Node** mvar_3 = arg3;
-    return new ::_Prelude::_until_case__0x231(::_Prelude::_apply::make(mvar_1, mvar_3), mvar_1, mvar_3, mvar_2);
+    return new ::_Prelude::_until__0x23B0(::_Prelude::_apply::make(mvar_1, mvar_3), mvar_1, mvar_2, mvar_3);
   }
 
-  Node* _until_case__0x231::hfun() { // until_case_#1
+  Node* _until__0x23B0::hfun() { // until_#B0
     Node** mvar_4 = arg1;
     Node** mvar_1 = arg2;
-    Node** mvar_3 = arg3;
-    Node** mvar_2 = arg4;
+    Node** mvar_2 = arg3;
+    Node** mvar_3 = arg4;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&_False_1, &&_True_1};
       goto *table_1[(*mvar_4)->get_kind()];
@@ -94,7 +93,6 @@ namespace _Prelude {
       return new ::_Prelude::_until(mvar_1, mvar_2, ::_Prelude::_apply::make(mvar_2, mvar_3));
     _True_1: // "True"
       return *(mvar_3);
-    return *(mvar_4);
   }
 
   Node* _seq::hfun() { // seq
@@ -131,7 +129,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
       return new ::_Prelude::__0x3A(mvar_2, ::_Prelude::_ensureSpine::make(mvar_3));
-    return *(mvar_1);
   }
 
   Node* __0x24::hfun() { // $
@@ -181,7 +178,6 @@ namespace _Prelude {
       return new ::_Prelude::_False();
     _True_1: // "True"
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   Node* __0x7C_0x7C::hfun() { // ||
@@ -204,7 +200,6 @@ namespace _Prelude {
       return *(mvar_2);
     _True_1: // "True"
       return new ::_Prelude::_True();
-    return *(mvar_1);
   }
 
   Node* _not::hfun() { // not
@@ -226,7 +221,6 @@ namespace _Prelude {
       return new ::_Prelude::_True();
     _True_1: // "True"
       return new ::_Prelude::_False();
-    return *(mvar_1);
   }
 
   Node* _otherwise::hfun() { // otherwise
@@ -254,7 +248,6 @@ namespace _Prelude {
       return *(mvar_3);
     _True_1: // "True"
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   Node* _solve::hfun() { // solve
@@ -276,7 +269,6 @@ namespace _Prelude {
       return DO_FAIL;
     _True_1: // "True"
       return new ::_Prelude::_True();
-    return *(mvar_1);
   }
 
   Node* __0x26_0x3E::hfun() { // &>
@@ -299,7 +291,6 @@ namespace _Prelude {
       return DO_FAIL;
     _True_1: // "True"
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   // external Node* __0x3D_0x3D::hfun() { throw "External \"Prelude.==\" not implemented"; }
@@ -322,22 +313,19 @@ namespace _Prelude {
     // [(3,[])]
     Node** mvar_3;
     mvar_3 = ::_Prelude::_False::make();
-    return new ::_Prelude::__0x3C_case__0x231(mvar_1, mvar_2, mvar_3);
-    return new ::_Prelude::__0x3C_case__0x231(mvar_1, mvar_2, mvar_3);
+    return new ::_Prelude::__0x3C__0x23A0(mvar_1, mvar_2, mvar_3);
   }
 
-  Node* __0x3C_case__0x231::hfun() { // <_case_#1
+  Node* __0x3C__0x23A0::hfun() { // <_#A0
     Node** mvar_1 = arg1;
     Node** mvar_2 = arg2;
     Node** mvar_3 = arg3;
-    return new ::_Prelude::__0x3C_case__0x231_case__0x231(::_Prelude::_compare::make(mvar_1, mvar_2), mvar_1, mvar_2, mvar_3);
+    return new ::_Prelude::__0x3C__0x23A0__0x23B2(::_Prelude::_compare::make(mvar_1, mvar_2), mvar_3);
   }
 
-  Node* __0x3C_case__0x231_case__0x231::hfun() { // <_case_#1_case_#1
+  Node* __0x3C__0x23A0__0x23B2::hfun() { // <_#A0_#B2
     Node** mvar_4 = arg1;
-    Node** mvar_1 = arg2;
-    Node** mvar_2 = arg3;
-    Node** mvar_3 = arg4;
+    Node** mvar_3 = arg2;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&_LT_1, &&_EQ_1, &&_GT_1};
       goto *table_1[(*mvar_4)->get_kind()];
@@ -357,7 +345,6 @@ namespace _Prelude {
       return *(mvar_3);
     _GT_1: // "GT"
       return *(mvar_3);
-    return *(mvar_4);
   }
 
   Node* __0x3E::hfun() { // >
@@ -366,22 +353,19 @@ namespace _Prelude {
     // [(3,[])]
     Node** mvar_3;
     mvar_3 = ::_Prelude::_False::make();
-    return new ::_Prelude::__0x3E_case__0x231(mvar_1, mvar_2, mvar_3);
-    return new ::_Prelude::__0x3E_case__0x231(mvar_1, mvar_2, mvar_3);
+    return new ::_Prelude::__0x3E__0x23A1(mvar_1, mvar_2, mvar_3);
   }
 
-  Node* __0x3E_case__0x231::hfun() { // >_case_#1
+  Node* __0x3E__0x23A1::hfun() { // >_#A1
     Node** mvar_1 = arg1;
     Node** mvar_2 = arg2;
     Node** mvar_3 = arg3;
-    return new ::_Prelude::__0x3E_case__0x231_case__0x231(::_Prelude::_compare::make(mvar_1, mvar_2), mvar_1, mvar_2, mvar_3);
+    return new ::_Prelude::__0x3E__0x23A1__0x23B4(::_Prelude::_compare::make(mvar_1, mvar_2), mvar_3);
   }
 
-  Node* __0x3E_case__0x231_case__0x231::hfun() { // >_case_#1_case_#1
+  Node* __0x3E__0x23A1__0x23B4::hfun() { // >_#A1_#B4
     Node** mvar_4 = arg1;
-    Node** mvar_1 = arg2;
-    Node** mvar_2 = arg3;
-    Node** mvar_3 = arg4;
+    Node** mvar_3 = arg2;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&_LT_1, &&_EQ_1, &&_GT_1};
       goto *table_1[(*mvar_4)->get_kind()];
@@ -401,7 +385,6 @@ namespace _Prelude {
       return *(mvar_3);
     _GT_1: // "GT"
       return new ::_Prelude::_True();
-    return *(mvar_4);
   }
 
   Node* __0x3C_0x3D::hfun() { // <=
@@ -419,10 +402,10 @@ namespace _Prelude {
   Node* _max::hfun() { // max
     Node** mvar_1 = arg1;
     Node** mvar_2 = arg2;
-    return new ::_Prelude::_max_case__0x231(::_Prelude::__0x3E_0x3D::make(mvar_1, mvar_2), mvar_1, mvar_2);
+    return new ::_Prelude::_max__0x23B6(::_Prelude::__0x3E_0x3D::make(mvar_1, mvar_2), mvar_1, mvar_2);
   }
 
-  Node* _max_case__0x231::hfun() { // max_case_#1
+  Node* _max__0x23B6::hfun() { // max_#B6
     Node** mvar_3 = arg1;
     Node** mvar_1 = arg2;
     Node** mvar_2 = arg3;
@@ -443,16 +426,15 @@ namespace _Prelude {
       return *(mvar_2);
     _True_1: // "True"
       return *(mvar_1);
-    return *(mvar_3);
   }
 
   Node* _min::hfun() { // min
     Node** mvar_1 = arg1;
     Node** mvar_2 = arg2;
-    return new ::_Prelude::_min_case__0x231(::_Prelude::__0x3C_0x3D::make(mvar_1, mvar_2), mvar_1, mvar_2);
+    return new ::_Prelude::_min__0x23B8(::_Prelude::__0x3C_0x3D::make(mvar_1, mvar_2), mvar_1, mvar_2);
   }
 
-  Node* _min_case__0x231::hfun() { // min_case_#1
+  Node* _min__0x23B8::hfun() { // min_#B8
     Node** mvar_3 = arg1;
     Node** mvar_1 = arg2;
     Node** mvar_2 = arg3;
@@ -473,7 +455,6 @@ namespace _Prelude {
       return *(mvar_2);
     _True_1: // "True"
       return *(mvar_1);
-    return *(mvar_3);
   }
 
   Node* _fst::hfun() { // fst
@@ -495,7 +476,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   Node* _snd::hfun() { // snd
@@ -517,7 +497,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_3);
-    return *(mvar_1);
   }
 
   Node* _head::hfun() { // head
@@ -541,7 +520,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   Node* _tail::hfun() { // tail
@@ -565,7 +543,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
       return *(mvar_3);
-    return *(mvar_1);
   }
 
   Node* _null::hfun() { // null
@@ -589,7 +566,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
       return new ::_Prelude::_False();
-    return *(mvar_1);
   }
 
   Node* __0x2B_0x2B::hfun() { // ++
@@ -614,7 +590,6 @@ namespace _Prelude {
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
       return new ::_Prelude::__0x3A(mvar_3, ::_Prelude::__0x2B_0x2B::make(mvar_4, mvar_2));
-    return *(mvar_1);
   }
 
   Node* _length::hfun() { // length
@@ -638,7 +613,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
       return new ::_Prelude::__0x2B(_Prelude::Litint::make(1), ::_Prelude::_length::make(mvar_3));
-    return *(mvar_1);
   }
 
   Node* __0x21_0x21::hfun() { // !!
@@ -662,18 +636,17 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
-      return new ::_Prelude::__0x21_0x21_case__0x231(mvar_2, mvar_3, mvar_4);
-    return *(mvar_1);
+      return new ::_Prelude::__0x21_0x21__0x23A3(mvar_2, mvar_3, mvar_4);
   }
 
-  Node* __0x21_0x21_case__0x231::hfun() { // !!_case_#1
+  Node* __0x21_0x21__0x23A3::hfun() { // !!_#A3
     Node** mvar_2 = arg1;
     Node** mvar_3 = arg2;
     Node** mvar_4 = arg3;
-    return new ::_Prelude::__0x21_0x21_case__0x231_case__0x232(::_Prelude::__0x3D_0x3D::make(mvar_2, _Prelude::Litint::make(0)), mvar_2, mvar_3, mvar_4);
+    return new ::_Prelude::__0x21_0x21__0x23A3__0x23B10(::_Prelude::__0x3D_0x3D::make(mvar_2, _Prelude::Litint::make(0)), mvar_2, mvar_3, mvar_4);
   }
 
-  Node* __0x21_0x21_case__0x231_case__0x232::hfun() { // !!_case_#1_case_#2
+  Node* __0x21_0x21__0x23A3__0x23B10::hfun() { // !!_#A3_#B10
     Node** mvar_5 = arg1;
     Node** mvar_2 = arg2;
     Node** mvar_3 = arg3;
@@ -692,19 +665,18 @@ namespace _Prelude {
       Engine::hfun(mvar_5);
       goto *table_1[(*mvar_5)->get_kind()];
     _False_1: // "False"
-      return new ::_Prelude::__0x21_0x21_case__0x231_case__0x231(mvar_2, mvar_4);
+      return new ::_Prelude::__0x21_0x21__0x23A2(mvar_2, mvar_4);
     _True_1: // "True"
       return *(mvar_3);
-    return *(mvar_5);
   }
 
-  Node* __0x21_0x21_case__0x231_case__0x231::hfun() { // !!_case_#1_case_#1
+  Node* __0x21_0x21__0x23A2::hfun() { // !!_#A2
     Node** mvar_2 = arg1;
     Node** mvar_4 = arg2;
-    return new ::_Prelude::__0x21_0x21_case__0x231_case__0x231_case__0x231(::_Prelude::__0x3E::make(mvar_2, _Prelude::Litint::make(0)), mvar_2, mvar_4);
+    return new ::_Prelude::__0x21_0x21__0x23A2__0x23B12(::_Prelude::__0x3E::make(mvar_2, _Prelude::Litint::make(0)), mvar_2, mvar_4);
   }
 
-  Node* __0x21_0x21_case__0x231_case__0x231_case__0x231::hfun() { // !!_case_#1_case_#1_case_#1
+  Node* __0x21_0x21__0x23A2__0x23B12::hfun() { // !!_#A2_#B12
     Node** mvar_5 = arg1;
     Node** mvar_2 = arg2;
     Node** mvar_4 = arg3;
@@ -725,7 +697,6 @@ namespace _Prelude {
       return new ::_Prelude::_failed();
     _True_1: // "True"
       return new ::_Prelude::__0x21_0x21(mvar_4, ::_Prelude::__0x2D::make(mvar_2, _Prelude::Litint::make(1)));
-    return *(mvar_5);
   }
 
   Node* _map::hfun() { // map
@@ -750,7 +721,6 @@ namespace _Prelude {
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
       return new ::_Prelude::__0x3A(::_Prelude::_apply::make(mvar_1, mvar_3), ::_Prelude::_map::make(mvar_1, mvar_4));
-    return *(mvar_2);
   }
 
   Node* _foldl::hfun() { // foldl
@@ -776,7 +746,6 @@ namespace _Prelude {
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_3))->arg1;
       Node** mvar_5 = ((::_Prelude::__0x3A*) *(mvar_3))->arg2;
       return new ::_Prelude::_foldl(mvar_1, ::_Prelude::_apply::make(::_Prelude::_apply::make(mvar_1, mvar_2), mvar_4), mvar_5);
-    return *(mvar_3);
   }
 
   Node* _foldl1::hfun() { // foldl1
@@ -801,7 +770,6 @@ namespace _Prelude {
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
       return new ::_Prelude::_foldl(mvar_1, mvar_3, mvar_4);
-    return *(mvar_2);
   }
 
   Node* _foldr::hfun() { // foldr
@@ -827,7 +795,6 @@ namespace _Prelude {
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_3))->arg1;
       Node** mvar_5 = ((::_Prelude::__0x3A*) *(mvar_3))->arg2;
       return new ::_Prelude::_apply(::_Prelude::_apply::make(mvar_1, mvar_4), ::_Prelude::_foldr::make(mvar_1, mvar_2, mvar_5));
-    return *(mvar_3);
   }
 
   Node* _foldr1::hfun() { // foldr1
@@ -851,14 +818,13 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
-      return new ::_Prelude::_foldr1_case__0x231(mvar_4, mvar_3, mvar_1);
-    return *(mvar_2);
+      return new ::_Prelude::_foldr1__0x23A4(mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _foldr1_case__0x231::hfun() { // foldr1_case_#1
-    Node** mvar_4 = arg1;
+  Node* _foldr1__0x23A4::hfun() { // foldr1_#A4
+    Node** mvar_1 = arg1;
     Node** mvar_3 = arg2;
-    Node** mvar_1 = arg3;
+    Node** mvar_4 = arg3;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&__0x5B_0x5D_1, &&__0x3A_1};
       goto *table_1[(*mvar_4)->get_kind()];
@@ -878,7 +844,6 @@ namespace _Prelude {
       Node** mvar_5 = ((::_Prelude::__0x3A*) *(mvar_4))->arg1;
       Node** mvar_6 = ((::_Prelude::__0x3A*) *(mvar_4))->arg2;
       return new ::_Prelude::_apply(::_Prelude::_apply::make(mvar_1, mvar_3), ::_Prelude::_foldr1::make(mvar_1, ::_Prelude::__0x3A::make(mvar_5, mvar_6)));
-    return *(mvar_4);
   }
 
   Node* _filter::hfun() { // filter
@@ -902,18 +867,17 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
-      return new ::_Prelude::_filter_case__0x231(mvar_1, mvar_3, mvar_4);
-    return *(mvar_2);
+      return new ::_Prelude::_filter__0x23A5(mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _filter_case__0x231::hfun() { // filter_case_#1
+  Node* _filter__0x23A5::hfun() { // filter_#A5
     Node** mvar_1 = arg1;
     Node** mvar_3 = arg2;
     Node** mvar_4 = arg3;
-    return new ::_Prelude::_filter_case__0x231_case__0x231(::_Prelude::_apply::make(mvar_1, mvar_3), mvar_1, mvar_3, mvar_4);
+    return new ::_Prelude::_filter__0x23A5__0x23B14(::_Prelude::_apply::make(mvar_1, mvar_3), mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _filter_case__0x231_case__0x231::hfun() { // filter_case_#1_case_#1
+  Node* _filter__0x23A5__0x23B14::hfun() { // filter_#A5_#B14
     Node** mvar_5 = arg1;
     Node** mvar_1 = arg2;
     Node** mvar_3 = arg3;
@@ -935,7 +899,6 @@ namespace _Prelude {
       return new ::_Prelude::_filter(mvar_1, mvar_4);
     _True_1: // "True"
       return new ::_Prelude::__0x3A(mvar_3, ::_Prelude::_filter::make(mvar_1, mvar_4));
-    return *(mvar_5);
   }
 
   Node* _zip::hfun() { // zip
@@ -959,11 +922,10 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
-      return new ::_Prelude::_zip_case__0x231(mvar_2, mvar_3, mvar_4);
-    return *(mvar_1);
+      return new ::_Prelude::_zip__0x23A6(mvar_2, mvar_3, mvar_4);
   }
 
-  Node* _zip_case__0x231::hfun() { // zip_case_#1
+  Node* _zip__0x23A6::hfun() { // zip_#A6
     Node** mvar_2 = arg1;
     Node** mvar_3 = arg2;
     Node** mvar_4 = arg3;
@@ -986,7 +948,6 @@ namespace _Prelude {
       Node** mvar_5 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_6 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
       return new ::_Prelude::__0x3A(::_Prelude::__0x28_0x2C_0x29::make(mvar_3, mvar_5), ::_Prelude::_zip::make(mvar_4, mvar_6));
-    return *(mvar_2);
   }
 
   Node* _zip3::hfun() { // zip3
@@ -1011,11 +972,10 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_5 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
-      return new ::_Prelude::_zip3_case__0x231(mvar_2, mvar_3, mvar_4, mvar_5);
-    return *(mvar_1);
+      return new ::_Prelude::_zip3__0x23A8(mvar_2, mvar_3, mvar_4, mvar_5);
   }
 
-  Node* _zip3_case__0x231::hfun() { // zip3_case_#1
+  Node* _zip3__0x23A8::hfun() { // zip3_#A8
     Node** mvar_2 = arg1;
     Node** mvar_3 = arg2;
     Node** mvar_4 = arg3;
@@ -1038,15 +998,14 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_6 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_7 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
-      return new ::_Prelude::_zip3_case__0x231_case__0x231(mvar_3, mvar_4, mvar_6, mvar_5, mvar_7);
-    return *(mvar_2);
+      return new ::_Prelude::_zip3__0x23A7(mvar_3, mvar_4, mvar_5, mvar_6, mvar_7);
   }
 
-  Node* _zip3_case__0x231_case__0x231::hfun() { // zip3_case_#1_case_#1
+  Node* _zip3__0x23A7::hfun() { // zip3_#A7
     Node** mvar_3 = arg1;
     Node** mvar_4 = arg2;
-    Node** mvar_6 = arg3;
-    Node** mvar_5 = arg4;
+    Node** mvar_5 = arg3;
+    Node** mvar_6 = arg4;
     Node** mvar_7 = arg5;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&__0x5B_0x5D_1, &&__0x3A_1};
@@ -1067,7 +1026,6 @@ namespace _Prelude {
       Node** mvar_8 = ((::_Prelude::__0x3A*) *(mvar_3))->arg1;
       Node** mvar_9 = ((::_Prelude::__0x3A*) *(mvar_3))->arg2;
       return new ::_Prelude::__0x3A(::_Prelude::__0x28_0x2C_0x2C_0x29::make(mvar_4, mvar_6, mvar_8), ::_Prelude::_zip3::make(mvar_5, mvar_7, mvar_9));
-    return *(mvar_3);
   }
 
   Node* _zipWith::hfun() { // zipWith
@@ -1092,13 +1050,12 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_5 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
-      return new ::_Prelude::_zipWith_case__0x231(mvar_3, mvar_1, mvar_4, mvar_5);
-    return *(mvar_2);
+      return new ::_Prelude::_zipWith__0x23A9(mvar_1, mvar_3, mvar_4, mvar_5);
   }
 
-  Node* _zipWith_case__0x231::hfun() { // zipWith_case_#1
-    Node** mvar_3 = arg1;
-    Node** mvar_1 = arg2;
+  Node* _zipWith__0x23A9::hfun() { // zipWith_#A9
+    Node** mvar_1 = arg1;
+    Node** mvar_3 = arg2;
     Node** mvar_4 = arg3;
     Node** mvar_5 = arg4;
     static void* table_1[]
@@ -1120,7 +1077,6 @@ namespace _Prelude {
       Node** mvar_6 = ((::_Prelude::__0x3A*) *(mvar_3))->arg1;
       Node** mvar_7 = ((::_Prelude::__0x3A*) *(mvar_3))->arg2;
       return new ::_Prelude::__0x3A(::_Prelude::_apply::make(::_Prelude::_apply::make(mvar_1, mvar_4), mvar_6), ::_Prelude::_zipWith::make(mvar_1, mvar_5, mvar_7));
-    return *(mvar_3);
   }
 
   Node* _zipWith3::hfun() { // zipWith3
@@ -1146,14 +1102,13 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_5 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_6 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
-      return new ::_Prelude::_zipWith3_case__0x231(mvar_3, mvar_4, mvar_1, mvar_5, mvar_6);
-    return *(mvar_2);
+      return new ::_Prelude::_zipWith3__0x23A11(mvar_1, mvar_3, mvar_4, mvar_5, mvar_6);
   }
 
-  Node* _zipWith3_case__0x231::hfun() { // zipWith3_case_#1
-    Node** mvar_3 = arg1;
-    Node** mvar_4 = arg2;
-    Node** mvar_1 = arg3;
+  Node* _zipWith3__0x23A11::hfun() { // zipWith3_#A11
+    Node** mvar_1 = arg1;
+    Node** mvar_3 = arg2;
+    Node** mvar_4 = arg3;
     Node** mvar_5 = arg4;
     Node** mvar_6 = arg5;
     static void* table_1[]
@@ -1174,16 +1129,15 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_7 = ((::_Prelude::__0x3A*) *(mvar_3))->arg1;
       Node** mvar_8 = ((::_Prelude::__0x3A*) *(mvar_3))->arg2;
-      return new ::_Prelude::_zipWith3_case__0x231_case__0x231(mvar_4, mvar_1, mvar_5, mvar_7, mvar_6, mvar_8);
-    return *(mvar_3);
+      return new ::_Prelude::_zipWith3__0x23A10(mvar_1, mvar_4, mvar_5, mvar_6, mvar_7, mvar_8);
   }
 
-  Node* _zipWith3_case__0x231_case__0x231::hfun() { // zipWith3_case_#1_case_#1
-    Node** mvar_4 = arg1;
-    Node** mvar_1 = arg2;
+  Node* _zipWith3__0x23A10::hfun() { // zipWith3_#A10
+    Node** mvar_1 = arg1;
+    Node** mvar_4 = arg2;
     Node** mvar_5 = arg3;
-    Node** mvar_7 = arg4;
-    Node** mvar_6 = arg5;
+    Node** mvar_6 = arg4;
+    Node** mvar_7 = arg5;
     Node** mvar_8 = arg6;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&__0x5B_0x5D_1, &&__0x3A_1};
@@ -1204,7 +1158,6 @@ namespace _Prelude {
       Node** mvar_9 = ((::_Prelude::__0x3A*) *(mvar_4))->arg1;
       Node** mvar_10 = ((::_Prelude::__0x3A*) *(mvar_4))->arg2;
       return new ::_Prelude::__0x3A(::_Prelude::_apply::make(::_Prelude::_apply::make(::_Prelude::_apply::make(mvar_1, mvar_5), mvar_7), mvar_9), ::_Prelude::_zipWith3::make(mvar_1, mvar_6, mvar_8, mvar_10));
-    return *(mvar_4);
   }
 
   Node* _unzip::hfun() { // unzip
@@ -1227,11 +1180,10 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_2 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
-      return new ::_Prelude::_unzip_case__0x231(mvar_2, mvar_3);
-    return *(mvar_1);
+      return new ::_Prelude::_unzip__0x23A13(mvar_2, mvar_3);
   }
 
-  Node* _unzip_case__0x231::hfun() { // unzip_case_#1
+  Node* _unzip__0x23A13::hfun() { // unzip_#A13
     Node** mvar_2 = arg1;
     Node** mvar_3 = arg2;
     static void* table_1[]
@@ -1250,16 +1202,21 @@ namespace _Prelude {
     __0x28_0x2C_0x29_1: // "(,)"
       Node** mvar_4 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_2))->arg1;
       Node** mvar_5 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_2))->arg2;
-      // [(6,[]),(7,[]),(8,[])]
-      Node** mvar_6;
-      mvar_6 = ::_Prelude::_unzip::make(mvar_3);
-      Node** mvar_7;
-      mvar_7 = ::_Prelude::_unzip_0x2E__0x23selFP2_0x23xs::make(mvar_6);
-      Node** mvar_8;
-      mvar_8 = ::_Prelude::_unzip_0x2E__0x23selFP3_0x23ys::make(mvar_6);
-      return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x3A::make(mvar_4, mvar_7), ::_Prelude::__0x3A::make(mvar_5, mvar_8));
-      return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x3A::make(mvar_4, mvar_7), ::_Prelude::__0x3A::make(mvar_5, mvar_8));
-    return *(mvar_2);
+      return new ::_Prelude::_unzip__0x23A12(mvar_3, mvar_4, mvar_5);
+  }
+
+  Node* _unzip__0x23A12::hfun() { // unzip_#A12
+    Node** mvar_3 = arg1;
+    Node** mvar_4 = arg2;
+    Node** mvar_5 = arg3;
+    // [(6,[]),(7,[]),(8,[])]
+    Node** mvar_6;
+    mvar_6 = ::_Prelude::_unzip::make(mvar_3);
+    Node** mvar_7;
+    mvar_7 = ::_Prelude::_unzip_0x2E__0x23selFP2_0x23xs::make(mvar_6);
+    Node** mvar_8;
+    mvar_8 = ::_Prelude::_unzip_0x2E__0x23selFP3_0x23ys::make(mvar_6);
+    return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x3A::make(mvar_4, mvar_7), ::_Prelude::__0x3A::make(mvar_5, mvar_8));
   }
 
   Node* _unzip_0x2E__0x23selFP2_0x23xs::hfun() { // unzip._#selFP2#xs
@@ -1281,7 +1238,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   Node* _unzip_0x2E__0x23selFP3_0x23ys::hfun() { // unzip._#selFP3#ys
@@ -1303,7 +1259,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_3);
-    return *(mvar_1);
   }
 
   Node* _unzip3::hfun() { // unzip3
@@ -1326,11 +1281,10 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_2 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
-      return new ::_Prelude::_unzip3_case__0x231(mvar_2, mvar_3);
-    return *(mvar_1);
+      return new ::_Prelude::_unzip3__0x23A15(mvar_2, mvar_3);
   }
 
-  Node* _unzip3_case__0x231::hfun() { // unzip3_case_#1
+  Node* _unzip3__0x23A15::hfun() { // unzip3_#A15
     Node** mvar_2 = arg1;
     Node** mvar_3 = arg2;
     static void* table_1[]
@@ -1350,18 +1304,24 @@ namespace _Prelude {
       Node** mvar_4 = ((::_Prelude::__0x28_0x2C_0x2C_0x29*) *(mvar_2))->arg1;
       Node** mvar_5 = ((::_Prelude::__0x28_0x2C_0x2C_0x29*) *(mvar_2))->arg2;
       Node** mvar_6 = ((::_Prelude::__0x28_0x2C_0x2C_0x29*) *(mvar_2))->arg3;
-      // [(7,[]),(8,[]),(9,[]),(10,[])]
-      Node** mvar_7;
-      mvar_7 = ::_Prelude::_unzip3::make(mvar_3);
-      Node** mvar_8;
-      mvar_8 = ::_Prelude::_unzip3_0x2E__0x23selFP5_0x23xs::make(mvar_7);
-      Node** mvar_9;
-      mvar_9 = ::_Prelude::_unzip3_0x2E__0x23selFP6_0x23ys::make(mvar_7);
-      Node** mvar_10;
-      mvar_10 = ::_Prelude::_unzip3_0x2E__0x23selFP7_0x23zs::make(mvar_7);
-      return new ::_Prelude::__0x28_0x2C_0x2C_0x29(::_Prelude::__0x3A::make(mvar_4, mvar_8), ::_Prelude::__0x3A::make(mvar_5, mvar_9), ::_Prelude::__0x3A::make(mvar_6, mvar_10));
-      return new ::_Prelude::__0x28_0x2C_0x2C_0x29(::_Prelude::__0x3A::make(mvar_4, mvar_8), ::_Prelude::__0x3A::make(mvar_5, mvar_9), ::_Prelude::__0x3A::make(mvar_6, mvar_10));
-    return *(mvar_2);
+      return new ::_Prelude::_unzip3__0x23A14(mvar_3, mvar_4, mvar_5, mvar_6);
+  }
+
+  Node* _unzip3__0x23A14::hfun() { // unzip3_#A14
+    Node** mvar_3 = arg1;
+    Node** mvar_4 = arg2;
+    Node** mvar_5 = arg3;
+    Node** mvar_6 = arg4;
+    // [(7,[]),(8,[]),(9,[]),(10,[])]
+    Node** mvar_7;
+    mvar_7 = ::_Prelude::_unzip3::make(mvar_3);
+    Node** mvar_8;
+    mvar_8 = ::_Prelude::_unzip3_0x2E__0x23selFP5_0x23xs::make(mvar_7);
+    Node** mvar_9;
+    mvar_9 = ::_Prelude::_unzip3_0x2E__0x23selFP6_0x23ys::make(mvar_7);
+    Node** mvar_10;
+    mvar_10 = ::_Prelude::_unzip3_0x2E__0x23selFP7_0x23zs::make(mvar_7);
+    return new ::_Prelude::__0x28_0x2C_0x2C_0x29(::_Prelude::__0x3A::make(mvar_4, mvar_8), ::_Prelude::__0x3A::make(mvar_5, mvar_9), ::_Prelude::__0x3A::make(mvar_6, mvar_10));
   }
 
   Node* _unzip3_0x2E__0x23selFP5_0x23xs::hfun() { // unzip3._#selFP5#xs
@@ -1384,7 +1344,6 @@ namespace _Prelude {
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x2C_0x29*) *(mvar_1))->arg2;
       Node** mvar_4 = ((::_Prelude::__0x28_0x2C_0x2C_0x29*) *(mvar_1))->arg3;
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   Node* _unzip3_0x2E__0x23selFP6_0x23ys::hfun() { // unzip3._#selFP6#ys
@@ -1407,7 +1366,6 @@ namespace _Prelude {
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x2C_0x29*) *(mvar_1))->arg2;
       Node** mvar_4 = ((::_Prelude::__0x28_0x2C_0x2C_0x29*) *(mvar_1))->arg3;
       return *(mvar_3);
-    return *(mvar_1);
   }
 
   Node* _unzip3_0x2E__0x23selFP7_0x23zs::hfun() { // unzip3._#selFP7#zs
@@ -1430,7 +1388,6 @@ namespace _Prelude {
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x2C_0x29*) *(mvar_1))->arg2;
       Node** mvar_4 = ((::_Prelude::__0x28_0x2C_0x2C_0x29*) *(mvar_1))->arg3;
       return *(mvar_4);
-    return *(mvar_1);
   }
 
   Node* _concat::hfun() { // concat
@@ -1463,10 +1420,10 @@ namespace _Prelude {
   Node* _take::hfun() { // take
     Node** mvar_1 = arg1;
     Node** mvar_2 = arg2;
-    return new ::_Prelude::_take_case__0x231(::_Prelude::__0x3C_0x3D::make(mvar_1, _Prelude::Litint::make(0)), mvar_1, mvar_2);
+    return new ::_Prelude::_take__0x23B16(::_Prelude::__0x3C_0x3D::make(mvar_1, _Prelude::Litint::make(0)), mvar_1, mvar_2);
   }
 
-  Node* _take_case__0x231::hfun() { // take_case_#1
+  Node* _take__0x23B16::hfun() { // take_#B16
     Node** mvar_3 = arg1;
     Node** mvar_1 = arg2;
     Node** mvar_2 = arg3;
@@ -1487,7 +1444,6 @@ namespace _Prelude {
       return new ::_Prelude::_take_0x2Etakep_0x2E220(mvar_1, mvar_2);
     _True_1: // "True"
       return new ::_Prelude::__0x5B_0x5D();
-    return *(mvar_3);
   }
 
   Node* _take_0x2Etakep_0x2E220::hfun() { // take.takep.220
@@ -1512,16 +1468,15 @@ namespace _Prelude {
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
       return new ::_Prelude::__0x3A(mvar_3, ::_Prelude::_take::make(::_Prelude::__0x2D::make(mvar_1, _Prelude::Litint::make(1)), mvar_4));
-    return *(mvar_2);
   }
 
   Node* _drop::hfun() { // drop
     Node** mvar_1 = arg1;
     Node** mvar_2 = arg2;
-    return new ::_Prelude::_drop_case__0x231(::_Prelude::__0x3C_0x3D::make(mvar_1, _Prelude::Litint::make(0)), mvar_1, mvar_2);
+    return new ::_Prelude::_drop__0x23B18(::_Prelude::__0x3C_0x3D::make(mvar_1, _Prelude::Litint::make(0)), mvar_1, mvar_2);
   }
 
-  Node* _drop_case__0x231::hfun() { // drop_case_#1
+  Node* _drop__0x23B18::hfun() { // drop_#B18
     Node** mvar_3 = arg1;
     Node** mvar_1 = arg2;
     Node** mvar_2 = arg3;
@@ -1542,7 +1497,6 @@ namespace _Prelude {
       return new ::_Prelude::_drop_0x2Edropp_0x2E229(mvar_1, mvar_2);
     _True_1: // "True"
       return *(mvar_2);
-    return *(mvar_3);
   }
 
   Node* _drop_0x2Edropp_0x2E229::hfun() { // drop.dropp.229
@@ -1567,16 +1521,15 @@ namespace _Prelude {
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
       return new ::_Prelude::_drop(::_Prelude::__0x2D::make(mvar_1, _Prelude::Litint::make(1)), mvar_4);
-    return *(mvar_2);
   }
 
   Node* _splitAt::hfun() { // splitAt
     Node** mvar_1 = arg1;
     Node** mvar_2 = arg2;
-    return new ::_Prelude::_splitAt_case__0x231(::_Prelude::__0x3C_0x3D::make(mvar_1, _Prelude::Litint::make(0)), mvar_1, mvar_2);
+    return new ::_Prelude::_splitAt__0x23B20(::_Prelude::__0x3C_0x3D::make(mvar_1, _Prelude::Litint::make(0)), mvar_1, mvar_2);
   }
 
-  Node* _splitAt_case__0x231::hfun() { // splitAt_case_#1
+  Node* _splitAt__0x23B20::hfun() { // splitAt_#B20
     Node** mvar_3 = arg1;
     Node** mvar_1 = arg2;
     Node** mvar_2 = arg3;
@@ -1597,7 +1550,6 @@ namespace _Prelude {
       return new ::_Prelude::_splitAt_0x2EsplitAtp_0x2E239(mvar_1, mvar_2);
     _True_1: // "True"
       return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x5B_0x5D::make(), mvar_2);
-    return *(mvar_3);
   }
 
   Node* _splitAt_0x2EsplitAtp_0x2E239::hfun() { // splitAt.splitAtp.239
@@ -1621,13 +1573,12 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
-      return new ::_Prelude::_splitAt_0x2EsplitAtp_0x2E239_let__0x231(mvar_3, mvar_1, mvar_4);
-    return *(mvar_2);
+      return new ::_Prelude::_splitAt_0x2EsplitAtp_0x2E239__0x23A16(mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _splitAt_0x2EsplitAtp_0x2E239_let__0x231::hfun() { // splitAt.splitAtp.239_let_#1
-    Node** mvar_3 = arg1;
-    Node** mvar_1 = arg2;
+  Node* _splitAt_0x2EsplitAtp_0x2E239__0x23A16::hfun() { // splitAt.splitAtp.239_#A16
+    Node** mvar_1 = arg1;
+    Node** mvar_3 = arg2;
     Node** mvar_4 = arg3;
     // [(5,[]),(6,[]),(7,[])]
     Node** mvar_5;
@@ -1636,7 +1587,6 @@ namespace _Prelude {
     mvar_6 = ::_Prelude::_splitAt_0x2EsplitAtp_0x2E239_0x2E__0x23selFP9_0x23ys::make(mvar_5);
     Node** mvar_7;
     mvar_7 = ::_Prelude::_splitAt_0x2EsplitAtp_0x2E239_0x2E__0x23selFP10_0x23zs::make(mvar_5);
-    return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x3A::make(mvar_3, mvar_6), mvar_7);
     return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x3A::make(mvar_3, mvar_6), mvar_7);
   }
 
@@ -1659,7 +1609,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   Node* _splitAt_0x2EsplitAtp_0x2E239_0x2E__0x23selFP10_0x23zs::hfun() { // splitAt.splitAtp.239._#selFP10#zs
@@ -1681,7 +1630,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_3);
-    return *(mvar_1);
   }
 
   Node* _takeWhile::hfun() { // takeWhile
@@ -1705,18 +1653,17 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
-      return new ::_Prelude::_takeWhile_case__0x231(mvar_1, mvar_3, mvar_4);
-    return *(mvar_2);
+      return new ::_Prelude::_takeWhile__0x23A17(mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _takeWhile_case__0x231::hfun() { // takeWhile_case_#1
+  Node* _takeWhile__0x23A17::hfun() { // takeWhile_#A17
     Node** mvar_1 = arg1;
     Node** mvar_3 = arg2;
     Node** mvar_4 = arg3;
-    return new ::_Prelude::_takeWhile_case__0x231_case__0x231(::_Prelude::_apply::make(mvar_1, mvar_3), mvar_1, mvar_3, mvar_4);
+    return new ::_Prelude::_takeWhile__0x23A17__0x23B22(::_Prelude::_apply::make(mvar_1, mvar_3), mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _takeWhile_case__0x231_case__0x231::hfun() { // takeWhile_case_#1_case_#1
+  Node* _takeWhile__0x23A17__0x23B22::hfun() { // takeWhile_#A17_#B22
     Node** mvar_5 = arg1;
     Node** mvar_1 = arg2;
     Node** mvar_3 = arg3;
@@ -1738,7 +1685,6 @@ namespace _Prelude {
       return new ::_Prelude::__0x5B_0x5D();
     _True_1: // "True"
       return new ::_Prelude::__0x3A(mvar_3, ::_Prelude::_takeWhile::make(mvar_1, mvar_4));
-    return *(mvar_5);
   }
 
   Node* _dropWhile::hfun() { // dropWhile
@@ -1762,18 +1708,17 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
-      return new ::_Prelude::_dropWhile_case__0x231(mvar_1, mvar_3, mvar_4);
-    return *(mvar_2);
+      return new ::_Prelude::_dropWhile__0x23A18(mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _dropWhile_case__0x231::hfun() { // dropWhile_case_#1
+  Node* _dropWhile__0x23A18::hfun() { // dropWhile_#A18
     Node** mvar_1 = arg1;
     Node** mvar_3 = arg2;
     Node** mvar_4 = arg3;
-    return new ::_Prelude::_dropWhile_case__0x231_case__0x231(::_Prelude::_apply::make(mvar_1, mvar_3), mvar_1, mvar_3, mvar_4);
+    return new ::_Prelude::_dropWhile__0x23A18__0x23B24(::_Prelude::_apply::make(mvar_1, mvar_3), mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _dropWhile_case__0x231_case__0x231::hfun() { // dropWhile_case_#1_case_#1
+  Node* _dropWhile__0x23A18__0x23B24::hfun() { // dropWhile_#A18_#B24
     Node** mvar_5 = arg1;
     Node** mvar_1 = arg2;
     Node** mvar_3 = arg3;
@@ -1795,7 +1740,6 @@ namespace _Prelude {
       return new ::_Prelude::__0x3A(mvar_3, mvar_4);
     _True_1: // "True"
       return new ::_Prelude::_dropWhile(mvar_1, mvar_4);
-    return *(mvar_5);
   }
 
   Node* _span::hfun() { // span
@@ -1819,57 +1763,47 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
-      return new ::_Prelude::_span_case__0x231(mvar_1, mvar_3, mvar_4);
-    return *(mvar_2);
+      return new ::_Prelude::_span__0x23A21(mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _span_case__0x231::hfun() { // span_case_#1
+  Node* _span__0x23A21::hfun() { // span_#A21
     Node** mvar_1 = arg1;
     Node** mvar_3 = arg2;
     Node** mvar_4 = arg3;
-    return new ::_Prelude::_span_case__0x231_case__0x232(::_Prelude::_apply::make(mvar_1, mvar_3), mvar_1, mvar_3, mvar_4);
+    return new ::_Prelude::_span__0x23A21__0x23B26(::_Prelude::_apply::make(mvar_1, mvar_3), mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _span_case__0x231_case__0x232::hfun() { // span_case_#1_case_#2
-    Node** mvar_8 = arg1;
+  Node* _span__0x23A21__0x23B26::hfun() { // span_#A21_#B26
+    Node** mvar_5 = arg1;
     Node** mvar_1 = arg2;
     Node** mvar_3 = arg3;
     Node** mvar_4 = arg4;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&_False_1, &&_True_1};
-      goto *table_1[(*mvar_8)->get_kind()];
+      goto *table_1[(*mvar_5)->get_kind()];
     fail_1:
       return DO_FAIL;
     var_1:
-      // Engine::narrow(mvar_8, generator());
+      // Engine::narrow(mvar_5, generator());
       throw "No narrowing yet";
-      goto *table_1[(*mvar_8)->get_kind()];
+      goto *table_1[(*mvar_5)->get_kind()];
     choice_1:
     oper_1:
-      Engine::hfun(mvar_8);
-      goto *table_1[(*mvar_8)->get_kind()];
+      Engine::hfun(mvar_5);
+      goto *table_1[(*mvar_5)->get_kind()];
     _False_1: // "False"
-      return new ::_Prelude::_span_case__0x231_case__0x231(mvar_3, mvar_4);
+      return new ::_Prelude::_span__0x23A20(mvar_3, mvar_4);
     _True_1: // "True"
-      // [(5,[]),(6,[]),(7,[])]
-      Node** mvar_5;
-      mvar_5 = ::_Prelude::_span::make(mvar_1, mvar_4);
-      Node** mvar_6;
-      mvar_6 = ::_Prelude::_span_0x2E__0x23selFP12_0x23ys::make(mvar_5);
-      Node** mvar_7;
-      mvar_7 = ::_Prelude::_span_0x2E__0x23selFP13_0x23zs::make(mvar_5);
-      return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x3A::make(mvar_3, mvar_6), mvar_7);
-      return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x3A::make(mvar_3, mvar_6), mvar_7);
-    return *(mvar_8);
+      return new ::_Prelude::_span__0x23A19(mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _span_case__0x231_case__0x231::hfun() { // span_case_#1_case_#1
+  Node* _span__0x23A20::hfun() { // span_#A20
     Node** mvar_3 = arg1;
     Node** mvar_4 = arg2;
-    return new ::_Prelude::_span_case__0x231_case__0x231_case__0x231(::_Prelude::_otherwise::make(), mvar_3, mvar_4);
+    return new ::_Prelude::_span__0x23A20__0x23B28(::_Prelude::_otherwise::make(), mvar_3, mvar_4);
   }
 
-  Node* _span_case__0x231_case__0x231_case__0x231::hfun() { // span_case_#1_case_#1_case_#1
+  Node* _span__0x23A20__0x23B28::hfun() { // span_#A20_#B28
     Node** mvar_5 = arg1;
     Node** mvar_3 = arg2;
     Node** mvar_4 = arg3;
@@ -1890,7 +1824,20 @@ namespace _Prelude {
       return new ::_Prelude::_failed();
     _True_1: // "True"
       return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x5B_0x5D::make(), ::_Prelude::__0x3A::make(mvar_3, mvar_4));
-    return *(mvar_5);
+  }
+
+  Node* _span__0x23A19::hfun() { // span_#A19
+    Node** mvar_1 = arg1;
+    Node** mvar_3 = arg2;
+    Node** mvar_4 = arg3;
+    // [(5,[]),(6,[]),(7,[])]
+    Node** mvar_5;
+    mvar_5 = ::_Prelude::_span::make(mvar_1, mvar_4);
+    Node** mvar_6;
+    mvar_6 = ::_Prelude::_span_0x2E__0x23selFP12_0x23ys::make(mvar_5);
+    Node** mvar_7;
+    mvar_7 = ::_Prelude::_span_0x2E__0x23selFP13_0x23zs::make(mvar_5);
+    return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x3A::make(mvar_3, mvar_6), mvar_7);
   }
 
   Node* _span_0x2E__0x23selFP12_0x23ys::hfun() { // span._#selFP12#ys
@@ -1912,7 +1859,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   Node* _span_0x2E__0x23selFP13_0x23zs::hfun() { // span._#selFP13#zs
@@ -1934,7 +1880,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_3);
-    return *(mvar_1);
   }
 
   Node* _break::hfun() { // break
@@ -1962,16 +1907,20 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_2 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
-      // [(4,[]),(5,[]),(6,[])]
-      Node** mvar_4;
-      mvar_4 = ::_Prelude::_lines_0x2Esplitline_0x2E271::make(::_Prelude::__0x3A::make(mvar_2, mvar_3));
-      Node** mvar_5;
-      mvar_5 = ::_Prelude::_lines_0x2E__0x23selFP18_0x23l::make(mvar_4);
-      Node** mvar_6;
-      mvar_6 = ::_Prelude::_lines_0x2E__0x23selFP19_0x23xs_l::make(mvar_4);
-      return new ::_Prelude::__0x3A(mvar_5, ::_Prelude::_lines::make(mvar_6));
-      return new ::_Prelude::__0x3A(mvar_5, ::_Prelude::_lines::make(mvar_6));
-    return *(mvar_1);
+      return new ::_Prelude::_lines__0x23A22(mvar_2, mvar_3);
+  }
+
+  Node* _lines__0x23A22::hfun() { // lines_#A22
+    Node** mvar_2 = arg1;
+    Node** mvar_3 = arg2;
+    // [(4,[]),(5,[]),(6,[])]
+    Node** mvar_4;
+    mvar_4 = ::_Prelude::_lines_0x2Esplitline_0x2E271::make(::_Prelude::__0x3A::make(mvar_2, mvar_3));
+    Node** mvar_5;
+    mvar_5 = ::_Prelude::_lines_0x2E__0x23selFP18_0x23l::make(mvar_4);
+    Node** mvar_6;
+    mvar_6 = ::_Prelude::_lines_0x2E__0x23selFP19_0x23xs_l::make(mvar_4);
+    return new ::_Prelude::__0x3A(mvar_5, ::_Prelude::_lines::make(mvar_6));
   }
 
   Node* _lines_0x2Esplitline_0x2E271::hfun() { // lines.splitline.271
@@ -1994,41 +1943,39 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_2 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
-      return new ::_Prelude::_lines_0x2Esplitline_0x2E271_case__0x231(mvar_2, mvar_3);
-    return *(mvar_1);
+      return new ::_Prelude::_lines_0x2Esplitline_0x2E271__0x23A24(mvar_2, mvar_3);
   }
 
-  Node* _lines_0x2Esplitline_0x2E271_case__0x231::hfun() { // lines.splitline.271_case_#1
+  Node* _lines_0x2Esplitline_0x2E271__0x23A24::hfun() { // lines.splitline.271_#A24
     Node** mvar_2 = arg1;
     Node** mvar_3 = arg2;
-    return new ::_Prelude::_lines_0x2Esplitline_0x2E271_case__0x231_case__0x231(::_Prelude::__0x3D_0x3D::make(mvar_2, _Prelude::Litchar::make('\n')), mvar_2, mvar_3);
+    return new ::_Prelude::_lines_0x2Esplitline_0x2E271__0x23A24__0x23B30(::_Prelude::__0x3D_0x3D::make(mvar_2, _Prelude::Litchar::make('\n')), mvar_2, mvar_3);
   }
 
-  Node* _lines_0x2Esplitline_0x2E271_case__0x231_case__0x231::hfun() { // lines.splitline.271_case_#1_case_#1
-    Node** mvar_7 = arg1;
+  Node* _lines_0x2Esplitline_0x2E271__0x23A24__0x23B30::hfun() { // lines.splitline.271_#A24_#B30
+    Node** mvar_4 = arg1;
     Node** mvar_2 = arg2;
     Node** mvar_3 = arg3;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&_False_1, &&_True_1};
-      goto *table_1[(*mvar_7)->get_kind()];
+      goto *table_1[(*mvar_4)->get_kind()];
     fail_1:
       return DO_FAIL;
     var_1:
-      // Engine::narrow(mvar_7, generator());
+      // Engine::narrow(mvar_4, generator());
       throw "No narrowing yet";
-      goto *table_1[(*mvar_7)->get_kind()];
+      goto *table_1[(*mvar_4)->get_kind()];
     choice_1:
     oper_1:
-      Engine::hfun(mvar_7);
-      goto *table_1[(*mvar_7)->get_kind()];
+      Engine::hfun(mvar_4);
+      goto *table_1[(*mvar_4)->get_kind()];
     _False_1: // "False"
-      return new ::_Prelude::_lines_0x2Esplitline_0x2E271_case__0x231_case__0x231_let__0x231(mvar_2, mvar_3);
+      return new ::_Prelude::_lines_0x2Esplitline_0x2E271__0x23A23(mvar_2, mvar_3);
     _True_1: // "True"
       return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x5B_0x5D::make(), mvar_3);
-    return *(mvar_7);
   }
 
-  Node* _lines_0x2Esplitline_0x2E271_case__0x231_case__0x231_let__0x231::hfun() { // lines.splitline.271_case_#1_case_#1_let_#1
+  Node* _lines_0x2Esplitline_0x2E271__0x23A23::hfun() { // lines.splitline.271_#A23
     Node** mvar_2 = arg1;
     Node** mvar_3 = arg2;
     // [(4,[]),(5,[]),(6,[])]
@@ -2038,7 +1985,6 @@ namespace _Prelude {
     mvar_5 = ::_Prelude::_lines_0x2Esplitline_0x2E271_0x2E__0x23selFP15_0x23ds::make(mvar_4);
     Node** mvar_6;
     mvar_6 = ::_Prelude::_lines_0x2Esplitline_0x2E271_0x2E__0x23selFP16_0x23es::make(mvar_4);
-    return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x3A::make(mvar_2, mvar_5), mvar_6);
     return new ::_Prelude::__0x28_0x2C_0x29(::_Prelude::__0x3A::make(mvar_2, mvar_5), mvar_6);
   }
 
@@ -2061,7 +2007,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   Node* _lines_0x2Esplitline_0x2E271_0x2E__0x23selFP16_0x23es::hfun() { // lines.splitline.271._#selFP16#es
@@ -2083,7 +2028,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_3);
-    return *(mvar_1);
   }
 
   Node* _lines_0x2E__0x23selFP18_0x23l::hfun() { // lines._#selFP18#l
@@ -2105,7 +2049,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   Node* _lines_0x2E__0x23selFP19_0x23xs_l::hfun() { // lines._#selFP19#xs_l
@@ -2127,7 +2070,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_3);
-    return *(mvar_1);
   }
 
   Node* _unlines::hfun() { // unlines
@@ -2140,44 +2082,46 @@ namespace _Prelude {
     // [(2,[])]
     Node** mvar_2;
     mvar_2 = ::_Prelude::_dropWhile::make(Engine::Partial::make(::_Prelude::_words_0x2EisSpace_0x2E283::make(), 1), mvar_1);
-    return new ::_Prelude::_words_case__0x231(mvar_2);
-    return new ::_Prelude::_words_case__0x231(mvar_2);
+    return new ::_Prelude::_words__0x23A26(mvar_2);
   }
 
-  Node* _words_case__0x231::hfun() { // words_case_#1
+  Node* _words__0x23A26::hfun() { // words_#A26
     Node** mvar_2 = arg1;
-    return new ::_Prelude::_words_case__0x231_case__0x231(::_Prelude::__0x3D_0x3D::make(mvar_2, ::_Prelude::__0x5B_0x5D::make()), mvar_2);
+    return new ::_Prelude::_words__0x23A26__0x23B32(::_Prelude::__0x3D_0x3D::make(mvar_2, ::_Prelude::__0x5B_0x5D::make()), mvar_2);
   }
 
-  Node* _words_case__0x231_case__0x231::hfun() { // words_case_#1_case_#1
-    Node** mvar_6 = arg1;
+  Node* _words__0x23A26__0x23B32::hfun() { // words_#A26_#B32
+    Node** mvar_3 = arg1;
     Node** mvar_2 = arg2;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&_False_1, &&_True_1};
-      goto *table_1[(*mvar_6)->get_kind()];
+      goto *table_1[(*mvar_3)->get_kind()];
     fail_1:
       return DO_FAIL;
     var_1:
-      // Engine::narrow(mvar_6, generator());
+      // Engine::narrow(mvar_3, generator());
       throw "No narrowing yet";
-      goto *table_1[(*mvar_6)->get_kind()];
+      goto *table_1[(*mvar_3)->get_kind()];
     choice_1:
     oper_1:
-      Engine::hfun(mvar_6);
-      goto *table_1[(*mvar_6)->get_kind()];
+      Engine::hfun(mvar_3);
+      goto *table_1[(*mvar_3)->get_kind()];
     _False_1: // "False"
-      // [(3,[]),(4,[]),(5,[])]
-      Node** mvar_3;
-      mvar_3 = ::_Prelude::_apply::make(::_Prelude::_break::make(Engine::Partial::make(::_Prelude::_words_0x2EisSpace_0x2E283::make(), 1)), mvar_2);
-      Node** mvar_4;
-      mvar_4 = ::_Prelude::_words_0x2E__0x23selFP21_0x23w::make(mvar_3);
-      Node** mvar_5;
-      mvar_5 = ::_Prelude::_words_0x2E__0x23selFP22_0x23s2::make(mvar_3);
-      return new ::_Prelude::__0x3A(mvar_4, ::_Prelude::_words::make(mvar_5));
-      return new ::_Prelude::__0x3A(mvar_4, ::_Prelude::_words::make(mvar_5));
+      return new ::_Prelude::_words__0x23A25(mvar_2);
     _True_1: // "True"
       return new ::_Prelude::__0x5B_0x5D();
-    return *(mvar_6);
+  }
+
+  Node* _words__0x23A25::hfun() { // words_#A25
+    Node** mvar_2 = arg1;
+    // [(3,[]),(4,[]),(5,[])]
+    Node** mvar_3;
+    mvar_3 = ::_Prelude::_apply::make(::_Prelude::_break::make(Engine::Partial::make(::_Prelude::_words_0x2EisSpace_0x2E283::make(), 1)), mvar_2);
+    Node** mvar_4;
+    mvar_4 = ::_Prelude::_words_0x2E__0x23selFP21_0x23w::make(mvar_3);
+    Node** mvar_5;
+    mvar_5 = ::_Prelude::_words_0x2E__0x23selFP22_0x23s2::make(mvar_3);
+    return new ::_Prelude::__0x3A(mvar_4, ::_Prelude::_words::make(mvar_5));
   }
 
   Node* _words_0x2EisSpace_0x2E283::hfun() { // words.isSpace.283
@@ -2204,7 +2148,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   Node* _words_0x2E__0x23selFP22_0x23s2::hfun() { // words._#selFP22#s2
@@ -2226,15 +2169,14 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_1))->arg2;
       return *(mvar_3);
-    return *(mvar_1);
   }
 
   Node* _unwords::hfun() { // unwords
     Node** mvar_1 = arg1;
-    return new ::_Prelude::_unwords_case__0x231(::_Prelude::__0x3D_0x3D::make(mvar_1, ::_Prelude::__0x5B_0x5D::make()), mvar_1);
+    return new ::_Prelude::_unwords__0x23B34(::_Prelude::__0x3D_0x3D::make(mvar_1, ::_Prelude::__0x5B_0x5D::make()), mvar_1);
   }
 
-  Node* _unwords_case__0x231::hfun() { // unwords_case_#1
+  Node* _unwords__0x23B34::hfun() { // unwords_#B34
     Node** mvar_2 = arg1;
     Node** mvar_1 = arg2;
     static void* table_1[]
@@ -2254,7 +2196,6 @@ namespace _Prelude {
       return new ::_Prelude::_foldr1(Engine::Partial::make(::_Prelude::_unwords_0x2E__0x23lambda5::make(), 2), mvar_1);
     _True_1: // "True"
       return new ::_Prelude::__0x5B_0x5D();
-    return *(mvar_2);
   }
 
   Node* _unwords_0x2E__0x23lambda5::hfun() { // unwords._#lambda5
@@ -2316,13 +2257,12 @@ namespace _Prelude {
     __0x3A_1: // ":"
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_2))->arg1;
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_2))->arg2;
-      return new ::_Prelude::_lookup_case__0x231(mvar_3, mvar_1, mvar_4);
-    return *(mvar_2);
+      return new ::_Prelude::_lookup__0x23A29(mvar_1, mvar_3, mvar_4);
   }
 
-  Node* _lookup_case__0x231::hfun() { // lookup_case_#1
-    Node** mvar_3 = arg1;
-    Node** mvar_1 = arg2;
+  Node* _lookup__0x23A29::hfun() { // lookup_#A29
+    Node** mvar_1 = arg1;
+    Node** mvar_3 = arg2;
     Node** mvar_4 = arg3;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&__0x28_0x2C_0x29_1};
@@ -2340,24 +2280,22 @@ namespace _Prelude {
     __0x28_0x2C_0x29_1: // "(,)"
       Node** mvar_5 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_3))->arg1;
       Node** mvar_6 = ((::_Prelude::__0x28_0x2C_0x29*) *(mvar_3))->arg2;
-      return new ::_Prelude::_lookup_case__0x231_case__0x231(mvar_1, mvar_5, mvar_6, mvar_4);
-    return *(mvar_3);
+      return new ::_Prelude::_lookup__0x23A28(mvar_1, mvar_4, mvar_5, mvar_6);
   }
 
-  Node* _lookup_case__0x231_case__0x231::hfun() { // lookup_case_#1_case_#1
+  Node* _lookup__0x23A28::hfun() { // lookup_#A28
     Node** mvar_1 = arg1;
-    Node** mvar_5 = arg2;
-    Node** mvar_6 = arg3;
-    Node** mvar_4 = arg4;
-    return new ::_Prelude::_lookup_case__0x231_case__0x231_case__0x232(::_Prelude::__0x3D_0x3D::make(mvar_1, mvar_5), mvar_1, mvar_5, mvar_6, mvar_4);
-  }
-
-  Node* _lookup_case__0x231_case__0x231_case__0x232::hfun() { // lookup_case_#1_case_#1_case_#2
-    Node** mvar_7 = arg1;
-    Node** mvar_1 = arg2;
+    Node** mvar_4 = arg2;
     Node** mvar_5 = arg3;
     Node** mvar_6 = arg4;
-    Node** mvar_4 = arg5;
+    return new ::_Prelude::_lookup__0x23A28__0x23B36(::_Prelude::__0x3D_0x3D::make(mvar_1, mvar_5), mvar_1, mvar_4, mvar_6);
+  }
+
+  Node* _lookup__0x23A28__0x23B36::hfun() { // lookup_#A28_#B36
+    Node** mvar_7 = arg1;
+    Node** mvar_1 = arg2;
+    Node** mvar_4 = arg3;
+    Node** mvar_6 = arg4;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&_False_1, &&_True_1};
       goto *table_1[(*mvar_7)->get_kind()];
@@ -2372,19 +2310,18 @@ namespace _Prelude {
       Engine::hfun(mvar_7);
       goto *table_1[(*mvar_7)->get_kind()];
     _False_1: // "False"
-      return new ::_Prelude::_lookup_case__0x231_case__0x231_case__0x231(mvar_1, mvar_4);
+      return new ::_Prelude::_lookup__0x23A27(mvar_1, mvar_4);
     _True_1: // "True"
       return new ::_Prelude::_Just(mvar_6);
-    return *(mvar_7);
   }
 
-  Node* _lookup_case__0x231_case__0x231_case__0x231::hfun() { // lookup_case_#1_case_#1_case_#1
+  Node* _lookup__0x23A27::hfun() { // lookup_#A27
     Node** mvar_1 = arg1;
     Node** mvar_4 = arg2;
-    return new ::_Prelude::_lookup_case__0x231_case__0x231_case__0x231_case__0x231(::_Prelude::_otherwise::make(), mvar_1, mvar_4);
+    return new ::_Prelude::_lookup__0x23A27__0x23B38(::_Prelude::_otherwise::make(), mvar_1, mvar_4);
   }
 
-  Node* _lookup_case__0x231_case__0x231_case__0x231_case__0x231::hfun() { // lookup_case_#1_case_#1_case_#1_case_#1
+  Node* _lookup__0x23A27__0x23B38::hfun() { // lookup_#A27_#B38
     Node** mvar_5 = arg1;
     Node** mvar_1 = arg2;
     Node** mvar_4 = arg3;
@@ -2405,7 +2342,6 @@ namespace _Prelude {
       return new ::_Prelude::_failed();
     _True_1: // "True"
       return new ::_Prelude::_lookup(mvar_1, mvar_4);
-    return *(mvar_5);
   }
 
   Node* _enumFrom::hfun() { // enumFrom
@@ -2422,10 +2358,10 @@ namespace _Prelude {
   Node* _enumFromTo::hfun() { // enumFromTo
     Node** mvar_1 = arg1;
     Node** mvar_2 = arg2;
-    return new ::_Prelude::_enumFromTo_case__0x231(::_Prelude::__0x3E::make(mvar_1, mvar_2), mvar_1, mvar_2);
+    return new ::_Prelude::_enumFromTo__0x23B40(::_Prelude::__0x3E::make(mvar_1, mvar_2), mvar_1, mvar_2);
   }
 
-  Node* _enumFromTo_case__0x231::hfun() { // enumFromTo_case_#1
+  Node* _enumFromTo__0x23B40::hfun() { // enumFromTo_#B40
     Node** mvar_3 = arg1;
     Node** mvar_1 = arg2;
     Node** mvar_2 = arg3;
@@ -2446,7 +2382,6 @@ namespace _Prelude {
       return new ::_Prelude::__0x3A(mvar_1, ::_Prelude::_enumFromTo::make(::_Prelude::__0x2B::make(mvar_1, _Prelude::Litint::make(1)), mvar_2));
     _True_1: // "True"
       return new ::_Prelude::__0x5B_0x5D();
-    return *(mvar_3);
   }
 
   Node* _enumFromThenTo::hfun() { // enumFromThenTo
@@ -2461,15 +2396,13 @@ namespace _Prelude {
     Node** mvar_2 = arg2;
     Node** mvar_3 = arg3;
     Node** mvar_4 = arg4;
-    return new ::_Prelude::_enumFromThenTo_0x2Ep_0x2E321_case__0x232(::_Prelude::__0x3E_0x3D::make(mvar_3, mvar_2), mvar_3, mvar_2, mvar_4, mvar_1);
+    return new ::_Prelude::_enumFromThenTo_0x2Ep_0x2E321__0x23B42(::_Prelude::__0x3E_0x3D::make(mvar_3, mvar_2), mvar_1, mvar_4);
   }
 
-  Node* _enumFromThenTo_0x2Ep_0x2E321_case__0x232::hfun() { // enumFromThenTo.p.321_case_#2
+  Node* _enumFromThenTo_0x2Ep_0x2E321__0x23B42::hfun() { // enumFromThenTo.p.321_#B42
     Node** mvar_5 = arg1;
-    Node** mvar_3 = arg2;
-    Node** mvar_2 = arg3;
-    Node** mvar_4 = arg4;
-    Node** mvar_1 = arg5;
+    Node** mvar_1 = arg2;
+    Node** mvar_4 = arg3;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&_False_1, &&_True_1};
       goto *table_1[(*mvar_5)->get_kind()];
@@ -2484,22 +2417,21 @@ namespace _Prelude {
       Engine::hfun(mvar_5);
       goto *table_1[(*mvar_5)->get_kind()];
     _False_1: // "False"
-      return new ::_Prelude::_enumFromThenTo_0x2Ep_0x2E321_case__0x231(mvar_4, mvar_1);
+      return new ::_Prelude::_enumFromThenTo_0x2Ep_0x2E321__0x23A30(mvar_1, mvar_4);
     _True_1: // "True"
       return new ::_Prelude::__0x3C_0x3D(mvar_4, mvar_1);
-    return *(mvar_5);
   }
 
-  Node* _enumFromThenTo_0x2Ep_0x2E321_case__0x231::hfun() { // enumFromThenTo.p.321_case_#1
-    Node** mvar_4 = arg1;
-    Node** mvar_1 = arg2;
-    return new ::_Prelude::_enumFromThenTo_0x2Ep_0x2E321_case__0x231_case__0x231(::_Prelude::_otherwise::make(), mvar_4, mvar_1);
-  }
-
-  Node* _enumFromThenTo_0x2Ep_0x2E321_case__0x231_case__0x231::hfun() { // enumFromThenTo.p.321_case_#1_case_#1
-    Node** mvar_5 = arg1;
+  Node* _enumFromThenTo_0x2Ep_0x2E321__0x23A30::hfun() { // enumFromThenTo.p.321_#A30
+    Node** mvar_1 = arg1;
     Node** mvar_4 = arg2;
-    Node** mvar_1 = arg3;
+    return new ::_Prelude::_enumFromThenTo_0x2Ep_0x2E321__0x23A30__0x23B44(::_Prelude::_otherwise::make(), mvar_1, mvar_4);
+  }
+
+  Node* _enumFromThenTo_0x2Ep_0x2E321__0x23A30__0x23B44::hfun() { // enumFromThenTo.p.321_#A30_#B44
+    Node** mvar_5 = arg1;
+    Node** mvar_1 = arg2;
+    Node** mvar_4 = arg3;
     static void* table_1[]
       = {&&fail_1, &&var_1, &&choice_1, &&oper_1, &&_False_1, &&_True_1};
       goto *table_1[(*mvar_5)->get_kind()];
@@ -2517,7 +2449,6 @@ namespace _Prelude {
       return new ::_Prelude::_failed();
     _True_1: // "True"
       return new ::_Prelude::__0x3E_0x3D(mvar_4, mvar_1);
-    return *(mvar_5);
   }
 
   // external Node* _ord::hfun() { throw "External \"Prelude.ord\" not implemented"; }
@@ -2588,7 +2519,6 @@ namespace _Prelude {
     _Just_1: // "Just"
       Node** mvar_4 = ((::_Prelude::_Just*) *(mvar_3))->arg1;
       return new ::_Prelude::_apply(mvar_2, mvar_4);
-    return *(mvar_3);
   }
 
   Node* _either::hfun() { // either
@@ -2614,7 +2544,6 @@ namespace _Prelude {
     _Right_1: // "Right"
       Node** mvar_5 = ((::_Prelude::_Right*) *(mvar_3))->arg1;
       return new ::_Prelude::_apply(mvar_2, mvar_5);
-    return *(mvar_3);
   }
 
   // external Node* __0x3E_0x3E_0x3D::hfun() { throw "External \"Prelude.>>=\" not implemented"; }
@@ -2692,7 +2621,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
       return new ::_Prelude::__0x3E_0x3E(::_Prelude::_putChar::make(mvar_2), ::_Prelude::_putStr::make(mvar_3));
-    return *(mvar_1);
   }
 
   Node* _putStrLn::hfun() { // putStrLn
@@ -2706,10 +2634,10 @@ namespace _Prelude {
 
   Node* _getLine_0x2E__0x23lambda7::hfun() { // getLine._#lambda7
     Node** mvar_1 = arg1;
-    return new ::_Prelude::_getLine_0x2E__0x23lambda7_case__0x231(::_Prelude::__0x3D_0x3D::make(mvar_1, _Prelude::Litchar::make('\n')), mvar_1);
+    return new ::_Prelude::_getLine_0x2E__0x23lambda7__0x23B46(::_Prelude::__0x3D_0x3D::make(mvar_1, _Prelude::Litchar::make('\n')), mvar_1);
   }
 
-  Node* _getLine_0x2E__0x23lambda7_case__0x231::hfun() { // getLine._#lambda7_case_#1
+  Node* _getLine_0x2E__0x23lambda7__0x23B46::hfun() { // getLine._#lambda7_#B46
     Node** mvar_2 = arg1;
     Node** mvar_1 = arg2;
     static void* table_1[]
@@ -2729,7 +2657,6 @@ namespace _Prelude {
       return new ::_Prelude::__0x3E_0x3E_0x3D(::_Prelude::_getLine::make(), Engine::Partial::make(::_Prelude::_getLine_0x2E__0x23lambda7_0x2E__0x23lambda8::make(mvar_1), 1));
     _True_1: // "True"
       return new ::_Prelude::_return(::_Prelude::__0x5B_0x5D::make());
-    return *(mvar_2);
   }
 
   Node* _getLine_0x2E__0x23lambda7_0x2E__0x23lambda8::hfun() { // getLine._#lambda7._#lambda8
@@ -2775,7 +2702,6 @@ namespace _Prelude {
     _NondetError_1: // "NondetError"
       Node** mvar_5 = ((::_Prelude::_NondetError*) *(mvar_1))->arg1;
       return new ::_Prelude::__0x2B_0x2B(::_Prelude::__0x3A::make(_Prelude::Litchar::make('n'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make('o'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make('n'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make('d'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make('e'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make('t'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make(' '), ::_Prelude::__0x3A::make(_Prelude::Litchar::make('e'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make('r'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make('r'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make('o'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make('r'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make(':'), ::_Prelude::__0x3A::make(_Prelude::Litchar::make(' '), ::_Prelude::__0x5B_0x5D::make())))))))))))))), mvar_5);
-    return *(mvar_1);
   }
 
   // external Node* _catch::hfun() { throw "External \"Prelude.catch\" not implemented"; }
@@ -2811,7 +2737,6 @@ namespace _Prelude {
       return new ::_Prelude::_failed();
     _True_1: // "True"
       return new ::_Prelude::_done();
-    return *(mvar_1);
   }
 
   Node* _sequenceIO::hfun() { // sequenceIO
@@ -2835,7 +2760,6 @@ namespace _Prelude {
       Node** mvar_2 = ((::_Prelude::__0x3A*) *(mvar_1))->arg1;
       Node** mvar_3 = ((::_Prelude::__0x3A*) *(mvar_1))->arg2;
       return new ::_Prelude::__0x3E_0x3E_0x3D(mvar_2, Engine::Partial::make(::_Prelude::_sequenceIO_0x2E__0x23lambda9::make(mvar_3), 1));
-    return *(mvar_1);
   }
 
   Node* _sequenceIO_0x2E__0x23lambda9::hfun() { // sequenceIO._#lambda9
@@ -2887,7 +2811,6 @@ namespace _Prelude {
       Node** mvar_4 = ((::_Prelude::__0x3A*) *(mvar_3))->arg1;
       Node** mvar_5 = ((::_Prelude::__0x3A*) *(mvar_3))->arg2;
       return new ::_Prelude::__0x3E_0x3E_0x3D(::_Prelude::_apply::make(::_Prelude::_apply::make(mvar_1, mvar_2), mvar_4), Engine::Partial::make(::_Prelude::_foldIO_0x2E__0x23lambda11::make(mvar_1, mvar_5), 1));
-    return *(mvar_3);
   }
 
   Node* _foldIO_0x2E__0x23lambda11::hfun() { // foldIO._#lambda11
@@ -2935,7 +2858,6 @@ namespace _Prelude {
       return *(mvar_2);
     _True_1: // "True"
       return new ::_Prelude::_done();
-    return *(mvar_1);
   }
 
   Node* _when::hfun() { // when
@@ -2958,7 +2880,6 @@ namespace _Prelude {
       return new ::_Prelude::_done();
     _True_1: // "True"
       return *(mvar_2);
-    return *(mvar_1);
   }
 
   // external Node* __0x3F::hfun() { throw "External \"Prelude.?\" not implemented"; }

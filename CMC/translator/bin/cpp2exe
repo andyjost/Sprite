@@ -70,10 +70,10 @@ ISMAIN=`egrep "^M$" $TARGET.make`
 
 if [ "$ISMAIN" = "M" ]
 then
-  LINK="g++ $BASE/engine/Engine.o $BASE/lib/Prelude.o $BASE/lib/External.o $BASE/lib/Litint.o $BASE/lib/Litchar.o -o $FILE $TARGET.o -g -O0"
+  LINK="g++ $BASE/engine/Engine.o $BASE/lib/Prelude.o $BASE/lib/External.o $BASE/lib/Litint.o $BASE/lib/Litchar.o -o $FILE.exe $TARGET.o -g -O0"
   [ -n "$QUIET" ] || echo `basename $0`: Executing $LINK
   $LINK
-  [ -z "$EXEC" ] || timeout 1 $FILE | head -200
+  [ -z "$EXEC" ] || timeout 1 $FILE.exe | head -200
 else
   [ -z "$EXEC" ] || echo `basename $0`: No main, no linking, no execution
 fi

@@ -1,4 +1,5 @@
-{-# OPTIONS_CYMAKE -Wnone #-} -- no warnings
+-- {-# OPTIONS_CYMAKE -Wnone #-} -- no warnings
+{-# OPTIONS_CYMAKE -F --pgmF=currypp --optF=defaultrules #-}
 
 -- This program makes big assumptions on Flatcurry.  These assumption
 -- should be guaranteed by Norm.  In a FlatCurry expression,
@@ -14,6 +15,7 @@ module FlatToICurry(execute) where
 import FlatCurry.Types
 import ICurry
 import LetPlan
+import Unsafe
 
 -- ttable is used to complete and reorder the branches of an ATable.
 
@@ -28,12 +30,12 @@ makeType (Type qname _ _ constr_list)
   = (qname, [IConstructor cname arity | (Cons cname arity _ _) <- constr_list])
 
 makeFunct :: [(a,[(QName,Int)])] -> FuncDecl -> IFunction
-makeFunct type_table (Func qname arity _ _ rule)
+makeFunct type_table a@(Func qname arity _ _ rule)
   = IFunction qname arity (makeRule qname type_table rule)
 
 makeRule :: QName -> [(a,[(QName,Int)])] -> Rule -> [Statement]
 makeRule _ _ (External x) = [IExternal x]
-makeRule qname ttable (Rule var_list expr) 
+makeRule qname ttable (Rule var_list expr)
   = [Declare (Variable n (ILhs (qname,k))) | (k,n) <- zip [1..] var_list]
       -- TODO: is a free variable in the rule variable list ???
       -- I do not think so !!!
@@ -42,20 +44,20 @@ makeRule qname ttable (Rule var_list expr)
 -- Some statements are simply an expression to be returned, see last entry
 -- Others have case or local declarations that precede the return statement.
 makeStmt :: [(a,[(QName,Int)])] -> Expr -> [Statement]
-makeStmt ttable stmt =
-  case stmt of
-    Free var_list expr
-       -> makeFree var_list ++ makeStmt ttable expr
-    Case _ expr (Branch (Pattern _ _) _ : _)
-       -> makeCaseAPattern ttable stmt ++ makeStmt ttable expr
-    Case _ expr (Branch (LPattern _) _ : _)
-       -> makeCaseBPattern ttable stmt ++ makeStmt ttable expr
-    Typed expr _
-       -> makeStmt ttable expr
-    Let _ expr
-       -> makeLet ttable stmt 
-    plain
-       -> [Return (makeExpr ttable plain)]
+makeStmt ttable stmt
+  = case stmt of
+      Free var_list expr
+         -> makeFree var_list ++ makeStmt ttable expr
+      Case _ expr (Branch (Pattern _ _) _ : _)
+         -> makeCaseAPattern ttable stmt
+      Case _ expr (Branch (LPattern _) _ : _)
+         -> makeCaseBPattern ttable stmt
+      Typed expr _
+         -> makeStmt ttable expr
+      Let _ _
+         -> makeLet ttable stmt 
+      plain
+         -> [Return (makeExpr ttable plain)]
 
 ------------------------------------------------------------------
 
@@ -63,7 +65,7 @@ makeFree :: [Int] -> [Statement]
 makeFree var_list = [Declare (Variable i IFree) | i <- var_list]
 
 -- The selector of the case is guaranteed to be a variable
-makeCaseAPattern :: [(a,[(QName,Int)])] -> Expr -> [Statement]
+makeCaseAPattern:: [(a,[(QName,Int)])] -> Expr -> [Statement]
 makeCaseAPattern ttable (Case flex (Var i) branch_list@(Branch (Pattern cname _) _ : _))
   = [ATable counter (flex==Flex) (Reference i) new_branch_list]
   where counter = unknown    -- later replace with an int 
@@ -83,7 +85,6 @@ makeCaseAPattern ttable (Case flex (Var i) branch_list@(Branch (Pattern cname _)
         blookup dname (a@(Branch (Pattern pname _) _) : z)
           | dname == pname = Just a
           | otherwise = blookup dname z
-
 
 -- The selector of the case is guaranteed to be a variable
 makeCaseBPattern :: [(a,[(QName,Int)])] -> Expr -> [Statement]
@@ -122,7 +123,7 @@ makeExpr ttable (Comb (ConsPartCall missing) qname expr_list)
 makeExpr ttable (Or expr_1 expr_2) = IOr (makeExpr ttable expr_1) (makeExpr ttable expr_2)
 makeExpr ttable (Typed expr _) = makeExpr ttable expr
 
-makeExpr _ (Free _ _) =  error "FlatToICurry found a free variable while making an expression"
+makeExpr _ (Free _ _) = error "FlatToICurry found a free variable while making an expression"
 makeExpr _ (Case _ _ _) = error "FlatToICurry found a multibranch case while making an expression"
 makeExpr _ (Let _ _) = error "FlatToICurry found a let-block while making an expression"
 

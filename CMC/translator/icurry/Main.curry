@@ -11,16 +11,18 @@ import FlatCurry.Read
 
 import ICurry
 import TypeTable
--- import VarTable
--- import CountRef
 import PPFlat
 import FlatToICurry
 import PPICurry_Ex
 -- import PPICurry
 import FixCount
-import RemoveInnerCases
-import RemoveInnerLets
+-- import RemoveInnerCases
+-- import RemoveInnerLets
 
+import C_Like_Expr_fy
+import Case_Select_Var_fy
+
+trace :: Bool
 trace = False  -- toggle for tracing
 
 main :: Prelude.IO ()
@@ -46,31 +48,39 @@ process_file file = do
       putStrLn (ppTypeTable type_table)
     else done
 
-  -- Replace case statements that are arguments of an application
-  -- with new functions.
-  let non_inner_cases = RemoveInnerCases.execute flat
+  -- putStrLn "--------- FLAT INITIAL ---------"
+  -- putStrLn (PPFlat.execute flat)
+
+  -- Transform expressions with nested statements into C-like expressions
+  let c_like_expr = C_Like_Expr_fy.execute flat
   if trace
     then do
-      putStrLn "--------- NO INNER CASES ---------"
-      putStrLn (show non_inner_cases)
-      putStrLn (PPFlat.execute non_inner_cases)
+      putStrLn "--------- After C-like ---------"
+      putStrLn (show flat)
+      putStrLn (show c_like_expr)
     else done
 
-  -- Replace let-blocks that are arguments of an application
-  -- with new functions.
-  let non_inner_lets = RemoveInnerLets.execute non_inner_cases
+  --putStrLn "--------- After C-like ---------"
+  --putStrLn (PPFlat.execute c_like_expr)
+
+  -- Ensure the selector of a case statement is a variable
+  let case_select_var = Case_Select_Var_fy.execute c_like_expr
   if trace
     then do
-      putStrLn "--------- NO INNER LETS ---------"
-      putStrLn (PPFlat.execute non_inner_lets)
+      putStrLn "--------- After Case select var ---------"
+      putStrLn (show case_select_var)
     else done
 
-  let icurry = FlatToICurry.execute type_table non_inner_lets
+  -- Convert to ICurry
+  let icurry = FlatToICurry.execute type_table case_select_var
   let n = FixCount.execute icurry
   -- force the execution of FixCount
   icurry_handle <- seq n (openFile (file ++ ".icur") WriteMode)
   hPutStr icurry_handle (show icurry)
   hClose icurry_handle
+
+  --putStrLn "--------- After Case select var ---------"
+  --putStrLn (PPFlat.execute case_select_var)  
 
   if trace
     then do
@@ -79,6 +89,9 @@ process_file file = do
       putStrLn (PPICurry_Ex.execute icurry)
     else done
 
+--  putStrLn (PPICurry_Ex.execute icurry)
+
   read_handle <- openFile (file ++ ".read") WriteMode
   hPutStrLn read_handle (PPICurry_Ex.execute icurry)
   hClose read_handle
+
