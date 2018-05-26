@@ -137,3 +137,12 @@ TODO:
 
 - I implemented what symbol-hiding I could without ICurry indicating which
   symbols are private.
+
+5/26/2018
+
+- I did some general clean up.  I renamed TypeInfo to NodeInfo and made some
+  variable names involving it more consistent.  I tweaked the function for
+  skipping FWD nodes (it should tolerate unboxed values, now, though I hadn't
+  run into that limiatation yet).  I consolidated the various functions for
+  node construction and rewriting.
+
