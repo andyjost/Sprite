@@ -3,12 +3,12 @@ from ..visitation import dispatch
 
 class Show(object):
   '''Implements the built-in show function.'''
-  def __new__(cls, ti_Fwd, format=None):
-    return format if callable(format) else object.__new__(cls, ti_Fwd, format)
+  def __new__(cls, it_Fwd, format=None):
+    return format if callable(format) else object.__new__(cls, it_Fwd, format)
 
-  def __init__(self, ti_Fwd, format=None):
+  def __init__(self, it_Fwd, format=None):
     self.format = getattr(format, 'format', None) # i.e., str.format.
-    self.ti_Fwd = ti_Fwd
+    self.it_Fwd = it_Fwd
 
   def __call__(self, node):
     '''Applies type-specific formatting after recursing to subexpressions.'''
@@ -34,5 +34,5 @@ class Show(object):
   @_recurse_.when(Node)
   def _recurse_(self, node):
     x = node.info.show(node)
-    return '(%s)' % x if ' ' in x and node.info != self.ti_Fwd else x
+    return '(%s)' % x if ' ' in x and node.info != self.it_Fwd else x
 

@@ -20,7 +20,10 @@ class E_SYMBOL(BaseException):
 
 
 class InfoTable(object):
-  '''The runtime data stored in the ``info`` slot of every node.'''
+  '''
+  Runtime info for a node.  Every Curry node stores an `InfoTable`` instance,
+  which contains instance-independent data.
+  '''
   __slots__ = ['name', 'arity', 'tag', 'step', 'show']
   def __init__(self, name, arity, tag, step, show):
     self.name = name
@@ -42,8 +45,22 @@ class InfoTable(object):
       ])
 
 
-class TypeInfo(object):
-  '''Compile-time type info.'''
+class NodeInfo(object):
+  '''
+  Compile-time node info.
+
+  Each kind of node has its own compiler-generated info.  Each Curry function,
+  each constructor of a Curry type, and each of the special nodes FAIL, FWD,
+  and CHOICE is associated with an instance of this object.
+
+  Attributes:
+  -----------
+  ``ident``
+      The fully-qualified Curry identifier for this kind of node.  An instance
+      of ``icurry.IName``.
+  ``info``
+      An instance of ``InfoTable``.
+  '''
   def __init__(self, ident, info):
     self.ident = ident
     self.info = info
@@ -259,7 +276,7 @@ def hnf(interpreter, expr, targetpath=[]):
     tag = target.info.tag
     if tag == T_FAIL:
       if targetpath:
-        expr.rewrite(interpreter.ti_Failure)
+        expr.rewrite(interpreter.it_Failure)
       raise E_SYMBOL()
     elif tag == T_CHOICE:
       if targetpath:
@@ -317,7 +334,7 @@ def nf(interpreter, expr, targetpath=[], rec=float('inf')):
           if targetpath:
             tag = target.info.tag
             if tag == T_FAIL:
-              expr.rewrite(interpreter.ti_Failure)
+              expr.rewrite(interpreter.it_Failure)
             else:
               assert tag == T_CHOICE
               pull_tab(expr, targetpath)

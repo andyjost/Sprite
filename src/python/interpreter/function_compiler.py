@@ -67,13 +67,13 @@ class FunctionCompiler(object):
   Python function.
 
   Assembles list-formatted Python code (see ``render``).  Needed symbols,
-  including node ``TypeInfo`` and system functions, are placed in the closure
+  including node ``NodeInfo`` and system functions, are placed in the closure
   within which the step function is compiled.
 
   The following naming conventions are used:
 
     Type Info:
-        ``ti_$name``, where $name is a symbol name as defined in the source
+        ``ni_$name``, where $name is a symbol name as defined in the source
         program with whatever modifications are required to avoid conflicts and
         make it a Python identifier.  A variant of the symbol name is used to
         improve readability while debugging.
@@ -114,8 +114,8 @@ class FunctionCompiler(object):
       exec source in self.closure.context, local
     return local['step']
 
-  def typeinfo(self, iname):
-    '''Get the TypeInfo object for a program symbol.'''
+  def nodeinfo(self, iname):
+    '''Get the NodeInfo object for a program symbol.'''
     return self.interpreter.symbol(iname)
 
   def __str__(self):
@@ -292,7 +292,7 @@ class FunctionCompiler(object):
     yield 'selector = hnf(lhs, p_%s).info.tag' % atable.expr.vid
     el = ''
     for iname,stmt in atable.switch.iteritems():
-      yield '%sif selector == %s:' % (el, self.typeinfo(iname).info.tag)
+      yield '%sif selector == %s:' % (el, self.nodeinfo(iname).info.tag)
       yield list(self.statement(stmt))
       el = 'el'
 
@@ -343,7 +343,7 @@ class Closure(object):
 
   def __setitem__(self, key, obj):
     '''Add a non-symbol, such as a system function, to the closure.'''
-    assert not (key.startswith('ti_') or key.startswith('_') or '.' in key)
+    assert not (key.startswith('ni_') or key.startswith('_') or '.' in key)
     assert not (self.context.get(key, obj) is not obj)
     self.context[key] = obj
 

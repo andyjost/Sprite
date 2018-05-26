@@ -81,14 +81,10 @@ class Interpreter(object):
   def __init__(self, flags={}):
     self.import_(System)
     self.prelude = self.import_(Prelude)
-    # FIXME: the naming is inconsistent.  These are named like typeinfo, but
-    # refer to info tables.
-    self.ti_Failure = self.symbol('_System.Failure').info
-    self.ti_Choice = self.symbol('_System.Choice').info
-    self.ti_Fwd = self.symbol('_System.Fwd').info
-    self.ti_PartApplic = self.symbol('_System.PartApplic') # FIXME: inconsistent
-    # The function used to take steps.  The flags (e.g., 'trace') can influence
-    # this.
+    self.it_Failure = self.symbol('_System.Failure').info
+    self.it_Choice = self.symbol('_System.Choice').info
+    self.it_Fwd = self.symbol('_System.Fwd').info
+    self.ni_PartApplic = self.symbol('_System.PartApplic')
     self.step = runtime.get_stepper(self)
 
   # Importing.
@@ -146,7 +142,7 @@ class Interpreter(object):
     self._loadsymbols(imodule.types, moduleobj)
     self._loadsymbols(imodule.functions, moduleobj)
     # Stash the type tables in the module; e.g.:
-    #   .types = {'Bool': [<TypeInfo for True>, <TypeInfo for False>]}
+    #   .types = {'Bool': [<NodeInfo for True>, <NodeInfo for False>]}
     setattr(moduleobj, '.types'
       , { typename.basename:
             [getattr(moduleobj, ctor.ident.basename) for ctor in ctors]
@@ -165,23 +161,23 @@ class Interpreter(object):
       , _no_step if not builtin else _unreachable
       , Show(
             # Note: this is called once when loading _System, i.e., before
-            # ti_Fwd exists.
-            getattr(self, 'ti_Fwd', None)
+            # it_Fwd exists.
+            getattr(self, 'it_Fwd', None)
           , getattr(icons.metadata, 'py.format', None)
           )
       )
     symbols.insert(
-        moduleobj, icons.ident.basename, runtime.TypeInfo(icons.ident, info)
+        moduleobj, icons.ident.basename, runtime.NodeInfo(icons.ident, info)
       )
 
   @_loadsymbols.when(IFunction)
   def _loadsymbols(self, ifun, moduleobj):
     info = InfoTable(
         ifun.ident.basename
-      , ifun.arity, T_FUNC, None, Show(getattr(self, 'ti_Fwd', None))
+      , ifun.arity, T_FUNC, None, Show(getattr(self, 'it_Fwd', None))
       )
     symbols.insert(
-        moduleobj, ifun.ident.basename, runtime.TypeInfo(ifun.ident, info)
+        moduleobj, ifun.ident.basename, runtime.NodeInfo(ifun.ident, info)
       )
 
   # Compiling.

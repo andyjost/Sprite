@@ -3,14 +3,6 @@ from ..visitation import dispatch
 import collections
 import re
 
-# def is_value(iexpr):
-#   '''Indicates whether the ICurry expression is a value.'''
-#   return False # TODO
-
-# def is_det(iexpr):
-#   '''Indicates whether the ICurry expression is deterministic.'''
-#   return is_value(iexpr) # TODO
-
 def isa(cyobj, what):
   '''
   Checks whether the given Curry object is an instance of the given type or
@@ -23,12 +15,13 @@ def isa(cyobj, what):
 @dispatch.on('what')
 def _isa(addr, what):
   raise TypeError(
-      'arg 2 must be an instance or sequence of curry.interpreter.TypeInfo '
-      'objects.')
+      'arg 2 must be an instance or sequence of curry.interpreter.NodeInfo '
+      'objects.'
+    )
 
-@_isa.when(runtime.TypeInfo)
-def _isa(addr, typeinfo):
-  return addr == id(typeinfo.info)
+@_isa.when(runtime.NodeInfo)
+def _isa(addr, nodeinfo):
+  return addr == id(nodeinfo.info)
 
 @_isa.when(collections.Sequence, no=str)
 def _isa(addr, seq):

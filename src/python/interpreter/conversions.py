@@ -59,21 +59,21 @@ def _expr(interp, arg, target=None):
 def _expr(interp, arg, target=None):
   return interp.prelude.Float.construct(float(arg), target=target)
 
-@_expr.when(runtime.TypeInfo)
+@_expr.when(runtime.NodeInfo)
 def _expr(interp, ti, *args, **kwds):
   target = kwds.get('target', None)
   missing =  ti.info.arity - len(args)
   if missing > 0:
     expr = ti.curry(*map(lambda s: _expr(interp, s), args))
     # note: "missing" is deliberately an unboxed int.
-    return interp.ti_PartApplic.construct(missing, expr, target=target)
+    return interp.ni_PartApplic.construct(missing, expr, target=target)
   else:
     return ti.construct(*map(lambda s: _expr(interp, s), args), target=target)
 
 @_expr.when(runtime.Node)
 def _expr(interp, node, target=None):
   if target is not None:
-    target.rewrite(interp.ti_Fwd, node)
+    target.rewrite(interp.it_Fwd, node)
   return node
 
 def box(interp, arg):

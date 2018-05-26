@@ -8,8 +8,7 @@ import re
 class SymbolLookupError(AttributeError):
   '''Raised when a Curry symbol is not found.'''
 
-SYMBOL_CHAR = re.compile('[^0-9a-zA-Z_ ]')
-IDENTIFIER = re.compile('^[a-zA-Z_][0-9a-zA-Z_]*$|^[^0-9a-zA-Z_ ]+$')
+P_SYMBOL = re.compile('[^0-9a-zA-Z_\s]')
 TR = {
     '&' : '_amp_'
   , '@' : '_at_'
@@ -47,7 +46,7 @@ TR = {
 def clean(s):
   '''Clean up a string by encoding or removing illegal characters.'''
   a = ''.join(TR.get(ch, ch) for ch in s)
-  return str(re.sub(SYMBOL_CHAR, '', a))
+  return str(re.sub(P_SYMBOL, '', a))
 
 def encode(iname, disallow={}):
   '''
@@ -66,10 +65,10 @@ def encode(iname, disallow={}):
   '''
   # First, try just the basename.
   a = clean(iname.basename)
-  k = 'ti_%s' % a
+  k = 'ni_%s' % a
   if k in disallow:
     # If it conflicts, try prepending the module name.
-    k = 'ti_%s_%s' % (clean(iname.module), a)
+    k = 'ni_%s_%s' % (clean(iname.module), a)
     if k in disallow:
       # Finally, append a number.
       k_ = k
@@ -78,19 +77,22 @@ def encode(iname, disallow={}):
         k_ = '%s_%d' % (k, next(i))
       k = k_
   assert k not in disallow
-  assert k.startswith('ti_')
+  assert k.startswith('ni_')
   return k
 
+P_IDENTIFIER = re.compile('^[a-zA-Z_][0-9a-zA-Z_]*$|^[^0-9a-zA-Z_\s]+$')
 def isaCurryIdentifier(basename):
   '''
-  Indicates whether the given string is a valid Curry identifier.  Legal identifiers
-  are strings containing alphanumeric 
+  Indicates whether the given string is a valid Curry identifier.  Legal
+  identifiers are 1) strings not beginning with a number where each character
+  is alphanumeric or an underscore; and 2) strings comprising only
+  non-alphanumeric, non-underscore, non-whitespace characters.
   '''
-  return bool(re.match(IDENTIFIER, basename))
-  
+  return bool(re.match(P_IDENTIFIER, basename))
+
 # FIXME: ICurry does not tell us which symbols are private.  For now, all
 # symbols are treated as public.
-def insert(module, basename, typeinfo, private=False):
+def insert(module, basename, nodeinfo, private=False):
   '''
   Inserts a symbol into the given module.
 
@@ -103,8 +105,8 @@ def insert(module, basename, typeinfo, private=False):
       An instance of ``CurryModule``.
   ``basename``
       A stirng containing the unqualified symbol name.
-  ``typeinfo``
-      The typeinfo for this symbol.
+  ``nodeinfo``
+      The nodeinfo for this symbol.
   ``private``
       Whether this is a private symbol.
 
@@ -112,9 +114,9 @@ def insert(module, basename, typeinfo, private=False):
   --------
   Nothing.
   '''
-  getattr(module, '.symbols')[basename] = typeinfo
+  getattr(module, '.symbols')[basename] = nodeinfo
   if not private and isaCurryIdentifier(basename):
-    setattr(module, basename, typeinfo)
+    setattr(module, basename, nodeinfo)
 
 def lookupSymbol(module, iname):
   '''
