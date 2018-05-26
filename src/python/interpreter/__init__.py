@@ -81,9 +81,9 @@ class Interpreter(object):
   def __init__(self, flags={}):
     self.import_(System)
     self.prelude = self.import_(Prelude)
-    self.it_Failure = self.symbol('_System.Failure').info
-    self.it_Choice = self.symbol('_System.Choice').info
-    self.it_Fwd = self.symbol('_System.Fwd').info
+    self.ni_Failure = self.symbol('_System.Failure')
+    self.ni_Choice = self.symbol('_System.Choice')
+    self.ni_Fwd = self.symbol('_System.Fwd')
     self.ni_PartApplic = self.symbol('_System.PartApplic')
     self.step = runtime.get_stepper(self)
 
@@ -161,8 +161,8 @@ class Interpreter(object):
       , _no_step if not builtin else _unreachable
       , Show(
             # Note: this is called once when loading _System, i.e., before
-            # it_Fwd exists.
-            getattr(self, 'it_Fwd', None)
+            # ni_Fwd exists.
+            getattr(self, 'ni_Fwd', None)
           , getattr(icons.metadata, 'py.format', None)
           )
       )
@@ -174,7 +174,7 @@ class Interpreter(object):
   def _loadsymbols(self, ifun, moduleobj):
     info = InfoTable(
         ifun.ident.basename
-      , ifun.arity, T_FUNC, None, Show(getattr(self, 'it_Fwd', None))
+      , ifun.arity, T_FUNC, None, Show(getattr(self, 'ni_Fwd', None))
       )
     symbols.insert(
         moduleobj, ifun.ident.basename, runtime.NodeInfo(ifun.ident, info)

@@ -1,9 +1,9 @@
-from .. import icurry
-from ..visitation import dispatch
-import textwrap
 from collections import Sequence
+from .. import icurry
 from numbers import Integral
-import weakref
+from ..visitation import dispatch
+import operator
+import textwrap
 
 T_FAIL   = -4
 T_FWD    = -3
@@ -65,49 +65,6 @@ class NodeInfo(object):
     self.ident = ident
     self.info = info
 
-  def construct(self, *args, **kwds):
-    '''
-    Constructs an object of this type.  Its argument list must be complete.
-
-    If the keyword 'target' is supplied, then the object will be constructed
-    there.  This low-level function is intended for internal use only.  To
-    construct an expression, use ``Interpreter.expr``.
-    '''
-    if len(args) != self.info.arity:
-      raise TypeError(
-          'cannot construct "%s" (arity=%d), with %d arg%s' % (
-              self.info.name
-            , self.info.arity
-            , len(args)
-            , '' if len(args) == 1 else 's'
-            )
-        )
-
-    target = kwds.get('target', None)
-    if target is None:
-      return Node(self.info, *args)
-    else:
-      target.rewrite(self.info, *args)
-      return target
-
-  def curry(self, *args):
-    '''
-    Constructs a partial appliction of this type.  Its argument list must not be complete.
-
-    This low-level function is intended for internal use only.  To construct an
-    expression, use ``Interpreter.expr``.
-    '''
-    if len(args) >= self.info.arity:
-      raise TypeError(
-          'cannot curry "%s" (arity=%d), with %d arg%s' % (
-              self.info.name
-            , self.info.arity
-            , len(args)
-            , '' if len(args) == 1 else 's'
-            )
-        )
-    return Node(self.info, *args)
-
   def __str__(self):
     return self.ident
 
@@ -127,16 +84,44 @@ class NodeInfo(object):
 
 class Node(object):
   '''An expression node.'''
-  def __new__(cls, info, *args):
-    self = object.__new__(cls)
+  def __new__(cls, info, *args, **kwds):
+    '''
+    Create or rewrite a node.
+
+    If the keyword 'target' is supplied, then the object will be constructed
+    there.  This low-level function is intended for internal use only.  To
+    construct an expression, use ``Interpreter.expr``.
+
+    Parameters:
+    -----------
+    ``info``
+      An instance of ``NodeInfo`` or ``InfoTable`` indicating the kind of node to
+      create.
+    ``*args``
+      The successors.
+    ``target=None``
+      Keyword-only argument.  If not None, this specifies an existing Node object
+      to rewrite.
+    ``partial=False``
+      Indicates whether this constructs a partial application.
+    '''
+    info = getattr(info, 'info', info)
+    bad_length = operator.ge if kwds.get('partial') else operator.ne
+    if bad_length(len(args), info.arity):
+      raise TypeError(
+          'cannot %s "%s" (arity=%d), with %d arg%s' % (
+              ('curry' if kwds.get('partial') else 'construct')
+            , info.name
+            , info.arity
+            , len(args)
+            , '' if len(args) == 1 else 's'
+            )
+        )
+    target = kwds.get('target', None)
+    self = object.__new__(cls) if target is None else target
     self.info = info
     self.successors = list(args)
     return self
-
-  def rewrite(self, info, *args):
-    assert isinstance(info, InfoTable)
-    self.info = info
-    self.successors = list(args)
 
   @dispatch.on('i')
   def __getitem__(self, i):
@@ -150,28 +135,29 @@ class Node(object):
   def __getitem__(self, i):
     '''Get a successor, skipping over FWD nodes.'''
     self = self[()]
-    obj = self.successors[i]
-    while hasattr(obj, 'info') and obj.info.tag == T_FWD:
-      obj = obj.successors[0]
-    self.successors[i] = obj
-    return obj
+    item = self.successors[i] = Node._skipfwd(self.successors[i])
+    return item
 
   @__getitem__.when(Sequence, no=str)
   def __getitem__(self, path):
     if not path:
-      # Returns self.  If self if a FWD node, returns its non-FWD target.
-      if self.info.tag == T_FWD:
-        p = self.successors[0]
-        while hasattr(p, 'info') and p.info.tag == T_FWD:
-          p = p.successors[0]
-        self.successors[0] = p
-        return p
-      else:
-        return self
+      return Node._skipfwd(self)
     else:
       for p in path:
         self = self[p]
       return self
+
+  @staticmethod
+  def _skipfwd(arg):
+    '''
+    Skips over FWD nodes.  If a chain of FWD nodes is encountered, each one
+    will be short-cut to point to the target.  This succeeds for all types, so
+    it is safe to pass an unboxed value.
+    '''
+    if hasattr(arg, 'info') and arg.info.tag == T_FWD:
+      target = arg.successors[0] = Node._skipfwd(arg.successors[0])
+      return target
+    return arg
 
   def __eq__(self, rhs):
     if not isinstance(rhs, Node):
@@ -187,14 +173,11 @@ class Node(object):
   def __repr__(self):
     return '<%s %s>' % (self.info.name, ' '.join(map(repr, self.successors)))
 
-  # An alias for ``Node.rewrite``.  This gives a consistent syntax for node
-  # creation and rewriting.  For example, ``node(*args)`` creates a node and
-  # ``lhs.node(*args)`` rewrites ``lhs``.  This simplifies the code generator.
-  node = rewrite
-
-# An alias for the node-creating function.
-node = Node
-
+  # Rewrite this node. This gives a consistent syntax for node creation and
+  # rewriting.  For example, ``Node(*args)`` creates a node and
+  # ``lhs.Node(*args)`` rewrites ``lhs``.  This simplifies the code generator.
+  def Node(self, info, *args):
+    Node(info, *args, target=self)
 
 class Evaluator(object):
   '''Evaluates Curry expressions.'''
@@ -268,7 +251,6 @@ def hnf(interpreter, expr, targetpath=[]):
   # to handle special symbols before calling this function).
   assert not targetpath or expr.info.tag >= T_FUNC
   target = expr[targetpath]
-  step = interpreter.step
   while True:
     if not isinstance(target, Node):
       assert isinstance(target, icurry.BuiltinVariant)
@@ -276,7 +258,7 @@ def hnf(interpreter, expr, targetpath=[]):
     tag = target.info.tag
     if tag == T_FAIL:
       if targetpath:
-        expr.rewrite(interpreter.it_Failure)
+        Node(interpreter.ni_Failure, target=expr)
       raise E_SYMBOL()
     elif tag == T_CHOICE:
       if targetpath:
@@ -286,7 +268,7 @@ def hnf(interpreter, expr, targetpath=[]):
       target = target[()]
     elif tag == T_FUNC:
       try:
-        step(target)
+        interpreter.step(target)
       except E_SYMBOL:
         pass
     else:
@@ -334,7 +316,7 @@ def nf(interpreter, expr, targetpath=[], rec=float('inf')):
           if targetpath:
             tag = target.info.tag
             if tag == T_FAIL:
-              expr.rewrite(interpreter.it_Failure)
+              Node(interpreter.ni_Failure, target=expr)
             else:
               assert tag == T_CHOICE
               pull_tab(expr, targetpath)
@@ -367,5 +349,5 @@ def pull_tab(source, targetpath):
   rsucc[i] = target[1]
   rhs = Node(source.info, *rsucc)
   #
-  source.rewrite(target.info, lhs, rhs)
+  Node(target.info, lhs, rhs, target=source)
 

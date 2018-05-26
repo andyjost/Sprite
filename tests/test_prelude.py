@@ -1,5 +1,6 @@
 import cytest # from ./lib; must be first
 import curry
+from curry.interpreter import runtime
 
 class TestPrelude(cytest.TestCase):
   def testBuiltinPreludeTypes(self):
@@ -30,8 +31,8 @@ class TestPrelude(cytest.TestCase):
     Cons,Nil = curry.symbol('Prelude.:'), curry.symbol('Prelude.[]')
     self.assertEqual(e2s([Cons, 1, Nil]), '[1]')
     self.assertEqual(e2s([Cons, 1, [Cons, 2, Nil]]), '[1, 2]')
-    l0 = Nil.construct()
-    l1 = Cons.construct(1, l0)
+    l0 = runtime.Node(Nil)
+    l1 = runtime.Node(Cons, 1, l0)
     self.assertIsa(l0, curry.symbol('Prelude.[]'))
     self.assertIsNotA(l0, curry.symbol('Prelude.:'))
     self.assertIsa(l0, curry.type('Prelude.List'))

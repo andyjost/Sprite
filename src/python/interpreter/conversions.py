@@ -34,7 +34,7 @@ def _expr(interp, arg, *args, **kwds):
   if len(arg) == 1:
     args = (str(arg),) + args
     target = kwds.get('target', None)
-    return interp.prelude.Char.construct(*args, target=target)
+    return runtime.Node(interp.prelude.Char, *args, target=target)
   else:
     raise RuntimeError('multi-char strings not supported yet.')
 
@@ -47,33 +47,33 @@ def _expr(interp, arg, target=None):
 def _expr(interp, arg, **kwds):
   target = kwds.get('target', None)
   if arg:
-    return interp.prelude.True.construct(target=target)
+    return runtime.Node(interp.prelude.True, target=target)
   else:
-    return interp.prelude.False.construct(target=target)
+    return runtime.Node(interp.prelude.False, target=target)
 
 @_expr.when(numbers.Integral)
 def _expr(interp, arg, target=None):
-  return interp.prelude.Int.construct(int(arg), target=target)
+  return runtime.Node(interp.prelude.Int, int(arg), target=target)
 
 @_expr.when(numbers.Real)
 def _expr(interp, arg, target=None):
-  return interp.prelude.Float.construct(float(arg), target=target)
+  return runtime.Node(interp.prelude.Float, float(arg), target=target)
 
 @_expr.when(runtime.NodeInfo)
 def _expr(interp, ti, *args, **kwds):
   target = kwds.get('target', None)
   missing =  ti.info.arity - len(args)
   if missing > 0:
-    expr = ti.curry(*map(lambda s: _expr(interp, s), args))
-    # note: "missing" is deliberately an unboxed int.
-    return interp.ni_PartApplic.construct(missing, expr, target=target)
+    partial = runtime.Node(ti, *map(lambda s: _expr(interp, s), args), partial=True)
+    # note: "missing" an unboxed int by design.
+    return runtime.Node(interp.ni_PartApplic, missing, partial, target=target)
   else:
-    return ti.construct(*map(lambda s: _expr(interp, s), args), target=target)
+    return runtime.Node(ti, *map(lambda s: _expr(interp, s), args), target=target)
 
 @_expr.when(runtime.Node)
 def _expr(interp, node, target=None):
   if target is not None:
-    target.rewrite(interp.it_Fwd, node)
+    target.rewrite(interp.ni_Fwd, node)
   return node
 
 def box(interp, arg):

@@ -24,7 +24,7 @@ class TestPyRuntime(cytest.TestCase):
     self.assertEqual(str(prelude.negate.info), 'Info for "negate"')
     self.assertTrue(repr(prelude.negate.info).startswith('InfoTable'))
 
-    n = runtime.Node(prelude.negate.info)
+    n = runtime.Node(getattr(prelude, '()').info)
     self.assertRaisesRegexp(RuntimeError, 'unhandled type: str', lambda: n['foo'])
     self.assertRaisesRegexp(RuntimeError, 'unhandled type: float', lambda: n[1.])
 

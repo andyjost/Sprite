@@ -14,7 +14,7 @@ def apply(interpreter, partapplic, arg):
   else:
     yield partapplic.info
     yield missing-1
-    yield runtime.Node(term.info, *(term.successors+[arg]))
+    yield runtime.Node(term.info, *(term.successors+[arg]), partial=True)
 
 def failed(interpreter):
   return ['node(%s)' % interpreter.closure['_System.Failure']]

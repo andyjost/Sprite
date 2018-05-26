@@ -53,12 +53,12 @@ def compile_builtin(interpreter, func):
 
   The Python implementation function must accept the arguments in head-normal
   form, but without any other preprocessing (e.g., unboxing).  It returns a
-  sequence of arguments suitable for passing to Node.rewrite.
+  sequence of arguments suitable for passing to ``runtime.construct``.
   '''
   hnf = interpreter.hnf
   def step(lhs):
     args = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
-    lhs.rewrite(*func(interpreter, *args))
+    runtime.Node(*func(interpreter, *args), target=lhs)
   return step
 
 class FunctionCompiler(object):
@@ -91,8 +91,7 @@ class FunctionCompiler(object):
     self.ident = ident
     self.interpreter = interpreter
     self.closure = Closure(interpreter)
-    # Every function should create or rewrite a node.
-    self.closure['node'] = runtime.node
+    self.closure['Node'] = runtime.Node
     body = []
     self.program = ['def step(lhs):', body]
     return self
@@ -212,22 +211,22 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.Exempt)
   def expression(self, exempt):
-    return 'node(%s)' % self.closure['_System.Failure']
+    return 'Node(%s)' % self.closure['_System.Failure']
 
   @expression.when(icurry.Reference)
   def expression(self, ref):
-    return 'node(%s, _%s)' % (self.closure['_System.Fwd'], ref.vid)
+    return 'Node(%s, _%s)' % (self.closure['_System.Fwd'], ref.vid)
 
   @expression.when(icurry.Applic)
   def expression(self, applic):
-    return 'node(%s%s)' % (
+    return 'Node(%s%s)' % (
         self.closure[applic.ident]
       , ''.join(', '+e for e in self.expression(applic.args))
       )
 
   @expression.when(icurry.PartApplic)
   def expression(self, partapplic):
-    return 'node(%s, %s, %s)' % (
+    return 'Node(%s, %s, %s)' % (
         self.closure['_System.PartApplic']
       , self.expression(partapplic.missing)
       , self.expression(partapplic.expr)
@@ -235,7 +234,7 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.IOr)
   def expression(self, ior):
-    return 'node(%s, %s, %s)' % (
+    return 'Node(%s, %s, %s)' % (
         self.closure['_System.Choice']
       , self.expression(ior.lhs)
       , self.expression(ior.rhs)
