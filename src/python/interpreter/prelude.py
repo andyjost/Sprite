@@ -52,7 +52,7 @@ _types_.append(
 del _listformat
 
 # Tuples
-MAX_TUPLE_SIZE = 10
+MAX_TUPLE_SIZE = 15
 Unit = IType('Unit', [IConstructor('()', 0, metadata={'py.format':'()'})])
 _types_.append(Unit)
 for i in range(2, MAX_TUPLE_SIZE):
