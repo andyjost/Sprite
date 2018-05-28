@@ -35,19 +35,13 @@ A makefile is used to simplify integration with text editors.  For instance, in
 vim <Enter> runs "make" by default, so that key can be used to easily run the
 tests right from the text editor.
 
-5. ENVIRONMENT VARIABLES
-------------------------
 
-    - SPRITE_LOG_LEVEL
+5. TESTING-SPECIFIC ENVIRONMENT VARIABLES
+-----------------------------------------
 
-        Default: INFO
-        Used at: src/python/interpreter/__init__.py
-
-        Produce more or less output.  This may be set to any of
-        'DEBUG', 'INFO', 'WARNING', 'ERROR', or 'CRITICAL' (see the
-        Python "logging" module documentation for details).  Setting
-        this to 'DEBUG' will output detailed information about each
-        function compiled.
+The following environment variables are available in the testing suite.  These
+require that each test file imports 'cytest' before loading anything from the
+'curry' package.
 
     - SPRITE_CATCH_ERRORS
 
@@ -56,6 +50,5 @@ tests right from the text editor.
 
         Sets a breakpoint whenever a specified error type is created.  The
         value is a comma-separated list of Python exception names.  For
-        example, seeting "AssertionError,RuntimeError" will cause an
-        interactive prompt to start whenever either of these exceptions occurs.
-
+        example, the value "AssertionError,RuntimeError" will cause an
+        interactive prompt to start whenever either of those exceptions occurs.

@@ -1,11 +1,14 @@
 from . import icurry
 from .visitation import dispatch
 import inspect
+import logging
 import os
 import shutil
 import subprocess
 import sys
 import types
+
+logger = logging.getLogger(__name__)
 
 try:
   from tempfile import TemporaryDirectory # Py3
@@ -145,6 +148,7 @@ def getICurryFromJson(jsonfile):
   Reads an ICurry-JSON file and returns the ICurry.  The file
   must contain one Curry module.
   '''
+  logger.info('Reading ICurry-JSON from %s' % jsonfile)
   assert os.path.exists(jsonfile)
   icur = icurry.parse(open(jsonfile, 'r').read())
   assert len(icur) == 1
@@ -169,6 +173,7 @@ def getICurryForModule(modulename, currypath):
   The name of the ICurry-JSON file.
   '''
   filename = findOrBuildICurryForModule(modulename, currypath)
+  logger.info('Found module %s at %s' % (modulename, filename))
   return getICurryFromJson(filename)
 
 class TmpDir(TemporaryDirectory):

@@ -10,12 +10,16 @@ logger = logging.getLogger(__name__)
 
 def compile_function(interpreter, ifun):
   '''Compiles an ICurry function into a Python step function.'''
+  logger.info('Compiling function %s' % ifun.ident)
   assert isinstance(ifun, icurry.IFunction)
   if 'py.primfunc' in ifun.metadata:
+    logger.info('        (primitive builtin)')
     assert('py.func' not in ifun.metadata)
     return compile_primitive_builtin(interpreter, ifun.metadata['py.primfunc'])
   elif 'py.func' in ifun.metadata:
+    logger.info('        (builtin)')
     return compile_builtin(interpreter, ifun.metadata['py.func'])
+  logger.info('        (normal function)')
   compiler = FunctionCompiler(interpreter, ifun.ident)
   compiler.compile(ifun.code)
 

@@ -1,7 +1,14 @@
+from cStringIO import StringIO
+import collections
+import contextlib
+import gzip
+import os
+import sys
+import unittest
+
 # ================================================================================
-# Install the breakpoint function into the built-in module so it can be used
-# anywhere.  This is the VERY FIRST THING done, so that breakpoint can be used
-# in the curry module itself when debugging.
+# Install built-in functions for debugging and development.  This must be done
+# before loading anything from the project.
 def breakpoint(msg='', depth=0):
   '''(Built-in) Starts an interactive prompt.  For development and debugging.'''
   import code, inspect, pydoc
@@ -17,22 +24,27 @@ def breakpoint(msg='', depth=0):
   code.interact(banner=banner, local=namespace)
 import __builtin__
 __builtin__.breakpoint = breakpoint
-# ================================================================================
 
-from cStringIO import StringIO
-from curry.interpreter.analysis import isa as cy_isa
-from curry.interpreter.runtime import Node
-from curry.llvm import isa as llvm_isa
-import collections
-import contextlib
-import curry
-import gzip
-import inspect
-import os
-import sys
-import textwrap
-import types
-import unittest
+def pdbtrace():
+  '''(Built-in) Starts PDB.'''
+  import pdb
+  pdb.set_trace()
+
+@contextlib.contextmanager
+def trap():
+  '''
+  (Built-in) Traps test failures for debugging.
+
+      with trap():
+        self.assertTrue(...)
+  '''
+  try:
+    yield None
+  except Exception as e:
+    breakpoint(msg=repr(str(e)), depth=2)
+    raise
+
+__builtin__.trap = trap
 
 # Enable a break when certain exceptions occur.  For instance, this can be used
 # to break whenever a RuntimeError or AssertionError occurs (n.b., that's an
@@ -49,23 +61,16 @@ for exc_name in os.environ.get('SPRITE_CATCH_ERRORS', '').split(','):
   if exc_name:
     breakOn(exc_name)
 
-@contextlib.contextmanager
-def trap():
-  '''
-  (Built-in) Traps test failures for debugging.
+# ================================================================================
 
-      with trap():
-        self.assertTrue(...)
-  '''
-  try:
-    yield None
-  except AssertionError as e:
-    breakpoint(msg=repr(str(e)), depth=2)
-    raise
+import curry
+from curry.interpreter.analysis import isa as cy_isa
+from curry.interpreter.runtime import Node
+from curry.llvm import isa as llvm_isa
 
-__builtin__.trap = trap
 
 class TestCase(unittest.TestCase):
+  '''A base test case class for testing Sprite.'''
   def tearDown(self):
     # Reset Curry after running each test to clear loaded modules, etc.
     reload(curry)
@@ -74,7 +79,7 @@ class TestCase(unittest.TestCase):
     '''
     Compare an object or objects against a golden file.
 
-    If ``update`` tests true, then just update the golden file instead.
+    If ``update`` is true, then just update the golden file instead.
     '''
     buf = StringIO()
     if isinstance(objs, collections.Sequence):
@@ -115,7 +120,7 @@ class TestCase(unittest.TestCase):
         ty,val,tb = sys.exc_info()
         tail = '' if msg is None else ' %s' % msg
         raise ty, ty(str(val) + tail), tb
-  
+
   def assertMayRaiseRegexp(self, exception, regexp, expr, msg=None):
     if exception is None:
       try:

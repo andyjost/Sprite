@@ -39,3 +39,31 @@ Sprite was developed and tested with the following software.
     - MPS 1.116.0 (www.ravenbrook.com/project/mps)
 		- Python 2.7.12 and 2.7.14
 
+5. ENVIRONMENT VARIABLES
+------------------------
+
+    - CURRYPATH
+
+        Default: ''
+        Used at: src/python/importer.py
+
+        A colon-separated list of paths use to search for Curry code.
+
+    - SPRITE_LOG_LEVEL
+
+        Default: WARNING
+        Used at: src/python/interpreter/__init__.py
+
+        Produce more or less output.  This may be set to any of
+        'DEBUG', 'INFO', 'WARNING', 'ERROR', or 'CRITICAL' (see the
+        Python "logging" module documentation for details).  Setting
+        this to 'DEBUG' will output detailed information about each
+        function compiled.
+
+    - SPRITE_LOG_FILE
+
+        Default: '-' (stdout)
+        Used at: src/python/interpreter/__init__.py
+
+        The file to which logging output is directed.
+
