@@ -108,7 +108,8 @@ class FunctionCompiler(object):
       # If debugging, write a source file so that PDB can step into this
       # function.
       srcdir = importer.getDebugSourceDir()
-      srcfile = importer.makeNewfile(srcdir, self.ident)
+      ident = symbols.makeLegalFileName(self.ident)
+      srcfile = importer.makeNewfile(srcdir, ident)
       with open(srcfile, 'w') as out:
         out.write(source)
       co = compile(source, srcfile, 'exec')
@@ -262,11 +263,12 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.IExternal)
   def statement(self, iexternal):
-    raise RuntimeError('IExternal not handled')
+    yield 'Node(%s)' % self.closure['_System.Failure']
+    yield 'return'
 
   @statement.when(icurry.Comment)
   def statement(self, comment):
-    pass
+    return []
 
   @statement.when(icurry.Declare)
   def statement(self, declare):

@@ -80,6 +80,11 @@ def encode(iname, disallow={}):
   assert k.startswith('ni_')
   return k
 
+def makeLegalFileName(iname):
+  '''Makes the given symbol name into a valid UNIX filename.'''
+  assert iname not in ['.', '..']
+  return ''.join(TR.get('/') if ch=='/' else ch for ch in iname)
+
 P_IDENTIFIER = re.compile('^[a-zA-Z_][0-9a-zA-Z_]*$|^[^0-9a-zA-Z_\s]+$')
 def isaCurryIdentifier(basename):
   '''

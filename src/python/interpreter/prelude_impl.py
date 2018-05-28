@@ -18,4 +18,4 @@ def apply(interpreter, partapplic, arg):
 
 def failed(interpreter):
   return ['node(%s)' % interpreter.closure['_System.Failure']]
-  
+
