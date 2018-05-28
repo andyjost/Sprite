@@ -17,33 +17,33 @@
   <library>prim_standard</library>
   <entry>prim_applyGroundNormalForm[raw]</entry>
  </primitive>
- <primitive name="+" arity="2">
+ <primitive name="prim_Int_plus" arity="2">
   <library>prim_standard</library>
   <entry>prim_Int_plus</entry>
  </primitive>
- <primitive name="-" arity="2">
+ <primitive name="prim_Int_minus" arity="2">
   <library>prim_standard</library>
   <entry>prim_Int_minus</entry>
  </primitive>
- <primitive name="*" arity="2">
+ <primitive name="prim_Int_times" arity="2">
   <library>prim_standard</library>
   <entry>prim_Int_times</entry>
  </primitive>
- <primitive name="div" arity="2">
+ <primitive name="prim_Int_div" arity="2">
   <library>prim_standard</library>
   <entry>prim_Int_div</entry>
  </primitive>
- <primitive name="mod" arity="2">
+ <primitive name="prim_Int_mod" arity="2">
   <library>prim_standard</library>
   <entry>prim_Int_mod</entry>
  </primitive>
- <primitive name="quot" arity="2">
+ <primitive name="prim_Int_quot" arity="2">
   <library>prim_standard</library>
-  <entry>quot</entry>
+  <entry>prim_Int_quot</entry>
  </primitive>
- <primitive name="rem" arity="2">
+ <primitive name="prim_Int_rem" arity="2">
   <library>prim_standard</library>
-  <entry>rem</entry>
+  <entry>prim_Int_rem</entry>
  </primitive>
  <primitive name="prim_negateFloat" arity="1">
   <library>prim_standard</library>
@@ -57,11 +57,11 @@
   <library>prim_standard</library>
   <entry>prim_ensureNotFree[raw]</entry>
  </primitive>
- <primitive name="ord" arity="1">
+ <primitive name="prim_ord" arity="1">
   <library>prim_standard</library>
   <entry>prim_ord</entry>
  </primitive>
- <primitive name="chr" arity="1">
+ <primitive name="prim_chr" arity="1">
   <library>prim_standard</library>
   <entry>prim_chr</entry>
  </primitive>
@@ -96,10 +96,6 @@
  <primitive name="ifVar" arity="3">
   <library>prim_standard</library>
   <entry>prim_ifVar[raw]</entry>
- </primitive>
- <primitive name="success" arity="0">
-  <library>prim_standard</library>
-  <entry>prim_success</entry>
  </primitive>
  <primitive name="&amp;" arity="2">
   <library>prim_standard</library>
@@ -164,9 +160,5 @@
  <primitive name="catch" arity="2">
   <library>prim_standard</library>
   <entry>prim_catch[raw]</entry>
- </primitive>
- <primitive name="?" arity="2">
-  <library>prim_standard</library>
-  <entry>prim_standard</entry>
  </primitive>
 </primitives>

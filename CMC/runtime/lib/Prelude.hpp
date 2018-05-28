@@ -3683,14 +3683,14 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _drop_0x2Edropp_0x2E229 : Operation { // drop.dropp.229
+  struct _drop__0x23A16 : Operation { // drop_#A16
     Node** arg1;
     Node** arg2;
-    _drop_0x2Edropp_0x2E229(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _drop__0x23A16(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _drop_0x2Edropp_0x2E229(_arg1, _arg2));
+      return new Node*(new _drop__0x23A16(_arg1, _arg2));
     }
-    inline std::string name() { return "drop.dropp.229"; }
+    inline std::string name() { return "drop_#A16"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -3699,8 +3699,8 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _drop_0x2Edropp_0x2E229(arg1, _arg);
-      case 2: return new Engine::Partial(_drop_0x2Edropp_0x2E229::make(_arg), 1);
+      case 1: return new _drop__0x23A16(arg1, _arg);
+      case 2: return new Engine::Partial(_drop__0x23A16::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
@@ -3755,14 +3755,14 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _splitAt_0x2EsplitAtp_0x2E239 : Operation { // splitAt.splitAtp.239
+  struct _splitAt_0x2EsplitAtp_0x2E238 : Operation { // splitAt.splitAtp.238
     Node** arg1;
     Node** arg2;
-    _splitAt_0x2EsplitAtp_0x2E239(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _splitAt_0x2EsplitAtp_0x2E238(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _splitAt_0x2EsplitAtp_0x2E239(_arg1, _arg2));
+      return new Node*(new _splitAt_0x2EsplitAtp_0x2E238(_arg1, _arg2));
     }
-    inline std::string name() { return "splitAt.splitAtp.239"; }
+    inline std::string name() { return "splitAt.splitAtp.238"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -3771,22 +3771,22 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _splitAt_0x2EsplitAtp_0x2E239(arg1, _arg);
-      case 2: return new Engine::Partial(_splitAt_0x2EsplitAtp_0x2E239::make(_arg), 1);
+      case 1: return new _splitAt_0x2EsplitAtp_0x2E238(arg1, _arg);
+      case 2: return new Engine::Partial(_splitAt_0x2EsplitAtp_0x2E238::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _splitAt_0x2EsplitAtp_0x2E239__0x23A16 : Operation { // splitAt.splitAtp.239_#A16
+  struct _splitAt_0x2EsplitAtp_0x2E238__0x23A17 : Operation { // splitAt.splitAtp.238_#A17
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _splitAt_0x2EsplitAtp_0x2E239__0x23A16(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _splitAt_0x2EsplitAtp_0x2E238__0x23A17(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _splitAt_0x2EsplitAtp_0x2E239__0x23A16(_arg1, _arg2, _arg3));
+      return new Node*(new _splitAt_0x2EsplitAtp_0x2E238__0x23A17(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "splitAt.splitAtp.239_#A16"; }
+    inline std::string name() { return "splitAt.splitAtp.238_#A17"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -3796,21 +3796,21 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _splitAt_0x2EsplitAtp_0x2E239__0x23A16(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_splitAt_0x2EsplitAtp_0x2E239__0x23A16::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_splitAt_0x2EsplitAtp_0x2E239__0x23A16::make(_arg), 2);
+      case 1: return new _splitAt_0x2EsplitAtp_0x2E238__0x23A17(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_splitAt_0x2EsplitAtp_0x2E238__0x23A17::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_splitAt_0x2EsplitAtp_0x2E238__0x23A17::make(_arg), 2);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _splitAt_0x2EsplitAtp_0x2E239_0x2E__0x23selFP9_0x23ys : Operation { // splitAt.splitAtp.239._#selFP9#ys
+  struct _splitAt_0x2EsplitAtp_0x2E238_0x2E__0x23selFP9_0x23ys : Operation { // splitAt.splitAtp.238._#selFP9#ys
     Node** arg1;
-    _splitAt_0x2EsplitAtp_0x2E239_0x2E__0x23selFP9_0x23ys(Node** _arg1 = 0) : arg1(_arg1) {}
+    _splitAt_0x2EsplitAtp_0x2E238_0x2E__0x23selFP9_0x23ys(Node** _arg1 = 0) : arg1(_arg1) {}
     static Node** make(Node** _arg1 = 0) {
-      return new Node*(new _splitAt_0x2EsplitAtp_0x2E239_0x2E__0x23selFP9_0x23ys(_arg1));
+      return new Node*(new _splitAt_0x2EsplitAtp_0x2E238_0x2E__0x23selFP9_0x23ys(_arg1));
     }
-    inline std::string name() { return "splitAt.splitAtp.239._#selFP9#ys"; }
+    inline std::string name() { return "splitAt.splitAtp.238._#selFP9#ys"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -3818,19 +3818,19 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _splitAt_0x2EsplitAtp_0x2E239_0x2E__0x23selFP9_0x23ys(_arg);
+      case 1: return new _splitAt_0x2EsplitAtp_0x2E238_0x2E__0x23selFP9_0x23ys(_arg);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _splitAt_0x2EsplitAtp_0x2E239_0x2E__0x23selFP10_0x23zs : Operation { // splitAt.splitAtp.239._#selFP10#zs
+  struct _splitAt_0x2EsplitAtp_0x2E238_0x2E__0x23selFP10_0x23zs : Operation { // splitAt.splitAtp.238._#selFP10#zs
     Node** arg1;
-    _splitAt_0x2EsplitAtp_0x2E239_0x2E__0x23selFP10_0x23zs(Node** _arg1 = 0) : arg1(_arg1) {}
+    _splitAt_0x2EsplitAtp_0x2E238_0x2E__0x23selFP10_0x23zs(Node** _arg1 = 0) : arg1(_arg1) {}
     static Node** make(Node** _arg1 = 0) {
-      return new Node*(new _splitAt_0x2EsplitAtp_0x2E239_0x2E__0x23selFP10_0x23zs(_arg1));
+      return new Node*(new _splitAt_0x2EsplitAtp_0x2E238_0x2E__0x23selFP10_0x23zs(_arg1));
     }
-    inline std::string name() { return "splitAt.splitAtp.239._#selFP10#zs"; }
+    inline std::string name() { return "splitAt.splitAtp.238._#selFP10#zs"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -3838,7 +3838,7 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _splitAt_0x2EsplitAtp_0x2E239_0x2E__0x23selFP10_0x23zs(_arg);
+      case 1: return new _splitAt_0x2EsplitAtp_0x2E238_0x2E__0x23selFP10_0x23zs(_arg);
       }
     }
     /*inline*/ Node* hfun();
@@ -3867,15 +3867,15 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _takeWhile__0x23A17 : Operation { // takeWhile_#A17
+  struct _takeWhile__0x23A18 : Operation { // takeWhile_#A18
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _takeWhile__0x23A17(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _takeWhile__0x23A18(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _takeWhile__0x23A17(_arg1, _arg2, _arg3));
+      return new Node*(new _takeWhile__0x23A18(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "takeWhile_#A17"; }
+    inline std::string name() { return "takeWhile_#A18"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -3885,24 +3885,24 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _takeWhile__0x23A17(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_takeWhile__0x23A17::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_takeWhile__0x23A17::make(_arg), 2);
+      case 1: return new _takeWhile__0x23A18(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_takeWhile__0x23A18::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_takeWhile__0x23A18::make(_arg), 2);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _takeWhile__0x23A17__0x23B22 : Operation { // takeWhile_#A17_#B22
+  struct _takeWhile__0x23A18__0x23B22 : Operation { // takeWhile_#A18_#B22
     Node** arg1;
     Node** arg2;
     Node** arg3;
     Node** arg4;
-    _takeWhile__0x23A17__0x23B22(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
+    _takeWhile__0x23A18__0x23B22(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) {
-      return new Node*(new _takeWhile__0x23A17__0x23B22(_arg1, _arg2, _arg3, _arg4));
+      return new Node*(new _takeWhile__0x23A18__0x23B22(_arg1, _arg2, _arg3, _arg4));
     }
-    inline std::string name() { return "takeWhile_#A17_#B22"; }
+    inline std::string name() { return "takeWhile_#A18_#B22"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -3913,10 +3913,10 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _takeWhile__0x23A17__0x23B22(arg1, arg2, arg3, _arg);
-      case 2: return new Engine::Partial(_takeWhile__0x23A17__0x23B22::make(arg1, arg2, _arg), 1);
-      case 3: return new Engine::Partial(_takeWhile__0x23A17__0x23B22::make(arg1, _arg), 2);
-      case 4: return new Engine::Partial(_takeWhile__0x23A17__0x23B22::make(_arg), 3);
+      case 1: return new _takeWhile__0x23A18__0x23B22(arg1, arg2, arg3, _arg);
+      case 2: return new Engine::Partial(_takeWhile__0x23A18__0x23B22::make(arg1, arg2, _arg), 1);
+      case 3: return new Engine::Partial(_takeWhile__0x23A18__0x23B22::make(arg1, _arg), 2);
+      case 4: return new Engine::Partial(_takeWhile__0x23A18__0x23B22::make(_arg), 3);
       }
     }
     /*inline*/ Node* hfun();
@@ -3945,15 +3945,15 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _dropWhile__0x23A18 : Operation { // dropWhile_#A18
+  struct _dropWhile__0x23A19 : Operation { // dropWhile_#A19
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _dropWhile__0x23A18(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _dropWhile__0x23A19(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _dropWhile__0x23A18(_arg1, _arg2, _arg3));
+      return new Node*(new _dropWhile__0x23A19(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "dropWhile_#A18"; }
+    inline std::string name() { return "dropWhile_#A19"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -3963,24 +3963,24 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _dropWhile__0x23A18(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_dropWhile__0x23A18::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_dropWhile__0x23A18::make(_arg), 2);
+      case 1: return new _dropWhile__0x23A19(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_dropWhile__0x23A19::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_dropWhile__0x23A19::make(_arg), 2);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _dropWhile__0x23A18__0x23B24 : Operation { // dropWhile_#A18_#B24
+  struct _dropWhile__0x23A19__0x23B24 : Operation { // dropWhile_#A19_#B24
     Node** arg1;
     Node** arg2;
     Node** arg3;
     Node** arg4;
-    _dropWhile__0x23A18__0x23B24(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
+    _dropWhile__0x23A19__0x23B24(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) {
-      return new Node*(new _dropWhile__0x23A18__0x23B24(_arg1, _arg2, _arg3, _arg4));
+      return new Node*(new _dropWhile__0x23A19__0x23B24(_arg1, _arg2, _arg3, _arg4));
     }
-    inline std::string name() { return "dropWhile_#A18_#B24"; }
+    inline std::string name() { return "dropWhile_#A19_#B24"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -3991,10 +3991,10 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _dropWhile__0x23A18__0x23B24(arg1, arg2, arg3, _arg);
-      case 2: return new Engine::Partial(_dropWhile__0x23A18__0x23B24::make(arg1, arg2, _arg), 1);
-      case 3: return new Engine::Partial(_dropWhile__0x23A18__0x23B24::make(arg1, _arg), 2);
-      case 4: return new Engine::Partial(_dropWhile__0x23A18__0x23B24::make(_arg), 3);
+      case 1: return new _dropWhile__0x23A19__0x23B24(arg1, arg2, arg3, _arg);
+      case 2: return new Engine::Partial(_dropWhile__0x23A19__0x23B24::make(arg1, arg2, _arg), 1);
+      case 3: return new Engine::Partial(_dropWhile__0x23A19__0x23B24::make(arg1, _arg), 2);
+      case 4: return new Engine::Partial(_dropWhile__0x23A19__0x23B24::make(_arg), 3);
       }
     }
     /*inline*/ Node* hfun();
@@ -4023,15 +4023,15 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _span__0x23A21 : Operation { // span_#A21
+  struct _span__0x23A22 : Operation { // span_#A22
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _span__0x23A21(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _span__0x23A22(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _span__0x23A21(_arg1, _arg2, _arg3));
+      return new Node*(new _span__0x23A22(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "span_#A21"; }
+    inline std::string name() { return "span_#A22"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4041,24 +4041,24 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _span__0x23A21(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_span__0x23A21::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_span__0x23A21::make(_arg), 2);
+      case 1: return new _span__0x23A22(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_span__0x23A22::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_span__0x23A22::make(_arg), 2);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _span__0x23A21__0x23B26 : Operation { // span_#A21_#B26
+  struct _span__0x23A22__0x23B26 : Operation { // span_#A22_#B26
     Node** arg1;
     Node** arg2;
     Node** arg3;
     Node** arg4;
-    _span__0x23A21__0x23B26(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
+    _span__0x23A22__0x23B26(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) {
-      return new Node*(new _span__0x23A21__0x23B26(_arg1, _arg2, _arg3, _arg4));
+      return new Node*(new _span__0x23A22__0x23B26(_arg1, _arg2, _arg3, _arg4));
     }
-    inline std::string name() { return "span_#A21_#B26"; }
+    inline std::string name() { return "span_#A22_#B26"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4069,23 +4069,23 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _span__0x23A21__0x23B26(arg1, arg2, arg3, _arg);
-      case 2: return new Engine::Partial(_span__0x23A21__0x23B26::make(arg1, arg2, _arg), 1);
-      case 3: return new Engine::Partial(_span__0x23A21__0x23B26::make(arg1, _arg), 2);
-      case 4: return new Engine::Partial(_span__0x23A21__0x23B26::make(_arg), 3);
+      case 1: return new _span__0x23A22__0x23B26(arg1, arg2, arg3, _arg);
+      case 2: return new Engine::Partial(_span__0x23A22__0x23B26::make(arg1, arg2, _arg), 1);
+      case 3: return new Engine::Partial(_span__0x23A22__0x23B26::make(arg1, _arg), 2);
+      case 4: return new Engine::Partial(_span__0x23A22__0x23B26::make(_arg), 3);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _span__0x23A20 : Operation { // span_#A20
+  struct _span__0x23A21 : Operation { // span_#A21
     Node** arg1;
     Node** arg2;
-    _span__0x23A20(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _span__0x23A21(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _span__0x23A20(_arg1, _arg2));
+      return new Node*(new _span__0x23A21(_arg1, _arg2));
     }
-    inline std::string name() { return "span_#A20"; }
+    inline std::string name() { return "span_#A21"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4094,22 +4094,22 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _span__0x23A20(arg1, _arg);
-      case 2: return new Engine::Partial(_span__0x23A20::make(_arg), 1);
+      case 1: return new _span__0x23A21(arg1, _arg);
+      case 2: return new Engine::Partial(_span__0x23A21::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _span__0x23A20__0x23B28 : Operation { // span_#A20_#B28
+  struct _span__0x23A21__0x23B28 : Operation { // span_#A21_#B28
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _span__0x23A20__0x23B28(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _span__0x23A21__0x23B28(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _span__0x23A20__0x23B28(_arg1, _arg2, _arg3));
+      return new Node*(new _span__0x23A21__0x23B28(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "span_#A20_#B28"; }
+    inline std::string name() { return "span_#A21_#B28"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4119,23 +4119,23 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _span__0x23A20__0x23B28(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_span__0x23A20__0x23B28::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_span__0x23A20__0x23B28::make(_arg), 2);
+      case 1: return new _span__0x23A21__0x23B28(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_span__0x23A21__0x23B28::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_span__0x23A21__0x23B28::make(_arg), 2);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _span__0x23A19 : Operation { // span_#A19
+  struct _span__0x23A20 : Operation { // span_#A20
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _span__0x23A19(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _span__0x23A20(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _span__0x23A19(_arg1, _arg2, _arg3));
+      return new Node*(new _span__0x23A20(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "span_#A19"; }
+    inline std::string name() { return "span_#A20"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4145,9 +4145,9 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _span__0x23A19(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_span__0x23A19::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_span__0x23A19::make(_arg), 2);
+      case 1: return new _span__0x23A20(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_span__0x23A20::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_span__0x23A20::make(_arg), 2);
       }
     }
     /*inline*/ Node* hfun();
@@ -4233,14 +4233,14 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _lines__0x23A22 : Operation { // lines_#A22
+  struct _lines__0x23A23 : Operation { // lines_#A23
     Node** arg1;
     Node** arg2;
-    _lines__0x23A22(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _lines__0x23A23(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _lines__0x23A22(_arg1, _arg2));
+      return new Node*(new _lines__0x23A23(_arg1, _arg2));
     }
-    inline std::string name() { return "lines_#A22"; }
+    inline std::string name() { return "lines_#A23"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4249,20 +4249,20 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _lines__0x23A22(arg1, _arg);
-      case 2: return new Engine::Partial(_lines__0x23A22::make(_arg), 1);
+      case 1: return new _lines__0x23A23(arg1, _arg);
+      case 2: return new Engine::Partial(_lines__0x23A23::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _lines_0x2Esplitline_0x2E271 : Operation { // lines.splitline.271
+  struct _lines_0x2Esplitline_0x2E270 : Operation { // lines.splitline.270
     Node** arg1;
-    _lines_0x2Esplitline_0x2E271(Node** _arg1 = 0) : arg1(_arg1) {}
+    _lines_0x2Esplitline_0x2E270(Node** _arg1 = 0) : arg1(_arg1) {}
     static Node** make(Node** _arg1 = 0) {
-      return new Node*(new _lines_0x2Esplitline_0x2E271(_arg1));
+      return new Node*(new _lines_0x2Esplitline_0x2E270(_arg1));
     }
-    inline std::string name() { return "lines.splitline.271"; }
+    inline std::string name() { return "lines.splitline.270"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4270,20 +4270,20 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _lines_0x2Esplitline_0x2E271(_arg);
+      case 1: return new _lines_0x2Esplitline_0x2E270(_arg);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _lines_0x2Esplitline_0x2E271__0x23A24 : Operation { // lines.splitline.271_#A24
+  struct _lines_0x2Esplitline_0x2E270__0x23A25 : Operation { // lines.splitline.270_#A25
     Node** arg1;
     Node** arg2;
-    _lines_0x2Esplitline_0x2E271__0x23A24(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _lines_0x2Esplitline_0x2E270__0x23A25(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _lines_0x2Esplitline_0x2E271__0x23A24(_arg1, _arg2));
+      return new Node*(new _lines_0x2Esplitline_0x2E270__0x23A25(_arg1, _arg2));
     }
-    inline std::string name() { return "lines.splitline.271_#A24"; }
+    inline std::string name() { return "lines.splitline.270_#A25"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4292,22 +4292,22 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _lines_0x2Esplitline_0x2E271__0x23A24(arg1, _arg);
-      case 2: return new Engine::Partial(_lines_0x2Esplitline_0x2E271__0x23A24::make(_arg), 1);
+      case 1: return new _lines_0x2Esplitline_0x2E270__0x23A25(arg1, _arg);
+      case 2: return new Engine::Partial(_lines_0x2Esplitline_0x2E270__0x23A25::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _lines_0x2Esplitline_0x2E271__0x23A24__0x23B30 : Operation { // lines.splitline.271_#A24_#B30
+  struct _lines_0x2Esplitline_0x2E270__0x23A25__0x23B30 : Operation { // lines.splitline.270_#A25_#B30
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _lines_0x2Esplitline_0x2E271__0x23A24__0x23B30(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _lines_0x2Esplitline_0x2E270__0x23A25__0x23B30(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _lines_0x2Esplitline_0x2E271__0x23A24__0x23B30(_arg1, _arg2, _arg3));
+      return new Node*(new _lines_0x2Esplitline_0x2E270__0x23A25__0x23B30(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "lines.splitline.271_#A24_#B30"; }
+    inline std::string name() { return "lines.splitline.270_#A25_#B30"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4317,22 +4317,22 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _lines_0x2Esplitline_0x2E271__0x23A24__0x23B30(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_lines_0x2Esplitline_0x2E271__0x23A24__0x23B30::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_lines_0x2Esplitline_0x2E271__0x23A24__0x23B30::make(_arg), 2);
+      case 1: return new _lines_0x2Esplitline_0x2E270__0x23A25__0x23B30(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_lines_0x2Esplitline_0x2E270__0x23A25__0x23B30::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_lines_0x2Esplitline_0x2E270__0x23A25__0x23B30::make(_arg), 2);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _lines_0x2Esplitline_0x2E271__0x23A23 : Operation { // lines.splitline.271_#A23
+  struct _lines_0x2Esplitline_0x2E270__0x23A24 : Operation { // lines.splitline.270_#A24
     Node** arg1;
     Node** arg2;
-    _lines_0x2Esplitline_0x2E271__0x23A23(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _lines_0x2Esplitline_0x2E270__0x23A24(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _lines_0x2Esplitline_0x2E271__0x23A23(_arg1, _arg2));
+      return new Node*(new _lines_0x2Esplitline_0x2E270__0x23A24(_arg1, _arg2));
     }
-    inline std::string name() { return "lines.splitline.271_#A23"; }
+    inline std::string name() { return "lines.splitline.270_#A24"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4341,20 +4341,20 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _lines_0x2Esplitline_0x2E271__0x23A23(arg1, _arg);
-      case 2: return new Engine::Partial(_lines_0x2Esplitline_0x2E271__0x23A23::make(_arg), 1);
+      case 1: return new _lines_0x2Esplitline_0x2E270__0x23A24(arg1, _arg);
+      case 2: return new Engine::Partial(_lines_0x2Esplitline_0x2E270__0x23A24::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _lines_0x2Esplitline_0x2E271_0x2E__0x23selFP15_0x23ds : Operation { // lines.splitline.271._#selFP15#ds
+  struct _lines_0x2Esplitline_0x2E270_0x2E__0x23selFP15_0x23ds : Operation { // lines.splitline.270._#selFP15#ds
     Node** arg1;
-    _lines_0x2Esplitline_0x2E271_0x2E__0x23selFP15_0x23ds(Node** _arg1 = 0) : arg1(_arg1) {}
+    _lines_0x2Esplitline_0x2E270_0x2E__0x23selFP15_0x23ds(Node** _arg1 = 0) : arg1(_arg1) {}
     static Node** make(Node** _arg1 = 0) {
-      return new Node*(new _lines_0x2Esplitline_0x2E271_0x2E__0x23selFP15_0x23ds(_arg1));
+      return new Node*(new _lines_0x2Esplitline_0x2E270_0x2E__0x23selFP15_0x23ds(_arg1));
     }
-    inline std::string name() { return "lines.splitline.271._#selFP15#ds"; }
+    inline std::string name() { return "lines.splitline.270._#selFP15#ds"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4362,19 +4362,19 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _lines_0x2Esplitline_0x2E271_0x2E__0x23selFP15_0x23ds(_arg);
+      case 1: return new _lines_0x2Esplitline_0x2E270_0x2E__0x23selFP15_0x23ds(_arg);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _lines_0x2Esplitline_0x2E271_0x2E__0x23selFP16_0x23es : Operation { // lines.splitline.271._#selFP16#es
+  struct _lines_0x2Esplitline_0x2E270_0x2E__0x23selFP16_0x23es : Operation { // lines.splitline.270._#selFP16#es
     Node** arg1;
-    _lines_0x2Esplitline_0x2E271_0x2E__0x23selFP16_0x23es(Node** _arg1 = 0) : arg1(_arg1) {}
+    _lines_0x2Esplitline_0x2E270_0x2E__0x23selFP16_0x23es(Node** _arg1 = 0) : arg1(_arg1) {}
     static Node** make(Node** _arg1 = 0) {
-      return new Node*(new _lines_0x2Esplitline_0x2E271_0x2E__0x23selFP16_0x23es(_arg1));
+      return new Node*(new _lines_0x2Esplitline_0x2E270_0x2E__0x23selFP16_0x23es(_arg1));
     }
-    inline std::string name() { return "lines.splitline.271._#selFP16#es"; }
+    inline std::string name() { return "lines.splitline.270._#selFP16#es"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4382,7 +4382,7 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _lines_0x2Esplitline_0x2E271_0x2E__0x23selFP16_0x23es(_arg);
+      case 1: return new _lines_0x2Esplitline_0x2E270_0x2E__0x23selFP16_0x23es(_arg);
       }
     }
     /*inline*/ Node* hfun();
@@ -4468,6 +4468,49 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
+  struct _words__0x23A27 : Operation { // words_#A27
+    Node** arg1;
+    _words__0x23A27(Node** _arg1 = 0) : arg1(_arg1) {}
+    static Node** make(Node** _arg1 = 0) {
+      return new Node*(new _words__0x23A27(_arg1));
+    }
+    inline std::string name() { return "words_#A27"; }
+    inline std::string to_s(int n=0) {
+      if (n>=MAXDEPTH) return HIDE;
+      std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
+      return name() + "(" + s1 + ")";
+    }
+    inline Node* apply(Node** _arg, int _missing) {
+      switch (_missing) {
+      case 1: return new _words__0x23A27(_arg);
+      }
+    }
+    /*inline*/ Node* hfun();
+  };
+
+  struct _words__0x23A27__0x23B32 : Operation { // words_#A27_#B32
+    Node** arg1;
+    Node** arg2;
+    _words__0x23A27__0x23B32(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
+      return new Node*(new _words__0x23A27__0x23B32(_arg1, _arg2));
+    }
+    inline std::string name() { return "words_#A27_#B32"; }
+    inline std::string to_s(int n=0) {
+      if (n>=MAXDEPTH) return HIDE;
+      std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
+      std::string s2 = arg2 == 0 ? UNDEF : (*arg2)->to_s(n+1);
+      return name() + "(" + s1 + "," + s2 + ")";
+    }
+    inline Node* apply(Node** _arg, int _missing) {
+      switch (_missing) {
+      case 1: return new _words__0x23A27__0x23B32(arg1, _arg);
+      case 2: return new Engine::Partial(_words__0x23A27__0x23B32::make(_arg), 1);
+      }
+    }
+    /*inline*/ Node* hfun();
+  };
+
   struct _words__0x23A26 : Operation { // words_#A26
     Node** arg1;
     _words__0x23A26(Node** _arg1 = 0) : arg1(_arg1) {}
@@ -4488,36 +4531,13 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _words__0x23A26__0x23B32 : Operation { // words_#A26_#B32
+  struct _words_0x2EisSpace_0x2E282 : Operation { // words.isSpace.282
     Node** arg1;
-    Node** arg2;
-    _words__0x23A26__0x23B32(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
-    static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _words__0x23A26__0x23B32(_arg1, _arg2));
-    }
-    inline std::string name() { return "words_#A26_#B32"; }
-    inline std::string to_s(int n=0) {
-      if (n>=MAXDEPTH) return HIDE;
-      std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
-      std::string s2 = arg2 == 0 ? UNDEF : (*arg2)->to_s(n+1);
-      return name() + "(" + s1 + "," + s2 + ")";
-    }
-    inline Node* apply(Node** _arg, int _missing) {
-      switch (_missing) {
-      case 1: return new _words__0x23A26__0x23B32(arg1, _arg);
-      case 2: return new Engine::Partial(_words__0x23A26__0x23B32::make(_arg), 1);
-      }
-    }
-    /*inline*/ Node* hfun();
-  };
-
-  struct _words__0x23A25 : Operation { // words_#A25
-    Node** arg1;
-    _words__0x23A25(Node** _arg1 = 0) : arg1(_arg1) {}
+    _words_0x2EisSpace_0x2E282(Node** _arg1 = 0) : arg1(_arg1) {}
     static Node** make(Node** _arg1 = 0) {
-      return new Node*(new _words__0x23A25(_arg1));
+      return new Node*(new _words_0x2EisSpace_0x2E282(_arg1));
     }
-    inline std::string name() { return "words_#A25"; }
+    inline std::string name() { return "words.isSpace.282"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4525,27 +4545,7 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _words__0x23A25(_arg);
-      }
-    }
-    /*inline*/ Node* hfun();
-  };
-
-  struct _words_0x2EisSpace_0x2E283 : Operation { // words.isSpace.283
-    Node** arg1;
-    _words_0x2EisSpace_0x2E283(Node** _arg1 = 0) : arg1(_arg1) {}
-    static Node** make(Node** _arg1 = 0) {
-      return new Node*(new _words_0x2EisSpace_0x2E283(_arg1));
-    }
-    inline std::string name() { return "words.isSpace.283"; }
-    inline std::string to_s(int n=0) {
-      if (n>=MAXDEPTH) return HIDE;
-      std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
-      return name() + "(" + s1 + ")";
-    }
-    inline Node* apply(Node** _arg, int _missing) {
-      switch (_missing) {
-      case 1: return new _words_0x2EisSpace_0x2E283(_arg);
+      case 1: return new _words_0x2EisSpace_0x2E282(_arg);
       }
     }
     /*inline*/ Node* hfun();
@@ -4634,14 +4634,14 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _unwords_0x2E__0x23lambda5 : Operation { // unwords._#lambda5
+  struct _unwords_0x2E__0x23lambda6 : Operation { // unwords._#lambda6
     Node** arg1;
     Node** arg2;
-    _unwords_0x2E__0x23lambda5(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _unwords_0x2E__0x23lambda6(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _unwords_0x2E__0x23lambda5(_arg1, _arg2));
+      return new Node*(new _unwords_0x2E__0x23lambda6(_arg1, _arg2));
     }
-    inline std::string name() { return "unwords._#lambda5"; }
+    inline std::string name() { return "unwords._#lambda6"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4650,8 +4650,8 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _unwords_0x2E__0x23lambda5(arg1, _arg);
-      case 2: return new Engine::Partial(_unwords_0x2E__0x23lambda5::make(_arg), 1);
+      case 1: return new _unwords_0x2E__0x23lambda6(arg1, _arg);
+      case 2: return new Engine::Partial(_unwords_0x2E__0x23lambda6::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
@@ -4811,15 +4811,15 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _lookup__0x23A29 : Operation { // lookup_#A29
+  struct _lookup__0x23A30 : Operation { // lookup_#A30
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _lookup__0x23A29(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _lookup__0x23A30(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _lookup__0x23A29(_arg1, _arg2, _arg3));
+      return new Node*(new _lookup__0x23A30(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "lookup_#A29"; }
+    inline std::string name() { return "lookup_#A30"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4829,9 +4829,67 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _lookup__0x23A29(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_lookup__0x23A29::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_lookup__0x23A29::make(_arg), 2);
+      case 1: return new _lookup__0x23A30(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_lookup__0x23A30::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_lookup__0x23A30::make(_arg), 2);
+      }
+    }
+    /*inline*/ Node* hfun();
+  };
+
+  struct _lookup__0x23A29 : Operation { // lookup_#A29
+    Node** arg1;
+    Node** arg2;
+    Node** arg3;
+    Node** arg4;
+    _lookup__0x23A29(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
+    static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) {
+      return new Node*(new _lookup__0x23A29(_arg1, _arg2, _arg3, _arg4));
+    }
+    inline std::string name() { return "lookup_#A29"; }
+    inline std::string to_s(int n=0) {
+      if (n>=MAXDEPTH) return HIDE;
+      std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
+      std::string s2 = arg2 == 0 ? UNDEF : (*arg2)->to_s(n+1);
+      std::string s3 = arg3 == 0 ? UNDEF : (*arg3)->to_s(n+1);
+      std::string s4 = arg4 == 0 ? UNDEF : (*arg4)->to_s(n+1);
+      return name() + "(" + s1 + "," + s2 + "," + s3 + "," + s4 + ")";
+    }
+    inline Node* apply(Node** _arg, int _missing) {
+      switch (_missing) {
+      case 1: return new _lookup__0x23A29(arg1, arg2, arg3, _arg);
+      case 2: return new Engine::Partial(_lookup__0x23A29::make(arg1, arg2, _arg), 1);
+      case 3: return new Engine::Partial(_lookup__0x23A29::make(arg1, _arg), 2);
+      case 4: return new Engine::Partial(_lookup__0x23A29::make(_arg), 3);
+      }
+    }
+    /*inline*/ Node* hfun();
+  };
+
+  struct _lookup__0x23A29__0x23B36 : Operation { // lookup_#A29_#B36
+    Node** arg1;
+    Node** arg2;
+    Node** arg3;
+    Node** arg4;
+    _lookup__0x23A29__0x23B36(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
+    static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) {
+      return new Node*(new _lookup__0x23A29__0x23B36(_arg1, _arg2, _arg3, _arg4));
+    }
+    inline std::string name() { return "lookup_#A29_#B36"; }
+    inline std::string to_s(int n=0) {
+      if (n>=MAXDEPTH) return HIDE;
+      std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
+      std::string s2 = arg2 == 0 ? UNDEF : (*arg2)->to_s(n+1);
+      std::string s3 = arg3 == 0 ? UNDEF : (*arg3)->to_s(n+1);
+      std::string s4 = arg4 == 0 ? UNDEF : (*arg4)->to_s(n+1);
+      return name() + "(" + s1 + "," + s2 + "," + s3 + "," + s4 + ")";
+    }
+    inline Node* apply(Node** _arg, int _missing) {
+      switch (_missing) {
+      case 1: return new _lookup__0x23A29__0x23B36(arg1, arg2, arg3, _arg);
+      case 2: return new Engine::Partial(_lookup__0x23A29__0x23B36::make(arg1, arg2, _arg), 1);
+      case 3: return new Engine::Partial(_lookup__0x23A29__0x23B36::make(arg1, _arg), 2);
+      case 4: return new Engine::Partial(_lookup__0x23A29__0x23B36::make(_arg), 3);
       }
     }
     /*inline*/ Node* hfun();
@@ -4840,69 +4898,11 @@ namespace _Prelude {
   struct _lookup__0x23A28 : Operation { // lookup_#A28
     Node** arg1;
     Node** arg2;
-    Node** arg3;
-    Node** arg4;
-    _lookup__0x23A28(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
-    static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) {
-      return new Node*(new _lookup__0x23A28(_arg1, _arg2, _arg3, _arg4));
+    _lookup__0x23A28(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
+      return new Node*(new _lookup__0x23A28(_arg1, _arg2));
     }
     inline std::string name() { return "lookup_#A28"; }
-    inline std::string to_s(int n=0) {
-      if (n>=MAXDEPTH) return HIDE;
-      std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
-      std::string s2 = arg2 == 0 ? UNDEF : (*arg2)->to_s(n+1);
-      std::string s3 = arg3 == 0 ? UNDEF : (*arg3)->to_s(n+1);
-      std::string s4 = arg4 == 0 ? UNDEF : (*arg4)->to_s(n+1);
-      return name() + "(" + s1 + "," + s2 + "," + s3 + "," + s4 + ")";
-    }
-    inline Node* apply(Node** _arg, int _missing) {
-      switch (_missing) {
-      case 1: return new _lookup__0x23A28(arg1, arg2, arg3, _arg);
-      case 2: return new Engine::Partial(_lookup__0x23A28::make(arg1, arg2, _arg), 1);
-      case 3: return new Engine::Partial(_lookup__0x23A28::make(arg1, _arg), 2);
-      case 4: return new Engine::Partial(_lookup__0x23A28::make(_arg), 3);
-      }
-    }
-    /*inline*/ Node* hfun();
-  };
-
-  struct _lookup__0x23A28__0x23B36 : Operation { // lookup_#A28_#B36
-    Node** arg1;
-    Node** arg2;
-    Node** arg3;
-    Node** arg4;
-    _lookup__0x23A28__0x23B36(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
-    static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) {
-      return new Node*(new _lookup__0x23A28__0x23B36(_arg1, _arg2, _arg3, _arg4));
-    }
-    inline std::string name() { return "lookup_#A28_#B36"; }
-    inline std::string to_s(int n=0) {
-      if (n>=MAXDEPTH) return HIDE;
-      std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
-      std::string s2 = arg2 == 0 ? UNDEF : (*arg2)->to_s(n+1);
-      std::string s3 = arg3 == 0 ? UNDEF : (*arg3)->to_s(n+1);
-      std::string s4 = arg4 == 0 ? UNDEF : (*arg4)->to_s(n+1);
-      return name() + "(" + s1 + "," + s2 + "," + s3 + "," + s4 + ")";
-    }
-    inline Node* apply(Node** _arg, int _missing) {
-      switch (_missing) {
-      case 1: return new _lookup__0x23A28__0x23B36(arg1, arg2, arg3, _arg);
-      case 2: return new Engine::Partial(_lookup__0x23A28__0x23B36::make(arg1, arg2, _arg), 1);
-      case 3: return new Engine::Partial(_lookup__0x23A28__0x23B36::make(arg1, _arg), 2);
-      case 4: return new Engine::Partial(_lookup__0x23A28__0x23B36::make(_arg), 3);
-      }
-    }
-    /*inline*/ Node* hfun();
-  };
-
-  struct _lookup__0x23A27 : Operation { // lookup_#A27
-    Node** arg1;
-    Node** arg2;
-    _lookup__0x23A27(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
-    static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _lookup__0x23A27(_arg1, _arg2));
-    }
-    inline std::string name() { return "lookup_#A27"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4911,22 +4911,22 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _lookup__0x23A27(arg1, _arg);
-      case 2: return new Engine::Partial(_lookup__0x23A27::make(_arg), 1);
+      case 1: return new _lookup__0x23A28(arg1, _arg);
+      case 2: return new Engine::Partial(_lookup__0x23A28::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _lookup__0x23A27__0x23B38 : Operation { // lookup_#A27_#B38
+  struct _lookup__0x23A28__0x23B38 : Operation { // lookup_#A28_#B38
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _lookup__0x23A27__0x23B38(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _lookup__0x23A28__0x23B38(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _lookup__0x23A27__0x23B38(_arg1, _arg2, _arg3));
+      return new Node*(new _lookup__0x23A28__0x23B38(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "lookup_#A27_#B38"; }
+    inline std::string name() { return "lookup_#A28_#B38"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -4936,9 +4936,9 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _lookup__0x23A27__0x23B38(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_lookup__0x23A27__0x23B38::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_lookup__0x23A27__0x23B38::make(_arg), 2);
+      case 1: return new _lookup__0x23A28__0x23B38(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_lookup__0x23A28__0x23B38::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_lookup__0x23A28__0x23B38::make(_arg), 2);
       }
     }
     /*inline*/ Node* hfun();
@@ -5062,16 +5062,16 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _enumFromThenTo_0x2Ep_0x2E321 : Operation { // enumFromThenTo.p.321
+  struct _enumFromThenTo_0x2Ep_0x2E320 : Operation { // enumFromThenTo.p.320
     Node** arg1;
     Node** arg2;
     Node** arg3;
     Node** arg4;
-    _enumFromThenTo_0x2Ep_0x2E321(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
+    _enumFromThenTo_0x2Ep_0x2E320(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3), arg4(_arg4) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0, Node** _arg4 = 0) {
-      return new Node*(new _enumFromThenTo_0x2Ep_0x2E321(_arg1, _arg2, _arg3, _arg4));
+      return new Node*(new _enumFromThenTo_0x2Ep_0x2E320(_arg1, _arg2, _arg3, _arg4));
     }
-    inline std::string name() { return "enumFromThenTo.p.321"; }
+    inline std::string name() { return "enumFromThenTo.p.320"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -5082,24 +5082,24 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _enumFromThenTo_0x2Ep_0x2E321(arg1, arg2, arg3, _arg);
-      case 2: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E321::make(arg1, arg2, _arg), 1);
-      case 3: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E321::make(arg1, _arg), 2);
-      case 4: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E321::make(_arg), 3);
+      case 1: return new _enumFromThenTo_0x2Ep_0x2E320(arg1, arg2, arg3, _arg);
+      case 2: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E320::make(arg1, arg2, _arg), 1);
+      case 3: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E320::make(arg1, _arg), 2);
+      case 4: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E320::make(_arg), 3);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _enumFromThenTo_0x2Ep_0x2E321__0x23B42 : Operation { // enumFromThenTo.p.321_#B42
+  struct _enumFromThenTo_0x2Ep_0x2E320__0x23B42 : Operation { // enumFromThenTo.p.320_#B42
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _enumFromThenTo_0x2Ep_0x2E321__0x23B42(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _enumFromThenTo_0x2Ep_0x2E320__0x23B42(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _enumFromThenTo_0x2Ep_0x2E321__0x23B42(_arg1, _arg2, _arg3));
+      return new Node*(new _enumFromThenTo_0x2Ep_0x2E320__0x23B42(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "enumFromThenTo.p.321_#B42"; }
+    inline std::string name() { return "enumFromThenTo.p.320_#B42"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -5109,22 +5109,22 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _enumFromThenTo_0x2Ep_0x2E321__0x23B42(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E321__0x23B42::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E321__0x23B42::make(_arg), 2);
+      case 1: return new _enumFromThenTo_0x2Ep_0x2E320__0x23B42(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E320__0x23B42::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E320__0x23B42::make(_arg), 2);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _enumFromThenTo_0x2Ep_0x2E321__0x23A30 : Operation { // enumFromThenTo.p.321_#A30
+  struct _enumFromThenTo_0x2Ep_0x2E320__0x23A31 : Operation { // enumFromThenTo.p.320_#A31
     Node** arg1;
     Node** arg2;
-    _enumFromThenTo_0x2Ep_0x2E321__0x23A30(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _enumFromThenTo_0x2Ep_0x2E320__0x23A31(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _enumFromThenTo_0x2Ep_0x2E321__0x23A30(_arg1, _arg2));
+      return new Node*(new _enumFromThenTo_0x2Ep_0x2E320__0x23A31(_arg1, _arg2));
     }
-    inline std::string name() { return "enumFromThenTo.p.321_#A30"; }
+    inline std::string name() { return "enumFromThenTo.p.320_#A31"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -5133,22 +5133,22 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _enumFromThenTo_0x2Ep_0x2E321__0x23A30(arg1, _arg);
-      case 2: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E321__0x23A30::make(_arg), 1);
+      case 1: return new _enumFromThenTo_0x2Ep_0x2E320__0x23A31(arg1, _arg);
+      case 2: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E320__0x23A31::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _enumFromThenTo_0x2Ep_0x2E321__0x23A30__0x23B44 : Operation { // enumFromThenTo.p.321_#A30_#B44
+  struct _enumFromThenTo_0x2Ep_0x2E320__0x23A31__0x23B44 : Operation { // enumFromThenTo.p.320_#A31_#B44
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _enumFromThenTo_0x2Ep_0x2E321__0x23A30__0x23B44(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _enumFromThenTo_0x2Ep_0x2E320__0x23A31__0x23B44(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _enumFromThenTo_0x2Ep_0x2E321__0x23A30__0x23B44(_arg1, _arg2, _arg3));
+      return new Node*(new _enumFromThenTo_0x2Ep_0x2E320__0x23A31__0x23B44(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "enumFromThenTo.p.321_#A30_#B44"; }
+    inline std::string name() { return "enumFromThenTo.p.320_#A31_#B44"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -5158,9 +5158,9 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _enumFromThenTo_0x2Ep_0x2E321__0x23A30__0x23B44(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E321__0x23A30__0x23B44::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E321__0x23A30__0x23B44::make(_arg), 2);
+      case 1: return new _enumFromThenTo_0x2Ep_0x2E320__0x23A31__0x23B44(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E320__0x23A31__0x23B44::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_enumFromThenTo_0x2Ep_0x2E320__0x23A31__0x23B44::make(_arg), 2);
       }
     }
     /*inline*/ Node* hfun();
@@ -5608,14 +5608,14 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct __0x3E_0x3E_0x2E__0x23lambda6 : Operation { // >>._#lambda6
+  struct __0x3E_0x3E_0x2E__0x23lambda7 : Operation { // >>._#lambda7
     Node** arg1;
     Node** arg2;
-    __0x3E_0x3E_0x2E__0x23lambda6(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    __0x3E_0x3E_0x2E__0x23lambda7(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new __0x3E_0x3E_0x2E__0x23lambda6(_arg1, _arg2));
+      return new Node*(new __0x3E_0x3E_0x2E__0x23lambda7(_arg1, _arg2));
     }
-    inline std::string name() { return ">>._#lambda6"; }
+    inline std::string name() { return ">>._#lambda7"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -5624,8 +5624,8 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new __0x3E_0x3E_0x2E__0x23lambda6(arg1, _arg);
-      case 2: return new Engine::Partial(__0x3E_0x3E_0x2E__0x23lambda6::make(_arg), 1);
+      case 1: return new __0x3E_0x3E_0x2E__0x23lambda7(arg1, _arg);
+      case 2: return new Engine::Partial(__0x3E_0x3E_0x2E__0x23lambda7::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
@@ -5914,13 +5914,13 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _getLine_0x2E__0x23lambda7 : Operation { // getLine._#lambda7
+  struct _getLine_0x2E__0x23lambda8 : Operation { // getLine._#lambda8
     Node** arg1;
-    _getLine_0x2E__0x23lambda7(Node** _arg1 = 0) : arg1(_arg1) {}
+    _getLine_0x2E__0x23lambda8(Node** _arg1 = 0) : arg1(_arg1) {}
     static Node** make(Node** _arg1 = 0) {
-      return new Node*(new _getLine_0x2E__0x23lambda7(_arg1));
+      return new Node*(new _getLine_0x2E__0x23lambda8(_arg1));
     }
-    inline std::string name() { return "getLine._#lambda7"; }
+    inline std::string name() { return "getLine._#lambda8"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -5928,20 +5928,20 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _getLine_0x2E__0x23lambda7(_arg);
+      case 1: return new _getLine_0x2E__0x23lambda8(_arg);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _getLine_0x2E__0x23lambda7__0x23B46 : Operation { // getLine._#lambda7_#B46
+  struct _getLine_0x2E__0x23lambda8__0x23B46 : Operation { // getLine._#lambda8_#B46
     Node** arg1;
     Node** arg2;
-    _getLine_0x2E__0x23lambda7__0x23B46(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _getLine_0x2E__0x23lambda8__0x23B46(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _getLine_0x2E__0x23lambda7__0x23B46(_arg1, _arg2));
+      return new Node*(new _getLine_0x2E__0x23lambda8__0x23B46(_arg1, _arg2));
     }
-    inline std::string name() { return "getLine._#lambda7_#B46"; }
+    inline std::string name() { return "getLine._#lambda8_#B46"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -5950,21 +5950,21 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _getLine_0x2E__0x23lambda7__0x23B46(arg1, _arg);
-      case 2: return new Engine::Partial(_getLine_0x2E__0x23lambda7__0x23B46::make(_arg), 1);
+      case 1: return new _getLine_0x2E__0x23lambda8__0x23B46(arg1, _arg);
+      case 2: return new Engine::Partial(_getLine_0x2E__0x23lambda8__0x23B46::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _getLine_0x2E__0x23lambda7_0x2E__0x23lambda8 : Operation { // getLine._#lambda7._#lambda8
+  struct _getLine_0x2E__0x23lambda8_0x2E__0x23lambda9 : Operation { // getLine._#lambda8._#lambda9
     Node** arg1;
     Node** arg2;
-    _getLine_0x2E__0x23lambda7_0x2E__0x23lambda8(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _getLine_0x2E__0x23lambda8_0x2E__0x23lambda9(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _getLine_0x2E__0x23lambda7_0x2E__0x23lambda8(_arg1, _arg2));
+      return new Node*(new _getLine_0x2E__0x23lambda8_0x2E__0x23lambda9(_arg1, _arg2));
     }
-    inline std::string name() { return "getLine._#lambda7._#lambda8"; }
+    inline std::string name() { return "getLine._#lambda8._#lambda9"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -5973,8 +5973,8 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _getLine_0x2E__0x23lambda7_0x2E__0x23lambda8(arg1, _arg);
-      case 2: return new Engine::Partial(_getLine_0x2E__0x23lambda7_0x2E__0x23lambda8::make(_arg), 1);
+      case 1: return new _getLine_0x2E__0x23lambda8_0x2E__0x23lambda9(arg1, _arg);
+      case 2: return new Engine::Partial(_getLine_0x2E__0x23lambda8_0x2E__0x23lambda9::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
@@ -6163,14 +6163,14 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _sequenceIO_0x2E__0x23lambda9 : Operation { // sequenceIO._#lambda9
+  struct _sequenceIO_0x2E__0x23lambda10 : Operation { // sequenceIO._#lambda10
     Node** arg1;
     Node** arg2;
-    _sequenceIO_0x2E__0x23lambda9(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _sequenceIO_0x2E__0x23lambda10(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _sequenceIO_0x2E__0x23lambda9(_arg1, _arg2));
+      return new Node*(new _sequenceIO_0x2E__0x23lambda10(_arg1, _arg2));
     }
-    inline std::string name() { return "sequenceIO._#lambda9"; }
+    inline std::string name() { return "sequenceIO._#lambda10"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -6179,21 +6179,21 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _sequenceIO_0x2E__0x23lambda9(arg1, _arg);
-      case 2: return new Engine::Partial(_sequenceIO_0x2E__0x23lambda9::make(_arg), 1);
+      case 1: return new _sequenceIO_0x2E__0x23lambda10(arg1, _arg);
+      case 2: return new Engine::Partial(_sequenceIO_0x2E__0x23lambda10::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
   };
 
-  struct _sequenceIO_0x2E__0x23lambda9_0x2E__0x23lambda10 : Operation { // sequenceIO._#lambda9._#lambda10
+  struct _sequenceIO_0x2E__0x23lambda10_0x2E__0x23lambda11 : Operation { // sequenceIO._#lambda10._#lambda11
     Node** arg1;
     Node** arg2;
-    _sequenceIO_0x2E__0x23lambda9_0x2E__0x23lambda10(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
+    _sequenceIO_0x2E__0x23lambda10_0x2E__0x23lambda11(Node** _arg1 = 0, Node** _arg2 = 0) : arg1(_arg1), arg2(_arg2) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0) {
-      return new Node*(new _sequenceIO_0x2E__0x23lambda9_0x2E__0x23lambda10(_arg1, _arg2));
+      return new Node*(new _sequenceIO_0x2E__0x23lambda10_0x2E__0x23lambda11(_arg1, _arg2));
     }
-    inline std::string name() { return "sequenceIO._#lambda9._#lambda10"; }
+    inline std::string name() { return "sequenceIO._#lambda10._#lambda11"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -6202,8 +6202,8 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _sequenceIO_0x2E__0x23lambda9_0x2E__0x23lambda10(arg1, _arg);
-      case 2: return new Engine::Partial(_sequenceIO_0x2E__0x23lambda9_0x2E__0x23lambda10::make(_arg), 1);
+      case 1: return new _sequenceIO_0x2E__0x23lambda10_0x2E__0x23lambda11(arg1, _arg);
+      case 2: return new Engine::Partial(_sequenceIO_0x2E__0x23lambda10_0x2E__0x23lambda11::make(_arg), 1);
       }
     }
     /*inline*/ Node* hfun();
@@ -6292,15 +6292,15 @@ namespace _Prelude {
     /*inline*/ Node* hfun();
   };
 
-  struct _foldIO_0x2E__0x23lambda11 : Operation { // foldIO._#lambda11
+  struct _foldIO_0x2E__0x23lambda12 : Operation { // foldIO._#lambda12
     Node** arg1;
     Node** arg2;
     Node** arg3;
-    _foldIO_0x2E__0x23lambda11(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
+    _foldIO_0x2E__0x23lambda12(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) : arg1(_arg1), arg2(_arg2), arg3(_arg3) {}
     static Node** make(Node** _arg1 = 0, Node** _arg2 = 0, Node** _arg3 = 0) {
-      return new Node*(new _foldIO_0x2E__0x23lambda11(_arg1, _arg2, _arg3));
+      return new Node*(new _foldIO_0x2E__0x23lambda12(_arg1, _arg2, _arg3));
     }
-    inline std::string name() { return "foldIO._#lambda11"; }
+    inline std::string name() { return "foldIO._#lambda12"; }
     inline std::string to_s(int n=0) {
       if (n>=MAXDEPTH) return HIDE;
       std::string s1 = arg1 == 0 ? UNDEF : (*arg1)->to_s(n+1);
@@ -6310,9 +6310,9 @@ namespace _Prelude {
     }
     inline Node* apply(Node** _arg, int _missing) {
       switch (_missing) {
-      case 1: return new _foldIO_0x2E__0x23lambda11(arg1, arg2, _arg);
-      case 2: return new Engine::Partial(_foldIO_0x2E__0x23lambda11::make(arg1, _arg), 1);
-      case 3: return new Engine::Partial(_foldIO_0x2E__0x23lambda11::make(_arg), 2);
+      case 1: return new _foldIO_0x2E__0x23lambda12(arg1, arg2, _arg);
+      case 2: return new Engine::Partial(_foldIO_0x2E__0x23lambda12::make(arg1, _arg), 1);
+      case 3: return new Engine::Partial(_foldIO_0x2E__0x23lambda12::make(_arg), 2);
       }
     }
     /*inline*/ Node* hfun();

@@ -380,10 +380,10 @@ take n l          = if n<=0 then [] else takep n l
          takep m (x:xs) = x : take (m-1) xs
 
 --- Returns suffix without first n elements.
-drop              :: Int -> [a] -> [a]
-drop n l          = if n<=0 then l else dropp n l
-   where dropp _ []     = []
-         dropp m (_:xs) = drop (m-1) xs
+drop :: Int -> [a] -> [a]
+drop n xs = if n<=0 then xs
+                    else case xs of []     -> []
+                                    (_:ys) -> drop (n-1) ys
 
 --- (splitAt n xs) is equivalent to (take n xs, drop n xs)
 splitAt           :: Int -> [a] -> ([a],[a])
