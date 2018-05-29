@@ -1,5 +1,6 @@
 from . import icurry
 from .visitation import dispatch
+import contextlib
 import inspect
 import logging
 import os
@@ -92,6 +93,29 @@ def curry2jsontool():
   assert os.path.exists(curry2json)
   return curry2json
 
+del_ = object()
+@contextlib.contextmanager
+def binding(mapping, key, value):
+  '''Context manager that binds a value in some mapping.'''
+  prev = mapping.get(key, del_)
+  if value is del_:
+    try:
+      del mapping[key]
+    except KeyError:
+      pass
+  else:
+    mapping[key] = value
+  try:
+    yield
+  finally:
+    if prev is del_:
+      try:
+        del mapping[key]
+      except KeyError:
+        pass
+    else:
+      mapping[key] = prev
+
 def curry2json(curryfile, currypath):
   '''
   Calls curry2json to produce an ICurry-JSON file.
@@ -110,15 +134,12 @@ def curry2json(curryfile, currypath):
   jsonfile = jsonFilename(curryfile)
   assert not os.path.exists(jsonfile) or newer(curryfile, jsonfile)
   sink = open('/dev/null', 'w')
-  prev = os.environ['CURRYPATH']
-  os.environ['CURRYPATH'] = ':'.join(currypath)
-  try:
+  with binding(os.environ, 'TARGET_CURRYPATH', ':'.join(currypath)) \
+     , binding(os.environ, 'CURRYPATH', del_):
     child = subprocess.Popen(
-        [curry2jsontool(), '-q', curryfile]
+      [curry2jsontool(), '-q', curryfile]
       , stdout=sink, stderr=subprocess.PIPE
       )
-  finally:
-    os.environ['CURRYPATH'] = prev
   _,errs = child.communicate()
   retcode = child.wait()
   if retcode or not os.path.exists(jsonfile):
