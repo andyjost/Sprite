@@ -76,6 +76,12 @@ class Interpreter(object):
     self.flags.setdefault('debug', True)
     self.flags.setdefault('defaultconverter', None)
     self.flags.setdefault('trace', False)
+    envflags = os.environ.get('SPRITE_INTERPRETER_FLAGS')
+    if envflags is not None:
+      breakpoint()
+      self.flags.update({
+          k:_flagval(v) for e in envflags.split(',') for k,v in [e.split(':')]
+        })
     self.flags.update(flags)
     self.path = filter(lambda x:x, os.environ.get('CURRYPATH', '').split(':'))
     return self
@@ -330,4 +336,16 @@ def _unreachable(*args, **kwds): #pragma: no cover
 
 def _no_step(*args, **kwds): #pragma: no cover
   pass
+
+def _flagval(v):
+  '''Try to interpret the string ``v`` as a flag value.'''
+  try:
+    return {'True':True, 'False':False}[v]
+  except KeyError:
+    pass
+  try:
+    return int(v)
+  except ValueError:
+    pass
+  return v
 

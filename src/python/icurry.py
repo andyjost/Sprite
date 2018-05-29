@@ -260,7 +260,6 @@ BuiltinVariant.register(int)
 BuiltinVariant.register(float)
 BuiltinVariant.register(str)
 
-
 class Variable(_Base):
   def __init__(self, vid, scope):
     assert vid >= 0
