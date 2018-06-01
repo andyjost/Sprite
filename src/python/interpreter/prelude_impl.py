@@ -23,7 +23,7 @@ def failed(interpreter):
   return ['node(%s)' % interpreter.closure['_System.Failure']]
 
 def error(interpreter, msg):
-  msg = "ERROR: " + str(conversions.topython(interpreter, msg))
+  msg = str(conversions.topython(interpreter, msg))
   raise RuntimeError(msg)
 
 def compare_impl(interpreter, a, b):
