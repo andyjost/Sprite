@@ -35,9 +35,9 @@ class TestPrelude(cytest.TestCase):
     l1 = runtime.Node(Cons, 1, l0)
     self.assertIsa(l0, curry.symbol('Prelude.[]'))
     self.assertIsNotA(l0, curry.symbol('Prelude.:'))
-    self.assertIsa(l0, curry.type('Prelude.List'))
-    self.assertIsa(l1, curry.type('Prelude.List'))
-    self.assertIsNotA(int_, curry.type('Prelude.List'))
+    self.assertIsa(l0, curry.type('Prelude.[]'))
+    self.assertIsa(l1, curry.type('Prelude.[]'))
+    self.assertIsNotA(int_, curry.type('Prelude.[]'))
     # TODO: design and test .topy() and .frompy() (I guess that's just
     #     Interprerter.expr; maybe frompy is a better name?).
 

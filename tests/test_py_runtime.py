@@ -1,8 +1,9 @@
 import cytest # from ./lib; must be first
-from curry.interpreter import Interpreter, Prelude, System
+from curry import interpreter
 from curry.interpreter import runtime
 from cytest import bootstrap
 from glob import glob
+import curry.interpreter.prelude
 import unittest
 
 class TestPyRuntime(cytest.TestCase):
@@ -17,9 +18,9 @@ class TestPyRuntime(cytest.TestCase):
 
   def testCoverage(self):
     '''Tests to improve line coverage.'''
-    interp = Interpreter()
-    prelude = interp.import_(Prelude)
-    system = interp.import_(System)
+    interp = interpreter.Interpreter()
+    prelude = interp.import_(interpreter.prelude.Prelude)
+    system = interp.import_(interpreter.prelude.System)
     self.assertEqual(str(prelude.negate), 'Prelude.negate')
     self.assertEqual(str(prelude.negate.info), 'Info for "negate"')
     self.assertTrue(repr(prelude.negate.info).startswith('InfoTable'))
@@ -54,18 +55,18 @@ class TestPyRuntime(cytest.TestCase):
     the behavior when a special symbol is uncovered while normalizing a
     constructor.
     '''
-    interp_debug = Interpreter(flags={'debug':True})
+    interp_debug = interpreter.Interpreter(flags={'debug':True})
     self.checkNormalization(interp_debug)
     #
-    interp_nodebug = Interpreter(flags={'debug':False})
+    interp_nodebug = interpreter.Interpreter(flags={'debug':False})
     self.checkNormalization(interp_nodebug)
 
 
   def checkNormalization(self, interp):
     bs = interp.import_(self.BOOTSTRAP)
     N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
-    prelude = interp.import_(Prelude)
-    system = interp.import_(System)
+    prelude = interp.import_(interpreter.prelude.Prelude)
+    system = interp.import_(interpreter.prelude.System)
     F,Q,W = system.Failure, system.Choice, system.Fwd
     special_tags = [runtime.T_FAIL, runtime.T_CHOICE]
 

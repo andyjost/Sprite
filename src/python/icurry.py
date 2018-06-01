@@ -3,7 +3,10 @@ from collections import Mapping, namedtuple, OrderedDict, Sequence
 from .proptree import proptree
 from .visitation import dispatch
 import json
+import logging
 import weakref
+
+logger = logging.getLogger(__name__)
 
 class _Base(object):
   # Make objects comparable by their contents.
@@ -130,6 +133,25 @@ class IModule(_Base):
         repr(self.name), repr(self.imports), repr(self.types)
       , repr(self.functions)
       )
+
+  def patch(self, extern, override):
+    '''
+    Copies the symbols specified in ``override`` from ``extern`` into this
+    module.
+    '''
+    assert bool(extern) == bool(override)
+    for name in override:
+      ident = IName(name, modulename=self.name)
+      found = 0
+      for to,from_ in zip(*[[m.types, m.functions] for m in [self, extern]]):
+        try:
+          to[ident] = from_[ident]
+        except KeyError:
+          pass
+        else:
+          found += 1
+      if not found:
+        logger.warn('override symbol "%s" not found', ident)
 
 class IType(_Base, Sequence):
   def __init__(self, ident, constructors, metadata={}):
@@ -334,12 +356,12 @@ Expression.register(PartApplic)
 Expression.register(IOr)
 
 class IExternal(_Base):
-  def __init__(self, name):
-    self.name = str(name)
+  def __init__(self, ident):
+    self.ident = str(ident)
   def __str__(self):
-    return 'extern(%s)' % self.name
+    return 'extern(%s)' % self.ident
   def __repr__(self):
-    return 'IExternal(name=%s)' % repr(self.name)
+    return 'IExternal(ident=%s)' % repr(self.ident)
 
 class Comment(_Base):
   def __init__(self, text):

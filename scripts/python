@@ -10,4 +10,8 @@ dir=$ROOT/lib/
 test -d $dir || ( echo 2>&1 "Sprite library not found at \"$dir\"."; exit 1 )
 export LD_LIBRARY_PATH=$dir:$LD_LIBRARY_PATH
 #
+dir=$ROOT/lib/curry
+test -d $dir || ( echo 2>&1 "Curry library not found at \"$dir\"."; exit 1 )
+export CURRYPATH=$dir:$CURRYPATH
+#
 exec $DIR/.python "$@"

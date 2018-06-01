@@ -123,6 +123,10 @@ class Node(object):
     self.successors = list(args)
     return self
 
+  # def __iter__(self):
+  #   '''Iterate over the successors, skipping FWD nodes.'''
+  #   return (self[i] for i in xrange(len(self.successors)))
+
   @dispatch.on('i')
   def __getitem__(self, i):
     raise RuntimeError('unhandled type: %s' % type(i).__name__)

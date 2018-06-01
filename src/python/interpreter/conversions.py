@@ -143,7 +143,7 @@ def tocurry(interp, ty):
   if issubclass(ty, numbers.Real):
     return interp.type('Prelude.Float')
   if issubclass(ty, list):
-    return interp.type('Prelude.List')
+    return interp.type('Prelude.[]')
   raise TypeError('cannot convert "%s" to a Curry type' % ty.__name__)
 
 def topython(interp, expr):

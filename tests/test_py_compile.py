@@ -3,7 +3,7 @@ import curry
 import unittest
 
 class TestPyCompile(cytest.TestCase):
-  def testCompileStringModule(self):
+  def testCompileStringAsModule(self):
     '''Test dynamic module compilation.'''
     text = '''
       fib n | n < 3 = 1
@@ -25,7 +25,7 @@ class TestPyCompile(cytest.TestCase):
     two = curry.eval([fib, 3])
     self.assertEqual(two.next(), 2)
 
-  def testCompielStringExpr(self):
+  def testCompielStringAsExpr(self):
     '''Test dynamic expression compilation.'''
     Or = curry.compile(
         '''

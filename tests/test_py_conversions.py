@@ -117,7 +117,7 @@ class TestPyConversions(cytest.TestCase):
     self.assertEqual(interp.tocurry(float), interp.type('Prelude.Float'))
     self.assertEqual(interp.tocurry(str), interp.type('Prelude.Char'))
     self.assertEqual(interp.tocurry(bool), interp.type('Prelude.Bool'))
-    self.assertEqual(interp.tocurry(list), interp.type('Prelude.List'))
+    self.assertEqual(interp.tocurry(list), interp.type('Prelude.[]'))
     #
     self.assertEqual(interp.tocurry(np.float16), interp.type('Prelude.Float'))
     self.assertEqual(interp.tocurry(np.float32), interp.type('Prelude.Float'))

@@ -44,7 +44,7 @@ def _listformat(node):
   return '[%s]' % ', '.join(_listvalues(node))
 
 _types_.append(
-    IType('List', [
+    IType('[]', [
         IConstructor(':', 2, metadata={'py.format':_listformat})
       , IConstructor('[]', 0, metadata={'py.format':_listformat})
       ])
@@ -53,12 +53,13 @@ del _listformat
 
 # Tuples
 MAX_TUPLE_SIZE = 15
-Unit = IType('Unit', [IConstructor('()', 0, metadata={'py.format':'()'})])
+Unit = IType('()', [IConstructor('()', 0, metadata={'py.format':'()'})])
 _types_.append(Unit)
 for i in range(2, MAX_TUPLE_SIZE):
-  Tuple = IType('Tuple%s' % i, [
+  name = '(%s)' % (','*(i-1))
+  Tuple = IType(name, [
       IConstructor(
-          '(%s)' % (','*(i-1))
+          name
         , i
         , metadata={
               'py.format':
@@ -139,6 +140,7 @@ _functions_ = [
 # prim_error    :: String -> _
 # prim_error external
 #
+  , IFunction('prim_error', 1, metadata={'py.func':prelude_impl.error})
 # --- A non-reducible polymorphic function.
 # --- It is useful to express a failure in a search branch of the execution.
 # --- It could be defined by: `failed = head []`
@@ -164,6 +166,7 @@ _functions_ = [
 # --- in the datatype declarations and recursively in the arguments.
 # compare :: a -> a -> Ordering
 # compare external
+  , IFunction('compare', 2, metadata={'py.func':prelude_impl.compare})
 #
 # --- Converts a character into its ASCII value.
 # ord :: Char -> Int
@@ -263,3 +266,12 @@ _functions_ = [
 Prelude = IModule(
     name='Prelude', imports=[], types=_types_, functions=_functions_
   )
+
+def overrides():
+  '''Returns the name of each type that must be overridden.'''
+  import analysis
+  yield '[]'
+  for ty in _types_:
+    name = ty.ident.basename
+    if analysis.is_tuple_name(name):
+      yield name

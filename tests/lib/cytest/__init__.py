@@ -9,6 +9,8 @@ import unittest
 # ================================================================================
 # Install built-in functions for debugging and development.  This must be done
 # before loading anything from the project.
+import __builtin__
+
 def breakpoint(msg='', depth=0):
   '''(Built-in) Starts an interactive prompt.  For development and debugging.'''
   import code, inspect, pydoc
@@ -22,13 +24,15 @@ def breakpoint(msg='', depth=0):
     msg = " - " + msg
   banner = "\n[%s:%s%s]" % (namespace['__file__'], frame.f_lineno, msg)
   code.interact(banner=banner, local=namespace)
-import __builtin__
+
 __builtin__.breakpoint = breakpoint
 
 def pdbtrace():
   '''(Built-in) Starts PDB.'''
   import pdb
   pdb.set_trace()
+
+__builtin__.pdbtrace = pdbtrace
 
 @contextlib.contextmanager
 def trap():
@@ -51,10 +55,11 @@ __builtin__.trap = trap
 # assertion failure, NOT a unittest.assert* failure).
 def breakOn(exc_name):
   exception = getattr(__builtin__, exc_name)
-  def __init__(self, *args, **kwds):
-    breakpoint(depth=1)
-    return super(self, exc_name).__init__(*args, **kwds)
-  replacement = type(exc_name, (exception,), {'__init__': __init__})
+  def __new__(cls, *args, **kwds):
+    # breakpoint(depth=1)
+    pdbtrace()
+    return exception(*args, **kwds)
+  replacement = type(exc_name, (exception,), {'__new__': __new__})
   setattr(__builtin__, exc_name, replacement)
 
 for exc_name in os.environ.get('SPRITE_CATCH_ERRORS', '').split(','):

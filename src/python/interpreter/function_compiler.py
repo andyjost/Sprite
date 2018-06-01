@@ -8,20 +8,32 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def compile_function(interpreter, ifun):
+class ExternallyDefined(Exception):
+  '''
+  Raised to indicate that a function is externally defined.  Provides the
+  replacement.
+  '''
+  def __init__(self, ifun):
+    self.ifun = ifun
+
+def compile_function(interpreter, ifun, extern=None):
   '''Compiles an ICurry function into a Python step function.'''
-  logger.info('Compiling function %s' % ifun.ident)
-  assert isinstance(ifun, icurry.IFunction)
-  if 'py.primfunc' in ifun.metadata:
-    logger.info('        (primitive builtin)')
-    assert('py.func' not in ifun.metadata)
-    return compile_primitive_builtin(interpreter, ifun.metadata['py.primfunc'])
-  elif 'py.func' in ifun.metadata:
-    logger.info('        (builtin)')
-    return compile_builtin(interpreter, ifun.metadata['py.func'])
-  logger.info('        (normal function)')
-  compiler = FunctionCompiler(interpreter, ifun.ident)
-  compiler.compile(ifun.code)
+  while True:
+    try:
+      assert isinstance(ifun, icurry.IFunction)
+      if 'py.primfunc' in ifun.metadata:
+        assert('py.func' not in ifun.metadata)
+        return compile_primitive_builtin(
+            interpreter, ifun.metadata['py.primfunc']
+          )
+      elif 'py.func' in ifun.metadata:
+        return compile_builtin(interpreter, ifun.metadata['py.func'])
+      compiler = FunctionCompiler(interpreter, ifun.ident, extern)
+      compiler.compile(ifun.code)
+    except ExternallyDefined as e:
+      ifun = e.ifun
+    else:
+      break
 
   if logger.isEnabledFor(logging.DEBUG):
     title = 'Compiling "%s":' % ifun.ident
@@ -57,7 +69,7 @@ def compile_builtin(interpreter, func):
 
   The Python implementation function must accept the arguments in head-normal
   form, but without any other preprocessing (e.g., unboxing).  It returns a
-  sequence of arguments suitable for passing to ``runtime.construct``.
+  sequence of arguments accepted by ``runtime.Node.__new__``.
   '''
   hnf = interpreter.hnf
   def step(lhs):
@@ -76,7 +88,7 @@ class FunctionCompiler(object):
 
   The following naming conventions are used:
 
-    Type Info:
+    Node Info:
         ``ni_$name``, where $name is a symbol name as defined in the source
         program with whatever modifications are required to avoid conflicts and
         make it a Python identifier.  A variant of the symbol name is used to
@@ -90,12 +102,13 @@ class FunctionCompiler(object):
         selector).  No special rules; must not begin with an underscore or
         conflict with the above.
   '''
-  def __new__(self, interpreter, ident):
+  def __new__(self, interpreter, ident, extern=None):
     self = object.__new__(self)
     self.ident = ident
     self.interpreter = interpreter
     self.closure = Closure(interpreter)
     self.closure['Node'] = runtime.Node
+    self.extern = extern
     body = []
     self.program = ['def step(lhs):', body]
     return self
@@ -199,7 +212,7 @@ class FunctionCompiler(object):
 
   @setvarpath.when(icurry.IBind)
   def setvarpath(self, vid, ibind):
-    raise RuntimeError('IBind not handled')
+    pass
 
   @setvarpath.when(icurry.IFree)
   def setvarpath(self, vid, ifree):
@@ -263,8 +276,14 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.IExternal)
   def statement(self, iexternal):
-    yield 'Node(%s)' % self.closure['_System.Failure']
-    yield 'return'
+    try:
+      ifun = self.extern.functions[iexternal.ident]
+      raise ExternallyDefined(ifun)
+    except KeyError:
+      msg = 'external function %s is not defined' % iexternal.ident
+      logging.warn(msg)
+      stmt = icurry.Return(icurry.Applic('Prelude.prim_error', [msg]))
+      return self.statement(stmt)
 
   @statement.when(icurry.Comment)
   def statement(self, comment):
@@ -272,14 +291,15 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.Declare)
   def statement(self, declare):
-    vid = declare.var.vid
     scope = declare.var.scope
-    self.setvarpath(vid, scope)
-    yield '_%s = %s' % (vid, self.varscope(scope))
+    if not isinstance(scope, icurry.IBind):
+      vid = declare.var.vid
+      self.setvarpath(vid, scope)
+      yield '_%s = %s' % (vid, self.varscope(scope))
 
   @statement.when(icurry.Assign)
   def statement(self, assign):
-    raise RuntimeError('Assign not handled')
+    yield '_%s = %s' % (assign.vid, self.expression(assign.expr))
 
   @statement.when(icurry.Fill)
   def statement(self, fill):

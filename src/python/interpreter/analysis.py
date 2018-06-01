@@ -43,9 +43,14 @@ def isa_false(interp, arg):
   return isa(arg, interp.prelude.False)
 
 def isa_list(interp, arg):
-  return isa(arg, interp.type('Prelude.List'))
-
-_TUPLE_PATTERN = re.compile(r'\(,*\)$')
+  return isa(arg, interp.type('Prelude.[]'))
 
 def isa_tuple(interp, arg):
-  return re.match(_TUPLE_PATTERN, arg[()].info.name)
+  if not isinstance(arg, runtime.Node):
+    return False
+  return is_tuple_name(arg[()].info.name)
+
+_TUPLE_PATTERN = re.compile(r'\(,*\)$')
+def is_tuple_name(name):
+  return re.match(_TUPLE_PATTERN, name)
+

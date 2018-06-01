@@ -3,7 +3,10 @@ Code for working with symbols.
 '''
 
 import itertools
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 class SymbolLookupError(AttributeError):
   '''Raised when a Curry symbol is not found.'''
@@ -119,6 +122,9 @@ def insert(module, basename, nodeinfo, private=False):
   --------
   Nothing.
   '''
+  logging.debug(
+      'Inserting symbol %s into module %s' % (basename, module.__name__)
+    )
   getattr(module, '.symbols')[basename] = nodeinfo
   if not private and isaCurryIdentifier(basename):
     setattr(module, basename, nodeinfo)
