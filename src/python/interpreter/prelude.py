@@ -1,6 +1,7 @@
 from ..icurry import *
-from .runtime import T_FAIL, T_CHOICE, T_FWD, T_CTOR
 from . import prelude_impl
+from .runtime import T_FAIL, T_CHOICE, T_FWD, T_CTOR
+import analysis
 import operator as op
 
 # ====================
@@ -269,7 +270,6 @@ Prelude = IModule(
 
 def overrides():
   '''Returns the name of each type that must be overridden.'''
-  import analysis
   yield '[]'
   for ty in _types_:
     name = ty.ident.basename
