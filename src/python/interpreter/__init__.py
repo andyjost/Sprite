@@ -165,7 +165,7 @@ class Interpreter(object):
   @_loadsymbols.when(IType)
   def _loadsymbols(self, itype, moduleobj, extern=None):
     if itype:
-      self._loadsymbols(list(itype), moduleobj, extern)
+      return self._loadsymbols(list(itype), moduleobj, extern)
     elif extern is not None:
       try:
         itype.constructors = extern.types[itype.ident].constructors
