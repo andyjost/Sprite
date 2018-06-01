@@ -220,38 +220,39 @@ class FunctionCompiler(object):
 
   # Expression.
   @dispatch.on('expression')
-  def expression(self, expression): #pragma: no cover
+  def expression(self, expression, partial=False): #pragma: no cover
     assert False
 
   @expression.when(collections.Sequence, no=str)
-  def expression(self, seq):
-    return map(self.expression, seq)
+  def expression(self, seq, partial=False):
+    return [self.expression(e, partial) for e in seq]
 
   @expression.when(icurry.Exempt)
-  def expression(self, exempt):
+  def expression(self, exempt, partial=False):
     return 'Node(%s)' % self.closure['_System.Failure']
 
   @expression.when(icurry.Reference)
-  def expression(self, ref):
+  def expression(self, ref, partial=False):
     return 'Node(%s, _%s)' % (self.closure['_System.Fwd'], ref.vid)
 
   @expression.when(icurry.Applic)
-  def expression(self, applic):
-    return 'Node(%s%s)' % (
+  def expression(self, applic, partial=False):
+    return 'Node(%s%s%s)' % (
         self.closure[applic.ident]
       , ''.join(', '+e for e in self.expression(applic.args))
+      , ', partial=True' if partial else ''
       )
 
   @expression.when(icurry.PartApplic)
-  def expression(self, partapplic):
+  def expression(self, partapplic, partial=False):
     return 'Node(%s, %s, %s)' % (
         self.closure['_System.PartApplic']
       , self.expression(partapplic.missing)
-      , self.expression(partapplic.expr)
+      , self.expression(partapplic.expr, True)
       )
 
   @expression.when(icurry.IOr)
-  def expression(self, ior):
+  def expression(self, ior, partial=False):
     return 'Node(%s, %s, %s)' % (
         self.closure['_System.Choice']
       , self.expression(ior.lhs)
@@ -259,9 +260,8 @@ class FunctionCompiler(object):
       )
 
   @expression.when(icurry.BuiltinVariant)
-  def expression(self, value):
+  def expression(self, value, partial=False):
     return repr(value)
-
 
   # Statement.
   @dispatch.on('statement')
