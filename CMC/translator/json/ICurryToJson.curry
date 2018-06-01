@@ -54,7 +54,7 @@ toStmt (Declare (Variable id scope)) =
 
 toStmt (IExternal string) =
   JO [ xclass "IExternal"
-     , ("name", JS string)
+     , ("ident", JS string)
      ]
 
 toStmt (Comment string) =

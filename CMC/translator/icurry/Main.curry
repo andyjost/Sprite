@@ -34,6 +34,7 @@ process_file :: [Prelude.Char] -> Prelude.IO ()
 process_file file = do
   sysPath <- getEnviron "CURRYPATH" -- CURRYPATH for this script.
   tgtPath <- getEnviron "TARGET_CURRYPATH" -- CURRYPATH for the target program.
+  if tgtPath /= "" then do setEnviron "CURRYPATH" tgtPath else done
   flat <- readFlatCurry file
   if trace
     then do
@@ -42,7 +43,6 @@ process_file file = do
     else done
 
   -- Find constructors used by the program, but defined in other modules.
-  if tgtPath /= "" then do setEnviron "CURRYPATH" tgtPath else done
   modules <- readFlatCurryIntWithImports file
   setEnviron "CURRYPATH" sysPath
   let type_table = TypeTable.execute modules

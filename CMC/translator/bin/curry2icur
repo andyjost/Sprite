@@ -36,6 +36,7 @@ fi
 # Next path is required to compile the Prelude
 CURRYPATH=$CURRYPATH:$PAKCSHOME/lib:$BASEDIR/icurry:$BASEDIR/poly
 export CURRYPATH
+export TARGET_CURRYPATH
 
 TARGET=$(dirname $1)/.curry/$(basename $1 ".curry")
 
