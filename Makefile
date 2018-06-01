@@ -9,8 +9,8 @@ $(PREFIX)/bin:
 	mkdir -p $(PREFIX)/bin
 $(PREFIX)/bin/.python : | $(PREFIX)/bin
 	ln -s $(PYTHON_EXECUTABLE) $@
-$(PREFIX)/bin/python : | $(PREFIX)/bin
-	cp $(ROOT_DIR)/scripts/python $@
+$(PREFIX)/bin/python : $(ROOT_DIR)/scripts/python | $(PREFIX)/bin
+	cp $< $@
 $(PREFIX)/bin/coverage : | $(PREFIX)/bin
 	ln -s $(PYTHON_COVERAGE_EXECUTABLE) $@
 $(PREFIX)/bin/curry2json : | $(PREFIX)/bin
@@ -20,8 +20,8 @@ $(PREFIX)/lib:
 	mkdir -p $(PREFIX)/lib
 $(PREFIX)/lib/curry : | $(PREFIX)/lib
 	mkdir -p $(PREFIX)/lib/curry
-$(PREFIX)/lib/curry/Prelude.curry : | $(PREFIX)/lib/curry
-	cp $(ROOT_DIR)/currylib/Prelude.curry $(PREFIX)/lib/curry/Prelude.curry
+$(PREFIX)/lib/curry/Prelude.curry : $(ROOT_DIR)/currylib/Prelude.curry | $(PREFIX)/lib/curry
+	cp $< $@
 
 $(ROOT_DIR)/install:
 	ln -s $(PREFIX) $@
