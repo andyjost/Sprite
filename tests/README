@@ -25,9 +25,10 @@ To run the tests, execute the following command:
 
         run_tests [pattern]
 
-If no pattern is supplied, then all tests are run.  Otherwise, the pattern is a
-glob that specifies which files to run.  A few other test runners, each of
-which uses this interface, are available:
+If no pattern is supplied, then all unit tests are run.  Otherwise, the pattern
+is a glob that specifies which files to run.  Use the pattern '*.py' (with
+quotes) to run all tests.  A few other test runners, each of which uses this
+interface, are available:
 
         run_tests       Run unit tests.
         debug_tests     Run unit tests under gdb.
