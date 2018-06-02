@@ -84,10 +84,10 @@ def box(interp, arg):
   return _expr(interp, arg)
 
 def unbox(interp, arg):
-  '''Unbox a built-in primitive.'''
+  '''Unbox a built-in primitive or IO type.'''
   if interp.flags['debug']:
     assert isinstance(arg, runtime.Node)
-    assert analysis.isa_primitive(interp, arg)
+    assert analysis.isa_primitive(interp, arg) or analysis.isa_io(interp, arg)
   return arg[0]
 
 @dispatch.on('data')

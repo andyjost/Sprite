@@ -5,7 +5,8 @@ from ..visitation import dispatch
 import operator
 import textwrap
 
-T_FAIL   = -4
+T_FAIL   = -5
+T_FREE   = -4
 T_FWD    = -3
 T_CHOICE = -2
 T_FUNC   = -1
@@ -74,12 +75,14 @@ class NodeInfo(object):
     if self.info.tag == T_FUNC:
       return "<curry function '%s'>" % self.ident
     if self.info.tag == T_CHOICE:
-      return "<curry choice symbol>"
+      return "<curry choice>"
     if self.info.tag == T_FWD:
-      return "<curry forward symbol>"
+      return "<curry forward node>"
     if self.info.tag == T_FAIL:
-      return "<curry failure symbol>"
-    return "<invalid curry symbol>"
+      return "<curry failure>"
+    if self.info.tag == T_FREE:
+      return "<curry free variable>"
+    return "<invalid curry node>"
 
 
 class Node(object):
@@ -268,6 +271,8 @@ def hnf(interpreter, expr, targetpath=[]):
       if targetpath:
         pull_tab(expr, targetpath)
       raise E_SYMBOL()
+    elif tag == T_FREE:
+      raise RuntimeError('normalizing a free variable is not implemented')
     elif tag == T_FWD:
       target = target[()]
     elif tag == T_FUNC:
@@ -321,9 +326,12 @@ def nf(interpreter, expr, targetpath=[], rec=float('inf')):
             tag = target.info.tag
             if tag == T_FAIL:
               Node(interpreter.ni_Failure, target=expr)
-            else:
-              assert tag == T_CHOICE
+            elif tag == T_CHOICE:
               pull_tab(expr, targetpath)
+            elif tag == T_FREE:
+              raise RuntimeError('instantiating a free variable is not implemented')
+            else:
+              assert False
           raise
 
 

@@ -1,9 +1,13 @@
 '''
 Implementation of the Prelude externals.
 '''
-from . import runtime
+from . import analysis
 from . import conversions
+from . import runtime
 import itertools
+import logging
+
+logger = logging.getLogger(__name__)
 
 def apply(interpreter, partapplic, arg):
   missing, term = partapplic # note: "missing" is unboxed.
@@ -47,3 +51,40 @@ def compare(interpreter, a, b):
   index = compare_impl(interpreter, a, b)
   info = interpreter.type('Prelude.Ordering')[index+1]
   yield info
+
+def compose_io(interpreter, io_a, f):
+  io_a = interpreter.hnf(io_a)
+  yield interpreter.symbol('Prelude.apply').info
+  yield f
+  yield conversions.unbox(interpreter, io_a)
+
+def return_(interpreter, a):
+  yield interpreter.symbol('Prelude.IO').info
+  yield a
+
+def putChar(interpreter, a):
+  interpreter.stdout.write(conversions.unbox(interpreter, a))
+  yield interpreter.ni_IO
+  yield runtime.Node(interpreter.ni_Unit);
+
+def apply_hnf(interpreter, f, a):
+  a = interpreter.hnf(a)
+  yield interpreter.symbol('Prelude.apply').info
+  yield f
+  yield a
+
+def apply_nf(interpreter, f, a):
+  a = interpreter.nf(a)
+  yield interpreter.symbol('Prelude.apply').info
+  yield f
+  yield a
+
+def ensureNotFree(interpreter, a):
+  a = interpreter.hnf(a)
+  # FIXME: suspend is not implemented.
+  if analysis.isa_freevar(interpreter, a):
+    logging.warn('free variable in ensureNotFree but cannot suspend')
+  yield interpreter.ni_Fwd
+  yield a
+
+  

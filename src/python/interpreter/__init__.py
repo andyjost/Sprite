@@ -16,6 +16,7 @@ import collections
 import logging
 import os
 import re
+import sys
 import types
 
 # Logging setup.
@@ -73,6 +74,9 @@ class Interpreter(object):
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
+    self.stdin = sys.stdin
+    self.stdout = sys.stdout
+    self.stderr = sys.stderr
     self.modules = {}
     self.flags = {'debug':True, 'defaultconverter':None, 'trace':False}
     envflags = os.environ.get('SPRITE_INTERPRETER_FLAGS')
@@ -93,6 +97,8 @@ class Interpreter(object):
     self.ni_Choice = self.symbol('_System.Choice')
     self.ni_Fwd = self.symbol('_System.Fwd')
     self.ni_PartApplic = self.symbol('_System.PartApplic')
+    self.ni_Unit = self.symbol('Prelude.()')
+    self.ni_IO = self.symbol('Prelude.IO')
     self.step = runtime.get_stepper(self)
 
   # Importing.

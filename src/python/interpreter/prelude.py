@@ -32,6 +32,7 @@ _types_ = [
  , IType('Char', [IConstructor('Char', 1, metadata=md0)])
  , IType('Float', [IConstructor('Float', 1, metadata=md0)])
  , IType('Int', [IConstructor('Int', 1, metadata=md0)])
+ , IType('IO', [IConstructor('IO', 1)])
  ]
 
 # List
@@ -89,9 +90,6 @@ _functions_ = [
   , IFunction('negate', 1, metadata={'py.primfunc':op.neg})
 
 # ====== Missing from the following ======
-# ++ =:= =:<= =:<<=
-
-
 # --- Integer division. The value is the integer quotient of its arguments
 # --- and always truncated towards negative infinity.
 # --- Thus, the value of <code>13 `div` 5</code> is <code>2</code>,
@@ -123,16 +121,22 @@ _functions_ = [
 # rem external
   , IFunction('rem', 2, metadata={'py.primfunc':lambda x, y: x - y * int(op.truediv(x, y))})
   , IFunction('prim_negateFloat', 1, metadata={'py.primfunc':op.neg})
+# --- Evaluates the argument to head normal form and returns it.
+# --- Suspends until the result is bound to a non-variable term.
+# ensureNotFree :: a -> a
+# ensureNotFree external
+  , IFunction('ensureNotFree', 1, metadata={'py.func':prelude_impl.ensureNotFree})
 # --- Right-associative application with strict evaluation of its argument
 # --- to head normal form.
 # ($!)    :: (a -> b) -> a -> b
 # ($!) external
+  , IFunction('$!', 2, metadata={'py.func':prelude_impl.apply_hnf})
 #
 # --- Right-associative application with strict evaluation of its argument
 # --- to normal form.
 # ($!!)   :: (a -> b) -> a -> b
 # ($!!) external
-
+  , IFunction('$!!', 2, metadata={'py.func':prelude_impl.apply_nf})
 # --- Right-associative application with strict evaluation of its argument
 # --- to ground normal form.
 # ($##)   :: (a -> b) -> a -> b
@@ -185,13 +189,16 @@ _functions_ = [
 # ---         and then performs (fa r)
 # (>>=)             :: IO a -> (a -> IO b) -> IO b
 # (>>=) external
+  , IFunction('>>=', 2, metadata={'py.func':prelude_impl.compose_io})
 #
 # --- The empty action that directly returns its argument.
 # return            :: a -> IO a
 # return external
+  , IFunction('return', 1, metadata={'py.func':prelude_impl.return_})
 #
 # prim_putChar           :: Char -> IO ()
 # prim_putChar external
+  , IFunction('prim_putChar', 1, metadata={'py.func':prelude_impl.putChar})
 #
 # --- An action that reads a character from standard output and returns it.
 # getChar           :: IO Char
@@ -271,6 +278,7 @@ Prelude = IModule(
 def overrides():
   '''Returns the name of each type that must be overridden.'''
   yield '[]'
+  yield 'IO'
   for ty in _types_:
     name = ty.ident.basename
     if analysis.is_tuple_name(name):

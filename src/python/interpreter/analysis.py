@@ -32,6 +32,12 @@ def isa_primitive(interp, arg):
   p = interp.prelude
   return isa(arg, (p.Int, p.Char, p.Float))
 
+def isa_io(interp, arg):
+  return isa(arg, interp.prelude.IO)
+
+def isa_freevar(interp, arg):
+  return arg.info.tag == runtime.T_FREE
+
 def isa_bool(interp, arg):
   p = interp.prelude
   return isa(arg, (p.True, p.False))

@@ -151,7 +151,7 @@ class IModule(_Base):
         else:
           found += 1
       if not found:
-        logger.warn('override symbol "%s" not found', ident)
+        raise TypeError('override symbol "%s" not found' % ident)
 
 class IType(_Base, Sequence):
   def __init__(self, ident, constructors, metadata={}):
