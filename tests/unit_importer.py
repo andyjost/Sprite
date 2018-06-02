@@ -1,5 +1,6 @@
 # Encoding: utf-8
 import cytest # from ./lib; must be first
+import curry
 from curry import icurry
 from curry import importer
 import os
@@ -131,3 +132,16 @@ class TestFindCurry(cytest.TestCase):
     finally:
       rmfiles()
 
+  def test_illegal_name(self):
+    self.assertRaisesRegexp(
+        ValueError, r'"kiel/rev" is not a legal module name.'
+      , lambda: curry.import_('kiel/rev')
+      )
+    self.assertRaisesRegexp(
+        ValueError, r'"." is not a legal module name.'
+      , lambda: curry.import_('.')
+      )
+    self.assertRaisesRegexp(
+        ValueError, r'".." is not a legal module name.'
+      , lambda: curry.import_('..')
+      )

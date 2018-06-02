@@ -92,7 +92,7 @@ def _build_symboltable(imodule, data, value_type):
   return data
 
 class IModule(_Base):
-  def __init__(self, name, imports, types, functions):
+  def __init__(self, name, imports, types, functions, filename=None):
     '''
     Parameters:
     -----------
@@ -106,6 +106,7 @@ class IModule(_Base):
     self.imports = tuple(str(x) for x in imports)
     self.types = _build_symboltable(self, types, IType)
     self.functions = _build_symboltable(self, functions, IFunction)
+    self.filename = filename
   def __str__(self):
     return '\n'.join(
         [

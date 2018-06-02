@@ -17,8 +17,15 @@ except ImportError:
   from ._tempfile import TemporaryDirectory # Py2
 
 def newer(a, b):
-  '''Indicates whether file a is newer than file b.'''
-  return os.path.getmtime(a) > os.path.getmtime(b)
+  '''
+  Indicates whether file a is newer than file b.  Also returns true if a exists
+  and b does not.
+  '''
+  try:
+    t_b = os.path.getmtime(b)
+  except OSError:
+    return os.path.exists(a) and not os.path.exists(b)
+  return os.path.getmtime(a) > t_b
 
 def findfiles(searchpaths, names):
   '''
@@ -63,6 +70,8 @@ def findCurryModule(modulename, currypath):
   (suffix: .curry)
   '''
   # Search for the ICurry-JSON file first, then the .curry file.
+  if '/' in modulename or modulename in ['.', '..']:
+    raise ValueError('"%s" is not a legal module name.' % modulename)
   names = [os.path.join('.curry', modulename + '.json'), modulename + '.curry']
   files = findfiles(currypath, names)
   try:
@@ -171,9 +180,9 @@ def getICurryFromJson(jsonfile):
   '''
   logger.debug('Reading ICurry-JSON from %s' % jsonfile)
   assert os.path.exists(jsonfile)
-  icur = icurry.parse(open(jsonfile, 'r').read())
-  assert len(icur) == 1
-  return icur[0]
+  icur, = icurry.parse(open(jsonfile, 'r').read())
+  icur.filename = jsonfile
+  return icur
 
 def getICurryForModule(modulename, currypath):
   '''

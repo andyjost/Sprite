@@ -148,6 +148,7 @@ class Interpreter(object):
     if imodule.name not in self.modules:
       imodule.patch(extern, override)
       moduleobj = CurryModule(imodule.name)
+      moduleobj.__file__ = imodule.filename
       self.modules[imodule.name] = moduleobj
       self._loadsymbols(imodule, moduleobj, extern=extern)
       self._compile(imodule, moduleobj, extern=extern)

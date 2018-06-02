@@ -84,23 +84,28 @@ class TestCase(unittest.TestCase):
     '''
     Compare an object or objects against a golden file.
 
-    If ``update`` is true, then just update the golden file instead.
+    Parameters:
+    -----------
+    ``objs``
+        An object or sequence of objects to compare.
+    ``filename``
+        The name of the file that stores the golden result.
+    ``update``
+        If true, then just update the golden file.
     '''
     buf = StringIO()
     if isinstance(objs, collections.Sequence):
       for obj in objs: buf.write(str(obj))
     else:
       buf.write(str(objs))
+    value = buf.getvalue()
     open_ = gzip.open if filename.endswith('.gz') else open
     if update:
       with open_(filename, 'wb') as au:
-        au.write(buf.getvalue())
+        au.write(value)
     else:
       with open_(filename, 'rb') as au:
-        try:
-          self.assertEqual(buf.getvalue(), au.read())
-        except:
-          breakpoint()
+        self.assertEqual(value, au.read())
 
   def assertIsa(self, obj, ty):
     isa = cy_isa if isinstance(obj, Node) else llvm_isa

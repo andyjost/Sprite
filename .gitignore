@@ -10,3 +10,4 @@ tests/data/Makefile2
 robots.txt*
 **/.src/**
 **/.curry/**
+**/*.au-gen
