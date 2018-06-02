@@ -1,4 +1,13 @@
-1. Dependencies
+1. Contact Information
+----------------------
+
+Sprite was developed and is maintained by Andy Jost (ajost@synopsys.com).  Feel
+free to contact him with questions, bug reports, feature requests, and other
+miscellania regarding Sprite.  Direct general questions about Curry to the
+Curry mailing list (curry@lists.RWTH-Aachen.DE).
+
+
+2. Dependencies
 ---------------
 
 This project requires the Curry Meta-Compiler (CMC).  If it is not already
@@ -11,7 +20,7 @@ Paths to other required software are listed in Make.config.  Versions can be
 found at the end of this file.
 
 
-2. Installation
+3. Installation
 ---------------
 
 To compile all objects and executables:
@@ -27,7 +36,7 @@ To install:
     make install PREFIX=<your-prefix-dir>
 
 
-3. Software used
+4. Software used
 ----------------
 
 Sprite was developed and tested with the following software.
@@ -77,4 +86,18 @@ Sprite was developed and tested with the following software.
 
         Example: SPRITE_INTERPRETER_FLAGS=trace:True,debug:True
 
+
+6. BUG REPORTING
+----------------
+
+If you find a bug, please report it.  The easiest way is to create a *minimal*
+unit test decorated with ``unittest.expectedFailure``.  Further instructions on
+developing and running tests can be found under tests/README.  Once you have
+written the test, submit a pull request or send the diff to ajost@synopsys.com.
+
+
+7. CONTRIBUTING TO SPRITE
+-------------------------
+
+Contributions to Sprite are welcome!  For more information, see README.contrib.
 

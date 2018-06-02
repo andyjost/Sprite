@@ -34,7 +34,12 @@ case `basename $0` in
     # seem to be a way to run tests by specifying a list of filenames.  So the arguments
     # to this script must either be empty (run all tests) or the name of a test file (which
     # is then taken as a pattern, meaning just that file will be run).
-    $python -B -m unittest discover -v `pwd` "$@"
+    if [ -z "$@" ]; then
+      pattern="unit_*.py"
+    else
+      pattern="$@"
+    fi
+    $python -B -m unittest discover -v `pwd` "$pattern"
     ;;
   "debug_tests")
     # Run the Python unit tests under gdb.

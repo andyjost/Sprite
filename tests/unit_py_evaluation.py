@@ -18,3 +18,4 @@ class TestPyEvaluation(cytest.TestCase):
 
   def test_btable(self):
     self.check('btable', [0])
+

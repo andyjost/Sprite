@@ -18,37 +18,62 @@ parser tests.
         test_*.py   Unit test source code.
 
 
-3. TEST RUNNERS
----------------
+3. RUNNING TESTS
+----------------
+
+To run the tests, execute the following command:
+
+        run_tests [pattern]
+
+If no pattern is supplied, then all tests are run.  Otherwise, the pattern is a
+glob that specifies which files to run.  A few other test runners, each of
+which uses this interface, are available:
 
         run_tests       Run unit tests.
         debug_tests     Run unit tests under gdb.
+                        (For debugging C++ code.)
         valgrind_tests  Run unit tests under valgrind.
+                        (For debugging memory problems.)
         cov_tests       Run unit tests under coverage.py.
-        shell           Start a shell in the test environment.
+                        (For measuring line coverage.)
 
 
-4. EDITOR INTEGRATION
+4. TESTING GUIDELINES
+---------------------
+
+Unit tests match the pattern unit_*.py.
+
+  - To run: run_tests 'unit_*.py'
+  - The goal of unit testing is line coverage.
+	- Every new feature requires a unit test.  Untested features will not be
+		accepted into Sprite.
+	- Changes that break unit tests will not be accepted.
+	- Do not add large-scale or long-running tests to the unit test area.  Large
+		tests are almost always inefficient in terms of unique source lines covered
+		per unit time.  Unit tests are expected to run very quickly, as they are
+		part of the critical inner loop in the edit-build-test development cycle.
+	- Use the cov_tests driver to assess the quality of new tests.  New tests
+		should increase line coverage with the smallest possible resource footprint
+		(time, memory, etc.).
+
+Functional tests match the pattern func_*.py:
+
+  - To run: run_tests 'func_*.py'
+	- The goal of functional testing in Sprite is to ensure Curry programs give
+		the correct behavior.
+	- These tests check the behavior of sample programs against other Curry
+		implementations or known results.
+	- These tests are allowed to consume more resources than unit tests, but
+		should still be made as small as possible.  For instance, to check a
+		list-reversal program, it is reasonable to reverse a handful of elements,
+		not millions.  These tests are not stress tests and do not need to
+		explore the limits of the implementation.
+
+
+5. EDITOR INTEGRATION
 ---------------------
 
 A makefile is used to simplify integration with text editors.  For instance, in
 vim <Enter> runs "make" by default, so that key can be used to easily run the
 tests right from the text editor.
 
-
-5. TESTING-SPECIFIC ENVIRONMENT VARIABLES
------------------------------------------
-
-The following environment variables are available in the testing suite.  These
-require that each test file imports 'cytest' before loading anything from the
-'curry' package.
-
-    - SPRITE_CATCH_ERRORS
-
-        Default: ''
-        Used at: tests/lib/cytest.py
-
-        Sets a breakpoint whenever a specified error type is created.  The
-        value is a comma-separated list of Python exception names.  For
-        example, the value "AssertionError,RuntimeError" will cause an
-        interactive prompt to start whenever either of those exceptions occurs.

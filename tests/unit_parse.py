@@ -44,16 +44,10 @@ class ParseJSON(cytest.TestCase):
   def test_btable(self):
     curry.import_('btable')
 
-  @unittest.skip('need to implement Prelude')
   def testKielExamples(self):
     '''Run example programs from Kiel.'''
     for jsonfile in glob('data/json/kiel-*.json*'):
-      try:
-        icur = parse(gzip.open(jsonfile, 'rb').read())
-        interp = Interpreter()
-        mod = interp.import_(icur)
-      except Exception as e:
-        print 'Error>', str(e)
-        continue
-      print '\n\n\n\IT WORKED\n\n\n\n'
+      print jsonfile
+      icur = icurry.parse(gzip.open(jsonfile, 'rb').read())
+      curry.import_(icur)
 

@@ -1,0 +1,41 @@
+Contributing to Sprite
+======================
+
+1. SOURCE LOCATION
+------------------
+
+Sprite is hosted at <TBD>.  Anyone may submit a pull request.  Follow the
+guidelines in this document.
+
+
+2. DEVELOPMENT-SPECIFIC ENVIRONMENT VARIABLES
+---------------------------------------------
+
+The following environment variables are available in the testing suite.  These
+require that each test file imports 'cytest' before loading anything from the
+'curry' package.
+
+    - SPRITE_CATCH_ERRORS
+
+        Default: ''
+        Used at: tests/lib/cytest.py
+
+        Sets a breakpoint whenever a specified error type is created.  The
+        value is a comma-separated list of Python exception names.  For
+        example, the value "AssertionError,RuntimeError" will cause an
+        interactive prompt to start whenever either of those exceptions occurs.
+
+
+3. TEST-SPECIFIC MAKE VARIABLES
+-------------------------------
+
+These variables control the build process.  You specify them on the make
+command line.
+
+    - SYMLINK_PYTHON
+
+			 Defining this causes Python files to be installed as symbolic links into
+			 the source area.  This way, one can edit Python files and then run tests
+			 without re-installing.  Modifying non-Python files or adding new files
+			 necessitates a call to 'make install'.
+

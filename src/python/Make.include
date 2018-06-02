@@ -49,8 +49,14 @@ uninstall:
 	rm -f $(PYLIB_PY_FILES:.py=.pyc)
 	rmdir $(shell realpath $(PYLIB_INSTALL_DIR))
 
+ifdef SYMLINK_PYTHON
 $(PYLIB_INSTALL_DIR)/%.py : %.py
 	cp $< $@
+else
+$(PYLIB_INSTALL_DIR)/%.py : %.py
+	ln -s $(abspath $<) $@
+endif
+
 $(PYLIB_INSTALL_DIR)/%.so : $(OBJECT_DIR)/%.so
 	cp $< $@
 
