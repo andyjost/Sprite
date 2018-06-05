@@ -16,7 +16,7 @@ class ExternallyDefined(Exception):
   def __init__(self, ifun):
     self.ifun = ifun
 
-def compile_function(interpreter, ifun, extern=None):
+def compile_function(interp, ifun, extern=None):
   '''Compiles an ICurry function into a Python step function.'''
   while True:
     try:
@@ -24,11 +24,11 @@ def compile_function(interpreter, ifun, extern=None):
       if 'py.primfunc' in ifun.metadata:
         assert('py.func' not in ifun.metadata)
         return compile_primitive_builtin(
-            interpreter, ifun.metadata['py.primfunc']
+            interp, ifun.metadata['py.primfunc']
           )
       elif 'py.func' in ifun.metadata:
-        return compile_builtin(interpreter, ifun.metadata['py.func'])
-      compiler = FunctionCompiler(interpreter, ifun.ident, extern)
+        return compile_builtin(interp, ifun.metadata['py.func'])
+      compiler = FunctionCompiler(interp, ifun.ident, extern)
       compiler.compile(ifun.code)
     except ExternallyDefined as e:
       ifun = e.ifun
@@ -51,19 +51,19 @@ def compile_function(interpreter, ifun, extern=None):
       ]
   return compiler.get()
 
-def compile_primitive_builtin(interpreter, func):
+def compile_primitive_builtin(interp, func):
   '''
   Compiles code for built-in functions on primitive data.  See metadata.py.
   '''
-  hnf = interpreter.hnf
-  expr = interpreter.expr
-  topython = interpreter.topython
+  hnf = interp.hnf
+  expr = interp.expr
+  topython = interp.topython
   def step(lhs):
     args = (topython(hnf(lhs, [i])) for i in xrange(len(lhs.successors)))
     return expr(func(*args), target=lhs)
   return step
 
-def compile_builtin(interpreter, func):
+def compile_builtin(interp, func):
   '''
   Compiles code for a built-in function.  See metadata.py.
 
@@ -71,10 +71,10 @@ def compile_builtin(interpreter, func):
   form, but without any other preprocessing (e.g., unboxing).  It returns a
   sequence of arguments accepted by ``runtime.Node.__new__``.
   '''
-  hnf = interpreter.hnf
+  hnf = interp.hnf
   def step(lhs):
     args = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
-    runtime.Node(*func(interpreter, *args), target=lhs)
+    runtime.Node(*func(interp, *args), target=lhs)
   return step
 
 class FunctionCompiler(object):
@@ -102,11 +102,11 @@ class FunctionCompiler(object):
         selector).  No special rules; must not begin with an underscore or
         conflict with the above.
   '''
-  def __new__(self, interpreter, ident, extern=None):
+  def __new__(self, interp, ident, extern=None):
     self = object.__new__(self)
     self.ident = ident
-    self.interpreter = interpreter
-    self.closure = Closure(interpreter)
+    self.interp = interp
+    self.closure = Closure(interp)
     self.closure['Node'] = runtime.Node
     self.extern = extern
     body = []
@@ -117,7 +117,7 @@ class FunctionCompiler(object):
     '''Returns the compiled step function.'''
     local = {}
     source = render(self.program)
-    if self.interpreter.flags['debug']:
+    if self.interp.flags['debug']:
       # If debugging, write a source file so that PDB can step into this
       # function.
       srcdir = importer.getDebugSourceDir()
@@ -133,7 +133,7 @@ class FunctionCompiler(object):
 
   def nodeinfo(self, iname):
     '''Get the NodeInfo object for a program symbol.'''
-    return self.interpreter.symbol(iname)
+    return self.interp.symbol(iname)
 
   def __str__(self):
     maxlen = max(map(len, self.closure.context.keys()) or [0])
@@ -312,7 +312,7 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.ATable)
   def statement(self, atable):
-    self.closure['hnf'] = self.interpreter.hnf
+    self.closure['hnf'] = self.interp.hnf
     assert hasattr(atable.expr, 'vid') # the selector is always a variable
     yield 'selector = hnf(lhs, p_%s).info.tag' % atable.expr.vid
     el = ''
@@ -323,8 +323,8 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.BTable)
   def statement(self, btable):
-    self.closure['hnf'] = self.interpreter.hnf
-    self.closure['unbox'] = self.interpreter.unbox
+    self.closure['hnf'] = self.interp.hnf
+    self.closure['unbox'] = self.interp.unbox
     assert hasattr(btable.expr, 'vid') # the selector is always a variable
     yield 'selector = unbox(hnf(lhs, p_%s))' % btable.expr.vid
     el = ''
@@ -345,8 +345,8 @@ class Closure(object):
 
   See ``FunctionCompiler`` for naming conventions.
   '''
-  def __init__(self, interpreter):
-    self.interpreter = interpreter
+  def __init__(self, interp):
+    self.interp = interp
     self.context = {}
 
   @dispatch.on('key')
@@ -357,7 +357,7 @@ class Closure(object):
 
   @__getitem__.when(icurry.IName)
   def __getitem__(self, iname):
-    symbol = self.interpreter.symbol(iname).info
+    symbol = self.interp.symbol(iname).info
     for k,v in self.context.iteritems():
       if v is symbol:
         return k

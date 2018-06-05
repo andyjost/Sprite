@@ -25,7 +25,7 @@ SKIP = set((
   , 'textstyledappend'
   ))
 
-failed = []
+failed = set()
 
 def noteSkipped(f):
   '''Record the tests that fail.'''
@@ -34,7 +34,7 @@ def noteSkipped(f):
     try:
       f(self, modulename)
     except:
-      failed.append(modulename)
+      failed.add(modulename)
       raise
   return skipper
 
@@ -47,7 +47,7 @@ class TestKiel(cytest.TestCase):
     if failed:
       print 'The following tests failed.  ' \
             'Copy this line into func_kiel.py to skip them.'
-    print 'SKIP =', failed
+      print 'SKIP =', failed
 
   # Create a test for every file under the source directory.
   for cysrc in glob(SOURCE_DIR + '*.curry'):

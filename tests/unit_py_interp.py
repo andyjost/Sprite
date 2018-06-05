@@ -149,7 +149,7 @@ class TestPyInterp(cytest.TestCase):
       , [[Z, ZW], ['N']]
       ]
     for expr, expected in TESTS:
-      goal = interp.expr(expr)
+      goal = interp.expr(*expr)
       result = map(str, interp.eval(goal))
       self.assertEqual(set(result), set(expected))
 

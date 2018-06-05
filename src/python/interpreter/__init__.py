@@ -67,7 +67,7 @@ class Interpreter(object):
       ``debug`` (*True*|False)
           Sacrifice speed to add more consistency checks and enable debugging
           with PDB.
-      ``defaultconverter`` (*'topython'*|None)
+      ``defaultconverter`` ('topython'|*None*)
           Indicates the conversion to apply to results of eval.
       ``trace`` (True|*False*)
           Shows the effect of each step in a computation.
@@ -86,6 +86,7 @@ class Interpreter(object):
         })
     self.flags.update(flags)
     self.path = filter(lambda x:x, os.environ.get('CURRYPATH', '').split(':'))
+    setattr(self, '.cache', {})
     return self
 
   def __init__(self, flags={}):
@@ -99,6 +100,8 @@ class Interpreter(object):
     self.ni_PartApplic = self.symbol('_System.PartApplic')
     self.ni_Unit = self.symbol('Prelude.()')
     self.ni_IO = self.symbol('Prelude.IO')
+    self.ni_Cons = self.symbol('Prelude.:')
+    self.ni_Nil = self.symbol('Prelude.[]')
     self.step = runtime.get_stepper(self)
 
   # Importing.
@@ -258,11 +261,11 @@ class Interpreter(object):
 
   # Conversions.
   # ============
-  expr = conversions.expr
   box = conversions.box
-  unbox = conversions.unbox
-  tocurry = conversions.tocurry
+  currytype = conversions.currytype
+  expr = conversions.expr
   topython = conversions.topython
+  unbox = conversions.unbox
 
   # Symbol/type lookup.
   # ===================

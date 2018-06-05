@@ -177,8 +177,13 @@ class Node(object):
   def __str__(self):
     return self.info.show(self)
 
+  def _repr_(self):
+    yield self.info.name
+    for s in self.successors:
+      yield repr(s)
+
   def __repr__(self):
-    return '<%s %s>' % (self.info.name, ' '.join(map(repr, self.successors)))
+    return '<%s>' % ' '.join(self._repr_())
 
   # Rewrite this node. This gives a consistent syntax for node creation and
   # rewriting.  For example, ``Node(*args)`` creates a node and
@@ -188,9 +193,9 @@ class Node(object):
 
 class Evaluator(object):
   '''Evaluates Curry expressions.'''
-  def __new__(cls, interpreter, goal):
+  def __new__(cls, interp, goal):
     self = object.__new__(cls)
-    self.interpreter = interpreter
+    self.interp = interp
     self.queue = [goal]
     return self
 
@@ -209,18 +214,18 @@ class Evaluator(object):
         self.queue.append(expr)
       else:
         try:
-          self.interpreter.nf(expr)
+          self.interp.nf(expr)
         except E_SYMBOL:
           self.queue.append(expr)
         else:
           yield expr[()]
 
-def get_stepper(interpreter):
+def get_stepper(interp):
   '''
-  Returns a function to apply steps, according to the interpreter
+  Returns a function to apply steps, according to the interp
   configuration.
   '''
-  if interpreter.flags['trace']:
+  if interp.flags['trace']:
     def step(target):
       print 'S <<<', str(target)
       try:
@@ -232,7 +237,7 @@ def get_stepper(interpreter):
       target.info.step(target)
   return step
 
-def hnf(interpreter, expr, targetpath=[]):
+def hnf(interp, expr, targetpath=[]):
   '''
   Head-normalize ``expr`` at ``targetpath``.
 
@@ -260,12 +265,12 @@ def hnf(interpreter, expr, targetpath=[]):
   target = expr[targetpath]
   while True:
     if not isinstance(target, Node):
-      assert isinstance(target, icurry.BuiltinVariant)
+      # assert isinstance(target, icurry.BuiltinVariant)
       return target
     tag = target.info.tag
     if tag == T_FAIL:
       if targetpath:
-        Node(interpreter.ni_Failure, target=expr)
+        Node(interp.ni_Failure, target=expr)
       raise E_SYMBOL()
     elif tag == T_CHOICE:
       if targetpath:
@@ -277,14 +282,14 @@ def hnf(interpreter, expr, targetpath=[]):
       target = target[()]
     elif tag == T_FUNC:
       try:
-        interpreter.step(target)
+        interp.step(target)
       except E_SYMBOL:
         pass
     else:
       return target
 
 
-def nf(interpreter, expr, targetpath=[], rec=float('inf')):
+def nf(interp, expr, targetpath=[], rec=float('inf')):
   '''
   Normalize ``expr`` at ``targetpath``.
 
@@ -310,7 +315,7 @@ def nf(interpreter, expr, targetpath=[], rec=float('inf')):
   '''
   if rec >= 0:
     try:
-      target = hnf(interpreter, expr, targetpath)
+      target = hnf(interp, expr, targetpath)
     except E_SYMBOL:
       assert expr.info.tag in [T_FAIL, T_CHOICE]
       raise
@@ -320,12 +325,12 @@ def nf(interpreter, expr, targetpath=[], rec=float('inf')):
     if rec > 0:
       for i in xrange(target.info.arity):
         try:
-          nf(interpreter, target, [i], rec-1)
+          nf(interp, target, [i], rec-1)
         except E_SYMBOL:
           if targetpath:
             tag = target.info.tag
             if tag == T_FAIL:
-              Node(interpreter.ni_Failure, target=expr)
+              Node(interp.ni_Failure, target=expr)
             elif tag == T_CHOICE:
               pull_tab(expr, targetpath)
             elif tag == T_FREE:

@@ -45,9 +45,8 @@ class ParseJSON(cytest.TestCase):
     curry.import_('btable')
 
   def testKielExamples(self):
-    '''Run example programs from Kiel.'''
+    '''Parse example programs from Kiel.'''
     for jsonfile in glob('data/json/kiel-*.json*'):
-      print jsonfile
       icur = icurry.parse(gzip.open(jsonfile, 'rb').read())
       curry.import_(icur)
 

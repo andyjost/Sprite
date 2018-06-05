@@ -126,9 +126,11 @@ class TestFindCurry(cytest.TestCase):
       # Check getICurryForModule.  It just parses the file found by
       # findOrBuildICurryForModule.
       icur = importer.getICurryForModule('hello', ['data/curry'])
+      icur.filename = None
       au = icurry.parse(open(goldenfile, 'r').read())
       assert len(au) == 1
       self.assertEqual(icur, au[0])
+
     finally:
       rmfiles()
 

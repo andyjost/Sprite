@@ -8,29 +8,61 @@ from . import runtime
 from ..visitation import dispatch
 import collections
 import numbers
-
-def expr(interp, arg, *args, **kwds):
-  # Special case: if the argument is a single string, interpret it as a Curry
-  # expression.  To convert a Python string to a Curry string, put it into a
-  # list or use ``tocurry``.  Keyword arguments are forwarded so that the
-  # import list can be specified.
-  if isinstance(arg, str) and not len(args):
-    return interp.compile(arg, mode='expr', **kwds)
-  else:
-    return _expr(interp, arg, *args, **kwds)
+import types
+import __builtin__
 
 @dispatch.on('arg')
-def _expr(interp, arg, *args, **kwds):
+def expr(interp, arg, *args, **kwds):
   '''
-  Builds a Curry expression from Python.  The keyword 'target' specifies a
-  target node.  If one is supplied, the result will be placed there.
+  Builds a Curry expression.
+
+  The arguments form an expression specification.  Each element must either be
+  directly convertible to Curry or describe a node.  The following direct
+  conversions are recognized:
+
+  ``bool``
+    Converted to ``Prelude.Bool``.
+  ``float``
+    Converted to ``Prelude.Float``.
+  ``int``
+    Converted to ``Prelude.Int``.
+  ``iterator``
+    Converted to ``Prelude.[_]`` (list) lazily.
+  ``list``
+    Converted to ``Prelude.[_]`` (list) eagerly.
+  ``str``
+    For strings of length one, Prelude.Char.  Otherwise, ``[Prelude.Char]``.
+  ``tuple``
+    Converted to a Curry tuple.
+
+  Any (possibly nested) sequence whose first element is an instance of
+  ``curry.runtime.NodeInfo`` describes a node.  The remaining arguments are
+  recursivly converted to Curry expressions to form the successors list.  Thus,
+  given suitable definitions, it is possible to build the Curry list
+  ``[0,1,2]`` with the following code:
+
+      expr([Cons, 0, [Cons, 1, [Cons, 2, Nil]]])
+
+  Parameters:
+  -----------
+  ``interp``
+      An interpreter object.
+  ``*args``
+      Positional arguments passed to ``Node.__new__``.
+  ``target``
+      Keyword-only argument.  If a ``Node`` object is provided, then it will be
+      rewritten with the contents specified.  Otherwise a new node is created.
+
+  Returns:
+  --------
+  The Node created or rewritten.
   '''
   raise TypeError(
       'cannot build a Curry expression from type "%s"' % type(arg).__name__
     )
 
-@_expr.when(str) # Char or [Char].
-def _expr(interp, arg, *args, **kwds):
+@expr.when(str) # Char or [Char].
+def expr(interp, arg, *args, **kwds):
   if len(arg) == 1:
     args = (str(arg),) + args
     target = kwds.get('target', None)
@@ -38,40 +70,69 @@ def _expr(interp, arg, *args, **kwds):
   else:
     raise RuntimeError('multi-char strings not supported yet.')
 
-@_expr.when(collections.Sequence, no=str)
-def _expr(interp, arg, target=None):
-  # Supports nested structures, e.g., Cons 0 [Cons 1 Nil].
-  return _expr(interp, *arg, target=target)
+@expr.when(list)
+def expr(interp, l, target=None):
+  if len(l) and isinstance(l[0], runtime.NodeInfo):
+    return expr(interp, *l, target=target)
+  else:
+    Cons = interp.ni_Cons
+    Nil = interp.ni_Nil
+    sentinel = object()
+    seq = iter(l)
+    f = lambda x,g: [Cons, expr(interp, x), g()] if x is not sentinel else Nil
+    g = lambda: f(next(seq, sentinel), g)
+    return expr(interp, g(), target=target)
 
-@_expr.when(bool)
-def _expr(interp, arg, **kwds):
+@expr.when(tuple)
+def expr(interp, t, **kwds):
+  n = len(t)
+  if n == 0:
+    typename = '()'
+  elif n == 1:
+    raise TypeError("Curry has no 1-tuple.")
+  else:
+    typename = '(%s)' % (','*(n-1))
+  TupleType = interp.symbol('Prelude.%s' % typename)
+  return expr(
+      interp
+    , [TupleType] + [expr(interp, x) for x in t]
+    , **kwds
+    )
+
+@expr.when(bool)
+def expr(interp, arg, **kwds):
   target = kwds.get('target', None)
   if arg:
     return runtime.Node(interp.prelude.True, target=target)
   else:
     return runtime.Node(interp.prelude.False, target=target)
 
-@_expr.when(numbers.Integral)
-def _expr(interp, arg, target=None):
+@expr.when(numbers.Integral)
+def expr(interp, arg, target=None):
   return runtime.Node(interp.prelude.Int, int(arg), target=target)
 
-@_expr.when(numbers.Real)
-def _expr(interp, arg, target=None):
+@expr.when(numbers.Real)
+def expr(interp, arg, target=None):
   return runtime.Node(interp.prelude.Float, float(arg), target=target)
 
-@_expr.when(runtime.NodeInfo)
-def _expr(interp, ti, *args, **kwds):
+@expr.when(collections.Iterator)
+def expr(interp, arg, target=None):
+  pygen = interp.symbol('_System._python_generator_')
+  return runtime.Node(pygen, arg, target=target)
+
+@expr.when(runtime.NodeInfo)
+def expr(interp, ti, *args, **kwds):
   target = kwds.get('target', None)
   missing =  ti.info.arity - len(args)
   if missing > 0:
-    partial = runtime.Node(ti, *map(lambda s: _expr(interp, s), args), partial=True)
+    partial = runtime.Node(ti, *map(lambda s: expr(interp, s), args), partial=True)
     # note: "missing" an unboxed int by design.
     return runtime.Node(interp.ni_PartApplic, missing, partial, target=target)
   else:
-    return runtime.Node(ti, *map(lambda s: _expr(interp, s), args), target=target)
+    return runtime.Node(ti, *map(lambda s: expr(interp, s), args), target=target)
 
-@_expr.when(runtime.Node)
-def _expr(interp, node, target=None):
+@expr.when(runtime.Node)
+def expr(interp, node, target=None):
   if target is not None:
     target.rewrite(interp.ni_Fwd, node)
   return node
@@ -81,7 +142,7 @@ def box(interp, arg):
   if interp.flags['debug']:
     assert isinstance(arg, (str, numbers.Integral, numbers.Real))
     assert not isinstance(arg, str) or len(arg) == 1 # Char, not [Char].
-  return _expr(interp, arg)
+  return expr(interp, arg)
 
 def unbox(interp, arg):
   '''Unbox a built-in primitive or IO type.'''
@@ -90,49 +151,7 @@ def unbox(interp, arg):
     assert analysis.isa_primitive(interp, arg) or analysis.isa_io(interp, arg)
   return arg[0]
 
-@dispatch.on('data')
-def tocurry(interp, data):
-  '''Converts Python data or types to Curry by substituting built-in types.'''
-  return _expr(interp, data)
-
-@tocurry.when(list)
-def tocurry(interp, data):
-  # [a,b] -> _expr([Cons, tocurry(a), [Cons, tocurry(b), Nil])
-  Cons = getattr(interp.prelude, ':')
-  Nil = getattr(interp.prelude, '[]')
-  sentinel = object()
-  seq = iter(data)
-  f = lambda x,g: [Cons, tocurry(interp, x), g()] if x is not sentinel else Nil
-  g = lambda: f(next(seq, sentinel), g)
-  result = _expr(interp, g())
-  if interp.flags['debug']:
-    types = set(x[()].info for x in _iter_(interp, result))
-    if len(types) != 1:
-      raise TypeError(
-          'malformed Curry list containing types %s'
-              % (tuple(sorted(ty.name for ty in types)),)
-        )
-  return result
-
-@tocurry.when(tuple)
-def tocurry(interp, data):
-  n = len(data)
-  if n == 0:
-    typename = '()'
-  elif n == 1:
-    raise TypeError("Curry has no 1-tuple.")
-  else:
-    typename = '(%s)' % (','*(n-1))
-  TupleType = interp.symbol('Prelude.%s' % typename)
-  return _expr(interp, [TupleType] + [tocurry(interp, x) for x in data])
-
-# @tocurry.when(collections.Iterator)
-# def tocurry(interp, data):
-#   FIXME: this needs to create an I/O type.
-#   return (tocurry(interp, x) for x in data)
-
-@tocurry.when(type)
-def tocurry(interp, ty):
+def currytype(interp, ty):
   '''Converts a Python type to the corresponding built-in Curry type.'''
   if issubclass(ty, bool):
     return interp.type('Prelude.Bool')

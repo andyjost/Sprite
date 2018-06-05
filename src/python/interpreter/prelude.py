@@ -13,7 +13,10 @@ _types_ = [
   , IType('Fwd', [IConstructor('Fwd', 1, metadata={'py.format':'{1}', 'py.tag':T_FWD})])
   , IType('PartApplic', [IConstructor('PartApplic', 2, metadata={'py.tag':T_CTOR})])
   ]
-System = IModule(name='_System', imports=[], types=_types_, functions=[])
+_functions_ = [
+    IFunction('_python_generator_', 1, metadata={'py.func':prelude_impl._python_generator_})
+  ]
+System = IModule(name='_System', imports=[], types=_types_, functions=_functions_)
 
 
 # ===================
