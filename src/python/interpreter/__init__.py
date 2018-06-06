@@ -350,21 +350,28 @@ class Interpreter(object):
 
   # Evaluating.
   # ===========
-  def eval(self, goal, converter='default'):
+  def eval(self, *args, **kwds):
     '''
     Evaluate a Curry goal.
 
-    The first argument may be a Curry expression or a list of arguments
-    used to construct one (as ``expr`` would).
+    Parameters:
+    -----------
+    ``*args``
+        Positional arguments that specify the goal.  These are passed to
+        ``Interpreter.expr``.
+    ``converter``
+        Keyword-only argument specifying the converter to use when returning
+        results.  The default is 'default'.  See ``conversions.getconverter``.
 
-    A converter may be specified to control the way results are returned.
+    Returns:
+    --------
+    A generator producing the values of the specified Curry program.
     '''
-    if not isinstance(goal, Node):
-      goal = self.expr(goal)
+    converter = kwds.pop('converter', 'default')
     convert = conversions.getconverter(
-        converter if converter != 'default'
-                  else self.flags['defaultconverter']
+        converter if converter != 'default' else self.flags['defaultconverter']
       )
+    goal = self.expr(*args)
     results = runtime.Evaluator(self, goal).eval()
     if convert is None:
       return results
