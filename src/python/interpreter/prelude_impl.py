@@ -24,7 +24,7 @@ def apply(interp, partapplic, arg):
 
 def failed(interp):
   # FIXME: this should be a sequence of args to Node.__new__
-  return ['node(%s)' % interp.closure['_System.Failure']]
+  return [interp.ni_Failure]
 
 def error(interp, msg):
   msg = str(conversions.topython(interp, msg))

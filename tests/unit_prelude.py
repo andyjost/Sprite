@@ -108,3 +108,7 @@ class TestPrelude(cytest.TestCase):
     e = curry.expr(apply_, incr, 6)
     self.assertEqual(curry.eval(e).next(), 7)
 
+  def testFailed(self):
+    failed = curry.symbol('Prelude.failed')
+    self.assertEqual(len(list(curry.eval(failed))), 0)
+
