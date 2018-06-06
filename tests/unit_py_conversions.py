@@ -1,9 +1,10 @@
 import cytest # from ./lib; must be first
-import curry
 from curry.interpreter import Interpreter
 from cytest import bootstrap
-import numpy as np
+import curry
 import itertools
+import numpy as np
+import unittest
 
 class TestPyConversions(cytest.TestCase):
   '''Tests conversions between Python and Curry.'''
@@ -90,16 +91,36 @@ class TestPyConversions(cytest.TestCase):
     self.assertNotEqual(x, 'a')
     self.assertEqual(interp.topython(x), 'a')
     self.assertEqual(repr(x), "<Char 'a'>")
+    # String
+    x = interp.expr('abc')
+    self.assertNotEqual(x, 'abc')
+    self.assertEqual(interp.topython(x), 'abc')
+    self.assertEqual(repr(x), "<: <Char 'a'> <: <Char 'b'> <: <Char 'c'> <[]>>>>")
+    # (empty string tested in testConvertEmptyString)
     # List
     x = interp.expr([1,2,3])
     self.assertNotEqual(x, [1,2,3])
     self.assertEqual(interp.topython(x), [1,2,3])
     self.assertEqual(repr(x), "<: <Int 1> <: <Int 2> <: <Int 3> <[]>>>>")
+    # (empty list)
+    x = interp.expr([])
+    self.assertNotEqual(x, [])
+    self.assertEqual(interp.topython(x), [])
+    self.assertEqual(repr(x), "<[]>")
     # Tuple
     x = interp.expr((1,2,3))
     self.assertNotEqual(x, (1,2,3))
     self.assertEqual(interp.topython(x), (1,2,3))
     self.assertEqual(repr(x), "<(,,) <Int 1> <Int 2> <Int 3>>")
+    # (empty tuple)
+    x = interp.expr(())
+    self.assertNotEqual(x, ())
+    self.assertEqual(interp.topython(x), ())
+    self.assertEqual(repr(x), "<()>")
+    # (one-tuple)
+    self.assertRaisesRegexp(
+        TypeError, 'Curry has no 1-tuple', lambda: interp.expr((1,))
+      )
     # Complex/nested.
     v = [[('a', 1.2, [1,2]), ('b', 3.1, [3,4])]]
     x = interp.expr(v)
@@ -108,6 +129,16 @@ class TestPyConversions(cytest.TestCase):
     self.assertEqual(repr(x)
       , "<: <: <(,,) <Char 'a'> <Float 1.2> <: <Int 1> <: <Int 2> <[]>>>> <: <(,,) <Char 'b'> <Float 3.1> <: <Int 3> <: <Int 4> <[]>>>> <[]>>> <[]>>"
       )
+
+  @unittest.expectedFailure
+  def testConvertEmptyString(self):
+    # An empty [Char] should convert to an empty Python string.  But the
+    # to-string conversion inspects the data (list) to determine type.  It
+    # really ought to ask Curry about the return type, but I'm not sure how to
+    # do that yet.  See conversions.py:192 (6/6/2018).
+    x = curry.expr('')
+    y = curry.topython(x)
+    self.assertIsInstance(y, str)
 
   def testIteratorToPython(self):
     # Iterator.

@@ -64,11 +64,9 @@ def expr(interp, arg, *args, **kwds):
 @expr.when(str) # Char or [Char].
 def expr(interp, arg, *args, **kwds):
   if len(arg) == 1:
-    args = (str(arg),) + args
-    target = kwds.get('target', None)
-    return runtime.Node(interp.prelude.Char, *args, target=target)
+    return runtime.Node(interp.prelude.Char, str(arg), *args, **kwds)
   else:
-    raise RuntimeError('multi-char strings not supported yet.')
+    return expr(interp, list(arg), *args, **kwds)
 
 @expr.when(list)
 def expr(interp, l, target=None):
@@ -165,17 +163,42 @@ def currytype(interp, ty):
     return interp.type('Prelude.[]')
   raise TypeError('cannot convert "%s" to a Curry type' % ty.__name__)
 
-def topython(interp, expr):
-  '''Converts a Curry value to Python by substituting built-in types.'''
-  if analysis.isa_primitive(interp, expr):
-    return unbox(interp, expr)
-  elif analysis.isa_bool(interp, expr):
-    return analysis.isa_true(interp, expr)
-  elif analysis.isa_list(interp, expr):
-    return list(topython(interp, x) for x in _iter_(interp, expr))
-  elif analysis.isa_tuple(interp, expr):
-    return tuple(topython(interp, x) for x in expr)
-  return expr
+def topython(interp, value, convert_strings=True):
+  '''
+  Converts a Curry value to Python by substituting built-in types.
+
+  This functions converts (recursively) the types ``int``, ``float``, ``str``,
+  ``bool``, ``list``, and ``tuple``.  Other types are passed through untouched.
+
+  Parameters:
+  -----------
+  ``value``
+      The Curry value to convert.
+  ``convert_strings``
+      If true, then lists of characters are converted to Python strings.
+
+  Returns:
+  --------
+  The value converted to Python.
+  '''
+  if analysis.isa_primitive(interp, value):
+    return unbox(interp, value)
+  elif analysis.isa_bool(interp, value):
+    return analysis.isa_true(interp, value)
+  elif analysis.isa_list(interp, value):
+    l = list(topython(interp, x) for x in _iter_(interp, value))
+    # FIXME: need to query the Curry typeinfo.  An empty list of Char should be
+    # an empty string, here.  It's less confusing to let empty lists by lists,
+    # rather than converting all empty lists to string.
+    if convert_strings and l:
+      try:
+        return ''.join(l)
+      except TypeError:
+        pass
+    return l
+  elif analysis.isa_tuple(interp, value):
+    return tuple(topython(interp, x) for x in value)
+  return value
 
 def _iter_(interp, arg):
   '''Iterate through a Curry list.'''
