@@ -1,0 +1,4 @@
+- Add tests to tests/unit_parse.py and tests/unit_py_evaluation.py.  These
+  should cover every construct that could be encountered in ICurry.
+- Improve line coverage.  Run tests/cov_tests and add tests to reduce the
+  number of uncovered lines.
