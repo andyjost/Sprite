@@ -23,3 +23,8 @@ symbol = _interpreter_.symbol
 topython = _interpreter_.topython
 type = _interpreter_.type
 unbox = _interpreter_.unbox
+
+def getInterpreter():
+  import sys
+  return sys.modules[__name__]._interpreter_
+

@@ -1,6 +1,7 @@
 from cStringIO import StringIO
 import collections
 import contextlib
+import functools
 import gzip
 import os
 import sys
@@ -73,6 +74,56 @@ from curry.interpreter.analysis import isa as cy_isa
 from curry.interpreter.runtime import Node
 from curry.llvm import isa as llvm_isa
 
+def setio(stdin=None, stdout=None, stderr=None):
+  '''
+  Builds a decorator that configures the I/O of the global interpreter found in
+  ``curry`` module.
+
+  Note that TestCase resets the curry module after each test, so the I/O
+  configuration is only affected for the test decorated.
+
+  Parameters:
+  -----------
+    ``stdin``
+        The configuration for stdin.  This can be a stream-like object (such as
+        an open file) or a string.  If a string is provided, then it will be
+        the input to the program.
+    ``stdout``
+        The configuration for stdout.  A stream-like object or string.  If a string
+        is provided, then the output will be a StringIO object initialized with the
+        given value.
+    ``stderr``
+        The configuration for stderr.  Similar to stdout.
+  '''
+  def setio(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwds):
+      interp = curry.getInterpreter()
+      if stdin is not None:
+        if isinstance(stdin, str):
+          io = StringIO()
+          io.write(stdin)
+          io.seek(0)
+          interp.stdin = io
+        else:
+          interp.stdin = stdin
+      if stdout is not None:
+        if isinstance(stdout, str):
+          io = StringIO()
+          io.write(stdout)
+          interp.stdout = io
+        else:
+          interp.stdout = stdout
+      if stderr is not None:
+        if isinstance(stderr, str):
+          io = StringIO()
+          io.write(stderr)
+          interp.stderr = io
+        else:
+          interp.stderr = stderr
+      return f(*args, **kwds)
+    return wrapper
+  return setio
 
 class TestCase(unittest.TestCase):
   '''A base test case class for testing Sprite.'''

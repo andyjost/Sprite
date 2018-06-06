@@ -66,6 +66,30 @@ def putChar(interp, a):
   yield interp.ni_IO
   yield runtime.Node(interp.ni_Unit);
 
+def getChar(interp):
+  yield interp.prelude.Char
+  yield interp.stdin.read(1)
+
+def generateBytes(stream, chunksize=4096):
+  with stream:
+    while True:
+      chunk = stream.read(chunksize)
+      if not chunk:
+        return
+      for byte in chunk:
+        yield byte
+
+def readFile(interp, filename):
+  filename = interp.topython(filename)
+  stream = open(filename, 'r')
+  try:
+    import mmap
+  except ImportError:
+    gen = generateBytes(stream)
+  else:
+    gen = iter(mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ))
+  return _python_generator_(interp, gen)
+
 def apply_hnf(interp, f, a):
   a = interp.hnf(a)
   yield interp.symbol('Prelude.apply').info

@@ -1,6 +1,7 @@
 import cytest # from ./lib; must be first
 import curry
 from curry.interpreter import runtime
+from cStringIO import StringIO
 
 class TestPrelude(cytest.TestCase):
   def testBuiltinPreludeTypes(self):
@@ -118,3 +119,30 @@ class TestPrelude(cytest.TestCase):
         RuntimeError, 'oops', lambda: next(curry.eval(error, "oops"))
       )
 
+  def testOrd(self):
+    ord_ = curry.symbol('Prelude.ord')
+    self.assertEqual(list(curry.eval(ord_, 'A')), [65])
+
+  def testChr(self):
+    chr_ = curry.symbol('Prelude.chr')
+    self.assertEqual(list(curry.eval(chr_, 65)), ['A'])
+
+  @cytest.setio(stdin='muh\ninput\n')
+  def test_getChar(self):
+    getChar = curry.symbol('Prelude.getChar')
+    self.assertEqual(list(curry.eval(getChar)), ['m'])
+
+  @cytest.setio(stdout='')
+  def test_putChar(self):
+    putChar = curry.symbol('Prelude.putChar')
+    IO = curry.symbol('Prelude.IO')
+    Unit = curry.symbol('Prelude.()')
+    self.assertEqual(list(curry.eval(putChar, 'x')), [curry.expr(IO, Unit)])
+    self.assertEqual(curry.getInterpreter().stdout.getvalue(), 'x')
+
+  def test_readFile(self):
+    readFile = curry.symbol('Prelude.readFile')
+    self.assertEqual(
+        list(curry.eval(readFile, "data/sample.txt"))
+      , ['this is a file\ncontaining sample text\n\n(the end)\n']
+      )

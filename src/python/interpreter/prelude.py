@@ -180,12 +180,12 @@ _functions_ = [
 # --- Converts a character into its ASCII value.
 # ord :: Char -> Int
 # ord external
+  , IFunction('ord', 1, metadata={'py.primfunc':ord})
 #
 # --- Converts an ASCII value into a character.
 # chr :: Int -> Char
 # chr external
-# data IO _  -- conceptually: World -> (a,World)
-#
+  , IFunction('chr', 1, metadata={'py.primfunc':chr})
 # --- Sequential composition of actions.
 # --- @param a - An action
 # --- @param fa - A function from a value into an action
@@ -207,9 +207,11 @@ _functions_ = [
 # --- An action that reads a character from standard output and returns it.
 # getChar           :: IO Char
 # getChar external
+  , IFunction('getChar', 0, metadata={'py.func':prelude_impl.getChar})
 #
 # prim_readFile          :: String -> IO String
 # prim_readFile external
+  , IFunction('prim_readFile', 1, metadata={'py.func':prelude_impl.readFile})
 # -- for internal implementation of readFile:
 # prim_readFileContents          :: String -> String
 # prim_readFileContents external
