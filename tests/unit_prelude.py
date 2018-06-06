@@ -112,3 +112,9 @@ class TestPrelude(cytest.TestCase):
     failed = curry.symbol('Prelude.failed')
     self.assertEqual(len(list(curry.eval(failed))), 0)
 
+  def testError(self):
+    error = curry.symbol('Prelude.error')
+    self.assertRaisesRegexp(
+        RuntimeError, 'oops', lambda: next(curry.eval(error, "oops"))
+      )
+

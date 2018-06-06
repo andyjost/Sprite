@@ -73,7 +73,13 @@ def apply_hnf(interp, f, a):
   yield a
 
 def apply_nf(interp, f, a):
-  a = interp.nf(a)
+  interp.nf(a)
+  yield interp.symbol('Prelude.apply').info
+  yield f
+  yield a
+
+def apply_gnf(interp, f, a):
+  interp.nf(a, ground=True)
   yield interp.symbol('Prelude.apply').info
   yield f
   yield a

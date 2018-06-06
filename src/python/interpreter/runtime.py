@@ -237,7 +237,7 @@ def get_stepper(interp):
       target.info.step(target)
   return step
 
-def hnf(interp, expr, targetpath=[]):
+def hnf(interp, expr, targetpath=[], ground=False):
   '''
   Head-normalize ``expr`` at ``targetpath``.
 
@@ -253,6 +253,10 @@ def hnf(interp, expr, targetpath=[]):
         A path to the descendant of ``expr`` to normalize.  If empty, ``expr``
         itself will be normalized.  In that case, its tag must not be T_FAIL or
         T_CHOICE.
+
+    ``ground``
+        Indicates whether to normalize to grounded head-normal form.  A free
+        variable at the head will be instantiated if and only if this is true.
 
   Returns:
   --------
@@ -277,7 +281,10 @@ def hnf(interp, expr, targetpath=[]):
         pull_tab(expr, targetpath)
       raise E_SYMBOL()
     elif tag == T_FREE:
-      raise RuntimeError('normalizing a free variable is not implemented')
+      if ground:
+        raise RuntimeError('free variable instantiation is not implemented')
+      else:
+        return target
     elif tag == T_FWD:
       target = target[()]
     elif tag == T_FUNC:
@@ -288,8 +295,7 @@ def hnf(interp, expr, targetpath=[]):
     else:
       return target
 
-
-def nf(interp, expr, targetpath=[], rec=float('inf')):
+def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
   '''
   Normalize ``expr`` at ``targetpath``.
 
@@ -305,9 +311,13 @@ def nf(interp, expr, targetpath=[], rec=float('inf')):
 
     ``rec``
         Recurse at most this many times.  Recursing to *every* successor counts
-        as one recursion.  If zero, that target is head-normalized.  If
+        as one recursion.  If zero, only the target is head-normalized.  If
         negative, this function does nothing.  Used mainly for testing and
         debugging.
+
+    ``ground``
+        Indicates whether to normalize to ground normal form.  Needed free
+        variables will be instantiated if and only if this is true.
 
   Returns:
   --------
@@ -315,7 +325,7 @@ def nf(interp, expr, targetpath=[], rec=float('inf')):
   '''
   if rec >= 0:
     try:
-      target = hnf(interp, expr, targetpath)
+      target = hnf(interp, expr, targetpath, ground=ground)
     except E_SYMBOL:
       assert expr.info.tag in [T_FAIL, T_CHOICE]
       raise
@@ -325,7 +335,7 @@ def nf(interp, expr, targetpath=[], rec=float('inf')):
     if rec > 0:
       for i in xrange(target.info.arity):
         try:
-          nf(interp, target, [i], rec-1)
+          nf(interp, target, [i], rec-1, ground=ground)
         except E_SYMBOL:
           if targetpath:
             tag = target.info.tag
@@ -333,12 +343,9 @@ def nf(interp, expr, targetpath=[], rec=float('inf')):
               Node(interp.ni_Failure, target=expr)
             elif tag == T_CHOICE:
               pull_tab(expr, targetpath)
-            elif tag == T_FREE:
-              raise RuntimeError('instantiating a free variable is not implemented')
             else:
               assert False
           raise
-
 
 def pull_tab(source, targetpath):
   '''

@@ -144,6 +144,7 @@ _functions_ = [
 # --- to ground normal form.
 # ($##)   :: (a -> b) -> a -> b
 # ($##) external
+  , IFunction('$##', 2, metadata={'py.func':prelude_impl.apply_gnf})
 #
 # prim_error    :: String -> _
 # prim_error external
