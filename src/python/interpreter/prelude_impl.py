@@ -23,7 +23,6 @@ def apply(interp, partapplic, arg):
     yield runtime.Node(term.info, *(term.successors+[arg]), partial=True)
 
 def failed(interp):
-  # FIXME: this should be a sequence of args to Node.__new__
   return [interp.ni_Failure]
 
 def error(interp, msg):
