@@ -1,5 +1,5 @@
 '''
-Code for working with symbols.
+Encoding of Curry identifiers.
 '''
 
 import itertools
@@ -7,9 +7,6 @@ import logging
 import re
 
 logger = logging.getLogger(__name__)
-
-class SymbolLookupError(AttributeError):
-  '''Raised when a Curry symbol is not found.'''
 
 P_SYMBOL = re.compile('[^0-9a-zA-Z_\s]')
 TR = {
@@ -83,7 +80,7 @@ def encode(iname, disallow={}):
   assert k.startswith('ni_')
   return k
 
-def makeLegalFileName(iname):
+def symbolToFilename(iname):
   '''Makes the given symbol name into a valid UNIX filename.'''
   assert iname not in ['.', '..']
   return ''.join(TR.get('/') if ch=='/' else ch for ch in iname)
@@ -98,45 +95,3 @@ def isaCurryIdentifier(basename):
   '''
   return bool(re.match(P_IDENTIFIER, basename))
 
-# FIXME: ICurry does not tell us which symbols are private.  For now, all
-# symbols are treated as public.
-def insert(module, basename, nodeinfo, private=False):
-  '''
-  Inserts a symbol into the given module.
-
-  All symbols are added to the module's '.symbols' dict.  Public symbols are
-  also bound directly to the module itself.
-
-  Parameters:
-  -----------
-  ``module``
-      An instance of ``CurryModule``.
-  ``basename``
-      A stirng containing the unqualified symbol name.
-  ``nodeinfo``
-      The nodeinfo for this symbol.
-  ``private``
-      Whether this is a private symbol.
-
-  Returns:
-  --------
-  Nothing.
-  '''
-  logging.debug(
-      'Inserting symbol %s into module %s' % (basename, module.__name__)
-    )
-  getattr(module, '.symbols')[basename] = nodeinfo
-  if not private and isaCurryIdentifier(basename):
-    setattr(module, basename, nodeinfo)
-
-def lookupSymbol(module, iname):
-  '''
-  Looks up a symbol in the given module.
-  '''
-  symbols = getattr(module, '.symbols')
-  try:
-    return symbols[iname.basename]
-  except KeyError:
-    raise SymbolLookupError(
-        'module "%s" has no symbol "%s"' % (iname.module, iname.basename)
-      )

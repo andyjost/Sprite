@@ -1,7 +1,7 @@
+from .. import encoding
 from .. import icurry
 from .. import importer
 from . import runtime
-from . import symbols
 from ..visitation import dispatch
 import collections
 import logging
@@ -121,7 +121,7 @@ class FunctionCompiler(object):
       # If debugging, write a source file so that PDB can step into this
       # function.
       srcdir = importer.getDebugSourceDir()
-      ident = symbols.makeLegalFileName(self.ident)
+      ident = encoding.symbolToFilename(self.ident)
       srcfile = importer.makeNewfile(srcdir, ident)
       with open(srcfile, 'w') as out:
         out.write(source)
@@ -362,7 +362,7 @@ class Closure(object):
       if v is symbol:
         return k
     else:
-      k = symbols.encode(iname, self.context)
+      k = encoding.encode(iname, self.context)
       self.context[k] = symbol
       return k
 
