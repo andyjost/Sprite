@@ -162,7 +162,7 @@ class Interpreter(object):
   # Loading Symbols.
   # ================
   @dispatch.on('idef')
-  def _loadsymbols(self, idef, moduleobj, extern=None): #pragma: no cover
+  def _loadsymbols(self, idef, moduleobj, extern=None, **kwds): #pragma: no cover
     '''
     Load symbols (i.e., constructor and functions names) from the ICurry
     definition ``idef`` into module ``moduleobj``.
@@ -177,30 +177,30 @@ class Interpreter(object):
   @_loadsymbols.when(IType)
   def _loadsymbols(self, itype, moduleobj, extern=None):
     if itype:
-      return self._loadsymbols(list(itype), moduleobj, extern)
+      return self._loadsymbols(list(itype), moduleobj, extern, itype=itype)
     elif extern is not None:
       try:
         itype.constructors = extern.types[itype.ident].constructors
       except KeyError:
-        pass
+        pass # fall through to the error
       else:
         return self._loadsymbols(itype, moduleobj)
-    logging.warn(
+    raise ValueError(
         '%s has no constructors and no external definition was found.'
             % itype.ident
       )
 
   @_loadsymbols.when(collections.Mapping)
-  def _loadsymbols(self, mapping, moduleobj, extern=None):
+  def _loadsymbols(self, mapping, moduleobj, **kwds):
     for item in mapping.itervalues():
-      self._loadsymbols(item, moduleobj, extern)
+      self._loadsymbols(item, moduleobj, **kwds)
 
   @_loadsymbols.when(IModule)
-  def _loadsymbols(self, imodule, moduleobj, extern=None):
+  def _loadsymbols(self, imodule, moduleobj, **kwds):
     for modulename in imodule.imports:
       self.import_(modulename)
-    self._loadsymbols(imodule.types, moduleobj, extern)
-    self._loadsymbols(imodule.functions, moduleobj, extern)
+    self._loadsymbols(imodule.types, moduleobj, **kwds)
+    self._loadsymbols(imodule.functions, moduleobj, **kwds)
     # Stash the type defs in the module; e.g.:
     #   .types = {'Bool': [<NodeInfo for True>, <NodeInfo for False>]}
     setattr(moduleobj, '.types'
@@ -211,15 +211,16 @@ class Interpreter(object):
       )
 
   @_loadsymbols.when(IConstructor)
-  def _loadsymbols(self, icons, moduleobj, extern=None):
+  def _loadsymbols(self, icons, moduleobj, extern=None, itype=None):
     # For builtins, the 'py.tag' metadata contains the tag.
     builtin = 'py.tag' in icons.metadata
+    metadata = getmd(icons, extern, itype=itype)
     info = InfoTable(
         icons.ident.basename
       , icons.arity
-      , T_CTOR + icons.index if not builtin else icons.metadata['py.tag']
+      , T_CTOR + icons.index if not builtin else metadata['py.tag']
       , _no_step if not builtin else _unreachable
-      , Show(self, getattr(icons.metadata, 'py.format', None))
+      , Show(self, getattr(metadata, 'py.format', None))
       )
     symbols.insert(
         moduleobj, icons.ident.basename, runtime.NodeInfo(icons.ident, info)
@@ -227,9 +228,11 @@ class Interpreter(object):
 
   @_loadsymbols.when(IFunction)
   def _loadsymbols(self, ifun, moduleobj, extern=None):
+    metadata = getmd(ifun, extern)
     info = InfoTable(
         ifun.ident.basename
-      , ifun.arity, T_FUNC, None, Show(self)
+      , ifun.arity, T_FUNC, None
+      , Show(self, getattr(metadata, 'py.format', None))
       )
     symbols.insert(
         moduleobj, ifun.ident.basename, runtime.NodeInfo(ifun.ident, info)

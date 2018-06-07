@@ -548,3 +548,47 @@ def unbox(applic):
   assert len(applic.args) == 1
   return applic.args[0]
 
+@dispatch.on('arg')
+def getmd(arg, extern, **kwds):
+  '''
+  Get metadata from an ICurry object
+
+  Parameters:
+  -----------
+    ``arg``
+      An instance of IConstructor, IFunction or IType.
+    ``extern``
+      An instance of IModule that provides external definitions.  If provided,
+      this takes precedence over the metadata found in ``arg``.
+    ``itype``
+      Keyword only.  An instance of IType, used to resolve constructors.
+      Required for IConstructor.
+
+  Return:
+  -------
+  The metadata value, if found, or None otherwise.
+  '''
+  assert False
+
+@getmd.when(IConstructor)
+def getmd(icons, extern, itype):
+  try:
+    ctors = extern.types[itype.ident].constructors
+    return next(c for c in ctors if c.ident == icons.ident).metadata
+  except (AttributeError, KeyError, StopIteration):
+    return icons.metadata
+
+@getmd.when(IFunction)
+def getmd(ifun, extern):
+  try:
+    return extern.functions[ifun.ident].metadata
+  except (AttributeError, KeyError):
+    return ifun.metadata
+
+@getmd.when(IType)
+def getmd(itype, extern):
+  try:
+    return extern.types[itype.ident].metadata
+  except (AttributeError, KeyError):
+    return itype.metadata
+

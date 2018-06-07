@@ -278,7 +278,7 @@ def hnf(interp, expr, targetpath=[], ground=False):
       raise E_SYMBOL()
     elif tag == T_CHOICE:
       if targetpath:
-        pull_tab(expr, targetpath)
+        pull_tab(interp, expr, targetpath)
       raise E_SYMBOL()
     elif tag == T_FREE:
       if ground:
@@ -342,12 +342,12 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
             if tag == T_FAIL:
               Node(interp.prelude._Failure, target=expr)
             elif tag == T_CHOICE:
-              pull_tab(expr, targetpath)
+              pull_tab(interp, expr, targetpath)
             else:
               assert False
           raise
 
-def pull_tab(source, targetpath):
+def pull_tab(interp, source, targetpath):
   '''
   Executes a pull-tab step.
 
@@ -360,10 +360,12 @@ def pull_tab(source, targetpath):
       A sequence of integers giving the path from ``source`` to the target
       (descendent).
   '''
+  if source.info == interp.prelude.ensureNotFree.info:
+    raise RuntimeError("non-determinism occurred in I/O actions")
   assert targetpath
   i, = targetpath # temporary
   target = source[i]
-  assert target.info.name == '_Choice'
+  assert target.info == interp.prelude._Choice.info
   #
   lsucc = source.successors
   lsucc[i] = target[0]

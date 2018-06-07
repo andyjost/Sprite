@@ -144,3 +144,4 @@ class TestPrelude(cytest.TestCase):
         list(curry.eval(readFile, "data/sample.txt"))
       , ['this is a file\ncontaining sample text\n\n(the end)\n']
       )
+

@@ -168,10 +168,16 @@ class TestPyRuntime(cytest.TestCase):
         self.assertEqual(str(expr), str(expected)) # (1)
         self.assertEqual(exc, expected[()].info.tag in special_tags) # (2)
 
-
   @unittest.expectedFailure
   def testPullTab(self):
     '''Tests the pull-tab step.'''
     self.assertTrue(False) # TODO
 
+  def test_nd_io(self):
+    goal = curry.compile("putChar ('a' ? 'b')", 'expr')
+    self.assertRaisesRegexp(
+        RuntimeError
+      , r'non-determinism occurred in I/O actions'
+      , lambda: list(curry.eval(goal))
+      )
 

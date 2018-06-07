@@ -43,7 +43,7 @@ md0 = { # Builtin type metadata.
   }
 _types_ = [
     IType('_Failure', [IConstructor('_Failure', 0, metadata={'py.format':'failure', 'py.tag':T_FAIL})])
-  , IType('_Choice', [IConstructor('_Choice', 2, metadata={'py.format':'{1} ? {2}', 'py.tag':T_CHOICE})])
+  , IType('_Choice', [IConstructor('_Choice', 2, metadata={'py.tag':T_CHOICE})])
   , IType('_Fwd', [IConstructor('_Fwd', 1, metadata={'py.format':'{1}', 'py.tag':T_FWD})])
   , IType('_PartApplic', [IConstructor('_PartApplic', 2, metadata={'py.tag':T_CTOR})])
   , IType('Bool', [IConstructor('True', 0), IConstructor('False', 0)])
@@ -258,6 +258,7 @@ _functions_ = [
 # --- @return either `x` or `y` non-deterministically.
 # (?)   :: a -> a -> a
 # (?) external
+  , IFunction('?', 2, metadata={'py.func':prelude_impl.choice, 'py.format':'{1} ? {2}'})
 #
 # -- Representation of higher-order applications in FlatCurry.
 # apply :: (a -> b) -> a -> b

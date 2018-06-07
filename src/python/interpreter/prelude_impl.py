@@ -25,6 +25,14 @@ def apply(interp, partapplic, arg):
 def failed(interp):
   return [interp.prelude._Failure]
 
+choice_id = itertools.count()
+
+def choice(interp, a, b):
+  yield interp.prelude._Choice
+  # TODO assign choice ID.
+  yield a
+  yield b
+
 def error(interp, msg):
   msg = str(conversions.topython(interp, msg))
   raise RuntimeError(msg)
@@ -109,10 +117,9 @@ def apply_gnf(interp, f, a):
   yield a
 
 def ensureNotFree(interp, a):
-  a = interp.hnf(a)
-  # FIXME: suspend is not implemented.
-  if analysis.isa_freevar(interp, a):
-    logging.warn('free variable in ensureNotFree but cannot suspend')
+  # This function does nothing when evaluated.  It is, however, a designated
+  # symbol that is checked during pull_tabbing.  Pulling a choice past
+  # ensureNotFree is an error.
   yield interp.prelude._Fwd
   yield a
 
@@ -126,4 +133,3 @@ def _python_generator_(interp, gen):
     yield interp.prelude.Cons
     yield interp.expr(item)
     yield interp.expr(gen)
-
