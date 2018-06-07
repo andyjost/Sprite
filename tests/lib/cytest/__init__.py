@@ -125,11 +125,32 @@ def setio(stdin=None, stdout=None, stderr=None):
     return wrapper
   return setio
 
+def hardreset(f):
+  '''Test decorator that hard-resets the curry module after the test runs.'''
+  @functools.wraps(f)
+  def decorator(*args, **kwds):
+    try:
+      return f(*args, **kwds)
+    finally:
+      reload(curry)
+  return decorator
+
 class TestCase(unittest.TestCase):
   '''A base test case class for testing Sprite.'''
+  def setUp(self):
+    self._currypath = curry.path
   def tearDown(self):
-    # Reset Curry after running each test to clear loaded modules, etc.
-    reload(curry)
+    # Soft-reset the curry module after each test to clear loaded modules,
+    # restore I/O, and undo path changes.  This is much faster than reloading
+    # the module.
+    interp = curry.getInterpreter()
+    interp.stdin = sys.stdin
+    interp.stdout = sys.stdout
+    interp.stderr = sys.stderr
+    for name in interp.modules.keys():
+      if name != 'Prelude':
+        del interp.modules[name]
+    interp.path[:] = self._currypath
 
   def compareCurryOutputToGoldenFile(self, objs, filename, update=False):
     '''
