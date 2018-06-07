@@ -73,8 +73,8 @@ def expr(interp, l, target=None):
   if len(l) and isinstance(l[0], runtime.NodeInfo):
     return expr(interp, *l, target=target)
   else:
-    Cons = interp.ni_Cons
-    Nil = interp.ni_Nil
+    Cons = interp.prelude.Cons
+    Nil = interp.prelude.Nil
     sentinel = object()
     seq = iter(l)
     f = lambda x,g: [Cons, expr(interp, x), g()] if x is not sentinel else Nil
@@ -115,7 +115,7 @@ def expr(interp, arg, target=None):
 
 @expr.when(collections.Iterator)
 def expr(interp, arg, target=None):
-  pygen = interp.symbol('_System._python_generator_')
+  pygen = interp.prelude._python_generator_
   return runtime.Node(pygen, arg, target=target)
 
 @expr.when(runtime.NodeInfo)
@@ -125,14 +125,14 @@ def expr(interp, ti, *args, **kwds):
   if missing > 0:
     partial = runtime.Node(ti, *map(lambda s: expr(interp, s), args), partial=True)
     # note: "missing" an unboxed int by design.
-    return runtime.Node(interp.ni_PartApplic, missing, partial, target=target)
+    return runtime.Node(interp.prelude._PartApplic, missing, partial, target=target)
   else:
     return runtime.Node(ti, *map(lambda s: expr(interp, s), args), target=target)
 
 @expr.when(runtime.Node)
 def expr(interp, node, target=None):
   if target is not None:
-    target.rewrite(interp.ni_Fwd, node)
+    target.rewrite(interp.prelude._Fwd, node)
   return node
 
 def box(interp, arg):

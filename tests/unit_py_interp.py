@@ -5,7 +5,7 @@ from curry import importer
 from curry import interpreter
 from curry.interpreter import Interpreter
 from curry.interpreter import runtime
-from curry.interpreter.prelude import  Prelude, System
+from curry.interpreter.prelude import  Prelude
 from curry.visitation import dispatch
 from cytest import bootstrap
 from glob import glob
@@ -36,7 +36,7 @@ class TestPyInterp(cytest.TestCase):
     icur = self.EXAMPLE
     interp = Interpreter()
     imported = interp.import_(icur)
-    self.assertEqual(set(interp.modules.keys()), set(['example', 'Prelude', '_System']))
+    self.assertEqual(set(interp.modules.keys()), set(['example', 'Prelude']))
     self.assertEqual(len(imported), 1)
     example = imported[0]
     self.assertFalse(set('A B f g main'.split()) - set(dir(example)))
@@ -115,8 +115,7 @@ class TestPyInterp(cytest.TestCase):
 
     # Evaluate an expressionw ith a leading FWD node.  It should be removed.
     P = interp.import_(Prelude)
-    S = interp.import_(System)
-    W = S.Fwd
+    W = P._Fwd
     self.assertEqual(list(interp.eval([W, 1])), [interp.expr(1)])
 
 
@@ -133,18 +132,17 @@ class TestPyInterp(cytest.TestCase):
     L = interp.import_(self.MYLIST)
     X = interp.import_(self.X)
     P = interp.import_(Prelude)
-    S = interp.import_(System)
     bs = interp.import_(self.BOOTSTRAP)
     N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
     TESTS = [
         [[1], ['1']]
       , [[2.0], ['2.0']]
       , [[L.Cons, 0, [L.Cons, 1, L.Nil]], ['[0, 1]']]
-      , [[S.Choice, 1, 2], ['1', '2']]
-      , [[X.X, [S.Choice, 1, 2]], ['X 1', 'X 2']]
-      , [[X.X, [S.Choice, 1, [X.X, [S.Choice, 2, [S.Choice, 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
-      , [[S.Failure], []]
-      , [[S.Choice, S.Failure, 0], ['0']]
+      , [[P._Choice, 1, 2], ['1', '2']]
+      , [[X.X, [P._Choice, 1, 2]], ['X 1', 'X 2']]
+      , [[X.X, [P._Choice, 1, [X.X, [P._Choice, 2, [P._Choice, 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
+      , [[P._Failure], []]
+      , [[P._Choice, P._Failure, 0], ['0']]
       , [[Z, ZQ], ['N', 'M']]
       , [[Z, ZW], ['N']]
       ]

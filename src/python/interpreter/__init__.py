@@ -90,24 +90,16 @@ class Interpreter(object):
     return self
 
   def __init__(self, flags={}):
-    self.import_(prelude.System)
     self.prelude = self.import_(
-        "Prelude", extern=prelude.Prelude, override=prelude.overrides()
+        "Prelude", extern=prelude.Prelude, export=prelude.exports()
+      , alias=prelude.aliases()
       )
-    self.ni_Failure = self.symbol('_System.Failure')
-    self.ni_Choice = self.symbol('_System.Choice')
-    self.ni_Fwd = self.symbol('_System.Fwd')
-    self.ni_PartApplic = self.symbol('_System.PartApplic')
-    self.ni_Unit = self.symbol('Prelude.()')
-    self.ni_IO = self.symbol('Prelude.IO')
-    self.ni_Cons = self.symbol('Prelude.:')
-    self.ni_Nil = self.symbol('Prelude.[]')
     self.step = runtime.get_stepper(self)
 
   # Importing.
   # ==========
   @dispatch.on('arg')
-  def import_(self, arg, currypath=None, extern=True, override=()):
+  def import_(self, arg, currypath=None, extern=True, export=(), alias=()):
     '''
     Import one or more Curry modules.
 
@@ -122,9 +114,13 @@ class Interpreter(object):
     ``extern``
         An instance of ``curry.icurry.IModule`` used to resolve external
         declarations.
-    ``override``
-        A list of symbols to override.  These will be copied from ``extern``
-        regardless of what appears in the module specified by ``arg``.
+    ``export``
+        A set of symbols exported unconditionally from ``extern``.  These will
+        be copied into the imported module.
+    ``alias``
+        A set of name-target pairs specifying aliases.  For each alias, the
+        module produced will have a binding called ``name`` referring to
+        ``target``.
 
     Returns:
     --------
@@ -133,28 +129,34 @@ class Interpreter(object):
     raise TypeError('cannot import type "%s"' % type(arg).__name__)
 
   @import_.when(str)
-  def import_(self, modulename, currypath=None, extern=None, override=()):
+  def import_(self, modulename, currypath=None, **kwds):
     try:
       return self.modules[modulename]
     except KeyError:
       logger.debug('Importing %s' % modulename)
       currypath = self.path if currypath is None else currypath
       icur = importer.getICurryForModule(modulename, currypath)
-      return self.import_(icur, extern=extern, override=override)
+      return self.import_(icur, **kwds)
 
   @import_.when(collections.Sequence, no=str)
   def import_(self, seq, *args, **kwds):
     return [self.import_(item, *args, **kwds) for item in seq]
 
   @import_.when(IModule)
-  def import_(self, imodule, currypath=None, extern=None, override=()):
+  def import_(
+      self, imodule, currypath=None, extern=None, export=(), alias=()
+    ):
     if imodule.name not in self.modules:
-      imodule.patch(extern, override)
+      imodule.merge(extern, export)
       moduleobj = CurryModule(imodule.name)
       moduleobj.__file__ = imodule.filename
       self.modules[imodule.name] = moduleobj
       self._loadsymbols(imodule, moduleobj, extern=extern)
       self._compile(imodule, moduleobj, extern=extern)
+      for name, target in alias:
+        if hasattr(moduleobj, name):
+          raise ValueError("cannot alias previously defined name '%s'" % name)
+        setattr(moduleobj, name, getattr(moduleobj, target))
     return self.modules[imodule.name]
 
   # Loading Symbols.
@@ -199,7 +201,7 @@ class Interpreter(object):
       self.import_(modulename)
     self._loadsymbols(imodule.types, moduleobj, extern)
     self._loadsymbols(imodule.functions, moduleobj, extern)
-    # Stash the type tables in the module; e.g.:
+    # Stash the type defs in the module; e.g.:
     #   .types = {'Bool': [<NodeInfo for True>, <NodeInfo for False>]}
     setattr(moduleobj, '.types'
       , { typename.basename:
@@ -217,12 +219,7 @@ class Interpreter(object):
       , icons.arity
       , T_CTOR + icons.index if not builtin else icons.metadata['py.tag']
       , _no_step if not builtin else _unreachable
-      , Show(
-            # Note: this is called once when loading _System, i.e., before
-            # ni_Fwd exists.
-            getattr(self, 'ni_Fwd', None)
-          , getattr(icons.metadata, 'py.format', None)
-          )
+      , Show(self, getattr(icons.metadata, 'py.format', None))
       )
     symbols.insert(
         moduleobj, icons.ident.basename, runtime.NodeInfo(icons.ident, info)
@@ -232,7 +229,7 @@ class Interpreter(object):
   def _loadsymbols(self, ifun, moduleobj, extern=None):
     info = InfoTable(
         ifun.ident.basename
-      , ifun.arity, T_FUNC, None, Show(getattr(self, 'ni_Fwd', None))
+      , ifun.arity, T_FUNC, None, Show(self)
       )
     symbols.insert(
         moduleobj, ifun.ident.basename, runtime.NodeInfo(ifun.ident, info)

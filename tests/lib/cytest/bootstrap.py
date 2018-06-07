@@ -7,7 +7,7 @@ import gzip
 def getbootstrap():
   return IModule(
       name='bootstrap'
-    , imports=['_System']
+    , imports=[]
     , types=[
           IType(
               ident='NUM'
@@ -21,9 +21,9 @@ def getbootstrap():
         ]
     , functions=[
         IFunction('ZN', 0, [Return(Applic('bootstrap.N'))])
-      , IFunction('ZF', 0, [Return(Applic('_System.Failure'))])
-      , IFunction('ZQ', 0, [Return(Applic('_System.Choice', [Applic('bootstrap.N'), Applic('bootstrap.M')]))])
-      , IFunction('ZW', 0, [Return(Applic('_System.Fwd', [Applic('bootstrap.N')]))])
+      , IFunction('ZF', 0, [Return(Applic('Prelude._Failure'))])
+      , IFunction('ZQ', 0, [Return(Applic('Prelude._Choice', [Applic('bootstrap.N'), Applic('bootstrap.M')]))])
+      , IFunction('ZW', 0, [Return(Applic('Prelude._Fwd', [Applic('bootstrap.N')]))])
         # Evaluates its argument and then returns a FWD node refering to it.
       , IFunction('Z' , 1, [
             Declare(Variable(vid=1, scope=ILhs(index=["bootstrap.Z", 1])))

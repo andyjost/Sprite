@@ -274,7 +274,7 @@ def hnf(interp, expr, targetpath=[], ground=False):
     tag = target.info.tag
     if tag == T_FAIL:
       if targetpath:
-        Node(interp.ni_Failure, target=expr)
+        Node(interp.prelude._Failure, target=expr)
       raise E_SYMBOL()
     elif tag == T_CHOICE:
       if targetpath:
@@ -340,7 +340,7 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
           if targetpath:
             tag = target.info.tag
             if tag == T_FAIL:
-              Node(interp.ni_Failure, target=expr)
+              Node(interp.prelude._Failure, target=expr)
             elif tag == T_CHOICE:
               pull_tab(expr, targetpath)
             else:
@@ -363,7 +363,7 @@ def pull_tab(source, targetpath):
   assert targetpath
   i, = targetpath # temporary
   target = source[i]
-  assert target.info.name == 'Choice'
+  assert target.info.name == '_Choice'
   #
   lsucc = source.successors
   lsucc[i] = target[0]

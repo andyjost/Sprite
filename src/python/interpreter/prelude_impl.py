@@ -13,17 +13,17 @@ def apply(interp, partapplic, arg):
   missing, term = partapplic # note: "missing" is unboxed.
   assert missing >= 1
   if missing == 1:
-    yield term.info
+    yield term
     for t in term.successors:
       yield t
     yield arg
   else:
-    yield partapplic.info
+    yield partapplic
     yield missing-1
-    yield runtime.Node(term.info, *(term.successors+[arg]), partial=True)
+    yield runtime.Node(term, *(term.successors+[arg]), partial=True)
 
 def failed(interp):
-  return [interp.ni_Failure]
+  return [interp.prelude._Failure]
 
 def error(interp, msg):
   msg = str(conversions.topython(interp, msg))
@@ -53,18 +53,18 @@ def compare(interp, a, b):
 
 def compose_io(interp, io_a, f):
   io_a = interp.hnf(io_a)
-  yield interp.symbol('Prelude.apply').info
+  yield interp.prelude.apply
   yield f
   yield conversions.unbox(interp, io_a)
 
 def return_(interp, a):
-  yield interp.symbol('Prelude.IO').info
+  yield interp.prelude.IO
   yield a
 
 def putChar(interp, a):
   interp.stdout.write(conversions.unbox(interp, a))
-  yield interp.ni_IO
-  yield runtime.Node(interp.ni_Unit);
+  yield interp.prelude.IO
+  yield runtime.Node(interp.prelude.Unit)
 
 def getChar(interp):
   yield interp.prelude.Char
@@ -92,19 +92,19 @@ def readFile(interp, filename):
 
 def apply_hnf(interp, f, a):
   a = interp.hnf(a)
-  yield interp.symbol('Prelude.apply').info
+  yield interp.prelude.apply
   yield f
   yield a
 
 def apply_nf(interp, f, a):
   interp.nf(a)
-  yield interp.symbol('Prelude.apply').info
+  yield interp.prelude.apply
   yield f
   yield a
 
 def apply_gnf(interp, f, a):
   interp.nf(a, ground=True)
-  yield interp.symbol('Prelude.apply').info
+  yield interp.prelude.apply
   yield f
   yield a
 
@@ -113,7 +113,7 @@ def ensureNotFree(interp, a):
   # FIXME: suspend is not implemented.
   if analysis.isa_freevar(interp, a):
     logging.warn('free variable in ensureNotFree but cannot suspend')
-  yield interp.ni_Fwd
+  yield interp.prelude._Fwd
   yield a
 
 def _python_generator_(interp, gen):
@@ -121,9 +121,9 @@ def _python_generator_(interp, gen):
   try:
     item = next(gen)
   except StopIteration:
-    yield interp.ni_Nil
+    yield interp.prelude.Nil
   else:
-    yield interp.ni_Cons
+    yield interp.prelude.Cons
     yield interp.expr(item)
     yield interp.expr(gen)
 

@@ -4,24 +4,35 @@ from .runtime import T_FAIL, T_CHOICE, T_FWD, T_CTOR
 import analysis
 import operator as op
 
-# ====================
-# The _System module.
-# ====================
-_types_ = [
-    IType('Failure', [IConstructor('Failure', 0, metadata={'py.format':'failure', 'py.tag':T_FAIL})])
-  , IType('Choice', [IConstructor('Choice', 2, metadata={'py.format':'{1} ? {2}', 'py.tag':T_CHOICE})])
-  , IType('Fwd', [IConstructor('Fwd', 1, metadata={'py.format':'{1}', 'py.tag':T_FWD})])
-  , IType('PartApplic', [IConstructor('PartApplic', 2, metadata={'py.tag':T_CTOR})])
-  ]
-_functions_ = [
-    IFunction('_python_generator_', 1, metadata={'py.func':prelude_impl._python_generator_})
-  ]
-System = IModule(name='_System', imports=[], types=_types_, functions=_functions_)
-
-
 # ===================
 # The Prelude module.
 # ===================
+
+def exports():
+  '''
+  Returns the name of each symbol that must be added to the Prelude but does
+  not appear with a definition in Prelude.curry.
+  '''
+  # Special symbols.
+  yield '_Failure'
+  yield '_Choice'
+  yield '_Fwd'
+  yield '_PartApplic'
+  # Opaque types.
+  yield '[]'
+  yield 'IO'
+  for ty in _types_:
+    name = ty.ident.basename
+    if analysis.is_tuple_name(name):
+      yield name
+  # Helper functions.
+  yield '_python_generator_'
+
+def aliases():
+  '''Returns prelude aliases.  Simply for convenience.'''
+  yield 'Unit', '()'
+  yield 'Cons', ':'
+  yield 'Nil', '[]'
 
 # Types.
 # ======
@@ -31,12 +42,16 @@ md0 = { # Builtin type metadata.
   # , 'py.frompy': lambda x: x[1]
   }
 _types_ = [
-   IType('Bool', [IConstructor('True', 0), IConstructor('False', 0)])
- , IType('Char', [IConstructor('Char', 1, metadata=md0)])
- , IType('Float', [IConstructor('Float', 1, metadata=md0)])
- , IType('Int', [IConstructor('Int', 1, metadata=md0)])
- , IType('IO', [IConstructor('IO', 1)])
- ]
+    IType('_Failure', [IConstructor('_Failure', 0, metadata={'py.format':'failure', 'py.tag':T_FAIL})])
+  , IType('_Choice', [IConstructor('_Choice', 2, metadata={'py.format':'{1} ? {2}', 'py.tag':T_CHOICE})])
+  , IType('_Fwd', [IConstructor('_Fwd', 1, metadata={'py.format':'{1}', 'py.tag':T_FWD})])
+  , IType('_PartApplic', [IConstructor('_PartApplic', 2, metadata={'py.tag':T_CTOR})])
+  , IType('Bool', [IConstructor('True', 0), IConstructor('False', 0)])
+  , IType('Char', [IConstructor('Char', 1, metadata=md0)])
+  , IType('Float', [IConstructor('Float', 1, metadata=md0)])
+  , IType('Int', [IConstructor('Int', 1, metadata=md0)])
+  , IType('IO', [IConstructor('IO', 1)])
+  ]
 
 # List
 def _listvalues(node):
@@ -77,7 +92,8 @@ for i in range(2, MAX_TUPLE_SIZE):
 # Functions.
 # ==========
 _functions_ = [
-    IFunction('*', 2, metadata={'py.primfunc':op.mul})
+    IFunction('_python_generator_', 1, metadata={'py.func':prelude_impl._python_generator_})
+  , IFunction('*', 2, metadata={'py.primfunc':op.mul})
   , IFunction('+', 2, metadata={'py.primfunc':op.add})
   , IFunction('-', 2, metadata={'py.primfunc':op.sub})
   , IFunction('==', 2, metadata={'py.primfunc':op.eq})
@@ -281,11 +297,3 @@ Prelude = IModule(
     name='Prelude', imports=[], types=_types_, functions=_functions_
   )
 
-def overrides():
-  '''Returns the name of each type that must be overridden.'''
-  yield '[]'
-  yield 'IO'
-  for ty in _types_:
-    name = ty.ident.basename
-    if analysis.is_tuple_name(name):
-      yield name

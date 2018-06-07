@@ -3,7 +3,13 @@ from ..visitation import dispatch
 
 class Show(object):
   '''Implements the built-in show function.'''
-  def __new__(cls, ni_Fwd, format=None):
+  def __new__(cls, interp, format=None):
+    # Note: this can be called before interp.prelude exists (i.e., while
+    # loading the preludue itself).
+    try:
+      ni_Fwd = interp.prelude._Fwd
+    except AttributeError:
+      ni_Fwd = None
     return format if callable(format) else object.__new__(cls, ni_Fwd, format)
 
   def __init__(self, ni_Fwd, format=None):

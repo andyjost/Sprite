@@ -147,3 +147,10 @@ class TestFindCurry(cytest.TestCase):
         ValueError, r'".." is not a legal module name.'
       , lambda: curry.import_('..')
       )
+
+  def test_bad_alias(self):
+    self.assertRaisesRegexp(
+        ValueError
+      , r"cannot alias previously defined name 'head'"
+      , lambda: curry.import_('head', alias=[('head', 'foo')])
+      )

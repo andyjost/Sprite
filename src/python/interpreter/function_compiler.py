@@ -229,11 +229,11 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.Exempt)
   def expression(self, exempt, partial=False):
-    return 'Node(%s)' % self.closure['_System.Failure']
+    return 'Node(%s)' % self.closure['Prelude._Failure']
 
   @expression.when(icurry.Reference)
   def expression(self, ref, partial=False):
-    return 'Node(%s, _%s)' % (self.closure['_System.Fwd'], ref.vid)
+    return 'Node(%s, _%s)' % (self.closure['Prelude._Fwd'], ref.vid)
 
   @expression.when(icurry.Applic)
   def expression(self, applic, partial=False):
@@ -246,7 +246,7 @@ class FunctionCompiler(object):
   @expression.when(icurry.PartApplic)
   def expression(self, partapplic, partial=False):
     return 'Node(%s, %s, %s)' % (
-        self.closure['_System.PartApplic']
+        self.closure['Prelude._PartApplic']
       , self.expression(partapplic.missing)
       , self.expression(partapplic.expr, True)
       )
@@ -254,7 +254,7 @@ class FunctionCompiler(object):
   @expression.when(icurry.IOr)
   def expression(self, ior, partial=False):
     return 'Node(%s, %s, %s)' % (
-        self.closure['_System.Choice']
+        self.closure['Prelude._Choice']
       , self.expression(ior.lhs)
       , self.expression(ior.rhs)
       )

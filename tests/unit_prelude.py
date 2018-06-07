@@ -39,8 +39,6 @@ class TestPrelude(cytest.TestCase):
     self.assertIsa(l0, curry.type('Prelude.[]'))
     self.assertIsa(l1, curry.type('Prelude.[]'))
     self.assertIsNotA(int_, curry.type('Prelude.[]'))
-    # TODO: design and test .topy() and .frompy() (I guess that's just
-    #     Interprerter.expr; maybe frompy is a better name?).
 
     # Tuples.
     Unit = curry.symbol('Prelude.()')
@@ -101,11 +99,11 @@ class TestPrelude(cytest.TestCase):
     apply_ = curry.symbol('Prelude.apply')
     #
     e = curry.expr(apply_, [apply_, add, 1], 2)
-    self.assertEqual(str(e), 'apply (apply (PartApplic 2 +) 1) 2')
+    self.assertEqual(str(e), 'apply (apply (_PartApplic 2 +) 1) 2')
     self.assertEqual(curry.eval(e).next(), 3)
     #
     incr = curry.expr(add, 1)
-    self.assertEqual(str(incr), 'PartApplic 1 (+ 1)')
+    self.assertEqual(str(incr), '_PartApplic 1 (+ 1)')
     e = curry.expr(apply_, incr, 6)
     self.assertEqual(curry.eval(e).next(), 7)
 

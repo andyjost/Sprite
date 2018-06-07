@@ -20,7 +20,6 @@ class TestPyRuntime(cytest.TestCase):
     '''Tests to improve line coverage.'''
     interp = interpreter.Interpreter()
     prelude = interp.import_(interpreter.prelude.Prelude)
-    system = interp.import_(interpreter.prelude.System)
     self.assertEqual(str(prelude.negate), 'Prelude.negate')
     self.assertEqual(str(prelude.negate.info), 'Info for "negate"')
     self.assertTrue(repr(prelude.negate.info).startswith('InfoTable'))
@@ -66,8 +65,7 @@ class TestPyRuntime(cytest.TestCase):
     bs = interp.import_(self.BOOTSTRAP)
     N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
     prelude = interp.import_(interpreter.prelude.Prelude)
-    system = interp.import_(interpreter.prelude.System)
-    F,Q,W = system.Failure, system.Choice, system.Fwd
+    F,Q,W = prelude._Failure, prelude._Choice, prelude._Fwd
     special_tags = [runtime.T_FAIL, runtime.T_CHOICE]
 
     TESTS = {

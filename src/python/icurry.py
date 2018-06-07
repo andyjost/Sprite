@@ -135,13 +135,12 @@ class IModule(_Base):
       , repr(self.functions)
       )
 
-  def patch(self, extern, override):
+  def merge(self, extern, export):
     '''
-    Copies the symbols specified in ``override`` from ``extern`` into this
+    Copies the symbols specified in ``export`` from ``extern`` into this
     module.
     '''
-    assert bool(extern) == bool(override)
-    for name in override:
+    for name in export:
       ident = IName(name, modulename=self.name)
       found = 0
       for to,from_ in zip(*[[m.types, m.functions] for m in [self, extern]]):
@@ -152,7 +151,7 @@ class IModule(_Base):
         else:
           found += 1
       if not found:
-        raise TypeError('override symbol "%s" not found' % ident)
+        raise TypeError('exported symbol "%s" not found' % ident)
 
 class IType(_Base, Sequence):
   def __init__(self, ident, constructors, metadata={}):
