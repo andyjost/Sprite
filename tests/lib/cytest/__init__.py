@@ -131,7 +131,7 @@ class TestCase(unittest.TestCase):
     # Reset Curry after running each test to clear loaded modules, etc.
     reload(curry)
 
-  def compareGolden(self, objs, filename, update=False):
+  def compareCurryOutputToGoldenFile(self, objs, filename, update=False):
     '''
     Compare an object or objects against a golden file.
 

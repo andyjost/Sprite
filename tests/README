@@ -39,7 +39,18 @@ interface, are available:
                         (For measuring line coverage.)
 
 
-4. TESTING GUIDELINES
+4. ORACLE CONFIGURATION
+-----------------------
+
+Some tests use an oracle to generate known-good ("golden") results.  To run
+these tests, you will need access to another Curry compiler.  The oracle
+configuration is found in "tests/oracle".  By default, it searches for "pakcs"
+in your path.  You can update this to use another Curry compiler, or, if you
+wish to skip these tests, you can simply clear the executable bit from
+"tests/oracle".
+
+
+5. TESTING GUIDELINES
 ---------------------
 
 Unit tests match the pattern unit_*.py.
@@ -71,7 +82,7 @@ Functional tests match the pattern func_*.py:
 		explore the limits of the implementation.
 
 
-5. EDITOR INTEGRATION
+6. EDITOR INTEGRATION
 ---------------------
 
 A makefile is used to simplify integration with text editors.  For instance, in

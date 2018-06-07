@@ -26,12 +26,6 @@ def dissectmethod(wrapped):
       return wrapped(self, a, b, **kwds)
     except Difference as diff:
       self.report(diff, a, b)
-      # msg = 'At <object>%s, %s' % (''.join(self.path), str(diff))
-      # self.diffs.append((msg, a, b))
-      # if len(self.diffs) < self.limit:
-      #   pass
-      # else:
-      #   raise StopIteration()
 
   @functools.wraps(wrapped)
   def processFrame(self, a, b, **kwds):

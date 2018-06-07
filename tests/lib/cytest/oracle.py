@@ -6,6 +6,7 @@ from curry import visitation
 import collections
 import os
 import subprocess
+import unittest
 
 @visitation.dispatch.on('arg')
 def cyclean(arg):
@@ -28,27 +29,20 @@ def cyclean(seq):
 def cyclean(string):
   return cyclean(string.split('\n'))
 
-def ensureGolden(goldenfile, module, *args, **kwds):
-  '''
-  Ensures the golden result file for a Curry program exists.
+def oracle():
+  '''Gets the path to the oracle.  Returns None if there is no oracle.'''
+  # Note: the CWD is assumed to be $root/tests.
+  oracle = os.path.abspath('oracle')
+  if os.path.isfile(oracle) and os.access(oracle, os.X_OK):
+    return oracle
+  else:
+    return None
 
-  Parameters:
-  -----------
-  ``module``
-      A ``CurryModule`` or module name.
-  ``goldenfile``
-      The name of the golden file.
+def require(f):
+  '''Decorator that skips a test if the oracle is not present.'''
+  return unittest.skipIf(oracle() is None, 'no oracle found')(f)
 
-  Additional arguments are passed to ``callOracle``.
-  '''
-  if isinstance(module, str):
-    module = curry.import_(module)
-  if importer.newer(module.__file__, goldenfile):
-    output = cyclean(callOracle(module, *args, **kwds))
-    with open(goldenfile, 'wb') as au:
-      au.write(output)
-
-def callOracle(module, goal, currypath, timeout=None):
+def divine(module, goal, currypath, timeout=None, goldenfile=None):
   '''
   Invokes the oracle with a Curry goal to generate a golden result.
 
@@ -63,15 +57,40 @@ def callOracle(module, goal, currypath, timeout=None):
   ``timeout``
       The time limit for running the oracle.  This can be anything the timeout
       program accepts.
+  ``goldenfile``
+      Specifies a file that contains this result.  If supplied, the file
+      will be updated with the command output, if necessary.
+
+  Returns:
+  --------
+  If ``goldenfile`` is None, a string containing the values of ``goal``.
+  Otherwise, a Boolean indicating whether the golden file was updated.
   '''
+  # Check for a previous result.
   if isinstance(module, str):
     module = curry.import_(module)
+  if goldenfile is not None:
+    if not importer.newer(module.__file__, goldenfile):
+      return False
+
+  # Call the oracle.
+  oracle_ = oracle()
+  assert oracle_
   try:
     goal = goal.ident.basename
   except AttributeError:
     pass
   with importer.binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
-    cmd = ('./oracle :l %s :eval %s :q' % (module.__name__, goal))
+    cmd = ('%s :l %s :eval %s :q' % (oracle_, module.__name__, goal))
     if timeout:
       cmd = 'timeout %s %s' % (timeout, cmd)
-    return cyclean(subprocess.check_output(cmd.split()))
+    output = cyclean(subprocess.check_output(cmd.split()))
+
+  # Update the golden file or return the output.
+  if goldenfile is not None:
+    with open(goldenfile, 'wb') as au:
+      au.write(output)
+    return True
+  else:
+    return output
+

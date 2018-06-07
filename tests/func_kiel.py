@@ -2,7 +2,7 @@
 import cytest # from ./lib; must be first
 from glob import glob
 import curry
-import cytest.compare
+import cytest.oracle
 import functools
 import os
 
@@ -55,6 +55,7 @@ class TestKiel(cytest.TestCase):
     if name not in SKIP:
       locals()['test_'+name] = lambda self, name=name: self.check(name)
 
+  @cytest.oracle.require
   @noteSkipped
   def check(self, modulename):
     '''
@@ -72,7 +73,11 @@ class TestKiel(cytest.TestCase):
         continue
       num += 1
       goldenfile = os.path.join(SOURCE_DIR, goal.ident + '.au-gen')
-      cytest.compare.ensureGolden(goldenfile, module, goal, [SOURCE_DIR], '20s')
-      my = cytest.compare.cyclean('\n'.join(map(str, curry.eval(goal))+['']))
-      self.compareGolden(my, goldenfile)
+      cytest.oracle.divine(
+          module, goal, [SOURCE_DIR], '20s', goldenfile=goldenfile
+        )
+      sprite_result = cytest.oracle.cyclean(
+          '\n'.join(map(str, curry.eval(goal))+[''])
+        )
+      self.compareCurryOutputToGoldenFile(sprite_result, goldenfile)
     self.assertGreater(num, 0)

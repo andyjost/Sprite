@@ -27,7 +27,7 @@ class ParseJSON(cytest.TestCase):
 
         # Check against the golden.
         goldenfile = jsonfile.replace('.json', '.au')
-        self.compareGolden(icur, goldenfile, GENERATE_GOLDENS)
+        self.compareCurryOutputToGoldenFile(icur, goldenfile, GENERATE_GOLDENS)
       except:
         print 'Error while processing', jsonfile
         raise
