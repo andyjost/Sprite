@@ -1,16 +1,15 @@
-from collections import Sequence
 from .. import icurry
-from numbers import Integral
-from ..visitation import dispatch
+from .. import visitation
+import collections
+import numbers
 import operator
-import textwrap
 
 T_FAIL   = -5
 T_FREE   = -4
 T_FWD    = -3
 T_CHOICE = -2
 T_FUNC   = -1
-T_CTOR   =  0
+T_CTOR   =  0 # for each type, ctors are numbered starting at zero.
 
 class E_SYMBOL(BaseException):
   '''
@@ -130,7 +129,7 @@ class Node(object):
   #   '''Iterate over the successors, skipping FWD nodes.'''
   #   return (self[i] for i in xrange(len(self.successors)))
 
-  @dispatch.on('i')
+  @visitation.dispatch.on('i')
   def __getitem__(self, i):
     raise RuntimeError('unhandled type: %s' % type(i).__name__)
 
@@ -138,14 +137,14 @@ class Node(object):
   def __getitem__(self, i):
     raise RuntimeError('unhandled type: str')
 
-  @__getitem__.when(Integral)
+  @__getitem__.when(numbers.Integral)
   def __getitem__(self, i):
     '''Get a successor, skipping over FWD nodes.'''
     self = self[()]
     item = self.successors[i] = Node._skipfwd(self.successors[i])
     return item
 
-  @__getitem__.when(Sequence, no=str)
+  @__getitem__.when(collections.Sequence, no=str)
   def __getitem__(self, path):
     if not path:
       return Node._skipfwd(self)

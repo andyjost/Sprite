@@ -1,7 +1,6 @@
 '''
 A pure-Python Curry interpreter.
 '''
-from .exceptions import *
 from . import import_
 from . import prelude
 from . import runtime
@@ -11,8 +10,6 @@ import sys
 
 logger = logging.getLogger(__name__)
 
-# Inpterpretation.
-# ================
 class Interpreter(object):
   '''
   A Curry interpreter.

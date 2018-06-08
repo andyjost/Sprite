@@ -1,5 +1,5 @@
-from .runtime import Node
-from ..visitation import dispatch
+from . import runtime
+from .. import visitation
 
 class Show(object):
   '''Implements the built-in show function.'''
@@ -18,7 +18,7 @@ class Show(object):
 
   def __call__(self, node):
     '''Applies type-specific formatting after recursing to subexpressions.'''
-    assert isinstance(node, Node)
+    assert isinstance(node, runtime.Node)
     subexprs = self.generate(node, self._recurse_)
     if self.format is None:
       return ' '.join(subexprs)
@@ -32,12 +32,12 @@ class Show(object):
     for expr in node.successors:
       yield xform(expr)
 
-  @dispatch.on('expr')
+  @visitation.dispatch.on('expr')
   def _recurse_(self, expr):
     '''Recursively application.  Parenthesizes subexpressions.'''
     return str(expr)
 
-  @_recurse_.when(Node)
+  @_recurse_.when(runtime.Node)
   def _recurse_(self, node):
     x = node.info.show(node)
     return '(%s)' % x if ' ' in x and node.info != self.ni_Fwd else x

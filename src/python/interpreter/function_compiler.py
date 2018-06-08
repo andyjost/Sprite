@@ -2,7 +2,7 @@ from .. import encoding
 from .. import icurry
 from .. import importer
 from . import runtime
-from ..visitation import dispatch
+from .. import visitation
 import collections
 import logging
 
@@ -151,7 +151,7 @@ class FunctionCompiler(object):
     self._compile(iobj)
 
   # Compile top-level ICurry objects.
-  @dispatch.on('iobj')
+  @visitation.dispatch.on('iobj')
   def _compile(self, iobj): #pragma: no cover
     assert False
 
@@ -176,7 +176,7 @@ class FunctionCompiler(object):
     self.program.append(list(self.statement(statement)))
 
   # VarScope.
-  @dispatch.on('varscope')
+  @visitation.dispatch.on('varscope')
   def varscope(self, varscope):
     assert False #pragma: no cover
 
@@ -198,7 +198,7 @@ class FunctionCompiler(object):
 
   # VarPath.
   # Add a variable's path to the closure.
-  @dispatch.on('varscope')
+  @visitation.dispatch.on('varscope')
   def setvarpath(self, vid, varscope):
     assert False #pragma: no cover
 
@@ -219,7 +219,7 @@ class FunctionCompiler(object):
     raise RuntimeError('IFree not handled')
 
   # Expression.
-  @dispatch.on('expression')
+  @visitation.dispatch.on('expression')
   def expression(self, expression, partial=False): #pragma: no cover
     assert False
 
@@ -264,7 +264,7 @@ class FunctionCompiler(object):
     return repr(value)
 
   # Statement.
-  @dispatch.on('statement')
+  @visitation.dispatch.on('statement')
   def statement(self, statement):
     raise RuntimeError('unhandled Statement: %s' % type(statement))
 
@@ -349,7 +349,7 @@ class Closure(object):
     self.interp = interp
     self.context = {}
 
-  @dispatch.on('key')
+  @visitation.dispatch.on('key')
   def __getitem__(self, key):
     '''Look up the given symbol.  Returns a variable name in the context.'''
     rv = self.context.get(key, None)
@@ -374,7 +374,7 @@ class Closure(object):
 
 # Rendering.
 # ==========
-@dispatch.on('arg')
+@visitation.dispatch.on('arg')
 def indent(arg, level=-1):
   '''
   Indents list-formatted Python code into a flat list of strings.  See

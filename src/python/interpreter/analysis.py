@@ -1,5 +1,5 @@
 from . import runtime
-from ..visitation import dispatch
+from .. import visitation
 import collections
 import re
 
@@ -12,7 +12,7 @@ def isa(cyobj, what):
     return False
   return _isa(id(cyobj[()].info), what)
 
-@dispatch.on('what')
+@visitation.dispatch.on('what')
 def _isa(addr, what):
   raise TypeError(
       'arg 2 must be an instance or sequence of curry.interpreter.NodeInfo '

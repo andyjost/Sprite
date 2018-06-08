@@ -1,12 +1,11 @@
-from ..icurry import *
 from .. import encoding
-from . import exceptions
 from . import function_compiler
+from .. import icurry
 from .. import importer
 from . import lookup
 from . import runtime
 from . import show
-from ..visitation import dispatch
+from .. import visitation
 import collections
 import logging
 import types
@@ -54,7 +53,7 @@ def insertSymbol(module, basename, nodeinfo, private=False):
     setattr(module, basename, nodeinfo)
 
 
-@dispatch.on('idef')
+@visitation.dispatch.on('idef')
 def loadSymbols(interp, idef, moduleobj, extern=None, **kwds): #pragma: no cover
   '''
   Load symbols (i.e., constructor and functions names) from the ICurry
@@ -62,12 +61,12 @@ def loadSymbols(interp, idef, moduleobj, extern=None, **kwds): #pragma: no cover
   '''
   raise RuntimeError("unhandled ICurry type during symbol loading: '%s'" % type(idef))
 
-@loadSymbols.when(collections.Sequence, no=(str,IType))
+@loadSymbols.when(collections.Sequence, no=(str,icurry.IType))
 def loadSymbols(interp, seq, *args, **kwds):
   for item in seq:
     loadSymbols(interp, item, *args, **kwds)
 
-@loadSymbols.when(IType)
+@loadSymbols.when(icurry.IType)
 def loadSymbols(interp, itype, moduleobj, extern=None):
   if itype:
     return loadSymbols(interp, list(itype), moduleobj, extern, itype=itype)
@@ -88,7 +87,7 @@ def loadSymbols(interp, mapping, moduleobj, **kwds):
   for item in mapping.itervalues():
     loadSymbols(interp, item, moduleobj, **kwds)
 
-@loadSymbols.when(IModule)
+@loadSymbols.when(icurry.IModule)
 def loadSymbols(interp, imodule, moduleobj, **kwds):
   for modulename in imodule.imports:
     import_(interp, modulename)
@@ -103,11 +102,11 @@ def loadSymbols(interp, imodule, moduleobj, **kwds):
         }
     )
 
-@loadSymbols.when(IConstructor)
+@loadSymbols.when(icurry.IConstructor)
 def loadSymbols(interp, icons, moduleobj, extern=None, itype=None):
   # For builtins, the 'py.tag' metadata contains the tag.
   builtin = 'py.tag' in icons.metadata
-  metadata = getmd(icons, extern, itype=itype)
+  metadata = icurry.getmd(icons, extern, itype=itype)
   info = runtime.InfoTable(
       icons.ident.basename
     , icons.arity
@@ -119,9 +118,9 @@ def loadSymbols(interp, icons, moduleobj, extern=None, itype=None):
       moduleobj, icons.ident.basename, runtime.NodeInfo(icons.ident, info)
     )
 
-@loadSymbols.when(IFunction)
+@loadSymbols.when(icurry.IFunction)
 def loadSymbols(interp, ifun, moduleobj, extern=None):
-  metadata = getmd(ifun, extern)
+  metadata = icurry.getmd(ifun, extern)
   info = runtime.InfoTable(
       ifun.ident.basename
     , ifun.arity, runtime.T_FUNC, None
@@ -131,7 +130,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
       moduleobj, ifun.ident.basename, runtime.NodeInfo(ifun.ident, info)
     )
 
-@dispatch.on('arg')
+@visitation.dispatch.on('arg')
 def import_(interp, arg, currypath=None, extern=True, export=(), alias=()):
   '''
   Import one or more Curry modules.
@@ -175,7 +174,7 @@ def import_(interp, modulename, currypath=None, **kwds):
 def import_(interp, seq, *args, **kwds):
   return [import_(interp, item, *args, **kwds) for item in seq]
 
-@import_.when(IModule)
+@import_.when(icurry.IModule)
 def import_(
     interp, imodule, currypath=None, extern=None, export=(), alias=()
   ):
@@ -192,7 +191,7 @@ def import_(
       setattr(moduleobj, name, getattr(moduleobj, target))
   return interp.modules[imodule.name]
 
-@dispatch.on('idef')
+@visitation.dispatch.on('idef')
 def compileICurry(interp, idef, moduleobj, extern=None): # pragma: no cover
   '''Compile the ICurry definitions from ``idef`` into module ``moduleobj``'''
   assert False
@@ -202,11 +201,11 @@ def compileICurry(interp, mapping, *args, **kwds):
   for item in mapping.itervalues():
    compileICurry(interp, item, *args, **kwds)
 
-@compileICurry.when(IModule)
+@compileICurry.when(icurry.IModule)
 def compileICurry(interp, imodule, moduleobj, extern=None):
   compileICurry(interp, imodule.functions, moduleobj, extern)
 
-@compileICurry.when(IFunction)
+@compileICurry.when(icurry.IFunction)
 def compileICurry(interp, ifun, moduleobj, extern=None):
   info = lookup._symbol(moduleobj, ifun.ident).info
   info.step = function_compiler.compile_function(interp, ifun, extern)

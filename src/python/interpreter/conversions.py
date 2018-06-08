@@ -5,13 +5,11 @@ and Python.
 
 from . import analysis
 from . import runtime
-from ..visitation import dispatch
+from .. import visitation
 import collections
 import numbers
-import types
-import __builtin__
 
-@dispatch.on('arg')
+@visitation.dispatch.on('arg')
 def expr(interp, arg, *args, **kwds):
   '''
   Builds a Curry expression.

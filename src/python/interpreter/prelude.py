@@ -1,6 +1,6 @@
-from ..icurry import *
-from . import prelude_impl
-from .runtime import T_FAIL, T_CHOICE, T_FWD, T_CTOR
+from .. import icurry
+from . import prelude_impl as impl
+from . import runtime
 import analysis
 import operator as op
 
@@ -42,15 +42,25 @@ md0 = { # Builtin type metadata.
   # , 'py.frompy': lambda x: x[1]
   }
 _types_ = [
-    IType('_Failure', [IConstructor('_Failure', 0, metadata={'py.format':'failure', 'py.tag':T_FAIL})])
-  , IType('_Choice', [IConstructor('_Choice', 2, metadata={'py.tag':T_CHOICE})])
-  , IType('_Fwd', [IConstructor('_Fwd', 1, metadata={'py.format':'{1}', 'py.tag':T_FWD})])
-  , IType('_PartApplic', [IConstructor('_PartApplic', 2, metadata={'py.tag':T_CTOR})])
-  , IType('Bool', [IConstructor('True', 0), IConstructor('False', 0)])
-  , IType('Char', [IConstructor('Char', 1, metadata=md0)])
-  , IType('Float', [IConstructor('Float', 1, metadata=md0)])
-  , IType('Int', [IConstructor('Int', 1, metadata=md0)])
-  , IType('IO', [IConstructor('IO', 1)])
+    icurry.IType('_Failure', [icurry.IConstructor('_Failure', 0
+      , metadata={'py.format':'failure', 'py.tag':runtime.T_FAIL}
+      )])
+  , icurry.IType('_Choice', [icurry.IConstructor('_Choice', 2
+      , metadata={'py.tag':runtime.T_CHOICE}
+      )])
+  , icurry.IType('_Fwd', [icurry.IConstructor('_Fwd', 1
+      , metadata={'py.format':'{1}', 'py.tag':runtime.T_FWD}
+      )])
+  , icurry.IType('_PartApplic', [icurry.IConstructor('_PartApplic', 2
+      , metadata={'py.tag':runtime.T_CTOR}
+      )])
+  , icurry.IType('Bool'
+      , [icurry.IConstructor('True', 0), icurry.IConstructor('False', 0)]
+      )
+  , icurry.IType('Char', [icurry.IConstructor('Char', 1, metadata=md0)])
+  , icurry.IType('Float', [icurry.IConstructor('Float', 1, metadata=md0)])
+  , icurry.IType('Int', [icurry.IConstructor('Int', 1, metadata=md0)])
+  , icurry.IType('IO', [icurry.IConstructor('IO', 1)])
   ]
 
 # List
@@ -64,21 +74,21 @@ def _listformat(node):
   return '[%s]' % ', '.join(_listvalues(node))
 
 _types_.append(
-    IType('[]', [
-        IConstructor(':', 2, metadata={'py.format':_listformat})
-      , IConstructor('[]', 0, metadata={'py.format':_listformat})
+    icurry.IType('[]', [
+        icurry.IConstructor(':', 2, metadata={'py.format':_listformat})
+      , icurry.IConstructor('[]', 0, metadata={'py.format':_listformat})
       ])
   )
 del _listformat
 
 # Tuples
 MAX_TUPLE_SIZE = 15
-Unit = IType('()', [IConstructor('()', 0, metadata={'py.format':'()'})])
+Unit = icurry.IType('()', [icurry.IConstructor('()', 0, metadata={'py.format':'()'})])
 _types_.append(Unit)
 for i in range(2, MAX_TUPLE_SIZE):
   name = '(%s)' % (','*(i-1))
-  Tuple = IType(name, [
-      IConstructor(
+  Tuple = icurry.IType(name, [
+      icurry.IConstructor(
           name
         , i
         , metadata={
@@ -92,21 +102,23 @@ for i in range(2, MAX_TUPLE_SIZE):
 # Functions.
 # ==========
 _functions_ = [
-    IFunction('_python_generator_', 1, metadata={'py.func':prelude_impl._python_generator_})
-  , IFunction('*', 2, metadata={'py.primfunc':op.mul})
-  , IFunction('+', 2, metadata={'py.primfunc':op.add})
-  , IFunction('-', 2, metadata={'py.primfunc':op.sub})
-  , IFunction('==', 2, metadata={'py.primfunc':op.eq})
-  , IFunction('/=', 2, metadata={'py.primfunc':op.ne})
-  , IFunction('<', 2, metadata={'py.primfunc':op.lt})
-  , IFunction('>', 2, metadata={'py.primfunc':op.gt})
-  , IFunction('<=', 2, metadata={'py.primfunc':op.le})
-  , IFunction('>=', 2, metadata={'py.primfunc':op.ge})
-  , IFunction('&&', 2, metadata={'py.primfunc':op.and_})
-  , IFunction('||', 2, metadata={'py.primfunc':op.or_})
+    icurry.IFunction('_python_generator_', 1
+        , metadata={'py.func':impl._python_generator_}
+        )
+  , icurry.IFunction('*', 2, metadata={'py.primfunc':op.mul})
+  , icurry.IFunction('+', 2, metadata={'py.primfunc':op.add})
+  , icurry.IFunction('-', 2, metadata={'py.primfunc':op.sub})
+  , icurry.IFunction('==', 2, metadata={'py.primfunc':op.eq})
+  , icurry.IFunction('/=', 2, metadata={'py.primfunc':op.ne})
+  , icurry.IFunction('<', 2, metadata={'py.primfunc':op.lt})
+  , icurry.IFunction('>', 2, metadata={'py.primfunc':op.gt})
+  , icurry.IFunction('<=', 2, metadata={'py.primfunc':op.le})
+  , icurry.IFunction('>=', 2, metadata={'py.primfunc':op.ge})
+  , icurry.IFunction('&&', 2, metadata={'py.primfunc':op.and_})
+  , icurry.IFunction('||', 2, metadata={'py.primfunc':op.or_})
 	# The following are defined in the Prelude as pure Curry, but have a better
   # implementation here.
-  , IFunction('negate', 1, metadata={'py.primfunc':op.neg})
+  , icurry.IFunction('negate', 1, metadata={'py.primfunc':op.neg})
 
 # ====== Missing from the following ======
 # --- Integer division. The value is the integer quotient of its arguments
@@ -115,7 +127,7 @@ _functions_ = [
 # --- and the value of <code>-15 `div` 4</code> is <code>-4</code>.
 # div   :: Int -> Int -> Int
 # div external
-  , IFunction('div', 2, metadata={'py.primfunc':op.floordiv})
+  , icurry.IFunction('div', 2, metadata={'py.primfunc':op.floordiv})
 #
 # --- Integer remainder. The value is the remainder of the integer division and
 # --- it obeys the rule <code>x `mod` y = x - y * (x `div` y)</code>.
@@ -123,14 +135,14 @@ _functions_ = [
 # --- and the value of <code>-15 `mod` 4</code> is <code>-3</code>.
 # mod   :: Int -> Int -> Int
 # mod external
-  , IFunction('mod', 2, metadata={'py.primfunc':lambda x, y: x - y * op.floordiv(x,y)})
+  , icurry.IFunction('mod', 2, metadata={'py.primfunc':lambda x, y: x - y * op.floordiv(x,y)})
 # --- Integer division. The value is the integer quotient of its arguments
 # --- and always truncated towards zero.
 # --- Thus, the value of <code>13 `quot` 5</code> is <code>2</code>,
 # --- and the value of <code>-15 `quot` 4</code> is <code>-3</code>.
 # quot   :: Int -> Int -> Int
 # quot external
-  , IFunction('quot', 2, metadata={'py.primfunc':lambda x, y: int(op.truediv(x, y))})
+  , icurry.IFunction('quot', 2, metadata={'py.primfunc':lambda x, y: int(op.truediv(x, y))})
 #
 # --- Integer remainder. The value is the remainder of the integer division and
 # --- it obeys the rule <code>x `rem` y = x - y * (x `quot` y)</code>.
@@ -138,40 +150,40 @@ _functions_ = [
 # --- and the value of <code>-15 `rem` 4</code> is <code>-3</code>.
 # rem   :: Int -> Int -> Int
 # rem external
-  , IFunction('rem', 2, metadata={'py.primfunc':lambda x, y: x - y * int(op.truediv(x, y))})
-  , IFunction('prim_negateFloat', 1, metadata={'py.primfunc':op.neg})
+  , icurry.IFunction('rem', 2, metadata={'py.primfunc':lambda x, y: x - y * int(op.truediv(x, y))})
+  , icurry.IFunction('prim_negateFloat', 1, metadata={'py.primfunc':op.neg})
 # --- Evaluates the argument to head normal form and returns it.
 # --- Suspends until the result is bound to a non-variable term.
 # ensureNotFree :: a -> a
 # ensureNotFree external
-  , IFunction('ensureNotFree', 1, metadata={'py.func':prelude_impl.ensureNotFree})
+  , icurry.IFunction('ensureNotFree', 1, metadata={'py.func':impl.ensureNotFree})
 # --- Right-associative application with strict evaluation of its argument
 # --- to head normal form.
 # ($!)    :: (a -> b) -> a -> b
 # ($!) external
-  , IFunction('$!', 2, metadata={'py.func':prelude_impl.apply_hnf})
+  , icurry.IFunction('$!', 2, metadata={'py.func':impl.apply_hnf})
 #
 # --- Right-associative application with strict evaluation of its argument
 # --- to normal form.
 # ($!!)   :: (a -> b) -> a -> b
 # ($!!) external
-  , IFunction('$!!', 2, metadata={'py.func':prelude_impl.apply_nf})
+  , icurry.IFunction('$!!', 2, metadata={'py.func':impl.apply_nf})
 # --- Right-associative application with strict evaluation of its argument
 # --- to ground normal form.
 # ($##)   :: (a -> b) -> a -> b
 # ($##) external
-  , IFunction('$##', 2, metadata={'py.func':prelude_impl.apply_gnf})
+  , icurry.IFunction('$##', 2, metadata={'py.func':impl.apply_gnf})
 #
 # prim_error    :: String -> _
 # prim_error external
 #
-  , IFunction('prim_error', 1, metadata={'py.func':prelude_impl.error})
+  , icurry.IFunction('prim_error', 1, metadata={'py.func':impl.error})
 # --- A non-reducible polymorphic function.
 # --- It is useful to express a failure in a search branch of the execution.
 # --- It could be defined by: `failed = head []`
 # failed :: _
 # failed external
-  , IFunction('failed', 0, metadata={'py.func':prelude_impl.failed})
+  , icurry.IFunction('failed', 0, metadata={'py.func':impl.failed})
 #
 # --- The equational constraint.
 # --- `(e1 =:= e2)` is satisfiable if both sides `e1` and `e2` can be
@@ -191,17 +203,17 @@ _functions_ = [
 # --- in the datatype declarations and recursively in the arguments.
 # compare :: a -> a -> Ordering
 # compare external
-  , IFunction('compare', 2, metadata={'py.func':prelude_impl.compare})
+  , icurry.IFunction('compare', 2, metadata={'py.func':impl.compare})
 #
 # --- Converts a character into its ASCII value.
 # ord :: Char -> Int
 # ord external
-  , IFunction('ord', 1, metadata={'py.primfunc':ord})
+  , icurry.IFunction('ord', 1, metadata={'py.primfunc':ord})
 #
 # --- Converts an ASCII value into a character.
 # chr :: Int -> Char
 # chr external
-  , IFunction('chr', 1, metadata={'py.primfunc':chr})
+  , icurry.IFunction('chr', 1, metadata={'py.primfunc':chr})
 # --- Sequential composition of actions.
 # --- @param a - An action
 # --- @param fa - A function from a value into an action
@@ -209,25 +221,25 @@ _functions_ = [
 # ---         and then performs (fa r)
 # (>>=)             :: IO a -> (a -> IO b) -> IO b
 # (>>=) external
-  , IFunction('>>=', 2, metadata={'py.func':prelude_impl.compose_io})
+  , icurry.IFunction('>>=', 2, metadata={'py.func':impl.compose_io})
 #
 # --- The empty action that directly returns its argument.
 # return            :: a -> IO a
 # return external
-  , IFunction('return', 1, metadata={'py.func':prelude_impl.return_})
+  , icurry.IFunction('return', 1, metadata={'py.func':impl.return_})
 #
 # prim_putChar           :: Char -> IO ()
 # prim_putChar external
-  , IFunction('prim_putChar', 1, metadata={'py.func':prelude_impl.putChar})
+  , icurry.IFunction('prim_putChar', 1, metadata={'py.func':impl.putChar})
 #
 # --- An action that reads a character from standard output and returns it.
 # getChar           :: IO Char
 # getChar external
-  , IFunction('getChar', 0, metadata={'py.func':prelude_impl.getChar})
+  , icurry.IFunction('getChar', 0, metadata={'py.func':impl.getChar})
 #
 # prim_readFile          :: String -> IO String
 # prim_readFile external
-  , IFunction('prim_readFile', 1, metadata={'py.func':prelude_impl.readFile})
+  , icurry.IFunction('prim_readFile', 1, metadata={'py.func':impl.readFile})
 # -- for internal implementation of readFile:
 # prim_readFileContents          :: String -> String
 # prim_readFileContents external
@@ -258,12 +270,12 @@ _functions_ = [
 # --- @return either `x` or `y` non-deterministically.
 # (?)   :: a -> a -> a
 # (?) external
-  , IFunction('?', 2, metadata={'py.func':prelude_impl.choice, 'py.format':'{1} ? {2}'})
+  , icurry.IFunction('?', 2, metadata={'py.func':impl.choice, 'py.format':'{1} ? {2}'})
 #
 # -- Representation of higher-order applications in FlatCurry.
 # apply :: (a -> b) -> a -> b
 # apply external
-  , IFunction('apply', 2, metadata={'py.func':prelude_impl.apply})
+  , icurry.IFunction('apply', 2, metadata={'py.func':impl.apply})
 
 #
 # -- Only for internal use:
@@ -294,7 +306,7 @@ _functions_ = [
 # failure :: _ -> _ -> _
 # failure external
   ]
-Prelude = IModule(
+Prelude = icurry.IModule(
     name='Prelude', imports=[], types=_types_, functions=_functions_
   )
 
