@@ -4,10 +4,6 @@ from . import runtime
 import analysis
 import operator as op
 
-# ===================
-# The Prelude module.
-# ===================
-
 def exports():
   '''
   Returns the name of each symbol that must be added to the Prelude but does
@@ -36,30 +32,15 @@ def aliases():
 
 # Types.
 # ======
-md0 = { # Builtin type metadata.
-    'py.format': '{1}'
-  , 'py.topy'  : lambda node: node[1]
-  # , 'py.frompy': lambda x: x[1]
-  }
 _types_ = [
-    icurry.IType('_Failure', [icurry.IConstructor('_Failure', 0
-      , metadata={'py.format':'failure', 'py.tag':runtime.T_FAIL}
-      )])
-  , icurry.IType('_Choice', [icurry.IConstructor('_Choice', 2
-      , metadata={'py.tag':runtime.T_CHOICE}
-      )])
-  , icurry.IType('_Fwd', [icurry.IConstructor('_Fwd', 1
-      , metadata={'py.format':'{1}', 'py.tag':runtime.T_FWD}
-      )])
-  , icurry.IType('_PartApplic', [icurry.IConstructor('_PartApplic', 2
-      , metadata={'py.tag':runtime.T_CTOR}
-      )])
-  , icurry.IType('Bool'
-      , [icurry.IConstructor('True', 0), icurry.IConstructor('False', 0)]
-      )
-  , icurry.IType('Char', [icurry.IConstructor('Char', 1, metadata=md0)])
-  , icurry.IType('Float', [icurry.IConstructor('Float', 1, metadata=md0)])
-  , icurry.IType('Int', [icurry.IConstructor('Int', 1, metadata=md0)])
+    icurry.IType('_Failure', [icurry.IConstructor('_Failure', 0, metadata={'py.format':'failure', 'py.tag':runtime.T_FAIL})])
+  , icurry.IType('_Choice', [icurry.IConstructor('_Choice', 2, metadata={'py.tag':runtime.T_CHOICE})])
+  , icurry.IType('_Fwd', [icurry.IConstructor('_Fwd', 1, metadata={'py.format':'{1}', 'py.tag':runtime.T_FWD})])
+  , icurry.IType('_PartApplic', [icurry.IConstructor('_PartApplic', 2, metadata={'py.tag':runtime.T_CTOR})])
+  , icurry.IType('Bool', [icurry.IConstructor('True', 0), icurry.IConstructor('False', 0)])
+  , icurry.IType('Char', [icurry.IConstructor('Char', 1, metadata={'py.format': '{1}'})])
+  , icurry.IType('Float', [icurry.IConstructor('Float', 1, metadata={'py.format': '{1}'})])
+  , icurry.IType('Int', [icurry.IConstructor('Int', 1, metadata={'py.format': '{1}'})])
   , icurry.IType('IO', [icurry.IConstructor('IO', 1)])
   ]
 
@@ -116,7 +97,7 @@ _functions_ = [
   , icurry.IFunction('>=', 2, metadata={'py.primfunc':op.ge})
   , icurry.IFunction('&&', 2, metadata={'py.primfunc':op.and_})
   , icurry.IFunction('||', 2, metadata={'py.primfunc':op.or_})
-	# The following are defined in the Prelude as pure Curry, but have a better
+  # The following are defined in the Prelude as pure Curry, but have a better
   # implementation here.
   , icurry.IFunction('negate', 1, metadata={'py.primfunc':op.neg})
 
