@@ -1,5 +1,6 @@
 '''Implementation of the visitor pattern.'''
 # See https://chris-lamb.co.uk/posts/visitor-pattern-in-python
+from __future__ import absolute_import
 import functools
 import inspect
 

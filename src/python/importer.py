@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from . import icurry
 from .visitation import dispatch
 import contextlib

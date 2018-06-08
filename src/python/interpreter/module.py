@@ -4,7 +4,6 @@ from . import exceptions
 import os
 import types
 
-
 # Note: artibrary symbols imported from Curry are added to Curry modules,
 # risking name clashes.  Therefore, only hidden attributes are allowed here,
 # and all must begin with a dot.  The exceptions are Python special names,
@@ -28,6 +27,16 @@ class CurryModule(types.ModuleType):
   __str__ = __repr__
 
 
+def symbol(moduleobj, iname):
+  '''Look up the given symbol name in the module.'''
+  symbols = getattr(moduleobj, '.symbols')
+  try:
+    return symbols[iname.basename]
+  except KeyError:
+    raise exceptions.SymbolLookupError(
+        'module "%s" has no symbol "%s"' % (iname.module, iname.basename)
+      )
+
 def _getfile(moduleobj, suffix):
   if moduleobj.__file__:
     filename = os.path.join(
@@ -41,22 +50,13 @@ def getreadable(moduleobj):
   '''
   Returns the file containing human-readable ICurry, if one exists, or None.
   '''
-  return moduleobj._getfile('.read')
+  return _getfile(moduleobj, '.read')
 
 def getjson(moduleobj):
   '''Returns the file containing ICurry-JSON, if one exists, or None.'''
-  return moduleobj._getfile('.json')
+  return _getfile(moduleobj, '.json')
 
-def icurry(moduleobj):
+def geticurry(moduleobj):
   '''Gets the ICurry associated witha  module.'''
   return getattr(moduleobj, '.icurry')
 
-def symbol(moduleobj, iname):
-  '''Look up the given symbol name in the module.'''
-  symbols = getattr(moduleobj, '.symbols')
-  try:
-    return symbols[iname.basename]
-  except KeyError:
-    raise exceptions.SymbolLookupError(
-        'module "%s" has no symbol "%s"' % (iname.module, iname.basename)
-      )

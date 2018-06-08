@@ -1,9 +1,13 @@
 import cytest # from ./lib; must be first
+from curry import icurry
+from curry import inspect
 from curry import interpreter
 from curry.interpreter import runtime
 from cytest import bootstrap
 from glob import glob
+import curry
 import curry.interpreter.prelude
+import os
 import unittest
 
 class TestPyRuntime(cytest.TestCase):
@@ -172,6 +176,28 @@ class TestPyRuntime(cytest.TestCase):
   def testPullTab(self):
     '''Tests the pull-tab step.'''
     self.assertTrue(False) # TODO
+
+
+  def test_inspect_module(self):
+    module = curry.compile(
+        '''
+        not True = False
+        not False = True
+        xor False a = a
+        xor True a = not a
+        '''
+      )
+    read = inspect.getreadable(module)
+    self.assertTrue(os.path.exists(read))
+    self.assertTrue(read.endswith('.read'))
+    #
+    json = inspect.getjson(module)
+    self.assertTrue(os.path.exists(json))
+    self.assertTrue(json.endswith('.json'))
+    #
+    icur = inspect.geticurry(module)
+    self.assertIsInstance(icur, icurry.IModule)
+
 
   def test_nd_io(self):
     goal = curry.compile("putChar ('a' ? 'b')", 'expr')
