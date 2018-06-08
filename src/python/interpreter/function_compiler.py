@@ -129,7 +129,9 @@ class FunctionCompiler(object):
       exec co in self.closure.context, local
     else:
       exec source in self.closure.context, local
-    return local['step']
+    step = local['step']
+    step.source = source
+    return step
 
   def nodeinfo(self, iname):
     '''Get the NodeInfo object for a program symbol.'''
@@ -320,6 +322,9 @@ class FunctionCompiler(object):
       yield '%sif selector == %s:' % (el, self.nodeinfo(iname).info.tag)
       yield list(self.statement(stmt))
       el = 'el'
+    yield 'else:'
+    yield '  lhs.Node(%s)' % self.closure['Prelude._Failure']
+    yield '  return'
 
   @statement.when(icurry.BTable)
   def statement(self, btable):
@@ -332,6 +337,9 @@ class FunctionCompiler(object):
       yield '%sif selector == %s:' % (el, icurry.unbox(iname))
       yield list(self.statement(stmt))
       el = 'el'
+    yield 'else:'
+    yield '  lhs.Node(%s)' % self.closure['Prelude._Failure']
+    yield '  return'
 
 # Closure.
 # ========

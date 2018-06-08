@@ -4,6 +4,7 @@ A pure-Python Curry interpreter.
 from . import import_
 from . import prelude
 from . import runtime
+import itertools
 import logging
 import os
 import sys
@@ -42,6 +43,7 @@ class Interpreter(object):
     self.flags.update(flags)
     self.path = filter(lambda x:x, os.environ.get('CURRYPATH', '').split(':'))
     setattr(self, '.cache', {})
+    self._idfactory_ = itertools.count()
     return self
 
   def __init__(self, flags={}):

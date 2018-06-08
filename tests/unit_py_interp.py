@@ -133,16 +133,17 @@ class TestPyInterp(cytest.TestCase):
     X = interp.import_(self.X)
     P = interp.import_(Prelude)
     bs = interp.import_(self.BOOTSTRAP)
+    cid = bootstrap.cid
     N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
     TESTS = [
         [[1], ['1']]
       , [[2.0], ['2.0']]
       , [[L.Cons, 0, [L.Cons, 1, L.Nil]], ['[0, 1]']]
-      , [[P._Choice, 1, 2], ['1', '2']]
-      , [[X.X, [P._Choice, 1, 2]], ['X 1', 'X 2']]
-      , [[X.X, [P._Choice, 1, [X.X, [P._Choice, 2, [P._Choice, 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
+      , [[P._Choice, cid, 1, 2], ['1', '2']]
+      , [[X.X, [P._Choice, cid, 1, 2]], ['X 1', 'X 2']]
+      , [[X.X, [P._Choice, cid, 1, [X.X, [P._Choice, cid, 2, [P._Choice, cid, 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
       , [[P._Failure], []]
-      , [[P._Choice, P._Failure, 0], ['0']]
+      , [[P._Choice, cid, P._Failure, 0], ['0']]
       , [[Z, ZQ], ['N', 'M']]
       , [[Z, ZW], ['N']]
       ]

@@ -4,6 +4,9 @@ Defines in pure ICurry a few simple modules designed for system testing.
 from curry.icurry import *
 import gzip
 
+# An arbitrary choice id.
+cid = 527
+
 def getbootstrap():
   return IModule(
       name='bootstrap'
@@ -22,7 +25,9 @@ def getbootstrap():
     , functions=[
         IFunction('ZN', 0, [Return(Applic('bootstrap.N'))])
       , IFunction('ZF', 0, [Return(Applic('Prelude._Failure'))])
-      , IFunction('ZQ', 0, [Return(Applic('Prelude._Choice', [Applic('bootstrap.N'), Applic('bootstrap.M')]))])
+      , IFunction('ZQ', 0, [Return(Applic('Prelude._Choice', [cid, Applic('bootstrap.N'), Applic('bootstrap.M')]))])
+      #                                                       ^^^
+      #  Not correctly typed, but three arguments are needed here.
       , IFunction('ZW', 0, [Return(Applic('Prelude._Fwd', [Applic('bootstrap.N')]))])
         # Evaluates its argument and then returns a FWD node refering to it.
       , IFunction('Z' , 1, [

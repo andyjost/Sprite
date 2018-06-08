@@ -105,7 +105,7 @@ def loadSymbols(interp, icons, moduleobj, extern=None, itype=None):
     , show.Show(interp, getattr(metadata, 'py.format', None))
     )
   insertSymbol(
-      moduleobj, icons.ident.basename, runtime.NodeInfo(icons.ident, info)
+      moduleobj, icons.ident.basename, runtime.NodeInfo(icons, info)
     )
 
 @loadSymbols.when(icurry.IFunction)
@@ -117,7 +117,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
     , show.Show(interp, getattr(metadata, 'py.format', None))
     )
   insertSymbol(
-      moduleobj, ifun.ident.basename, runtime.NodeInfo(ifun.ident, info)
+      moduleobj, ifun.ident.basename, runtime.NodeInfo(ifun, info)
     )
 
 @visitation.dispatch.on('arg')

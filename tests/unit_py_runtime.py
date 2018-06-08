@@ -71,6 +71,7 @@ class TestPyRuntime(cytest.TestCase):
     prelude = interp.import_(interpreter.prelude.Prelude)
     F,Q,W = prelude._Failure, prelude._Choice, prelude._Fwd
     special_tags = [runtime.T_FAIL, runtime.T_CHOICE]
+    cid = bootstrap.cid
 
     TESTS = {
       # [rec=0] Tests for head normalization.
@@ -85,8 +86,8 @@ class TestPyRuntime(cytest.TestCase):
           , [F      ,  F]
           , [ZF     ,  F]
           # Choice
-          , [[Q, 0, 1],  [Q, 0, 1]]
-          , [ZQ,  [Q, N, M]]
+          , [[Q, cid, 0, 1],  [Q, cid, 0, 1]]
+          , [ZQ,  [Q, cid, N, M]  ]
           # Fwd
           , [[W, N]      ,  [W, N]]
           , [[W, ZN]     ,  [W, N]]  # The target of W is the head.
@@ -110,21 +111,21 @@ class TestPyRuntime(cytest.TestCase):
           , [[B, ZN, F] , F]
           , [[B, ZF, ZN], F]
           # Choice.
-          , [[U, [Q, 0, 1]]    , [Q, [U, 0], [U, 1]]        ] # pull tab.
-          , [[U, ZQ]           , [Q, [U, N], [U, M]]        ]
-          , [[B, [Q, 0, 1], ZQ], [Q, [B, 0, ZQ], [B, 1, ZQ]]] # N stops at the first choice.
-          , [[B, ZQ, ZQ]       , [Q, [B, N, ZQ], [B, M, ZQ]]]
+          , [[U, [Q, cid, 0, 1]]    , [Q, cid, [U, 0], [U, 1]]        ] # pull tab.
+          , [[U, ZQ]           , [Q, cid, [U, N], [U, M]]             ]
+          , [[B, [Q, cid, 0, 1], ZQ], [Q, cid, [B, 0, ZQ], [B, 1, ZQ]]] # N stops at the first choice.
+          , [[B, ZQ, ZQ]       , [Q, cid, [B, N, ZQ], [B, M, ZQ]]     ]
           # Fwd.
-          , [[U, [W, N]]          , [U, N]                  ]
-          , [[U, [W, ZN]]         , [U, N]                  ]
-          , [[U, [W, F]]          ,  F                      ]
-          , [[B, [W, ZN], [W, ZN]], [B, N, N]               ]
-          , [[B, [W, N]           , [W, [W, N]]] , [B, N, N]]
+          , [[U, [W, N]]          , [U, N]                            ]
+          , [[U, [W, ZN]]         , [U, N]                            ]
+          , [[U, [W, F]]          ,  F                                ]
+          , [[B, [W, ZN], [W, ZN]], [B, N, N]                         ]
+          , [[B, [W, N]           , [W, [W, N]]] , [B, N, N]          ]
             # Special symbols must not overwrite a leading FWD node.  The FWD
             # node and its target may both have referrers, so to ensure they
             # all see the same thing, the target should be updated.
-          , [[W, [U, [Q, 0, 1]]]  , [W, [Q, [U, 0], [U, 1]]]]
-          , [[W, [U, ZF]]         , [W, F]                  ]
+          , [[W, [U, [Q, cid, 0, 1]]]  , [W, [Q, cid, [U, 0], [U, 1]]]]
+          , [[W, [U, ZF]]         , [W, F]                            ]
           ]
       # [rec=inf] Tests for descendant normalization (i.e., full normalization).
       , float('inf'): [
@@ -136,7 +137,7 @@ class TestPyRuntime(cytest.TestCase):
           , [[U, [U, ZF]]           , F]
           , [[B, [U, N], [B, ZF, N]], F]
           # Choice.
-          , [[B, [W, ZN], [U, [U, [Q, 0, 1]]]], [Q, [B, N, [U, [U, 0]]], [B, N, [U, [U, 1]]]]]
+          , [[B, [W, ZN], [U, [U, [Q, cid, 0, 1]]]], [Q, cid, [B, N, [U, [U, 0]]], [B, N, [U, [U, 1]]]]]
           # Fwd.
             # Repeated W nodes are contracted, but the leading one should not
             # be removed (see note above in the rec=1 section).
@@ -149,7 +150,7 @@ class TestPyRuntime(cytest.TestCase):
           # rewrites to  a Failure, Choice, or FWD node.
           , [[Z, ZF], F]
             # The step function aborts when the choice reaches the root position.
-          , [[Z, ZQ], [Q, [Z, N], [Z, M]]]
+          , [[Z, ZQ], [Q, cid, [Z, N], [Z, M]]]
           , [[Z, ZW], [W, N]]
           ]
       }
@@ -172,10 +173,29 @@ class TestPyRuntime(cytest.TestCase):
         self.assertEqual(str(expr), str(expected)) # (1)
         self.assertEqual(exc, expected[()].info.tag in special_tags) # (2)
 
-  @unittest.expectedFailure
+
   def testPullTab(self):
     '''Tests the pull-tab step.'''
-    self.assertTrue(False) # TODO
+    module = curry.compile('f (_,_,9) True a = a', modulename='M')
+    goal = curry.compile('M.f (1,2,8?9) True (1,2,3)', mode='expr')
+    interp = curry.getInterpreter()
+    id8 = id(goal[0][2][0])
+    id9 = id(goal[0][2][1])
+    id123 = id(goal[2])
+    # Head-normalizing brings a choice to the root.
+    self.assertRaises(runtime.E_SYMBOL, lambda: interp.hnf(goal))
+    self.assertEqual(goal.info.tag, runtime.T_CHOICE)
+    # Ensure nodes are referenced, not copied.
+    # LHS -> failure
+    self.assertEqual(id(goal[1][2]), id8)
+    self.assertEqual(id(goal[1][1]), id123)
+    self.assertRaises(runtime.E_SYMBOL, lambda: interp.hnf(goal[1]))
+    self.assertEqual(goal[1].info.tag, runtime.T_FAIL)
+    # RHS -> True
+    self.assertEqual(id(goal[2][2]), id9)
+    self.assertEqual(id(goal[2][1]), id123)
+    self.assertMayRaise(None, lambda: interp.hnf(goal[2]))
+    self.assertEqual(curry.topython(id(goal[2][()])), id123)
 
 
   def test_inspect_module(self):

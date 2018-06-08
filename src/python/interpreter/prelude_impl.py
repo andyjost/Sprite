@@ -29,7 +29,7 @@ choice_id = itertools.count()
 
 def choice(interp, a, b):
   yield interp.prelude._Choice
-  # TODO assign choice ID.
+  yield next(interp._idfactory_)
   yield a
   yield b
 

@@ -55,15 +55,34 @@ class NodeInfo(object):
 
   Attributes:
   -----------
+  ``icurry``
+      The ICurry source of this Node.
   ``ident``
       The fully-qualified Curry identifier for this kind of node.  An instance
       of ``icurry.IName``.
   ``info``
       An instance of ``InfoTable``.
   '''
-  def __init__(self, ident, info):
-    self.ident = ident
+  def __init__(self, icurry, info):
+    self.icurry = icurry
     self.info = info
+
+  @property
+  def ident(self):
+    return self.icurry.ident
+
+  # TODO: add getsource to get the Curry source.  It will require an
+  # enhancement to CMC and maybe FlatCurry to generate source range
+  # annotations.
+  
+  def getimpl(self):
+    '''Returns the implementation code of the step function, if available.'''
+    try:
+      return getattr(self.info.step, 'source')
+    except AttributeError:
+      raise AttributeError(
+          'no implementation code available for %s' % self.ident
+        )
 
   def __str__(self):
     return self.ident
@@ -200,7 +219,8 @@ class Evaluator(object):
       expr = self.queue.pop(0)
       tag = expr.info.tag
       if tag == T_CHOICE:
-        self.queue += expr.successors
+        # TODO: add consistency checks.
+        self.queue += expr.successors[1:]
         continue
       elif tag == T_FAIL:
         continue # discard
@@ -342,6 +362,51 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
               assert False
           raise
 
+class PullTabBuilder(object):
+  '''
+  Constructs the left and right replacements for a pull-tab step.
+
+  ``getLeft`` and ``getRight`` build the left- and righthand sides,
+  respectively.  After calling either, the ``cid`` stores the choice ID.
+
+  Parameters:
+    ``source``
+        The pull-tab source node.
+    ``targetpath``
+        The path (sequence of integers) from source to target (i.e.,
+        choice-labeled node).
+  '''
+  def __init__(self, source, targetpath):
+    self.source = source
+    self.targetpath = targetpath
+    self.cid = None
+
+  def _a_(self, node, i):
+    if i < len(self.targetpath):
+      return Node(*self._b_(node, i))
+    else:
+      assert node.info.name == "_Choice"
+      assert self.cid is None or self.cid == node[0]
+      self.cid = node[0]
+      return node[1 if self.left else 2]
+
+  def _b_(self, node, i):
+    pos = self.targetpath[i]
+    yield node.info
+    for j,_ in enumerate(node.successors):
+      if j == pos:
+        yield self._a_(node[j], i+1)
+      else:
+        yield node[j]
+
+  def getLeft(self):
+    self.left = True
+    return self._a_(self.source, 0)
+
+  def getRight(self):
+    self.left = False
+    return self._a_(self.source, 0)
+  
 def pull_tab(interp, source, targetpath):
   '''
   Executes a pull-tab step.
@@ -349,26 +414,23 @@ def pull_tab(interp, source, targetpath):
   Parameters:
   -----------
     ``source``
-      The ancestor, which will be overwritten.
+      The pull-tab source.  This node will be overwritten with a choice symbol.
 
     ``targetpath``
       A sequence of integers giving the path from ``source`` to the target
-      (descendent).
+      (i.e., choice symbol).
   '''
   if source.info == interp.prelude.ensureNotFree.info:
     raise RuntimeError("non-determinism occurred in I/O actions")
   assert targetpath
-  i, = targetpath # temporary
-  target = source[i]
-  assert target.info == interp.prelude._Choice.info
-  #
-  lsucc = source.successors
-  lsucc[i] = target[0]
-  lhs = Node(source.info, *lsucc)
-  #
-  rsucc = source.successors
-  rsucc[i] = target[1]
-  rhs = Node(source.info, *rsucc)
-  #
-  Node(target.info, lhs, rhs, target=source)
+  pt = PullTabBuilder(source, targetpath)
+  left, right = pt.getLeft(), pt.getRight()
+  assert pt.cid >= 0
+  Node(
+      interp.prelude._Choice
+    , pt.cid
+    , left
+    , right
+    , target=source
+    )
 
