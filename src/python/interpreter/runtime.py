@@ -125,10 +125,6 @@ class Node(object):
     self.successors = list(args)
     return self
 
-  # def __iter__(self):
-  #   '''Iterate over the successors, skipping FWD nodes.'''
-  #   return (self[i] for i in xrange(len(self.successors)))
-
   @visitation.dispatch.on('i')
   def __getitem__(self, i):
     raise RuntimeError('unhandled type: %s' % type(i).__name__)
@@ -310,7 +306,7 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
 
     ``rec``
         Recurse at most this many times.  Recursing to *every* successor counts
-        as one recursion.  If zero, only the target is head-normalized.  If
+        as one recursion.  If zero, only the root node is head-normalized.  If
         negative, this function does nothing.  Used mainly for testing and
         debugging.
 

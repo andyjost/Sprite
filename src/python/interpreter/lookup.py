@@ -1,4 +1,5 @@
 from . import exceptions
+from . import module as cymodule
 from .. import icurry
 
 def module(interp, name):
@@ -11,17 +12,7 @@ def module(interp, name):
 
 def symbol(interp, name):
   '''Look up a symbol by its fully-qualified name.'''
-  return _symbol(interp.module(name), icurry.IName(name))
-
-def _symbol(module, iname):
-  '''Implementation of symbol lookup.'''
-  symbols = getattr(module, '.symbols')
-  try:
-    return symbols[iname.basename]
-  except KeyError:
-    raise exceptions.SymbolLookupError(
-        'module "%s" has no symbol "%s"' % (iname.module, iname.basename)
-      )
+  return cymodule.symbol(module(interp, name), icurry.IName(name))
 
 def type(interp, name):
   '''Returns the constructor info tables for the named type.'''

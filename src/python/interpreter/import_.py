@@ -2,24 +2,14 @@ from .. import encoding
 from . import function_compiler
 from .. import icurry
 from .. import importer
-from . import lookup
+from . import module
 from . import runtime
 from . import show
 from .. import visitation
 import collections
 import logging
-import types
 
 logger = logging.getLogger(__name__)
-
-class CurryModule(types.ModuleType):
-  def __init__(self, *args, **kwds):
-    super(CurryModule, self).__init__(*args, **kwds)
-    setattr(self, '.symbols', {})
-    setattr(self, '.types', {})
-  def __repr__(self):
-    return "<curry module '%s'>" % self.__name__
-  __str__ = __repr__
 
 # FIXME: ICurry does not tell us which symbols are private.  For now, all
 # symbols are treated as public.
@@ -180,8 +170,7 @@ def import_(
   ):
   if imodule.name not in interp.modules:
     imodule.merge(extern, export)
-    moduleobj = CurryModule(imodule.name)
-    moduleobj.__file__ = imodule.filename
+    moduleobj = module.CurryModule(imodule)
     interp.modules[imodule.name] = moduleobj
     loadSymbols(interp, imodule, moduleobj, extern=extern)
     compileICurry(interp, imodule, moduleobj, extern=extern)
@@ -207,7 +196,7 @@ def compileICurry(interp, imodule, moduleobj, extern=None):
 
 @compileICurry.when(icurry.IFunction)
 def compileICurry(interp, ifun, moduleobj, extern=None):
-  info = lookup._symbol(moduleobj, ifun.ident).info
+  info = module.symbol(moduleobj, ifun.ident).info
   info.step = function_compiler.compile_function(interp, ifun, extern)
 
 def _no_step(*args, **kwds): #pragma: no cover
