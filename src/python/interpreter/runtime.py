@@ -235,6 +235,7 @@ class Evaluator(object):
         else:
           yield expr[()]
 
+
 def get_stepper(interp):
   '''
   Returns a function to apply steps, according to the interp
@@ -251,6 +252,12 @@ def get_stepper(interp):
     def step(target):
       target.info.step(target)
   return step
+
+
+def nextid(interp):
+  '''Generates the next available ID.'''
+  return next(interp._idfactory_)
+
 
 def hnf(interp, expr, targetpath=[], ground=False):
   '''
@@ -278,9 +285,8 @@ def hnf(interp, expr, targetpath=[], ground=False):
     The target node.
   '''
   # In the degenerate case where ``expr`` and ``target`` are the same node,
-  # that node is required to be a function or operation (i.e., the caller needs
-  # to handle special symbols before calling this function).
-  assert not targetpath or expr.info.tag >= T_FUNC
+  # that node is required to be a function or operation.
+  # assert not targetpath or expr.info.tag >= T_FUNC
   target = expr[targetpath]
   while True:
     if not isinstance(target, Node):

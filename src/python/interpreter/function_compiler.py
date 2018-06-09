@@ -192,11 +192,12 @@ class FunctionCompiler(object):
 
   @varscope.when(icurry.IBind)
   def varscope(self, ibind):
-    raise RuntimeError('IBind not handled')
+    pass
 
   @varscope.when(icurry.IFree)
   def varscope(self, ifree):
-    raise RuntimeError('IFree not handled')
+    self.closure['nextid'] = self.interp.nextid
+    return 'Node(%s, nextid())' % self.closure['Prelude._Free']
 
   # VarPath.
   # Add a variable's path to the closure.
@@ -218,7 +219,7 @@ class FunctionCompiler(object):
 
   @setvarpath.when(icurry.IFree)
   def setvarpath(self, vid, ifree):
-    raise RuntimeError('IFree not handled')
+    pass
 
   # Expression.
   @visitation.dispatch.on('expression')

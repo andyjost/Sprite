@@ -227,3 +227,8 @@ class TestPyRuntime(cytest.TestCase):
       , lambda: list(curry.eval(goal))
       )
 
+  def test_free_return(self):
+    interp = interpreter.Interpreter()
+    self.assertEqual(str(interp._idfactory_), 'count(0)')
+    result, = list(interp.eval(interp.symbol('Prelude.unknown')))
+    self.assertEqual(result, runtime.Node(interp.prelude._Free, 0))

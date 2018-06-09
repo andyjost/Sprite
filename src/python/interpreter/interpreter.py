@@ -59,7 +59,7 @@ class Interpreter(object):
   from .eval import eval
   from .import_ import import_
   from .lookup import module, symbol, type
-  from .runtime import nf, hnf
+  from .runtime import nf, hnf, nextid
 
 # Misc.
 # =====
