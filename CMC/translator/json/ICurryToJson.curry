@@ -126,7 +126,7 @@ toScope IBind =
   JO [ xclass "IBind"
      ]
 toScope IFree =
-  JO [ xclass "IBind"
+  JO [ xclass "IFree"
      ]
 
 ------------------------------------------------------------------
