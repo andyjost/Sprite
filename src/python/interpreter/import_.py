@@ -53,29 +53,29 @@ def loadSymbols(interp, idef, moduleobj, extern=None, **kwds): #pragma: no cover
 
 @loadSymbols.when(collections.Sequence, no=(str,icurry.IType))
 def loadSymbols(interp, seq, *args, **kwds):
-  for item in seq:
-    loadSymbols(interp, item, *args, **kwds)
+  return [loadSymbols(interp, item, *args, **kwds) for item in seq]
 
 @loadSymbols.when(icurry.IType)
 def loadSymbols(interp, itype, moduleobj, extern=None):
-  if itype:
-    return loadSymbols(interp, list(itype), moduleobj, extern, itype=itype)
-  elif extern is not None:
-    try:
+  if not itype.constructors:
+    if extern is not None and itype.ident in extern.types:
       itype.constructors = extern.types[itype.ident].constructors
-    except KeyError:
-      pass # fall through to the error
     else:
-      return loadSymbols(interp, itype, moduleobj)
-  raise ValueError(
-      '%s has no constructors and no external definition was found.'
-          % itype.ident
-    )
+      raise ValueError(
+          '%s has no constructors and no external definition was found.'
+              % itype.ident
+        )
+  assert itype.constructors
+  typedef = loadSymbols(interp, list(itype), moduleobj, extern, itype=itype)
+  getattr(moduleobj, '.types')[itype.ident.basename] = typedef
+  return typedef
 
 @loadSymbols.when(collections.Mapping)
 def loadSymbols(interp, mapping, moduleobj, **kwds):
-  for item in mapping.itervalues():
-    loadSymbols(interp, item, moduleobj, **kwds)
+  return {
+      k: loadSymbols(interp, v, moduleobj, **kwds)
+        for k,v in mapping.iteritems()
+    }
 
 @loadSymbols.when(icurry.IModule)
 def loadSymbols(interp, imodule, moduleobj, **kwds):
@@ -83,14 +83,7 @@ def loadSymbols(interp, imodule, moduleobj, **kwds):
     import_(interp, modulename)
   loadSymbols(interp, imodule.types, moduleobj, **kwds)
   loadSymbols(interp, imodule.functions, moduleobj, **kwds)
-  # Stash the type defs in the module; e.g.:
-  #   .types = {'Bool': [<NodeInfo for True>, <NodeInfo for False>]}
-  setattr(moduleobj, '.types'
-    , { typename.basename:
-          [getattr(moduleobj, ctor.ident.basename) for ctor in ctors]
-          for typename,ctors in imodule.types.items()
-        }
-    )
+  return moduleobj
 
 @loadSymbols.when(icurry.IConstructor)
 def loadSymbols(interp, icons, moduleobj, extern=None, itype=None):
@@ -104,9 +97,9 @@ def loadSymbols(interp, icons, moduleobj, extern=None, itype=None):
     , _no_step if not builtin else _unreachable
     , show.Show(interp, getattr(metadata, 'py.format', None))
     )
-  insertSymbol(
-      moduleobj, icons.ident.basename, runtime.NodeInfo(icons, info)
-    )
+  nodeinfo = runtime.NodeInfo(icons, info)
+  insertSymbol(moduleobj, icons.ident.basename, nodeinfo)
+  return nodeinfo
 
 @loadSymbols.when(icurry.IFunction)
 def loadSymbols(interp, ifun, moduleobj, extern=None):
@@ -116,9 +109,9 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
     , ifun.arity, runtime.T_FUNC, None
     , show.Show(interp, getattr(metadata, 'py.format', None))
     )
-  insertSymbol(
-      moduleobj, ifun.ident.basename, runtime.NodeInfo(ifun, info)
-    )
+  nodeinfo = runtime.NodeInfo(ifun, info)
+  insertSymbol(moduleobj, ifun.ident.basename, nodeinfo)
+  return nodeinfo
 
 @visitation.dispatch.on('arg')
 def import_(interp, arg, currypath=None, extern=True, export=(), alias=()):
