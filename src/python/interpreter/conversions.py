@@ -3,7 +3,7 @@ Functions for working with Curry expresions.  Handles conversions between Curry
 and Python.
 '''
 
-from . import analysis
+from .. import inspect
 from . import runtime
 from .. import visitation
 import collections
@@ -144,7 +144,7 @@ def unbox(interp, arg):
   '''Unbox a built-in primitive or IO type.'''
   if interp.flags['debug']:
     assert isinstance(arg, runtime.Node)
-    assert analysis.isa_primitive(interp, arg) or analysis.isa_io(interp, arg)
+    assert inspect.isa_primitive(interp, arg) or inspect.isa_io(interp, arg)
   return arg[0]
 
 def currytype(interp, ty):
@@ -179,11 +179,11 @@ def topython(interp, value, convert_strings=True):
   --------
   The value converted to Python.
   '''
-  if analysis.isa_primitive(interp, value):
+  if inspect.isa_primitive(interp, value):
     return unbox(interp, value)
-  elif analysis.isa_bool(interp, value):
-    return analysis.isa_true(interp, value)
-  elif analysis.isa_list(interp, value):
+  elif inspect.isa_bool(interp, value):
+    return inspect.isa_true(interp, value)
+  elif inspect.isa_list(interp, value):
     l = list(topython(interp, x) for x in _iter_(interp, value))
     # FIXME: need to query the Curry typeinfo.  An empty list of Char should be
     # an empty string, here.  It's less confusing to let empty lists by lists,
@@ -194,14 +194,14 @@ def topython(interp, value, convert_strings=True):
       except TypeError:
         pass
     return l
-  elif analysis.isa_tuple(interp, value):
+  elif inspect.isa_tuple(interp, value):
     return tuple(topython(interp, x) for x in value)
   return value
 
 def _iter_(interp, arg):
   '''Iterate through a Curry list.'''
   Cons = getattr(interp.prelude, ':')
-  while analysis.isa(arg, Cons):
+  while inspect.isa(arg, Cons):
     yield arg[0]
     arg = arg[1]
 

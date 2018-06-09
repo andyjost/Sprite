@@ -70,7 +70,7 @@ for exc_name in os.environ.get('SPRITE_CATCH_ERRORS', '').split(','):
 # ================================================================================
 
 import curry
-from curry.interpreter.analysis import isa as cy_isa
+from curry.inspect import isa as cy_isa
 from curry.interpreter.runtime import Node
 from curry.llvm import isa as llvm_isa
 

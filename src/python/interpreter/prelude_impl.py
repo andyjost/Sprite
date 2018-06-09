@@ -1,7 +1,6 @@
 '''
 Implementation of the Prelude externals.
 '''
-from . import analysis
 from . import conversions
 from . import runtime
 import itertools

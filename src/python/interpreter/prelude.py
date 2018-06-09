@@ -1,7 +1,7 @@
 from .. import icurry
 from . import prelude_impl as impl
 from . import runtime
-import analysis
+from .. import inspect
 import operator as op
 
 def exports():
@@ -20,7 +20,7 @@ def exports():
   yield 'IO'
   for ty in _types_:
     name = ty.ident.basename
-    if analysis.is_tuple_name(name):
+    if inspect.is_tuple_name(name):
       yield name
   # Helper functions.
   yield '_python_generator_'
