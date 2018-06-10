@@ -54,7 +54,9 @@ class TestPyInterp(cytest.TestCase):
       )
 
     # Type lookup.
-    self.assertEqual(interp.type('Prelude.Int'), [interp.symbol('Prelude.Int')])
+    typedef = interp.type('Prelude.Int')
+    self.assertEqual(typedef.constructors , [interp.symbol('Prelude.Int')])
+    self.assertEqual(typedef.ident , 'Prelude.Int')
     self.assertRaisesRegexp(
         ModuleLookupError, r'module "blah" not found'
       , lambda: interp.type('blah.x')

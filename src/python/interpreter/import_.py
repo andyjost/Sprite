@@ -66,7 +66,10 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
               % itype.ident
         )
   assert itype.constructors
-  typedef = loadSymbols(interp, list(itype), moduleobj, extern, itype=itype)
+  typedef = runtime.TypeDefinition(
+      itype.ident
+    , loadSymbols(interp, list(itype), moduleobj, extern, itype=itype)
+    )
   getattr(moduleobj, '.types')[itype.ident.basename] = typedef
   return typedef
 

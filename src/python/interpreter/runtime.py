@@ -1,8 +1,10 @@
+from __future__ import absolute_import
 from .. import icurry
 from .. import visitation
 import collections
 import numbers
 import operator
+import weakref
 
 T_FAIL   = -5
 T_FREE   = -4
@@ -101,6 +103,16 @@ class NodeInfo(object):
     if self.info.tag == T_FREE:
       return "<curry free variable>"
     return "<invalid curry node>"
+
+
+class TypeDefinition(object):
+  def __init__(self, ident, constructors):
+    self.ident = ident
+    self.constructors = constructors
+    for ctor in self.constructors:
+      ctor.typedef = weakref.ref(self)
+  def __repr__(self):
+    return "<curry type %s>" % self.ident
 
 
 class Node(object):
@@ -439,4 +451,30 @@ def pull_tab(interp, source, targetpath):
     , right
     , target=source
     )
+
+
+def _instantiate(interp, ctors, cid=None):
+  N = len(ctors)
+  assert N
+  if N == 1:
+    ctor, = ctors
+    unknown = interp.prelude.unknown
+    return Node(
+        ctor
+      , *[Node(unknown) for _ in xrange(ctor.info.arity)]
+      )   
+  else:
+    middle = -(-N // 2)
+    return Node(
+        interp.prelude._Choice
+      , cid if cid is not None else nextid(interp)
+      , _instantiate(interp, ctors[:middle])
+      , _instantiate(interp, ctors[middle:])
+      )   
+
+def instantiate(interp, freevar, typedef):
+  '''Instantiate a free variable as the given type.'''
+  from .. import inspect
+  cid = inspect.choice_id(interp, freevar)
+  return _instantiate(interp, typedef.constructors, cid=cid)
 

@@ -1,4 +1,5 @@
 import cytest # from ./lib; must be first
+from curry.interpreter import conversions
 from curry import icurry
 from curry import inspect
 from curry import interpreter
@@ -232,3 +233,29 @@ class TestPyRuntime(cytest.TestCase):
     self.assertEqual(str(interp._idfactory_), 'count(0)')
     result, = list(interp.eval(interp.symbol('Prelude.unknown')))
     self.assertEqual(result, runtime.Node(interp.prelude._Free, 0))
+
+  def test_instantiation(self):
+    interp = interpreter.Interpreter()
+    x, = list(interp.eval(interp.compile('x where x free', 'expr')))
+    self.assertTrue(inspect.isa_freevar(interp, x))
+    self.assertEqual(inspect.choice_id(interp, x), 0)
+
+    # List type (Cons has successors).
+    instantiated = runtime.instantiate(interp, x, interp.type('Prelude.[]'))
+    au = curry.expr(
+        interp.prelude._Choice
+      , conversions.unboxed(0)
+      , [interp.prelude.Cons, [interp.prelude.unknown], [interp.prelude.unknown]]
+      , [interp.prelude.Nil]
+      )
+    self.assertEqual(instantiated, au)
+
+    # A type with many constructors (builds a tree).
+    Type = interp.compile('data T = A|B|C|D|E|F|G', modulename='Type')
+    instantiated = runtime.instantiate(interp, x, interp.type('Type.T'))
+    def q(cid, l, r):
+      return [interp.prelude._Choice, conversions.unboxed(cid), l, r]
+    au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
+    self.assertEqual(instantiated, au)
+
+    # TODO: test constructors with multiple successors.

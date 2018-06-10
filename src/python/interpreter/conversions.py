@@ -9,6 +9,11 @@ from .. import visitation
 import collections
 import numbers
 
+class unboxed(object):
+  '''Indicates that a literal passed to expr should remain unboxed.'''
+  def __init__(self, value):
+    self.value = value
+
 @visitation.dispatch.on('arg')
 def expr(interp, arg, *args, **kwds):
   '''
@@ -110,6 +115,12 @@ def expr(interp, arg, target=None):
 @expr.when(numbers.Real)
 def expr(interp, arg, target=None):
   return runtime.Node(interp.prelude.Float, float(arg), target=target)
+
+@expr.when(unboxed)
+def expr(interp, arg, target=None):
+  if target is not None:
+    raise ValueError("cannot rewrite a node with an unboxed value")
+  return arg.value
 
 @expr.when(collections.Iterator)
 def expr(interp, arg, target=None):

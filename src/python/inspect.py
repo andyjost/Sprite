@@ -28,6 +28,10 @@ def _isa(addr, what):
 def _isa(addr, nodeinfo):
   return addr == id(nodeinfo.info)
 
+@_isa.when(runtime.TypeDefinition)
+def _isa(addr, typedef):
+  return _isa(addr, typedef.constructors)
+
 @_isa.when(collections.Sequence, no=str)
 def _isa(addr, seq):
   return any(_isa(addr, ti) for ti in seq)
@@ -39,9 +43,6 @@ def isa_primitive(interp, arg):
 
 def isa_io(interp, arg):
   return isa(arg, interp.prelude.IO)
-
-def isa_freevar(interp, arg):
-  return arg.info.tag == runtime.T_FREE
 
 def isa_bool(interp, arg):
   p = interp.prelude
@@ -65,3 +66,40 @@ _TUPLE_PATTERN = re.compile(r'\(,*\)$')
 def is_tuple_name(name):
   return re.match(_TUPLE_PATTERN, name)
 
+def isa_failure(interp, arg):
+  if not isinstance(arg, runtime.Node):
+    return False
+  return arg[()].info.tag == runtime.T_FAIL
+
+def isa_freevar(interp, arg):
+  if not isinstance(arg, runtime.Node):
+    return False
+  return arg[()].info.tag == runtime.T_FREE
+
+def isa_fwd(interp, arg):
+  if not isinstance(arg, runtime.Node):
+    return False
+  return arg.info.tag == runtime.T_FWD
+
+def isa_choice(interp, arg):
+  if not isinstance(arg, runtime.Node):
+    return False
+  return arg[()].info.tag == runtime.T_CHOICE
+
+def isa_func(interp, arg):
+  if not isinstance(arg, runtime.Node):
+    return False
+  return arg[()].info.tag == runtime.T_FUNC
+
+def isa_ctor(interp, arg):
+  if not isinstance(arg, runtime.Node):
+    return False
+  return arg[()].info.tag >= runtime.T_CTOR
+
+def choice_id(interp, arg):
+  if isinstance(arg, runtime.Node):
+    arg = arg[()]
+    if arg.info.tag in [runtime.T_FREE, runtime.T_CHOICE]:
+      cid = arg[0]
+      assert cid >= 0
+      return cid

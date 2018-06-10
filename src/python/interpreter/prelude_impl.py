@@ -55,7 +55,7 @@ def compare_impl(interp, a, b):
 
 def compare(interp, a, b):
   index = compare_impl(interp, a, b)
-  info = interp.type('Prelude.Ordering')[index+1]
+  info = interp.type('Prelude.Ordering').constructors[index+1]
   yield info
 
 def compose_io(interp, io_a, f):
