@@ -76,7 +76,7 @@ class NodeInfo(object):
   # TODO: add getsource to get the Curry source.  It will require an
   # enhancement to CMC and maybe FlatCurry to generate source range
   # annotations.
-  
+
   def getimpl(self):
     '''Returns the implementation code of the step function, if available.'''
     try:
@@ -424,7 +424,7 @@ class PullTabBuilder(object):
   def getRight(self):
     self.left = False
     return self._a_(self.source, 0)
-  
+
 def pull_tab(interp, source, targetpath):
   '''
   Executes a pull-tab step.
@@ -462,7 +462,7 @@ def _instantiate(interp, ctors, cid=None):
     return Node(
         ctor
       , *[Node(unknown) for _ in xrange(ctor.info.arity)]
-      )   
+      )
   else:
     middle = -(-N // 2)
     return Node(
@@ -470,11 +470,21 @@ def _instantiate(interp, ctors, cid=None):
       , cid if cid is not None else nextid(interp)
       , _instantiate(interp, ctors[:middle])
       , _instantiate(interp, ctors[middle:])
-      )   
+      )
 
 def instantiate(interp, freevar, typedef):
   '''Instantiate a free variable as the given type.'''
   from .. import inspect
-  cid = inspect.choice_id(interp, freevar)
-  return _instantiate(interp, typedef.constructors, cid=cid)
+  freevar = freevar[()]
+  assert freevar.info.tag == T_FREE
+  if inspect.isa(freevar, interp.prelude._Free): # is uninstantiated
+    cid = freevar[0]
+    Node(
+        interp.prelude._FreeInst
+      , cid
+      , _instantiate(interp, typedef.constructors, cid=cid)
+      , target=freevar
+      )
+  assert inspect.isa(freevar, interp.prelude._FreeInst)
+  return freevar[1]
 

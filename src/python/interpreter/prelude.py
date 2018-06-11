@@ -12,6 +12,7 @@ def exports():
   # Special symbols.
   yield '_Failure'
   yield '_Free'
+  yield '_FreeInst'
   yield '_Fwd'
   yield '_Choice'
   yield '_PartApplic'
@@ -36,6 +37,7 @@ def aliases():
 _types_ = [
     icurry.IType('_Failure', [icurry.IConstructor('_Failure', 0, metadata={'py.format':'failure', 'py.tag':runtime.T_FAIL})])
   , icurry.IType('_Free', [icurry.IConstructor('_Free', 1, metadata={'py.format':'freevar({1})', 'py.tag':runtime.T_FREE})])
+  , icurry.IType('_FreeInst', [icurry.IConstructor('_FreeInst', 2, metadata={'py.format':'freevar({1})', 'py.tag':runtime.T_FREE})])
   , icurry.IType('_Fwd', [icurry.IConstructor('_Fwd', 1, metadata={'py.format':'{1}', 'py.tag':runtime.T_FWD})])
   , icurry.IType('_Choice', [icurry.IConstructor('_Choice', 3, metadata={'py.tag':runtime.T_CHOICE})])
   , icurry.IType('_PartApplic', [icurry.IConstructor('_PartApplic', 2, metadata={'py.tag':runtime.T_CTOR})])
