@@ -234,28 +234,57 @@ class TestPyRuntime(cytest.TestCase):
     result, = list(interp.eval(interp.symbol('Prelude.unknown')))
     self.assertEqual(result, runtime.Node(interp.prelude._Free, 0))
 
-  def test_instantiation(self):
-    interp = interpreter.Interpreter()
-    x, = list(interp.eval(interp.compile('x where x free', 'expr')))
-    self.assertTrue(inspect.isa_freevar(interp, x))
-    self.assertEqual(inspect.choice_id(interp, x), 0)
+class TestInstantiation(cytest.TestCase):
+  def setUp(self):
+    super(TestInstantiation, self).setUp()
+    self.interp = interpreter.Interpreter()
+    self.x, = list(self.interp.eval(self.interp.compile('x where x free', 'expr')))
+    self.assertTrue(inspect.isa_freevar(self.interp, self.x))
+    self.assertEqual(inspect.choice_id(self.interp, self.x), 0)
 
-    # List type (Cons has successors).
+  def q(self, cid, l, r):
+    return [self.interp.prelude._Choice, conversions.unboxed(cid), l, r]
+  def u(self):
+    return [self.interp.prelude.unknown]
+
+  def test_basic(self):
+    interp,q,u,x = self.interp, self.q, self.u(), self.x
     instantiated = runtime.instantiate(interp, x, interp.type('Prelude.[]'))
-    au = curry.expr(
-        interp.prelude._Choice
-      , conversions.unboxed(0)
-      , [interp.prelude.Cons, [interp.prelude.unknown], [interp.prelude.unknown]]
-      , [interp.prelude.Nil]
-      )
+    au = curry.expr(*q(0, [interp.prelude.Cons, u, u], [interp.prelude.Nil]))
     self.assertEqual(instantiated, au)
 
-    # A type with many constructors (builds a tree).
+  def test_minDepth7(self):
+    '''Minimal instance depth (7 constructors).'''
+    #             ?0
+    #       ?1          ?4
+    #    ?2    ?3    ?5    G
+    #   A  B  C  D  E  F
+    interp,q,u,x = self.interp, self.q, self.u(), self.x
     Type = interp.compile('data T = A|B|C|D|E|F|G', modulename='Type')
     instantiated = runtime.instantiate(interp, x, interp.type('Type.T'))
-    def q(cid, l, r):
-      return [interp.prelude._Choice, conversions.unboxed(cid), l, r]
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instantiated, au)
 
-    # TODO: test constructors with multiple successors.
+  def test_minDepth6(self):
+    '''Minimal instance depth (6 constructors).'''
+    #         ?0
+    #      ?1     ?3
+    #    ?2  C  ?4  F
+    #   A  B   D  E
+    interp,q,u,x = self.interp, self.q, self.u(), self.x
+    Type = interp.compile('data T = A|B|C|D|E|F', modulename='Type')
+    instantiated = runtime.instantiate(interp, x, interp.type('Type.T'))
+    au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
+    self.assertEqual(instantiated, au)
+
+  def test_complex(self):
+    #        ?0
+    #      ?1   ?3
+    #    ?2  C D  E
+    #   A  B
+    interp,q,u,x = self.interp, self.q, self.u(), self.x
+    Type = interp.compile('data T a = A|B a|C a a|D a a a|E a a a a', modulename='Type')
+    instantiated = runtime.instantiate(interp, x, interp.type('Type.T'))
+    au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
+    self.assertEqual(instantiated, au)
+
