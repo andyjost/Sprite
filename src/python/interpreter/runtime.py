@@ -18,7 +18,9 @@ class E_SYMBOL(BaseException):
   Indicates a symbol requiring exceptional handing (i.e., FAIL or CHOICE) was
   encountered in a needed position.
   '''
-  pass
+
+class E_INCONSISTENT(BaseException):
+  '''Indicates an inconsistency occurred.'''
 
 
 class InfoTable(object):
@@ -217,33 +219,54 @@ class Node(object):
   def Node(self, info, *args):
     Node(info, *args, target=self)
 
+LEFT = 0
+RIGHT = 1
+
 class Evaluator(object):
   '''Evaluates Curry expressions.'''
   def __new__(cls, interp, goal):
     self = object.__new__(cls)
     self.interp = interp
-    self.queue = [goal]
+    self.queue = [Evaluator.Frame(goal)]
     return self
+
+  class Frame(object):
+    def __init__(self, expr, fingerprint=None, binding=None):
+      self.expr = expr
+      self.fingerprint = {} if fingerprint is None else dict(fingerprint)
+      if binding:
+        cid,lr = binding
+        if self.fingerprint.get(cid, lr) != lr:
+          raise E_INCONSISTENT()
+        self.fingerprint[cid] = lr
 
   def eval(self):
     '''Implements the dispatch (D) Fair Scheme procedure.'''
+    Frame = Evaluator.Frame
     while self.queue:
-      expr = self.queue.pop(0)
+      frame = self.queue.pop(0)
+      expr = frame.expr
       tag = expr.info.tag
       if tag == T_CHOICE:
-        # TODO: add consistency checks.
-        self.queue += expr.successors[1:]
+        cid = expr[0]
+        for root,lr in zip(expr.successors[1:], [LEFT,RIGHT]):
+          try:
+            frame_ = Frame(root, frame.fingerprint, (cid,lr))
+          except E_INCONSISTENT:
+            pass
+          else:
+            self.queue.append(frame_)
         continue
       elif tag == T_FAIL:
         continue # discard
       elif tag == T_FWD:
-        expr = expr[()]
-        self.queue.append(expr)
+        frame.expr = expr[()]
+        self.queue.append(frame)
       else:
         try:
           self.interp.nf(expr)
         except E_SYMBOL:
-          self.queue.append(expr)
+          self.queue.append(frame)
         else:
           yield expr[()]
 
@@ -271,7 +294,7 @@ def nextid(interp):
   return next(interp._idfactory_)
 
 
-def hnf(interp, expr, targetpath=[], ground=False):
+def hnf(interp, expr, targetpath=[], ground=None):
   '''
   Head-normalize ``expr`` at ``targetpath``.
 
@@ -285,12 +308,15 @@ def hnf(interp, expr, targetpath=[], ground=False):
 
     ``targetpath``
         A path to the descendant of ``expr`` to normalize.  If empty, ``expr``
-        itself will be normalized.  In that case, its tag must not be T_FAIL or
-        T_CHOICE.
+        itself will be normalized.  In that case, its tag must not be T_FAIL,
+        T_FREE, or T_CHOICE.
 
     ``ground``
         Indicates whether to normalize to grounded head-normal form.  A free
         variable at the head will be instantiated if and only if this is true.
+        This can be None or an instance of TypeDefinition.  If grounding, a
+        free variable occuring at the head will be instantiated to the given
+        type.
 
   Returns:
   --------
@@ -302,7 +328,7 @@ def hnf(interp, expr, targetpath=[], ground=False):
   target = expr[targetpath]
   while True:
     if not isinstance(target, Node):
-      # assert isinstance(target, icurry.BuiltinVariant)
+      # assert isinstance(target, icurry.BuiltinVariant) # or free
       return target
     tag = target.info.tag
     if tag == T_FAIL:
@@ -315,7 +341,7 @@ def hnf(interp, expr, targetpath=[], ground=False):
       raise E_SYMBOL()
     elif tag == T_FREE:
       if ground:
-        raise RuntimeError('free variable instantiation is not implemented')
+        instantiate(interp, target, ground)
       else:
         return target
     elif tag == T_FWD:
@@ -360,7 +386,7 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
     try:
       target = hnf(interp, expr, targetpath, ground=ground)
     except E_SYMBOL:
-      assert expr.info.tag in [T_FAIL, T_CHOICE]
+      assert expr[()].info.tag in [T_FAIL, T_CHOICE]
       raise
     if not isinstance(target, Node):
       assert isinstance(target, icurry.BuiltinVariant)
@@ -453,7 +479,7 @@ def pull_tab(interp, source, targetpath):
     )
 
 
-def _instantiate(interp, ctors, cid=None):
+def _instantiate(interp, ctors, cid=None, target=None):
   N = len(ctors)
   assert N
   if N == 1:
@@ -462,6 +488,7 @@ def _instantiate(interp, ctors, cid=None):
     return Node(
         ctor
       , *[Node(unknown) for _ in xrange(ctor.info.arity)]
+      , target=target
       )
   else:
     middle = -(-N // 2)
@@ -470,21 +497,12 @@ def _instantiate(interp, ctors, cid=None):
       , cid if cid is not None else nextid(interp)
       , _instantiate(interp, ctors[:middle])
       , _instantiate(interp, ctors[middle:])
+      , target=target
       )
 
 def instantiate(interp, freevar, typedef):
   '''Instantiate a free variable as the given type.'''
-  from .. import inspect
-  freevar = freevar[()]
   assert freevar.info.tag == T_FREE
-  if inspect.isa(freevar, interp.prelude._Free): # is uninstantiated
-    cid = freevar[0]
-    Node(
-        interp.prelude._FreeInst
-      , cid
-      , _instantiate(interp, typedef.constructors, cid=cid)
-      , target=freevar
-      )
-  assert inspect.isa(freevar, interp.prelude._FreeInst)
-  return freevar[1]
+  cid = freevar[0]
+  _instantiate(interp, typedef.constructors, cid=cid, target=freevar)
 

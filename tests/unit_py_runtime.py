@@ -228,6 +228,54 @@ class TestPyRuntime(cytest.TestCase):
       , lambda: list(curry.eval(goal))
       )
 
+
+  def test_free_return(self):
+    interp = interpreter.Interpreter()
+    self.assertEqual(str(interp._idfactory_), 'count(0)')
+    result, = list(interp.eval(interp.symbol('Prelude.unknown')))
+    self.assertEqual(result, runtime.Node(interp.prelude._Free, 0))
+
+
+  def test_instantiation(self):
+    goal = curry.compile(
+        '''
+        f [True] = True
+        main | f x = x where x free
+        '''
+      ).main
+    value, = curry.eval(goal)
+    self.assertEqual(str(value), '[True]')
+
+  def test_inspect_module(self):
+    module = curry.compile(
+        '''
+        not True = False
+        not False = True
+        xor False a = a
+        xor True a = not a
+        '''
+      )
+
+    read = inspect.getreadable(module)
+    self.assertTrue(os.path.exists(read))
+    self.assertTrue(read.endswith('.read'))
+    #
+    json = inspect.getjson(module)
+    self.assertTrue(os.path.exists(json))
+    self.assertTrue(json.endswith('.json'))
+    #
+    icur = inspect.geticurry(module)
+    self.assertIsInstance(icur, icurry.IModule)
+
+
+  def test_nd_io(self):
+    goal = curry.compile("putChar ('a' ? 'b')", 'expr')
+    self.assertRaisesRegexp(
+        RuntimeError
+      , r'non-determinism occurred in I/O actions'
+      , lambda: list(curry.eval(goal))
+      )
+
   def test_free_return(self):
     interp = interpreter.Interpreter()
     self.assertEqual(str(interp._idfactory_), 'count(0)')
@@ -249,9 +297,9 @@ class TestInstantiation(cytest.TestCase):
 
   def test_basic(self):
     interp,q,u,x = self.interp, self.q, self.u(), self.x
-    instantiated = runtime.instantiate(interp, x, interp.type('Prelude.[]'))
+    runtime.instantiate(interp, x, interp.type('Prelude.[]'))
     au = curry.expr(*q(0, [interp.prelude.Cons, u, u], [interp.prelude.Nil]))
-    self.assertEqual(instantiated, au)
+    self.assertEqual(x, au)
 
   def test_minDepth7(self):
     '''Minimal instance depth (7 constructors).'''
@@ -261,9 +309,9 @@ class TestInstantiation(cytest.TestCase):
     #   A  B  C  D  E  F
     interp,q,u,x = self.interp, self.q, self.u(), self.x
     Type = interp.compile('data T = A|B|C|D|E|F|G', modulename='Type')
-    instantiated = runtime.instantiate(interp, x, interp.type('Type.T'))
+    runtime.instantiate(interp, x, interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
-    self.assertEqual(instantiated, au)
+    self.assertEqual(x, au)
 
   def test_minDepth6(self):
     '''Minimal instance depth (6 constructors).'''
@@ -273,9 +321,9 @@ class TestInstantiation(cytest.TestCase):
     #   A  B   D  E
     interp,q,u,x = self.interp, self.q, self.u(), self.x
     Type = interp.compile('data T = A|B|C|D|E|F', modulename='Type')
-    instantiated = runtime.instantiate(interp, x, interp.type('Type.T'))
+    runtime.instantiate(interp, x, interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
-    self.assertEqual(instantiated, au)
+    self.assertEqual(x, au)
 
   def test_complex(self):
     #        ?0
@@ -284,7 +332,7 @@ class TestInstantiation(cytest.TestCase):
     #   A  B
     interp,q,u,x = self.interp, self.q, self.u(), self.x
     Type = interp.compile('data T a = A|B a|C a a|D a a a|E a a a a', modulename='Type')
-    instantiated = runtime.instantiate(interp, x, interp.type('Type.T'))
+    runtime.instantiate(interp, x, interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
-    self.assertEqual(instantiated, au)
+    self.assertEqual(x, au)
 

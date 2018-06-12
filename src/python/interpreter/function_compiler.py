@@ -317,7 +317,13 @@ class FunctionCompiler(object):
   def statement(self, atable):
     self.closure['hnf'] = self.interp.hnf
     assert hasattr(atable.expr, 'vid') # the selector is always a variable
-    yield 'selector = hnf(lhs, p_%s).info.tag' % atable.expr.vid
+    if atable.isflex:
+      typename = next(atable.switch.iterkeys())
+      self.closure['switch_type'] = self.interp.symbol(typename).typedef()
+      yield 'selector = hnf(lhs, p_%s, ground=switch_type).info.tag' \
+          % atable.expr.vid
+    else:
+      yield 'selector = hnf(lhs, p_%s).info.tag' % atable.expr.vid
     el = ''
     for iname,stmt in atable.switch.iteritems():
       yield '%sif selector == %s:' % (el, self.nodeinfo(iname).info.tag)
@@ -332,7 +338,13 @@ class FunctionCompiler(object):
     self.closure['hnf'] = self.interp.hnf
     self.closure['unbox'] = self.interp.unbox
     assert hasattr(btable.expr, 'vid') # the selector is always a variable
-    yield 'selector = unbox(hnf(lhs, p_%s))' % btable.expr.vid
+    if btable.isflex:
+      typename = next(btable.switch.iterkeys()).ident
+      self.closure['switch_type'] = self.interp.symbol(typename).typedef()
+      yield 'selector = unbox(hnf(lhs, p_%s, ground=switch_type))' \
+          % btable.expr.vid
+    else:
+      yield 'selector = unbox(hnf(lhs, p_%s))' % btable.expr.vid
     el = ''
     for iname,stmt in btable.switch.iteritems():
       yield '%sif selector == %s:' % (el, icurry.unbox(iname))
