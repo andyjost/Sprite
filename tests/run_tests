@@ -28,17 +28,19 @@ export SPRITE_HOME
 export PYTHONPATH=`pwd`/lib/:$PYTHONPATH
 export CURRYPATH=`pwd`/data/curry:$CURRYPATH
 
+# The unittest module is really weird.  There doesn't
+# seem to be a way to run tests by specifying a list of filenames.  So the arguments
+# to this script must either be empty (run all tests) or the name of a test file (which
+# is then taken as a pattern, meaning just that file will be run).
+if [ -z "$@" ]; then
+  pattern="unit_*.py"
+else
+  pattern="$@"
+fi
+
 case `basename $0` in
   "run_tests")
-    # Run the Python unit tests.  The unittest module is really weird.  There doesn't
-    # seem to be a way to run tests by specifying a list of filenames.  So the arguments
-    # to this script must either be empty (run all tests) or the name of a test file (which
-    # is then taken as a pattern, meaning just that file will be run).
-    if [ -z "$@" ]; then
-      pattern="unit_*.py"
-    else
-      pattern="$@"
-    fi
+    # Run the Python unit tests.
     $python -B -m unittest discover -v `pwd` "$pattern"
     ;;
   "debug_tests")
@@ -48,13 +50,28 @@ case `basename $0` in
     ;;
   "cov_tests")
     # Run the Python unit tests under coverage.py to get line coverage information.
-    if [ ! -e `readlink -f $SPRITE_HOME/bin/coverage` ]; then
-      $(dirname $(readlink $python))/pip install coverage || {
+    if [ ! -e `readlink -f $SPRITE_HOME/.bin/coverage` ]; then
+      1>&2 echo "coverage.py not found.  Installing via pip."
+      pyinstall=$(readlink -f $SPRITE_HOME/.bin/python)
+      if [ -z "$pyinstall" ]; then
+        1>&2 echo "Python installation not found via 'readlink -f $SPRITE_HOME/.bin/python'"
+        exit 1
+      fi
+      install="$(dirname $pyinstall)/pip install coverage"
+      1>&2 echo $install
+      $($install) || {
           1>&2 echo "Failed to pip install coverage.  Please install it manually.";
           exit 1;
         }
     fi
-    $SPRITE_HOME/bin/coverage run -m --source=$SPRITE_HOME unittest discover -v `pwd` "$@" || exit 1
+    if [ -L $SPRITE_HOME/lib/python2.7/curry/__init__.py ]; then
+      # It looks like the SYMLINK_PYTHON install option was used so report on
+      # the source dir.
+      SRC=../src/python
+    else
+      SRC=$SPRITE_HOME/lib
+    fi
+    $SPRITE_HOME/bin/coverage run -m --source=$SRC unittest discover -v `pwd` "$pattern" || exit 1
     $SPRITE_HOME/bin/coverage report
     $SPRITE_HOME/bin/coverage html
     echo "See HTML output at `readlink -f htmlcov/index.html`"
@@ -74,7 +91,7 @@ case `basename $0` in
     #
     # You may also want to replace the valgrind-python.supp file in this
     # directory with the one that came with your version of Python.
-    valgrind --suppressions=valgrind-python.supp $python -B -m unittest discover -v `pwd` "$@"
+    valgrind --suppressions=valgrind-python.supp $python -B -m unittest discover -v `pwd` "$pattern"
     ;;
   "shell")
     # Start a new shell with the  environment used to run Python unit tests.

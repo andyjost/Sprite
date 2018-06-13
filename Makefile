@@ -45,16 +45,18 @@ install: $(ROOT_DIR)/install
 endif
 
 uninstall:
-	rm $(PREFIX)/.bin/coverage
-	rm $(PREFIX)/bin/coverage
-	rm $(PREFIX)/bin/curry2json
-	rm $(PREFIX)/bin/.invoker
-	rm $(PREFIX)/.bin/python
-	rm $(PREFIX)/bin/python
-	rm $(PREFIX)/lib/curry/Prelude.curry
-	rmdir $(PREFIX)/bin
-	rmdir $(PREFIX)/.bin
-	rmdir $(PREFIX)/lib/curry
-	rmdir $(PREFIX)/lib
-	rmdir $(ROOT_DIR)/install
+	-rm $(PREFIX)/.bin/coverage
+	-rm $(PREFIX)/bin/coverage
+	-rm $(PREFIX)/bin/curry2json
+	-rm $(PREFIX)/bin/.invoker
+	-rm $(PREFIX)/.bin/python
+	-rm $(PREFIX)/bin/python
+	-rm $(PREFIX)/lib/curry/Prelude.curry
+	-rm -rf $(PREFIX)/lib/curry/.curry/*
+	-rmdir $(PREFIX)/bin
+	-rmdir $(PREFIX)/.bin
+	-rmdir $(PREFIX)/lib/curry/.curry
+	-rmdir $(PREFIX)/lib/curry
+	-rmdir $(PREFIX)/lib
+	-rmdir $(ROOT_DIR)/install
 endif
