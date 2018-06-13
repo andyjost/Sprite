@@ -51,12 +51,11 @@ uninstall:
 	-rmdir $(PREFIX)/lib/$(PYTHON_VERSION)
 	-rmdir $(PREFIX)/lib
 
+$(PYLIB_INSTALL_DIR)/%.py : %.py
 ifdef SYMLINK_PYTHON
-$(PYLIB_INSTALL_DIR)/%.py : %.py
-	cp $< $@
-else
-$(PYLIB_INSTALL_DIR)/%.py : %.py
 	ln -s $(abspath $<) $@
+else
+	cp $< $@
 endif
 
 $(PYLIB_INSTALL_DIR)/%.so : $(OBJECT_DIR)/%.so
