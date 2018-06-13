@@ -7,11 +7,17 @@ include Make.include
 ifdef PYTHON_EXECUTABLE
 $(PREFIX)/bin:
 	mkdir -p $(PREFIX)/bin
-$(PREFIX)/bin/.python : | $(PREFIX)/bin
+$(PREFIX)/.bin:
+	mkdir -p $(PREFIX)/.bin
+$(PREFIX)/.bin/python : | $(PREFIX)/.bin
 	ln -s $(PYTHON_EXECUTABLE) $@
-$(PREFIX)/bin/python : $(ROOT_DIR)/scripts/python | $(PREFIX)/bin
+$(PREFIX)/bin/.invoker : $(ROOT_DIR)/scripts/invoker | $(PREFIX)/bin
 	cp $< $@
-$(PREFIX)/bin/coverage : | $(PREFIX)/bin
+$(PREFIX)/bin/python : $(PREFIX)/bin
+	ln -s $(PREFIX)/bin/.invoker $@
+$(PREFIX)/bin/coverage : $(PREFIX)/bin
+	ln -s $(PREFIX)/bin/.invoker $@
+$(PREFIX)/.bin/coverage : | $(PREFIX)/.bin
 	ln -s $(PYTHON_COVERAGE_EXECUTABLE) $@
 $(PREFIX)/bin/curry2json : | $(PREFIX)/bin
 	ln -s $(CURRY2JSON) $@
@@ -26,10 +32,12 @@ $(PREFIX)/lib/curry/Prelude.curry : $(ROOT_DIR)/currylib/Prelude.curry | $(PREFI
 $(ROOT_DIR)/install:
 	ln -s $(PREFIX) $@
 
-install: $(PREFIX)/bin/python              \
-         $(PREFIX)/bin/.python             \
+install: $(PREFIX)/.bin/coverage           \
          $(PREFIX)/bin/coverage            \
          $(PREFIX)/bin/curry2json          \
+         $(PREFIX)/bin/.invoker            \
+         $(PREFIX)/.bin/python             \
+	       $(PREFIX)/bin/python              \
          $(PREFIX)/lib/curry/Prelude.curry \
   ####
 ifneq ($(PREFIX),python)
@@ -37,12 +45,16 @@ install: $(ROOT_DIR)/install
 endif
 
 uninstall:
-	rm $(PREFIX)/bin/python
-	rm $(PREFIX)/bin/.python
+	rm $(PREFIX)/.bin/coverage
 	rm $(PREFIX)/bin/coverage
 	rm $(PREFIX)/bin/curry2json
+	rm $(PREFIX)/bin/.invoker
+	rm $(PREFIX)/.bin/python
+	rm $(PREFIX)/bin/python
 	rm $(PREFIX)/lib/curry/Prelude.curry
 	rmdir $(PREFIX)/bin
+	rmdir $(PREFIX)/.bin
 	rmdir $(PREFIX)/lib/curry
-	-rm $(ROOT_DIR)/install
+	rmdir $(PREFIX)/lib
+	rmdir $(ROOT_DIR)/install
 endif

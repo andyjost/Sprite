@@ -48,6 +48,8 @@ uninstall:
 	rm -f $(PYLIB_PY_FILES) $(PYLIB_SO_FILE)
 	rm -f $(PYLIB_PY_FILES:.py=.pyc)
 	rmdir $(shell realpath $(PYLIB_INSTALL_DIR))
+	-rmdir $(PREFIX)/lib/$(PYTHON_VERSION)
+	-rmdir $(PREFIX)/lib
 
 ifdef SYMLINK_PYTHON
 $(PYLIB_INSTALL_DIR)/%.py : %.py
