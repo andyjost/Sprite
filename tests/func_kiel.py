@@ -8,7 +8,8 @@ import os
 
 SOURCE_DIR = 'data/curry/kiel/'
 
-# Failing tests.
+# Failing tests.  To determine the curent set of failures, clear this list and
+# run.
 SKIP = set((
     'Imports', 'ModConc', 'account', 'accountport', 'addnamedserver', 'addserver'
   , 'addtimeoutserver', 'allsols', 'arithseq', 'assembler', 'best', 'calc'
@@ -40,6 +41,7 @@ def noteSkipped(f):
 
 class TestKiel(cytest.TestCase):
   def setUp(self):
+    super(TestKiel, self).setUp()
     curry.path.insert(0, SOURCE_DIR)
 
   @classmethod
