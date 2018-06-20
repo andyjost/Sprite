@@ -1,0 +1,18 @@
+Module:
+-------
+  name: helloFill
+  imports: Prelude
+
+  types:
+  ------
+
+  functions:
+  ----------
+    main:
+      -- [(1,[2]),(2,[])]
+      $2 <- IBind
+      $1 <- IBind
+      $1 = Applic(ident='Prelude.+', args=(Reference(vid=2), Applic(ident='Prelude.Int', args=(1,))))
+      $2 = Applic(ident='Prelude.*', args=(Reference(vid=1), Reference(vid=1)))
+      $1[(Successor(headsymbol='Prelude.+', position=1),)] <- $2
+      return (Prelude.(,) $1 $2)

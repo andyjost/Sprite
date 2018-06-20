@@ -154,7 +154,7 @@ class FunctionCompiler(object):
 
   # Compile top-level ICurry objects.
   @visitation.dispatch.on('iobj')
-  def _compile(self, iobj): #pragma: no cover
+  def _compile(self, iobj):
     assert False
 
   @_compile.when(collections.Sequence, no=str)
@@ -180,7 +180,7 @@ class FunctionCompiler(object):
   # VarScope.
   @visitation.dispatch.on('varscope')
   def varscope(self, varscope):
-    assert False #pragma: no cover
+    assert False
 
   @varscope.when(icurry.ILhs)
   def varscope(self, ilhs):
@@ -203,7 +203,7 @@ class FunctionCompiler(object):
   # Add a variable's path to the closure.
   @visitation.dispatch.on('varscope')
   def setvarpath(self, vid, varscope):
-    assert False #pragma: no cover
+    assert False
 
   @setvarpath.when(icurry.ILhs)
   def setvarpath(self, vid, ilhs):
@@ -223,7 +223,7 @@ class FunctionCompiler(object):
 
   # Expression.
   @visitation.dispatch.on('expression')
-  def expression(self, expression, partial=False): #pragma: no cover
+  def expression(self, expression, partial=False):
     assert False
 
   @expression.when(collections.Sequence, no=str)
@@ -282,9 +282,9 @@ class FunctionCompiler(object):
     try:
       ifun = self.extern.functions[iexternal.ident]
       raise ExternallyDefined(ifun)
-    except KeyError:
-      msg = 'external function %s is not defined' % iexternal.ident
-      logging.warn(msg)
+    except (KeyError, AttributeError):
+      msg = 'external function "%s" is not defined' % iexternal.ident
+      logger.warn(msg)
       stmt = icurry.Return(icurry.Applic('Prelude.prim_error', [msg]))
       return self.statement(stmt)
 

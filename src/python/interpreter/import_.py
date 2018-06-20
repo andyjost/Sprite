@@ -195,8 +195,8 @@ def compileICurry(interp, ifun, moduleobj, extern=None):
   info = module.symbol(moduleobj, ifun.ident).info
   info.step = function_compiler.compile_function(interp, ifun, extern)
 
-def _no_step(*args, **kwds): #pragma: no cover
+def _no_step(*args, **kwds):
   pass
 
-def _unreachable(*args, **kwds): #pragma: no cover
+def _unreachable(*args, **kwds):
   assert False

@@ -1,0 +1,36 @@
+[ 
+  { 
+    "__class__" : "IModule", 
+    "name" : "helloFree", 
+    "imports" : [ 
+      "Prelude"
+    ] , 
+    "types" : [], 
+    "functions" : [ 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "helloFree.main", 
+        "arity" : 0, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "IFree"
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } 
+          } 
+        ] 
+      } 
+    ] 
+  } 
+] 

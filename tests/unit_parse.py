@@ -1,9 +1,8 @@
 import cytest # from ./lib; must be first
-import curry
 from curry import icurry
 from glob import glob
+import curry
 import gzip
-import unittest
 
 GENERATE_GOLDENS = False
 
@@ -28,6 +27,12 @@ class ParseJSON(cytest.TestCase):
         # Check against the golden.
         goldenfile = jsonfile.replace('.json', '.au')
         self.compareCurryOutputToGoldenFile(icur, goldenfile, GENERATE_GOLDENS)
+
+        # Test despace.
+        jsonsmall = icurry.despace(json)
+        self.assertLess(len(jsonsmall), len(json))
+        icur2 = icurry.parse(jsonsmall)[0]
+        self.assertEqual(icur, icur2)
       except:
         print 'Error while processing', jsonfile
         raise

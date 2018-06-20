@@ -249,8 +249,6 @@ class CurryImporter(object):
         moduleobj = self.curry.import_(name)
       except ImportError:
         raise
-      except Exception as e:
-        raise ImportError(str(e))
       this = sys.modules[__name__]
       head = name.split('.')[0]
       assert head

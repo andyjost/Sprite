@@ -4,6 +4,7 @@ from .proptree import proptree
 from .visitation import dispatch
 import json
 import logging
+import re
 import weakref
 
 logger = logging.getLogger(__name__)
@@ -59,12 +60,8 @@ class IName(str):
       return IName(modulename, self.basename)
     else:
       raise ValueError(
-          'expected module name "%s," got "%s"' % (self.module, modulename)
+          'expected module name "%s", got "%s"' % (self.module, modulename)
         )
-
-  @property
-  def parts(self):
-    return self.module, self.basename
 
 
 def _build_symboltable(imodule, data, value_type):
@@ -173,11 +170,11 @@ class IType(_Base, Sequence):
   def __iter__(self):
     return iter(self.constructors)
 
-  def __getitem__(self, i):
-    return self.constructors[i]
-
   def __len__(self):
     return len(self.constructors)
+
+  def __getitem__(self, i):
+    return self.constructors[i]
 
   def __str__(self):
     return '%s = %s' % (self.ident.basename, ' | '.join(map(str, self.constructors)))
@@ -397,7 +394,7 @@ class Fill(_Base):
     assert v2 >= 0
     self.v1 = int(v1)
     self.path = tuple(path)
-    assert all(isinstance(p, VarScope) for p in self.path)
+    assert all(isinstance(p, Successor) for p in self.path)
     self.v2 = int(v2)
   def __str__(self):
     return '%s[%s] <- %s' % (Reference(self.v1), self.path, Reference(self.v2))
@@ -500,15 +497,11 @@ def uni2str(arg):
   '''Convert unicode to str in a nested structure.'''
   return arg
 
-@uni2str.when(str)
-def uni2str(arg):
-  return arg
-
 @uni2str.when(unicode)
 def uni2str(arg):
   return arg.encode('utf-8')
 
-@uni2str.when(Sequence)
+@uni2str.when(Sequence, no=(Successor,))
 def uni2str(arg):
   return type(arg)(uni2str(x) for x in arg)
 
@@ -517,12 +510,8 @@ def uni2str(arg):
   return type(arg)((uni2str(k),uni2str(v)) for k,v in arg.items())
 
 def _object_hook(kwds):
-  try:
-    cls = kwds.pop('__class__')
-  except KeyError:
-    return uni2str(kwds)
-  else:
-    return globals()[cls](**uni2str(kwds))
+  cls = kwds.pop('__class__')
+  return globals()[cls](**uni2str(kwds))
 
 def get_decoder():
   return json.JSONDecoder(object_hook=_object_hook)
@@ -540,7 +529,7 @@ def despace(data):
 def unbox(arg):
   '''Unapplies a built-in-type wrapper.'''
   raise TypeError('expected an Applic')
-  
+
 @unbox.when(Applic)
 def unbox(applic):
   if applic.ident not in ['Prelude.' + s for s in ['Int', 'Float', 'Char']]:

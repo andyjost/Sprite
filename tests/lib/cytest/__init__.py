@@ -138,7 +138,7 @@ def hardreset(f):
 class TestCase(unittest.TestCase):
   '''A base test case class for testing Sprite.'''
   def setUp(self):
-    self._currypath = curry.path
+    self._currypath = list(curry.path)
   def tearDown(self):
     # Soft-reset the curry module after each test to clear loaded modules,
     # restore I/O, and undo path changes.  This is much faster than reloading

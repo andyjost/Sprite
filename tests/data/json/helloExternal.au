@@ -1,0 +1,12 @@
+Module:
+-------
+  name: helloExternal
+  imports: Prelude
+
+  types:
+  ------
+
+  functions:
+  ----------
+    undef:
+      extern(helloExternal.undef)

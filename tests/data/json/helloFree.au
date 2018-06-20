@@ -1,0 +1,13 @@
+Module:
+-------
+  name: helloFree
+  imports: Prelude
+
+  types:
+  ------
+
+  functions:
+  ----------
+    main:
+      $1 <- IFree
+      return $1

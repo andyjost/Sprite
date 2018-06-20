@@ -77,7 +77,7 @@ case `basename $0` in
     else
       SRC=$SPRITE_HOME/lib
     fi
-    $SPRITE_HOME/bin/coverage run -m --source=$SRC unittest discover -v `pwd` "$pattern" || exit 1
+    $SPRITE_HOME/bin/coverage run -m --source=$SRC --omit=$SRC/_tempfile.py unittest discover -v `pwd` "$pattern" || exit 1
     $SPRITE_HOME/bin/coverage report
     $SPRITE_HOME/bin/coverage html
     echo "See HTML output at `readlink -f htmlcov/index.html`"
