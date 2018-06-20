@@ -51,7 +51,7 @@ class ParseJSON(cytest.TestCase):
 
   def testKielExamples(self):
     '''Parse example programs from Kiel.'''
-    for jsonfile in glob('data/json/kiel-*.json*'):
-      icur = icurry.parse(gzip.open(jsonfile, 'rb').read())
+    for jsonfile in glob('data/json/kiel-*.json'):
+      icur = icurry.parse(open(jsonfile, 'rb').read())
       curry.import_(icur)
 

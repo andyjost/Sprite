@@ -1,0 +1,76 @@
+Module:
+-------
+  name: escher_higher
+  imports: Prelude
+
+  types:
+  ------
+    Day = Mon | Tue | Wed | Thu | Fri | Sat | Sun
+
+  functions:
+  ----------
+    map_:
+      $1 <- LHS[1]
+      case $1 of Prelude.(,) -> $2 <- $1[1]
+                                $3 <- $1[2]
+                                return (escher_higher.map__case_#1 $3 $2)
+      return $1
+    map__case_#1:
+      $3 <- LHS[1]
+      $2 <- LHS[2]
+      case $3 of Prelude.[] -> return (Prelude.[])
+                 Prelude.:  -> $4 <- $3[1]
+                               $5 <- $3[2]
+                               return (Prelude.: ((Prelude.apply $2 $4)) ((escher_higher.map_ ((Prelude.(,) $2 $5)))))
+      return $3
+    filter_:
+      $1 <- LHS[1]
+      case $1 of Prelude.(,) -> $2 <- $1[1]
+                                $3 <- $1[2]
+                                return (escher_higher.filter__case_#1 $3 $2)
+      return $1
+    filter__case_#1:
+      $3 <- LHS[1]
+      $2 <- LHS[2]
+      case $3 of Prelude.[] -> return (Prelude.[])
+                 Prelude.:  -> $4 <- $3[1]
+                               $5 <- $3[2]
+                               return (escher_higher.filter__case_#1_case_#1 $2 $4 $5)
+      return $3
+    filter__case_#1_case_#1:
+      $2 <- LHS[1]
+      $4 <- LHS[2]
+      $5 <- LHS[3]
+      return (escher_higher.filter__case_#1_case_#1_case_#1 ((Prelude.apply $2 $4)) $2 $4 $5)
+    filter__case_#1_case_#1_case_#1:
+      $6 <- LHS[1]
+      $2 <- LHS[2]
+      $4 <- LHS[3]
+      $5 <- LHS[4]
+      case $6 of Prelude.True  -> return (Prelude.: $4 ((escher_higher.filter_ ((Prelude.(,) $2 $5)))))
+                 Prelude.False -> return (escher_higher.filter_ ((Prelude.(,) $2 $5)))
+      return $6
+    next:
+      $1 <- LHS[1]
+      case $1 of escher_higher.Wed -> return (escher_higher.Thu)
+                 escher_higher.Mon -> return (escher_higher.Tue)
+                 escher_higher.Fri -> return (escher_higher.Sat)
+                 escher_higher.Sat -> return (escher_higher.Sun)
+                 escher_higher.Thu -> return (escher_higher.Fri)
+                 escher_higher.Sun -> return (escher_higher.Mon)
+                 escher_higher.Tue -> return (escher_higher.Wed)
+      return $1
+    weekday:
+      $1 <- LHS[1]
+      case $1 of escher_higher.Wed -> return (Prelude.True)
+                 escher_higher.Mon -> return (Prelude.True)
+                 escher_higher.Fri -> return (Prelude.True)
+                 escher_higher.Sat -> return (Prelude.False)
+                 escher_higher.Thu -> return (Prelude.True)
+                 escher_higher.Sun -> return (Prelude.False)
+                 escher_higher.Tue -> return (Prelude.True)
+      return $1
+    goal1:
+      return (escher_higher.map_ ((Prelude.(,) ((escher_higher.next)) ((Prelude.: (escher_higher.Mon) ((Prelude.: (escher_higher.Tue) ((Prelude.: (escher_higher.Wed) (Prelude.[]))))))))))
+    goal2:
+      return (escher_higher.filter_ ((Prelude.(,) ((escher_higher.weekday)) ((Prelude.: (escher_higher.Sun) ((Prelude.: (escher_higher.Mon) ((Prelude.: (escher_higher.Wed) (Prelude.[]))))))))))

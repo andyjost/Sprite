@@ -1,0 +1,1407 @@
+[ 
+  { 
+    "__class__" : "IModule", 
+    "name" : "qsortlet", 
+    "imports" : [ 
+      "Prelude"
+    ] , 
+    "types" : [], 
+    "functions" : [ 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.split", 
+        "arity" : 2, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 2, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split", 
+                  2
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 2
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.[]", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.(,)", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "Prelude.[]", 
+                          "args" : []
+                        } , 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "Prelude.[]", 
+                          "args" : []
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "Prelude.:", 
+                [ 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 3, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 2, 
+                        "index" : [ 
+                          "Prelude.:", 
+                          1
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 4, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 2, 
+                        "index" : [ 
+                          "Prelude.:", 
+                          2
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "qsortlet.split_let_#1", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 1
+                        } , 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 3
+                        } , 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 4
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 2
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.split_let_#1", 
+        "arity" : 3, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_let_#1", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 3, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_let_#1", 
+                  2
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 4, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_let_#1", 
+                  3
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Comment", 
+            "text" : "[(5,[]),(6,[]),(7,[])]"
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 5, 
+              "scope" : { 
+                "__class__" : "IBind"
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Assign", 
+            "vid" : 5, 
+            "expr" : { 
+              "__class__" : "Applic", 
+              "ident" : "qsortlet.split", 
+              "args" : [ 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 1
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 4
+                } 
+              ] 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 6, 
+              "scope" : { 
+                "__class__" : "IBind"
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Assign", 
+            "vid" : 6, 
+            "expr" : { 
+              "__class__" : "Applic", 
+              "ident" : "qsortlet.split._#selFP2#l", 
+              "args" : [ 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 5
+                } 
+              ] 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 7, 
+              "scope" : { 
+                "__class__" : "IBind"
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Assign", 
+            "vid" : 7, 
+            "expr" : { 
+              "__class__" : "Applic", 
+              "ident" : "qsortlet.split._#selFP3#r", 
+              "args" : [ 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 5
+                } 
+              ] 
+            } 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Applic", 
+              "ident" : "qsortlet.split_case_#1", 
+              "args" : [ 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 1
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 3
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 6
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 7
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.split_case_#1", 
+        "arity" : 4, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 3, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1", 
+                  2
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 6, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1", 
+                  3
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 7, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1", 
+                  4
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Applic", 
+              "ident" : "qsortlet.split_case_#1_case_#2", 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic", 
+                  "ident" : "Prelude.>=", 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Reference", 
+                      "vid" : 1
+                    } , 
+                    { 
+                      "__class__" : "Reference", 
+                      "vid" : 3
+                    } 
+                  ] 
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 1
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 3
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 6
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 7
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.split_case_#1_case_#2", 
+        "arity" : 5, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 8, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#2", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#2", 
+                  2
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 3, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#2", 
+                  3
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 6, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#2", 
+                  4
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 7, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#2", 
+                  5
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : false, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 8
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.False", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "qsortlet.split_case_#1_case_#1", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 1
+                        } , 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 3
+                        } , 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 6
+                        } , 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 7
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "Prelude.True", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.(,)", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "Prelude.:", 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference", 
+                              "vid" : 3
+                            } , 
+                            { 
+                              "__class__" : "Reference", 
+                              "vid" : 6
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 7
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 8
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.split_case_#1_case_#1", 
+        "arity" : 4, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#1", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 3, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#1", 
+                  2
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 6, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#1", 
+                  3
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 7, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#1", 
+                  4
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Applic", 
+              "ident" : "qsortlet.split_case_#1_case_#1_case_#1", 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic", 
+                  "ident" : "Prelude.<", 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Reference", 
+                      "vid" : 1
+                    } , 
+                    { 
+                      "__class__" : "Reference", 
+                      "vid" : 3
+                    } 
+                  ] 
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 1
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 3
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 6
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 7
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.split_case_#1_case_#1_case_#1", 
+        "arity" : 5, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 8, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#1_case_#1", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#1_case_#1", 
+                  2
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 3, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#1_case_#1", 
+                  3
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 6, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#1_case_#1", 
+                  4
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 7, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split_case_#1_case_#1_case_#1", 
+                  5
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : false, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 8
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.False", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.failed", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "Prelude.True", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.(,)", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 6
+                        } , 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "Prelude.:", 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference", 
+                              "vid" : 3
+                            } , 
+                            { 
+                              "__class__" : "Reference", 
+                              "vid" : 7
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 8
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.split._#selFP2#l", 
+        "arity" : 1, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split._#selFP2#l", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.(,)", 
+                [ 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 2, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          1
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 3, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          2
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Reference", 
+                      "vid" : 2
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.split._#selFP3#r", 
+        "arity" : 1, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.split._#selFP3#r", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.(,)", 
+                [ 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 2, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          1
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 3, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          2
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Reference", 
+                      "vid" : 3
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.qsort", 
+        "arity" : 1, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.qsort", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.[]", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.[]", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "Prelude.:", 
+                [ 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 2, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.:", 
+                          1
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 3, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.:", 
+                          2
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Comment", 
+                    "text" : "[(4,[]),(5,[]),(6,[])]"
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 4, 
+                      "scope" : { 
+                        "__class__" : "IBind"
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Assign", 
+                    "vid" : 4, 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "qsortlet.split", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 2
+                        } , 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 3
+                        } 
+                      ] 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 5, 
+                      "scope" : { 
+                        "__class__" : "IBind"
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Assign", 
+                    "vid" : 5, 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "qsortlet.qsort._#selFP5#l", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 4
+                        } 
+                      ] 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 6, 
+                      "scope" : { 
+                        "__class__" : "IBind"
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Assign", 
+                    "vid" : 6, 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "qsortlet.qsort._#selFP6#r", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 4
+                        } 
+                      ] 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.++", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "qsortlet.qsort", 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference", 
+                              "vid" : 5
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "Prelude.:", 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference", 
+                              "vid" : 2
+                            } , 
+                            { 
+                              "__class__" : "Applic", 
+                              "ident" : "qsortlet.qsort", 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "Reference", 
+                                  "vid" : 6
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.qsort._#selFP5#l", 
+        "arity" : 1, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.qsort._#selFP5#l", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.(,)", 
+                [ 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 2, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          1
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 3, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          2
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Reference", 
+                      "vid" : 2
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.qsort._#selFP6#r", 
+        "arity" : 1, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "qsortlet.qsort._#selFP6#r", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.(,)", 
+                [ 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 2, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          1
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 3, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          2
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Reference", 
+                      "vid" : 3
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "qsortlet.goal", 
+        "arity" : 0, 
+        "code" : [ 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Applic", 
+              "ident" : "qsortlet.qsort", 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic", 
+                  "ident" : "Prelude.:", 
+                  "args" : [ 
+                    8, 
+                    { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.:", 
+                      "args" : [ 
+                        6, 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "Prelude.:", 
+                          "args" : [ 
+                            7, 
+                            { 
+                              "__class__" : "Applic", 
+                              "ident" : "Prelude.:", 
+                              "args" : [ 
+                                5, 
+                                { 
+                                  "__class__" : "Applic", 
+                                  "ident" : "Prelude.:", 
+                                  "args" : [ 
+                                    4, 
+                                    { 
+                                      "__class__" : "Applic", 
+                                      "ident" : "Prelude.:", 
+                                      "args" : [ 
+                                        2, 
+                                        { 
+                                          "__class__" : "Applic", 
+                                          "ident" : "Prelude.:", 
+                                          "args" : [ 
+                                            3, 
+                                            { 
+                                              "__class__" : "Applic", 
+                                              "ident" : "Prelude.:", 
+                                              "args" : [ 
+                                                1, 
+                                                { 
+                                                  "__class__" : "Applic", 
+                                                  "ident" : "Prelude.[]", 
+                                                  "args" : []
+                                                } 
+                                              ] 
+                                            } 
+                                          ] 
+                                        } 
+                                      ] 
+                                    } 
+                                  ] 
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } 
+    ] 
+  } 
+] 

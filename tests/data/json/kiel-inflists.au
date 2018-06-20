@@ -1,0 +1,102 @@
+Module:
+-------
+  name: inflists
+  imports: Prelude
+
+  types:
+  ------
+
+  functions:
+  ----------
+    from:
+      $1 <- LHS[1]
+      return (Prelude.: $1 ((inflists.from ((Prelude.+ $1 1)))))
+    fibs:
+      return (inflists.fibgen 1 1)
+    fibgen:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      return (Prelude.: $1 ((inflists.fibgen $2 ((Prelude.+ $1 $2)))))
+    goal1:
+      return (Prelude.take 10 (inflists.fibs))
+    primes:
+      return (inflists.sieve ((inflists.from 2)))
+    sieve:
+      $1 <- LHS[1]
+      case $1 of Prelude.[] -> return Exempt
+                 Prelude.:  -> $2 <- $1[1]
+                               $3 <- $1[2]
+                               return (Prelude.: $2 ((inflists.sieve ((Prelude.filter (((inflists.sieve._#lambda1 $2))) $3)))))
+      return $1
+    sieve._#lambda1:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      return (Prelude.> ((Prelude.mod $2 $1)) 0)
+    goal2:
+      return (Prelude.take 5 (inflists.primes))
+    ordMerge:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      case $1 of Prelude.[] -> return Exempt
+                 Prelude.:  -> $3 <- $1[1]
+                               $4 <- $1[2]
+                               return (inflists.ordMerge_case_#1 $2 $3 $4)
+      return $1
+    ordMerge_case_#1:
+      $2 <- LHS[1]
+      $3 <- LHS[2]
+      $4 <- LHS[3]
+      case $2 of Prelude.[] -> return Exempt
+                 Prelude.:  -> $5 <- $2[1]
+                               $6 <- $2[2]
+                               return (inflists.ordMerge_case_#1_case_#1 $3 $5 $4 $6)
+      return $2
+    ordMerge_case_#1_case_#1:
+      $3 <- LHS[1]
+      $5 <- LHS[2]
+      $4 <- LHS[3]
+      $6 <- LHS[4]
+      return (inflists.ordMerge_case_#1_case_#1_case_#2 ((Prelude.== $3 $5)) $3 $5 $4 $6)
+    ordMerge_case_#1_case_#1_case_#2:
+      $7 <- LHS[1]
+      $3 <- LHS[2]
+      $5 <- LHS[3]
+      $4 <- LHS[4]
+      $6 <- LHS[5]
+      case $7 of Prelude.True  -> return (Prelude.: $3 ((inflists.ordMerge $4 $6)))
+                 Prelude.False -> return (inflists.ordMerge_case_#1_case_#1_case_#1 $3 $5 $4 $6)
+      return $7
+    ordMerge_case_#1_case_#1_case_#1:
+      $3 <- LHS[1]
+      $5 <- LHS[2]
+      $4 <- LHS[3]
+      $6 <- LHS[4]
+      return (inflists.ordMerge_case_#1_case_#1_case_#1_case_#2 ((Prelude.< $3 $5)) $3 $5 $4 $6)
+    ordMerge_case_#1_case_#1_case_#1_case_#2:
+      $7 <- LHS[1]
+      $3 <- LHS[2]
+      $5 <- LHS[3]
+      $4 <- LHS[4]
+      $6 <- LHS[5]
+      case $7 of Prelude.True  -> return (Prelude.: $3 ((inflists.ordMerge $4 ((Prelude.: $5 $6)))))
+                 Prelude.False -> return (inflists.ordMerge_case_#1_case_#1_case_#1_case_#1 $3 $5 $4 $6)
+      return $7
+    ordMerge_case_#1_case_#1_case_#1_case_#1:
+      $3 <- LHS[1]
+      $5 <- LHS[2]
+      $4 <- LHS[3]
+      $6 <- LHS[4]
+      return (inflists.ordMerge_case_#1_case_#1_case_#1_case_#1_case_#1 ((Prelude.> $3 $5)) $3 $5 $4 $6)
+    ordMerge_case_#1_case_#1_case_#1_case_#1_case_#1:
+      $7 <- LHS[1]
+      $3 <- LHS[2]
+      $5 <- LHS[3]
+      $4 <- LHS[4]
+      $6 <- LHS[5]
+      case $7 of Prelude.True  -> return (Prelude.: $5 ((inflists.ordMerge ((Prelude.: $3 $4)) $6)))
+                 Prelude.False -> return (Prelude.failed)
+      return $7
+    hamming:
+      return (Prelude.: 1 ((inflists.ordMerge ((Prelude.map (((Prelude.flip ((Prelude.*)) 2))) (inflists.hamming))) ((inflists.ordMerge ((Prelude.map (((Prelude.flip ((Prelude.*)) 3))) (inflists.hamming))) ((Prelude.map (((Prelude.flip ((Prelude.*)) 5))) (inflists.hamming))))))))
+    goal3:
+      return (Prelude.take 10 (inflists.hamming))

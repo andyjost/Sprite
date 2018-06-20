@@ -1,0 +1,46 @@
+Module:
+-------
+  name: horseman
+  imports: Prelude
+
+  types:
+  ------
+    Nat = O | S
+
+  functions:
+  ----------
+    int2nat:
+      $1 <- LHS[1]
+      return (horseman.int2nat_case_#1 ((Prelude.<= $1 0)) $1)
+    int2nat_case_#1:
+      $2 <- LHS[1]
+      $1 <- LHS[2]
+      case $2 of Prelude.True  -> return (horseman.O)
+                 Prelude.False -> return (horseman.S ((horseman.int2nat ((Prelude.- $1 1)))))
+      return $2
+    add:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      case $1 of horseman.S -> $3 <- $1[1]
+                               return (horseman.S ((horseman.add $3 $2)))
+                 horseman.O -> return $2
+      return $1
+    horseman:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      $3 <- LHS[3]
+      $4 <- LHS[4]
+      return (Prelude.& ((Prelude.=:= $3 ((horseman.add $1 $2)))) ((Prelude.=:= $4 ((horseman.add ((horseman.add $1 $1)) ((horseman.add ((horseman.add $2 $2)) ((horseman.add $2 $2)))))))))
+    goal1:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      return (horseman.horseman $1 $2 ((horseman.S ((horseman.S ((horseman.S (horseman.O))))))) ((horseman.S ((horseman.S ((horseman.S ((horseman.S ((horseman.S ((horseman.S ((horseman.S ((horseman.S (horseman.O))))))))))))))))))
+    goal2:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      return (horseman.horseman $1 $2 ((horseman.int2nat 8)) ((horseman.int2nat 20)))
+    goal3:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      $3 <- LHS[3]
+      return (horseman.horseman $1 $2 ((horseman.S ((horseman.S (horseman.O))))) $3)

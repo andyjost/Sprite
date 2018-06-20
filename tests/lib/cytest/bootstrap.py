@@ -2,7 +2,6 @@
 Defines in pure ICurry a few simple modules designed for system testing.
 '''
 from curry.icurry import *
-import gzip
 
 # An arbitrary choice id.
 cid = 527
@@ -78,5 +77,5 @@ def getx():
     )
 
 def getexample():
-  return parse(gzip.open('data/json/example.json.gz', 'rb').read())
+  return parse(open('data/json/example.json', 'rb').read())
 

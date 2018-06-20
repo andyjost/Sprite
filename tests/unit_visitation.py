@@ -2,7 +2,6 @@ import cytest # from ./lib; must be first
 from curry import icurry
 from curry.visitation import dispatch
 import collections
-import gzip
 import re
 import unittest
 
@@ -125,7 +124,7 @@ class TestVisitation(unittest.TestCase):
     def count(node):
       tally['statements'] += 1
 
-    json = gzip.open('data/json/example.json.gz', 'rb').read()
+    json = open('data/json/example.json', 'rb').read()
     icur = icurry.parse(json)
     count(icur)
     self.assertEqual(tally, {'modules':1, 'constructors':2, 'functions':4, 'statements':10})

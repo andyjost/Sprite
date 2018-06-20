@@ -1,0 +1,1130 @@
+[ 
+  { 
+    "__class__" : "IModule", 
+    "name" : "escher_higher", 
+    "imports" : [ 
+      "Prelude"
+    ] , 
+    "types" : [ 
+      [ 
+        "escher_higher.Day", 
+        [ 
+          { 
+            "__class__" : "IConstructor", 
+            "ident" : "escher_higher.Mon", 
+            "arity" : 0
+          } , 
+          { 
+            "__class__" : "IConstructor", 
+            "ident" : "escher_higher.Tue", 
+            "arity" : 0
+          } , 
+          { 
+            "__class__" : "IConstructor", 
+            "ident" : "escher_higher.Wed", 
+            "arity" : 0
+          } , 
+          { 
+            "__class__" : "IConstructor", 
+            "ident" : "escher_higher.Thu", 
+            "arity" : 0
+          } , 
+          { 
+            "__class__" : "IConstructor", 
+            "ident" : "escher_higher.Fri", 
+            "arity" : 0
+          } , 
+          { 
+            "__class__" : "IConstructor", 
+            "ident" : "escher_higher.Sat", 
+            "arity" : 0
+          } , 
+          { 
+            "__class__" : "IConstructor", 
+            "ident" : "escher_higher.Sun", 
+            "arity" : 0
+          } 
+        ] 
+      ] 
+    ] , 
+    "functions" : [ 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "escher_higher.map_", 
+        "arity" : 1, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.map_", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.(,)", 
+                [ 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 2, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          1
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 3, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          2
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "escher_higher.map__case_#1", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 3
+                        } , 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 2
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "escher_higher.map__case_#1", 
+        "arity" : 2, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 3, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.map__case_#1", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 2, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.map__case_#1", 
+                  2
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 3
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.[]", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.[]", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "Prelude.:", 
+                [ 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 4, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 3, 
+                        "index" : [ 
+                          "Prelude.:", 
+                          1
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 5, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 3, 
+                        "index" : [ 
+                          "Prelude.:", 
+                          2
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.:", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "Prelude.apply", 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference", 
+                              "vid" : 2
+                            } , 
+                            { 
+                              "__class__" : "Reference", 
+                              "vid" : 4
+                            } 
+                          ] 
+                        } , 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "escher_higher.map_", 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Applic", 
+                              "ident" : "Prelude.(,)", 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "Reference", 
+                                  "vid" : 2
+                                } , 
+                                { 
+                                  "__class__" : "Reference", 
+                                  "vid" : 5
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 3
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "escher_higher.filter_", 
+        "arity" : 1, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.filter_", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.(,)", 
+                [ 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 2, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          1
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 3, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 1, 
+                        "index" : [ 
+                          "Prelude.(,)", 
+                          2
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "escher_higher.filter__case_#1", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 3
+                        } , 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 2
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "escher_higher.filter__case_#1", 
+        "arity" : 2, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 3, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.filter__case_#1", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 2, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.filter__case_#1", 
+                  2
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 3
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.[]", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.[]", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "Prelude.:", 
+                [ 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 4, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 3, 
+                        "index" : [ 
+                          "Prelude.:", 
+                          1
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Declare", 
+                    "var" : { 
+                      "__class__" : "Variable", 
+                      "vid" : 5, 
+                      "scope" : { 
+                        "__class__" : "IVar", 
+                        "vid" : 3, 
+                        "index" : [ 
+                          "Prelude.:", 
+                          2
+                        ] 
+                      } 
+                    } 
+                  } , 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "escher_higher.filter__case_#1_case_#1", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 2
+                        } , 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 4
+                        } , 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 5
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 3
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "escher_higher.filter__case_#1_case_#1", 
+        "arity" : 3, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 2, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.filter__case_#1_case_#1", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 4, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.filter__case_#1_case_#1", 
+                  2
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 5, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.filter__case_#1_case_#1", 
+                  3
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Applic", 
+              "ident" : "escher_higher.filter__case_#1_case_#1_case_#1", 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic", 
+                  "ident" : "Prelude.apply", 
+                  "args" : [ 
+                    { 
+                      "__class__" : "Reference", 
+                      "vid" : 2
+                    } , 
+                    { 
+                      "__class__" : "Reference", 
+                      "vid" : 4
+                    } 
+                  ] 
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 2
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 4
+                } , 
+                { 
+                  "__class__" : "Reference", 
+                  "vid" : 5
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "escher_higher.filter__case_#1_case_#1_case_#1", 
+        "arity" : 4, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 6, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.filter__case_#1_case_#1_case_#1", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 2, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.filter__case_#1_case_#1_case_#1", 
+                  2
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 4, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.filter__case_#1_case_#1_case_#1", 
+                  3
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 5, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.filter__case_#1_case_#1_case_#1", 
+                  4
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : false, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 6
+            } , 
+            "switch" : [ 
+              [ 
+                "Prelude.False", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "escher_higher.filter_", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "Prelude.(,)", 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Reference", 
+                              "vid" : 2
+                            } , 
+                            { 
+                              "__class__" : "Reference", 
+                              "vid" : 5
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "Prelude.True", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.:", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Reference", 
+                          "vid" : 4
+                        } , 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "escher_higher.filter_", 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Applic", 
+                              "ident" : "Prelude.(,)", 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "Reference", 
+                                  "vid" : 2
+                                } , 
+                                { 
+                                  "__class__" : "Reference", 
+                                  "vid" : 5
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 6
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "escher_higher.next", 
+        "arity" : 1, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.next", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } , 
+            "switch" : [ 
+              [ 
+                "escher_higher.Mon", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "escher_higher.Tue", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Tue", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "escher_higher.Wed", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Wed", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "escher_higher.Thu", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Thu", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "escher_higher.Fri", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Fri", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "escher_higher.Sat", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Sat", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "escher_higher.Sun", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Sun", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "escher_higher.Mon", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "escher_higher.weekday", 
+        "arity" : 1, 
+        "code" : [ 
+          { 
+            "__class__" : "Declare", 
+            "var" : { 
+              "__class__" : "Variable", 
+              "vid" : 1, 
+              "scope" : { 
+                "__class__" : "ILhs", 
+                "index" : [ 
+                  "escher_higher.weekday", 
+                  1
+                ] 
+              } 
+            } 
+          } , 
+          { 
+            "__class__" : "ATable", 
+            "counter" : 1, 
+            "isflex" : true, 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } , 
+            "switch" : [ 
+              [ 
+                "escher_higher.Mon", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.True", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Tue", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.True", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Wed", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.True", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Thu", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.True", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Fri", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.True", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Sat", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.False", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] , 
+              [ 
+                "escher_higher.Sun", 
+                [ 
+                  { 
+                    "__class__" : "Return", 
+                    "expr" : { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.False", 
+                      "args" : []
+                    } 
+                  } 
+                ] 
+              ] 
+            ] 
+          } , 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Reference", 
+              "vid" : 1
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "escher_higher.goal1", 
+        "arity" : 0, 
+        "code" : [ 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Applic", 
+              "ident" : "escher_higher.map_", 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic", 
+                  "ident" : "Prelude.(,)", 
+                  "args" : [ 
+                    { 
+                      "__class__" : "PartApplic", 
+                      "missing" : 1, 
+                      "expr" : { 
+                        "__class__" : "Applic", 
+                        "ident" : "escher_higher.next", 
+                        "args" : []
+                      } 
+                    } , 
+                    { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.:", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "escher_higher.Mon", 
+                          "args" : []
+                        } , 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "Prelude.:", 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Applic", 
+                              "ident" : "escher_higher.Tue", 
+                              "args" : []
+                            } , 
+                            { 
+                              "__class__" : "Applic", 
+                              "ident" : "Prelude.:", 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "Applic", 
+                                  "ident" : "escher_higher.Wed", 
+                                  "args" : []
+                                } , 
+                                { 
+                                  "__class__" : "Applic", 
+                                  "ident" : "Prelude.[]", 
+                                  "args" : []
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } , 
+      { 
+        "__class__" : "IFunction", 
+        "ident" : "escher_higher.goal2", 
+        "arity" : 0, 
+        "code" : [ 
+          { 
+            "__class__" : "Return", 
+            "expr" : { 
+              "__class__" : "Applic", 
+              "ident" : "escher_higher.filter_", 
+              "args" : [ 
+                { 
+                  "__class__" : "Applic", 
+                  "ident" : "Prelude.(,)", 
+                  "args" : [ 
+                    { 
+                      "__class__" : "PartApplic", 
+                      "missing" : 1, 
+                      "expr" : { 
+                        "__class__" : "Applic", 
+                        "ident" : "escher_higher.weekday", 
+                        "args" : []
+                      } 
+                    } , 
+                    { 
+                      "__class__" : "Applic", 
+                      "ident" : "Prelude.:", 
+                      "args" : [ 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "escher_higher.Sun", 
+                          "args" : []
+                        } , 
+                        { 
+                          "__class__" : "Applic", 
+                          "ident" : "Prelude.:", 
+                          "args" : [ 
+                            { 
+                              "__class__" : "Applic", 
+                              "ident" : "escher_higher.Mon", 
+                              "args" : []
+                            } , 
+                            { 
+                              "__class__" : "Applic", 
+                              "ident" : "Prelude.:", 
+                              "args" : [ 
+                                { 
+                                  "__class__" : "Applic", 
+                                  "ident" : "escher_higher.Wed", 
+                                  "args" : []
+                                } , 
+                                { 
+                                  "__class__" : "Applic", 
+                                  "ident" : "Prelude.[]", 
+                                  "args" : []
+                                } 
+                              ] 
+                            } 
+                          ] 
+                        } 
+                      ] 
+                    } 
+                  ] 
+                } 
+              ] 
+            } 
+          } 
+        ] 
+      } 
+    ] 
+  } 
+] 

@@ -1,0 +1,59 @@
+Module:
+-------
+  name: family_nd
+  imports: Prelude
+
+  types:
+  ------
+    Person = Christine | Maria | Monica | Alice | Susan | Antony | Bill | John | Frank | Peter | Andrew
+
+  functions:
+  ----------
+    female:
+      return (family_nd.Christine) ? (family_nd.Maria) ? (family_nd.Monica) ? (family_nd.Alice) ? (family_nd.Susan)
+    male:
+      return (family_nd.Antony) ? (family_nd.Bill) ? (family_nd.John) ? (family_nd.Frank) ? (family_nd.Peter) ? (family_nd.Andrew)
+    husband:
+      $1 <- LHS[1]
+      case $1 of family_nd.Christine -> return (family_nd.Antony)
+                 family_nd.John      -> return Exempt
+                 family_nd.Susan     -> return Exempt
+                 family_nd.Peter     -> return Exempt
+                 family_nd.Bill      -> return Exempt
+                 family_nd.Alice     -> return (family_nd.Frank)
+                 family_nd.Maria     -> return (family_nd.Bill)
+                 family_nd.Frank     -> return Exempt
+                 family_nd.Antony    -> return Exempt
+                 family_nd.Andrew    -> return Exempt
+                 family_nd.Monica    -> return (family_nd.John)
+      return $1
+    mother:
+      $1 <- LHS[1]
+      case $1 of family_nd.Christine -> return Exempt
+                 family_nd.John      -> return (family_nd.Christine)
+                 family_nd.Susan     -> return (family_nd.Monica)
+                 family_nd.Peter     -> return (family_nd.Monica)
+                 family_nd.Bill      -> return Exempt
+                 family_nd.Alice     -> return (family_nd.Christine)
+                 family_nd.Maria     -> return Exempt
+                 family_nd.Frank     -> return (family_nd.Maria)
+                 family_nd.Antony    -> return Exempt
+                 family_nd.Andrew    -> return (family_nd.Alice)
+                 family_nd.Monica    -> return Exempt
+      return $1
+    father:
+      $1 <- LHS[1]
+      return (family_nd.husband ((family_nd.mother $1)))
+    grandfather:
+      $1 <- LHS[1]
+      return (family_nd.father ((family_nd.father $1))) ? (family_nd.father ((family_nd.mother $1)))
+    ancestor:
+      $1 <- LHS[1]
+      return (family_nd.father $1) ? (family_nd.mother $1) ? (family_nd.father ((family_nd.ancestor $1))) ? (family_nd.mother ((family_nd.ancestor $1)))
+    goal1:
+      return (family_nd.father (family_nd.John))
+    goal2:
+      $1 <- LHS[1]
+      return (family_nd.grandfather $1)
+    goal3:
+      return (family_nd.ancestor (family_nd.Andrew))

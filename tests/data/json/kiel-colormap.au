@@ -1,0 +1,46 @@
+Module:
+-------
+  name: colormap
+  imports: Prelude
+
+  types:
+  ------
+    Color = Red | Green | Yellow | Blue
+
+  functions:
+  ----------
+    diff:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      return (Prelude.=:= ((Prelude.== $1 $2)) (Prelude.False))
+    isColor:
+      $1 <- LHS[1]
+      case $1 of colormap.Green  -> return (Prelude.success)
+                 colormap.Blue   -> return (Prelude.success)
+                 colormap.Red    -> return (Prelude.success)
+                 colormap.Yellow -> return (Prelude.success)
+      return $1
+    coloring:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      $3 <- LHS[3]
+      $4 <- LHS[4]
+      return (Prelude.& ((colormap.isColor $1)) ((Prelude.& ((colormap.isColor $2)) ((Prelude.& ((colormap.isColor $3)) ((colormap.isColor $4)))))))
+    correct:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      $3 <- LHS[3]
+      $4 <- LHS[4]
+      return (Prelude.& ((colormap.diff $1 $2)) ((Prelude.& ((colormap.diff $1 $3)) ((Prelude.& ((colormap.diff $2 $3)) ((Prelude.& ((colormap.diff $2 $4)) ((colormap.diff $3 $4)))))))))
+    goal1:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      $3 <- LHS[3]
+      $4 <- LHS[4]
+      return (Prelude.& ((colormap.coloring $1 $2 $3 $4)) ((colormap.correct $1 $2 $3 $4)))
+    goal2:
+      $1 <- LHS[1]
+      $2 <- LHS[2]
+      $3 <- LHS[3]
+      $4 <- LHS[4]
+      return (Prelude.& ((colormap.correct $1 $2 $3 $4)) ((colormap.coloring $1 $2 $3 $4)))
