@@ -154,6 +154,11 @@ def curry2json(curryfile, currypath):
   retcode = child.wait()
   if retcode or not os.path.exists(jsonfile):
     raise RuntimeError(errs)
+  with open(jsonfile, 'r+') as json:
+    text = icurry.despace(json.read())
+    json.seek(0)
+    json.truncate()
+    json.write(text)
   return jsonfile
 
 def jsonFilename(curryfile):

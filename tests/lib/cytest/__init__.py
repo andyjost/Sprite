@@ -152,7 +152,7 @@ class TestCase(unittest.TestCase):
         del interp.modules[name]
     interp.path[:] = self._currypath
 
-  def compareCurryOutputToGoldenFile(self, objs, filename, update=False):
+  def compareEqualToFile(self, objs, filename, update=False):
     '''
     Compare an object or objects against a golden file.
 
@@ -165,12 +165,15 @@ class TestCase(unittest.TestCase):
     ``update``
         If true, then just update the golden file.
     '''
-    buf = StringIO()
-    if isinstance(objs, collections.Sequence):
-      for obj in objs: buf.write(str(obj))
+    if isinstance(objs, str):
+      value = objs
     else:
-      buf.write(str(objs))
-    value = buf.getvalue()
+      buf = StringIO()
+      if isinstance(objs, collections.Sequence):
+        for obj in objs: buf.write(str(obj))
+      else:
+        buf.write(str(objs))
+      value = buf.getvalue()
     open_ = gzip.open if filename.endswith('.gz') else open
     if update:
       with open_(filename, 'wb') as au:

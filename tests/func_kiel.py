@@ -81,5 +81,5 @@ class TestKiel(cytest.TestCase):
       sprite_result = cytest.oracle.cyclean(
           '\n'.join(map(str, curry.eval(goal))+[''])
         )
-      self.compareCurryOutputToGoldenFile(sprite_result, goldenfile)
+      self.compareEqualToFile(sprite_result, goldenfile)
     self.assertGreater(num, 0)

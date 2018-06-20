@@ -6,6 +6,8 @@ from curry import importer
 import os
 import shutil
 
+GENERATE_GOLDENS = False
+
 class TestFindCurry(cytest.TestCase):
   def test_findFile(self):
     '''
@@ -118,9 +120,10 @@ class TestFindCurry(cytest.TestCase):
         , os.path.abspath(jsonfile)
         )
       self.assertTrue(os.path.exists(jsonfile))
-      self.assertEqual(
-          open(goldenfile, 'r').read()
-        , open('data/curry/.curry/hello.json', 'r').read()
+      self.compareEqualToFile(
+          open('data/curry/.curry/hello.json').read()
+        , goldenfile
+        , GENERATE_GOLDENS
         )
       rmfiles()
       # Check getICurryForModule.  It just parses the file found by
