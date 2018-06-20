@@ -75,9 +75,10 @@ toStmt (Fill i path j) =
      , ("v2", jint j)
      ]
   where toPath (qname, index) =
-          JO [ ("name", JS (fullname qname))
-	     , ("index", jint index)
-	     ]
+          JO [ xclass "Successor"
+             , ("headsymbol", JS (fullname qname))
+	           , ("position", jint index)
+	           ]
 
 toStmt (Return expr) =
   JO [ xclass "Return"
