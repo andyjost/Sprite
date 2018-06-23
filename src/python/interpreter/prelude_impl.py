@@ -37,15 +37,16 @@ def error(interp, msg):
   raise RuntimeError(msg)
 
 def compare_impl(interp, a, b):
-  a_boxed, b_boxed = (hasattr(x, 'info') for x in [a,b])
-  assert a_boxed == b_boxed # cannot mix boxed and unboxed
-  if not a_boxed:
+  a_isboxed, b_isboxed = (hasattr(x, 'info') for x in [a,b])
+  assert a_isboxed == b_isboxed # cannot mix boxed and unboxed
+  if not a_isboxed:
     return -1 if a < b else 1 if a > b else 0
   a,b = map(interp.hnf, [a,b])
   assert all(isinstance(x, runtime.Node) for x in [a,b])
   assert all(runtime.T_CTOR <= x.info.tag for x in [a,b])
-  if a.info.tag != b.info.tag:
-    return -1 if a_val < b_val else 1
+  a_tag, b_tag = a.info.tag, b.info.tag
+  if a_tag != b_tag:
+    return -1 if a_tag < b_tag else 1
   else:
     for x, y in itertools.izip(a.successors, b.successors):
       z = compare_impl(interp, x, y)

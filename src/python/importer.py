@@ -1,7 +1,8 @@
 from __future__ import absolute_import
+from .binding import binding, del_
+from .exceptions import CompileError
 from . import icurry
 from .visitation import dispatch
-import contextlib
 import inspect
 import logging
 import os
@@ -103,29 +104,6 @@ def curry2jsontool():
   assert os.path.exists(curry2json)
   return curry2json
 
-del_ = object()
-@contextlib.contextmanager
-def binding(mapping, key, value):
-  '''Context manager that binds a value in some mapping.'''
-  prev = mapping.get(key, del_)
-  if value is del_:
-    try:
-      del mapping[key]
-    except KeyError:
-      pass
-  else:
-    mapping[key] = value
-  try:
-    yield
-  finally:
-    if prev is del_:
-      try:
-        del mapping[key]
-      except KeyError:
-        pass
-    else:
-      mapping[key] = prev
-
 def curry2json(curryfile, currypath):
   '''
   Calls curry2json to produce an ICurry-JSON file.
@@ -153,7 +131,7 @@ def curry2json(curryfile, currypath):
   _,errs = child.communicate()
   retcode = child.wait()
   if retcode or not os.path.exists(jsonfile):
-    raise RuntimeError(errs)
+    raise CompileError(errs)
   with open(jsonfile, 'r+') as json:
     text = icurry.despace(json.read())
     json.seek(0)
@@ -176,8 +154,7 @@ def findOrBuildICurryForModule(modulename, currypath):
     return filename
   elif filename.endswith('.curry'):
     return curry2json(filename, currypath)
-  else:
-    raise RuntimeError('Expected a JSON or CURRY file.')
+  assert False
 
 def getICurryFromJson(jsonfile):
   '''
@@ -250,10 +227,7 @@ class CurryImporter(object):
   def load_module(self, fullname):
     if fullname not in sys.modules:
       name = fullname[len('curry.lib.'):]
-      try:
-        moduleobj = self.curry.import_(name)
-      except ImportError:
-        raise
+      moduleobj = self.curry.import_(name)
       this = sys.modules[__name__]
       head = name.split('.')[0]
       assert head
@@ -274,7 +248,7 @@ def getDebugSourceDir():
   if debug_source_dir_init:
     try:
       shutil.rmtree(srcdir)
-    except OSError:
+    except OSError: # pragma: no cover
       pass
     os.mkdir(srcdir)
     debug_source_dir_init = False
@@ -315,7 +289,7 @@ def getImportSpecForExpr(interpreter, modules):
 
 @dispatch.on('module')
 def _updateImports(interpreter, module, stmts, currypath):
-  raise TypeError('Expected a string or module object.')
+  assert False
 
 @_updateImports.when(str)
 def _updateImports(interpreter, modulename, stmts, currypath):

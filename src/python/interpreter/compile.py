@@ -33,7 +33,7 @@ def compile(
   '''
   if mode == 'module':
     if modulename in interp.modules:
-      raise RuntimeError("module %s is already defined" % modulename)
+      raise ValueError('module "%s" is already defined' % modulename)
     icur = importer.str2icurry(string, interp.path, modulename=modulename)
     try:
       module = interp.import_(icur)
@@ -54,7 +54,7 @@ def compile(
     module = interp.import_(icur)
     del interp.modules[icur.name]
     expr = interp.expr(module.expression)
-    interp.step(expr)
+    interp._step(expr)
     return expr
   else:
     raise TypeError('expected mode "module" or "expr"')

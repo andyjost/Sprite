@@ -59,6 +59,12 @@ class PropertyTree(cytest.TestCase):
     self.assertEqual(pt['a'], pt.a)
     self.assertRaisesRegexp(KeyError, "'x'", lambda: pt.a['x'])
 
+    # get.
+    self.assertEqual(pt.get('a.b.a'), 0)
+    self.assertEqual(pt.get('a.b.a', 10), 0)
+    self.assertIs(pt.get('a.FOO'), None)
+    self.assertEqual(pt.get('a.FOO', 10), 10)
+
     # __setitem__.
     pt.a['a'] = 97
     self.assertEqual(pt.a.a, 97)

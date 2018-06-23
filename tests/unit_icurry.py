@@ -1,6 +1,6 @@
 import cytest # from ./lib; must be first
 from curry import icurry
-from curry import importer
+from curry.binding import binding
 from curry.interpreter import function_compiler
 import curry
 import sys
@@ -76,7 +76,7 @@ class ICurryTestCase(cytest.TestCase):
       del sys.modules['curry.lib.helloExternal']
     except KeyError:
       pass
-    with importer.binding(function_compiler.__dict__, 'logger', logger):
+    with binding(function_compiler.__dict__, 'logger', logger):
       from curry.lib import helloExternal
     self.assertTrue(getattr(logger, 'passed', False))
 

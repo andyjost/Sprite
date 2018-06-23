@@ -3,8 +3,10 @@ import cytest # from ./lib; must be first
 import curry
 from curry import icurry
 from curry import importer
+from curry import _tempfile
 import os
 import shutil
+import time
 
 GENERATE_GOLDENS = False
 
@@ -156,4 +158,18 @@ class TestFindCurry(cytest.TestCase):
         ValueError
       , r"cannot alias previously defined name 'head'"
       , lambda: curry.import_('head', alias=[('head', 'foo')])
+      )
+
+  def test_newer(self):
+    with _tempfile.TemporaryDirectory() as tmpdir:
+      a = os.path.join(tmpdir, 'a')
+      b = os.path.join(tmpdir, 'b')
+      open(a, 'w').close()
+      time.sleep(0.01)
+      open(b, 'w').close()
+      self.assertTrue(importer.newer(b, a))
+      self.assertFalse(importer.newer(a, b))
+    #
+    self.assertTrue(
+        importer.newer('data/curry/hello.curry', 'this_file_does_not_exist')
       )

@@ -147,6 +147,7 @@ class TestCase(unittest.TestCase):
     interp.stdin = sys.stdin
     interp.stdout = sys.stdout
     interp.stderr = sys.stderr
+    interp.stepcounter.reset()
     for name in interp.modules.keys():
       if name != 'Prelude':
         del interp.modules[name]

@@ -170,3 +170,29 @@ class TestPyConversions(cytest.TestCase):
     # distinct type.
     self.assertRaises(TypeError, lambda: interp.currytype(tuple))
     self.assertRaises(TypeError, lambda: interp.currytype(np.complex64))
+
+  def testUnboxedExpr(self):
+    self.assertIs(curry.expr(curry.unboxed(0)), 0)
+
+  def testNestedUnboxed(self):
+    t1 = curry.expr((0, 1))
+    t2 = curry.expr((0, curry.unboxed(1)))
+    self.assertNotEqual(t1, t2)
+    self.assertEqual(t1[1].info.name, 'Int')
+    self.assertIs(t2[1], 1)
+
+  def testUnboxedRewriteTarget(self):
+    e = curry.expr('dummy')
+    self.assertRaisesRegexp(
+        ValueError
+      , 'cannot rewrite a node to an unboxed value'
+      , lambda: curry.expr(curry.unboxed(0), target=e)
+      )
+
+  def testForwardExpr(self):
+    a = curry.expr(0)
+    b = curry.expr(1)
+    curry.expr(b, target=a)
+    self.assertEqual(list(curry.eval(a)), [1])
+
+

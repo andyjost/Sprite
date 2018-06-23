@@ -5,6 +5,8 @@ This module wraps an instance of ``curry.interpreter.Interpreter`` and provides
 an API to interact with it.  To reset the interpreter, just reload this module.
 '''
 from . import interpreter
+from .exceptions import *
+from .unboxed import unboxed
 
 _interpreter_ = interpreter.Interpreter(flags={'defaultconverter':'topython'})
 compile = _interpreter_.compile

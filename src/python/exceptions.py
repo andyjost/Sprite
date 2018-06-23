@@ -7,3 +7,6 @@ class SymbolLookupError(AttributeError):
 class TypeLookupError(AttributeError):
   '''Raised when a Curry type is not found.'''
 
+class CompileError(BaseException):
+  '''Raised when an error occurs while compiling Curry code.'''
+

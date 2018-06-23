@@ -106,3 +106,20 @@ class TestLLVMValues(cytest.TestCase):
     self.assertEqual(fp64(1.).type, fp64)
     # Overflow.
     # self.assertEqual(i8(300).type, i8)
+
+  def test_valueOrdering(self):
+    '''Tests the ordering methods for LLMV values.'''
+    i1 = value(1)
+    f1 = value(1.)
+    a,b = sorted([i1,f1])
+    self.assertLess(a, b)
+    self.assertGreater(b, a)
+    self.assertEqual(a, a)
+    self.assertNotEqual(a, b)
+    self.assertLessEqual(a, a)
+    self.assertLessEqual(a, b)
+    self.assertGreaterEqual(a, a)
+    self.assertGreaterEqual(b, a)
+
+  def test_valueBoolCheck(self):
+    self.assertTrue(value(0))

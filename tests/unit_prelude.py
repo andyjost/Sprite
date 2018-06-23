@@ -1,7 +1,9 @@
 import cytest # from ./lib; must be first
-import curry
-from curry.interpreter import runtime
 from cStringIO import StringIO
+from curry.interpreter import runtime
+from import_blocker import ImportBlocker
+import curry
+import sys
 
 class TestPrelude(cytest.TestCase):
   def testBuiltinPreludeTypes(self):
@@ -76,6 +78,7 @@ class TestPrelude(cytest.TestCase):
     self.assertEqual(eval_([sym('/='), 3, 4]).next(), curry.expr(True))
     self.assertEqual(eval_([sym('/='), 3, 3]).next(), curry.expr(False))
     self.assertEqual(eval_([sym('<'), 3, 4]).next(), curry.expr(True))
+    self.assertEqual(eval_([sym('<'), False, True]).next(), curry.expr(True))
     self.assertEqual(eval_([sym('>'), 3, 4]).next(), curry.expr(False))
     self.assertEqual(eval_([sym('<='), 3, 4]).next(), curry.expr(True))
     self.assertEqual(eval_([sym('>='), 3, 4]).next(), curry.expr(False))
@@ -144,4 +147,35 @@ class TestPrelude(cytest.TestCase):
         list(curry.eval(readFile, "data/sample.txt"))
       , ['this is a file\ncontaining sample text\n\n(the end)\n']
       )
+
+  def test_readFile_no_mmap(self):
+    if 'mmap' in sys.modules:
+      del sys.modules['mmap']
+    sys.meta_path.insert(0, ImportBlocker('mmap'))
+    try:
+      self.test_readFile()
+    finally:
+      sys.meta_path[:] = sys.meta_path[1:]
+
+  def test_apply_nf(self):
+    '''Test the $!! operator.'''
+    # Ensure the RHS argument is normalized before the function is applied.
+    interp = curry.getInterpreter()
+    code = interp.compile(
+        '''
+        f 0 = 1
+        goal = id $!! (f 0)
+        step2 = id $!! 1
+        '''
+      )
+    goal = interp.expr(code.goal)
+    step2 = interp.expr(code.step2)
+    interp.step(step2)
+    interp.step(goal, num=2)
+    self.assertEqual(goal, step2)
+
+    # Ensure results are ungrounded.
+    freevar = interp.compile('id $!! x where x free', mode='expr')
+    interp.hnf(freevar)
+    self.assertTrue(curry.inspect.isa_freevar(interp, freevar))
 

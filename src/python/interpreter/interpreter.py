@@ -36,7 +36,7 @@ class Interpreter(object):
     self.modules = {}
     self.flags = {'debug':True, 'defaultconverter':None, 'trace':False}
     envflags = os.environ.get('SPRITE_INTERPRETER_FLAGS')
-    if envflags is not None:
+    if envflags is not None: # pragma: no cover
       self.flags.update({
           k:_flagval(v) for e in envflags.split(',') for k,v in [e.split(':')]
         })
@@ -51,19 +51,20 @@ class Interpreter(object):
         "Prelude", extern=prelude.Prelude, export=prelude.exports()
       , alias=prelude.aliases()
       )
-    self.step = runtime.get_stepper(self)
+    self.stepcounter = runtime.StepCounter()
+    self._step = runtime.get_stepper(self)
 
   # Externally-implemented methods.
   from .compile import compile
-  from .conversions import box, currytype, expr, topython, unbox
+  from .conversions import currytype, expr, topython, unbox
   from .eval import eval
   from .import_ import import_
   from .lookup import module, symbol, type
-  from .runtime import nf, hnf, nextid
+  from .runtime import nf, hnf, nextid, step
 
 # Misc.
 # =====
-def _flagval(v):
+def _flagval(v): # pragma: no cover
   '''Try to interpret the string ``v`` as a flag value.'''
   try:
     return {'True':True, 'False':False}[v]

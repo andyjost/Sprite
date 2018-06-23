@@ -18,7 +18,7 @@ class TestLLVMModule(cytest.TestCase):
     self.assertEqual(list(m.globals), [])
     self.assertRaisesRegexp(KeyError, 'x', lambda: m.globals['x'])
 
-    # Define globals.
+    # Define a few globals.
     m.def_('x', i64)
     m.def_('y', i8, const=True, linkage=STATIC, init=7)
     self.assertRaisesRegexp(
@@ -26,6 +26,8 @@ class TestLLVMModule(cytest.TestCase):
       )
 
     # Check for the globals.
+    self.assertIn("'y': @y = internal constant i8 7", str(m.globals))
+    self.assertIn("'x': @x = external global i64", str(m.globals))
     self.assertEqual(len(m.globals), 2)
     self.assertEqual(sorted(m.globals.keys()), ['x', 'y'])
     self.assertEqual(
@@ -74,6 +76,18 @@ class TestLLVMModule(cytest.TestCase):
     y2 = m.globals['y']
     del m.globals['y']
     str(y2)
+
+  def testSymbolTableComparison(self):
+    m1 = module("foo")
+    m2 = module("bar")
+    #
+    self.assertEqual(m1.globals, m2.globals)
+    #
+    m1.def_('x', i32)
+    self.assertNotEqual(m1.globals, m2.globals)
+    #
+    m2.def_('x', i32) # different variable named 'x'.
+    self.assertNotEqual(m1.globals, m2.globals)
 
 # @mod.function(i64(i64), "n", linkage=EXTERNAL)
 # def fact(n):

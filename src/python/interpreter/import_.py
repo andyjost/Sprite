@@ -62,7 +62,7 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
       itype.constructors = extern.types[itype.ident].constructors
     else:
       raise ValueError(
-          '%s has no constructors and no external definition was found.'
+          '"%s" has no constructors and no external definition was found.'
               % itype.ident
         )
   assert itype.constructors

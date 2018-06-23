@@ -1,9 +1,29 @@
 import cytest # from ./lib; must be first
 from curry import icurry
-from curry.visitation import dispatch
+from curry.visitation import dispatch, instance_checker
+from curry.binding import binding, del_
+from curry import encoding
 import collections
 import re
 import unittest
+
+
+class TestUtility(unittest.TestCase):
+  def testEncode(self):
+    names = [
+        'ni__eq__eq_'
+      , 'ni_Prelude__eq__eq_'
+      , 'ni_Prelude__eq__eq__0'
+      , 'ni_Prelude__eq__eq__1'
+      , 'ni_Prelude__eq__eq__2'
+      , 'ni_Prelude__eq__eq__3'
+      ]
+    for n in range(len(names)):
+      self.assertEqual(
+          encoding.encode(icurry.IName('Prelude.=='), disallow=names[:n])
+        , names[n]
+        )
+
 
 class TestVisitation(unittest.TestCase):
   @classmethod
@@ -129,3 +149,37 @@ class TestVisitation(unittest.TestCase):
     count(icur)
     self.assertEqual(tally, {'modules':1, 'constructors':2, 'functions':4, 'statements':10})
 
+  def testCoverage(self):
+    seq = instance_checker(yes=collections.Sequence, no=str)
+    self.assertIsInstance([], seq)
+    self.assertNotIsInstance('', seq)
+    self.assertIsInstance('', (seq,str))
+    self.assertTrue(issubclass(list, seq))
+    self.assertFalse(issubclass(str, seq))
+    self.assertTrue(issubclass(str, (seq,str)))
+
+
+class TestBinding(unittest.TestCase):
+  def setUp(self):
+    self.mapping = {'a':1, 'b':2}
+
+  def testReplace(self):
+    with binding(self.mapping, 'a', 10):
+      self.assertEqual(self.mapping['a'], 10)
+    self.assertEqual(self.mapping['a'], 1)
+
+  def testCreate(self):
+    with binding(self.mapping, 'x', None):
+      self.assertIs(self.mapping['x'], None)
+    self.assertFalse('x' in self.mapping)
+
+  def testDelete(self):
+    with binding(self.mapping, 'a', del_):
+      self.assertFalse('a' in self.mapping)
+    self.assertTrue('a' in self.mapping)
+    self.assertEqual(self.mapping['a'], 1)
+
+  def testDeleteNonexistent(self):
+    with binding(self.mapping, 'x', del_):
+      self.assertFalse('x' in self.mapping)
+    self.assertFalse('x' in self.mapping)

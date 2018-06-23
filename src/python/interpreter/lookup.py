@@ -1,4 +1,4 @@
-from . import exceptions
+from .. import exceptions
 from . import module as cymodule
 from .. import icurry
 

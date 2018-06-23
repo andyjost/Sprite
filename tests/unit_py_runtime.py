@@ -282,6 +282,42 @@ class TestPyRuntime(cytest.TestCase):
     result, = list(interp.eval(interp.symbol('Prelude.unknown')))
     self.assertEqual(result, runtime.Node(interp.prelude._Free, 0))
 
+  def test_interp_step(self):
+    interp = curry.getInterpreter()
+    code = interp.compile(
+        '''
+        f 1 = 0
+        g 0 = 0
+        goal = f (g (g 0))
+        step2 = f (g 0)
+        step3 = f 0
+        '''
+      )
+    goal = interp.expr(code.goal)
+    step2 = interp.expr(code.step2)
+    interp.step(step2)
+    step3 = interp.expr(code.step3)
+    interp.step(step3)
+    #
+    interp.step(goal, num=2)
+    self.assertEqual(goal, step2)
+    interp.step(goal)
+    self.assertEqual(goal, step3)
+    self.assertEqual(list(interp.eval(goal)), [])
+    self.assertEqual(interp.stepcounter.count, 1)
+
+  def test_getimpl(self):
+    # Positive test.
+    from curry.lib import hello
+    self.assertTrue(hello.main.getimpl().startswith('def step(lhs):'))
+    # Negative test.
+    self.assertRaisesRegexp(
+        ValueError
+      , 'no implementation code available for "Prelude.True"'
+      , lambda: curry.symbol('Prelude.True').getimpl()
+      )
+
+
 class TestInstantiation(cytest.TestCase):
   def setUp(self):
     super(TestInstantiation, self).setUp()

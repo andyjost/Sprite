@@ -1,6 +1,6 @@
 '''Implements CurryModule.'''
 
-from . import exceptions
+from .. import exceptions
 import os
 import types
 

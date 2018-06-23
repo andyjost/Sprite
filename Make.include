@@ -5,7 +5,7 @@ ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 OBJECT_ROOT := $(abspath $(ROOT_DIR)/object-root)
 include $(ROOT_DIR)/Make.config
 ifndef PREFIX
-  PREFIX = $(ROOT_DIR)/install
+  PREFIX = $(abspath $(ROOT_DIR)/install)
 endif
 
 # Derived variables

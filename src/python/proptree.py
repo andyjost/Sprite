@@ -97,8 +97,6 @@ def proptree(flat):
     t = tree
     parts = k.split(DELIMITER)
     for part in parts[:-1]:
-      if DELIMITER in t:
-        return _error(k, part)
       t = t.setdefault(part, {})
     part = parts[-1]
     try:

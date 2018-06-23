@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from ..binding import binding
 from .. import icurry
 from .. import visitation
 import collections
@@ -22,6 +23,8 @@ class E_SYMBOL(BaseException):
 class E_INCONSISTENT(BaseException):
   '''Indicates an inconsistency occurred.'''
 
+class E_STEPLIMIT(BaseException):
+  '''Raised when the step limit is reached.'''
 
 class InfoTable(object):
   '''
@@ -81,11 +84,12 @@ class NodeInfo(object):
 
   def getimpl(self):
     '''Returns the implementation code of the step function, if available.'''
+    step = self.info.step
     try:
-      return getattr(self.info.step, 'source')
+      return getattr(step, 'source')
     except AttributeError:
-      raise AttributeError(
-          'no implementation code available for %s' % self.ident
+      raise ValueError(
+          'no implementation code available for "%s"' % self.ident
         )
 
   def __str__(self):
@@ -271,23 +275,60 @@ class Evaluator(object):
           yield expr[()]
 
 
+class StepCounter(object):
+  '''
+  Counts the number of steps taken.  If a limit is provided, raises E_STEPLIMIT
+  when the limit is reached.
+  '''
+  def __init__(self, limit=None):
+    assert limit > 0 or limit is None
+    self._limit = -1 if limit is None else limit
+    self.reset()
+  @property
+  def count(self):
+    return self._count
+  @property
+  def limit(self):
+    return self._limit
+  def check(self):
+    if self._count == self.limit:
+      raise E_STEPLIMIT()
+    return True
+  def increment(self):
+    self._count += 1
+  def reset(self):
+    self._count = 0
+
+
 def get_stepper(interp):
   '''
   Returns a function to apply steps, according to the interp
   configuration.
   '''
   if interp.flags['trace']:
-    def step(target):
+    def step(target): # pragma: no cover
       print 'S <<<', str(target)
       try:
         target.info.step(target)
+        interp.stepcounter.increment()
       finally:
         print 'S >>>', str(target)
   else:
     def step(target):
       target.info.step(target)
+      interp.stepcounter.increment()
   return step
 
+
+def step(interp, expr, num=1):
+  '''
+  Takes the specified number of steps at the head of the given expression.
+  '''
+  with binding(interp.__dict__, 'stepcounter', StepCounter(limit=num)):
+    try:
+      interp.nf(expr)
+    except (E_SYMBOL, E_STEPLIMIT):
+      pass
 
 def nextid(interp):
   '''Generates the next available ID.'''
@@ -326,8 +367,10 @@ def hnf(interp, expr, targetpath=[], ground=None):
   # that node is required to be a function or operation.
   # assert not targetpath or expr.info.tag >= T_FUNC
   target = expr[targetpath]
-  while True:
+  stepcounter = interp.stepcounter
+  while stepcounter.check():
     if not isinstance(target, Node):
+      # >> FIXME
       # assert isinstance(target, icurry.BuiltinVariant) # or free
       return target
     tag = target.info.tag
@@ -348,7 +391,7 @@ def hnf(interp, expr, targetpath=[], ground=None):
       target = target[()]
     elif tag == T_FUNC:
       try:
-        interp.step(target)
+        interp._step(target)
       except E_SYMBOL:
         pass
     else:

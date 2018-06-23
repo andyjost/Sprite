@@ -6,13 +6,9 @@ and Python.
 from .. import inspect
 from . import runtime
 from .. import visitation
+from ..unboxed import unboxed
 import collections
 import numbers
-
-class unboxed(object):
-  '''Indicates that a literal passed to expr should remain unboxed.'''
-  def __init__(self, value):
-    self.value = value
 
 @visitation.dispatch.on('arg')
 def expr(interp, arg, *args, **kwds):
@@ -30,9 +26,9 @@ def expr(interp, arg, *args, **kwds):
   ``int``
     Converted to ``Prelude.Int``.
   ``iterator``
-    Converted to ``Prelude.[_]`` (list) lazily.
+    Lazily Converted to a list.
   ``list``
-    Converted to ``Prelude.[_]`` (list) eagerly.
+    Eagerly Converted to a list.
   ``str``
     For strings of length one, Prelude.Char.  Otherwise, ``[Prelude.Char]``.
   ``tuple``
@@ -85,20 +81,15 @@ def expr(interp, l, target=None):
     return expr(interp, g(), target=target)
 
 @expr.when(tuple)
-def expr(interp, t, **kwds):
-  n = len(t)
+def expr(interp, args, **kwds):
+  n = len(args)
   if n == 0:
-    typename = '()'
+    typename = 'Prelude.()'
   elif n == 1:
     raise TypeError("Curry has no 1-tuple.")
   else:
-    typename = '(%s)' % (','*(n-1))
-  TupleType = interp.symbol('Prelude.%s' % typename)
-  return expr(
-      interp
-    , [TupleType] + [expr(interp, x) for x in t]
-    , **kwds
-    )
+    typename = 'Prelude.(%s)' % (','*(n-1))
+  return runtime.Node(interp.symbol(typename), *map(interp.expr,args), **kwds)
 
 @expr.when(bool)
 def expr(interp, arg, **kwds):
@@ -119,7 +110,7 @@ def expr(interp, arg, target=None):
 @expr.when(unboxed)
 def expr(interp, arg, target=None):
   if target is not None:
-    raise ValueError("cannot rewrite a node with an unboxed value")
+    raise ValueError("cannot rewrite a node to an unboxed value")
   return arg.value
 
 @expr.when(collections.Iterator)
@@ -141,15 +132,8 @@ def expr(interp, ti, *args, **kwds):
 @expr.when(runtime.Node)
 def expr(interp, node, target=None):
   if target is not None:
-    target.rewrite(interp.prelude._Fwd, node)
+    return runtime.Node(interp.prelude._Fwd, node, target=target)
   return node
-
-def box(interp, arg):
-  '''Box a built-in primitive.'''
-  if interp.flags['debug']:
-    assert isinstance(arg, (str, numbers.Integral, numbers.Real))
-    assert not isinstance(arg, str) or len(arg) == 1 # Char, not [Char].
-  return expr(interp, arg)
 
 def unbox(interp, arg):
   '''Unbox a built-in primitive or IO type.'''

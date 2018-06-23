@@ -3,6 +3,36 @@ import curry
 import unittest
 
 class TestPyCompile(cytest.TestCase):
+  def testIllegalProgram(self):
+    self.assertRaisesRegexp(
+        curry.CompileError
+      , '.x. is undefined'
+      , lambda: curry.compile('f=x')
+      )
+
+  def testIllegalMode(self):
+    self.assertRaisesRegexp(
+        TypeError
+      , 'expected mode "module" or "expr"'
+      , lambda: curry.compile('goal=0', mode='foo')
+      )
+
+  def testModuleRedefined(self):
+    curry.compile('goal=0', modulename='a')
+    self.assertRaisesRegexp(
+        ValueError
+      , 'module "a" is already defined'
+      , lambda: curry.compile('goal=0', modulename='a')
+      )
+
+  def testMissingExternalConstructorDefinition(self):
+    self.assertRaisesRegexp(
+        ValueError
+      , '"_interactive_.A" has no constructors and no external definition '
+        'was found.'
+      , lambda: curry.compile('data A')
+      )
+
   def testCompileStringAsModule(self):
     '''Test dynamic module compilation.'''
     text = '''

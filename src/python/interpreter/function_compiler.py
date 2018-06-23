@@ -161,17 +161,20 @@ class FunctionCompiler(object):
   def _compile(self, seq):
     map(self._compile, seq)
 
-  @_compile.when(icurry.VarScope)
-  def _compile(self, varscope):
-    return self.varscope(varscope)
+  # Note: the cases below are not covered.  Perhaps that cannot occur in
+  # ICurry?  I'll put off removing them until more programs are being tested.
 
-  @_compile.when(icurry.BuiltinVariant)
-  def _compile(self, builtinvariant):
-    self.builtinvariant(builtinvariant)
+  # @_compile.when(icurry.VarScope)
+  # def _compile(self, varscope):
+  #   return self.varscope(varscope)
 
-  @_compile.when(icurry.Expression)
-  def _compile(self, expression):
-    self.expression(expression)
+  # @_compile.when(icurry.BuiltinVariant)
+  # def _compile(self, builtinvariant):
+  #   self.builtinvariant(builtinvariant)
+
+  # @_compile.when(icurry.Expression)
+  # def _compile(self, expression):
+  #   self.expression(expression)
 
   @_compile.when(icurry.Statement)
   def _compile(self, statement):
@@ -269,7 +272,7 @@ class FunctionCompiler(object):
   # Statement.
   @visitation.dispatch.on('statement')
   def statement(self, statement):
-    raise RuntimeError('unhandled Statement: %s' % type(statement))
+    assert False
 
   @statement.when(collections.Sequence, no=str)
   def statement(self, seq):
@@ -306,7 +309,7 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.Fill)
   def statement(self, fill):
-    raise RuntimeError('Fill not handled')
+    assert False
 
   @statement.when(icurry.Return)
   def statement(self, return_):
@@ -344,7 +347,9 @@ class FunctionCompiler(object):
       yield 'selector = unbox(hnf(lhs, p_%s, ground=switch_type))' \
           % btable.expr.vid
     else:
-      yield 'selector = unbox(hnf(lhs, p_%s))' % btable.expr.vid
+      assert False
+      # I have been unable to write a Curry program that exercises this branch.
+      # yield 'selector = unbox(hnf(lhs, p_%s))' % btable.expr.vid
     el = ''
     for iname,stmt in btable.switch.iteritems():
       yield '%sif selector == %s:' % (el, icurry.unbox(iname))
@@ -401,7 +406,7 @@ def indent(arg, level=-1):
   Indents list-formatted Python code into a flat list of strings.  See
   ``render``.
   '''
-  raise RuntimeError('Unhandled argument: %s' % type(arg))
+  assert False
 
 @indent.when(str)
 def indent(line, level=-1):
