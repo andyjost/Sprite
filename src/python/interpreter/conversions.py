@@ -5,8 +5,8 @@ and Python.
 
 from .. import inspect
 from . import runtime
-from .. import visitation
-from ..unboxed import unboxed
+from ..utility import visitation
+from ..utility.unboxed import unboxed
 import collections
 import numbers
 

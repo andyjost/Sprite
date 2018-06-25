@@ -1,8 +1,8 @@
 from __future__ import absolute_import
-from .binding import binding, del_
 from .exceptions import CompileError
 from . import icurry
-from .visitation import dispatch
+from .utility.binding import binding, del_
+from .utility.visitation import dispatch
 import inspect
 import logging
 import os
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 try:
   from tempfile import TemporaryDirectory # Py3
 except ImportError:
-  from ._tempfile import TemporaryDirectory # Py2
+  from .utility._tempfile import TemporaryDirectory # Py2
 
 def newer(a, b):
   '''

@@ -2,9 +2,9 @@
 Inspect live Curry objects.
 '''
 
-from . import visitation
 from .interpreter import runtime
 from .interpreter.module import getreadable, getjson, geticurry
+from .utility import visitation
 import collections
 import re
 

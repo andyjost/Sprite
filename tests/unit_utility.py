@@ -1,8 +1,8 @@
 import cytest # from ./lib; must be first
 from curry import icurry
-from curry.visitation import dispatch, instance_checker
-from curry.binding import binding, del_
-from curry import encoding
+from curry.utility.binding import binding, del_
+from curry.utility import encoding
+from curry.utility.visitation import dispatch, instance_checker
 import collections
 import re
 import unittest

@@ -1,7 +1,7 @@
 from abc import ABCMeta
 from collections import Mapping, namedtuple, OrderedDict, Sequence
-from .proptree import proptree
-from .visitation import dispatch
+from .utility.proptree import proptree
+from .utility.visitation import dispatch
 import json
 import logging
 import re

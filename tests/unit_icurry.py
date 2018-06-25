@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 from curry import icurry
-from curry.binding import binding
 from curry.interpreter import function_compiler
+from curry.utility.binding import binding
 import curry
 import sys
 

@@ -2,7 +2,7 @@
 Utilities for comparing Curry output.
 '''
 from curry import importer
-from curry import visitation
+from curry.utility import visitation
 import collections
 import os
 import subprocess

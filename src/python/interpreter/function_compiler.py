@@ -1,8 +1,8 @@
-from .. import encoding
 from .. import icurry
 from .. import importer
 from . import runtime
-from .. import visitation
+from ..utility import encoding
+from ..utility import visitation
 import collections
 import logging
 

@@ -1,11 +1,11 @@
-from .. import encoding
 from . import function_compiler
 from .. import icurry
 from .. import importer
 from . import module
 from . import runtime
 from . import show
-from .. import visitation
+from ..utility import encoding
+from ..utility import visitation
 import collections
 import logging
 

@@ -6,7 +6,7 @@ from curry import interpreter
 from curry.interpreter import Interpreter
 from curry.interpreter import runtime
 from curry.interpreter.prelude import  Prelude
-from curry.visitation import dispatch
+from curry.utility.visitation import dispatch
 from cytest import bootstrap
 from glob import glob
 import curry

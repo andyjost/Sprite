@@ -1,5 +1,5 @@
 from . import runtime
-from .. import visitation
+from ..utility import visitation
 
 class Show(object):
   '''Implements the built-in show function.'''

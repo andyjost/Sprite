@@ -1,7 +1,7 @@
 '''
 Compares stuctured data recursively and reports on differences.
 '''
-from curry.visitation import dispatch
+from curry.utility.visitation import dispatch
 import collections
 import functools
 

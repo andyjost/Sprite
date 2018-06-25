@@ -1,9 +1,9 @@
 # Encoding: utf-8
 import cytest # from ./lib; must be first
-import curry
 from curry import icurry
 from curry import importer
-from curry import _tempfile
+from curry.utility import _tempfile
+import curry
 import os
 import shutil
 import time

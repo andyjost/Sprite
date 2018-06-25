@@ -1,7 +1,7 @@
 from __future__ import absolute_import
-from ..binding import binding
 from .. import icurry
-from .. import visitation
+from ..utility.binding import binding
+from ..utility import visitation
 import collections
 import numbers
 import operator

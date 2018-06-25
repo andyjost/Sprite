@@ -1,6 +1,6 @@
 import cytest # from ./lib; must be first
-from curry.proptree import proptree
 from collections import OrderedDict
+from curry.utility.proptree import proptree
 
 class PropertyTree(cytest.TestCase):
   def test_proptree(self):

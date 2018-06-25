@@ -1,8 +1,8 @@
 import cytest # from ./lib; must be first
 from cStringIO import StringIO
-from curry.visitation import dispatch
-from cytest.oracle import cyclean
+from curry.utility.visitation import dispatch
 from cytest.dissect import dissect
+from cytest.oracle import cyclean
 import collections
 import sys
 
