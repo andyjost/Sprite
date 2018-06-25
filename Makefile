@@ -13,9 +13,9 @@ $(PREFIX)/.bin/python : | $(PREFIX)/.bin
 	ln -s $(PYTHON_EXECUTABLE) $@
 $(PREFIX)/bin/.invoker : $(ROOT_DIR)/scripts/invoker | $(PREFIX)/bin
 	cp $< $@
-$(PREFIX)/bin/python : $(PREFIX)/bin
+$(PREFIX)/bin/python : | $(PREFIX)/bin
 	ln -s $(PREFIX)/bin/.invoker $@
-$(PREFIX)/bin/coverage : $(PREFIX)/bin
+$(PREFIX)/bin/coverage : | $(PREFIX)/bin
 	ln -s $(PREFIX)/bin/.invoker $@
 $(PREFIX)/.bin/coverage : | $(PREFIX)/.bin
 	ln -s $(PYTHON_COVERAGE_EXECUTABLE) $@
@@ -28,17 +28,22 @@ $(PREFIX)/lib/curry : | $(PREFIX)/lib
 	mkdir -p $(PREFIX)/lib/curry
 $(PREFIX)/lib/curry/Prelude.curry : $(ROOT_DIR)/currylib/Prelude.curry | $(PREFIX)/lib/curry
 	cp $< $@
+$(PREFIX)/lib/curry/.curry/Prelude.json : $(PREFIX)/lib/curry/Prelude.curry \
+                                          $(PREFIX)/bin/python
+	@echo "****** Compiling the Prelude.  This may take a few minutes. ******"
+	$(PREFIX)/bin/python -c 'import curry; curry.compile("goal=True")'
 
 $(ROOT_DIR)/install:
 	ln -s $(PREFIX) $@
 
-install: $(PREFIX)/.bin/coverage           \
-         $(PREFIX)/bin/coverage            \
-         $(PREFIX)/bin/curry2json          \
-         $(PREFIX)/bin/.invoker            \
-         $(PREFIX)/.bin/python             \
-	       $(PREFIX)/bin/python              \
-         $(PREFIX)/lib/curry/Prelude.curry \
+install: $(PREFIX)/.bin/coverage                 \
+         $(PREFIX)/bin/coverage                  \
+         $(PREFIX)/bin/curry2json                \
+         $(PREFIX)/bin/.invoker                  \
+         $(PREFIX)/.bin/python                   \
+	       $(PREFIX)/bin/python                    \
+         $(PREFIX)/lib/curry/Prelude.curry       \
+         $(PREFIX)/lib/curry/.curry/Prelude.json \
   ####
 ifneq ($(PREFIX),python)
 install: $(ROOT_DIR)/install
