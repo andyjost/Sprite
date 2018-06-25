@@ -11,3 +11,4 @@ robots.txt*
 **/.src/**
 **/.curry/**
 **/*.au-gen
+!tests/data/findFile
