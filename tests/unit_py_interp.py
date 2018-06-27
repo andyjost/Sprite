@@ -6,6 +6,7 @@ from curry import interpreter
 from curry.interpreter import Interpreter
 from curry.interpreter import runtime
 from curry.interpreter.prelude import  Prelude
+from curry.utility.unboxed import unboxed
 from curry.utility.visitation import dispatch
 from cytest import bootstrap
 from glob import glob
@@ -143,7 +144,7 @@ class TestPyInterp(cytest.TestCase):
       , [[L.Cons, 0, [L.Cons, 1, L.Nil]], ['[0, 1]']]
       , [[P._Choice, cid, 1, 2], ['1', '2']]
       , [[X.X, [P._Choice, cid, 1, 2]], ['X 1', 'X 2']]
-      , [[X.X, [P._Choice, cid, 1, [X.X, [P._Choice, cid, 2, [P._Choice, cid, 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
+      , [[X.X, [P._Choice, unboxed(0), 1, [X.X, [P._Choice, unboxed(1), 2, [P._Choice, unboxed(2), 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
       , [[P._Failure], []]
       , [[P._Choice, cid, P._Failure, 0], ['0']]
       , [[Z, ZQ], ['N', 'M']]
@@ -152,7 +153,8 @@ class TestPyInterp(cytest.TestCase):
     for expr, expected in TESTS:
       goal = interp.expr(*expr)
       result = map(str, interp.eval(goal))
-      self.assertEqual(set(result), set(expected))
+      with trap():
+        self.assertEqual(set(result), set(expected))
 
   def testEvaluateBuiltins(self):
     interp_debug = Interpreter(flags={'debug':True})

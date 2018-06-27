@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from .. import icurry
 from ..utility.binding import binding
 from ..utility import visitation
+from ..runtime import Fingerprint, LEFT, RIGHT
 import collections
 import numbers
 import operator
@@ -223,9 +224,6 @@ class Node(object):
   def Node(self, info, *args):
     Node(info, *args, target=self)
 
-LEFT = 0
-RIGHT = 1
-
 class Evaluator(object):
   '''Evaluates Curry expressions.'''
   def __new__(cls, interp, goal):
@@ -237,7 +235,8 @@ class Evaluator(object):
   class Frame(object):
     def __init__(self, expr, fingerprint=None, binding=None):
       self.expr = expr
-      self.fingerprint = {} if fingerprint is None else dict(fingerprint)
+      self.fingerprint = Fingerprint() \
+          if fingerprint is None else fingerprint.clone()
       if binding:
         cid,lr = binding
         if self.fingerprint.get(cid, lr) != lr:
@@ -253,6 +252,8 @@ class Evaluator(object):
       tag = expr.info.tag
       if tag == T_CHOICE:
         cid = expr[0]
+        with trap():
+          assert(isinstance(cid, int))
         for root,lr in zip(expr.successors[1:], [LEFT,RIGHT]):
           try:
             frame_ = Frame(root, frame.fingerprint, (cid,lr))

@@ -2,9 +2,11 @@
 Defines in pure ICurry a few simple modules designed for system testing.
 '''
 from curry.icurry import *
+from curry.utility import unboxed
 
 # An arbitrary choice id.
-cid = 527
+_cid = 527
+cid = unboxed.unboxed(_cid)
 
 def getbootstrap():
   return IModule(
@@ -24,7 +26,7 @@ def getbootstrap():
     , functions=[
         IFunction('ZN', 0, [Return(Applic('bootstrap.N'))])
       , IFunction('ZF', 0, [Return(Applic('Prelude._Failure'))])
-      , IFunction('ZQ', 0, [Return(Applic('Prelude._Choice', [cid, Applic('bootstrap.N'), Applic('bootstrap.M')]))])
+      , IFunction('ZQ', 0, [Return(Applic('Prelude._Choice', [_cid, Applic('bootstrap.N'), Applic('bootstrap.M')]))])
       #                                                       ^^^
       #  Not correctly typed, but three arguments are needed here.
       , IFunction('ZW', 0, [Return(Applic('Prelude._Fwd', [Applic('bootstrap.N')]))])
