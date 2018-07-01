@@ -5,6 +5,7 @@ install/**
 *scratch
 .coverage
 *.pyc
+*.o
 tests/htmlcov
 tests/data/Makefile2
 robots.txt*
