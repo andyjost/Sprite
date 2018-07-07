@@ -371,4 +371,3 @@ class TestInstantiation(cytest.TestCase):
     runtime.instantiate(interp, x, interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
     self.assertEqual(x, au)
-

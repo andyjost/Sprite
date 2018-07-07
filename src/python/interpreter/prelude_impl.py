@@ -1,6 +1,7 @@
 '''
 Implementation of the Prelude externals.
 '''
+from ..exceptions import *
 from . import conversions
 from . import runtime
 import itertools
@@ -36,26 +37,26 @@ def error(interp, msg):
   msg = str(conversions.topython(interp, msg))
   raise RuntimeError(msg)
 
-def compare_impl(interp, a, b):
-  a_isboxed, b_isboxed = (hasattr(x, 'info') for x in [a,b])
-  assert a_isboxed == b_isboxed # cannot mix boxed and unboxed
-  if not a_isboxed:
-    return -1 if a < b else 1 if a > b else 0
-  a,b = map(interp.hnf, [a,b])
-  assert all(isinstance(x, runtime.Node) for x in [a,b])
-  assert all(runtime.T_CTOR <= x.info.tag for x in [a,b])
-  a_tag, b_tag = a.info.tag, b.info.tag
-  if a_tag != b_tag:
-    return -1 if a_tag < b_tag else 1
+def compare_impl(interp, lhs, rhs):
+  lhs_isboxed, rhs_isboxed = (hasattr(x, 'info') for x in [lhs,rhs])
+  assert lhs_isboxed == rhs_isboxed # cannot mix boxed and unboxed
+  if not lhs_isboxed:
+    return -1 if lhs < rhs else 1 if lhs > rhs else 0
+  lhs,rhs = map(interp.hnf, [lhs,rhs])
+  assert all(isinstance(x, runtime.Node) for x in [lhs,rhs])
+  assert all(runtime.T_CTOR <= x.info.tag for x in [lhs,rhs])
+  lhs_tag, rhs_tag = lhs.info.tag, rhs.info.tag
+  if lhs_tag != rhs_tag:
+    return -1 if lhs_tag < rhs_tag else 1
   else:
-    for x, y in itertools.izip(a.successors, b.successors):
-      z = compare_impl(interp, x, y)
-      if z:
-        return z
+    for l,r in itertools.izip(lhs.successors, rhs.successors):
+      result = compare_impl(interp, l, r)
+      if result:
+        return result
     return 0
 
-def compare(interp, a, b):
-  index = compare_impl(interp, a, b)
+def compare(interp, lhs, rhs):
+  index = compare_impl(interp, lhs, rhs)
   info = interp.type('Prelude.Ordering').constructors[index+1]
   yield info
 

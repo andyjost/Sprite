@@ -10,3 +10,6 @@ class TypeLookupError(AttributeError):
 class CompileError(BaseException):
   '''Raised when an error occurs while compiling Curry code.'''
 
+class InstantiationError(BaseException):
+  '''Raised when a free variable reduces to an unboxed built-in.'''
+
