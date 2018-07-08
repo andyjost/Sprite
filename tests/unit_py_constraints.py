@@ -92,26 +92,24 @@ class TestConstraintStore(cytest.TestCase):
     e = curry.expr(curry.symbol('Prelude.?'), -10, 10)
     curry.getInterpreter().step(e)
     cid,l,r = e
-    assert cid == 0
+    assert cid == 0 # cytest.TestCase should have reset curry.
     #
     frame = runtime.Frame(e)
     self.checkFingerprint(frame)
     #
-    buf = []
-    frame.split(buf.append)
+    buf = list(frame.fork())
     self.assertTrue(all(x.expr is y for x,y in zip(buf, [l,r])))
     self.checkFingerprint(buf[0], {cid:LEFT})
     self.checkFingerprint(buf[1], {cid:RIGHT})
     #
     lhs,rhs = buf
-    buf = []
     frame = runtime.Frame(e, lhs)
-    frame.split(buf.append)
+    buf = list(frame.fork())
     self.assertIs(buf.pop().expr, l)
     self.assertFalse(buf)
     #
     frame = runtime.Frame(e, rhs)
-    frame.split(buf.append)
+    buf = list(frame.fork())
     self.assertIs(buf.pop().expr, r)
     self.assertFalse(buf)
     #
@@ -120,7 +118,7 @@ class TestConstraintStore(cytest.TestCase):
     cid2,_,_ = e
     self.assertNotEqual(cid, cid2)
     frame = runtime.Frame(e, frame)
-    frame.split(buf.append)
+    buf = list(frame.fork())
     self.assertEqual(len(buf), 2)
     self.checkFingerprint(buf[0], {cid:RIGHT, cid2:LEFT})
     self.checkFingerprint(buf[1], {cid:RIGHT, cid2:RIGHT})

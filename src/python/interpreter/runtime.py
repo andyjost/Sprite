@@ -240,11 +240,10 @@ class Frame(object):
       self.fingerprint = copy(arg.fingerprint)
       self.constraints = copy(arg.constraints)
 
-  def split(self, output):
+  def fork(self):
     '''
-    Split a choice-rooted frame into its left- and right-hand children.  For
-    each consistent child, ``c``, ``output(c)`` is called.  Recycles
-    ``self``.
+    Fork a choice-rooted frame into its left and right children.  Yields each
+    consistent child.  Recycles ``self``.
     '''
     assert self.expr.info.tag == T_CHOICE
     cid,lhs,rhs = self.expr
@@ -252,14 +251,14 @@ class Frame(object):
       lr = self.fingerprint[cid]
       assert lr in [LEFT,RIGHT]
       self.expr = lhs if lr==LEFT else rhs
-      output(self)
+      yield self
     else: # Undecided, so two children.
       lchild = Frame(lhs, self)
       lchild.fingerprint.set_left(cid)
-      output(lchild)
+      yield lchild
       self.expr = rhs
       self.fingerprint.set_right(cid)
-      output(self)
+      yield self
 
 
 class Evaluator(object):
@@ -277,7 +276,7 @@ class Evaluator(object):
       expr = frame.expr
       tag = expr.info.tag
       if tag == T_CHOICE:
-        frame.split(self.queue.append)
+        self.queue.extend(frame.fork())
       elif tag == T_FAIL:
         continue # discard
       elif tag == T_FWD:
