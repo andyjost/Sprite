@@ -30,10 +30,6 @@ class Interpreter(object):
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
-    self.stdin = sys.stdin
-    self.stdout = sys.stdout
-    self.stderr = sys.stderr
-    self.modules = {}
     self.flags = {'debug':True, 'defaultconverter':None, 'trace':False}
     envflags = os.environ.get('SPRITE_INTERPRETER_FLAGS')
     if envflags is not None: # pragma: no cover
@@ -41,9 +37,11 @@ class Interpreter(object):
           k:_flagval(v) for e in envflags.split(',') for k,v in [e.split(':')]
         })
     self.flags.update(flags)
-    self.path = filter(lambda x:x, os.environ.get('CURRYPATH', '').split(':'))
-    setattr(self, '.cache', {})
-    self._idfactory_ = itertools.count()
+    self._step = runtime.get_stepper(self)
+    self.stepcounter = runtime.StepCounter()
+    self.modules = {}
+    self.path = []
+    self.reset() # set remaining attributes.
     return self
 
   def __init__(self, flags={}):
@@ -51,8 +49,24 @@ class Interpreter(object):
         "Prelude", extern=prelude.Prelude, export=prelude.exports()
       , alias=prelude.aliases()
       )
-    self.stepcounter = runtime.StepCounter()
-    self._step = runtime.get_stepper(self)
+
+  def reset(self):
+    '''
+    Soft-resets the interpreter.
+
+    Clears loaded modules (except for the Prelude), restores I/O streams to
+    their defaults, resets ``path`` from the environment, and clears internal
+    counters.  This is much faster than reloading the Prelude.
+    '''
+    self.stdin = sys.stdin
+    self.stdout = sys.stdout
+    self.stderr = sys.stderr
+    self._idfactory_ = itertools.count()
+    self.stepcounter.reset()
+    for name in self.modules.keys():
+      if name != 'Prelude':
+        del self.modules[name]
+    self.path[:] = filter(lambda x:x, os.environ.get('CURRYPATH', '').split(':'))
 
   # Externally-implemented methods.
   from .compile import compile

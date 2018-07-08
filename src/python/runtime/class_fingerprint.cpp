@@ -53,7 +53,7 @@ namespace sprite { namespace python
 
     class_<Fingerprint>("Fingerprint", init<>())
       .def(init<Fingerprint const &>())
-      .def("clone", +[](Fingerprint const & self)->Fingerprint{return self;})
+      .def("__copy__", +[](Fingerprint const & self)->Fingerprint{return self;})
       .def("get", +[](Fingerprint & self, size_t id, ChoiceState default_)
           -> ChoiceState
           {
@@ -64,6 +64,9 @@ namespace sprite { namespace python
         )
       .def("set_left", &Fingerprint::set_left)
       .def("set_right", &Fingerprint::set_right)
+      .def("__contains__", +[](Fingerprint const & self, size_t id) -> bool
+          { return self.test(id) != ChoiceState::UNDETERMINED; }
+        )
       .def("__setitem__", &Fingerprint__setitem__)
       .def("__getitem__", &Fingerprint::test)
       .def_readonly("capacity", &Fingerprint::capacity)

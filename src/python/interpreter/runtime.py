@@ -1,10 +1,10 @@
 from __future__ import absolute_import
+from copy import copy
 from .. import icurry
+from ..runtime import Fingerprint, LEFT, RIGHT
 from ..utility.binding import binding
 from ..utility import visitation
-from ..runtime import Fingerprint, LEFT, RIGHT
 import collections
-import copy
 import numbers
 import operator
 import sys
@@ -22,9 +22,6 @@ class E_SYMBOL(BaseException):
   Indicates a symbol requiring exceptional handing (i.e., FAIL or CHOICE) was
   encountered in a needed position.
   '''
-
-class E_INCONSISTENT(BaseException):
-  '''Indicates an inconsistency occurred.'''
 
 class E_STEPLIMIT(BaseException):
   '''Raised when the step limit is reached.'''
@@ -226,44 +223,61 @@ class Node(object):
   def Node(self, info, *args):
     Node(info, *args, target=self)
 
+
+class Frame(object):
+  '''
+  A computation frame.
+
+  One element of the work queue managed by an ``Evaluator``.  Represents an
+  expression "activated" for evaluation.
+  '''
+  def __init__(self, expr, arg=None):
+    self.expr = expr
+    if arg is None:
+      self.fingerprint = Fingerprint()
+      self.constraints = Constraints()
+    else:
+      self.fingerprint = copy(arg.fingerprint)
+      self.constraints = copy(arg.constraints)
+
+  def split(self, output):
+    '''
+    Split a choice-rooted frame into its left- and right-hand children.  For
+    each consistent child, ``c``, ``output(c)`` is called.  Recycles
+    ``self``.
+    '''
+    assert self.expr.info.tag == T_CHOICE
+    cid,lhs,rhs = self.expr
+    if cid in self.fingerprint: # Decided, so one child.
+      lr = self.fingerprint[cid]
+      assert lr in [LEFT,RIGHT]
+      self.expr = lhs if lr==LEFT else rhs
+      output(self)
+    else: # Undecided, so two children.
+      lchild = Frame(lhs, self)
+      lchild.fingerprint.set_left(cid)
+      output(lchild)
+      self.expr = rhs
+      self.fingerprint.set_right(cid)
+      output(self)
+
+
 class Evaluator(object):
   '''Evaluates Curry expressions.'''
   def __new__(cls, interp, goal):
     self = object.__new__(cls)
     self.interp = interp
-    self.queue = [Evaluator.Frame(goal)]
+    self.queue = [Frame(goal)]
     return self
-
-  class Frame(object):
-    def __init__(self, expr, fingerprint=None, binding=None):
-      self.expr = expr
-      self.fingerprint = Fingerprint() \
-          if fingerprint is None else fingerprint.clone()
-      if binding:
-        cid,lr = binding
-        if self.fingerprint.get(cid, lr) != lr:
-          raise E_INCONSISTENT()
-        self.fingerprint[cid] = lr
 
   def eval(self):
     '''Implements the dispatch (D) Fair Scheme procedure.'''
-    Frame = Evaluator.Frame
     while self.queue:
       frame = self.queue.pop(0)
       expr = frame.expr
       tag = expr.info.tag
       if tag == T_CHOICE:
-        cid = expr[0]
-        with trap():
-          assert(isinstance(cid, int))
-        for root,lr in zip(expr.successors[1:], [LEFT,RIGHT]):
-          try:
-            frame_ = Frame(root, frame.fingerprint, (cid,lr))
-          except E_INCONSISTENT:
-            pass
-          else:
-            self.queue.append(frame_)
-        continue
+        frame.split(self.queue.append)
       elif tag == T_FAIL:
         continue # discard
       elif tag == T_FWD:
@@ -333,6 +347,7 @@ def step(interp, expr, num=1):
     except (E_SYMBOL, E_STEPLIMIT):
       pass
 
+
 def nextid(interp):
   '''Generates the next available ID.'''
   return next(interp._idfactory_)
@@ -400,6 +415,7 @@ def hnf(interp, expr, targetpath=[], ground=None):
     else:
       return target
 
+
 def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
   '''
   Normalize ``expr`` at ``targetpath``.
@@ -452,6 +468,7 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
               assert False
           raise
 
+
 class PullTabBuilder(object):
   '''
   Constructs the left and right replacements for a pull-tab step.
@@ -496,6 +513,7 @@ class PullTabBuilder(object):
   def getRight(self):
     self.left = False
     return self._a_(self.source, 0)
+
 
 def pull_tab(interp, source, targetpath):
   '''
@@ -546,11 +564,13 @@ def _instantiate(interp, ctors, cid=None, target=None):
       , target=target
       )
 
+
 def instantiate(interp, freevar, typedef):
   '''Instantiate a free variable as the given type.'''
   assert freevar.info.tag == T_FREE
   cid = freevar[0]
   _instantiate(interp, typedef.constructors, cid=cid, target=freevar)
+
 
 class Shared(object):
   '''Manages an object with copy-on-write semantics.'''
@@ -588,6 +608,7 @@ class Shared(object):
   def __getitem__(self, key):
     return self.obj[key]
 
+
 class ChoiceStore(object):
   '''Weighted quick-union with path compression.'''
   def __init__(self, obj=None):
@@ -623,3 +644,37 @@ class ChoiceStore(object):
       self.size.write[i] += self.size[j]
   def __repr__(self):
     return repr(self.choices.read)
+
+
+class Constraints(object):
+  def __init__(self, arg=None):
+    if arg is None:
+      # defaultdict = collections.defaultdict
+      # # Holds the variable bindings.  There are two types: lazy and normal.  A
+      # # lazy binding is between a variable and an unevaluated expression, used
+      # # to implement =:<= for functional patterns.  A normal binding is between
+      # # two free variables, used to implement =:=.  These bindings imply
+      # # additional bindings between successor variables.  For example, if x_0
+      # # :=: x_1 for two list variables, then after annotating x_0 = ([] ?_0
+      # # (x_2:x_3)) and x_1 = ([] ?_1 (x_4:x_5)), we have two new bindings x_2
+      # # :=: x_4 and x_3 :=: x_5.
+      # self.vars = Shared(lambda: defaultdict(lambda: Shared(list)))
+      self.choices = Shared(ChoiceStore)
+    else:
+      # self.vars = arg.vars
+      self.choices = copy(arg.choices)
+
+  def __copy__(self):
+    return Constraints(self)
+
+  # def uniteVars(self, node_from, node_to, is_lazy):
+  #   store = self.vars.write
+  #   cid = node_from[0]
+  #   store[cid].write.append((node_from, node_to, is_lazy))
+  #   if not is_lazy:
+  #     cid = node_to[0]
+  #     store[cid].write.append((node_to, node_from, is_lazy))
+
+  # def uniteChoices(self, i, j):
+  #   if not self.choices.read.find(i, j):
+  #     self.choices.write.unite(i, j)

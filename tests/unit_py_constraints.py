@@ -1,5 +1,7 @@
 import cytest # from ./lib; must be first
 from curry.interpreter import runtime
+from curry.runtime import UNDETERMINED, LEFT, RIGHT
+import curry
 import itertools
 
 class TestConstraintStore(cytest.TestCase):
@@ -76,3 +78,50 @@ class TestConstraintStore(cytest.TestCase):
     self.assertNotEqual(id(a.choices.obj), id(b.choices.obj))
     eqa(0,1)
     neb(0,1)
+
+  def checkFingerprint(self, f, values={}):
+    # Check that every element in the fingerprint is ``UNDETERMINED``, except
+    # those mentioned in ``values``.
+    f = getattr(f, 'fingerprint', f)
+    self.assertTrue(all(
+        f.get(i) == values.get(i, UNDETERMINED) for i in xrange(f.capacity)
+      ))
+
+  def testFrameSplit(self):
+    Unit = curry.symbol('Prelude.()')
+    e = curry.expr(curry.symbol('Prelude.?'), -10, 10)
+    curry.getInterpreter().step(e)
+    cid,l,r = e
+    assert cid == 0
+    #
+    frame = runtime.Frame(e)
+    self.checkFingerprint(frame)
+    #
+    buf = []
+    frame.split(buf.append)
+    self.assertTrue(all(x.expr is y for x,y in zip(buf, [l,r])))
+    self.checkFingerprint(buf[0], {cid:LEFT})
+    self.checkFingerprint(buf[1], {cid:RIGHT})
+    #
+    lhs,rhs = buf
+    buf = []
+    frame = runtime.Frame(e, lhs)
+    frame.split(buf.append)
+    self.assertIs(buf.pop().expr, l)
+    self.assertFalse(buf)
+    #
+    frame = runtime.Frame(e, rhs)
+    frame.split(buf.append)
+    self.assertIs(buf.pop().expr, r)
+    self.assertFalse(buf)
+    #
+    e = curry.expr(curry.symbol('Prelude.?'), -10, 10)
+    curry.getInterpreter().step(e)
+    cid2,_,_ = e
+    self.assertNotEqual(cid, cid2)
+    frame = runtime.Frame(e, frame)
+    frame.split(buf.append)
+    self.assertEqual(len(buf), 2)
+    self.checkFingerprint(buf[0], {cid:RIGHT, cid2:LEFT})
+    self.checkFingerprint(buf[1], {cid:RIGHT, cid2:RIGHT})
+

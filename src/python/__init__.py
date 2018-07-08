@@ -18,11 +18,11 @@ import_ = _interpreter_.import_
 module = _interpreter_.module
 modules = _interpreter_.modules
 path = _interpreter_.path
+reset = _interpreter_.reset
 symbol = _interpreter_.symbol
 topython = _interpreter_.topython
 type = _interpreter_.type
 
 def getInterpreter():
-  import sys
-  return sys.modules[__name__]._interpreter_
+  return _interpreter_
 

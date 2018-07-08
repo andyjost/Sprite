@@ -1,4 +1,5 @@
 import cytest # from ./lib; must be first
+from copy import copy
 from curry import runtime
 import itertools
 import numpy as np
@@ -189,7 +190,7 @@ class Fingerprint(cytest.TestCase):
       fp[cid] = memory[cid] = lr
     def clone(data, maxindex):
       fp,memory = choose_dataset(data)
-      data.append((fp.clone(), dict(memory)))
+      data.append((copy(fp), dict(memory)))
     def test(data, maxindex):
       fp,memory = choose_dataset(data)
       if not memory or np.random.random() < 0.5:
