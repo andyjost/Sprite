@@ -372,9 +372,9 @@ def hnf(interp, expr, targetpath=[], ground=None):
     ``ground``
         Indicates whether to normalize to grounded head-normal form.  A free
         variable at the head will be instantiated if and only if this is true.
-        This can be None or an instance of TypeDefinition.  If grounding, a
-        free variable occuring at the head will be instantiated to the given
-        type.
+        This can be None or an instance of TypeDefinition.  If grounding, and
+        if the target position is a free variable, it will be instantiated as
+        this type.
 
   Returns:
   --------
@@ -401,7 +401,9 @@ def hnf(interp, expr, targetpath=[], ground=None):
       raise E_SYMBOL()
     elif tag == T_FREE:
       if ground:
-        instantiate(interp, target, ground)
+        # Instantiate the target and replace it in the context of ``expr``.
+        pull_tab(interp, expr, targetpath, typedef=ground)
+        raise E_SYMBOL()
       else:
         return target
     elif tag == T_FWD:
@@ -468,7 +470,7 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
           raise
 
 
-class PullTabBuilder(object):
+class _PullTabber(object):
   '''
   Constructs the left and right replacements for a pull-tab step.
 
@@ -481,17 +483,24 @@ class PullTabBuilder(object):
     ``targetpath``
         The path (sequence of integers) from source to target (i.e.,
         choice-labeled node).
+    ``typedef``
+        If the target is a free variable, this is used to instantiate it.
   '''
-  def __init__(self, source, targetpath):
+  def __init__(self, interp, source, targetpath, typedef=None):
+    self.interp = interp
     self.source = source
     self.targetpath = targetpath
+    self.typedef = typedef
     self.cid = None
 
   def _a_(self, node, i):
     if i < len(self.targetpath):
       return Node(*self._b_(node, i))
     else:
-      assert node.info.name == "_Choice"
+      if node.info.tag == T_FREE:
+        assert self.typedef is not None
+        node = instantiate(self.interp, node, self.typedef)
+      assert node.info.tag == T_CHOICE
       assert self.cid is None or self.cid == node[0]
       self.cid = node[0]
       return node[1 if self.left else 2]
@@ -514,9 +523,13 @@ class PullTabBuilder(object):
     return self._a_(self.source, 0)
 
 
-def pull_tab(interp, source, targetpath):
+def pull_tab(interp, source, targetpath, typedef=None):
   '''
-  Executes a pull-tab step.
+  Executes a pull-tab step with source ``source`` and target
+  ``source[targetpath]``.
+
+  If the target is a free variable, then ``typedef`` will be used to
+  instantiate it.
 
   Parameters:
   -----------
@@ -526,23 +539,18 @@ def pull_tab(interp, source, targetpath):
     ``targetpath``
       A sequence of integers giving the path from ``source`` to the target
       (i.e., choice symbol).
+
   '''
-  if source.info == interp.prelude.ensureNotFree.info:
+  if source.info is interp.prelude.ensureNotFree.info:
     raise RuntimeError("non-determinism occurred in I/O actions")
   assert targetpath
-  pt = PullTabBuilder(source, targetpath)
+  pt = _PullTabber(interp, source, targetpath, typedef)
   left, right = pt.getLeft(), pt.getRight()
   assert pt.cid >= 0
-  Node(
-      interp.prelude._Choice
-    , pt.cid
-    , left
-    , right
-    , target=source
-    )
+  Node(interp.prelude._Choice, pt.cid, left, right, target=source)
 
 
-def _instantiate(interp, ctors, cid=None, target=None):
+def _instantiate(interp, ctors, vid=None, target=None):
   N = len(ctors)
   assert N
   if N == 1:
@@ -554,10 +562,10 @@ def _instantiate(interp, ctors, cid=None, target=None):
       , target=target
       )
   else:
-    middle = -(-N // 2)
+    middle = -(-N // 2) # e.g., 7 -> 4.
     return Node(
         interp.prelude._Choice
-      , cid if cid is not None else nextid(interp)
+      , vid if vid is not None else nextid(interp)
       , _instantiate(interp, ctors[:middle])
       , _instantiate(interp, ctors[middle:])
       , target=target
@@ -567,8 +575,20 @@ def _instantiate(interp, ctors, cid=None, target=None):
 def instantiate(interp, freevar, typedef):
   '''Instantiate a free variable as the given type.'''
   assert freevar.info.tag == T_FREE
-  cid = freevar[0]
-  _instantiate(interp, typedef.constructors, cid=cid, target=freevar)
+  vid = freevar[0]
+  if freevar[1].info is interp.prelude.Unit.info:
+    instance = _instantiate(
+        interp, typedef.constructors, vid=vid #, target=freevar
+      )
+    if len(typedef.constructors) == 1:
+      # Ensure the instance is always choice-rooted.  This is not the most
+      # efficient thing to do, but it simplifies the implementation elsewhere
+      # (e.g., see _PullTabber._a_).
+      instance = Node(
+          interp.prelude._Choice, vid, instance, Node(interp.prelude._Failure)
+        )
+    Node(freevar.info, vid, instance, target=freevar)
+  return freevar[1]
 
 
 class Shared(object):

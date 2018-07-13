@@ -236,6 +236,7 @@ class TestPyRuntime(cytest.TestCase):
     self.assertEqual(result, runtime.Node(interp.prelude._Free, 0))
 
 
+  @unittest.expectedFailure # requires =:<=
   def test_instantiation(self):
     goal = curry.compile(
         '''
@@ -280,7 +281,10 @@ class TestPyRuntime(cytest.TestCase):
     interp = interpreter.Interpreter()
     self.assertEqual(str(interp._idfactory_), 'count(0)')
     result, = list(interp.eval(interp.symbol('Prelude.unknown')))
-    self.assertEqual(result, runtime.Node(interp.prelude._Free, 0))
+    self.assertEqual(
+        result, runtime.Node(interp.prelude._Free
+      , 0, runtime.Node(interp.prelude.Unit))
+      )
 
   def test_interp_step(self):
     interp = curry.getInterpreter()
@@ -333,9 +337,17 @@ class TestInstantiation(cytest.TestCase):
 
   def test_basic(self):
     interp,q,u,x = self.interp, self.q, self.u(), self.x
-    runtime.instantiate(interp, x, interp.type('Prelude.[]'))
+    instance = runtime.instantiate(interp, x, interp.type('Prelude.[]'))
     au = curry.expr(*q(0, [interp.prelude.Cons, u, u], [interp.prelude.Nil]))
-    self.assertEqual(x, au)
+    self.assertEqual(instance, au)
+
+  def test_singleCtor(self):
+    # Instantiating a type with one constructor is a special case.
+    interp,q,u,x = self.interp, self.q, self.u(), self.x
+    instance = runtime.instantiate(interp, x, interp.type('Prelude.()'))
+    au = curry.expr(*q(0, [interp.prelude.Unit], [interp.prelude._Failure]))
+    self.assertEqual(instance, au)
+
 
   def test_minDepth7(self):
     '''Minimal instance depth (7 constructors).'''
@@ -345,9 +357,9 @@ class TestInstantiation(cytest.TestCase):
     #   A  B  C  D  E  F
     interp,q,u,x = self.interp, self.q, self.u(), self.x
     Type = interp.compile('data T = A|B|C|D|E|F|G', modulename='Type')
-    runtime.instantiate(interp, x, interp.type('Type.T'))
+    instance = runtime.instantiate(interp, x, interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
-    self.assertEqual(x, au)
+    self.assertEqual(instance, au)
 
   def test_minDepth6(self):
     '''Minimal instance depth (6 constructors).'''
@@ -357,9 +369,9 @@ class TestInstantiation(cytest.TestCase):
     #   A  B   D  E
     interp,q,u,x = self.interp, self.q, self.u(), self.x
     Type = interp.compile('data T = A|B|C|D|E|F', modulename='Type')
-    runtime.instantiate(interp, x, interp.type('Type.T'))
+    instance = runtime.instantiate(interp, x, interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
-    self.assertEqual(x, au)
+    self.assertEqual(instance, au)
 
   def test_complex(self):
     #        ?0
@@ -368,6 +380,6 @@ class TestInstantiation(cytest.TestCase):
     #   A  B
     interp,q,u,x = self.interp, self.q, self.u(), self.x
     Type = interp.compile('data T a = A|B a|C a a|D a a a|E a a a a', modulename='Type')
-    runtime.instantiate(interp, x, interp.type('Type.T'))
+    instance = runtime.instantiate(interp, x, interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
-    self.assertEqual(x, au)
+    self.assertEqual(instance, au)

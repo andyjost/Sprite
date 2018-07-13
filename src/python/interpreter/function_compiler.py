@@ -200,7 +200,9 @@ class FunctionCompiler(object):
   @varscope.when(icurry.IFree)
   def varscope(self, ifree):
     self.closure['nextid'] = self.interp.nextid
-    return 'Node(%s, nextid())' % self.closure['Prelude._Free']
+    return 'Node(%s, nextid(), Node(%s))' % (
+        self.closure['Prelude._Free'], self.closure['Prelude.()']
+      )
 
   # VarPath.
   # Add a variable's path to the closure.
