@@ -190,6 +190,18 @@ class Node(object):
       return self
 
   @staticmethod
+  def getitem(node, i):
+    '''
+    Like ``Node.__getitem__``, but safe when ``node`` is an unboxed value.
+    '''
+    if isinstance(node, Node):
+      return node[i]
+    elif isinstance(i, collections.Sequence) and not i:
+      return node
+    else:
+      raise TypeError("cannot index into an unboxed value.")
+
+  @staticmethod
   def _skipfwd(arg):
     '''
     Skips over FWD nodes.  If a chain of FWD nodes is encountered, each one
@@ -383,22 +395,25 @@ def hnf(interp, expr, targetpath=[], ground=None):
   --------
     The target node.
   '''
-  # In the degenerate case where ``expr`` and ``target`` are the same node,
-  # that node is required to be a function or operation.
+  # TODO: examine this check in more detail.
+  # ----------------------------------------
+  # # In the degenerate case where ``expr`` and ``target`` are the same node,
+  # # that node is required to be a function or operation.
   # assert not targetpath or expr.info.tag >= T_FUNC
-  target = expr[targetpath]
+  # ----------------------------------------
+  target = Node.getitem(expr, targetpath)
   stepcounter = interp.stepcounter
   while stepcounter.check():
     if not isinstance(target, Node):
       # >> FIXME
-      # assert isinstance(target, icurry.BuiltinVariant) # or free
+      # assert isinstance(target, icurry.BuiltinVariant)
       return target
     tag = target.info.tag
     if tag == T_FAIL:
       if targetpath:
         Node(interp.prelude._Failure, target=expr)
       raise E_SYMBOL()
-    elif tag == T_CHOICE:
+    elif tag == T_CHOICE or tag == T_CONSTR:
       if targetpath:
         pull_tab(interp, expr, targetpath)
       raise E_SYMBOL()
@@ -431,8 +446,8 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
 
     ``targetpath``
         A path to the descendant of ``expr`` to normalize.  If empty, ``expr``
-        itself will be normalized.  In that case, its tag must not be T_FAIL or
-        T_CHOICE.
+        itself will be normalized.  In that case, its tag must not be T_FAIL,
+        T_CHOICE, or T_CONSTR.
 
     ``rec``
         Recurse at most this many times.  Recursing to *every* successor counts
@@ -591,7 +606,19 @@ def _instantiate(interp, ctors, vid=None, target=None):
 
 
 def instantiate(interp, freevar, typedef):
-  '''Instantiate a free variable as the given type.'''
+  '''
+  Instantiate a free variable as the given type.
+
+  Parameters:
+  -----------
+  ``interp``
+      The interpreter.
+  ``freevar``
+      The free variable node to instantiate.
+  ``typedef``
+      A ``TypeDefinition`` that indicates the type to instantiate the variable
+      to.  This can also be a list of constructors.
+  '''
   assert freevar.info.tag == T_FREE
   vid = freevar[0]
   if freevar[1].info is interp.prelude.Unit.info:
@@ -600,7 +627,7 @@ def instantiate(interp, freevar, typedef):
       )
     if len(typedef.constructors) == 1:
       # Ensure the instance is always choice-rooted.  This is not the most
-      # efficient thing to do, but it simplifies the implementation elsewhere
+      # efficient approach, but it simplifies the implementation elsewhere
       # (e.g., see _PullTabber._a_).
       instance = Node(
           interp.prelude._Choice, vid, instance, Node(interp.prelude._Failure)
@@ -646,8 +673,13 @@ class Shared(object):
     return self.obj[key]
 
 
-class ChoiceStore(object):
-  '''Weighted quick-union with path compression.'''
+class UnionFind(object):
+  '''
+  Stores equality constraints between choices.
+
+  Equivalent choices must have the same value, i.e., LEFT or RIGHT.  This is
+  implemented as weighted quick-union with path compression.
+  '''
   def __init__(self, obj=None):
     if obj is None:
       self.choices = Shared(dict)
@@ -656,7 +688,7 @@ class ChoiceStore(object):
       self.choices = obj.choices.__copy__()
       self.size = obj.size.__copy__()
   def __copy__(self):
-    return ChoiceStore(self)
+    return UnionFind(self)
   def __contains__(self, i):
     return i in self.choices.read
   def __getitem__(self, i):
@@ -686,17 +718,8 @@ class ChoiceStore(object):
 class Constraints(object):
   def __init__(self, arg=None):
     if arg is None:
-      # defaultdict = collections.defaultdict
-      # # Holds the variable bindings.  There are two types: lazy and normal.  A
-      # # lazy binding is between a variable and an unevaluated expression, used
-      # # to implement =:<= for functional patterns.  A normal binding is between
-      # # two free variables, used to implement =:=.  These bindings imply
-      # # additional bindings between successor variables.  For example, if x_0
-      # # :=: x_1 for two list variables, then after annotating x_0 = ([] ?_0
-      # # (x_2:x_3)) and x_1 = ([] ?_1 (x_4:x_5)), we have two new bindings x_2
-      # # :=: x_4 and x_3 :=: x_5.
       # self.vars = Shared(lambda: defaultdict(lambda: Shared(list)))
-      self.choices = Shared(ChoiceStore)
+      self.choices = Shared(UnionFind)
     else:
       # self.vars = arg.vars
       self.choices = copy(arg.choices)

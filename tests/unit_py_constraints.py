@@ -46,8 +46,8 @@ class TestConstraintStore(cytest.TestCase):
       self.assertFalse(store.find(a, b))
     return eq, ne
 
-  def testChoiceStoreBasic(self):
-    cs = runtime.ChoiceStore()
+  def testUnionFindBasic(self):
+    cs = runtime.UnionFind()
     eq,ne = self.equivalenceChecker(cs)
     self.assertEqual(cs.root(0), 0)
     eq(0,0)
@@ -68,8 +68,8 @@ class TestConstraintStore(cytest.TestCase):
     eq(0,1,2,5)
     ne(0,3)
 
-  def testChoiceStoreSharing(self):
-    a = runtime.ChoiceStore()
+  def testUnionFindSharing(self):
+    a = runtime.UnionFind()
     b = a.__copy__()
     eqa,nea = self.equivalenceChecker(a)
     eqb,neb = self.equivalenceChecker(b)
@@ -87,7 +87,7 @@ class TestConstraintStore(cytest.TestCase):
         f.get(i) == values.get(i, UNDETERMINED) for i in xrange(f.capacity)
       ))
 
-  def testFrameSplit(self):
+  def testFrameFork(self):
     Unit = curry.symbol('Prelude.()')
     e = curry.expr(curry.symbol('Prelude.?'), -10, 10)
     curry.getInterpreter().step(e)

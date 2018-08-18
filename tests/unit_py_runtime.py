@@ -21,7 +21,7 @@ class TestPyRuntime(cytest.TestCase):
   def tearDownClass(cls):
     del cls.BOOTSTRAP
 
-  def testCoverage(self):
+  def test_coverage(self):
     '''Tests to improve line coverage.'''
     interp = interpreter.Interpreter()
     prelude = interp.import_(interpreter.prelude.Prelude)
@@ -43,7 +43,7 @@ class TestPyRuntime(cytest.TestCase):
       )
 
 
-  def testNormalization(self):
+  def test_normalization(self):
     '''
     Tests the built-in normalizing function (nf) applied to constructors.
 
@@ -215,13 +215,6 @@ class TestPyRuntime(cytest.TestCase):
       )
 
 
-  def test_free_return(self):
-    interp = interpreter.Interpreter()
-    self.assertEqual(str(interp._idfactory_), 'count(0)')
-    result, = list(interp.eval(interp.symbol('Prelude.unknown')))
-    self.assertEqual(result, runtime.Node(interp.prelude._Free, 0))
-
-
   @unittest.expectedFailure # requires =:<=
   def test_instantiation(self):
     goal = curry.compile(
@@ -232,27 +225,6 @@ class TestPyRuntime(cytest.TestCase):
       ).main
     value, = curry.eval(goal)
     self.assertEqual(str(value), '[True]')
-
-  def test_inspect_module(self):
-    module = curry.compile(
-        '''
-        not True = False
-        not False = True
-        xor False a = a
-        xor True a = not a
-        '''
-      )
-
-    read = inspect.getreadable(module)
-    self.assertTrue(os.path.exists(read))
-    self.assertTrue(read.endswith('.read'))
-    #
-    json = inspect.getjson(module)
-    self.assertTrue(os.path.exists(json))
-    self.assertTrue(json.endswith('.json'))
-    #
-    icur = inspect.geticurry(module)
-    self.assertIsInstance(icur, icurry.IModule)
 
 
   def test_free_return(self):
@@ -297,6 +269,16 @@ class TestPyRuntime(cytest.TestCase):
         ValueError
       , 'no implementation code available for "Prelude.True"'
       , lambda: curry.symbol('Prelude.True').getimpl()
+      )
+
+  def test_Node_getitem(self):
+    '''Test the Node.getitem static method.'''
+    self.assertEqual(runtime.Node.getitem(0, ()), 0)
+    self.assertEqual(runtime.Node.getitem(0, []), 0)
+    self.assertRaisesRegexp(
+        TypeError
+      , 'cannot index into an unboxed value'
+      , lambda: runtime.Node.getitem(0, [0])
       )
 
 
