@@ -11,6 +11,7 @@ def exports():
   '''
   # Special symbols.
   yield '_Failure'
+  yield '_Constraint'
   yield '_Free'
   yield '_Fwd'
   yield '_Choice'
@@ -35,6 +36,19 @@ def aliases():
 # ======
 _types_ = [
     icurry.IType('_Failure', [icurry.IConstructor('_Failure', 0, metadata={'py.format':'failure', 'py.tag':runtime.T_FAIL})])
+    # Every constraint is a pair consisting of a result and another pair
+    # describing the constraint.  For example, ``_EqVars True (x,y)`` has the
+    # value True (i.e., the result of =:=, which indicates the constraint
+    # succeeded) and indicates that free variables x and y are equivalent
+    # within the purview of the constraint.
+  , icurry.IType('_Constraint', [
+        # A pair of free variables, constrained equal.
+        icurry.IConstructor('_EqVars', 2, metadata={'py.tag':runtime.T_CONSTR})
+        # A pair of choiceIDs, constrained equal.
+      , icurry.IConstructor('_EqChoices', 2, metadata={'py.tag':runtime.T_CONSTR})
+        # A pair of (choieID, LEFT|RIGHT)
+      , icurry.IConstructor('_ChoiceConstr', 2, metadata={'py.tag':runtime.T_CONSTR})
+      ])
     # Free variables have two successors, one for the variable ID (Int) and one
     # for the instance.  The instance is initially set to Prelude.().  On
     # instantiation, is replaced with a generator.  Note that () is not a valid

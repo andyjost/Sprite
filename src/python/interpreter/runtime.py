@@ -10,7 +10,8 @@ import operator
 import sys
 import weakref
 
-T_FAIL   = -5
+T_FAIL   = -6
+T_CONSTR = -5
 T_FREE   = -4
 T_FWD    = -3
 T_CHOICE = -2
@@ -108,6 +109,8 @@ class NodeInfo(object):
       return "<curry failure>"
     if self.info.tag == T_FREE:
       return "<curry free variable>"
+    if self.info.tag == T_CONSTR:
+      return "<curry constraint>"
     return "<invalid curry node>"
 
 
@@ -449,7 +452,7 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
     try:
       target = hnf(interp, expr, targetpath, ground=ground)
     except E_SYMBOL:
-      assert expr[()].info.tag in [T_FAIL, T_CHOICE]
+      assert expr[()].info.tag in [T_FAIL, T_CHOICE, T_CONSTR]
       raise
     if not isinstance(target, Node):
       assert isinstance(target, icurry.BuiltinVariant)
@@ -463,7 +466,7 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
             tag = target.info.tag
             if tag == T_FAIL:
               Node(interp.prelude._Failure, target=expr)
-            elif tag == T_CHOICE:
+            elif tag == T_CHOICE or tag == T_CONSTR:
               pull_tab(interp, expr, targetpath)
             else:
               assert False
