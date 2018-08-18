@@ -545,7 +545,7 @@ def pull_tab(interp, source, targetpath, typedef=None):
 
   '''
   if source.info is interp.prelude.ensureNotFree.info:
-    raise RuntimeError("non-determinism occurred in I/O actions")
+    raise RuntimeError("non-determinism in I/O actions occurred")
   assert targetpath
   pt = _PullTabber(interp, source, targetpath, typedef)
   left, right = pt.getLeft(), pt.getRight()

@@ -224,7 +224,17 @@ class TestPyRuntime(cytest.TestCase):
     goal = curry.compile("putChar ('a' ? 'b')", 'expr')
     self.assertRaisesRegexp(
         RuntimeError
-      , r'non-determinism occurred in I/O actions'
+      , r'non-determinism in I/O actions occurred'
+      , lambda: list(curry.eval(goal))
+      )
+
+
+  @unittest.expectedFailure
+  def test_nd_io2(self):
+    goal = curry.compile('''putStrLn ("one" ? "two")''', 'expr')
+    self.assertRaisesRegexp(
+        RuntimeError
+      , r'non-determinism in I/O actions occurred'
       , lambda: list(curry.eval(goal))
       )
 
@@ -268,14 +278,6 @@ class TestPyRuntime(cytest.TestCase):
     icur = inspect.geticurry(module)
     self.assertIsInstance(icur, icurry.IModule)
 
-
-  def test_nd_io(self):
-    goal = curry.compile("putChar ('a' ? 'b')", 'expr')
-    self.assertRaisesRegexp(
-        RuntimeError
-      , r'non-determinism occurred in I/O actions'
-      , lambda: list(curry.eval(goal))
-      )
 
   def test_free_return(self):
     interp = interpreter.Interpreter()
