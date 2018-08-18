@@ -46,7 +46,7 @@ _types_ = [
         icurry.IConstructor('_EqVars', 2, metadata={'py.tag':runtime.T_CONSTR})
         # A pair of choiceIDs, constrained equal.
       , icurry.IConstructor('_EqChoices', 2, metadata={'py.tag':runtime.T_CONSTR})
-        # A pair of (choieID, LEFT|RIGHT)
+        # A pair of (choiceID, LEFT|RIGHT)
       , icurry.IConstructor('_ChoiceConstr', 2, metadata={'py.tag':runtime.T_CONSTR})
       ])
     # Free variables have two successors, one for the variable ID (Int) and one

@@ -478,34 +478,27 @@ class _PullTabber(object):
   Constructs the left and right replacements for a pull-tab step.
 
   ``getLeft`` and ``getRight`` build the left- and righthand sides,
-  respectively.  After calling either, the ``cid`` stores the choice ID.
-
-  Parameters:
-    ``source``
-        The pull-tab source node.
-    ``targetpath``
-        The path (sequence of integers) from source to target (i.e.,
-        choice-labeled node).
-    ``typedef``
-        If the target is a free variable, this is used to instantiate it.
+  respectively.  See ``pull_tab``.
   '''
   def __init__(self, interp, source, targetpath, typedef=None):
     self.interp = interp
     self.source = source
     self.targetpath = targetpath
     self.typedef = typedef
-    self.cid = None
+    self.target = None
 
-  def _a_(self, node, i):
+  def _a_(self, node, i=0):
     if i < len(self.targetpath):
       return Node(*self._b_(node, i))
     else:
+      assert self.target is None or self.target is node
+      self.target = node
+      if node.info.tag == T_CONSTR:
+        return node[0 if self.left else 1]
       if node.info.tag == T_FREE:
         assert self.typedef is not None
         node = instantiate(self.interp, node, self.typedef)
       assert node.info.tag == T_CHOICE
-      assert self.cid is None or self.cid == node[0]
-      self.cid = node[0]
       return node[1 if self.left else 2]
 
   def _b_(self, node, i):
@@ -519,11 +512,11 @@ class _PullTabber(object):
 
   def getLeft(self):
     self.left = True
-    return self._a_(self.source, 0)
+    return self._a_(self.source)
 
   def getRight(self):
     self.left = False
-    return self._a_(self.source, 0)
+    return self._a_(self.source)
 
 
 def pull_tab(interp, source, targetpath, typedef=None):
@@ -531,26 +524,48 @@ def pull_tab(interp, source, targetpath, typedef=None):
   Executes a pull-tab step with source ``source`` and target
   ``source[targetpath]``.
 
-  If the target is a free variable, then ``typedef`` will be used to
-  instantiate it.
+  The target node may be a choice, free variable, or constraint.  If it is a
+  free variable, then ``typedef`` will be used to instantiate it.
 
   Parameters:
   -----------
+    ``interp``
+      The Curry interpreter.
+
     ``source``
-      The pull-tab source.  This node will be overwritten with a choice symbol.
+      The pull-tab source.  This node will be overwritten with a choice or
+      constraint symbol.
 
     ``targetpath``
       A sequence of integers giving the path from ``source`` to the target
-      (i.e., choice symbol).
+      choice or constraint.
 
+    ``typedef``
+        If the target is a free variable, this is used to instantiate it.
   '''
-  if source.info is interp.prelude.ensureNotFree.info:
-    raise RuntimeError("non-determinism in I/O actions occurred")
   assert targetpath
   pt = _PullTabber(interp, source, targetpath, typedef)
-  left, right = pt.getLeft(), pt.getRight()
-  assert pt.cid >= 0
-  Node(interp.prelude._Choice, pt.cid, left, right, target=source)
+  left = pt.getLeft()
+  if source.info is interp.prelude.ensureNotFree.info:
+    if pt.target.info.tag in [T_CHOICE, T_FREE]:
+      raise RuntimeError("non-determinism in I/O actions occurred")
+  if pt.target.info.tag == T_CHOICE:
+    right = pt.getRight()
+    Node(
+        interp.prelude._Choice
+      , pt.target[0] # choice ID
+      , left
+      , right
+      , target=source
+      )
+  else:
+    assert pt.target.info.tag == T_CONSTR
+    Node(
+        pt.target.info
+      , left
+      , pt.target[1] # constraint
+      , target=source
+      )
 
 
 def _instantiate(interp, ctors, vid=None, target=None):

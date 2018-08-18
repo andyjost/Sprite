@@ -175,30 +175,6 @@ class TestPyRuntime(cytest.TestCase):
         self.assertEqual(exc, expected[()].info.tag in special_tags) # (2)
 
 
-  def testPullTab(self):
-    '''Tests the pull-tab step.'''
-    module = curry.compile('f (_,_,9) True a = a', modulename='M')
-    goal = curry.compile('M.f (1,2,8?9) True (1,2,3)', mode='expr')
-    interp = curry.getInterpreter()
-    id8 = id(goal[0][2][0])
-    id9 = id(goal[0][2][1])
-    id123 = id(goal[2])
-    # Head-normalizing brings a choice to the root.
-    self.assertRaises(runtime.E_SYMBOL, lambda: interp.hnf(goal))
-    self.assertEqual(goal.info.tag, runtime.T_CHOICE)
-    # Ensure nodes are referenced, not copied.
-    # LHS -> failure
-    self.assertEqual(id(goal[1][2]), id8)
-    self.assertEqual(id(goal[1][1]), id123)
-    self.assertRaises(runtime.E_SYMBOL, lambda: interp.hnf(goal[1]))
-    self.assertEqual(goal[1].info.tag, runtime.T_FAIL)
-    # RHS -> True
-    self.assertEqual(id(goal[2][2]), id9)
-    self.assertEqual(id(goal[2][1]), id123)
-    self.assertMayRaise(None, lambda: interp.hnf(goal[2]))
-    self.assertEqual(curry.topython(id(goal[2][()])), id123)
-
-
   def test_inspect_module(self):
     module = curry.compile(
         '''
