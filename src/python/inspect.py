@@ -97,6 +97,7 @@ def isa_ctor(interp, arg):
   return arg[()].info.tag >= runtime.T_CTOR
 
 def choice_id(interp, arg):
+  '''Returns the choice or variable id for a choice or free variable.'''
   if isinstance(arg, runtime.Node):
     arg = arg[()]
     if arg.info.tag in [runtime.T_FREE, runtime.T_CHOICE]:

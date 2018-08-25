@@ -1,5 +1,6 @@
 from .. import icurry
 from . import prelude_impl as impl
+from . import typecheckers as tc
 from . import runtime
 from .. import inspect
 import operator as op
@@ -35,7 +36,11 @@ def aliases():
 # Types.
 # ======
 _types_ = [
-    icurry.IType('_Failure', [icurry.IConstructor('_Failure', 0, metadata={'py.format':'failure', 'py.tag':runtime.T_FAIL})])
+    icurry.IType('_Failure', [
+        icurry.IConstructor('_Failure', 0
+            , metadata={'py.format':'failure', 'py.tag':runtime.T_FAIL}
+            )
+      ])
     # Every constraint is a pair consisting of a result and another pair
     # describing the constraint.  For example, ``_EqVars True (x,y)`` has the
     # value True (i.e., the result of =:=, which indicates the constraint
@@ -43,24 +48,30 @@ _types_ = [
     # within the purview of the constraint.
   , icurry.IType('_Constraint', [
         # A pair of free variables, constrained equal.
-        icurry.IConstructor('_EqVars', 2, metadata={'py.tag':runtime.T_CONSTR})
+        icurry.IConstructor('_EqVars', 2
+          , metadata={'py.tag':runtime.T_CONSTR, 'py.typecheck':tc.EqVars}
+          )
         # A pair of choiceIDs, constrained equal.
-      , icurry.IConstructor('_EqChoices', 2, metadata={'py.tag':runtime.T_CONSTR})
+      , icurry.IConstructor('_EqChoices', 2
+          , metadata={'py.tag':runtime.T_CONSTR, 'py.typecheck':tc.EqChoices}
+          )
         # A pair of (choiceID, LEFT|RIGHT)
-      , icurry.IConstructor('_ChoiceConstr', 2, metadata={'py.tag':runtime.T_CONSTR})
+      , icurry.IConstructor('_ChoiceConstr', 2
+          , metadata={'py.tag':runtime.T_CONSTR, 'py.typecheck':tc.ChoiceConstr}
+          )
       ])
     # Free variables have two successors, one for the variable ID (Int) and one
     # for the instance.  The instance is initially set to Prelude.().  On
-    # instantiation, is replaced with a generator.  Note that () is not a valid
-    # generator.
+    # instantiation, it is replaced with a generator.  Note that () is not a
+    # valid generator.
   , icurry.IType('_Free', [icurry.IConstructor('_Free', 2, metadata={'py.format':'freevar({1})', 'py.tag':runtime.T_FREE})])
   , icurry.IType('_Fwd', [icurry.IConstructor('_Fwd', 1, metadata={'py.format':'{1}', 'py.tag':runtime.T_FWD})])
   , icurry.IType('_Choice', [icurry.IConstructor('_Choice', 3, metadata={'py.tag':runtime.T_CHOICE})])
   , icurry.IType('_PartApplic', [icurry.IConstructor('_PartApplic', 2, metadata={'py.tag':runtime.T_CTOR})])
   , icurry.IType('Bool', [icurry.IConstructor('True', 0), icurry.IConstructor('False', 0)])
-  , icurry.IType('Char', [icurry.IConstructor('Char', 1, metadata={'py.format': '{1}'})])
-  , icurry.IType('Float', [icurry.IConstructor('Float', 1, metadata={'py.format': '{1}'})])
-  , icurry.IType('Int', [icurry.IConstructor('Int', 1, metadata={'py.format': '{1}'})])
+  , icurry.IType('Char', [icurry.IConstructor('Char', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Char})])
+  , icurry.IType('Float', [icurry.IConstructor('Float', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Float})])
+  , icurry.IType('Int', [icurry.IConstructor('Int', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Int})])
   , icurry.IType('IO', [icurry.IConstructor('IO', 1)])
   ]
 

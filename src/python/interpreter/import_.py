@@ -99,6 +99,7 @@ def loadSymbols(interp, icons, moduleobj, extern=None, itype=None):
     , runtime.T_CTOR + icons.index if not builtin else metadata['py.tag']
     , _no_step if not builtin else _unreachable
     , show.Show(interp, getattr(metadata, 'py.format', None))
+    , _gettypechecker(interp, metadata)
     )
   nodeinfo = runtime.NodeInfo(icons, info)
   insertSymbol(moduleobj, icons.ident.basename, nodeinfo)
@@ -109,8 +110,11 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
   metadata = icurry.getmd(ifun, extern)
   info = runtime.InfoTable(
       ifun.ident.basename
-    , ifun.arity, runtime.T_FUNC, None
+    , ifun.arity
+    , runtime.T_FUNC
+    , None
     , show.Show(interp, getattr(metadata, 'py.format', None))
+    , _gettypechecker(interp, metadata)
     )
   nodeinfo = runtime.NodeInfo(ifun, info)
   insertSymbol(moduleobj, ifun.ident.basename, nodeinfo)
@@ -200,3 +204,17 @@ def _no_step(*args, **kwds):
 
 def _unreachable(*args, **kwds):
   assert False
+
+# FIXME: several things in the info table now have an interpreter bound.  It
+# would be great to simplify that.  Maybe it should just be added as an entry
+# to the info table.
+def _gettypechecker(interp, metadata):
+  '''
+  If debugging is enabled, and a typechecker is defined, get it and bind the
+  interpreter.
+  '''
+  if interp.flags['debug']:
+    checker = getattr(metadata, 'py.typecheck', None)
+    if checker is not None:
+      return lambda *args: checker(interp, *args)
+

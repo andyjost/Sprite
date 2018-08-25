@@ -32,13 +32,23 @@ class InfoTable(object):
   Runtime info for a node.  Every Curry node stores an `InfoTable`` instance,
   which contains instance-independent data.
   '''
-  __slots__ = ['name', 'arity', 'tag', 'step', 'show']
-  def __init__(self, name, arity, tag, step, show):
+  __slots__ = ['name', 'arity', 'tag', 'step', 'show', 'typecheck']
+  def __init__(self, name, arity, tag, step, show, typecheck):
+    # The node name.  Normally the constructor or function name.
     self.name = name
+    # Arity.
     self.arity = arity
+    # Node kind tag.
     self.tag = tag
+    # The step function.  For functions, this is the function called to perform
+    # a computational step at this node.
     self.step = step
+    # Implements the show function.
     self.show = show
+    # Used in debug mode to verify argument types.  The frontend typechecks
+    # generated code, but this is helpful for checking the hand-written code
+    # implementing built-in functions.
+    self.typecheck = typecheck
 
   def __str__(self):
     return 'Info for "%s"' % self.name
@@ -58,8 +68,8 @@ class NodeInfo(object):
   Compile-time node info.
 
   Each kind of node has its own compiler-generated info.  Each Curry function,
-  each constructor of a Curry type, and each of the special nodes FAIL, FWD,
-  and CHOICE is associated with an instance of this object.
+  each constructor of a Curry type, and each of the special nodes such as FAIL,
+  FWD, and CHOICE is associated with an instance of this object.
 
   Attributes:
   -----------
@@ -162,7 +172,11 @@ class Node(object):
     target = kwds.get('target', None)
     self = object.__new__(cls) if target is None else target
     self.info = info
-    self.successors = list(args)
+    successors = list(args)
+    # Run-time typecheck (debug only).
+    if info.typecheck is not None:
+      info.typecheck(*successors)
+    self.successors = successors
     return self
 
   @visitation.dispatch.on('i')
@@ -212,6 +226,9 @@ class Node(object):
       target = arg.successors[0] = Node._skipfwd(arg.successors[0])
       return target
     return arg
+
+  def __len__(self):
+    return len(self.successors)
 
   def __eq__(self, rhs):
     if not isinstance(rhs, Node):
@@ -595,7 +612,7 @@ def _instantiate(interp, ctors, vid=None, target=None):
       , target=target
       )
   else:
-    middle = -(-N // 2) # e.g., 7 -> 4.
+    middle = -(-N // 2) # ceiling-divide, e.g., 7 -> 4.
     return Node(
         interp.prelude._Choice
       , vid if vid is not None else nextid(interp)
