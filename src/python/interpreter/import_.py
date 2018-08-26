@@ -66,10 +66,14 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
               % itype.ident
         )
   assert itype.constructors
-  typedef = runtime.TypeDefinition(
-      itype.ident
-    , loadSymbols(interp, list(itype), moduleobj, extern, itype=itype)
+  constructors = []
+  constructors.extend(
+      loadSymbols(
+          interp, list(itype), moduleobj, extern, itype=itype
+        , constructors=constructors
+        )
     )
+  typedef = runtime.TypeDefinition(itype.ident, constructors)
   getattr(moduleobj, '.types')[itype.ident.basename] = typedef
   return typedef
 
@@ -89,7 +93,9 @@ def loadSymbols(interp, imodule, moduleobj, **kwds):
   return moduleobj
 
 @loadSymbols.when(icurry.IConstructor)
-def loadSymbols(interp, icons, moduleobj, extern=None, itype=None):
+def loadSymbols(
+    interp, icons, moduleobj, extern=None, itype=None, constructors=None
+  ):
   # For builtins, the 'py.tag' metadata contains the tag.
   builtin = 'py.tag' in icons.metadata
   metadata = icurry.getmd(icons, extern, itype=itype)
@@ -99,6 +105,7 @@ def loadSymbols(interp, icons, moduleobj, extern=None, itype=None):
     , runtime.T_CTOR + icons.index if not builtin else metadata['py.tag']
     , _no_step if not builtin else _unreachable
     , show.Show(interp, getattr(metadata, 'py.format', None))
+    , lambda freevar: runtime.instantiate(interp, freevar, constructors)
     , _gettypechecker(interp, metadata)
     )
   nodeinfo = runtime.NodeInfo(icons, info)
@@ -114,6 +121,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
     , runtime.T_FUNC
     , None
     , show.Show(interp, getattr(metadata, 'py.format', None))
+    , _unreachable
     , _gettypechecker(interp, metadata)
     )
   nodeinfo = runtime.NodeInfo(ifun, info)

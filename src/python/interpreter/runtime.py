@@ -32,8 +32,8 @@ class InfoTable(object):
   Runtime info for a node.  Every Curry node stores an `InfoTable`` instance,
   which contains instance-independent data.
   '''
-  __slots__ = ['name', 'arity', 'tag', 'step', 'show', 'typecheck']
-  def __init__(self, name, arity, tag, step, show, typecheck):
+  __slots__ = ['name', 'arity', 'tag', 'step', 'show', 'instantiate', 'typecheck']
+  def __init__(self, name, arity, tag, step, show, instantiate, typecheck):
     # The node name.  Normally the constructor or function name.
     self.name = name
     # Arity.
@@ -45,6 +45,8 @@ class InfoTable(object):
     self.step = step
     # Implements the show function.
     self.show = show
+    # Implements free variable instantiation for this type.
+    self.instantiate = instantiate
     # Used in debug mode to verify argument types.  The frontend typechecks
     # generated code, but this is helpful for checking the hand-written code
     # implementing built-in functions.
@@ -638,11 +640,10 @@ def instantiate(interp, freevar, typedef):
   '''
   assert freevar.info.tag == T_FREE
   vid = freevar[0]
+  constructors = getattr(typedef, 'constructors', typedef)
   if freevar[1].info is interp.prelude.Unit.info:
-    instance = _instantiate(
-        interp, typedef.constructors, vid=vid #, target=freevar
-      )
-    if len(typedef.constructors) == 1:
+    instance = _instantiate(interp, constructors, vid=vid)
+    if len(constructors) == 1:
       # Ensure the instance is always choice-rooted.  This is not the most
       # efficient approach, but it simplifies the implementation elsewhere
       # (e.g., see _PullTabber._a_).
