@@ -166,10 +166,16 @@ class TestFindCurry(cytest.TestCase):
       , r"module \"import_test\" not found"
       , lambda: curry.import_('import_test')
       )
+    self.assertRaisesRegexp(
+        TypeError
+      , r"'currypath' must be a string or list, got 'int'."
+      , lambda: curry.import_('import_test', currypath=1)
+      )
     self.assertMayRaise(
         None
       , lambda: curry.import_('import_test', currypath=['data/import_'])
       )
+    del curry.modules['import_test']
     self.assertMayRaise(
         None
       , lambda: curry.import_('import_test', currypath='data/import_')
