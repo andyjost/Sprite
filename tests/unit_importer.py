@@ -160,6 +160,22 @@ class TestFindCurry(cytest.TestCase):
       , lambda: curry.import_('head', alias=[('head', 'foo')])
       )
 
+  def test_import_with_currypath(self):
+    self.assertRaisesRegexp(
+        ValueError
+      , r"module \"import_test\" not found"
+      , lambda: curry.import_('import_test')
+      )
+    self.assertMayRaise(
+        None
+      , lambda: curry.import_('import_test', currypath=['data/import_'])
+      )
+    self.assertMayRaise(
+        None
+      , lambda: curry.import_('import_test', currypath='data/import_')
+      )
+
+
   def test_newer(self):
     with _tempfile.TemporaryDirectory() as tmpdir:
       a = os.path.join(tmpdir, 'a')

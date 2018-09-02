@@ -2,6 +2,7 @@ from . import function_compiler
 from .. import icurry
 from .. import importer
 from . import module
+from . import parameters
 from . import runtime
 from . import show
 from ..utility import encoding
@@ -164,7 +165,7 @@ def import_(interp, modulename, currypath=None, **kwds):
     return interp.modules[modulename]
   except KeyError:
     logger.debug('Importing %s' % modulename)
-    currypath = interp.path if currypath is None else currypath
+    currypath = parameters.currypath(interp, currypath)
     icur = importer.getICurryForModule(modulename, currypath)
     return import_(interp, icur, **kwds)
 
