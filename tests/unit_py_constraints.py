@@ -1,12 +1,13 @@
 import cytest # from ./lib; must be first
 from curry.interpreter import runtime
 from curry.runtime import UNDETERMINED, LEFT, RIGHT
+from curry.utility import unionfind
 import curry
 import itertools
 
 class TestConstraintStore(cytest.TestCase):
   def testShared(self):
-    o = runtime.Shared(dict)
+    o = unionfind.Shared(dict)
     self.assertTrue(o.unique)
     p = o
     self.assertTrue(o.unique and p.unique)
@@ -47,7 +48,7 @@ class TestConstraintStore(cytest.TestCase):
     return eq, ne
 
   def testUnionFindBasic(self):
-    cs = runtime.UnionFind()
+    cs = unionfind.UnionFind()
     eq,ne = self.equivalenceChecker(cs)
     self.assertEqual(cs.root(0), 0)
     eq(0,0)
@@ -69,13 +70,13 @@ class TestConstraintStore(cytest.TestCase):
     ne(0,3)
 
   def testUnionFindSharing(self):
-    a = runtime.UnionFind()
+    a = unionfind.UnionFind()
     b = a.__copy__()
     eqa,nea = self.equivalenceChecker(a)
     eqb,neb = self.equivalenceChecker(b)
-    self.assertEqual(id(a.choices.obj), id(b.choices.obj))
+    self.assertEqual(id(a.parent.obj), id(b.parent.obj))
     a.unite(0,1)
-    self.assertNotEqual(id(a.choices.obj), id(b.choices.obj))
+    self.assertNotEqual(id(a.parent.obj), id(b.parent.obj))
     eqa(0,1)
     neb(0,1)
 

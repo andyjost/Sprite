@@ -83,7 +83,7 @@ def EqVars(interp, result, binding):
   _typecheck(getattr(interp.prelude, '(,)'), binding, name, 2)
   _typecheck(interp.prelude._Free, binding[0], name, '2.1')
   _typecheck(interp.prelude._Free, binding[1], name, '2.2')
-  varid = lambda x: inspect.choice_id(interp, x)
+  varid = lambda x: inspect.get_id(interp, x)
   if varid(binding[0]) == varid(binding[1]):
     assert binding[0] is binding[1]
     raise TypeError(

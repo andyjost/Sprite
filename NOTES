@@ -146,3 +146,30 @@ TODO:
   run into that limiatation yet).  I consolidated the various functions for
   node construction and rewriting.
 
+9/6/2018
+
+- I've been working hard on implementing constraints, but not using these
+  notes.  I think it's a good idea to organize my thoughts, since the changes
+  lately have tended to get quite complex.  I have been laboring under the
+  faulty understanding that something like x == y where x,y free should
+  instantiate variables whenever possible.  So, if the type of x is known to
+  be, say Bool, then both x and y should be instantiated as Boolean generators.
+  Actually, I need residuation here.  No matter what is known about these
+  variables, this expression should always suspend until one of these is
+  actually instantiated (in the proper context).
+
+  As for my next steps, I'd really like to make progress on implementing ==.
+  But given the above, it seems I need to implement residuation first.  Here
+  are a few things that are small enough to bite off.
+
+    1. Implement residuation.  Suppose the execution encounters x == y where
+       x,y free.  I need to make a special Frame and place it at the end of the
+       queue.  Its ``expr`` is just the == node.  When the frame is activated,
+       it attempts a step.  If it succeeds, it unblocks the original frame,
+       which is then added to the queue.  If all frames in the queue are of
+       this type and none can make progress, then the computation fails with
+       suspended constraints.
+    2. Reorganize some code.  The runtime module is getting too large.  Also,
+       the unit tests should have some directory structure and perhaps common
+       subclasses.  It seems there are too may ways of doing the same things.
+

@@ -124,6 +124,11 @@ class FunctionCompiler(object):
       ident = encoding.symbolToFilename(self.ident)
       srcfile = importer.makeNewfile(srcdir, ident)
       with open(srcfile, 'w') as out:
+        out.write(
+            '# This file was created by Sprite.  It contains the Python '
+            'implementation of %s.  It was written so that PDB can step into '
+            'the function, which was compiled in debug mode.\n'  % self.ident
+          )
         out.write(source)
       co = compile(source, srcfile, 'exec')
       exec co in self.closure.context, local
@@ -397,8 +402,10 @@ class Closure(object):
   def __setitem__(self, key, obj):
     '''Add a non-symbol, such as a system function, to the closure.'''
     assert not (key.startswith('ni_') or key.startswith('_') or '.' in key)
-    assert not (self.context.get(key, obj) is not obj)
-    self.context[key] = obj
+    if key not in self.context:
+      self.context[key] = obj
+    else:
+      assert self.context[key] is obj or self.context[key] == obj
 
 # Rendering.
 # ==========

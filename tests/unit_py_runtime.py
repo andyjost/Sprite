@@ -288,7 +288,7 @@ class TestInstantiation(cytest.TestCase):
     self.interp = interpreter.Interpreter()
     self.x, = list(self.interp.eval(self.interp.compile('x where x free', 'expr')))
     self.assertTrue(inspect.isa_freevar(self.interp, self.x))
-    self.assertEqual(inspect.choice_id(self.interp, self.x), 0)
+    self.assertEqual(inspect.get_id(self.interp, self.x), 0)
 
   def q(self, cid, l, r):
     return [self.interp.prelude._Choice, conversions.unboxed(cid), l, r]

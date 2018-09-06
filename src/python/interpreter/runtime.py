@@ -3,6 +3,7 @@ from copy import copy
 from .. import icurry
 from ..runtime import Fingerprint, LEFT, RIGHT
 from ..utility.binding import binding
+from ..utility import unionfind
 from ..utility import visitation
 import collections
 import numbers
@@ -181,6 +182,10 @@ class Node(object):
     self.successors = successors
     return self
 
+  def __nonzero__(self): # pragma: no cover
+    # Without this, nodes without successors are False.
+    return True
+
   @visitation.dispatch.on('i')
   def __getitem__(self, i):
     raise RuntimeError('unhandled type: %s' % type(i).__name__)
@@ -210,9 +215,18 @@ class Node(object):
     '''
     Like ``Node.__getitem__``, but safe when ``node`` is an unboxed value.
     '''
+    assert isinstance(i, (int, collections.Sequence))
     if isinstance(node, Node):
+      # Free variables don't really have successors.  They should be inspected
+      # with special functions such as _Freevar_get_constructors.  This check
+      # is a compromise.  It offers some protection against a too-long
+      # "targetpath" argument to hnf, for instance.  The lower-level
+      # __getitem__ methods still need to accept free variables so that, e.g.,
+      # _Freevar_get_constructors can be implemented.
+      assert node.info.tag != T_FREE or (not i and i != 0)
       return node[i]
-    elif isinstance(i, collections.Sequence) and not i:
+    elif not i and i != 0: # empty sequence.
+      assert isinstance(node, icurry.BuiltinVariant)
       return node
     else:
       raise TypeError("cannot index into an unboxed value.")
@@ -309,20 +323,30 @@ class Evaluator(object):
       frame = self.queue.pop(0)
       expr = frame.expr
       tag = expr.info.tag
-      if tag == T_CHOICE:
-        self.queue.extend(frame.fork())
-      elif tag == T_FAIL:
+      if tag == T_FAIL:
         continue # discard
+      elif tag == T_CHOICE:
+        self.queue.extend(frame.fork())
       elif tag == T_FWD:
         frame.expr = expr[()]
         self.queue.append(frame)
+      elif tag == T_FREE:
+        # TODO: check whether to instantiate.
+        yield expr
       else:
         try:
           self.interp.nf(expr)
         except E_SYMBOL:
           self.queue.append(frame)
         else:
-          yield expr[()]
+          expr = expr[()]
+          if expr.info.tag == T_FREE:
+            frame.expr = expr
+            self.queue.append(frame)
+          else:
+            assert not isinstance(expr, Node) or expr.info.tag >= T_CTOR
+            yield expr
+
 
 
 class StepCounter(object):
@@ -376,7 +400,7 @@ def step(interp, expr, num=1):
   '''
   with binding(interp.__dict__, 'stepcounter', StepCounter(limit=num)):
     try:
-      interp.nf(expr)
+      interp.nf(expr[()])
     except (E_SYMBOL, E_STEPLIMIT):
       pass
 
@@ -386,12 +410,13 @@ def nextid(interp):
   return next(interp._idfactory_)
 
 
-def hnf(interp, expr, targetpath=[], ground=None):
+def hnf(interp, expr, targetpath=(), ground=None):
   '''
   Head-normalize ``expr`` at ``targetpath``.
 
-  If a needed failure or choice symbol is encountered, ``expr`` is overwritten
-  with a failure or choice, respectively, and then E_SYMBOL is raised.
+  If a needed special symbol is encountered, except for a free variable when
+  not grounding, ``expr`` will be overwritten with a symbol and then E_SYMBOL
+  raised.
 
   Parameters:
   -----------
@@ -420,6 +445,8 @@ def hnf(interp, expr, targetpath=[], ground=None):
   # # that node is required to be a function or operation.
   # assert not targetpath or expr.info.tag >= T_FUNC
   # ----------------------------------------
+  assert targetpath is () or not hasattr(expr, 'info') or \
+      expr.info.tag not in (T_FAIL, T_CONSTR, T_FREE, T_CHOICE)
   target = Node.getitem(expr, targetpath)
   stepcounter = interp.stepcounter
   while stepcounter.check():
@@ -437,9 +464,10 @@ def hnf(interp, expr, targetpath=[], ground=None):
         pull_tab(interp, expr, targetpath)
       raise E_SYMBOL()
     elif tag == T_FREE:
-      if ground:
+      if ground is not None:
         # Instantiate the target and replace it in the context of ``expr``.
-        pull_tab(interp, expr, targetpath, typedef=ground)
+        # No... just replace the variable in this context.
+        pull_tab(interp, expr, targetpath, ground)
         raise E_SYMBOL()
       else:
         return target
@@ -454,7 +482,7 @@ def hnf(interp, expr, targetpath=[], ground=None):
       return target
 
 
-def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
+def nf(interp, expr, targetpath=(), rec=float('inf'), ground=None):
   '''
   Normalize ``expr`` at ``targetpath``.
 
@@ -474,7 +502,7 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
         negative, this function does nothing.  Used mainly for testing and
         debugging.
 
-    ``ground``
+    ``ground`` # FIXME
         Indicates whether to normalize to ground normal form.  Needed free
         variables will be instantiated if and only if this is true.
 
@@ -491,6 +519,12 @@ def nf(interp, expr, targetpath=[], rec=float('inf'), ground=False):
     if not isinstance(target, Node):
       assert isinstance(target, icurry.BuiltinVariant)
       return
+    if target.info.tag == T_FREE:
+      assert ground is None
+      # if not targetpath:
+      #   raise E_SYMBOL()
+      return
+    assert target.info.tag >= T_CTOR
     if rec > 0:
       for i in xrange(target.info.arity):
         try:
@@ -654,90 +688,11 @@ def instantiate(interp, freevar, typedef):
   return freevar[1]
 
 
-class Shared(object):
-  '''Manages an object with copy-on-write semantics.'''
-  def __init__(self, ty, obj=None):
-    self.ty = ty
-    if obj is None:
-      self.obj = ty()
-      assert self.unique
-    else:
-      self.obj = obj
-  def __copy__(self):
-    return Shared(self.ty, self.obj) # sharing copy
-  @property
-  def read(self):
-    return self.obj
-  @property
-  def write(self):
-    if not self.unique:
-      self.obj = self.ty(self.obj) # copy for write
-    assert self.unique
-    return self.obj
-  @property
-  def refcnt(self):
-    return sys.getrefcount(self.obj) - 1
-  @property
-  def unique(self):
-    return self.refcnt == 1
-  def __repr__(self):
-    return 'Shared(refcnt=%s, %s)' % (self.refcnt, self.obj)
-  # Read-only container methods, for convenience.
-  def __contains__(self, key):
-    return key in self.obj
-  def __len__(self):
-    return len(self.obj)
-  def __getitem__(self, key):
-    return self.obj[key]
-
-
-class UnionFind(object):
-  '''
-  Stores equality constraints between choices.
-
-  Equivalent choices must have the same value, i.e., LEFT or RIGHT.  This is
-  implemented as weighted quick-union with path compression.
-  '''
-  def __init__(self, obj=None):
-    if obj is None:
-      self.choices = Shared(dict)
-      self.size = Shared(dict)
-    else:
-      self.choices = obj.choices.__copy__()
-      self.size = obj.size.__copy__()
-  def __copy__(self):
-    return UnionFind(self)
-  def __contains__(self, i):
-    return i in self.choices.read
-  def __getitem__(self, i):
-    return self.choices.read.setdefault(i, i)
-  def __setitem__(self, i, j):
-    self.choices.write[i] = j
-  def root(self, i):
-    while i != self[i]:
-      self[i] = self[self[i]]
-      i = self[i]
-    return i
-  def find(self, p, q):
-    return self.root(p) == self.root(q)
-  def unite(self, p, q):
-    i = self.root(p)
-    j = self.root(q)
-    if self.size.read.setdefault(i,1) < self.size.read.setdefault(j,1):
-      self.choices.write[i] = j
-      self.size.write[j] += self.size[i]
-    else:
-      self.choices.write[j] = i
-      self.size.write[i] += self.size[j]
-  def __repr__(self):
-    return repr(self.choices.read)
-
-
 class Constraints(object):
   def __init__(self, arg=None):
     if arg is None:
-      # self.vars = Shared(lambda: defaultdict(lambda: Shared(list)))
-      self.choices = Shared(UnionFind)
+      # self.vars = unionfind.Shared(lambda: defaultdict(lambda: unionfind.Shared(list)))
+      self.choices = unionfind.Shared(unionfind.UnionFind)
     else:
       # self.vars = arg.vars
       self.choices = copy(arg.choices)
@@ -745,14 +700,12 @@ class Constraints(object):
   def __copy__(self):
     return Constraints(self)
 
-  # def uniteVars(self, node_from, node_to, is_lazy):
-  #   store = self.vars.write
-  #   cid = node_from[0]
-  #   store[cid].write.append((node_from, node_to, is_lazy))
-  #   if not is_lazy:
-  #     cid = node_to[0]
-  #     store[cid].write.append((node_to, node_from, is_lazy))
+def get_id(arg):
+  '''Returns the choice or variable id for a choice or free variable.'''
+  if isinstance(arg, Node):
+    arg = arg[()]
+    if arg.info.tag in [T_FREE, T_CHOICE]:
+      cid = arg[0]
+      assert cid >= 0
+      return cid
 
-  # def uniteChoices(self, i, j):
-  #   if not self.choices.read.find(i, j):
-  #     self.choices.write.unite(i, j)

@@ -98,11 +98,11 @@ class TestInspect(cytest.TestCase):
           )
       )
 
-  def testChoiceID(self):
-    self.assertEqual(inspect.choice_id(self.interp, self.freevar), 0)
-    self.assertEqual(inspect.choice_id(self.interp, self.choice), 1)
+  def testGetID(self):
+    self.assertEqual(inspect.get_id(self.interp, self.freevar), 0)
+    self.assertEqual(inspect.get_id(self.interp, self.choice), 1)
     self.assertTrue(
-        all(inspect.choice_id(self.interp, x) is None)
+        all(inspect.get_id(self.interp, x) is None)
             for x in self.everything.difference([self.freevar, self.choice]
           )
       )
