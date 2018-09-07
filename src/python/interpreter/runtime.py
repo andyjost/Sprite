@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from copy import copy
 from .. import icurry
+from .. import exceptions
 from ..runtime import Fingerprint, LEFT, RIGHT
 from ..utility.binding import binding
 from ..utility import unionfind
@@ -19,14 +20,26 @@ T_CHOICE = -2
 T_FUNC   = -1
 T_CTOR   =  0 # for each type, ctors are numbered starting at zero.
 
+class E_RESIDUAL(BaseException):
+  '''Raised when evaluation cannot complete due to uninstantiated free variables.'''
+  def __init__(self, ids):
+    '''
+    Parameters:
+    -----------
+        ``ids``
+            A collection of free variable IDs (ints) blocking evaluation.
+    '''
+    assert isinstance(ids, set)
+    self.ids = ids
+
+class E_STEPLIMIT(BaseException):
+  '''Raised when the step limit is reached.'''
+
 class E_SYMBOL(BaseException):
   '''
   Indicates a symbol requiring exceptional handing (i.e., FAIL or CHOICE) was
   encountered in a needed position.
   '''
-
-class E_STEPLIMIT(BaseException):
-  '''Raised when the step limit is reached.'''
 
 class InfoTable(object):
   '''
@@ -279,14 +292,22 @@ class Frame(object):
   One element of the work queue managed by an ``Evaluator``.  Represents an
   expression "activated" for evaluation.
   '''
-  def __init__(self, expr, arg=None):
-    self.expr = expr
-    if arg is None:
+  def __init__(self, expr=None, clone=None):
+    if clone is None:
+      assert expr is not None
+      self.expr = expr
       self.fingerprint = Fingerprint()
-      self.constraints = Constraints()
+      self.choices = unionfind.Shared(unionfind.UnionFind)
+      self.blocked_by = None
     else:
-      self.fingerprint = copy(arg.fingerprint)
-      self.constraints = copy(arg.constraints)
+      self.expr = clone.expr if expr is None else expr
+      self.fingerprint = copy(clone.fingerprint)
+      self.choices = copy(clone.choices)
+      # sharing is OK; this is only iterated and replaced.
+      self.blocked_by = clone.blocked_by
+
+  def __copy__(self): # pragma: no cover
+    return Frame(clone=self)
 
   def fork(self):
     '''
@@ -308,6 +329,28 @@ class Frame(object):
       self.fingerprint.set_right(cid)
       yield self
 
+  @property
+  def blocked(self):
+    '''Indicates whether the frame is blocked.'''
+    return bool(self.blocked_by)
+
+  def block(self, blocked_by):
+    '''Block this frame, waiting for any of the free variables.'''
+    assert blocked_by
+    assert not self.blocked_by
+    self.blocked_by = blocked_by
+    return self
+
+  def unblock(self):
+    '''Try to unblock a blocked frame.'''
+    assert self.blocked
+    root = self.choices.read.root
+    if any(root(x) in self.fingerprint for x in self.blocked_by):
+      self.blocked_by = None
+      return True
+    else:
+      return False
+
 
 class Evaluator(object):
   '''Evaluates Curry expressions.'''
@@ -315,12 +358,16 @@ class Evaluator(object):
     self = object.__new__(cls)
     self.interp = interp
     self.queue = [Frame(goal)]
+    self.n_blocked = 0
     return self
 
   def eval(self):
     '''Implements the dispatch (D) Fair Scheme procedure.'''
+    # The number of consecutive blocked frames processed unsuccessfully.
     while self.queue:
       frame = self.queue.pop(0)
+      if self._process_blocked(frame):
+        continue
       expr = frame.expr
       tag = expr.info.tag
       if tag == T_FAIL:
@@ -338,6 +385,8 @@ class Evaluator(object):
           self.interp.nf(expr)
         except E_SYMBOL:
           self.queue.append(frame)
+        except E_RESIDUAL as res:
+          self.queue.append(frame.block(blocked_by=res.ids))
         else:
           expr = expr[()]
           if expr.info.tag == T_FREE:
@@ -347,6 +396,23 @@ class Evaluator(object):
             assert not isinstance(expr, Node) or expr.info.tag >= T_CTOR
             yield expr
 
+  def _process_blocked(self, frame):
+    '''
+    Check for and process a blocked frame, if applicable.  Returns true if the
+    frame was indeed blocked, unless the computation suspends.
+    '''
+    if frame.blocked:
+      self.queue.append(frame)
+      if frame.unblock():
+        self.n_blocked = 0
+      else:
+        self.n_blocked += 1
+        if self.n_blocked == len(self.queue):
+          raise exceptions.EvaluationSuspended()
+      return True
+    else:
+      self.n_blocked = 0
+      return False
 
 
 class StepCounter(object):
@@ -687,18 +753,6 @@ def instantiate(interp, freevar, typedef):
     Node(freevar.info, vid, instance, target=freevar)
   return freevar[1]
 
-
-class Constraints(object):
-  def __init__(self, arg=None):
-    if arg is None:
-      # self.vars = unionfind.Shared(lambda: defaultdict(lambda: unionfind.Shared(list)))
-      self.choices = unionfind.Shared(unionfind.UnionFind)
-    else:
-      # self.vars = arg.vars
-      self.choices = copy(arg.choices)
-
-  def __copy__(self):
-    return Constraints(self)
 
 def get_id(arg):
   '''Returns the choice or variable id for a choice or free variable.'''

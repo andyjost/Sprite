@@ -2,6 +2,7 @@
 import cytest # from ./lib; must be first
 import curry
 import unittest
+from curry.interpreter import runtime
 
 class TestPyEvaluation(cytest.TestCase):
   def check(self, name, expected):
@@ -18,4 +19,17 @@ class TestPyEvaluation(cytest.TestCase):
 
   def test_btable(self):
     self.check('btable', [0])
+
+  def test_blockedFrames(self):
+    '''Test blocking, unblocking, and suspension of evaluation.'''
+    interp = curry.interpreter.Interpreter()
+    goal = interp.expr(91)
+    evaluator = runtime.Evaluator(interp, goal)
+    Q = evaluator.queue
+    Q[0] = Q[0].block([17])
+    self.assertTrue(Q[0].blocked)
+    self.assertFalse(Q[0].unblock())
+    self.assertRaises(curry.EvaluationSuspended, lambda: list(evaluator.eval()))
+    Q[0].fingerprint[17] = runtime.LEFT
+    self.assertEqual(list(evaluator.eval()), [interp.expr(91)])
 

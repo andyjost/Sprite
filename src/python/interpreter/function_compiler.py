@@ -404,7 +404,7 @@ class Closure(object):
     assert not (key.startswith('ni_') or key.startswith('_') or '.' in key)
     if key not in self.context:
       self.context[key] = obj
-    else:
+    else: # pragma: no cover
       assert self.context[key] is obj or self.context[key] == obj
 
 # Rendering.
