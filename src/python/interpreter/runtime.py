@@ -29,17 +29,19 @@ class E_RESIDUAL(BaseException):
         ``ids``
             A collection of free variable IDs (ints) blocking evaluation.
     '''
-    assert isinstance(ids, set)
-    self.ids = ids
+    self.ids = set(ids)
 
 class E_STEPLIMIT(BaseException):
   '''Raised when the step limit is reached.'''
 
 class E_SYMBOL(BaseException):
   '''
-  Indicates a symbol requiring exceptional handing (i.e., FAIL or CHOICE) was
-  encountered in a needed position.
+  Indicates a symbol requiring exceptional handing (e.g., FAIL or CHOICE) was
+  placed in a needed position.
   '''
+  # For example, when reducing g (f (a ? b)), a pull-tab step will replace f
+  # with a choice.  Afterwards, this exception is raised to return control to
+  # g.
 
 class InfoTable(object):
   '''
@@ -186,6 +188,10 @@ class Node(object):
             )
         )
     target = kwds.get('target', None)
+    # FIXME: don't put FWD nodes at the root.  Just use $!!.
+    assert target is None or \
+           target.info.tag in (T_FUNC, T_FWD) or \
+           (target.info.tag == T_FREE == info.tag)
     self = object.__new__(cls) if target is None else target
     self.info = info
     successors = list(args)
@@ -292,14 +298,17 @@ class Frame(object):
   One element of the work queue managed by an ``Evaluator``.  Represents an
   expression "activated" for evaluation.
   '''
-  def __init__(self, expr=None, clone=None):
+  def __init__(self, interp=None, expr=None, clone=None):
     if clone is None:
       assert expr is not None
+      self.interp = interp
       self.expr = expr
       self.fingerprint = Fingerprint()
       self.choices = unionfind.Shared(unionfind.UnionFind)
       self.blocked_by = None
     else:
+      assert interp is None or interp is clone.interp
+      self.interp = clone.interp
       self.expr = clone.expr if expr is None else expr
       self.fingerprint = copy(clone.fingerprint)
       self.choices = copy(clone.choices)
@@ -309,20 +318,37 @@ class Frame(object):
   def __copy__(self): # pragma: no cover
     return Frame(clone=self)
 
+  @property
+  def expr(self):
+    return self._expr
+
+  @expr.setter
+  def expr(self, expr):
+    self._expr = self.makeRoot(self.interp, expr)
+
+  @staticmethod
+  def makeRoot(interp, expr):
+    # Ensure the root expression is not constructor-rooted, so that it can
+    # always be replaced.
+    if not hasattr(expr, 'info') or expr.info.tag >= T_CTOR:
+      return Node(interp.prelude._Fwd, expr)
+    else:
+      return expr
+
   def fork(self):
     '''
     Fork a choice-rooted frame into its left and right children.  Yields each
     consistent child.  Recycles ``self``.
     '''
     assert self.expr.info.tag == T_CHOICE
-    cid,lhs,rhs = self.expr
+    cid,lhs,rhs = self.expr[()]
     if cid in self.fingerprint: # Decided, so one child.
       lr = self.fingerprint[cid]
       assert lr in [LEFT,RIGHT]
       self.expr = lhs if lr==LEFT else rhs
       yield self
     else: # Undecided, so two children.
-      lchild = Frame(lhs, self)
+      lchild = Frame(expr=lhs, clone=self)
       lchild.fingerprint.set_left(cid)
       yield lchild
       self.expr = rhs
@@ -357,44 +383,60 @@ class Evaluator(object):
   def __new__(cls, interp, goal):
     self = object.__new__(cls)
     self.interp = interp
-    self.queue = [Frame(goal)]
+    self.queue = collections.deque([Frame(interp, goal)])
     self.n_blocked = 0
     return self
 
-  def eval(self):
-    '''Implements the dispatch (D) Fair Scheme procedure.'''
-    # The number of consecutive blocked frames processed unsuccessfully.
+  def D(self):
+    '''The dispatch (D) Fair Scheme procedure.'''
     while self.queue:
-      frame = self.queue.pop(0)
+      frame = self.queue.popleft()
       if self._process_blocked(frame):
         continue
       expr = frame.expr
-      tag = expr.info.tag
-      if tag == T_FAIL:
-        continue # discard
-      elif tag == T_CHOICE:
+      target = expr[()]
+      if isinstance(target, icurry.BuiltinVariant):
+        yield target
+        continue
+      tag = target.info.tag
+      if tag == T_CHOICE:
         self.queue.extend(frame.fork())
-      elif tag == T_FWD:
-        frame.expr = expr[()]
-        self.queue.append(frame)
+      elif tag == T_CONSTR:
+        assert False # TODO
+      elif tag == T_FAIL:
+        continue # discard
       elif tag == T_FREE:
         # TODO: check whether to instantiate.
-        yield expr
-      else:
+        yield target
+      elif tag == T_FUNC:
         try:
-          self.interp.nf(expr)
+          S(self.interp, target)
         except E_SYMBOL:
+          assert expr.info.tag < T_CTOR and expr.info.tag != T_FUNC
           self.queue.append(frame)
         except E_RESIDUAL as res:
           self.queue.append(frame.block(blocked_by=res.ids))
         else:
-          expr = expr[()]
-          if expr.info.tag == T_FREE:
-            frame.expr = expr
-            self.queue.append(frame)
+          frame.expr = frame.expr # insert FWD node, if needed.
+          self.queue.append(frame)
+      elif tag >= T_CTOR:
+        try:
+          N(self.interp, expr, target)
+        except E_SYMBOL:
+          assert expr.info.tag < T_CTOR and expr.info.tag != T_FUNC
+          self.queue.append(frame)
+        except E_RESIDUAL as res:
+          self.queue.append(frame.block(blocked_by=res.ids))
+        else:
+          target = expr[()]
+          if target.info.tag == tag:
+            # TODO: check free variables and repeat the call to N if some must
+            # be instantiated.
+            yield target
           else:
-            assert not isinstance(expr, Node) or expr.info.tag >= T_CTOR
-            yield expr
+            self.queue.append(frame)
+      else:
+        assert False
 
   def _process_blocked(self, frame):
     '''
@@ -430,12 +472,10 @@ class StepCounter(object):
   @property
   def limit(self):
     return self._limit
-  def check(self):
-    if self._count == self.limit:
-      raise E_STEPLIMIT()
-    return True
   def increment(self):
     self._count += 1
+    if self._count == self.limit:
+      raise E_STEPLIMIT()
   def reset(self):
     self._count = 0
 
@@ -460,152 +500,122 @@ def get_stepper(interp):
   return step
 
 
+# FIXME: this doesn't belong here.  It should be into the cytest area, or maybe
+# a debug module.
 def step(interp, expr, num=1):
   '''
-  Takes the specified number of steps at the head of the given expression.
+  Takes up to the specified number of steps for the given expression, stopping
+  if the root is ever replaced with a symbol or a residual is found.  This
+  function is used for testing.
   '''
+  expr = Frame.makeRoot(interp, expr)
   with binding(interp.__dict__, 'stepcounter', StepCounter(limit=num)):
     try:
-      interp.nf(expr[()])
-    except (E_SYMBOL, E_STEPLIMIT):
+      if isinstance(expr, icurry.BuiltinVariant):
+        return
+      while expr.info.tag == T_FUNC:
+        interp._stepper(expr)
+      if expr.info.tag >= T_CTOR:
+        N(interp, expr)
+      else:
+        return
+      # FIXME: get the termination condition right.  It needs the same
+      # check as D to see whether expr is actually a value.
+    except (E_SYMBOL, E_STEPLIMIT, E_RESIDUAL):
       pass
-
 
 def nextid(interp):
   '''Generates the next available ID.'''
   return next(interp._idfactory_)
 
+def N(interp, root, target=None, path=None, freevars=None):
+  '''The normalize (N) Fair Scheme procedure.'''
+  assert root.info.tag < T_CTOR
+  path = [] if path is None else path
+  target = root[path] if target is None else target
+  assert target.info.tag >= T_CTOR
+  freevars = set() if freevars is None else freevars
+  path.append(None)
+  try:
+    for path[-1], succ in enumerate(target):
+      while True:
+        if isinstance(succ, icurry.BuiltinVariant):
+          break
+        tag = succ.info.tag
+        if tag == T_FAIL:
+          Node(interp.prelude._Failure, target=root)
+          raise E_SYMBOL()
+        elif tag == T_CHOICE or tag == T_CONSTR:
+          pull_tab(interp, root, path)
+          raise E_SYMBOL()
+        elif tag == T_FREE:
+          freevars.add(target)
+          break
+        elif tag == T_FUNC:
+          try:
+            S(interp, succ)
+          except E_SYMBOL:
+            pass
+        elif tag >= T_CTOR:
+          _,free = N(interp, root, succ, path, freevars)
+          freevars.update(free)
+          break
+        else:
+          assert False
+  finally:
+    path.pop()
+  return target, freevars
 
-def hnf(interp, expr, targetpath=(), ground=None):
-  '''
-  Head-normalize ``expr`` at ``targetpath``.
+def normalize(interp, root, path, ground):
+  try:
+    hnf(interp, root, path)
+  except E_RESIDUAL:
+    if ground:
+      raise
+    else:
+      return root[path]
+  target, freevars = N(interp, root, path=path)
+  if ground and freevars:
+    raise E_RESIDUAL(freevars)
+  return target
 
-  If a needed special symbol is encountered, except for a free variable when
-  not grounding, ``expr`` will be overwritten with a symbol and then E_SYMBOL
-  raised.
-
-  Parameters:
-  -----------
-    ``expr``
-        An expression.
-
-    ``targetpath``
-        A path to the descendant of ``expr`` to normalize.  If empty, ``expr``
-        itself will be normalized.  In that case, its tag must not be T_FAIL,
-        T_FREE, or T_CHOICE.
-
-    ``ground``
-        Indicates whether to normalize to grounded head-normal form.  A free
-        variable at the head will be instantiated if and only if this is true.
-        This can be None or an instance of TypeDefinition.  If grounding, and
-        if the target position is a free variable, it will be instantiated as
-        this type.
-
-  Returns:
-  --------
-    The target node.
-  '''
-  # TODO: examine this check in more detail.
-  # ----------------------------------------
-  # # In the degenerate case where ``expr`` and ``target`` are the same node,
-  # # that node is required to be a function or operation.
-  # assert not targetpath or expr.info.tag >= T_FUNC
-  # ----------------------------------------
-  assert targetpath is () or not hasattr(expr, 'info') or \
-      expr.info.tag not in (T_FAIL, T_CONSTR, T_FREE, T_CHOICE)
-  target = Node.getitem(expr, targetpath)
-  stepcounter = interp.stepcounter
-  while stepcounter.check():
-    if not isinstance(target, Node):
-      # >> FIXME
-      # assert isinstance(target, icurry.BuiltinVariant)
+def hnf(interp, expr, path, typedef=None):
+  assert path
+  assert expr.info.tag == T_FUNC
+  target = expr[path]
+  while True:
+    if isinstance(target, icurry.BuiltinVariant):
       return target
     tag = target.info.tag
     if tag == T_FAIL:
-      if targetpath:
-        Node(interp.prelude._Failure, target=expr)
+      Node(interp.prelude._Failure, target=expr)
       raise E_SYMBOL()
     elif tag == T_CHOICE or tag == T_CONSTR:
-      if targetpath:
-        pull_tab(interp, expr, targetpath)
+      pull_tab(interp, expr, path)
       raise E_SYMBOL()
     elif tag == T_FREE:
-      if ground is not None:
+      if typedef is None:
+        raise E_RESIDUAL([get_id(target)])
+      else:
         # Instantiate the target and replace it in the context of ``expr``.
         # No... just replace the variable in this context.
-        pull_tab(interp, expr, targetpath, ground)
+        pull_tab(interp, expr, path, typedef)
         raise E_SYMBOL()
-      else:
-        return target
-    elif tag == T_FWD:
-      target = target[()]
     elif tag == T_FUNC:
       try:
-        interp._step(target)
+        S(interp, target)
       except E_SYMBOL:
         pass
-    else:
+    elif tag >= T_CTOR:
       return target
+    elif tag >= T_FWD:
+      target = expr[path]
+    else:
+      assert False
 
-
-def nf(interp, expr, targetpath=(), rec=float('inf'), ground=None):
-  '''
-  Normalize ``expr`` at ``targetpath``.
-
-  Parameters:
-  -----------
-    ``expr``
-        An expression.
-
-    ``targetpath``
-        A path to the descendant of ``expr`` to normalize.  If empty, ``expr``
-        itself will be normalized.  In that case, its tag must not be T_FAIL,
-        T_CHOICE, or T_CONSTR.
-
-    ``rec``
-        Recurse at most this many times.  Recursing to *every* successor counts
-        as one recursion.  If zero, only the root node is head-normalized.  If
-        negative, this function does nothing.  Used mainly for testing and
-        debugging.
-
-    ``ground`` # FIXME
-        Indicates whether to normalize to ground normal form.  Needed free
-        variables will be instantiated if and only if this is true.
-
-  Returns:
-  --------
-    Nothing.
-  '''
-  if rec >= 0:
-    try:
-      target = hnf(interp, expr, targetpath, ground=ground)
-    except E_SYMBOL:
-      assert expr[()].info.tag in [T_FAIL, T_CHOICE, T_CONSTR]
-      raise
-    if not isinstance(target, Node):
-      assert isinstance(target, icurry.BuiltinVariant)
-      return
-    if target.info.tag == T_FREE:
-      assert ground is None
-      # if not targetpath:
-      #   raise E_SYMBOL()
-      return
-    assert target.info.tag >= T_CTOR
-    if rec > 0:
-      for i in xrange(target.info.arity):
-        try:
-          nf(interp, target, [i], rec-1, ground=ground)
-        except E_SYMBOL:
-          if targetpath:
-            tag = target.info.tag
-            if tag == T_FAIL:
-              Node(interp.prelude._Failure, target=expr)
-            elif tag == T_CHOICE or tag == T_CONSTR:
-              pull_tab(interp, expr, targetpath)
-            else:
-              assert False
-          raise
-
+def S(interp, target):
+  '''The step (S) Fair Scheme procedure.'''
+  interp._stepper(target)
 
 class _PullTabber(object):
   '''
@@ -677,12 +687,15 @@ def pull_tab(interp, source, targetpath, typedef=None):
     ``typedef``
         If the target is a free variable, this is used to instantiate it.
   '''
+  assert source.info.tag < T_CTOR
   assert targetpath
-  pt = _PullTabber(interp, source, targetpath, typedef)
+  assert source[targetpath].info.tag in [T_CHOICE, T_CONSTR, T_FREE]
+  pt = _PullTabber(interp, source[()], targetpath, typedef)
   left = pt.getLeft()
   if source.info is interp.prelude.ensureNotFree.info:
     if pt.target.info.tag in [T_CHOICE, T_FREE]:
       raise RuntimeError("non-determinism in I/O actions occurred")
+  pt.target.info.tag == T_CHOICE
   if pt.target.info.tag == T_CHOICE:
     right = pt.getRight()
     Node(

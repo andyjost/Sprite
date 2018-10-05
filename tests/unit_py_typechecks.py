@@ -3,6 +3,7 @@ from curry.interpreter import runtime
 import curry
 from curry.runtime import LEFT, RIGHT, UNDETERMINED
 from curry.interpreter import typecheckers as tc
+import unittest
 
 u = curry.unboxed
 hint = r'  \(An unboxed value was expected but a boxed value of the ' \
@@ -107,6 +108,7 @@ class TestPyTypeChecks(cytest.TestCase):
         , lambda: I.expr(I.prelude._ChoiceConstr, True, (u(101), u('a')))
         )
 
+  @unittest.skip('suspends')
   def testEqVars(self):
     for debug in [True, False]:
       I = curry.interpreter.Interpreter(flags={'debug':debug})

@@ -173,3 +173,17 @@ TODO:
        the unit tests should have some directory structure and perhaps common
        subclasses.  It seems there are too may ways of doing the same things.
 
+9/12/2018
+
+- I've been reworking the core evaluation methods to more closely match the FS.
+  Still, there are extensions for free variables, constraints, and residuation.
+  There are many offshoots to circle back to.
+
+    1. The Prelude functions implemented via py.func need to be reviewed.  The
+       handler for that tag normalizes each successors, but that's often too
+       strict.  It's probably better to just do the normalization manually in
+       each implementation function to avoid making that type of mistake.
+    2. Prelude.unknown returns a FWD node.  The FWD nodes can always be removed
+       by copying the successors.
+    3. The debug source files that are written for PDB should also dump the
+       ICurry.

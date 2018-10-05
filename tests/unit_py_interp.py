@@ -152,8 +152,8 @@ class TestPyInterp(cytest.TestCase):
       ]
     for expr, expected in TESTS:
       goal = interp.expr(*expr)
-      result = map(str, interp.eval(goal))
       with trap():
+        result = map(str, interp.eval(goal))
         self.assertEqual(set(result), set(expected))
 
   def testEvaluateBuiltins(self):

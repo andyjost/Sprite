@@ -33,6 +33,7 @@ class TestPyCompile(cytest.TestCase):
       , lambda: curry.compile('data A')
       )
 
+  @unittest.skip('requires comparison')
   def testCompileStringAsModule(self):
     '''Test dynamic module compilation.'''
     text = '''

@@ -64,7 +64,7 @@ def compile(
     module = interp.import_(icur)
     del interp.modules[icur.name]
     expr = interp.expr(getattr(module, '.symbols')[visible_name])
-    interp._step(expr)
+    interp._stepper(expr)
     return expr
   else:
     raise TypeError('expected mode "module" or "expr"')

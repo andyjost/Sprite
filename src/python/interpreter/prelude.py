@@ -173,18 +173,18 @@ _functions_ = [
 # --- to head normal form.
 # ($!)    :: (a -> b) -> a -> b
 # ($!) external
-  , icurry.IFunction('$!', 2, metadata={'py.func':impl.apply_hnf})
+  , icurry.IFunction('$!', 2, metadata={'py.rawfunc':impl.apply_hnf})
 #
 # --- Right-associative application with strict evaluation of its argument
 # --- to normal form.
 # ($!!)   :: (a -> b) -> a -> b
 # ($!!) external
-  , icurry.IFunction('$!!', 2, metadata={'py.func':impl.apply_nf})
+  , icurry.IFunction('$!!', 2, metadata={'py.rawfunc':impl.apply_nf})
 # --- Right-associative application with strict evaluation of its argument
 # --- to ground normal form.
 # ($##)   :: (a -> b) -> a -> b
 # ($##) external
-  , icurry.IFunction('$##', 2, metadata={'py.func':impl.apply_gnf})
+  , icurry.IFunction('$##', 2, metadata={'py.rawfunc':impl.apply_gnf})
 #
 # prim_error    :: String -> _
 # prim_error external
@@ -215,7 +215,7 @@ _functions_ = [
 # --- in the datatype declarations and recursively in the arguments.
 # compare :: a -> a -> Ordering
 # compare external
-  , icurry.IFunction('compare', 2, metadata={'py.func':impl.compare})
+  , icurry.IFunction('compare', 2, metadata={'py.rawfunc':impl.compare})
 #
 # --- Converts a character into its ASCII value.
 # ord :: Char -> Int
@@ -233,7 +233,7 @@ _functions_ = [
 # ---         and then performs (fa r)
 # (>>=)             :: IO a -> (a -> IO b) -> IO b
 # (>>=) external
-  , icurry.IFunction('>>=', 2, metadata={'py.func':impl.compose_io})
+  , icurry.IFunction('>>=', 2, metadata={'py.rawfunc':impl.compose_io})
 #
 # --- The empty action that directly returns its argument.
 # return            :: a -> IO a
@@ -287,7 +287,7 @@ _functions_ = [
 # -- Representation of higher-order applications in FlatCurry.
 # apply :: (a -> b) -> a -> b
 # apply external
-  , icurry.IFunction('apply', 2, metadata={'py.func':impl.apply})
+  , icurry.IFunction('apply', 2, metadata={'py.rawfunc':impl.apply})
 
 #
 # -- Only for internal use:

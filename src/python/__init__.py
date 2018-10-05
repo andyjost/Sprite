@@ -18,6 +18,7 @@ import_ = _interpreter_.import_
 module = _interpreter_.module
 modules = _interpreter_.modules
 path = _interpreter_.path
+prelude = _interpreter_.prelude
 reset = _interpreter_.reset
 symbol = _interpreter_.symbol
 topython = _interpreter_.topython

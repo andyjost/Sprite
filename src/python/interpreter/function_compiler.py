@@ -5,6 +5,8 @@ from ..utility import encoding
 from ..utility import visitation
 import collections
 import logging
+import pprint
+import textwrap
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +24,14 @@ def compile_function(interp, ifun, extern=None):
     try:
       assert isinstance(ifun, icurry.IFunction)
       if 'py.primfunc' in ifun.metadata:
-        assert('py.func' not in ifun.metadata)
-        return compile_primitive_builtin(
-            interp, ifun.metadata['py.primfunc']
-          )
+        assert not any(x in ifun.metadata for x in ['py.func', 'py.rawfunc'])
+        return compile_pyprimfunc(interp, ifun.metadata['py.primfunc'])
       elif 'py.func' in ifun.metadata:
-        return compile_builtin(interp, ifun.metadata['py.func'])
+        assert not any(x in ifun.metadata for x in ['py.primfunc', 'py.rawfunc'])
+        return compile_pyfunc(interp, ifun.metadata['py.func'])
+      elif 'py.rawfunc' in ifun.metadata:
+        assert not any(x in ifun.metadata for x in ['py.primfunc', 'py.func'])
+        return compile_pyrawfunc(interp, ifun.metadata['py.rawfunc'])
       compiler = FunctionCompiler(interp, ifun.ident, extern)
       compiler.compile(ifun.code)
     except ExternallyDefined as e:
@@ -51,7 +55,7 @@ def compile_function(interp, ifun, extern=None):
       ]
   return compiler.get()
 
-def compile_primitive_builtin(interp, func):
+def compile_pyprimfunc(interp, func):
   '''
   Compiles code for built-in functions on primitive data.  See metadata.py.
   '''
@@ -63,7 +67,7 @@ def compile_primitive_builtin(interp, func):
     return expr(func(*args), target=lhs)
   return step
 
-def compile_builtin(interp, func):
+def compile_pyfunc(interp, func):
   '''
   Compiles code for a built-in function.  See metadata.py.
 
@@ -75,6 +79,15 @@ def compile_builtin(interp, func):
   def step(lhs):
     args = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
     runtime.Node(*func(interp, *args), target=lhs)
+  return step
+
+def compile_pyrawfunc(interp, func):
+  '''
+  Like compile_pyfunc but does not head-normalize the arguments.  The
+  left-hand-side expression is simply passed to the implementation function.
+  '''
+  def step(lhs):
+    runtime.Node(*func(interp, lhs), target=lhs)
   return step
 
 class FunctionCompiler(object):
@@ -124,12 +137,16 @@ class FunctionCompiler(object):
       ident = encoding.symbolToFilename(self.ident)
       srcfile = importer.makeNewfile(srcdir, ident)
       with open(srcfile, 'w') as out:
-        out.write(
-            '# This file was created by Sprite.  It contains the Python '
-            'implementation of %s.  It was written so that PDB can step into '
-            'the function, which was compiled in debug mode.\n'  % self.ident
-          )
         out.write(source)
+        out.write('\n\n\n')
+        comment = (
+            'This file was created by Sprite because %s was compiled in debug '
+            'mode.  It exists to help PDB show the compiled code.'
+          ) % self.ident
+        out.write('\n'.join('# ' + line for line in textwrap.wrap(comment)))
+        out.write('\n\n# Closure:\n')
+        closure = pprint.pformat(self.closure.context, indent=2)
+        out.write('\n'.join('# ' + line for line in closure.split('\n')))
       co = compile(source, srcfile, 'exec')
       exec co in self.closure.context, local
     else:
@@ -330,7 +347,7 @@ class FunctionCompiler(object):
     if atable.isflex:
       typename = next(atable.switch.iterkeys())
       self.closure['switch_type'] = self.interp.symbol(typename).typedef()
-      yield 'selector = hnf(lhs, p_%s, ground=switch_type).info.tag' \
+      yield 'selector = hnf(lhs, p_%s, typedef=switch_type).info.tag' \
           % atable.expr.vid
     else:
       yield 'selector = hnf(lhs, p_%s).info.tag' % atable.expr.vid
@@ -351,7 +368,7 @@ class FunctionCompiler(object):
     if btable.isflex:
       typename = next(btable.switch.iterkeys()).ident
       self.closure['switch_type'] = self.interp.symbol(typename).typedef()
-      yield 'selector = unbox(hnf(lhs, p_%s, ground=switch_type))' \
+      yield 'selector = unbox(hnf(lhs, p_%s, typedef=switch_type))' \
           % btable.expr.vid
     else:
       assert False

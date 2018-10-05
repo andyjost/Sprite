@@ -91,34 +91,35 @@ class TestConstraintStore(cytest.TestCase):
   def testFrameFork(self):
     Unit = curry.symbol('Prelude.()')
     e = curry.expr(curry.symbol('Prelude.?'), -10, 10)
-    curry.getInterpreter().step(e)
+    interp = curry.getInterpreter()
+    interp.step(e)
     cid,l,r = e
     assert cid == 0 # cytest.TestCase should have reset curry.
     #
-    frame = runtime.Frame(e)
+    frame = runtime.Frame(interp, e)
     self.checkFingerprint(frame)
     #
     buf = list(frame.fork())
-    self.assertTrue(all(x.expr is y for x,y in zip(buf, [l,r])))
+    self.assertTrue(all(x.expr[()] is y for x,y in zip(buf, [l,r])))
     self.checkFingerprint(buf[0], {cid:LEFT})
     self.checkFingerprint(buf[1], {cid:RIGHT})
     #
     lhs,rhs = buf
-    frame = runtime.Frame(e, lhs)
+    frame = runtime.Frame(interp, e, lhs)
     buf = list(frame.fork())
-    self.assertIs(buf.pop().expr, l)
+    self.assertIs(buf.pop().expr[()], l)
     self.assertFalse(buf)
     #
-    frame = runtime.Frame(e, rhs)
+    frame = runtime.Frame(interp, e, rhs)
     buf = list(frame.fork())
-    self.assertIs(buf.pop().expr, r)
+    self.assertIs(buf.pop().expr[()], r)
     self.assertFalse(buf)
     #
     e = curry.expr(curry.symbol('Prelude.?'), -10, 10)
     curry.getInterpreter().step(e)
     cid2,_,_ = e
     self.assertNotEqual(cid, cid2)
-    frame = runtime.Frame(e, frame)
+    frame = runtime.Frame(interp, e, frame)
     buf = list(frame.fork())
     self.assertEqual(len(buf), 2)
     self.checkFingerprint(buf[0], {cid:RIGHT, cid2:LEFT})

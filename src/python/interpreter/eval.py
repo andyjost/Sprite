@@ -27,7 +27,7 @@ def eval(interp, *args, **kwds):
       converter if converter != 'default' else interp.flags['defaultconverter']
     )
   goal = interp.expr(*args)
-  results = runtime.Evaluator(interp, goal).eval()
+  results = runtime.Evaluator(interp, goal).D()
   if convert is None:
     return results
   else:

@@ -42,7 +42,6 @@ class TestPyRuntime(cytest.TestCase):
         TypeError, r'cannot import type "int"', lambda: interp.import_(1)
       )
 
-
   def test_normalization(self):
     '''
     Tests the built-in normalizing function (nf) applied to constructors.
@@ -65,7 +64,7 @@ class TestPyRuntime(cytest.TestCase):
     interp_nodebug = interpreter.Interpreter(flags={'debug':False})
     self.checkNormalization(interp_nodebug)
 
-
+  @unittest.skip('rec was removed')
   def checkNormalization(self, interp):
     bs = interp.import_(self.BOOTSTRAP)
     N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
@@ -174,7 +173,6 @@ class TestPyRuntime(cytest.TestCase):
         self.assertEqual(str(expr), str(expected)) # (1)
         self.assertEqual(exc, expected[()].info.tag in special_tags) # (2)
 
-
   def test_inspect_module(self):
     module = curry.compile(
         '''
@@ -195,26 +193,6 @@ class TestPyRuntime(cytest.TestCase):
     icur = inspect.geticurry(module)
     self.assertIsInstance(icur, icurry.IModule)
 
-
-  def test_nd_io(self):
-    goal = curry.compile("putChar ('a' ? 'b')", 'expr')
-    self.assertRaisesRegexp(
-        RuntimeError
-      , r'non-determinism in I/O actions occurred'
-      , lambda: list(curry.eval(goal))
-      )
-
-
-  @unittest.expectedFailure
-  def test_nd_io2(self):
-    goal = curry.compile('''putStrLn ("one" ? "two")''', 'expr')
-    self.assertRaisesRegexp(
-        RuntimeError
-      , r'non-determinism in I/O actions occurred'
-      , lambda: list(curry.eval(goal))
-      )
-
-
   @unittest.expectedFailure # requires =:<=
   def test_instantiation(self):
     goal = curry.compile(
@@ -225,7 +203,6 @@ class TestPyRuntime(cytest.TestCase):
       ).main
     value, = curry.eval(goal)
     self.assertEqual(str(value), '[True]')
-
 
   def test_free_return(self):
     interp = interpreter.Interpreter()

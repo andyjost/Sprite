@@ -140,6 +140,7 @@ class TestPyConversions(cytest.TestCase):
     y = curry.topython(x)
     self.assertIsInstance(y, str)
 
+  @unittest.expectedFailure
   def testIteratorToPython(self):
     # Iterator.
     take = curry.symbol('Prelude.take')
@@ -190,8 +191,8 @@ class TestPyConversions(cytest.TestCase):
       )
 
   def testForwardExpr(self):
-    a = curry.expr(0)
-    b = curry.expr(1)
+    a = curry.expr(curry.prelude.id, 0)
+    b = curry.expr(curry.prelude.id, 1)
     curry.expr(b, target=a)
     self.assertEqual(list(curry.eval(a)), [1])
 

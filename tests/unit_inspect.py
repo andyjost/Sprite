@@ -3,33 +3,28 @@ import curry
 from curry.interpreter import runtime
 from curry import inspect
 
-def hnfExpr(interp, string, expect_symbol):
-  '''Compiles the given string as Curry code and returns the HNF.'''
-  expr = curry.compile(string, mode='expr')
-  try:
-    interp.hnf(expr)
-  except runtime.E_SYMBOL:
-    assert expect_symbol
-  else:
-    assert not expect_symbol
-  return expr
+def step(interp, *args):
+  expr = curry.expr(*args)
+  expr.info.step(expr)
+  return expr[()]
 
 class TestInspect(cytest.TestCase):
   @classmethod
   def setUpClass(cls):
     reload(curry) # reset the choice ID factory.
     cls.interp = curry.getInterpreter()
+    prelude = cls.interp.prelude
     cls.not_a_node = int
     cls.true = curry.expr(True)
     cls.false = curry.expr(False)
-    cls.io = next(curry.eval(curry.compile('return True', mode='expr')))
+    cls.io = curry.expr(prelude.IO, prelude.True)
     cls.tuple_ = curry.expr((1,2,3))
     cls.list_ = curry.expr([1,2,3])
-    cls.freevar = next(curry.eval(curry.compile('unknown', mode='expr')))
-    cls.failure = hnfExpr(cls.interp, 'failed', expect_symbol=True)
-    cls.fwd = hnfExpr(cls.interp, 'head [True]', expect_symbol=False)
-    cls.choice = hnfExpr(cls.interp, '0 ? 1', expect_symbol=True)
-    cls.func = curry.compile('head []', mode='expr')
+    cls.freevar = step(cls.interp, prelude.unknown)
+    cls.failure = step(cls.interp, prelude.failed)
+    cls.fwd = curry.expr(prelude._Fwd, prelude.True)
+    cls.choice = step(cls.interp, getattr(prelude, '?'), 0, 1)
+    cls.func = curry.expr(prelude.head, getattr(prelude, '[]'))
     cls.everything = set([
         cls.true, cls.false, cls.io, cls.tuple_, cls.list_, cls.freevar
       , cls.failure, cls.choice, cls.func, cls.not_a_node

@@ -9,7 +9,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def apply(interp, partapplic, arg):
+def apply(interp, lhs):
+  interp.hnf(lhs, [0]) # normalize "partapplic"
+  partapplic, arg = lhs
   missing, term = partapplic # note: "missing" is unboxed.
   assert missing >= 1
   if missing == 1:
@@ -37,33 +39,37 @@ def error(interp, msg):
   msg = str(conversions.topython(interp, msg))
   raise RuntimeError(msg)
 
-def compare_impl(interp, lhs, rhs):
-  lhs_isboxed, rhs_isboxed = (hasattr(x, 'info') for x in [lhs,rhs])
+# FIXME: this is a dummy implementation that is intended for comparing
+# fundamental types only.  It needs to recurse by rewriting to a conjunction of
+# == nodes.
+def compare_impl(interp, eq):
+  lhs, rhs = (interp.hnf(eq, [i]) for i in (0,1))
+  lhs_isboxed, rhs_isboxed = (hasattr(x, 'info') for x in eq)
   assert lhs_isboxed == rhs_isboxed # cannot mix boxed and unboxed
   if not lhs_isboxed:
     return -1 if lhs < rhs else 1 if lhs > rhs else 0
-  lhs,rhs = map(interp.hnf, [lhs,rhs])
-  assert all(isinstance(x, runtime.Node) for x in [lhs,rhs])
-  assert all(runtime.T_CTOR <= x.info.tag for x in [lhs,rhs])
-  lhs_tag, rhs_tag = lhs.info.tag, rhs.info.tag
-  if lhs_tag != rhs_tag:
-    return -1 if lhs_tag < rhs_tag else 1
-  else:
-    for l,r in itertools.izip(lhs.successors, rhs.successors):
-      result = compare_impl(interp, l, r)
-      if result:
-        return result
-    return 0
+  assert False # not implemented
+  # assert all(isinstance(x, runtime.Node) for x in [lhs,rhs])
+  # assert all(runtime.T_CTOR <= x.info.tag for x in [lhs,rhs])
+  # lhs_tag, rhs_tag = lhs.info.tag, rhs.info.tag
+  # if lhs_tag != rhs_tag:
+  #   return -1 if lhs_tag < rhs_tag else 1
+  # else:
+  #   for l,r in itertools.izip(lhs.successors, rhs.successors):
+  #     result = compare_impl(interp, l, r)
+  #     if result:
+  #       return result
+  #   return 0
 
-def compare(interp, lhs, rhs):
-  index = compare_impl(interp, lhs, rhs)
+def compare(interp, root):
+  index = compare_impl(interp, root)
   info = interp.type('Prelude.Ordering').constructors[index+1]
   yield info
 
-def compose_io(interp, io_a, f):
-  io_a = interp.hnf(io_a)
+def compose_io(interp, lhs):
+  io_a = interp.hnf(lhs, [0])
   yield interp.prelude.apply
-  yield f
+  yield lhs[1]
   yield conversions.unbox(interp, io_a)
 
 def return_(interp, a):
@@ -99,23 +105,20 @@ def readFile(interp, filename):
     gen = iter(mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ))
   return _python_generator_(interp, gen)
 
-def apply_hnf(interp, f, a):
-  a = interp.hnf(a)
+def apply_hnf(interp, root):
   yield interp.prelude.apply
-  yield f
-  yield a
+  yield root[0]
+  yield interp.hnf(root, [1])
 
-def apply_nf(interp, f, a):
-  interp.nf(a)
+def apply_nf(interp, root):
   yield interp.prelude.apply
-  yield f
-  yield a
+  yield root[0]
+  yield runtime.normalize(interp, root, [1], ground=False)
 
-def apply_gnf(interp, f, a):
-  interp.nf(a, ground=True)
+def apply_gnf(interp, root):
   yield interp.prelude.apply
-  yield f
-  yield a
+  yield root[0]
+  yield runtime.normalize(interp, root, [1], ground=True)
 
 def ensureNotFree(interp, a):
   # This function does nothing when evaluated.  It is, however, a designated
