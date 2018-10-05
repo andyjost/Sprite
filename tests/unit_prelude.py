@@ -1,4 +1,5 @@
 import cytest # from ./lib; must be first
+import cytest.step
 from cStringIO import StringIO
 from curry.interpreter import runtime
 from import_blocker import ImportBlocker
@@ -172,12 +173,12 @@ class TestPrelude(cytest.TestCase):
       )
     goal = interp.expr(code.goal)
     step2 = interp.expr(code.step2)
-    interp.step(step2)
-    interp.step(goal, num=2)
+    cytest.step.step(interp, step2)
+    cytest.step.step(interp, goal, num=2)
     self.assertEqual(goal, step2)
 
     # Ensure results are ungrounded.
     freevar = interp.compile('id $!! x where x free', mode='expr')
-    interp.step(freevar, num=3)
+    cytest.step.step(interp, freevar, num=3)
     self.assertTrue(curry.inspect.isa_freevar(interp, freevar))
 

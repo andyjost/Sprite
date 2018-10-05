@@ -1,4 +1,5 @@
 import cytest # from ./lib; must be first
+import cytest.step
 from curry.interpreter import runtime
 from curry.runtime import UNDETERMINED, LEFT, RIGHT
 from curry.utility import unionfind
@@ -92,7 +93,7 @@ class TestConstraintStore(cytest.TestCase):
     Unit = curry.symbol('Prelude.()')
     e = curry.expr(curry.symbol('Prelude.?'), -10, 10)
     interp = curry.getInterpreter()
-    interp.step(e)
+    cytest.step.step(interp, e)
     cid,l,r = e
     assert cid == 0 # cytest.TestCase should have reset curry.
     #
@@ -116,7 +117,8 @@ class TestConstraintStore(cytest.TestCase):
     self.assertFalse(buf)
     #
     e = curry.expr(curry.symbol('Prelude.?'), -10, 10)
-    curry.getInterpreter().step(e)
+    interp = curry.getInterpreter()
+    cytest.step.step(interp, e)
     cid2,_,_ = e
     self.assertNotEqual(cid, cid2)
     frame = runtime.Frame(interp, e, frame)

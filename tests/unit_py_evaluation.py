@@ -3,6 +3,7 @@ import cytest # from ./lib; must be first
 import curry
 import unittest
 from curry.interpreter import runtime
+from curry.interpreter.eval import makegoal
 
 class TestPyEvaluation(cytest.TestCase):
   def check(self, name, expected):
@@ -23,7 +24,7 @@ class TestPyEvaluation(cytest.TestCase):
   def test_blockedFrames(self):
     '''Test blocking, unblocking, and suspension of evaluation.'''
     interp = curry.interpreter.Interpreter()
-    goal = interp.expr(91)
+    goal = makegoal(interp, interp.expr(91))
     evaluator = runtime.Evaluator(interp, goal)
     Q = evaluator.queue
     Q[0] = Q[0].block([17])

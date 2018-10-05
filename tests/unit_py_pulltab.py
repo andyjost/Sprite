@@ -47,10 +47,10 @@ class TestPyPullTab(cytest.TestCase):
     constraint = curry.expr(
         interp.prelude._EqChoices, True, (u(101), u(102))
       )
-    e = curry.expr(interp.prelude._Fwd, [(0, constraint, 1)])
-    runtime.pull_tab(interp, e, [0,1])
+    e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
+    runtime.pull_tab(interp, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._EqChoices.info)
-    self.assertEqual(curry.topython(e[0]), [(0, True, 1)])
+    self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
     self.assertEqual(curry.topython(e[1]), (101, 102))
 
   def testPullChoiceConstr(self):
@@ -60,19 +60,19 @@ class TestPyPullTab(cytest.TestCase):
     constraint = curry.expr(
         interp.prelude._ChoiceConstr, True, (u(109), u(LEFT))
       )
-    e = curry.expr(interp.prelude._Fwd, [(0, constraint, 1)])
-    runtime.pull_tab(interp, e, [0,1])
+    e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
+    runtime.pull_tab(interp, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._ChoiceConstr.info)
-    self.assertEqual(curry.topython(e[0]), [(0, True, 1)])
+    self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
     self.assertEqual(curry.topython(e[1]), (109, LEFT))
     
     constraint = curry.expr(
         interp.prelude._ChoiceConstr, True, (u(109), u(RIGHT))
       )
-    e = curry.expr(interp.prelude._Fwd, [(0, constraint, 1)])
-    runtime.pull_tab(interp, e, [0,1])
+    e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
+    runtime.pull_tab(interp, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._ChoiceConstr.info)
-    self.assertEqual(curry.topython(e[0]), [(0, True, 1)])
+    self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
     self.assertEqual(curry.topython(e[1]), (109, RIGHT))
 
   def testPullEqVarsConstr(self):
@@ -83,9 +83,9 @@ class TestPyPullTab(cytest.TestCase):
     x = next(interp.eval(unknown))
     y = next(interp.eval(unknown))
     constraint = curry.expr(interp.prelude._EqVars, 314, (x, y))
-    e = curry.expr(interp.prelude._Fwd, [(0, constraint, 1)])
-    runtime.pull_tab(interp, e, [0,1])
+    e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
+    runtime.pull_tab(interp, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._EqVars.info)
-    self.assertEqual(curry.topython(e[0]), [(0, 314, 1)])
+    self.assertEqual(curry.topython(e[0][0]), [(0, 314, 1)])
     self.assertEqual(curry.topython(e[1]), (x, y))
     

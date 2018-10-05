@@ -1,4 +1,5 @@
 import cytest # from ./lib; must be first
+import cytest.step
 from curry.interpreter import conversions
 from curry import icurry
 from curry import inspect
@@ -226,13 +227,13 @@ class TestPyRuntime(cytest.TestCase):
       )
     goal = interp.expr(code.goal)
     step2 = interp.expr(code.step2)
-    interp.step(step2)
+    cytest.step.step(interp, step2)
     step3 = interp.expr(code.step3)
-    interp.step(step3)
+    cytest.step.step(interp, step3)
     #
-    interp.step(goal, num=2)
+    cytest.step.step(interp, goal, num=2)
     self.assertEqual(goal, step2)
-    interp.step(goal)
+    cytest.step.step(interp, goal)
     self.assertEqual(goal, step3)
     self.assertEqual(list(interp.eval(goal)), [])
     self.assertEqual(interp.stepcounter.count, 1)

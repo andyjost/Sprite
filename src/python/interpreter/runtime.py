@@ -3,7 +3,6 @@ from copy import copy
 from .. import icurry
 from .. import exceptions
 from ..runtime import Fingerprint, LEFT, RIGHT
-from ..utility.binding import binding
 from ..utility import unionfind
 from ..utility import visitation
 import collections
@@ -188,9 +187,8 @@ class Node(object):
             )
         )
     target = kwds.get('target', None)
-    # FIXME: don't put FWD nodes at the root.  Just use $!!.
     assert target is None or \
-           target.info.tag in (T_FUNC, T_FWD) or \
+           target.info.tag == T_FUNC or \
            (target.info.tag == T_FREE == info.tag)
     self = object.__new__(cls) if target is None else target
     self.info = info
@@ -317,23 +315,6 @@ class Frame(object):
 
   def __copy__(self): # pragma: no cover
     return Frame(clone=self)
-
-  @property
-  def expr(self):
-    return self._expr
-
-  @expr.setter
-  def expr(self, expr):
-    self._expr = self.makeRoot(self.interp, expr)
-
-  @staticmethod
-  def makeRoot(interp, expr):
-    # Ensure the root expression is not constructor-rooted, so that it can
-    # always be replaced.
-    if not hasattr(expr, 'info') or expr.info.tag >= T_CTOR:
-      return Node(interp.prelude._Fwd, expr)
-    else:
-      return expr
 
   def fork(self):
     '''
@@ -498,31 +479,6 @@ def get_stepper(interp):
       target.info.step(target)
       interp.stepcounter.increment()
   return step
-
-
-# FIXME: this doesn't belong here.  It should be into the cytest area, or maybe
-# a debug module.
-def step(interp, expr, num=1):
-  '''
-  Takes up to the specified number of steps for the given expression, stopping
-  if the root is ever replaced with a symbol or a residual is found.  This
-  function is used for testing.
-  '''
-  expr = Frame.makeRoot(interp, expr)
-  with binding(interp.__dict__, 'stepcounter', StepCounter(limit=num)):
-    try:
-      if isinstance(expr, icurry.BuiltinVariant):
-        return
-      while expr.info.tag == T_FUNC:
-        interp._stepper(expr)
-      if expr.info.tag >= T_CTOR:
-        N(interp, expr)
-      else:
-        return
-      # FIXME: get the termination condition right.  It needs the same
-      # check as D to see whether expr is actually a value.
-    except (E_SYMBOL, E_STEPLIMIT, E_RESIDUAL):
-      pass
 
 def nextid(interp):
   '''Generates the next available ID.'''
