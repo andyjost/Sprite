@@ -282,7 +282,7 @@ _functions_ = [
 # --- @return either `x` or `y` non-deterministically.
 # (?)   :: a -> a -> a
 # (?) external
-  , icurry.IFunction('?', 2, metadata={'py.func':impl.choice, 'py.format':'{1} ? {2}'})
+  , icurry.IFunction('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{1} ? {2}'})
 #
 # -- Representation of higher-order applications in FlatCurry.
 # apply :: (a -> b) -> a -> b

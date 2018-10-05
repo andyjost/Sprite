@@ -4,22 +4,27 @@ from ..utility import visitation
 class Show(object):
   '''Implements the built-in show function.'''
   def __new__(cls, interp, format=None):
-    # Note: this can be called before interp.prelude exists (i.e., while
-    # loading the preludue itself).
-    try:
-      ni_Fwd = interp.prelude._Fwd
-    except AttributeError:
-      ni_Fwd = None
-    return format if callable(format) else object.__new__(cls, ni_Fwd, format)
+    return format if callable(format) else object.__new__(cls, interp, format)
 
-  def __init__(self, ni_Fwd, format=None):
+  def __init__(self, interp, format=None):
     self.format = getattr(format, 'format', None) # i.e., str.format.
-    self.ni_Fwd = ni_Fwd
+    # Note: Show objects can be created before interp.prelude exists (i.e.,
+    # while loading the prelude itself).  In that case, omit handling for
+    # forward nodes.
+    try:
+      self.ni_Fwd = interp.prelude._Fwd
+    except AttributeError:
+      self.ni_Fwd = None
 
   def __call__(self, node):
     '''Applies type-specific formatting after recursing to subexpressions.'''
     assert isinstance(node, runtime.Node)
-    subexprs = self.generate(node, self._recurse_)
+    # FIXME: rather than put ? in this list, it would be better to check
+    # whether the operation is infix and compare its precedence to the outer
+    # expression.
+    noparen = (node.info.name and node.info.name[0] in '([{<?') or \
+        node.info is self.ni_Fwd
+    subexprs = self.generate(node, self._recurse_, noparen)
     if self.format is None:
       return ' '.join(subexprs)
     else:
@@ -27,18 +32,21 @@ class Show(object):
       return self.format(*subexprs)
 
   @staticmethod
-  def generate(node, xform):
+  def generate(node, xform, noparen):
     yield node.info.name
     for expr in node.successors:
-      yield xform(expr)
+      yield xform(expr, noparen)
 
   @visitation.dispatch.on('expr')
-  def _recurse_(self, expr):
+  def _recurse_(self, expr, noparen):
     '''Recursively application.  Parenthesizes subexpressions.'''
     return str(expr)
 
   @_recurse_.when(runtime.Node)
-  def _recurse_(self, node):
+  def _recurse_(self, node, noparen):
     x = node.info.show(node)
-    return '(%s)' % x if ' ' in x and node.info != self.ni_Fwd else x
+    if noparen or not x or x[0] in '([{<' or ' ' not in x or node.info is self.ni_Fwd:
+      return x
+    else:
+      return '(%s)' % x
 

@@ -29,11 +29,11 @@ def failed(interp):
 
 choice_id = itertools.count()
 
-def choice(interp, a, b):
+def choice(interp, lhs):
   yield interp.prelude._Choice
   yield next(interp._idfactory_)
-  yield a
-  yield b
+  yield lhs[0]
+  yield lhs[1]
 
 def error(interp, msg):
   msg = str(conversions.topython(interp, msg))
