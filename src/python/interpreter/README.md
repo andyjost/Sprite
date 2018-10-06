@@ -49,7 +49,7 @@ Metadata: py.func
 -----------------
 Specifies a regular Python function that implements a Curry built-in.
 
-The value is a Python function that takes an interpreter, followed by an
+The value is a Python function that takes an interpreter followed by an
 arbitrary number of positional node arguments.  The node arguments will be
 head-normalized before being passed to the function, but no other preprocessing
 (e.g., unboxing) is done.  The function is required to return a sequence of
@@ -57,3 +57,15 @@ arguments suitable for passing to Node.rewrite.
 
 See compile_builtin.
 
+
+Metadata: py.rawfunc
+--------------------
+Specifies a regular Python function that implements a Curry built-in.
+
+The value is a Python function that takes an interpreter and the root node,
+of the expression to rewrite.  The system will not
+do anything before calling that function.  In particular, the successors will
+not be head-normalized, so it is up to the implementation function to do that,
+if necessary.
+
+See compile_rawfunc.

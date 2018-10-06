@@ -57,7 +57,8 @@ def compile_function(interp, ifun, extern=None):
 
 def compile_pyprimfunc(interp, func):
   '''
-  Compiles code for built-in functions on primitive data.  See metadata.py.
+  Compiles code for built-in functions on primitive data.  See README.md.
+  Corresponds to the "py.primfunc" metadata.
   '''
   hnf = interp.hnf
   expr = interp.expr
@@ -69,7 +70,8 @@ def compile_pyprimfunc(interp, func):
 
 def compile_pyfunc(interp, func):
   '''
-  Compiles code for a built-in function.  See metadata.py.
+  Compiles code for a built-in function.  See README.md.  Corresponds to the
+  "py.func" metadata.
 
   The Python implementation function must accept the arguments in head-normal
   form, but without any other preprocessing (e.g., unboxing).  It returns a
@@ -83,6 +85,9 @@ def compile_pyfunc(interp, func):
 
 def compile_pyrawfunc(interp, func):
   '''
+  Compiles code for a raw built-in function.  See README.md.  Corresponds to
+  the "py.rawfunc" metadata.
+
   Like compile_pyfunc but does not head-normalize the arguments.  The
   left-hand-side expression is simply passed to the implementation function.
   '''
