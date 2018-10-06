@@ -47,6 +47,7 @@ Sprite was developed and tested with the following software.
     - GNU make 4.1
     - MPS 1.116.0 (www.ravenbrook.com/project/mps)
 		- Python 2.7.12 and 2.7.14
+    - Boost 1.66
 
 5. ENVIRONMENT VARIABLES
 ------------------------
