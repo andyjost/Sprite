@@ -10,14 +10,24 @@ Curry mailing list (curry@lists.RWTH-Aachen.DE).
 2. Dependencies
 ---------------
 
-This project requires the Curry Meta-Compiler (CMC).  If it is not already
+External software is listed in Make.config.  Edit the paths in that file so
+that the build system can find dependencies.
+
+Sprite was developed and tested with the following software.
+
+    - Ubuntu 16.04.1 LTS (xenial); 4.4.0-72-generic #93-Ubuntu
+    - GCC 7.2.0
+    - LLVM 5.0.1
+    - GNU make 4.1
+    - MPS 1.116.0 (www.ravenbrook.com/project/mps)
+		- Python 2.7.12 and 2.7.14
+    - Boost 1.66 (www.boost.org)
+
+This project also requires the Curry Meta-Compiler (CMC).  If it is not already
 there, you should place in the project root directory.  Assuming you have
 access to PSU computer systems, the following command can be used:
 
     git clone https://yourusername@projects.cecs.pdx.edu/git/antoy-cmc CMC
-
-Paths to other required software are listed in Make.config.  Versions can be
-found at the end of this file.
 
 
 3. Installation
@@ -36,20 +46,7 @@ To install:
     make install PREFIX=<your-prefix-dir>
 
 
-4. Software used
-----------------
-
-Sprite was developed and tested with the following software.
-
-    - Ubuntu 16.04.1 LTS (xenial); 4.4.0-72-generic #93-Ubuntu
-    - GCC 7.2.0
-    - LLVM 5.0.1
-    - GNU make 4.1
-    - MPS 1.116.0 (www.ravenbrook.com/project/mps)
-		- Python 2.7.12 and 2.7.14
-    - Boost 1.66
-
-5. ENVIRONMENT VARIABLES
+4. ENVIRONMENT VARIABLES
 ------------------------
 
     - CURRYPATH
@@ -88,7 +85,7 @@ Sprite was developed and tested with the following software.
         Example: SPRITE_INTERPRETER_FLAGS=trace:True,debug:True
 
 
-6. BUG REPORTING
+5. BUG REPORTING
 ----------------
 
 If you find a bug, please report it.  The easiest way is to create a *minimal*
@@ -97,7 +94,7 @@ developing and running tests can be found under tests/README.  Once you have
 written the test, submit a pull request or send the diff to ajost@synopsys.com.
 
 
-7. CONTRIBUTING TO SPRITE
+6. CONTRIBUTING TO SPRITE
 -------------------------
 
 Contributions to Sprite are welcome!  For more information, see README.contrib.
