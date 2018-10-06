@@ -265,6 +265,7 @@ class TestInstantiation(cytest.TestCase):
     super(TestInstantiation, self).setUp()
     self.interp = interpreter.Interpreter()
     self.x, = list(self.interp.eval(self.interp.compile('x where x free', 'expr')))
+    self.e = self.interp.expr(self.interp.prelude.id, self.x)
     self.assertTrue(inspect.isa_freevar(self.interp, self.x))
     self.assertEqual(inspect.get_id(self.interp, self.x), 0)
 
@@ -274,15 +275,15 @@ class TestInstantiation(cytest.TestCase):
     return [self.interp.prelude.unknown]
 
   def test_basic(self):
-    interp,q,u,x = self.interp, self.q, self.u(), self.x
-    instance = runtime.instantiate(interp, x, interp.type('Prelude.[]'))
+    interp,q,u,e = self.interp, self.q, self.u(), self.e
+    instance = runtime.instantiate(interp, e, [0], interp.type('Prelude.[]'))
     au = curry.expr(*q(0, [interp.prelude.Cons, u, u], [interp.prelude.Nil]))
     self.assertEqual(instance, au)
 
   def test_singleCtor(self):
     # Instantiating a type with one constructor is a special case.
-    interp,q,u,x = self.interp, self.q, self.u(), self.x
-    instance = runtime.instantiate(interp, x, interp.type('Prelude.()'))
+    interp,q,u,e = self.interp, self.q, self.u(), self.e
+    instance = runtime.instantiate(interp, e, [0], interp.type('Prelude.()'))
     au = curry.expr(*q(0, [interp.prelude.Unit], [interp.prelude._Failure]))
     self.assertEqual(instance, au)
 
@@ -293,9 +294,9 @@ class TestInstantiation(cytest.TestCase):
     #       ?1          ?4
     #    ?2    ?3    ?5    G
     #   A  B  C  D  E  F
-    interp,q,u,x = self.interp, self.q, self.u(), self.x
+    interp,q,u,e = self.interp, self.q, self.u(), self.e
     Type = interp.compile('data T = A|B|C|D|E|F|G', modulename='Type')
-    instance = runtime.instantiate(interp, x, interp.type('Type.T'))
+    instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instance, au)
 
@@ -305,9 +306,9 @@ class TestInstantiation(cytest.TestCase):
     #      ?1     ?3
     #    ?2  C  ?4  F
     #   A  B   D  E
-    interp,q,u,x = self.interp, self.q, self.u(), self.x
+    interp,q,u,e = self.interp, self.q, self.u(), self.e
     Type = interp.compile('data T = A|B|C|D|E|F', modulename='Type')
-    instance = runtime.instantiate(interp, x, interp.type('Type.T'))
+    instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
     self.assertEqual(instance, au)
 
@@ -316,8 +317,8 @@ class TestInstantiation(cytest.TestCase):
     #      ?1   ?3
     #    ?2  C D  E
     #   A  B
-    interp,q,u,x = self.interp, self.q, self.u(), self.x
+    interp,q,u,e = self.interp, self.q, self.u(), self.e
     Type = interp.compile('data T a = A|B a|C a a|D a a a|E a a a a', modulename='Type')
-    instance = runtime.instantiate(interp, x, interp.type('Type.T'))
+    instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
     self.assertEqual(instance, au)

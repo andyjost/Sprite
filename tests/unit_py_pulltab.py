@@ -2,6 +2,7 @@ import cytest # from ./lib; must be first
 from curry.interpreter import runtime
 from curry.runtime import LEFT, RIGHT
 import curry
+import unittest
 
 class TestPyPullTab(cytest.TestCase):
   def testPullChoice(self):
@@ -40,6 +41,7 @@ class TestPyPullTab(cytest.TestCase):
     self.assertMayRaise(None, lambda: interp.hnf(rhs, [0]))
     self.assertEqual(curry.topython(id(rhs[0])), id123)
 
+  @unittest.skip('constraints not implemented')
   def testPullEqChoices(self):
     '''Tests the pull-tab step for the EqChoices constraint.'''
     interp = curry.getInterpreter()
@@ -48,11 +50,12 @@ class TestPyPullTab(cytest.TestCase):
         interp.prelude._EqChoices, True, (u(101), u(102))
       )
     e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
-    runtime.pull_tab(interp, e, [0,0,1])
+    runtime.pull_choice(interp, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._EqChoices.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
     self.assertEqual(curry.topython(e[1]), (101, 102))
 
+  @unittest.skip('constraints not implemented')
   def testPullChoiceConstr(self):
     '''Tests the pull-tab step for the ChoiceConstr constraint.'''
     interp = curry.getInterpreter()
@@ -61,7 +64,7 @@ class TestPyPullTab(cytest.TestCase):
         interp.prelude._ChoiceConstr, True, (u(109), u(LEFT))
       )
     e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
-    runtime.pull_tab(interp, e, [0,0,1])
+    runtime.pull_choice(interp, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._ChoiceConstr.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
     self.assertEqual(curry.topython(e[1]), (109, LEFT))
@@ -70,11 +73,12 @@ class TestPyPullTab(cytest.TestCase):
         interp.prelude._ChoiceConstr, True, (u(109), u(RIGHT))
       )
     e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
-    runtime.pull_tab(interp, e, [0,0,1])
+    runtime.pull_choice(interp, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._ChoiceConstr.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
     self.assertEqual(curry.topython(e[1]), (109, RIGHT))
 
+  @unittest.skip('constraints not implemented')
   def testPullEqVarsConstr(self):
     '''Tests the pull-tab step for the EqVars constraint.'''
     interp = curry.getInterpreter()
@@ -84,7 +88,7 @@ class TestPyPullTab(cytest.TestCase):
     y = next(interp.eval(unknown))
     constraint = curry.expr(interp.prelude._EqVars, 314, (x, y))
     e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
-    runtime.pull_tab(interp, e, [0,0,1])
+    runtime.pull_choice(interp, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._EqVars.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, 314, 1)])
     self.assertEqual(curry.topython(e[1]), (x, y))

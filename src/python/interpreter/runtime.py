@@ -237,7 +237,7 @@ class Node(object):
       # Free variables don't really have successors.  They should be inspected
       # with special functions such as _Freevar_get_constructors.  This check
       # is a compromise.  It offers some protection against a too-long
-      # "targetpath" argument to hnf, for instance.  The lower-level
+      # "path" argument to hnf, for instance.  The lower-level
       # __getitem__ methods still need to accept free variables so that, e.g.,
       # _Freevar_get_constructors can be implemented.
       assert node.info.tag != T_FREE or (not i and i != 0)
@@ -502,7 +502,7 @@ def N(interp, root, target=None, path=None, freevars=None):
           Node(interp.prelude._Failure, target=root)
           raise E_SYMBOL()
         elif tag == T_CHOICE or tag == T_CONSTR:
-          pull_tab(interp, root, path)
+          pull_choice(interp, root, path)
           raise E_SYMBOL()
         elif tag == T_FREE:
           freevars.add(target)
@@ -547,16 +547,13 @@ def hnf(interp, expr, path, typedef=None):
       Node(interp.prelude._Failure, target=expr)
       raise E_SYMBOL()
     elif tag == T_CHOICE or tag == T_CONSTR:
-      pull_tab(interp, expr, path)
+      pull_choice(interp, expr, path)
       raise E_SYMBOL()
     elif tag == T_FREE:
       if typedef is None:
         raise E_RESIDUAL([get_id(target)])
       else:
-        # Instantiate the target and replace it in the context of ``expr``.
-        # No... just replace the variable in this context.
-        pull_tab(interp, expr, path, typedef)
-        raise E_SYMBOL()
+        target = instantiate(interp, expr, path, typedef)
     elif tag == T_FUNC:
       try:
         S(interp, target)
@@ -573,36 +570,30 @@ def S(interp, target):
   '''The step (S) Fair Scheme procedure.'''
   interp._stepper(target)
 
-class _PullTabber(object):
+class _Replacer(object):
   '''
-  Constructs the left and right replacements for a pull-tab step.
+  Performs replacements in a context.
 
+  ###### FIXME ######
   ``getLeft`` and ``getRight`` build the left- and righthand sides,
   respectively.  See ``pull_tab``.
   '''
-  def __init__(self, interp, source, targetpath, typedef=None):
-    self.interp = interp
-    self.source = source
-    self.targetpath = targetpath
-    self.typedef = typedef
+  def __init__(self, context, path, getter=Node.__getitem__):
+    self.context = context
+    self.path = path
     self.target = None
+    self.getter = getter
 
   def _a_(self, node, i=0):
-    if i < len(self.targetpath):
+    if i < len(self.path):
       return Node(*self._b_(node, i))
     else:
       assert self.target is None or self.target is node
       self.target = node
-      if node.info.tag == T_CONSTR:
-        return node[0 if self.left else 1]
-      if node.info.tag == T_FREE:
-        assert self.typedef is not None
-        node = instantiate(self.interp, node, self.typedef)
-      assert node.info.tag == T_CHOICE
-      return node[1 if self.left else 2]
+      return self.getter(node, self.index)
 
   def _b_(self, node, i):
-    pos = self.targetpath[i]
+    pos = self.path[i]
     yield node.info
     for j,_ in enumerate(node.successors):
       if j == pos:
@@ -610,19 +601,15 @@ class _PullTabber(object):
       else:
         yield node[j]
 
-  def getLeft(self):
-    self.left = True
-    return self._a_(self.source)
-
-  def getRight(self):
-    self.left = False
-    return self._a_(self.source)
+  def __getitem__(self, i):
+    self.index = i
+    return self._a_(self.context)
 
 
-def pull_tab(interp, source, targetpath, typedef=None):
+def pull_choice(interp, source, path):
   '''
-  Executes a pull-tab step with source ``source`` and target
-  ``source[targetpath]``.
+  Executes a pull-tab step with source ``source`` and choice-rooted target
+  ``source[path]``.
 
   The target node may be a choice, free variable, or constraint.  If it is a
   free variable, then ``typedef`` will be used to instantiate it.
@@ -636,42 +623,73 @@ def pull_tab(interp, source, targetpath, typedef=None):
       The pull-tab source.  This node will be overwritten with a choice or
       constraint symbol.
 
-    ``targetpath``
+    ``path``
       A sequence of integers giving the path from ``source`` to the target
       choice or constraint.
-
-    ``typedef``
-        If the target is a free variable, this is used to instantiate it.
   '''
   assert source.info.tag < T_CTOR
-  assert targetpath
-  assert source[targetpath].info.tag in [T_CHOICE, T_CONSTR, T_FREE]
-  pt = _PullTabber(interp, source[()], targetpath, typedef)
-  left = pt.getLeft()
+  assert path
   if source.info is interp.prelude.ensureNotFree.info:
-    if pt.target.info.tag in [T_CHOICE, T_FREE]:
-      raise RuntimeError("non-determinism in I/O actions occurred")
-  pt.target.info.tag == T_CHOICE
-  if pt.target.info.tag == T_CHOICE:
-    right = pt.getRight()
-    Node(
-        interp.prelude._Choice
-      , pt.target[0] # choice ID
-      , left
-      , right
-      , target=source
-      )
-  else:
-    assert pt.target.info.tag == T_CONSTR
-    Node(
-        pt.target.info
-      , left
-      , pt.target[1] # constraint
-      , target=source
-      )
+    raise RuntimeError("non-determinism in I/O actions occurred")
+  replacer = _Replacer(source, path)
+  left = replacer[1]
+  right = replacer[2]
+  assert replacer.target.info.tag == T_CHOICE
+  Node(
+      interp.prelude._Choice
+    , replacer.target[0] # choice ID
+    , left
+    , right
+    , target=source
+    )
 
+def instantiate(interp, context, path, typedef):
+  '''
+  Instantiates a free variable at ``context[path]``.
 
-def _instantiate(interp, ctors, vid=None, target=None):
+  Parameters:
+  -----------
+    ``interp``
+      The Curry interpreter.
+
+    ``context``
+      The context in which the free variable appears.  This node will be
+      overwritten with a choice or constraint symbol.
+
+    ``path``
+      A sequence of integers giving the path from ``source`` to the target
+      choice or constraint.
+  '''
+  replacer = _Replacer(
+      context, path, lambda node, _: getGenerator(interp, node, typedef)
+    )
+  replacement = replacer[None]
+  assert replacer.target.info.tag == T_FREE
+  assert context.info == replacement.info
+  context.successors[:] = replacement.successors
+  return replacer.target[1]
+
+def _createGenerator(interp, ctors, vid=None, target=None):
+  '''
+  Creates a generator tree.
+
+  Parameters:
+  -----------
+    ``interp``
+      The Curry interpreter.
+
+    ``ctors``
+      The sequence of ``icurry.IConstructor`` objects defining the type to
+      generate.
+
+    ``vid``
+      The variable ID.  The root choice will be labeled with this ID.  By
+      default, a new ID is allocated.
+
+    ``target``
+      The node to overwrite with the generator tree.  By default, a new node
+      will be allocated.
+  '''
   N = len(ctors)
   assert N
   if N == 1:
@@ -687,13 +705,12 @@ def _instantiate(interp, ctors, vid=None, target=None):
     return Node(
         interp.prelude._Choice
       , vid if vid is not None else nextid(interp)
-      , _instantiate(interp, ctors[:middle])
-      , _instantiate(interp, ctors[middle:])
+      , _createGenerator(interp, ctors[:middle])
+      , _createGenerator(interp, ctors[middle:])
       , target=target
       )
 
-
-def instantiate(interp, freevar, typedef):
+def getGenerator(interp, freevar, typedef):
   '''
   Instantiate a free variable as the given type.
 
@@ -711,11 +728,11 @@ def instantiate(interp, freevar, typedef):
   vid = freevar[0]
   constructors = getattr(typedef, 'constructors', typedef)
   if freevar[1].info is interp.prelude.Unit.info:
-    instance = _instantiate(interp, constructors, vid=vid)
+    instance = _createGenerator(interp, constructors, vid=vid)
     if len(constructors) == 1:
       # Ensure the instance is always choice-rooted.  This is not the most
       # efficient approach, but it simplifies the implementation elsewhere
-      # (e.g., see _PullTabber._a_).
+      # (e.g., see _Replacer._a_).
       instance = Node(
           interp.prelude._Choice, vid, instance, Node(interp.prelude._Failure)
         )
