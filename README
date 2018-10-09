@@ -17,11 +17,12 @@ Sprite was developed and tested with the following software.
 
     - Ubuntu 16.04.1 LTS (xenial); 4.4.0-72-generic #93-Ubuntu
     - GCC 7.2.0
+		- Python 2.7.12
+    - PAKCS 1.15.0
     - LLVM 5.0.1
-    - GNU make 4.1
-    - MPS 1.116.0 (www.ravenbrook.com/project/mps)
-		- Python 2.7.12 and 2.7.14
     - Boost 1.66 (www.boost.org)
+    - MPS 1.116.0 (www.ravenbrook.com/project/mps)
+    - GNU make 4.1
 
 This project also requires the Curry Meta-Compiler (CMC).  If it is not already
 there, you should place in the project root directory.  Assuming you have
