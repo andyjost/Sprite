@@ -1,5 +1,0 @@
-curry :set path ~/COMMON/programs/CMC/translator/backtrack:~/COMMON/programs/CMC/translator/flat:~/COMMON/programs/CMC/translator/icurry:~/COMMON/programs/CMC/translator/format:~/COMMON/programs/CMC/translator/poly:~/COMMON/local/pakcs/lib analyze Deterministic Main.curry
-
-CURRYPATH=~/COMMON/programs/CMC/translator/backtrack:~/COMMON/programs/CMC/translator/flat:~/COMMON/programs/CMC/translator/icurry:~/COMMON/programs/CMC/translator/format:~/COMMON/programs/CMC/translator/poly:~/COMMON/local/pakcs/lib
-export CURRYPATH
-curry analyze Deterministic Main.curry
