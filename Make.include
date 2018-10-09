@@ -27,7 +27,7 @@ ifndef PYTHON_COVERAGE_EXECUTABLE
 endif
 
 ifndef CMC_HOME
-  CMC_HOME := $(ROOT_DIR)/CMC
+  CMC_HOME := /home/andy/CMC
 endif
 
 ifndef CURRY2JSON
