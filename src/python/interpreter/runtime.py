@@ -172,7 +172,9 @@ class Node(object):
       Keyword-only argument.  If not None, this specifies an existing Node object
       to rewrite.
     ``partial=False``
-      Indicates whether this constructs a partial application.
+      Indicates whether this constructs a partial application.  If false,
+      applying a function to too few arguments will cause ``TypeError`` to be
+      raised.
     '''
     info = getattr(info, 'info', info)
     bad_length = operator.ge if kwds.get('partial') else operator.ne
@@ -365,14 +367,16 @@ class Evaluator(object):
     self = object.__new__(cls)
     self.interp = interp
     self.queue = collections.deque([Frame(interp, goal)])
-    self.n_blocked = 0
+    # The number of consecutive blocked frames handled.  If this ever equals
+    # the queue length, then the computation fails.
+    self.n_consecutive_blocked_seen = 0
     return self
 
   def D(self):
     '''The dispatch (D) Fair Scheme procedure.'''
     while self.queue:
       frame = self.queue.popleft()
-      if self._process_blocked(frame):
+      if self._handle_frame_if_blocked(frame):
         continue
       expr = frame.expr
       target = expr[()]
@@ -419,22 +423,22 @@ class Evaluator(object):
       else:
         assert False
 
-  def _process_blocked(self, frame):
+  def _handle_frame_if_blocked(self, frame):
     '''
-    Check for and process a blocked frame, if applicable.  Returns true if the
-    frame was indeed blocked, unless the computation suspends.
+    Process a blocked frame, if applicable.  Returns true if the frame was
+    indeed blocked, unless the computation suspends.
     '''
     if frame.blocked:
       self.queue.append(frame)
       if frame.unblock():
-        self.n_blocked = 0
+        self.n_consecutive_blocked_seen = 0
       else:
-        self.n_blocked += 1
-        if self.n_blocked == len(self.queue):
+        self.n_consecutive_blocked_seen += 1
+        if self.n_consecutive_blocked_seen == len(self.queue):
           raise exceptions.EvaluationSuspended()
       return True
     else:
-      self.n_blocked = 0
+      self.n_consecutive_blocked_seen = 0
       return False
 
 

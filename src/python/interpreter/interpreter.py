@@ -31,11 +31,6 @@ class Interpreter(object):
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self.flags = {'debug':True, 'defaultconverter':None, 'trace':False}
-    envflags = os.environ.get('SPRITE_INTERPRETER_FLAGS')
-    if envflags is not None: # pragma: no cover
-      self.flags.update({
-          k:_flagval(v) for e in envflags.split(',') for k,v in [e.split(':')]
-        })
     self.flags.update(flags)
     self._stepper = runtime.get_stepper(self)
     self.stepcounter = runtime.StepCounter()
@@ -75,18 +70,4 @@ class Interpreter(object):
   from .import_ import import_
   from .lookup import module, symbol, type
   from .runtime import N, S, hnf, nextid
-
-# Misc.
-# =====
-def _flagval(v): # pragma: no cover
-  '''Try to interpret the string ``v`` as a flag value.'''
-  try:
-    return {'True':True, 'False':False}[v]
-  except KeyError:
-    pass
-  try:
-    return int(v)
-  except ValueError:
-    pass
-  return v
 
