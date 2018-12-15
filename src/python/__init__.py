@@ -13,41 +13,10 @@ override.
 from . import interpreter
 from .exceptions import *
 from .utility.unboxed import unboxed
-
-def _flagval(v): # pragma: no cover
-  '''Try to interpret the string ``v`` as a flag value.'''
-  try:
-    return {'True':True, 'False':False}[v]
-  except KeyError:
-    pass
-  try:
-    return int(v)
-  except ValueError:
-    pass
-  return v
-
-def _getflags(flags={}, weakflags={}):
-  '''
-  Reads interpreter flags from the environment variable
-  SPRITE_INTERPRETER_FLAGS and then combines them with the ones supplied to
-  this function.
-
-  Those supplied via ``flags`` supercede ones found in the environment.  Those
-  supplied via ``weakflags`` are superceded by ones found in the environment.
-  '''
-  import os
-  flags_out = {}
-  flags_out.update(weakflags)
-  envflags = os.environ.get('SPRITE_INTERPRETER_FLAGS')
-  if envflags: # pragma: no cover
-    flags_out.update({
-        k:_flagval(v) for e in envflags.split(',') for k,v in [e.split(':')]
-      })
-  flags_out.update(flags)
-  return flags_out
+from .utility import flagutils as _flagutils
 
 _interpreter_ = interpreter.Interpreter(
-    flags=_getflags(weakflags={'defaultconverter':'topython'})
+    flags=_flagutils.getflags(weakflags={'defaultconverter':'topython'})
   )
 
 compile = _interpreter_.compile
@@ -75,13 +44,5 @@ def reload(flags={}):
   constructor, overriding flags supplied via the environment variable
   SPRITE_INTERPRETER_FLAGS.
   '''
-  from .utility.binding import binding
-  import __builtin__
-  import os
-  import sys
-  flags = _getflags(flags)
-  envflags = ','.join('%s:%s' % (str(k), str(v)) for k,v in flags.items())
-  with binding(os.environ, 'SPRITE_INTERPRETER_FLAGS', envflags):
-    this = sys.modules[__name__]
-    __builtin__.reload(this)
+  _flagutils.reload(__name__, flags)
 
