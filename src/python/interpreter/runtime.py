@@ -33,10 +33,12 @@ class E_RESIDUAL(BaseException):
 class E_STEPLIMIT(BaseException):
   '''Raised when the step limit is reached.'''
 
-class E_SYMBOL(BaseException):
+class E_CONTINUE(BaseException):
   '''
-  Indicates a symbol requiring exceptional handing (e.g., FAIL or CHOICE) was
-  placed in a needed position.
+  Raised when control must break out of the recursive match-eval loop.  This
+  occurs when a symbol requiring exceptional handing (e.g., FAIL or CHOICE) was
+  placed in a needed position, or when a variable is replaced by a value by
+  rewriting the root node.
   '''
   # For example, when reducing g (f (a ? b)), a pull-tab step will replace f
   # with a choice.  Afterwards, this exception is raised to return control to
@@ -376,6 +378,7 @@ class Evaluator(object):
     '''The dispatch (D) Fair Scheme procedure.'''
     while self.queue:
       frame = self.queue.popleft()
+      self.interp.currentframe = frame # DEBUG
       if self._handle_frame_if_blocked(frame):
         continue
       expr = frame.expr
@@ -396,8 +399,8 @@ class Evaluator(object):
       elif tag == T_FUNC:
         try:
           S(self.interp, target)
-        except E_SYMBOL:
-          assert expr.info.tag < T_CTOR and expr.info.tag != T_FUNC
+        except E_CONTINUE:
+          # assert expr.info.tag < T_CTOR and expr.info.tag != T_FUNC
           self.queue.append(frame)
         except E_RESIDUAL as res:
           self.queue.append(frame.block(blocked_by=res.ids))
@@ -407,8 +410,8 @@ class Evaluator(object):
       elif tag >= T_CTOR:
         try:
           N(self.interp, expr, target)
-        except E_SYMBOL:
-          assert expr.info.tag < T_CTOR and expr.info.tag != T_FUNC
+        except E_CONTINUE:
+          # assert expr.info.tag < T_CTOR and expr.info.tag != T_FUNC
           self.queue.append(frame)
         except E_RESIDUAL as res:
           self.queue.append(frame.block(blocked_by=res.ids))
@@ -501,43 +504,38 @@ def N(interp, root, target=None, path=None, freevars=None):
       while True:
         if isinstance(succ, icurry.BuiltinVariant):
           break
+        succ = succ[()]
         tag = succ.info.tag
         if tag == T_FAIL:
           Node(interp.prelude._Failure, target=root)
-          raise E_SYMBOL()
+          raise E_CONTINUE()
         elif tag == T_CHOICE or tag == T_CONSTR:
           pull_choice(interp, root, path)
-          raise E_SYMBOL()
+          raise E_CONTINUE()
         elif tag == T_FREE:
-          freevars.add(target)
+          vid = get_id(succ)
+          fp = interp.currentframe.fingerprint
+          if vid in fp:
+            _a,(_b,l,r) = succ
+            replacement = l if fp[vid] == LEFT else r
+            replace(interp, root, path, replacement)
+            raise E_CONTINUE()
+          freevars.add(succ)
           break
         elif tag == T_FUNC:
           try:
             S(interp, succ)
-          except E_SYMBOL:
+          except E_CONTINUE:
             pass
         elif tag >= T_CTOR:
-          _,free = N(interp, root, succ, path, freevars)
-          freevars.update(free)
+          _,freevars2 = N(interp, root, succ, path, freevars)
+          freevars.update(freevars2)
           break
         else:
           assert False
   finally:
     path.pop()
   return target, freevars
-
-def normalize(interp, root, path, ground):
-  try:
-    hnf(interp, root, path)
-  except E_RESIDUAL:
-    if ground:
-      raise
-    else:
-      return root[path]
-  target, freevars = N(interp, root, path=path)
-  if ground and freevars:
-    raise E_RESIDUAL(freevars)
-  return target
 
 def hnf(interp, expr, path, typedef=None):
   assert path
@@ -549,10 +547,10 @@ def hnf(interp, expr, path, typedef=None):
     tag = target.info.tag
     if tag == T_FAIL:
       Node(interp.prelude._Failure, target=expr)
-      raise E_SYMBOL()
+      raise E_CONTINUE()
     elif tag == T_CHOICE or tag == T_CONSTR:
       pull_choice(interp, expr, path)
-      raise E_SYMBOL()
+      raise E_CONTINUE()
     elif tag == T_FREE:
       if typedef is None:
         raise E_RESIDUAL([get_id(target)])
@@ -561,7 +559,7 @@ def hnf(interp, expr, path, typedef=None):
     elif tag == T_FUNC:
       try:
         S(interp, target)
-      except E_SYMBOL:
+      except E_CONTINUE:
         pass
     elif tag >= T_CTOR:
       return target
@@ -667,11 +665,18 @@ def instantiate(interp, context, path, typedef):
   replacer = _Replacer(
       context, path, lambda node, _: getGenerator(interp, node, typedef)
     )
-  replacement = replacer[None]
+  replaced = replacer[None]
   assert replacer.target.info.tag == T_FREE
-  assert context.info == replacement.info
-  context.successors[:] = replacement.successors
+  assert context.info == replaced.info
+  context.successors[:] = replaced.successors
   return replacer.target[1]
+
+def replace(interp, context, path, replacement):
+  replacer = _Replacer(context, path, lambda _a, _b: replacement)
+  replaced = replacer[None]
+  assert replacer.target.info.tag == T_FREE
+  assert context.info == replaced.info
+  context.successors[:] = replaced.successors
 
 def _createGenerator(interp, ctors, vid=None, target=None):
   '''
@@ -726,12 +731,13 @@ def getGenerator(interp, freevar, typedef):
       The free variable node to instantiate.
   ``typedef``
       A ``TypeDefinition`` that indicates the type to instantiate the variable
-      to.  This can also be a list of constructors.
+      to.  This can also be a list of constructors.  If the free variable has
+      already been instantiated, then this can be None.
   '''
   assert freevar.info.tag == T_FREE
   vid = freevar[0]
-  constructors = getattr(typedef, 'constructors', typedef)
   if freevar[1].info is interp.prelude.Unit.info:
+    constructors = getattr(typedef, 'constructors', typedef)
     instance = _createGenerator(interp, constructors, vid=vid)
     if len(constructors) == 1:
       # Ensure the instance is always choice-rooted.  This is not the most

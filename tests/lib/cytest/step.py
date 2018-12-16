@@ -23,6 +23,6 @@ def step(interp, expr, num=1):
         return
       # FIXME: get the termination condition right.  It needs the same
       # check as D to see whether expr is actually a value.
-    except (runtime.E_SYMBOL, runtime.E_STEPLIMIT, runtime.E_RESIDUAL):
+    except (runtime.E_CONTINUE, runtime.E_STEPLIMIT, runtime.E_RESIDUAL):
       pass
 

@@ -4,11 +4,13 @@ and Python.
 '''
 
 from .. import inspect
+from .. import types
 from . import runtime
 from ..utility import visitation
 from ..utility.unboxed import unboxed
 import collections
 import numbers
+import itertools
 
 @visitation.dispatch.on('arg')
 def expr(interp, arg, *args, **kwds):
@@ -156,6 +158,50 @@ def currytype(interp, ty):
     return interp.type('Prelude.[]')
   raise TypeError('cannot convert "%s" to a Curry type' % ty.__name__)
 
+def _toalpha(n):
+  assert 0 <= n
+  while True:
+    yield chr(97 + n % 26)
+    n = n // 26 - 1
+    if n < 0:
+      break
+
+class ToPython(object):
+  def __init__(self, convert_freevars=True):
+    self.convert_freevars = convert_freevars
+    self.i = itertools.count()
+    self.tr = {}
+
+  def __call__(self, interp, value, convert_strings=True):
+    if inspect.isa_primitive(interp, value):
+      return unbox(interp, value)
+    elif inspect.isa_bool(interp, value):
+      return inspect.isa_true(interp, value)
+    elif inspect.isa_list(interp, value):
+      l = list(self(interp, x) for x in _iter_(interp, value))
+      # FIXME: need to query the Curry typeinfo.  An empty list of Char should be
+      # an empty string, here.  It's less confusing to let empty lists by lists,
+      # rather than converting all empty lists to string.
+      if convert_strings and l:
+        try:
+          return ''.join(l)
+        except TypeError:
+          pass
+      return l
+    elif inspect.isa_tuple(interp, value):
+      return tuple(self(interp, x) for x in value)
+    elif inspect.isa_freevar(interp, value):
+      ifree = inspect.get_id(interp, value)
+      if ifree not in self.tr:
+        # '_a', '_b', ... '_z', '_aa', '_ab', ...
+        alpha = list(_toalpha(next(self.i)))
+        label = '_' + ''.join(reversed(alpha))
+        self.tr[ifree] = types.FreeType(label)
+      return self.tr[ifree]
+    return value
+
+_topython_converter_ = ToPython(convert_freevars=False)
+
 def topython(interp, value, convert_strings=True):
   '''
   Converts a Curry value to Python by substituting built-in types.
@@ -174,24 +220,7 @@ def topython(interp, value, convert_strings=True):
   --------
   The value converted to Python.
   '''
-  if inspect.isa_primitive(interp, value):
-    return unbox(interp, value)
-  elif inspect.isa_bool(interp, value):
-    return inspect.isa_true(interp, value)
-  elif inspect.isa_list(interp, value):
-    l = list(topython(interp, x) for x in _iter_(interp, value))
-    # FIXME: need to query the Curry typeinfo.  An empty list of Char should be
-    # an empty string, here.  It's less confusing to let empty lists by lists,
-    # rather than converting all empty lists to string.
-    if convert_strings and l:
-      try:
-        return ''.join(l)
-      except TypeError:
-        pass
-    return l
-  elif inspect.isa_tuple(interp, value):
-    return tuple(topython(interp, x) for x in value)
-  return value
+  return _topython_converter_(interp, value, convert_strings)
 
 def _iter_(interp, arg):
   '''Iterate through a Curry list.'''
@@ -201,8 +230,12 @@ def _iter_(interp, arg):
     arg = arg[1]
 
 def getconverter(converter):
+  '''
+  Get the converter corresponding to the argument.  The converter returned
+  translates free variables into _a, _b, _c, etc.
+  '''
   if converter is None or callable(converter):
     return converter
   elif converter == 'topython':
-    return topython
+    return ToPython(convert_freevars=True)
 

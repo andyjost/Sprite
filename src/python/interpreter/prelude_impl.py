@@ -36,7 +36,7 @@ def choice(interp, lhs):
   yield lhs[1]
 
 def error(interp, msg):
-  msg = str(conversions.topython(interp, msg))
+  msg = str(interp.topython(msg))
   raise RuntimeError(msg)
 
 # FIXME: this is a dummy implementation that is intended for comparing
@@ -110,15 +110,29 @@ def apply_hnf(interp, root):
   yield root[0]
   yield interp.hnf(root, [1])
 
+def normalize(interp, root, path, ground):
+  '''Used to implement $!! and $##.'''
+  try:
+    runtime.hnf(interp, root, path)
+  except runtime.E_RESIDUAL:
+    if ground:
+      raise
+    else:
+      return root[path]
+  target, freevars = runtime.N(interp, root, path=path)
+  if ground and freevars:
+    raise runtime.E_RESIDUAL(freevars)
+  return target
+
 def apply_nf(interp, root):
   yield interp.prelude.apply
   yield root[0]
-  yield runtime.normalize(interp, root, [1], ground=False)
+  yield normalize(interp, root, [1], ground=False)
 
 def apply_gnf(interp, root):
   yield interp.prelude.apply
   yield root[0]
-  yield runtime.normalize(interp, root, [1], ground=True)
+  yield normalize(interp, root, [1], ground=True)
 
 def ensureNotFree(interp, a):
   # This function does nothing when evaluated.  It is, however, a designated

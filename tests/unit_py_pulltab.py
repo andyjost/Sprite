@@ -22,7 +22,7 @@ class TestPyPullTab(cytest.TestCase):
     id9 = id(goal[0,0,2,1])
     id123 = id(goal[0,2])
     # Head-normalizing brings a choice to the root.
-    self.assertRaises(runtime.E_SYMBOL, lambda: interp.hnf(goal[0], [0,2]))
+    self.assertRaises(runtime.E_CONTINUE, lambda: interp.hnf(goal[0], [0,2]))
     # goal = id (f...8 ? f...9)
     self.assertEqual(goal[0].info.tag, runtime.T_CHOICE)
     # Ensure nodes are referenced, not copied.
@@ -31,7 +31,7 @@ class TestPyPullTab(cytest.TestCase):
     self.assertEqual(id(lhs[0,2]), id8)
     self.assertEqual(id(lhs[2]), id123)
     lhs = curry.expr(interp.prelude.id, lhs) # id (f...8)
-    self.assertRaises(runtime.E_SYMBOL, lambda: interp.hnf(lhs, [0]))
+    self.assertRaises(runtime.E_CONTINUE, lambda: interp.hnf(lhs, [0]))
     self.assertEqual(lhs.info.tag, runtime.T_FAIL)
     # RHS -> True
     rhs = goal[0,2]

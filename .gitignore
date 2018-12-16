@@ -8,6 +8,7 @@ install/**
 *.o
 tests/htmlcov
 tests/data/Makefile2
+tests/unit_dev.py
 robots.txt*
 **/.src/**
 **/.curry/**

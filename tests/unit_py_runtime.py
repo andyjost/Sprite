@@ -161,13 +161,13 @@ class TestPyRuntime(cytest.TestCase):
       for expr, expected in testlist:
         # Build the expression, normalize it the specified amount, then check
         # (1) that the modified expression matches the expected result and (2)
-        # that E_SYMBOL was raised if and only if the result head symbol is a
+        # that E_CONTINUE was raised if and only if the result head symbol is a
         # failure or choice.
         expr = interp.expr(expr)
         expected = interp.expr(expected)
         try:
           N(expr)
-        except runtime.E_SYMBOL:
+        except runtime.E_CONTINUE:
           exc = True
         else:
           exc = False
