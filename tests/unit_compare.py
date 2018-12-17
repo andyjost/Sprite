@@ -7,6 +7,10 @@ lt = getattr(curry.prelude, '<')
 le = getattr(curry.prelude, '<=')
 gt = getattr(curry.prelude, '>')
 ge = getattr(curry.prelude, '>=')
+ceq = getattr(curry.prelude, '=:=')
+LT = curry.prelude.LT.info
+EQ = curry.prelude.EQ.info
+GT = curry.prelude.GT.info
 
 t = curry.compile('data T = A | B | C Int | D Int Int | E Int Int Int | F T T')
 A, B, C, D, E, F = t.A, t.B, t.C, t.D, t.E, t.F
@@ -14,8 +18,13 @@ A, B, C, D, E, F = t.A, t.B, t.C, t.D, t.E, t.F
 class TestComparisons(cytest.TestCase):
 
   def check(self, lhs, op, rhs, ans):
-    x = next(curry.eval(op, lhs, rhs))
-    self.assertEqual(x, ans)
+    x = list(curry.eval(op, lhs, rhs))
+    self.assertEqual(x, [ans] if ans is not None else [])
+
+  def compare(self, lhs, rhs, ans):
+    x = list(curry.eval(curry.prelude.compare, lhs, rhs))
+    y = [node.info for node in x]
+    self.assertEquals(y, [ans])
 
   def suite(self, a, b): # where a < b
     '''A test suite for checking all comparisons between two values.'''
@@ -35,6 +44,12 @@ class TestComparisons(cytest.TestCase):
     self.check(b, ge, b, True) # ge
     self.check(b, ge, a, True)
     self.check(a, ge, b, False)
+    self.check(b, ceq, b, True) # =:=
+    self.check(a, ceq, b, None)
+    #
+    self.compare(a, b, LT)
+    self.compare(a, a, EQ)
+    self.compare(b, a, GT)
 
   def testPrim(self):
     self.suite(0, 1)

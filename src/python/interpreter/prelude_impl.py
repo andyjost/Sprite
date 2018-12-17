@@ -3,10 +3,11 @@ Implementation of the Prelude externals.
 '''
 from ..exceptions import *
 from . import conversions
+from .. import icurry
 from . import runtime
 import itertools
 import logging
-from .. import icurry
+import operator
 
 logger = logging.getLogger(__name__)
 
@@ -40,28 +41,60 @@ def error(interp, msg):
   msg = str(interp.topython(msg))
   raise RuntimeError(msg)
 
-def compare(interp, root):
-  lhs, rhs = (interp.hnf(root, [i]) for i in (0,1))
-  lhs_isboxed, rhs_isboxed = (hasattr(x, 'info') for x in root)
-  assert lhs_isboxed == rhs_isboxed # mixing boxed/unboxed -> type error
-  if lhs_isboxed:
-    ltag, rtag = lhs.info.tag, rhs.info.tag
-    index = -1 if ltag < rtag else 1 if ltag > rtag else 0
-    if not index:
-      arity = lhs.info.arity
-      assert arity == rhs.info.arity
-      if arity:
-        conj = interp.prelude.compare_conjunction
-        terms = (runtime.Node(root.info, l, r) for l,r in zip(lhs, rhs))
-        expr = reduce((lambda a,b: runtime.Node(conj, a, b)), terms)
-        yield expr.info
-        for succ in expr:
-          yield succ
-        return
-  else:
-    index = -1 if lhs < rhs else 1 if lhs > rhs else 0
-  info = interp.type('Prelude.Ordering').constructors[index+1]
-  yield info
+class Comparison(object):
+  '''Implements ==, =:=, and Prelude.compare.'''
+  def __init__(self, compare, resultinfo, conjunction):
+    # A comparison function.  It behaves like ``cmp``, and so returns 0 (or
+    # False) for "equal."  It must work on all primitive types (int, float,
+    # and char) and node tags.
+    self.compare = compare
+    # A function taking the results of ``compare`` to node info.
+    self.resultinfo = resultinfo
+    # The conjunction used to combine terms when recursing.
+    self.conjunction = conjunction
+
+  def __call__(self, interp, root):
+    lhs, rhs = (interp.hnf(root, [i]) for i in (0,1))
+    lhs_isboxed, rhs_isboxed = (hasattr(x, 'info') for x in root)
+    assert lhs_isboxed == rhs_isboxed # mixing boxed/unboxed -> type error
+    if lhs_isboxed:
+      ltag, rtag = lhs.info.tag, rhs.info.tag
+      index = self.compare(ltag, rtag)
+      if not index: # recurse when the comparison returns 0 or False.
+        arity = lhs.info.arity
+        assert arity == rhs.info.arity
+        if arity:
+          conj = self.conjunction(interp)
+          terms = (runtime.Node(root.info, l, r) for l,r in zip(lhs, rhs))
+          expr = reduce((lambda a,b: runtime.Node(conj, a, b)), terms)
+          yield expr.info
+          for succ in expr:
+            yield succ
+          return
+    else:
+      index = self.compare(lhs, rhs)
+    yield self.resultinfo(interp, index)
+
+compare = Comparison( # compare
+    compare=cmp
+  , resultinfo=lambda interp, index:
+        interp.type('Prelude.Ordering').constructors[index+1]
+  , conjunction=lambda interp: interp.prelude.compare_conjunction
+  )
+
+equals = Comparison( # ==
+    compare=operator.ne # False means equal.
+  , resultinfo=lambda interp, index:
+        interp.prelude.False if index else interp.prelude.True
+  , conjunction=lambda interp: getattr(interp.prelude, '&&')
+  )
+
+equal_constr = Comparison( # =:=
+    compare=operator.ne # False means equal.
+  , resultinfo=lambda interp, index:
+        interp.prelude._Failure if index else interp.prelude.True
+  , conjunction=lambda interp: getattr(interp.prelude, '&&')
+  )
 
 def compose_io(interp, lhs):
   io_a = interp.hnf(lhs, [0])

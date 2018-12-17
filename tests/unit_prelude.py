@@ -68,7 +68,6 @@ class TestPrelude(cytest.TestCase):
     T,F = curry.symbol('Prelude.True'), curry.symbol('Prelude.False')
     self.assertEqual(e2s([Cons, T, [Cons, F, Nil]]), '[True, False]')
 
-  @unittest.skip('Need to fix ==')
   def testPrimitiveBuiltins(self):
     '''Tests the built-ins over primitive types.'''
     eval_ = lambda e: curry.eval(e, converter=None)

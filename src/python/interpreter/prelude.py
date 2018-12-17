@@ -120,19 +120,7 @@ _functions_ = [
   , icurry.IFunction('*', 2, metadata={'py.primfunc':op.mul})
   , icurry.IFunction('+', 2, metadata={'py.primfunc':op.add})
   , icurry.IFunction('-', 2, metadata={'py.primfunc':op.sub})
-  , icurry.IFunction('==', 2, metadata={'py.primfunc':op.eq})
-  , icurry.IFunction('/=', 2, metadata={'py.primfunc':op.ne})
-  , icurry.IFunction('<', 2, metadata={'py.primfunc':op.lt})
-  , icurry.IFunction('>', 2, metadata={'py.primfunc':op.gt})
-  , icurry.IFunction('<=', 2, metadata={'py.primfunc':op.le})
-  , icurry.IFunction('>=', 2, metadata={'py.primfunc':op.ge})
-  , icurry.IFunction('&&', 2, metadata={'py.primfunc':op.and_})
-  , icurry.IFunction('||', 2, metadata={'py.primfunc':op.or_})
-  # The following are defined in the Prelude as pure Curry, but have a better
-  # implementation here.
-  , icurry.IFunction('negate', 1, metadata={'py.primfunc':op.neg})
-
-# ====== Missing from the following ======
+  , icurry.IFunction('==', 2, metadata={'py.rawfunc':impl.equals})
 # --- Integer division. The value is the integer quotient of its arguments
 # --- and always truncated towards negative infinity.
 # --- Thus, the value of <code>13 `div` 5</code> is <code>2</code>,
@@ -203,6 +191,7 @@ _functions_ = [
 # --- function symbols).
 # (=:=)   :: a -> a -> Bool
 # (=:=) external
+  , icurry.IFunction('=:=', 2, metadata={'py.rawfunc':impl.equal_constr})
 #
 # --- Concurrent conjunction.
 # --- An expression like `(c1 & c2)` is evaluated by evaluating
