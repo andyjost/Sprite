@@ -6,6 +6,7 @@ from . import conversions
 from . import runtime
 import itertools
 import logging
+from .. import icurry
 
 logger = logging.getLogger(__name__)
 
@@ -39,30 +40,26 @@ def error(interp, msg):
   msg = str(interp.topython(msg))
   raise RuntimeError(msg)
 
-# FIXME: this is a dummy implementation that is intended for comparing
-# fundamental types only.  It needs to recurse by rewriting to a conjunction of
-# == nodes.
-def compare_impl(interp, eq):
-  lhs, rhs = (interp.hnf(eq, [i]) for i in (0,1))
-  lhs_isboxed, rhs_isboxed = (hasattr(x, 'info') for x in eq)
-  assert lhs_isboxed == rhs_isboxed # cannot mix boxed and unboxed
-  if not lhs_isboxed:
-    return -1 if lhs < rhs else 1 if lhs > rhs else 0
-  assert False # not implemented
-  # assert all(isinstance(x, runtime.Node) for x in [lhs,rhs])
-  # assert all(runtime.T_CTOR <= x.info.tag for x in [lhs,rhs])
-  # lhs_tag, rhs_tag = lhs.info.tag, rhs.info.tag
-  # if lhs_tag != rhs_tag:
-  #   return -1 if lhs_tag < rhs_tag else 1
-  # else:
-  #   for l,r in itertools.izip(lhs.successors, rhs.successors):
-  #     result = compare_impl(interp, l, r)
-  #     if result:
-  #       return result
-  #   return 0
-
 def compare(interp, root):
-  index = compare_impl(interp, root)
+  lhs, rhs = (interp.hnf(root, [i]) for i in (0,1))
+  lhs_isboxed, rhs_isboxed = (hasattr(x, 'info') for x in root)
+  assert lhs_isboxed == rhs_isboxed # mixing boxed/unboxed -> type error
+  if lhs_isboxed:
+    ltag, rtag = lhs.info.tag, rhs.info.tag
+    index = -1 if ltag < rtag else 1 if ltag > rtag else 0
+    if not index:
+      arity = lhs.info.arity
+      assert arity == rhs.info.arity
+      if arity:
+        conj = interp.prelude.compare_conjunction
+        terms = (runtime.Node(root.info, l, r) for l,r in zip(lhs, rhs))
+        expr = reduce((lambda a,b: runtime.Node(conj, a, b)), terms)
+        yield expr.info
+        for succ in expr:
+          yield succ
+        return
+  else:
+    index = -1 if lhs < rhs else 1 if lhs > rhs else 0
   info = interp.type('Prelude.Ordering').constructors[index+1]
   yield info
 

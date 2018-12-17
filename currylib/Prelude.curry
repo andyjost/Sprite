@@ -197,6 +197,10 @@ data Ordering = LT | EQ | GT
 compare :: a -> a -> Ordering
 compare external
 
+compare_conjunction EQ a = a
+compare_conjunction LT _ = LT
+compare_conjunction GT _ = GT
+
 --- Less-than on ground data terms.
 (<)   :: a -> a -> Bool
 x < y = case compare x y of LT -> True
