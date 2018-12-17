@@ -55,9 +55,9 @@ class Comparison(object):
 
   def __call__(self, interp, root):
     lhs, rhs = (interp.hnf(root, [i]) for i in (0,1))
-    lhs_isboxed, rhs_isboxed = (hasattr(x, 'info') for x in root)
-    assert lhs_isboxed == rhs_isboxed # mixing boxed/unboxed -> type error
-    if lhs_isboxed:
+    lhs_isnode, rhs_isnode = (hasattr(x, 'info') for x in root)
+    assert lhs_isnode == rhs_isnode # mixing boxed/unboxed -> type error
+    if lhs_isnode:
       ltag, rtag = lhs.info.tag, rhs.info.tag
       index = self.compare(ltag, rtag)
       if not index: # recurse when the comparison returns 0 or False.
@@ -72,7 +72,7 @@ class Comparison(object):
             yield succ
           return
     else:
-      index = self.compare(lhs, rhs)
+      index = self.compare(lhs, rhs) # Unboxed comparison.
     yield self.resultinfo(interp, index)
 
 compare = Comparison( # compare
