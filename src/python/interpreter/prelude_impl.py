@@ -4,10 +4,12 @@ Implementation of the Prelude externals.
 from ..exceptions import *
 from . import conversions
 from .. import icurry
+from .. import inspect
 from . import runtime
 import itertools
 import logging
 import operator
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +104,206 @@ def compose_io(interp, lhs):
   yield lhs[1]
   yield conversions.unbox(interp, io_a)
 
-def return_(interp, a):
+# The next several functions are for parsing literals.
+def readNatLiteral(interp, s):
+  '''
+  Parse a natural number from a Curry string.  Returns a pair consisting of the
+  value and the remaining string.
+  '''
+  num = []
+  Cons = interp.prelude.Cons
+  while inspect.isa(s, Cons):
+    c = interp.unbox(s[0])
+    if c.isdigit():
+      num.append(c)
+      s = s[1]
+    else:
+      break
+  yield getattr(interp.prelude, '(,)')
+  yield interp.expr(int(''.join(num)) if num else 0)
+  yield s
+
+def readFloatLiteral(interp, s):
+  '''
+  Parse a floating-point number from a Curry string.  Returns a pair consisting
+  of the value and the remaining string.
+  '''
+  num = []
+  Cons = interp.prelude.Cons
+  if inspect.isa(s, Cons):
+    c = interp.unbox(s[0])
+    if c in '+-':
+      num.append(c)
+      s = s[1]
+  have_dot = False
+  while inspect.isa(s, Cons):
+    c = interp.unbox(s[0])
+    if c.isdigit():
+      num.append(c)
+      s = s[1]
+    elif c == '.' and not have_dot:
+      have_dot = True
+      num.append(c)
+      s = s[1]
+    else:
+      break
+  yield getattr(interp.prelude, '(,)')
+  yield interp.expr(float(''.join(num) if num else 'nan'))
+  yield s
+
+class ParseError(BaseException): pass
+
+def _getchar(interp, s):
+  # Get and unbox the head character of a string.  Return a pair of it and the
+  # tail.
+  if inspect.isa(s, interp.prelude.Cons):
+    h,t = s
+    return interp.unbox(h), t
+  raise ParseError()
+
+def _parseDecChar(interp, s, digits=None):
+  '''
+  Parses a string of decimal digits.  Returns the corresponding character and
+  string tail.
+  '''
+  digits = digits or []
+  s_prev = s
+  while True:
+    c, s = _getchar(interp, s_prev)
+    if c.isdigit():
+      digits.append(c)
+    elif not digits:
+      raise ParseError()
+    else:
+      return unichr(int(''.join(digits), 10)).encode('utf-8'), s_prev
+    s_prev = s
+
+HEXDIGITS = set('0123456789abcdef')
+def _parseHexChar(interp, s, digits=None):
+  '''
+  Parses a string of hexadecimal digits.  Returns the corresponding character
+  and string tail.
+  '''
+  digits = digits or []
+  s_prev = s
+  while True:
+    c, s = _getchar(interp, s_prev)
+    if c in HEXDIGITS:
+      digits.append(c)
+    elif not digits:
+      raise ParseError()
+    else:
+      return unichr(int(''.join(digits), 16)).encode('utf-8'), s_prev
+    s_prev = s
+
+ESCAPE_CODES = {
+    '\\':'\\'  # \\ -> \
+  , '"':'"'    # \" -> "
+  , "'":"'"    # \' -> '
+  , 'b':'\b', 'f':'\f', 'n':'\n', 'r':'\r', 't':'\t', 'v':'\v'
+  }
+def _parseEscapeCode(interp, s):
+  c, s = _getchar(interp, s)
+  if c in ESCAPE_CODES:
+    return ESCAPE_CODES[c], s
+  elif c == 'x': # hex escape code
+    return _parseHexChar(interp, s)
+  elif c.isdigit(): # decimal escape code
+    return _parseDecChar(interp, s, [c])
+  else:
+    raise ParseError()
+
+def readCharLiteral(interp, s):
+  '''
+  Parse a character literal from a Curry string.
+
+  The literal begins and ends with a single quote.  The body contains an ASCII
+  character other than a backslash or single quote, or a backslash followed by
+  one of the following:
+
+    - Any character in "bfnrtv".
+    - A single quote.
+    - A backslash.
+    - A natural number less than 1114112.
+    - A hexadecimal integer less than 0x110000.
+
+  Yields:
+  --------
+    Components of a Curry pair consisting of the parsed character and the
+    string tail following the closing quote.  If no character can be parsed,
+    returns char '\0' and the original string.
+  '''
+  s_in = s
+  try:
+    # First, yield the Curry symbol for a pair.
+    yield getattr(interp.prelude, '(,)')
+
+    # Get the character.
+    c, s = _getchar(interp, s)
+    if c != "'":
+      raise ParseError()
+    c, s = _getchar(interp, s)
+    if c == '\\':
+      c_out, s = _parseEscapeCode(interp, s)
+    elif ord(c) < 256 and c != "'":
+      c_out = c
+    else:
+      raise ParseError()
+
+    # Eat the closing quote.
+    c, s = _getchar(interp, s)
+    if c != "'":
+      raise ParseError()
+
+    # Second, yield the character as a Curry Char.
+    yield interp.expr(c_out)
+
+    # Third, yield the string tail.
+    yield s
+  except ParseError:
+    print "Parse Error!"
+    yield interp.expr('\0')
+    yield s_in
+
+def readStringLiteral(interp, s):
+  '''
+  Parse a string literal from a Curry string.
+
+  The literal begins and ends with a double quote.  The body contains a string of ASCII
+  characters and uses the same escape codes as for character literals.
+
+  Yields:
+  --------
+    Components of a Curry pair consisting of the parsed string literal and the
+    Curry string tail following the closing quote.  If no string can be parsed,
+    returns and empty string and the original string.
+  '''
+  s_in = s
+  try:
+    yield getattr(interp.prelude, '(,)')
+    s_out = []
+    c, s = _getchar(interp, s)
+    if c != '"':
+      raise ParseError()
+    while True:
+      c, s = _getchar(interp, s)
+      if c == '\\':
+        c, s = _parseEscapeCode(interp, s)
+        s_out.append(c)
+      elif ord(c) < 256:
+        if c == '"':
+          yield interp.expr(''.join(s_out))
+          yield s
+          return
+        else:
+          s_out.append(c)
+      else:
+        raise ParseError()
+  except ParseError:
+    yield interp.expr("")
+    yield s_in
+
+def returnIO(interp, a):
   yield interp.prelude.IO
   yield a
 

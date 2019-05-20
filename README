@@ -85,6 +85,15 @@ To install:
 
         Example: SPRITE_INTERPRETER_FLAGS=trace:True,debug:True
 
+    - SPRITE_CACHE_FILE
+
+        Default: $HOME/.sprite/cache.db
+        Used at: src/python/cache.py
+
+        Specifies the cache database file.  Conversions, such as from Curry to
+        JSON, are cached, since they are expensive.  Can be used to specify the
+        cache file.  If set to the empty string, caching is disabled.
+
 
 5. BUG REPORTING
 ----------------

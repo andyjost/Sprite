@@ -24,6 +24,7 @@ def exports():
     name = ty.ident.basename
     if inspect.is_tuple_name(name):
       yield name
+  yield '(->)'
   # Helper functions.
   yield '_python_generator_'
 
@@ -73,6 +74,7 @@ _types_ = [
   , icurry.IType('Float', [icurry.IConstructor('Float', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Float})])
   , icurry.IType('Int', [icurry.IConstructor('Int', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Int})])
   , icurry.IType('IO', [icurry.IConstructor('IO', 1)])
+  , icurry.IType('(->)', [icurry.IConstructor('->', 2)])
   ]
 
 # List
@@ -111,78 +113,102 @@ for i in range(2, MAX_TUPLE_SIZE):
     ])
   _types_.append(Tuple)
 
+def _divMod_impl(x, y):
+  # divMod_ x y = (x `div` y, x `mod` y)
+  d = op.floordiv(x, y)
+  m = x - y * d
+  return d, m
+
+def _quotRem_impl(x, y):
+  # quotRem_ x y = (x `quot` y, x `rem` y)
+  q = int(op.truediv(x, y))
+  r = x - y * q
+  return q, r
+
 # Functions.
 # ==========
 _functions_ = [
     icurry.IFunction('_python_generator_', 1
         , metadata={'py.func':impl._python_generator_}
         )
-  , icurry.IFunction('*', 2, metadata={'py.primfunc':op.mul})
-  , icurry.IFunction('+', 2, metadata={'py.primfunc':op.add})
-  , icurry.IFunction('-', 2, metadata={'py.primfunc':op.sub})
-  , icurry.IFunction('==', 2, metadata={'py.rawfunc':impl.equals})
+  , icurry.IFunction('+$', 2, metadata={'py.primfunc':op.add}) # Int addition
+  , icurry.IFunction('-$', 2, metadata={'py.primfunc':op.sub}) # Int subtraction
+  , icurry.IFunction('*$', 2, metadata={'py.primfunc':op.mul}) # Int multiplication
+  , icurry.IFunction('prim_Float_plus', 2, metadata={'py.primfunc':op.add}) # Float addition
+  , icurry.IFunction('prim_Float_minus', 2, metadata={'py.primfunc':op.sub}) # Float subtraction
+  , icurry.IFunction('prim_Float_times', 2, metadata={'py.primfunc':op.mul}) # Float multiplication
+  , icurry.IFunction('prim_Float_div', 2, metadata={'py.primfunc':op.truediv}) # Float division
+  # , icurry.IFunction('==', 2, metadata={'py.rawfunc':impl.equals})
+  , icurry.IFunction('eqInt', 2, metadata={'py.primfunc':op.eq})
+  , icurry.IFunction('eqChar', 2, metadata={'py.primfunc':op.eq})
+  , icurry.IFunction('eqFloat', 2, metadata={'py.primfunc':op.eq})
+  , icurry.IFunction('ltEqInt', 2, metadata={'py.primfunc':op.le})
+  , icurry.IFunction('ltEqChar', 2, metadata={'py.primfunc':op.le})
+  , icurry.IFunction('ltEqFloat', 2, metadata={'py.primfunc':op.le})
 # --- Integer division. The value is the integer quotient of its arguments
 # --- and always truncated towards negative infinity.
 # --- Thus, the value of <code>13 `div` 5</code> is <code>2</code>,
 # --- and the value of <code>-15 `div` 4</code> is <code>-4</code>.
-# div   :: Int -> Int -> Int
-# div external
-  , icurry.IFunction('div', 2, metadata={'py.primfunc':op.floordiv})
+# div_   :: Int -> Int -> Int
+  , icurry.IFunction('div_', 2, metadata={'py.primfunc':op.floordiv})
 #
 # --- Integer remainder. The value is the remainder of the integer division and
 # --- it obeys the rule <code>x `mod` y = x - y * (x `div` y)</code>.
 # --- Thus, the value of <code>13 `mod` 5</code> is <code>3</code>,
 # --- and the value of <code>-15 `mod` 4</code> is <code>-3</code>.
-# mod   :: Int -> Int -> Int
-# mod external
-  , icurry.IFunction('mod', 2, metadata={'py.primfunc':lambda x, y: x - y * op.floordiv(x,y)})
+# mod_   :: Int -> Int -> Int
+  , icurry.IFunction('mod_', 2, metadata={'py.primfunc':lambda x, y: x - y * op.floordiv(x,y)})
 # --- Integer division. The value is the integer quotient of its arguments
 # --- and always truncated towards zero.
 # --- Thus, the value of <code>13 `quot` 5</code> is <code>2</code>,
 # --- and the value of <code>-15 `quot` 4</code> is <code>-3</code>.
-# quot   :: Int -> Int -> Int
-# quot external
-  , icurry.IFunction('quot', 2, metadata={'py.primfunc':lambda x, y: int(op.truediv(x, y))})
+# quot_   :: Int -> Int -> Int
+  , icurry.IFunction('quot_', 2, metadata={'py.primfunc':lambda x, y: int(op.truediv(x, y))})
 #
 # --- Integer remainder. The value is the remainder of the integer division and
 # --- it obeys the rule <code>x `rem` y = x - y * (x `quot` y)</code>.
 # --- Thus, the value of <code>13 `rem` 5</code> is <code>3</code>,
 # --- and the value of <code>-15 `rem` 4</code> is <code>-3</code>.
-# rem   :: Int -> Int -> Int
-# rem external
-  , icurry.IFunction('rem', 2, metadata={'py.primfunc':lambda x, y: x - y * int(op.truediv(x, y))})
-  , icurry.IFunction('prim_negateFloat', 1, metadata={'py.primfunc':op.neg})
+# rem_   :: Int -> Int -> Int
+  , icurry.IFunction('rem_', 2, metadata={'py.primfunc':lambda x, y: x - y * int(op.truediv(x, y))})
+
+# --- Returns an integer (quotient,remainder) pair.
+# --- The value is the integer quotient of its arguments
+# --- and always truncated towards negative infinity.
+# divMod_ :: Int -> Int -> (Int, Int)
+  , icurry.IFunction('divMod_', 2, metadata={'py.primfunc':_divMod_impl})
+#
+# --- Returns an integer (quotient,remainder) pair.
+# --- The value is the integer quotient of its arguments
+# --- and always truncated towards zero.
+# quotRem_ :: Int -> Int -> (Int, Int)
+  , icurry.IFunction('quotRem_', 2, metadata={'py.primfunc':_quotRem_impl})
+  , icurry.IFunction('negateFloat', 1, metadata={'py.primfunc':op.neg})
 # --- Evaluates the argument to head normal form and returns it.
 # --- Suspends until the result is bound to a non-variable term.
 # ensureNotFree :: a -> a
-# ensureNotFree external
   , icurry.IFunction('ensureNotFree', 1, metadata={'py.func':impl.ensureNotFree})
 # --- Right-associative application with strict evaluation of its argument
 # --- to head normal form.
 # ($!)    :: (a -> b) -> a -> b
-# ($!) external
   , icurry.IFunction('$!', 2, metadata={'py.rawfunc':impl.apply_hnf})
 #
 # --- Right-associative application with strict evaluation of its argument
 # --- to normal form.
 # ($!!)   :: (a -> b) -> a -> b
-# ($!!) external
   , icurry.IFunction('$!!', 2, metadata={'py.rawfunc':impl.apply_nf})
 # --- Right-associative application with strict evaluation of its argument
 # --- to ground normal form.
 # ($##)   :: (a -> b) -> a -> b
-# ($##) external
   , icurry.IFunction('$##', 2, metadata={'py.rawfunc':impl.apply_gnf})
 #
 # prim_error    :: String -> _
-# prim_error external
 #
   , icurry.IFunction('prim_error', 1, metadata={'py.func':impl.error})
 # --- A non-reducible polymorphic function.
 # --- It is useful to express a failure in a search branch of the execution.
 # --- It could be defined by: `failed = head []`
 # failed :: _
-# failed external
   , icurry.IFunction('failed', 0, metadata={'py.func':impl.failed})
 #
 # --- The equational constraint.
@@ -190,66 +216,64 @@ _functions_ = [
 # --- reduced to a unifiable data term (i.e., a term without defined
 # --- function symbols).
 # (=:=)   :: a -> a -> Bool
-# (=:=) external
   , icurry.IFunction('=:=', 2, metadata={'py.rawfunc':impl.equal_constr})
 #
 # --- Concurrent conjunction.
 # --- An expression like `(c1 & c2)` is evaluated by evaluating
 # --- the `c1` and `c2` in a concurrent manner.
 # (&)     :: Bool -> Bool -> Bool
-# (&) external
 #
 # --- Comparison of arbitrary ground data terms.
 # --- Data constructors are compared in the order of their definition
 # --- in the datatype declarations and recursively in the arguments.
 # compare :: a -> a -> Ordering
-# compare external
-  , icurry.IFunction('compare', 2, metadata={'py.rawfunc':impl.compare})
+#   , icurry.IFunction('compare', 2, metadata={'py.rawfunc':impl.compare})
 #
 # --- Converts a character into its ASCII value.
 # ord :: Char -> Int
-# ord external
-  , icurry.IFunction('ord', 1, metadata={'py.primfunc':ord})
+  , icurry.IFunction('prim_ord', 1, metadata={'py.primfunc':ord})
 #
 # --- Converts an ASCII value into a character.
 # chr :: Int -> Char
-# chr external
-  , icurry.IFunction('chr', 1, metadata={'py.primfunc':chr})
+  , icurry.IFunction('prim_chr', 1, metadata={'py.primfunc':chr})
+  , icurry.IFunction('prim_i2f', 1, metadata={'py.primfunc':float})
 # --- Sequential composition of actions.
 # --- @param a - An action
 # --- @param fa - A function from a value into an action
 # --- @return An action that first performs a (yielding result r)
 # ---         and then performs (fa r)
 # (>>=)             :: IO a -> (a -> IO b) -> IO b
-# (>>=) external
   , icurry.IFunction('>>=', 2, metadata={'py.rawfunc':impl.compose_io})
 #
+# prim_readNatLiteral :: String -> [(Int,String)]
+  , icurry.IFunction('prim_readNatLiteral', 1, metadata={'py.func':impl.readNatLiteral})
+# prim_readFloatLiteral :: String -> [(Int,String)]
+  , icurry.IFunction('prim_readFloatLiteral', 1, metadata={'py.func':impl.readFloatLiteral})
+# prim_readCharLiteral :: String -> [(Int,String)]
+  , icurry.IFunction('prim_readCharLiteral', 1, metadata={'py.func':impl.readCharLiteral})
+# prim_readStringLiteral :: String -> [(Int,String)]
+  , icurry.IFunction('prim_readStringLiteral', 1, metadata={'py.func':impl.readStringLiteral})
+
+#
 # --- The empty action that directly returns its argument.
-# return            :: a -> IO a
-# return external
-  , icurry.IFunction('return', 1, metadata={'py.func':impl.return_})
+# returnIO            :: a -> IO a
+  , icurry.IFunction('returnIO', 1, metadata={'py.func':impl.returnIO})
 #
 # prim_putChar           :: Char -> IO ()
-# prim_putChar external
   , icurry.IFunction('prim_putChar', 1, metadata={'py.func':impl.putChar})
 #
 # --- An action that reads a character from standard output and returns it.
 # getChar           :: IO Char
-# getChar external
   , icurry.IFunction('getChar', 0, metadata={'py.func':impl.getChar})
 #
 # prim_readFile          :: String -> IO String
-# prim_readFile external
   , icurry.IFunction('prim_readFile', 1, metadata={'py.func':impl.readFile})
 # -- for internal implementation of readFile:
 # prim_readFileContents          :: String -> String
-# prim_readFileContents external
 #
 # prim_writeFile         :: String -> String -> IO ()
-# prim_writeFile external
 #
 # prim_appendFile         :: String -> String -> IO ()
-# prim_appendFile external
 #
 # --- Catches a possible error or failure during the execution of an
 # --- I/O action. `(catch act errfun)` executes the I/O action
@@ -257,10 +281,8 @@ _functions_ = [
 # --- during this I/O action, the function `errfun` is applied
 # --- to the error value.
 # catch :: IO a -> (IOError -> IO a) -> IO a
-# catch external
 #
 # prim_show    :: _ -> String
-# prim_show external
 #
 # -- Non-determinism and free variables:
 #
@@ -270,44 +292,44 @@ _functions_ = [
 # --- @param y - The left argument.
 # --- @return either `x` or `y` non-deterministically.
 # (?)   :: a -> a -> a
-# (?) external
   , icurry.IFunction('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{1} ? {2}'})
 #
 # -- Representation of higher-order applications in FlatCurry.
 # apply :: (a -> b) -> a -> b
-# apply external
   , icurry.IFunction('apply', 2, metadata={'py.rawfunc':impl.apply})
 
 #
 # -- Only for internal use:
 # -- Representation of conditional rules in FlatCurry.
 # cond :: Bool -> a -> a
-# cond external
 #
 # -- Only for internal use:
 # -- letrec ones (1:ones) -> bind ones to (1:ones)
+# -- PAKCS only
 # letrec :: a -> a -> Bool
-# letrec external
 #
 # --- Non-strict equational constraint. Used to implement functional patterns.
 # (=:<=) :: a -> a -> Bool
-# (=:<=) external
 #
 # --- Non-strict equational constraint for linear functional patterns.
 # --- Thus, it must be ensured that the first argument is always (after evalutation
 # --- by narrowing) a linear pattern. Experimental.
 # (=:<<=) :: a -> a -> Bool
-# (=:<<=) external
 #
 # --- internal function to implement =:<=
 # ifVar :: _ -> a -> a -> a
-# ifVar external
 #
 # --- internal operation to implement failure reporting
 # failure :: _ -> _ -> _
-# failure external
+#
+# --- Sequential composition of IO actions.
+# --- @param a - An action
+# --- @param fa - A function from a value into an action
+# --- @return An action that first performs a (yielding result r)
+# ---         and then performs (fa r)
+# (>>=$)             :: IO a -> (a -> IO b) -> IO b
+
   ]
 Prelude = icurry.IModule(
     name='Prelude', imports=[], types=_types_, functions=_functions_
   )
-

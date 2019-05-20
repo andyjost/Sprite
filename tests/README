@@ -4,13 +4,25 @@ Sprite unit tests
 1. USAGE
 --------
 
-        make ['testall' | pattern...]
+        make ['test' | filename...]
 
-Use 'make' or 'make testall' to run all tests.  Use 'make test_parse.py' to run
-parser tests.
+This method can be used to check that Sprite works as intended.  One may wish
+to do this following installation.  Use 'make' or 'make test' to run all tests.
+Optionally, supply one or more unit test file names to run only those
+tests. For example, say 'make unit_prelude.py' to test the prelude.
 
 
-2. FILE LAYOUT
+2. TEST CATEGORIES
+------------------
+Tests are divided into two categories.  Unit tests begin with 'unit_' and are
+intended to target specific code areas.  Running all unit tests should in
+principle cover every line of code.  Functional tests begin with 'func_' and
+compare the behavior of Sprite to another Curry system called the oracle (see
+section 5).  Their purpose is to provide evidence that the Sprite compiles
+programs correctly and behaves as intended.
+
+
+3. FILE LAYOUT
 --------------
 
         data/       Test data files (e.g., sample input, golden results).
@@ -18,18 +30,11 @@ parser tests.
         test_*.py   Unit test source code.
 
 
-3. RUNNING TESTS
-----------------
+4. RUNNING TESTS FOR DEVELOPMENT
+--------------------------------
 
-To run the tests, execute the following command:
-
-        run_tests [pattern]
-
-If no pattern is supplied then, unless the test driver is cov_test, the unit
-tests will be run.  For cov_test, *all* tests will be run.  Otherwise, the
-pattern is a glob that specifies which files to run.  Use the pattern '*.py'
-(with quotes) to run all tests.  A few other test runners, each of which uses
-this interface, are available:
+To run tests for development, first select the appropriate test driver from the
+following:
 
         run_tests       Run unit tests.
         debug_tests     Run unit tests under gdb.
@@ -39,19 +44,28 @@ this interface, are available:
         cov_tests       Run unit tests under coverage.py.
                         (For measuring line coverage.)
 
+All drivers have the same command line interface.  Say the following to run
+tests:
 
-4. ORACLE CONFIGURATION
+        <driver> [pattern]
+
+The pattern is a glob that specifies which files to run.  Use the pattern
+'*.py' (with quotes) to run all tests.  If no pattern is supplied then all unit
+tests will be run in most cases.  The exception is cov_tests, which runs both
+unit and functional tests.
+
+
+5. ORACLE CONFIGURATION
 -----------------------
 
 Some tests use an oracle to generate known-good ("golden") results.  To run
-these tests, you will need access to another Curry compiler.  The oracle
-configuration is found in "tests/oracle".  By default, it searches for "pakcs"
-in your path.  You can update this to use another Curry compiler, or, if you
-wish to skip these tests, you can simply clear the executable bit from
-"tests/oracle".
+these tests, you will need access to another Curry system such as PAKCS or
+KiCS2.  The oracle configuration is found in "tests/oracle".  By default, it
+searches for "pakcs" in your path.  You can update this to use another Curry
+compiler or, to skip the tests entirely, simply remove execute permission.
 
 
-5. TESTING GUIDELINES
+6. TESTING GUIDELINES
 ---------------------
 
 Unit tests match the pattern unit_*.py.
@@ -83,10 +97,10 @@ Functional tests match the pattern func_*.py:
 		explore the limits of the implementation.
 
 
-6. EDITOR INTEGRATION
+7. EDITOR INTEGRATION
 ---------------------
 
 A makefile is used to simplify integration with text editors.  For instance, in
 vim <Enter> runs "make" by default, so that key can be used to easily run the
-tests right from the text editor.
+tests right from the text editor.  Other editors have similar features.
 

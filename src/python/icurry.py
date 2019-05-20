@@ -36,6 +36,19 @@ class _Base(object):
     obj = arg if isinstance(arg, cls) else cls(*arg)
     return obj.setparent(parent)
 
+  # Make pickling safe.  Attribute parent is a weakref, which cannot be
+  # pickled.  Just convert it to a normal ref and back.
+  def __getstate__(self):
+    state = self.__dict__.copy()
+    if 'parent' in state:
+      state['parent'] = self.parent()
+    return state
+
+  def __setstate__(self, state):
+    self.__dict__ = state.copy()
+    if getattr(self, 'parent', None) is not None:
+      self.parent = weakref.ref(self.parent)
+
 
 class IName(str):
   def __new__(cls, arg1, arg2=None, modulename=None):
@@ -313,7 +326,10 @@ class Applic(_Base):
   def __init__(self, ident, args=[]):
     self.ident = IName(ident)
     self.args = tuple(args)
-    # assert all(isinstance(x, object) for x in self.args)
+    # Special case for Float.  The JSON generator always uses a general number
+    # representation, so something like (Float 1.0) receives an int.
+    if self.ident == "Prelude.Float":
+      self.args = tuple(map(float, self.args))
   def __str__(self):
     args = [self.ident] + [_fmtTerm(term) for term in self.args]
     return '(' + ' '.join(args) + ')'

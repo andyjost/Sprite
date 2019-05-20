@@ -1,5 +1,7 @@
 from __future__ import absolute_import
+
 from .exceptions import CompileError
+from . import cache
 from . import icurry
 from .utility.binding import binding, del_
 from .utility.visitation import dispatch
@@ -124,19 +126,23 @@ def curry2json(curryfile, currypath):
   sink = open('/dev/null', 'w')
   with binding(os.environ, 'TARGET_CURRYPATH', ':'.join(currypath)) \
      , binding(os.environ, 'CURRYPATH', del_):
-    child = subprocess.Popen(
-      [curry2jsontool(), '-q', curryfile]
-      , stdout=sink, stderr=subprocess.PIPE
-      )
-  _,errs = child.communicate()
-  retcode = child.wait()
-  if retcode or not os.path.exists(jsonfile):
-    raise CompileError(errs)
-  with open(jsonfile, 'r+') as json:
-    text = icurry.despace(json.read())
-    json.seek(0)
-    json.truncate()
-    json.write(text)
+    cached = cache.Curry2JsonCache(curryfile, jsonfile)
+    if not cached:
+      child = subprocess.Popen(
+        [curry2jsontool(), '-q', curryfile]
+        , stdout=sink, stderr=subprocess.PIPE
+        )
+  if not cached:
+    _,errs = child.communicate()
+    retcode = child.wait()
+    if retcode or not os.path.exists(jsonfile):
+      raise CompileError(errs)
+    with open(jsonfile, 'r+') as json:
+      text = icurry.despace(json.read())
+      json.seek(0)
+      json.truncate()
+      json.write(text)
+    cached.update()
   return jsonfile
 
 def jsonFilename(curryfile):
@@ -163,8 +169,12 @@ def getICurryFromJson(jsonfile):
   '''
   logger.debug('Reading ICurry-JSON from %s' % jsonfile)
   assert os.path.exists(jsonfile)
+  cached = cache.ParsedJson(jsonfile)
+  if cached:
+    return cached.icur
   icur, = icurry.parse(open(jsonfile, 'r').read())
   icur.filename = jsonfile
+  cached.update(icur)
   return icur
 
 def getICurryForModule(modulename, currypath):

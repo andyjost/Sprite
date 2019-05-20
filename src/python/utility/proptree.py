@@ -23,8 +23,9 @@ class _TreeNode(object):
   def __getattr__(self, attr):
     if not attr: return self
     for part in attr.split(DELIMITER):
-      assert not (part.startswith('__') and part.endswith('__'))
+      # assert not (part.startswith('__') and part.endswith('__'))
       self = object.__getattribute__(self, part)
+        
     return self
   def __setattr__(self, attr, value):
     parts = attr.split(DELIMITER)
@@ -60,6 +61,32 @@ class _TreeNode(object):
   def __gt__(self, rhs): return NotImplemented
   def __le__(self, rhs): return NotImplemented
   def __ge__(self, rhs): return NotImplemented
+  def __reduce__(self):
+    # state = {attr: getattr(self, attr) for attr in self.__slots__}
+    state = tuple(getattr(self, slot) for slot in self.__slots__)
+    return _PropTreeNodeGetter(), (self.__slots__,), state
+  def __setstate__(self, state):
+    for slot, value in zip(self.__slots__, state):
+      setattr(self, slot, value)
+
+
+class _PropTreeNodeGetter(object):
+  '''
+  Helps make tree nodes pickleable.  __reduce__ must create a pickleable object
+  that can be called to produce an example instance whose __class__ attribute
+  refers to the intended (and dynamically-generated) class.
+  '''
+  def __call__(self, slots):
+    # inst = _PropTreeNodeGetter() # Any object on which we can set __class__
+    # inst.__class__ = _gettype(slots)
+    # return inst
+    return _gettype(slots)()
+
+def _gettype(slots):
+  name = '_'.join(slots)
+  if name not in NODE_TYPES:
+    NODE_TYPES[name] = type('proptreenode_'+name, (_TreeNode,), {'__slots__': slots})
+  return NODE_TYPES[name]
 
 def _buildtree(data):
   # Return non-aggregate data.
@@ -67,10 +94,7 @@ def _buildtree(data):
     return data
   # Build a property tree node from mappings.
   slots = tuple(sorted(data.keys()))
-  name = '_'.join(slots)
-  if name not in NODE_TYPES:
-    NODE_TYPES[name] = type('proptreenode_'+name, (_TreeNode,), {'__slots__': slots})
-  obj = NODE_TYPES[name]()
+  obj = _gettype(slots)()
   for slot in slots:
     setattr(obj, slot, _buildtree(data[slot]))
   return obj

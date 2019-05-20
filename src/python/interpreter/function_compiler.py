@@ -338,7 +338,8 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.Fill)
   def statement(self, fill):
-    assert False
+    # untested:
+    yield '_%s.successors%s = _%s' % (fill.v1, [p.position for p in fill.path], fill.v2)
 
   @statement.when(icurry.Return)
   def statement(self, return_):
