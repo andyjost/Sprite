@@ -47,7 +47,7 @@ def _getdb():
   '''
   global _curry2jsoncache_
   if _curry2jsoncache_ == 'uninit':
-    db = os.environ.get('SPRITE_CACHE_FILE')
+    db = os.environ.get('SPRITE_CACHE_FILE', '')
     if db == '':
       _curry2jsoncache_ = None
       return
@@ -117,12 +117,13 @@ class Curry2JsonCache(object):
     constructor.
     '''
     assert not self.found
-    json = open(self.jsonfile).read()
-    self.cur.execute(
-        '''INSERT INTO [%s](src, json) VALUES(?, ?)''' % self.tablename
-      , (self.src, json)
-      )
-    self.db.commit()
+    if self.db:
+      json = open(self.jsonfile).read()
+      self.cur.execute(
+          '''INSERT INTO [%s](src, json) VALUES(?, ?)''' % self.tablename
+        , (self.src, json)
+        )
+      self.db.commit()
 
 class ParsedJson(object):
   '''Coordinates one instance of JSON-to-Python caching.'''
@@ -156,11 +157,12 @@ class ParsedJson(object):
 
   def update(self, icur):
     assert self.icur is None
-    pickled = pickle.dumps(icur, protocol=-1)
-    st = os.stat(self.jsonfile)
-    self.cur.execute(
-        '''INSERT INTO parsedjson(jsonfile, timestamp, pickled) VALUES(?, ?, ?)'''
-      , (self.jsonfile, int(st.st_mtime), sqlite3.Binary(pickled))
-      )
-    self.db.commit()
+    if self.db:
+      pickled = pickle.dumps(icur, protocol=-1)
+      st = os.stat(self.jsonfile)
+      self.cur.execute(
+          '''INSERT INTO parsedjson(jsonfile, timestamp, pickled) VALUES(?, ?, ?)'''
+        , (self.jsonfile, int(st.st_mtime), sqlite3.Binary(pickled))
+        )
+      self.db.commit()
     
