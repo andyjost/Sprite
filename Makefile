@@ -4,6 +4,9 @@ include Make.include
 
 # libs: $(ROOT_DIR)/sprite.a($(OBJECT_ROOT)/memory.o)
 
+$(OBJECT_ROOT)/CMC:
+	ln -s $(CMC_HOME) $@
+
 ifdef PYTHON_EXECUTABLE
 $(PREFIX)/bin:
 	mkdir -p $(PREFIX)/bin
@@ -28,25 +31,32 @@ $(PREFIX)/lib:
 	mkdir -p $(PREFIX)/lib
 $(PREFIX)/lib/curry : | $(PREFIX)/lib
 	mkdir -p $(PREFIX)/lib/curry
-$(PREFIX)/lib/curry/Prelude.curry : $(ROOT_DIR)/currylib/Prelude.curry | $(PREFIX)/lib/curry
+$(PREFIX)/lib/curry/.curry : | $(PREFIX)/lib/curry
+	mkdir -p $(PREFIX)/lib/curry/.curry
+$(PREFIX)/lib/curry/Prelude.curry : $(CMC_HOME)/runtime/lib/Prelude.curry | $(PREFIX)/lib/curry
 	cp $< $@
-$(PREFIX)/lib/curry/.curry/Prelude.json : $(PREFIX)/lib/curry/Prelude.curry \
-                                          $(PREFIX)/bin/python
-	@echo "****** Compiling the Prelude.  This may take a few minutes. ******"
-	$(PREFIX)/bin/python -c 'import curry; curry.compile("goal=True")'
+$(PREFIX)/lib/curry/.curry/Prelude.%    : $(CMC_HOME)/runtime/lib/.curry/Prelude.% \
+                                          $(PREFIX)/lib/curry/Prelude.curry        \
+                                        | $(PREFIX)/lib/curry/.curry
+	cp $< $@
 
 $(ROOT_DIR)/install:
 	ln -s $(PREFIX) $@
 
-install: $(PREFIX)/.bin/coverage                 \
-         $(PREFIX)/bin/coverage                  \
-         $(PREFIX)/bin/curry2json                \
-         $(PREFIX)/bin/.invoker                  \
-         $(PREFIX)/.bin/python                   \
-	       $(PREFIX)/bin/python                    \
-	       $(PREFIX)/bin/icy                       \
-         $(PREFIX)/lib/curry/Prelude.curry       \
-         $(PREFIX)/lib/curry/.curry/Prelude.json \
+install: $(PREFIX)/.bin/coverage                   \
+         $(PREFIX)/bin/coverage                    \
+         $(PREFIX)/bin/curry2json                  \
+         $(PREFIX)/bin/.invoker                    \
+         $(PREFIX)/.bin/python                     \
+	       $(PREFIX)/bin/python                      \
+	       $(PREFIX)/bin/icy                         \
+         $(PREFIX)/lib/curry/Prelude.curry         \
+         $(PREFIX)/lib/curry/.curry/Prelude.fcy    \
+         $(PREFIX)/lib/curry/.curry/Prelude.fint   \
+         $(PREFIX)/lib/curry/.curry/Prelude.icur   \
+         $(PREFIX)/lib/curry/.curry/Prelude.icurry \
+         $(PREFIX)/lib/curry/.curry/Prelude.json   \
+         $(PREFIX)/lib/curry/.curry/Prelude.read   \
   ####
 ifneq ($(PREFIX),python)
 install: $(ROOT_DIR)/install
