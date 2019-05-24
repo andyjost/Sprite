@@ -27,6 +27,8 @@ def exports():
   yield '(->)'
   # Helper functions.
   yield '_python_generator_'
+  # Clobber the definition of Prelude.? with Sprite's own.
+  yield 'Prelude.?'
 
 def aliases():
   '''Returns prelude aliases.  Simply for convenience.'''
@@ -223,12 +225,6 @@ _functions_ = [
 # --- the `c1` and `c2` in a concurrent manner.
 # (&)     :: Bool -> Bool -> Bool
 #
-# --- Comparison of arbitrary ground data terms.
-# --- Data constructors are compared in the order of their definition
-# --- in the datatype declarations and recursively in the arguments.
-# compare :: a -> a -> Ordering
-#   , icurry.IFunction('compare', 2, metadata={'py.rawfunc':impl.compare})
-#
 # --- Converts a character into its ASCII value.
 # ord :: Char -> Int
   , icurry.IFunction('prim_ord', 1, metadata={'py.primfunc':ord})
@@ -242,8 +238,8 @@ _functions_ = [
 # --- @param fa - A function from a value into an action
 # --- @return An action that first performs a (yielding result r)
 # ---         and then performs (fa r)
-# (>>=)             :: IO a -> (a -> IO b) -> IO b
-  , icurry.IFunction('>>=', 2, metadata={'py.rawfunc':impl.compose_io})
+# (>>=$)             :: IO a -> (a -> IO b) -> IO b
+  , icurry.IFunction('>>=$', 2, metadata={'py.rawfunc':impl.compose_io})
 #
 # prim_readNatLiteral :: String -> [(Int,String)]
   , icurry.IFunction('prim_readNatLiteral', 1, metadata={'py.func':impl.readNatLiteral})
@@ -322,12 +318,6 @@ _functions_ = [
 # --- internal operation to implement failure reporting
 # failure :: _ -> _ -> _
 #
-# --- Sequential composition of IO actions.
-# --- @param a - An action
-# --- @param fa - A function from a value into an action
-# --- @return An action that first performs a (yielding result r)
-# ---         and then performs (fa r)
-# (>>=$)             :: IO a -> (a -> IO b) -> IO b
 
   ]
 Prelude = icurry.IModule(

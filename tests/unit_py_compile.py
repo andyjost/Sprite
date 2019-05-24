@@ -33,10 +33,10 @@ class TestPyCompile(cytest.TestCase):
       , lambda: curry.compile('data A')
       )
 
-  @unittest.skip('requires comparison')
   def testCompileStringAsModule(self):
     '''Test dynamic module compilation.'''
     text = '''
+      fib :: Int -> Int
       fib n | n < 3 = 1
             | True  = (fib (n-1)) + (fib (n-2))
     '''
@@ -47,6 +47,7 @@ class TestPyCompile(cytest.TestCase):
     # Compile another version (zero-based index this time).  Ensure each one
     # works independently.
     text2 = '''
+      fib :: Int -> Int
       fib n | n < 2 = 1
             | True  = (fib (n-1)) + (fib (n-2))
     '''
@@ -60,6 +61,7 @@ class TestPyCompile(cytest.TestCase):
     '''Test dynamic expression compilation.'''
     Or = curry.compile(
         '''
+        or :: Int -> Int -> Int
         or 0 0 = 0
         or 1 0 = 1
         or 0 1 = 1
@@ -67,9 +69,9 @@ class TestPyCompile(cytest.TestCase):
         '''
       , modulename='Or'
       )
-    e = curry.compile('Or.or 0 0', mode='expr')
+    e = curry.compile('Or.or 0 0', mode='expr', imports=[Or])
     self.assertEqual(next(curry.eval(e)), 0)
-    e = curry.compile('Or.or 0 1', mode='expr')
+    e = curry.compile('Or.or 0 1', mode='expr', imports=[Or])
     self.assertEqual(next(curry.eval(e)), 1)
 
     # Check that ICurry-generated symbols are hidden.  There are multiple

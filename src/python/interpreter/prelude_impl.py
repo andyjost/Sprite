@@ -31,8 +31,6 @@ def apply(interp, lhs):
 def failed(interp):
   return [interp.prelude._Failure]
 
-choice_id = itertools.count()
-
 def choice(interp, lhs):
   yield interp.prelude._Choice
   yield next(interp._idfactory_)
@@ -77,19 +75,19 @@ class Comparison(object):
       index = self.compare(lhs, rhs) # Unboxed comparison.
     yield self.resultinfo(interp, index)
 
-compare = Comparison( # compare
-    compare=cmp
-  , resultinfo=lambda interp, index:
-        interp.type('Prelude.Ordering').constructors[index+1]
-  , conjunction=lambda interp: interp.prelude.compare_conjunction
-  )
-
-equals = Comparison( # ==
-    compare=operator.ne # False means equal.
-  , resultinfo=lambda interp, index:
-        interp.prelude.False if index else interp.prelude.True
-  , conjunction=lambda interp: getattr(interp.prelude, '&&')
-  )
+# compare = Comparison( # compare
+#     compare=cmp
+#   , resultinfo=lambda interp, index:
+#         interp.type('Prelude.Ordering').constructors[index+1]
+#   , conjunction=lambda interp: interp.prelude.compare_conjunction
+#   )
+# 
+# equals = Comparison( # ==
+#     compare=operator.ne # False means equal.
+#   , resultinfo=lambda interp, index:
+#         interp.prelude.False if index else interp.prelude.True
+#   , conjunction=lambda interp: getattr(interp.prelude, '&&')
+#   )
 
 equal_constr = Comparison( # =:=
     compare=operator.ne # False means equal.

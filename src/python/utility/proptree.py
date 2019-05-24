@@ -23,9 +23,7 @@ class _TreeNode(object):
   def __getattr__(self, attr):
     if not attr: return self
     for part in attr.split(DELIMITER):
-      # assert not (part.startswith('__') and part.endswith('__'))
       self = object.__getattribute__(self, part)
-        
     return self
   def __setattr__(self, attr, value):
     parts = attr.split(DELIMITER)
@@ -74,12 +72,11 @@ class _PropTreeNodeGetter(object):
   '''
   Helps make tree nodes pickleable.  __reduce__ must create a pickleable object
   that can be called to produce an example instance whose __class__ attribute
-  refers to the intended (and dynamically-generated) class.
+  refers to the intended (and dynamically-generated) class.  Since it appears
+  at a module top-level, this class is pickleable.  When called, it produces
+  the requested dynamically-generated class.
   '''
   def __call__(self, slots):
-    # inst = _PropTreeNodeGetter() # Any object on which we can set __class__
-    # inst.__class__ = _gettype(slots)
-    # return inst
     return _gettype(slots)()
 
 def _gettype(slots):

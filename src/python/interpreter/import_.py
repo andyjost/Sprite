@@ -58,7 +58,13 @@ def loadSymbols(interp, seq, *args, **kwds):
 
 @loadSymbols.when(icurry.IType)
 def loadSymbols(interp, itype, moduleobj, extern=None):
-  if not itype.constructors:
+  # FIXME: why does the frontend translate empty types to a type with one
+  # constructor?  The check for _Constr# below might need to be adjusted.  It
+  # should indicate the presence of a type that requires an external
+  # definition.
+  if not itype.constructors or \
+      (len(itype.constructors) == 1 and \
+       itype.constructors[0].ident.basename.startswith('_Constr#')):
     if extern is not None and itype.ident in extern.types:
       itype.constructors = extern.types[itype.ident].constructors
     else:

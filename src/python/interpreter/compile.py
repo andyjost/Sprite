@@ -21,8 +21,7 @@ def compile(
       Indicates how to interpret the string (see above).
   ``imports``
       Names the modules to import when compiling an expresion.  Unused in
-      "module" mode.  By default, all modules loaded in the current
-      interpreter are imported.
+      "module" mode.  By default, nothing is imported.
   ``modulename``
       Specifies the module name.  Used only in "module" mode.  If the name
       begins with an underscore, then it will not be placed in
@@ -46,15 +45,14 @@ def compile(
         del interp.modules[icur.name]
   elif mode == 'expr':
     # Compile the expression with a legal name but then rename it to "<expr>".
-    # It has to be a legal name during compilation, but renaming makes it clear
-    # this is a system-generated special name.
+    # The frontend requires a legal name, of course, but renaming makes it
+    # clear that this is a system-generated name when reported to the user.
     compiled_name = 'compiled_expression'
     visible_name = '<expr>'
     compiled_ident = icurry.IName(modulename, compiled_name)
     visible_ident = icurry.IName(modulename, visible_name)
     stmts, currypath = importer.getImportSpecForExpr(
-        interp
-      , interp.modules.keys() if imports is None else imports
+        interp, [] if imports is None else imports
       )
     stmts += ['%s = %s' % (compiled_name, string)]
     curry_code = '\n'.join(stmts)
