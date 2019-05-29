@@ -218,10 +218,19 @@ class TestPyRuntime(cytest.TestCase):
     interp = curry.getInterpreter()
     code = interp.compile(
         '''
+        f :: Int -> Int
         f 1 = 0
+
+        g :: Int -> Int
         g 0 = 0
+
+        goal :: Int
         goal = f (g (g 0))
+
+        step2 :: Int
         step2 = f (g 0)
+
+        step3 :: Int
         step3 = f 0
         '''
       )

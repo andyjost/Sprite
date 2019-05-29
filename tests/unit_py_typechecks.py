@@ -7,7 +7,7 @@ import unittest
 
 u = curry.unboxed
 hint = r'  \(An unboxed value was expected but a boxed value of the ' \
-        'correct type was supplied\.  Did you forget to wrap an '     \
+        'correct type was supplied\.  Perhaps you need to wrap an '   \
         'argument with curry\.unboxed\?\)'
 
 class TestPyTypeChecks(cytest.TestCase):

@@ -113,7 +113,7 @@ class TestPyInterp(cytest.TestCase):
   def testCoverage(self):
     '''Tests to get complete line coverage.'''
     interp = Interpreter()
-    # Run interp.eval with a literal inputs (not Node).
+    # Run interp.eval with a literal as input (not Node).
     self.assertEqual(list(interp.eval(1)), [interp.expr(1)])
 
     # Evaluate an expressionw ith a leading FWD node.  It should be removed.
@@ -152,23 +152,6 @@ class TestPyInterp(cytest.TestCase):
       ]
     for expr, expected in TESTS:
       goal = interp.expr(*expr)
-      result = map(str, interp.eval(goal))
-      self.assertEqual(set(result), set(expected))
-
-  def testEvaluateBuiltins(self):
-    interp_debug = Interpreter(flags={'debug':True})
-    self.checkEvaluateBuiltins(interp_debug)
-    #
-    interp_nodebug = Interpreter(flags={'debug':False})
-    self.checkEvaluateBuiltins(interp_nodebug)
-
-  def checkEvaluateBuiltins(self, interp):
-    P = interp.import_(Prelude)
-    TESTS = [
-        [[P.negate, 1], ['-1']]
-      ]
-    for expr, expected in TESTS:
-      goal = interp.expr(expr)
       result = map(str, interp.eval(goal))
       self.assertEqual(set(result), set(expected))
 

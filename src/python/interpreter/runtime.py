@@ -498,6 +498,11 @@ def N(interp, root, target=None, path=None, freevars=None):
   target = root[path] if target is None else target
   assert target.info.tag >= T_CTOR
   freevars = set() if freevars is None else freevars
+  if target.info is interp.prelude._PartApplic.info:
+    # A partial application is a value even through it may contain a function
+    # symbol.  The first successor (# of arguments remaining) is unboxed, so there
+    # is nothing to normalize.
+    return target, freevars
   path.append(None)
   try:
     for path[-1], succ in enumerate(target):

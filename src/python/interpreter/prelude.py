@@ -70,7 +70,7 @@ _types_ = [
   , icurry.IType('_Free', [icurry.IConstructor('_Free', 2, metadata={'py.format':'freevar({1})', 'py.tag':runtime.T_FREE})])
   , icurry.IType('_Fwd', [icurry.IConstructor('_Fwd', 1, metadata={'py.format':'{1}', 'py.tag':runtime.T_FWD})])
   , icurry.IType('_Choice', [icurry.IConstructor('_Choice', 3, metadata={'py.tag':runtime.T_CHOICE})])
-  , icurry.IType('_PartApplic', [icurry.IConstructor('_PartApplic', 2, metadata={'py.tag':runtime.T_CTOR})])
+  , icurry.IType('_PartApplic', [icurry.IConstructor('_PartApplic', 2, metadata={'py.format': '{2}', 'py.tag':runtime.T_CTOR})])
   , icurry.IType('Bool', [icurry.IConstructor('True', 0), icurry.IConstructor('False', 0)])
   , icurry.IType('Char', [icurry.IConstructor('Char', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Char})])
   , icurry.IType('Float', [icurry.IConstructor('Float', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Float})])
