@@ -72,9 +72,9 @@ attributes.
     >>> Fib.fib
     <curry function '_interactive_.fib'>
 
-To evaluate Curry code, it is first necessary to build a goal.  The function
-``curry.expr`` builds Curry expressions.  There are two ways to use it: the
-first is to pass a string containing Curry code.
+To evaluate Curry code, one first builds a goal.  The function ``curry.expr``
+builds Curry expressions.  There are two ways to use it: the first is to pass a
+string containing Curry code.
 
     >>> goal = curry.expr('add (S (S O)) (S O)')
     >>> print goal
