@@ -24,24 +24,28 @@ describes how to work with modules in Sprite.
 Loading Curry modules
 ---------------------
 
-Curry code can be imported into Python using the normal import mechanism.
-Curry source files should be imported from ``curry.lib``.
-
-    >>> from curry.lib import Peano
-
-This searches for a file named "Peano.curry" in the paths specified in
-``curry.path``.  That list can be modified to update the search paths
-dynamically.
+Curry code can be imported into Python using the Python import mechanism.  The
+search path for Curry modules can be found in the list variable ``curry.path``.
+Its initial value comes by splitting the CURRYPATH environment variable on
+colons.  Therefore, one way to load the ``Peano`` module found in the same
+directory as this tutorial would be to add this directory to CURRYPATH before
+starting Python.  Alternatively, if Python has already been started in this
+directory, then the search path can be updated as follows:
 
     >>> curry.path[:] = ['.']
 
-(Be sure to update this list rather than rebind the variable.  So, assign to a
-slice, as shown above, or use methods like ``list.insert`` and ``list.pop``.)
+(Be sure to update the list object rather than rebind the ``curry.path``
+variable.  So, use slice assignment, as shown above, or the ``list.insert``
+method.)
 
-The default value of ``curry.path`` comes from the CURRYPATH environment
-variable, which is treated as a colon-separated list.
+To import a Curry module, import it relative to ``curry.lib``.
 
-Modules can also be created dynamically by passing a string to
+    >>> from curry.lib import Peano
+
+This searches each path in ``curry.path``, in order, until it finds a file
+named ``Peano.curry``.
+
+Curry definitions can also be created dynamically by passing a string to
 ``curry.compile``.  This has the same effect as importing a Curry source file
 with the same content.
 
@@ -51,6 +55,8 @@ with the same content.
     ...         | True  = (fib (n-1)) + (fib (n-2))
     ...   '''
     ... )
+
+Symbols loaded in this way are placed in the special module named ``_interactive_``.
 
 
 Building expressions

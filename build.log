@@ -1,0 +1,284 @@
+make objs
+make -C src objs
+make[1]: Entering directory '/home/andy/sprite4/src'
+make -C sprite objs
+make[2]: Entering directory '/home/andy/sprite4/src/sprite'
+make -C llvm/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/sprite/llvm'
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/llvm/isa.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/llvm/.d/isa.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/sprite/llvm/isa.o isa.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/llvm/value.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/llvm/.d/value.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/sprite/llvm/value.o value.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/llvm/scope.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/llvm/.d/scope.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/sprite/llvm/scope.o scope.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/llvm/config.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/llvm/.d/config.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/sprite/llvm/config.o config.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/llvm/type.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/llvm/.d/type.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/sprite/llvm/type.o type.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/llvm/module.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/llvm/.d/module.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/sprite/llvm/module.o module.cpp
+make[3]: Leaving directory '/home/andy/sprite4/src/sprite/llvm'
+make -C misc/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/sprite/misc'
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/misc/typenames.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/misc/.d/typenames.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/sprite/misc/typenames.o typenames.cpp
+make[3]: Leaving directory '/home/andy/sprite4/src/sprite/misc'
+make -C gc/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/sprite/gc'
+/usr/bin/gcc -MT /home/andy/sprite4/object-root/sprite/gc/cymps.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/gc/.d/cymps.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -I/usr/local/src/mps/code -DCONFIG_VAR_HOT -Wall   -c -o /home/andy/sprite4/object-root/sprite/gc/cymps.o cymps.c
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/gc/globals.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/gc/.d/globals.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -I/usr/local/src/mps/code -DCONFIG_VAR_HOT -Wall -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/sprite/gc/globals.o globals.cpp
+make[3]: Leaving directory '/home/andy/sprite4/src/sprite/gc'
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/gc.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/.d/gc.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/sprite/gc.o gc.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/sprite/fingerprint.o -MMD -MP -MF /home/andy/sprite4/object-root/sprite/.d/fingerprint.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/sprite/fingerprint.o fingerprint.cpp
+make[2]: Leaving directory '/home/andy/sprite4/src/sprite'
+make -C python objs
+make[2]: Entering directory '/home/andy/sprite4/src/python'
+make -C compiler/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/python/compiler'
+make[3]: Nothing to be done for 'objs'.
+make[3]: Leaving directory '/home/andy/sprite4/src/python/compiler'
+make -C llvm/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/python/llvm'
+make -C types/ objs
+make[4]: Entering directory '/home/andy/sprite4/src/python/llvm/types'
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/python/llvm/types/_types.o -MMD -MP -MF /home/andy/sprite4/object-root/python/llvm/types/.d/_types.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/python/llvm/types/_types.o _types.cpp
+make[4]: Leaving directory '/home/andy/sprite4/src/python/llvm/types'
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/python/llvm/class_value.o -MMD -MP -MF /home/andy/sprite4/object-root/python/llvm/.d/class_value.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/python/llvm/class_value.o class_value.cpp
+In file included from /opt/boost_1_66_0-valgrind/include/boost/python/override.hpp:13:0,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/wrapper.hpp:8,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/object/value_holder.hpp:15,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/object/class_metadata.hpp:14,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/class.hpp:23,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python.hpp:18,
+                 from class_value.cpp:1:
+/opt/boost_1_66_0-valgrind/include/boost/python/extract.hpp: In function ‘boost::python::api::object {anonymous}::value__init__(boost::python::tuple, boost::python::dict)’:
+/opt/boost_1_66_0-valgrind/include/boost/python/extract.hpp:185:11: warning: ‘*((void*)&<anonymous> +24)’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+           );
+           ^
+/opt/boost_1_66_0-valgrind/include/boost/python/extract.hpp:185:11: warning: ‘*((void*)&<anonymous> +24)’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+           );
+           ^
+In file included from /home/andy/sprite4//src/sprite/llvm/type.hpp:4:0,
+                 from /home/andy/sprite4//src/sprite/llvm/isa.hpp:2,
+                 from class_value.cpp:7:
+/home/andy/sprite4//src/sprite/llvm/llvmobj.hpp: In static member function ‘static void* sprite::VariantConversion<VariantType>::check(PyObject*) [with VariantType = boost::variant<boost::none_t, sprite::llvm::module, sprite::llvm::value>]’:
+/home/andy/sprite4//src/sprite/llvm/llvmobj.hpp:123:30: warning: ‘*((void*)(& e)+24).sprite::llvm::llvmobj<llvm::Module, sprite::llvm::count_objects<llvm::Module, sprite::llvm::custodian<llvm::Module> > >::px’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+     T * ptr() const { return px; }
+                              ^~
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/python/llvm/_llvm.o -MMD -MP -MF /home/andy/sprite4/object-root/python/llvm/.d/_llvm.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/python/llvm/_llvm.o _llvm.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/python/llvm/class_global.o -MMD -MP -MF /home/andy/sprite4/object-root/python/llvm/.d/class_global.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/python/llvm/class_global.o class_global.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/python/llvm/class_module.o -MMD -MP -MF /home/andy/sprite4/object-root/python/llvm/.d/class_module.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/python/llvm/class_module.o class_module.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/python/llvm/class_type.o -MMD -MP -MF /home/andy/sprite4/object-root/python/llvm/.d/class_type.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/python/llvm/class_type.o class_type.cpp
+In file included from /opt/boost_1_66_0-valgrind/include/boost/python/override.hpp:13:0,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/wrapper.hpp:8,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/object/value_holder.hpp:15,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/object/class_metadata.hpp:14,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/class.hpp:23,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python.hpp:18,
+                 from class_type.cpp:1:
+/opt/boost_1_66_0-valgrind/include/boost/python/extract.hpp: In static member function ‘static void sprite::VectorConversion<T>::construct(PyObject*, boost::python::converter::rvalue_from_python_stage1_data*) [with T = long unsigned int]’:
+/opt/boost_1_66_0-valgrind/include/boost/python/extract.hpp:185:11: warning: ‘*((void*)&<anonymous> +24)’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+           );
+           ^
+In file included from /opt/boost_1_66_0-valgrind/include/boost/python/args.hpp:22:0,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python.hpp:11,
+                 from class_type.cpp:1:
+/opt/boost_1_66_0-valgrind/include/boost/python/object_core.hpp:405:32: warning: ‘*((void*)(&<anonymous>)+24).boost::python::api::object_base::m_ptr’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+     : m_ptr(python::incref(rhs.m_ptr))
+                            ~~~~^~~~~
+In file included from /opt/boost_1_66_0-valgrind/include/boost/python/override.hpp:13:0,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/wrapper.hpp:8,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/object/value_holder.hpp:15,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/object/class_metadata.hpp:14,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python/class.hpp:23,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python.hpp:18,
+                 from class_type.cpp:1:
+/opt/boost_1_66_0-valgrind/include/boost/python/extract.hpp: In static member function ‘static PyObject* sprite::IterableRangeConversion<ValueType>::convert(const sprite::IterableRange<ValueType>&) [with ValueType = long unsigned int]’:
+/opt/boost_1_66_0-valgrind/include/boost/python/extract.hpp:185:11: warning: ‘*((void*)&<anonymous> +24)’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+           );
+           ^
+In file included from /opt/boost_1_66_0-valgrind/include/boost/python/args.hpp:22:0,
+                 from /opt/boost_1_66_0-valgrind/include/boost/python.hpp:11,
+                 from class_type.cpp:1:
+/opt/boost_1_66_0-valgrind/include/boost/python/object_core.hpp: In static member function ‘static void sprite::VectorConversion<T>::construct(PyObject*, boost::python::converter::rvalue_from_python_stage1_data*) [with T = sprite::llvm::type]’:
+/opt/boost_1_66_0-valgrind/include/boost/python/object_core.hpp:405:32: warning: ‘*((void*)(&<anonymous>)+24).boost::python::api::object_base::m_ptr’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+     : m_ptr(python::incref(rhs.m_ptr))
+                            ~~~~^~~~~
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/python/llvm/utility.o -MMD -MP -MF /home/andy/sprite4/object-root/python/llvm/.d/utility.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/python/llvm/utility.o utility.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/python/llvm/conversions.o -MMD -MP -MF /home/andy/sprite4/object-root/python/llvm/.d/conversions.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/python/llvm/conversions.o conversions.cpp
+make[3]: Leaving directory '/home/andy/sprite4/src/python/llvm'
+make -C utility/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/python/utility'
+make[3]: Nothing to be done for 'objs'.
+make[3]: Leaving directory '/home/andy/sprite4/src/python/utility'
+make -C tools/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/python/tools'
+make -C icy/ objs
+make[4]: Entering directory '/home/andy/sprite4/src/python/tools/icy'
+make[4]: Nothing to be done for 'objs'.
+make[4]: Leaving directory '/home/andy/sprite4/src/python/tools/icy'
+make[3]: Leaving directory '/home/andy/sprite4/src/python/tools'
+make -C interpreter/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/python/interpreter'
+make[3]: Nothing to be done for 'objs'.
+make[3]: Leaving directory '/home/andy/sprite4/src/python/interpreter'
+make -C runtime/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/python/runtime'
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/python/runtime/class_fingerprint.o -MMD -MP -MF /home/andy/sprite4/object-root/python/runtime/.d/class_fingerprint.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/python/runtime/class_fingerprint.o class_fingerprint.cpp
+/usr/bin/g++ -MT /home/andy/sprite4/object-root/python/runtime/_runtime.o -MMD -MP -MF /home/andy/sprite4/object-root/python/runtime/.d/_runtime.Td -Wall -O2 -DBOOST_NO_AUTO_PTR -I/home/andy/sprite4//src -I/usr/include/llvm-5.0 -I/usr/include/llvm-c-5.0 -I/opt/boost_1_66_0-valgrind/include -I/opt/python2.7-valgrind/include/python2.7 -fPIC -std=c++17 -Wno-register   -c -o /home/andy/sprite4/object-root/python/runtime/_runtime.o _runtime.cpp
+make[3]: Leaving directory '/home/andy/sprite4/src/python/runtime'
+make -C lib/ objs
+make[3]: Entering directory '/home/andy/sprite4/src/python/lib'
+make[3]: Nothing to be done for 'objs'.
+make[3]: Leaving directory '/home/andy/sprite4/src/python/lib'
+make[2]: Leaving directory '/home/andy/sprite4/src/python'
+make[1]: Leaving directory '/home/andy/sprite4/src'
+make install
+make -C src install
+make[1]: Entering directory '/home/andy/sprite4/src'
+make -C sprite install
+make[2]: Entering directory '/home/andy/sprite4/src/sprite'
+make -C llvm/ install
+make[3]: Entering directory '/home/andy/sprite4/src/sprite/llvm'
+make[3]: Nothing to be done for 'install'.
+make[3]: Leaving directory '/home/andy/sprite4/src/sprite/llvm'
+make -C misc/ install
+make[3]: Entering directory '/home/andy/sprite4/src/sprite/misc'
+make[3]: Nothing to be done for 'install'.
+make[3]: Leaving directory '/home/andy/sprite4/src/sprite/misc'
+make -C gc/ install
+make[3]: Entering directory '/home/andy/sprite4/src/sprite/gc'
+make[3]: Nothing to be done for 'install'.
+make[3]: Leaving directory '/home/andy/sprite4/src/sprite/gc'
+flock /home/andy/sprite4/object-root/lock ar rv -U /home/andy/sprite4/object-root/sprite/libsprite.a /home/andy/sprite4/object-root/sprite/gc.o
+ar: creating /home/andy/sprite4/object-root/sprite/libsprite.a
+a - /home/andy/sprite4/object-root/sprite/gc.o
+flock /home/andy/sprite4/object-root/lock ar rv -U /home/andy/sprite4/object-root/sprite/libsprite.a /home/andy/sprite4/object-root/sprite/fingerprint.o
+a - /home/andy/sprite4/object-root/sprite/fingerprint.o
+make -C /home/andy/sprite4//src/sprite libs
+make[3]: Entering directory '/home/andy/sprite4/src/sprite'
+make -C llvm/ libs
+make[4]: Entering directory '/home/andy/sprite4/src/sprite/llvm'
+flock /home/andy/sprite4/object-root/lock ar rv -U /home/andy/sprite4/object-root/sprite/libsprite.a /home/andy/sprite4/object-root/sprite/llvm/isa.o
+a - /home/andy/sprite4/object-root/sprite/llvm/isa.o
+flock /home/andy/sprite4/object-root/lock ar rv -U /home/andy/sprite4/object-root/sprite/libsprite.a /home/andy/sprite4/object-root/sprite/llvm/value.o
+a - /home/andy/sprite4/object-root/sprite/llvm/value.o
+flock /home/andy/sprite4/object-root/lock ar rv -U /home/andy/sprite4/object-root/sprite/libsprite.a /home/andy/sprite4/object-root/sprite/llvm/scope.o
+a - /home/andy/sprite4/object-root/sprite/llvm/scope.o
+flock /home/andy/sprite4/object-root/lock ar rv -U /home/andy/sprite4/object-root/sprite/libsprite.a /home/andy/sprite4/object-root/sprite/llvm/config.o
+a - /home/andy/sprite4/object-root/sprite/llvm/config.o
+flock /home/andy/sprite4/object-root/lock ar rv -U /home/andy/sprite4/object-root/sprite/libsprite.a /home/andy/sprite4/object-root/sprite/llvm/type.o
+a - /home/andy/sprite4/object-root/sprite/llvm/type.o
+flock /home/andy/sprite4/object-root/lock ar rv -U /home/andy/sprite4/object-root/sprite/libsprite.a /home/andy/sprite4/object-root/sprite/llvm/module.o
+a - /home/andy/sprite4/object-root/sprite/llvm/module.o
+make[4]: Leaving directory '/home/andy/sprite4/src/sprite/llvm'
+make -C misc/ libs
+make[4]: Entering directory '/home/andy/sprite4/src/sprite/misc'
+flock /home/andy/sprite4/object-root/lock ar rv -U /home/andy/sprite4/object-root/sprite/libsprite.a /home/andy/sprite4/object-root/sprite/misc/typenames.o
+a - /home/andy/sprite4/object-root/sprite/misc/typenames.o
+make[4]: Leaving directory '/home/andy/sprite4/src/sprite/misc'
+make -C gc/ libs
+make[4]: Entering directory '/home/andy/sprite4/src/sprite/gc'
+flock /home/andy/sprite4/object-root/lock ar rv -U /home/andy/sprite4/object-root/sprite/libsprite.a /home/andy/sprite4/object-root/sprite/gc/cymps.o
+a - /home/andy/sprite4/object-root/sprite/gc/cymps.o
+flock /home/andy/sprite4/object-root/lock ar rv -U /home/andy/sprite4/object-root/sprite/libsprite.a /home/andy/sprite4/object-root/sprite/gc/globals.o
+a - /home/andy/sprite4/object-root/sprite/gc/globals.o
+make[4]: Leaving directory '/home/andy/sprite4/src/sprite/gc'
+make[3]: Leaving directory '/home/andy/sprite4/src/sprite'
+/usr/bin/g++ -shared -o /home/andy/sprite4/object-root/sprite/libsprite.so -Wl,--whole-archive /home/andy/sprite4/object-root/sprite/libsprite.a -Wl,--no-whole-archive -lpthread -L /usr/lib/llvm-5.0/lib -L /opt/python2.7-valgrind/lib -L /opt/boost_1_66_0-valgrind/lib -Wl,-rpath=/usr/lib/llvm-5.0/lib -Wl,-rpath=/opt/python2.7-valgrind/lib -Wl,-rpath=/opt/boost_1_66_0-valgrind/lib -lLLVM -Wl,--no-undefined
+cp /home/andy/sprite4/object-root/sprite/libsprite.so /home/andy/sprite4/install/lib/libsprite.so
+make[2]: Leaving directory '/home/andy/sprite4/src/sprite'
+make -C python install
+make[2]: Entering directory '/home/andy/sprite4/src/python'
+make -C compiler/ install
+make[3]: Entering directory '/home/andy/sprite4/src/python/compiler'
+cp __init__.py /home/andy/sprite4/install/lib/python2.7/curry/compiler/__init__.py
+make[3]: Leaving directory '/home/andy/sprite4/src/python/compiler'
+make -C llvm/ install
+make[3]: Entering directory '/home/andy/sprite4/src/python/llvm'
+make -C types/ install
+make[4]: Entering directory '/home/andy/sprite4/src/python/llvm/types'
+cp __init__.py /home/andy/sprite4/install/lib/python2.7/curry/llvm/types/__init__.py
+/usr/bin/g++ -shared -o /home/andy/sprite4/object-root/python/llvm/types/_types.so  /home/andy/sprite4/object-root/python/llvm/types/_types.o  -L /home/andy/sprite4/object-root/sprite -lsprite -lpython2.7 -lboost_python -L /usr/lib/llvm-5.0/lib -L /opt/python2.7-valgrind/lib -L /opt/boost_1_66_0-valgrind/lib -Wl,-rpath=/usr/lib/llvm-5.0/lib -Wl,-rpath=/opt/python2.7-valgrind/lib -Wl,-rpath=/opt/boost_1_66_0-valgrind/lib -lLLVM -Wl,--no-undefined
+cp /home/andy/sprite4/object-root/python/llvm/types/_types.so /home/andy/sprite4/install/lib/python2.7/curry/llvm/types/_types.so
+make[4]: Leaving directory '/home/andy/sprite4/src/python/llvm/types'
+cp _symboltable.py /home/andy/sprite4/install/lib/python2.7/curry/llvm/_symboltable.py
+cp _value.py /home/andy/sprite4/install/lib/python2.7/curry/llvm/_value.py
+cp _utility.py /home/andy/sprite4/install/lib/python2.7/curry/llvm/_utility.py
+cp __init__.py /home/andy/sprite4/install/lib/python2.7/curry/llvm/__init__.py
+/usr/bin/g++ -shared -o /home/andy/sprite4/object-root/python/llvm/_llvm.so  /home/andy/sprite4/object-root/python/llvm/class_value.o /home/andy/sprite4/object-root/python/llvm/_llvm.o /home/andy/sprite4/object-root/python/llvm/class_global.o /home/andy/sprite4/object-root/python/llvm/class_module.o /home/andy/sprite4/object-root/python/llvm/class_type.o /home/andy/sprite4/object-root/python/llvm/utility.o /home/andy/sprite4/object-root/python/llvm/conversions.o  -L /home/andy/sprite4/object-root/sprite -lsprite -lpython2.7 -lboost_python -L /usr/lib/llvm-5.0/lib -L /opt/python2.7-valgrind/lib -L /opt/boost_1_66_0-valgrind/lib -Wl,-rpath=/usr/lib/llvm-5.0/lib -Wl,-rpath=/opt/python2.7-valgrind/lib -Wl,-rpath=/opt/boost_1_66_0-valgrind/lib -lLLVM -Wl,--no-undefined
+cp /home/andy/sprite4/object-root/python/llvm/_llvm.so /home/andy/sprite4/install/lib/python2.7/curry/llvm/_llvm.so
+make[3]: Leaving directory '/home/andy/sprite4/src/python/llvm'
+make -C utility/ install
+make[3]: Entering directory '/home/andy/sprite4/src/python/utility'
+cp visitation.py /home/andy/sprite4/install/lib/python2.7/curry/utility/visitation.py
+cp unionfind.py /home/andy/sprite4/install/lib/python2.7/curry/utility/unionfind.py
+cp binding.py /home/andy/sprite4/install/lib/python2.7/curry/utility/binding.py
+cp __init__.py /home/andy/sprite4/install/lib/python2.7/curry/utility/__init__.py
+cp unboxed.py /home/andy/sprite4/install/lib/python2.7/curry/utility/unboxed.py
+cp flagutils.py /home/andy/sprite4/install/lib/python2.7/curry/utility/flagutils.py
+cp encoding.py /home/andy/sprite4/install/lib/python2.7/curry/utility/encoding.py
+cp proptree.py /home/andy/sprite4/install/lib/python2.7/curry/utility/proptree.py
+cp _tempfile.py /home/andy/sprite4/install/lib/python2.7/curry/utility/_tempfile.py
+make[3]: Leaving directory '/home/andy/sprite4/src/python/utility'
+make -C tools/ install
+make[3]: Entering directory '/home/andy/sprite4/src/python/tools'
+make -C icy/ install
+make[4]: Entering directory '/home/andy/sprite4/src/python/tools/icy'
+cp commands.py /home/andy/sprite4/install/lib/python2.7/curry/tools/icy/commands.py
+cp resolve.py /home/andy/sprite4/install/lib/python2.7/curry/tools/icy/resolve.py
+cp repl.py /home/andy/sprite4/install/lib/python2.7/curry/tools/icy/repl.py
+cp __init__.py /home/andy/sprite4/install/lib/python2.7/curry/tools/icy/__init__.py
+cp options.py /home/andy/sprite4/install/lib/python2.7/curry/tools/icy/options.py
+cp __main__.py /home/andy/sprite4/install/lib/python2.7/curry/tools/icy/__main__.py
+make[4]: Leaving directory '/home/andy/sprite4/src/python/tools/icy'
+cp __init__.py /home/andy/sprite4/install/lib/python2.7/curry/tools/__init__.py
+make[3]: Leaving directory '/home/andy/sprite4/src/python/tools'
+make -C interpreter/ install
+make[3]: Entering directory '/home/andy/sprite4/src/python/interpreter'
+cp lookup.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/lookup.py
+cp conversions.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/conversions.py
+cp prelude.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/prelude.py
+cp typecheckers.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/typecheckers.py
+cp interpreter.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/interpreter.py
+cp import_.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/import_.py
+cp runtime.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/runtime.py
+cp prelude_impl.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/prelude_impl.py
+cp eval.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/eval.py
+cp __init__.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/__init__.py
+cp show.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/show.py
+cp module.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/module.py
+cp compile.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/compile.py
+cp parameters.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/parameters.py
+cp function_compiler.py /home/andy/sprite4/install/lib/python2.7/curry/interpreter/function_compiler.py
+make[3]: Leaving directory '/home/andy/sprite4/src/python/interpreter'
+make -C runtime/ install
+make[3]: Entering directory '/home/andy/sprite4/src/python/runtime'
+cp __init__.py /home/andy/sprite4/install/lib/python2.7/curry/runtime/__init__.py
+/usr/bin/g++ -shared -o /home/andy/sprite4/object-root/python/runtime/_runtime.so  /home/andy/sprite4/object-root/python/runtime/class_fingerprint.o /home/andy/sprite4/object-root/python/runtime/_runtime.o  -L /home/andy/sprite4/object-root/sprite -lsprite -lpython2.7 -lboost_python -L /usr/lib/llvm-5.0/lib -L /opt/python2.7-valgrind/lib -L /opt/boost_1_66_0-valgrind/lib -Wl,-rpath=/usr/lib/llvm-5.0/lib -Wl,-rpath=/opt/python2.7-valgrind/lib -Wl,-rpath=/opt/boost_1_66_0-valgrind/lib -lLLVM -Wl,--no-undefined
+cp /home/andy/sprite4/object-root/python/runtime/_runtime.so /home/andy/sprite4/install/lib/python2.7/curry/runtime/_runtime.so
+make[3]: Leaving directory '/home/andy/sprite4/src/python/runtime'
+make -C lib/ install
+make[3]: Entering directory '/home/andy/sprite4/src/python/lib'
+cp __init__.py /home/andy/sprite4/install/lib/python2.7/curry/lib/__init__.py
+make[3]: Leaving directory '/home/andy/sprite4/src/python/lib'
+cp cache.py /home/andy/sprite4/install/lib/python2.7/curry/./cache.py
+cp icurry.py /home/andy/sprite4/install/lib/python2.7/curry/./icurry.py
+cp inspect.py /home/andy/sprite4/install/lib/python2.7/curry/./inspect.py
+cp types.py /home/andy/sprite4/install/lib/python2.7/curry/./types.py
+cp __init__.py /home/andy/sprite4/install/lib/python2.7/curry/./__init__.py
+cp exceptions.py /home/andy/sprite4/install/lib/python2.7/curry/./exceptions.py
+cp importer.py /home/andy/sprite4/install/lib/python2.7/curry/./importer.py
+make[2]: Leaving directory '/home/andy/sprite4/src/python'
+make[1]: Leaving directory '/home/andy/sprite4/src'
+mkdir -p /home/andy/sprite4/install/.bin
+ln -s /opt/python2.7-valgrind/bin/coverage /home/andy/sprite4/install/.bin/coverage
+mkdir -p /home/andy/sprite4/install/bin
+ln -s /home/andy/sprite4/install/bin/.invoker /home/andy/sprite4/install/bin/coverage
+ln -s /opt/antoy-cmc/translator/bin/curry2json /home/andy/sprite4/install/bin/curry2json
+cp /home/andy/sprite4//scripts/invoker /home/andy/sprite4/install/bin/.invoker
+ln -s /opt/python2.7-valgrind/bin/python /home/andy/sprite4/install/.bin/python
+ln -s /home/andy/sprite4/install/bin/.invoker /home/andy/sprite4/install/bin/python
+cp /home/andy/sprite4//scripts/icy /home/andy/sprite4/install/bin/icy
+mkdir -p /home/andy/sprite4/install/lib/curry
+cp /opt/antoy-cmc/runtime/lib/Prelude.curry /home/andy/sprite4/install/lib/curry/Prelude.curry
+mkdir -p /home/andy/sprite4/install/lib/curry/.curry
+cp /opt/antoy-cmc/runtime/lib/.curry/Prelude.fcy /home/andy/sprite4/install/lib/curry/.curry/Prelude.fcy
+cp /opt/antoy-cmc/runtime/lib/.curry/Prelude.fint /home/andy/sprite4/install/lib/curry/.curry/Prelude.fint
+cp /opt/antoy-cmc/runtime/lib/.curry/Prelude.icur /home/andy/sprite4/install/lib/curry/.curry/Prelude.icur
+cp /opt/antoy-cmc/runtime/lib/.curry/Prelude.icurry /home/andy/sprite4/install/lib/curry/.curry/Prelude.icurry
+cp /opt/antoy-cmc/runtime/lib/.curry/Prelude.json /home/andy/sprite4/install/lib/curry/.curry/Prelude.json
+cp /opt/antoy-cmc/runtime/lib/.curry/Prelude.read /home/andy/sprite4/install/lib/curry/.curry/Prelude.read
