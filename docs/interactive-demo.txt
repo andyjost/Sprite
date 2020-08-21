@@ -56,8 +56,6 @@ with the same content.
     ...   '''
     ... )
 
-Symbols loaded in this way are placed in the special module named ``_interactive_``.
-
 
 Building expressions
 --------------------
@@ -72,25 +70,32 @@ attributes.
     >>> Fib.fib
     <curry function '_interactive_.fib'>
 
-To evaluate Curry code, one first builds a goal.  The function ``curry.expr``
-builds Curry expressions.  There are two ways to use it: the first is to pass a
-string containing Curry code.
-
-    >>> goal = curry.expr('add (S (S O)) (S O)')
-    >>> print goal
-    add (S (S O)) (S O)
-
-The second is to pass ``curry.expr`` a list of Curry symbols and literal
-values.
+To evaluate Curry code, one first builds an expression.  One way to do so is
+with the function ``curry.expr``.  This function takes a mixed list of Curry
+symbols or literals, and returns a Curry expression:
 
     >>> goal2 = curry.expr([Fib.fib, 7])
     >>> print goal2
     fib 7
 
+This function automatically converts many Python objects into their Curry
+equivalents.  Type ``help(curry.expr)`` at the Python prompt for details.
+
 Nested expressions can be specified with nested lists:
 
     >>> print curry.expr([Peano.S, [Peano.S, Peano.O]])
     S (S O)
+
+Another way to create expressions is to call ``curry.compile`` with the
+``mode`` argument set to 'expr'.  This causes ``compile`` to interpret the
+Curry code as an expression rather than a definition:
+
+    >>> goal = curry.compile('add (S (S O)) (S O)', mode='expr', imports=[Peano])
+    >>> print goal
+    add (S (S O)) (S O)
+
+Since the Curry code in this example uses unqualified names, the Peano module
+needs to be listed as an import.
 
 Curry expressions have so far been shown using their string, or ``str``,
 representation.  The representation, or ``repr``, provides more insight into
