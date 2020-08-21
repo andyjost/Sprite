@@ -39,9 +39,9 @@ dynamically.
 slice, as shown above, or use methods like ``list.insert`` and ``list.pop``.)
 
 The default value of ``curry.path`` comes from the CURRYPATH environment
-variable.  Paths are therein provided as a colon-separated list.
+variable, which is treated as a colon-separated list.
 
-Modules can also be defined dynamically by passing a string to
+Modules can also be created dynamically by passing a string to
 ``curry.compile``.  This has the same effect as importing a Curry source file
 with the same content.
 
@@ -66,7 +66,7 @@ attributes.
     >>> Fib.fib
     <curry function '_interactive_.fib'>
 
-To evaluate Curry code, it is necessary to first build a goal.  The function
+To evaluate Curry code, it is first necessary to build a goal.  The function
 ``curry.expr`` builds Curry expressions.  There are two ways to use it: the
 first is to pass a string containing Curry code.
 
@@ -81,21 +81,28 @@ values.
     >>> print goal2
     fib 7
 
-Deeper expressions can be constructed by nesting lists.
+Nested expressions can be specified with nested lists:
 
     >>> print curry.expr([Peano.S, [Peano.S, Peano.O]])
     S (S O)
 
-The ``repr`` of an expression provides more insight into its structure.
+Curry expressions have so far been shown using their string, or ``str``,
+representation.  The representation, or ``repr``, provides more insight into
+the structure.  (If you are unfamiliar with the difference between these,
+consult the Python documentation.)  The following shows the representation of a
+Curry expression:
 
     >>> print repr(goal2)
     <fib <Int 7>>
 
-A node is enclosed in angle brackets.  Each consists of a head symbol
-followed by zero or more successors (themselves nodes or built-in literals).
-There are no special rules for formatting lists, tuples, strings, or anything
-else.  In this case, we see clearly that the argument to ``fib`` is a boxed
-integer.
+Each node is now enclosed in angle brackets and node labels are shown.  Every
+angle-bracket-enclosed node specifier is either a label followed by zero or
+more successors or a literal integer, floating-point number, or character.  The
+arguments following a label can be built-ins or angle-enclosed node specifiers.
+There are no special rules for formatting lists, tuples, or strings.  In this
+above example, we can clearly see that the argument to ``fib`` is a boxed
+integer, since the constructor ``Int`` appears before the integer literal
+``7``.
 
 
 Evaluating expressions
@@ -108,9 +115,8 @@ To evaluate an expression pass it to ``curry.eval``.
     >>> print next(curry.eval(goal2))
     13
 
-This returns a generator that yields the values the given goal.  The goal is
-evaluated lazily to produce one value each time ``next`` is called.  So if
-there are many results but you are only interested in the first one, call
-``next`` once and Curry will do the minimum work necessary to compute the first
+``curry.eval`` returns a generator that yields one value of the goal with each
+invocation of ``next``.  The goal is evaluated lazily, meaning that each call
+to ``next`` performs the minimum evaluation necessary to compute the next
 value.
 

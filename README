@@ -3,8 +3,8 @@
 
 Sprite was developed and is maintained by Andy Jost (ajost@synopsys.com).  Feel
 free to contact him with questions, bug reports, feature requests, and other
-miscellania regarding Sprite.  Direct general questions about Curry to the
-Curry mailing list (curry@lists.RWTH-Aachen.DE).
+miscellania.  Direct general questions about Curry to the Curry mailing list
+(curry@lists.RWTH-Aachen.DE).
 
 
 2. Dependencies
@@ -25,7 +25,7 @@ Sprite was developed and tested with the following software.
     - GNU make 4.1
 
 This project also requires the Curry Meta-Compiler (CMC).  If it is not already
-there, you should place in the project root directory.  Assuming you have
+there, you should place CMC in the project root directory.  Assuming you have
 access to PSU computer systems, the following command can be used:
 
     git clone https://yourusername@projects.cecs.pdx.edu/git/antoy-cmc CMC
