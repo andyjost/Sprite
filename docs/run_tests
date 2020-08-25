@@ -1,1 +1,31 @@
-CURRYPATH=. ../install/bin/python $@ -m doctest interactive-demo.txt
+#!/bin/bash
+
+cd $( dirname "${BASH_SOURCE[0]}" )
+
+if [ -z "$SPRITE_HOME" ]; then
+  SPRITE_HOME=`realpath ../install`
+fi
+
+1>&2 python <<EOF
+from __future__ import print_function
+text = 'Using SPRITE_HOME=$SPRITE_HOME'
+n = len(text) + 16
+border = '*' * n
+print()
+print(border)
+print(text.center(n))
+print(border)
+print()
+EOF
+
+if [ ! -d "$SPRITE_HOME" ]; then
+  1>&2 echo SPRITE_HOME is not a directory.
+  exit 1
+fi
+
+python=$SPRITE_HOME/bin/python
+export SPRITE_HOME
+export CURRYPATH=.:$CURRYPATH
+
+
+$python $@ -m doctest interactive-demo.txt

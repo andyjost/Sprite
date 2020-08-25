@@ -18,23 +18,24 @@ Tests are divided into two categories.  Unit tests begin with 'unit_' and are
 intended to target specific code areas.  Running all unit tests should in
 principle cover every line of code.  Functional tests begin with 'func_' and
 compare the behavior of Sprite to another Curry system called the oracle (see
-section 5).  Their purpose is to provide evidence that the Sprite compiles
-programs correctly and behaves as intended.
+section 5).  Their purpose is to provide evidence that Sprite compiles programs
+correctly and behaves as intended.
 
 
 3. FILE LAYOUT
 --------------
 
-        data/       Test data files (e.g., sample input, golden results).
-        lib/        Test harness code.
-        test_*.py   Unit test source code.
+        data/  Test data files (e.g., sample input, golden results).
+        lib/   Test harness code.
+        *.py   Unit test source code.
 
 
-4. RUNNING TESTS FOR DEVELOPMENT
---------------------------------
+4. RUNNING TESTS UNDER DEVELOPMENT
+----------------------------------
 
-To run tests for development, first select the appropriate test driver from the
-following:
+When writing or debugging unit tests the 'Make' interface described above may
+not be convenient.  Instead, one may prefer to run tests directly through a
+driver script.  The following drivers are provided:
 
         run_tests       Run unit tests.
         debug_tests     Run unit tests under gdb.
@@ -44,15 +45,16 @@ following:
         cov_tests       Run unit tests under coverage.py.
                         (For measuring line coverage.)
 
-All drivers have the same command line interface.  Say the following to run
-tests:
+Each of these uses the same command line interface:
 
         <driver> [pattern]
 
-The pattern is a glob that specifies which files to run.  Use the pattern
-'*.py' (with quotes) to run all tests.  If no pattern is supplied then all unit
-tests will be run in most cases.  The exception is cov_tests, which runs both
-unit and functional tests.
+Note that the drivers take a pattern, not a list of files.  Therefore, the
+pattern should be escaped to avoid it being interpreted by a shell.  The
+pattern is a glob that specifies which files to run.  Use the pattern '*.py'
+(with quotes) to run all tests.  If no pattern is supplied then all unit tests
+will be run, except in the case of cov_tests, which runs both unit and
+functional tests.
 
 
 5. ORACLE CONFIGURATION
@@ -60,9 +62,12 @@ unit and functional tests.
 
 Some tests use an oracle to generate known-good ("golden") results.  To run
 these tests, you will need access to another Curry system such as PAKCS or
-KiCS2.  The oracle configuration is found in "tests/oracle".  By default, it
-searches for "pakcs" in your path.  You can update this to use another Curry
-compiler or, to skip the tests entirely, simply remove execute permission.
+KiCS2.  That system is expected to support the same command-line arguments as
+PAKCS and KiCS2, most importantly ':i' (import), ':eval' (evaluate), ':q'
+(quit).  The script 'oracle' in this directory is responsible for invoking the
+other Curry system.  By default, it searches for "pakcs" in your path.  You can
+update this to use another Curry system.  To skip tests that use an oracle,
+remove execute permission from that script.
 
 
 6. TESTING GUIDELINES
@@ -101,6 +106,7 @@ Functional tests match the pattern func_*.py:
 ---------------------
 
 A makefile is used to simplify integration with text editors.  For instance, in
-vim <Enter> runs "make" by default, so that key can be used to easily run the
-tests right from the text editor.  Other editors have similar features.
+vim, pressing <Enter> runs "make" by default.  That shortcut can be used to
+easily run the tests directly from a text editor.  Other editors have similar
+features.
 

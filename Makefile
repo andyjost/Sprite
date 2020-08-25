@@ -1,4 +1,4 @@
-SUBMODULES := src
+SUBMODULES := src tests docs
 DIRS_TO_CLEAN += $(OBJECT_ROOT)
 include Make.include
 
@@ -8,6 +8,10 @@ include Make.include
 
 $(OBJECT_ROOT)/CMC:
 	ln -s $(CMC_HOME) $@
+
+# .PHONY: tests
+# tests:
+# 	@echo "Please see tests/README"
 
 ifdef PYTHON_EXECUTABLE
 $(PREFIX)/bin:

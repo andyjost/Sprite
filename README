@@ -40,7 +40,7 @@ To compile all objects and executables:
 
 To run tests:
 
-    make tests
+    make test
 
 To install:
 

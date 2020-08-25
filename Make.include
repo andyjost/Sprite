@@ -73,8 +73,10 @@ usage: # DEFAULT RULE
 	@echo "    print-<varname>: print the value of make variable <varname>"
 	@echo ""
 	@echo "Example:"
-	@echo "    make -j all            --build in parallel"
+	@echo "    make all"
 	@echo "    make install ~/sprite  --install under home directory"
+	@echo ""
+	@echo "For testing information, please see tests/README."
 
 
 # Recursion
@@ -84,7 +86,7 @@ usage: # DEFAULT RULE
 ifndef SUBMODULES
   SUBMODULES = $(dir $(wildcard */.))
 endif
-RECURSIVE_TARGETS := all clean install libs objs shlibs uninstall
+RECURSIVE_TARGETS := all clean install libs objs shlibs uninstall test
 .PHONY: $(RECURSIVE_TARGETS) $(SUBMODULES)
 $(RECURSIVE_TARGETS): | $(SUBMODULES)
 $(SUBMODULES):
