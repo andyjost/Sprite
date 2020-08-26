@@ -31,24 +31,45 @@ access to PSU computer systems, the following command can be used:
     git clone https://yourusername@projects.cecs.pdx.edu/git/antoy-cmc CMC
 
 
-3. Installation
----------------
+3. Build and Installation
+-------------------------
+
+To see makefile targets:
+
+    make usage
 
 To compile all objects and executables:
 
     make all
 
-To run tests:
+To make a local installation for testing or development (placed under ./install):
 
-    make test
+    make install
 
-To install:
+To run tests on the local installation:
+
+    cd tests
+    ./run_tests
+
+To install Sprite into another directory:
 
     make install PREFIX=<your-prefix-dir>
 
+To test the installation:
 
-4. ENVIRONMENT VARIABLES
+    cd tests
+    export SPRITE_HOME=<your-prefix-dir>
+    ./run_tests
+
+
+4. Environment Variables
 ------------------------
+
+    - SPRITE_HOME
+        Used by test scripts to find out where Sprite is installed.  Generally
+        speaking, when using a local installation (i.e., without specifying
+        PREFIX), this variable can be left unset.  Otherwise, it should name
+        the directory where Sprite is installed.
 
     - CURRYPATH
 
@@ -95,7 +116,7 @@ To install:
         cache file.  If set to the empty string, caching is disabled.
 
 
-5. BUG REPORTING
+5. Bug Reporting
 ----------------
 
 If you find a bug, please report it.  The easiest way is to create a *minimal*
@@ -104,7 +125,7 @@ developing and running tests can be found under tests/README.  Once you have
 written the test, submit a pull request or send the diff to ajost@synopsys.com.
 
 
-6. CONTRIBUTING TO SPRITE
+6. Contributing to Sprite
 -------------------------
 
 Contributions to Sprite are welcome!  For more information, see README.contrib.

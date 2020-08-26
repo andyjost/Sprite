@@ -1,0 +1,83 @@
+.
+├── [drwxrwxr-x        4096]  bin
+│   ├── [lrwxrwxrwx           8]  coverage -> .invoker
+│   ├── [lrwxrwxrwx          40]  curry2json -> /opt/antoy-cmc/translator/bin/curry2json
+│   ├── [-rwxrwxr-x         111]  icy
+│   ├── [-rwxrwxr-x         715]  .invoker
+│   └── [lrwxrwxrwx           8]  python -> .invoker
+├── [drwxrwxr-x        4096]  .bin
+│   ├── [lrwxrwxrwx          36]  coverage -> /opt/python2.7-valgrind/bin/coverage
+│   └── [lrwxrwxrwx          34]  python -> /opt/python2.7-valgrind/bin/python
+└── [drwxrwxr-x        4096]  lib
+    ├── [drwxrwxr-x        4096]  curry
+    │   ├── [drwxrwxr-x        4096]  .curry
+    │   │   ├── [-rw-rw-r--      559933]  Prelude.fcy
+    │   │   ├── [-rw-rw-r--      245922]  Prelude.fint
+    │   │   ├── [-rw-rw-r--      993049]  Prelude.icur
+    │   │   ├── [-rw-rw-r--       12172]  Prelude.icurry
+    │   │   ├── [-rw-rw-r--     7098274]  Prelude.json
+    │   │   └── [-rw-rw-r--     1244230]  Prelude.read
+    │   └── [-rw-rw-r--       56879]  Prelude.curry
+    ├── [-rwxrwxr-x     1182512]  libsprite.so
+    └── [drwxrwxr-x        4096]  python2.7
+        └── [drwxrwxr-x        4096]  curry
+            ├── [-rw-rw-r--        5397]  cache.py
+            ├── [drwxrwxr-x        4096]  compiler
+            │   └── [-rw-rw-r--           0]  __init__.py
+            ├── [-rw-rw-r--         589]  exceptions.py
+            ├── [-rwxrwxr-x       17241]  icurry.py
+            ├── [-rw-rw-r--        8798]  importer.py
+            ├── [-rw-rw-r--        1468]  __init__.py
+            ├── [-rw-rw-r--        2524]  inspect.py
+            ├── [drwxrwxr-x        4096]  interpreter
+            │   ├── [-rw-rw-r--        2467]  compile.py
+            │   ├── [-rw-rw-r--        7476]  conversions.py
+            │   ├── [-rw-rw-r--        1095]  eval.py
+            │   ├── [-rw-rw-r--       14768]  function_compiler.py
+            │   ├── [-rw-rw-r--        8004]  import_.py
+            │   ├── [-rw-rw-r--         668]  __init__.py
+            │   ├── [-rw-rw-r--        2142]  interpreter.py
+            │   ├── [-rw-rw-r--         826]  lookup.py
+            │   ├── [-rw-rw-r--        1804]  module.py
+            │   ├── [-rw-rw-r--         537]  parameters.py
+            │   ├── [-rw-rw-r--       10371]  prelude_impl.py
+            │   ├── [-rw-rw-r--       13342]  prelude.py
+            │   ├── [-rw-rw-r--       22825]  runtime.py
+            │   ├── [-rw-rw-r--        1789]  show.py
+            │   └── [-rw-rw-r--        3467]  typecheckers.py
+            ├── [drwxrwxr-x        4096]  lib
+            │   └── [-rw-rw-r--         409]  __init__.py
+            ├── [drwxrwxr-x        4096]  llvm
+            │   ├── [-rw-rw-r--         182]  __init__.py
+            │   ├── [-rwxrwxr-x      844032]  _llvm.so
+            │   ├── [-rw-rw-r--        1008]  _symboltable.py
+            │   ├── [drwxrwxr-x        4096]  types
+            │   │   ├── [-rw-rw-r--          21]  __init__.py
+            │   │   └── [-rwxrwxr-x       93592]  _types.so
+            │   ├── [-rw-rw-r--         193]  _utility.py
+            │   └── [-rw-rw-r--         531]  _value.py
+            ├── [drwxrwxr-x        4096]  runtime
+            │   ├── [-rw-rw-r--          23]  __init__.py
+            │   └── [-rwxrwxr-x      182448]  _runtime.so
+            ├── [drwxrwxr-x        4096]  tools
+            │   ├── [drwxrwxr-x        4096]  icy
+            │   │   ├── [-rw-rw-r--        3520]  commands.py
+            │   │   ├── [-rwxrwxr-x           0]  __init__.py
+            │   │   ├── [-rw-rw-r--         122]  __main__.py
+            │   │   ├── [-rw-rw-r--        2025]  options.py
+            │   │   ├── [-rw-rw-r--        2389]  repl.py
+            │   │   └── [-rw-rw-r--         438]  resolve.py
+            │   └── [-rw-rw-r--           0]  __init__.py
+            ├── [-rw-rw-r--         430]  types.py
+            └── [drwxrwxr-x        4096]  utility
+                ├── [-rw-rw-r--         913]  binding.py
+                ├── [-rw-rw-r--        2281]  encoding.py
+                ├── [-rw-rw-r--        1604]  flagutils.py
+                ├── [-rw-rw-r--           0]  __init__.py
+                ├── [-rw-rw-r--        3873]  proptree.py
+                ├── [-rw-rw-r--        3161]  _tempfile.py
+                ├── [-rw-rw-r--         147]  unboxed.py
+                ├── [-rw-rw-r--        2010]  unionfind.py
+                └── [-rw-rw-r--        4228]  visitation.py
+
+16 directories, 64 files

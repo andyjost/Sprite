@@ -1,4 +1,4 @@
-SUBMODULES := src tests docs
+SUBMODULES := src
 DIRS_TO_CLEAN += $(OBJECT_ROOT)
 include Make.include
 
@@ -9,9 +9,9 @@ include Make.include
 $(OBJECT_ROOT)/CMC:
 	ln -s $(CMC_HOME) $@
 
-# .PHONY: tests
-# tests:
-# 	@echo "Please see tests/README"
+.PHONY: MANIFEST
+MANIFEST:
+	cd $(PREFIX) && tree -anps -o $(ROOT_DIR)/MANIFEST
 
 ifdef PYTHON_EXECUTABLE
 $(PREFIX)/bin:
@@ -23,9 +23,9 @@ $(PREFIX)/.bin/python : | $(PREFIX)/.bin
 $(PREFIX)/bin/.invoker : $(ROOT_DIR)/scripts/invoker | $(PREFIX)/bin
 	cp $< $@
 $(PREFIX)/bin/python : | $(PREFIX)/bin
-	ln -s $(PREFIX)/bin/.invoker $@
+	ln -s .invoker $@
 $(PREFIX)/bin/coverage : | $(PREFIX)/bin
-	ln -s $(PREFIX)/bin/.invoker $@
+	ln -s .invoker $@
 $(PREFIX)/.bin/coverage : | $(PREFIX)/.bin
 	ln -s $(PYTHON_COVERAGE_EXECUTABLE) $@
 $(PREFIX)/bin/curry2json : | $(PREFIX)/bin
