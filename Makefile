@@ -28,9 +28,11 @@ $(PREFIX)/bin/coverage : | $(PREFIX)/bin
 	ln -s .invoker $@
 $(PREFIX)/.bin/coverage : | $(PREFIX)/.bin
 	ln -s $(PYTHON_COVERAGE_EXECUTABLE) $@
-$(PREFIX)/bin/curry2json : | $(PREFIX)/bin
+$(PREFIX)/.bin/curry2json : | $(PREFIX)/bin
 	ln -s $(CURRY2JSON) $@
 $(PREFIX)/bin/icy : $(ROOT_DIR)/scripts/icy | $(PREFIX)/bin
+	cp $< $@
+$(PREFIX)/bin/curryexec : $(ROOT_DIR)/scripts/curryexec | $(PREFIX)/bin
 	cp $< $@
 
 $(PREFIX)/lib:
@@ -51,11 +53,12 @@ $(ROOT_DIR)/install:
 
 install: $(PREFIX)/.bin/coverage                   \
          $(PREFIX)/bin/coverage                    \
-         $(PREFIX)/bin/curry2json                  \
+         $(PREFIX)/.bin/curry2json                 \
          $(PREFIX)/bin/.invoker                    \
          $(PREFIX)/.bin/python                     \
 	       $(PREFIX)/bin/python                      \
 	       $(PREFIX)/bin/icy                         \
+	       $(PREFIX)/bin/curryexec                   \
          $(PREFIX)/lib/curry/Prelude.curry         \
          $(PREFIX)/lib/curry/.curry/Prelude.fcy    \
          $(PREFIX)/lib/curry/.curry/Prelude.fint   \
@@ -71,11 +74,12 @@ endif
 uninstall:
 	-rm $(PREFIX)/.bin/coverage
 	-rm $(PREFIX)/bin/coverage
-	-rm $(PREFIX)/bin/curry2json
+	-rm $(PREFIX)/.bin/curry2json
 	-rm $(PREFIX)/bin/.invoker
 	-rm $(PREFIX)/.bin/python
 	-rm $(PREFIX)/bin/python
 	-rm $(PREFIX)/bin/icy
+	-rm $(PREFIX)/bin/curryexec
 	-rm $(PREFIX)/lib/curry/Prelude.curry
 	-rm -rf $(PREFIX)/lib/curry/.curry/*
 	-rmdir $(PREFIX)/bin

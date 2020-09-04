@@ -62,7 +62,24 @@ To test the installation:
     ./run_tests
 
 
-4. Environment Variables
+4. Getting Started
+------------------
+
+To run a Curry program found in file "myprogram.curry", use the following:
+
+    $(SPRITE_HOME)/bin/curryexec myprogram.curry
+
+If the program uses import statements, then you must ensure CURRYPATH is set properly.
+
+This is equivalent to the following application of Python's -m command-line argument:
+
+    $(SPRITE_HOME)/bin/python -m curry myprogram.curry
+
+To view the computation trace, you may set SPRITE_INTERPRETER_FLAGS=trace:True
+in the environment.
+
+
+5. Environment Variables
 ------------------------
 
     - SPRITE_HOME
@@ -116,7 +133,7 @@ To test the installation:
         cache file.  If set to the empty string, caching is disabled.
 
 
-5. Bug Reporting
+6. Bug Reporting
 ----------------
 
 If you find a bug, please report it.  The easiest way is to create a *minimal*
@@ -125,7 +142,7 @@ developing and running tests can be found under tests/README.  Once you have
 written the test, submit a pull request or send the diff to ajost@synopsys.com.
 
 
-6. Contributing to Sprite
+7. Contributing to Sprite
 -------------------------
 
 Contributions to Sprite are welcome!  For more information, see README.contrib.

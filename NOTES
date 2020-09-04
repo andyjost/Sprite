@@ -1,3 +1,16 @@
+9/4/2020
+- The __file__ attribute of a Curry module should name the .curry file
+
+    >>> __file__
+    '/home/andy/sandbox/reverse/.curry/hello.json'
+
+- The Prelude takes forever to load.  Can't I just make an autoloader.
+- python -m curry actually loads the file as a module.  This could create
+  problems for modules that import, since the directory containing the file
+  must be added to curry.path.  It would be safer to load the file via its
+  canonical path.
+
+
 4/26/2018
 
 - I'm trying to get a simple example compiling fib as a string to work.  It

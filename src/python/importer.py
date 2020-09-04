@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 
-from .exceptions import CompileError
+from .exceptions import CompileError, ModuleLookupError
 from . import cache
 from . import icurry
 from .utility.binding import binding, del_
@@ -66,7 +66,7 @@ def findCurryModule(modulename, currypath):
 
   Raises:
   -------
-  ``ValueError`` if the module is not found.
+  ``ModuleLookupError`` if the module is not found.
 
   Returns:
   --------
@@ -75,14 +75,14 @@ def findCurryModule(modulename, currypath):
   '''
   # Search for the ICurry-JSON file first, then the .curry file.
   if '/' in modulename or modulename in ['.', '..']:
-    raise ValueError('"%s" is not a legal module name.' % modulename)
+    raise ModuleLookupError('"%s" is not a legal module name.' % modulename)
   names = [os.path.join('.curry', modulename + '.json'), modulename + '.curry']
   files = findfiles(currypath, names)
   try:
     tgtfile = next(files)
     assert tgtfile.endswith('.curry') or tgtfile.endswith('.json')
   except StopIteration:
-    raise ValueError('module "%s" not found' % modulename)
+    raise ModuleLookupError('Curry module "%s" not found' % modulename)
 
   # If a .json file was found, then check whether the corresponding .curry file
   # is newer.
@@ -98,13 +98,16 @@ def findCurryModule(modulename, currypath):
           tgtfile = srcfile
   return os.path.abspath(tgtfile)
 
+g_curry2jsontool = None
 def curry2jsontool():
-  thispath = inspect.getsourcefile(sys.modules[__name__])
-  curry2json = os.path.abspath(
-      os.path.join(thispath, '../../../../bin/curry2json')
-    )
-  assert os.path.exists(curry2json)
-  return curry2json
+  global g_curry2jsontool
+  if not g_curry2jsontool:
+    thispath = inspect.getsourcefile(sys.modules[__name__])
+    g_curry2jsontool = os.path.abspath(
+        os.path.join(thispath, '../../../../.bin/curry2json')
+      )
+    assert os.path.exists(g_curry2jsontool)
+  return g_curry2jsontool
 
 def curry2json(curryfile, currypath):
   '''

@@ -7,7 +7,7 @@ class EvaluationSuspended(BaseException):
 class InstantiationError(BaseException):
   '''Raised when a free variable reduces to an unboxed built-in.'''
 
-class ModuleLookupError(AttributeError):
+class ModuleLookupError(ValueError):
   '''Raised when a Curry module is not found.'''
 
 class SymbolLookupError(AttributeError):

@@ -8,11 +8,11 @@ def module(interp, name):
   try:
     return interp.modules[iname.module]
   except KeyError:
-    raise exceptions.ModuleLookupError('module "%s" not found' % iname.module)
+    raise exceptions.ModuleLookupError('Curry module "%s" not found' % iname.module)
 
-def symbol(interp, name):
-  '''Look up a symbol by its fully-qualified name.'''
-  return cymodule.symbol(module(interp, name), icurry.IName(name))
+def symbol(interp, name, modulename=None):
+  '''Look up a symbol by its fully-qualified name, or relative to a module.'''
+  return cymodule.symbol(module(interp, modulename or name), icurry.IName(name))
 
 def type(interp, name):
   '''Returns the constructor info tables for the named type.'''
