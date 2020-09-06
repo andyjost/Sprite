@@ -7,6 +7,7 @@ interpreter is affected by the environment.  This module contains functions for
 working with the flags that come from the environment.
 '''
 from .binding import binding
+from .. import utility
 import __builtin__
 import os
 import sys
@@ -42,8 +43,9 @@ def getflags(flags={}, weakflags={}):
   flags_out.update(flags)
   return flags_out
 
+@utility.format_docstring(__package__[:__package__.find('.')])
 def reload(name, flags={}):
-  '''Hard-resets the interpreter in module %s.''' % __package__[:__package__.find('.')]
+  '''Hard-resets the interpreter found in module "{}".'''
   flags = getflags(flags)
   envflags = ','.join('%s:%s' % (str(k), str(v)) for k,v in flags.items())
   with binding(os.environ, 'SPRITE_INTERPRETER_FLAGS', envflags):

@@ -12,5 +12,4 @@
   problems for modules that import, since the directory containing the file
   must be added to curry.path.  It would be safer to load the file via its
   canonical path.
-- docstrings don't seem to pass through visitation.dispatch.on.  E.g., see
-  interpreter/conversions.py:expr
+- This fails with _unreachable: curry.compile('1+2', mode='expr')

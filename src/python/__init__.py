@@ -1,15 +1,33 @@
 '''
-An interactive Curry environment.
+The Sprite Curry system.
 
-This module creates a global instance of ``curry.interpreter.Interpreter`` and
-provides an API to interact with it.
+This package contains everything one needs to compile and execute Curry code.
+The topmost module provides an instance of the Curry system and an API to
+interact with it.
 
-To perform a soft reset call ``reset``.  To change the interpreter flags, a
-hard reset is required.  To perform a hard reset reload this module or call
-``reload``.  The flags are read from the environment variable
-SPRITE_INTERPRETER_FLAGS.  The ``reload`` function accepts arguments that
-override.
+To perform a soft reset call ``reset``.  This returns the system to its
+original state, with no definitions and no modules imported.  The configuration
+is taken from environment variable SPRITE_INTERPRETER_FLAGS.  To change that at
+runtime, use the ``reload`` function while specifying new flags.
+
+Use ``import_`` to import Curry modules, ``compile`` to compile Curry code,
+``expr`` to build Curry expressions, and ``eval`` to evaluate them.  ``path``
+determines where Sprite searches for Curry code.  Loaded modules can be found
+under ``modules``.  Use ``topython`` to convert Curry values to Python objects.
+
+Example:
+--------
+>>> mymodule = curry.compile("""
+... data Item = A | B
+... rotate A = B
+... rotate B = A
+... main :: Item
+... main = rotate A ? rotate B
+... """)
+>>> list(curry.eval(mymodule.main))
+[<B>, <A>]
 '''
+
 from . import interpreter
 from .exceptions import *
 from .utility.unboxed import unboxed

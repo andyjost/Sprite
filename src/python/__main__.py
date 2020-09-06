@@ -13,10 +13,13 @@ def main(argv):
         'search for Curry code.'
     )
   parser.add_argument( '-i', '--interact', action='store_true', help='interact after running the program')
-  parser.add_argument( 'curryfile', type=str, help='the Curry program to run')
+  parser.add_argument( 'curryfile', nargs='?', default=None, type=str, help='the Curry program to run')
   args = parser.parse_args(argv[1:])
 
-  if args.curryfile.endswith('.curry'):
+  if args.curryfile is None:
+    code.interact(local={__package__: curry})
+    return
+  elif args.curryfile.endswith('.curry'):
     args.curryfile = args.curryfile[:-6]
   module = importlib.import_module('curry.lib.%s' % args.curryfile) # FIXME: load the file directly
   main = curry.symbol('%s.main' % args.curryfile)

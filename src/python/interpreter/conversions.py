@@ -4,15 +4,17 @@ and Python.
 '''
 
 from .. import inspect
-from .. import types
 from . import runtime
+from .. import types
+from .. import utility
 from ..utility import visitation
 from ..utility.unboxed import unboxed
 import collections
-import numbers
 import itertools
+import numbers
 
 @visitation.dispatch.on('arg')
+@utility.format_docstring(__package__[:__package__.find('.')])
 def expr(interp, arg, *args, **kwds):
   '''
   Builds a Curry expression.
@@ -57,7 +59,7 @@ def expr(interp, arg, *args, **kwds):
   Returns:
   --------
   The Node created or rewritten.
-  '''.format(__package__[:__package__.find('.')])
+  '''
   raise TypeError(
       'cannot build a Curry expression from type "%s"' % type(arg).__name__
     )

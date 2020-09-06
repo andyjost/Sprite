@@ -5,6 +5,7 @@ from . import module
 from . import parameters
 from . import runtime
 from . import show
+from .. import utility
 from ..utility import encoding
 from ..utility import visitation
 import collections
@@ -136,6 +137,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
   return nodeinfo
 
 @visitation.dispatch.on('arg')
+@utility.format_docstring(__package__[:__package__.find('.')])
 def import_(interp, arg, currypath=None, extern=True, export=(), alias=()):
   '''
   Import one or more Curry modules.
@@ -162,7 +164,7 @@ def import_(interp, arg, currypath=None, extern=True, export=(), alias=()):
   Returns:
   --------
   A ``CurryModule`` or sequence thereof.
-  '''.format(__package__[:__package__.find('.')])
+  '''
   raise TypeError('cannot import type "%s"' % type(arg).__name__)
 
 @import_.when(str)
