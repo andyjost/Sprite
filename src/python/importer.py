@@ -234,12 +234,12 @@ class CurryImporter(object):
   def __init__(self):
     self.curry = __import__(__name__.split('.')[0])
   def find_module(self, fullname, path=None):
-    if fullname.startswith('curry.lib.'):
+    if fullname.startswith(__package__ + '.lib.'):
       return self
     return None
   def load_module(self, fullname):
     if fullname not in sys.modules:
-      name = fullname[len('curry.lib.'):]
+      name = fullname[len(__package__ + '.lib.'):]
       moduleobj = self.curry.import_(name)
       this = sys.modules[__name__]
       head = name.split('.')[0]

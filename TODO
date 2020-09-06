@@ -2,3 +2,15 @@
   should cover every construct that could be encountered in ICurry.
 - Improve line coverage.  Run tests/cov_tests and add tests to reduce the
   number of uncovered lines.
+- The __file__ attribute of a Curry module should name the .curry file
+
+    >>> __file__
+    '/home/andy/sandbox/reverse/.curry/hello.json'
+
+- The Prelude takes forever to load.  Can't I just make an autoloader.
+- python -m curry actually loads the file as a module.  This could create
+  problems for modules that import, since the directory containing the file
+  must be added to curry.path.  It would be safer to load the file via its
+  canonical path.
+- docstrings don't seem to pass through visitation.dispatch.on.  E.g., see
+  interpreter/conversions.py:expr

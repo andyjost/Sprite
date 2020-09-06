@@ -20,8 +20,8 @@ def isa(cyobj, what):
 @visitation.dispatch.on('what')
 def _isa(addr, what):
   raise TypeError(
-      'arg 2 must be an instance or sequence of curry.interpreter.NodeInfo '
-      'objects.'
+      'arg 2 must be an instance or sequence of %s.interpreter.NodeInfo '
+      'objects.' % __package__
     )
 
 @_isa.when(runtime.NodeInfo)

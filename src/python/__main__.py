@@ -1,9 +1,9 @@
 from .exceptions import SymbolLookupError
 import argparse
 import code
-import curry
 import importlib
 import sys
+curry = importlib.import_module(__package__)
 
 def main(argv):
   parser = argparse.ArgumentParser(
@@ -18,7 +18,7 @@ def main(argv):
 
   if args.curryfile.endswith('.curry'):
     args.curryfile = args.curryfile[:-6]
-  module = importlib.import_module('curry.lib.%s' % args.curryfile)
+  module = importlib.import_module('curry.lib.%s' % args.curryfile) # FIXME: load the file directly
   main = curry.symbol('%s.main' % args.curryfile)
   for value in curry.eval(main):
     print value

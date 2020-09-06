@@ -43,7 +43,7 @@ def getflags(flags={}, weakflags={}):
   return flags_out
 
 def reload(name, flags={}):
-  '''Hard-resets the interpreter in module curry.'''
+  '''Hard-resets the interpreter in module %s.''' % __package__[:__package__.find('.')]
   flags = getflags(flags)
   envflags = ','.join('%s:%s' % (str(k), str(v)) for k,v in flags.items())
   with binding(os.environ, 'SPRITE_INTERPRETER_FLAGS', envflags):

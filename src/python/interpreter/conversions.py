@@ -37,7 +37,7 @@ def expr(interp, arg, *args, **kwds):
     Converted to a Curry tuple.
 
   Any (possibly nested) sequence whose first element is an instance of
-  ``curry.runtime.NodeInfo`` describes a node.  The remaining arguments are
+  ``{0}.runtime.NodeInfo`` describes a node.  The remaining arguments are
   recursivly converted to Curry expressions to form the successors list.  Thus,
   given suitable definitions, it is possible to build the Curry list
   ``[0,1,2]`` with the following code:
@@ -57,7 +57,7 @@ def expr(interp, arg, *args, **kwds):
   Returns:
   --------
   The Node created or rewritten.
-  '''
+  '''.format(__package__[:__package__.find('.')])
   raise TypeError(
       'cannot build a Curry expression from type "%s"' % type(arg).__name__
     )

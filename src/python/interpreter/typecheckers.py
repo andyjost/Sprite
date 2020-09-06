@@ -40,7 +40,7 @@ def _typecheck(ty, arg, name, p=None):
     hint = (
         '  (An unboxed value was expected but a boxed value of the '
         'correct type was supplied.  Perhaps you need to wrap an '
-        'argument with curry.unboxed?)'
+        'argument with %s.unboxed?)' % __package__[:__package__.find('.')]
             if unboxed and is_boxed and len(arg) and _samecategory(arg[0], ty)
             else ''
       )

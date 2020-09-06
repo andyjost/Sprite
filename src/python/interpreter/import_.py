@@ -144,12 +144,12 @@ def import_(interp, arg, currypath=None, extern=True, export=(), alias=()):
   -----------
   ``arg``
       A module descriptor indicating what to import.  A module descriptor is
-      a module name (string), ``curry.icurry.IModule`` object, or a sequence
+      a module name (string), ``{0}.icurry.IModule`` object, or a sequence
       of module descriptors.
   ``currypath``
       The search path for Curry files.  By default, ``self.path`` is used.
   ``extern``
-      An instance of ``curry.icurry.IModule`` used to resolve external
+      An instance of ``{0}.icurry.IModule`` used to resolve external
       declarations.
   ``export``
       A set of symbols exported unconditionally from ``extern``.  These will
@@ -162,7 +162,7 @@ def import_(interp, arg, currypath=None, extern=True, export=(), alias=()):
   Returns:
   --------
   A ``CurryModule`` or sequence thereof.
-  '''
+  '''.format(__package__[:__package__.find('.')])
   raise TypeError('cannot import type "%s"' % type(arg).__name__)
 
 @import_.when(str)
