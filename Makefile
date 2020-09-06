@@ -20,8 +20,6 @@ $(PREFIX)/.bin:
 	mkdir -p $(PREFIX)/.bin
 $(PREFIX)/.bin/python : | $(PREFIX)/.bin
 	ln -s $(PYTHON_EXECUTABLE) $@
-$(PREFIX)/bin/.invoker : $(ROOT_DIR)/scripts/invoker | $(PREFIX)/bin
-	cp $< $@
 $(PREFIX)/bin/python : | $(PREFIX)/bin
 	ln -s .invoker $@
 $(PREFIX)/bin/coverage : | $(PREFIX)/bin
@@ -30,11 +28,15 @@ $(PREFIX)/.bin/coverage : | $(PREFIX)/.bin
 	ln -s $(PYTHON_COVERAGE_EXECUTABLE) $@
 $(PREFIX)/.bin/curry2json : | $(PREFIX)/bin
 	ln -s $(CURRY2JSON) $@
-$(PREFIX)/bin/icy : $(ROOT_DIR)/scripts/icy | $(PREFIX)/bin
+$(PREFIX)/bin/.invoker : $(ROOT_DIR)/src/export/invoker.script | $(PREFIX)/bin
 	cp $< $@
-$(PREFIX)/bin/curryexec : $(ROOT_DIR)/scripts/curryexec | $(PREFIX)/bin
+	chmod 554 $@
+$(PREFIX)/bin/icy : $(ROOT_DIR)/src/export/icy.script | $(PREFIX)/bin
 	cp $< $@
-
+	chmod 554 $@
+$(PREFIX)/bin/curryexec : $(ROOT_DIR)/src/export/curryexec.script | $(PREFIX)/bin
+	cp $< $@
+	chmod 554 $@
 $(PREFIX)/lib:
 	mkdir -p $(PREFIX)/lib
 $(PREFIX)/lib/curry : | $(PREFIX)/lib

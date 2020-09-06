@@ -78,6 +78,8 @@ usage: # DEFAULT RULE
 	@echo ""
 	@echo "For testing information, please see tests/README."
 
+.PHONY: help
+help: | usage
 
 # Recursion
 # =========

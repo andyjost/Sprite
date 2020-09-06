@@ -1,0 +1,2 @@
+Contains scripts to be exported to the installation tree.  Not intended to be
+called from the source tree.
