@@ -67,6 +67,8 @@ install: $(PREFIX)/.bin/coverage                   \
          $(PREFIX)/lib/curry/.curry/Prelude.json   \
          $(PREFIX)/lib/curry/.curry/Prelude.read   \
   ####
+	@echo "\n****** Sprite is installed under $(PREFIX) ******\n"
+
 ifneq ($(PREFIX),python)
 install: $(ROOT_DIR)/install
 endif
