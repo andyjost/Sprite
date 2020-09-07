@@ -1,7 +1,14 @@
 #!/bin/bash
+make print-ROOT_DIR \
+     print-COMPILER \
+     print-DEBUG \
+     print-OBJECT_ROOT \
+     print-PREFIX
+echo
 echo 'make objs'
 make objs
-
+echo
+echo 'Installation PREFIX='`make print-PREFIX`
 echo 'make install'
 make install
 
