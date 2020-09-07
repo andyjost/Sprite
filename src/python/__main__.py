@@ -16,7 +16,7 @@ def main(argv):
   parser.add_argument( '-i', '--interact', action='store_true', help='interact after running the program')
   parser.add_argument( '-m', '--module', action='store_true'
     , help='interpret the argument as a module name rather than a file name')
-  parser.add_argument( 'name', nargs='?', default=None, type=str, help='a Curry file name or module name to run')
+  parser.add_argument( 'name', nargs='?', default=None, type=str, help='a Curry file name (default) or module name to run')
   args = parser.parse_args(argv[1:])
 
   if args.name is None:
