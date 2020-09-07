@@ -161,10 +161,17 @@ def curry2json(curryfile, currypath):
   return jsonfile
 
 def jsonFilename(curryfile):
+  '''Gets the JSON file associated with a Curry file.'''
   assert curryfile.endswith('.curry')
   path,name = os.path.split(curryfile)
   return os.path.join(path, '.curry', name[:-6]+'.json')
 
+def curryFilename(jsonfile):
+  '''Gets the Curry file associated with a JSON file.'''
+  path,name = os.path.split(jsonfile)
+  assert path.endswith('.curry')
+  assert name.endswith('.json')
+  return os.path.join(path[:-6], name[:-5]+'.curry')
 
 def findOrBuildICurry(name, currypath, **kwds):
   '''
@@ -189,7 +196,7 @@ def getICurryFromJson(jsonfile):
   if cached:
     return cached.icur
   icur, = icurry.parse(open(jsonfile, 'r').read())
-  icur.filename = jsonfile
+  icur.filename = curryFilename(jsonfile)
   cached.update(icur)
   return icur
 
