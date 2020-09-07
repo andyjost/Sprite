@@ -1,4 +1,5 @@
 from .exceptions import SymbolLookupError
+from .utility import isLegalModulename
 import argparse
 import code
 import importlib
@@ -7,27 +8,34 @@ curry = importlib.import_module(__package__)
 
 def main(argv):
   parser = argparse.ArgumentParser(
-      prog='python -m ' + __package__
+      prog='curryexec'
     , description=
         'Runs a Curry program under Sprite.  Set CURRYPATH to control the '
         'search for Curry code.'
     )
   parser.add_argument( '-i', '--interact', action='store_true', help='interact after running the program')
-  parser.add_argument( 'curryfile', nargs='?', default=None, type=str, help='the Curry program to run')
+  parser.add_argument( '-m', '--module', action='store_true'
+    , help='interpret the argument as a module name rather than a file name')
+  parser.add_argument( 'name', nargs='?', default=None, type=str, help='a Curry file name or module name to run')
   args = parser.parse_args(argv[1:])
 
-  if args.curryfile is None:
+  if args.name is None:
     code.interact(local={__package__: curry})
     return
-  elif args.curryfile.endswith('.curry'):
-    args.curryfile = args.curryfile[:-6]
-  module = importlib.import_module('curry.lib.%s' % args.curryfile) # FIXME: load the file directly
-  main = curry.symbol('%s.main' % args.curryfile)
+
+  if args.module:
+    if not isLegalModulename(args.name):
+      raise ValueError('expected a dot-separated module name')
+  elif not args.name.endswith('.curry'):
+    raise ValueError('expected a file name ending with .curry')
+
+  module = curry.import_(args.name, curry.path, is_sourcefile=not args.module)
+  main = curry.symbol(module.__name__ + '.main')
   for value in curry.eval(main):
     print value
 
   if args.interact:
-    code.interact(banner='In Curry module %s.' % args.curryfile, local=module.__dict__)
+    code.interact(banner='In Curry module %s.' % module.__name__, local=module.__dict__)
 
 
 if __name__ == '__main__':

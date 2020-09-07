@@ -43,7 +43,7 @@ def getflags(flags={}, weakflags={}):
   flags_out.update(flags)
   return flags_out
 
-@utility.format_docstring(__package__[:__package__.find('.')])
+@utility.formatDocstring(__package__[:__package__.find('.')])
 def reload(name, flags={}):
   '''Hard-resets the interpreter found in module "{}".'''
   flags = getflags(flags)

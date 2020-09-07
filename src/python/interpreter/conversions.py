@@ -14,7 +14,7 @@ import itertools
 import numbers
 
 @visitation.dispatch.on('arg')
-@utility.format_docstring(__package__[:__package__.find('.')])
+@utility.formatDocstring(__package__[:__package__.find('.')])
 def expr(interp, arg, *args, **kwds):
   '''
   Builds a Curry expression.

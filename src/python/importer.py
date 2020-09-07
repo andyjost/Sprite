@@ -53,16 +53,18 @@ def findfiles(searchpaths, names):
       if os.path.exists(filename):
         yield filename
 
-def findCurryModule(modulename, currypath):
+def findCurryModule(name, currypath, is_sourcefile=False):
   '''
   Searches for a Curry module.
 
   Parameters:
   -----------
-  ``modulename``
-      The module modulename.
+  ``name``
+      The module or source file name.
   ``currypath``
       A sequence of paths to search (i.e., CURRYPATH split on ':').
+  ``is_sourcefile``
+      How to interpret the name.
 
   Raises:
   -------
@@ -71,31 +73,41 @@ def findCurryModule(modulename, currypath):
   Returns:
   --------
   The name of either an ICurry-JSON file (suffix: .json) or Curry source file
-  (suffix: .curry)
+  (suffix: .curry).  The JSON file is returned if it is up-to-date, otherwise,
+  the Curry file is returned.
   '''
   # Search for the ICurry-JSON file first, then the .curry file.
-  if '/' in modulename or modulename in ['.', '..']:
-    raise ModuleLookupError('"%s" is not a legal module name.' % modulename)
-  names = [os.path.join('.curry', modulename + '.json'), modulename + '.curry']
-  files = findfiles(currypath, names)
-  try:
-    tgtfile = next(files)
-    assert tgtfile.endswith('.curry') or tgtfile.endswith('.json')
-  except StopIteration:
-    raise ModuleLookupError('Curry module "%s" not found' % modulename)
-
-  # If a .json file was found, then check whether the corresponding .curry file
-  # is newer.
-  if tgtfile.endswith('.json'):
+  if is_sourcefile:
+    curryfile = name
+    if not curryfile.endswith('.curry'):
+      raise ModuleLookupError('expected .curry extension in "%s"' % curryfile)
+    if not (os.access(curryfile, os.R_OK) and os.path.isfile(curryfile)):
+      raise ModuleLookupError('cannot access Curry file "%s"' % curryfile)
+    jsonfile = jsonFilename(curryfile)
+    tgtfile = curryfile if newer(curryfile, jsonfile) else jsonfile
+  else:
+    if '/' in name or name in ['.', '..']:
+      raise ModuleLookupError('"%s" is not a legal module name.' % name)
+    names = [os.path.join('.curry', name + '.json'), name + '.curry']
+    files = findfiles(currypath, names)
     try:
-      srcfile = next(files)
+      tgtfile = next(files)
+      assert tgtfile.endswith('.curry') or tgtfile.endswith('.json')
     except StopIteration:
-      pass
-    else:
-      # Check whether the source file is newer than the JSON file.
-      if newer(srcfile, tgtfile):
-        if srcfile.endswith('.curry') and jsonFilename(srcfile) == tgtfile:
-          tgtfile = srcfile
+      raise ModuleLookupError('Curry module "%s" not found' % name)
+
+    # If a .json file was found, then check whether the corresponding .curry file
+    # is newer.
+    if tgtfile.endswith('.json'):
+      try:
+        srcfile = next(files)
+      except StopIteration:
+        pass
+      else:
+        # Check whether the source file is newer than the JSON file.
+        if newer(srcfile, tgtfile):
+          if srcfile.endswith('.curry') and jsonFilename(srcfile) == tgtfile:
+            tgtfile = srcfile
   return os.path.abspath(tgtfile)
 
 g_curry2jsontool = None
@@ -153,12 +165,13 @@ def jsonFilename(curryfile):
   path,name = os.path.split(curryfile)
   return os.path.join(path, '.curry', name[:-6]+'.json')
 
-def findOrBuildICurryForModule(modulename, currypath):
+
+def findOrBuildICurry(name, currypath, **kwds):
   '''
   See getICurryForModule.  This function returns the name of the ICurry-JSON
   file and builds the file, if necessary.
   '''
-  filename = findCurryModule(modulename, currypath)
+  filename = findCurryModule(name, currypath, **kwds)
   if filename.endswith('.json'):
     return filename
   elif filename.endswith('.curry'):
@@ -180,14 +193,14 @@ def getICurryFromJson(jsonfile):
   cached.update(icur)
   return icur
 
-def getICurryForModule(modulename, currypath):
+def getICurryForModule(name, currypath, **kwds):
   '''
   Gets the ICurry source for a module.  May invoke curry2json.
 
   Parameters:
   -----------
-  ``modulename``
-      The module name.
+  ``name``
+      The module name or source file name.
   ``currypath``
       A sequence of paths to search (i.e., CURRYPATH split on ':').
 
@@ -198,8 +211,8 @@ def getICurryForModule(modulename, currypath):
   Returns:
   The name of the ICurry-JSON file.
   '''
-  filename = findOrBuildICurryForModule(modulename, currypath)
-  logger.debug('Found module %s at %s' % (modulename, filename))
+  filename = findOrBuildICurry(name, currypath, **kwds)
+  logger.debug('Found module %s at %s' % (name, filename))
   return getICurryFromJson(filename)
 
 class TmpDir(TemporaryDirectory):

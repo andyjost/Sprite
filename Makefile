@@ -58,9 +58,9 @@ install: $(PREFIX)/.bin/coverage                   \
          $(PREFIX)/.bin/curry2json                 \
          $(PREFIX)/bin/.invoker                    \
          $(PREFIX)/.bin/python                     \
-	       $(PREFIX)/bin/python                      \
-	       $(PREFIX)/bin/icy                         \
-	       $(PREFIX)/bin/curryexec                   \
+         $(PREFIX)/bin/python                      \
+         $(PREFIX)/bin/icy                         \
+         $(PREFIX)/bin/curryexec                   \
          $(PREFIX)/lib/curry/Prelude.curry         \
          $(PREFIX)/lib/curry/.curry/Prelude.fcy    \
          $(PREFIX)/lib/curry/.curry/Prelude.fint   \

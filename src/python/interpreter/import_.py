@@ -137,17 +137,17 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
   return nodeinfo
 
 @visitation.dispatch.on('arg')
-@utility.format_docstring(__package__[:__package__.find('.')])
-def import_(interp, arg, currypath=None, extern=True, export=(), alias=()):
+@utility.formatDocstring(__package__[:__package__.find('.')])
+def import_(interp, arg, currypath=None, extern=True, export=(), alias=(), is_sourcefile=False):
   '''
   Import one or more Curry modules.
 
   Parameters:
   -----------
   ``arg``
-      A module descriptor indicating what to import.  A module descriptor is
-      a module name (string), ``{0}.icurry.IModule`` object, or a sequence
-      of module descriptors.
+      A module descriptor indicating what to import.  A module descriptor is a
+      module name (string), ``{0}.icurry.IModule`` object, or a sequence of
+      module descriptors.
   ``currypath``
       The search path for Curry files.  By default, ``self.path`` is used.
   ``extern``
@@ -160,6 +160,9 @@ def import_(interp, arg, currypath=None, extern=True, export=(), alias=()):
       A set of name-target pairs specifying aliases.  For each alias, the
       module produced will have a binding called ``name`` referring to
       ``target``.
+  ``is_sourcefile``
+      Indicates whether to interpret ``arg`` as a sourcefile name rather than a
+      module name.
 
   Returns:
   --------
@@ -168,13 +171,13 @@ def import_(interp, arg, currypath=None, extern=True, export=(), alias=()):
   raise TypeError('cannot import type "%s"' % type(arg).__name__)
 
 @import_.when(str)
-def import_(interp, modulename, currypath=None, **kwds):
+def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
   try:
-    return interp.modules[modulename]
+    return interp.modules[name]
   except KeyError:
-    logger.debug('Importing %s' % modulename)
+    logger.debug('Importing %s' % name)
     currypath = parameters.currypath(interp, currypath)
-    icur = importer.getICurryForModule(modulename, currypath)
+    icur = importer.getICurryForModule(name, currypath, is_sourcefile=is_sourcefile)
     return import_(interp, icur, **kwds)
 
 @import_.when(collections.Sequence, no=str)
