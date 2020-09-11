@@ -8,10 +8,14 @@ can be extremely slow depending on the Curry system used and its configuration.
 
 import cPickle as pickle
 import cStringIO
+import logging
 import os
 import warnings
 
+logger = logging.getLogger(__name__)
+
 _curry2jsoncache_ = 'uninit' # 'uninit', None (disabled), or sqlite3.Connection.
+filename = None
 
 try:
   import sqlite3
@@ -47,8 +51,8 @@ def _getdb():
   '''
   global _curry2jsoncache_
   if _curry2jsoncache_ == 'uninit':
-    db = os.environ.get('SPRITE_CACHE_FILE', '')
-    if db == '':
+    name = os.environ.get('SPRITE_CACHE_FILE', None)
+    if name == '':
       _curry2jsoncache_ = None
       return
     if 'HOME' not in os.environ:
@@ -58,9 +62,13 @@ def _getdb():
         )
       _curry2jsoncache_ = None
       return
-    if db is None:
-      db = os.path.join(getuserdir(), 'cache.db')
-    _curry2jsoncache_ = sqlite3.connect(db)
+    if name is None:
+      name = os.path.join(getuserdir(), 'cache.db')
+    _curry2jsoncache_ = sqlite3.connect(name)
+    global filename
+    filename = name
+    if logger.isEnabledFor(logging.DEBUG):
+      logger.debug('Using cache file %s' % name)
   return _curry2jsoncache_
 
 
@@ -110,10 +118,10 @@ class Curry2JsonCache(object):
 
   def __nonzero__(self):
     return self.found
-  
+
   def update(self):
     '''
-    Updates the cache with the contents of ``jsonfile``, which as passed to the
+    Updates the cache with the contents of ``jsonfile``, which are passed to the
     constructor.
     '''
     assert not self.found
@@ -151,7 +159,7 @@ class ParsedJson(object):
         st = os.stat(self.jsonfile)
         if int(st.st_mtime) == ts:
           self.icur = pickle.load(cStringIO.StringIO(buf))
-    
+
   def __nonzero__(self):
     return self.icur is not None
 
@@ -161,8 +169,8 @@ class ParsedJson(object):
       pickled = pickle.dumps(icur, protocol=-1)
       st = os.stat(self.jsonfile)
       self.cur.execute(
-          '''INSERT INTO parsedjson(jsonfile, timestamp, pickled) VALUES(?, ?, ?)'''
+          '''INSERT OR REPLACE INTO parsedjson(jsonfile, timestamp, pickled) VALUES(?, ?, ?)'''
         , (self.jsonfile, int(st.st_mtime), sqlite3.Binary(pickled))
         )
       self.db.commit()
-    
+
