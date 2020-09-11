@@ -3,7 +3,7 @@ from . import module as cymodule
 from .. import icurry
 
 def module(interp, name):
-  '''Look up a module by name.'''
+  '''Look up a module by name, or as the prefix of a qualified name.'''
   iname = icurry.IName(name)
   try:
     return interp.modules[iname.module]

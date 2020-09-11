@@ -27,10 +27,12 @@ class Interpreter(object):
           Indicates the conversion to apply to results of eval.
       ``trace`` (True|*False*)
           Shows the effect of each step in a computation.
+      ``lazycompile`` (*True*|False)
+          Delays compilation of functions until they are needed.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
-    self.flags = {'debug':True, 'defaultconverter':None, 'trace':False}
+    self.flags = {'debug':True, 'defaultconverter':None, 'trace':False, 'lazycompile':True}
     self.flags.update(flags)
     self._stepper = runtime.get_stepper(self)
     self.stepcounter = runtime.StepCounter()

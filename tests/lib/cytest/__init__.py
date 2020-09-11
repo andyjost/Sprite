@@ -138,7 +138,7 @@ def hardreset(f):
 class TestCase(unittest.TestCase):
   '''A base test case class for testing Sprite.'''
   def tearDown(self):
-    curry.reset() # Undo, e.g.,  path and I/O modifications after each test.
+    curry.reset() # Undo, e.g., path and I/O modifications after each test.
 
   def compareEqualToFile(self, objs, filename, update=False):
     '''

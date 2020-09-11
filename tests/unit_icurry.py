@@ -76,7 +76,8 @@ class ICurryTestCase(cytest.TestCase):
       del sys.modules['curry.lib.helloExternal']
     except KeyError:
       pass
-    with binding(function_compiler.__dict__, 'logger', logger):
+    with binding(function_compiler.__dict__, 'logger', logger) \
+       , binding(curry.flags, 'lazycompile', False):
       from curry.lib import helloExternal
     self.assertTrue(getattr(logger, 'passed', False))
 

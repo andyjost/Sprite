@@ -137,6 +137,8 @@ def curry2json(curryfile, currypath):
   The JSON file name.
   '''
   jsonfile = jsonFilename(curryfile)
+  if logger.isEnabledFor(logging.DEBUG):
+    logger.debug('Calling curry2json to convert %s to %s' % (curryfile, jsonfile))
   assert not os.path.exists(jsonfile) or newer(curryfile, jsonfile)
   sink = open('/dev/null', 'w')
   with binding(os.environ, 'TARGET_CURRYPATH', ':'.join(currypath)) \
@@ -190,11 +192,15 @@ def getICurryFromJson(jsonfile):
   Reads an ICurry-JSON file and returns the ICurry.  The file
   must contain one Curry module.
   '''
-  logger.debug('Reading ICurry-JSON from %s' % jsonfile)
   assert os.path.exists(jsonfile)
   cached = cache.ParsedJson(jsonfile)
   if cached:
+    if logger.isEnabledFor(logging.DEBUG):
+      logger.debug('Loading ICurry-JSON for %s from %s' % (jsonfile, cache.filename))
     return cached.icur
+  else:
+    if logger.isEnabledFor(logging.DEBUG):
+      logger.debug('Reading ICurry-JSON from %s' % jsonfile)
   icur, = icurry.parse(open(jsonfile, 'r').read())
   icur.filename = curryFilename(jsonfile)
   cached.update(icur)
@@ -219,7 +225,8 @@ def getICurryForModule(name, currypath, **kwds):
   The name of the ICurry-JSON file.
   '''
   filename = findOrBuildICurry(name, currypath, **kwds)
-  logger.debug('Found module %s at %s' % (name, filename))
+  if logger.isEnabledFor(logging.DEBUG):
+    logger.debug('Found module %s at %s' % (name, filename))
   return getICurryFromJson(filename)
 
 class TmpDir(TemporaryDirectory):

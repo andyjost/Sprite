@@ -119,7 +119,10 @@ in the environment.
         Used at: src/python/__init__.py
 
         Overrides default flags in `curry.interpreter.Interpreter``.  A
-        comma-separated list of colon-separated pairs.
+        comma-separated list of colon-separated pairs.  Use the following
+        command to see a list of all flags:
+
+            % python -c 'import curry; help(curry.interpreter.Interpreter)'
 
         Example: SPRITE_INTERPRETER_FLAGS=trace:True,debug:True
 
@@ -128,9 +131,9 @@ in the environment.
         Default: $HOME/.sprite/cache.db
         Used at: src/python/cache.py
 
-        Specifies the cache database file.  Conversions, such as from Curry to
-        JSON, are cached, since they are expensive.  Can be used to specify the
-        cache file.  If set to the empty string, caching is disabled.
+        Specifies the cache database file.  Expensive conversions, such as from
+        ICurry-JSON to Python, are cached.  Can be used to specify the cache
+        file.  If set to the empty string, caching is disabled.
 
 
 6. Bug Reporting

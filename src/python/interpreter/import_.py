@@ -5,9 +5,7 @@ from . import module
 from . import parameters
 from . import runtime
 from . import show
-from .. import utility
-from ..utility import encoding
-from ..utility import visitation
+from ..utility import encoding, visitation, formatDocstring
 import collections
 import logging
 
@@ -37,9 +35,9 @@ def insertSymbol(module, basename, nodeinfo, private=False):
   --------
   Nothing.
   '''
-  logging.debug(
-      'Inserting symbol %s into module %s' % (basename, module.__name__)
-    )
+  # logging.debug(
+  #     'Inserting symbol %s into module %s' % (basename, module.__name__)
+  #   )
   getattr(module, '.symbols')[basename] = nodeinfo
   if not private and encoding.isaCurryIdentifier(basename):
     setattr(module, basename, nodeinfo)
@@ -137,7 +135,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
   return nodeinfo
 
 @visitation.dispatch.on('arg')
-@utility.formatDocstring(__package__[:__package__.find('.')])
+@formatDocstring(__package__[:__package__.find('.')])
 def import_(interp, arg, currypath=None, extern=True, export=(), alias=(), is_sourcefile=False):
   '''
   Import one or more Curry modules.
@@ -175,7 +173,8 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
   try:
     return interp.modules[name]
   except KeyError:
-    logger.debug('Importing %s' % name)
+    if logger.isEnabledFor(logging.DEBUG):
+      logger.debug('Importing %s' % name)
     currypath = parameters.currypath(interp, currypath)
     icur = importer.getICurryForModule(name, currypath, is_sourcefile=is_sourcefile)
     return import_(interp, icur, **kwds)
@@ -217,7 +216,15 @@ def compileICurry(interp, imodule, moduleobj, extern=None):
 @compileICurry.when(icurry.IFunction)
 def compileICurry(interp, ifun, moduleobj, extern=None):
   info = module.symbol(moduleobj, ifun.ident).info
-  info.step = function_compiler.compile_function(interp, ifun, extern)
+  # Compile interactive code right away.  Otherwise, if lazycompile is set,
+  # delay compilation until the function is actually used.  See InfoTable in
+  # interpreter/runtime.py.
+  if interp.flags['lazycompile'] and '_interactive_' not in interp.modules:
+    # Delayed.
+    info.step = function_compiler.compile_function, interp, ifun, extern
+  else:
+    # Immediate.
+    info.step = function_compiler.compile_function(interp, ifun, extern)
 
 def _no_step(*args, **kwds):
   pass

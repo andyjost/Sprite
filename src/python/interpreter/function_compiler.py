@@ -1,8 +1,7 @@
 from .. import icurry
 from .. import importer
 from . import runtime
-from ..utility import encoding
-from ..utility import visitation
+from ..utility import encoding, visitation, formatDocstring
 import collections
 import logging
 import pprint
@@ -18,8 +17,21 @@ class ExternallyDefined(Exception):
   def __init__(self, ifun):
     self.ifun = ifun
 
+@formatDocstring(__package__[:__package__.find('.')])
 def compile_function(interp, ifun, extern=None):
-  '''Compiles an ICurry function into a Python step function.'''
+  '''
+  Compiles an ICurry function into a Python step function.
+
+  Parameters:
+  -----------
+  ``interp``
+      The interpreter that owns this function.
+  ``ifunc``
+      ICurry for the function to compile.
+  ``extern``
+      An instance of ``{0}.icurry.IModule`` used to resolve external
+      declarations.
+  '''
   while True:
     try:
       assert isinstance(ifun, icurry.IFunction)

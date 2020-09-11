@@ -1,14 +1,15 @@
 import cytest # from ./lib; must be first
-import cytest.step
-from curry.interpreter import conversions
 from curry import icurry
 from curry import inspect
 from curry import interpreter
+from curry.interpreter import conversions
 from curry.interpreter import runtime
+from curry.utility.binding import binding
 from cytest import bootstrap
 from glob import glob
 import curry
 import curry.interpreter.prelude
+import cytest.step
 import os
 import unittest
 
@@ -184,8 +185,8 @@ class TestPyRuntime(cytest.TestCase):
         '''
       )
     read = inspect.getreadable(module)
-    self.assertTrue(os.path.exists(read))
-    self.assertTrue(read.endswith('.read'))
+    self.assertTrue(read is None or os.path.exists(read))
+    self.assertTrue(read is None or read.endswith('.read'))
     #
     json = inspect.getjson(module)
     self.assertTrue(os.path.exists(json))
