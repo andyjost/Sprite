@@ -1,4 +1,5 @@
-SUBMODULES := src
+SUBMODULES := src doc
+
 DIRS_TO_CLEAN += $(OBJECT_ROOT)
 include Make.include
 
@@ -12,6 +13,34 @@ $(OBJECT_ROOT)/CMC:
 .PHONY: MANIFEST
 MANIFEST:
 	cd $(PREFIX) && tree -anps -o $(ROOT_DIR)/MANIFEST
+
+# Usage
+# =====
+.PHONY: help
+help:
+	@echo "Usage: make [target ...] [var=value ...]"
+	@echo "Build targets:"
+	@echo "    all     : build objects, libraries, and executables"
+	@echo "    clean   : remove generated files"
+	@echo "    objs    : compile object files"
+	@echo "    libs    : compile and link static libraries"
+	@echo "    shlibs  : compile and link shared libraries"
+	@echo ""
+	@echo "Install targets:"
+	@echo "    install PREFIX=<dirname>   : install files under <dirname>"
+	@echo "    uninstall PREFIX=<dirname> : uninstall files under <dirname>"
+	@echo ""
+	@echo "Debug targets:"
+	@echo "    print-<varname>: print the value of make variable <varname>"
+	@echo ""
+	@echo "Example:"
+	@echo "    make all"
+	@echo "    make install ~/sprite  --install under home directory"
+	@echo ""
+	@echo "For testing information, please see tests/README."
+	@echo ""
+	@echo "To build documentation, add WITHDOC=1 to the commandline or invoke"
+	@echo "make from the doc/ subdirectory."
 
 ifdef PYTHON_EXECUTABLE
 $(PREFIX)/bin:

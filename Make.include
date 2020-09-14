@@ -53,41 +53,15 @@ CFLAGS   += -I$(ROOT_DIR)/src -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH) \
 LDFLAGS  += -L $(LLVM_LIBRARY_PATH) -L $(PYTHON_LIBRARY_PATH) -L $(BOOST_HOME)/lib \
             -Wl,-rpath=$(LLVM_LIBRARY_PATH) -Wl,-rpath=$(PYTHON_LIBRARY_PATH) -Wl,-rpath=$(BOOST_HOME)/lib
 
-# Usage
-# =====
-.PHONY: usage
-usage: # DEFAULT RULE
-	@echo "Usage: make [target ...] [var=value ...]"
-	@echo "Build targets:"
-	@echo "    all     : compile and link all objects and executables"
-	@echo "    clean   : remove generated files"
-	@echo "    objs    : compile object files"
-	@echo "    libs    : compile and link static libraries"
-	@echo "    shlibs  : compile and link shared libraries"
-	@echo ""
-	@echo "Install targets:"
-	@echo "    install PREFIX=<dirname>   : install files under <dirname>"
-	@echo "    uninstall PREFIX=<dirname> : uninstall files under <dirname>"
-	@echo ""
-	@echo "Debug targets:"
-	@echo "    print-<varname>: print the value of make variable <varname>"
-	@echo ""
-	@echo "Example:"
-	@echo "    make all"
-	@echo "    make install ~/sprite  --install under home directory"
-	@echo ""
-	@echo "For testing information, please see tests/README."
-
-.PHONY: help
-help: | usage
-
 # Recursion
 # =========
 # For defined submodules (default: all directories) and certain targets,
-# recursively invoke make.
-ifndef SUBMODULES
+# recursively invoke make.  By default, all subdirectories are submodules.  To
+# change this, submakefiles should set SUBMODULES before including this file.
+ifeq ($(flavor SUBMODULES),undefined)
   SUBMODULES = $(dir $(wildcard */.))
 endif
+
 RECURSIVE_TARGETS := all clean install libs objs shlibs uninstall test
 .PHONY: $(RECURSIVE_TARGETS) $(SUBMODULES)
 $(RECURSIVE_TARGETS): | $(SUBMODULES)
