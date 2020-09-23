@@ -1,7 +1,7 @@
 #pragma once
 #include "sprite/llvm/type.hpp"
 #include "sprite/llvm/value.hpp"
-#include <boost/preprocessor/seq/enum.hpp>
+#include "boost/preprocessor/seq/enum.hpp"
 
 namespace sprite { namespace llvm
 {

@@ -45,13 +45,24 @@ ifndef PYTHON_LIBRARY
   PYTHON_LIBRARY := $(PYTHON_VERSION)
 endif
 
+ifndef BOOST_INCLUDE_PATH
+  BOOST_INCLUDE_PATH := $(BOOST_HOME)/include
+endif
+
+ifndef BOOST_LIBRARY_PATH
+  BOOST_LIBRARY_PATH := $(BOOST_HOME)/lib
+endif
+
+ifndef BOOST_PYTHON_LIBRARY
+  BOOST_PYTHON_LIBRARY := boost_python27
+endif
 
 # Compiler flags
 # ==============
 CFLAGS   += -I$(ROOT_DIR)/src -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH) \
             -I$(BOOST_HOME)/include -I$(PYTHON_INCLUDE_PATH)
-LDFLAGS  += -L $(LLVM_LIBRARY_PATH) -L $(PYTHON_LIBRARY_PATH) -L $(BOOST_HOME)/lib \
-            -Wl,-rpath=$(LLVM_LIBRARY_PATH) -Wl,-rpath=$(PYTHON_LIBRARY_PATH) -Wl,-rpath=$(BOOST_HOME)/lib
+LDFLAGS  += -L $(LLVM_LIBRARY_PATH) -L $(PYTHON_LIBRARY_PATH) -L $(BOOST_LIBRARY_PATH) \
+            -Wl,-rpath=$(LLVM_LIBRARY_PATH) -Wl,-rpath=$(PYTHON_LIBRARY_PATH) -Wl,-rpath=$(BOOST_LIBRARY_PATH)
 
 # Recursion
 # =========
@@ -68,29 +79,9 @@ $(RECURSIVE_TARGETS): | $(SUBMODULES)
 $(SUBMODULES):
 	$(MAKE) -C $@ $(MAKECMDGOALS)
 
-
-# Installation checks
-# ===================
-# Validate PREFIX.
-ifndef PREFIX
-  # Should never happen
-  $(error PREFIX is not defined.  Please specify it when invoking make))
-endif
-ifneq ($(shell test -d $(PREFIX) -o \! -e $(PREFIX); echo $$?),0)
-  $(error PREFIX "$(PREFIX)" exists but is not a directory)
-endif
-1 = $(shell echo $(PREFIX)) # expand ~
-2 = $(shell python -c 'from __future__ import print_function; \
-                       import os;                             \
-                       print(os.path.isabs("""$1"""))         \
-                       ')
-ifneq ($(strip $2),True)
-  $(error PREFIX must be an absolute path)
-endif
-
-
 # Debugging
 # =========
 # E.g., print-ROOT_DIR
 print-% : ; $(info $* is a $(flavor $*) variable set to [$($*)]) @true
 
+include $(ROOT_DIR)/Make.validate

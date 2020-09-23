@@ -1,7 +1,9 @@
 #!/bin/bash
-# Configures Sprite and then invokes the program named by .bin/$0.  This is
-# used by creating a link to this script whose name is the name of the program
-# to invoke.
+# Configures the environment to run Sprite and then invokes another program.
+# There are two ways to use this.  If a link to this script with name $name is
+# invoked, then ../.bin/$name will be invoked.  If this script is invoked
+# directly, then the first argument is the program name and the remaining
+# arguments are passed to that program.
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOT=$( realpath $DIR/.. )
 #
@@ -17,4 +19,8 @@ dir=$ROOT/lib/curry
 test -d $dir || ( echo 2>&1 "Curry library not found at \"$dir\"."; exit 1 )
 export CURRYPATH=$dir:$CURRYPATH
 #
-exec $DIR/../.bin/$(basename $0) "$@"
+if [ "$(basename $0)" == ".invoker" ]; then
+  exec $1 "${@: 2}"
+else
+  exec $DIR/../.bin/$(basename $0) "$@"
+fi

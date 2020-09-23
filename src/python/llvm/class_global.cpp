@@ -1,5 +1,5 @@
-#include <boost/python.hpp>
-#include <boost/python/enum.hpp>
+#include "boost/python.hpp"
+#include "boost/python/enum.hpp"
 #include "sprite/llvm/module.hpp"
 #include "sprite/llvm/type.hpp"
 #include "sprite/llvm/value.hpp"

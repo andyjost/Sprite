@@ -5,7 +5,7 @@
 
 #pragma once
 #include <array>
-#include <boost/preprocessor.hpp>
+#include "boost/preprocessor.hpp"
 #include "llvm/IR/Type.h"
 #include "sprite/misc/typenames.hpp"
 

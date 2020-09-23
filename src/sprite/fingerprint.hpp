@@ -60,9 +60,9 @@
 // #define FP_CACHE_DIAGNOSTICS
 
 #include <cassert>
-#include <boost/integer.hpp>
-#include <boost/integer/static_log2.hpp>
-#include <boost/pool/pool.hpp>
+#include "boost/integer.hpp"
+#include "boost/integer/static_log2.hpp"
+#include "boost/pool/pool.hpp"
 
 namespace sprite
 {

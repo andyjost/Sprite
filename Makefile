@@ -1,4 +1,4 @@
-SUBMODULES := src doc
+SUBMODULES := src
 
 DIRS_TO_CLEAN += $(OBJECT_ROOT)
 include Make.include
@@ -39,8 +39,8 @@ help:
 	@echo ""
 	@echo "For testing information, please see tests/README."
 	@echo ""
-	@echo "To build documentation, add WITHDOC=1 to the commandline or invoke"
-	@echo "make from the doc/ subdirectory."
+	# @echo "To build documentation, add WITHDOC=1 to the commandline or invoke"
+	# @echo "make from the docs/ subdirectory."
 
 ifdef PYTHON_EXECUTABLE
 $(PREFIX)/bin:

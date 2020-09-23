@@ -1,11 +1,11 @@
 #pragma once
-#include <boost/python.hpp>
+#include "boost/python.hpp"
 //
-#include <boost/mpl/for_each.hpp>
-#include <boost/mpl/identity.hpp>
-#include <boost/python/stl_iterator.hpp>
-#include <boost/variant.hpp>
-#include <boost/none.hpp>
+#include "boost/mpl/for_each.hpp"
+#include "boost/mpl/identity.hpp"
+#include "boost/python/stl_iterator.hpp"
+#include "boost/variant.hpp"
+#include "boost/none.hpp"
 
 #define DECL_PYTHON_CONVERSION(name, type, prereqs)              \
     struct name {                                                \

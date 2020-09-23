@@ -1,5 +1,5 @@
 #pragma once
-#include <boost/python.hpp>
+#include "boost/python.hpp"
 
 namespace sprite { namespace python
 {

@@ -6,7 +6,7 @@
 #pragma once
 #include <string>
 #include <exception>
-#include <boost/format.hpp>
+#include "boost/format.hpp"
 #include "llvm/ADT/Twine.h"
 
 namespace sprite { namespace llvm
