@@ -3,17 +3,32 @@
 SUBMODULES :=
 include Make.include
 
+ifeq ($(shell [ -x $(PREFIX)/bin/.invoker ] && [ -f $(PREFIX)/bin/.invoker ]; echo $$?),1)
+  $(error Not an executable file: $(PREFIX)/bin/.invoker.  Please install Sprite before building the documentation.)
+endif
+
 # You can set these variables from the command line.
 SPHINXOPTS    =
-SPHINXBUILD   = sphinx-build
-PAPER         =
-BUILDDIR      = $(OBJECT_ROOT)/doc
-INSTALLDIR    = $(PREFIX)/doc
-
-# User-friendly check for sphinx-build
-ifeq ($(shell which $(SPHINXBUILD) >/dev/null 2>&1; echo $$?), 1)
-$(error The \'$(SPHINXBUILD)\' command was not found. Make sure you have Sphinx installed, then set the SPHINXBUILD environment variable to point to the full path of the \'$(SPHINXBUILD)\' executable. Alternatively you can add the directory with the executable to your PATH. If you don\'t have Sphinx installed, grab it from http://sphinx-doc.org/)
+ifndef SPHINXBUILD
+  SPHINXBUILD := $(PREFIX)/bin/python -m sphinx
 endif
+ifndef SPHINXAPIDOC
+  SPHINXAPIDOC := $(PREFIX)/bin/python -m sphinx.ext.apidoc
+endif
+PAPER         =
+BUILDDIR      = $(OBJECT_ROOT)/docs
+INSTALLDIR    = $(PREFIX)/docs
+
+# User-friendly checks for sphinx-build and sphinx-apidoc
+# ifeq ($(shell which $(SPHINXBUILD) >/dev/null 2>&1; echo $$?), 1)
+# $(error The \'$(SPHINXBUILD)\' command was not found. Make sure you have Sphinx installed, then set the SPHINXBUILD environment variable to point to the full path of the \'$(SPHINXBUILD)\' executable. Alternatively you can add the directory with the executable to your PATH. If you don\'t have Sphinx installed, grab it from http://sphinx-doc.org/)
+# endif
+# ifeq ($(shell which $(SPHINXAPIDOC) >/dev/null 2>&1; echo $$?), 1)
+# $(error The \'$(SPHINXAPIDOC)\' command was not found. Make sure you have Sphinx installed, then set the SPHINXAPIDOC environment variable to point to the full path of the \'$(SPHINXAPIDOC)\' executable. Alternatively you can add the directory with the executable to your PATH. If you don\'t have Sphinx installed, grab it from http://sphinx-doc.org/)
+# endif
+
+# SPHINXBUILD := $(PREFIX)/bin/.invoker $(SPHINXBUILD)
+# SPHINXAPIDOC := $(PREFIX)/bin/.invoker $(SPHINXAPIDOC)
 
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
@@ -24,36 +39,42 @@ I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
 # To build or install documentation, either WITHDOC must be set or make must
 # have been invoked from this directory.
-ifeq ($(MAKELEVEL),0)
-  DOCS_ENABLED = 1
-else
-  ifdef WITHDOC
-    DOCS_ENABLED = 1
-  endif
-endif
+# ifeq ($(MAKELEVEL),0)
+#   DOCS_ENABLED = 1
+# else
+#   ifdef WITHDOC
+#     DOCS_ENABLED = 1
+#   endif
+# endif
 
 .PHONY: all
-ifdef DOCS_ENABLED
+# ifdef DOCS_ENABLED
 all: html man info
-else
-all:
-endif
+# else
+# all:
+# endif
 
 $(INSTALLDIR):
 	mkdir -p $@
 
+.PHONY: apidoc
+apidoc:
+	$(SPHINXAPIDOC) -f -o source $(PREFIX)/lib/python2.7/$(PYTHON_PACKAGE_NAME)
+	# $(PREFIX)/bin/python -m sphinx.ext.apidoc -f -o source $(PREFIX)/lib/python2.7/$(PYTHON_PACKAGE_NAME)
+
 .PHONY: install
-ifdef DOCS_ENABLED
+# ifdef DOCS_ENABLED
 install: all $(INSTALLDIR)
 	rsync -az $(BUILDDIR)/ $(INSTALLDIR)
-else
-install:
-endif
+# else
+# install:
+# endif
 
 .PHONY: help
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  all        to make the default documentation"
+	@echo "  apidocc    to run sphinx-apidoc to update the modules .rst files'
 	@echo '  install    to install documentation under $$PREFIX [$(PREFIX)]'
 	@echo '  uninstall  to uninstall documentation under $$PREFIX [$(PREFIX)]'
 	@echo "  html       to make standalone HTML files"
@@ -90,44 +111,44 @@ clean:
 	rm -rf $(BUILDDIR)/*
 
 .PHONY: html
-html:
+html: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
 .PHONY: dirhtml
-dirhtml:
+dirhtml: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/dirhtml."
 
 .PHONY: singlehtml
-singlehtml:
+singlehtml: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b singlehtml $(ALLSPHINXOPTS) $(BUILDDIR)/singlehtml
 	@echo
 	@echo "Build finished. The HTML page is in $(BUILDDIR)/singlehtml."
 
 .PHONY: pickle
-pickle:
+pickle: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b pickle $(ALLSPHINXOPTS) $(BUILDDIR)/pickle
 	@echo
 	@echo "Build finished; now you can process the pickle files."
 
 .PHONY: json
-json:
+json: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b json $(ALLSPHINXOPTS) $(BUILDDIR)/json
 	@echo
 	@echo "Build finished; now you can process the JSON files."
 
 .PHONY: htmlhelp
-htmlhelp:
+htmlhelp: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b htmlhelp $(ALLSPHINXOPTS) $(BUILDDIR)/htmlhelp
 	@echo
 	@echo "Build finished; now you can run HTML Help Workshop with the" \
 	      ".hhp project file in $(BUILDDIR)/htmlhelp."
 
 .PHONY: qthelp
-qthelp:
+qthelp: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b qthelp $(ALLSPHINXOPTS) $(BUILDDIR)/qthelp
 	@echo
 	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
@@ -137,7 +158,7 @@ qthelp:
 	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/Sprite.qhc"
 
 .PHONY: applehelp
-applehelp:
+applehelp: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b applehelp $(ALLSPHINXOPTS) $(BUILDDIR)/applehelp
 	@echo
 	@echo "Build finished. The help book is in $(BUILDDIR)/applehelp."
@@ -146,7 +167,7 @@ applehelp:
 	      "bundle."
 
 .PHONY: devhelp
-devhelp:
+devhelp: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b devhelp $(ALLSPHINXOPTS) $(BUILDDIR)/devhelp
 	@echo
 	@echo "Build finished."
@@ -156,13 +177,13 @@ devhelp:
 	@echo "# devhelp"
 
 .PHONY: epub
-epub:
+epub: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b epub $(ALLSPHINXOPTS) $(BUILDDIR)/epub
 	@echo
 	@echo "Build finished. The epub file is in $(BUILDDIR)/epub."
 
 .PHONY: latex
-latex:
+latex: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
 	@echo
 	@echo "Build finished; the LaTeX files are in $(BUILDDIR)/latex."
@@ -170,33 +191,33 @@ latex:
 	      "(use \`make latexpdf' here to do that automatically)."
 
 .PHONY: latexpdf
-latexpdf:
+latexpdf: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
 	@echo "Running LaTeX files through pdflatex..."
 	$(MAKE) -C $(BUILDDIR)/latex all-pdf
 	@echo "pdflatex finished; the PDF files are in $(BUILDDIR)/latex."
 
 .PHONY: latexpdfja
-latexpdfja:
+latexpdfja: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
 	@echo "Running LaTeX files through platex and dvipdfmx..."
 	$(MAKE) -C $(BUILDDIR)/latex all-pdf-ja
 	@echo "pdflatex finished; the PDF files are in $(BUILDDIR)/latex."
 
 .PHONY: text
-text:
+text: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b text $(ALLSPHINXOPTS) $(BUILDDIR)/text
 	@echo
 	@echo "Build finished. The text files are in $(BUILDDIR)/text."
 
 .PHONY: man
-man:
+man: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b man $(ALLSPHINXOPTS) $(BUILDDIR)/man
 	@echo
 	@echo "Build finished. The manual pages are in $(BUILDDIR)/man."
 
 .PHONY: texinfo
-texinfo:
+texinfo: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) $(BUILDDIR)/texinfo
 	@echo
 	@echo "Build finished. The Texinfo files are in $(BUILDDIR)/texinfo."
@@ -204,51 +225,51 @@ texinfo:
 	      "(use \`make info' here to do that automatically)."
 
 .PHONY: info
-info:
+info: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) $(BUILDDIR)/texinfo
 	@echo "Running Texinfo files through makeinfo..."
 	make -C $(BUILDDIR)/texinfo info
 	@echo "makeinfo finished; the Info files are in $(BUILDDIR)/texinfo."
 
 .PHONY: gettext
-gettext:
+gettext: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b gettext $(I18NSPHINXOPTS) $(BUILDDIR)/locale
 	@echo
 	@echo "Build finished. The message catalogs are in $(BUILDDIR)/locale."
 
 .PHONY: changes
-changes:
+changes: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b changes $(ALLSPHINXOPTS) $(BUILDDIR)/changes
 	@echo
 	@echo "The overview file is in $(BUILDDIR)/changes."
 
 .PHONY: linkcheck
-linkcheck:
+linkcheck: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b linkcheck $(ALLSPHINXOPTS) $(BUILDDIR)/linkcheck
 	@echo
 	@echo "Link check complete; look for any errors in the above output " \
 	      "or in $(BUILDDIR)/linkcheck/output.txt."
 
 .PHONY: doctest
-doctest:
+doctest: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."
 
 .PHONY: coverage
-coverage:
+coverage: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b coverage $(ALLSPHINXOPTS) $(BUILDDIR)/coverage
 	@echo "Testing of coverage in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/coverage/python.txt."
 
 .PHONY: xml
-xml:
+xml: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b xml $(ALLSPHINXOPTS) $(BUILDDIR)/xml
 	@echo
 	@echo "Build finished. The XML files are in $(BUILDDIR)/xml."
 
 .PHONY: pseudoxml
-pseudoxml:
+pseudoxml: $(CURRYPY_SOURCE_LINK)
 	$(SPHINXBUILD) -b pseudoxml $(ALLSPHINXOPTS) $(BUILDDIR)/pseudoxml
 	@echo
 	@echo "Build finished. The pseudo-XML files are in $(BUILDDIR)/pseudoxml."

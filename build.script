@@ -8,7 +8,17 @@ echo
 echo 'make objs'
 make objs
 echo
+echo 'make libs'
+make libs
+echo
 echo 'Installation PREFIX='`make print-PREFIX`
 echo 'make install'
 make install
+echo
+echo '(cd docs; make install)'
+(cd docs; make install)
+echo
+echo 'make MANIFEST'
+make MANIFEST
+
 
