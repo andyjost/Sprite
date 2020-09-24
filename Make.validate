@@ -59,10 +59,6 @@ ifeq ($(shell [ -f $(PYTHON_EXECUTABLE) ] && [ -x $(PYTHON_EXECUTABLE) ]; echo $
   $(error Not an executable file: PYTHON_EXECUTABLE=$(PYTHON_EXECUTABLE).  Please check your Python installation.)
 endif
 
-ifeq ($(shell [ -f $(PYTHON_COVERAGE_EXECUTABLE) ] && [ -x $(PYTHON_COVERAGE_EXECUTABLE) ]; echo $$?),1)
-  $(error Not an executable file: PYTHON_COVERAGE_EXECUTABLE=$(PYTHON_COVERAGE_EXECUTABLE)$nPerhaps you need to install it: $(PYTHON_HOME)/bin/pip install coverage)
-endif
-
 ifeq ($(shell [ -d $(CMC_HOME) ]; echo $$?),1)
   $(error Not a directory: CMC_HOME=$(CMC_HOME)$nPlease check your CMC installation.)
 endif

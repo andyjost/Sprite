@@ -54,7 +54,14 @@ $(PREFIX)/bin/python : | $(PREFIX)/bin
 $(PREFIX)/bin/coverage : | $(PREFIX)/bin
 	ln -s .invoker $@
 $(PREFIX)/.bin/coverage : | $(PREFIX)/.bin
-	ln -s $(PYTHON_COVERAGE_EXECUTABLE) $@
+	@if [ ! -f $(PYTHON_COVERAGE_EXECUTABLE) ] || [ ! -x $(PYTHON_COVERAGE_EXECUTABLE) ]; then \
+	  echo 1>&2 "*** Not an executable file: PYTHON_COVERAGE_EXECUTABLE=$(PYTHON_COVERAGE_EXECUTABLE)"; \
+	  echo 1>&2 "    Perhaps you need to install it:"; \
+	  echo 1>&2 "        $(PYTHON_HOME)/bin/pip install coverage"; \
+	  echo 1>&2 "*** $@ is an invalid link"; \
+	else \
+	  ln -s $(PYTHON_COVERAGE_EXECUTABLE) $@; \
+  fi
 $(PREFIX)/.bin/curry2json : | $(PREFIX)/bin
 	ln -s $(CURRY2JSON) $@
 $(PREFIX)/bin/.invoker : $(ROOT_DIR)/src/export/invoker.script | $(PREFIX)/bin
