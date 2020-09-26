@@ -5,8 +5,9 @@ ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 OBJECT_ROOT := $(abspath $(ROOT_DIR)/object-root)
 include $(ROOT_DIR)/Make.config
 ifndef PREFIX
-  PREFIX = $(abspath $(ROOT_DIR)/install)
+  PREFIX := $(abspath $(ROOT_DIR)/install)
 endif
+MULTIARCH := $(shell $(CC) --print-multiarch)
 
 # Derived variables
 # =================
@@ -34,15 +35,19 @@ ifndef CURRY2JSON
   CURRY2JSON := $(CMC_HOME)/translator/bin/curry2json
 endif
 
-ifndef PYTHON_LIBRARY_PATH
-  # Added to LDFLAGS as -L$(PYTHON_LIBRARY_PATH) for certain targets.
-  # PYTHON_LIBRARY_PATH := /usr/lib/python2.7
-  PYTHON_LIBRARY_PATH := $(PYTHON_HOME)/lib
-endif
-
 ifndef PYTHON_LIBRARY
   # Added to LDFLAGS as -l$(PYTHON_LIBRARY) for certain targets.
   PYTHON_LIBRARY := $(PYTHON_VERSION)
+endif
+PYTHON_LIBRARY_NAME := lib$(PYTHON_LIBRARY).so
+
+ifndef PYTHON_LIBRARY_PATH
+  # Added to LDFLAGS as -L$(PYTHON_LIBRARY_PATH) for certain targets.
+  ifeq ($(shell [ -f $(PYTHON_HOME)/lib/$(MULTIARCH)/$(PYTHON_LIBRARY_NAME) ]; echo $$?),0)
+    PYTHON_LIBRARY_PATH := $(PYTHON_HOME)/lib/$(MULTIARCH)
+  else
+    PYTHON_LIBRARY_PATH := $(PYTHON_HOME)/lib
+  endif
 endif
 
 ifndef BOOST_INCLUDE_PATH
