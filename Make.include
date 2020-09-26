@@ -13,6 +13,10 @@ MULTIARCH := $(shell $(CC) --print-multiarch)
 # =================
 # Variables derived from Make.config variables.
 
+ifndef PYTHON_PACKAGE_NAME
+  PYTHON_PACKAGE_NAME := curry
+endif
+
 ifndef PYTHON_INCLUDE_PATH
   # Added to CFLAGS as -I$(PYTHON_INCLUDE_PATH) for certain targets.
   PYTHON_INCLUDE_PATH := $(PYTHON_HOME)/include/$(PYTHON_VERSION)
@@ -27,14 +31,6 @@ ifndef PYTHON_COVERAGE_EXECUTABLE
   PYTHON_COVERAGE_EXECUTABLE := $(PYTHON_HOME)/bin/coverage
 endif
 
-ifndef CMC_HOME
-  CMC_HOME := /home/andy/CMC
-endif
-
-ifndef CURRY2JSON
-  CURRY2JSON := $(CMC_HOME)/translator/bin/curry2json
-endif
-
 ifndef PYTHON_LIBRARY
   # Added to LDFLAGS as -l$(PYTHON_LIBRARY) for certain targets.
   PYTHON_LIBRARY := $(PYTHON_VERSION)
@@ -43,19 +39,33 @@ PYTHON_LIBRARY_NAME := lib$(PYTHON_LIBRARY).so
 
 ifndef PYTHON_LIBRARY_PATH
   # Added to LDFLAGS as -L$(PYTHON_LIBRARY_PATH) for certain targets.
-  ifeq ($(shell [ -f $(PYTHON_HOME)/lib/$(MULTIARCH)/$(PYTHON_LIBRARY_NAME) ]; echo $$?),0)
+  ifeq ($(shell [ -d $(PYTHON_HOME)/lib/$(MULTIARCH) ]; echo $$?),0)
     PYTHON_LIBRARY_PATH := $(PYTHON_HOME)/lib/$(MULTIARCH)
   else
     PYTHON_LIBRARY_PATH := $(PYTHON_HOME)/lib
   endif
 endif
 
+
+ifndef CMC_HOME
+  CMC_HOME := /home/andy/CMC
+endif
+
+ifndef CURRY2JSON
+  CURRY2JSON := $(CMC_HOME)/translator/bin/curry2json
+endif
+
+
 ifndef BOOST_INCLUDE_PATH
   BOOST_INCLUDE_PATH := $(BOOST_HOME)/include
 endif
 
 ifndef BOOST_LIBRARY_PATH
-  BOOST_LIBRARY_PATH := $(BOOST_HOME)/lib
+  ifeq ($(shell [ -d $(BOOST_HOME)/lib/$(MULTIARCH) ]; echo $$?),0)
+    BOOST_LIBRARY_PATH := $(BOOST_HOME)/lib/$(MULTIARCH)
+  else
+    BOOST_LIBRARY_PATH := $(BOOST_HOME)/lib
+  endif
 endif
 
 ifndef BOOST_PYTHON_LIBRARY
