@@ -59,7 +59,11 @@ ifndef BOOST_LIBRARY_PATH
 endif
 
 ifndef BOOST_PYTHON_LIBRARY
-  BOOST_PYTHON_LIBRARY := boost_python27
+  ifeq ($(shell [ -f $(BOOST_LIBRARY_PATH)/libboost_python27.so ]; echo $$?),0)
+    BOOST_PYTHON_LIBRARY := boost_python27
+  else
+    BOOST_PYTHON_LIBRARY := boost_python
+  endif
 endif
 
 # Compiler flags
