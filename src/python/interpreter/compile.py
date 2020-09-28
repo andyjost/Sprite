@@ -34,7 +34,10 @@ def compile(
   if mode == 'module':
     if modulename in interp.modules:
       raise ValueError('module "%s" is already defined' % modulename)
-    icur = importer.str2icurry(string, interp.path, modulename=modulename)
+    icur = importer.str2icurry(
+        string, interp.path, modulename=modulename
+      , keep_temp_files=interp.flags['keep_temp_files']
+      )
     try:
       module = interp.import_(icur)
       module.__file__ = icur.__file__
@@ -56,7 +59,10 @@ def compile(
       )
     stmts += ['%s = %s' % (compiled_name, string)]
     curry_code = '\n'.join(stmts)
-    icur = importer.str2icurry(curry_code, currypath)
+    icur = importer.str2icurry(
+        curry_code, currypath
+      , keep_temp_files=interp.flags['keep_temp_files']
+      )
     icur.functions[visible_ident] = icur.functions.pop(compiled_ident)
     icur.functions[visible_ident].ident = visible_ident
     module = interp.import_(icur)

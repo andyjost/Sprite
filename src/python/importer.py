@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from .exceptions import CompileError, ModuleLookupError
 from . import cache
 from . import icurry
+from .utility import filesys
 from .utility.binding import binding, del_
 from .utility.visitation import dispatch
 import inspect
@@ -11,6 +12,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import types
 
 logger = logging.getLogger(__name__)
@@ -143,6 +145,8 @@ def curry2json(curryfile, currypath):
   sink = open('/dev/null', 'w')
   with binding(os.environ, 'TARGET_CURRYPATH', ':'.join(currypath)) \
      , binding(os.environ, 'CURRYPATH', del_):
+    if logger.isEnabledFor(logging.DEBUG):
+      logger.debug('CURRYPATH is unset; TARGET_CURRYPATH = %s', os.environ['TARGET_CURRYPATH'])
     cached = cache.Curry2JsonCache(curryfile, jsonfile)
     if not cached:
       child = subprocess.Popen(
@@ -234,10 +238,16 @@ class TmpDir(TemporaryDirectory):
   Like TemporaryDirectory, but does not issue warnings when __del__ is used to
   clean up.
   '''
-  def __del__(self):
-    self.cleanup()
+  def __init__(self, *args, **kwds):
+    self.keep = kwds.pop('keep', False)
+    TemporaryDirectory.__init__(self, *args, **kwds)
 
-def str2icurry(string, currypath, modulename='_interactive_'):
+  def __del__(self):
+    if not self.keep:
+      self.cleanup()
+
+
+def str2icurry(string, currypath, modulename='_interactive_', keep_temp_files=False):
   '''
   Compile a string into ICurry.  The string is interpreted as a module
   definition.
@@ -246,7 +256,11 @@ def str2icurry(string, currypath, modulename='_interactive_'):
   --------
   The ICurry object.  The attributes __file__ and _tmpd_ will be set.
   '''
-  tmpd = TmpDir(prefix='sprite-')
+  if keep_temp_files and isinstance(keep_temp_files, str):
+    dir = filesys.getdir(keep_temp_files)
+  else:
+    dir = tempfile.gettempdir()
+  tmpd = TmpDir(prefix='sprite-', dir=dir, keep=bool(keep_temp_files))
   curryfile = os.path.join(tmpd.name, modulename + '.curry')
   with open(curryfile, 'w') as out:
     out.write(string)

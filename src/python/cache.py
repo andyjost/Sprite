@@ -11,6 +11,7 @@ import cStringIO
 import logging
 import os
 import warnings
+from .utility import filesys
 
 logger = logging.getLogger(__name__)
 
@@ -25,19 +26,11 @@ except ImportError:
 
 def getuserdir():
   '''
-  Ensures $HOME/.sprite exists as a readable directory.  Returns it as an
-  absolute path.
+  Ensures $HOME/.sprite exists as a readable, writable directory.  Returns it
+  as an absolute path.
   '''
-  if 'HOME' not in os.environ:
-    raise RuntimeError("HOME is not set in the environment.")
   path = os.path.join(os.environ['HOME'], '.sprite')
-  if not os.path.exists(path):
-    os.mkdir(path)
-  elif not os.path.isdir(path):
-    raise RuntimeError("%s exists but is not a directory" % path)
-  if not os.access(path, os.O_RDONLY):
-    raise RuntimeError("%s is not readable" % path)
-  return path
+  return filesys.getdir(path)
 
 def _getdb():
   '''
@@ -53,16 +46,20 @@ def _getdb():
   if _curry2jsoncache_ == 'uninit':
     name = os.environ.get('SPRITE_CACHE_FILE', None)
     if name == '':
+      if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            'Caching is disabled because SPRITE_CACHE_FILE is set to the empty string'
+          )
       _curry2jsoncache_ = None
       return
-    if 'HOME' not in os.environ:
-      warnings.warn(
-          "HOME is not set in the environment.  The cache at"
-          "$HOME/.sprite/cache.db cannot be used."
-        )
-      _curry2jsoncache_ = None
-      return
-    if name is None:
+    elif name is None:
+      if 'HOME' not in os.environ:
+        warnings.warn(
+            "HOME is not set in the environment.  The cache at"
+            "$HOME/.sprite/cache.db cannot be used."
+          )
+        _curry2jsoncache_ = None
+        return
       name = os.path.join(getuserdir(), 'cache.db')
     _curry2jsoncache_ = sqlite3.connect(name)
     global filename

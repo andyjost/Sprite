@@ -29,10 +29,17 @@ class Interpreter(object):
           Shows the effect of each step in a computation.
       ``lazycompile`` (*True*|False)
           Delays compilation of functions until they are needed.
+      ``keep_temp_files``  (True|*False*|<str>)
+          Indicates whether temporary files (and directories) should be
+          deleted.  If a non-null string is passed, then it is treated as a
+          directory name and all temporary files will be written there.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
-    self.flags = {'debug':True, 'defaultconverter':None, 'trace':False, 'lazycompile':True}
+    self.flags = {
+        'debug':True, 'defaultconverter':None, 'trace':False, 'lazycompile':True
+      , 'keep_temp_files':False
+      }
     self.flags.update(flags)
     self._stepper = runtime.get_stepper(self)
     self.stepcounter = runtime.StepCounter()
