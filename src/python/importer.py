@@ -246,7 +246,7 @@ def str2icurry(string, currypath, modulename='_interactive_'):
   --------
   The ICurry object.  The attributes __file__ and _tmpd_ will be set.
   '''
-  tmpd = TmpDir()
+  tmpd = TmpDir(prefix='sprite-')
   curryfile = os.path.join(tmpd.name, modulename + '.curry')
   with open(curryfile, 'w') as out:
     out.write(string)
