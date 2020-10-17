@@ -208,21 +208,21 @@ class TestPrelude(cytest.TestCase):
     self.assertEqual(list(curry.eval(putChar, 'x')), [curry.expr(IO, Unit)])
     self.assertEqual(curry.getInterpreter().stdout.getvalue(), 'x')
 
-  # def test_readFile(self):
-  #   readFile = curry.symbol('Prelude.readFile')
-  #   self.assertEqual(
-  #       list(curry.eval(readFile, "data/sample.txt"))
-  #     , ['this is a file\ncontaining sample text\n\n(the end)\n']
-  #     )
+  def test_readFile(self):
+    readFile = curry.symbol('Prelude.readFile')
+    self.assertEqual(
+        list(curry.eval(readFile, "data/sample.txt"))
+      , ['this is a file\ncontaining sample text\n\n(the end)\n']
+      )
 
-  # def test_readFile_no_mmap(self):
-  #   if 'mmap' in sys.modules:
-  #     del sys.modules['mmap']
-  #   sys.meta_path.insert(0, ImportBlocker('mmap'))
-  #   try:
-  #     self.test_readFile()
-  #   finally:
-  #     sys.meta_path[:] = sys.meta_path[1:]
+  def test_readFile_no_mmap(self):
+    if 'mmap' in sys.modules:
+      del sys.modules['mmap']
+    sys.meta_path.insert(0, ImportBlocker('mmap'))
+    try:
+      self.test_readFile()
+    finally:
+      sys.meta_path[:] = sys.meta_path[1:]
 
   def test_apply_nf(self):
     '''Test the $!! operator.'''

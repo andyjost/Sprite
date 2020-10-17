@@ -1,5 +1,5 @@
 from abc import ABCMeta
-from collections import Mapping, namedtuple, OrderedDict, Sequence
+from collections import Mapping, namedtuple, Iterator, OrderedDict, Sequence
 from .utility.proptree import proptree
 from .utility.visitation import dispatch
 import json
@@ -291,6 +291,10 @@ class BuiltinVariant(object):
 BuiltinVariant.register(int)
 BuiltinVariant.register(float)
 BuiltinVariant.register(str)
+# An iterator is considered a fundamental data type so that Sprite does not try
+# to reduce it.  This should always be the argument to an instance of
+# Prelude._PyGenerator.
+BuiltinVariant.register(Iterator)
 
 class Variable(_Base):
   def __init__(self, vid, scope):

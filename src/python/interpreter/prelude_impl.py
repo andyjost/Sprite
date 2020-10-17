@@ -6,6 +6,7 @@ from . import conversions
 from .. import icurry
 from .. import inspect
 from . import runtime
+import collections
 import itertools
 import logging
 import operator
@@ -332,7 +333,8 @@ def readFile(interp, filename):
     gen = generateBytes(stream)
   else:
     gen = iter(mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ))
-  return _python_generator_(interp, gen)
+  yield interp.prelude._PyGenerator
+  yield gen
 
 def apply_hnf(interp, root):
   yield interp.prelude.apply
@@ -370,8 +372,9 @@ def ensureNotFree(interp, a):
   yield interp.prelude._Fwd
   yield a
 
-def _python_generator_(interp, gen):
+def _PyGenerator(interp, gen):
   '''Implements a Python generator as a Curry list.'''
+  assert isinstance(gen, collections.Iterator)
   try:
     item = next(gen)
   except StopIteration:

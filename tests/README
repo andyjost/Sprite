@@ -1,6 +1,21 @@
 Sprite unit tests
 =================
 
+0. NOTICE
+---------
+
+!!! DO NOT MISS THESE SPECIAL FUNCTIONS !!!
+
+See lib/cytest/__init__.py for the following special functions: breakpoint,
+pdbtrace, trap.  These extremely useful functions are added to the global
+namespace (i.e., module __builtin__) whenever unit tests are run.  You can
+therefore use them anywhere, including in unit tests or in the Sprite Python
+code itself.  To get an interactive prompt at a certain location, simply add
+"breakpoint()" to the code.  Use "pdbtrace()" instead to get a PDB (Python
+Debugger) prompt.  With PDB you can move up and down the stack, inspect
+variables, and so on.
+
+
 1. USAGE
 --------
 

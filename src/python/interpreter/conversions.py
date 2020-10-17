@@ -119,7 +119,7 @@ def expr(interp, arg, target=None):
 
 @expr.when(collections.Iterator)
 def expr(interp, arg, target=None):
-  pygen = interp.prelude._python_generator_
+  pygen = interp.prelude._PyGenerator
   return runtime.Node(pygen, arg, target=target)
 
 @expr.when(runtime.NodeInfo)

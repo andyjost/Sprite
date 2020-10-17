@@ -26,7 +26,7 @@ def exports():
       yield name
   yield '(->)'
   # Helper functions.
-  yield '_python_generator_'
+  yield '_PyGenerator'
   # Clobber the definition of Prelude.? with Sprite's own.
   yield 'Prelude.?'
 
@@ -130,8 +130,8 @@ def _quotRem_impl(x, y):
 # Functions.
 # ==========
 _functions_ = [
-    icurry.IFunction('_python_generator_', 1
-        , metadata={'py.func':impl._python_generator_}
+    icurry.IFunction('_PyGenerator', 1
+        , metadata={'py.func':impl._PyGenerator}
         )
   , icurry.IFunction('+$', 2, metadata={'py.primfunc':op.add}) # Int addition
   , icurry.IFunction('-$', 2, metadata={'py.primfunc':op.sub}) # Int subtraction
