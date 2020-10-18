@@ -154,7 +154,7 @@ class ParsedJson(object):
       if result:
         ts, buf = result
         st = os.stat(self.jsonfile)
-        if int(st.st_mtime) == ts:
+        if int(st.st_ctime) == ts:
           self.icur = pickle.load(cStringIO.StringIO(buf))
 
   def __nonzero__(self):
@@ -167,7 +167,7 @@ class ParsedJson(object):
       st = os.stat(self.jsonfile)
       self.cur.execute(
           '''INSERT OR REPLACE INTO parsedjson(jsonfile, timestamp, pickled) VALUES(?, ?, ?)'''
-        , (self.jsonfile, int(st.st_mtime), sqlite3.Binary(pickled))
+        , (self.jsonfile, int(st.st_ctime), sqlite3.Binary(pickled))
         )
       self.db.commit()
 

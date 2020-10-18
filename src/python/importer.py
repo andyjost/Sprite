@@ -28,10 +28,10 @@ def newer(a, b):
   and b does not.
   '''
   try:
-    t_b = os.path.getmtime(b)
+    t_b = os.path.getctime(b)
   except OSError:
     return os.path.exists(a) and not os.path.exists(b)
-  return os.path.getmtime(a) > t_b
+  return os.path.getctime(a) > t_b
 
 def findfiles(searchpaths, names):
   '''
