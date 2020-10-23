@@ -36,6 +36,8 @@ class Shared(object):
     return len(self.obj)
   def __getitem__(self, key):
     return self.obj[key]
+  def __iter__(self):
+    return iter(self.obj)
 
 class UnionFind(object):
   '''Weighted quick-union with path compression.'''

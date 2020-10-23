@@ -62,4 +62,4 @@ class TestPyEvaluation(cytest.TestCase):
     self.checkAsString([m.and_, False]      , '(and_ False)')
     self.checkAsString([m.and_, True, True] , 'True')
     self.checkAsString([m.and_, True, False], 'False')
-    
+

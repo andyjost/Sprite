@@ -49,8 +49,9 @@ class InfoTable(object):
   Runtime info for a node.  Every Curry node stores an `InfoTable`` instance,
   which contains instance-independent data.
   '''
-  __slots__ = ['name', 'arity', 'tag', '_step', 'show', 'instantiate', 'typecheck']
-  def __init__(self, name, arity, tag, step, show, instantiate, typecheck):
+  __slots__ = ['name', 'arity', 'tag', '_step', 'show', 'typecheck', 'typedef']
+  # __slots__ = ['name', 'arity', 'tag', '_step', 'show', 'typecheck', 'typedef', 'gpath']
+  def __init__(self, name, arity, tag, step, show, typecheck):
     # The node name.  Normally the constructor or function name.
     self.name = name
     # Arity.
@@ -62,12 +63,19 @@ class InfoTable(object):
     self._step = step
     # Implements the show function.
     self.show = show
-    # Implements free variable instantiation for this type.
-    self.instantiate = instantiate
     # Used in debug mode to verify argument types.  The frontend typechecks
     # generated code, but this is helpful for checking the hand-written code
     # implementing built-in functions.
     self.typecheck = typecheck
+    # The type that this constructor belongs to.  This is needed at runtime to
+    # implement =:=, when a free variable must be bound to an HNF.  It could be
+    # improved to use just a runtime version of the typeinfo.
+    self.typedef = None
+    # The path to this constructor in the corresponding generator.  For
+    # instance, if the list type has generator (x:y) ? [], then constructor
+    # Const has gpath [0] and constructor Nil has gpath [1].  This is a normal
+    # path that can be used with Node.__getitem__, hence the indices 0 and 1.
+    # self.gpath = None
 
   @property
   def step(self):
@@ -232,8 +240,9 @@ class Node(object):
   def __getitem__(self, i):
     '''Get a successor, skipping over FWD nodes.'''
     self = self[()]
-    item = self.successors[i] = Node._skipfwd(self.successors[i])
-    return item
+    tmp = Node._skipfwd(self.successors[i])
+    self.successors[i] = tmp
+    return tmp
 
   @__getitem__.when(collections.Sequence, no=str)
   def __getitem__(self, path):
@@ -277,6 +286,9 @@ class Node(object):
       return target
     return arg
 
+  def __iter__(self):
+    return iter(self.successors)
+
   def __len__(self):
     return len(self.successors)
 
@@ -319,14 +331,14 @@ class Frame(object):
       self.interp = interp
       self.expr = expr
       self.fingerprint = Fingerprint()
-      self.choices = unionfind.Shared(unionfind.UnionFind)
+      self.constraint_store = unionfind.Shared(unionfind.UnionFind)
       self.blocked_by = None
     else:
       assert interp is None or interp is clone.interp
       self.interp = clone.interp
       self.expr = clone.expr if expr is None else expr
       self.fingerprint = copy(clone.fingerprint)
-      self.choices = copy(clone.choices)
+      self.constraint_store = copy(clone.constraint_store)
       # sharing is OK; this is only iterated and replaced.
       self.blocked_by = clone.blocked_by
 
@@ -368,7 +380,7 @@ class Frame(object):
   def unblock(self):
     '''Try to unblock a blocked frame.'''
     assert self.blocked
-    root = self.choices.read.root
+    root = self.constraint_store.read.root
     if any(root(x) in self.fingerprint for x in self.blocked_by):
       self.blocked_by = None
       return True
@@ -391,7 +403,7 @@ class Evaluator(object):
     '''The dispatch (D) Fair Scheme procedure.'''
     while self.queue:
       frame = self.queue.popleft()
-      self.interp.currentframe = frame # DEBUG
+      self.interp.currentframe = frame
       if self._handle_frame_if_blocked(frame):
         continue
       expr = frame.expr
@@ -403,7 +415,9 @@ class Evaluator(object):
       if tag == T_CHOICE:
         self.queue.extend(frame.fork())
       elif tag == T_CONSTR:
-        assert False # TODO
+        frame.expr, (lfree, rfree) = expr
+        frame.constraint_store.write.unite(get_id(lfree), get_id(rfree))
+        self.queue.append(frame)
       elif tag == T_FAIL:
         continue # discard
       elif tag == T_FREE:
@@ -527,8 +541,11 @@ def N(interp, root, target=None, path=None, freevars=None):
         if tag == T_FAIL:
           Node(interp.prelude._Failure, target=root)
           raise E_CONTINUE()
-        elif tag == T_CHOICE or tag == T_CONSTR:
-          pull_choice(interp, root, path)
+        elif tag == T_CHOICE:
+          lift_choice(interp, root, path)
+          raise E_CONTINUE()
+        elif tag == T_CONSTR:
+          lift_constr(interp, root, path)
           raise E_CONTINUE()
         elif tag == T_FREE:
           vid = get_id(succ)
@@ -566,8 +583,11 @@ def hnf(interp, expr, path, typedef=None):
     if tag == T_FAIL:
       Node(interp.prelude._Failure, target=expr)
       raise E_CONTINUE()
-    elif tag == T_CHOICE or tag == T_CONSTR:
-      pull_choice(interp, expr, path)
+    elif tag == T_CHOICE:
+      lift_choice(interp, expr, path)
+      raise E_CONTINUE()
+    elif tag == T_CONSTR:
+      lift_constr(interp, expr, path)
       raise E_CONTINUE()
     elif tag == T_FREE:
       if typedef is None:
@@ -581,7 +601,7 @@ def hnf(interp, expr, path, typedef=None):
         pass
     elif tag >= T_CTOR:
       return target
-    elif tag >= T_FWD:
+    elif tag == T_FWD:
       target = expr[path]
     else:
       assert False
@@ -593,15 +613,11 @@ def S(interp, target):
 class _Replacer(object):
   '''
   Performs replacements in a context.
-
-  ###### FIXME ######
-  ``getLeft`` and ``getRight`` build the left- and righthand sides,
-  respectively.  See ``pull_tab``.
   '''
   def __init__(self, context, path, getter=Node.__getitem__):
     self.context = context
     self.path = path
-    self.target = None
+    self.target = None # has value after first __getitem__
     self.getter = getter
 
   def _a_(self, node, i=0):
@@ -626,13 +642,10 @@ class _Replacer(object):
     return self._a_(self.context)
 
 
-def pull_choice(interp, source, path):
+def lift_choice(interp, source, path):
   '''
   Executes a pull-tab step with source ``source`` and choice-rooted target
   ``source[path]``.
-
-  The target node may be a choice, free variable, or constraint.  If it is a
-  free variable, then ``typedef`` will be used to instantiate it.
 
   Parameters:
   -----------
@@ -640,8 +653,7 @@ def pull_choice(interp, source, path):
       The Curry interpreter.
 
     ``source``
-      The pull-tab source.  This node will be overwritten with a choice or
-      constraint symbol.
+      The pull-tab source.  This node will be overwritten with a choice symbol.
 
     ``path``
       A sequence of integers giving the path from ``source`` to the target
@@ -663,6 +675,38 @@ def pull_choice(interp, source, path):
     , target=source
     )
 
+
+def lift_constr(interp, source, path):
+  '''
+  Executes a pull-tab step with source ``source`` and constraint-rooted target
+  ``source[path]``.
+
+  Parameters:
+  -----------
+    ``interp``
+      The Curry interpreter.
+
+    ``source``
+      The pull-tab source.  This node will be overwritten with a constraint
+      symbol.
+
+    ``path``
+      A sequence of integers giving the path from ``source`` to the target
+      choice or constraint.
+  '''
+  assert source.info.tag < T_CTOR
+  assert path
+  replacer = _Replacer(source, path)
+  value = replacer[0]
+  assert replacer.target.info.tag == T_CONSTR
+  Node(
+      replacer.target.info
+    , value
+    , replacer.target[1] # binding
+    , target=source
+    )
+
+
 def instantiate(interp, context, path, typedef):
   '''
   Instantiates a free variable at ``context[path]``.
@@ -673,12 +717,11 @@ def instantiate(interp, context, path, typedef):
       The Curry interpreter.
 
     ``context``
-      The context in which the free variable appears.  This node will be
-      overwritten with a choice or constraint symbol.
+      The context in which the free variable appears.
 
     ``path``
-      A sequence of integers giving the path from ``source`` to the target
-      choice or constraint.
+      A sequence of integers giving the path in ``context`` to the free
+      variable.
   '''
   replacer = _Replacer(
       context, path, lambda node, _: getGenerator(interp, node, typedef)
@@ -739,7 +782,8 @@ def _createGenerator(interp, ctors, vid=None, target=None):
 
 def getGenerator(interp, freevar, typedef):
   '''
-  Instantiate a free variable as the given type.
+  Get the generator for a free variable.  Instantiates the variable if
+  necessary.
 
   Parameters:
   -----------
@@ -767,6 +811,21 @@ def getGenerator(interp, freevar, typedef):
     Node(freevar.info, vid, instance, target=freevar)
   return freevar[1]
 
+# def _build_gpath(ctor_id, num_ctors):
+#   if num_ctors < 2:
+#     # Special case for one constructor.  The generator must begin with a choice,
+#     # so the constructor is to the LEFT.
+#     yield 0  # LEFT index
+#   else:
+#     while num_ctors > 1:
+#       midpt = num_ctors - num_ctors // 2
+#       if ctor_id < midpt:
+#         num_ctors = midpt
+#         yield 0  # LEFT index
+#       else:
+#         num_ctors -= midpt
+#         ctor_id -= midpt
+#         yield 1  # RIGHT index
 
 def get_id(arg):
   '''Returns the choice or variable id for a choice or free variable.'''
@@ -776,4 +835,16 @@ def get_id(arg):
       cid = arg[0]
       assert cid >= 0
       return cid
+
+# def get_ids(generator, gpath):
+#   for i in gpath:
+#     assert generator.info.tag == T_CHOICE
+#     yield get_id(generator)
+#     generator = generator[i]
+#   assert generator.info.tag >= T_CTOR
+# 
+# def gindex_to_lr(gindex):
+#   '''Converts an index with a gpath (see InfoTable) to either LEFT or RIGHT.'''
+#   assert gindex in (0,1)
+#   return LEFT if gindex == 0 else RIGHT
 

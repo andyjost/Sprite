@@ -68,7 +68,7 @@ class TestPyPullTab(cytest.TestCase):
     self.assertIs(e.info, interp.prelude._ChoiceConstr.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
     self.assertEqual(curry.topython(e[1]), (109, LEFT))
-    
+
     constraint = curry.expr(
         interp.prelude._ChoiceConstr, True, (u(109), u(RIGHT))
       )
@@ -92,4 +92,4 @@ class TestPyPullTab(cytest.TestCase):
     self.assertIs(e.info, interp.prelude._EqVars.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, 314, 1)])
     self.assertEqual(curry.topython(e[1]), (x, y))
-    
+

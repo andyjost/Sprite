@@ -55,7 +55,7 @@
 //
 #pragma once
 
-// The cache is broken.  The unit tests will fail if it is acticated.
+// The cache is broken.  The unit tests will fail if it is activated.
 // #define USE_FP_CACHE
 // #define FP_CACHE_DIAGNOSTICS
 

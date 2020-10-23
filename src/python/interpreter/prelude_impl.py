@@ -6,6 +6,7 @@ from . import conversions
 from .. import icurry
 from .. import inspect
 from . import runtime
+from ..utility.unboxed import unboxed
 import collections
 import itertools
 import logging
@@ -46,8 +47,8 @@ class Comparison(object):
   '''Implements ==, =:=, and Prelude.compare.'''
   def __init__(self, compare, resultinfo, conjunction):
     # A comparison function.  It behaves like ``cmp``, and so returns 0 (or
-    # False) for "equal."  It must work on all primitive types (int, float,
-    # and char) and node tags.
+    # False) for "equal."  It must work on the primitive types int, float,
+    # and char, and node tags.
     self.compare = compare
     # A function taking the results of ``compare`` to node info.
     self.resultinfo = resultinfo
@@ -55,40 +56,99 @@ class Comparison(object):
     self.conjunction = conjunction
 
   def __call__(self, interp, root):
-    lhs, rhs = (interp.hnf(root, [i]) for i in (0,1))
+    try:
+      lhs = interp.hnf(root, [0])
+    except runtime.E_RESIDUAL:
+      lhs = root[0]
+      assert lhs.info.tag == runtime.T_FREE
+    try:
+      rhs = interp.hnf(root, [1])
+    except runtime.E_RESIDUAL:
+      rhs = root[1]
+      assert rhs.info.tag == runtime.T_FREE
     lhs_isnode, rhs_isnode = (hasattr(x, 'info') for x in root)
     assert lhs_isnode == rhs_isnode # mixing boxed/unboxed -> type error
     if lhs_isnode:
       ltag, rtag = lhs.info.tag, rhs.info.tag
-      index = self.compare(ltag, rtag)
-      if not index: # recurse when the comparison returns 0 or False.
-        arity = lhs.info.arity
-        assert arity == rhs.info.arity
-        if arity:
-          conj = self.conjunction(interp)
-          terms = (runtime.Node(root.info, l, r) for l,r in zip(lhs, rhs))
-          expr = reduce((lambda a,b: runtime.Node(conj, a, b)), terms)
-          yield expr.info
-          for succ in expr:
-            yield succ
-          return
-    else:
-      index = self.compare(lhs, rhs) # Unboxed comparison.
-    yield self.resultinfo(interp, index)
+      if ltag == runtime.T_FREE:
+        if rtag == runtime.T_FREE:
+          # Unify variables => _EqVars True (x, y)
+          yield interp.prelude._EqVars.info
+          yield interp.expr(True)
+          yield interp.expr((lhs, rhs))
+        else:
+          # # Bind free lhs to ctor rhs.
+          # for obj in self._bindVarToCtor(interp, root, rhs, lhs):
+          #   yield obj
 
-# compare = Comparison( # compare
-#     compare=cmp
-#   , resultinfo=lambda interp, index:
-#         interp.type('Prelude.Ordering').constructors[index+1]
-#   , conjunction=lambda interp: interp.prelude.compare_conjunction
-#   )
-# 
-# equals = Comparison( # ==
-#     compare=operator.ne # False means equal.
-#   , resultinfo=lambda interp, index:
-#         interp.prelude.False if index else interp.prelude.True
-#   , conjunction=lambda interp: getattr(interp.prelude, '&&')
-#   )
+          # Instantiate the variable.
+          assert rtag >= runtime.T_CTOR
+          interp.hnf(root, [0], typedef=rhs.info.typedef())
+      else:
+        if rtag == runtime.T_FREE:
+          # # Bind free rhs to ctor lhs.
+          # for obj in self._bindVarToCtor(interp, root, lhs, rhs):
+          #   yield obj
+
+          # Instantiate the variable.
+          assert ltag >= runtime.T_CTOR
+          interp.hnf(root, [1], typedef=lhs.info.typedef())
+        else:
+          result = self.compare(ltag, rtag)
+          if not result: # recurse when the comparison returns 0 or False.
+            for obj in self._eqSubterms(interp, root.info, lhs, rhs):
+              yield obj
+          else:
+            yield self.resultinfo(interp, result)
+    else:
+      result = self.compare(lhs, rhs) # Unboxed comparison.
+      yield self.resultinfo(interp, result)
+
+  def _eqSubterms(self, interp, cmpinfo, lhs, rhs):
+    # Generate =:= between subexpressions.
+    arity = lhs.info.arity
+    assert arity == rhs.info.arity
+    if arity:
+      conj = self.conjunction(interp)
+      terms = (runtime.Node(cmpinfo, l, r) for l,r in zip(lhs, rhs))
+      expr = reduce((lambda a,b: runtime.Node(conj, a, b)), terms)
+      yield expr.info
+      for succ in expr:
+        yield succ
+      return
+    else:
+      yield self.resultinfo(interp, 0) # 0 for equal, like compare().
+
+# def _bindVarToCtor(self, interp, root, ctor, free):
+#   assert ctor.info.tag >= runtime.T_CTOR
+#   assert free.info.tag >= runtime.T_FREE
+
+#   gpath = ctor.info.gpath
+#   generator = runtime.getGenerator(interp, free, ctor.info.typedef())
+
+#   # The generator always begins with a choice, even for types with one
+#   # constructor.
+#   assert len(gpath)
+#   assert generator.info.tag == runtime.T_CHOICE
+
+#   # 1. Equate subterms.
+#   result = runtime.Node(
+#       *self._eqSubterms(interp, root.info, ctor, generator[gpath])
+#     )
+
+#   # 2. Bind choices.
+#   cids = tuple(runtime.get_ids(generator, gpath))
+#   for gindex,cid in zip(gpath[:0:-1], cids[:0:-1]):
+#     result = runtime.Node(
+#         interp.prelude._ChoiceConstr.info
+#       , result
+#       , interp.expr((unboxed(cid), unboxed(runtime.gindex_to_lr(gindex))))
+#       )
+#   yield interp.prelude._ChoiceConstr.info
+#   yield result
+#   yield interp.expr(
+#       (unboxed(cids[0]), unboxed(runtime.gindex_to_lr(gpath[0])))
+#     )
 
 equal_constr = Comparison( # =:=
     compare=operator.ne # False means equal.

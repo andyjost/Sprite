@@ -1,0 +1,1 @@
+main = failed =:= (0?1)

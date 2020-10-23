@@ -8,6 +8,7 @@ from . import show
 from ..utility import encoding, visitation, formatDocstring
 import collections
 import logging
+import weakref
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,9 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
     )
   typedef = runtime.TypeDefinition(itype.ident, constructors)
   getattr(moduleobj, '.types')[itype.ident.basename] = typedef
+  for i,ctor in enumerate(constructors):
+    ctor.info.typedef = weakref.ref(typedef)
+    # ctor.info.gpath = tuple(runtime._build_gpath(i, len(constructors)))
   return typedef
 
 @loadSymbols.when(collections.Mapping)
@@ -111,7 +115,6 @@ def loadSymbols(
     , runtime.T_CTOR + icons.index if not builtin else metadata['py.tag']
     , _no_step if not builtin else _unreachable
     , show.Show(interp, getattr(metadata, 'py.format', None))
-    , lambda freevar: runtime.instantiate(interp, freevar, constructors)
     , _gettypechecker(interp, metadata)
     )
   nodeinfo = runtime.NodeInfo(icons, info)
@@ -127,7 +130,6 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
     , runtime.T_FUNC
     , None
     , show.Show(interp, getattr(metadata, 'py.format', None))
-    , _unreachable
     , _gettypechecker(interp, metadata)
     )
   nodeinfo = runtime.NodeInfo(ifun, info)
