@@ -15,17 +15,19 @@ Use ``import_`` to import Curry modules, ``compile`` to compile Curry code,
 determines where Sprite searches for Curry code.  Loaded modules can be found
 under ``modules``.  Use ``topython`` to convert Curry values to Python objects.
 
-Example:
---------
->>> mymodule = curry.compile("""
-... data Item = A | B
-... rotate A = B
-... rotate B = A
-... main :: Item
-... main = rotate A ? rotate B
-... """)
->>> list(curry.eval(mymodule.main))
-[<B>, <A>]
+*Example* ::
+
+    >>> mymodule = curry.compile("""
+    ... data Item = A | B
+    ... rotate A = B
+    ... rotate B = A
+    ... main :: Item
+    ... main = rotate A ? rotate B
+    ... """)
+    >>> for value in curry.eval(mymodule.main):
+    ...   print value
+    B
+    A
 '''
 
 from . import interpreter
