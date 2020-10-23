@@ -81,7 +81,7 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None):
   except AttributeError:
     pass
   with importer.binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
-    cmd = ('%s :l %s :eval %s :q' % (oracle_, module.__name__, goal))
+    cmd = '%s %s %s' % (oracle_, module.__name__, goal)
     if timeout:
       cmd = 'timeout %s %s' % (timeout, cmd)
     output = cyclean(subprocess.check_output(cmd.split()))
