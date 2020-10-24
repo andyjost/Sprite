@@ -96,5 +96,8 @@ def isa_ctor(interp, arg):
     return False
   return arg[()].info.tag >= runtime.T_CTOR
 
+def is_boxed(interp, node):
+  return isinstance(node, runtime.Node)
+
 def get_id(interp, arg):
   return runtime.get_id(arg)

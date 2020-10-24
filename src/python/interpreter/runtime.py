@@ -365,10 +365,20 @@ class Frame(object):
       self.fingerprint.set_right(cid)
       yield self
 
+  def constrain(self):
+    '''
+    Process a constraint-rooted frame.  Update the constraint store and discard
+    the constraint node.
+    '''
+    self.expr, (lfree, rfree) = self.expr
+    self.constraint_store.write.unite(get_id(lfree), get_id(rfree))
+    yield self
+
   @property
   def blocked(self):
     '''Indicates whether the frame is blocked.'''
     return bool(self.blocked_by)
+
 
   def block(self, blocked_by):
     '''Block this frame, waiting for any of the free variables.'''
@@ -415,9 +425,7 @@ class Evaluator(object):
       if tag == T_CHOICE:
         self.queue.extend(frame.fork())
       elif tag == T_CONSTR:
-        frame.expr, (lfree, rfree) = expr
-        frame.constraint_store.write.unite(get_id(lfree), get_id(rfree))
-        self.queue.append(frame)
+        self.queue.extend(frame.constrain())
       elif tag == T_FAIL:
         continue # discard
       elif tag == T_FREE:

@@ -246,3 +246,55 @@ class TestPrelude(cytest.TestCase):
     cytest.step.step(interp, freevar, num=3)
     self.assertTrue(curry.inspect.isa_freevar(interp, freevar))
 
+  # Used by testEqualityConstraint.
+  def checkSatisfied(self, lhs, rhs):
+    e = curry.expr(curry.symbol('Prelude.=:='), lhs, rhs)
+    self.assertEqual(list(curry.eval(e)), [True])
+
+  def checkUnsatisfied(self, lhs, rhs):
+    e = curry.expr(curry.symbol('Prelude.=:='), lhs, rhs)
+    self.assertEqual(list(curry.eval(e)), [])
+
+  def checkError(self, lhs, rhs, type=curry.InstantiationError):
+    e = curry.expr(curry.symbol('Prelude.=:='), lhs, rhs)
+    self.assertRaises(type, lambda: next(curry.eval(e)))
+
+  def testEqualityConstraint(self):
+    '''Test =:=.'''
+    interp = curry.getInterpreter()
+    unboxed = curry.unboxed
+    unknown = interp.prelude.unknown
+
+    # First, test with no free variable constraints.
+    # unboxed <=> unboxed
+    self.checkSatisfied(unboxed(1), unboxed(1))
+    self.checkUnsatisfied(unboxed(0), unboxed(1))
+    # unboxed <=> free
+    self.checkError(unboxed(1), unknown)
+    # unboxed <=> ctor
+    self.checkError(unboxed(0), 0, type=TypeError)
+    self.checkError(unboxed(0), 1, type=TypeError)
+    # free <=> unboxed
+    self.checkError(interp.prelude.unknown, unboxed(0))
+    # ctor <=> unboxed
+    self.checkError(0, unboxed(0), type=TypeError)
+    self.checkError(1, unboxed(0), type=TypeError)
+    # ctor <=> ctor
+    self.checkSatisfied([], [])
+    self.checkSatisfied([0], [0])
+    self.checkSatisfied([0,1], [0,1])
+    self.checkUnsatisfied([], [1])
+    self.checkUnsatisfied([0], [1])
+    self.checkUnsatisfied([0], [0,1])
+
+
+    # Now, test with free variable constraints.
+    # free <=> free
+    self.checkSatisfied(unknown, unknown)
+
+    # ctor <=> free
+    self.checkSatisfied([], unknown)
+
+
+    # free <=> ctor
+

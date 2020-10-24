@@ -66,9 +66,7 @@ class Comparison(object):
     except runtime.E_RESIDUAL:
       rhs = root[1]
       assert rhs.info.tag == runtime.T_FREE
-    lhs_isnode, rhs_isnode = (hasattr(x, 'info') for x in root)
-    assert lhs_isnode == rhs_isnode # mixing boxed/unboxed -> type error
-    if lhs_isnode:
+    if inspect.is_boxed(interp, lhs) and inspect.is_boxed(interp, rhs):
       ltag, rtag = lhs.info.tag, rhs.info.tag
       if ltag == runtime.T_FREE:
         if rtag == runtime.T_FREE:
@@ -77,19 +75,11 @@ class Comparison(object):
           yield interp.expr(True)
           yield interp.expr((lhs, rhs))
         else:
-          # # Bind free lhs to ctor rhs.
-          # for obj in self._bindVarToCtor(interp, root, rhs, lhs):
-          #   yield obj
-
           # Instantiate the variable.
           assert rtag >= runtime.T_CTOR
           interp.hnf(root, [0], typedef=rhs.info.typedef())
       else:
         if rtag == runtime.T_FREE:
-          # # Bind free rhs to ctor lhs.
-          # for obj in self._bindVarToCtor(interp, root, lhs, rhs):
-          #   yield obj
-
           # Instantiate the variable.
           assert ltag >= runtime.T_CTOR
           interp.hnf(root, [1], typedef=lhs.info.typedef())
@@ -100,9 +90,16 @@ class Comparison(object):
               yield obj
           else:
             yield self.resultinfo(interp, result)
-    else:
+    elif not inspect.is_boxed(interp, lhs) and not inspect.is_boxed(interp, rhs):
       result = self.compare(lhs, rhs) # Unboxed comparison.
       yield self.resultinfo(interp, result)
+    else:
+      if inspect.isa_freevar(interp, lhs) or inspect.isa_freevar(interp, rhs):
+        raise InstantiationError(
+            'cannot bind free variable to unboxed value %s' % unboxed
+          )
+      else:
+        raise CurryTypeError("type error: cannot equate boxed with unboxed")
 
   def _eqSubterms(self, interp, cmpinfo, lhs, rhs):
     # Generate =:= between subexpressions.

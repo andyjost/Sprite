@@ -36,12 +36,12 @@ def _typecheck(ty, arg, name, p=None):
   unboxed = isinstance(ty, (type, tuple))
   ok = isinstance(arg, ty) if unboxed else inspect.isa(arg, ty)
   if not ok:
-    is_boxed = isinstance(arg, runtime.Node)
     hint = (
         '  (An unboxed value was expected but a boxed value of the '
         'correct type was supplied.  Perhaps you need to wrap an '
         'argument with %s.unboxed?)' % __package__[:__package__.find('.')]
-            if unboxed and is_boxed and len(arg) and _samecategory(arg[0], ty)
+            if unboxed and inspect.is_boxed(arg) and len(arg) \
+                       and _samecategory(arg[0], ty)
             else ''
       )
     raise TypeError(
