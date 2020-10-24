@@ -7,4 +7,7 @@
   Same goes for curry.compile('1 ? 2', mode='expr').  It seems to depend on
   using Ints.
 - Refactor the func_* unit tests to reduce code duplication.
+- Recursive bindings do not work:
+      >>> a = curry.compile('''let a = True:b ; b = False:a in a''', 'expr')
+      UnboundLocalError: local variable '_2' referenced before assignment
 

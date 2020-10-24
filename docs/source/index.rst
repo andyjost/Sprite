@@ -12,7 +12,6 @@ The Sprite Curry System
    implementation
 
 
-
 Indices and tables
 ==================
 
