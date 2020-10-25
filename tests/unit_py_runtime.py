@@ -309,13 +309,6 @@ class TestInstantiation(cytest.TestCase):
     instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instance, au)
-    # self.assertEqual(Type.A.info.gpath, (0,0,0))
-    # self.assertEqual(Type.B.info.gpath, (0,0,1))
-    # self.assertEqual(Type.C.info.gpath, (0,1,0))
-    # self.assertEqual(Type.D.info.gpath, (0,1,1))
-    # self.assertEqual(Type.E.info.gpath, (1,0,0))
-    # self.assertEqual(Type.F.info.gpath, (1,0,1))
-    # self.assertEqual(Type.G.info.gpath, (1,1))
 
   def test_minDepth6(self):
     '''Minimal instance depth (6 constructors).'''
@@ -328,12 +321,6 @@ class TestInstantiation(cytest.TestCase):
     instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
     self.assertEqual(instance, au)
-    # self.assertEqual(Type.A.info.gpath, (0,0,0))
-    # self.assertEqual(Type.B.info.gpath, (0,0,1))
-    # self.assertEqual(Type.C.info.gpath, (0,1))
-    # self.assertEqual(Type.D.info.gpath, (1,0,0))
-    # self.assertEqual(Type.E.info.gpath, (1,0,1))
-    # self.assertEqual(Type.F.info.gpath, (1,1))
 
   def test_complex(self):
     #        ?0
@@ -345,8 +332,3 @@ class TestInstantiation(cytest.TestCase):
     instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
     self.assertEqual(instance, au)
-    # self.assertEqual(Type.A.info.gpath, (0,0,0))
-    # self.assertEqual(Type.B.info.gpath, (0,0,1))
-    # self.assertEqual(Type.C.info.gpath, (0,1))
-    # self.assertEqual(Type.D.info.gpath, (1,0))
-    # self.assertEqual(Type.E.info.gpath, (1,1))

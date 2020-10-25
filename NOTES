@@ -187,3 +187,211 @@ TODO:
        by copying the successors.
     3. The debug source files that are written for PDB should also dump the
        ICurry.
+
+10/24/2020
+
+- I'm going through the stashed code to clean up.  Most of the code is already
+  in the master, and I'd rather just use this worklog instead of a branch to
+  keep snips that might be useful later.  Here is something:
+
+       class Constraints(object):
+         def __init__(self, arg=None):
+           if arg is None:
+      -      # defaultdict = collections.defaultdict
+      -      # # Holds the variable bindings.  There are two types: lazy and normal.  A
+      -      # # lazy binding is between a variable and an unevaluated expression, used
+      -      # # to implement =:<= for functional patterns.  A normal binding is between
+      -      # # two free variables, used to implement =:=.  These bindings imply
+      -      # # additional bindings between successor variables.  For example, if x_0
+      -      # # :=: x_1 for two list variables, then after annotating x_0 = ([] ?_0
+      -      # # (x_2:x_3)) and x_1 = ([] ?_1 (x_4:x_5)), we have two new bindings x_2
+      -      # # :=: x_4 and x_3 :=: x_5.
+             # self.vars = Shared(lambda: defaultdict(lambda: Shared(list)))
+      -      self.choices = Shared(ChoiceStore)
+      +      self.vars = Shared(UnionFind)
+      +      self.choices = Shared(UnionFind)
+           else:
+      -      # self.vars = arg.vars
+      +      self.vars = arg.vars
+             self.choices = copy(arg.choices)
+
+         def __copy__(self):
+
+10/25/2020
+
+- This one seems to be an optimization for variable instantiation.  It is not
+  needed because pull-tabbing through the =:= operator can work out which
+  constructors to use.
+
+      +def _buildInstanceConstraint(interp, instance, cidx, N, constraints):
+      +  '''
+      +  Given an instance (generator) and constructor index, build the choice
+      +  constraints needed to select that instance.
+      +  '''
+      +  if nctors == 1:
+      +    return constraints
+      +  else:
+      +    middle = -(-N // 2) # e.g., 7 -> 4.
+      +    cid = instance[0]
+      +    if cidx < middle:
+      +      constraints = _buildInstanceConstraint(
+      +          instance[1], cidx, middle, constraints
+      +        )
+      +      return Node(
+      +          interp.prelude._Constraint
+      +        , constraints
+      +        # Same here: can't use Pair.
+      +        , Node(interp.prelude.Pair, cid, LEFT)
+      +        )
+      +    else:
+      +      constraints = _buildInstanceConstraint(
+      +          instance[2], cidx-middle, N-middle, constraints
+      +        )
+      +      return Node(
+      +          interp.prelude._Constraint
+      +        , constraints
+      +        # Same here: can't use Pair.
+      +        , Node(interp.prelude.Pair, cid, RIGHT)
+      +        )
+      +
+      +
+      +def buildInstanceConstraint(interp, instance, cidx, typedef):
+      +  constructors = getattr(typedef, 'constructors', typedef)
+      +  N = len(constructors)
+      +  assert cidx < N
+      +  assert instance.info.tag = T_CHOICE
+      +  if N == 1: # (C ? failure)
+      +    return Node(
+      +        interp.prelude._Constraint
+      +      , Node(interp.prelude.True)
+      +        # FIXME: need to distinguish between node<=>node bindings and choice
+      +        # constraints, below.  Probably shouldn't use a pair.
+      +      , Node(interp.prelude.Pair, instance[0], LEFT)
+      +      )
+      +  else:
+      +    return _buildInstanceConstraint(
+      +        interp, instance, cidx, N, Node(interp.prelude.True)
+      +      )
+      +
+
+- Here we have code to bind a variable to a constructor.  It serves a similar
+  purpose.
+
+      def _bindVarToCtor(self, interp, root, ctor, free):
+        assert ctor.info.tag >= runtime.T_CTOR
+        assert free.info.tag >= runtime.T_FREE
+
+        gpath = ctor.info.gpath
+        generator = runtime.getGenerator(interp, free, ctor.info.typedef())
+
+        # The generator always begins with a choice, even for types with one
+        # constructor.
+        assert len(gpath)
+        assert generator.info.tag == runtime.T_CHOICE
+
+        # 1. Equate subterms.
+        result = runtime.Node(
+            *self._eqSubterms(interp, root.info, ctor, generator[gpath])
+          )
+
+        # 2. Bind choices.
+        cids = tuple(runtime.get_ids(generator, gpath))
+        for gindex,cid in zip(gpath[:0:-1], cids[:0:-1]):
+          result = runtime.Node(
+              interp.prelude._ChoiceConstr.info
+            , result
+            , interp.expr((unboxed(cid), unboxed(runtime.gindex_to_lr(gindex))))
+            )
+        yield interp.prelude._ChoiceConstr.info
+        yield result
+        yield interp.expr(
+            (unboxed(cids[0]), unboxed(runtime.gindex_to_lr(gpath[0])))
+          )
+
+- Here is code related to building paths through (Curry) generators.
+
+      def _build_gpath(ctor_id, num_ctors):
+        if num_ctors < 2:
+          # Special case for one constructor.  The generator must begin with a choice,
+          # so the constructor is to the LEFT.
+          yield 0  # LEFT index
+        else:
+          while num_ctors > 1:
+            midpt = num_ctors - num_ctors // 2
+            if ctor_id < midpt:
+              num_ctors = midpt
+              yield 0  # LEFT index
+            else:
+              num_ctors -= midpt
+              ctor_id -= midpt
+              yield 1  # RIGHT index
+
+      def get_ids(generator, gpath):
+        for i in gpath:
+          assert generator.info.tag == T_CHOICE
+          yield get_id(generator)
+          generator = generator[i]
+        assert generator.info.tag >= T_CTOR
+
+      def gindex_to_lr(gindex):
+        '''Converts an index with a gpath (see InfoTable) to either LEFT or RIGHT.'''
+        assert gindex in (0,1)
+        return LEFT if gindex == 0 else RIGHT
+
+  And the update to the InfoTable for gpath:
+
+      - __slots__ = ['name', 'arity', 'tag', '_step', 'show', 'typecheck', 'typedef']
+      + __slots__ = ['name', 'arity', 'tag', '_step', 'show', 'typecheck', 'typedef', 'gpath']
+
+  def __init__(self, name, arity, tag, step, show, typecheck):
+    .
+    .
+    .
+    + # The path to this constructor in the corresponding generator.  For
+    + # instance, if the list type has generator (x:y) ? [], then constructor
+    + # Const has gpath [0] and constructor Nil has gpath [1].  This is a normal
+    + # path that can be used with Node.__getitem__, hence the indices 0 and 1.
+    + self.gpath = None
+
+ And here are the test updates.
+
+    diff --git a/tests/unit_py_runtime.py b/tests/unit_py_runtime.py
+    index d01dab8..36e8aad 100644
+    --- a/tests/unit_py_runtime.py
+    +++ b/tests/unit_py_runtime.py
+    @@ -309,6 +309,13 @@ class TestInstantiation(cytest.TestCase):
+         instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
+         au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
+         self.assertEqual(instance, au)
+    +    self.assertEqual(Type.A.info.gpath, (0,0,0))
+    +    self.assertEqual(Type.B.info.gpath, (0,0,1))
+    +    self.assertEqual(Type.C.info.gpath, (0,1,0))
+    +    self.assertEqual(Type.D.info.gpath, (0,1,1))
+    +    self.assertEqual(Type.E.info.gpath, (1,0,0))
+    +    self.assertEqual(Type.F.info.gpath, (1,0,1))
+    +    self.assertEqual(Type.G.info.gpath, (1,1))
+     
+       def test_minDepth6(self):
+         '''Minimal instance depth (6 constructors).'''
+    @@ -321,6 +328,12 @@ class TestInstantiation(cytest.TestCase):
+         instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
+         au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
+         self.assertEqual(instance, au)
+    +    self.assertEqual(Type.A.info.gpath, (0,0,0))
+    +    self.assertEqual(Type.B.info.gpath, (0,0,1))
+    +    self.assertEqual(Type.C.info.gpath, (0,1))
+    +    self.assertEqual(Type.D.info.gpath, (1,0,0))
+    +    self.assertEqual(Type.E.info.gpath, (1,0,1))
+    +    self.assertEqual(Type.F.info.gpath, (1,1))
+     
+       def test_complex(self):
+         #        ?0
+    @@ -332,3 +345,8 @@ class TestInstantiation(cytest.TestCase):
+         instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
+         au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
+         self.assertEqual(instance, au)
+    +    self.assertEqual(Type.A.info.gpath, (0,0,0))
+    +    self.assertEqual(Type.B.info.gpath, (0,0,1))
+    +    self.assertEqual(Type.C.info.gpath, (0,1))
+    +    self.assertEqual(Type.D.info.gpath, (1,0))
+    +    self.assertEqual(Type.E.info.gpath, (1,1))

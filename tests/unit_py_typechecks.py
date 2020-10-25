@@ -108,7 +108,6 @@ class TestPyTypeChecks(cytest.TestCase):
         , lambda: I.expr(I.prelude._ChoiceConstr, True, (u(101), u('a')))
         )
 
-  @unittest.skip('suspends')
   def testEqVars(self):
     for debug in [True, False]:
       I = curry.interpreter.Interpreter(flags={'debug':debug})
@@ -121,7 +120,7 @@ class TestPyTypeChecks(cytest.TestCase):
         )
       self.assertMayRaiseRegexp(
           TypeError if debug else None
-        , r'Cannot construct an _EqVars node binding variable 0 to itself\.'
+        , r'Cannot construct an _EqVars node binding variable . to itself\.'
         , lambda: I.expr(I.prelude._EqVars, True, (x, x))
         )
       self.assertMayRaiseRegexp(

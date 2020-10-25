@@ -43,122 +43,91 @@ def error(interp, msg):
   msg = str(interp.topython(msg))
   raise RuntimeError(msg)
 
-class Comparison(object):
-  '''Implements ==, =:=, and Prelude.compare.'''
-  def __init__(self, compare, resultinfo, conjunction):
-    # A comparison function.  It behaves like ``cmp``, and so returns 0 (or
-    # False) for "equal."  It must work on the primitive types int, float,
-    # and char, and node tags.
-    self.compare = compare
-    # A function taking the results of ``compare`` to node info.
-    self.resultinfo = resultinfo
-    # The conjunction used to combine terms when recursing.
-    self.conjunction = conjunction
+def _try_hnf(interp, root, index):
+  try:
+    return interp.hnf(root, [index])
+  except runtime.E_RESIDUAL:
+    freevar = root[index]
+    assert inspect.isa_freevar(interp, freevar)
+    return freevar
 
-  def __call__(self, interp, root):
-    try:
-      lhs = interp.hnf(root, [0])
-    except runtime.E_RESIDUAL:
-      lhs = root[0]
-      assert lhs.info.tag == runtime.T_FREE
-    try:
-      rhs = interp.hnf(root, [1])
-    except runtime.E_RESIDUAL:
-      rhs = root[1]
-      assert rhs.info.tag == runtime.T_FREE
-    if inspect.is_boxed(interp, lhs) and inspect.is_boxed(interp, rhs):
-      ltag, rtag = lhs.info.tag, rhs.info.tag
-      if ltag == runtime.T_FREE:
-        if rtag == runtime.T_FREE:
-          # Unify variables => _EqVars True (x, y)
-          yield interp.prelude._EqVars.info
-          yield interp.expr(True)
-          yield interp.expr((lhs, rhs))
-        else:
-          # Instantiate the variable.
-          assert rtag >= runtime.T_CTOR
-          interp.hnf(root, [0], typedef=rhs.info.typedef())
+def eq_constr(interp, root):
+  '''Implements =:=.'''
+  lhs, rhs = (_try_hnf(interp, root, i) for i in (0,1))
+  if inspect.is_boxed(interp, lhs) and inspect.is_boxed(interp, rhs):
+    ltag, rtag = lhs.info.tag, rhs.info.tag
+    if ltag == runtime.T_FREE:
+      if rtag == runtime.T_FREE:
+        # Unify variables => _EqVars True (x, y)
+        yield interp.prelude._EqVars.info
+        yield interp.expr(True)
+        yield interp.expr((lhs, rhs))
       else:
-        if rtag == runtime.T_FREE:
-          # Instantiate the variable.
-          assert ltag >= runtime.T_CTOR
-          interp.hnf(root, [1], typedef=lhs.info.typedef())
-        else:
-          result = self.compare(ltag, rtag)
-          if not result: # recurse when the comparison returns 0 or False.
-            for obj in self._eqSubterms(interp, root.info, lhs, rhs):
-              yield obj
+        # Instantiate the variable.
+        assert rtag >= runtime.T_CTOR
+        interp.hnf(root, [0], typedef=rhs.info.typedef())
+    else:
+      if rtag == runtime.T_FREE:
+        # Instantiate the variable.
+        assert ltag >= runtime.T_CTOR
+        interp.hnf(root, [1], typedef=lhs.info.typedef())
+      else:
+        if ltag == rtag: # recurse when the comparison returns 0 or False.
+          arity = lhs.info.arity
+          assert arity == rhs.info.arity
+          if arity:
+            conj = getattr(interp.prelude, '&')
+            terms = (runtime.Node(root.info, l, r) for l,r in zip(lhs, rhs))
+            expr = reduce((lambda a,b: runtime.Node(conj, a, b)), terms)
+            yield expr.info
+            for succ in expr:
+              yield succ
           else:
-            yield self.resultinfo(interp, result)
-    elif not inspect.is_boxed(interp, lhs) and not inspect.is_boxed(interp, rhs):
-      result = self.compare(lhs, rhs) # Unboxed comparison.
-      yield self.resultinfo(interp, result)
+            yield interp.prelude.True
+        else:
+          yield interp.prelude._Failure
+  elif not inspect.is_boxed(interp, lhs) and not inspect.is_boxed(interp, rhs):
+    yield interp.prelude.True if lhs == rhs else interp.prelude._Failure
+    #                            ^^^^^^^^^^ compare unboxed values
+  else:
+    if inspect.isa_freevar(interp, lhs) or inspect.isa_freevar(interp, rhs):
+      raise InstantiationError(
+          'cannot bind free variable to unboxed value %s' % unboxed
+        )
     else:
-      if inspect.isa_freevar(interp, lhs) or inspect.isa_freevar(interp, rhs):
-        raise InstantiationError(
-            'cannot bind free variable to unboxed value %s' % unboxed
-          )
-      else:
-        raise CurryTypeError("type error: cannot equate boxed with unboxed")
-
-  def _eqSubterms(self, interp, cmpinfo, lhs, rhs):
-    # Generate =:= between subexpressions.
-    arity = lhs.info.arity
-    assert arity == rhs.info.arity
-    if arity:
-      conj = self.conjunction(interp)
-      terms = (runtime.Node(cmpinfo, l, r) for l,r in zip(lhs, rhs))
-      expr = reduce((lambda a,b: runtime.Node(conj, a, b)), terms)
-      yield expr.info
-      for succ in expr:
-        yield succ
-      return
-    else:
-      yield self.resultinfo(interp, 0) # 0 for equal, like compare().
-
-# def _bindVarToCtor(self, interp, root, ctor, free):
-#   assert ctor.info.tag >= runtime.T_CTOR
-#   assert free.info.tag >= runtime.T_FREE
-
-#   gpath = ctor.info.gpath
-#   generator = runtime.getGenerator(interp, free, ctor.info.typedef())
-
-#   # The generator always begins with a choice, even for types with one
-#   # constructor.
-#   assert len(gpath)
-#   assert generator.info.tag == runtime.T_CHOICE
-
-#   # 1. Equate subterms.
-#   result = runtime.Node(
-#       *self._eqSubterms(interp, root.info, ctor, generator[gpath])
-#     )
-
-#   # 2. Bind choices.
-#   cids = tuple(runtime.get_ids(generator, gpath))
-#   for gindex,cid in zip(gpath[:0:-1], cids[:0:-1]):
-#     result = runtime.Node(
-#         interp.prelude._ChoiceConstr.info
-#       , result
-#       , interp.expr((unboxed(cid), unboxed(runtime.gindex_to_lr(gindex))))
-#       )
-#   yield interp.prelude._ChoiceConstr.info
-#   yield result
-#   yield interp.expr(
-#       (unboxed(cids[0]), unboxed(runtime.gindex_to_lr(gpath[0])))
-#     )
-
-equal_constr = Comparison( # =:=
-    compare=operator.ne # False means equal.
-  , resultinfo=lambda interp, index:
-        interp.prelude._Failure if index else interp.prelude.True
-  , conjunction=lambda interp: getattr(interp.prelude, '&&')
-  )
+      raise CurryTypeError("type error: cannot equate boxed with unboxed")
 
 def compose_io(interp, lhs):
   io_a = interp.hnf(lhs, [0])
   yield interp.prelude.apply
   yield lhs[1]
   yield conversions.unbox(interp, io_a)
+
+def concurrent_and(interp, root):
+  Bool = interp.type('Prelude.Bool')
+  l_err = None
+
+  try:
+    lhs = interp.hnf(root, [0], typedef=Bool)
+  except runtime.E_RESIDUAL as l_err:
+    pass
+
+  try:
+    rhs = interp.hnf(root, [1], typedef=Bool)
+  except runtime.E_RESIDUAL as r_err:
+    if l_err:
+      raise E_RESIDUAL(l_err, r_err)
+    else:
+      raise
+  else:
+    if l_err:
+      lhs = interp.hnf(root, [0], typedef=Bool)
+
+  assert 'lhs' in locals() and 'rhs' in locals()
+  if interp.topython(lhs) and interp.topython(rhs):
+    yield interp.prelude.True
+  else:
+    yield interp.prelude._Failure
 
 # The next several functions are for parsing literals.
 def readNatLiteral(interp, s):

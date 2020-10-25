@@ -218,12 +218,13 @@ _functions_ = [
 # --- reduced to a unifiable data term (i.e., a term without defined
 # --- function symbols).
 # (=:=)   :: a -> a -> Bool
-  , icurry.IFunction('=:=', 2, metadata={'py.rawfunc':impl.equal_constr})
+  , icurry.IFunction('=:=', 2, metadata={'py.rawfunc':impl.eq_constr})
 #
 # --- Concurrent conjunction.
 # --- An expression like `(c1 & c2)` is evaluated by evaluating
 # --- the `c1` and `c2` in a concurrent manner.
 # (&)     :: Bool -> Bool -> Bool
+  , icurry.IFunction('&', 2, metadata={'py.rawfunc':impl.concurrent_and})
 #
 # --- Converts a character into its ASCII value.
 # ord :: Char -> Int

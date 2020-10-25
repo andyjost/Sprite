@@ -33,14 +33,15 @@ def _samecategory(arg, ty):
   return any(isinstance(arg, _typecategory(ty_)) for ty_ in tys)
 
 def _typecheck(ty, arg, name, p=None):
-  unboxed = isinstance(ty, (type, tuple))
-  ok = isinstance(arg, ty) if unboxed else inspect.isa(arg, ty)
+  this_unboxed = isinstance(ty, (type, tuple))
+  arg_boxed = isinstance(arg, runtime.Node)
+  ok = isinstance(arg, ty) if this_unboxed else inspect.isa(arg, ty)
   if not ok:
     hint = (
         '  (An unboxed value was expected but a boxed value of the '
         'correct type was supplied.  Perhaps you need to wrap an '
         'argument with %s.unboxed?)' % __package__[:__package__.find('.')]
-            if unboxed and inspect.is_boxed(arg) and len(arg) \
+            if this_unboxed and arg_boxed and len(arg) \
                        and _samecategory(arg[0], ty)
             else ''
       )
@@ -49,7 +50,7 @@ def _typecheck(ty, arg, name, p=None):
             % (_articlefor(name)
               , name
               , '' if p is None else '(in position %s) ' % p
-              , arg.info.name if is_boxed else type(arg).__name__
+              , arg.info.name if arg_boxed else type(arg).__name__
               , hint
               )
       )

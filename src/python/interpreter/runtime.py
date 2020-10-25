@@ -50,7 +50,6 @@ class InfoTable(object):
   which contains instance-independent data.
   '''
   __slots__ = ['name', 'arity', 'tag', '_step', 'show', 'typecheck', 'typedef']
-  # __slots__ = ['name', 'arity', 'tag', '_step', 'show', 'typecheck', 'typedef', 'gpath']
   def __init__(self, name, arity, tag, step, show, typecheck):
     # The node name.  Normally the constructor or function name.
     self.name = name
@@ -71,11 +70,6 @@ class InfoTable(object):
     # implement =:=, when a free variable must be bound to an HNF.  It could be
     # improved to use just a runtime version of the typeinfo.
     self.typedef = None
-    # The path to this constructor in the corresponding generator.  For
-    # instance, if the list type has generator (x:y) ? [], then constructor
-    # Const has gpath [0] and constructor Nil has gpath [1].  This is a normal
-    # path that can be used with Node.__getitem__, hence the indices 0 and 1.
-    # self.gpath = None
 
   @property
   def step(self):
@@ -819,22 +813,6 @@ def getGenerator(interp, freevar, typedef):
     Node(freevar.info, vid, instance, target=freevar)
   return freevar[1]
 
-# def _build_gpath(ctor_id, num_ctors):
-#   if num_ctors < 2:
-#     # Special case for one constructor.  The generator must begin with a choice,
-#     # so the constructor is to the LEFT.
-#     yield 0  # LEFT index
-#   else:
-#     while num_ctors > 1:
-#       midpt = num_ctors - num_ctors // 2
-#       if ctor_id < midpt:
-#         num_ctors = midpt
-#         yield 0  # LEFT index
-#       else:
-#         num_ctors -= midpt
-#         ctor_id -= midpt
-#         yield 1  # RIGHT index
-
 def get_id(arg):
   '''Returns the choice or variable id for a choice or free variable.'''
   if isinstance(arg, Node):
@@ -843,16 +821,4 @@ def get_id(arg):
       cid = arg[0]
       assert cid >= 0
       return cid
-
-# def get_ids(generator, gpath):
-#   for i in gpath:
-#     assert generator.info.tag == T_CHOICE
-#     yield get_id(generator)
-#     generator = generator[i]
-#   assert generator.info.tag >= T_CTOR
-# 
-# def gindex_to_lr(gindex):
-#   '''Converts an index with a gpath (see InfoTable) to either LEFT or RIGHT.'''
-#   assert gindex in (0,1)
-#   return LEFT if gindex == 0 else RIGHT
 
