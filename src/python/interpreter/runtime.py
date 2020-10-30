@@ -2,10 +2,12 @@ from __future__ import absolute_import
 from copy import copy
 from .. import icurry
 from .. import exceptions
-from ..runtime import Fingerprint, LEFT, RIGHT
+from ..runtime import Fingerprint, LEFT, RIGHT, UNDETERMINED
+from ..utility.shared import Shared, compose, DefaultDict
 from ..utility import unionfind
 from ..utility import visitation
 import collections
+import itertools
 import numbers
 import operator
 import sys
@@ -311,6 +313,7 @@ class Node(object):
   def Node(self, info, *args):
     Node(info, *args, target=self)
 
+Bindings = compose(Shared, compose(DefaultDict, compose(Shared, list)))
 
 class Frame(object):
   '''
@@ -325,7 +328,8 @@ class Frame(object):
       self.interp = interp
       self.expr = expr
       self.fingerprint = Fingerprint()
-      self.constraint_store = unionfind.Shared(unionfind.UnionFind)
+      self.constraint_store = Shared(unionfind.UnionFind)
+      self.bindings = Bindings()
       self.blocked_by = None
     else:
       assert interp is None or interp is clone.interp
@@ -333,11 +337,23 @@ class Frame(object):
       self.expr = clone.expr if expr is None else expr
       self.fingerprint = copy(clone.fingerprint)
       self.constraint_store = copy(clone.constraint_store)
+      self.bindings = copy(clone.bindings)
       # sharing is OK; this is only iterated and replaced.
       self.blocked_by = clone.blocked_by
 
   def __copy__(self): # pragma: no cover
     return Frame(clone=self)
+
+  def __repr__(self):
+    e = self.expr[()]
+    xid = get_id(e)
+    return '{{hd=%s, fp=%s, cst=%s, bnd=%s, bl=%s}}' % (
+        self.expr[()].info.name + ('' if xid is None else '(%s)' % xid)
+      , self.fingerprint
+      , self.constraint_store.read
+      , self.bindings.read
+      , self.blocked_by
+      )
 
   def fork(self):
     '''
@@ -346,6 +362,12 @@ class Frame(object):
     '''
     assert self.expr.info.tag == T_CHOICE
     cid,lhs,rhs = self.expr[()]
+    cid = self.constraint_store.read.root(cid)
+    if cid in self.bindings.read:
+      if not self.update_bindings(cid):
+        return
+      else:
+        cid = self.constraint_store.read.root(cid)
     if cid in self.fingerprint: # Decided, so one child.
       lr = self.fingerprint[cid]
       assert lr in [LEFT,RIGHT]
@@ -364,9 +386,72 @@ class Frame(object):
     Process a constraint-rooted frame.  Update the constraint store and discard
     the constraint node.
     '''
-    self.expr, (lfree, rfree) = self.expr
-    self.constraint_store.write.unite(get_id(lfree), get_id(rfree))
-    yield self
+    self.expr, (x, y) = self.expr
+    if self.bind(x, y):
+      yield self
+
+  def update_bindings(self, cid):
+    # Collect all variables in the equivalence set of cid.  Clear the bindings
+    # as we go.
+    seen_ids = set()
+    equiv_vars = []
+    queue = [cid]
+    while queue:
+      xid = queue.pop()
+      for var in self.bindings.write.pop(xid, []):
+        vid = var[0]
+        if vid not in seen_ids:
+          seen_ids.add(vid)
+          equiv_vars.append(var)
+          queue.append(vid)
+    # Find a variable, the pivot, with a bound generator.
+    for pivot in equiv_vars:
+      if pivot[1].info.tag == T_CHOICE:
+        break
+    assert pivot[1].info.tag == T_CHOICE
+    # Equate all variables to the pivot.
+    for var in equiv_vars:
+      if var is not pivot:
+        if not self.bind(pivot, var):
+          return False
+    return True
+
+  def bind(self, x, y):
+    assert x.info.tag == y.info.tag
+    fp = self.fingerprint
+    cs = self.constraint_store
+    stack = [(x, y)]
+    while stack:
+      x, y = stack.pop()
+      if x.info.tag == T_CHOICE:
+        (x_id, xl, xr), (y_id, yl, yr) = x, y
+        x_id, y_id = map(cs.read.root, [x_id, y_id])
+        if x_id != y_id:
+          x_lr, y_lr = map(fp.get, [x_id, y_id])
+          if x_lr != y_lr and UNDETERMINED not in [x_lr, y_lr]:
+            return False # inconsistent
+          cs.write.unite(x_id, y_id)
+          stack.extend([(xl, yl), (xr, yr)])
+      else:
+        assert x.info.tag == T_FREE
+        (x_id, x_gen), (y_id, y_gen) = x, y
+        x_id, y_id = map(cs.read.root, [x_id, y_id])
+        if x_id != y_id:
+          # Whether x/y are NOT bound.
+          x_nbnd, y_nbnd = (arg.info.tag == T_CTOR for arg in [x_gen, y_gen])
+          if x_nbnd and y_nbnd:
+            # Place unbound variables in the binding store.
+            bnd = self.bindings.write
+            bnd[x_id].write.append(y)
+            bnd[y_id].write.append(x)
+          else:
+            # Continue binding recursively.
+            if x_nbnd:
+              _clone_generator(y, x)
+            elif y_nbnd:
+              _clone_generator(x, y)
+            stack.append((x_gen, y_gen))
+    return True
 
   @property
   def blocked(self):
@@ -423,8 +508,13 @@ class Evaluator(object):
       elif tag == T_FAIL:
         continue # discard
       elif tag == T_FREE:
-        # TODO: check whether to instantiate.
-        yield target
+        vid = get_id(target)
+        vid = frame.constraint_store.read.root(vid)
+        if vid in frame.fingerprint:
+          frame.expr = get_generator(self.interp, target, None)
+          self.queue.append(frame)
+        else:
+          yield target
       elif tag == T_FUNC:
         try:
           S(self.interp, target)
@@ -449,6 +539,7 @@ class Evaluator(object):
           if target.info.tag == tag:
             # TODO: check free variables and repeat the call to N if some must
             # be instantiated.
+            # UPDATE - I'm not sure that can occur.
             yield target
           else:
             self.queue.append(frame)
@@ -522,7 +613,6 @@ def nextid(interp):
 
 def N(interp, root, target=None, path=None, freevars=None):
   '''The normalize (N) Fair Scheme procedure.'''
-  assert root.info.tag < T_CTOR
   path = [] if path is None else path
   target = root[path] if target is None else target
   assert target.info.tag >= T_CTOR
@@ -551,10 +641,11 @@ def N(interp, root, target=None, path=None, freevars=None):
           raise E_CONTINUE()
         elif tag == T_FREE:
           vid = get_id(succ)
-          fp = interp.currentframe.fingerprint
-          if vid in fp:
+          frame = interp.currentframe
+          vid = frame.constraint_store.read.root(vid)
+          if vid in frame.fingerprint:
             _a,(_b,l,r) = succ
-            replacement = l if fp[vid] == LEFT else r
+            replacement = l if frame.fingerprint[vid] == LEFT else r
             replace(interp, root, path, replacement)
             raise E_CONTINUE()
           freevars.add(succ)
@@ -726,7 +817,7 @@ def instantiate(interp, context, path, typedef):
       variable.
   '''
   replacer = _Replacer(
-      context, path, lambda node, _: getGenerator(interp, node, typedef)
+      context, path, lambda node, _: get_generator(interp, node, typedef)
     )
   replaced = replacer[None]
   assert replacer.target.info.tag == T_FREE
@@ -782,7 +873,31 @@ def _createGenerator(interp, ctors, vid=None, target=None):
       , target=target
       )
 
-def getGenerator(interp, freevar, typedef):
+def _gen_ctors(interp, gen):
+  '''Iterate through the constructors of a generator.'''
+  queue = [gen]
+  while queue:
+    gen = queue.pop()
+    if gen.info.tag == T_CHOICE:
+      queue.extend([gen[2], gen[1]])
+    else:
+      if gen.info.tag >= T_CTOR:
+        yield gen.info
+      else:
+        # For types with one constructor, the generator is a choice between
+        # that constructor and a failure.
+        assert gen.info.tag == T_FAIL
+
+def _clone_generator(interp, bound, unbound):
+  vid = unbound[0]
+  constructors = list(_gen_ctors(bound[1][0]))
+  get_generator(interp, unbound, typedef=constructors)
+
+def is_bound(interp, freevar):
+  assert freevar.info.tag == T_FREE
+  return freevar[1].info is not interp.prelude.Unit.info
+
+def get_generator(interp, freevar, typedef):
   '''
   Get the generator for a free variable.  Instantiates the variable if
   necessary.

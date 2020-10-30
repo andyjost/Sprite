@@ -1,43 +1,4 @@
-from copy import copy
-import sys
-
-class Shared(object):
-  '''Manages an object with copy-on-write semantics.'''
-  def __init__(self, ty, obj=None):
-    self.ty = ty
-    if obj is None:
-      self.obj = ty()
-      assert self.unique
-    else:
-      self.obj = obj
-  def __copy__(self):
-    return Shared(self.ty, self.obj) # sharing copy
-  @property
-  def read(self):
-    return self.obj
-  @property
-  def write(self):
-    if not self.unique:
-      self.obj = self.ty(self.obj) # copy for write
-    assert self.unique
-    return self.obj
-  @property
-  def refcnt(self):
-    return sys.getrefcount(self.obj) - 1
-  @property
-  def unique(self):
-    return self.refcnt == 1
-  def __repr__(self):
-    return 'Shared(refcnt=%s, %s)' % (self.refcnt, self.obj)
-  # Read-only container methods, for convenience.
-  def __contains__(self, key):
-    return key in self.obj
-  def __len__(self):
-    return len(self.obj)
-  def __getitem__(self, key):
-    return self.obj[key]
-  def __iter__(self):
-    return iter(self.obj)
+from .shared import Shared
 
 class UnionFind(object):
   '''Weighted quick-union with path compression.'''
