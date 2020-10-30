@@ -50,7 +50,7 @@ grandfather g c = let f free in father g f & father f c
 grandfather g c = let m free in father g m & mother m c
 
 
--- goals: 
+-- goals:
 goal1 child = father John child
 goal2 g c   = grandfather g c
 

@@ -1,0 +1,1 @@
+main = x ? ((x =:= True) &> x) where x free

@@ -32,3 +32,12 @@ client s | s1 =:= sendMsg (Balance b) s =
 goal3 s = make_account s & client (sendMsg (Deposit 100) s) -- simulation
 
 
+sprite_goal1 :: Int
+sprite_goal1 = goal1 b &> b where b free
+
+sprite_goal2 :: Int
+sprite_goal2 = goal2 b &> b where b free
+
+sprite_goal3 :: [Message]
+sprite_goal3 = goal3 s &> s where s free
+

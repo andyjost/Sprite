@@ -1,4 +1,5 @@
-#!/usr//bin/python
+#!/usr/bin/python
+
 
 # This script generates the files named test<N>.curry.  The reason for doing it
 # this way is simply that it is easier to maintain this script than work with
@@ -87,9 +88,14 @@ PROGRAMS = [
     'main = True =:= fwd x where x free'
   , 'fwd x = x\n'
     'main = False =:= fwd x where x free'
+  # More complex.
+  , 'main = ((x =:= True) &> x) ? x where x free'
+  , 'main = ((True =:= x) &> x) ? x where x free'
+  , 'main = x ? ((x =:= True) &> x) where x free'
+  , 'main = x ? ((True =:= x) &> x) where x free'
   ]
 
 for i, program_text in enumerate(PROGRAMS):
-  filename = 'test{}.curry'.format(i)
+  filename = 'test{:02d}.curry'.format(i)
   with open(filename, 'w') as out:
     out.write(program_text)

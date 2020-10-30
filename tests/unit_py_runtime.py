@@ -7,6 +7,7 @@ from curry.interpreter import runtime
 from curry.utility.binding import binding
 from cytest import bootstrap
 from glob import glob
+from copy import copy
 import curry
 import curry.interpreter.prelude
 import cytest.step
@@ -269,6 +270,60 @@ class TestPyRuntime(cytest.TestCase):
       , lambda: runtime.Node.getitem(0, [0])
       )
 
+  def test_bindings_store(self):
+    '''Test the bindings object.'''
+    a = runtime.Bindings()
+    # a = Shared(refcnt=1, defaultdict(<function factory at ...>, {}))
+    self.assertEqual(a.refcnt, 1)
+    self.assertEqual(len(a.read), 0)
+
+    a.write[0]
+    # a = Shared(refcnt=1, defaultdict(<function factory at ...>, {0: Shared(refcnt=1, [])}))
+    self.assertEqual(a.read.keys(), [0])
+    self.assertEqual(a.read[0].refcnt, 1)
+    self.assertEqual(a.read[0].read, [])
+
+    a.write[0].write.append(1)
+    # a = Shared(refcnt=1, defaultdict(<function factory at ...>, {0: Shared(refcnt=1, [1])}))
+    self.assertEqual(a.read[0].read, [1])
+    self.assertEqual(a.read[0].refcnt, 1)
+
+    a.write[1].write.append(0)
+    # Shared(refcnt=1, defaultdict(<function factory at ...>, {0: Shared(refcnt=1, [1]), 1: Shared(refcnt=1, [0])}))
+    self.assertEqual(a.read[1].read, [0])
+    self.assertEqual(a.read[1].refcnt, 1)
+
+    b = copy(a)
+    # a = Shared(refcnt=2, defaultdict(<function factory at ...>, {0: Shared(refcnt=1, [1]), 1: Shared(refcnt=1, [0])}))
+    # b = Shared(refcnt=2, defaultdict(<function factory at ...>, {0: Shared(refcnt=1, [1]), 1: Shared(refcnt=1, [0])}))
+    self.assertIs(a.read, b.read) # shared
+    self.assertEqual(a.refcnt, 2)
+    self.assertEqual(sorted(a.read.keys()), [0, 1])
+    self.assertEqual(a.read[0].refcnt, 1)
+    self.assertEqual(a.read[1].refcnt, 1)
+
+    a.write
+    # a = Shared(refcnt=1, defaultdict(<function factory at ...>, {0: Shared(refcnt=2, [1]), 1: Shared(refcnt=2, [0])}))
+    # b = Shared(refcnt=1, defaultdict(<function factory at ...>, {0: Shared(refcnt=2, [1]), 1: Shared(refcnt=2, [0])}))
+    self.assertIsNot(a.read, b.read) # no longer shared
+    self.assertIs(a.read[0].read, b.read[0].read) # shared
+    self.assertIs(a.read[1].read, b.read[1].read) # shared
+    self.assertEqual(a.read[0].refcnt, 2) # shared
+    self.assertEqual(a.read[1].refcnt, 2) # shared
+    self.assertEqual(a.read[0].read, [1])
+    self.assertEqual(a.read[1].read, [0])
+
+    a.read[0].write
+    # a = Shared(refcnt=2, defaultdict(<function factory at ...>, {0: Shared(refcnt=1, [1]), 1: Shared(refcnt=2, [0])}))
+    # b = Shared(refcnt=2, defaultdict(<function factory at ...>, {0: Shared(refcnt=1, [1]), 1: Shared(refcnt=2, [0])}))
+    self.assertIsNot(a.read[0], b.read[0]) # no longer shared
+    self.assertEqual(a.read[0].refcnt, 1) # not shared
+    self.assertEqual(b.read[0].refcnt, 1) # not shared
+    self.assertEqual(a.read[0].read, [1])
+    self.assertEqual(b.read[0].read, [1])
+    self.assertIs(a.read[1].read, b.read[1].read) # still shared
+    self.assertEqual(a.read[1].refcnt, 2) # shared
+
 
 class TestInstantiation(cytest.TestCase):
   def setUp(self):
@@ -290,13 +345,24 @@ class TestInstantiation(cytest.TestCase):
     au = curry.expr(*q(0, [interp.prelude.Cons, u, u], [interp.prelude.Nil]))
     self.assertEqual(instance, au)
 
+  def check_gen_ctors(self, interp, module, typename, generator):
+    '''
+    Check whether the constructors extracted from a generator by
+    runtime._gen_ctors match the constructors in the typeinfo.
+    '''
+    # Get the constructor info from the type.
+    ctor_info = [ctor.info for ctor in getattr(module, '.types')[typename].constructors]
+    # Get the constructor info from a generator.
+    gen_info = list(runtime._gen_ctors(interp, generator))
+    self.assertEqual(ctor_info, gen_info)
+
   def test_singleCtor(self):
     # Instantiating a type with one constructor is a special case.
     interp,q,u,e = self.interp, self.q, self.u(), self.e
     instance = runtime.instantiate(interp, e, [0], interp.type('Prelude.()'))
     au = curry.expr(*q(0, [interp.prelude.Unit], [interp.prelude._Failure]))
     self.assertEqual(instance, au)
-
+    self.check_gen_ctors(interp, interp.prelude, '()', instance)
 
   def test_minDepth7(self):
     '''Minimal instance depth (7 constructors).'''
@@ -309,6 +375,7 @@ class TestInstantiation(cytest.TestCase):
     instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instance, au)
+    self.check_gen_ctors(interp, Type, 'T', instance)
 
   def test_minDepth6(self):
     '''Minimal instance depth (6 constructors).'''
@@ -321,6 +388,7 @@ class TestInstantiation(cytest.TestCase):
     instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
     self.assertEqual(instance, au)
+    self.check_gen_ctors(interp, Type, 'T', instance)
 
   def test_complex(self):
     #        ?0
@@ -332,3 +400,4 @@ class TestInstantiation(cytest.TestCase):
     instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
     self.assertEqual(instance, au)
+    self.check_gen_ctors(interp, Type, 'T', instance)

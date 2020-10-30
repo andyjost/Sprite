@@ -13,9 +13,3 @@ a .+. b = a + b
 conc :: [a] -> [a] -> [a]
 conc = (+)
 
-
-goal1 = [1] + [2]
-
-goal2 = [1] .+. [2]
-
-goal3 = conc [1] [2]
