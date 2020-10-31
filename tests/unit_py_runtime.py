@@ -196,7 +196,6 @@ class TestPyRuntime(cytest.TestCase):
     icur = inspect.geticurry(module)
     self.assertIsInstance(icur, icurry.IModule)
 
-  @unittest.expectedFailure # requires =:<=
   def test_instantiation(self):
     goal = curry.compile(
         '''

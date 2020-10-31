@@ -2,7 +2,7 @@ import cytest # from ./lib; must be first
 import cytest.step
 from cStringIO import StringIO
 from curry.interpreter import runtime
-from import_blocker import ImportBlocker
+from import_blocker import with_import_blocked
 import curry
 import sys
 import unittest
@@ -215,14 +215,9 @@ class TestPrelude(cytest.TestCase):
       , ['this is a file\ncontaining sample text\n\n(the end)\n']
       )
 
+  @with_import_blocked('mmap')
   def test_readFile_no_mmap(self):
-    if 'mmap' in sys.modules:
-      del sys.modules['mmap']
-    sys.meta_path.insert(0, ImportBlocker('mmap'))
-    try:
-      self.test_readFile()
-    finally:
-      sys.meta_path[:] = sys.meta_path[1:]
+    self.test_readFile()
 
   def test_apply_nf(self):
     '''Test the $!! operator.'''

@@ -82,7 +82,7 @@ class FunctionalTestCase(TestCase):
         defs['CURRYPATH'] = defs['CURRYPATH'].split(':') + [defs['SOURCE_DIR']] + curry.path
         if 'SKIP' not in defs:
           defs['SKIP'] = []
-        defs['SKIP'] = re.compile('^$' + '|'.join(defs['SKIP']))
+        defs['SKIP'] = re.compile('^$|' + '|'.join(defs['SKIP']))
         if 'PRINT_SKIPPED_FILES' not in defs:
           defs['PRINT_SKIPPED_FILES'] = False
         if 'PRINT_SKIPPED_GOALS' not in defs:

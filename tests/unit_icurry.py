@@ -1,6 +1,6 @@
 import cytest # from ./lib; must be first
+from cytest.logging import capture_log
 from curry import icurry
-from curry.interpreter import function_compiler
 from curry.utility.binding import binding
 import curry
 import sys
@@ -58,31 +58,16 @@ class ICurryTestCase(cytest.TestCase):
     self.assertEqual(icurry.getmd(AB, imodule2), [])
 
   def testICurryCoverage4(self):
-    # Ensure a module can be loaded even when it contains undefined externals.
-    # A warning should be issued.
-    class FakeLogger(object):
-      def isEnabledFor(*args, **kwds):
-        return True
-      def debug(*args, **kwds): pass
-      def warn(logger, msg):
-        self.assertEqual(
-            msg
-          , 'external function "helloExternal.undef" is not defined'
-          )
-        logger.passed = True
-    logger = FakeLogger()
-
     try:
       del sys.modules['curry.lib.helloExternal']
     except KeyError:
       pass
-    with binding(function_compiler.__dict__, 'logger', logger) \
+    with capture_log('curry.interpreter.function_compiler') as log \
        , binding(curry.flags, 'lazycompile', False):
       from curry.lib import helloExternal
-    self.assertTrue(getattr(logger, 'passed', False))
+    log.checkMessages(self, warning='external function "helloExternal.undef" is not defined')
 
   def testIModuleMerge(self):
-    # reload(curry)
     from curry.lib import hello, helloExternal
     imodule1 = getattr(helloExternal, '.icurry')
     imodule2 = getattr(hello, '.icurry')

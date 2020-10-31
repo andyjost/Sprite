@@ -10,7 +10,6 @@ import cPickle as pickle
 import cStringIO
 import logging
 import os
-import warnings
 from .utility import filesys
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ filename = None
 try:
   import sqlite3
 except ImportError:
-  warnings.warn("Cannot import sqlite3.  Caching is disabled")
+  logger.warn("Cannot import sqlite3.  Caching is disabled")
   _curry2jsoncache_ = None
 
 def getuserdir():
@@ -54,7 +53,7 @@ def _getdb():
       return
     elif name is None:
       if 'HOME' not in os.environ:
-        warnings.warn(
+        logger.warn(
             "HOME is not set in the environment.  The cache at"
             "$HOME/.sprite/cache.db cannot be used."
           )
