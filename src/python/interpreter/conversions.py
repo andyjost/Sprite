@@ -206,8 +206,6 @@ class ToPython(object):
         label = '_' + ''.join(reversed(alpha))
         self.tr[ifree] = types.FreeType(label)
       return self.tr[ifree]
-    elif inspect.is_boxed(interp, value):
-      return runtime.Node(value.info, *[self.__convert(interp, succ) for succ in value])
     return value
 
 _topython_converter_ = ToPython(convert_freevars=False)

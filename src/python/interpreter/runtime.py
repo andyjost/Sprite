@@ -30,6 +30,7 @@ class E_RESIDUAL(BaseException):
         ``ids``
             A collection of free variable IDs (ints) blocking evaluation.
     '''
+    assert all(isinstance(x, int) for x in ids)
     self.ids = set(ids)
 
 class E_STEPLIMIT(BaseException):
@@ -503,7 +504,7 @@ class Frame(object):
     '''Try to unblock a blocked frame.'''
     assert self.blocked
     root = self.constraint_store.read.root
-    if any(root(get_id(x)) in self.fingerprint for x in self.blocked_by):
+    if any(root(x) in self.fingerprint for x in self.blocked_by):
       self.blocked_by = None
       return True
     else:
