@@ -1,0 +1,10 @@
+
+module "prog00"
+  import
+    "Prelude"
+  function "prog00.main" 0
+    code
+      return
+        Node "Prelude.=:=" (
+          int 0 ,
+          int 0 )

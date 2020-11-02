@@ -1,0 +1,22 @@
+
+module "prog62"
+  import
+    "Prelude"
+  function "prog62.main" 0
+    code
+      declare_var 1 IFree
+      declare_var 2 IFree
+      return
+        Node "Prelude.&>" (
+          Node "Prelude.&" (
+            Node "Prelude.=:=" (
+              Node "Prelude.True" ,
+              reference_var 1 ) ,
+            Node "Prelude.&" (
+              Node "Prelude.=:=" (
+                reference_var 1 ,
+                reference_var 2 ) ,
+              Node "Prelude.=:=" (
+                reference_var 2 ,
+                Node "Prelude.False" ) ) ) ,
+          reference_var 1 )

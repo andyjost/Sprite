@@ -1,0 +1,7 @@
+interface prog30 where {
+import Prelude;
+f 0 :: Prelude.Bool;
+fwd 1 :: a -> a;
+main 0 :: Prelude.Bool;
+hiding data Prelude.Bool
+}

@@ -1,0 +1,1 @@
+Prog "prog45" ["Prelude"] [] [Func ("prog45","main") 0 Public (TVar 0) (Rule [] (Free [1,2] (Comb FuncCall ("Prelude","?") [Comb FuncCall ("Prelude","&>") [Comb FuncCall ("Prelude","&") [Comb FuncCall ("Prelude","=:=") [Var 1,Var 1],Comb FuncCall ("Prelude","&") [Comb FuncCall ("Prelude","=:=") [Var 2,Var 2],Comb FuncCall ("Prelude","=:=") [Var 1,Var 2]]],Var 1],Var 1])))] []

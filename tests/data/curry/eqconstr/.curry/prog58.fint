@@ -1,0 +1,1 @@
+Prog "prog58" ["Prelude"] [] [Func ("prog58","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Var 0))] []

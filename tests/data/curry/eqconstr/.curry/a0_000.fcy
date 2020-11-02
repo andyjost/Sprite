@@ -1,0 +1,1 @@
+Prog "a0_000" ["Prelude"] [Type ("a0_000","T") Public [] [Cons ("a0_000","A") 0 Public []]] [Func ("a0_000","main") 0 Public (TCons ("a0_000","T") []) (Rule [] (Free [1] (Comb FuncCall ("Prelude","&>") [Comb FuncCall ("Prelude","=:=") [Var 1,Comb ConsCall ("a0_000","A") []],Var 1])))] []

@@ -171,10 +171,16 @@ def _toalpha(n):
 class ToPython(object):
   def __init__(self, convert_freevars=True):
     self.convert_freevars = convert_freevars
+    self.reset()
+  def reset(self):
+    '''Reset the free variable tracker.'''
     self.i = itertools.count()
     self.tr = {}
-
   def __call__(self, interp, value, convert_strings=True):
+    '''Convert one value.'''
+    self.reset()
+    return self.__convert(interp, value, convert_strings)
+  def __convert(self, interp, value, convert_strings=True):
     if inspect.isa_primitive(interp, value):
       return unbox(interp, value)
     elif inspect.isa_bool(interp, value):
@@ -191,7 +197,7 @@ class ToPython(object):
           pass
       return l
     elif inspect.isa_tuple(interp, value):
-      return tuple(self(interp, x) for x in value)
+      return tuple(self.__convert(interp, x) for x in value)
     elif inspect.isa_freevar(interp, value):
       ifree = inspect.get_id(interp, value)
       if ifree not in self.tr:
@@ -200,6 +206,8 @@ class ToPython(object):
         label = '_' + ''.join(reversed(alpha))
         self.tr[ifree] = types.FreeType(label)
       return self.tr[ifree]
+    elif inspect.is_boxed(interp, value):
+      return runtime.Node(value.info, *[self.__convert(interp, succ) for succ in value])
     return value
 
 _topython_converter_ = ToPython(convert_freevars=False)

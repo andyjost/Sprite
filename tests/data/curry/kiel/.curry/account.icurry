@@ -1,0 +1,19 @@
+interface account where {
+import Prelude;
+data Message
+  = Deposit Prelude.Int
+  | Withdraw Prelude.Int
+  | Balance Prelude.Int;
+account 2 :: Prelude.Int -> [Message] -> Prelude.Bool;
+client 1 :: [Message] -> Prelude.Bool;
+goal1 1 :: Prelude.Int -> Prelude.Bool;
+goal2 1 :: Prelude.Int -> Prelude.Bool;
+goal3 1 :: [Message] -> Prelude.Bool;
+make_account 1 :: [Message] -> Prelude.Bool;
+sendMsg 2 :: a -> [a] -> [a];
+sprite_goal1 0 :: Prelude.Int;
+sprite_goal2 0 :: Prelude.Int;
+sprite_goal3 0 :: [Message];
+hiding data Prelude.Int;
+hiding data Prelude.Bool
+}

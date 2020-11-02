@@ -1,0 +1,282 @@
+
+module "mergesort"
+  import
+    "Prelude"
+  function "mergesort.sort" 3
+    code
+      declare_var 1 ILhs (("mergesort","sort"),1)
+      declare_var 2 ILhs (("mergesort","sort"),2)
+      declare_var 3 ILhs (("mergesort","sort"),3)
+      declare_var 4 IFree
+      declare_var 5 IFree
+      return
+        Node "mergesort.sort_#B0" (
+          Node "Prelude.apply" (
+            Node "Prelude.apply" (
+              Node "Prelude._impl#<#Prelude.Ord#Prelude.Int" ,
+              Node "Prelude.length" (
+                reference_var 2 ) ) ,
+            int 2 ) ,
+          reference_var 1 ,
+          reference_var 2 ,
+          reference_var 3 ,
+          reference_var 4 ,
+          reference_var 5 )
+  function "mergesort.sort_#B0" 6
+    code
+      declare_var 6 ILhs (("mergesort","sort_#B0"),1)
+      declare_var 1 ILhs (("mergesort","sort_#B0"),2)
+      declare_var 2 ILhs (("mergesort","sort_#B0"),3)
+      declare_var 3 ILhs (("mergesort","sort_#B0"),4)
+      declare_var 4 ILhs (("mergesort","sort_#B0"),5)
+      declare_var 5 ILhs (("mergesort","sort_#B0"),6)
+      ATable 1 2 rigid
+        reference_var 6
+        "Prelude.False" =>
+          return
+            Node "Prelude.&" (
+              Node "mergesort.sort" (
+                reference_var 1 ,
+                Node "mergesort.firsthalf" (
+                  reference_var 2 ) ,
+                reference_var 4 ) ,
+              Node "Prelude.&" (
+                Node "mergesort.sort" (
+                  reference_var 1 ,
+                  Node "mergesort.secondhalf" (
+                    reference_var 2 ) ,
+                  reference_var 5 ) ,
+                Node "Prelude.apply" (
+                  Node "Prelude.apply" (
+                    Node "Prelude.apply" (
+                      reference_var 1 ,
+                      reference_var 4 ) ,
+                    reference_var 5 ) ,
+                  reference_var 3 ) ) )
+        "Prelude.True" =>
+          return
+            Node "Prelude.=:=" (
+              reference_var 3 ,
+              reference_var 2 )
+  function "mergesort.intMerge" 3
+    code
+      declare_var 1 ILhs (("mergesort","intMerge"),1)
+      declare_var 2 ILhs (("mergesort","intMerge"),2)
+      declare_var 3 ILhs (("mergesort","intMerge"),3)
+      ATable 1 2 flex
+        reference_var 1
+        "Prelude.[]" =>
+          return
+            Node "Prelude.=:=" (
+              reference_var 3 ,
+              reference_var 2 )
+        "Prelude.:" =>
+          declare_var 4 IVar 1 (("Prelude",":"),1)
+          declare_var 5 IVar 1 (("Prelude",":"),2)
+          return
+            Node "mergesort.intMerge_#A2" (
+              reference_var 2 ,
+              reference_var 3 ,
+              reference_var 4 ,
+              reference_var 5 )
+  function "mergesort.intMerge_#A2" 4
+    code
+      declare_var 2 ILhs (("mergesort","intMerge_#A2"),1)
+      declare_var 3 ILhs (("mergesort","intMerge_#A2"),2)
+      declare_var 4 ILhs (("mergesort","intMerge_#A2"),3)
+      declare_var 5 ILhs (("mergesort","intMerge_#A2"),4)
+      ATable 1 2 flex
+        reference_var 2
+        "Prelude.[]" =>
+          return
+            Node "Prelude.=:=" (
+              reference_var 3 ,
+              Node "Prelude.:" (
+                reference_var 4 ,
+                reference_var 5 ) )
+        "Prelude.:" =>
+          declare_var 6 IVar 2 (("Prelude",":"),1)
+          declare_var 7 IVar 2 (("Prelude",":"),2)
+          return
+            Node "mergesort.intMerge_#A1" (
+              reference_var 3 ,
+              reference_var 4 ,
+              reference_var 5 ,
+              reference_var 6 ,
+              reference_var 7 )
+  function "mergesort.intMerge_#A1" 5
+    code
+      declare_var 3 ILhs (("mergesort","intMerge_#A1"),1)
+      declare_var 4 ILhs (("mergesort","intMerge_#A1"),2)
+      declare_var 5 ILhs (("mergesort","intMerge_#A1"),3)
+      declare_var 6 ILhs (("mergesort","intMerge_#A1"),4)
+      declare_var 7 ILhs (("mergesort","intMerge_#A1"),5)
+      declare_var 8 IFree
+      declare_var 9 IFree
+      return
+        Node "mergesort.intMerge_#A0" (
+          reference_var 3 ,
+          reference_var 4 ,
+          reference_var 5 ,
+          reference_var 6 ,
+          reference_var 7 ,
+          reference_var 8 ,
+          reference_var 9 )
+  function "mergesort.intMerge_#A0" 7
+    code
+      declare_var 3 ILhs (("mergesort","intMerge_#A0"),1)
+      declare_var 4 ILhs (("mergesort","intMerge_#A0"),2)
+      declare_var 5 ILhs (("mergesort","intMerge_#A0"),3)
+      declare_var 6 ILhs (("mergesort","intMerge_#A0"),4)
+      declare_var 7 ILhs (("mergesort","intMerge_#A0"),5)
+      declare_var 8 ILhs (("mergesort","intMerge_#A0"),6)
+      declare_var 9 ILhs (("mergesort","intMerge_#A0"),7)
+      return
+        Node "mergesort.intMerge_#A0_#B2" (
+          Node "Prelude.apply" (
+            Node "Prelude.apply" (
+              Node "Prelude._impl#>#Prelude.Ord#Prelude.Int" ,
+              reference_var 4 ) ,
+            reference_var 6 ) ,
+          reference_var 3 ,
+          reference_var 4 ,
+          reference_var 5 ,
+          reference_var 6 ,
+          reference_var 7 ,
+          reference_var 8 ,
+          reference_var 9 )
+  function "mergesort.intMerge_#A0_#B2" 8
+    code
+      declare_var 10 ILhs (("mergesort","intMerge_#A0_#B2"),1)
+      declare_var 3 ILhs (("mergesort","intMerge_#A0_#B2"),2)
+      declare_var 4 ILhs (("mergesort","intMerge_#A0_#B2"),3)
+      declare_var 5 ILhs (("mergesort","intMerge_#A0_#B2"),4)
+      declare_var 6 ILhs (("mergesort","intMerge_#A0_#B2"),5)
+      declare_var 7 ILhs (("mergesort","intMerge_#A0_#B2"),6)
+      declare_var 8 ILhs (("mergesort","intMerge_#A0_#B2"),7)
+      declare_var 9 ILhs (("mergesort","intMerge_#A0_#B2"),8)
+      ATable 1 2 rigid
+        reference_var 10
+        "Prelude.False" =>
+          return
+            Node "Prelude.&" (
+              Node "mergesort.intMerge" (
+                reference_var 5 ,
+                Node "Prelude.:" (
+                  reference_var 6 ,
+                  reference_var 7 ) ,
+                reference_var 9 ) ,
+              Node "Prelude.=:=" (
+                reference_var 3 ,
+                Node "Prelude.:" (
+                  reference_var 4 ,
+                  reference_var 9 ) ) )
+        "Prelude.True" =>
+          return
+            Node "Prelude.&" (
+              Node "mergesort.intMerge" (
+                Node "Prelude.:" (
+                  reference_var 4 ,
+                  reference_var 5 ) ,
+                reference_var 7 ,
+                reference_var 8 ) ,
+              Node "Prelude.=:=" (
+                reference_var 3 ,
+                Node "Prelude.:" (
+                  reference_var 6 ,
+                  reference_var 8 ) ) )
+  function "mergesort.firsthalf" 1
+    code
+      declare_var 1 ILhs (("mergesort","firsthalf"),1)
+      return
+        Node "Prelude.take" (
+          Node "Prelude.apply" (
+            Node "Prelude.apply" (
+              Node "Prelude._impl#div#Prelude.Integral#Prelude.Int" ,
+              Node "Prelude.length" (
+                reference_var 1 ) ) ,
+            int 2 ) ,
+          reference_var 1 )
+  function "mergesort.secondhalf" 1
+    code
+      declare_var 1 ILhs (("mergesort","secondhalf"),1)
+      return
+        Node "Prelude.drop" (
+          Node "Prelude.apply" (
+            Node "Prelude.apply" (
+              Node "Prelude._impl#div#Prelude.Integral#Prelude.Int" ,
+              Node "Prelude.length" (
+                reference_var 1 ) ) ,
+            int 2 ) ,
+          reference_var 1 )
+  function "mergesort.goal1" 1
+    code
+      declare_var 1 ILhs (("mergesort","goal1"),1)
+      return
+        Node "mergesort.sort" (
+          partial 3 (
+            Node "mergesort.intMerge" ) ,
+          Node "Prelude.:" (
+            int 3 ,
+            Node "Prelude.:" (
+              int 1 ,
+              Node "Prelude.:" (
+                int 2 ,
+                Node "Prelude.[]" ) ) ) ,
+          reference_var 1 )
+  function "mergesort.goal2" 1
+    code
+      declare_var 1 ILhs (("mergesort","goal2"),1)
+      return
+        Node "mergesort.sort" (
+          partial 3 (
+            Node "mergesort.intMerge" ) ,
+          Node "Prelude.:" (
+            int 3 ,
+            Node "Prelude.:" (
+              int 1 ,
+              Node "Prelude.:" (
+                int 2 ,
+                Node "Prelude.:" (
+                  int 5 ,
+                  Node "Prelude.:" (
+                    int 4 ,
+                    Node "Prelude.:" (
+                      int 8 ,
+                      Node "Prelude.[]" ) ) ) ) ) ) ,
+          reference_var 1 )
+  function "mergesort.goal3" 1
+    code
+      declare_var 1 ILhs (("mergesort","goal3"),1)
+      return
+        Node "mergesort.sort" (
+          partial 3 (
+            Node "mergesort.intMerge" ) ,
+          Node "Prelude.:" (
+            int 3 ,
+            Node "Prelude.:" (
+              int 1 ,
+              Node "Prelude.:" (
+                int 2 ,
+                Node "Prelude.:" (
+                  int 5 ,
+                  Node "Prelude.:" (
+                    int 4 ,
+                    Node "Prelude.:" (
+                      int 8 ,
+                      Node "Prelude.:" (
+                        int 6 ,
+                        Node "Prelude.:" (
+                          int 7 ,
+                          Node "Prelude.:" (
+                            int 2 ,
+                            Node "Prelude.:" (
+                              int 9 ,
+                              Node "Prelude.:" (
+                                int 1 ,
+                                Node "Prelude.:" (
+                                  int 4 ,
+                                  Node "Prelude.:" (
+                                    int 3 ,
+                                    Node "Prelude.[]" ) ) ) ) ) ) ) ) ) ) ) ) ) ,
+          reference_var 1 )

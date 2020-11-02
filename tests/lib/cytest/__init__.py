@@ -1,11 +1,6 @@
 from cStringIO import StringIO
-import collections
 import contextlib
 import functools
-import gzip
-import os
-import sys
-import unittest
 
 # ================================================================================
 # Install built-in functions for debugging and development.  This must be done
@@ -63,16 +58,13 @@ def breakOn(exc_name):
   replacement = type(exc_name, (exception,), {'__new__': __new__})
   setattr(__builtin__, exc_name, replacement)
 
-for exc_name in os.environ.get('SPRITE_CATCH_ERRORS', '').split(','):
   if exc_name:
     breakOn(exc_name)
 
 # ================================================================================
+# It is now OK to load the curry module.
 
-import curry
-from curry.inspect import isa as cy_isa
-from curry.interpreter.runtime import Node
-from curry.llvm import isa as llvm_isa
+from .testcase import *
 
 def setio(stdin=None, stdout=None, stderr=None):
   '''
@@ -98,6 +90,7 @@ def setio(stdin=None, stdout=None, stderr=None):
   def setio(f):
     @functools.wraps(f)
     def wrapper(*args, **kwds):
+      import curry
       interp = curry.getInterpreter()
       if stdin is not None:
         if isinstance(stdin, str):
@@ -132,80 +125,7 @@ def hardreset(f):
     try:
       return f(*args, **kwds)
     finally:
+      import curry
       reload(curry)
   return decorator
 
-class TestCase(unittest.TestCase):
-  '''A base test case class for testing Sprite.'''
-  def tearDown(self):
-    curry.reset() # Undo, e.g., path and I/O modifications after each test.
-
-  def compareEqualToFile(self, objs, filename, update=False):
-    '''
-    Compare an object or objects against a golden file.
-
-    Parameters:
-    -----------
-    ``objs``
-        An object or sequence of objects to compare.
-    ``filename``
-        The name of the file that stores the golden result.
-    ``update``
-        If true, then just update the golden file.
-    '''
-    if isinstance(objs, str):
-      value = objs
-    else:
-      buf = StringIO()
-      if isinstance(objs, collections.Sequence):
-        for obj in objs: buf.write(str(obj))
-      else:
-        buf.write(str(objs))
-      value = buf.getvalue()
-    open_ = gzip.open if filename.endswith('.gz') else open
-    if update:
-      with open_(filename, 'wb') as au:
-        au.write(value)
-    else:
-      with open_(filename, 'rb') as au:
-        self.assertEqual(value, au.read())
-
-  def assertIsa(self, obj, ty):
-    isa = cy_isa if isinstance(obj, Node) else llvm_isa
-    self.assertTrue(isa(obj, ty))
-
-  def assertIsNotA(self, obj, ty):
-    isa = cy_isa if isinstance(obj, Node) else llvm_isa
-    self.assertFalse(isa(obj, ty))
-
-  def assertMayRaise(self, exception, expr, msg=None):
-    if exception is None:
-      try:
-        expr()
-      except:
-        info = sys.exc_info()
-        tail = '' if msg is None else ' %s' % msg
-        self.fail('%s raised%s' % (repr(info[0]), tail))
-    else:
-      try:
-        self.assertRaises(exception, expr)
-      except:
-        ty,val,tb = sys.exc_info()
-        tail = '' if msg is None else ' %s' % msg
-        raise ty, ty(str(val) + tail), tb
-
-  def assertMayRaiseRegexp(self, exception, regexp, expr, msg=None):
-    if exception is None:
-      try:
-        expr()
-      except:
-        info = sys.exc_info()
-        tail = '' if msg is None else ' %s' % msg
-        self.fail('%s raised%s' % (repr(info[0]), tail))
-    else:
-      try:
-        self.assertRaisesRegexp(exception, regexp, expr)
-      except:
-        ty,val,tb = sys.exc_info()
-        tail = '' if msg is None else ' %s' % msg
-        raise ty, ty(str(val) + tail), tb

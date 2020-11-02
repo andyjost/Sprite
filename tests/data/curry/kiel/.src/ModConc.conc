@@ -1,0 +1,12 @@
+def step(lhs):
+  lhs.Node(ni__PartApplic, 2, Node(ni__pos_, partial=True))
+  return
+
+
+# This file was created by Sprite because ModConc.conc was compiled in
+# debug mode.  It exists to help PDB show the compiled code.
+
+# Closure:
+# { 'Node': <class 'curry.interpreter.runtime.Node'>,
+#   'ni__PartApplic': InfoTable(name=_PartApplic, arity=2, tag=0, _step=<function _unreachable at 0x7f39a530a398>, show=<curry.interpreter.show.Show object at 0x7f39a2caf5d0>, typecheck=None, typedef=<weakref at 0x7f39a3da58e8; to 'TypeDefinition' at 0x7f39a2cafa90>),
+#   'ni__pos_': InfoTable(name=+, arity=2, tag=-1, _step=<function step at 0x7f39a3f30500>, show=<curry.interpreter.show.Show object at 0x7f39a50f81d0>, typecheck=None, typedef=None)}

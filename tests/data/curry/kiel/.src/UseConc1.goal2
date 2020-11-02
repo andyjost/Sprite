@@ -1,0 +1,20 @@
+def step(lhs):
+  _1 = lhs[0]
+  lhs.Node(ni__dot__pos__dot_, Node(ni__col_, Node(ni_apply, Node(ni_fromInt, Node(ni__Fwd, _1)), Node(ni_Int, 1)), Node(ni__lbk__rbk_)), Node(ni__col_, Node(ni_apply, Node(ni_apply, Node(ni__pos_, Node(ni__Fwd, _1)), Node(ni_apply, Node(ni_fromInt, Node(ni__Fwd, _1)), Node(ni_Int, 1))), Node(ni_apply, Node(ni_fromInt, Node(ni__Fwd, _1)), Node(ni_Int, 1))), Node(ni__lbk__rbk_)))
+  return
+
+
+# This file was created by Sprite because UseConc1.goal2 was compiled in
+# debug mode.  It exists to help PDB show the compiled code.
+
+# Closure:
+# { 'Node': <class 'curry.interpreter.runtime.Node'>,
+#   'ni_Int': InfoTable(name=Int, arity=1, tag=0, _step=<function _no_step at 0x7f39a53065f0>, show=<curry.interpreter.show.Show object at 0x7f39a2c28050>, typecheck=<function <lambda> at 0x7f39a3888ed8>, typedef=<weakref at 0x7f39a3c61d08; to 'TypeDefinition' at 0x7f39a2c28090>),
+#   'ni__Fwd': InfoTable(name=_Fwd, arity=1, tag=-3, _step=<function _unreachable at 0x7f39a530a398>, show=<curry.interpreter.show.Show object at 0x7f39a2c39990>, typecheck=None, typedef=<weakref at 0x7f39a3c9a3c0; to 'TypeDefinition' at 0x7f39a2c39e50>),
+#   'ni__col_': InfoTable(name=:, arity=2, tag=0, _step=<function _no_step at 0x7f39a53065f0>, show=<function _listformat at 0x7f39a530e488>, typecheck=None, typedef=<weakref at 0x7f39a3c61208; to 'TypeDefinition' at 0x7f39a2bff850>),
+#   'ni__dot__pos__dot_': InfoTable(name=.+., arity=2, tag=-1, _step=<function step at 0x7f39a3edc500>, show=<curry.interpreter.show.Show object at 0x7f39a50fdcd0>, typecheck=None, typedef=None),
+#   'ni__lbk__rbk_': InfoTable(name=[], arity=0, tag=1, _step=<function _no_step at 0x7f39a53065f0>, show=<function _listformat at 0x7f39a530e488>, typecheck=None, typedef=<weakref at 0x7f39a3c61208; to 'TypeDefinition' at 0x7f39a2bff850>),
+#   'ni__pos_': InfoTable(name=+, arity=1, tag=-1, _step=<function step at 0x7f39a3e0c8c0>, show=<curry.interpreter.show.Show object at 0x7f39a2bf8ad0>, typecheck=None, typedef=None),
+#   'ni_apply': InfoTable(name=apply, arity=2, tag=-1, _step=<function step at 0x7f39a3e68e60>, show=<curry.interpreter.show.Show object at 0x7f39a2be7e10>, typecheck=None, typedef=None),
+#   'ni_fromInt': InfoTable(name=fromInt, arity=1, tag=-1, _step=<function step at 0x7f39a4c6c320>, show=<curry.interpreter.show.Show object at 0x7f39a2bf8dd0>, typecheck=None, typedef=None),
+#   'p_1': (0,)}

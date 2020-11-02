@@ -1,0 +1,46 @@
+
+module "quicksort"
+  import
+    "Prelude"
+  function "quicksort.qsort" 1
+    code
+      declare_var 1 ILhs (("quicksort","qsort"),1)
+      ATable 1 2 flex
+        reference_var 1
+        "Prelude.[]" =>
+          return
+            Node "Prelude.[]"
+        "Prelude.:" =>
+          declare_var 2 IVar 1 (("Prelude",":"),1)
+          declare_var 3 IVar 1 (("Prelude",":"),2)
+          return
+            Node "Prelude.++" (
+              Node "quicksort.qsort" (
+                Node "Prelude.filter" (
+                  partial 1 (
+                    Node "Prelude.flip" (
+                      Node "Prelude._impl#<#Prelude.Ord#Prelude.Int" ,
+                      reference_var 2 ) ) ,
+                  reference_var 3 ) ) ,
+              Node "Prelude.:" (
+                reference_var 2 ,
+                Node "quicksort.qsort" (
+                  Node "Prelude.filter" (
+                    partial 1 (
+                      Node "Prelude.flip" (
+                        Node "Prelude._impl#>=#Prelude.Ord#Prelude.Int" ,
+                        reference_var 2 ) ) ,
+                    reference_var 3 ) ) ) )
+  function "quicksort.goal" 0
+    code
+      return
+        Node "quicksort.qsort" (
+          Node "Prelude.:" (
+            int 2 ,
+            Node "Prelude.:" (
+              int 3 ,
+              Node "Prelude.:" (
+                int 1 ,
+                Node "Prelude.:" (
+                  int 0 ,
+                  Node "Prelude.[]" ) ) ) ) )

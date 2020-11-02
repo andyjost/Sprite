@@ -1,8 +1,7 @@
 '''Tests running the Kiel code examples.'''
 import cytest # from ./lib; must be first
-from cytest.functional import FunctionalTestCase
 
-class TestKiel(FunctionalTestCase):
+class TestKiel(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/kiel/'
   PRINT_SKIPPED_GOALS = True
   # To determine the curent set of failures, clear this list and run.

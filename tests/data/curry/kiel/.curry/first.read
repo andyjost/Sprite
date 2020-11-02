@@ -1,0 +1,71 @@
+
+module "first"
+  import
+    "Prelude"
+  data "first.Nat"
+    constructor "first.O" 0 0
+    constructor "first.S" 1 1
+  function "first.first" 2
+    code
+      declare_var 1 ILhs (("first","first"),1)
+      declare_var 2 ILhs (("first","first"),2)
+      ATable 1 2 flex
+        reference_var 1
+        "first.O" =>
+          return
+            Node "Prelude.[]"
+        "first.S" =>
+          declare_var 3 IVar 1 (("first","S"),1)
+          return
+            Node "first.first_#A0" (
+              reference_var 2 ,
+              reference_var 3 )
+  function "first.first_#A0" 2
+    code
+      declare_var 2 ILhs (("first","first_#A0"),1)
+      declare_var 3 ILhs (("first","first_#A0"),2)
+      ATable 1 2 flex
+        reference_var 2
+        "Prelude.[]" =>
+          return
+            exempt
+        "Prelude.:" =>
+          declare_var 4 IVar 2 (("Prelude",":"),1)
+          declare_var 5 IVar 2 (("Prelude",":"),2)
+          return
+            Node "Prelude.:" (
+              reference_var 4 ,
+              Node "first.first" (
+                reference_var 3 ,
+                reference_var 5 ) )
+  function "first.from" 1
+    code
+      declare_var 1 ILhs (("first","from"),1)
+      return
+        Node "Prelude.:" (
+          reference_var 1 ,
+          Node "first.from" (
+            Node "first.S" (
+              reference_var 1 ) ) )
+  function "first.goal1" 0
+    code
+      return
+        Node "first.first" (
+          Node "first.S" (
+            Node "first.S" (
+              Node "first.O" ) ) ,
+          Node "first.from" (
+            Node "first.O" ) )
+  function "first.goal2" 2
+    code
+      declare_var 1 ILhs (("first","goal2"),1)
+      declare_var 2 ILhs (("first","goal2"),2)
+      return
+        Node "Prelude.=:=" (
+          Node "first.first" (
+            reference_var 1 ,
+            Node "first.from" (
+              reference_var 2 ) ) ,
+          Node "Prelude.:" (
+            Node "first.O" ,
+            Node "Prelude.[]" ) )

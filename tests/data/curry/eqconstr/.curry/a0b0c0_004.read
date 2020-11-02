@@ -1,0 +1,17 @@
+
+module "a0b0c0_004"
+  import
+    "Prelude"
+  data "a0b0c0_004.T"
+    constructor "a0b0c0_004.A" 0 0
+    constructor "a0b0c0_004.B" 0 1
+    constructor "a0b0c0_004.C" 0 2
+  function "a0b0c0_004.main" 0
+    code
+      declare_var 1 IFree
+      return
+        Node "Prelude.&>" (
+          Node "Prelude.=:=" (
+            Node "a0b0c0_004.B" ,
+            reference_var 1 ) ,
+          reference_var 1 )

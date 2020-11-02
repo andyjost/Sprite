@@ -1,0 +1,17 @@
+
+module "prog37"
+  import
+    "Prelude"
+  function "prog37.fwd" 1
+    code
+      declare_var 1 ILhs (("prog37","fwd"),1)
+      return
+        reference_var 1
+  function "prog37.main" 0
+    code
+      declare_var 1 IFree
+      return
+        Node "Prelude.=:=" (
+          Node "Prelude.True" ,
+          Node "prog37.fwd" (
+            reference_var 1 ) )

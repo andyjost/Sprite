@@ -1,0 +1,16 @@
+
+module "prog19"
+  import
+    "Prelude"
+  function "prog19.main" 0
+    code
+      declare_var 1 IFree
+      declare_var 2 IFree
+      return
+        Node "Prelude.=:=" (
+          Node "Prelude.:" (
+            Node "Prelude.True" ,
+            reference_var 1 ) ,
+          Node "Prelude.:" (
+            Node "Prelude.True" ,
+            reference_var 2 ) )

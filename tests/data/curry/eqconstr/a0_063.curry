@@ -1,0 +1,2 @@
+data T = A
+main = ((A =:= y & x =:= y) &> y) ? x ? y where x,y free

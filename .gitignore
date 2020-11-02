@@ -12,5 +12,6 @@ tests/unit_dev.py
 robots.txt*
 **/.src/**
 **/.curry/**
-**/*.au-gen
 !tests/data/findFile
+!tests/data/curry/eqconstr/**
+!tests/data/curry/kiel/**

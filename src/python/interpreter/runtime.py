@@ -347,11 +347,12 @@ class Frame(object):
   def __repr__(self):
     e = self.expr[()]
     xid = get_id(e)
-    return '{{hd=%s, fp=%s, cst=%s, bnd=%s, bl=%s}}' % (
-        self.expr[()].info.name + ('' if xid is None else '(%s)' % xid)
+    return '{{id=%x, hd=%s, fp=%s, cst=%s, bnd=%s, bl=%s}}' % (
+        id(self)
+      , self.expr[()].info.name + ('' if xid is None else '(%s)' % xid)
       , self.fingerprint
       , self.constraint_store.read
-      , self.bindings.read
+      , dict(self.bindings.read)
       , self.blocked_by
       )
 
@@ -361,10 +362,12 @@ class Frame(object):
     consistent child.  Recycles ``self``.
     '''
     assert self.expr.info.tag == T_CHOICE
-    cid,lhs,rhs = self.expr[()]
-    cid = self.constraint_store.read.root(cid)
+    cid_,lhs,rhs = self.expr[()]
+    cid = self.constraint_store.read.root(cid_)
     if cid in self.bindings.read:
       if not self.update_bindings(cid):
+        if self.interp.flags['trace']:
+          print '? ::: %x inconsistent at %s' % (id(self), self.show_cid(cid_, cid))
         return
       else:
         cid = self.constraint_store.read.root(cid)
@@ -372,14 +375,26 @@ class Frame(object):
       lr = self.fingerprint[cid]
       assert lr in [LEFT,RIGHT]
       self.expr = lhs if lr==LEFT else rhs
+      if self.interp.flags['trace']:
+        print '? ::: %s, %s%s >> %x' % (self.show_cid(cid_, cid), cid, 'L' if lr==LEFT else 'R', id(self))
       yield self
     else: # Undecided, so two children.
       lchild = Frame(expr=lhs, clone=self)
+      if self.interp.flags['trace']:
+        print '? ::: %s, %sL >> %x, %sR >> %x' % (
+            self.show_cid(cid_, cid), cid, id(self), cid, id(lchild)
+          )
       lchild.fingerprint.set_left(cid)
       yield lchild
       self.expr = rhs
       self.fingerprint.set_right(cid)
       yield self
+
+  def show_cid(self, cid_orig, cid_root):
+    if cid_orig == cid_root:
+      return str(cid_orig)
+    else:
+      return '%s->%s' % (cid_orig, cid_root)
 
   def constrain(self):
     '''
@@ -416,11 +431,15 @@ class Frame(object):
           return False
     return True
 
-  def bind(self, x, y):
-    assert x.info.tag == y.info.tag
+  def bind(self, _x, _y):
+    '''
+    Bind matching shallow constructor expressions.  The return value indicates
+    whether the binding is consistent.
+    '''
+    assert _x.info.tag == _y.info.tag
     fp = self.fingerprint
     cs = self.constraint_store
-    stack = [(x, y)]
+    stack = [(_x, _y)]
     while stack:
       x, y = stack.pop()
       if x.info.tag == T_CHOICE:
@@ -428,12 +447,17 @@ class Frame(object):
         x_id, y_id = map(cs.read.root, [x_id, y_id])
         if x_id != y_id:
           x_lr, y_lr = map(fp.get, [x_id, y_id])
-          if x_lr != y_lr and UNDETERMINED not in [x_lr, y_lr]:
+          code = 3 * x_lr + y_lr
+          acode = abs(code)
+          if acode == 1:
+            fp[x_id] = LEFT if code<0 else RIGHT
+          elif acode == 2:
             return False # inconsistent
+          elif acode == 3:
+            fp[y_id] = LEFT if code<0 else RIGHT
           cs.write.unite(x_id, y_id)
-          stack.extend([(xl, yl), (xr, yr)])
-      else:
-        assert x.info.tag == T_FREE
+          stack.extend([(xr, yr), (xl, yl)])
+      elif x.info.tag == T_FREE:
         (x_id, x_gen), (y_id, y_gen) = x, y
         x_id, y_id = map(cs.read.root, [x_id, y_id])
         if x_id != y_id:
@@ -447,10 +471,19 @@ class Frame(object):
           else:
             # Continue binding recursively.
             if x_nbnd:
-              _clone_generator(y, x)
+              _clone_generator(self.interp, y, x)
+              x_gen = x[1]
             elif y_nbnd:
-              _clone_generator(x, y)
+              _clone_generator(self.interp, x, y)
+              y_gen = y[1]
             stack.append((x_gen, y_gen))
+      elif x.info.tag >= T_CTOR:
+        assert x.info is y.info
+        stack.extend(zip(x, y))
+      elif x.info.tag == T_FAIL:
+        continue
+      else:
+        raise TypeError('unexpected tag %s' % x.info.tag)
     return True
 
   @property
@@ -470,7 +503,7 @@ class Frame(object):
     '''Try to unblock a blocked frame.'''
     assert self.blocked
     root = self.constraint_store.read.root
-    if any(root(x) in self.fingerprint for x in self.blocked_by):
+    if any(root(get_id(x)) in self.fingerprint for x in self.blocked_by):
       self.blocked_by = None
       return True
     else:
@@ -497,7 +530,11 @@ class Evaluator(object):
         continue
       expr = frame.expr
       target = expr[()]
+      if self.interp.flags['trace']:
+        print 'F :::', target, frame
       if isinstance(target, icurry.BuiltinVariant):
+        if self.interp.flags['trace']:
+          print 'Y :::', target, frame
         yield target
         continue
       tag = target.info.tag
@@ -506,14 +543,23 @@ class Evaluator(object):
       elif tag == T_CONSTR:
         self.queue.extend(frame.constrain())
       elif tag == T_FAIL:
+        if self.interp.flags['trace']:
+          print 'X :::', frame
         continue # discard
       elif tag == T_FREE:
         vid = get_id(target)
         vid = frame.constraint_store.read.root(vid)
         if vid in frame.fingerprint:
-          frame.expr = get_generator(self.interp, target, None)
+          # Ensure constructor expressions are guarded by a function symbol.
+          frame.expr = self.interp.expr(
+              getattr(self.interp.prelude, '$!!')
+            , self.interp.prelude.id
+            , get_generator(self.interp, target, None)
+            )
           self.queue.append(frame)
         else:
+          if self.interp.flags['trace']:
+            print 'Y :::', target, frame
           yield target
       elif tag == T_FUNC:
         try:
@@ -540,6 +586,8 @@ class Evaluator(object):
             # TODO: check free variables and repeat the call to N if some must
             # be instantiated.
             # UPDATE - I'm not sure that can occur.
+            if self.interp.flags['trace']:
+              print 'Y :::', target, frame
             yield target
           else:
             self.queue.append(frame)
@@ -595,12 +643,12 @@ def get_stepper(interp):
   '''
   if interp.flags['trace']:
     def step(target): # pragma: no cover
-      print 'S <<<', str(target)
+      print 'S <<<', str(target), interp.currentframe
       try:
         target.info.step(target)
         interp.stepcounter.increment()
       finally:
-        print 'S >>>', str(target)
+        print 'S >>>', str(target), interp.currentframe
   else:
     def step(target):
       target.info.step(target)
@@ -842,8 +890,7 @@ def _createGenerator(interp, ctors, vid=None, target=None):
       The Curry interpreter.
 
     ``ctors``
-      The sequence of ``icurry.IConstructor`` objects defining the type to
-      generate.
+      A sequence of ``InfoTable`` objects defining the type to generate.
 
     ``vid``
       The variable ID.  The root choice will be labeled with this ID.  By
@@ -860,7 +907,7 @@ def _createGenerator(interp, ctors, vid=None, target=None):
     unknown = interp.prelude.unknown
     return Node(
         ctor
-      , *[Node(unknown) for _ in xrange(ctor.info.arity)]
+      , *[Node(unknown) for _ in xrange(ctor.arity)]
       , target=target
       )
   else:
@@ -890,7 +937,7 @@ def _gen_ctors(interp, gen):
 
 def _clone_generator(interp, bound, unbound):
   vid = unbound[0]
-  constructors = list(_gen_ctors(bound[1][0]))
+  constructors = list(_gen_ctors(interp, bound[1]))
   get_generator(interp, unbound, typedef=constructors)
 
 def is_bound(interp, freevar):
@@ -910,13 +957,17 @@ def get_generator(interp, freevar, typedef):
       The free variable node to instantiate.
   ``typedef``
       A ``TypeDefinition`` that indicates the type to instantiate the variable
-      to.  This can also be a list of constructors.  If the free variable has
-      already been instantiated, then this can be None.
+      to.  This can also be a list of ``icurry.IConstructor``s or
+      ``InfoTables``.  If the free variable has already been instantiated, then
+      this can be None.
   '''
   assert freevar.info.tag == T_FREE
   vid = freevar[0]
   if freevar[1].info is interp.prelude.Unit.info:
-    constructors = getattr(typedef, 'constructors', typedef)
+    constructors = [
+        getattr(ctor, 'info', ctor)
+            for ctor in getattr(typedef, 'constructors', typedef)
+      ]
     instance = _createGenerator(interp, constructors, vid=vid)
     if len(constructors) == 1:
       # Ensure the instance is always choice-rooted.  This is not the most

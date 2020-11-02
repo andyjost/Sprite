@@ -1,0 +1,26 @@
+interface family_fun where {
+import Prelude;
+data Person
+  = Christine
+  | Maria
+  | Monica
+  | Alice
+  | Susan
+  | Antony
+  | Bill
+  | John
+  | Frank
+  | Peter
+  | Andrew;
+ancestor 2 :: Person -> Person -> Prelude.Bool;
+father 1 :: Person -> Person;
+goal1 0 :: Person;
+goal2 1 :: Person -> Prelude.Bool;
+goal3 2 :: Person -> Person -> Prelude.Bool;
+goal4 1 :: Person -> Prelude.Bool;
+goal5 2 :: Person -> Person -> Prelude.Bool;
+grandfather 2 :: Person -> Person -> Prelude.Bool;
+husband 1 :: Person -> Person;
+mother 1 :: Person -> Person;
+hiding data Prelude.Bool
+}

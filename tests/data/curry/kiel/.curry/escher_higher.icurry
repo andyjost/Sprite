@@ -1,0 +1,11 @@
+interface escher_higher where {
+import Prelude;
+data Day = Mon | Tue | Wed | Thu | Fri | Sat | Sun;
+filter_ 1 :: (a -> Prelude.Bool, [a]) -> [a];
+goal1 0 :: [Day];
+goal2 0 :: [Day];
+map_ 1 :: (a -> b, [a]) -> [b];
+next 1 :: Day -> Day;
+weekday 1 :: Day -> Prelude.Bool;
+hiding data Prelude.Bool
+}

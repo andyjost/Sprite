@@ -1,0 +1,14 @@
+
+module "prog08"
+  import
+    "Prelude"
+  function "prog08.f" 0
+    code
+      return
+        Node "Prelude.True"
+  function "prog08.main" 0
+    code
+      return
+        Node "Prelude.=:=" (
+          Node "prog08.f" ,
+          Node "Prelude.False" )

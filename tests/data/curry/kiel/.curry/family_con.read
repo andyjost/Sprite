@@ -1,0 +1,548 @@
+
+module "family_con"
+  import
+    "Prelude"
+  data "family_con.Person"
+    constructor "family_con.Christine" 0 0
+    constructor "family_con.Maria" 0 1
+    constructor "family_con.Monica" 0 2
+    constructor "family_con.Alice" 0 3
+    constructor "family_con.Susan" 0 4
+    constructor "family_con.Antony" 0 5
+    constructor "family_con.Bill" 0 6
+    constructor "family_con.John" 0 7
+    constructor "family_con.Frank" 0 8
+    constructor "family_con.Peter" 0 9
+    constructor "family_con.Andrew" 0 10
+  function "family_con.female" 1
+    code
+      declare_var 1 ILhs (("family_con","female"),1)
+      ATable 1 11 flex
+        reference_var 1
+        "family_con.Christine" =>
+          return
+            Node "Prelude.success"
+        "family_con.Maria" =>
+          return
+            Node "Prelude.success"
+        "family_con.Monica" =>
+          return
+            Node "Prelude.success"
+        "family_con.Alice" =>
+          return
+            Node "Prelude.success"
+        "family_con.Susan" =>
+          return
+            Node "Prelude.success"
+        "family_con.Antony" =>
+          return
+            exempt
+        "family_con.Bill" =>
+          return
+            exempt
+        "family_con.John" =>
+          return
+            exempt
+        "family_con.Frank" =>
+          return
+            exempt
+        "family_con.Peter" =>
+          return
+            exempt
+        "family_con.Andrew" =>
+          return
+            exempt
+  function "family_con.male" 1
+    code
+      declare_var 1 ILhs (("family_con","male"),1)
+      ATable 1 11 flex
+        reference_var 1
+        "family_con.Christine" =>
+          return
+            exempt
+        "family_con.Maria" =>
+          return
+            exempt
+        "family_con.Monica" =>
+          return
+            exempt
+        "family_con.Alice" =>
+          return
+            exempt
+        "family_con.Susan" =>
+          return
+            exempt
+        "family_con.Antony" =>
+          return
+            Node "Prelude.success"
+        "family_con.Bill" =>
+          return
+            Node "Prelude.success"
+        "family_con.John" =>
+          return
+            Node "Prelude.success"
+        "family_con.Frank" =>
+          return
+            Node "Prelude.success"
+        "family_con.Peter" =>
+          return
+            Node "Prelude.success"
+        "family_con.Andrew" =>
+          return
+            Node "Prelude.success"
+  function "family_con.married" 2
+    code
+      declare_var 1 ILhs (("family_con","married"),1)
+      declare_var 2 ILhs (("family_con","married"),2)
+      ATable 1 11 flex
+        reference_var 1
+        "family_con.Christine" =>
+          return
+            Node "family_con.married_#A0" (
+              reference_var 2 )
+        "family_con.Maria" =>
+          return
+            Node "family_con.married_#A1" (
+              reference_var 2 )
+        "family_con.Monica" =>
+          return
+            Node "family_con.married_#A2" (
+              reference_var 2 )
+        "family_con.Alice" =>
+          return
+            Node "family_con.married_#A3" (
+              reference_var 2 )
+        "family_con.Susan" =>
+          return
+            exempt
+        "family_con.Antony" =>
+          return
+            exempt
+        "family_con.Bill" =>
+          return
+            exempt
+        "family_con.John" =>
+          return
+            exempt
+        "family_con.Frank" =>
+          return
+            exempt
+        "family_con.Peter" =>
+          return
+            exempt
+        "family_con.Andrew" =>
+          return
+            exempt
+  function "family_con.married_#A3" 1
+    code
+      declare_var 2 ILhs (("family_con","married_#A3"),1)
+      ATable 1 11 flex
+        reference_var 2
+        "family_con.Christine" =>
+          return
+            exempt
+        "family_con.Maria" =>
+          return
+            exempt
+        "family_con.Monica" =>
+          return
+            exempt
+        "family_con.Alice" =>
+          return
+            exempt
+        "family_con.Susan" =>
+          return
+            exempt
+        "family_con.Antony" =>
+          return
+            exempt
+        "family_con.Bill" =>
+          return
+            exempt
+        "family_con.John" =>
+          return
+            exempt
+        "family_con.Frank" =>
+          return
+            Node "Prelude.success"
+        "family_con.Peter" =>
+          return
+            exempt
+        "family_con.Andrew" =>
+          return
+            exempt
+  function "family_con.married_#A2" 1
+    code
+      declare_var 2 ILhs (("family_con","married_#A2"),1)
+      ATable 1 11 flex
+        reference_var 2
+        "family_con.Christine" =>
+          return
+            exempt
+        "family_con.Maria" =>
+          return
+            exempt
+        "family_con.Monica" =>
+          return
+            exempt
+        "family_con.Alice" =>
+          return
+            exempt
+        "family_con.Susan" =>
+          return
+            exempt
+        "family_con.Antony" =>
+          return
+            exempt
+        "family_con.Bill" =>
+          return
+            exempt
+        "family_con.John" =>
+          return
+            Node "Prelude.success"
+        "family_con.Frank" =>
+          return
+            exempt
+        "family_con.Peter" =>
+          return
+            exempt
+        "family_con.Andrew" =>
+          return
+            exempt
+  function "family_con.married_#A1" 1
+    code
+      declare_var 2 ILhs (("family_con","married_#A1"),1)
+      ATable 1 11 flex
+        reference_var 2
+        "family_con.Christine" =>
+          return
+            exempt
+        "family_con.Maria" =>
+          return
+            exempt
+        "family_con.Monica" =>
+          return
+            exempt
+        "family_con.Alice" =>
+          return
+            exempt
+        "family_con.Susan" =>
+          return
+            exempt
+        "family_con.Antony" =>
+          return
+            exempt
+        "family_con.Bill" =>
+          return
+            Node "Prelude.success"
+        "family_con.John" =>
+          return
+            exempt
+        "family_con.Frank" =>
+          return
+            exempt
+        "family_con.Peter" =>
+          return
+            exempt
+        "family_con.Andrew" =>
+          return
+            exempt
+  function "family_con.married_#A0" 1
+    code
+      declare_var 2 ILhs (("family_con","married_#A0"),1)
+      ATable 1 11 flex
+        reference_var 2
+        "family_con.Christine" =>
+          return
+            exempt
+        "family_con.Maria" =>
+          return
+            exempt
+        "family_con.Monica" =>
+          return
+            exempt
+        "family_con.Alice" =>
+          return
+            exempt
+        "family_con.Susan" =>
+          return
+            exempt
+        "family_con.Antony" =>
+          return
+            Node "Prelude.success"
+        "family_con.Bill" =>
+          return
+            exempt
+        "family_con.John" =>
+          return
+            exempt
+        "family_con.Frank" =>
+          return
+            exempt
+        "family_con.Peter" =>
+          return
+            exempt
+        "family_con.Andrew" =>
+          return
+            exempt
+  function "family_con.mother" 2
+    code
+      declare_var 1 ILhs (("family_con","mother"),1)
+      declare_var 2 ILhs (("family_con","mother"),2)
+      ATable 1 11 flex
+        reference_var 1
+        "family_con.Christine" =>
+          return
+            Node "family_con.mother_#A4" (
+              reference_var 2 )
+        "family_con.Maria" =>
+          return
+            Node "family_con.mother_#A5" (
+              reference_var 2 )
+        "family_con.Monica" =>
+          return
+            Node "family_con.mother_#A6" (
+              reference_var 2 )
+        "family_con.Alice" =>
+          return
+            Node "family_con.mother_#A7" (
+              reference_var 2 )
+        "family_con.Susan" =>
+          return
+            exempt
+        "family_con.Antony" =>
+          return
+            exempt
+        "family_con.Bill" =>
+          return
+            exempt
+        "family_con.John" =>
+          return
+            exempt
+        "family_con.Frank" =>
+          return
+            exempt
+        "family_con.Peter" =>
+          return
+            exempt
+        "family_con.Andrew" =>
+          return
+            exempt
+  function "family_con.mother_#A7" 1
+    code
+      declare_var 2 ILhs (("family_con","mother_#A7"),1)
+      ATable 1 11 flex
+        reference_var 2
+        "family_con.Christine" =>
+          return
+            exempt
+        "family_con.Maria" =>
+          return
+            exempt
+        "family_con.Monica" =>
+          return
+            exempt
+        "family_con.Alice" =>
+          return
+            exempt
+        "family_con.Susan" =>
+          return
+            exempt
+        "family_con.Antony" =>
+          return
+            exempt
+        "family_con.Bill" =>
+          return
+            exempt
+        "family_con.John" =>
+          return
+            exempt
+        "family_con.Frank" =>
+          return
+            exempt
+        "family_con.Peter" =>
+          return
+            exempt
+        "family_con.Andrew" =>
+          return
+            Node "Prelude.success"
+  function "family_con.mother_#A6" 1
+    code
+      declare_var 2 ILhs (("family_con","mother_#A6"),1)
+      ATable 1 11 flex
+        reference_var 2
+        "family_con.Christine" =>
+          return
+            exempt
+        "family_con.Maria" =>
+          return
+            exempt
+        "family_con.Monica" =>
+          return
+            exempt
+        "family_con.Alice" =>
+          return
+            exempt
+        "family_con.Susan" =>
+          return
+            Node "Prelude.success"
+        "family_con.Antony" =>
+          return
+            exempt
+        "family_con.Bill" =>
+          return
+            exempt
+        "family_con.John" =>
+          return
+            exempt
+        "family_con.Frank" =>
+          return
+            exempt
+        "family_con.Peter" =>
+          return
+            Node "Prelude.success"
+        "family_con.Andrew" =>
+          return
+            exempt
+  function "family_con.mother_#A5" 1
+    code
+      declare_var 2 ILhs (("family_con","mother_#A5"),1)
+      ATable 1 11 flex
+        reference_var 2
+        "family_con.Christine" =>
+          return
+            exempt
+        "family_con.Maria" =>
+          return
+            exempt
+        "family_con.Monica" =>
+          return
+            exempt
+        "family_con.Alice" =>
+          return
+            exempt
+        "family_con.Susan" =>
+          return
+            exempt
+        "family_con.Antony" =>
+          return
+            exempt
+        "family_con.Bill" =>
+          return
+            exempt
+        "family_con.John" =>
+          return
+            exempt
+        "family_con.Frank" =>
+          return
+            Node "Prelude.success"
+        "family_con.Peter" =>
+          return
+            exempt
+        "family_con.Andrew" =>
+          return
+            exempt
+  function "family_con.mother_#A4" 1
+    code
+      declare_var 2 ILhs (("family_con","mother_#A4"),1)
+      ATable 1 11 flex
+        reference_var 2
+        "family_con.Christine" =>
+          return
+            exempt
+        "family_con.Maria" =>
+          return
+            exempt
+        "family_con.Monica" =>
+          return
+            exempt
+        "family_con.Alice" =>
+          return
+            Node "Prelude.success"
+        "family_con.Susan" =>
+          return
+            exempt
+        "family_con.Antony" =>
+          return
+            exempt
+        "family_con.Bill" =>
+          return
+            exempt
+        "family_con.John" =>
+          return
+            Node "Prelude.success"
+        "family_con.Frank" =>
+          return
+            exempt
+        "family_con.Peter" =>
+          return
+            exempt
+        "family_con.Andrew" =>
+          return
+            exempt
+  function "family_con.father" 2
+    code
+      declare_var 1 ILhs (("family_con","father"),1)
+      declare_var 2 ILhs (("family_con","father"),2)
+      declare_var 3 IFree
+      return
+        Node "Prelude.&" (
+          Node "family_con.married" (
+            reference_var 3 ,
+            reference_var 1 ) ,
+          Node "family_con.mother" (
+            reference_var 3 ,
+            reference_var 2 ) )
+  function "family_con.grandfather" 2
+    code
+      declare_var 1 ILhs (("family_con","grandfather"),1)
+      declare_var 2 ILhs (("family_con","grandfather"),2)
+      return
+        Or (
+          Node "family_con.grandfather_#A8" (
+            reference_var 1 ,
+            reference_var 2 ) ,
+          Node "family_con.grandfather_#A9" (
+            reference_var 1 ,
+            reference_var 2 ) )
+  function "family_con.grandfather_#A9" 2
+    code
+      declare_var 1 ILhs (("family_con","grandfather_#A9"),1)
+      declare_var 2 ILhs (("family_con","grandfather_#A9"),2)
+      declare_var 4 IFree
+      return
+        Node "Prelude.&" (
+          Node "family_con.father" (
+            reference_var 1 ,
+            reference_var 4 ) ,
+          Node "family_con.mother" (
+            reference_var 4 ,
+            reference_var 2 ) )
+  function "family_con.grandfather_#A8" 2
+    code
+      declare_var 1 ILhs (("family_con","grandfather_#A8"),1)
+      declare_var 2 ILhs (("family_con","grandfather_#A8"),2)
+      declare_var 3 IFree
+      return
+        Node "Prelude.&" (
+          Node "family_con.father" (
+            reference_var 1 ,
+            reference_var 3 ) ,
+          Node "family_con.father" (
+            reference_var 3 ,
+            reference_var 2 ) )
+  function "family_con.goal1" 1
+    code
+      declare_var 1 ILhs (("family_con","goal1"),1)
+      return
+        Node "family_con.father" (
+          Node "family_con.John" ,
+          reference_var 1 )
+  function "family_con.goal2" 2
+    code
+      declare_var 1 ILhs (("family_con","goal2"),1)
+      declare_var 2 ILhs (("family_con","goal2"),2)
+      return
+        Node "family_con.grandfather" (
+          reference_var 1 ,
+          reference_var 2 )

@@ -1,0 +1,1 @@
+Prog "a2b1c0_006" ["Prelude"] [Type ("a2b1c0_006","T") Public [] [Cons ("a2b1c0_006","A") 2 Public [TCons ("a2b1c0_006","T") [],TCons ("a2b1c0_006","T") []],Cons ("a2b1c0_006","B") 1 Public [TCons ("a2b1c0_006","T") []],Cons ("a2b1c0_006","C") 0 Public []]] [Func ("a2b1c0_006","main") 0 Public (TCons ("a2b1c0_006","T") []) (Rule [] (Var 0))] []

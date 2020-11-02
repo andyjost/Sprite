@@ -1,0 +1,32 @@
+
+module "a0b0c0_422"
+  import
+    "Prelude"
+  data "a0b0c0_422.T"
+    constructor "a0b0c0_422.A" 0 0
+    constructor "a0b0c0_422.B" 0 1
+    constructor "a0b0c0_422.C" 0 2
+  function "a0b0c0_422.main" 0
+    code
+      declare_var 1 IFree
+      declare_var 2 IFree
+      return
+        Node "Prelude.?" (
+          Node "Prelude.&>" (
+            Node "Prelude.&" (
+              Node "Prelude.=:=" (
+                reference_var 1 ,
+                Node "a0b0c0_422.C" ) ,
+              Node "Prelude.&" (
+                Node "Prelude.=:=" (
+                  reference_var 2 ,
+                  Node "a0b0c0_422.A" ) ,
+                Node "Prelude.=:=" (
+                  reference_var 1 ,
+                  reference_var 2 ) ) ) ,
+            Node "Prelude.(,)" (
+              reference_var 1 ,
+              reference_var 2 ) ) ,
+          Node "Prelude.(,)" (
+            reference_var 1 ,
+            reference_var 2 ) )

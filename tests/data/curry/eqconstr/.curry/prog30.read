@@ -1,0 +1,20 @@
+
+module "prog30"
+  import
+    "Prelude"
+  function "prog30.fwd" 1
+    code
+      declare_var 1 ILhs (("prog30","fwd"),1)
+      return
+        reference_var 1
+  function "prog30.f" 0
+    code
+      return
+        Node "Prelude.True"
+  function "prog30.main" 0
+    code
+      return
+        Node "Prelude.=:=" (
+          Node "Prelude.False" ,
+          Node "prog30.fwd" (
+            Node "prog30.f" ) )

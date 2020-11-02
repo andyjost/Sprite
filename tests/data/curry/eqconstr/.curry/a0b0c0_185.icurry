@@ -1,0 +1,4 @@
+interface a0b0c0_185 where {
+data T = A | B | C;
+main 0 :: T
+}

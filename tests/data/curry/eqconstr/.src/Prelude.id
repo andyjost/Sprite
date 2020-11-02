@@ -1,0 +1,13 @@
+def step(lhs):
+  _1 = lhs[0]
+  lhs.Node(ni__Fwd, _1)
+  return
+
+
+# This file was created by Sprite because Prelude.id was compiled in
+# debug mode.  It exists to help PDB show the compiled code.
+
+# Closure:
+# { 'Node': <class 'curry.interpreter.runtime.Node'>,
+#   'ni__Fwd': InfoTable(name=_Fwd, arity=1, tag=-3, _step=<function _unreachable at 0x7f3879674488>, show=<curry.interpreter.show.Show object at 0x7f387248a950>, typecheck=None, typedef=<weakref at 0x7f387347f520; to 'TypeDefinition' at 0x7f3872495110>),
+#   'p_1': (0,)}

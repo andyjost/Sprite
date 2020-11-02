@@ -6,11 +6,12 @@ interactive statements can also be cached.  This exists because the conversions
 can be extremely slow depending on the Curry system used and its configuration.
 '''
 
+from .utility import filesys
 import cPickle as pickle
 import cStringIO
+import hashlib
 import logging
 import os
-from .utility import filesys
 
 logger = logging.getLogger(__name__)
 
@@ -94,13 +95,20 @@ class Curry2JsonCache(object):
       self.cur = self.db.cursor()
       self.cur.execute(
           '''
-          CREATE TABLE IF NOT EXISTS [%s](src TEXT PRIMARY KEY, json TEXT)
+          CREATE TABLE IF NOT EXISTS [%s](key TEXT PRIMARY KEY, json TEXT)
           ''' % self.tablename
         )
       self.db.commit()
-      self.src = open(self.curryfile).read()
+      # The same Curry file contents can produce a slightly different JSON
+      # output because the file name is embedded into JSON as the module name.
+      modulename = os.path.splitext(os.path.basename(jsonfile))[0]
+      hasher = hashlib.sha1()
+      hasher.update(modulename)
+      hasher.update('#')
+      hasher.update(open(self.curryfile).read())
+      self.key = hasher.hexdigest()
       self.cur.execute(
-          '''SELECT json FROM [%s] WHERE src=?''' % self.tablename, (self.src,)
+          '''SELECT json FROM [%s] WHERE key=?''' % self.tablename, (self.key,)
         )
       result = self.cur.fetchone()
       if result:
@@ -124,8 +132,8 @@ class Curry2JsonCache(object):
     if self.db:
       json = open(self.jsonfile).read()
       self.cur.execute(
-          '''INSERT INTO [%s](src, json) VALUES(?, ?)''' % self.tablename
-        , (self.src, json)
+          '''INSERT INTO [%s](key, json) VALUES(?, ?)''' % self.tablename
+        , (self.key, json)
         )
       self.db.commit()
 

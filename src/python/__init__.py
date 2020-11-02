@@ -30,10 +30,12 @@ under ``modules``.  Use ``topython`` to convert Curry values to Python objects.
     A
 '''
 
-from . import interpreter
 from .exceptions import *
-from .utility.unboxed import unboxed
+from . import interpreter
 from .utility import flagutils as _flagutils
+from .utility import visitation as _visitation
+from .utility.unboxed import unboxed
+import collections as _collections
 
 _interpreter_ = interpreter.Interpreter(
     flags=_flagutils.getflags(weakflags={'defaultconverter':'topython'})
@@ -66,3 +68,32 @@ def reload(flags={}):
   '''
   _flagutils.reload(__name__, flags)
 
+
+@_visitation.dispatch.on('value')
+def show_value(value):
+  '''
+  Converts a Python Curry value to a string in Curry format.  This does a few
+  things, such as lowering one-tuples, and adjusting containers, such as tuples
+  and lists, to print elements as with ``str`` rather than ``repr``.  The
+  output should match other Curry systems.
+  '''
+  return str(value)
+
+@show_value.when(tuple)
+def show_value(value):
+  if len(value) == 1:
+    return show_value(value[0])
+  else:
+    return '(%s)' % ','.join(map(show_value, value))
+
+@show_value.when(list)
+def show_value(value):
+  return '[%s]' % ','.join(map(show_value, value))
+
+@show_value.when(_collections.Sequence)
+def show_value(value):
+  return show_value(list(value))
+
+@show_value.when(_collections.Mapping)
+def show_value(value):
+  return {show_value(k): show_value(v) for k,v in value.iteritems()}

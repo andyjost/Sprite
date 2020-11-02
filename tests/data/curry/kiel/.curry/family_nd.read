@@ -1,0 +1,169 @@
+
+module "family_nd"
+  import
+    "Prelude"
+  data "family_nd.Person"
+    constructor "family_nd.Christine" 0 0
+    constructor "family_nd.Maria" 0 1
+    constructor "family_nd.Monica" 0 2
+    constructor "family_nd.Alice" 0 3
+    constructor "family_nd.Susan" 0 4
+    constructor "family_nd.Antony" 0 5
+    constructor "family_nd.Bill" 0 6
+    constructor "family_nd.John" 0 7
+    constructor "family_nd.Frank" 0 8
+    constructor "family_nd.Peter" 0 9
+    constructor "family_nd.Andrew" 0 10
+  function "family_nd.female" 0
+    code
+      return
+        Or (
+          Or (
+            Or (
+              Or (
+                Node "family_nd.Christine" ,
+                Node "family_nd.Maria" ) ,
+              Node "family_nd.Monica" ) ,
+            Node "family_nd.Alice" ) ,
+          Node "family_nd.Susan" )
+  function "family_nd.male" 0
+    code
+      return
+        Or (
+          Or (
+            Or (
+              Or (
+                Or (
+                  Node "family_nd.Antony" ,
+                  Node "family_nd.Bill" ) ,
+                Node "family_nd.John" ) ,
+              Node "family_nd.Frank" ) ,
+            Node "family_nd.Peter" ) ,
+          Node "family_nd.Andrew" )
+  function "family_nd.husband" 1
+    code
+      declare_var 1 ILhs (("family_nd","husband"),1)
+      ATable 1 11 flex
+        reference_var 1
+        "family_nd.Christine" =>
+          return
+            Node "family_nd.Antony"
+        "family_nd.Maria" =>
+          return
+            Node "family_nd.Bill"
+        "family_nd.Monica" =>
+          return
+            Node "family_nd.John"
+        "family_nd.Alice" =>
+          return
+            Node "family_nd.Frank"
+        "family_nd.Susan" =>
+          return
+            exempt
+        "family_nd.Antony" =>
+          return
+            exempt
+        "family_nd.Bill" =>
+          return
+            exempt
+        "family_nd.John" =>
+          return
+            exempt
+        "family_nd.Frank" =>
+          return
+            exempt
+        "family_nd.Peter" =>
+          return
+            exempt
+        "family_nd.Andrew" =>
+          return
+            exempt
+  function "family_nd.mother" 1
+    code
+      declare_var 1 ILhs (("family_nd","mother"),1)
+      ATable 1 11 flex
+        reference_var 1
+        "family_nd.Christine" =>
+          return
+            exempt
+        "family_nd.Maria" =>
+          return
+            exempt
+        "family_nd.Monica" =>
+          return
+            exempt
+        "family_nd.Alice" =>
+          return
+            Node "family_nd.Christine"
+        "family_nd.Susan" =>
+          return
+            Node "family_nd.Monica"
+        "family_nd.Antony" =>
+          return
+            exempt
+        "family_nd.Bill" =>
+          return
+            exempt
+        "family_nd.John" =>
+          return
+            Node "family_nd.Christine"
+        "family_nd.Frank" =>
+          return
+            Node "family_nd.Maria"
+        "family_nd.Peter" =>
+          return
+            Node "family_nd.Monica"
+        "family_nd.Andrew" =>
+          return
+            Node "family_nd.Alice"
+  function "family_nd.father" 1
+    code
+      declare_var 1 ILhs (("family_nd","father"),1)
+      return
+        Node "family_nd.husband" (
+          Node "family_nd.mother" (
+            reference_var 1 ) )
+  function "family_nd.grandfather" 1
+    code
+      declare_var 1 ILhs (("family_nd","grandfather"),1)
+      return
+        Or (
+          Node "family_nd.father" (
+            Node "family_nd.father" (
+              reference_var 1 ) ) ,
+          Node "family_nd.father" (
+            Node "family_nd.mother" (
+              reference_var 1 ) ) )
+  function "family_nd.ancestor" 1
+    code
+      declare_var 1 ILhs (("family_nd","ancestor"),1)
+      return
+        Or (
+          Or (
+            Or (
+              Node "family_nd.father" (
+                reference_var 1 ) ,
+              Node "family_nd.mother" (
+                reference_var 1 ) ) ,
+            Node "family_nd.father" (
+              Node "family_nd.ancestor" (
+                reference_var 1 ) ) ) ,
+          Node "family_nd.mother" (
+            Node "family_nd.ancestor" (
+              reference_var 1 ) ) )
+  function "family_nd.goal1" 0
+    code
+      return
+        Node "family_nd.father" (
+          Node "family_nd.John" )
+  function "family_nd.goal2" 1
+    code
+      declare_var 1 ILhs (("family_nd","goal2"),1)
+      return
+        Node "family_nd.grandfather" (
+          reference_var 1 )
+  function "family_nd.goal3" 0
+    code
+      return
+        Node "family_nd.ancestor" (
+          Node "family_nd.Andrew" )

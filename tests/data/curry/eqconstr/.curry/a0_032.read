@@ -1,0 +1,22 @@
+
+module "a0_032"
+  import
+    "Prelude"
+  data "a0_032.T"
+    constructor "a0_032.A" 0 0
+  function "a0_032.main" 0
+    code
+      declare_var 1 IFree
+      declare_var 2 IFree
+      return
+        Node "Prelude.?" (
+          Node "Prelude.&>" (
+            Node "Prelude.&" (
+              Node "Prelude.=:=" (
+                reference_var 2 ,
+                Node "a0_032.A" ) ,
+              Node "Prelude.=:=" (
+                reference_var 2 ,
+                reference_var 1 ) ) ,
+            reference_var 1 ) ,
+          reference_var 1 )

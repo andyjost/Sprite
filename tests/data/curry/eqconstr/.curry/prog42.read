@@ -1,0 +1,15 @@
+
+module "prog42"
+  import
+    "Prelude"
+  function "prog42.main" 0
+    code
+      declare_var 1 IFree
+      return
+        Node "Prelude.?" (
+          reference_var 1 ,
+          Node "Prelude.&>" (
+            Node "Prelude.=:=" (
+              Node "Prelude.True" ,
+              reference_var 1 ) ,
+            reference_var 1 ) )

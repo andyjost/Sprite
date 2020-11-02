@@ -1,0 +1,232 @@
+
+module "escher_perm"
+  import
+    "Prelude"
+  data "escher_perm.Day"
+    constructor "escher_perm.Mon" 0 0
+    constructor "escher_perm.Tue" 0 1
+    constructor "escher_perm.Wed" 0 2
+    constructor "escher_perm.Thu" 0 3
+    constructor "escher_perm.Fri" 0 4
+    constructor "escher_perm.Sat" 0 5
+    constructor "escher_perm.Sun" 0 6
+  data "escher_perm.Person"
+    constructor "escher_perm.Mary" 0 0
+    constructor "escher_perm.Bill" 0 1
+    constructor "escher_perm.Joe" 0 2
+    constructor "escher_perm.Fred" 0 3
+  function "escher_perm.permute" 1
+    code
+      declare_var 1 ILhs (("escher_perm","permute"),1)
+      ATable 1 1 flex
+        reference_var 1
+        "Prelude.(,)" =>
+          declare_var 2 IVar 1 (("Prelude","(,)"),1)
+          declare_var 3 IVar 1 (("Prelude","(,)"),2)
+          return
+            Node "escher_perm.permute_#A1" (
+              reference_var 2 ,
+              reference_var 3 )
+  function "escher_perm.permute_#A1" 2
+    code
+      declare_var 2 ILhs (("escher_perm","permute_#A1"),1)
+      declare_var 3 ILhs (("escher_perm","permute_#A1"),2)
+      ATable 1 2 flex
+        reference_var 2
+        "Prelude.[]" =>
+          return
+            Node "Prelude.=:=" (
+              reference_var 3 ,
+              Node "Prelude.[]" )
+        "Prelude.:" =>
+          declare_var 4 IVar 2 (("Prelude",":"),1)
+          declare_var 5 IVar 2 (("Prelude",":"),2)
+          return
+            Node "escher_perm.permute_#A0" (
+              reference_var 3 ,
+              reference_var 4 ,
+              reference_var 5 )
+  function "escher_perm.permute_#A0" 3
+    code
+      declare_var 3 ILhs (("escher_perm","permute_#A0"),1)
+      declare_var 4 ILhs (("escher_perm","permute_#A0"),2)
+      declare_var 5 ILhs (("escher_perm","permute_#A0"),3)
+      declare_var 6 IFree
+      declare_var 7 IFree
+      declare_var 8 IFree
+      return
+        Node "Prelude.&" (
+          Node "escher_perm.permute" (
+            Node "Prelude.(,)" (
+              reference_var 5 ,
+              reference_var 6 ) ) ,
+          Node "Prelude.&" (
+            Node "escher_perm.split" (
+              Node "Prelude.(,,)" (
+                reference_var 6 ,
+                reference_var 7 ,
+                reference_var 8 ) ) ,
+            Node "Prelude.=:=" (
+              reference_var 3 ,
+              Node "escher_perm.concatenate" (
+                Node "Prelude.(,)" (
+                  reference_var 7 ,
+                  Node "Prelude.:" (
+                    reference_var 4 ,
+                    reference_var 8 ) ) ) ) ) )
+  function "escher_perm.concatenate" 1
+    code
+      declare_var 1 ILhs (("escher_perm","concatenate"),1)
+      ATable 1 1 flex
+        reference_var 1
+        "Prelude.(,)" =>
+          declare_var 2 IVar 1 (("Prelude","(,)"),1)
+          declare_var 3 IVar 1 (("Prelude","(,)"),2)
+          return
+            Node "escher_perm.concatenate_#A2" (
+              reference_var 2 ,
+              reference_var 3 )
+  function "escher_perm.concatenate_#A2" 2
+    code
+      declare_var 2 ILhs (("escher_perm","concatenate_#A2"),1)
+      declare_var 3 ILhs (("escher_perm","concatenate_#A2"),2)
+      ATable 1 2 flex
+        reference_var 2
+        "Prelude.[]" =>
+          return
+            reference_var 3
+        "Prelude.:" =>
+          declare_var 4 IVar 2 (("Prelude",":"),1)
+          declare_var 5 IVar 2 (("Prelude",":"),2)
+          return
+            Node "Prelude.:" (
+              reference_var 4 ,
+              Node "escher_perm.concatenate" (
+                Node "Prelude.(,)" (
+                  reference_var 5 ,
+                  reference_var 3 ) ) )
+  function "escher_perm.split" 1
+    code
+      declare_var 1 ILhs (("escher_perm","split"),1)
+      ATable 1 1 flex
+        reference_var 1
+        "Prelude.(,,)" =>
+          declare_var 2 IVar 1 (("Prelude","(,,)"),1)
+          declare_var 3 IVar 1 (("Prelude","(,,)"),2)
+          declare_var 4 IVar 1 (("Prelude","(,,)"),3)
+          return
+            Node "escher_perm.split_#A4" (
+              reference_var 2 ,
+              reference_var 3 ,
+              reference_var 4 )
+  function "escher_perm.split_#A4" 3
+    code
+      declare_var 2 ILhs (("escher_perm","split_#A4"),1)
+      declare_var 3 ILhs (("escher_perm","split_#A4"),2)
+      declare_var 4 ILhs (("escher_perm","split_#A4"),3)
+      ATable 1 2 flex
+        reference_var 2
+        "Prelude.[]" =>
+          return
+            Node "Prelude.&" (
+              Node "Prelude.=:=" (
+                reference_var 3 ,
+                Node "Prelude.[]" ) ,
+              Node "Prelude.=:=" (
+                reference_var 4 ,
+                Node "Prelude.[]" ) )
+        "Prelude.:" =>
+          declare_var 5 IVar 2 (("Prelude",":"),1)
+          declare_var 6 IVar 2 (("Prelude",":"),2)
+          return
+            Or (
+              Node "Prelude.&" (
+                Node "Prelude.=:=" (
+                  reference_var 3 ,
+                  Node "Prelude.[]" ) ,
+                Node "Prelude.=:=" (
+                  reference_var 4 ,
+                  Node "Prelude.:" (
+                    reference_var 5 ,
+                    reference_var 6 ) ) ) ,
+              Node "escher_perm.split_#A3" (
+                reference_var 3 ,
+                reference_var 4 ,
+                reference_var 5 ,
+                reference_var 6 ) )
+  function "escher_perm.split_#A3" 4
+    code
+      declare_var 3 ILhs (("escher_perm","split_#A3"),1)
+      declare_var 4 ILhs (("escher_perm","split_#A3"),2)
+      declare_var 5 ILhs (("escher_perm","split_#A3"),3)
+      declare_var 6 ILhs (("escher_perm","split_#A3"),4)
+      declare_var 7 IFree
+      return
+        Node "Prelude.&" (
+          Node "Prelude.=:=" (
+            reference_var 3 ,
+            Node "Prelude.:" (
+              reference_var 5 ,
+              reference_var 7 ) ) ,
+          Node "escher_perm.split" (
+            Node "Prelude.(,,)" (
+              reference_var 6 ,
+              reference_var 7 ,
+              reference_var 4 ) ) )
+  function "escher_perm.splitc" 1
+    code
+      declare_var 1 ILhs (("escher_perm","splitc"),1)
+      ATable 1 1 flex
+        reference_var 1
+        "Prelude.(,,)" =>
+          declare_var 2 IVar 1 (("Prelude","(,,)"),1)
+          declare_var 3 IVar 1 (("Prelude","(,,)"),2)
+          declare_var 4 IVar 1 (("Prelude","(,,)"),3)
+          return
+            Node "Prelude.=:=" (
+              Node "escher_perm.concatenate" (
+                Node "Prelude.(,)" (
+                  reference_var 3 ,
+                  reference_var 4 ) ) ,
+              reference_var 2 )
+  function "escher_perm.goal1" 0
+    code
+      return
+        Node "escher_perm.concatenate" (
+          Node "Prelude.(,)" (
+            Node "Prelude.:" (
+              Node "escher_perm.Mon" ,
+              Node "Prelude.:" (
+                Node "escher_perm.Tue" ,
+                Node "Prelude.[]" ) ) ,
+            Node "Prelude.:" (
+              Node "escher_perm.Wed" ,
+              Node "Prelude.[]" ) ) )
+  function "escher_perm.goal2" 2
+    code
+      declare_var 1 ILhs (("escher_perm","goal2"),1)
+      declare_var 2 ILhs (("escher_perm","goal2"),2)
+      return
+        Node "escher_perm.split" (
+          Node "Prelude.(,,)" (
+            Node "Prelude.:" (
+              Node "escher_perm.Mon" ,
+              Node "Prelude.:" (
+                Node "escher_perm.Tue" ,
+                Node "Prelude.[]" ) ) ,
+            reference_var 1 ,
+            reference_var 2 ) )
+  function "escher_perm.goal3" 1
+    code
+      declare_var 1 ILhs (("escher_perm","goal3"),1)
+      return
+        Node "escher_perm.permute" (
+          Node "Prelude.(,)" (
+            Node "Prelude.:" (
+              Node "escher_perm.Mon" ,
+              Node "Prelude.:" (
+                Node "escher_perm.Tue" ,
+                Node "Prelude.:" (
+                  Node "escher_perm.Wed" ,
+                  Node "Prelude.[]" ) ) ) ,
+            reference_var 1 ) )

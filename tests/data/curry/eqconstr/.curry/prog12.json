@@ -1,0 +1,1 @@
+[{"__class__":"IModule","name":"prog12","imports":["Prelude"],"types":[],"functions":[{"__class__":"IFunction","ident":"prog12.main","arity":0,"code":[{"__class__":"Return","expr":{"__class__":"Applic","ident":"Prelude.=:=","args":[{"__class__":"Applic","ident":"Prelude.Int","args":[0]},{"__class__":"Applic","ident":"Prelude.failed","args":[]}]}}]}]}]

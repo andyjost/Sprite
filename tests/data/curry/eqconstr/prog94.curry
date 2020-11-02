@@ -1,0 +1,1 @@
+main = ((x =:= y) & (y =:= False) & (True =:= x)) &> x where x,y free

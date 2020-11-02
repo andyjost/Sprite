@@ -1,0 +1,12 @@
+interface horseman where {
+import Prelude;
+data Nat = O | S Nat;
+add 2 :: Nat -> Nat -> Nat;
+goal1 2 :: Nat -> Nat -> Prelude.Bool;
+goal2 2 :: Nat -> Nat -> Prelude.Bool;
+goal3 3 :: Nat -> Nat -> Nat -> Prelude.Bool;
+horseman 4 :: Nat -> Nat -> Nat -> Nat -> Prelude.Bool;
+int2nat 1 :: Prelude.Int -> Nat;
+hiding data Prelude.Bool;
+hiding data Prelude.Int
+}

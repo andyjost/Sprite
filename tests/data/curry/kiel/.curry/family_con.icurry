@@ -1,0 +1,24 @@
+interface family_con where {
+import Prelude;
+data Person
+  = Christine
+  | Maria
+  | Monica
+  | Alice
+  | Susan
+  | Antony
+  | Bill
+  | John
+  | Frank
+  | Peter
+  | Andrew;
+father 2 :: Person -> Person -> Prelude.Bool;
+female 1 :: Person -> Prelude.Bool;
+goal1 1 :: Person -> Prelude.Bool;
+goal2 2 :: Person -> Person -> Prelude.Bool;
+grandfather 2 :: Person -> Person -> Prelude.Bool;
+male 1 :: Person -> Prelude.Bool;
+married 2 :: Person -> Person -> Prelude.Bool;
+mother 2 :: Person -> Person -> Prelude.Bool;
+hiding data Prelude.Bool
+}

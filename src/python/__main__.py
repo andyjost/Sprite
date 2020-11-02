@@ -32,7 +32,7 @@ def main(argv):
   module = curry.import_(args.name, curry.path, is_sourcefile=not args.module)
   main = curry.symbol(module.__name__ + '.main')
   for value in curry.eval(main):
-    print value
+    print curry.show_value(value)
 
   if args.interact:
     code.interact(banner='In Curry module %s.' % module.__name__, local=module.__dict__)

@@ -1,0 +1,34 @@
+# ----------------------------------------------------------------------
+# robots.txt
+# ----------------------------------------------------------------------
+
+User-agent: *
+
+Allow: /                                      # Allow bot to enter
+
+Disallow: /fileadmin/template/
+Disallow: /fileadmin/_temp_/
+Disallow: /fileadmin/Plugin/
+
+Disallow: /cgi-bin/                           # Nothing to see here
+Disallow: /t3lib/                             # Nothing to see here
+Disallow: /typo3/                             # Nothing to see here
+Disallow: /typo3conf/                         # Nothing to see here
+Disallow: /typo3_src/                         # Nothing to see here
+Disallow: /typo3temp/                         # Nothing to see here
+
+Disallow: /*?id=*                             # Disable non-realurl
+Disallow: /*&type=98                          # Disable print pages
+Disallow: /*&type=123                         # Disable pdf pages
+Disallow: /nc/*                               # Disable cached pages
+
+Disallow: /uploads/media/files/               # Nothing to see here ???
+Disallow: /uploads/tx_med/                    # Nothing to see here ???
+Disallow: /uploads/tx_ph/                     # Nothing to see here ???
+
+Disallow: /~ach/                              # from old days
+Disallow: /~ca/                               # from old days
+
+# ----------------------------------------------------------------------
+# end of file
+# ----------------------------------------------------------------------

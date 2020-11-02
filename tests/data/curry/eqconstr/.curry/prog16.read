@@ -1,0 +1,11 @@
+
+module "prog16"
+  import
+    "Prelude"
+  function "prog16.main" 0
+    code
+      declare_var 1 IFree
+      return
+        Node "Prelude._impl#==#Prelude.Eq#Prelude.Bool" (
+          Node "Prelude.True" ,
+          reference_var 1 )

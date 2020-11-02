@@ -1,0 +1,26 @@
+def step(lhs):
+  _1 = lhs[0]
+  _2 = lhs[1]
+  selector = hnf(lhs, p_1, typedef=switch_type).info.tag
+  if selector == 1:
+    lhs.Node(ni__Fwd, _2)
+    return
+  elif selector == 0:
+    lhs.Node(ni__Failure)
+    return
+  else:
+    lhs.Node(ni__Failure)
+    return
+
+
+# This file was created by Sprite because Prelude.&> was compiled in
+# debug mode.  It exists to help PDB show the compiled code.
+
+# Closure:
+# { 'Node': <class 'curry.interpreter.runtime.Node'>,
+#   'hnf': <bound method Interpreter.hnf of <curry.interpreter.interpreter.Interpreter object at 0x7f3879630150>>,
+#   'ni__Failure': InfoTable(name=_Failure, arity=0, tag=-6, _step=<function _unreachable at 0x7f3879674488>, show=<curry.interpreter.show.Show object at 0x7f3872429c50>, typecheck=None, typedef=<weakref at 0x7f387347f9f0; to 'TypeDefinition' at 0x7f3872434450>),
+#   'ni__Fwd': InfoTable(name=_Fwd, arity=1, tag=-3, _step=<function _unreachable at 0x7f3879674488>, show=<curry.interpreter.show.Show object at 0x7f387248a950>, typecheck=None, typedef=<weakref at 0x7f387347f520; to 'TypeDefinition' at 0x7f3872495110>),
+#   'p_1': (0,),
+#   'p_2': (1,),
+#   'switch_type': <curry type Prelude.Bool>}

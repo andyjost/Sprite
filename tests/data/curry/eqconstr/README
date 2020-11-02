@@ -1,0 +1,22 @@
+The curry files in this directory thoroughly test the equality constraint
+operator (=:=).  They can be run from the $root/tests directory with either of
+the following commands:
+
+    % ./run_tests func_eqconstr.py
+    % ./cov_tests
+
+Because there are so many tests, and because it takes a relatively long time
+(several seconds per test case) to generate the ICurry and golden results,
+the outputs of those steps are checked in to the repository.  Therefore,
+running these tests just checks the behavior of Sprite.
+
+Most users will not ever need to touch this directory.  There are three cases,
+however, in which they might.  First, if the ICurry format changes, then the
+.curry subdirectory can be removed to remove the ICurry files.  Running the
+tests would then regenerate those files.  Second, to regenerate golden results,
+remove the files ending with au-gen and then rerun the tests.
+
+Finally, when tests are added or removed, then update the script
+generate_test_programs.py with new tests, run it to generate new .curry files,
+and then run the tests to generate ICurry and golden results.
+

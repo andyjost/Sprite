@@ -58,10 +58,13 @@ def eq_constr(interp, root):
     ltag, rtag = lhs.info.tag, rhs.info.tag
     if ltag == runtime.T_FREE:
       if rtag == runtime.T_FREE:
-        # Unify variables => _EqVars True (x, y)
-        yield interp.prelude._EqVars.info
-        yield interp.expr(True)
-        yield interp.expr((lhs, rhs))
+        if lhs[0] != rhs[0]:
+          # Unify variables => _EqVars True (x, y)
+          yield interp.prelude._EqVars.info
+          yield interp.expr(True)
+          yield interp.expr((lhs, rhs))
+        else:
+          yield interp.prelude.True
       else:
         # Instantiate the variable.
         assert rtag >= runtime.T_CTOR

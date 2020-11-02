@@ -1,0 +1,4 @@
+interface a0_135 where {
+data T = A;
+main 0 :: T
+}

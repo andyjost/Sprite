@@ -1,0 +1,154 @@
+
+module "member"
+  import
+    "Prelude"
+  function "member.append" 1
+    code
+      declare_var 1 ILhs (("member","append"),1)
+      ATable 1 1 flex
+        reference_var 1
+        "Prelude.(,)" =>
+          declare_var 2 IVar 1 (("Prelude","(,)"),1)
+          declare_var 3 IVar 1 (("Prelude","(,)"),2)
+          return
+            Node "member.append_#A0" (
+              reference_var 2 ,
+              reference_var 3 )
+  function "member.append_#A0" 2
+    code
+      declare_var 2 ILhs (("member","append_#A0"),1)
+      declare_var 3 ILhs (("member","append_#A0"),2)
+      ATable 1 2 flex
+        reference_var 2
+        "Prelude.[]" =>
+          return
+            reference_var 3
+        "Prelude.:" =>
+          declare_var 4 IVar 2 (("Prelude",":"),1)
+          declare_var 5 IVar 2 (("Prelude",":"),2)
+          return
+            Node "Prelude.:" (
+              reference_var 4 ,
+              Node "member.append" (
+                Node "Prelude.(,)" (
+                  reference_var 5 ,
+                  reference_var 3 ) ) )
+  function "member.member" 1
+    code
+      declare_var 1 ILhs (("member","member"),1)
+      ATable 1 1 flex
+        reference_var 1
+        "Prelude.(,)" =>
+          declare_var 2 IVar 1 (("Prelude","(,)"),1)
+          declare_var 3 IVar 1 (("Prelude","(,)"),2)
+          return
+            Node "member.member_#A2" (
+              reference_var 2 ,
+              reference_var 3 )
+  function "member.member_#A2" 2
+    code
+      declare_var 2 ILhs (("member","member_#A2"),1)
+      declare_var 3 ILhs (("member","member_#A2"),2)
+      declare_var 4 IFree
+      declare_var 5 IFree
+      return
+        Node "member.member_#A1" (
+          reference_var 2 ,
+          reference_var 3 ,
+          reference_var 4 ,
+          reference_var 5 )
+  function "member.member_#A1" 4
+    code
+      declare_var 2 ILhs (("member","member_#A1"),1)
+      declare_var 3 ILhs (("member","member_#A1"),2)
+      declare_var 4 ILhs (("member","member_#A1"),3)
+      declare_var 5 ILhs (("member","member_#A1"),4)
+      return
+        Node "member.member_#A1_#B0" (
+          Node "Prelude.=:=" (
+            Node "member.append" (
+              Node "Prelude.(,)" (
+                reference_var 4 ,
+                Node "Prelude.:" (
+                  reference_var 2 ,
+                  reference_var 5 ) ) ) ,
+            reference_var 3 ) )
+  function "member.member_#A1_#B0" 1
+    code
+      declare_var 6 ILhs (("member","member_#A1_#B0"),1)
+      ATable 1 2 rigid
+        reference_var 6
+        "Prelude.False" =>
+          return
+            Node "Prelude.failed"
+        "Prelude.True" =>
+          return
+            Node "Prelude.True"
+  function "member.goal1" 2
+    code
+      declare_var 1 ILhs (("member","goal1"),1)
+      declare_var 2 ILhs (("member","goal1"),2)
+      return
+        Node "member.member" (
+          Node "Prelude.(,)" (
+            reference_var 2 ,
+            Node "Prelude.:" (
+              Node "Prelude.apply" (
+                Node "Prelude.fromInt" (
+                  reference_var 1 ) ,
+                int 1 ) ,
+              Node "Prelude.:" (
+                Node "Prelude.apply" (
+                  Node "Prelude.fromInt" (
+                    reference_var 1 ) ,
+                  int 2 ) ,
+                Node "Prelude.:" (
+                  Node "Prelude.apply" (
+                    Node "Prelude.fromInt" (
+                      reference_var 1 ) ,
+                    int 3 ) ,
+                  Node "Prelude.[]" ) ) ) ) )
+  function "member.goal2" 2
+    code
+      declare_var 1 ILhs (("member","goal2"),1)
+      declare_var 2 ILhs (("member","goal2"),2)
+      return
+        Node "Prelude.&&" (
+          Node "member.member" (
+            Node "Prelude.(,)" (
+              reference_var 2 ,
+              Node "Prelude.:" (
+                Node "Prelude.apply" (
+                  Node "Prelude.fromInt" (
+                    reference_var 1 ) ,
+                  int 1 ) ,
+                Node "Prelude.:" (
+                  Node "Prelude.apply" (
+                    Node "Prelude.fromInt" (
+                      reference_var 1 ) ,
+                    int 2 ) ,
+                  Node "Prelude.:" (
+                    Node "Prelude.apply" (
+                      Node "Prelude.fromInt" (
+                        reference_var 1 ) ,
+                      int 3 ) ,
+                    Node "Prelude.[]" ) ) ) ) ) ,
+          Node "member.member" (
+            Node "Prelude.(,)" (
+              reference_var 2 ,
+              Node "Prelude.:" (
+                Node "Prelude.apply" (
+                  Node "Prelude.fromInt" (
+                    reference_var 1 ) ,
+                  int 2 ) ,
+                Node "Prelude.:" (
+                  Node "Prelude.apply" (
+                    Node "Prelude.fromInt" (
+                      reference_var 1 ) ,
+                    int 3 ) ,
+                  Node "Prelude.:" (
+                    Node "Prelude.apply" (
+                      Node "Prelude.fromInt" (
+                        reference_var 1 ) ,
+                      int 4 ) ,
+                    Node "Prelude.[]" ) ) ) ) ) )

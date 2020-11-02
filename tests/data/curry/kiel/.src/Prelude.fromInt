@@ -1,0 +1,35 @@
+def step(lhs):
+  _1 = lhs[0]
+  selector = hnf(lhs, p_1, typedef=switch_type).info.tag
+  if selector == 0:
+    _2 = _1[0]
+    _3 = _1[1]
+    _4 = _1[2]
+    _5 = _1[3]
+    _6 = _1[4]
+    _7 = _1[5]
+    _8 = _1[6]
+    lhs.Node(ni__Fwd, _8)
+    return
+  else:
+    lhs.Node(ni__Failure)
+    return
+
+
+# This file was created by Sprite because Prelude.fromInt was compiled
+# in debug mode.  It exists to help PDB show the compiled code.
+
+# Closure:
+# { 'Node': <class 'curry.interpreter.runtime.Node'>,
+#   'hnf': <bound method Interpreter.hnf of <curry.interpreter.interpreter.Interpreter object at 0x7f39a5337c90>>,
+#   'ni__Failure': InfoTable(name=_Failure, arity=0, tag=-6, _step=<function _unreachable at 0x7f39a530a398>, show=<curry.interpreter.show.Show object at 0x7f39a2c60650>, typecheck=None, typedef=<weakref at 0x7f39a3c9a890; to 'TypeDefinition' at 0x7f39a2c60810>),
+#   'ni__Fwd': InfoTable(name=_Fwd, arity=1, tag=-3, _step=<function _unreachable at 0x7f39a530a398>, show=<curry.interpreter.show.Show object at 0x7f39a2c39990>, typecheck=None, typedef=<weakref at 0x7f39a3c9a3c0; to 'TypeDefinition' at 0x7f39a2c39e50>),
+#   'p_1': (0,),
+#   'p_2': (0, 2),
+#   'p_3': (0, 3),
+#   'p_4': (0, 4),
+#   'p_5': (0, 5),
+#   'p_6': (0, 6),
+#   'p_7': (0, 7),
+#   'p_8': (0, 8),
+#   'switch_type': <curry type Prelude._Dict#Num>}
