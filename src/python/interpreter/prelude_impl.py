@@ -30,6 +30,16 @@ def apply(interp, lhs):
     yield missing-1
     yield runtime.Node(term, *(term.successors+[arg]), partial=True)
 
+def cond(interp, lhs):
+  interp.hnf(lhs, [0]) # normalize the Boolean argument.
+  # import code
+  # code.interact(local=dict(globals(), **locals()))
+  if lhs[0].info is interp.prelude.True.info:
+    yield interp.prelude._Fwd
+    yield lhs[1]
+  else:
+    yield interp.prelude._Failure
+
 def failed(interp):
   return [interp.prelude._Failure]
 
@@ -59,8 +69,8 @@ def eq_constr(interp, root):
     if ltag == runtime.T_FREE:
       if rtag == runtime.T_FREE:
         if lhs[0] != rhs[0]:
-          # Unify variables => _EqVars True (x, y)
-          yield interp.prelude._EqVars.info
+          # Unify variables => _Binding True (x, y)
+          yield interp.prelude._Binding.info
           yield interp.expr(True)
           yield interp.expr((lhs, rhs))
         else:
@@ -69,11 +79,13 @@ def eq_constr(interp, root):
         # Instantiate the variable.
         assert rtag >= runtime.T_CTOR
         interp.hnf(root, [0], typedef=rhs.info.typedef())
+        assert False # E_CONTINUE raised
     else:
       if rtag == runtime.T_FREE:
         # Instantiate the variable.
         assert ltag >= runtime.T_CTOR
         interp.hnf(root, [1], typedef=lhs.info.typedef())
+        assert False # E_CONTINUE raised
       else:
         if ltag == rtag: # recurse when the comparison returns 0 or False.
           arity = lhs.info.arity
@@ -93,12 +105,50 @@ def eq_constr(interp, root):
     yield interp.prelude.True if lhs == rhs else interp.prelude._Failure
     #                            ^^^^^^^^^^ compare unboxed values
   else:
-    if inspect.isa_freevar(interp, lhs) or inspect.isa_freevar(interp, rhs):
-      raise InstantiationError(
-          'cannot bind free variable to unboxed value %s' % unboxed
-        )
+    raise InstantiationError('=:= cannot bind to an unboxed value')
+
+def eq_constr_lazy(interp, root):
+  '''
+  Implements =:<=.
+
+  This follows "Declarative Programming with Function Patterns," Antoy and
+  Hanus, LOPSTR 2005, pg. 16.
+  '''
+  lhs, rhs = root
+  if inspect.is_boxed(interp, lhs) and inspect.is_boxed(interp, rhs):
+    lhs = _try_hnf(interp, root, 0)
+    if lhs.info.tag == runtime.T_FREE:
+      # Bind lhs -> rhs
+      yield interp.prelude._Binding.info
+      yield interp.expr(True)
+      yield interp.expr((lhs, rhs))
     else:
-      raise CurryTypeError("type error: cannot equate boxed with unboxed")
+      assert lhs.info.tag >= runtime.T_CTOR
+      rhs = _try_hnf(interp, root, 1)
+      if rhs.info.tag == runtime.T_FREE:
+        interp.hnf(root, [1], typedef=lhs.info.typedef())
+        assert False # E_CONTINUE raised
+      else:
+        rhs.info.tag >= runtime.T_FREE
+        if lhs.info.tag == rhs.info.tag:
+          arity = lhs.info.arity
+          assert arity == rhs.info.arity
+          if arity:
+            conj = getattr(interp.prelude, '&')
+            terms = (runtime.Node(root.info, l, r) for l,r in zip(lhs, rhs))
+            expr = reduce((lambda a,b: runtime.Node(conj, a, b)), terms)
+            yield expr.info
+            for succ in expr:
+              yield succ
+          else:
+            yield interp.prelude.True
+        else:
+          yield interp.prelude._Failure
+  elif not inspect.is_boxed(interp, lhs) and not inspect.is_boxed(interp, rhs):
+    yield interp.prelude.True if lhs == rhs else interp.prelude._Failure
+    #                            ^^^^^^^^^^ compare unboxed values
+  else:
+    raise InstantiationError('=:<= cannot bind to an unboxed value')
 
 def compose_io(interp, lhs):
   io_a = interp.hnf(lhs, [0])

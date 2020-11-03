@@ -267,13 +267,13 @@ class TestPrelude(cytest.TestCase):
     # unboxed <=> free
     self.checkError(unboxed(1), unknown)
     # unboxed <=> ctor
-    self.checkError(unboxed(0), 0, type=TypeError)
-    self.checkError(unboxed(0), 1, type=TypeError)
+    self.checkError(unboxed(0), 0)
+    self.checkError(unboxed(0), 1)
     # free <=> unboxed
     self.checkError(interp.prelude.unknown, unboxed(0))
     # ctor <=> unboxed
-    self.checkError(0, unboxed(0), type=TypeError)
-    self.checkError(1, unboxed(0), type=TypeError)
+    self.checkError(0, unboxed(0))
+    self.checkError(1, unboxed(0))
     # ctor <=> ctor
     self.checkSatisfied([], [])
     self.checkSatisfied([0], [0])

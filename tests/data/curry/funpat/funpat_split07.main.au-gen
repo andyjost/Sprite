@@ -1,0 +1,4 @@
+([False,_a,True],[])
+([False,_a],[True])
+([False],[_a,True])
+([],[False,_a,True])

@@ -12,7 +12,7 @@ def exports():
   '''
   # Special symbols.
   yield '_Failure'
-  yield '_Constraint'
+  yield '_Binding'
   yield '_Free'
   yield '_Fwd'
   yield '_Choice'
@@ -39,30 +39,15 @@ def aliases():
 # Types.
 # ======
 _types_ = [
-    icurry.IType('_Failure', [
-        icurry.IConstructor('_Failure', 0
-            , metadata={'py.format':'failure', 'py.tag':runtime.T_FAIL}
-            )
-      ])
-    # Every constraint is a pair consisting of a result and another pair
-    # describing the constraint.  For example, ``_EqVars True (x,y)`` has the
-    # value True (i.e., the result of =:=, which indicates the constraint
-    # succeeded) and indicates that free variables x and y are equivalent
-    # within the purview of the constraint.
-  , icurry.IType('_Constraint', [
-        # A pair of free variables, constrained equal.
-        icurry.IConstructor('_EqVars', 2
-          , metadata={'py.tag':runtime.T_CONSTR, 'py.typecheck':tc.EqVars}
-          )
-        # A pair of choiceIDs, constrained equal.
-      , icurry.IConstructor('_EqChoices', 2
-          , metadata={'py.tag':runtime.T_CONSTR, 'py.typecheck':tc.EqChoices}
-          )
-        # A pair of (choiceID, LEFT|RIGHT)
-      , icurry.IConstructor('_ChoiceConstr', 2
-          , metadata={'py.tag':runtime.T_CONSTR, 'py.typecheck':tc.ChoiceConstr}
-          )
-      ])
+    icurry.IType('_Failure', [icurry.IConstructor('_Failure', 0, metadata={'py.format':'failure', 'py.tag':runtime.T_FAIL})])
+    # A binding is a pair consisting of a Boolean result and pair of equivalent
+    # expressions.  After lifting the binding, the result takes its place.  The
+    # equivalent expressions consist of a free variable on the left and, on the
+    # right, either a different free variable (regular binding) or arbitrary
+    # expression (lazy binding).  For example, ``_Binding True (x,y)`` has
+    # value True (indicating the binding succeeded) and specifies that free
+    # variables x and y are equivalent in this context.
+  , icurry.IType('_Binding', [icurry.IConstructor('_Binding', 2, metadata={'py.tag':runtime.T_BIND, 'py.typecheck':tc.Binding})])
     # Free variables have two successors, one for the variable ID (Int) and one
     # for the instance.  The instance is initially set to Prelude.().  On
     # instantiation, it is replaced with a generator.  Note that () is not a
@@ -131,65 +116,65 @@ def _quotRem_impl(x, y):
 # ==========
 _functions_ = [
     icurry.IFunction('_PyGenerator', 1
-        , metadata={'py.func':impl._PyGenerator}
+        , metadata={'py.boxedfunc':impl._PyGenerator}
         )
-  , icurry.IFunction('+$', 2, metadata={'py.primfunc':op.add}) # Int addition
-  , icurry.IFunction('-$', 2, metadata={'py.primfunc':op.sub}) # Int subtraction
-  , icurry.IFunction('*$', 2, metadata={'py.primfunc':op.mul}) # Int multiplication
-  , icurry.IFunction('prim_Float_plus', 2, metadata={'py.primfunc':op.add}) # Float addition
-  , icurry.IFunction('prim_Float_minus', 2, metadata={'py.primfunc':op.sub}) # Float subtraction
-  , icurry.IFunction('prim_Float_times', 2, metadata={'py.primfunc':op.mul}) # Float multiplication
-  , icurry.IFunction('prim_Float_div', 2, metadata={'py.primfunc':op.truediv}) # Float division
+  , icurry.IFunction('+$', 2, metadata={'py.unboxedfunc':op.add}) # Int addition
+  , icurry.IFunction('-$', 2, metadata={'py.unboxedfunc':op.sub}) # Int subtraction
+  , icurry.IFunction('*$', 2, metadata={'py.unboxedfunc':op.mul}) # Int multiplication
+  , icurry.IFunction('prim_Float_plus', 2, metadata={'py.unboxedfunc':op.add}) # Float addition
+  , icurry.IFunction('prim_Float_minus', 2, metadata={'py.unboxedfunc':op.sub}) # Float subtraction
+  , icurry.IFunction('prim_Float_times', 2, metadata={'py.unboxedfunc':op.mul}) # Float multiplication
+  , icurry.IFunction('prim_Float_div', 2, metadata={'py.unboxedfunc':op.truediv}) # Float division
   # , icurry.IFunction('==', 2, metadata={'py.rawfunc':impl.equals})
-  , icurry.IFunction('eqInt', 2, metadata={'py.primfunc':op.eq})
-  , icurry.IFunction('eqChar', 2, metadata={'py.primfunc':op.eq})
-  , icurry.IFunction('eqFloat', 2, metadata={'py.primfunc':op.eq})
-  , icurry.IFunction('ltEqInt', 2, metadata={'py.primfunc':op.le})
-  , icurry.IFunction('ltEqChar', 2, metadata={'py.primfunc':op.le})
-  , icurry.IFunction('ltEqFloat', 2, metadata={'py.primfunc':op.le})
+  , icurry.IFunction('eqInt', 2, metadata={'py.unboxedfunc':op.eq})
+  , icurry.IFunction('eqChar', 2, metadata={'py.unboxedfunc':op.eq})
+  , icurry.IFunction('eqFloat', 2, metadata={'py.unboxedfunc':op.eq})
+  , icurry.IFunction('ltEqInt', 2, metadata={'py.unboxedfunc':op.le})
+  , icurry.IFunction('ltEqChar', 2, metadata={'py.unboxedfunc':op.le})
+  , icurry.IFunction('ltEqFloat', 2, metadata={'py.unboxedfunc':op.le})
 # --- Integer division. The value is the integer quotient of its arguments
 # --- and always truncated towards negative infinity.
 # --- Thus, the value of <code>13 `div` 5</code> is <code>2</code>,
 # --- and the value of <code>-15 `div` 4</code> is <code>-4</code>.
 # div_   :: Int -> Int -> Int
-  , icurry.IFunction('div_', 2, metadata={'py.primfunc':op.floordiv})
+  , icurry.IFunction('div_', 2, metadata={'py.unboxedfunc':op.floordiv})
 #
 # --- Integer remainder. The value is the remainder of the integer division and
 # --- it obeys the rule <code>x `mod` y = x - y * (x `div` y)</code>.
 # --- Thus, the value of <code>13 `mod` 5</code> is <code>3</code>,
 # --- and the value of <code>-15 `mod` 4</code> is <code>-3</code>.
 # mod_   :: Int -> Int -> Int
-  , icurry.IFunction('mod_', 2, metadata={'py.primfunc':lambda x, y: x - y * op.floordiv(x,y)})
+  , icurry.IFunction('mod_', 2, metadata={'py.unboxedfunc':lambda x, y: x - y * op.floordiv(x,y)})
 # --- Integer division. The value is the integer quotient of its arguments
 # --- and always truncated towards zero.
 # --- Thus, the value of <code>13 `quot` 5</code> is <code>2</code>,
 # --- and the value of <code>-15 `quot` 4</code> is <code>-3</code>.
 # quot_   :: Int -> Int -> Int
-  , icurry.IFunction('quot_', 2, metadata={'py.primfunc':lambda x, y: int(op.truediv(x, y))})
+  , icurry.IFunction('quot_', 2, metadata={'py.unboxedfunc':lambda x, y: int(op.truediv(x, y))})
 #
 # --- Integer remainder. The value is the remainder of the integer division and
 # --- it obeys the rule <code>x `rem` y = x - y * (x `quot` y)</code>.
 # --- Thus, the value of <code>13 `rem` 5</code> is <code>3</code>,
 # --- and the value of <code>-15 `rem` 4</code> is <code>-3</code>.
 # rem_   :: Int -> Int -> Int
-  , icurry.IFunction('rem_', 2, metadata={'py.primfunc':lambda x, y: x - y * int(op.truediv(x, y))})
+  , icurry.IFunction('rem_', 2, metadata={'py.unboxedfunc':lambda x, y: x - y * int(op.truediv(x, y))})
 
 # --- Returns an integer (quotient,remainder) pair.
 # --- The value is the integer quotient of its arguments
 # --- and always truncated towards negative infinity.
 # divMod_ :: Int -> Int -> (Int, Int)
-  , icurry.IFunction('divMod_', 2, metadata={'py.primfunc':_divMod_impl})
+  , icurry.IFunction('divMod_', 2, metadata={'py.unboxedfunc':_divMod_impl})
 #
 # --- Returns an integer (quotient,remainder) pair.
 # --- The value is the integer quotient of its arguments
 # --- and always truncated towards zero.
 # quotRem_ :: Int -> Int -> (Int, Int)
-  , icurry.IFunction('quotRem_', 2, metadata={'py.primfunc':_quotRem_impl})
-  , icurry.IFunction('negateFloat', 1, metadata={'py.primfunc':op.neg})
+  , icurry.IFunction('quotRem_', 2, metadata={'py.unboxedfunc':_quotRem_impl})
+  , icurry.IFunction('negateFloat', 1, metadata={'py.unboxedfunc':op.neg})
 # --- Evaluates the argument to head normal form and returns it.
 # --- Suspends until the result is bound to a non-variable term.
 # ensureNotFree :: a -> a
-  , icurry.IFunction('ensureNotFree', 1, metadata={'py.func':impl.ensureNotFree})
+  , icurry.IFunction('ensureNotFree', 1, metadata={'py.boxedfunc':impl.ensureNotFree})
 # --- Right-associative application with strict evaluation of its argument
 # --- to head normal form.
 # ($!)    :: (a -> b) -> a -> b
@@ -206,12 +191,12 @@ _functions_ = [
 #
 # prim_error    :: String -> _
 #
-  , icurry.IFunction('prim_error', 1, metadata={'py.func':impl.error})
+  , icurry.IFunction('prim_error', 1, metadata={'py.boxedfunc':impl.error})
 # --- A non-reducible polymorphic function.
 # --- It is useful to express a failure in a search branch of the execution.
 # --- It could be defined by: `failed = head []`
 # failed :: _
-  , icurry.IFunction('failed', 0, metadata={'py.func':impl.failed})
+  , icurry.IFunction('failed', 0, metadata={'py.boxedfunc':impl.failed})
 #
 # --- The equational constraint.
 # --- `(e1 =:= e2)` is satisfiable if both sides `e1` and `e2` can be
@@ -228,12 +213,12 @@ _functions_ = [
 #
 # --- Converts a character into its ASCII value.
 # ord :: Char -> Int
-  , icurry.IFunction('prim_ord', 1, metadata={'py.primfunc':ord})
+  , icurry.IFunction('prim_ord', 1, metadata={'py.unboxedfunc':ord})
 #
 # --- Converts an ASCII value into a character.
 # chr :: Int -> Char
-  , icurry.IFunction('prim_chr', 1, metadata={'py.primfunc':chr})
-  , icurry.IFunction('prim_i2f', 1, metadata={'py.primfunc':float})
+  , icurry.IFunction('prim_chr', 1, metadata={'py.unboxedfunc':chr})
+  , icurry.IFunction('prim_i2f', 1, metadata={'py.unboxedfunc':float})
 # --- Sequential composition of actions.
 # --- @param a - An action
 # --- @param fa - A function from a value into an action
@@ -243,28 +228,28 @@ _functions_ = [
   , icurry.IFunction('>>=$', 2, metadata={'py.rawfunc':impl.compose_io})
 #
 # prim_readNatLiteral :: String -> [(Int,String)]
-  , icurry.IFunction('prim_readNatLiteral', 1, metadata={'py.func':impl.readNatLiteral})
+  , icurry.IFunction('prim_readNatLiteral', 1, metadata={'py.boxedfunc':impl.readNatLiteral})
 # prim_readFloatLiteral :: String -> [(Int,String)]
-  , icurry.IFunction('prim_readFloatLiteral', 1, metadata={'py.func':impl.readFloatLiteral})
+  , icurry.IFunction('prim_readFloatLiteral', 1, metadata={'py.boxedfunc':impl.readFloatLiteral})
 # prim_readCharLiteral :: String -> [(Int,String)]
-  , icurry.IFunction('prim_readCharLiteral', 1, metadata={'py.func':impl.readCharLiteral})
+  , icurry.IFunction('prim_readCharLiteral', 1, metadata={'py.boxedfunc':impl.readCharLiteral})
 # prim_readStringLiteral :: String -> [(Int,String)]
-  , icurry.IFunction('prim_readStringLiteral', 1, metadata={'py.func':impl.readStringLiteral})
+  , icurry.IFunction('prim_readStringLiteral', 1, metadata={'py.boxedfunc':impl.readStringLiteral})
 
 #
 # --- The empty action that directly returns its argument.
 # returnIO            :: a -> IO a
-  , icurry.IFunction('returnIO', 1, metadata={'py.func':impl.returnIO})
+  , icurry.IFunction('returnIO', 1, metadata={'py.boxedfunc':impl.returnIO})
 #
 # prim_putChar           :: Char -> IO ()
-  , icurry.IFunction('prim_putChar', 1, metadata={'py.func':impl.putChar})
+  , icurry.IFunction('prim_putChar', 1, metadata={'py.boxedfunc':impl.putChar})
 #
 # --- An action that reads a character from standard output and returns it.
 # getChar           :: IO Char
-  , icurry.IFunction('getChar', 0, metadata={'py.func':impl.getChar})
+  , icurry.IFunction('getChar', 0, metadata={'py.boxedfunc':impl.getChar})
 #
 # prim_readFile          :: String -> IO String
-  , icurry.IFunction('prim_readFile', 1, metadata={'py.func':impl.readFile})
+  , icurry.IFunction('prim_readFile', 1, metadata={'py.boxedfunc':impl.readFile})
 # -- for internal implementation of readFile:
 # prim_readFileContents          :: String -> String
 #
@@ -299,6 +284,7 @@ _functions_ = [
 # -- Only for internal use:
 # -- Representation of conditional rules in FlatCurry.
 # cond :: Bool -> a -> a
+  , icurry.IFunction('cond', 2, metadata={'py.rawfunc':impl.cond})
 #
 # -- Only for internal use:
 # -- letrec ones (1:ones) -> bind ones to (1:ones)
@@ -307,6 +293,7 @@ _functions_ = [
 #
 # --- Non-strict equational constraint. Used to implement functional patterns.
 # (=:<=) :: a -> a -> Bool
+  , icurry.IFunction('=:<=', 2, metadata={'py.rawfunc':impl.eq_constr_lazy})
 #
 # --- Non-strict equational constraint for linear functional patterns.
 # --- Thus, it must be ensured that the first argument is always (after evalutation

@@ -34,28 +34,32 @@ Function metadata is used to bind builtin Curry functions to the Python
 functions that implement them.
 
 
-Metadata: py.primfunc
----------------------
-Specifies a Python function to adapt into a Curry built-in.
+Metadata: py.unboxedfunc
+------------------------
+Specifies a Python function over unboxed values that implements a Curry
+built-in.
 
-This value is a Python function that behaves like an ordinary math function,
-e.g., operator.add, or math.cos.
+The supplied Python function is an ordinary function over the built-in types.
+Examples are operator.add, math.cos, or chr.  This adaptor normalizes and
+unboxes each argument, applies the Python function, and then rewrites the head
+to the boxed result.
 
 Such a function is adapted to Curry as follows:
 
   - Head-normalize and then unbox each argument.
-  - Invoke py.primfunc with the arguments prepared in the previous step.
+  - Invoke py.unboxedfunc with the arguments prepared in the previous step.
   - Rewrite the LHS to be a boxed value of the type computed in the first
-    step, with the value returned from py.func.  The implementation function
+    step, with the value returned from py.boxedfunc.  The implementation function
     must return a scalar that can be interpreted as the appropriate type in
     Curry.
 
 See compile_primitive_builtin.
 
 
-Metadata: py.func
------------------
-Specifies a regular Python function that implements a Curry built-in.
+Metadata: py.boxedfunc
+----------------------
+Specifies a Python function over boxed values that implements a Curry
+built-in.
 
 The value is a Python function that takes an interpreter followed by an
 arbitrary number of positional node arguments.  The node arguments will be

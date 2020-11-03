@@ -46,69 +46,7 @@ class TestPyTypeChecks(cytest.TestCase):
         , lambda: runtime.Node(I.prelude.Char.info, 'ab')
         )
 
-  def testEqChoices(self):
-    for debug in [True, False]:
-      I = curry.interpreter.Interpreter(flags={'debug':debug})
-      self.assertMayRaise(
-          None
-        , lambda: I.expr(I.prelude._EqChoices, True, (u(101), u(102)))
-        )
-      self.assertMayRaiseRegexp(
-          TypeError if debug else None
-        , r'Cannot construct an _EqChoices node from an argument '
-           '\(in position 2\) of type list\.'
-        , lambda: runtime.Node(I.prelude._EqChoices.info, True, [])
-        )
-      self.assertMayRaiseRegexp(
-          TypeError if debug else None
-        , r'Cannot construct an _EqChoices node from an argument '
-           '\(in position 2.1\) of type str\.'
-        , lambda: I.expr(I.prelude._EqChoices, True, (u('a'), u(102)))
-        )
-      self.assertMayRaiseRegexp(
-          TypeError if debug else None
-        , r'Cannot construct an _EqChoices node from an argument '
-           '\(in position 2.2\) of type Int\.'
-        , lambda: I.expr(I.prelude._EqChoices, True, (u(101), 102))
-        )
-
-  def testChoiceConstr(self):
-    for debug in [True, False]:
-      I = curry.interpreter.Interpreter(flags={'debug':debug})
-      self.assertMayRaise(
-          None
-        , lambda: I.expr(I.prelude._ChoiceConstr, True, (u(101), u(LEFT)))
-        )
-      self.assertMayRaise(
-          None
-        , lambda: I.expr(I.prelude._ChoiceConstr, True, (u(101), u(RIGHT)))
-        )
-      self.assertMayRaiseRegexp(
-          TypeError if debug else None
-        , r'Cannot construct a _ChoiceConstr node from the UNDETERMINED choice '
-           'state \(in position 2.2\)\.'
-        , lambda: I.expr(I.prelude._ChoiceConstr, True, (u(101), u(UNDETERMINED)))
-        )
-      self.assertMayRaiseRegexp(
-          TypeError if debug else None
-        , r'Cannot construct a _ChoiceConstr node from an argument '
-           '\(in position 2.2\) of type Int\.' + hint
-        , lambda: I.expr(I.prelude._ChoiceConstr, True, (u(101), LEFT))
-        )
-      self.assertMayRaiseRegexp(
-          TypeError if debug else None
-        , r'Cannot construct a _ChoiceConstr node from an argument '
-           '\(in position 2.2\) of type Char\.'
-        , lambda: I.expr(I.prelude._ChoiceConstr, True, (u(101), 'a'))
-        )
-      self.assertMayRaiseRegexp(
-          TypeError if debug else None
-        , r'Cannot construct a _ChoiceConstr node from an argument '
-           '\(in position 2.2\) of type str\.'
-        , lambda: I.expr(I.prelude._ChoiceConstr, True, (u(101), u('a')))
-        )
-
-  def testEqVars(self):
+  def testBinding(self):
     for debug in [True, False]:
       I = curry.interpreter.Interpreter(flags={'debug':debug})
       unknown = I.symbol('Prelude.unknown')
@@ -116,24 +54,18 @@ class TestPyTypeChecks(cytest.TestCase):
       x,y = list(I.eval(q, unknown, unknown))
       self.assertMayRaise(
           None
-        , lambda: I.expr(I.prelude._EqVars, True, (x, y))
+        , lambda: I.expr(I.prelude._Binding, True, (x, y))
         )
       self.assertMayRaiseRegexp(
           TypeError if debug else None
-        , r'Cannot construct an _EqVars node binding variable . to itself\.'
-        , lambda: I.expr(I.prelude._EqVars, True, (x, x))
+        , r'Cannot construct a _Binding node binding variable . to itself\.'
+        , lambda: I.expr(I.prelude._Binding, True, (x, x))
         )
       self.assertMayRaiseRegexp(
           TypeError if debug else None
-        , r'Cannot construct an _EqVars node from an argument '
+        , r'Cannot construct a _Binding node from an argument '
            '\(in position 2.1\) of type int\.'
-        , lambda: I.expr(I.prelude._EqVars, True, (u(1), y))
-        )
-      self.assertMayRaiseRegexp(
-          TypeError if debug else None
-        , r'Cannot construct an _EqVars node from an argument '
-           '\(in position 2.2\) of type str\.'
-        , lambda: I.expr(I.prelude._EqVars, True, (x, u('a')))
+        , lambda: I.expr(I.prelude._Binding, True, (u(1), y))
         )
 
   def testCoverage(self):

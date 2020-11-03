@@ -14,7 +14,7 @@ import sys
 import weakref
 
 T_FAIL   = -6
-T_CONSTR = -5
+T_BIND   = -5
 T_FREE   = -4
 T_FWD    = -3
 T_CHOICE = -2
@@ -156,7 +156,7 @@ class NodeInfo(object):
       return "<curry failure>"
     if self.info.tag == T_FREE:
       return "<curry free variable>"
-    if self.info.tag == T_CONSTR:
+    if self.info.tag == T_BIND:
       return "<curry constraint>"
     return "<invalid curry node>"
 
@@ -331,6 +331,7 @@ class Frame(object):
       self.fingerprint = Fingerprint()
       self.constraint_store = Shared(unionfind.UnionFind)
       self.bindings = Bindings()
+      self.lazy_bindings = Bindings()
       self.blocked_by = None
     else:
       assert interp is None or interp is clone.interp
@@ -339,6 +340,7 @@ class Frame(object):
       self.fingerprint = copy(clone.fingerprint)
       self.constraint_store = copy(clone.constraint_store)
       self.bindings = copy(clone.bindings)
+      self.lazy_bindings = copy(clone.lazy_bindings)
       # sharing is OK; this is only iterated and replaced.
       self.blocked_by = clone.blocked_by
 
@@ -348,28 +350,73 @@ class Frame(object):
   def __repr__(self):
     e = self.expr[()]
     xid = get_id(e)
-    return '{{id=%x, hd=%s, fp=%s, cst=%s, bnd=%s, bl=%s}}' % (
+    return '{{id=%x, hd=%s, fp=%s, cst=%s, bnd=%s, lzy=%s, bl=%s}}' % (
         id(self)
       , self.expr[()].info.name + ('' if xid is None else '(%s)' % xid)
       , self.fingerprint
       , self.constraint_store.read
       , dict(self.bindings.read)
+      , dict(self.lazy_bindings.read)
       , self.blocked_by
       )
+
+  def update_bindings(self, xid):
+    '''
+    Updates the bindings and lazy_bindings based on a new binding of id xid.
+
+    Returns:
+    --------
+      0: on success;
+      1: on failure (inconsistent);
+      2: if new lazy bindings were activated.
+    '''
+    # Collect all variables in the equivalence set of xid.  Clear the bindings
+    # as we go.
+    seen_ids = set()
+    equiv_vars = []
+    queue = [xid]
+    while queue:
+      xid = queue.pop()
+      for var in self.bindings.write.pop(xid, []):
+        assert var.info.tag == T_FREE
+        vid = get_id(var)
+        if vid not in seen_ids:
+          seen_ids.add(vid)
+          equiv_vars.append(var)
+          queue.append(vid)
+    # Look for a variable, the pivot, with a bound generator.  If it is found,
+    # equate all variables to it.
+    for pivot in equiv_vars:
+      if pivot[1].info.tag == T_CHOICE:
+        for var in equiv_vars:
+          if var is not pivot:
+            if not self.bind(pivot, var):
+              return 1
+        break
+    # Activate lazy bindings for this group of variables, now that a binding is
+    # available.
+    seen_ids.add(xid)
+    return 2 if self.activate_lazy_bindings(seen_ids) else 0
 
   def fork(self):
     '''
     Fork a choice-rooted frame into its left and right children.  Yields each
     consistent child.  Recycles ``self``.
     '''
-    assert self.expr.info.tag == T_CHOICE
+    assert self.expr[()].info.tag == T_CHOICE
     cid_,lhs,rhs = self.expr[()]
     cid = self.constraint_store.read.root(cid_)
-    if cid in self.bindings.read:
-      if not self.update_bindings(cid):
-        if self.interp.flags['trace']:
-          print '? ::: %x inconsistent at %s' % (id(self), self.show_cid(cid_, cid))
-        return
+    if cid in self.bindings.read or cid in self.lazy_bindings.read:
+      bindresult = self.update_bindings(cid)
+      if bindresult:
+        if bindresult == 1: # inconsistent
+          if self.interp.flags['trace']:
+            print '? ::: %x inconsistent at %s' % (id(self), self.show_cid(cid_, cid))
+          return
+        else:
+          assert bindresult == 2 # new bindings: keep working
+          yield self
+          return
       else:
         cid = self.constraint_store.read.root(cid)
     if cid in self.fingerprint: # Decided, so one child.
@@ -406,78 +453,57 @@ class Frame(object):
     if self.bind(x, y):
       yield self
 
-  def update_bindings(self, cid):
-    # Collect all variables in the equivalence set of cid.  Clear the bindings
-    # as we go.
-    seen_ids = set()
-    equiv_vars = []
-    queue = [cid]
-    while queue:
-      xid = queue.pop()
-      for var in self.bindings.write.pop(xid, []):
-        vid = var[0]
-        if vid not in seen_ids:
-          seen_ids.add(vid)
-          equiv_vars.append(var)
-          queue.append(vid)
-    # Find a variable, the pivot, with a bound generator.
-    for pivot in equiv_vars:
-      if pivot[1].info.tag == T_CHOICE:
-        break
-    assert pivot[1].info.tag == T_CHOICE
-    # Equate all variables to the pivot.
-    for var in equiv_vars:
-      if var is not pivot:
-        if not self.bind(pivot, var):
-          return False
-    return True
-
   def bind(self, _x, _y):
     '''
-    Bind matching shallow constructor expressions.  The return value indicates
-    whether the binding is consistent.
+    Bind matching shallow constructor expressions.  If the first argument is
+    free and the second is an expression, then a lazy binding is created.  The
+    return value indicates whether the binding is consistent.
     '''
-    assert _x.info.tag == _y.info.tag
-    fp = self.fingerprint
-    cs = self.constraint_store
+    assert _x.info.tag == _y.info.tag or _x.info.tag == T_FREE
     stack = [(_x, _y)]
     while stack:
       x, y = stack.pop()
       if x.info.tag == T_CHOICE:
         (x_id, xl, xr), (y_id, yl, yr) = x, y
-        x_id, y_id = map(cs.read.root, [x_id, y_id])
+        x_id, y_id = map(self.constraint_store.read.root, [x_id, y_id])
         if x_id != y_id:
-          x_lr, y_lr = map(fp.get, [x_id, y_id])
+          x_lr, y_lr = map(self.fingerprint.get, [x_id, y_id])
           code = 3 * x_lr + y_lr
           acode = abs(code)
           if acode == 1:
-            fp[x_id] = LEFT if code<0 else RIGHT
+            self.fingerprint[x_id] = LEFT if code<0 else RIGHT
           elif acode == 2:
             return False # inconsistent
           elif acode == 3:
-            fp[y_id] = LEFT if code<0 else RIGHT
-          cs.write.unite(x_id, y_id)
+            self.fingerprint[y_id] = LEFT if code<0 else RIGHT
+          self.constraint_store.write.unite(x_id, y_id)
           stack.extend([(xr, yr), (xl, yl)])
       elif x.info.tag == T_FREE:
-        (x_id, x_gen), (y_id, y_gen) = x, y
-        x_id, y_id = map(cs.read.root, [x_id, y_id])
-        if x_id != y_id:
-          # Whether x/y are NOT bound.
-          x_nbnd, y_nbnd = (arg.info.tag == T_CTOR for arg in [x_gen, y_gen])
-          if x_nbnd and y_nbnd:
-            # Place unbound variables in the binding store.
-            bnd = self.bindings.write
-            bnd[x_id].write.append(y)
-            bnd[y_id].write.append(x)
-          else:
-            # Continue binding recursively.
-            if x_nbnd:
-              _clone_generator(self.interp, y, x)
-              x_gen = x[1]
-            elif y_nbnd:
-              _clone_generator(self.interp, x, y)
-              y_gen = y[1]
-            stack.append((x_gen, y_gen))
+        if y.info.tag != T_FREE:
+          # This is a lazy binding.
+          x_id, _ = x
+          vid = self.constraint_store.read.root(x_id)
+          self.lazy_bindings.write[vid].write.append((x,y))
+        else:
+          (x_id, x_gen), (y_id, y_gen) = x, y
+          x_id, y_id = map(self.constraint_store.read.root, [x_id, y_id])
+          if x_id != y_id:
+            # Whether x/y are NOT bound.
+            x_nbnd, y_nbnd = (arg.info.tag == T_CTOR for arg in [x_gen, y_gen])
+            if x_nbnd and y_nbnd:
+              # Place unbound variables in the binding store.
+              bnd = self.bindings.write
+              bnd[x_id].write.append(y)
+              bnd[y_id].write.append(x)
+            else:
+              # Continue binding recursively.
+              if x_nbnd:
+                _clone_generator(self.interp, y, x)
+                x_gen = x[1]
+              elif y_nbnd:
+                _clone_generator(self.interp, x, y)
+                y_gen = y[1]
+              stack.append((x_gen, y_gen))
       elif x.info.tag >= T_CTOR:
         assert x.info is y.info
         stack.extend(zip(x, y))
@@ -486,6 +512,33 @@ class Frame(object):
       else:
         raise TypeError('unexpected tag %s' % x.info.tag)
     return True
+
+  def activate_lazy_bindings(self, vids):
+    bindings = []
+    for vid in vids:
+      if vid in self.lazy_bindings.read:
+        # If this variable was involved in a =:= expression, then it is needed;
+        # therefore, it would not be in the lazy bindings, nor would it appear
+        # unbound in a constructor expression.  The only way to get a mapping
+        # to a different root in the constraint store is to process =:=.
+        assert self.constraint_store.read.root(vid) == vid
+        # This variable is needed.  The binding, now, is therefore effected
+        # with =:=.
+        bindings += self.lazy_bindings.write.pop(vid).read
+    if bindings:
+      conj = getattr(self.interp.prelude, '&')
+      bindinfo = getattr(self.interp.prelude, '=:=')
+      self.expr = Node(
+          getattr(self.interp.prelude, '&>')
+        , reduce(
+              lambda a, b: Node(conj, a, b)
+            , [Node(bindinfo, x, e) for x, e in bindings]
+            )
+        , self.expr
+        )
+      return True
+    else:
+      return False
 
   @property
   def blocked(self):
@@ -541,7 +594,7 @@ class Evaluator(object):
       tag = target.info.tag
       if tag == T_CHOICE:
         self.queue.extend(frame.fork())
-      elif tag == T_CONSTR:
+      elif tag == T_BIND:
         self.queue.extend(frame.constrain())
       elif tag == T_FAIL:
         if self.interp.flags['trace']:
@@ -575,7 +628,7 @@ class Evaluator(object):
           self.queue.append(frame)
       elif tag >= T_CTOR:
         try:
-          N(self.interp, expr, target)
+          _, freevars = N(self.interp, expr, target)
         except E_CONTINUE:
           # assert expr.info.tag < T_CTOR and expr.info.tag != T_FUNC
           self.queue.append(frame)
@@ -584,9 +637,6 @@ class Evaluator(object):
         else:
           target = expr[()]
           if target.info.tag == tag:
-            # TODO: check free variables and repeat the call to N if some must
-            # be instantiated.
-            # UPDATE - I'm not sure that can occur.
             if self.interp.flags['trace']:
               print 'Y :::', target, frame
             yield target
@@ -643,13 +693,16 @@ def get_stepper(interp):
   configuration.
   '''
   if interp.flags['trace']:
+    indent = [0]
     def step(target): # pragma: no cover
-      print 'S <<<', str(target), interp.currentframe
+      print 'S <<<' + '  ' * indent[0], str(target), interp.currentframe
+      indent[0] += 1
       try:
         target.info.step(target)
         interp.stepcounter.increment()
       finally:
-        print 'S >>>', str(target), interp.currentframe
+        indent[0] -= 1
+        print 'S >>>' + '  ' * indent[0], str(target), interp.currentframe
   else:
     def step(target):
       target.info.step(target)
@@ -685,7 +738,7 @@ def N(interp, root, target=None, path=None, freevars=None):
         elif tag == T_CHOICE:
           lift_choice(interp, root, path)
           raise E_CONTINUE()
-        elif tag == T_CONSTR:
+        elif tag == T_BIND:
           lift_constr(interp, root, path)
           raise E_CONTINUE()
         elif tag == T_FREE:
@@ -695,7 +748,10 @@ def N(interp, root, target=None, path=None, freevars=None):
           if vid in frame.fingerprint:
             _a,(_b,l,r) = succ
             replacement = l if frame.fingerprint[vid] == LEFT else r
-            replace(interp, root, path, replacement)
+            replace(interp, root[()], path, replacement)
+            raise E_CONTINUE()
+          elif vid in frame.lazy_bindings.read:
+            frame.activate_lazy_bindings([vid])
             raise E_CONTINUE()
           freevars.add(succ)
           break
@@ -728,7 +784,7 @@ def hnf(interp, expr, path, typedef=None):
     elif tag == T_CHOICE:
       lift_choice(interp, expr, path)
       raise E_CONTINUE()
-    elif tag == T_CONSTR:
+    elif tag == T_BIND:
       lift_constr(interp, expr, path)
       raise E_CONTINUE()
     elif tag == T_FREE:
@@ -840,7 +896,7 @@ def lift_constr(interp, source, path):
   assert path
   replacer = _Replacer(source, path)
   value = replacer[0]
-  assert replacer.target.info.tag == T_CONSTR
+  assert replacer.target.info.tag == T_BIND
   Node(
       replacer.target.info
     , value

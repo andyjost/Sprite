@@ -186,7 +186,7 @@ class ToPython(object):
     elif inspect.isa_bool(interp, value):
       return inspect.isa_true(interp, value)
     elif inspect.isa_list(interp, value):
-      l = list(self(interp, x) for x in _iter_(interp, value))
+      l = list(self.__convert(interp, x) for x in _iter_(interp, value))
       # FIXME: need to query the Curry typeinfo.  An empty list of Char should be
       # an empty string, here.  It's less confusing to let empty lists by lists,
       # rather than converting all empty lists to string.

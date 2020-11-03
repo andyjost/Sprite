@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
-from cStringIO import StringIO
-import os
 import sys
+sys.path.insert(0, '../../scripts')
+from generate_test_programs_lib import generate_test_programs
 
 # This script generates many test files.  The reason for doing it this way is
 # simply that it is easier to maintain this script than work with scores of
@@ -1230,19 +1230,11 @@ A2B1C0_PROGRAMS = [
   , '(x =:= A C            C         ) &> x where x                 free'
   ]
 
-for pgm             , fileprefix, digits, predef                      , goalprefix in [
-    (PROGRAMS       , 'prog'    , 2     , ''                          , ''            )
-  , (A0_PROGRAMS    , 'a0_'     , 3     , 'data T = A\n'              , 'main = '     )
-  , (A0B0C0_PROGRAMS, 'a0b0c0_' , 3     , 'data T = A | B | C\n'      , 'main = '     )
-  , (A2B1C0_PROGRAMS, 'a2b1c0_' , 3     , 'data T = A T T | B T | C\n', 'main = '     )
-  ]:
-  for i, program_text in enumerate(pgm):
-    filename = ('{}{:0%sd}.curry' % digits).format(fileprefix, i)
-    text = StringIO()
-    text.write(predef)
-    text.write(goalprefix + program_text)
-    if not os.path.exists(filename) or open(filename).read() != text.getvalue():
-      print >>sys.stderr, 'generating', filename
-      with open(filename, 'w') as out:
-        out.write(text.getvalue())
-
+generate_test_programs([
+  # programtext       fileprefix  digits  predef
+  # +-----------------+-----------+-------+-----------------------------------
+    (PROGRAMS       , 'prog'    , 2     , ''                                 )
+  , (A0_PROGRAMS    , 'a0_'     , 3     , 'data T = A\nmain = '              )
+  , (A0B0C0_PROGRAMS, 'a0b0c0_' , 3     , 'data T = A | B | C\nmain = '      )
+  , (A2B1C0_PROGRAMS, 'a2b1c0_' , 3     , 'data T = A T T | B T | C\nmain = ')
+  ])

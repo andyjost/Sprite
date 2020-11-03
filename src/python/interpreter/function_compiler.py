@@ -35,15 +35,15 @@ def compile_function(interp, ifun, extern=None):
   while True:
     try:
       assert isinstance(ifun, icurry.IFunction)
-      if 'py.primfunc' in ifun.metadata:
-        assert not any(x in ifun.metadata for x in ['py.func', 'py.rawfunc'])
-        return compile_pyprimfunc(interp, ifun.metadata['py.primfunc'])
-      elif 'py.func' in ifun.metadata:
-        assert not any(x in ifun.metadata for x in ['py.primfunc', 'py.rawfunc'])
-        return compile_pyfunc(interp, ifun.metadata['py.func'])
+      if 'py.unboxedfunc' in ifun.metadata:
+        assert not any(x in ifun.metadata for x in ['py.boxedfunc', 'py.rawfunc'])
+        return compile_py_unboxedfunc(interp, ifun.metadata['py.unboxedfunc'])
+      elif 'py.boxedfunc' in ifun.metadata:
+        assert not any(x in ifun.metadata for x in ['py.unboxedfunc', 'py.rawfunc'])
+        return compile_py_boxedfunc(interp, ifun.metadata['py.boxedfunc'])
       elif 'py.rawfunc' in ifun.metadata:
-        assert not any(x in ifun.metadata for x in ['py.primfunc', 'py.func'])
-        return compile_pyrawfunc(interp, ifun.metadata['py.rawfunc'])
+        assert not any(x in ifun.metadata for x in ['py.unboxedfunc', 'py.boxedfunc'])
+        return compile_py_rawfunc(interp, ifun.metadata['py.rawfunc'])
       compiler = FunctionCompiler(interp, ifun.ident, extern)
       compiler.compile(ifun.code)
     except ExternallyDefined as e:
@@ -67,23 +67,23 @@ def compile_function(interp, ifun, extern=None):
       ]
   return compiler.get()
 
-def compile_pyprimfunc(interp, func):
+def compile_py_unboxedfunc(interp, unboxedfunc):
   '''
   Compiles code for built-in functions on primitive data.  See README.md.
-  Corresponds to the "py.primfunc" metadata.
+  Corresponds to the "py.unboxedfunc" metadata.
   '''
   hnf = interp.hnf
   expr = interp.expr
   topython = interp.topython
   def step(lhs):
     args = (topython(hnf(lhs, [i])) for i in xrange(len(lhs.successors)))
-    return expr(func(*args), target=lhs)
+    return expr(unboxedfunc(*args), target=lhs)
   return step
 
-def compile_pyfunc(interp, func):
+def compile_py_boxedfunc(interp, boxedfunc):
   '''
   Compiles code for a built-in function.  See README.md.  Corresponds to the
-  "py.func" metadata.
+  "py.boxedfunc" metadata.
 
   The Python implementation function must accept the arguments in head-normal
   form, but without any other preprocessing (e.g., unboxing).  It returns a
@@ -92,19 +92,19 @@ def compile_pyfunc(interp, func):
   hnf = interp.hnf
   def step(lhs):
     args = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
-    runtime.Node(*func(interp, *args), target=lhs)
+    runtime.Node(*boxedfunc(interp, *args), target=lhs)
   return step
 
-def compile_pyrawfunc(interp, func):
+def compile_py_rawfunc(interp, rawfunc):
   '''
   Compiles code for a raw built-in function.  See README.md.  Corresponds to
   the "py.rawfunc" metadata.
 
-  Like compile_pyfunc but does not head-normalize the arguments.  The
+  Like compile_py_boxedfunc but does not head-normalize the arguments.  The
   left-hand-side expression is simply passed to the implementation function.
   '''
   def step(lhs):
-    runtime.Node(*func(interp, lhs), target=lhs)
+    runtime.Node(*rawfunc(interp, lhs), target=lhs)
   return step
 
 class FunctionCompiler(object):
@@ -301,7 +301,7 @@ class FunctionCompiler(object):
   @expression.when(icurry.IOr)
   def expression(self, ior, partial=False):
     return 'Node(%s, %s, %s)' % (
-        self.closure['Prelude._Choice']
+        self.closure['Prelude.?']
       , self.expression(ior.lhs)
       , self.expression(ior.rhs)
       )

@@ -71,36 +71,16 @@ def Int(interp, arg):
   '''Typechecker for the Curry Int type.'''
   _typecheck(int, arg, 'Int')
 
-def EqChoices(interp, result, binding):
-  name = '_EqChoices'
-  _typecheck(ANY_CURRY_TYPE, result, name)
-  _typecheck(getattr(interp.prelude, '(,)'), binding, name, 2)
-  _typecheck(int, binding[0], name, '2.1')
-  _typecheck(int, binding[1], name, '2.2')
-
-def EqVars(interp, result, binding):
-  name = '_EqVars'
+def Binding(interp, result, binding):
+  name = '_Binding'
   _typecheck(ANY_CURRY_TYPE, result, name)
   _typecheck(getattr(interp.prelude, '(,)'), binding, name, 2)
   _typecheck(interp.prelude._Free, binding[0], name, '2.1')
-  _typecheck(interp.prelude._Free, binding[1], name, '2.2')
+  # _typecheck(interp.prelude._Free, binding[1], name, '2.2')
   varid = lambda x: inspect.get_id(interp, x)
   if varid(binding[0]) == varid(binding[1]):
     assert binding[0] is binding[1]
     raise TypeError(
-        'Cannot construct an _EqVars node binding variable %s to itself.'
+        'Cannot construct a _Binding node binding variable %s to itself.'
             % varid(binding[0])
       )
-
-def ChoiceConstr(interp, result, binding):
-  name = '_ChoiceConstr'
-  _typecheck(ANY_CURRY_TYPE, result, name)
-  _typecheck(getattr(interp.prelude, '(,)'), binding, name, 2)
-  _typecheck(int, binding[0], name, '2.1')
-  _typecheck(ChoiceState, binding[1], name, '2.2')
-  if binding[1] == UNDETERMINED:
-    raise TypeError(
-        'Cannot construct a _ChoiceConstr node from the UNDETERMINED choice '
-        'state (in position 2.2).'
-      )
-
