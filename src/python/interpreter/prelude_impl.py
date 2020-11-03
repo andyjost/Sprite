@@ -156,31 +156,38 @@ def compose_io(interp, lhs):
   yield lhs[1]
   yield conversions.unbox(interp, io_a)
 
+# Prelude.& is implemented as follows:
+#   Evaluate an argument and inspect its head symbol:
+#     - If true, rewrite to the other argument;
+#     - If false, rewrite to false;
+#     - If it suspends:
+#         - if the other arg has not been inspected, work on the other arg;
+#         - if any step occurred, work on the other arg;
+#         - otherwise, suspend;
+# Use digits.curry as an example.
 def concurrent_and(interp, root):
   Bool = interp.type('Prelude.Bool')
-  l_err = None
+  assert interp.prelude.False.info.tag == 0
+  assert interp.prelude.True.info.tag == 1
+  errs = [None, None]
+  i = 0
+  while True:
+    stepnumber = interp.stepcounter.count
 
-  try:
-    lhs = interp.hnf(root, [0], typedef=Bool)
-  except runtime.E_RESIDUAL as l_err:
-    pass
-
-  try:
-    rhs = interp.hnf(root, [1], typedef=Bool)
-  except runtime.E_RESIDUAL as r_err:
-    if l_err:
-      raise E_RESIDUAL(l_err, r_err)
+    try:
+      e = interp.hnf(root, [i], typedef=Bool)
+    except runtime.E_RESIDUAL as errs[i]:
+      if errs[1-i] and interp.stepcounter.count == stepnumber:
+        raise
     else:
-      raise
-  else:
-    if l_err:
-      lhs = interp.hnf(root, [0], typedef=Bool)
+      if e.info.tag:      # True
+        yield interp.prelude._Fwd
+        yield root[1-i]
+      else:               # False
+        yield interp.prelude.False
+      return
 
-  assert 'lhs' in locals() and 'rhs' in locals()
-  if interp.topython(lhs) and interp.topython(rhs):
-    yield interp.prelude.True
-  else:
-    yield interp.prelude._Failure
+    i = 1-i
 
 # The next several functions are for parsing literals.
 def readNatLiteral(interp, s):

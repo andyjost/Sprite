@@ -2,12 +2,12 @@
   should cover every construct that could be encountered in ICurry.
 - Improve line coverage.  Run tests/cov_tests and add tests to reduce the
   number of uncovered lines.
-- The Prelude takes forever to load.  Can't I just make an autoloader.
 - This fails with _unreachable: curry.compile('1+2', mode='expr').
   Same goes for curry.compile('1 ? 2', mode='expr').  It seems to depend on
   using Ints.
-- Refactor the func_* unit tests to reduce code duplication.
 - Recursive bindings do not work:
       >>> a = curry.compile('''let a = True:b ; b = False:a in a''', 'expr')
       UnboundLocalError: local variable '_2' referenced before assignment
+- Move breakpoint into the curry module.
+- Break down the Python runtime library.  It is too big.
 

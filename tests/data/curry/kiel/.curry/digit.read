@@ -56,3 +56,11 @@ module "digit"
               reference_var 2 ) ,
             Node "digit.digit" (
               reference_var 1 ) ) )
+  function "digit.main" 0
+    code
+      declare_var 1 IFree
+      declare_var 2 IFree
+      return
+        Node "digit.goal" (
+          reference_var 1 ,
+          reference_var 2 )
