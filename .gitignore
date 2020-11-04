@@ -13,3 +13,4 @@ robots.txt*
 **/.src/**
 **/.curry/**
 !tests/data
+!currylib/**
