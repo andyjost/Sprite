@@ -4,6 +4,21 @@ import sys
 sys.path.insert(0, '../../scripts')
 from generate_test_programs_lib import generate_test_programs
 
+LAST_PREDEF = '''
+last (xs++[x]) = x
+main = '''
+
+LAST_PROGRAMS = [
+    'last []'
+  , 'last [True]'
+  , 'last [failed, False]'
+  , 'last [failed, (failed, True)]'
+  , 'snd $ last [failed, (failed, True)]'
+  , 'fst $ last [failed, (True, failed)]'
+  , 'snd $ last [(failed, True)]'
+  ]
+
+
 SPLIT_PREDEF = '''
 split :: [Bool] -> ([Bool],[Bool])
 split (x++y) = (x,y)
@@ -56,10 +71,12 @@ PERM_PROGRAMS = [
   , 'insert N1 []'
   , 'perm [N1, N2, N3]'
   ]
+
 generate_test_programs([
   # programtext         fileprefix      digits  predef
   # +-------------------+---------------+-------+-------------
-    (SPLIT_PROGRAMS   , 'funpat_split', 2     , SPLIT_PREDEF)
+    (LAST_PROGRAMS    , 'funpat_last' , 2     , LAST_PREDEF )
+  , (SPLIT_PROGRAMS   , 'funpat_split', 2     , SPLIT_PREDEF)
   , (ISIN_PROGRAMS    , 'funpat_isin' , 2     , ISIN_PREDEF )
   , (PERM_PROGRAMS    , 'funpat_perm' , 2     , PERM_PREDEF )
   ])

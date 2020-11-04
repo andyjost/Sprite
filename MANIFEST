@@ -10,78 +10,94 @@
 │   ├── [lrwxrwxrwx          40]  curry2json -> /opt/antoy-cmc/translator/bin/curry2json
 │   └── [lrwxrwxrwx          25]  python -> /opt/python2.7/bin/python
 ├── [drwxrwxr-x        4096]  docs
+│   ├── [drwxrwxr-x        4096]  doctest
+│   │   └── [-rw-rw-r--         386]  output.txt
 │   ├── [drwxrwxr-x        4096]  doctrees
-│   │   ├── [-rw-rw-r--      235276]  curry.doctree
-│   │   ├── [-rw-rw-r--      459705]  curry.interpreter.doctree
+│   │   ├── [-rw-rw-r--      243927]  curry.doctree
+│   │   ├── [-rw-rw-r--      482276]  curry.interpreter.doctree
 │   │   ├── [-rw-rw-r--        4306]  curry.lib.doctree
 │   │   ├── [-rw-rw-r--        5894]  curry.llvm.doctree
 │   │   ├── [-rw-rw-r--        3170]  curry.llvm.types.doctree
-│   │   ├── [-rw-rw-r--        3140]  curry.runtime.doctree
+│   │   ├── [-rw-rw-r--        6877]  curry.runtime.doctree
 │   │   ├── [-rw-rw-r--        3744]  curry.tools.doctree
 │   │   ├── [-rw-rw-r--       35704]  curry.tools.icy.doctree
-│   │   ├── [-rw-rw-r--       76584]  curry.utility.doctree
-│   │   ├── [-rw-rw-r--      261339]  environment.pickle
-│   │   ├── [-rw-rw-r--       15346]  index.doctree
-│   │   └── [-rw-rw-r--        2785]  modules.doctree
+│   │   ├── [-rw-rw-r--       70236]  curry.utility.doctree
+│   │   ├── [-rw-rw-r--      287180]  environment.pickle
+│   │   ├── [-rw-rw-r--        2855]  impl_abstract.doctree
+│   │   ├── [-rw-rw-r--       36929]  implementation.doctree
+│   │   ├── [-rw-rw-r--        3034]  impl_free.doctree
+│   │   ├── [-rw-rw-r--        4895]  index.doctree
+│   │   ├── [-rw-rw-r--        2795]  intro.doctree
+│   │   ├── [-rw-rw-r--        2785]  modules.doctree
+│   │   ├── [-rw-rw-r--       16880]  python.doctree
+│   │   ├── [-rw-rw-r--       20762]  quickstart.doctree
+│   │   └── [-rw-rw-r--       15756]  theory.doctree
 │   ├── [drwxrwxr-x        4096]  html
 │   │   ├── [-rw-rw-r--         230]  .buildinfo
-│   │   ├── [-rw-rw-r--       68069]  curry.html
-│   │   ├── [-rw-rw-r--      116284]  curry.interpreter.html
-│   │   ├── [-rw-rw-r--        3514]  curry.lib.html
-│   │   ├── [-rw-rw-r--        4038]  curry.llvm.html
-│   │   ├── [-rw-rw-r--        3173]  curry.llvm.types.html
-│   │   ├── [-rw-rw-r--        3152]  curry.runtime.html
-│   │   ├── [-rw-rw-r--        4315]  curry.tools.html
-│   │   ├── [-rw-rw-r--       12241]  curry.tools.icy.html
-│   │   ├── [-rw-rw-r--       23501]  curry.utility.html
-│   │   ├── [-rw-rw-r--       48485]  genindex.html
-│   │   ├── [-rw-rw-r--        7371]  index.html
+│   │   ├── [-rw-rw-r--       70644]  curry.html
+│   │   ├── [-rw-rw-r--      122993]  curry.interpreter.html
+│   │   ├── [-rw-rw-r--        4071]  curry.lib.html
+│   │   ├── [-rw-rw-r--        4595]  curry.llvm.html
+│   │   ├── [-rw-rw-r--        3730]  curry.llvm.types.html
+│   │   ├── [-rw-rw-r--        4732]  curry.runtime.html
+│   │   ├── [-rw-rw-r--        4872]  curry.tools.html
+│   │   ├── [-rw-rw-r--       12798]  curry.tools.icy.html
+│   │   ├── [-rw-rw-r--       22403]  curry.utility.html
+│   │   ├── [-rw-rw-r--       50349]  genindex.html
+│   │   ├── [-rw-rw-r--        3453]  impl_abstract.html
+│   │   ├── [-rw-rw-r--       16852]  implementation.html
+│   │   ├── [-rw-rw-r--        4165]  impl_free.html
+│   │   ├── [-rw-rw-r--        5651]  index.html
+│   │   ├── [-rw-rw-r--        3791]  intro.html
 │   │   ├── [drwxrwxr-x        4096]  _modules
 │   │   │   ├── [drwxrwxr-x        4096]  curry
-│   │   │   │   ├── [-rw-rw-r--       26865]  cache.html
-│   │   │   │   ├── [-rw-rw-r--        5435]  exceptions.html
-│   │   │   │   ├── [-rw-rw-r--      106949]  icurry.html
-│   │   │   │   ├── [-rw-rw-r--       51652]  importer.html
-│   │   │   │   ├── [-rw-rw-r--       20167]  inspect.html
+│   │   │   │   ├── [-rw-rw-r--       27693]  cache.html
+│   │   │   │   ├── [-rw-rw-r--        6437]  exceptions.html
+│   │   │   │   ├── [-rw-rw-r--      108010]  icurry.html
+│   │   │   │   ├── [-rw-rw-r--       55455]  importer.html
+│   │   │   │   ├── [-rw-rw-r--       21323]  inspect.html
 │   │   │   │   ├── [drwxrwxr-x        4096]  interpreter
-│   │   │   │   │   ├── [-rw-rw-r--       12871]  compile.html
-│   │   │   │   │   ├── [-rw-rw-r--       41479]  conversions.html
-│   │   │   │   │   ├── [-rw-rw-r--        7931]  eval.html
-│   │   │   │   │   ├── [-rw-rw-r--       82740]  function_compiler.html
-│   │   │   │   │   ├── [-rw-rw-r--       43221]  import_.html
-│   │   │   │   │   ├── [-rw-rw-r--       12927]  interpreter.html
-│   │   │   │   │   ├── [-rw-rw-r--        8093]  lookup.html
-│   │   │   │   │   ├── [-rw-rw-r--       11584]  module.html
-│   │   │   │   │   ├── [-rw-rw-r--        5368]  parameters.html
-│   │   │   │   │   ├── [-rw-rw-r--       58959]  prelude.html
-│   │   │   │   │   ├── [-rw-rw-r--       58600]  prelude_impl.html
-│   │   │   │   │   ├── [-rw-rw-r--      108776]  runtime.html
-│   │   │   │   │   ├── [-rw-rw-r--       12172]  show.html
-│   │   │   │   │   └── [-rw-rw-r--       21918]  typecheckers.html
-│   │   │   │   ├── [-rw-rw-r--        3981]  llvm.html
+│   │   │   │   │   ├── [-rw-rw-r--       14049]  compile.html
+│   │   │   │   │   ├── [-rw-rw-r--       43557]  conversions.html
+│   │   │   │   │   ├── [-rw-rw-r--        8533]  eval.html
+│   │   │   │   │   ├── [-rw-rw-r--       83456]  function_compiler.html
+│   │   │   │   │   ├── [-rw-rw-r--       44095]  import_.html
+│   │   │   │   │   ├── [-rw-rw-r--       14050]  interpreter.html
+│   │   │   │   │   ├── [-rw-rw-r--        8695]  lookup.html
+│   │   │   │   │   ├── [-rw-rw-r--       12186]  module.html
+│   │   │   │   │   ├── [-rw-rw-r--        5970]  parameters.html
+│   │   │   │   │   ├── [-rw-rw-r--       59544]  prelude.html
+│   │   │   │   │   ├── [-rw-rw-r--       76784]  prelude_impl.html
+│   │   │   │   │   ├── [-rw-rw-r--      161833]  runtime.html
+│   │   │   │   │   ├── [-rw-rw-r--       12774]  show.html
+│   │   │   │   │   └── [-rw-rw-r--       18000]  typecheckers.html
+│   │   │   │   ├── [-rw-rw-r--        4568]  llvm.html
+│   │   │   │   ├── [-rw-rw-r--        6698]  runtime.html
 │   │   │   │   ├── [drwxrwxr-x        4096]  tools
 │   │   │   │   │   └── [drwxrwxr-x        4096]  icy
-│   │   │   │   │       ├── [-rw-rw-r--       21723]  commands.html
-│   │   │   │   │       ├── [-rw-rw-r--       16685]  options.html
-│   │   │   │   │       ├── [-rw-rw-r--       17276]  repl.html
-│   │   │   │   │       └── [-rw-rw-r--        5687]  resolve.html
-│   │   │   │   ├── [-rw-rw-r--        5169]  types.html
+│   │   │   │   │       ├── [-rw-rw-r--       22340]  commands.html
+│   │   │   │   │       ├── [-rw-rw-r--       17302]  options.html
+│   │   │   │   │       ├── [-rw-rw-r--       17893]  repl.html
+│   │   │   │   │       └── [-rw-rw-r--        6304]  resolve.html
+│   │   │   │   ├── [-rw-rw-r--        5756]  types.html
 │   │   │   │   ├── [drwxrwxr-x        4096]  utility
-│   │   │   │   │   ├── [-rw-rw-r--        6427]  binding.html
-│   │   │   │   │   ├── [-rw-rw-r--       15429]  encoding.html
-│   │   │   │   │   ├── [-rw-rw-r--       10527]  flagutils.html
-│   │   │   │   │   ├── [-rw-rw-r--       22458]  proptree.html
-│   │   │   │   │   ├── [-rw-rw-r--        3825]  unboxed.html
-│   │   │   │   │   ├── [-rw-rw-r--       17460]  unionfind.html
-│   │   │   │   │   └── [-rw-rw-r--       23580]  visitation.html
-│   │   │   │   └── [-rw-rw-r--        5168]  utility.html
-│   │   │   ├── [-rw-rw-r--        8955]  curry.html
-│   │   │   └── [-rw-rw-r--        5254]  index.html
-│   │   ├── [-rw-rw-r--        9399]  modules.html
-│   │   ├── [-rw-rw-r--        2611]  objects.inv
-│   │   ├── [-rw-rw-r--       11931]  py-modindex.html
-│   │   ├── [-rw-rw-r--        3195]  search.html
-│   │   ├── [-rw-rw-r--       18782]  searchindex.js
+│   │   │   │   │   ├── [-rw-rw-r--        7029]  binding.html
+│   │   │   │   │   ├── [-rw-rw-r--       16031]  encoding.html
+│   │   │   │   │   ├── [-rw-rw-r--       11129]  flagutils.html
+│   │   │   │   │   ├── [-rw-rw-r--       23060]  proptree.html
+│   │   │   │   │   ├── [-rw-rw-r--        4427]  unboxed.html
+│   │   │   │   │   ├── [-rw-rw-r--       12375]  unionfind.html
+│   │   │   │   │   └── [-rw-rw-r--       24182]  visitation.html
+│   │   │   │   └── [-rw-rw-r--        5755]  utility.html
+│   │   │   ├── [-rw-rw-r--       14331]  curry.html
+│   │   │   └── [-rw-rw-r--        5882]  index.html
+│   │   ├── [-rw-rw-r--        9848]  modules.html
+│   │   ├── [-rw-rw-r--        2759]  objects.inv
+│   │   ├── [-rw-rw-r--       12489]  py-modindex.html
+│   │   ├── [-rw-rw-r--        8605]  python.html
+│   │   ├── [-rw-rw-r--       15498]  quickstart.html
+│   │   ├── [-rw-rw-r--        3752]  search.html
+│   │   ├── [-rw-rw-r--       22701]  searchindex.js
 │   │   ├── [drwxrwxr-x        4096]  _sources
 │   │   │   ├── [-rw-rw-r--        2614]  curry.interpreter.rst.txt
 │   │   │   ├── [-rw-rw-r--         153]  curry.lib.rst.txt
@@ -92,39 +108,74 @@
 │   │   │   ├── [-rw-rw-r--         833]  curry.tools.icy.rst.txt
 │   │   │   ├── [-rw-rw-r--         219]  curry.tools.rst.txt
 │   │   │   ├── [-rw-rw-r--        1301]  curry.utility.rst.txt
-│   │   │   ├── [-rw-rw-r--         255]  index.rst.txt
-│   │   │   └── [-rw-rw-r--          52]  modules.rst.txt
-│   │   └── [drwxrwxr-x        4096]  _static
-│   │       ├── [-rw-rw-r--         673]  ajax-loader.gif
-│   │       ├── [-rw-rw-r--       11185]  alabaster.css
-│   │       ├── [-rw-rw-r--       10912]  basic.css
-│   │       ├── [-rw-rw-r--         756]  comment-bright.png
-│   │       ├── [-rw-rw-r--         829]  comment-close.png
-│   │       ├── [-rw-rw-r--         641]  comment.png
-│   │       ├── [-rw-rw-r--          42]  custom.css
-│   │       ├── [-rw-rw-r--        9313]  doctools.js
-│   │       ├── [-rw-rw-r--         309]  documentation_options.js
-│   │       ├── [-rw-rw-r--         202]  down.png
-│   │       ├── [-rw-rw-r--         222]  down-pressed.png
-│   │       ├── [-rw-rw-r--         286]  file.png
-│   │       ├── [-rw-rw-r--      268039]  jquery-3.2.1.js
-│   │       ├── [-rw-rw-r--       86659]  jquery.js
-│   │       ├── [-rw-rw-r--       10847]  language_data.js
-│   │       ├── [-rw-rw-r--          90]  minus.png
-│   │       ├── [-rw-rw-r--          90]  plus.png
-│   │       ├── [-rw-rw-r--        4395]  pygments.css
-│   │       ├── [-rw-rw-r--       15059]  searchtools.js
-│   │       ├── [-rw-rw-r--       35168]  underscore-1.3.1.js
-│   │       ├── [-rw-rw-r--       12140]  underscore.js
-│   │       ├── [-rw-rw-r--         203]  up.png
-│   │       ├── [-rw-rw-r--         214]  up-pressed.png
-│   │       └── [-rw-rw-r--       25355]  websupport.js
+│   │   │   ├── [-rw-rw-r--          62]  impl_abstract.rst.txt
+│   │   │   ├── [-rw-rw-r--        7816]  implementation.rst.txt
+│   │   │   ├── [-rw-rw-r--          91]  impl_free.rst.txt
+│   │   │   ├── [-rw-rw-r--         257]  index.rst.txt
+│   │   │   ├── [-rw-rw-r--          40]  intro.rst.txt
+│   │   │   ├── [-rw-rw-r--          52]  modules.rst.txt
+│   │   │   ├── [-rw-rw-r--          85]  python.rst.txt
+│   │   │   ├── [-rw-rw-r--        4305]  quickstart.rst.txt
+│   │   │   └── [-rw-rw-r--        6456]  theory.rst.txt
+│   │   ├── [drwxrwxr-x        4096]  _static
+│   │   │   ├── [-rw-rw-r--         673]  ajax-loader.gif
+│   │   │   ├── [-rw-rw-r--       11185]  alabaster.css
+│   │   │   ├── [-rw-rw-r--       10912]  basic.css
+│   │   │   ├── [-rw-rw-r--         756]  comment-bright.png
+│   │   │   ├── [-rw-rw-r--         829]  comment-close.png
+│   │   │   ├── [-rw-rw-r--         641]  comment.png
+│   │   │   ├── [-rw-rw-r--          42]  custom.css
+│   │   │   ├── [-rw-rw-r--        9313]  doctools.js
+│   │   │   ├── [-rw-rw-r--         309]  documentation_options.js
+│   │   │   ├── [-rw-rw-r--         202]  down.png
+│   │   │   ├── [-rw-rw-r--         222]  down-pressed.png
+│   │   │   ├── [-rw-rw-r--         286]  file.png
+│   │   │   ├── [-rw-rw-r--      268039]  jquery-3.2.1.js
+│   │   │   ├── [-rw-rw-r--       86659]  jquery.js
+│   │   │   ├── [-rw-rw-r--       10847]  language_data.js
+│   │   │   ├── [-rw-rw-r--          90]  minus.png
+│   │   │   ├── [-rw-rw-r--          90]  plus.png
+│   │   │   ├── [-rw-rw-r--        4395]  pygments.css
+│   │   │   ├── [-rw-rw-r--       15059]  searchtools.js
+│   │   │   ├── [-rw-rw-r--       35168]  underscore-1.3.1.js
+│   │   │   ├── [-rw-rw-r--       12140]  underscore.js
+│   │   │   ├── [-rw-rw-r--         203]  up.png
+│   │   │   ├── [-rw-rw-r--         214]  up-pressed.png
+│   │   │   └── [-rw-rw-r--       25355]  websupport.js
+│   │   └── [-rw-rw-r--        4209]  theory.html
+│   ├── [drwxrwxr-x        4096]  latex
+│   │   ├── [-rw-rw-r--        8888]  footnotehyper-sphinx.sty
+│   │   ├── [-rw-rw-r--         683]  latexmkjarc
+│   │   ├── [-rw-rw-r--         405]  latexmkrc
+│   │   ├── [-rw-rw-r--       18693]  LatinRules.xdy
+│   │   ├── [-rw-rw-r--        4366]  LICRcyr2utf8.xdy
+│   │   ├── [-rw-rw-r--       10189]  LICRlatin2utf8.xdy
+│   │   ├── [-rw-rw-r--         473]  make.bat
+│   │   ├── [-rw-rw-r--        1648]  Makefile
+│   │   ├── [-rw-rw-r--         392]  python.ist
+│   │   ├── [-rw-rw-r--        8137]  sphinxhighlight.sty
+│   │   ├── [-rw-rw-r--        2696]  sphinxhowto.cls
+│   │   ├── [-rw-rw-r--        3622]  sphinxmanual.cls
+│   │   ├── [-rw-rw-r--       14618]  sphinxmulticell.sty
+│   │   ├── [-rw-rw-r--       76220]  sphinx.sty
+│   │   ├── [-rw-rw-r--        8132]  sphinx.xdy
+│   │   ├── [-rw-rw-r--        3741]  Sprite.aux
+│   │   ├── [-rw-rw-r--       17991]  Sprite.fdb_latexmk
+│   │   ├── [-rw-rw-r--       19065]  Sprite.fls
+│   │   ├── [-rw-rw-r--         289]  Sprite.idx
+│   │   ├── [-rw-rw-r--         408]  Sprite.ilg
+│   │   ├── [-rw-rw-r--         481]  Sprite.ind
+│   │   ├── [-rw-rw-r--       50601]  Sprite.log
+│   │   ├── [-rw-rw-r--        1413]  Sprite.out
+│   │   ├── [-rw-rw-r--      112398]  Sprite.pdf
+│   │   ├── [-rw-rw-r--       15847]  Sprite.tex
+│   │   └── [-rw-rw-r--         895]  Sprite.toc
 │   ├── [drwxrwxr-x        4096]  man
-│   │   └── [-rw-rw-r--        2335]  sprite.1
+│   │   └── [-rw-rw-r--       14571]  sprite.1
 │   └── [drwxrwxr-x        4096]  texinfo
 │       ├── [-rw-rw-r--        1193]  Makefile
-│       ├── [-rw-rw-r--        3235]  Sprite.info
-│       └── [-rw-rw-r--        3094]  Sprite.texi
+│       ├── [-rw-rw-r--       18743]  Sprite.info
+│       └── [-rw-rw-r--       23406]  Sprite.texi
 └── [drwxrwxr-x        4096]  lib
     ├── [drwxrwxr-x        4096]  curry
     │   ├── [drwxrwxr-x        4096]  .curry
@@ -133,54 +184,55 @@
     │   │   ├── [-rw-rw-r--      993049]  Prelude.icur
     │   │   ├── [-rw-rw-r--       12172]  Prelude.icurry
     │   │   ├── [-rw-rw-r--     7098274]  Prelude.json
+    │   │   ├── [-rw-rw-r--           7]  Prelude.make
     │   │   └── [-rw-rw-r--     1244230]  Prelude.read
     │   └── [-rw-rw-r--       56879]  Prelude.curry
     ├── [-rwxrwxr-x     1172848]  libsprite.so
     └── [drwxrwxr-x        4096]  python2.7
         └── [drwxrwxr-x        4096]  curry
-            ├── [-rw-rw-r--        5612]  cache.py
-            ├── [-rw-rw-r--        6937]  cache.pyc
-            ├── [-rw-rw-r--         585]  exceptions.py
-            ├── [-rw-rw-r--        1786]  exceptions.pyc
-            ├── [-rwxrwxr-x       17241]  icurry.py
-            ├── [-rw-rw-r--       36334]  icurry.pyc
-            ├── [-rw-rw-r--       10224]  importer.py
-            ├── [-rw-rw-r--       12800]  importer.pyc
-            ├── [-rw-rw-r--        2038]  __init__.py
-            ├── [-rw-rw-r--        2437]  __init__.pyc
-            ├── [-rw-rw-r--        2535]  inspect.py
-            ├── [-rw-rw-r--        5687]  inspect.pyc
+            ├── [-rw-rw-r--        5860]  cache.py
+            ├── [-rw-rw-r--        7014]  cache.pyc
+            ├── [-rw-rw-r--         690]  exceptions.py
+            ├── [-rw-rw-r--        2073]  exceptions.pyc
+            ├── [-rwxrwxr-x       17459]  icurry.py
+            ├── [-rw-rw-r--       36373]  icurry.pyc
+            ├── [-rw-rw-r--       10781]  importer.py
+            ├── [-rw-rw-r--       13420]  importer.pyc
+            ├── [-rw-rw-r--        3034]  __init__.py
+            ├── [-rw-rw-r--        4243]  __init__.pyc
+            ├── [-rw-rw-r--        2604]  inspect.py
+            ├── [-rw-rw-r--        5882]  inspect.pyc
             ├── [drwxrwxr-x        4096]  interpreter
-            │   ├── [-rw-rw-r--        2467]  compile.py
-            │   ├── [-rw-rw-r--        2387]  compile.pyc
-            │   ├── [-rw-rw-r--        7559]  conversions.py
-            │   ├── [-rw-rw-r--       11323]  conversions.pyc
+            │   ├── [-rw-rw-r--        2611]  compile.py
+            │   ├── [-rw-rw-r--        2451]  compile.pyc
+            │   ├── [-rw-rw-r--        7815]  conversions.py
+            │   ├── [-rw-rw-r--       11828]  conversions.pyc
             │   ├── [-rw-rw-r--        1095]  eval.py
             │   ├── [-rw-rw-r--        1774]  eval.pyc
-            │   ├── [-rw-rw-r--       15069]  function_compiler.py
-            │   ├── [-rw-rw-r--       23382]  function_compiler.pyc
-            │   ├── [-rw-rw-r--        8639]  import_.py
-            │   ├── [-rw-rw-r--       10185]  import_.pyc
+            │   ├── [-rw-rw-r--       15161]  function_compiler.py
+            │   ├── [-rw-rw-r--       23432]  function_compiler.pyc
+            │   ├── [-rw-rw-r--        8722]  import_.py
+            │   ├── [-rw-rw-r--       10082]  import_.pyc
             │   ├── [-rw-rw-r--         668]  __init__.py
             │   ├── [-rw-rw-r--        1108]  __init__.pyc
-            │   ├── [-rw-rw-r--        2264]  interpreter.py
-            │   ├── [-rw-rw-r--        3581]  interpreter.pyc
+            │   ├── [-rw-rw-r--        2581]  interpreter.py
+            │   ├── [-rw-rw-r--        3880]  interpreter.pyc
             │   ├── [-rw-rw-r--         926]  lookup.py
             │   ├── [-rw-rw-r--        1564]  lookup.pyc
             │   ├── [-rw-rw-r--        1804]  module.py
             │   ├── [-rw-rw-r--        3036]  module.pyc
             │   ├── [-rw-rw-r--         537]  parameters.py
             │   ├── [-rw-rw-r--         770]  parameters.pyc
-            │   ├── [-rw-rw-r--       10371]  prelude_impl.py
-            │   ├── [-rw-rw-r--       14093]  prelude_impl.pyc
-            │   ├── [-rw-rw-r--       13342]  prelude.py
-            │   ├── [-rw-rw-r--        7058]  prelude.pyc
-            │   ├── [-rw-rw-r--       23227]  runtime.py
-            │   ├── [-rw-rw-r--       29228]  runtime.pyc
+            │   ├── [-rw-rw-r--       13209]  prelude_impl.py
+            │   ├── [-rw-rw-r--       16408]  prelude_impl.pyc
+            │   ├── [-rw-rw-r--       13341]  prelude.py
+            │   ├── [-rw-rw-r--        7045]  prelude.pyc
+            │   ├── [-rw-rw-r--       32765]  runtime.py
+            │   ├── [-rw-rw-r--       38127]  runtime.pyc
             │   ├── [-rw-rw-r--        1789]  show.py
             │   ├── [-rw-rw-r--        2650]  show.pyc
-            │   ├── [-rw-rw-r--        3502]  typecheckers.py
-            │   └── [-rw-rw-r--        5396]  typecheckers.pyc
+            │   ├── [-rw-rw-r--        2847]  typecheckers.py
+            │   └── [-rw-rw-r--        4457]  typecheckers.pyc
             ├── [drwxrwxr-x        4096]  lib
             │   ├── [-rw-rw-r--         409]  __init__.py
             │   └── [-rw-rw-r--         569]  __init__.pyc
@@ -198,10 +250,10 @@
             │   ├── [-rw-rw-r--         650]  _utility.pyc
             │   ├── [-rw-rw-r--         531]  _value.py
             │   └── [-rw-rw-r--        1607]  _value.pyc
-            ├── [-rw-rw-r--        1443]  __main__.py
+            ├── [-rw-rw-r--        1461]  __main__.py
             ├── [drwxrwxr-x        4096]  runtime
-            │   ├── [-rw-rw-r--          23]  __init__.py
-            │   ├── [-rw-rw-r--         192]  __init__.pyc
+            │   ├── [-rw-rw-r--         471]  __init__.py
+            │   ├── [-rw-rw-r--        1166]  __init__.pyc
             │   └── [-rwxrwxr-x      182776]  _runtime.so
             ├── [drwxrwxr-x        4096]  tools
             │   ├── [drwxrwxr-x        4096]  icy
@@ -225,19 +277,23 @@
                 ├── [-rw-rw-r--        1145]  binding.pyc
                 ├── [-rw-rw-r--        2281]  encoding.py
                 ├── [-rw-rw-r--        3663]  encoding.pyc
+                ├── [-rw-rw-r--         636]  filesys.py
+                ├── [-rw-rw-r--        1012]  filesys.pyc
                 ├── [-rw-rw-r--        1694]  flagutils.py
                 ├── [-rw-rw-r--        2771]  flagutils.pyc
                 ├── [-rw-rw-r--         290]  __init__.py
                 ├── [-rw-rw-r--        1123]  __init__.pyc
                 ├── [-rw-rw-r--        3873]  proptree.py
                 ├── [-rw-rw-r--        7691]  proptree.pyc
+                ├── [-rw-rw-r--        1809]  shared.py
+                ├── [-rw-rw-r--        4383]  shared.pyc
                 ├── [-rw-rw-r--        3161]  _tempfile.py
                 ├── [-rw-rw-r--        3723]  _tempfile.pyc
                 ├── [-rw-rw-r--         147]  unboxed.py
                 ├── [-rw-rw-r--         651]  unboxed.pyc
-                ├── [-rw-rw-r--        2010]  unionfind.py
-                ├── [-rw-rw-r--        5034]  unionfind.pyc
+                ├── [-rw-rw-r--        1075]  unionfind.py
+                ├── [-rw-rw-r--        2681]  unionfind.pyc
                 ├── [-rw-rw-r--        4228]  visitation.py
                 └── [-rw-rw-r--        7613]  visitation.pyc
 
-28 directories, 212 files
+30 directories, 266 files

@@ -114,3 +114,51 @@ Free variables are unbound or bound.
   What’s needed instead is to replace x with a generator and then filter out
   results that are inconsistent with x =:<= true y.
 
+..
+  Activating lazy bindings.
+  I discovered a new detail when binding variables in Sprite.  Let’s use the example from yesterday:
+  _
+      last (xs++[x]) = x
+      main = snd $ last [(failed, True)]
+  _
+  This eventually comes to the following state:
+  _
+      snd x   {{x -> (failed, True)}}
+  _
+  where x has a lazy binding.
+  _
+  I had said that I always activate lazy bindings by prepending a =:=
+  expression.  In this case, Sprite would instantiate x based on the rules of
+  snd, and then prepend the binding for x once the choice reaches the top:
+  _
+      snd ((_a, _b) ?_x failed)     # Instantiate x.  Note, the generator for (,) must begin with a choice.
+      snd (_a, _b) ?_x snd failed   # Pull tab
+      x =:= (failed, True) &> (snd (_a, _b) ?_x snd failed)     # Activate the lazy binding.
+  _
+  This does not work because the binding fails.  Instead, what’s needed is to
+  bind x’s generator with the expression using =:<=, so the last state should
+  be:
+  _
+      ((a, _b) ?_x failed) =:<= (failed, True) &> (snd (_a, _b) ?_x snd failed)
+  _
+  This has the effect of interleaving =:<= with normal steps.
+  _
+  In other cases, it is necessary to use =:=.  Consider the following:
+  _
+      main = last [f] where f=True
+  _
+  This time we end up with the value x where x has a lazy binding x->f.  Since
+  there is no generator for x, we cannot use the above (I could use the above
+  approach if ICurry gave me the type of x).
+  _
+  In this case, it is safe to use =:= because x is a value, and therefore must
+  be reduces to normal form.
+  _
+  So I have two cases in general.  For free variable x with generator gen(x)
+  and lazy binding {x->e}:
+  _
+    [1] When x is narrowed, apply (gen(x) =:<= e &>) to the top-level expression.
+    [2] When x’s normal form is needed apply (x =:= e &>) to the top-level expression.
+  _
+  (In both cases delete the lazy binding.)
+

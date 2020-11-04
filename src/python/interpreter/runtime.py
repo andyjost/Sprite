@@ -360,9 +360,10 @@ class Frame(object):
       , self.blocked_by
       )
 
-  def update_bindings(self, xid):
+  def _fork_updatebindings(self, xid):
     '''
-    Updates the bindings and lazy_bindings based on a new binding of id xid.
+    Updates the bindings and lazy_bindings based on a new choice with id xid
+    reaching the root.
 
     Returns:
     --------
@@ -396,7 +397,7 @@ class Frame(object):
     # Activate lazy bindings for this group of variables, now that a binding is
     # available.
     seen_ids.add(xid)
-    return 2 if self.activate_lazy_bindings(seen_ids) else 0
+    return 2 if self.activate_lazy_bindings(seen_ids, lazy=True) else 0
 
   def fork(self):
     '''
@@ -407,7 +408,7 @@ class Frame(object):
     cid_,lhs,rhs = self.expr[()]
     cid = self.constraint_store.read.root(cid_)
     if cid in self.bindings.read or cid in self.lazy_bindings.read:
-      bindresult = self.update_bindings(cid)
+      bindresult = self._fork_updatebindings(cid)
       if bindresult:
         if bindresult == 1: # inconsistent
           if self.interp.flags['trace']:
@@ -424,13 +425,15 @@ class Frame(object):
       assert lr in [LEFT,RIGHT]
       self.expr = lhs if lr==LEFT else rhs
       if self.interp.flags['trace']:
-        print '? ::: %s, %s%s >> %x' % (self.show_cid(cid_, cid), cid, 'L' if lr==LEFT else 'R', id(self))
+        print '? ::: %s, %s%s >> %x' % (
+            self.show_cid(cid_, cid), cid, 'L' if lr==LEFT else 'R', id(self)
+          )
       yield self
     else: # Undecided, so two children.
       lchild = Frame(expr=lhs, clone=self)
       if self.interp.flags['trace']:
         print '? ::: %s, %sL >> %x, %sR >> %x' % (
-            self.show_cid(cid_, cid), cid, id(self), cid, id(lchild)
+            self.show_cid(cid_, cid), cid, id(lchild), cid, id(self)
           )
       lchild.fingerprint.set_left(cid)
       yield lchild
@@ -463,6 +466,7 @@ class Frame(object):
     stack = [(_x, _y)]
     while stack:
       x, y = stack.pop()
+      x, y = x[()], y[()]
       if x.info.tag == T_CHOICE:
         (x_id, xl, xr), (y_id, yl, yr) = x, y
         x_id, y_id = map(self.constraint_store.read.root, [x_id, y_id])
@@ -513,7 +517,7 @@ class Frame(object):
         raise TypeError('unexpected tag %s' % x.info.tag)
     return True
 
-  def activate_lazy_bindings(self, vids):
+  def activate_lazy_bindings(self, vids, lazy):
     bindings = []
     for vid in vids:
       if vid in self.lazy_bindings.read:
@@ -527,18 +531,39 @@ class Frame(object):
         bindings += self.lazy_bindings.write.pop(vid).read
     if bindings:
       conj = getattr(self.interp.prelude, '&')
-      bindinfo = getattr(self.interp.prelude, '=:=')
+      bindinfo = getattr(self.interp.prelude, '=:<=' if lazy else '=:=')
+      act = lambda var: get_generator(self.interp, var, None) if lazy else var
       self.expr = Node(
           getattr(self.interp.prelude, '&>')
         , reduce(
               lambda a, b: Node(conj, a, b)
-            , [Node(bindinfo, x, e) for x, e in bindings]
+            , [Node(bindinfo, act(x), e) for x, e in bindings]
             )
         , self.expr
         )
       return True
     else:
       return False
+
+  # When a free variable is needed, check the fingerprint for an existing
+  # binding and use it if found.  Otherwise, if there is a lazy binding,
+  # activate it.  If only the hnf is needed, use =:<=, otherwise, if the nf is
+  # needed, use =:=.
+  def check_freevar_bindings(self, freevar, path=(), lazy=False):
+    vid = get_id(freevar)
+    vid = self.constraint_store.read.root(vid)
+    if vid in self.fingerprint:
+      assert vid not in self.lazy_bindings.read
+      _a,(_b,l,r) = freevar
+      replacement = l if self.fingerprint[vid] == LEFT else r
+      if path:
+        replace(self.interp, self.expr[()], path, replacement)
+      else:
+        self.expr = get_generator(self.interp, freevar, None)
+      raise E_CONTINUE()
+    elif vid in self.lazy_bindings.read:
+      self.activate_lazy_bindings([vid], lazy=lazy)
+      raise E_CONTINUE()
 
   @property
   def blocked(self):
@@ -601,15 +626,9 @@ class Evaluator(object):
           print 'X :::', frame
         continue # discard
       elif tag == T_FREE:
-        vid = get_id(target)
-        vid = frame.constraint_store.read.root(vid)
-        if vid in frame.fingerprint:
-          # Ensure constructor expressions are guarded by a function symbol.
-          frame.expr = self.interp.expr(
-              getattr(self.interp.prelude, '$!!')
-            , self.interp.prelude.id
-            , get_generator(self.interp, target, None)
-            )
+        try:
+          frame.check_freevar_bindings(target, lazy=False)
+        except E_CONTINUE:
           self.queue.append(frame)
         else:
           if self.interp.flags['trace']:
@@ -742,17 +761,7 @@ def N(interp, root, target=None, path=None, freevars=None):
           lift_constr(interp, root, path)
           raise E_CONTINUE()
         elif tag == T_FREE:
-          vid = get_id(succ)
-          frame = interp.currentframe
-          vid = frame.constraint_store.read.root(vid)
-          if vid in frame.fingerprint:
-            _a,(_b,l,r) = succ
-            replacement = l if frame.fingerprint[vid] == LEFT else r
-            replace(interp, root[()], path, replacement)
-            raise E_CONTINUE()
-          elif vid in frame.lazy_bindings.read:
-            frame.activate_lazy_bindings([vid])
-            raise E_CONTINUE()
+          interp.currentframe.check_freevar_bindings(succ, path, lazy=False)
           freevars.add(succ)
           break
         elif tag == T_FUNC:
