@@ -20,7 +20,7 @@ class Interpreter(object):
 
   Supported flags:
   ----------------
-      ``debug`` (*True*|False)
+      ``debug`` (True|*False*)
           Sacrifice speed to add more consistency checks and enable debugging
           with PDB.
       ``defaultconverter`` ('topython'|*None*)
@@ -37,7 +37,7 @@ class Interpreter(object):
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self.flags = {
-        'debug':True, 'defaultconverter':None, 'trace':False, 'lazycompile':True
+        'debug':False, 'defaultconverter':None, 'trace':False, 'lazycompile':True
       , 'keep_temp_files':False
       }
     self.flags.update(flags)
