@@ -13,7 +13,7 @@
 -- it consists of the number of missionaries and cannibals 
 -- and the presence of the boat on the initial bank of the river
 
-data State = State Int Int Bool
+data State = State Int Int Bool deriving Eq
 
 -- Constrained Constructor on State
 -- the number of missionaries and cannibals must be valid, i.e.

@@ -1,6 +1,6 @@
 -- Module "conditional" from the Escher report:
 
-data Alpha = A | B | C | D
+data Alpha = A | B | C | D deriving Eq
 
 membercheck :: (Alpha , [Alpha]) -> Bool
 

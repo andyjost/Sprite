@@ -22,3 +22,4 @@ sort xs = head [ ys | ys <- perms xs, sorted ys ]
 
 goal n = sort [n,n-1..1]
 -- Result: [1..n]
+main = goal 5

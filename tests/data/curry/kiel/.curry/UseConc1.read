@@ -3,82 +3,39 @@ module "UseConc1"
   import
     "ModConc"
     "Prelude"
-  function "UseConc1.goal1" 1
+  function "UseConc1.goal1" 0
     code
-      declare_var 1 ILhs (("UseConc1","goal1"),1)
       return
         Node "ModConc..+." (
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 1 ) ,
+            int 1 ,
             Node "Prelude.[]" ) ,
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.apply" (
-                Node "Prelude.+" (
-                  reference_var 1 ) ,
-                Node "Prelude.apply" (
-                  Node "Prelude.fromInt" (
-                    reference_var 1 ) ,
-                  int 1 ) ) ,
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 1 ) ) ,
+            Node "Prelude._impl#+#Prelude.Num#Prelude.Int" (
+              int 1 ,
+              int 1 ) ,
             Node "Prelude.[]" ) )
-  function "UseConc1.goal2" 1
+  function "UseConc1.goal2" 0
     code
-      declare_var 1 ILhs (("UseConc1","goal2"),1)
       return
         Node "ModConc..+." (
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 1 ) ,
+            int 1 ,
             Node "Prelude.[]" ) ,
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.apply" (
-                Node "Prelude.+" (
-                  reference_var 1 ) ,
-                Node "Prelude.apply" (
-                  Node "Prelude.fromInt" (
-                    reference_var 1 ) ,
-                  int 1 ) ) ,
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 1 ) ) ,
+            Node "Prelude._impl#+#Prelude.Num#Prelude.Int" (
+              int 1 ,
+              int 1 ) ,
             Node "Prelude.[]" ) )
-  function "UseConc1.goal3" 1
+  function "UseConc1.goal3" 0
     code
-      declare_var 1 ILhs (("UseConc1","goal3"),1)
       return
         Node "Prelude.apply" (
           Node "Prelude.apply" (
             Node "ModConc.conc" ,
             Node "Prelude.:" (
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 1 ) ,
+              int 1 ,
               Node "Prelude.[]" ) ) ,
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 2 ) ,
+            int 2 ,
             Node "Prelude.[]" ) )
-  function "UseConc1.main" 0
-    code
-      return
-        Node "Prelude.(,,)" (
-          Node "UseConc1.goal1" (
-            Node "Prelude._inst#Prelude.Num#Prelude.Int" ) ,
-          Node "UseConc1.goal2" (
-            Node "Prelude._inst#Prelude.Num#Prelude.Int" ) ,
-          Node "UseConc1.goal3" (
-            Node "Prelude._inst#Prelude.Num#Prelude.Int" ) )

@@ -47,29 +47,16 @@ module "last"
         "Prelude.True" =>
           return
             reference_var 2
-  function "last.goal" 1
+  function "last.goal" 0
     code
-      declare_var 1 ILhs (("last","goal"),1)
       return
         Node "last.last" (
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 1 ) ,
+            int 1 ,
             Node "Prelude.:" (
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 2 ) ,
+              int 2 ,
               Node "Prelude.:" (
-                Node "Prelude.apply" (
-                  Node "Prelude.fromInt" (
-                    reference_var 1 ) ,
-                  int 3 ) ,
+                int 3 ,
                 Node "Prelude.:" (
-                  Node "Prelude.apply" (
-                    Node "Prelude.fromInt" (
-                      reference_var 1 ) ,
-                    int 4 ) ,
+                  int 4 ,
                   Node "Prelude.[]" ) ) ) ) )

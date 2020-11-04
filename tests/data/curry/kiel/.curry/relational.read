@@ -330,9 +330,9 @@ module "relational"
             Node "relational.forevery" (
               reference_var 1 ,
               reference_var 4 )
-  function "relational.q1" 1
+  function "relational.goal1" 1
     code
-      declare_var 1 ILhs (("relational","q1"),1)
+      declare_var 1 ILhs (("relational","goal1"),1)
       return
         Node "Prelude.map" (
           partial 1 (
@@ -343,9 +343,9 @@ module "relational"
             Node "Prelude.:" (
               Node "relational.Sue" ,
               Node "Prelude.[]" ) ) )
-  function "relational.q2" 1
+  function "relational.goal2" 1
     code
-      declare_var 1 ILhs (("relational","q2"),1)
+      declare_var 1 ILhs (("relational","goal2"),1)
       return
         Node "relational.mappred" (
           partial 2 (
@@ -356,10 +356,10 @@ module "relational"
               Node "relational.Dick" ,
               Node "Prelude.[]" ) ) ,
           reference_var 1 )
-  function "relational.q3" 2
+  function "relational.goal3" 2
     code
-      declare_var 1 ILhs (("relational","q3"),1)
-      declare_var 2 ILhs (("relational","q3"),2)
+      declare_var 1 ILhs (("relational","goal3"),1)
+      declare_var 2 ILhs (("relational","goal3"),2)
       return
         Node "relational.mappred" (
           reference_var 2 ,
@@ -379,23 +379,23 @@ module "relational"
                   reference_var 1 ) ,
                 int 23 ) ,
               Node "Prelude.[]" ) ) )
-  function "relational.q4" 1
+  function "relational.goal4" 1
     code
-      declare_var 1 ILhs (("relational","q4"),1)
+      declare_var 1 ILhs (("relational","goal4"),1)
       return
         Node "relational.mappred" (
           partial 2 (
-            Node "relational.q4._#lambda1" ) ,
+            Node "relational.goal4._#lambda1" ) ,
           reference_var 1 ,
           Node "Prelude.:" (
             int 24 ,
             Node "Prelude.:" (
               int 23 ,
               Node "Prelude.[]" ) ) )
-  function "relational.q4._#lambda1" 2
+  function "relational.goal4._#lambda1" 2
     code
-      declare_var 1 ILhs (("relational","q4._#lambda1"),1)
-      declare_var 2 ILhs (("relational","q4._#lambda1"),2)
+      declare_var 1 ILhs (("relational","goal4._#lambda1"),1)
+      declare_var 2 ILhs (("relational","goal4._#lambda1"),2)
       return
         Node "relational.con2bool" (
           Node "Prelude.=:=" (
@@ -403,14 +403,14 @@ module "relational"
               Node "Prelude._inst#Prelude.Num#Prelude.Int" ,
               reference_var 1 ) ,
             reference_var 2 ) )
-  function "relational.q5" 2
+  function "relational.goal5" 2
     code
-      declare_var 1 ILhs (("relational","q5"),1)
-      declare_var 2 ILhs (("relational","q5"),2)
+      declare_var 1 ILhs (("relational","goal5"),1)
+      declare_var 2 ILhs (("relational","goal5"),2)
       return
         Node "relational.forevery" (
           partial 1 (
-            Node "relational.q5._#lambda2" (
+            Node "relational.goal5._#lambda2" (
               reference_var 2 ,
               reference_var 1 ) ) ,
           Node "Prelude.:" (
@@ -420,25 +420,25 @@ module "relational"
               Node "Prelude.:" (
                 Node "relational.Sue" ,
                 Node "Prelude.[]" ) ) ) )
-  function "relational.q5._#lambda2" 3
+  function "relational.goal5._#lambda2" 3
     code
-      declare_var 1 ILhs (("relational","q5._#lambda2"),1)
-      declare_var 2 ILhs (("relational","q5._#lambda2"),2)
-      declare_var 3 ILhs (("relational","q5._#lambda2"),3)
+      declare_var 1 ILhs (("relational","goal5._#lambda2"),1)
+      declare_var 2 ILhs (("relational","goal5._#lambda2"),2)
+      declare_var 3 ILhs (("relational","goal5._#lambda2"),3)
       return
         Node "Prelude.=:=" (
           Node "relational.age" (
             reference_var 2 ,
             reference_var 3 ) ,
           reference_var 1 )
-  function "relational.q6" 2
+  function "relational.goal6" 2
     code
-      declare_var 1 ILhs (("relational","q6"),1)
-      declare_var 2 ILhs (("relational","q6"),2)
+      declare_var 1 ILhs (("relational","goal6"),1)
+      declare_var 2 ILhs (("relational","goal6"),2)
       return
         Node "relational.forevery" (
           partial 1 (
-            Node "relational.q6._#lambda3" (
+            Node "relational.goal6._#lambda3" (
               reference_var 2 ,
               reference_var 1 ) ) ,
           Node "Prelude.:" (
@@ -446,23 +446,23 @@ module "relational"
             Node "Prelude.:" (
               Node "relational.Sue" ,
               Node "Prelude.[]" ) ) )
-  function "relational.q6._#lambda3" 3
+  function "relational.goal6._#lambda3" 3
     code
-      declare_var 1 ILhs (("relational","q6._#lambda3"),1)
-      declare_var 2 ILhs (("relational","q6._#lambda3"),2)
-      declare_var 3 ILhs (("relational","q6._#lambda3"),3)
+      declare_var 1 ILhs (("relational","goal6._#lambda3"),1)
+      declare_var 2 ILhs (("relational","goal6._#lambda3"),2)
+      declare_var 3 ILhs (("relational","goal6._#lambda3"),3)
       return
         Node "Prelude.=:=" (
           Node "relational.age" (
             reference_var 2 ,
             reference_var 3 ) ,
           reference_var 1 )
-  function "relational.q7" 0
+  function "relational.goal7" 0
     code
       return
         Node "relational.forevery" (
           partial 1 (
-            Node "relational.q7._#lambda4" ) ,
+            Node "relational.goal7._#lambda4" ) ,
           Node "Prelude.:" (
             Node "relational.Ned" ,
             Node "Prelude.:" (
@@ -470,9 +470,9 @@ module "relational"
               Node "Prelude.:" (
                 Node "relational.Sue" ,
                 Node "Prelude.[]" ) ) ) )
-  function "relational.q7._#lambda4" 1
+  function "relational.goal7._#lambda4" 1
     code
-      declare_var 1 ILhs (("relational","q7._#lambda4"),1)
+      declare_var 1 ILhs (("relational","goal7._#lambda4"),1)
       declare_var 2 IFree
       return
         Node "Prelude.=:=" (

@@ -108,6 +108,27 @@ module "member"
                       reference_var 1 ) ,
                     int 3 ) ,
                   Node "Prelude.[]" ) ) ) ) )
+  function "member.main1" 0
+    code
+      declare_var 1 IFree
+      return
+        Node "member.main1_#B2" (
+          Node "member.goal1" (
+            Node "Prelude._inst#Prelude.Num#Prelude.Int" ,
+            reference_var 1 ) ,
+          reference_var 1 )
+  function "member.main1_#B2" 2
+    code
+      declare_var 2 ILhs (("member","main1_#B2"),1)
+      declare_var 1 ILhs (("member","main1_#B2"),2)
+      ATable 1 2 rigid
+        reference_var 2
+        "Prelude.False" =>
+          return
+            Node "Prelude.failed"
+        "Prelude.True" =>
+          return
+            reference_var 1
   function "member.goal2" 2
     code
       declare_var 1 ILhs (("member","goal2"),1)
@@ -152,3 +173,24 @@ module "member"
                         reference_var 1 ) ,
                       int 4 ) ,
                     Node "Prelude.[]" ) ) ) ) ) )
+  function "member.main2" 0
+    code
+      declare_var 1 IFree
+      return
+        Node "member.main2_#B4" (
+          Node "member.goal2" (
+            Node "Prelude._inst#Prelude.Num#Prelude.Int" ,
+            reference_var 1 ) ,
+          reference_var 1 )
+  function "member.main2_#B4" 2
+    code
+      declare_var 2 ILhs (("member","main2_#B4"),1)
+      declare_var 1 ILhs (("member","main2_#B4"),2)
+      ATable 1 2 rigid
+        reference_var 2
+        "Prelude.False" =>
+          return
+            Node "Prelude.failed"
+        "Prelude.True" =>
+          return
+            reference_var 1

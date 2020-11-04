@@ -26,5 +26,10 @@ secondhalf xs = drop (length xs `div` 2) xs
 
 
 goal1 xs = sort intMerge [3,1,2] xs
+main1 | goal1 xs = xs where xs free
+
 goal2 xs = sort intMerge [3,1,2,5,4,8] xs
+main2 | goal2 xs = xs where xs free
+
 goal3 xs = sort intMerge [3,1,2,5,4,8,6,7,2,9,1,4,3] xs
+main3 | goal3 xs = xs where xs free

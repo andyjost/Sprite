@@ -224,89 +224,47 @@ module "nondetfunc"
               Node "Prelude.:" (
                 reference_var 5 ,
                 reference_var 6 ) )
-  function "nondetfunc.goal1" 2
+  function "nondetfunc.goal1" 0
     code
-      declare_var 1 ILhs (("nondetfunc","goal1"),1)
-      declare_var 2 ILhs (("nondetfunc","goal1"),2)
       return
         Node "nondetfunc.sort" (
-          reference_var 2 ,
+          Node "Prelude._inst#Prelude.Ord#Prelude.Int" ,
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 4 ) ,
+            int 4 ,
             Node "Prelude.:" (
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 3 ) ,
+              int 3 ,
               Node "Prelude.:" (
-                Node "Prelude.apply" (
-                  Node "Prelude.fromInt" (
-                    reference_var 1 ) ,
-                  int 2 ) ,
+                int 2 ,
                 Node "Prelude.:" (
-                  Node "Prelude.apply" (
-                    Node "Prelude.fromInt" (
-                      reference_var 1 ) ,
-                    int 1 ) ,
+                  int 1 ,
                   Node "Prelude.[]" ) ) ) ) )
-  function "nondetfunc.goal2" 2
+  function "nondetfunc.goal2" 0
     code
-      declare_var 1 ILhs (("nondetfunc","goal2"),1)
-      declare_var 2 ILhs (("nondetfunc","goal2"),2)
       return
         Node "nondetfunc.wheresort" (
-          reference_var 2 ,
+          Node "Prelude._inst#Prelude.Ord#Prelude.Int" ,
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 4 ) ,
+            int 4 ,
             Node "Prelude.:" (
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 3 ) ,
+              int 3 ,
               Node "Prelude.:" (
-                Node "Prelude.apply" (
-                  Node "Prelude.fromInt" (
-                    reference_var 1 ) ,
-                  int 2 ) ,
+                int 2 ,
                 Node "Prelude.:" (
-                  Node "Prelude.apply" (
-                    Node "Prelude.fromInt" (
-                      reference_var 1 ) ,
-                    int 1 ) ,
+                  int 1 ,
                   Node "Prelude.[]" ) ) ) ) )
-  function "nondetfunc.goal3" 2
+  function "nondetfunc.goal3" 0
     code
-      declare_var 1 ILhs (("nondetfunc","goal3"),1)
-      declare_var 2 ILhs (("nondetfunc","goal3"),2)
       return
         Node "nondetfunc.strictsort" (
-          reference_var 2 ,
+          Node "Prelude._inst#Prelude.Ord#Prelude.Int" ,
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 4 ) ,
+            int 4 ,
             Node "Prelude.:" (
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 3 ) ,
+              int 3 ,
               Node "Prelude.:" (
-                Node "Prelude.apply" (
-                  Node "Prelude.fromInt" (
-                    reference_var 1 ) ,
-                  int 2 ) ,
+                int 2 ,
                 Node "Prelude.:" (
-                  Node "Prelude.apply" (
-                    Node "Prelude.fromInt" (
-                      reference_var 1 ) ,
-                    int 1 ) ,
+                  int 1 ,
                   Node "Prelude.[]" ) ) ) ) )
   function "nondetfunc.coin" 0
     code

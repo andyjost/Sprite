@@ -88,3 +88,24 @@ module "infresiduate"
               int 0 ) ,
             Node "Prelude.[]" ) ,
           reference_var 2 )
+  function "infresiduate.main" 0
+    code
+      declare_var 1 IFree
+      return
+        Node "infresiduate.main_#B0" (
+          Node "infresiduate.goal" (
+            Node "Prelude._inst#Prelude.Num#Prelude.Int" ,
+            reference_var 1 ) ,
+          reference_var 1 )
+  function "infresiduate.main_#B0" 2
+    code
+      declare_var 2 ILhs (("infresiduate","main_#B0"),1)
+      declare_var 1 ILhs (("infresiduate","main_#B0"),2)
+      ATable 1 2 rigid
+        reference_var 2
+        "Prelude.False" =>
+          return
+            Node "Prelude.failed"
+        "Prelude.True" =>
+          return
+            reference_var 1

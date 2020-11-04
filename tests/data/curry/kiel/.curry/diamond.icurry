@@ -3,12 +3,13 @@ import Prelude;
 diamond
 1
 ::
-(Prelude.Integral a, Prelude.Show a) => a -> Prelude.IO ();
+(Prelude.Integral a, Prelude.Show a) => a -> [Prelude.Char];
+main 0 :: [Prelude.Char];
 size 1 :: (Prelude.Integral a, Prelude.Num b) => a -> b;
-tab 1 :: (Prelude.Eq a, Prelude.Num a) => a -> Prelude.IO ();
+tab 1 :: (Prelude.Eq a, Prelude.Num a) => a -> [Prelude.Char];
 hiding class Prelude.Real a => Prelude.Integral a;
 hiding class Prelude.Show a;
-hiding data Prelude.IO a;
+hiding data Prelude.Char;
 hiding class Prelude.Num a;
 hiding class Prelude.Eq a;
 hiding class (Prelude.Num a, Prelude.Ord a) => Prelude.Real a;
@@ -143,7 +144,6 @@ instance Prelude.Real Prelude.Int {
 } {-# MODULE Prelude #-};
 hiding data Prelude.Int;
 hiding data Prelude.Bool;
-hiding data Prelude.Char;
 hiding data Prelude.Either a b;
 hiding data Prelude.Float;
 hiding data Prelude.IOError;

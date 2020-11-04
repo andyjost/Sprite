@@ -50,7 +50,10 @@ grandfather g c | let f free in (father g f && father f c) =:= True  = True
 grandfather g c | let m free in (father g m && mother m c) =:= True  = True
 
 
--- goals: 
+-- goals:
 goal1 child = father John child
+main1 = goal1 x &> x where x free
+
 goal2 g c   = grandfather g c
+main2 = grandfather g c &> (g,c) where g,c free
 

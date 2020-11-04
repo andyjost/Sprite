@@ -58,170 +58,91 @@ module "higher"
             Node "Prelude.fromInt" (
               reference_var 1 ) ,
             int 1 ) )
-  function "higher.g1" 1
+  function "higher.goal1" 0
     code
-      declare_var 1 ILhs (("higher","g1"),1)
       return
         Node "Prelude.map" (
           partial 1 (
             Node "higher.inc" (
-              reference_var 1 ) ) ,
+              Node "Prelude._inst#Prelude.Num#Prelude.Int" ) ) ,
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 0 ) ,
+            int 0 ,
             Node "Prelude.:" (
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 2 ) ,
+              int 2 ,
               Node "Prelude.:" (
-                Node "Prelude.apply" (
-                  Node "Prelude.fromInt" (
-                    reference_var 1 ) ,
-                  int 1 ) ,
+                int 1 ,
                 Node "Prelude.[]" ) ) ) )
-  function "higher.g2" 1
+  function "higher.goal2" 0
     code
-      declare_var 1 ILhs (("higher","g2"),1)
       return
         Node "Prelude.map" (
           partial 1 (
             Node "Prelude.flip" (
-              Node "Prelude.+" (
-                reference_var 1 ) ,
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 1 ) ) ) ,
+              partial 2 (
+                Node "Prelude._impl#+#Prelude.Num#Prelude.Int" ) ,
+              int 1 ) ) ,
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 0 ) ,
+            int 0 ,
             Node "Prelude.:" (
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 2 ) ,
+              int 2 ,
               Node "Prelude.:" (
-                Node "Prelude.apply" (
-                  Node "Prelude.fromInt" (
-                    reference_var 1 ) ,
-                  int 1 ) ,
+                int 1 ,
                 Node "Prelude.[]" ) ) ) )
-  function "higher.g3" 1
+  function "higher.goal3" 0
     code
-      declare_var 1 ILhs (("higher","g3"),1)
-      return
-        Node "Prelude.foldr" (
-          Node "Prelude.+" (
-            reference_var 1 ) ,
-          Node "Prelude.apply" (
-            Node "Prelude.fromInt" (
-              reference_var 1 ) ,
-            int 0 ) ,
-          Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 1 ) ,
-            Node "Prelude.:" (
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 0 ) ,
-              Node "Prelude.:" (
-                Node "Prelude.apply" (
-                  Node "Prelude.fromInt" (
-                    reference_var 1 ) ,
-                  int 2 ) ,
-                Node "Prelude.[]" ) ) ) )
-  function "higher.g4" 1
-    code
-      declare_var 1 ILhs (("higher","g4"),1)
-      return
-        Node "Prelude.foldr" (
-          Node "Prelude.*" (
-            reference_var 1 ) ,
-          Node "Prelude.apply" (
-            Node "Prelude.fromInt" (
-              reference_var 1 ) ,
-            int 1 ) ,
-          Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 1 ) ,
-            Node "Prelude.:" (
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 2 ) ,
-              Node "Prelude.:" (
-                Node "Prelude.apply" (
-                  Node "Prelude.fromInt" (
-                    reference_var 1 ) ,
-                  int 3 ) ,
-                Node "Prelude.:" (
-                  Node "Prelude.apply" (
-                    Node "Prelude.fromInt" (
-                      reference_var 1 ) ,
-                    int 4 ) ,
-                  Node "Prelude.:" (
-                    Node "Prelude.apply" (
-                      Node "Prelude.fromInt" (
-                        reference_var 1 ) ,
-                      int 5 ) ,
-                    Node "Prelude.[]" ) ) ) ) ) )
-  function "higher.g5" 1
-    code
-      declare_var 1 ILhs (("higher","g5"),1)
       return
         Node "Prelude.foldr" (
           partial 2 (
-            Node "higher.g5._#lambda1" (
-              reference_var 1 ) ) ,
-          Node "Prelude.apply" (
-            Node "Prelude.fromInt" (
-              reference_var 1 ) ,
-            int 1 ) ,
+            Node "Prelude._impl#+#Prelude.Num#Prelude.Int" ) ,
+          int 0 ,
           Node "Prelude.:" (
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 1 ) ,
-              int 1 ) ,
+            int 1 ,
             Node "Prelude.:" (
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 1 ) ,
-                int 2 ) ,
+              int 0 ,
               Node "Prelude.:" (
-                Node "Prelude.apply" (
-                  Node "Prelude.fromInt" (
-                    reference_var 1 ) ,
-                  int 3 ) ,
-                Node "Prelude.:" (
-                  Node "Prelude.apply" (
-                    Node "Prelude.fromInt" (
-                      reference_var 1 ) ,
-                    int 4 ) ,
-                  Node "Prelude.:" (
-                    Node "Prelude.apply" (
-                      Node "Prelude.fromInt" (
-                        reference_var 1 ) ,
-                      int 5 ) ,
-                    Node "Prelude.[]" ) ) ) ) ) )
-  function "higher.g5._#lambda1" 3
+                int 2 ,
+                Node "Prelude.[]" ) ) ) )
+  function "higher.goal4" 0
     code
-      declare_var 1 ILhs (("higher","g5._#lambda1"),1)
-      declare_var 2 ILhs (("higher","g5._#lambda1"),2)
-      declare_var 3 ILhs (("higher","g5._#lambda1"),3)
       return
-        Node "Prelude.apply" (
-          Node "Prelude.apply" (
-            Node "Prelude.*" (
-              reference_var 1 ) ,
-            reference_var 2 ) ,
-          reference_var 3 )
+        Node "Prelude.foldr" (
+          partial 2 (
+            Node "Prelude._impl#*#Prelude.Num#Prelude.Int" ) ,
+          int 1 ,
+          Node "Prelude.:" (
+            int 1 ,
+            Node "Prelude.:" (
+              int 2 ,
+              Node "Prelude.:" (
+                int 3 ,
+                Node "Prelude.:" (
+                  int 4 ,
+                  Node "Prelude.:" (
+                    int 5 ,
+                    Node "Prelude.[]" ) ) ) ) ) )
+  function "higher.goal5" 0
+    code
+      return
+        Node "Prelude.foldr" (
+          partial 2 (
+            Node "higher.goal5._#lambda1" ) ,
+          int 1 ,
+          Node "Prelude.:" (
+            int 1 ,
+            Node "Prelude.:" (
+              int 2 ,
+              Node "Prelude.:" (
+                int 3 ,
+                Node "Prelude.:" (
+                  int 4 ,
+                  Node "Prelude.:" (
+                    int 5 ,
+                    Node "Prelude.[]" ) ) ) ) ) )
+  function "higher.goal5._#lambda1" 2
+    code
+      declare_var 1 ILhs (("higher","goal5._#lambda1"),1)
+      declare_var 2 ILhs (("higher","goal5._#lambda1"),2)
+      return
+        Node "Prelude._impl#*#Prelude.Num#Prelude.Int" (
+          reference_var 1 ,
+          reference_var 2 )

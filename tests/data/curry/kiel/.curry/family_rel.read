@@ -604,6 +604,14 @@ module "family_rel"
         Node "family_rel.father" (
           Node "family_rel.John" ,
           reference_var 1 )
+  function "family_rel.main1" 0
+    code
+      declare_var 1 IFree
+      return
+        Node "Prelude.&>" (
+          Node "family_rel.goal1" (
+            reference_var 1 ) ,
+          reference_var 1 )
   function "family_rel.goal2" 2
     code
       declare_var 1 ILhs (("family_rel","goal2"),1)
@@ -612,3 +620,15 @@ module "family_rel"
         Node "family_rel.grandfather" (
           reference_var 1 ,
           reference_var 2 )
+  function "family_rel.main2" 0
+    code
+      declare_var 1 IFree
+      declare_var 2 IFree
+      return
+        Node "Prelude.&>" (
+          Node "family_rel.grandfather" (
+            reference_var 1 ,
+            reference_var 2 ) ,
+          Node "Prelude.(,)" (
+            reference_var 1 ,
+            reference_var 2 ) )

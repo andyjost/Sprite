@@ -7,6 +7,9 @@ goal2 2 :: Nat -> Nat -> Prelude.Bool;
 goal3 3 :: Nat -> Nat -> Nat -> Prelude.Bool;
 horseman 4 :: Nat -> Nat -> Nat -> Nat -> Prelude.Bool;
 int2nat 1 :: Prelude.Int -> Nat;
+main1 0 :: (Nat, Nat);
+main2 0 :: (Nat, Nat);
+main3 0 :: (Nat, Nat);
 hiding data Prelude.Bool;
 hiding data Prelude.Int
 }

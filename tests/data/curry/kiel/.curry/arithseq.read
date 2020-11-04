@@ -2,75 +2,39 @@
 module "arithseq"
   import
     "Prelude"
-  function "arithseq.l1" 2
+  function "arithseq.goal1" 0
     code
-      declare_var 1 ILhs (("arithseq","l1"),1)
-      declare_var 2 ILhs (("arithseq","l1"),2)
       return
         Node "Prelude.apply" (
           Node "Prelude.apply" (
-            Node "Prelude.enumFromTo" (
-              reference_var 1 ) ,
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 2 ) ,
-              int 1 ) ) ,
-          Node "Prelude.apply" (
-            Node "Prelude.fromInt" (
-              reference_var 2 ) ,
-            int 20 ) )
-  function "arithseq.l2" 2
+            Node "Prelude._impl#enumFromTo#Prelude.Enum#Prelude.Int" ,
+            int 1 ) ,
+          int 20 )
+  function "arithseq.goal2" 0
     code
-      declare_var 1 ILhs (("arithseq","l2"),1)
-      declare_var 2 ILhs (("arithseq","l2"),2)
       return
         Node "Prelude.take" (
           int 20 ,
           Node "Prelude.apply" (
-            Node "Prelude.enumFrom" (
-              reference_var 1 ) ,
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 2 ) ,
-              int 1 ) ) )
-  function "arithseq.l3" 2
+            Node "Prelude._impl#enumFrom#Prelude.Enum#Prelude.Int" ,
+            int 1 ) )
+  function "arithseq.goal3" 0
     code
-      declare_var 1 ILhs (("arithseq","l3"),1)
-      declare_var 2 ILhs (("arithseq","l3"),2)
       return
         Node "Prelude.apply" (
           Node "Prelude.apply" (
             Node "Prelude.apply" (
-              Node "Prelude.enumFromThenTo" (
-                reference_var 1 ) ,
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 2 ) ,
-                int 1 ) ) ,
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 2 ) ,
-              int 5 ) ) ,
-          Node "Prelude.apply" (
-            Node "Prelude.fromInt" (
-              reference_var 2 ) ,
-            int 100 ) )
-  function "arithseq.l4" 2
+              Node "Prelude._impl#enumFromThenTo#Prelude.Enum#Prelude.Int" ,
+              int 1 ) ,
+            int 5 ) ,
+          int 100 )
+  function "arithseq.goal4" 0
     code
-      declare_var 1 ILhs (("arithseq","l4"),1)
-      declare_var 2 ILhs (("arithseq","l4"),2)
       return
         Node "Prelude.take" (
           int 20 ,
           Node "Prelude.apply" (
             Node "Prelude.apply" (
-              Node "Prelude.enumFromThen" (
-                reference_var 1 ) ,
-              Node "Prelude.apply" (
-                Node "Prelude.fromInt" (
-                  reference_var 2 ) ,
-                int 1 ) ) ,
-            Node "Prelude.apply" (
-              Node "Prelude.fromInt" (
-                reference_var 2 ) ,
-              int 5 ) ) )
+              Node "Prelude._impl#enumFromThen#Prelude.Enum#Prelude.Int" ,
+              int 1 ) ,
+            int 5 ) )

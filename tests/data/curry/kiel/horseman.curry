@@ -18,10 +18,13 @@ horseman m h heads feet =
 
 -- How many men and horses have 3 heads and 8 feet?
 goal1 m h = horseman m h (S(S(S O))) (S(S(S(S(S(S(S(S O))))))))
+main1 = goal1 m h &> (m, h) where m,h free
 
 -- How many men and horses have 8 heads and 20 feet?
 goal2 m h = horseman m h (int2nat 8) (int2nat 20)
+main2 = goal1 m h &> (m, h) where m,h free
 
 -- Relation between men and horses  feets with 2 heads:
 goal3 m h hd = horseman m h (S (S O)) hd
+main3 = goal1 m h &> (m, h) where m,h free
 

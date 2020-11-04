@@ -422,6 +422,17 @@ def readFile(interp, filename):
   yield interp.prelude._PyGenerator
   yield gen
 
+def show(interp, arg):
+  if inspect.is_boxed(interp, arg):
+    string = arg.info.show(arg)
+  else:
+    string = str(arg)
+  if len(string) == 1:
+    string = [string]
+  result = conversions.expr(interp, string)
+  yield interp.prelude._Fwd
+  yield result
+
 def apply_hnf(interp, root):
   yield interp.prelude.apply
   yield root[0]

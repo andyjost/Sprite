@@ -538,6 +538,14 @@ module "family_con"
         Node "family_con.father" (
           Node "family_con.John" ,
           reference_var 1 )
+  function "family_con.main1" 0
+    code
+      declare_var 1 IFree
+      return
+        Node "Prelude.&>" (
+          Node "family_con.goal1" (
+            reference_var 1 ) ,
+          reference_var 1 )
   function "family_con.goal2" 2
     code
       declare_var 1 ILhs (("family_con","goal2"),1)
@@ -546,3 +554,15 @@ module "family_con"
         Node "family_con.grandfather" (
           reference_var 1 ,
           reference_var 2 )
+  function "family_con.main2" 0
+    code
+      declare_var 1 IFree
+      declare_var 2 IFree
+      return
+        Node "Prelude.&>" (
+          Node "family_con.grandfather" (
+            reference_var 1 ,
+            reference_var 2 ) ,
+          Node "Prelude.(,)" (
+            reference_var 1 ,
+            reference_var 2 ) )

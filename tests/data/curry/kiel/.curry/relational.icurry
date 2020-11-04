@@ -4,21 +4,21 @@ data Person = Bob | John | Mary | Sue | Dick | Kate | Ned;
 age 1 :: Prelude.Num a => Person -> a;
 con2bool 1 :: Prelude.Bool -> Prelude.Bool;
 forevery 2 :: (a -> Prelude.Bool) -> [a] -> Prelude.Bool;
+goal1 0 :: Prelude.Num a => [a];
+goal2 1 :: [Person] -> Prelude.Bool;
+goal3
+1
+::
+Prelude.Num a => (Person -> a -> Prelude.Bool) -> Prelude.Bool;
+goal4 1 :: [Person] -> Prelude.Bool;
+goal5 1 :: Prelude.Num a => a -> Prelude.Bool;
+goal6 1 :: Prelude.Num a => a -> Prelude.Bool;
+goal7 0 :: Prelude.Bool;
 mappred
 3
 ::
 (a -> b -> Prelude.Bool) -> [a] -> [b] -> Prelude.Bool;
 parent 2 :: Person -> Person -> Prelude.Bool;
-q1 0 :: Prelude.Num a => [a];
-q2 1 :: [Person] -> Prelude.Bool;
-q3
-1
-::
-Prelude.Num a => (Person -> a -> Prelude.Bool) -> Prelude.Bool;
-q4 1 :: [Person] -> Prelude.Bool;
-q5 1 :: Prelude.Num a => a -> Prelude.Bool;
-q6 1 :: Prelude.Num a => a -> Prelude.Bool;
-q7 0 :: Prelude.Bool;
 hiding class Prelude.Num a;
 hiding data Prelude.Bool;
 instance Prelude.Num Prelude.Float {

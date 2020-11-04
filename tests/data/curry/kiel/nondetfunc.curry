@@ -32,8 +32,13 @@ sorted []  = True
 sorted [_] = True
 sorted (x:y:ys) | x<=y = sorted (y:ys)
 
+goal1 :: [Int]
 goal1 = sort [4,3,2,1]
+
+goal2 :: [Int]
 goal2 = wheresort [4,3,2,1]
+
+goal3 :: [Int]
 goal3 = strictsort [4,3,2,1]
 
 
@@ -49,4 +54,6 @@ add (s m) n = s(add m n)
 double x = add x x
 
 
+goal4 :: Nat
 goal4 = double coin
+

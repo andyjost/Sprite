@@ -162,8 +162,11 @@ module "family_nd"
       return
         Node "family_nd.grandfather" (
           reference_var 1 )
-  function "family_nd.goal3" 0
+  function "family_nd.main2" 0
     code
+      declare_var 1 IFree
       return
-        Node "family_nd.ancestor" (
-          Node "family_nd.Andrew" )
+        Node "Prelude.(,)" (
+          Node "family_nd.grandfather" (
+            reference_var 1 ) ,
+          reference_var 1 )

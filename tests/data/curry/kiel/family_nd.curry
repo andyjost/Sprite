@@ -59,4 +59,7 @@ ancestor p = mother (ancestor p)
 -- example goals: 
 goal1   = father John
 goal2 c = grandfather c
-goal3   = ancestor Andrew
+main2 = (grandfather x, x) where x free
+
+-- Does not terminate.
+--goal3   = ancestor Andrew

@@ -17,6 +17,8 @@ female 1 :: Person -> Prelude.Bool;
 goal1 1 :: Person -> Prelude.Bool;
 goal2 2 :: Person -> Person -> Prelude.Bool;
 grandfather 2 :: Person -> Person -> Prelude.Bool;
+main1 0 :: Person;
+main2 0 :: (Person, Person);
 male 1 :: Person -> Prelude.Bool;
 married 2 :: Person -> Person -> Prelude.Bool;
 mother 2 :: Person -> Person -> Prelude.Bool;

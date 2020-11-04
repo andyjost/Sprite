@@ -90,9 +90,13 @@ def show_value(value):
 def show_value(value):
   return '[%s]' % ','.join(map(show_value, value))
 
-@show_value.when(_collections.Sequence)
+@show_value.when(_collections.Sequence, no=str)
 def show_value(value):
   return show_value(list(value))
+
+@show_value.when(str)
+def show_value(value):
+  return repr(value)
 
 @show_value.when(_collections.Mapping)
 def show_value(value):

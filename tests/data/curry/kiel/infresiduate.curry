@@ -13,3 +13,5 @@ rev l  (x:xs) = let lx free in conc lx [x] =:= l & rev lx xs
 
 goal l = rev [0] l
 
+main :: [Int]
+main | goal l = l where l free

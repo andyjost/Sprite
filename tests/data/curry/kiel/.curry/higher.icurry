@@ -1,13 +1,14 @@
 interface higher where {
 import Prelude;
 foldr_ 3 :: (a -> b -> b) -> b -> [a] -> b;
-g1 0 :: Prelude.Num a => [a];
-g2 0 :: Prelude.Num a => [a];
-g3 0 :: Prelude.Num a => a;
-g4 0 :: Prelude.Num a => a;
-g5 0 :: Prelude.Num a => a;
+goal1 0 :: [Prelude.Int];
+goal2 0 :: [Prelude.Int];
+goal3 0 :: Prelude.Int;
+goal4 0 :: Prelude.Int;
+goal5 0 :: Prelude.Int;
 inc 1 :: Prelude.Num a => a -> a;
 map_ 2 :: (a -> b) -> [a] -> [b];
+hiding data Prelude.Int;
 hiding class Prelude.Num a;
 instance Prelude.Num Prelude.Float {
   fromInt 1;
@@ -27,6 +28,5 @@ instance Prelude.Num Prelude.Int {
   (-) 2;
   (+) 2
 } {-# MODULE Prelude #-};
-hiding data Prelude.Float;
-hiding data Prelude.Int
+hiding data Prelude.Float
 }

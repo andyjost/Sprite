@@ -6,7 +6,7 @@
 data Instruction = Jump LabelId | Label LabelId
 
 -- we consider only a few number of label identifiers (could also be strings):
-data LabelId = L0 | L1 | L2 | L3 | L4 | L5 | L6 | L7 | L8 | L9
+data LabelId = L0 | L1 | L2 | L3 | L4 | L5 | L6 | L7 | L8 | L9 deriving Eq
 
 
 -- implementation of the symbol table:
@@ -37,6 +37,6 @@ lookupST l ((l1,a1):st) a st1 =
 
 -- Goal:
 
-goal = assembler [Label L0, Jump L1, Jump L0, Label L1] [] 0
+main = assembler [Label L0, Jump L1, Jump L0, Label L1] [] 0
 
 -----> Result: [9,4,9,0]

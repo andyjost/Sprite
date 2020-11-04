@@ -5,9 +5,9 @@ add 2 :: Nat -> Nat -> Nat;
 choose 2 :: a -> a -> a;
 coin 0 :: Nat;
 double 1 :: Nat -> Nat;
-goal1 0 :: (Prelude.Num a, Prelude.Ord a) => [a];
-goal2 0 :: (Prelude.Num a, Prelude.Ord a) => [a];
-goal3 0 :: (Prelude.Num a, Prelude.Ord a) => [a];
+goal1 0 :: [Prelude.Int];
+goal2 0 :: [Prelude.Int];
+goal3 0 :: [Prelude.Int];
 goal4 0 :: Nat;
 insert 2 :: a -> [a] -> [a];
 permut 1 :: [a] -> [a];
@@ -16,27 +16,9 @@ sort 1 :: Prelude.Ord a => [a] -> [a];
 sorted 1 :: Prelude.Ord a => [a] -> Prelude.Bool;
 strictsort 1 :: Prelude.Ord a => [a] -> [a];
 wheresort 1 :: Prelude.Ord a => [a] -> [a];
-hiding class Prelude.Num a;
-hiding class Prelude.Eq a => Prelude.Ord a;
+hiding data Prelude.Int;
 hiding data Prelude.Bool;
-instance Prelude.Num Prelude.Float {
-  fromInt 1;
-  signum 1;
-  abs 1;
-  negate 1;
-  (*) 2;
-  (-) 2;
-  (+) 2
-} {-# MODULE Prelude #-};
-instance Prelude.Num Prelude.Int {
-  fromInt 1;
-  signum 1;
-  abs 1;
-  negate 1;
-  (*) 2;
-  (-) 2;
-  (+) 2
-} {-# MODULE Prelude #-};
+hiding class Prelude.Eq a => Prelude.Ord a;
 hiding class Prelude.Eq a;
 instance Prelude.Ord () {
   (<=) 2
@@ -81,8 +63,6 @@ instance Prelude.Ord a => Prelude.Ord (Prelude.Maybe a) {
 instance Prelude.Ord Prelude.Ordering {
   (<=) 2
 } {-# MODULE Prelude #-};
-hiding data Prelude.Float;
-hiding data Prelude.Int;
 instance Prelude.Eq () {
   (==) 2
 } {-# MODULE Prelude #-};
@@ -140,6 +120,7 @@ instance Prelude.Eq Prelude.Ordering {
 } {-# MODULE Prelude #-};
 hiding data Prelude.Char;
 hiding data Prelude.Either a b;
+hiding data Prelude.Float;
 hiding data Prelude.Maybe a;
 hiding data Prelude.Ordering;
 hiding data Prelude.IOError

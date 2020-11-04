@@ -3,9 +3,11 @@ import Prelude;
 append 2 :: [a] -> [a] -> [a];
 conc 2 :: [a] -> [a] -> [a];
 goal 1 :: Prelude.Num a => [a] -> Prelude.Bool;
+main 0 :: [Prelude.Int];
 rev 2 :: [a] -> [a] -> Prelude.Bool;
 hiding class Prelude.Num a;
 hiding data Prelude.Bool;
+hiding data Prelude.Int;
 instance Prelude.Num Prelude.Float {
   fromInt 1;
   signum 1;
@@ -24,6 +26,5 @@ instance Prelude.Num Prelude.Int {
   (-) 2;
   (+) 2
 } {-# MODULE Prelude #-};
-hiding data Prelude.Float;
-hiding data Prelude.Int
+hiding data Prelude.Float
 }

@@ -8,7 +8,7 @@ module "diamond"
       declare_var 2 ILhs (("diamond","diamond"),2)
       declare_var 3 ILhs (("diamond","diamond"),3)
       return
-        Node "Prelude._impl#>>#Prelude.Monad#Prelude.IO" (
+        Node "Prelude.++" (
           Node "diamond.diamond.lineloop1.2" (
             reference_var 3 ,
             reference_var 1 ,
@@ -70,7 +70,7 @@ module "diamond"
       declare_var 4 ILhs (("diamond","diamond.line.2"),4)
       declare_var 5 ILhs (("diamond","diamond.line.2"),5)
       return
-        Node "Prelude._impl#>>#Prelude.Monad#Prelude.IO" (
+        Node "Prelude.++" (
           Node "diamond.tab" (
             Node "Prelude._super#Prelude.Ord#Prelude.Eq" (
               Node "Prelude._super#Prelude.Real#Prelude.Ord" (
@@ -138,7 +138,7 @@ module "diamond"
       declare_var 4 ILhs (("diamond","diamond.line.2.putValue.8"),4)
       declare_var 5 ILhs (("diamond","diamond.line.2.putValue.8"),5)
       return
-        Node "Prelude._impl#>>#Prelude.Monad#Prelude.IO" (
+        Node "Prelude.++" (
           Node "diamond.tab" (
             Node "Prelude._inst#Prelude.Eq#Prelude.Int" ,
             Node "Prelude._inst#Prelude.Num#Prelude.Int" ,
@@ -160,11 +160,10 @@ module "diamond"
                 reference_var 3 ,
                 Node "Prelude._inst#Prelude.Num#Prelude.Int" ,
                 reference_var 5 ) ) ) ,
-          Node "Prelude.putStr" (
-            Node "Prelude.apply" (
-              Node "Prelude.show" (
-                reference_var 4 ) ,
-              reference_var 5 ) ) )
+          Node "Prelude.apply" (
+            Node "Prelude.show" (
+              reference_var 4 ) ,
+            reference_var 5 ) )
   function "diamond.diamond.line.2.lineloop.8" 6
     code
       declare_var 1 ILhs (("diamond","diamond.line.2.lineloop.8"),1)
@@ -202,18 +201,19 @@ module "diamond"
         reference_var 7
         "Prelude.False" =>
           return
-            Node "Prelude.putChar" (
-              char '\n' )
+            Node "Prelude.:" (
+              char '\n' ,
+              Node "Prelude.[]" )
         "Prelude.True" =>
           return
-            Node "Prelude._impl#>>#Prelude.Monad#Prelude.IO" (
-              Node "Prelude._impl#>>#Prelude.Monad#Prelude.IO" (
-                Node "diamond.diamond.line.2.putValue.8" (
-                  reference_var 2 ,
-                  reference_var 3 ,
-                  reference_var 3 ,
-                  reference_var 4 ,
-                  reference_var 6 ) ,
+            Node "Prelude.++" (
+              Node "diamond.diamond.line.2.putValue.8" (
+                reference_var 2 ,
+                reference_var 3 ,
+                reference_var 3 ,
+                reference_var 4 ,
+                reference_var 6 ) ,
+              Node "Prelude.++" (
                 Node "diamond.tab" (
                   Node "Prelude._inst#Prelude.Eq#Prelude.Int" ,
                   Node "Prelude._inst#Prelude.Num#Prelude.Int" ,
@@ -229,45 +229,45 @@ module "diamond"
                                 reference_var 3 ) ) ) ,
                           reference_var 2 ) ,
                         reference_var 2 ) ) ,
-                    int 1 ) ) ) ,
-              Node "diamond.diamond.line.2.lineloop.8" (
-                reference_var 1 ,
-                reference_var 2 ,
-                reference_var 3 ,
-                reference_var 4 ,
-                Node "Prelude.apply" (
-                  Node "Prelude.apply" (
-                    Node "Prelude.+" (
-                      Node "Prelude._super#Prelude.Real#Prelude.Num" (
-                        Node "Prelude._super#Prelude.Integral#Prelude.Real" (
-                          reference_var 3 ) ) ) ,
-                    reference_var 5 ) ,
-                  Node "Prelude.apply" (
-                    Node "Prelude.fromInt" (
-                      Node "Prelude._super#Prelude.Real#Prelude.Num" (
-                        Node "Prelude._super#Prelude.Integral#Prelude.Real" (
-                          reference_var 3 ) ) ) ,
                     int 1 ) ) ,
-                Node "Prelude.apply" (
+                Node "diamond.diamond.line.2.lineloop.8" (
+                  reference_var 1 ,
+                  reference_var 2 ,
+                  reference_var 3 ,
+                  reference_var 4 ,
                   Node "Prelude.apply" (
-                    Node "Prelude.+" (
-                      Node "Prelude._super#Prelude.Real#Prelude.Num" (
-                        Node "Prelude._super#Prelude.Integral#Prelude.Real" (
-                          reference_var 3 ) ) ) ,
                     Node "Prelude.apply" (
-                      Node "Prelude.apply" (
-                        Node "Prelude.-" (
-                          Node "Prelude._super#Prelude.Real#Prelude.Num" (
-                            Node "Prelude._super#Prelude.Integral#Prelude.Real" (
-                              reference_var 3 ) ) ) ,
-                        reference_var 6 ) ,
-                      reference_var 2 ) ) ,
+                      Node "Prelude.+" (
+                        Node "Prelude._super#Prelude.Real#Prelude.Num" (
+                          Node "Prelude._super#Prelude.Integral#Prelude.Real" (
+                            reference_var 3 ) ) ) ,
+                      reference_var 5 ) ,
+                    Node "Prelude.apply" (
+                      Node "Prelude.fromInt" (
+                        Node "Prelude._super#Prelude.Real#Prelude.Num" (
+                          Node "Prelude._super#Prelude.Integral#Prelude.Real" (
+                            reference_var 3 ) ) ) ,
+                      int 1 ) ) ,
                   Node "Prelude.apply" (
-                    Node "Prelude.fromInt" (
-                      Node "Prelude._super#Prelude.Real#Prelude.Num" (
-                        Node "Prelude._super#Prelude.Integral#Prelude.Real" (
-                          reference_var 3 ) ) ) ,
-                    int 1 ) ) ) )
+                    Node "Prelude.apply" (
+                      Node "Prelude.+" (
+                        Node "Prelude._super#Prelude.Real#Prelude.Num" (
+                          Node "Prelude._super#Prelude.Integral#Prelude.Real" (
+                            reference_var 3 ) ) ) ,
+                      Node "Prelude.apply" (
+                        Node "Prelude.apply" (
+                          Node "Prelude.-" (
+                            Node "Prelude._super#Prelude.Real#Prelude.Num" (
+                              Node "Prelude._super#Prelude.Integral#Prelude.Real" (
+                                reference_var 3 ) ) ) ,
+                          reference_var 6 ) ,
+                        reference_var 2 ) ) ,
+                    Node "Prelude.apply" (
+                      Node "Prelude.fromInt" (
+                        Node "Prelude._super#Prelude.Real#Prelude.Num" (
+                          Node "Prelude._super#Prelude.Integral#Prelude.Real" (
+                            reference_var 3 ) ) ) ,
+                      int 1 ) ) ) ) )
   function "diamond.diamond.lineloop1.2" 5
     code
       declare_var 1 ILhs (("diamond","diamond.lineloop1.2"),1)
@@ -302,10 +302,10 @@ module "diamond"
         reference_var 6
         "Prelude.False" =>
           return
-            Node "Prelude.done"
+            Node "Prelude.[]"
         "Prelude.True" =>
           return
-            Node "Prelude._impl#>>#Prelude.Monad#Prelude.IO" (
+            Node "Prelude.++" (
               Node "diamond.diamond.line.2" (
                 reference_var 1 ,
                 reference_var 2 ,
@@ -371,10 +371,10 @@ module "diamond"
         reference_var 6
         "Prelude.False" =>
           return
-            Node "Prelude.done"
+            Node "Prelude.[]"
         "Prelude.True" =>
           return
-            Node "Prelude._impl#>>#Prelude.Monad#Prelude.IO" (
+            Node "Prelude.++" (
               Node "diamond.diamond.line.2" (
                 reference_var 1 ,
                 reference_var 2 ,
@@ -447,9 +447,10 @@ module "diamond"
         reference_var 4
         "Prelude.False" =>
           return
-            Node "Prelude._impl#>>#Prelude.Monad#Prelude.IO" (
-              Node "Prelude.putChar" (
-                char ' ' ) ,
+            Node "Prelude.++" (
+              Node "Prelude.:" (
+                char ' ' ,
+                Node "Prelude.[]" ) ,
               Node "diamond.tab" (
                 reference_var 1 ,
                 reference_var 2 ,
@@ -464,7 +465,7 @@ module "diamond"
                     int 1 ) ) ) )
         "Prelude.True" =>
           return
-            Node "Prelude.done"
+            Node "Prelude.[]"
   function "diamond.size" 3
     code
       declare_var 1 ILhs (("diamond","size"),1)
@@ -526,3 +527,10 @@ module "diamond"
               Node "Prelude.fromInt" (
                 reference_var 2 ) ,
               int 1 )
+  function "diamond.main" 0
+    code
+      return
+        Node "diamond.diamond" (
+          Node "Prelude._inst#Prelude.Integral#Prelude.Int" ,
+          Node "Prelude._inst#Prelude.Show#Prelude.Int" ,
+          int 3 )

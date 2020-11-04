@@ -193,3 +193,8 @@ module "psort"
                 reference_var 1 ,
                 int 1 ) ) ,
             int 1 ) )
+  function "psort.main" 0
+    code
+      return
+        Node "psort.goal" (
+          int 5 )

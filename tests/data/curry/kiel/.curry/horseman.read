@@ -93,6 +93,18 @@ module "horseman"
                       Node "horseman.S" (
                         Node "horseman.S" (
                           Node "horseman.O" ) ) ) ) ) ) ) ) )
+  function "horseman.main1" 0
+    code
+      declare_var 1 IFree
+      declare_var 2 IFree
+      return
+        Node "Prelude.&>" (
+          Node "horseman.goal1" (
+            reference_var 1 ,
+            reference_var 2 ) ,
+          Node "Prelude.(,)" (
+            reference_var 1 ,
+            reference_var 2 ) )
   function "horseman.goal2" 2
     code
       declare_var 1 ILhs (("horseman","goal2"),1)
@@ -105,6 +117,18 @@ module "horseman"
             int 8 ) ,
           Node "horseman.int2nat" (
             int 20 ) )
+  function "horseman.main2" 0
+    code
+      declare_var 1 IFree
+      declare_var 2 IFree
+      return
+        Node "Prelude.&>" (
+          Node "horseman.goal1" (
+            reference_var 1 ,
+            reference_var 2 ) ,
+          Node "Prelude.(,)" (
+            reference_var 1 ,
+            reference_var 2 ) )
   function "horseman.goal3" 3
     code
       declare_var 1 ILhs (("horseman","goal3"),1)
@@ -118,3 +142,15 @@ module "horseman"
             Node "horseman.S" (
               Node "horseman.O" ) ) ,
           reference_var 3 )
+  function "horseman.main3" 0
+    code
+      declare_var 1 IFree
+      declare_var 2 IFree
+      return
+        Node "Prelude.&>" (
+          Node "horseman.goal1" (
+            reference_var 1 ,
+            reference_var 2 ) ,
+          Node "Prelude.(,)" (
+            reference_var 1 ,
+            reference_var 2 ) )

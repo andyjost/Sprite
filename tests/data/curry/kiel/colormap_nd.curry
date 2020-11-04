@@ -20,7 +20,7 @@ diff x y = (x == y) =:= False
 -- --------------------------
 --
 
-data Color = Red | Green | Yellow | Blue
+data Color = Red | Green | Yellow | Blue deriving Eq
 
 aColor = Red
 aColor = Yellow

@@ -265,6 +265,7 @@ _functions_ = [
 # catch :: IO a -> (IOError -> IO a) -> IO a
 #
 # prim_show    :: _ -> String
+  , icurry.IFunction('prim_show', 1, metadata={'py.boxedfunc':impl.show})
 #
 # -- Non-determinism and free variables:
 #

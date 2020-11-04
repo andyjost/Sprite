@@ -38,13 +38,14 @@ export CURRYPATH=`pwd`/data/curry:$CURRYPATH
 # to this script must either be empty (run all tests) or the name of a test file (which
 # is then taken as a pattern, meaning just that file will be run).
 if [ -z "$@" ]; then
-  if [ "$(basename $0)" == "cov_tests" ]; then
-    # For coverage, the default is to run all tests.
-    pattern='*.py'
-  else
-    # Otherwise, just run the unit tests.
-    pattern="unit_*.py"
-  fi
+  pattern='*.py'
+  # if [ "$(basename $0)" == "cov_tests" ]; then
+  #   # For coverage, the default is to run all tests.
+  #   pattern='*.py'
+  # else
+  #   # Otherwise, just run the unit tests.
+  #   pattern="unit_*.py"
+  # fi
 else
   pattern="$@"
 fi

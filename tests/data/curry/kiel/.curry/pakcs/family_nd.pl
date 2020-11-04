@@ -21,7 +21,7 @@ functiontype('family_nd.grandfather',grandfather,1,'family_nd.grandfather',nofix
 functiontype('family_nd.ancestor',ancestor,1,'family_nd.ancestor',nofix,'FuncType'('TCons'('family_nd.Person',[]),'TCons'('family_nd.Person',[]))).
 functiontype('family_nd.goal1',goal1,0,'family_nd.goal1',nofix,'TCons'('family_nd.Person',[])).
 functiontype('family_nd.goal2',goal2,1,'family_nd.goal2',nofix,'FuncType'('TCons'('family_nd.Person',[]),'TCons'('family_nd.Person',[]))).
-functiontype('family_nd.goal3',goal3,0,'family_nd.goal3',nofix,'TCons'('family_nd.Person',[])).
+functiontype('family_nd.main2',main2,0,'family_nd.main2',nofix,'TCons'('Prelude.(,)',['TCons'('family_nd.Person',[]),'TCons'('family_nd.Person',[])])).
 
 %%%%%%%%%%%% constructor types %%%%%%%%%%%%%%%%%%%
 :-multifile constructortype/7.
@@ -39,80 +39,80 @@ constructortype('family_nd.Peter','Peter',0,'Peter',9,'TCons'('family_nd.Person'
 constructortype('family_nd.Andrew','Andrew',0,'Andrew',10,'TCons'('family_nd.Person',[]),['family_nd.Christine'/0,'family_nd.Maria'/0,'family_nd.Monica'/0,'family_nd.Alice'/0,'family_nd.Susan'/0,'family_nd.Antony'/0,'family_nd.Bill'/0,'family_nd.John'/0,'family_nd.Frank'/0,'family_nd.Peter'/0]).
 
 %%%%%%%%%%%% function definitions %%%%%%%%%%%%%%%%%%%
-'family_nd.female'(_G684152,_G684153,_G684154):-freeze(_G684153,'blocked_family_nd.female'(_G684152,_G684153,_G684154)).
-'blocked_family_nd.female'('family_nd.Christine',_G684625,_G684625).
-'blocked_family_nd.female'('family_nd.Maria',_G684792,_G684792).
-'blocked_family_nd.female'('family_nd.Monica',_G684947,_G684947).
-'blocked_family_nd.female'('family_nd.Alice',_G685105,_G685105).
-'blocked_family_nd.female'('family_nd.Susan',_G685260,_G685260).
+'family_nd.female'(_G688294,_G688295,_G688296):-freeze(_G688295,'blocked_family_nd.female'(_G688294,_G688295,_G688296)).
+'blocked_family_nd.female'('family_nd.Christine',_G688767,_G688767).
+'blocked_family_nd.female'('family_nd.Maria',_G688934,_G688934).
+'blocked_family_nd.female'('family_nd.Monica',_G689089,_G689089).
+'blocked_family_nd.female'('family_nd.Alice',_G689247,_G689247).
+'blocked_family_nd.female'('family_nd.Susan',_G689402,_G689402).
 
-'family_nd.male'(_G685721,_G685722,_G685723):-freeze(_G685722,'blocked_family_nd.male'(_G685721,_G685722,_G685723)).
-'blocked_family_nd.male'('family_nd.Antony',_G686422,_G686422).
-'blocked_family_nd.male'('family_nd.Bill',_G686574,_G686574).
-'blocked_family_nd.male'('family_nd.John',_G686720,_G686720).
-'blocked_family_nd.male'('family_nd.Frank',_G686866,_G686866).
-'blocked_family_nd.male'('family_nd.Peter',_G687015,_G687015).
-'blocked_family_nd.male'('family_nd.Andrew',_G687164,_G687164).
+'family_nd.male'(_G689863,_G689864,_G689865):-freeze(_G689864,'blocked_family_nd.male'(_G689863,_G689864,_G689865)).
+'blocked_family_nd.male'('family_nd.Antony',_G690564,_G690564).
+'blocked_family_nd.male'('family_nd.Bill',_G690716,_G690716).
+'blocked_family_nd.male'('family_nd.John',_G690862,_G690862).
+'blocked_family_nd.male'('family_nd.Frank',_G691008,_G691008).
+'blocked_family_nd.male'('family_nd.Peter',_G691157,_G691157).
+'blocked_family_nd.male'('family_nd.Andrew',_G691306,_G691306).
 
-'family_nd.husband'(_G687676,_G687677,_G687678,_G687679):-freeze(_G687678,'blocked_family_nd.husband'(_G687676,_G687677,_G687678,_G687679)).
-'blocked_family_nd.husband'(_G687714,_G689439,_G689442,_G689445):-hnf(_G687714,_G689933,_G689442,_G689924),'blocked_family_nd.husband_1'(_G689933,_G689439,_G689924,_G689445).
+'family_nd.husband'(_G691818,_G691819,_G691820,_G691821):-freeze(_G691820,'blocked_family_nd.husband'(_G691818,_G691819,_G691820,_G691821)).
+'blocked_family_nd.husband'(_G691856,_G693581,_G693584,_G693587):-hnf(_G691856,_G694075,_G693584,_G694066),'blocked_family_nd.husband_1'(_G694075,_G693581,_G694066,_G693587).
 
-'blocked_family_nd.husband_1'(_G690084,_G690085,_G690086,_G690087):-freeze(_G690086,'blocked_blocked_family_nd.husband_1'(_G690084,_G690085,_G690086,_G690087)).
-'blocked_blocked_family_nd.husband_1'('family_nd.Christine','family_nd.Antony',_G690292,_G690292).
-'blocked_blocked_family_nd.husband_1'('family_nd.Maria','family_nd.Bill',_G690634,_G690634).
-'blocked_blocked_family_nd.husband_1'('family_nd.Monica','family_nd.John',_G690976,_G690976).
-'blocked_blocked_family_nd.husband_1'('family_nd.Alice','family_nd.Frank',_G691357,_G691357):-!.
-'blocked_blocked_family_nd.husband_1'('family_nd.Susan',_G691744,_G691747,_G691750):-!,hnf('Prelude.failure'('family_nd.husband',['family_nd.Susan']),_G691744,_G691747,_G691750).
-'blocked_blocked_family_nd.husband_1'('family_nd.Antony',_G692392,_G692395,_G692398):-hnf('Prelude.failure'('family_nd.husband',['family_nd.Antony']),_G692392,_G692395,_G692398).
-'blocked_blocked_family_nd.husband_1'('family_nd.Bill',_G693022,_G693025,_G693028):-hnf('Prelude.failure'('family_nd.husband',['family_nd.Bill']),_G693022,_G693025,_G693028).
-'blocked_blocked_family_nd.husband_1'('family_nd.John',_G693646,_G693649,_G693652):-hnf('Prelude.failure'('family_nd.husband',['family_nd.John']),_G693646,_G693649,_G693652).
-'blocked_blocked_family_nd.husband_1'('family_nd.Frank',_G694276,_G694279,_G694282):-hnf('Prelude.failure'('family_nd.husband',['family_nd.Frank']),_G694276,_G694279,_G694282).
-'blocked_blocked_family_nd.husband_1'('family_nd.Peter',_G694909,_G694912,_G694915):-hnf('Prelude.failure'('family_nd.husband',['family_nd.Peter']),_G694909,_G694912,_G694915).
-'blocked_blocked_family_nd.husband_1'('family_nd.Andrew',_G695548,_G695551,_G695554):-!,hnf('Prelude.failure'('family_nd.husband',['family_nd.Andrew']),_G695548,_G695551,_G695554).
-'blocked_blocked_family_nd.husband_1'('FAIL'(_G696049),'FAIL'(_G696049),_G696056,_G696056).
+'blocked_family_nd.husband_1'(_G694226,_G694227,_G694228,_G694229):-freeze(_G694228,'blocked_blocked_family_nd.husband_1'(_G694226,_G694227,_G694228,_G694229)).
+'blocked_blocked_family_nd.husband_1'('family_nd.Christine','family_nd.Antony',_G694434,_G694434).
+'blocked_blocked_family_nd.husband_1'('family_nd.Maria','family_nd.Bill',_G694776,_G694776).
+'blocked_blocked_family_nd.husband_1'('family_nd.Monica','family_nd.John',_G695118,_G695118).
+'blocked_blocked_family_nd.husband_1'('family_nd.Alice','family_nd.Frank',_G695499,_G695499):-!.
+'blocked_blocked_family_nd.husband_1'('family_nd.Susan',_G695886,_G695889,_G695892):-!,hnf('Prelude.failure'('family_nd.husband',['family_nd.Susan']),_G695886,_G695889,_G695892).
+'blocked_blocked_family_nd.husband_1'('family_nd.Antony',_G696534,_G696537,_G696540):-hnf('Prelude.failure'('family_nd.husband',['family_nd.Antony']),_G696534,_G696537,_G696540).
+'blocked_blocked_family_nd.husband_1'('family_nd.Bill',_G697164,_G697167,_G697170):-hnf('Prelude.failure'('family_nd.husband',['family_nd.Bill']),_G697164,_G697167,_G697170).
+'blocked_blocked_family_nd.husband_1'('family_nd.John',_G697788,_G697791,_G697794):-hnf('Prelude.failure'('family_nd.husband',['family_nd.John']),_G697788,_G697791,_G697794).
+'blocked_blocked_family_nd.husband_1'('family_nd.Frank',_G698418,_G698421,_G698424):-hnf('Prelude.failure'('family_nd.husband',['family_nd.Frank']),_G698418,_G698421,_G698424).
+'blocked_blocked_family_nd.husband_1'('family_nd.Peter',_G699051,_G699054,_G699057):-hnf('Prelude.failure'('family_nd.husband',['family_nd.Peter']),_G699051,_G699054,_G699057).
+'blocked_blocked_family_nd.husband_1'('family_nd.Andrew',_G699690,_G699693,_G699696):-!,hnf('Prelude.failure'('family_nd.husband',['family_nd.Andrew']),_G699690,_G699693,_G699696).
+'blocked_blocked_family_nd.husband_1'('FAIL'(_G700191),'FAIL'(_G700191),_G700198,_G700198).
 
-'family_nd.mother'(_G696421,_G696422,_G696423,_G696424):-freeze(_G696423,'blocked_family_nd.mother'(_G696421,_G696422,_G696423,_G696424)).
-'blocked_family_nd.mother'(_G696459,_G697861,_G697864,_G697867):-hnf(_G696459,_G698337,_G697864,_G698328),'blocked_family_nd.mother_1'(_G698337,_G697861,_G698328,_G697867).
+'family_nd.mother'(_G700563,_G700564,_G700565,_G700566):-freeze(_G700565,'blocked_family_nd.mother'(_G700563,_G700564,_G700565,_G700566)).
+'blocked_family_nd.mother'(_G700601,_G702003,_G702006,_G702009):-hnf(_G700601,_G702479,_G702006,_G702470),'blocked_family_nd.mother_1'(_G702479,_G702003,_G702470,_G702009).
 
-'blocked_family_nd.mother_1'(_G698485,_G698486,_G698487,_G698488):-freeze(_G698487,'blocked_blocked_family_nd.mother_1'(_G698485,_G698486,_G698487,_G698488)).
-'blocked_blocked_family_nd.mother_1'('family_nd.John','family_nd.Christine',_G698663,_G698663).
-'blocked_blocked_family_nd.mother_1'('family_nd.Alice','family_nd.Christine',_G699011,_G699011).
-'blocked_blocked_family_nd.mother_1'('family_nd.Frank','family_nd.Maria',_G699359,_G699359).
-'blocked_blocked_family_nd.mother_1'('family_nd.Susan','family_nd.Monica',_G699695,_G699695).
-'blocked_blocked_family_nd.mother_1'('family_nd.Peter','family_nd.Monica',_G700034,_G700034).
-'blocked_blocked_family_nd.mother_1'('family_nd.Andrew','family_nd.Alice',_G700424,_G700424):-!.
-'blocked_blocked_family_nd.mother_1'('family_nd.Christine',_G700832,_G700835,_G700838):-!,hnf('Prelude.failure'('family_nd.mother',['family_nd.Christine']),_G700832,_G700835,_G700838).
-'blocked_blocked_family_nd.mother_1'('family_nd.Maria',_G701480,_G701483,_G701486):-hnf('Prelude.failure'('family_nd.mother',['family_nd.Maria']),_G701480,_G701483,_G701486).
-'blocked_blocked_family_nd.mother_1'('family_nd.Monica',_G702113,_G702116,_G702119):-hnf('Prelude.failure'('family_nd.mother',['family_nd.Monica']),_G702113,_G702116,_G702119).
-'blocked_blocked_family_nd.mother_1'('family_nd.Antony',_G702749,_G702752,_G702755):-hnf('Prelude.failure'('family_nd.mother',['family_nd.Antony']),_G702749,_G702752,_G702755).
-'blocked_blocked_family_nd.mother_1'('family_nd.Bill',_G703373,_G703376,_G703379):-!,hnf('Prelude.failure'('family_nd.mother',['family_nd.Bill']),_G703373,_G703376,_G703379).
-'blocked_blocked_family_nd.mother_1'('FAIL'(_G703862),'FAIL'(_G703862),_G703869,_G703869).
+'blocked_family_nd.mother_1'(_G702627,_G702628,_G702629,_G702630):-freeze(_G702629,'blocked_blocked_family_nd.mother_1'(_G702627,_G702628,_G702629,_G702630)).
+'blocked_blocked_family_nd.mother_1'('family_nd.John','family_nd.Christine',_G702805,_G702805).
+'blocked_blocked_family_nd.mother_1'('family_nd.Alice','family_nd.Christine',_G703153,_G703153).
+'blocked_blocked_family_nd.mother_1'('family_nd.Frank','family_nd.Maria',_G703501,_G703501).
+'blocked_blocked_family_nd.mother_1'('family_nd.Susan','family_nd.Monica',_G703837,_G703837).
+'blocked_blocked_family_nd.mother_1'('family_nd.Peter','family_nd.Monica',_G704176,_G704176).
+'blocked_blocked_family_nd.mother_1'('family_nd.Andrew','family_nd.Alice',_G704566,_G704566):-!.
+'blocked_blocked_family_nd.mother_1'('family_nd.Christine',_G704974,_G704977,_G704980):-!,hnf('Prelude.failure'('family_nd.mother',['family_nd.Christine']),_G704974,_G704977,_G704980).
+'blocked_blocked_family_nd.mother_1'('family_nd.Maria',_G705622,_G705625,_G705628):-hnf('Prelude.failure'('family_nd.mother',['family_nd.Maria']),_G705622,_G705625,_G705628).
+'blocked_blocked_family_nd.mother_1'('family_nd.Monica',_G706255,_G706258,_G706261):-hnf('Prelude.failure'('family_nd.mother',['family_nd.Monica']),_G706255,_G706258,_G706261).
+'blocked_blocked_family_nd.mother_1'('family_nd.Antony',_G706891,_G706894,_G706897):-hnf('Prelude.failure'('family_nd.mother',['family_nd.Antony']),_G706891,_G706894,_G706897).
+'blocked_blocked_family_nd.mother_1'('family_nd.Bill',_G707515,_G707518,_G707521):-!,hnf('Prelude.failure'('family_nd.mother',['family_nd.Bill']),_G707515,_G707518,_G707521).
+'blocked_blocked_family_nd.mother_1'('FAIL'(_G708004),'FAIL'(_G708004),_G708011,_G708011).
 
-'family_nd.father'(_G704234,_G704235,_G704236,_G704237):-freeze(_G704236,'blocked_family_nd.father'(_G704234,_G704235,_G704236,_G704237)).
-'blocked_family_nd.father'(_G704272,_G704359,_G704362,_G704365):-hnf('family_nd.husband'('family_nd.mother'(_G704272)),_G704359,_G704362,_G704365).
+'family_nd.father'(_G708376,_G708377,_G708378,_G708379):-freeze(_G708378,'blocked_family_nd.father'(_G708376,_G708377,_G708378,_G708379)).
+'blocked_family_nd.father'(_G708414,_G708501,_G708504,_G708507):-hnf('family_nd.husband'('family_nd.mother'(_G708414)),_G708501,_G708504,_G708507).
 
-'family_nd.grandfather'(_G705138,_G705139,_G705140,_G705141):-freeze(_G705140,'blocked_family_nd.grandfather'(_G705138,_G705139,_G705140,_G705141)).
-'blocked_family_nd.grandfather'(_G705176,_G705372,_G705375,_G705378):-hnf('family_nd.father'('family_nd.father'(_G705176)),_G705372,_G705375,_G705378).
-'blocked_family_nd.grandfather'(_G705176,_G705728,_G705731,_G705734):-hnf('family_nd.father'('family_nd.mother'(_G705176)),_G705728,_G705731,_G705734).
+'family_nd.grandfather'(_G709280,_G709281,_G709282,_G709283):-freeze(_G709282,'blocked_family_nd.grandfather'(_G709280,_G709281,_G709282,_G709283)).
+'blocked_family_nd.grandfather'(_G709318,_G709514,_G709517,_G709520):-hnf('family_nd.father'('family_nd.father'(_G709318)),_G709514,_G709517,_G709520).
+'blocked_family_nd.grandfather'(_G709318,_G709870,_G709873,_G709876):-hnf('family_nd.father'('family_nd.mother'(_G709318)),_G709870,_G709873,_G709876).
 
-'family_nd.ancestor'(_G706465,_G706466,_G706467,_G706468):-freeze(_G706467,'blocked_family_nd.ancestor'(_G706465,_G706466,_G706467,_G706468)).
-'blocked_family_nd.ancestor'(_G706503,_G706981,_G706984,_G706987):-hnf('family_nd.father'(_G706503),_G706981,_G706984,_G706987).
-'blocked_family_nd.ancestor'(_G706503,_G707232,_G707235,_G707238):-hnf('family_nd.mother'(_G706503),_G707232,_G707235,_G707238).
-'blocked_family_nd.ancestor'(_G706503,_G707483,_G707486,_G707489):-hnf('family_nd.father'('family_nd.ancestor'(_G706503)),_G707483,_G707486,_G707489).
-'blocked_family_nd.ancestor'(_G706503,_G707836,_G707839,_G707842):-hnf('family_nd.mother'('family_nd.ancestor'(_G706503)),_G707836,_G707839,_G707842).
+'family_nd.ancestor'(_G710607,_G710608,_G710609,_G710610):-freeze(_G710609,'blocked_family_nd.ancestor'(_G710607,_G710608,_G710609,_G710610)).
+'blocked_family_nd.ancestor'(_G710645,_G711123,_G711126,_G711129):-hnf('family_nd.father'(_G710645),_G711123,_G711126,_G711129).
+'blocked_family_nd.ancestor'(_G710645,_G711374,_G711377,_G711380):-hnf('family_nd.mother'(_G710645),_G711374,_G711377,_G711380).
+'blocked_family_nd.ancestor'(_G710645,_G711625,_G711628,_G711631):-hnf('family_nd.father'('family_nd.ancestor'(_G710645)),_G711625,_G711628,_G711631).
+'blocked_family_nd.ancestor'(_G710645,_G711978,_G711981,_G711984):-hnf('family_nd.mother'('family_nd.ancestor'(_G710645)),_G711978,_G711981,_G711984).
 
-'family_nd.goal1'(_G708516,_G708517,_G708518):-freeze(_G708517,'blocked_family_nd.goal1'(_G708516,_G708517,_G708518)).
-'blocked_family_nd.goal1'(_G708594,_G708597,_G708600):-hnf('family_nd.father'('family_nd.John'),_G708594,_G708597,_G708600).
+'family_nd.goal1'(_G712658,_G712659,_G712660):-freeze(_G712659,'blocked_family_nd.goal1'(_G712658,_G712659,_G712660)).
+'blocked_family_nd.goal1'(_G712736,_G712739,_G712742):-hnf('family_nd.father'('family_nd.John'),_G712736,_G712739,_G712742).
 
-'family_nd.goal2'(_G709174,_G709175,_G709176,_G709177):-freeze(_G709176,'blocked_family_nd.goal2'(_G709174,_G709175,_G709176,_G709177)).
-'blocked_family_nd.goal2'(_G709212,_G709259,_G709262,_G709265):-hnf('family_nd.grandfather'(_G709212),_G709259,_G709262,_G709265).
+'family_nd.goal2'(_G713316,_G713317,_G713318,_G713319):-freeze(_G713318,'blocked_family_nd.goal2'(_G713316,_G713317,_G713318,_G713319)).
+'blocked_family_nd.goal2'(_G713354,_G713401,_G713404,_G713407):-hnf('family_nd.grandfather'(_G713354),_G713401,_G713404,_G713407).
 
-'family_nd.goal3'(_G709843,_G709844,_G709845):-freeze(_G709844,'blocked_family_nd.goal3'(_G709843,_G709844,_G709845)).
-'blocked_family_nd.goal3'(_G709921,_G709924,_G709927):-hnf('family_nd.ancestor'('family_nd.Andrew'),_G709921,_G709924,_G709927).
+'family_nd.main2'(_G713985,_G713986,_G713987):-freeze(_G713986,'blocked_family_nd.main2'(_G713985,_G713986,_G713987)).
+'blocked_family_nd.main2'('Prelude.(,)'('family_nd.grandfather'(_G714176),_G714176),_G714147,_G714150):-makeShare(_G714021,_G714176),_G714147=_G714150.
 
 :-costCenters(['']).
 
 
 
 
-%%%%% Number of shared variables: 0
+%%%%% Number of shared variables: 1
