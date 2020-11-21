@@ -10,4 +10,3 @@
       UnboundLocalError: local variable '_2' referenced before assignment
 - Move breakpoint into the curry module.
 - Break down the Python runtime library.  It is too big.
-

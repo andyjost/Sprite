@@ -1,22 +1,8 @@
 module Nat where
 
--- fromNat :: Nat -> Int
--- toBinInt i | i<0  = Neg (toNat (-i))
--- toBinInt i | i==0 = Zero
--- toBinInt i | i>0  = Pos (toNat i)
--- fromNat IHi   = 1
--- fromNat (O n) = 2 * fromNat n
--- fromNat (I n) = 2 * fromNat n + 1
--- 
--- fromBinInt :: BinInt -> Int
--- fromBinInt (Neg n) = - (fromNat n)
--- fromBinInt Zero    = 0
--- fromBinInt (Pos n) = fromNat n
-
 -- toNat :: Int -> Nat
 -- toNat i = if i<=0 then failed else let (q,r) = i `divMod` 2 in
 --           if q==0 then IHi else (if r==0 then O else I) (toNat q)
--- 
 -- toBinInt :: Int -> BinInt
 -- toBinInt i = if i==0 then Zero else if i<0 then Neg (toNat (-i)) else Pos (toNat i)
 
@@ -26,6 +12,16 @@ module Nat where
 
 {-
 import Test.EasyCheck
+
+fromNat :: Nat -> Int
+fromNat IHi   = 1
+fromNat (O n) = 2 * fromNat n
+fromNat (I n) = 2 * fromNat n + 1
+
+fromBinInt :: BinInt -> Int
+fromBinInt (Neg n) = - (fromNat n)
+fromBinInt Zero    = 0
+fromBinInt (Pos n) = fromNat n
 
 test_cmpNat :: Nat -> Nat -> Prop
 test_cmpNat x y = cmpNat x y -=- compare (fromNat x) (fromNat y)
