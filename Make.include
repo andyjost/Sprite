@@ -46,6 +46,12 @@ ifndef PYTHON_LIBRARY_PATH
   endif
 endif
 
+$(PREFIX)/lib:
+	mkdir -p $(PREFIX)/lib
+$(PREFIX)/lib/curry : | $(PREFIX)/lib
+	mkdir -p $(PREFIX)/lib/curry
+$(PREFIX)/lib/curry/.curry : | $(PREFIX)/lib/curry
+	mkdir -p $(PREFIX)/lib/curry/.curry
 
 ifndef CMC_HOME
   CMC_HOME := /home/andy/CMC

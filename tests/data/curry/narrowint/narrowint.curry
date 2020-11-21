@@ -1,0 +1,2 @@
+import Nat
+main = IHi

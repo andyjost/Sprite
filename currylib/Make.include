@@ -1,0 +1,43 @@
+# Include the Make.include file one level up in the directory hierarchy.
+include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
+
+CURRYFILES = $(wildcard *.curry)
+JSONFILES = $(patsubst %.curry,.curry/%.json,$(CURRYFILES))
+CURRYLIB_CURRYFILES = $(addprefix \
+    $(PREFIX)/lib/curry/,         \
+    $(notdir $(CURRYFILES))       \
+  )
+CURRYLIB_JSONFILES = $(addprefix \
+    $(PREFIX)/lib/curry/.curry/, \
+    $(notdir $(JSONFILES))       \
+  )
+
+.curry/%.json : %.curry
+	$(CMC_HOME)/translator/bin/curry2json $<
+
+$(PREFIX)/lib/curry/%.curry: %.curry | $(PREFIX)/lib/curry
+	cp $< $@
+
+# JSON is used as an indicator.  Copy all files with a matching stem.
+$(PREFIX)/lib/curry/.curry/%.json: .curry/%.json | $(PREFIX)/lib/curry/.curry
+	cp $(basename $<).* $(dir $@)
+
+json : $(JSONFILES)
+
+# No rules for clean.  The JSON files are too expensive to generate every time.
+clean:
+	@echo 1>&2 Use clean-json to remove JSON files from currylib.
+
+clean-json:
+	rm -rf .curry
+
+install: $(CURRYLIB_CURRYFILES) $(CURRYLIB_JSONFILES)
+
+FOO = $(CURRYLIB_JSONFILES:.json=.*)
+uninstall:
+	-rm -f $(CURRYLIB_CURRYFILES)
+	# -rm -rf $(PREFIX)/lib/curry/.curry/*
+	-rm -rf $(FOO)
+	-if [ -d $(PREFIX)/lib/curry/.curry ]; then rmdir $(PREFIX)/lib/curry/.curry; fi
+	-if [ -d $(PREFIX)/lib/curry ];        then rmdir $(PREFIX)/lib/curry;        fi
+

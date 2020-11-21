@@ -49,9 +49,8 @@ _types_ = [
     # variables x and y are equivalent in this context.
   , icurry.IType('_Binding', [icurry.IConstructor('_Binding', 2, metadata={'py.tag':runtime.T_BIND, 'py.typecheck':tc.Binding})])
     # Free variables have two successors, one for the variable ID (Int) and one
-    # for the instance.  The instance is initially set to Prelude.().  On
-    # instantiation, it is replaced with a generator.  Note that () is not a
-    # valid generator.
+    # for the generator.  The second slot is initially set to Prelude.().  On
+    # instantiation, it is replaced with a generator.
   , icurry.IType('_Free', [icurry.IConstructor('_Free', 2, metadata={'py.format':'freevar({1})', 'py.tag':runtime.T_FREE})])
   , icurry.IType('_Fwd', [icurry.IConstructor('_Fwd', 1, metadata={'py.format':'{1}', 'py.tag':runtime.T_FWD})])
   , icurry.IType('_Choice', [icurry.IConstructor('_Choice', 3, metadata={'py.tag':runtime.T_CHOICE})])
@@ -59,7 +58,7 @@ _types_ = [
   , icurry.IType('Bool', [icurry.IConstructor('True', 0), icurry.IConstructor('False', 0)])
   , icurry.IType('Char', [icurry.IConstructor('Char', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Char})])
   , icurry.IType('Float', [icurry.IConstructor('Float', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Float})])
-  , icurry.IType('Int', [icurry.IConstructor('Int', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Int})])
+  , icurry.IType('Int', [   icurry.IConstructor('Int', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Int})])
   , icurry.IType('IO', [icurry.IConstructor('IO', 1)])
   , icurry.IType('(->)', [icurry.IConstructor('->', 2)])
   ]

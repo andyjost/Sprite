@@ -157,8 +157,80 @@ Free variables are unbound or bound.
   So I have two cases in general.  For free variable x with generator gen(x)
   and lazy binding {x->e}:
   _
-    [1] When x is narrowed, apply (gen(x) =:<= e &>) to the top-level expression.
-    [2] When x’s normal form is needed apply (x =:= e &>) to the top-level expression.
+    [1] When x is narrowed, apply (gen(x) =:<= e &>) to the top-level
+        expression.
+    [2] When x’s normal form is needed apply (x =:= e &>) to the top-level
+        expression.
   _
   (In both cases delete the lazy binding.)
+
+
+..
+  > All OK, but how does a "lazy" binding differ from a "normal" binding?
+  A lazy binding is conceptually equivalent to a normal binding (they must have
+  the same effect or the semantics would change).  Consider "x =:<= f," which
+  binds f to x.
+  _
+  In a backtracking implementation, this can be implemented by redirecting x to
+  f.  If x is needed, then at some point in the future, an occurrence of x will
+  be handled by reducing f.
+  _
+  In Sprite, x cannot be redirected to f.  This is because Sprite does graph
+  rewriting with maximal sharing, and so x can occur in several contexts,
+  potentially including some in which x is not bound to f.  Instead of
+  redirecting, Sprite makes note of the binding in (or alongside) the
+  fingerprint.   If x is needed in the future, it is replaced with a generator.
+  If a choice originating from x's generator reaches the root, then we know x
+  has been reduced.  That is an indication to inspect the lazy binding.  Since
+  x has a binding to f, Sprite now evaluates f and filters out values that are
+  not consistent.
+  _
+  Example:
+  _
+  	f = True
+  	main = (x =:<= f) &> x
+  _
+  Backtracking implementation:
+  	1. Redirect x to f
+  	2. Evaluate f
+  	3. Yield True
+  _
+  Sprite implementation:
+  	1. Add (x -> f) to the fingerprint.
+  	2. Evaluate x
+  	3. Replace x with True ?_x False.  The expression is choice-rooted.
+    4. To remove ?_x from the top, check for a lazy binding.  x has the binding
+       f.  Evaluate f, producing True.
+  	5. Choose the left branch of ?_x, because x is True.
+  	6. Yield True
+  _
+  > The expressions (x ? failed) and x should be the same in every context.
+  > I am missing something here.
+  Perhaps.  Sprite uses the choice as a signal to check for lazy bindings.
+  When variable x_i is replaced with a generator, that generator must begin
+  with choice ?_i.  Choice ?_i arriving at the root of an expression is the
+  signal for Sprite to check for lazy bindings for x_i.  For unary types, T = A
+  ys, to get a choice into the generator root, the generator is written as "A
+  ys ? failed."
+  _
+  _
+  > When you say "x is a value" you must mean something else. x is a variable,
+  > may be eventually bound to a value.  How can we know in advance?
+	In the Fair Scheme, constructors are handled through recursive calls to the N
+  routine.  Functions are handled by recursive calls to the S routine.  The
+  computation state at any time is N*S*, i.e., zero or more calls to N followed
+  by zero or more calls to S.  If a free variable is handled by N, then it is
+  definitely part of a value (because there are no intervening function symbols).
+  When x is *definitely* a value, it is safe to use =:= to effectuate its
+  binding.
+  _
+  A free variable has three possible destinies:
+  _
+  	1. It is not needed; hence, it is discarded.
+    2. It is needed in some function-rooted context.  We narrow by replacing it
+       with a generator and then pull-tabbing.
+    3. It is needed only in constructor-rooted contexts.
+  _
+  I am targeting case #3.  In that case, if the variable occurs in a lazy
+  binding, (x -> e), then Sprite uses x =:= e to effectuate the binding.
 

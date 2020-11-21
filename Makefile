@@ -1,4 +1,4 @@
-SUBMODULES := src
+SUBMODULES := src currylib
 
 DIRS_TO_CLEAN += $(OBJECT_ROOT)
 include Make.include
@@ -73,12 +73,6 @@ $(PREFIX)/bin/icy : $(ROOT_DIR)/src/export/icy.script | $(PREFIX)/bin
 $(PREFIX)/bin/curryexec : $(ROOT_DIR)/src/export/curryexec.script | $(PREFIX)/bin
 	cp $< $@
 	chmod 554 $@
-$(PREFIX)/lib:
-	mkdir -p $(PREFIX)/lib
-$(PREFIX)/lib/curry : | $(PREFIX)/lib
-	mkdir -p $(PREFIX)/lib/curry
-$(PREFIX)/lib/curry/.curry : | $(PREFIX)/lib/curry
-	mkdir -p $(PREFIX)/lib/curry/.curry
 
 $(ROOT_DIR)/install:
 	ln -s $(PREFIX) $@
@@ -91,31 +85,8 @@ install: $(PREFIX)/.bin/coverage                   \
          $(PREFIX)/bin/python                      \
          $(PREFIX)/bin/icy                         \
          $(PREFIX)/bin/curryexec                   \
-				 install_currylib
   ####
 	@echo "\n****** Sprite is installed under $(PREFIX) ******\n"
-
-# The the Curry library, copy files from currylib/.
-CURRYLIB_CURRY_FILES = $(addprefix                    \
-    $(PREFIX)/lib/curry/,                             \
-    $(notdir $(wildcard $(ROOT_DIR)currylib/*.curry)) \
-  )
-CURRYLIB_DOTCURRY_FILES = $(addprefix                  \
-    $(PREFIX)/lib/curry/.curry/,                       \
-    $(notdir $(wildcard $(ROOT_DIR)currylib/.curry/*)) \
-  )
-
-.PHONY: install_currylib
-install_currylib: $(CURRYLIB_CURRY_FILES) $(CURRYLIB_DOTCURRY_FILES) \
-                | $(PREFIX)/lib/curry $(PREFIX)/lib/curry/.curry
-
-$(PREFIX)/lib/curry/%.curry: $(ROOT_DIR)currylib/%.curry \
-    | $(PREFIX)/lib/curry
-	cp $< $@
-
-$(PREFIX)/lib/curry/.curry/%: $(ROOT_DIR)currylib/.curry/% \
-    | $(PREFIX)/lib/curry/.curry
-	cp $< $@
 
 ifneq ($(PREFIX),python)
 install: $(ROOT_DIR)/install
@@ -130,12 +101,8 @@ uninstall:
 	-rm -f $(PREFIX)/bin/python
 	-rm -f $(PREFIX)/bin/icy
 	-rm -f $(PREFIX)/bin/curryexec
-	-rm -f $(PREFIX)/lib/curry/*.curry
-	-rm -rf $(PREFIX)/lib/curry/.curry/*
 	-if [ -d $(PREFIX)/bin ];              then rmdir $(PREFIX)/bin;              fi
 	-if [ -d $(PREFIX)/.bin ];             then rmdir $(PREFIX)/.bin;             fi
-	-if [ -d $(PREFIX)/lib/curry/.curry ]; then rmdir $(PREFIX)/lib/curry/.curry; fi
-	-if [ -d $(PREFIX)/lib/curry ];        then rmdir $(PREFIX)/lib/curry;        fi
 	-if [ -d $(PREFIX)/lib ];              then rmdir $(PREFIX)/lib;              fi
 ifeq ($(PREFIX),$(ROOT_DIR)/install)
 	echo YES
