@@ -7,16 +7,18 @@ Computation
 -----------
 
 The computational state of a Curry program is stored in a *compute graph*.
-This is a directed, possibly-cyclic graph whose nodes comprise a reference to
-static data called the *info table* and a dynamic section, called the *data
-section*, containing successor references and immediate (unboxed) data, as
-dictated by the node type.
+This is a directed, possibly-cyclic graph.  Each node begins with a reference
+to a compiler-generated data structure called the *info table* that provides
+information such as the node label, type, and arity.  Following that is a
+dynamic section, called the *data section*, whose size and layout are
+determined by the node type.  This section may contain references to successor
+nodes and literal (unboxed) data.
 
 Nodes belong to one of six categories.  A slot of the info table called
 the *tag* indicates which one.  The categories are:
 
   +------------+----------+-------------------------------+
-  | tag        | value    | meaning                       |
+  | tag        | value    | represents                    |
   +============+==========+===============================+
   |   FAIL     |  -6      | a failed computation          |
   +------------+----------+-------------------------------+
@@ -33,9 +35,9 @@ the *tag* indicates which one.  The categories are:
   |   CTOR     |  >=0     | a constructor (see below)     |
   +------------+----------+-------------------------------+
 
-Types in Curry consist of constructors in some fixed order.  For CTOR nodes,
-the tag also indicates which constructor is selected.  This is done by
-numbering the constructors in their cannonical order starting from zero.
+Types in Curry are unions over constructor symbols.  For CTOR nodes, the tag
+indicates which constructor is selected.  This is done by numbering the
+constructors of each type in some fixed order starting from zero.
 
 
 Constraints
