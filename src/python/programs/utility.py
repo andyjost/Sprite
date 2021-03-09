@@ -1,9 +1,10 @@
+from ..exceptions import TimeoutError
+from .. import config
 import contextlib
 import logging
 import os
 import signal
 import sys
-from ..exceptions import TimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def die(exception, program_name=None, status=1, hint_timeout_sec=1, hint_kwds={}
       sys.stderr.write('%s: ' % program_name)
     sys.stderr.write(*args, **kwds)
 
-  if 'SPRITE_DEBUG' in os.environ:
+  if config.debugging():
     raise
   else:
     write_ln('%s\n' % exception)
@@ -38,6 +39,8 @@ def die(exception, program_name=None, status=1, hint_timeout_sec=1, hint_kwds={}
       try:
         hint = exception.hint
         if callable(hint):
+          # A timeout is used to cap the time for calculating the hint.  this
+          # is disabled for now.
           with timeout(0 and hint_timeout_sec):
             hint = hint(**hint_kwds)
         if hint:

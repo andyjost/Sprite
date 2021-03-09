@@ -2,6 +2,7 @@
 Implements Interpreter.compile.
 '''
 
+from .. import config
 from .. import importer
 from .. import icurry
 from ..utility.visitation import dispatch
@@ -10,7 +11,8 @@ import types
 __all__ = ['compile']
 
 def compile(
-    interp, string, mode='module', imports=None, modulename='_interactive_'
+    interp, string, mode='module', imports=None
+  , modulename=config.interactive_modname()
   ):
   '''
   Compile a string containing Curry code.  In mode "module", the string is

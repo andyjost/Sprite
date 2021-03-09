@@ -38,20 +38,26 @@ class CyMakeTestCase(cytest.TestCase):
         shutil.copy(input_file, tmpdir)
         curry_file = os.path.join(tmpdir, filename)
         # Build .icy.
-        cymake.curry2icurry(curry_file, currypath=[], quiet=True)
+        ret = cymake.curry2icurry(curry_file, currypath=[], quiet=True)
         file_out = os.path.join(tmpdir, SUBDIR, stem + '.icy')
         self.assertTrue(os.path.exists(file_out))
+        self.assertEqual(ret, file_out)
+        # Repeat -- no exception.
+        ret = cymake.curry2icurry(curry_file, currypath=[], quiet=True)
+        self.assertEqual(ret, file_out)
 
         # Build .json.
-        cymake.icurry2json(curry_file, currypath=[], compact=False, zip=False)
+        ret = cymake.icurry2json(curry_file, currypath=[], compact=False, zip=False)
         json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
         self.assertTrue(os.path.exists(json_file))
+        self.assertEqual(ret, json_file)
         shutil.move(json_file, json_file + '.nocompact')
 
         # Build compacted .json.
         self.assertFalse(os.path.exists(json_file))
-        cymake.icurry2json(curry_file, currypath=[], compact=True, zip=False)
+        ret = cymake.icurry2json(curry_file, currypath=[], compact=True, zip=False)
         self.assertTrue(os.path.exists(json_file))
+        self.assertEqual(ret, json_file)
         if config.jq_tool() is not None:
           self.assertLess(
               os.stat(json_file).st_size
@@ -60,12 +66,41 @@ class CyMakeTestCase(cytest.TestCase):
         shutil.move(json_file, json_file + '.nozip')
 
         # Build compacted, compressed .json.
-        cymake.icurry2json(curry_file, currypath=[], compact=True, zip=True)
+        ret = cymake.icurry2json(curry_file, currypath=[], compact=True, zip=True)
         self.assertTrue(os.path.exists(json_file + '.z'))
+        self.assertEqual(ret, json_file + '.z')
         self.assertLess(
             os.stat(json_file + '.z').st_size
           , os.stat(json_file + '.nozip').st_size
           )
+
+  def test_updateTarget(self):
+    '''Test the updateTarget function.'''
+    for input_file in glob.glob('data/cymake/*.curry'):
+      dirname, filename = os.path.split(input_file)
+      stem = filename[:-6]
+      with _tempfile.TemporaryDirectory() as tmpdir:
+        shutil.copy(input_file, tmpdir)
+        icy_file = os.path.join(tmpdir, SUBDIR, stem + '.icy')
+        json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
+        curry_file = os.path.join(tmpdir, filename)
+        # Make .icy.  Returns None.
+        ret = cymake.updateTarget(curry_file, json=False, is_sourcefile=True)
+        self.assertTrue(os.path.exists(icy_file))
+        self.assertEqual(ret, None)
+        # Repeat
+        ret = cymake.updateTarget(curry_file, json=False, is_sourcefile=True)
+        self.assertTrue(os.path.exists(icy_file))
+        self.assertIs(ret, None)
+
+        # Make .json.  Returns the JSON file name.
+        ret = cymake.updateTarget(curry_file, zip=False, is_sourcefile=True)
+        self.assertTrue(os.path.exists(json_file))
+        self.assertEqual(ret, json_file)
+        # Repeat
+        ret = cymake.updateTarget(curry_file, zip=False, is_sourcefile=True)
+        self.assertTrue(os.path.exists(json_file))
+        self.assertEqual(ret, json_file)
 
   def test_sprite_make(self):
     '''Test the sprite-make program.'''

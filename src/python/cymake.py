@@ -16,7 +16,6 @@ files.  The following file types are used:
 from .exceptions import CompileError, ModuleLookupError, PrerequisiteError
 from . import cache
 from . import config
-from . import icurry
 from . import utility
 from .utility.binding import binding, del_
 from .utility import filesys
@@ -137,10 +136,10 @@ def _selectPrerequisite(
   logger.debug('Prerequisite for compilation of %r is %r', name, prereq)
   return prereq
 
-def updateTarget(name, currypath, **kwds):
+def updateTarget(name, currypath=[], **kwds):
   '''
   Update a target file containing the given Curry module.  Prerequisites are
-  checked and the file will be (re)built as needed.  Returns the file name.
+  checked so that the minimum work is performed.
 
   Parameters:
   -----------
@@ -156,10 +155,10 @@ def updateTarget(name, currypath, **kwds):
 
   Returns:
   --------
-  The JSON file name.
+  The JSON file name if json=True (the default) was supplied, else None.
   '''
-  do_icy = kwds.pop('icy', True)
   do_json = kwds.pop('json', True)
+  do_icy = do_json or kwds.pop('icy', True)
   do_tidy = kwds.pop('tidy', False)
   if do_icy:
     intermediates = []
@@ -180,6 +179,7 @@ def updateTarget(name, currypath, **kwds):
             os.unlink(intermediate)
   if not intermediates:
     logger.debug('Nothing to do for %r -> %r', name, prereq)
+
 
 def _popen(cmd, stdin=None, pipecmd=None):
   '''

@@ -1,11 +1,15 @@
+from .. import config
 import os
+import shutil
+import sys
+import tempfile
 
 try:
   from tempfile import TemporaryDirectory # Py3
 except ImportError:
   from ._tempfile import TemporaryDirectory # Py2
 
-__all__ = ['findfiles', 'getDebugSourceDir', 'getdir', 'makeNewfile', 'newer', 'TmpDir']
+__all__ = ['findfiles', 'getDebugSourceDir', 'getdir', 'makeNewfile', 'newer', 'CurryModuleDir']
 
 def getdir(name, mkdirs=False, access=os.O_RDWR):
   '''
@@ -70,14 +74,41 @@ def findfiles(searchpaths, names):
       if os.path.exists(filename):
         yield filename
 
-class TmpDir(TemporaryDirectory):
+class CurryModuleDir(TemporaryDirectory):
   '''
-  Like TemporaryDirectory, but does not issue warnings when __del__ is used to
-  clean up.
+  Manages a temporary directory for compiling a Curry module.
+
+  The Curry source file will be created with the specified name and contents.
+
+  Unlike TmpDir, the __exit__ method does not delete the directory.  That is
+  handled by the __del__ method, which ensures the directory is deleted before
+  program exit.  When used as a context manager, if debuggin is enabled, this
+  object handles exceptions by copying the directory to a more convenient
+  location for postmortem analysis.
+
+  Set 'keep' to keep the directory after the program exits.  If set to a
+  nonempty string, that string will be used as the directory name.
   '''
-  def __init__(self, *args, **kwds):
-    self.keep = kwds.pop('keep', False)
-    TemporaryDirectory.__init__(self, *args, **kwds)
+  def __init__(self, modulename, currysrc, keep=False):
+    self.keep = keep
+    if keep and isinstance(keep, str):
+      dir = filesys.getdir(keep)
+    else:
+      dir = tempfile.gettempdir()
+    TemporaryDirectory.__init__(self, prefix='sprite-', dir=dir)
+    self.curryfile = os.path.join(self.name, modulename + '.curry')
+    with open(self.curryfile, 'w') as out:
+      out.write(currysrc)
+
+  def __exit__(self, exc, value, tb):
+    if exc and config.debugging():
+      dst = os.path.basename(self.name)
+      try:
+        shutil.copytree(self.name, dst)
+      except Exception as e:
+        sys.stderr.write('Failed to copy %s to %s: %s\n' % (self.name, dst, e))
+      else:
+        sys.stderr.write('****** Copied %s to %s for postmortem\n' % (self.name, dst))
 
   def __del__(self):
     if not self.keep:

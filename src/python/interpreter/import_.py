@@ -221,7 +221,8 @@ def compileICurry(interp, ifun, moduleobj, extern=None):
   # Compile interactive code right away.  Otherwise, if lazycompile is set,
   # delay compilation until the function is actually used.  See InfoTable in
   # interpreter/runtime.py.
-  if interp.flags['lazycompile'] and '_interactive_' not in interp.modules:
+  if interp.flags['lazycompile'] and \
+      config.interactive_modname() not in interp.modules:
     # Delayed.
     info.step = function_compiler.compile_function, interp, ifun, extern
   else:

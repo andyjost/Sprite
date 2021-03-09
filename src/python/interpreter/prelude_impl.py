@@ -3,7 +3,6 @@ Implementation of the Prelude externals.
 '''
 from ..exceptions import *
 from . import conversions
-from .. import icurry
 from .. import inspect
 from . import runtime
 from ..utility.unboxed import unboxed

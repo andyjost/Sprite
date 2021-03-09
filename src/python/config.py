@@ -3,6 +3,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def debugging():
+  '''Indicates whether debugging is turned on.'''
+  return 'SPRITE_DEBUG' in os.environ
+
+if debugging():
+  logger.info('Debugging is enabled because SPRITE_DEBUG is set.')
+
+def interactive_modname():
+  return 'sprite__interactive_'
+
 class _Variable(object):
   def __init__(self, name, type=str, interpolate=False):
     self.interpolate = interpolate

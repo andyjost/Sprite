@@ -1,5 +1,6 @@
 '''Implements CurryModule.'''
 
+from .. import config
 from .. import exceptions
 import os
 import types
@@ -41,7 +42,7 @@ def _getfile(moduleobj, suffix):
   if moduleobj.__file__:
     filename = os.path.join(
         os.path.dirname(moduleobj.__file__)
-      , '.curry/_interactive_' + suffix
+      , '.curry/%s%s' % (config.interactive_modname(), suffix)
       )
     if os.path.exists(filename):
       return filename

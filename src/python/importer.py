@@ -1,7 +1,9 @@
 from __future__ import absolute_import
 
 from . import cache
+from . import config
 from . import cymake
+from . import icurry
 from .utility import filesys
 import logging
 import os
@@ -72,15 +74,21 @@ def loadJsonFile(jsonfile):
   else:
     if logger.isEnabledFor(logging.DEBUG):
       logger.debug('Reading ICurry-JSON from %s' % jsonfile)
-  assert jsonfile.endswith('.gz')
-  json = open(jsonfile, 'rb').read()
-  json = zlib.decompress(json)
+  if jsonfile.endswith('.z'):
+    json = open(jsonfile, 'rb').read()
+    json = zlib.decompress(json)
+  else:
+    json = open(jsonfile).read()
   icur, = icurry.parse(json)
   icur.filename = curryFilename(jsonfile)
   cached.update(icur)
   return icur
 
-def str2icurry(string, currypath, modulename='_interactive_', keep_temp_files=False):
+def str2icurry(
+    string, currypath
+  , modulename=config.interactive_modname()
+  , keep_temp_files=False
+  ):
   '''
   Compile a string into ICurry.  The string is interpreted as a module
   definition.
@@ -89,17 +97,11 @@ def str2icurry(string, currypath, modulename='_interactive_', keep_temp_files=Fa
   --------
   The ICurry object.  The attributes __file__ and _tmpd_ will be set.
   '''
-  if keep_temp_files and isinstance(keep_temp_files, str):
-    dir = filesys.getdir(keep_temp_files)
-  else:
-    dir = tempfile.gettempdir()
-  tmpd = filesys.TmpDir(prefix='sprite-', dir=dir, keep=bool(keep_temp_files))
-  curryfile = os.path.join(tmpd.name, modulename + '.curry')
-  with open(curryfile, 'w') as out:
-    out.write(string)
-  jsonfile = curry2json(curryfile, currypath)
-  icur = loadJsonFile(jsonfile)
-  icur.__file__ = curryfile
-  icur._tmpd_ = tmpd
+  moduledir = filesys.CurryModuleDir(modulename, string, keep=keep_temp_files)
+  with moduledir:
+    jsonfile = cymake.updateTarget(moduledir.curryfile, currypath, is_sourcefile=True)
+    icur = loadJsonFile(jsonfile)
+    icur.__file__ = curryfile
+    icur._tmpd_ = moduledir
   return icur
 
