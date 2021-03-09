@@ -21,6 +21,13 @@ ifneq ($(NVALIDATE),1)
     $(error PREFIX must be an absolute path)
   endif
 
+  ifndef PYTHON_PACKAGE_NAME
+    $(error PYTHON_PACKAGE_NAME must be defined))
+  endif
+  ifndef PYTHON_VERSION
+    $(error PYTHON_VERSION must be defined))
+  endif
+
   ifeq ($(shell [ -e $(CC) ]; echo $$?),1)
     $(error C compiler $(CC) not found)
   endif
@@ -57,12 +64,12 @@ ifneq ($(NVALIDATE),1)
     $(error Not an executable file: PYTHON_EXECUTABLE=$(PYTHON_EXECUTABLE).  Please check your Python installation.)
   endif
 
-  ifeq ($(shell [ -d $(CMC_HOME) ]; echo $$?),1)
-    $(error Not a directory: CMC_HOME=$(CMC_HOME)$nPlease check your CMC installation.)
+  ifeq ($(shell [ -f $(ICURRY) ] && [ -x $(ICURRY) ]; echo $$?),1)
+    $(error Not an executable file: ICURRY=$(ICURRY)$nPlease check your installation.)
   endif
 
-  ifeq ($(shell [ -f $(CURRY2JSON) ] && [ -x $(CURRY2JSON) ]; echo $$?),1)
-    $(error Not an executable file: CURRY2JSON=$(CURRY2JSON)$nPlease check your CMC installation.)
+  ifeq ($(shell [ -f $(ICURRY2JSON) ] && [ -x $(ICURRY2JSON) ]; echo $$?),1)
+    $(error Not an executable file: ICURRY2JSON=$(ICURRY2JSON)$nPlease check your installation.)
   endif
 
   ifeq ($(shell [ -d $(PYTHON_LIBRARY_PATH) ]; echo $$?),1)

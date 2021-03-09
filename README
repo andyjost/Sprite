@@ -140,11 +140,14 @@ in the environment.
         ICurry-JSON to Python, are cached.  Can be used to specify the cache
         file.  If set to the empty string, caching is disabled.
 
+    - SPRITE_DEBUG
+
+        Enables features to debug Sprite itself.
 
 6. Bug Reporting
 ----------------
 
-If you find a bug, please report it.  The easiest way is to create a *minimal*
+If you find a bug, please report it.  The easiest way is to create a minimal
 unit test decorated with ``unittest.expectedFailure``.  Further instructions on
 developing and running tests can be found under tests/README.  Once you have
 written the test, submit a pull request or send the diff to ajost@synopsys.com.

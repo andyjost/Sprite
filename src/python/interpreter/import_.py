@@ -178,7 +178,7 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
     if logger.isEnabledFor(logging.DEBUG):
       logger.debug('Importing %s' % name)
     currypath = parameters.currypath(interp, currypath)
-    icur = importer.getICurryForModule(name, currypath, is_sourcefile=is_sourcefile)
+    icur = importer.loadModule(name, currypath, is_sourcefile=is_sourcefile)
     return import_(interp, icur, **kwds)
 
 @import_.when(collections.Sequence, no=str)

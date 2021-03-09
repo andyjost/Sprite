@@ -1,2 +1,14 @@
-Contains scripts to be exported to the installation tree.  Not intended to be
-called from the source tree.
+This directory contains scripts, links, and other files destined for the
+installation tree.  The scripts are not intended to be called directly from
+this location.  Instead, they will be staged to object-root/export and
+ultimately copied to the installation.
+
+Links to external programs appear in files with extension .link.  The content
+of each files is the name of a Make variable that resolves to the target.
+Corresponding links pointing to the target and with no extension will be
+created in the staging area and installation tree.
+
+Similarly, installation-time configuration variables appear in files with the
+extension .var.  Each contains a Make expression that will be expanded to
+the value of the configuration variable.  These are read by Sprite at runtime
+to control behavior.

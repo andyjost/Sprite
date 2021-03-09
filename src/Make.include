@@ -4,120 +4,12 @@ include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
 CFLAGS  += -fPIC
 LDFLAGS += -lLLVM -Wl,--no-undefined
 
-LOCKFILE := $(OBJECT_ROOT)/lock
-FILES_TO_CLEAN += $(LOCKFILE)
-
-# Contextual variables
-# ====================
-# These take values that depend on the submodule being built.
-
-# Create the directory under $(OBJECT_ROOT) corresponding to the current source
-# directory.
-OBJECT_DIR := $(shell realpath --relative-to $(ROOT_DIR)/src $(shell pwd))
-OBJECT_DIR := $(abspath $(OBJECT_ROOT)/$(OBJECT_DIR))
-$(shell mkdir -p $(OBJECT_DIR) >/dev/null)
-DIRS_TO_CLEAN += $(OBJECT_DIR)
-
-# Submodules may override SRCS.
-ifndef SRCS
-  SRCS := $(wildcard *.c *.cpp)
-endif
-
-# Submodules may override OBJS.
-ifndef OBJS
-  OBJS := $(patsubst %,%.o,$(basename $(SRCS)))
-endif
-OBJS_OUT := $(patsubst %,$(OBJECT_DIR)/%,$(OBJS))
-FILES_TO_CLEAN += $(OBJS_OUT)
-
-# Submodules may set LIB to generate a static library.  Static libraries are
-# placed relative to $(OBJECT_ROOT) because they are built by appending and
-# that simplifies the recursion.
-ifdef LIB
-  LIB_OUT := $(OBJECT_ROOT)/$(LIB).a
-  FILES_TO_CLEAN += $(LIB_OUT)
-endif
-
-# Submodules may set SHLIB to generate a dynamic library.
-ifdef SHLIB
-  SHLIB_OUT := $(OBJECT_DIR)/$(SHLIB).so
-  FILES_TO_CLEAN += $(SHLIB_OUT)
-endif
-
-# Install static libs.
-ifdef LIB
-  ifndef LIB_INSTALL_DIR
-    ifdef LIB_RELATIVE_INSTALL_DIR
-      LIB_INSTALL_DIR = $(PREFIX)/$(LIB_RELATIVE_INSTALL_DIR)
-    endif
-  endif
-
-  ifdef LIB_INSTALL_DIR
-    $(shell mkdir -p $(LIB_INSTALL_DIR))
-    DIRS_TO_CLEAN += $(LIB_INSTALL_DIR)
-
-    LIB_BASENAME := $(notdir $(basename $(LIB)))
-    LIB_INSTALL = $(LIB_INSTALL_DIR)/$(LIB_BASENAME).a
-    $(LIB_INSTALL): $(LIB_OUT)
- 			cp $< $@
-    install: $(LIB_INSTALL)
-  endif
-endif
-
-# Install shared libs.
-ifdef SHLIB
-  ifndef SHLIB_INSTALL_DIR
-    ifdef SHLIB_RELATIVE_INSTALL_DIR
-      SHLIB_INSTALL_DIR = $(PREFIX)/$(SHLIB_RELATIVE_INSTALL_DIR)
-    endif
-  endif
-
-  ifdef SHLIB_INSTALL_DIR
-    $(shell mkdir -p $(SHLIB_INSTALL_DIR))
-    DIRS_TO_CLEAN += $(SHLIB_INSTALL_DIR)
-
-    SHLIB_INSTALL = $(SHLIB_INSTALL_DIR)/$(SHLIB).so
-    $(SHLIB_INSTALL): $(SHLIB_OUT)
-	 		cp $< $@
-    install: $(SHLIB_INSTALL)
-  endif
-endif
-
 # Rules and targets
 # =================
 all: objs libs shlibs
 objs: $(OBJS_OUT)
 
-# A submodule may set LIB to create a static library.  Its dependencies are to
-# be found in LIB_DEPENDS.
-ifdef LIB
-  $(LIB_OUT): $(LIB_OUT)($(LIB_DEPENDS))
-  libs: $(LIB_OUT)
-endif
-libs: $(LIB_DEPENDS)
-# Update archives from .o files using a lock to prevent concurrent access.
-.o.a:
-	flock $(LOCKFILE) $(AR) $(ARFLAGS) $@ $<
-
-# A submodule may set SHLIB to create a shared library.  Its dependencies are
-# to be found in SHLIB_DEPENDS.
-ifdef SHLIB
-  $(SHLIB_OUT): $(SHLIB_DEPENDS) | $(SHLIB_EXTRA_DEPENDS)
-		$(CXX) -shared -o $@ $(SHLIB_PREDEP_LDFLAGS) $^ $(SHLIB_POSTDEP_LDFLAGS) $(LDFLAGS)
-  shlibs: $(SHLIB_OUT)
-endif
-shlibs: $(SHLIB_DEPENDS)
-
-clean:
-ifdef FILES_TO_CLEAN
-	-rm -rf $(FILES_TO_CLEAN)
-endif
-ifdef DIRS_TO_CLEAN
-	-rmdir $(DIRS_TO_CLEAN)
-endif
-
 # Dependencies
 # ============
 include $(ROOT_DIR)/src/Make.depends
-
 

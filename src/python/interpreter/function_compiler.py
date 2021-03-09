@@ -1,7 +1,7 @@
 from .. import icurry
-from .. import importer
 from . import runtime
 from ..utility import encoding, visitation, formatDocstring
+from ..utility import filesys
 import collections
 import logging
 import pprint
@@ -150,9 +150,9 @@ class FunctionCompiler(object):
     if self.interp.flags['debug']:
       # If debugging, write a source file so that PDB can step into this
       # function.
-      srcdir = importer.getDebugSourceDir()
+      srcdir = filesys.getDebugSourceDir()
       ident = encoding.symbolToFilename(self.ident)
-      srcfile = importer.makeNewfile(srcdir, ident)
+      srcfile = filesys.makeNewfile(srcdir, ident)
       with open(srcfile, 'w') as out:
         out.write(source)
         out.write('\n\n\n')

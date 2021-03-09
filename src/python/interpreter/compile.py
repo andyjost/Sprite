@@ -4,6 +4,10 @@ Implements Interpreter.compile.
 
 from .. import importer
 from .. import icurry
+from ..utility.visitation import dispatch
+import types
+
+__all__ = ['compile']
 
 def compile(
     interp, string, mode='module', imports=None, modulename='_interactive_'
@@ -54,7 +58,7 @@ def compile(
     visible_name = '<expr>'
     compiled_ident = icurry.IName(modulename, compiled_name)
     visible_ident = icurry.IName(modulename, visible_name)
-    stmts, currypath = importer.getImportSpecForExpr(
+    stmts, currypath = getImportSpecForExpr(
         interp, [] if imports is None else imports
       )
     stmts += ['%s = %s' % (compiled_name, string)]
@@ -72,4 +76,47 @@ def compile(
     return expr
   else:
     raise TypeError('expected mode "module" or "expr"')
+
+def getImportSpecForExpr(interpreter, modules):
+  '''
+  Generates the import statements and the CURRYPATH to use when compiling a
+  standalone Curry expression.
+
+  Parameters:
+  -----------
+  ``interpreter``
+      The interpreter.
+  ``modules``
+      The list of modules to import.  Each one may be a string or a Curry
+      module object.
+
+  Returns:
+  --------
+  A pair consisting of a list of Curry import statements and the updated search
+  path.
+  '''
+  stmts = []
+  currypath = list(interpreter.path)
+  for module in modules:
+    _updateImports(interpreter, module, stmts, currypath)
+  return stmts, currypath
+
+@dispatch.on('module')
+def _updateImports(interpreter, module, stmts, currypath):
+  assert False
+
+@_updateImports.when(str)
+def _updateImports(interpreter, modulename, stmts, currypath):
+  module = interpreter.modules[modulename]
+  return _updateImports(interpreter, module, stmts, currypath)
+
+@_updateImports.when(types.ModuleType)
+def _updateImports(interpreter, module, stmts, currypath):
+  if module.__name__ != '_System':
+    stmts.append('import ' + module.__name__)
+    # If this is a dynamic module, add its directory to the search path.
+    try:
+      currypath.insert(0, module._tmpd_.name)
+    except AttributeError:
+      pass
 

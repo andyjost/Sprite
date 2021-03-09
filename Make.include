@@ -9,6 +9,11 @@ ifndef PREFIX
 endif
 MULTIARCH := $(shell $(CC) --print-multiarch)
 
+# Makefile debugging.  Helps trace which rules are triggered.
+# OLD_SHELL := $(SHELL)
+# SHELL = $(warning Building $@)$(OLD_SHELL)
+
+
 # Derived variables
 # =================
 # Variables derived from Make.config variables.
@@ -53,15 +58,6 @@ $(PREFIX)/lib/curry : | $(PREFIX)/lib
 $(PREFIX)/lib/curry/.curry : | $(PREFIX)/lib/curry
 	mkdir -p $(PREFIX)/lib/curry/.curry
 
-ifndef CMC_HOME
-  CMC_HOME := /home/andy/CMC
-endif
-
-ifndef CURRY2JSON
-  CURRY2JSON := $(CMC_HOME)/translator/bin/curry2json
-endif
-
-
 ifndef BOOST_INCLUDE_PATH
   BOOST_INCLUDE_PATH := $(BOOST_HOME)/include
 endif
@@ -98,7 +94,7 @@ ifeq ($(flavor SUBMODULES),undefined)
   SUBMODULES = $(dir $(wildcard */.))
 endif
 
-RECURSIVE_TARGETS := all clean install libs objs shlibs uninstall test
+RECURSIVE_TARGETS := all clean bootstrap install libs objs shlibs uninstall test
 .PHONY: $(RECURSIVE_TARGETS) $(SUBMODULES)
 $(RECURSIVE_TARGETS): | $(SUBMODULES)
 $(SUBMODULES):
@@ -109,4 +105,13 @@ $(SUBMODULES):
 # E.g., print-ROOT_DIR
 print-% : ; $(info $* is a $(flavor $*) variable set to [$($*)]) @true
 
+# Special rules
+# =============
+# Make any subdirectory needed under PREFIX or OBJECT_ROOT.
+$(PREFIX)/%/ :
+	mkdir -p $@
+$(OBJECT_ROOT)/%/ :
+	mkdir -p $@
+
 include $(ROOT_DIR)/Make.validate
+include $(ROOT_DIR)/Make.rules

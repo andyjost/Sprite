@@ -30,6 +30,16 @@ under ``modules``.  Use ``topython`` to convert Curry values to Python objects.
     A
 '''
 
+# Validate SPRITE_HOME.
+import os
+if 'SPRITE_HOME' not in os.environ:
+  raise ImportError('SPRITE_HOME is not set in the environment')
+if not os.path.isdir(os.environ['SPRITE_HOME']):
+  raise ImportError('SPRITE_HOME is not a directory')
+if not os.access(os.environ['SPRITE_HOME'], os.O_RDONLY):
+  raise ImportError('SPRITE_HOME is not readable')
+del os
+
 from .exceptions import *
 from . import interpreter
 from .utility import flagutils as _flagutils
@@ -50,7 +60,6 @@ import_ = _interpreter_.import_
 module = _interpreter_.module
 modules = _interpreter_.modules
 path = _interpreter_.path
-prelude = _interpreter_.prelude
 reset = _interpreter_.reset
 symbol = _interpreter_.symbol
 topython = _interpreter_.topython

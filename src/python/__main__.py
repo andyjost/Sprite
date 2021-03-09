@@ -8,7 +8,7 @@ curry = importlib.import_module(__package__)
 
 def main(argv):
   parser = argparse.ArgumentParser(
-      prog='curryexec'
+      prog=argv[0]
     , description=
         'Runs a Curry program under Sprite.  Set CURRYPATH to control the '
         'search for Curry code.'
@@ -39,4 +39,4 @@ def main(argv):
 
 
 if __name__ == '__main__':
-  main(sys.argv)
+  main(['curryexec'] + sys.argv[1:])

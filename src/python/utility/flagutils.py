@@ -7,7 +7,7 @@ interpreter is affected by the environment.  This module contains functions for
 working with the flags that come from the environment.
 '''
 from .binding import binding
-from .. import utility
+from ..utility import formatDocstring
 import __builtin__
 import os
 import sys
@@ -43,7 +43,7 @@ def getflags(flags={}, weakflags={}):
   flags_out.update(flags)
   return flags_out
 
-@utility.formatDocstring(__package__[:__package__.find('.')])
+@formatDocstring(__package__[:__package__.find('.')])
 def reload(name, flags={}):
   '''Hard-resets the interpreter found in module "{}".'''
   flags = getflags(flags)

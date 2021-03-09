@@ -1,0 +1,37 @@
+.DELETE_ON_ERROR:
+
+.curry/%.icy : %.curry
+	if [ $@.gz -nt $< ]; then     \
+	  gunzip < $@.gz > $@;        \
+	else                          \
+	  $(ICURRY) $<;               \
+	  gzip $(basename $@).fcy;    \
+	  gzip $(basename $@).fint;   \
+	  gzip $(basename $@).icurry; \
+	  gzip < $@ > $@.gz;          \
+	fi
+
+.curry/%.fcy .curry/%.fint .curry/%.icurry .curry/%.icy : %.curry
+	if [ $(basename $@).fcy.gz    -nt $< -a \
+	     $(basename $@).fint.gz   -nt $< -a \
+	     $(basename $@).icurry.gz -nt $< -a \
+	     $(basename $@).icy.gz    -nt $< ]; then \
+	  gzip < $(basename $@).fcy.gz    > $(basename $@).fcy; \
+	  gzip < $(basename $@).fint.gz   > $(basename $@).fint; \
+	  gzip < $(basename $@).icurry.gz > $(basename $@).icurry; \
+	  gzip < $(basename $@).icy.gz    > $(basename $@).icy; \
+	else \
+	  rm -f $(basename $@).fcy.gz; \
+	  rm -f $(basename $@).fint.gz; \
+	  rm -f $(basename $@).icurry.gz; \
+	  rm -f $(basename $@).icy.gz; \
+	  icurry $<; \
+	  time gzip $(basename $@).fcy; \
+	  time gzip $(basename $@).fint; \
+	  time gzip $(basename $@).icurry; \
+	  time gzip $(basename $@).icy; \
+	fi
+
+%.gz : %
+	time gzip < $< > $@
+

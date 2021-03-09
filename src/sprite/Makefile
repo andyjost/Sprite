@@ -1,5 +1,5 @@
 SHLIB := libsprite
-SHLIB_RELATIVE_INSTALL_DIR := lib
+RELATIVE_INSTALL_DIR := lib
 
 include Make.include
 

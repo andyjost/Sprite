@@ -1,0 +1,47 @@
+#!/usr/bin/python
+
+import os
+import subprocess
+import sys
+import 
+
+def do_if_newer(prereq, product, action):
+  if guard:
+    action()
+
+def main(argv):
+  SPRITE_HOME   = os.environ.get('SPRITE_HOME')
+  TOOLSDIR      = os.path.join(SPRITE_HOME, 'tools')
+  ICURRY        = os.path.join(TOOLSDIR, 'icurry')
+  ICURRY2JSON   = os.path.join(TOOLSDIR, 'icurry2json')
+  INTERMEDIATES = ('.fcy', '.fint', '.icurry', '.icy')
+  
+  
+  filepaths = map(os.path.realpath, sys.argv[1:])
+  for filepath in filepaths:
+    dirname, filename = os.path.split(filepath)
+    os.chdir(dirname)
+    basename, ext = os.path.splitext(filename)
+    if ext and ext != '.curry':
+      raise ValueError('expected .curry extension, got {}\n'.format(ext))
+    if not os.path.exists(basename + '.curry'):
+      raise ValueError(
+          'Curry file {} does not exist\n'.format(
+              os.path.join(dirname, basename + '.curry')
+            )
+        )
+    jsonfile = '.curry/{}.json.gz'.format(basename)
+  
+  
+  
+  
+    make = subprocess.Popen(['make', '-f', '-', jsonfile], stdin=subprocess.PIPE, universal_newlines=True)
+    make.communicate(input=MAKEFILE)
+
+
+if __name__ == '__main__':
+  try:
+    main(sys.argv)
+  except BaseException as e:
+    sys.stderr.write(str(e))
+    sys.exit(1)

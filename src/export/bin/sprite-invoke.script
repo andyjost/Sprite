@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Configures the environment to run Sprite and then invokes another program.
+# There are two ways to use this.  If a link to this script with name $name is
+# invoked, then $(SPRITE_HOME)/tools/$name will be invoked.  If this script is
+# invoked directly, then the first argument is the program name and the
+# remaining arguments are passed to that program.
+
+if [ -z "$SPRITE_HOME" ]; then
+  HERE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  export SPRITE_HOME=$( realpath $HERE/.. )
+fi
+
+function prepend-env {
+  if [ ! -d $2 ]; then
+    echo 2>&1 "[SPRITE_HOME=$SPRITE_HOME]"
+    echo 2>&1 sprite-invoke: $3 library not found at $2
+    exit 1
+  else
+    eval export $1=$2:\$$1
+  fi
+}
+
+prepend-env PYTHONPATH      $SPRITE_HOME/python "Python"
+prepend-env LD_LIBRARY_PATH $SPRITE_HOME/lib    "Sprite"
+prepend-env CURRYPATH       $SPRITE_HOME/curry  "Curry"
+
+if [ "$(basename $0)" == "sprite-invoke" ]; then
+  exec $1 "${@: 2}"
+else
+  exec $SPRITE_HOME/tools/$(basename $0) "$@"
+fi

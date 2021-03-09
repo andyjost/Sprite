@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 LOG_LEVELS = {k:getattr(logging, k)
     for k in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
   }
-DEFAULT_LOG_LEVEL = 'ERROR'
+DEFAULT_LOG_LEVEL = 'WARNING'
 LOG_FILE = os.environ.get('SPRITE_LOG_FILE', '-')
 logging.basicConfig(
     level=LOG_LEVELS[

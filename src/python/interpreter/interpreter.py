@@ -4,6 +4,7 @@ A pure-Python Curry interpreter.
 from . import import_
 from . import prelude
 from . import runtime
+from .. import utility
 import itertools
 import logging
 import os
@@ -48,11 +49,14 @@ class Interpreter(object):
     self.reset() # set remaining attributes.
     return self
 
-  def __init__(self, flags={}):
-    self.prelude = self.import_(
-        "Prelude", extern=prelude.Prelude, export=prelude.exports()
-      , alias=prelude.aliases()
-      )
+  @property
+  def prelude(self):
+    if not hasattr(self, '__prelude'):
+      self.__prelude = self.import_(
+          "Prelude", extern=prelude.Prelude, export=prelude.exports()
+        , alias=prelude.aliases()
+        )
+    return self.__prelude
 
   def reset(self):
     '''
@@ -70,7 +74,7 @@ class Interpreter(object):
     for name in self.modules.keys():
       if name != 'Prelude':
         del self.modules[name]
-    self.path[:] = filter(lambda x:x, os.environ.get('CURRYPATH', '').split(':'))
+    self.path[:] = utility.readCurryPathFromEnviron()
 
   # Externally-implemented methods.
   from .compile import compile

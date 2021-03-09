@@ -1,0 +1,196 @@
+# Build objects and libraries.
+# ============================
+
+# Compute the installation directory.  By default, it is same as the relative
+# path to the prerequisite in the source tree.  Setting INSTALL_DIR= disables
+# installation for a sub-tree (unless it is overridden deeper in the tree).
+ifeq ($(flavor INSTALL_DIR),undefined)
+  ifeq ($(flavor RELATIVE_INSTALL_DIR),undefined)
+    RELATIVE_INSTALL_DIR = $(shell realpath --relative-to $(ROOT_DIR) $(shell pwd))
+  endif
+  ifdef RELATIVE_INSTALL_DIR
+    INSTALL_DIR = $(PREFIX)/$(RELATIVE_INSTALL_DIR)
+    DIRS_TO_CLEAN += $(INSTALL_DIR)
+  endif
+endif
+
+# Submodules may override SRCS.
+ifndef SRCS
+  SRCS := $(wildcard *.c *.cpp)
+endif
+
+LOCKFILE := $(OBJECT_ROOT)/lock
+FILES_TO_CLEAN += $(LOCKFILE)
+# Update archives from .o files using a lock to prevent concurrent access.
+.o.a:
+	flock $(LOCKFILE) $(AR) $(ARFLAGS) $@ $<
+
+# Contextual variables
+# ====================
+# These take values that depend on the submodule being built.
+
+# Create the directory under $(OBJECT_ROOT) corresponding to the current source
+# directory.
+OBJECT_DIR := $(shell realpath --relative-to $(ROOT_DIR)/src $(shell pwd))
+OBJECT_DIR := $(abspath $(OBJECT_ROOT)/$(OBJECT_DIR))
+$(shell mkdir -p $(OBJECT_DIR) >/dev/null)
+DIRS_TO_CLEAN += $(OBJECT_DIR)
+
+# Submodules may override OBJS.
+ifndef OBJS
+  OBJS := $(patsubst %,%.o,$(basename $(SRCS)))
+endif
+OBJS_OUT := $(patsubst %,$(OBJECT_DIR)/%,$(OBJS))
+FILES_TO_CLEAN += $(OBJS_OUT)
+
+# Install objects, libraries, links, and programs.
+# ================================================
+
+# Submodules may set LIB to build a static library.
+ifdef LIB
+  # Build.
+  LIB_OUT := $(OBJECT_ROOT)/$(LIB).a
+  FILES_TO_CLEAN += $(LIB_OUT)
+  $(LIB_OUT): $(LIB_OUT)($(LIB_DEPENDS))
+  libs: $(LIB_OUT)
+  libs: $(LIB_DEPENDS)
+  # Install.
+  ifdef INSTALL_DIR
+    LIB_BASENAME := $(notdir $(basename $(LIB)))
+    LIB_INSTALL = $(INSTALL_DIR)/$(LIB_BASENAME).a
+    install: $(LIB_INSTALL)
+    $(LIB_INSTALL): $(LIB_OUT)
+			@mkdir -p $(dir $@)
+			cp $< $@
+  endif
+endif
+
+# Submodules may set SHLIB to build a dynamic library.
+ifdef SHLIB
+  ifdef INSTALL_DIR
+    # Build.
+    SHLIB_OUT := $(OBJECT_DIR)/$(SHLIB).so
+    FILES_TO_CLEAN += $(SHLIB_OUT)
+    $(SHLIB_OUT): $(SHLIB_DEPENDS) | $(SHLIB_EXTRA_DEPENDS)
+			$(CXX) -shared -o $@ $(SHLIB_PREDEP_LDFLAGS) $^ $(SHLIB_POSTDEP_LDFLAGS) $(LDFLAGS)
+    shlibs: $(SHLIB_OUT)
+    shlibs: $(SHLIB_DEPENDS)
+    # Install.
+    SHLIB_INSTALL = $(INSTALL_DIR)/$(SHLIB).so
+    install: $(SHLIB_INSTALL)
+    $(SHLIB_INSTALL): $(SHLIB_OUT)
+			@mkdir -p $(dir $@)
+			cp $< $@
+  endif
+endif
+
+# Submodules may override LINKS.
+#
+# The following evaluates the .link file contents as a make expression to
+# compute the link target.
+define define_link_target =
+  LINK_TARGET_$1 := $(shell cat $1)
+endef
+
+ifndef LINKS
+  LINKS = $(wildcard *.link)
+endif
+ifdef LINKS
+  ifdef INSTALL_DIR
+    LINKS_NOEXT := $(patsubst %.link,%,$(LINKS))
+    # Do not update FILES_TO_CLEAN.  There are no intermediate files.
+    LINKS_INSTALL = $(addprefix $(INSTALL_DIR)/, $(LINKS_NOEXT))
+    install: $(LINKS_INSTALL)
+    $(foreach link,$(LINKS),$(eval $(call define_link_target,$(link))))
+    $(INSTALL_DIR)/% : %.link
+			@mkdir -p $(dir $@)
+			ln -sf $(LINK_TARGET_$<) $@
+  endif
+endif
+
+# Submodules may override VARS.
+#
+# This type of file is processed exactly like a link, except that instead of a
+# link, a regular file containing the expanded variable is created.
+define define_var_target =
+  VAR_VALUE$1 := $(shell cat $1)
+endef
+
+ifndef VARS
+  VARS = $(wildcard *.var)
+endif
+ifdef VARS
+  ifdef INSTALL_DIR
+    VARS_NOEXT := $(patsubst %.var,%,$(VARS))
+    # Do not update FILES_TO_CLEAN.  There are no intermediate files.
+    VARS_INSTALL = $(addprefix $(INSTALL_DIR)/, $(VARS_NOEXT))
+    install: $(VARS_INSTALL)
+    $(foreach var,$(VARS),$(eval $(call define_var_target,$(var))))
+    $(INSTALL_DIR)/% : %.var
+			@mkdir -p $(dir $@)
+			echo $(VAR_VALUE$<) > $@
+  endif
+endif
+
+# Submodules may override SCRIPTS.  Scripts are copied.
+ifndef SCRIPTS
+  SCRIPTS = $(shell ls *.script 2>/dev/null)
+endif
+ifdef SCRIPTS
+  ifdef INSTALL_DIR
+    SCRIPTS_NOEXT := $(patsubst %.script,%,$(SCRIPTS))
+    # Do not update FILES_TO_CLEAN.  There are no intermediate files.
+    SCRIPTS_INSTALL = $(addprefix $(INSTALL_DIR)/, $(SCRIPTS_NOEXT))
+    install: $(SCRIPTS_INSTALL)
+    $(INSTALL_DIR)/% : %.script
+			@mkdir -p $(dir $@)
+			cp $< $@
+  endif
+endif
+
+# Submodules may override PYTHONFILES.
+ifndef PYTHONFILES
+  PYTHONFILES = $(wildcard *.py)
+endif
+ifdef PYTHONFILES
+  ifdef INSTALL_DIR
+    # Do not update FILES_TO_CLEAN.  There are no intermediate files.
+    PYTHONFILES_INSTALL = $(addprefix $(INSTALL_DIR)/, $(PYTHONFILES))
+    install: $(PYTHONFILES_INSTALL)
+    $(INSTALL_DIR)/%.py : %.py
+			@mkdir -p $(dir $@)
+      ifdef SYMLINK_PYTHON
+				ln -sf $(abspath $<) $@
+      else
+				cp $< $@
+      endif
+  endif
+endif
+
+# Submodules may override CURRYFILES.
+ifndef CURRYFILES
+  CURRYFILES = $(wildcard *.curry)
+endif
+ifdef CURRYFILES
+  ifdef INSTALL_DIR
+    # Do not update FILES_TO_CLEAN.  There are no intermediate files.
+    CURRYFILES_INSTALL = $(addprefix $(INSTALL_DIR)/, $(CURRYFILES))
+    install: $(CURRYFILES_INSTALL)
+    $(INSTALL_DIR)/%.curry : %.curry
+			@mkdir -p $(dir $@)
+			cp $< $@
+  endif
+endif
+
+# Sort removes duplicates.
+FILES_TO_CLEAN := $(sort $(FILES_TO_CLEAN))
+DIRS_TO_CLEAN := $(sort $(DIRS_TO_CLEAN))
+
+clean:
+ifdef FILES_TO_CLEAN
+	-rm -rf $(FILES_TO_CLEAN)
+endif
+ifdef DIRS_TO_CLEAN
+	-rmdir $(DIRS_TO_CLEAN)
+endif
+

@@ -15,49 +15,11 @@ ifeq ($(origin SHLIB), undefined)
   SHLIB_EXTRA_DEPENDS = $(OBJECT_ROOT)/sprite/libsprite.so
 endif
 
+INSTALL_DIR = $(PREFIX)/python/$(PYTHON_PACKAGE_NAME)/$(shell realpath --relative-to $(ROOT_DIR)/src/python $(shell pwd))
+
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
 
 # Make libsprite.so by running make in the sprite directory.
 $(OBJECT_ROOT)/sprite/libsprite.so:
 	$(MAKE) -C $(ROOT_DIR)/src/sprite $@
-
-# Installation
-# ============
-ifndef PYTHON_PACKAGE_NAME
-  $(error PYTHON_PACKAGE_NAME must be defined))
-endif
-ifndef PYTHON_VERSION
-  $(error PYTHON_VERSION must be defined))
-endif
-
-# The root of the target python library installation.
-PYLIB_INSTALL_ROOT := $(PREFIX)/lib/$(PYTHON_VERSION)/$(PYTHON_PACKAGE_NAME)
-# Create the directory under $(PYLIB_INSTALL_ROOT) corresponding to the current source
-# directory.
-PYLIB_INSTALL_DIR := $(PYLIB_INSTALL_ROOT)/$(shell realpath --relative-to $(ROOT_DIR)/src/python $(shell pwd))
-$(shell mkdir -p $(PYLIB_INSTALL_DIR))
-
-# The Python library consists of the .py files in this directory and .so files
-# under $(OBJECT_DIR).
-PYLIB_PY_FILES := $(patsubst %,$(PYLIB_INSTALL_DIR)/%,$(wildcard *.py))
-PYLIB_SO_FILE := $(patsubst %,$(PYLIB_INSTALL_DIR)/%.so,$(SHLIB))
-
-install: $(PYLIB_PY_FILES) $(PYLIB_SO_FILE)
-uninstall:
-	-rm -f $(PYLIB_PY_FILES) $(PYLIB_SO_FILE)
-	-rm -f $(PYLIB_PY_FILES:.py=.pyc)
-	-rmdir $(shell realpath $(PYLIB_INSTALL_DIR))
-	-rmdir $(PREFIX)/lib/$(PYTHON_VERSION)
-	-rmdir $(PREFIX)/lib
-
-$(PYLIB_INSTALL_DIR)/%.py : %.py
-ifdef SYMLINK_PYTHON
-	ln -s $(abspath $<) $@
-else
-	cp $< $@
-endif
-
-$(PYLIB_INSTALL_DIR)/%.so : $(OBJECT_DIR)/%.so
-	cp $< $@
-

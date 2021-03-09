@@ -1,0 +1,51 @@
+#!/usr/bin/python
+
+import os
+import subprocess
+import sys
+
+# This script expects executables icurry and icurry2json to appear under
+# ../tools/.
+
+TOOLDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../tools'))
+
+MAKEFILE = r'''
+
+.DELETE_ON_ERROR:
+
+ICURRY      = {TOOLDIR}/icurry
+ICURRY2JSON = {TOOLDIR}/icurry2json
+
+.curry/%.fcy.gz .curry/%.fint.gz .curry/%.icurry.gz .curry/%.icy.gz : %.curry
+	rm -f .curry/$*.fcy.gz .curry/$*.fint.gz .curry/$*.icurry.gz .curry/$*.icy.gz
+	$(ICURRY) $<
+	gzip .curry/$*.fcy
+	gzip .curry/$*.fint
+	gzip .curry/$*.icurry
+	gzip .curry/$*.icy
+
+%.json.gz : %.icy.gz
+	gunzip < $< > $(<F)
+	$(ICURRY2JSON) $(*F) | gzip > $@
+	rm $(<F)
+'''.format(TOOLDIR=TOOLDIR)
+
+filepaths = map(os.path.realpath, sys.argv[1:])
+for filepath in filepaths:
+  dirname, filename = os.path.split(filepath)
+  os.chdir(dirname)
+  basename, ext = os.path.splitext(filename)
+  if ext and ext != '.curry':
+    sys.stderr.write('expected .curry extension, got {}\n'.format(ext))
+    sys.exit(1)
+  if not os.path.exists(basename + '.curry'):
+    sys.stderr.write(
+        'Curry file {} does not exist\n'.format(
+            os.path.join(dirname, basename + '.curry')
+          )
+      )
+    sys.exit(1)
+  jsonfile = '.curry/{}.json.gz'.format(basename)
+  make = subprocess.Popen(['make', '-f', '-', jsonfile], stdin=subprocess.PIPE, universal_newlines=True)
+  make.communicate(input=MAKEFILE)
+

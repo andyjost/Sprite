@@ -1,4 +1,9 @@
+import os
 import re
+
+__all__ = [
+    'formatDocstring', 'isLegalModulename', 'readCurryPathFromEnviron', 'removeSuffix'
+  ]
 
 def formatDocstring(*args, **kwds):
   def decorator(f):
@@ -10,3 +15,10 @@ g_ident = re.compile('[_a-zA-Z][a-zA-Z0-9]*')
 def isLegalModulename(name):
   return all(re.match(g_ident, part) for part in name.split('.'))
 
+def readCurryPathFromEnviron():
+  return filter(lambda x:x, os.environ.get('CURRYPATH', '').split(':'))
+
+def removeSuffix(name, suffix):
+  if not name.endswith(suffix):
+    raise ValueError('expected suffix "%s"' % suffix)
+  return name[:-len(suffix)]
