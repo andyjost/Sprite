@@ -101,6 +101,18 @@ def _build_symboltable(imodule, data, value_type):
   assert all(k == v.ident for k,v in data.items())
   return data
 
+PUBLIC = 0
+PRIVATE = 1
+
+class IVisibility(_Base):
+  def __init__(self, vis):
+    if vis == "Private":
+      self.value = PRIVATE
+    else:
+      self.value = PUBLIC
+  def __str__(self):
+    return 'Private' if self.value == self.PRIVATE else 'Public'
+
 class IModule(_Base):
   def __init__(self, name, imports, types, functions, filename=None):
     '''
@@ -221,10 +233,12 @@ class IConstructor(_Base):
     return 'IConstructor(ident=%s, arity=%d)' % (repr(self.ident), self.arity)
 
 class IFunction(_Base):
-  def __init__(self, ident, arity, code=[], metadata={}):
+  def __init__(self, ident, arity, vis=PUBLIC, needed=None, code=[], metadata={}):
     assert arity >= 0
     self.ident = IName(ident)
     self.arity = int(arity)
+    self.vis = vis
+    self.needed = needed  # None means no info; [] means nothing needed.
     self.code = tuple(code)
     self.metadata = proptree(metadata)
 
@@ -601,3 +615,5 @@ def getmd(itype, extern):
   except (AttributeError, KeyError):
     return itype.metadata
 
+IProg = IModule
+ILiteral = BuiltinVariant

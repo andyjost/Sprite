@@ -50,7 +50,7 @@ def compile(
       module._tmpd_ = icur._tmpd_
       return module
     finally:
-      if icur.name.startswith('_') and icur.name in interp.modules:
+      if icur.name == config.interactive_modname() and icur.name in interp.modules:
         del interp.modules[icur.name]
   elif mode == 'expr':
     # Compile the expression with a legal name but then rename it to "<expr>".

@@ -1,0 +1,1 @@
+/home/andy/pakcs-3.2.0/lib/Prelude.curry

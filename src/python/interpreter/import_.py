@@ -96,8 +96,13 @@ def loadSymbols(interp, mapping, moduleobj, **kwds):
 
 @loadSymbols.when(icurry.IModule)
 def loadSymbols(interp, imodule, moduleobj, **kwds):
+  # DEBUG!!!!
+  # This is disabled because the JSON for the Prelude cannot be generated at present.
   for modulename in imodule.imports:
-    import_(interp, modulename)
+    logger.warn('Ignoring imported module %s', modulename)
+    # import_(interp, modulename)
+  # DEBUG!!!!
+
   loadSymbols(interp, imodule.types, moduleobj, **kwds)
   loadSymbols(interp, imodule.functions, moduleobj, **kwds)
   return moduleobj
@@ -175,8 +180,7 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
   try:
     return interp.modules[name]
   except KeyError:
-    if logger.isEnabledFor(logging.DEBUG):
-      logger.debug('Importing %s' % name)
+    logger.debug('Importing %s', name)
     currypath = parameters.currypath(interp, currypath)
     icur = importer.loadModule(name, currypath, is_sourcefile=is_sourcefile)
     return import_(interp, icur, **kwds)

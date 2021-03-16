@@ -56,8 +56,7 @@ def loadModule(name, currypath, **kwds):
   A Python object containing the ICurry for the given name.
   '''
   filename = cymake.updateTarget(name, currypath, **kwds)
-  if logger.isEnabledFor(logging.DEBUG):
-    logger.debug('Found module %s at %s' % (name, filename))
+  logger.debug('Found module %s at %s', name, filename)
   return loadJsonFile(filename)
 
 def loadJsonFile(jsonfile):
@@ -68,19 +67,17 @@ def loadJsonFile(jsonfile):
   assert os.path.exists(jsonfile)
   cached = cache.ParsedJsonCache(jsonfile)
   if cached:
-    if logger.isEnabledFor(logging.DEBUG):
-      logger.debug('Loading cached ICurry-JSON for %s from %s' % (jsonfile, cache.filename))
+    logger.debug('Loading cached ICurry-JSON for %s from %s', jsonfile, cache.filename)
     return cached.icur
   else:
-    if logger.isEnabledFor(logging.DEBUG):
-      logger.debug('Reading ICurry-JSON from %s' % jsonfile)
+    logger.debug('Reading ICurry-JSON from %s', jsonfile)
   if jsonfile.endswith('.z'):
     json = open(jsonfile, 'rb').read()
     json = zlib.decompress(json)
   else:
     json = open(jsonfile).read()
-  icur, = icurry.parse(json)
-  icur.filename = curryFilename(jsonfile)
+  icur = icurry.parse(json)
+  icur.filename = cymake.curryFilename(jsonfile)
   cached.update(icur)
   return icur
 
@@ -101,7 +98,7 @@ def str2icurry(
   with moduledir:
     jsonfile = cymake.updateTarget(moduledir.curryfile, currypath, is_sourcefile=True)
     icur = loadJsonFile(jsonfile)
-    icur.__file__ = curryfile
+    icur.__file__ = moduledir.curryfile
     icur._tmpd_ = moduledir
   return icur
 
