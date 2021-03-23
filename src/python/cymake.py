@@ -167,8 +167,6 @@ def updateTarget(name, currypath=[], **kwds):
       prereq = curry2icurry(prereq, currypath, **kwds)
       assert prereq.endswith('.icy')
       intermediates.append(prereq)
-    elif prereq.endswith('.icy'):
-      logger.debug('Prerequisite is up-to-date: %r', prereq)
     if do_json:
       try:
         return icurry2json(prereq, currypath, **kwds)
@@ -220,7 +218,7 @@ def _updateCheck(f):
         , '%s was not updated as expected.' % file_out
         , hint=lambda:_targetNotUpdatedHint(file_in, file_out, start_time)
         )
-    else:
+    elif os.stat(file_out).st_mtime >= start_time:
       logger.debug('Updated %r', file_out)
     return file_out
   return replacement
@@ -305,18 +303,16 @@ class ICurry2JsonConverter(object):
     # Generate it.
     with binding(os.environ, 'CURRYPATH', ''):
       _makeOutputDir(file_out)
-      cmd = [config.icurry2jsontext_tool()]
-      stdin = open(file_in, 'r')
-      cmd_compact = [config.jq_tool(), '--compact-output', '.'] if self.do_compact else None
+      cmd = [config.icurry2jsontext_tool(), '-i', file_in]
+      cmd_compact = [config.jq_tool(), '--compact-output', '.'] \
+          if self.do_compact else None
       logger.debug(
-          'Command: cat %s | %s %s> %s'
-        , stdin.name
+          'Command: %s %s> %s'
         ,  ' '.join(cmd)
         , '| %s ' % ' '.join(cmd_compact) if cmd_compact else ''
         , file_out
         )
-      with stdin:
-        json = _popen(cmd, stdin=stdin, pipecmd=cmd_compact)
+      json = _popen(cmd, pipecmd=cmd_compact)
       if self.do_zip:
         json = zlib.compress(json)
         mode = 'wb'

@@ -93,7 +93,7 @@ class InfoTable(object):
   def __repr__(self):
     return ''.join([
         'InfoTable('
-      , ', '.join('%s=%s' % (
+      , ', '.join('%s=%r' % (
             slot, getattr(self, slot)) for slot in self.__slots__
           )
       , ')'
@@ -112,9 +112,8 @@ class NodeInfo(object):
   -----------
   ``icurry``
       The ICurry source of this Node.
-  ``ident``
-      The fully-qualified Curry identifier for this kind of node.  An instance
-      of ``icurry.IName``.
+  ``name``
+      The fully-qualified Curry identifier for this kind of node.
   ``info``
       An instance of ``InfoTable``.
   '''
@@ -123,8 +122,8 @@ class NodeInfo(object):
     self.info = info
 
   @property
-  def ident(self):
-    return self.icurry.ident
+  def name(self):
+    return self.icurry.name
 
   # TODO: add getsource to get the Curry source.  It will require an
   # enhancement to CMC and maybe FlatCurry to generate source range
@@ -137,17 +136,17 @@ class NodeInfo(object):
       return getattr(step, 'source')
     except AttributeError:
       raise ValueError(
-          'no implementation code available for "%s"' % self.ident
+          'no implementation code available for "%s"' % self.name
         )
 
   def __str__(self):
-    return self.ident
+    return self.name
 
   def __repr__(self):
     if self.info.tag >= T_CTOR:
-      return "<curry constructor '%s'>" % self.ident
+      return "<curry constructor '%s'>" % self.name
     if self.info.tag == T_FUNC:
-      return "<curry function '%s'>" % self.ident
+      return "<curry function '%s'>" % self.name
     if self.info.tag == T_CHOICE:
       return "<curry choice>"
     if self.info.tag == T_FWD:
@@ -162,13 +161,13 @@ class NodeInfo(object):
 
 
 class TypeDefinition(object):
-  def __init__(self, ident, constructors):
-    self.ident = ident
+  def __init__(self, name, constructors):
+    self.name = name
     self.constructors = constructors
     for ctor in self.constructors:
       ctor.typedef = weakref.ref(self)
   def __repr__(self):
-    return "<curry type %s>" % self.ident
+    return "<curry type %s>" % self.name
 
 
 class Node(object):
@@ -266,7 +265,7 @@ class Node(object):
       assert node.info.tag != T_FREE or (not i and i != 0)
       return node[i]
     elif not i and i != 0: # empty sequence.
-      assert isinstance(node, icurry.BuiltinVariant)
+      assert isinstance(node, icurry.ILiteral)
       return node
     else:
       raise TypeError("cannot index into an unboxed value.")
@@ -611,7 +610,7 @@ class Evaluator(object):
       target = expr[()]
       if self.interp.flags['trace']:
         print 'F :::', target, frame
-      if isinstance(target, icurry.BuiltinVariant):
+      if isinstance(target, icurry.ILiteral):
         if self.interp.flags['trace']:
           print 'Y :::', target, frame
         yield target
@@ -747,7 +746,7 @@ def N(interp, root, target=None, path=None, freevars=None):
   try:
     for path[-1], succ in enumerate(target):
       while True:
-        if isinstance(succ, icurry.BuiltinVariant):
+        if isinstance(succ, icurry.ILiteral):
           break
         succ = succ[()]
         tag = succ.info.tag
@@ -784,7 +783,7 @@ def hnf(interp, expr, path, typedef=None):
   assert expr.info.tag == T_FUNC
   target = expr[path]
   while True:
-    if isinstance(target, icurry.BuiltinVariant):
+    if isinstance(target, icurry.ILiteral):
       return target
     tag = target.info.tag
     if tag == T_FAIL:

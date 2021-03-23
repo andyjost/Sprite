@@ -2,7 +2,6 @@
 A pure-Python Curry interpreter.
 '''
 from . import import_
-from . import prelude
 from . import runtime
 from .. import utility
 import itertools
@@ -52,10 +51,7 @@ class Interpreter(object):
   @property
   def prelude(self):
     if not hasattr(self, '__prelude'):
-      self.__prelude = self.import_(
-          "Prelude", extern=prelude.Prelude, export=prelude.exports()
-        , alias=prelude.aliases()
-        )
+      self.__prelude = self.import_('Prelude')
     return self.__prelude
 
   def reset(self):

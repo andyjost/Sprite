@@ -4,6 +4,7 @@ from . import cache
 from . import config
 from . import cymake
 from . import icurry
+from .icurry import json as icurry_json
 from .utility import filesys
 import logging
 import os
@@ -76,7 +77,7 @@ def loadJsonFile(jsonfile):
     json = zlib.decompress(json)
   else:
     json = open(jsonfile).read()
-  icur = icurry.parse(json)
+  icur = icurry_json.parse(json)
   icur.filename = cymake.curryFilename(jsonfile)
   cached.update(icur)
   return icur

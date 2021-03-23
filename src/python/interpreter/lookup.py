@@ -3,25 +3,29 @@ from . import module as cymodule
 from .. import icurry
 
 def module(interp, name):
-  '''Look up a module by name, or as the prefix of a qualified name.'''
-  iname = icurry.IName(name)
+  '''Look up a module by name.'''
   try:
-    return interp.modules[iname.module]
+    return interp.modules[name]
   except KeyError:
-    raise exceptions.ModuleLookupError('Curry module "%s" not found' % iname.module)
+    raise exceptions.ModuleLookupError('Curry module "%s" not found' % name)
 
 def symbol(interp, name, modulename=None):
-  '''Look up a symbol by its fully-qualified name, or relative to a module.'''
-  return cymodule.symbol(module(interp, modulename or name), icurry.IName(name))
+  '''
+  Look up a symbol by its fully-qualified name or by its name relative to a
+  module.
+  '''
+  if modulename is None:
+    modulename, name = icurry.splitname(name)
+  return cymodule.symbol(module(interp, modulename), name)
 
 def type(interp, name):
   '''Returns the constructor info tables for the named type.'''
-  module = interp.module(name)
-  iname = icurry.IName(name)
+  modulename, typename = icurry.splitname(name)
+  module = interp.module(modulename)
   types = getattr(module, '.types')
   try:
-    return types[iname.basename]
+    return types[typename]
   except KeyError:
     raise exceptions.TypeLookupError(
-        'module "%s" has no type "%s"' % (iname.module, iname.basename)
+        'module "%s" has no type "%s"' % (modulename, typename)
       )

@@ -48,13 +48,13 @@ def clean(s):
   a = ''.join(TR.get(ch, ch) for ch in s)
   return str(re.sub(P_SYMBOL, '', a))
 
-def encode(iname, disallow={}):
+def encode(name, disallow={}):
   '''
-  Encode an ``icurry.IName`` into a legal Python identifier.
+  Encode a Curry name into a legal Python identifier.
 
   Parameters:
   -----------
-  ``iname``
+  ``name``
       The Curry identifier to encode.
   ``disallow``
       A container of disallowed names.
@@ -63,27 +63,23 @@ def encode(iname, disallow={}):
   --------
   A string holding the encoded identifier.
   '''
-  # First, try just the basename.
-  a = clean(iname.basename)
+  a = clean(name)
   k = 'ni_%s' % a
   if k in disallow:
-    # If it conflicts, try prepending the module name.
-    k = 'ni_%s_%s' % (clean(iname.module), a)
-    if k in disallow:
-      # Finally, append a number.
-      k_ = k
-      i = itertools.count()
-      while k_ in disallow:
-        k_ = '%s_%d' % (k, next(i))
-      k = k_
+    # Append a number.
+    k_ = k
+    i = itertools.count()
+    while k_ in disallow:
+      k_ = '%s_%d' % (k, next(i))
+    k = k_
   assert k not in disallow
   assert k.startswith('ni_')
   return k
 
-def symbolToFilename(iname):
+def symbolToFilename(name):
   '''Makes the given symbol name into a valid UNIX filename.'''
-  assert iname not in ['.', '..']
-  return ''.join(TR.get('/') if ch=='/' else ch for ch in iname)
+  assert name not in ['.', '..']
+  return ''.join(TR.get('/') if ch=='/' else ch for ch in name)
 
 P_IDENTIFIER = re.compile('^[a-zA-Z_][0-9a-zA-Z_]*$|^[^0-9a-zA-Z_\s]+$')
 def isaCurryIdentifier(basename):

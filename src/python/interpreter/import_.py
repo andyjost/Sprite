@@ -1,3 +1,4 @@
+from .. import config
 from . import function_compiler
 from .. import icurry
 from .. import importer
@@ -52,11 +53,11 @@ def loadSymbols(interp, idef, moduleobj, extern=None, **kwds): #pragma: no cover
   '''
   raise RuntimeError("unhandled ICurry type during symbol loading: '%s'" % type(idef))
 
-@loadSymbols.when(collections.Sequence, no=(str,icurry.IType))
+@loadSymbols.when(collections.Sequence, no=(str))
 def loadSymbols(interp, seq, *args, **kwds):
   return [loadSymbols(interp, item, *args, **kwds) for item in seq]
 
-@loadSymbols.when(icurry.IType)
+@loadSymbols.when(icurry.IDataType)
 def loadSymbols(interp, itype, moduleobj, extern=None):
   # FIXME: why does the frontend translate empty types to a type with one
   # constructor?  The check for _Constr# below might need to be adjusted.  It
@@ -64,24 +65,24 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
   # definition.
   if not itype.constructors or \
       (len(itype.constructors) == 1 and \
-       itype.constructors[0].ident.basename.startswith('_Constr#')):
-    if extern is not None and itype.ident in extern.types:
-      itype.constructors = extern.types[itype.ident].constructors
+       itype.constructors[0].name.startswith('_Constr#')):
+    if extern is not None and itype.name in extern.types:
+      itype.constructors = extern.types[itype.name].constructors
     else:
       raise ValueError(
           '"%s" has no constructors and no external definition was found.'
-              % itype.ident
+              % itype.fullname
         )
   assert itype.constructors
   constructors = []
   constructors.extend(
       loadSymbols(
-          interp, list(itype), moduleobj, extern, itype=itype
+          interp, itype.constructors, moduleobj, extern, itype=itype
         , constructors=constructors
         )
     )
-  typedef = runtime.TypeDefinition(itype.ident, constructors)
-  getattr(moduleobj, '.types')[itype.ident.basename] = typedef
+  typedef = runtime.TypeDefinition(itype.fullname, constructors)
+  getattr(moduleobj, '.types')[itype.name] = typedef
   for i,ctor in enumerate(constructors):
     ctor.info.typedef = weakref.ref(typedef)
     # ctor.info.gpath = tuple(runtime._build_gpath(i, len(constructors)))
@@ -96,12 +97,8 @@ def loadSymbols(interp, mapping, moduleobj, **kwds):
 
 @loadSymbols.when(icurry.IModule)
 def loadSymbols(interp, imodule, moduleobj, **kwds):
-  # DEBUG!!!!
-  # This is disabled because the JSON for the Prelude cannot be generated at present.
   for modulename in imodule.imports:
-    logger.warn('Ignoring imported module %s', modulename)
-    # import_(interp, modulename)
-  # DEBUG!!!!
+    import_(interp, modulename)
 
   loadSymbols(interp, imodule.types, moduleobj, **kwds)
   loadSymbols(interp, imodule.functions, moduleobj, **kwds)
@@ -115,7 +112,7 @@ def loadSymbols(
   builtin = 'py.tag' in icons.metadata
   metadata = icurry.getmd(icons, extern, itype=itype)
   info = runtime.InfoTable(
-      icons.ident.basename
+      icons.name
     , icons.arity
     , runtime.T_CTOR + icons.index if not builtin else metadata['py.tag']
     , _no_step if not builtin else _unreachable
@@ -123,14 +120,14 @@ def loadSymbols(
     , _gettypechecker(interp, metadata)
     )
   nodeinfo = runtime.NodeInfo(icons, info)
-  insertSymbol(moduleobj, icons.ident.basename, nodeinfo)
+  insertSymbol(moduleobj, icons.name, nodeinfo)
   return nodeinfo
 
 @loadSymbols.when(icurry.IFunction)
 def loadSymbols(interp, ifun, moduleobj, extern=None):
   metadata = icurry.getmd(ifun, extern)
   info = runtime.InfoTable(
-      ifun.ident.basename
+      ifun.name
     , ifun.arity
     , runtime.T_FUNC
     , None
@@ -138,7 +135,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
     , _gettypechecker(interp, metadata)
     )
   nodeinfo = runtime.NodeInfo(ifun, info)
-  insertSymbol(moduleobj, ifun.ident.basename, nodeinfo)
+  insertSymbol(moduleobj, ifun.name, nodeinfo)
   return nodeinfo
 
 @visitation.dispatch.on('arg')
@@ -181,6 +178,11 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
     return interp.modules[name]
   except KeyError:
     logger.debug('Importing %s', name)
+    if name == 'Prelude':
+      from . import prelude
+      kwds.setdefault('extern', prelude.Prelude)
+      kwds.setdefault('export', prelude.exports())
+      kwds.setdefault('alias', prelude.aliases())
     currypath = parameters.currypath(interp, currypath)
     icur = importer.loadModule(name, currypath, is_sourcefile=is_sourcefile)
     return import_(interp, icur, **kwds)
@@ -221,7 +223,7 @@ def compileICurry(interp, imodule, moduleobj, extern=None):
 
 @compileICurry.when(icurry.IFunction)
 def compileICurry(interp, ifun, moduleobj, extern=None):
-  info = module.symbol(moduleobj, ifun.ident).info
+  info = module.symbol(moduleobj, ifun.name).info
   # Compile interactive code right away.  Otherwise, if lazycompile is set,
   # delay compilation until the function is actually used.  See InfoTable in
   # interpreter/runtime.py.

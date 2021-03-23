@@ -5,6 +5,7 @@ from ..utility import filesys
 import collections
 import logging
 import pprint
+import sys
 import textwrap
 
 logger = logging.getLogger(__name__)
@@ -44,15 +45,15 @@ def compile_function(interp, ifun, extern=None):
       elif 'py.rawfunc' in ifun.metadata:
         assert not any(x in ifun.metadata for x in ['py.unboxedfunc', 'py.boxedfunc'])
         return compile_py_rawfunc(interp, ifun.metadata['py.rawfunc'])
-      compiler = FunctionCompiler(interp, ifun.ident, extern)
-      compiler.compile(ifun.code)
+      compiler = FunctionCompiler(interp, ifun.fullname, extern)
+      compiler.compile(ifun.body)
     except ExternallyDefined as e:
       ifun = e.ifun
     else:
       break
 
   if logger.isEnabledFor(logging.DEBUG):
-    title = 'Compiling "%s":' % ifun.ident
+    title = 'Compiling "%s":' % ifun.fullname
     logger.debug('')
     logger.debug(title)
     logger.debug('=' * len(title))
@@ -132,15 +133,15 @@ class FunctionCompiler(object):
         selector).  No special rules; must not begin with an underscore or
         conflict with the above.
   '''
-  def __new__(self, interp, ident, extern=None):
+  def __new__(self, interp, name, extern=None):
     self = object.__new__(self)
-    self.ident = ident
+    self.name = name
     self.interp = interp
     self.closure = Closure(interp)
     self.closure['Node'] = runtime.Node
     self.extern = extern
-    body = []
-    self.program = ['def step(lhs):', body]
+    # body = []
+    self.program = ['def step(lhs):']
     return self
 
   def get(self):
@@ -151,15 +152,15 @@ class FunctionCompiler(object):
       # If debugging, write a source file so that PDB can step into this
       # function.
       srcdir = filesys.getDebugSourceDir()
-      ident = encoding.symbolToFilename(self.ident)
-      srcfile = filesys.makeNewfile(srcdir, ident)
+      name = encoding.symbolToFilename(self.name)
+      srcfile = filesys.makeNewfile(srcdir, name)
       with open(srcfile, 'w') as out:
         out.write(source)
         out.write('\n\n\n')
         comment = (
             'This file was created by Sprite because %s was compiled in debug '
             'mode.  It exists to help PDB show the compiled code.'
-          ) % self.ident
+          ) % self.name
         out.write('\n'.join('# ' + line for line in textwrap.wrap(comment)))
         out.write('\n\n# Closure:\n')
         closure = pprint.pformat(self.closure.context, indent=2)
@@ -189,9 +190,19 @@ class FunctionCompiler(object):
     return '\n'.join(lines)
 
   def compile(self, iobj):
-    self._compile(iobj)
+    # ICurry data can be deeply nested.  Adjusting the recursion limit up from
+    # its default of 1000 is necessary, e.g., to process strings longer than
+    # 999 characters.
+    limit = sys.getrecursionlimit()
+    try:
+      sys.setrecursionlimit(1<<30)
+      self._compile(iobj)
+    finally:
+      sys.setrecursionlimit(limit)
 
-  # Compile top-level ICurry objects.
+  # Compile top-level ICurry objects.  Appends to the program, which is
+  # represented as a nested list of strings.  Each string is a line of the
+  # program, and each nesting is an indentation level.
   @visitation.dispatch.on('iobj')
   def _compile(self, iobj):
     assert False
@@ -200,117 +211,32 @@ class FunctionCompiler(object):
   def _compile(self, seq):
     map(self._compile, seq)
 
-  # Note: the cases below are not covered.  Perhaps that cannot occur in
-  # ICurry?  I'll put off removing them until more programs are being tested.
+  @_compile.when(icurry.IFunction)
+  def _compile(self, ifun):
+    self._compile(ifun.body)
 
-  # @_compile.when(icurry.VarScope)
-  # def _compile(self, varscope):
-  #   return self.varscope(varscope)
+  @_compile.when(icurry.IExternal)
+  def _compile(self, iexternal):
+    try:
+      ifun = self.extern.functions[iexternal.name]
+      raise ExternallyDefined(ifun)
+    except (KeyError, AttributeError):
+      msg = 'external function "%s" is not defined' % iexternal.name
+      logger.warn(msg)
+      stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))
+      self._compile(stmt)
+    else:
+      self._compile(ifun)
 
-  # @_compile.when(icurry.BuiltinVariant)
-  # def _compile(self, builtinvariant):
-  #   self.builtinvariant(builtinvariant)
+  @_compile.when(icurry.IFuncBody)
+  def _compile(self, body):
+    self.program.append(list(self.statement(body.block)))
 
-  # @_compile.when(icurry.Expression)
-  # def _compile(self, expression):
-  #   self.expression(expression)
+  @_compile.when(icurry.IStatement)
+  def _compile(self, stmt):
+    self.program.append(list(self.statement(stmt)))
 
-  @_compile.when(icurry.Statement)
-  def _compile(self, statement):
-    self.program.append(list(self.statement(statement)))
-
-  # VarScope.
-  @visitation.dispatch.on('varscope')
-  def varscope(self, varscope):
-    assert False
-
-  @varscope.when(icurry.ILhs)
-  def varscope(self, ilhs):
-    return 'lhs[%d]' % (ilhs.index.position-1) # 1-based indexing
-
-  @varscope.when(icurry.IVar)
-  def varscope(self, ivar):
-    return '_%s[%d]' % (ivar.vid, ivar.index.position-1) # 1-based indexing
-
-  @varscope.when(icurry.IBind)
-  def varscope(self, ibind):
-    pass
-
-  @varscope.when(icurry.IFree)
-  def varscope(self, ifree):
-    self.closure['nextid'] = self.interp.nextid
-    return 'Node(%s, nextid(), Node(%s))' % (
-        self.closure['Prelude._Free'], self.closure['Prelude.()']
-      )
-
-  # VarPath.
-  # Add a variable's path to the closure.
-  @visitation.dispatch.on('varscope')
-  def setvarpath(self, vid, varscope):
-    assert False
-
-  @setvarpath.when(icurry.ILhs)
-  def setvarpath(self, vid, ilhs):
-    self.closure['p_%s' % vid] = (ilhs.index.position-1,) # 1-based indexing
-
-  @setvarpath.when(icurry.IVar)
-  def setvarpath(self, vid, ivar):
-    self.closure['p_%s' % vid] = self.closure['p_%s' % ivar.vid] + (vid,)
-
-  @setvarpath.when(icurry.IBind)
-  def setvarpath(self, vid, ibind):
-    pass
-
-  @setvarpath.when(icurry.IFree)
-  def setvarpath(self, vid, ifree):
-    pass
-
-  # Expression.
-  @visitation.dispatch.on('expression')
-  def expression(self, expression, partial=False):
-    assert False
-
-  @expression.when(collections.Sequence, no=str)
-  def expression(self, seq, partial=False):
-    return [self.expression(e, partial) for e in seq]
-
-  @expression.when(icurry.Exempt)
-  def expression(self, exempt, partial=False):
-    return 'Node(%s)' % self.closure['Prelude._Failure']
-
-  @expression.when(icurry.Reference)
-  def expression(self, ref, partial=False):
-    return 'Node(%s, _%s)' % (self.closure['Prelude._Fwd'], ref.vid)
-
-  @expression.when(icurry.Applic)
-  def expression(self, applic, partial=False):
-    return 'Node(%s%s%s)' % (
-        self.closure[applic.ident]
-      , ''.join(', '+e for e in self.expression(applic.args))
-      , ', partial=True' if partial else ''
-      )
-
-  @expression.when(icurry.PartApplic)
-  def expression(self, partapplic, partial=False):
-    return 'Node(%s, %s, %s)' % (
-        self.closure['Prelude._PartApplic']
-      , self.expression(partapplic.missing)
-      , self.expression(partapplic.expr, True)
-      )
-
-  @expression.when(icurry.IOr)
-  def expression(self, ior, partial=False):
-    return 'Node(%s, %s, %s)' % (
-        self.closure['Prelude.?']
-      , self.expression(ior.lhs)
-      , self.expression(ior.rhs)
-      )
-
-  @expression.when(icurry.BuiltinVariant)
-  def expression(self, value, partial=False):
-    return repr(value)
-
-  # Statement.
+  # Statements.  Returns a sequence of strings.
   @visitation.dispatch.on('statement')
   def statement(self, statement):
     assert False
@@ -321,86 +247,105 @@ class FunctionCompiler(object):
       for line in lines:
         yield line
 
-  @statement.when(icurry.IExternal)
-  def statement(self, iexternal):
-    try:
-      ifun = self.extern.functions[iexternal.ident]
-      raise ExternallyDefined(ifun)
-    except (KeyError, AttributeError):
-      msg = 'external function "%s" is not defined' % iexternal.ident
-      logger.warn(msg)
-      stmt = icurry.Return(icurry.Applic('Prelude.prim_error', [msg]))
-      return self.statement(stmt)
+  @statement.when(icurry.IVarDecl)
+  def statement(self, vardecl):
+    yield '# %s' % vardecl
 
-  @statement.when(icurry.Comment)
-  def statement(self, comment):
-    return []
-
-  @statement.when(icurry.Declare)
-  def statement(self, declare):
-    scope = declare.var.scope
-    if not isinstance(scope, icurry.IBind):
-      vid = declare.var.vid
-      self.setvarpath(vid, scope)
-      yield '_%s = %s' % (vid, self.varscope(scope))
-
-  @statement.when(icurry.Assign)
+  @statement.when(icurry.IAssign)
   def statement(self, assign):
-    yield '_%s = %s' % (assign.vid, self.expression(assign.expr))
+    lhs = self.expression(assign.lhs)
+    rhs = self.expression(assign.rhs)
+    yield '%s = %s' % (lhs, rhs)
 
-  @statement.when(icurry.Fill)
-  def statement(self, fill):
-    # untested:
-    yield '_%s.successors%s = _%s' % (fill.v1, [p.position for p in fill.path], fill.v2)
+  @statement.when(icurry.IBlock)
+  def statement(self, block):
+    for sect in [block.vardecls, block.assigns, block.stmt]:
+      for line in self.statement(sect):
+        yield line
 
-  @statement.when(icurry.Return)
-  def statement(self, return_):
-    yield 'lhs.%s' % self.expression(return_.expr)
+  @statement.when(icurry.IExempt)
+  def statement(self, exempt):
+    yield 'Node(%s)' % self.closure['Prelude._Failure']
+
+  @statement.when(icurry.IReturn)
+  def statement(self, ret):
+    yield 'lhs.%s' % self.expression(ret.expr)
     yield 'return'
 
-  @statement.when(icurry.ATable)
-  def statement(self, atable):
+  @statement.when(icurry.ICase)
+  def statement(self, icase):
     self.closure['hnf'] = self.interp.hnf
-    assert hasattr(atable.expr, 'vid') # the selector is always a variable
-    if atable.isflex:
-      typename = next(atable.switch.iterkeys())
-      self.closure['switch_type'] = self.interp.symbol(typename).typedef()
-      yield 'selector = hnf(lhs, p_%s, typedef=switch_type).info.tag' \
-          % atable.expr.vid
-    else:
-      yield 'selector = hnf(lhs, p_%s).info.tag' % atable.expr.vid
+    yield 'selector = hnf(lhs, p_%s).info.tag' % icase.vid
     el = ''
-    for iname,stmt in atable.switch.iteritems():
-      yield '%sif selector == %s:' % (el, self.nodeinfo(iname).info.tag)
-      yield list(self.statement(stmt))
+    for branch in icase.branches:
+      if isinstance(branch, icurry.ILitBranch):
+        rhs = repr(branch.lit.value)
+      else:
+        rhs = self.nodeinfo(branch.name).info.tag
+      yield '%sif selector == %s:' % (el, rhs)
+      yield list(self.statement(branch.block))
       el = 'el'
     yield 'else:'
     yield '  lhs.Node(%s)' % self.closure['Prelude._Failure']
     yield '  return'
 
-  @statement.when(icurry.BTable)
-  def statement(self, btable):
-    self.closure['hnf'] = self.interp.hnf
-    self.closure['unbox'] = self.interp.unbox
-    assert hasattr(btable.expr, 'vid') # the selector is always a variable
-    if btable.isflex:
-      typename = next(btable.switch.iterkeys()).ident
-      self.closure['switch_type'] = self.interp.symbol(typename).typedef()
-      yield 'selector = unbox(hnf(lhs, p_%s, typedef=switch_type))' \
-          % btable.expr.vid
-    else:
-      assert False
-      # I have been unable to write a Curry program that exercises this branch.
-      # yield 'selector = unbox(hnf(lhs, p_%s))' % btable.expr.vid
-    el = ''
-    for iname,stmt in btable.switch.iteritems():
-      yield '%sif selector == %s:' % (el, icurry.unbox(iname))
-      yield list(self.statement(stmt))
-      el = 'el'
-    yield 'else:'
-    yield '  lhs.Node(%s)' % self.closure['Prelude._Failure']
-    yield '  return'
 
+  # Expressions.  Returns a string.
+  @visitation.dispatch.on('expression')
+  def expression(self, expression):
+    import code
+    code.interact(local=dict(globals(), **locals()))
+    assert False
+
+  @expression.when(collections.Sequence, no=str)
+  def expression(self, seq):
+    return map(self.expression, seq) ###
+
+  @expression.when(icurry.IVar)
+  def expression(self, ivar):
+    return '_%s' % ivar.vid
+
+  @expression.when(icurry.IVarAccess)
+  def expression(self, ivaraccess):
+    return '%s%s' % (
+        self.expression(ivaraccess.var)
+      , ''.join('[%s]' % i for i in ivaraccess.path)
+      )
+
+  @expression.when(icurry.ILiteral)
+  def expression(self, iliteral):
+    return 'Node(%s, %r)' % (self.closure[iliteral.name], iliteral.value)
+
+  @expression.when(icurry.IUnboxedLiteral)
+  def expression(self, iunboxed):
+    return repr(iunboxed)
+
+  @expression.when(icurry.ILit)
+  def expression(self, ilit):
+    return self.expression(ilit.lit)
+
+  @expression.when(icurry.ICall)
+  def expression(self, icall):
+    return 'Node(%s%s)' % (
+        self.closure[icall.name]
+      , ''.join(', '+e for e in self.expression(icall.exprs)) ###
+      )
+
+  @expression.when(icurry.IPartialCall)
+  def expression(self, ipcall):
+    return 'Node(%s, %s%s)' % (
+        self.closure['Prelude._PartApplic']
+      , self.expression(ipcall.missing)
+      , ''.join(', '+e for e in self.expression(ipcall.exprs))
+      )
+
+  @expression.when(icurry.IOr)
+  def expression(self, ior):
+    return 'Node(%s, %s, %s)' % (
+        self.closure['Prelude.?']
+      , self.expression(ior.lhs)
+      , self.expression(ior.rhs)
+      )
 # Closure.
 # ========
 class Closure(object):
@@ -408,8 +353,14 @@ class Closure(object):
   The closure in which a step function is compiled.  Contains symbols looked up
   at compile time.
 
+  This is a mapping from names to Python identifiers with associated objects.
+  During compilation, the closure translates a name to an identifier that can
+  appear in generated code as a reference to the corresponding object.  The
+  mapping from identifiers to objects is exported to the runtime.
+
   The closure is automatically populated: the first time a symbol is looked up,
-  it is added to the closure.
+  it is added to the closure.  The value must be set once, of course, for the
+  lookup to succeed at runtime.
 
   See ``FunctionCompiler`` for naming conventions.
   '''
@@ -417,22 +368,19 @@ class Closure(object):
     self.interp = interp
     self.context = {}
 
-  @visitation.dispatch.on('key')
-  def __getitem__(self, key):
-    '''Look up the given symbol.  Returns a variable name in the context.'''
-    rv = self.context.get(key, None)
-    return rv if rv is not None else self[icurry.IName(key)]
-
-  @__getitem__.when(icurry.IName)
-  def __getitem__(self, iname):
-    symbol = self.interp.symbol(iname).info
-    for k,v in self.context.iteritems():
-      if v is symbol:
-        return k
+  def __getitem__(self, name):
+    rv = self.context.get(name, None)
+    if rv is not None:
+      return rv
     else:
-      k = encoding.encode(iname, self.context)
-      self.context[k] = symbol
-      return k
+      symbol = self.interp.symbol(name).info
+      for k,v in self.context.iteritems():
+        if v is symbol:
+          return k
+      else:
+        k = encoding.encode(name, self.context)
+        self.context[k] = symbol
+        return k
 
   def __setitem__(self, key, obj):
     '''Add a non-symbol, such as a system function, to the closure.'''

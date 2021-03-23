@@ -5,7 +5,7 @@ from ..runtime import ChoiceState, UNDETERMINED
 import numbers
 
 '''Passes isinstance for any node or valid unboxed type.'''
-ANY_CURRY_TYPE = (runtime.Node, icurry.BuiltinVariant)
+ANY_CURRY_TYPE = (runtime.Node, icurry.ILiteral)
 
 def _articlefor(name):
   '''Decides (crudely) between the def. articles 'a' and 'an' for a name.'''

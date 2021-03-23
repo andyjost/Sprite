@@ -28,14 +28,14 @@ class CurryModule(types.ModuleType):
   __str__ = __repr__
 
 
-def symbol(moduleobj, iname):
+def symbol(moduleobj, name):
   '''Look up the given symbol name in the module.'''
   symbols = getattr(moduleobj, '.symbols')
   try:
-    return symbols[iname.basename]
+    return symbols[name]
   except KeyError:
     raise exceptions.SymbolLookupError(
-        'module "%s" has no symbol "%s"' % (iname.module, iname.basename)
+        'module "%s" has no symbol "%s"' % (moduleobj.__name__, name)
       )
 
 def _getfile(moduleobj, suffix):
