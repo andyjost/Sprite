@@ -76,9 +76,9 @@ def compile_py_unboxedfunc(interp, unboxedfunc):
   hnf = interp.hnf
   expr = interp.expr
   topython = interp.topython
-  def step(lhs):
-    args = (topython(hnf(lhs, [i])) for i in xrange(len(lhs.successors)))
-    return expr(unboxedfunc(*args), target=lhs)
+  def step(_0):
+    args = (topython(hnf(_0, [i])) for i in xrange(len(_0.successors)))
+    return expr(unboxedfunc(*args), target=_0)
   return step
 
 def compile_py_boxedfunc(interp, boxedfunc):
@@ -91,9 +91,9 @@ def compile_py_boxedfunc(interp, boxedfunc):
   sequence of arguments accepted by ``runtime.Node.__new__``.
   '''
   hnf = interp.hnf
-  def step(lhs):
-    args = (hnf(lhs, [i]) for i in xrange(len(lhs.successors)))
-    runtime.Node(*boxedfunc(interp, *args), target=lhs)
+  def step(_0):
+    args = (hnf(_0, [i]) for i in xrange(len(_0.successors)))
+    runtime.Node(*boxedfunc(interp, *args), target=_0)
   return step
 
 def compile_py_rawfunc(interp, rawfunc):
@@ -104,8 +104,8 @@ def compile_py_rawfunc(interp, rawfunc):
   Like compile_py_boxedfunc but does not head-normalize the arguments.  The
   left-hand-side expression is simply passed to the implementation function.
   '''
-  def step(lhs):
-    runtime.Node(*rawfunc(interp, lhs), target=lhs)
+  def step(_0):
+    runtime.Node(*rawfunc(interp, _0), target=_0)
   return step
 
 class FunctionCompiler(object):
@@ -140,8 +140,7 @@ class FunctionCompiler(object):
     self.closure = Closure(interp)
     self.closure['Node'] = runtime.Node
     self.extern = extern
-    # body = []
-    self.program = ['def step(lhs):']
+    self.program = ['def step(_0):']
     return self
 
   def get(self):
@@ -217,11 +216,17 @@ class FunctionCompiler(object):
 
   @_compile.when(icurry.IExternal)
   def _compile(self, iexternal):
+    # As far as I can tell, the external name is redundant, since the Curry
+    # syntax for an external declaration is just something like, e.g.:
+    #
+    #   eqChar external
+    assert self.name == iexternal.name
+    modulename, symbolname = icurry.splitname(iexternal.name)
     try:
-      ifun = self.extern.functions[iexternal.name]
+      ifun = self.extern.functions[symbolname]
       raise ExternallyDefined(ifun)
     except (KeyError, AttributeError):
-      msg = 'external function "%s" is not defined' % iexternal.name
+      msg = 'external function "%s" is not defined' % self.name
       logger.warn(msg)
       stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))
       self._compile(stmt)
@@ -249,12 +254,12 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.IVarDecl)
   def statement(self, vardecl):
-    yield '# %s' % vardecl
+    return []
 
   @statement.when(icurry.IAssign)
   def statement(self, assign):
     lhs = self.expression(assign.lhs)
-    rhs = self.expression(assign.rhs)
+    rhs = self.expression(assign.rhs, primary=True)
     yield '%s = %s' % (lhs, rhs)
 
   @statement.when(icurry.IBlock)
@@ -269,13 +274,17 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.IReturn)
   def statement(self, ret):
-    yield 'lhs.%s' % self.expression(ret.expr)
-    yield 'return'
+    if isinstance(ret.expr, icurry.IReference):
+      yield '_0.rewrite(%s, %s)' % (
+          self.closure['Prelude._Fwd'], self.expression(ret.expr, primary=True)
+        )
+    else:
+      yield '_0.rewrite(%s)' % self.expression(ret.expr)
 
   @statement.when(icurry.ICase)
   def statement(self, icase):
     self.closure['hnf'] = self.interp.hnf
-    yield 'selector = hnf(lhs, p_%s).info.tag' % icase.vid
+    yield 'selector = hnf(_0, p_%s).info.tag' % icase.vid
     el = ''
     for branch in icase.branches:
       if isinstance(branch, icurry.ILitBranch):
@@ -286,66 +295,68 @@ class FunctionCompiler(object):
       yield list(self.statement(branch.block))
       el = 'el'
     yield 'else:'
-    yield '  lhs.Node(%s)' % self.closure['Prelude._Failure']
+    yield '  _0.rewrite(%s)' % self.closure['Prelude._Failure']
     yield '  return'
 
-
-  # Expressions.  Returns a string.
+  # Expressions.  Returns a string.  For primary expressions, the string
+  # evaluates to a value (boxed or unboxed).  For non-primary expressions, it
+  # contains comma-separated arguments that may be used to construct a Node.
   @visitation.dispatch.on('expression')
-  def expression(self, expression):
-    import code
-    code.interact(local=dict(globals(), **locals()))
+  def expression(self, expression, primary=False):
     assert False
 
-  @expression.when(collections.Sequence, no=str)
-  def expression(self, seq):
-    return map(self.expression, seq) ###
-
   @expression.when(icurry.IVar)
-  def expression(self, ivar):
+  def expression(self, ivar, primary=False):
     return '_%s' % ivar.vid
 
   @expression.when(icurry.IVarAccess)
-  def expression(self, ivaraccess):
+  def expression(self, ivaraccess, primary=False):
     return '%s%s' % (
         self.expression(ivaraccess.var)
       , ''.join('[%s]' % i for i in ivaraccess.path)
       )
 
   @expression.when(icurry.ILiteral)
-  def expression(self, iliteral):
-    return 'Node(%s, %r)' % (self.closure[iliteral.name], iliteral.value)
+  def expression(self, iliteral, primary=False):
+    text = '%s, %r' % (self.closure[iliteral.name], iliteral.value)
+    return 'Node(%s)' % text if primary else text
 
   @expression.when(icurry.IUnboxedLiteral)
-  def expression(self, iunboxed):
+  def expression(self, iunboxed, primary=False):
     return repr(iunboxed)
 
   @expression.when(icurry.ILit)
-  def expression(self, ilit):
-    return self.expression(ilit.lit)
+  def expression(self, ilit, primary=False):
+    return self.expression(ilit.lit, primary)
 
   @expression.when(icurry.ICall)
-  def expression(self, icall):
-    return 'Node(%s%s)' % (
+  def expression(self, icall, primary=False):
+    subexprs = (self.expression(x, primary=True) for x in icall.exprs)
+    text = '%s%s' % (
         self.closure[icall.name]
-      , ''.join(', '+e for e in self.expression(icall.exprs)) ###
+      , ''.join(', ' + e for e in subexprs)
       )
+    return 'Node(%s)' % text if primary else text
 
   @expression.when(icurry.IPartialCall)
-  def expression(self, ipcall):
-    return 'Node(%s, %s%s)' % (
+  def expression(self, ipcall, primary=False):
+    subexprs = (self.expression(x, primary=True) for x in ipcall.exprs)
+    text = '%s, %s%s' % (
         self.closure['Prelude._PartApplic']
       , self.expression(ipcall.missing)
-      , ''.join(', '+e for e in self.expression(ipcall.exprs))
+      , ''.join(', ' + e for e in subexprs)
       )
+    return 'Node(%s)' % text if primary else text
 
   @expression.when(icurry.IOr)
-  def expression(self, ior):
-    return 'Node(%s, %s, %s)' % (
+  def expression(self, ior, primary=False):
+    text = '%s, %s, %s' % (
         self.closure['Prelude.?']
       , self.expression(ior.lhs)
       , self.expression(ior.rhs)
       )
+    return 'Node(%s)' % text if primary else text
+
 # Closure.
 # ========
 class Closure(object):

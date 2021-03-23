@@ -44,6 +44,10 @@ class IObject(object):
     mname = modulename(self)
     return mname if isinstance(self, IModule) else '%s.%s' % (mname, self.name)
 
+  @property
+  def modulename(self):
+    return modulename(self)
+
   # Make pickling safe.  Attribute parent is a weakref, which cannot be
   # pickled.  Just convert it to a normal ref and back.
   def __getstate__(self):
@@ -449,6 +453,12 @@ class ILit(IObject):
     return str(self.lit)
   def __repr__(self):
     return 'ILit(lit=%r)' % self.lit
+
+class IReference(IObject):
+  __metaclass__ = ABCMeta
+IReference.register(IVar)
+IReference.register(IVarAccess)
+IReference.register(ILit)
 
 class ICall(IObject):
   def __init__(self, name, exprs, **kwds):

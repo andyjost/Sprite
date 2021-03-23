@@ -307,10 +307,7 @@ class Node(object):
   def __repr__(self):
     return '<%s>' % ' '.join(self._repr_())
 
-  # Rewrite this node. This gives a consistent syntax for node creation and
-  # rewriting.  For example, ``Node(*args)`` creates a node and
-  # ``lhs.Node(*args)`` rewrites ``lhs``.  This simplifies the code generator.
-  def Node(self, info, *args):
+  def rewrite(self, info, *args):
     Node(info, *args, target=self)
 
 Bindings = compose(Shared, compose(DefaultDict, compose(Shared, list)))
