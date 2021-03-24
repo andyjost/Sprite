@@ -235,7 +235,7 @@ class Curry2ICurryConverter(object):
     cached = self.use_cache and cache.Curry2ICurryCache(file_in, file_out)
     if not cached:
       with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
-        logger.debug('using CURRYPATH %s', os.environ['CURRYPATH'])
+        logger.debug('Using CURRYPATH %s', os.environ['CURRYPATH'])
         _makeOutputDir(file_out)
         cmd = [config.icurry_tool(), '-o', file_out, file_in]
         if self.quiet:
