@@ -68,10 +68,10 @@ def loadJsonFile(jsonfile):
   assert os.path.exists(jsonfile)
   cached = cache.ParsedJsonCache(jsonfile)
   if cached:
-    logger.debug('Loading cached ICurry-JSON for %s from %s', jsonfile, cache.filename)
+    logger.info('Loading cached ICurry-JSON for %s from %s', jsonfile, cache.filename)
     return cached.icur
   else:
-    logger.debug('Reading ICurry-JSON from %s', jsonfile)
+    logger.info('Reading ICurry-JSON from %s', jsonfile)
   if jsonfile.endswith('.z'):
     json = open(jsonfile, 'rb').read()
     json = zlib.decompress(json)

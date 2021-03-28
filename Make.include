@@ -18,6 +18,11 @@ MULTIARCH := $(shell $(CC) --print-multiarch)
 # =================
 # Variables derived from Make.config variables.
 
+PAKCS := $(realpath $(PAKCS_HOME)/bin/pakcs)
+PAKCS_NAME := $(shell $(PAKCS) --compiler-name)
+PAKCS_VER := $(shell $(PAKCS) --numeric-version)
+PAKCS_SUBDIR := $(PAKCS_NAME)-$(PAKCS_VER)
+
 ifndef PYTHON_PACKAGE_NAME
   PYTHON_PACKAGE_NAME := curry
 endif

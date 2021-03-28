@@ -177,7 +177,7 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
   try:
     return interp.modules[name]
   except KeyError:
-    logger.debug('Importing %s', name)
+    logger.info('Importing %s', name)
     if name == 'Prelude':
       from . import prelude
       kwds.setdefault('extern', prelude.Prelude)

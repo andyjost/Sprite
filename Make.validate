@@ -21,6 +21,14 @@ ifneq ($(NVALIDATE),1)
     $(error PREFIX must be an absolute path)
   endif
 
+  ifndef PAKCS_HOME
+    $(error PAKCS_HOME is not defined)
+  endif
+
+  ifeq ($(shell [ -x "$(PAKCS)" ]; echo $$?),1)
+    $(error Not an executable: PAKCS=$(PAKCS))
+  endif
+
   ifndef PYTHON_PACKAGE_NAME
     $(error PYTHON_PACKAGE_NAME must be defined))
   endif

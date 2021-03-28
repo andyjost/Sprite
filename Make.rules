@@ -9,7 +9,7 @@ ifeq ($(flavor INSTALL_DIR),undefined)
     RELATIVE_INSTALL_DIR = $(shell realpath --relative-to $(ROOT_DIR) $(shell pwd))
   endif
   ifdef RELATIVE_INSTALL_DIR
-    INSTALL_DIR = $(PREFIX)/$(RELATIVE_INSTALL_DIR)
+    INSTALL_DIR = $(abspath $(PREFIX)/$(RELATIVE_INSTALL_DIR))
     DIRS_TO_CLEAN += $(INSTALL_DIR)
   endif
 endif
@@ -32,9 +32,13 @@ FILES_TO_CLEAN += $(LOCKFILE)
 # Create the directory under $(OBJECT_ROOT) corresponding to the current source
 # directory.
 OBJECT_DIR := $(shell realpath --relative-to $(ROOT_DIR)/src $(shell pwd))
-OBJECT_DIR := $(abspath $(OBJECT_ROOT)/$(OBJECT_DIR))
-$(shell mkdir -p $(OBJECT_DIR) >/dev/null)
-DIRS_TO_CLEAN += $(OBJECT_DIR)
+ifeq ($(findstring ..,$(OBJECT_DIR)),..)
+	OBJECT_DIR :=
+else
+  OBJECT_DIR := $(abspath $(OBJECT_ROOT)/$(OBJECT_DIR))
+  $(shell mkdir -p $(OBJECT_DIR) >/dev/null)
+  DIRS_TO_CLEAN += $(OBJECT_DIR)
+endif
 
 # Submodules may override OBJS.
 ifndef OBJS
@@ -179,6 +183,9 @@ ifdef CURRYFILES
     $(INSTALL_DIR)/%.curry : %.curry
 			@mkdir -p $(dir $@)
 			cp $< $@
+			@mkdir -p $(dir $@)/.curry/sprite
+			if [ -e $*.icy ]; then cp $*.icy $(dir $@)/.curry/sprite; fi
+			if [ -e $*.json.z ]; then cp $*.json.z $(dir $@)/.curry/sprite; fi
   endif
 endif
 
