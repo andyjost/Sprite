@@ -101,7 +101,7 @@ endif
 
 RECURSIVE_TARGETS := all clean bootstrap install libs objs shlibs uninstall test
 .PHONY: $(RECURSIVE_TARGETS) $(SUBMODULES)
-$(RECURSIVE_TARGETS): | $(SUBMODULES)
+$(RECURSIVE_TARGETS):: | $(SUBMODULES)
 $(SUBMODULES):
 	$(MAKE) -C $@ $(MAKECMDGOALS)
 

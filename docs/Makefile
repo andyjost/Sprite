@@ -49,7 +49,7 @@ I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
 .PHONY: all
 # ifdef DOCS_ENABLED
-all: html man info
+all:: html man info
 # else
 # all:
 # endif
@@ -103,11 +103,11 @@ help:
 	@echo "  coverage   to run coverage check of the documentation (if enabled)"
 
 .PHONY: uninstall
-uninstall:
+uninstall::
 	rm -rf $(INSTALLDIR)
 
 .PHONY: clean
-clean:
+clean::
 	rm -rf $(BUILDDIR)/*
 
 .PHONY: html

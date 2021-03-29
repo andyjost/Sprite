@@ -10,7 +10,7 @@ ifeq ($(flavor INSTALL_DIR),undefined)
   endif
   ifdef RELATIVE_INSTALL_DIR
     INSTALL_DIR = $(abspath $(PREFIX)/$(RELATIVE_INSTALL_DIR))
-    DIRS_TO_CLEAN += $(INSTALL_DIR)
+    DIRS_TO_UNINSTALL += $(INSTALL_DIR)
   endif
 endif
 
@@ -56,13 +56,15 @@ ifdef LIB
   LIB_OUT := $(OBJECT_ROOT)/$(LIB).a
   FILES_TO_CLEAN += $(LIB_OUT)
   $(LIB_OUT): $(LIB_OUT)($(LIB_DEPENDS))
-  libs: $(LIB_OUT)
-  libs: $(LIB_DEPENDS)
+  libs:: $(LIB_OUT)
+  libs:: $(LIB_DEPENDS)
   # Install.
   ifdef INSTALL_DIR
     LIB_BASENAME := $(notdir $(basename $(LIB)))
     LIB_INSTALL = $(INSTALL_DIR)/$(LIB_BASENAME).a
-    install: $(LIB_INSTALL)
+    DIRS_TO_UNINSTALL += $(dir $(LIB_INSTALL))
+    FILES_TO_UNINSTALL += $(LIB_INSTALL)
+    install:: $(LIB_INSTALL)
     $(LIB_INSTALL): $(LIB_OUT)
 			@mkdir -p $(dir $@)
 			cp $< $@
@@ -77,11 +79,13 @@ ifdef SHLIB
     FILES_TO_CLEAN += $(SHLIB_OUT)
     $(SHLIB_OUT): $(SHLIB_DEPENDS) | $(SHLIB_EXTRA_DEPENDS)
 			$(CXX) -shared -o $@ $(SHLIB_PREDEP_LDFLAGS) $^ $(SHLIB_POSTDEP_LDFLAGS) $(LDFLAGS)
-    shlibs: $(SHLIB_OUT)
-    shlibs: $(SHLIB_DEPENDS)
+    shlibs:: $(SHLIB_OUT)
+    shlibs:: $(SHLIB_DEPENDS)
     # Install.
     SHLIB_INSTALL = $(INSTALL_DIR)/$(SHLIB).so
-    install: $(SHLIB_INSTALL)
+    DIRS_TO_UNINSTALL += $(dir $(SHLIB_INSTALL))
+    FILES_TO_UNINSTALL += $(SHLIB_INSTALL)
+    install:: $(SHLIB_INSTALL)
     $(SHLIB_INSTALL): $(SHLIB_OUT)
 			@mkdir -p $(dir $@)
 			cp $< $@
@@ -104,7 +108,9 @@ ifdef LINKS
     LINKS_NOEXT := $(patsubst %.link,%,$(LINKS))
     # Do not update FILES_TO_CLEAN.  There are no intermediate files.
     LINKS_INSTALL = $(addprefix $(INSTALL_DIR)/, $(LINKS_NOEXT))
-    install: $(LINKS_INSTALL)
+    DIRS_TO_UNINSTALL += $(dir $(LINKS_INSTALL))
+    FILES_TO_UNINSTALL += $(LINKS_INSTALL)
+    install:: $(LINKS_INSTALL)
     $(foreach link,$(LINKS),$(eval $(call define_link_target,$(link))))
     $(INSTALL_DIR)/% : %.link
 			@mkdir -p $(dir $@)
@@ -128,7 +134,9 @@ ifdef VARS
     VARS_NOEXT := $(patsubst %.var,%,$(VARS))
     # Do not update FILES_TO_CLEAN.  There are no intermediate files.
     VARS_INSTALL = $(addprefix $(INSTALL_DIR)/, $(VARS_NOEXT))
-    install: $(VARS_INSTALL)
+    DIRS_TO_UNINSTALL += $(dir $(VARS_INSTALL))
+    FILES_TO_UNINSTALL += $(VARS_INSTALL)
+    install:: $(VARS_INSTALL)
     $(foreach var,$(VARS),$(eval $(call define_var_target,$(var))))
     $(INSTALL_DIR)/% : %.var
 			@mkdir -p $(dir $@)
@@ -145,7 +153,9 @@ ifdef SCRIPTS
     SCRIPTS_NOEXT := $(patsubst %.script,%,$(SCRIPTS))
     # Do not update FILES_TO_CLEAN.  There are no intermediate files.
     SCRIPTS_INSTALL = $(addprefix $(INSTALL_DIR)/, $(SCRIPTS_NOEXT))
-    install: $(SCRIPTS_INSTALL)
+    DIRS_TO_UNINSTALL += $(dir $(SCRIPTS_INSTALL))
+    FILES_TO_UNINSTALL += $(SCRIPTS_INSTALL)
+    install:: $(SCRIPTS_INSTALL)
     $(INSTALL_DIR)/% : %.script
 			@mkdir -p $(dir $@)
 			cp $< $@
@@ -160,7 +170,9 @@ ifdef PYTHONFILES
   ifdef INSTALL_DIR
     # Do not update FILES_TO_CLEAN.  There are no intermediate files.
     PYTHONFILES_INSTALL = $(addprefix $(INSTALL_DIR)/, $(PYTHONFILES))
-    install: $(PYTHONFILES_INSTALL)
+    DIRS_TO_UNINSTALL += $(dir $(PYTHONFILES_INSTALL))
+    FILES_TO_UNINSTALL += $(PYTHONFILES_INSTALL)
+    install:: $(PYTHONFILES_INSTALL)
     $(INSTALL_DIR)/%.py : %.py
 			@mkdir -p $(dir $@)
       ifdef SYMLINK_PYTHON
@@ -177,27 +189,39 @@ ifndef CURRYFILES
 endif
 ifdef CURRYFILES
   ifdef INSTALL_DIR
+    CURRYFILES_INSTALL = $(addprefix $(INSTALL_DIR)/,$(CURRYFILES))
     # Do not update FILES_TO_CLEAN.  There are no intermediate files.
-    CURRYFILES_INSTALL = $(addprefix $(INSTALL_DIR)/, $(CURRYFILES))
-    install: $(CURRYFILES_INSTALL)
+    DIRS_TO_UNINSTALL += $(dir $(CURRYFILES_INSTALL))
+    FILES_TO_UNINSTALL += $(CURRYFILES_INSTALL)
+    install:: $(CURRYFILES_INSTALL)
     $(INSTALL_DIR)/%.curry : %.curry
 			@mkdir -p $(dir $@)
 			cp $< $@
-			@mkdir -p $(dir $@)/.curry/sprite
-			if [ -e $*.icy ]; then cp $*.icy $(dir $@)/.curry/sprite; fi
-			if [ -e $*.json.z ]; then cp $*.json.z $(dir $@)/.curry/sprite; fi
+			@mkdir -p $(dir $@)/.curry/$(INTERMEDIATE_SUBDIR)
+			if [ -e $*.icy ]; then cp $*.icy $(dir $@)/.curry/$(INTERMEDIATE_SUBDIR); fi
+			if [ -e $*.json.z ]; then cp $*.json.z $(dir $@)/.curry/$(INTERMEDIATE_SUBDIR); fi
   endif
 endif
 
 # Sort removes duplicates.
-FILES_TO_CLEAN := $(sort $(FILES_TO_CLEAN))
-DIRS_TO_CLEAN := $(sort $(DIRS_TO_CLEAN))
+FILES_TO_CLEAN := $(sort $(foreach path,$(FILES_TO_CLEAN),$(abspath $(path))))
+DIRS_TO_REC_CLEAN := $(sort $(foreach path,$(DIRS_TO_REC_CLEAN),$(abspath $(path))))
+DIRS_TO_CLEAN := $(sort $(foreach path,$(DIRS_TO_CLEAN),$(abspath $(path))))
+FILES_TO_UNINSTALL := $(sort $(foreach path,$(FILES_TO_UNINSTALL),$(abspath $(path))))
+DIRS_TO_REC_UNINSTALL := $(sort $(foreach path,$(DIRS_TO_REC_UNINSTALL),$(abspath $(path))))
+DIRS_TO_UNINSTALL := $(sort $(foreach path,$(DIRS_TO_UNINSTALL),$(abspath $(path))))
 
-clean:
-ifdef FILES_TO_CLEAN
-	-rm -rf $(FILES_TO_CLEAN)
-endif
-ifdef DIRS_TO_CLEAN
-	-rmdir $(DIRS_TO_CLEAN)
-endif
+define do_files =
+@for f in $1; do if [ -e $$f ]; then echo $2 $$f; $2 $$f; fi; done
+endef
+
+clean ::
+	$(call do_files,$(FILES_TO_CLEAN),rm -f)
+	$(call do_files,$(DIRS_TO_REC_CLEAN),rm -rf)
+	$(call do_files,$(DIRS_TO_CLEAN),rmdir)
+
+uninstall ::
+	$(call do_files,$(FILES_TO_UNINSTALL),rm -f)
+	$(call do_files,$(DIRS_TO_REC_UNINSTALL),rm -rf)
+	$(call do_files,$(DIRS_TO_UNINSTALL),rmdir)
 

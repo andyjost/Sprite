@@ -6,8 +6,9 @@ LDFLAGS += -lLLVM -Wl,--no-undefined
 
 # Rules and targets
 # =================
-all: objs libs shlibs
-objs: $(OBJS_OUT)
+.PHONY: all objs
+all:: objs libs shlibs
+objs:: $(OBJS_OUT)
 
 # Dependencies
 # ============
