@@ -33,12 +33,20 @@ class _Variable(object):
 
   def convert(self, x):
     if self.type is bool:
-      if x == 'True':
+      if x.strip().lower() in ('true', 'yes', 'on'):
         return True
-      elif x == 'False':
+      elif x.strip().lower() in ('false', 'no', 'off', ''):
         return False
       else:
-        return bool(int(x))
+        try:
+          return bool(int(x))
+        except:
+          logger.warning(
+              'Failed to interpret %r as an integer for configuration variable '
+              '%s.  The feature will be disabled.  Please update Make.config.'
+            , x, self.name.upper()
+            )
+          return False
     else:
       text = self.type(x)
       if self.interpolate:
