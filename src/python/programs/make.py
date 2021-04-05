@@ -11,25 +11,25 @@ import sys
 __doc__ = '''\
 Execute the toolchain to compile Curry code.
 
-This program uses timestamps and prerequisites to update target with minimal
-work.  Each positional argument can be a Curry module name or Curry source
-file.  Modules are located by searching the CURRYPATH environment variable.
+This program uses timestamps and prerequisites to lazily update targets.  Each
+positional argument can be a Curry module name or Curry source file.  Modules
+are located by searching the CURRYPATH environment variable.
 
 Two target formats are supported.  Curry-formatted ICurry (extension:
 .icy) is generated with the -i,--icy option.  These files can be read
-into Curry programs using ICurry.Files.readICurry.
+into Curry programs using the standard module ICurry.Files.readICurry.
 
-JSON-formatted ICurry (extension: .json) is generated with the
--j,--json option.  This format is more suitable when a Curry
-interpreter is not available.  Sprite can read only the JSON format.
-Note that an ICY file is the prerequisite of JSON, meaning that --json
-also implies --icy.
+JSON-formatted ICurry (extension: .json) is generated with the -j,--json
+option.  This format is more suitable when a Curry interpreter is not
+available.  Sprite only reads the JSON format.  Note that an ICY file is the
+prerequisite of JSON, meaning that --json also implies --icy.
 
-Following the conventions of other Curry systems, output files are written to
-<dir>/.curry/{intermediate_subdir}, where <dir> is the directory containing the
-source code.  For example, a curry file /path/to/A.curry gives rise to
-/path/to/.curry/{intermediate_subdir}/A.icy and
-/path/to/.curry/{intermediate_subdir}/A.json.
+Following the conventions of other Curry systems, output files are by default
+written to <dir>/.curry/{intermediate_subdir}, where <dir> is the directory
+containing the source code.  For example, a curry file /path/to/A.curry gives
+rise to /path/to/.curry/{intermediate_subdir}/A.icy and
+/path/to/.curry/{intermediate_subdir}/A.json.  The -o,--output option can be
+used to specify the output file.
 
 The -c,--compact option causes JSON output to be compacted by removing
 insignificant whitespace.  Compacted JSON is less human-readable but smaller.
@@ -85,6 +85,8 @@ def main(progname, argv):
   parser.add_argument('-M', '--man'    , action='store_true', help='show detailed usage')
   parser.add_argument('-i', '--icy'    , action='store_true', help='make ICY files')
   parser.add_argument('-j', '--json'   , action='store_true', help='make JSON files')
+  parser.add_argument('-k', '--keep-going', action='store_true', help='keep working after an error')
+  parser.add_argument('-o', '--output' , action='store', type=str, help='specify the output file')
   parser.add_argument('-q', '--quiet'  , action='store_true', help='work quietly')
   parser.add_argument('-S', '--subdir' , action='store_true'
     , help='print the subdirectory to which output files are written then exit')
@@ -111,16 +113,26 @@ def main(progname, argv):
   else:
     del args.subdir
 
-  with handle_program_errors(progname):
-    currypath = utility.readCurryPathFromEnviron()
-    for name in args.names:
-      if not args.icy and not args.json:
-        sys.stderr.write(progname + ': one of --icy or --json must be supplied.\n')
-        sys.exit(1)
-      if args.json:
-        args.icy = True
-      kwds = dict(args._get_kwargs())
-      kwds['is_sourcefile'] = name.endswith('.curry')
+  if len(args.names) > 1 and args.output:
+    sys.stderr.write(progname + ': -o,--output cannot be used with multiple input files.\n')
+    sys.exit(1)
+  if not args.icy and not args.json:
+    sys.stderr.write(progname + ': one of -i,--icy or -j,--json must be supplied.\n')
+    sys.exit(1)
+  if args.json:
+    args.icy = True
+  kwds = dict(args._get_kwargs())
+  currypath = utility.readCurryPathFromEnviron()
+  error_handler = handle_program_errors(
+      progname
+    , exit_status=None if args.keep_going else 1
+    )
+  for name in args.names:
+    kwds['is_sourcefile'] = name.endswith('.curry')
+    with error_handler:
       cymake.updateTarget(name, currypath, **kwds)
+  if error_handler.nerrors:
+    sys.exit(1)
+
 
 main('sprite-make', sys.argv[1:])

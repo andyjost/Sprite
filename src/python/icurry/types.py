@@ -1,5 +1,6 @@
 from abc import ABCMeta
 from collections import Iterator, OrderedDict
+from ..utility.formatting import indent, wrapblock
 from ..utility.proptree import proptree
 from ..utility.visitation import dispatch
 import logging
@@ -18,6 +19,10 @@ class IObject(object):
   @property
   def metadata(self):
     return getattr(self, '_metadata', {})
+
+  @property
+  def children(self):
+    return ()
 
   # Make objects comparable by their contents.
   def __eq__(lhs, rhs):
@@ -236,11 +241,12 @@ class IFunction(IObject):
     self.parent = weakref.ref(parent)
     return self
 
+  @property
+  def is_private(self):
+    return self.vis == PRIVATE
+
   def __str__(self):
-    return '\n'.join(
-        [self.name]
-      + ['  %s' % line for line in str(self.body).split('\n')]
-      )
+    return '%s\n%s' % (self.name, indent(self.body))
 
   def __repr__(self):
     return 'IFunction(name=%r, arity=%r, vis=%r, needed=%r, body=%r)' % (
@@ -276,6 +282,9 @@ class IFuncBody(IObject):
   def __init__(self, block, **kwds):
     self.block = block
     IObject.__init__(self, **kwds)
+  @property
+  def children(self):
+    return self.block,
   def __str__(self):
     return str(self.block)
   def __repr__(self):
@@ -288,6 +297,9 @@ class IBlock(IObject):
     self.assigns = tuple(assigns)
     self.stmt = stmt
     IObject.__init__(self, **kwds)
+  @property
+  def children(self):
+    return self.vardecls + self.assigns + (self.stms,)
   def __str__(self):
     lines = map(str, self.vardecls)
     lines += map(str, self.assigns)
@@ -329,6 +341,9 @@ class IVarAssign(IObject):
   @property
   def rhs(self):
     return self.expr
+  @property
+  def children(self):
+    return self.expr,
   def __str__(self):
     return '%s <- %s' % (IVar(self.vid), self.expr)
   def __repr__(self):
@@ -346,6 +361,9 @@ class INodeAssign(IObject):
   @property
   def rhs(self):
     return self.expr
+  @property
+  def children(self):
+    return self.expr,
   def __str__(self):
     return '%s <- %s' % (
         IVarAccess(self.vid, self.path), self.expr
@@ -370,6 +388,9 @@ class IReturn(IObject):
   def __init__(self, expr, **kwds):
     self.expr = expr
     IObject.__init__(self, **kwds)
+  @property
+  def children(self):
+    return self.expr,
   def __str__(self):
     return 'return %s' % self.expr
   def __repr__(self):
@@ -380,9 +401,13 @@ class ICase(IObject):
     self.vid = vid
     self.branches = branches
     IObject.__init__(self, **kwds)
+  @property
+  def children(self):
+    return self.branches
   def __str__(self):
     return 'case %s of\n%s' % (
-        IVar(self.vid), ''.join('  %s' % br for br in self.branches)
+        IVar(self.vid)
+      , indent(self.branches)
       )
   def __repr__(self):
     return 'ICaseCons(vid=%r, branches=%r)' % (self.vid, self.branches)
@@ -396,8 +421,11 @@ class IConsBranch(IObject):
     self.arity = arity
     self.block = block
     IObject.__init__(self, **kwds)
+  @property
+  def children(self):
+    return self.block,
   def __str__(self):
-    return '%s %s-> %s' % (self.name, ''.join('_ ' * self.arity), self.block)
+    return '%s %s-> %s' % (self.name, ''.join('_ ' * self.arity), wrapblock(self.block))
   def __repr__(self):
     return 'IConsBranch(name=%r, arity=%r, block=%r)' % (
         self.name, self.arity, self.block
@@ -408,8 +436,11 @@ class ILitBranch(IObject):
     self.lit = lit
     self.block = block
     IObject.__init__(self, **kwds)
+  @property
+  def children(self):
+    return self.lit, self.block
   def __str__(self):
-    return '%s -> %s' % (self.lit, self.block)
+    return '%s -> %s' % (self.lit, wrapblock(self.block))
   def __repr__(self):
     return 'ILitBranch(lit=%r, block=%r)' % (self.lit, self.block)
 
@@ -465,6 +496,9 @@ class ICall(IObject):
     self.name = name
     self.exprs = exprs
     IObject.__init__(self, **kwds)
+  @property
+  def children(self):
+    return self.exprs
   def __str__(self):
     string = ' '.join([str(self.name)] + map(str, self.exprs))
     return '(%s)' % string if self.exprs else string
@@ -476,10 +510,8 @@ class ICCall(ICall): pass
 
 class IPartialCall(ICall):
   def __init__(self, name, missing, exprs, **kwds):
-    self.name = name
+    ICall.__init__(self, name, exprs, **kwds)
     self.missing = int(missing)
-    self.exprs = exprs
-    IObject.__init__(self, **kwds)
   def __repr__(self):
     return '%s(name=%r, missing=%r, exprs=%r)' % (
         type(self).__name__, self.name, self.missing, self.exprs
@@ -493,6 +525,9 @@ class IOr(IObject):
     self.lhs = lhs
     self.rhs = rhs
     IObject.__init__(self, **kwds)
+  @property
+  def children(self):
+    return self.lhs, self.rhs
   def __str__(self):
     return '%s ? %s' % (self.lhs, self.rhs)
   def __repr__(self):
@@ -503,10 +538,7 @@ class IExpression(IObject):
 IExpression.register(IVar)
 IExpression.register(IVarAccess)
 IExpression.register(ILit)
-IExpression.register(IFCall)
-IExpression.register(ICCall)
-IExpression.register(IFPCall)
-IExpression.register(ICPCall)
+IExpression.register(ICall)
 IExpression.register(IOr)
 
 IExpr = IExpression
@@ -525,4 +557,7 @@ def strip_modulename(name):
 def splitname(name):
   parts = name.split('.')
   return parts[0], '.'.join(parts[1:])
+
+def joinname(*parts):
+  return '.'.join(parts)
 

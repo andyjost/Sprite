@@ -13,8 +13,6 @@ import weakref
 
 logger = logging.getLogger(__name__)
 
-# FIXME: ICurry does not tell us which symbols are private.  For now, all
-# symbols are treated as public.
 def insertSymbol(module, basename, nodeinfo, private=False):
   '''
   Inserts a symbol into the given module.
@@ -135,7 +133,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
     , _gettypechecker(interp, metadata)
     )
   nodeinfo = runtime.NodeInfo(ifun, info)
-  insertSymbol(moduleobj, ifun.name, nodeinfo)
+  insertSymbol(moduleobj, ifun.name, nodeinfo, ifun.is_private)
   return nodeinfo
 
 @visitation.dispatch.on('arg')

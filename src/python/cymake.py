@@ -19,6 +19,7 @@ from . import config
 from . import utility
 from .utility.binding import binding, del_
 from .utility import filesys
+from .utility import formatting
 import errno
 import logging
 import os
@@ -160,44 +161,65 @@ def updateTarget(name, currypath=[], **kwds):
   do_json = kwds.pop('json', True)
   do_icy = do_json or kwds.pop('icy', True)
   do_tidy = kwds.pop('tidy', False)
-  if do_icy:
-    intermediates = []
-    prereq = _selectPrerequisite(name, currypath, json=do_json, **kwds)
-    if prereq.endswith('.curry'):
-      prereq = curry2icurry(prereq, currypath, **kwds)
-      assert prereq.endswith('.icy')
-      intermediates.append(prereq)
-    if do_json:
-      try:
-        return icurry2json(prereq, currypath, **kwds)
-      finally:
-        if do_tidy:
-          for intermediate in intermediates:
-            logger.debug('Removing intermediate %r', intermediate)
-            os.unlink(intermediate)
-  if not intermediates:
-    logger.debug('Nothing to do for %r -> %r', name, prereq)
-
+  curentfile = None
+  intermediates = []
+  try:
+    if do_icy:
+      currentfile = _selectPrerequisite(name, currypath, json=do_json, **kwds)
+      # suffix = .curry, .icy, .json, or .json.z.
+      if currentfile.endswith('.curry'):
+        currentfile = curry2icurry(currentfile, currypath, **kwds)
+        assert currentfile.endswith('.icy')
+        if do_json:
+          intermediates.append(currentfile)
+      # suffix = .icy, .json, or .json.z.
+      if do_json:
+        currentfile = icurry2json(currentfile, currypath, **kwds)
+        # suffix = .json, or .json.z.
+        return currentfile
+  finally:
+    # Move the file if "output" was specified.
+    output = kwds.pop('output', None)
+    if output is not None and currentfile is not None and \
+        not os.path.samefile(output, currentfile):
+      shutil.copy(currentfile, output)
+      if currentfile not in intermediates:
+        intermediates.append(currentfile)
+    # Remove intermediates.
+    if do_tidy:
+      for intermediate in intermediates:
+        logger.debug('Removing intermediate %r', intermediate)
+        os.unlink(intermediate)
 
 def _popen(cmd, stdin=None, pipecmd=None):
   '''
   Invokes the given command and returns its stdout as a string.  A second
   pipeline stage may be provided.
   '''
-  child = subprocess.Popen(cmd, stdin=stdin, stdout=subprocess.PIPE)
+  child = subprocess.Popen(cmd, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   if pipecmd:
     term = subprocess.Popen(pipecmd, stdin=child.stdout, stdout=subprocess.PIPE)
     child.stdout.close()
   else:
     term = child
+
   try:
-    stdout,_ = term.communicate()
-    retcode = term.wait()
+    stdout,stderr = term.communicate()
   except:
     term.kill()
     raise
+
+  try:
+    retcode = term.wait()
+  except:
+    term.kill()
+    sys.stderr.write(stderr)
+    raise
+
   if retcode:
-    raise CompileError('while running %s' % ' '.join(cmd))
+    raise CompileError(
+        'while running %s:\n%s' % (' '.join(cmd), formatting.indent(stderr, 8))
+      )
   return stdout
 
 def _makeOutputDir(file_out):
@@ -307,9 +329,10 @@ class ICurry2JsonConverter(object):
       cmd_compact = [config.jq_tool(), '--compact-output', '.'] \
           if self.do_compact else None
       logger.debug(
-          'Command: %s %s> %s'
+          'Command: %s %s%s> %s'
         ,  ' '.join(cmd)
         , '| %s ' % ' '.join(cmd_compact) if cmd_compact else ''
+        , '| zlib-flate -compress ' if self.do_zip else ''
         , file_out
         )
       json = _popen(cmd, pipecmd=cmd_compact)

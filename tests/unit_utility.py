@@ -11,16 +11,16 @@ import unittest
 class TestUtility(unittest.TestCase):
   def testEncode(self):
     names = [
-        'ni__eq__eq_'
-      , 'ni_Prelude__eq__eq_'
-      , 'ni_Prelude__eq__eq__0'
-      , 'ni_Prelude__eq__eq__1'
-      , 'ni_Prelude__eq__eq__2'
-      , 'ni_Prelude__eq__eq__3'
+        # 'ni__eq__eq_'
+        'ni_Prelude_dot__eq__eq_'
+      , 'ni_Prelude_dot__eq__eq__0'
+      , 'ni_Prelude_dot__eq__eq__1'
+      , 'ni_Prelude_dot__eq__eq__2'
+      , 'ni_Prelude_dot__eq__eq__3'
       ]
     for n in range(len(names)):
       self.assertEqual(
-          encoding.encode(icurry.IName('Prelude.=='), disallow=names[:n])
+          encoding.encode('Prelude.==', disallow=names[:n])
         , names[n]
         )
 
@@ -122,8 +122,8 @@ class TestVisitation(unittest.TestCase):
         map(count, node)
       elif isinstance(node, collections.Mapping):
         map(count, node.values())
-      else:
-        raise TypeError("'%s' not handled" % str(type(node)))
+      # else:
+      #   raise TypeError("'%s' not handled" % str(type(node)))
 
     @count.when(icurry.IModule)
     def count(node):
@@ -137,17 +137,19 @@ class TestVisitation(unittest.TestCase):
 
     @count.when(icurry.IFunction)
     def count(node):
-      tally['functions'] += 1
-      count(node.code)
+      # Ignore generated functions.
+      if '#' not in node.name:
+        tally['functions'] += 1
 
-    @count.when(icurry.Statement)
+    @count.when(icurry.IDataType)
     def count(node):
-      tally['statements'] += 1
+      tally['datatypes'] += 1
+      count(node.constructors)
 
     json = open('data/json/example.json', 'rb').read()
-    icur = icurry.parse(json)
+    icur = icurry.json.parse(json)
     count(icur)
-    self.assertEqual(tally, {'modules':1, 'constructors':2, 'functions':4, 'statements':10})
+    self.assertEqual(tally, {'modules':1, 'datatypes':1, 'constructors':2, 'functions':4})
 
   def testCoverage(self):
     seq = instance_checker(yes=collections.Sequence, no=str)

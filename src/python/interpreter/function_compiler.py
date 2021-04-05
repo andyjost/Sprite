@@ -1,4 +1,5 @@
 from .. import icurry
+from ..icurry import analysis
 from . import runtime
 from ..utility import encoding, visitation, formatDocstring
 from ..utility import filesys
@@ -59,7 +60,7 @@ def compile_function(interp, ifun, extern=None):
     logger.debug('=' * len(title))
     logger.debug('    ICurry:')
     logger.debug('    -------')
-    [logger.debug('        ' + line if line else '')
+    [logger.debug('    ' + line if line else '')
         for line in str(ifun).split('\n')
       ]
     logger.debug('')
@@ -141,6 +142,7 @@ class FunctionCompiler(object):
     self.closure['Node'] = runtime.Node
     self.extern = extern
     self.program = ['def step(_0):']
+    self.varinfo = None
     return self
 
   def get(self):
@@ -193,11 +195,13 @@ class FunctionCompiler(object):
     # its default of 1000 is necessary, e.g., to process strings longer than
     # 999 characters.
     limit = sys.getrecursionlimit()
+    self.varinfo = analysis.varinfo(iobj)
     try:
       sys.setrecursionlimit(1<<30)
       self._compile(iobj)
     finally:
       sys.setrecursionlimit(limit)
+      self.varinfo = None
 
   # Compile top-level ICurry objects.  Appends to the program, which is
   # represented as a nested list of strings.  Each string is a line of the
@@ -256,11 +260,17 @@ class FunctionCompiler(object):
   def statement(self, vardecl):
     return []
 
-  @statement.when(icurry.IAssign)
+  @statement.when(icurry.IVarAssign)
+  def statement(self, assign):
+    lhs = self.expression(assign.lhs, primary=True)
+    rhs = self.expression(assign.rhs, primary=True)
+    yield '%s = %s' % (lhs, rhs)
+
+  @statement.when(icurry.INodeAssign)
   def statement(self, assign):
     lhs = self.expression(assign.lhs)
     rhs = self.expression(assign.rhs, primary=True)
-    yield '%s = %s' % (lhs, rhs)
+    yield '_%s = %s' % (lhs, rhs)
 
   @statement.when(icurry.IBlock)
   def statement(self, block):
@@ -284,13 +294,20 @@ class FunctionCompiler(object):
   @statement.when(icurry.ICase)
   def statement(self, icase):
     self.closure['hnf'] = self.interp.hnf
-    yield 'selector = hnf(_0, p_%s).info.tag' % icase.vid
+    vid = icase.vid
+    path = self.varinfo[vid].path
+    assert path is not None
+    if isinstance(icase, icurry.ICaseCons):
+      yield 'selector = hnf(_0, %s).info.tag' % path
+    else:
+      self.closure['unbox'] = self.interp.unbox
+      yield 'selector = unbox(hnf(_0, %s))' % path
     el = ''
     for branch in icase.branches:
-      if isinstance(branch, icurry.ILitBranch):
-        rhs = repr(branch.lit.value)
-      else:
+      if isinstance(branch, icurry.IConsBranch):
         rhs = self.nodeinfo(branch.name).info.tag
+      else:
+        rhs = repr(branch.lit.value)
       yield '%sif selector == %s:' % (el, rhs)
       yield list(self.statement(branch.block))
       el = 'el'
@@ -311,9 +328,9 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.IVarAccess)
   def expression(self, ivaraccess, primary=False):
-    return '%s%s' % (
-        self.expression(ivaraccess.var)
-      , ''.join('[%s]' % i for i in ivaraccess.path)
+    return '%s[%s]' % (
+        self.expression(ivaraccess.var, primary=primary)
+      , ','.join(map(str, ivaraccess.path))
       )
 
   @expression.when(icurry.ILiteral)
@@ -332,10 +349,13 @@ class FunctionCompiler(object):
   @expression.when(icurry.ICall)
   def expression(self, icall, primary=False):
     subexprs = (self.expression(x, primary=True) for x in icall.exprs)
-    text = '%s%s' % (
-        self.closure[icall.name]
-      , ''.join(', ' + e for e in subexprs)
-      )
+    try:
+      text = '%s%s' % (
+          self.closure[icall.name]
+        , ''.join(', ' + e for e in subexprs)
+        )
+    except:
+      breakpoint()
     return 'Node(%s)' % text if primary else text
 
   @expression.when(icurry.IPartialCall)
@@ -400,6 +420,15 @@ class Closure(object):
       self.context[key] = obj
     else: # pragma: no cover
       assert self.context[key] is obj or self.context[key] == obj
+
+  def findpath(self, path):
+    path = tuple(path)
+    for k,v in self.context.items():
+      if k.startswith('p_') and v == path:
+        return k
+    else:
+      breakpoint()
+      assert False
 
 # Rendering.
 # ==========

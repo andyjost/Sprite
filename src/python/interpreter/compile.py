@@ -58,8 +58,6 @@ def compile(
     # clear that this is a system-generated name when reported to the user.
     compiled_name = 'compiled_expression'
     visible_name = '<expr>'
-    compiled_ident = icurry.IName(modulename, compiled_name)
-    visible_ident = icurry.IName(modulename, visible_name)
     stmts, currypath = getImportSpecForExpr(
         interp, [] if imports is None else imports
       )
@@ -69,12 +67,12 @@ def compile(
         curry_code, currypath
       , keep_temp_files=interp.flags['keep_temp_files']
       )
-    icur.functions[visible_ident] = icur.functions.pop(compiled_ident)
-    icur.functions[visible_ident].ident = visible_ident
+    icur.functions[visible_name] = icur.functions.pop(compiled_name)
+    icur.functions[visible_name].name = visible_name
     module = interp.import_(icur)
     del interp.modules[icur.name]
     expr = interp.expr(getattr(module, '.symbols')[visible_name])
-    interp._stepper(expr)
+    expr.info.step(expr)
     return expr
   else:
     raise TypeError('expected mode "module" or "expr"')

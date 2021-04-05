@@ -25,11 +25,18 @@ def uni2str(arg):
 
 def _object_hook(kwds):
   try:
-    cls = kwds.pop('__class__')
-    return types.__dict__[cls](**fmap(uni2str, kwds))
-  except:
-    import code
-    code.interact(local=dict(globals(), **locals()))
+    clsname = kwds.pop('__class__')
+    cls = types.__dict__[clsname]
+  except KeyError:
+    raise TypeError('No ICurry class named %s was found' % clsname)
+  try:
+    kwds = fmap(uni2str, kwds)
+    return cls(**kwds)
+  except Exception as e:
+    raise TypeError(
+        'Cannot construct %s.%s from arguments %r: %s'
+            % (cls.__module__, cls.__name__, kwds, e)
+      )
 
 def get_decoder():
   return json.JSONDecoder(object_hook=_object_hook)

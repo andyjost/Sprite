@@ -28,7 +28,7 @@ class TestPyCompile(cytest.TestCase):
   def testMissingExternalConstructorDefinition(self):
     self.assertRaisesRegexp(
         ValueError
-      , '"_interactive_.A" has no constructors and no external definition '
+      , '"sprite__interactive_.A" has no constructors and no external definition '
         'was found.'
       , lambda: curry.compile('data A')
       )
