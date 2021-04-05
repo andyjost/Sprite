@@ -77,8 +77,9 @@ def compile_py_unboxedfunc(interp, unboxedfunc):
   hnf = interp.hnf
   expr = interp.expr
   topython = interp.topython
+  # For some reason, the prelude reverses the argument order.
   def step(_0):
-    args = (topython(hnf(_0, [i])) for i in xrange(len(_0.successors)))
+    args = (topython(hnf(_0, [-1-i])) for i in xrange(len(_0.successors)))
     return expr(unboxedfunc(*args), target=_0)
   return step
 
@@ -349,21 +350,19 @@ class FunctionCompiler(object):
   @expression.when(icurry.ICall)
   def expression(self, icall, primary=False):
     subexprs = (self.expression(x, primary=True) for x in icall.exprs)
-    try:
-      text = '%s%s' % (
-          self.closure[icall.name]
-        , ''.join(', ' + e for e in subexprs)
-        )
-    except:
-      breakpoint()
+    text = '%s%s' % (
+        self.closure[icall.name]
+      , ''.join(', ' + e for e in subexprs)
+      )
     return 'Node(%s)' % text if primary else text
 
   @expression.when(icurry.IPartialCall)
   def expression(self, ipcall, primary=False):
     subexprs = (self.expression(x, primary=True) for x in ipcall.exprs)
-    text = '%s, %s%s' % (
+    text = '%s, %s, Node(%s%s, partial=True)' % (
         self.closure['Prelude._PartApplic']
       , self.expression(ipcall.missing)
+      , self.closure[ipcall.name]
       , ''.join(', ' + e for e in subexprs)
       )
     return 'Node(%s)' % text if primary else text

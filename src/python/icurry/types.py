@@ -501,7 +501,7 @@ class ICall(IObject):
     return self.exprs
   def __str__(self):
     string = ' '.join([str(self.name)] + map(str, self.exprs))
-    return '(%s)' % string if self.exprs else string
+    return '%s(%s)' % (self.__class__.__name__, string)
   def __repr__(self):
     return '%s(name=%r, exprs=%r)' % (type(self).__name__, self.name, self.exprs)
 

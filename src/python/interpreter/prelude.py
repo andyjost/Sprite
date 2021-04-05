@@ -4,6 +4,7 @@ from . import typecheckers as tc
 from . import runtime
 from .. import inspect
 import operator as op
+import math
 
 def exports():
   '''
@@ -126,59 +127,78 @@ _functions_ = [
     _F('_PyGenerator', 1
         , metadata={'py.boxedfunc':impl._PyGenerator}
         )
-  , _F('+$', 2, metadata={'py.unboxedfunc':op.add}) # Int addition
-  , _F('-$', 2, metadata={'py.unboxedfunc':op.sub}) # Int subtraction
-  , _F('*$', 2, metadata={'py.unboxedfunc':op.mul}) # Int multiplication
-  , _F('prim_Float_plus', 2, metadata={'py.unboxedfunc':op.add}) # Float addition
-  , _F('prim_Float_minus', 2, metadata={'py.unboxedfunc':op.sub}) # Float subtraction
-  , _F('prim_Float_times', 2, metadata={'py.unboxedfunc':op.mul}) # Float multiplication
-  , _F('prim_Float_div', 2, metadata={'py.unboxedfunc':op.truediv}) # Float division
-  # , _F('==', 2, metadata={'py.rawfunc':impl.equals})
-  , _F('eqInt', 2, metadata={'py.unboxedfunc':op.eq})
-  , _F('eqChar', 2, metadata={'py.unboxedfunc':op.eq})
-  , _F('eqFloat', 2, metadata={'py.unboxedfunc':op.eq})
-  , _F('ltEqInt', 2, metadata={'py.unboxedfunc':op.le})
-  , _F('ltEqChar', 2, metadata={'py.unboxedfunc':op.le})
-  , _F('ltEqFloat', 2, metadata={'py.unboxedfunc':op.le})
-# --- Integer division. The value is the integer quotient of its arguments
-# --- and always truncated towards negative infinity.
-# --- Thus, the value of <code>13 `div` 5</code> is <code>2</code>,
-# --- and the value of <code>-15 `div` 4</code> is <code>-4</code>.
-# div_   :: Int -> Int -> Int
-  , _F('div_', 2, metadata={'py.unboxedfunc':op.floordiv})
-#
-# --- Integer remainder. The value is the remainder of the integer division and
-# --- it obeys the rule <code>x `mod` y = x - y * (x `div` y)</code>.
-# --- Thus, the value of <code>13 `mod` 5</code> is <code>3</code>,
-# --- and the value of <code>-15 `mod` 4</code> is <code>-3</code>.
-# mod_   :: Int -> Int -> Int
-  , _F('mod_', 2, metadata={'py.unboxedfunc':lambda x, y: x - y * op.floordiv(x,y)})
-# --- Integer division. The value is the integer quotient of its arguments
-# --- and always truncated towards zero.
-# --- Thus, the value of <code>13 `quot` 5</code> is <code>2</code>,
-# --- and the value of <code>-15 `quot` 4</code> is <code>-3</code>.
-# quot_   :: Int -> Int -> Int
-  , _F('quot_', 2, metadata={'py.unboxedfunc':lambda x, y: int(op.truediv(x, y))})
-#
-# --- Integer remainder. The value is the remainder of the integer division and
-# --- it obeys the rule <code>x `rem` y = x - y * (x `quot` y)</code>.
-# --- Thus, the value of <code>13 `rem` 5</code> is <code>3</code>,
-# --- and the value of <code>-15 `rem` 4</code> is <code>-3</code>.
-# rem_   :: Int -> Int -> Int
-  , _F('rem_', 2, metadata={'py.unboxedfunc':lambda x, y: x - y * int(op.truediv(x, y))})
-
-# --- Returns an integer (quotient,remainder) pair.
-# --- The value is the integer quotient of its arguments
-# --- and always truncated towards negative infinity.
-# divMod_ :: Int -> Int -> (Int, Int)
-  , _F('divMod_', 2, metadata={'py.unboxedfunc':_divMod_impl})
-#
-# --- Returns an integer (quotient,remainder) pair.
-# --- The value is the integer quotient of its arguments
-# --- and always truncated towards zero.
-# quotRem_ :: Int -> Int -> (Int, Int)
-  , _F('quotRem_', 2, metadata={'py.unboxedfunc':_quotRem_impl})
-  , _F('negateFloat', 1, metadata={'py.unboxedfunc':op.neg})
+  # The Prelude reverses the argument order for binary operations.
+  , _F('prim_plusInt', 2, metadata={'py.unboxedfunc':op.add})
+  , _F('prim_minusInt', 2, metadata={'py.unboxedfunc':op.sub})
+  , _F('prim_timesInt', 2, metadata={'py.unboxedfunc':op.mul})
+  , _F('prim_divInt', 2, metadata={'py.unboxedfunc':op.floordiv})
+  , _F('prim_plusFloat', 2, metadata={'py.unboxedfunc':op.add})
+  , _F('prim_minusFloat', 2, metadata={'py.unboxedfunc':op.sub})
+  , _F('prim_timesFloat', 2, metadata={'py.unboxedfunc':op.mul})
+  , _F('prim_divFloat', 2, metadata={'py.unboxedfunc':op.truediv})
+  , _F('prim_eqInt', 3, metadata={'py.unboxedfunc':op.eq})
+  , _F('prim_eqChar', 2, metadata={'py.unboxedfunc':op.eq})
+  , _F('prim_eqFloat', 2, metadata={'py.unboxedfunc':op.eq})
+  , _F('prim_ltEqInt', 2, metadata={'py.unboxedfunc':op.le})
+  , _F('prim_ltEqChar', 2, metadata={'py.unboxedfunc':op.le})
+  , _F('prim_ltEqFloat', 2, metadata={'py.unboxedfunc':op.le})
+##        # --- Integer division. The value is the integer quotient of its arguments
+##        # --- and always truncated towards negative infinity.
+##        # --- Thus, the value of <code>13 `div` 5</code> is <code>2</code>,
+##        # --- and the value of <code>-15 `div` 4</code> is <code>-4</code>.
+##        # div_   :: Int -> Int -> Int
+##          , _F('div_', 2, metadata={'py.unboxedfunc':op.floordiv})
+  #
+  # --- Integer remainder. The value is the remainder of the integer division and
+  # --- it obeys the rule <code>x `mod` y = x - y * (x `div` y)</code>.
+  # --- Thus, the value of <code>13 `mod` 5</code> is <code>3</code>,
+  # --- and the value of <code>-15 `mod` 4</code> is <code>-3</code>.
+  # prim_modInt   :: Int -> Int -> Int
+    , _F('prim_modInt', 2, metadata={'py.unboxedfunc':lambda x, y: x - y * op.floordiv(x,y)})
+  # --- Integer division. The value is the integer quotient of its arguments
+  # --- and always truncated towards zero.
+  # --- Thus, the value of <code>13 `quot` 5</code> is <code>2</code>,
+  # --- and the value of <code>-15 `quot` 4</code> is <code>-3</code>.
+  # prim_quotInt   :: Int -> Int -> Int
+    , _F('prim_quotInt', 2, metadata={'py.unboxedfunc':lambda x, y: int(op.truediv(x, y))})
+  #
+  # --- Integer remainder. The value is the remainder of the integer division and
+  # --- it obeys the rule <code>x `rem` y = x - y * (x `quot` y)</code>.
+  # --- Thus, the value of <code>13 `rem` 5</code> is <code>3</code>,
+  # --- and the value of <code>-15 `rem` 4</code> is <code>-3</code>.
+  # prim_remInt   :: Int -> Int -> Int
+    , _F('prim_remInt', 2, metadata={'py.unboxedfunc':lambda x, y: x - y * int(op.truediv(x, y))})
+##
+##        # --- Returns an integer (quotient,remainder) pair.
+##        # --- The value is the integer quotient of its arguments
+##        # --- and always truncated towards negative infinity.
+##        # divMod_ :: Int -> Int -> (Int, Int)
+##          , _F('divMod_', 2, metadata={'py.unboxedfunc':_divMod_impl})
+##        #
+    , _F('prim_truncateFloat', 1, metadata={'py.unboxedfunc':int})
+    , _F('prim_roundFloat', 1, metadata={'py.unboxedfunc':lambda x: int(round(x))})
+    , _F('prim_logFloat', 1, metadata={'py.unboxedfunc':math.log})
+    , _F('prim_expFloat', 1, metadata={'py.unboxedfunc':math.exp})
+    , _F('prim_sqrtFloat', 1, metadata={'py.unboxedfunc':math.sqrt})
+    , _F('prim_sinFloat', 1, metadata={'py.unboxedfunc':math.sin})
+    , _F('prim_cosFloat', 1, metadata={'py.unboxedfunc':math.cos})
+    , _F('prim_tanFloat', 1, metadata={'py.unboxedfunc':math.tan})
+    , _F('prim_asinFloat', 1, metadata={'py.unboxedfunc':math.asin})
+    , _F('prim_acosFloat', 1, metadata={'py.unboxedfunc':math.acos})
+    , _F('prim_atanFloat', 1, metadata={'py.unboxedfunc':math.atan})
+    , _F('prim_sinhFloat', 1, metadata={'py.unboxedfunc':math.sinh})
+    , _F('prim_coshFloat', 1, metadata={'py.unboxedfunc':math.cosh})
+    , _F('prim_tanhFloat', 1, metadata={'py.unboxedfunc':math.tanh})
+    , _F('prim_asinhFloat', 1, metadata={'py.unboxedfunc':math.asinh})
+    , _F('prim_acoshFloat', 1, metadata={'py.unboxedfunc':math.acosh})
+    , _F('prim_atanhFloat', 1, metadata={'py.unboxedfunc':math.atanh})
+##        # --- Returns an integer (quotient,remainder) pair.
+##        # --- The value is the integer quotient of its arguments
+##        # --- and always truncated towards zero.
+##        # quotRem_ :: Int -> Int -> (Int, Int)
+##          , _F('quotRem_', 2, metadata={'py.unboxedfunc':_quotRem_impl})
+  , _F('prim_negateFloat', 1, metadata={'py.unboxedfunc':op.neg})
+  , _F('prim_intToFloat', 1, metadata={'py.unboxedfunc':float})
 # --- Evaluates the argument to head normal form and returns it.
 # --- Suspends until the result is bound to a non-variable term.
 # ensureNotFree :: a -> a
