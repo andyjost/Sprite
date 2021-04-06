@@ -314,6 +314,9 @@ class IFreeDecl(IObject):
   def __init__(self, vid, **kwds):
     self.vid = vid
     IObject.__init__(self, **kwds)
+  @property
+  def lhs(self):
+    return IVar(self.vid)
   def __str__(self):
     return 'free %s' % IVar(self.vid)
   def __repr__(self):
@@ -324,6 +327,9 @@ class IVarDecl(IObject):
   def __init__(self, vid, **kwds):
     self.vid = vid
     IObject.__init__(self, **kwds)
+  @property
+  def lhs(self):
+    return IVar(self.vid)
   def __str__(self):
     return 'var %s' % IVar(self.vid)
   def __repr__(self):
@@ -492,7 +498,7 @@ IReference.register(IVarAccess)
 IReference.register(ILit)
 
 class ICall(IObject):
-  def __init__(self, name, exprs, **kwds):
+  def __init__(self, name, exprs=[], **kwds):
     self.name = name
     self.exprs = exprs
     IObject.__init__(self, **kwds)

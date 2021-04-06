@@ -5,6 +5,8 @@ from .. import exceptions
 import os
 import types
 
+SUBDIR = config.intermediate_subdir()
+
 # Note: artibrary symbols imported from Curry are added to Curry modules,
 # risking name clashes.  Therefore, only hidden attributes are allowed here,
 # and all must begin with a dot.  The exceptions are Python special names,
@@ -38,26 +40,26 @@ def symbol(moduleobj, name):
         'module "%s" has no symbol "%s"' % (moduleobj.__name__, name)
       )
 
-def _getfile(moduleobj, suffix):
+def _getfile(moduleobj, suffixes):
   if moduleobj.__file__:
-    filename = os.path.join(
-        os.path.dirname(moduleobj.__file__)
-      , '.curry/%s%s' % (config.interactive_modname(), suffix)
-      )
-    if os.path.exists(filename):
-      return filename
+    for suffix in suffixes:
+      filename = os.path.join(
+          os.path.dirname(moduleobj.__file__)
+        , '.curry'
+        , SUBDIR
+        , config.interactive_modname() + suffix
+        )
+      if os.path.exists(filename):
+        return filename
 
-def getreadable(moduleobj):
-  '''
-  Returns the file containing human-readable ICurry, if one exists, or None.
-  '''
-  return _getfile(moduleobj, '.read')
-
-def getjson(moduleobj):
+def getjsonfile(moduleobj):
   '''Returns the file containing ICurry-JSON, if one exists, or None.'''
-  return _getfile(moduleobj, '.json')
+  return _getfile(moduleobj, ['.json', '.json.z'])
+
+def geticurryfile(moduleobj):
+  '''Gets the ICurry file associated with a module.'''
+  return _getfile(moduleobj, ['.icy'])
 
 def geticurry(moduleobj):
-  '''Gets the ICurry associated witha  module.'''
+  '''Gets the ICurry associated with a module.'''
   return getattr(moduleobj, '.icurry')
-

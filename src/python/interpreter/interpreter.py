@@ -51,7 +51,7 @@ class Interpreter(object):
   @property
   def prelude(self):
     if not hasattr(self, '__prelude'):
-      self.__prelude = self.import_('Prelude')
+      self.__prelude = self.module('Prelude')
     return self.__prelude
 
   def reset(self):
@@ -67,6 +67,7 @@ class Interpreter(object):
     self.stderr = sys.stderr
     self._idfactory_ = itertools.count()
     self.stepcounter.reset()
+    self.automodules = ['Prelude']
     for name in self.modules.keys():
       if name != 'Prelude':
         del self.modules[name]
@@ -78,5 +79,5 @@ class Interpreter(object):
   from .eval import eval
   from .import_ import import_
   from .lookup import module, symbol, type
-  from .runtime import N, S, hnf, nextid
+  from .runtime import N, S, hnf, nextid, freshvar
 

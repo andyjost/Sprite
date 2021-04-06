@@ -70,48 +70,50 @@ class TestPrelude(cytest.TestCase):
 
   def testPrimitiveBuiltins(self):
     '''Tests the built-ins over primitive types.'''
-    eval_ = lambda e: curry.eval(e, converter=None)
+    # Note that in ALL cases below, the arguments are in reverse order.  This
+    # changed in the Prelude at some point.
+    eval_ = lambda e: curry.eval(e[:1] + e[1:][::-1], converter=None)
     sym = lambda s: curry.symbol('Prelude.' + s)
-    self.assertEqual(eval_([sym('+$'), 3, 4]).next(), curry.expr(7))
-    self.assertEqual(eval_([sym('-$'), 3, 4]).next(), curry.expr(-1))
-    self.assertEqual(eval_([sym('*$'), 3, 4]).next(), curry.expr(12))
-    self.assertEqual(eval_([sym('prim_Float_plus'), 3.25, 4.]).next(), curry.expr(7.25))
-    self.assertEqual(eval_([sym('prim_Float_minus'), 3.25, 4.5]).next(), curry.expr(-1.25))
-    self.assertEqual(eval_([sym('prim_Float_times'), 3.5, 4.5]).next(), curry.expr(15.75))
-    self.assertEqual(eval_([sym('prim_Float_div'), 8.75, 3.5]).next(), curry.expr(2.5))
-    self.assertEqual(eval_([sym('negateFloat'), 3.25]).next(), curry.expr(-3.25))
-    self.assertEqual(eval_([sym('eqInt'), 3, 4]).next(), curry.expr(False))
-    self.assertEqual(eval_([sym('eqInt'), 3, 3]).next(), curry.expr(True))
-    self.assertEqual(eval_([sym('eqChar'), 'a', 'b']).next(), curry.expr(False))
-    self.assertEqual(eval_([sym('eqChar'), 'a', 'a']).next(), curry.expr(True))
-    self.assertEqual(eval_([sym('eqFloat'), 3.25, 3.5]).next(), curry.expr(False))
-    self.assertEqual(eval_([sym('eqFloat'), 3.25, 3.25]).next(), curry.expr(True))
-    self.assertEqual(eval_([sym('ltEqInt'), 3, 4]).next(), curry.expr(True))
-    self.assertEqual(eval_([sym('ltEqInt'), 3, 3]).next(), curry.expr(True))
-    self.assertEqual(eval_([sym('ltEqInt'), 3, 2]).next(), curry.expr(False))
-    self.assertEqual(eval_([sym('ltEqChar'), 'b', 'c']).next(), curry.expr(True))
-    self.assertEqual(eval_([sym('ltEqChar'), 'b', 'b']).next(), curry.expr(True))
-    self.assertEqual(eval_([sym('ltEqChar'), 'b', 'a']).next(), curry.expr(False))
-    self.assertEqual(eval_([sym('ltEqFloat'), 3.25, 3.5]).next(), curry.expr(True))
-    self.assertEqual(eval_([sym('ltEqFloat'), 3.25, 3.25]).next(), curry.expr(True))
-    self.assertEqual(eval_([sym('ltEqFloat'), 3.25, 3.0]).next(), curry.expr(False))
-    self.assertEqual(eval_([sym('div_'), 13, 5]).next(), curry.expr(2))
-    self.assertEqual(eval_([sym('div_'), -15, 4]).next(), curry.expr(-4))
-    self.assertEqual(eval_([sym('mod_'), 13, 5]).next(), curry.expr(3))
-    self.assertEqual(eval_([sym('mod_'), -15, 4]).next(), curry.expr(1))
-    self.assertEqual(eval_([sym('quot_'), 13, 5]).next(), curry.expr(2))
-    self.assertEqual(eval_([sym('quot_'), -15, 4]).next(), curry.expr(-3))
-    self.assertEqual(eval_([sym('rem_'), 13, 5]).next(), curry.expr(3))
-    self.assertEqual(eval_([sym('rem_'), -15, 4]).next(), curry.expr(-3))
-    self.assertEqual(eval_([sym('divMod_'), 13, 5]).next(), curry.expr((2,3)))
-    self.assertEqual(eval_([sym('divMod_'), -15, 4]).next(), curry.expr((-4,1)))
-    self.assertEqual(eval_([sym('quotRem_'), 13, 5]).next(), curry.expr((2,3)))
-    self.assertEqual(eval_([sym('quotRem_'), -15, 4]).next(), curry.expr((-3,-3)))
+    self.assertEqual(eval_([sym('prim_plusInt'), 3, 4]).next(), curry.expr(7))
+    self.assertEqual(eval_([sym('prim_minusInt'), 3, 4]).next(), curry.expr(-1))
+    self.assertEqual(eval_([sym('prim_timesInt'), 3, 4]).next(), curry.expr(12))
+    self.assertEqual(eval_([sym('prim_plusFloat'), 3.25, 4.]).next(), curry.expr(7.25))
+    self.assertEqual(eval_([sym('prim_minusFloat'), 3.25, 4.5]).next(), curry.expr(-1.25))
+    self.assertEqual(eval_([sym('prim_timesFloat'), 3.5, 4.5]).next(), curry.expr(15.75))
+    self.assertEqual(eval_([sym('prim_divFloat'), 8.75, 3.5]).next(), curry.expr(2.5))
+    self.assertEqual(eval_([sym('prim_negateFloat'), 3.25]).next(), curry.expr(-3.25))
+    self.assertEqual(eval_([sym('prim_eqInt'), 3, 4]).next(), curry.expr(False))
+    self.assertEqual(eval_([sym('prim_eqInt'), 3, 3]).next(), curry.expr(True))
+    self.assertEqual(eval_([sym('prim_eqChar'), 'a', 'b']).next(), curry.expr(False))
+    self.assertEqual(eval_([sym('prim_eqChar'), 'a', 'a']).next(), curry.expr(True))
+    self.assertEqual(eval_([sym('prim_eqFloat'), 3.25, 3.5]).next(), curry.expr(False))
+    self.assertEqual(eval_([sym('prim_eqFloat'), 3.25, 3.25]).next(), curry.expr(True))
+    self.assertEqual(eval_([sym('prim_ltEqInt'), 3, 4]).next(), curry.expr(True))
+    self.assertEqual(eval_([sym('prim_ltEqInt'), 3, 3]).next(), curry.expr(True))
+    self.assertEqual(eval_([sym('prim_ltEqInt'), 3, 2]).next(), curry.expr(False))
+    self.assertEqual(eval_([sym('prim_ltEqChar'), 'b', 'c']).next(), curry.expr(True))
+    self.assertEqual(eval_([sym('prim_ltEqChar'), 'b', 'b']).next(), curry.expr(True))
+    self.assertEqual(eval_([sym('prim_ltEqChar'), 'b', 'a']).next(), curry.expr(False))
+    self.assertEqual(eval_([sym('prim_ltEqFloat'), 3.25, 3.5]).next(), curry.expr(True))
+    self.assertEqual(eval_([sym('prim_ltEqFloat'), 3.25, 3.25]).next(), curry.expr(True))
+    self.assertEqual(eval_([sym('prim_ltEqFloat'), 3.25, 3.0]).next(), curry.expr(False))
+    self.assertEqual(eval_([sym('prim_divInt'), 13, 5]).next(), curry.expr(2))
+    self.assertEqual(eval_([sym('prim_divInt'), -15, 4]).next(), curry.expr(-4))
+    self.assertEqual(eval_([sym('prim_modInt'), 13, 5]).next(), curry.expr(3))
+    self.assertEqual(eval_([sym('prim_modInt'), -15, 4]).next(), curry.expr(1))
+    self.assertEqual(eval_([sym('prim_quotInt'), 13, 5]).next(), curry.expr(2))
+    self.assertEqual(eval_([sym('prim_quotInt'), -15, 4]).next(), curry.expr(-3))
+    self.assertEqual(eval_([sym('prim_remInt'), 13, 5]).next(), curry.expr(3))
+    self.assertEqual(eval_([sym('prim_remInt'), -15, 4]).next(), curry.expr(-3))
     self.assertEqual(eval_([sym('prim_ord'), 'A']).next(), curry.expr(65))
     self.assertEqual(eval_([sym('prim_chr'), 65]).next(), curry.expr('A'))
-    self.assertEqual(eval_([sym('prim_i2f'), 1]).next(), curry.expr(1.0))
+    self.assertEqual(eval_([sym('prim_intToFloat'), 1]).next(), curry.expr(1.0))
 
     # Not primitive:
+    # self.assertEqual(eval_([sym('divMod'), 13, 5]).next(), curry.expr((2,3)))
+    # self.assertEqual(eval_([sym('divMod'), -15, 4]).next(), curry.expr((-4,1)))
+    # self.assertEqual(eval_([sym('quotRem'), 13, 5]).next(), curry.expr((2,3)))
+    # self.assertEqual(eval_([sym('quotRem'), -15, 4]).next(), curry.expr((-3,-3)))
     # self.assertEqual(eval_([sym('=='), 3, 4]).next(), curry.expr(False))
     # self.assertEqual(eval_([sym('=='), 3, 3]).next(), curry.expr(True))
     # self.assertEqual(eval_([sym('/='), 3, 4]).next(), curry.expr(True))
@@ -225,8 +227,11 @@ class TestPrelude(cytest.TestCase):
     interp = curry.getInterpreter()
     code = interp.compile(
         '''
+        f :: Int -> Int
         f 0 = 1
+        goal :: Int
         goal = id $!! (f 0)
+        step2 :: Int
         step2 = id $!! 1
         '''
       )
@@ -237,7 +242,7 @@ class TestPrelude(cytest.TestCase):
     self.assertEqual(goal, step2)
 
     # Ensure results are ungrounded.
-    freevar = interp.compile('id $!! x where x free', mode='expr')
+    freevar = interp.compile('id $!! (x::Int) where x free', mode='expr')
     cytest.step.step(interp, freevar, num=3)
     self.assertTrue(curry.inspect.isa_freevar(interp, freevar))
 
@@ -258,7 +263,10 @@ class TestPrelude(cytest.TestCase):
     '''Test =:=.'''
     interp = curry.getInterpreter()
     unboxed = curry.unboxed
-    unknown = interp.prelude.unknown
+    # Note: a type dictionary is needed to call Prelude.unknown, but the type
+    # is irrelevant for these tests.
+    inst_unit = curry.symbol('Prelude._inst#Prelude.Data#()')
+    unknown = curry.expr([interp.prelude.unknown, inst_unit])
 
     # First, test with no free variable constraints.
     # unboxed <=> unboxed
@@ -270,7 +278,7 @@ class TestPrelude(cytest.TestCase):
     self.checkError(unboxed(0), 0)
     self.checkError(unboxed(0), 1)
     # free <=> unboxed
-    self.checkError(interp.prelude.unknown, unboxed(0))
+    self.checkError(unknown, unboxed(0))
     # ctor <=> unboxed
     self.checkError(0, unboxed(0))
     self.checkError(1, unboxed(0))
@@ -282,7 +290,6 @@ class TestPrelude(cytest.TestCase):
     self.checkUnsatisfied([0], [1])
     self.checkUnsatisfied([0], [0,1])
 
-
     # Now, test with free variable constraints.
     # free <=> free
     self.checkSatisfied(unknown, unknown)
@@ -290,6 +297,6 @@ class TestPrelude(cytest.TestCase):
     # ctor <=> free
     self.checkSatisfied([], unknown)
 
-
     # free <=> ctor
+    # TODO
 

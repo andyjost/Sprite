@@ -3,7 +3,7 @@ Inspect live Curry objects.
 '''
 
 from .interpreter import runtime
-from .interpreter.module import getreadable, getjson, geticurry
+from .interpreter.module import getjsonfile, geticurryfile, geticurry
 from .utility import visitation
 import collections
 import re

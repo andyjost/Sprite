@@ -79,7 +79,7 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
         , constructors=constructors
         )
     )
-  typedef = runtime.TypeDefinition(itype.fullname, constructors)
+  typedef = runtime.TypeDefinition(itype.name, constructors, moduleobj)
   getattr(moduleobj, '.types')[itype.name] = typedef
   for i,ctor in enumerate(constructors):
     ctor.info.typedef = weakref.ref(typedef)
@@ -228,7 +228,9 @@ def compileICurry(interp, ifun, moduleobj, extern=None):
   if interp.flags['lazycompile'] and \
       ifun.modulename != config.interactive_modname():
     # Delayed.
-    info.step = function_compiler.compile_function, interp, ifun, extern
+    info.step = runtime.LazyFunction(
+        function_compiler.compile_function, interp, ifun, extern
+      )
   else:
     # Immediate.
     info.step = function_compiler.compile_function(interp, ifun, extern)

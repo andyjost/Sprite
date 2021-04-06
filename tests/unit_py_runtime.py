@@ -28,9 +28,9 @@ class TestPyRuntime(cytest.TestCase):
     '''Tests to improve line coverage.'''
     interp = interpreter.Interpreter()
     prelude = interp.import_(interpreter.prelude.Prelude)
-    self.assertEqual(str(prelude.negate), 'Prelude.negate')
-    self.assertEqual(str(prelude.negate.info), 'Info for "negate"')
-    self.assertTrue(repr(prelude.negate.info).startswith('InfoTable'))
+    self.assertEqual(prelude.prim_negateFloat.fullname, 'Prelude.prim_negateFloat')
+    self.assertEqual(str(prelude.prim_negateFloat.info), 'Info for "prim_negateFloat"')
+    self.assertTrue(repr(prelude.prim_negateFloat.info).startswith('InfoTable'))
 
     n = runtime.Node(getattr(prelude, '()').info)
     self.assertRaisesRegexp(RuntimeError, 'unhandled type: str', lambda: n['foo'])
@@ -185,13 +185,13 @@ class TestPyRuntime(cytest.TestCase):
         xor True a = not a
         '''
       )
-    read = inspect.getreadable(module)
-    self.assertTrue(read is None or os.path.exists(read))
-    self.assertTrue(read is None or read.endswith('.read'))
-    #
-    json = inspect.getjson(module)
+    json = inspect.getjsonfile(module)
     self.assertTrue(os.path.exists(json))
-    self.assertTrue(json.endswith('.json'))
+    self.assertTrue(json.endswith('.json') or json.endswith('.json.z'))
+    #
+    icurfile = inspect.geticurryfile(module)
+    self.assertTrue(os.path.exists(icurfile))
+    self.assertTrue(icurfile.endswith('.icy'))
     #
     icur = inspect.geticurry(module)
     self.assertIsInstance(icur, icurry.IModule)
@@ -209,7 +209,7 @@ class TestPyRuntime(cytest.TestCase):
   def test_free_return(self):
     interp = interpreter.Interpreter()
     self.assertEqual(str(interp._idfactory_), 'count(0)')
-    result, = list(interp.eval(interp.symbol('Prelude.unknown')))
+    result, = list(interp.eval(interp.symbol('Prelude.prim_unknown')))
     self.assertEqual(
         result, runtime.Node(interp.prelude._Free
       , 0, runtime.Node(interp.prelude.Unit))
@@ -251,7 +251,7 @@ class TestPyRuntime(cytest.TestCase):
   def test_getimpl(self):
     # Positive test.
     from curry.lib import hello
-    self.assertTrue(hello.main.getimpl().startswith('def step(lhs):'))
+    self.assertTrue(hello.main.getimpl().startswith('def step(_0):'))
     # Negative test.
     self.assertRaisesRegexp(
         ValueError
@@ -328,18 +328,23 @@ class TestInstantiation(cytest.TestCase):
   def setUp(self):
     super(TestInstantiation, self).setUp()
     self.interp = interpreter.Interpreter()
-    self.x, = list(self.interp.eval(self.interp.compile('x where x free', 'expr')))
-    self.e = self.interp.expr(self.interp.prelude.id, self.x)
-    self.assertTrue(inspect.isa_freevar(self.interp, self.x))
-    self.assertEqual(inspect.get_id(self.interp, self.x), 0)
+
+  def e(self, typename, imports=None):
+    x, = list(self.interp.eval(self.interp.compile(
+        'x::(%s) where x free' % typename, 'expr', imports=imports
+      )))
+    self.assertTrue(inspect.isa_freevar(self.interp, x))
+    self.assertEqual(inspect.get_id(self.interp, x), 0)
+    return self.interp.expr(self.interp.prelude.id, x)
 
   def q(self, cid, l, r):
     return [self.interp.prelude._Choice, conversions.unboxed(cid), l, r]
+
   def u(self):
-    return [self.interp.prelude.unknown]
+    return self.interp.prelude.prim_unknown
 
   def test_basic(self):
-    interp,q,u,e = self.interp, self.q, self.u(), self.e
+    interp,q,u,e = self.interp, self.q, self.u(), self.e('()')
     instance = runtime.instantiate(interp, e, [0], interp.type('Prelude.[]'))
     au = curry.expr(*q(0, [interp.prelude.Cons, u, u], [interp.prelude.Nil]))
     self.assertEqual(instance, au)
@@ -357,7 +362,7 @@ class TestInstantiation(cytest.TestCase):
 
   def test_singleCtor(self):
     # Instantiating a type with one constructor is a special case.
-    interp,q,u,e = self.interp, self.q, self.u(), self.e
+    interp,q,e = self.interp, self.q, self.e('()')
     instance = runtime.instantiate(interp, e, [0], interp.type('Prelude.()'))
     au = curry.expr(*q(0, [interp.prelude.Unit], [interp.prelude._Failure]))
     self.assertEqual(instance, au)
@@ -369,8 +374,9 @@ class TestInstantiation(cytest.TestCase):
     #       ?1          ?4
     #    ?2    ?3    ?5    G
     #   A  B  C  D  E  F
-    interp,q,u,e = self.interp, self.q, self.u(), self.e
+    interp,q = self.interp, self.q
     Type = interp.compile('data T = A|B|C|D|E|F|G', modulename='Type')
+    e = self.e('Type.T', imports=Type)
     instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instance, au)
@@ -382,8 +388,9 @@ class TestInstantiation(cytest.TestCase):
     #      ?1     ?3
     #    ?2  C  ?4  F
     #   A  B   D  E
-    interp,q,u,e = self.interp, self.q, self.u(), self.e
+    interp,q = self.interp, self.q
     Type = interp.compile('data T = A|B|C|D|E|F', modulename='Type')
+    e = self.e('Type.T', imports=Type)
     instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
     self.assertEqual(instance, au)
@@ -394,8 +401,9 @@ class TestInstantiation(cytest.TestCase):
     #      ?1   ?3
     #    ?2  C D  E
     #   A  B
-    interp,q,u,e = self.interp, self.q, self.u(), self.e
+    interp,q,u = self.interp, self.q, self.u()
     Type = interp.compile('data T a = A|B a|C a a|D a a a|E a a a a', modulename='Type')
+    e = self.e('Type.T', imports=Type)
     instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
     self.assertEqual(instance, au)

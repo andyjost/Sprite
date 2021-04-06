@@ -18,6 +18,7 @@ def exports():
   yield '_Fwd'
   yield '_Choice'
   yield '_PartApplic'
+  yield 'prim_unknown'
   # Opaque types.
   yield '[]'
   yield 'IO'
@@ -246,7 +247,7 @@ _functions_ = [
 # --- Converts an ASCII value into a character.
 # chr :: Int -> Char
   , _F('prim_chr', 1, metadata={'py.unboxedfunc':chr})
-  , _F('prim_i2f', 1, metadata={'py.unboxedfunc':float})
+  , _F('prim_intToFloat', 1, metadata={'py.unboxedfunc':float})
 # --- Sequential composition of actions.
 # --- @param a - An action
 # --- @param fa - A function from a value into an action
@@ -304,6 +305,7 @@ _functions_ = [
 # --- @return either `x` or `y` non-deterministically.
 # (?)   :: a -> a -> a
   , _F('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{1} ? {2}'})
+  , _F('prim_unknown', 0, metadata={'py.rawfunc':runtime.freshvar})
 #
 # -- Representation of higher-order applications in FlatCurry.
 # apply :: (a -> b) -> a -> b

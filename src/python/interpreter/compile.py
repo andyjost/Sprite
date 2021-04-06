@@ -3,8 +3,10 @@ Implements Interpreter.compile.
 '''
 
 from .. import config
+from .. import exceptions
 from .. import importer
 from .. import icurry
+from .module import CurryModule
 from ..utility.visitation import dispatch
 import types
 
@@ -12,6 +14,7 @@ __all__ = ['compile']
 
 def compile(
     interp, string, mode='module', imports=None
+  , signature=None
   , modulename=config.interactive_modname()
   ):
   '''
@@ -71,7 +74,10 @@ def compile(
     icur.functions[visible_name].name = visible_name
     module = interp.import_(icur)
     del interp.modules[icur.name]
-    expr = interp.expr(getattr(module, '.symbols')[visible_name])
+    func = getattr(module, '.symbols')[visible_name]
+    if func.info.arity > 0:
+      raise exceptions.CompileError('expression %r requires a type annotation' % string)
+    expr = interp.expr(func)
     expr.info.step(expr)
     return expr
   else:
@@ -88,7 +94,7 @@ def getImportSpecForExpr(interpreter, modules):
       The interpreter.
   ``modules``
       The list of modules to import.  Each one may be a string or a Curry
-      module object.
+      module object.  Instead of a list, a module object may be passed.
 
   Returns:
   --------
@@ -97,6 +103,8 @@ def getImportSpecForExpr(interpreter, modules):
   '''
   stmts = []
   currypath = list(interpreter.path)
+  if isinstance(modules, CurryModule):
+    modules = [modules]
   for module in modules:
     _updateImports(interpreter, module, stmts, currypath)
   return stmts, currypath

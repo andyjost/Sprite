@@ -261,6 +261,12 @@ class FunctionCompiler(object):
   def statement(self, vardecl):
     return []
 
+  @statement.when(icurry.IFreeDecl)
+  def statement(self, vardecl):
+    self.closure['freshvar'] = self.interp.freshvar
+    varname = self.expression(vardecl.lhs)
+    yield '%s = freshvar()' % varname
+
   @statement.when(icurry.IVarAssign)
   def statement(self, assign):
     lhs = self.expression(assign.lhs, primary=True)

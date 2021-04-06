@@ -78,7 +78,8 @@ class InfoTable(object):
   def step(self):
     # The step function can either be a function or a tuple (f, a, b, ...).  If
     # the latter, then f(a, b, ...) is called to get the actual step function
-    # the first time it is accessed.
+    # the first time it is accessed.  LazyFunction is a tuple that omits lengthy
+    # details from the representation.
     if isinstance(self._step, tuple):
       self._step = self._step[0](*self._step[1:])
     return self._step
@@ -129,6 +130,10 @@ class NodeInfo(object):
   # enhancement to CMC and maybe FlatCurry to generate source range
   # annotations.
 
+  @property
+  def fullname(self):
+    return '%s.%s' % (self.icurry.modulename, self.name)
+
   def getimpl(self):
     '''Returns the implementation code of the step function, if available.'''
     step = self.info.step
@@ -136,7 +141,7 @@ class NodeInfo(object):
       return getattr(step, 'source')
     except AttributeError:
       raise ValueError(
-          'no implementation code available for "%s"' % self.name
+          'no implementation code available for "%s"' % self.fullname
         )
 
   def __str__(self):
@@ -161,11 +166,15 @@ class NodeInfo(object):
 
 
 class TypeDefinition(object):
-  def __init__(self, name, constructors):
+  def __init__(self, name, constructors, module):
     self.name = name
     self.constructors = constructors
     for ctor in self.constructors:
       ctor.typedef = weakref.ref(self)
+    self.module = weakref.ref(module)
+  @property
+  def fullname(self):
+    return '%s.%s' % (self.module().name, self.name)
   def __repr__(self):
     return "<curry type %s>" % self.name
 
@@ -291,7 +300,13 @@ class Node(object):
   def __eq__(self, rhs):
     if not isinstance(rhs, Node):
       return False
-    return self.info == rhs.info and self.successors == rhs.successors
+    # Use __getitem__ to compress paths.  Forward nodes do not influence
+    # structural equality.
+    if self.info != rhs.info:
+      return False
+    if len(self.successors) != len(rhs.successors):
+      return False
+    return all(self[i] == rhs[i] for i in xrange(len(self.successors)))
 
   def __ne__(self, rhs):
     return not (self == rhs)
@@ -710,14 +725,14 @@ def get_stepper(interp):
   if interp.flags['trace']:
     indent = [0]
     def step(target): # pragma: no cover
-      print 'S <<<' + '  ' * indent[0], str(target), interp.currentframe
+      print 'S <<<' + '  ' * indent[0], str(target), getattr(interp, 'currentframe', '')
       indent[0] += 1
       try:
         target.info.step(target)
         interp.stepcounter.increment()
       finally:
         indent[0] -= 1
-        print 'S >>>' + '  ' * indent[0], str(target), interp.currentframe
+        print 'S >>>' + '  ' * indent[0], str(target), getattr(interp, 'currentframe', '')
   else:
     def step(target):
       target.info.step(target)
@@ -966,10 +981,9 @@ def _createGenerator(interp, ctors, vid=None, target=None):
   assert N
   if N == 1:
     ctor, = ctors
-    unknown = interp.prelude.unknown
     return Node(
         ctor
-      , *[Node(unknown) for _ in xrange(ctor.arity)]
+      , *[Node(interp.prelude.prim_unknown) for _ in xrange(ctor.arity)]
       , target=target
       )
   else:
@@ -1049,4 +1063,16 @@ def get_id(arg):
       cid = arg[0]
       assert cid >= 0
       return cid
+
+def freshvar(interp):
+  free = interp.prelude._Free.info
+  unit = interp.prelude.Unit.info
+  return Node(free, interp.nextid(), Node(unit))
+
+class LazyFunction(tuple):
+  def __new__(cls, *args):
+    self = tuple.__new__(cls, args)
+    return self
+  def __repr__(self):
+    return '<not yet compiled>'
 

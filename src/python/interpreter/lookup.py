@@ -7,7 +7,9 @@ def module(interp, name):
   try:
     return interp.modules[name]
   except KeyError:
-    raise exceptions.ModuleLookupError('Curry module "%s" not found' % name)
+    if name in interp.automodules:
+      return interp.import_(name)
+    raise exceptions.ModuleLookupError('Curry module %r not found' % name)
 
 def symbol(interp, name, modulename=None):
   '''
@@ -27,5 +29,5 @@ def type(interp, name):
     return types[typename]
   except KeyError:
     raise exceptions.TypeLookupError(
-        'module "%s" has no type "%s"' % (modulename, typename)
+        'module %r has no type %r' % (modulename, typename)
       )

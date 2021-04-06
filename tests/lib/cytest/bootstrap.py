@@ -8,13 +8,19 @@ from curry.utility import unboxed
 _cid = 527
 cid = unboxed.unboxed(_cid)
 
+def blk(expr):
+  return IBlock(vardecls=[], assigns=[], stmt=IReturn(expr))
+
+def ret(expr):
+  return IFuncBody(blk(IReturn(expr)))
+
 def getbootstrap():
   return IModule(
       name='bootstrap'
     , imports=[]
     , types=[
           IType(
-              ident='NUM'
+              name='NUM'
             , constructors=[
                   IConstructor('N', 0) # Nullary
                 , IConstructor('M', 0) # A distinct nullary, to test choices.
@@ -24,23 +30,28 @@ def getbootstrap():
             )
         ]
     , functions=[
-        IFunction('ZN', 0, [Return(Applic('bootstrap.N'))])
-      , IFunction('ZF', 0, [Return(Applic('Prelude._Failure'))])
-      , IFunction('ZQ', 0, [Return(Applic('Prelude._Choice', [_cid, Applic('bootstrap.N'), Applic('bootstrap.M')]))])
+        IFunction('ZN', 0, body=ret(ICCall('bootstrap.N')))
+      , IFunction('ZF', 0, body=ret(ICCall('Prelude._Failure')))
+      , IFunction('ZQ', 0, body=ret(
+            ICCall('Prelude._Choice', [_cid, ICCall('bootstrap.N'), ICCall('bootstrap.M')])
+          ))
       #                                                       ^^^
       #  Not correctly typed, but three arguments are needed here.
-      , IFunction('ZW', 0, [Return(Applic('Prelude._Fwd', [Applic('bootstrap.N')]))])
+      , IFunction('ZW', 0, body=ret(ICCall('Prelude._Fwd', [ICCall('bootstrap.N')])))
         # Evaluates its argument and then returns a FWD node refering to it.
-      , IFunction('Z' , 1, [
-            Declare(Variable(vid=1, scope=ILhs(index=["bootstrap.Z", 1])))
-          , ATable(0, True, Reference(1)
-              , [
-                    ("bootstrap.N", [Return(Reference(1))])
-                  , ("bootstrap.M", [Return(Reference(1))])
-                    # U,B -> failure
+      , IFunction('Z' , 1, body=IFuncBody(IBlock(
+            vardecls=[IVarDecl(1)]
+          , assigns=[IVarAssign(1, IVarAccess(0, path=[0]))]
+          , stmt=ICaseCons(
+                1
+              , branches=[
+                    IConsBranch("bootstrap.N", 0, blk(IReturn(IVar(1))))
+                  , IConsBranch("bootstrap.M", 0, blk(IReturn(IVar(1))))
+                  , IConsBranch("bootstrap.U", 1, blk(IReturn(IFCall("Prelude.failure"))))
+                  , IConsBranch("bootstrap.B", 2, blk(IReturn(IFCall("Prelude.failure"))))
                   ]
               )
-          ])
+          )))
       ]
     )
 
@@ -58,7 +69,7 @@ def getlist():
       name='mylist', imports=[], functions=[]
     , types=[
           IType(
-              ident='List'
+              name='List'
             , constructors=[
                 IConstructor('Cons', 2, metadata={'py.format':listformat})
               , IConstructor('Nil', 0, metadata={'py.format':listformat})
@@ -72,7 +83,7 @@ def getx():
       name='X', imports=[], functions=[]
     , types=[
           IType(
-              ident='X'
+              name='X'
             , constructors=[IConstructor('X', 1)]
             )
         ]

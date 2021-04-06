@@ -13,7 +13,7 @@ def step(interp, expr, num=1):
     expr = makegoal(interp, expr)
   with binding(interp.__dict__, 'stepcounter', runtime.StepCounter(limit=num)):
     try:
-      if isinstance(expr, icurry.BuiltinVariant):
+      if isinstance(expr, icurry.ILiteral):
         return
       while expr.info.tag == runtime.T_FUNC:
         interp._stepper(expr)
