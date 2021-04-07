@@ -152,11 +152,16 @@ def eq_constr_lazy(interp, root):
   else:
     raise InstantiationError('=:<= cannot bind to an unboxed value')
 
-def compose_io(interp, lhs):
+def bind_io(interp, lhs):
   io_a = interp.hnf(lhs, [0])
   yield interp.prelude.apply
   yield lhs[1]
   yield conversions.unbox(interp, io_a)
+
+def seq_io(interp, lhs):
+  interp.hnf(lhs, [0])
+  yield interp.prelude._Fwd
+  yield lhs[1]
 
 # Prelude.& is implemented as follows:
 #   Evaluate an argument and inspect its head symbol:

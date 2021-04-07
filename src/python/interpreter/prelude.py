@@ -253,8 +253,9 @@ _functions_ = [
 # --- @param fa - A function from a value into an action
 # --- @return An action that first performs a (yielding result r)
 # ---         and then performs (fa r)
-# (>>=$)             :: IO a -> (a -> IO b) -> IO b
-  , _F('>>=$', 2, metadata={'py.rawfunc':impl.compose_io})
+# (bindIO)             :: IO a -> (a -> IO b) -> IO b
+  , _F('bindIO', 2, metadata={'py.rawfunc':impl.bind_io})
+  , _F('seqIO', 2, metadata={'py.rawfunc':impl.seq_io})
 #
 # prim_readNatLiteral :: String -> [(Int,String)]
   , _F('prim_readNatLiteral', 1, metadata={'py.boxedfunc':impl.readNatLiteral})

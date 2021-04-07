@@ -43,10 +43,36 @@ TR = {
   , '~' : '_til_'
   }
 
+SPECIAL = {
+    'Prelude.[]' : 'Nil'
+  , 'Prelude.:'  : 'Cons'
+  , 'Prelude.?'  : 'Choice'
+  , 'Prelude.()' : 'Unit'
+  , 'Prelude.&&' : 'and'
+  , 'Prelude.||' : 'or'
+  , 'Prelude.==' : 'eq'
+  , 'Prelude./=' : 'ne'
+  , 'Prelude.<'  : 'lt'
+  , 'Prelude.>'  : 'gt'
+  , 'Prelude.<=' : 'le'
+  , 'Prelude.>=' : 'ge'
+  , 'Prelude.+'  : 'add'
+  , 'Prelude.-'  : 'sub'
+  , 'Prelude.*'  : 'mul'
+  , 'Prelude./'  : 'div'
+  , 'Prelude.%'  : 'mod'
+  , 'Prelude.^'  : 'pow'
+  }
+
 def clean(s):
   '''Clean up a string by encoding or removing illegal characters.'''
-  a = ''.join(TR.get(ch, ch) for ch in s)
-  return str(re.sub(P_SYMBOL, '', a))
+  if s in SPECIAL:
+    return SPECIAL[s]
+  elif s.startswith('Prelude.'):
+    return clean(s[8:])
+  else:
+    a = ''.join(TR.get(ch, ch) for ch in s)
+    return str(re.sub(P_SYMBOL, '', a))
 
 def encode(name, prefix='', disallow={}):
   '''

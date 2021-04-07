@@ -39,8 +39,8 @@ class Show(object):
 
   @visitation.dispatch.on('expr')
   def _recurse_(self, expr, noparen):
-    '''Recursively application.  Parenthesizes subexpressions.'''
-    return str(expr)
+    '''Recursive application.  Parenthesizes subexpressions.'''
+    return repr(expr)
 
   @_recurse_.when(runtime.Node)
   def _recurse_(self, node, noparen):

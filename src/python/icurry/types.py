@@ -75,7 +75,7 @@ class IInt(IObject):
     self.value = int(value)
     IObject.__init__(self, **kwds)
   def __str__(self):
-    return str(self.value)
+    return repr(self.value)
   def __repr__(self):
     return 'IInt(value=%r)' % self.value
 
@@ -86,7 +86,7 @@ class IChar(IObject):
     assert len(self.value) in (1,2) # Unicode can have length 2 in utf-8
     IObject.__init__(self, **kwds)
   def __str__(self):
-    return str(self.value)
+    return repr(self.value)
   def __repr__(self):
     return 'IChar(value=%r)' % self.value
 
@@ -96,7 +96,7 @@ class IFloat(IObject):
     self.value = float(value)
     IObject.__init__(self, **kwds)
   def __str__(self):
-    return str(self.value)
+    return repr(self.value)
   def __repr__(self):
     return 'IFloat(value=%r)' % self.value
 
@@ -506,7 +506,7 @@ class ICall(IObject):
   def children(self):
     return self.exprs
   def __str__(self):
-    string = ' '.join([str(self.name)] + map(str, self.exprs))
+    string = ', '.join([repr(self.name)] + map(str, self.exprs))
     return '%s(%s)' % (self.__class__.__name__, string)
   def __repr__(self):
     return '%s(name=%r, exprs=%r)' % (type(self).__name__, self.name, self.exprs)

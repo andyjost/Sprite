@@ -397,8 +397,8 @@ class FunctionCompiler(object):
   def expression(self, ior, primary=False):
     text = '%s, %s, %s' % (
         self.closure['Prelude.?']
-      , self.expression(ior.lhs)
-      , self.expression(ior.rhs)
+      , self.expression(ior.lhs, primary=True)
+      , self.expression(ior.rhs, primary=True)
       )
     return 'Node(%s)' % text if primary else text
 
