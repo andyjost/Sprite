@@ -305,7 +305,7 @@ _functions_ = [
 # --- @return either `x` or `y` non-deterministically.
 # (?)   :: a -> a -> a
   , _F('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{1} ? {2}'})
-  , _F('prim_unknown', 0, metadata={'py.rawfunc':runtime.freshvar})
+  , _F('prim_unknown', 0, metadata={'py.rawfunc':impl.freshvar})
 #
 # -- Representation of higher-order applications in FlatCurry.
 # apply :: (a -> b) -> a -> b

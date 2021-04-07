@@ -48,7 +48,7 @@ def clean(s):
   a = ''.join(TR.get(ch, ch) for ch in s)
   return str(re.sub(P_SYMBOL, '', a))
 
-def encode(name, disallow={}):
+def encode(name, prefix='', disallow={}):
   '''
   Encode a Curry name into a legal Python identifier.
 
@@ -64,7 +64,7 @@ def encode(name, disallow={}):
   A string holding the encoded identifier.
   '''
   a = clean(name)
-  k = 'ni_%s' % a
+  k = '%s%s' % (prefix, a)
   if k in disallow:
     # Append a number.
     k_ = k
@@ -73,7 +73,7 @@ def encode(name, disallow={}):
       k_ = '%s_%d' % (k, next(i))
     k = k_
   assert k not in disallow
-  assert k.startswith('ni_')
+  assert k.startswith(prefix)
   return k
 
 def symbolToFilename(name):

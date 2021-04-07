@@ -174,9 +174,9 @@ class TypeDefinition(object):
     self.module = weakref.ref(module)
   @property
   def fullname(self):
-    return '%s.%s' % (self.module().name, self.name)
+    return '%s.%s' % (self.module().__name__, self.name)
   def __repr__(self):
-    return "<curry type %s>" % self.name
+    return "<curry type %s>" % self.fullname
 
 
 class Node(object):
@@ -1064,10 +1064,13 @@ def get_id(arg):
       assert cid >= 0
       return cid
 
+def _freshvar(interp):
+  yield interp.prelude._Free.info
+  yield interp.nextid()
+  yield Node(interp.prelude.Unit.info)
+
 def freshvar(interp):
-  free = interp.prelude._Free.info
-  unit = interp.prelude.Unit.info
-  return Node(free, interp.nextid(), Node(unit))
+  return Node(*_freshvar(interp))
 
 class LazyFunction(tuple):
   def __new__(cls, *args):

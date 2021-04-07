@@ -20,7 +20,7 @@ class TestUtility(unittest.TestCase):
       ]
     for n in range(len(names)):
       self.assertEqual(
-          encoding.encode('Prelude.==', disallow=names[:n])
+          encoding.encode('Prelude.==', 'ni_', disallow=names[:n])
         , names[n]
         )
 

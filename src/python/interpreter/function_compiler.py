@@ -1,6 +1,7 @@
 from .. import icurry
 from ..icurry import analysis
 from . import runtime
+from . import prelude_impl
 from ..utility import encoding, visitation, formatDocstring
 from ..utility import filesys
 import collections
@@ -287,7 +288,7 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.IExempt)
   def statement(self, exempt):
-    yield 'Node(%s)' % self.closure['Prelude._Failure']
+    yield '_0.rewrite(%s)' % self.closure['Prelude._Failure']
 
   @statement.when(icurry.IReturn)
   def statement(self, ret):
@@ -298,29 +299,48 @@ class FunctionCompiler(object):
     else:
       yield '_0.rewrite(%s)' % self.expression(ret.expr)
 
-  @statement.when(icurry.ICase)
+  @statement.when(icurry.ICaseCons)
   def statement(self, icase):
     self.closure['hnf'] = self.interp.hnf
     vid = icase.vid
     path = self.varinfo[vid].path
     assert path is not None
-    if isinstance(icase, icurry.ICaseCons):
-      yield 'selector = hnf(_0, %s).info.tag' % path
-    else:
-      self.closure['unbox'] = self.interp.unbox
-      yield 'selector = unbox(hnf(_0, %s))' % path
+    assert icase.branches
+    typedef = self.interp.symbol(icase.branches[0].name).typedef()
+    yield 'selector = hnf(_0, %s, typedef=%s).info.tag' % (path, self.closure[typedef])
     el = ''
-    for branch in icase.branches:
-      if isinstance(branch, icurry.IConsBranch):
-        rhs = self.nodeinfo(branch.name).info.tag
-      else:
-        rhs = repr(branch.lit.value)
+    for branch in icase.branches[:-1]:
+      rhs = self.nodeinfo(branch.name).info.tag
       yield '%sif selector == %s:' % (el, rhs)
       yield list(self.statement(branch.block))
       el = 'el'
-    yield 'else:'
-    yield '  _0.rewrite(%s)' % self.closure['Prelude._Failure']
-    yield '  return'
+    if el:
+      yield 'else:'
+      yield list(self.statement(icase.branches[-1].block))
+    else:
+      for line in self.statement(icase.branches[-1].block):
+        yield line
+
+  @statement.when(icurry.ICaseLit)
+  def statement(self, icase):
+    self.closure['hnf'] = self.interp.hnf
+    vid = icase.vid
+    path = self.varinfo[vid].path
+    assert path is not None
+    self.closure['unbox'] = self.interp.unbox
+    yield 'selector = unbox(hnf(_0, %s))' % path
+    el = ''
+    for branch in icase.branches:
+      rhs = repr(branch.lit.value)
+      yield '%sif selector == %s:' % (el, rhs)
+      yield list(self.statement(branch.block))
+      el = 'el'
+    last_line = '_0.rewrite(%s)' % self.closure['Prelude._Failure']
+    if el:
+      yield 'else:'
+      yield [last_line]
+    else:
+      yield last_line
 
   # Expressions.  Returns a string.  For primary expressions, the string
   # evaluates to a value (boxed or unboxed).  For non-primary expressions, it
@@ -404,19 +424,26 @@ class Closure(object):
     self.interp = interp
     self.context = {}
 
-  def __getitem__(self, name):
-    rv = self.context.get(name, None)
+  def __getitem__(self, key):
+    if isinstance(key, runtime.TypeDefinition):
+      obj = key
+      key = encoding.encode(obj.fullname, 'ty_', self.context)
+    else:
+      obj = None
+    rv = self.context.get(key, None)
     if rv is not None:
       return rv
     else:
-      symbol = self.interp.symbol(name).info
+      if obj is None:
+        obj = self.interp.symbol(key).info
       for k,v in self.context.iteritems():
-        if v is symbol:
+        if v is obj:
           return k
       else:
-        k = encoding.encode(name, self.context)
-        self.context[k] = symbol
-        return k
+        if not isinstance(obj, runtime.TypeDefinition):
+          key = encoding.encode(key, 'ni_', self.context)
+        self.context[key] = obj
+        return key
 
   def __setitem__(self, key, obj):
     '''Add a non-symbol, such as a system function, to the closure.'''
@@ -432,7 +459,6 @@ class Closure(object):
       if k.startswith('p_') and v == path:
         return k
     else:
-      breakpoint()
       assert False
 
 # Rendering.

@@ -48,6 +48,9 @@ def choice(interp, lhs):
   yield lhs[0]
   yield lhs[1]
 
+def freshvar(interp, lhs):
+  return runtime._freshvar(interp)
+  
 def error(interp, msg):
   msg = str(interp.topython(msg))
   raise RuntimeError(msg)
