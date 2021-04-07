@@ -1,5 +1,5 @@
 from cStringIO import StringIO
-from curry import cymake
+from curry import importer
 from .. import config
 from .. import utility
 from .utility import handle_program_errors
@@ -130,7 +130,7 @@ def main(progname, argv):
   for name in args.names:
     kwds['is_sourcefile'] = name.endswith('.curry')
     with error_handler:
-      cymake.updateTarget(name, currypath, **kwds)
+      importer.updateTarget(name, currypath, **kwds)
   if error_handler.nerrors:
     sys.exit(1)
 
