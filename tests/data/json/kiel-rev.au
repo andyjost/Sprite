@@ -9,23 +9,32 @@ Module:
   functions:
   ----------
     append:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      case $1 of Prelude.[] -> return $2
-                 Prelude.:  -> $3 <- $1[1]
-                               $4 <- $1[2]
-                               return (Prelude.: $3 ((rev.append $4 $2)))
-      return $1
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $1 of
+        Prelude.[] -> return $2
+        Prelude.: _ _ ->
+          var $3
+          var $4
+          $3 <- $1[0]
+          $4 <- $1[1]
+          return ICCall('Prelude.:', $3, IFCall('rev.append', $4, $2))
     rev:
-      $1 <- LHS[1]
-      case $1 of Prelude.[] -> return (Prelude.[])
-                 Prelude.:  -> $2 <- $1[1]
-                               $3 <- $1[2]
-                               return (rev.append ((rev.rev $3)) ((Prelude.: $2 (Prelude.[]))))
-      return $1
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        Prelude.[] -> return ICCall('Prelude.[]')
+        Prelude.: _ _ ->
+          var $2
+          var $3
+          $2 <- $1[0]
+          $3 <- $1[1]
+          return IFCall('rev.append', IFCall('rev.rev', $3), ICCall('Prelude.:', $2, ICCall('Prelude.[]')))
     goal1:
-      return (rev.append ((Prelude.: 1 ((Prelude.: 2 (Prelude.[]))))) ((Prelude.: 3 ((Prelude.: 4 (Prelude.[]))))))
+      return IFCall('rev.append', ICCall('Prelude.:', (1), ICCall('Prelude.:', (2), ICCall('Prelude.[]'))), ICCall('Prelude.:', (3), ICCall('Prelude.:', (4), ICCall('Prelude.[]'))))
     goal2:
-      return (rev.rev ((Prelude.: 1 ((Prelude.: 2 ((Prelude.: 3 ((Prelude.: 4 (Prelude.[]))))))))))
+      return IFCall('rev.rev', ICCall('Prelude.:', (1), ICCall('Prelude.:', (2), ICCall('Prelude.:', (3), ICCall('Prelude.:', (4), ICCall('Prelude.[]'))))))
     goal3:
-      return (rev.rev ((Prelude.: 1 ((Prelude.: 2 ((Prelude.: 3 ((Prelude.: 4 ((Prelude.: 5 ((Prelude.: 6 ((Prelude.: 7 ((Prelude.: 8 ((Prelude.: 9 ((Prelude.: 10 (Prelude.[]))))))))))))))))))))))
+      return IFCall('rev.rev', ICCall('Prelude.:', (1), ICCall('Prelude.:', (2), ICCall('Prelude.:', (3), ICCall('Prelude.:', (4), ICCall('Prelude.:', (5), ICCall('Prelude.:', (6), ICCall('Prelude.:', (7), ICCall('Prelude.:', (8), ICCall('Prelude.:', (9), ICCall('Prelude.:', (10), ICCall('Prelude.[]'))))))))))))

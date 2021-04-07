@@ -1,5 +1,5 @@
 from abc import ABCMeta
-from collections import Iterator, OrderedDict
+from collections import Iterator, OrderedDict, Mapping, Sequence
 from ..utility.formatting import indent, wrapblock
 from ..utility.proptree import proptree
 from ..utility.visitation import dispatch
@@ -68,6 +68,7 @@ class IObject(object):
 
 IArity = int
 IVarIndex = int
+class IName(str): pass
 
 class IInt(IObject):
   def __init__(self, value, **kwds):
@@ -75,7 +76,7 @@ class IInt(IObject):
     self.value = int(value)
     IObject.__init__(self, **kwds)
   def __str__(self):
-    return repr(self.value)
+    return '(%r)' % self.value # parens to suggest boxing
   def __repr__(self):
     return 'IInt(value=%r)' % self.value
 
@@ -86,7 +87,7 @@ class IChar(IObject):
     assert len(self.value) in (1,2) # Unicode can have length 2 in utf-8
     IObject.__init__(self, **kwds)
   def __str__(self):
-    return repr(self.value)
+    return '(%r)' % self.value # parens to suggest boxing
   def __repr__(self):
     return 'IChar(value=%r)' % self.value
 
@@ -96,7 +97,7 @@ class IFloat(IObject):
     self.value = float(value)
     IObject.__init__(self, **kwds)
   def __str__(self):
-    return repr(self.value)
+    return '(%r)' % self.value # parens to suggest boxing
   def __repr__(self):
     return 'IFloat(value=%r)' % self.value
 
@@ -118,7 +119,16 @@ ILiteral.register(IFloat)
 ILiteral.register(IUnboxedLiteral)
 
 def symboltable(parent, objs):
+  # if isinstance(objs, Mapping):
+  #   assert all(k == v.name for k,v in objs)
+  #   objs = objs.values()
+  # elif isinstance(objs, Sequence)
+  #   if objs and len(objs[0]) == 2:
+  #     objs = (x for _,x in objs)
+  # try:
   return OrderedDict((v.name, v) for v in (v.setparent(parent) for v in objs))
+  # except:
+  #   breakpoint()
 
 class IModule(IObject):
   def __init__(self, name, imports, types, functions, filename=None, **kwds):
@@ -128,8 +138,8 @@ class IModule(IObject):
       name        The module name.
       imports     A list of imported module names.
       types       A mapping or sequence of pairs: str -> [IConstructor].
-      functions   A sequence of IFunctions, or a mapping or sequence of pairs:
-                  str -> IFunction.
+      functions   A sequence of IFunctions, or a mapping or sequence of pairs
+                  from string to IFunction.
     '''
     self.name = str(name)
     self.imports = tuple(str(x) for x in imports)
@@ -162,7 +172,7 @@ class IModule(IObject):
 
   def __repr__(self):
     return 'IModule(name=%r, imports=%r, types=%r, functions=%r)' % (
-        self.name, self.imports, self.types, self.functions
+        self.name, self.imports, self.types.values(), self.functions.values()
       )
 
   def merge(self, extern, export):
@@ -187,7 +197,7 @@ IProg = IModule
 class IConstructor(IObject):
   def __init__(self, name, arity, **kwds):
     assert arity >= 0
-    self.name = strip_modulename(name)
+    self.name = iname(name)
     self.arity = IArity(arity)
     IObject.__init__(self, **kwds)
 
@@ -205,11 +215,11 @@ class IConstructor(IObject):
     return self.name + ' _' * self.arity
 
   def __repr__(self):
-    return 'IConstructor(name=%r, arity=%r)' % (self.name, self.arity)
+    return 'IConstructor(name=IName(%r), arity=%r)' % (self.name, self.arity)
 
 class IDataType(IObject):
   def __init__(self, name, constructors, **kwds):
-    self.name = strip_modulename(name)
+    self.name = iname(name)
     self.constructors = [ctor.setparent(self, i) for i,ctor in enumerate(constructors)]
     IObject.__init__(self, **kwds)
 
@@ -222,13 +232,13 @@ class IDataType(IObject):
     return 'data %s = %s' % (self.name, ' | '.join(map(str, self.constructors)))
 
   def __repr__(self):
-    return 'IDataType(name=%r, constructors=%r)' % (self.name, self.constructors)
+    return 'IDataType(name=IName(%r), constructors=%r)' % (self.name, self.constructors)
 IType = IDataType
 
 class IFunction(IObject):
   def __init__(self, name, arity, vis=None, needed=None, body=[], **kwds):
     assert arity >= 0
-    self.name = strip_modulename(name)
+    self.name = iname(name)
     self.arity = IArity(arity)
     self.vis = PUBLIC if vis is None else vis
     # None means no info; [] means nothing needed.
@@ -246,19 +256,23 @@ class IFunction(IObject):
     return self.vis == PRIVATE
 
   def __str__(self):
-    return '%s\n%s' % (self.name, indent(self.body))
+    return '%s:\n%s' % (self.name, indent(self.body))
 
   def __repr__(self):
-    return 'IFunction(name=%r, arity=%r, vis=%r, needed=%r, body=%r)' % (
+    return 'IFunction(name=IName(%r), arity=%r, vis=%r, needed=%r, body=%r)' % (
         self.name, self.arity, self.vis, self.needed, self.body
       )
 
 class Public(IObject):
+  def __repr__(self):
+    return "PUBLIC"
   def __str__(self):
     return "Public"
 PUBLIC = Public()
 
 class Private(IObject):
+  def __repr__(self):
+    return "PRIVATE"
   def __str__(self):
     return "Private"
 PRIVATE = Private()
@@ -306,7 +320,7 @@ class IBlock(IObject):
     lines.append(str(self.stmt))
     return '\n'.join(lines)
   def __repr__(self):
-    return 'IBlock(vardecls=%s, assigns=%s, stmt=%s)' % (
+    return 'IBlock(vardecls=%r, assigns=%r, stmt=%r)' % (
         self.vardecls, self.assigns, self.stmt
       )
 
@@ -320,7 +334,7 @@ class IFreeDecl(IObject):
   def __str__(self):
     return 'free %s' % IVar(self.vid)
   def __repr__(self):
-    return 'IFreeDecl(vid=%s)' % self.vid
+    return 'IFreeDecl(vid=%r)' % self.vid
 
 class IVarDecl(IObject):
   __metaclass__ = ABCMeta
@@ -333,7 +347,7 @@ class IVarDecl(IObject):
   def __str__(self):
     return 'var %s' % IVar(self.vid)
   def __repr__(self):
-    return 'IVarDecl(vid=%s)' % self.vid
+    return 'IVarDecl(vid=%r)' % self.vid
 IVarDecl.register(IFreeDecl)
 
 class IVarAssign(IObject):
@@ -416,7 +430,9 @@ class ICase(IObject):
       , indent(self.branches)
       )
   def __repr__(self):
-    return 'ICaseCons(vid=%r, branches=%r)' % (self.vid, self.branches)
+    return '%s(vid=%r, branches=%r)' % (
+        type(self).__name__, self.vid, self.branches
+      )
 
 class ICaseCons(ICase): pass
 class ICaseLit(ICase): pass
@@ -431,7 +447,7 @@ class IConsBranch(IObject):
   def children(self):
     return self.block,
   def __str__(self):
-    return '%s %s-> %s' % (self.name, ''.join('_ ' * self.arity), wrapblock(self.block))
+    return '%s %s->%s' % (self.name, ''.join('_ ' * self.arity), wrapblock(self.block))
   def __repr__(self):
     return 'IConsBranch(name=%r, arity=%r, block=%r)' % (
         self.name, self.arity, self.block
@@ -446,7 +462,7 @@ class ILitBranch(IObject):
   def children(self):
     return self.lit, self.block
   def __str__(self):
-    return '%s -> %s' % (self.lit, wrapblock(self.block))
+    return '%s ->%s' % (self.lit, wrapblock(self.block))
   def __repr__(self):
     return 'ILitBranch(lit=%r, block=%r)' % (self.lit, self.block)
 
@@ -557,8 +573,12 @@ def modulename(arg):
 def modulename(arg):
   return arg.name
 
-def strip_modulename(name):
-  return '.'.join(name.split('.')[1:])
+def iname(name):
+  if isinstance(name, IName):
+    return name
+  else:
+    # Strip the module from a qualified name.
+    return '.'.join(name.split('.')[1:])
 
 def splitname(name):
   parts = name.split('.')

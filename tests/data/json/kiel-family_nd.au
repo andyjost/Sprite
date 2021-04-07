@@ -5,55 +5,251 @@ Module:
 
   types:
   ------
-    Person = Christine | Maria | Monica | Alice | Susan | Antony | Bill | John | Frank | Peter | Andrew
+    data Person = Christine | Maria | Monica | Alice | Susan | Antony | Bill | John | Frank | Peter | Andrew
 
   functions:
   ----------
+    _inst#Prelude.Data#family_nd.Person:
+      return ICCall('Prelude._Dict#Data', IFPCall('family_nd._impl#===#Prelude.Data#family_nd.Person'), IFPCall('family_nd._impl#aValue#Prelude.Data#family_nd.Person'))
+    _impl#===#Prelude.Data#family_nd.Person:
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $1 of
+        family_nd.Christine -> return IFCall('family_nd._impl#===#Prelude.Data#family_nd.Person_CASE0', $2)
+        family_nd.Maria -> return IFCall('family_nd._impl#===#Prelude.Data#family_nd.Person_CASE1', $2)
+        family_nd.Monica -> return IFCall('family_nd._impl#===#Prelude.Data#family_nd.Person_CASE2', $2)
+        family_nd.Alice -> return IFCall('family_nd._impl#===#Prelude.Data#family_nd.Person_CASE3', $2)
+        family_nd.Susan -> return IFCall('family_nd._impl#===#Prelude.Data#family_nd.Person_CASE4', $2)
+        family_nd.Antony -> return IFCall('family_nd._impl#===#Prelude.Data#family_nd.Person_CASE5', $2)
+        family_nd.Bill -> return IFCall('family_nd._impl#===#Prelude.Data#family_nd.Person_CASE6', $2)
+        family_nd.John -> return IFCall('family_nd._impl#===#Prelude.Data#family_nd.Person_CASE7', $2)
+        family_nd.Frank -> return IFCall('family_nd._impl#===#Prelude.Data#family_nd.Person_CASE8', $2)
+        family_nd.Peter -> return IFCall('family_nd._impl#===#Prelude.Data#family_nd.Person_CASE9', $2)
+        family_nd.Andrew -> return IFCall('family_nd._impl#===#Prelude.Data#family_nd.Person_CASE10', $2)
+    _impl#===#Prelude.Data#family_nd.Person_CASE10:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        family_nd.Christine -> return ICCall('Prelude.False')
+        family_nd.Maria -> return ICCall('Prelude.False')
+        family_nd.Monica -> return ICCall('Prelude.False')
+        family_nd.Alice -> return ICCall('Prelude.False')
+        family_nd.Susan -> return ICCall('Prelude.False')
+        family_nd.Antony -> return ICCall('Prelude.False')
+        family_nd.Bill -> return ICCall('Prelude.False')
+        family_nd.John -> return ICCall('Prelude.False')
+        family_nd.Frank -> return ICCall('Prelude.False')
+        family_nd.Peter -> return ICCall('Prelude.False')
+        family_nd.Andrew -> return ICCall('Prelude.True')
+    _impl#===#Prelude.Data#family_nd.Person_CASE9:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        family_nd.Christine -> return ICCall('Prelude.False')
+        family_nd.Maria -> return ICCall('Prelude.False')
+        family_nd.Monica -> return ICCall('Prelude.False')
+        family_nd.Alice -> return ICCall('Prelude.False')
+        family_nd.Susan -> return ICCall('Prelude.False')
+        family_nd.Antony -> return ICCall('Prelude.False')
+        family_nd.Bill -> return ICCall('Prelude.False')
+        family_nd.John -> return ICCall('Prelude.False')
+        family_nd.Frank -> return ICCall('Prelude.False')
+        family_nd.Peter -> return ICCall('Prelude.True')
+        family_nd.Andrew -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#family_nd.Person_CASE8:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        family_nd.Christine -> return ICCall('Prelude.False')
+        family_nd.Maria -> return ICCall('Prelude.False')
+        family_nd.Monica -> return ICCall('Prelude.False')
+        family_nd.Alice -> return ICCall('Prelude.False')
+        family_nd.Susan -> return ICCall('Prelude.False')
+        family_nd.Antony -> return ICCall('Prelude.False')
+        family_nd.Bill -> return ICCall('Prelude.False')
+        family_nd.John -> return ICCall('Prelude.False')
+        family_nd.Frank -> return ICCall('Prelude.True')
+        family_nd.Peter -> return ICCall('Prelude.False')
+        family_nd.Andrew -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#family_nd.Person_CASE7:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        family_nd.Christine -> return ICCall('Prelude.False')
+        family_nd.Maria -> return ICCall('Prelude.False')
+        family_nd.Monica -> return ICCall('Prelude.False')
+        family_nd.Alice -> return ICCall('Prelude.False')
+        family_nd.Susan -> return ICCall('Prelude.False')
+        family_nd.Antony -> return ICCall('Prelude.False')
+        family_nd.Bill -> return ICCall('Prelude.False')
+        family_nd.John -> return ICCall('Prelude.True')
+        family_nd.Frank -> return ICCall('Prelude.False')
+        family_nd.Peter -> return ICCall('Prelude.False')
+        family_nd.Andrew -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#family_nd.Person_CASE6:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        family_nd.Christine -> return ICCall('Prelude.False')
+        family_nd.Maria -> return ICCall('Prelude.False')
+        family_nd.Monica -> return ICCall('Prelude.False')
+        family_nd.Alice -> return ICCall('Prelude.False')
+        family_nd.Susan -> return ICCall('Prelude.False')
+        family_nd.Antony -> return ICCall('Prelude.False')
+        family_nd.Bill -> return ICCall('Prelude.True')
+        family_nd.John -> return ICCall('Prelude.False')
+        family_nd.Frank -> return ICCall('Prelude.False')
+        family_nd.Peter -> return ICCall('Prelude.False')
+        family_nd.Andrew -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#family_nd.Person_CASE5:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        family_nd.Christine -> return ICCall('Prelude.False')
+        family_nd.Maria -> return ICCall('Prelude.False')
+        family_nd.Monica -> return ICCall('Prelude.False')
+        family_nd.Alice -> return ICCall('Prelude.False')
+        family_nd.Susan -> return ICCall('Prelude.False')
+        family_nd.Antony -> return ICCall('Prelude.True')
+        family_nd.Bill -> return ICCall('Prelude.False')
+        family_nd.John -> return ICCall('Prelude.False')
+        family_nd.Frank -> return ICCall('Prelude.False')
+        family_nd.Peter -> return ICCall('Prelude.False')
+        family_nd.Andrew -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#family_nd.Person_CASE4:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        family_nd.Christine -> return ICCall('Prelude.False')
+        family_nd.Maria -> return ICCall('Prelude.False')
+        family_nd.Monica -> return ICCall('Prelude.False')
+        family_nd.Alice -> return ICCall('Prelude.False')
+        family_nd.Susan -> return ICCall('Prelude.True')
+        family_nd.Antony -> return ICCall('Prelude.False')
+        family_nd.Bill -> return ICCall('Prelude.False')
+        family_nd.John -> return ICCall('Prelude.False')
+        family_nd.Frank -> return ICCall('Prelude.False')
+        family_nd.Peter -> return ICCall('Prelude.False')
+        family_nd.Andrew -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#family_nd.Person_CASE3:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        family_nd.Christine -> return ICCall('Prelude.False')
+        family_nd.Maria -> return ICCall('Prelude.False')
+        family_nd.Monica -> return ICCall('Prelude.False')
+        family_nd.Alice -> return ICCall('Prelude.True')
+        family_nd.Susan -> return ICCall('Prelude.False')
+        family_nd.Antony -> return ICCall('Prelude.False')
+        family_nd.Bill -> return ICCall('Prelude.False')
+        family_nd.John -> return ICCall('Prelude.False')
+        family_nd.Frank -> return ICCall('Prelude.False')
+        family_nd.Peter -> return ICCall('Prelude.False')
+        family_nd.Andrew -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#family_nd.Person_CASE2:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        family_nd.Christine -> return ICCall('Prelude.False')
+        family_nd.Maria -> return ICCall('Prelude.False')
+        family_nd.Monica -> return ICCall('Prelude.True')
+        family_nd.Alice -> return ICCall('Prelude.False')
+        family_nd.Susan -> return ICCall('Prelude.False')
+        family_nd.Antony -> return ICCall('Prelude.False')
+        family_nd.Bill -> return ICCall('Prelude.False')
+        family_nd.John -> return ICCall('Prelude.False')
+        family_nd.Frank -> return ICCall('Prelude.False')
+        family_nd.Peter -> return ICCall('Prelude.False')
+        family_nd.Andrew -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#family_nd.Person_CASE1:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        family_nd.Christine -> return ICCall('Prelude.False')
+        family_nd.Maria -> return ICCall('Prelude.True')
+        family_nd.Monica -> return ICCall('Prelude.False')
+        family_nd.Alice -> return ICCall('Prelude.False')
+        family_nd.Susan -> return ICCall('Prelude.False')
+        family_nd.Antony -> return ICCall('Prelude.False')
+        family_nd.Bill -> return ICCall('Prelude.False')
+        family_nd.John -> return ICCall('Prelude.False')
+        family_nd.Frank -> return ICCall('Prelude.False')
+        family_nd.Peter -> return ICCall('Prelude.False')
+        family_nd.Andrew -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#family_nd.Person_CASE0:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        family_nd.Christine -> return ICCall('Prelude.True')
+        family_nd.Maria -> return ICCall('Prelude.False')
+        family_nd.Monica -> return ICCall('Prelude.False')
+        family_nd.Alice -> return ICCall('Prelude.False')
+        family_nd.Susan -> return ICCall('Prelude.False')
+        family_nd.Antony -> return ICCall('Prelude.False')
+        family_nd.Bill -> return ICCall('Prelude.False')
+        family_nd.John -> return ICCall('Prelude.False')
+        family_nd.Frank -> return ICCall('Prelude.False')
+        family_nd.Peter -> return ICCall('Prelude.False')
+        family_nd.Andrew -> return ICCall('Prelude.False')
+    _impl#aValue#Prelude.Data#family_nd.Person:
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        Prelude.() -> return ICCall('family_nd.Christine') ? ICCall('family_nd.Maria') ? ICCall('family_nd.Monica') ? ICCall('family_nd.Alice') ? ICCall('family_nd.Susan') ? ICCall('family_nd.Antony') ? ICCall('family_nd.Bill') ? ICCall('family_nd.John') ? ICCall('family_nd.Frank') ? ICCall('family_nd.Peter') ? ICCall('family_nd.Andrew')
     female:
-      return (family_nd.Christine) ? (family_nd.Maria) ? (family_nd.Monica) ? (family_nd.Alice) ? (family_nd.Susan)
+      return ICCall('family_nd.Christine') ? ICCall('family_nd.Maria') ? ICCall('family_nd.Monica') ? ICCall('family_nd.Alice') ? ICCall('family_nd.Susan')
     male:
-      return (family_nd.Antony) ? (family_nd.Bill) ? (family_nd.John) ? (family_nd.Frank) ? (family_nd.Peter) ? (family_nd.Andrew)
+      return ICCall('family_nd.Antony') ? ICCall('family_nd.Bill') ? ICCall('family_nd.John') ? ICCall('family_nd.Frank') ? ICCall('family_nd.Peter') ? ICCall('family_nd.Andrew')
     husband:
-      $1 <- LHS[1]
-      case $1 of family_nd.Christine -> return (family_nd.Antony)
-                 family_nd.John      -> return Exempt
-                 family_nd.Susan     -> return Exempt
-                 family_nd.Peter     -> return Exempt
-                 family_nd.Bill      -> return Exempt
-                 family_nd.Alice     -> return (family_nd.Frank)
-                 family_nd.Maria     -> return (family_nd.Bill)
-                 family_nd.Frank     -> return Exempt
-                 family_nd.Antony    -> return Exempt
-                 family_nd.Andrew    -> return Exempt
-                 family_nd.Monica    -> return (family_nd.John)
-      return $1
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        family_nd.Christine -> return ICCall('family_nd.Antony')
+        family_nd.Maria -> return ICCall('family_nd.Bill')
+        family_nd.Monica -> return ICCall('family_nd.John')
+        family_nd.Alice -> return ICCall('family_nd.Frank')
+        family_nd.Susan -> exempt
+        family_nd.Antony -> exempt
+        family_nd.Bill -> exempt
+        family_nd.John -> exempt
+        family_nd.Frank -> exempt
+        family_nd.Peter -> exempt
+        family_nd.Andrew -> exempt
     mother:
-      $1 <- LHS[1]
-      case $1 of family_nd.Christine -> return Exempt
-                 family_nd.John      -> return (family_nd.Christine)
-                 family_nd.Susan     -> return (family_nd.Monica)
-                 family_nd.Peter     -> return (family_nd.Monica)
-                 family_nd.Bill      -> return Exempt
-                 family_nd.Alice     -> return (family_nd.Christine)
-                 family_nd.Maria     -> return Exempt
-                 family_nd.Frank     -> return (family_nd.Maria)
-                 family_nd.Antony    -> return Exempt
-                 family_nd.Andrew    -> return (family_nd.Alice)
-                 family_nd.Monica    -> return Exempt
-      return $1
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        family_nd.Christine -> exempt
+        family_nd.Maria -> exempt
+        family_nd.Monica -> exempt
+        family_nd.Alice -> return ICCall('family_nd.Christine')
+        family_nd.Susan -> return ICCall('family_nd.Monica')
+        family_nd.Antony -> exempt
+        family_nd.Bill -> exempt
+        family_nd.John -> return ICCall('family_nd.Christine')
+        family_nd.Frank -> return ICCall('family_nd.Maria')
+        family_nd.Peter -> return ICCall('family_nd.Monica')
+        family_nd.Andrew -> return ICCall('family_nd.Alice')
     father:
-      $1 <- LHS[1]
-      return (family_nd.husband ((family_nd.mother $1)))
+      var $1
+      $1 <- $0[0]
+      return IFCall('family_nd.husband', IFCall('family_nd.mother', $1))
     grandfather:
-      $1 <- LHS[1]
-      return (family_nd.father ((family_nd.father $1))) ? (family_nd.father ((family_nd.mother $1)))
+      var $1
+      $1 <- $0[0]
+      return IFCall('family_nd.father', IFCall('family_nd.father', $1)) ? IFCall('family_nd.father', IFCall('family_nd.mother', $1))
     ancestor:
-      $1 <- LHS[1]
-      return (family_nd.father $1) ? (family_nd.mother $1) ? (family_nd.father ((family_nd.ancestor $1))) ? (family_nd.mother ((family_nd.ancestor $1)))
+      var $1
+      $1 <- $0[0]
+      return IFCall('family_nd.father', $1) ? IFCall('family_nd.mother', $1) ? IFCall('family_nd.father', IFCall('family_nd.ancestor', $1)) ? IFCall('family_nd.mother', IFCall('family_nd.ancestor', $1))
     goal1:
-      return (family_nd.father (family_nd.John))
+      return IFCall('family_nd.father', ICCall('family_nd.John'))
     goal2:
-      $1 <- LHS[1]
-      return (family_nd.grandfather $1)
-    goal3:
-      return (family_nd.ancestor (family_nd.Andrew))
+      var $1
+      $1 <- $0[0]
+      return IFCall('family_nd.grandfather', $1)
+    main2:
+      free $1
+      return ICCall('Prelude.(,)', IFCall('family_nd.grandfather', $1), $1)

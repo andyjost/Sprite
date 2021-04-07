@@ -9,10 +9,11 @@ Module:
   functions:
   ----------
     main:
-      -- [(1,[2]),(2,[])]
-      $2 <- IBind
-      $1 <- IBind
-      $1 = Applic(ident='Prelude.+', args=(Reference(vid=2), Applic(ident='Prelude.Int', args=(1,))))
-      $2 = Applic(ident='Prelude.*', args=(Reference(vid=1), Reference(vid=1)))
-      $1[(Successor(headsymbol='Prelude.+', position=1),)] <- $2
-      return (Prelude.(,) $1 $2)
+      var $1
+      var $2
+      var $3
+      $1 <- $0[0]
+      $2 <- IFCall('Prelude.apply', IFCall('Prelude.apply', IFCall('Prelude.+', $1), $3), IFCall('Prelude.apply', IFCall('Prelude.fromInt', $1), (1)))
+      $3 <- IFCall('Prelude.apply', IFCall('Prelude.apply', IFCall('Prelude.*', $1), $2), $2)
+      $2[0.1] <- $3
+      return ICCall('Prelude.(,)', $2, $3)

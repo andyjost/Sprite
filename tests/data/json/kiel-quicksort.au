@@ -9,11 +9,15 @@ Module:
   functions:
   ----------
     qsort:
-      $1 <- LHS[1]
-      case $1 of Prelude.[] -> return (Prelude.[])
-                 Prelude.:  -> $2 <- $1[1]
-                               $3 <- $1[2]
-                               return (Prelude.++ ((quicksort.qsort ((Prelude.filter (((Prelude.flip ((Prelude.<)) $2))) $3)))) ((Prelude.: $2 ((quicksort.qsort ((Prelude.filter (((Prelude.flip ((Prelude.>=)) $2))) $3)))))))
-      return $1
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        Prelude.[] -> return ICCall('Prelude.[]')
+        Prelude.: _ _ ->
+          var $2
+          var $3
+          $2 <- $1[0]
+          $3 <- $1[1]
+          return IFCall('Prelude.++', IFCall('quicksort.qsort', IFCall('Prelude.filter', IFPCall('Prelude.flip', IFCall('Prelude._impl#<#Prelude.Ord#Prelude.Int'), $2), $3)), ICCall('Prelude.:', $2, IFCall('quicksort.qsort', IFCall('Prelude.filter', IFPCall('Prelude.flip', IFCall('Prelude._impl#>=#Prelude.Ord#Prelude.Int'), $2), $3))))
     goal:
-      return (quicksort.qsort ((Prelude.: 2 ((Prelude.: 3 ((Prelude.: 1 ((Prelude.: 0 (Prelude.[]))))))))))
+      return IFCall('quicksort.qsort', ICCall('Prelude.:', (2), ICCall('Prelude.:', (3), ICCall('Prelude.:', (1), ICCall('Prelude.:', (0), ICCall('Prelude.[]'))))))

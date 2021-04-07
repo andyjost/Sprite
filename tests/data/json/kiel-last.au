@@ -9,25 +9,31 @@ Module:
   functions:
   ----------
     append:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      case $1 of Prelude.[] -> return $2
-                 Prelude.:  -> $3 <- $1[1]
-                               $4 <- $1[2]
-                               return (Prelude.: $3 ((last.append $4 $2)))
-      return $1
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $1 of
+        Prelude.[] -> return $2
+        Prelude.: _ _ ->
+          var $3
+          var $4
+          $3 <- $1[0]
+          $4 <- $1[1]
+          return ICCall('Prelude.:', $3, IFCall('last.append', $4, $2))
     last:
-      $1 <- LHS[1]
-      $2 <- IBind
-      $3 <- IBind
-      return (last.last_case_#1 ((Prelude.=:= ((last.append $3 ((Prelude.: $2 (Prelude.[]))))) $1)) $3 $2 $1)
-    last_case_#1:
-      $4 <- LHS[1]
-      $3 <- LHS[2]
-      $2 <- LHS[3]
-      $1 <- LHS[4]
-      case $4 of Prelude.True  -> return $2
-                 Prelude.False -> return (Prelude.failed)
-      return $4
+      var $2
+      free $3
+      free $4
+      $2 <- $0[1]
+      return IFCall('last.last_COMPLEXCASE0', $3, IFCall('Prelude.=:=', IFCall('last.append', $4, ICCall('Prelude.:', $3, ICCall('Prelude.[]'))), $2))
+    last_COMPLEXCASE0:
+      var $3
+      var $5
+      $3 <- $0[0]
+      $5 <- $0[1]
+      case $5 of
+        Prelude.False -> exempt
+        Prelude.True -> return $3
     goal:
-      return (last.last ((Prelude.: 1 ((Prelude.: 2 ((Prelude.: 3 ((Prelude.: 4 (Prelude.[]))))))))))
+      return IFCall('last.last', IFCall('Prelude._inst#Prelude.Data#Prelude.Int'), ICCall('Prelude.:', (1), ICCall('Prelude.:', (2), ICCall('Prelude.:', (3), ICCall('Prelude.:', (4), ICCall('Prelude.[]'))))))

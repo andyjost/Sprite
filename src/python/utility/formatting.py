@@ -15,10 +15,10 @@ def indent(seq, n=2):
   return '\n'.join(indent(line, n) for line in seq)
   
 
-def wrapblock(arg, n=2):
+def wrapblock(arg, n=2, line_prefix=' '):
   lines = str(arg).strip('\n').split('\n')
   if len(lines) > 1:
     return '\n%s' % indent(lines, n)
   else:
-    return lines[0]
+    return line_prefix + lines[0]
   

@@ -5,160 +5,615 @@ Module:
 
   types:
   ------
-    Instruction = Jump | Label
-    LabelId = L0 | L1 | L2 | L3 | L4 | L5 | L6 | L7 | L8 | L9
+    data Instruction = Jump _ | Label _
+    data LabelId = L0 | L1 | L2 | L3 | L4 | L5 | L6 | L7 | L8 | L9
 
   functions:
   ----------
+    _inst#Prelude.Data#assembler.Instruction:
+      return ICCall('Prelude._Dict#Data', IFPCall('assembler._impl#===#Prelude.Data#assembler.Instruction'), IFPCall('assembler._impl#aValue#Prelude.Data#assembler.Instruction'))
+    _impl#===#Prelude.Data#assembler.Instruction:
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $1 of
+        assembler.Jump _ ->
+          var $3
+          $3 <- $1[0]
+          return IFCall('assembler._impl#===#Prelude.Data#assembler.Instruction_CASE0', $2, $3)
+        assembler.Label _ ->
+          var $6
+          $6 <- $1[0]
+          return IFCall('assembler._impl#===#Prelude.Data#assembler.Instruction_CASE1', $2, $6)
+    _impl#===#Prelude.Data#assembler.Instruction_CASE1:
+      var $2
+      var $6
+      $2 <- $0[0]
+      $6 <- $0[1]
+      case $2 of
+        assembler.Jump _ -> return ICCall('Prelude.False')
+        assembler.Label _ ->
+          var $8
+          $8 <- $2[0]
+          return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId', $6, $8)
+    _impl#===#Prelude.Data#assembler.Instruction_CASE0:
+      var $2
+      var $3
+      $2 <- $0[0]
+      $3 <- $0[1]
+      case $2 of
+        assembler.Jump _ ->
+          var $4
+          $4 <- $2[0]
+          return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId', $3, $4)
+        assembler.Label _ -> return ICCall('Prelude.False')
+    _impl#aValue#Prelude.Data#assembler.Instruction:
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        Prelude.() -> return ICCall('assembler.Jump', IFCall('assembler._impl#aValue#Prelude.Data#assembler.LabelId', ICCall('Prelude.()'))) ? ICCall('assembler.Label', IFCall('assembler._impl#aValue#Prelude.Data#assembler.LabelId', ICCall('Prelude.()')))
+    _inst#Prelude.Data#assembler.LabelId:
+      return ICCall('Prelude._Dict#Data', IFPCall('assembler._impl#===#Prelude.Data#assembler.LabelId'), IFPCall('assembler._impl#aValue#Prelude.Data#assembler.LabelId'))
+    _impl#===#Prelude.Data#assembler.LabelId:
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $1 of
+        assembler.L0 -> return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId_CASE0', $2)
+        assembler.L1 -> return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId_CASE1', $2)
+        assembler.L2 -> return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId_CASE2', $2)
+        assembler.L3 -> return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId_CASE3', $2)
+        assembler.L4 -> return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId_CASE4', $2)
+        assembler.L5 -> return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId_CASE5', $2)
+        assembler.L6 -> return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId_CASE6', $2)
+        assembler.L7 -> return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId_CASE7', $2)
+        assembler.L8 -> return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId_CASE8', $2)
+        assembler.L9 -> return IFCall('assembler._impl#===#Prelude.Data#assembler.LabelId_CASE9', $2)
+    _impl#===#Prelude.Data#assembler.LabelId_CASE9:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.True')
+    _impl#===#Prelude.Data#assembler.LabelId_CASE8:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.True')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#assembler.LabelId_CASE7:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.True')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#assembler.LabelId_CASE6:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.True')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#assembler.LabelId_CASE5:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.True')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#assembler.LabelId_CASE4:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.True')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#assembler.LabelId_CASE3:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.True')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#assembler.LabelId_CASE2:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.True')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#assembler.LabelId_CASE1:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.True')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#assembler.LabelId_CASE0:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.True')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#aValue#Prelude.Data#assembler.LabelId:
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        Prelude.() -> return ICCall('assembler.L0') ? ICCall('assembler.L1') ? ICCall('assembler.L2') ? ICCall('assembler.L3') ? ICCall('assembler.L4') ? ICCall('assembler.L5') ? ICCall('assembler.L6') ? ICCall('assembler.L7') ? ICCall('assembler.L8') ? ICCall('assembler.L9')
+    _inst#Prelude.Eq#assembler.LabelId:
+      return ICCall('Prelude._Dict#Eq', IFPCall('assembler._impl#==#Prelude.Eq#assembler.LabelId'), IFCall('assembler._impl#/=#Prelude.Eq#assembler.LabelId'))
+    _impl#==#Prelude.Eq#assembler.LabelId:
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $1 of
+        assembler.L0 -> return IFCall('assembler._impl#==#Prelude.Eq#assembler.LabelId_CASE0', $2)
+        assembler.L1 -> return IFCall('assembler._impl#==#Prelude.Eq#assembler.LabelId_CASE1', $2)
+        assembler.L2 -> return IFCall('assembler._impl#==#Prelude.Eq#assembler.LabelId_CASE2', $2)
+        assembler.L3 -> return IFCall('assembler._impl#==#Prelude.Eq#assembler.LabelId_CASE3', $2)
+        assembler.L4 -> return IFCall('assembler._impl#==#Prelude.Eq#assembler.LabelId_CASE4', $2)
+        assembler.L5 -> return IFCall('assembler._impl#==#Prelude.Eq#assembler.LabelId_CASE5', $2)
+        assembler.L6 -> return IFCall('assembler._impl#==#Prelude.Eq#assembler.LabelId_CASE6', $2)
+        assembler.L7 -> return IFCall('assembler._impl#==#Prelude.Eq#assembler.LabelId_CASE7', $2)
+        assembler.L8 -> return IFCall('assembler._impl#==#Prelude.Eq#assembler.LabelId_CASE8', $2)
+        assembler.L9 -> return IFCall('assembler._impl#==#Prelude.Eq#assembler.LabelId_CASE9', $2)
+    _impl#==#Prelude.Eq#assembler.LabelId_CASE9:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.True')
+    _impl#==#Prelude.Eq#assembler.LabelId_CASE8:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.True')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#==#Prelude.Eq#assembler.LabelId_CASE7:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.True')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#==#Prelude.Eq#assembler.LabelId_CASE6:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.True')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#==#Prelude.Eq#assembler.LabelId_CASE5:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.True')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#==#Prelude.Eq#assembler.LabelId_CASE4:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.True')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#==#Prelude.Eq#assembler.LabelId_CASE3:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.True')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#==#Prelude.Eq#assembler.LabelId_CASE2:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.True')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#==#Prelude.Eq#assembler.LabelId_CASE1:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.False')
+        assembler.L1 -> return ICCall('Prelude.True')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#==#Prelude.Eq#assembler.LabelId_CASE0:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        assembler.L0 -> return ICCall('Prelude.True')
+        assembler.L1 -> return ICCall('Prelude.False')
+        assembler.L2 -> return ICCall('Prelude.False')
+        assembler.L3 -> return ICCall('Prelude.False')
+        assembler.L4 -> return ICCall('Prelude.False')
+        assembler.L5 -> return ICCall('Prelude.False')
+        assembler.L6 -> return ICCall('Prelude.False')
+        assembler.L7 -> return ICCall('Prelude.False')
+        assembler.L8 -> return ICCall('Prelude.False')
+        assembler.L9 -> return ICCall('Prelude.False')
+    _impl#/=#Prelude.Eq#assembler.LabelId:
+      return IFPCall('Prelude._def#/=#Prelude.Eq', IFCall('assembler._inst#Prelude.Eq#assembler.LabelId'))
     assembler:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      $3 <- LHS[3]
-      case $1 of Prelude.[] -> return (Prelude.[])
-                 Prelude.:  -> $4 <- $1[1]
-                               $5 <- $1[2]
-                               return (assembler.assembler_case_#1 $4 $2 $5 $3)
-      return $1
-    assembler_case_#1:
-      $4 <- LHS[1]
-      $2 <- LHS[2]
-      $5 <- LHS[3]
-      $3 <- LHS[4]
-      case $4 of assembler.Jump  -> $6 <- $4[1]
-                                    $7 <- IBind
-                                    $8 <- IBind
-                                    return (assembler.assembler_case_#1_case_#1 $6 $2 $7 $8 $5 $3)
-                 assembler.Label -> $9 <- $4[1]
-                                    $10 <- IBind
-                                    return (assembler.assembler_case_#1_case_#2 $10 $9 $3 $2 $5)
-      return $4
-    assembler_case_#1_case_#2:
-      $10 <- LHS[1]
-      $9 <- LHS[2]
-      $3 <- LHS[3]
-      $2 <- LHS[4]
-      $5 <- LHS[5]
-      return (assembler.assembler_case_#1_case_#2_case_#1 ((Prelude.=:= $10 ((assembler.insertST $9 $3 $2)))) $10 $9 $3 $2 $5)
-    assembler_case_#1_case_#2_case_#1:
-      $11 <- LHS[1]
-      $10 <- LHS[2]
-      $9 <- LHS[3]
-      $3 <- LHS[4]
-      $2 <- LHS[5]
-      $5 <- LHS[6]
-      case $11 of Prelude.True  -> return (assembler.assembler $5 $10 $3)
-                  Prelude.False -> return (Prelude.failed)
-      return $11
-    assembler_case_#1_case_#1:
-      $6 <- LHS[1]
-      $2 <- LHS[2]
-      $7 <- LHS[3]
-      $8 <- LHS[4]
-      $5 <- LHS[5]
-      $3 <- LHS[6]
-      return (assembler.assembler_case_#1_case_#1_case_#1 ((assembler.lookupST $6 $2 $7 $8)) $6 $2 $7 $8 $5 $3)
-    assembler_case_#1_case_#1_case_#1:
-      $9 <- LHS[1]
-      $6 <- LHS[2]
-      $2 <- LHS[3]
-      $7 <- LHS[4]
-      $8 <- LHS[5]
-      $5 <- LHS[6]
-      $3 <- LHS[7]
-      case $9 of Prelude.True  -> return (Prelude.: 9 ((Prelude.: $7 ((assembler.assembler $5 $8 ((Prelude.+ $3 2)))))))
-                 Prelude.False -> return (Prelude.failed)
-      return $9
+      var $1
+      var $2
+      var $3
+      $1 <- $0[0]
+      $2 <- $0[1]
+      $3 <- $0[2]
+      case $1 of
+        Prelude.[] -> return ICCall('Prelude.[]')
+        Prelude.: _ _ ->
+          var $4
+          var $5
+          $4 <- $1[0]
+          $5 <- $1[1]
+          return IFCall('assembler.assembler_CASE0', $4, $2, $5, $3)
+    assembler_CASE0:
+      var $4
+      var $2
+      var $5
+      var $3
+      $4 <- $0[0]
+      $2 <- $0[1]
+      $5 <- $0[2]
+      $3 <- $0[3]
+      case $4 of
+        assembler.Jump _ ->
+          var $6
+          $6 <- $4[0]
+          return IFCall('assembler.assembler_FREE1', $6, $2, $5, $3)
+        assembler.Label _ ->
+          var $9
+          $9 <- $4[0]
+          return IFCall('assembler.assembler_FREE3', $9, $2, $5, $3)
+    assembler_FREE3:
+      var $9
+      var $2
+      var $5
+      var $3
+      free $10
+      $9 <- $0[0]
+      $2 <- $0[1]
+      $5 <- $0[2]
+      $3 <- $0[3]
+      return IFCall('assembler.assembler_COMPLEXCASE4', $5, $10, $3, IFCall('Prelude.=:=', $10, IFCall('assembler.insertST', IFCall('assembler._inst#Prelude.Eq#assembler.LabelId'), $9, $3, $2)))
+    assembler_COMPLEXCASE4:
+      var $5
+      var $10
+      var $3
+      var $11
+      $5 <- $0[0]
+      $10 <- $0[1]
+      $3 <- $0[2]
+      $11 <- $0[3]
+      case $11 of
+        Prelude.False -> exempt
+        Prelude.True -> return IFCall('assembler.assembler', $5, $10, $3)
+    assembler_FREE1:
+      var $6
+      var $2
+      var $5
+      var $3
+      free $7
+      free $8
+      $6 <- $0[0]
+      $2 <- $0[1]
+      $5 <- $0[2]
+      $3 <- $0[3]
+      return IFCall('assembler.assembler_COMPLEXCASE2', $7, $5, $8, $3, IFCall('assembler.lookupST', IFCall('assembler._inst#Prelude.Data#assembler.LabelId'), IFCall('assembler._inst#Prelude.Eq#assembler.LabelId'), IFCall('Prelude._inst#Prelude.Data#Prelude.Int'), $6, $2, $7, $8))
+    assembler_COMPLEXCASE2:
+      var $7
+      var $5
+      var $8
+      var $3
+      var $9
+      $7 <- $0[0]
+      $5 <- $0[1]
+      $8 <- $0[2]
+      $3 <- $0[3]
+      $9 <- $0[4]
+      case $9 of
+        Prelude.False -> exempt
+        Prelude.True -> return ICCall('Prelude.:', (9), ICCall('Prelude.:', $7, IFCall('assembler.assembler', $5, $8, IFCall('Prelude._impl#+#Prelude.Num#Prelude.Int', $3, (2)))))
     insertST:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      $3 <- LHS[3]
-      case $3 of Prelude.[] -> return (Prelude.: ((Prelude.(,) $1 $2)) (Prelude.[]))
-                 Prelude.:  -> $4 <- $3[1]
-                               $5 <- $3[2]
-                               return (assembler.insertST_case_#1 $4 $1 $2 $5)
-      return $3
-    insertST_case_#1:
-      $4 <- LHS[1]
-      $1 <- LHS[2]
-      $2 <- LHS[3]
-      $5 <- LHS[4]
-      case $4 of Prelude.(,) -> $6 <- $4[1]
-                                $7 <- $4[2]
-                                return (assembler.insertST_case_#1_case_#1 $1 $6 $2 $7 $5) ? (assembler.insertST_case_#1_case_#2 $1 $6 $7 $2 $5)
-      return $4
-    insertST_case_#1_case_#2:
-      $1 <- LHS[1]
-      $6 <- LHS[2]
-      $7 <- LHS[3]
-      $2 <- LHS[4]
-      $5 <- LHS[5]
-      return (assembler.insertST_case_#1_case_#2_case_#1 ((Prelude.=:= ((Prelude.== $1 $6)) (Prelude.False))) $1 $6 $7 $2 $5)
-    insertST_case_#1_case_#2_case_#1:
-      $8 <- LHS[1]
-      $1 <- LHS[2]
-      $6 <- LHS[3]
-      $7 <- LHS[4]
-      $2 <- LHS[5]
-      $5 <- LHS[6]
-      case $8 of Prelude.True  -> return (Prelude.: ((Prelude.(,) $6 $7)) ((assembler.insertST $1 $2 $5)))
-                 Prelude.False -> return (Prelude.failed)
-      return $8
-    insertST_case_#1_case_#1:
-      $1 <- LHS[1]
-      $6 <- LHS[2]
-      $2 <- LHS[3]
-      $7 <- LHS[4]
-      $5 <- LHS[5]
-      return (assembler.insertST_case_#1_case_#1_case_#1 ((Prelude.& ((Prelude.=:= ((Prelude.== $1 $6)) (Prelude.True))) ((Prelude.=:= $2 $7)))) $1 $6 $2 $7 $5)
-    insertST_case_#1_case_#1_case_#1:
-      $8 <- LHS[1]
-      $1 <- LHS[2]
-      $6 <- LHS[3]
-      $2 <- LHS[4]
-      $7 <- LHS[5]
-      $5 <- LHS[6]
-      case $8 of Prelude.True  -> return (Prelude.: ((Prelude.(,) $6 $7)) $5)
-                 Prelude.False -> return (Prelude.failed)
-      return $8
+      var $1
+      var $2
+      var $3
+      var $4
+      $1 <- $0[0]
+      $2 <- $0[1]
+      $3 <- $0[2]
+      $4 <- $0[3]
+      case $4 of
+        Prelude.[] -> return ICCall('Prelude.:', ICCall('Prelude.(,)', $2, $3), ICCall('Prelude.[]'))
+        Prelude.: _ _ ->
+          var $5
+          var $6
+          $5 <- $4[0]
+          $6 <- $4[1]
+          return IFCall('assembler.insertST_CASE0', $5, $1, $2, $3, $6)
+    insertST_CASE0:
+      var $5
+      var $1
+      var $2
+      var $3
+      var $6
+      $5 <- $0[0]
+      $1 <- $0[1]
+      $2 <- $0[2]
+      $3 <- $0[3]
+      $6 <- $0[4]
+      case $5 of
+        Prelude.(,) _ _ ->
+          var $7
+          var $8
+          $7 <- $5[0]
+          $8 <- $5[1]
+          return IFCall('assembler.insertST_COMPLEXCASE1', $7, $8, $6, IFCall('Prelude.&', IFCall('Prelude.=:=', IFCall('Prelude.apply', IFCall('Prelude.apply', IFCall('Prelude.==', $1), $2), $7), ICCall('Prelude.True')), IFCall('Prelude.=:=', $3, $8))) ? IFCall('assembler.insertST_COMPLEXCASE2', $7, $8, $1, $2, $3, $6, IFCall('Prelude.=:=', IFCall('Prelude.apply', IFCall('Prelude.apply', IFCall('Prelude.==', $1), $2), $7), ICCall('Prelude.False')))
+    insertST_COMPLEXCASE2:
+      var $7
+      var $8
+      var $1
+      var $2
+      var $3
+      var $6
+      var $9
+      $7 <- $0[0]
+      $8 <- $0[1]
+      $1 <- $0[2]
+      $2 <- $0[3]
+      $3 <- $0[4]
+      $6 <- $0[5]
+      $9 <- $0[6]
+      case $9 of
+        Prelude.False -> exempt
+        Prelude.True -> return ICCall('Prelude.:', ICCall('Prelude.(,)', $7, $8), IFCall('assembler.insertST', $1, $2, $3, $6))
+    insertST_COMPLEXCASE1:
+      var $7
+      var $8
+      var $6
+      var $9
+      $7 <- $0[0]
+      $8 <- $0[1]
+      $6 <- $0[2]
+      $9 <- $0[3]
+      case $9 of
+        Prelude.False -> exempt
+        Prelude.True -> return ICCall('Prelude.:', ICCall('Prelude.(,)', $7, $8), $6)
     lookupST:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      $3 <- LHS[3]
-      $4 <- LHS[4]
-      case $2 of Prelude.[] -> return (Prelude.=:= $4 ((Prelude.: ((Prelude.(,) $1 $3)) (Prelude.[]))))
-                 Prelude.:  -> $5 <- $2[1]
-                               $6 <- $2[2]
-                               return (assembler.lookupST_case_#1 $5 $1 $3 $4 $6)
-      return $2
-    lookupST_case_#1:
-      $5 <- LHS[1]
-      $1 <- LHS[2]
-      $3 <- LHS[3]
-      $4 <- LHS[4]
-      $6 <- LHS[5]
-      case $5 of Prelude.(,) -> $7 <- $5[1]
-                                $8 <- $5[2]
-                                return (assembler.lookupST_case_#1_case_#1 $1 $7 $3 $8 $4 $6)
-      return $5
-    lookupST_case_#1_case_#1:
-      $1 <- LHS[1]
-      $7 <- LHS[2]
-      $3 <- LHS[3]
-      $8 <- LHS[4]
-      $4 <- LHS[5]
-      $6 <- LHS[6]
-      return (assembler.lookupST_case_#1_case_#1_case_#1 ((Prelude.== $1 $7)) $1 $7 $3 $8 $4 $6)
-    lookupST_case_#1_case_#1_case_#1:
-      $10 <- LHS[1]
-      $1 <- LHS[2]
-      $7 <- LHS[3]
-      $3 <- LHS[4]
-      $8 <- LHS[5]
-      $4 <- LHS[6]
-      $6 <- LHS[7]
-      case $10 of Prelude.True  -> return (Prelude.& ((Prelude.=:= $3 $8)) ((Prelude.=:= $4 ((Prelude.: ((Prelude.(,) $7 $8)) $6)))))
-                  Prelude.False -> $9 <- IBind
-                                   return (Prelude.& ((assembler.lookupST $1 $6 $3 $9)) ((Prelude.=:= $4 ((Prelude.: ((Prelude.(,) $7 $8)) $9)))))
-      return $10
-    goal:
-      return (assembler.assembler ((Prelude.: ((assembler.Label (assembler.L0))) ((Prelude.: ((assembler.Jump (assembler.L1))) ((Prelude.: ((assembler.Jump (assembler.L0))) ((Prelude.: ((assembler.Label (assembler.L1))) (Prelude.[]))))))))) (Prelude.[]) 0)
+      var $1
+      var $2
+      var $3
+      var $4
+      var $5
+      var $6
+      var $7
+      $1 <- $0[0]
+      $2 <- $0[1]
+      $3 <- $0[2]
+      $4 <- $0[3]
+      $5 <- $0[4]
+      $6 <- $0[5]
+      $7 <- $0[6]
+      case $5 of
+        Prelude.[] -> return IFCall('Prelude.=:=', $7, ICCall('Prelude.:', ICCall('Prelude.(,)', $4, $6), ICCall('Prelude.[]')))
+        Prelude.: _ _ ->
+          var $8
+          var $9
+          $8 <- $5[0]
+          $9 <- $5[1]
+          return IFCall('assembler.lookupST_CASE0', $8, $1, $2, $3, $4, $6, $7, $9)
+    lookupST_CASE0:
+      var $8
+      var $1
+      var $2
+      var $3
+      var $4
+      var $6
+      var $7
+      var $9
+      $8 <- $0[0]
+      $1 <- $0[1]
+      $2 <- $0[2]
+      $3 <- $0[3]
+      $4 <- $0[4]
+      $6 <- $0[5]
+      $7 <- $0[6]
+      $9 <- $0[7]
+      case $8 of
+        Prelude.(,) _ _ ->
+          var $10
+          var $11
+          $10 <- $8[0]
+          $11 <- $8[1]
+          return IFCall('assembler.lookupST_COMPLEXCASE1', $1, $2, $3, $4, $6, $7, $10, $11, $9, IFCall('Prelude.apply', IFCall('Prelude.apply', IFCall('Prelude.==', $2), $4), $10))
+    lookupST_COMPLEXCASE1:
+      var $1
+      var $2
+      var $3
+      var $4
+      var $6
+      var $7
+      var $10
+      var $11
+      var $9
+      var $13
+      $1 <- $0[0]
+      $2 <- $0[1]
+      $3 <- $0[2]
+      $4 <- $0[3]
+      $6 <- $0[4]
+      $7 <- $0[5]
+      $10 <- $0[6]
+      $11 <- $0[7]
+      $9 <- $0[8]
+      $13 <- $0[9]
+      case $13 of
+        Prelude.False -> return IFCall('assembler.lookupST_FREE2', $1, $2, $3, $4, $9, $6, $7, $10, $11)
+        Prelude.True -> return IFCall('Prelude.&', IFCall('Prelude.=:=', $6, $11), IFCall('Prelude.=:=', $7, ICCall('Prelude.:', ICCall('Prelude.(,)', $10, $11), $9)))
+    lookupST_FREE2:
+      var $1
+      var $2
+      var $3
+      var $4
+      var $9
+      var $6
+      var $7
+      var $10
+      var $11
+      free $12
+      $1 <- $0[0]
+      $2 <- $0[1]
+      $3 <- $0[2]
+      $4 <- $0[3]
+      $9 <- $0[4]
+      $6 <- $0[5]
+      $7 <- $0[6]
+      $10 <- $0[7]
+      $11 <- $0[8]
+      return IFCall('Prelude.&', IFCall('assembler.lookupST', $1, $2, $3, $4, $9, $6, $12), IFCall('Prelude.=:=', $7, ICCall('Prelude.:', ICCall('Prelude.(,)', $10, $11), $12)))
+    main:
+      return IFCall('assembler.assembler', ICCall('Prelude.:', ICCall('assembler.Label', ICCall('assembler.L0')), ICCall('Prelude.:', ICCall('assembler.Jump', ICCall('assembler.L1')), ICCall('Prelude.:', ICCall('assembler.Jump', ICCall('assembler.L0')), ICCall('Prelude.:', ICCall('assembler.Label', ICCall('assembler.L1')), ICCall('Prelude.[]'))))), ICCall('Prelude.[]'), (0))

@@ -9,36 +9,52 @@ Module:
   functions:
   ----------
     map_:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      case $2 of Prelude.[] -> return (Prelude.[])
-                 Prelude.:  -> $3 <- $2[1]
-                               $4 <- $2[2]
-                               return (Prelude.: ((Prelude.apply $1 $3)) ((higher.map_ $1 $4)))
-      return $2
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $2 of
+        Prelude.[] -> return ICCall('Prelude.[]')
+        Prelude.: _ _ ->
+          var $3
+          var $4
+          $3 <- $2[0]
+          $4 <- $2[1]
+          return ICCall('Prelude.:', IFCall('Prelude.apply', $1, $3), IFCall('higher.map_', $1, $4))
     foldr_:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      $3 <- LHS[3]
-      case $3 of Prelude.[] -> return $2
-                 Prelude.:  -> $4 <- $3[1]
-                               $5 <- $3[2]
-                               return (Prelude.apply ((Prelude.apply $1 $4)) ((higher.foldr_ $1 $2 $5)))
-      return $3
+      var $1
+      var $2
+      var $3
+      $1 <- $0[0]
+      $2 <- $0[1]
+      $3 <- $0[2]
+      case $3 of
+        Prelude.[] -> return $2
+        Prelude.: _ _ ->
+          var $4
+          var $5
+          $4 <- $3[0]
+          $5 <- $3[1]
+          return IFCall('Prelude.apply', IFCall('Prelude.apply', $1, $4), IFCall('higher.foldr_', $1, $2, $5))
     inc:
-      $1 <- LHS[1]
-      return (Prelude.+ $1 1)
-    g1:
-      return (Prelude.map ((higher.inc)) ((Prelude.: 0 ((Prelude.: 2 ((Prelude.: 1 (Prelude.[]))))))))
-    g2:
-      return (Prelude.map (((Prelude.flip ((Prelude.+)) 1))) ((Prelude.: 0 ((Prelude.: 2 ((Prelude.: 1 (Prelude.[]))))))))
-    g3:
-      return (Prelude.foldr ((Prelude.+)) 0 ((Prelude.: 1 ((Prelude.: 0 ((Prelude.: 2 (Prelude.[]))))))))
-    g4:
-      return (Prelude.foldr ((Prelude.*)) 1 ((Prelude.: 1 ((Prelude.: 2 ((Prelude.: 3 ((Prelude.: 4 ((Prelude.: 5 (Prelude.[]))))))))))))
-    g5:
-      return (Prelude.foldr ((higher.g5._#lambda1)) 1 ((Prelude.: 1 ((Prelude.: 2 ((Prelude.: 3 ((Prelude.: 4 ((Prelude.: 5 (Prelude.[]))))))))))))
-    g5._#lambda1:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      return (Prelude.* $1 $2)
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      return IFCall('Prelude.apply', IFCall('Prelude.apply', IFCall('Prelude.+', $1), $2), IFCall('Prelude.apply', IFCall('Prelude.fromInt', $1), (1)))
+    goal1:
+      return IFCall('Prelude.map', IFPCall('higher.inc', IFCall('Prelude._inst#Prelude.Num#Prelude.Int')), ICCall('Prelude.:', (0), ICCall('Prelude.:', (2), ICCall('Prelude.:', (1), ICCall('Prelude.[]')))))
+    goal2:
+      return IFCall('Prelude.map', IFPCall('Prelude.flip', IFPCall('Prelude._impl#+#Prelude.Num#Prelude.Int'), (1)), ICCall('Prelude.:', (0), ICCall('Prelude.:', (2), ICCall('Prelude.:', (1), ICCall('Prelude.[]')))))
+    goal3:
+      return IFCall('Prelude.foldr', IFPCall('Prelude._impl#+#Prelude.Num#Prelude.Int'), (0), ICCall('Prelude.:', (1), ICCall('Prelude.:', (0), ICCall('Prelude.:', (2), ICCall('Prelude.[]')))))
+    goal4:
+      return IFCall('Prelude.foldr', IFPCall('Prelude._impl#*#Prelude.Num#Prelude.Int'), (1), ICCall('Prelude.:', (1), ICCall('Prelude.:', (2), ICCall('Prelude.:', (3), ICCall('Prelude.:', (4), ICCall('Prelude.:', (5), ICCall('Prelude.[]')))))))
+    goal5:
+      return IFCall('Prelude.foldr', IFPCall('higher.goal5._#lambda1'), (1), ICCall('Prelude.:', (1), ICCall('Prelude.:', (2), ICCall('Prelude.:', (3), ICCall('Prelude.:', (4), ICCall('Prelude.:', (5), ICCall('Prelude.[]')))))))
+    goal5._#lambda1:
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      return IFCall('Prelude._impl#*#Prelude.Num#Prelude.Int', $1, $2)

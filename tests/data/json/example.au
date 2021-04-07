@@ -5,23 +5,64 @@ Module:
 
   types:
   ------
-    AB = A | B
+    data AB = A | B _
 
   functions:
   ----------
+    _inst#Prelude.Data#example.AB:
+      return ICCall('Prelude._Dict#Data', IFPCall('example._impl#===#Prelude.Data#example.AB'), IFPCall('example._impl#aValue#Prelude.Data#example.AB'))
+    _impl#===#Prelude.Data#example.AB:
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $1 of
+        example.A -> return IFCall('example._impl#===#Prelude.Data#example.AB_CASE0', $2)
+        example.B _ ->
+          var $4
+          $4 <- $1[0]
+          return IFCall('example._impl#===#Prelude.Data#example.AB_CASE1', $2, $4)
+    _impl#===#Prelude.Data#example.AB_CASE1:
+      var $2
+      var $4
+      $2 <- $0[0]
+      $4 <- $0[1]
+      case $2 of
+        example.A -> return ICCall('Prelude.False')
+        example.B _ ->
+          var $5
+          $5 <- $2[0]
+          return IFCall('Prelude.apply', IFCall('Prelude.apply', IFCall('Prelude._impl#===#Prelude.Data#Prelude.Int'), $4), $5)
+    _impl#===#Prelude.Data#example.AB_CASE0:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        example.A -> return ICCall('Prelude.True')
+        example.B _ -> return ICCall('Prelude.False')
+    _impl#aValue#Prelude.Data#example.AB:
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        Prelude.() -> return ICCall('example.A') ? ICCall('example.B', IFCall('Prelude._impl#aValue#Prelude.Data#Prelude.Int', ICCall('Prelude.()')))
     f:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      return (example.f_case_#1 $1) ? (example.g $2)
-    f_case_#1:
-      $1 <- LHS[1]
-      case $1 of (Prelude.Int 0) -> return (Prelude.Int 0)
-      return $1
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      return IFCall('example.f_CASE0', $1) ? IFCall('example.g', $2)
+    f_CASE0:
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        (0) -> return (0)
     g:
-      $1 <- LHS[1]
-      case $1 of example.A -> return (Prelude.negate ((Prelude.Int 1)))
-                 example.B -> $2 <- $1[1]
-                              return $2
-      return $1
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        example.A -> return IFCall('Prelude._impl#negate#Prelude.Num#Prelude.Int', (1))
+        example.B _ ->
+          var $2
+          $2 <- $1[0]
+          return $2
     main:
-      return (example.f ((Prelude.Int 1)) (example.A))
+      return IFCall('example.f', (1), ICCall('example.A'))

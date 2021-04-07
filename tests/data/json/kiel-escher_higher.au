@@ -5,72 +5,188 @@ Module:
 
   types:
   ------
-    Day = Mon | Tue | Wed | Thu | Fri | Sat | Sun
+    data Day = Mon | Tue | Wed | Thu | Fri | Sat | Sun
 
   functions:
   ----------
+    _inst#Prelude.Data#escher_higher.Day:
+      return ICCall('Prelude._Dict#Data', IFPCall('escher_higher._impl#===#Prelude.Data#escher_higher.Day'), IFPCall('escher_higher._impl#aValue#Prelude.Data#escher_higher.Day'))
+    _impl#===#Prelude.Data#escher_higher.Day:
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $1 of
+        escher_higher.Mon -> return IFCall('escher_higher._impl#===#Prelude.Data#escher_higher.Day_CASE0', $2)
+        escher_higher.Tue -> return IFCall('escher_higher._impl#===#Prelude.Data#escher_higher.Day_CASE1', $2)
+        escher_higher.Wed -> return IFCall('escher_higher._impl#===#Prelude.Data#escher_higher.Day_CASE2', $2)
+        escher_higher.Thu -> return IFCall('escher_higher._impl#===#Prelude.Data#escher_higher.Day_CASE3', $2)
+        escher_higher.Fri -> return IFCall('escher_higher._impl#===#Prelude.Data#escher_higher.Day_CASE4', $2)
+        escher_higher.Sat -> return IFCall('escher_higher._impl#===#Prelude.Data#escher_higher.Day_CASE5', $2)
+        escher_higher.Sun -> return IFCall('escher_higher._impl#===#Prelude.Data#escher_higher.Day_CASE6', $2)
+    _impl#===#Prelude.Data#escher_higher.Day_CASE6:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        escher_higher.Mon -> return ICCall('Prelude.False')
+        escher_higher.Tue -> return ICCall('Prelude.False')
+        escher_higher.Wed -> return ICCall('Prelude.False')
+        escher_higher.Thu -> return ICCall('Prelude.False')
+        escher_higher.Fri -> return ICCall('Prelude.False')
+        escher_higher.Sat -> return ICCall('Prelude.False')
+        escher_higher.Sun -> return ICCall('Prelude.True')
+    _impl#===#Prelude.Data#escher_higher.Day_CASE5:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        escher_higher.Mon -> return ICCall('Prelude.False')
+        escher_higher.Tue -> return ICCall('Prelude.False')
+        escher_higher.Wed -> return ICCall('Prelude.False')
+        escher_higher.Thu -> return ICCall('Prelude.False')
+        escher_higher.Fri -> return ICCall('Prelude.False')
+        escher_higher.Sat -> return ICCall('Prelude.True')
+        escher_higher.Sun -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#escher_higher.Day_CASE4:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        escher_higher.Mon -> return ICCall('Prelude.False')
+        escher_higher.Tue -> return ICCall('Prelude.False')
+        escher_higher.Wed -> return ICCall('Prelude.False')
+        escher_higher.Thu -> return ICCall('Prelude.False')
+        escher_higher.Fri -> return ICCall('Prelude.True')
+        escher_higher.Sat -> return ICCall('Prelude.False')
+        escher_higher.Sun -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#escher_higher.Day_CASE3:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        escher_higher.Mon -> return ICCall('Prelude.False')
+        escher_higher.Tue -> return ICCall('Prelude.False')
+        escher_higher.Wed -> return ICCall('Prelude.False')
+        escher_higher.Thu -> return ICCall('Prelude.True')
+        escher_higher.Fri -> return ICCall('Prelude.False')
+        escher_higher.Sat -> return ICCall('Prelude.False')
+        escher_higher.Sun -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#escher_higher.Day_CASE2:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        escher_higher.Mon -> return ICCall('Prelude.False')
+        escher_higher.Tue -> return ICCall('Prelude.False')
+        escher_higher.Wed -> return ICCall('Prelude.True')
+        escher_higher.Thu -> return ICCall('Prelude.False')
+        escher_higher.Fri -> return ICCall('Prelude.False')
+        escher_higher.Sat -> return ICCall('Prelude.False')
+        escher_higher.Sun -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#escher_higher.Day_CASE1:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        escher_higher.Mon -> return ICCall('Prelude.False')
+        escher_higher.Tue -> return ICCall('Prelude.True')
+        escher_higher.Wed -> return ICCall('Prelude.False')
+        escher_higher.Thu -> return ICCall('Prelude.False')
+        escher_higher.Fri -> return ICCall('Prelude.False')
+        escher_higher.Sat -> return ICCall('Prelude.False')
+        escher_higher.Sun -> return ICCall('Prelude.False')
+    _impl#===#Prelude.Data#escher_higher.Day_CASE0:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        escher_higher.Mon -> return ICCall('Prelude.True')
+        escher_higher.Tue -> return ICCall('Prelude.False')
+        escher_higher.Wed -> return ICCall('Prelude.False')
+        escher_higher.Thu -> return ICCall('Prelude.False')
+        escher_higher.Fri -> return ICCall('Prelude.False')
+        escher_higher.Sat -> return ICCall('Prelude.False')
+        escher_higher.Sun -> return ICCall('Prelude.False')
+    _impl#aValue#Prelude.Data#escher_higher.Day:
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        Prelude.() -> return ICCall('escher_higher.Mon') ? ICCall('escher_higher.Tue') ? ICCall('escher_higher.Wed') ? ICCall('escher_higher.Thu') ? ICCall('escher_higher.Fri') ? ICCall('escher_higher.Sat') ? ICCall('escher_higher.Sun')
     map_:
-      $1 <- LHS[1]
-      case $1 of Prelude.(,) -> $2 <- $1[1]
-                                $3 <- $1[2]
-                                return (escher_higher.map__case_#1 $3 $2)
-      return $1
-    map__case_#1:
-      $3 <- LHS[1]
-      $2 <- LHS[2]
-      case $3 of Prelude.[] -> return (Prelude.[])
-                 Prelude.:  -> $4 <- $3[1]
-                               $5 <- $3[2]
-                               return (Prelude.: ((Prelude.apply $2 $4)) ((escher_higher.map_ ((Prelude.(,) $2 $5)))))
-      return $3
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        Prelude.(,) _ _ ->
+          var $2
+          var $3
+          $2 <- $1[0]
+          $3 <- $1[1]
+          return IFCall('escher_higher.map__CASE0', $3, $2)
+    map__CASE0:
+      var $3
+      var $2
+      $3 <- $0[0]
+      $2 <- $0[1]
+      case $3 of
+        Prelude.[] -> return ICCall('Prelude.[]')
+        Prelude.: _ _ ->
+          var $4
+          var $5
+          $4 <- $3[0]
+          $5 <- $3[1]
+          return ICCall('Prelude.:', IFCall('Prelude.apply', $2, $4), IFCall('escher_higher.map_', ICCall('Prelude.(,)', $2, $5)))
     filter_:
-      $1 <- LHS[1]
-      case $1 of Prelude.(,) -> $2 <- $1[1]
-                                $3 <- $1[2]
-                                return (escher_higher.filter__case_#1 $3 $2)
-      return $1
-    filter__case_#1:
-      $3 <- LHS[1]
-      $2 <- LHS[2]
-      case $3 of Prelude.[] -> return (Prelude.[])
-                 Prelude.:  -> $4 <- $3[1]
-                               $5 <- $3[2]
-                               return (escher_higher.filter__case_#1_case_#1 $2 $4 $5)
-      return $3
-    filter__case_#1_case_#1:
-      $2 <- LHS[1]
-      $4 <- LHS[2]
-      $5 <- LHS[3]
-      return (escher_higher.filter__case_#1_case_#1_case_#1 ((Prelude.apply $2 $4)) $2 $4 $5)
-    filter__case_#1_case_#1_case_#1:
-      $6 <- LHS[1]
-      $2 <- LHS[2]
-      $4 <- LHS[3]
-      $5 <- LHS[4]
-      case $6 of Prelude.True  -> return (Prelude.: $4 ((escher_higher.filter_ ((Prelude.(,) $2 $5)))))
-                 Prelude.False -> return (escher_higher.filter_ ((Prelude.(,) $2 $5)))
-      return $6
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        Prelude.(,) _ _ ->
+          var $2
+          var $3
+          $2 <- $1[0]
+          $3 <- $1[1]
+          return IFCall('escher_higher.filter__CASE0', $3, $2)
+    filter__CASE0:
+      var $3
+      var $2
+      $3 <- $0[0]
+      $2 <- $0[1]
+      case $3 of
+        Prelude.[] -> return ICCall('Prelude.[]')
+        Prelude.: _ _ ->
+          var $4
+          var $5
+          $4 <- $3[0]
+          $5 <- $3[1]
+          return IFCall('escher_higher.filter__COMPLEXCASE1', $4, $2, $5, IFCall('Prelude.apply', $2, $4))
+    filter__COMPLEXCASE1:
+      var $4
+      var $2
+      var $5
+      var $6
+      $4 <- $0[0]
+      $2 <- $0[1]
+      $5 <- $0[2]
+      $6 <- $0[3]
+      case $6 of
+        Prelude.False -> return IFCall('escher_higher.filter_', ICCall('Prelude.(,)', $2, $5))
+        Prelude.True -> return ICCall('Prelude.:', $4, IFCall('escher_higher.filter_', ICCall('Prelude.(,)', $2, $5)))
     next:
-      $1 <- LHS[1]
-      case $1 of escher_higher.Wed -> return (escher_higher.Thu)
-                 escher_higher.Mon -> return (escher_higher.Tue)
-                 escher_higher.Fri -> return (escher_higher.Sat)
-                 escher_higher.Sat -> return (escher_higher.Sun)
-                 escher_higher.Thu -> return (escher_higher.Fri)
-                 escher_higher.Sun -> return (escher_higher.Mon)
-                 escher_higher.Tue -> return (escher_higher.Wed)
-      return $1
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        escher_higher.Mon -> return ICCall('escher_higher.Tue')
+        escher_higher.Tue -> return ICCall('escher_higher.Wed')
+        escher_higher.Wed -> return ICCall('escher_higher.Thu')
+        escher_higher.Thu -> return ICCall('escher_higher.Fri')
+        escher_higher.Fri -> return ICCall('escher_higher.Sat')
+        escher_higher.Sat -> return ICCall('escher_higher.Sun')
+        escher_higher.Sun -> return ICCall('escher_higher.Mon')
     weekday:
-      $1 <- LHS[1]
-      case $1 of escher_higher.Wed -> return (Prelude.True)
-                 escher_higher.Mon -> return (Prelude.True)
-                 escher_higher.Fri -> return (Prelude.True)
-                 escher_higher.Sat -> return (Prelude.False)
-                 escher_higher.Thu -> return (Prelude.True)
-                 escher_higher.Sun -> return (Prelude.False)
-                 escher_higher.Tue -> return (Prelude.True)
-      return $1
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        escher_higher.Mon -> return ICCall('Prelude.True')
+        escher_higher.Tue -> return ICCall('Prelude.True')
+        escher_higher.Wed -> return ICCall('Prelude.True')
+        escher_higher.Thu -> return ICCall('Prelude.True')
+        escher_higher.Fri -> return ICCall('Prelude.True')
+        escher_higher.Sat -> return ICCall('Prelude.False')
+        escher_higher.Sun -> return ICCall('Prelude.False')
     goal1:
-      return (escher_higher.map_ ((Prelude.(,) ((escher_higher.next)) ((Prelude.: (escher_higher.Mon) ((Prelude.: (escher_higher.Tue) ((Prelude.: (escher_higher.Wed) (Prelude.[]))))))))))
+      return IFCall('escher_higher.map_', ICCall('Prelude.(,)', IFPCall('escher_higher.next'), ICCall('Prelude.:', ICCall('escher_higher.Mon'), ICCall('Prelude.:', ICCall('escher_higher.Tue'), ICCall('Prelude.:', ICCall('escher_higher.Wed'), ICCall('Prelude.[]'))))))
     goal2:
-      return (escher_higher.filter_ ((Prelude.(,) ((escher_higher.weekday)) ((Prelude.: (escher_higher.Sun) ((Prelude.: (escher_higher.Mon) ((Prelude.: (escher_higher.Wed) (Prelude.[]))))))))))
+      return IFCall('escher_higher.filter_', ICCall('Prelude.(,)', IFPCall('escher_higher.weekday'), ICCall('Prelude.:', ICCall('escher_higher.Sun'), ICCall('Prelude.:', ICCall('escher_higher.Mon'), ICCall('Prelude.:', ICCall('escher_higher.Wed'), ICCall('Prelude.[]'))))))

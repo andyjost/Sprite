@@ -9,5 +9,5 @@ Module:
   functions:
   ----------
     main:
-      $1 <- IFree
-      return $1
+      free $2
+      return $2

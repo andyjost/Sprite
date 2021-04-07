@@ -5,42 +5,107 @@ Module:
 
   types:
   ------
-    Nat = O | S
+    data Nat = O | S _
 
   functions:
   ----------
+    _inst#Prelude.Data#horseman.Nat:
+      return ICCall('Prelude._Dict#Data', IFPCall('horseman._impl#===#Prelude.Data#horseman.Nat'), IFPCall('horseman._impl#aValue#Prelude.Data#horseman.Nat'))
+    _impl#===#Prelude.Data#horseman.Nat:
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $1 of
+        horseman.O -> return IFCall('horseman._impl#===#Prelude.Data#horseman.Nat_CASE0', $2)
+        horseman.S _ ->
+          var $4
+          $4 <- $1[0]
+          return IFCall('horseman._impl#===#Prelude.Data#horseman.Nat_CASE1', $2, $4)
+    _impl#===#Prelude.Data#horseman.Nat_CASE1:
+      var $2
+      var $4
+      $2 <- $0[0]
+      $4 <- $0[1]
+      case $2 of
+        horseman.O -> return ICCall('Prelude.False')
+        horseman.S _ ->
+          var $5
+          $5 <- $2[0]
+          return IFCall('horseman._impl#===#Prelude.Data#horseman.Nat', $4, $5)
+    _impl#===#Prelude.Data#horseman.Nat_CASE0:
+      var $2
+      $2 <- $0[0]
+      case $2 of
+        horseman.O -> return ICCall('Prelude.True')
+        horseman.S _ -> return ICCall('Prelude.False')
+    _impl#aValue#Prelude.Data#horseman.Nat:
+      var $1
+      $1 <- $0[0]
+      case $1 of
+        Prelude.() -> return ICCall('horseman.O') ? ICCall('horseman.S', IFCall('horseman._impl#aValue#Prelude.Data#horseman.Nat', ICCall('Prelude.()')))
     int2nat:
-      $1 <- LHS[1]
-      return (horseman.int2nat_case_#1 ((Prelude.<= $1 0)) $1)
-    int2nat_case_#1:
-      $2 <- LHS[1]
-      $1 <- LHS[2]
-      case $2 of Prelude.True  -> return (horseman.O)
-                 Prelude.False -> return (horseman.S ((horseman.int2nat ((Prelude.- $1 1)))))
-      return $2
+      var $1
+      $1 <- $0[0]
+      return IFCall('horseman.int2nat_COMPLEXCASE0', $1, IFCall('Prelude._impl#<=#Prelude.Ord#Prelude.Int', $1, (0)))
+    int2nat_COMPLEXCASE0:
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $2 of
+        Prelude.False -> return ICCall('horseman.S', IFCall('horseman.int2nat', IFCall('Prelude._impl#-#Prelude.Num#Prelude.Int', $1, (1))))
+        Prelude.True -> return ICCall('horseman.O')
     add:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      case $1 of horseman.S -> $3 <- $1[1]
-                               return (horseman.S ((horseman.add $3 $2)))
-                 horseman.O -> return $2
-      return $1
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      case $1 of
+        horseman.O -> return $2
+        horseman.S _ ->
+          var $3
+          $3 <- $1[0]
+          return ICCall('horseman.S', IFCall('horseman.add', $3, $2))
     horseman:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      $3 <- LHS[3]
-      $4 <- LHS[4]
-      return (Prelude.& ((Prelude.=:= $3 ((horseman.add $1 $2)))) ((Prelude.=:= $4 ((horseman.add ((horseman.add $1 $1)) ((horseman.add ((horseman.add $2 $2)) ((horseman.add $2 $2)))))))))
+      var $1
+      var $2
+      var $3
+      var $4
+      $1 <- $0[0]
+      $2 <- $0[1]
+      $3 <- $0[2]
+      $4 <- $0[3]
+      return IFCall('Prelude.&', IFCall('Prelude.=:=', $3, IFCall('horseman.add', $1, $2)), IFCall('Prelude.=:=', $4, IFCall('horseman.add', IFCall('horseman.add', $1, $1), IFCall('horseman.add', IFCall('horseman.add', $2, $2), IFCall('horseman.add', $2, $2)))))
     goal1:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      return (horseman.horseman $1 $2 ((horseman.S ((horseman.S ((horseman.S (horseman.O))))))) ((horseman.S ((horseman.S ((horseman.S ((horseman.S ((horseman.S ((horseman.S ((horseman.S ((horseman.S (horseman.O))))))))))))))))))
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      return IFCall('horseman.horseman', $1, $2, ICCall('horseman.S', ICCall('horseman.S', ICCall('horseman.S', ICCall('horseman.O')))), ICCall('horseman.S', ICCall('horseman.S', ICCall('horseman.S', ICCall('horseman.S', ICCall('horseman.S', ICCall('horseman.S', ICCall('horseman.S', ICCall('horseman.S', ICCall('horseman.O'))))))))))
+    main1:
+      free $1
+      free $2
+      return IFCall('Prelude.&>', IFCall('horseman.goal1', $1, $2), ICCall('Prelude.(,)', $1, $2))
     goal2:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      return (horseman.horseman $1 $2 ((horseman.int2nat 8)) ((horseman.int2nat 20)))
+      var $1
+      var $2
+      $1 <- $0[0]
+      $2 <- $0[1]
+      return IFCall('horseman.horseman', $1, $2, IFCall('horseman.int2nat', (8)), IFCall('horseman.int2nat', (20)))
+    main2:
+      free $1
+      free $2
+      return IFCall('Prelude.&>', IFCall('horseman.goal1', $1, $2), ICCall('Prelude.(,)', $1, $2))
     goal3:
-      $1 <- LHS[1]
-      $2 <- LHS[2]
-      $3 <- LHS[3]
-      return (horseman.horseman $1 $2 ((horseman.S ((horseman.S (horseman.O))))) $3)
+      var $1
+      var $2
+      var $3
+      $1 <- $0[0]
+      $2 <- $0[1]
+      $3 <- $0[2]
+      return IFCall('horseman.horseman', $1, $2, ICCall('horseman.S', ICCall('horseman.S', ICCall('horseman.O'))), $3)
+    main3:
+      free $1
+      free $2
+      return IFCall('Prelude.&>', IFCall('horseman.goal1', $1, $2), ICCall('Prelude.(,)', $1, $2))

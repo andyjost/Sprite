@@ -13,7 +13,7 @@ class ParseJSON(cytest.TestCase):
       try:
         open_ = gzip.open if jsonfile.endswith('.gz') else open
         json = open_(jsonfile, 'rb').read()
-        icur = icurry.parse(json)[0]
+        icur = icurry.json.parse(json)
 
         # Test equality.
         self.assertTrue(icur, icur)
@@ -27,12 +27,6 @@ class ParseJSON(cytest.TestCase):
         # Check against the golden.
         goldenfile = jsonfile.replace('.json', '.au')
         self.compareEqualToFile(icur, goldenfile, GENERATE_GOLDENS)
-
-        # Test despace.
-        jsonsmall = icurry.despace(json)
-        self.assertLess(len(jsonsmall), len(json))
-        icur2 = icurry.parse(jsonsmall)[0]
-        self.assertEqual(icur, icur2)
       except:
         print 'Error while processing', jsonfile
         raise
@@ -52,6 +46,6 @@ class ParseJSON(cytest.TestCase):
   def testKielExamples(self):
     '''Parse example programs from Kiel.'''
     for jsonfile in glob('data/json/kiel-*.json'):
-      icur = icurry.parse(open(jsonfile, 'rb').read())
+      icur = icurry.json.parse(open(jsonfile, 'rb').read())
       curry.import_(icur)
 
