@@ -1,8 +1,8 @@
 # Encoding: utf-8
 import cytest # from ./lib; must be first
-from curry import config, importer as cymake
+from curry import config, importer
 from curry import icurry
-from curry import importer
+from curry.utility import filesys
 from curry.utility import _tempfile
 import curry
 import glob
@@ -23,7 +23,8 @@ class TestFindCurry(cytest.TestCase):
         ├── a
         │   ├── a.foo
         │   └── .curry
-        │       └── a.json
+        │       └── sprite
+        │           └── a.json
         ├── b
         │   ├── a
         │   │   ├── a.curry
@@ -33,7 +34,7 @@ class TestFindCurry(cytest.TestCase):
             ├── a
             └── c.curry
     '''
-    ff = importer.findfiles
+    ff = filesys.findfiles
     self.assertEqual(
         list(ff(
             names=['a.curry']
@@ -89,14 +90,14 @@ class TestFindCurry(cytest.TestCase):
         importer.findCurryModule('a', currypath=['data/findFile/b'])
       , os.path.abspath('data/findFile/b/a.curry')
       )
-    # Under a/ there is no a.curry, but there is a .curry/a.json file.
+    # Under a/ there is no a.curry, but there is .curry/sprite/a.json.
     # It should be found before b/a.curry is located.
     self.assertEqual(
         importer.findCurryModule(
             'a'
           , currypath=['data/findFile/'+a_or_b for a_or_b in 'ab']
           )
-      , os.path.abspath('data/findFile/a/.curry/a.json')
+      , os.path.abspath('data/findFile/a/.curry/sprite/a.json')
       )
 
   def test_getICurryForModule(self):
@@ -104,11 +105,11 @@ class TestFindCurry(cytest.TestCase):
     # If the JSON file already exists, this should find it, just like
     # findCurryModule does.
     self.assertEqual(
-        importer.findOrBuildICurry('a', ['data/findFile/a'])
-      , os.path.abspath('data/findFile/a/.curry/a.json')
+        importer.findOrBuildICurry('a', ['data/findFile/a'], zip=False)
+      , os.path.abspath('data/findFile/a/.curry/sprite/a.json')
       )
 
-    jsondir = 'data/curry/.curry'
+    jsondir = 'data/curry/.curry/sprite'
     jsonfile = os.path.join(jsondir, 'hello.json')
     goldenfile = 'data/curry/hello.json.au'
     def rmfiles():
@@ -122,38 +123,36 @@ class TestFindCurry(cytest.TestCase):
       rmfiles()
       self.assertFalse(os.path.exists(jsonfile))
       self.assertEqual(
-          importer.findOrBuildICurry('hello', ['data/curry'])
+          importer.findOrBuildICurry('hello', ['data/curry'], zip=False)
         , os.path.abspath(jsonfile)
         )
       self.assertTrue(os.path.exists(jsonfile))
       self.compareEqualToFile(
-          open('data/curry/.curry/hello.json').read()
+          open('data/curry/.curry/sprite/hello.json').read()
         , goldenfile
         , GENERATE_GOLDENS
         )
       rmfiles()
-      # Check getICurryForModule.  It just parses the file found by
-      # findOrBuildICurry.
-      icur = importer.getICurryForModule('hello', ['data/curry'])
+      # Check loadModule.
+      icur = importer.loadModule('hello', ['data/curry'])
       icur.filename = None
-      au = icurry.parse(open(goldenfile, 'r').read())
-      assert len(au) == 1
-      self.assertEqual(icur, au[0])
+      au = icurry.json.parse(open(goldenfile, 'r').read())
+      self.assertEqual(icur, au)
 
     finally:
       rmfiles()
 
   def test_illegal_name(self):
     self.assertRaisesRegexp(
-        ValueError, r'"kiel/rev" is not a legal module name.'
+        ValueError, r"'kiel/rev' is not a legal module name."
       , lambda: curry.import_('kiel/rev')
       )
     self.assertRaisesRegexp(
-        ValueError, r'"." is not a legal module name.'
+        ValueError, r"'.' is not a legal module name."
       , lambda: curry.import_('.')
       )
     self.assertRaisesRegexp(
-        ValueError, r'".." is not a legal module name.'
+        ValueError, r"'..' is not a legal module name."
       , lambda: curry.import_('..')
       )
 
@@ -193,11 +192,11 @@ class TestFindCurry(cytest.TestCase):
       open(a, 'w').close()
       time.sleep(0.01)
       open(b, 'w').close()
-      self.assertTrue(importer.newer(b, a))
-      self.assertFalse(importer.newer(a, b))
+      self.assertTrue(filesys.newer(b, a))
+      self.assertFalse(filesys.newer(a, b))
     #
     self.assertTrue(
-        importer.newer('data/curry/hello.curry', 'this_file_does_not_exist')
+        filesys.newer('data/curry/hello.curry', 'this_file_does_not_exist')
       )
 
 class TestMake(cytest.TestCase):
@@ -216,29 +215,29 @@ class TestMake(cytest.TestCase):
       files = [curry_file, icy_file, json_file]
       files += [name + '.z' for name in files]
       for file_ in files:
-        self.assertEqual(cymake.curryFilename(file_), curry_file)
-        self.assertEqual(cymake.icurryFilename(file_), icy_file)
-        self.assertEqual(cymake.jsonFilename(file_), json_file)
+        self.assertEqual(importer.curryFilename(file_), curry_file)
+        self.assertEqual(importer.icurryFilename(file_), icy_file)
+        self.assertEqual(importer.jsonFilename(file_), json_file)
 
   def test_make_icurry_and_json(self):
     '''Test the conversion from .curry to .icy.'''
-    for input_file in glob.glob('data/cymake/*.curry'):
+    for input_file in glob.glob('data/importer/*.curry'):
       dirname, filename = os.path.split(input_file)
       stem = filename[:-6]
       with _tempfile.TemporaryDirectory() as tmpdir:
         shutil.copy(input_file, tmpdir)
         curry_file = os.path.join(tmpdir, filename)
         # Build .icy.
-        ret = cymake.curry2icurry(curry_file, currypath=[], quiet=True)
+        ret = importer.curry2icurry(curry_file, currypath=[], quiet=True)
         file_out = os.path.join(tmpdir, SUBDIR, stem + '.icy')
         self.assertTrue(os.path.exists(file_out))
         self.assertEqual(ret, file_out)
         # Repeat -- no exception.
-        ret = cymake.curry2icurry(curry_file, currypath=[], quiet=True)
+        ret = importer.curry2icurry(curry_file, currypath=[], quiet=True)
         self.assertEqual(ret, file_out)
 
         # Build .json.
-        ret = cymake.icurry2json(curry_file, currypath=[], compact=False, zip=False)
+        ret = importer.icurry2json(curry_file, currypath=[], compact=False, zip=False)
         json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
@@ -246,7 +245,7 @@ class TestMake(cytest.TestCase):
 
         # Build compacted .json.
         self.assertFalse(os.path.exists(json_file))
-        ret = cymake.icurry2json(curry_file, currypath=[], compact=True, zip=False)
+        ret = importer.icurry2json(curry_file, currypath=[], compact=True, zip=False)
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
         if config.jq_tool() is not None:
@@ -257,7 +256,7 @@ class TestMake(cytest.TestCase):
         shutil.move(json_file, json_file + '.nozip')
 
         # Build compacted, compressed .json.
-        ret = cymake.icurry2json(curry_file, currypath=[], compact=True, zip=True)
+        ret = importer.icurry2json(curry_file, currypath=[], compact=True, zip=True)
         self.assertTrue(os.path.exists(json_file + '.z'))
         self.assertEqual(ret, json_file + '.z')
         self.assertLess(
@@ -265,9 +264,9 @@ class TestMake(cytest.TestCase):
           , os.stat(json_file + '.nozip').st_size
           )
 
-  def test_updateTarget(self):
-    '''Test the updateTarget function.'''
-    for input_file in glob.glob('data/cymake/*.curry'):
+  def test_findOrBuildICurry(self):
+    '''Test the findOrBuildICurry function.'''
+    for input_file in glob.glob('data/importer/*.curry'):
       dirname, filename = os.path.split(input_file)
       stem = filename[:-6]
       with _tempfile.TemporaryDirectory() as tmpdir:
@@ -276,20 +275,20 @@ class TestMake(cytest.TestCase):
         json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
         curry_file = os.path.join(tmpdir, filename)
         # Make .icy.  Returns None.
-        ret = cymake.updateTarget(curry_file, json=False, is_sourcefile=True)
+        ret = importer.findOrBuildICurry(curry_file, json=False, is_sourcefile=True)
         self.assertTrue(os.path.exists(icy_file))
         self.assertEqual(ret, None)
         # Repeat
-        ret = cymake.updateTarget(curry_file, json=False, is_sourcefile=True)
+        ret = importer.findOrBuildICurry(curry_file, json=False, is_sourcefile=True)
         self.assertTrue(os.path.exists(icy_file))
         self.assertIs(ret, None)
 
         # Make .json.  Returns the JSON file name.
-        ret = cymake.updateTarget(curry_file, zip=False, is_sourcefile=True)
+        ret = importer.findOrBuildICurry(curry_file, zip=False, is_sourcefile=True)
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
         # Repeat
-        ret = cymake.updateTarget(curry_file, zip=False, is_sourcefile=True)
+        ret = importer.findOrBuildICurry(curry_file, zip=False, is_sourcefile=True)
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
 
@@ -309,7 +308,7 @@ class TestMake(cytest.TestCase):
     self.assertIn('CURRYPATH', maninfo)
     self.assertIn('SPRITE_LOG_LEVEL', maninfo)
 
-    for input_file in glob.glob('data/cymake/*.curry'):
+    for input_file in glob.glob('data/importer/*.curry'):
       dirname, filename = os.path.split(input_file)
       stem = filename[:-6]
       with _tempfile.TemporaryDirectory() as tmpdir:

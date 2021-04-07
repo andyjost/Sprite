@@ -119,16 +119,7 @@ ILiteral.register(IFloat)
 ILiteral.register(IUnboxedLiteral)
 
 def symboltable(parent, objs):
-  # if isinstance(objs, Mapping):
-  #   assert all(k == v.name for k,v in objs)
-  #   objs = objs.values()
-  # elif isinstance(objs, Sequence)
-  #   if objs and len(objs[0]) == 2:
-  #     objs = (x for _,x in objs)
-  # try:
   return OrderedDict((v.name, v) for v in (v.setparent(parent) for v in objs))
-  # except:
-  #   breakpoint()
 
 class IModule(IObject):
   def __init__(self, name, imports, types, functions, filename=None, **kwds):
@@ -145,7 +136,7 @@ class IModule(IObject):
     self.imports = tuple(str(x) for x in imports)
     self.types = symboltable(self, types)
     self.functions = symboltable(self, functions)
-    self.filename = str(filename)
+    self.filename = str(filename) if filename is not None else None
     IObject.__init__(self, **kwds)
 
   def __str__(self):
@@ -171,8 +162,8 @@ class IModule(IObject):
       )
 
   def __repr__(self):
-    return 'IModule(name=%r, imports=%r, types=%r, functions=%r)' % (
-        self.name, self.imports, self.types.values(), self.functions.values()
+    return 'IModule(name=%r, filename=%r, imports=%r, types=%r, functions=%r)' % (
+        self.name, self.filename, self.imports, self.types.values(), self.functions.values()
       )
 
   def merge(self, extern, export):

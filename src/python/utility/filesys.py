@@ -31,14 +31,20 @@ def getdir(name, mkdirs=False, access=os.O_RDWR):
 
 def newer(a, b):
   '''
-  Indicates whether file a is newer than file b.  Also returns true if a exists
-  and b does not.
+  Indicates whether file a is newer than file b.  Also returns true if b does
+  not exist.
   '''
   try:
     t_b = os.path.getctime(b)
   except OSError:
-    return os.path.exists(a) and not os.path.exists(b)
-  return os.path.getctime(a) > t_b
+    return True
+  else:
+    try:
+      t_a = os.path.getctime(a)
+    except OSError:
+      return False
+    else:
+      return t_a > t_b
 
 def newest(files):
   '''Find the newest file from a collection of filenames.'''

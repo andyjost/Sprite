@@ -130,7 +130,7 @@ def main(progname, argv):
   for name in args.names:
     kwds['is_sourcefile'] = name.endswith('.curry')
     with error_handler:
-      importer.updateTarget(name, currypath, **kwds)
+      importer.findOrBuildICurry(name, currypath, **kwds)
   if error_handler.nerrors:
     sys.exit(1)
 

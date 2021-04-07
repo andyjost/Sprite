@@ -38,12 +38,12 @@ __all__ = [
     'curryFilename'
   , 'CurryImporter'
   , 'findCurryModule'
+  , 'findOrBuildICurry'
   , 'icurryFilename'
   , 'jsonFilename'
   , 'loadJsonFile'
   , 'loadModule'
   , 'str2icurry'
-  , 'updateTarget'
   ]
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
@@ -90,7 +90,7 @@ def loadModule(name, currypath, **kwds):
   --------
   A Python object containing the ICurry for the given name.
   '''
-  filename = updateTarget(name, currypath, **kwds)
+  filename = findOrBuildICurry(name, currypath, **kwds)
   logger.debug('Found module %s at %s', name, filename)
   return loadJsonFile(filename)
 
@@ -131,7 +131,7 @@ def str2icurry(
   '''
   moduledir = filesys.CurryModuleDir(modulename, string, keep=keep_temp_files)
   with moduledir:
-    jsonfile = updateTarget(moduledir.curryfile, currypath, is_sourcefile=True)
+    jsonfile = findOrBuildICurry(moduledir.curryfile, currypath, is_sourcefile=True)
     icur = loadJsonFile(jsonfile)
     icur.__file__ = moduledir.curryfile
     icur._tmpd_ = moduledir
@@ -198,7 +198,7 @@ def findCurryModule(
     # corresponding source file.  This means a library could be installed as
     # JSON only, without needing to install its source.
     if not utility.isLegalModulename(name):
-      raise ModuleLookupError('"%s" is not a legal module name.' % name)
+      raise ModuleLookupError('%r is not a legal module name.' % name)
     # Search for the JSON file first, then ICurry, then .curry.
     suffixes = ['.json', '.json.z'] if json else []
     suffixes += ['.icy'] if icy else []
@@ -244,7 +244,7 @@ def findCurryModule(
   logger.debug('Prerequisite for compilation of %r is %r', name, prereq)
   return prereq
 
-def updateTarget(name, currypath=[], **kwds):
+def findOrBuildICurry(name, currypath=[], **kwds):
   '''
   Update a target file containing the given Curry module.  Prerequisites are
   checked so that the minimum work is performed.
