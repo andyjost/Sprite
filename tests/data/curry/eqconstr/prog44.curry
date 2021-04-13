@@ -1,1 +1,1 @@
-main = ((x =:= x & y =:= y) &> x) ? x where x,y free
+main = (((x::Bool) =:= x & (y::Bool) =:= y) &> x) ? x where x,y free

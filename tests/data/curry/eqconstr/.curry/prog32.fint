@@ -1,1 +1,0 @@
-Prog "prog32" ["Prelude"] [] [Func ("prog32","fwd") 1 Public (FuncType (TVar 0) (TVar 0)) (Rule [] (Var 0)),Func ("prog32","f") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Var 0)),Func ("prog32","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Var 0))] []

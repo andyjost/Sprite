@@ -1,4 +1,0 @@
-interface a0_060 where {
-data T = A;
-main 0 :: T
-}

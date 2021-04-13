@@ -1,1 +1,0 @@
-IModule "prog30" ["Prelude"] [] [IFunction ("prog30","fwd") 1 [Declare (Variable 1 (ILhs (("prog30","fwd"),1))),Return (Reference 1)],IFunction ("prog30","f") 0 [Return (Applic True ("Prelude","True") [])],IFunction ("prog30","main") 0 [Return (Applic False ("Prelude","=:=") [Applic True ("Prelude","False") [],Applic False ("prog30","fwd") [Applic False ("prog30","f") []]])]]

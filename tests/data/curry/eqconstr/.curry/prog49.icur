@@ -1,1 +1,0 @@
-IModule "prog49" ["Prelude"] [] [IFunction ("prog49","main") 0 [Declare (Variable 1 IFree),Return (Applic False ("Prelude","?") [Applic False ("Prelude","&>") [Applic False ("Prelude","&") [Applic False ("Prelude","=:=") [Reference 1,Applic True ("Prelude","True") []],Applic False ("Prelude","=:=") [Reference 1,Applic True ("Prelude","True") []]],Reference 1],Reference 1])]]

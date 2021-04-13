@@ -216,14 +216,14 @@ class FunctionalTestCase(TestCase):
         v for k,v in module.__dict__.items() if re.match(self.GOAL_PATTERN, k)
       ]
     num_tests_run = 0
-    for goal in sorted(goals, key=lambda x: x.ident.basename):
+    for goal in sorted(goals, key=lambda x: x.name):
       if goal.info.arity and self.PRINT_SKIPPED_GOALS:
         print >>sys.stderr, 'skipping goal %s because its arity (%s) is not zero' % (
             goal.info.name, goal.info.arity
           )
         continue
       num_tests_run += 1
-      goldenfile = os.path.join(self.SOURCE_DIR, goal.ident + '.au-gen')
+      goldenfile = os.path.join(self.SOURCE_DIR, goal.fullname + '.au-gen')
       oracle.divine(
           module, goal, [self.SOURCE_DIR], '20s', goldenfile=goldenfile
         )

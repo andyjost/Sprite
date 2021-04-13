@@ -1,1 +1,0 @@
-IModule "prog09" ["Prelude"] [] [IFunction ("prog09","main") 0 [Return (Applic False ("Prelude","=:=") [BuiltinVariant (Bint 0),Applic False ("Prelude","?") [BuiltinVariant (Bint 0),BuiltinVariant (Bint 1)]])]]

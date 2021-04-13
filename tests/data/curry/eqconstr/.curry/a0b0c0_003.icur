@@ -1,1 +1,0 @@
-IModule "a0b0c0_003" ["Prelude"] [(("a0b0c0_003","T"),[IConstructor ("a0b0c0_003","A") 0,IConstructor ("a0b0c0_003","B") 0,IConstructor ("a0b0c0_003","C") 0])] [IFunction ("a0b0c0_003","main") 0 [Declare (Variable 1 IFree),Return (Applic False ("Prelude","&>") [Applic False ("Prelude","=:=") [Applic True ("a0b0c0_003","A") [],Reference 1],Reference 1])]]

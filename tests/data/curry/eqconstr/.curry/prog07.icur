@@ -1,1 +1,0 @@
-IModule "prog07" ["Prelude"] [] [IFunction ("prog07","f") 0 [Return (Applic True ("Prelude","True") [])],IFunction ("prog07","main") 0 [Return (Applic False ("Prelude","=:=") [Applic True ("Prelude","False") [],Applic False ("prog07","f") []])]]

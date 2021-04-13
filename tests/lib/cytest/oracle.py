@@ -2,7 +2,7 @@
 Utilities for comparing Curry output.
 '''
 from curry import importer
-from curry.utility import visitation
+from curry.utility import visitation, filesys
 import collections
 import os
 import subprocess
@@ -70,7 +70,7 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None):
   if isinstance(module, str):
     module = curry.import_(module)
   if goldenfile is not None:
-    if not importer.newer(module.__file__, goldenfile):
+    if not filesys.newer(module.__file__, goldenfile):
       return False
 
   # Call the oracle.

@@ -1,1 +1,1 @@
-main = x=:=y where x,y free
+main = (x::())=:=y where x,y free

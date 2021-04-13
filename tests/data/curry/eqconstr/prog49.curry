@@ -1,1 +1,1 @@
-main = ((x =:= True & x =:= True) &> x) ? x where x,y free
+main = ((x =:= True & x =:= True) &> x) ? x where x free

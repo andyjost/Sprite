@@ -1,4 +1,0 @@
-interface a0b0c0_363 where {
-data T = A | B | C;
-main 0 :: (T, T)
-}

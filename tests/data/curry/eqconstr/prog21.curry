@@ -1,1 +1,1 @@
-main = (x:xs)=:=(y:ys) where x,y,xs,ys free
+main = ((x::()):xs)=:=(y:ys) where x,y,xs,ys free

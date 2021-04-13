@@ -1,1 +1,0 @@
-IModule "prog12" ["Prelude"] [] [IFunction ("prog12","main") 0 [Return (Applic False ("Prelude","=:=") [BuiltinVariant (Bint 0),Applic False ("Prelude","failed") []])]]

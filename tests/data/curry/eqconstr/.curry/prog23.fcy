@@ -1,1 +1,0 @@
-Prog "prog23" ["Prelude"] [] [Func ("prog23","fwd") 1 Public (FuncType (TVar 0) (TVar 0)) (Rule [1] (Var 1)),Func ("prog23","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Comb FuncCall ("Prelude","=:=") [Comb FuncCall ("prog23","fwd") [Comb ConsCall ("Prelude","True") []],Comb ConsCall ("Prelude","True") []]))] []

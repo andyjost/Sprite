@@ -1,0 +1,1 @@
+(IProg "prog12" ["Prelude"] [] [(IFunction ("prog12","main",0) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (IFCall ("Prelude","=:=",727) [(ILit (IInt 0)),(IFCall ("Prelude","failed",735) [])])))))])
