@@ -12,11 +12,11 @@ class TestUtility(unittest.TestCase):
   def testEncode(self):
     names = [
         # 'ni__eq__eq_'
-        'ni_Prelude_dot__eq__eq_'
-      , 'ni_Prelude_dot__eq__eq__0'
-      , 'ni_Prelude_dot__eq__eq__1'
-      , 'ni_Prelude_dot__eq__eq__2'
-      , 'ni_Prelude_dot__eq__eq__3'
+        'ni_eq'
+      , 'ni_eq_0'
+      , 'ni_eq_1'
+      , 'ni_eq_2'
+      , 'ni_eq_3'
       ]
     for n in range(len(names)):
       self.assertEqual(

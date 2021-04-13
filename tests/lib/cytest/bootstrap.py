@@ -2,6 +2,7 @@
 Defines in pure ICurry a few simple modules designed for system testing.
 '''
 from curry.icurry import *
+from curry.icurry.json import parse
 from curry.utility import unboxed
 
 # An arbitrary choice id.
@@ -9,9 +10,9 @@ _cid = 527
 cid = unboxed.unboxed(_cid)
 
 def blk(expr):
-  return IBlock(vardecls=[], assigns=[], stmt=IReturn(expr))
+  return IBlock(vardecls=[], assigns=[], stmt=expr)
 
-def ret(expr):
+def retbody(expr):
   return IFuncBody(blk(IReturn(expr)))
 
 def getbootstrap():
@@ -20,26 +21,26 @@ def getbootstrap():
     , imports=[]
     , types=[
           IType(
-              name='NUM'
+              name='bootstrap.NUM'
             , constructors=[
-                  IConstructor('N', 0) # Nullary
-                , IConstructor('M', 0) # A distinct nullary, to test choices.
-                , IConstructor('U', 1) # Unary
-                , IConstructor('B', 2) # Binary
+                  IConstructor('bootstrap.N', 0) # Nullary
+                , IConstructor('bootstrap.M', 0) # A distinct nullary, to test choices.
+                , IConstructor('bootstrap.U', 1) # Unary
+                , IConstructor('bootstrap.B', 2) # Binary
                 ]
             )
         ]
     , functions=[
-        IFunction('ZN', 0, body=ret(ICCall('bootstrap.N')))
-      , IFunction('ZF', 0, body=ret(ICCall('Prelude._Failure')))
-      , IFunction('ZQ', 0, body=ret(
+        IFunction('bootstrap.ZN', 0, body=retbody(ICCall('bootstrap.N')))
+      , IFunction('bootstrap.ZF', 0, body=retbody(ICCall('Prelude._Failure')))
+      , IFunction('bootstrap.ZQ', 0, body=retbody(
             ICCall('Prelude._Choice', [_cid, ICCall('bootstrap.N'), ICCall('bootstrap.M')])
           ))
       #                                                       ^^^
       #  Not correctly typed, but three arguments are needed here.
-      , IFunction('ZW', 0, body=ret(ICCall('Prelude._Fwd', [ICCall('bootstrap.N')])))
+      , IFunction('bootstrap.ZW', 0, body=retbody(ICCall('Prelude._Fwd', [ICCall('bootstrap.N')])))
         # Evaluates its argument and then returns a FWD node refering to it.
-      , IFunction('Z' , 1, body=IFuncBody(IBlock(
+      , IFunction('bootstrap.Z' , 1, body=IFuncBody(IBlock(
             vardecls=[IVarDecl(1)]
           , assigns=[IVarAssign(1, IVarAccess(0, path=[0]))]
           , stmt=ICaseCons(
@@ -69,10 +70,10 @@ def getlist():
       name='mylist', imports=[], functions=[]
     , types=[
           IType(
-              name='List'
+              name='mylist.List'
             , constructors=[
-                IConstructor('Cons', 2, metadata={'py.format':listformat})
-              , IConstructor('Nil', 0, metadata={'py.format':listformat})
+                IConstructor('mylist.Cons', 2, metadata={'py.format':listformat})
+              , IConstructor('mylist.Nil', 0, metadata={'py.format':listformat})
               ]
             )
         ]
@@ -83,8 +84,8 @@ def getx():
       name='X', imports=[], functions=[]
     , types=[
           IType(
-              name='X'
-            , constructors=[IConstructor('X', 1)]
+              name='X.X'
+            , constructors=[IConstructor('X.X', 1)]
             )
         ]
     )

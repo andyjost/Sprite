@@ -8,6 +8,7 @@ from curry.interpreter import runtime
 from curry.interpreter.prelude import  Prelude
 from curry.utility.unboxed import unboxed
 from curry.utility.visitation import dispatch
+from curry.utility import filesys
 from cytest import bootstrap
 from glob import glob
 import curry
@@ -36,34 +37,33 @@ class TestPyInterp(cytest.TestCase):
   def testImportICurry(self):
     icur = self.EXAMPLE
     interp = Interpreter()
-    imported = interp.import_(icur)
+    example = interp.import_(icur)
     self.assertEqual(set(interp.modules.keys()), set(['example', 'Prelude']))
-    self.assertEqual(len(imported), 1)
-    example = imported[0]
     self.assertFalse(set('A B f g main'.split()) - set(dir(example)))
     self.assertIs(interp.modules['example'], example)
 
     # Symbol lookup.
     self.assertIs(interp.symbol('Prelude.Int'), interp.modules['Prelude'].Int)
     self.assertRaisesRegexp(
-        ModuleLookupError, r'module "blah" not found'
+        ModuleLookupError, "Curry module 'blah' not found"
       , lambda: interp.symbol('blah.x')
       )
     self.assertRaisesRegexp(
-        SymbolLookupError, r'module "Prelude" has no symbol "foo"'
+        SymbolLookupError, "module 'Prelude' has no symbol 'foo'"
       , lambda: interp.symbol('Prelude.foo')
       )
 
     # Type lookup.
     typedef = interp.type('Prelude.Int')
     self.assertEqual(typedef.constructors , [interp.symbol('Prelude.Int')])
-    self.assertEqual(typedef.ident , 'Prelude.Int')
+    self.assertEqual(typedef.fullname , 'Prelude.Int')
+    self.assertEqual(typedef.name , 'Int')
     self.assertRaisesRegexp(
-        ModuleLookupError, r'module "blah" not found'
+        ModuleLookupError, "module 'blah' not found"
       , lambda: interp.type('blah.x')
       )
     self.assertRaisesRegexp(
-        TypeLookupError, r'module "Prelude" has no type "foo"'
+        TypeLookupError, "module 'Prelude' has no type 'foo'"
       , lambda: interp.type('Prelude.foo')
       )
 
@@ -92,7 +92,7 @@ class TestPyInterp(cytest.TestCase):
       mtime = os.path.getmtime(importer.jsonFilename(tgtfile))
       return value, mtime
 
-    with importer.TemporaryDirectory() as tempd:
+    with filesys.TemporaryDirectory() as tempd:
       # Copy the helloInt module into the temp dir and run it.
       a_value, a_mtime = myeval(tempd, 'data/curry/helloInt.curry')
       self.assertEqual(a_value, 0)

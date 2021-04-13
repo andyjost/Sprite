@@ -565,11 +565,11 @@ def modulename(arg):
   return arg.name
 
 def iname(name):
-  if isinstance(name, IName):
-    return name
-  else:
+  if not isinstance(name, IName):
     # Strip the module from a qualified name.
-    return '.'.join(name.split('.')[1:])
+    name = '.'.join(name.split('.')[1:])
+  assert name
+  return name
 
 def splitname(name):
   parts = name.split('.')

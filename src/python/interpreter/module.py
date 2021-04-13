@@ -37,7 +37,7 @@ def symbol(moduleobj, name):
     return symbols[name]
   except KeyError:
     raise exceptions.SymbolLookupError(
-        'module "%s" has no symbol "%s"' % (moduleobj.__name__, name)
+        'module %r has no symbol %r' % (moduleobj.__name__, name)
       )
 
 def _getfile(moduleobj, suffixes):
