@@ -1,8 +1,0 @@
-interface arithseq where {
-import Prelude;
-goal1 0 :: [Prelude.Int];
-goal2 0 :: [Prelude.Int];
-goal3 0 :: [Prelude.Int];
-goal4 0 :: [Prelude.Int];
-hiding data Prelude.Int
-}

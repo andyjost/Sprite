@@ -48,11 +48,9 @@ class _Variable(object):
             )
           return False
     else:
-      text = self.type(x)
       if self.interpolate:
-        assert self.type is str
-        text = text.format(**os.environ)
-      return text
+        x = str(x).format(**os.environ)
+      return self.type(x)
 
 # These are read from under $PREFIX/vars.  The source files are under
 # $ROOT/src/export/vars.  They can be set in Make.config.
@@ -61,6 +59,19 @@ enable_icurry_cache       = _Variable('enable_icurry_cache', type=bool)
 enable_parsed_json_cache  = _Variable('enable_parsed_json_cache', type=bool)
 intermediate_subdir       = _Variable('intermediate_subdir')
 python_package_name       = _Variable('python_package_name')
+system_curry_path         = _Variable('system_curry_path')
+
+def currypath(cached=[]):
+  '''
+  Gets the Curry path from the environment variable CURRYPATH and appends the
+  system path.  By default, the result is cached.  To pick up possible changes
+  to the environment, pass an empty list.
+  '''
+  if not cached:
+    envpath = os.environ.get('CURRYPATH', '').split(':')
+    syspath = system_curry_path().split(':')
+    cached.append(filter(lambda x:x, envpath + syspath))
+  return cached[0]
 
 # External tools.
 def jq_tool(cached=[]):

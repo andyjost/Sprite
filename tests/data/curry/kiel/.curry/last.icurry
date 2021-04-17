@@ -1,7 +1,0 @@
-interface last where {
-import Prelude;
-append 2 :: [a] -> [a] -> [a];
-goal 0 :: Prelude.Int;
-last 1 :: [a] -> a;
-hiding data Prelude.Int
-}

@@ -6,6 +6,7 @@ from curry import interpreter
 from curry.interpreter import Interpreter
 from curry.interpreter import runtime
 from curry.interpreter.prelude import  Prelude
+from curry.utility.binding import binding, del_
 from curry.utility.unboxed import unboxed
 from curry.utility.visitation import dispatch
 from curry.utility import filesys
@@ -68,11 +69,12 @@ class TestPyInterp(cytest.TestCase):
       )
 
   def testImportFile(self):
-    interp = Interpreter()
-    interp.path = []
+    # Ignore the data/curry path added by cytest.TestCase.
+    with binding(os.environ, 'CURRYPATH', del_):
+      interp = Interpreter()
     self.assertRaises(Exception, lambda: interp.import_('helloInt'))
     #
-    interp.path = ['data/curry']
+    interp.path.insert(0, 'data/curry')
     self.assertMayRaise(None, lambda: interp.import_('helloInt'))
     self.assertMayRaise(None, lambda: interp.import_('helloFloat'))
     self.assertMayRaise(None, lambda: interp.import_('helloChar'))
@@ -81,7 +83,7 @@ class TestPyInterp(cytest.TestCase):
     def myeval(tempd, srcfile):
       '''Copy srcfile to tempd and evaluate it in a fresh interpreter.'''
       interp = Interpreter()
-      interp.path = [tempd]
+      interp.path.insert(0, tempd)
       tgtfile = os.path.join(tempd, 'test.curry')
       if srcfile is None:
         os.remove(tgtfile)
@@ -89,7 +91,14 @@ class TestPyInterp(cytest.TestCase):
         shutil.copy(srcfile, tgtfile)
       module = interp.import_('test')
       value = next(interp.eval(interp.expr(module.main), converter='topython'))
-      mtime = os.path.getmtime(importer.jsonFilename(tgtfile))
+      for jsonfile in importer.jsonFilenames(tgtfile):
+        try:
+          mtime = os.path.getmtime(jsonfile)
+          break
+        except OSError:
+          pass
+      else:
+        self.assertFalse('No JSON file found')
       return value, mtime
 
     with filesys.TemporaryDirectory() as tempd:

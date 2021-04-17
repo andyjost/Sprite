@@ -1,6 +1,0 @@
-interface UseConc2 where {
-import Prelude;
-main1 0 :: [Prelude.Int];
-main2 0 :: [Prelude.Int];
-hiding data Prelude.Int
-}

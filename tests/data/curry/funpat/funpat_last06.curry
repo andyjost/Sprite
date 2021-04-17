@@ -1,3 +1,4 @@
-
+last :: Prelude.Data a => [a] -> a
 last (xs++[x]) = x
-main = snd $ last [(failed, True)]
+main :: Bool
+main = snd $ last [(failed::Bool, True)]

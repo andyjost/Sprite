@@ -181,7 +181,7 @@ class IModule(IObject):
         else:
           found += 1
       if not found:
-        raise TypeError('exported symbol %r not found' % name)
+        raise TypeError('cannot import %r from module %r' % (name, extern.name))
 
 IProg = IModule
 

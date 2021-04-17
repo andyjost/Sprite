@@ -20,7 +20,7 @@ class TestInspect(cytest.TestCase):
     cls.io = curry.expr(prelude.IO, prelude.True)
     cls.tuple_ = curry.expr((1,2,3))
     cls.list_ = curry.expr([1,2,3])
-    cls.freevar = step(cls.interp, prelude.unknown)
+    cls.freevar = step(cls.interp, prelude.prim_unknown)
     cls.failure = step(cls.interp, prelude.failed)
     cls.fwd = curry.expr(prelude._Fwd, prelude.True)
     cls.choice = step(cls.interp, getattr(prelude, '?'), 0, 1)

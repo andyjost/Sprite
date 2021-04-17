@@ -33,7 +33,7 @@ class TestPyConversions(cytest.TestCase):
     self.assertEqual(str(pi), '3.14')
 
     # Node.
-    example = interp.import_(self.EXAMPLE)[0]
+    example = interp.import_(self.EXAMPLE)
     A = interp.expr(example.A)
     self.assertEqual(repr(A), '<A>')
     self.assertEqual(str(A), 'A')
@@ -190,8 +190,8 @@ class TestPyConversions(cytest.TestCase):
       )
 
   def testForwardExpr(self):
-    a = curry.expr(curry.prelude.id, 0)
-    b = curry.expr(curry.prelude.id, 1)
+    a = curry.expr(curry.getInterpreter().prelude.id, 0)
+    b = curry.expr(curry.getInterpreter().prelude.id, 1)
     curry.expr(b, target=a)
     self.assertEqual(list(curry.eval(a)), [1])
 

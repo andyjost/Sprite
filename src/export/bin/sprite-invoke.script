@@ -23,7 +23,6 @@ function prepend-env {
 
 prepend-env PYTHONPATH      $SPRITE_HOME/python "Python"
 prepend-env LD_LIBRARY_PATH $SPRITE_HOME/lib    "Sprite"
-prepend-env CURRYPATH       $SPRITE_HOME/curry  "Curry"
 
 if [ "$(basename $0)" == "sprite-invoke" ]; then
   exec $1 "${@: 2}"

@@ -1,1 +1,0 @@
-Prog "UseConc1" ["ModConc","Prelude"] [] [Func ("UseConc1","goal1") 0 Public (TCons ("Prelude","[]") [TCons ("Prelude","Int") []]) (Rule [] (Var 0)),Func ("UseConc1","goal2") 0 Public (TCons ("Prelude","[]") [TCons ("Prelude","Int") []]) (Rule [] (Var 0)),Func ("UseConc1","goal3") 0 Public (TCons ("Prelude","[]") [TCons ("Prelude","Int") []]) (Rule [] (Var 0))] []

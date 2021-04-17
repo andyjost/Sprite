@@ -40,7 +40,7 @@ __all__ = [
   , 'findCurryModule'
   , 'findOrBuildICurry'
   , 'icurryFilename'
-  , 'jsonFilename'
+  , 'jsonFilenames'
   , 'loadJsonFile'
   , 'loadModule'
   , 'str2icurry'
@@ -228,8 +228,7 @@ def findCurryModule(
     icyfile = icurryFilename(curryfile)
     filelist += [icyfile]
   if json:
-    jsonfile = jsonFilename(curryfile)
-    filelist += [jsonfile, jsonfile + '.z']
+    filelist += jsonFilenames(curryfile)
   prereq = os.path.abspath(filesys.newest(filelist))
   if not os.path.exists(prereq):
     # If there is no prerequisite, then there is no Curry file or any of its
@@ -360,10 +359,10 @@ class Curry2ICurryConverter(object):
 
   @_updateCheck
   def convert(self, file_in, currypath):
-    file_out = icurryFilename(file_in)
-    cached = self.use_cache and cache.Curry2ICurryCache(file_in, file_out)
-    if not cached:
-      with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
+    with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
+      file_out = icurryFilename(file_in)
+      cached = self.use_cache and cache.Curry2ICurryCache(file_in, file_out)
+      if not cached:
         logger.debug('Using CURRYPATH %s', os.environ['CURRYPATH'])
         _makeOutputDir(file_out)
         cmd = [config.icurry_tool(), '-o', file_out, file_in]
@@ -371,11 +370,11 @@ class Curry2ICurryConverter(object):
           cmd.insert(1, '-q')
         logger.debug('Command: %s', ' '.join(cmd))
         _popen(cmd)
-      if self.use_cache:
-        cached.update()
-    else:
-      logger.debug('Found %s in the cache', file_out)
-    return file_out
+        if self.use_cache:
+          cached.update()
+      else:
+        logger.debug('Found %s in the cache', file_out)
+      return file_out
 
 def curry2icurry(curryfile, currypath, **kwds):
   '''
@@ -485,14 +484,15 @@ def icurryFilename(filename):
   path,name = os.path.split(filename)
   return os.path.join(path, '.curry', SUBDIR, name[:-6]+'.icy')
 
-def jsonFilename(filename):
-  '''Gets the JSON file name associated with a Curry or ICY file.'''
+def jsonFilenames(filename):
+  '''Gets the JSON file name(s) associated with a Curry or ICY file.'''
   if filename.endswith('.z'):
     filename = filename[:-2]
   if not filename.endswith('.icy'):
     filename = icurryFilename(filename)
   assert filename.endswith('.icy')
-  return filename[:-4] + '.json'
+  base = filename[:-4] + '.json'
+  return base, base + '.z'
 
 def curryFilename(filename):
   '''

@@ -1,9 +1,0 @@
-interface rigidadd where {
-import Prelude;
-data Nat = O | S Nat;
-add 2 :: Nat -> Nat -> Nat;
-add' 2 :: Nat -> Nat -> Nat;
-goal 0 :: Prelude.Bool;
-isNat 1 :: Nat -> Prelude.Bool;
-hiding data Prelude.Bool
-}

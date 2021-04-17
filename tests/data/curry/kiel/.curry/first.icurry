@@ -1,9 +1,0 @@
-interface first where {
-import Prelude;
-data Nat = O | S Nat;
-first 2 :: Nat -> [a] -> [a];
-from 1 :: Nat -> [Nat];
-goal1 0 :: [Nat];
-goal2 2 :: Nat -> Nat -> Prelude.Bool;
-hiding data Prelude.Bool
-}

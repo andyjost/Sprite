@@ -1,6 +1,7 @@
 '''
 A pure-Python Curry interpreter.
 '''
+from .. import config
 from . import import_
 from . import runtime
 from .. import utility
@@ -60,7 +61,8 @@ class Interpreter(object):
 
     Clears loaded modules (except for the Prelude), restores I/O streams to
     their defaults, resets ``path`` from the environment, and clears internal
-    counters.  This is much faster than reloading the Prelude.
+    counters.  This is much faster than building a new interpreter, which
+    loads the Prelude.
     '''
     self.stdin = sys.stdin
     self.stdout = sys.stdout
@@ -71,7 +73,7 @@ class Interpreter(object):
     for name in self.modules.keys():
       if name != 'Prelude':
         del self.modules[name]
-    self.path[:] = utility.readCurryPathFromEnviron()
+    self.path[:] = config.currypath([]) # re-read it from the environment
 
   # Externally-implemented methods.
   from .compile import compile

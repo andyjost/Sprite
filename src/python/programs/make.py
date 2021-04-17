@@ -122,7 +122,6 @@ def main(progname, argv):
   if args.json:
     args.icy = True
   kwds = dict(args._get_kwargs())
-  currypath = utility.readCurryPathFromEnviron()
   error_handler = handle_program_errors(
       progname
     , exit_status=None if args.keep_going else 1
@@ -130,7 +129,7 @@ def main(progname, argv):
   for name in args.names:
     kwds['is_sourcefile'] = name.endswith('.curry')
     with error_handler:
-      importer.findOrBuildICurry(name, currypath, **kwds)
+      importer.findOrBuildICurry(name, config.currypath(), **kwds)
   if error_handler.nerrors:
     sys.exit(1)
 

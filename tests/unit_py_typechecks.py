@@ -49,7 +49,7 @@ class TestPyTypeChecks(cytest.TestCase):
   def testBinding(self):
     for debug in [True, False]:
       I = curry.interpreter.Interpreter(flags={'debug':debug})
-      unknown = I.symbol('Prelude.unknown')
+      unknown = I.symbol('Prelude.prim_unknown')
       q = I.symbol('Prelude.?')
       x,y = list(I.eval(q, unknown, unknown))
       self.assertMayRaise(

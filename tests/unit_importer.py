@@ -212,12 +212,13 @@ class TestMake(cytest.TestCase):
       curry_file = os.path.join(prefix, 'foo.curry')
       icy_file = os.path.join(prefix, SUBDIR, 'foo.icy')
       json_file = os.path.join(prefix, SUBDIR, 'foo.json')
+      json_files = [json_file, json_file + '.z']
       files = [curry_file, icy_file, json_file]
       files += [name + '.z' for name in files]
       for file_ in files:
         self.assertEqual(importer.curryFilename(file_), curry_file)
         self.assertEqual(importer.icurryFilename(file_), icy_file)
-        self.assertEqual(importer.jsonFilename(file_), json_file)
+        self.assertEqual(set(importer.jsonFilenames(file_)), set(json_files))
 
   def test_make_icurry_and_json(self):
     '''Test the conversion from .curry to .icy.'''
