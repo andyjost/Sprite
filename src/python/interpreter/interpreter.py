@@ -34,12 +34,15 @@ class Interpreter(object):
           Indicates whether temporary files (and directories) should be
           deleted.  If a non-null string is passed, then it is treated as a
           directory name and all temporary files will be written there.
+      ``direct_var_binding`` (True|*False*)
+          [Experimental] Implements constraints by directly binding variables
+          to expressions.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self.flags = {
         'debug':False, 'defaultconverter':None, 'trace':False, 'lazycompile':True
-      , 'keep_temp_files':False
+      , 'keep_temp_files':False, 'direct_var_binding':False
       }
     self.flags.update(flags)
     self._stepper = runtime.get_stepper(self)

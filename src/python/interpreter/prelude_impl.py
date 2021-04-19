@@ -50,7 +50,7 @@ def choice(interp, lhs):
 
 def freshvar(interp, lhs):
   return runtime._freshvar(interp)
-  
+
 def error(interp, msg):
   msg = str(interp.topython(msg))
   raise RuntimeError(msg)
@@ -121,15 +121,19 @@ def eq_constr_lazy(interp, root):
     lhs = _try_hnf(interp, root, 0)
     if lhs.info.tag == runtime.T_FREE:
       # Bind lhs -> rhs
-      yield interp.prelude._Binding.info
-      yield interp.expr(True)
-      yield interp.expr((lhs, rhs))
+      if interp.flags['direct_var_binding']:
+        lhs.rewrite(interp.prelude._Fwd, rhs)
+        yield interp.prelude.True
+      else:
+        yield interp.prelude._Binding.info
+        yield interp.expr(True)
+        yield interp.expr((lhs, rhs))
     else:
       assert lhs.info.tag >= runtime.T_CTOR
       rhs = _try_hnf(interp, root, 1)
       if rhs.info.tag == runtime.T_FREE:
         interp.hnf(root, [1], typedef=lhs.info.typedef())
-        assert False # E_CONTINUE raised
+        assert False # E_CONTINUE should be raised in prev statement
       else:
         rhs.info.tag >= runtime.T_FREE
         if lhs.info.tag == rhs.info.tag:
