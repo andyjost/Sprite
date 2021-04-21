@@ -64,9 +64,9 @@ _types_ = [
   , _T('_Choice'    , [_C('_Choice', 3, metadata={'py.tag':runtime.T_CHOICE})])
   , _T('_PartApplic', [_C('_PartApplic', 2, metadata={'py.format': '{2}', 'py.tag':runtime.T_CTOR})])
   , _T('Bool'       , [_C('True', 0), _C('False', 0)])
-  , _T('Char'       , [_C('Char', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Char})])
-  , _T('Float'      , [_C('Float', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Float})])
-  , _T('Int'        , [_C('Int', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Int})])
+  , _T('Char'       , [_C('Char', 1, metadata={'py.format': lambda x: repr(x[0]), 'py.typecheck': tc.Char})])
+  , _T('Float'      , [_C('Float', 1, metadata={'py.format': lambda x: repr(x[0]), 'py.typecheck': tc.Float})])
+  , _T('Int'        , [_C('Int', 1, metadata={'py.format': lambda x: repr(x[0]), 'py.typecheck': tc.Int})])
   , _T('IO'         , [_C('IO', 1)])
   , _T('(->)'       , [_C('->', 2)])
   ]

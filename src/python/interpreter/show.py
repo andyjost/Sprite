@@ -1,13 +1,33 @@
 from . import runtime
 from ..utility import visitation
 
+# Apply special formatting for unboxed literals; e.g., 1# is an unboxed Int
+# with value 1.
+@visitation.dispatch.on('arg')
+def showlit(arg):
+  return '%r' % arg
+
+@showlit.when(int)
+def showlit(lit):
+  return '%r#' % lit
+
+@showlit.when(float)
+def showlit(lit):
+  return '%r#' % lit
+
+@showlit.when(str)
+def showlit(lit):
+  assert len(lit) == 1
+  return '%r#' % lit
+  
 class Show(object):
   '''Implements the built-in show function.'''
-  def __new__(cls, interp, format=None):
+  def __new__(cls, interp, format=None, showlit=showlit):
     return format if callable(format) else object.__new__(cls, interp, format)
 
-  def __init__(self, interp, format=None):
+  def __init__(self, interp, format=None, showlit=showlit):
     self.format = getattr(format, 'format', None) # i.e., str.format.
+    self.showlit = showlit
     # Note: Show objects can be created before interp.prelude exists (i.e.,
     # while loading the prelude itself).  In that case, omit handling for
     # forward nodes.
@@ -40,7 +60,7 @@ class Show(object):
   @visitation.dispatch.on('expr')
   def _recurse_(self, expr, noparen):
     '''Recursive application.  Parenthesizes subexpressions.'''
-    return repr(expr)
+    return self.showlit(expr)
 
   @_recurse_.when(runtime.Node)
   def _recurse_(self, node, noparen):
