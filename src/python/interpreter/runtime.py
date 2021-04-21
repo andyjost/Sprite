@@ -33,6 +33,18 @@ class E_RESIDUAL(BaseException):
     assert all(isinstance(x, int) for x in ids)
     self.ids = set(ids)
 
+class E_UPDATE_CONTEXT(BaseException):
+  '''Raised when a lazy binding requires an update to the enclosing context.'''
+  def __init__(self, expr):
+    '''
+    Parameters:
+    -----------
+        ``expr``
+            The replacement of the current expression in the context, after
+            performing lazy binding.
+    '''
+    self.expr = expr
+
 class E_STEPLIMIT(BaseException):
   '''Raised when the step limit is reached.'''
 
@@ -229,6 +241,12 @@ class Node(object):
       info.typecheck(*successors)
     self.successors = successors
     return self
+
+  def __copy__(self):
+    return self.copy()
+
+  def copy(self):
+    return Node(self.info, *self)
 
   def __nonzero__(self): # pragma: no cover
     # Without this, nodes without successors are False.
@@ -664,6 +682,9 @@ class Evaluator(object):
           self.queue.append(frame)
         except E_RESIDUAL as res:
           self.queue.append(frame.block(blocked_by=res.ids))
+        except E_UPDATE_CONTEXT as cxt:
+          frame.expr = cxt.expr
+          self.queue.append(frame)
         else:
           frame.expr = frame.expr # insert FWD node, if needed.
           self.queue.append(frame)
@@ -820,7 +841,13 @@ def hnf(interp, expr, path, typedef=None):
       raise E_CONTINUE()
     elif tag == T_FREE:
       if typedef is None:
-        raise E_RESIDUAL([get_id(target)])
+        vid = get_id(target)
+        if vid in interp.currentframe.lazy_bindings.read:
+          bl, br = interp.currentframe.lazy_bindings.read[vid][0]
+          assert bl is target
+          replacement = replace_copy(interp, expr, path, br)
+          raise E_UPDATE_CONTEXT(replacement)
+        raise E_RESIDUAL([vid])
       else:
         target = instantiate(interp, expr, path, typedef)
     elif tag == T_FUNC:
@@ -828,6 +855,9 @@ def hnf(interp, expr, path, typedef=None):
         S(interp, target)
       except E_CONTINUE:
         pass
+      except E_UPDATE_CONTEXT as cxt:
+        replacement = replace_copy(interp, expr, path, cxt.expr)
+        raise E_UPDATE_CONTEXT(replacement)
     elif tag >= T_CTOR:
       return target
     elif tag == T_FWD:
@@ -967,6 +997,11 @@ def replace(interp, context, path, replacement):
   # assert replacer.target.info.tag == T_FREE
   # assert context.info == replaced.info
   context.successors[:] = replaced.successors
+
+def replace_copy(interp, context, path, replacement):
+  copy = context.copy()
+  replace(interp, copy, path, replacement)
+  return copy
 
 def _createGenerator(interp, ctors, vid=None, target=None):
   '''

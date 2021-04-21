@@ -88,7 +88,7 @@ def eq_constr(interp, root):
       else:
         # Instantiate the variable.
         assert rtag >= runtime.T_CTOR
-        if rhs.info is interp.prelude.Int.info and interp.flags['direct_var_binding']:
+        if rhs.info is interp.prelude.Int.info:
           yield interp.integer.bindint
           yield lhs
           yield rhs
@@ -99,7 +99,7 @@ def eq_constr(interp, root):
       if rtag == runtime.T_FREE:
         # Instantiate the variable.
         assert ltag >= runtime.T_CTOR
-        if lhs.info is interp.prelude.Int.info and interp.flags['direct_var_binding']:
+        if lhs.info is interp.prelude.Int.info:
           yield interp.integer.bindint
           yield lhs
           yield rhs
