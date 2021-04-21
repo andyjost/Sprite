@@ -31,8 +31,6 @@ def apply(interp, lhs):
 
 def cond(interp, lhs):
   interp.hnf(lhs, [0]) # normalize the Boolean argument.
-  # import code
-  # code.interact(local=dict(globals(), **locals()))
   if lhs[0].info is interp.prelude.True.info:
     yield interp.prelude._Fwd
     yield lhs[1]
@@ -63,6 +61,16 @@ def _try_hnf(interp, root, index):
     assert inspect.isa_freevar(interp, freevar)
     return freevar
 
+# def make_algebraic(interp, root, path):
+#   node = root[path]
+#   if node.info is interp.prelude.Int.info:
+#     # import code
+#     # code.interact(local=dict(globals(), **locals()))
+#     runtime.replace(interp, root, path, runtime.Node(interp.integer.toAlgebraicInt, node))
+#     return interp.type('Integer.AlgebraicInt')
+#   else:
+#     return node.info.typedef()
+
 def eq_constr(interp, root):
   '''Implements =:=.'''
   lhs, rhs = (_try_hnf(interp, root, i) for i in (0,1))
@@ -80,14 +88,24 @@ def eq_constr(interp, root):
       else:
         # Instantiate the variable.
         assert rtag >= runtime.T_CTOR
-        interp.hnf(root, [0], typedef=rhs.info.typedef())
-        assert False # E_CONTINUE raised
+        if rhs.info is interp.prelude.Int.info and interp.flags['direct_var_binding']:
+          yield interp.integer.bindint
+          yield lhs
+          yield rhs
+        else:
+          interp.hnf(root, [0], typedef=rhs.info.typedef())
+          assert False # E_CONTINUE raised
     else:
       if rtag == runtime.T_FREE:
         # Instantiate the variable.
         assert ltag >= runtime.T_CTOR
-        interp.hnf(root, [1], typedef=lhs.info.typedef())
-        assert False # E_CONTINUE raised
+        if lhs.info is interp.prelude.Int.info and interp.flags['direct_var_binding']:
+          yield interp.integer.bindint
+          yield lhs
+          yield rhs
+        else:
+          interp.hnf(root, [1], typedef=lhs.info.typedef())
+          assert False # E_CONTINUE raised
       else:
         if ltag == rtag: # recurse when the comparison returns 0 or False.
           arity = lhs.info.arity

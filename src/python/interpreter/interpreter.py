@@ -54,15 +54,21 @@ class Interpreter(object):
 
   @property
   def prelude(self):
-    if not hasattr(self, '__prelude'):
-      self.__prelude = self.module('Prelude')
-    return self.__prelude
+    if not hasattr(self, '__preludelib'):
+      self.__preludelib = self.module('Prelude')
+    return self.__preludelib
+
+  @property
+  def integer(self):
+    if not hasattr(self, '__integerlib'):
+      self.__integerlib = self.module('Integer')
+    return self.__integerlib
 
   def reset(self):
     '''
     Soft-resets the interpreter.
 
-    Clears loaded modules (except for the Prelude), restores I/O streams to
+    Clears loaded modules (except for built-in ones), restores I/O streams to
     their defaults, resets ``path`` from the environment, and clears internal
     counters.  This is much faster than building a new interpreter, which
     loads the Prelude.
@@ -72,9 +78,9 @@ class Interpreter(object):
     self.stderr = sys.stderr
     self._idfactory_ = itertools.count()
     self.stepcounter.reset()
-    self.automodules = ['Prelude']
+    self.automodules = ['Integer', 'Prelude']
     for name in self.modules.keys():
-      if name != 'Prelude':
+      if name not in self.automodules:
         del self.modules[name]
     self.path[:] = config.currypath([]) # re-read it from the environment
 

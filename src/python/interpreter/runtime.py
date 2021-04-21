@@ -606,11 +606,20 @@ class Evaluator(object):
   def __new__(cls, interp, goal):
     self = object.__new__(cls)
     self.interp = interp
+    goal = self.add_prefix(goal)
     self.queue = collections.deque([Frame(interp, goal)])
     # The number of consecutive blocked frames handled.  If this ever equals
     # the queue length, then the computation fails.
     self.n_consecutive_blocked_seen = 0
     return self
+
+  def add_prefix(self, goal):
+    '''Adds the prefix needed for top-level expressions.'''
+    return self.interp.expr(
+        getattr(self.interp.prelude, '$!!')
+      , self.interp.prelude.id
+      , goal
+      )
 
   def D(self):
     '''The dispatch (D) Fair Scheme procedure.'''
@@ -641,6 +650,7 @@ class Evaluator(object):
         try:
           frame.check_freevar_bindings(target, lazy=False)
         except E_CONTINUE:
+          frame.expr = self.add_prefix(frame.expr)
           self.queue.append(frame)
         else:
           if self.interp.flags['trace']:
@@ -880,8 +890,8 @@ def lift_choice(interp, source, path):
   '''
   assert source.info.tag < T_CTOR
   assert path
-  if source.info is interp.prelude.ensureNotFree.info:
-    raise RuntimeError("non-determinism in I/O actions occurred")
+  # if source.info is interp.prelude.ensureNotFree.info:
+  #   raise RuntimeError("non-determinism in I/O actions occurred")
   replacer = _Replacer(source, path)
   left = replacer[1]
   right = replacer[2]
@@ -954,8 +964,8 @@ def instantiate(interp, context, path, typedef):
 def replace(interp, context, path, replacement):
   replacer = _Replacer(context, path, lambda _a, _b: replacement)
   replaced = replacer[None]
-  assert replacer.target.info.tag == T_FREE
-  assert context.info == replaced.info
+  # assert replacer.target.info.tag == T_FREE
+  # assert context.info == replaced.info
   context.successors[:] = replaced.successors
 
 def _createGenerator(interp, ctors, vid=None, target=None):

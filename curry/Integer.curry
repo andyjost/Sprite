@@ -1,10 +1,23 @@
-module Nat where
+module Integer where
 
--- toNat :: Int -> Nat
--- toNat i = if i<=0 then failed else let (q,r) = i `divMod` 2 in
---           if q==0 then IHi else (if r==0 then O else I) (toNat q)
--- toBinInt :: Int -> BinInt
--- toBinInt i = if i==0 then Zero else if i<0 then Neg (toNat (-i)) else Pos (toNat i)
+toNat :: Int -> Nat
+toNat i = if i<=0 then failed else let (q,r) = i `divMod` 2 in
+          if q==0 then IHi else (if r==0 then O else I) (toNat q)
+toAlgebraicInt :: Int -> AlgebraicInt
+toAlgebraicInt i = if i==0 then Zero else if i<0 then Neg (toNat (-i)) else Pos (toNat i)
+
+fromNat :: Nat -> Int
+fromNat IHi   = 1
+fromNat (O n) = 2 * fromNat n
+fromNat (I n) = 2 * fromNat n + 1
+
+fromAlgebraicInt :: AlgebraicInt -> Int
+fromAlgebraicInt (Neg n) = - (fromNat n)
+fromAlgebraicInt Zero    = 0
+fromAlgebraicInt (Pos n) = fromNat n
+
+bindint :: Prelude.Int -> Prelude.Int -> Prelude.Bool
+bindint a b | x =:= toAlgebraicInt b = a =:<= fromAlgebraicInt x where x free
 
 -- ---------------------------------------------------------------------------
 -- Test Cases
@@ -12,16 +25,6 @@ module Nat where
 
 {-
 import Test.EasyCheck
-
-fromNat :: Nat -> Int
-fromNat IHi   = 1
-fromNat (O n) = 2 * fromNat n
-fromNat (I n) = 2 * fromNat n + 1
-
-fromBinInt :: BinInt -> Int
-fromBinInt (Neg n) = - (fromNat n)
-fromBinInt Zero    = 0
-fromBinInt (Pos n) = fromNat n
 
 test_cmpNat :: Nat -> Nat -> Prop
 test_cmpNat x y = cmpNat x y -=- compare (fromNat x) (fromNat y)
@@ -36,10 +39,10 @@ test_addNat :: Nat -> Nat -> Prop
 test_addNat x y = fromNat (x +^ y) -=- fromNat x + fromNat y
 
 test_subNat :: Nat -> Nat -> Prop
-test_subNat x y = fromBinInt (x -^ y) -=- fromNat x - fromNat y
+test_subNat x y = fromAlgebraicInt (x -^ y) -=- fromNat x - fromNat y
 
-test_mult2 :: BinInt -> Prop
-test_mult2 x = fromBinInt (mult2 x) -=- fromBinInt x * 2
+test_mult2 :: AlgebraicInt -> Prop
+test_mult2 x = fromAlgebraicInt (mult2 x) -=- fromAlgebraicInt x * 2
 
 test_multNat :: Nat -> Nat -> Prop
 test_multNat x y = fromNat (x *^ y) -=- fromNat x * fromNat y
@@ -48,68 +51,68 @@ test_div2 :: Nat -> Prop
 test_div2 x = x /= IHi ==> fromNat (div2 x) -=- fromNat x `div` 2
 
 test_mod2 :: Nat -> Prop
-test_mod2 x = fromBinInt (mod2 x) -=- fromNat x `mod` 2
+test_mod2 x = fromAlgebraicInt (mod2 x) -=- fromNat x `mod` 2
 
 test_quotRemNat :: Nat -> Nat -> Prop
 test_quotRemNat x y =
   let (q, r) = quotRemNat x y
-  in  (fromBinInt q, fromBinInt r) -=- quotRem (fromNat x) (fromNat y)
+  in  (fromAlgebraicInt q, fromAlgebraicInt r) -=- quotRem (fromNat x) (fromNat y)
 
-test_lteqInteger :: BinInt -> BinInt -> Prop
-test_lteqInteger x y = lteqInteger x y -=- fromBinInt x <= fromBinInt y
+test_lteqInteger :: AlgebraicInt -> AlgebraicInt -> Prop
+test_lteqInteger x y = lteqInteger x y -=- fromAlgebraicInt x <= fromAlgebraicInt y
 
-test_cmpInteger :: BinInt -> BinInt -> Prop
-test_cmpInteger x y = cmpInteger x y -=- fromBinInt x `compare` fromBinInt y
+test_cmpInteger :: AlgebraicInt -> AlgebraicInt -> Prop
+test_cmpInteger x y = cmpInteger x y -=- fromAlgebraicInt x `compare` fromAlgebraicInt y
 
-test_neg :: BinInt -> Prop
-test_neg x = fromBinInt (neg x) -=- - (fromBinInt x)
+test_neg :: AlgebraicInt -> Prop
+test_neg x = fromAlgebraicInt (neg x) -=- - (fromAlgebraicInt x)
 
-test_inc :: BinInt -> Prop
-test_inc x = fromBinInt (inc x) -=- fromBinInt x + 1
+test_inc :: AlgebraicInt -> Prop
+test_inc x = fromAlgebraicInt (inc x) -=- fromAlgebraicInt x + 1
 
-test_dec :: BinInt -> Prop
-test_dec x = fromBinInt (dec x) -=- fromBinInt x - 1
+test_dec :: AlgebraicInt -> Prop
+test_dec x = fromAlgebraicInt (dec x) -=- fromAlgebraicInt x - 1
 
-test_add :: BinInt -> BinInt -> Prop
-test_add x y = fromBinInt (x +# y) -=- fromBinInt x + fromBinInt y
+test_add :: AlgebraicInt -> AlgebraicInt -> Prop
+test_add x y = fromAlgebraicInt (x +# y) -=- fromAlgebraicInt x + fromAlgebraicInt y
 
-test_sub :: BinInt -> BinInt -> Prop
-test_sub x y = fromBinInt (x -# y) -=- fromBinInt x - fromBinInt y
+test_sub :: AlgebraicInt -> AlgebraicInt -> Prop
+test_sub x y = fromAlgebraicInt (x -# y) -=- fromAlgebraicInt x - fromAlgebraicInt y
 
-test_mult :: BinInt -> BinInt -> Prop
-test_mult x y = fromBinInt (x *# y) -=- fromBinInt x * fromBinInt y
+test_mult :: AlgebraicInt -> AlgebraicInt -> Prop
+test_mult x y = fromAlgebraicInt (x *# y) -=- fromAlgebraicInt x * fromAlgebraicInt y
 
-test_quotRem :: BinInt -> BinInt -> Prop
+test_quotRem :: AlgebraicInt -> AlgebraicInt -> Prop
 test_quotRem x y
   = y /= Zero ==>
     let (q, r) = quotRemInteger x y
-    in  (fromBinInt q, fromBinInt r) -=- quotRem (fromBinInt x) (fromBinInt y)
+    in  (fromAlgebraicInt q, fromAlgebraicInt r) -=- quotRem (fromAlgebraicInt x) (fromAlgebraicInt y)
 
-test_divMod :: BinInt -> BinInt -> Prop
+test_divMod :: AlgebraicInt -> AlgebraicInt -> Prop
 test_divMod x y
   = y /= Zero ==>
     let (d, m) = divModInteger x y
-    in  (fromBinInt d, fromBinInt m) -=- divMod (fromBinInt x) (fromBinInt y)
+    in  (fromAlgebraicInt d, fromAlgebraicInt m) -=- divMod (fromAlgebraicInt x) (fromAlgebraicInt y)
 
-test_div :: BinInt -> BinInt -> Prop
+test_div :: AlgebraicInt -> AlgebraicInt -> Prop
 test_div x y
   = y /= Zero ==>
-    fromBinInt (divInteger x y) -=- div (fromBinInt x) (fromBinInt y)
+    fromAlgebraicInt (divInteger x y) -=- div (fromAlgebraicInt x) (fromAlgebraicInt y)
 
-test_mod :: BinInt -> BinInt -> Prop
+test_mod :: AlgebraicInt -> AlgebraicInt -> Prop
 test_mod x y
   = y /= Zero ==>
-    fromBinInt (modInteger x y) -=- mod (fromBinInt x) (fromBinInt y)
+    fromAlgebraicInt (modInteger x y) -=- mod (fromAlgebraicInt x) (fromAlgebraicInt y)
 
-test_quot :: BinInt -> BinInt -> Prop
+test_quot :: AlgebraicInt -> AlgebraicInt -> Prop
 test_quot x y
   = y /= Zero ==>
-    fromBinInt (quotInteger x y) -=- quot (fromBinInt x) (fromBinInt y)
+    fromAlgebraicInt (quotInteger x y) -=- quot (fromAlgebraicInt x) (fromAlgebraicInt y)
 
-test_rem :: BinInt -> BinInt -> Prop
+test_rem :: AlgebraicInt -> AlgebraicInt -> Prop
 test_rem x y
   = y /= Zero ==>
-    fromBinInt (remInteger x y) -=- rem (fromBinInt x) (fromBinInt y)
+    fromAlgebraicInt (remInteger x y) -=- rem (fromAlgebraicInt x) (fromAlgebraicInt y)
 
 -}
 
@@ -118,7 +121,7 @@ test_rem x y
 -- ---------------------------------------------------------------------------
 
 --- Algebraic data type to represent natural numbers
-data Nat = IHi | O Nat | I Nat deriving Eq
+data Nat = IHi | O Nat | I Nat deriving (Eq, Show)
 
 --- comparison, O(min (m,n))
 cmpNat :: Nat -> Nat -> Ordering
@@ -161,7 +164,7 @@ I x +^ O y = I (x +^ y)
 I x +^ I y = O (succ x +^ y)
 
 --- subtraction
-(-^) :: Nat -> Nat -> BinInt
+(-^) :: Nat -> Nat -> AlgebraicInt
 IHi     -^ y     = inc (Neg y)           -- 1-n = 1+(-n)
 x@(O _) -^ IHi   = Pos (pred x)          --
 (O x)   -^ (O y) = mult2 (x -^ y)
@@ -171,7 +174,7 @@ x@(O _) -^ IHi   = Pos (pred x)          --
 (I x)   -^ (I y) = mult2 (x -^ y)        -- 2*n+1 - (2*m+1) = 2*(n-m)
 
 --- multiplication by 2
-mult2 :: BinInt -> BinInt
+mult2 :: AlgebraicInt -> AlgebraicInt
 mult2 (Pos n) = Pos (O n)
 mult2 Zero    = Zero
 mult2 (Neg n) = Neg (O n)
@@ -192,13 +195,13 @@ div2 (O x) = x
 div2 (I x) = x
 
 --- modulo by 2
-mod2 :: Nat -> BinInt
+mod2 :: Nat -> AlgebraicInt
 mod2 IHi   = Pos IHi
 mod2 (O _) = Zero
 mod2 (I _) = Pos IHi
 
 --- quotient and remainder
-quotRemNat :: Nat -> Nat -> (BinInt, BinInt)
+quotRemNat :: Nat -> Nat -> (AlgebraicInt, AlgebraicInt)
 quotRemNat x y
   | y == IHi  = (Pos x, Zero   ) -- quotRemNat x 1 = (x, 0)
   | x == IHi  = (Zero , Pos IHi) -- quotRemNat 1 y = (0, 1)
@@ -224,14 +227,14 @@ quotRemNat x y
 -- ---------------------------------------------------------------------------
 
 --- Algebraic data type to represent integers
-data BinInt = Neg Nat | Zero | Pos Nat
+data AlgebraicInt = Neg Nat | Zero | Pos Nat deriving (Eq, Show)
 
---- less-than-or-equal on BinInt
-lteqInteger :: BinInt -> BinInt -> Bool
+--- less-than-or-equal on AlgebraicInt
+lteqInteger :: AlgebraicInt -> AlgebraicInt -> Bool
 lteqInteger x y = cmpInteger x y /= GT
 
---- comparison on BinInt, O(min (m, n))
-cmpInteger :: BinInt -> BinInt -> Ordering
+--- comparison on AlgebraicInt, O(min (m, n))
+cmpInteger :: AlgebraicInt -> AlgebraicInt -> Ordering
 cmpInteger Zero    Zero    = EQ
 cmpInteger Zero    (Pos _) = LT
 cmpInteger Zero    (Neg _) = GT
@@ -243,13 +246,13 @@ cmpInteger (Neg _) (Pos _) = LT
 cmpInteger (Neg x) (Neg y) = cmpNat y x
 
 --- Unary minus. Usually written as "- e".
-neg :: BinInt -> BinInt
+neg :: AlgebraicInt -> AlgebraicInt
 neg Zero    = Zero
 neg (Pos x) = Neg x
 neg (Neg x) = Pos x
 
 --- increment
-inc :: BinInt -> BinInt
+inc :: AlgebraicInt -> AlgebraicInt
 inc Zero        = Pos IHi
 inc (Pos n)     = Pos (succ n)
 inc (Neg IHi)   = Zero
@@ -257,15 +260,15 @@ inc (Neg (O n)) = Neg (pred (O n))
 inc (Neg (I n)) = Neg (O n)
 
 --- decrement
-dec :: BinInt -> BinInt
+dec :: AlgebraicInt -> AlgebraicInt
 dec Zero        = Neg IHi
 dec (Pos IHi)   = Zero
 dec (Pos (O n)) = Pos (pred (O n))
 dec (Pos (I n)) = Pos (O n)
 dec (Neg n)     = Neg (succ n)
 
---- Adds two BinInts.
-(+#)   :: BinInt -> BinInt -> BinInt
+--- Adds two AlgebraicInts.
+(+#)   :: AlgebraicInt -> AlgebraicInt -> AlgebraicInt
 Zero      +# x     = x
 x@(Pos _) +# Zero  = x
 Pos x     +# Pos y = Pos (x +^ y)
@@ -274,14 +277,14 @@ x@(Neg _) +# Zero  = x
 Neg x     +# Pos y = y -^ x
 Neg x     +# Neg y = Neg (x +^ y)
 
---- Subtracts two BinInts.
-(-#)   :: BinInt -> BinInt -> BinInt
+--- Subtracts two AlgebraicInts.
+(-#)   :: AlgebraicInt -> AlgebraicInt -> AlgebraicInt
 x -# Zero  = x
 x -# Pos y = x +# Neg y
 x -# Neg y = x +# Pos y
 
---- Multiplies two BinInts.
-(*#)   :: BinInt -> BinInt -> BinInt
+--- Multiplies two AlgebraicInts.
+(*#)   :: AlgebraicInt -> AlgebraicInt -> AlgebraicInt
 Zero  *# _     = Zero
 Pos _ *# Zero  = Zero
 Pos x *# Pos y = Pos (x *^ y)
@@ -291,7 +294,7 @@ Neg x *# Pos y = Neg (x *^ y)
 Neg x *# Neg y = Pos (x *^ y)
 
 --- Quotient and Remainder, truncated against zero
-quotRemInteger :: BinInt -> BinInt -> (BinInt, BinInt)
+quotRemInteger :: AlgebraicInt -> AlgebraicInt -> (AlgebraicInt, AlgebraicInt)
 quotRemInteger _       Zero    = failed -- division by zero is not defined
 quotRemInteger Zero    (Pos _) = (Zero, Zero)
 quotRemInteger Zero    (Neg _) = (Zero, Zero)
@@ -301,7 +304,7 @@ quotRemInteger (Pos x) (Neg y) = let (d, m) = quotRemNat x y in (neg d,     m)
 quotRemInteger (Neg x) (Neg y) = let (d, m) = quotRemNat x y in (d    , neg m)
 
 --- Quotient and Remainder, truncated against negative infinity
-divModInteger :: BinInt -> BinInt -> (BinInt, BinInt)
+divModInteger :: AlgebraicInt -> AlgebraicInt -> (AlgebraicInt, AlgebraicInt)
 divModInteger _       Zero    = failed -- division by zero is not defined
 divModInteger Zero    (Pos _) = (Zero, Zero)
 divModInteger Zero    (Neg _) = (Zero, Zero)
@@ -315,17 +318,17 @@ divModInteger (Pos x) (Neg y) = let (d, m) = quotRemNat x y in case m of
 divModInteger (Neg x) (Neg y) = let (d, m) = quotRemNat x y in (d, neg m)
 
 --- Integer divisor, truncated towards negative infinity.
-divInteger :: BinInt -> BinInt -> BinInt
+divInteger :: AlgebraicInt -> AlgebraicInt -> AlgebraicInt
 divInteger x y = fst (divModInteger x y)
 
 --- Integer modulo, truncated towards negative infinity.
-modInteger :: BinInt -> BinInt -> BinInt
+modInteger :: AlgebraicInt -> AlgebraicInt -> AlgebraicInt
 modInteger x y = snd (divModInteger x y)
 
 --- Integer quotient, truncated towards zero.
-quotInteger :: BinInt -> BinInt -> BinInt
+quotInteger :: AlgebraicInt -> AlgebraicInt -> AlgebraicInt
 quotInteger x y = fst (quotRemInteger x y)
 
 --- Integer remainder, truncated towards zero.
-remInteger :: BinInt -> BinInt -> BinInt
+remInteger :: AlgebraicInt -> AlgebraicInt -> AlgebraicInt
 remInteger x y = snd (quotRemInteger x y)
