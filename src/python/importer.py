@@ -287,7 +287,7 @@ def findOrBuildICurry(name, currypath=[], **kwds):
     # Move the file if "output" was specified.
     output = kwds.pop('output', None)
     if output is not None and currentfile is not None and \
-        not os.path.samefile(output, currentfile):
+        not (os.path.exists(output) and os.path.samefile(output, currentfile)):
       shutil.copy(currentfile, output)
       if currentfile not in intermediates:
         intermediates.append(currentfile)
