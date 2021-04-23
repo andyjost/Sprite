@@ -73,13 +73,21 @@ _types_ = [
 
 # List
 def _listvalues(node):
-  n = node[()]
-  while n.info.name == ':':
-    v,n = n
+  while node.info.name == ':':
+    v,node = node
     yield v.info.show(v)
 
 def _listformat(node):
-  return '[%s]' % ', '.join(_listvalues(node))
+  node = node[()]
+  if node.info.name == '[]':
+    return '[]'
+  elif len(node) == 0:
+    return ':'
+  elif len(node) == 1:
+    child, = node
+    return ': %s' % child.info.show(child)
+  else:
+    return '[%s]' % ', '.join(_listvalues(node))
 
 _types_.append(
     _T('[]', [
