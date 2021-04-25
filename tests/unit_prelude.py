@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 import cytest.step
 from cStringIO import StringIO
-from curry.interpreter import runtime
+from curry.backends.py import runtime
 from import_blocker import with_import_blocked
 import curry
 import sys

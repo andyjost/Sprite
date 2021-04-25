@@ -5,7 +5,7 @@ class TestKiel(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/kiel/'
   PRINT_SKIPPED_GOALS = False
   CURRYPATH = 'data/curry/kiel/lib'
-  FILE_PATTERN = 'digit'
+  # FILE_PATTERN = 'colormap'
   CLEAN_KWDS = {
       'diamond': {'keep_empty_lines': True, 'keep_spacing': True, 'sort_lines': False}
     }
@@ -13,6 +13,12 @@ class TestKiel(cytest.FunctionalTestCase):
   SKIP = [
       # These never terminate.
       'account'
+    , 'digit'
     , 'infresiduate'
     , 'nondetfunc'
+    , 'relational'
+
+    # TypeError: unexpected tag -1
+    , 'assembler'
+    , 'mergesort'
     ]

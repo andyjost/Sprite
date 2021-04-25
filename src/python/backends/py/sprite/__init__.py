@@ -1,4 +1,6 @@
-from _runtime import *
+'''Python wrappers for libsprite.so.'''
+
+from _sprite import *
 import itertools
 
 def Fingerprint__iter__(self):

@@ -1,9 +1,9 @@
 '''
 A pure-Python Curry interpreter.
 '''
+from ..backends.py import runtime
 from .. import config
 from . import import_
-from . import runtime
 from .. import utility
 import itertools
 import logging
@@ -90,5 +90,5 @@ class Interpreter(object):
   from .eval import eval
   from .import_ import import_
   from .lookup import module, symbol, type
-  from .runtime import N, S, hnf, nextid, freshvar
+  from ..backends.py.runtime import N, S, hnf, nextid, freshvar
 

@@ -1,6 +1,6 @@
 from curry import icurry
 from curry.interpreter.eval import makegoal
-from curry.interpreter import runtime
+from curry.backends.py import runtime
 from curry.utility.binding import binding
 
 def step(interp, expr, num=1):

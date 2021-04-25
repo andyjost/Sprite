@@ -1,10 +1,10 @@
+from ..backends.py import compiler
+from ..backends.py import runtime
 from .. import config
-from . import function_compiler
 from .. import icurry
 from .. import importer
 from . import module
 from . import parameters
-from . import runtime
 from . import show
 from ..utility import encoding, visitation, formatDocstring
 import collections
@@ -177,7 +177,7 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
   except KeyError:
     logger.info('Importing %s', name)
     if name == 'Prelude':
-      from . import prelude
+      from ..backends.py.runtime import prelude
       kwds.setdefault('extern', prelude.Prelude)
       kwds.setdefault('export', prelude.exports())
       kwds.setdefault('alias', prelude.aliases())
@@ -228,12 +228,12 @@ def compileICurry(interp, ifun, moduleobj, extern=None):
   if interp.flags['lazycompile'] and \
       ifun.modulename != config.interactive_modname():
     # Delayed.
-    info.step = runtime.LazyFunction(
-        function_compiler.compile_function, interp, ifun, extern
+    info.step = LazyFunction(
+        compiler.compile_function, interp, ifun, extern
       )
   else:
     # Immediate.
-    info.step = function_compiler.compile_function(interp, ifun, extern)
+    info.step = compiler.compile_function(interp, ifun, extern)
 
 def _no_step(*args, **kwds):
   pass
@@ -253,4 +253,11 @@ def _gettypechecker(interp, metadata):
     checker = getattr(metadata, 'py.typecheck', None)
     if checker is not None:
       return lambda *args: checker(interp, *args)
+
+class LazyFunction(tuple):
+  def __new__(cls, *args):
+    self = tuple.__new__(cls, args)
+    return self
+  def __repr__(self):
+    return '<not yet compiled>'
 

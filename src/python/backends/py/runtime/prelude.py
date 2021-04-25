@@ -1,10 +1,10 @@
-from .. import icurry
+from . import api as runtime
+from .... import icurry
+from .... import inspect
 from . import prelude_impl as impl
-from . import typecheckers as tc
-from . import runtime
-from .. import inspect
-import operator as op
+from ....interpreter import typecheckers as tc
 import math
+import operator as op
 
 def exports():
   '''

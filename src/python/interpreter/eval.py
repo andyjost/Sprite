@@ -3,7 +3,7 @@ Implements Interpreter.eval.
 '''
 
 from . import conversions
-from . import runtime
+from ..backends.py import runtime
 from ..utility.binding import binding
 
 def eval(interp, *args, **kwds):

@@ -1,13 +1,13 @@
 import cytest # from ./lib; must be first
 from copy import copy
-from curry import runtime
+from curry.backends.py import sprite
+from curry.backends.py.runtime import LEFT, RIGHT, UNDETERMINED
 import itertools
 import numpy as np
 import sys
 
-LEFT,RIGHT,UNDETERMINED = runtime.LEFT,runtime.RIGHT,runtime.UNDETERMINED
-BASIC_SIZE = runtime.Fingerprint.BASIC_SIZE()
-BRANCHING_FACTOR = runtime.Fingerprint.BRANCHING_FACTOR()
+BASIC_SIZE = sprite.Fingerprint.BASIC_SIZE()
+BRANCHING_FACTOR = sprite.Fingerprint.BRANCHING_FACTOR()
 choice = np.random.choice
 
 class Fingerprint(cytest.TestCase):
@@ -29,7 +29,7 @@ class Fingerprint(cytest.TestCase):
 
     # Depth=0.
     # There is simply one block.
-    fp = runtime.Fingerprint()
+    fp = sprite.Fingerprint()
     self.assertEqual(fp.capacity, BASIC_SIZE)
     self.assertEqual(fp.depth, 0)
     self.assertEqual([int(fp[i]) for i in range(8)], [0]*8)
@@ -162,10 +162,10 @@ class Fingerprint(cytest.TestCase):
       ))
 
   def testGetSetItem(self):
-    fp = runtime.Fingerprint()
-    self.assertEqual(fp[3], runtime.UNDETERMINED)
+    fp = sprite.Fingerprint()
+    self.assertEqual(fp[3], sprite.UNDETERMINED)
     with self.assertRaisesRegexp(ValueError, 'expected LEFT or RIGHT'):
-      fp[3] = runtime.UNDETERMINED
+      fp[3] = sprite.UNDETERMINED
     for value in [15, None, 'left', -1, 0, 1]:
       with self.assertRaises(TypeError):
         fp[3] = value
@@ -218,7 +218,7 @@ class Fingerprint(cytest.TestCase):
     for _ in range(ITERATIONS):
       # The first element (data) is a list of pairs of a fingerprint and a
       # dict.  Choice are remembered in the dict for cross-checking.
-      args = [(runtime.Fingerprint(), {})], choice(MAXINDEX)
+      args = [(sprite.Fingerprint(), {})], choice(MAXINDEX)
       p = WEIGHTS[choice(len(WEIGHTS))]
       for _ in range(NUM_ACTIONS):
         choice(ACTIONS, p=p)(*args)

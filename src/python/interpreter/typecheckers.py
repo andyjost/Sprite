@@ -1,7 +1,6 @@
 from .. import icurry
 from .. import inspect
-from . import runtime
-from ..runtime import ChoiceState, UNDETERMINED
+from ..backends.py import runtime
 import numbers
 
 '''Passes isinstance for any node or valid unboxed type.'''

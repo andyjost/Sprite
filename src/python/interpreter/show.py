@@ -1,4 +1,4 @@
-from . import runtime
+from ..backends.py import runtime
 from ..utility import visitation
 
 # Apply special formatting for unboxed literals; e.g., 1# is an unboxed Int
@@ -19,7 +19,7 @@ def showlit(lit):
 def showlit(lit):
   assert len(lit) == 1
   return '%r#' % lit
-  
+
 class Show(object):
   '''Implements the built-in show function.'''
   def __new__(cls, interp, format=None, showlit=showlit):

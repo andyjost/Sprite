@@ -2,7 +2,7 @@
 import cytest # from ./lib; must be first
 import curry
 import unittest
-from curry.interpreter import runtime
+from curry.backends.py import runtime
 from curry.interpreter.eval import makegoal
 from curry import types
 

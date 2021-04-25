@@ -2,7 +2,7 @@
 Inspect live Curry objects.
 '''
 
-from .interpreter import runtime
+from .backends.py import runtime
 from .interpreter.module import getjsonfile, geticurryfile, geticurry
 from .utility import visitation
 import collections

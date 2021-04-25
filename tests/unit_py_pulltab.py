@@ -1,6 +1,6 @@
 import cytest # from ./lib; must be first
-from curry.interpreter import runtime
-from curry.runtime import LEFT, RIGHT
+from curry.backends.py import runtime
+from curry.backends.py.runtime import LEFT, RIGHT
 import curry
 import unittest
 

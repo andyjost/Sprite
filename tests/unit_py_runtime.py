@@ -1,15 +1,17 @@
 import cytest # from ./lib; must be first
+from copy import copy
+from curry.backends.py import runtime
+from curry.backends.py.runtime.frame import Bindings
+from curry.backends.py.runtime.nondet import instantiate, _gen_ctors
 from curry import icurry
 from curry import inspect
 from curry import interpreter
 from curry.interpreter import conversions
-from curry.interpreter import runtime
 from curry.utility.binding import binding
 from cytest import bootstrap
 from glob import glob
-from copy import copy
 import curry
-import curry.interpreter.prelude
+import curry.backends.py.runtime.prelude
 import cytest.step
 import os
 import unittest
@@ -27,7 +29,7 @@ class TestPyRuntime(cytest.TestCase):
   def test_coverage(self):
     '''Tests to improve line coverage.'''
     interp = interpreter.Interpreter()
-    prelude = interp.import_(interpreter.prelude.Prelude)
+    prelude = interp.import_(curry.backends.py.runtime.prelude.Prelude)
     self.assertEqual(prelude.prim_negateFloat.fullname, 'Prelude.prim_negateFloat')
     self.assertEqual(str(prelude.prim_negateFloat.info), 'Info for "prim_negateFloat"')
     self.assertTrue(repr(prelude.prim_negateFloat.info).startswith('InfoTable'))
@@ -271,7 +273,7 @@ class TestPyRuntime(cytest.TestCase):
 
   def test_bindings_store(self):
     '''Test the bindings object.'''
-    a = runtime.Bindings()
+    a = Bindings()
     # a = Shared(refcnt=1, defaultdict(<function factory at ...>, {}))
     self.assertEqual(a.refcnt, 1)
     self.assertEqual(len(a.read), 0)
@@ -345,25 +347,25 @@ class TestInstantiation(cytest.TestCase):
 
   def test_basic(self):
     interp,q,u,e = self.interp, self.q, self.u(), self.e(typename='()')
-    instance = runtime.instantiate(interp, e, [0], interp.type('Prelude.[]'))
+    instance = instantiate(interp, e, [0], interp.type('Prelude.[]'))
     au = curry.expr(*q(0, [interp.prelude.Cons, u, u], [interp.prelude.Nil]))
     self.assertEqual(instance, au)
 
   def check_gen_ctors(self, interp, module, typename, generator):
     '''
     Check whether the constructors extracted from a generator by
-    runtime._gen_ctors match the constructors in the typeinfo.
+    _gen_ctors match the constructors in the typeinfo.
     '''
     # Get the constructor info from the type.
     ctor_info = [ctor.info for ctor in getattr(module, '.types')[typename].constructors]
     # Get the constructor info from a generator.
-    gen_info = list(runtime._gen_ctors(interp, generator))
+    gen_info = list(_gen_ctors(interp, generator))
     self.assertEqual(ctor_info, gen_info)
 
   def test_singleCtor(self):
     # Instantiating a type with one constructor is a special case.
     interp,q,e = self.interp, self.q, self.e(typename='()')
-    instance = runtime.instantiate(interp, e, [0], interp.type('Prelude.()'))
+    instance = instantiate(interp, e, [0], interp.type('Prelude.()'))
     au = curry.expr(*q(0, [interp.prelude.Unit], [interp.prelude._Failure]))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, interp.prelude, '()', instance)
@@ -377,7 +379,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q = self.interp, self.q
     Type = interp.compile('data T = A|B|C|D|E|F|G', modulename='Type')
     e = self.e(typename='Type.T', imports=Type)
-    instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
+    instance = instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
@@ -391,7 +393,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q = self.interp, self.q
     Type = interp.compile('data T = A|B|C|D|E|F', modulename='Type')
     e = self.e(typename='Type.T', imports=Type)
-    instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
+    instance = instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
@@ -404,7 +406,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q,u = self.interp, self.q, self.u()
     Type = interp.compile('data T a = A|B a|C a a|D a a a|E a a a a', modulename='Type')
     e = self.e(typename='Type.T ()', imports=Type)
-    instance = runtime.instantiate(interp, e, [0], interp.type('Type.T'))
+    instance = instantiate(interp, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)

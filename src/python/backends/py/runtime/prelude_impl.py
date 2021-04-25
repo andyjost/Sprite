@@ -1,11 +1,11 @@
 '''
 Implementation of the Prelude externals.
 '''
-from ..exceptions import *
-from . import conversions
-from .. import inspect
-from . import runtime
-from ..utility.unboxed import unboxed
+from ....exceptions import *
+from .... import inspect
+from .. import runtime
+from ....interpreter import conversions
+from ....utility.unboxed import unboxed
 import collections
 import itertools
 import logging
@@ -359,7 +359,7 @@ def choice(interp, lhs):
   yield lhs[1]
 
 def freshvar(interp, lhs):
-  return runtime._freshvar(interp)
+  return runtime.freshvar_gen(interp)
 
 def error(interp, msg):
   msg = str(interp.topython(msg))

@@ -4,7 +4,7 @@ and Python.
 '''
 
 from .. import inspect
-from . import runtime
+from ..backends.py import runtime
 from .. import types
 from .. import utility
 from ..utility import visitation

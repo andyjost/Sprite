@@ -1,15 +1,15 @@
 '''Tests for the pure-Python Curry interpreter.'''
 import cytest # from ./lib; must be first
+from curry.backends.py import runtime
+from curry.backends.py.runtime.prelude import Prelude
 from curry.icurry import *
 from curry import importer
 from curry import interpreter
 from curry.interpreter import Interpreter
-from curry.interpreter import runtime
-from curry.interpreter.prelude import  Prelude
 from curry.utility.binding import binding, del_
+from curry.utility import filesys
 from curry.utility.unboxed import unboxed
 from curry.utility.visitation import dispatch
-from curry.utility import filesys
 from cytest import bootstrap
 from glob import glob
 import curry

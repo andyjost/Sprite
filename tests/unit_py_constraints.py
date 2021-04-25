@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 import cytest.step
-from curry.interpreter import runtime
-from curry.runtime import UNDETERMINED, LEFT, RIGHT
+from curry.backends.py import runtime
+from curry.backends.py.runtime import LEFT, RIGHT, UNDETERMINED
 from curry.utility import unionfind
 import curry
 import itertools

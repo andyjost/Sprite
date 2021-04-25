@@ -1,9 +1,9 @@
-from .. import icurry
-from ..icurry import analysis
+from ...icurry import analysis
+from ... import icurry
 from . import runtime
-from . import prelude_impl
-from ..utility import encoding, visitation, formatDocstring
-from ..utility import filesys
+from .runtime import prelude_impl
+from ...utility import encoding, visitation, formatDocstring
+from ...utility import filesys
 import collections
 import logging
 import pprint
