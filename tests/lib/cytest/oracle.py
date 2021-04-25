@@ -9,7 +9,7 @@ import subprocess
 import unittest
 
 @visitation.dispatch.on('arg')
-def cyclean(arg):
+def cyclean(arg, **kwds):
   '''
   Clean up Curry output for string-based comparisons.
 
@@ -19,15 +19,18 @@ def cyclean(arg):
   raise RuntimeError('unhandled type: %s' % type(arg))
 
 @cyclean.when(collections.Sequence, no=(str,))
-def cyclean(seq):
-  return '\n'.join(sorted(
-      line.replace(' ','').replace('\t','')
-          for line in seq if line
-    ))
+def cyclean(lines, **kwds):
+  if not kwds.get('keep_empty_lines', False):
+    lines = (line for line in lines if line)
+  if not kwds.get('keep_spacing', False):
+    lines = (line.replace(' ','').replace('\t','') for line in lines)
+  if kwds.get('sort_lines', True):
+    lines = sorted(lines)
+  return '\n'.join(lines)
 
 @cyclean.when(str)
-def cyclean(string):
-  return cyclean(string.split('\n'))
+def cyclean(string, **kwds):
+  return cyclean(string.split('\n'), **kwds)
 
 def oracle():
   '''Gets the path to the oracle.  Returns None if there is no oracle.'''
@@ -42,7 +45,7 @@ def require(f):
   '''Decorator that skips a test if the oracle is not present.'''
   return unittest.skipIf(oracle() is None, 'no oracle found')(f)
 
-def divine(module, goal, currypath, timeout=None, goldenfile=None):
+def divine(module, goal, currypath, timeout=None, goldenfile=None, clean_kwds={}):
   '''
   Invokes the oracle with a Curry goal to generate a golden result.
 
@@ -84,7 +87,7 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None):
     cmd = '%s %s %s' % (oracle_, module.__name__, goal)
     if timeout:
       cmd = 'timeout %s %s' % (timeout, cmd)
-    output = cyclean(subprocess.check_output(cmd.split()))
+    output = cyclean(subprocess.check_output(cmd.split()), **clean_kwds)
 
   # Update the golden file or return the output.
   if goldenfile is not None:

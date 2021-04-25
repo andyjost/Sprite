@@ -1,7 +1,7 @@
 -- merge sort: sorting two lists by merging the sorted first
 -- and second half of the list
 
-sort :: ([a] -> [a] -> [a] -> Success) -> [a] -> [a] -> Success
+sort :: Prelude.Data a => ([a] -> [a] -> [a] -> Success) -> [a] -> [a] -> Success
 
 sort merge xs ys =
    if length xs < 2 then ys =:= xs

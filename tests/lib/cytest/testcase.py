@@ -93,9 +93,9 @@ class TestCase(unittest.TestCase):
 def noteSkipped(f):
   '''Record the tests that fail.'''
   @functools.wraps(f)
-  def skipper(self, modulename):
+  def skipper(self, modulename, *args, **kwds):
     try:
-      f(self, modulename)
+      f(self, modulename, *args, **kwds)
     except:
       self.failed.append(modulename)
       raise
@@ -134,6 +134,10 @@ class FunctionalTestCase(TestCase):
         non-built-in libraries.  Note that SOURCE_DIR is always added to
         CURRYPATH.
 
+      CLEAN_KWDS [Optional, {str:dict}]
+        File-specific options to cyclean.  For tests matching the key, the
+        provided keywords will be passed to cyclean.
+
       SKIP [Optional, set, default=set()]
         A list of tests to skip.  Each element can be a string or regular
         expression.  Any .curry file whose base name (i.e., with the .curry
@@ -155,7 +159,7 @@ class FunctionalTestCase(TestCase):
         if 'SOURCE_DIR' not in defs:
           raise ValueError('SOURCE_DIR not specified in base class')
         if 'FILE_PATTERN' not in defs:
-          defs['FILE_PATTERN'] = r'.*\.curry$'
+          defs['FILE_PATTERN'] = ''
         defs['FILE_PATTERN'] = re.compile(defs['FILE_PATTERN'])
         if 'GOAL_PATTERN' not in defs:
           defs['GOAL_PATTERN'] = r'(sprite_)?(goal|main)\d*$'
@@ -163,6 +167,8 @@ class FunctionalTestCase(TestCase):
         if 'CURRYPATH' not in defs:
           defs['CURRYPATH'] = ''
         defs['CURRYPATH'] = defs['CURRYPATH'].split(':') + [defs['SOURCE_DIR']] + curry.path
+        if 'CLEAN_KWDS' not in defs:
+          defs['CLEAN_KWDS'] = {}
         if 'SKIP' not in defs:
           defs['SKIP'] = None
         else:
@@ -174,13 +180,16 @@ class FunctionalTestCase(TestCase):
 
         # Create a test for every file under the source directory.
         for cysrc in glob(defs['SOURCE_DIR'] + '*.curry'):
-          if re.match(defs['FILE_PATTERN'], cysrc):
-            name = os.path.splitext(os.path.split(cysrc)[-1])[0]
+          name = os.path.splitext(os.path.split(cysrc)[-1])[0]
+          if re.match(defs['FILE_PATTERN'], name):
             if defs['SKIP'] and re.match(defs['SKIP'], name):
               if defs['PRINT_SKIPPED_FILES']:
                 print >>sys.stderr, 'skipping file %s' % cysrc
             else:
-              defs['test_' + name] = lambda self, name=name: self.check(name)
+              clean_kwds = defs['CLEAN_KWDS'].get(name, {})
+              defs['test_' + name] = \
+                  lambda self, name=name, clean_kwds=clean_kwds: \
+                      self.check(name, clean_kwds)
       return type.__new__(cls, clsname, bases, defs)
 
   def setUp(self):
@@ -206,7 +215,7 @@ class FunctionalTestCase(TestCase):
 
   @oracle.require
   @noteSkipped
-  def check(self, modulename):
+  def check(self, modulename, clean_kwds):
     '''
     Load the specified module, execute each goal, and compare with goldens
     provided by the oracle.
@@ -226,9 +235,11 @@ class FunctionalTestCase(TestCase):
       goldenfile = os.path.join(self.SOURCE_DIR, goal.fullname + '.au-gen')
       oracle.divine(
           module, goal, [self.SOURCE_DIR], '20s', goldenfile=goldenfile
+        , clean_kwds=clean_kwds
         )
       sprite_result = oracle.cyclean(
           '\n'.join(map(curry.show_value, curry.eval(goal))+[''])
+        , **clean_kwds
         )
       self.compareEqualToFile(sprite_result, goldenfile)
     self.assertGreater(num_tests_run, 0)

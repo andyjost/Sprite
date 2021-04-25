@@ -7,6 +7,8 @@
 {-# LANGUAGE CPP #-}
 {-# OPTIONS_FRONTEND -Wno-incomplete-patterns -Wno-overlapping #-}
 
+#define __KICS2__ 1
+
 module Prelude
   (
   -- * Basic Datatypes

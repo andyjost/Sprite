@@ -28,6 +28,7 @@ forevery _ [] = True
 forevery c (x:xs) | c x = forevery c xs
 
 -- Queries:
+goal1 :: [Int]
 goal1 = map age [Bob,Sue]   --> [24,23]
 
 goal2 x = mappred parent [Bob,Dick] x
@@ -45,5 +46,6 @@ goal5 y = forevery (\x -> age x =:= y) [Ned,Bob,Sue]
 goal6 y = forevery (\x -> age x =:= y) [Ned,Sue]
 --> {y=23} true
 
+goal7 :: Bool
 goal7 = forevery (\x -> let y free in age x =:= y) [Ned,Bob,Sue]
 --> true

@@ -80,7 +80,7 @@ def compile_py_unboxedfunc(interp, unboxedfunc):
   topython = interp.topython
   # For some reason, the prelude reverses the argument order.
   def step(_0):
-    args = (topython(hnf(_0, [-1-i])) for i in xrange(len(_0.successors)))
+    args = (topython(hnf(_0, [i])) for i in reversed(xrange(len(_0.successors))))
     return expr(unboxedfunc(*args), target=_0)
   return step
 
@@ -306,7 +306,7 @@ class FunctionCompiler(object):
     path = self.varinfo[vid].path
     assert path is not None
     assert icase.branches
-    typedef = self.interp.symbol(icase.branches[0].name).typedef()
+    typedef = casetype(self.interp, icase)
     yield 'selector = hnf(_0, %s, typedef=%s).info.tag' % (path, self.closure[typedef])
     el = ''
     for branch in icase.branches[:-1]:
@@ -328,7 +328,11 @@ class FunctionCompiler(object):
     path = self.varinfo[vid].path
     assert path is not None
     self.closure['unbox'] = self.interp.unbox
-    yield 'selector = unbox(hnf(_0, %s))' % path
+    typedef = casetype(self.interp, icase)
+    yield 'selector = unbox(hnf(_0, %s, typedef=%s, values=%r))' % (
+        path, self.closure[typedef]
+      , list(branch.lit.value for branch in icase.branches)
+      )
     el = ''
     for branch in icase.branches:
       rhs = repr(branch.lit.value)
@@ -460,6 +464,31 @@ class Closure(object):
         return k
     else:
       assert False
+
+
+@visitation.dispatch.on('arg')
+def casetype(interp, arg):
+  assert False
+
+@casetype.when(icurry.ICaseCons)
+def casetype(interp, icase):
+  return interp.symbol(icase.branches[0].name).typedef()
+
+@casetype.when(icurry.ICaseLit)
+def casetype(interp, icase):
+  return casetype(interp, icase.branches[0].lit)
+
+@casetype.when(icurry.IInt)
+def casetype(interp, _):
+  return interp.type('Prelude.Int')
+
+@casetype.when(icurry.IChar)
+def casetype(interp, _):
+  return interp.type('Prelude.Char')
+
+@casetype.when(icurry.IFloat)
+def casetype(interp, _):
+  return interp.type('Prelude.Float')
 
 # Rendering.
 # ==========

@@ -45,7 +45,7 @@ class Show(object):
     noparen = (node.info.name and node.info.name[0] in '([{<?') or \
         node.info is self.ni_Fwd
     subexprs = self.generate(node, self._recurse_, noparen)
-    if self.format is None:
+    if self.format is None or len(node) < node.info.arity:
       return ' '.join(subexprs)
     else:
       subexprs = list(subexprs)

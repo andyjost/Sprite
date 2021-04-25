@@ -822,7 +822,7 @@ def N(interp, root, target=None, path=None, freevars=None):
     path.pop()
   return target, freevars
 
-def hnf(interp, expr, path, typedef=None):
+def hnf(interp, expr, path, typedef=None, values=None):
   assert path
   assert expr.info.tag == T_FUNC
   target = expr[path]
@@ -840,14 +840,21 @@ def hnf(interp, expr, path, typedef=None):
       lift_constr(interp, expr, path)
       raise E_CONTINUE()
     elif tag == T_FREE:
-      if typedef is None:
+      if typedef is None or typedef is interp.type('Prelude.Int'):
         vid = get_id(target)
         if vid in interp.currentframe.lazy_bindings.read:
           bl, br = interp.currentframe.lazy_bindings.read[vid][0]
           assert bl is target
           replacement = replace_copy(interp, expr, path, br)
           raise E_UPDATE_CONTEXT(replacement)
-        raise E_RESIDUAL([vid])
+        elif values:
+          values = map(int, values)
+          replace(interp, expr, path
+            , Node(interp.integer.narrowInt, expr[path], interp.expr(values))
+            )
+          target = expr[path]
+        else:
+          raise E_RESIDUAL([vid])
       else:
         target = instantiate(interp, expr, path, typedef)
     elif tag == T_FUNC:
@@ -925,7 +932,10 @@ def lift_choice(interp, source, path):
   replacer = _Replacer(source, path)
   left = replacer[1]
   right = replacer[2]
-  assert replacer.target.info.tag == T_CHOICE
+  try:
+    assert replacer.target.info.tag == T_CHOICE
+  except:
+    pdbtrace()
   Node(
       interp.prelude._Choice
     , replacer.target[0] # choice ID
@@ -982,8 +992,8 @@ def instantiate(interp, context, path, typedef):
       A sequence of integers giving the path in ``context`` to the free
       variable.
   '''
-  replacer = _Replacer(
-      context, path, lambda node, _: get_generator(interp, node, typedef)
+  replacer = _Replacer(context, path
+    , lambda node, _: get_generator(interp, node, typedef)
     )
   replaced = replacer[None]
   assert replacer.target.info.tag == T_FREE

@@ -30,6 +30,10 @@ under ``modules``.  Use ``topython`` to convert Curry values to Python objects.
     A
 '''
 
+# Install breakpoint into __builtins__.
+from .utility import breakpoint
+del breakpoint
+
 # Validate SPRITE_HOME.
 import os
 if 'SPRITE_HOME' not in os.environ:
@@ -105,7 +109,11 @@ def show_value(value):
 
 @show_value.when(str)
 def show_value(value):
-  return repr(value)
+  # We need to add a single quote to the string to trick Python into
+  # surrounding it with double quotes.
+  value = repr(value + "'")
+  value = value[:-2] + value[-1]
+  return value
 
 @show_value.when(_collections.Mapping)
 def show_value(value):

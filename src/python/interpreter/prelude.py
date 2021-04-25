@@ -73,21 +73,13 @@ _types_ = [
 
 # List
 def _listvalues(node):
-  while node.info.name == ':':
-    v,node = node
+  n = node[()]
+  while n.info.name == ':':
+    v,n = n
     yield v.info.show(v)
 
 def _listformat(node):
-  node = node[()]
-  if node.info.name == '[]':
-    return '[]'
-  elif len(node) == 0:
-    return ':'
-  elif len(node) == 1:
-    child, = node
-    return ': %s' % child.info.show(child)
-  else:
-    return '[%s]' % ', '.join(_listvalues(node))
+  return '[%s]' % ', '.join(_listvalues(node))
 
 _types_.append(
     _T('[]', [
@@ -136,218 +128,96 @@ _functions_ = [
     _F('_PyGenerator', 1
         , metadata={'py.boxedfunc':impl._PyGenerator}
         )
-  # The Prelude reverses the argument order for binary operations.
-  , _F('prim_plusInt', 2, metadata={'py.unboxedfunc':op.add})
-  , _F('prim_minusInt', 2, metadata={'py.unboxedfunc':op.sub})
-  , _F('prim_timesInt', 2, metadata={'py.unboxedfunc':op.mul})
-  , _F('prim_divInt', 2, metadata={'py.unboxedfunc':op.floordiv})
+  # The following functions are for PAKCS-style integers.
+  # The PAKCS-style Prelude reverses the argument order for binary operations.
+  , _F('prim_plusInt'    , 2, metadata={'py.unboxedfunc': op.add})
+  , _F('prim_minusInt'   , 2, metadata={'py.unboxedfunc': op.sub})
+  , _F('prim_timesInt'   , 2, metadata={'py.unboxedfunc': op.mul})
+  , _F('prim_divInt'     , 2, metadata={'py.unboxedfunc': op.floordiv})
+  , _F('prim_eqInt'      , 3, metadata={'py.unboxedfunc': op.eq})
+  , _F('prim_ltEqInt'    , 2, metadata={'py.unboxedfunc': op.le})
+  , _F('prim_modInt'     , 2, metadata={'py.unboxedfunc': lambda x, y: x - y * op.floordiv(x,y)})
+  , _F('prim_quotInt'    , 2, metadata={'py.unboxedfunc': lambda x, y: int(op.truediv(x, y))})
+  , _F('prim_remInt'     , 2, metadata={'py.unboxedfunc': lambda x, y: x - y * int(op.truediv(x, y))})
+  , _F('prim_eqChar'     , 2, metadata={'py.unboxedfunc': op.eq})
+  , _F('prim_ltEqChar'   , 2, metadata={'py.unboxedfunc': op.le})
+  , _F('prim_eqFloat'    , 2, metadata={'py.unboxedfunc': op.eq})
+  , _F('prim_ltEqFloat'  , 2, metadata={'py.unboxedfunc': op.le})
+  , _F('prim_negateFloat', 1, metadata={'py.unboxedfunc': op.neg})
+  # The following functions are for KICS2-style integers.
+  , _F('plusInt'    , 2, metadata={'py.rawfunc': impl.plusInt})
+  , _F('minusInt'   , 2, metadata={'py.rawfunc': impl.minusInt})
+  , _F('timesInt'   , 2, metadata={'py.rawfunc': impl.timesInt})
+  , _F('divInt'     , 2, metadata={'py.rawfunc': impl.divInt})
+  , _F('eqInt'      , 3, metadata={'py.rawfunc': impl.eqInt})
+  , _F('ltEqInt'    , 2, metadata={'py.rawfunc': impl.ltEqInt})
+  , _F('modInt'     , 2, metadata={'py.rawfunc': impl.modInt})
+  , _F('quotInt'    , 2, metadata={'py.rawfunc': impl.quotInt})
+  , _F('remInt'     , 2, metadata={'py.rawfunc': impl.remInt})
+  , _F('eqChar'     , 2, metadata={'py.unboxedfunc': op.eq})
+  , _F('ltEqChar'   , 2, metadata={'py.unboxedfunc': op.le})
+  , _F('eqFloat'    , 2, metadata={'py.unboxedfunc': op.eq})
+  , _F('ltEqFloat'  , 2, metadata={'py.unboxedfunc': op.le})
+  , _F('negateFloat', 1, metadata={'py.unboxedfunc': op.neg})
+  # (end)
   , _F('prim_plusFloat', 2, metadata={'py.unboxedfunc':op.add})
   , _F('prim_minusFloat', 2, metadata={'py.unboxedfunc':op.sub})
   , _F('prim_timesFloat', 2, metadata={'py.unboxedfunc':op.mul})
   , _F('prim_divFloat', 2, metadata={'py.unboxedfunc':op.truediv})
-  , _F('prim_eqInt', 3, metadata={'py.unboxedfunc':op.eq})
-  , _F('prim_eqChar', 2, metadata={'py.unboxedfunc':op.eq})
-  , _F('prim_eqFloat', 2, metadata={'py.unboxedfunc':op.eq})
-  , _F('prim_ltEqInt', 2, metadata={'py.unboxedfunc':op.le})
-  , _F('prim_ltEqChar', 2, metadata={'py.unboxedfunc':op.le})
-  , _F('prim_ltEqFloat', 2, metadata={'py.unboxedfunc':op.le})
-##        # --- Integer division. The value is the integer quotient of its arguments
-##        # --- and always truncated towards negative infinity.
-##        # --- Thus, the value of <code>13 `div` 5</code> is <code>2</code>,
-##        # --- and the value of <code>-15 `div` 4</code> is <code>-4</code>.
-##        # div_   :: Int -> Int -> Int
-##          , _F('div_', 2, metadata={'py.unboxedfunc':op.floordiv})
-  #
-  # --- Integer remainder. The value is the remainder of the integer division and
-  # --- it obeys the rule <code>x `mod` y = x - y * (x `div` y)</code>.
-  # --- Thus, the value of <code>13 `mod` 5</code> is <code>3</code>,
-  # --- and the value of <code>-15 `mod` 4</code> is <code>-3</code>.
-  # prim_modInt   :: Int -> Int -> Int
-    , _F('prim_modInt', 2, metadata={'py.unboxedfunc':lambda x, y: x - y * op.floordiv(x,y)})
-  # --- Integer division. The value is the integer quotient of its arguments
-  # --- and always truncated towards zero.
-  # --- Thus, the value of <code>13 `quot` 5</code> is <code>2</code>,
-  # --- and the value of <code>-15 `quot` 4</code> is <code>-3</code>.
-  # prim_quotInt   :: Int -> Int -> Int
-    , _F('prim_quotInt', 2, metadata={'py.unboxedfunc':lambda x, y: int(op.truediv(x, y))})
-  #
-  # --- Integer remainder. The value is the remainder of the integer division and
-  # --- it obeys the rule <code>x `rem` y = x - y * (x `quot` y)</code>.
-  # --- Thus, the value of <code>13 `rem` 5</code> is <code>3</code>,
-  # --- and the value of <code>-15 `rem` 4</code> is <code>-3</code>.
-  # prim_remInt   :: Int -> Int -> Int
-    , _F('prim_remInt', 2, metadata={'py.unboxedfunc':lambda x, y: x - y * int(op.truediv(x, y))})
-##
-##        # --- Returns an integer (quotient,remainder) pair.
-##        # --- The value is the integer quotient of its arguments
-##        # --- and always truncated towards negative infinity.
-##        # divMod_ :: Int -> Int -> (Int, Int)
-##          , _F('divMod_', 2, metadata={'py.unboxedfunc':_divMod_impl})
-##        #
-    , _F('prim_truncateFloat', 1, metadata={'py.unboxedfunc':int})
-    , _F('prim_roundFloat', 1, metadata={'py.unboxedfunc':lambda x: int(round(x))})
-    , _F('prim_logFloat', 1, metadata={'py.unboxedfunc':math.log})
-    , _F('prim_expFloat', 1, metadata={'py.unboxedfunc':math.exp})
-    , _F('prim_sqrtFloat', 1, metadata={'py.unboxedfunc':math.sqrt})
-    , _F('prim_sinFloat', 1, metadata={'py.unboxedfunc':math.sin})
-    , _F('prim_cosFloat', 1, metadata={'py.unboxedfunc':math.cos})
-    , _F('prim_tanFloat', 1, metadata={'py.unboxedfunc':math.tan})
-    , _F('prim_asinFloat', 1, metadata={'py.unboxedfunc':math.asin})
-    , _F('prim_acosFloat', 1, metadata={'py.unboxedfunc':math.acos})
-    , _F('prim_atanFloat', 1, metadata={'py.unboxedfunc':math.atan})
-    , _F('prim_sinhFloat', 1, metadata={'py.unboxedfunc':math.sinh})
-    , _F('prim_coshFloat', 1, metadata={'py.unboxedfunc':math.cosh})
-    , _F('prim_tanhFloat', 1, metadata={'py.unboxedfunc':math.tanh})
-    , _F('prim_asinhFloat', 1, metadata={'py.unboxedfunc':math.asinh})
-    , _F('prim_acoshFloat', 1, metadata={'py.unboxedfunc':math.acosh})
-    , _F('prim_atanhFloat', 1, metadata={'py.unboxedfunc':math.atanh})
-##        # --- Returns an integer (quotient,remainder) pair.
-##        # --- The value is the integer quotient of its arguments
-##        # --- and always truncated towards zero.
-##        # quotRem_ :: Int -> Int -> (Int, Int)
-##          , _F('quotRem_', 2, metadata={'py.unboxedfunc':_quotRem_impl})
-  , _F('prim_negateFloat', 1, metadata={'py.unboxedfunc':op.neg})
   , _F('prim_intToFloat', 1, metadata={'py.unboxedfunc':float})
-# --- Evaluates the argument to head normal form and returns it.
-# --- Suspends until the result is bound to a non-variable term.
-# ensureNotFree :: a -> a
-  , _F('ensureNotFree', 1, metadata={'py.boxedfunc':impl.ensureNotFree})
-# --- Right-associative application with strict evaluation of its argument
-# --- to head normal form.
-# ($!)    :: (a -> b) -> a -> b
+  , _F('prim_truncateFloat', 1, metadata={'py.unboxedfunc':int})
+  , _F('prim_roundFloat', 1, metadata={'py.unboxedfunc':lambda x: int(round(x))})
+  , _F('prim_logFloat', 1, metadata={'py.unboxedfunc':math.log})
+  , _F('prim_expFloat', 1, metadata={'py.unboxedfunc':math.exp})
+  , _F('prim_sqrtFloat', 1, metadata={'py.unboxedfunc':math.sqrt})
+  , _F('prim_sinFloat', 1, metadata={'py.unboxedfunc':math.sin})
+  , _F('prim_cosFloat', 1, metadata={'py.unboxedfunc':math.cos})
+  , _F('prim_tanFloat', 1, metadata={'py.unboxedfunc':math.tan})
+  , _F('prim_asinFloat', 1, metadata={'py.unboxedfunc':math.asin})
+  , _F('prim_acosFloat', 1, metadata={'py.unboxedfunc':math.acos})
+  , _F('prim_atanFloat', 1, metadata={'py.unboxedfunc':math.atan})
+  , _F('prim_sinhFloat', 1, metadata={'py.unboxedfunc':math.sinh})
+  , _F('prim_coshFloat', 1, metadata={'py.unboxedfunc':math.cosh})
+  , _F('prim_tanhFloat', 1, metadata={'py.unboxedfunc':math.tanh})
+  , _F('prim_asinhFloat', 1, metadata={'py.unboxedfunc':math.asinh})
+  , _F('prim_acoshFloat', 1, metadata={'py.unboxedfunc':math.acosh})
+  , _F('prim_atanhFloat', 1, metadata={'py.unboxedfunc':math.atanh})
+  , _F('ensureNotFree', 1, metadata={'py.rawfunc':impl.ensureNotFree})
   , _F('$!', 2, metadata={'py.rawfunc':impl.apply_hnf})
-#
-# --- Right-associative application with strict evaluation of its argument
-# --- to normal form.
-# ($!!)   :: (a -> b) -> a -> b
   , _F('$!!', 2, metadata={'py.rawfunc':impl.apply_nf})
-# --- Right-associative application with strict evaluation of its argument
-# --- to ground normal form.
-# ($##)   :: (a -> b) -> a -> b
   , _F('$##', 2, metadata={'py.rawfunc':impl.apply_gnf})
-#
-# prim_error    :: String -> _
-#
   , _F('prim_error', 1, metadata={'py.boxedfunc':impl.error})
-# --- A non-reducible polymorphic function.
-# --- It is useful to express a failure in a search branch of the execution.
-# --- It could be defined by: `failed = head []`
-# failed :: _
   , _F('failed', 0, metadata={'py.boxedfunc':impl.failed})
-#
-# --- The equational constraint.
-# --- `(e1 =:= e2)` is satisfiable if both sides `e1` and `e2` can be
-# --- reduced to a unifiable data term (i.e., a term without defined
-# --- function symbols).
-# (=:=)   :: a -> a -> Bool
   , _F('=:=', 2, metadata={'py.rawfunc':impl.eq_constr})
-#
-# --- Concurrent conjunction.
-# --- An expression like `(c1 & c2)` is evaluated by evaluating
-# --- the `c1` and `c2` in a concurrent manner.
-# (&)     :: Bool -> Bool -> Bool
   , _F('&', 2, metadata={'py.rawfunc':impl.concurrent_and})
-#
-# --- Converts a character into its ASCII value.
-# ord :: Char -> Int
   , _F('prim_ord', 1, metadata={'py.unboxedfunc':ord})
-#
-# --- Converts an ASCII value into a character.
-# chr :: Int -> Char
   , _F('prim_chr', 1, metadata={'py.unboxedfunc':chr})
   , _F('prim_intToFloat', 1, metadata={'py.unboxedfunc':float})
-# --- Sequential composition of actions.
-# --- @param a - An action
-# --- @param fa - A function from a value into an action
-# --- @return An action that first performs a (yielding result r)
-# ---         and then performs (fa r)
-# (bindIO)             :: IO a -> (a -> IO b) -> IO b
   , _F('bindIO', 2, metadata={'py.rawfunc':impl.bind_io})
   , _F('seqIO', 2, metadata={'py.rawfunc':impl.seq_io})
-#
-# prim_readNatLiteral :: String -> [(Int,String)]
   , _F('prim_readNatLiteral', 1, metadata={'py.boxedfunc':impl.readNatLiteral})
-# prim_readFloatLiteral :: String -> [(Int,String)]
   , _F('prim_readFloatLiteral', 1, metadata={'py.boxedfunc':impl.readFloatLiteral})
-# prim_readCharLiteral :: String -> [(Int,String)]
   , _F('prim_readCharLiteral', 1, metadata={'py.boxedfunc':impl.readCharLiteral})
-# prim_readStringLiteral :: String -> [(Int,String)]
   , _F('prim_readStringLiteral', 1, metadata={'py.boxedfunc':impl.readStringLiteral})
-
-#
-# --- The empty action that directly returns its argument.
-# returnIO            :: a -> IO a
   , _F('returnIO', 1, metadata={'py.boxedfunc':impl.returnIO})
-#
-# prim_putChar           :: Char -> IO ()
   , _F('prim_putChar', 1, metadata={'py.boxedfunc':impl.putChar})
-#
-# --- An action that reads a character from standard output and returns it.
-# getChar           :: IO Char
   , _F('getChar', 0, metadata={'py.boxedfunc':impl.getChar})
-#
-# prim_readFile          :: String -> IO String
   , _F('prim_readFile', 1, metadata={'py.boxedfunc':impl.readFile})
-# -- for internal implementation of readFile:
 # prim_readFileContents          :: String -> String
-#
 # prim_writeFile         :: String -> String -> IO ()
-#
 # prim_appendFile         :: String -> String -> IO ()
-#
-# --- Catches a possible error or failure during the execution of an
-# --- I/O action. `(catch act errfun)` executes the I/O action
-# --- `act`. If an exception or failure occurs
-# --- during this I/O action, the function `errfun` is applied
-# --- to the error value.
 # catch :: IO a -> (IOError -> IO a) -> IO a
-#
-# prim_show    :: _ -> String
-  , _F('prim_show', 1, metadata={'py.boxedfunc':impl.show})
-#
-# -- Non-determinism and free variables:
-#
-# --- Non-deterministic choice _par excellence_.
-# --- The value of `x ? y` is either `x` or `y`.
-# --- @param x - The right argument.
-# --- @param y - The left argument.
-# --- @return either `x` or `y` non-deterministically.
-# (?)   :: a -> a -> a
-  , _F('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{1} ? {2}'})
+  , _F('prim_showCharLiteral', 1, metadata={'py.boxedfunc':impl.show})
+  , _F('prim_showStringLiteral', 1, metadata={'py.boxedfunc':impl.show})
+  , _F('prim_showIntLiteral', 1, metadata={'py.boxedfunc':impl.show})
+  , _F('prim_showFloatLiteral', 1, metadata={'py.boxedfunc':impl.show})
+  , _F('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{0} ? {1}'})
   , _F('prim_unknown', 0, metadata={'py.rawfunc':impl.freshvar})
-#
-# -- Representation of higher-order applications in FlatCurry.
-# apply :: (a -> b) -> a -> b
   , _F('apply', 2, metadata={'py.rawfunc':impl.apply})
-
-#
-# -- Only for internal use:
-# -- Representation of conditional rules in FlatCurry.
-# cond :: Bool -> a -> a
   , _F('cond', 2, metadata={'py.rawfunc':impl.cond})
-#
-# -- Only for internal use:
-# -- letrec ones (1:ones) -> bind ones to (1:ones)
-# -- PAKCS only
-# letrec :: a -> a -> Bool
-#
-# --- Non-strict equational constraint. Used to implement functional patterns.
-# (=:<=) :: a -> a -> Bool
   , _F('=:<=', 2, metadata={'py.rawfunc':impl.eq_constr_lazy})
-#
-# --- Non-strict equational constraint for linear functional patterns.
-# --- Thus, it must be ensured that the first argument is always (after evalutation
-# --- by narrowing) a linear pattern. Experimental.
-# (=:<<=) :: a -> a -> Bool
-#
-# --- internal function to implement =:<=
-# ifVar :: _ -> a -> a -> a
-#
-# --- internal operation to implement failure reporting
-# failure :: _ -> _ -> _
-#
-
   ]
+
 Prelude = icurry.IModule(
     name='Prelude', imports=[], types=_types_, functions=_functions_
   )
