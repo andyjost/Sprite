@@ -8,8 +8,7 @@ import weakref
 
 __all__ = [
     'T_FAIL', 'T_BIND', 'T_FREE', 'T_FWD', 'T_CHOICE', 'T_FUNC', 'T_CTOR'
-  , 'TypeDefinition', 'InfoTable', 'NodeInfo', 'Node', 'Replacer'
-  , 'replace', 'replace_copy'
+  , 'TypeDefinition', 'InfoTable', 'NodeInfo', 'Node'
   ]
 
 T_FAIL   = -6
@@ -303,65 +302,4 @@ class Node(object):
 
   def rewrite(self, info, *args):
     Node(info, *args, target=self)
-
-
-class Replacer(object):
-  '''
-  Performs replacements in a context.
-
-  For context C and path p, this object returns shallow copies of C in which
-  the target, C[p], is replaced.  Given replacer R with getter g, the
-  expression R[i] returns C[p] <- g(C[p], i).  The copy is minimal, meaning
-  new nodes are allocated only along the spine.
-
-  The default getter is just getitem, so it will return a successor of the
-  target.  This is handy when the target is a choice, since R[1], R[2] will
-  return a copy of the expression with the left and right alternatives,
-  respectively, in place (note: the zeroth successor is the choice ID).
-
-  A custom getter can be used to construct any replacement desired.
-  '''
-  def __init__(self, context, path, getter=Node.__getitem__):
-    self.context = context
-    self.path = path
-    self.target = None # has value after first __getitem__
-    self.getter = getter
-
-  def _a_(self, node, depth=0):
-    '''Recurse along the spine.  At the target, call the getter.'''
-    if depth < len(self.path):
-      return Node(*self._b_(node, depth))
-    else:
-      assert self.target is None or self.target is node
-      self.target = node
-      return self.getter(node, self.index)
-
-  def _b_(self, node, depth):
-    '''
-    Perform a shallow copy at one node.  Recurse along the spine; reference
-    subexpressions not on the spine.
-    '''
-    pos = self.path[depth]
-    yield node.info
-    for j,_ in enumerate(node.successors):
-      if j == pos:
-        yield self._a_(node[j], depth+1) # spine
-      else:
-        yield node[j] # not spine
-
-  def __getitem__(self, i):
-    self.index = i
-    return self._a_(self.context)
-
-def replace(interp, context, path, replacement):
-  replacer = Replacer(context, path, lambda _a, _b: replacement)
-  replaced = replacer[None]
-  # assert replacer.target.info.tag == T_FREE
-  # assert context.info == replaced.info
-  context.successors[:] = replaced.successors
-
-def replace_copy(interp, context, path, replacement):
-  copy = context.copy()
-  replace(interp, copy, path, replacement)
-  return copy
 
