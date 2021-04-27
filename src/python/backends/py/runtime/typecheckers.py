@@ -1,10 +1,10 @@
-from .. import icurry
-from .. import inspect
-from ..backends.py import runtime
+from .... import icurry
+from .... import inspect
+from .graph import Node
 import numbers
 
 '''Passes isinstance for any node or valid unboxed type.'''
-ANY_CURRY_TYPE = (runtime.Node, icurry.ILiteral)
+ANY_CURRY_TYPE = (Node, icurry.ILiteral)
 
 def _articlefor(name):
   '''Decides (crudely) between the def. articles 'a' and 'an' for a name.'''
@@ -33,7 +33,7 @@ def _samecategory(arg, ty):
 
 def _typecheck(ty, arg, name, p=None):
   this_unboxed = isinstance(ty, (type, tuple))
-  arg_boxed = isinstance(arg, runtime.Node)
+  arg_boxed = isinstance(arg, Node)
   ok = isinstance(arg, ty) if this_unboxed else inspect.isa(arg, ty)
   if not ok:
     hint = (

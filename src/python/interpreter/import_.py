@@ -1,10 +1,10 @@
 from ..backends.py import compiler
 from ..backends.py import runtime
+from . import checks
 from .. import config
 from .. import icurry
 from .. import importer
 from . import module
-from . import parameters
 from . import show
 from ..utility import encoding, visitation, formatDocstring
 import collections
@@ -181,7 +181,7 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
       kwds.setdefault('extern', prelude.Prelude)
       kwds.setdefault('export', prelude.exports())
       kwds.setdefault('alias', prelude.aliases())
-    currypath = parameters.currypath(interp, currypath)
+    currypath = checks.currypath(interp, currypath)
     icur = importer.loadModule(name, currypath, is_sourcefile=is_sourcefile)
     return import_(interp, icur, **kwds)
 

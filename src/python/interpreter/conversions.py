@@ -5,7 +5,6 @@ and Python.
 
 from .. import inspect
 from ..backends.py import runtime
-from .. import types
 from .. import utility
 from ..utility import visitation
 from ..utility.unboxed import unboxed
@@ -204,7 +203,7 @@ class ToPython(object):
         # '_a', '_b', ... '_z', '_aa', '_ab', ...
         alpha = list(_toalpha(next(self.i)))
         label = '_' + ''.join(reversed(alpha))
-        self.tr[ifree] = types.FreeType(label)
+        self.tr[ifree] = FreeType(label)
       return self.tr[ifree]
     return value
 
@@ -247,3 +246,20 @@ def getconverter(converter):
   elif converter == 'topython':
     return ToPython(convert_freevars=True)
 
+class FreeType(object):
+  '''
+  The Python representation of free variable values.
+
+  The assigned label (e.g., _a) is stored.
+  '''
+  def __init__(self, label):
+    self.label = label
+
+  def __eq__(self, rhs):
+    return isinstance(rhs, FreeType) and self.label == rhs.label
+
+  def __ne__(self, rhs):
+    return not (self == rhs)
+
+  def __repr__(self):
+    return self.label

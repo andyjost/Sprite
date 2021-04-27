@@ -4,7 +4,7 @@ import curry
 import unittest
 from curry.backends.py import runtime
 from curry.interpreter.eval import makegoal
-from curry import types
+from curry.interpreter.conversions import FreeType
 
 class TestPyEvaluation(cytest.TestCase):
   def check(self, name, expected):
@@ -51,7 +51,7 @@ class TestPyEvaluation(cytest.TestCase):
     self.assertEqual(list(evaluator.D()), [interp.expr(91)])
 
   def test_narrowing(self):
-    _a = types.FreeType('_a')
+    _a = FreeType('_a')
     self.check('narrowing', [(_a, _a), (True, False), (False, True)])
 
   def test_partial(self):

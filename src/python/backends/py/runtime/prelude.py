@@ -2,7 +2,7 @@ from . import api as runtime
 from .... import icurry
 from .... import inspect
 from . import prelude_impl as impl
-from ....interpreter import typecheckers as tc
+from . import typecheckers as tc
 import math
 import operator as op
 

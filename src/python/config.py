@@ -22,7 +22,7 @@ class _Variable(object):
 
   def __call__(self):
     if self.value is None:
-      filename = os.path.join(os.environ['SPRITE_HOME'], 'vars', self.name)
+      filename = os.path.join(os.environ['SPRITE_HOME'], 'sysconfig', self.name)
       assert os.path.exists(filename)
       self.value = self.convert(open(filename).read().strip('\n'))
       logger.debug(
@@ -52,8 +52,8 @@ class _Variable(object):
         x = str(x).format(**os.environ)
       return self.type(x)
 
-# These are read from under $PREFIX/vars.  The source files are under
-# $ROOT/src/export/vars.  They can be set in Make.config.
+# These are read from under $PREFIX/sysconfig.  The source files are under
+# $ROOT/src/export/sysconfig.  They can be set in Make.config.
 default_sprite_cache_file = _Variable('default_sprite_cache_file', interpolate=True)
 enable_icurry_cache       = _Variable('enable_icurry_cache', type=bool)
 enable_parsed_json_cache  = _Variable('enable_parsed_json_cache', type=bool)

@@ -1,7 +1,6 @@
 import cytest # from ./lib; must be first
 from curry.backends.py import runtime
-from curry.interpreter import typecheckers as tc
-from curry.backends.py.runtime import LEFT, RIGHT, UNDETERMINED
+from curry.backends.py.runtime import LEFT, RIGHT, UNDETERMINED, typecheckers as tc
 import curry
 import unittest
 

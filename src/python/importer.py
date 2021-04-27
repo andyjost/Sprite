@@ -18,7 +18,7 @@ from . import cache
 from . import config
 from . import icurry
 from . import utility
-from .programs.utility import make_exception
+from .tools.utility import make_exception
 from .utility.binding import binding, del_
 from .utility import filesys
 from .utility import formatting

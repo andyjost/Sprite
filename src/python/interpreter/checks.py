@@ -1,4 +1,4 @@
-'''API parameter validation code.'''
+'''Functions to check and precondition user parameters.'''
 
 import collections
 
@@ -11,7 +11,7 @@ def currypath(interp, currypath):
     currypath = currypath.split(':')
   if not isinstance(currypath, collections.Sequence):
     raise TypeError(
-        "'currypath' must be a string or list, got %s."
+        "'currypath' must be a string or sequence of strings, got %s."
             % repr(type(currypath).__name__)
       )
   return currypath

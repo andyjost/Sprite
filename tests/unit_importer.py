@@ -171,7 +171,7 @@ class TestFindCurry(cytest.TestCase):
       )
     self.assertRaisesRegexp(
         TypeError
-      , r"'currypath' must be a string or list, got 'int'."
+      , r"'currypath' must be a string or sequence of strings, got 'int'."
       , lambda: curry.import_('import_test', currypath=1)
       )
     self.assertMayRaise(
