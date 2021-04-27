@@ -78,95 +78,6 @@ def replace_copy(interp, context, path, replacement):
   replace(interp, copy, path, replacement)
   return copy
 
-def lift_choice(interp, source, path):
-  '''
-  Executes a pull-tab step with source ``source`` and choice-rooted target
-  ``source[path]``.
-
-  Parameters:
-  -----------
-    ``interp``
-      The Curry interpreter.
-
-    ``source``
-      The pull-tab source.  This node will be overwritten with a choice symbol.
-
-    ``path``
-      A sequence of integers giving the path from ``source`` to the target
-      choice or constraint.
-  '''
-  assert source.info.tag < T_CTOR
-  assert path
-  # if source.info is interp.prelude.ensureNotFree.info:
-  #   raise RuntimeError("non-determinism in I/O actions occurred")
-  replacer = Replacer(source, path)
-  left = replacer[1]
-  right = replacer[2]
-  assert replacer.target.info.tag == T_CHOICE
-  Node(
-      interp.prelude._Choice
-    , replacer.target[0] # choice ID
-    , left
-    , right
-    , target=source
-    )
-
-
-def lift_constr(interp, source, path):
-  '''
-  Executes a pull-tab step with source ``source`` and constraint-rooted target
-  ``source[path]``.
-
-  Parameters:
-  -----------
-    ``interp``
-      The Curry interpreter.
-
-    ``source``
-      The pull-tab source.  This node will be overwritten with a constraint
-      symbol.
-
-    ``path``
-      A sequence of integers giving the path from ``source`` to the target
-      choice or constraint.
-  '''
-  assert source.info.tag < T_CTOR
-  assert path
-  replacer = Replacer(source, path)
-  value = replacer[0]
-  assert replacer.target.info.tag == T_BIND
-  Node(
-      replacer.target.info
-    , value
-    , replacer.target[1] # binding
-    , target=source
-    )
-
-
-def instantiate(interp, context, path, typedef):
-  '''
-  Instantiates a free variable at ``context[path]``.
-
-  Parameters:
-  -----------
-    ``interp``
-      The Curry interpreter.
-
-    ``context``
-      The context in which the free variable appears.
-
-    ``path``
-      A sequence of integers giving the path in ``context`` to the free
-      variable.
-  '''
-  replacer = Replacer(context, path
-    , lambda node, _: get_generator(interp, node, typedef)
-    )
-  replaced = replacer[None]
-  assert replacer.target.info.tag == T_FREE
-  assert context.info == replaced.info
-  context.successors[:] = replaced.successors
-  return replacer.target[1]
 
 def _createGenerator(interp, ctors, vid=None, target=None):
   '''
@@ -261,4 +172,92 @@ def get_generator(interp, freevar, typedef):
         )
     Node(freevar.info, vid, instance, target=freevar)
   return freevar[1]
+
+def instantiate(interp, context, path, typedef):
+  '''
+  Instantiates a free variable at ``context[path]``.
+
+  Parameters:
+  -----------
+    ``interp``
+      The Curry interpreter.
+
+    ``context``
+      The context in which the free variable appears.
+
+    ``path``
+      A sequence of integers giving the path in ``context`` to the free
+      variable.
+  '''
+  replacer = Replacer(context, path
+    , lambda node, _: get_generator(interp, node, typedef)
+    )
+  replaced = replacer[None]
+  assert replacer.target.info.tag == T_FREE
+  assert context.info == replaced.info
+  context.successors[:] = replaced.successors
+  return replacer.target[1]
+
+def lift_choice(interp, source, path):
+  '''
+  Executes a pull-tab step with source ``source`` and choice-rooted target
+  ``source[path]``.
+
+  Parameters:
+  -----------
+    ``interp``
+      The Curry interpreter.
+
+    ``source``
+      The pull-tab source.  This node will be overwritten with a choice symbol.
+
+    ``path``
+      A sequence of integers giving the path from ``source`` to the target
+      choice or constraint.
+  '''
+  assert source.info.tag < T_CTOR
+  assert path
+  # if source.info is interp.prelude.ensureNotFree.info:
+  #   raise RuntimeError("non-determinism in I/O actions occurred")
+  replacer = Replacer(source, path)
+  left = replacer[1]
+  right = replacer[2]
+  assert replacer.target.info.tag == T_CHOICE
+  Node(
+      interp.prelude._Choice
+    , replacer.target[0] # choice ID
+    , left
+    , right
+    , target=source
+    )
+
+def lift_constr(interp, source, path):
+  '''
+  Executes a pull-tab step with source ``source`` and constraint-rooted target
+  ``source[path]``.
+
+  Parameters:
+  -----------
+    ``interp``
+      The Curry interpreter.
+
+    ``source``
+      The pull-tab source.  This node will be overwritten with a constraint
+      symbol.
+
+    ``path``
+      A sequence of integers giving the path from ``source`` to the target
+      choice or constraint.
+  '''
+  assert source.info.tag < T_CTOR
+  assert path
+  replacer = Replacer(source, path)
+  value = replacer[0]
+  assert replacer.target.info.tag == T_BIND
+  Node(
+      replacer.target.info
+    , value
+    , replacer.target[1] # binding
+    , target=source
+    )
 
