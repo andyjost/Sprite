@@ -4,11 +4,10 @@ from ....utility import visitation
 import collections
 import numbers
 import operator
-import weakref
 
 __all__ = [
     'T_FAIL', 'T_BIND', 'T_FREE', 'T_FWD', 'T_CHOICE', 'T_FUNC', 'T_CTOR'
-  , 'TypeDefinition', 'InfoTable', 'NodeInfo', 'Node'
+  , 'InfoTable', 'NodeInfo', 'Node'
   ]
 
 T_FAIL   = -6
@@ -18,20 +17,6 @@ T_FWD    = -3
 T_CHOICE = -2
 T_FUNC   = -1
 T_CTOR   =  0 # for each type, ctors are numbered starting at zero.
-
-class TypeDefinition(object):
-  def __init__(self, name, constructors, module):
-    self.name = name
-    self.constructors = constructors
-    for ctor in self.constructors:
-      ctor.typedef = weakref.ref(self)
-    self.module = weakref.ref(module)
-  @property
-  def fullname(self):
-    return '%s.%s' % (self.module().__name__, self.name)
-  def __repr__(self):
-    return "<curry type %s>" % self.fullname
-
 
 class InfoTable(object):
   '''

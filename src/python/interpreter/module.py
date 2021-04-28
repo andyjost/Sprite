@@ -1,4 +1,7 @@
-'''Implements CurryModule.'''
+'''
+Implements CurryModule, the Python object that represents Curry code at
+runtime.
+'''
 
 from .. import config
 from .. import exceptions
@@ -12,7 +15,7 @@ SUBDIR = config.intermediate_subdir()
 # and all must begin with a dot.  The exceptions are Python special names,
 # which are unavoidable.
 class CurryModule(types.ModuleType):
-  '''A Python module for interfacing with a Curry module.'''
+  '''A Python module for interfacing with Curry code.'''
   def __new__(cls, imodule):
     self = types.ModuleType.__new__(cls, imodule.name)
     self.__file__ = imodule.filename

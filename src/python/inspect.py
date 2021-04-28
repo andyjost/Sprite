@@ -4,6 +4,7 @@ Inspect live Curry objects.
 
 from .backends.py import runtime
 from .interpreter.module import getjsonfile, geticurryfile, geticurry
+from .interpreter.typedef import TypeDefinition
 from .utility import visitation
 import collections
 import re
@@ -28,7 +29,7 @@ def _isa(addr, what):
 def _isa(addr, nodeinfo):
   return addr == id(nodeinfo.info)
 
-@_isa.when(runtime.TypeDefinition)
+@_isa.when(TypeDefinition)
 def _isa(addr, typedef):
   return _isa(addr, typedef.constructors)
 

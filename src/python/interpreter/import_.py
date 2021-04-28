@@ -6,6 +6,7 @@ from .. import icurry
 from .. import importer
 from . import module
 from . import show
+from .typedef import TypeDefinition
 from ..utility import encoding, visitation, formatDocstring
 import collections
 import logging
@@ -79,7 +80,7 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
         , constructors=constructors
         )
     )
-  typedef = runtime.TypeDefinition(itype.name, constructors, moduleobj)
+  typedef = TypeDefinition(itype.name, constructors, moduleobj)
   getattr(moduleobj, '.types')[itype.name] = typedef
   for i,ctor in enumerate(constructors):
     ctor.info.typedef = weakref.ref(typedef)
