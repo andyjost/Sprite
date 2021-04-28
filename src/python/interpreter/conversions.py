@@ -3,8 +3,9 @@ Functions for working with Curry expresions.  Handles conversions between Curry
 and Python.
 '''
 
-from .. import inspect
 from ..backends.py import runtime
+from .. import inspect
+from .. import objects
 from .. import utility
 from ..utility import visitation
 from ..utility.unboxed import unboxed
@@ -38,7 +39,7 @@ def expr(interp, arg, *args, **kwds):
     Converted to a Curry tuple.
 
   Any (possibly nested) sequence whose first element is an instance of
-  ``{0}.runtime.NodeInfo`` describes a node.  The remaining arguments are
+  ``{0}.runtime.CurryNodeLabel`` describes a node.  The remaining arguments are
   recursivly converted to Curry expressions to form the successors list.  Thus,
   given suitable definitions, it is possible to build the Curry list
   ``[0,1,2]`` with the following code:
@@ -72,7 +73,7 @@ def expr(interp, arg, *args, **kwds):
 
 @expr.when(list)
 def expr(interp, l, target=None):
-  if len(l) and isinstance(l[0], runtime.NodeInfo):
+  if len(l) and isinstance(l[0], objects.CurryNodeLabel):
     return expr(interp, *l, target=target)
   else:
     Cons = interp.prelude.Cons
@@ -121,7 +122,7 @@ def expr(interp, arg, target=None):
   pygen = interp.prelude._PyGenerator
   return runtime.Node(pygen, arg, target=target)
 
-@expr.when(runtime.NodeInfo)
+@expr.when(objects.CurryNodeLabel)
 def expr(interp, ti, *args, **kwds):
   target = kwds.get('target', None)
   missing =  ti.info.arity - len(args)

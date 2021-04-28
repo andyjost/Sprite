@@ -150,7 +150,7 @@ def get_generator(interp, freevar, typedef):
   ``freevar``
       The free variable node to instantiate.
   ``typedef``
-      A ``TypeDefinition`` that indicates the type to instantiate the variable
+      A ``CurryDataType`` that indicates the type to instantiate the variable
       to.  This can also be a list of ``icurry.IConstructor``s or
       ``InfoTables``.  If the free variable has already been instantiated, then
       this can be None.

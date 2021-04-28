@@ -6,7 +6,7 @@ from .. import config
 from .. import exceptions
 from .. import importer
 from .. import icurry
-from .module import CurryModule
+from .. import objects
 from ..utility.visitation import dispatch
 import types
 
@@ -103,7 +103,7 @@ def getImportSpecForExpr(interpreter, modules):
   '''
   stmts = []
   currypath = list(interpreter.path)
-  if isinstance(modules, CurryModule):
+  if isinstance(modules, objects.CurryModule):
     modules = [modules]
   for module in modules:
     _updateImports(interpreter, module, stmts, currypath)

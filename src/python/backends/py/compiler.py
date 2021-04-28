@@ -118,7 +118,7 @@ class FunctionCompiler(object):
   Python function.
 
   Assembles list-formatted Python code (see ``render``).  Needed symbols,
-  including node ``NodeInfo`` and system functions, are placed in the closure
+  including node ``CurryNodeLabel`` and system functions, are placed in the closure
   within which the step function is compiled.
 
   The following naming conventions are used:
@@ -177,8 +177,8 @@ class FunctionCompiler(object):
     step.source = source
     return step
 
-  def nodeinfo(self, iname):
-    '''Get the NodeInfo object for a program symbol.'''
+  def label(self, iname):
+    '''Get the CurryNodeLabel object for a program symbol.'''
     return self.interp.symbol(iname)
 
   def __str__(self):
@@ -311,7 +311,7 @@ class FunctionCompiler(object):
     yield 'selector = hnf(_0, %s, typedef=%s).info.tag' % (path, self.closure[typedef])
     el = ''
     for branch in icase.branches[:-1]:
-      rhs = self.nodeinfo(branch.name).info.tag
+      rhs = self.label(branch.name).info.tag
       yield '%sif selector == %s:' % (el, rhs)
       yield list(self.statement(branch.block))
       el = 'el'

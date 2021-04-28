@@ -3,7 +3,7 @@ Defines a closure to use in dynamic code.  A closure associates compile-time obj
 with name at run-time.
 '''
 
-from ...interpreter.typedef import TypeDefinition
+from ... import objects
 from ...utility import encoding
 
 __all__ = ['Closure']
@@ -29,7 +29,7 @@ class Closure(object):
     self.context = {}
 
   def __getitem__(self, key):
-    if isinstance(key, TypeDefinition):
+    if isinstance(key, objects.CurryDataType):
       obj = key
       key = encoding.encode(obj.fullname, 'ty_', self.context)
     else:
@@ -44,7 +44,7 @@ class Closure(object):
         if v is obj:
           return k
       else:
-        if not isinstance(obj, TypeDefinition):
+        if not isinstance(obj, objects.CurryDataType):
           key = encoding.encode(key, 'ni_', self.context)
         self.context[key] = obj
         return key

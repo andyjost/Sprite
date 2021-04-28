@@ -37,7 +37,7 @@ class REPL(object):
   def __init__(self, args, **kwds):
     '''
     Initialize the REPL.
-    
+
     Command-line arguments are processed, and an exception is raised if any of
     them fail.
     '''

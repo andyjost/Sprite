@@ -4,9 +4,8 @@ from . import checks
 from .. import config
 from .. import icurry
 from .. import importer
-from . import module
+from .. import objects
 from . import show
-from .typedef import TypeDefinition
 from ..utility import encoding, visitation, formatDocstring
 import collections
 import logging
@@ -80,7 +79,7 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
         , constructors=constructors
         )
     )
-  typedef = TypeDefinition(itype.name, constructors, moduleobj)
+  typedef = objects.CurryDataType(itype.name, constructors, moduleobj)
   getattr(moduleobj, '.types')[itype.name] = typedef
   for i,ctor in enumerate(constructors):
     ctor.info.typedef = weakref.ref(typedef)
@@ -118,7 +117,7 @@ def loadSymbols(
     , show.Show(interp, getattr(metadata, 'py.format', None))
     , _gettypechecker(interp, metadata)
     )
-  nodeinfo = runtime.NodeInfo(icons, info)
+  nodeinfo = objects.CurryNodeLabel(icons, info)
   insertSymbol(moduleobj, icons.name, nodeinfo)
   return nodeinfo
 
@@ -133,7 +132,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
     , show.Show(interp, getattr(metadata, 'py.format', None))
     , _gettypechecker(interp, metadata)
     )
-  nodeinfo = runtime.NodeInfo(ifun, info)
+  nodeinfo = objects.CurryNodeLabel(ifun, info)
   insertSymbol(moduleobj, ifun.name, nodeinfo, ifun.is_private)
   return nodeinfo
 
@@ -196,7 +195,7 @@ def import_(
   ):
   if imodule.name not in interp.modules:
     imodule.merge(extern, export)
-    moduleobj = module.CurryModule(imodule)
+    moduleobj = objects.CurryModule(imodule)
     interp.modules[imodule.name] = moduleobj
     loadSymbols(interp, imodule, moduleobj, extern=extern)
     compileICurry(interp, imodule, moduleobj, extern=extern)
@@ -222,7 +221,8 @@ def compileICurry(interp, imodule, moduleobj, extern=None):
 
 @compileICurry.when(icurry.IFunction)
 def compileICurry(interp, ifun, moduleobj, extern=None):
-  info = module.symbol(moduleobj, ifun.name).info
+  symbolgetter = getattr(moduleobj, '.getsymbol')
+  info = symbolgetter(ifun.name).info
   # Compile interactive code right away.  Otherwise, if lazycompile is set,
   # delay compilation until the function is actually used.  See InfoTable in
   # interpreter/runtime.py.

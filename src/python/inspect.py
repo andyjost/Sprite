@@ -3,11 +3,14 @@ Inspect live Curry objects.
 '''
 
 from .backends.py import runtime
-from .interpreter.module import getjsonfile, geticurryfile, geticurry
-from .interpreter.typedef import TypeDefinition
+from . import config
+from . import objects
 from .utility import visitation
 import collections
+import os
 import re
+
+SUBDIR = config.intermediate_subdir()
 
 def isa(cyobj, what):
   '''
@@ -21,15 +24,15 @@ def isa(cyobj, what):
 @visitation.dispatch.on('what')
 def _isa(addr, what):
   raise TypeError(
-      'arg 2 must be an instance or sequence of %s.interpreter.NodeInfo '
+      'arg 2 must be an instance or sequence of %s.objects.CurryNodeLabel '
       'objects.' % __package__
     )
 
-@_isa.when(runtime.NodeInfo)
+@_isa.when(objects.CurryNodeLabel)
 def _isa(addr, nodeinfo):
   return addr == id(nodeinfo.info)
 
-@_isa.when(TypeDefinition)
+@_isa.when(objects.CurryDataType)
 def _isa(addr, typedef):
   return _isa(addr, typedef.constructors)
 
@@ -102,3 +105,27 @@ def is_boxed(interp, node):
 
 def get_id(interp, arg):
   return runtime.get_id(arg)
+
+def _getfile(moduleobj, suffixes):
+  if moduleobj.__file__:
+    for suffix in suffixes:
+      filename = os.path.join(
+          os.path.dirname(moduleobj.__file__)
+        , '.curry'
+        , SUBDIR
+        , config.interactive_modname() + suffix
+        )
+      if os.path.exists(filename):
+        return filename
+
+def getjsonfile(moduleobj):
+  '''Returns the file containing ICurry-JSON, if one exists, or None.'''
+  return _getfile(moduleobj, ['.json', '.json.z'])
+
+def geticurryfile(moduleobj):
+  '''Gets the ICurry file associated with a module.'''
+  return _getfile(moduleobj, ['.icy'])
+
+def geticurry(moduleobj):
+  '''Gets the ICurry associated with a module.'''
+  return getattr(moduleobj, '.icurry')

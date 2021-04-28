@@ -7,7 +7,7 @@ import operator
 
 __all__ = [
     'T_FAIL', 'T_BIND', 'T_FREE', 'T_FWD', 'T_CHOICE', 'T_FUNC', 'T_CTOR'
-  , 'InfoTable', 'NodeInfo', 'Node'
+  , 'InfoTable', 'Node'
   ]
 
 T_FAIL   = -6
@@ -72,69 +72,6 @@ class InfoTable(object):
       ])
 
 
-class NodeInfo(object):
-  '''
-  Compile-time node info.
-
-  Each kind of node has its own compiler-generated info.  Each Curry function,
-  each constructor of a Curry type, and each of the special nodes such as FAIL,
-  FWD, and CHOICE is associated with an instance of this object.
-
-  Attributes:
-  -----------
-  ``icurry``
-      The ICurry source of this Node.
-  ``name``
-      The fully-qualified Curry identifier for this kind of node.
-  ``info``
-      An instance of ``InfoTable``.
-  '''
-  def __init__(self, icurry, info):
-    self.icurry = icurry
-    self.info = info
-
-  @property
-  def name(self):
-    return self.icurry.name
-
-  # TODO: add getsource to get the Curry source.  It will require an
-  # enhancement to CMC and maybe FlatCurry to generate source range
-  # annotations.
-
-  @property
-  def fullname(self):
-    return '%s.%s' % (self.icurry.modulename, self.name)
-
-  def getimpl(self):
-    '''Returns the implementation code of the step function, if available.'''
-    step = self.info.step
-    try:
-      return getattr(step, 'source')
-    except AttributeError:
-      raise ValueError(
-          'no implementation code available for "%s"' % self.fullname
-        )
-
-  def __str__(self):
-    return self.name
-
-  def __repr__(self):
-    if self.info.tag >= T_CTOR:
-      return "<curry constructor '%s'>" % self.name
-    if self.info.tag == T_FUNC:
-      return "<curry function '%s'>" % self.name
-    if self.info.tag == T_CHOICE:
-      return "<curry choice>"
-    if self.info.tag == T_FWD:
-      return "<curry forward node>"
-    if self.info.tag == T_FAIL:
-      return "<curry failure>"
-    if self.info.tag == T_FREE:
-      return "<curry free variable>"
-    if self.info.tag == T_BIND:
-      return "<curry constraint>"
-    return "<invalid curry node>"
-
 class Node(object):
   '''An expression node.'''
   def __new__(cls, info, *args, **kwds):
@@ -148,7 +85,7 @@ class Node(object):
     Parameters:
     -----------
     ``info``
-      An instance of ``NodeInfo`` or ``InfoTable`` indicating the kind of node to
+      An instance of ``CurryNodeLabel`` or ``InfoTable`` indicating the kind of node to
       create.
     ``*args``
       The successors.

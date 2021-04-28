@@ -3,12 +3,16 @@ A pure-Python Curry interpreter.
 '''
 from ..backends.py import runtime
 from .. import config
+from .. import exceptions
+from .. import icurry
 from . import import_
+from .. import objects
 from .. import utility
 import itertools
 import logging
 import os
 import sys
+
 
 logger = logging.getLogger(__name__)
 
@@ -84,11 +88,37 @@ class Interpreter(object):
         del self.modules[name]
     self.path[:] = config.currypath([]) # re-read it from the environment
 
+  def module(self, name):
+    '''Look up a module by name.'''
+    try:
+      return self.modules[name]
+    except KeyError:
+      if name in self.automodules:
+        return self.import_(name)
+      raise exceptions.ModuleLookupError('Curry module %r not found' % name)
+  
+  def symbol(self, name, modulename=None):
+    '''
+    Look up a symbol by its fully-qualified name or by its name relative to a
+    module.
+    '''
+    if modulename is None:
+      modulename, name = icurry.splitname(name)
+    moduleobj = self.module(modulename)
+    symbolgetter = getattr(moduleobj, '.getsymbol')
+    return symbolgetter(name)
+  
+  def type(self, name):
+    '''Returns the constructor info tables for the named type.'''
+    modulename, name = icurry.splitname(name)
+    moduleobj = self.module(modulename)
+    typegetter = getattr(moduleobj, '.gettype')
+    return typegetter(name)
+
   # Externally-implemented methods.
   from .compile import compile
   from .conversions import currytype, expr, topython, unbox
   from .eval import eval
   from .import_ import import_
-  from .lookup import module, symbol, type
   from ..backends.py.runtime import N, S, hnf, nextid, freshvar
 
