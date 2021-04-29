@@ -82,7 +82,7 @@ class Interpreter(object):
     self.stderr = sys.stderr
     self._idfactory_ = itertools.count()
     self.stepcounter.reset()
-    self.automodules = ['Integer', 'Prelude']
+    self.automodules = config.syslibs()
     for name in self.modules.keys():
       if name not in self.automodules:
         del self.modules[name]

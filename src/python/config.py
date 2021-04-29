@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,9 @@ intermediate_subdir       = _Variable('intermediate_subdir')
 python_package_name       = _Variable('python_package_name')
 system_curry_path         = _Variable('system_curry_path')
 
+def syslibs():
+  return ['Prelude', 'Integer']
+
 def currypath(cached=[]):
   '''
   Gets the Curry path from the environment variable CURRYPATH and appends the
@@ -71,7 +75,30 @@ def currypath(cached=[]):
     envpath = os.environ.get('CURRYPATH', '').split(':')
     syspath = system_curry_path().split(':')
     cached.append(filter(lambda x:x, envpath + syspath))
+    verify_syslibs()
   return cached[0]
+
+def verify_syslibs():
+  from .utility import filesys
+  if 'SPRITE_DISABLE_SYSLIB_CHECKS' in os.environ:
+    return
+  cypath = currypath()
+  syspath = system_curry_path().split(':')
+  for name in syslibs():
+    name = name + '.curry'
+    found = list(filesys.findfiles(cypath, name))
+    if not found or not (found[-1].startswith(p) for p in syspath):
+      logger.critical('System library %r was not found in the CURRYPATH' % name)
+      logger.critical('The CURRYPATH is %r' % ':'.join(cypath))
+    elif not any(found[0].startswith(p) for p in syspath):
+      logger.critical('System library %r is shadowed by a file from the CURRYPATH.' % name)
+      logger.critical('The CURRYPATH is %r' % ':'.join(cypath))
+      logger.critical('The system %r is %r' % (name, found[-1]))
+      logger.critical('%r was found at %r' % (name, found[0]))
+    else:
+      continue
+    logger.critical('Set SPRITE_DISABLE_SYSLIB_CHECKS to ignore')
+    sys.exit(1)
 
 # External tools.
 def jq_tool(cached=[]):
@@ -95,4 +122,3 @@ def icurry2jsontext_tool(cached=[]):
     cached.append(path)
   return cached[0]
 
-  
