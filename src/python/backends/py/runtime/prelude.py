@@ -31,6 +31,12 @@ def exports():
   yield '_PyGenerator'
   # Clobber the definition of Prelude.? with Sprite's own.
   yield '?'
+  # Include all of the primitives.  Sprite compiles the Prelude with __KICS2__
+  # defined.  This hides some primitive functions.  To emulate PAKCS-style
+  # fundamental types, we need those.
+  for fun in _functions_:
+    if fun.name.startswith('prim_'):
+      yield fun.name
 
 def aliases():
   '''Returns prelude aliases.  Simply for convenience.'''
@@ -134,7 +140,7 @@ _functions_ = [
   , _F('prim_minusInt'   , 2, metadata={'py.unboxedfunc': op.sub})
   , _F('prim_timesInt'   , 2, metadata={'py.unboxedfunc': op.mul})
   , _F('prim_divInt'     , 2, metadata={'py.unboxedfunc': op.floordiv})
-  , _F('prim_eqInt'      , 3, metadata={'py.unboxedfunc': op.eq})
+  , _F('prim_eqInt'      , 2, metadata={'py.unboxedfunc': op.eq})
   , _F('prim_ltEqInt'    , 2, metadata={'py.unboxedfunc': op.le})
   , _F('prim_modInt'     , 2, metadata={'py.unboxedfunc': lambda x, y: x - y * op.floordiv(x,y)})
   , _F('prim_quotInt'    , 2, metadata={'py.unboxedfunc': lambda x, y: int(op.truediv(x, y))})
@@ -188,7 +194,12 @@ _functions_ = [
   , _F('$##', 2, metadata={'py.rawfunc':impl.apply_gnf})
   , _F('prim_error', 1, metadata={'py.boxedfunc':impl.error})
   , _F('failed', 0, metadata={'py.boxedfunc':impl.failed})
-  , _F('=:=', 2, metadata={'py.rawfunc':impl.eq_constr})
+  , _F('=:=', 2, metadata={'py.rawfunc':impl.constr_eq})
+  , _F('constrEq', 2, metadata={'py.rawfunc':impl.constr_eq})
+  , _F('prim_constrEq', 2, metadata={'py.rawfunc':impl.constr_eq})
+  , _F('=:<=', 2, metadata={'py.rawfunc':impl.nonstrict_eq})
+  , _F('nonstrictEq', 2, metadata={'py.rawfunc':impl.nonstrict_eq})
+  , _F('prim_nonstrictEq', 2, metadata={'py.rawfunc':impl.nonstrict_eq})
   , _F('&', 2, metadata={'py.rawfunc':impl.concurrent_and})
   , _F('prim_ord', 1, metadata={'py.unboxedfunc':ord})
   , _F('prim_chr', 1, metadata={'py.unboxedfunc':chr})
@@ -215,7 +226,6 @@ _functions_ = [
   , _F('prim_unknown', 0, metadata={'py.rawfunc':impl.freshvar})
   , _F('apply', 2, metadata={'py.rawfunc':impl.apply})
   , _F('cond', 2, metadata={'py.rawfunc':impl.cond})
-  , _F('=:<=', 2, metadata={'py.rawfunc':impl.eq_constr_lazy})
   ]
 
 Prelude = icurry.IModule(

@@ -92,6 +92,10 @@ class Curry2ICurryCache(object):
       # output because the file name is embedded into JSON as the module name.
       modulename = os.path.splitext(os.path.basename(file_out))[0]
       hasher = hashlib.sha1()
+      # The name of the subdirectory under .curry should uniquely identify the
+      # Curry library version.
+      hasher.update(config.intermediate_subdir())
+      hasher.update('#')
       hasher.update(modulename)
       hasher.update('#')
       hasher.update(open(self.file_in).read())

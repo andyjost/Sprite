@@ -1,7 +1,0 @@
-interface ModConc where {
-infixr 5 +;
-infixr 5 .+.;
-(+) 2 :: [a] -> [a] -> [a];
-(.+.) 2 :: [a] -> [a] -> [a];
-conc 0 :: [a] -> [a] -> [a]
-}

@@ -18,6 +18,9 @@ MULTIARCH := $(shell $(CC) --print-multiarch)
 # =================
 # Variables derived from Make.config variables.
 
+CURRYLIB_FILES = Prelude.curry $(notdir $(wildcard $(ROOT_DIR)/curry/*.curry))
+CURRYLIB_MODULE_NAMES = $(CURRYLIB_FILES:.curry=)
+
 PAKCS := $(realpath $(PAKCS_HOME)/bin/pakcs)
 PAKCS_NAME := $(shell $(PAKCS) --compiler-name)
 PAKCS_VER := $(shell $(PAKCS) --numeric-version)

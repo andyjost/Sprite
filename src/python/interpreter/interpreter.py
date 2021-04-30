@@ -41,12 +41,16 @@ class Interpreter(object):
       ``direct_var_binding`` (True|*False*)
           [Experimental] Implements constraints by directly binding variables
           to expressions.
+      ``algebraic_substitution`` (True|*False*)
+          [Experimantal] Implements narrowing of fundamental types by
+          substituting an algebraic type.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self.flags = {
         'debug':False, 'defaultconverter':None, 'trace':False, 'lazycompile':True
       , 'keep_temp_files':False, 'direct_var_binding':False
+      , 'algebraic_substitution':False
       }
     self.flags.update(flags)
     self._stepper = runtime.get_stepper(self)

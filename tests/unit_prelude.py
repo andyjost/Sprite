@@ -1,13 +1,21 @@
 import cytest # from ./lib; must be first
-import cytest.step
 from cStringIO import StringIO
 from curry.backends.py import runtime
+from curry import config
 from import_blocker import with_import_blocked
 import curry
+import cytest.step
 import sys
 import unittest
 
 class TestPrelude(cytest.TestCase):
+  @property
+  def constrEq(self):
+    if config.syslibversion() < (3,3,0):
+      return curry.symbol('Prelude.=:=')
+    else:
+      return curry.symbol('Prelude.constrEq')
+
   def testBuiltinPreludeTypes(self):
     '''
     Tests the built-in Prelude types and, indicentally, the ``isa`` function.
@@ -286,15 +294,15 @@ class TestPrelude(cytest.TestCase):
 
   # Used by testEqualityConstraint.
   def checkSatisfied(self, lhs, rhs):
-    e = curry.expr(curry.symbol('Prelude.=:='), lhs, rhs)
+    e = curry.expr(self.constrEq, lhs, rhs)
     self.assertEqual(list(curry.eval(e)), [True])
 
   def checkUnsatisfied(self, lhs, rhs):
-    e = curry.expr(curry.symbol('Prelude.=:='), lhs, rhs)
+    e = curry.expr(self.constrEq, lhs, rhs)
     self.assertEqual(list(curry.eval(e)), [])
 
   def checkError(self, lhs, rhs, type=curry.InstantiationError):
-    e = curry.expr(curry.symbol('Prelude.=:='), lhs, rhs)
+    e = curry.expr(self.constrEq, lhs, rhs)
     self.assertRaises(type, lambda: next(curry.eval(e)))
 
   def testEqualityConstraint(self):

@@ -14,6 +14,15 @@ import time
 GENERATE_GOLDENS = False
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 
+def set_intermediate_subdir(f, value='sprite'):
+  def replacement(*args, **kwds):
+    old_value = config.intermediate_subdir
+    try:
+      config.intermediate_subdir = lambda: value
+    finally:
+      config.intermediate_subdir = old_value
+  return replacement
+
 class TestFindCurry(cytest.TestCase):
   def test_findFile(self):
     '''
@@ -81,6 +90,7 @@ class TestFindCurry(cytest.TestCase):
       , ['data/findFile/c/a']
       )
 
+  @set_intermediate_subdir
   def test_findCurry(self):
     self.assertEqual(
         importer.findCurryModule('c', currypath=['data/findFile/c'])
@@ -100,6 +110,7 @@ class TestFindCurry(cytest.TestCase):
       , os.path.abspath('data/findFile/a/.curry/sprite/a.json')
       )
 
+  @set_intermediate_subdir
   def test_getICurryForModule(self):
     '''Check that curry2json is invoked to produce ICurry-JSON files.'''
     # If the JSON file already exists, this should find it, just like
@@ -171,7 +182,7 @@ class TestFindCurry(cytest.TestCase):
       )
     self.assertRaisesRegexp(
         TypeError
-      , r"'currypath' must be a string or sequence of strings, got 'int'."
+      , r"'currypath' must be a string or sequence of strings, got 1."
       , lambda: curry.import_('import_test', currypath=1)
       )
     self.assertMayRaise(

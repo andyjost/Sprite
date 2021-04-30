@@ -14,3 +14,6 @@ robots.txt*
 **/.curry/**
 !tests/data
 !currylib/**
+currylib/Prelude.curry
+currylib/Prelude.*icy
+currylib/Prelude.*json*

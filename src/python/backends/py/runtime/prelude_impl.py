@@ -27,11 +27,24 @@ def hnf_or_free(interp, root, index):
     else:
       raise
 
-def TODO(msg):
-  def f(interp, root):
-    raise TypeError("NOT IMPLEMENTED: %s" % msg)
-  return f
+def algebraic_substitution(prim_func_name=None):
+  def decorator(f):
+    fname = 'prim_' + f.__name__ if prim_func_name is None else prim_func_name
+    def replacement(interp, root):
+      if(interp.flags['algebraic_substitution']):
+        return f(interp, root)
+      else:
+        # Perform a substitution similar to the following:
+        #     eqInt x y = (prim_eqInt $# x) $# y
+        assert len(root)
+        conj = getattr(interp.prelude, '$#')
+        args = reduce(lambda l, r: runtime.Node(conj, l, r), root)
+        prim_func = getattr(interp.prelude, fname)
+        return itertools.chain([prim_func.info], args)
+    return replacement
+  return decorator
 
+@algebraic_substitution()
 def eqInt(interp, root):
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
@@ -179,7 +192,7 @@ def remInt(interp, root):
     f = lambda x, y: x - y * int(op.truediv(x, y))
     yield f(*map(interp.topython, [lhs, rhs]))
 
-def eq_constr(interp, root):
+def constr_eq(interp, root):
   '''Implements =:=.'''
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.is_boxed(interp, lhs) and inspect.is_boxed(interp, rhs):
@@ -235,7 +248,7 @@ def eq_constr(interp, root):
   else:
     raise InstantiationError('=:= cannot bind to an unboxed value')
 
-def eq_constr_lazy(interp, root):
+def nonstrict_eq(interp, root):
   '''
   Implements =:<=.
 

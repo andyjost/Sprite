@@ -1,3 +1,4 @@
+from .utility.currypath import clean_currypath
 import logging
 import os
 import sys
@@ -15,8 +16,8 @@ def interactive_modname():
   return 'sprite__interactive_'
 
 class _Variable(object):
-  def __init__(self, name, type=str, interpolate=False):
-    self.interpolate = interpolate
+  def __init__(self, name, type=str, use_env=False):
+    self.use_env = use_env
     self.name = name
     self.type = type
     self.value = None
@@ -48,22 +49,26 @@ class _Variable(object):
             , x, self.name.upper()
             )
           return False
-    else:
-      if self.interpolate:
-        x = str(x).format(**os.environ)
-      return self.type(x)
+    if self.use_env:
+      x = str(x).format(**os.environ)
+    return self.type(x)
 
 # These are read from under $PREFIX/sysconfig.  The source files are under
 # $ROOT/src/export/sysconfig.  They can be set in Make.config.
-default_sprite_cache_file = _Variable('default_sprite_cache_file', interpolate=True)
+default_sprite_cache_file = _Variable('default_sprite_cache_file', use_env=True)
 enable_icurry_cache       = _Variable('enable_icurry_cache', type=bool)
 enable_parsed_json_cache  = _Variable('enable_parsed_json_cache', type=bool)
 intermediate_subdir       = _Variable('intermediate_subdir')
 python_package_name       = _Variable('python_package_name')
 system_curry_path         = _Variable('system_curry_path')
+currylib_version          = _Variable('currylib_version')
+currylib_module_names     = _Variable('currylib_module_names')
 
 def syslibs():
-  return ['Prelude', 'Integer']
+  return currylib_module_names().split()
+
+def syslibversion():
+  return tuple(map(int, currylib_version().split('.')))
 
 def currypath(cached=[]):
   '''
@@ -74,7 +79,8 @@ def currypath(cached=[]):
   if not cached:
     envpath = os.environ.get('CURRYPATH', '').split(':')
     syspath = system_curry_path().split(':')
-    cached.append(filter(lambda x:x, envpath + syspath))
+    currypath = clean_currypath(envpath + syspath)
+    cached.append(currypath)
     verify_syslibs()
   return cached[0]
 

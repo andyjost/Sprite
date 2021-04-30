@@ -1,23 +1,42 @@
 SUBMODULES :=
 DIRS_TO_REC_UNINSTALL += $(INSTALL_DIR)/.curry
+
+# Note: CURRYLIB_FILES defined in top-level Make.include.
+SUBDIR = $(PAKCS_SUBDIR)
+CURRYLIB_SRC = $(addprefix $(SUBDIR)/,$(CURRYLIB_FILES))
+CURRYLIB_ICY = $(CURRYLIB_SRC:.curry=.icy)
+CURRYLIB_JSON = $(CURRYLIB_SRC:.curry=.json.z)
+FILES_TO_CLEAN += $(CURRYLIB_SRC) $(CURRYLIB_ICY) $(CURRYLIB_JSON)
+DIRS_TO_CLEAN += $(SUBDIR)
+
 include Make.include
 
-CURRYLIB_SOURCE := $(wildcard *.curry)
-CURRYLIB_ICY := $(CURRYLIB_SOURCE:.curry=.icy)
-CURRYLIB_JSON := $(CURRYLIB_SOURCE:.curry=.json.z)
+.PHONY: srcs icy json currylib objs
 
-# The ICY and JSON files of the Curry library can be prebuilt and checked in to
-# streamline the installation process.  Otherwise, they are built the first
-# time Sprite runs (which can take several minutes).  To update these files,
-# first install Sprite.  Then build the target "currylib" with PREFIX referring
-# to the installation, and, finally, check in the new files.  To install the
-# new library over an existing one, use "make uninstall install".
+srcs : $(CURRYLIB_SRC)
+icy  : $(CURRYLIB_ICY)
+json : $(CURRYLIB_JSON)
+currylib: srcs icy json
 
-%.icy : %.curry
+# The sources are needed prior to installation.
+objs :: srcs
+
+$(SUBDIR):
+	mkdir -p $@
+
+$(SUBDIR)/%.curry : %.curry | $(SUBDIR)
+	@rm -f $@
+	ln -s ../$< $@
+
+$(SUBDIR)/Prelude.curry : | $(SUBDIR)
+	echo '{-# LANGUAGE CPP #-}'         >  $@
+	echo '#define __KICS2__ 1'          >> $@
+	echo                                >> $@
+	cat $(PAKCS_HOME)/lib/Prelude.curry >> $@
+
+$(SUBDIR)/%.icy : $(SUBDIR)/%.curry | $(SUBDIR)
 	$(PREFIX)/bin/sprite-make --icy $< -o $@
 
-%.json.z : %.curry
+$(SUBDIR)/%.json.z : $(SUBDIR)/%.curry | $(SUBDIR)
 	$(PREFIX)/bin/sprite-make --json $< -zc -o $@
-
-currylib: $(CURRYLIB_ICY) $(CURRYLIB_JSON)
 

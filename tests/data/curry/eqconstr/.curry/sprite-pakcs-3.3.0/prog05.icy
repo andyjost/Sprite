@@ -1,0 +1,1 @@
+(IProg "prog05" ["Prelude"] [] [(IFunction ("prog05","f",0) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (ICCall ("Prelude","True",1) []))))),(IFunction ("prog05","main",1) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (IFCall ("Prelude","=:=",740) [(IFCall ("Prelude","_inst#Prelude.Data#Prelude.Bool",572) []),(ICCall ("Prelude","True",1) []),(IFCall ("prog05","f",0) [])])))))])

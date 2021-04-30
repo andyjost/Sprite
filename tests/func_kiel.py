@@ -5,11 +5,10 @@ class TestKiel(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/kiel/'
   PRINT_SKIPPED_GOALS = False
   CURRYPATH = 'data/curry/kiel/lib'
-  # FILE_PATTERN = 'colormap'
+  # FILE_PATTERN = 'UseConc'
   CLEAN_KWDS = {
       'diamond': {'keep_empty_lines': True, 'keep_spacing': True, 'sort_lines': False}
     }
-  # To determine the curent set of failures, clear this list and run.
   SKIP = [
       # These never terminate.
       'account'

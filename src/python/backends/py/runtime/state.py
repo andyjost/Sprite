@@ -271,7 +271,9 @@ class Frame(object):
         bindings += self.lazy_bindings.write.pop(vid).read
     if bindings:
       conj = getattr(self.interp.prelude, '&')
-      bindinfo = getattr(self.interp.prelude, '=:<=' if lazy else '=:=')
+      bindinfo = getattr(
+          self.interp.prelude, 'prim_nonstrictEq' if lazy else 'prim_constrEq'
+        )
       act = lambda var: get_generator(self.interp, var, None) if lazy else var
       self.expr = Node(
           getattr(self.interp.prelude, '&>')
