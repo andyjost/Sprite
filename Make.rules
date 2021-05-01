@@ -203,25 +203,22 @@ ifdef CURRYFILES
   endif
 endif
 
-# Sort removes duplicates.
-FILES_TO_CLEAN := $(sort $(foreach path,$(FILES_TO_CLEAN),$(abspath $(path))))
-DIRS_TO_REC_CLEAN := $(sort $(foreach path,$(DIRS_TO_REC_CLEAN),$(abspath $(path))))
-DIRS_TO_CLEAN := $(sort $(foreach path,$(DIRS_TO_CLEAN),$(abspath $(path))))
-FILES_TO_UNINSTALL := $(sort $(foreach path,$(FILES_TO_UNINSTALL),$(abspath $(path))))
-DIRS_TO_REC_UNINSTALL := $(sort $(foreach path,$(DIRS_TO_REC_UNINSTALL),$(abspath $(path))))
-DIRS_TO_UNINSTALL := $(sort $(foreach path,$(DIRS_TO_UNINSTALL),$(abspath $(path))))
-
-define do_files =
-@for f in $1; do if [ -e $$f ]; then echo $2 $$f; $2 $$f; fi; done
-endef
+# Sort removes duplicates.  Sort by reverse depth.
+reverse = $(shell printf "%s\n" $(strip $1) | tac)
+FILES_TO_CLEAN := $(call reverse, $(sort $(foreach path,$(FILES_TO_CLEAN),$(abspath $(path)))))
+DIRS_TO_REC_CLEAN := $(call reverse, $(sort $(foreach path,$(DIRS_TO_REC_CLEAN),$(abspath $(path)))))
+DIRS_TO_CLEAN := $(call reverse, $(sort $(foreach path,$(DIRS_TO_CLEAN),$(abspath $(path)))))
+FILES_TO_UNINSTALL := $(call reverse, $(sort $(foreach path,$(FILES_TO_UNINSTALL),$(abspath $(path)))))
+DIRS_TO_REC_UNINSTALL := $(call reverse, $(sort $(foreach path,$(DIRS_TO_REC_UNINSTALL),$(abspath $(path)))))
+DIRS_TO_UNINSTALL := $(call reverse, $(sort $(foreach path,$(DIRS_TO_UNINSTALL),$(abspath $(path)))))
 
 clean ::
-	$(call do_files,$(FILES_TO_CLEAN),rm -f)
-	$(call do_files,$(DIRS_TO_REC_CLEAN),rm -rf)
-	$(call do_files,$(DIRS_TO_CLEAN),rmdir)
+	$(call clean_files,$(FILES_TO_CLEAN),rm -f)
+	$(call clean_files,$(DIRS_TO_REC_CLEAN),rm -rf)
+	$(call clean_files,$(DIRS_TO_CLEAN),rmdir)
 
 uninstall ::
-	$(call do_files,$(FILES_TO_UNINSTALL),rm -f)
-	$(call do_files,$(DIRS_TO_REC_UNINSTALL),rm -rf)
-	$(call do_files,$(DIRS_TO_UNINSTALL),rmdir)
+	$(call clean_files,$(FILES_TO_UNINSTALL),rm -f)
+	$(call clean_files,$(DIRS_TO_REC_UNINSTALL),rm -rf)
+	$(call clean_files,$(DIRS_TO_UNINSTALL),rmdir)
 
