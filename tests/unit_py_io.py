@@ -20,6 +20,7 @@ class TestPyIO(cytest.TestCase):
     self.assertEqual(stdout.getvalue(), "Hello, World!")
     self.assertEqual(str(result), 'IO ()')
 
+  @unittest.expectedFailure
   @cytest.setio(stdout='')
   def test_nd_io(self):
     goal = curry.compile("putChar ('a' ? 'b')", 'expr')
