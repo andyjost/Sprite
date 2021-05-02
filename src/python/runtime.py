@@ -1,12 +1,30 @@
-'''Abstract interface to a runtime system.'''
+'''
+Abstract interface to the runtime system.
+
+This contains definitions common to all backends and the interfaces each should
+implement.
+'''
 
 from . import config
 import abc
 import importlib
 
-__all__ = ['Runtime']
+__all__ = [
+    'Runtime'
+  , 'T_FAIL', 'T_BIND', 'T_FREE', 'T_FWD', 'T_CHOICE', 'T_FUNC', 'T_CTOR'
+  ]
+
+T_FAIL   = -6
+T_BIND   = -5
+T_FREE   = -4
+T_FWD    = -3
+T_CHOICE = -2
+T_FUNC   = -1
+T_CTOR   =  0 # for each type, ctors are numbered starting at zero.
+
 
 class Runtime(object):
+  '''Abstract interface for a runtime system.'''
   __metaclass__ = abc.ABCMeta
 
   def __new__(cls, backend='py'):
@@ -36,3 +54,10 @@ class Runtime(object):
   @abc.abstractmethod
   def get_step_counter(self):
     assert 0
+
+class Node(object):
+  __metaclass__ = abc.ABCMeta
+
+class InfoTable(object):
+  __metaclass__ = abc.ABCMeta
+  

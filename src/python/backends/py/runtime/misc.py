@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+from .... import runtime
 from .exceptions import *
 from .graph import *
 
@@ -25,7 +26,7 @@ def get_id(arg):
   '''Returns the choice or variable id for a choice or free variable.'''
   if isinstance(arg, Node):
     arg = arg[()]
-    if arg.info.tag in [T_FREE, T_CHOICE]:
+    if arg.info.tag in [runtime.T_FREE, runtime.T_CHOICE]:
       cid = arg[0]
       assert cid >= 0
       return cid
@@ -76,7 +77,7 @@ def get_stepper(interp):
   return step
 
 def is_bound(interp, freevar):
-  assert freevar.info.tag == T_FREE
+  assert freevar.info.tag == runtime.T_FREE
   return freevar[1].info is not interp.prelude.Unit.info
 
 def nextid(interp):

@@ -1,4 +1,5 @@
 from .... import icurry
+from .... import runtime
 from .transforms import *
 
 from .exceptions import *
@@ -25,15 +26,15 @@ def D(evaluator):
       yield target
       continue
     tag = target.info.tag
-    if tag == T_CHOICE:
+    if tag == runtime.T_CHOICE:
       evaluator.queue.extend(frame.fork())
-    elif tag == T_BIND:
+    elif tag == runtime.T_BIND:
       evaluator.queue.extend(frame.constrain())
-    elif tag == T_FAIL:
+    elif tag == runtime.T_FAIL:
       if evaluator.interp.flags['trace']:
         print 'X :::', frame
       continue # discard
-    elif tag == T_FREE:
+    elif tag == runtime.T_FREE:
       try:
         frame.check_freevar_bindings(target, lazy=False)
       except E_CONTINUE:
@@ -44,7 +45,7 @@ def D(evaluator):
         if evaluator.interp.flags['trace']:
           print 'Y :::', target, frame
         yield target
-    elif tag == T_FUNC:
+    elif tag == runtime.T_FUNC:
       try:
         S(evaluator.interp, target)
       except E_CONTINUE:
@@ -60,7 +61,7 @@ def D(evaluator):
         # what is says.
         frame.expr = frame.expr # insert FWD node, if needed.
         evaluator.queue.append(frame)
-    elif tag >= T_CTOR:
+    elif tag >= runtime.T_CTOR:
       try:
         _, freevars = N(evaluator.interp, expr, target)
       except E_CONTINUE:
@@ -83,7 +84,7 @@ def N(interp, root, target=None, path=None, freevars=None):
   '''The normalize (N) Fair Scheme procedure.'''
   path = [] if path is None else path
   target = root[path] if target is None else target
-  assert target.info.tag >= T_CTOR
+  assert target.info.tag >= runtime.T_CTOR
   freevars = set() if freevars is None else freevars
   if target.info is interp.prelude._PartApplic.info:
     # A partial application is a value even through it may contain a function
@@ -98,25 +99,25 @@ def N(interp, root, target=None, path=None, freevars=None):
           break
         succ = succ[()]
         tag = succ.info.tag
-        if tag == T_FAIL:
+        if tag == runtime.T_FAIL:
           Node(interp.prelude._Failure, target=root)
           raise E_CONTINUE()
-        elif tag == T_CHOICE:
+        elif tag == runtime.T_CHOICE:
           lift_choice(interp, root, path)
           raise E_CONTINUE()
-        elif tag == T_BIND:
+        elif tag == runtime.T_BIND:
           lift_constr(interp, root, path)
           raise E_CONTINUE()
-        elif tag == T_FREE:
+        elif tag == runtime.T_FREE:
           interp.currentframe.check_freevar_bindings(succ, path, lazy=False)
           freevars.add(succ)
           break
-        elif tag == T_FUNC:
+        elif tag == runtime.T_FUNC:
           try:
             S(interp, succ)
           except E_CONTINUE:
             pass
-        elif tag >= T_CTOR:
+        elif tag >= runtime.T_CTOR:
           _,freevars2 = N(interp, root, succ, path, freevars)
           freevars.update(freevars2)
           break
@@ -128,22 +129,22 @@ def N(interp, root, target=None, path=None, freevars=None):
 
 def hnf(interp, expr, path, typedef=None, values=None):
   assert path
-  assert expr.info.tag == T_FUNC
+  assert expr.info.tag == runtime.T_FUNC
   target = expr[path]
   while True:
     if isinstance(target, icurry.ILiteral):
       return target
     tag = target.info.tag
-    if tag == T_FAIL:
+    if tag == runtime.T_FAIL:
       Node(interp.prelude._Failure, target=expr)
       raise E_CONTINUE()
-    elif tag == T_CHOICE:
+    elif tag == runtime.T_CHOICE:
       lift_choice(interp, expr, path)
       raise E_CONTINUE()
-    elif tag == T_BIND:
+    elif tag == runtime.T_BIND:
       lift_constr(interp, expr, path)
       raise E_CONTINUE()
-    elif tag == T_FREE:
+    elif tag == runtime.T_FREE:
       if typedef is None or typedef is interp.type('Prelude.Int'):
         vid = get_id(target)
         if vid in interp.currentframe.lazy_bindings.read:
@@ -161,7 +162,7 @@ def hnf(interp, expr, path, typedef=None, values=None):
           raise E_RESIDUAL([vid])
       else:
         target = instantiate(interp, expr, path, typedef)
-    elif tag == T_FUNC:
+    elif tag == runtime.T_FUNC:
       try:
         S(interp, target)
       except E_CONTINUE:
@@ -169,9 +170,9 @@ def hnf(interp, expr, path, typedef=None, values=None):
       except E_UPDATE_CONTEXT as cxt:
         replacement = replace_copy(interp, expr, path, cxt.expr)
         raise E_UPDATE_CONTEXT(replacement)
-    elif tag >= T_CTOR:
+    elif tag >= runtime.T_CTOR:
       return target
-    elif tag == T_FWD:
+    elif tag == runtime.T_FWD:
       target = expr[path]
     else:
       assert False

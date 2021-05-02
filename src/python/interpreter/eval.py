@@ -3,7 +3,7 @@ Implements Interpreter.eval.
 '''
 
 from . import conversions
-from ..backends.py import runtime
+from ..backends.py import runtime as pyruntime
 from ..utility.binding import binding
 
 def eval(interp, *args, **kwds):
@@ -27,7 +27,7 @@ def eval(interp, *args, **kwds):
   convert = conversions.getconverter(
       converter if converter != 'default' else interp.flags['defaultconverter']
     )
-  results = runtime.Evaluator(interp, interp.expr(*args)).D()
+  results = pyruntime.Evaluator(interp, interp.expr(*args)).D()
   if convert is None:
     return results
   else:

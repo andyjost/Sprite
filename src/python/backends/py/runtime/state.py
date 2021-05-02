@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from copy import copy
 from .... import exceptions
+from .... import runtime
 from ..sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED
 from ....utility import unionfind
 from ....utility.shared import Shared, compose, DefaultDict
@@ -119,7 +120,7 @@ class Frame(object):
     while queue:
       xid = queue.pop()
       for var in self.bindings.write.pop(xid, []):
-        assert var.info.tag == T_FREE
+        assert var.info.tag == runtime.T_FREE
         vid = get_id(var)
         if vid not in seen_ids:
           seen_ids.add(vid)
@@ -128,7 +129,7 @@ class Frame(object):
     # Look for a variable, the pivot, with a bound generator.  If it is found,
     # equate all variables to it.
     for pivot in equiv_vars:
-      if pivot[1].info.tag == T_CHOICE:
+      if pivot[1].info.tag == runtime.T_CHOICE:
         for var in equiv_vars:
           if var is not pivot:
             if not self.bind(pivot, var):
@@ -144,7 +145,7 @@ class Frame(object):
     Fork a choice-rooted frame into its left and right children.  Yields each
     consistent child.  Recycles ``self``.
     '''
-    assert self.expr[()].info.tag == T_CHOICE
+    assert self.expr[()].info.tag == runtime.T_CHOICE
     cid_,lhs,rhs = self.expr[()]
     cid = self.constraint_store.read.root(cid_)
     if cid in self.bindings.read or cid in self.lazy_bindings.read:
@@ -202,12 +203,12 @@ class Frame(object):
     free and the second is an expression, then a lazy binding is created.  The
     return value indicates whether the binding is consistent.
     '''
-    assert _x.info.tag == _y.info.tag or _x.info.tag == T_FREE
+    assert _x.info.tag == _y.info.tag or _x.info.tag == runtime.T_FREE
     stack = [(_x, _y)]
     while stack:
       x, y = stack.pop()
       x, y = x[()], y[()]
-      if x.info.tag == T_CHOICE:
+      if x.info.tag == runtime.T_CHOICE:
         (x_id, xl, xr), (y_id, yl, yr) = x, y
         x_id, y_id = map(self.constraint_store.read.root, [x_id, y_id])
         if x_id != y_id:
@@ -222,8 +223,8 @@ class Frame(object):
             self.fingerprint[y_id] = LEFT if code<0 else RIGHT
           self.constraint_store.write.unite(x_id, y_id)
           stack.extend([(xr, yr), (xl, yl)])
-      elif x.info.tag == T_FREE:
-        if y.info.tag != T_FREE:
+      elif x.info.tag == runtime.T_FREE:
+        if y.info.tag != runtime.T_FREE:
           # This is a lazy binding.
           x_id, _ = x
           vid = self.constraint_store.read.root(x_id)
@@ -233,7 +234,7 @@ class Frame(object):
           x_id, y_id = map(self.constraint_store.read.root, [x_id, y_id])
           if x_id != y_id:
             # Whether x/y are NOT bound.
-            x_nbnd, y_nbnd = (arg.info.tag == T_CTOR for arg in [x_gen, y_gen])
+            x_nbnd, y_nbnd = (arg.info.tag == runtime.T_CTOR for arg in [x_gen, y_gen])
             if x_nbnd and y_nbnd:
               # Place unbound variables in the binding store.
               bnd = self.bindings.write
@@ -248,10 +249,10 @@ class Frame(object):
                 clone_generator(self.interp, x, y)
                 y_gen = y[1]
               stack.append((x_gen, y_gen))
-      elif x.info.tag >= T_CTOR:
+      elif x.info.tag >= runtime.T_CTOR:
         assert x.info is y.info
         stack.extend(zip(x, y))
-      elif x.info.tag == T_FAIL:
+      elif x.info.tag == runtime.T_FAIL:
         continue
       else:
         raise TypeError('unexpected tag %s' % x.info.tag)

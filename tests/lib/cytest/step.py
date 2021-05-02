@@ -1,6 +1,7 @@
+from curry.backends.py import runtime as pyruntime
 from curry import icurry
+from curry import runtime
 from curry.interpreter.eval import makegoal
-from curry.backends.py import runtime
 from curry.utility.binding import binding
 
 def step(interp, expr, num=1):
@@ -11,18 +12,18 @@ def step(interp, expr, num=1):
   '''
   if not hasattr(expr, 'info') or expr.info.tag >= runtime.T_CTOR:
     expr = makegoal(interp, expr)
-  with binding(interp.__dict__, 'stepcounter', runtime.StepCounter(limit=num)):
+  with binding(interp.__dict__, 'stepcounter', pyruntime.StepCounter(limit=num)):
     try:
       if isinstance(expr, icurry.ILiteral):
         return
       while expr.info.tag == runtime.T_FUNC:
         interp._stepper(expr)
       if expr.info.tag >= runtime.T_CTOR:
-        runtime.N(interp, expr)
+        pyruntime.N(interp, expr)
       else:
         return
       # FIXME: get the termination condition right.  It needs the same
       # check as D to see whether expr is actually a value.
-    except (runtime.E_CONTINUE, runtime.E_STEPLIMIT, runtime.E_RESIDUAL):
+    except (pyruntime.E_CONTINUE, pyruntime.E_STEPLIMIT, pyruntime.E_RESIDUAL):
       pass
 

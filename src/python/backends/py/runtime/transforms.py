@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 from .graph import *
 from .misc import *
+from .... import runtime
 
 __all__ = [
     'clone_generator'
@@ -69,7 +70,7 @@ class Replacer(object):
 def replace(interp, context, path, replacement):
   replacer = Replacer(context, path, lambda _a, _b: replacement)
   replaced = replacer[None]
-  # assert replacer.target.info.tag == T_FREE
+  # assert replacer.target.info.tag == runtime.T_FREE
   # assert context.info == replaced.info
   context.successors[:] = replaced.successors
 
@@ -123,15 +124,15 @@ def _gen_ctors(interp, gen):
   queue = [gen]
   while queue:
     gen = queue.pop()
-    if gen.info.tag == T_CHOICE:
+    if gen.info.tag == runtime.T_CHOICE:
       queue.extend([gen[2], gen[1]])
     else:
-      if gen.info.tag >= T_CTOR:
+      if gen.info.tag >= runtime.T_CTOR:
         yield gen.info
       else:
         # For types with one constructor, the generator is a choice between
         # that constructor and a failure.
-        assert gen.info.tag == T_FAIL
+        assert gen.info.tag == runtime.T_FAIL
 
 def clone_generator(interp, bound, unbound):
   vid = unbound[0]
@@ -155,7 +156,7 @@ def get_generator(interp, freevar, typedef):
       ``InfoTables``.  If the free variable has already been instantiated, then
       this can be None.
   '''
-  assert freevar.info.tag == T_FREE
+  assert freevar.info.tag == runtime.T_FREE
   vid = freevar[0]
   if freevar[1].info is interp.prelude.Unit.info:
     constructors = [
@@ -193,7 +194,7 @@ def instantiate(interp, context, path, typedef):
     , lambda node, _: get_generator(interp, node, typedef)
     )
   replaced = replacer[None]
-  assert replacer.target.info.tag == T_FREE
+  assert replacer.target.info.tag == runtime.T_FREE
   assert context.info == replaced.info
   context.successors[:] = replaced.successors
   return replacer.target[1]
@@ -215,14 +216,14 @@ def lift_choice(interp, source, path):
       A sequence of integers giving the path from ``source`` to the target
       choice or constraint.
   '''
-  assert source.info.tag < T_CTOR
+  assert source.info.tag < runtime.T_CTOR
   assert path
   # if source.info is interp.prelude.ensureNotFree.info:
   #   raise RuntimeError("non-determinism in I/O actions occurred")
   replacer = Replacer(source, path)
   left = replacer[1]
   right = replacer[2]
-  assert replacer.target.info.tag == T_CHOICE
+  assert replacer.target.info.tag == runtime.T_CHOICE
   Node(
       interp.prelude._Choice
     , replacer.target[0] # choice ID
@@ -249,11 +250,11 @@ def lift_constr(interp, source, path):
       A sequence of integers giving the path from ``source`` to the target
       choice or constraint.
   '''
-  assert source.info.tag < T_CTOR
+  assert source.info.tag < runtime.T_CTOR
   assert path
   replacer = Replacer(source, path)
   value = replacer[0]
-  assert replacer.target.info.tag == T_BIND
+  assert replacer.target.info.tag == runtime.T_BIND
   Node(
       replacer.target.info
     , value

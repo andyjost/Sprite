@@ -1,4 +1,4 @@
-from ..backends.py import runtime
+from .. import runtime
 from ..utility import visitation
 
 # Apply special formatting for unboxed literals; e.g., 1# is an unboxed Int

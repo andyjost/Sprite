@@ -1,6 +1,6 @@
-from . import api as runtime
 from .... import icurry
 from .... import inspect
+from .... import runtime
 from . import prelude_impl as impl
 from . import typecheckers as tc
 import math

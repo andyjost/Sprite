@@ -3,7 +3,7 @@ Implementation of the Prelude externals.
 '''
 from ....exceptions import *
 from .... import inspect
-from .. import runtime
+from .... import runtime
 from ....interpreter import conversions
 from ....utility.unboxed import unboxed
 import collections
@@ -12,13 +12,19 @@ import logging
 import operator as op
 import re
 
+from .exceptions import *
+from .fairscheme import N, hnf
+from .graph import Node
+from .misc import get_id, freshvar_gen
+from .transforms import get_generator
+
 logger = logging.getLogger(__name__)
 
 def hnf_or_free(interp, root, index):
   '''Reduce the expression to head normal form or a free variable.'''
   try:
     return interp.hnf(root, [index])
-  except runtime.E_RESIDUAL:
+  except E_RESIDUAL:
     # The argument could be a free variable or an expression containing a free
     # variable that cannot be narrowed, such as "ensureNotFree x".
     expr = root[index]
@@ -38,7 +44,7 @@ def algebraic_substitution(prim_func_name=None):
         #     eqInt x y = (prim_eqInt $# x) $# y
         assert len(root)
         conj = getattr(interp.prelude, '$#')
-        args = reduce(lambda l, r: runtime.Node(conj, l, r), root)
+        args = reduce(lambda l, r: Node(conj, l, r), root)
         prim_func = getattr(interp.prelude, fname)
         return itertools.chain([prim_func.info], args)
     return replacement
@@ -48,7 +54,7 @@ def algebraic_substitution(prim_func_name=None):
 def eqInt(interp, root):
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
-    raise runtime.E_RESIDUAL(map(runtime.get_id, [lhs, rhs]))
+    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
   elif inspect.isa_freevar(interp, lhs):
     yield interp.integer.narrowEqInt
     yield lhs
@@ -64,7 +70,7 @@ def eqInt(interp, root):
 def ltEqInt(interp, root):
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
-    raise runtime.E_RESIDUAL(map(runtime.get_id, [lhs, rhs]))
+    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
   elif inspect.isa_freevar(interp, lhs):
     yield interp.integer.narrowLtEqInt
     yield lhs
@@ -80,7 +86,7 @@ def ltEqInt(interp, root):
 def plusInt(interp, root):
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
-    raise runtime.E_RESIDUAL(map(runtime.get_id, [lhs, rhs]))
+    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
   elif inspect.isa_freevar(interp, lhs):
     yield interp.integer.narrowPlusInt
     yield lhs
@@ -96,7 +102,7 @@ def plusInt(interp, root):
 def minusInt(interp, root):
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
-    raise runtime.E_RESIDUAL(map(runtime.get_id, [lhs, rhs]))
+    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
   elif inspect.isa_freevar(interp, lhs):
     yield interp.integer.narrowMinusInt
     yield lhs
@@ -112,7 +118,7 @@ def minusInt(interp, root):
 def timesInt(interp, root):
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
-    raise runtime.E_RESIDUAL(map(runtime.get_id, [lhs, rhs]))
+    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
   elif inspect.isa_freevar(interp, lhs):
     yield interp.integer.narrowTimesInt
     yield lhs
@@ -128,7 +134,7 @@ def timesInt(interp, root):
 def divInt(interp, root):
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
-    raise runtime.E_RESIDUAL(map(runtime.get_id, [lhs, rhs]))
+    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
   elif inspect.isa_freevar(interp, lhs):
     yield interp.integer.narrowDivInt
     yield lhs
@@ -144,7 +150,7 @@ def divInt(interp, root):
 def modInt(interp, root):
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
-    raise runtime.E_RESIDUAL(map(runtime.get_id, [lhs, rhs]))
+    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
   elif inspect.isa_freevar(interp, lhs):
     yield interp.integer.narrowModInt
     yield lhs
@@ -161,7 +167,7 @@ def modInt(interp, root):
 def quotInt(interp, root):
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
-    raise runtime.E_RESIDUAL(map(runtime.get_id, [lhs, rhs]))
+    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
   elif inspect.isa_freevar(interp, lhs):
     yield interp.integer.narrowQuotInt
     yield lhs
@@ -178,7 +184,7 @@ def quotInt(interp, root):
 def remInt(interp, root):
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
-    raise runtime.E_RESIDUAL(map(runtime.get_id, [lhs, rhs]))
+    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
   elif inspect.isa_freevar(interp, lhs):
     yield interp.integer.narrowRemInt
     yield lhs
@@ -233,8 +239,8 @@ def constr_eq(interp, root):
           assert arity == rhs.info.arity
           if arity:
             conj = getattr(interp.prelude, '&')
-            terms = (runtime.Node(root.info, l, r) for l,r in zip(lhs, rhs))
-            expr = reduce((lambda a,b: runtime.Node(conj, a, b)), terms)
+            terms = (Node(root.info, l, r) for l,r in zip(lhs, rhs))
+            expr = reduce((lambda a,b: Node(conj, a, b)), terms)
             yield expr.info
             for succ in expr:
               yield succ
@@ -280,8 +286,8 @@ def nonstrict_eq(interp, root):
           assert arity == rhs.info.arity
           if arity:
             conj = getattr(interp.prelude, '&')
-            terms = (runtime.Node(root.info, l, r) for l,r in zip(lhs, rhs))
-            expr = reduce((lambda a,b: runtime.Node(conj, a, b)), terms)
+            terms = (Node(root.info, l, r) for l,r in zip(lhs, rhs))
+            expr = reduce((lambda a,b: Node(conj, a, b)), terms)
             yield expr.info
             for succ in expr:
               yield succ
@@ -326,7 +332,7 @@ def concurrent_and(interp, root):
 
     try:
       e = interp.hnf(root, [i], typedef=Bool)
-    except runtime.E_RESIDUAL as errs[i]:
+    except E_RESIDUAL as errs[i]:
       if errs[1-i] and interp.stepcounter.count == stepnumber:
         raise
     else:
@@ -352,7 +358,7 @@ def apply(interp, lhs):
   else:
     yield partapplic
     yield missing-1
-    yield runtime.Node(term, *(term.successors+[arg]), partial=True)
+    yield Node(term, *(term.successors+[arg]), partial=True)
 
 def cond(interp, lhs):
   interp.hnf(lhs, [0]) # normalize the Boolean argument.
@@ -372,7 +378,7 @@ def choice(interp, lhs):
   yield lhs[1]
 
 def freshvar(interp, lhs):
-  return runtime.freshvar_gen(interp)
+  return freshvar_gen(interp)
 
 def error(interp, msg):
   msg = str(interp.topython(msg))
@@ -584,7 +590,7 @@ def returnIO(interp, a):
 def putChar(interp, a):
   interp.stdout.write(conversions.unbox(interp, a))
   yield interp.prelude.IO
-  yield runtime.Node(interp.prelude.Unit)
+  yield Node(interp.prelude.Unit)
 
 def getChar(interp):
   yield interp.prelude.Char
@@ -630,15 +636,15 @@ def apply_hnf(interp, root):
 def normalize(interp, root, path, ground):
   '''Used to implement $!! and $##.'''
   try:
-    runtime.hnf(interp, root, path)
-  except runtime.E_RESIDUAL:
+    hnf(interp, root, path)
+  except E_RESIDUAL:
     if ground:
       raise
     else:
       return root[path]
-  target, freevars = runtime.N(interp, root, path=path)
+  target, freevars = N(interp, root, path=path)
   if ground and freevars:
-    raise runtime.E_RESIDUAL(freevars)
+    raise E_RESIDUAL(freevars)
   return target
 
 def apply_nf(interp, root):
@@ -655,11 +661,11 @@ def ensureNotFree(interp, root):
   # Substitute the binding, if one exists or head-normalize the argument.
   expr = root[0]
   if inspect.isa_freevar(interp, expr):
-    vid = runtime.get_id(expr)
+    vid = get_id(expr)
     if vid in interp.currentframe.fingerprint:
       # Return the binding.
       yield interp.prelude._Fwd
-      yield runtime.get_generator(interp, expr, None)
+      yield get_generator(interp, expr, None)
       return
 
   # Otherwise, reduce the argument to hnf.

@@ -1,22 +1,12 @@
 from __future__ import absolute_import
 from .... import icurry
+from .... import runtime
 from ....utility import visitation
 import collections
 import numbers
 import operator
 
-__all__ = [
-    'T_FAIL', 'T_BIND', 'T_FREE', 'T_FWD', 'T_CHOICE', 'T_FUNC', 'T_CTOR'
-  , 'InfoTable', 'Node'
-  ]
-
-T_FAIL   = -6
-T_BIND   = -5
-T_FREE   = -4
-T_FWD    = -3
-T_CHOICE = -2
-T_FUNC   = -1
-T_CTOR   =  0 # for each type, ctors are numbered starting at zero.
+__all__ = ['InfoTable', 'Node']
 
 class InfoTable(object):
   '''
@@ -112,8 +102,8 @@ class Node(object):
     target = kwds.get('target', None)
     # This assert is only valid when direct_var_binding is False.
     # assert target is None or \
-    #        target.info.tag == T_FUNC or \
-    #        (target.info.tag == T_FREE == info.tag)
+    #        target.info.tag == runtime.T_FUNC or \
+    #        (target.info.tag == runtime.T_FREE == info.tag)
     self = object.__new__(cls) if target is None else target
     self.info = info
     successors = list(args)
@@ -171,7 +161,7 @@ class Node(object):
       # "path" argument to hnf, for instance.  The lower-level
       # __getitem__ methods still need to accept free variables so that, e.g.,
       # _Freevar_get_constructors can be implemented.
-      assert node.info.tag != T_FREE or (not i and i != 0)
+      assert node.info.tag != runtime.T_FREE or (not i and i != 0)
       return node[i]
     elif not i and i != 0: # empty sequence.
       assert isinstance(node, icurry.ILiteral)
@@ -186,7 +176,7 @@ class Node(object):
     will be short-cut to point to the target.  This succeeds for all types, so
     it is safe to pass an unboxed value.
     '''
-    if hasattr(arg, 'info') and arg.info.tag == T_FWD:
+    if hasattr(arg, 'info') and arg.info.tag == runtime.T_FWD:
       target = arg.successors[0] = Node._skipfwd(arg.successors[0])
       return target
     return arg
@@ -224,4 +214,7 @@ class Node(object):
 
   def rewrite(self, info, *args):
     Node(info, *args, target=self)
+
+runtime.Node.register(Node)
+runtime.InfoTable.register(InfoTable)
 

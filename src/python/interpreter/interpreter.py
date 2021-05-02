@@ -1,7 +1,7 @@
 '''
 A pure-Python Curry interpreter.
 '''
-from ..backends.py import runtime
+from ..backends.py import runtime as pyruntime
 from .. import config
 from .. import exceptions
 from .. import icurry
@@ -53,8 +53,8 @@ class Interpreter(object):
       , 'algebraic_substitution':False
       }
     self.flags.update(flags)
-    self._stepper = runtime.get_stepper(self)
-    self.stepcounter = runtime.StepCounter()
+    self._stepper = pyruntime.get_stepper(self)
+    self.stepcounter = pyruntime.StepCounter()
     self.modules = {}
     self.path = []
     self.reset() # set remaining attributes.
@@ -100,7 +100,7 @@ class Interpreter(object):
       if name in self.automodules:
         return self.import_(name)
       raise exceptions.ModuleLookupError('Curry module %r not found' % name)
-  
+
   def symbol(self, name, modulename=None):
     '''
     Look up a symbol by its fully-qualified name or by its name relative to a
@@ -111,7 +111,7 @@ class Interpreter(object):
     moduleobj = self.module(modulename)
     symbolgetter = getattr(moduleobj, '.getsymbol')
     return symbolgetter(name)
-  
+
   def type(self, name):
     '''Returns the constructor info tables for the named type.'''
     modulename, name = icurry.splitname(name)

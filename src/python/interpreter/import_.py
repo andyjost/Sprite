@@ -1,5 +1,6 @@
-from ..backends.py import compiler
-from ..backends.py import runtime
+from ..backends.py import compiler as pycompiler
+from ..backends.py import runtime as pyruntime
+from .. import runtime
 from .. import config
 from .. import icurry
 from .. import importer
@@ -109,7 +110,7 @@ def loadSymbols(
   # For builtins, the 'py.tag' metadata contains the tag.
   builtin = 'py.tag' in icons.metadata
   metadata = icurry.getmd(icons, extern, itype=itype)
-  info = runtime.InfoTable(
+  info = pyruntime.InfoTable(
       icons.name
     , icons.arity
     , runtime.T_CTOR + icons.index if not builtin else metadata['py.tag']
@@ -124,7 +125,7 @@ def loadSymbols(
 @loadSymbols.when(icurry.IFunction)
 def loadSymbols(interp, ifun, moduleobj, extern=None):
   metadata = icurry.getmd(ifun, extern)
-  info = runtime.InfoTable(
+  info = pyruntime.InfoTable(
       ifun.name
     , ifun.arity
     , runtime.T_FUNC
@@ -230,11 +231,11 @@ def compileICurry(interp, ifun, moduleobj, extern=None):
       ifun.modulename != config.interactive_modname():
     # Delayed.
     info.step = LazyFunction(
-        compiler.compile_function, interp, ifun, extern
+        pycompiler.compile_function, interp, ifun, extern
       )
   else:
     # Immediate.
-    info.step = compiler.compile_function(interp, ifun, extern)
+    info.step = pycompiler.compile_function(interp, ifun, extern)
 
 def _no_step(*args, **kwds):
   pass
