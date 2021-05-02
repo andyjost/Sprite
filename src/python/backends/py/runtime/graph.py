@@ -6,7 +6,16 @@ import collections
 import numbers
 import operator
 
-__all__ = ['InfoTable', 'Node']
+__all__ = [
+    'InfoTable'
+  , 'Node'
+  , 'lift_choice'
+  , 'lift_constr'
+  , 'replace'
+  , 'replace_copy'
+  , 'Replacer'
+  , 'rewrite'
+  ]
 
 class InfoTable(object):
   '''
@@ -218,3 +227,128 @@ class Node(object):
 runtime.Node.register(Node)
 runtime.InfoTable.register(InfoTable)
 
+class Replacer(object):
+  '''
+  Performs replacements in a context.
+
+  For context C and path p, this object returns shallow copies of C in which
+  the target, C[p], is replaced.  Given replacer R with getter g, the
+  expression R[i] returns C[p] <- g(C[p], i).  The copy is minimal, meaning
+  new nodes are allocated only along the spine.
+
+  The default getter is just getitem, so it will return a successor of the
+  target.  This is handy when the target is a choice, since R[1], R[2] will
+  return a copy of the expression with the left and right alternatives,
+  respectively, in place (note: the zeroth successor is the choice ID).
+
+  A custom getter can be used to construct any replacement desired.
+  '''
+  def __init__(self, context, path, getter=Node.__getitem__):
+    self.context = context
+    self.path = path
+    self.target = None # has value after first __getitem__
+    self.getter = getter
+
+  def _a_(self, node, depth=0):
+    '''Recurse along the spine.  At the target, call the getter.'''
+    if depth < len(self.path):
+      return Node(*self._b_(node, depth))
+    else:
+      assert self.target is None or self.target is node
+      self.target = node
+      return self.getter(node, self.index)
+
+  def _b_(self, node, depth):
+    '''
+    Perform a shallow copy at one node.  Recurse along the spine; reference
+    subexpressions not on the spine.
+    '''
+    pos = self.path[depth]
+    yield node.info
+    for j,_ in enumerate(node.successors):
+      if j == pos:
+        yield self._a_(node[j], depth+1) # spine
+      else:
+        yield node[j] # not spine
+
+  def __getitem__(self, i):
+    self.index = i
+    return self._a_(self.context)
+
+def lift_choice(interp, source, path):
+  '''
+  Executes a pull-tab step with source ``source`` and choice-rooted target
+  ``source[path]``.
+
+  Parameters:
+  -----------
+    ``interp``
+      The Curry interpreter.
+
+    ``source``
+      The pull-tab source.  This node will be overwritten with a choice symbol.
+
+    ``path``
+      A sequence of integers giving the path from ``source`` to the target
+      choice or constraint.
+  '''
+  assert source.info.tag < runtime.T_CTOR
+  assert path
+  # if source.info is interp.prelude.ensureNotFree.info:
+  #   raise RuntimeError("non-determinism in I/O actions occurred")
+  replacer = Replacer(source, path)
+  left = replacer[1]
+  right = replacer[2]
+  assert replacer.target.info.tag == runtime.T_CHOICE
+  Node(
+      interp.prelude._Choice
+    , replacer.target[0] # choice ID
+    , left
+    , right
+    , target=source
+    )
+
+def lift_constr(interp, source, path):
+  '''
+  Executes a pull-tab step with source ``source`` and constraint-rooted target
+  ``source[path]``.
+
+  Parameters:
+  -----------
+    ``interp``
+      The Curry interpreter.
+
+    ``source``
+      The pull-tab source.  This node will be overwritten with a constraint
+      symbol.
+
+    ``path``
+      A sequence of integers giving the path from ``source`` to the target
+      choice or constraint.
+  '''
+  assert source.info.tag < runtime.T_CTOR
+  assert path
+  replacer = Replacer(source, path)
+  value = replacer[0]
+  assert replacer.target.info.tag == runtime.T_BIND
+  Node(
+      replacer.target.info
+    , value
+    , replacer.target[1] # binding
+    , target=source
+    )
+
+def replace(interp, context, path, replacement):
+  replacer = Replacer(context, path, lambda _a, _b: replacement)
+  replaced = replacer[None]
+  # assert replacer.target.info.tag == runtime.T_FREE
+  # assert context.info == replaced.info
+  context.successors[:] = replaced.successors
+
+def replace_copy(interp, context, path, replacement):
+  copy = context.copy()
+  replace(interp, copy, path, replacement)
+  return copy
+
+def rewrite(node, info, *args):
+  return node.rewrite(info, *args)

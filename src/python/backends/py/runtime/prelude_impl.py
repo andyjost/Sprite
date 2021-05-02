@@ -12,10 +12,9 @@ import logging
 import operator as op
 import re
 
-from .fairscheme import N, hnf
+from .fairscheme import N, hnf, instance
 from .graph import Node
 from .misc import get_id, freshvar_gen, E_RESIDUAL
-from .transforms import get_generator
 
 logger = logging.getLogger(__name__)
 
@@ -664,7 +663,7 @@ def ensureNotFree(interp, root):
     if vid in interp.currentframe.fingerprint:
       # Return the binding.
       yield interp.prelude._Fwd
-      yield get_generator(interp, expr, None)
+      yield instance.get_generator(interp, expr, None)
       return
 
   # Otherwise, reduce the argument to hnf.

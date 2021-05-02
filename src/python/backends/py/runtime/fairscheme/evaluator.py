@@ -1,15 +1,15 @@
 from __future__ import absolute_import
 from copy import copy
-from .... import exceptions
-from .... import runtime
-from ..sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED
-from ....utility import unionfind
-from ....utility.shared import Shared, compose, DefaultDict
+from ..... import exceptions
+from ..... import runtime
+from ...sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED
+from .....utility import unionfind
+from .....utility.shared import Shared, compose, DefaultDict
 import collections
 
-from .graph import *
-from .misc import *
-from .transforms import *
+from ..graph import *
+from ..misc import *
+from .instance import *
 
 __all__ = ['Evaluator', 'Frame', 'Fingerprint', 'LEFT', 'RIGHT', 'UNDETERMINED']
 
@@ -34,7 +34,7 @@ class Evaluator(object):
       )
 
   def D(self, *args, **kwds):
-    from .fairscheme import D
+    from . import D
     return D(self, *args, **kwds)
 
   def _handle_frame_if_blocked(self, frame):

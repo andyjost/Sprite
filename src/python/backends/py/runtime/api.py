@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 from .fairscheme import D, N, S, hnf
-from .state import Evaluator, Frame, LEFT, RIGHT, UNDETERMINED
-from .transforms import Replacer, replace, replace_copy, rewrite, get_generator
+from .fairscheme.instance import get_generator
+from .fairscheme.evaluator import Evaluator, Frame, LEFT, RIGHT, UNDETERMINED
 from .graph import *
 from .misc import *
 from .... import runtime
@@ -14,10 +14,20 @@ __all__ = [
   , 'N'
   , 'S'
   , 'hnf'
+  , 'Evaluator'
+  , 'Frame'
+  , 'LEFT'
+  , 'RIGHT'
+  , 'UNDETERMINED'
+  , 'get_generator'
 
   # From graph.
   , 'InfoTable'
   , 'Node'
+  , 'Replacer'
+  , 'replace'
+  , 'replace_copy'
+  , 'rewrite'
 
   # From misc.
   , 'freshvar'
@@ -32,21 +42,6 @@ __all__ = [
   , 'E_RESIDUAL'
   , 'E_STEPLIMIT'
   , 'E_UPDATE_CONTEXT'
-
-
-  # From state.
-  , 'Evaluator'
-  , 'Frame'
-  , 'LEFT'
-  , 'RIGHT'
-  , 'UNDETERMINED'
-
-  # From transforms.
-  , 'get_generator'
-  , 'Replacer'
-  , 'replace'
-  , 'replace_copy'
-  , 'rewrite'
   ]
 
 class Runtime(runtime.Runtime):

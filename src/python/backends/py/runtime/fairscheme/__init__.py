@@ -1,12 +1,11 @@
-from .... import icurry
-from .... import runtime
-from .transforms import *
-from ..sprite import LEFT, RIGHT, UNDETERMINED
+from ..... import icurry
+from ..... import runtime
+from ...sprite import LEFT, RIGHT, UNDETERMINED
 
-from .graph import *
-from .misc import *
-from .import state
-from .transforms import *
+from ..graph import *
+from ..misc import *
+from .evaluator import Frame
+from . import instance
 
 __all__ = ['D', 'N', 'S', 'hnf']
 
@@ -162,7 +161,7 @@ def hnf(interp, expr, path, typedef=None, values=None):
         else:
           raise E_RESIDUAL([vid])
       else:
-        target = instantiate(interp, expr, path, typedef)
+        target = instance.instantiate(interp, expr, path, typedef)
     elif tag == runtime.T_FUNC:
       try:
         S(interp, target)
@@ -252,7 +251,7 @@ def fork(frame):
         )
     yield frame
   else: # Undecided, so two children.
-    lchild = state.Frame(expr=lhs, clone=frame)
+    lchild = Frame(expr=lhs, clone=frame)
     if frame.interp.flags['trace']:
       print '? ::: %s, %sL >> %x, %sR >> %x' % (
           frame.show_cid(cid_, cid), cid, id(lchild), cid, id(frame)
@@ -318,10 +317,10 @@ def bind(self, _x, _y):
           else:
             # Continue binding recursively.
             if x_nbnd:
-              clone_generator(self.interp, y, x)
+              instance.clone_generator(self.interp, y, x)
               x_gen = x[1]
             elif y_nbnd:
-              clone_generator(self.interp, x, y)
+              instance.clone_generator(self.interp, x, y)
               y_gen = y[1]
             stack.append((x_gen, y_gen))
     elif x.info.tag >= runtime.T_CTOR:
