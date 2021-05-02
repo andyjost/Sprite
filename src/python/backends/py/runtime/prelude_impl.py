@@ -12,10 +12,9 @@ import logging
 import operator as op
 import re
 
-from .exceptions import *
 from .fairscheme import N, hnf
 from .graph import Node
-from .misc import get_id, freshvar_gen
+from .misc import get_id, freshvar_gen, E_RESIDUAL
 from .transforms import get_generator
 
 logger = logging.getLogger(__name__)

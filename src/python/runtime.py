@@ -22,7 +22,6 @@ T_CHOICE = -2
 T_FUNC   = -1
 T_CTOR   =  0 # for each type, ctors are numbered starting at zero.
 
-
 class Runtime(object):
   '''Abstract interface for a runtime system.'''
   __metaclass__ = abc.ABCMeta

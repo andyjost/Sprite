@@ -7,7 +7,6 @@ from ....utility import unionfind
 from ....utility.shared import Shared, compose, DefaultDict
 import collections
 
-from .exceptions import *
 from .fairscheme import *
 from .graph import *
 from .misc import *

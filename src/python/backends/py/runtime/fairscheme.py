@@ -2,7 +2,6 @@ from .... import icurry
 from .... import runtime
 from .transforms import *
 
-from .exceptions import *
 from .graph import *
 from .misc import *
 from .transforms import *
