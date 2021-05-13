@@ -2,7 +2,6 @@
 Inspect live Curry objects.
 '''
 
-from .backends.py import runtime as pyruntime
 from . import config
 from . import context
 from . import objects
@@ -106,7 +105,7 @@ def is_boxed(interp, node):
   return isinstance(node, context.Node)
 
 def get_id(interp, arg):
-  return pyruntime.get_id(arg)
+  return interp.context.runtime.get_id(arg)
 
 def _getfile(moduleobj, suffixes):
   if moduleobj.__file__:

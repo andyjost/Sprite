@@ -1,21 +1,22 @@
 '''
 A pure-Python Curry interpreter.
 '''
-from ..backends.py import runtime as pyruntime
+
 from .. import config
 from .. import context
 from .. import exceptions
 from .. import icurry
 from . import import_
 from .. import objects
+from .. import utility
 import itertools
 import logging
 import os
 import sys
 
-
 logger = logging.getLogger(__name__)
 
+@utility.formatDocstring(config.default_backend())
 class Interpreter(object):
   '''
   A Curry interpreter.
@@ -46,7 +47,7 @@ class Interpreter(object):
       ``direct_var_binding`` (True|*False*)
           [Experimental] Implements constraints by directly binding variables
           to expressions.
-  '''.format(config.default_backend())
+  '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self.flags = {
@@ -57,8 +58,8 @@ class Interpreter(object):
       }
     self.flags.update(flags)
     self._context = context.Context(self.flags['backend'])
-    self._stepper = pyruntime.get_stepper(self)
-    self.stepcounter = pyruntime.StepCounter()
+    self._stepper = self.context.runtime.get_stepper(self)
+    self.stepcounter = self.context.runtime.get_step_counter()
     self.modules = {}
     self.path = []
     self.reset() # set remaining attributes.

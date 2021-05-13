@@ -53,12 +53,18 @@ class Runtime(context.Runtime):
     from . import prelude
     return prelude
 
+  @property
   def get_stepper(self):
-    return get_stepper()
+    return get_stepper
 
+  @property
   def get_step_counter(self):
-    return StepCounter()
+    return StepCounter
 
-  def evaluate(self, interp, goal):
-    assert isinstance(interp.context.runtime, Runtime)
-    return Evaluator(interp, goal).evaluate()
+  @property
+  def evaluate(self):
+    return lambda *args, **kwds: Evaluator(*args, **kwds).evaluate()
+
+  @property
+  def get_id(self):
+    return get_id

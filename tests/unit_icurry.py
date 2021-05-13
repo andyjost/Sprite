@@ -31,7 +31,7 @@ class ICurryTestCase(cytest.TestCase):
       del sys.modules['curry.lib.helloExternal']
     except KeyError:
       pass
-    with capture_log('curry.backends.py.compiler') as log \
+    with capture_log('curry.backends.py.compiler.compile') as log \
        , binding(curry.flags, 'lazycompile', False):
       from curry.lib import helloExternal
     log.checkMessages(self, warning='external function "helloExternal.undef" is not defined')

@@ -3,7 +3,7 @@ Functions for working with Curry expresions.  Handles conversions between Curry
 and Python.
 '''
 
-from ..backends.py import runtime as pyruntime
+from .. import context
 from .. import inspect
 from .. import objects
 from .. import utility
@@ -67,7 +67,9 @@ def expr(interp, arg, *args, **kwds):
 @expr.when(str) # Char or [Char].
 def expr(interp, arg, *args, **kwds):
   if len(arg) == 1:
-    return pyruntime.Node(interp.prelude.Char, str(arg), *args, **kwds)
+    return interp.context.runtime.Node(
+        interp.prelude.Char, str(arg), *args, **kwds
+      )
   else:
     return expr(interp, list(arg), *args, **kwds)
 
@@ -93,23 +95,29 @@ def expr(interp, args, **kwds):
     raise TypeError("Curry has no 1-tuple.")
   else:
     typename = 'Prelude.(%s)' % (','*(n-1))
-  return pyruntime.Node(interp.symbol(typename), *map(interp.expr,args), **kwds)
+  return interp.context.runtime.Node(
+      interp.symbol(typename), *map(interp.expr,args), **kwds
+    )
 
 @expr.when(bool)
 def expr(interp, arg, **kwds):
   target = kwds.get('target', None)
   if arg:
-    return pyruntime.Node(interp.prelude.True, target=target)
+    return interp.context.runtime.Node(interp.prelude.True, target=target)
   else:
-    return pyruntime.Node(interp.prelude.False, target=target)
+    return interp.context.runtime.Node(interp.prelude.False, target=target)
 
 @expr.when(numbers.Integral)
 def expr(interp, arg, target=None):
-  return pyruntime.Node(interp.prelude.Int, int(arg), target=target)
+  return interp.context.runtime.Node(
+      interp.prelude.Int, int(arg), target=target
+    )
 
 @expr.when(numbers.Real)
 def expr(interp, arg, target=None):
-  return pyruntime.Node(interp.prelude.Float, float(arg), target=target)
+  return interp.context.runtime.Node(
+      interp.prelude.Float, float(arg), target=target
+    )
 
 @expr.when(unboxed)
 def expr(interp, arg, target=None):
@@ -120,29 +128,37 @@ def expr(interp, arg, target=None):
 @expr.when(collections.Iterator)
 def expr(interp, arg, target=None):
   pygen = interp.prelude._PyGenerator
-  return pyruntime.Node(pygen, arg, target=target)
+  return interp.context.runtime.Node(pygen, arg, target=target)
 
 @expr.when(objects.CurryNodeLabel)
 def expr(interp, ti, *args, **kwds):
   target = kwds.get('target', None)
   missing =  ti.info.arity - len(args)
   if missing > 0:
-    partial = pyruntime.Node(ti, *map(lambda s: expr(interp, s), args), partial=True)
+    partial = interp.context.runtime.Node(
+        ti, *map(lambda s: expr(interp, s), args), partial=True
+      )
     # note: "missing" an unboxed int by design.
-    return pyruntime.Node(interp.prelude._PartApplic, missing, partial, target=target)
+    return interp.context.runtime.Node(
+        interp.prelude._PartApplic, missing, partial, target=target
+      )
   else:
-    return pyruntime.Node(ti, *map(lambda s: expr(interp, s), args), target=target)
+    return interp.context.runtime.Node(
+        ti, *map(lambda s: expr(interp, s), args), target=target
+      )
 
-@expr.when(pyruntime.Node)
+@expr.when(context.Node)
 def expr(interp, node, target=None):
   if target is not None:
-    return pyruntime.Node(interp.prelude._Fwd, node, target=target)
+    return interp.context.runtime.Node(
+        interp.prelude._Fwd, node, target=target
+      )
   return node
 
 def unbox(interp, arg):
   '''Unbox a built-in primitive or IO type.'''
   if interp.flags['debug']:
-    assert isinstance(arg, pyruntime.Node)
+    assert isinstance(arg, context.Node)
     assert inspect.isa_primitive(interp, arg) or inspect.isa_io(interp, arg)
   return arg[0]
 

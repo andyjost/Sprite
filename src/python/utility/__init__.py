@@ -4,9 +4,15 @@ import re
 __all__ = ['formatDocstring', 'isLegalModulename', 'removeSuffix']
 
 def formatDocstring(*args, **kwds):
-  def decorator(f):
-    f.__doc__ = f.__doc__.format(*args, **kwds)
-    return f
+  def decorator(arg):
+    if isinstance(arg, type):
+      return type.__new__(
+          type(arg), arg.__name__, (arg,)
+        , {'__doc__': arg.__doc__.format(*args, **kwds)}
+        )
+    else:
+      arg.__doc__ = arg.__doc__.format(*args, **kwds)
+      return arg
   return decorator
 
 g_ident = re.compile(r'[_a-zA-Z][_a-zA-Z0-9]*$')

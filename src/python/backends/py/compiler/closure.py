@@ -3,8 +3,8 @@ Defines a closure to use in dynamic code.  A closure associates compile-time obj
 with name at run-time.
 '''
 
-from ... import objects
-from ...utility import encoding
+from .... import objects
+from ....utility import encoding
 
 __all__ = ['Closure']
 

@@ -71,18 +71,24 @@ class Runtime(object):
   def prelude(self):
     assert 0
 
-  @abc.abstractmethod
+  @abc.abstractproperty
   def get_stepper(self):
     assert 0
 
-  @abc.abstractmethod
+  @abc.abstractproperty
   def get_step_counter(self):
     assert 0
 
-  @abc.abstractmethod
-  def evaluate(self, interp, goal):
+  @abc.abstractproperty
+  def evaluate(self):
     assert 0
 
+  @abc.abstractproperty
+  def get_id(self):
+    '''
+    If ``arg`` is a choice or variable, return its ID.  Otherwise, return None.
+    '''
+    assert 0
 
 # Each backend must provide a Node object and register it with this class.
 class Node(object):
@@ -102,10 +108,14 @@ class Compiler(object):
   def __new__(cls, backend='py'):
     # Each backend must implement this class at
     # backends/<name>/compiler.api.Compiler.
-    # if cls is Runtime:
-    #   currypkg = config.python_package_name()
-    #   api = importlib.import_module('%s.backends.%s.compiler.api' % (currypkg, backend))
-    #   return api.Compiler()
-    # else:
+    if cls is Compiler:
+      currypkg = config.python_package_name()
+      api = importlib.import_module('%s.backends.%s.compiler.api' % (currypkg, backend))
+      return api.Compiler()
+    else:
       return object.__new__(cls)
+
+  @abc.abstractproperty
+  def compile_function(self):
+    assert 0
 

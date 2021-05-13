@@ -1,10 +1,11 @@
-from ...icurry import analysis
+from ....icurry import analysis
 from . import closure
-from ... import icurry
-from . import runtime
-from .runtime import prelude_impl
-from ...utility import encoding, visitation, formatDocstring
-from ...utility import filesys
+from . import render
+from .... import icurry
+from .. import runtime
+from ..runtime import prelude_impl
+from ....utility import encoding, visitation, formatDocstring
+from ....utility import filesys
 import collections
 import logging
 import pprint
@@ -151,7 +152,7 @@ class FunctionCompiler(object):
   def get(self):
     '''Returns the compiled step function.'''
     local = {}
-    source = render(self.program)
+    source = render.render(self.program)
     if self.interp.flags['debug']:
       # If debugging, write a source file so that PDB can step into this
       # function.
@@ -190,7 +191,7 @@ class FunctionCompiler(object):
     lines += [fmt % item for item in sorted(self.closure.context.items())]
     lines += ['', 'Code:'
                 , '-----']
-    lines += indent(self.program)
+    lines += render.indent(self.program)
     return '\n'.join(lines)
 
   def compile(self, iobj):
@@ -430,33 +431,4 @@ def casetype(interp, _):
 @casetype.when(icurry.IFloat)
 def casetype(interp, _):
   return interp.type('Prelude.Float')
-
-# Rendering.
-# ==========
-@visitation.dispatch.on('arg')
-def indent(arg, level=-1):
-  '''
-  Indents list-formatted Python code into a flat list of strings.  See
-  ``render``.
-  '''
-  assert False
-
-@indent.when(str)
-def indent(line, level=-1):
-  yield '  ' * level + line
-
-@indent.when(collections.Sequence, no=str)
-def indent(seq, level=-1):
-  for line in seq:
-    for rline in indent(line, level+1):
-      yield rline
-
-def render(pycode):
-  '''
-  Renders list-formatted Python code into a string containing valid Python.
-
-  The input is possibly-nested lists of strings.  The list nestings correspond
-  to indentation levels.
-  '''
-  return '\n'.join(indent(pycode))
 
