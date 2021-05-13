@@ -2,8 +2,8 @@
 Python wrappers for Curry objects.
 '''
 
-from __future__ import absolute_import
 from . import exceptions
+from .tags import T_FAIL, T_BIND, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 import types
 import weakref
 

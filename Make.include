@@ -26,8 +26,15 @@ PAKCS_NAME := $(shell $(PAKCS) --compiler-name)
 PAKCS_VER := $(shell $(PAKCS) --numeric-version)
 PAKCS_SUBDIR := $(PAKCS_NAME)-$(PAKCS_VER)
 
+# The name of the top-level Python package.  For example, if this is 'curry',
+# then users can import this project by writing 'import curry'.
 ifndef PYTHON_PACKAGE_NAME
   PYTHON_PACKAGE_NAME := curry
+endif
+
+# This name must match one of the subpackages under src/python/backends.
+ifndef DEFAULT_BACKEND
+  DEFAULT_BACKEND := py
 endif
 
 ifndef PYTHON_INCLUDE_PATH

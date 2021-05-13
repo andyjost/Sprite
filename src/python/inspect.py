@@ -4,8 +4,9 @@ Inspect live Curry objects.
 
 from .backends.py import runtime as pyruntime
 from . import config
+from . import context
 from . import objects
-from . import runtime
+from .tags import T_FAIL, T_BIND, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .utility import visitation
 import collections
 import os
@@ -18,7 +19,7 @@ def isa(cyobj, what):
   Checks whether the given Curry object is an instance of the given type or
   constructor.  The second argument may be a sequence to check against.
   '''
-  if not isinstance(cyobj, runtime.Node):
+  if not isinstance(cyobj, context.Node):
     return False
   return _isa(id(cyobj[()].info), what)
 
@@ -63,7 +64,7 @@ def isa_list(interp, arg):
   return isa(arg, interp.type('Prelude.[]'))
 
 def isa_tuple(interp, arg):
-  if not isinstance(arg, runtime.Node):
+  if not isinstance(arg, context.Node):
     return False
   return is_tuple_name(arg[()].info.name)
 
@@ -72,37 +73,37 @@ def is_tuple_name(name):
   return re.match(_TUPLE_PATTERN, name)
 
 def isa_failure(interp, arg):
-  if not isinstance(arg, runtime.Node):
+  if not isinstance(arg, context.Node):
     return False
-  return arg[()].info.tag == runtime.T_FAIL
+  return arg[()].info.tag == T_FAIL
 
 def isa_freevar(interp, arg):
-  if not isinstance(arg, runtime.Node):
+  if not isinstance(arg, context.Node):
     return False
-  return arg[()].info.tag == runtime.T_FREE
+  return arg[()].info.tag == T_FREE
 
 def isa_fwd(interp, arg):
-  if not isinstance(arg, runtime.Node):
+  if not isinstance(arg, context.Node):
     return False
-  return arg.info.tag == runtime.T_FWD
+  return arg.info.tag == T_FWD
 
 def isa_choice(interp, arg):
-  if not isinstance(arg, runtime.Node):
+  if not isinstance(arg, context.Node):
     return False
-  return arg[()].info.tag == runtime.T_CHOICE
+  return arg[()].info.tag == T_CHOICE
 
 def isa_func(interp, arg):
-  if not isinstance(arg, runtime.Node):
+  if not isinstance(arg, context.Node):
     return False
-  return arg[()].info.tag == runtime.T_FUNC
+  return arg[()].info.tag == T_FUNC
 
 def isa_ctor(interp, arg):
-  if not isinstance(arg, runtime.Node):
+  if not isinstance(arg, context.Node):
     return False
-  return arg[()].info.tag >= runtime.T_CTOR
+  return arg[()].info.tag >= T_CTOR
 
 def is_boxed(interp, node):
-  return isinstance(node, runtime.Node)
+  return isinstance(node, context.Node)
 
 def get_id(interp, arg):
   return pyruntime.get_id(arg)

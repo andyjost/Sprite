@@ -54,15 +54,30 @@ class _Variable(object):
     return self.type(x)
 
 # These are read from under $PREFIX/sysconfig.  The source files are under
-# $ROOT/src/export/sysconfig.  They can be set in Make.config.
+# $ROOT/src/export/sysconfig.  They can be set in Make.config.  This machanism
+# is essentially a way of passing information contained in Make variables to
+# the Sprite runtime.
+
+# The default location of the cache file.
 default_sprite_cache_file = _Variable('default_sprite_cache_file', use_env=True)
+# Whether to enable caching (by default).
 enable_icurry_cache       = _Variable('enable_icurry_cache', type=bool)
+# Whether to cache parsed JSON.  The stored objects are pickled Python.
 enable_parsed_json_cache  = _Variable('enable_parsed_json_cache', type=bool)
+# The name of the subdirectory of .curry in which to place Sprite files.
 intermediate_subdir       = _Variable('intermediate_subdir')
+# The name of the top-level Python package.  By default, 'curry'.
 python_package_name       = _Variable('python_package_name')
+# The path to system Curry files, such as the Prelude.  This is appended to
+# whatever the user might supply via the CURRYPATH environment variable.
 system_curry_path         = _Variable('system_curry_path')
+# The version of the Curry library.  Corresponds with a PAKCS version, since
+# that is where the Prelude is taken from.
 currylib_version          = _Variable('currylib_version')
+# The names of all files in the system Curry library.
 currylib_module_names     = _Variable('currylib_module_names')
+# The name of the default backend.
+default_backend           = _Variable('default_backend')
 
 def syslibs():
   return currylib_module_names().split()

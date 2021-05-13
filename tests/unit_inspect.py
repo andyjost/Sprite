@@ -1,6 +1,5 @@
 import cytest # from ./lib; must be first
 import curry
-from curry.backends.py import runtime
 from curry import inspect
 
 def step(interp, *args):

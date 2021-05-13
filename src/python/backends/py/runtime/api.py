@@ -1,7 +1,7 @@
 from .fairscheme import *
 from .graph import *
 from .misc import *
-from .... import runtime
+from .... import context
 
 __all__ = [
     'Runtime'
@@ -38,14 +38,17 @@ __all__ = [
   ]
 
 
-class Runtime(runtime.Runtime):
+class Runtime(context.Runtime):
   '''Implementation of the abstract runtime system for the Python backend.'''
+  @property
   def Node(self):
     return Node
 
+  @property
   def InfoTable(self):
     return InfoTable
 
+  @property
   def prelude(self):
     from . import prelude
     return prelude
@@ -55,3 +58,7 @@ class Runtime(runtime.Runtime):
 
   def get_step_counter(self):
     return StepCounter()
+
+  def evaluate(self, interp, goal):
+    assert isinstance(interp.context.runtime, Runtime)
+    return Evaluator(interp, goal).evaluate()

@@ -1,7 +1,5 @@
-from __future__ import absolute_import
-from .... import icurry
-from .... import runtime
-from ....utility import visitation
+from .... import context, icurry, utility
+from ....tags import *
 import collections
 import numbers
 import operator
@@ -111,8 +109,8 @@ class Node(object):
     target = kwds.get('target', None)
     # This assert is only valid when direct_var_binding is False.
     # assert target is None or \
-    #        target.info.tag == runtime.T_FUNC or \
-    #        (target.info.tag == runtime.T_FREE == info.tag)
+    #        target.info.tag == T_FUNC or \
+    #        (target.info.tag == T_FREE == info.tag)
     self = object.__new__(cls) if target is None else target
     self.info = info
     successors = list(args)
@@ -132,7 +130,7 @@ class Node(object):
     # Without this, nodes without successors are False.
     return True
 
-  @visitation.dispatch.on('i')
+  @utility.visitation.dispatch.on('i')
   def __getitem__(self, i):
     raise RuntimeError('unhandled type: %s' % type(i).__name__)
 
@@ -170,7 +168,7 @@ class Node(object):
       # "path" argument to hnf, for instance.  The lower-level
       # __getitem__ methods still need to accept free variables so that, e.g.,
       # _Freevar_get_constructors can be implemented.
-      assert node.info.tag != runtime.T_FREE or (not i and i != 0)
+      assert node.info.tag != T_FREE or (not i and i != 0)
       return node[i]
     elif not i and i != 0: # empty sequence.
       assert isinstance(node, icurry.ILiteral)
@@ -185,7 +183,7 @@ class Node(object):
     will be short-cut to point to the target.  This succeeds for all types, so
     it is safe to pass an unboxed value.
     '''
-    if hasattr(arg, 'info') and arg.info.tag == runtime.T_FWD:
+    if hasattr(arg, 'info') and arg.info.tag == T_FWD:
       target = arg.successors[0] = Node._skipfwd(arg.successors[0])
       return target
     return arg
@@ -224,8 +222,8 @@ class Node(object):
   def rewrite(self, info, *args):
     Node(info, *args, target=self)
 
-runtime.Node.register(Node)
-runtime.InfoTable.register(InfoTable)
+context.Node.register(Node)
+context.InfoTable.register(InfoTable)
 
 class Replacer(object):
   '''
@@ -292,14 +290,14 @@ def lift_choice(interp, source, path):
       A sequence of integers giving the path from ``source`` to the target
       choice or constraint.
   '''
-  assert source.info.tag < runtime.T_CTOR
+  assert source.info.tag < T_CTOR
   assert path
   # if source.info is interp.prelude.ensureNotFree.info:
   #   raise RuntimeError("non-determinism in I/O actions occurred")
   replacer = Replacer(source, path)
   left = replacer[1]
   right = replacer[2]
-  assert replacer.target.info.tag == runtime.T_CHOICE
+  assert replacer.target.info.tag == T_CHOICE
   Node(
       interp.prelude._Choice
     , replacer.target[0] # choice ID
@@ -326,11 +324,11 @@ def lift_constr(interp, source, path):
       A sequence of integers giving the path from ``source`` to the target
       choice or constraint.
   '''
-  assert source.info.tag < runtime.T_CTOR
+  assert source.info.tag < T_CTOR
   assert path
   replacer = Replacer(source, path)
   value = replacer[0]
-  assert replacer.target.info.tag == runtime.T_BIND
+  assert replacer.target.info.tag == T_BIND
   Node(
       replacer.target.info
     , value
@@ -341,7 +339,7 @@ def lift_constr(interp, source, path):
 def replace(interp, context, path, replacement):
   replacer = Replacer(context, path, lambda _a, _b: replacement)
   replaced = replacer[None]
-  # assert replacer.target.info.tag == runtime.T_FREE
+  # assert replacer.target.info.tag == context.T_FREE
   # assert context.info == replaced.info
   context.successors[:] = replaced.successors
 

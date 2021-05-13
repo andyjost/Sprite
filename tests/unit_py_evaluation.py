@@ -46,9 +46,9 @@ class TestPyEvaluation(cytest.TestCase):
     Q[0] = Q[0].block([17])
     self.assertTrue(Q[0].blocked)
     self.assertFalse(Q[0].unblock())
-    self.assertRaises(curry.EvaluationSuspended, lambda: list(evaluator.D()))
+    self.assertRaises(curry.EvaluationSuspended, lambda: list(evaluator.evaluate()))
     Q[0].fingerprint[17] = runtime.LEFT
-    self.assertEqual(list(evaluator.D()), [interp.expr(91)])
+    self.assertEqual(list(evaluator.evaluate()), [interp.expr(91)])
 
   def test_narrowing(self):
     _a = FreeType('_a')

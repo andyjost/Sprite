@@ -3,11 +3,11 @@ A pure-Python Curry interpreter.
 '''
 from ..backends.py import runtime as pyruntime
 from .. import config
+from .. import context
 from .. import exceptions
 from .. import icurry
 from . import import_
 from .. import objects
-from .. import utility
 import itertools
 import logging
 import os
@@ -25,6 +25,8 @@ class Interpreter(object):
 
   Supported flags:
   ----------------
+      ``backend`` ({0!r})
+          The name of the backend used to compile and run Curry.
       ``debug`` (True|*False*)
           Sacrifice speed to add more consistency checks and enable debugging
           with PDB.
@@ -32,33 +34,39 @@ class Interpreter(object):
           Indicates the conversion to apply to results of eval.
       ``trace`` (True|*False*)
           Shows the effect of each step in a computation.
-      ``lazycompile`` (*True*|False)
-          Delays compilation of functions until they are needed.
       ``keep_temp_files``  (True|*False*|<str>)
           Indicates whether temporary files (and directories) should be
           deleted.  If a non-null string is passed, then it is treated as a
           directory name and all temporary files will be written there.
-      ``direct_var_binding`` (True|*False*)
-          [Experimental] Implements constraints by directly binding variables
-          to expressions.
+      ``lazycompile`` (*True*|False)
+          Delays compilation of functions until they are needed.
       ``algebraic_substitution`` (True|*False*)
           [Experimantal] Implements narrowing of fundamental types by
           substituting an algebraic type.
-  '''
+      ``direct_var_binding`` (True|*False*)
+          [Experimental] Implements constraints by directly binding variables
+          to expressions.
+  '''.format(config.default_backend())
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self.flags = {
-        'debug':False, 'defaultconverter':None, 'trace':False, 'lazycompile':True
+        'backend':config.default_backend(), 'debug':False
+      , 'defaultconverter':None, 'trace':False, 'lazycompile':True
       , 'keep_temp_files':False, 'direct_var_binding':False
       , 'algebraic_substitution':False
       }
     self.flags.update(flags)
+    self._context = context.Context(self.flags['backend'])
     self._stepper = pyruntime.get_stepper(self)
     self.stepcounter = pyruntime.StepCounter()
     self.modules = {}
     self.path = []
     self.reset() # set remaining attributes.
     return self
+
+  @property
+  def context(self):
+    return self._context
 
   @property
   def prelude(self):

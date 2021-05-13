@@ -1,4 +1,4 @@
-from .. import runtime
+from .. import context
 from ..utility import visitation
 
 # Apply special formatting for unboxed literals; e.g., 1# is an unboxed Int
@@ -38,7 +38,7 @@ class Show(object):
 
   def __call__(self, node):
     '''Applies type-specific formatting after recursing to subexpressions.'''
-    assert isinstance(node, runtime.Node)
+    assert isinstance(node, context.Node)
     # FIXME: rather than put ? in this list, it would be better to check
     # whether the operation is infix and compare its precedence to the outer
     # expression.
@@ -62,7 +62,7 @@ class Show(object):
     '''Recursive application.  Parenthesizes subexpressions.'''
     return self.showlit(expr)
 
-  @_recurse_.when(runtime.Node)
+  @_recurse_.when(context.Node)
   def _recurse_(self, node, noparen):
     x = node.info.show(node)
     if noparen or not x or x[0] in '([{<' or ' ' not in x or node.info is self.ni_Fwd:

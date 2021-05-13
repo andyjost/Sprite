@@ -3,7 +3,7 @@ Code for free variable instantiation, including generator construction.
 '''
 
 from ..graph import Node, Replacer
-from ..... import runtime
+from .....tags import *
 
 __all__ = [
     'clone_generator'
@@ -59,15 +59,15 @@ def _gen_ctors(interp, gen):
   queue = [gen]
   while queue:
     gen = queue.pop()
-    if gen.info.tag == runtime.T_CHOICE:
+    if gen.info.tag == T_CHOICE:
       queue.extend([gen[2], gen[1]])
     else:
-      if gen.info.tag >= runtime.T_CTOR:
+      if gen.info.tag >= T_CTOR:
         yield gen.info
       else:
         # For types with one constructor, the generator is a choice between
         # that constructor and a failure.
-        assert gen.info.tag == runtime.T_FAIL
+        assert gen.info.tag == T_FAIL
 
 def clone_generator(interp, bound, unbound):
   vid = unbound[0]
@@ -91,7 +91,7 @@ def get_generator(interp, freevar, typedef):
       ``InfoTables``.  If the free variable has already been instantiated, then
       this can be None.
   '''
-  assert freevar.info.tag == runtime.T_FREE
+  assert freevar.info.tag == T_FREE
   vid = freevar[0]
   if freevar[1].info is interp.prelude.Unit.info:
     constructors = [
@@ -129,7 +129,7 @@ def instantiate(interp, context, path, typedef):
     , lambda node, _: get_generator(interp, node, typedef)
     )
   replaced = replacer[None]
-  assert replacer.target.info.tag == runtime.T_FREE
+  assert replacer.target.info.tag == T_FREE
   assert context.info == replaced.info
   context.successors[:] = replaced.successors
   return replacer.target[1]
@@ -150,13 +150,13 @@ def get_id(arg):
   '''Returns the choice or variable id for a choice or free variable.'''
   if isinstance(arg, Node):
     arg = arg[()]
-    if arg.info.tag in [runtime.T_FREE, runtime.T_CHOICE]:
+    if arg.info.tag in [T_FREE, T_CHOICE]:
       cid = arg[0]
       assert cid >= 0
       return cid
 
 def has_generator(interp, freevar):
   '''Indicates whether a free variable has a bound generator.'''
-  assert freevar.info.tag == runtime.T_FREE
+  assert freevar.info.tag == T_FREE
   return freevar[1].info is not interp.prelude.Unit.info
 

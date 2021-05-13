@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 from copy import copy
 from ..... import exceptions
-from ..... import runtime
 from ...sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED
 from .....utility import unionfind
 from .....utility.shared import Shared, compose, DefaultDict
@@ -33,7 +32,7 @@ class Evaluator(object):
       , goal
       )
 
-  def D(self, *args, **kwds):
+  def evaluate(self, *args, **kwds):
     from . import D
     return D(self, *args, **kwds)
 

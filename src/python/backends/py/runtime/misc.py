@@ -1,8 +1,5 @@
 from __future__ import absolute_import
 
-from .... import runtime
-from .graph import *
-
 __all__ = [
     'get_stepper'
   , 'StepCounter'

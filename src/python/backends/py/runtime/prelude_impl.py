@@ -3,8 +3,8 @@ Implementation of the Prelude externals.
 '''
 from ....exceptions import *
 from .... import inspect
-from .... import runtime
 from ....interpreter import conversions
+from ....tags import T_FAIL, T_BIND, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from ....utility.unboxed import unboxed
 import collections
 import itertools
@@ -202,8 +202,8 @@ def constr_eq(interp, root):
   lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
   if inspect.is_boxed(interp, lhs) and inspect.is_boxed(interp, rhs):
     ltag, rtag = lhs.info.tag, rhs.info.tag
-    if ltag == runtime.T_FREE:
-      if rtag == runtime.T_FREE:
+    if ltag == T_FREE:
+      if rtag == T_FREE:
         if lhs[0] != rhs[0]:
           # Unify variables => _Binding True (x, y)
           yield interp.prelude._Binding.info
@@ -213,7 +213,7 @@ def constr_eq(interp, root):
           yield interp.prelude.True
       else:
         # Instantiate the variable.
-        assert rtag >= runtime.T_CTOR
+        assert rtag >= T_CTOR
         if rhs.info is interp.prelude.Int.info:
           yield interp.integer.bindint
           yield lhs
@@ -222,9 +222,9 @@ def constr_eq(interp, root):
           interp.hnf(root, [0], typedef=rhs.info.typedef())
           assert False # E_CONTINUE raised
     else:
-      if rtag == runtime.T_FREE:
+      if rtag == T_FREE:
         # Instantiate the variable.
-        assert ltag >= runtime.T_CTOR
+        assert ltag >= T_CTOR
         if lhs.info is interp.prelude.Int.info:
           yield interp.integer.bindint
           yield lhs
@@ -263,7 +263,7 @@ def nonstrict_eq(interp, root):
   lhs, rhs = root
   if inspect.is_boxed(interp, lhs) and inspect.is_boxed(interp, rhs):
     lhs = hnf_or_free(interp, root, 0)
-    if lhs.info.tag == runtime.T_FREE:
+    if lhs.info.tag == T_FREE:
       # Bind lhs -> rhs
       if interp.flags['direct_var_binding']:
         lhs.rewrite(interp.prelude._Fwd, rhs)
@@ -273,13 +273,13 @@ def nonstrict_eq(interp, root):
         yield interp.expr(True)
         yield interp.expr((lhs, rhs))
     else:
-      assert lhs.info.tag >= runtime.T_CTOR
+      assert lhs.info.tag >= T_CTOR
       rhs = hnf_or_free(interp, root, 1)
-      if rhs.info.tag == runtime.T_FREE:
+      if rhs.info.tag == T_FREE:
         interp.hnf(root, [1], typedef=lhs.info.typedef())
         assert False # E_CONTINUE should be raised in prev statement
       else:
-        rhs.info.tag >= runtime.T_FREE
+        rhs.info.tag >= T_FREE
         if lhs.info.tag == rhs.info.tag:
           arity = lhs.info.arity
           assert arity == rhs.info.arity

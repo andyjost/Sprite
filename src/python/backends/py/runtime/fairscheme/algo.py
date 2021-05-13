@@ -1,11 +1,10 @@
-from ..... import icurry
-from ..... import runtime
-from ...sprite import LEFT, RIGHT, UNDETERMINED
-
-from .. import graph
-from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT, E_UPDATE_CONTEXT
 from .evaluator import Frame
 from . import freevars
+from .. import graph
+from ..... import icurry
+from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT, E_UPDATE_CONTEXT
+from ...sprite import LEFT, RIGHT, UNDETERMINED
+from .....tags import *
 
 __all__ = ['D', 'N', 'S', 'hnf']
 
@@ -26,15 +25,15 @@ def D(evaluator):
       yield target
       continue
     tag = target.info.tag
-    if tag == runtime.T_CHOICE:
+    if tag == T_CHOICE:
       evaluator.queue.extend(fork(frame))
-    elif tag == runtime.T_BIND:
+    elif tag == T_BIND:
       evaluator.queue.extend(constrain(frame))
-    elif tag == runtime.T_FAIL:
+    elif tag == T_FAIL:
       if evaluator.interp.flags['trace']:
         print 'X :::', frame
       continue # discard
-    elif tag == runtime.T_FREE:
+    elif tag == T_FREE:
       try:
         frame.check_freevar_bindings(target, lazy=False)
       except E_CONTINUE:
@@ -45,7 +44,7 @@ def D(evaluator):
         if evaluator.interp.flags['trace']:
           print 'Y :::', target, frame
         yield target
-    elif tag == runtime.T_FUNC:
+    elif tag == T_FUNC:
       try:
         S(evaluator.interp, target)
       except E_CONTINUE:
@@ -61,7 +60,7 @@ def D(evaluator):
         # what is says.
         frame.expr = frame.expr # insert FWD node, if needed.
         evaluator.queue.append(frame)
-    elif tag >= runtime.T_CTOR:
+    elif tag >= T_CTOR:
       try:
         _, freevars = N(evaluator.interp, expr, target)
       except E_CONTINUE:
@@ -84,7 +83,7 @@ def N(interp, root, target=None, path=None, freevars=None):
   '''The normalize (N) Fair Scheme procedure.'''
   path = [] if path is None else path
   target = root[path] if target is None else target
-  assert target.info.tag >= runtime.T_CTOR
+  assert target.info.tag >= T_CTOR
   freevars = set() if freevars is None else freevars
   if target.info is interp.prelude._PartApplic.info:
     # A partial application is a value even through it may contain a function
@@ -99,25 +98,25 @@ def N(interp, root, target=None, path=None, freevars=None):
           break
         succ = succ[()]
         tag = succ.info.tag
-        if tag == runtime.T_FAIL:
+        if tag == T_FAIL:
           graph.Node(interp.prelude._Failure, target=root)
           raise E_CONTINUE()
-        elif tag == runtime.T_CHOICE:
+        elif tag == T_CHOICE:
           graph.lift_choice(interp, root, path)
           raise E_CONTINUE()
-        elif tag == runtime.T_BIND:
+        elif tag == T_BIND:
           graph.lift_constr(interp, root, path)
           raise E_CONTINUE()
-        elif tag == runtime.T_FREE:
+        elif tag == T_FREE:
           interp.currentframe.check_freevar_bindings(succ, path, lazy=False)
           freevars.add(succ)
           break
-        elif tag == runtime.T_FUNC:
+        elif tag == T_FUNC:
           try:
             S(interp, succ)
           except E_CONTINUE:
             pass
-        elif tag >= runtime.T_CTOR:
+        elif tag >= T_CTOR:
           _,freevars2 = N(interp, root, succ, path, freevars)
           freevars.update(freevars2)
           break
@@ -129,22 +128,22 @@ def N(interp, root, target=None, path=None, freevars=None):
 
 def hnf(interp, expr, path, typedef=None, values=None):
   assert path
-  assert expr.info.tag == runtime.T_FUNC
+  assert expr.info.tag == T_FUNC
   target = expr[path]
   while True:
     if isinstance(target, icurry.ILiteral):
       return target
     tag = target.info.tag
-    if tag == runtime.T_FAIL:
+    if tag == T_FAIL:
       graph.Node(interp.prelude._Failure, target=expr)
       raise E_CONTINUE()
-    elif tag == runtime.T_CHOICE:
+    elif tag == T_CHOICE:
       graph.lift_choice(interp, expr, path)
       raise E_CONTINUE()
-    elif tag == runtime.T_BIND:
+    elif tag == T_BIND:
       graph.lift_constr(interp, expr, path)
       raise E_CONTINUE()
-    elif tag == runtime.T_FREE:
+    elif tag == T_FREE:
       if typedef is None or typedef is interp.type('Prelude.Int'):
         vid = freevars.get_id(target)
         if vid in interp.currentframe.lazy_bindings.read:
@@ -162,7 +161,7 @@ def hnf(interp, expr, path, typedef=None, values=None):
           raise E_RESIDUAL([vid])
       else:
         target = freevars.instantiate(interp, expr, path, typedef)
-    elif tag == runtime.T_FUNC:
+    elif tag == T_FUNC:
       try:
         S(interp, target)
       except E_CONTINUE:
@@ -170,9 +169,9 @@ def hnf(interp, expr, path, typedef=None, values=None):
       except E_UPDATE_CONTEXT as cxt:
         replacement = graph.replace_copy(interp, expr, path, cxt.expr)
         raise E_UPDATE_CONTEXT(replacement)
-    elif tag >= runtime.T_CTOR:
+    elif tag >= T_CTOR:
       return target
-    elif tag == runtime.T_FWD:
+    elif tag == T_FWD:
       target = expr[path]
     else:
       assert False
@@ -200,7 +199,7 @@ def _fork_updatebindings(frame, xid):
   while queue:
     xid = queue.pop()
     for var in frame.bindings.write.pop(xid, []):
-      assert var.info.tag == runtime.T_FREE
+      assert var.info.tag == T_FREE
       vid = freevars.get_id(var)
       if vid not in seen_ids:
         seen_ids.add(vid)
@@ -209,7 +208,7 @@ def _fork_updatebindings(frame, xid):
   # Look for a variable, the pivot, with a bound generator.  If it is found,
   # equate all variables to it.
   for pivot in equiv_vars:
-    if pivot[1].info.tag == runtime.T_CHOICE:
+    if pivot[1].info.tag == T_CHOICE:
       for var in equiv_vars:
         if var is not pivot:
           if not bind(frame, pivot, var):
@@ -225,7 +224,7 @@ def fork(frame):
   Fork a choice-rooted frame into its left and right children.  Yields each
   consistent child.  Recycles ``frame``.
   '''
-  assert frame.expr[()].info.tag == runtime.T_CHOICE
+  assert frame.expr[()].info.tag == T_CHOICE
   cid_,lhs,rhs = frame.expr[()]
   cid = frame.constraint_store.read.root(cid_)
   if cid in frame.bindings.read or cid in frame.lazy_bindings.read:
@@ -277,12 +276,12 @@ def bind(self, _x, _y):
   free and the second is an expression, then a lazy binding is created.  The
   return value indicates whether the binding is consistent.
   '''
-  assert _x.info.tag == _y.info.tag or _x.info.tag == runtime.T_FREE
+  assert _x.info.tag == _y.info.tag or _x.info.tag == T_FREE
   stack = [(_x, _y)]
   while stack:
     x, y = stack.pop()
     x, y = x[()], y[()]
-    if x.info.tag == runtime.T_CHOICE:
+    if x.info.tag == T_CHOICE:
       (x_id, xl, xr), (y_id, yl, yr) = x, y
       x_id, y_id = map(self.constraint_store.read.root, [x_id, y_id])
       if x_id != y_id:
@@ -297,8 +296,8 @@ def bind(self, _x, _y):
           self.fingerprint[y_id] = LEFT if code<0 else RIGHT
         self.constraint_store.write.unite(x_id, y_id)
         stack.extend([(xr, yr), (xl, yl)])
-    elif x.info.tag == runtime.T_FREE:
-      if y.info.tag != runtime.T_FREE:
+    elif x.info.tag == T_FREE:
+      if y.info.tag != T_FREE:
         # This is a lazy binding.
         x_id, _ = x
         vid = self.constraint_store.read.root(x_id)
@@ -308,7 +307,7 @@ def bind(self, _x, _y):
         x_id, y_id = map(self.constraint_store.read.root, [x_id, y_id])
         if x_id != y_id:
           # Whether x/y are NOT bound.
-          x_nbnd, y_nbnd = (arg.info.tag == runtime.T_CTOR for arg in [x_gen, y_gen])
+          x_nbnd, y_nbnd = (arg.info.tag == T_CTOR for arg in [x_gen, y_gen])
           if x_nbnd and y_nbnd:
             # Place unbound variables in the binding store.
             bnd = self.bindings.write
@@ -323,10 +322,10 @@ def bind(self, _x, _y):
               freevars.clone_generator(self.interp, x, y)
               y_gen = y[1]
             stack.append((x_gen, y_gen))
-    elif x.info.tag >= runtime.T_CTOR:
+    elif x.info.tag >= T_CTOR:
       assert x.info is y.info
       stack.extend(zip(x, y))
-    elif x.info.tag == runtime.T_FAIL:
+    elif x.info.tag == T_FAIL:
       continue
     else:
       raise TypeError('unexpected tag %s' % x.info.tag)

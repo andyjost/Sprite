@@ -3,7 +3,6 @@ Implements Interpreter.eval.
 '''
 
 from . import conversions
-from ..backends.py import runtime as pyruntime
 from ..utility.binding import binding
 
 def eval(interp, *args, **kwds):
@@ -27,12 +26,14 @@ def eval(interp, *args, **kwds):
   convert = conversions.getconverter(
       converter if converter != 'default' else interp.flags['defaultconverter']
     )
-  results = pyruntime.Evaluator(interp, interp.expr(*args)).D()
+  results = interp.context.runtime.evaluate(interp, interp.expr(*args))
   if convert is None:
     return results
   else:
     return (convert(interp, result) for result in results)
 
+# Prefixing $!! causes evaluation and ensures the root expression is
+# function-rooted, which is necessary for pull-tabbing.
 def makegoal(interp, args):
   return interp.expr(
       getattr(interp.prelude, '$!!')

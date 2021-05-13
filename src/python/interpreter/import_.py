@@ -1,13 +1,13 @@
 from ..backends.py import compiler as pycompiler
 from ..backends.py import runtime as pyruntime
-from .. import runtime
 from .. import config
 from .. import icurry
 from .. import importer
 from .. import objects
 from . import show
-from ..utility import encoding, visitation, formatDocstring
+from ..tags import *
 from ..utility.currypath import clean_currypath
+from ..utility import encoding, visitation, formatDocstring
 import collections
 import logging
 import weakref
@@ -113,7 +113,7 @@ def loadSymbols(
   info = pyruntime.InfoTable(
       icons.name
     , icons.arity
-    , runtime.T_CTOR + icons.index if not builtin else metadata['py.tag']
+    , T_CTOR + icons.index if not builtin else metadata['py.tag']
     , _no_step if not builtin else _unreachable
     , show.Show(interp, getattr(metadata, 'py.format', None))
     , _gettypechecker(interp, metadata)
@@ -128,7 +128,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
   info = pyruntime.InfoTable(
       ifun.name
     , ifun.arity
-    , runtime.T_FUNC
+    , T_FUNC
     , None
     , show.Show(interp, getattr(metadata, 'py.format', None))
     , _gettypechecker(interp, metadata)
@@ -178,7 +178,7 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
   except KeyError:
     logger.info('Importing %s', name)
     if name == 'Prelude':
-      from ..backends.py.runtime import prelude
+      prelude = interp.context.runtime.prelude
       kwds.setdefault('extern', prelude.Prelude)
       kwds.setdefault('export', prelude.exports())
       kwds.setdefault('alias', prelude.aliases())
