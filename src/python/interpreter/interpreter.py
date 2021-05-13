@@ -119,10 +119,14 @@ class Interpreter(object):
     typegetter = getattr(moduleobj, '.gettype')
     return typegetter(name)
 
+  def nextid(self):
+    '''Generates the next available choice/variable ID.'''
+    return next(self._idfactory_)
+
   # Externally-implemented methods.
   from .compile import compile
   from .conversions import currytype, expr, topython, unbox
   from .eval import eval
   from .import_ import import_
-  from ..backends.py.runtime import N, S, hnf, nextid, freshvar
+  from ..backends.py.runtime import N, S, hnf, freshvar
 

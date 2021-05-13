@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 import cytest.step
-from curry.backends.py import runtime
-from curry.backends.py.runtime import LEFT, RIGHT, UNDETERMINED, fairscheme
+from curry.backends.py.runtime import Frame, LEFT, RIGHT, UNDETERMINED
+from curry.backends.py.runtime.fairscheme import algo as fs_algo
 from curry.utility import unionfind
 import curry
 import itertools
@@ -97,22 +97,22 @@ class TestConstraintStore(cytest.TestCase):
     cid,l,r = e
     assert cid == 0 # cytest.TestCase should have reset curry.
     #
-    frame = runtime.Frame(interp, e)
+    frame = Frame(interp, e)
     self.checkFingerprint(frame)
     #
-    buf = list(fairscheme.fork(frame))
+    buf = list(fs_algo.fork(frame))
     self.assertTrue(all(x.expr[()] is y for x,y in zip(buf, [l,r])))
     self.checkFingerprint(buf[0], {cid:LEFT})
     self.checkFingerprint(buf[1], {cid:RIGHT})
     #
     lhs,rhs = buf
-    frame = runtime.Frame(interp, e, lhs)
-    buf = list(fairscheme.fork(frame))
+    frame = Frame(interp, e, lhs)
+    buf = list(fs_algo.fork(frame))
     self.assertIs(buf.pop().expr[()], l)
     self.assertFalse(buf)
     #
-    frame = runtime.Frame(interp, e, rhs)
-    buf = list(fairscheme.fork(frame))
+    frame = Frame(interp, e, rhs)
+    buf = list(fs_algo.fork(frame))
     self.assertIs(buf.pop().expr[()], r)
     self.assertFalse(buf)
     #
@@ -121,8 +121,8 @@ class TestConstraintStore(cytest.TestCase):
     cytest.step.step(interp, e)
     cid2,_,_ = e
     self.assertNotEqual(cid, cid2)
-    frame = runtime.Frame(interp, e, frame)
-    buf = list(fairscheme.fork(frame))
+    frame = Frame(interp, e, frame)
+    buf = list(fs_algo.fork(frame))
     self.assertEqual(len(buf), 2)
     self.checkFingerprint(buf[0], {cid:RIGHT, cid2:LEFT})
     self.checkFingerprint(buf[1], {cid:RIGHT, cid2:RIGHT})

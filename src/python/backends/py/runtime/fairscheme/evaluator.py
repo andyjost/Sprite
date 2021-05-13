@@ -7,9 +7,9 @@ from .....utility import unionfind
 from .....utility.shared import Shared, compose, DefaultDict
 import collections
 
-from ..graph import *
-from ..misc import *
-from .instance import *
+from .. import graph
+from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT, E_UPDATE_CONTEXT
+from . import freevars
 
 __all__ = ['Evaluator', 'Frame', 'Fingerprint', 'LEFT', 'RIGHT', 'UNDETERMINED']
 
@@ -90,7 +90,7 @@ class Frame(object):
 
   def __repr__(self):
     e = self.expr[()]
-    xid = get_id(e)
+    xid = freevars.get_id(e)
     return '{{id=%x, hd=%s, fp=%s, cst=%s, bnd=%s, lzy=%s, bl=%s}}' % (
         id(self)
       , self.expr[()].info.name + ('' if xid is None else '(%s)' % xid)
@@ -124,12 +124,12 @@ class Frame(object):
       bindinfo = getattr(
           self.interp.prelude, 'prim_nonstrictEq' if lazy else 'prim_constrEq'
         )
-      act = lambda var: get_generator(self.interp, var, None) if lazy else var
-      self.expr = Node(
+      act = lambda var: freevars.get_generator(self.interp, var, None) if lazy else var
+      self.expr = graph.Node(
           getattr(self.interp.prelude, '&>')
         , reduce(
-              lambda a, b: Node(conj, a, b)
-            , [Node(bindinfo, act(x), e) for x, e in bindings]
+              lambda a, b: graph.Node(conj, a, b)
+            , [graph.Node(bindinfo, act(x), e) for x, e in bindings]
             )
         , self.expr
         )
@@ -142,16 +142,16 @@ class Frame(object):
   # activate it.  If only the hnf is needed, use =:<=, otherwise, if the nf is
   # needed, use =:=.
   def check_freevar_bindings(self, freevar, path=(), lazy=False):
-    vid = get_id(freevar)
+    vid = freevars.get_id(freevar)
     vid = self.constraint_store.read.root(vid)
     if vid in self.fingerprint:
       assert vid not in self.lazy_bindings.read
       _a,(_b,l,r) = freevar
       replacement = l if self.fingerprint[vid] == LEFT else r
       if path:
-        replace(self.interp, self.expr[()], path, replacement)
+        graph.replace(self.interp, self.expr[()], path, replacement)
       else:
-        self.expr = get_generator(self.interp, freevar, None)
+        self.expr = freevars.get_generator(self.interp, freevar, None)
       raise E_CONTINUE()
     vids = list(self.eq_vars(vid))
     if any(vid_ in self.lazy_bindings.read for vid_ in vids):
@@ -161,7 +161,7 @@ class Frame(object):
   def eq_vars(self, vid):
     yield vid
     if vid in self.bindings.read:
-      for vid_ in map(get_id, self.bindings.read[vid].read):
+      for vid_ in map(freevars.get_id, self.bindings.read[vid].read):
         yield vid_
 
   @property

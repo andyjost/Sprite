@@ -4,21 +4,20 @@ from .... import runtime
 from .graph import *
 
 __all__ = [
-    'freshvar'
-  , 'freshvar_gen'
-  , 'get_id'
-  , 'get_stepper'
-  , 'is_bound'
-  , 'nextid'
+    'get_stepper'
   , 'StepCounter'
-  , 'RuntimeException'
+  , 'RuntimeFlowException'
   , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT', 'E_UPDATE_CONTEXT'
   ]
 
-class RuntimeException(BaseException):
+class RuntimeFlowException(BaseException):
+  '''
+  The base class for exceptions used by the runtime system for flow control.
+  These should always be caught and handled.
+  '''
   pass
 
-class E_CONTINUE(RuntimeException):
+class E_CONTINUE(RuntimeFlowException):
   '''
   Raised when control must break out of the recursive match-eval loop.  This
   occurs when a symbol requiring exceptional handing (e.g., FAIL or CHOICE) was
@@ -30,7 +29,7 @@ class E_CONTINUE(RuntimeException):
   # g.
 
 
-class E_RESIDUAL(RuntimeException):
+class E_RESIDUAL(RuntimeFlowException):
   '''Raised when evaluation cannot complete due to uninstantiated free variables.'''
   def __init__(self, ids):
     '''
@@ -43,11 +42,11 @@ class E_RESIDUAL(RuntimeException):
     self.ids = set(ids)
 
 
-class E_STEPLIMIT(RuntimeException):
+class E_STEPLIMIT(RuntimeFlowException):
   '''Raised when the step limit is reached.'''
 
 
-class E_UPDATE_CONTEXT(RuntimeException):
+class E_UPDATE_CONTEXT(RuntimeFlowException):
   '''Raised when a lazy binding requires an update to the enclosing context.'''
   def __init__(self, expr):
     '''
@@ -58,23 +57,6 @@ class E_UPDATE_CONTEXT(RuntimeException):
             performing lazy binding.
     '''
     self.expr = expr
-
-def freshvar_gen(interp):
-  yield interp.prelude._Free.info
-  yield interp.nextid()
-  yield Node(interp.prelude.Unit.info)
-
-def freshvar(interp):
-  return Node(*freshvar_gen(interp))
-
-def get_id(arg):
-  '''Returns the choice or variable id for a choice or free variable.'''
-  if isinstance(arg, Node):
-    arg = arg[()]
-    if arg.info.tag in [runtime.T_FREE, runtime.T_CHOICE]:
-      cid = arg[0]
-      assert cid >= 0
-      return cid
 
 class StepCounter(object):
   '''
@@ -120,12 +102,4 @@ def get_stepper(interp):
       target.info.step(target)
       interp.stepcounter.increment()
   return step
-
-def is_bound(interp, freevar):
-  assert freevar.info.tag == runtime.T_FREE
-  return freevar[1].info is not interp.prelude.Unit.info
-
-def nextid(interp):
-  '''Generates the next available ID.'''
-  return next(interp._idfactory_)
 

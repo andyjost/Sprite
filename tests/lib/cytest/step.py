@@ -25,6 +25,6 @@ def step(interp, expr, num=1):
       # FIXME: get the termination condition right.  It needs the same
       # check as D to see whether expr is actually a value.
     # except (pyruntime.E_CONTINUE, pyruntime.E_STEPLIMIT, pyruntime.E_RESIDUAL):
-    except pyruntime.RuntimeException:
+    except pyruntime.RuntimeFlowException:
       pass
 

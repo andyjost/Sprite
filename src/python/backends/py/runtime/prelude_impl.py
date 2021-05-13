@@ -12,9 +12,10 @@ import logging
 import operator as op
 import re
 
-from .fairscheme import N, hnf, instance
+from .fairscheme import N, hnf, freevars
+from .fairscheme.freevars import get_id
 from .graph import Node
-from .misc import get_id, freshvar_gen, E_RESIDUAL
+from .misc import E_RESIDUAL
 
 logger = logging.getLogger(__name__)
 
@@ -376,7 +377,7 @@ def choice(interp, lhs):
   yield lhs[1]
 
 def freshvar(interp, lhs):
-  return freshvar_gen(interp)
+  return freevars.freshvar_args(interp)
 
 def error(interp, msg):
   msg = str(interp.topython(msg))
@@ -663,7 +664,7 @@ def ensureNotFree(interp, root):
     if vid in interp.currentframe.fingerprint:
       # Return the binding.
       yield interp.prelude._Fwd
-      yield instance.get_generator(interp, expr, None)
+      yield freevars.get_generator(interp, expr, None)
       return
 
   # Otherwise, reduce the argument to hnf.

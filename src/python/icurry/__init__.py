@@ -5,7 +5,7 @@ from .types import *
 # def unbox(arg):
 #   '''Unapplies a built-in-type wrapper.'''
 #   raise TypeError('expected an Applic')
-# 
+#
 # @unbox.when(Applic)
 # def unbox(applic):
 #   if applic.ident not in ['Prelude.' + s for s in ['Int', 'Float', 'Char']]:

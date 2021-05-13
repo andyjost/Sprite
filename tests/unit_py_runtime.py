@@ -2,7 +2,7 @@ import cytest # from ./lib; must be first
 from copy import copy
 from curry.backends.py import runtime
 from curry.backends.py.runtime.fairscheme.evaluator import Bindings
-from curry.backends.py.runtime.fairscheme.instance import instantiate, _gen_ctors
+from curry.backends.py.runtime.fairscheme.freevars import instantiate, _gen_ctors
 from curry import icurry
 from curry import inspect
 from curry import interpreter

@@ -3,12 +3,15 @@ Code for free variable instantiation, including generator construction.
 '''
 
 from ..graph import Node, Replacer
-from ..misc import *
 from ..... import runtime
 
 __all__ = [
     'clone_generator'
+  , 'freshvar'
+  , 'freshvar_args'
   , 'get_generator'
+  , 'get_id'
+  , 'has_generator'
   , 'instantiate'
   ]
 
@@ -45,7 +48,7 @@ def _createGenerator(interp, ctors, vid=None, target=None):
     middle = -(-N // 2) # ceiling-divide, e.g., 7 -> 4.
     return Node(
         interp.prelude._Choice
-      , vid if vid is not None else nextid(interp)
+      , vid if vid is not None else interp.nextid()
       , _createGenerator(interp, ctors[:middle])
       , _createGenerator(interp, ctors[middle:])
       , target=target
@@ -130,4 +133,30 @@ def instantiate(interp, context, path, typedef):
   assert context.info == replaced.info
   context.successors[:] = replaced.successors
   return replacer.target[1]
+
+def freshvar_args(interp):
+  '''
+  Generates arguments for a fresh free variable using the next available ID.
+  '''
+  yield interp.prelude._Free.info
+  yield interp.nextid()
+  yield Node(interp.prelude.Unit.info)
+
+def freshvar(interp, target=None):
+  '''Places a fresh free variable at the specified location.'''
+  return Node(*freshvar_args(interp), target=target)
+
+def get_id(arg):
+  '''Returns the choice or variable id for a choice or free variable.'''
+  if isinstance(arg, Node):
+    arg = arg[()]
+    if arg.info.tag in [runtime.T_FREE, runtime.T_CHOICE]:
+      cid = arg[0]
+      assert cid >= 0
+      return cid
+
+def has_generator(interp, freevar):
+  '''Indicates whether a free variable has a bound generator.'''
+  assert freevar.info.tag == runtime.T_FREE
+  return freevar[1].info is not interp.prelude.Unit.info
 
