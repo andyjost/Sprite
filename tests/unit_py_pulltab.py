@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 from curry.tags import *
 from curry.backends.py import runtime as pyruntime
-from curry.backends.py.runtime import LEFT, RIGHT
+from curry.backends.py.runtime import LEFT, RIGHT, hnf
 import curry
 import unittest
 
@@ -23,7 +23,7 @@ class TestPyPullTab(cytest.TestCase):
     id9 = id(goal[0,0,2,1])
     id123 = id(goal[0,2])
     # Head-normalizing brings a choice to the root.
-    self.assertRaises(pyruntime.E_CONTINUE, lambda: interp.hnf(goal[0], [0,2]))
+    self.assertRaises(pyruntime.E_CONTINUE, lambda: hnf(interp, goal[0], [0,2]))
     # goal = id (f...8 ? f...9)
     self.assertEqual(goal[0].info.tag, T_CHOICE)
     # Ensure nodes are referenced, not copied.
@@ -32,14 +32,14 @@ class TestPyPullTab(cytest.TestCase):
     self.assertEqual(id(lhs[0,2]), id8)
     self.assertEqual(id(lhs[2]), id123)
     lhs = curry.expr(interp.prelude.id, lhs) # id (f...8)
-    self.assertRaises(pyruntime.E_CONTINUE, lambda: interp.hnf(lhs, [0]))
+    self.assertRaises(pyruntime.E_CONTINUE, lambda: hnf(interp, lhs, [0]))
     self.assertEqual(lhs.info.tag, T_FAIL)
     # RHS -> True
     rhs = goal[0,2]
     self.assertEqual(id(rhs[0,2]), id9)
     self.assertEqual(id(rhs[2]), id123)
     rhs = curry.expr(interp.prelude.id, rhs) # id (f...9)
-    self.assertMayRaise(None, lambda: interp.hnf(rhs, [0]))
+    self.assertMayRaise(None, lambda: hnf(interp, rhs, [0]))
     self.assertEqual(curry.topython(id(rhs[0])), id123)
 
   @unittest.skip('constraints not implemented')

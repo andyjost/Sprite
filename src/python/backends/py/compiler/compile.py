@@ -1,8 +1,10 @@
 from ....icurry import analysis
 from . import closure
-from . import render
 from .... import icurry
+from . import render
 from .. import runtime
+from ..runtime.fairscheme.algo import hnf
+from ..runtime.fairscheme.freevars import freshvar
 from ..runtime import prelude_impl
 from ....utility import encoding, visitation, formatDocstring
 from ....utility import filesys
@@ -77,12 +79,11 @@ def compile_py_unboxedfunc(interp, unboxedfunc):
   Compiles code for built-in functions on primitive data.  See README.md.
   Corresponds to the "py.unboxedfunc" metadata.
   '''
-  hnf = interp.hnf
   expr = interp.expr
   topython = interp.topython
   # For some reason, the prelude reverses the argument order.
   def step(_0):
-    args = (topython(hnf(_0, [i])) for i in reversed(xrange(len(_0.successors))))
+    args = (topython(hnf(interp, _0, [i])) for i in reversed(xrange(len(_0.successors))))
     return expr(unboxedfunc(*args), target=_0)
   return step
 
@@ -95,9 +96,8 @@ def compile_py_boxedfunc(interp, boxedfunc):
   form, but without any other preprocessing (e.g., unboxing).  It returns a
   sequence of arguments accepted by ``runtime.Node.__new__``.
   '''
-  hnf = interp.hnf
   def step(_0):
-    args = (hnf(_0, [i]) for i in xrange(len(_0.successors)))
+    args = (hnf(interp, _0, [i]) for i in xrange(len(_0.successors)))
     runtime.Node(*boxedfunc(interp, *args), target=_0)
   return step
 
@@ -266,9 +266,10 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.IFreeDecl)
   def statement(self, vardecl):
-    self.closure['freshvar'] = self.interp.freshvar
+    self.closure['freshvar'] = freshvar
+    self.closure['interp'] = self.interp
     varname = self.expression(vardecl.lhs)
-    yield '%s = freshvar()' % varname
+    yield '%s = freshvar(interp)' % varname
 
   @statement.when(icurry.IVarAssign)
   def statement(self, assign):
@@ -303,13 +304,16 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.ICaseCons)
   def statement(self, icase):
-    self.closure['hnf'] = self.interp.hnf
+    self.closure['hnf'] = hnf
+    self.closure['interp'] = self.interp
     vid = icase.vid
     path = self.varinfo[vid].path
     assert path is not None
     assert icase.branches
     typedef = casetype(self.interp, icase)
-    yield 'selector = hnf(_0, %s, typedef=%s).info.tag' % (path, self.closure[typedef])
+    yield 'selector = hnf(interp, _0, %s, typedef=%s).info.tag' % (
+        path, self.closure[typedef]
+      )
     el = ''
     for branch in icase.branches[:-1]:
       rhs = self.label(branch.name).info.tag
@@ -325,13 +329,14 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.ICaseLit)
   def statement(self, icase):
-    self.closure['hnf'] = self.interp.hnf
+    self.closure['hnf'] = hnf
+    self.closure['interp'] = self.interp
     vid = icase.vid
     path = self.varinfo[vid].path
     assert path is not None
     self.closure['unbox'] = self.interp.unbox
     typedef = casetype(self.interp, icase)
-    yield 'selector = unbox(hnf(_0, %s, typedef=%s, values=%r))' % (
+    yield 'selector = unbox(hnf(interp, _0, %s, typedef=%s, values=%r))' % (
         path, self.closure[typedef]
       , list(branch.lit.value for branch in icase.branches)
       )

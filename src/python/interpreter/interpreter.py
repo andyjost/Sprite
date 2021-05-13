@@ -137,5 +137,4 @@ class Interpreter(object):
   from .conversions import currytype, expr, topython, unbox
   from .eval import eval
   from .import_ import import_
-  from ..backends.py.runtime import N, S, hnf, freshvar
 

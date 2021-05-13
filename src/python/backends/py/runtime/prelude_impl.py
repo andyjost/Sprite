@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 def hnf_or_free(interp, root, index):
   '''Reduce the expression to head normal form or a free variable.'''
   try:
-    return interp.hnf(root, [index])
+    return hnf(interp, root, [index])
   except E_RESIDUAL:
     # The argument could be a free variable or an expression containing a free
     # variable that cannot be narrowed, such as "ensureNotFree x".
@@ -219,7 +219,7 @@ def constr_eq(interp, root):
           yield lhs
           yield rhs
         else:
-          interp.hnf(root, [0], typedef=rhs.info.typedef())
+          hnf(interp, root, [0], typedef=rhs.info.typedef())
           assert False # E_CONTINUE raised
     else:
       if rtag == T_FREE:
@@ -230,7 +230,7 @@ def constr_eq(interp, root):
           yield lhs
           yield rhs
         else:
-          interp.hnf(root, [1], typedef=lhs.info.typedef())
+          hnf(interp, root, [1], typedef=lhs.info.typedef())
           assert False # E_CONTINUE raised
       else:
         if ltag == rtag: # recurse when the comparison returns 0 or False.
@@ -276,7 +276,7 @@ def nonstrict_eq(interp, root):
       assert lhs.info.tag >= T_CTOR
       rhs = hnf_or_free(interp, root, 1)
       if rhs.info.tag == T_FREE:
-        interp.hnf(root, [1], typedef=lhs.info.typedef())
+        hnf(interp, root, [1], typedef=lhs.info.typedef())
         assert False # E_CONTINUE should be raised in prev statement
       else:
         rhs.info.tag >= T_FREE
@@ -301,13 +301,13 @@ def nonstrict_eq(interp, root):
     raise InstantiationError('=:<= cannot bind to an unboxed value')
 
 def bind_io(interp, lhs):
-  io_a = interp.hnf(lhs, [0])
+  io_a = hnf(interp, lhs, [0])
   yield interp.prelude.apply
   yield lhs[1]
   yield conversions.unbox(interp, io_a)
 
 def seq_io(interp, lhs):
-  interp.hnf(lhs, [0])
+  hnf(interp, lhs, [0])
   yield interp.prelude._Fwd
   yield lhs[1]
 
@@ -330,7 +330,7 @@ def concurrent_and(interp, root):
     stepnumber = interp.stepcounter.count
 
     try:
-      e = interp.hnf(root, [i], typedef=Bool)
+      e = hnf(interp, root, [i], typedef=Bool)
     except E_RESIDUAL as errs[i]:
       if errs[1-i] and interp.stepcounter.count == stepnumber:
         raise
@@ -345,7 +345,7 @@ def concurrent_and(interp, root):
     i = 1-i
 
 def apply(interp, lhs):
-  interp.hnf(lhs, [0]) # normalize "partapplic"
+  hnf(interp, lhs, [0]) # normalize "partapplic"
   partapplic, arg = lhs
   missing, term = partapplic # note: "missing" is unboxed.
   assert missing >= 1
@@ -360,7 +360,7 @@ def apply(interp, lhs):
     yield Node(term, *(term.successors+[arg]), partial=True)
 
 def cond(interp, lhs):
-  interp.hnf(lhs, [0]) # normalize the Boolean argument.
+  hnf(interp, lhs, [0]) # normalize the Boolean argument.
   if lhs[0].info is interp.prelude.True.info:
     yield interp.prelude._Fwd
     yield lhs[1]
@@ -630,7 +630,7 @@ def show(interp, arg):
 def apply_hnf(interp, root):
   yield interp.prelude.apply
   yield root[0]
-  yield interp.hnf(root, [1])
+  yield hnf(interp, root, [1])
 
 def normalize(interp, root, path, ground):
   '''Used to implement $!! and $##.'''
@@ -669,7 +669,7 @@ def ensureNotFree(interp, root):
 
   # Otherwise, reduce the argument to hnf.
   yield interp.prelude._Fwd
-  yield interp.hnf(root, [0])
+  yield hnf(interp, root, [0])
 
 def _PyGenerator(interp, gen):
   '''Implements a Python generator as a Curry list.'''
