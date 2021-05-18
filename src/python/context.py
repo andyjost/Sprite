@@ -67,16 +67,16 @@ class Runtime(object):
   def InfoTable(self):
     assert 0
 
+  @abc.abstractmethod
+  def init_interpreter_state(self, interp):
+    assert 0
+
+  @abc.abstractmethod
+  def get_interpreter_state(self, interp):
+    assert 0
+
   @abc.abstractproperty
   def prelude(self):
-    assert 0
-
-  @abc.abstractproperty
-  def get_stepper(self):
-    assert 0
-
-  @abc.abstractproperty
-  def get_step_counter(self):
     assert 0
 
   @abc.abstractproperty
@@ -94,6 +94,11 @@ class Runtime(object):
 class Node(object):
   __metaclass__ = abc.ABCMeta
 
+
+# Each backend must provide an InterpreterState object and register it with this
+# class.
+class InterpreterState(object):
+  __metaclass__ = abc.ABCMeta
 
 # Each backend must provide an InfoTable object and register it with this
 # class.

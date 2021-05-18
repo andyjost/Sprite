@@ -6,21 +6,22 @@ from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT, E_UPDATE_CONTEXT
 from ...sprite import LEFT, RIGHT, UNDETERMINED
 from .....tags import *
 
-__all__ = ['D', 'N', 'S', 'hnf']
+__all__ = ['D', 'N', 'hnf']
 
 def D(evaluator):
   '''The dispatch (D) Fair Scheme procedure.'''
   while evaluator.queue:
+    rts = evaluator.rts
     frame = evaluator.queue.popleft()
-    evaluator.interp.currentframe = frame
+    rts.currentframe = frame
     if evaluator._handle_frame_if_blocked(frame):
       continue
     expr = frame.expr
     target = expr[()]
-    if evaluator.interp.flags['trace']:
+    if rts.tracing:
       print 'F :::', target, frame
     if isinstance(target, icurry.ILiteral):
-      if evaluator.interp.flags['trace']:
+      if rts.tracing:
         print 'Y :::', target, frame
       yield target
       continue
@@ -30,7 +31,7 @@ def D(evaluator):
     elif tag == T_BIND:
       evaluator.queue.extend(constrain(frame))
     elif tag == T_FAIL:
-      if evaluator.interp.flags['trace']:
+      if rts.tracing:
         print 'X :::', frame
       continue # discard
     elif tag == T_FREE:
@@ -41,12 +42,12 @@ def D(evaluator):
         frame.expr = evaluator.add_prefix(frame.expr)
         evaluator.queue.append(frame)
       else:
-        if evaluator.interp.flags['trace']:
+        if rts.tracing:
           print 'Y :::', target, frame
         yield target
     elif tag == T_FUNC:
       try:
-        S(evaluator.interp, target)
+        rts.S(rts, target)
       except E_CONTINUE:
         # assert expr.info.tag < T_CTOR and expr.info.tag != T_FUNC
         evaluator.queue.append(frame)
@@ -62,7 +63,7 @@ def D(evaluator):
         evaluator.queue.append(frame)
     elif tag >= T_CTOR:
       try:
-        _, freevars = N(evaluator.interp, expr, target)
+        _, freevars = N(rts, expr, target)
       except E_CONTINUE:
         # assert expr.info.tag < T_CTOR and expr.info.tag != T_FUNC
         evaluator.queue.append(frame)
@@ -71,7 +72,7 @@ def D(evaluator):
       else:
         target = expr[()]
         if target.info.tag == tag:
-          if evaluator.interp.flags['trace']:
+          if rts.tracing:
             print 'Y :::', target, frame
           yield target
         else:
@@ -79,13 +80,13 @@ def D(evaluator):
     else:
       assert False
 
-def N(interp, root, target=None, path=None, freevars=None):
+def N(rts, root, target=None, path=None, freevars=None):
   '''The normalize (N) Fair Scheme procedure.'''
   path = [] if path is None else path
   target = root[path] if target is None else target
   assert target.info.tag >= T_CTOR
   freevars = set() if freevars is None else freevars
-  if target.info is interp.prelude._PartApplic.info:
+  if target.info is rts.prelude._PartApplic.info:
     # A partial application is a value even through it may contain a function
     # symbol.  The first successor (# of arguments remaining) is unboxed, so there
     # is nothing to normalize.
@@ -99,25 +100,25 @@ def N(interp, root, target=None, path=None, freevars=None):
         succ = succ[()]
         tag = succ.info.tag
         if tag == T_FAIL:
-          graph.Node(interp.prelude._Failure, target=root)
+          graph.Node(rts.prelude._Failure, target=root)
           raise E_CONTINUE()
         elif tag == T_CHOICE:
-          graph.lift_choice(interp, root, path)
+          graph.lift_choice(rts, root, path)
           raise E_CONTINUE()
         elif tag == T_BIND:
-          graph.lift_constr(interp, root, path)
+          graph.lift_constr(rts, root, path)
           raise E_CONTINUE()
         elif tag == T_FREE:
-          interp.currentframe.check_freevar_bindings(succ, path, lazy=False)
+          rts.currentframe.check_freevar_bindings(succ, path, lazy=False)
           freevars.add(succ)
           break
         elif tag == T_FUNC:
           try:
-            S(interp, succ)
+            rts.S(rts, succ)
           except E_CONTINUE:
             pass
         elif tag >= T_CTOR:
-          _,freevars2 = N(interp, root, succ, path, freevars)
+          _,freevars2 = N(rts, root, succ, path, freevars)
           freevars.update(freevars2)
           break
         else:
@@ -126,7 +127,7 @@ def N(interp, root, target=None, path=None, freevars=None):
     path.pop()
   return target, freevars
 
-def hnf(interp, expr, path, typedef=None, values=None):
+def hnf(rts, expr, path, typedef=None, values=None):
   assert path
   assert expr.info.tag == T_FUNC
   target = expr[path]
@@ -135,39 +136,39 @@ def hnf(interp, expr, path, typedef=None, values=None):
       return target
     tag = target.info.tag
     if tag == T_FAIL:
-      graph.Node(interp.prelude._Failure, target=expr)
+      graph.Node(rts.prelude._Failure, target=expr)
       raise E_CONTINUE()
     elif tag == T_CHOICE:
-      graph.lift_choice(interp, expr, path)
+      graph.lift_choice(rts, expr, path)
       raise E_CONTINUE()
     elif tag == T_BIND:
-      graph.lift_constr(interp, expr, path)
+      graph.lift_constr(rts, expr, path)
       raise E_CONTINUE()
     elif tag == T_FREE:
-      if typedef is None or typedef is interp.type('Prelude.Int'):
+      if typedef is None or typedef is rts.type('Prelude.Int'):
         vid = freevars.get_id(target)
-        if vid in interp.currentframe.lazy_bindings.read:
-          bl, br = interp.currentframe.lazy_bindings.read[vid][0]
+        if vid in rts.currentframe.lazy_bindings.read:
+          bl, br = rts.currentframe.lazy_bindings.read[vid][0]
           assert bl is target
-          replacement = graph.replace_copy(interp, expr, path, br)
+          replacement = graph.replace_copy(rts, expr, path, br)
           raise E_UPDATE_CONTEXT(replacement)
         elif values:
           values = map(int, values)
-          graph.replace(interp, expr, path
-            , graph.Node(interp.integer.narrowInt, expr[path], interp.expr(values))
+          graph.replace(rts, expr, path
+            , graph.Node(rts.integer.narrowInt, expr[path], rts.expr(values))
             )
           target = expr[path]
         else:
           raise E_RESIDUAL([vid])
       else:
-        target = freevars.instantiate(interp, expr, path, typedef)
+        target = freevars.instantiate(rts, expr, path, typedef)
     elif tag == T_FUNC:
       try:
-        S(interp, target)
+        rts.S(rts, target)
       except E_CONTINUE:
         pass
       except E_UPDATE_CONTEXT as cxt:
-        replacement = graph.replace_copy(interp, expr, path, cxt.expr)
+        replacement = graph.replace_copy(rts, expr, path, cxt.expr)
         raise E_UPDATE_CONTEXT(replacement)
     elif tag >= T_CTOR:
       return target
@@ -175,10 +176,6 @@ def hnf(interp, expr, path, typedef=None, values=None):
       target = expr[path]
     else:
       assert False
-
-def S(interp, target):
-  '''The step (S) Fair Scheme procedure.'''
-  interp._stepper(target)
 
 def _fork_updatebindings(frame, xid):
   '''
@@ -231,7 +228,7 @@ def fork(frame):
     bindresult = _fork_updatebindings(frame, cid)
     if bindresult:
       if bindresult == 1: # inconsistent
-        if frame.interp.flags['trace']:
+        if frame.rts.tracing:
           print '? ::: %x inconsistent at %s' % (id(frame), frame.show_cid(cid_, cid))
         return
       else:
@@ -244,14 +241,14 @@ def fork(frame):
     lr = frame.fingerprint[cid]
     assert lr in [LEFT,RIGHT]
     frame.expr = lhs if lr==LEFT else rhs
-    if frame.interp.flags['trace']:
+    if frame.rts.tracing:
       print '? ::: %s, %s%s >> %x' % (
           frame.show_cid(cid_, cid), cid, 'L' if lr==LEFT else 'R', id(frame)
         )
     yield frame
   else: # Undecided, so two children.
     lchild = Frame(expr=lhs, clone=frame)
-    if frame.interp.flags['trace']:
+    if frame.rts.tracing:
       print '? ::: %s, %sL >> %x, %sR >> %x' % (
           frame.show_cid(cid_, cid), cid, id(lchild), cid, id(frame)
         )
@@ -270,7 +267,7 @@ def constrain(frame):
   if bind(frame, x, y):
     yield frame
 
-def bind(self, _x, _y):
+def bind(frame, _x, _y):
   '''
   Bind matching shallow constructor expressions.  If the first argument is
   free and the second is an expression, then a lazy binding is created.  The
@@ -283,43 +280,43 @@ def bind(self, _x, _y):
     x, y = x[()], y[()]
     if x.info.tag == T_CHOICE:
       (x_id, xl, xr), (y_id, yl, yr) = x, y
-      x_id, y_id = map(self.constraint_store.read.root, [x_id, y_id])
+      x_id, y_id = map(frame.constraint_store.read.root, [x_id, y_id])
       if x_id != y_id:
-        x_lr, y_lr = map(self.fingerprint.get, [x_id, y_id])
+        x_lr, y_lr = map(frame.fingerprint.get, [x_id, y_id])
         code = 3 * x_lr + y_lr
         acode = abs(code)
         if acode == 1:
-          self.fingerprint[x_id] = LEFT if code<0 else RIGHT
+          frame.fingerprint[x_id] = LEFT if code<0 else RIGHT
         elif acode == 2:
           return False # inconsistent
         elif acode == 3:
-          self.fingerprint[y_id] = LEFT if code<0 else RIGHT
-        self.constraint_store.write.unite(x_id, y_id)
+          frame.fingerprint[y_id] = LEFT if code<0 else RIGHT
+        frame.constraint_store.write.unite(x_id, y_id)
         stack.extend([(xr, yr), (xl, yl)])
     elif x.info.tag == T_FREE:
       if y.info.tag != T_FREE:
         # This is a lazy binding.
         x_id, _ = x
-        vid = self.constraint_store.read.root(x_id)
-        self.lazy_bindings.write[vid].write.append((x,y))
+        vid = frame.constraint_store.read.root(x_id)
+        frame.lazy_bindings.write[vid].write.append((x,y))
       else:
         (x_id, x_gen), (y_id, y_gen) = x, y
-        x_id, y_id = map(self.constraint_store.read.root, [x_id, y_id])
+        x_id, y_id = map(frame.constraint_store.read.root, [x_id, y_id])
         if x_id != y_id:
           # Whether x/y are NOT bound.
           x_nbnd, y_nbnd = (arg.info.tag == T_CTOR for arg in [x_gen, y_gen])
           if x_nbnd and y_nbnd:
             # Place unbound variables in the binding store.
-            bnd = self.bindings.write
+            bnd = frame.bindings.write
             bnd[x_id].write.append(y)
             bnd[y_id].write.append(x)
           else:
             # Continue binding recursively.
             if x_nbnd:
-              freevars.clone_generator(self.interp, y, x)
+              freevars.clone_generator(frame.rts, y, x)
               x_gen = x[1]
             elif y_nbnd:
-              freevars.clone_generator(self.interp, x, y)
+              freevars.clone_generator(frame.rts, x, y)
               y_gen = y[1]
             stack.append((x_gen, y_gen))
     elif x.info.tag >= T_CTOR:

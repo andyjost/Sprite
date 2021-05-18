@@ -23,7 +23,8 @@ class TestPyPullTab(cytest.TestCase):
     id9 = id(goal[0,0,2,1])
     id123 = id(goal[0,2])
     # Head-normalizing brings a choice to the root.
-    self.assertRaises(pyruntime.E_CONTINUE, lambda: hnf(interp, goal[0], [0,2]))
+    rts = pyruntime.RuntimeState(interp)
+    self.assertRaises(pyruntime.E_CONTINUE, lambda: hnf(rts, goal[0], [0,2]))
     # goal = id (f...8 ? f...9)
     self.assertEqual(goal[0].info.tag, T_CHOICE)
     # Ensure nodes are referenced, not copied.
@@ -32,26 +33,27 @@ class TestPyPullTab(cytest.TestCase):
     self.assertEqual(id(lhs[0,2]), id8)
     self.assertEqual(id(lhs[2]), id123)
     lhs = curry.expr(interp.prelude.id, lhs) # id (f...8)
-    self.assertRaises(pyruntime.E_CONTINUE, lambda: hnf(interp, lhs, [0]))
+    self.assertRaises(pyruntime.E_CONTINUE, lambda: hnf(rts, lhs, [0]))
     self.assertEqual(lhs.info.tag, T_FAIL)
     # RHS -> True
     rhs = goal[0,2]
     self.assertEqual(id(rhs[0,2]), id9)
     self.assertEqual(id(rhs[2]), id123)
     rhs = curry.expr(interp.prelude.id, rhs) # id (f...9)
-    self.assertMayRaise(None, lambda: hnf(interp, rhs, [0]))
+    self.assertMayRaise(None, lambda: hnf(rts, rhs, [0]))
     self.assertEqual(curry.topython(id(rhs[0])), id123)
 
   @unittest.skip('constraints not implemented')
   def testPullEqChoices(self):
     '''Tests the pull-tab step for the EqChoices constraint.'''
     interp = curry.getInterpreter()
+    rts = pyruntime.RuntimeState(interp)
     u = curry.unboxed
     constraint = curry.expr(
         interp.prelude._EqChoices, True, (u(101), u(102))
       )
     e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
-    pyruntime.pull_choice(interp, e, [0,0,1])
+    pyruntime.pull_choice(rts, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._EqChoices.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
     self.assertEqual(curry.topython(e[1]), (101, 102))
@@ -60,12 +62,13 @@ class TestPyPullTab(cytest.TestCase):
   def testPullChoiceConstr(self):
     '''Tests the pull-tab step for the ChoiceConstr constraint.'''
     interp = curry.getInterpreter()
+    rts = pyruntime.RuntimeState(interp)
     u = curry.unboxed
     constraint = curry.expr(
         interp.prelude._ChoiceConstr, True, (u(109), u(LEFT))
       )
     e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
-    pyruntime.pull_choice(interp, e, [0,0,1])
+    pyruntime.pull_choice(rts, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._ChoiceConstr.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
     self.assertEqual(curry.topython(e[1]), (109, LEFT))
@@ -74,7 +77,7 @@ class TestPyPullTab(cytest.TestCase):
         interp.prelude._ChoiceConstr, True, (u(109), u(RIGHT))
       )
     e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
-    pyruntime.pull_choice(interp, e, [0,0,1])
+    pyruntime.pull_choice(rts, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._ChoiceConstr.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
     self.assertEqual(curry.topython(e[1]), (109, RIGHT))
@@ -83,13 +86,14 @@ class TestPyPullTab(cytest.TestCase):
   def testPullEqVarsConstr(self):
     '''Tests the pull-tab step for the EqVars constraint.'''
     interp = curry.getInterpreter()
+    rts = pyruntime.RuntimeState(interp)
     u = curry.unboxed
     unknown = interp.symbol('Prelude.unknown')
     x = next(interp.eval(unknown))
     y = next(interp.eval(unknown))
     constraint = curry.expr(interp.prelude._EqVars, 314, (x, y))
     e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
-    pyruntime.pull_choice(interp, e, [0,0,1])
+    pyruntime.pull_choice(rts, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._EqVars.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, 314, 1)])
     self.assertEqual(curry.topython(e[1]), (x, y))

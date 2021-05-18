@@ -82,8 +82,8 @@ def compile_py_unboxedfunc(interp, unboxedfunc):
   expr = interp.expr
   topython = interp.topython
   # For some reason, the prelude reverses the argument order.
-  def step(_0):
-    args = (topython(hnf(interp, _0, [i])) for i in reversed(xrange(len(_0.successors))))
+  def step(rts, _0):
+    args = (topython(hnf(rts, _0, [i])) for i in reversed(xrange(len(_0.successors))))
     return expr(unboxedfunc(*args), target=_0)
   return step
 
@@ -96,9 +96,9 @@ def compile_py_boxedfunc(interp, boxedfunc):
   form, but without any other preprocessing (e.g., unboxing).  It returns a
   sequence of arguments accepted by ``runtime.Node.__new__``.
   '''
-  def step(_0):
-    args = (hnf(interp, _0, [i]) for i in xrange(len(_0.successors)))
-    runtime.Node(*boxedfunc(interp, *args), target=_0)
+  def step(rts, _0):
+    args = (hnf(rts, _0, [i]) for i in xrange(len(_0.successors)))
+    runtime.Node(*boxedfunc(rts, *args), target=_0)
   return step
 
 def compile_py_rawfunc(interp, rawfunc):
@@ -109,8 +109,8 @@ def compile_py_rawfunc(interp, rawfunc):
   Like compile_py_boxedfunc but does not head-normalize the arguments.  The
   left-hand-side expression is simply passed to the implementation function.
   '''
-  def step(_0):
-    runtime.Node(*rawfunc(interp, _0), target=_0)
+  def step(rts, _0):
+    runtime.Node(*rawfunc(rts, _0), target=_0)
   return step
 
 class FunctionCompiler(object):
@@ -145,7 +145,7 @@ class FunctionCompiler(object):
     self.closure = closure.Closure(interp)
     self.closure['Node'] = runtime.Node
     self.extern = extern
-    self.program = ['def step(_0):']
+    self.program = ['def step(rts, _0):']
     self.varinfo = None
     return self
 
@@ -267,9 +267,8 @@ class FunctionCompiler(object):
   @statement.when(icurry.IFreeDecl)
   def statement(self, vardecl):
     self.closure['freshvar'] = freshvar
-    self.closure['interp'] = self.interp
     varname = self.expression(vardecl.lhs)
-    yield '%s = freshvar(interp)' % varname
+    yield '%s = freshvar(rts)' % varname
 
   @statement.when(icurry.IVarAssign)
   def statement(self, assign):
@@ -305,13 +304,12 @@ class FunctionCompiler(object):
   @statement.when(icurry.ICaseCons)
   def statement(self, icase):
     self.closure['hnf'] = hnf
-    self.closure['interp'] = self.interp
     vid = icase.vid
     path = self.varinfo[vid].path
     assert path is not None
     assert icase.branches
     typedef = casetype(self.interp, icase)
-    yield 'selector = hnf(interp, _0, %s, typedef=%s).info.tag' % (
+    yield 'selector = hnf(rts, _0, %s, typedef=%s).info.tag' % (
         path, self.closure[typedef]
       )
     el = ''
@@ -330,13 +328,12 @@ class FunctionCompiler(object):
   @statement.when(icurry.ICaseLit)
   def statement(self, icase):
     self.closure['hnf'] = hnf
-    self.closure['interp'] = self.interp
     vid = icase.vid
     path = self.varinfo[vid].path
     assert path is not None
     self.closure['unbox'] = self.interp.unbox
     typedef = casetype(self.interp, icase)
-    yield 'selector = unbox(hnf(interp, _0, %s, typedef=%s, values=%r))' % (
+    yield 'selector = unbox(hnf(rts, _0, %s, typedef=%s, values=%r))' % (
         path, self.closure[typedef]
       , list(branch.lit.value for branch in icase.branches)
       )

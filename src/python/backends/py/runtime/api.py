@@ -2,12 +2,12 @@ from .fairscheme import *
 from .graph import *
 from .misc import *
 from .... import context
+import itertools
 
 __all__ = [
     'Runtime'
 
   # From fairscheme.
-  , 'D'
   , 'Evaluator'
   , 'Frame'
   , 'freshvar'
@@ -16,11 +16,10 @@ __all__ = [
   , 'get_id'
   , 'has_generator'
   , 'hnf'
-  , 'LEFT'
-  , 'N'
-  , 'RIGHT'
-  , 'S'
-  , 'UNDETERMINED'
+  , 'LEFT', 'RIGHT', 'UNDETERMINED'
+  , 'RuntimeState'
+  , 'InterpreterState'
+  , 'StepCounter'
 
   # From graph.
   , 'InfoTable'
@@ -31,8 +30,6 @@ __all__ = [
   , 'rewrite'
 
   # From misc.
-  , 'get_stepper'
-  , 'StepCounter'
   , 'RuntimeFlowException'
   , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT', 'E_UPDATE_CONTEXT'
   ]
@@ -48,18 +45,16 @@ class Runtime(context.Runtime):
   def InfoTable(self):
     return InfoTable
 
+  def init_interpreter_state(self, interp):
+    interp._its = InterpreterState(interp)
+
+  def get_interpreter_state(self, interp):
+    return interp._its
+
   @property
   def prelude(self):
     from . import prelude
     return prelude
-
-  @property
-  def get_stepper(self):
-    return get_stepper
-
-  @property
-  def get_step_counter(self):
-    return StepCounter
 
   @property
   def evaluate(self):

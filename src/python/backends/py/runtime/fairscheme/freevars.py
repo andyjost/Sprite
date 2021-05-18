@@ -15,14 +15,14 @@ __all__ = [
   , 'instantiate'
   ]
 
-def _createGenerator(interp, ctors, vid=None, target=None):
+def _createGenerator(rts, ctors, vid=None, target=None):
   '''
   Creates a generator tree.
 
   Parameters:
   -----------
-    ``interp``
-      The Curry interpreter.
+    ``rts``
+      The RuntimeState object.
 
     ``ctors``
       A sequence of ``InfoTable`` objects defining the type to generate.
@@ -41,20 +41,20 @@ def _createGenerator(interp, ctors, vid=None, target=None):
     ctor, = ctors
     return Node(
         ctor
-      , *[Node(interp.prelude.prim_unknown) for _ in xrange(ctor.arity)]
+      , *[Node(rts.prelude.prim_unknown) for _ in xrange(ctor.arity)]
       , target=target
       )
   else:
     middle = -(-N // 2) # ceiling-divide, e.g., 7 -> 4.
     return Node(
-        interp.prelude._Choice
-      , vid if vid is not None else interp.nextid()
-      , _createGenerator(interp, ctors[:middle])
-      , _createGenerator(interp, ctors[middle:])
+        rts.prelude._Choice
+      , vid if vid is not None else next(rts.idfactory)
+      , _createGenerator(rts, ctors[:middle])
+      , _createGenerator(rts, ctors[middle:])
       , target=target
       )
 
-def _gen_ctors(interp, gen):
+def _gen_ctors(rts, gen):
   '''Iterate through the constructors of a generator.'''
   queue = [gen]
   while queue:
@@ -69,22 +69,24 @@ def _gen_ctors(interp, gen):
         # that constructor and a failure.
         assert gen.info.tag == T_FAIL
 
-def clone_generator(interp, bound, unbound):
+def clone_generator(rts, bound, unbound):
   vid = unbound[0]
-  constructors = list(_gen_ctors(interp, bound[1]))
-  get_generator(interp, unbound, typedef=constructors)
+  constructors = list(_gen_ctors(rts, bound[1]))
+  get_generator(rts, unbound, typedef=constructors)
 
-def get_generator(interp, freevar, typedef):
+def get_generator(rts, freevar, typedef):
   '''
   Get the generator for a free variable.  Instantiates the variable if
   necessary.
 
   Parameters:
   -----------
-  ``interp``
-      The interpreter.
+  ``rts``
+      The RuntimeState object.
+
   ``freevar``
       The free variable node to instantiate.
+
   ``typedef``
       A ``CurryDataType`` that indicates the type to instantiate the variable
       to.  This can also be a list of ``icurry.IConstructor``s or
@@ -93,30 +95,30 @@ def get_generator(interp, freevar, typedef):
   '''
   assert freevar.info.tag == T_FREE
   vid = freevar[0]
-  if freevar[1].info is interp.prelude.Unit.info:
+  if freevar[1].info is rts.prelude.Unit.info:
     constructors = [
         getattr(ctor, 'info', ctor)
             for ctor in getattr(typedef, 'constructors', typedef)
       ]
-    instance = _createGenerator(interp, constructors, vid=vid)
+    instance = _createGenerator(rts, constructors, vid=vid)
     if len(constructors) == 1:
       # Ensure the instance is always choice-rooted.  This is not the most
       # efficient approach, but it simplifies the implementation elsewhere
       # (e.g., see Replacer._a_).
       instance = Node(
-          interp.prelude._Choice, vid, instance, Node(interp.prelude._Failure)
+          rts.prelude._Choice, vid, instance, Node(rts.prelude._Failure)
         )
     Node(freevar.info, vid, instance, target=freevar)
   return freevar[1]
 
-def instantiate(interp, context, path, typedef):
+def instantiate(rts, context, path, typedef):
   '''
   Instantiates a free variable at ``context[path]``.
 
   Parameters:
   -----------
-    ``interp``
-      The Curry interpreter.
+    ``rts``
+      The RuntimeState object.
 
     ``context``
       The context in which the free variable appears.
@@ -126,7 +128,7 @@ def instantiate(interp, context, path, typedef):
       variable.
   '''
   replacer = Replacer(context, path
-    , lambda node, _: get_generator(interp, node, typedef)
+    , lambda node, _: get_generator(rts, node, typedef)
     )
   replaced = replacer[None]
   assert replacer.target.info.tag == T_FREE
@@ -134,17 +136,17 @@ def instantiate(interp, context, path, typedef):
   context.successors[:] = replaced.successors
   return replacer.target[1]
 
-def freshvar_args(interp):
+def freshvar_args(rts):
   '''
   Generates arguments for a fresh free variable using the next available ID.
   '''
-  yield interp.prelude._Free.info
-  yield interp.nextid()
-  yield Node(interp.prelude.Unit.info)
+  yield rts.prelude._Free.info
+  yield next(rts.idfactory)
+  yield Node(rts.prelude.Unit.info)
 
-def freshvar(interp, target=None):
+def freshvar(rts, target=None):
   '''Places a fresh free variable at the specified location.'''
-  return Node(*freshvar_args(interp), target=target)
+  return Node(*freshvar_args(rts), target=target)
 
 def get_id(arg):
   '''Returns the choice or variable id for a choice or free variable.'''
@@ -155,8 +157,8 @@ def get_id(arg):
       assert cid >= 0
       return cid
 
-def has_generator(interp, freevar):
+def has_generator(rts, freevar):
   '''Indicates whether a free variable has a bound generator.'''
   assert freevar.info.tag == T_FREE
-  return freevar[1].info is not interp.prelude.Unit.info
+  return freevar[1].info is not rts.prelude.Unit.info
 

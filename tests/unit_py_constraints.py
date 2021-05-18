@@ -2,6 +2,7 @@ import cytest # from ./lib; must be first
 import cytest.step
 from curry.backends.py.runtime import Frame, LEFT, RIGHT, UNDETERMINED
 from curry.backends.py.runtime.fairscheme import algo as fs_algo
+from curry.backends.py.runtime.fairscheme.evaluator import RuntimeState
 from curry.utility import unionfind
 import curry
 import itertools
@@ -93,11 +94,12 @@ class TestConstraintStore(cytest.TestCase):
     Unit = curry.symbol('Prelude.()')
     e = curry.expr(curry.symbol('Prelude.?'), -10, 10)
     interp = curry.getInterpreter()
+    rts = RuntimeState(interp)
     cytest.step.step(interp, e)
     cid,l,r = e
     assert cid == 0 # cytest.TestCase should have reset curry.
     #
-    frame = Frame(interp, e)
+    frame = Frame(rts, e)
     self.checkFingerprint(frame)
     #
     buf = list(fs_algo.fork(frame))
@@ -106,22 +108,21 @@ class TestConstraintStore(cytest.TestCase):
     self.checkFingerprint(buf[1], {cid:RIGHT})
     #
     lhs,rhs = buf
-    frame = Frame(interp, e, lhs)
+    frame = Frame(rts, e, lhs)
     buf = list(fs_algo.fork(frame))
     self.assertIs(buf.pop().expr[()], l)
     self.assertFalse(buf)
     #
-    frame = Frame(interp, e, rhs)
+    frame = Frame(rts, e, rhs)
     buf = list(fs_algo.fork(frame))
     self.assertIs(buf.pop().expr[()], r)
     self.assertFalse(buf)
     #
     e = curry.expr(curry.symbol('Prelude.?'), -10, 10)
-    interp = curry.getInterpreter()
     cytest.step.step(interp, e)
     cid2,_,_ = e
     self.assertNotEqual(cid, cid2)
-    frame = Frame(interp, e, frame)
+    frame = Frame(rts, e, frame)
     buf = list(fs_algo.fork(frame))
     self.assertEqual(len(buf), 2)
     self.checkFingerprint(buf[0], {cid:RIGHT, cid2:LEFT})

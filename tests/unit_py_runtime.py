@@ -210,7 +210,8 @@ class TestPyRuntime(cytest.TestCase):
 
   def test_free_return(self):
     interp = interpreter.Interpreter()
-    self.assertEqual(str(interp._idfactory_), 'count(0)')
+    rts = runtime.RuntimeState(interp)
+    self.assertEqual(str(rts.idfactory), 'count(0)')
     result, = list(interp.eval(interp.symbol('Prelude.prim_unknown')))
     self.assertEqual(
         result, runtime.Node(interp.prelude._Free
@@ -248,12 +249,11 @@ class TestPyRuntime(cytest.TestCase):
     cytest.step.step(interp, goal)
     self.assertEqual(goal, step3)
     self.assertEqual(list(interp.eval(goal)), [])
-    self.assertEqual(interp.stepcounter.count, 1)
 
   def test_getimpl(self):
     # Positive test.
     from curry.lib import hello
-    self.assertTrue(hello.main.getimpl().startswith('def step(_0):'))
+    self.assertTrue(hello.main.getimpl().startswith('def step(rts, _0):'))
     # Negative test.
     self.assertRaisesRegexp(
         ValueError
@@ -347,7 +347,8 @@ class TestInstantiation(cytest.TestCase):
 
   def test_basic(self):
     interp,q,u,e = self.interp, self.q, self.u(), self.e(typename='()')
-    instance = instantiate(interp, e, [0], interp.type('Prelude.[]'))
+    rts = runtime.RuntimeState(interp)
+    instance = instantiate(rts, e, [0], interp.type('Prelude.[]'))
     au = curry.expr(*q(0, [interp.prelude.Cons, u, u], [interp.prelude.Nil]))
     self.assertEqual(instance, au)
 
@@ -365,7 +366,8 @@ class TestInstantiation(cytest.TestCase):
   def test_singleCtor(self):
     # Instantiating a type with one constructor is a special case.
     interp,q,e = self.interp, self.q, self.e(typename='()')
-    instance = instantiate(interp, e, [0], interp.type('Prelude.()'))
+    rts = runtime.RuntimeState(interp)
+    instance = instantiate(rts, e, [0], interp.type('Prelude.()'))
     au = curry.expr(*q(0, [interp.prelude.Unit], [interp.prelude._Failure]))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, interp.prelude, '()', instance)
@@ -379,7 +381,8 @@ class TestInstantiation(cytest.TestCase):
     interp,q = self.interp, self.q
     Type = interp.compile('data T = A|B|C|D|E|F|G', modulename='Type')
     e = self.e(typename='Type.T', imports=Type)
-    instance = instantiate(interp, e, [0], interp.type('Type.T'))
+    rts = runtime.RuntimeState(interp)
+    instance = instantiate(rts, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
@@ -393,7 +396,8 @@ class TestInstantiation(cytest.TestCase):
     interp,q = self.interp, self.q
     Type = interp.compile('data T = A|B|C|D|E|F', modulename='Type')
     e = self.e(typename='Type.T', imports=Type)
-    instance = instantiate(interp, e, [0], interp.type('Type.T'))
+    rts = runtime.RuntimeState(interp)
+    instance = instantiate(rts, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
@@ -406,7 +410,8 @@ class TestInstantiation(cytest.TestCase):
     interp,q,u = self.interp, self.q, self.u()
     Type = interp.compile('data T a = A|B a|C a a|D a a a|E a a a a', modulename='Type')
     e = self.e(typename='Type.T ()', imports=Type)
-    instance = instantiate(interp, e, [0], interp.type('Type.T'))
+    rts = runtime.RuntimeState(interp)
+    instance = instantiate(rts, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)

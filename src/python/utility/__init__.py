@@ -6,10 +6,12 @@ __all__ = ['formatDocstring', 'isLegalModulename', 'removeSuffix']
 def formatDocstring(*args, **kwds):
   def decorator(arg):
     if isinstance(arg, type):
-      return type.__new__(
+      ty = type.__new__(
           type(arg), arg.__name__, (arg,)
         , {'__doc__': arg.__doc__.format(*args, **kwds)}
         )
+      ty.__module__ = arg.__module__
+      return ty
     else:
       arg.__doc__ = arg.__doc__.format(*args, **kwds)
       return arg

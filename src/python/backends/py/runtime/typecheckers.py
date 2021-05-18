@@ -54,7 +54,7 @@ def _typecheck(ty, arg, name, p=None):
               )
       )
 
-def Char(interp, arg):
+def Char(evaluator, arg):
   '''Typechecker for the Curry Char type.'''
   _typecheck(str, arg, 'Char')
   if len(arg) != 1:
@@ -62,21 +62,21 @@ def Char(interp, arg):
         'Cannot construct a Char node from a str of length %d.' % len(arg)
       )
 
-def Float(interp, arg):
+def Float(evaluator, arg):
   '''Typechecker for the Curry Float type.'''
   _typecheck(float, arg, 'Float')
 
-def Int(interp, arg):
+def Int(evaluator, arg):
   '''Typechecker for the Curry Int type.'''
   _typecheck(int, arg, 'Int')
 
-def Binding(interp, result, binding):
+def Binding(evaluator, result, binding):
   name = '_Binding'
   _typecheck(ANY_CURRY_TYPE, result, name)
-  _typecheck(getattr(interp.prelude, '(,)'), binding, name, 2)
-  _typecheck(interp.prelude._Free, binding[0], name, '2.1')
-  # _typecheck(interp.prelude._Free, binding[1], name, '2.2')
-  varid = lambda x: inspect.get_id(interp, x)
+  _typecheck(getattr(evaluator.prelude, '(,)'), binding, name, 2)
+  _typecheck(evaluator.prelude._Free, binding[0], name, '2.1')
+  # _typecheck(evaluator.prelude._Free, binding[1], name, '2.2')
+  varid = lambda x: inspect.get_id(evaluator, x)
   if varid(binding[0]) == varid(binding[1]):
     assert binding[0] is binding[1]
     raise TypeError(

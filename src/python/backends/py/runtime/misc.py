@@ -1,9 +1,7 @@
 from __future__ import absolute_import
 
 __all__ = [
-    'get_stepper'
-  , 'StepCounter'
-  , 'RuntimeFlowException'
+    'RuntimeFlowException'
   , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT', 'E_UPDATE_CONTEXT'
   ]
 
@@ -54,49 +52,3 @@ class E_UPDATE_CONTEXT(RuntimeFlowException):
             performing lazy binding.
     '''
     self.expr = expr
-
-class StepCounter(object):
-  '''
-  Counts the number of steps taken.  If a limit is provided, raises E_STEPLIMIT
-  when the limit is reached.
-  '''
-  def __init__(self, limit=None):
-    assert limit > 0 or limit is None
-    self._limit = -1 if limit is None else limit
-    self.reset()
-  @property
-  def count(self):
-    return self._count
-  @property
-  def limit(self):
-    return self._limit
-  def increment(self):
-    self._count += 1
-    if self._count == self.limit:
-      raise E_STEPLIMIT()
-  def reset(self):
-    self._count = 0
-
-
-def get_stepper(interp):
-  '''
-  Returns a function to apply steps, according to the interp
-  configuration.
-  '''
-  if interp.flags['trace']:
-    indent = [0]
-    def step(target): # pragma: no cover
-      print 'S <<<' + '  ' * indent[0], str(target), getattr(interp, 'currentframe', '')
-      indent[0] += 1
-      try:
-        target.info.step(target)
-        interp.stepcounter.increment()
-      finally:
-        indent[0] -= 1
-        print 'S >>>' + '  ' * indent[0], str(target), getattr(interp, 'currentframe', '')
-  else:
-    def step(target):
-      target.info.step(target)
-      interp.stepcounter.increment()
-  return step
-

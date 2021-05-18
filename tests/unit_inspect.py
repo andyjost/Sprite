@@ -3,9 +3,13 @@ import curry
 from curry import inspect
 
 def step(interp, *args):
-  expr = curry.expr(*args)
-  expr.info.step(expr)
-  return expr[()]
+  from cytest.step import step
+  e = curry.expr(*args)
+  step(interp, e)
+  return e[()]
+  # expr = curry.expr(*args)
+  # expr.info.step(expr)
+  # return expr[()]
 
 class TestInspect(cytest.TestCase):
   @classmethod

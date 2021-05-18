@@ -58,8 +58,6 @@ class Interpreter(object):
       }
     self.flags.update(flags)
     self._context = context.Context(self.flags['backend'])
-    self._stepper = self.context.runtime.get_stepper(self)
-    self.stepcounter = self.context.runtime.get_step_counter()
     self.modules = {}
     self.path = []
     self.reset() # set remaining attributes.
@@ -93,13 +91,12 @@ class Interpreter(object):
     self.stdin = sys.stdin
     self.stdout = sys.stdout
     self.stderr = sys.stderr
-    self._idfactory_ = itertools.count()
-    self.stepcounter.reset()
     self.automodules = config.syslibs()
     for name in self.modules.keys():
       if name not in self.automodules:
         del self.modules[name]
     self.path[:] = config.currypath([]) # re-read it from the environment
+    self.context.runtime.init_interpreter_state(self)
 
   def module(self, name):
     '''Look up a module by name.'''
@@ -127,10 +124,6 @@ class Interpreter(object):
     moduleobj = self.module(modulename)
     typegetter = getattr(moduleobj, '.gettype')
     return typegetter(name)
-
-  def nextid(self):
-    '''Generates the next available choice/variable ID.'''
-    return next(self._idfactory_)
 
   # Externally-implemented methods.
   from .compile import compile

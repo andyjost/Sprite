@@ -1,40 +1,80 @@
-from __future__ import absolute_import
 from copy import copy
 from ..... import exceptions
+from . import freevars
+from .. import graph
+from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT, E_UPDATE_CONTEXT
 from ...sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED
+from .....tags import *
+from .....utility.exprutil import iterexpr
 from .....utility import unionfind
 from .....utility.shared import Shared, compose, DefaultDict
 import collections
+import itertools
 
-from .. import graph
-from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT, E_UPDATE_CONTEXT
-from . import freevars
+__all__ = [
+    'Evaluator', 'Fingerprint', 'Frame', 'InterpreterState', 'RuntimeState'
+  , 'StepCounter', 'LEFT', 'RIGHT', 'UNDETERMINED'
+  ]
 
-__all__ = ['Evaluator', 'Frame', 'Fingerprint', 'LEFT', 'RIGHT', 'UNDETERMINED']
+class InterpreterState(object):
+  '''
+  The part of the runtime system state the belongs to the interpreter.  Each
+  interpreter keeps its own ID factory.  Storing this with the interpreter is
+  necessary to ensures that all expressions built by the interpreter are
+  compatible.
+  '''
+  def __init__(self, interp):
+    self.idfactory = itertools.count()
+
+
+class RuntimeState(object):
+  '''
+  The state of the runtime system during evaluation.  Each time a goal is
+  activated an object of this type is created.
+  '''
+  def __init__(self, interp):
+    # Set up flags first.
+    self.tracing = interp.flags['trace']
+    self.algebraic_substitution = interp.flags['algebraic_substitution']
+    self.direct_var_binding = interp.flags['direct_var_binding']
+
+    self.idfactory = interp.context.runtime.get_interpreter_state(interp).idfactory
+
+    self.currypath = tuple(interp.path)
+    self.integer = interp.integer
+    self.prelude = interp.prelude
+    self.S = get_stepper(self)
+    self.stepcounter = StepCounter()
+    self.currentframe = None
+
+    self.stdout = interp.stdout
+    self.stdin = interp.stdin
+    self.expr = interp.expr
+    self.topython = interp.topython
+    self.type = interp.type
+    self.unbox = interp.unbox
+
 
 class Evaluator(object):
-  '''Evaluates Curry expressions.'''
-  def __new__(cls, interp, goal):
-    self = object.__new__(cls)
-    self.interp = interp
-    goal = self.add_prefix(goal)
-    self.queue = collections.deque([Frame(interp, goal)])
+  '''
+  Evaluates Curry expressions.
+  '''
+  def __init__(self, interp, goal):
+    self.rts = RuntimeState(interp)
+    self.queue = collections.deque([Frame(self.rts, self.add_prefix(goal))])
+
     # The number of consecutive blocked frames handled.  If this ever equals
     # the queue length, then the computation fails.
     self.n_consecutive_blocked_seen = 0
-    return self
 
   def add_prefix(self, goal):
     '''Adds the prefix needed for top-level expressions.'''
-    return self.interp.expr(
-        getattr(self.interp.prelude, '$!!')
-      , self.interp.prelude.id
-      , goal
-      )
+    rts = self.rts
+    return rts.expr(getattr(rts.prelude, '$!!'), rts.prelude.id, goal)
 
-  def evaluate(self, *args, **kwds):
-    from . import D
-    return D(self, *args, **kwds)
+  def evaluate(self):
+    from .algo import D
+    return D(self)
 
   def _handle_frame_if_blocked(self, frame):
     '''
@@ -54,6 +94,7 @@ class Evaluator(object):
       self.n_consecutive_blocked_seen = 0
       return False
 
+
 Bindings = compose(Shared, compose(DefaultDict, compose(Shared, list)))
 
 class Frame(object):
@@ -63,10 +104,11 @@ class Frame(object):
   One element of the work queue managed by an ``Evaluator``.  Represents an
   expression "activated" for evaluation.
   '''
-  def __init__(self, interp=None, expr=None, clone=None):
+  def __init__(self, rts=None, expr=None, clone=None):
     if clone is None:
       assert expr is not None
-      self.interp = interp
+      assert isinstance(rts, RuntimeState)
+      self.rts = rts
       self.expr = expr
       self.fingerprint = Fingerprint()
       self.constraint_store = Shared(unionfind.UnionFind)
@@ -74,8 +116,8 @@ class Frame(object):
       self.lazy_bindings = Bindings()
       self.blocked_by = None
     else:
-      assert interp is None or interp is clone.interp
-      self.interp = clone.interp
+      assert rts is None or rts is clone.rts
+      self.rts = clone.rts
       self.expr = clone.expr if expr is None else expr
       self.fingerprint = copy(clone.fingerprint)
       self.constraint_store = copy(clone.constraint_store)
@@ -119,13 +161,13 @@ class Frame(object):
         # with =:=.
         bindings += self.lazy_bindings.write.pop(vid).read
     if bindings:
-      conj = getattr(self.interp.prelude, '&')
+      conj = getattr(self.rts.prelude, '&')
       bindinfo = getattr(
-          self.interp.prelude, 'prim_nonstrictEq' if lazy else 'prim_constrEq'
+          self.rts.prelude, 'prim_nonstrictEq' if lazy else 'prim_constrEq'
         )
-      act = lambda var: freevars.get_generator(self.interp, var, None) if lazy else var
+      act = lambda var: freevars.get_generator(self.rts, var, None) if lazy else var
       self.expr = graph.Node(
-          getattr(self.interp.prelude, '&>')
+          getattr(self.rts.prelude, '&>')
         , reduce(
               lambda a, b: graph.Node(conj, a, b)
             , [graph.Node(bindinfo, act(x), e) for x, e in bindings]
@@ -148,9 +190,9 @@ class Frame(object):
       _a,(_b,l,r) = freevar
       replacement = l if self.fingerprint[vid] == LEFT else r
       if path:
-        graph.replace(self.interp, self.expr[()], path, replacement)
+        graph.replace(self.rts, self.expr[()], path, replacement)
       else:
-        self.expr = freevars.get_generator(self.interp, freevar, None)
+        self.expr = freevars.get_generator(self.rts, freevar, None)
       raise E_CONTINUE()
     vids = list(self.eq_vars(vid))
     if any(vid_ in self.lazy_bindings.read for vid_ in vids):
@@ -185,4 +227,49 @@ class Frame(object):
       return True
     else:
       return False
+
+
+class StepCounter(object):
+  '''
+  Counts the number of steps taken.  If a limit is provided, raises E_STEPLIMIT
+  when the limit is reached.
+  '''
+  def __init__(self, limit=None):
+    assert limit > 0 or limit is None
+    self._limit = -1 if limit is None else limit
+    self.reset()
+  @property
+  def count(self):
+    return self._count
+  @property
+  def limit(self):
+    return self._limit
+  def increment(self):
+    self._count += 1
+    if self._count == self.limit:
+      raise E_STEPLIMIT()
+  def reset(self):
+    self._count = 0
+
+
+def get_stepper(rts):
+  '''
+  Returns a function to apply steps, according to the configuration.
+  '''
+  if rts.tracing:
+    indent = [0]
+    def step(rts, _0): # pragma: no cover
+      print 'S <<<' + '  ' * indent[0], str(_0), getattr(rts, 'currentframe', '')
+      indent[0] += 1
+      try:
+        _0.info.step(rts, _0)
+        rts.stepcounter.increment()
+      finally:
+        indent[0] -= 1
+        print 'S >>>' + '  ' * indent[0], str(_0), getattr(rts, 'currentframe', '')
+  else:
+    def step(rts, _0):
+      _0.info.step(rts, _0)
+      rts.stepcounter.increment()
+  return step
 

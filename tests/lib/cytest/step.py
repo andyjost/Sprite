@@ -12,14 +12,18 @@ def step(interp, expr, num=1):
   '''
   if not hasattr(expr, 'info') or expr.info.tag >= T_CTOR:
     expr = makegoal(interp, expr)
-  with binding(interp.__dict__, 'stepcounter', pyruntime.StepCounter(limit=num)):
+  # rts = pyruntime.RuntimeState(interp)
+  evaluator = pyruntime.Evaluator(interp, expr)
+  rts = evaluator.rts
+  rts.currentframe = evaluator.queue[0]
+  with binding(rts.__dict__, 'stepcounter', pyruntime.StepCounter(limit=num)):
     try:
       if isinstance(expr, icurry.ILiteral):
         return
       while expr.info.tag == T_FUNC:
-        interp._stepper(expr)
+        rts.S(rts, expr)
       if expr.info.tag >= T_CTOR:
-        pyruntime.N(interp, expr)
+        pyruntime.N(rts, expr)
       else:
         return
       # FIXME: get the termination condition right.  It needs the same

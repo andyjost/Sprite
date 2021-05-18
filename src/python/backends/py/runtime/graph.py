@@ -273,15 +273,15 @@ class Replacer(object):
     self.index = i
     return self._a_(self.context)
 
-def lift_choice(interp, source, path):
+def lift_choice(evaluator, source, path):
   '''
   Executes a pull-tab step with source ``source`` and choice-rooted target
   ``source[path]``.
 
   Parameters:
   -----------
-    ``interp``
-      The Curry interpreter.
+    ``evaluator``
+      The evaluator object.
 
     ``source``
       The pull-tab source.  This node will be overwritten with a choice symbol.
@@ -292,29 +292,29 @@ def lift_choice(interp, source, path):
   '''
   assert source.info.tag < T_CTOR
   assert path
-  # if source.info is interp.prelude.ensureNotFree.info:
+  # if source.info is evaluator.prelude.ensureNotFree.info:
   #   raise RuntimeError("non-determinism in I/O actions occurred")
   replacer = Replacer(source, path)
   left = replacer[1]
   right = replacer[2]
   assert replacer.target.info.tag == T_CHOICE
   Node(
-      interp.prelude._Choice
+      evaluator.prelude._Choice
     , replacer.target[0] # choice ID
     , left
     , right
     , target=source
     )
 
-def lift_constr(interp, source, path):
+def lift_constr(evaluator, source, path):
   '''
   Executes a pull-tab step with source ``source`` and constraint-rooted target
   ``source[path]``.
 
   Parameters:
   -----------
-    ``interp``
-      The Curry interpreter.
+    ``evaluator``
+      The evaluator object.
 
     ``source``
       The pull-tab source.  This node will be overwritten with a constraint
@@ -336,16 +336,16 @@ def lift_constr(interp, source, path):
     , target=source
     )
 
-def replace(interp, context, path, replacement):
+def replace(evaluator, context, path, replacement):
   replacer = Replacer(context, path, lambda _a, _b: replacement)
   replaced = replacer[None]
   # assert replacer.target.info.tag == context.T_FREE
   # assert context.info == replaced.info
   context.successors[:] = replaced.successors
 
-def replace_copy(interp, context, path, replacement):
+def replace_copy(evaluator, context, path, replacement):
   copy = context.copy()
-  replace(interp, copy, path, replacement)
+  replace(evaluator, copy, path, replacement)
   return copy
 
 def rewrite(node, info, *args):

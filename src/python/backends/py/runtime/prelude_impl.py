@@ -3,9 +3,7 @@ Implementation of the Prelude externals.
 '''
 from ....exceptions import *
 from .... import inspect
-from ....interpreter import conversions
 from ....tags import T_FAIL, T_BIND, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from ....utility.unboxed import unboxed
 import collections
 import itertools
 import logging
@@ -19,15 +17,15 @@ from .misc import E_RESIDUAL
 
 logger = logging.getLogger(__name__)
 
-def hnf_or_free(interp, root, index):
+def hnf_or_free(rts, root, index):
   '''Reduce the expression to head normal form or a free variable.'''
   try:
-    return hnf(interp, root, [index])
+    return hnf(rts, root, [index])
   except E_RESIDUAL:
     # The argument could be a free variable or an expression containing a free
     # variable that cannot be narrowed, such as "ensureNotFree x".
     expr = root[index]
-    if inspect.isa_freevar(interp, expr):
+    if inspect.isa_freevar(rts, expr):
       return expr
     else:
       raise
@@ -35,225 +33,225 @@ def hnf_or_free(interp, root, index):
 def algebraic_substitution(prim_func_name=None):
   def decorator(f):
     fname = 'prim_' + f.__name__ if prim_func_name is None else prim_func_name
-    def replacement(interp, root):
-      if(interp.flags['algebraic_substitution']):
-        return f(interp, root)
+    def replacement(rts, root):
+      if(rts.algebraic_substitution):
+        return f(rts, root)
       else:
         # Perform a substitution similar to the following:
         #     eqInt x y = (prim_eqInt $# x) $# y
         assert len(root)
-        conj = getattr(interp.prelude, '$#')
+        conj = getattr(rts.prelude, '$#')
         args = reduce(lambda l, r: Node(conj, l, r), root)
-        prim_func = getattr(interp.prelude, fname)
+        prim_func = getattr(rts.prelude, fname)
         return itertools.chain([prim_func.info], args)
     return replacement
   return decorator
 
 @algebraic_substitution()
-def eqInt(interp, root):
-  lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
-  if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
+def eqInt(rts, root):
+  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
+  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
     raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(interp, lhs):
-    yield interp.integer.narrowEqInt
+  elif inspect.isa_freevar(rts, lhs):
+    yield rts.integer.narrowEqInt
     yield lhs
     yield rhs
-  elif inspect.isa_freevar(interp, rhs):
-    yield interp.integer.narrowEqInt
+  elif inspect.isa_freevar(rts, rhs):
+    yield rts.integer.narrowEqInt
     yield rhs
     yield lhs
   else:
-    result = op.eq(*map(interp.topython, [lhs, rhs]))
-    yield interp.prelude.True if result else interp.prelude.False
+    result = op.eq(*map(rts.topython, [lhs, rhs]))
+    yield rts.prelude.True if result else rts.prelude.False
 
-def ltEqInt(interp, root):
-  lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
-  if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
+def ltEqInt(rts, root):
+  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
+  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
     raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(interp, lhs):
-    yield interp.integer.narrowLtEqInt
+  elif inspect.isa_freevar(rts, lhs):
+    yield rts.integer.narrowLtEqInt
     yield lhs
     yield rhs
-  elif inspect.isa_freevar(interp, rhs):
-    yield interp.integer.narrowLtEqInt
+  elif inspect.isa_freevar(rts, rhs):
+    yield rts.integer.narrowLtEqInt
     yield rhs
     yield lhs
   else:
-    result = op.le(*map(interp.topython, [lhs, rhs]))
-    yield interp.prelude.True if result else interp.prelude.False
+    result = op.le(*map(rts.topython, [lhs, rhs]))
+    yield rts.prelude.True if result else rts.prelude.False
 
-def plusInt(interp, root):
-  lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
-  if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
+def plusInt(rts, root):
+  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
+  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
     raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(interp, lhs):
-    yield interp.integer.narrowPlusInt
+  elif inspect.isa_freevar(rts, lhs):
+    yield rts.integer.narrowPlusInt
     yield lhs
     yield rhs
-  elif inspect.isa_freevar(interp, rhs):
-    yield interp.integer.narrowPlusInt
+  elif inspect.isa_freevar(rts, rhs):
+    yield rts.integer.narrowPlusInt
     yield rhs
     yield lhs
   else:
-    yield interp.prelude.Int
-    yield op.add(*map(interp.topython, [lhs, rhs]))
+    yield rts.prelude.Int
+    yield op.add(*map(rts.topython, [lhs, rhs]))
 
-def minusInt(interp, root):
-  lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
-  if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
+def minusInt(rts, root):
+  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
+  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
     raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(interp, lhs):
-    yield interp.integer.narrowMinusInt
+  elif inspect.isa_freevar(rts, lhs):
+    yield rts.integer.narrowMinusInt
     yield lhs
     yield rhs
-  elif inspect.isa_freevar(interp, rhs):
-    yield interp.integer.narrowMinusIntRev
+  elif inspect.isa_freevar(rts, rhs):
+    yield rts.integer.narrowMinusIntRev
     yield lhs
     yield rhs
   else:
-    yield interp.prelude.Int
-    yield op.sub(*map(interp.topython, [lhs, rhs]))
+    yield rts.prelude.Int
+    yield op.sub(*map(rts.topython, [lhs, rhs]))
 
-def timesInt(interp, root):
-  lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
-  if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
+def timesInt(rts, root):
+  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
+  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
     raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(interp, lhs):
-    yield interp.integer.narrowTimesInt
+  elif inspect.isa_freevar(rts, lhs):
+    yield rts.integer.narrowTimesInt
     yield lhs
     yield rhs
-  elif inspect.isa_freevar(interp, rhs):
-    yield interp.integer.narrowTimesInt
+  elif inspect.isa_freevar(rts, rhs):
+    yield rts.integer.narrowTimesInt
     yield rhs
     yield lhs
   else:
-    yield interp.prelude.Int
-    yield op.mul(*map(interp.topython, [lhs, rhs]))
+    yield rts.prelude.Int
+    yield op.mul(*map(rts.topython, [lhs, rhs]))
 
-def divInt(interp, root):
-  lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
-  if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
+def divInt(rts, root):
+  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
+  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
     raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(interp, lhs):
-    yield interp.integer.narrowDivInt
+  elif inspect.isa_freevar(rts, lhs):
+    yield rts.integer.narrowDivInt
     yield lhs
     yield rhs
-  elif inspect.isa_freevar(interp, rhs):
-    yield interp.integer.narrowDivIntRev
+  elif inspect.isa_freevar(rts, rhs):
+    yield rts.integer.narrowDivIntRev
     yield lhs
     yield rhs
   else:
-    yield interp.prelude.Int
-    yield op.floordiv(*map(interp.topython, [lhs, rhs]))
+    yield rts.prelude.Int
+    yield op.floordiv(*map(rts.topython, [lhs, rhs]))
 
-def modInt(interp, root):
-  lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
-  if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
+def modInt(rts, root):
+  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
+  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
     raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(interp, lhs):
-    yield interp.integer.narrowModInt
+  elif inspect.isa_freevar(rts, lhs):
+    yield rts.integer.narrowModInt
     yield lhs
     yield rhs
-  elif inspect.isa_freevar(interp, rhs):
-    yield interp.integer.narrowModIntRev
+  elif inspect.isa_freevar(rts, rhs):
+    yield rts.integer.narrowModIntRev
     yield lhs
     yield rhs
   else:
-    yield interp.prelude.Int
+    yield rts.prelude.Int
     f = lambda x, y: x - y * op.floordiv(x,y)
-    yield f(*map(interp.topython, [lhs, rhs]))
+    yield f(*map(rts.topython, [lhs, rhs]))
 
-def quotInt(interp, root):
-  lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
-  if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
+def quotInt(rts, root):
+  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
+  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
     raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(interp, lhs):
-    yield interp.integer.narrowQuotInt
+  elif inspect.isa_freevar(rts, lhs):
+    yield rts.integer.narrowQuotInt
     yield lhs
     yield rhs
-  elif inspect.isa_freevar(interp, rhs):
-    yield interp.integer.narrowQuotIntRev
+  elif inspect.isa_freevar(rts, rhs):
+    yield rts.integer.narrowQuotIntRev
     yield lhs
     yield rhs
   else:
-    yield interp.prelude.Int
+    yield rts.prelude.Int
     f = lambda x, y: int(op.truediv(x, y))
-    yield f(*map(interp.topython, [lhs, rhs]))
+    yield f(*map(rts.topython, [lhs, rhs]))
 
-def remInt(interp, root):
-  lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
-  if inspect.isa_freevar(interp, lhs) and inspect.isa_freevar(interp, rhs):
+def remInt(rts, root):
+  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
+  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
     raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(interp, lhs):
-    yield interp.integer.narrowRemInt
+  elif inspect.isa_freevar(rts, lhs):
+    yield rts.integer.narrowRemInt
     yield lhs
     yield rhs
-  elif inspect.isa_freevar(interp, rhs):
-    yield interp.integer.narrowRemIntRev
+  elif inspect.isa_freevar(rts, rhs):
+    yield rts.integer.narrowRemIntRev
     yield lhs
     yield rhs
   else:
-    yield interp.prelude.Int
+    yield rts.prelude.Int
     f = lambda x, y: x - y * int(op.truediv(x, y))
-    yield f(*map(interp.topython, [lhs, rhs]))
+    yield f(*map(rts.topython, [lhs, rhs]))
 
-def constr_eq(interp, root):
+def constr_eq(rts, root):
   '''Implements =:=.'''
-  lhs, rhs = (hnf_or_free(interp, root, i) for i in (0,1))
-  if inspect.is_boxed(interp, lhs) and inspect.is_boxed(interp, rhs):
+  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
+  if inspect.is_boxed(rts, lhs) and inspect.is_boxed(rts, rhs):
     ltag, rtag = lhs.info.tag, rhs.info.tag
     if ltag == T_FREE:
       if rtag == T_FREE:
         if lhs[0] != rhs[0]:
           # Unify variables => _Binding True (x, y)
-          yield interp.prelude._Binding.info
-          yield interp.expr(True)
-          yield interp.expr((lhs, rhs))
+          yield rts.prelude._Binding.info
+          yield rts.expr(True)
+          yield rts.expr((lhs, rhs))
         else:
-          yield interp.prelude.True
+          yield rts.prelude.True
       else:
         # Instantiate the variable.
         assert rtag >= T_CTOR
-        if rhs.info is interp.prelude.Int.info:
-          yield interp.integer.bindint
+        if rhs.info is rts.prelude.Int.info:
+          yield rts.integer.bindint
           yield lhs
           yield rhs
         else:
-          hnf(interp, root, [0], typedef=rhs.info.typedef())
+          hnf(rts, root, [0], typedef=rhs.info.typedef())
           assert False # E_CONTINUE raised
     else:
       if rtag == T_FREE:
         # Instantiate the variable.
         assert ltag >= T_CTOR
-        if lhs.info is interp.prelude.Int.info:
-          yield interp.integer.bindint
+        if lhs.info is rts.prelude.Int.info:
+          yield rts.integer.bindint
           yield lhs
           yield rhs
         else:
-          hnf(interp, root, [1], typedef=lhs.info.typedef())
+          hnf(rts, root, [1], typedef=lhs.info.typedef())
           assert False # E_CONTINUE raised
       else:
         if ltag == rtag: # recurse when the comparison returns 0 or False.
           arity = lhs.info.arity
           assert arity == rhs.info.arity
           if arity:
-            conj = getattr(interp.prelude, '&')
+            conj = getattr(rts.prelude, '&')
             terms = (Node(root.info, l, r) for l,r in zip(lhs, rhs))
             expr = reduce((lambda a,b: Node(conj, a, b)), terms)
             yield expr.info
             for succ in expr:
               yield succ
           else:
-            yield interp.prelude.True
+            yield rts.prelude.True
         else:
-          yield interp.prelude._Failure
-  elif not inspect.is_boxed(interp, lhs) and not inspect.is_boxed(interp, rhs):
-    yield interp.prelude.True if lhs == rhs else interp.prelude._Failure
-    #                            ^^^^^^^^^^ compare unboxed values
+          yield rts.prelude._Failure
+  elif not inspect.is_boxed(rts, lhs) and not inspect.is_boxed(rts, rhs):
+    yield rts.prelude.True if lhs == rhs else rts.prelude._Failure
+    #                               ^^^^^^^^^^ compare unboxed values
   else:
     raise InstantiationError('=:= cannot bind to an unboxed value')
 
-def nonstrict_eq(interp, root):
+def nonstrict_eq(rts, root):
   '''
   Implements =:<=.
 
@@ -261,22 +259,22 @@ def nonstrict_eq(interp, root):
   Hanus, LOPSTR 2005, pg. 16.
   '''
   lhs, rhs = root
-  if inspect.is_boxed(interp, lhs) and inspect.is_boxed(interp, rhs):
-    lhs = hnf_or_free(interp, root, 0)
+  if inspect.is_boxed(rts, lhs) and inspect.is_boxed(rts, rhs):
+    lhs = hnf_or_free(rts, root, 0)
     if lhs.info.tag == T_FREE:
       # Bind lhs -> rhs
-      if interp.flags['direct_var_binding']:
-        lhs.rewrite(interp.prelude._Fwd, rhs)
-        yield interp.prelude.True
+      if rts.direct_var_binding:
+        lhs.rewrite(rts.prelude._Fwd, rhs)
+        yield rts.prelude.True
       else:
-        yield interp.prelude._Binding.info
-        yield interp.expr(True)
-        yield interp.expr((lhs, rhs))
+        yield rts.prelude._Binding.info
+        yield rts.expr(True)
+        yield rts.expr((lhs, rhs))
     else:
       assert lhs.info.tag >= T_CTOR
-      rhs = hnf_or_free(interp, root, 1)
+      rhs = hnf_or_free(rts, root, 1)
       if rhs.info.tag == T_FREE:
-        hnf(interp, root, [1], typedef=lhs.info.typedef())
+        hnf(rts, root, [1], typedef=lhs.info.typedef())
         assert False # E_CONTINUE should be raised in prev statement
       else:
         rhs.info.tag >= T_FREE
@@ -284,31 +282,31 @@ def nonstrict_eq(interp, root):
           arity = lhs.info.arity
           assert arity == rhs.info.arity
           if arity:
-            conj = getattr(interp.prelude, '&')
+            conj = getattr(rts.prelude, '&')
             terms = (Node(root.info, l, r) for l,r in zip(lhs, rhs))
             expr = reduce((lambda a,b: Node(conj, a, b)), terms)
             yield expr.info
             for succ in expr:
               yield succ
           else:
-            yield interp.prelude.True
+            yield rts.prelude.True
         else:
-          yield interp.prelude._Failure
-  elif not inspect.is_boxed(interp, lhs) and not inspect.is_boxed(interp, rhs):
-    yield interp.prelude.True if lhs == rhs else interp.prelude._Failure
+          yield rts.prelude._Failure
+  elif not inspect.is_boxed(rts, lhs) and not inspect.is_boxed(rts, rhs):
+    yield rts.prelude.True if lhs == rhs else rts.prelude._Failure
     #                            ^^^^^^^^^^ compare unboxed values
   else:
     raise InstantiationError('=:<= cannot bind to an unboxed value')
 
-def bind_io(interp, lhs):
-  io_a = hnf(interp, lhs, [0])
-  yield interp.prelude.apply
+def bind_io(rts, lhs):
+  io_a = hnf(rts, lhs, [0])
+  yield rts.prelude.apply
   yield lhs[1]
-  yield conversions.unbox(interp, io_a)
+  yield io_a[0]
 
-def seq_io(interp, lhs):
-  hnf(interp, lhs, [0])
-  yield interp.prelude._Fwd
+def seq_io(rts, lhs):
+  hnf(rts, lhs, [0])
+  yield rts.prelude._Fwd
   yield lhs[1]
 
 # Prelude.& is implemented as follows:
@@ -320,32 +318,32 @@ def seq_io(interp, lhs):
 #         - if any step occurred, work on the other arg;
 #         - otherwise, suspend;
 # Use digits.curry as an example.
-def concurrent_and(interp, root):
-  Bool = interp.type('Prelude.Bool')
-  assert interp.prelude.False.info.tag == 0
-  assert interp.prelude.True.info.tag == 1
+def concurrent_and(rts, root):
+  Bool = rts.type('Prelude.Bool')
+  assert rts.prelude.False.info.tag == 0
+  assert rts.prelude.True.info.tag == 1
   errs = [None, None]
   i = 0
   while True:
-    stepnumber = interp.stepcounter.count
+    stepnumber = rts.stepcounter.count
 
     try:
-      e = hnf(interp, root, [i], typedef=Bool)
+      e = hnf(rts, root, [i], typedef=Bool)
     except E_RESIDUAL as errs[i]:
-      if errs[1-i] and interp.stepcounter.count == stepnumber:
+      if errs[1-i] and rts.stepcounter.count == stepnumber:
         raise
     else:
       if e.info.tag:      # True
-        yield interp.prelude._Fwd
+        yield rts.prelude._Fwd
         yield root[1-i]
       else:               # False
-        yield interp.prelude.False
+        yield rts.prelude.False
       return
 
     i = 1-i
 
-def apply(interp, lhs):
-  hnf(interp, lhs, [0]) # normalize "partapplic"
+def apply(rts, lhs):
+  hnf(rts, lhs, [0]) # normalize "partapplic"
   partapplic, arg = lhs
   missing, term = partapplic # note: "missing" is unboxed.
   assert missing >= 1
@@ -359,64 +357,64 @@ def apply(interp, lhs):
     yield missing-1
     yield Node(term, *(term.successors+[arg]), partial=True)
 
-def cond(interp, lhs):
-  hnf(interp, lhs, [0]) # normalize the Boolean argument.
-  if lhs[0].info is interp.prelude.True.info:
-    yield interp.prelude._Fwd
+def cond(rts, lhs):
+  hnf(rts, lhs, [0]) # normalize the Boolean argument.
+  if lhs[0].info is rts.prelude.True.info:
+    yield rts.prelude._Fwd
     yield lhs[1]
   else:
-    yield interp.prelude._Failure
+    yield rts.prelude._Failure
 
-def failed(interp):
-  return [interp.prelude._Failure]
+def failed(rts):
+  return [rts.prelude._Failure]
 
-def choice(interp, lhs):
-  yield interp.prelude._Choice
-  yield next(interp._idfactory_)
+def choice(rts, lhs):
+  yield rts.prelude._Choice
+  yield next(rts.idfactory)
   yield lhs[0]
   yield lhs[1]
 
-def freshvar(interp, lhs):
-  return freevars.freshvar_args(interp)
+def freshvar(rts, lhs):
+  return freevars.freshvar_args(rts)
 
-def error(interp, msg):
-  msg = str(interp.topython(msg))
+def error(rts, msg):
+  msg = str(rts.topython(msg))
   raise RuntimeError(msg)
 
 # The next several functions are for parsing literals.
-def readNatLiteral(interp, s):
+def readNatLiteral(rts, s):
   '''
   Parse a natural number from a Curry string.  Returns a pair consisting of the
   value and the remaining string.
   '''
   num = []
-  Cons = interp.prelude.Cons
+  Cons = rts.prelude.Cons
   while inspect.isa(s, Cons):
-    c = interp.unbox(s[0])
+    c = rts.unbox(s[0])
     if c.isdigit():
       num.append(c)
       s = s[1]
     else:
       break
-  yield getattr(interp.prelude, '(,)')
-  yield interp.expr(int(''.join(num)) if num else 0)
+  yield getattr(rts.prelude, '(,)')
+  yield rts.expr(int(''.join(num)) if num else 0)
   yield s
 
-def readFloatLiteral(interp, s):
+def readFloatLiteral(rts, s):
   '''
   Parse a floating-point number from a Curry string.  Returns a pair consisting
   of the value and the remaining string.
   '''
   num = []
-  Cons = interp.prelude.Cons
+  Cons = rts.prelude.Cons
   if inspect.isa(s, Cons):
-    c = interp.unbox(s[0])
+    c = rts.unbox(s[0])
     if c in '+-':
       num.append(c)
       s = s[1]
   have_dot = False
   while inspect.isa(s, Cons):
-    c = interp.unbox(s[0])
+    c = rts.unbox(s[0])
     if c.isdigit():
       num.append(c)
       s = s[1]
@@ -426,21 +424,21 @@ def readFloatLiteral(interp, s):
       s = s[1]
     else:
       break
-  yield getattr(interp.prelude, '(,)')
-  yield interp.expr(float(''.join(num) if num else 'nan'))
+  yield getattr(rts.prelude, '(,)')
+  yield rts.expr(float(''.join(num) if num else 'nan'))
   yield s
 
 class ParseError(BaseException): pass
 
-def _getchar(interp, s):
+def _getchar(rts, s):
   # Get and unbox the head character of a string.  Return a pair of it and the
   # tail.
-  if inspect.isa(s, interp.prelude.Cons):
+  if inspect.isa(s, rts.prelude.Cons):
     h,t = s
-    return interp.unbox(h), t
+    return rts.unbox(h), t
   raise ParseError()
 
-def _parseDecChar(interp, s, digits=None):
+def _parseDecChar(rts, s, digits=None):
   '''
   Parses a string of decimal digits.  Returns the corresponding character and
   string tail.
@@ -448,7 +446,7 @@ def _parseDecChar(interp, s, digits=None):
   digits = digits or []
   s_prev = s
   while True:
-    c, s = _getchar(interp, s_prev)
+    c, s = _getchar(rts, s_prev)
     if c.isdigit():
       digits.append(c)
     elif not digits:
@@ -458,7 +456,7 @@ def _parseDecChar(interp, s, digits=None):
     s_prev = s
 
 HEXDIGITS = set('0123456789abcdef')
-def _parseHexChar(interp, s, digits=None):
+def _parseHexChar(rts, s, digits=None):
   '''
   Parses a string of hexadecimal digits.  Returns the corresponding character
   and string tail.
@@ -466,7 +464,7 @@ def _parseHexChar(interp, s, digits=None):
   digits = digits or []
   s_prev = s
   while True:
-    c, s = _getchar(interp, s_prev)
+    c, s = _getchar(rts, s_prev)
     if c in HEXDIGITS:
       digits.append(c)
     elif not digits:
@@ -481,18 +479,18 @@ ESCAPE_CODES = {
   , "'":"'"    # \' -> '
   , 'b':'\b', 'f':'\f', 'n':'\n', 'r':'\r', 't':'\t', 'v':'\v'
   }
-def _parseEscapeCode(interp, s):
-  c, s = _getchar(interp, s)
+def _parseEscapeCode(rts, s):
+  c, s = _getchar(rts, s)
   if c in ESCAPE_CODES:
     return ESCAPE_CODES[c], s
   elif c == 'x': # hex escape code
-    return _parseHexChar(interp, s)
+    return _parseHexChar(rts, s)
   elif c.isdigit(): # decimal escape code
-    return _parseDecChar(interp, s, [c])
+    return _parseDecChar(rts, s, [c])
   else:
     raise ParseError()
 
-def readCharLiteral(interp, s):
+def readCharLiteral(rts, s):
   '''
   Parse a character literal from a Curry string.
 
@@ -515,36 +513,36 @@ def readCharLiteral(interp, s):
   s_in = s
   try:
     # First, yield the Curry symbol for a pair.
-    yield getattr(interp.prelude, '(,)')
+    yield getattr(rts.prelude, '(,)')
 
     # Get the character.
-    c, s = _getchar(interp, s)
+    c, s = _getchar(rts, s)
     if c != "'":
       raise ParseError()
-    c, s = _getchar(interp, s)
+    c, s = _getchar(rts, s)
     if c == '\\':
-      c_out, s = _parseEscapeCode(interp, s)
+      c_out, s = _parseEscapeCode(rts, s)
     elif ord(c) < 256 and c != "'":
       c_out = c
     else:
       raise ParseError()
 
     # Eat the closing quote.
-    c, s = _getchar(interp, s)
+    c, s = _getchar(rts, s)
     if c != "'":
       raise ParseError()
 
     # Second, yield the character as a Curry Char.
-    yield interp.expr(c_out)
+    yield rts.expr(c_out)
 
     # Third, yield the string tail.
     yield s
   except ParseError:
     print "Parse Error!"
-    yield interp.expr('\0')
+    yield rts.expr('\0')
     yield s_in
 
-def readStringLiteral(interp, s):
+def readStringLiteral(rts, s):
   '''
   Parse a string literal from a Curry string.
 
@@ -559,19 +557,19 @@ def readStringLiteral(interp, s):
   '''
   s_in = s
   try:
-    yield getattr(interp.prelude, '(,)')
+    yield getattr(rts.prelude, '(,)')
     s_out = []
-    c, s = _getchar(interp, s)
+    c, s = _getchar(rts, s)
     if c != '"':
       raise ParseError()
     while True:
-      c, s = _getchar(interp, s)
+      c, s = _getchar(rts, s)
       if c == '\\':
-        c, s = _parseEscapeCode(interp, s)
+        c, s = _parseEscapeCode(rts, s)
         s_out.append(c)
       elif ord(c) < 256:
         if c == '"':
-          yield interp.expr(''.join(s_out))
+          yield rts.expr(''.join(s_out))
           yield s
           return
         else:
@@ -579,21 +577,21 @@ def readStringLiteral(interp, s):
       else:
         raise ParseError()
   except ParseError:
-    yield interp.expr("")
+    yield rts.expr("")
     yield s_in
 
-def returnIO(interp, a):
-  yield interp.prelude.IO
+def returnIO(rts, a):
+  yield rts.prelude.IO
   yield a
 
-def putChar(interp, a):
-  interp.stdout.write(conversions.unbox(interp, a))
-  yield interp.prelude.IO
-  yield Node(interp.prelude.Unit)
+def putChar(rts, a):
+  rts.stdout.write(a[0])
+  yield rts.prelude.IO
+  yield Node(rts.prelude.Unit)
 
-def getChar(interp):
-  yield interp.prelude.Char
-  yield interp.stdin.read(1)
+def getChar(rts):
+  yield rts.prelude.Char
+  yield rts.stdin.read(1)
 
 def generateBytes(stream, chunksize=4096):
   with stream:
@@ -604,8 +602,8 @@ def generateBytes(stream, chunksize=4096):
       for byte in chunk:
         yield byte
 
-def readFile(interp, filename):
-  filename = interp.topython(filename)
+def readFile(rts, filename):
+  filename = rts.topython(filename)
   stream = open(filename, 'r')
   try:
     import mmap
@@ -613,72 +611,72 @@ def readFile(interp, filename):
     gen = generateBytes(stream)
   else:
     gen = iter(mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ))
-  yield interp.prelude._PyGenerator
+  yield rts.prelude._PyGenerator
   yield gen
 
-def show(interp, arg):
-  if inspect.is_boxed(interp, arg):
+def show(rts, arg):
+  if inspect.is_boxed(rts, arg):
     string = arg.info.show(arg)
   else:
     string = str(arg)
   if len(string) == 1:
     string = [string]
-  result = conversions.expr(interp, string)
-  yield interp.prelude._Fwd
+  result = rts.expr(string)
+  yield rts.prelude._Fwd
   yield result
 
-def apply_hnf(interp, root):
-  yield interp.prelude.apply
+def apply_hnf(rts, root):
+  yield rts.prelude.apply
   yield root[0]
-  yield hnf(interp, root, [1])
+  yield hnf(rts, root, [1])
 
-def normalize(interp, root, path, ground):
+def normalize(rts, root, path, ground):
   '''Used to implement $!! and $##.'''
   try:
-    hnf(interp, root, path)
+    hnf(rts, root, path)
   except E_RESIDUAL:
     if ground:
       raise
     else:
       return root[path]
-  target, freevars = N(interp, root, path=path)
+  target, freevars = N(rts, root, path=path)
   if ground and freevars:
     raise E_RESIDUAL(freevars)
   return target
 
-def apply_nf(interp, root):
-  yield interp.prelude.apply
+def apply_nf(rts, root):
+  yield rts.prelude.apply
   yield root[0]
-  yield normalize(interp, root, [1], ground=False)
+  yield normalize(rts, root, [1], ground=False)
 
-def apply_gnf(interp, root):
-  yield interp.prelude.apply
+def apply_gnf(rts, root):
+  yield rts.prelude.apply
   yield root[0]
-  yield normalize(interp, root, [1], ground=True)
+  yield normalize(rts, root, [1], ground=True)
 
-def ensureNotFree(interp, root):
+def ensureNotFree(rts, root):
   # Substitute the binding, if one exists or head-normalize the argument.
   expr = root[0]
-  if inspect.isa_freevar(interp, expr):
+  if inspect.isa_freevar(rts, expr):
     vid = get_id(expr)
-    if vid in interp.currentframe.fingerprint:
+    if vid in rts.currentframe.fingerprint:
       # Return the binding.
-      yield interp.prelude._Fwd
-      yield freevars.get_generator(interp, expr, None)
+      yield rts.prelude._Fwd
+      yield freevars.get_generator(rts, expr, None)
       return
 
   # Otherwise, reduce the argument to hnf.
-  yield interp.prelude._Fwd
-  yield hnf(interp, root, [0])
+  yield rts.prelude._Fwd
+  yield hnf(rts, root, [0])
 
-def _PyGenerator(interp, gen):
+def _PyGenerator(rts, gen):
   '''Implements a Python generator as a Curry list.'''
   assert isinstance(gen, collections.Iterator)
   try:
     item = next(gen)
   except StopIteration:
-    yield interp.prelude.Nil
+    yield rts.prelude.Nil
   else:
-    yield interp.prelude.Cons
-    yield interp.expr(item)
-    yield interp.expr(gen)
+    yield rts.prelude.Cons
+    yield rts.expr(item)
+    yield rts.expr(gen)
