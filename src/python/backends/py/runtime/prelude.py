@@ -77,22 +77,12 @@ _types_ = [
   ]
 
 # List
-def _listvalues(node):
-  n = node[()]
-  while n.info.name == ':':
-    v,n = n
-    yield v.info.show(v)
-
-def _listformat(node):
-  return '[%s]' % ', '.join(_listvalues(node))
-
 _types_.append(
     _T('[]', [
-        _C(':' , 2, metadata={'py.format':_listformat})
-      , _C('[]', 0, metadata={'py.format':_listformat})
+        _C(':' , 2, metadata={'py.format':'({1}:{2})'})
+      , _C('[]', 0, metadata={'py.format':'[]'})
       ])
   )
-del _listformat
 
 # Tuples
 MAX_TUPLE_SIZE = 15

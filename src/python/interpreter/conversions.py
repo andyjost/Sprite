@@ -4,6 +4,7 @@ and Python.
 '''
 
 from .. import context
+from .. import exceptions
 from .. import inspect
 from .. import objects
 from .. import utility
@@ -202,16 +203,26 @@ class ToPython(object):
     elif inspect.isa_bool(interp, value):
       return inspect.isa_true(interp, value)
     elif inspect.isa_list(interp, value):
-      l = list(self.__convert(interp, x) for x in _iter_(interp, value))
+      l = []
+      try:
+        for elem in _listiter(interp, value):
+          l.append(self.__convert(interp, elem))
+        else:
+          tail = None
+      except exceptions.NotConstructorError as e:
+        tail = self.__convert(interp, e.arg)
       # FIXME: need to query the Curry typeinfo.  An empty list of Char should be
       # an empty string, here.  It's less confusing to let empty lists by lists,
       # rather than converting all empty lists to string.
-      if convert_strings and l:
+      if convert_strings and l and tail is None:
         try:
           return ''.join(l)
         except TypeError:
           pass
-      return l
+      if tail:
+        return NonConstructorList(l, tail)
+      else:
+        return l
     elif inspect.isa_tuple(interp, value):
       return tuple(self.__convert(interp, x) for x in value)
     elif inspect.isa_freevar(interp, value):
@@ -246,12 +257,15 @@ def topython(interp, value, convert_strings=True):
   '''
   return _topython_converter_(interp, value, convert_strings)
 
-def _iter_(interp, arg):
+def _listiter(interp, arg):
   '''Iterate through a Curry list.'''
   Cons = getattr(interp.prelude, ':')
   while inspect.isa(arg, Cons):
     yield arg[0]
     arg = arg[1]
+  # if inspect.isa_freevar(interp, arg):
+  if not inspect.isa_list(interp, arg):
+    raise exceptions.NotConstructorError(arg)
 
 def getconverter(converter):
   '''
@@ -280,3 +294,17 @@ class FreeType(object):
 
   def __repr__(self):
     return self.label
+
+
+class NonConstructorList(object):
+  '''
+  The Python representation of a non-ground list.
+  '''
+  def __init__(self, elems, tail):
+    self.elems = list(elems)
+    self.elems.append(tail)
+    # FIXME: get interp out of the inspect module.
+    # assert inspect.isa_freevar(tail)
+
+  def __str__(self):
+    return ':'.join(map(str, self.elems))

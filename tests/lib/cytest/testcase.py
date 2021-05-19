@@ -138,10 +138,13 @@ class FunctionalTestCase(TestCase):
         File-specific options to cyclean.  For tests matching the key, the
         provided keywords will be passed to cyclean.
 
-      SKIP [Optional, set, default=set()]
-        A list of tests to skip.  Each element can be a string or regular
+      SKIP [Optional, set or str, default=set()]
+        A list of tests to skip.  Each element is interpreted as a regular
         expression.  Any .curry file whose base name (i.e., with the .curry
         extension stripped) matches one of these patterns will be skipped.
+
+      RUNONLY [Optional, set or str, default='.*']
+        The opposite of SKIP.  Specifies the tests to run.
 
       ORACLE_TIMEOUT [Optional, int, default=20]
         The timeout in seconds to use when generating golden results.
@@ -172,7 +175,17 @@ class FunctionalTestCase(TestCase):
         if 'SKIP' not in defs:
           defs['SKIP'] = None
         else:
-          defs['SKIP'] = re.compile('|'.join(defs['SKIP']))
+          skiparg = defs['SKIP']
+          if isinstance(skiparg, basestring):
+            skiparg = [skiparg]
+          defs['SKIP'] = re.compile('|'.join(skiparg))
+        if 'RUNONLY' not in defs:
+          defs['RUNONLY'] = None
+        else:
+          runonlyarg = defs['RUNONLY']
+          if isinstance(runonlyarg, basestring):
+            runonlyarg = [runonlyarg]
+          defs['RUNONLY'] = re.compile('|'.join(runonlyarg))
         if 'PRINT_SKIPPED_FILES' not in defs:
           defs['PRINT_SKIPPED_FILES'] = False
         if 'PRINT_SKIPPED_GOALS' not in defs:
@@ -182,7 +195,8 @@ class FunctionalTestCase(TestCase):
         for cysrc in glob(defs['SOURCE_DIR'] + '*.curry'):
           name = os.path.splitext(os.path.split(cysrc)[-1])[0]
           if re.match(defs['FILE_PATTERN'], name):
-            if defs['SKIP'] and re.match(defs['SKIP'], name):
+            if defs['SKIP'] and re.match(defs['SKIP'], name) or \
+               defs['RUNONLY'] and not re.match(defs['RUNONLY'], name):
               if defs['PRINT_SKIPPED_FILES']:
                 print >>sys.stderr, 'skipping file %s' % cysrc
             else:
