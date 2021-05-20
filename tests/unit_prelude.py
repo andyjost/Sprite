@@ -20,7 +20,7 @@ class TestPrelude(cytest.TestCase):
     '''
     Tests the built-in Prelude types and, indicentally, the ``isa`` function.
     '''
-    e2s = lambda expr: str(curry.eval(expr, converter=None).next())
+    e2s = lambda expr: str(curry.eval(expr).next())
 
     # Int, Char, Float.
     Int = curry.symbol('Prelude.Int')

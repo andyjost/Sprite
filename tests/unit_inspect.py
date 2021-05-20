@@ -1,21 +1,21 @@
 import cytest # from ./lib; must be first
 import curry
 from curry import inspect
+from curry.backends.py.runtime import RuntimeState
+from curry.backends.py.runtime.fairscheme.freevars import freshvar
 
 def step(interp, *args):
   from cytest.step import step
   e = curry.expr(*args)
   step(interp, e)
   return e[()]
-  # expr = curry.expr(*args)
-  # expr.info.step(expr)
-  # return expr[()]
 
 class TestInspect(cytest.TestCase):
   @classmethod
   def setUpClass(cls):
     reload(curry) # reset the choice ID factory.
     cls.interp = curry.getInterpreter()
+    cls.rts = RuntimeState(cls.interp)
     prelude = cls.interp.prelude
     cls.not_a_node = int
     cls.true = curry.expr(True)
@@ -23,7 +23,7 @@ class TestInspect(cytest.TestCase):
     cls.io = curry.expr(prelude.IO, prelude.True)
     cls.tuple_ = curry.expr((1,2,3))
     cls.list_ = curry.expr([1,2,3])
-    cls.freevar = step(cls.interp, prelude.prim_unknown)
+    cls.freevar = freshvar(cls.rts)
     cls.failure = step(cls.interp, prelude.failed)
     cls.fwd = curry.expr(prelude._Fwd, prelude.True)
     cls.choice = step(cls.interp, getattr(prelude, '?'), 0, 1)

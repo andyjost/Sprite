@@ -1,6 +1,7 @@
 import cytest # from ./lib; must be first
 from curry.backends.py import runtime
-from curry.backends.py.runtime import LEFT, RIGHT, UNDETERMINED, typecheckers as tc
+from curry.backends.py.runtime import LEFT, RIGHT, UNDETERMINED, RuntimeState, typecheckers as tc
+from curry.backends.py.runtime.fairscheme.freevars import freshvar
 import curry
 import unittest
 
@@ -48,9 +49,9 @@ class TestPyTypeChecks(cytest.TestCase):
   def testBinding(self):
     for debug in [True, False]:
       I = curry.interpreter.Interpreter(flags={'debug':debug})
-      unknown = I.symbol('Prelude.prim_unknown')
+      rts = RuntimeState(I)
       q = I.symbol('Prelude.?')
-      x,y = list(I.eval(q, unknown, unknown))
+      x,y = list(I.eval(q, freshvar(rts), freshvar(rts)))
       self.assertMayRaise(
           None
         , lambda: I.expr(I.prelude._Binding, True, (x, y))

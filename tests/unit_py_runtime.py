@@ -2,7 +2,7 @@ import cytest # from ./lib; must be first
 from copy import copy
 from curry.backends.py import runtime
 from curry.backends.py.runtime.fairscheme.evaluator import Bindings
-from curry.backends.py.runtime.fairscheme.freevars import instantiate, _gen_ctors
+from curry.backends.py.runtime.fairscheme.freevars import instantiate, _gen_ctors, freshvar
 from curry import icurry
 from curry import inspect
 from curry import interpreter
@@ -208,16 +208,6 @@ class TestPyRuntime(cytest.TestCase):
     value, = curry.eval(goal)
     self.assertEqual(str(value), '[True]')
 
-  def test_free_return(self):
-    interp = interpreter.Interpreter()
-    rts = runtime.RuntimeState(interp)
-    self.assertEqual(str(rts.idfactory), 'count(0)')
-    result, = list(interp.eval(interp.symbol('Prelude.prim_unknown')))
-    self.assertEqual(
-        result, runtime.Node(interp.prelude._Free
-      , 0, runtime.Node(interp.prelude.Unit))
-      )
-
   def test_interp_step(self):
     interp = curry.getInterpreter()
     code = interp.compile(
@@ -342,14 +332,22 @@ class TestInstantiation(cytest.TestCase):
   def q(self, cid, l, r):
     return [self.interp.prelude._Choice, conversions.unboxed(cid), l, r]
 
-  def u(self):
-    return self.interp.prelude.prim_unknown
+  def u(self, rts):
+    return freshvar(rts)
+    # return self.interp.prelude.unknown
+
+  def x(self, cid):
+    return runtime.Node(
+        self.interp.prelude._Free.info
+      , cid
+      , runtime.Node(self.interp.prelude.Unit.info)
+      )
 
   def test_basic(self):
-    interp,q,u,e = self.interp, self.q, self.u(), self.e(typename='()')
+    interp,q,x,e = self.interp, self.q, self.x, self.e(typename='()')
     rts = runtime.RuntimeState(interp)
     instance = instantiate(rts, e, [0], interp.type('Prelude.[]'))
-    au = curry.expr(*q(0, [interp.prelude.Cons, u, u], [interp.prelude.Nil]))
+    au = curry.expr(*q(0, [interp.prelude.Cons, x(1), x(2)], [interp.prelude.Nil]))
     self.assertEqual(instance, au)
 
   def check_gen_ctors(self, interp, module, typename, generator):
@@ -407,11 +405,11 @@ class TestInstantiation(cytest.TestCase):
     #      ?1   ?3
     #    ?2  C D  E
     #   A  B
-    interp,q,u = self.interp, self.q, self.u()
+    interp,q,x = self.interp, self.q, self.x
     Type = interp.compile('data T a = A|B a|C a a|D a a a|E a a a a', modulename='Type')
     e = self.e(typename='Type.T ()', imports=Type)
     rts = runtime.RuntimeState(interp)
     instance = instantiate(rts, e, [0], interp.type('Type.T'))
-    au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, u]), [Type.C, u, u]), q(3, [Type.D, u, u, u], [Type.E, u, u, u, u])))
+    au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, x(3)]), [Type.C, x(4), x(5)]), q(6, [Type.D, x(7), x(8), x(9)], [Type.E, x(10), x(11), x(12), x(13)])))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
