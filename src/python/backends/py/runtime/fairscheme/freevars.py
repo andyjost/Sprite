@@ -41,7 +41,7 @@ def _createGenerator(rts, ctors, vid=None, target=None):
     ctor, = ctors
     return Node(
         ctor
-      , *[Node(rts.prelude.prim_unknown) for _ in xrange(ctor.arity)]
+      , *[freshvar(rts) for _ in xrange(ctor.arity)]
       , target=target
       )
   else:

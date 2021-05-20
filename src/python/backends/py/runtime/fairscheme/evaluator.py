@@ -2,12 +2,14 @@ from copy import copy
 from ..... import exceptions
 from . import freevars
 from .. import graph
+from .. import trace
 from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT, E_UPDATE_CONTEXT
 from ...sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED
 from .....tags import *
 from .....utility.exprutil import iterexpr
+from .....utility import shared
 from .....utility import unionfind
-from .....utility.shared import Shared, compose, DefaultDict
+from .....utility.shared import Shared, compose
 import collections
 import itertools
 
@@ -94,8 +96,15 @@ class Evaluator(object):
       self.n_consecutive_blocked_seen = 0
       return False
 
+class FreeVarList(list):
+  def __repr__(self):
+    return '[%s]' % ','.join(str(v[0]) for v in self)
 
-Bindings = compose(Shared, compose(DefaultDict, compose(Shared, list)))
+class DefaultDict(shared.DefaultDict):
+  def __repr__(self):
+    return '{%s}' % ','.join('%s:%s' % (k,v) for k,v in self)
+
+Bindings = compose(Shared, compose(DefaultDict, compose(Shared, FreeVarList)))
 
 class Frame(object):
   '''
@@ -132,21 +141,13 @@ class Frame(object):
   def __repr__(self):
     e = self.expr[()]
     xid = freevars.get_id(e)
-    return '{{id=%x, hd=%s, fp=%s, cst=%s, bnd=%s, lzy=%s, bl=%s}}' % (
-        id(self)
-      , self.expr[()].info.name + ('' if xid is None else '(%s)' % xid)
-      , self.fingerprint
+    return '{{fp=%s, cst=%s, bnd=%s, lzy=%s, bl=%s}}' % (
+        self.fingerprint
       , self.constraint_store.read
       , dict(self.bindings.read)
       , dict(self.lazy_bindings.read)
       , self.blocked_by
       )
-
-  def show_cid(self, cid_orig, cid_root):
-    if cid_orig == cid_root:
-      return str(cid_orig)
-    else:
-      return '%s->%s' % (cid_orig, cid_root)
 
   def activate_lazy_bindings(self, vids, lazy):
     bindings = []
@@ -187,13 +188,17 @@ class Frame(object):
     vid = self.constraint_store.read.root(vid)
     if vid in self.fingerprint:
       assert vid not in self.lazy_bindings.read
-      _a,(_b,l,r) = freevar
-      replacement = l if self.fingerprint[vid] == LEFT else r
-      if path:
-        graph.replace(self.rts, self.expr[()], path, replacement)
+      try:
+        _a,(_b,l,r) = freevar
+      except ValueError:
+        pass
       else:
-        self.expr = freevars.get_generator(self.rts, freevar, None)
-      raise E_CONTINUE()
+        replacement = l if self.fingerprint[vid] == LEFT else r
+        if path:
+          graph.replace(self.rts, self.expr[()], path, replacement)
+        else:
+          self.expr = freevars.get_generator(self.rts, freevar, None)
+        raise E_CONTINUE()
     vids = list(self.eq_vars(vid))
     if any(vid_ in self.lazy_bindings.read for vid_ in vids):
       self.activate_lazy_bindings(vids, lazy=lazy)
@@ -259,14 +264,14 @@ def get_stepper(rts):
   if rts.tracing:
     indent = [0]
     def step(rts, _0): # pragma: no cover
-      print 'S <<<' + '  ' * indent[0], str(_0), getattr(rts, 'currentframe', '')
+      trace.enter_rewrite(rts, indent[0], _0)
       indent[0] += 1
       try:
         _0.info.step(rts, _0)
         rts.stepcounter.increment()
       finally:
         indent[0] -= 1
-        print 'S >>>' + '  ' * indent[0], str(_0), getattr(rts, 'currentframe', '')
+        trace.exit_rewrite(rts, indent[0], _0)
   else:
     def step(rts, _0):
       _0.info.step(rts, _0)

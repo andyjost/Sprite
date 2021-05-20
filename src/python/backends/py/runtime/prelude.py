@@ -17,7 +17,6 @@ def exports():
   yield '_Fwd'
   yield '_Choice'
   yield '_PartApplic'
-  yield 'prim_unknown'
   # Opaque types.
   yield '[]'
   yield 'IO'
@@ -64,7 +63,7 @@ _types_ = [
     # Free variables have two successors, one for the variable ID (Int) and one
     # for the generator.  The second slot is initially set to Prelude.().  On
     # instantiation, it is replaced with a generator.
-  , _T('_Free'      , [_C('_Free', 2, metadata={'py.format':'freevar({1})', 'py.tag':T_FREE})])
+  , _T('_Free'      , [_C('_Free', 2, metadata={'py.format':'_{1}', 'py.tag':T_FREE})])
   , _T('_Fwd'       , [_C('_Fwd', 1, metadata={'py.format':'{1}', 'py.tag':T_FWD})])
   , _T('_Choice'    , [_C('_Choice', 3, metadata={'py.tag':T_CHOICE})])
   , _T('_PartApplic', [_C('_PartApplic', 2, metadata={'py.format': '{2}', 'py.tag':T_CTOR})])
@@ -212,7 +211,6 @@ _functions_ = [
   , _F('prim_showIntLiteral', 1, metadata={'py.boxedfunc':impl.show})
   , _F('prim_showFloatLiteral', 1, metadata={'py.boxedfunc':impl.show})
   , _F('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{0} ? {1}'})
-  , _F('prim_unknown', 0, metadata={'py.rawfunc':impl.freshvar})
   , _F('apply', 2, metadata={'py.rawfunc':impl.apply})
   , _F('cond', 2, metadata={'py.rawfunc':impl.cond})
   ]

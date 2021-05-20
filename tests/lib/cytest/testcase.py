@@ -8,6 +8,7 @@ import collections
 import curry
 import functools
 import gzip
+import inspect
 import os
 import re
 import sys
@@ -222,8 +223,8 @@ class FunctionalTestCase(TestCase):
     curry.path[:] = cls.old_curry_path
     if cls.failed:
       print >>sys.stderr, (
-          'The following tests failed.  '
-          'Copy this line into func_kiel.py to skip them.'
+          'The tests listed below failed.  Update %r to skip them.'
+              % inspect.getfile(cls)
         )
       print >>sys.stderr, 'SKIP =', sorted(cls.failed)
 

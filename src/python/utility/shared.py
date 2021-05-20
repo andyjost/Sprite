@@ -32,7 +32,10 @@ class Shared(object):
   @property
   def unique(self):
     return self.refcnt == 1
+  def __str__(self):
+    return str(self.read)
   def __repr__(self):
+    return str(self)
     return 'Shared(refcnt=%s, %s)' % (self.refcnt, self.obj)
   # Read-only container methods, for convenience.
   def __contains__(self, key):

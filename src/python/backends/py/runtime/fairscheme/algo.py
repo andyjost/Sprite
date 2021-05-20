@@ -1,6 +1,7 @@
 from .evaluator import Frame
 from . import freevars
 from .. import graph
+from .. import trace
 from ..... import icurry
 from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT, E_UPDATE_CONTEXT
 from ...sprite import LEFT, RIGHT, UNDETERMINED
@@ -18,11 +19,9 @@ def D(evaluator):
       continue
     expr = frame.expr
     target = expr[()]
-    if rts.tracing:
-      print 'F :::', target, frame
+    trace.activate_frame(rts)
     if isinstance(target, icurry.ILiteral):
-      if rts.tracing:
-        print 'Y :::', target, frame
+      trace.yield_(rts, target)
       yield target
       continue
     tag = target.info.tag
@@ -31,8 +30,7 @@ def D(evaluator):
     elif tag == T_BIND:
       evaluator.queue.extend(constrain(frame))
     elif tag == T_FAIL:
-      if rts.tracing:
-        print 'X :::', frame
+      trace.failed(rts)
       continue # discard
     elif tag == T_FREE:
       try:
@@ -42,9 +40,9 @@ def D(evaluator):
         frame.expr = evaluator.add_prefix(frame.expr)
         evaluator.queue.append(frame)
       else:
-        if rts.tracing:
-          print 'Y :::', target, frame
-        yield target
+        for value in iter_values(rts, frame, target):
+          trace.yield_(rts, value)
+          yield value
     elif tag == T_FUNC:
       try:
         rts.S(rts, target)
@@ -72,9 +70,9 @@ def D(evaluator):
       else:
         target = expr[()]
         if target.info.tag == tag:
-          if rts.tracing:
-            print 'Y :::', target, frame
-          yield target
+          for value in iter_values(rts, frame, target):
+            trace.yield_(rts, value)
+            yield value
         else:
           evaluator.queue.append(frame)
     else:
@@ -228,8 +226,7 @@ def fork(frame):
     bindresult = _fork_updatebindings(frame, cid)
     if bindresult:
       if bindresult == 1: # inconsistent
-        if frame.rts.tracing:
-          print '? ::: %x inconsistent at %s' % (id(frame), frame.show_cid(cid_, cid))
+        trace.kill(rts)
         return
       else:
         assert bindresult == 2 # new bindings: keep working
@@ -241,17 +238,9 @@ def fork(frame):
     lr = frame.fingerprint[cid]
     assert lr in [LEFT,RIGHT]
     frame.expr = lhs if lr==LEFT else rhs
-    if frame.rts.tracing:
-      print '? ::: %s, %s%s >> %x' % (
-          frame.show_cid(cid_, cid), cid, 'L' if lr==LEFT else 'R', id(frame)
-        )
     yield frame
   else: # Undecided, so two children.
     lchild = Frame(expr=lhs, clone=frame)
-    if frame.rts.tracing:
-      print '? ::: %s, %sL >> %x, %sR >> %x' % (
-          frame.show_cid(cid_, cid), cid, id(lchild), cid, id(frame)
-        )
     lchild.fingerprint.set_left(cid)
     yield lchild
     frame.expr = rhs
@@ -328,3 +317,5 @@ def bind(frame, _x, _y):
       raise TypeError('unexpected tag %s' % x.info.tag)
   return True
 
+def iter_values(rts, frame, expr):
+  yield expr

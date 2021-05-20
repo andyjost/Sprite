@@ -374,9 +374,6 @@ def choice(rts, lhs):
   yield lhs[0]
   yield lhs[1]
 
-def freshvar(rts, lhs):
-  return freevars.freshvar_args(rts)
-
 def error(rts, msg):
   msg = str(rts.topython(msg))
   raise RuntimeError(msg)
@@ -538,7 +535,6 @@ def readCharLiteral(rts, s):
     # Third, yield the string tail.
     yield s
   except ParseError:
-    print "Parse Error!"
     yield rts.expr('\0')
     yield s_in
 

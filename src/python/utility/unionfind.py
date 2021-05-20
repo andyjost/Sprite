@@ -34,5 +34,5 @@ class UnionFind(object):
       self.parent.write[j] = i
       self.size.write[i] += self.size[j]
   def __repr__(self):
-    return repr(self.parent.read)
+    return repr({k:v for k,v in self.parent.read.iteritems() if k!=v})
 
