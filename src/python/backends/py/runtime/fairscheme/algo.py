@@ -299,6 +299,7 @@ def bind(frame, _x, _y):
             bnd = frame.bindings.write
             bnd[x_id].write.append(y)
             bnd[y_id].write.append(x)
+            # frame.constraint_store.write.unite(x_id, y_id)
           else:
             # Continue binding recursively.
             if x_nbnd:
