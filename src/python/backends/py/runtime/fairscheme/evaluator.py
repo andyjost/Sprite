@@ -57,22 +57,35 @@ class RuntimeState(object):
     self.unbox = interp.unbox
 
 
+class Queue(collections.deque):
+  '''
+  The FS work queue.  No root expression may begin with a FWD node.
+  '''
+  def __init__(self, frames):
+    super(Queue, self).__init__()
+    self.extend(frames)
+
+  def append(self, frame):
+    frame.strip_fwd()
+    super(Queue, self).append(frame)
+
+  def extend(self, frames):
+    frames = list(frames)
+    for frame in frames:
+      frame.strip_fwd()
+    super(Queue, self).extend(frames)
+
 class Evaluator(object):
   '''
   Evaluates Curry expressions.
   '''
   def __init__(self, interp, goal):
     self.rts = RuntimeState(interp)
-    self.queue = collections.deque([Frame(self.rts, self.add_prefix(goal))])
+    self.queue = Queue([Frame(self.rts, goal)])
 
     # The number of consecutive blocked frames handled.  If this ever equals
     # the queue length, then the computation fails.
     self.n_consecutive_blocked_seen = 0
-
-  def add_prefix(self, goal):
-    '''Adds the prefix needed for top-level expressions.'''
-    rts = self.rts
-    return rts.expr(getattr(rts.prelude, '$!!'), rts.prelude.id, goal)
 
   def evaluate(self):
     from .algo import D
@@ -149,62 +162,18 @@ class Frame(object):
       , self.blocked_by
       )
 
-  def activate_lazy_bindings(self, vids, lazy):
-    bindings = []
-    for vid in vids:
-      if vid in self.lazy_bindings.read:
-        # If this variable was involved in a =:= expression, then it is needed;
-        # therefore, it would not be in the lazy bindings, nor would it appear
-        # unbound in a constructor expression.  The only way to get a mapping
-        # to a different root in the constraint store is to process =:=.
-        assert self.constraint_store.read.root(vid) == vid
-        # This variable is needed.  The binding, now, is therefore effected
-        # with =:=.
-        bindings += self.lazy_bindings.write.pop(vid).read
-    if bindings:
-      conj = getattr(self.rts.prelude, '&')
-      bindinfo = getattr(
-          self.rts.prelude, 'prim_nonstrictEq' if lazy else 'prim_constrEq'
-        )
-      act = lambda var: freevars.get_generator(self.rts, var, None) if lazy else var
-      self.expr = graph.Node(
-          getattr(self.rts.prelude, '&>')
-        , reduce(
-              lambda a, b: graph.Node(conj, a, b)
-            , [graph.Node(bindinfo, act(x), e) for x, e in bindings]
-            )
-        , self.expr
-        )
-      return True
-    else:
-      return False
+  def strip_fwd(self):
+    '''Remove any FWD node from the expression root.'''
+    self.expr = graph.Node.getitem(self.expr)
+    assert self.expr.info.tag != T_FWD
 
-  # When a free variable is needed, check the fingerprint for an existing
-  # binding and use it if found.  Otherwise, if there is a lazy binding,
-  # activate it.  If only the hnf is needed, use =:<=, otherwise, if the nf is
-  # needed, use =:=.
-  def check_freevar_bindings(self, freevar, path=(), lazy=False):
-    vid = freevars.get_id(freevar)
-    vid = self.constraint_store.read.root(vid)
-    if vid in self.fingerprint:
-      assert vid not in self.lazy_bindings.read
-      try:
-        _a,(_b,l,r) = freevar
-      except ValueError:
-        pass
-      else:
-        replacement = l if self.fingerprint[vid] == LEFT else r
-        if path:
-          graph.replace(self.rts, self.expr[()], path, replacement)
-        else:
-          self.expr = freevars.get_generator(self.rts, freevar, None)
-        raise E_CONTINUE()
-    vids = list(self.eq_vars(vid))
-    if any(vid_ in self.lazy_bindings.read for vid_ in vids):
-      self.activate_lazy_bindings(vids, lazy=lazy)
-      raise E_CONTINUE()
+  def get_id(self, arg):
+    '''Get the representative ID for the given free variable or choice.'''
+    vid = freevars.get_id(arg)
+    return self.constraint_store.read.root(vid)
 
   def eq_vars(self, vid):
+    '''Get the list of variable equivalent to vid.'''
     yield vid
     if vid in self.bindings.read:
       for vid_ in map(freevars.get_id, self.bindings.read[vid].read):

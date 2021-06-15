@@ -9,15 +9,18 @@ class TestKiel(cytest.FunctionalTestCase):
   CLEAN_KWDS = {
       'diamond': {'keep_empty_lines': True, 'keep_spacing': True, 'sort_lines': False}
     }
-  SKIP = [
-      # These never terminate.
-      'account'
-    , 'digit'
-    , 'infresiduate'
-    , 'nondetfunc'
-    , 'relational'
+  RUNONLY = 'colormap$'
+  # SKIP = [
+  #     # These never terminate.
+  #     'account'
+  #   , 'digit'
+  #   # , 'last' # introduced when $!! was removed from the goal
+  #   # , 'member' # introduced when $!! was removed from the goal
+  #   , 'infresiduate'
+  #   , 'nondetfunc'
+  #   , 'relational'
 
-    # TypeError: unexpected tag -1
-    , 'assembler'
-    , 'mergesort'
-    ]
+  #   # TypeError: unexpected tag -1
+  #   , 'assembler'
+  #   , 'mergesort'
+  #   ]

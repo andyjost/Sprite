@@ -32,11 +32,3 @@ def eval(interp, *args, **kwds):
   else:
     return (convert(interp, result) for result in results)
 
-# Prefixing $!! causes evaluation and ensures the root expression is
-# function-rooted, which is necessary for pull-tabbing.
-def makegoal(interp, args):
-  return interp.expr(
-      getattr(interp.prelude, '$!!')
-    , interp.prelude.id
-    , interp.expr(*args)
-    )

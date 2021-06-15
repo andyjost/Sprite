@@ -1,4 +1,5 @@
 from .... import context, icurry, utility
+from . import misc
 from ....tags import *
 import collections
 import numbers
@@ -156,7 +157,7 @@ class Node(object):
       return self
 
   @staticmethod
-  def getitem(node, i):
+  def getitem(node, i=()):
     '''
     Like ``Node.__getitem__``, but safe when ``node`` is an unboxed value.
     '''
@@ -291,7 +292,8 @@ def lift_choice(rts, source, path):
       A sequence of integers giving the path from ``source`` to the target
       choice or constraint.
   '''
-  assert source.info.tag < T_CTOR
+  assert source.info.tag != T_FWD
+  ctor_root = source.info.tag >= T_CTOR
   assert path
   # if source.info is rts.prelude.ensureNotFree.info:
   #   raise RuntimeError("non-determinism in I/O actions occurred")
@@ -299,13 +301,16 @@ def lift_choice(rts, source, path):
   left = replacer[1]
   right = replacer[2]
   assert replacer.target.info.tag == T_CHOICE
-  Node(
+  new = Node(
       rts.prelude._Choice
     , replacer.target[0] # choice ID
     , left
     , right
-    , target=source
+    , target=None if ctor_root else source
     )
+  if ctor_root:
+    assert rts.currentframe.expr is source
+    raise misc.E_UPDATE_CONTEXT(new)
 
 def lift_constr(rts, source, path):
   '''
@@ -325,6 +330,7 @@ def lift_constr(rts, source, path):
       A sequence of integers giving the path from ``source`` to the target
       choice or constraint.
   '''
+  assert source.info.tag != T_FWD
   assert source.info.tag < T_CTOR
   assert path
   replacer = Replacer(source, path)

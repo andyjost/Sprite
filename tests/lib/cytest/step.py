@@ -1,6 +1,5 @@
 from curry.backends.py import runtime as pyruntime
 from curry import icurry
-from curry.interpreter.eval import makegoal
 from curry.tags import *
 from curry.utility.binding import binding
 
@@ -11,7 +10,7 @@ def step(interp, expr, num=1):
   function is used for testing.
   '''
   if not hasattr(expr, 'info') or expr.info.tag >= T_CTOR:
-    expr = makegoal(interp, expr)
+    expr = interp.expr(expr)
   # rts = pyruntime.RuntimeState(interp)
   evaluator = pyruntime.Evaluator(interp, expr)
   rts = evaluator.rts

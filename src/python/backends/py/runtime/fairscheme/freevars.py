@@ -74,7 +74,7 @@ def clone_generator(rts, bound, unbound):
   constructors = list(_gen_ctors(rts, bound[1]))
   get_generator(rts, unbound, typedef=constructors)
 
-def get_generator(rts, freevar, typedef):
+def get_generator(rts, freevar, typedef=None):
   '''
   Get the generator for a free variable.  Instantiates the variable if
   necessary.
@@ -149,13 +149,18 @@ def freshvar(rts, target=None):
   return Node(*freshvar_args(rts), target=target)
 
 def get_id(arg):
-  '''Returns the choice or variable id for a choice or free variable.'''
+  '''
+  Returns the choice or variable id for a choice or free variable.  If the
+  argument is already an ID, return it.
+  '''
   if isinstance(arg, Node):
     arg = arg[()]
     if arg.info.tag in [T_FREE, T_CHOICE]:
       cid = arg[0]
       assert cid >= 0
       return cid
+  elif isinstnace(arg, int) and not isinstance(arg, bool):
+    return arg
 
 def has_generator(rts, freevar):
   '''Indicates whether a free variable has a bound generator.'''

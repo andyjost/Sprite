@@ -1,5 +1,5 @@
 from .evaluator import Frame
-from . import freevars
+from . import freevars as freevars_module
 from .. import graph
 from .. import trace
 from ..... import icurry
@@ -17,14 +17,12 @@ def D(evaluator):
     rts.currentframe = frame
     if evaluator._handle_frame_if_blocked(frame):
       continue
-    expr = frame.expr
-    target = expr[()]
     trace.activate_frame(rts)
-    if isinstance(target, icurry.ILiteral):
-      trace.yield_(rts, target)
-      yield target
+    if isinstance(frame.expr, icurry.ILiteral):
+      trace.yield_(rts, frame.expr)
+      yield frame.expr
       continue
-    tag = target.info.tag
+    tag = frame.expr.info.tag
     if tag == T_CHOICE:
       evaluator.queue.extend(fork(frame))
     elif tag == T_BIND:
@@ -33,21 +31,24 @@ def D(evaluator):
       trace.failed(rts)
       continue # discard
     elif tag == T_FREE:
-      try:
-        frame.check_freevar_bindings(target, lazy=False)
-      except E_CONTINUE:
-        # TODO: Maybe a property for frame.expr would be better.
-        frame.expr = evaluator.add_prefix(frame.expr)
+      vid = frame.get_id(frame.expr)
+      if vid in frame.fingerprint:
+        _,(_,l,r) = frame.expr
+        frame.expr = l if frame.fingerprint[vid] == LEFT else r
         evaluator.queue.append(frame)
       else:
-        for value in iter_values(rts, frame, target):
-          trace.yield_(rts, value)
-          yield value
+        vids = list(frame.eq_vars(vid))
+        if any(vid_ in frame.lazy_bindings.read for vid_ in vids):
+          activate_implicit_constraints(rts.currentframe, vids)
+          evaluator.queue.append(frame)
+        else:
+          for value in iter_values(rts, frame, frame.expr):
+            trace.yield_(rts, value)
+            yield value
     elif tag == T_FUNC:
       try:
-        rts.S(rts, target)
+        rts.S(rts, frame.expr)
       except E_CONTINUE:
-        # assert expr.info.tag < T_CTOR and expr.info.tag != T_FUNC
         evaluator.queue.append(frame)
       except E_RESIDUAL as res:
         evaluator.queue.append(frame.block(blocked_by=res.ids))
@@ -55,22 +56,20 @@ def D(evaluator):
         frame.expr = cxt.expr
         evaluator.queue.append(frame)
       else:
-        # TODO: The expr property was removed, so this next line does not do
-        # what is says.
-        frame.expr = frame.expr # insert FWD node, if needed.
         evaluator.queue.append(frame)
     elif tag >= T_CTOR:
       try:
-        _, freevars = N(rts, expr, target)
+        _, freevars = N(rts, frame.expr, frame.expr)
       except E_CONTINUE:
-        # assert expr.info.tag < T_CTOR and expr.info.tag != T_FUNC
+        evaluator.queue.append(frame)
+      except E_UPDATE_CONTEXT as cxt:
+        frame.expr = cxt.expr
         evaluator.queue.append(frame)
       except E_RESIDUAL as res:
         evaluator.queue.append(frame.block(blocked_by=res.ids))
       else:
-        target = expr[()]
-        if target.info.tag == tag:
-          for value in iter_values(rts, frame, target):
+        if frame.expr.info.tag == tag:
+          for value in iter_values(rts, frame, frame.expr):
             trace.yield_(rts, value)
             yield value
         else:
@@ -80,6 +79,7 @@ def D(evaluator):
 
 def N(rts, root, target=None, path=None, freevars=None):
   '''The normalize (N) Fair Scheme procedure.'''
+  root = graph.Node.getitem(root)
   path = [] if path is None else path
   target = root[path] if target is None else target
   assert target.info.tag >= T_CTOR
@@ -107,7 +107,17 @@ def N(rts, root, target=None, path=None, freevars=None):
           graph.lift_constr(rts, root, path)
           raise E_CONTINUE()
         elif tag == T_FREE:
-          rts.currentframe.check_freevar_bindings(succ, path, lazy=False)
+          frame = rts.currentframe
+          vid = frame.get_id(succ)
+          if vid in frame.fingerprint:
+            _,(_,l,r) = succ
+            replacement = l if frame.fingerprint[vid] == LEFT else r
+            frame.expr = graph.replace_copy(rts, frame.expr, path, replacement)
+            raise E_CONTINUE()
+          vids = list(frame.eq_vars(vid))
+          if any(vid_ in frame.lazy_bindings.read for vid_ in vids):
+            activate_implicit_constraints(rts.currentframe, vids)
+            raise E_CONTINUE()
           freevars.add(succ)
           break
         elif tag == T_FUNC:
@@ -144,7 +154,7 @@ def hnf(rts, expr, path, typedef=None, values=None):
       raise E_CONTINUE()
     elif tag == T_FREE:
       if typedef is None or typedef is rts.type('Prelude.Int'):
-        vid = freevars.get_id(target)
+        vid = freevars_module.get_id(target)
         if vid in rts.currentframe.lazy_bindings.read:
           bl, br = rts.currentframe.lazy_bindings.read[vid][0]
           assert bl is target
@@ -155,11 +165,10 @@ def hnf(rts, expr, path, typedef=None, values=None):
           graph.replace(rts, expr, path
             , graph.Node(rts.integer.narrowInt, expr[path], rts.expr(values))
             )
-          target = expr[path]
         else:
           raise E_RESIDUAL([vid])
       else:
-        target = freevars.instantiate(rts, expr, path, typedef)
+        target = freevars_module.instantiate(rts, expr, path, typedef)
     elif tag == T_FUNC:
       try:
         rts.S(rts, target)
@@ -171,7 +180,8 @@ def hnf(rts, expr, path, typedef=None, values=None):
     elif tag >= T_CTOR:
       return target
     elif tag == T_FWD:
-      target = expr[path]
+      target = expr[path] # remove FWD nodes
+      assert target.info.tag != T_FWD
     else:
       assert False
 
@@ -195,7 +205,7 @@ def _fork_updatebindings(frame, xid):
     xid = queue.pop()
     for var in frame.bindings.write.pop(xid, []):
       assert var.info.tag == T_FREE
-      vid = freevars.get_id(var)
+      vid = freevars_module.get_id(var)
       if vid not in seen_ids:
         seen_ids.add(vid)
         equiv_vars.append(var)
@@ -212,7 +222,7 @@ def _fork_updatebindings(frame, xid):
   # Activate lazy bindings for this group of variables, now that a binding is
   # available.
   seen_ids.add(xid)
-  return 2 if frame.activate_lazy_bindings(seen_ids, lazy=True) else 0
+  return 2 if activate_implicit_constraints(frame, seen_ids, lazy=True) else 0
 
 def fork(frame):
   '''
@@ -303,10 +313,10 @@ def bind(frame, _x, _y):
           else:
             # Continue binding recursively.
             if x_nbnd:
-              freevars.clone_generator(frame.rts, y, x)
+              freevars_module.clone_generator(frame.rts, y, x)
               x_gen = x[1]
             elif y_nbnd:
-              freevars.clone_generator(frame.rts, x, y)
+              freevars_module.clone_generator(frame.rts, x, y)
               y_gen = y[1]
             stack.append((x_gen, y_gen))
     elif x.info.tag >= T_CTOR:
@@ -319,4 +329,47 @@ def bind(frame, _x, _y):
   return True
 
 def iter_values(rts, frame, expr):
+  # TODO
   yield expr
+
+def activate_implicit_constraints(frame, vids, lazy=False):
+  '''
+  Locates newly uncovered constraints associated with ``vids`` and inserts
+  necessary apllications of an equational constraint operator at the root.
+
+  An equational constraint between free variables can imply an unbounded number
+  of implicit constraints.  For example x =:= y, where x and y are lists,
+  implies equality between the list spines and every element.  Obviously, such
+  a constraint cannot be checked eagerly, since that would involve an infinite
+  recursion.  Instead, as the rules of the program narrow x and/or y, the
+  runtime must add the implicit constraints.  This function does exactly that.
+  '''
+  bindings = []
+  for vid in vids:
+    if vid in frame.lazy_bindings.read:
+      # If this variable was involved in a =:= expression, then it is needed;
+      # therefore, it would not be in the lazy bindings, nor would it appear
+      # unbound in a constructor expression.  The only way to get a mapping
+      # to a different root in the constraint store is to process =:=.
+      assert frame.constraint_store.read.root(vid) == vid
+      # This variable is needed.  The binding, now, is therefore effected
+      # with =:=.
+      bindings += frame.lazy_bindings.write.pop(vid).read
+  if bindings:
+    conj = getattr(frame.rts.prelude, '&')
+    bindinfo = getattr(
+        frame.rts.prelude, 'prim_nonstrictEq' if lazy else 'prim_constrEq'
+      )
+    act = lambda var: freevars_module.get_generator(frame.rts, var, None) if lazy else var
+    frame.expr = graph.Node(
+        getattr(frame.rts.prelude, '&>')
+      , reduce(
+            lambda a, b: graph.Node(conj, a, b)
+          , [graph.Node(bindinfo, act(x), e) for x, e in bindings]
+          )
+      , frame.expr
+      )
+    return True
+  else:
+    return False
+
