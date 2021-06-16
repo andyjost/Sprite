@@ -31,7 +31,7 @@ __all__ = [
 
   # From misc.
   , 'RuntimeFlowException'
-  , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT', 'E_UPDATE_CONTEXT'
+  , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT'
   ]
 
 

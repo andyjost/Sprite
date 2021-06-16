@@ -3,7 +3,7 @@ from ..... import exceptions
 from . import freevars
 from .. import graph
 from .. import trace
-from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT, E_UPDATE_CONTEXT
+from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT
 from ...sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED
 from .....tags import *
 from .....utility.exprutil import iterexpr
@@ -115,7 +115,7 @@ class FreeVarList(list):
 
 class DefaultDict(shared.DefaultDict):
   def __repr__(self):
-    return '{%s}' % ','.join('%s:%s' % (k,v) for k,v in self)
+    return '{%s}' % ','.join('%s:%s' % (k,v) for k,v in self.iteritems())
 
 Bindings = compose(Shared, compose(DefaultDict, compose(Shared, FreeVarList)))
 

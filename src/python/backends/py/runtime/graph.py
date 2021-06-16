@@ -277,8 +277,8 @@ class Replacer(object):
 def lift_choice(rts, source, path):
   '''
   Executes a pull-tab step with source ``source`` and choice-rooted target
-  ``source[path]``.  If the source is constructor-rooted, E_UPDATE_CONTEXT is
-  raised.
+  ``source[path]``.  If the source is constructor-rooted, the frame root is
+  updated.
 
   Parameters:
   -----------
@@ -301,7 +301,7 @@ def lift_choice(rts, source, path):
   left = replacer[1]
   right = replacer[2]
   assert replacer.target.info.tag == T_CHOICE
-  new = Node(
+  node = Node(
       rts.prelude._Choice
     , replacer.target[0] # choice ID
     , left
@@ -310,7 +310,7 @@ def lift_choice(rts, source, path):
     )
   if ctor_root:
     assert rts.currentframe.expr is source
-    raise misc.E_UPDATE_CONTEXT(new)
+    rts.currentframe.expr = node
 
 def lift_constr(rts, source, path):
   '''
@@ -331,17 +331,20 @@ def lift_constr(rts, source, path):
       choice or constraint.
   '''
   assert source.info.tag != T_FWD
-  assert source.info.tag < T_CTOR
+  ctor_root = source.info.tag >= T_CTOR
   assert path
   replacer = Replacer(source, path)
   value = replacer[0]
   assert replacer.target.info.tag == T_BIND
-  Node(
+  node = Node(
       replacer.target.info
     , value
     , replacer.target[1] # binding
-    , target=source
+    , target=NOne if ctor_root else source
     )
+  if ctor_root:
+    assert rts.currentframe.expr is source
+    rts.currentframe.expr = node
 
 def replace(rts, context, path, replacement):
   replacer = Replacer(context, path, lambda _a, _b: replacement)

@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 __all__ = [
     'RuntimeFlowException'
-  , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT', 'E_UPDATE_CONTEXT'
+  , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT'
   ]
 
 class RuntimeFlowException(BaseException):
@@ -40,15 +40,3 @@ class E_RESIDUAL(RuntimeFlowException):
 class E_STEPLIMIT(RuntimeFlowException):
   '''Raised when the step limit is reached.'''
 
-
-class E_UPDATE_CONTEXT(RuntimeFlowException):
-  '''Raised when a lazy binding requires an update to the enclosing context.'''
-  def __init__(self, expr):
-    '''
-    Parameters:
-    -----------
-        ``expr``
-            The replacement of the current expression in the context, after
-            performing lazy binding.
-    '''
-    self.expr = expr

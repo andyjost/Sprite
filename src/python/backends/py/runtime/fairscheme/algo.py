@@ -3,7 +3,7 @@ from . import freevars as freevars_module
 from .. import graph
 from .. import trace
 from ..... import icurry
-from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT, E_UPDATE_CONTEXT
+from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT
 from ...sprite import LEFT, RIGHT, UNDETERMINED
 from .....tags import *
 
@@ -52,18 +52,12 @@ def D(evaluator):
         evaluator.queue.append(frame)
       except E_RESIDUAL as res:
         evaluator.queue.append(frame.block(blocked_by=res.ids))
-      except E_UPDATE_CONTEXT as cxt:
-        frame.expr = cxt.expr
-        evaluator.queue.append(frame)
       else:
         evaluator.queue.append(frame)
     elif tag >= T_CTOR:
       try:
         _, freevars = N(rts, frame.expr, frame.expr)
       except E_CONTINUE:
-        evaluator.queue.append(frame)
-      except E_UPDATE_CONTEXT as cxt:
-        frame.expr = cxt.expr
         evaluator.queue.append(frame)
       except E_RESIDUAL as res:
         evaluator.queue.append(frame.block(blocked_by=res.ids))
@@ -153,20 +147,9 @@ def hnf(rts, expr, path, typedef=None, values=None):
       graph.lift_constr(rts, expr, path)
       raise E_CONTINUE()
     elif tag == T_FREE:
-      if typedef is None or typedef is rts.type('Prelude.Int'):
+      if typedef is None:
         vid = freevars_module.get_id(target)
-        if vid in rts.currentframe.lazy_bindings.read:
-          bl, br = rts.currentframe.lazy_bindings.read[vid][0]
-          assert bl is target
-          replacement = graph.replace_copy(rts, expr, path, br)
-          raise E_UPDATE_CONTEXT(replacement)
-        elif values:
-          values = map(int, values)
-          graph.replace(rts, expr, path
-            , graph.Node(rts.integer.narrowInt, expr[path], rts.expr(values))
-            )
-        else:
-          raise E_RESIDUAL([vid])
+        raise E_RESIDUAL([vid])
       else:
         target = freevars_module.instantiate(rts, expr, path, typedef)
     elif tag == T_FUNC:
@@ -174,9 +157,6 @@ def hnf(rts, expr, path, typedef=None, values=None):
         rts.S(rts, target)
       except E_CONTINUE:
         pass
-      except E_UPDATE_CONTEXT as cxt:
-        replacement = graph.replace_copy(rts, expr, path, cxt.expr)
-        raise E_UPDATE_CONTEXT(replacement)
     elif tag >= T_CTOR:
       return target
     elif tag == T_FWD:
