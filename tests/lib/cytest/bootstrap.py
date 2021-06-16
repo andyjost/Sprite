@@ -48,22 +48,13 @@ def getbootstrap():
               , branches=[
                     IConsBranch("bootstrap.N", 0, blk(IReturn(IVar(1))))
                   , IConsBranch("bootstrap.M", 0, blk(IReturn(IVar(1))))
-                  , IConsBranch("bootstrap.U", 1, blk(IReturn(IFCall("Prelude.failure"))))
-                  , IConsBranch("bootstrap.B", 2, blk(IReturn(IFCall("Prelude.failure"))))
+                  , IConsBranch("bootstrap.U", 1, blk(IReturn(IFCall("Prelude.failed"))))
+                  , IConsBranch("bootstrap.B", 2, blk(IReturn(IFCall("Prelude.failed"))))
                   ]
               )
           )))
       ]
     )
-
-def listformat(node):
-  def gen():
-    p = node
-    while p.info.name == 'Cons':
-      value = p.successors[0]
-      yield value.info.show(value)
-      p = p.successors[1]
-  return '[' + ', '.join(gen()) + ']'
 
 def getlist():
   return IModule(
@@ -72,8 +63,8 @@ def getlist():
           IType(
               name='mylist.List'
             , constructors=[
-                IConstructor('mylist.Cons', 2, metadata={'py.format':listformat})
-              , IConstructor('mylist.Nil', 0, metadata={'py.format':listformat})
+                IConstructor('mylist.Cons', 2)
+              , IConstructor('mylist.Nil', 0) 
               ]
             )
         ]

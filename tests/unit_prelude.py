@@ -16,6 +16,7 @@ class TestPrelude(cytest.TestCase):
     else:
       return curry.symbol('Prelude.constrEq')
 
+  @cytest.with_flags(defaultconverter='topython')
   def testBuiltinPreludeTypes(self):
     '''
     Tests the built-in Prelude types and, indicentally, the ``isa`` function.
@@ -235,14 +236,17 @@ class TestPrelude(cytest.TestCase):
         RuntimeError, 'oops', lambda: next(curry.eval(error, "oops"))
       )
 
+  @cytest.with_flags(defaultconverter='topython')
   def testOrd(self):
     ord_ = curry.symbol('Prelude.ord')
     self.assertEqual(list(curry.eval(ord_, 'A')), [65])
 
+  @cytest.with_flags(defaultconverter='topython')
   def testChr(self):
     chr_ = curry.symbol('Prelude.chr')
     self.assertEqual(list(curry.eval(chr_, 65)), ['A'])
 
+  @cytest.with_flags(defaultconverter='topython')
   @cytest.setio(stdin='muh\ninput\n')
   def test_getChar(self):
     getChar = curry.symbol('Prelude.getChar')
@@ -256,6 +260,7 @@ class TestPrelude(cytest.TestCase):
     self.assertEqual(list(curry.eval(putChar, 'x')), [curry.expr(IO, Unit)])
     self.assertEqual(curry.getInterpreter().stdout.getvalue(), 'x')
 
+  @cytest.with_flags(defaultconverter='topython')
   def test_readFile(self):
     readFile = curry.symbol('Prelude.readFile')
     self.assertEqual(
@@ -305,6 +310,7 @@ class TestPrelude(cytest.TestCase):
     e = curry.expr(self.constrEq, lhs, rhs)
     self.assertRaises(type, lambda: next(curry.eval(e)))
 
+  @cytest.with_flags(defaultconverter='topython')
   def testEqualityConstraint(self):
     '''Test =:=.'''
     interp = curry.getInterpreter()

@@ -340,7 +340,7 @@ def lift_constr(rts, source, path):
       replacer.target.info
     , value
     , replacer.target[1] # binding
-    , target=NOne if ctor_root else source
+    , target=None if ctor_root else source
     )
   if ctor_root:
     assert rts.currentframe.expr is source

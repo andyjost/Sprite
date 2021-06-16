@@ -51,9 +51,7 @@ from .utility import visitation as _visitation
 from .utility.unboxed import unboxed
 import collections as _collections
 
-_interpreter_ = interpreter.Interpreter(
-    flags=_flagutils.getflags(weakflags={'defaultconverter':'topython'})
-  )
+_interpreter_ = interpreter.Interpreter(flags=_flagutils.getflags())
 
 compile = _interpreter_.compile
 currytype = _interpreter_.currytype
@@ -86,11 +84,15 @@ def reload(flags={}):
 def show_value(value):
   '''
   Converts a Python Curry value to a string in Curry format.  This does a few
-  things, such as lowering one-tuples, and adjusting containers, such as tuples
-  and lists, to print elements as with ``str`` rather than ``repr``.  The
-  output should match other Curry systems.
+  things, such as lowering one-tuples; adjusting containers, such as tuples and
+  lists, to print elements as with ``str`` rather than ``repr``; and converting
+  free variable to friendly names _a, _b, etc.  The output should match other
+  Curry systems.
   '''
-  return str(value)
+  from . import context
+  from .interpreter import show
+  stringify = show.ReplStringifier()
+  return stringify(value)
 
 @show_value.when(tuple)
 def show_value(value):

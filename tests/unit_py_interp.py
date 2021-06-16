@@ -131,6 +131,7 @@ class TestPyInterp(cytest.TestCase):
     self.assertEqual(list(interp.eval([W, 1])), [interp.expr(1)])
 
 
+  @cytest.with_flags(defaultconverter='topython')
   def testEvalValues(self):
     '''Evaluate constructor goals.'''
     interp_debug = Interpreter(flags={'debug':True})
@@ -139,6 +140,16 @@ class TestPyInterp(cytest.TestCase):
     interp_nodebug = Interpreter(flags={'debug':False})
     self.checkEvalValues(interp_nodebug)
 
+
+  def format_list(self, arg):
+    if arg.startswith('[') and arg.endswith(']'):
+      values = arg[1:-1].split(', ')
+      s = 'Nil'
+      for part in reversed(arg[1:-1].split(', ')):
+        s = '(Cons %s %s)' % (part, s)
+      return s[1:-1] if s.startswith('(') else s
+    else:
+      return str(arg)
 
   def checkEvalValues(self, interp):
     L = interp.import_(self.MYLIST)
@@ -162,5 +173,6 @@ class TestPyInterp(cytest.TestCase):
     for expr, expected in TESTS:
       goal = interp.expr(*expr)
       result = map(str, interp.eval(goal))
+      expected = map(self.format_list, expected)
       self.assertEqual(set(result), set(expected))
 

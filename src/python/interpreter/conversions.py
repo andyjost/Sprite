@@ -11,7 +11,7 @@ from .. import utility
 from ..utility import visitation
 from ..utility.unboxed import unboxed
 import collections
-import itertools
+# import itertools
 import numbers
 
 @visitation.dispatch.on('arg')
@@ -177,25 +177,12 @@ def currytype(interp, ty):
     return interp.type('Prelude.[]')
   raise TypeError('cannot convert "%s" to a Curry type' % ty.__name__)
 
-def _toalpha(n):
-  assert 0 <= n
-  while True:
-    yield chr(97 + n % 26)
-    n = n // 26 - 1
-    if n < 0:
-      break
-
 class ToPython(object):
   def __init__(self, convert_freevars=True):
     self.convert_freevars = convert_freevars
-    self.reset()
-  def reset(self):
-    '''Reset the free variable tracker.'''
-    self.i = itertools.count()
-    self.tr = {}
   def __call__(self, interp, value, convert_strings=True):
     '''Convert one value.'''
-    self.reset()
+    # self.reset()
     return self.__convert(interp, value, convert_strings)
   def __convert(self, interp, value, convert_strings=True):
     if inspect.isa_primitive(interp, value):
@@ -203,37 +190,17 @@ class ToPython(object):
     elif inspect.isa_bool(interp, value):
       return inspect.isa_true(interp, value)
     elif inspect.isa_list(interp, value):
-      l = []
-      try:
-        for elem in _listiter(interp, value):
-          l.append(self.__convert(interp, elem))
-        else:
-          tail = None
-      except exceptions.NotConstructorError as e:
-        tail = self.__convert(interp, e.arg)
-      # FIXME: need to query the Curry typeinfo.  An empty list of Char should be
-      # an empty string, here.  It's less confusing to let empty lists by lists,
-      # rather than converting all empty lists to string.
-      if convert_strings and l and tail is None:
+      l = [self.__convert(interp, elem) for elem in _listiter(interp, value)]
+      if convert_strings and l:
         try:
           return ''.join(l)
         except TypeError:
           pass
-      if tail:
-        return NonConstructorList(l, tail)
-      else:
-        return l
+      return l
     elif inspect.isa_tuple(interp, value):
       return tuple(self.__convert(interp, x) for x in value)
-    elif inspect.isa_freevar(interp, value):
-      ifree = inspect.get_id(interp, value)
-      if ifree not in self.tr:
-        # '_a', '_b', ... '_z', '_aa', '_ab', ...
-        alpha = list(_toalpha(next(self.i)))
-        label = '_' + ''.join(reversed(alpha))
-        self.tr[ifree] = FreeType(label)
-      return self.tr[ifree]
-    return value
+    else:
+      return value
 
 _topython_converter_ = ToPython(convert_freevars=False)
 
@@ -251,6 +218,11 @@ def topython(interp, value, convert_strings=True):
   ``convert_strings``
       If true, then lists of characters are converted to Python strings.
 
+  Raises:
+  -------
+    ``NotConstructorError`` if a free variable is encountered along a list
+    spine.
+
   Returns:
   --------
   The value converted to Python.
@@ -263,7 +235,6 @@ def _listiter(interp, arg):
   while inspect.isa(arg, Cons):
     yield arg[0]
     arg = arg[1]
-  # if inspect.isa_freevar(interp, arg):
   if not inspect.isa_list(interp, arg):
     raise exceptions.NotConstructorError(arg)
 
@@ -277,34 +248,3 @@ def getconverter(converter):
   elif converter == 'topython':
     return ToPython(convert_freevars=True)
 
-class FreeType(object):
-  '''
-  The Python representation of free variable values.
-
-  The assigned label (e.g., _a) is stored.
-  '''
-  def __init__(self, label):
-    self.label = label
-
-  def __eq__(self, rhs):
-    return isinstance(rhs, FreeType) and self.label == rhs.label
-
-  def __ne__(self, rhs):
-    return not (self == rhs)
-
-  def __repr__(self):
-    return self.label
-
-
-class NonConstructorList(object):
-  '''
-  The Python representation of a non-ground list.
-  '''
-  def __init__(self, elems, tail):
-    self.elems = list(elems)
-    self.elems.append(tail)
-    # FIXME: get interp out of the inspect module.
-    # assert inspect.isa_freevar(tail)
-
-  def __str__(self):
-    return ':'.join(map(str, self.elems))

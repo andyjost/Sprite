@@ -113,7 +113,7 @@ def loadSymbols(
     , icons.arity
     , T_CTOR + icons.index if not builtin else metadata['py.tag']
     , _no_step if not builtin else _unreachable
-    , show.Show(interp, getattr(metadata, 'py.format', None))
+    , show.Show(getattr(metadata, 'py.format', None))
     , _gettypechecker(interp, metadata)
     )
   nodeinfo = objects.CurryNodeLabel(icons, info)
@@ -128,7 +128,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
     , ifun.arity
     , T_FUNC
     , None
-    , show.Show(interp, getattr(metadata, 'py.format', None))
+    , show.Show(getattr(metadata, 'py.format', None))
     , _gettypechecker(interp, metadata)
     )
   nodeinfo = objects.CurryNodeLabel(ifun, info)

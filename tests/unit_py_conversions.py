@@ -42,14 +42,14 @@ class TestPyConversions(cytest.TestCase):
     mylist = interp.import_(self.MYLIST)
     nil = interp.expr(mylist.Nil)
     self.assertEqual(repr(nil), '<Nil>')
-    self.assertEqual(str(nil), '[]')
+    self.assertEqual(str(nil), 'Nil')
     #
     cons = interp.expr(mylist.Cons, 1, mylist.Nil)
     self.assertEqual(repr(cons), '<Cons <Int 1> <Nil>>')
-    self.assertEqual(str(cons), '[1]')
+    self.assertEqual(str(cons), 'Cons 1 Nil')
     #
     cons = interp.expr(mylist.Cons, 0, cons)
-    self.assertEqual(str(cons), '[0, 1]')
+    self.assertEqual(str(cons), 'Cons 0 (Cons 1 Nil)')
 
     # Nested data specifications.
     list2 = interp.expr(mylist.Cons, 0, [mylist.Cons, 1, mylist.Nil])
@@ -140,6 +140,7 @@ class TestPyConversions(cytest.TestCase):
     y = curry.topython(x)
     self.assertIsInstance(y, str)
 
+  @cytest.with_flags(defaultconverter='topython')
   def testIteratorToPython(self):
     # Iterator.
     take = curry.symbol('Prelude.take')
@@ -189,6 +190,7 @@ class TestPyConversions(cytest.TestCase):
       , lambda: curry.expr(curry.unboxed(0), target=e)
       )
 
+  @cytest.with_flags(defaultconverter='topython')
   def testForwardExpr(self):
     a = curry.expr(curry.getInterpreter().prelude.id, 0)
     b = curry.expr(curry.getInterpreter().prelude.id, 1)

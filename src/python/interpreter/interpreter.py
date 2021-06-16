@@ -56,6 +56,12 @@ class Interpreter(object):
       , 'keep_temp_files':False, 'direct_var_binding':False
       , 'algebraic_substitution':False
       }
+    bad_flags = set(flags) - set(self.flags)
+    if bad_flags:
+      raise ValueError('unknown flag%s: %s' % (
+          's' if len(bad_flags) > 1 else ''
+        , ', '.join(map(repr, bad_flags))
+        ))
     self.flags.update(flags)
     self._context = context.Context(self.flags['backend'])
     self.modules = {}

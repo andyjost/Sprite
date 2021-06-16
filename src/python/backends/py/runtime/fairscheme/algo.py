@@ -29,7 +29,7 @@ def D(evaluator):
       evaluator.queue.extend(constrain(frame))
     elif tag == T_FAIL:
       trace.failed(rts)
-      continue # discard
+      # discard this frame
     elif tag == T_FREE:
       vid = frame.get_id(frame.expr)
       if vid in frame.fingerprint:

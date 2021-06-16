@@ -198,6 +198,7 @@ class TestPyRuntime(cytest.TestCase):
     icur = inspect.geticurry(module)
     self.assertIsInstance(icur, icurry.IModule)
 
+  @cytest.with_flags(defaultconverter='topython')
   def test_instantiation(self):
     goal = curry.compile(
         '''

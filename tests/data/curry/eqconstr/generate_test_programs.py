@@ -171,6 +171,8 @@ PROGRAMS = [
   , 'main = ((y =:= x) & (y =:= False) & (True =:= x)) &> x where x,y free'
   , 'main = ((y =:= x) & (False =:= y) & (x =:= True)) &> x where x,y free'
   , 'main = ((y =:= x) & (False =:= y) & (True =:= x)) &> x where x,y free'
+
+  , 'main = ((x=:=y), x=:=True, y) where x,y free'
   ]
 
 # Programs requiring: data T = A
@@ -1226,7 +1228,7 @@ A2B1C0_PROGRAMS = [
   , '(x =:= A (B x11    ) (A x21 x22)) &> x where x,x11,x21,x22     free'
   , '(x =:= A (B x11    ) (B x21    )) &> x where x,x11,x21         free'
   , '(x =:= A (B x11    )  C         ) &> x where x,x11             free'
-  , '(x =:= A C            x2)         &> x where x,x11,x2          free'
+  , '(x =:= A C            x2)         &> x where x,    x2          free'
   , '(x =:= A C           (A x21 x22)) &> x where x,x21,x22         free'
   , '(x =:= A C           (B x21    )) &> x where x,x21             free'
   , '(x =:= A C            C         ) &> x where x                 free'

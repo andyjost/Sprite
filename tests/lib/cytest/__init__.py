@@ -91,6 +91,19 @@ def setio(stdin=None, stdout=None, stderr=None):
     return wrapper
   return setio
 
+
+def with_flags(**flags):
+  '''Test decorator that set the specified flags.  Implies hardreset.'''
+  def decorator(f):
+    @functools.wraps(f)
+    @hardreset
+    def replacement(*args, **kwds):
+      import curry
+      curry.reload(flags)
+      return f(*args, **kwds)
+    return replacement
+  return decorator
+
 def hardreset(f):
   '''Test decorator that hard-resets the curry module after the test runs.'''
   @functools.wraps(f)

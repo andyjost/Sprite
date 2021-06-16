@@ -610,9 +610,9 @@ def readFile(rts, filename):
   yield rts.prelude._PyGenerator
   yield gen
 
-def show(rts, arg):
+def show(rts, arg, xform=None):
   if inspect.is_boxed(rts, arg):
-    string = arg.info.show(arg)
+    string = arg.info.show(arg, xform)
   else:
     string = str(arg)
   if len(string) == 1:

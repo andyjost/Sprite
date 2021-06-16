@@ -33,6 +33,7 @@ class TestPyCompile(cytest.TestCase):
       , lambda: curry.compile('data A')
       )
 
+  @cytest.with_flags(defaultconverter='topython')
   def testCompileStringAsModule(self):
     '''Test dynamic module compilation.'''
     text = '''
@@ -57,6 +58,7 @@ class TestPyCompile(cytest.TestCase):
     two = curry.eval([fib, 3])
     self.assertEqual(two.next(), 2)
 
+  @cytest.with_flags(defaultconverter='topython')
   def testCompielStringAsExpr(self):
     '''Test dynamic expression compilation.'''
     Or = curry.compile(

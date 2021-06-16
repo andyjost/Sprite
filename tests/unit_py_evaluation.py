@@ -3,9 +3,9 @@ import cytest # from ./lib; must be first
 import curry
 import unittest
 from curry.backends.py import runtime
-from curry.interpreter.conversions import FreeType
 
 class TestPyEvaluation(cytest.TestCase):
+  @cytest.with_flags(defaultconverter='topython')
   def check(self, name, expected):
     '''
     Run the main function the the named module and ensure it produces the
@@ -16,6 +16,7 @@ class TestPyEvaluation(cytest.TestCase):
     values = list(curry.eval(main))
     self.assertEqual(values, expected)
 
+  @cytest.with_flags(defaultconverter='topython')
   def checkAsString(self, args, expected):
     '''
     Form an expression from the given args, evaluate it, convert it to a
@@ -48,10 +49,6 @@ class TestPyEvaluation(cytest.TestCase):
     self.assertRaises(curry.EvaluationSuspended, lambda: list(evaluator.evaluate()))
     Q[0].fingerprint[17] = runtime.LEFT
     self.assertEqual(list(evaluator.evaluate()), [interp.expr(91)])
-
-  def test_narrowing(self):
-    _a = FreeType('_a')
-    self.check('narrowing', [(_a, _a), (True, False), (False, True)])
 
   def test_partial(self):
     '''Checks the string representation of partial applications.'''

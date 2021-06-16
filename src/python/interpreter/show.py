@@ -1,72 +1,165 @@
 from .. import context
+from . import conversions
+from .. import exceptions
+from .. import inspect
+from .. import tags
 from ..utility import visitation
+import itertools
 
-# Apply special formatting for unboxed literals; e.g., 1# is an unboxed Int
-# with value 1.
-@visitation.dispatch.on('arg')
-def showlit(arg):
-  return '%r' % arg
-
-@showlit.when(int)
-def showlit(lit):
-  return '%r#' % lit
-
-@showlit.when(float)
-def showlit(lit):
-  return '%r#' % lit
-
-@showlit.when(str)
-def showlit(lit):
-  assert len(lit) == 1
-  return '%r#' % lit
-
-class Show(object):
-  '''Implements the built-in show function.'''
-  def __new__(cls, interp, format=None, showlit=showlit):
-    return format if callable(format) else object.__new__(cls, interp, format)
-
-  def __init__(self, interp, format=None, showlit=showlit):
-    self.format = getattr(format, 'format', None) # i.e., str.format.
-    self.showlit = showlit
-    # Note: Show objects can be created before interp.prelude exists (i.e.,
-    # while loading the prelude itself).  In that case, omit handling for
-    # forward nodes.
-    try:
-      self.ni_Fwd = interp.prelude._Fwd
-    except AttributeError:
-      self.ni_Fwd = None
-
-  def __call__(self, node):
-    '''Applies type-specific formatting after recursing to subexpressions.'''
-    assert isinstance(node, context.Node)
+class Stringifier(object):
+  '''Recursively invokes ``show`` on the argument.  Parenthesizes subexpressions.'''
+  def stringify(self, arg, **kwds):
     # FIXME: rather than put ? in this list, it would be better to check
     # whether the operation is infix and compare its precedence to the outer
     # expression.
-    noparen = (node.info.name and node.info.name[0] in '([{<?') or \
-        node.info is self.ni_Fwd
-    subexprs = self.generate(node, self._recurse_, noparen)
-    if self.format is None or len(node) < node.info.arity:
+    noparen = (arg.info.name and arg.info.name[0] in '([{<?') or \
+        arg.info.tag == tags.T_FWD
+    subexprs = self._generate_(arg, noparen)
+    format = kwds.pop('format', None)
+    if format is None or len(arg) < arg.info.arity:
       return ' '.join(subexprs)
     else:
       subexprs = list(subexprs)
-      return self.format(*subexprs)
+      return format(*subexprs)
 
-  @staticmethod
-  def generate(node, xform, noparen):
-    yield node.info.name
-    for expr in node.successors:
-      yield xform(expr, noparen)
+  def __call__(self, arg, **kwds):
+    return arg.info.show(arg, self)
 
-  @visitation.dispatch.on('expr')
-  def _recurse_(self, expr, noparen):
-    '''Recursive application.  Parenthesizes subexpressions.'''
-    return self.showlit(expr)
+  def _generate_(self, arg, noparen):
+    yield arg.info.name
+    for subexpr in arg.successors:
+      yield self._recurse_(subexpr, noparen)
 
-  @_recurse_.when(context.Node)
-  def _recurse_(self, node, noparen):
-    x = node.info.show(node)
-    if noparen or not x or x[0] in '([{<' or ' ' not in x or node.info is self.ni_Fwd:
+  def _recurse_(self, arg, noparen):
+    # x = arg.info.show(arg, self)
+    x = self(arg)
+    if noparen or not x or x[0] in '([{<' or ' ' not in x \
+        or arg.info.tag == tags.T_FWD:
       return x
     else:
       return '(%s)' % x
+
+
+class ListStringifier(Stringifier):
+  '''Formats lists using square brackets rather than applications of Cons.'''
+  def __call__(self, arg, **kwds):
+    from .. import getInterpreter
+    interp = getInterpreter()
+    if inspect.isa_list(interp, arg):
+      l = []
+      try:
+        for elem in conversions._listiter(interp, arg):
+          l.append(self(elem))
+        else:
+          return '[%s]' % ', '.join(l)
+      except exceptions.NotConstructorError as e:
+        return ':'.join(l + [self(e.arg)])
+    else:
+      return super(ListStringifier, self).__call__(arg, **kwds)
+
+
+class LitNormalStringifier(Stringifier):
+  '''Represents literals in the usual, human-readable, way.'''
+  @visitation.dispatch.on('arg')
+  def __call__(self, arg, **kwds):
+    return super(LitNormalStringifier, self).__call__(arg, **kwds)
+
+  @__call__.when(int)
+  def __call__(self, lit, **kwds):
+    return str(lit)
+  
+  @__call__.when(float)
+  def __call__(self, lit, **kwds):
+    return str(lit)
+  
+  @__call__.when(str)
+  def __call__(self, lit, **kwds):
+    assert len(lit) == 1
+    return str(lit)
+
+
+class LitUnboxedStringifier(Stringifier):
+  '''Represents unboxed literals by appending a #.'''
+  @visitation.dispatch.on('arg')
+  def __call__(self, arg, **kwds):
+    return super(LitUnboxedStringifier, self).__call__(arg, **kwds)
+
+  @__call__.when(int)
+  def __call__(self, lit, **kwds):
+    return '%r#' % lit # e.g., 1# for unboxed integer 1.
+  
+  @__call__.when(float)
+  def __call__(self, lit, **kwds):
+    return '%r#' % lit
+  
+  @__call__.when(str)
+  def __call__(self, lit, **kwds):
+    assert len(lit) == 1
+    return '%r#' % lit
+
+
+class FreeVarStringifier(Stringifier):
+  '''Represents free variables as _a, _b, etc.'''
+  def __init__(self, **kwds):
+    self.i = itertools.count()
+    self.tr = {}
+
+  def __call__(self, arg, **kwds):
+    if inspect.isa_freevar(None, arg):
+      vid = arg[0]
+      if vid not in self.tr:
+        alpha = list(self._toalpha(next(self.i)))
+        label = '_' + ''.join(reversed(alpha))
+        self.tr[vid] = label
+      return self.tr[vid]
+    else:
+      return super(FreeVarStringifier, self).__call__(arg, **kwds)
+
+  @staticmethod
+  def _toalpha(n):
+    # '_a', '_b', ... '_z', '_aa', '_ab', ...
+    assert 0 <= n
+    while True:
+      yield chr(97 + n % 26)
+      n = n // 26 - 1
+      if n < 0:
+        break
+
+class DefaultStringifier(LitNormalStringifier):
+  pass
+  
+
+class ReplStringifier(
+    FreeVarStringifier, ListStringifier, LitNormalStringifier
+  ):
+  '''
+  A stringifier for REPL output. This translates free variables into
+  identifiers _a, _b, etc. and represents literals in the usual,
+  human-readable, way.
+  '''
+  pass
+
+
+class Show(object):
+  '''Implements the built-in show function.'''
+  # def __new__(cls, format=None):
+  #   return format if callable(format) else object.__new__(cls, format)
+
+  def __init__(self, format=None):
+    self.format = format if callable(format) else \
+                  getattr(format, 'format', None) # i.e., str.format.
+
+  def __call__(self, arg, stringifier=DefaultStringifier()):
+    '''
+    Converts an expression to a string.
+
+    Parameters:
+    -----------
+    ``stringify``
+        Specifies a callable object used to stringify subexpressions.  This can
+        be used to apply arbitrary translations, e.g., from free variables to
+        stylized names such as _a, _b, etc.
+    '''
+    assert isinstance(arg, context.Node)
+    return stringifier.stringify(arg, format=self.format)
 
