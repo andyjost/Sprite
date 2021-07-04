@@ -38,7 +38,6 @@ class RuntimeState(object):
     # Set up flags first.
     self.tracing = interp.flags['trace']
     self.algebraic_substitution = interp.flags['algebraic_substitution']
-    self.direct_var_binding = interp.flags['direct_var_binding']
 
     self.idfactory = interp.context.runtime.get_interpreter_state(interp).idfactory
 

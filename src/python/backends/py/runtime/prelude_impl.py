@@ -263,13 +263,9 @@ def nonstrict_eq(rts, root):
     lhs = hnf_or_free(rts, root, 0)
     if lhs.info.tag == T_FREE:
       # Bind lhs -> rhs
-      if rts.direct_var_binding:
-        lhs.rewrite(rts.prelude._Fwd, rhs)
-        yield rts.prelude.True
-      else:
-        yield rts.prelude._Binding.info
-        yield rts.expr(True)
-        yield rts.expr((lhs, rhs))
+      yield rts.prelude._Binding.info
+      yield rts.expr(True)
+      yield rts.expr((lhs, rhs))
     else:
       assert lhs.info.tag >= T_CTOR
       rhs = hnf_or_free(rts, root, 1)

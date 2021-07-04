@@ -108,10 +108,9 @@ class Node(object):
             )
         )
     target = kwds.get('target', None)
-    # This assert is only valid when direct_var_binding is False.
-    # assert target is None or \
-    #        target.info.tag == T_FUNC or \
-    #        (target.info.tag == T_FREE == info.tag)
+    assert target is None or \
+           target.info.tag == T_FUNC or \
+           (target.info.tag == T_FREE == info.tag)
     self = object.__new__(cls) if target is None else target
     self.info = info
     successors = list(args)

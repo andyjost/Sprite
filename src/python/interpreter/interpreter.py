@@ -44,17 +44,13 @@ class Interpreter(object):
       ``algebraic_substitution`` (True|*False*)
           [Experimantal] Implements narrowing of fundamental types by
           substituting an algebraic type.
-      ``direct_var_binding`` (True|*False*)
-          [Experimental] Implements constraints by directly binding variables
-          to expressions.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self.flags = {
         'backend':config.default_backend(), 'debug':False
       , 'defaultconverter':None, 'trace':False, 'lazycompile':True
-      , 'keep_temp_files':False, 'direct_var_binding':False
-      , 'algebraic_substitution':False
+      , 'keep_temp_files':False, 'algebraic_substitution':False
       }
     bad_flags = set(flags) - set(self.flags)
     if bad_flags:
