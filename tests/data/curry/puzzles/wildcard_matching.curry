@@ -26,3 +26,5 @@ main =  match "aa"     "a"     == False
      && match "adceb"  "a*b"   == True
      && match "acdcb"  "a*c?b" == False
      && match "acdcb"  "a*cb"  == True
+     && match "acdbb"  "a*c?b"  == False
+     && match "acdbcccb"  "a*c?b"  == True
