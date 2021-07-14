@@ -1,6 +1,7 @@
 from copy import copy
 from ..... import exceptions
 from . import freevars
+from .stepcounter import StepCounter
 from .. import graph
 from .. import trace
 from ..misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT
@@ -20,9 +21,9 @@ __all__ = [
 
 class InterpreterState(object):
   '''
-  The part of the runtime system state the belongs to the interpreter.  Each
+  The part of the runtime system state that belongs to the interpreter.  Each
   interpreter keeps its own ID factory.  Storing this with the interpreter is
-  necessary to ensures that all expressions built by the interpreter are
+  necessary to ensure that all expressions built by the interpreter are
   compatible.
   '''
   def __init__(self, interp):
@@ -151,8 +152,8 @@ class Frame(object):
     return Frame(clone=self)
 
   def __repr__(self):
-    e = self.expr[()]
-    xid = freevars.get_id(e)
+    # e = self.expr[()]
+    # xid = freevars.get_id(e)
     return '{{fp=%s, cst=%s, bnd=%s, lzy=%s, bl=%s}}' % (
         self.fingerprint
       , self.constraint_store.read
@@ -200,30 +201,6 @@ class Frame(object):
       return True
     else:
       return False
-
-
-class StepCounter(object):
-  '''
-  Counts the number of steps taken.  If a limit is provided, raises E_STEPLIMIT
-  when the limit is reached.
-  '''
-  def __init__(self, limit=None):
-    assert limit > 0 or limit is None
-    self._limit = -1 if limit is None else limit
-    self.reset()
-  @property
-  def count(self):
-    return self._count
-  @property
-  def limit(self):
-    return self._limit
-  def increment(self):
-    self._count += 1
-    if self._count == self.limit:
-      raise E_STEPLIMIT()
-  def reset(self):
-    self._count = 0
-
 
 def get_stepper(rts):
   '''

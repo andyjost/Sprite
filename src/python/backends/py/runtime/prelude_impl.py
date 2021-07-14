@@ -10,12 +10,16 @@ import logging
 import operator as op
 import re
 
-from .fairscheme import N, hnf, freevars
 from .fairscheme.freevars import get_id
 from .graph import Node
 from .misc import E_RESIDUAL
+from . import api as runtime_api
 
 logger = logging.getLogger(__name__)
+
+hnf = runtime_api.FairSchemeAPI.hnf()
+get_generator = runtime_api.FairSchemeAPI.get_generator()
+N = runtime_api.FairSchemeAPI.N()
 
 def hnf_or_free(rts, root, index):
   '''Reduce the expression to head normal form or a free variable.'''
@@ -204,7 +208,7 @@ def constr_eq(rts, root):
       if rtag == T_FREE:
         if lhs[0] != rhs[0]:
           # Unify variables => _Binding True (x, y)
-          yield rts.prelude._Binding.info
+          yield rts.prelude._StrictBinding.info
           yield rts.expr(True)
           yield rts.expr((lhs, rhs))
         else:
@@ -263,7 +267,7 @@ def nonstrict_eq(rts, root):
     lhs = hnf_or_free(rts, root, 0)
     if lhs.info.tag == T_FREE:
       # Bind lhs -> rhs
-      yield rts.prelude._Binding.info
+      yield rts.prelude._NonStrictBinding.info
       yield rts.expr(True)
       yield rts.expr((lhs, rhs))
     else:
@@ -654,7 +658,7 @@ def ensureNotFree(rts, root):
     if vid in rts.currentframe.fingerprint:
       # Return the binding.
       yield rts.prelude._Fwd
-      yield freevars.get_generator(rts, expr, None)
+      yield get_generator(rts, expr, None)
       return
 
   # Otherwise, reduce the argument to hnf.

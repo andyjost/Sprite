@@ -146,7 +146,12 @@ def freshvar_args(rts):
 
 def freshvar(rts, target=None):
   '''Places a fresh free variable at the specified location.'''
-  return Node(*freshvar_args(rts), target=target)
+  node = Node(*freshvar_args(rts), target=target)
+  try:
+    rts.register_freevar(node)
+  except AttributeError:
+    pass
+  return node
 
 def get_id(arg):
   '''

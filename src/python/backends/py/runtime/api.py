@@ -4,6 +4,13 @@ from .misc import *
 from .... import context
 import itertools
 
+FAIR_SCHEME_VERSION = 2
+
+if FAIR_SCHEME_VERSION == 2:
+  from .fairscheme.v2.algorithm import hnf
+  from .fairscheme.v2.evaluator import Evaluator
+  from .fairscheme.v2.state import InterpreterState, RuntimeState
+
 __all__ = [
     'Runtime'
 
@@ -31,9 +38,8 @@ __all__ = [
 
   # From misc.
   , 'RuntimeFlowException'
-  , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT'
+  , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT', 'E_TERMINATE'
   ]
-
 
 class Runtime(context.Runtime):
   '''Implementation of the abstract runtime system for the Python backend.'''
@@ -63,3 +69,30 @@ class Runtime(context.Runtime):
   @property
   def get_id(self): # How does this function make sense?  We need the frame to get the representative ID.
     return get_id
+
+
+class FairSchemeAPI(object):
+  '''
+  Internal interface used to switch between implementations of the Fair Scheme.
+  Using this, the built-in libraries and compiler can avoid dependencies on a
+  particular version.
+  '''
+  @staticmethod
+  def hnf():
+    return hnf
+
+  @staticmethod
+  def get_generator():
+    from .fairscheme.freevars import get_generator
+    return get_generator
+
+  @staticmethod
+  def N():
+    if FAIR_SCHEME_VERSION == 1:
+      from .fairscheme.algo import N
+      return N
+    elif FAIR_SCHEME_VERSION == 2:
+      def N(*args, **kwds):
+        raise RuntimeError('N() cannot be called directly with FairScheme v2')
+      return N
+

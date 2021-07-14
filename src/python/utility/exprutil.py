@@ -1,10 +1,11 @@
 '''Utilities for working with Curry expressions.'''
 
 from .. import context
+from .. import icurry
 
 __all__ = ['iterexpr']
 
-def iterexpr(expr):
+def iterexpr(expr, once=True):
   '''Generate each node in a Curry expression exactly once.'''
   queue = [expr]
   seen = set()
@@ -29,3 +30,82 @@ def maxid(expr):
     , -1
     )
 
+def unique(iterator, key=lambda x: x):
+  '''Transform an iterator to return only unique items.'''
+  seen = set()
+  for x in iterator:
+    k = key(x)
+    if k not in seen:
+      seen.add(k)
+      yield x
+
+class WalkState(object):
+  '''See ``walk``.'''
+  def __init__(self, root):
+    self.stack = []
+    self.path = []
+    self.spine = [root]
+
+  def advance(self):
+    while self.stack and not self.stack[-1]:
+      self.pop()
+    if self.stack:
+      self.path[-1], self.spine[-1] = self.stack[-1].pop()
+      return True
+
+  def __iter__(self):
+    while True:
+      yield self
+      if not self.advance():
+        break
+
+  def pop(self):
+    self.stack.pop()
+    self.path.pop()
+    self.spine.pop()
+
+  def push(self):
+    self.stack.append(
+        [] if isinstance(self.cursor, icurry.ILiteral)
+           else list(enumerate(self.cursor))[::-1]
+      )
+    self.path.append(None)
+    self.spine.append(None)
+
+  @property
+  def cursor(self):
+    '''The current node.'''
+    return self.spine[-1]
+
+  @property
+  def parent(self):
+    '''The parent of the current node.'''
+    return self.spine[-2]
+
+
+def walk(root):
+  '''
+  Walk a Curry expression.  
+
+  This yields a "state" objects for each successor of the given root.  The state
+  consists of a cursor pointing to a subexpression, current path to the cursor,
+  and other attributes.  Iteration may be pruned or deepened by modifying the
+  state.  The subexpression under the cursor may be modified.
+
+  Attributes:
+  -----------
+    ``stack``
+        The remaining iteration state.  May be modified to control the search.
+        Call ``push`` to add the successors of the node under the cursor.
+    ``path``
+        A list of integers giving the path from the root to the cursor.  Not to
+        be modified.
+    ``spine``
+        A list of nodes, equal in length to ``path``, giving the node at each
+        point along the path.  Not to be modified.
+    ``cursor``
+        The node currently being visited.  Equivalent to spine[-1].
+    ``parent``
+        The parent of the node at the cursore.  Equivalent to spine[-2].
+  '''
+  return WalkState(root)

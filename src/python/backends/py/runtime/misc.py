@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 __all__ = [
     'RuntimeFlowException'
-  , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT'
+  , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT', 'E_TERMINATE'
   ]
 
 class RuntimeFlowException(BaseException):
@@ -39,4 +39,7 @@ class E_RESIDUAL(RuntimeFlowException):
 
 class E_STEPLIMIT(RuntimeFlowException):
   '''Raised when the step limit is reached.'''
+
+class E_TERMINATE(RuntimeFlowException):
+  '''Raised to terminate evaluation.'''
 

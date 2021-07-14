@@ -227,12 +227,12 @@ context.InfoTable.register(InfoTable)
 
 class Replacer(object):
   '''
-  Performs replacements in a context.
+  Performs replacements in a context, using the alternatives at a target
+  position.
 
-  For context C and path p, this object returns shallow copies of C in which
-  the target, C[p], is replaced.  Given replacer R with getter g, the
-  expression R[i] returns C[p] <- g(C[p], i).  The copy is minimal, meaning
-  new nodes are allocated only along the spine.
+  For context C and path p, the target position is C[p].  The Item access self[i]
+  returns a copy of C in which C[p] is replaced with C[p][i].  Only nodes along
+  the spine are copied.
 
   The default getter is just getitem, so it will return a successor of the
   target.  This is handy when the target is a choice, since R[1], R[2] will
@@ -240,11 +240,22 @@ class Replacer(object):
   respectively, in place (note: the zeroth successor is the choice ID).
 
   A custom getter can be used to construct any replacement desired.
+
+  If a target is supplied, then its subexpressions will be used to construct
+  the alternatives.
+
+  Example:
+  --------
+  Let cxt = [a ? b, c], path = [0], and R = Replacer(cxt, path).  Then R[1] is
+  [a, c] and R[2] is [b, c].  Note well that the first successor of a choice is
+  the choice ID, so i=1 and i=2 are the left and right alternatives, resp.  In
+  each case, a new cons node is created, but c is not copied.
+
   '''
-  def __init__(self, context, path, getter=Node.__getitem__):
+  def __init__(self, context, path, getter=Node.__getitem__, alternatives=None):
     self.context = context
     self.path = path
-    self.target = None # has value after first __getitem__
+    self.target = alternatives # has value after first __getitem__, unless supplied.
     self.getter = getter
 
   def _a_(self, node, depth=0):
@@ -252,9 +263,9 @@ class Replacer(object):
     if depth < len(self.path):
       return Node(*self._b_(node, depth))
     else:
-      assert self.target is None or self.target is node
-      self.target = node
-      return self.getter(node, self.index)
+      if self.target is None:
+        self.target = node
+      return self.getter(self.target, self.index)
 
   def _b_(self, node, depth):
     '''

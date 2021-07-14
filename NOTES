@@ -370,7 +370,7 @@ TODO:
     +    self.assertEqual(Type.E.info.gpath, (1,0,0))
     +    self.assertEqual(Type.F.info.gpath, (1,0,1))
     +    self.assertEqual(Type.G.info.gpath, (1,1))
-     
+
        def test_minDepth6(self):
          '''Minimal instance depth (6 constructors).'''
     @@ -321,6 +328,12 @@ class TestInstantiation(cytest.TestCase):
@@ -383,7 +383,7 @@ TODO:
     +    self.assertEqual(Type.D.info.gpath, (1,0,0))
     +    self.assertEqual(Type.E.info.gpath, (1,0,1))
     +    self.assertEqual(Type.F.info.gpath, (1,1))
-     
+
        def test_complex(self):
          #        ?0
     @@ -332,3 +345,8 @@ class TestInstantiation(cytest.TestCase):
@@ -395,3 +395,51 @@ TODO:
     +    self.assertEqual(Type.C.info.gpath, (0,1))
     +    self.assertEqual(Type.D.info.gpath, (1,0))
     +    self.assertEqual(Type.E.info.gpath, (1,1))
+
+
+07/10/2021
+
+  There is a new implementation of the Fair Scheme under
+  src/python/backends/py/runtime/fairschem/v2.  I have not implemented =:<=, so
+  functional patterns will not work.  Also binding to integers will not work.
+
+  This is a faithful representation of the FS as published, with extensions for
+  free variables.  The value of a computation can contain free variables.
+
+  There are only two files -- one for the algorithms (D, N, S, hnf functions),
+  and another for the state (Configuration, RuntimeState).
+
+  Debugging
+  ---------
+
+  To play with it, cd to tests/ and then run e.g., "./run_tests
+  func_examples.py".  You can control the behavior by setting environment
+  variable SPRITE_INTERPRETER_FLAGS.  Important options:
+
+      trace:true
+          You will get a trace of each step in the computation.
+
+      debug:true
+          The compile source code will be placed under .src/.  You must use
+          this option to step into compiled code with PDB.
+
+  Example:
+
+      % SPRITE_INTERPRETER_FLAGS=trace:true,debug:true ./run_tests func_example.py
+
+  Call breakpoint() anywhere in the code to get an interactive prompt.  Use
+  Ctrl-d to continue.
+
+  Call pdbtrace() anywhere to start a PDB prompt.  You can go up and down the
+  stack.  Use Ctrl-d to continue/exit.
+
+  Test Cases
+  ----------
+  You can use the tests under tests/func_*.py.  func_examples.py matches the
+  PDF files I sent before. func_eqconstr.py checks the equational constraints
+  quite thoroughly.
+
+  In a unit test under tests/func_*.py, use the RUNONLY and/or SKIP fields to
+  control which tests are run.  Each accepts a regex.
+
+

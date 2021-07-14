@@ -55,11 +55,10 @@ _types_ = [
     # A binding is a pair consisting of a Boolean result and pair of equivalent
     # expressions.  After lifting the binding, the result takes its place.  The
     # equivalent expressions consist of a free variable on the left and, on the
-    # right, either a different free variable (regular binding) or arbitrary
-    # expression (lazy binding).  For example, ``_Binding True (x,y)`` has
-    # value True (indicating the binding succeeded) and specifies that free
-    # variables x and y are equivalent in this context.
-  , _T('_Binding'   , [_C('_Binding', 2, metadata={'py.tag':T_BIND, 'py.typecheck':tc.Binding})])
+    # right, either a different free variable (strict binding) or arbitrary
+    # expression (nonstrict binding).
+  , _T('_Binding'   , [ _C('_StrictBinding'   , 2, metadata={'py.tag':T_BIND, 'py.typecheck':tc.Binding})
+                      , _C('_NonStrictBinding', 2, metadata={'py.tag':T_BIND, 'py.typecheck':tc.Binding})])
     # Free variables have two successors, one for the variable ID (Int) and one
     # for the generator.  The second slot is initially set to Prelude.().  On
     # instantiation, it is replaced with a generator.
@@ -210,7 +209,7 @@ _functions_ = [
   , _F('prim_showStringLiteral', 1, metadata={'py.boxedfunc':impl.show})
   , _F('prim_showIntLiteral', 1, metadata={'py.boxedfunc':impl.show})
   , _F('prim_showFloatLiteral', 1, metadata={'py.boxedfunc':impl.show})
-  , _F('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{0} ? {1}'})
+  , _F('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{1} {0} {2}'})
   , _F('apply', 2, metadata={'py.rawfunc':impl.apply})
   , _F('cond', 2, metadata={'py.rawfunc':impl.cond})
   ]

@@ -5,7 +5,11 @@ def show(char, symbol, indent, frame, expr=None):
     )
 
 def _frame(rts):
-  return getattr(rts, 'currentframe', '')
+  from .api import FAIR_SCHEME_VERSION
+  if FAIR_SCHEME_VERSION == 1:
+    return getattr(rts, 'currentframe', '')
+  else:
+    return rts.C
 
 def enter_rewrite(rts, indent, expr):
   if rts.tracing:
@@ -30,3 +34,28 @@ def kill(rts):
 def activate_frame(rts):
   if rts.tracing:
     show('F', ':::', 0, _frame(rts))
+
+class Trace(object):
+  def __init__(self, rts):
+    self.rts = rts
+    self.indent = 0
+
+  def enter_rewrite(self, expr):
+    enter_rewrite(self.rts, self.indent, expr)
+    self.indent += 1
+
+  def exit_rewrite(self, expr):
+    self.indent -= 1
+    exit_rewrite(self.rts, self.indent, expr)
+
+  def failed(self):
+    failed(self.rts)
+
+  def yield_(self, value):
+    yield_(self.rts, value)
+
+  def kill(self):
+    kill(self.rts)
+
+  def activate_frame(self):
+    active_frame(self.rts)

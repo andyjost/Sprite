@@ -52,21 +52,25 @@ class TestPyTypeChecks(cytest.TestCase):
       rts = RuntimeState(I)
       q = I.symbol('Prelude.?')
       x,y = list(I.eval(q, freshvar(rts), freshvar(rts)))
-      self.assertMayRaise(
-          None
-        , lambda: I.expr(I.prelude._Binding, True, (x, y))
-        )
-      self.assertMayRaiseRegexp(
-          TypeError if debug else None
-        , r'Cannot construct a _Binding node binding variable . to itself\.'
-        , lambda: I.expr(I.prelude._Binding, True, (x, x))
-        )
-      self.assertMayRaiseRegexp(
-          TypeError if debug else None
-        , r'Cannot construct a _Binding node from an argument '
-           '\(in position 2.1\) of type int\.'
-        , lambda: I.expr(I.prelude._Binding, True, (u(1), y))
-        )
+      for binding_type in (
+          [I.prelude._Binding] if runtime.api.FAIR_SCHEME_VERSION == 1 else
+          [I.prelude._StrictBinding, I.prelude._NonStrictBinding]
+          ):
+        self.assertMayRaise(
+            None
+          , lambda: I.expr(binding_type, True, (x, y))
+          )
+        self.assertMayRaiseRegexp(
+            TypeError if debug else None
+          , r'Cannot construct a _Binding node binding variable . to itself\.'
+          , lambda: I.expr(binding_type, True, (x, x))
+          )
+        self.assertMayRaiseRegexp(
+            TypeError if debug else None
+          , r'Cannot construct a _Binding node from an argument '
+             '\(in position 2.1\) of type int\.'
+          , lambda: I.expr(binding_type, True, (u(1), y))
+          )
 
   def testCoverage(self):
     self.assertEqual(tc._typecategory(list), ())
