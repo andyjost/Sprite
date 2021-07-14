@@ -43,7 +43,7 @@ def D(rts):
 
 def N(rts):
   walk = exprutil.walk(rts.E)
-  walk = exprutil.unique(walk, key=lambda st: id(st.cursor))
+  # walk = exprutil.unique(walk, exprutil.node_identity)
   for state in walk:
     while True:
       tag = tag_of(state.cursor)
@@ -146,6 +146,25 @@ def hnf(rts, func, path, typedef=None, values=None):
         pass
     elif tag >= T_CTOR:
       return target
+
+def normalize(rts, func, path, ground):
+  '''
+  Normalize the subexpression at ``func[path]``.  Used to implement $!! and
+  $##.
+  '''
+  assert path
+  assert func.info.tag == T_FUNC
+  walk = exprutil.walk(func, path=path)
+  # walk = exprutil.unique(walk, key=lambda st: id(st.cursor))
+  for state in walk:
+    try:
+      hnf(rts, func, state.path)
+    except E_RESIDUAL:
+      if ground:
+        raise
+    if tag_of(state.cursor) >= T_CTOR:
+      if info_of(state.cursor) is not rts.prelude._PartApplic.info:
+        state.push()
 
 def tag_of(node):
   if isinstance(node, icurry.ILiteral):

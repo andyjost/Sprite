@@ -31,7 +31,7 @@ def maxid(expr):
     )
 
 def unique(iterator, key=lambda x: x):
-  '''Transform an iterator to return only unique items.'''
+  '''Transform an iterator to filter out duplicate items.'''
   seen = set()
   for x in iterator:
     k = key(x)
@@ -41,10 +41,10 @@ def unique(iterator, key=lambda x: x):
 
 class WalkState(object):
   '''See ``walk``.'''
-  def __init__(self, root):
+  def __init__(self, root, path=()):
     self.stack = []
-    self.path = []
-    self.spine = [root]
+    self.path = list(path)
+    self.spine = [root[p] for p in [path[:i] for i in xrange(len(path)+1)]]
 
   def advance(self):
     while self.stack and not self.stack[-1]:
@@ -83,7 +83,7 @@ class WalkState(object):
     return self.spine[-2]
 
 
-def walk(root):
+def walk(root, path=()):
   '''
   Walk a Curry expression.  
 
@@ -108,4 +108,4 @@ def walk(root):
     ``parent``
         The parent of the node at the cursore.  Equivalent to spine[-2].
   '''
-  return WalkState(root)
+  return WalkState(root, path)

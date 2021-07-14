@@ -86,13 +86,3 @@ class FairSchemeAPI(object):
     from .fairscheme.freevars import get_generator
     return get_generator
 
-  @staticmethod
-  def N():
-    if FAIR_SCHEME_VERSION == 1:
-      from .fairscheme.algo import N
-      return N
-    elif FAIR_SCHEME_VERSION == 2:
-      def N(*args, **kwds):
-        raise RuntimeError('N() cannot be called directly with FairScheme v2')
-      return N
-

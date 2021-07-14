@@ -14,7 +14,6 @@ import re
 import sys
 import unittest
 
-
 class TestCase(unittest.TestCase):
   '''A base test case class for testing Sprite.'''
   def tearDown(self):
@@ -135,6 +134,9 @@ class FunctionalTestCase(TestCase):
         non-built-in libraries.  Note that SOURCE_DIR is always added to
         CURRYPATH.
 
+      CONVERTER [Optional, str, None]
+        Specifies the 'defaultconverter' flag.
+
       CLEAN_KWDS [Optional, {str:dict}]
         File-specific options to cyclean.  For tests matching the key, the
         provided keywords will be passed to cyclean.
@@ -202,10 +204,19 @@ class FunctionalTestCase(TestCase):
                 print >>sys.stderr, 'skipping file %s' % cysrc
             else:
               clean_kwds = defs['CLEAN_KWDS'].get(name, {})
-              defs['test_' + name] = \
-                  lambda self, name=name, clean_kwds=clean_kwds: \
-                      self.check(name, clean_kwds)
+              converter = defs.get('CONVERTER', None)
+              test_name = 'test_' + name
+              defs[test_name] = cls._make_test(name, clean_kwds, converter)
+
       return type.__new__(cls, clsname, bases, defs)
+
+    @staticmethod
+    def _make_test(name, clean_kwds, converter):
+      def test(self):
+        if converter:
+          curry.flags['defaultconverter'] = converter
+        self.check(name, clean_kwds)
+      return test
 
   def setUp(self):
     super(FunctionalTestCase, self).setUp()

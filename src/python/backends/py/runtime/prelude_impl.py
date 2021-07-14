@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 hnf = runtime_api.FairSchemeAPI.hnf()
 get_generator = runtime_api.FairSchemeAPI.get_generator()
-N = runtime_api.FairSchemeAPI.N()
 
 def hnf_or_free(rts, root, index):
   '''Reduce the expression to head normal form or a free variable.'''
@@ -626,44 +625,42 @@ def apply_hnf(rts, root):
   yield root[0]
   yield hnf(rts, root, [1])
 
-def normalize(rts, root, path, ground):
-  '''Used to implement $!! and $##.'''
-  try:
-    hnf(rts, root, path)
-  except E_RESIDUAL:
-    if ground:
-      raise
-    else:
-      return root[path]
-  target, freevars = N(rts, root, path=path)
-  if ground and freevars:
-    raise E_RESIDUAL(freevars)
-  return target
+if runtime_api.FAIR_SCHEME_VERSION == 1:
+  from .fairscheme.algo import N
+  def normalize(rts, root, path, ground):
+    '''Used to implement $!! and $##.'''
+    try:
+      hnf(rts, root, path)
+    except E_RESIDUAL:
+      if ground:
+        raise
+      else:
+        return root[path]
+    target, freevars = N(rts, root, path=path)
+    if ground and freevars:
+      raise E_RESIDUAL(freevars)
+    return target
+else:
+  from .fairscheme.v2.algorithm import normalize
 
 def apply_nf(rts, root):
+  normalize(rts, root, [1], ground=False)
   yield rts.prelude.apply
   yield root[0]
-  yield normalize(rts, root, [1], ground=False)
+  yield root[1]
 
 def apply_gnf(rts, root):
+  normalize(rts, root, [1], ground=True)
   yield rts.prelude.apply
   yield root[0]
-  yield normalize(rts, root, [1], ground=True)
+  yield root[1]
 
 def ensureNotFree(rts, root):
-  # Substitute the binding, if one exists or head-normalize the argument.
-  expr = root[0]
-  if inspect.isa_freevar(rts, expr):
-    vid = get_id(expr)
-    if vid in rts.currentframe.fingerprint:
-      # Return the binding.
-      yield rts.prelude._Fwd
-      yield get_generator(rts, expr, None)
-      return
-
-  # Otherwise, reduce the argument to hnf.
+  arg = root[0]
+  if rts.is_freevar_node(arg):
+    hnf(rts, root, [0])
   yield rts.prelude._Fwd
-  yield hnf(rts, root, [0])
+  yield arg
 
 def _PyGenerator(rts, gen):
   '''Implements a Python generator as a Curry list.'''

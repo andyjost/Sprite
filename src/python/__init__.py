@@ -80,7 +80,43 @@ def reload(flags={}):
   _flagutils.reload(__name__, flags)
 
 
-@_visitation.dispatch.on('value')
+class ShowValue(object):
+  def __init__(self):
+    from .interpreter import show
+    self.stringify = show.ReplStringifier()
+
+  @_visitation.dispatch.on('value')
+  def __call__(self, value):
+    return self.stringify(value)
+
+  @__call__.when(tuple)
+  def __call__(self, value):
+    if len(value) == 1:
+      return self(value[0])
+    else:
+      return '(%s)' % ','.join(map(self, value))
+
+  @__call__.when(list)
+  def __call__(self, value):
+    return '[%s]' % ','.join(map(self, value))
+
+  @__call__.when(_collections.Sequence, no=str)
+  def __call__(self, value):
+    return self(list(value))
+
+  @__call__.when(str)
+  def __call__(self, value):
+    # We need to add a single quote to the string to trick Python into
+    # surrounding it with double quotes.
+    value = repr(value + "'")
+    value = value[:-2] + value[-1]
+    return value
+
+  @__call__.when(_collections.Mapping)
+  def __call__(self, value):
+    return {self(k): self(v) for k,v in value.iteritems()}
+
+
 def show_value(value):
   '''
   Converts a Python Curry value to a string in Curry format.  This does a few
@@ -89,34 +125,4 @@ def show_value(value):
   free variable to friendly names _a, _b, etc.  The output should match other
   Curry systems.
   '''
-  from . import context
-  from .interpreter import show
-  stringify = show.ReplStringifier()
-  return stringify(value)
-
-@show_value.when(tuple)
-def show_value(value):
-  if len(value) == 1:
-    return show_value(value[0])
-  else:
-    return '(%s)' % ','.join(map(show_value, value))
-
-@show_value.when(list)
-def show_value(value):
-  return '[%s]' % ','.join(map(show_value, value))
-
-@show_value.when(_collections.Sequence, no=str)
-def show_value(value):
-  return show_value(list(value))
-
-@show_value.when(str)
-def show_value(value):
-  # We need to add a single quote to the string to trick Python into
-  # surrounding it with double quotes.
-  value = repr(value + "'")
-  value = value[:-2] + value[-1]
-  return value
-
-@show_value.when(_collections.Mapping)
-def show_value(value):
-  return {show_value(k): show_value(v) for k,v in value.iteritems()}
+  return ShowValue()(value)

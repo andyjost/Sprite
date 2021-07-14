@@ -31,14 +31,16 @@ class Stringifier(object):
       yield self._recurse_(subexpr, noparen)
 
   def _recurse_(self, arg, noparen):
-    # x = arg.info.show(arg, self)
     x = self(arg)
-    if noparen or not x or x[0] in '([{<' or ' ' not in x \
-        or arg.info.tag == tags.T_FWD:
+    if noparen or not self.__needparens(arg, x):
       return x
     else:
       return '(%s)' % x
 
+  @staticmethod
+  def __needparens(arg, x):
+    return x and x[0] not in '([{<' and ' ' in x \
+       and not (hasattr(arg, 'info') and arg.info.tag == tags.T_FWD)
 
 class ListStringifier(Stringifier):
   '''Formats lists using square brackets rather than applications of Cons.'''
@@ -67,11 +69,11 @@ class LitNormalStringifier(Stringifier):
   @__call__.when(int)
   def __call__(self, lit, **kwds):
     return str(lit)
-  
+
   @__call__.when(float)
   def __call__(self, lit, **kwds):
     return str(lit)
-  
+
   @__call__.when(str)
   def __call__(self, lit, **kwds):
     assert len(lit) == 1
@@ -87,11 +89,11 @@ class LitUnboxedStringifier(Stringifier):
   @__call__.when(int)
   def __call__(self, lit, **kwds):
     return '%r#' % lit # e.g., 1# for unboxed integer 1.
-  
+
   @__call__.when(float)
   def __call__(self, lit, **kwds):
     return '%r#' % lit
-  
+
   @__call__.when(str)
   def __call__(self, lit, **kwds):
     assert len(lit) == 1
@@ -127,7 +129,7 @@ class FreeVarStringifier(Stringifier):
 
 class DefaultStringifier(LitNormalStringifier):
   pass
-  
+
 
 class ReplStringifier(
     FreeVarStringifier, ListStringifier, LitNormalStringifier
@@ -142,14 +144,11 @@ class ReplStringifier(
 
 class Show(object):
   '''Implements the built-in show function.'''
-  # def __new__(cls, format=None):
-  #   return format if callable(format) else object.__new__(cls, format)
-
   def __init__(self, format=None):
     self.format = format if callable(format) else \
                   getattr(format, 'format', None) # i.e., str.format.
 
-  def __call__(self, arg, stringifier=DefaultStringifier()):
+  def __call__(self, arg, stringifier=None):
     '''
     Converts an expression to a string.
 
@@ -160,6 +159,7 @@ class Show(object):
         be used to apply arbitrary translations, e.g., from free variables to
         stylized names such as _a, _b, etc.
     '''
+    stringifier = stringifier or DefaultStringifier()
     assert isinstance(arg, context.Node)
     return stringifier.stringify(arg, format=self.format)
 
