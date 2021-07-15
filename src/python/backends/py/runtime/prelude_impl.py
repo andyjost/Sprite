@@ -644,16 +644,14 @@ else:
   from .fairscheme.v2.algorithm import normalize
 
 def apply_nf(rts, root):
-  normalize(rts, root, [1], ground=False)
   yield rts.prelude.apply
   yield root[0]
-  yield root[1]
+  yield normalize(rts, root, [1], ground=False)
 
 def apply_gnf(rts, root):
-  normalize(rts, root, [1], ground=True)
   yield rts.prelude.apply
   yield root[0]
-  yield root[1]
+  yield normalize(rts, root, [1], ground=True)
 
 def ensureNotFree(rts, root):
   arg = root[0]

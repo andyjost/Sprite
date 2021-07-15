@@ -1,14 +1,17 @@
 from copy import copy
+from ...... import exceptions
 from .. import freevars
 from ... import graph
 from .. import stepcounter
+from ...misc import E_RESIDUAL
 from ....sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED, ChoiceState
 from ......tags import *
 from ......utility import exprutil
-from ......utility import unionfind
 from ......utility import shared
+from ......utility import unionfind
 from ......utility.shared import compose, Shared
 import collections
+import contextlib
 import itertools
 
 class DefaultDict(shared.DefaultDict):
@@ -24,20 +27,21 @@ class Configuration(object):
     self.strict_constraints = Shared(unionfind.UnionFind) \
         if strict_constraints is None else strict_constraints
     self.bindings = Bindings() if bindings is None else bindings
+    self.residuals = set()
 
   def __copy__(self):
     return self.clone(self.root)
 
   def clone(self, root):
-    return Configuration(
-        root, copy(self.fingerprint), copy(self.strict_constraints)
-      , copy(self.bindings)
-      )
+    state = self.fingerprint, self.strict_constraints, self.bindings
+    assert not self.residuals
+    return Configuration(root, *map(copy, state))
 
   def __repr__(self):
     return '{{fp=%s, cst=%s, bnd=%s}}' % (
         self.fingerprint, self.strict_constraints.read, self.bindings
       )
+
 
 Queue = collections.deque
 
@@ -72,6 +76,9 @@ class RuntimeState(object):
     # the standard file streams; system lbraries, such as the Prelude; and
     # functions that might be required by built-ins, such as the ``expr``,
     # ``type``, and ``unbox`` functions.
+    self.builtin_types = tuple(map(
+        interp.type, ('Prelude.Int', 'Prelude.Char', 'Prelude.Float')
+      ))
     self.currypath = tuple(interp.path)
     self.expr = interp.expr
     self.integer = interp.integer
@@ -92,7 +99,7 @@ class RuntimeState(object):
     self.queue = Queue([])
     self.set_goal(goal)
 
-    # The free variable table.
+    # The free variable table.  Mapping from ID to Node.
     self.vtable = {}
 
     # The trace object.
@@ -117,6 +124,46 @@ class RuntimeState(object):
   @E.setter
   def E(self, node):
     self.C.root = node
+
+  def ready(self):
+    '''
+    Checks whether the runtime is ready for continued evaluation.  Skips over
+    blocked configurations and raises EvaluationSuspended if the queue contains
+    only blocked configurations.  Returns True if the queue is not empty.
+    '''
+    if self.queue:
+      try:
+        i = next(i for i, c in enumerate(self.queue) if self.unblock(c))
+      except StopIteration:
+        raise exceptions.EvaluationSuspended()
+      else:
+        self.queue.rotate(-i)
+        return True
+
+  def unblock(self, config=None):
+    '''
+    Unblock the specified configuration.  Returns True if the configuration was
+    not blocked in the first place, or if a generator or binding was found for
+    some variable in the list of residuals.
+    '''
+    config = config or self.C
+    if not config.residuals:
+      return True
+    unblocked = set()
+    for vid in config.residuals:
+      x = self.vtable[vid]
+      if self.has_generator(x) or self.has_binding(x):
+        unblocked.add(vid)
+    config.residuals.difference_update(unblocked)
+    return bool(unblocked)
+
+  @contextlib.contextmanager
+  def catch_residuals(self):
+    try:
+      yield
+    except E_RESIDUAL as res:
+      self.C.residuals.update(res.ids)
+      self.queue.rotate(-1)
 
   def real_id(self, arg=None, config=None):
     '''
@@ -144,7 +191,7 @@ class RuntimeState(object):
     of that variable.
     '''
     config = config or self.C
-    return config.strict_constraints.read.root(self.real_id(arg))
+    return config.strict_constraints.read.root(self.real_id(arg, config))
 
   def read_fp(self, arg=None, config=None):
     '''
@@ -162,21 +209,13 @@ class RuntimeState(object):
     config = config or self.C
     clone = config.clone(config.root[idx])
     if self.update_fp(choicestate, config.root, config=clone):
-      if self.real_id() in self.vtable:
-        i = self.real_id()
+      if self.real_id(config=config) in self.vtable:
+        i = self.real_id(config=config)
         j = self.eff_id(i, config=clone)
+        self.apply_binding(i, config=clone)
+        self.apply_binding(j, config=clone)
         if not self.constrain_equal(*map(self.freevar, [i,j]), config=clone):
           return None
-        # if self.has_binding(i, config=clone):
-        #   clone.root = graph.Node(
-        #       getattr(self.prelude, '&>')
-        #     , graph.Node(
-        #           self.prelude.prim_nonstrictEq
-        #         , self.generator(i, config=clone)
-        #         , self.pop_binding(i, config=clone)
-        #         )
-        #     , clone.root
-        #     )
       return clone
     return None
 
@@ -193,9 +232,6 @@ class RuntimeState(object):
     if it would be consistent, otherwise None.
     '''
     return self._leftright(2, RIGHT, config)
-    # config = config or self.C
-    # clone = config.clone(config.root[2])
-    # return clone if self.update_fp(RIGHT, config.root, config=clone) else None
 
   def is_narrowed(self, arg=None, config=None):
     '''
@@ -215,9 +251,13 @@ class RuntimeState(object):
     '''
     self.vtable[self.real_id(var)] = var
 
-  def freevar(self, arg=None):
-    vid = self.real_id(arg)
-    return self.vtable[vid]
+  def freevar(self, arg=None, config=None):
+    try:
+      if arg.info.tag == T_FREE:
+        return arg
+    except:
+      vid = self.real_id(arg, config)
+      return self.vtable[vid]
 
   def is_choice_or_freevar_node(self, node):
     '''Indicates whether the given argument is a choice or free variable.'''
@@ -233,35 +273,42 @@ class RuntimeState(object):
     except AttributeError:
       return False
 
+  def has_generator(self, arg=None, config=None):
+    x = self.freevar(arg, config)
+    return freevars.has_generator(self, x)
+
   def generator(self, arg=None, config=None):
     '''
     Returns the generator for the given free variable. The first argument must
     be a choice or free variable node, or ID.
     '''
-    vid = self.real_id(arg)
+    vid = self.real_id(arg, config)
     x = self.freevar(vid)
-    if not freevars.has_generator(self, x):
+    if not self.has_generator(x):
       self.constrain_equal(x, self.freevar(self.eff_id(vid, config)))
-      assert freevars.has_generator(self, x)
+      assert self.has_generator(x)
     _, gen = x
     return gen
 
   def instantiate(self, func, path, typedef, config=None):
     config = config or self.C
-    gen = freevars.instantiate(self, func, path, typedef)
-    return gen
+    if typedef in self.builtin_types:
+      raise E_RESIDUAL([self.real_id(func[path], config=config)])
+    return freevars.instantiate(self, func, path, typedef)
 
   def constrain_equal(self, arg0, arg1, strict=True, config=None):
     '''
     Constrain the given arguments to be equal in the specified context.  This
-    implements the equational constraint, (=:=).  Both arguments must be
-    choices or both free variables, and, in the latter case, the free variables
-    must represent values of the same type.
+    implements the equational constraints (=:=) and (=:<=).  For strict
+    constraints, both arguments must be choices or both free variables, and, in
+    the latter case, the free variables must represent values of the same type.
+    For non-strict constraints, the first argument must be a free variable; the
+    second is any expression.
 
     The return value indicates whether the constaint is consistent.
 
-    Recursive constraints arise from interleaving the rules of (=:=) with
-    narrowing steps.  Suppose x =:= y is first evaluated, then x and y are
+    Recursive constraints arise from interleaving the rules of (=:=) or (=:<=)
+    with narrowing steps.  Suppose x =:= y is first evaluated, then x and y are
     subsequently narrowed to (x0:x1) and (y0:y1), resp.  The recursive
     constraints over subariabls, x0 =:= y0 and x1 =:= y1, must then be
     evaluated.
@@ -285,9 +332,7 @@ class RuntimeState(object):
           The configuration to use as context.
     '''
     config = config or self.C
-    i, j = map(self.real_id, [arg0, arg1])
-    self.apply_binding(i, config=config)
-    self.apply_binding(j, config=config)
+    i, j = [self.real_id(arg, config) for arg in [arg0, arg1]]
     if i != j:
       if strict:
         if not self.equate_fp(i, j, config=config):
@@ -346,7 +391,7 @@ class RuntimeState(object):
       try:
         pivot = next(
             x for x in xs if self.is_narrowed(x, config=config)
-                          and freevars.has_generator(self, x)
+                          and self.has_generator(x)
           )
       except StopIteration:
         return True
@@ -355,7 +400,7 @@ class RuntimeState(object):
         u = self.generator(pivot, config=config)
         for x in xs:
           if x is not pivot:
-            if not freevars.has_generator(self, x):
+            if not self.has_generator(x):
               freevars.clone_generator(self, pivot, x)
             assert not self.has_binding(x) # not certain about this
             v = self.generator(x, config=config)
@@ -408,8 +453,8 @@ class RuntimeState(object):
     current = self.read_fp(arg, config=config)
     if current == UNDETERMINED:
       config.fingerprint = copy(config.fingerprint)
-      config.fingerprint[self.real_id(arg)] = choicestate
-      config.fingerprint[self.eff_id(arg, config=config)] = choicestate
+      config.fingerprint[self.real_id(arg, config)] = choicestate
+      config.fingerprint[self.eff_id(arg, config)] = choicestate
       return True
     else:
       return current == choicestate
@@ -447,15 +492,15 @@ class RuntimeState(object):
     vid = self.real_id(arg, config)
     return config.bindings.write.pop(vid)
 
-  def apply_binding(self, i, config=None):
+  def apply_binding(self, arg=None, config=None):
     config = config or self.C
-    if self.has_binding(i, config=config):
+    if self.has_binding(arg, config=config):
       config.root = graph.Node(
           getattr(self.prelude, '&>')
         , graph.Node(
               self.prelude.prim_nonstrictEq
-            , self.generator(i, config=config)
-            , self.pop_binding(i, config=config)
+            , self.generator(arg, config=config)
+            , self.pop_binding(arg, config=config)
             )
         , config.root
         )

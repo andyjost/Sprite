@@ -2,12 +2,12 @@ from ... import graph
 from ...... import icurry
 from . import state
 from ... import trace
-from ...misc import E_CONTINUE, E_RESIDUAL, E_STEPLIMIT
+from ...misc import E_CONTINUE, E_RESIDUAL
 from ......tags import *
 from ......utility import exprutil
 
 def D(rts):
-  while rts.queue:
+  while rts.ready():
     tag = tag_of(rts.E)
     if tag == T_FAIL:
       rts.drop()
@@ -33,18 +33,18 @@ def D(rts):
       if l: rts.queue.append(l)
       if r: rts.queue.append(r)
       rts.drop()
-    elif tag == T_FUNC:
-      S(rts, rts.E)
-    elif tag >= T_CTOR:
-      if N(rts):
-        rts.trace.yield_(rts.E)
-        yield rts.E
-        rts.drop()
+    else:
+      with rts.catch_residuals():
+        if tag == T_FUNC:
+          S(rts, rts.E)
+        elif tag >= T_CTOR:
+          if N(rts):
+            rts.trace.yield_(rts.E)
+            yield rts.E
+            rts.drop()
 
 def N(rts):
-  walk = exprutil.walk(rts.E)
-  # walk = exprutil.unique(walk, exprutil.node_identity)
-  for state in walk:
+  for state in exprutil.walk(rts.E):
     while True:
       tag = tag_of(state.cursor)
       if tag == T_FAIL:
@@ -58,7 +58,7 @@ def N(rts):
           binding = rts.pop_binding(state.cursor)
           rts.E = graph.replace_copy(rts, rts.E, state.path, binding)
         elif rts.is_narrowed(state.cursor):
-          gen = target=rts.generator(state.cursor)
+          gen = target = rts.generator(state.cursor)
           rts.E = make_choice(rts, gen[0], rts.E, state.path, gen)
           return False
         elif rts.real_id(state.cursor) != rts.eff_id(state.cursor):
@@ -108,14 +108,12 @@ def hnf(rts, func, path, typedef=None, values=None):
     ``E_CONTINUE``
         If the func was overwritten due to a pull-tab step or failure.
 
-    ``E_REDISUAL``
+    ``E_RESIDUAL``
         If a non-narrowable free variable occurs at the inductive position.
         This can happen for infinite types (e.g., Int) and functions with
         infinite defining rules (e.g., +).
 
   '''
-  assert path
-  assert func.info.tag == T_FUNC
   target = func[path]
   while True:
     if isinstance(target, icurry.ILiteral):
@@ -128,14 +126,16 @@ def hnf(rts, func, path, typedef=None, values=None):
       make_binding(target, func, path, rewrite=func)
       raise E_CONTINUE()
     elif tag == T_FREE:
-      if typedef is None:
-        vid = rts.eff_id(target)
-        raise E_RESIDUAL([vid])
+      if rts.has_generator(target):
+        gen = rts.generator(target)
+        make_choice(rts, gen[0], func, path, gen, rewrite=func)
+        raise E_CONTINUE()
+      elif typedef is None:
+        raise E_RESIDUAL([rts.real_id(target), rts.eff_id(target)])
       else:
         target = rts.instantiate(func, path, typedef)
     elif tag == T_FWD:
       target = func[path]
-      assert target.info.tag != T_FWD
     elif tag == T_CHOICE:
       make_choice(rts, target[0], func, path, rewrite=func)
       raise E_CONTINUE()
@@ -152,11 +152,7 @@ def normalize(rts, func, path, ground):
   Normalize the subexpression at ``func[path]``.  Used to implement $!! and
   $##.
   '''
-  assert path
-  assert func.info.tag == T_FUNC
-  walk = exprutil.walk(func, path=path)
-  # walk = exprutil.unique(walk, key=lambda st: id(st.cursor))
-  for state in walk:
+  for state in exprutil.walk(func, path=path):
     try:
       hnf(rts, func, state.path)
     except E_RESIDUAL:
@@ -165,6 +161,7 @@ def normalize(rts, func, path, ground):
     if tag_of(state.cursor) >= T_CTOR:
       if info_of(state.cursor) is not rts.prelude._PartApplic.info:
         state.push()
+  return func[path]
 
 def tag_of(node):
   if isinstance(node, icurry.ILiteral):

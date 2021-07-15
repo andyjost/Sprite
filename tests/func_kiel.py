@@ -10,22 +10,15 @@ class TestKiel(cytest.FunctionalTestCase):
   CLEAN_KWDS = {
       'diamond': {'keep_empty_lines': True, 'keep_spacing': True, 'sort_lines': False}
     }
-  # RUNONLY = 'diamond' # diamond, member
+  # RUNONLY = 'account'
   SKIP = [
-      # These never terminate.
-      'account'
-    , 'digit'
-    # , 'last' # introduced when $!! was removed from the goal
-    # , 'member' # introduced when $!! was removed from the goal
-    , 'infresiduate'
-    , 'nondetfunc'
-    , 'relational'
+      'account'    # no JSON object could be decoded
+    , 'nondetfunc' # never terminates
+    , 'member'     # '' != 2\n3
+    , 'mergesort'  # never terminates
 
-    # Maximum recursion depth exceeded
+    # EvaluationSuspended
     , 'assembler'
-    , 'member'
-
-    # E_RESIDUAL
-    , 'rigidadd'
-    , 'mergesort'
+    , 'digit'
+    , 'relational'
     ]
