@@ -23,7 +23,7 @@ class TestPyPullTab(cytest.TestCase):
     id9 = id(goal[0,0,2,1])
     id123 = id(goal[0,2])
     # Head-normalizing brings a choice to the root.
-    rts = pyruntime.RuntimeState(interp)
+    rts = pyruntime.RuntimeState(interp, goal[0])
     self.assertRaises(pyruntime.E_CONTINUE, lambda: hnf(rts, goal[0], [0,2]))
     # goal = id (f...8 ? f...9)
     self.assertEqual(goal[0].info.tag, T_CHOICE)

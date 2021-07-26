@@ -43,3 +43,7 @@ class E_STEPLIMIT(RuntimeFlowException):
 class E_TERMINATE(RuntimeFlowException):
   '''Raised to terminate evaluation.'''
 
+class E_RESTART(RuntimeFlowException):
+  '''
+  Raised to indicate evaluation of a configuration must restart.
+  '''

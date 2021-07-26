@@ -3,7 +3,7 @@ from ...... import exceptions
 from .. import freevars
 from ... import graph
 from .. import stepcounter
-from ...misc import E_RESIDUAL
+from ...misc import E_RESIDUAL, E_RESTART
 from ....sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED, ChoiceState
 from ......tags import *
 from ......utility import exprutil
@@ -28,6 +28,13 @@ class Configuration(object):
         if strict_constraints is None else strict_constraints
     self.bindings = Bindings() if bindings is None else bindings
     self.residuals = set()
+    self.search_state = []
+
+  @property
+  def path(self):
+    for state in self.search_state:
+      for part in getattr(state, 'path', state):
+        yield part
 
   def __copy__(self):
     return self.clone(self.root)
@@ -158,12 +165,14 @@ class RuntimeState(object):
     return bool(unblocked)
 
   @contextlib.contextmanager
-  def catch_residuals(self):
+  def catch_flow_control(self):
     try:
       yield
     except E_RESIDUAL as res:
       self.C.residuals.update(res.ids)
       self.queue.rotate(-1)
+    except E_RESTART:
+      assert not self.C.search_state
 
   def real_id(self, arg=None, config=None):
     '''
@@ -337,6 +346,7 @@ class RuntimeState(object):
       if strict:
         if not self.equate_fp(i, j, config=config):
           return False
+        self.move_binding(i, j, config=config)
         config.strict_constraints.write.unite(i, j)
         if any(map(self.is_freevar_node, [arg0, arg1])):
           if not self.constrain_equal_rec(i, j, config=config):
@@ -359,7 +369,7 @@ class RuntimeState(object):
     uninstantiated.  This function would instantiate y, giving it the generator
     "[] ?_y (y0:y1)", update the fingerprint with yR, and evaluate the
     equational constraints x0 =:= y0 and x1 =:= y1.
-    
+
     If all these operations succeed in the sense that none invalidate the
     fingerprint, then True is returned.
 
@@ -396,13 +406,11 @@ class RuntimeState(object):
       except StopIteration:
         return True
       else:
-        assert not self.has_binding(pivot) # not certain about this
         u = self.generator(pivot, config=config)
         for x in xs:
           if x is not pivot:
             if not self.has_generator(x):
               freevars.clone_generator(self, pivot, x)
-            assert not self.has_binding(x) # not certain about this
             v = self.generator(x, config=config)
             for p, q in itertools.izip(*[exprutil.walk(uv) for uv in [u,v]]):
               if self.is_choice_or_freevar_node(p.cursor):
@@ -477,6 +485,7 @@ class RuntimeState(object):
     '''
     config = config or self.C
     node = graph.Node.getitem(node)
+    vid = self.eff_id(vid)
     if vid in config.bindings:
       return config.bindings.read[vid] is node
     else:
@@ -485,12 +494,22 @@ class RuntimeState(object):
 
   def has_binding(self, arg=None, config=None):
     config = config or self.C
-    return self.real_id(arg, config) in config.bindings
-    
+    return self.eff_id(arg, config) in config.bindings
+
   def pop_binding(self, arg=None, config=None):
     config = config or self.C
-    vid = self.real_id(arg, config)
+    vid = self.eff_id(arg, config)
     return config.bindings.write.pop(vid)
+
+  def get_binding(self, arg=None, config=None):
+    config = config or self.C
+    vid = self.eff_id(arg, config)
+    return config.bindings.read[vid]
+
+  def move_binding(self, src, dst, config=None):
+    if self.has_binding(src, config=config):
+      node = self.pop_binding(src, config=config)
+      self.add_binding(dst, node, config=config)
 
   def apply_binding(self, arg=None, config=None):
     config = config or self.C
@@ -504,4 +523,4 @@ class RuntimeState(object):
             )
         , config.root
         )
-    
+

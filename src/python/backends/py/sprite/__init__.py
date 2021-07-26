@@ -9,13 +9,14 @@ def Fingerprint__iter__(self):
     if v != UNDETERMINED:
       yield i, v
 
-def Fingerprint__repr__(self, limit=64):
-  def chars():
+def Fingerprint__repr__(self, limit=32):
+  def parts():
     for i,v in self:
-      for c in str(i):
-        yield c
-      yield 'L' if v == LEFT else 'R'
-  return '<%s>' % ''.join(itertools.islice(chars(), limit))
+      yield "%s%s" % (i, 'L' if v == LEFT else 'R')
+  body = list(itertools.islice(parts(), limit))
+  if len(body) == limit:
+    body += '...'
+  return '<%s>' % ''.join(body)
 
 Fingerprint.__iter__ = Fingerprint__iter__
 Fingerprint.__repr__ = Fingerprint__repr__

@@ -1,0 +1,1 @@
+main = x=:=True & x=:=not False &> x where x free

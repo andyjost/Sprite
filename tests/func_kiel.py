@@ -10,15 +10,8 @@ class TestKiel(cytest.FunctionalTestCase):
   CLEAN_KWDS = {
       'diamond': {'keep_empty_lines': True, 'keep_spacing': True, 'sort_lines': False}
     }
-  # RUNONLY = 'account'
+  # RUNONLY = 'digit'
   SKIP = [
-      'account'    # no JSON object could be decoded
-    , 'nondetfunc' # never terminates
-    , 'member'     # '' != 2\n3
-    , 'mergesort'  # never terminates
-
-    # EvaluationSuspended
-    , 'assembler'
-    , 'digit'
-    , 'relational'
+      'account'    # Does not terminate after 1 minute
+    , 'digit'      # EvaluationSuspended
     ]

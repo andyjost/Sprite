@@ -2,7 +2,7 @@ from ... import graph
 from ...... import icurry
 from . import state
 from ... import trace
-from ...misc import E_CONTINUE, E_RESIDUAL
+from ...misc import E_CONTINUE, E_RESIDUAL, E_RESTART
 from ......tags import *
 from ......utility import exprutil
 
@@ -34,7 +34,7 @@ def D(rts):
       if r: rts.queue.append(r)
       rts.drop()
     else:
-      with rts.catch_residuals():
+      with rts.catch_flow_control():
         if tag == T_FUNC:
           S(rts, rts.E)
         elif tag >= T_CTOR:
@@ -44,39 +44,45 @@ def D(rts):
             rts.drop()
 
 def N(rts):
-  for state in exprutil.walk(rts.E):
-    while True:
-      tag = tag_of(state.cursor)
-      if tag == T_FAIL:
-        rts.drop()
-        return False
-      elif tag == T_BIND:
-        rts.E = make_binding(state.cursor, rts.E, state.path)
-        return False
-      elif tag == T_FREE:
-        if rts.has_binding(state.cursor):
-          binding = rts.pop_binding(state.cursor)
-          rts.E = graph.replace_copy(rts, rts.E, state.path, binding)
-        elif rts.is_narrowed(state.cursor):
-          gen = target = rts.generator(state.cursor)
-          rts.E = make_choice(rts, gen[0], rts.E, state.path, gen)
+  C = rts.C
+  C.search_state.append(None)
+  try:
+    for state in exprutil.walk(rts.E):
+      rts.C.search_state[-1] = state
+      while True:
+        tag = tag_of(state.cursor)
+        if tag == T_FAIL:
+          rts.drop()
           return False
-        elif rts.real_id(state.cursor) != rts.eff_id(state.cursor):
-          x = rts.freevar(rts.eff_id(state.cursor))
-          rts.E = graph.replace_copy(rts, rts.E, state.path, x)
-        break
-      elif tag == T_FWD:
-        state.spine[-1] = state.parent[state.path[-1]]
-      elif tag == T_CHOICE:
-        rts.E = make_choice(rts, state.cursor[0], rts.E, state.path)
-        return False
-      elif tag == T_FUNC:
-        S(rts, state.cursor)
-      elif tag >= T_CTOR:
-        if info_of(state.cursor) is not rts.prelude._PartApplic.info:
-          state.push()
-        break
-  return True
+        elif tag == T_BIND:
+          rts.E = make_binding(state.cursor, rts.E, state.path)
+          return False
+        elif tag == T_FREE:
+          if rts.has_binding(state.cursor):
+            binding = rts.pop_binding(state.cursor)
+            rts.E = graph.replace_copy(rts, rts.E, state.path, binding)
+          elif rts.is_narrowed(state.cursor):
+            gen = target = rts.generator(state.cursor)
+            rts.E = make_choice(rts, gen[0], rts.E, state.path, gen)
+            return False
+          elif rts.real_id(state.cursor) != rts.eff_id(state.cursor):
+            x = rts.freevar(rts.eff_id(state.cursor))
+            rts.E = graph.replace_copy(rts, rts.E, state.path, x)
+          break
+        elif tag == T_FWD:
+          state.spine[-1] = state.parent[state.path[-1]]
+        elif tag == T_CHOICE:
+          rts.E = make_choice(rts, state.cursor[0], rts.E, state.path)
+          return False
+        elif tag == T_FUNC:
+          S(rts, state.cursor)
+        elif tag >= T_CTOR:
+          if info_of(state.cursor) is not rts.prelude._PartApplic.info:
+            state.push()
+          break
+    return True
+  finally:
+    C.search_state.pop()
 
 def S(rts, node):
   rts.trace.enter_rewrite(node)
@@ -115,37 +121,46 @@ def hnf(rts, func, path, typedef=None, values=None):
 
   '''
   target = func[path]
-  while True:
-    if isinstance(target, icurry.ILiteral):
-      return target
-    tag = target.info.tag
-    if tag == T_FAIL:
-      func.rewrite(rts.prelude._Failure)
-      raise E_CONTINUE()
-    elif tag == T_BIND:
-      make_binding(target, func, path, rewrite=func)
-      raise E_CONTINUE()
-    elif tag == T_FREE:
-      if rts.has_generator(target):
-        gen = rts.generator(target)
-        make_choice(rts, gen[0], func, path, gen, rewrite=func)
+  C = rts.C
+  C.search_state.append(tuple(path))
+  try:
+    while True:
+      if isinstance(target, icurry.ILiteral):
+        return target
+      tag = target.info.tag
+      if tag == T_FAIL:
+        func.rewrite(rts.prelude._Failure)
         raise E_CONTINUE()
-      elif typedef is None:
-        raise E_RESIDUAL([rts.real_id(target), rts.eff_id(target)])
-      else:
-        target = rts.instantiate(func, path, typedef)
-    elif tag == T_FWD:
-      target = func[path]
-    elif tag == T_CHOICE:
-      make_choice(rts, target[0], func, path, rewrite=func)
-      raise E_CONTINUE()
-    elif tag == T_FUNC:
-      try:
-        S(rts, target)
-      except E_CONTINUE:
-        pass
-    elif tag >= T_CTOR:
-      return target
+      elif tag == T_BIND:
+        make_binding(target, func, path, rewrite=func)
+        raise E_CONTINUE()
+      elif tag == T_FREE:
+        if rts.has_generator(target):
+          gen = rts.generator(target)
+          make_choice(rts, gen[0], func, path, gen, rewrite=func)
+          raise E_CONTINUE()
+        elif rts.has_binding(target):
+          binding = rts.get_binding(target)
+          rts.E = graph.replace_copy(rts, rts.E, tuple(rts.C.path), binding)
+          raise E_RESTART()
+        elif typedef is None:
+          raise E_RESIDUAL([rts.real_id(target), rts.eff_id(target)])
+        else:
+          target = rts.instantiate(func, path, typedef)
+      elif tag == T_FWD:
+        target = func[path]
+      elif tag == T_CHOICE:
+        make_choice(rts, target[0], func, path, rewrite=func)
+        raise E_CONTINUE()
+      elif tag == T_FUNC:
+        try:
+          S(rts, target)
+        except E_CONTINUE:
+          pass
+      elif tag >= T_CTOR:
+        return target
+  finally:
+    C.search_state.pop()
 
 def normalize(rts, func, path, ground):
   '''

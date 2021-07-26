@@ -173,6 +173,9 @@ PROGRAMS = [
   , 'main = ((y =:= x) & (False =:= y) & (True =:= x)) &> x where x,y free'
 
   , 'main = ((x=:=y), x=:=True, y) where x,y free'
+
+  # Binding the same variable multiple times.
+  , 'main = x=:=True & x=:=not False &> x where x free'
   ]
 
 # Programs requiring: data T = A
