@@ -6,11 +6,10 @@ class TestKiel(cytest.FunctionalTestCase):
   PRINT_SKIPPED_GOALS = False
   CURRYPATH = 'data/curry/kiel/lib'
   CONVERTER = 'topython'
-  # FILE_PATTERN = 'UseConc'
   CLEAN_KWDS = {
       'diamond': {'keep_empty_lines': True, 'keep_spacing': True, 'sort_lines': False}
     }
-  # RUNONLY = 'digit'
+  # RUN_ONLY = 'digit'
   SKIP = [
       'account'    # Does not terminate after 1 minute
     , 'digit'      # EvaluationSuspended

@@ -439,7 +439,7 @@ TODO:
   PDF files I sent before. func_eqconstr.py checks the equational constraints
   quite thoroughly.
 
-  In a unit test under tests/func_*.py, use the RUNONLY and/or SKIP fields to
+  In a unit test under tests/func_*.py, use the RUN_ONLY and/or SKIP fields to
   control which tests are run.  Each accepts a regex.
 
 

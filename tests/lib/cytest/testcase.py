@@ -121,10 +121,10 @@ class FunctionalTestCase(TestCase):
       SOURCE_DIR [Required, str]
         The directory to search for .curry files.
 
-      FILE_PATTERN [Optional, str or regex, default=r".*\.curry$"
-        The pattern to use use when searching for .curry files.
+      FILE_PATTERN [Optional, str (glob), default=r"*.curry"
+        The pattern to use use when searching for Curry source files.
 
-      GOAL_PATTERN [Optional, str or regex, default=r"(sprite_)?(goal|main)\d*$]"
+      GOAL_PATTERN [Optional, str (regex), default=r"(sprite_)?(goal|main)\d*$]"
         The pattern to use when searching for goals.  All functions matching
         this pattern will be run.
 
@@ -146,7 +146,7 @@ class FunctionalTestCase(TestCase):
         expression.  Any .curry file whose base name (i.e., with the .curry
         extension stripped) matches one of these patterns will be skipped.
 
-      RUNONLY [Optional, set or str, default='.*']
+      RUN_ONLY [Optional, set or str, default='.*']
         The opposite of SKIP.  Specifies the tests to run.
 
       ORACLE_TIMEOUT [Optional, int, default=20]
@@ -165,8 +165,7 @@ class FunctionalTestCase(TestCase):
         if 'SOURCE_DIR' not in defs:
           raise ValueError('SOURCE_DIR not specified in base class')
         if 'FILE_PATTERN' not in defs:
-          defs['FILE_PATTERN'] = ''
-        defs['FILE_PATTERN'] = re.compile(defs['FILE_PATTERN'])
+          defs['FILE_PATTERN'] = '*.curry'
         if 'GOAL_PATTERN' not in defs:
           defs['GOAL_PATTERN'] = r'(sprite_)?(goal|main)\d*$'
         defs['GOAL_PATTERN'] = re.compile(defs['GOAL_PATTERN'])
@@ -182,31 +181,30 @@ class FunctionalTestCase(TestCase):
           if isinstance(skiparg, basestring):
             skiparg = [skiparg]
           defs['SKIP'] = re.compile('|'.join(skiparg))
-        if 'RUNONLY' not in defs:
-          defs['RUNONLY'] = None
+        if 'RUN_ONLY' not in defs:
+          defs['RUN_ONLY'] = None
         else:
-          runonlyarg = defs['RUNONLY']
+          runonlyarg = defs['RUN_ONLY']
           if isinstance(runonlyarg, basestring):
             runonlyarg = [runonlyarg]
-          defs['RUNONLY'] = re.compile('|'.join(runonlyarg))
+          defs['RUN_ONLY'] = re.compile('|'.join(runonlyarg))
         if 'PRINT_SKIPPED_FILES' not in defs:
           defs['PRINT_SKIPPED_FILES'] = False
         if 'PRINT_SKIPPED_GOALS' not in defs:
           defs['PRINT_SKIPPED_GOALS'] = True
 
         # Create a test for every file under the source directory.
-        for cysrc in glob(defs['SOURCE_DIR'] + '*.curry'):
+        for cysrc in glob(defs['SOURCE_DIR'] + defs['FILE_PATTERN']):
           name = os.path.splitext(os.path.split(cysrc)[-1])[0]
-          if re.match(defs['FILE_PATTERN'], name):
-            if defs['SKIP'] and re.match(defs['SKIP'], name) or \
-               defs['RUNONLY'] and not re.match(defs['RUNONLY'], name):
-              if defs['PRINT_SKIPPED_FILES']:
-                print >>sys.stderr, 'skipping file %s' % cysrc
-            else:
-              clean_kwds = defs['CLEAN_KWDS'].get(name, {})
-              converter = defs.get('CONVERTER', None)
-              test_name = 'test_' + name
-              defs[test_name] = cls._make_test(name, clean_kwds, converter)
+          if defs['SKIP'] and re.match(defs['SKIP'], name) or \
+             defs['RUN_ONLY'] and not re.match(defs['RUN_ONLY'], name):
+            if defs['PRINT_SKIPPED_FILES']:
+              print >>sys.stderr, 'skipping file %s' % cysrc
+          else:
+            clean_kwds = defs['CLEAN_KWDS'].get(name, {})
+            converter = defs.get('CONVERTER', None)
+            test_name = 'test_' + name
+            defs[test_name] = cls._make_test(name, clean_kwds, converter)
 
       return type.__new__(cls, clsname, bases, defs)
 
