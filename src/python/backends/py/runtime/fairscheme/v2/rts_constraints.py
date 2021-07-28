@@ -67,7 +67,7 @@ def constrain_equal(
         if not _constrain_equal_rec(self, i, j, config=config):
           return False
     else:
-      return self.add_binding(i, arg1, config=config)
+      self.add_binding(i, arg1, config=config)
   return True
 
 def _constrain_equal_rec(self, arg0, arg1, config=None):

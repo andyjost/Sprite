@@ -9,20 +9,15 @@ __all__ = [
   , 'pop_binding', 'update_binding'
   ]
 
-def add_binding(self, vid, node, config=None):
+def add_binding(self, arg, node, config=None):
   '''
-  Create a binding from the given variable ID to ``node``.  Returns a Boolean
-  indicating whether the binding succeeded.  If the variable is already bound
-  to a different node, then this fails.
+  Create a binding from ``arg`` to ``node``.
   '''
+  assert not self.has_binding(arg, config=config)
   config = config or self.C
   node = graph.Node.getitem(node)
-  vid = self.grp_id(vid)
-  if vid in config.bindings:
-    return config.bindings.read[vid] is node
-  else:
-    config.bindings.write[vid] = node
-    return True
+  vid = self.grp_id(arg)
+  config.bindings.write[vid] = node
 
 def apply_binding(self, arg=None, config=None):
   '''
