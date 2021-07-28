@@ -1,3 +1,7 @@
+'''
+Implements tracing to debug Curry evaluation.
+'''
+
 def show(char, symbol, indent, frame, expr=None):
   expr = frame.expr[()] if expr is None else expr
   print '%1s %3s %-50s %s' % (
@@ -59,3 +63,21 @@ class Trace(object):
 
   def activate_frame(self):
     active_frame(self.rts)
+
+def trace_values(f):
+  '''Wraps the D procedure to trace value creation.'''
+  def value_tracer(rts):
+    for value in f(rts):
+      rts.trace.yield_(value)
+      yield value
+  return value_tracer
+
+def trace_steps(f):
+  '''Wraps the S procedure to trace the application of steps.'''
+  def step_tracer(rts, node):
+    rts.trace.enter_rewrite(node)
+    try:
+      f(rts, node)
+    finally:
+      rts.trace.exit_rewrite(node)
+  return step_tracer

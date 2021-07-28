@@ -6,6 +6,7 @@ from ...misc import E_CONTINUE, E_RESIDUAL, E_RESTART
 from ......tags import *
 from ......utility import exprutil
 
+@trace.trace_values
 def D(rts):
   while rts.ready():
     tag = tag_of(rts.E)
@@ -13,7 +14,7 @@ def D(rts):
       rts.drop()
     elif tag == T_BIND:
       value, (l, r) = rts.E
-      if not rts.constrain_equal(l, r, strict=rts.is_strict_binding()):
+      if not rts.constrain_equal(l, r, rts.constraint_type()):
         rts.drop()
       else:
         rts.E = value
@@ -21,27 +22,28 @@ def D(rts):
       if rts.has_binding():
         rts.E = rts.pop_binding()
       elif rts.is_narrowed():
-        rts.E = rts.generator()
+        rts.E = rts.get_generator()
       else:
-        rts.trace.yield_(rts.E)
         yield rts.E
         rts.drop()
     elif tag == T_FWD:
       rts.E = rts.E[()]
     elif tag == T_CHOICE:
-      l, r = rts.left(), rts.right()
-      if l: rts.queue.append(l)
-      if r: rts.queue.append(r)
+      rts.extend(rts.fork())
       rts.drop()
     else:
-      with rts.catch_flow_control():
+      try:
         if tag == T_FUNC:
           S(rts, rts.E)
         elif tag >= T_CTOR:
           if N(rts):
-            rts.trace.yield_(rts.E)
             yield rts.E
             rts.drop()
+      except E_RESIDUAL as res:
+        rts.C.residuals.update(res.ids)
+        rts.rotate()
+      except E_RESTART:
+        pass
 
 def N(rts):
   C = rts.C
@@ -62,11 +64,11 @@ def N(rts):
             binding = rts.pop_binding(state.cursor)
             rts.E = graph.replace_copy(rts, rts.E, state.path, binding)
           elif rts.is_narrowed(state.cursor):
-            gen = target = rts.generator(state.cursor)
+            gen = target = rts.get_generator(state.cursor)
             rts.E = make_choice(rts, gen[0], rts.E, state.path, gen)
             return False
-          elif rts.real_id(state.cursor) != rts.eff_id(state.cursor):
-            x = rts.freevar(rts.eff_id(state.cursor))
+          elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
+            x = rts.get_freevar(rts.grp_id(state.cursor))
             rts.E = graph.replace_copy(rts, rts.E, state.path, x)
           break
         elif tag == T_FWD:
@@ -84,15 +86,13 @@ def N(rts):
   finally:
     C.search_state.pop()
 
+@trace.trace_steps
 def S(rts, node):
-  rts.trace.enter_rewrite(node)
   try:
     node.info.step(rts, node)
     rts.stepcounter.increment()
   except E_CONTINUE:
     pass
-  finally:
-    rts.trace.exit_rewrite(node)
 
 def hnf(rts, func, path, typedef=None, values=None):
   '''
@@ -136,7 +136,7 @@ def hnf(rts, func, path, typedef=None, values=None):
         raise E_CONTINUE()
       elif tag == T_FREE:
         if rts.has_generator(target):
-          gen = rts.generator(target)
+          gen = rts.get_generator(target)
           make_choice(rts, gen[0], func, path, gen, rewrite=func)
           raise E_CONTINUE()
         elif rts.has_binding(target):
@@ -144,7 +144,7 @@ def hnf(rts, func, path, typedef=None, values=None):
           rts.E = graph.replace_copy(rts, rts.E, tuple(rts.C.path), binding)
           raise E_RESTART()
         elif typedef is None:
-          raise E_RESIDUAL([rts.real_id(target), rts.eff_id(target)])
+          raise E_RESIDUAL([rts.obj_id(target), rts.grp_id(target)])
         else:
           target = rts.instantiate(func, path, typedef)
       elif tag == T_FWD:
