@@ -2,10 +2,10 @@
 Inspect live Curry objects.
 '''
 
+from .common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from . import config
 from . import context
 from . import objects
-from .tags import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .utility import visitation
 import collections
 import os
@@ -105,7 +105,8 @@ def is_boxed(interp, node):
   return isinstance(node, context.Node)
 
 def get_id(interp, arg):
-  return interp.context.runtime.get_id(arg)
+  from backends.py.runtime.fairscheme.freevars import get_id as _get_id
+  return _get_id(arg)
 
 def _getfile(moduleobj, suffixes):
   if moduleobj.__file__:

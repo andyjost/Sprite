@@ -3,7 +3,7 @@ Code for free variable instantiation, including generator construction.
 '''
 
 from ..graph import Node, Replacer
-from .....tags import *
+from .....common import T_FAIL, T_FREE, T_CHOICE, T_CTOR
 
 __all__ = [
     'clone_generator'

@@ -2,7 +2,7 @@ from .. import context
 from . import conversions
 from .. import exceptions
 from .. import inspect
-from .. import tags
+from ..common import T_FWD
 from ..utility import visitation
 import itertools
 
@@ -13,7 +13,7 @@ class Stringifier(object):
     # whether the operation is infix and compare its precedence to the outer
     # expression.
     noparen = (arg.info.name and arg.info.name[0] in '([{<?') or \
-        arg.info.tag == tags.T_FWD
+        arg.info.tag == T_FWD
     subexprs = self._generate_(arg, noparen)
     format = kwds.pop('format', None)
     if format is None or len(arg) < arg.info.arity:
@@ -40,7 +40,7 @@ class Stringifier(object):
   @staticmethod
   def __needparens(arg, x):
     return x and x[0] not in '([{<' and ' ' in x \
-       and not (hasattr(arg, 'info') and arg.info.tag == tags.T_FWD)
+       and not (hasattr(arg, 'info') and arg.info.tag == T_FWD)
 
 class ListStringifier(Stringifier):
   '''Formats lists using square brackets rather than applications of Cons.'''

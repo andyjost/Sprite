@@ -1,6 +1,6 @@
 import cytest # from ./lib; must be first
 from cStringIO import StringIO
-from curry.backends.py import runtime
+from curry.backends.py.runtime.graph import Node
 from curry import config
 from import_blocker import with_import_blocked
 import curry
@@ -45,8 +45,8 @@ class TestPrelude(cytest.TestCase):
     Cons,Nil = curry.symbol('Prelude.:'), curry.symbol('Prelude.[]')
     self.assertEqual(e2s([Cons, 1, Nil]), '[1]')
     self.assertEqual(e2s([Cons, 1, [Cons, 2, Nil]]), '[1, 2]')
-    l0 = runtime.Node(Nil)
-    l1 = runtime.Node(Cons, 1, l0)
+    l0 = Node(Nil)
+    l1 = Node(Cons, 1, l0)
     self.assertIsa(l0, curry.symbol('Prelude.[]'))
     self.assertIsNotA(l0, curry.symbol('Prelude.:'))
     self.assertIsa(l0, curry.type('Prelude.[]'))

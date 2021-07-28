@@ -1,7 +1,8 @@
 import cytest # from ./lib; must be first
-from curry.tags import *
-from curry.backends.py import runtime as pyruntime
-from curry.backends.py.runtime import LEFT, RIGHT, hnf
+from curry.common import *
+from curry.backends.py.runtime.fairscheme.state import RuntimeState
+from curry.backends.py.runtime.control import E_CONTINUE
+from curry.backends.py.runtime.fairscheme.algorithm import hnf
 import curry
 import unittest
 
@@ -23,8 +24,8 @@ class TestPyPullTab(cytest.TestCase):
     id9 = id(goal[0,0,2,1])
     id123 = id(goal[0,2])
     # Head-normalizing brings a choice to the root.
-    rts = pyruntime.RuntimeState(interp, goal[0])
-    self.assertRaises(pyruntime.E_CONTINUE, lambda: hnf(rts, goal[0], [0,2]))
+    rts = RuntimeState(interp, goal[0])
+    self.assertRaises(E_CONTINUE, lambda: hnf(rts, goal[0], [0,2]))
     # goal = id (f...8 ? f...9)
     self.assertEqual(goal[0].info.tag, T_CHOICE)
     # Ensure nodes are referenced, not copied.
@@ -33,7 +34,7 @@ class TestPyPullTab(cytest.TestCase):
     self.assertEqual(id(lhs[0,2]), id8)
     self.assertEqual(id(lhs[2]), id123)
     lhs = curry.expr(interp.prelude.id, lhs) # id (f...8)
-    self.assertRaises(pyruntime.E_CONTINUE, lambda: hnf(rts, lhs, [0]))
+    self.assertRaises(E_CONTINUE, lambda: hnf(rts, lhs, [0]))
     self.assertEqual(lhs.info.tag, T_FAIL)
     # RHS -> True
     rhs = goal[0,2]
@@ -47,7 +48,7 @@ class TestPyPullTab(cytest.TestCase):
   def testPullEqChoices(self):
     '''Tests the pull-tab step for the EqChoices constraint.'''
     interp = curry.getInterpreter()
-    rts = pyruntime.RuntimeState(interp)
+    rts = RuntimeState(interp)
     u = curry.unboxed
     constraint = curry.expr(
         interp.prelude._EqChoices, True, (u(101), u(102))
@@ -62,7 +63,7 @@ class TestPyPullTab(cytest.TestCase):
   def testPullChoiceConstr(self):
     '''Tests the pull-tab step for the ChoiceConstr constraint.'''
     interp = curry.getInterpreter()
-    rts = pyruntime.RuntimeState(interp)
+    rts = RuntimeState(interp)
     u = curry.unboxed
     constraint = curry.expr(
         interp.prelude._ChoiceConstr, True, (u(109), u(LEFT))
@@ -86,7 +87,7 @@ class TestPyPullTab(cytest.TestCase):
   def testPullEqVarsConstr(self):
     '''Tests the pull-tab step for the EqVars constraint.'''
     interp = curry.getInterpreter()
-    rts = pyruntime.RuntimeState(interp)
+    rts = RuntimeState(interp)
     u = curry.unboxed
     unknown = interp.symbol('Prelude.unknown')
     x = next(interp.eval(unknown))

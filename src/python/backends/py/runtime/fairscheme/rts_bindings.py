@@ -2,7 +2,7 @@
 Implements RuntimeState methods related to bindings.  This module is not
 intended to be imported except by state.py.
 '''
-from ... import graph
+from .. import graph
 
 __all__ = [
     'add_binding', 'apply_binding', 'get_binding', 'has_binding'

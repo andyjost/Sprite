@@ -2,10 +2,10 @@ from ....icurry import analysis
 from . import closure
 from .... import icurry
 from . import render
-from .. import runtime
+from ..runtime.graph import Node
+from ..runtime.fairscheme.algorithm import hnf
 from ..runtime.fairscheme.freevars import freshvar
 from ..runtime import prelude_impl
-from ..runtime import api as runtime_api
 from ....utility import encoding, visitation, formatDocstring
 from ....utility import filesys
 import collections
@@ -81,7 +81,6 @@ def compile_py_unboxedfunc(interp, unboxedfunc):
   '''
   expr = interp.expr
   topython = interp.topython
-  hnf = runtime_api.FairSchemeAPI.hnf()
   # For some reason, the prelude reverses the argument order.
   def step(rts, _0):
     args = (topython(hnf(rts, _0, [i])) for i in reversed(xrange(len(_0.successors))))
@@ -97,10 +96,9 @@ def compile_py_boxedfunc(interp, boxedfunc):
   form, but without any other preprocessing (e.g., unboxing).  It returns a
   sequence of arguments accepted by ``runtime.Node.__new__``.
   '''
-  hnf = runtime_api.FairSchemeAPI.hnf()
   def step(rts, _0):
     args = (hnf(rts, _0, [i]) for i in xrange(len(_0.successors)))
-    runtime.Node(*boxedfunc(rts, *args), target=_0)
+    Node(*boxedfunc(rts, *args), target=_0)
   return step
 
 def compile_py_rawfunc(interp, rawfunc):
@@ -112,7 +110,7 @@ def compile_py_rawfunc(interp, rawfunc):
   left-hand-side expression is simply passed to the implementation function.
   '''
   def step(rts, _0):
-    runtime.Node(*rawfunc(rts, _0), target=_0)
+    Node(*rawfunc(rts, _0), target=_0)
   return step
 
 class FunctionCompiler(object):
@@ -145,7 +143,7 @@ class FunctionCompiler(object):
     self.name = name
     self.interp = interp
     self.closure = closure.Closure(interp)
-    self.closure['Node'] = runtime.Node
+    self.closure['Node'] = Node
     self.extern = extern
     self.program = ['def step(rts, _0):']
     self.varinfo = None
@@ -305,7 +303,7 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.ICaseCons)
   def statement(self, icase):
-    self.closure['hnf'] = runtime_api.FairSchemeAPI.hnf()
+    self.closure['hnf'] = hnf
     vid = icase.vid
     path = self.varinfo[vid].path
     assert path is not None
@@ -329,7 +327,7 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.ICaseLit)
   def statement(self, icase):
-    self.closure['hnf'] = runtime_api.FairSchemeAPI.hnf()
+    self.closure['hnf'] = hnf
     vid = icase.vid
     path = self.varinfo[vid].path
     assert path is not None

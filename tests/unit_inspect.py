@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 import curry
 from curry import inspect
-from curry.backends.py.runtime import RuntimeState
+from curry.backends.py.runtime.fairscheme.state import RuntimeState
 from curry.backends.py.runtime.fairscheme.freevars import freshvar
 
 def step(interp, *args):

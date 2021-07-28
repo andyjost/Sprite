@@ -1,5 +1,5 @@
 from .... import context, icurry, inspect
-from ....tags import *
+from ....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from . import prelude_impl as impl
 from . import typecheckers as tc
 import math

@@ -1,7 +1,9 @@
 import cytest # from ./lib; must be first
-from curry.backends.py import runtime
-from curry.backends.py.runtime import LEFT, RIGHT, UNDETERMINED, RuntimeState, typecheckers as tc
+from curry.common import LEFT, RIGHT, UNDETERMINED
+from curry.backends.py.runtime import typecheckers as tc
+from curry.backends.py.runtime.fairscheme.state import RuntimeState
 from curry.backends.py.runtime.fairscheme.freevars import freshvar
+from curry.backends.py.runtime.graph import Node
 import curry
 import unittest
 
@@ -18,32 +20,32 @@ class TestPyTypeChecks(cytest.TestCase):
       self.assertMayRaiseRegexp(
           TypeError if debug else None
         , r'Cannot construct an Int node from an argument of type str\.'
-        , lambda: runtime.Node(I.prelude.Int.info, 'a')
+        , lambda: Node(I.prelude.Int.info, 'a')
         )
       self.assertMayRaiseRegexp(
           TypeError if debug else None
         , r'Cannot construct an Int node from an argument of type float\.'
-        , lambda: runtime.Node(I.prelude.Int.info, 1.0)
+        , lambda: Node(I.prelude.Int.info, 1.0)
         )
       self.assertMayRaiseRegexp(
           TypeError if debug else None
         , r'Cannot construct a Float node from an argument of type int\.'
-        , lambda: runtime.Node(I.prelude.Float.info, 1)
+        , lambda: Node(I.prelude.Float.info, 1)
         )
       self.assertMayRaiseRegexp(
           TypeError if debug else None
         , r'Cannot construct a Char node from an argument of type unicode\.'
-        , lambda: runtime.Node(I.prelude.Char.info, unicode('a'))
+        , lambda: Node(I.prelude.Char.info, unicode('a'))
         )
       self.assertMayRaiseRegexp(
           TypeError if debug else None
         , r'Cannot construct a Char node from a str of length 0\.'
-        , lambda: runtime.Node(I.prelude.Char.info, '')
+        , lambda: Node(I.prelude.Char.info, '')
         )
       self.assertMayRaiseRegexp(
           TypeError if debug else None
         , r'Cannot construct a Char node from a str of length 2\.'
-        , lambda: runtime.Node(I.prelude.Char.info, 'ab')
+        , lambda: Node(I.prelude.Char.info, 'ab')
         )
 
   def testConstraints(self):
@@ -52,10 +54,7 @@ class TestPyTypeChecks(cytest.TestCase):
       rts = RuntimeState(I)
       q = I.symbol('Prelude.?')
       x,y = list(I.eval(q, freshvar(rts), freshvar(rts)))
-      for constraint_type in (
-          [I.prelude._Constraint] if runtime.api.FAIR_SCHEME_VERSION == 1 else
-          [I.prelude._StrictConstraint, I.prelude._NonStrictConstraint]
-          ):
+      for constraint_type in [I.prelude._StrictConstraint, I.prelude._NonStrictConstraint]:
         self.assertMayRaise(
             None
           , lambda: I.expr(constraint_type, True, (x, y))

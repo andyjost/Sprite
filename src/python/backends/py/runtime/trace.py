@@ -8,36 +8,29 @@ def show(char, symbol, indent, frame, expr=None):
       char, symbol, '%s%s' % ('  ' * indent, expr), frame
     )
 
-def _frame(rts):
-  from .api import FAIR_SCHEME_VERSION
-  if FAIR_SCHEME_VERSION == 1:
-    return getattr(rts, 'currentframe', '')
-  else:
-    return rts.C
-
 def enter_rewrite(rts, indent, expr):
   if rts.tracing:
-    show('S', '<<<', indent, _frame(rts), expr)
+    show('S', '<<<', indent, rts.C, expr)
 
 def exit_rewrite(rts, indent, expr):
   if rts.tracing:
-    show('S', '>>>', indent, _frame(rts), expr)
+    show('S', '>>>', indent, rts.C, expr)
 
 def failed(rts):
   if rts.tracing:
-    show('F', ':::', 0, _frame(rts))
+    show('F', ':::', 0, rts.C)
 
 def yield_(rts, value):
   if rts.tracing:
-    show('Y', ':::', 0, _frame(rts), value)
+    show('Y', ':::', 0, rts.C, value)
 
 def kill(rts):
   if rts.tracing:
-    show('K', ':::', 0, _frame(rts))
+    show('K', ':::', 0, rts.C)
 
 def activate_frame(rts):
   if rts.tracing:
-    show('F', ':::', 0, _frame(rts))
+    show('F', ':::', 0, rts.C)
 
 class Trace(object):
   def __init__(self, rts):

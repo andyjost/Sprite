@@ -1,24 +1,20 @@
 '''
 Implementation of the Prelude externals.
 '''
+from ....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .control import E_RESIDUAL
 from ....exceptions import *
+from .fairscheme.algorithm import normalize, hnf
+from .fairscheme.freevars import get_generator, get_id
+from .graph import Node
 from .... import inspect
-from ....tags import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 import collections
 import itertools
 import logging
 import operator as op
 import re
 
-from .fairscheme.freevars import get_id
-from .graph import Node
-from .misc import E_RESIDUAL
-from . import api as runtime_api
-
 logger = logging.getLogger(__name__)
-
-hnf = runtime_api.FairSchemeAPI.hnf()
-get_generator = runtime_api.FairSchemeAPI.get_generator()
 
 def hnf_or_free(rts, root, index):
   '''Reduce the expression to head normal form or a free variable.'''
@@ -641,24 +637,6 @@ def apply_hnf(rts, root):
   yield rts.prelude.apply
   yield root[0]
   yield hnf(rts, root, [1])
-
-if runtime_api.FAIR_SCHEME_VERSION == 1:
-  from .fairscheme.algo import N
-  def normalize(rts, root, path, ground):
-    '''Used to implement $!! and $##.'''
-    try:
-      hnf(rts, root, path)
-    except E_RESIDUAL:
-      if ground:
-        raise
-      else:
-        return root[path]
-    target, freevars = N(rts, root, path=path)
-    if ground and freevars:
-      raise E_RESIDUAL(freevars)
-    return target
-else:
-  from .fairscheme.v2.algorithm import normalize
 
 def apply_nf(rts, root):
   yield rts.prelude.apply

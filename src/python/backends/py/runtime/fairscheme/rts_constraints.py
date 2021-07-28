@@ -4,8 +4,8 @@ intended to be imported except by state.py.
 '''
 
 import itertools
-from ......utility import exprutil
-from .. import freevars
+from .....utility import exprutil
+from . import freevars
 
 STRICT_CONSTRAINT = True
 NONSTRICT_CONSTRAINT = False

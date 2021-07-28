@@ -3,7 +3,7 @@ from .. import icurry
 from .. import importer
 from .. import objects
 from . import show
-from ..tags import *
+from ..common import T_FUNC, T_CTOR
 from ..utility.currypath import clean_currypath
 from ..utility import encoding, visitation, formatDocstring
 import collections

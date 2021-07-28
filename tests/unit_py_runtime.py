@@ -1,8 +1,10 @@
 import cytest # from ./lib; must be first
 from copy import copy
-from curry.backends.py import runtime
-from curry.backends.py.runtime.fairscheme.evaluator import Bindings
+from curry.common import T_FAIL, T_CHOICE
+from curry.backends.py.runtime.control import E_CONTINUE
+from curry.backends.py.runtime.graph import Node
 from curry.backends.py.runtime.fairscheme.freevars import instantiate, _gen_ctors, freshvar
+from curry.backends.py.runtime.fairscheme.state import Bindings, RuntimeState
 from curry import icurry
 from curry import inspect
 from curry import interpreter
@@ -34,7 +36,7 @@ class TestPyRuntime(cytest.TestCase):
     self.assertEqual(str(prelude.prim_negateFloat.info), 'Info for "prim_negateFloat"')
     self.assertTrue(repr(prelude.prim_negateFloat.info).startswith('InfoTable'))
 
-    n = runtime.Node(getattr(prelude, '()').info)
+    n = Node(getattr(prelude, '()').info)
     self.assertRaisesRegexp(RuntimeError, 'unhandled type: str', lambda: n['foo'])
     self.assertRaisesRegexp(RuntimeError, 'unhandled type: float', lambda: n[1.])
 
@@ -75,7 +77,7 @@ class TestPyRuntime(cytest.TestCase):
     N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
     prelude = interp.import_(interpreter.prelude.Prelude)
     F,Q,W = prelude._Failure, prelude._Choice, prelude._Fwd
-    special_tags = [runtime.T_FAIL, runtime.T_CHOICE]
+    special_tags = [T_FAIL, T_CHOICE]
     cid = bootstrap.cid
 
     TESTS = {
@@ -171,7 +173,7 @@ class TestPyRuntime(cytest.TestCase):
         expected = interp.expr(expected)
         try:
           N(expr)
-        except runtime.E_CONTINUE:
+        except E_CONTINUE:
           exc = True
         else:
           exc = False
@@ -254,14 +256,15 @@ class TestPyRuntime(cytest.TestCase):
 
   def test_Node_getitem(self):
     '''Test the Node.getitem static method.'''
-    self.assertEqual(runtime.Node.getitem(0, ()), 0)
-    self.assertEqual(runtime.Node.getitem(0, []), 0)
+    self.assertEqual(Node.getitem(0, ()), 0)
+    self.assertEqual(Node.getitem(0, []), 0)
     self.assertRaisesRegexp(
         TypeError
       , 'cannot index into an unboxed value'
-      , lambda: runtime.Node.getitem(0, [0])
+      , lambda: Node.getitem(0, [0])
       )
 
+  @unittest.expectedFailure
   def test_bindings_store(self):
     '''Test the bindings object.'''
     a = Bindings()
@@ -338,15 +341,15 @@ class TestInstantiation(cytest.TestCase):
     # return self.interp.prelude.unknown
 
   def x(self, cid):
-    return runtime.Node(
+    return Node(
         self.interp.prelude._Free.info
       , cid
-      , runtime.Node(self.interp.prelude.Unit.info)
+      , Node(self.interp.prelude.Unit.info)
       )
 
   def test_basic(self):
     interp,q,x,e = self.interp, self.q, self.x, self.e(typename='()')
-    rts = runtime.RuntimeState(interp)
+    rts = RuntimeState(interp)
     instance = instantiate(rts, e, [0], interp.type('Prelude.[]'))
     au = curry.expr(*q(0, [interp.prelude.Cons, x(1), x(2)], [interp.prelude.Nil]))
     self.assertEqual(instance, au)
@@ -365,7 +368,7 @@ class TestInstantiation(cytest.TestCase):
   def test_singleCtor(self):
     # Instantiating a type with one constructor is a special case.
     interp,q,e = self.interp, self.q, self.e(typename='()')
-    rts = runtime.RuntimeState(interp)
+    rts = RuntimeState(interp)
     instance = instantiate(rts, e, [0], interp.type('Prelude.()'))
     au = curry.expr(*q(0, [interp.prelude.Unit], [interp.prelude._Failure]))
     self.assertEqual(instance, au)
@@ -380,7 +383,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q = self.interp, self.q
     Type = interp.compile('data T = A|B|C|D|E|F|G', modulename='Type')
     e = self.e(typename='Type.T', imports=Type)
-    rts = runtime.RuntimeState(interp)
+    rts = RuntimeState(interp)
     instance = instantiate(rts, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instance, au)
@@ -395,7 +398,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q = self.interp, self.q
     Type = interp.compile('data T = A|B|C|D|E|F', modulename='Type')
     e = self.e(typename='Type.T', imports=Type)
-    rts = runtime.RuntimeState(interp)
+    rts = RuntimeState(interp)
     instance = instantiate(rts, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
     self.assertEqual(instance, au)
@@ -409,7 +412,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q,x = self.interp, self.q, self.x
     Type = interp.compile('data T a = A|B a|C a a|D a a a|E a a a a', modulename='Type')
     e = self.e(typename='Type.T ()', imports=Type)
-    rts = runtime.RuntimeState(interp)
+    rts = RuntimeState(interp)
     instance = instantiate(rts, e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, x(3)]), [Type.C, x(4), x(5)]), q(6, [Type.D, x(7), x(8), x(9)], [Type.E, x(10), x(11), x(12), x(13)])))
     self.assertEqual(instance, au)

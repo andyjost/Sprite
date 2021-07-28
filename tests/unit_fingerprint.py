@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 from copy import copy
 from curry.backends.py import sprite
-from curry.backends.py.runtime import LEFT, RIGHT, UNDETERMINED
+from curry.common import LEFT, RIGHT, UNDETERMINED
 import itertools
 import numpy as np
 import sys

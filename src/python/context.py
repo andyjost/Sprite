@@ -83,13 +83,6 @@ class Runtime(object):
   def evaluate(self):
     assert 0
 
-  @abc.abstractproperty
-  def get_id(self):
-    '''
-    If ``arg`` is a choice or variable, return its ID.  Otherwise, return None.
-    '''
-    assert 0
-
 # Each backend must provide a Node object and register it with this class.
 class Node(object):
   __metaclass__ = abc.ABCMeta

@@ -1,4 +1,4 @@
-from ..misc import E_STEPLIMIT, E_TERMINATE
+from ..control import E_STEPLIMIT, E_TERMINATE
 
 class StepCounter(object):
   '''
@@ -37,7 +37,7 @@ class StepCounter(object):
     self._global_limit = float('inf') if limit is None else int(limit)
     if self._global_count >= self.global_limit:
       raise E_TERMINATE()
-    
+
   def increment(self):
     self._global_count += 1
     if self._global_count == self.global_limit:

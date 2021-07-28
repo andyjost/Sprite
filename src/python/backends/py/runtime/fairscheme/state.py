@@ -1,9 +1,9 @@
 from copy import copy
-from .. import stepcounter
-from ....sprite import Fingerprint
-from ......utility import shared
-from ......utility import unionfind
-from ......utility.shared import Shared
+from . import stepcounter
+from ...sprite import Fingerprint
+from .....utility import shared
+from .....utility import unionfind
+from .....utility.shared import Shared
 import collections
 import itertools
 
@@ -103,7 +103,7 @@ class RuntimeState(object):
     self.vtable = {}
 
     # The trace object.
-    from ... import trace
+    from .. import trace
     self.trace = trace.Trace(self)
 
   def set_goal(self, goal):

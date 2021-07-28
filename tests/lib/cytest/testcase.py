@@ -1,6 +1,6 @@
 from cStringIO import StringIO
 from curry.inspect import isa as cy_isa
-from curry.backends.py.runtime import Node
+from curry.context import Node
 from curry.llvm import isa as llvm_isa
 from glob import glob
 from . import oracle

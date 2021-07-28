@@ -3,8 +3,8 @@ Implements RuntimeState methods that manipulate the work queue.  This module is
 not intended to be imported except by state.py.
 '''
 
-from ......exceptions import EvaluationSuspended
-from ...misc import E_RESIDUAL, E_RESTART
+from .....exceptions import EvaluationSuspended
+from ..control import E_RESIDUAL, E_RESTART
 
 __all__ = ['append', 'drop', 'extend', 'ready', 'rotate']
 

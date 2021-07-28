@@ -79,7 +79,7 @@ def compile(
       raise exceptions.CompileError('expression %r requires a type annotation' % string)
     expr = interp.expr(func)
     ###  FIXME
-    from ..backends.py.runtime.api import Evaluator
+    from ..backends.py.runtime.fairscheme.evaluator import Evaluator
     evaluator = Evaluator(interp, expr)
     expr.info.step(evaluator.rts, expr)
     ###

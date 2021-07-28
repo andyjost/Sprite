@@ -3,10 +3,10 @@ Implements RuntimeState methods related to free variables.  This module is not
 intended to be imported except by state.py.
 '''
 
-from ....sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED, ChoiceState
-from ......tags import *
-from ...misc import E_RESIDUAL
-from .. import freevars
+from .....common import T_FREE, T_CHOICE
+from ..control import E_RESIDUAL
+from . import freevars
+from ...sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED, ChoiceState
 
 __all__ = [
     'get_freevar', 'get_generator', 'has_generator', 'instantiate'

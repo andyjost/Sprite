@@ -3,7 +3,7 @@ Python wrappers for Curry objects.
 '''
 
 from . import exceptions
-from .tags import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 import types
 import weakref
 

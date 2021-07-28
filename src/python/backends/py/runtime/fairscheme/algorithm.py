@@ -1,10 +1,10 @@
-from ... import graph
-from ...... import icurry
+from .....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .. import graph
+from ..... import icurry
 from . import state
-from ... import trace
-from ...misc import E_CONTINUE, E_RESIDUAL, E_RESTART
-from ......tags import *
-from ......utility import exprutil
+from .. import trace
+from ..control import E_CONTINUE, E_RESIDUAL, E_RESTART
+from .....utility import exprutil
 
 @trace.trace_values
 def D(rts):

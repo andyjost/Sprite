@@ -1,6 +1,5 @@
 from .... import context, icurry, utility
-from . import misc
-from ....tags import *
+from ....common import T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 import collections
 import numbers
 import operator
