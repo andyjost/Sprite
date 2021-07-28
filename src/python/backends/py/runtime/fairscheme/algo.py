@@ -25,7 +25,7 @@ def D(evaluator):
     tag = frame.expr.info.tag
     if tag == T_CHOICE:
       evaluator.queue.extend(fork(frame))
-    elif tag == T_BIND:
+    elif tag == T_CONSTR:
       evaluator.queue.extend(constrain(frame))
     elif tag == T_FAIL:
       trace.failed(rts)
@@ -97,7 +97,7 @@ def N(rts, root, target=None, path=None, freevars=None):
         elif tag == T_CHOICE:
           graph.lift_choice(rts, root, path)
           raise E_CONTINUE()
-        elif tag == T_BIND:
+        elif tag == T_CONSTR:
           graph.lift_constr(rts, root, path)
           raise E_CONTINUE()
         elif tag == T_FREE:
@@ -143,7 +143,7 @@ def hnf(rts, expr, path, typedef=None, values=None):
     elif tag == T_CHOICE:
       graph.lift_choice(rts, expr, path)
       raise E_CONTINUE()
-    elif tag == T_BIND:
+    elif tag == T_CONSTR:
       graph.lift_constr(rts, expr, path)
       raise E_CONTINUE()
     elif tag == T_FREE:

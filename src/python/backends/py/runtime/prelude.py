@@ -12,7 +12,7 @@ def exports():
   '''
   # Special symbols.
   yield '_Failure'
-  yield '_Binding'
+  yield '_Constraint'
   yield '_Free'
   yield '_Fwd'
   yield '_Choice'
@@ -57,8 +57,12 @@ _types_ = [
     # equivalent expressions consist of a free variable on the left and, on the
     # right, either a different free variable (strict binding) or arbitrary
     # expression (nonstrict binding).
-  , _T('_Binding'   , [ _C('_StrictBinding'   , 2, metadata={'py.tag':T_BIND, 'py.typecheck':tc.Binding})
-                      , _C('_NonStrictBinding', 2, metadata={'py.tag':T_BIND, 'py.typecheck':tc.Binding})])
+  , _T('_Constraint'   , [
+        _C('_StrictConstraint'   , 2
+            , metadata={'py.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
+      , _C('_NonStrictConstraint', 2
+            , metadata={'py.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
+      ])
     # Free variables have two successors, one for the variable ID (Int) and one
     # for the generator.  The second slot is initially set to Prelude.().  On
     # instantiation, it is replaced with a generator.

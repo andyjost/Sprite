@@ -46,30 +46,30 @@ class TestPyTypeChecks(cytest.TestCase):
         , lambda: runtime.Node(I.prelude.Char.info, 'ab')
         )
 
-  def testBinding(self):
+  def testConstraints(self):
     for debug in [True, False]:
       I = curry.interpreter.Interpreter(flags={'debug':debug})
       rts = RuntimeState(I)
       q = I.symbol('Prelude.?')
       x,y = list(I.eval(q, freshvar(rts), freshvar(rts)))
-      for binding_type in (
-          [I.prelude._Binding] if runtime.api.FAIR_SCHEME_VERSION == 1 else
-          [I.prelude._StrictBinding, I.prelude._NonStrictBinding]
+      for constraint_type in (
+          [I.prelude._Constraint] if runtime.api.FAIR_SCHEME_VERSION == 1 else
+          [I.prelude._StrictConstraint, I.prelude._NonStrictConstraint]
           ):
         self.assertMayRaise(
             None
-          , lambda: I.expr(binding_type, True, (x, y))
+          , lambda: I.expr(constraint_type, True, (x, y))
           )
         self.assertMayRaiseRegexp(
             TypeError if debug else None
-          , r'Cannot construct a _Binding node binding variable . to itself\.'
-          , lambda: I.expr(binding_type, True, (x, x))
+          , r'Cannot construct a _Constraint node relating variable . to itself\.'
+          , lambda: I.expr(constraint_type, True, (x, x))
           )
         self.assertMayRaiseRegexp(
             TypeError if debug else None
-          , r'Cannot construct a _Binding node from an argument '
+          , r'Cannot construct a _Constraint node from an argument '
              '\(in position 2.1\) of type int\.'
-          , lambda: I.expr(binding_type, True, (u(1), y))
+          , lambda: I.expr(constraint_type, True, (u(1), y))
           )
 
   def testCoverage(self):

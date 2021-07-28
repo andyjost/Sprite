@@ -54,7 +54,7 @@ def _typecheck(ty, arg, name, p=None):
               )
       )
 
-def Char(rts, arg):
+def Char(interp, info, arg):
   '''Typechecker for the Curry Char type.'''
   _typecheck(str, arg, 'Char')
   if len(arg) != 1:
@@ -62,24 +62,25 @@ def Char(rts, arg):
         'Cannot construct a Char node from a str of length %d.' % len(arg)
       )
 
-def Float(rts, arg):
+def Float(interp, info, arg):
   '''Typechecker for the Curry Float type.'''
   _typecheck(float, arg, 'Float')
 
-def Int(rts, arg):
+def Int(interp, info, arg):
   '''Typechecker for the Curry Int type.'''
   _typecheck(int, arg, 'Int')
 
-def Binding(rts, result, binding):
-  name = '_Binding'
+def Constraint(interp, info, result, constr):
+  name = '_Constraint'
   _typecheck(ANY_CURRY_TYPE, result, name)
-  _typecheck(getattr(rts.prelude, '(,)'), binding, name, 2)
-  _typecheck(rts.prelude._Free, binding[0], name, '2.1')
-  # _typecheck(rts.prelude._Free, binding[1], name, '2.2')
-  varid = lambda x: inspect.get_id(rts, x)
-  if varid(binding[0]) == varid(binding[1]):
-    assert binding[0] is binding[1]
+  _typecheck(getattr(interp.prelude, '(,)'), constr, name, 2)
+  _typecheck(interp.prelude._Free, constr[0], name, '2.1')
+  if info is interp.prelude._StrictConstraint.info:
+    _typecheck(interp.prelude._Free, constr[1], name, '2.2')
+  varid = lambda x: inspect.get_id(interp, x)
+  if varid(constr[0]) == varid(constr[1]):
+    assert constr[0] is constr[1]
     raise TypeError(
-        'Cannot construct a _Binding node binding variable %s to itself.'
-            % varid(binding[0])
+        'Cannot construct a _Constraint node relating variable %s to itself.'
+            % varid(constr[0])
       )

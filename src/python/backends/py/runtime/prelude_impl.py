@@ -3,7 +3,7 @@ Implementation of the Prelude externals.
 '''
 from ....exceptions import *
 from .... import inspect
-from ....tags import T_FAIL, T_BIND, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ....tags import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 import collections
 import itertools
 import logging
@@ -214,8 +214,7 @@ def constr_eq(rts, root):
     if ltag == T_FREE:
       if rtag == T_FREE:
         if lhs[0] != rhs[0]:
-          # Unify variables => _Binding True (x, y)
-          yield rts.prelude._StrictBinding.info
+          yield rts.prelude._StrictConstraint.info
           yield rts.expr(True)
           yield rts.expr((lhs, rhs))
         else:
@@ -229,11 +228,10 @@ def constr_eq(rts, root):
             yield lhs
             yield rhs
           else:
-            yield rts.prelude._NonStrictBinding.info
+            yield rts.prelude._NonStrictConstraint.info
             yield rts.expr(True)
             yield rts.expr((lhs, rhs))
         else:
-          # breakpoint()
           hnf(rts, root, [0], typedef=rhs.info.typedef())
           assert False # E_CONTINUE raised
     else:
@@ -246,7 +244,7 @@ def constr_eq(rts, root):
             yield lhs
             yield rhs
           else:
-            yield rts.prelude._NonStrictBinding.info
+            yield rts.prelude._NonStrictConstraint.info
             yield rts.expr(True)
             yield rts.expr((rhs, lhs))
         else:
@@ -285,7 +283,7 @@ def nonstrict_eq(rts, root):
     lhs = hnf_or_free(rts, root, 0)
     if lhs.info.tag == T_FREE:
       # Bind lhs -> rhs
-      yield rts.prelude._NonStrictBinding.info
+      yield rts.prelude._NonStrictConstraint.info
       yield rts.expr(True)
       yield rts.expr((lhs, rhs))
     else:

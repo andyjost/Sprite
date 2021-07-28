@@ -116,7 +116,7 @@ class Node(object):
     successors = list(args)
     # Run-time typecheck (debug only).
     if info.typecheck is not None:
-      info.typecheck(*successors)
+      info.typecheck(info, *successors)
     self.successors = successors
     return self
 
@@ -345,7 +345,7 @@ def lift_constr(rts, source, path):
   assert path
   replacer = Replacer(source, path)
   value = replacer[0]
-  assert replacer.target.info.tag == T_BIND
+  assert replacer.target.info.tag == T_CONSTR
   node = Node(
       replacer.target.info
     , value

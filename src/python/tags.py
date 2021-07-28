@@ -1,7 +1,7 @@
-__all__ = ['T_FAIL', 'T_BIND', 'T_FREE', 'T_FWD', 'T_CHOICE', 'T_FUNC', 'T_CTOR']
+__all__ = ['T_FAIL', 'T_CONSTR', 'T_FREE', 'T_FWD', 'T_CHOICE', 'T_FUNC', 'T_CTOR']
 
 T_FAIL   = -6
-T_BIND   = -5
+T_CONSTR = -5
 T_FREE   = -4
 T_FWD    = -3
 T_CHOICE = -2

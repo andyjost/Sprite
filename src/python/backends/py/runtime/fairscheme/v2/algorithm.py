@@ -12,7 +12,7 @@ def D(rts):
     tag = tag_of(rts.E)
     if tag == T_FAIL:
       rts.drop()
-    elif tag == T_BIND:
+    elif tag == T_CONSTR:
       value, (l, r) = rts.E
       if not rts.constrain_equal(l, r, rts.constraint_type()):
         rts.drop()
@@ -56,8 +56,8 @@ def N(rts):
         if tag == T_FAIL:
           rts.drop()
           return False
-        elif tag == T_BIND:
-          rts.E = make_binding(state.cursor, rts.E, state.path)
+        elif tag == T_CONSTR:
+          rts.E = make_constraint(state.cursor, rts.E, state.path)
           return False
         elif tag == T_FREE:
           if rts.has_binding(state.cursor):
@@ -131,8 +131,8 @@ def hnf(rts, func, path, typedef=None, values=None):
       if tag == T_FAIL:
         func.rewrite(rts.prelude._Failure)
         raise E_CONTINUE()
-      elif tag == T_BIND:
-        make_binding(target, func, path, rewrite=func)
+      elif tag == T_CONSTR:
+        make_constraint(target, func, path, rewrite=func)
         raise E_CONTINUE()
       elif tag == T_FREE:
         if rts.has_generator(target):
@@ -201,13 +201,13 @@ def make_choice(rts, cid, node, path, generator=None, rewrite=None):
   repl = graph.Replacer(node, path, alternatives=generator)
   return graph.Node(rts.prelude._Choice, cid, repl[1], repl[2], target=rewrite)
 
-def make_binding(binding, node, path, rewrite=None):
+def make_constraint(constr, node, path, rewrite=None):
   '''
-  Make a new binding object based on ``binding``, which is located at
+  Make a new constraint object based on ``constr``, which is located at
   node[path].  If ``rewrite`` is supplied, the specified node is overwritten.
   Otherwise a new node is created.
   '''
   repl = graph.Replacer(node, path)
-  bindvalue = repl[0]
-  bindspec = binding[1]
-  return graph.Node(binding.info, bindvalue, bindspec, target=rewrite)
+  value = repl[0]
+  pair = constr[1]
+  return graph.Node(constr.info, value, pair, target=rewrite)

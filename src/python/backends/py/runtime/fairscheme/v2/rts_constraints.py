@@ -13,7 +13,7 @@ NONSTRICT_CONSTRAINT = False
 def constraint_type(self, arg=None, config=None):
   '''Indicates the constraint type.'''
   arg = (config or self.C).root if arg is None else arg
-  return arg.info is self.prelude._StrictBinding.info
+  return arg.info is self.prelude._StrictConstraint.info
 
 def constrain_equal(
     self, arg0, arg1, constraint_type=STRICT_CONSTRAINT, config=None

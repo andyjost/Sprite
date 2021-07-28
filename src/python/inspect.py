@@ -5,7 +5,7 @@ Inspect live Curry objects.
 from . import config
 from . import context
 from . import objects
-from .tags import T_FAIL, T_BIND, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .tags import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .utility import visitation
 import collections
 import os
