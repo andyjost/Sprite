@@ -29,24 +29,6 @@ def hnf_or_free(rts, root, index):
     else:
       raise
 
-def algebraic_substitution(prim_func_name=None):
-  def decorator(f):
-    fname = 'prim_' + f.__name__ if prim_func_name is None else prim_func_name
-    def replacement(rts, root):
-      if(rts.algebraic_substitution):
-        return f(rts, root)
-      else:
-        # Perform a substitution similar to the following:
-        #     eqInt x y = (prim_eqInt $# x) $# y
-        assert len(root)
-        conj = getattr(rts.prelude, '$#')
-        args = reduce(lambda l, r: Node(conj, l, r), root)
-        prim_func = getattr(rts.prelude, fname)
-        return itertools.chain([prim_func.info], args)
-    return replacement
-  return decorator
-
-# @algebraic_substitution()
 def eqInt(rts, root):
   lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
@@ -63,7 +45,6 @@ def eqInt(rts, root):
     result = op.eq(*map(rts.topython, [lhs, rhs]))
     yield rts.prelude.True if result else rts.prelude.False
 
-# @algebraic_substitution()
 def ltEqInt(rts, root):
   lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
@@ -80,7 +61,6 @@ def ltEqInt(rts, root):
     result = op.le(*map(rts.topython, [lhs, rhs]))
     yield rts.prelude.True if result else rts.prelude.False
 
-# @algebraic_substitution()
 def plusInt(rts, root):
   lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
@@ -97,7 +77,6 @@ def plusInt(rts, root):
     yield rts.prelude.Int
     yield op.add(*map(rts.topython, [lhs, rhs]))
 
-# @algebraic_substitution()
 def minusInt(rts, root):
   lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
@@ -114,7 +93,6 @@ def minusInt(rts, root):
     yield rts.prelude.Int
     yield op.sub(*map(rts.topython, [lhs, rhs]))
 
-# @algebraic_substitution()
 def timesInt(rts, root):
   lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
@@ -131,7 +109,6 @@ def timesInt(rts, root):
     yield rts.prelude.Int
     yield op.mul(*map(rts.topython, [lhs, rhs]))
 
-# @algebraic_substitution()
 def divInt(rts, root):
   lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
@@ -148,7 +125,6 @@ def divInt(rts, root):
     yield rts.prelude.Int
     yield op.floordiv(*map(rts.topython, [lhs, rhs]))
 
-# @algebraic_substitution()
 def modInt(rts, root):
   lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
@@ -166,7 +142,6 @@ def modInt(rts, root):
     f = lambda x, y: x - y * op.floordiv(x,y)
     yield f(*map(rts.topython, [lhs, rhs]))
 
-# @algebraic_substitution()
 def quotInt(rts, root):
   lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
@@ -184,7 +159,6 @@ def quotInt(rts, root):
     f = lambda x, y: int(op.truediv(x, y))
     yield f(*map(rts.topython, [lhs, rhs]))
 
-# @algebraic_substitution()
 def remInt(rts, root):
   lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
@@ -219,14 +193,9 @@ def constr_eq(rts, root):
         # Instantiate the variable.
         assert rtag >= T_CTOR
         if rhs.info is rts.prelude.Int.info:
-          if rts.algebraic_substitution:
-            yield rts.integer.bindint
-            yield lhs
-            yield rhs
-          else:
-            yield rts.prelude._NonStrictConstraint.info
-            yield rts.expr(True)
-            yield rts.expr((lhs, rhs))
+          yield rts.prelude._NonStrictConstraint.info
+          yield rts.expr(True)
+          yield rts.expr((lhs, rhs))
         else:
           hnf(rts, root, [0], typedef=rhs.info.typedef())
           assert False # E_CONTINUE raised
@@ -235,14 +204,9 @@ def constr_eq(rts, root):
         # Instantiate the variable.
         assert ltag >= T_CTOR
         if lhs.info is rts.prelude.Int.info:
-          if rts.algebraic_substitution:
-            yield rts.integer.bindint
-            yield lhs
-            yield rhs
-          else:
-            yield rts.prelude._NonStrictConstraint.info
-            yield rts.expr(True)
-            yield rts.expr((rhs, lhs))
+          yield rts.prelude._NonStrictConstraint.info
+          yield rts.expr(True)
+          yield rts.expr((rhs, lhs))
         else:
           hnf(rts, root, [1], typedef=lhs.info.typedef())
           assert False # E_CONTINUE raised

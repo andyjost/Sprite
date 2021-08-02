@@ -41,16 +41,13 @@ class Interpreter(object):
           directory name and all temporary files will be written there.
       ``lazycompile`` (*True*|False)
           Delays compilation of functions until they are needed.
-      ``algebraic_substitution`` (True|*False*)
-          [Experimantal] Implements narrowing of fundamental types by
-          substituting an algebraic type.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self.flags = {
         'backend':config.default_backend(), 'debug':False
       , 'defaultconverter':None, 'trace':False, 'lazycompile':True
-      , 'keep_temp_files':False, 'algebraic_substitution':False
+      , 'keep_temp_files':False
       }
     bad_flags = set(flags) - set(self.flags)
     if bad_flags:

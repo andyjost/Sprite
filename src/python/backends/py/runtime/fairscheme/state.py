@@ -87,7 +87,6 @@ class RuntimeState(object):
     self.stdout = interp.stdout
     self.topython = interp.topython
     self.tracing = interp.flags['trace']
-    self.algebraic_substitution = interp.flags['algebraic_substitution']
     self.type = interp.type
     self.unbox = interp.unbox
 
