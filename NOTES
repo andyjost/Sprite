@@ -400,14 +400,12 @@ TODO:
 07/10/2021
 
   There is a new implementation of the Fair Scheme under
-  src/python/backends/py/runtime/fairschem/v2.  I have not implemented =:<=, so
-  functional patterns will not work.  Also binding to integers will not work.
+  src/python/backends/py/runtime/fairscheme.  Binding to integers is not
+  implemented and will probably result in a hang or "evaluation suspended"
+  message.
 
   This is a faithful representation of the FS as published, with extensions for
   free variables.  The value of a computation can contain free variables.
-
-  There are only two files -- one for the algorithms (D, N, S, hnf functions),
-  and another for the state (Configuration, RuntimeState).
 
   Debugging
   ---------
