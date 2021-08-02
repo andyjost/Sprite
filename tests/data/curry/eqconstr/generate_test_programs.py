@@ -176,6 +176,9 @@ PROGRAMS = [
 
   # Binding the same variable multiple times.
   , 'main = x=:=True & x=:=not False &> x where x free'
+
+  , 'main :: ([Bool], [Bool])\n'
+    'main = x=:=y &> (x, y) where x,y free'
   ]
 
 # Programs requiring: data T = A

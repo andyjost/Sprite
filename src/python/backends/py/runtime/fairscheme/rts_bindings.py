@@ -2,6 +2,7 @@
 Implements RuntimeState methods related to bindings.  This module is not
 intended to be imported except by state.py.
 '''
+
 from .. import graph
 
 __all__ = [
@@ -23,7 +24,7 @@ def apply_binding(self, arg=None, config=None):
   '''
   Pop a binding and apply it to the current configuration.
 
-  The given argument must refer to a free variale with a binding in the
+  The given argument must refer to a free variable with a binding in the
   bindings table.  That binding will be removed from the table.  The binding is
   applied by replacing the root expression ``e`` with ``b &> e``, where ``b``
   is the binding.

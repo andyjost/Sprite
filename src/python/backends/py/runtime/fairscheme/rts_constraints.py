@@ -22,11 +22,12 @@ def constrain_equal(
   Constrain the given arguments to be equal in the specified context.  This
   implements the equational constraints (=:=) and (=:<=).  For strict
   constraints, both arguments must be choices or both free variables, and, in
-  the latter case, the free variables must represent values of the same type.
-  For non-strict constraints, the first argument must be a free variable; the
-  second is any expression.  Any non-strict constraint that makes it to this
-  function implicates a binding (otherwise it would be handled by ordinary
-  narrowing).
+  the latter case, the free variables must represent values of the same type
+  (as is guaranteed by the type system).  For non-strict constraints, the first
+  argument must be a free variable, and the second is any expression.  This
+  implements the "binding" part of (=:<=).  When the left-hand side is not a
+  variable, ordinary pull-tabbing computations will proceed until the term is
+  evaluated or this function is called.
 
   The return value indicates whether the resulting configuration remains
   consistent.
@@ -79,16 +80,19 @@ def _constrain_equal_rec(self, arg0, arg1, config=None):
 
   Example:
   --------
-  1. Suppose the arguments are free variables x and y.  x has been narrowed
-  to a non-empty list, (x0:x1), and so xR is in the fingerprint.  y is
-  uninstantiated.  This function would instantiate y, giving it the generator
-  "[] ?_y (y0:y1)", update the fingerprint with yR, and evaluate the
-  equational constraints x0 =:= y0 and x1 =:= y1.
+  1. Suppose the arguments are free variables x and y, x has been narrowed to a
+  non-empty list, (x0:x1), and y is uninstantiated.  Assuming lists are defined
+  with constructor Nil before Cons, this implies xR is in the fingerprint
+  (where x is the ID of variable x).  This function would instantiate y,
+  creating fresh variables y0, y1, and giving it the generator "[] ?_y
+  (y0:y1)"; update the fingerprint with yR; and evaluate the equational
+  constraints x0 =:= y0 and x1 =:= y1.  Symbol ?_y means a choice whose ID
+  equals the ID of variable y.
 
   If all these operations succeed in the sense that none invalidate the
   fingerprint, then True is returned.
 
-  2. Now suppose neither free variable was narrowed.  This function does
+  2. Suppose neither free variable was narrowed.  This function does
   nothing and returns True.
 
   Parameters:

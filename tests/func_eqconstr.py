@@ -5,5 +5,5 @@ class TestEqConstr(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/eqconstr/'
   PRINT_SKIPPED_GOALS = True
   # SKIP = []
-  # RUN_ONLY = ['a0b0c0_300']
+  # RUN_ONLY = ['prog103']
 
