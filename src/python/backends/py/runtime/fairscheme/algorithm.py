@@ -127,7 +127,7 @@ def hnf(rts, func, path, typedef=None, values=None):
     while True:
       if isinstance(target, icurry.ILiteral):
         return target
-      tag = target.info.tag
+      tag = tag_of(target)
       if tag == T_FAIL:
         func.rewrite(rts.prelude._Failure)
         raise E_CONTINUE()

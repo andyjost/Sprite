@@ -29,9 +29,6 @@ def constrain_equal(
   variable, ordinary pull-tabbing computations will proceed until the term is
   evaluated or this function is called.
 
-  The return value indicates whether the resulting configuration remains
-  consistent.
-
   Recursive constraints arise from interleaving the rules of (=:=) or (=:<=)
   with narrowing steps.  Suppose x =:= y is first evaluated, then x and y are
   subsequently narrowed to (x0:x1) and (y0:y1), resp.  The recursive
@@ -54,6 +51,12 @@ def constrain_equal(
 
      ``config``
         The configuration to use as context.
+
+  Returns:
+  --------
+  A Boolean that indicates whether the resulting configuration remains
+  consistent.
+
   '''
   config = config or self.C
   i, j = [self.obj_id(arg, config) for arg in [arg0, arg1]]

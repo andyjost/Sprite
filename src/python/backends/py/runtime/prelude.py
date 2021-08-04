@@ -39,6 +39,7 @@ def exports():
 def aliases():
   '''Returns prelude aliases.  Simply for convenience.'''
   yield 'Unit', '()'
+  yield 'Pair', '(,)'
   yield 'Cons', ':'
   yield 'Nil', '[]'
 
@@ -52,11 +53,6 @@ def _C(name, *args, **kwds):
 
 _types_ = [
     _T('_Failure'   , [_C('_Failure', 0, metadata={'py.format':'failure', 'py.tag':T_FAIL})])
-    # A binding is a pair consisting of a Boolean result and pair of equivalent
-    # expressions.  After lifting the binding, the result takes its place.  The
-    # equivalent expressions consist of a free variable on the left and, on the
-    # right, either a different free variable (strict binding) or arbitrary
-    # expression (nonstrict binding).
   , _T('_Constraint'   , [
         _C('_StrictConstraint'   , 2
             , metadata={'py.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
