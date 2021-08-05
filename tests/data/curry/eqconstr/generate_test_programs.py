@@ -41,14 +41,8 @@ PROGRAMS = [
   , 'main = failed =:= 1'
   , 'main = failed =:= (0?1)'
   # Free variables.
-  # , 'main = x =:= 1 where x free'
-  # , 'main = 0 =:= x where x free'
   , 'main = True =:= x where x free'
   , 'main = True == x where x free'
-  # , 'f 0 1 = 1\n'
-  #   'main = f 0 x where x free'
-  # , 'f 0 True = True\n'
-  #   'main = f 0 x where x free'
   , 'f True True = True\n'
     'main = f True x where x free'
   , 'main = (x::())=:=y where x,y free'
@@ -56,7 +50,6 @@ PROGRAMS = [
   , 'main = (True:x)=:=(False:y) where x,y free'
   , 'main = ((x::()):xs)=:=(y:ys) where x,y,xs,ys free'
   , 'main = (True:xs)=:=(y:ys) where y,xs,ys free'
-  # , 'main = (0:xs)=:=(y:ys) where y,xs,ys free'
   # Forward nodes.
   , 'fwd x = x\n'               # fwd constructor
     'main = fwd True =:= True'
@@ -179,6 +172,29 @@ PROGRAMS = [
 
   , 'main :: ([Bool], [Bool])\n'
     'main = x=:=y &> (x, y) where x,y free'
+  ]
+
+# Programs for integer narrowing.
+INTEGER_PROGRAMS = [
+    'main = x =:= 1 where x free'
+  , 'main = 0 =:= x where x free'
+  , 'f 0 1 = 1\n'
+    'main :: Int\n'
+    'main = f 0 x where x free'
+  , 'f 0 True = True\n'
+    'main :: Bool\n'
+    'main = f 0 x where x free'
+  , 'main = (0:xs)=:=(y:ys) where y,xs,ys free'
+  , 'main :: Int\n'
+    'main = x=:=5 &> x where x free'
+  , 'f 0 = 0\n'
+    'f 1 = 1\n'
+    'g 0 = 0\n'
+    'g 2 = 2\n'
+    'main :: (Int, Int)\n'
+    'main = (f x, g x) where x free'
+  , 'main :: Int\n'
+    'main = x=:=1 &> x+2 where x free'
   ]
 
 # Programs requiring: data T = A
@@ -1242,9 +1258,10 @@ A2B1C0_PROGRAMS = [
 
 generate_test_programs([
   # programtext       fileprefix  digits  predef
-  # +-----------------+-----------+-------+-----------------------------------
-    (PROGRAMS       , 'prog'    , 2     , ''                                 )
-  , (A0_PROGRAMS    , 'a0_'     , 3     , 'data T = A\nmain = '              )
-  , (A0B0C0_PROGRAMS, 'a0b0c0_' , 3     , 'data T = A | B | C\nmain = '      )
-  , (A2B1C0_PROGRAMS, 'a2b1c0_' , 3     , 'data T = A T T | B T | C\nmain = ')
+  # +------------------+-----------+-------+-----------------------------------
+    (PROGRAMS        , 'prog'    , 2     , ''                                 )
+  , (INTEGER_PROGRAMS, 'iprog'   , 2     , ''                                 )
+  , (A0_PROGRAMS     , 'a0_'     , 3     , 'data T = A\nmain = '              )
+  , (A0B0C0_PROGRAMS , 'a0b0c0_' , 3     , 'data T = A | B | C\nmain = '      )
+  , (A2B1C0_PROGRAMS , 'a2b1c0_' , 3     , 'data T = A T T | B T | C\nmain = ')
   ])

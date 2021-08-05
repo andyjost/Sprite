@@ -1,0 +1,1 @@
+main = 0 =:= x where x free
