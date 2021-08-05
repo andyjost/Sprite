@@ -81,13 +81,13 @@ def get_generator(rts, freevar, typedef=None):
 
   Parameters:
   -----------
-  ``rts``
+    ``rts``
       The RuntimeState object.
 
-  ``freevar``
+    ``freevar``
       The free variable node to instantiate.
 
-  ``typedef``
+    ``typedef``
       A ``CurryDataType`` that indicates the type to instantiate the variable
       to.  This can also be a list of ``icurry.IConstructor``s or
       ``InfoTables``.  If the free variable has already been instantiated, then
@@ -126,6 +126,9 @@ def instantiate(rts, context, path, typedef):
     ``path``
       A sequence of integers giving the path in ``context`` to the free
       variable.
+
+    ``typedef``
+      The free variable type.
   '''
   replacer = Replacer(context, path
     , lambda node, _: get_generator(rts, node, typedef)

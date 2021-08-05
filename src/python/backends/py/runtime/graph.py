@@ -358,8 +358,6 @@ def lift_constr(rts, source, path):
 def replace(rts, context, path, replacement):
   replacer = Replacer(context, path, lambda _a, _b: replacement)
   replaced = replacer[None]
-  # assert replacer.target.info.tag == context.T_FREE
-  # assert context.info == replaced.info
   context.successors[:] = replaced.successors
 
 def replace_copy(rts, context, path, replacement):

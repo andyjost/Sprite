@@ -5,6 +5,7 @@ from . import render
 from ..runtime.graph import Node
 from ..runtime.fairscheme.algorithm import hnf
 from ..runtime.fairscheme.freevars import freshvar
+from ..runtime.fairscheme.integer import compile_iset
 from ..runtime import prelude_impl
 from ....utility import encoding, visitation, formatDocstring
 from ....utility import filesys
@@ -333,9 +334,12 @@ class FunctionCompiler(object):
     assert path is not None
     self.closure['unbox'] = self.interp.unbox
     typedef = casetype(self.interp, icase)
-    yield 'selector = unbox(hnf(rts, _0, %s, typedef=%s, values=%r))' % (
-        path, self.closure[typedef]
+    self.closure['iset'] = compile_iset(
+        self.interp
       , list(branch.lit.value for branch in icase.branches)
+      )
+    yield 'selector = unbox(hnf(rts, _0, %s, typedef=%s, values=iset))' % (
+        path, self.closure[typedef]
       )
     el = ''
     for branch in icase.branches:
@@ -433,3 +437,4 @@ def casetype(interp, _):
 @casetype.when(icurry.IFloat)
 def casetype(interp, _):
   return interp.type('Prelude.Float')
+

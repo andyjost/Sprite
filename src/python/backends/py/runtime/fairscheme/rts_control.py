@@ -5,6 +5,7 @@ not intended to be imported except by state.py.
 
 from .....exceptions import EvaluationSuspended
 from ..control import E_RESIDUAL, E_RESTART
+from . import integer
 
 __all__ = ['append', 'drop', 'extend', 'ready', 'rotate']
 
@@ -44,7 +45,7 @@ def _make_ready(self, config):
   '''
   for vid in config.residuals:
     x = self.vtable[vid]
-    if self.has_generator(x) or self.has_binding(x):
+    if self.has_generator(x) or self.has_binding(x): # or integer.narrowed_int_value(self, x, config) is not None:
       config.residuals = set()
       break
   return not config.residuals

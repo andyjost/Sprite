@@ -101,6 +101,10 @@ class RuntimeState(object):
     # The free variable table.  Mapping from ID to Node.
     self.vtable = {}
 
+    # # Mapping from integer free variables to the corresponding algebraic
+    # # integers.
+    # self.vmap = {}
+
     # The trace object.
     from .. import trace
     self.trace = trace.Trace(self)
@@ -135,7 +139,6 @@ class RuntimeState(object):
     )
   from .rts_freevars import (
       get_freevar, get_generator, has_generator, instantiate
-    , is_choice_or_freevar_node, is_freevar_node, is_narrowed
-    , register_freevar
+    , is_choice_or_freevar_node, is_freevar_node, is_narrowed, register_freevar
     )
 

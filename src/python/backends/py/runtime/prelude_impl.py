@@ -6,6 +6,7 @@ from .control import E_RESIDUAL
 from ....exceptions import *
 from .fairscheme.algorithm import normalize, hnf
 from .fairscheme.freevars import get_generator, get_id
+from .fairscheme.integer import compile_iset
 from .graph import Node
 from .... import inspect
 import collections
@@ -16,10 +17,10 @@ import re
 
 logger = logging.getLogger(__name__)
 
-def hnf_or_free(rts, root, index):
+def hnf_or_free(rts, root, index, typedef=None):
   '''Reduce the expression to head normal form or a free variable.'''
   try:
-    return hnf(rts, root, [index])
+    return hnf(rts, root, [index], typedef)
   except E_RESIDUAL:
     # The argument could be a free variable or an expression containing a free
     # variable that cannot be narrowed, such as "ensureNotFree x".
@@ -29,152 +30,70 @@ def hnf_or_free(rts, root, index):
     else:
       raise
 
-def eqInt(rts, root):
-  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
-  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
-    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(rts, lhs):
-    yield rts.integer.narrowEqInt
-    yield lhs
-    yield rhs
-  elif inspect.isa_freevar(rts, rhs):
-    yield rts.integer.narrowEqInt
-    yield rhs
-    yield lhs
-  else:
-    result = op.eq(*map(rts.topython, [lhs, rhs]))
-    yield rts.prelude.True if result else rts.prelude.False
+def hnf_or_free_int(rts, root, index):
+  return hnf_or_free(rts, root, index, rts.prelude.Int.info.typedef())
 
-def ltEqInt(rts, root):
-  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
-  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
-    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(rts, lhs):
-    yield rts.integer.narrowLtEqInt
-    yield lhs
-    yield rhs
-  elif inspect.isa_freevar(rts, rhs):
-    yield rts.integer.narrowLtEqInt
-    yield rhs
-    yield lhs
-  else:
-    result = op.le(*map(rts.topython, [lhs, rhs]))
-    yield rts.prelude.True if result else rts.prelude.False
+def narrow_integer_args(f):
+  '''
+  Decorate a built-in function over integers.  This will handle the arguments,
+  raising E_RESIDUAL when they are not ground.
+  '''
+  def repl(rts, root):
+    args = [hnf_or_free_int(rts, root, i) for i in range(len(root))]
+    res = [get_id(arg) for arg in args if inspect.isa_freevar(rts, arg)]
+    if res:
+      raise E_RESIDUAL(res)
+    else:
+      return f(rts, *args)
+  return repl
 
-def plusInt(rts, root):
-  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
-  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
-    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(rts, lhs):
-    yield rts.integer.narrowPlusInt
-    yield lhs
-    yield rhs
-  elif inspect.isa_freevar(rts, rhs):
-    yield rts.integer.narrowPlusInt
-    yield rhs
-    yield lhs
-  else:
-    yield rts.prelude.Int
-    yield op.add(*map(rts.topython, [lhs, rhs]))
+@narrow_integer_args
+def eqInt(rts, lhs, rhs):
+  result = op.eq(*map(rts.topython, [lhs, rhs]))
+  yield rts.prelude.True if result else rts.prelude.False
 
-def minusInt(rts, root):
-  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
-  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
-    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(rts, lhs):
-    yield rts.integer.narrowMinusInt
-    yield lhs
-    yield rhs
-  elif inspect.isa_freevar(rts, rhs):
-    yield rts.integer.narrowMinusIntRev
-    yield lhs
-    yield rhs
-  else:
-    yield rts.prelude.Int
-    yield op.sub(*map(rts.topython, [lhs, rhs]))
+@narrow_integer_args
+def ltEqInt(rts, lhs, rhs):
+  result = op.le(*map(rts.topython, [lhs, rhs]))
+  yield rts.prelude.True if result else rts.prelude.False
 
-def timesInt(rts, root):
-  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
-  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
-    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(rts, lhs):
-    yield rts.integer.narrowTimesInt
-    yield lhs
-    yield rhs
-  elif inspect.isa_freevar(rts, rhs):
-    yield rts.integer.narrowTimesInt
-    yield rhs
-    yield lhs
-  else:
-    yield rts.prelude.Int
-    yield op.mul(*map(rts.topython, [lhs, rhs]))
+@narrow_integer_args
+def plusInt(rts, lhs, rhs):
+  yield rts.prelude.Int
+  yield op.add(*map(rts.topython, [lhs, rhs]))
 
-def divInt(rts, root):
-  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
-  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
-    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(rts, lhs):
-    yield rts.integer.narrowDivInt
-    yield lhs
-    yield rhs
-  elif inspect.isa_freevar(rts, rhs):
-    yield rts.integer.narrowDivIntRev
-    yield lhs
-    yield rhs
-  else:
-    yield rts.prelude.Int
-    yield op.floordiv(*map(rts.topython, [lhs, rhs]))
+@narrow_integer_args
+def minusInt(rts, lhs, rhs):
+  yield rts.prelude.Int
+  yield op.sub(*map(rts.topython, [lhs, rhs]))
 
-def modInt(rts, root):
-  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
-  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
-    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(rts, lhs):
-    yield rts.integer.narrowModInt
-    yield lhs
-    yield rhs
-  elif inspect.isa_freevar(rts, rhs):
-    yield rts.integer.narrowModIntRev
-    yield lhs
-    yield rhs
-  else:
-    yield rts.prelude.Int
-    f = lambda x, y: x - y * op.floordiv(x,y)
-    yield f(*map(rts.topython, [lhs, rhs]))
+@narrow_integer_args
+def timesInt(rts, lhs, rhs):
+  yield rts.prelude.Int
+  yield op.mul(*map(rts.topython, [lhs, rhs]))
 
-def quotInt(rts, root):
-  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
-  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
-    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(rts, lhs):
-    yield rts.integer.narrowQuotInt
-    yield lhs
-    yield rhs
-  elif inspect.isa_freevar(rts, rhs):
-    yield rts.integer.narrowQuotIntRev
-    yield lhs
-    yield rhs
-  else:
-    yield rts.prelude.Int
-    f = lambda x, y: int(op.truediv(x, y))
-    yield f(*map(rts.topython, [lhs, rhs]))
+@narrow_integer_args
+def divInt(rts, lhs, rhs):
+  yield rts.prelude.Int
+  yield op.floordiv(*map(rts.topython, [lhs, rhs]))
 
-def remInt(rts, root):
-  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
-  if inspect.isa_freevar(rts, lhs) and inspect.isa_freevar(rts, rhs):
-    raise E_RESIDUAL(map(get_id, [lhs, rhs]))
-  elif inspect.isa_freevar(rts, lhs):
-    yield rts.integer.narrowRemInt
-    yield lhs
-    yield rhs
-  elif inspect.isa_freevar(rts, rhs):
-    yield rts.integer.narrowRemIntRev
-    yield lhs
-    yield rhs
-  else:
-    yield rts.prelude.Int
-    f = lambda x, y: x - y * int(op.truediv(x, y))
-    yield f(*map(rts.topython, [lhs, rhs]))
+@narrow_integer_args
+def modInt(rts, lhs, rhs):
+  yield rts.prelude.Int
+  f = lambda x, y: x - y * op.floordiv(x,y)
+  yield f(*map(rts.topython, [lhs, rhs]))
+
+@narrow_integer_args
+def quotInt(rts, lhs, rhs):
+  yield rts.prelude.Int
+  f = lambda x, y: int(op.truediv(x, y))
+  yield f(*map(rts.topython, [lhs, rhs]))
+
+@narrow_integer_args
+def remInt(rts, lhs, rhs):
+  yield rts.prelude.Int
+  f = lambda x, y: x - y * int(op.truediv(x, y))
+  yield f(*map(rts.topython, [lhs, rhs]))
 
 def constr_eq(rts, root):
   '''Implements =:=.'''
@@ -190,26 +109,14 @@ def constr_eq(rts, root):
         else:
           yield rts.prelude.True
       else:
-        # Instantiate the variable.
-        assert rtag >= T_CTOR
-        if rhs.info is rts.prelude.Int.info:
-          yield rts.prelude._NonStrictConstraint.info
-          yield rts.expr(True)
-          yield rts.expr((lhs, rhs))
-        else:
-          hnf(rts, root, [0], typedef=rhs.info.typedef())
-          assert False # E_CONTINUE raised
+        values = compile_iset(rts, [rhs[0]]) \
+            if rhs.info is rts.prelude.Int.info else None
+        hnf(rts, root, [0], rhs.info.typedef(), values)
     else:
       if rtag == T_FREE:
-        # Instantiate the variable.
-        assert ltag >= T_CTOR
-        if lhs.info is rts.prelude.Int.info:
-          yield rts.prelude._NonStrictConstraint.info
-          yield rts.expr(True)
-          yield rts.expr((rhs, lhs))
-        else:
-          hnf(rts, root, [1], typedef=lhs.info.typedef())
-          assert False # E_CONTINUE raised
+        values = compile_iset(rts, [lhs[0]]) \
+            if lhs.info is rts.prelude.Int.info else None
+        hnf(rts, root, [1], lhs.info.typedef(), values)
       else:
         if ltag == rtag: # recurse when the comparison returns 0 or False.
           arity = lhs.info.arity
@@ -227,7 +134,7 @@ def constr_eq(rts, root):
           yield rts.prelude._Failure
   elif not inspect.is_boxed(rts, lhs) and not inspect.is_boxed(rts, rhs):
     yield rts.prelude.True if lhs == rhs else rts.prelude._Failure
-    #                               ^^^^^^^^^^ compare unboxed values
+    #                         ^^^^^^^^^^ compare unboxed values
   else:
     raise InstantiationError('=:= cannot bind to an unboxed value')
 
@@ -302,7 +209,6 @@ def concurrent_and(rts, root):
   i = 0
   while True:
     stepnumber = rts.stepcounter.count
-
     try:
       e = hnf(rts, root, [i], typedef=Bool)
     except E_RESIDUAL as errs[i]:
@@ -315,7 +221,6 @@ def concurrent_and(rts, root):
       else:               # False
         yield rts.prelude.False
       return
-
     i = 1-i
 
 def apply(rts, lhs):

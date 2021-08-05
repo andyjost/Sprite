@@ -6,7 +6,10 @@ intended to be imported except by state.py.
 from .....common import T_FREE, T_CHOICE
 from ..control import E_RESIDUAL
 from . import freevars
+from .. import graph
 from ...sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED, ChoiceState
+
+from . import integer
 
 __all__ = [
     'get_freevar', 'get_generator', 'has_generator', 'instantiate'
@@ -40,9 +43,18 @@ def has_generator(self, arg=None, config=None):
   return freevars.has_generator(self, x)
 
 def instantiate(self, func, path, typedef, config=None):
+  '''
+  Instantiates a needed free variable, which occurs at ``func[path]`` and has
+  type ``typedef``.  The subexpression ``func`` will be rewritten such that the
+  specified occurrence is replaced.
+
+  See algorithm.hnf for a description of the arguments.
+
+  Returns:
+  --------
+    The expression the free variable was replaced with.
+  '''
   config = config or self.C
-  if typedef in self.builtin_types:
-    raise E_RESIDUAL([self.obj_id(func[path], config=config)])
   return freevars.instantiate(self, func, path, typedef)
 
 def is_choice_or_freevar_node(self, node):

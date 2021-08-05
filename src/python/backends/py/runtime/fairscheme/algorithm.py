@@ -1,9 +1,11 @@
 from .....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ..control import E_CONTINUE, E_RESIDUAL, E_RESTART
+from . import freevars
+from . import integer
 from .. import graph
 from ..... import icurry
 from . import state
 from .. import trace
-from ..control import E_CONTINUE, E_RESIDUAL, E_RESTART
 from .....utility import exprutil
 
 @trace.trace_values
@@ -23,6 +25,8 @@ def D(rts):
         rts.E = rts.pop_binding()
       elif rts.is_narrowed():
         rts.E = rts.get_generator()
+      # elif rts.E[0] in rts.vmap:
+      #   rts.E = graph.Node(rts.integer.fromAlgebraicInt, rts.vmap[rts.E[0]])
       else:
         yield rts.E
         rts.drop()
@@ -67,9 +71,15 @@ def N(rts):
             gen = target = rts.get_generator(state.cursor)
             rts.E = make_choice(rts, gen[0], rts.E, state.path, gen)
             return False
+          # elif state.cursor[0] in rts.vmap:
+          #   vid = state.cursor[0]
+          #   expr = graph.Node(rts.integer.fromAlgebraicInt, rts.vmap[vid])
+          #   rts.E = graph.replace_copy(rts, rts.E, state.path, expr)
+          #   return False
           elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
             x = rts.get_freevar(rts.grp_id(state.cursor))
             rts.E = graph.replace_copy(rts, rts.E, state.path, x)
+            return False
           break
         elif tag == T_FWD:
           state.spine[-1] = state.parent[state.path[-1]]
@@ -104,6 +114,23 @@ def hnf(rts, func, path, typedef=None, values=None):
 
   The compiler generates calls to this function when evaluating case
   expressions.  Built-in functions may also call this.
+
+  Parameters:
+  -----------
+    ``func``
+      The function-rooted subexpression nearest to this step.
+
+    ``path``
+      The path from ``func`` to the (inductive) position to normalize.
+
+    ``typedef``
+      The type of the inductive position.  Needed when a free variable occurs
+      there.
+
+    ``values``
+      An instance of the Curry type Integer.ISet specifying the integers that
+      may occur at the inductive position.  Only meaningful when ``typedef``
+      is Prelude.Int.  Used to restrict integer narrowing.
 
   Returns:
   --------
@@ -143,8 +170,22 @@ def hnf(rts, func, path, typedef=None, values=None):
           binding = rts.get_binding(target)
           rts.E = graph.replace_copy(rts, rts.E, tuple(rts.C.path), binding)
           raise E_RESTART()
-        elif typedef is None:
+        elif typedef is None or typedef in rts.builtin_types:
           raise E_RESIDUAL([rts.obj_id(target), rts.grp_id(target)])
+          # vid = target[0]
+          # if values:
+          #   if vid not in rts.vmap:
+          #     rts.vmap[vid] = freevars.freshvar(rts)
+          #   x_algebraic = rts.vmap[vid]
+          #   target = graph.Node(rts.integer.narrow_int, values, x_algebraic)
+          #   graph.replace(rts, func, path, target)
+          # else:
+          #   int_value = integer.narrowed_int_value(rts, target)
+          #   if int_value is not None:
+          #     value = graph.Node(rts.prelude.Int, int_value)
+          #     rts.E = graph.replace_copy(rts, rts.E, tuple(rts.C.path), value)
+          #     raise E_RESTART()
+          #   raise E_RESIDUAL([rts.obj_id(target), rts.grp_id(target)])
         else:
           target = rts.instantiate(func, path, typedef)
       elif tag == T_FWD:
@@ -211,3 +252,4 @@ def make_constraint(constr, node, path, rewrite=None):
   value = repl[0]
   pair = constr[1]
   return graph.Node(constr.info, value, pair, target=rewrite)
+

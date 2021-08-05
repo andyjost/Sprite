@@ -1,5 +1,7 @@
 module Integer where
 
+-- import Data.List (partition)
+
 toNat :: Int -> Nat
 toNat i = if i<=0 then failed else let (q,r) = i `divMod` 2 in
           if q==0 then IHi else (if r==0 then O else I) (toNat q)
@@ -16,102 +18,14 @@ fromAlgebraicInt (Neg n) = - (fromNat n)
 fromAlgebraicInt Zero    = 0
 fromAlgebraicInt (Pos n) = fromNat n
 
--- ---------------------------------------------------------------------------
--- Test Cases
--- ---------------------------------------------------------------------------
-
-{-
-import Test.EasyCheck
-
-test_cmpNat :: Nat -> Nat -> Prop
-test_cmpNat x y = cmpNat x y -=- compare (fromNat x) (fromNat y)
-
-test_succ :: Nat -> Prop
-test_succ x = fromNat (succ x) -=- fromNat x + 1
-
-test_pred :: Nat -> Prop
-test_pred x = x /= IHi ==> fromNat (pred x) -=- fromNat x - 1
-
-test_addNat :: Nat -> Nat -> Prop
-test_addNat x y = fromNat (x +^ y) -=- fromNat x + fromNat y
-
-test_subNat :: Nat -> Nat -> Prop
-test_subNat x y = fromAlgebraicInt (x -^ y) -=- fromNat x - fromNat y
-
-test_mult2 :: AlgebraicInt -> Prop
-test_mult2 x = fromAlgebraicInt (mult2 x) -=- fromAlgebraicInt x * 2
-
-test_multNat :: Nat -> Nat -> Prop
-test_multNat x y = fromNat (x *^ y) -=- fromNat x * fromNat y
-
-test_div2 :: Nat -> Prop
-test_div2 x = x /= IHi ==> fromNat (div2 x) -=- fromNat x `div` 2
-
-test_mod2 :: Nat -> Prop
-test_mod2 x = fromAlgebraicInt (mod2 x) -=- fromNat x `mod` 2
-
-test_quotRemNat :: Nat -> Nat -> Prop
-test_quotRemNat x y =
-  let (q, r) = quotRemNat x y
-  in  (fromAlgebraicInt q, fromAlgebraicInt r) -=- quotRem (fromNat x) (fromNat y)
-
-test_lteqInteger :: AlgebraicInt -> AlgebraicInt -> Prop
-test_lteqInteger x y = lteqInteger x y -=- fromAlgebraicInt x <= fromAlgebraicInt y
-
-test_cmpInteger :: AlgebraicInt -> AlgebraicInt -> Prop
-test_cmpInteger x y = cmpInteger x y -=- fromAlgebraicInt x `compare` fromAlgebraicInt y
-
-test_neg :: AlgebraicInt -> Prop
-test_neg x = fromAlgebraicInt (neg x) -=- - (fromAlgebraicInt x)
-
-test_inc :: AlgebraicInt -> Prop
-test_inc x = fromAlgebraicInt (inc x) -=- fromAlgebraicInt x + 1
-
-test_dec :: AlgebraicInt -> Prop
-test_dec x = fromAlgebraicInt (dec x) -=- fromAlgebraicInt x - 1
-
-test_add :: AlgebraicInt -> AlgebraicInt -> Prop
-test_add x y = fromAlgebraicInt (x +# y) -=- fromAlgebraicInt x + fromAlgebraicInt y
-
-test_sub :: AlgebraicInt -> AlgebraicInt -> Prop
-test_sub x y = fromAlgebraicInt (x -# y) -=- fromAlgebraicInt x - fromAlgebraicInt y
-
-test_mult :: AlgebraicInt -> AlgebraicInt -> Prop
-test_mult x y = fromAlgebraicInt (x *# y) -=- fromAlgebraicInt x * fromAlgebraicInt y
-
-test_quotRem :: AlgebraicInt -> AlgebraicInt -> Prop
-test_quotRem x y
-  = y /= Zero ==>
-    let (q, r) = quotRemInteger x y
-    in  (fromAlgebraicInt q, fromAlgebraicInt r) -=- quotRem (fromAlgebraicInt x) (fromAlgebraicInt y)
-
-test_divMod :: AlgebraicInt -> AlgebraicInt -> Prop
-test_divMod x y
-  = y /= Zero ==>
-    let (d, m) = divModInteger x y
-    in  (fromAlgebraicInt d, fromAlgebraicInt m) -=- divMod (fromAlgebraicInt x) (fromAlgebraicInt y)
-
-test_div :: AlgebraicInt -> AlgebraicInt -> Prop
-test_div x y
-  = y /= Zero ==>
-    fromAlgebraicInt (divInteger x y) -=- div (fromAlgebraicInt x) (fromAlgebraicInt y)
-
-test_mod :: AlgebraicInt -> AlgebraicInt -> Prop
-test_mod x y
-  = y /= Zero ==>
-    fromAlgebraicInt (modInteger x y) -=- mod (fromAlgebraicInt x) (fromAlgebraicInt y)
-
-test_quot :: AlgebraicInt -> AlgebraicInt -> Prop
-test_quot x y
-  = y /= Zero ==>
-    fromAlgebraicInt (quotInteger x y) -=- quot (fromAlgebraicInt x) (fromAlgebraicInt y)
-
-test_rem :: AlgebraicInt -> AlgebraicInt -> Prop
-test_rem x y
-  = y /= Zero ==>
-    fromAlgebraicInt (remInteger x y) -=- rem (fromAlgebraicInt x) (fromAlgebraicInt y)
-
--}
+-- fromNatStrict :: Nat -> Int
+-- fromNatStrict x = fromNat $## x
+-- 
+-- fromAlgebraicIntStrict :: AlgebraicInt -> Int
+-- fromAlgebraicIntStrict x = aux $## x
+--   where aux (Neg n) = - (fromNatStrict n)
+--         aux Zero    = 0
+--         aux (Pos n) = fromNatStrict n
 
 -- ---------------------------------------------------------------------------
 -- Nat
@@ -329,3 +243,117 @@ quotInteger x y = fst (quotRemInteger x y)
 --- Integer remainder, truncated towards zero.
 remInteger :: AlgebraicInt -> AlgebraicInt -> AlgebraicInt
 remInteger x y = snd (quotRemInteger x y)
+
+-- ---------------------------------------------------------------------------
+-- Integer Generation
+-- ---------------------------------------------------------------------------
+
+data ISet = ISet Bool ISet ISet | Empty
+narrow_int :: ISet -> AlgebraicInt -> Int
+narrow_int (ISet True _ _) Zero = 0
+narrow_int (ISet _ p _) (Pos nat) = fromAlgebraicInt (Pos (narrow_nat p nat))
+narrow_int (ISet _ _ n) (Neg nat) = fromAlgebraicInt (Neg (narrow_nat n nat))
+narrow_nat :: ISet -> Nat -> Nat
+narrow_nat (ISet True _ _) IHi = IHi
+narrow_nat (ISet _ iset _) (I nat) = I (narrow_nat iset nat)
+narrow_nat (ISet _ _ iset) (O nat) = O (narrow_nat iset nat)
+-- narrow_free_int :: Int -> ISet -> Int
+-- narrow_free_int x iset = x =:<= narrow_int iset y &> x where y free
+
+-- ---------------------------------------------------------------------------
+-- Test Cases
+-- ---------------------------------------------------------------------------
+
+{-
+import Test.EasyCheck
+
+test_cmpNat :: Nat -> Nat -> Prop
+test_cmpNat x y = cmpNat x y -=- compare (fromNat x) (fromNat y)
+
+test_succ :: Nat -> Prop
+test_succ x = fromNat (succ x) -=- fromNat x + 1
+
+test_pred :: Nat -> Prop
+test_pred x = x /= IHi ==> fromNat (pred x) -=- fromNat x - 1
+
+test_addNat :: Nat -> Nat -> Prop
+test_addNat x y = fromNat (x +^ y) -=- fromNat x + fromNat y
+
+test_subNat :: Nat -> Nat -> Prop
+test_subNat x y = fromAlgebraicInt (x -^ y) -=- fromNat x - fromNat y
+
+test_mult2 :: AlgebraicInt -> Prop
+test_mult2 x = fromAlgebraicInt (mult2 x) -=- fromAlgebraicInt x * 2
+
+test_multNat :: Nat -> Nat -> Prop
+test_multNat x y = fromNat (x *^ y) -=- fromNat x * fromNat y
+
+test_div2 :: Nat -> Prop
+test_div2 x = x /= IHi ==> fromNat (div2 x) -=- fromNat x `div` 2
+
+test_mod2 :: Nat -> Prop
+test_mod2 x = fromAlgebraicInt (mod2 x) -=- fromNat x `mod` 2
+
+test_quotRemNat :: Nat -> Nat -> Prop
+test_quotRemNat x y =
+  let (q, r) = quotRemNat x y
+  in  (fromAlgebraicInt q, fromAlgebraicInt r) -=- quotRem (fromNat x) (fromNat y)
+
+test_lteqInteger :: AlgebraicInt -> AlgebraicInt -> Prop
+test_lteqInteger x y = lteqInteger x y -=- fromAlgebraicInt x <= fromAlgebraicInt y
+
+test_cmpInteger :: AlgebraicInt -> AlgebraicInt -> Prop
+test_cmpInteger x y = cmpInteger x y -=- fromAlgebraicInt x `compare` fromAlgebraicInt y
+
+test_neg :: AlgebraicInt -> Prop
+test_neg x = fromAlgebraicInt (neg x) -=- - (fromAlgebraicInt x)
+
+test_inc :: AlgebraicInt -> Prop
+test_inc x = fromAlgebraicInt (inc x) -=- fromAlgebraicInt x + 1
+
+test_dec :: AlgebraicInt -> Prop
+test_dec x = fromAlgebraicInt (dec x) -=- fromAlgebraicInt x - 1
+
+test_add :: AlgebraicInt -> AlgebraicInt -> Prop
+test_add x y = fromAlgebraicInt (x +# y) -=- fromAlgebraicInt x + fromAlgebraicInt y
+
+test_sub :: AlgebraicInt -> AlgebraicInt -> Prop
+test_sub x y = fromAlgebraicInt (x -# y) -=- fromAlgebraicInt x - fromAlgebraicInt y
+
+test_mult :: AlgebraicInt -> AlgebraicInt -> Prop
+test_mult x y = fromAlgebraicInt (x *# y) -=- fromAlgebraicInt x * fromAlgebraicInt y
+
+test_quotRem :: AlgebraicInt -> AlgebraicInt -> Prop
+test_quotRem x y
+  = y /= Zero ==>
+    let (q, r) = quotRemInteger x y
+    in  (fromAlgebraicInt q, fromAlgebraicInt r) -=- quotRem (fromAlgebraicInt x) (fromAlgebraicInt y)
+
+test_divMod :: AlgebraicInt -> AlgebraicInt -> Prop
+test_divMod x y
+  = y /= Zero ==>
+    let (d, m) = divModInteger x y
+    in  (fromAlgebraicInt d, fromAlgebraicInt m) -=- divMod (fromAlgebraicInt x) (fromAlgebraicInt y)
+
+test_div :: AlgebraicInt -> AlgebraicInt -> Prop
+test_div x y
+  = y /= Zero ==>
+    fromAlgebraicInt (divInteger x y) -=- div (fromAlgebraicInt x) (fromAlgebraicInt y)
+
+test_mod :: AlgebraicInt -> AlgebraicInt -> Prop
+test_mod x y
+  = y /= Zero ==>
+    fromAlgebraicInt (modInteger x y) -=- mod (fromAlgebraicInt x) (fromAlgebraicInt y)
+
+test_quot :: AlgebraicInt -> AlgebraicInt -> Prop
+test_quot x y
+  = y /= Zero ==>
+    fromAlgebraicInt (quotInteger x y) -=- quot (fromAlgebraicInt x) (fromAlgebraicInt y)
+
+test_rem :: AlgebraicInt -> AlgebraicInt -> Prop
+test_rem x y
+  = y /= Zero ==>
+    fromAlgebraicInt (remInteger x y) -=- rem (fromAlgebraicInt x) (fromAlgebraicInt y)
+
+-}
+
