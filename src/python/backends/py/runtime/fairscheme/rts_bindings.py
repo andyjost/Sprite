@@ -7,7 +7,7 @@ from .. import graph
 
 __all__ = [
     'add_binding', 'apply_binding', 'get_binding', 'has_binding'
-  , 'pop_binding', 'update_binding'
+  , 'update_binding'
   ]
 
 def add_binding(self, arg, node, config=None):
@@ -46,7 +46,7 @@ def apply_binding(self, arg=None, config=None):
       , graph.Node(
             self.prelude.prim_nonstrictEq
           , self.get_generator(arg, config=config)
-          , self.pop_binding(arg, config=config)
+          , self.get_binding(arg, config=config)
           )
       , config.root
       )
@@ -61,14 +61,6 @@ def has_binding(self, arg=None, config=None):
   '''Indicates whether ``arg`` has a binding.'''
   config = config or self.C
   return self.grp_id(arg, config) in config.bindings
-
-def pop_binding(self, arg=None, config=None):
-  '''
-  Get the binding associated with ``arg`` and remove it from the binding table.
-  '''
-  config = config or self.C
-  vid = self.grp_id(arg, config)
-  return config.bindings.write.pop(vid)
 
 def update_binding(self, arg=None, config=None):
   '''

@@ -43,12 +43,15 @@ def _make_ready(self, config):
   if it has no residuals, or if there exists some residual with a binding or
   generator.
   '''
-  for vid in config.residuals:
-    x = self.vtable[vid]
-    if self.has_generator(x) or self.has_binding(x): # or integer.narrowed_int_value(self, x, config) is not None:
-      config.residuals = set()
-      break
-  return not config.residuals
+  n = len(config.residuals)
+  if n:
+    config.residuals = set(
+        vid for vid in config.residuals if self.is_free(self.vtable[vid])
+      )
+    return len(config.residuals) < n
+  else:
+    return True
+  return not n or len(config.residuals) < n
 
 def rotate(self, n=1):
   '''

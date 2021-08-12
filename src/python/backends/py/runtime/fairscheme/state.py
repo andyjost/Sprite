@@ -130,8 +130,7 @@ class RuntimeState(object):
     self.C.root = node
 
   from .rts_bindings import (
-      add_binding, apply_binding, get_binding, has_binding, pop_binding
-    , update_binding
+      add_binding, apply_binding, get_binding, has_binding, update_binding
     )
   from .rts_constraints import constraint_type, constrain_equal
   from .rts_control import append, drop, extend, ready, rotate
@@ -140,6 +139,7 @@ class RuntimeState(object):
     )
   from .rts_freevars import (
       get_freevar, get_generator, has_generator, instantiate
-    , is_choice_or_freevar_node, is_freevar_node, is_narrowed, register_freevar
+    , is_choice_or_freevar_node, is_freevar_node, is_narrowed, is_free
+    , register_freevar
     )
 

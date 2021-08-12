@@ -516,9 +516,8 @@ def apply_gnf(rts, root):
 
 def ensureNotFree(rts, root):
   arg = root[0]
-  if rts.is_freevar_node(arg):
-    if not (rts.has_generator(arg) or rts.has_binding(arg) or rts.is_narrowed(arg)):
-      raise E_RESIDUAL([arg[0]])
+  if rts.is_free(arg):
+    raise E_RESIDUAL([arg[0]])
   yield rts.prelude._Fwd
   yield arg
 

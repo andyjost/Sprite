@@ -22,7 +22,7 @@ def D(rts):
         rts.E = value
     elif tag == T_FREE:
       if rts.has_binding():
-        rts.E = rts.pop_binding()
+        rts.E = rts.get_binding()
       elif rts.is_narrowed():
         rts.E = rts.get_generator()
       elif rts.grp_id() in rts.C.integer_bindings:
@@ -67,7 +67,7 @@ def N(rts):
           return False
         elif tag == T_FREE:
           if rts.has_binding(state.cursor):
-            binding = rts.pop_binding(state.cursor)
+            binding = rts.get_binding(state.cursor)
             rts.E = graph.replace_copy(rts, rts.E, state.path, binding)
           elif rts.is_narrowed(state.cursor):
             gen = target = rts.get_generator(state.cursor)

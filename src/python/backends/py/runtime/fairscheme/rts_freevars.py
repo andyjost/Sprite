@@ -13,7 +13,7 @@ from . import integer
 
 __all__ = [
     'get_freevar', 'get_generator', 'has_generator', 'instantiate'
-  , 'is_choice_or_freevar_node', 'is_freevar_node', 'is_narrowed'
+  , 'is_choice_or_freevar_node', 'is_free', 'is_freevar_node', 'is_narrowed'
   , 'register_freevar'
   ]
 
@@ -63,6 +63,18 @@ def is_choice_or_freevar_node(self, node):
     return node.info.tag in [T_CHOICE, T_FREE]
   except AttributeError:
     return False
+
+def is_free(self, arg=None, config=None):
+  '''
+  Indicates whether a free variable is missing any information that would allow
+  a computation needing it to proceed.  Used to implement
+  Prelude.ensureNotFree.
+  '''
+  return self.is_freevar_node(arg) and not any(
+      prop(arg, config) for prop in [
+          self.has_generator, self.has_binding, self.is_narrowed
+        ]
+    )
 
 def is_freevar_node(self, node):
   '''Indicates whether the given argument is a free variable.'''
