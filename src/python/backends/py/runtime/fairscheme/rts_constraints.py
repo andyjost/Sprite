@@ -7,13 +7,19 @@ import itertools
 from .....utility import exprutil
 from . import freevars
 
-STRICT_CONSTRAINT = True
-NONSTRICT_CONSTRAINT = False
+STRICT_CONSTRAINT = 0
+NONSTRICT_CONSTRAINT = 1
+INTEGER_BINDING = 2
 
 def constraint_type(self, arg=None, config=None):
   '''Indicates the constraint type.'''
   arg = (config or self.C).root if arg is None else arg
-  return arg.info is self.prelude._StrictConstraint.info
+  mapping = {
+      id(self.prelude._StrictConstraint.info)   : STRICT_CONSTRAINT
+    , id(self.prelude._NonStrictConstraint.info): NONSTRICT_CONSTRAINT
+    , id(self.prelude._IntegerBinding.info)     : INTEGER_BINDING
+    }
+  return mapping[id(arg.info)]
 
 def constrain_equal(
     self, arg0, arg1, constraint_type=STRICT_CONSTRAINT, config=None
@@ -59,19 +65,26 @@ def constrain_equal(
 
   '''
   config = config or self.C
-  i, j = [self.obj_id(arg, config) for arg in [arg0, arg1]]
-  if i != j:
-    if constraint_type == STRICT_CONSTRAINT:
-      if not self.equate_fp(i, j, config=config):
-        return False
-      config.strict_constraints.write.unite(i, j)
-      self.update_binding(i, config=config)
-      self.update_binding(j, config=config)
-      if any(map(self.is_freevar_node, [arg0, arg1])):
-        if not _constrain_equal_rec(self, i, j, config=config):
-          return False
+  if constraint_type == INTEGER_BINDING:
+    vid = self.grp_id(arg0, config)
+    if config.integer_bindings.get(vid, arg1) != arg1:
+      return False
     else:
-      self.add_binding(i, arg1, config=config)
+      config.integer_bindings[vid] = arg1
+  else:
+    i, j = [self.obj_id(arg, config) for arg in [arg0, arg1]]
+    if i != j:
+      if constraint_type == STRICT_CONSTRAINT:
+        if not self.equate_fp(i, j, config=config):
+          return False
+        config.strict_constraints.write.unite(i, j)
+        self.update_binding(i, config=config)
+        self.update_binding(j, config=config)
+        if any(map(self.is_freevar_node, [arg0, arg1])):
+          if not _constrain_equal_rec(self, i, j, config=config):
+            return False
+      elif constraint_type == NONSTRICT_CONSTRAINT:
+        self.add_binding(i, arg1, config=config)
   return True
 
 def _constrain_equal_rec(self, arg0, arg1, config=None):

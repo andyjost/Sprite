@@ -5,7 +5,6 @@ from . import render
 from ..runtime.graph import Node
 from ..runtime.fairscheme.algorithm import hnf
 from ..runtime.fairscheme.freevars import freshvar
-from ..runtime.fairscheme.integer import compile_iset
 from ..runtime import prelude_impl
 from ....utility import encoding, visitation, formatDocstring
 from ....utility import filesys
@@ -334,11 +333,8 @@ class FunctionCompiler(object):
     assert path is not None
     self.closure['unbox'] = self.interp.unbox
     typedef = casetype(self.interp, icase)
-    self.closure['iset'] = compile_iset(
-        self.interp
-      , list(branch.lit.value for branch in icase.branches)
-      )
-    yield 'selector = unbox(hnf(rts, _0, %s, typedef=%s, values=iset))' % (
+    self.closure['values'] = list(branch.lit.value for branch in icase.branches)
+    yield 'selector = unbox(hnf(rts, _0, %s, typedef=%s, values=values))' % (
         path, self.closure[typedef]
       )
     el = ''

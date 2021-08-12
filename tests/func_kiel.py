@@ -9,5 +9,5 @@ class TestKiel(cytest.FunctionalTestCase):
   CLEAN_KWDS = {
       'diamond': {'keep_empty_lines': True, 'keep_spacing': True, 'sort_lines': False}
     }
-  RUN_ONLY = 'assembler'
-  SKIP = ['account']
+  # RUN_ONLY = ''
+  # SKIP = []

@@ -304,8 +304,6 @@ def lift_choice(rts, source, path):
   assert source.info.tag != T_FWD
   ctor_root = source.info.tag >= T_CTOR
   assert path
-  # if source.info is rts.prelude.ensureNotFree.info:
-  #   raise RuntimeError("non-determinism in I/O actions occurred")
   replacer = Replacer(source, path)
   left = replacer[1]
   right = replacer[2]

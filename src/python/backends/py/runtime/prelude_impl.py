@@ -6,7 +6,6 @@ from .control import E_RESIDUAL
 from ....exceptions import *
 from .fairscheme.algorithm import normalize, hnf
 from .fairscheme.freevars import get_generator, get_id
-from .fairscheme.integer import compile_iset
 from .graph import Node
 from .... import inspect
 import collections
@@ -109,13 +108,11 @@ def constr_eq(rts, root):
         else:
           yield rts.prelude.True
       else:
-        values = compile_iset(rts, [rhs[0]]) \
-            if rhs.info is rts.prelude.Int.info else None
+        values = [rhs[0]] if rhs.info is rts.prelude.Int.info else None
         hnf(rts, root, [0], rhs.info.typedef(), values)
     else:
       if rtag == T_FREE:
-        values = compile_iset(rts, [lhs[0]]) \
-            if lhs.info is rts.prelude.Int.info else None
+        values = [lhs[0]] if lhs.info is rts.prelude.Int.info else None
         hnf(rts, root, [1], lhs.info.typedef(), values)
       else:
         if ltag == rtag: # recurse when the comparison returns 0 or False.
@@ -520,7 +517,8 @@ def apply_gnf(rts, root):
 def ensureNotFree(rts, root):
   arg = root[0]
   if rts.is_freevar_node(arg):
-    hnf(rts, root, [0])
+    if not (rts.has_generator(arg) or rts.has_binding(arg) or rts.is_narrowed(arg)):
+      raise E_RESIDUAL([arg[0]])
   yield rts.prelude._Fwd
   yield arg
 

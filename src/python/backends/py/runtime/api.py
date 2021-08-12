@@ -3,7 +3,10 @@ from .... import context
 __all__ = ['Runtime']
 
 class Runtime(context.Runtime):
-  '''Implementation of the abstract runtime system for the Python backend.'''
+  '''
+  Implementation of the abstract runtime system for the Python backend.  This
+  interface is used by the Interpreter object.
+  '''
   @property
   def Node(self):
     from .graph import Node

@@ -81,6 +81,9 @@ def update_binding(self, arg=None, config=None):
   config = config or self.C
   arg = config.root if arg is None else arg
   i,j = self.obj_id(arg), self.grp_id(arg)
-  if i in config.bindings and i != j:
-    self.add_binding(j, config.bindings.write.pop(i), config=config)
+  if i != j:
+    if i in config.bindings:
+      self.add_binding(j, config.bindings.write.pop(i), config=config)
+    if i in config.integer_bindings:
+      config.integer_bindings[j] = config.integer_bindings[i]
 

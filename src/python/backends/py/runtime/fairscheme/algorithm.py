@@ -25,10 +25,12 @@ def D(rts):
         rts.E = rts.pop_binding()
       elif rts.is_narrowed():
         rts.E = rts.get_generator()
-      # elif rts.E[0] in rts.vmap:
-      #   rts.E = graph.Node(rts.integer.fromAlgebraicInt, rts.vmap[rts.E[0]])
+      elif rts.grp_id() in rts.C.integer_bindings:
+        yield rts.C.integer_bindings[rts.grp_id()]
+        rts.drop()
       else:
-        yield rts.E
+        value = rts.C.integer_bindings.get(rts.grp_id(), rts.E)
+        yield value
         rts.drop()
     elif tag == T_FWD:
       rts.E = rts.E[()]
@@ -71,11 +73,10 @@ def N(rts):
             gen = target = rts.get_generator(state.cursor)
             rts.E = make_choice(rts, gen[0], rts.E, state.path, gen)
             return False
-          # elif state.cursor[0] in rts.vmap:
-          #   vid = state.cursor[0]
-          #   expr = graph.Node(rts.integer.fromAlgebraicInt, rts.vmap[vid])
-          #   rts.E = graph.replace_copy(rts, rts.E, state.path, expr)
-          #   return False
+          elif rts.grp_id(state.cursor) in rts.C.integer_bindings:
+            value = rts.C.integer_bindings[rts.grp_id(state.cursor)]
+            rts.E = graph.replace_copy(rts, rts.E, state.path, value)
+            return False
           elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
             x = rts.get_freevar(rts.grp_id(state.cursor))
             rts.E = graph.replace_copy(rts, rts.E, state.path, x)
@@ -171,21 +172,16 @@ def hnf(rts, func, path, typedef=None, values=None):
           rts.E = graph.replace_copy(rts, rts.E, tuple(rts.C.path), binding)
           raise E_RESTART()
         elif typedef is None or typedef in rts.builtin_types:
-          raise E_RESIDUAL([rts.obj_id(target), rts.grp_id(target)])
-          # vid = target[0]
-          # if values:
-          #   if vid not in rts.vmap:
-          #     rts.vmap[vid] = freevars.freshvar(rts)
-          #   x_algebraic = rts.vmap[vid]
-          #   target = graph.Node(rts.integer.narrow_int, values, x_algebraic)
-          #   graph.replace(rts, func, path, target)
-          # else:
-          #   int_value = integer.narrowed_int_value(rts, target)
-          #   if int_value is not None:
-          #     value = graph.Node(rts.prelude.Int, int_value)
-          #     rts.E = graph.replace_copy(rts, rts.E, tuple(rts.C.path), value)
-          #     raise E_RESTART()
-          #   raise E_RESIDUAL([rts.obj_id(target), rts.grp_id(target)])
+          vid = target[0]
+          if values:
+            target = make_integer_bindings(rts, vid, values)
+            graph.replace(rts, func, path, target)
+          elif rts.grp_id(vid) in rts.C.integer_bindings:
+            binding = rts.C.integer_bindings[rts.grp_id(vid)]
+            rts.E = graph.replace_copy(rts, rts.E, tuple(rts.C.path), binding)
+            raise E_RESTART()
+          else:
+            raise E_RESIDUAL([rts.obj_id(target), rts.grp_id(target)])
         else:
           target = rts.instantiate(func, path, typedef)
       elif tag == T_FWD:
@@ -252,4 +248,17 @@ def make_constraint(constr, node, path, rewrite=None):
   value = repl[0]
   pair = constr[1]
   return graph.Node(constr.info, value, pair, target=rewrite)
+
+def make_integer_bindings(rts, vid, values):
+  n = len(values)
+  assert n
+  if n == 1:
+    integer = graph.Node(rts.prelude.Int, values[0])
+    pair = graph.Node(rts.prelude.Pair, vid, integer)
+    return graph.Node(rts.prelude._IntegerBinding, integer, pair)
+  else:
+    cid = next(rts.idfactory)
+    left = make_integer_bindings(rts, vid, values[:n//2])
+    right = make_integer_bindings(rts, vid, values[n//2:])
+    return graph.Node(rts.prelude._Choice, cid, left, right)
 
