@@ -2,6 +2,10 @@ from ..... import icurry
 from .....common import T_CTOR
 from .. import graph
 
+__all__ = [
+    'info_of', 'make_choice', 'make_constraint', 'make_value_bindings', 'tag_of'
+  ]
+
 def tag_of(node):
   if isinstance(node, icurry.ILiteral):
     return T_CTOR
