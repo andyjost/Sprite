@@ -10,15 +10,21 @@ __all__ = [
   , 'update_binding'
   ]
 
-def add_binding(self, arg, node, config=None):
+def add_binding(self, arg, value, config=None):
   '''
-  Create a binding from ``arg`` to ``node``.
+  Create a binding from ``arg`` to ``value``.  The return value indicates
+  whether the binding succeeded.
   '''
-  assert not self.has_binding(arg, config=config)
   config = config or self.C
-  node = graph.Node.getitem(node)
-  vid = self.grp_id(arg)
-  config.bindings.write[vid] = node
+  value = graph.Node.getitem(value)
+  if self.has_binding(arg, config):
+    current = self.get_binding(arg, config)
+    assert current.info.typedef() in rts.builtin_types
+    return current.info is value.info and current[0] == value[0]
+  else:
+    vid = self.grp_id(arg)
+    config.bindings.write[vid] = value
+    return True
 
 def apply_binding(self, arg=None, config=None):
   '''
@@ -75,7 +81,5 @@ def update_binding(self, arg=None, config=None):
   i,j = self.obj_id(arg), self.grp_id(arg)
   if i != j:
     if i in config.bindings:
-      self.add_binding(j, config.bindings.write.pop(i), config=config)
-    if i in config.integer_bindings:
-      config.integer_bindings[j] = config.integer_bindings[i]
+      self.add_binding(j, self.get_binding(i, config), config=config)
 

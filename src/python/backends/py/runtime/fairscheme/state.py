@@ -16,7 +16,6 @@ Bindings = lambda: Shared(dict)
 class Configuration(object):
   def __init__(
       self, root, fingerprint=None, strict_constraints=None, bindings=None
-    , integer_bindings=None
     ):
     self.root = root
     self.fingerprint = Fingerprint() if fingerprint is None else fingerprint
@@ -25,7 +24,6 @@ class Configuration(object):
     self.bindings = Bindings() if bindings is None else bindings
     self.residuals = set()
     self.search_state = []
-    self.integer_bindings = {} if integer_bindings is None else integer_bindings
 
   @property
   def path(self):
@@ -37,14 +35,13 @@ class Configuration(object):
     return self.clone(self.root)
 
   def clone(self, root):
-    state = self.fingerprint, self.strict_constraints, self.bindings, self.integer_bindings
+    state = self.fingerprint, self.strict_constraints, self.bindings
     assert not self.residuals
     return Configuration(root, *map(copy, state))
 
   def __repr__(self):
-    return '{{fp=%s, cst=%s, bnd=%s, ibnd=%s}}' % (
+    return '{{fp=%s, cst=%s, bnd=%s}}' % (
         self.fingerprint, self.strict_constraints.read, self.bindings
-      , self.integer_bindings
       )
 
 

@@ -65,26 +65,18 @@ def constrain_equal(
 
   '''
   config = config or self.C
-  if constraint_type == INTEGER_BINDING:
-    vid = self.grp_id(arg0, config)
-    if config.integer_bindings.get(vid, arg1) != arg1:
-      return False
+  i, j = [self.obj_id(arg, config) for arg in [arg0, arg1]]
+  if i != j:
+    if constraint_type == STRICT_CONSTRAINT:
+      if not self.equate_fp(i, j, config=config):
+        return False
+      config.strict_constraints.write.unite(i, j)
+      self.update_binding(i, config=config)
+      self.update_binding(j, config=config)
+      if any(map(self.is_freevar_node, [arg0, arg1])):
+        return _constrain_equal_rec(self, i, j, config=config)
     else:
-      config.integer_bindings[vid] = arg1
-  else:
-    i, j = [self.obj_id(arg, config) for arg in [arg0, arg1]]
-    if i != j:
-      if constraint_type == STRICT_CONSTRAINT:
-        if not self.equate_fp(i, j, config=config):
-          return False
-        config.strict_constraints.write.unite(i, j)
-        self.update_binding(i, config=config)
-        self.update_binding(j, config=config)
-        if any(map(self.is_freevar_node, [arg0, arg1])):
-          if not _constrain_equal_rec(self, i, j, config=config):
-            return False
-      elif constraint_type == NONSTRICT_CONSTRAINT:
-        self.add_binding(i, arg1, config=config)
+      return self.add_binding(i, arg1, config=config)
   return True
 
 def _constrain_equal_rec(self, arg0, arg1, config=None):

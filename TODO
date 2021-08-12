@@ -15,3 +15,4 @@
 - fix tests in unit_py_pulltab.py
 - clean up the imports in prelude_impl.py
 - clean up the FIXME in interpreter/compile.py:82
+- make every call to hnf pass a typedef

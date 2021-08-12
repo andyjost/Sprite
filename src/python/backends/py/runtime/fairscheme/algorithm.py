@@ -1,17 +1,17 @@
 from .....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from ..control import E_CONTINUE, E_RESIDUAL, E_RESTART
 from . import freevars
-from . import integer
 from .. import graph
 from ..... import icurry
 from . import state
 from .. import trace
 from .....utility import exprutil
+from . import common
 
 @trace.trace_values
 def D(rts):
   while rts.ready():
-    tag = tag_of(rts.E)
+    tag = common.tag_of(rts.E)
     if tag == T_FAIL:
       rts.drop()
     elif tag == T_CONSTR:
@@ -25,12 +25,8 @@ def D(rts):
         rts.E = rts.get_binding()
       elif rts.is_narrowed():
         rts.E = rts.get_generator()
-      elif rts.grp_id() in rts.C.integer_bindings:
-        yield rts.C.integer_bindings[rts.grp_id()]
-        rts.drop()
       else:
-        value = rts.C.integer_bindings.get(rts.grp_id(), rts.E)
-        yield value
+        yield rts.E
         rts.drop()
     elif tag == T_FWD:
       rts.E = rts.E[()]
@@ -58,12 +54,12 @@ def N(rts):
     for state in exprutil.walk(rts.E):
       rts.C.search_state[-1] = state
       while True:
-        tag = tag_of(state.cursor)
+        tag = common.tag_of(state.cursor)
         if tag == T_FAIL:
           rts.drop()
           return False
         elif tag == T_CONSTR:
-          rts.E = make_constraint(state.cursor, rts.E, state.path)
+          rts.E = common.make_constraint(state.cursor, rts.E, state.path)
           return False
         elif tag == T_FREE:
           if rts.has_binding(state.cursor):
@@ -71,11 +67,7 @@ def N(rts):
             rts.E = graph.replace_copy(rts, rts.E, state.path, binding)
           elif rts.is_narrowed(state.cursor):
             gen = target = rts.get_generator(state.cursor)
-            rts.E = make_choice(rts, gen[0], rts.E, state.path, gen)
-            return False
-          elif rts.grp_id(state.cursor) in rts.C.integer_bindings:
-            value = rts.C.integer_bindings[rts.grp_id(state.cursor)]
-            rts.E = graph.replace_copy(rts, rts.E, state.path, value)
+            rts.E = common.make_choice(rts, gen[0], rts.E, state.path, gen)
             return False
           elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
             x = rts.get_freevar(rts.grp_id(state.cursor))
@@ -85,12 +77,12 @@ def N(rts):
         elif tag == T_FWD:
           state.spine[-1] = state.parent[state.path[-1]]
         elif tag == T_CHOICE:
-          rts.E = make_choice(rts, state.cursor[0], rts.E, state.path)
+          rts.E = common.make_choice(rts, state.cursor[0], rts.E, state.path)
           return False
         elif tag == T_FUNC:
           S(rts, state.cursor)
         elif tag >= T_CTOR:
-          if info_of(state.cursor) is not rts.prelude._PartApplic.info:
+          if common.info_of(state.cursor) is not rts.prelude._PartApplic.info:
             state.push()
           break
     return True
@@ -155,17 +147,17 @@ def hnf(rts, func, path, typedef=None, values=None):
     while True:
       if isinstance(target, icurry.ILiteral):
         return target
-      tag = tag_of(target)
+      tag = common.tag_of(target)
       if tag == T_FAIL:
         func.rewrite(rts.prelude._Failure)
         raise E_CONTINUE()
       elif tag == T_CONSTR:
-        make_constraint(target, func, path, rewrite=func)
+        common.make_constraint(target, func, path, rewrite=func)
         raise E_CONTINUE()
       elif tag == T_FREE:
         if rts.has_generator(target):
           gen = rts.get_generator(target)
-          make_choice(rts, gen[0], func, path, gen, rewrite=func)
+          common.make_choice(rts, gen[0], func, path, gen, rewrite=func)
           raise E_CONTINUE()
         elif rts.has_binding(target):
           binding = rts.get_binding(target)
@@ -174,12 +166,8 @@ def hnf(rts, func, path, typedef=None, values=None):
         elif typedef is None or typedef in rts.builtin_types:
           vid = target[0]
           if values:
-            target = make_integer_bindings(rts, vid, values)
+            target = common.make_value_bindings(rts, vid, values)
             graph.replace(rts, func, path, target)
-          elif rts.grp_id(vid) in rts.C.integer_bindings:
-            binding = rts.C.integer_bindings[rts.grp_id(vid)]
-            rts.E = graph.replace_copy(rts, rts.E, tuple(rts.C.path), binding)
-            raise E_RESTART()
           else:
             raise E_RESIDUAL([rts.obj_id(target), rts.grp_id(target)])
         else:
@@ -187,7 +175,7 @@ def hnf(rts, func, path, typedef=None, values=None):
       elif tag == T_FWD:
         target = func[path]
       elif tag == T_CHOICE:
-        make_choice(rts, target[0], func, path, rewrite=func)
+        common.make_choice(rts, target[0], func, path, rewrite=func)
         raise E_CONTINUE()
       elif tag == T_FUNC:
         try:
@@ -210,55 +198,8 @@ def normalize(rts, func, path, ground):
     except E_RESIDUAL:
       if ground:
         raise
-    if tag_of(state.cursor) >= T_CTOR:
-      if info_of(state.cursor) is not rts.prelude._PartApplic.info:
+    if common.tag_of(state.cursor) >= T_CTOR:
+      if common.info_of(state.cursor) is not rts.prelude._PartApplic.info:
         state.push()
   return func[path]
-
-def tag_of(node):
-  if isinstance(node, icurry.ILiteral):
-    return T_CTOR
-  else:
-    return node.info.tag
-
-def info_of(node):
-  if isinstance(node, icurry.ILiteral):
-    return None
-  else:
-    return node.info
-
-def make_choice(rts, cid, node, path, generator=None, rewrite=None):
-  '''
-  Make a choice node with ID ``cid`` whose alternatives are derived by
-  replacing ``node[path]`` with the alternatives of choice-rooted
-  expression``alternatives``.  If ``alternatives`` is not specified, then
-  ``node[path]`` is used.  If ``rewrite`` is supplied, the specified node is
-  overwritten.  Otherwise a new node is created.
-  '''
-  repl = graph.Replacer(node, path, alternatives=generator)
-  return graph.Node(rts.prelude._Choice, cid, repl[1], repl[2], target=rewrite)
-
-def make_constraint(constr, node, path, rewrite=None):
-  '''
-  Make a new constraint object based on ``constr``, which is located at
-  node[path].  If ``rewrite`` is supplied, the specified node is overwritten.
-  Otherwise a new node is created.
-  '''
-  repl = graph.Replacer(node, path)
-  value = repl[0]
-  pair = constr[1]
-  return graph.Node(constr.info, value, pair, target=rewrite)
-
-def make_integer_bindings(rts, vid, values):
-  n = len(values)
-  assert n
-  if n == 1:
-    integer = graph.Node(rts.prelude.Int, values[0])
-    pair = graph.Node(rts.prelude.Pair, vid, integer)
-    return graph.Node(rts.prelude._IntegerBinding, integer, pair)
-  else:
-    cid = next(rts.idfactory)
-    left = make_integer_bindings(rts, vid, values[:n//2])
-    right = make_integer_bindings(rts, vid, values[n//2:])
-    return graph.Node(rts.prelude._Choice, cid, left, right)
 
