@@ -130,7 +130,10 @@ class RuntimeState(object):
       add_binding, apply_binding, get_binding, has_binding, update_binding
     )
   from .rts_constraints import constraint_type, constrain_equal
-  from .rts_control import append, drop, extend, ready, rotate
+  from .rts_control import (
+      append, catch_control, drop, extend, ready, restart, rotate, suspend
+    , unwind
+    )
   from .rts_fingerprint import (
       equate_fp, fork, grp_id, obj_id, read_fp, update_fp
     )

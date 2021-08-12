@@ -55,7 +55,10 @@ def instantiate(self, func, path, typedef, config=None):
     The expression the free variable was replaced with.
   '''
   config = config or self.C
-  return freevars.instantiate(self, func, path, typedef)
+  if typedef is None:
+    self.suspend(func[path], config)
+  else:
+    return freevars.instantiate(self, func, path, typedef)
 
 def is_choice_or_freevar_node(self, node):
   '''Indicates whether the given argument is a choice or free variable.'''

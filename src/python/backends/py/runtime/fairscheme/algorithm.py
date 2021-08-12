@@ -1,12 +1,11 @@
 from .....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from ..control import E_CONTINUE, E_RESIDUAL, E_RESTART
+from . import common
 from . import freevars
 from .. import graph
 from ..... import icurry
 from . import state
 from .. import trace
 from .....utility import exprutil
-from . import common
 
 @trace.trace_values
 def D(rts):
@@ -34,18 +33,13 @@ def D(rts):
       rts.extend(rts.fork())
       rts.drop()
     else:
-      try:
+      with rts.catch_control(residual=True, restart=True):
         if tag == T_FUNC:
           S(rts, rts.E)
         elif tag >= T_CTOR:
           if N(rts):
             yield rts.E
             rts.drop()
-      except E_RESIDUAL as res:
-        rts.C.residuals.update(res.ids)
-        rts.rotate()
-      except E_RESTART:
-        pass
 
 def N(rts):
   C = rts.C
@@ -91,11 +85,9 @@ def N(rts):
 
 @trace.trace_steps
 def S(rts, node):
-  try:
+  with rts.catch_control(unwind=True):
     node.info.step(rts, node)
     rts.stepcounter.increment()
-  except E_CONTINUE:
-    pass
 
 def hnf(rts, func, path, typedef=None, values=None):
   '''
@@ -128,17 +120,6 @@ def hnf(rts, func, path, typedef=None, values=None):
   Returns:
   --------
     The subexpression after reducing it to a constructor-rooted expression.
-
-  Raises:
-  -------
-    ``E_CONTINUE``
-        If the func was overwritten due to a pull-tab step or failure.
-
-    ``E_RESIDUAL``
-        If a non-narrowable free variable occurs at the inductive position.
-        This can happen for infinite types (e.g., Int) and functions with
-        infinite defining rules (e.g., +).
-
   '''
   target = func[path]
   C = rts.C
@@ -150,38 +131,35 @@ def hnf(rts, func, path, typedef=None, values=None):
       tag = common.tag_of(target)
       if tag == T_FAIL:
         func.rewrite(rts.prelude._Failure)
-        raise E_CONTINUE()
+        rts.unwind()
       elif tag == T_CONSTR:
         common.make_constraint(target, func, path, rewrite=func)
-        raise E_CONTINUE()
+        rts.unwind()
       elif tag == T_FREE:
         if rts.has_generator(target):
           gen = rts.get_generator(target)
           common.make_choice(rts, gen[0], func, path, gen, rewrite=func)
-          raise E_CONTINUE()
+          rts.unwind()
         elif rts.has_binding(target):
           binding = rts.get_binding(target)
           rts.E = graph.replace_copy(rts, rts.E, tuple(rts.C.path), binding)
-          raise E_RESTART()
-        elif typedef is None or typedef in rts.builtin_types:
+          rts.restart()
+        elif typedef in rts.builtin_types:
           vid = target[0]
           if values:
             target = common.make_value_bindings(rts, vid, values)
             graph.replace(rts, func, path, target)
           else:
-            raise E_RESIDUAL([rts.obj_id(target), rts.grp_id(target)])
+            rts.suspend(target)
         else:
           target = rts.instantiate(func, path, typedef)
       elif tag == T_FWD:
         target = func[path]
       elif tag == T_CHOICE:
         common.make_choice(rts, target[0], func, path, rewrite=func)
-        raise E_CONTINUE()
+        rts.unwind()
       elif tag == T_FUNC:
-        try:
-          S(rts, target)
-        except E_CONTINUE:
-          pass
+        S(rts, target)
       elif tag >= T_CTOR:
         return target
   finally:
@@ -193,11 +171,8 @@ def normalize(rts, func, path, ground):
   $##.
   '''
   for state in exprutil.walk(func, path=path):
-    try:
+    with rts.catch_control(ground=ground):
       hnf(rts, func, state.path)
-    except E_RESIDUAL:
-      if ground:
-        raise
     if common.tag_of(state.cursor) >= T_CTOR:
       if common.info_of(state.cursor) is not rts.prelude._PartApplic.info:
         state.push()

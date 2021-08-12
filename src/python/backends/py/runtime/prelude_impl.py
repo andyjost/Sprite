@@ -39,9 +39,9 @@ def narrow_integer_args(f):
   '''
   def repl(rts, root):
     args = [hnf_or_free_int(rts, root, i) for i in range(len(root))]
-    res = [get_id(arg) for arg in args if inspect.isa_freevar(rts, arg)]
-    if res:
-      raise E_RESIDUAL(res)
+    variables = filter(rts.is_freevar_node, args)
+    if variables:
+      rts.suspend(variables)
     else:
       return f(rts, *args)
   return repl
@@ -517,7 +517,7 @@ def apply_gnf(rts, root):
 def ensureNotFree(rts, root):
   arg = root[0]
   if rts.is_free(arg):
-    raise E_RESIDUAL([arg[0]])
+    rts.suspend(arg)
   yield rts.prelude._Fwd
   yield arg
 

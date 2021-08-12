@@ -13,6 +13,6 @@
 - clean up the inspect module
 - fix tests in unit_py_constraints.py
 - fix tests in unit_py_pulltab.py
-- clean up the imports in prelude_impl.py
 - clean up the FIXME in interpreter/compile.py:82
-- make every call to hnf pass a typedef
+- Rename T_FREE to T_VAR
+- Make binding work for Float and Char, too
