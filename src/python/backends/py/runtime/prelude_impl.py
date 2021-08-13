@@ -5,7 +5,6 @@ from ....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .control import E_RESIDUAL
 from ....exceptions import *
 from .fairscheme.algorithm import normalize, hnf
-from .fairscheme.freevars import get_generator, get_id
 from .graph import Node
 from .... import inspect
 import collections

@@ -1,6 +1,4 @@
 from .....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from . import common
-from . import freevars
 from .. import graph
 from ..... import icurry
 from . import state
@@ -10,7 +8,7 @@ from .....utility import exprutil
 @trace.trace_values
 def D(rts):
   while rts.ready():
-    tag = common.tag_of(rts.E)
+    tag = graph.tag_of(rts.E)
     if tag == T_FAIL:
       rts.drop()
     elif tag == T_CONSTR:
@@ -48,12 +46,12 @@ def N(rts):
     for state in exprutil.walk(rts.E):
       rts.C.search_state[-1] = state
       while True:
-        tag = common.tag_of(state.cursor)
+        tag = graph.tag_of(state.cursor)
         if tag == T_FAIL:
           rts.drop()
           return False
         elif tag == T_CONSTR:
-          rts.E = common.make_constraint(state.cursor, rts.E, state.path)
+          rts.E = graph.make_constraint(state.cursor, rts.E, state.path)
           return False
         elif tag == T_VAR:
           if rts.has_binding(state.cursor):
@@ -61,7 +59,7 @@ def N(rts):
             rts.E = graph.replace_copy(rts, rts.E, state.path, binding)
           elif rts.is_narrowed(state.cursor):
             gen = target = rts.get_generator(state.cursor)
-            rts.E = common.make_choice(rts, gen[0], rts.E, state.path, gen)
+            rts.E = graph.make_choice(rts, gen[0], rts.E, state.path, gen)
             return False
           elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
             x = rts.get_variable(rts.grp_id(state.cursor))
@@ -71,12 +69,12 @@ def N(rts):
         elif tag == T_FWD:
           state.spine[-1] = state.parent[state.path[-1]]
         elif tag == T_CHOICE:
-          rts.E = common.make_choice(rts, state.cursor[0], rts.E, state.path)
+          rts.E = graph.make_choice(rts, state.cursor[0], rts.E, state.path)
           return False
         elif tag == T_FUNC:
           S(rts, state.cursor)
         elif tag >= T_CTOR:
-          if common.info_of(state.cursor) is not rts.prelude._PartApplic.info:
+          if graph.info_of(state.cursor) is not rts.prelude._PartApplic.info:
             state.push()
           break
     return True
@@ -128,17 +126,17 @@ def hnf(rts, func, path, typedef=None, values=None):
     while True:
       if isinstance(target, icurry.ILiteral):
         return target
-      tag = common.tag_of(target)
+      tag = graph.tag_of(target)
       if tag == T_FAIL:
         func.rewrite(rts.prelude._Failure)
         rts.unwind()
       elif tag == T_CONSTR:
-        common.make_constraint(target, func, path, rewrite=func)
+        graph.make_constraint(target, func, path, rewrite=func)
         rts.unwind()
       elif tag == T_VAR:
         if rts.has_generator(target):
           gen = rts.get_generator(target)
-          common.make_choice(rts, gen[0], func, path, gen, rewrite=func)
+          graph.make_choice(rts, gen[0], func, path, gen, rewrite=func)
           rts.unwind()
         elif rts.has_binding(target):
           binding = rts.get_binding(target)
@@ -146,7 +144,7 @@ def hnf(rts, func, path, typedef=None, values=None):
           rts.restart()
         elif typedef in rts.builtin_types:
           if values:
-            target = common.make_value_bindings(rts, target, values)
+            target = graph.make_value_bindings(rts, target, values)
             graph.replace(rts, func, path, target)
           else:
             rts.suspend(target)
@@ -155,7 +153,7 @@ def hnf(rts, func, path, typedef=None, values=None):
       elif tag == T_FWD:
         target = func[path]
       elif tag == T_CHOICE:
-        common.make_choice(rts, target[0], func, path, rewrite=func)
+        graph.make_choice(rts, target[0], func, path, rewrite=func)
         rts.unwind()
       elif tag == T_FUNC:
         S(rts, target)
@@ -172,8 +170,8 @@ def normalize(rts, func, path, ground):
   for state in exprutil.walk(func, path=path):
     with rts.catch_control(ground=ground):
       hnf(rts, func, state.path)
-    if common.tag_of(state.cursor) >= T_CTOR:
-      if common.info_of(state.cursor) is not rts.prelude._PartApplic.info:
+    if graph.tag_of(state.cursor) >= T_CTOR:
+      if graph.info_of(state.cursor) is not rts.prelude._PartApplic.info:
         state.push()
   return func[path]
 

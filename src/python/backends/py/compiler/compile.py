@@ -4,7 +4,7 @@ from .... import icurry
 from . import render
 from ..runtime.graph import Node
 from ..runtime.fairscheme.algorithm import hnf
-from ..runtime.fairscheme.freevars import freshvar
+# from ..runtime.fairscheme.freevars import freshvar
 from ..runtime import prelude_impl
 from ....utility import encoding, visitation, formatDocstring
 from ....utility import filesys
@@ -266,9 +266,8 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.IFreeDecl)
   def statement(self, vardecl):
-    self.closure['freshvar'] = freshvar
     varname = self.expression(vardecl.lhs)
-    yield '%s = freshvar(rts)' % varname
+    yield '%s = rts.freshvar()' % varname
 
   @statement.when(icurry.IVarAssign)
   def statement(self, assign):

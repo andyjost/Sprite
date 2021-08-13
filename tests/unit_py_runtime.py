@@ -3,7 +3,7 @@ from copy import copy
 from curry.common import T_FAIL, T_CHOICE
 from curry.backends.py.runtime.control import E_CONTINUE
 from curry.backends.py.runtime.graph import Node
-from curry.backends.py.runtime.fairscheme.freevars import instantiate, _gen_ctors, freshvar
+from curry.backends.py.runtime.fairscheme.rts_variables import _gen_ctors
 from curry.backends.py.runtime.fairscheme.state import Bindings, RuntimeState
 from curry import icurry
 from curry import inspect
@@ -337,8 +337,7 @@ class TestInstantiation(cytest.TestCase):
     return [self.interp.prelude._Choice, conversions.unboxed(cid), l, r]
 
   def u(self, rts):
-    return freshvar(rts)
-    # return self.interp.prelude.unknown
+    return rts.freshvar()
 
   def x(self, cid):
     return Node(
@@ -350,7 +349,7 @@ class TestInstantiation(cytest.TestCase):
   def test_basic(self):
     interp,q,x,e = self.interp, self.q, self.x, self.e(typename='()')
     rts = RuntimeState(interp)
-    instance = instantiate(rts, e, [0], interp.type('Prelude.[]'))
+    instance = rts.instantiate(e, [0], interp.type('Prelude.[]'))
     au = curry.expr(*q(0, [interp.prelude.Cons, x(1), x(2)], [interp.prelude.Nil]))
     self.assertEqual(instance, au)
 
@@ -369,7 +368,7 @@ class TestInstantiation(cytest.TestCase):
     # Instantiating a type with one constructor is a special case.
     interp,q,e = self.interp, self.q, self.e(typename='()')
     rts = RuntimeState(interp)
-    instance = instantiate(rts, e, [0], interp.type('Prelude.()'))
+    instance = rts.instantiate(e, [0], interp.type('Prelude.()'))
     au = curry.expr(*q(0, [interp.prelude.Unit], [interp.prelude._Failure]))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, interp.prelude, '()', instance)
@@ -384,7 +383,7 @@ class TestInstantiation(cytest.TestCase):
     Type = interp.compile('data T = A|B|C|D|E|F|G', modulename='Type')
     e = self.e(typename='Type.T', imports=Type)
     rts = RuntimeState(interp)
-    instance = instantiate(rts, e, [0], interp.type('Type.T'))
+    instance = rts.instantiate(e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
@@ -399,7 +398,7 @@ class TestInstantiation(cytest.TestCase):
     Type = interp.compile('data T = A|B|C|D|E|F', modulename='Type')
     e = self.e(typename='Type.T', imports=Type)
     rts = RuntimeState(interp)
-    instance = instantiate(rts, e, [0], interp.type('Type.T'))
+    instance = rts.instantiate(e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
@@ -413,7 +412,7 @@ class TestInstantiation(cytest.TestCase):
     Type = interp.compile('data T a = A|B a|C a a|D a a a|E a a a a', modulename='Type')
     e = self.e(typename='Type.T ()', imports=Type)
     rts = RuntimeState(interp)
-    instance = instantiate(rts, e, [0], interp.type('Type.T'))
+    instance = rts.instantiate(e, [0], interp.type('Type.T'))
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, x(3)]), [Type.C, x(4), x(5)]), q(6, [Type.D, x(7), x(8), x(9)], [Type.E, x(10), x(11), x(12), x(13)])))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)

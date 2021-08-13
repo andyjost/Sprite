@@ -5,14 +5,9 @@ import numbers
 import operator
 
 __all__ = [
-    'InfoTable'
-  , 'Node'
-  , 'lift_choice'
-  , 'lift_constr'
-  , 'replace'
-  , 'replace_copy'
-  , 'Replacer'
-  , 'rewrite'
+    'InfoTable', 'Node', 'Replacer'
+  , 'info_of', 'make_choice', 'make_constraint', 'make_value_bindings'
+  , 'replace', 'replace_copy', 'rewrite', 'tag_of'
   ]
 
 class InfoTable(object):
@@ -68,6 +63,7 @@ class InfoTable(object):
       , ')'
       ])
 
+context.InfoTable.register(InfoTable)
 
 class Node(object):
   '''An expression node.'''
@@ -222,7 +218,6 @@ class Node(object):
     Node(info, *args, target=self)
 
 context.Node.register(Node)
-context.InfoTable.register(InfoTable)
 
 class Replacer(object):
   '''
@@ -283,75 +278,47 @@ class Replacer(object):
     self.index = i
     return self._a_(self.context)
 
-def lift_choice(rts, source, path):
+
+def info_of(node):
+  if isinstance(node, icurry.ILiteral):
+    return None
+  else:
+    return node.info
+
+def make_choice(rts, cid, node, path, generator=None, rewrite=None):
   '''
-  Executes a pull-tab step with source ``source`` and choice-rooted target
-  ``source[path]``.  If the source is constructor-rooted, the frame root is
-  updated.
-
-  Parameters:
-  -----------
-    ``rts``
-      The RuntimeState object.
-
-    ``source``
-      The pull-tab source.  This node will be overwritten with a choice symbol.
-
-    ``path``
-      A sequence of integers giving the path from ``source`` to the target
-      choice or constraint.
+  Make a choice node with ID ``cid`` whose alternatives are derived by
+  replacing ``node[path]`` with the alternatives of choice-rooted
+  expression``alternatives``.  If ``alternatives`` is not specified, then
+  ``node[path]`` is used.  If ``rewrite`` is supplied, the specified node is
+  overwritten.  Otherwise a new node is created.
   '''
-  assert source.info.tag != T_FWD
-  ctor_root = source.info.tag >= T_CTOR
-  assert path
-  replacer = Replacer(source, path)
-  left = replacer[1]
-  right = replacer[2]
-  assert replacer.target.info.tag == T_CHOICE
-  node = Node(
-      rts.prelude._Choice
-    , replacer.target[0] # choice ID
-    , left
-    , right
-    , target=None if ctor_root else source
-    )
-  if ctor_root:
-    assert rts.currentframe.expr is source
-    rts.currentframe.expr = node
+  repl = Replacer(node, path, alternatives=generator)
+  return Node(rts.prelude._Choice, cid, repl[1], repl[2], target=rewrite)
 
-def lift_constr(rts, source, path):
+def make_constraint(constr, node, path, rewrite=None):
   '''
-  Executes a pull-tab step with source ``source`` and constraint-rooted target
-  ``source[path]``.
-
-  Parameters:
-  -----------
-    ``rts``
-      The RuntimeState object.
-
-    ``source``
-      The pull-tab source.  This node will be overwritten with a constraint
-      symbol.
-
-    ``path``
-      A sequence of integers giving the path from ``source`` to the target
-      choice or constraint.
+  Make a new constraint object based on ``constr``, which is located at
+  node[path].  If ``rewrite`` is supplied, the specified node is overwritten.
+  Otherwise a new node is created.
   '''
-  assert source.info.tag != T_FWD
-  ctor_root = source.info.tag >= T_CTOR
-  assert path
-  replacer = Replacer(source, path)
-  value = replacer[0]
-  assert replacer.target.info.tag == T_CONSTR
-  node = Node(
-      replacer.target.info
-    , value
-    , replacer.target[1] # binding
-    , target=None if ctor_root else source
-    )
-  if ctor_root:
-    assert rts.currentframe.expr is source
-    rts.currentframe.expr = node
+  repl = Replacer(node, path)
+  value = repl[0]
+  pair = constr[1]
+  return Node(constr.info, value, pair, target=rewrite)
+
+def make_value_bindings(rts, var, values):
+  n = len(values)
+  assert n
+  if n == 1:
+    value = Node(rts.prelude.Int, values[0])
+    pair = Node(rts.prelude.Pair, rts.obj_id(var), value)
+    return Node(rts.prelude._IntegerBinding, value, pair)
+  else:
+    cid = next(rts.idfactory)
+    left = make_value_bindings(rts, var, values[:n//2])
+    right = make_value_bindings(rts, var, values[n//2:])
+    return Node(rts.prelude._Choice, cid, left, right)
 
 def replace(rts, context, path, replacement):
   replacer = Replacer(context, path, lambda _a, _b: replacement)
@@ -365,3 +332,9 @@ def replace_copy(rts, context, path, replacement):
 
 def rewrite(node, info, *args):
   return node.rewrite(info, *args)
+
+def tag_of(node):
+  if isinstance(node, icurry.ILiteral):
+    return T_CTOR
+  else:
+    return node.info.tag

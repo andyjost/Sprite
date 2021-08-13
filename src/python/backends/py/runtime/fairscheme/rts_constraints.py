@@ -5,8 +5,6 @@ intended to be imported except by state.py.
 
 import itertools
 from .....utility import exprutil
-from . import freevars
-from . import common
 from .....common import T_VAR, T_CHOICE
 
 STRICT_CONSTRAINT = 0
@@ -138,7 +136,7 @@ def _constrain_equal_rec(self, arg0, arg1, config=None):
       for x in xs:
         if x is not pivot:
           if not self.has_generator(x):
-            freevars.clone_generator(self, pivot, x)
+            self.clone_generator(pivot, x)
           v = self.get_generator(x, config=config)
           for p, q in itertools.izip(*[exprutil.walk(uv) for uv in [u,v]]):
             if self.is_nondet(p.cursor):

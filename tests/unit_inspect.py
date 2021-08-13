@@ -2,7 +2,6 @@ import cytest # from ./lib; must be first
 import curry
 from curry import inspect
 from curry.backends.py.runtime.fairscheme.state import RuntimeState
-from curry.backends.py.runtime.fairscheme.freevars import freshvar
 
 def step(interp, *args):
   from cytest.step import step
@@ -23,7 +22,7 @@ class TestInspect(cytest.TestCase):
     cls.io = curry.expr(prelude.IO, prelude.True)
     cls.tuple_ = curry.expr((1,2,3))
     cls.list_ = curry.expr([1,2,3])
-    cls.freevar = freshvar(cls.rts)
+    cls.freevar = cls.rts.freshvar()
     cls.failure = step(cls.interp, prelude.failed)
     cls.fwd = curry.expr(prelude._Fwd, prelude.True)
     cls.choice = step(cls.interp, getattr(prelude, '?'), 0, 1)

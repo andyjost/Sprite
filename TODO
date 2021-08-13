@@ -9,10 +9,9 @@
       >>> a = curry.compile('''let a = True:b ; b = False:a in a''', 'expr')
       UnboundLocalError: local variable '_2' referenced before assignment
 - Move breakpoint into the curry module.
-- Break down the Python runtime library.  It is too big.
 - clean up the inspect module
 - fix tests in unit_py_constraints.py
 - fix tests in unit_py_pulltab.py
 - clean up the FIXME in interpreter/compile.py:82
-- Rename T_FREE to T_VAR
 - Make binding work for Float and Char, too
+- Make 'non-determinism in I\O' work as expected.

@@ -137,8 +137,9 @@ class RuntimeState(object):
   from .rts_fingerprint import (
       equate_fp, fork, grp_id, obj_id, read_fp, update_fp
     )
-  from .rts_freevars import (
-      get_generator, get_variable, has_generator, instantiate, is_free
-    , is_narrowed, is_nondet, is_variable, register_variable
+  from .rts_variables import (
+      clone_generator, freshvar, freshvar_args, get_generator, get_variable
+    , has_generator, instantiate, is_free, is_narrowed, is_nondet, is_variable
+    , register_variable
     )
 

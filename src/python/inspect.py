@@ -105,8 +105,8 @@ def is_boxed(interp, node):
   return isinstance(node, context.Node)
 
 def get_id(interp, arg):
-  from backends.py.runtime.fairscheme.freevars import get_id as _get_id
-  return _get_id(arg)
+  if isa_choice(interp, arg) or isa_freevar(interp, arg):
+    return arg[0]
 
 def _getfile(moduleobj, suffixes):
   if moduleobj.__file__:

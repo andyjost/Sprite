@@ -2,7 +2,6 @@ import cytest # from ./lib; must be first
 from curry.common import LEFT, RIGHT, UNDETERMINED
 from curry.backends.py.runtime import typecheckers as tc
 from curry.backends.py.runtime.fairscheme.state import RuntimeState
-from curry.backends.py.runtime.fairscheme.freevars import freshvar
 from curry.backends.py.runtime.graph import Node
 import curry
 import unittest
@@ -53,7 +52,7 @@ class TestPyTypeChecks(cytest.TestCase):
       I = curry.interpreter.Interpreter(flags={'debug':debug})
       rts = RuntimeState(I)
       q = I.symbol('Prelude.?')
-      x,y = list(I.eval(q, freshvar(rts), freshvar(rts)))
+      x,y = list(I.eval(q, rts.freshvar(), rts.freshvar()))
       for constraint_type in [I.prelude._StrictConstraint, I.prelude._NonStrictConstraint]:
         self.assertMayRaise(
             None
