@@ -1,9 +1,7 @@
 from copy import copy
 from . import stepcounter
 from ...sprite import Fingerprint
-from .....utility import shared
-from .....utility import unionfind
-from .....utility.shared import Shared
+from .....utility import shared, unionfind
 import collections
 import itertools
 
@@ -11,7 +9,7 @@ class DefaultDict(shared.DefaultDict):
   def __repr__(self):
     return '{%s}' % ','.join('%s:%s' % (k,v) for k,v in self.iteritems())
 
-Bindings = lambda: Shared(dict)
+Bindings = lambda: shared.Shared(dict)
 
 class Configuration(object):
   def __init__(
@@ -19,7 +17,7 @@ class Configuration(object):
     ):
     self.root = root
     self.fingerprint = Fingerprint() if fingerprint is None else fingerprint
-    self.strict_constraints = Shared(unionfind.UnionFind) \
+    self.strict_constraints = shared.Shared(unionfind.UnionFind) \
         if strict_constraints is None else strict_constraints
     self.bindings = Bindings() if bindings is None else bindings
     self.residuals = set()

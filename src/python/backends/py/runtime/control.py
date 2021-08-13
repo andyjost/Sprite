@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 __all__ = [
     'RuntimeFlowException'
   , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT', 'E_TERMINATE'

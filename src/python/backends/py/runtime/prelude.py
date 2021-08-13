@@ -1,7 +1,6 @@
-from .... import context, icurry, inspect
 from ....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from . import prelude_impl as impl
-from . import typecheckers as tc
+from .... import context, icurry, inspect
+from . import prelude_impl as impl, typecheckers as tc
 import math
 import operator as op
 

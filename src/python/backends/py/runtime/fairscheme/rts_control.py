@@ -5,7 +5,6 @@ not intended to be imported except by state.py.
 
 from ..control import E_CONTINUE, E_RESIDUAL, E_RESTART
 from .....exceptions import EvaluationSuspended
-from . import integer
 import contextlib
 
 __all__ = [

@@ -3,9 +3,11 @@ Implements RuntimeState methods related to free variables.  This module is not
 intended to be imported except by state.py.
 '''
 
-from .....common import T_FAIL, T_VAR, T_CHOICE, T_CTOR
+from .....common import (
+    LEFT, RIGHT, UNDETERMINED, ChoiceState
+  , T_FAIL, T_VAR, T_CHOICE, T_CTOR
+  )
 from .. import graph
-from ...sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED, ChoiceState
 
 __all__ = [
     'clone_generator', 'freshvar_args', 'freshvar', 'get_generator'

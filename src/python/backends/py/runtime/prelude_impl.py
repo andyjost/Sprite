@@ -8,10 +8,8 @@ from .fairscheme.algorithm import normalize, hnf
 from .graph import Node
 from .... import inspect
 import collections
-import itertools
 import logging
 import operator as op
-import re
 
 logger = logging.getLogger(__name__)
 

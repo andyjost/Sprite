@@ -4,8 +4,7 @@ intended to be imported except by state.py.
 '''
 
 from copy import copy
-from .....common import T_VAR, T_CHOICE
-from .....common import LEFT, RIGHT, UNDETERMINED, ChoiceState
+from .....common import T_VAR, T_CHOICE, LEFT, RIGHT, UNDETERMINED, ChoiceState
 
 __all__ = [
     'equate_fp', 'grp_id', 'obj_id', 'make_left', 'make_right', 'read_fp'

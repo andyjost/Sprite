@@ -1,8 +1,6 @@
 from .....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from .. import graph
+from .. import graph, trace
 from ..... import icurry
-from . import state
-from .. import trace
 from .....utility import exprutil
 
 @trace.trace_values

@@ -2,8 +2,7 @@
 Code for evaluating Curry expressions.
 '''
 
-from . import algorithm
-from . import state
+from . import algorithm, state
 
 class Evaluator(object):
   '''Manages the evaluation of a Curry expression.'''
