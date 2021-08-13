@@ -202,10 +202,10 @@ _functions_ = [
   , _F('prim_putChar', 1, metadata={'py.boxedfunc':impl.putChar})
   , _F('getChar', 0, metadata={'py.boxedfunc':impl.getChar})
   , _F('prim_readFile', 1, metadata={'py.boxedfunc':impl.readFile})
-# prim_readFileContents          :: String -> String
-# prim_writeFile         :: String -> String -> IO ()
-# prim_appendFile         :: String -> String -> IO ()
+  , _F('prim_writeFile', 2, metadata={'py.rawfunc':impl.writeFile})
+  , _F('prim_appendFile', 2, metadata={'py.rawfunc':impl.appendFile})
 # catch :: IO a -> (IOError -> IO a) -> IO a
+# prim_ioError :: IOError -> IO _ 
   , _F('prim_showCharLiteral', 1, metadata={'py.boxedfunc':impl.show})
   , _F('prim_showStringLiteral', 1, metadata={'py.boxedfunc':impl.show})
   , _F('prim_showIntLiteral', 1, metadata={'py.boxedfunc':impl.show})

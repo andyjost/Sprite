@@ -485,6 +485,30 @@ def readFile(rts, filename):
   yield rts.prelude._PyGenerator
   yield gen
 
+def writeFile(rts, func, mode='w'):
+  filename, data = func
+  filename = rts.topython(filename)
+  stream = open(filename, 'w')
+  listtype = rts.prelude.Cons.typedef()
+  chartype = rts.prelude.Char.typedef()
+  while True:
+    listnode = hnf(rts, func, [1], listtype)
+    tag = tag_of(listnode)
+    if tag == 0: # Cons
+      char, tail = listnode
+      char = hnf(rts, func, [1,0], chartype)
+      stream.write(char[0])
+      func.successors[1] = tail
+    elif tag == 1: # Nil
+      yield rts.prelude.IO
+      yield Node(rts.prelude.Unit)
+      break
+    else:
+      assert False
+
+def appendFile(rts, func):
+  return writeFile(func, 'w+')
+
 def show(rts, arg, xform=None):
   if inspect.is_boxed(rts, arg):
     string = arg.info.show(arg, xform)
@@ -496,20 +520,23 @@ def show(rts, arg, xform=None):
   yield rts.prelude._Fwd
   yield result
 
-def apply_hnf(rts, root):
+def apply_impl(rts, root, impl, **kwds):
+  partapplic = hnf(rts, root, [0])
+  func = partapplic[1]
+  with rts.catch_control(nondet_io=rts.is_io(func)):
+    result = impl(rts, root, [1], **kwds)
   yield rts.prelude.apply
   yield root[0]
-  yield hnf(rts, root, [1])
+  yield result
+
+def apply_hnf(rts, root):
+  return apply_impl(rts, root, hnf)
 
 def apply_nf(rts, root):
-  yield rts.prelude.apply
-  yield root[0]
-  yield normalize(rts, root, [1], ground=False)
+  return apply_impl(rts, root, normalize, ground=False)
 
 def apply_gnf(rts, root):
-  yield rts.prelude.apply
-  yield root[0]
-  yield normalize(rts, root, [1], ground=True)
+  return apply_impl(rts, root, normalize, ground=True)
 
 def ensureNotFree(rts, root):
   arg = hnf_or_free(rts, root, 0)

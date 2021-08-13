@@ -1,6 +1,8 @@
 import cytest # from ./lib; must be first
 from cStringIO import StringIO
+from curry.utility import _tempfile
 import curry
+import os
 import unittest
 
 class TestPyIO(cytest.TestCase):
@@ -20,7 +22,26 @@ class TestPyIO(cytest.TestCase):
     self.assertEqual(stdout.getvalue(), "Hello, World!")
     self.assertEqual(str(result), 'IO ()')
 
-  @unittest.expectedFailure
+  @cytest.with_flags(defaultconverter='topython')
+  def test_readfile(self):
+    goal = curry.compile('readFile "data/sample.txt"', 'expr')
+    result = list(curry.eval(goal))
+    self.assertEqual(
+      result, ["this is a file\ncontaining sample text\n\n(the end)\n"]
+      )
+
+  def test_writefile(self):
+    with _tempfile.TemporaryDirectory() as tmpdir:
+      cwd = os.getcwd()
+      os.chdir(tmpdir)
+      try:
+        txt = ('djiod', r' and finally,...')
+        goal = curry.compile('writeFile "file.txt" ("%s" ++ "%s")' % txt, 'expr')
+        next(curry.eval(goal))
+        self.assertEqual(open('file.txt', 'r').read(), ''.join(txt))
+      finally:
+        os.chdir(cwd)
+
   @cytest.setio(stdout='')
   def test_nd_io(self):
     goal = curry.compile("putChar ('a' ? 'b')", 'expr')
@@ -30,7 +51,6 @@ class TestPyIO(cytest.TestCase):
       , lambda: list(curry.eval(goal))
       )
 
-  @unittest.expectedFailure
   @cytest.setio(stdout='')
   def test_nd_io2(self):
     goal = curry.compile('''putStrLn ("one" ? "two")''', 'expr')

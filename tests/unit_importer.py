@@ -195,7 +195,6 @@ class TestFindCurry(cytest.TestCase):
       , lambda: curry.import_('import_test', currypath='data/import_')
       )
 
-
   def test_newer(self):
     with _tempfile.TemporaryDirectory() as tmpdir:
       a = os.path.join(tmpdir, 'a')

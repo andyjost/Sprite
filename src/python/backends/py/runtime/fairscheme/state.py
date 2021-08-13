@@ -129,8 +129,8 @@ class RuntimeState(object):
     )
   from .rts_constraints import constraint_type, constrain_equal
   from .rts_control import (
-      append, catch_control, drop, extend, ready, restart, rotate, suspend
-    , unwind
+      append, catch_control, drop, extend, is_io, ready, restart, rotate
+    , suspend, unwind
     )
   from .rts_fingerprint import (
       equate_fp, fork, grp_id, obj_id, read_fp, update_fp

@@ -3,13 +3,14 @@ Implements RuntimeState methods that manipulate the work queue.  This module is
 not intended to be imported except by state.py.
 '''
 
-from ..control import E_CONTINUE, E_RESIDUAL, E_RESTART
-from .....exceptions import EvaluationSuspended
+from .....common import T_FUNC
+from ..control import E_CONTINUE, E_RESIDUAL, E_RESTART, E_TERMINATE
+from .....exceptions import EvaluationSuspended, NondetIOError
 import contextlib
 
 __all__ = [
-    'append', 'catch_control', 'drop', 'extend', 'ready', 'restart', 'rotate'
-  , 'suspend', 'unwind'
+    'append', 'catch_control', 'drop', 'extend', 'is_io', 'ready', 'restart'
+  , 'rotate', 'suspend', 'unwind'
   ]
 
 def append(self, config):
@@ -18,16 +19,42 @@ def append(self, config):
 
 @contextlib.contextmanager
 def catch_control(
-    self, ground=True, residual=False, restart=False, unwind=False
+    self, ground=True, nondet_io=False, residual=False, restart=False
+  , unwind=False
   ):
-  '''Catch and handle flow-control exceptions.'''
+  '''
+  Catch and handle flow-control exceptions.
+
+  Parameters:
+  -----------
+    ``ground``
+      Require ground terms.  Propagate E_RESIDUAL only if this is true.
+
+    ``nondet_io``
+      Catch non-determinism and raise NondetIOError if it occurs.  This takes
+      priority over all other options.
+
+    ``residual``
+      Handle residuals by updating the current configuration and rotating the
+      queue.
+
+    ``restart``
+      Catch and ignore E_RESTART.
+
+    ``unwind``
+      Catch and ignore E_CONTINUE.
+  '''
   try:
     yield
   except E_CONTINUE:
-    if not unwind:
+    if nondet_io:
+      raise NondetIOError()
+    elif not unwind:
       raise
   except E_RESIDUAL as res:
-    if residual:
+    if nondet_io:
+      raise NondetIOError()
+    elif residual:
       rts.C.residuals.update(res.ids)
       rts.rotate()
     elif ground:
@@ -43,6 +70,13 @@ def drop(self):
 def extend(self, configs):
   '''Extend the queue.'''
   self.queue.extend(configs)
+
+def is_io(self, func):
+  assert func.info.tag == T_FUNC
+  return func.info.name in [
+      'prim_putChar', 'prim_readFile', 'prim_writeFile', 'appendFile'
+    , 'putStr', 'putChr', 'putStrLn', 'print', 'seqIO'
+    ]
 
 def ready(self):
   '''

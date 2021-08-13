@@ -81,7 +81,7 @@ def N(rts):
 
 @trace.trace_steps
 def S(rts, node):
-  with rts.catch_control(unwind=True):
+  with rts.catch_control(unwind=True, nondet_io=rts.is_io(node)):
     node.info.step(rts, node)
     rts.stepcounter.increment()
 

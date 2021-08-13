@@ -182,7 +182,6 @@ class ToPython(object):
     self.convert_freevars = convert_freevars
   def __call__(self, interp, value, convert_strings=True):
     '''Convert one value.'''
-    # self.reset()
     return self.__convert(interp, value, convert_strings)
   def __convert(self, interp, value, convert_strings=True):
     if inspect.isa_primitive(interp, value):

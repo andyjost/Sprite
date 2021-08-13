@@ -14,3 +14,5 @@
 - Make binding work for Float and Char, too
 - (Make 'non-determinism in I\O' work as expected.)
 - Implement missing prelude functions.
+- Update to the latest icurry.
+- Rename E_CONTINUE to E_UNWIND.
