@@ -4,7 +4,7 @@ intended to be imported except by state.py.
 '''
 
 from copy import copy
-from .....common import T_FREE, T_CHOICE
+from .....common import T_VAR, T_CHOICE
 from .....common import LEFT, RIGHT, UNDETERMINED, ChoiceState
 
 __all__ = [
@@ -40,7 +40,7 @@ def obj_id(self, arg=None, config=None):
     if arg.info.tag == T_CHOICE:
       cid, _, _ = arg
       return cid
-    elif arg.info.tag == T_FREE:
+    elif arg.info.tag == T_VAR:
       vid, _ = arg
       return vid
 
@@ -71,7 +71,7 @@ def fork(self, config=None):
         j = self.grp_id(i, config=clone)
         self.apply_binding(i, config=clone)
         self.apply_binding(j, config=clone)
-        if not self.constrain_equal(*map(self.get_freevar, [i,j]), config=clone):
+        if not self.constrain_equal(*map(self.get_variable, [i,j]), config=clone):
           continue
       yield clone
 

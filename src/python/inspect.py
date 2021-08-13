@@ -2,7 +2,7 @@
 Inspect live Curry objects.
 '''
 
-from .common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from . import config
 from . import context
 from . import objects
@@ -79,7 +79,7 @@ def isa_failure(interp, arg):
 def isa_freevar(interp, arg):
   if not isinstance(arg, context.Node):
     return False
-  return arg[()].info.tag == T_FREE
+  return arg[()].info.tag == T_VAR
 
 def isa_fwd(interp, arg):
   if not isinstance(arg, context.Node):

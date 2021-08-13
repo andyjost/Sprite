@@ -3,7 +3,7 @@ Python wrappers for Curry objects.
 '''
 
 from . import exceptions
-from .common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 import types
 import weakref
 
@@ -131,8 +131,8 @@ class CurryNodeLabel(object):
       return "<curry forward node>"
     if self.info.tag == T_FAIL:
       return "<curry failure>"
-    if self.info.tag == T_FREE:
-      return "<curry free variable>"
+    if self.info.tag == T_VAR:
+      return "<curry variable>"
     if self.info.tag == T_CONSTR:
       return "<curry constraint>"
     return "<invalid curry node>"

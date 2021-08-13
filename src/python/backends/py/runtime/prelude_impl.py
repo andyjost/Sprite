@@ -1,7 +1,7 @@
 '''
 Implementation of the Prelude externals.
 '''
-from ....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .control import E_RESIDUAL
 from ....exceptions import *
 from .fairscheme.algorithm import normalize, hnf
@@ -24,7 +24,7 @@ def hnf_or_free(rts, root, index, typedef=None):
     # The argument could be a free variable or an expression containing a free
     # variable that cannot be narrowed, such as "ensureNotFree x".
     expr = root[index]
-    if inspect.isa_freevar(rts, expr):
+    if rts.is_variable(expr):
       return expr
     else:
       raise
@@ -39,7 +39,7 @@ def narrow_integer_args(f):
   '''
   def repl(rts, root):
     args = [hnf_or_free_int(rts, root, i) for i in range(len(root))]
-    variables = filter(rts.is_freevar_node, args)
+    variables = filter(rts.is_variable, args)
     if variables:
       rts.suspend(variables)
     else:
@@ -99,8 +99,8 @@ def constr_eq(rts, root):
   lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.is_boxed(rts, lhs) and inspect.is_boxed(rts, rhs):
     ltag, rtag = lhs.info.tag, rhs.info.tag
-    if ltag == T_FREE:
-      if rtag == T_FREE:
+    if ltag == T_VAR:
+      if rtag == T_VAR:
         if lhs[0] != rhs[0]:
           yield rts.prelude._StrictConstraint.info
           yield rts.expr(True)
@@ -111,7 +111,7 @@ def constr_eq(rts, root):
         values = [rhs[0]] if rhs.info is rts.prelude.Int.info else None
         hnf(rts, root, [0], rhs.info.typedef(), values)
     else:
-      if rtag == T_FREE:
+      if rtag == T_VAR:
         values = [lhs[0]] if lhs.info is rts.prelude.Int.info else None
         hnf(rts, root, [1], lhs.info.typedef(), values)
       else:
@@ -145,7 +145,7 @@ def nonstrict_eq(rts, root):
   lhs, rhs = root
   if inspect.is_boxed(rts, lhs) and inspect.is_boxed(rts, rhs):
     lhs = hnf_or_free(rts, root, 0)
-    if lhs.info.tag == T_FREE:
+    if lhs.info.tag == T_VAR:
       # Bind lhs -> rhs
       yield rts.prelude._NonStrictConstraint.info
       yield rts.expr(True)
@@ -153,11 +153,11 @@ def nonstrict_eq(rts, root):
     else:
       assert lhs.info.tag >= T_CTOR
       rhs = hnf_or_free(rts, root, 1)
-      if rhs.info.tag == T_FREE:
+      if rhs.info.tag == T_VAR:
         hnf(rts, root, [1], typedef=lhs.info.typedef())
         assert False # E_CONTINUE should be raised in prev statement
       else:
-        rhs.info.tag >= T_FREE
+        rhs.info.tag >= T_VAR
         if lhs.info.tag == rhs.info.tag:
           arity = lhs.info.arity
           assert arity == rhs.info.arity

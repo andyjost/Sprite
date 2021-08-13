@@ -1,5 +1,5 @@
 from .... import context, icurry, inspect
-from ....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from . import prelude_impl as impl
 from . import typecheckers as tc
 import math
@@ -64,7 +64,7 @@ _types_ = [
     # Free variables have two successors, one for the variable ID (Int) and one
     # for the generator.  The second slot is initially set to Prelude.().  On
     # instantiation, it is replaced with a generator.
-  , _T('_Free'      , [_C('_Free', 2, metadata={'py.format':'_{1}', 'py.tag':T_FREE})])
+  , _T('_Free'      , [_C('_Free', 2, metadata={'py.format':'_{1}', 'py.tag':T_VAR})])
   , _T('_Fwd'       , [_C('_Fwd', 1, metadata={'py.format':'{1}', 'py.tag':T_FWD})])
   , _T('_Choice'    , [_C('_Choice', 3, metadata={'py.tag':T_CHOICE})])
   , _T('_PartApplic', [_C('_PartApplic', 2, metadata={'py.format': '{2}', 'py.tag':T_CTOR})])

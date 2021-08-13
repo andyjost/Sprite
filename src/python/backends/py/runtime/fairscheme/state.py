@@ -138,8 +138,7 @@ class RuntimeState(object):
       equate_fp, fork, grp_id, obj_id, read_fp, update_fp
     )
   from .rts_freevars import (
-      get_freevar, get_generator, has_generator, instantiate
-    , is_choice_or_freevar_node, is_freevar_node, is_narrowed, is_free
-    , register_freevar
+      get_generator, get_variable, has_generator, instantiate, is_free
+    , is_narrowed, is_nondet, is_variable, register_variable
     )
 

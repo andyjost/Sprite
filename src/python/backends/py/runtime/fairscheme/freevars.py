@@ -3,7 +3,7 @@ Code for free variable instantiation, including generator construction.
 '''
 
 from ..graph import Node, Replacer
-from .....common import T_FAIL, T_FREE, T_CHOICE, T_CTOR
+from .....common import T_FAIL, T_VAR, T_CHOICE, T_CTOR
 
 __all__ = [
     'clone_generator'
@@ -74,28 +74,26 @@ def clone_generator(rts, bound, unbound):
   constructors = list(_gen_ctors(rts, bound[1]))
   get_generator(rts, unbound, typedef=constructors)
 
-def get_generator(rts, freevar, typedef=None):
+def get_generator(rts, variable, typedef=None):
   '''
-  Get the generator for a free variable.  Instantiates the variable if
-  necessary.
+  Get the generator for a variable.  Instantiate it, if necessary.
 
   Parameters:
   -----------
     ``rts``
       The RuntimeState object.
 
-    ``freevar``
-      The free variable node to instantiate.
+    ``variable``
+      The variable indicating which generator to get.
 
     ``typedef``
-      A ``CurryDataType`` that indicates the type to instantiate the variable
-      to.  This can also be a list of ``icurry.IConstructor``s or
-      ``InfoTables``.  If the free variable has already been instantiated, then
-      this can be None.
+      A ``CurryDataType`` that indicates the type of ``variable``.  This can
+      alternatively be a list of ``icurry.IConstructor``s or ``InfoTables``.
+      If the variable is not free, then this can be None.
   '''
-  assert freevar.info.tag == T_FREE
-  vid = freevar[0]
-  if freevar[1].info is rts.prelude.Unit.info:
+  assert variable.info.tag == T_VAR
+  vid = variable[0]
+  if variable[1].info is rts.prelude.Unit.info:
     constructors = [
         getattr(ctor, 'info', ctor)
             for ctor in getattr(typedef, 'constructors', typedef)
@@ -108,8 +106,8 @@ def get_generator(rts, freevar, typedef=None):
       instance = Node(
           rts.prelude._Choice, vid, instance, Node(rts.prelude._Failure)
         )
-    Node(freevar.info, vid, instance, target=freevar)
-  return freevar[1]
+    Node(variable.info, vid, instance, target=variable)
+  return variable[1]
 
 def instantiate(rts, context, path, typedef):
   '''
@@ -134,7 +132,7 @@ def instantiate(rts, context, path, typedef):
     , lambda node, _: get_generator(rts, node, typedef)
     )
   replaced = replacer[None]
-  assert replacer.target.info.tag == T_FREE
+  assert replacer.target.info.tag == T_VAR
   assert context.info == replaced.info
   context.successors[:] = replaced.successors
   return replacer.target[1]
@@ -151,7 +149,7 @@ def freshvar(rts, target=None):
   '''Places a fresh free variable at the specified location.'''
   node = Node(*freshvar_args(rts), target=target)
   try:
-    rts.register_freevar(node)
+    rts.register_variable(node)
   except AttributeError:
     pass
   return node
@@ -163,15 +161,15 @@ def get_id(arg):
   '''
   if isinstance(arg, Node):
     arg = arg[()]
-    if arg.info.tag in [T_FREE, T_CHOICE]:
+    if arg.info.tag in [T_VAR, T_CHOICE]:
       cid = arg[0]
       assert cid >= 0
       return cid
   elif isinstnace(arg, int) and not isinstance(arg, bool):
     return arg
 
-def has_generator(rts, freevar):
+def has_generator(rts, variable):
   '''Indicates whether a free variable has a bound generator.'''
-  assert freevar.info.tag == T_FREE
-  return freevar[1].info is not rts.prelude.Unit.info
+  assert variable.info.tag == T_VAR
+  return variable[1].info is not rts.prelude.Unit.info
 

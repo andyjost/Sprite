@@ -3,27 +3,16 @@ Implements RuntimeState methods related to free variables.  This module is not
 intended to be imported except by state.py.
 '''
 
-from .....common import T_FREE, T_CHOICE
-from ..control import E_RESIDUAL
+from .....common import T_VAR, T_CHOICE
+from . import common
 from . import freevars
 from .. import graph
 from ...sprite import Fingerprint, LEFT, RIGHT, UNDETERMINED, ChoiceState
 
-from . import integer
-
 __all__ = [
-    'get_freevar', 'get_generator', 'has_generator', 'instantiate'
-  , 'is_choice_or_freevar_node', 'is_free', 'is_freevar_node', 'is_narrowed'
-  , 'register_freevar'
+    'get_generator', 'get_variable', 'has_generator', 'instantiate'
+  , 'is_free', 'is_nondet', 'is_variable', 'is_narrowed', 'register_variable'
   ]
-
-def get_freevar(self, arg=None, config=None):
-  try:
-    if arg.info.tag == T_FREE:
-      return arg
-  except:
-    vid = self.obj_id(arg, config)
-    return self.vtable[vid]
 
 def get_generator(self, arg=None, config=None):
   '''
@@ -31,15 +20,23 @@ def get_generator(self, arg=None, config=None):
   be a choice or free variable node, or ID.
   '''
   vid = self.obj_id(arg, config)
-  x = self.get_freevar(vid)
+  x = self.get_variable(vid)
   if not self.has_generator(x):
-    self.constrain_equal(x, self.get_freevar(self.grp_id(vid, config)))
+    self.constrain_equal(x, self.get_variable(self.grp_id(vid, config)))
     assert self.has_generator(x)
   _, gen = x
   return gen
 
+def get_variable(self, arg=None, config=None):
+  try:
+    if arg.info.tag == T_VAR:
+      return arg
+  except:
+    vid = self.obj_id(arg, config)
+    return self.vtable[vid]
+
 def has_generator(self, arg=None, config=None):
-  x = self.get_freevar(arg, config)
+  x = self.get_variable(arg, config)
   return freevars.has_generator(self, x)
 
 def instantiate(self, func, path, typedef, config=None):
@@ -60,31 +57,17 @@ def instantiate(self, func, path, typedef, config=None):
   else:
     return freevars.instantiate(self, func, path, typedef)
 
-def is_choice_or_freevar_node(self, node):
-  '''Indicates whether the given argument is a choice or free variable.'''
-  try:
-    return node.info.tag in [T_CHOICE, T_FREE]
-  except AttributeError:
-    return False
-
 def is_free(self, arg=None, config=None):
   '''
   Indicates whether a free variable is missing any information that would allow
   a computation needing it to proceed.  Used to implement
   Prelude.ensureNotFree.
   '''
-  return self.is_freevar_node(arg) and not any(
+  return self.is_variable(arg) and not any(
       prop(arg, config) for prop in [
           self.has_generator, self.has_binding, self.is_narrowed
         ]
     )
-
-def is_freevar_node(self, node):
-  '''Indicates whether the given argument is a free variable.'''
-  try:
-    return node.info.tag == T_FREE
-  except AttributeError:
-    return False
 
 def is_narrowed(self, arg=None, config=None):
   '''
@@ -93,7 +76,21 @@ def is_narrowed(self, arg=None, config=None):
   '''
   return self.read_fp(arg, config=config) != UNDETERMINED
 
-def register_freevar(self, var):
+def is_nondet(self, arg=None, config=None):
+  '''
+  Returns True if the argument is a choice or variable.
+  '''
+  arg = (config or self.C).root if arg is None else arg
+  return common.tag_of(arg) in [T_CHOICE, T_VAR]
+
+def is_variable(self, node):
+  '''Indicates whether the given argument is a free variable.'''
+  try:
+    return node.info.tag == T_VAR
+  except AttributeError:
+    return False
+
+def register_variable(self, var):
   '''
   Update the vtable for variable ``var``.  The variable is added to the
   table so that it can be found later, if needed.

@@ -6,6 +6,8 @@ intended to be imported except by state.py.
 import itertools
 from .....utility import exprutil
 from . import freevars
+from . import common
+from .....common import T_VAR, T_CHOICE
 
 STRICT_CONSTRAINT = 0
 NONSTRICT_CONSTRAINT = 1
@@ -73,7 +75,7 @@ def constrain_equal(
       config.strict_constraints.write.unite(i, j)
       self.update_binding(i, config=config)
       self.update_binding(j, config=config)
-      if any(map(self.is_freevar_node, [arg0, arg1])):
+      if any(map(self.is_variable, [arg0, arg1])):
         return _constrain_equal_rec(self, i, j, config=config)
     else:
       return self.add_binding(i, arg1, config=config)
@@ -120,7 +122,7 @@ def _constrain_equal_rec(self, arg0, arg1, config=None):
   consistent).
   '''
   try:
-    xs = map(self.get_freevar, [arg0, arg1])
+    xs = map(self.get_variable, [arg0, arg1])
   except KeyError:
     return True
   else:
@@ -139,10 +141,10 @@ def _constrain_equal_rec(self, arg0, arg1, config=None):
             freevars.clone_generator(self, pivot, x)
           v = self.get_generator(x, config=config)
           for p, q in itertools.izip(*[exprutil.walk(uv) for uv in [u,v]]):
-            if self.is_choice_or_freevar_node(p.cursor):
+            if self.is_nondet(p.cursor):
               if not self.constrain_equal(p.cursor, q.cursor, config=config):
                 return False
-            if not self.is_freevar_node(p.cursor):
+            if not self.is_variable(p.cursor):
               p.push()
               q.push()
       return True

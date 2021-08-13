@@ -1,5 +1,5 @@
 from .... import context, icurry, utility
-from ....common import T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ....common import T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 import collections
 import numbers
 import operator
@@ -109,7 +109,7 @@ class Node(object):
     target = kwds.get('target', None)
     assert target is None or \
            target.info.tag == T_FUNC or \
-           (target.info.tag == T_FREE == info.tag)
+           (target.info.tag == T_VAR == info.tag)
     self = object.__new__(cls) if target is None else target
     self.info = info
     successors = list(args)
@@ -167,7 +167,7 @@ class Node(object):
       # "path" argument to hnf, for instance.  The lower-level
       # __getitem__ methods still need to accept free variables so that, e.g.,
       # _Freevar_get_constructors can be implemented.
-      assert node.info.tag != T_FREE or (not i and i != 0)
+      assert node.info.tag != T_VAR or (not i and i != 0)
       return node[i]
     elif not i and i != 0: # empty sequence.
       assert isinstance(node, icurry.ILiteral)

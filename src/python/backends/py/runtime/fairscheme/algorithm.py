@@ -1,4 +1,4 @@
-from .....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from . import common
 from . import freevars
 from .. import graph
@@ -19,7 +19,7 @@ def D(rts):
         rts.drop()
       else:
         rts.E = value
-    elif tag == T_FREE:
+    elif tag == T_VAR:
       if rts.has_binding():
         rts.E = rts.get_binding()
       elif rts.is_narrowed():
@@ -55,7 +55,7 @@ def N(rts):
         elif tag == T_CONSTR:
           rts.E = common.make_constraint(state.cursor, rts.E, state.path)
           return False
-        elif tag == T_FREE:
+        elif tag == T_VAR:
           if rts.has_binding(state.cursor):
             binding = rts.get_binding(state.cursor)
             rts.E = graph.replace_copy(rts, rts.E, state.path, binding)
@@ -64,7 +64,7 @@ def N(rts):
             rts.E = common.make_choice(rts, gen[0], rts.E, state.path, gen)
             return False
           elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
-            x = rts.get_freevar(rts.grp_id(state.cursor))
+            x = rts.get_variable(rts.grp_id(state.cursor))
             rts.E = graph.replace_copy(rts, rts.E, state.path, x)
             return False
           break
@@ -135,7 +135,7 @@ def hnf(rts, func, path, typedef=None, values=None):
       elif tag == T_CONSTR:
         common.make_constraint(target, func, path, rewrite=func)
         rts.unwind()
-      elif tag == T_FREE:
+      elif tag == T_VAR:
         if rts.has_generator(target):
           gen = rts.get_generator(target)
           common.make_choice(rts, gen[0], func, path, gen, rewrite=func)
