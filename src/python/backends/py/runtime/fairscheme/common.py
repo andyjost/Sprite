@@ -40,16 +40,16 @@ def make_constraint(constr, node, path, rewrite=None):
   pair = constr[1]
   return graph.Node(constr.info, value, pair, target=rewrite)
 
-def make_value_bindings(rts, vid, values):
+def make_value_bindings(rts, var, values):
   n = len(values)
   assert n
   if n == 1:
     value = graph.Node(rts.prelude.Int, values[0])
-    pair = graph.Node(rts.prelude.Pair, vid, value)
+    pair = graph.Node(rts.prelude.Pair, rts.obj_id(var), value)
     return graph.Node(rts.prelude._IntegerBinding, value, pair)
   else:
     cid = next(rts.idfactory)
-    left = make_value_bindings(rts, vid, values[:n//2])
-    right = make_value_bindings(rts, vid, values[n//2:])
+    left = make_value_bindings(rts, var, values[:n//2])
+    right = make_value_bindings(rts, var, values[n//2:])
     return graph.Node(rts.prelude._Choice, cid, left, right)
 

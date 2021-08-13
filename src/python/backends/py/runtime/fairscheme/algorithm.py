@@ -145,9 +145,8 @@ def hnf(rts, func, path, typedef=None, values=None):
           rts.E = graph.replace_copy(rts, rts.E, tuple(rts.C.path), binding)
           rts.restart()
         elif typedef in rts.builtin_types:
-          vid = target[0]
           if values:
-            target = common.make_value_bindings(rts, vid, values)
+            target = common.make_value_bindings(rts, target, values)
             graph.replace(rts, func, path, target)
           else:
             rts.suspend(target)
