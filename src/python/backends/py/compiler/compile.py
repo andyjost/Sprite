@@ -42,15 +42,16 @@ def compile_function(interp, ifun, extern=None):
   while True:
     try:
       assert isinstance(ifun, icurry.IFunction)
+      assert 2 >= sum(1
+          for k in ['py.boxedfunc', 'py.rawfunc', 'py.unboxedfunc']
+          if k in ifun.metadata
+        )
       if 'py.unboxedfunc' in ifun.metadata:
-        assert not any(x in ifun.metadata for x in ['py.boxedfunc', 'py.rawfunc'])
-        return compile_py_unboxedfunc(interp, ifun.metadata['py.unboxedfunc'])
+        return compile_py_unboxedfunc(interp, ifun.metadata)
       elif 'py.boxedfunc' in ifun.metadata:
-        assert not any(x in ifun.metadata for x in ['py.unboxedfunc', 'py.rawfunc'])
-        return compile_py_boxedfunc(interp, ifun.metadata['py.boxedfunc'])
+        return compile_py_boxedfunc(interp, ifun.metadata)
       elif 'py.rawfunc' in ifun.metadata:
-        assert not any(x in ifun.metadata for x in ['py.unboxedfunc', 'py.boxedfunc'])
-        return compile_py_rawfunc(interp, ifun.metadata['py.rawfunc'])
+        return compile_py_rawfunc(interp, ifun.metadata)
       compiler = FunctionCompiler(interp, ifun.fullname, extern)
       compiler.compile(ifun.body)
     except ExternallyDefined as e:
@@ -74,20 +75,7 @@ def compile_function(interp, ifun, extern=None):
       ]
   return compiler.get()
 
-def compile_py_unboxedfunc(interp, unboxedfunc):
-  '''
-  Compiles code for built-in functions on primitive data.  See README.md.
-  Corresponds to the "py.unboxedfunc" metadata.
-  '''
-  expr = interp.expr
-  topython = interp.topython
-  # For some reason, the prelude reverses the argument order.
-  def step(rts, _0):
-    args = (topython(hnf(rts, _0, [i])) for i in reversed(xrange(len(_0.successors))))
-    return expr(unboxedfunc(*args), target=_0)
-  return step
-
-def compile_py_boxedfunc(interp, boxedfunc):
+def compile_py_boxedfunc(interp, metadata):
   '''
   Compiles code for a built-in function.  See README.md.  Corresponds to the
   "py.boxedfunc" metadata.
@@ -96,12 +84,13 @@ def compile_py_boxedfunc(interp, boxedfunc):
   form, but without any other preprocessing (e.g., unboxing).  It returns a
   sequence of arguments accepted by ``runtime.Node.__new__``.
   '''
+  boxedfunc = metadata['py.boxedfunc']
   def step(rts, _0):
     args = (hnf(rts, _0, [i]) for i in xrange(len(_0.successors)))
     Node(*boxedfunc(rts, *args), target=_0)
   return step
 
-def compile_py_rawfunc(interp, rawfunc):
+def compile_py_rawfunc(interp, metadata):
   '''
   Compiles code for a raw built-in function.  See README.md.  Corresponds to
   the "py.rawfunc" metadata.
@@ -109,8 +98,23 @@ def compile_py_rawfunc(interp, rawfunc):
   Like compile_py_boxedfunc but does not head-normalize the arguments.  The
   left-hand-side expression is simply passed to the implementation function.
   '''
+  rawfunc = metadata['py.rawfunc']
   def step(rts, _0):
     Node(*rawfunc(rts, _0), target=_0)
+  return step
+
+def compile_py_unboxedfunc(interp, metadata):
+  '''
+  Compiles code for built-in functions on primitive data.  See README.md.
+  Corresponds to the "py.unboxedfunc" metadata.
+  '''
+  unboxedfunc = metadata['py.unboxedfunc']
+  expr = interp.expr
+  topython = interp.topython
+  # For some reason, the prelude reverses the argument order.
+  def step(rts, _0):
+    args = (topython(hnf(rts, _0, [i])) for i in reversed(xrange(len(_0.successors))))
+    return expr(unboxedfunc(*args), target=_0)
   return step
 
 class FunctionCompiler(object):

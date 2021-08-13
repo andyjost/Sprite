@@ -34,3 +34,9 @@ class Runtime(context.Runtime):
     from .fairscheme.evaluator import Evaluator
     return lambda *args, **kwds: Evaluator(*args, **kwds).evaluate()
 
+  def single_step(self, interp, expr):
+    from .fairscheme.evaluator import Evaluator
+    evaluator = Evaluator(interp, expr)
+    expr.info.step(evaluator.rts, expr)
+    return expr
+

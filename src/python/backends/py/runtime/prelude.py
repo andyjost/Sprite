@@ -51,22 +51,22 @@ def _C(name, *args, **kwds):
   return icurry.IConstructor('Prelude.' + name, *args, **kwds)
 
 _types_ = [
-    _T('_Failure'   , [_C('_Failure', 0, metadata={'py.format':'failure', 'py.tag':T_FAIL})])
+    _T('_Failure'   , [_C('_Failure', 0, metadata={'py.format':'failure', 'all.tag':T_FAIL})])
   , _T('_Constraint'   , [
         _C('_StrictConstraint'   , 2
-            , metadata={'py.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
+            , metadata={'all.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
       , _C('_NonStrictConstraint', 2
-            , metadata={'py.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
+            , metadata={'all.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
       , _C('_IntegerBinding', 2
-            , metadata={'py.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
+            , metadata={'all.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
       ])
     # Free variables have two successors, one for the variable ID (Int) and one
     # for the generator.  The second slot is initially set to Prelude.().  On
     # instantiation, it is replaced with a generator.
-  , _T('_Free'      , [_C('_Free', 2, metadata={'py.format':'_{1}', 'py.tag':T_VAR})])
-  , _T('_Fwd'       , [_C('_Fwd', 1, metadata={'py.format':'{1}', 'py.tag':T_FWD})])
-  , _T('_Choice'    , [_C('_Choice', 3, metadata={'py.tag':T_CHOICE})])
-  , _T('_PartApplic', [_C('_PartApplic', 2, metadata={'py.format': '{2}', 'py.tag':T_CTOR})])
+  , _T('_Free'      , [_C('_Free', 2, metadata={'py.format':'_{1}', 'all.tag':T_VAR})])
+  , _T('_Fwd'       , [_C('_Fwd', 1, metadata={'py.format':'{1}', 'all.tag':T_FWD})])
+  , _T('_Choice'    , [_C('_Choice', 3, metadata={'all.tag':T_CHOICE})])
+  , _T('_PartApplic', [_C('_PartApplic', 2, metadata={'py.format': '{2}', 'all.tag':T_CTOR})])
   , _T('Bool'       , [_C('True', 0), _C('False', 0)])
   , _T('Char'       , [_C('Char', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Char})])
   , _T('Float'      , [_C('Float', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Float})])

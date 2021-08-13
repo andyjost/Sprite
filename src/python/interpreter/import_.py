@@ -105,13 +105,13 @@ def loadSymbols(interp, imodule, moduleobj, **kwds):
 def loadSymbols(
     interp, icons, moduleobj, extern=None, itype=None, constructors=None
   ):
-  # For builtins, the 'py.tag' metadata contains the tag.
-  builtin = 'py.tag' in icons.metadata
+  # For builtins, the 'all.tag' metadata contains the tag.
+  builtin = 'all.tag' in icons.metadata
   metadata = icurry.getmd(icons, extern, itype=itype)
   info = interp.context.runtime.InfoTable(
       icons.name
     , icons.arity
-    , T_CTOR + icons.index if not builtin else metadata['py.tag']
+    , T_CTOR + icons.index if not builtin else metadata['all.tag']
     , _no_step if not builtin else _unreachable
     , show.Show(getattr(metadata, 'py.format', None))
     , _gettypechecker(interp, metadata)

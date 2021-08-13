@@ -1,11 +1,11 @@
 Overview
 ========
-This file describes the metadata used in ICurry for the Python target.  These
-are Python-specific annotations applied to ICurry, which are used to implement
-built-ins, system facilities, and other special features.  The metadata is
-supplied when declaring ICurry bindings for hand-implemented symbols (see
-prelude.py).
-
+This file describes the metadata used when translating ICurry.  The optional
+prefix restricts which backend the metadata is targeted to.  No prefix -- i.e.,
+names beginning with '.' -- means all targets.  The ones beginning with 'py'
+are Python-specific annotations, which are used to implement built-ins, system
+facilities, and other special features.  The metadata is supplied when
+declaring ICurry bindings for hand-implemented symbols (see prelude.py).
 
 
 IConstructor Metadata
@@ -20,11 +20,10 @@ be called with the successors.
 One use of this is to provide special formatting for lists and tuples.
 
 
-Metadata: py.tag
+Metadata: .tag
 ----------------
 Used for special node types, such as failures and choices, to indicate their
 type.
-
 
 
 IFunction Metadata
@@ -32,28 +31,6 @@ IFunction Metadata
 
 Function metadata is used to bind builtin Curry functions to the Python
 functions that implement them.
-
-
-Metadata: py.unboxedfunc
-------------------------
-Specifies a Python function over unboxed values that implements a Curry
-built-in.
-
-The supplied Python function is an ordinary function over the built-in types.
-Examples are operator.add, math.cos, or chr.  This adaptor normalizes and
-unboxes each argument, applies the Python function, and then rewrites the head
-to the boxed result.
-
-Such a function is adapted to Curry as follows:
-
-  - Head-normalize and then unbox each argument.
-  - Invoke py.unboxedfunc with the arguments prepared in the previous step.
-  - Rewrite the LHS to be a boxed value of the type computed in the first
-    step, with the value returned from py.boxedfunc.  The implementation function
-    must return a scalar that can be interpreted as the appropriate type in
-    Curry.
-
-See compile_primitive_builtin.
 
 
 Metadata: py.boxedfunc
@@ -89,4 +66,27 @@ One use of this is to implement the =:= operator, which needs to work directly
 with unbound free variables.
 
 See compile_rawfunc.
+
+
+Metadata: py.unboxedfunc
+------------------------
+Specifies a Python function over unboxed values that implements a Curry
+built-in.
+
+The supplied Python function is an ordinary function over the built-in types.
+Examples are operator.add, math.cos, or chr.  This adaptor normalizes and
+unboxes each argument, applies the Python function, and then rewrites the head
+to the boxed result.
+
+Such a function is adapted to Curry as follows:
+
+  - Head-normalize and then unbox each argument.
+  - Invoke py.unboxedfunc with the arguments prepared in the previous step.
+  - Rewrite the LHS to be a boxed value of the type computed in the first
+    step, with the value returned from py.boxedfunc.  The implementation function
+    must return a scalar that can be interpreted as the appropriate type in
+    Curry.
+
+See compile_primitive_builtin.
+
 

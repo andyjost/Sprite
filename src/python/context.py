@@ -83,6 +83,10 @@ class Runtime(object):
   def evaluate(self):
     assert 0
 
+  @abc.abstractmethod
+  def single_step(self, interp, expr):
+    assert 0
+
 # Each backend must provide a Node object and register it with this class.
 class Node(object):
   __metaclass__ = abc.ABCMeta

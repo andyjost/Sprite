@@ -78,12 +78,7 @@ def compile(
     if func.info.arity > 0:
       raise exceptions.CompileError('expression %r requires a type annotation' % string)
     expr = interp.expr(func)
-    ###  FIXME
-    from ..backends.py.runtime.fairscheme.evaluator import Evaluator
-    evaluator = Evaluator(interp, expr)
-    expr.info.step(evaluator.rts, expr)
-    ###
-    return expr
+    return interp.context.runtime.single_step(interp, expr)
   else:
     raise TypeError('expected mode "module" or "expr"')
 

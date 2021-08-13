@@ -2,10 +2,10 @@
 Implementation of the Prelude externals.
 '''
 from ....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from .control import E_RESIDUAL
+from .control import E_RESIDUAL, E_CONTINUE
 from ....exceptions import *
 from .fairscheme.algorithm import normalize, hnf
-from .graph import Node
+from .graph import Node, tag_of
 from .... import inspect
 import collections
 import logging
@@ -512,11 +512,12 @@ def apply_gnf(rts, root):
   yield normalize(rts, root, [1], ground=True)
 
 def ensureNotFree(rts, root):
-  arg = root[0]
+  arg = hnf_or_free(rts, root, 0)
   if rts.is_free(arg):
     rts.suspend(arg)
-  yield rts.prelude._Fwd
-  yield arg
+  else:
+    yield rts.prelude._Fwd
+    yield arg
 
 def _PyGenerator(rts, gen):
   '''Implements a Python generator as a Curry list.'''

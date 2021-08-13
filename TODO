@@ -8,10 +8,9 @@
 - Recursive bindings do not work:
       >>> a = curry.compile('''let a = True:b ; b = False:a in a''', 'expr')
       UnboundLocalError: local variable '_2' referenced before assignment
-- Move breakpoint into the curry module.
 - clean up the inspect module
 - fix tests in unit_py_constraints.py
 - fix tests in unit_py_pulltab.py
-- clean up the FIXME in interpreter/compile.py:82
 - Make binding work for Float and Char, too
-- Make 'non-determinism in I\O' work as expected.
+- (Make 'non-determinism in I\O' work as expected.)
+- Implement missing prelude functions.
