@@ -192,27 +192,34 @@ _functions_ = [
   , _F('prim_ord', 1, metadata={'py.unboxedfunc':ord})
   , _F('prim_chr', 1, metadata={'py.unboxedfunc':chr})
   , _F('prim_intToFloat', 1, metadata={'py.unboxedfunc':float})
-  , _F('bindIO', 2, metadata={'py.rawfunc':impl.bind_io})
-  , _F('seqIO', 2, metadata={'py.rawfunc':impl.seq_io})
   , _F('prim_readNatLiteral', 1, metadata={'py.boxedfunc':impl.readNatLiteral})
   , _F('prim_readFloatLiteral', 1, metadata={'py.boxedfunc':impl.readFloatLiteral})
   , _F('prim_readCharLiteral', 1, metadata={'py.boxedfunc':impl.readCharLiteral})
   , _F('prim_readStringLiteral', 1, metadata={'py.boxedfunc':impl.readStringLiteral})
-  , _F('returnIO', 1, metadata={'py.boxedfunc':impl.returnIO})
-  , _F('prim_putChar', 1, metadata={'py.boxedfunc':impl.putChar})
-  , _F('getChar', 0, metadata={'py.boxedfunc':impl.getChar})
-  , _F('prim_readFile', 1, metadata={'py.boxedfunc':impl.readFile})
-  , _F('prim_writeFile', 2, metadata={'py.rawfunc':impl.writeFile})
-  , _F('prim_appendFile', 2, metadata={'py.rawfunc':impl.appendFile})
-# catch :: IO a -> (IOError -> IO a) -> IO a
-# prim_ioError :: IOError -> IO _ 
   , _F('prim_showCharLiteral', 1, metadata={'py.boxedfunc':impl.show})
   , _F('prim_showStringLiteral', 1, metadata={'py.boxedfunc':impl.show})
   , _F('prim_showIntLiteral', 1, metadata={'py.boxedfunc':impl.show})
   , _F('prim_showFloatLiteral', 1, metadata={'py.boxedfunc':impl.show})
+  # I/O functions.
+  , _F('bindIO', 2, metadata={'py.rawfunc':impl.bind_io, 'all.monadic':True})
+  , _F('seqIO', 2, metadata={'py.rawfunc':impl.seq_io, 'all.monadic':True})
+  , _F('returnIO', 1, metadata={'py.boxedfunc':impl.returnIO, 'all.monadic':True})
+  , _F('prim_putChar', 1, metadata={'py.boxedfunc':impl.putChar, 'all.monadic':True})
+  , _F('getChar', 0, metadata={'py.boxedfunc':impl.getChar, 'all.monadic':True})
+  , _F('prim_readFile', 1, metadata={'py.boxedfunc':impl.readFile, 'all.monadic':True})
+  , _F('prim_writeFile', 2, metadata={'py.rawfunc':impl.writeFile, 'all.monadic':True})
+  , _F('prim_appendFile', 2, metadata={'py.rawfunc':impl.appendFile, 'all.monadic':True})
+# catch :: IO a -> (IOError -> IO a) -> IO a
+# prim_ioError :: IOError -> IO _
   , _F('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{1} {0} {2}'})
   , _F('apply', 2, metadata={'py.rawfunc':impl.apply})
   , _F('cond', 2, metadata={'py.rawfunc':impl.cond})
+  # Unused PAKCS functions.
+  , _F('unifEqLinear', 2, metadata={'py.unboxedfunc': impl.not_used})
+  , _F('prim_readFileContents', 2, metadata={'py.unboxedfunc': impl.not_used})
+  , _F('ifVar', 2, metadata={'py.unboxedfunc': impl.not_used})
+  , _F('letrec', 2, metadata={'py.unboxedfunc': impl.not_used})
+  , _F('failure', 2, metadata={'py.unboxedfunc': impl.not_used})
   ]
 
 Prelude = icurry.IModule(

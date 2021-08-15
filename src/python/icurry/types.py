@@ -20,6 +20,11 @@ class IObject(object):
   def metadata(self):
     return getattr(self, '_metadata', {})
 
+  def update_metadata(self, items):
+    md = getattr(self.metadata, '_asdict', self.metadata)
+    md.update(items)
+    self._metadata = proptree(md)
+
   @property
   def children(self):
     return ()

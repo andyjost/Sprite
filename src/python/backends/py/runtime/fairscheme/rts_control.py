@@ -4,8 +4,8 @@ not intended to be imported except by state.py.
 '''
 
 from .....common import T_FUNC
-from ..control import E_CONTINUE, E_RESIDUAL, E_RESTART, E_TERMINATE
-from .....exceptions import EvaluationSuspended, NondetIOError
+from ..control import E_RESIDUAL, E_RESTART, E_TERMINATE, E_UNWIND
+from .....exceptions import EvaluationSuspended, NondetMonadError
 import contextlib
 
 __all__ = [
@@ -19,7 +19,7 @@ def append(self, config):
 
 @contextlib.contextmanager
 def catch_control(
-    self, ground=True, nondet_io=False, residual=False, restart=False
+    self, ground=True, nondet_monad=False, residual=False, restart=False
   , unwind=False
   ):
   '''
@@ -30,8 +30,8 @@ def catch_control(
     ``ground``
       Require ground terms.  Propagate E_RESIDUAL only if this is true.
 
-    ``nondet_io``
-      Catch non-determinism and raise NondetIOError if it occurs.  This takes
+    ``nondet_monad``
+      Catch non-determinism and raise NondetMonadError if it occurs.  This takes
       priority over all other options.
 
     ``residual``
@@ -42,18 +42,18 @@ def catch_control(
       Catch and ignore E_RESTART.
 
     ``unwind``
-      Catch and ignore E_CONTINUE.
+      Catch and ignore E_UNWIND.
   '''
   try:
     yield
-  except E_CONTINUE:
-    if nondet_io:
-      raise NondetIOError()
+  except E_UNWIND:
+    if nondet_monad:
+      raise NondetMonadError()
     elif not unwind:
       raise
   except E_RESIDUAL as res:
-    if nondet_io:
-      raise NondetIOError()
+    if nondet_monad:
+      raise NondetMonadError()
     elif residual:
       rts.C.residuals.update(res.ids)
       rts.rotate()
@@ -76,6 +76,7 @@ def is_io(self, func):
   return func.info.name in [
       'prim_putChar', 'prim_readFile', 'prim_writeFile', 'appendFile'
     , 'putStr', 'putChr', 'putStrLn', 'print', 'seqIO'
+    , 'returnIO', 'bindIO', 'getChar'
     ]
 
 def ready(self):
@@ -135,5 +136,5 @@ def suspend(self, arg, config=None):
 
 def unwind(self):
   '''Unwind to the next N() or S() procedure.'''
-  raise E_CONTINUE()
+  raise E_UNWIND()
 

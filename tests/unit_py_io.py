@@ -6,6 +6,31 @@ import os
 import unittest
 
 class TestPyIO(cytest.TestCase):
+  def test_monadic_property1(self):
+    stab = getattr(curry.getInterpreter().prelude, '.symbols')
+    monadic_symbols = sorted([
+        symbol for symbol, obj in stab.items()
+            if obj.icurry.metadata.get('all.monadic', False)
+      ])
+    correct = [
+          'appendFile', 'prim_appendFile', 'prim_putChar', 'prim_readFile'
+        , 'prim_writeFile', 'print', 'putChar', 'putStr', 'putStrLn'
+        , 'readFile', 'writeFile'
+        ]
+    self.assertEqual(monadic_symbols, correct)
+
+  def test_monadic_property2(self):
+    Test = curry.compile(
+        '''
+        main = do
+            x <- return ("Hello, " ++ "World!")
+            putStr x
+        '''
+      , modulename='Test'
+      )
+    self.assertTrue(Test.main.icurry.metadata['all.monadic'])
+
+
   def test_ioHello(self):
     Test = curry.compile(
         '''
@@ -39,6 +64,13 @@ class TestPyIO(cytest.TestCase):
         goal = curry.compile('writeFile "file.txt" ("%s" ++ "%s")' % txt, 'expr')
         next(curry.eval(goal))
         self.assertEqual(open('file.txt', 'r').read(), ''.join(txt))
+
+        goal = curry.compile('writeFile "file.txt" ("%s" ? "%s")' % txt, 'expr')
+        self.assertRaisesRegexp(
+            RuntimeError
+          , r'non-determinism in monadic actions occurred'
+          , lambda: list(curry.eval(goal))
+          )
       finally:
         os.chdir(cwd)
 
@@ -47,7 +79,7 @@ class TestPyIO(cytest.TestCase):
     goal = curry.compile("putChar ('a' ? 'b')", 'expr')
     self.assertRaisesRegexp(
         RuntimeError
-      , r'non-determinism in I/O actions occurred'
+      , r'non-determinism in monadic actions occurred'
       , lambda: list(curry.eval(goal))
       )
 
@@ -56,7 +88,7 @@ class TestPyIO(cytest.TestCase):
     goal = curry.compile('''putStrLn ("one" ? "two")''', 'expr')
     self.assertRaisesRegexp(
         RuntimeError
-      , r'non-determinism in I/O actions occurred'
+      , r'non-determinism in monadic actions occurred'
       , lambda: list(curry.eval(goal))
       )
 

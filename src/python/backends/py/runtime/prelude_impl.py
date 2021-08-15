@@ -2,7 +2,7 @@
 Implementation of the Prelude externals.
 '''
 from ....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from .control import E_RESIDUAL, E_CONTINUE
+from .control import E_RESIDUAL, E_UNWIND
 from ....exceptions import *
 from .fairscheme.algorithm import normalize, hnf
 from .graph import Node, tag_of
@@ -152,7 +152,7 @@ def nonstrict_eq(rts, root):
       rhs = hnf_or_free(rts, root, 1)
       if rhs.info.tag == T_VAR:
         hnf(rts, root, [1], typedef=lhs.info.typedef())
-        assert False # E_CONTINUE should be raised in prev statement
+        assert False # E_UNWIND should be raised in prev statement
       else:
         rhs.info.tag >= T_VAR
         if lhs.info.tag == rhs.info.tag:
@@ -252,6 +252,9 @@ def choice(rts, lhs):
 def error(rts, msg):
   msg = str(rts.topython(msg))
   raise RuntimeError(msg)
+
+def not_used(rts, _0):
+  raise RuntimeError("function 'Prelude.%s' is not used by Sprite" % _0.info.name)
 
 # The next several functions are for parsing literals.
 def readNatLiteral(rts, s):
@@ -523,7 +526,7 @@ def show(rts, arg, xform=None):
 def apply_impl(rts, root, impl, **kwds):
   partapplic = hnf(rts, root, [0])
   func = partapplic[1]
-  with rts.catch_control(nondet_io=rts.is_io(func)):
+  with rts.catch_control(nondet_monad=rts.is_io(func)):
     result = impl(rts, root, [1], **kwds)
   yield rts.prelude.apply
   yield root[0]

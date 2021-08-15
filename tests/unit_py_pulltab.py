@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 from curry.common import *
 from curry.backends.py.runtime.fairscheme.state import RuntimeState
-from curry.backends.py.runtime.control import E_CONTINUE
+from curry.backends.py.runtime.control import E_UNWIND
 from curry.backends.py.runtime.fairscheme.algorithm import hnf
 import curry
 import unittest
@@ -25,7 +25,7 @@ class TestPyPullTab(cytest.TestCase):
     id123 = id(goal[0,2])
     # Head-normalizing brings a choice to the root.
     rts = RuntimeState(interp, goal[0])
-    self.assertRaises(E_CONTINUE, lambda: hnf(rts, goal[0], [0,2]))
+    self.assertRaises(E_UNWIND, lambda: hnf(rts, goal[0], [0,2]))
     # goal = id (f...8 ? f...9)
     self.assertEqual(goal[0].info.tag, T_CHOICE)
     # Ensure nodes are referenced, not copied.
@@ -34,7 +34,7 @@ class TestPyPullTab(cytest.TestCase):
     self.assertEqual(id(lhs[0,2]), id8)
     self.assertEqual(id(lhs[2]), id123)
     lhs = curry.expr(interp.prelude.id, lhs) # id (f...8)
-    self.assertRaises(E_CONTINUE, lambda: hnf(rts, lhs, [0]))
+    self.assertRaises(E_UNWIND, lambda: hnf(rts, lhs, [0]))
     self.assertEqual(lhs.info.tag, T_FAIL)
     # RHS -> True
     rhs = goal[0,2]

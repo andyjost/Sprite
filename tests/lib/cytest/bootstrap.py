@@ -18,7 +18,7 @@ def retbody(expr):
 def getbootstrap():
   return IModule(
       name='bootstrap'
-    , imports=[]
+    , imports=['Prelude']
     , types=[
           IType(
               name='bootstrap.NUM'
@@ -58,13 +58,13 @@ def getbootstrap():
 
 def getlist():
   return IModule(
-      name='mylist', imports=[], functions=[]
+      name='mylist', imports=['Prelude'], functions=[]
     , types=[
           IType(
               name='mylist.List'
             , constructors=[
                 IConstructor('mylist.Cons', 2)
-              , IConstructor('mylist.Nil', 0) 
+              , IConstructor('mylist.Nil', 0)
               ]
             )
         ]
@@ -72,7 +72,7 @@ def getlist():
 
 def getx():
   return IModule(
-      name='X', imports=[], functions=[]
+      name='X', imports=['Prelude'], functions=[]
     , types=[
           IType(
               name='X.X'

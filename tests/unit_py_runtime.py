@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 from copy import copy
 from curry.common import T_FAIL, T_CHOICE
-from curry.backends.py.runtime.control import E_CONTINUE
+from curry.backends.py.runtime.control import E_UNWIND
 from curry.backends.py.runtime.graph import Node
 from curry.backends.py.runtime.fairscheme.rts_variables import _gen_ctors
 from curry.backends.py.runtime.fairscheme.state import Bindings, RuntimeState
@@ -167,13 +167,13 @@ class TestPyRuntime(cytest.TestCase):
       for expr, expected in testlist:
         # Build the expression, normalize it the specified amount, then check
         # (1) that the modified expression matches the expected result and (2)
-        # that E_CONTINUE was raised if and only if the result head symbol is a
+        # that E_UNWIND was raised if and only if the result head symbol is a
         # failure or choice.
         expr = interp.expr(expr)
         expected = interp.expr(expected)
         try:
           N(expr)
-        except E_CONTINUE:
+        except E_UNWIND:
           exc = True
         else:
           exc = False

@@ -31,8 +31,8 @@ class TimeoutError(RuntimeError):
 class PrerequisiteError(IOError):
   '''Raised when a prerequisite file is not found.'''
 
-class NondetIOError(RuntimeError):
+class NondetMonadError(RuntimeError):
   def __init__(self):
-    RuntimeError.__init__(self, 'non-determinism in I/O actions occurred')
+    RuntimeError.__init__(self, 'non-determinism in monadic actions occurred')
 
 

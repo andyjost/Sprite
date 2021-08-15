@@ -1,9 +1,9 @@
 Overview
 ========
 This file describes the metadata used when translating ICurry.  The optional
-prefix restricts which backend the metadata is targeted to.  No prefix -- i.e.,
-names beginning with '.' -- means all targets.  The ones beginning with 'py'
-are Python-specific annotations, which are used to implement built-ins, system
+prefix restricts which backend the metadata is targeted to.  'all' means the
+metadata applies to all backends.  The ones beginning with 'py' are
+Python-specific annotations, which are used to implement built-ins, system
 facilities, and other special features.  The metadata is supplied when
 declaring ICurry bindings for hand-implemented symbols (see prelude.py).
 
@@ -20,7 +20,7 @@ be called with the successors.
 One use of this is to provide special formatting for lists and tuples.
 
 
-Metadata: .tag
+Metadata: all.tag
 ----------------
 Used for special node types, such as failures and choices, to indicate their
 type.
@@ -51,6 +51,12 @@ obtained (in this case, the next character of an error string) the given Python
 function is called.
 
 See compile_builtin.
+
+
+Metadata: all.monadic
+---------------------
+Indicates a monadic primitive.  Non-determinism in such functions is trapped
+and raised as a runtime error.
 
 
 Metadata: py.rawfunc

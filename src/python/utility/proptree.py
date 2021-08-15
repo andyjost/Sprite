@@ -60,12 +60,26 @@ class _TreeNode(object):
   def __le__(self, rhs): return NotImplemented
   def __ge__(self, rhs): return NotImplemented
   def __reduce__(self):
-    # state = {attr: getattr(self, attr) for attr in self.__slots__}
     state = tuple(getattr(self, slot) for slot in self.__slots__)
     return _PropTreeNodeGetter(), (self.__slots__,), state
   def __setstate__(self, state):
     for slot, value in zip(self.__slots__, state):
       setattr(self, slot, value)
+  def _keys(self):
+    l = []
+    for name in self:
+      if isinstance(self[name], _TreeNode):
+        for tail in self[name]._keys():
+          try:
+            l.append(DELIMITER.join([name, tail]))
+          except:
+            breakpoint()
+      else:
+        l.append(name)
+    return l
+  @property
+  def _asdict(self):
+    return {attr: getattr(self, attr) for attr in self._keys()}
 
 
 class _PropTreeNodeGetter(object):

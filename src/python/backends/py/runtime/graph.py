@@ -15,8 +15,8 @@ class InfoTable(object):
   Runtime info for a node.  Every Curry node stores an `InfoTable`` instance,
   which contains instance-independent data.
   '''
-  __slots__ = ['name', 'arity', 'tag', '_step', 'show', 'typecheck', 'typedef']
-  def __init__(self, name, arity, tag, step, show, typecheck):
+  __slots__ = ['name', 'arity', 'tag', '_step', 'show', 'typecheck', 'typedef', 'monadic']
+  def __init__(self, name, arity, tag, step, show, typecheck, monadic=False):
     # The node name.  Normally the constructor or function name.
     self.name = name
     # Arity.
@@ -36,6 +36,8 @@ class InfoTable(object):
     # implement =:=, when a free variable must be bound to an HNF.  It could be
     # improved to use just a runtime version of the typeinfo.
     self.typedef = None
+    # Indicates whether this is an I/O function.
+    self.monadic = monadic
 
   @property
   def step(self):

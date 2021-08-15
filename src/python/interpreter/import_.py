@@ -1,5 +1,6 @@
 from .. import config
 from .. import icurry
+from ..icurry import analysis
 from .. import importer
 from .. import objects
 from . import show
@@ -34,9 +35,6 @@ def insertSymbol(module, basename, nodeinfo, private=False):
   --------
   Nothing.
   '''
-  # logging.debug(
-  #     'Inserting symbol %s into module %s' % (basename, module.__name__)
-  #   )
   getattr(module, '.symbols')[basename] = nodeinfo
   if not private and encoding.isaCurryIdentifier(basename):
     setattr(module, basename, nodeinfo)
@@ -82,7 +80,6 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
   getattr(moduleobj, '.types')[itype.name] = typedef
   for i,ctor in enumerate(constructors):
     ctor.info.typedef = weakref.ref(typedef)
-    # ctor.info.gpath = tuple(runtime._build_gpath(i, len(constructors)))
   return typedef
 
 @loadSymbols.when(collections.Mapping)
@@ -94,9 +91,12 @@ def loadSymbols(interp, mapping, moduleobj, **kwds):
 
 @loadSymbols.when(icurry.IModule)
 def loadSymbols(interp, imodule, moduleobj, **kwds):
-  for modulename in imodule.imports:
-    import_(interp, modulename)
-
+  imodules = {
+      modulename: getattr(import_(interp, modulename), '.icurry')
+          for modulename in imodule.imports
+    }
+  imodules[imodule.name] = imodule
+  icurry.analysis.set_monadic_metadata(imodule.name, imodules)
   loadSymbols(interp, imodule.types, moduleobj, **kwds)
   loadSymbols(interp, imodule.functions, moduleobj, **kwds)
   return moduleobj
@@ -130,6 +130,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
     , None
     , show.Show(getattr(metadata, 'py.format', None))
     , _gettypechecker(interp, metadata)
+    , metadata['all.monadic']
     )
   nodeinfo = objects.CurryNodeLabel(ifun, info)
   insertSymbol(moduleobj, ifun.name, nodeinfo, ifun.is_private)

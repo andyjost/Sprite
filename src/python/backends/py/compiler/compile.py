@@ -2,15 +2,15 @@ from ....icurry import analysis
 from . import closure
 from .... import icurry
 from . import render
-from ..runtime.graph import Node
 from ..runtime.fairscheme.algorithm import hnf
-# from ..runtime.fairscheme.freevars import freshvar
+from ..runtime.graph import Node
 from ..runtime import prelude_impl
 from ....utility import encoding, visitation, formatDocstring
 from ....utility import filesys
 import collections
 import logging
 import pprint
+import re
 import sys
 import textwrap
 
@@ -53,7 +53,7 @@ def compile_function(interp, ifun, extern=None):
       elif 'py.rawfunc' in ifun.metadata:
         return compile_py_rawfunc(interp, ifun.metadata)
       compiler = FunctionCompiler(interp, ifun.fullname, extern)
-      compiler.compile(ifun.body)
+      compiler.compile(ifun)
     except ExternallyDefined as e:
       ifun = e.ifun
     else:
@@ -198,15 +198,16 @@ class FunctionCompiler(object):
     lines += render.indent(self.program)
     return '\n'.join(lines)
 
-  def compile(self, iobj):
+  def compile(self, ifun):
+    assert isinstance(ifun, icurry.IFunction)
     # ICurry data can be deeply nested.  Adjusting the recursion limit up from
     # its default of 1000 is necessary, e.g., to process strings longer than
     # 999 characters.
     limit = sys.getrecursionlimit()
-    self.varinfo = analysis.varinfo(iobj)
+    self.varinfo = analysis.varinfo(ifun.body)
     try:
       sys.setrecursionlimit(1<<30)
-      self._compile(iobj)
+      self._compile(ifun.body)
     finally:
       sys.setrecursionlimit(limit)
       self.varinfo = None

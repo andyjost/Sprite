@@ -1,6 +1,6 @@
 __all__ = [
     'RuntimeFlowException'
-  , 'E_CONTINUE', 'E_RESIDUAL', 'E_STEPLIMIT', 'E_TERMINATE'
+  , 'E_RESIDUAL', 'E_STEPLIMIT', 'E_TERMINATE' , 'E_UNWIND'
   ]
 
 class RuntimeFlowException(BaseException):
@@ -10,7 +10,7 @@ class RuntimeFlowException(BaseException):
   '''
   pass
 
-class E_CONTINUE(RuntimeFlowException):
+class E_UNWIND(RuntimeFlowException):
   '''
   Raised when control must break out of the recursive match-eval loop.  This
   occurs when a symbol requiring exceptional handing (e.g., FAIL or CHOICE) was

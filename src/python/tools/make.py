@@ -1,3 +1,5 @@
+PROGRAM_NAME = 'sprite-make'
+
 from cStringIO import StringIO
 from curry import importer
 from .. import config
@@ -72,12 +74,12 @@ unless it was up-to-date prior to the command running.
 
 '''.format(intermediate_subdir=config.intermediate_subdir())
 
-def main(progname, argv):
+def main(program_name, argv):
   '''
   Main function for sprite-make.
   '''
   parser = argparse.ArgumentParser(
-      prog=progname
+      prog=program_name
     , description='Make ICurry files.'
     )
   # E.g., sprite-make --icurry Prelude --json Nat
@@ -114,16 +116,16 @@ def main(progname, argv):
     del args.subdir
 
   if len(args.names) > 1 and args.output:
-    sys.stderr.write(progname + ': -o,--output cannot be used with multiple input files.\n')
+    sys.stderr.write(program_name + ': -o,--output cannot be used with multiple input files.\n')
     sys.exit(1)
   if not args.icy and not args.json:
-    sys.stderr.write(progname + ': one of -i,--icy or -j,--json must be supplied.\n')
+    sys.stderr.write(program_name + ': one of -i,--icy or -j,--json must be supplied.\n')
     sys.exit(1)
   if args.json:
     args.icy = True
   kwds = dict(args._get_kwargs())
   error_handler = handle_program_errors(
-      progname
+      program_name
     , exit_status=None if args.keep_going else 1
     )
   for name in args.names:
@@ -134,4 +136,4 @@ def main(progname, argv):
     sys.exit(1)
 
 
-main('sprite-make', sys.argv[1:])
+main(PROGRAM_NAME, sys.argv[1:])
