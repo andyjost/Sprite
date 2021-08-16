@@ -197,6 +197,52 @@ INTEGER_PROGRAMS = [
     'main = x=:=1 &> x+2 where x free'
   ]
 
+# Programs for character narrowing.
+CHAR_PROGRAMS = [
+    "main = x =:= 'a' where x free"
+  , "main = 'a' =:= x where x free"
+  , "f 'a' 'b' = 'a'\n"
+    "main :: Char\n"
+    "main = f 'a' x where x free"
+  , "f 'a' True = True\n"
+    "main :: Bool\n"
+    "main = f 'a' x where x free"
+  , "main = ('a':xs)=:=(y:ys) where y,xs,ys free"
+  , "main :: Char\n"
+    "main = x=:='f' &> x where x free"
+  , "f 'a' = 'a'\n"
+    "f 'b' = 'b'\n"
+    "g 'a' = 'a'\n"
+    "g 'c' = 'c'\n"
+    "main :: (Char, Char)\n"
+    "main = (f x, g x) where x free"
+  , "main :: Int\n"
+    "main = x=:='b' &> ord x where x free"
+  ]
+
+# Programs for floating-point narrowing.
+FLOAT_PROGRAMS = [
+    "main = x =:= 3.14 where x free"
+  , "main = 3.14 =:= x where x free"
+  , "f 3.14 2.72 = 3.14\n"
+    "main :: Float\n"
+    "main = f 3.14 x where x free"
+  , "f 3.14 True = True\n"
+    "main :: Bool\n"
+    "main = f 3.14 x where x free"
+  , "main = (3.14:xs)=:=(y:ys) where y,xs,ys free"
+  , "main :: Float\n"
+    "main = x=:=6.0 &> x where x free"
+  , "f 3.14 = 3.14\n"
+    "f 2.72 = 2.72\n"
+    "g 3.14 = 3.14\n"
+    "g 5.0 = 5.0\n"
+    "main :: (Float, Float)\n"
+    "main = (f x, g x) where x free"
+  , "main :: Float\n"
+    "main = x=:=2.72 &> -x where x free"
+  ]
+
 # Programs requiring: data T = A
 A0_PROGRAMS = [
     'x =:= A &> x where x free'
@@ -1261,6 +1307,8 @@ generate_test_programs([
   # +------------------+-----------+-------+-----------------------------------
     (PROGRAMS        , 'prog'    , 2     , ''                                 )
   , (INTEGER_PROGRAMS, 'iprog'   , 2     , ''                                 )
+  , (CHAR_PROGRAMS   , 'cprog'   , 2     , ''                                 )
+  , (FLOAT_PROGRAMS  , 'fprog'   , 2     , ''                                 )
   , (A0_PROGRAMS     , 'a0_'     , 3     , 'data T = A\nmain = '              )
   , (A0B0C0_PROGRAMS , 'a0b0c0_' , 3     , 'data T = A | B | C\nmain = '      )
   , (A2B1C0_PROGRAMS , 'a2b1c0_' , 3     , 'data T = A T T | B T | C\nmain = ')

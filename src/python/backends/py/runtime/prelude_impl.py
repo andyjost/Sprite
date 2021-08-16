@@ -105,11 +105,11 @@ def constr_eq(rts, root):
         else:
           yield rts.prelude.True
       else:
-        values = [rhs[0]] if rhs.info is rts.prelude.Int.info else None
+        values = [rhs[0]] if rhs.info.typedef() in rts.builtin_types else None
         hnf(rts, root, [0], rhs.info.typedef(), values)
     else:
       if rtag == T_VAR:
-        values = [lhs[0]] if lhs.info is rts.prelude.Int.info else None
+        values = [lhs[0]] if lhs.info.typedef() in rts.builtin_types else None
         hnf(rts, root, [1], lhs.info.typedef(), values)
       else:
         if ltag == rtag: # recurse when the comparison returns 0 or False.
@@ -518,7 +518,7 @@ def make_monad_exception(rts, exc):
       rts.prelude.IOError.info.typedef().constructors[idx]
     , rts.expr(iter(str(exc)))
     )
-  
+
 def catch(rts, func):
   try:
     hnf(rts, func, [0])
@@ -529,7 +529,7 @@ def catch(rts, func):
   else:
     yield rts.prelude._Fwd
     yield func[0]
-  
+
 def ioError(rts, func):
   yield rts.prelude.error
   yield Node(rts.prelude.show, func[0])

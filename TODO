@@ -11,6 +11,4 @@
 - clean up the inspect module
 - fix tests in unit_py_constraints.py
 - fix tests in unit_py_pulltab.py
-- Make binding work for Float and Char, too
-- Implement missing prelude functions.
 - Update to the latest icurry.

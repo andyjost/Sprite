@@ -125,9 +125,9 @@ def hnf(rts, func, path, typedef=None, values=None):
       there.
 
     ``values``
-      An instance of the Curry type Integer.ISet specifying the integers that
-      may occur at the inductive position.  Only meaningful when ``typedef``
-      is Prelude.Int.  Used to restrict integer narrowing.
+      A list of integers, float, or characters indicating the values that may
+      occur at the inductive position.  Only meaningful when ``typedef`` is
+      Prelude.Int, Prelude.Float, or Prelude.Char.
 
   Returns:
   --------
@@ -158,7 +158,7 @@ def hnf(rts, func, path, typedef=None, values=None):
           rts.restart()
         elif typedef in rts.builtin_types:
           if values:
-            target = graph.make_value_bindings(rts, target, values)
+            target = graph.make_value_bindings(rts, target, values, typedef)
             graph.replace(rts, func, path, target)
           else:
             rts.suspend(target)

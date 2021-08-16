@@ -73,12 +73,12 @@ class LitNormalStringifier(Stringifier):
 
   @__call__.when(float)
   def __call__(self, lit, **kwds):
-    return str(lit)
+    return ('(%s)' if lit<0 else '%s') % lit
 
   @__call__.when(str)
   def __call__(self, lit, **kwds):
     assert len(lit) == 1
-    return str(lit)
+    return repr(lit)
 
   @__call__.when(collections.Iterator)
   def __call__(self, it, **kwds):

@@ -54,8 +54,8 @@ def catch_control(
     if nondet:
       raise exceptions.NondetMonadError()
     elif residual:
-      rts.C.residuals.update(res.ids)
-      rts.rotate()
+      self.C.residuals.update(res.ids)
+      self.rotate()
     elif ground:
       raise
   except E_RESTART:

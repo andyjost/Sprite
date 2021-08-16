@@ -57,7 +57,7 @@ _types_ = [
             , metadata={'all.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
       , _C('_NonStrictConstraint', 2
             , metadata={'all.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
-      , _C('_IntegerBinding', 2
+      , _C('_ValueBinding', 2
             , metadata={'all.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
       ])
     # Free variables have two successors, one for the variable ID (Int) and one

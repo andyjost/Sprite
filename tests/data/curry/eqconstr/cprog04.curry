@@ -1,0 +1,1 @@
+main = ('a':xs)=:=(y:ys) where y,xs,ys free

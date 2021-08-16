@@ -9,7 +9,7 @@ from .....common import T_VAR, T_CHOICE
 
 STRICT_CONSTRAINT = 0
 NONSTRICT_CONSTRAINT = 1
-INTEGER_BINDING = 2
+VALUE_BINDING = 2
 
 def constraint_type(self, arg=None, config=None):
   '''Indicates the constraint type.'''
@@ -17,7 +17,7 @@ def constraint_type(self, arg=None, config=None):
   mapping = {
       id(self.prelude._StrictConstraint.info)   : STRICT_CONSTRAINT
     , id(self.prelude._NonStrictConstraint.info): NONSTRICT_CONSTRAINT
-    , id(self.prelude._IntegerBinding.info)     : INTEGER_BINDING
+    , id(self.prelude._ValueBinding.info)       : VALUE_BINDING
     }
   return mapping[id(arg.info)]
 
