@@ -83,7 +83,7 @@ class WalkState(object):
     return self.spine[-2]
 
 
-def walk(root, path=()):
+def walk(root, path=None):
   '''
   Walk a Curry expression.  
 
@@ -108,4 +108,4 @@ def walk(root, path=()):
     ``parent``
         The parent of the node at the cursore.  Equivalent to spine[-2].
   '''
-  return WalkState(root, path)
+  return WalkState(root, () if path is None else path)

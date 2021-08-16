@@ -15,13 +15,14 @@ def D(rts):
         rts.drop()
       else:
         rts.E = value
+        del value
     elif tag == T_VAR:
       if rts.has_binding():
         rts.E = rts.get_binding()
       elif rts.is_narrowed():
         rts.E = rts.get_generator()
       else:
-        yield rts.E
+        yield rts.make_value()
         rts.drop()
     elif tag == T_FWD:
       rts.E = rts.E[()]
@@ -34,40 +35,53 @@ def D(rts):
           S(rts, rts.E)
         elif tag >= T_CTOR:
           if N(rts):
-            yield rts.E
+            yield rts.make_value()
             rts.drop()
 
-def N(rts):
+
+def N(rts, root=None, path=None, ground=True):
   C = rts.C
   C.search_state.append(None)
+  root = rts.E if root is None else root
   try:
-    for state in exprutil.walk(rts.E):
+    for state in exprutil.walk(root, path=path):
       rts.C.search_state[-1] = state
       while True:
         tag = graph.tag_of(state.cursor)
         if tag == T_FAIL:
-          rts.drop()
+          if path is None:
+            rts.drop()
+          else:
+            root.rewrite(rts.prelude._Failure)
           return False
         elif tag == T_CONSTR:
-          rts.E = graph.make_constraint(state.cursor, rts.E, state.path)
+          if path is None:
+            rts.E = graph.make_constraint(state.cursor, rts.E, state.path)
+          else:
+            graph.make_constraint(state.cursor, root, state.path, rewrite=root)
           return False
         elif tag == T_VAR:
-          if rts.has_binding(state.cursor):
-            binding = rts.get_binding(state.cursor)
-            rts.E = graph.replace_copy(rts, rts.E, state.path, binding)
-          elif rts.is_narrowed(state.cursor):
-            gen = target = rts.get_generator(state.cursor)
-            rts.E = graph.make_choice(rts, gen[0], rts.E, state.path, gen)
-            return False
-          elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
-            x = rts.get_variable(rts.grp_id(state.cursor))
-            rts.E = graph.replace_copy(rts, rts.E, state.path, x)
-            return False
+          if ground:
+            if rts.has_binding(state.cursor):
+              binding = rts.get_binding(state.cursor)
+              rts.E = graph.replace_copy(rts, rts.E, state.path, binding)
+              rts.restart()
+            elif rts.is_narrowed(state.cursor):
+              gen = target = rts.get_generator(state.cursor)
+              rts.E = graph.make_choice(rts, gen[0], rts.E, state.path, gen)
+              rts.restart()
+            elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
+              x = rts.get_variable(rts.grp_id(state.cursor))
+              rts.E = graph.replace_copy(rts, rts.E, state.path, x)
+              rts.restart()
           break
         elif tag == T_FWD:
           state.spine[-1] = state.parent[state.path[-1]]
         elif tag == T_CHOICE:
-          rts.E = graph.make_choice(rts, state.cursor[0], rts.E, state.path)
+          if path is None:
+            rts.E = graph.make_choice(rts, state.cursor[0], rts.E, state.path)
+          else:
+            graph.make_choice(rts, state.cursor[0], root, state.path, rewrite=root)
           return False
         elif tag == T_FUNC:
           S(rts, state.cursor)
@@ -79,11 +93,13 @@ def N(rts):
   finally:
     C.search_state.pop()
 
+
 @trace.trace_steps
 def S(rts, node):
-  with rts.catch_control(unwind=True, nondet_monad=rts.is_io(node)):
+  with rts.catch_control(unwind=True, nondet=rts.is_io(node)):
     node.info.step(rts, node)
     rts.stepcounter.increment()
+
 
 def hnf(rts, func, path, typedef=None, values=None):
   '''
@@ -159,17 +175,4 @@ def hnf(rts, func, path, typedef=None, values=None):
         return target
   finally:
     C.search_state.pop()
-
-def normalize(rts, func, path, ground):
-  '''
-  Normalize the subexpression at ``func[path]``.  Used to implement $!! and
-  $##.
-  '''
-  for state in exprutil.walk(func, path=path):
-    with rts.catch_control(ground=ground):
-      hnf(rts, func, state.path)
-    if graph.tag_of(state.cursor) >= T_CTOR:
-      if graph.info_of(state.cursor) is not rts.prelude._PartApplic.info:
-        state.push()
-  return func[path]
 

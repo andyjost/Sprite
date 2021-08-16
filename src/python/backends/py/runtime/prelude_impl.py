@@ -4,7 +4,7 @@ Implementation of the Prelude externals.
 from ....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .control import E_RESIDUAL, E_UNWIND
 from ....exceptions import *
-from .fairscheme.algorithm import normalize, hnf
+from .fairscheme.algorithm import N, hnf
 from .graph import Node, tag_of
 from .... import inspect
 import collections
@@ -175,17 +175,6 @@ def nonstrict_eq(rts, root):
   else:
     raise InstantiationError('=:<= cannot bind to an unboxed value')
 
-def bind_io(rts, lhs):
-  io_a = hnf(rts, lhs, [0])
-  yield rts.prelude.apply
-  yield lhs[1]
-  yield io_a[0]
-
-def seq_io(rts, lhs):
-  hnf(rts, lhs, [0])
-  yield rts.prelude._Fwd
-  yield lhs[1]
-
 # Prelude.& is implemented as follows:
 #   Evaluate an argument and inspect its head symbol:
 #     - If true, rewrite to the other argument;
@@ -251,7 +240,7 @@ def choice(rts, lhs):
 
 def error(rts, msg):
   msg = str(rts.topython(msg))
-  raise RuntimeError(msg)
+  raise ExecutionError(msg)
 
 def not_used(rts, _0):
   raise RuntimeError("function 'Prelude.%s' is not used by Sprite" % _0.info.name)
@@ -454,6 +443,17 @@ def readStringLiteral(rts, s):
     yield rts.expr("")
     yield s_in
 
+def bindIO(rts, lhs):
+  io_a = hnf(rts, lhs, [0])
+  yield rts.prelude.apply
+  yield lhs[1]
+  yield io_a[0]
+
+def seqIO(rts, lhs):
+  hnf(rts, lhs, [0])
+  yield rts.prelude._Fwd
+  yield lhs[1]
+
 def returnIO(rts, a):
   yield rts.prelude.IO
   yield a
@@ -512,6 +512,28 @@ def writeFile(rts, func, mode='w'):
 def appendFile(rts, func):
   return writeFile(func, 'w+')
 
+def make_monad_exception(rts, exc):
+  idx = getattr(exc, 'CTOR_INDEX', 0)
+  return Node(
+      rts.prelude.IOError.info.typedef().constructors[idx]
+    , rts.expr(iter(str(exc)))
+    )
+  
+def catch(rts, func):
+  try:
+    hnf(rts, func, [0])
+  except (IOError, MonadError) as exc:
+    yield rts.prelude.apply
+    yield func[1]
+    yield make_monad_exception(rts, exc)
+  else:
+    yield rts.prelude._Fwd
+    yield func[0]
+  
+def ioError(rts, func):
+  yield rts.prelude.error
+  yield Node(rts.prelude.show, func[0])
+
 def show(rts, arg, xform=None):
   if inspect.is_boxed(rts, arg):
     string = arg.info.show(arg, xform)
@@ -523,10 +545,16 @@ def show(rts, arg, xform=None):
   yield rts.prelude._Fwd
   yield result
 
+def normalize(rts, func, path, ground):
+  if not N(rts, func, path, ground):
+    rts.unwind()
+  else:
+    return func[path]
+
 def apply_impl(rts, root, impl, **kwds):
   partapplic = hnf(rts, root, [0])
   func = partapplic[1]
-  with rts.catch_control(nondet_monad=rts.is_io(func)):
+  with rts.catch_control(nondet=rts.is_io(func)):
     result = impl(rts, root, [1], **kwds)
   yield rts.prelude.apply
   yield root[0]

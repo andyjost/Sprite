@@ -5,7 +5,7 @@ not intended to be imported except by state.py.
 
 from .....common import T_FUNC
 from ..control import E_RESIDUAL, E_RESTART, E_TERMINATE, E_UNWIND
-from .....exceptions import EvaluationSuspended, NondetMonadError
+from ..... import exceptions
 import contextlib
 
 __all__ = [
@@ -19,8 +19,7 @@ def append(self, config):
 
 @contextlib.contextmanager
 def catch_control(
-    self, ground=True, nondet_monad=False, residual=False, restart=False
-  , unwind=False
+    self, ground=True, nondet=False, residual=False, restart=False, unwind=False
   ):
   '''
   Catch and handle flow-control exceptions.
@@ -30,7 +29,7 @@ def catch_control(
     ``ground``
       Require ground terms.  Propagate E_RESIDUAL only if this is true.
 
-    ``nondet_monad``
+    ``nondet``
       Catch non-determinism and raise NondetMonadError if it occurs.  This takes
       priority over all other options.
 
@@ -47,13 +46,13 @@ def catch_control(
   try:
     yield
   except E_UNWIND:
-    if nondet_monad:
-      raise NondetMonadError()
+    if nondet:
+      raise exceptions.NondetMonadError()
     elif not unwind:
       raise
   except E_RESIDUAL as res:
-    if nondet_monad:
-      raise NondetMonadError()
+    if nondet:
+      raise exceptions.NondetMonadError()
     elif residual:
       rts.C.residuals.update(res.ids)
       rts.rotate()
@@ -90,7 +89,7 @@ def ready(self):
     try:
       i = next(i for i, c in enumerate(self.queue) if _make_ready(self, c))
     except StopIteration:
-      raise EvaluationSuspended()
+      raise exceptions.EvaluationSuspended()
     else:
       self.rotate(i)
       return True

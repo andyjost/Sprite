@@ -1,5 +1,6 @@
 from copy import copy
 from . import stepcounter
+from ..... import inspect
 from ...sprite import Fingerprint
 from .....utility import shared, unionfind
 import collections
@@ -109,6 +110,13 @@ class RuntimeState(object):
     assert not self.queue
     if goal is not None:
       self.queue.append(Configuration(goal))
+
+  def make_value(self, arg=None):
+    arg = self.E if arg is None else arg
+    if inspect.isa(arg, self.prelude.IO):
+      return arg[0]
+    else:
+      return arg
 
   @property
   def C(self):

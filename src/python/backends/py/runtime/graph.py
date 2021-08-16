@@ -307,7 +307,7 @@ def make_constraint(constr, node, path, rewrite=None):
   repl = Replacer(node, path)
   value = repl[0]
   pair = constr[1]
-  return Node(constr.info, value, pair, target=rewrite)
+  return _Node(constr.info, value, pair, target=rewrite)
 
 def make_value_bindings(rts, var, values):
   n = len(values)

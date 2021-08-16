@@ -4,6 +4,7 @@ from curry.utility import _tempfile
 import curry
 import os
 import unittest
+from import_blocker import with_import_blocked
 
 class TestPyIO(cytest.TestCase):
   def test_monadic_property1(self):
@@ -13,7 +14,7 @@ class TestPyIO(cytest.TestCase):
             if obj.icurry.metadata.get('all.monadic', False)
       ])
     correct = [
-          'appendFile', 'prim_appendFile', 'prim_putChar', 'prim_readFile'
+          'appendFile', 'prim_appendFile', 'prim_ioError', 'prim_putChar', 'prim_readFile'
         , 'prim_writeFile', 'print', 'putChar', 'putStr', 'putStrLn'
         , 'readFile', 'writeFile'
         ]
@@ -45,7 +46,7 @@ class TestPyIO(cytest.TestCase):
     out = curry.eval([Test.main])
     result = next(out)
     self.assertEqual(stdout.getvalue(), "Hello, World!")
-    self.assertEqual(str(result), 'IO ()')
+    self.assertEqual(str(result), '()')
 
   @cytest.with_flags(defaultconverter='topython')
   def test_readfile(self):
@@ -92,3 +93,51 @@ class TestPyIO(cytest.TestCase):
       , lambda: list(curry.eval(goal))
       )
 
+  @cytest.with_flags(defaultconverter='topython')
+  def test_io_error(self):
+    goal = curry.compile('readFile "nofile"', 'expr')
+    self.assertRaisesRegexp(
+        IOError
+      , r"\[Errno 2\] No such file or directory: 'nofile'"
+      , lambda: list(curry.eval(goal))
+      )
+
+  @cytest.with_flags(defaultconverter='topython')
+  def test_catch(self):
+    goal = curry.compile('readFile "nofile" <|> return "nothing"', 'expr')
+    self.assertEqual(list(curry.eval(goal)), ["nothing"])
+
+  @cytest.with_flags(defaultconverter='topython')
+  def test_ioError(self):
+    goal = curry.compile('readFile "nofile" `catch` ioError', 'expr')
+    self.assertRaisesRegexp(
+        curry.ExecutionError
+      , r"i/o error: \[Errno 2\] No such file or directory: 'nofile'"
+      , lambda: list(curry.eval(goal))
+      )
+
+  @cytest.with_flags(defaultconverter='topython')
+  def test_readFile(self):
+    readFile = curry.symbol('Prelude.readFile')
+    self.assertEqual(
+        list(curry.eval(readFile, "data/sample.txt"))
+      , ['this is a file\ncontaining sample text\n\n(the end)\n']
+      )
+
+  @with_import_blocked('mmap')
+  def test_readFile_no_mmap(self):
+    self.test_readFile()
+
+  @cytest.with_flags(defaultconverter='topython')
+  @cytest.setio(stdin='muh\ninput\n')
+  def test_getChar(self):
+    getChar = curry.symbol('Prelude.getChar')
+    self.assertEqual(list(curry.eval(getChar)), ['m'])
+
+  @cytest.setio(stdout='')
+  def test_putChar(self):
+    putChar = curry.symbol('Prelude.putChar')
+    IO = curry.symbol('Prelude.IO')
+    Unit = curry.symbol('Prelude.()')
+    self.assertEqual(list(curry.eval(putChar, 'x')), [curry.expr(Unit)])
+    self.assertEqual(curry.getInterpreter().stdout.getvalue(), 'x')

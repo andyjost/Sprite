@@ -201,16 +201,16 @@ _functions_ = [
   , _F('prim_showIntLiteral', 1, metadata={'py.boxedfunc':impl.show})
   , _F('prim_showFloatLiteral', 1, metadata={'py.boxedfunc':impl.show})
   # I/O functions.
-  , _F('bindIO', 2, metadata={'py.rawfunc':impl.bind_io, 'all.monadic':True})
-  , _F('seqIO', 2, metadata={'py.rawfunc':impl.seq_io, 'all.monadic':True})
+  , _F('bindIO', 2, metadata={'py.rawfunc':impl.bindIO, 'all.monadic':True})
+  , _F('seqIO', 2, metadata={'py.rawfunc':impl.seqIO, 'all.monadic':True})
   , _F('returnIO', 1, metadata={'py.boxedfunc':impl.returnIO, 'all.monadic':True})
   , _F('prim_putChar', 1, metadata={'py.boxedfunc':impl.putChar, 'all.monadic':True})
   , _F('getChar', 0, metadata={'py.boxedfunc':impl.getChar, 'all.monadic':True})
   , _F('prim_readFile', 1, metadata={'py.boxedfunc':impl.readFile, 'all.monadic':True})
   , _F('prim_writeFile', 2, metadata={'py.rawfunc':impl.writeFile, 'all.monadic':True})
   , _F('prim_appendFile', 2, metadata={'py.rawfunc':impl.appendFile, 'all.monadic':True})
-# catch :: IO a -> (IOError -> IO a) -> IO a
-# prim_ioError :: IOError -> IO _
+  , _F('catch', 2, metadata={'py.rawfunc':impl.catch, 'all.monadic':True})
+  , _F('prim_ioError', 1, metadata={'py.rawfunc':impl.ioError, 'all.monadic':True})
   , _F('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{1} {0} {2}'})
   , _F('apply', 2, metadata={'py.rawfunc':impl.apply})
   , _F('cond', 2, metadata={'py.rawfunc':impl.cond})

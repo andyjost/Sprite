@@ -4,6 +4,7 @@ from .. import exceptions
 from .. import inspect
 from ..common import T_FWD
 from ..utility import visitation
+import collections
 import itertools
 
 class Stringifier(object):
@@ -78,6 +79,10 @@ class LitNormalStringifier(Stringifier):
   def __call__(self, lit, **kwds):
     assert len(lit) == 1
     return str(lit)
+
+  @__call__.when(collections.Iterator)
+  def __call__(self, it, **kwds):
+    return str(it)
 
 
 class LitUnboxedStringifier(Stringifier):

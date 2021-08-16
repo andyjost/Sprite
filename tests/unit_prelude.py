@@ -2,7 +2,6 @@ import cytest # from ./lib; must be first
 from cStringIO import StringIO
 from curry.backends.py.runtime.graph import Node
 from curry import config
-from import_blocker import with_import_blocked
 import curry
 import cytest.step
 import sys
@@ -247,32 +246,6 @@ class TestPrelude(cytest.TestCase):
     chr_ = curry.symbol('Prelude.chr')
     self.assertEqual(list(curry.eval(chr_, 65)), ['A'])
 
-  @cytest.with_flags(defaultconverter='topython')
-  @cytest.setio(stdin='muh\ninput\n')
-  def test_getChar(self):
-    getChar = curry.symbol('Prelude.getChar')
-    self.assertEqual(list(curry.eval(getChar)), ['m'])
-
-  @cytest.setio(stdout='')
-  def test_putChar(self):
-    putChar = curry.symbol('Prelude.putChar')
-    IO = curry.symbol('Prelude.IO')
-    Unit = curry.symbol('Prelude.()')
-    self.assertEqual(list(curry.eval(putChar, 'x')), [curry.expr(IO, Unit)])
-    self.assertEqual(curry.getInterpreter().stdout.getvalue(), 'x')
-
-  @cytest.with_flags(defaultconverter='topython')
-  def test_readFile(self):
-    readFile = curry.symbol('Prelude.readFile')
-    self.assertEqual(
-        list(curry.eval(readFile, "data/sample.txt"))
-      , ['this is a file\ncontaining sample text\n\n(the end)\n']
-      )
-
-  @with_import_blocked('mmap')
-  def test_readFile_no_mmap(self):
-    self.test_readFile()
-
   def test_apply_nf(self):
     '''Test the $!! operator.'''
     # Ensure the RHS argument is normalized before the function is applied.
@@ -349,7 +322,4 @@ class TestPrelude(cytest.TestCase):
 
     # ctor <=> free
     self.checkSatisfied([], unknown)
-
-    # free <=> ctor
-    # TODO
 
