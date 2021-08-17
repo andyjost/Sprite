@@ -5,6 +5,7 @@ intended to be imported except by state.py.
 
 from copy import copy
 from .....common import T_VAR, T_CHOICE, LEFT, RIGHT, UNDETERMINED, ChoiceState
+from ..graph import Node
 
 __all__ = [
     'equate_fp', 'grp_id', 'obj_id', 'make_left', 'make_right', 'read_fp'
@@ -63,7 +64,7 @@ def fork(self, config=None):
   '''
   config = config or self.C
   for idx, choicestate in [(1, LEFT), (2, RIGHT)]:
-    clone = config.clone(config.root[idx])
+    clone = config.clone(Node.getitem(config.root, idx))
     if self.update_fp(choicestate, config.root, config=clone):
       if self.obj_id(config=config) in self.vtable:
         i = self.obj_id(config=config)

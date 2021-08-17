@@ -161,7 +161,7 @@ def unbox(interp, arg):
   if interp.flags['debug']:
     assert isinstance(arg, context.Node)
     assert inspect.isa_primitive(interp, arg) or inspect.isa_io(interp, arg)
-  return arg[0]
+  return arg.successors[0]
 
 def currytype(interp, ty):
   '''Converts a Python type to the corresponding built-in Curry type.'''
@@ -232,8 +232,8 @@ def _listiter(interp, arg):
   '''Iterate through a Curry list.'''
   Cons = getattr(interp.prelude, ':')
   while inspect.isa(arg, Cons):
-    yield arg[0]
-    arg = arg[1]
+    yield arg.successors[0]
+    arg = arg.successors[1]
   if not inspect.isa_list(interp, arg):
     raise exceptions.NotConstructorError(arg)
 

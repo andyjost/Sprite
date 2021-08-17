@@ -15,7 +15,7 @@ __all__ = [
 
 def append(self, config):
   '''Append a configuration to the queue.'''
-  self.queue.append(config)
+  self.Q.append(config)
 
 @contextlib.contextmanager
 def catch_control(
@@ -64,11 +64,11 @@ def catch_control(
 
 def drop(self):
   '''Drop the current configuration.'''
-  self.queue.popleft()
+  self.Q.popleft()
 
 def extend(self, configs):
   '''Extend the queue.'''
-  self.queue.extend(configs)
+  self.Q.extend(configs)
 
 def is_io(self, func):
   assert func.info.tag == T_FUNC
@@ -85,9 +85,9 @@ def ready(self):
   only blocked configurations.  Returns True when the queue is not empty and
   the configuration at the head is ready to be further evaluated.
   '''
-  if self.queue:
+  if self.Q:
     try:
-      i = next(i for i, c in enumerate(self.queue) if _make_ready(self, c))
+      i = next(i for i, c in enumerate(self.Q) if _make_ready(self, c))
     except StopIteration:
       raise exceptions.EvaluationSuspended()
     else:
@@ -119,7 +119,7 @@ def rotate(self, n=1):
   Rotate the queue by ``n`` positions.  By default, the current configuration
   is moved to the end.
   '''
-  self.queue.rotate(-n)
+  self.Q.rotate(-n)
 
 def suspend(self, arg, config=None):
   '''Suspend a configuration with the given residual(s).'''

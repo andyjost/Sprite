@@ -6,6 +6,7 @@ from .control import E_RESIDUAL, E_UNWIND
 from ....exceptions import *
 from .fairscheme.algorithm import N, hnf
 from .graph import Node, tag_of
+from ..hnfmux import demux
 from .... import inspect
 import collections
 import logging
@@ -13,21 +14,21 @@ import operator as op
 
 logger = logging.getLogger(__name__)
 
-def hnf_or_free(rts, root, index, typedef=None):
+def hnf_or_free(rts, root, index, typedef=None, guards=None):
   '''Reduce the expression to head normal form or a free variable.'''
   try:
-    return hnf(rts, root, [index], typedef)
+    return hnf(rts, root, [index], typedef, guards)
   except E_RESIDUAL:
     # The argument could be a free variable or an expression containing a free
     # variable that cannot be narrowed, such as "ensureNotFree x".
-    expr = root[index]
+    expr, guards = Node.getitem_and_guards(root, index)
     if rts.is_variable(expr):
-      return expr
+      return expr, guards
     else:
       raise
 
-def hnf_or_free_int(rts, root, index):
-  return hnf_or_free(rts, root, index, rts.prelude.Int.info.typedef())
+def hnf_or_free_int(rts, root, index, guards=None):
+  return hnf_or_free(rts, root, index, rts.prelude.Int.info.typedef(), guards)
 
 def narrow_integer_args(f):
   '''
@@ -35,7 +36,9 @@ def narrow_integer_args(f):
   raising E_RESIDUAL when they are not ground.
   '''
   def repl(rts, root):
-    args = [hnf_or_free_int(rts, root, i) for i in range(len(root))]
+    args, guards = demux(
+        hnf_or_free_int(rts, root, i) for i in range(len(root))
+      )
     variables = filter(rts.is_variable, args)
     if variables:
       rts.suspend(variables)
@@ -93,7 +96,7 @@ def remInt(rts, lhs, rhs):
 
 def constr_eq(rts, root):
   '''Implements =:=.'''
-  lhs, rhs = (hnf_or_free(rts, root, i) for i in (0,1))
+  (lhs, rhs), guards = demux(hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.is_boxed(rts, lhs) and inspect.is_boxed(rts, rhs):
     ltag, rtag = lhs.info.tag, rhs.info.tag
     if ltag == T_VAR:
@@ -106,11 +109,11 @@ def constr_eq(rts, root):
           yield rts.prelude.True
       else:
         values = [rhs[0]] if rhs.info.typedef() in rts.builtin_types else None
-        hnf(rts, root, [0], rhs.info.typedef(), values)
+        hnf(rts, root, [0], rhs.info.typedef(), values, guards)
     else:
       if rtag == T_VAR:
         values = [lhs[0]] if lhs.info.typedef() in rts.builtin_types else None
-        hnf(rts, root, [1], lhs.info.typedef(), values)
+        hnf(rts, root, [1], lhs.info.typedef(), values, guards)
       else:
         if ltag == rtag: # recurse when the comparison returns 0 or False.
           arity = lhs.info.arity
@@ -141,7 +144,7 @@ def nonstrict_eq(rts, root):
   '''
   lhs, rhs = root
   if inspect.is_boxed(rts, lhs) and inspect.is_boxed(rts, rhs):
-    lhs = hnf_or_free(rts, root, 0)
+    lhs, guards = hnf_or_free(rts, root, 0)
     if lhs.info.tag == T_VAR:
       # Bind lhs -> rhs
       yield rts.prelude._NonStrictConstraint.info
@@ -149,10 +152,9 @@ def nonstrict_eq(rts, root):
       yield rts.expr((lhs, rhs))
     else:
       assert lhs.info.tag >= T_CTOR
-      rhs = hnf_or_free(rts, root, 1)
+      rhs, guards = hnf_or_free(rts, root, 1, guards=guards)
       if rhs.info.tag == T_VAR:
-        hnf(rts, root, [1], typedef=lhs.info.typedef())
-        assert False # E_UNWIND should be raised in prev statement
+        hnf(rts, root, [1], typedef=lhs.info.typedef(), guards=guards)
       else:
         rhs.info.tag >= T_VAR
         if lhs.info.tag == rhs.info.tag:
@@ -193,7 +195,7 @@ def concurrent_and(rts, root):
   while True:
     stepnumber = rts.stepcounter.count
     try:
-      e = hnf(rts, root, [i], typedef=Bool)
+      e, guards = hnf(rts, root, [i], typedef=Bool)
     except E_RESIDUAL as errs[i]:
       if errs[1-i] and rts.stepcounter.count == stepnumber:
         raise
@@ -207,8 +209,8 @@ def concurrent_and(rts, root):
     i = 1-i
 
 def apply(rts, lhs):
-  hnf(rts, lhs, [0]) # normalize "partapplic"
-  partapplic, arg = lhs
+  partapplic, guards = hnf(rts, lhs, [0]) # normalize "partapplic"
+  arg = lhs.successors[1]
   missing, term = partapplic # note: "missing" is unboxed.
   assert missing >= 1
   if missing == 1:
@@ -222,7 +224,7 @@ def apply(rts, lhs):
     yield Node(term, *(term.successors+[arg]), partial=True)
 
 def cond(rts, lhs):
-  hnf(rts, lhs, [0]) # normalize the Boolean argument.
+  _, guards = hnf(rts, lhs, [0]) # normalize the Boolean argument.
   if lhs[0].info is rts.prelude.True.info:
     yield rts.prelude._Fwd
     yield lhs[1]
@@ -235,8 +237,8 @@ def failed(rts):
 def choice(rts, lhs):
   yield rts.prelude._Choice
   yield next(rts.idfactory)
-  yield lhs[0]
-  yield lhs[1]
+  yield Node.getitem(lhs, 0, skipguards=False)
+  yield Node.getitem(lhs, 1, skipguards=False)
 
 def error(rts, msg):
   msg = str(rts.topython(msg))
@@ -444,22 +446,22 @@ def readStringLiteral(rts, s):
     yield s_in
 
 def bindIO(rts, lhs):
-  io_a = hnf(rts, lhs, [0])
+  io_a, guards = hnf(rts, lhs, [0])
   yield rts.prelude.apply
-  yield lhs[1]
-  yield io_a[0]
+  yield lhs.successors[1]
+  yield io_a.successors[0]
 
 def seqIO(rts, lhs):
-  hnf(rts, lhs, [0])
+  _, guards = hnf(rts, lhs, [0])
   yield rts.prelude._Fwd
-  yield lhs[1]
+  yield lhs.successors[1]
 
 def returnIO(rts, a):
   yield rts.prelude.IO
   yield a
 
 def putChar(rts, a):
-  rts.stdout.write(a[0])
+  rts.stdout.write(a.successors[0])
   yield rts.prelude.IO
   yield Node(rts.prelude.Unit)
 
@@ -495,12 +497,12 @@ def writeFile(rts, func, mode='w'):
   listtype = rts.prelude.Cons.typedef()
   chartype = rts.prelude.Char.typedef()
   while True:
-    listnode = hnf(rts, func, [1], listtype)
+    listnode, _ = hnf(rts, func, [1], listtype)
     tag = tag_of(listnode)
     if tag == 0: # Cons
       char, tail = listnode
-      char = hnf(rts, func, [1,0], chartype)
-      stream.write(char[0])
+      char, _ = hnf(rts, func, [1,0], chartype)
+      stream.write(char.successors[0])
       func.successors[1] = tail
     elif tag == 1: # Nil
       yield rts.prelude.IO
@@ -521,10 +523,10 @@ def make_monad_exception(rts, exc):
 
 def catch(rts, func):
   try:
-    hnf(rts, func, [0])
+    _, guards = hnf(rts, func, [0])
   except (IOError, MonadError) as exc:
     yield rts.prelude.apply
-    yield func[1]
+    yield func.successors[1]
     yield make_monad_exception(rts, exc)
   else:
     yield rts.prelude._Fwd
@@ -549,15 +551,17 @@ def normalize(rts, func, path, ground):
   if not N(rts, func, path, ground):
     rts.unwind()
   else:
-    return func[path]
+    return Node.getitem_and_guards(func, path)
 
 def apply_impl(rts, root, impl, **kwds):
-  partapplic = hnf(rts, root, [0])
-  func = partapplic[1]
+  partapplic, guards = hnf(rts, root, [0])
+  func = partapplic.successors[1]
   with rts.catch_control(nondet=rts.is_io(func)):
-    result = impl(rts, root, [1], **kwds)
+    result, guards = impl(rts, root, [1], **kwds)
+  if guards:
+    breakpoint()
   yield rts.prelude.apply
-  yield root[0]
+  yield root.successors[0]
   yield result
 
 def apply_hnf(rts, root):
@@ -570,7 +574,7 @@ def apply_gnf(rts, root):
   return apply_impl(rts, root, normalize, ground=True)
 
 def ensureNotFree(rts, root):
-  arg = hnf_or_free(rts, root, 0)
+  arg, guards = hnf_or_free(rts, root, 0)
   if rts.is_free(arg):
     rts.suspend(arg)
   else:

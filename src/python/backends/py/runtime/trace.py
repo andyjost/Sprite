@@ -2,35 +2,40 @@
 Implements tracing to debug Curry evaluation.
 '''
 
-def show(char, symbol, indent, frame, expr=None):
-  expr = frame.expr[()] if expr is None else expr
-  print '%1s %3s %-50s %s' % (
-      char, symbol, '%s%s' % ('  ' * indent, expr), frame
-    )
+def show(char, symbol, indent, qid, config, expr=None):
+  if config is not None:
+    expr = config.expr[()] if expr is None else expr
+    print '%1s %3s %-50s %s:%s' % (
+        char, symbol, '%s%s' % ('  ' * indent, expr), qid, config
+      )
+  else:
+    print '%1s %3s %-50s' % (
+        char, symbol, '%s%s' % ('  ' * indent, expr)
+      )
 
 def enter_rewrite(rts, indent, expr):
   if rts.tracing:
-    show('S', '<<<', indent, rts.C, expr)
+    show('S', '<<<', indent, rts.qid, rts.C, expr)
 
 def exit_rewrite(rts, indent, expr):
   if rts.tracing:
-    show('S', '>>>', indent, rts.C, expr)
+    show('S', '>>>', indent, rts.qid, rts.C, expr)
 
 def failed(rts):
   if rts.tracing:
-    show('F', ':::', 0, rts.C)
+    show('F', ':::', 0, rts.qid, rts.C)
 
 def yield_(rts, value):
   if rts.tracing:
-    show('Y', ':::', 0, rts.C, value)
+    show('Y', ':::', 0, None, None, value)
 
 def kill(rts):
   if rts.tracing:
-    show('K', ':::', 0, rts.C)
+    show('K', ':::', 0, rts.qid, rts.C)
 
 def activate_frame(rts):
   if rts.tracing:
-    show('F', ':::', 0, rts.C)
+    show('F', ':::', 0, rts.qid, rts.C)
 
 class Trace(object):
   def __init__(self, rts):

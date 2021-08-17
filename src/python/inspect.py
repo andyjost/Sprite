@@ -20,7 +20,7 @@ def isa(cyobj, what):
   '''
   if not isinstance(cyobj, context.Node):
     return False
-  return _isa(id(cyobj[()].info), what)
+  return _isa(id(cyobj.fwd.info), what)
 
 @visitation.dispatch.on('what')
 def _isa(addr, what):
@@ -79,7 +79,7 @@ def isa_failure(interp, arg):
 def isa_freevar(interp, arg):
   if not isinstance(arg, context.Node):
     return False
-  return arg[()].info.tag == T_VAR
+  return arg.fwd.info.tag == T_VAR
 
 def isa_fwd(interp, arg):
   if not isinstance(arg, context.Node):

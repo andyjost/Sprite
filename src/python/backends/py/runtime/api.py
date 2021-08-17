@@ -30,6 +30,11 @@ class Runtime(context.Runtime):
     return prelude
 
   @property
+  def setfunctions(self):
+    from . import setfunctions
+    return setfunctions
+
+  @property
   def evaluate(self):
     from .fairscheme.evaluator import Evaluator
     return lambda *args, **kwds: Evaluator(*args, **kwds).evaluate()

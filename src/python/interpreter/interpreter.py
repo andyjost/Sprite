@@ -78,6 +78,12 @@ class Interpreter(object):
       self.__integerlib = self.module('Integer')
     return self.__integerlib
 
+  @property
+  def setfunctions(self):
+    if not hasattr(self, '__setflib'):
+      self.__setflib = self.module('SetFunctions')
+    return self.__setflib
+
   def reset(self):
     '''
     Soft-resets the interpreter.

@@ -80,6 +80,10 @@ class Runtime(object):
     assert 0
 
   @abc.abstractproperty
+  def setfunctions(self):
+    assert 0
+
+  @abc.abstractproperty
   def evaluate(self):
     assert 0
 

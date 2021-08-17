@@ -3,10 +3,11 @@ from . import closure
 from .... import icurry
 from . import render
 from ..runtime.fairscheme.algorithm import hnf
-from ..runtime.graph import Node
+from ..runtime.graph import Node, rewrite, subexpr
 from ..runtime import prelude_impl
 from ....utility import encoding, visitation, formatDocstring
 from ....utility import filesys
+from ..hnfmux import demux
 import collections
 import logging
 import pprint
@@ -86,7 +87,9 @@ def compile_py_boxedfunc(interp, metadata):
   '''
   boxedfunc = metadata['py.boxedfunc']
   def step(rts, _0):
-    args = (hnf(rts, _0, [i]) for i in xrange(len(_0.successors)))
+    args, guards = demux(
+        hnf(rts, _0, [i]) for i in xrange(len(_0.successors))
+      )
     Node(*boxedfunc(rts, *args), target=_0)
   return step
 
@@ -113,7 +116,10 @@ def compile_py_unboxedfunc(interp, metadata):
   topython = interp.topython
   # For some reason, the prelude reverses the argument order.
   def step(rts, _0):
-    args = (topython(hnf(rts, _0, [i])) for i in reversed(xrange(len(_0.successors))))
+    args, guards = demux(
+        hnf(rts, _0, [i]) for i in reversed(xrange(len(_0.successors)))
+      )
+    args = map(topython, args)
     return expr(unboxedfunc(*args), target=_0)
   return step
 
@@ -152,6 +158,13 @@ class FunctionCompiler(object):
     self.program = ['def step(rts, _0):']
     self.varinfo = None
     return self
+
+  @property
+  def has_guards(self):
+    '''
+    Indicates whether the "guards" variable was defined in the function body.
+    '''
+    return 'hnf' in self.closure.context
 
   def get(self):
     '''Returns the compiled step function.'''
@@ -298,12 +311,21 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.IReturn)
   def statement(self, ret):
-    if isinstance(ret.expr, icurry.IReference):
-      yield '_0.rewrite(%s, %s)' % (
-          self.closure['Prelude._Fwd'], self.expression(ret.expr, primary=True)
-        )
+    if self.has_guards:
+      self.closure['rewrite'] = rewrite
+      if isinstance(ret.expr, icurry.IReference):
+        yield 'rewrite(rts, _0, %s, %s, guards=guards)' % (
+            self.closure['Prelude._Fwd'], self.expression(ret.expr, primary=True)
+          )
+      else:
+        yield 'rewrite(rts, _0, %s, guards=guards)' % self.expression(ret.expr)
     else:
-      yield '_0.rewrite(%s)' % self.expression(ret.expr)
+      if isinstance(ret.expr, icurry.IReference):
+        yield '_0.rewrite(%s, %s)' % (
+            self.closure['Prelude._Fwd'], self.expression(ret.expr, primary=True)
+          )
+      else:
+        yield '_0.rewrite(%s)' % self.expression(ret.expr)
 
   @statement.when(icurry.ICaseCons)
   def statement(self, icase):
@@ -313,9 +335,10 @@ class FunctionCompiler(object):
     assert path is not None
     assert icase.branches
     typedef = casetype(self.interp, icase)
-    yield 'selector = hnf(rts, _0, %s, typedef=%s).info.tag' % (
+    yield 'selector, guards = hnf(rts, _0, %s, typedef=%s)' % (
         path, self.closure[typedef]
       )
+    yield 'selector = selector.info.tag'
     el = ''
     for branch in icase.branches[:-1]:
       rhs = self.label(branch.name).info.tag
@@ -338,9 +361,10 @@ class FunctionCompiler(object):
     self.closure['unbox'] = self.interp.unbox
     typedef = casetype(self.interp, icase)
     self.closure['values'] = list(branch.lit.value for branch in icase.branches)
-    yield 'selector = unbox(hnf(rts, _0, %s, typedef=%s, values=values))' % (
+    yield 'selector, guards = hnf(rts, _0, %s, typedef=%s, values=values)' % (
         path, self.closure[typedef]
       )
+    yield 'selector = unbox(selector)'
     el = ''
     for branch in icase.branches:
       rhs = repr(branch.lit.value)
@@ -367,7 +391,8 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.IVarAccess)
   def expression(self, ivaraccess, primary=False):
-    return '%s[%s]' % (
+    self.closure['subexpr'] = subexpr
+    return 'subexpr(rts, %s, %s)' % (
         self.expression(ivaraccess.var, primary=primary)
       , ','.join(map(str, ivaraccess.path))
       )

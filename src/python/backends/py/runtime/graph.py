@@ -1,5 +1,5 @@
 from .... import context, icurry, utility
-from ....common import T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ....common import T_SETGRD, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 import collections
 import numbers
 import operator
@@ -7,7 +7,7 @@ import operator
 __all__ = [
     'InfoTable', 'Node', 'Replacer'
   , 'info_of', 'make_choice', 'make_constraint', 'make_value_bindings'
-  , 'replace', 'replace_copy', 'rewrite', 'tag_of'
+  , 'replace', 'replace_copy', 'rewrite', 'subexpr', 'tag_of'
   ]
 
 class InfoTable(object):
@@ -128,32 +128,41 @@ class Node(object):
     return True
 
   @utility.visitation.dispatch.on('i')
-  def __getitem__(self, i):
+  def __getitem__(self, i, *args, **kwds):
     raise RuntimeError('unhandled type: %s' % type(i).__name__)
 
   @__getitem__.when(str)
-  def __getitem__(self, i):
+  def __getitem__(self, i, *args, **kwds):
     raise RuntimeError('unhandled type: str')
 
   @__getitem__.when(numbers.Integral)
-  def __getitem__(self, i):
+  def __getitem__(self, i, guards=None, skipguards=True):
     '''Get a successor, skipping over FWD nodes.'''
-    self = self[()]
+    self = self.__getitem__(())
     tmp = Node._skipfwd(self.successors[i])
     self.successors[i] = tmp
+    if hasattr(tmp, 'info') and tmp.info.tag == T_SETGRD:
+      if guards is not None:
+        guards.add(int(tmp.successors[0]))
+      if skipguards:
+        return tmp.successors[1]
     return tmp
 
   @__getitem__.when(collections.Sequence, no=str)
-  def __getitem__(self, path):
+  def __getitem__(self, path, *args, **kwds):
     if not path:
       return Node._skipfwd(self)
     else:
       for p in path:
-        self = self[p]
+        self = self.__getitem__(p, *args, **kwds)
       return self
 
   @staticmethod
-  def getitem(node, i=()):
+  def getitem_with_guards(node, path):
+    return Node.getitem(node, path, skipguards=False)
+
+  @staticmethod
+  def getitem(node, i=(), guards=None, skipguards=True):
     '''
     Like ``Node.__getitem__``, but safe when ``node`` is an unboxed value.
     '''
@@ -166,12 +175,18 @@ class Node(object):
       # __getitem__ methods still need to accept free variables so that, e.g.,
       # _Freevar_get_constructors can be implemented.
       assert node.info.tag != T_VAR or (not i and i != 0)
-      return node[i]
+      return node.__getitem__(i, guards, skipguards)
     elif not i and i != 0: # empty sequence.
       assert isinstance(node, icurry.ILiteral)
       return node
     else:
       raise TypeError("cannot index into an unboxed value.")
+
+  @staticmethod
+  def getitem_and_guards(node, i=(), skipguards=True):
+    guards = set()
+    item = Node.getitem(node, i, guards, skipguards)
+    return item, guards
 
   @staticmethod
   def _skipfwd(arg):
@@ -184,6 +199,10 @@ class Node(object):
       target = arg.successors[0] = Node._skipfwd(arg.successors[0])
       return target
     return arg
+
+  @property
+  def fwd(self):
+    return Node._skipfwd(self)
 
   def __iter__(self):
     return iter(self.successors)
@@ -216,8 +235,8 @@ class Node(object):
   def __repr__(self):
     return '<%s>' % ' '.join(self._repr_())
 
-  def rewrite(self, info, *args):
-    Node(info, *args, target=self)
+  def rewrite(self, info, *args, **kwds):
+    Node(info, *args, target=self, **kwds)
 
 context.Node.register(Node)
 
@@ -248,14 +267,19 @@ class Replacer(object):
   each case, a new cons node is created, but c is not copied.
 
   '''
-  def __init__(self, context, path, getter=Node.__getitem__, alternatives=None):
+  def __init__(self, context, path, getter=Node.getitem_with_guards, alternatives=None):
     self.context = context
     self.path = path
     self.target = alternatives # has value after first __getitem__, unless supplied.
     self.getter = getter
+    self.guards = set()
 
   def _a_(self, node, depth=0):
     '''Recurse along the spine.  At the target, call the getter.'''
+    if tag_of(node) == T_SETGRD:
+      sid = node.successors[0]
+      self.guards.add(sid)
+      return Node(node.info, sid, self._a_(node.successors[1], depth))
     if depth < len(self.path):
       return Node(*self._b_(node, depth))
     else:
@@ -268,13 +292,20 @@ class Replacer(object):
     Perform a shallow copy at one node.  Recurse along the spine; reference
     subexpressions not on the spine.
     '''
-    pos = self.path[depth]
-    yield node.info
-    for j,_ in enumerate(node.successors):
-      if j == pos:
-        yield self._a_(node[j], depth+1) # spine
-      else:
-        yield node[j] # not spine
+    if tag_of(node) == T_SETGRD:
+      sid = node.successors[0]
+      self.guards.add(sid)
+      yield node.info
+      yield sid
+      yield Node(*self._b_(node.successors[1], depth))
+    else:
+      pos = self.path[depth]
+      yield node.info
+      for j,_ in enumerate(node.successors):
+        if j == pos:
+          yield self._a_(Node.getitem(node, j, skipguards=False), depth+1) # spine
+        else:
+          yield Node.getitem(node, j, skipguards=False) # not spine
 
   def __getitem__(self, i):
     self.index = i
@@ -332,11 +363,36 @@ def replace_copy(rts, context, path, replacement):
   replace(rts, copy, path, replacement)
   return copy
 
-def rewrite(node, info, *args):
-  return node.rewrite(info, *args)
+def guard_args(rts, guards, node):
+  guards = iter(guards)
+  last_sid = next(guards)
+  for sid in guards:
+    node = Node(rts.setfunctions._SetGuard, sid, node)
+  yield rts.setfunctions._SetGuard
+  yield last_sid
+  yield node
+
+def guard(rts, guards, node, target=None):
+  return Node(*guard_args(rts, guards, node), target=target)
+
+def subexpr(rts, node, path):
+  target, guards = Node.getitem_and_guards(node, path)
+  if guards:
+    return guard(rts, guards, target)
+  else:
+    return target
+
+def rewrite(rts, target, info, *args, **kwds):
+  guards = kwds.pop('guards', None)
+  if guards:
+    node = Node(info, *args)
+    return guard(rts, guards, node, target=target, **kwds)
+  else:
+    return Node(info, *args, target=target, **kwds)
 
 def tag_of(node):
   if isinstance(node, icurry.ILiteral):
     return T_CTOR
   else:
     return node.info.tag
+

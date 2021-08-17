@@ -181,6 +181,12 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
       kwds.setdefault('extern', prelude.Prelude)
       kwds.setdefault('export', prelude.exports())
       kwds.setdefault('alias', prelude.aliases())
+    elif name == 'SetFunctions':
+      mysetfunctions = interp.context.runtime.setfunctions
+      kwds.setdefault('extern', mysetfunctions.SetFunctions)
+      kwds.setdefault('export', mysetfunctions.exports())
+      kwds.setdefault('alias', mysetfunctions.aliases())
+
     currypath = clean_currypath(interp.path if currypath is None else currypath)
     icur = importer.loadModule(name, currypath, is_sourcefile=is_sourcefile)
     return import_(interp, icur, **kwds)

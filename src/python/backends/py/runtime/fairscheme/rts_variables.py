@@ -60,7 +60,7 @@ def get_variable(self, arg=None, config=None):
 
 def has_generator(self, arg=None, config=None):
   variable = self.get_variable(arg, config)
-  return variable[1].info is not self.prelude.Unit.info
+  return variable.successors[1].info is not self.prelude.Unit.info
 
 def instantiate(self, func, path, typedef, config=None):
   '''
@@ -75,7 +75,7 @@ def instantiate(self, func, path, typedef, config=None):
     The expression the free variable was replaced with.
   '''
   if typedef is None:
-    self.suspend(func[path], config)
+    self.suspend(func.getitem_with_guards(func, path), config)
   else:
     replacer = graph.Replacer(func, path
       , lambda node, _: _make_generator(self, node, typedef)
@@ -84,7 +84,11 @@ def instantiate(self, func, path, typedef, config=None):
     assert replacer.target.info.tag == T_VAR
     assert func.info == replaced.info
     func.successors[:] = replaced.successors
-    return replacer.target[1]
+    target = replacer.target.successors[1]
+    if replacer.guards:
+      return graph.guard(self, replacer.guards, target)
+    else:
+      return target
 
 def is_free(self, arg=None, config=None):
   '''
@@ -198,8 +202,8 @@ def _make_generator(rts, variable, typedef=None):
       If the variable is not free, then this can be None.
   '''
   assert variable.info.tag == T_VAR
-  vid = variable[0]
-  if variable[1].info is rts.prelude.Unit.info:
+  vid = variable.successors[0]
+  if variable.successors[1].info is rts.prelude.Unit.info:
     constructors = [
         getattr(ctor, 'info', ctor)
             for ctor in getattr(typedef, 'constructors', typedef)
@@ -213,4 +217,4 @@ def _make_generator(rts, variable, typedef=None):
           rts.prelude._Choice, vid, instance, graph.Node(rts.prelude._Failure)
         )
     graph.Node(variable.info, vid, instance, target=variable)
-  return variable[1]
+  return variable.successors[1]

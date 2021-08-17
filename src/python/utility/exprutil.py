@@ -44,7 +44,7 @@ class WalkState(object):
   def __init__(self, root, path=()):
     self.stack = []
     self.path = list(path)
-    self.spine = [root[p] for p in [path[:i] for i in xrange(len(path)+1)]]
+    self.spine = [root.getitem(root, p) for p in [path[:i] for i in xrange(len(path)+1)]]
 
   def advance(self):
     while self.stack and not self.stack[-1]:

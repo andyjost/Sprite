@@ -1,5 +1,5 @@
 from ....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from .... import context, icurry, inspect
+from .... import icurry, inspect
 from . import prelude_impl as impl, typecheckers as tc
 import math
 import operator as op
@@ -67,6 +67,7 @@ _types_ = [
   , _T('_Fwd'       , [_C('_Fwd', 1, metadata={'py.format':'{1}', 'all.tag':T_FWD})])
   , _T('_Choice'    , [_C('_Choice', 3, metadata={'all.tag':T_CHOICE})])
   , _T('_PartApplic', [_C('_PartApplic', 2, metadata={'py.format': '{2}', 'all.tag':T_CTOR})])
+
   , _T('Bool'       , [_C('True', 0), _C('False', 0)])
   , _T('Char'       , [_C('Char', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Char})])
   , _T('Float'      , [_C('Float', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Float})])

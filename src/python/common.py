@@ -3,6 +3,7 @@ __all__ = [
   , 'ChoiceState', 'LEFT', 'RIGHT', 'UNDETERMINED'
   ]
 
+T_SETGRD = -7
 T_FAIL   = -6
 T_CONSTR = -5
 T_VAR    = -4

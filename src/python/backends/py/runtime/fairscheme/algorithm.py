@@ -1,10 +1,9 @@
-from .....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .....common import T_SETGRD, T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .. import graph, trace
 from ..... import icurry
 from .....utility import exprutil
 
-@trace.trace_values
-def D(rts):
+def D(rts, recursive=False):
   while rts.ready():
     tag = graph.tag_of(rts.E)
     if tag == T_FAIL:
@@ -25,18 +24,45 @@ def D(rts):
         yield rts.make_value()
         rts.drop()
     elif tag == T_FWD:
-      rts.E = rts.E[()]
+      rts.E = rts.E.fwd
+    elif tag == T_SETGRD:
+      sid = rts.E.successors[0]
+      if sid == rts.get_sid():
+        rts.C.escape_all = True
+      elif recursive:
+        rts.unwind()
+      rts.E = rts.E.successors[1]
     elif tag == T_CHOICE:
-      rts.extend(rts.fork())
-      rts.drop()
+      cid = rts.obj_id()
+      if (cid in getattr(rts.S, 'escape_set', []) or rts.C.escape_all) and not any(
+          cid in config.fingerprint for config in rts.walk_configs()
+        ):
+        rts.unwind()
+      else:
+        configs = rts.walk_configs()
+        next(configs)
+        configs = list(configs)
+        for child in rts.fork():
+          for config in configs:
+            if cid in config.fingerprint:
+              if child.fingerprint[cid] == config.fingerprint[cid]:
+                rts.append(child)
+              break
+          else:
+            rts.append(child)
+        rts.drop()
+        # rts.extend(rts.fork())
+        # rts.drop()
     else:
       with rts.catch_control(residual=True, restart=True):
         if tag == T_FUNC:
           S(rts, rts.E)
         elif tag >= T_CTOR:
           if N(rts):
-            yield rts.make_value()
+            value = rts.make_value()
             rts.drop()
+            yield value
+            del value
 
 
 def N(rts, root=None, path=None, ground=True):
@@ -76,19 +102,24 @@ def N(rts, root=None, path=None, ground=True):
               rts.restart()
           break
         elif tag == T_FWD:
-          state.spine[-1] = state.parent[state.path[-1]]
+          state.spine[-1] = state.parent.getitem(state.parent, state.path[-1])
         elif tag == T_CHOICE:
           if path is None:
-            rts.E = graph.make_choice(rts, state.cursor[0], rts.E, state.path)
+            rts.E = graph.make_choice(rts, state.cursor.successors[0], rts.E, state.path)
           else:
-            graph.make_choice(rts, state.cursor[0], root, state.path, rewrite=root)
+            graph.make_choice(rts, state.cursor.successors[0], root, state.path, rewrite=root)
           return False
+        elif tag == T_SETGRD:
+          state.push()
+          break
         elif tag == T_FUNC:
           S(rts, state.cursor)
         elif tag >= T_CTOR:
           if graph.info_of(state.cursor) is not rts.prelude._PartApplic.info:
             state.push()
           break
+        else:
+          assert False
     return True
   finally:
     C.search_state.pop()
@@ -101,7 +132,7 @@ def S(rts, node):
     rts.stepcounter.increment()
 
 
-def hnf(rts, func, path, typedef=None, values=None):
+def hnf(rts, func, path, typedef=None, values=None, guards=None):
   '''
   Head-normalize the expression at the inductive position ``func[path],`` where
   func is a needed, function-rooted expression.
@@ -133,13 +164,14 @@ def hnf(rts, func, path, typedef=None, values=None):
   --------
     The subexpression after reducing it to a constructor-rooted expression.
   '''
-  target = func[path]
+  guards = set() if guards is None else guards
+  target = graph.Node.getitem(func, path, guards)
   C = rts.C
   C.search_state.append(tuple(path))
   try:
     while True:
       if isinstance(target, icurry.ILiteral):
-        return target
+        return target, guards
       tag = graph.tag_of(target)
       if tag == T_FAIL:
         func.rewrite(rts.prelude._Failure)
@@ -150,7 +182,7 @@ def hnf(rts, func, path, typedef=None, values=None):
       elif tag == T_VAR:
         if rts.has_generator(target):
           gen = rts.get_generator(target)
-          graph.make_choice(rts, gen[0], func, path, gen, rewrite=func)
+          graph.make_choice(rts, gen.successors[0], func, path, gen, rewrite=func)
           rts.unwind()
         elif rts.has_binding(target):
           binding = rts.get_binding(target)
@@ -165,14 +197,24 @@ def hnf(rts, func, path, typedef=None, values=None):
         else:
           target = rts.instantiate(func, path, typedef)
       elif tag == T_FWD:
-        target = func[path]
+        target = graph.Node.getitem(func, path, guards)
       elif tag == T_CHOICE:
-        graph.make_choice(rts, target[0], func, path, rewrite=func)
+        cid = target.successors[0]
+        for sid in guards:
+          rts.update_escape_set(sid=sid, cid=cid)
+        graph.make_choice(rts, cid, func, path, rewrite=func)
         rts.unwind()
+      elif tag == T_SETGRD:
+        sid, expr = target
+        guards.add(sid)
+        target = expr
       elif tag == T_FUNC:
         S(rts, target)
       elif tag >= T_CTOR:
-        return target
+        return target, guards
+      else:
+        breakpoint()
+        assert False
   finally:
     C.search_state.pop()
 
