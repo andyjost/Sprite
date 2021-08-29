@@ -1,9 +1,11 @@
 from abc import ABCMeta
 from collections import Iterator, OrderedDict, Mapping, Sequence
+from ..utility import translateKwds
 from ..utility.formatting import indent, wrapblock
 from ..utility.proptree import proptree
 from ..utility.visitation import dispatch
 import logging
+import re
 import weakref
 
 logger = logging.getLogger(__name__)
@@ -49,15 +51,6 @@ class IObject(object):
         (k,v) for k,v in self.__dict__.iteritems() if k != 'parent'
       )))
 
-  @property
-  def fullname(self):
-    mname = modulename(self)
-    return mname if isinstance(self, IModule) else '%s.%s' % (mname, self.name)
-
-  @property
-  def modulename(self):
-    return modulename(self)
-
   # Make pickling safe.  Attribute parent is a weakref, which cannot be
   # pickled.  Just convert it to a normal ref and back.
   def __getstate__(self):
@@ -71,36 +64,114 @@ class IObject(object):
     if getattr(self, 'parent', None) is not None:
       self.parent = weakref.ref(self.parent)
 
+class ISymbol(IObject):
+  '''
+  An IObject that appears in a symbol table.  Has ``fullname``, ``modulename``,
+  ``name``, and ``parent`` attributes.  Derived types include modules, types,
+  constructors, and functions.
+  '''
+  # The name is the unqualified name.  If the object belongs to a module or
+  # package, then the prefix is stripped.
+  @property
+  def name(self):
+    if not hasattr(self, '_name'):
+      packagename = self.packagename
+      if packagename is not None:
+        assert self.fullname.startswith(packagename + '.')
+        self._name = self.fullname[len(packagename)+1:]
+      else:
+        self._name = self.fullname
+    return self._name
+
+  @name.setter
+  def name(self, name):
+    self._name = name
+
+  @property
+  def modulename(self):
+    '''
+    Returns the fully-qualified name of the module containing a sybmol such as
+    a function or constructor.
+
+    Examples:
+    ---------
+        Prelude.: -> 'Prelude'
+        Control.SetFunctions.Values -> 'Control.SetFunctions'
+        Control.SetFunctions -> 'Control.SetFunctions'
+        Control -> None
+    '''
+    if isinstance(self, IModule):
+      return self.fullname
+    else:
+      try:
+        parent = self.parent
+      except AttributeError:
+        return None
+      else:
+        return parent().modulename
+
+  @property
+  def packagename(self):
+    '''
+    Returns the qualifier of a name, which is the name of the containing module
+    or package, if there is one.  For modules and packages, this returns the
+    name of the contining package, if there is one, or None.  For other
+    objects, such as functions and constructors, this is equivalent to
+    ``modulename``.
+
+    Examples:
+    ---------
+        Prelude.: -> 'Prelude'
+        Control.SetFunctions.Values -> 'Control.SetFunctions'
+        Control.SetFunctions -> 'Control'
+        Control -> None
+    '''
+    if isinstance(self, (IPackage, IModule)):
+      try:
+        parent = self.parent
+      except AttributeError:
+        return None
+      else:
+        return parent().fullname
+    else:
+      return self.modulename
+
 IArity = int
 IVarIndex = int
-class IName(str): pass
 
-class IInt(IObject):
+class IInt(ISymbol):
   def __init__(self, value, **kwds):
-    self.name = 'Prelude.Int'
+    self.fullname = 'Prelude.Int'
     self.value = int(value)
-    IObject.__init__(self, **kwds)
+    ISymbol.__init__(self, **kwds)
+  def modulename(self):
+    return 'Prelude'
   def __str__(self):
     return '(%r)' % self.value # parens to suggest boxing
   def __repr__(self):
     return 'IInt(value=%r)' % self.value
 
-class IChar(IObject):
+class IChar(ISymbol):
   def __init__(self, value, **kwds):
-    self.name = 'Prelude.Char'
+    self.fullname = 'Prelude.Char'
     self.value = str(value)
     assert len(self.value) in (1,2) # Unicode can have length 2 in utf-8
-    IObject.__init__(self, **kwds)
+    ISymbol.__init__(self, **kwds)
+  def modulename(self):
+    return 'Prelude'
   def __str__(self):
     return '(%r)' % self.value # parens to suggest boxing
   def __repr__(self):
     return 'IChar(value=%r)' % self.value
 
-class IFloat(IObject):
+class IFloat(ISymbol):
   def __init__(self, value, **kwds):
-    self.name = 'Prelude.Float'
+    self.fullname = 'Prelude.Float'
     self.value = float(value)
-    IObject.__init__(self, **kwds)
+    ISymbol.__init__(self, **kwds)
+  @property
+  def modulename(self):
+    return 'Prelude'
   def __str__(self):
     return '(%r)' % self.value # parens to suggest boxing
   def __repr__(self):
@@ -126,23 +197,106 @@ ILiteral.register(IUnboxedLiteral)
 def symboltable(parent, objs):
   return OrderedDict((v.name, v) for v in (v.setparent(parent) for v in objs))
 
-class IModule(IObject):
-  def __init__(self, name, imports, types, functions, filename=None, **kwds):
+class IPackage(ISymbol):
+  '''
+  A container for subpackages and/or modules.
+  '''
+  def __init__(self, fullname, submodules, **kwds):
+    self.fullname = fullname
+    ISymbol.__init__(self, **kwds)
+    self.submodules = {}
+    for module in submodules:
+      self.insert(module)
+
+  @property
+  def children(self):
+    return self.submodules.values()
+
+  def setparent(self, parent):
+    assert isinstance(parent, IPackage)
+    self.parent = weakref.ref(parent)
+    return self
+
+  def __getitem__(self, key):
+    return self.submodules[key]
+
+  def __contains__(self, key):
+    return key in self.submodules
+
+  def __iter__(self):
+    return self.submodules.iterkeys()
+
+  def insert(self, submodule):
+    assert isinstance(submodule, (IPackage, IModule))
+    assert submodule.fullname.startswith(self.fullname)
+    shortname = submodule.fullname[len(self.fullname)+1:]
+    key,_ = splitname(shortname)
+    self.submodules[key] = submodule
+    submodule.setparent(self)
+
+  # def merge(self, extern, export):
+  #   '''
+  #   Moves the symbols specified in ``export`` from ``extern`` into this module.
+  #   Takes ownership of the submodules by setting ``parent``.  Because of this,
+  #   the submodules are deleted from ``extern``.
+  #   '''
+  #   assert isinstance(extern, IPackage)
+  #   for name in export:
+  #     if name not in extern:
+  #       raise TypeError(
+  #           'cannot import %r from module %r' % (name, extern.fullname)
+  #         )
+  #     if name in self and self[name] is not extern[name]:
+  #       raise TypeError(
+  #           'importing %r into %r would clobber a symbol'
+  #               % (name, self.fullname)
+  #         )
+  #     self.insert(extern.submodules.pop(name))
+
+  def __str__(self):
+    return '\n'.join(
+        [
+            'Package:'
+          , '--------'
+          , '  name: %s' % self.name
+          , '  fullname: %s' % self.fullname
+          , '  keys: %s' % sorted(self.submodules.keys())
+          , ''
+          , '  submodules:'
+          , '  -----------'
+          ]
+      + [   '    ' + line for key in sorted(self)
+                          for line in str(self[key]).split('\n')
+          ]
+      )
+
+  def __repr__(self):
+    return 'IPackage(name=%r, submodules=%r)' % (self.fullname, self.submodules)
+
+
+class IModule(ISymbol):
+  @translateKwds({'name': 'fullname'})
+  def __init__(self, fullname, imports, types, functions, filename=None, **kwds):
     '''
     Parameters:
     -----------
-      name        The module name.
+      fullname    The fully-qualified module name.
       imports     A list of imported module names.
       types       A mapping or sequence of pairs: str -> [IConstructor].
       functions   A sequence of IFunctions, or a mapping or sequence of pairs
                   from string to IFunction.
     '''
-    self.name = str(name)
-    self.imports = tuple(str(x) for x in imports)
+    self.fullname = str(fullname)
+    self.imports = tuple(set(str(x) for x in imports))
     self.types = symboltable(self, types)
     self.functions = symboltable(self, functions)
     self.filename = str(filename) if filename is not None else None
-    IObject.__init__(self, **kwds)
+    ISymbol.__init__(self, **kwds)
+
+  def setparent(self, parent):
+    assert isinstance(parent, IPackage)
+    self.parent = weakref.ref(parent)
+    return self
 
   def __str__(self):
     return '\n'.join(
@@ -150,6 +304,7 @@ class IModule(IObject):
             'Module:'
           , '-------'
           , '  name: %s' % self.name
+          , '  fullname: %s' % self.fullname
           , '  imports: %s' % ', '.join(self.imports)
           , ''
           , '  types:'
@@ -168,7 +323,7 @@ class IModule(IObject):
 
   def __repr__(self):
     return 'IModule(name=%r, filename=%r, imports=%r, types=%r, functions=%r)' % (
-        self.name, self.filename, self.imports, self.types.values(), self.functions.values()
+        self.fullname, self.filename, self.imports, self.types.values(), self.functions.values()
       )
 
   def merge(self, extern, export):
@@ -186,16 +341,16 @@ class IModule(IObject):
         else:
           found += 1
       if not found:
-        raise TypeError('cannot import %r from module %r' % (name, extern.name))
+        raise TypeError('cannot import %r from module %r' % (name, extern.fullname))
 
 IProg = IModule
 
-class IConstructor(IObject):
+class IConstructor(ISymbol):
   def __init__(self, name, arity, **kwds):
     assert arity >= 0
-    self.name = iname(name)
+    self.fullname = name
     self.arity = IArity(arity)
-    IObject.__init__(self, **kwds)
+    ISymbol.__init__(self, **kwds)
 
   def setparent(self, parent, index):
     assert isinstance(parent, IDataType)
@@ -211,13 +366,13 @@ class IConstructor(IObject):
     return self.name + ' _' * self.arity
 
   def __repr__(self):
-    return 'IConstructor(name=IName(%r), arity=%r)' % (self.name, self.arity)
+    return 'IConstructor(name=%r, arity=%r)' % (self.fullname, self.arity)
 
-class IDataType(IObject):
+class IDataType(ISymbol):
   def __init__(self, name, constructors, **kwds):
-    self.name = iname(name)
+    self.fullname = name
     self.constructors = [ctor.setparent(self, i) for i,ctor in enumerate(constructors)]
-    IObject.__init__(self, **kwds)
+    ISymbol.__init__(self, **kwds)
 
   def setparent(self, parent):
     assert isinstance(parent, IModule)
@@ -228,19 +383,19 @@ class IDataType(IObject):
     return 'data %s = %s' % (self.name, ' | '.join(map(str, self.constructors)))
 
   def __repr__(self):
-    return 'IDataType(name=IName(%r), constructors=%r)' % (self.name, self.constructors)
+    return 'IDataType(name=%r, constructors=%r)' % (self.fullname, self.constructors)
 IType = IDataType
 
-class IFunction(IObject):
+class IFunction(ISymbol):
   def __init__(self, name, arity, vis=None, needed=None, body=[], **kwds):
     assert arity >= 0
-    self.name = iname(name)
+    self.fullname = name
     self.arity = IArity(arity)
     self.vis = PUBLIC if vis is None else vis
     # None means no info; [] means nothing needed.
     self.needed = None if needed is None else map(int, needed)
     self.body = body
-    IObject.__init__(self, **kwds)
+    ISymbol.__init__(self, **kwds)
 
   def setparent(self, parent):
     assert isinstance(parent, IModule)
@@ -255,8 +410,8 @@ class IFunction(IObject):
     return '%s:\n%s' % (self.name, indent(self.body))
 
   def __repr__(self):
-    return 'IFunction(name=IName(%r), arity=%r, vis=%r, needed=%r, body=%r)' % (
-        self.name, self.arity, self.vis, self.needed, self.body
+    return 'IFunction(name=%r, arity=%r, vis=%r, needed=%r, body=%r)' % (
+        self.fullname, self.arity, self.vis, self.needed, self.body
       )
 
 class Public(IObject):
@@ -279,13 +434,14 @@ IVisibility.register(Public)
 IVisibility.register(Private)
 
 class IExternal(IObject):
-  def __init__(self, name, **kwds):
-    self.name = str(name)
+  @translateKwds({'name': 'symbolname'})
+  def __init__(self, symbolname, **kwds):
+    self.symbolname = str(symbolname)
     IObject.__init__(self, **kwds)
   def __str__(self):
-    return 'extern(%s)' % self.name
+    return 'extern(%s)' % self.symbolname
   def __repr__(self):
-    return 'IExternal(name=%r)' % self.name
+    return 'IExternal(symbolname=%r)' % self.symbolname
 
 class IFuncBody(IObject):
   __metaclass__ = ABCMeta
@@ -434,8 +590,9 @@ class ICaseCons(ICase): pass
 class ICaseLit(ICase): pass
 
 class IConsBranch(IObject):
-  def __init__(self, name, arity, block, **kwds):
-    self.name = name
+  @translateKwds({'name': 'typename'})
+  def __init__(self, typename, arity, block, **kwds):
+    self.typename = typename
     self.arity = arity
     self.block = block
     IObject.__init__(self, **kwds)
@@ -443,10 +600,10 @@ class IConsBranch(IObject):
   def children(self):
     return self.block,
   def __str__(self):
-    return '%s %s->%s' % (self.name, ''.join('_ ' * self.arity), wrapblock(self.block))
+    return '%s %s->%s' % (self.typename, ''.join('_ ' * self.arity), wrapblock(self.block))
   def __repr__(self):
-    return 'IConsBranch(name=%r, arity=%r, block=%r)' % (
-        self.name, self.arity, self.block
+    return 'IConsBranch(typename=%r, arity=%r, block=%r)' % (
+        self.typename, self.arity, self.block
       )
 
 class ILitBranch(IObject):
@@ -510,29 +667,33 @@ IReference.register(IVarAccess)
 IReference.register(ILit)
 
 class ICall(IObject):
-  def __init__(self, name, exprs=[], **kwds):
-    self.name = name
+  @translateKwds({'name': 'symbolname'})
+  def __init__(self, symbolname, exprs=[], **kwds):
+    self.symbolname = symbolname
     self.exprs = exprs
     IObject.__init__(self, **kwds)
   @property
   def children(self):
     return self.exprs
   def __str__(self):
-    string = ', '.join([repr(self.name)] + map(str, self.exprs))
+    string = ', '.join([repr(self.symbolname)] + map(str, self.exprs))
     return '%s(%s)' % (self.__class__.__name__, string)
   def __repr__(self):
-    return '%s(name=%r, exprs=%r)' % (type(self).__name__, self.name, self.exprs)
+    return '%s(symbolname=%r, exprs=%r)' % (
+       type(self).__name__, self.symbolname, self.exprs
+     )
 
 class IFCall(ICall): pass
 class ICCall(ICall): pass
 
 class IPartialCall(ICall):
-  def __init__(self, name, missing, exprs, **kwds):
-    ICall.__init__(self, name, exprs, **kwds)
+  @translateKwds({'name': 'symbolname'})
+  def __init__(self, symbolname, missing, exprs, **kwds):
+    ICall.__init__(self, symbolname, exprs, **kwds)
     self.missing = int(missing)
   def __repr__(self):
-    return '%s(name=%r, missing=%r, exprs=%r)' % (
-        type(self).__name__, self.name, self.missing, self.exprs
+    return '%s(symbolname=%r, missing=%r, exprs=%r)' % (
+        type(self).__name__, self.symbolname, self.missing, self.exprs
       )
 
 class IFPCall(IPartialCall): pass
@@ -560,21 +721,6 @@ IExpression.register(ICall)
 IExpression.register(IOr)
 
 IExpr = IExpression
-
-@dispatch.on('arg')
-def modulename(arg):
-  return modulename(arg.parent())
-
-@modulename.when(IModule)
-def modulename(arg):
-  return arg.name
-
-def iname(name):
-  if not isinstance(name, IName):
-    # Strip the module from a qualified name.
-    name = '.'.join(name.split('.')[1:])
-  assert name
-  return name
 
 def splitname(name):
   parts = name.split('.')

@@ -73,7 +73,7 @@ class Visitable(object):
     return handler(*args, **kwds)
 
   def when(self, ty, replacement, no):
-    if no is not None:
+    if no is not None or isinstance(ty, tuple):
       ty = instance_checker(ty, no)
     def decorator(handler):
       self.handlers[ty] = handler
@@ -102,7 +102,7 @@ class dispatch(object):
       return replacement
     return decorator
 
-def instance_checker(yes, no):
+def instance_checker(yes=None, no=None):
   '''
   Builds a this-but-not-that instance checker class.
 
@@ -114,7 +114,7 @@ def instance_checker(yes, no):
   Identical calls to this function are guaranteed to return the same object, so
   the result may be used as a key.
   '''
-  assert yes and no
+  yes, no = (() if arg is None else arg for arg in [yes, no])
   memoized = instance_checker.__dict__.setdefault('_memoized', {})
   key = tuple(tuple(set(x if type(x) == tuple else [x])) for x in [yes,no])
   if key not in memoized:

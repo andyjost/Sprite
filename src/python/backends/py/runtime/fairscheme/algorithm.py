@@ -213,7 +213,6 @@ def hnf(rts, func, path, typedef=None, values=None, guards=None):
       elif tag >= T_CTOR:
         return target, guards
       else:
-        breakpoint()
         assert False
   finally:
     C.search_state.pop()

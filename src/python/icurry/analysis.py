@@ -35,41 +35,30 @@ def _getvarinfo(ivarassign, state):
 
 class TRUE(BaseException): pass
 
-def set_monadic_metadata(modulename, imodules):
+def set_monadic_metadata(imodule, modules):
   '''
   Determines whether each ICurry function in a module is monadic.  The result
   is stored in the 'all.monadic' metadata.
 
-  To determine whether a function is monadic, itshe call graph is walked.  If
+  To determine whether a function is monadic, its call graph is walked.  If
   the function calls any monadic function, then it is determined to be monadic.
-
-  Parameters:
-  -----------
-    ``modulename``
-      The name of the module to analyze.
-
-    ``imodules``
-      A dictionary from module names to IModule objects containing
-      ``modulename`` and (recursively) all of its imports.
   '''
   limit = sys.getrecursionlimit()
   try:
     sys.setrecursionlimit(1<<30)
-    for ifun in imodules[modulename].functions.values():
-      is_monadic(ifun, imodules)
+    for ifun in imodule.functions.values():
+      is_monadic(ifun, modules)
   finally:
     sys.setrecursionlimit(limit)
 
-def is_monadic(ifun, imodules=None):
+def is_monadic(ifun, modules):
   '''
-  Tells or determines whether an ICurry function is monadic.  ``imodules`` is
-  required only if the property needs to be determined.
+  Tells or determines whether an ICurry function is monadic.
   '''
   if isinstance(ifun, types.IFunction):
     if 'all.monadic' not in ifun.metadata:
-      assert imodules is not None
       ifun.update_metadata({'all.monadic': False})
-      visitor = lambda iobj: _checkmonadic(imodules, iobj)
+      visitor = lambda iobj: _checkmonadic(iobj, modules)
       try:
         visit.visit(visitor, ifun.body)
       except TRUE:
@@ -81,10 +70,23 @@ def is_monadic(ifun, imodules=None):
   else:
     return False
 
-def _checkmonadic(imodules, iobj):
+def _lookupfunction(symbolname, modules):
+  # interp.symbol cannot be used because analysis must occur before the symbols
+  # are created.  For example, we need to determine whether something like
+  # Prelude.putStr is monadic before creating its symbol (which would have
+  # is_monadic=True set).  interp.symbol cannot, of course, be used before the
+  # symbol tables are generated.
+  obj = modules
+  parts = iter(symbolname.split('.'))
+  while not isinstance(obj, types.IModule):
+    part = next(parts)
+    obj = obj[part]
+    obj = getattr(obj, '.icurry', obj)
+  return obj.functions.get('.'.join(parts), None)
+
+def _checkmonadic(iobj, modules):
   if isinstance(iobj, types.ICall):
-    modulename, name = types.splitname(iobj.name)
-    ifun = imodules[modulename].functions.get(name, None)
+    ifun = _lookupfunction(iobj.symbolname, modules)
     if ifun is not None:
-      if is_monadic(ifun, imodules):
+      if is_monadic(ifun, modules):
         raise TRUE()

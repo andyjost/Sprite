@@ -19,7 +19,7 @@ def add_binding(self, arg, value, config=None):
   value = graph.Node.getitem(value)
   if self.has_binding(arg, config):
     current = self.get_binding(arg, config)
-    assert current.info.typedef() in rts.builtin_types
+    assert current.info.typedef() in self.builtin_types
     return current.info is value.info and current[0] == value[0]
   else:
     vid = self.grp_id(arg)

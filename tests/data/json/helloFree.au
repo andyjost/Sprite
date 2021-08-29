@@ -1,6 +1,7 @@
 Module:
 -------
   name: helloFree
+  fullname: helloFree
   imports: Prelude
 
   types:

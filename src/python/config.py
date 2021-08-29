@@ -1,3 +1,6 @@
+'''
+Code related to the configuration of Sprite.
+'''
 from .utility.currypath import clean_currypath
 import logging
 import os
@@ -106,7 +109,7 @@ def verify_syslibs():
   cypath = currypath()
   syspath = system_curry_path().split(':')
   for name in syslibs():
-    name = name + '.curry'
+    name = name.replace('.', os.sep) + '.curry'
     found = list(filesys.findfiles(cypath, name))
     if not found or not (found[-1].startswith(p) for p in syspath):
       logger.critical('System library %r was not found in the CURRYPATH' % name)

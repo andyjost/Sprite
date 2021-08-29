@@ -1,6 +1,7 @@
 Module:
 -------
   name: assembler
+  fullname: assembler
   imports: Prelude
 
   types:

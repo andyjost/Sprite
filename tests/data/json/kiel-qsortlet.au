@@ -1,6 +1,7 @@
 Module:
 -------
   name: qsortlet
+  fullname: qsortlet
   imports: Prelude
 
   types:

@@ -1,6 +1,7 @@
 Module:
 -------
   name: colormap
+  fullname: colormap
   imports: Prelude
 
   types:

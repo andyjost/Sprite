@@ -1,6 +1,7 @@
 Module:
 -------
   name: helloFill
+  fullname: helloFill
   imports: Prelude
 
   types:

@@ -1,6 +1,7 @@
 Module:
 -------
   name: escher_higher
+  fullname: escher_higher
   imports: Prelude
 
   types:

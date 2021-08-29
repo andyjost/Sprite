@@ -1,7 +1,7 @@
 import os
 import re
 
-__all__ = ['formatDocstring', 'isLegalModulename', 'removeSuffix']
+__all__ = ['formatDocstring', 'isLegalModulename', 'removeSuffix', 'translateKwds']
 
 def formatDocstring(*args, **kwds):
   def decorator(arg):
@@ -25,3 +25,18 @@ def removeSuffix(name, suffix):
   if not name.endswith(suffix):
     raise ValueError('expected suffix "%s"' % suffix)
   return name[:-len(suffix)]
+
+def translateKwds(kwmap):
+  '''
+  For compatibility.  This decorator can be used to translate old argument
+  names to new ones.
+  '''
+  def dec(f):
+    def replacement(*args, **kwds):
+      for name in kwmap:
+        if name in kwds:
+          kwds[kwmap[name]] = kwds.pop(name)
+      return f(*args, **kwds)
+    return replacement
+  return dec
+

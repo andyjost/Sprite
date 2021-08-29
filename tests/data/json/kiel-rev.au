@@ -1,6 +1,7 @@
 Module:
 -------
   name: rev
+  fullname: rev
   imports: Prelude
 
   types:

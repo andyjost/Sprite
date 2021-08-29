@@ -4,6 +4,7 @@ from collections import Mapping, Sequence
 from . import types
 from ..utility.visitation import dispatch
 import json
+import traceback as traceback
 
 @dispatch.on('arg')
 def fmap(f, arg):
@@ -32,10 +33,10 @@ def _object_hook(kwds):
   try:
     kwds = fmap(uni2str, kwds)
     return cls(**kwds)
-  except Exception as e:
+  except Exception:
     raise TypeError(
         'Cannot construct %s.%s from arguments %r: %s'
-            % (cls.__module__, cls.__name__, kwds, e)
+            % (cls.__module__, cls.__name__, kwds, traceback.format_exc())
       )
 
 def get_decoder():
@@ -43,5 +44,12 @@ def get_decoder():
 
 def parse(data, decoder=get_decoder()):
   '''Parse ICurry encoded as JSON.'''
-  return decoder.decode(data)
+  json = decoder.decode(data)
+  return postprocess(json)
 
+def postprocess(json):
+  assert isinstance(json, types.IModule)
+  if '.' in json.fullname:
+    for pkgname in json.fullname.split('.')[-2::-1]:
+      json = types.IPackage(pkgname, [json])
+  return json

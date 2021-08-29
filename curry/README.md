@@ -19,20 +19,24 @@ You might issue the following commands from the project root:
     % make install
 
 This will prepare the Curry source files belonging to the system library and
-install them.  Sprite is installed at this point, but the first time it is
-used to run a Curry program, the Prelude will need to be compiled.  Instead
-of doing that, build the libraries by issuing the following command in this
-directory:
+install them.  Sprite is installed at this point, but the first time it is used
+to run a Curry program, the Prelude will need to be compiled.  This raises two
+problems.  First, it is very slow and might be unexpected by a user of Sprite.
+Second, if that user does not have the same privileges as the installer, the
+compilation could fail.  Instead, it is preferable to pre-build the system
+libraries during installation.  This can be done by issuing the following
+command in this directory:
 
     % make currylib
 
-This step could take longer than 30 minutes.  Verify that the system libraries
-were built correctly by inspecting the subdirectory named after the current
-PAKCS version.
+This compiles the Curry source code to Flat curry and then ICurry.  This step
+could take longer than 30 minutes.  Verify that the system libraries were built
+correctly by inspecting the subdirectory named after the current PAKCS version.
 
-To install the pre-built files, issue the following command:
+To install, issue the following command:
 
     % make uninstall install
 
-Test the installation and check in the new files under this directory.
+This copies files to $(PREFIX)/curry.  Test the installation.  If everything
+looks OK, check in the new files under this directory.
 

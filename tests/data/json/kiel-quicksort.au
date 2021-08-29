@@ -1,6 +1,7 @@
 Module:
 -------
   name: quicksort
+  fullname: quicksort
   imports: Prelude
 
   types:

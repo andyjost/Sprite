@@ -203,11 +203,13 @@ def findCurryModule(
     # Search for the JSON file first, then ICurry, then .curry.
     suffixes = ['.json', '.json.z'] if json else []
     suffixes += ['.icy'] if icy else []
+    parts = name.split('.')
+    package_path, name = os.sep.join(parts[:-1]), parts[-1]
     search_names = [
-        os.path.join('.curry', SUBDIR, name + suffix)
+        os.path.join(package_path, '.curry', SUBDIR, name + suffix)
             for suffix in suffixes
       ]
-    search_names += [name + '.curry']
+    search_names += [os.path.join(package_path, name + '.curry')]
     files = filesys.findfiles(currypath, search_names)
     try:
       name = next(files)
@@ -268,7 +270,7 @@ def findOrBuildICurry(name, currypath=[], **kwds):
   do_json = kwds.pop('json', True)
   do_icy = do_json or kwds.pop('icy', True)
   do_tidy = kwds.pop('tidy', False)
-  curentfile = None
+  currentfile = None
   intermediates = []
   try:
     if do_icy:

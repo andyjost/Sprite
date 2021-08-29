@@ -1,6 +1,7 @@
 Module:
 -------
   name: higher
+  fullname: higher
   imports: Prelude
 
   types:

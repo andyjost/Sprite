@@ -18,9 +18,6 @@ MULTIARCH := $(shell $(CC) --print-multiarch)
 # =================
 # Variables derived from Make.config variables.
 
-CURRYLIB_FILES = Prelude.curry $(notdir $(wildcard $(ROOT_DIR)/curry/*.curry))
-CURRYLIB_MODULE_NAMES = $(CURRYLIB_FILES:.curry=)
-
 PAKCS := $(realpath $(PAKCS_HOME)/bin/pakcs)
 PAKCS_NAME := $(shell $(PAKCS) --compiler-name)
 PAKCS_VER := $(shell $(PAKCS) --numeric-version)
@@ -115,7 +112,7 @@ ifeq ($(flavor SUBMODULES),undefined)
   SUBMODULES = $(dir $(wildcard */.))
 endif
 
-RECURSIVE_TARGETS := all clean bootstrap install libs objs shlibs uninstall test
+RECURSIVE_TARGETS := all clean install libs objs shlibs uninstall test
 .PHONY: $(RECURSIVE_TARGETS) $(SUBMODULES)
 $(RECURSIVE_TARGETS):: | $(SUBMODULES)
 $(SUBMODULES):

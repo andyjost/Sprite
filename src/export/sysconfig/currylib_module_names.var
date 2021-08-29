@@ -1,1 +1,1 @@
-$(CURRYLIB_MODULE_NAMES)
+$(shell cd $(ROOT_DIR)/curry && ./module_names.py)

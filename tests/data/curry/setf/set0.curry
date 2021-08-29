@@ -1,4 +1,4 @@
-import SetFunctions
+import Control.SetFunctions
 f = True ? False
 goal1 = allValues (set0 f)
 goal2 = allValues (set0 (True ? False))

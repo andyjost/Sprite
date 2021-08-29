@@ -15,7 +15,7 @@ ifeq ($(flavor INSTALL_DIR),undefined)
 endif
 
 # Submodules may override SRCS.
-ifndef SRCS
+ifeq ($(flavor SRCS),undefined)
   SRCS := $(wildcard *.c *.cpp)
 endif
 
@@ -41,7 +41,7 @@ else
 endif
 
 # Submodules may override OBJS.
-ifndef OBJS
+ifeq ($(flavor OBJS),undefined)
   OBJS := $(patsubst %,%.o,$(basename $(SRCS)))
 endif
 OBJS_OUT := $(patsubst %,$(OBJECT_DIR)/%,$(OBJS))
@@ -100,7 +100,7 @@ define define_link_target =
   LINK_TARGET_$1 := $(shell cat $1)
 endef
 
-ifndef LINKS
+ifeq ($(flavor LINKS),undefined)
   LINKS = $(wildcard *.link)
 endif
 ifdef LINKS
@@ -126,7 +126,7 @@ define define_var_target =
   VAR_VALUE$1 := $(shell cat $1)
 endef
 
-ifndef VARS
+ifeq ($(flavor VARS),undefined)
   VARS = $(wildcard *.var)
 endif
 ifdef VARS
@@ -145,7 +145,7 @@ ifdef VARS
 endif
 
 # Submodules may override SCRIPTS.  Scripts are copied.
-ifndef SCRIPTS
+ifeq ($(flavor SCRIPTS),undefined)
   SCRIPTS = $(shell ls *.script 2>/dev/null)
 endif
 ifdef SCRIPTS
@@ -163,7 +163,7 @@ ifdef SCRIPTS
 endif
 
 # Submodules may override PYTHONFILES.
-ifndef PYTHONFILES
+ifeq ($(flavor PYTHONFILES),undefined)
   PYTHONFILES = $(wildcard *.py)
 endif
 ifdef PYTHONFILES
@@ -180,26 +180,6 @@ ifdef PYTHONFILES
       else
 				cp $< $@
       endif
-  endif
-endif
-
-# Submodules may override CURRYFILES.
-ifndef CURRYFILES
-  CURRYFILES = $(wildcard *.curry)
-endif
-ifdef CURRYFILES
-  ifdef INSTALL_DIR
-    CURRYFILES_INSTALL = $(addprefix $(INSTALL_DIR)/,$(CURRYFILES))
-    # Do not update FILES_TO_CLEAN.  There are no intermediate files.
-    DIRS_TO_UNINSTALL += $(dir $(CURRYFILES_INSTALL))
-    FILES_TO_UNINSTALL += $(CURRYFILES_INSTALL)
-    install:: $(CURRYFILES_INSTALL)
-    $(INSTALL_DIR)/%.curry : %.curry
-			@mkdir -p $(dir $@)
-			cp $< $@
-			@mkdir -p $(dir $@)/.curry/$(INTERMEDIATE_SUBDIR)
-			if [ -e $*.icy ]; then cp $*.icy $(dir $@)/.curry/$(INTERMEDIATE_SUBDIR); fi
-			if [ -e $*.json.z ]; then cp $*.json.z $(dir $@)/.curry/$(INTERMEDIATE_SUBDIR); fi
   endif
 endif
 

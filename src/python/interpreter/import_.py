@@ -39,6 +39,11 @@ def insertSymbol(module, basename, nodeinfo, private=False):
   if not private and encoding.isaCurryIdentifier(basename):
     setattr(module, basename, nodeinfo)
 
+def loadSubmodules(interp, ipkg, package, extern, export, alias):
+  for name in ipkg.submodules:
+    assert not hasattr(package, name)
+    moduleobj = import_(interp, ipkg[name], extern=extern, export=export, alias=alias)
+    setattr(package, name, moduleobj)
 
 @visitation.dispatch.on('idef')
 def loadSymbols(interp, idef, moduleobj, extern=None, **kwds): #pragma: no cover
@@ -91,12 +96,9 @@ def loadSymbols(interp, mapping, moduleobj, **kwds):
 
 @loadSymbols.when(icurry.IModule)
 def loadSymbols(interp, imodule, moduleobj, **kwds):
-  imodules = {
-      modulename: getattr(import_(interp, modulename), '.icurry')
-          for modulename in imodule.imports
-    }
-  imodules[imodule.name] = imodule
-  icurry.analysis.set_monadic_metadata(imodule.name, imodules)
+  for modulename in imodule.imports:
+    import_(interp, modulename)
+  icurry.analysis.set_monadic_metadata(imodule, interp.modules)
   loadSymbols(interp, imodule.types, moduleobj, **kwds)
   loadSymbols(interp, imodule.functions, moduleobj, **kwds)
   return moduleobj
@@ -181,11 +183,11 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
       kwds.setdefault('extern', prelude.Prelude)
       kwds.setdefault('export', prelude.exports())
       kwds.setdefault('alias', prelude.aliases())
-    elif name == 'SetFunctions':
-      mysetfunctions = interp.context.runtime.setfunctions
-      kwds.setdefault('extern', mysetfunctions.SetFunctions)
-      kwds.setdefault('export', mysetfunctions.exports())
-      kwds.setdefault('alias', mysetfunctions.aliases())
+    elif name == 'Control.SetFunctions':
+      setfunctions = interp.context.runtime.setfunctions
+      kwds.setdefault('extern', setfunctions.SetFunctions)
+      kwds.setdefault('export', setfunctions.exports())
+      kwds.setdefault('alias', setfunctions.aliases())
 
     currypath = clean_currypath(interp.path if currypath is None else currypath)
     icur = importer.loadModule(name, currypath, is_sourcefile=is_sourcefile)
@@ -195,21 +197,32 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
 def import_(interp, seq, *args, **kwds):
   return [import_(interp, item, *args, **kwds) for item in seq]
 
+@import_.when(icurry.IPackage)
+def import_(
+    interp, ipkg, currypath=None, extern=None, export=(), alias=()
+  ):
+  if ipkg.fullname not in interp.modules:
+    moduleobj = objects.CurryPackage(ipkg)
+    interp.modules[ipkg.fullname] = moduleobj
+  package = interp.modules[ipkg.fullname]
+  loadSubmodules(interp, ipkg, package, extern, export, alias)
+  return package
+
 @import_.when(icurry.IModule)
 def import_(
     interp, imodule, currypath=None, extern=None, export=(), alias=()
   ):
-  if imodule.name not in interp.modules:
+  if imodule.fullname not in interp.modules:
     imodule.merge(extern, export)
     moduleobj = objects.CurryModule(imodule)
-    interp.modules[imodule.name] = moduleobj
+    interp.modules[imodule.fullname] = moduleobj
     loadSymbols(interp, imodule, moduleobj, extern=extern)
     compileICurry(interp, imodule, moduleobj, extern=extern)
     for name, target in alias:
       if hasattr(moduleobj, name):
         raise ValueError("cannot alias previously defined name '%s'" % name)
       setattr(moduleobj, name, getattr(moduleobj, target))
-  return interp.modules[imodule.name]
+  return interp.modules[imodule.fullname]
 
 @visitation.dispatch.on('idef')
 def compileICurry(interp, idef, moduleobj, extern=None): # pragma: no cover

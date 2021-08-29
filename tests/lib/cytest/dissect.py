@@ -4,6 +4,7 @@ Compares stuctured data recursively and reports on differences.
 from curry.utility.visitation import dispatch
 import collections
 import functools
+import re
 
 class Difference(Exception):
   '''Indicates a found difference.'''
@@ -41,12 +42,33 @@ def dissectmethod(wrapped):
 
   return processFrame
 
+PATTERN_TYPE = type(re.compile(''))
+
+class Ignore(object):
+  def __init__(self, spec=None):
+    if spec is None:
+      self.testf = lambda _: False
+    elif callable(spec):
+      self.testf = spec
+    else:
+      if isinstance(spec, basestring):
+        spec = re.compile(spec)
+      if isinstance(spec, PATTERN_TYPE):
+        self.testf = lambda s: re.match(spec, s)
+      else:
+        raise TypeError(
+            'expected callable, string, or regex, got %s' % type(spec)
+          )
+  def __call__(self, arg):
+    return self.testf(arg)
+      
 class Dissector(object):
   '''
   Compares stuctured data recursively and reports on differences.
   '''
-  def __init__(self, limit=0):
+  def __init__(self, limit=0, ignore=None):
     self.limit = limit if limit > 0 else float('inf')
+    self.ignore = Ignore(ignore)
     self.path = []
     self.diffs = []
 
@@ -78,27 +100,25 @@ class Dissector(object):
   @dissectmethod
   @__call__.when(collections.Mapping)
   def __call__(self, a, b, **kwds):
-    ka = set(a.keys())
-    kb = set(b.keys())
+    ka = set(k for k in a.keys() if not self.ignore(k))
+    kb = set(k for k in b.keys() if not self.ignore(k))
     ka_b = ka - kb
     for k in ka-kb:
       self.report('only in a: {!r}'.format(k), a, b)
     for k in kb-ka:
       self.report('only in b: {!r}'.format(k), a, b)
-    #self.check(len(ka), len(kb), 'key #')
-    #self.check(ka, kb, 'key')
     format_ = kwds.pop('format', '[{!r}]'.format)
     for k in ka.intersection(kb):
       self(a[k], b[k], index=format_(k))
 
-def dissect(a, b, limit=0, print_results=True):
+def dissect(a, b, limit=0, print_results=True, ignore='_|parent'):
   '''
   Dissects and compares the internals of two objects.  If they are not equal,
   reports details about where they differ.  This can be used to find
   differences between complex, nested objects such as instances of
   ``icurry.IModule``.
   '''
-  dissector = Dissector(limit)
+  dissector = Dissector(limit, ignore=ignore)
   try:
     dissector(a, b)
   except StopIteration:

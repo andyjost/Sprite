@@ -1,6 +1,7 @@
 Module:
 -------
   name: helloExternal
+  fullname: helloExternal
   imports: Prelude
 
   types:

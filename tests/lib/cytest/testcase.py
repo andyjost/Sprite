@@ -47,7 +47,8 @@ class TestCase(unittest.TestCase):
         au.write(value)
     else:
       with open_(filename, 'rb') as au:
-        self.assertEqual(value, au.read())
+        text = au.read()
+      self.assertEqual(value, text)
 
   def assertIsa(self, obj, ty):
     isa = cy_isa if isinstance(obj, Node) else llvm_isa

@@ -70,10 +70,7 @@ class _TreeNode(object):
     for name in self:
       if isinstance(self[name], _TreeNode):
         for tail in self[name]._keys():
-          try:
-            l.append(DELIMITER.join([name, tail]))
-          except:
-            breakpoint()
+          l.append(DELIMITER.join([name, tail]))
       else:
         l.append(name)
     return l

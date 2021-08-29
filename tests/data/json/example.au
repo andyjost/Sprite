@@ -1,6 +1,7 @@
 Module:
 -------
   name: example
+  fullname: example
   imports: Prelude
 
   types:

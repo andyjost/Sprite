@@ -242,14 +242,15 @@ class FunctionCompiler(object):
 
   @_compile.when(icurry.IExternal)
   def _compile(self, iexternal):
-    # As far as I can tell, the external name is redundant, since the Curry
-    # syntax for an external declaration is just something like, e.g.:
+    # As far as I can tell, the external name in ICurry is redundant, since the
+    # Curry syntax for an external declaration is just something like, e.g.:
     #
     #   eqChar external
-    assert self.name == iexternal.name
-    modulename, symbolname = icurry.splitname(iexternal.name)
+    assert self.name == iexternal.symbolname
+    assert self.extern is None or self.name.startswith(self.extern.fullname)
     try:
-      ifun = self.extern.functions[symbolname]
+      localname = self.name[len(self.extern.fullname)+1:]
+      ifun = self.extern.functions[localname]
       raise ExternallyDefined(ifun)
     except (KeyError, AttributeError):
       msg = 'external function "%s" is not defined' % self.name
@@ -341,7 +342,7 @@ class FunctionCompiler(object):
     yield 'selector = selector.info.tag'
     el = ''
     for branch in icase.branches[:-1]:
-      rhs = self.label(branch.name).info.tag
+      rhs = self.label(branch.typename).info.tag
       yield '%sif selector == %s:' % (el, rhs)
       yield list(self.statement(branch.block))
       el = 'el'
@@ -399,7 +400,7 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.ILiteral)
   def expression(self, iliteral, primary=False):
-    text = '%s, %r' % (self.closure[iliteral.name], iliteral.value)
+    text = '%s, %r' % (self.closure[iliteral.fullname], iliteral.value)
     return 'Node(%s)' % text if primary else text
 
   @expression.when(icurry.IUnboxedLiteral)
@@ -414,7 +415,7 @@ class FunctionCompiler(object):
   def expression(self, icall, primary=False):
     subexprs = (self.expression(x, primary=True) for x in icall.exprs)
     text = '%s%s' % (
-        self.closure[icall.name]
+        self.closure[icall.symbolname]
       , ''.join(', ' + e for e in subexprs)
       )
     return 'Node(%s)' % text if primary else text
@@ -425,7 +426,7 @@ class FunctionCompiler(object):
     text = '%s, %s, Node(%s%s, partial=True)' % (
         self.closure['Prelude._PartApplic']
       , self.expression(ipcall.missing)
-      , self.closure[ipcall.name]
+      , self.closure[ipcall.symbolname]
       , ''.join(', ' + e for e in subexprs)
       )
     return 'Node(%s)' % text if primary else text
@@ -445,7 +446,7 @@ def casetype(interp, arg):
 
 @casetype.when(icurry.ICaseCons)
 def casetype(interp, icase):
-  return interp.symbol(icase.branches[0].name).typedef()
+  return interp.symbol(icase.branches[0].typename).typedef()
 
 @casetype.when(icurry.ICaseLit)
 def casetype(interp, icase):

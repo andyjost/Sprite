@@ -1,6 +1,7 @@
 Module:
 -------
   name: last
+  fullname: last
   imports: Prelude
 
   types:

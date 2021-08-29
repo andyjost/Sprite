@@ -6,6 +6,7 @@ from . import exceptions
 from .common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 import types
 import weakref
+import icurry
 
 __all__ = ['CurryModule', 'CurryDataType', 'CurryNodeLabel']
 
@@ -16,6 +17,7 @@ __all__ = ['CurryModule', 'CurryDataType', 'CurryNodeLabel']
 class CurryModule(types.ModuleType):
   '''A Python module for interfacing with Curry code.'''
   def __new__(cls, imodule):
+    assert isinstance(imodule, (icurry.IPackage, icurry.IModule))
     self = types.ModuleType.__new__(cls, imodule.name)
     self.__file__ = imodule.filename
     setattr(self, '.icurry', imodule)
@@ -32,7 +34,7 @@ class CurryModule(types.ModuleType):
   __str__ = __repr__
 
 
-def _getsymbol(moduleobj, name):
+def _modgetsymbol(moduleobj, name):
   '''Method of CurryModule to look up a symbol by name.'''
   symbols = getattr(moduleobj, '.symbols')
   try:
@@ -42,10 +44,10 @@ def _getsymbol(moduleobj, name):
         'module %r has no symbol %r' % (moduleobj.__name__, name)
       )
 
-setattr(CurryModule, '.getsymbol', _getsymbol)
+setattr(CurryModule, '.getsymbol', _modgetsymbol)
 
 
-def _gettype(moduleobj, name):
+def _modgettype(moduleobj, name):
   '''Method of CurryModule to look up a type by name.'''
   types = getattr(moduleobj, '.types')
   try:
@@ -55,7 +57,28 @@ def _gettype(moduleobj, name):
         'module %r has no type %r' % (moduleobj.__name__, name)
       )
 
-setattr(CurryModule, '.gettype', _gettype)
+setattr(CurryModule, '.gettype', _modgettype)
+
+class CurryPackage(CurryModule):
+  pass
+
+def _pkgget(attr, pkgobj, name):
+  '''Method of CurryPackage to look up a symbol or type by name.'''
+  prefix, remname = icurry.splitname(name)
+  try:
+    submodule = getattr(pkgobj, prefix)
+  except KeyError:
+    raise exceptions.SymbolLookupError(
+        'package %r has no submodule %r' % (pkgobj.__name__, prefix)
+      )
+  else:
+    getter = getattr(submodule, attr)
+    return getter(remname)
+
+setattr(CurryPackage, '.getsymbol'
+  , lambda *args, **kwds: _pkgget('.getsymbol', *args, **kwds))
+setattr(CurryPackage, '.gettype'
+  , lambda *args, **kwds: _pkgget('.gettype', *args, **kwds))
 
 
 class CurryDataType(object):

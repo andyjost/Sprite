@@ -1,4 +1,4 @@
-module SetFunctions
+module Control.SetFunctions
   (set0, set1, set2, set3, set4, set5, set6, set7
   , allValues, valuesOf
   , Values, isEmpty, notEmpty, valueOf

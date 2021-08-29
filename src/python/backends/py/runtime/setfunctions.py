@@ -7,14 +7,15 @@ from copy import deepcopy, copy
 
 def exports():
   yield '_SetGuard'
+  yield 'Values'
 
 def aliases():
   return []
 
 def _T(name, constructors):
-  return icurry.IDataType('SetFunctions.' + name, constructors)
+  return icurry.IDataType('Control.SetFunctions.' + name, constructors)
 def _C(name, *args, **kwds):
-  return icurry.IConstructor('SetFunctions.' + name, *args, **kwds)
+  return icurry.IConstructor('Control.SetFunctions.' + name, *args, **kwds)
 
 _types_ = [
     _T('Values'   , [_C('Values', 2)])
@@ -22,7 +23,7 @@ _types_ = [
   ]
 
 def _F(name, *args, **kwds):
-  return icurry.IFunction('SetFunctions.' + name, *args, **kwds)
+  return icurry.IFunction('Control.SetFunctions.' + name, *args, **kwds)
 
 def guard_arg(rts, arg):
   return arg if not hasattr(arg, 'info') else \
@@ -91,5 +92,5 @@ _functions_ = [
   ]
 
 SetFunctions = icurry.IModule(
-    name='SetFunctions', imports=[], types=_types_, functions=_functions_
+    fullname='Control.SetFunctions', imports=[], types=_types_, functions=_functions_
   )

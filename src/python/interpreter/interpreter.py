@@ -9,6 +9,7 @@ from .. import icurry
 from . import import_
 from .. import objects
 from .. import utility
+from ..utility import curryname
 import itertools
 import logging
 import os
@@ -81,7 +82,7 @@ class Interpreter(object):
   @property
   def setfunctions(self):
     if not hasattr(self, '__setflib'):
-      self.__setflib = self.module('SetFunctions')
+      self.__setflib = self.module('Control.SetFunctions')
     return self.__setflib
 
   def reset(self):
@@ -117,11 +118,11 @@ class Interpreter(object):
     Look up a symbol by its fully-qualified name or by its name relative to a
     module.
     '''
-    if modulename is None:
-      modulename, name = icurry.splitname(name)
+    # modulename, objname = curryname.split(name, self.modules, modulename)
+    modulename, objname = icurry.splitname(name)
     moduleobj = self.module(modulename)
     symbolgetter = getattr(moduleobj, '.getsymbol')
-    return symbolgetter(name)
+    return symbolgetter(objname)
 
   def type(self, name):
     '''Returns the constructor info tables for the named type.'''

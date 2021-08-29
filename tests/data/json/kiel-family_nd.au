@@ -1,6 +1,7 @@
 Module:
 -------
   name: family_nd
+  fullname: family_nd
   imports: Prelude
 
   types:

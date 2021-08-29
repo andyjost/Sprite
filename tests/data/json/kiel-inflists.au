@@ -1,6 +1,7 @@
 Module:
 -------
   name: inflists
+  fullname: inflists
   imports: Prelude
 
   types:

@@ -1,6 +1,7 @@
 Module:
 -------
   name: horseman
+  fullname: horseman
   imports: Prelude
 
   types:

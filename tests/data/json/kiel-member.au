@@ -1,6 +1,7 @@
 Module:
 -------
   name: member
+  fullname: member
   imports: Prelude
 
   types:
