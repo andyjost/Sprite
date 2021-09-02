@@ -1,5 +1,5 @@
-import SetFunctions
-data Result = GT | GF | HT | HF
+import Control.SetFunctions
+data Result = GT | GF | HT | HF deriving (Eq, Ord, Show)
 
 f = g ? h
 g True = GT
@@ -9,9 +9,9 @@ h False = HF
 
 arg = True ? False
 
-goal0 = (set1 g arg) -- [GT] ? [GF]
-goal1 = (set1 f arg) -- [GT,HT] ? [GF,HF]
+goal0 = sortValues (set1 g arg) -- [GT] ? [GF]
+goal1 = sortValues (set1 f arg) -- [GT,HT] ? [GF,HF]
 
 -- ([GT],[GT,HT]) ? ([GT],[GF,HF]) ? ([GF],[GT,HT]) ? ([GF],[GF,HF])
-main = (allValues goal0, allValues goal1)
+main = (goal0, goal1)
 

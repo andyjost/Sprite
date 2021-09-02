@@ -2,16 +2,14 @@ module Control.SetFunctions
   (set0, set1, set2, set3, set4, set5, set6, set7
   , allValues, valuesOf
   , Values, isEmpty, notEmpty, valueOf
-  -- , choose, chooseValue
-  -- , select, selectValue
-  -- , mapValues
+  -- , choose, chooseValue, select, selectValue, mapValues
   , foldValues
   -- , filterValues
-  -- , minValue, minValueBy, maxValue, maxValueBy
-  , values2list, printValues -- , sortValues, sortValuesBy
+  , minValue, minValueBy, maxValue, maxValueBy
+  , values2list, printValues, sortValues, sortValuesBy
   ) where
 
--- import Data.List ( delete, minimum, minimumBy, maximum, maximumBy, sortBy )
+import Data.List ( delete, minimum, minimumBy, maximum, maximumBy, sortBy )
 
 external data Values _
 
@@ -33,16 +31,19 @@ valueOf :: Eq a => a -> Values a -> Bool
 valueOf e s = e `elem` valuesOf s
 
 -- choose :: Eq a => Values a -> (a,Values a)
--- choose (Values vs) = (x, Values xs)
+-- choose values@(Values _) =
+--     let vs = allvalues values in (x, xs)
 --   where x = foldr1 (?) vs
 --         xs = delete x vs
-
+-- 
 -- chooseValue :: Eq a => Values a -> a
 -- chooseValue s = fst (choose s)
-
+-- 
 -- select :: Values a -> (a,Values a)
--- select (Values (x:xs)) = (x, Values xs)
-
+-- select values@(Values _) =
+--     case (allValues values) of
+--         (x:xs) -> (x, xs)
+-- 
 -- selectValue :: Values a -> a
 -- selectValue s = fst (select s)
 
@@ -55,17 +56,17 @@ foldValues f z s = foldr f z (valuesOf s)
 -- filterValues :: (a -> Bool) -> Values a -> Values a
 -- filterValues p (Values s) = Values (filter p s)
 
--- minValue :: Ord a => Values a -> a
--- minValue s = minimum (valuesOf s)
--- 
--- minValueBy :: (a -> a -> Ordering) -> Values a -> a
--- minValueBy cmp s = minimumBy cmp (valuesOf s)
--- 
--- maxValue :: Ord a => Values a -> a
--- maxValue s = maximum (valuesOf s)
--- 
--- maxValueBy :: (a -> a -> Ordering) -> Values a -> a
--- maxValueBy cmp s = maximumBy cmp (valuesOf s)
+minValue :: Ord a => Values a -> a
+minValue s = minimum (valuesOf s)
+
+minValueBy :: (a -> a -> Ordering) -> Values a -> a
+minValueBy cmp s = minimumBy cmp (valuesOf s)
+
+maxValue :: Ord a => Values a -> a
+maxValue s = maximum (valuesOf s)
+
+maxValueBy :: (a -> a -> Ordering) -> Values a -> a
+maxValueBy cmp s = maximumBy cmp (valuesOf s)
 
 values2list :: Values a -> IO [a]
 values2list s = return (valuesOf s)
@@ -73,11 +74,11 @@ values2list s = return (valuesOf s)
 printValues :: Show a => Values a -> IO ()
 printValues s = values2list s >>= mapM_ print
 
--- sortValues :: Ord a => Values a -> [a]
--- sortValues = sortValuesBy (<=)
--- 
--- sortValuesBy :: (a -> a -> Bool) -> Values a -> [a]
--- sortValuesBy leq s = sortBy leq (valuesOf s)
+sortValues :: Ord a => Values a -> [a]
+sortValues = sortValuesBy (<=)
+
+sortValuesBy :: (a -> a -> Bool) -> Values a -> [a]
+sortValuesBy leq s = sortBy leq (valuesOf s)
 
 set0 :: b -> Values b
 set0 external

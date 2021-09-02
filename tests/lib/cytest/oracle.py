@@ -1,10 +1,24 @@
 '''
-Utilities for comparing Curry output.
+Utilities for comparing output to other Curry systems.
+
+Correct answers are provided by an external Curry system called the oracle.
+The test driver calls the oracle, when necessary, to compute correct answers.
+Those are stored alongside the Curry source (typically found under
+$ROOT/tests/data/curry).  When testing, the Sprite answer is computed and
+compared with the saved answer from the oracle.
+
+The $ROOT/tests subdirectory should contain an executable called "oracle" that
+provides correct answers.  The expected interface is "oracle <modulename>
+<goal>".  This program should use the CURRYPATH environment variable to locate
+<modulename>.  The oracle should print the result of the specified goal, one
+result per line, and nothing else.
 '''
+
 from curry import importer
 from curry.utility import visitation, filesys
 import collections
 import os
+import re
 import subprocess
 import unittest
 
@@ -32,14 +46,31 @@ def cyclean(lines, **kwds):
 def cyclean(string, **kwds):
   return cyclean(string.split('\n'), **kwds)
 
-def oracle():
+def oracle(flavor=None):
   '''Gets the path to the oracle.  Returns None if there is no oracle.'''
   # Note: the CWD is assumed to be $root/tests.
-  oracle = os.path.abspath('oracle')
+  suffix = '.' + flavor if flavor is not None else ''
+  oracle = os.path.abspath('oracle' + suffix)
   if os.path.isfile(oracle) and os.access(oracle, os.X_OK):
     return oracle
   else:
     return None
+
+def get_flavor(currymodule):
+  # The oracle flavor can be specified by putting a line such as the following
+  # in the Cury source file:
+  #
+  #     {-# ORACLE KICS2 #-}
+  #
+  # The provided string is lowered and appended to the oracle name with a dot.
+  # So, the above line would use oracle.kics2 to provide golden results.
+  filename = currymodule.__file__
+  pat = re.compile(r'{-#\s*ORACLE\s+(\w+)\s*#-}')
+  if filename:
+    with open(filename) as stream:
+      m = re.search(pat, stream.read())
+      if m:
+        return m.group(1).lower()
 
 def require(f):
   '''Decorator that skips a test if the oracle is not present.'''
@@ -77,7 +108,7 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None, clean_kwds={}
       return False
 
   # Call the oracle.
-  oracle_ = oracle()
+  oracle_ = oracle(flavor=get_flavor(module))
   assert oracle_
   try:
     goal = goal.ident.basename

@@ -375,12 +375,18 @@ def guard_args(rts, guards, node):
 def guard(rts, guards, node, target=None):
   return Node(*guard_args(rts, guards, node), target=target)
 
-def subexpr(rts, node, path):
-  target, guards = Node.getitem_and_guards(node, path)
-  if guards:
-    return guard(rts, guards, target)
-  else:
-    return target
+class subexpr(object):
+  def __init__(self, rts, node):
+    self.rts = rts
+    self.node = node
+  def __getitem__(self, path):
+    target, guards = Node.getitem_and_guards(self.node, path)
+    if guards:
+      return guard(self.rts, guards, target)
+    else:
+      return target
+  def __setitem__(self, path, rhs):
+    self.node[path] = rhs
 
 def rewrite(rts, target, info, *args, **kwds):
   guards = kwds.pop('guards', None)

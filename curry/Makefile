@@ -1,4 +1,4 @@
-SUBMODULES := Control
+SUBMODULES := Control Data
 CURRYLIB_SRC_FILES := Prelude.curry $(wildcard *.curry)
 CURRYFILES :=
 PYTHONFILES :=

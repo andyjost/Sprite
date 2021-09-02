@@ -19,23 +19,27 @@ class Logger(logging.Logger):
   def isEnabledFor(*args, **kwds):
     return True
 
+  @staticmethod
+  def _format(msg, args):
+    return msg % args if args else msg
+
   def log(self, level, msg, *args):
-    self._data[level].append(msg % args)
+    self._data[level].append(self._format(msg, args))
 
   def debug(self, msg, *args):
-    self._data[logging.DEBUG].append(msg % args)
+    self._data[logging.DEBUG].append(self._format(msg, args))
 
   def info(self, msg, *args):
-    self._data[logging.INFO].append(msg % args)
+    self._data[logging.INFO].append(self._format(msg, args))
 
   def warn(self, msg, *args):
-    self._data[logging.WARNING].append(msg % args)
+    self._data[logging.WARNING].append(self._format(msg, args))
 
   def error(self, msg, *args):
-    self._data[logging.ERROR].append(msg % args)
+    self._data[logging.ERROR].append(self._format(msg, args))
 
   def critical(self, msg, *args):
-    self._data[logging.CRITICAL].append(msg % args)
+    self._data[logging.CRITICAL].append(self._format(msg, args))
 
 
 class LogCapture(object):
@@ -48,7 +52,7 @@ class LogCapture(object):
   @property
   def data(self):
     return self.logger._data
-    
+
   def __initstate(self):
     bindings = []
     for modulename in self.modulenames:

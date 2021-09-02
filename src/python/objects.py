@@ -8,7 +8,7 @@ import types
 import weakref
 import icurry
 
-__all__ = ['CurryModule', 'CurryDataType', 'CurryNodeLabel']
+__all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeLabel']
 
 # Note: artibrary symbols imported from Curry are added to Curry modules,
 # risking name clashes.  Therefore, only hidden attributes are allowed here,
@@ -33,53 +33,8 @@ class CurryModule(types.ModuleType):
 
   __str__ = __repr__
 
-
-def _modgetsymbol(moduleobj, name):
-  '''Method of CurryModule to look up a symbol by name.'''
-  symbols = getattr(moduleobj, '.symbols')
-  try:
-    return symbols[name]
-  except KeyError:
-    raise exceptions.SymbolLookupError(
-        'module %r has no symbol %r' % (moduleobj.__name__, name)
-      )
-
-setattr(CurryModule, '.getsymbol', _modgetsymbol)
-
-
-def _modgettype(moduleobj, name):
-  '''Method of CurryModule to look up a type by name.'''
-  types = getattr(moduleobj, '.types')
-  try:
-    return types[name]
-  except KeyError:
-    raise exceptions.TypeLookupError(
-        'module %r has no type %r' % (moduleobj.__name__, name)
-      )
-
-setattr(CurryModule, '.gettype', _modgettype)
-
 class CurryPackage(CurryModule):
   pass
-
-def _pkgget(attr, pkgobj, name):
-  '''Method of CurryPackage to look up a symbol or type by name.'''
-  prefix, remname = icurry.splitname(name)
-  try:
-    submodule = getattr(pkgobj, prefix)
-  except KeyError:
-    raise exceptions.SymbolLookupError(
-        'package %r has no submodule %r' % (pkgobj.__name__, prefix)
-      )
-  else:
-    getter = getattr(submodule, attr)
-    return getter(remname)
-
-setattr(CurryPackage, '.getsymbol'
-  , lambda *args, **kwds: _pkgget('.getsymbol', *args, **kwds))
-setattr(CurryPackage, '.gettype'
-  , lambda *args, **kwds: _pkgget('.gettype', *args, **kwds))
-
 
 class CurryDataType(object):
   def __init__(self, name, constructors, module):
@@ -160,3 +115,132 @@ class CurryNodeLabel(object):
       return "<curry constraint>"
     return "<invalid curry node>"
 
+
+class _ModuleObj(object):
+  '''
+  Provides the internal interface to CurryModule and CurryPackage.  This is
+  used when the module itself (rather than its contents) is of interest.
+  '''
+  def __init__(self, obj):
+    assert isinstance(obj, (CurryModule, CurryPackage))
+    self.obj = obj
+
+  def __repr__(self):
+    return '<object interface to Curry %s %r>' % (
+        'package' if self.is_package else 'module'
+      , self.name
+      )
+
+  @property
+  def name(self):
+    return self.obj.__name__
+
+  @property
+  def fullname(self):
+    return self.icurry.fullname
+
+  @property
+  def is_package(self):
+    return isinstance(self.obj, CurryPackage)
+
+  def package(self, interp):
+    pkg = interp.modules.get(self.icurry.packagename, None)
+    if pkg is not None:
+      return _ModuleObj(pkg)
+
+  def __nonzero__(self):
+    return not self.empty()
+
+  def empty(self):
+    try:
+      next(self.iterkeys())
+    except StopIteration:
+      return True
+    else:
+      return False
+
+  def iterkeys(self):
+    return (name for name in dir(self.obj) if name[0].isalpha())
+
+  def keys(self):
+    return list(self.iterkeys())
+
+  def itervalues(self):
+    return (self[key] for key in self.iterkeys())
+
+  def values(self):
+    return list(itervalues())
+
+  def iteritems(self):
+    return ((key, self[key]) for key in self.iterkeys())
+
+  def items(self):
+    return list(iteritems())
+
+  def __getitem__(self, name):
+    return getattr(self.obj, name)
+
+  def __setitem__(self, name, value):
+    setattr(self, name, value)
+
+  def __delitem__(self, name):
+    delattr(self.obj, name)
+
+  @property
+  def icurry(self):
+    return getattr(self.obj, '.icurry')
+
+  @property
+  def symbols(self):
+    return getattr(self.obj, '.symbols')
+
+  @property
+  def types(self):
+    return getattr(self.obj, '.types')
+
+  def submodule(self, name):
+    if self.is_package:
+      try:
+        submodule = getattr(self.obj, name)
+      except KeyError:
+        raise exceptions.SymbolLookupError(
+            'package %r has no submodule %r' % (self.name, name)
+          )
+      else:
+        return _ModuleObj(submodule)
+
+  def getsymbol(self, name):
+    '''Method of CurryModule to look up a symbol by name.'''
+    if self.is_package:
+      head, tail = icurry.splitname(name)
+      return self.submodule(head).getsymbol(tail)
+    else:
+      try:
+        return self.symbols[name]
+      except KeyError:
+        raise exceptions.SymbolLookupError(
+            'module %r has no symbol %r' % (self.obj.__name__, name)
+          )
+
+  def gettype(self, name):
+    '''Method of CurryModule to look up a type by name.'''
+    if self.is_package:
+      head, tail = icurry.splitname(name)
+      return self.submodule(head).getsymbol(tail)
+    else:
+      try:
+        return self.types[name]
+      except KeyError:
+        raise exceptions.TypeLookupError(
+            'module %r has no type %r' % (self.obj.__name__, name)
+          )
+
+  def unlink(self, interp):
+    del interp.modules[self.fullname]
+    pkg = self.package(interp)
+    if pkg is not None:
+      del pkg.icurry[self.name]
+      self.icurry.setparent(None)
+      del pkg[self.name]
+      if not pkg:
+        pkg.unlink(interp)

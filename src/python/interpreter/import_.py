@@ -40,10 +40,24 @@ def insertSymbol(module, basename, nodeinfo, private=False):
     setattr(module, basename, nodeinfo)
 
 def loadSubmodules(interp, ipkg, package, extern, export, alias):
-  for name in ipkg.submodules:
-    assert not hasattr(package, name)
-    moduleobj = import_(interp, ipkg[name], extern=extern, export=export, alias=alias)
-    setattr(package, name, moduleobj)
+  for name in ipkg.submodules.keys():
+    if not hasattr(package, name):
+      moduleobj = import_(
+          interp, ipkg[name], extern=extern, export=export, alias=alias
+        )
+      assert hasattr(package, name)
+
+def updatePackage(interp, moduleobj):
+  imodule = getattr(moduleobj, '.icurry')
+  if imodule.package is not None:
+    ipkg_from = imodule.package
+    pkgobj = interp.modules[ipkg_from.fullname]
+    assert not hasattr(pkgobj, imodule.name)
+    setattr(pkgobj, imodule.name, moduleobj)
+    ipkg_to = getattr(pkgobj, '.icurry')
+    assert ipkg_to.fullname == ipkg_from.fullname
+    ipkg_to.merge(ipkg_from, [imodule.name])
+    imodule.setparent(ipkg_to)
 
 @visitation.dispatch.on('idef')
 def loadSymbols(interp, idef, moduleobj, extern=None, **kwds): #pragma: no cover
@@ -216,6 +230,7 @@ def import_(
     imodule.merge(extern, export)
     moduleobj = objects.CurryModule(imodule)
     interp.modules[imodule.fullname] = moduleobj
+    updatePackage(interp, moduleobj)
     loadSymbols(interp, imodule, moduleobj, extern=extern)
     compileICurry(interp, imodule, moduleobj, extern=extern)
     for name, target in alias:
@@ -240,8 +255,7 @@ def compileICurry(interp, imodule, moduleobj, extern=None):
 
 @compileICurry.when(icurry.IFunction)
 def compileICurry(interp, ifun, moduleobj, extern=None):
-  symbolgetter = getattr(moduleobj, '.getsymbol')
-  info = symbolgetter(ifun.name).info
+  info = objects._ModuleObj(moduleobj).getsymbol(ifun.name).info
   # Compile interactive code right away.  Otherwise, if lazycompile is set,
   # delay compilation until the function is actually used.  See InfoTable in
   # interpreter/runtime.py.

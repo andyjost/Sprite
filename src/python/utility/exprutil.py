@@ -85,7 +85,7 @@ class WalkState(object):
 
 def walk(root, path=None):
   '''
-  Walk a Curry expression.  
+  Walk a Curry expression.
 
   This yields a "state" objects for each successor of the given root.  The state
   consists of a cursor pointing to a subexpression, current path to the cursor,

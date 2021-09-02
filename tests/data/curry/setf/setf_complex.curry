@@ -1,7 +1,14 @@
-import SetFunctions
+{-# LANGUAGE CPP #-}
+{-# ORACLE KICS2 #-}
 
-data Arg = A | B | C
-data Result = G_A | G_B | G_C | H_A | H_B | H_C
+#ifdef __KICS2__
+import SetFunctions
+#else
+import Control.SetFunctions
+#endif
+
+data Arg = A | B | C deriving (Eq, Ord, Show)
+data Result = G_A | G_B | G_C | H_A | H_B | H_C deriving (Eq, Ord, Show)
 
 f = g ? h
 
@@ -20,14 +27,14 @@ apply4 a b = f (a ? b)
 arg = A ? B
 
 -- {G_A} ? {G_A, G_B} ? {H_A} ? {H_A, H_B}
-goal1a = (set3 apply1) f arg A
-goal1b = (set3 apply3) f arg A
+goal10 = sortValues $ (set3 apply1) f arg A
+goal11 = sortValues $ (set3 apply3) f arg A
 
 -- {G_A, H_A} ? {G_A, G_B, H_A, H_B}
-goal2a = (set2 apply2) arg A
-goal2b = (set2 apply4) arg A
+goal20 = sortValues $ (set2 apply2) arg A
+goal21 = sortValues $ (set2 apply4) arg A
 
-goal3 = (set3 apply1) g A x where x free
+goal3 = sortValues $ (set3 apply1) g A x where x free
 
 -- {G_A} ? {G_A, G_B} ? {G_A, G_C} ? {G_B} ? {G_B, G_C} ?
 -- {H_A} ? {H_A, H_B} ? {H_A, H_C} ? {H_B} ? {H_B, H_C}
@@ -45,16 +52,6 @@ goal3 = (set3 apply1) g A x where x free
 --     (Values [H_B,H_C])
 --     (Values [G_A,G_B]) -- duplicate
 --     (Values [H_A,H_B]) -- duplicate
-goal4a = (set3 apply1) f arg x where x free
-goal4b = (set3 apply3) f arg x where x free
+goal40 = sortValues $ (set3 apply1) f arg x where x free
+goal41 = sortValues $ (set3 apply3) f arg x where x free
 
-
-main = (
-    allValues $ set1 allValues goal1a
-  , allValues $ set1 allValues goal1b
-  , allValues $ set1 allValues goal2a
-  , allValues $ set1 allValues goal2b
-  , allValues $ set1 allValues goal3
-  , allValues $ set1 allValues goal4a
-  , allValues $ set1 allValues goal4b
-  )

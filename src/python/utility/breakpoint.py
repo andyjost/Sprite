@@ -14,7 +14,7 @@ def breakpoint(msg='', depth=0):
   namespace.update(frame.f_locals)
   if msg:
     msg = " - " + msg
-  banner = "\n[%s:%s%s]" % (namespace['__file__'], frame.f_lineno, msg)
+  banner = "\n[%s:%s%s]" % (namespace.get('__file__', None), frame.f_lineno, msg)
   code.interact(banner=banner, local=namespace)
 
 __builtin__.breakpoint = breakpoint

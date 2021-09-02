@@ -89,7 +89,7 @@ class Interpreter(object):
     '''
     Soft-resets the interpreter.
 
-    Clears loaded modules (except for built-in ones), restores I/O streams to
+    Clears loaded modules (except for the Prelude), restores I/O streams to
     their defaults, resets ``path`` from the environment, and clears internal
     counters.  This is much faster than building a new interpreter, which
     loads the Prelude.
@@ -98,9 +98,10 @@ class Interpreter(object):
     self.stdout = sys.stdout
     self.stderr = sys.stderr
     self.automodules = config.syslibs()
-    for name in self.modules.keys():
-      if name not in self.automodules:
-        del self.modules[name]
+    for name, module in self.modules.items():
+      module = objects._ModuleObj(module)
+      if not module.is_package and name != 'Prelude':
+        module.unlink(self)
     self.path[:] = config.currypath([]) # re-read it from the environment
     self.context.runtime.init_interpreter_state(self)
 
@@ -121,15 +122,13 @@ class Interpreter(object):
     # modulename, objname = curryname.split(name, self.modules, modulename)
     modulename, objname = icurry.splitname(name)
     moduleobj = self.module(modulename)
-    symbolgetter = getattr(moduleobj, '.getsymbol')
-    return symbolgetter(objname)
+    return objects._ModuleObj(moduleobj).getsymbol(objname)
 
   def type(self, name):
     '''Returns the constructor info tables for the named type.'''
     modulename, name = icurry.splitname(name)
     moduleobj = self.module(modulename)
-    typegetter = getattr(moduleobj, '.gettype')
-    return typegetter(name)
+    return objects._ModuleObj(moduleobj).gettype(name)
 
   # Externally-implemented methods.
   from .compile import compile

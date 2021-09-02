@@ -87,7 +87,7 @@ def compile_py_boxedfunc(interp, metadata):
   '''
   boxedfunc = metadata['py.boxedfunc']
   def step(rts, _0):
-    args, guards = demux(
+    args, _ = demux(
         hnf(rts, _0, [i]) for i in xrange(len(_0.successors))
       )
     Node(*boxedfunc(rts, *args), target=_0)
@@ -116,7 +116,7 @@ def compile_py_unboxedfunc(interp, metadata):
   topython = interp.topython
   # For some reason, the prelude reverses the argument order.
   def step(rts, _0):
-    args, guards = demux(
+    args, _ = demux(
         hnf(rts, _0, [i]) for i in reversed(xrange(len(_0.successors)))
       )
     args = map(topython, args)
@@ -158,13 +158,6 @@ class FunctionCompiler(object):
     self.program = ['def step(rts, _0):']
     self.varinfo = None
     return self
-
-  @property
-  def has_guards(self):
-    '''
-    Indicates whether the "guards" variable was defined in the function body.
-    '''
-    return 'hnf' in self.closure.context
 
   def get(self):
     '''Returns the compiled step function.'''
@@ -281,7 +274,8 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.IVarDecl)
   def statement(self, vardecl):
-    return []
+    varname = self.expression(vardecl.lhs)
+    yield '%s = None' % varname
 
   @statement.when(icurry.IFreeDecl)
   def statement(self, vardecl):
@@ -312,21 +306,12 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.IReturn)
   def statement(self, ret):
-    if self.has_guards:
-      self.closure['rewrite'] = rewrite
-      if isinstance(ret.expr, icurry.IReference):
-        yield 'rewrite(rts, _0, %s, %s, guards=guards)' % (
-            self.closure['Prelude._Fwd'], self.expression(ret.expr, primary=True)
-          )
-      else:
-        yield 'rewrite(rts, _0, %s, guards=guards)' % self.expression(ret.expr)
+    if isinstance(ret.expr, icurry.IReference):
+      yield '_0.rewrite(%s, %s)' % (
+          self.closure['Prelude._Fwd'], self.expression(ret.expr, primary=True)
+        )
     else:
-      if isinstance(ret.expr, icurry.IReference):
-        yield '_0.rewrite(%s, %s)' % (
-            self.closure['Prelude._Fwd'], self.expression(ret.expr, primary=True)
-          )
-      else:
-        yield '_0.rewrite(%s)' % self.expression(ret.expr)
+      yield '_0.rewrite(%s)' % self.expression(ret.expr)
 
   @statement.when(icurry.ICaseCons)
   def statement(self, icase):
@@ -336,7 +321,7 @@ class FunctionCompiler(object):
     assert path is not None
     assert icase.branches
     typedef = casetype(self.interp, icase)
-    yield 'selector, guards = hnf(rts, _0, %s, typedef=%s)' % (
+    yield 'selector, _ = hnf(rts, _0, %s, typedef=%s)' % (
         path, self.closure[typedef]
       )
     yield 'selector = selector.info.tag'
@@ -362,7 +347,7 @@ class FunctionCompiler(object):
     self.closure['unbox'] = self.interp.unbox
     typedef = casetype(self.interp, icase)
     self.closure['values'] = list(branch.lit.value for branch in icase.branches)
-    yield 'selector, guards = hnf(rts, _0, %s, typedef=%s, values=values)' % (
+    yield 'selector, _ = hnf(rts, _0, %s, typedef=%s, values=values)' % (
         path, self.closure[typedef]
       )
     yield 'selector = unbox(selector)'
@@ -393,7 +378,7 @@ class FunctionCompiler(object):
   @expression.when(icurry.IVarAccess)
   def expression(self, ivaraccess, primary=False):
     self.closure['subexpr'] = subexpr
-    return 'subexpr(rts, %s, %s)' % (
+    return 'subexpr(rts, %s)[%s]' % (
         self.expression(ivaraccess.var, primary=primary)
       , ','.join(map(str, ivaraccess.path))
       )

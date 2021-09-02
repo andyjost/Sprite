@@ -213,8 +213,11 @@ class IPackage(ISymbol):
     return self.submodules.values()
 
   def setparent(self, parent):
-    assert isinstance(parent, IPackage)
-    self.parent = weakref.ref(parent)
+    if parent is None:
+      del self.__dict__['parent']
+    else:
+      assert isinstance(parent, IPackage)
+      self.parent = weakref.ref(parent)
     return self
 
   def __getitem__(self, key):
@@ -234,24 +237,27 @@ class IPackage(ISymbol):
     self.submodules[key] = submodule
     submodule.setparent(self)
 
-  # def merge(self, extern, export):
-  #   '''
-  #   Moves the symbols specified in ``export`` from ``extern`` into this module.
-  #   Takes ownership of the submodules by setting ``parent``.  Because of this,
-  #   the submodules are deleted from ``extern``.
-  #   '''
-  #   assert isinstance(extern, IPackage)
-  #   for name in export:
-  #     if name not in extern:
-  #       raise TypeError(
-  #           'cannot import %r from module %r' % (name, extern.fullname)
-  #         )
-  #     if name in self and self[name] is not extern[name]:
-  #       raise TypeError(
-  #           'importing %r into %r would clobber a symbol'
-  #               % (name, self.fullname)
-  #         )
-  #     self.insert(extern.submodules.pop(name))
+  def __delitem__(self, name):
+    del self.submodules[name]
+
+  def merge(self, extern, export):
+    '''
+    Moves the symbols specified in ``export`` from ``extern`` into this module.
+    Takes ownership of the submodules by setting ``parent``.  Because of this,
+    the submodules are deleted from ``extern``.
+    '''
+    assert isinstance(extern, IPackage)
+    for name in export:
+      if name not in extern:
+        raise TypeError(
+            'cannot import %r from module %r' % (name, extern.fullname)
+          )
+      if name in self and self[name] is not extern[name]:
+        raise TypeError(
+            'importing %r into %r would clobber a symbol'
+                % (name, self.fullname)
+          )
+      self.insert(extern.submodules.pop(name))
 
   def __str__(self):
     return '\n'.join(
@@ -294,9 +300,19 @@ class IModule(ISymbol):
     ISymbol.__init__(self, **kwds)
 
   def setparent(self, parent):
-    assert isinstance(parent, IPackage)
-    self.parent = weakref.ref(parent)
+    if parent is None:
+      del self.__dict__['parent']
+    else:
+      assert isinstance(parent, IPackage)
+      self.parent = weakref.ref(parent)
     return self
+
+  @property
+  def package(self):
+    if hasattr(self, 'parent'):
+      parent = self.parent()
+      assert isinstance(parent, IPackage)
+      return parent
 
   def __str__(self):
     return '\n'.join(

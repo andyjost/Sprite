@@ -1,6 +1,7 @@
 PROGRAM_NAME = 'sprite-exec'
 
 from .exceptions import SymbolLookupError
+from .tools.utility import handle_program_errors
 from .utility import isLegalModulename
 import argparse
 import code
@@ -18,23 +19,27 @@ def main(program_name, argv):
   parser.add_argument( '-i', '--interact', action='store_true', help='interact after running the program')
   parser.add_argument( '-m', '--module', action='store_true'
     , help='interpret the argument as a module name rather than a file name')
+  parser.add_argument( '-g', '--goal', type=str, default=None
+    , help='specifies the goal to evaluate [default: "main"]')
   parser.add_argument( 'name', nargs='?', default=None, type=str, help='a Curry file name (default) or module name to run')
-  args = parser.parse_args(argv)
 
-  if args.name is None:
-    code.interact(local={__package__: curry})
-    return
+  with handle_program_errors(PROGRAM_NAME, exit_status=1):
+    args = parser.parse_args(argv)
 
-  if args.module:
-    if not isLegalModulename(args.name):
-      raise ValueError('expected a dot-separated module name')
-  elif not args.name.endswith('.curry'):
-    raise ValueError('expected a file name ending with .curry')
+    if args.name is None:
+      code.interact(local={'__package__': curry})
+      return
 
-  module = curry.import_(args.name, curry.path, is_sourcefile=not args.module)
-  main = curry.symbol(module.__name__ + '.main')
-  for value in curry.eval(main):
-    print curry.show_value(value)
+    if args.module:
+      if not isLegalModulename(args.name):
+        raise ValueError('expected a dot-separated module name')
+    elif not args.name.endswith('.curry'):
+      raise ValueError('expected a file name ending with .curry')
+
+    module = curry.import_(args.name, curry.path, is_sourcefile=not args.module)
+    goal = curry.symbol(module.__name__ + '.' + getattr(args, 'goal', 'main'))
+    for value in curry.eval(goal):
+      print curry.show_value(value)
 
   if args.interact:
     code.interact(banner='In Curry module %s.' % module.__name__, local=module.__dict__)
