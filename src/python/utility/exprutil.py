@@ -45,6 +45,7 @@ class WalkState(object):
     self.stack = []
     self.path = list(path)
     self.spine = [root.getitem(root, p) for p in [path[:i] for i in xrange(len(path)+1)]]
+    self.data = []
 
   def advance(self):
     while self.stack and not self.stack[-1]:
@@ -63,14 +64,16 @@ class WalkState(object):
     self.stack.pop()
     self.path.pop()
     self.spine.pop()
+    self.data.pop()
 
-  def push(self):
+  def push(self, data=None):
     self.stack.append(
         [] if isinstance(self.cursor, icurry.ILiteral)
            else list(enumerate(self.cursor))[::-1]
       )
     self.path.append(None)
     self.spine.append(None)
+    self.data.append(data)
 
   @property
   def cursor(self):

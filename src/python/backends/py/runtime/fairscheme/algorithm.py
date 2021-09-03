@@ -104,13 +104,16 @@ def N(rts, root=None, path=None, ground=True):
         elif tag == T_FWD:
           state.spine[-1] = state.parent.getitem(state.parent, state.path[-1])
         elif tag == T_CHOICE:
+          cid = state.cursor.successors[0]
+          rts.update_escape_sets(sids=state.data, cid=cid)
           if path is None:
-            rts.E = graph.make_choice(rts, state.cursor.successors[0], rts.E, state.path)
+            rts.E = graph.make_choice(rts, cid, rts.E, state.path)
           else:
-            graph.make_choice(rts, state.cursor.successors[0], root, state.path, rewrite=root)
+            graph.make_choice(rts, cid, root, state.path, rewrite=root)
           return False
         elif tag == T_SETGRD:
-          state.push()
+          sid = state.cursor.successors[0]
+          state.push(data=sid)
           break
         elif tag == T_FUNC:
           S(rts, state.cursor)

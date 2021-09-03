@@ -181,6 +181,11 @@ class RuntimeState(object):
     setf = self.sftable[sid]
     setf.escape_set.add(cid)
 
+  def update_escape_sets(self, sids, cid):
+    for sid in sids:
+      if sid is not None:
+        self.update_escape_set(sid=sid, cid=cid)
+
   def walk_configs(self):
     for qid in self.qstack[::-1]:
       yield self.qtable[qid][0]
