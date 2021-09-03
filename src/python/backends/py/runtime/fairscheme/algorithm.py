@@ -3,7 +3,7 @@ from .. import graph, trace
 from ..... import icurry
 from .....utility import exprutil
 
-def D(rts, recursive=False):
+def D(rts):
   while rts.ready():
     tag = graph.tag_of(rts.E)
     if tag == T_FAIL:
@@ -29,7 +29,7 @@ def D(rts, recursive=False):
       sid = rts.E.successors[0]
       if sid == rts.get_sid():
         rts.C.escape_all = True
-      elif recursive:
+      elif rts.in_recursive_call:
         rts.unwind()
       rts.E = rts.E.successors[1]
     elif tag == T_CHOICE:

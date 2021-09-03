@@ -50,7 +50,7 @@ def allValues(rts, _0):
   try:
     with rts.queue_scope(sid=sid, qid=qid):
       try:
-        value = next(D(rts, recursive=True))
+        value = next(D(rts))
         yield rts.prelude.Cons
         yield value
         yield graph.Node(rts.setfunctions.allValues, valueset)

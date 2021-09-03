@@ -190,6 +190,10 @@ class RuntimeState(object):
     if goal is not None:
       self.Q.append(Configuration(goal))
 
+  @property
+  def in_recursive_call(self):
+    return len(self.qstack) > 1
+
   def make_value(self, arg=None):
     arg = self.E if arg is None else arg
     if inspect.isa(arg, self.prelude.IO):
@@ -216,11 +220,6 @@ class RuntimeState(object):
     self.C.root = node
 
   @property
-  def qid(self):
-    '''The ID of the current queue.'''
-    return self.qstack[-1]
-
-  @property
   def Q(self):
     '''The current queue.'''
     return self.qtable[self.qid]
@@ -233,6 +232,16 @@ class RuntimeState(object):
   @property
   def S(self):
     return self.sftable.get(self.Q.sid, None)
+
+  @property
+  def qid(self):
+    '''The ID of the current queue.'''
+    return self.qstack[-1]
+
+  @property
+  def sid(self):
+    '''The ID of the current set.'''
+    return self.Q.sid
 
   from .rts_bindings import (
       add_binding, apply_binding, get_binding, has_binding, update_binding
