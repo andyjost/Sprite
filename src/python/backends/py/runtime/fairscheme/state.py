@@ -1,6 +1,7 @@
+from ..graph.copy import copyexpr
 from copy import copy
-from . import stepcounter
 from ..... import inspect
+from . import stepcounter
 from ...sprite import Fingerprint
 from .....utility import shared, unionfind
 import collections
@@ -199,12 +200,13 @@ class RuntimeState(object):
   def in_recursive_call(self):
     return len(self.qstack) > 1
 
-  def make_value(self, arg=None):
-    arg = self.E if arg is None else arg
+  def make_value(self, arg=None, config=None):
+    config = config or self.C
+    arg = config.root if arg is None else arg
     if inspect.isa(arg, self.prelude.IO):
       return arg.successors[0]
-    else:
-      return arg
+    skipgrds = set([] if self.sid is None else [self.sid])
+    return copyexpr(arg, skipfwd=True, skipgrds=skipgrds)
 
   @property
   def C(self):

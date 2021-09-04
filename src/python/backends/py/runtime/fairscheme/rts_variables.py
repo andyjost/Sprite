@@ -8,6 +8,7 @@ from .....common import (
   , T_FAIL, T_VAR, T_CHOICE, T_CTOR
   )
 from .. import graph
+from ..graph import replacer
 
 __all__ = [
     'clone_generator', 'freshvar_args', 'freshvar', 'get_generator'
@@ -77,16 +78,16 @@ def instantiate(self, func, path, typedef, config=None):
   if typedef is None:
     self.suspend(func.getitem_with_guards(func, path), config)
   else:
-    replacer = graph.Replacer(func, path
+    R = replacer.Replacer(func, path
       , lambda node, _: _make_generator(self, node, typedef)
       )
-    replaced = replacer[None]
-    assert replacer.target.info.tag == T_VAR
+    replaced = R[None]
+    assert R.target.info.tag == T_VAR
     assert func.info == replaced.info
     func.successors[:] = replaced.successors
-    target = replacer.target.successors[1]
-    if replacer.guards:
-      return graph.guard(self, replacer.guards, target)
+    target = R.target.successors[1]
+    if R.guards:
+      return graph.utility.guard(self, R.guards, target)
     else:
       return target
 
@@ -114,7 +115,7 @@ def is_nondet(self, arg=None, config=None):
   Returns True if the argument is a choice or variable.
   '''
   arg = (config or self.C).root if arg is None else arg
-  return graph.tag_of(arg) in [T_CHOICE, T_VAR]
+  return graph.utility.tag_of(arg) in [T_CHOICE, T_VAR]
 
 def is_variable(self, node):
   '''Indicates whether the given argument is a free variable.'''

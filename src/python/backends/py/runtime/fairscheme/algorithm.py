@@ -5,7 +5,7 @@ from .....utility import exprutil
 
 def D(rts):
   while rts.ready():
-    tag = graph.tag_of(rts.E)
+    tag = graph.utility.tag_of(rts.E)
     if tag == T_FAIL:
       rts.drop()
     elif tag == T_CONSTR:
@@ -73,7 +73,7 @@ def N(rts, root=None, path=None, ground=True):
     for state in exprutil.walk(root, path=path):
       rts.C.search_state[-1] = state
       while True:
-        tag = graph.tag_of(state.cursor)
+        tag = graph.utility.tag_of(state.cursor)
         if tag == T_FAIL:
           if path is None:
             rts.drop()
@@ -82,23 +82,23 @@ def N(rts, root=None, path=None, ground=True):
           return False
         elif tag == T_CONSTR:
           if path is None:
-            rts.E = graph.make_constraint(state.cursor, rts.E, state.path)
+            rts.E = graph.utility.make_constraint(state.cursor, rts.E, state.path)
           else:
-            graph.make_constraint(state.cursor, root, state.path, rewrite=root)
+            graph.utility.make_constraint(state.cursor, root, state.path, rewrite=root)
           return False
         elif tag == T_VAR:
           if ground:
             if rts.has_binding(state.cursor):
               binding = rts.get_binding(state.cursor)
-              rts.E = graph.replace_copy(rts, rts.E, state.path, binding)
+              rts.E = graph.utility.replace_copy(rts, rts.E, state.path, binding)
               rts.restart()
             elif rts.is_narrowed(state.cursor):
               gen = target = rts.get_generator(state.cursor)
-              rts.E = graph.make_choice(rts, gen[0], rts.E, state.path, gen)
+              rts.E = graph.utility.make_choice(rts, gen[0], rts.E, state.path, gen)
               rts.restart()
             elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
               x = rts.get_variable(rts.grp_id(state.cursor))
-              rts.E = graph.replace_copy(rts, rts.E, state.path, x)
+              rts.E = graph.utility.replace_copy(rts, rts.E, state.path, x)
               rts.restart()
           break
         elif tag == T_FWD:
@@ -107,9 +107,9 @@ def N(rts, root=None, path=None, ground=True):
           cid = state.cursor.successors[0]
           rts.update_escape_sets(sids=state.data, cid=cid)
           if path is None:
-            rts.E = graph.make_choice(rts, cid, rts.E, state.path)
+            rts.E = graph.utility.make_choice(rts, cid, rts.E, state.path)
           else:
-            graph.make_choice(rts, cid, root, state.path, rewrite=root)
+            graph.utility.make_choice(rts, cid, root, state.path, rewrite=root)
           return False
         elif tag == T_SETGRD:
           sid = state.cursor.successors[0]
@@ -118,7 +118,7 @@ def N(rts, root=None, path=None, ground=True):
         elif tag == T_FUNC:
           S(rts, state.cursor)
         elif tag >= T_CTOR:
-          if graph.info_of(state.cursor) is not rts.prelude._PartApplic.info:
+          if graph.utility.info_of(state.cursor) is not rts.prelude._PartApplic.info:
             state.push()
           break
         else:
@@ -175,26 +175,26 @@ def hnf(rts, func, path, typedef=None, values=None, guards=None):
     while True:
       if isinstance(target, icurry.ILiteral):
         return target, guards
-      tag = graph.tag_of(target)
+      tag = graph.utility.tag_of(target)
       if tag == T_FAIL:
         func.rewrite(rts.prelude._Failure)
         rts.unwind()
       elif tag == T_CONSTR:
-        graph.make_constraint(target, func, path, rewrite=func)
+        graph.utility.make_constraint(target, func, path, rewrite=func)
         rts.unwind()
       elif tag == T_VAR:
         if rts.has_generator(target):
           gen = rts.get_generator(target)
-          graph.make_choice(rts, gen.successors[0], func, path, gen, rewrite=func)
+          graph.utility.make_choice(rts, gen.successors[0], func, path, gen, rewrite=func)
           rts.unwind()
         elif rts.has_binding(target):
           binding = rts.get_binding(target)
-          rts.E = graph.replace_copy(rts, rts.E, tuple(rts.C.path), binding)
+          rts.E = graph.utility.replace_copy(rts, rts.E, tuple(rts.C.path), binding)
           rts.restart()
         elif typedef in rts.builtin_types:
           if values:
-            target = graph.make_value_bindings(rts, target, values, typedef)
-            graph.replace(rts, func, path, target)
+            target = graph.utility.make_value_bindings(rts, target, values, typedef)
+            graph.utility.replace(rts, func, path, target)
           else:
             rts.suspend(target)
         else:
@@ -205,7 +205,7 @@ def hnf(rts, func, path, typedef=None, values=None, guards=None):
         cid = target.successors[0]
         for sid in guards:
           rts.update_escape_set(sid=sid, cid=cid)
-        graph.make_choice(rts, cid, func, path, rewrite=func)
+        graph.utility.make_choice(rts, cid, func, path, rewrite=func)
         rts.unwind()
       elif tag == T_SETGRD:
         sid, expr = target

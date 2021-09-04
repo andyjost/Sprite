@@ -58,7 +58,7 @@ def allValues(rts, _0):
         yield rts.prelude.Nil
   except E_UNWIND:
     subconfig = rts.qtable[qid][0]
-    tag = graph.tag_of(subconfig.root)
+    tag = graph.utility.tag_of(subconfig.root)
     if tag == T_SETGRD:
       gexpr = subconfig.root
       guards.add(gexpr[0])

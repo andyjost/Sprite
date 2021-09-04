@@ -3,7 +3,7 @@ from . import closure
 from .... import icurry
 from . import render
 from ..runtime.fairscheme.algorithm import hnf
-from ..runtime.graph import Node, rewrite, subexpr
+from ..runtime import graph
 from ..runtime import prelude_impl
 from ....utility import encoding, visitation, formatDocstring
 from ....utility import filesys
@@ -90,7 +90,7 @@ def compile_py_boxedfunc(interp, metadata):
     args, _ = demux(
         hnf(rts, _0, [i]) for i in xrange(len(_0.successors))
       )
-    Node(*boxedfunc(rts, *args), target=_0)
+    graph.Node(*boxedfunc(rts, *args), target=_0)
   return step
 
 def compile_py_rawfunc(interp, metadata):
@@ -103,7 +103,7 @@ def compile_py_rawfunc(interp, metadata):
   '''
   rawfunc = metadata['py.rawfunc']
   def step(rts, _0):
-    Node(*rawfunc(rts, _0), target=_0)
+    graph.Node(*rawfunc(rts, _0), target=_0)
   return step
 
 def compile_py_unboxedfunc(interp, metadata):
@@ -153,7 +153,7 @@ class FunctionCompiler(object):
     self.name = name
     self.interp = interp
     self.closure = closure.Closure(interp)
-    self.closure['Node'] = Node
+    self.closure['Node'] = graph.Node
     self.extern = extern
     self.program = ['def step(rts, _0):']
     self.varinfo = None
@@ -377,7 +377,7 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.IVarAccess)
   def expression(self, ivaraccess, primary=False):
-    self.closure['subexpr'] = subexpr
+    self.closure['subexpr'] = graph.utility.subexpr
     return 'subexpr(rts, %s)[%s]' % (
         self.expression(ivaraccess.var, primary=primary)
       , ','.join(map(str, ivaraccess.path))

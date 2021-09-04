@@ -5,8 +5,8 @@ from ....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .control import E_RESIDUAL, E_UNWIND
 from ....exceptions import *
 from .fairscheme.algorithm import N, hnf
-from .graph import Node, tag_of
 from ..hnfmux import demux
+from . import graph
 from .... import inspect
 import collections
 import logging
@@ -21,7 +21,7 @@ def hnf_or_free(rts, root, index, typedef=None, guards=None):
   except E_RESIDUAL:
     # The argument could be a free variable or an expression containing a free
     # variable that cannot be narrowed, such as "ensureNotFree x".
-    expr, guards = Node.getitem_and_guards(root, index)
+    expr, guards = graph.Node.getitem_and_guards(root, index)
     if rts.is_variable(expr):
       return expr, guards
     else:
@@ -120,8 +120,8 @@ def constr_eq(rts, root):
           assert arity == rhs.info.arity
           if arity:
             conj = getattr(rts.prelude, '&')
-            terms = (Node(root.info, l, r) for l,r in zip(lhs, rhs))
-            expr = reduce((lambda a,b: Node(conj, a, b)), terms)
+            terms = (graph.Node(root.info, l, r) for l,r in zip(lhs, rhs))
+            expr = reduce((lambda a,b: graph.Node(conj, a, b)), terms)
             yield expr.info
             for succ in expr:
               yield succ
@@ -162,8 +162,8 @@ def nonstrict_eq(rts, root):
           assert arity == rhs.info.arity
           if arity:
             conj = getattr(rts.prelude, '&')
-            terms = (Node(root.info, l, r) for l,r in zip(lhs, rhs))
-            expr = reduce((lambda a,b: Node(conj, a, b)), terms)
+            terms = (graph.Node(root.info, l, r) for l,r in zip(lhs, rhs))
+            expr = reduce((lambda a,b: graph.Node(conj, a, b)), terms)
             yield expr.info
             for succ in expr:
               yield succ
@@ -221,7 +221,7 @@ def apply(rts, lhs):
   else:
     yield partapplic
     yield missing-1
-    yield Node(term, *(term.successors+[arg]), partial=True)
+    yield graph.Node(term, *(term.successors+[arg]), partial=True)
 
 def cond(rts, lhs):
   _, guards = hnf(rts, lhs, [0]) # normalize the Boolean argument.
@@ -237,8 +237,8 @@ def failed(rts):
 def choice(rts, lhs):
   yield rts.prelude._Choice
   yield next(rts.idfactory)
-  yield Node.getitem(lhs, 0, skipguards=False)
-  yield Node.getitem(lhs, 1, skipguards=False)
+  yield graph.Node.getitem(lhs, 0, skipguards=False)
+  yield graph.Node.getitem(lhs, 1, skipguards=False)
 
 def error(rts, msg):
   msg = str(rts.topython(msg))
@@ -463,7 +463,7 @@ def returnIO(rts, a):
 def putChar(rts, a):
   rts.stdout.write(a.successors[0])
   yield rts.prelude.IO
-  yield Node(rts.prelude.Unit)
+  yield graph.Node(rts.prelude.Unit)
 
 def getChar(rts):
   yield rts.prelude.Char
@@ -498,7 +498,7 @@ def writeFile(rts, func, mode='w'):
   chartype = rts.prelude.Char.typedef()
   while True:
     listnode, _ = hnf(rts, func, [1], listtype)
-    tag = tag_of(listnode)
+    tag = graph.utility.tag_of(listnode)
     if tag == 0: # Cons
       char, tail = listnode
       char, _ = hnf(rts, func, [1,0], chartype)
@@ -506,7 +506,7 @@ def writeFile(rts, func, mode='w'):
       func.successors[1] = tail
     elif tag == 1: # Nil
       yield rts.prelude.IO
-      yield Node(rts.prelude.Unit)
+      yield graph.Node(rts.prelude.Unit)
       break
     else:
       assert False
@@ -516,7 +516,7 @@ def appendFile(rts, func):
 
 def make_monad_exception(rts, exc):
   idx = getattr(exc, 'CTOR_INDEX', 0)
-  return Node(
+  return graph.Node(
       rts.prelude.IOError.info.typedef().constructors[idx]
     , rts.expr(iter(str(exc)))
     )
@@ -534,7 +534,7 @@ def catch(rts, func):
 
 def ioError(rts, func):
   yield rts.prelude.error
-  yield Node(rts.prelude.show, func[0])
+  yield graph.Node(rts.prelude.show, func[0])
 
 def show(rts, arg, xform=None):
   if inspect.is_boxed(rts, arg):
@@ -551,7 +551,7 @@ def normalize(rts, func, path, ground):
   if not N(rts, func, path, ground):
     rts.unwind()
   else:
-    return Node.getitem_and_guards(func, path)
+    return graph.Node.getitem_and_guards(func, path)
 
 def apply_impl(rts, root, impl, **kwds):
   partapplic, guards = hnf(rts, root, [0])
