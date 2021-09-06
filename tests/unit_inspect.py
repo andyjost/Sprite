@@ -1,10 +1,10 @@
 import cytest # from ./lib; must be first
 import curry
 from curry import inspect
-from curry.expr_modifiers import (
+from curry.expressions import (
     unboxed
-  , _setgrd, _fail, _strictconstr, _nonstrictconstr, _valuebinding, _var, _fwd
-  , _choice
+  , _setgrd, fail, _strictconstr, _nonstrictconstr, _valuebinding, var, fwd
+  , choice
   )
 
 class TestInspect(cytest.TestCase):
@@ -28,17 +28,17 @@ class TestInspect(cytest.TestCase):
     cls.list = curry.expr([1,2,3])
     cls.empty_list = curry.expr([])
     cls.py_generator = curry.expr(iter([1,2]))
-    cls.failure = curry.expr(_fail)
-    cls.fwd = curry.expr(prelude._Fwd, prelude.True)
+    cls.failure = curry.expr(fail)
+    cls.fwd = curry.expr(fwd(prelude.True))
     cls.vid = 2
-    cls.var = curry.expr(_var(cls.vid))
+    cls.var = curry.expr(var(cls.vid))
     cls.cid = 3
-    cls.choice = curry.expr(_choice(3, 0, 1))
+    cls.choice = curry.expr(choice(3, 0, 1))
     cls.nonstrict_constraint = curry.expr(_nonstrictconstr(True, (cls.var, False)))
     cls.sid = 7
     cls.setgrd = curry.expr(_setgrd(cls.sid, True))
-    cls.strict_constraint = curry.expr(_strictconstr(True, (_var(1), _var(2))))
-    cls.value_binding = curry.expr(_valuebinding(True, (_var(1), unboxed(2))))
+    cls.strict_constraint = curry.expr(_strictconstr(True, (var(1), var(2))))
+    cls.value_binding = curry.expr(_valuebinding(True, (var(1), unboxed(2))))
     cls.func = curry.expr(prelude.head, getattr(prelude, '[]'))
     cls.everything = set([
         cls.not_a_node
@@ -82,6 +82,9 @@ class TestInspect(cytest.TestCase):
       , 'arg 2 must be an instance or sequence of curry.objects.CurryNodeLabel objects.'
       , lambda: inspect.isa(curry.expr(1), self.not_a_node)
       )
+
+  def testIsaCurryExpr(self):
+    map(self.assertIsaCurryExpr, self.everything - set([self.not_a_node]))
 
   def testIsaPrimitive(self):
     boxed_primitives = [self.int, self.char, self.float]

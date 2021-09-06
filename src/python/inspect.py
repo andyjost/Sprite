@@ -50,6 +50,9 @@ def _isa(addr, typedef):
 def _isa(addr, seq):
   return any(_isa(addr, ti) for ti in seq)
 
+def isa_curry_expr(arg):
+  return is_boxed(arg) or isa_unboxed_primitive(arg)
+
 def isa_boxed_primitive(arg):
   info = info_of(arg)
   return info is not None and info.is_primitive

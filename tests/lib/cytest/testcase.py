@@ -75,6 +75,10 @@ class TestCase(unittest.TestCase):
     if not cy_inspect.isa_unboxed_primitive(obj):
       self.fail('%r is not a Curry unboxed primitive value' % obj)
 
+  def assertIsaCurryExpr(self, obj):
+    if not cy_inspect.isa_curry_expr(obj):
+      self.fail('%r is not a Curry expression' % obj)
+
   def assertIsaPrimitive(self, obj):
     if not cy_inspect.isa_primitive(obj):
       self.fail('%r is not a Curry primitive value' % obj)
@@ -215,6 +219,10 @@ class TestCase(unittest.TestCase):
   def assertIsNotAUnboxedPrimitive(self, obj):
     if cy_inspect.isa_unboxed_primitive(obj):
       self.fail('%r is a Curry unboxed primitive value' % obj)
+
+  def assertIsNotACurryExpr(self, obj):
+    if cy_inspect.isa_curry_expr(obj):
+      self.fail('%r is a Curry expression' % obj)
 
   def assertIsNotAPrimitive(self, obj):
     if cy_inspect.isa_primitive(obj):

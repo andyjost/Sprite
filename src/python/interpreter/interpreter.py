@@ -90,9 +90,9 @@ class Interpreter(object):
     Soft-resets the interpreter.
 
     Clears loaded modules (except for the Prelude), restores I/O streams to
-    their defaults, resets ``path`` from the environment, and clears internal
-    counters.  This is much faster than building a new interpreter, which
-    loads the Prelude.
+    their defaults, resets the Curry path from the environment, and clears
+    internal counters.  This is much faster than building a new interpreter,
+    which loads the Prelude.
     '''
     self.stdin = sys.stdin
     self.stdout = sys.stdout
@@ -102,7 +102,7 @@ class Interpreter(object):
       module = objects._Handle(module)
       if not module.is_package and name != 'Prelude':
         module.unlink(self)
-    self.path[:] = config.currypath([]) # re-read it from the environment
+    self.path[:] = config.currypath(reset=True)
     self.context.runtime.init_interpreter_state(self)
 
   def module(self, name):
@@ -119,7 +119,6 @@ class Interpreter(object):
     Look up a symbol by its fully-qualified name or by its name relative to a
     module.
     '''
-    # modulename, objname = curryname.split(name, self.modules, modulename)
     modulename, objname = icurry.splitname(name)
     moduleobj = self.module(modulename)
     return objects._Handle(moduleobj).getsymbol(objname)
@@ -132,7 +131,8 @@ class Interpreter(object):
 
   # Externally-implemented methods.
   from .compile import compile
-  from .conversions import currytype, expr, topython, unbox
+  from .conversions import currytype, topython, unbox
+  from ..expressions import expr
   from .eval import eval
   from .import_ import import_
 

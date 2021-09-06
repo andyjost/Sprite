@@ -8,7 +8,6 @@ from curry.backends.py.runtime.fairscheme.state import Bindings, RuntimeState
 from curry import icurry
 from curry import inspect
 from curry import interpreter
-from curry.interpreter import conversions
 from curry.utility.binding import binding
 from cytest import bootstrap
 from glob import glob
@@ -334,7 +333,7 @@ class TestInstantiation(cytest.TestCase):
     return self.interp.expr(self.interp.prelude.id, x)
 
   def q(self, cid, l, r):
-    return [self.interp.prelude._Choice, conversions.unboxed(cid), l, r]
+    return [self.interp.prelude._Choice, curry.unboxed(cid), l, r]
 
   def u(self, rts):
     return rts.freshvar()

@@ -21,6 +21,10 @@ class SymbolLookupError(AttributeError):
 class TypeLookupError(AttributeError):
   '''Raised when a Curry type is not found.'''
 
+class CurryIndexError(IndexError):
+  '''Raised when indexing into a Curry expression fails.'''
+  pass
+
 class CurryTypeError(TypeError):
   '''Raised when a type error occurs while evaluating a Curry program.'''
 

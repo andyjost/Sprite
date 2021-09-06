@@ -169,8 +169,8 @@ class TestPyConversions(cytest.TestCase):
     #
     # Note: the Python tuple type has no analog in Curry, where each arity is a
     # distinct type.
-    self.assertRaises(TypeError, lambda: interp.currytype(tuple))
-    self.assertRaises(TypeError, lambda: interp.currytype(np.complex64))
+    self.assertIsNone(interp.currytype(tuple))
+    self.assertIsNone(interp.currytype(np.complex64))
 
   def testUnboxedExpr(self):
     self.assertIs(curry.expr(curry.unboxed(0)), 0)

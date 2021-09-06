@@ -88,19 +88,29 @@ def syslibs():
 def syslibversion():
   return tuple(map(int, currylib_version().split('.')))
 
-def currypath(cached=[]):
+def currypath(reset=False, cache=[]):
   '''
   Gets the Curry path from the environment variable CURRYPATH and appends the
-  system path.  By default, the result is cached.  To pick up possible changes
-  to the environment, pass an empty list.
+  system path.
+
+  Parameters:
+  -----------
+    ``reset``
+      If true, the cache will be cleared and the Curry path reloaded from the
+      environment.
+
+    ``cache``
+      A list into which the Cury path is cached.
   '''
-  if not cached:
+  if reset:
+    cache[:] = ()
+  if not cache:
     envpath = os.environ.get('CURRYPATH', '').split(':')
     syspath = system_curry_path().split(':')
     currypath = clean_currypath(envpath + syspath)
-    cached.append(currypath)
+    cache.append(currypath)
     verify_syslibs()
-  return cached[0]
+  return cache[0]
 
 def verify_syslibs():
   from .utility import filesys

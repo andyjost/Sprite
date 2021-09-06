@@ -83,7 +83,6 @@ class TestPyCompile(cytest.TestCase):
     is_public = lambda k: not (k.startswith('_') or k.startswith('.'))
     self.assertEqual(len([k for k in Or.__dict__ if is_public(k)]), 1)
 
-  @cytest.with_flags(defaultconverter='topython')
   @cytest.check_expressions
   def testExprType(self):
     '''Test the exprtype argument.'''
@@ -94,10 +93,10 @@ class TestPyCompile(cytest.TestCase):
       , lambda: curry.compile('1+2', mode='expr')
       )
     e = curry.compile('1+2', mode='expr', exprtype='Int')
-    yield [e], None \
-             , '<_impl#+#Prelude.Num#Prelude.Int <Int 1> <Int 2>>' \
-             , None \
-             , [3]
+    yield e, None \
+           , '<_impl#+#Prelude.Num#Prelude.Int <Int 1> <Int 2>>' \
+           , None \
+           , [3]
 
     # 1 ? 2
     self.assertRaisesRegexp(
@@ -106,12 +105,10 @@ class TestPyCompile(cytest.TestCase):
       , lambda: curry.compile('1 ? 2', mode='expr')
       )
     e = curry.compile('1 ? 2', mode='expr', exprtype='Int')
-    self.assertEqual(repr(e), '<? <Int 1> <Int 2>>')
-    self.assertEqual(sorted(curry.eval(e)), [1, 2])
+    yield e, None, '<? <Int 1> <Int 2>>', None, [[1, 2]]
 
-  @cytest.with_flags(defaultconverter='topython')
   @cytest.check_expressions
   def test_reclet(self):
     e = curry.compile('''let a = True:b ; b = False:a in a''', 'expr')
-    yield [e], '[True, False, ...]', '<_Fwd <: <True> <: <False> ...>>>'
+    yield e, '[True, False, ...]', '<_Fwd <: <True> <: <False> ...>>>'
 
