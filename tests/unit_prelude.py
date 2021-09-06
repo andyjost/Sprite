@@ -269,7 +269,7 @@ class TestPrelude(cytest.TestCase):
     # Ensure results are ungrounded.
     freevar = interp.compile('id $!! (x::Int) where x free', mode='expr')
     cytest.step.step(interp, freevar, num=3)
-    self.assertTrue(curry.inspect.isa_freevar(interp, freevar))
+    self.assertIsaVariable(freevar.fwd)
 
   # Used by testEqualityConstraint.
   def checkSatisfied(self, lhs, rhs):

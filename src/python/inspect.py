@@ -2,10 +2,8 @@
 Inspect live Curry objects.
 '''
 
-from .common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from . import config
-from . import context
-from . import objects
+from .common import T_SETGRD, T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from . import config, context, icurry, objects
 from .utility import visitation
 import collections
 import os
@@ -13,14 +11,25 @@ import re
 
 SUBDIR = config.intermediate_subdir()
 
-def isa(cyobj, what):
+def info_of(arg):
+  if isinstance(arg, context.Node):
+    return arg.info
+
+def tag_of(arg):
+  if isinstance(arg, context.Node):
+    return arg.info.tag
+  elif isinstance(arg, icurry.IUnboxedLiteral):
+    return T_CTOR
+
+def isa(arg, what):
   '''
   Checks whether the given Curry object is an instance of the given type or
   constructor.  The second argument may be a sequence to check against.
   '''
-  if not isinstance(cyobj, context.Node):
+  if not isinstance(arg, context.Node):
     return False
-  return _isa(id(cyobj.fwd.info), what)
+  else:
+    return _isa(id(arg.fwd.info), what)
 
 @visitation.dispatch.on('what')
 def _isa(addr, what):
@@ -41,72 +50,136 @@ def _isa(addr, typedef):
 def _isa(addr, seq):
   return any(_isa(addr, ti) for ti in seq)
 
-def isa_primitive(interp, arg):
-  '''The primitive types are Int, Char, Float.'''
-  p = interp.prelude
-  return isa(arg, (p.Int, p.Char, p.Float))
+def isa_boxed_primitive(arg):
+  info = info_of(arg)
+  return info is not None and info.is_primitive
 
-def isa_io(interp, arg):
-  return isa(arg, interp.prelude.IO)
+def isa_unboxed_primitive(arg):
+  return isinstance(arg, icurry.IUnboxedLiteral)
 
-def isa_bool(interp, arg):
-  p = interp.prelude
-  return isa(arg, (p.True, p.False))
+def isa_primitive(arg):
+  return isa_boxed_primitive(arg) or isa_unboxed_primitive(arg)
 
-def isa_true(interp, arg):
-  return isa(arg, interp.prelude.True)
+def isa_boxed_int(arg):
+  info = info_of(arg)
+  return info is not None and info.is_int
 
-def isa_false(interp, arg):
-  return isa(arg, interp.prelude.False)
+def isa_unboxed_int(arg):
+  return isinstance(arg, int)
 
-def isa_list(interp, arg):
-  return isa(arg, interp.type('Prelude.[]'))
+def isa_int(arg):
+  return isa_boxed_int(arg) or isa_unboxed_int(arg)
 
-def isa_tuple(interp, arg):
-  if not isinstance(arg, context.Node):
-    return False
-  return is_tuple_name(arg[()].info.name)
+def isa_boxed_char(arg):
+  info = info_of(arg)
+  return info is not None and info.is_char
+
+def isa_unboxed_char(arg):
+  return isinstance(arg, str) and len(arg) == 1
+
+def isa_char(arg):
+  return isa_boxed_char(arg) or isa_unboxed_char(arg)
+
+def isa_boxed_float(arg):
+  info = info_of(arg)
+  return info is not None and info.is_float
+
+def isa_unboxed_float(arg):
+  return isinstance(arg, float)
+
+def isa_float(arg):
+  return isa_boxed_float(arg) or isa_unboxed_float(arg)
+
+def isa_io(arg):
+  info = info_of(arg)
+  return info is not None and info.is_io
+
+def isa_bool(arg):
+  info = info_of(arg)
+  return info is not None and info.is_bool
+
+def isa_true(arg):
+  info = info_of(arg)
+  return info is not None and info.is_bool and info.tag == 1
+
+def isa_false(arg):
+  info = info_of(arg)
+  return info is not None and info.is_bool and info.tag == 0
+
+def isa_list(arg):
+  info = info_of(arg)
+  return info is not None and info.is_list
+
+def isa_cons(arg):
+  info = info_of(arg)
+  return info is not None and info.is_list and info.tag == 0
+
+def isa_nil(arg):
+  info = info_of(arg)
+  return info is not None and info.is_list and info.tag == 1
+
+def isa_tuple(arg):
+  info = info_of(arg)
+  return info is not None and info.is_tuple
 
 _TUPLE_PATTERN = re.compile(r'\(,*\)$')
-def is_tuple_name(name):
+def isa_tuple_name(name):
   return re.match(_TUPLE_PATTERN, name)
 
-def isa_failure(interp, arg):
-  if not isinstance(arg, context.Node):
-    return False
-  return arg[()].info.tag == T_FAIL
+def isa_setguard(arg):
+  info = info_of(arg)
+  return info is not None and info.tag == T_SETGRD
 
-def isa_freevar(interp, arg):
-  if not isinstance(arg, context.Node):
-    return False
-  return arg.fwd.info.tag == T_VAR
+def isa_failure(arg):
+  info = info_of(arg)
+  return info is not None and info.tag == T_FAIL
 
-def isa_fwd(interp, arg):
-  if not isinstance(arg, context.Node):
-    return False
-  return arg.info.tag == T_FWD
+def isa_constraint(arg):
+  info = info_of(arg)
+  return info is not None and info.tag == T_CONSTR
 
-def isa_choice(interp, arg):
-  if not isinstance(arg, context.Node):
-    return False
-  return arg[()].info.tag == T_CHOICE
+def isa_variable(arg):
+  info = info_of(arg)
+  return info is not None and info.tag == T_VAR
 
-def isa_func(interp, arg):
-  if not isinstance(arg, context.Node):
-    return False
-  return arg[()].info.tag == T_FUNC
+def isa_fwd(arg):
+  info = info_of(arg)
+  return info is not None and info.tag == T_FWD
 
-def isa_ctor(interp, arg):
-  if not isinstance(arg, context.Node):
-    return False
-  return arg[()].info.tag >= T_CTOR
+def isa_choice(arg):
+  info = info_of(arg)
+  return info is not None and info.tag == T_CHOICE
 
-def is_boxed(interp, node):
+def isa_func(arg):
+  info = info_of(arg)
+  return info is not None and info.tag == T_FUNC
+
+def isa_ctor(arg):
+  info = info_of(arg)
+  return info is not None and info.tag >= T_CTOR
+
+def is_data(arg):
+  return isa_ctor(arg) or isa_unboxed_primitive(arg)
+
+def is_boxed(node):
   return isinstance(node, context.Node)
 
-def get_id(interp, arg):
-  if isa_choice(interp, arg) or isa_freevar(interp, arg):
-    return arg[0]
+def get_choice_id(arg):
+  # Note: a variable has a choice ID (which equals its variable ID).
+  if isa_choice(arg) or isa_variable(arg):
+    return arg.successors[0]
+
+def get_variable_id(arg):
+  if isa_variable(arg):
+    return arg.successors[0]
+
+def get_set_id(arg):
+  if isa_setguard(arg):
+    return arg.successors[0]
+
+def fwd_target(arg):
+  if isa_fwd(arg):
+    return arg.successors[0]
 
 def _getfile(moduleobj, suffixes):
   if moduleobj.__file__:

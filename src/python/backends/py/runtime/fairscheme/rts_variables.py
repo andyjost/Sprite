@@ -7,8 +7,9 @@ from .....common import (
     LEFT, RIGHT, UNDETERMINED, ChoiceState
   , T_FAIL, T_VAR, T_CHOICE, T_CTOR
   )
-from .. import graph
 from ..graph import replacer
+from .. import graph
+from ..... import inspect
 
 __all__ = [
     'clone_generator', 'freshvar_args', 'freshvar', 'get_generator'
@@ -115,7 +116,7 @@ def is_nondet(self, arg=None, config=None):
   Returns True if the argument is a choice or variable.
   '''
   arg = (config or self.C).root if arg is None else arg
-  return graph.utility.tag_of(arg) in [T_CHOICE, T_VAR]
+  return inspect.tag_of(arg) in [T_CHOICE, T_VAR]
 
 def is_variable(self, node):
   '''Indicates whether the given argument is a free variable.'''

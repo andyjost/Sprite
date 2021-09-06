@@ -2,15 +2,9 @@ from ..... import icurry, utility
 from .....common import T_SETGRD, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 
 __all__ = [
-    'info_of', 'guard', 'make_choice', 'make_constraint', 'make_value_bindings'
-  , 'replace', 'replace_copy', 'rewrite', 'subexpr', 'tag_of'
+    'guard', 'make_choice', 'make_constraint', 'make_value_bindings'
+  , 'replace', 'replace_copy', 'rewrite', 'subexpr'
   ]
-
-def info_of(node):
-  if isinstance(node, icurry.ILiteral):
-    return None
-  else:
-    return node.info
 
 def make_choice(rts, cid, node, path, generator=None, rewrite=None):
   '''
@@ -100,9 +94,4 @@ def rewrite(rts, target, info, *args, **kwds):
   else:
     return Node(info, *args, target=target, **kwds)
 
-def tag_of(node):
-  if isinstance(node, icurry.ILiteral):
-    return T_CTOR
-  else:
-    return node.info.tag
 

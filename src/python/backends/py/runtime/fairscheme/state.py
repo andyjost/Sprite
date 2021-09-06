@@ -1,4 +1,4 @@
-from ..graph.copy import copyexpr
+from ..graph.copy import copygraph
 from copy import copy
 from ..... import inspect
 from . import stepcounter
@@ -114,8 +114,8 @@ class RuntimeState(object):
   def __init__(self, interp, goal=None):
     # Capture the interpreter state.  This includes mutable objects, such as
     # the standard file streams; system lbraries, such as the Prelude; and
-    # functions that might be required by built-ins, such as the ``expr``,
-    # ``type``, and ``unbox`` functions.
+    # functions that might be required by built-ins, such as ``expr``,
+    # ``type``, or ``unbox``.
     self.builtin_types = tuple(map(
         interp.type, ('Prelude.Int', 'Prelude.Char', 'Prelude.Float')
       ))
@@ -206,7 +206,7 @@ class RuntimeState(object):
     if inspect.isa(arg, self.prelude.IO):
       return arg.successors[0]
     skipgrds = set([] if self.sid is None else [self.sid])
-    return copyexpr(arg, skipfwd=True, skipgrds=skipgrds)
+    return copygraph(arg, skipfwd=True, skipgrds=skipgrds)
 
   @property
   def C(self):

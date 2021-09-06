@@ -7,7 +7,7 @@ from ....exceptions import *
 from .fairscheme.algorithm import N, hnf
 from ..hnfmux import demux
 from . import graph
-from .... import inspect
+from .... import show as show_module, inspect
 import collections
 import logging
 import operator as op
@@ -97,7 +97,7 @@ def remInt(rts, lhs, rhs):
 def constr_eq(rts, root):
   '''Implements =:=.'''
   (lhs, rhs), guards = demux(hnf_or_free(rts, root, i) for i in (0,1))
-  if inspect.is_boxed(rts, lhs) and inspect.is_boxed(rts, rhs):
+  if inspect.is_boxed(lhs) and inspect.is_boxed(rhs):
     ltag, rtag = lhs.info.tag, rhs.info.tag
     if ltag == T_VAR:
       if rtag == T_VAR:
@@ -129,7 +129,7 @@ def constr_eq(rts, root):
             yield rts.prelude.True
         else:
           yield rts.prelude._Failure
-  elif not inspect.is_boxed(rts, lhs) and not inspect.is_boxed(rts, rhs):
+  elif not inspect.is_boxed(lhs) and not inspect.is_boxed(rhs):
     yield rts.prelude.True if lhs == rhs else rts.prelude._Failure
     #                         ^^^^^^^^^^ compare unboxed values
   else:
@@ -143,7 +143,7 @@ def nonstrict_eq(rts, root):
   Hanus, LOPSTR 2005, pg. 16.
   '''
   lhs, rhs = root
-  if inspect.is_boxed(rts, lhs) and inspect.is_boxed(rts, rhs):
+  if inspect.is_boxed(lhs) and inspect.is_boxed(rhs):
     lhs, guards = hnf_or_free(rts, root, 0)
     if lhs.info.tag == T_VAR:
       # Bind lhs -> rhs
@@ -171,7 +171,7 @@ def nonstrict_eq(rts, root):
             yield rts.prelude.True
         else:
           yield rts.prelude._Failure
-  elif not inspect.is_boxed(rts, lhs) and not inspect.is_boxed(rts, rhs):
+  elif not inspect.is_boxed(lhs) and not inspect.is_boxed(rhs):
     yield rts.prelude.True if lhs == rhs else rts.prelude._Failure
     #                         ^^^^^^^^^^ compare unboxed values
   else:
@@ -498,7 +498,7 @@ def writeFile(rts, func, mode='w'):
   chartype = rts.prelude.Char.typedef()
   while True:
     listnode, _ = hnf(rts, func, [1], listtype)
-    tag = graph.utility.tag_of(listnode)
+    tag = inspect.tag_of(listnode)
     if tag == 0: # Cons
       char, tail = listnode
       char, _ = hnf(rts, func, [1,0], chartype)
@@ -536,9 +536,9 @@ def ioError(rts, func):
   yield rts.prelude.error
   yield graph.Node(rts.prelude.show, func[0])
 
-def show(rts, arg, xform=None):
-  if inspect.is_boxed(rts, arg):
-    string = arg.info.show(arg, xform)
+def show(rts, arg):
+  if inspect.is_boxed(arg):
+    string = show_module.show(arg)
   else:
     string = str(arg)
   if len(string) == 1:

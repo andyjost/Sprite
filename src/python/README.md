@@ -11,6 +11,12 @@ declaring ICurry bindings for hand-implemented symbols (see prelude.py).
 IConstructor Metadata
 =====================
 
+Metadata: all.flags
+-------------------
+See InfoTable.  Used to flag certain built-in types that requre special
+handling during formatting and other operations.
+
+
 Metadata: py.format
 -------------------
 Overrides the default show function.  The value may either be a string, which

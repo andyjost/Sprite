@@ -99,7 +99,7 @@ class Interpreter(object):
     self.stderr = sys.stderr
     self.automodules = config.syslibs()
     for name, module in self.modules.items():
-      module = objects._ModuleObj(module)
+      module = objects._Handle(module)
       if not module.is_package and name != 'Prelude':
         module.unlink(self)
     self.path[:] = config.currypath([]) # re-read it from the environment
@@ -122,17 +122,19 @@ class Interpreter(object):
     # modulename, objname = curryname.split(name, self.modules, modulename)
     modulename, objname = icurry.splitname(name)
     moduleobj = self.module(modulename)
-    return objects._ModuleObj(moduleobj).getsymbol(objname)
+    return objects._Handle(moduleobj).getsymbol(objname)
 
   def type(self, name):
     '''Returns the constructor info tables for the named type.'''
     modulename, name = icurry.splitname(name)
     moduleobj = self.module(modulename)
-    return objects._ModuleObj(moduleobj).gettype(name)
+    return objects._Handle(moduleobj).gettype(name)
 
   # Externally-implemented methods.
   from .compile import compile
   from .conversions import currytype, expr, topython, unbox
   from .eval import eval
   from .import_ import import_
+
+  unbox = staticmethod(unbox)
 

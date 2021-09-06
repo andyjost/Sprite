@@ -1,9 +1,9 @@
 from ....common import T_SETGRD, T_CHOICE, LEFT, RIGHT
-from .fairscheme.algorithm import D, hnf
-from . import graph
-from .... import icurry
 from .control import E_UNWIND
 from copy import deepcopy, copy
+from .fairscheme.algorithm import D, hnf
+from . import graph
+from .... import icurry, inspect
 
 def exports():
   yield '_SetGuard'
@@ -58,7 +58,7 @@ def allValues(rts, _0):
         yield rts.prelude.Nil
   except E_UNWIND:
     subconfig = rts.qtable[qid][0]
-    tag = graph.utility.tag_of(subconfig.root)
+    tag = inspect.tag_of(subconfig.root)
     if tag == T_SETGRD:
       gexpr = subconfig.root
       guards.add(gexpr[0])

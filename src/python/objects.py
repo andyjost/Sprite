@@ -19,7 +19,7 @@ class CurryModule(types.ModuleType):
   def __new__(cls, imodule):
     assert isinstance(imodule, (icurry.IPackage, icurry.IModule))
     self = types.ModuleType.__new__(cls, imodule.name)
-    self.__file__ = imodule.filename
+    self.__file__ = getattr(imodule, 'filename', None)
     setattr(self, '.icurry', imodule)
     setattr(self, '.symbols', {})
     setattr(self, '.types', {})
@@ -116,10 +116,12 @@ class CurryNodeLabel(object):
     return "<invalid curry node>"
 
 
-class _ModuleObj(object):
+class _Handle(object):
   '''
-  Provides the internal interface to CurryModule and CurryPackage.  This is
-  used when the module itself (rather than its contents) is of interest.
+  Provides an internal interface to proxy objects such as CurryModule and
+  CurryPackage.  Since those objects contain arbitrary user-defined names, it
+  is not safe to add any methods.  Instead, when such objects themselves
+  (rather than their contents) are of interest, this class can be used.
   '''
   def __init__(self, obj):
     assert isinstance(obj, (CurryModule, CurryPackage))
@@ -146,7 +148,7 @@ class _ModuleObj(object):
   def package(self, interp):
     pkg = interp.modules.get(self.icurry.packagename, None)
     if pkg is not None:
-      return _ModuleObj(pkg)
+      return _Handle(pkg)
 
   def __nonzero__(self):
     return not self.empty()
@@ -207,7 +209,24 @@ class _ModuleObj(object):
             'package %r has no submodule %r' % (self.name, name)
           )
       else:
-        return _ModuleObj(submodule)
+        return _Handle(submodule)
+
+  def itermodules(self):
+    if self.is_package:
+      for subpkg in self.itervalues():
+        for module in _Handle(subpkg).itermodules():
+          yield module
+    else:
+      yield self.obj
+
+  def findmodule(self, fullname):
+    for module in self.itermodules():
+      if _Handle(module).fullname == fullname:
+        return module
+    else:
+      raise exceptions.SymbolLookupError(
+          'not module %r exists in package %r' % (fullname, self.fullname)
+        )
 
   def getsymbol(self, name):
     '''Method of CurryModule to look up a symbol by name.'''

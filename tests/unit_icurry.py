@@ -23,8 +23,8 @@ class ICurryTestCase(cytest.TestCase):
     imodule1 = getattr(atableFlex, '.icurry')
     imodule2 = getattr(hello, '.icurry')
     AB = imodule1.types['AB']
-    self.assertEqual(icurry.getmd(AB, imodule1), {})
-    self.assertEqual(icurry.getmd(AB, imodule2), {})
+    self.assertEqual(icurry.metadata.getmd(AB, imodule1), {})
+    self.assertEqual(icurry.metadata.getmd(AB, imodule2), {})
 
   def testICurryCoverage4(self):
     try:

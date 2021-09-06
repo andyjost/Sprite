@@ -47,9 +47,11 @@ def parse(data, decoder=get_decoder()):
   json = decoder.decode(data)
   return postprocess(json)
 
-def postprocess(json):
-  assert isinstance(json, types.IModule)
-  if '.' in json.fullname:
-    for pkgname in json.fullname.split('.')[-2::-1]:
-      json = types.IPackage(pkgname, [json])
-  return json
+def postprocess(imodule):
+  assert isinstance(imodule, types.IModule)
+  if '.' in imodule.fullname:
+    parts = imodule.fullname.split('.')
+    for iend in reversed(range(1, len(parts))):
+      pkgname = '.'.join(parts[:iend])
+      imodule = types.IPackage(pkgname, [imodule])
+  return imodule

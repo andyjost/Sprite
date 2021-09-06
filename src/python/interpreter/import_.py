@@ -1,9 +1,7 @@
 from .. import config
 from .. import icurry
-from ..icurry import analysis
 from .. import importer
 from .. import objects
-from . import show
 from ..common import T_FUNC, T_CTOR
 from ..utility.currypath import clean_currypath
 from ..utility import encoding, visitation, formatDocstring
@@ -123,14 +121,15 @@ def loadSymbols(
   ):
   # For builtins, the 'all.tag' metadata contains the tag.
   builtin = 'all.tag' in icons.metadata
-  metadata = icurry.getmd(icons, extern, itype=itype)
+  metadata = icurry.metadata.getmd(icons, extern, itype=itype)
   info = interp.context.runtime.InfoTable(
       icons.name
     , icons.arity
     , T_CTOR + icons.index if not builtin else metadata['all.tag']
     , _no_step if not builtin else _unreachable
-    , show.Show(getattr(metadata, 'py.format', None))
+    , getattr(metadata, 'py.format', None)
     , _gettypechecker(interp, metadata)
+    , getattr(metadata, 'all.flags', 0)
     )
   nodeinfo = objects.CurryNodeLabel(icons, info)
   insertSymbol(moduleobj, icons.name, nodeinfo)
@@ -138,15 +137,16 @@ def loadSymbols(
 
 @loadSymbols.when(icurry.IFunction)
 def loadSymbols(interp, ifun, moduleobj, extern=None):
-  metadata = icurry.getmd(ifun, extern)
-  info = interp.context.runtime.InfoTable(
+  metadata = icurry.metadata.getmd(ifun, extern)
+  InfoTable = interp.context.runtime.InfoTable
+  info = InfoTable(
       ifun.name
     , ifun.arity
     , T_FUNC
     , None
-    , show.Show(getattr(metadata, 'py.format', None))
+    , getattr(metadata, 'py.format', None)
     , _gettypechecker(interp, metadata)
-    , metadata['all.monadic']
+    , InfoTable.MONADIC if metadata.get('all.monadic') else 0
     )
   nodeinfo = objects.CurryNodeLabel(ifun, info)
   insertSymbol(moduleobj, ifun.name, nodeinfo, ifun.is_private)
@@ -202,10 +202,10 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
       kwds.setdefault('extern', setfunctions.SetFunctions)
       kwds.setdefault('export', setfunctions.exports())
       kwds.setdefault('alias', setfunctions.aliases())
-
     currypath = clean_currypath(interp.path if currypath is None else currypath)
     icur = importer.loadModule(name, currypath, is_sourcefile=is_sourcefile)
-    return import_(interp, icur, **kwds)
+    cymodule = import_(interp, icur, **kwds)
+    return objects._Handle(cymodule).findmodule(name)
 
 @import_.when(collections.Sequence, no=str)
 def import_(interp, seq, *args, **kwds):
@@ -219,6 +219,7 @@ def import_(
     moduleobj = objects.CurryPackage(ipkg)
     interp.modules[ipkg.fullname] = moduleobj
   package = interp.modules[ipkg.fullname]
+  updatePackage(interp, package)
   loadSubmodules(interp, ipkg, package, extern, export, alias)
   return package
 
@@ -255,7 +256,7 @@ def compileICurry(interp, imodule, moduleobj, extern=None):
 
 @compileICurry.when(icurry.IFunction)
 def compileICurry(interp, ifun, moduleobj, extern=None):
-  info = objects._ModuleObj(moduleobj).getsymbol(ifun.name).info
+  info = objects._Handle(moduleobj).getsymbol(ifun.name).info
   # Compile interactive code right away.  Otherwise, if lazycompile is set,
   # delay compilation until the function is actually used.  See InfoTable in
   # interpreter/runtime.py.

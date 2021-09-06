@@ -1,4 +1,5 @@
 from ....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .graph import infotable
 from .... import icurry, inspect
 from . import prelude_impl as impl, typecheckers as tc
 import math
@@ -21,7 +22,7 @@ def exports():
   yield 'IO'
   for ty in _types_:
     name = ty.name
-    if inspect.is_tuple_name(name):
+    if inspect.isa_tuple_name(name):
       yield name
   yield '(->)'
   # Helper functions.
@@ -68,25 +69,44 @@ _types_ = [
   , _T('_Choice'    , [_C('_Choice', 3, metadata={'all.tag':T_CHOICE})])
   , _T('_PartApplic', [_C('_PartApplic', 2, metadata={'py.format': '{2}', 'all.tag':T_CTOR})])
 
-  , _T('Bool'       , [_C('True', 0), _C('False', 0)])
-  , _T('Char'       , [_C('Char', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Char})])
-  , _T('Float'      , [_C('Float', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Float})])
-  , _T('Int'        , [_C('Int', 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Int})])
-  , _T('IO'         , [_C('IO', 1)])
+  , _T('Bool'       , [ _C('False', 0, metadata={'all.flags': infotable.InfoTable.BOOL_TYPE})
+                      , _C('True', 0, metadata={'all.flags': infotable.InfoTable.BOOL_TYPE})
+                      ])
+  , _T('Char'       , [_C('Char', 1, metadata={ 'py.format': '{1}', 'py.typecheck': tc.Char
+                                              , 'all.flags': infotable.InfoTable.CHAR_TYPE
+                                              })
+                      ])
+  , _T('Float'      , [_C('Float', 1, metadata={ 'py.format': '{1}', 'py.typecheck': tc.Float
+                                               , 'all.flags': infotable.InfoTable.FLOAT_TYPE
+                                               })
+                      ])
+  , _T('Int'        , [_C('Int', 1, metadata={ 'py.format': '{1}', 'py.typecheck': tc.Int
+                                             , 'all.flags': infotable.InfoTable.INT_TYPE
+                                             })
+                      ])
+  , _T('IO'         , [_C('IO', 1, metadata={'all.flags': infotable.InfoTable.IO_TYPE})])
   , _T('(->)'       , [_C('->', 2)])
   ]
 
 # List
 _types_.append(
     _T('[]', [
-        _C(':' , 2, metadata={'py.format':'({1}:{2})'})
-      , _C('[]', 0, metadata={'py.format':'[]'})
+        _C(':' , 2, metadata={ 'py.format':'({1}:{2})'
+                             , 'all.flags': infotable.InfoTable.LIST_TYPE
+                             })
+      , _C('[]', 0, metadata={ 'py.format':'[]'
+                             , 'all.flags': infotable.InfoTable.LIST_TYPE
+                             })
       ])
   )
 
 # Tuples
 MAX_TUPLE_SIZE = 15
-Unit = _T('()', [_C('()', 0, metadata={'py.format':'()'})])
+Unit = _T('()', [
+    _C('()', 0, metadata={ 'py.format':'()'
+                         , 'all.flags': infotable.InfoTable.TUPLE_TYPE
+                         })
+  ])
 _types_.append(Unit)
 for i in range(2, MAX_TUPLE_SIZE):
   name = '(%s)' % (','*(i-1))
@@ -97,6 +117,7 @@ for i in range(2, MAX_TUPLE_SIZE):
         , metadata={
               'py.format':
                   '(%s)' % ', '.join(['{%d}' % j for j in range(1,i+1)])
+            , 'all.flags': infotable.InfoTable.TUPLE_TYPE
             }
         )
     ])

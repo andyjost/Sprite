@@ -1,5 +1,6 @@
 __all__ = [
-    'T_FAIL', 'T_CONSTR', 'T_VAR', 'T_FWD', 'T_CHOICE', 'T_FUNC', 'T_CTOR'
+    'T_SETGRD', 'T_FAIL', 'T_CONSTR', 'T_VAR', 'T_FWD', 'T_CHOICE', 'T_FUNC'
+  , 'T_CTOR'
   , 'ChoiceState', 'LEFT', 'RIGHT', 'UNDETERMINED'
   ]
 

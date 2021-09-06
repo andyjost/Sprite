@@ -8,7 +8,7 @@ from curry import interpreter
 from curry.interpreter import Interpreter
 from curry.utility.binding import binding, del_
 from curry.utility import filesys
-from curry.utility.unboxed import unboxed
+from curry import unboxed
 from curry.utility.visitation import dispatch
 from cytest import bootstrap
 from glob import glob

@@ -329,8 +329,8 @@ class TestInstantiation(cytest.TestCase):
     x, = list(self.interp.eval(self.interp.compile(
         'x::(%s) where x free' % typename, 'expr', imports=imports
       )))
-    self.assertTrue(inspect.isa_freevar(self.interp, x))
-    self.assertEqual(inspect.get_id(self.interp, x), 0)
+    self.assertIsaVariable(x)
+    self.assertChoiceIdEquals(x, 0)
     return self.interp.expr(self.interp.prelude.id, x)
 
   def q(self, cid, l, r):
@@ -416,3 +416,4 @@ class TestInstantiation(cytest.TestCase):
     au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, x(3)]), [Type.C, x(4), x(5)]), q(6, [Type.D, x(7), x(8), x(9)], [Type.E, x(10), x(11), x(12), x(13)])))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
+

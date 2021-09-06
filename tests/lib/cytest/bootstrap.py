@@ -3,11 +3,11 @@ Defines in pure ICurry a few simple modules designed for system testing.
 '''
 from curry.icurry import *
 from curry.icurry.json import parse
-from curry.utility import unboxed
+from curry import unboxed
 
 # An arbitrary choice id.
 _cid = 527
-cid = unboxed.unboxed(_cid)
+cid = unboxed(_cid)
 
 def blk(expr):
   return IBlock(vardecls=[], assigns=[], stmt=expr)

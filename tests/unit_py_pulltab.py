@@ -42,7 +42,7 @@ class TestPyPullTab(cytest.TestCase):
     self.assertEqual(id(rhs[2]), id123)
     rhs = curry.expr(interp.prelude.id, rhs) # id (f...9)
     self.assertMayRaise(None, lambda: hnf(rts, rhs, [0]))
-    self.assertEqual(curry.topython(id(rhs[0])), id123)
+    self.assertEqual(id(rhs[0]), id123)
 
   @unittest.skip('constraints not implemented')
   def testPullEqChoices(self):

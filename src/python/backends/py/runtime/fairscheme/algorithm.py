@@ -1,11 +1,11 @@
 from .....common import T_SETGRD, T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .. import graph, trace
-from ..... import icurry
+from ..... import icurry, inspect
 from .....utility import exprutil
 
 def D(rts):
   while rts.ready():
-    tag = graph.utility.tag_of(rts.E)
+    tag = inspect.tag_of(rts.E)
     if tag == T_FAIL:
       rts.drop()
     elif tag == T_CONSTR:
@@ -73,7 +73,7 @@ def N(rts, root=None, path=None, ground=True):
     for state in exprutil.walk(root, path=path):
       rts.C.search_state[-1] = state
       while True:
-        tag = graph.utility.tag_of(state.cursor)
+        tag = inspect.tag_of(state.cursor)
         if tag == T_FAIL:
           if path is None:
             rts.drop()
@@ -118,7 +118,7 @@ def N(rts, root=None, path=None, ground=True):
         elif tag == T_FUNC:
           S(rts, state.cursor)
         elif tag >= T_CTOR:
-          if graph.utility.info_of(state.cursor) is not rts.prelude._PartApplic.info:
+          if inspect.info_of(state.cursor) is not rts.prelude._PartApplic.info:
             state.push()
           break
         else:
@@ -175,7 +175,7 @@ def hnf(rts, func, path, typedef=None, values=None, guards=None):
     while True:
       if isinstance(target, icurry.ILiteral):
         return target, guards
-      tag = graph.utility.tag_of(target)
+      tag = inspect.tag_of(target)
       if tag == T_FAIL:
         func.rewrite(rts.prelude._Failure)
         rts.unwind()

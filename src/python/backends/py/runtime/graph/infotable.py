@@ -5,8 +5,19 @@ class InfoTable(object):
   Runtime info for a node.  Every Curry node stores an `InfoTable`` instance,
   which contains instance-independent data.
   '''
-  __slots__ = ['name', 'arity', 'tag', '_step', 'show', 'typecheck', 'typedef', 'monadic']
-  def __init__(self, name, arity, tag, step, show, typecheck, monadic=False):
+  # Constructor flags.
+  INT_TYPE       = 0x1 # Prelude.Int
+  CHAR_TYPE      = 0x2 # Prelude.Char
+  FLOAT_TYPE     = 0x3 # Prelude.Float
+  BOOL_TYPE      = 0x4 # Constructor of Prelude.Bool
+  LIST_TYPE      = 0x5 # Constructor of Prelude.List
+  TUPLE_TYPE     = 0x6 # Constructor of Prelude.() et. al
+  IO_TYPE        = 0x7 # Constructor of Prelude.IO
+  # Function flags.
+  MONADIC = 0x8 # Whether any monadic function can be reached.
+
+  __slots__ = ['name', 'arity', 'tag', '_step', 'format', 'typecheck', 'typedef', 'flags']
+  def __init__(self, name, arity, tag, step, format, typecheck, flags):
     # The node name.  Normally the constructor or function name.
     self.name = name
     # Arity.
@@ -16,8 +27,9 @@ class InfoTable(object):
     # The step function.  For functions, this is the function called to perform
     # a computational step at this node.
     self._step = step
-    # Implements the show function.
-    self.show = show
+    # Describes the node format.  It must have a ``format`` method, which will
+    # be passed the node name followed by its rendered arguments.
+    self.format = format
     # Used in debug mode to verify argument types.  The frontend typechecks
     # generated code, but this is helpful for checking the hand-written code
     # implementing built-in functions.
@@ -26,8 +38,47 @@ class InfoTable(object):
     # implement =:=, when a free variable must be bound to an HNF.  It could be
     # improved to use just a runtime version of the typeinfo.
     self.typedef = None
-    # Indicates whether this is an I/O function.
-    self.monadic = monadic
+    self.flags = flags
+
+  @property
+  def is_special(self):
+    return self.flags & 0x7
+
+  @property
+  def is_primitive(self):
+    return (self.flags & 0x7) in [self.INT_TYPE, self.CHAR_TYPE, self.FLOAT_TYPE]
+
+  @property
+  def is_int(self):
+    return (self.flags & 0x7) == self.INT_TYPE
+
+  @property
+  def is_char(self):
+    return (self.flags & 0x7) == self.CHAR_TYPE
+
+  @property
+  def is_float(self):
+    return (self.flags & 0x7) == self.FLOAT_TYPE
+
+  @property
+  def is_bool(self):
+    return (self.flags & 0x7) == InfoTable.BOOL_TYPE
+
+  @property
+  def is_list(self):
+    return (self.flags & 0x7) == InfoTable.LIST_TYPE
+
+  @property
+  def is_tuple(self):
+    return (self.flags & 0x7) == InfoTable.TUPLE_TYPE
+
+  @property
+  def is_io(self):
+    return (self.flags & 0x7) == InfoTable.IO_TYPE
+
+  @property
+  def is_monadic(self):
+    return self.flags & InfoTable.MONADIC
 
   @property
   def step(self):

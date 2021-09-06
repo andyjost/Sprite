@@ -1,5 +1,6 @@
 from ..... import context, icurry, utility
 from .....common import T_SETGRD, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ..... import show
 import collections
 import numbers
 import operator
@@ -42,9 +43,6 @@ class Node(object):
             )
         )
     target = kwds.get('target', None)
-    assert target is None or \
-           target.info.tag == T_FUNC or \
-           (target.info.tag == T_VAR == info.tag)
     self = object.__new__(cls) if target is None else target
     self.info = info
     successors = list(args)
@@ -62,8 +60,8 @@ class Node(object):
     return copynode(self)
 
   def __deepcopy__(self, memo=None):
-    from .copy import copyexpr
-    return copyexpr(self, memo=memo)
+    from .copy import copygraph
+    return copygraph(self, memo=memo)
 
   def __nonzero__(self): # pragma: no cover
     # Without this, nodes without successors are False.
@@ -166,19 +164,14 @@ class Node(object):
   def __ne__(self, rhs):
     return not (self == rhs)
 
-  def __str__(self):
-    return self.info.show(self)
-
-  def _repr_(self):
-    yield self.info.name
-    for s in self.successors:
-      yield repr(s)
-
-  def __repr__(self):
-    return '<%s>' % ' '.join(self._repr_())
-
   def rewrite(self, info, *args, **kwds):
     Node(info, *args, target=self, **kwds)
+
+  def __str__(self):
+    return show.show(self)
+
+  def __repr__(self):
+    return show.show(self, style='repr')
 
 context.Node.register(Node)
 

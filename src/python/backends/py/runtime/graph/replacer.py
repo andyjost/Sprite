@@ -1,6 +1,6 @@
 from .....common import T_SETGRD, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ..... import inspect
 from . import node
-from . import utility
 
 class Replacer(object):
   '''
@@ -41,7 +41,7 @@ class Replacer(object):
 
   def _a_(self, expr, depth=0):
     '''Recurse along the spine.  At the target, call the getter.'''
-    if utility.tag_of(expr) == T_SETGRD:
+    if inspect.tag_of(expr) == T_SETGRD:
       sid = expr.successors[0]
       self.guards.add(sid)
       return node.Node(expr.info, sid, self._a_(expr.successors[1], depth))
@@ -57,7 +57,7 @@ class Replacer(object):
     Perform a shallow copy at one node.  Recurse along the spine; reference
     subexpressions not on the spine.
     '''
-    if utility.tag_of(expr) == T_SETGRD:
+    if inspect.tag_of(expr) == T_SETGRD:
       sid = expr.successors[0]
       self.guards.add(sid)
       yield expr.info

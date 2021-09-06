@@ -83,7 +83,10 @@ class WalkState(object):
   @property
   def parent(self):
     '''The parent of the current node.'''
-    return self.spine[-2]
+    try:
+      return self.spine[-2]
+    except IndexError:
+      return None
 
 
 def walk(root, path=None):
@@ -112,3 +115,4 @@ def walk(root, path=None):
         The parent of the node at the cursore.  Equivalent to spine[-2].
   '''
   return WalkState(root, () if path is None else path)
+

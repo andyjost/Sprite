@@ -7,7 +7,7 @@ from . import node
 from copy import copy, deepcopy
 from .....common import T_SETGRD, T_FWD
 
-__all__ = ['copyexpr', 'copynode', 'GraphCopier', 'Skipper']
+__all__ = ['copygraph', 'copynode', 'GraphCopier', 'Skipper']
 
 class GraphCopier(object):
   '''
@@ -56,7 +56,7 @@ class Skipper(object):
       if sid in skipgrds:
         return expr.successors[1]
 
-def copyexpr(expr, memo=None, **kwds):
+def copygraph(expr, memo=None, **kwds):
   '''
   Copies a Curry expression with the option to remove certain nodes.
 

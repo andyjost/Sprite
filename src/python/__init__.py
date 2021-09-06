@@ -30,12 +30,13 @@ under ``modules``.  Use ``topython`` to convert Curry values to Python objects.
     A
 '''
 
-# Install breakpoint into __builtins__.
-from .utility import breakpoint
-del breakpoint
+# Install breakpoint() into __builtins__.
+import os
+if os.environ.get('SPRITE_ENABLE_BREAKPOINT', False):
+  from .utility import breakpoint
+  del breakpoint
 
 # Validate SPRITE_HOME.
-import os
 if 'SPRITE_HOME' not in os.environ:
   raise ImportError('SPRITE_HOME is not set in the environment')
 if not os.path.isdir(os.environ['SPRITE_HOME']):
@@ -45,10 +46,10 @@ if not os.access(os.environ['SPRITE_HOME'], os.O_RDONLY):
 del os
 
 from .exceptions import *
+from .expr_modifiers import *
 from . import interpreter
 from .utility import flagutils as _flagutils
 from .utility import visitation as _visitation
-from .utility.unboxed import unboxed
 import collections as _collections
 
 _interpreter_ = interpreter.Interpreter(flags=_flagutils.getflags())
@@ -82,12 +83,13 @@ def reload(flags={}):
 
 class ShowValue(object):
   def __init__(self):
-    from .interpreter import show
-    self.stringify = show.ReplStringifier()
+    from . import show
+    self.stringifier = show.ReplStringifier()
 
   @_visitation.dispatch.on('value')
   def __call__(self, value):
-    return self.stringify(value)
+    from . import show
+    return show.show(value, stringifier=self.stringifier)
 
   @__call__.when(tuple)
   def __call__(self, value):

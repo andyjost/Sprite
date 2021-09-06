@@ -77,7 +77,7 @@ def Constraint(interp, info, result, constr):
   _typecheck(interp.prelude._Free, constr[0], name, '2.1')
   if info is interp.prelude._StrictConstraint.info:
     _typecheck(interp.prelude._Free, constr[1], name, '2.2')
-  varid = lambda x: inspect.get_id(interp, x)
+  varid = lambda x: inspect.get_choice_id(x)
   if varid(constr[0]) == varid(constr[1]):
     assert constr[0] is constr[1]
     raise TypeError(

@@ -197,7 +197,25 @@ ILiteral.register(IUnboxedLiteral)
 def symboltable(parent, objs):
   return OrderedDict((v.name, v) for v in (v.setparent(parent) for v in objs))
 
-class IPackage(ISymbol):
+class IPackageOrModule(ISymbol):
+
+  def setparent(self, parent):
+    if parent is None:
+      del self.__dict__['parent']
+    else:
+      assert isinstance(parent, IPackage)
+      self.parent = weakref.ref(parent)
+    return self
+
+  @property
+  def package(self):
+    if hasattr(self, 'parent'):
+      parent = self.parent()
+      assert isinstance(parent, IPackage)
+      return parent
+
+
+class IPackage(IPackageOrModule):
   '''
   A container for subpackages and/or modules.
   '''
@@ -211,14 +229,6 @@ class IPackage(ISymbol):
   @property
   def children(self):
     return self.submodules.values()
-
-  def setparent(self, parent):
-    if parent is None:
-      del self.__dict__['parent']
-    else:
-      assert isinstance(parent, IPackage)
-      self.parent = weakref.ref(parent)
-    return self
 
   def __getitem__(self, key):
     return self.submodules[key]
@@ -280,7 +290,7 @@ class IPackage(ISymbol):
     return 'IPackage(name=%r, submodules=%r)' % (self.fullname, self.submodules)
 
 
-class IModule(ISymbol):
+class IModule(IPackageOrModule):
   @translateKwds({'name': 'fullname'})
   def __init__(self, fullname, imports, types, functions, filename=None, **kwds):
     '''
@@ -298,21 +308,6 @@ class IModule(ISymbol):
     self.functions = symboltable(self, functions)
     self.filename = str(filename) if filename is not None else None
     ISymbol.__init__(self, **kwds)
-
-  def setparent(self, parent):
-    if parent is None:
-      del self.__dict__['parent']
-    else:
-      assert isinstance(parent, IPackage)
-      self.parent = weakref.ref(parent)
-    return self
-
-  @property
-  def package(self):
-    if hasattr(self, 'parent'):
-      parent = self.parent()
-      assert isinstance(parent, IPackage)
-      return parent
 
   def __str__(self):
     return '\n'.join(
