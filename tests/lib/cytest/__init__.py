@@ -2,6 +2,7 @@ from cStringIO import StringIO
 import contextlib
 import functools
 import __builtin__
+from .check_expressions import check_expressions
 
 @contextlib.contextmanager
 def trap():

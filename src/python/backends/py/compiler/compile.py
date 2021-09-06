@@ -61,7 +61,7 @@ def compile_function(interp, ifun, extern=None):
       break
 
   if logger.isEnabledFor(logging.DEBUG):
-    title = 'Compiling "%s":' % ifun.fullname
+    title = 'Compiling %r:' % ifun.fullname
     logger.debug('')
     logger.debug(title)
     logger.debug('=' * len(title))
@@ -246,7 +246,7 @@ class FunctionCompiler(object):
       ifun = self.extern.functions[localname]
       raise ExternallyDefined(ifun)
     except (KeyError, AttributeError):
-      msg = 'external function "%s" is not defined' % self.name
+      msg = 'external function %r is not defined' % self.name
       logger.warn(msg)
       stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))
       self._compile(stmt)
@@ -292,7 +292,7 @@ class FunctionCompiler(object):
   def statement(self, assign):
     lhs = self.expression(assign.lhs)
     rhs = self.expression(assign.rhs, primary=True)
-    yield '_%s = %s' % (lhs, rhs)
+    yield '%s = %s' % (lhs, rhs)
 
   @statement.when(icurry.IBlock)
   def statement(self, block):

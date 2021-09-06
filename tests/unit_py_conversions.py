@@ -60,7 +60,7 @@ class TestPyConversions(cytest.TestCase):
     # Negative tests.
     self.assertRaisesRegexp(
         TypeError
-      , r'cannot build a Curry expression from type "dict"'
+      , r"cannot build a Curry expression from type 'dict'"
       , lambda: interp.expr({})
       )
 

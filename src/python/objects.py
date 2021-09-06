@@ -92,7 +92,7 @@ class CurryNodeLabel(object):
       return getattr(step, 'source')
     except AttributeError:
       raise ValueError(
-          'no implementation code available for "%s"' % self.fullname
+          'no implementation code available for %r' % self.fullname
         )
 
   def __str__(self):

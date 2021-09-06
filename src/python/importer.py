@@ -216,7 +216,7 @@ def findCurryModule(
     except StopIteration:
       raise make_exception(
           ModuleLookupError
-        , 'Curry module "%s" not found.' % name
+        , 'Curry module %r not found.' % name
         , hint=lambda:_fileNotFoundHint(name)
         )
     name = curryFilename(name)
@@ -224,7 +224,7 @@ def findCurryModule(
   # Find the newest prerequisite.
   curryfile = name
   if not curryfile.endswith('.curry'):
-    raise ModuleLookupError('expected .curry extension in "%s"' % curryfile)
+    raise ModuleLookupError('expected .curry extension in %r' % curryfile)
   curryfile = os.path.abspath(curryfile)
   filelist = [curryfile]
   if icy:

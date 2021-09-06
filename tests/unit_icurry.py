@@ -34,7 +34,9 @@ class ICurryTestCase(cytest.TestCase):
     with capture_log('curry.backends.py.compiler.compile') as log \
        , binding(curry.flags, 'lazycompile', False):
       from curry.lib import helloExternal
-    log.checkMessages(self, warning='external function "helloExternal.undef" is not defined')
+    log.checkMessages(
+        self, warning="external function 'helloExternal.undef' is not defined"
+      )
 
   def testIModuleMerge(self):
     from curry.lib import hello, helloExternal

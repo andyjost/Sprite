@@ -34,7 +34,7 @@ class Node(object):
     bad_length = operator.ge if kwds.get('partial') else operator.ne
     if bad_length(len(args), info.arity):
       raise TypeError(
-          'cannot %s "%s" (arity=%d), with %d arg%s' % (
+          'cannot %s %r (arity=%d), with %d arg%s' % (
               ('curry' if kwds.get('partial') else 'construct')
             , info.name
             , info.arity

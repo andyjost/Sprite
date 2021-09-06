@@ -2,13 +2,6 @@
   should cover every construct that could be encountered in ICurry.
 - Improve line coverage.  Run tests/cov_tests and add tests to reduce the
   number of uncovered lines.
-- This fails with _unreachable: curry.compile('1+2', mode='expr').
-  Same goes for curry.compile('1 ? 2', mode='expr').  It seems to depend on
-  using Ints.
-- Recursive bindings do not work:
-      >>> a = curry.compile('''let a = True:b ; b = False:a in a''', 'expr')
-      UnboundLocalError: local variable '_2' referenced before assignment
-- clean up the inspect module
 - fix tests in unit_py_constraints.py
 - fix tests in unit_py_pulltab.py
 - Update to the latest icurry.

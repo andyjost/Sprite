@@ -14,12 +14,12 @@ __all__ = ['compile']
 
 def compile(
     interp, string, mode='module', imports=None
-  , signature=None
+  , exprtype=None
   , modulename=config.interactive_modname()
   ):
   '''
-  Compile a string containing Curry code.  In mode "module", the string is
-  interpreted as a Curry module.  In mode "expr", the string is interpreted
+  Compile a string containing Curry code.  In mode 'module', the string is
+  interpreted as a Curry module.  In mode 'expr', the string is interpreted
   as a Curry expression.
 
   Parameters:
@@ -30,19 +30,21 @@ def compile(
       Indicates how to interpret the string (see above).
   ``imports``
       Names the modules to import when compiling an expresion.  Unused in
-      "module" mode.  By default, nothing is imported.
+      'module' mode.  By default, nothing is imported.
+  ``exprtype``
+      A string specifying the expression type. Used only in 'expr' mode.
   ``modulename``
-      Specifies the module name.  Used only in "module" mode.  If the name
+      Specifies the module name.  Used only in 'module' mode.  If the name
       begins with an underscore, then it will not be placed in
       ``Interpreter.modules``.
 
   Returns:
   --------
-  In "module" mode, a Curry module.  In "expr" mode, a Curry expression.
+  In 'module' mode, a Curry module.  In 'expr' mode, a Curry expression.
   '''
   if mode == 'module':
     if modulename in interp.modules:
-      raise ValueError('module "%s" is already defined' % modulename)
+      raise ValueError('module %r is already defined' % modulename)
     icur = importer.str2icurry(
         string, interp.path, modulename=modulename
       , keep_temp_files=interp.flags['keep_temp_files']
@@ -53,7 +55,8 @@ def compile(
       module._tmpd_ = icur._tmpd_
       return module
     finally:
-      if icur.name == config.interactive_modname() and icur.name in interp.modules:
+      if icur.name == config.interactive_modname() \
+          and icur.name in interp.modules:
         del interp.modules[icur.name]
   elif mode == 'expr':
     # Compile the expression with a legal name but then rename it to "<expr>".
@@ -64,6 +67,8 @@ def compile(
     stmts, currypath = getImportSpecForExpr(
         interp, [] if imports is None else imports
       )
+    if exprtype:
+      stmts += ['%s :: %s' % (compiled_name, exprtype)]
     stmts += ['%s = %s' % (compiled_name, string)]
     curry_code = '\n'.join(stmts)
     icur = importer.str2icurry(
@@ -76,11 +81,13 @@ def compile(
     del interp.modules[icur.name]
     func = getattr(module, '.symbols')[visible_name]
     if func.info.arity > 0:
-      raise exceptions.CompileError('expression %r requires a type annotation' % string)
+      raise exceptions.CompileError(
+          'expression %r requires a type annotation' % string
+        )
     expr = interp.expr(func)
     return interp.context.runtime.single_step(interp, expr)
   else:
-    raise TypeError('expected mode "module" or "expr"')
+    raise TypeError('expected mode %r or %r' % ('module', 'expr'))
 
 def getImportSpecForExpr(interpreter, modules):
   '''

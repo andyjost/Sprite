@@ -23,7 +23,7 @@ def isLegalModulename(name):
 
 def removeSuffix(name, suffix):
   if not name.endswith(suffix):
-    raise ValueError('expected suffix "%s"' % suffix)
+    raise ValueError('expected suffix %r' % suffix)
   return name[:-len(suffix)]
 
 def translateKwds(kwmap):

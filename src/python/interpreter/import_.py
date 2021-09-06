@@ -82,7 +82,7 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
       itype.constructors = extern.types[itype.name].constructors
     else:
       raise ValueError(
-          '"%s" has no constructors and no external definition was found.'
+          '%r has no constructors and no external definition was found.'
               % itype.fullname
         )
   assert itype.constructors
@@ -184,7 +184,7 @@ def import_(interp, arg, currypath=None, extern=True, export=(), alias=(), is_so
   --------
   A ``CurryModule`` or sequence thereof.
   '''
-  raise TypeError('cannot import type "%s"' % type(arg).__name__)
+  raise TypeError('cannot import type %r' % type(arg).__name__)
 
 @import_.when(str)
 def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):

@@ -82,8 +82,8 @@ class subexpr(object):
       return guard(self.rts, guards, target)
     else:
       return target
-  def __setitem__(self, path, rhs):
-    self.node[path] = rhs
+  def __setitem__(self, idx, rhs):
+    self.node.successors[idx] = rhs
 
 def rewrite(rts, target, info, *args, **kwds):
   from .node import Node

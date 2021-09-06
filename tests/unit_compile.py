@@ -3,6 +3,7 @@ import curry
 import unittest
 
 class TestPyCompile(cytest.TestCase):
+  '''Tests for curry.compile.'''
   def testIllegalProgram(self):
     self.assertRaisesRegexp(
         curry.CompileError
@@ -13,7 +14,7 @@ class TestPyCompile(cytest.TestCase):
   def testIllegalMode(self):
     self.assertRaisesRegexp(
         TypeError
-      , 'expected mode "module" or "expr"'
+      , "expected mode 'module' or 'expr'"
       , lambda: curry.compile('goal=0', mode='foo')
       )
 
@@ -21,15 +22,15 @@ class TestPyCompile(cytest.TestCase):
     curry.compile('goal=0', modulename='a')
     self.assertRaisesRegexp(
         ValueError
-      , 'module "a" is already defined'
+      , "module 'a' is already defined"
       , lambda: curry.compile('goal=0', modulename='a')
       )
 
   def testMissingExternalConstructorDefinition(self):
     self.assertRaisesRegexp(
         ValueError
-      , '"sprite__interactive_.A" has no constructors and no external definition '
-        'was found.'
+      , "'sprite__interactive_.A' has no constructors and no external definition "
+        "was found."
       , lambda: curry.compile('data A')
       )
 
@@ -81,3 +82,36 @@ class TestPyCompile(cytest.TestCase):
     self.assertGreater(len(getattr(Or, '.symbols')), 1)
     is_public = lambda k: not (k.startswith('_') or k.startswith('.'))
     self.assertEqual(len([k for k in Or.__dict__ if is_public(k)]), 1)
+
+  @cytest.with_flags(defaultconverter='topython')
+  @cytest.check_expressions
+  def testExprType(self):
+    '''Test the exprtype argument.'''
+    # 1+2
+    self.assertRaisesRegexp(
+        curry.CompileError
+      , r'''expression '1\+2' requires a type annotation'''
+      , lambda: curry.compile('1+2', mode='expr')
+      )
+    e = curry.compile('1+2', mode='expr', exprtype='Int')
+    yield [e], None \
+             , '<_impl#+#Prelude.Num#Prelude.Int <Int 1> <Int 2>>' \
+             , None \
+             , [3]
+
+    # 1 ? 2
+    self.assertRaisesRegexp(
+        curry.CompileError
+      , r'''expression '1 \? 2' requires a type annotation'''
+      , lambda: curry.compile('1 ? 2', mode='expr')
+      )
+    e = curry.compile('1 ? 2', mode='expr', exprtype='Int')
+    self.assertEqual(repr(e), '<? <Int 1> <Int 2>>')
+    self.assertEqual(sorted(curry.eval(e)), [1, 2])
+
+  @cytest.with_flags(defaultconverter='topython')
+  @cytest.check_expressions
+  def test_reclet(self):
+    e = curry.compile('''let a = True:b ; b = False:a in a''', 'expr')
+    yield [e], '[True, False, ...]', '<_Fwd <: <True> <: <False> ...>>>'
+

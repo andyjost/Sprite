@@ -10,48 +10,33 @@ from curry import inspect
 
 class TestExpr(cytest.TestCase):
   '''Tests expression-building with ``curry.expr``.'''
-  def check(gen):
-    def impl(self):
-      for spec in gen(self):
-        args, str_, repr_, python, evaluated = (spec + 5 * (None,))[:5]
-        e = curry.expr(*args)
-        if str_ is not None:
-          self.assertEqual(str(e), str_)
-        if repr_ is not None:
-          self.assertEqual(repr(e), repr_)
-        if python is not None:
-          self.assertEqual(curry.topython(e), python)
-        if evaluated is not None:
-          self.assertEqual(list(curry.eval(e)), evaluated)
-    return impl
-
-  @check
+  @cytest.check_expressions
   def test_bool(self):
     yield [True], 'True', '<True>', True
     yield [False], 'False', '<False>', False
 
-  @check
+  @cytest.check_expressions
   def test_int(self):
     yield [1], '1', '<Int 1>', 1
     yield [curry.unboxed(1)], '1', '1', 1
 
-  @check
+  @cytest.check_expressions
   def test_char(self):
     yield ['a'], "'a'", "<Char 'a'>", 'a'
     yield [curry.unboxed('a')], 'a', "'a'", 'a'
 
-  @check
+  @cytest.check_expressions
   def test_float(self):
     yield [1.2], '1.2', "<Float 1.2>", 1.2
     yield [curry.unboxed(1.0)], '1.0', '1.0', 1.0
 
-  @check
+  @cytest.check_expressions
   def test_nodeinfo(self):
     prelude = curry.import_('Prelude')
     yield [prelude.Just, 5], 'Just 5', '<Just <Int 5>>', None
     yield [prelude.id, [prelude.Just, 5]], 'id (Just 5)', '<id <Just <Int 5>>>', None
 
-  @check
+  @cytest.check_expressions
   def test_list(self):
     yield [[]], '[]', '<[]>', []
     yield [[True]], '[True]', '<: <True> <[]>>', [True]
@@ -69,7 +54,7 @@ class TestExpr(cytest.TestCase):
     val = curry.topython(next(curry.eval(e)))
     self.assertEqual(val, [1, 2])
 
-  @check
+  @cytest.check_expressions
   def test_tuple(self):
     yield [()], '()', '<()>', ()
     yield [(1,2)], '(1, 2)', '<(,) <Int 1> <Int 2>>', (1,2)
@@ -80,7 +65,7 @@ class TestExpr(cytest.TestCase):
       , lambda: curry.expr((1,))
       )
 
-  @check
+  @cytest.check_expressions
   def test_str(self):
     yield [''], '[]', "<[]>", []  # empty string and list are indistiguishable
     yield ['hi'], "['h', 'i']", "<: <Char 'h'> <: <Char 'i'> <[]>>>", 'hi'
@@ -97,11 +82,11 @@ class TestExpr(cytest.TestCase):
     self.assertEqual(str(e), 'failure')
     self.assertEqual(list(curry.eval(e)), [])
 
-  @check
+  @cytest.check_expressions
   def test_fwd(self):
     yield [_fwd(1)], '1', "<_Fwd <Int 1>>", None
 
-  @check
+  @cytest.check_expressions
   def test_nonstrictconstr(self):
     yield (
         [_nonstrictconstr(True, (_var(1), False))]
@@ -110,7 +95,7 @@ class TestExpr(cytest.TestCase):
       , None
       )
 
-  @check
+  @cytest.check_expressions
   def test_setgrd(self):
     yield (
         [_setgrd(1, True)]
@@ -119,7 +104,7 @@ class TestExpr(cytest.TestCase):
       , None
       )
 
-  @check
+  @cytest.check_expressions
   def test_strictconstr(self):
     yield (
         [_strictconstr(True, (_var(1), _var(2)))]
@@ -128,7 +113,7 @@ class TestExpr(cytest.TestCase):
       , None
       )
 
-  @check
+  @cytest.check_expressions
   def test_valuebinding(self):
     yield (
         [_valuebinding(True, (_var(1), curry.unboxed(2)))]
@@ -137,7 +122,7 @@ class TestExpr(cytest.TestCase):
       , None
       )
 
-  @check
+  @cytest.check_expressions
   def test_var(self):
     yield [_var(5)], '_5', '<_Free 5 <()>>', None
 
@@ -149,7 +134,7 @@ class TestExpr(cytest.TestCase):
     self.assertEqual(id(a), id(b))
     self.assertEqual(next(curry.eval(e)), [1, 1])
 
-  @check
+  @cytest.check_expressions
   def test_circular(self):
     anchor, ref = curry.anchor, curry.ref
 
@@ -191,7 +176,7 @@ class TestExpr(cytest.TestCase):
     self.assertEqual(next(curry.eval(e)), [0, 1, 0, 1, 0])
 
   @cytest.with_flags(defaultconverter='topython')
-  @check
+  @cytest.check_expressions
   def test_named_anchor2(self):
     '''Test named anchors using keyword style.'''
     # let a=(0:b), b=(1:a) in take 5 a

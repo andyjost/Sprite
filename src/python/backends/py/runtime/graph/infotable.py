@@ -95,7 +95,7 @@ class InfoTable(object):
     self._step = value
 
   def __str__(self):
-    return 'Info for "%s"' % self.name
+    return 'Info for %r' % self.name
 
   def __repr__(self):
     return ''.join([

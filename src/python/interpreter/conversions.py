@@ -119,7 +119,7 @@ class ExpressionBuilder(object):
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
     raise TypeError(
-        'cannot build a Curry expression from type "%s"' % type(arg).__name__
+        'cannot build a Curry expression from type %r' % type(arg).__name__
       )
 
   @__call__.when(str) # Char or [Char].
@@ -313,7 +313,7 @@ def currytype(interp, ty):
     return interp.type('Prelude.Float')
   if issubclass(ty, list):
     return interp.type('Prelude.[]')
-  raise TypeError('cannot convert "%s" to a Curry type' % ty.__name__)
+  raise TypeError('cannot convert %r to a Curry type' % ty.__name__)
 
 class ToPython(object):
   def __init__(self, convert_freevars=True):

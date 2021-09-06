@@ -33,7 +33,7 @@ class TestPyRuntime(cytest.TestCase):
     interp = interpreter.Interpreter()
     prelude = interp.import_(curry.backends.py.runtime.prelude.Prelude)
     self.assertEqual(prelude.prim_negateFloat.fullname, 'Prelude.prim_negateFloat')
-    self.assertEqual(str(prelude.prim_negateFloat.info), 'Info for "prim_negateFloat"')
+    self.assertEqual(str(prelude.prim_negateFloat.info), "Info for 'prim_negateFloat'")
     self.assertTrue(repr(prelude.prim_negateFloat.info).startswith('InfoTable'))
 
     n = Node(getattr(prelude, '()').info)
@@ -42,11 +42,11 @@ class TestPyRuntime(cytest.TestCase):
 
     self.assertRaisesRegexp(
         TypeError
-      , r'cannot construct "Int" \(arity=1\), with 2 args'
+      , r"cannot construct 'Int' \(arity=1\), with 2 args"
       , lambda: interp.expr(prelude.Int, 1, 2)
       )
     self.assertRaisesRegexp(
-        TypeError, r'cannot import type "int"', lambda: interp.import_(1)
+        TypeError, r"cannot import type 'int'", lambda: interp.import_(1)
       )
 
   def test_normalization(self):
@@ -250,7 +250,7 @@ class TestPyRuntime(cytest.TestCase):
     # Negative test.
     self.assertRaisesRegexp(
         ValueError
-      , 'no implementation code available for "Prelude.True"'
+      , "no implementation code available for 'Prelude.True'"
       , lambda: curry.symbol('Prelude.True').getimpl()
       )
 
