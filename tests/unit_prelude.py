@@ -1,6 +1,7 @@
 import cytest # from ./lib; must be first
 from cStringIO import StringIO
 from curry.backends.py.runtime.graph import Node
+from curry.backends.py.runtime.graph import equality
 from curry import config
 import curry
 import cytest.step

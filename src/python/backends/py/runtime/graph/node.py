@@ -150,16 +150,7 @@ class Node(object):
   def __len__(self):
     return len(self.successors)
 
-  def __eq__(self, rhs):
-    if not isinstance(rhs, Node):
-      return False
-    # Use __getitem__ to compress paths.  Forward nodes do not influence
-    # structural equality.
-    if self.info != rhs.info:
-      return False
-    if len(self.successors) != len(rhs.successors):
-      return False
-    return all(self[i] == rhs[i] for i in xrange(len(self.successors)))
+  from .equality import logically_equal as __eq__
 
   def __ne__(self, rhs):
     return not (self == rhs)

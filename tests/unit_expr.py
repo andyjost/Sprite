@@ -40,6 +40,12 @@ class TestExpr(cytest.TestCase):
     yield [True], '[True]', '<: <True> <[]>>', [True]
     yield [0,1,2], '[0, 1, 2]', '<: <Int 0> <: <Int 1> <: <Int 2> <[]>>>>', [0,1,2]
 
+  @cytest.check_expressions()
+  def test_cons(self):
+    yield curry.nil, '[]', '<[]>', []
+    yield curry.cons(0, curry.nil), '[0]', '<: <Int 0> <[]>>', [0]
+    yield curry.cons(0, 1, curry.nil), '[0, 1]', '<: <Int 0> <: <Int 1> <[]>>>', [0, 1]
+
   def test_iterators(self):
     '''Python iterators become lazy lists in Curry.'''
     e = curry.expr(iter([]))

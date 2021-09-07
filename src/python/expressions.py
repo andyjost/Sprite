@@ -32,10 +32,15 @@ class ref(object):
     self.name = name
 
 class cons(object):
-  '''Places a list constructor into a Curry expression.'''
-  def __init__(self, head, tail):
+  '''
+  Places one or more list constructors into a Curry expression.
+  '''
+  def __init__(self, head, tail0, *tail):
     self.head = head
-    self.tail = tail
+    if tail:
+      self.tail = cons(tail0, *tail)
+    else:
+      self.tail = tail0
 
 class _nil(object):
   '''Places a list terminator into a Curry expression.'''

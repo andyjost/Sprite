@@ -61,7 +61,7 @@ class Ignore(object):
           )
   def __call__(self, arg):
     return self.testf(arg)
-      
+
 class Dissector(object):
   '''
   Compares stuctured data recursively and reports on differences.

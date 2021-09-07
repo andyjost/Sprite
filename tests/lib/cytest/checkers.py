@@ -14,7 +14,7 @@ def capture_generator(generator):
     yield generator
   except Exception as e:
     generator_frame = dict(inspect.getmembers(generator))['gi_frame']
-    message = '%s\nOccurred at:\n%s' % (
+    message = '%s\nObtained from:\n%s' % (
         str(e)
       , ''.join(traceback.format_stack(generator_frame))
       )
@@ -133,6 +133,19 @@ def check_indexing(indexer):
             self.assertRaisesRegexp(excty, regex, lambda: indexer(e, path))
           else:
             self.assertRaises(excty, lambda: indexer(e, path))
+    return checker
+  return decorator
+
+def check_predicate(mapper=None):
+  def decorator(testmethod):
+    def checker(self):
+      with capture_generator(testmethod(self)) as specs:
+        for spec in specs:
+          predicate = spec[0]
+          args = spec[1:]
+          if mapper is not None:
+            args = map(mapper, args)
+          self.assertTrue(predicate(*args))
     return checker
   return decorator
 

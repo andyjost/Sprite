@@ -1,80 +1,10 @@
 import cytest # from ./lib; must be first
+import cytest.expression_library
 import curry
 from curry import inspect
-from curry.expressions import (
-    unboxed
-  , _setgrd, fail, _strictconstr, _nonstrictconstr, _valuebinding, var, fwd
-  , choice
-  )
+from curry.expressions import unboxed, var
 
-class TestInspect(cytest.TestCase):
-  @classmethod
-  def setUpClass(cls):
-    prelude = curry.import_('Prelude')
-    cls.not_a_node = int
-    cls.int = curry.expr(5)
-    cls.unboxed_int = 5
-    cls.char = curry.expr('a')
-    cls.unboxed_char = 'a'
-    cls.string = curry.expr('why hello')
-    cls.empty_string = curry.expr('')
-    cls.float = curry.expr(1.0)
-    cls.unboxed_float = 1.0
-    cls.just_nil = curry.expr(prelude.Just, [])
-    cls.io = curry.expr(prelude.IO, prelude.True)
-    cls.true = curry.expr(True)
-    cls.false = curry.expr(False)
-    cls.tuple = curry.expr((1,2,3))
-    cls.list = curry.expr([1,2,3])
-    cls.empty_list = curry.expr([])
-    cls.py_generator = curry.expr(iter([1,2]))
-    cls.failure = curry.expr(fail)
-    cls.fwd = curry.expr(fwd(prelude.True))
-    cls.vid = 2
-    cls.var = curry.expr(var(cls.vid))
-    cls.cid = 3
-    cls.choice = curry.expr(choice(3, 0, 1))
-    cls.nonstrict_constraint = curry.expr(_nonstrictconstr(True, (cls.var, False)))
-    cls.sid = 7
-    cls.setgrd = curry.expr(_setgrd(cls.sid, True))
-    cls.strict_constraint = curry.expr(_strictconstr(True, (var(1), var(2))))
-    cls.value_binding = curry.expr(_valuebinding(True, (var(1), unboxed(2))))
-    cls.func = curry.expr(prelude.head, getattr(prelude, '[]'))
-    cls.everything = set([
-        cls.not_a_node
-      , cls.int
-      , cls.unboxed_int
-      , cls.char
-      , cls.unboxed_char
-      , cls.string
-      , cls.empty_string
-      , cls.float
-      , cls.unboxed_float
-      , cls.just_nil
-      , cls.io
-      , cls.true
-      , cls.false
-      , cls.tuple
-      , cls.list
-      , cls.empty_list
-      , cls.py_generator
-      , cls.failure
-      , cls.fwd
-      , cls.var
-      , cls.choice
-      , cls.nonstrict_constraint
-      , cls.setgrd
-      , cls.strict_constraint
-      , cls.value_binding
-      , cls.func
-      ])
-
-  @classmethod
-  def tearDownClass(cls):
-    keys = [k for k in  cls.__dict__ if not k.startswith('_')]
-    for k in keys:
-      delattr(cls, k)
-
+class TestInspect(cytest.expression_library.ExpressionLibTestCase):
   def testIsaTypeError(self):
     self.assertIsa(curry.expr(1), curry.symbol('Prelude.Int'))
     self.assertRaisesRegexp(

@@ -115,7 +115,8 @@ class TestIndex(cytest.TestCase):
     yield e, (0,0), curry.expr(0)
     yield e, (0,0,0), 0
     yield e, (0,1), curry.expr([fwd(1)])
-    yield e, (0,1,0), curry.expr(1)
+    yield e, (0,1,0), curry.expr(fwd(1))
+    yield e, (0,1,0,0), curry.expr(1)
 
   @CHECKER
   def test_index_setgrd(self):

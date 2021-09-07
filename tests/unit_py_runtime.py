@@ -3,6 +3,7 @@ from copy import copy
 from curry.common import T_FAIL, T_CHOICE
 from curry.backends.py.runtime.control import E_UNWIND
 from curry.backends.py.runtime.graph import Node
+from curry.backends.py.runtime.graph import equality
 from curry.backends.py.runtime.fairscheme.rts_variables import _gen_ctors
 from curry.backends.py.runtime.fairscheme.state import Bindings, RuntimeState
 from curry import icurry
