@@ -46,7 +46,7 @@ if not os.access(os.environ['SPRITE_HOME'], os.O_RDONLY):
 del os
 
 from .exceptions import *
-from expressions import cons, nil, ref, unboxed
+from expressions import choice, cons, fail, nil, ref, unboxed, var
 from . import interpreter
 from .utility import flagutils as _flagutils
 from .utility import visitation as _visitation

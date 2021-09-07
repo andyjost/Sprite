@@ -40,29 +40,24 @@ def index(root, path):
   --------
   The subexpression at ``root[path]``.
   '''
-  raise CurryIndexError('invalid path %r' % path)
+  raise CurryIndexError(
+      'node index must be an integer or sequence of integers, not %r'
+          % type(path).__name__
+    )
 
 @index.when(numbers.Integral)
 def index(root, path):
   if not inspect.isa_curry_expr(root):
     raise CurryTypeError('invalid Curry expression %r' % root)
   try:
-    successors = root.successors
-  except AttributeError:
-    raise CurryIndexError('invalid index into unboxed Curry value %r' % root)
-  try:
-    return successors[path]
-  except IndexError:
+    return root.successors[path]
+  except (IndexError, AttributeError):
     raise CurryIndexError('node index out of range')
 
 @index.when((collections.Sequence, collections.Iterator), no=(str,))
 def index(root, path):
   target = root
   for i in path:
-    try:
-      i = int(i)
-    except:
-      raise CurryIndexError('invalid index %r' % i)
     target = index(target, i)
   return target
 
