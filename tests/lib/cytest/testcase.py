@@ -13,6 +13,9 @@ import os
 import re
 import sys
 import unittest
+from curry.backends.py.runtime.graph.equality import (
+    logically_equal, structurally_equal
+  )
 
 class TestCase(unittest.TestCase):
   '''A base test case class for testing Sprite.'''
@@ -58,6 +61,24 @@ class TestCase(unittest.TestCase):
       with open_(filename, 'rb') as au:
         text = au.read()
       self.assertEqual(value, text)
+
+  def assertStructEqual(self, e0, e1):
+    '''Compare two Curry expressions for exact structural equality.'''
+    self.assertTrue(structurally_equal(e0, e1))
+
+  def assertNotStructEqual(self, e0, e1):
+    self.assertFalse(structurally_equal(e0, e1))
+
+  def assertLogEqual(self, e0, e1):
+    '''Compare two Curry expressions for logical equality.'''
+    self.assertTrue(logically_equal(e0, e1))
+
+  def assertNotLogEqual(self, e0, e1):
+    '''Compare two Curry expressions for logical equality.'''
+    self.assertFalse(logically_equal(e0, e1))
+
+  def assertNotStructEqual(self, e0, e1):
+    self.assertFalse(structurally_equal(e0, e1))
 
   def assertIsa(self, obj, ty):
     isa = cy_inspect.isa if isinstance(obj, Node) else llvm_isa

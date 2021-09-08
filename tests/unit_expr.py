@@ -1,13 +1,53 @@
 import cytest # from ./lib; must be first
 import curry
 from curry.expressions import (
-    _setgrd, fail, _strictconstr, _nonstrictconstr, _valuebinding, var, fwd
-  , choice
+    anchor, ref, _setgrd, fail, _strictconstr, _nonstrictconstr, _valuebinding
+  , var, fwd, choice, unboxed, cons, nil
   )
 from curry import inspect
+from curry.exceptions import CurryTypeError
 
 class TestExpr(cytest.TestCase):
   '''Tests expression-building with ``curry.expr``.'''
+
+  def test_negative(self):
+    # A bunch of things that cannot accept trailing arguments in curry.expr.
+    for (before, what) in [
+        (True, 'True')
+      , (1, '1')
+      , (1.0, '1.0')
+      , ('a', "'a'")
+      , ('hello', "'hello'")
+      , ([], "\[\]")
+      , ([0], "\[0\]")
+      , ((), "\(\)")
+      , ((0,1), "\(0, 1\)")
+      , (anchor(0), "anchor '_1'")
+      , (anchor(0, name='a'), "anchor 'a'")
+      , (ref('a'), "ref 'a'")
+      , (iter([1,2]), r'\<listiterator object at 0x\w+\>')
+      , (curry.expr(0), r"'Int' node")
+      , (unboxed(0), r'unboxed 0')
+      , (cons(0, []), r"'cons'")
+      , (nil, r"'nil'")
+      , (_setgrd(0, True), "'_setgrd'")
+      , (fail, "'fail'")
+      , (_strictconstr(0, (var(0), var(1))), "'_strictconstr'")
+      , (_nonstrictconstr(0, (var(0), var(1))), "'_nonstrictconstr'")
+      , (_valuebinding(0, (var(0), 1)), "'_valuebinding'")
+      , (var(0), "'var'")
+      , (fwd(0), "'fwd'")
+      , (choice(0, 1), "'choice'")
+      ]:
+      try:
+        self.assertRaisesRegexp(
+            CurryTypeError, r'invalid arguments after %s' % what
+          , lambda: curry.expr(before, True)
+          )
+      except:
+        curry.expr(before, True)
+        breakpoint()
+
   @cytest.check_expressions()
   def test_bool(self):
     yield True, 'True', '<True>', True
@@ -203,4 +243,3 @@ class TestExpr(cytest.TestCase):
            , '<(,,) <Int 5> <: <Int 5> <[]>> <Just <[]>>>'
 
 
-  # def test_expr_constructors(

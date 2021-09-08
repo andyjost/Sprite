@@ -8,7 +8,7 @@ class InstantiationError(BaseException):
   '''Raised when a free variable is bound to an unboxed value.'''
 
 class NotConstructorError(ValueError):
-  '''Raised when a non-constructor value occurs and is disallowed.'''
+  '''Raised when a non-constructor value occurs where disallowed.'''
   def __init__(self, arg):
    self.arg = arg
 
@@ -63,5 +63,4 @@ class NondetMonadError(MonadError):
   CTOR_INDEX = 3
   def __init__(self):
     RuntimeError.__init__(self, 'non-determinism in monadic actions occurred')
-
 

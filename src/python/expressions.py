@@ -1,4 +1,5 @@
 from . import context, icurry, objects, utility
+from .exceptions import CurryTypeError
 from .utility import exprutil, visitation
 import collections, itertools, numbers
 
@@ -52,7 +53,7 @@ class unboxed(object):
   '''Unboxes its argument into a Curry expression.'''
   def __init__(self, value):
     if not isinstance(value, icurry.IUnboxedLiteral):
-      raise TypeError('expected an unboxed literal, got %r' % value)
+      raise CurryTypeError('expected an unboxed literal, got %r' % value)
     self.value = value
 
 class _setgrd(object):
@@ -161,12 +162,12 @@ def expr(interp, *args, **kwds):
   The Node created or rewritten.
   '''
   builder = ExpressionBuilder(interp)
-  target = kwds.pop('target', None)
   for anchorname, subexpr in kwds.iteritems():
     subexpr = anchor(subexpr, name=anchorname)
     builder(subexpr)
     assert anchorname in builder.anchors
-  expr = builder(*args, target=target)
+  builder.target = kwds.pop('target', None)
+  expr = builder(*args)
   return builder.fixrefs(expr)
 
 class ExpressionBuilder(object):
@@ -176,6 +177,7 @@ class ExpressionBuilder(object):
     self.counter = itertools.count(1)
     self.anchors = {}
     self.brokenrefs = {}
+    self.target = None
 
   def fixrefs(self, expr):
     if self.brokenrefs:
@@ -208,54 +210,69 @@ class ExpressionBuilder(object):
       )
 
   @__call__.when(str) # Char or [Char].
-  def __call__(self, arg, *args, **kwds):
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % arg)
     if len(arg) == 1:
-      return self.Node(self.prelude.Char, str(arg), *args, **kwds)
+      return self.Node(self.prelude.Char, str(arg), target=self.target)
     else:
-      return self(list(arg), *args, **kwds)
+      return self(list(arg))
 
   @__call__.when(list)
-  def __call__(self, l, target=None):
-    if len(l) and isinstance(l[0], objects.CurryNodeLabel):
-      return self(*l, target=target)
+  def __call__(self, lst, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % lst)
+    if len(lst) and isinstance(lst[0], objects.CurryNodeLabel):
+      return self(*lst)
     else:
       Cons = self.prelude.Cons
       Nil = self.prelude.Nil
       sentinel = object()
-      seq = iter(l)
+      seq = iter(lst)
       f = lambda x,g: [Cons, self(x), g()] if x is not sentinel else Nil
       g = lambda: f(next(seq, sentinel), g)
-      return self(g(), target=target)
+      return self(g())
 
   @__call__.when(tuple)
-  def __call__(self, args, **kwds):
-    n = len(args)
+  def __call__(self, tup, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %s' % repr(tup))
+    n = len(tup)
     if n == 0:
       typename = 'Prelude.()'
     elif n == 1:
-      raise TypeError("Curry has no 1-tuple.")
+      raise CurryTypeError("Curry has no 1-tuple.")
     else:
       typename = 'Prelude.(%s)' % (','*(n-1))
-    return self.Node(self.interp.symbol(typename), *map(self, args), **kwds)
+    return self.Node(
+        self.interp.symbol(typename), *map(self, tup), target=self.target
+      )
 
   @__call__.when(bool)
-  def __call__(self, arg, **kwds):
-    target = kwds.get('target', None)
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % arg)
     if arg:
-      return self.Node(self.prelude.True, target=target)
+      return self.Node(self.prelude.True, target=self.target)
     else:
-      return self.Node(self.prelude.False, target=target)
+      return self.Node(self.prelude.False, target=self.target)
 
   @__call__.when(numbers.Integral)
-  def __call__(self, arg, target=None):
-    return self.Node(self.prelude.Int, int(arg), target=target)
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % arg)
+    return self.Node(self.prelude.Int, int(arg), target=self.target)
 
   @__call__.when(numbers.Real)
-  def __call__(self, arg, target=None):
-    return self.Node(self.prelude.Float, float(arg), target=target)
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % arg)
+    return self.Node(
+        self.prelude.Float, float(arg), target=self.target
+      )
 
   @__call__.when(anchor)
-  def __call__(self, arg, target=None):
+  def __call__(self, arg, *trailing):
     if arg.name is None:
       while True:
         anchorname = '_%s' % next(self.counter)
@@ -263,6 +280,8 @@ class ExpressionBuilder(object):
           break
     else:
       anchorname = arg.name
+    if trailing:
+      raise CurryTypeError('invalid arguments after anchor %r' % anchorname)
     if anchorname in self.anchors:
       raise ValueError('multiple definitions of anchor %r' % anchorname)
     self.anchors[anchorname] = None
@@ -271,7 +290,7 @@ class ExpressionBuilder(object):
     return subexpr
 
   @__call__.when(ref)
-  def __call__(self, arg, target=None):
+  def __call__(self, arg, *trailing):
     if arg.name is None:
       if len(self.anchors) != 1:
         raise ValueError(
@@ -281,6 +300,8 @@ class ExpressionBuilder(object):
       anchorname = next(iter(self.anchors))
     else:
       anchorname = arg.name
+    if trailing:
+      raise CurryTypeError('invalid arguments after ref %r' % anchorname)
     target = self.anchors.get(anchorname)
     if target is None:
       placeholder = self(fail)
@@ -290,93 +311,124 @@ class ExpressionBuilder(object):
       return target
 
   @__call__.when(collections.Iterator)
-  def __call__(self, arg, target=None):
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % arg)
     pygen = self.prelude._PyGenerator
-    return self.Node(pygen, arg, target=target)
+    return self.Node(pygen, arg, target=self.target)
 
   @__call__.when(objects.CurryNodeLabel)
-  def __call__(self, ti, *args, **kwds):
-    target = kwds.get('target', None)
+  def __call__(self, ti, *args):
     missing =  ti.info.arity - len(args)
     if missing > 0:
       partial = self.Node(ti, *map(lambda s: self(s), args), partial=True)
       return self.Node(
-          self.prelude._PartApplic, missing, partial, target=target
+          self.prelude._PartApplic, missing, partial
+        , target=self.target
         )
     else:
-      return self.Node(ti, *map(lambda s: self(s), args), target=target)
+      return self.Node(
+          ti, *map(lambda s: self(s), args), target=self.target
+        )
 
   @__call__.when(context.Node)
-  def __call__(self, node, target=None):
-    if target is not None:
-      return self.Node(self.prelude._Fwd, node, target=target)
+  def __call__(self, node, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r node' % node.info.name)
+    if self.target is not None:
+      return self.Node(self.prelude._Fwd, node, target=self.target)
     return node
 
   @__call__.when(unboxed)
-  def __call__(self, arg, target=None):
-    if target is not None:
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after unboxed %r' % arg.value)
+    if self.target is not None:
       raise ValueError("cannot rewrite a node to an unboxed value")
     return arg.value
 
   @__call__.when(cons)
-  def __call__(self, arg, target=None):
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % 'cons')
     return self.Node(
-        self.prelude.Cons, self(arg.head), self(arg.tail), target=target
+        self.prelude.Cons, self(arg.head), self(arg.tail)
+      , target=self.target
       )
 
   @__call__.when(type(nil))
-  def __call__(self, arg, target=None):
-    return self.Node(self.prelude.Nil, target=target)
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % 'nil')
+    return self.Node(self.prelude.Nil, target=self.target)
 
   @__call__.when(_setgrd)
-  def __call__(self, arg, target=None):
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % '_setgrd')
     return self.Node(
         self.interp.setfunctions._SetGuard
-      , arg.sid, self(arg.value), target=target
+      , arg.sid, self(arg.value), target=self.target
       )
 
   @__call__.when(type(fail))
-  def __call__(self, arg, target=None):
-    return self.Node(self.prelude._Failure, target=target)
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % 'fail')
+    return self.Node(self.prelude._Failure, target=self.target)
 
   @__call__.when(_strictconstr)
-  def __call__(self, arg, target=None):
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % '_strictconstr')
     return self.Node(
         self.prelude._StrictConstraint
-      , self(arg.value), self(arg.pair), target=target
+      , self(arg.value), self(arg.pair), target=self.target
       )
 
   @__call__.when(_nonstrictconstr)
-  def __call__(self, arg, target=None):
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % '_nonstrictconstr')
     return self.Node(
         self.prelude._NonStrictConstraint
-      , self(arg.value), self(arg.pair), target=target
+      , self(arg.value), self(arg.pair), target=self.target
       )
 
   @__call__.when(_valuebinding)
-  def __call__(self, arg, target=None):
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % '_valuebinding')
     return self.Node(
         self.prelude._ValueBinding
-      , self(arg.value), self(arg.pair), target=target
+      , self(arg.value), self(arg.pair), target=self.target
       )
 
   @__call__.when(var)
-  def __call__(self, arg, target=None):
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % 'var')
     return self.Node(
         self.prelude._Free
       , arg.vid
       , self.Node(self.prelude.Unit)
-      , target=target
+      , target=self.target
       )
 
   @__call__.when(fwd)
-  def __call__(self, arg, target=None):
-    return self.Node(self.prelude._Fwd, self(arg.value), target=target)
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % 'fwd')
+    return self.Node(
+        self.prelude._Fwd, self(arg.value), target=self.target
+      )
 
   @__call__.when(choice)
-  def __call__(self, arg, target=None):
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % 'choice')
     return self.Node(
         self.prelude._Choice, arg.cid, self(arg.lhs), self(arg.rhs)
-      , target=target
+      , target=self.target
       )
 

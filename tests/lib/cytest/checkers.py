@@ -1,24 +1,26 @@
 '''
 Defines decorators for writing test methods that yield a series of test
-specification.
+specification.  To use these, one decorates some method of cytest.TestCase.
+That method should yield a sequence of tuples to be checked.  Each of the
+checkers accepts a continuation to be passed the generated values.
 '''
 import contextlib, curry, inspect, traceback
 
-@contextlib.contextmanager
-def capture_generator(generator):
-  '''
-  Context manager that traps errors and appends the stack of a generator.
-  '''
-  assert inspect.isgenerator(generator)
-  try:
-    yield generator
-  except Exception as e:
-    generator_frame = dict(inspect.getmembers(generator))['gi_frame']
-    message = '%s\nObtained from:\n%s' % (
-        str(e)
-      , ''.join(traceback.format_stack(generator_frame))
-      )
-    raise type(e)(message)
+# @contextlib.contextmanager
+# def capture_generator(generator):
+#   '''
+#   Context manager that traps errors and appends the stack of a generator.
+#   '''
+#   assert inspect.isgenerator(generator)
+#   try:
+#     yield generator
+#   except Exception as e:
+#     generator_frame = dict(inspect.getmembers(generator))['gi_frame']
+#     message = '%s\nObtained from:\n%s' % (
+#         str(e)
+#       , ''.join(traceback.format_stack(generator_frame))
+#       )
+#     raise type(e)(message)
 
 def check_expressions(converter=curry.topython, postprocessor=sorted):
   '''
@@ -80,72 +82,111 @@ def check_expressions(converter=curry.topython, postprocessor=sorted):
 
   '''
   def decorator(testmethod):
-    def checker(self):
-      with capture_generator(testmethod(self)) as specs:
-        for spec in specs:
-          expr, str_, repr_, python, evaluated = (spec + 5 * (None,))[:5]
-          e = curry.expr(expr)
-          if str_ is not None:
-            self.assertEqual(str(e), str_)
-          if repr_ is not None:
-            self.assertEqual(repr(e), repr_)
-          if python is not None:
-            self.assertEqual(curry.topython(e), python)
-          if evaluated is not None:
-            values = curry.eval(e)
-            if converter is not None:
-              values = map(converter, values)
-            if postprocessor is not None:
-              values = postprocessor(values)
-            self.assertEqual(values, evaluated)
-    return checker
+    def checker(self, spec):
+      # specs = testmethod(self)
+      # for spec in specs:
+      #   with capture_generator(specs):
+      expr, str_, repr_, python, evaluated = (spec + 5 * (None,))[:5]
+      e = curry.expr(expr)
+      if str_ is not None:
+        self.assertEqual(str(e), str_)
+      if repr_ is not None:
+        self.assertEqual(repr(e), repr_)
+      if python is not None:
+        self.assertEqual(curry.topython(e), python)
+      if evaluated is not None:
+        values = curry.eval(e)
+        if converter is not None:
+          values = map(converter, values)
+        if postprocessor is not None:
+          values = postprocessor(values)
+        self.assertEqual(values, evaluated)
+    # testmethod.continuation = checker
+    # return checker
+    return _makechecker(testmethod, checker)
   return decorator
 
-def check_indexing(indexer):
+def check_indexing(testmethod):
   '''
-  Wraps a test method.  The wrapped method should generate triples comprising
-  an expression specifier, path, and expected result.  The expression specifier
-  will be passed to ``curry.expr``.  The expression returned is indexed by
-  calling the supplied indexer.  If the expected result is an exception
-  instance or class, the indexing step must raise that exception.  If it is an
-  instance, then the string value should be a regular expression to check the
-  raised exception against.  Otherwise, the value is compared equal to the
-  expected result.
+  Checks functions that index into a Curry expression.
+
+  The wrapped method should generate triples comprising an expression
+  specifier, path, and expected result.  The expression specifier will be
+  passed to ``curry.expr``.  The expression returned is indexed by calling
+  self.INDEXER.  If the expected result is an exception instance or class, the
+  indexing step must raise that exception.  If it is an instance, then the
+  string value should be a regular expression to check the raised exception
+  against.  Otherwise, the value is compared equal to the expected result.
+  '''
+  def checker(self, spec):
+    # specs = testmethod(self)
+    # for exprspec, path, expected in specs:
+    #   with capture_generator(specs):
+    exprspec, path, expected = spec
+    if isinstance(expected, Exception):
+      regex = str(expected)
+      excty = type(expected)
+    elif isinstance(expected, type) and issubclass(expected, Exception):
+      regex = None
+      excty = expected
+    else:
+      regex = None
+      excty = None
+    e = curry.expr(exprspec)
+    if excty is None:
+      d = self.INDEXER(e, path)
+      self.assertEqual(d, expected)
+    elif regex:
+      self.assertRaisesRegexp(excty, regex, lambda: self.INDEXER(e, path))
+    else:
+      self.assertRaises(excty, lambda: self.INDEXER(e, path))
+  # testmethod.continuation = checker
+  # return checker
+  return _makechecker(testmethod, checker)
+
+def check_predicate(predicate=None, mapper=None):
+  '''
+  Checks a predicate.
+
+  The test method should generate tuples of arguments.  These arguments will
+  be passed to the predicate, which is expected to evaluate to True.
+
+  If no predicate is supplied, then the first argument of each tuple produced
+  by the generator is used.  If a mapper is supplied, it is applied to all
+  arguments (except the predicate) before testing the predicate.
   '''
   def decorator(testmethod):
-    def checker(self):
-      with capture_generator(testmethod(self)) as specs:
-        for exprspec, path, expected in specs:
-          if isinstance(expected, Exception):
-            regex = str(expected)
-            excty = type(expected)
-          elif isinstance(expected, type) and issubclass(expected, Exception):
-            regex = None
-            excty = expected
-          else:
-            regex = None
-            excty = None
-          e = curry.expr(exprspec)
-          if excty is None:
-            d = indexer(e, path)
-            self.assertEqual(d, expected)
-          elif regex:
-            self.assertRaisesRegexp(excty, regex, lambda: indexer(e, path))
-          else:
-            self.assertRaises(excty, lambda: indexer(e, path))
-    return checker
+    def checker(self, spec):
+      if predicate is None:
+        pred = spec[0]
+        args = spec[1:]
+      else:
+        pred = predicate
+        args = spec
+      if mapper is not None:
+        args = map(mapper, args)
+      self.assertTrue(pred(*args))
+    return _makechecker(testmethod, checker)
   return decorator
 
-def check_predicate(mapper=None):
-  def decorator(testmethod):
-    def checker(self):
-      with capture_generator(testmethod(self)) as specs:
-        for spec in specs:
-          predicate = spec[0]
-          args = spec[1:]
-          if mapper is not None:
-            args = map(mapper, args)
-          self.assertTrue(predicate(*args))
-    return checker
-  return decorator
+def _makechecker(testmethod, checker):
+  if inspect.isgeneratorfunction(testmethod):
+    def consumer(self):
+      specs = testmethod(self)
+      for spec in specs:
+        try:
+          checker(self, spec)
+          if hasattr(testmethod, 'continuation'):
+            test.method.continuation(self, spec)
+        except Exception as e:
+          generator_frame = dict(inspect.getmembers(specs))['gi_frame']
+          message = '%s\nObtained from:\n%s' % (
+              str(e)
+            , ''.join(traceback.format_stack(generator_frame))
+            )
+          raise type(e)(message)
+    return consumer
+  else:
+    testmethod.continuation = checker
+    return testmethod
 

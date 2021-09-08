@@ -63,6 +63,9 @@ def equal(lhs, rhs, skipfwd=False):
   equality = GraphEquality(skipfwd=skipfwd)
   return equality(lhs, rhs)
 
+def structurally_equal(lhs, rhs):
+  return equal(lhs, rhs, skipfwd=False)
+
 def logically_equal(lhs, rhs):
   return equal(lhs, rhs, skipfwd=True)
 

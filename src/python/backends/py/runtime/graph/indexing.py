@@ -61,11 +61,83 @@ def index(root, path):
     target = index(target, i)
   return target
 
-def realpath(root, path):
+
+class RealPathIndexer(object):
+  '''See ``realpath``.'''
+  def __init__(self, root, update_fwd_nodes=True):
+    if not inspect.isa_curry_expr(root):
+      raise CurryTypeError('invalid Curry expression %r' % root)
+    self.target = root
+    self.realpath = []
+    self.guards = set()
+    self.parent = None
+    self.update_fwd_nodes = update_fwd_nodes
+    self.skip()
+
+  def skip(self):
+    '''
+    Skips over forward nodes and set guards.  Updates the indexer state
+    accordingly.
+    '''
+    while True:
+      tag = inspect.tag_of(self.target)
+      if tag == T_FWD:
+        if self.update_fwd_nodes and self.realpath:
+          end = self.compress_fwd_chain(self.target)
+          self.parent.successors[self.realpath[-1]] = end
+          self.target = end
+        else:
+          self.parent = self.target
+          self.realpath.append(0)
+          self.target = self.target.successors[0]
+      elif tag == T_SETGRD:
+        self.guards.add(self.target[0])
+        self.parent = self.target
+        self.realpath.append(1)
+        self.target = self.target.successors[1]
+      else:
+        break
+
+  def compress_fwd_chain(self, fwd):
+    '''Compresses a chain of forward nodes.'''
+    chain = []
+    while inspect.tag_of(fwd) == T_FWD:
+      chain.append(fwd)
+      fwd = fwd.successors[0]
+    for node in chain:
+      node.successors[0] = fwd
+    return fwd
+
+  @visitation.dispatch.on('path')
+  def advance(self, path):
+    raise CurryIndexError(
+        'node advance must be an integer or sequence of integers, not %r'
+            % type(path).__name__
+      )
+
+  @advance.when(numbers.Integral)
+  def advance(self, i):
+    parent = self.target
+    try:
+      self.target = parent.successors[i]
+    except (IndexError, AttributeError):
+      raise CurryIndexError('node index out of range')
+    self.parent = parent
+    self.realpath.append(i)
+    self.skip()
+
+  @advance.when((collections.Sequence, collections.Iterator), no=(str,))
+  def advance(self, path):
+    for i in path:
+      self.advance(i)
+
+def realpath(root, path, update_fwd_nodes=False):
   '''
-  Get the real path to subexpression ``root[path]``.  The real path is formed
-  by skipping over forward nodes and set guards.  These implicit steps are
-  inserted into the path.
+  Gets the real path from ``root`` to the subexpression along the logical path
+  ``path``.  The real path is formed by skipping over forward nodes and set
+  guards.  These implicit steps are inserted into the path so that the result
+  can be passed to ``index``.  Optionally, forward nodes can be spliced out
+  instead of added to the real path.
 
   Parameters:
   -----------
@@ -77,6 +149,10 @@ def realpath(root, path):
       A sequence of integers specifying the logical path to the intended
       subexpression.
 
+    ``update_fwd_nodes``
+      When True, forward nodes are spliced out, where possible, and chains of
+      forward nodes are short-cut to their end.
+
   Returns:
   --------
   A triple of (target, realpath, guards) where ``target`` is the subexpression
@@ -84,24 +160,6 @@ def realpath(root, path):
   including entries for any forward nodes or set guards skipped over; and
   guards is a set containing the IDs for each guard crossed.
   '''
-  target = root
-  realpath = []
-  guards = set()
-  target = _skip(target, realpath, guards)
-  for i in path:
-    realpath.append(i)
-    target = target.successors[i]
-    target = _skip(target, realpath, guards)
-  return target, realpath, guards
-
-def _skip(target, realpath, guards):
-  if isinstance(target, node.Node):
-    while hasattr(target, 'info') and target.info.tag in [T_FWD, T_SETGRD]:
-      if target.info.tag == T_FWD:
-        realpath.append(0)
-        target = target.successors[0]
-      elif target.info.tag == T_SETGRD:
-        guards.add(target[0])
-        realpath.append(1)
-        target = target.successors[1]
-  return target
+  indexer = RealPathIndexer(root, update_fwd_nodes)
+  indexer.advance(path)
+  return indexer.target, indexer.realpath, indexer.guards
