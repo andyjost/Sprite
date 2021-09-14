@@ -30,12 +30,6 @@ def main(program_name, argv):
       code.interact(local={'__package__': curry})
       return
 
-    if args.module:
-      if not isLegalModulename(args.name):
-        raise ValueError('expected a dot-separated module name')
-    elif not args.name.endswith('.curry'):
-      raise ValueError('expected a file name ending with .curry')
-
     module = curry.import_(args.name, curry.path, is_sourcefile=not args.module)
     goal = curry.symbol(module.__name__ + '.' + args.goal)
     for value in curry.eval(goal):
