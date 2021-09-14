@@ -2,7 +2,6 @@ PROGRAM_NAME = 'sprite-exec'
 
 from .exceptions import SymbolLookupError
 from .tools.utility import handle_program_errors
-from .utility import isLegalModulename
 import argparse
 import code
 import importlib
