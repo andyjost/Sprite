@@ -198,8 +198,7 @@ def findCurryModule(
     # is_sourcefile=True.  It is acceptable to use a JSON file that has no
     # corresponding source file.  This means a library could be installed as
     # JSON only, without needing to install its source.
-    if not utility.isLegalModulename(name):
-      raise ModuleLookupError('%r is not a legal module name.' % name)
+    utility.validateModulename(name)
     # Search for the JSON file first, then ICurry, then .curry.
     suffixes = ['.json', '.json.z'] if json else []
     suffixes += ['.icy'] if icy else []

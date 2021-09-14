@@ -1,10 +1,10 @@
+from ..common import T_FUNC, T_CTOR
 from .. import config
 from .. import icurry
 from .. import importer
 from .. import objects
-from ..common import T_FUNC, T_CTOR
 from ..utility.currypath import clean_currypath
-from ..utility import encoding, visitation, formatDocstring
+from ..utility import encoding, visitation, formatDocstring, validateModulename
 import collections
 import logging
 import weakref
@@ -154,7 +154,10 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
 
 @visitation.dispatch.on('arg')
 @formatDocstring(__package__[:__package__.find('.')])
-def import_(interp, arg, currypath=None, extern=True, export=(), alias=(), is_sourcefile=False):
+def import_(
+    interp, arg, currypath=None, extern=True, export=(), alias=()
+  , is_sourcefile=False
+  ):
   '''
   Import one or more Curry modules.
 
@@ -188,16 +191,23 @@ def import_(interp, arg, currypath=None, extern=True, export=(), alias=(), is_so
 
 @import_.when(str)
 def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
+  if is_sourcefile:
+    if not name.endswith('.curry'):
+      raise ValueError('expected a file name ending with .curry')
+    modulename = name[:-len('.curry')]
+  else:
+    modulename = name
+  validateModulename(modulename)
   try:
-    return interp.modules[name]
+    return interp.modules[modulename]
   except KeyError:
-    logger.info('Importing %s', name)
-    if name == 'Prelude':
+    logger.info('Importing %s', modulename)
+    if modulename == 'Prelude':
       prelude = interp.context.runtime.prelude
       kwds.setdefault('extern', prelude.Prelude)
       kwds.setdefault('export', prelude.exports())
       kwds.setdefault('alias', prelude.aliases())
-    elif name == 'Control.SetFunctions':
+    elif modulename == 'Control.SetFunctions':
       setfunctions = interp.context.runtime.setfunctions
       kwds.setdefault('extern', setfunctions.SetFunctions)
       kwds.setdefault('export', setfunctions.exports())
@@ -205,7 +215,7 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
     currypath = clean_currypath(interp.path if currypath is None else currypath)
     icur = importer.loadModule(name, currypath, is_sourcefile=is_sourcefile)
     cymodule = import_(interp, icur, **kwds)
-    return objects._Handle(cymodule).findmodule(name)
+    return objects._Handle(cymodule).findmodule(modulename)
 
 @import_.when(collections.Sequence, no=str)
 def import_(interp, seq, *args, **kwds):

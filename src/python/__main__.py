@@ -2,7 +2,6 @@ PROGRAM_NAME = 'sprite-exec'
 
 from .exceptions import SymbolLookupError
 from .tools.utility import handle_program_errors
-from .utility import isLegalModulename
 import argparse
 import code
 import importlib
@@ -29,12 +28,6 @@ def main(program_name, argv):
     if args.name is None:
       code.interact(local={'__package__': curry})
       return
-
-    if args.module:
-      if not isLegalModulename(args.name):
-        raise ValueError('expected a dot-separated module name')
-    elif not args.name.endswith('.curry'):
-      raise ValueError('expected a file name ending with .curry')
 
     module = curry.import_(args.name, curry.path, is_sourcefile=not args.module)
     goal = curry.symbol(module.__name__ + '.' + args.goal)

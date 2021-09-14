@@ -225,7 +225,7 @@ class _Handle(object):
         return module
     else:
       raise exceptions.SymbolLookupError(
-          'not module %r exists in package %r' % (fullname, self.fullname)
+          'no module %r exists in package %r' % (fullname, self.fullname)
         )
 
   def getsymbol(self, name):
