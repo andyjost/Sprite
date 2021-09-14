@@ -1,6 +1,8 @@
 import cytest # from ./lib; must be first
 import curry
-from curry.backends.py.runtime.graph.indexing import index, realpath
+from curry.backends.py.runtime.graph.indexing import (
+    logical_subexpr, realpath, subexpr
+  )
 from curry import inspect
 from curry.expressions import fwd, _setgrd
 
@@ -14,11 +16,11 @@ def cross_check_realpath(expr, path, expected):
   # Only run the check if the expected result is a tuple.
   if isinstance(expected, tuple):
     tgt, rpath, _ = expected
-    return index(expr, rpath) is tgt
+    return subexpr(expr, rpath) is tgt
   else:
     return True
 
-# Most of thest tests in this file are run twice, once for indexing.index and
+# Most of thest tests in this file are run twice, once for indexing.subexpr and
 # again for indexing.realpath.  The common tests are defined in IndexingTests
 # and inherted by test classes at the end of the file.
 
@@ -139,7 +141,7 @@ class IndexingTests(object):
   def test_index_cyclical(self):
     cons, nil, ref = curry.cons, curry.nil, curry.ref
     e = curry.expr(ref('a'), a=cons(0, ref('b')), b=cons(1, ref('a')))
-    self.assertIs(index(e, ()), e)
+    self.assertIs(subexpr(e, ()), e)
     yield e, (0,0), 0
     yield e, (1,0,0), 1
     yield e, (1,1,0,0), 0
@@ -150,26 +152,26 @@ class IndexingTests(object):
     self.assertRaisesRegexp(
         curry.CurryIndexError
       , r"node index must be an integer or sequence of integers, not 'str'"
-      , lambda: index(onetwo, 'foo')
+      , lambda: subexpr(onetwo, 'foo')
       )
 
     self.assertRaisesRegexp(
         curry.CurryTypeError
       , r"invalid Curry expression \[1, 2\]"
-      , lambda: index([1,2], 0)
+      , lambda: subexpr([1,2], 0)
       )
 
     self.assertRaisesRegexp(
         curry.CurryIndexError
       , r"node index out of range"
-      , lambda: index(1, 0)
+      , lambda: subexpr(1, 0)
       )
 
     for badidx in [-3, 4]:
       self.assertRaisesRegexp(
           curry.CurryIndexError
         , r"node index out of range"
-        , lambda: index(onetwo, badidx)
+        , lambda: subexpr(onetwo, badidx)
         )
 
     for badty, name in [
@@ -182,13 +184,13 @@ class IndexingTests(object):
           curry.CurryIndexError
         , r"node index must be an integer or sequence of integers, not %r"
               % name
-        , lambda: index(onetwo, badty)
+        , lambda: subexpr(onetwo, badty)
         )
 
-# Note: many tests are inherited from IndexingTests.
+# Note: many tests are inherited.
 class TestIndex(IndexingTests, cytest.TestCase):
   '''Tests for indexing.index.'''
-  INDEXER = staticmethod(index)
+  INDEXER = staticmethod(subexpr)
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
@@ -209,12 +211,10 @@ class TestIndex(IndexingTests, cytest.TestCase):
     yield e, 1, curry.expr(True)
 
 
-# Note: many tests are inherited from IndexingTests.
-# For compatibility with the tests in IndexingTests, make a special version of
-# ``realpath`` that returns only the target expression.
-class TestRealpath1(IndexingTests, cytest.TestCase):
-  '''Basic tests for indexing.realpath.'''
-  INDEXER = staticmethod(lambda *args: realpath(*args)[0])
+# Note: many tests are inherited.
+class TestLogicalSubexpr(IndexingTests, cytest.TestCase):
+  '''Tests for indexing.logical_subexpr.'''
+  INDEXER = staticmethod(logical_subexpr)
 
 
 class TestRealpathNoUFN(cytest.TestCase):
@@ -240,11 +240,11 @@ class TestRealpathNoUFN(cytest.TestCase):
     e = curry.expr(_setgrd(0, True))
     true = curry.expr(True)
     yield e, (), (true, [1], set([0]))
-    self.assertStructEqual(index(e, [1]), true)
+    self.assertStructEqual(subexpr(e, [1]), true)
 
     e = curry.expr(_setgrd(0, _setgrd(1, _setgrd(0, True))))
     yield e, (), (true, [1,1,1], set([0,1]))
-    self.assertStructEqual(index(e, [1,1,1]), true)
+    self.assertStructEqual(subexpr(e, [1,1,1]), true)
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
@@ -288,7 +288,7 @@ class TestRealpathUFN(cytest.TestCase):
       # Make a chain of N forward nodes: fwd(...fwd(-1)...)
       end = curry.expr(-1)
       e = curry.expr(reduce(lambda a,_: fwd(a), range(N), end))
-      chain = [index(e, [0]*i) for i in range(N)] # keep each link
+      chain = [subexpr(e, [0]*i) for i in range(N)] # keep each link
       # Everything in the chain is a forward node.
       map(self.assertIsaFwd, chain)
       # Not all links point directly to the end.
@@ -297,7 +297,7 @@ class TestRealpathUFN(cytest.TestCase):
       # Index with UFN=True.
       tgt, path, grds = realpath(e, (), update_fwd_nodes=True)
       self.assertStructEqual(tgt, end)
-      self.assertStructEqual(index(e, path), end)
+      self.assertStructEqual(subexpr(e, path), end)
       self.assertEqual(grds, set())
       # The head remains a FWD b/c we don't have its parent.
       self.assertStructEqual(e, curry.expr(fwd(end)))
@@ -315,7 +315,7 @@ class TestRealpathUFN(cytest.TestCase):
         # Make a chain of N forward nodes: fwd(...fwd(-1)...)
         end = curry.expr(-1)
         e = curry.expr([head, reduce(lambda a,_: fwd(a), range(N), end)])
-        chain = [index(e, [0]+[0]*i) for i in range(N)] # keep each link
+        chain = [subexpr(e, [0]+[0]*i) for i in range(N)] # keep each link
         # Everything in the chain is a forward node.
         map(self.assertIsaFwd, chain)
         # Not all links point directly to the end.
@@ -324,7 +324,7 @@ class TestRealpathUFN(cytest.TestCase):
         # Index with UFN=True.
         tgt, path, grds = realpath(e, 0, update_fwd_nodes=True)
         self.assertIs(tgt, end)
-        self.assertIs(index(e, path), end)
+        self.assertIs(subexpr(e, path), end)
         self.assertEqual(grds, set())
         # Now, every link is short-cut to the end.
         self.assertTrue(all(inspect.fwd_target(link) is end for link in chain))

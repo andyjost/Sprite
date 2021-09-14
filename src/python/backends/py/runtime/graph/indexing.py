@@ -1,6 +1,4 @@
-'''
-Code related to expression indexing.
-'''
+'''Code for indexing to subexpressions.'''
 
 from .....common import T_SETGRD, T_FWD
 from .....exceptions import CurryIndexError, CurryTypeError
@@ -10,57 +8,14 @@ from .....utility import visitation
 import collections
 import numbers
 
-@visitation.dispatch.on('path')
-def index(root, path):
+__all__ = ['logical_subexpr', 'realpath', 'subexpr']
+
+def logical_subexpr(root, path, update_fwd_nodes=False):
   '''
-  Performs straightforward indexing into a Curry expression.  Returns the
-  subexpression at ``root[path]``.  No special handling of any kind is
-  performed.  More specifically, neither forward nodes nor set guards are
-  skipped, and boxed fundamental types can be indexed to find their unboxed
-  contents.
-
-  Parameters:
-  -----------
-    ``root``
-      The expression at which to begin indexing.  This is usually an instance
-      of ``Node``, though unboxed values are accepted if the path is empty.
-
-    ``path``
-      An integral number or sequence of such numbers specifying the path.
-
-  Raises:
-  -------
-    ``CurryTypeError``
-      When ``root`` is not a Curry expression.
-
-    ``CurryIndexError``
-      When a path component is invalid.
-
-  Returns:
-  --------
-  The subexpression at ``root[path]``.
+  Like subexpr, but assumes a logical path.  That is, steps through forward
+  nodes and set guards do not appear in the path.
   '''
-  raise CurryIndexError(
-      'node index must be an integer or sequence of integers, not %r'
-          % type(path).__name__
-    )
-
-@index.when(numbers.Integral)
-def index(root, path):
-  if not inspect.isa_curry_expr(root):
-    raise CurryTypeError('invalid Curry expression %r' % root)
-  try:
-    return root.successors[path]
-  except (IndexError, AttributeError):
-    raise CurryIndexError('node index out of range')
-
-@index.when((collections.Sequence, collections.Iterator), no=(str,))
-def index(root, path):
-  target = root
-  for i in path:
-    target = index(target, i)
-  return target
-
+  return realpath(root, path, update_fwd_nodes)[0]
 
 class RealPathIndexer(object):
   '''See ``realpath``.'''
@@ -163,3 +118,56 @@ def realpath(root, path, update_fwd_nodes=False):
   indexer = RealPathIndexer(root, update_fwd_nodes)
   indexer.advance(path)
   return indexer.target, indexer.realpath, indexer.guards
+
+
+@visitation.dispatch.on('path')
+def subexpr(root, path):
+  '''
+  Performs straightforward indexing into a Curry expression.  Returns the
+  subexpression at ``root[path]``.  No special handling of any kind is
+  performed.  More specifically, neither forward nodes nor set guards are
+  skipped, and boxed fundamental types can be indexed to find their unboxed
+  contents.
+
+  Parameters:
+  -----------
+    ``root``
+      The expression at which to begin indexing.  This is usually an instance
+      of ``Node``, though unboxed values are accepted if the path is empty.
+
+    ``path``
+      An integral number or sequence of such numbers specifying the path.
+
+  Raises:
+  -------
+    ``CurryTypeError``
+      When ``root`` is not a Curry expression.
+
+    ``CurryIndexError``
+      When a path component is invalid.
+
+  Returns:
+  --------
+  The subexpression at ``root[path]``.
+  '''
+  raise CurryIndexError(
+      'node index must be an integer or sequence of integers, not %r'
+          % type(path).__name__
+    )
+
+@subexpr.when(numbers.Integral)
+def subexpr(root, path):
+  if not inspect.isa_curry_expr(root):
+    raise CurryTypeError('invalid Curry expression %r' % root)
+  try:
+    return root.successors[path]
+  except (IndexError, AttributeError):
+    raise CurryIndexError('node index out of range')
+
+@subexpr.when((collections.Sequence, collections.Iterator), no=(str,))
+def subexpr(root, path):
+  target = root
+  for i in path:
+    target = subexpr(target, i)
+  return target
+
