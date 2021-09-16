@@ -6,6 +6,7 @@ intended to be imported except by state.py.
 from copy import copy
 from .....common import T_VAR, T_CHOICE, LEFT, RIGHT, UNDETERMINED, ChoiceState
 from ..graph import Node
+from ..graph.replacer import Replacer
 
 __all__ = [
     'equate_fp', 'grp_id', 'obj_id', 'make_left', 'make_right', 'read_fp'
@@ -82,6 +83,17 @@ def equate_fp(self, arg0, arg1, config=None):
   '''
   return self.update_fp(arg0, arg1, config=config) \
      and self.update_fp(arg1, arg0, config=config)
+
+def make_choice(rts, cid, node, path, generator=None, rewrite=None):
+  '''
+  Make a choice node with ID ``cid`` whose alternatives are derived by
+  replacing ``node[path]`` with the alternatives of choice-rooted
+  expression``alternatives``.  If ``alternatives`` is not specified, then
+  ``node[path]`` is used.  If ``rewrite`` is supplied, the specified node is
+  overwritten.  Otherwise a new node is created.
+  '''
+  R = Replacer(node, path, alternatives=generator)
+  return Node(rts.prelude._Choice, cid, R[1], R[2], target=rewrite)
 
 def update_fp(self, choicestate, arg=None, config=None):
   '''

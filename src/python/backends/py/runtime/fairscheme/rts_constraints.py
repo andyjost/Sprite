@@ -3,9 +3,13 @@ Implements RuntimeState methods related to constraints.  This module is not
 intended to be imported except by state.py.
 '''
 
+__all__ = ['constraint_type', 'constrain_equal', 'make_constraint']
+
 import itertools
 from .....utility import exprutil
 from .....common import T_VAR, T_CHOICE
+from ..graph.node import Node
+from ..graph.replacer import Replacer
 
 STRICT_CONSTRAINT = 0
 NONSTRICT_CONSTRAINT = 1
@@ -146,4 +150,15 @@ def _constrain_equal_rec(self, arg0, arg1, config=None):
               p.push()
               q.push()
       return True
+
+def make_constraint(rts, constr, node, path, rewrite=None):
+  '''
+  Make a new constraint object based on ``constr``, which is located at
+  node[path].  If ``rewrite`` is supplied, the specified node is overwritten.
+  Otherwise a new node is created.
+  '''
+  R = Replacer(node, path)
+  value = R[0]
+  pair = constr[1]
+  return Node(constr.info, value, pair, target=rewrite)
 

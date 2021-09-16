@@ -7,7 +7,7 @@ from .. import graph
 
 __all__ = [
     'add_binding', 'apply_binding', 'get_binding', 'has_binding'
-  , 'update_binding'
+  , 'make_value_bindings', 'update_binding'
   ]
 
 def add_binding(self, arg, value, config=None):
@@ -67,6 +67,19 @@ def has_binding(self, arg=None, config=None):
   '''Indicates whether ``arg`` has a binding.'''
   config = config or self.C
   return self.grp_id(arg, config) in config.bindings
+
+def make_value_bindings(rts, var, values, typedef):
+  n = len(values)
+  assert n
+  if n == 1:
+    value = graph.Node(typedef.constructors[0], values[0])
+    pair = graph.Node(rts.prelude.Pair, rts.obj_id(var), value)
+    return graph.Node(rts.prelude._ValueBinding, value, pair)
+  else:
+    cid = next(rts.idfactory)
+    left = make_value_bindings(rts, var, values[:n//2], typedef)
+    right = make_value_bindings(rts, var, values[n//2:], typedef)
+    return graph.Node(rts.prelude._Choice, cid, left, right)
 
 def update_binding(self, arg=None, config=None):
   '''
