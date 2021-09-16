@@ -17,54 +17,54 @@ __all__ = [
   , 'is_variable', 'is_narrowed', 'register_variable'
   ]
 
-def clone_generator(self, bound, unbound):
+def clone_generator(rts, bound, unbound):
   vid = unbound[0]
-  constructors = list(_gen_ctors(self, bound[1]))
-  _make_generator(self, unbound, typedef=constructors)
+  constructors = list(_gen_ctors(rts, bound[1]))
+  _make_generator(rts, unbound, typedef=constructors)
 
-def freshvar_args(self):
+def freshvar_args(rts):
   '''
   Generates arguments for a fresh free variable using the next available ID.
   '''
-  yield self.prelude._Free.info
-  yield next(self.idfactory)
-  yield graph.Node(self.prelude.Unit.info)
+  yield rts.prelude._Free.info
+  yield next(rts.idfactory)
+  yield graph.Node(rts.prelude.Unit.info)
 
-def freshvar(self, target=None):
+def freshvar(rts, target=None):
   '''Places a fresh free variable at the specified location.'''
-  node = graph.Node(*freshvar_args(self), target=target)
+  node = graph.Node(*freshvar_args(rts), target=target)
   try:
-    self.register_variable(node)
+    rts.register_variable(node)
   except AttributeError:
     pass
   return node
 
-def get_generator(self, arg=None, config=None):
+def get_generator(rts, arg=None, config=None):
   '''
   Returns the generator for the given free variable. The first argument must
   be a choice or free variable node, or ID.
   '''
-  vid = self.obj_id(arg, config)
-  x = self.get_variable(vid)
-  if not self.has_generator(x):
-    self.constrain_equal(x, self.get_variable(self.grp_id(vid, config)))
-    assert self.has_generator(x)
+  vid = rts.obj_id(arg, config)
+  x = rts.get_variable(vid)
+  if not rts.has_generator(x):
+    rts.constrain_equal(x, rts.get_variable(rts.grp_id(vid, config)))
+    assert rts.has_generator(x)
   _, gen = x
   return gen
 
-def get_variable(self, arg=None, config=None):
+def get_variable(rts, arg=None, config=None):
   try:
     if arg.info.tag == T_VAR:
       return arg
   except:
-    vid = self.obj_id(arg, config)
-    return self.vtable[vid]
+    vid = rts.obj_id(arg, config)
+    return rts.vtable[vid]
 
-def has_generator(self, arg=None, config=None):
-  variable = self.get_variable(arg, config)
-  return variable.successors[1].info is not self.prelude.Unit.info
+def has_generator(rts, arg=None, config=None):
+  variable = rts.get_variable(arg, config)
+  return variable.successors[1].info is not rts.prelude.Unit.info
 
-def instantiate(self, func, path, typedef, config=None):
+def instantiate(rts, func, path, typedef, config=None):
   '''
   Instantiates a needed free variable, which occurs at ``func[path]`` and has
   type ``typedef``.  The subexpression ``func`` will be rewritten such that the
@@ -77,10 +77,10 @@ def instantiate(self, func, path, typedef, config=None):
     The expression the free variable was replaced with.
   '''
   if typedef is None:
-    self.suspend(func.getitem_with_guards(func, path), config)
+    rts.suspend(func.getitem_with_guards(func, path), config)
   else:
     R = replacer.Replacer(func, path
-      , lambda node, _: _make_generator(self, node, typedef)
+      , lambda node, _: _make_generator(rts, node, typedef)
       )
     replaced = R[None]
     assert R.target.info.tag == T_VAR
@@ -88,49 +88,49 @@ def instantiate(self, func, path, typedef, config=None):
     func.successors[:] = replaced.successors
     target = R.target.successors[1]
     if R.guards:
-      return graph.utility.guard(self, R.guards, target)
+      return rts.guard(R.guards, target)
     else:
       return target
 
-def is_free(self, arg=None, config=None):
+def is_free(rts, arg=None, config=None):
   '''
   Indicates whether a free variable is missing any information that would allow
   a computation needing it to proceed.  Used to implement
   Prelude.ensureNotFree.
   '''
-  return self.is_variable(arg) and not any(
+  return rts.is_variable(arg) and not any(
       prop(arg, config) for prop in [
-          self.has_generator, self.has_binding, self.is_narrowed
+          rts.has_generator, rts.has_binding, rts.is_narrowed
         ]
     )
 
-def is_narrowed(self, arg=None, config=None):
+def is_narrowed(rts, arg=None, config=None):
   '''
   Indicates whether the given free varaible was narrowed in this
   configuration.  The argument must be a free variable node or ID.
   '''
-  return self.read_fp(arg, config=config) != UNDETERMINED
+  return rts.read_fp(arg, config=config) != UNDETERMINED
 
-def is_nondet(self, arg=None, config=None):
+def is_nondet(rts, arg=None, config=None):
   '''
   Returns True if the argument is a choice or variable.
   '''
-  arg = (config or self.C).root if arg is None else arg
+  arg = (config or rts.C).root if arg is None else arg
   return inspect.tag_of(arg) in [T_CHOICE, T_VAR]
 
-def is_variable(self, node):
+def is_variable(rts, node):
   '''Indicates whether the given argument is a free variable.'''
   try:
     return node.info.tag == T_VAR
   except AttributeError:
     return False
 
-def register_variable(self, var):
+def register_variable(rts, var):
   '''
   Update the vtable for variable ``var``.  The variable is added to the
   table so that it can be found later, if needed.
   '''
-  self.vtable[self.obj_id(var)] = var
+  rts.vtable[rts.obj_id(var)] = var
 
 def _create_generator(rts, ctors, vid=None, target=None):
   '''
