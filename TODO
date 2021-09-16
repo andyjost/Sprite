@@ -5,3 +5,11 @@
 - fix tests in unit_py_constraints.py
 - fix tests in unit_py_pulltab.py
 - Update to the latest icurry.
+- Create a configure script to simply installation.
+- Maybe create a simplified implementation of set functions that just
+  normalizes the arguments.
+- Create a minimal distro by stripping out unneeded libraries (LLVM, mps)
+- Upgrade from Boost.Python to pybind11.
+- Python3?
+- Create a batch compile capability.
+
