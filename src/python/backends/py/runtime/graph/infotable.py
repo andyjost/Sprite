@@ -1,4 +1,6 @@
 from ..... import context
+import types
+import weakref
 
 class InfoTable(object):
   '''
@@ -100,11 +102,17 @@ class InfoTable(object):
   def __repr__(self):
     return ''.join([
         'InfoTable('
-      , ', '.join('%s=%r' % (
-            slot, getattr(self, slot)) for slot in self.__slots__
+      , ', '.join('%s=%s' % (
+            slot, self._showslot(getattr(self, slot))) for slot in self.__slots__
           )
       , ')'
       ])
+
+  def _showslot(self, x):
+    if isinstance(x, weakref.ref):
+      return repr(x())
+    else:
+      return repr(x)
 
 context.InfoTable.register(InfoTable)
 

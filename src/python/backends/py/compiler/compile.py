@@ -53,8 +53,8 @@ def compile_function(interp, ifun, extern=None):
         return compile_py_boxedfunc(interp, ifun.metadata)
       elif 'py.rawfunc' in ifun.metadata:
         return compile_py_rawfunc(interp, ifun.metadata)
-      compiler = FunctionCompiler(interp, ifun.fullname, extern)
-      compiler.compile(ifun)
+      compiler = FunctionCompiler(interp, ifun, extern)
+      compiler.compile()
     except ExternallyDefined as e:
       ifun = e.ifun
     else:
@@ -148,9 +148,11 @@ class FunctionCompiler(object):
         selector).  No special rules; must not begin with an underscore or
         conflict with the above.
   '''
-  def __new__(self, interp, name, extern=None):
+  def __new__(self, interp, ifun, extern=None):
+    assert isinstance(ifun, icurry.IFunction)
     self = object.__new__(self)
-    self.name = name
+    self.ifun = ifun
+    self.name = ifun.fullname
     self.interp = interp
     self.closure = closure.Closure(interp)
     self.closure['Node'] = graph.Node
@@ -177,9 +179,11 @@ class FunctionCompiler(object):
             'mode.  It exists to help PDB show the compiled code.'
           ) % self.name
         out.write('\n'.join('# ' + line for line in textwrap.wrap(comment)))
-        out.write('\n\n# Closure:\n')
+        out.write('\n\n# Globals:\n# --------\n')
         closure = pprint.pformat(self.closure.context, indent=2)
         out.write('\n'.join('# ' + line for line in closure.split('\n')))
+        out.write('\n\n# ICurry:\n# -------\n')
+        out.write('\n'.join('# ' + line for line in str(self.ifun).split('\n')))
       co = compile(source, srcfile, 'exec')
       exec co in self.closure.context, local
     else:
@@ -204,16 +208,15 @@ class FunctionCompiler(object):
     lines += render.indent(self.program)
     return '\n'.join(lines)
 
-  def compile(self, ifun):
-    assert isinstance(ifun, icurry.IFunction)
+  def compile(self):
     # ICurry data can be deeply nested.  Adjusting the recursion limit up from
     # its default of 1000 is necessary, e.g., to process strings longer than
     # 999 characters.
     limit = sys.getrecursionlimit()
-    self.varinfo = analysis.varinfo(ifun.body)
+    self.varinfo = analysis.varinfo(self.ifun.body)
     try:
       sys.setrecursionlimit(1<<30)
-      self._compile(ifun.body)
+      self._compile(self.ifun.body)
     finally:
       sys.setrecursionlimit(limit)
       self.varinfo = None

@@ -17,6 +17,10 @@ def logical_subexpr(root, path, update_fwd_nodes=False):
   '''
   return realpath(root, path, update_fwd_nodes)[0]
 
+
+# The result of a call to ``realpath``.
+Realpath = collections.namedtuple('Realpath', ['target', 'realpath', 'guards'])
+
 class RealPathIndexer(object):
   '''See ``realpath``.'''
   def __init__(self, root, update_fwd_nodes=True):
@@ -28,6 +32,10 @@ class RealPathIndexer(object):
     self.parent = None
     self.update_fwd_nodes = update_fwd_nodes
     self.skip()
+
+  @property
+  def result(self):
+    return Realpath(self.target, self.realpath, self.guards)
 
   def skip(self):
     '''
@@ -86,6 +94,7 @@ class RealPathIndexer(object):
     for i in path:
       self.advance(i)
 
+
 def realpath(root, path, update_fwd_nodes=False):
   '''
   Gets the real path from ``root`` to the subexpression along the logical path
@@ -110,14 +119,15 @@ def realpath(root, path, update_fwd_nodes=False):
 
   Returns:
   --------
-  A triple of (target, realpath, guards) where ``target`` is the subexpression
-  at ``root[path]``; ``realpath`` is the actual path used to reach the target,
-  including entries for any forward nodes or set guards skipped over; and
-  guards is a set containing the IDs for each guard crossed.
+  A ``namedtuple`` (target, realpath, guards), where ``target`` is the
+  subexpression at ``root[path]``; ``realpath`` is the actual path used to
+  reach the target, including entries for any forward nodes or set guards
+  skipped over; and ``guards`` is a set containing the IDs for each guard
+  crossed.
   '''
   indexer = RealPathIndexer(root, update_fwd_nodes)
   indexer.advance(path)
-  return indexer.target, indexer.realpath, indexer.guards
+  return indexer.result
 
 
 @visitation.dispatch.on('path')
