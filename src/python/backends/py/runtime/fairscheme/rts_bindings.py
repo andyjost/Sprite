@@ -10,23 +10,23 @@ __all__ = [
   , 'make_value_bindings', 'update_binding'
   ]
 
-def add_binding(self, arg, value, config=None):
+def add_binding(rts, arg, value, config=None):
   '''
   Create a binding from ``arg`` to ``value``.  The return value indicates
   whether the binding succeeded.
   '''
-  config = config or self.C
+  config = config or rts.C
   value = graph.Node.getitem(value)
-  if self.has_binding(arg, config):
-    current = self.get_binding(arg, config)
-    assert current.info.typedef() in self.builtin_types
+  if rts.has_binding(arg, config):
+    current = rts.get_binding(arg, config)
+    assert current.info.typedef() in rts.builtin_types
     return current.info is value.info and current[0] == value[0]
   else:
-    vid = self.grp_id(arg)
+    vid = rts.grp_id(arg)
     config.bindings.write[vid] = value
     return True
 
-def apply_binding(self, arg=None, config=None):
+def apply_binding(rts, arg=None, config=None):
   '''
   Pop a binding and apply it to the current configuration.
 
@@ -45,28 +45,28 @@ def apply_binding(self, arg=None, config=None):
         The configuration to use as context.
 
   '''
-  config = config or self.C
-  if self.has_binding(arg, config=config):
+  config = config or rts.C
+  if rts.has_binding(arg, config=config):
     config.root = graph.Node(
-        getattr(self.prelude, '&>')
+        getattr(rts.prelude, '&>')
       , graph.Node(
-            self.prelude.prim_nonstrictEq
-          , self.get_generator(arg, config=config)
-          , self.get_binding(arg, config=config)
+            rts.prelude.prim_nonstrictEq
+          , rts.get_generator(arg, config=config)
+          , rts.get_binding(arg, config=config)
           )
       , config.root
       )
 
-def get_binding(self, arg=None, config=None):
+def get_binding(rts, arg=None, config=None):
   '''Get the binding associated with ``arg``.'''
-  config = config or self.C
-  vid = self.grp_id(arg, config)
+  config = config or rts.C
+  vid = rts.grp_id(arg, config)
   return config.bindings.read[vid]
 
-def has_binding(self, arg=None, config=None):
+def has_binding(rts, arg=None, config=None):
   '''Indicates whether ``arg`` has a binding.'''
-  config = config or self.C
-  return self.grp_id(arg, config) in config.bindings
+  config = config or rts.C
+  return rts.grp_id(arg, config) in config.bindings
 
 def make_value_bindings(rts, var, values, typedef):
   n = len(values)
@@ -81,7 +81,7 @@ def make_value_bindings(rts, var, values, typedef):
     right = make_value_bindings(rts, var, values[n//2:], typedef)
     return graph.Node(rts.prelude._Choice, cid, left, right)
 
-def update_binding(self, arg=None, config=None):
+def update_binding(rts, arg=None, config=None):
   '''
   Updates the bindings for a node when its group ID changes.
 
@@ -89,10 +89,10 @@ def update_binding(self, arg=None, config=None):
   j equal its object and effective IDs, respectively, and if i!=j, move the
   binding from i to j.
   '''
-  config = config or self.C
+  config = config or rts.C
   arg = config.root if arg is None else arg
-  i,j = self.obj_id(arg), self.grp_id(arg)
+  i,j = rts.obj_id(arg), rts.grp_id(arg)
   if i != j:
     if i in config.bindings:
-      self.add_binding(j, self.get_binding(i, config), config=config)
+      rts.add_binding(j, rts.get_binding(i, config), config=config)
 

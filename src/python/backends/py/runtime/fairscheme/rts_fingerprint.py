@@ -13,7 +13,7 @@ __all__ = [
   , 'update_fp'
   ]
 
-def grp_id(self, arg=None, config=None):
+def grp_id(rts, arg=None, config=None):
   '''
   Returns the group ID.  The argument must be a choice or variable node,
   or ID.
@@ -25,16 +25,16 @@ def grp_id(self, arg=None, config=None):
   Two variables are constrained equal if and only if they share the same group
   ID (reflexivity permitted).
   '''
-  config = config or self.C
-  return config.strict_constraints.read.root(self.obj_id(arg, config))
+  config = config or rts.C
+  return config.strict_constraints.read.root(rts.obj_id(arg, config))
 
-def obj_id(self, arg=None, config=None):
+def obj_id(rts, arg=None, config=None):
   '''
   Returns the choice or variable ID of a node.  The node argument must be a
   choice or free variable node.  For convenience, ``arg`` may be an ID, in
   which case it is simply returned.
   '''
-  arg = (config or self.C).root if arg is None else arg
+  arg = (config or rts.C).root if arg is None else arg
   if isinstance(arg, int):
     return arg
   else:
@@ -45,7 +45,7 @@ def obj_id(self, arg=None, config=None):
       vid, _ = arg
       return vid
 
-def read_fp(self, arg=None, config=None):
+def read_fp(rts, arg=None, config=None):
   '''
   Read the fingerprint for the given argument.  The argument must be a choice
   or variable node, ID, or ChoiceState.  The group ID is always used to read a
@@ -55,34 +55,34 @@ def read_fp(self, arg=None, config=None):
   if isinstance(arg, ChoiceState):
     return arg
   else:
-    config = config or self.C
-    return config.fingerprint[self.grp_id(arg, config=config)]
+    config = config or rts.C
+    return config.fingerprint[rts.grp_id(arg, config=config)]
 
-def fork(self, config=None):
+def fork(rts, config=None):
   '''
   Fork a choice-rooted configuration.  Yields each consistent configuration
   arising from fixing the choice to the LEFT or RIGHT.
   '''
-  config = config or self.C
+  config = config or rts.C
   for idx, choicestate in [(1, LEFT), (2, RIGHT)]:
     clone = config.clone(Node.getitem(config.root, idx))
-    if self.update_fp(choicestate, config.root, config=clone):
-      if self.obj_id(config=config) in self.vtable:
-        i = self.obj_id(config=config)
-        j = self.grp_id(i, config=clone)
-        self.apply_binding(i, config=clone)
-        self.apply_binding(j, config=clone)
-        if not self.constrain_equal(*map(self.get_variable, [i,j]), config=clone):
+    if rts.update_fp(choicestate, config.root, config=clone):
+      if rts.obj_id(config=config) in rts.vtable:
+        i = rts.obj_id(config=config)
+        j = rts.grp_id(i, config=clone)
+        rts.apply_binding(i, config=clone)
+        rts.apply_binding(j, config=clone)
+        if not rts.constrain_equal(*map(rts.get_variable, [i,j]), config=clone):
           continue
       yield clone
 
-def equate_fp(self, arg0, arg1, config=None):
+def equate_fp(rts, arg0, arg1, config=None):
   '''
   Equate two IDs in a fingerprint.  Set both to the same value and return
   True, if that is consistent, or return False otherwise.
   '''
-  return self.update_fp(arg0, arg1, config=config) \
-     and self.update_fp(arg1, arg0, config=config)
+  return rts.update_fp(arg0, arg1, config=config) \
+     and rts.update_fp(arg1, arg0, config=config)
 
 def make_choice(rts, cid, node, path, generator=None, rewrite=None):
   '''
@@ -95,7 +95,7 @@ def make_choice(rts, cid, node, path, generator=None, rewrite=None):
   R = Replacer(node, path, alternatives=generator)
   return Node(rts.prelude._Choice, cid, R[1], R[2], target=rewrite)
 
-def update_fp(self, choicestate, arg=None, config=None):
+def update_fp(rts, choicestate, arg=None, config=None):
   '''
   Update the fingerprint to reflect the ID associated with ``arg``` being
   set to ``choicestate.``
@@ -120,15 +120,15 @@ def update_fp(self, choicestate, arg=None, config=None):
   --------
   A Boolean indicating whether the change is consistent.
   '''
-  config = config or self.C
-  choicestate = self.read_fp(choicestate, config=config)
+  config = config or rts.C
+  choicestate = rts.read_fp(choicestate, config=config)
   if choicestate == UNDETERMINED:
     return True
-  current = self.read_fp(arg, config=config)
+  current = rts.read_fp(arg, config=config)
   if current == UNDETERMINED:
     config.fingerprint = copy(config.fingerprint)
-    config.fingerprint[self.obj_id(arg, config)] = choicestate
-    config.fingerprint[self.grp_id(arg, config)] = choicestate
+    config.fingerprint[rts.obj_id(arg, config)] = choicestate
+    config.fingerprint[rts.grp_id(arg, config)] = choicestate
     return True
   else:
     return current == choicestate

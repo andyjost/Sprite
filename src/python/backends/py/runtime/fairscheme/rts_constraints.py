@@ -15,18 +15,18 @@ STRICT_CONSTRAINT = 0
 NONSTRICT_CONSTRAINT = 1
 VALUE_BINDING = 2
 
-def constraint_type(self, arg=None, config=None):
+def constraint_type(rts, arg=None, config=None):
   '''Indicates the constraint type.'''
-  arg = (config or self.C).root if arg is None else arg
+  arg = (config or rts.C).root if arg is None else arg
   mapping = {
-      id(self.prelude._StrictConstraint.info)   : STRICT_CONSTRAINT
-    , id(self.prelude._NonStrictConstraint.info): NONSTRICT_CONSTRAINT
-    , id(self.prelude._ValueBinding.info)       : VALUE_BINDING
+      id(rts.prelude._StrictConstraint.info)   : STRICT_CONSTRAINT
+    , id(rts.prelude._NonStrictConstraint.info): NONSTRICT_CONSTRAINT
+    , id(rts.prelude._ValueBinding.info)       : VALUE_BINDING
     }
   return mapping[id(arg.info)]
 
 def constrain_equal(
-    self, arg0, arg1, constraint_type=STRICT_CONSTRAINT, config=None
+    rts, arg0, arg1, constraint_type=STRICT_CONSTRAINT, config=None
   ):
   '''
   Constrain the given arguments to be equal in the specified context.  This
@@ -68,22 +68,22 @@ def constrain_equal(
   consistent.
 
   '''
-  config = config or self.C
-  i, j = [self.obj_id(arg, config) for arg in [arg0, arg1]]
+  config = config or rts.C
+  i, j = [rts.obj_id(arg, config) for arg in [arg0, arg1]]
   if i != j:
     if constraint_type == STRICT_CONSTRAINT:
-      if not self.equate_fp(i, j, config=config):
+      if not rts.equate_fp(i, j, config=config):
         return False
       config.strict_constraints.write.unite(i, j)
-      self.update_binding(i, config=config)
-      self.update_binding(j, config=config)
-      if any(map(self.is_variable, [arg0, arg1])):
-        return _constrain_equal_rec(self, i, j, config=config)
+      rts.update_binding(i, config=config)
+      rts.update_binding(j, config=config)
+      if any(map(rts.is_variable, [arg0, arg1])):
+        return _constrain_equal_rec(rts, i, j, config=config)
     else:
-      return self.add_binding(i, arg1, config=config)
+      return rts.add_binding(i, arg1, config=config)
   return True
 
-def _constrain_equal_rec(self, arg0, arg1, config=None):
+def _constrain_equal_rec(rts, arg0, arg1, config=None):
   '''
   Implements the recursive part of ``constrain_equal.``  Given two arguments,
   if at least one has been narrowed, ensure both are instantiated and then
@@ -124,29 +124,29 @@ def _constrain_equal_rec(self, arg0, arg1, config=None):
   consistent).
   '''
   try:
-    xs = map(self.get_variable, [arg0, arg1])
+    xs = map(rts.get_variable, [arg0, arg1])
   except KeyError:
     return True
   else:
     try:
       pivot = next(
-          x for x in xs if self.is_narrowed(x, config=config)
-                        and self.has_generator(x)
+          x for x in xs if rts.is_narrowed(x, config=config)
+                        and rts.has_generator(x)
         )
     except StopIteration:
       return True
     else:
-      u = self.get_generator(pivot, config=config)
+      u = rts.get_generator(pivot, config=config)
       for x in xs:
         if x is not pivot:
-          if not self.has_generator(x):
-            self.clone_generator(pivot, x)
-          v = self.get_generator(x, config=config)
+          if not rts.has_generator(x):
+            rts.clone_generator(pivot, x)
+          v = rts.get_generator(x, config=config)
           for p, q in itertools.izip(*[exprutil.walk(uv) for uv in [u,v]]):
-            if self.is_nondet(p.cursor):
-              if not self.constrain_equal(p.cursor, q.cursor, config=config):
+            if rts.is_nondet(p.cursor):
+              if not rts.constrain_equal(p.cursor, q.cursor, config=config):
                 return False
-            if not self.is_variable(p.cursor):
+            if not rts.is_variable(p.cursor):
               p.push()
               q.push()
       return True
