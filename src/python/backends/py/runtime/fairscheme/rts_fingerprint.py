@@ -4,7 +4,7 @@ intended to be imported except by state.py.
 '''
 
 from copy import copy
-from .....common import T_VAR, T_CHOICE, LEFT, RIGHT, UNDETERMINED, ChoiceState
+from .....common import T_FREE, T_CHOICE, LEFT, RIGHT, UNDETERMINED, ChoiceState
 from ..graph import Node
 from ..graph.replacer import Replacer
 
@@ -41,7 +41,7 @@ def obj_id(rts, arg=None, config=None):
     if arg.info.tag == T_CHOICE:
       cid, _, _ = arg
       return cid
-    elif arg.info.tag == T_VAR:
+    elif arg.info.tag == T_FREE:
       vid, _ = arg
       return vid
 
@@ -72,7 +72,7 @@ def fork(rts, config=None):
         j = rts.grp_id(i, config=clone)
         rts.apply_binding(i, config=clone)
         rts.apply_binding(j, config=clone)
-        if not rts.constrain_equal(*map(rts.get_variable, [i,j]), config=clone):
+        if not rts.constrain_equal(*map(rts.get_freevar, [i,j]), config=clone):
           continue
       yield clone
 

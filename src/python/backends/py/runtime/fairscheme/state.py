@@ -265,9 +265,9 @@ class RuntimeState(object):
       equate_fp, fork, grp_id, make_choice, obj_id, read_fp, update_fp
     )
   from .rts_setfunctions import guard
-  from .rts_variables import (
-      clone_generator, freshvar, freshvar_args, get_generator, get_variable
-    , has_generator, instantiate, is_free, is_narrowed, is_nondet, is_variable
-    , register_variable
+  from .rts_freevars import (
+      clone_generator, freshvar, freshvar_args, get_freevar, get_generator
+    , has_generator, instantiate, is_narrowed, is_nondet, is_void
+    , register_freevar
     )
 

@@ -1,4 +1,4 @@
-from .....common import T_SETGRD, T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .....common import T_SETGRD, T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .. import graph, trace
 from ..... import icurry, inspect
 from .....utility import exprutil
@@ -15,7 +15,7 @@ def D(rts):
       else:
         rts.E = value
         del value
-    elif tag == T_VAR:
+    elif tag == T_FREE:
       if rts.has_binding():
         rts.E = rts.get_binding()
       elif rts.is_narrowed():
@@ -86,7 +86,7 @@ def N(rts, root=None, path=None, ground=True):
           else:
             rts.make_constraint(state.cursor, root, state.path, rewrite=root)
           return False
-        elif tag == T_VAR:
+        elif tag == T_FREE:
           if ground:
             if rts.has_binding(state.cursor):
               binding = rts.get_binding(state.cursor)
@@ -97,7 +97,7 @@ def N(rts, root=None, path=None, ground=True):
               rts.E = rts.make_choice(gen[0], rts.E, state.path, gen)
               rts.restart()
             elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
-              x = rts.get_variable(rts.grp_id(state.cursor))
+              x = rts.get_freevar(rts.grp_id(state.cursor))
               rts.E = graph.utility.replace_copy(rts, rts.E, state.path, x)
               rts.restart()
           break
@@ -182,7 +182,7 @@ def hnf(rts, func, path, typedef=None, values=None, guards=None):
       elif tag == T_CONSTR:
         rts.make_constraint(target, func, path, rewrite=func)
         rts.unwind()
-      elif tag == T_VAR:
+      elif tag == T_FREE:
         if rts.has_generator(target):
           gen = rts.get_generator(target)
           rts.make_choice(gen.successors[0], func, path, gen, rewrite=func)

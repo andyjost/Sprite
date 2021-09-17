@@ -4,7 +4,7 @@ from curry.common import T_FAIL, T_CHOICE
 from curry.backends.py.runtime.control import E_UNWIND
 from curry.backends.py.runtime.graph import Node
 from curry.backends.py.runtime.graph import equality
-from curry.backends.py.runtime.fairscheme.rts_variables import _gen_ctors
+from curry.backends.py.runtime.fairscheme.rts_freevars import _gen_ctors
 from curry.backends.py.runtime.fairscheme.state import Bindings, RuntimeState
 from curry import icurry
 from curry import inspect
@@ -329,7 +329,7 @@ class TestInstantiation(cytest.TestCase):
     x, = list(self.interp.eval(self.interp.compile(
         'x::(%s) where x free' % typename, 'expr', imports=imports
       )))
-    self.assertIsaVariable(x)
+    self.assertIsaFreevar(x)
     self.assertChoiceIdEquals(x, 0)
     return self.interp.expr(self.interp.prelude.id, x)
 

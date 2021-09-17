@@ -102,8 +102,8 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     map(self.assertIsNotAConstraint, self.everything - set(constraints))
 
   def testIsaVariable(self):
-    self.assertIsaVariable(self.var)
-    map(self.assertIsNotAVariable, self.everything - set([self.var]))
+    self.assertIsaFreevar(self.var)
+    map(self.assertIsNotAFreevar, self.everything - set([self.var]))
 
   def testIsaFwd(self):
     self.assertIsaFwd(self.fwd)
@@ -156,9 +156,9 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
       ))
 
   def testGetVariableID(self):
-    self.assertEqual(inspect.get_variable_id(self.var), self.vid)
+    self.assertEqual(inspect.get_freevar_id(self.var), self.vid)
     self.assertTrue(all(
-        inspect.get_variable_id(x) is None
+        inspect.get_freevar_id(x) is None
             for x in self.everything - set([self.var])
       ))
 

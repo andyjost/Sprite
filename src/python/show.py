@@ -229,7 +229,7 @@ class FreeVarStringifier(Stringifier):
     super(FreeVarStringifier, self).__init__(**kwds)
 
   def format(self, arg, **kwds):
-    if inspect.isa_variable(arg):
+    if inspect.isa_freevar(arg):
       vid = arg[0]
       if vid not in self.tr:
         alpha = list(self._toalpha(next(self.i)))

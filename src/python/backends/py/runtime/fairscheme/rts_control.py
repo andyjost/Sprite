@@ -6,6 +6,7 @@ not intended to be imported except by state.py.
 from .....common import T_FUNC
 from ..control import E_RESIDUAL, E_RESTART, E_TERMINATE, E_UNWIND
 from ..... import exceptions
+from ..... import inspect
 import contextlib
 
 __all__ = [
@@ -103,7 +104,7 @@ def _make_ready(rts, config):
   n = len(config.residuals)
   if n:
     config.residuals = set(
-        vid for vid in config.residuals if rts.is_free(rts.vtable[vid])
+        vid for vid in config.residuals if rts.is_void(rts.vtable[vid])
       )
     return len(config.residuals) < n
   else:

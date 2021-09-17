@@ -5,7 +5,7 @@ intended to be imported except by state.py.
 
 from .....common import (
     LEFT, RIGHT, UNDETERMINED, ChoiceState
-  , T_FAIL, T_VAR, T_CHOICE, T_CTOR
+  , T_FAIL, T_FREE, T_CHOICE, T_CTOR
   )
 from ..graph import replacer
 from .. import graph
@@ -13,8 +13,8 @@ from ..... import inspect
 
 __all__ = [
     'clone_generator', 'freshvar_args', 'freshvar', 'get_generator'
-  , 'get_variable', 'has_generator', 'instantiate', 'is_free', 'is_nondet'
-  , 'is_variable', 'is_narrowed', 'register_variable'
+  , 'get_freevar', 'has_generator', 'instantiate', 'is_nondet', 'is_narrowed'
+  , 'is_void', 'register_freevar'
   ]
 
 def clone_generator(rts, bound, unbound):
@@ -34,7 +34,7 @@ def freshvar(rts, target=None):
   '''Places a fresh free variable at the specified location.'''
   node = graph.Node(*freshvar_args(rts), target=target)
   try:
-    rts.register_variable(node)
+    rts.register_freevar(node)
   except AttributeError:
     pass
   return node
@@ -45,23 +45,23 @@ def get_generator(rts, arg=None, config=None):
   be a choice or free variable node, or ID.
   '''
   vid = rts.obj_id(arg, config)
-  x = rts.get_variable(vid)
+  x = rts.get_freevar(vid)
   if not rts.has_generator(x):
-    rts.constrain_equal(x, rts.get_variable(rts.grp_id(vid, config)))
+    rts.constrain_equal(x, rts.get_freevar(rts.grp_id(vid, config)))
     assert rts.has_generator(x)
   _, gen = x
   return gen
 
-def get_variable(rts, arg=None, config=None):
+def get_freevar(rts, arg=None, config=None):
   try:
-    if arg.info.tag == T_VAR:
+    if arg.info.tag == T_FREE:
       return arg
   except:
     vid = rts.obj_id(arg, config)
     return rts.vtable[vid]
 
 def has_generator(rts, arg=None, config=None):
-  variable = rts.get_variable(arg, config)
+  variable = rts.get_freevar(arg, config)
   return variable.successors[1].info is not rts.prelude.Unit.info
 
 def instantiate(rts, func, path, typedef, config=None):
@@ -83,7 +83,7 @@ def instantiate(rts, func, path, typedef, config=None):
       , lambda node, _: _make_generator(rts, node, typedef)
       )
     replaced = R[None]
-    assert R.target.info.tag == T_VAR
+    assert R.target.info.tag == T_FREE
     assert func.info == replaced.info
     func.successors[:] = replaced.successors
     target = R.target.successors[1]
@@ -91,18 +91,6 @@ def instantiate(rts, func, path, typedef, config=None):
       return rts.guard(R.guards, target)
     else:
       return target
-
-def is_free(rts, arg=None, config=None):
-  '''
-  Indicates whether a free variable is missing any information that would allow
-  a computation needing it to proceed.  Used to implement
-  Prelude.ensureNotFree.
-  '''
-  return rts.is_variable(arg) and not any(
-      prop(arg, config) for prop in [
-          rts.has_generator, rts.has_binding, rts.is_narrowed
-        ]
-    )
 
 def is_narrowed(rts, arg=None, config=None):
   '''
@@ -116,16 +104,21 @@ def is_nondet(rts, arg=None, config=None):
   Returns True if the argument is a choice or variable.
   '''
   arg = (config or rts.C).root if arg is None else arg
-  return inspect.tag_of(arg) in [T_CHOICE, T_VAR]
+  return inspect.tag_of(arg) in [T_CHOICE, T_FREE]
 
-def is_variable(rts, node):
-  '''Indicates whether the given argument is a free variable.'''
-  try:
-    return node.info.tag == T_VAR
-  except AttributeError:
-    return False
+def is_void(rts, arg=None, config=None):
+  '''
+  Indicates whether a free variable is missing any information that would allow
+  a computation needing it to proceed.  Used to implement
+  Prelude.ensureNotFree.
+  '''
+  return inspect.isa_freevar(arg) and not any(
+      prop(arg, config) for prop in [
+          rts.has_generator, rts.has_binding, rts.is_narrowed
+        ]
+    )
 
-def register_variable(rts, var):
+def register_freevar(rts, var):
   '''
   Update the vtable for variable ``var``.  The variable is added to the
   table so that it can be found later, if needed.
@@ -203,7 +196,7 @@ def _make_generator(rts, variable, typedef=None):
       alternatively be a list of ``icurry.IConstructor``s or ``InfoTables``.
       If the variable is not free, then this can be None.
   '''
-  assert variable.info.tag == T_VAR
+  assert variable.info.tag == T_FREE
   vid = variable.successors[0]
   if variable.successors[1].info is rts.prelude.Unit.info:
     constructors = [

@@ -1,4 +1,4 @@
-# from .....common import T_CHOICE, T_CTOR, T_VAR
+# from .....common import T_CHOICE, T_CTOR, T_FREE
 # from .freevars import freshvar
 # from .. import graph
 # from ...sprite import LEFT, RIGHT, UNDETERMINED
@@ -43,7 +43,7 @@
 #       bit = 1
 #       while True:
 #         tag = nat.info.tag
-#         if tag == T_VAR:
+#         if tag == T_FREE:
 #           vid = nat[0]
 #           if rts.read_fp(vid, config) == UNDETERMINED:
 #             return None

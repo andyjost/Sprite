@@ -2,7 +2,7 @@
 Inspect live Curry objects.
 '''
 
-from .common import T_SETGRD, T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .common import T_SETGRD, T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from . import config, context, icurry, objects
 from .utility import visitation
 import collections
@@ -141,9 +141,9 @@ def isa_constraint(arg):
   info = info_of(arg)
   return info is not None and info.tag == T_CONSTR
 
-def isa_variable(arg):
+def isa_freevar(arg):
   info = info_of(arg)
-  return info is not None and info.tag == T_VAR
+  return info is not None and info.tag == T_FREE
 
 def isa_fwd(arg):
   info = info_of(arg)
@@ -169,11 +169,11 @@ def is_boxed(node):
 
 def get_choice_id(arg):
   # Note: a variable has a choice ID (which equals its variable ID).
-  if isa_choice(arg) or isa_variable(arg):
+  if isa_choice(arg) or isa_freevar(arg):
     return arg.successors[0]
 
-def get_variable_id(arg):
-  if isa_variable(arg):
+def get_freevar_id(arg):
+  if isa_freevar(arg):
     return arg.successors[0]
 
 def get_set_id(arg):

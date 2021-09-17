@@ -184,9 +184,9 @@ class TestCase(unittest.TestCase):
     if not cy_inspect.isa_constraint(obj):
       self.fail('%r is not a Curry constraint' % obj)
 
-  def assertIsaVariable(self, obj):
-    if not cy_inspect.isa_variable(obj):
-      self.fail('%r is not a Curry variable' % obj)
+  def assertIsaFreevar(self, obj):
+    if not cy_inspect.isa_freevar(obj):
+      self.fail('%r is not a Curry free variable' % obj)
 
   def assertIsaFwd(self, obj):
     if not cy_inspect.isa_fwd(obj):
@@ -329,9 +329,9 @@ class TestCase(unittest.TestCase):
     if cy_inspect.isa_constraint(obj):
       self.fail('%r is a Curry constraint' % obj)
 
-  def assertIsNotAVariable(self, obj):
-    if cy_inspect.isa_variable(obj):
-      self.fail('%r is a Curry variable' % obj)
+  def assertIsNotAFreevar(self, obj):
+    if cy_inspect.isa_freevar(obj):
+      self.fail('%r is a Curry free variable' % obj)
 
   def assertIsNotAFwd(self, obj):
     if cy_inspect.isa_fwd(obj):

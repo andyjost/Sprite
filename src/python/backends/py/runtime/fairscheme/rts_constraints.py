@@ -5,11 +5,12 @@ intended to be imported except by state.py.
 
 __all__ = ['constraint_type', 'constrain_equal', 'make_constraint']
 
-import itertools
-from .....utility import exprutil
-from .....common import T_VAR, T_CHOICE
+from .....common import T_FREE, T_CHOICE
 from ..graph.node import Node
 from ..graph.replacer import Replacer
+from ..... import inspect
+from .....utility import exprutil
+import itertools
 
 STRICT_CONSTRAINT = 0
 NONSTRICT_CONSTRAINT = 1
@@ -77,7 +78,7 @@ def constrain_equal(
       config.strict_constraints.write.unite(i, j)
       rts.update_binding(i, config=config)
       rts.update_binding(j, config=config)
-      if any(map(rts.is_variable, [arg0, arg1])):
+      if any(map(inspect.isa_freevar, [arg0, arg1])):
         return _constrain_equal_rec(rts, i, j, config=config)
     else:
       return rts.add_binding(i, arg1, config=config)
@@ -124,7 +125,7 @@ def _constrain_equal_rec(rts, arg0, arg1, config=None):
   consistent).
   '''
   try:
-    xs = map(rts.get_variable, [arg0, arg1])
+    xs = map(rts.get_freevar, [arg0, arg1])
   except KeyError:
     return True
   else:
@@ -146,7 +147,7 @@ def _constrain_equal_rec(rts, arg0, arg1, config=None):
             if rts.is_nondet(p.cursor):
               if not rts.constrain_equal(p.cursor, q.cursor, config=config):
                 return False
-            if not rts.is_variable(p.cursor):
+            if not inspect.isa_freevar(p.cursor):
               p.push()
               q.push()
       return True

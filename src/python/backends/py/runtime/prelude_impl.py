@@ -1,7 +1,7 @@
 '''
 Implementation of the Prelude externals.
 '''
-from ....common import T_FAIL, T_CONSTR, T_VAR, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .control import E_RESIDUAL, E_UNWIND
 from ....exceptions import *
 from .fairscheme.algorithm import N, hnf
@@ -22,7 +22,7 @@ def hnf_or_free(rts, root, index, typedef=None, guards=None):
     # The argument could be a free variable or an expression containing a free
     # variable that cannot be narrowed, such as "ensureNotFree x".
     expr, guards = graph.Node.getitem_and_guards(root, index)
-    if rts.is_variable(expr):
+    if inspect.isa_freevar(expr):
       return expr, guards
     else:
       raise
@@ -39,7 +39,7 @@ def narrow_integer_args(f):
     args, guards = demux(
         hnf_or_free_int(rts, root, i) for i in range(len(root))
       )
-    variables = filter(rts.is_variable, args)
+    variables = filter(inspect.isa_freevar, args)
     if variables:
       rts.suspend(variables)
     else:
@@ -99,8 +99,8 @@ def constr_eq(rts, root):
   (lhs, rhs), guards = demux(hnf_or_free(rts, root, i) for i in (0,1))
   if inspect.is_boxed(lhs) and inspect.is_boxed(rhs):
     ltag, rtag = lhs.info.tag, rhs.info.tag
-    if ltag == T_VAR:
-      if rtag == T_VAR:
+    if ltag == T_FREE:
+      if rtag == T_FREE:
         if lhs[0] != rhs[0]:
           yield rts.prelude._StrictConstraint.info
           yield rts.expr(True)
@@ -111,7 +111,7 @@ def constr_eq(rts, root):
         values = [rhs[0]] if rhs.info.typedef() in rts.builtin_types else None
         hnf(rts, root, [0], rhs.info.typedef(), values, guards)
     else:
-      if rtag == T_VAR:
+      if rtag == T_FREE:
         values = [lhs[0]] if lhs.info.typedef() in rts.builtin_types else None
         hnf(rts, root, [1], lhs.info.typedef(), values, guards)
       else:
@@ -145,7 +145,7 @@ def nonstrict_eq(rts, root):
   lhs, rhs = root
   if inspect.is_boxed(lhs) and inspect.is_boxed(rhs):
     lhs, guards = hnf_or_free(rts, root, 0)
-    if lhs.info.tag == T_VAR:
+    if lhs.info.tag == T_FREE:
       # Bind lhs -> rhs
       yield rts.prelude._NonStrictConstraint.info
       yield rts.expr(True)
@@ -153,10 +153,10 @@ def nonstrict_eq(rts, root):
     else:
       assert lhs.info.tag >= T_CTOR
       rhs, guards = hnf_or_free(rts, root, 1, guards=guards)
-      if rhs.info.tag == T_VAR:
+      if rhs.info.tag == T_FREE:
         hnf(rts, root, [1], typedef=lhs.info.typedef(), guards=guards)
       else:
-        rhs.info.tag >= T_VAR
+        rhs.info.tag >= T_FREE
         if lhs.info.tag == rhs.info.tag:
           arity = lhs.info.arity
           assert arity == rhs.info.arity
@@ -575,7 +575,7 @@ def apply_gnf(rts, root):
 
 def ensureNotFree(rts, root):
   arg, guards = hnf_or_free(rts, root, 0)
-  if rts.is_free(arg):
+  if rts.is_void(arg):
     rts.suspend(arg)
   else:
     yield rts.prelude._Fwd
