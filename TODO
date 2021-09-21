@@ -12,8 +12,6 @@
 - Upgrade from Boost.Python to pybind11.
 - Python3?
 - Create a batch compile capability.
-- Get the RuntimeState object out of fairscheme/ and into its own directory.  It is the proper foundation for graph and everything else.
-- Move variable into the graph/ subdirectory.
-- Fix the mess with Configuration.search_state.  Really there should be a proper system stack.
+
 - Come to think of it, I should remove the mutual recursion between D, N, and S.  All of the recusion should be done synthetically.
 - Tighten up the implementation of Variable.  Variable chains are probably not useful.  Instead, just use the base variable construct the correct new variable.  Make the variable as close to data as possible.  Teach rts to use it.

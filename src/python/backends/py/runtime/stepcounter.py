@@ -1,4 +1,4 @@
-from ..control import E_STEPLIMIT, E_TERMINATE
+from .control import E_STEPLIMIT, E_TERMINATE
 
 class StepCounter(object):
   '''

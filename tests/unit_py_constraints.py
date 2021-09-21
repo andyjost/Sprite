@@ -1,6 +1,4 @@
 import cytest # from ./lib; must be first
-# from curry.backends.py.runtime.fairscheme.evaluator import RuntimeState
-# from curry.backends.py.runtime.fairscheme import algo as fs_algo
 from curry.common import LEFT, RIGHT, UNDETERMINED
 from curry.utility import unionfind
 import curry

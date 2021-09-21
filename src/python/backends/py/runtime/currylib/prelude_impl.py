@@ -1,12 +1,11 @@
 '''
 Implementation of the Prelude externals.
 '''
-from ....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from .control import E_RESIDUAL, E_UNWIND
-from ....exceptions import *
-from .fairscheme.algorithm import N, hnf
-from . import graph
-from .... import show as show_module, inspect
+from .....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ..control import E_RESIDUAL, E_UNWIND
+from .....exceptions import *
+from .. import fairscheme, graph
+from ..... import show as show_module, inspect
 import collections
 import logging
 import operator as op
@@ -588,14 +587,14 @@ def show(rts, arg):
   yield result
 
 def normalize(rts, var, path, ground):
-  if not N(rts, var.target, path, ground):
+  if not fairscheme.N(rts, var.target, path, ground):
     rts.unwind()
   else:
     return rts.variable(var, path)
 
 def hnf_wrapper(rts, var, path):
   subexpr = rts.variable(var, path)
-  return hnf(rts, subexpr)
+  return fairscheme.hnf(rts, subexpr)
 
 def apply_special(rts, _0, action, **kwds):
   '''Apply with a special action applied to the argument.'''

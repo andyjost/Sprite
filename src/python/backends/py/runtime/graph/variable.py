@@ -1,7 +1,6 @@
-from ..fairscheme import algorithm
-from . import indexing
+from .. import fairscheme
+from . import indexing, utility
 from ..... import inspect
-from . import utility
 import numbers
 
 class Variable(object):
@@ -158,7 +157,7 @@ class Variable(object):
 
   def hnf(self, typedef=None, values=None):
     '''Head-normalizes this variable.'''
-    return algorithm.hnf(self.rts, self, typedef, values)
+    return fairscheme.hnf(self.rts, self, typedef, values)
 
   def all_guards(self):
     '''Returns the set of all set IDs crossed on the path to this variable.'''

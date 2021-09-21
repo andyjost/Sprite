@@ -1,4 +1,4 @@
-from curry.backends.py.runtime.fairscheme.evaluator import Evaluator
+from curry.backends.py.runtime.evaluator import Evaluator
 from curry.backends.py.runtime import control
 from curry.common import T_CTOR, T_FUNC
 from curry import context

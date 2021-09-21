@@ -1,7 +1,7 @@
 '''Tests for the pure-Python Curry interpreter.'''
 import cytest # from ./lib; must be first
 from curry.backends.py import runtime
-from curry.backends.py.runtime.prelude import Prelude
+from curry.backends.py.runtime.currylib.prelude import Prelude
 from curry.icurry import *
 from curry import importer
 from curry import interpreter

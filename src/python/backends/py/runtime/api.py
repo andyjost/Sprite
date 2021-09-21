@@ -4,8 +4,8 @@ __all__ = ['Runtime']
 
 class Runtime(context.Runtime):
   '''
-  Implementation of the abstract runtime system for the Python backend.  This
-  interface is used by the Interpreter object.
+  Implementation of the runtime system interface for the Python backend.  Used
+  by the Interpreter object.
   '''
   @property
   def Node(self):
@@ -18,7 +18,7 @@ class Runtime(context.Runtime):
     return InfoTable
 
   def init_interpreter_state(self, interp):
-    from .fairscheme.state import InterpreterState
+    from .state import InterpreterState
     interp._its = InterpreterState(interp)
 
   def get_interpreter_state(self, interp):
@@ -26,21 +26,21 @@ class Runtime(context.Runtime):
 
   @property
   def prelude(self):
-    from . import prelude
+    from .currylib import prelude
     return prelude
 
   @property
   def setfunctions(self):
-    from . import setfunctions
+    from .currylib import setfunctions
     return setfunctions
 
   @property
   def evaluate(self):
-    from .fairscheme.evaluator import Evaluator
+    from .evaluator import Evaluator
     return lambda *args, **kwds: Evaluator(*args, **kwds).evaluate()
 
   def single_step(self, interp, expr):
-    from .fairscheme.evaluator import Evaluator
+    from .evaluator import Evaluator
     evaluator = Evaluator(interp, expr)
     expr.info.step(evaluator.rts, expr)
     return expr

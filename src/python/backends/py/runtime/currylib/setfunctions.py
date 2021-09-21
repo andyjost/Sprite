@@ -1,9 +1,8 @@
-from ....common import T_SETGRD, T_CHOICE, LEFT, RIGHT
-from .control import E_UNWIND
+from .....common import T_SETGRD, T_CHOICE, LEFT, RIGHT
+from ..control import E_UNWIND
 from copy import deepcopy, copy
-from .fairscheme.algorithm import D, hnf
-from . import graph
-from .... import icurry, inspect
+from .. import fairscheme, graph
+from ..... import icurry, inspect
 
 def exports():
   yield '_SetGuard'
@@ -52,7 +51,7 @@ def allValues(rts, _0):
   try:
     with rts.queue_scope(sid=sid, qid=qid):
       try:
-        value = next(D(rts))
+        value = next(fairscheme.D(rts))
         yield rts.prelude.Cons
         yield value
         yield graph.Node(rts.setfunctions.allValues, valueset)

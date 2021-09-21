@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 from curry.common import LEFT, RIGHT, UNDETERMINED
 from curry.backends.py.runtime import typecheckers as tc
-from curry.backends.py.runtime.fairscheme.state import RuntimeState
+from curry.backends.py.runtime.state import RuntimeState
 from curry.backends.py.runtime.graph import Node
 import curry
 import unittest

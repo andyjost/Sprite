@@ -2,12 +2,14 @@ from copy import copy
 from ..graph.copy import copygraph
 from ..graph.variable import Variable
 from ..... import inspect
-from . import stepcounter
+from .. import stepcounter
 from ...sprite import Fingerprint
 from .....utility import shared, unionfind
 import collections
 import contextlib
 import itertools
+
+__all__ = ['Configuration', 'InterpreterState', 'Queue', 'RuntimeState']
 
 class DefaultDict(shared.DefaultDict):
   def __repr__(self):
@@ -74,14 +76,6 @@ class Queue(collections.deque):
 
   def copy(self):
     return self.__copy__()
-
-  # def __deepcopy__(self, *args, **kwds):
-  #   cp = Queue(map(copy, self))
-  #   cp.escape_set = self.escape_set.copy()
-  #   return cp
-
-  # def deepcopy(self):
-  #   return self.__deepcopy__()
 
 
 class InterpreterState(object):
@@ -158,7 +152,7 @@ class RuntimeState(object):
       qid = next(self.setfactory)
       self.qtable[qid] = Queue([], sid=sid)
     self.qstack.append(qid)
-  
+
   def pop_queue(self):
     self.qstack.pop()
 

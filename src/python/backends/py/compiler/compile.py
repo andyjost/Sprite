@@ -1,17 +1,10 @@
 from ....icurry import analysis
-from . import closure
+from . import closure, render
 from .... import icurry
-from . import render
+from ..runtime.currylib import prelude_impl
 from ..runtime import graph
-from ..runtime import prelude_impl
-from ....utility import encoding, visitation, formatDocstring
-from ....utility import filesys
-import collections
-import logging
-import pprint
-import re
-import sys
-import textwrap
+from ....utility import encoding, formatDocstring, filesys, visitation
+import collections, logging, pprint, re, sys, textwrap
 
 logger = logging.getLogger(__name__)
 

@@ -2,8 +2,8 @@
 Code for evaluating Curry expressions.
 '''
 
-from . import algorithm, state
-from .. import trace
+from . import fairscheme
+from . import state, trace
 
 class Evaluator(object):
   '''Manages the evaluation of a Curry expression.'''
@@ -14,7 +14,7 @@ class Evaluator(object):
 
   def evaluate(self):
     '''Evaluate the goal.'''
-    D = trace.trace_values(algorithm.D)
+    D = trace.trace_values(fairscheme.D)
     return D(self.rts)
 
   def set_global_step_limit(self, limit=None, reset=True):

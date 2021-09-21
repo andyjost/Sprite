@@ -4,8 +4,8 @@ from curry.common import T_FAIL, T_CHOICE
 from curry.backends.py.runtime.control import E_UNWIND
 from curry.backends.py.runtime.graph import Node
 from curry.backends.py.runtime.graph import equality
-from curry.backends.py.runtime.fairscheme.rts_freevars import _gen_ctors
-from curry.backends.py.runtime.fairscheme.state import Bindings, RuntimeState
+from curry.backends.py.runtime.state.rts_freevars import _gen_ctors
+from curry.backends.py.runtime.state import Bindings, RuntimeState
 from curry import icurry
 from curry import inspect
 from curry import interpreter
@@ -13,7 +13,7 @@ from curry.utility.binding import binding
 from cytest import bootstrap
 from glob import glob
 import curry
-import curry.backends.py.runtime.prelude
+import curry.backends.py.runtime.currylib.prelude
 import cytest.step
 import os
 import unittest
@@ -31,7 +31,7 @@ class TestPyRuntime(cytest.TestCase):
   def test_coverage(self):
     '''Tests to improve line coverage.'''
     interp = interpreter.Interpreter()
-    prelude = interp.import_(curry.backends.py.runtime.prelude.Prelude)
+    prelude = interp.import_(curry.backends.py.runtime.currylib.prelude.Prelude)
     self.assertEqual(prelude.prim_negateFloat.fullname, 'Prelude.prim_negateFloat')
     self.assertEqual(str(prelude.prim_negateFloat.info), "Info for 'prim_negateFloat'")
     self.assertTrue(repr(prelude.prim_negateFloat.info).startswith('InfoTable'))

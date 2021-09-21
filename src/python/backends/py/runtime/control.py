@@ -1,3 +1,5 @@
+'''Defines flow-control exceptions.'''
+
 __all__ = [
     'RuntimeFlowException'
   , 'E_RESIDUAL', 'E_STEPLIMIT', 'E_TERMINATE' , 'E_UNWIND'

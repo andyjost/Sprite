@@ -1,8 +1,8 @@
 import cytest # from ./lib; must be first
 from curry.common import *
-from curry.backends.py.runtime.fairscheme.state import RuntimeState
+from curry.backends.py.runtime.state import RuntimeState
 from curry.backends.py.runtime.control import E_UNWIND
-from curry.backends.py.runtime.fairscheme.algorithm import hnf
+from curry.backends.py.runtime.fairscheme import hnf
 import curry
 import unittest
 
