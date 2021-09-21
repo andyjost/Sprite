@@ -7,8 +7,8 @@ __all__ = ['constraint_type', 'constrain_equal', 'make_constraint']
 
 from .....common import T_FREE, T_CHOICE
 from ..graph.node import Node
+from .. import graph
 from ..... import inspect
-from .....utility import exprutil
 import itertools
 
 STRICT_CONSTRAINT = 0
@@ -142,7 +142,7 @@ def _constrain_equal_rec(rts, arg0, arg1, config=None):
           if not rts.has_generator(x):
             rts.clone_generator(pivot, x)
           v = rts.get_generator(x, config=config)
-          for p, q in itertools.izip(*[exprutil.walk(uv) for uv in [u,v]]):
+          for p, q in itertools.izip(*[graph.walk(uv) for uv in [u,v]]):
             if rts.is_nondet(p.cursor):
               if not rts.constrain_equal(p.cursor, q.cursor, config=config):
                 return False

@@ -1,9 +1,8 @@
 '''Utilities for working with Curry expressions.'''
 
-from .. import context
-from .. import icurry
+from ..... import context, icurry
 
-__all__ = ['iterexpr']
+__all__ = ['iterexpr', 'walk']
 
 def iterexpr(expr, once=True):
   '''Generate each node in a Curry expression exactly once.'''
@@ -19,24 +18,6 @@ def iterexpr(expr, once=True):
         pass
       else:
         queue.extend(l)
-      yield x
-
-def maxid(expr):
-  '''Returns the largest choice or variable ID in an expression.'''
-  return reduce(
-      max
-    , (e[0] if isinstance(e, context.Node) and e.info.tag == T_CHOICE else -1
-          for e in iterexpr(expr))
-    , -1
-    )
-
-def unique(iterator, key=lambda x: x):
-  '''Transform an iterator to filter out duplicate items.'''
-  seen = set()
-  for x in iterator:
-    k = key(x)
-    if k not in seen:
-      seen.add(k)
       yield x
 
 class WalkState(object):

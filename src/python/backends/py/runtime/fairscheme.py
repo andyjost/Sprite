@@ -1,7 +1,6 @@
 from ....common import T_SETGRD, T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from . import graph, trace
 from .... import icurry, inspect
-from ....utility import exprutil
 
 def D(rts):
   while rts.ready():
@@ -68,7 +67,7 @@ def D(rts):
 
 # The N procedure is normally called from D (with no arguments), when the root
 # expression is constructor rooted.
-# 
+#
 # The exceptions are the built-in # control function $!! and $##, which make
 # recursive calls to N with more arguments.  The additional arguments indicate
 # the position under a function symbol that needs to be normalized.
@@ -78,7 +77,7 @@ def N(rts, root=None, path=None, ground=True):
   C.search_state.append(None)
   root = rts.E if root is None else root
   try:
-    for state in exprutil.walk(root, path=path):
+    for state in graph.walk(root, path=path):
       rts.C.search_state[-1] = state
       while True:
         tag = inspect.tag_of(state.cursor)

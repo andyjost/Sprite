@@ -15,3 +15,5 @@
 
 - Come to think of it, I should remove the mutual recursion between D, N, and S.  All of the recusion should be done synthetically.
 - Tighten up the implementation of Variable.  Variable chains are probably not useful.  Instead, just use the base variable construct the correct new variable.  Make the variable as close to data as possible.  Teach rts to use it.
+- Finish testing set functions.
+- Obliterate Node.getitem!

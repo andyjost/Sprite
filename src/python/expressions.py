@@ -1,6 +1,6 @@
 from . import context, icurry, objects, utility
 from .exceptions import CurryTypeError
-from .utility import exprutil, visitation
+from .utility import visitation
 import collections, itertools, numbers
 
 __all__ = [
@@ -181,7 +181,7 @@ class ExpressionBuilder(object):
 
   def fixrefs(self, expr):
     if self.brokenrefs:
-      for state in exprutil.walk(expr):
+      for state in expr.walk():
         if isinstance(state.cursor, self.Node):
           anchorname = self.brokenrefs.get(id(state.cursor))
           if anchorname is not None:

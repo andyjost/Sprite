@@ -68,6 +68,11 @@ class Node(object):
   def __nonzero__(self): # pragma: no cover
     # Without this, nodes without successors are False.
     return True
+  
+  def walk(self, path=None):
+    '''See walkexpr.walk.'''
+    from .walkexpr import walk
+    return walk(self, path)
 
   @utility.visitation.dispatch.on('i')
   def __getitem__(self, i, *args, **kwds):

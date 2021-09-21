@@ -2,7 +2,10 @@ import os
 import re
 from ..exceptions import ModuleLookupError
 
-__all__ = ['formatDocstring', 'isLegalModulename', 'removeSuffix', 'translateKwds']
+__all__ = [
+    'formatDocstring', 'isLegalModulename', 'removeSuffix', 'translateKwds'
+  , 'unique'
+  ]
 
 def formatDocstring(*args, **kwds):
   def decorator(arg):
@@ -45,3 +48,11 @@ def translateKwds(kwmap):
     return replacement
   return dec
 
+def unique(iterator, key=lambda x: x):
+  '''Transform an iterator to filter out duplicate items.'''
+  seen = set()
+  for x in iterator:
+    k = key(x)
+    if k not in seen:
+      seen.add(k)
+      yield x
