@@ -7,7 +7,6 @@ __all__ = ['constraint_type', 'constrain_equal', 'make_constraint']
 
 from .....common import T_FREE, T_CHOICE
 from ..graph.node import Node
-from ..graph.replacer import Replacer
 from ..... import inspect
 from .....utility import exprutil
 import itertools
@@ -152,14 +151,13 @@ def _constrain_equal_rec(rts, arg0, arg1, config=None):
               q.push()
       return True
 
-def make_constraint(rts, constr, node, path, rewrite=None):
+def make_constraint(rts, var, rewrite=None):
   '''
   Make a new constraint object based on ``constr``, which is located at
   node[path].  If ``rewrite`` is supplied, the specified node is overwritten.
   Otherwise a new node is created.
   '''
-  R = Replacer(node, path)
-  value = R[0]
-  pair = constr[1]
-  return Node(constr.info, value, pair, target=rewrite)
+  value, pair = var.target.successors
+  value = var.copy_spine(end=value)
+  return Node(var.target.info, value, pair, target=rewrite)
 

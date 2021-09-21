@@ -53,6 +53,9 @@ def _isa(addr, seq):
 def isa_curry_expr(arg):
   return is_boxed(arg) or isa_unboxed_primitive(arg)
 
+def isa_curry_expr_or_none(arg):
+  return arg is None or isa_curry_expr(arg)
+
 def isa_boxed_primitive(arg):
   info = info_of(arg)
   return info is not None and info.is_primitive
@@ -129,6 +132,10 @@ _TUPLE_PATTERN = re.compile(r'\(,*\)$')
 def isa_tuple_name(name):
   return re.match(_TUPLE_PATTERN, name)
 
+_OPERATOR_PATTERN = re.compile(r'([^_a-zA-Z0-9\(\)\'\"\[\]])+$')
+def isa_operator_name(name):
+  return re.match(_OPERATOR_PATTERN, name)
+
 def isa_setguard(arg):
   info = info_of(arg)
   return info is not None and info.tag == T_SETGRD
@@ -171,6 +178,14 @@ def get_choice_id(arg):
   # Note: a variable has a choice ID (which equals its variable ID).
   if isa_choice(arg) or isa_freevar(arg):
     return arg.successors[0]
+
+def get_left_alternative(arg):
+  assert isa_choice(arg)
+  return arg.successors[1]
+
+def get_right_alternative(arg):
+  assert isa_choice(arg)
+  return arg.successors[2]
 
 def get_freevar_id(arg):
   if isa_freevar(arg):

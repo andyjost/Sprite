@@ -6,7 +6,7 @@ intended to be imported except by state.py.
 from copy import copy
 from .....common import T_FREE, T_CHOICE, LEFT, RIGHT, UNDETERMINED, ChoiceState
 from ..graph import Node
-from ..graph.replacer import Replacer
+from ..... import inspect
 
 __all__ = [
     'equate_fp', 'grp_id', 'obj_id', 'make_left', 'make_right', 'read_fp'
@@ -39,10 +39,10 @@ def obj_id(rts, arg=None, config=None):
     return arg
   else:
     if arg.info.tag == T_CHOICE:
-      cid, _, _ = arg
+      cid, _, _ = arg.successors
       return cid
     elif arg.info.tag == T_FREE:
-      vid, _ = arg
+      vid, _ = arg.successors
       return vid
 
 def read_fp(rts, arg=None, config=None):
@@ -84,7 +84,7 @@ def equate_fp(rts, arg0, arg1, config=None):
   return rts.update_fp(arg0, arg1, config=config) \
      and rts.update_fp(arg1, arg0, config=config)
 
-def make_choice(rts, cid, node, path, generator=None, rewrite=None):
+def pull_tab(rts, var, rewrite=None):
   '''
   Make a choice node with ID ``cid`` whose alternatives are derived by
   replacing ``node[path]`` with the alternatives of choice-rooted
@@ -92,8 +92,10 @@ def make_choice(rts, cid, node, path, generator=None, rewrite=None):
   ``node[path]`` is used.  If ``rewrite`` is supplied, the specified node is
   overwritten.  Otherwise a new node is created.
   '''
-  R = Replacer(node, path, alternatives=generator)
-  return Node(rts.prelude._Choice, cid, R[1], R[2], target=rewrite)
+  cid = inspect.get_choice_id(var.target)
+  lhs = var.copy_spine(end=var.target.successors[1])
+  rhs = var.copy_spine(end=var.target.successors[2])
+  return Node(rts.prelude._Choice, cid, lhs, rhs, target=rewrite)
 
 def update_fp(rts, choicestate, arg=None, config=None):
   '''

@@ -24,24 +24,25 @@ class TestPyPullTab(cytest.TestCase):
     id9 = id(goal[0,0,2,1])
     id123 = id(goal[0,2])
     # Head-normalizing brings a choice to the root.
-    rts = RuntimeState(interp, goal[0])
-    self.assertRaises(E_UNWIND, lambda: hnf(rts, goal[0], [0,2]))
+    goal0 = goal[0]
+    rts = RuntimeState(interp, goal0)
+    self.assertRaises(E_UNWIND, lambda: hnf(rts, rts.variable(goal0, [0,2])))
     # goal = id (f...8 ? f...9)
-    self.assertEqual(goal[0].info.tag, T_CHOICE)
+    self.assertEqual(goal0.info.tag, T_CHOICE)
     # Ensure nodes are referenced, not copied.
     # LHS -> failure
     lhs = goal[0,1]
     self.assertEqual(id(lhs[0,2]), id8)
     self.assertEqual(id(lhs[2]), id123)
     lhs = curry.expr(interp.prelude.id, lhs) # id (f...8)
-    self.assertRaises(E_UNWIND, lambda: hnf(rts, lhs, [0]))
+    self.assertRaises(E_UNWIND, lambda: hnf(rts, rts.variable(lhs, 0)))
     self.assertEqual(lhs.info.tag, T_FAIL)
     # RHS -> True
     rhs = goal[0,2]
     self.assertEqual(id(rhs[0,2]), id9)
     self.assertEqual(id(rhs[2]), id123)
     rhs = curry.expr(interp.prelude.id, rhs) # id (f...9)
-    self.assertMayRaise(None, lambda: hnf(rts, rhs, [0]))
+    self.assertMayRaise(None, lambda: hnf(rts, rts.variable(rhs, 0)))
     self.assertEqual(id(rhs[0]), id123)
 
   @unittest.skip('constraints not implemented')

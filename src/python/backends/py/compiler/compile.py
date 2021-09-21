@@ -2,12 +2,10 @@ from ....icurry import analysis
 from . import closure
 from .... import icurry
 from . import render
-from ..runtime.fairscheme.algorithm import hnf
 from ..runtime import graph
 from ..runtime import prelude_impl
 from ....utility import encoding, visitation, formatDocstring
 from ....utility import filesys
-from ..hnfmux import demux
 import collections
 import logging
 import pprint
@@ -87,10 +85,8 @@ def compile_py_boxedfunc(interp, metadata):
   '''
   boxedfunc = metadata['py.boxedfunc']
   def step(rts, _0):
-    args, _ = demux(
-        hnf(rts, _0, [i]) for i in xrange(len(_0.successors))
-      )
-    graph.Node(*boxedfunc(rts, *args), target=_0)
+    args = (rts.variable(_0, i).hnf() for i in xrange(len(_0.successors)))
+    _0.rewrite(*boxedfunc(rts, *args))
   return step
 
 def compile_py_rawfunc(interp, metadata):
@@ -103,7 +99,7 @@ def compile_py_rawfunc(interp, metadata):
   '''
   rawfunc = metadata['py.rawfunc']
   def step(rts, _0):
-    graph.Node(*rawfunc(rts, _0), target=_0)
+    graph.Node(*rawfunc(rts, _0), target=_0.target)
   return step
 
 def compile_py_unboxedfunc(interp, metadata):
@@ -112,15 +108,12 @@ def compile_py_unboxedfunc(interp, metadata):
   Corresponds to the "py.unboxedfunc" metadata.
   '''
   unboxedfunc = metadata['py.unboxedfunc']
-  expr = interp.expr
-  topython = interp.topython
-  # For some reason, the prelude reverses the argument order.
   def step(rts, _0):
-    args, _ = demux(
-        hnf(rts, _0, [i]) for i in reversed(xrange(len(_0.successors)))
+    args = (
+        rts.variable(_0, i).hnf().unboxed_value
+            for i in reversed(xrange(len(_0.successors)))
       )
-    args = map(topython, args)
-    return expr(unboxedfunc(*args), target=_0)
+    return rts.expr(unboxedfunc(*args), target=_0.target)
   return step
 
 class FunctionCompiler(object):
@@ -318,16 +311,11 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.ICaseCons)
   def statement(self, icase):
-    self.closure['hnf'] = hnf
-    vid = icase.vid
-    path = self.varinfo[vid].path
-    assert path is not None
+    varident = self.expression(icase.var)
     assert icase.branches
     typedef = casetype(self.interp, icase)
-    yield 'selector, _ = hnf(rts, _0, %s, typedef=%s)' % (
-        path, self.closure[typedef]
-      )
-    yield 'selector = selector.info.tag'
+    yield '%s.hnf(typedef=%s)' % (varident, self.closure[typedef])
+    yield 'selector = %s.tag' % varident
     el = ''
     for branch in icase.branches[:-1]:
       rhs = self.label(branch.typename).info.tag
@@ -343,17 +331,11 @@ class FunctionCompiler(object):
 
   @statement.when(icurry.ICaseLit)
   def statement(self, icase):
-    self.closure['hnf'] = hnf
-    vid = icase.vid
-    path = self.varinfo[vid].path
-    assert path is not None
-    self.closure['unbox'] = self.interp.unbox
+    varident = self.expression(icase.var)
     typedef = casetype(self.interp, icase)
     self.closure['values'] = list(branch.lit.value for branch in icase.branches)
-    yield 'selector, _ = hnf(rts, _0, %s, typedef=%s, values=values)' % (
-        path, self.closure[typedef]
-      )
-    yield 'selector = unbox(selector)'
+    yield '%s.hnf(typedef=%s, values=values)' % (varident, self.closure[typedef])
+    yield 'selector = %s.unboxed_value' % varident
     el = ''
     for branch in icase.branches:
       rhs = repr(branch.lit.value)
@@ -380,8 +362,7 @@ class FunctionCompiler(object):
 
   @expression.when(icurry.IVarAccess)
   def expression(self, ivaraccess, primary=False):
-    self.closure['subexpr'] = graph.utility.subexpr
-    return 'subexpr(rts, %s)[%s]' % (
+    return 'rts.variable(%s, %s)' % (
         self.expression(ivaraccess.var, primary=primary)
       , ','.join(map(str, ivaraccess.path))
       )

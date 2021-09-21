@@ -1,3 +1,10 @@
+'''
+Builds a custom icurry.IModule holding the built-in parts of the Prelude.
+
+This is merged into the real module compiled from Prelude.curry to resolve the
+external declarations.
+'''
+
 from ....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .graph import infotable
 from .... import icurry, inspect
@@ -225,7 +232,7 @@ _functions_ = [
   # I/O functions.
   , _F('bindIO', 2, metadata={'py.rawfunc':impl.bindIO, 'all.monadic':True})
   , _F('seqIO', 2, metadata={'py.rawfunc':impl.seqIO, 'all.monadic':True})
-  , _F('returnIO', 1, metadata={'py.boxedfunc':impl.returnIO, 'all.monadic':True})
+  , _F('returnIO', 1, metadata={'py.rawfunc':impl.returnIO, 'all.monadic':True})
   , _F('prim_putChar', 1, metadata={'py.boxedfunc':impl.putChar, 'all.monadic':True})
   , _F('getChar', 0, metadata={'py.boxedfunc':impl.getChar, 'all.monadic':True})
   , _F('prim_readFile', 1, metadata={'py.boxedfunc':impl.readFile, 'all.monadic':True})
@@ -233,15 +240,15 @@ _functions_ = [
   , _F('prim_appendFile', 2, metadata={'py.rawfunc':impl.appendFile, 'all.monadic':True})
   , _F('catch', 2, metadata={'py.rawfunc':impl.catch, 'all.monadic':True})
   , _F('prim_ioError', 1, metadata={'py.rawfunc':impl.ioError, 'all.monadic':True})
-  , _F('?', 2, metadata={'py.rawfunc':impl.choice, 'py.format':'{1} {0} {2}'})
+  , _F('?', 2, metadata={'py.rawfunc':impl.choice})
   , _F('apply', 2, metadata={'py.rawfunc':impl.apply})
   , _F('cond', 2, metadata={'py.rawfunc':impl.cond})
   # Unused PAKCS functions.
-  , _F('unifEqLinear', 2, metadata={'py.unboxedfunc': impl.not_used})
-  , _F('prim_readFileContents', 2, metadata={'py.unboxedfunc': impl.not_used})
-  , _F('ifVar', 2, metadata={'py.unboxedfunc': impl.not_used})
-  , _F('letrec', 2, metadata={'py.unboxedfunc': impl.not_used})
-  , _F('failure', 2, metadata={'py.unboxedfunc': impl.not_used})
+  , _F('unifEqLinear', 2, metadata={'py.rawfunc': impl.not_used})
+  , _F('prim_readFileContents', 2, metadata={'py.rawfunc': impl.not_used})
+  , _F('ifVar', 2, metadata={'py.rawfunc': impl.not_used})
+  , _F('letrec', 2, metadata={'py.rawfunc': impl.not_used})
+  , _F('failure', 2, metadata={'py.rawfunc': impl.not_used})
   ]
 
 Prelude = icurry.IModule(

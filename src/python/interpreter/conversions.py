@@ -80,6 +80,7 @@ def topython(interp, value, convert_strings=True):
   --------
   The value converted to Python.
   '''
+  value = getattr(value, 'target', value) # handle Variable
   return _topython(value, convert_strings)
 
 def _topython(value, convert_strings=True):

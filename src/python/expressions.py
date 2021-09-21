@@ -205,6 +205,8 @@ class ExpressionBuilder(object):
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
+    if hasattr(arg, 'rvalue'): # handle Variable
+      return self(arg.rvalue, *args, **kwds)
     raise TypeError(
         'cannot build a Curry expression from type %r' % type(arg).__name__
       )

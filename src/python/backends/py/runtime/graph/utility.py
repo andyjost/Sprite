@@ -1,18 +1,50 @@
-from ..... import icurry, utility
+from ..... import icurry, inspect, utility
 from .....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 
-__all__ = ['replace', 'replace_copy', 'rewrite']
+__all__ = ['copy_spine', 'rewrite']
 
-def replace(rts, context, path, replacement):
-  from .replacer import Replacer
-  R = Replacer(context, path, lambda _a, _b: replacement)
-  replaced = R[None]
-  context.successors[:] = replaced.successors
+def copy_spine(root, realpath, end=None, rewrite=None):
+  '''
+  Copies the spine from ``root`` along ``realpath``.
 
-def replace_copy(rts, context, path, replacement):
-  copy = context.copy()
-  replace(rts, copy, path, replacement)
-  return copy
+  Parameters:
+  -----------
+    ``root``
+      The node at which to begin.
+
+    ``realpath``
+      The real path along which to copy.
+
+    ``end``
+      If supplied, this expression is placed at the end of the spine copied.
+
+    ``rewrite``
+      Specifies a node to rewrite with the result.
+
+  Returns:
+  --------
+  The root of the copied expression.
+  '''
+  # Example:
+  #      f      path=[1,0]                     f'
+  #    / | \                                 / | \
+  #   A  B  C   -- copy_spine(end=u) -->    A  B' C
+  #      |                                     |
+  #      ?                                     u
+  #     / \
+  #    u   v
+  from .node import Node
+  def construct(node, path, target=None):
+    if path:
+      i = path[0]
+      successors = list(node.successors)
+      successors[i] = construct(successors[i], path[1:])
+      return Node(node.info, *successors, target=target)
+    else:
+      return node if end is None else end
+  assert rewrite is None or inspect.isa_func(getattr(rewrite, 'target', rewrite))
+  return construct(root, realpath, target=rewrite)
+
 
 def rewrite(rts, target, info, *args, **kwds):
   from .node import Node

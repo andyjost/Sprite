@@ -31,11 +31,13 @@ class TestPyTypeChecks(cytest.TestCase):
         , r'Cannot construct a Float node from an argument of type int\.'
         , lambda: Node(I.prelude.Float.info, 1)
         )
-      self.assertMayRaiseRegexp(
-          TypeError if debug else None
-        , r'Cannot construct a Char node from an argument of type unicode\.'
-        , lambda: Node(I.prelude.Char.info, unicode('a'))
-        )
+      if debug:
+        # There is an assertion for this even in non-debug mode.
+        self.assertRaisesRegexp(
+            TypeError
+          , r'Cannot construct a Char node from an argument of type unicode\.'
+          , lambda: Node(I.prelude.Char.info, unicode('a'))
+          )
       self.assertMayRaiseRegexp(
           TypeError if debug else None
         , r'Cannot construct a Char node from a str of length 0\.'

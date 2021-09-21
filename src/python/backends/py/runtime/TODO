@@ -1,0 +1,57 @@
+- All of the boxed and raw functions need to be rewritten to take Variables.
+  - Next: The Replacer needs to be fixed.  It should use rts.variable for
+    indexing.  I need to think about whether there are any special situations.
+    Maybe I can get rid of it?  I kinda hate that code.  Perhaps with realpath
+    and variable, it is now much easier to implement what I need.
+
+    Given a variable _0:
+      _0.root is the function-labeled root
+      _0.target is the subexpression of interest.
+      _0.realpath is the path to the trget
+
+    Say _0.target is a choice.  Then we want to replace _0.root with a
+    choice-rooted node.  Do it as follows:
+      
+      cid = _0.target[0]
+      lhs = _0.copy_spine(end=_0.target[1])
+      rhs = _0.copy_spine(end=_0.target[2])
+      _0.rewrite(cid, lhs, rhs)
+
+- N with a path argument is a mess.  Find a better way to implement $## et al.
+
+- In hnf, the "full path" from rts.E to a variable is used.  Try to get rid of that.
+
+- A constraint now might have set guards in the pair.
+
+- I think hnf_or_free could be a method of Variable.
+
+- Whenever one of those appears in a result expression, it should be guarded
+  with x.guarded(rts).  Or maybe it should be called x.rvalue(rts).
+
+- Basically, do all indexing with Variable.  Do all normalizing with var.hnf.
+  When rewriting, use var.rvalue(rts).
+
+- After all that, refactor Variable so that it is just data.  Everything ought
+  to be a method of rts.
+      - rts.rewrite(variable, info, *args)
+      - rts.hnf(variable, typedef=, values=)
+      - rts.guard(variable)
+  It's OK to keep these data-like properties:
+      - variable.guards
+      - variable.is_root
+      - variable.parent
+      - variable.realpath
+      - variable.tag
+      - variable.target
+      - variable.unboxed_value
+
+- Update Variable to remove walk() and all_guards().  The hnf function ought to
+  just update the variable as it goes.  That way, variable.guards is always
+  up-to-date.
+
+
+- Parsing readNatLiteral will not work correctly with non-determinism and set
+  functions.  The guards are dropped.
+
+- Does hnf raise errors that need the path from the nearest function?  If so, then variables
+  need to be chained when that happens.

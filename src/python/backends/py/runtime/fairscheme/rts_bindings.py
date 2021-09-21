@@ -68,17 +68,17 @@ def has_binding(rts, arg=None, config=None):
   config = config or rts.C
   return rts.grp_id(arg, config) in config.bindings
 
-def make_value_bindings(rts, var, values, typedef):
+def make_value_bindings(rts, freevar, values, typedef):
   n = len(values)
   assert n
   if n == 1:
     value = graph.Node(typedef.constructors[0], values[0])
-    pair = graph.Node(rts.prelude.Pair, rts.obj_id(var), value)
+    pair = graph.Node(rts.prelude.Pair, freevar, value)
     return graph.Node(rts.prelude._ValueBinding, value, pair)
   else:
     cid = next(rts.idfactory)
-    left = make_value_bindings(rts, var, values[:n//2], typedef)
-    right = make_value_bindings(rts, var, values[n//2:], typedef)
+    left = make_value_bindings(rts, freevar, values[:n//2], typedef)
+    right = make_value_bindings(rts, freevar, values[n//2:], typedef)
     return graph.Node(rts.prelude._Choice, cid, left, right)
 
 def update_binding(rts, arg=None, config=None):

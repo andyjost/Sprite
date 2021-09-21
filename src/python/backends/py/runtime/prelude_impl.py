@@ -5,7 +5,6 @@ from ....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .control import E_RESIDUAL, E_UNWIND
 from ....exceptions import *
 from .fairscheme.algorithm import N, hnf
-from ..hnfmux import demux
 from . import graph
 from .... import show as show_module, inspect
 import collections
@@ -14,36 +13,36 @@ import operator as op
 
 logger = logging.getLogger(__name__)
 
-def hnf_or_free(rts, root, index, typedef=None, guards=None):
+def hnf_or_free(rts, var, typedef=None):
   '''Reduce the expression to head normal form or a free variable.'''
   try:
-    return hnf(rts, root, [index], typedef, guards)
+    return var.hnf(typedef)
   except E_RESIDUAL:
     # The argument could be a free variable or an expression containing a free
     # variable that cannot be narrowed, such as "ensureNotFree x".
-    expr, guards = graph.Node.getitem_and_guards(root, index)
-    if inspect.isa_freevar(expr):
-      return expr, guards
+    if inspect.isa_freevar(var.target):
+      return var
     else:
       raise
 
-def hnf_or_free_int(rts, root, index, guards=None):
-  return hnf_or_free(rts, root, index, rts.prelude.Int.info.typedef(), guards)
+def hnf_or_free_int(rts, var):
+  return hnf_or_free(rts, var, typedef=rts.prelude.Int.info.typedef())
 
 def narrow_integer_args(f):
   '''
   Decorate a built-in function over integers.  This will handle the arguments,
   raising E_RESIDUAL when they are not ground.
   '''
-  def repl(rts, root):
-    args, guards = demux(
-        hnf_or_free_int(rts, root, i) for i in range(len(root))
-      )
-    variables = filter(inspect.isa_freevar, args)
+  def repl(rts, _0):
+    args = [
+        hnf_or_free_int(rts, rts.variable(_0, i))
+            for i in xrange(len(_0.successors))
+      ]
+    variables = [arg for arg in args if inspect.isa_freevar(arg.target)]
     if variables:
       rts.suspend(variables)
     else:
-      return f(rts, *args)
+      return f(rts, *[arg.target for arg in args])
   return repl
 
 @narrow_integer_args
@@ -94,34 +93,40 @@ def remInt(rts, lhs, rhs):
   f = lambda x, y: x - y * int(op.truediv(x, y))
   yield f(*map(rts.topython, [lhs, rhs]))
 
-def constr_eq(rts, root):
+def constr_eq(rts, _0):
   '''Implements =:=.'''
-  (lhs, rhs), guards = demux(hnf_or_free(rts, root, i) for i in (0,1))
-  if inspect.is_boxed(lhs) and inspect.is_boxed(rhs):
+  lhs, rhs = [hnf_or_free(rts, rts.variable(_0, i)) for i in (0,1)]
+  if lhs.is_boxed and rhs.is_boxed:
     ltag, rtag = lhs.info.tag, rhs.info.tag
     if ltag == T_FREE:
       if rtag == T_FREE:
-        if lhs[0] != rhs[0]:
+        if lhs.freevar_id != rhs.freevar_id:
           yield rts.prelude._StrictConstraint.info
           yield rts.expr(True)
           yield rts.expr((lhs, rhs))
         else:
           yield rts.prelude.True
       else:
-        values = [rhs[0]] if rhs.info.typedef() in rts.builtin_types else None
-        hnf(rts, root, [0], rhs.info.typedef(), values, guards)
+        values = [rhs.unboxed_value] if rhs.typedef in rts.builtin_types else None
+        _1 = rts.variable(_0, 0)
+        _1.hnf(rhs.typedef, values)
     else:
       if rtag == T_FREE:
-        values = [lhs[0]] if lhs.info.typedef() in rts.builtin_types else None
-        hnf(rts, root, [1], lhs.info.typedef(), values, guards)
+        values = [lhs.unboxed_value] if lhs.typedef in rts.builtin_types else None
+        _1 = rts.variable(_0, 1)
+        _1.hnf(lhs.typedef, values)
       else:
         if ltag == rtag: # recurse when the comparison returns 0 or False.
           arity = lhs.info.arity
           assert arity == rhs.info.arity
           if arity:
             conj = getattr(rts.prelude, '&')
-            terms = (graph.Node(root.info, l, r) for l,r in zip(lhs, rhs))
-            expr = reduce((lambda a,b: graph.Node(conj, a, b)), terms)
+            def terms():
+              for i in xrange(arity):
+                _1 = rts.variable(lhs, i)
+                _2 = rts.variable(rhs, i)
+                yield graph.Node(_0.info, _1, _2)
+            expr = reduce((lambda a,b: graph.Node(conj, a, b)), terms())
             yield expr.info
             for succ in expr:
               yield succ
@@ -129,41 +134,46 @@ def constr_eq(rts, root):
             yield rts.prelude.True
         else:
           yield rts.prelude._Failure
-  elif not inspect.is_boxed(lhs) and not inspect.is_boxed(rhs):
-    yield rts.prelude.True if lhs == rhs else rts.prelude._Failure
-    #                         ^^^^^^^^^^ compare unboxed values
+  elif not lhs.is_boxed and not rhs.is_boxed:
+    yield rts.prelude.True if lhs.unboxed_value == rhs.unboxed_value \
+                           else rts.prelude._Failure
   else:
     raise InstantiationError('=:= cannot bind to an unboxed value')
 
-def nonstrict_eq(rts, root):
+def nonstrict_eq(rts, _0):
   '''
   Implements =:<=.
 
   This follows "Declarative Programming with Function Patterns," Antoy and
   Hanus, LOPSTR 2005, pg. 16.
   '''
-  lhs, rhs = root
-  if inspect.is_boxed(lhs) and inspect.is_boxed(rhs):
-    lhs, guards = hnf_or_free(rts, root, 0)
+  lhs = rts.variable(_0, 0)
+  rhs = rts.variable(_0, 1)
+  if lhs.is_boxed and rhs.is_boxed:
+    lhs = hnf_or_free(rts, lhs)
     if lhs.info.tag == T_FREE:
       # Bind lhs -> rhs
       yield rts.prelude._NonStrictConstraint.info
       yield rts.expr(True)
       yield rts.expr((lhs, rhs))
     else:
-      assert lhs.info.tag >= T_CTOR
-      rhs, guards = hnf_or_free(rts, root, 1, guards=guards)
+      assert inspect.is_data(lhs.target)
+      rhs = hnf_or_free(rts, rhs)
       if rhs.info.tag == T_FREE:
-        hnf(rts, root, [1], typedef=lhs.info.typedef(), guards=guards)
+        rhs.hnf(typedef=lhs.typedef)
       else:
-        rhs.info.tag >= T_FREE
+        assert inspect.is_data(rhs.target)
         if lhs.info.tag == rhs.info.tag:
           arity = lhs.info.arity
           assert arity == rhs.info.arity
           if arity:
             conj = getattr(rts.prelude, '&')
-            terms = (graph.Node(root.info, l, r) for l,r in zip(lhs, rhs))
-            expr = reduce((lambda a,b: graph.Node(conj, a, b)), terms)
+            def terms():
+              for i in xrange(arity):
+                _1 = rts.variable(lhs, i)
+                _2 = rts.variable(rhs, i)
+                yield graph.Node(_0.info, _1, _2)
+            expr = reduce((lambda a,b: graph.Node(conj, a, b)), terms())
             yield expr.info
             for succ in expr:
               yield succ
@@ -171,9 +181,9 @@ def nonstrict_eq(rts, root):
             yield rts.prelude.True
         else:
           yield rts.prelude._Failure
-  elif not inspect.is_boxed(lhs) and not inspect.is_boxed(rhs):
-    yield rts.prelude.True if lhs == rhs else rts.prelude._Failure
-    #                         ^^^^^^^^^^ compare unboxed values
+  elif not lhs.is_boxed and not rhs.is_boxed:
+    yield rts.prelude.True if lhs.unboxed_value == rhs.unboxed_value \
+                           else rts.prelude._Failure
   else:
     raise InstantiationError('=:<= cannot bind to an unboxed value')
 
@@ -186,7 +196,7 @@ def nonstrict_eq(rts, root):
 #         - if any step occurred, work on the other arg;
 #         - otherwise, suspend;
 # Use digits.curry as an example.
-def concurrent_and(rts, root):
+def concurrent_and(rts, _0):
   Bool = rts.type('Prelude.Bool')
   assert rts.prelude.False.info.tag == 0
   assert rts.prelude.True.info.tag == 1
@@ -195,23 +205,31 @@ def concurrent_and(rts, root):
   while True:
     stepnumber = rts.stepcounter.count
     try:
-      e, guards = hnf(rts, root, [i], typedef=Bool)
+      _1 = rts.variable(_0, i)
+      _1.hnf(typedef=Bool)
     except E_RESIDUAL as errs[i]:
       if errs[1-i] and rts.stepcounter.count == stepnumber:
         raise
     else:
-      if e.info.tag:      # True
+      if _1.info.tag:      # True
         yield rts.prelude._Fwd
-        yield root[1-i]
+        yield _0.successors[1-i]
       else:               # False
         yield rts.prelude.False
       return
     i = 1-i
 
-def apply(rts, lhs):
-  partapplic, guards = hnf(rts, lhs, [0]) # normalize "partapplic"
-  arg = lhs.successors[1]
-  missing, term = partapplic # note: "missing" is unboxed.
+def apply(rts, _0):
+  # _0 (_Partapplic #missing term) arg
+  #
+  # The term is a function symbol followed zero or more arguments.
+  # No forward nodes or set guards may appear around the term.
+  partapplic = rts.variable(_0, 0)
+  partapplic.hnf()
+  missing, term = partapplic.target.successors
+  assert inspect.isa_unboxed_int(missing)
+  assert inspect.isa_func(term) or inspect.isa_ctor(term)
+  arg = _0.target.successors[1]
   assert missing >= 1
   if missing == 1:
     yield term
@@ -223,22 +241,24 @@ def apply(rts, lhs):
     yield missing-1
     yield graph.Node(term, *(term.successors+[arg]), partial=True)
 
-def cond(rts, lhs):
-  _, guards = hnf(rts, lhs, [0]) # normalize the Boolean argument.
-  if lhs[0].info is rts.prelude.True.info:
+def cond(rts, _0):
+  Bool = rts.type('Prelude.Bool')
+  _1 = rts.variable(_0, 0)
+  _1.hnf(typedef=Bool)
+  if _1.info.tag:
     yield rts.prelude._Fwd
-    yield lhs[1]
+    yield _0.successors[1]
   else:
     yield rts.prelude._Failure
 
 def failed(rts):
   return [rts.prelude._Failure]
 
-def choice(rts, lhs):
+def choice(rts, _0):
   yield rts.prelude._Choice
   yield next(rts.idfactory)
-  yield graph.Node.getitem(lhs, 0, skipguards=False)
-  yield graph.Node.getitem(lhs, 1, skipguards=False)
+  yield _0.successors[0]
+  yield _0.successors[1]
 
 def error(rts, msg):
   msg = str(rts.topython(msg))
@@ -253,13 +273,15 @@ def readNatLiteral(rts, s):
   Parse a natural number from a Curry string.  Returns a pair consisting of the
   value and the remaining string.
   '''
+  # FIXME: this function may not handle set guards properly.
   num = []
   Cons = rts.prelude.Cons
-  while inspect.isa(s, Cons):
-    c = rts.unbox(s[0])
+  while inspect.isa(s.target, Cons):
+    _1 = rts.variable(s, 0)
+    c = _1.unboxed_value
     if c.isdigit():
       num.append(c)
-      s = s[1]
+      s = rts.variable(s, 1)
     else:
       break
   yield getattr(rts.prelude, '(,)')
@@ -271,23 +293,26 @@ def readFloatLiteral(rts, s):
   Parse a floating-point number from a Curry string.  Returns a pair consisting
   of the value and the remaining string.
   '''
+  # FIXME: this function may not handle set guards properly.
   num = []
   Cons = rts.prelude.Cons
-  if inspect.isa(s, Cons):
-    c = rts.unbox(s[0])
+  if inspect.isa(s.target, Cons):
+    _1 = rts.variable(s, 0)
+    c = _1.unboxed_value
     if c in '+-':
       num.append(c)
-      s = s[1]
+      s = rts.variable(s, 1)
   have_dot = False
-  while inspect.isa(s, Cons):
-    c = rts.unbox(s[0])
+  while inspect.isa(s.target, Cons):
+    _1 = rts.variable(s, 0)
+    c = _1.unboxed_value
     if c.isdigit():
       num.append(c)
-      s = s[1]
+      s = rts.variable(s, 1)
     elif c == '.' and not have_dot:
       have_dot = True
       num.append(c)
-      s = s[1]
+      s = rts.variable(s, 1)
     else:
       break
   yield getattr(rts.prelude, '(,)')
@@ -297,11 +322,15 @@ def readFloatLiteral(rts, s):
 class ParseError(BaseException): pass
 
 def _getchar(rts, s):
-  # Get and unbox the head character of a string.  Return a pair of it and the
-  # tail.
-  if inspect.isa(s, rts.prelude.Cons):
-    h,t = s
-    return rts.unbox(h), t
+  '''
+  Get and unbox the head character of a string.  Return a pair of it and the
+  tail.
+  '''
+  # FIXME: this function may not handle set guards properly.
+  if inspect.isa(s.target, rts.prelude.Cons):
+    _1 = rts.variable(s, 0)
+    _2 = rts.variable(s, 1)
+    return _1.unboxed_value, _2
   raise ParseError()
 
 def _parseDecChar(rts, s, digits=None):
@@ -309,6 +338,7 @@ def _parseDecChar(rts, s, digits=None):
   Parses a string of decimal digits.  Returns the corresponding character and
   string tail.
   '''
+  # FIXME: this function may not handle set guards properly.
   digits = digits or []
   s_prev = s
   while True:
@@ -327,6 +357,7 @@ def _parseHexChar(rts, s, digits=None):
   Parses a string of hexadecimal digits.  Returns the corresponding character
   and string tail.
   '''
+  # FIXME: this function may not handle set guards properly.
   digits = digits or []
   s_prev = s
   while True:
@@ -346,6 +377,7 @@ ESCAPE_CODES = {
   , 'b':'\b', 'f':'\f', 'n':'\n', 'r':'\r', 't':'\t', 'v':'\v'
   }
 def _parseEscapeCode(rts, s):
+  # FIXME: this function may not handle set guards properly.
   c, s = _getchar(rts, s)
   if c in ESCAPE_CODES:
     return ESCAPE_CODES[c], s
@@ -376,6 +408,7 @@ def readCharLiteral(rts, s):
     string tail following the closing quote.  If no character can be parsed,
     returns char '\0' and the original string.
   '''
+  # FIXME: this function may not handle set guards properly.
   s_in = s
   try:
     # First, yield the Curry symbol for a pair.
@@ -420,6 +453,7 @@ def readStringLiteral(rts, s):
     Curry string tail following the closing quote.  If no string can be parsed,
     returns and empty string and the original string.
   '''
+  # FIXME: this function may not handle set guards properly.
   s_in = s
   try:
     yield getattr(rts.prelude, '(,)')
@@ -446,22 +480,25 @@ def readStringLiteral(rts, s):
     yield s_in
 
 def bindIO(rts, lhs):
-  io_a, guards = hnf(rts, lhs, [0])
+  io_a = rts.variable(lhs, 0)
+  io_a.hnf()
+  a = rts.variable(io_a, 0)
   yield rts.prelude.apply
   yield lhs.successors[1]
-  yield io_a.successors[0]
+  yield a
 
 def seqIO(rts, lhs):
-  _, guards = hnf(rts, lhs, [0])
+  _1 = rts.variable(lhs, 0)
+  _1.hnf()
   yield rts.prelude._Fwd
   yield lhs.successors[1]
 
-def returnIO(rts, a):
+def returnIO(rts, _0): # DEBUG: changed from boxedfunc to rawfunc
   yield rts.prelude.IO
-  yield a
+  yield _0.successors[0]
 
 def putChar(rts, a):
-  rts.stdout.write(a.successors[0])
+  rts.stdout.write(a.unboxed_value)
   yield rts.prelude.IO
   yield graph.Node(rts.prelude.Unit)
 
@@ -479,7 +516,7 @@ def generateBytes(stream, chunksize=4096):
         yield byte
 
 def readFile(rts, filename):
-  filename = rts.topython(filename)
+  filename = rts.topython(filename.target)
   stream = open(filename, 'r')
   try:
     import mmap
@@ -491,19 +528,21 @@ def readFile(rts, filename):
   yield gen
 
 def writeFile(rts, func, mode='w'):
-  filename, data = func
+  # FIXME: this function may not handle set guards properly.
+  filename, data = func.successors
   filename = rts.topython(filename)
   stream = open(filename, 'w')
-  listtype = rts.prelude.Cons.typedef()
-  chartype = rts.prelude.Char.typedef()
+  List = rts.prelude.Cons.typedef()
+  Char = rts.prelude.Char.typedef()
   while True:
-    listnode, _ = hnf(rts, func, [1], listtype)
-    tag = inspect.tag_of(listnode)
+    _1 = rts.variable(func, 1)
+    _1.hnf(typedef=List)
+    tag = _1.info.tag
     if tag == 0: # Cons
-      char, tail = listnode
-      char, _ = hnf(rts, func, [1,0], chartype)
-      stream.write(char.successors[0])
-      func.successors[1] = tail
+      char = rts.variable(_1, 0)
+      char.hnf(typedef=Char)
+      stream.write(char.unboxed_value)
+      func.successors[1] = _1.successors[1]
     elif tag == 1: # Nil
       yield rts.prelude.IO
       yield graph.Node(rts.prelude.Unit)
@@ -523,72 +562,77 @@ def make_monad_exception(rts, exc):
 
 def catch(rts, func):
   try:
-    _, guards = hnf(rts, func, [0])
+    _1 = rts.variable(func, 0)
+    _1.hnf()
   except (IOError, MonadError) as exc:
     yield rts.prelude.apply
     yield func.successors[1]
     yield make_monad_exception(rts, exc)
   else:
     yield rts.prelude._Fwd
-    yield func[0]
+    yield func.successors[0]
 
 def ioError(rts, func):
   yield rts.prelude.error
-  yield graph.Node(rts.prelude.show, func[0])
+  yield graph.Node(rts.prelude.show, func.successors[0])
 
 def show(rts, arg):
-  if inspect.is_boxed(arg):
-    string = show_module.show(arg)
+  if arg.is_boxed:
+    string = show_module.show(arg.target)
   else:
-    string = str(arg)
+    string = str(arg.target)
   if len(string) == 1:
     string = [string]
   result = rts.expr(string)
   yield rts.prelude._Fwd
   yield result
 
-def normalize(rts, func, path, ground):
-  if not N(rts, func, path, ground):
+def normalize(rts, var, path, ground):
+  if not N(rts, var.target, path, ground):
     rts.unwind()
   else:
-    return graph.Node.getitem_and_guards(func, path)
+    return rts.variable(var, path)
 
-def apply_impl(rts, root, impl, **kwds):
-  partapplic, guards = hnf(rts, root, [0])
-  func = partapplic.successors[1]
-  with rts.catch_control(nondet=rts.is_io(func)):
-    result, guards = impl(rts, root, [1], **kwds)
-  if guards:
-    breakpoint()
+def hnf_wrapper(rts, var, path):
+  subexpr = rts.variable(var, path)
+  return hnf(rts, subexpr)
+
+def apply_special(rts, _0, action, **kwds):
+  '''Apply with a special action applied to the argument.'''
+  partapplic = rts.variable(_0, 0)
+  term = partapplic.successors[1]
+  assert inspect.isa_func(term) # not a forward node or set guard
+  with rts.catch_control(nondet=rts.is_io(term)):
+    transformed_arg = action(rts, _0, [1], **kwds)
   yield rts.prelude.apply
-  yield root.successors[0]
-  yield result
+  yield _0.successors[0]
+  yield transformed_arg
 
-def apply_hnf(rts, root):
-  return apply_impl(rts, root, hnf)
+def apply_hnf(rts, _0):
+  return apply_special(rts, _0, hnf_wrapper)
 
-def apply_nf(rts, root):
-  return apply_impl(rts, root, normalize, ground=False)
+def apply_nf(rts, _0):
+  return apply_special(rts, _0, normalize, ground=False)
 
-def apply_gnf(rts, root):
-  return apply_impl(rts, root, normalize, ground=True)
+def apply_gnf(rts, _0):
+  return apply_special(rts, _0, normalize, ground=True)
 
-def ensureNotFree(rts, root):
-  arg, guards = hnf_or_free(rts, root, 0)
-  if rts.is_void(arg):
-    rts.suspend(arg)
+def ensureNotFree(rts, _0):
+  _1 = hnf_or_free(rts, rts.variable(_0, 0))
+  if rts.is_void(_1.target):
+    rts.suspend(_1.target)
   else:
     yield rts.prelude._Fwd
-    yield arg
+    yield _1
 
 def _PyGenerator(rts, gen):
   '''Implements a Python generator as a Curry list.'''
-  assert isinstance(gen, collections.Iterator)
+  assert isinstance(gen.target, collections.Iterator)
   try:
-    item = next(gen)
+    item = next(gen.target)
   except StopIteration:
     yield rts.prelude.Nil
   else:
     yield rts.prelude.Cons
     yield rts.expr(item)
-    yield rts.expr(gen)
+    yield graph.Node(rts.prelude._PyGenerator, gen.target)

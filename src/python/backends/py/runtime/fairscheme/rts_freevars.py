@@ -7,7 +7,6 @@ from .....common import (
     LEFT, RIGHT, UNDETERMINED, ChoiceState
   , T_FAIL, T_FREE, T_CHOICE, T_CTOR
   )
-from ..graph import replacer
 from .. import graph
 from ..... import inspect
 
@@ -64,33 +63,21 @@ def has_generator(rts, arg=None, config=None):
   variable = rts.get_freevar(arg, config)
   return variable.successors[1].info is not rts.prelude.Unit.info
 
-def instantiate(rts, func, path, typedef, config=None):
+def instantiate(rts, var, typedef, config=None):
   '''
-  Instantiates a needed free variable, which occurs at ``func[path]`` and has
-  type ``typedef``.  The subexpression ``func`` will be rewritten such that the
-  specified occurrence is replaced.
-
-  See algorithm.hnf for a description of the arguments.
+  Instantiates a needed free variable, at the specified location.
 
   Returns:
   --------
     The expression the free variable was replaced with.
   '''
   if typedef is None:
-    rts.suspend(func.getitem_with_guards(func, path), config)
+    rts.suspend(var, config)
   else:
-    R = replacer.Replacer(func, path
-      , lambda node, _: _make_generator(rts, node, typedef)
-      )
-    replaced = R[None]
-    assert R.target.info.tag == T_FREE
-    assert func.info == replaced.info
-    func.successors[:] = replaced.successors
-    target = R.target.successors[1]
-    if R.guards:
-      return rts.guard(R.guards, target)
-    else:
-      return target
+    genexpr = _make_generator(rts, var, typedef)
+    var.copy_spine(end=genexpr, rewrite=var.root)
+    var.update()
+    return genexpr
 
 def is_narrowed(rts, arg=None, config=None):
   '''
@@ -206,8 +193,7 @@ def _make_generator(rts, variable, typedef=None):
     instance = _create_generator(rts, constructors, vid=vid)
     if len(constructors) == 1:
       # Ensure the instance is always choice-rooted.  This is not the most
-      # efficient approach, but it simplifies the implementation elsewhere
-      # (e.g., see Replacer._a_).
+      # efficient approach, but it simplifies the implementation elsewhere.
       instance = graph.Node(
           rts.prelude._Choice, vid, instance, graph.Node(rts.prelude._Failure)
         )

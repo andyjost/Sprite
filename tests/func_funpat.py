@@ -4,5 +4,5 @@ import cytest # from ./lib; must be first
 class TestFunpat(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/funpat/'
   PRINT_SKIPPED_GOALS = True
-  # RUN_ONLY = ['funpat_isin02']
+  # RUN_ONLY = ['']
 

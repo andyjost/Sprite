@@ -33,6 +33,7 @@ def D(rts):
         rts.unwind()
       rts.E = rts.E.successors[1]
     elif tag == T_CHOICE:
+      ## FIXME
       cid = rts.obj_id()
       if (cid in getattr(rts.S, 'escape_set', []) or rts.C.escape_all) and not any(
           cid in config.fingerprint for config in rts.walk_configs()
@@ -65,6 +66,13 @@ def D(rts):
             del value
 
 
+# The N procedure is normally called from D (with no arguments), when the root
+# expression is constructor rooted.
+# 
+# The exceptions are the built-in # control function $!! and $##, which make
+# recursive calls to N with more arguments.  The additional arguments indicate
+# the position under a function symbol that needs to be normalized.
+
 def N(rts, root=None, path=None, ground=True):
   C = rts.C
   C.search_state.append(None)
@@ -82,23 +90,26 @@ def N(rts, root=None, path=None, ground=True):
           return False
         elif tag == T_CONSTR:
           if path is None:
-            rts.E = rts.make_constraint(state.cursor, rts.E, state.path)
+            var = rts.variable(rts.E, state.path)
+            rts.E = rts.make_constraint(var)
           else:
-            rts.make_constraint(state.cursor, root, state.path, rewrite=root)
+            var = rts.variable(root, state.path)
+            rts.make_constraint(var, rewrite=root)
           return False
         elif tag == T_FREE:
           if ground:
+            # Path not relevant here.  We must clone the whole context.
             if rts.has_binding(state.cursor):
               binding = rts.get_binding(state.cursor)
-              rts.E = graph.utility.replace_copy(rts, rts.E, state.path, binding)
+              rts.E = rts.variable(rts.E, state.path).copy_spine(end=binding)
               rts.restart()
             elif rts.is_narrowed(state.cursor):
-              gen = target = rts.get_generator(state.cursor)
-              rts.E = rts.make_choice(gen[0], rts.E, state.path, gen)
+              gen = rts.get_generator(state.cursor)
+              rts.E = rts.variable(rts.E, state.path).copy_spine(end=gen)
               rts.restart()
             elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
               x = rts.get_freevar(rts.grp_id(state.cursor))
-              rts.E = graph.utility.replace_copy(rts, rts.E, state.path, x)
+              rts.E = rts.variable(rts.E, state.path).copy_spine(end=x)
               rts.restart()
           break
         elif tag == T_FWD:
@@ -107,9 +118,11 @@ def N(rts, root=None, path=None, ground=True):
           cid = state.cursor.successors[0]
           rts.update_escape_sets(sids=state.data, cid=cid)
           if path is None:
-            rts.E = rts.make_choice(cid, rts.E, state.path)
+            var = rts.variable(rts.E, state.path)
+            rts.E = rts.pull_tab(var)
           else:
-            rts.make_choice(cid, root, state.path, rewrite=root)
+            var = rts.variable(root, state.path)
+            rts.pull_tab(var, rewrite=root)
           return False
         elif tag == T_SETGRD:
           sid = state.cursor.successors[0]
@@ -131,91 +144,85 @@ def N(rts, root=None, path=None, ground=True):
 @trace.trace_steps
 def S(rts, node):
   with rts.catch_control(unwind=True, nondet=rts.is_io(node)):
-    node.info.step(rts, node)
+    _0 = rts.variable(node)
+    node.info.step(rts, _0)
     rts.stepcounter.increment()
 
-
-def hnf(rts, func, path, typedef=None, values=None, guards=None):
+def hnf(rts, var, typedef=None, values=None):
   '''
-  Head-normalize the expression at the inductive position ``func[path],`` where
-  func is a needed, function-rooted expression.
+  Head-normalize the expression at the given variable.
 
-  This function either succeeds and returns the indicated subexpression or
-  raises an exception.
-
-  The compiler generates calls to this function when evaluating case
-  expressions.  Built-in functions may also call this.
+  This function either succeeds and returns the updated variable or raises an
+  exception.
 
   Parameters:
   -----------
-    ``func``
-      The function-rooted subexpression nearest to this step.
-
-    ``path``
-      The path from ``func`` to the (inductive) position to normalize.
+    ``var``
+      An instance of ``Variable``.
 
     ``typedef``
-      The type of the inductive position.  Needed when a free variable occurs
-      there.
+      The type of the inductive position.  Needed when ``var`` is a free
+      variable.
 
     ``values``
-      A list of integers, float, or characters indicating the values that may
-      occur at the inductive position.  Only meaningful when ``typedef`` is
-      Prelude.Int, Prelude.Float, or Prelude.Char.
+      An optional list of integers, floats, or characters indicating the values
+      that may occur at the inductive position.  This is only meaningful when
+      ``typedef`` is Prelude.Int, Prelude.Float, or Prelude.Char.
 
   Returns:
   --------
-    The subexpression after reducing it to a constructor-rooted expression.
+    The updated variable, ``var``.
   '''
-  guards = set() if guards is None else guards
-  target = graph.Node.getitem(func, path, guards)
   C = rts.C
-  C.search_state.append(tuple(path))
+  C.search_state.append(tuple(var.fullrealpath))
   try:
     while True:
-      if isinstance(target, icurry.ILiteral):
-        return target, guards
-      tag = inspect.tag_of(target)
+      if isinstance(var.target, icurry.ILiteral):
+        return var
+      tag = var.tag
       if tag == T_FAIL:
-        func.rewrite(rts.prelude._Failure)
+        var.root.rewrite(rts.prelude._Failure)
         rts.unwind()
       elif tag == T_CONSTR:
-        rts.make_constraint(target, func, path, rewrite=func)
+        rts.make_constraint(var, rewrite=var.root)
         rts.unwind()
       elif tag == T_FREE:
-        if rts.has_generator(target):
-          gen = rts.get_generator(target)
-          rts.make_choice(gen.successors[0], func, path, gen, rewrite=func)
-          rts.unwind()
-        elif rts.has_binding(target):
-          binding = rts.get_binding(target)
-          rts.E = graph.utility.replace_copy(rts, rts.E, tuple(rts.C.path), binding)
+        if rts.has_generator(var.target):
+          gen = rts.get_generator(var.target)
+          var.copy_spine(end=gen, rewrite=var.root)
+          var.update()
+          C.search_state[-1] = tuple(var.fullrealpath)
+        elif rts.has_binding(var.target):
+          # FIXME: can't I get rid of this branch?  Just instantiate the
+          # variable and let the fingerprint sort out the rest.  But that does
+          # not work for infinite types.
+          binding = rts.get_binding(var.target)
+          rts.E = graph.utility.copy_spine(rts.E, tuple(rts.C.path), end=binding)
           rts.restart()
         elif typedef in rts.builtin_types:
           if values:
-            target = rts.make_value_bindings(target, values, typedef)
-            graph.utility.replace(rts, func, path, target)
+            bindings = rts.make_value_bindings(var, values, typedef)
+            var.copy_spine(end=bindings, rewrite=var.root)
+            var.update()
+            C.search_state[-1] = tuple(var.fullrealpath)
           else:
-            rts.suspend(target)
+            rts.suspend(var.target)
         else:
-          target = rts.instantiate(func, path, typedef)
-      elif tag == T_FWD:
-        target = graph.Node.getitem(func, path, guards)
+          rts.instantiate(var, typedef)
       elif tag == T_CHOICE:
-        cid = target.successors[0]
-        for sid in guards:
+        cid = inspect.get_choice_id(var.target)
+        for sid in var.all_guards():
           rts.update_escape_set(sid=sid, cid=cid)
-        rts.make_choice(cid, func, path, rewrite=func)
+        rts.pull_tab(var, rewrite=var.root)
         rts.unwind()
-      elif tag == T_SETGRD:
-        sid, expr = target
-        guards.add(sid)
-        target = expr
       elif tag == T_FUNC:
-        S(rts, target)
+        S(rts, var.target)
+        var.update()
+        C.search_state[-1] = tuple(var.fullrealpath)
       elif tag >= T_CTOR:
-        return target, guards
+        return var
       else:
+        # T_FWD and T_SETGRD should not occur.
         assert False
   finally:
     C.search_state.pop()

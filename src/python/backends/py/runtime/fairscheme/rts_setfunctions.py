@@ -12,4 +12,7 @@ def guard_args(rts, guards, node):
   yield node
 
 def guard(rts, guards, node, target=None):
-  return graph.Node(*guard_args(rts, guards, node), target=target)
+  if not guards:
+    return node
+  else:
+    return graph.Node(*guard_args(rts, guards, node), target=target)

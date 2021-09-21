@@ -1,6 +1,6 @@
 from ..... import context, icurry, utility
 from .....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from ..... import show
+from ..... import inspect, show
 import collections
 import numbers
 import operator
@@ -43,12 +43,14 @@ class Node(object):
             )
         )
     target = kwds.get('target', None)
+    target = getattr(target, 'target', target) # accept target=Variable
     self = object.__new__(cls) if target is None else target
     self.info = info
-    successors = list(args)
+    successors = [getattr(arg, 'rvalue', arg) for arg in args]
     # Run-time typecheck (debug only).
     if info.typecheck is not None:
       info.typecheck(info, *successors)
+    assert all(map(inspect.isa_curry_expr_or_none, successors))
     self.successors = successors
     return self
 

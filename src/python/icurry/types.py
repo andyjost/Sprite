@@ -585,11 +585,14 @@ class ICase(IObject):
     self.branches = branches
     IObject.__init__(self, **kwds)
   @property
+  def var(self):
+    return IVar(self.vid)
+  @property
   def children(self):
     return self.branches
   def __str__(self):
     return 'case %s of\n%s' % (
-        IVar(self.vid)
+        self.var
       , indent(self.branches)
       )
   def __repr__(self):

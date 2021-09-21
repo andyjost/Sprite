@@ -1,4 +1,3 @@
-from .common import T_FWD
 from . import context
 from . import exceptions
 from . import inspect
@@ -42,25 +41,6 @@ class Stringifier(object):
     finally:
       self.pop_subexpr(arg)
 
-    # addr = id(arg)
-    # ###
-    # if hasattr(arg, 'info'):
-    #   name = arg.info.name
-    # else:
-    #   name = repr(arg)
-    # ###
-    # if self.memo[addr] == 0:
-    #   print 'enter', addr, 'with', name
-    #   self.memo[addr] += 1
-    #   try:
-    #     yield True
-    #   finally:
-    #     print 'exit', addr, 'with', name
-    #     self.memo[addr] -= 1
-    # else:
-    #   yield False
-    #   # return '...'
-
   def push_subexpr(self, arg):
     addr = id(arg)
     self.memo[addr] += 1
@@ -70,31 +50,6 @@ class Stringifier(object):
     addr = id(arg)
     self.memo[addr] -= 1
 
-  # def __replace_backrefs(f):
-  #   '''
-  #   Identifies backward references in cyclical expressions and avoids recursion
-  #   there.
-  #   '''
-  #   def impl(self, arg, **kwds):
-  #     addr = id(arg)
-  #     if hasattr(arg, 'info'):
-  #       name = arg.info.name
-  #     else:
-  #       name = repr(arg)
-  #     print 'enter', addr, 'with', name
-  #     # pdbtrace()
-  #     if self.memo[addr] == 0:
-  #       self.memo[addr] += 1
-  #       try:
-  #         return f(self, arg, **kwds)
-  #       finally:
-  #         print 'exit', addr, 'with', name
-  #         self.memo[addr] -= 1
-  #     else:
-  #       return '...'
-  #   return impl
-
-  # @__replace_backrefs
   def stringify(self, arg, outer=False):
     '''
     Converts the argument to a string according to the specified style.
@@ -113,11 +68,15 @@ class Stringifier(object):
         else:
           return self.format(arg)
       else:
-        string = self.format(arg)
-        if not outer and self.__needparens(arg, string):
-          return '(%s)' % string
+        if inspect.isa_fwd(arg):
+          target = inspect.fwd_target(arg)
+          return self.stringify(target, outer)
         else:
-          return string
+          string = self.format(arg)
+          if not outer and self.__needparens(arg, string):
+            return '(%s)' % string
+          else:
+            return string
 
   def format(self, arg):
     if self.style == 'repr':
@@ -132,19 +91,32 @@ class Stringifier(object):
       else:
         return repr(arg)
 
-  def flatten(self, node):
+  def flatten(self, arg):
     # Special cases.  For certain types, including lists and tuples,
     # subexpressions should be treated as outer expressions.  For example, we
     # write [f a] not [(f a)] and (f a, f b) rather than ((f a), (f b)).
-    outer = node.info.name[0] in '([{<?' or node.info.tag == T_FWD
-    yield node.info.name
-    for succ in node.successors:
-      yield self.stringify(succ, outer=outer)
+    if inspect.isa_operator_name(arg.info.name) and self.style != 'repr':
+      # This could be useful, but needs to be controlled.
+      #
+      # if arg.info.arity == 2:
+      #   # Assume binary operators are infix.  ICurry does not have this
+      #   # information.
+      #   yield self.stringify(arg.successors[0])
+      #   yield arg.info.name
+      #   yield self.stringify(arg.successors[1])
+      #   return
+      # else:
+      yield '(' + arg.info.name + ')'
+    else:
+      yield arg.info.name
+    treat_subexpr_as_outer = inspect.isa_list(arg) or inspect.isa_tuple(arg)
+    for succ in arg.successors:
+      yield self.stringify(succ, outer=treat_subexpr_as_outer)
 
   @staticmethod
-  def __needparens(arg, x):
-    return x and x[0] not in '([{<' and ' ' in x \
-       and not (hasattr(arg, 'info') and arg.info.tag == T_FWD)
+  def __needparens(arg, string):
+    assert not inspect.isa_fwd(arg)
+    return ' ' in string and not (inspect.isa_list(arg) or inspect.isa_tuple(arg))
 
 class ListStringifier(Stringifier):
   '''
@@ -153,14 +125,14 @@ class ListStringifier(Stringifier):
   '''
   def format(self, arg, **kwds):
     if inspect.isa_cons(arg) and self.style != 'repr':
-      l = [self.stringify(arg.successors[0])]
+      l = [self.stringify(arg.successors[0], outer=True)]
       spine = []
       arg = arg.successors[1]
       try:
         while inspect.isa_cons(arg):
           if self.push_subexpr(arg):
             spine.append(arg)
-            l.append(self.stringify(arg.successors[0]))
+            l.append(self.stringify(arg.successors[0], outer=True))
             arg = arg.successors[1]
           else:
             l.append('...')
@@ -169,7 +141,10 @@ class ListStringifier(Stringifier):
           return '[%s]' % ', '.join(l)
         else:
           l.append(self.stringify(arg))
-          return ':'.join(l)
+          return ':'.join(
+              '(' + term + ')' if ' ' in term else term
+                  for term in l
+            )
       finally:
         for arg in reversed(spine):
           self.pop_subexpr(arg)

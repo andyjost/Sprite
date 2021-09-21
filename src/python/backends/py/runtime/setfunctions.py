@@ -25,28 +25,30 @@ _types_ = [
 def _F(name, *args, **kwds):
   return icurry.IFunction('Control.SetFunctions.' + name, *args, **kwds)
 
-def guard_arg(rts, arg):
+def create_guarded_expr(rts, arg):
   return arg if not hasattr(arg, 'info') else \
          graph.Node(rts.setfunctions._SetGuard, rts.get_sid(), arg)
 
 def make_goal(rts, f, *args):
   expr = f
   for arg in args:
-    expr = graph.Node(rts.prelude.apply, expr, guard_arg(rts, arg))
+    expr = graph.Node(rts.prelude.apply, expr, create_guarded_expr(rts, arg))
   return expr
 
 def setN(rts, _0):
   sid = rts.create_setfunction()
   with rts.queue_scope(sid=sid):
-    goal = make_goal(rts, *list(_0))
+    goal = make_goal(rts, *_0.successors)
     rts.set_goal(goal)
     yield rts.setfunctions.Values
     yield sid
     yield rts.qid
 
 def allValues(rts, _0):
-  valueset, guards = hnf(rts, _0, [0])
-  sid, qid = valueset
+  valueset = rts.variable(_0, 0)
+  valueset.hnf()
+  valueset.update()
+  sid, qid = valueset.successors
   try:
     with rts.queue_scope(sid=sid, qid=qid):
       try:
@@ -61,8 +63,8 @@ def allValues(rts, _0):
     tag = inspect.tag_of(subconfig.root)
     if tag == T_SETGRD:
       gexpr = subconfig.root
-      guards.add(gexpr[0])
-      for arg in graph.guard_args(rts, guards, _0.copy()):
+      valueset.guards.add(gexpr[0])
+      for arg in graph.guard_args(rts, valueset.guards, _0.target.copy()):
         yield arg
       with rts.queue_scope(sid=sid, qid=qid):
         rts.E = rts.E[1]

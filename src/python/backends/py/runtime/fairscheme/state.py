@@ -1,5 +1,6 @@
-from ..graph.copy import copygraph
 from copy import copy
+from ..graph.copy import copygraph
+from ..graph.variable import Variable
 from ..... import inspect
 from . import stepcounter
 from ...sprite import Fingerprint
@@ -262,7 +263,7 @@ class RuntimeState(object):
     , suspend, unwind
     )
   from .rts_fingerprint import (
-      equate_fp, fork, grp_id, make_choice, obj_id, read_fp, update_fp
+      equate_fp, fork, grp_id, obj_id, pull_tab, read_fp, update_fp
     )
   from .rts_setfunctions import guard
   from .rts_freevars import (
@@ -270,4 +271,10 @@ class RuntimeState(object):
     , has_generator, instantiate, is_narrowed, is_nondet, is_void
     , register_freevar
     )
+
+  def variable(self, parent, path=None):
+    '''Creates an instance of Variable.'''
+    if path is None:
+      return Variable.from_root(self, parent)
+    return Variable.from_logicalpath(self, parent, path)
 
