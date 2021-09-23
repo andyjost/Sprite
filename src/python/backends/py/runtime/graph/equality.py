@@ -32,7 +32,7 @@ class GraphEquality(object):
       if self.skipfwd:
         from .node import Node
         return all(
-            self(Node._skipfwd(l), Node._skipfwd(r))
+            self(inspect.fwd_chain_target(l), inspect.fwd_chain_target(r))
                 for l, r in zip(lhs.successors, rhs.successors)
           )
       else:

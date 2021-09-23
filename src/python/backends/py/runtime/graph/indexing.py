@@ -8,7 +8,7 @@ from .....utility import visitation
 import collections
 import numbers
 
-__all__ = ['logical_subexpr', 'realpath', 'subexpr']
+__all__ = ['compress_fwd_chain', 'logical_subexpr', 'realpath', 'subexpr']
 
 def logical_subexpr(root, path, update_fwd_nodes=False):
   '''
@@ -17,6 +17,15 @@ def logical_subexpr(root, path, update_fwd_nodes=False):
   '''
   return realpath(root, path, update_fwd_nodes)[0]
 
+def compress_fwd_chain(end):
+  '''Compresses a chain of forward nodes.'''
+  chain = []
+  while inspect.tag_of(end) == T_FWD:
+    chain.append(end)
+    end = inspect.fwd_target(end)
+  for node in chain:
+    node.successors[0] = end
+  return end
 
 # The result of a call to ``realpath``.
 Realpath = collections.namedtuple('Realpath', ['target', 'realpath', 'guards'])
@@ -46,35 +55,25 @@ class RealPathIndexer(object):
       tag = inspect.tag_of(self.target)
       if tag == T_FWD:
         if self.update_fwd_nodes and self.realpath:
-          end = self.compress_fwd_chain(self.target)
+          end = compress_fwd_chain(self.target)
           self.parent.successors[self.realpath[-1]] = end
           self.target = end
         else:
           self.parent = self.target
           self.realpath.append(0)
-          self.target = self.target.successors[0]
+          self.target = inspect.fwd_target(self.target)
       elif tag == T_SETGRD:
-        self.guards.add(self.target[0])
+        self.guards.add(inspect.get_set_id(self.target))
         self.parent = self.target
         self.realpath.append(1)
-        self.target = self.target.successors[1]
+        self.target = inspect.get_setguard_value(self.target)
       else:
         break
-
-  def compress_fwd_chain(self, fwd):
-    '''Compresses a chain of forward nodes.'''
-    chain = []
-    while inspect.tag_of(fwd) == T_FWD:
-      chain.append(fwd)
-      fwd = fwd.successors[0]
-    for node in chain:
-      node.successors[0] = fwd
-    return fwd
 
   @visitation.dispatch.on('path')
   def advance(self, path):
     raise CurryIndexError(
-        'node advance must be an integer or sequence of integers, not %r'
+        'path must be an integer or sequence of integers, not %r'
             % type(path).__name__
       )
 

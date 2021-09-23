@@ -37,8 +37,8 @@ class TestPyRuntime(cytest.TestCase):
     self.assertTrue(repr(prelude.prim_negateFloat.info).startswith('InfoTable'))
 
     n = Node(getattr(prelude, '()').info)
-    self.assertRaisesRegexp(RuntimeError, 'unhandled type: str', lambda: n['foo'])
-    self.assertRaisesRegexp(RuntimeError, 'unhandled type: float', lambda: n[1.])
+    self.assertRaisesRegexp(curry.CurryIndexError, r"not 'str'", lambda: n['foo'])
+    self.assertRaisesRegexp(curry.CurryIndexError, r"not 'float'", lambda: n[1.])
 
     self.assertRaisesRegexp(
         TypeError
@@ -252,16 +252,6 @@ class TestPyRuntime(cytest.TestCase):
         ValueError
       , "no implementation code available for 'Prelude.True'"
       , lambda: curry.symbol('Prelude.True').getimpl()
-      )
-
-  def test_Node_getitem(self):
-    '''Test the Node.getitem static method.'''
-    self.assertEqual(Node.getitem(0, ()), 0)
-    self.assertEqual(Node.getitem(0, []), 0)
-    self.assertRaisesRegexp(
-        TypeError
-      , 'cannot index into an unboxed value'
-      , lambda: Node.getitem(0, [0])
       )
 
   @unittest.expectedFailure

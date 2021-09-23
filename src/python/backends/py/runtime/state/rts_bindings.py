@@ -16,7 +16,6 @@ def add_binding(rts, arg, value, config=None):
   whether the binding succeeded.
   '''
   config = config or rts.C
-  value = graph.Node.getitem(value)
   if rts.has_binding(arg, config):
     current = rts.get_binding(arg, config)
     assert current.info.typedef() in rts.builtin_types

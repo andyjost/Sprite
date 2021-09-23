@@ -65,7 +65,7 @@ def fork(rts, config=None):
   '''
   config = config or rts.C
   for idx, choicestate in [(1, LEFT), (2, RIGHT)]:
-    clone = config.clone(Node.getitem(config.root, idx))
+    clone = config.clone(config.root.successors[idx])
     if rts.update_fp(choicestate, config.root, config=clone):
       if rts.obj_id(config=config) in rts.vtable:
         i = rts.obj_id(config=config)

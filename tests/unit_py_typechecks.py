@@ -3,8 +3,8 @@ from curry.common import LEFT, RIGHT, UNDETERMINED
 from curry.backends.py.runtime import typecheckers as tc
 from curry.backends.py.runtime.state import RuntimeState
 from curry.backends.py.runtime.graph import Node
-import curry
-import unittest
+from curry import inspect
+import curry, unittest
 
 u = curry.unboxed
 hint = r'  \(An unboxed value was expected but a boxed value of the ' \
@@ -54,7 +54,8 @@ class TestPyTypeChecks(cytest.TestCase):
       I = curry.interpreter.Interpreter(flags={'debug':debug})
       rts = RuntimeState(I)
       q = I.symbol('Prelude.?')
-      x,y = list(I.eval(q, rts.freshvar(), rts.freshvar()))
+      xy = list(I.eval(q, rts.freshvar(), rts.freshvar()))
+      x, y = map(inspect.fwd_chain_target, xy)
       for constraint_type in [I.prelude._StrictConstraint, I.prelude._NonStrictConstraint]:
         self.assertMayRaise(
             None

@@ -29,7 +29,7 @@ def isa(arg, what):
   if not isinstance(arg, context.Node):
     return False
   else:
-    return _isa(id(arg.fwd.info), what)
+    return _isa(id(arg.info), what)
 
 @visitation.dispatch.on('what')
 def _isa(addr, what):
@@ -195,9 +195,21 @@ def get_set_id(arg):
   if isa_setguard(arg):
     return arg.successors[0]
 
+def get_setguard_value(arg):
+  if isa_setguard(arg):
+    return arg.successors[1]
+
 def fwd_target(arg):
   if isa_fwd(arg):
     return arg.successors[0]
+
+def fwd_chain_target(arg):
+  while True:
+    after = fwd_target(arg)
+    if after is None:
+      return arg
+    else:
+      arg = after
 
 def _getfile(moduleobj, suffixes):
   if moduleobj.__file__:

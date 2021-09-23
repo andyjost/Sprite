@@ -162,11 +162,12 @@ def expr(interp, *args, **kwds):
   The Node created or rewritten.
   '''
   builder = ExpressionBuilder(interp)
+  target = kwds.pop('target', None)
   for anchorname, subexpr in kwds.iteritems():
     subexpr = anchor(subexpr, name=anchorname)
     builder(subexpr)
     assert anchorname in builder.anchors
-  builder.target = kwds.pop('target', None)
+  builder.target = target
   expr = builder(*args)
   return builder.fixrefs(expr)
 

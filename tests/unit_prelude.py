@@ -1,12 +1,8 @@
 import cytest # from ./lib; must be first
 from cStringIO import StringIO
-from curry.backends.py.runtime.graph import Node
-from curry.backends.py.runtime.graph import equality
-from curry import config
-import curry
-import cytest.step
-import sys
-import unittest
+from curry.backends.py.runtime.graph import Node, equality
+from curry import config, inspect
+import curry, cytest.step, sys, unittest
 
 class TestPrelude(cytest.TestCase):
   @property
@@ -270,7 +266,8 @@ class TestPrelude(cytest.TestCase):
     # Ensure results are ungrounded.
     freevar = interp.compile('id $!! (x::Int) where x free', mode='expr')
     cytest.step.step(interp, freevar, num=3)
-    self.assertIsaFreevar(freevar.fwd)
+    freevar = inspect.fwd_chain_target(freevar)
+    self.assertIsaFreevar(freevar)
 
   # Used by testEqualityConstraint.
   def checkSatisfied(self, lhs, rhs):

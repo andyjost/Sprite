@@ -1,6 +1,7 @@
 '''Utilities for working with Curry expressions.'''
 
 from ..... import context, icurry
+from . import indexing
 
 __all__ = ['iterexpr', 'walk']
 
@@ -25,7 +26,10 @@ class WalkState(object):
   def __init__(self, root, path=()):
     self.stack = []
     self.path = list(path)
-    self.spine = [root.getitem(root, p) for p in [path[:i] for i in xrange(len(path)+1)]]
+    self.spine = [
+        indexing.subexpr(root, p)
+            for p in [path[:i] for i in xrange(len(path)+1)]
+      ]
     self.data = []
 
   def advance(self):

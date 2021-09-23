@@ -84,7 +84,7 @@ class Stringifier(object):
     else:
       if hasattr(arg, 'info'):
         formatter = getattr(arg.info, 'format', None)
-        if formatter is not None and len(arg) == arg.info.arity:
+        if formatter is not None and len(arg.successors) == arg.info.arity:
           return formatter.format(*self.flatten(arg))
         else:
           return ' '.join(map(str, self.flatten(arg)))

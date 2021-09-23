@@ -1,6 +1,7 @@
 from ....common import T_SETGRD, T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from . import graph, trace
 from .... import icurry, inspect
+from .graph import indexing
 
 def D(rts):
   while rts.ready():
@@ -23,7 +24,7 @@ def D(rts):
         yield rts.make_value()
         rts.drop()
     elif tag == T_FWD:
-      rts.E = rts.E.fwd
+      rts.E = inspect.fwd_target(rts.E)
     elif tag == T_SETGRD:
       sid = rts.E.successors[0]
       if sid == rts.get_sid():
@@ -112,7 +113,9 @@ def N(rts, root=None, path=None, ground=True):
               rts.restart()
           break
         elif tag == T_FWD:
-          state.spine[-1] = state.parent.getitem(state.parent, state.path[-1])
+          state.spine[-1] = indexing.logical_subexpr(
+              state.parent, state.path[-1], update_fwd_nodes=True
+            )
         elif tag == T_CHOICE:
           cid = state.cursor.successors[0]
           rts.update_escape_sets(sids=state.data, cid=cid)
