@@ -1,13 +1,10 @@
 from copy import copy
 from ..graph.copy import copygraph
-from ..graph.variable import Variable
 from ..... import inspect
-from .. import stepcounter
+from .. import stepcounter, trace
 from ...sprite import Fingerprint
 from .....utility import shared, unionfind
-import collections
-import contextlib
-import itertools
+import collections, contextlib, itertools
 
 __all__ = ['Configuration', 'InterpreterState', 'Queue', 'RuntimeState']
 
@@ -144,7 +141,6 @@ class RuntimeState(object):
     self.sftable = {}
 
     # The trace object.
-    from .. import trace
     self.trace = trace.Trace(self)
 
   def push_queue(self, sid=None, qid=None):
@@ -202,6 +198,15 @@ class RuntimeState(object):
       return arg.successors[0]
     skipgrds = set([] if self.sid is None else [self.sid])
     return copygraph(arg, skipfwd=True, skipgrds=skipgrds)
+
+  def release_value(self):
+    '''
+    Makes a value from the first configuration, detaches that configuration
+    from the computation state, and then returns the value.
+    '''
+    value = self.make_value()
+    self.drop()
+    return value
 
   @property
   def C(self):
@@ -265,10 +270,5 @@ class RuntimeState(object):
     , has_generator, instantiate, is_narrowed, is_nondet, is_void
     , register_freevar
     )
-
-  def variable(self, parent, path=None):
-    '''Creates an instance of Variable.'''
-    if path is None:
-      return Variable.from_root(self, parent)
-    return Variable.from_logicalpath(self, parent, path)
+  from ..graph.variable import variable
 

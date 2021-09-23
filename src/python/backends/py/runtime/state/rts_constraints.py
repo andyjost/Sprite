@@ -158,6 +158,6 @@ def make_constraint(rts, var, rewrite=None):
   Otherwise a new node is created.
   '''
   value, pair = var.target.successors
-  value = var.copy_spine(end=value)
+  value = graph.utility.copy_spine(var.root, var.realpath, end=value)
   return Node(var.target.info, value, pair, target=rewrite)
 

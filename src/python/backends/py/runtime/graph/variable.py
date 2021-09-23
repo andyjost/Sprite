@@ -1,42 +1,14 @@
-from .. import fairscheme
-from . import indexing, utility
-from ..... import inspect
-import numbers
-
-class Variable(object):
-  '''
-  Represents an ordinary (non-free) Curry variable.
-
-  This objects tracks the parent, target, path between them, and set guards
-  crossed.  It is the focal point for working with expressions in generated
-  code.  The objects helps with accessing and head-normalizing subexpressions,
-  getting case selectors, building replacement expressions, and rewriting
-  nodes.
-
-  Attributes:
-  -----------
-    ``parent``
-      The parent of the target expression.
-
-    ``target``
-      The Curry expression corresponding to this variable.
-
-    ``realpath``
-      The real path from ``parent`` to ``target``.
-
-    ``guards``
-      A set containing the set guards crossed on the path from ``parent`` to
-      ``target``.
-
+'''
   Example:
   --------
     The ``Prelude.head`` function is defined as follows:
 
         head (a:as) = a
 
-    Here, both 'a' and 'as' are variables.  In addition, the compiler may
-    generate variables for positions in the pattern with no name in the source
-    code.  This might be compiled to the following ICurry:
+    Here, both 'a' and 'as' are variables.  In addition, for the purpose of
+    finding redexes, the compiler generates variables for unnamed inductive
+    positions, such as (:) in this example.  This might be compiled to the
+    following ICurry:
 
         var $1
         $1 <- $0[0]
@@ -70,131 +42,138 @@ class Variable(object):
     accordingly.  The tag is inspected at (4).  At (5a,5b), the root is
     rewritten.  When considering set functions, this step might need to insert
     set guards before _2.
-  '''
-  def __init__(
-      self, rts, parent=None, target=None, logicalpath=None, realpath=None
-    , guards=None
-    ):
-    self.rts = rts
-    self.parent = parent if parent is None or isinstance(parent, Variable) \
-                         else Variable.from_root(rts, parent)
-    self.target = target
-    self.logicalpath = self._normpath(logicalpath)
-    self.realpath = self._normpath(realpath)
-    self.guards = set() if guards is None else set(guards)
 
+    The above example explicitly creates variables by calling rts.variable.
+    This verbose style is for exposition.  Class Variable provides a
+    __getitem__ method.  This can be used to genereate variables with a more
+    convenient syntax that more closely matches ICurry.  Using this, one could
+    replace statement (2) with '_1 = _0[0]'.
+'''
+
+from .. import fairscheme
+from . import indexing, utility
+from ..... import inspect
+
+def variable(rts, parent, logicalpath=None):
+  '''Creates an instance of Variable.'''
+  return Variable(rts, parent, logicalpath)
+
+class Variable(object):
+  '''
+  Represents an ordinary (non-free) Curry variable.
+
+  This objects tracks a root, target, path between them, and set guards
+  crossed.  It is the focal point when working with expressions in generated
+  code.  These objects help with accessing and head-normalizing subexpressions,
+  getting case selectors, building replacement expressions, and rewriting.
+
+  Key Attributes:
+  ---------------
+    ``root``
+      The function-labeled redex root.  Dominates the target expression.
+
+    ``target``
+      The Curry expression referenced by this variable.  Typically an inductive
+      position of the root function.
+
+    ``realpath``
+      The real path from ``root`` to ``target``.
+
+    ``logicalpath``
+      The logical path from ``root`` to ``target``.
+
+    ``guards``
+      A set containing the set guards crossed on the path from ``root`` to
+      ``target``.
+
+    ``rvalue``
+      The value to use when this variable appears in a RHS replacement
+      expression.  Any guards crossed along the path from root to target are
+      inserted before the target.
+
+  '''
+  def __init__(self, rts, parent, logicalpath=None):
+    self.rts = rts
+    self.root = getattr(parent, 'root', parent)
+    if logicalpath is None:
+      self.target = self.root
+      self.logicalpath = None
+      self.realpath = None
+      self.guards = set()
+    else:
+      basepath = getattr(parent, 'logicalpath', None)
+      self.logicalpath = utility.joinpath(basepath, logicalpath)
+      self.target, self.realpath, self.guards = indexing.realpath(self.root, self.logicalpath)
+      assert inspect.isa_curry_expr(self.target)
+      assert indexing.subexpr(self.root, self.realpath) is self.target
+      
   def __repr__(self):
     return '%s(logicalpath=%r, realpath=%r, guards=%r' % (
         type(self).__name__
       , self.logicalpath, self.realpath, self.guards
       )
-
-  @staticmethod
-  def _normpath(path):
-    if path is not None:
-      return [path] if isinstance(path, numbers.Integral) else tuple(path)
-
-  @staticmethod
-  def from_root(rts, root):
-    return Variable(rts, target=root)
-
-  @staticmethod
-  def from_logicalpath(rts, parent, logicalpath):
-    self = Variable(rts, parent, logicalpath=logicalpath)
-    self.update()
-    assert inspect.isa_curry_expr(self.target)
-    assert indexing.subexpr(self.root, self.fullrealpath) is self.target
-    return self
+  def __getitem__(self, i):
+    return variable(self.rts, self, i)
 
   @property
-  def is_root(self):
-    return self.parent is None
-
-  @property
-  def root(self):
-    while not self.is_root:
-      self = self.parent
-    return self.target
+  def rvalue(self):
+    '''Returns the target with the appropriate set guards inserted.'''
+    return self.rts.guard(self.target, self.guards)
 
   def update(self):
+    '''
+    Refreshes the variable.  This is needed after any rewrite step that
+    affects the expression referenced.
+    '''
     assert self.logicalpath is not None
     self.target, self.realpath, self.guards = \
-        indexing.realpath(self.parent.target, self.logicalpath)
+        indexing.realpath(self.root, self.logicalpath)
+
+  # Properties.
+  # -----------
+  # Putting these here simplifies the generated code.  It is easier to work with
+  # attributes of variables than bring in freestanding functions.
 
   @property
-  def tag(self):
-    return inspect.tag_of(self.target)
+  def info(self):
+    return inspect.info_of(self.target)
 
   @property
   def is_boxed(self):
     return inspect.is_boxed(self.target)
 
   @property
-  def unboxed_value(self):
-   if self.is_boxed:
-     assert inspect.isa_boxed_primitive(self.target)
-     return self.target.successors[0]
-   else:
-     assert inspect.isa_unboxed_primitive(self.target)
-     return self.target
+  def is_root(self):
+    return self.root is self.target
 
   @property
-  def freevar_id(self):
-    assert inspect.isa_freevar(self.target)
-    return inspect.get_freevar_id(self.target)
+  def successors(self):
+    return self.target.successors
+
+  @property
+  def tag(self):
+    return inspect.tag_of(self.target)
 
   @property
   def typedef(self):
     return self.target.info.typedef()
 
   @property
-  def info(self):
-    return self.target.info
+  def unboxed_value(self):
+    return inspect.unboxed_value(self.target)
 
-  @property
-  def successors(self):
-    return self.target.successors
+  # Methods.
+  # --------
+  # As with the properties, these methods are easier to access in generated code
+  # when they are attached to variables.
 
   def hnf(self, typedef=None, values=None):
     '''Head-normalizes this variable.'''
     return fairscheme.hnf(self.rts, self, typedef, values)
 
-  def all_guards(self):
-    '''Returns the set of all set IDs crossed on the path to this variable.'''
-    return set.union(*[x.guards for x in self.walk()])
-
-  @property
-  def fullrealpath(self):
-    '''Returns the full path from root to this variable.'''
-    path = []
-    for var in reversed(list(self.walk())):
-      path.extend(var.realpath or [])
-    return path
-
-  def walk(self):
-    '''Walk the chain of parents.'''
-    while self is not None:
-      yield self
-      self = self.parent
-
-  @property
-  def rvalue(self):
-    return self.guard(self.rts, self)
-
-  @staticmethod
-  def guard(rts, node):
-    '''Places the appropriate set guards before an argument.'''
-    if isinstance(node, Variable):
-      return rts.guard(node.all_guards(), node.target)
-    else:
-      return node
-
   def rewrite(self, nodeinfo, *args):
+    '''Rewrite this variable.'''
     assert self.is_root
     assert inspect.isa_func(self.target)
     return self.target.rewrite(nodeinfo, *args)
-
-  def copy_spine(self, end=None, rewrite=None):
-    assert not self.is_root
-    return utility.copy_spine(self.root, self.fullrealpath, end, rewrite)
 

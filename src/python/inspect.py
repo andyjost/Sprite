@@ -12,13 +12,13 @@ import re
 SUBDIR = config.intermediate_subdir()
 
 def info_of(arg):
-  if isinstance(arg, context.Node):
+  if is_boxed(arg):
     return arg.info
 
 def tag_of(arg):
-  if isinstance(arg, context.Node):
+  if is_boxed(arg):
     return arg.info.tag
-  elif isinstance(arg, icurry.IUnboxedLiteral):
+  elif isa_unboxed_primitive(arg):
     return T_CTOR
 
 def isa(arg, what):
@@ -26,7 +26,7 @@ def isa(arg, what):
   Checks whether the given Curry object is an instance of the given type or
   constructor.  The second argument may be a sequence to check against.
   '''
-  if not isinstance(arg, context.Node):
+  if not is_boxed(arg):
     return False
   else:
     return _isa(id(arg.info), what)
@@ -59,6 +59,12 @@ def isa_curry_expr_or_none(arg):
 def isa_boxed_primitive(arg):
   info = info_of(arg)
   return info is not None and info.is_primitive
+
+def unboxed_value(arg):
+  if isa_boxed_primitive(arg):
+    return arg.successors[0]
+  elif isa_unboxed_primitive(arg):
+    return arg
 
 def isa_unboxed_primitive(arg):
   return isinstance(arg, icurry.IUnboxedLiteral)
@@ -178,6 +184,10 @@ def get_choice_id(arg):
   # Note: a variable has a choice ID (which equals its variable ID).
   if isa_choice(arg) or isa_freevar(arg):
     return arg.successors[0]
+
+def get_choice_alternatives(arg):
+  assert isa_choice(arg)
+  return arg.successors[1], arg.successors[2]
 
 def get_left_alternative(arg):
   assert isa_choice(arg)

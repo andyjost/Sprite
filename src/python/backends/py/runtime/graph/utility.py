@@ -1,7 +1,8 @@
 from ..... import icurry, inspect, utility
 from .....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+import itertools, numbers
 
-__all__ = ['copy_spine', 'rewrite']
+__all__ = ['copy_spine', 'joinpath', 'rewrite']
 
 def copy_spine(root, realpath, end=None, rewrite=None):
   '''
@@ -46,27 +47,20 @@ def copy_spine(root, realpath, end=None, rewrite=None):
   return construct(root, realpath, target=rewrite)
 
 
+def joinpath(*parts):
+  '''
+  Join expression paths.  Each part should be None, an Integer, or an iterable.
+  All will be chained together.  Returns a list of integers containing the
+  joined path..
+  '''
+  parts = (
+      [p] if isinstance(p, numbers.Integral) else p
+          for p in parts
+          if p is not None
+    )
+  return list(itertools.chain(*parts))
+
 def rewrite(rts, target, info, *args, **kwds):
   from .node import Node
-  guards = kwds.pop('guards', None)
-  if guards:
-    node = Node(info, *args)
-    return rts.guard(guards, node, target=target, **kwds)
-  else:
-    return Node(info, *args, target=target, **kwds)
-
-class subexpr(object):
-  def __init__(self, rts, node):
-    self.rts = rts
-    self.node = node
-  def __getitem__(self, path):
-    from .node import Node
-    target, guards = Node.getitem_and_guards(self.node, path)
-    if guards:
-      return self.rts.guard(guards, target)
-    else:
-      return target
-  def __setitem__(self, idx, rhs):
-    self.node.successors[idx] = rhs
-
+  return Node(info, *args, target=target, **kwds)
 

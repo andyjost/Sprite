@@ -21,8 +21,7 @@ def D(rts):
       elif rts.is_narrowed():
         rts.E = rts.get_generator()
       else:
-        yield rts.make_value()
-        rts.drop()
+        yield rts.release_value()
     elif tag == T_FWD:
       rts.E = inspect.fwd_target(rts.E)
     elif tag == T_SETGRD:
@@ -60,10 +59,7 @@ def D(rts):
           S(rts, rts.E)
         elif tag >= T_CTOR:
           if N(rts):
-            value = rts.make_value()
-            rts.drop()
-            yield value
-            del value
+            yield rts.release_value()
 
 
 # The N procedure is normally called from D (with no arguments), when the root
@@ -101,15 +97,15 @@ def N(rts, root=None, path=None, ground=True):
             # Path not relevant here.  We must clone the whole context.
             if rts.has_binding(state.cursor):
               binding = rts.get_binding(state.cursor)
-              rts.E = rts.variable(rts.E, state.path).copy_spine(end=binding)
+              rts.E = graph.utility.copy_spine(rts.E, state.path, end=binding)
               rts.restart()
             elif rts.is_narrowed(state.cursor):
               gen = rts.get_generator(state.cursor)
-              rts.E = rts.variable(rts.E, state.path).copy_spine(end=gen)
+              rts.E = graph.utility.copy_spine(rts.E, state.path, end=gen)
               rts.restart()
             elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
               x = rts.get_freevar(rts.grp_id(state.cursor))
-              rts.E = rts.variable(rts.E, state.path).copy_spine(end=x)
+              rts.E = graph.utility.copy_spine(rts.E, state.path, end=x)
               rts.restart()
           break
         elif tag == T_FWD:
@@ -176,7 +172,7 @@ def hnf(rts, var, typedef=None, values=None):
     The updated variable, ``var``.
   '''
   C = rts.C
-  C.search_state.append(tuple(var.fullrealpath))
+  C.search_state.append(tuple(var.realpath))
   try:
     while True:
       if isinstance(var.target, icurry.ILiteral):
@@ -191,36 +187,33 @@ def hnf(rts, var, typedef=None, values=None):
       elif tag == T_FREE:
         if rts.has_generator(var.target):
           gen = rts.get_generator(var.target)
-          var.copy_spine(end=gen, rewrite=var.root)
+          graph.utility.copy_spine(var.root, var.realpath, end=gen, rewrite=var.root)
           var.update()
-          C.search_state[-1] = tuple(var.fullrealpath)
+          C.search_state[-1] = tuple(var.realpath)
         elif rts.has_binding(var.target):
-          # FIXME: can't I get rid of this branch?  Just instantiate the
-          # variable and let the fingerprint sort out the rest.  But that does
-          # not work for infinite types.
           binding = rts.get_binding(var.target)
           rts.E = graph.utility.copy_spine(rts.E, tuple(rts.C.path), end=binding)
           rts.restart()
         elif typedef in rts.builtin_types:
           if values:
             bindings = rts.make_value_bindings(var, values, typedef)
-            var.copy_spine(end=bindings, rewrite=var.root)
+            graph.utility.copy_spine(var.root, var.realpath, end=bindings, rewrite=var.root)
             var.update()
-            C.search_state[-1] = tuple(var.fullrealpath)
+            C.search_state[-1] = tuple(var.realpath)
           else:
             rts.suspend(var.target)
         else:
           rts.instantiate(var, typedef)
       elif tag == T_CHOICE:
         cid = inspect.get_choice_id(var.target)
-        for sid in var.all_guards():
+        for sid in var.guards:
           rts.update_escape_set(sid=sid, cid=cid)
         rts.pull_tab(var, rewrite=var.root)
         rts.unwind()
       elif tag == T_FUNC:
         S(rts, var.target)
         var.update()
-        C.search_state[-1] = tuple(var.fullrealpath)
+        C.search_state[-1] = tuple(var.realpath)
       elif tag >= T_CTOR:
         return var
       else:

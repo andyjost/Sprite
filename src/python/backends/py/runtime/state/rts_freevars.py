@@ -75,7 +75,7 @@ def instantiate(rts, var, typedef, config=None):
     rts.suspend(var, config)
   else:
     genexpr = _make_generator(rts, var, typedef)
-    var.copy_spine(end=genexpr, rewrite=var.root)
+    graph.utility.copy_spine(var.root, var.realpath, end=genexpr, rewrite=var.root)
     var.update()
     return genexpr
 

@@ -99,7 +99,7 @@ def constr_eq(rts, _0):
     ltag, rtag = lhs.info.tag, rhs.info.tag
     if ltag == T_FREE:
       if rtag == T_FREE:
-        if lhs.freevar_id != rhs.freevar_id:
+        if inspect.get_freevar_id(lhs.target) != inspect.get_freevar_id(rhs.target):
           yield rts.prelude._StrictConstraint.info
           yield rts.expr(True)
           yield rts.expr((lhs, rhs))

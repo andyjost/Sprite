@@ -5,7 +5,7 @@ intended to be imported except by state.py.
 
 from copy import copy
 from .....common import T_FREE, T_CHOICE, LEFT, RIGHT, UNDETERMINED, ChoiceState
-from ..graph import Node
+from .. import graph
 from ..... import inspect
 
 __all__ = [
@@ -92,10 +92,10 @@ def pull_tab(rts, var, rewrite=None):
   ``node[path]`` is used.  If ``rewrite`` is supplied, the specified node is
   overwritten.  Otherwise a new node is created.
   '''
-  cid = inspect.get_choice_id(var.target)
-  lhs = var.copy_spine(end=var.target.successors[1])
-  rhs = var.copy_spine(end=var.target.successors[2])
-  return Node(rts.prelude._Choice, cid, lhs, rhs, target=rewrite)
+  cid,l,r = var.target.successors
+  lhs = graph.utility.copy_spine(var.root, var.realpath, end=l)
+  rhs = graph.utility.copy_spine(var.root, var.realpath, end=r)
+  return graph.Node(rts.prelude._Choice, cid, lhs, rhs, target=rewrite)
 
 def update_fp(rts, choicestate, arg=None, config=None):
   '''

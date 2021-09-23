@@ -63,7 +63,7 @@ def allValues(rts, _0):
     if tag == T_SETGRD:
       gexpr = subconfig.root
       valueset.guards.add(gexpr[0])
-      for arg in graph.guard_args(rts, valueset.guards, _0.target.copy()):
+      for arg in graph.guard_args(rts, _0.target.copy(), valueset.guards):
         yield arg
       with rts.queue_scope(sid=sid, qid=qid):
         rts.E = rts.E[1]
