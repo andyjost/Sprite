@@ -3,7 +3,7 @@ Implements RuntimeState methods related to constraints.  This module is not
 intended to be imported except by state.py.
 '''
 
-__all__ = ['constraint_type', 'constrain_equal', 'make_constraint']
+__all__ = ['constraint_type', 'constrain_equal', 'lift_constraint']
 
 from .....common import T_FREE, T_CHOICE
 from ..graph.node import Node
@@ -151,11 +151,10 @@ def _constrain_equal_rec(rts, arg0, arg1, config=None):
               q.push()
       return True
 
-def make_constraint(rts, var, rewrite=None):
+def lift_constraint(rts, var, rewrite=None):
   '''
-  Make a new constraint object based on ``constr``, which is located at
-  node[path].  If ``rewrite`` is supplied, the specified node is overwritten.
-  Otherwise a new node is created.
+  Similar to a pull-tab step, lift the constraint at ``var.target`` above
+  ``var.root.``
   '''
   value, pair = var.target.successors
   value = graph.utility.copy_spine(var.root, var.realpath, end=value)

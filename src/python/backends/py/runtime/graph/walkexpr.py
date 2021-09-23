@@ -23,12 +23,12 @@ def iterexpr(expr, once=True):
 
 class WalkState(object):
   '''See ``walk``.'''
-  def __init__(self, root, path=()):
+  def __init__(self, root, realpath=()):
     self.stack = []
-    self.path = list(path)
+    self.realpath = list(realpath)
     self.spine = [
         indexing.subexpr(root, p)
-            for p in [path[:i] for i in xrange(len(path)+1)]
+            for p in [realpath[:i] for i in xrange(len(realpath)+1)]
       ]
     self.data = []
 
@@ -36,7 +36,7 @@ class WalkState(object):
     while self.stack and not self.stack[-1]:
       self.pop()
     if self.stack:
-      self.path[-1], self.spine[-1] = self.stack[-1].pop()
+      self.realpath[-1], self.spine[-1] = self.stack[-1].pop()
       return True
 
   def __iter__(self):
@@ -47,7 +47,7 @@ class WalkState(object):
 
   def pop(self):
     self.stack.pop()
-    self.path.pop()
+    self.realpath.pop()
     self.spine.pop()
     self.data.pop()
 
@@ -56,7 +56,7 @@ class WalkState(object):
         [] if isinstance(self.cursor, icurry.ILiteral)
            else list(enumerate(self.cursor))[::-1]
       )
-    self.path.append(None)
+    self.realpath.append(None)
     self.spine.append(None)
     self.data.append(data)
 
@@ -74,7 +74,7 @@ class WalkState(object):
       return None
 
 
-def walk(root, path=None):
+def walk(root, realpath=None):
   '''
   Walk a Curry expression.
 
@@ -88,16 +88,16 @@ def walk(root, path=None):
     ``stack``
         The remaining iteration state.  May be modified to control the search.
         Call ``push`` to add the successors of the node under the cursor.
-    ``path``
-        A list of integers giving the path from the root to the cursor.  Not to
-        be modified.
+    ``realpath``
+        A list of integers giving the real path from the root to the cursor.
+        Not to be modified.
     ``spine``
-        A list of nodes, equal in length to ``path``, giving the node at each
-        point along the path.  Not to be modified.
+        A list of nodes, equal in length to ``realpath``, giving the node at
+        each point along the path.  Not to be modified.
     ``cursor``
         The node currently being visited.  Equivalent to spine[-1].
     ``parent``
-        The parent of the node at the cursore.  Equivalent to spine[-2].
+        The parent of the node at the cursor.  Equivalent to spine[-2].
   '''
-  return WalkState(root, () if path is None else path)
+  return WalkState(root, () if realpath is None else realpath)
 

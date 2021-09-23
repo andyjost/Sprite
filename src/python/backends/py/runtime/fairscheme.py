@@ -26,7 +26,7 @@ def D(rts):
       rts.E = inspect.fwd_target(rts.E)
     elif tag == T_SETGRD:
       sid = rts.E.successors[0]
-      if sid == rts.get_sid():
+      if sid == rts.sid:
         rts.C.escape_all = True
       elif rts.in_recursive_call:
         rts.unwind()
@@ -58,7 +58,7 @@ def D(rts):
         if tag == T_FUNC:
           S(rts, rts.E)
         elif tag >= T_CTOR:
-          if N(rts):
+          if N(rts, rts.E):
             yield rts.release_value()
 
 
@@ -69,57 +69,56 @@ def D(rts):
 # recursive calls to N with more arguments.  The additional arguments indicate
 # the position under a function symbol that needs to be normalized.
 
-def N(rts, root=None, path=None, ground=True):
+def N(rts, root, realpath=None, ground=True):
   C = rts.C
   C.search_state.append(None)
-  root = rts.E if root is None else root
   try:
-    for state in graph.walk(root, path=path):
+    for state in graph.walk(root, realpath=realpath):
       rts.C.search_state[-1] = state
       while True:
         tag = inspect.tag_of(state.cursor)
         if tag == T_FAIL:
-          if path is None:
+          if realpath is None:
             rts.drop()
           else:
             root.rewrite(rts.prelude._Failure)
           return False
         elif tag == T_CONSTR:
-          if path is None:
-            var = rts.variable(rts.E, state.path)
-            rts.E = rts.make_constraint(var)
+          if realpath is None:
+            var = rts.variable(rts.E, state.realpath)
+            rts.E = rts.lift_constraint(var)
           else:
-            var = rts.variable(root, state.path)
-            rts.make_constraint(var, rewrite=root)
+            var = rts.variable(root, state.realpath)
+            rts.lift_constraint(var, rewrite=root)
           return False
         elif tag == T_FREE:
           if ground:
             # Path not relevant here.  We must clone the whole context.
             if rts.has_binding(state.cursor):
               binding = rts.get_binding(state.cursor)
-              rts.E = graph.utility.copy_spine(rts.E, state.path, end=binding)
+              rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=binding)
               rts.restart()
             elif rts.is_narrowed(state.cursor):
               gen = rts.get_generator(state.cursor)
-              rts.E = graph.utility.copy_spine(rts.E, state.path, end=gen)
+              rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=gen)
               rts.restart()
             elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
               x = rts.get_freevar(rts.grp_id(state.cursor))
-              rts.E = graph.utility.copy_spine(rts.E, state.path, end=x)
+              rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=x)
               rts.restart()
           break
         elif tag == T_FWD:
           state.spine[-1] = indexing.logical_subexpr(
-              state.parent, state.path[-1], update_fwd_nodes=True
+              state.parent, state.realpath[-1], update_fwd_nodes=True
             )
         elif tag == T_CHOICE:
           cid = state.cursor.successors[0]
           rts.update_escape_sets(sids=state.data, cid=cid)
-          if path is None:
-            var = rts.variable(rts.E, state.path)
+          if realpath is None:
+            var = rts.variable(rts.E, state.realpath)
             rts.E = rts.pull_tab(var)
           else:
-            var = rts.variable(root, state.path)
+            var = rts.variable(root, state.realpath)
             rts.pull_tab(var, rewrite=root)
           return False
         elif tag == T_SETGRD:
@@ -172,7 +171,7 @@ def hnf(rts, var, typedef=None, values=None):
     The updated variable, ``var``.
   '''
   C = rts.C
-  C.search_state.append(tuple(var.realpath))
+  C.search_state.append(var)
   try:
     while True:
       if isinstance(var.target, icurry.ILiteral):
@@ -182,24 +181,22 @@ def hnf(rts, var, typedef=None, values=None):
         var.root.rewrite(rts.prelude._Failure)
         rts.unwind()
       elif tag == T_CONSTR:
-        rts.make_constraint(var, rewrite=var.root)
+        rts.lift_constraint(var, rewrite=var.root)
         rts.unwind()
       elif tag == T_FREE:
         if rts.has_generator(var.target):
           gen = rts.get_generator(var.target)
           graph.utility.copy_spine(var.root, var.realpath, end=gen, rewrite=var.root)
           var.update()
-          C.search_state[-1] = tuple(var.realpath)
         elif rts.has_binding(var.target):
           binding = rts.get_binding(var.target)
-          rts.E = graph.utility.copy_spine(rts.E, tuple(rts.C.path), end=binding)
+          rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=binding)
           rts.restart()
         elif typedef in rts.builtin_types:
           if values:
             bindings = rts.make_value_bindings(var, values, typedef)
             graph.utility.copy_spine(var.root, var.realpath, end=bindings, rewrite=var.root)
             var.update()
-            C.search_state[-1] = tuple(var.realpath)
           else:
             rts.suspend(var.target)
         else:
@@ -213,7 +210,6 @@ def hnf(rts, var, typedef=None, values=None):
       elif tag == T_FUNC:
         S(rts, var.target)
         var.update()
-        C.search_state[-1] = tuple(var.realpath)
       elif tag >= T_CTOR:
         return var
       else:

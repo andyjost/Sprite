@@ -5,13 +5,14 @@ not intended to be imported except by state.py.
 
 from .....common import T_FUNC
 from ..control import E_RESIDUAL, E_RESTART, E_TERMINATE, E_UNWIND
+from ..graph.copy import copygraph
 from ..... import exceptions
 from ..... import inspect
 import contextlib
 
 __all__ = [
-    'append', 'catch_control', 'drop', 'extend', 'is_io', 'ready', 'restart'
-  , 'rotate', 'suspend', 'unwind'
+    'append', 'catch_control', 'drop', 'extend', 'is_io', 'make_value', 'ready'
+  , 'release_value', 'restart', 'rotate', 'suspend', 'unwind'
   ]
 
 def append(rts, config):
@@ -79,6 +80,14 @@ def is_io(rts, func):
     , 'returnIO', 'bindIO', 'getChar'
     ]
 
+def make_value(rts, arg=None, config=None):
+  config = config or rts.C
+  arg = config.root if arg is None else arg
+  if inspect.isa(arg, rts.prelude.IO):
+    return arg.successors[0]
+  skipgrds = set([] if rts.sid is None else [rts.sid])
+  return copygraph(arg, skipfwd=True, skipgrds=skipgrds)
+
 def ready(rts):
   '''
   Checks whether the runtime is ready to continue evaluation.  Skips over
@@ -110,6 +119,15 @@ def _make_ready(rts, config):
   else:
     return True
   return not n or len(config.residuals) < n
+
+def release_value(rts):
+  '''
+  Makes a value from the first configuration, detaches that configuration
+  from the computation state, and then returns the value.
+  '''
+  value = rts.make_value()
+  rts.drop()
+  return value
 
 def restart(rts):
   '''Unwind to the next N() or S() procedure.'''

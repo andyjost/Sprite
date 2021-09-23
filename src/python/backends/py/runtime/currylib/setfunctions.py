@@ -26,9 +26,9 @@ def _F(name, *args, **kwds):
 
 def create_guarded_expr(rts, arg):
   return arg if not hasattr(arg, 'info') else \
-         graph.Node(rts.setfunctions._SetGuard, rts.get_sid(), arg)
+         graph.Node(rts.setfunctions._SetGuard, rts.sid, arg)
 
-def make_goal(rts, f, *args):
+def make_subgoal(rts, f, *args):
   expr = f
   for arg in args:
     expr = graph.Node(rts.prelude.apply, expr, create_guarded_expr(rts, arg))
@@ -37,7 +37,7 @@ def make_goal(rts, f, *args):
 def setN(rts, _0):
   sid = rts.create_setfunction()
   with rts.queue_scope(sid=sid):
-    goal = make_goal(rts, *_0.successors)
+    goal = make_subgoal(rts, *_0.successors)
     rts.set_goal(goal)
     yield rts.setfunctions.Values
     yield sid
@@ -61,12 +61,13 @@ def allValues(rts, _0):
     subconfig = rts.qtable[qid][0]
     tag = inspect.tag_of(subconfig.root)
     if tag == T_SETGRD:
-      gexpr = subconfig.root
-      valueset.guards.add(gexpr[0])
-      for arg in graph.guard_args(rts, _0.target.copy(), valueset.guards):
-        yield arg
-      with rts.queue_scope(sid=sid, qid=qid):
-        rts.E = rts.E[1]
+      assert False # This branch is uncovered
+      # gexpr = subconfig.root
+      # valueset.guards.add(gexpr[0])
+      # for arg in graph.guard_args(rts, _0.target.copy(), valueset.guards):
+      #   yield arg
+      # with rts.queue_scope(sid=sid, qid=qid):
+      #   rts.E = rts.E[1]
     elif tag == T_CHOICE:
       cid = rts.obj_id(config=subconfig)
       with rts.queue_scope(sid=sid):
