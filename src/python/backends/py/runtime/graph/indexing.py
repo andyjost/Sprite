@@ -10,7 +10,7 @@ import numbers
 
 __all__ = ['compress_fwd_chain', 'logical_subexpr', 'realpath', 'subexpr']
 
-def logical_subexpr(root, path, update_fwd_nodes=False):
+def logical_subexpr(root, path, update_fwd_nodes=True):
   '''
   Like subexpr, but assumes a logical path.  That is, steps through forward
   nodes and set guards do not appear in the path.
@@ -32,7 +32,7 @@ Realpath = collections.namedtuple('Realpath', ['target', 'realpath', 'guards'])
 
 class RealPathIndexer(object):
   '''See ``realpath``.'''
-  def __init__(self, root, update_fwd_nodes=True):
+  def __init__(self, root, update_fwd_nodes):
     if not inspect.isa_curry_expr(root):
       raise CurryTypeError('invalid Curry expression %r' % root)
     self.target = root
@@ -94,7 +94,7 @@ class RealPathIndexer(object):
       self.advance(i)
 
 
-def realpath(root, path, update_fwd_nodes=False):
+def realpath(root, path, update_fwd_nodes=True):
   '''
   Gets the real path from ``root`` to the subexpression along the logical path
   ``path``.  The real path is formed by skipping over forward nodes and set

@@ -214,12 +214,16 @@ class TestIndex(IndexingTests, cytest.TestCase):
 # Note: many tests are inherited.
 class TestLogicalSubexpr(IndexingTests, cytest.TestCase):
   '''Tests for indexing.logical_subexpr.'''
-  INDEXER = staticmethod(logical_subexpr)
+  INDEXER = staticmethod(
+      lambda *args: logical_subexpr(*args, update_fwd_nodes=False)
+    )
 
 
 class TestRealpathNoUFN(cytest.TestCase):
   '''Additional tests for indexing.realpath with update_fwd_nodes=False.'''
-  INDEXER = staticmethod(realpath)
+  INDEXER = staticmethod(
+      lambda *args: realpath(*args, update_fwd_nodes=False)
+    )
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
