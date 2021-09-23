@@ -50,7 +50,6 @@
     replace statement (2) with '_1 = _0[0]'.
 '''
 
-from .. import fairscheme
 from . import indexing, utility
 from ..... import inspect
 
@@ -169,6 +168,7 @@ class Variable(object):
 
   def hnf(self, typedef=None, values=None):
     '''Head-normalizes this variable.'''
+    from .. import fairscheme
     return fairscheme.hnf(self.rts, self, typedef, values)
 
   def rewrite(self, nodeinfo, *args):

@@ -1,6 +1,7 @@
 from copy import copy
 from ...sprite import Fingerprint
 from .....utility import shared, unionfind
+from . import callstack
 
 __all__ = ['Bindings', 'Configuration']
 
@@ -17,16 +18,8 @@ class Configuration(object):
         if strict_constraints is None else strict_constraints
     self.bindings = Bindings() if bindings is None else bindings
     self.residuals = set()
-    self.search_state = []
+    self.callstack = callstack.CallStack()
     self.escape_all = escape_all
-
-  @property
-  def realpath(self):
-    def __realpath():
-      for state in self.search_state:
-        for part in getattr(state, 'realpath', state):
-          yield part
-    return tuple(__realpath())
 
   def __copy__(self):
     return self.clone(self.root)
@@ -35,6 +28,11 @@ class Configuration(object):
     state = self.fingerprint, self.strict_constraints, self.bindings, self.escape_all
     assert not self.residuals
     return Configuration(root, *map(copy, state))
+
+  @property
+  def realpath(self):
+    '''Gives the full real path to the cursor.'''
+    return tuple(self.callstack.realpath())
 
   def __repr__(self):
     return '{{fp=%s, cst=%s, bnd=%s}}' % (

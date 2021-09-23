@@ -586,15 +586,11 @@ def show(rts, arg):
   yield rts.prelude._Fwd
   yield result
 
-def normalize(rts, var, path, ground):
-  if not fairscheme.N(rts, var.target, path, ground):
+def normalize_wrapper(rts, var, ground):
+  if not fairscheme.N(rts, var, ground):
     rts.unwind()
   else:
-    return rts.variable(var, path)
-
-def hnf_wrapper(rts, var, path):
-  subexpr = rts.variable(var, path)
-  return fairscheme.hnf(rts, subexpr)
+    return var
 
 def apply_special(rts, _0, action, **kwds):
   '''Apply with a special action applied to the argument.'''
@@ -602,19 +598,20 @@ def apply_special(rts, _0, action, **kwds):
   term = partapplic.successors[1]
   assert inspect.isa_func(term) # not a forward node or set guard
   with rts.catch_control(nondet=rts.is_io(term)):
-    transformed_arg = action(rts, _0, [1], **kwds)
+    _1 = _0[1]
+    transformed_arg = action(rts, _1, **kwds)
   yield rts.prelude.apply
   yield _0.successors[0]
   yield transformed_arg
 
 def apply_hnf(rts, _0):
-  return apply_special(rts, _0, hnf_wrapper)
+  return apply_special(rts, _0, fairscheme.hnf)
 
 def apply_nf(rts, _0):
-  return apply_special(rts, _0, normalize, ground=False)
+  return apply_special(rts, _0, normalize_wrapper, ground=False)
 
 def apply_gnf(rts, _0):
-  return apply_special(rts, _0, normalize, ground=True)
+  return apply_special(rts, _0, normalize_wrapper, ground=True)
 
 def ensureNotFree(rts, _0):
   _1 = hnf_or_free(rts, rts.variable(_0, 0))

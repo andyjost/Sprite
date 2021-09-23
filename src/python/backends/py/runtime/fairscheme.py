@@ -1,7 +1,8 @@
 from ....common import T_SETGRD, T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .graph import indexing
 from . import graph, trace
 from .... import icurry, inspect
-from .graph import indexing
+from .state import callstack
 
 def D(rts):
   while rts.ready():
@@ -58,85 +59,71 @@ def D(rts):
         if tag == T_FUNC:
           S(rts, rts.E)
         elif tag >= T_CTOR:
-          if N(rts, rts.E):
+          if N(rts, rts.variable(rts.E)):
             yield rts.release_value()
 
-
-# The N procedure is normally called from D (with no arguments), when the root
-# expression is constructor rooted.
-#
-# The exceptions are the built-in # control function $!! and $##, which make
-# recursive calls to N with more arguments.  The additional arguments indicate
-# the position under a function symbol that needs to be normalized.
-
-def N(rts, root, realpath=None, ground=True):
-  C = rts.C
-  C.search_state.append(None)
-  try:
-    for state in graph.walk(root, realpath=realpath):
-      rts.C.search_state[-1] = state
-      while True:
-        tag = inspect.tag_of(state.cursor)
-        if tag == T_FAIL:
-          if realpath is None:
-            rts.drop()
-          else:
-            root.rewrite(rts.prelude._Failure)
-          return False
-        elif tag == T_CONSTR:
-          if realpath is None:
-            var = rts.variable(rts.E, state.realpath)
-            rts.E = rts.lift_constraint(var)
-          else:
-            var = rts.variable(root, state.realpath)
-            rts.lift_constraint(var, rewrite=root)
-          return False
-        elif tag == T_FREE:
-          if ground:
-            # Path not relevant here.  We must clone the whole context.
-            if rts.has_binding(state.cursor):
-              binding = rts.get_binding(state.cursor)
-              rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=binding)
-              rts.restart()
-            elif rts.is_narrowed(state.cursor):
-              gen = rts.get_generator(state.cursor)
-              rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=gen)
-              rts.restart()
-            elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
-              x = rts.get_freevar(rts.grp_id(state.cursor))
-              rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=x)
-              rts.restart()
-          break
-        elif tag == T_FWD:
-          state.spine[-1] = indexing.logical_subexpr(
-              state.parent, state.realpath[-1], update_fwd_nodes=True
-            )
-        elif tag == T_CHOICE:
-          cid = state.cursor.successors[0]
-          rts.update_escape_sets(sids=state.data, cid=cid)
-          if realpath is None:
-            var = rts.variable(rts.E, state.realpath)
-            rts.E = rts.pull_tab(var)
-          else:
-            var = rts.variable(root, state.realpath)
-            rts.pull_tab(var, rewrite=root)
-          return False
-        elif tag == T_SETGRD:
-          sid = state.cursor.successors[0]
-          state.push(data=sid)
-          break
-        elif tag == T_FUNC:
-          S(rts, state.cursor)
-        elif tag >= T_CTOR:
-          if inspect.info_of(state.cursor) is not rts.prelude._PartApplic.info:
-            state.push()
-          break
+@callstack.with_N_stackframe
+def N(rts, var, state, ground=True):
+  for _ in state:
+    while True:
+      tag = inspect.tag_of(state.cursor)
+      if tag == T_FAIL:
+        if var.is_root:
+          rts.drop()
         else:
-          assert False
-    return True
-  finally:
-    C.search_state.pop()
-
+          root.rewrite(rts.prelude._Failure)
+        return False
+      elif tag == T_CONSTR:
+        if var.is_root:
+          var = rts.variable(rts.E, state.realpath)
+          rts.E = rts.lift_constraint(var)
+        else:
+          var = rts.variable(root, state.realpath)
+          rts.lift_constraint(var, rewrite=root)
+        return False
+      elif tag == T_FREE:
+        if ground:
+          # Path not relevant here.  We must clone the whole context.
+          if rts.has_binding(state.cursor):
+            binding = rts.get_binding(state.cursor)
+            rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=binding)
+            rts.restart()
+          elif rts.is_narrowed(state.cursor):
+            gen = rts.get_generator(state.cursor)
+            rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=gen)
+            rts.restart()
+          elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
+            x = rts.get_freevar(rts.grp_id(state.cursor))
+            rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=x)
+            rts.restart()
+        break
+      elif tag == T_FWD:
+        state.spine[-1] = indexing.logical_subexpr(
+            state.parent, state.realpath[-1], update_fwd_nodes=True
+          )
+      elif tag == T_CHOICE:
+        cid = state.cursor.successors[0]
+        rts.update_escape_sets(sids=state.data, cid=cid)
+        if var.is_root:
+          var = rts.variable(rts.E, state.realpath)
+          rts.E = rts.pull_tab(var)
+        else:
+          var = rts.variable(root, state.realpath)
+          rts.pull_tab(var, rewrite=root)
+        return False
+      elif tag == T_SETGRD:
+        sid = state.cursor.successors[0]
+        state.push(data=sid)
+        break
+      elif tag == T_FUNC:
+        S(rts, state.cursor)
+      elif tag >= T_CTOR:
+        if inspect.info_of(state.cursor) is not rts.prelude._PartApplic.info:
+          state.push()
+        break
+      else:
+        assert False
+  return True
 
 @trace.trace_steps
 def S(rts, node):
@@ -145,6 +132,7 @@ def S(rts, node):
     node.info.step(rts, _0)
     rts.stepcounter.increment()
 
+@callstack.with_hnf_stackframe
 def hnf(rts, var, typedef=None, values=None):
   '''
   Head-normalize the expression at the given variable.
@@ -170,51 +158,46 @@ def hnf(rts, var, typedef=None, values=None):
   --------
     The updated variable, ``var``.
   '''
-  C = rts.C
-  C.search_state.append(var)
-  try:
-    while True:
-      if isinstance(var.target, icurry.ILiteral):
-        return var
-      tag = var.tag
-      if tag == T_FAIL:
-        var.root.rewrite(rts.prelude._Failure)
-        rts.unwind()
-      elif tag == T_CONSTR:
-        rts.lift_constraint(var, rewrite=var.root)
-        rts.unwind()
-      elif tag == T_FREE:
-        if rts.has_generator(var.target):
-          gen = rts.get_generator(var.target)
-          graph.utility.copy_spine(var.root, var.realpath, end=gen, rewrite=var.root)
-          var.update()
-        elif rts.has_binding(var.target):
-          binding = rts.get_binding(var.target)
-          rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=binding)
-          rts.restart()
-        elif typedef in rts.builtin_types:
-          if values:
-            bindings = rts.make_value_bindings(var, values, typedef)
-            graph.utility.copy_spine(var.root, var.realpath, end=bindings, rewrite=var.root)
-            var.update()
-          else:
-            rts.suspend(var.target)
-        else:
-          rts.instantiate(var, typedef)
-      elif tag == T_CHOICE:
-        cid = inspect.get_choice_id(var.target)
-        for sid in var.guards:
-          rts.update_escape_set(sid=sid, cid=cid)
-        rts.pull_tab(var, rewrite=var.root)
-        rts.unwind()
-      elif tag == T_FUNC:
-        S(rts, var.target)
+  while True:
+    if isinstance(var.target, icurry.ILiteral):
+      return var
+    tag = var.tag
+    if tag == T_FAIL:
+      var.root.rewrite(rts.prelude._Failure)
+      rts.unwind()
+    elif tag == T_CONSTR:
+      rts.lift_constraint(var, rewrite=var.root)
+      rts.unwind()
+    elif tag == T_FREE:
+      if rts.has_generator(var.target):
+        gen = rts.get_generator(var.target)
+        graph.utility.copy_spine(var.root, var.realpath, end=gen, rewrite=var.root)
         var.update()
-      elif tag >= T_CTOR:
-        return var
+      elif rts.has_binding(var.target):
+        binding = rts.get_binding(var.target)
+        rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=binding)
+        rts.restart()
+      elif typedef in rts.builtin_types:
+        if values:
+          bindings = rts.make_value_bindings(var, values, typedef)
+          graph.utility.copy_spine(var.root, var.realpath, end=bindings, rewrite=var.root)
+          var.update()
+        else:
+          rts.suspend(var.target)
       else:
-        # T_FWD and T_SETGRD should not occur.
-        assert False
-  finally:
-    C.search_state.pop()
+        rts.instantiate(var, typedef)
+    elif tag == T_CHOICE:
+      cid = inspect.get_choice_id(var.target)
+      for sid in var.guards:
+        rts.update_escape_set(sid=sid, cid=cid)
+      rts.pull_tab(var, rewrite=var.root)
+      rts.unwind()
+    elif tag == T_FUNC:
+      S(rts, var.target)
+      var.update()
+    elif tag >= T_CTOR:
+      return var
+    else:
+      # T_FWD and T_SETGRD should not occur.
+      assert False
 
