@@ -162,7 +162,9 @@ def hnf(rts, var, typedef=None, values=None):
     if isinstance(var.target, icurry.ILiteral):
       return var
     tag = var.tag
-    if tag == T_FAIL:
+    if tag == T_SETGRD:
+      var.extend()
+    elif tag == T_FAIL:
       var.root.rewrite(rts.prelude._Failure)
       rts.unwind()
     elif tag == T_CONSTR:
@@ -171,21 +173,21 @@ def hnf(rts, var, typedef=None, values=None):
     elif tag == T_FREE:
       if rts.has_generator(var.target):
         gen = rts.get_generator(var.target)
-        graph.utility.copy_spine(var.root, var.realpath, end=gen, rewrite=var.root)
-        var.update()
+        var.replace_target(replacement=gen)
       elif rts.has_binding(var.target):
         binding = rts.get_binding(var.target)
         rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=binding)
         rts.restart()
       elif typedef in rts.builtin_types:
         if values:
-          bindings = rts.make_value_bindings(var, values, typedef)
-          graph.utility.copy_spine(var.root, var.realpath, end=bindings, rewrite=var.root)
-          var.update()
+          value_bindings = rts.make_value_bindings(var, values, typedef)
+          var.replace_target(replacement=value_bindings)
         else:
           rts.suspend(var.target)
       else:
         rts.instantiate(var, typedef)
+    elif tag == T_FWD:
+      var.extend()
     elif tag == T_CHOICE:
       cid = inspect.get_choice_id(var.target)
       for sid in var.guards:
@@ -194,10 +196,8 @@ def hnf(rts, var, typedef=None, values=None):
       rts.unwind()
     elif tag == T_FUNC:
       S(rts, var.target)
-      var.update()
     elif tag >= T_CTOR:
       return var
     else:
-      # T_FWD and T_SETGRD should not occur.
       assert False
 

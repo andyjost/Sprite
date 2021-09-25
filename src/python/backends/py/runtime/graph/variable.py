@@ -1,4 +1,40 @@
-'''
+from . import indexing, utility
+from ..... import common, inspect
+
+def variable(rts, parent, logicalpath=None):
+  '''Creates an instance of Variable.'''
+  return Variable(rts, parent, logicalpath)
+
+class Variable(object):
+  '''
+  Represents an ordinary (non-free) Curry variable.
+
+  This objects tracks a root, target, path between them, and set guards
+  crossed.  It is the focal point when working with expressions in generated
+  code.  These objects help with accessing and head-normalizing subexpressions,
+  getting case selectors, building replacement expressions, and rewriting.
+
+  Key Attributes:
+  ---------------
+    ``root``
+      The function-labeled redex root.  Dominates the target expression.
+
+    ``target``
+      The Curry expression referenced by this variable.  Typically an inductive
+      position of the root function.
+
+    ``realpath``
+      The real path from ``root`` to ``target``.
+
+    ``guards``
+      A set containing the set guards crossed on the path from ``root`` to
+      ``target``.
+
+    ``rvalue``
+      The value to use when this variable appears in a RHS replacement
+      expression.  Any guards crossed along the path from root to target are
+      inserted before the target.
+
   Example:
   --------
     The ``Prelude.head`` function is defined as follows:
@@ -37,96 +73,36 @@
     for other variables, and for rewriting.  This is in fact taken care of by
     the system before calling the step function.  At (2), the variable
     corresponding to _1 in ICurry or ':' in the source code is defined.  Step
-    (3) head-normalizes the subexpression at _1.  This might introduce new
-    forward nodes or set guards.  If so, ``hnf`` must update the variable
-    accordingly.  The tag is inspected at (4).  At (5a,5b), the root is
-    rewritten.  When considering set functions, this step might need to insert
-    set guards before _2.
-
-    The above example explicitly creates variables by calling rts.variable.
-    This verbose style is for exposition.  Class Variable provides a
-    __getitem__ method.  This can be used to genereate variables with a more
-    convenient syntax that more closely matches ICurry.  Using this, one could
-    replace statement (2) with '_1 = _0[0]'.
-'''
-
-from . import indexing, utility
-from ..... import inspect
-
-def variable(rts, parent, logicalpath=None):
-  '''Creates an instance of Variable.'''
-  return Variable(rts, parent, logicalpath)
-
-class Variable(object):
-  '''
-  Represents an ordinary (non-free) Curry variable.
-
-  This objects tracks a root, target, path between them, and set guards
-  crossed.  It is the focal point when working with expressions in generated
-  code.  These objects help with accessing and head-normalizing subexpressions,
-  getting case selectors, building replacement expressions, and rewriting.
-
-  Key Attributes:
-  ---------------
-    ``root``
-      The function-labeled redex root.  Dominates the target expression.
-
-    ``target``
-      The Curry expression referenced by this variable.  Typically an inductive
-      position of the root function.
-
-    ``realpath``
-      The real path from ``root`` to ``target``.
-
-    ``logicalpath``
-      The logical path from ``root`` to ``target``.
-
-    ``guards``
-      A set containing the set guards crossed on the path from ``root`` to
-      ``target``.
-
-    ``rvalue``
-      The value to use when this variable appears in a RHS replacement
-      expression.  Any guards crossed along the path from root to target are
-      inserted before the target.
-
+    (3) head-normalizes the subexpression at _1.  The tag is inspected at
+    (4).  At (5a,5b), the root is rewritten.  When considering set functions,
+    this step might need to insert set guards before _2.
   '''
   def __init__(self, rts, parent, logicalpath=None):
     self.rts = rts
     self.root = getattr(parent, 'root', parent)
     if logicalpath is None:
       self.target = self.root
-      self.logicalpath = None
       self.realpath = None
       self.guards = set()
     else:
-      basepath = getattr(parent, 'logicalpath', None)
-      self.logicalpath = utility.joinpath(basepath, logicalpath)
-      self.target, self.realpath, self.guards = indexing.realpath(self.root, self.logicalpath)
+      basetarget = getattr(parent, 'target', parent)
+      self.target, realpath, self.guards = indexing.realpath(basetarget, logicalpath)
+      basepath = getattr(parent, 'realpath', None)
+      self.realpath = utility.joinpath(basepath, realpath)
+      baseguards = getattr(parent, 'guards', set())
+      self.guards.update(baseguards)
       assert inspect.isa_curry_expr(self.target)
       assert indexing.subexpr(self.root, self.realpath) is self.target
-      
+
   def __repr__(self):
-    return '%s(logicalpath=%r, realpath=%r, guards=%r' % (
-        type(self).__name__
-      , self.logicalpath, self.realpath, self.guards
+    return '%s(realpath=%r, guards=%r' % (
+        type(self).__name__, self.realpath, self.guards
       )
-  def __getitem__(self, i):
-    return variable(self.rts, self, i)
 
   @property
   def rvalue(self):
     '''Returns the target with the appropriate set guards inserted.'''
     return self.rts.guard(self.target, self.guards)
-
-  def update(self):
-    '''
-    Refreshes the variable.  This is needed after any rewrite step that
-    affects the expression referenced.
-    '''
-    assert self.logicalpath is not None
-    self.target, self.realpath, self.guards = \
-        indexing.realpath(self.root, self.logicalpath)
 
   # Properties.
   # -----------
@@ -166,10 +142,31 @@ class Variable(object):
   # As with the properties, these methods are easier to access in generated code
   # when they are attached to variables.
 
+  def extend(self):
+    '''
+    Step over a forward node or set guard at the target position.
+
+    This might be needed, for instance, after a rewrite step that modifies the
+    target.
+    '''
+    tag = self.tag
+    if tag == common.T_SETGRD:
+      sid, self.target = self.successors
+      self.realpath.append(1)
+      self.guards.add(sid)
+    elif tag == common.T_FWD:
+      self.target, = self.successors
+      self.realpath.append(0)
+
   def hnf(self, typedef=None, values=None):
     '''Head-normalizes this variable.'''
     from .. import fairscheme
     return fairscheme.hnf(self.rts, self, typedef, values)
+
+  def replace_target(self, replacement):
+    '''Replace the target by rewriting the root.'''
+    utility.copy_spine(self.root, self.realpath, end=replacement, rewrite=self.root)
+    self.target = replacement
 
   def rewrite(self, nodeinfo, *args):
     '''Rewrite this variable.'''

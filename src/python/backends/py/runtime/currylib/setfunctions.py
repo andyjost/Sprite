@@ -46,7 +46,6 @@ def setN(rts, _0):
 def allValues(rts, _0):
   valueset = rts.variable(_0, 0)
   valueset.hnf()
-  valueset.update()
   sid, qid = valueset.successors
   try:
     with rts.queue_scope(sid=sid, qid=qid):

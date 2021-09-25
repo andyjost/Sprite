@@ -74,10 +74,9 @@ def instantiate(rts, var, typedef, config=None):
   if typedef is None:
     rts.suspend(var, config)
   else:
-    genexpr = _make_generator(rts, var, typedef)
-    graph.utility.copy_spine(var.root, var.realpath, end=genexpr, rewrite=var.root)
-    var.update()
-    return genexpr
+    var.target = _make_generator(rts, var, typedef)
+    graph.utility.copy_spine(var.root, var.realpath, end=var.target, rewrite=var.root)
+    return var.target
 
 def is_narrowed(rts, arg=None, config=None):
   '''

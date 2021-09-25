@@ -598,7 +598,7 @@ def apply_special(rts, _0, action, **kwds):
   term = partapplic.successors[1]
   assert inspect.isa_func(term) # not a forward node or set guard
   with rts.catch_control(nondet=rts.is_io(term)):
-    _1 = _0[1]
+    _1 = rts.variable(_0, 1)
     transformed_arg = action(rts, _1, **kwds)
   yield rts.prelude.apply
   yield _0.successors[0]
