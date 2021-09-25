@@ -84,7 +84,7 @@ def equate_fp(rts, arg0, arg1, config=None):
   return rts.update_fp(arg0, arg1, config=config) \
      and rts.update_fp(arg1, arg0, config=config)
 
-def pull_tab(rts, var, rewrite=None):
+def pull_tab(rts, root, target, realpath, rewrite=None):
   '''
   Make a choice node with ID ``cid`` whose alternatives are derived by
   replacing ``node[path]`` with the alternatives of choice-rooted
@@ -92,9 +92,9 @@ def pull_tab(rts, var, rewrite=None):
   ``node[path]`` is used.  If ``rewrite`` is supplied, the specified node is
   overwritten.  Otherwise a new node is created.
   '''
-  cid,l,r = var.target.successors
-  lhs = graph.utility.copy_spine(var.root, var.realpath, end=l)
-  rhs = graph.utility.copy_spine(var.root, var.realpath, end=r)
+  cid,l,r = target.successors
+  lhs = graph.utility.copy_spine(root, realpath, end=l)
+  rhs = graph.utility.copy_spine(root, realpath, end=r)
   return graph.Node(rts.prelude._Choice, cid, lhs, rhs, target=rewrite)
 
 def update_fp(rts, choicestate, arg=None, config=None):

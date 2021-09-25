@@ -10,7 +10,7 @@
 -- (otherwise, as the intuition hints, they would be eaten by the cannibals).
 
 -- state of the puzzle:
--- it consists of the number of missionaries and cannibals 
+-- it consists of the number of missionaries and cannibals
 -- and the presence of the boat on the initial bank of the river
 
 data State = State Int Int Bool deriving Eq
@@ -22,18 +22,22 @@ data State = State Int Int Bool deriving Eq
 -- on each bank he missionaries, if any, on either bank of the river
 -- cannot be outnumbered by the cannibals
 
+-- Note: the Python implementation of Sprite is too slow the run the full
+-- problem quickly enough.  We'll just make a baby version.
+M = 2
+C = 1
+
 makeState m c l | valid && safe = State m c l
-   where valid = 0 <= m && m <= 3 && 0 <= c && c <= 3
-         safe  = m == 3 || m == 0 || m == c
+   where valid = 0 <= m && m <= M && 0 <= c && c <= C
+         safe = c <= m && (C - c) <= (M - m)
 
 -- start and end states of the puzzle
-
-start = makeState 3 3 True
+start = makeState M C True
 end   = makeState 0 0 False
 
 -- make a move: either 1 or 2 people and the boat move to the other bank
 
-move (State m c True)  
+move (State m c True)
   = makeState (m-1) c False
   ? makeState (m-2) c False
   ? makeState m (c-1) False

@@ -10,7 +10,8 @@ def D(rts):
     if tag == T_FAIL:
       rts.drop()
     elif tag == T_CONSTR:
-      value, (l, r) = rts.E
+      value, lr = rts.E.successors
+      l, r = lr.successors
       if not rts.constrain_equal(l, r, rts.constraint_type()):
         rts.drop()
       else:
@@ -71,15 +72,19 @@ def N(rts, var, state, ground=True):
         if var.is_root:
           rts.drop()
         else:
-          root.rewrite(rts.prelude._Failure)
+          # Not covered
+          assert False
+          # var.rewrite(rts.prelude._Failure)
         return False
       elif tag == T_CONSTR:
         if var.is_root:
           var = rts.variable(rts.E, state.realpath)
           rts.E = rts.lift_constraint(var)
         else:
-          var = rts.variable(root, state.realpath)
-          rts.lift_constraint(var, rewrite=root)
+          # Not covered
+          assert False
+          # var = rts.variable(root, state.realpath)
+          # rts.lift_constraint(var, rewrite=root)
         return False
       elif tag == T_FREE:
         if ground:
@@ -105,11 +110,12 @@ def N(rts, var, state, ground=True):
         cid = state.cursor.successors[0]
         rts.update_escape_sets(sids=state.data, cid=cid)
         if var.is_root:
-          var = rts.variable(rts.E, state.realpath)
-          rts.E = rts.pull_tab(var)
+          rts.E = rts.pull_tab(var.root, state.cursor, state.realpath)
         else:
-          var = rts.variable(root, state.realpath)
-          rts.pull_tab(var, rewrite=root)
+          # Not covered
+          assert False
+          # var = rts.variable(root, state.realpath)
+          # rts.pull_tab(var, rewrite=root)
         return False
       elif tag == T_SETGRD:
         sid = state.cursor.successors[0]
@@ -192,7 +198,7 @@ def hnf(rts, var, typedef=None, values=None):
       cid = inspect.get_choice_id(var.target)
       for sid in var.guards:
         rts.update_escape_set(sid=sid, cid=cid)
-      rts.pull_tab(var, rewrite=var.root)
+      rts.pull_tab(var.root, var.target, var.realpath, rewrite=var.root)
       rts.unwind()
     elif tag == T_FUNC:
       S(rts, var.target)

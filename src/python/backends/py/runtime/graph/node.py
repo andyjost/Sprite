@@ -31,6 +31,9 @@ class Node(object):
     from .indexing import logical_subexpr
     return logical_subexpr(self, path, update_fwd_nodes=True)
 
+  def __iter__(self):
+    raise TypeError('Node does not support iteration')
+
   from .equality import logically_equal as __eq__
 
   def __ne__(self, rhs):

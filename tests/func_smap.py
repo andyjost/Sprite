@@ -3,4 +3,9 @@ import cytest # from ./lib; must be first
 
 class TestKiel(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/smap/'
-  SKIP = ['.*']
+  # RUN_ONLY = ['']
+  SKIP = [
+      'arith'   # need SetFunctions.selectValue
+    , 'flight'  # incorret answer
+    ]
+

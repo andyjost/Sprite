@@ -1,11 +1,12 @@
 '''
 Code to copy Curry expressions.
 '''
-
 from __future__ import absolute_import
-from . import node
-from copy import copy, deepcopy
+
 from .....common import T_SETGRD, T_FWD
+from copy import copy, deepcopy
+from ..... import inspect
+from . import node
 
 __all__ = ['copygraph', 'copynode', 'GraphCopier', 'Skipper']
 
@@ -16,7 +17,7 @@ class GraphCopier(object):
   '''
   def __init__(self, skipper=None):
     self.expr = None
-    self.skipper = Skipper(skipper)
+    self.skipper = skipper
 
   def __call__(self, expr, memo=None):
     self.expr = expr
@@ -43,18 +44,17 @@ class Skipper(object):
   Indicates which nodes to skip.  If a node should be skipped, the
   __call__ method should return its replacement.
   '''
-  def __init__(self, skipfwd=False, skipgrds=set()):
+  def __init__(self, skipfwd=False, skipgrds=None):
     self.skipfwd = skipfwd
-    self.skipgrds = skipgrds
+    self.skipgrds = set() if skipgrds is None else skipgrds
 
   def __call__(self, expr):
     if expr.info.tag == T_FWD:
       if skipfwd:
-        return expr.successors[0]
+        return inspect.fwd_target(expr)
     elif expr.info.tag == T_SETGRD:
-      sid = expr[0]
-      if sid in skipgrds:
-        return expr.successors[1]
+      if inspect.get_set_id(expr) in self.skipgrds:
+        return inspect.get_setguard_value(expr)
 
 def copygraph(expr, memo=None, **kwds):
   '''

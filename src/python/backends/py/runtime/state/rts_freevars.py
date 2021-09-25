@@ -48,7 +48,7 @@ def get_generator(rts, arg=None, config=None):
   if not rts.has_generator(x):
     rts.constrain_equal(x, rts.get_freevar(rts.grp_id(vid, config)))
     assert rts.has_generator(x)
-  _, gen = x
+  _, gen = x.successors
   return gen
 
 def get_freevar(rts, arg=None, config=None):

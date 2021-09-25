@@ -127,7 +127,7 @@ def constr_eq(rts, _0):
                 yield graph.Node(_0.info, _1, _2)
             expr = reduce((lambda a,b: graph.Node(conj, a, b)), terms())
             yield expr.info
-            for succ in expr:
+            for succ in expr.successors:
               yield succ
           else:
             yield rts.prelude.True
@@ -174,7 +174,7 @@ def nonstrict_eq(rts, _0):
                 yield graph.Node(_0.info, _1, _2)
             expr = reduce((lambda a,b: graph.Node(conj, a, b)), terms())
             yield expr.info
-            for succ in expr:
+            for succ in expr.successors:
               yield succ
           else:
             yield rts.prelude.True

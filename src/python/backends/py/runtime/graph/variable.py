@@ -3,7 +3,10 @@ from ..... import common, inspect
 
 def variable(rts, parent, logicalpath=None):
   '''Creates an instance of Variable.'''
-  return Variable(rts, parent, logicalpath)
+  if logicalpath is None:
+    return Variable.from_root(rts, parent)
+  else:
+    return Variable.from_logicalpath(rts, parent, logicalpath)
 
 class Variable(object):
   '''
@@ -77,22 +80,31 @@ class Variable(object):
     (4).  At (5a,5b), the root is rewritten.  When considering set functions,
     this step might need to insert set guards before _2.
   '''
-  def __init__(self, rts, parent, logicalpath=None):
+  # def __init__(self, rts, parent, logicalpath=None):
+  def __init__(self, rts, root, target, realpath=None, guards=None):
     self.rts = rts
-    self.root = getattr(parent, 'root', parent)
-    if logicalpath is None:
-      self.target = self.root
-      self.realpath = None
-      self.guards = set()
-    else:
-      basetarget = getattr(parent, 'target', parent)
-      self.target, realpath, self.guards = indexing.realpath(basetarget, logicalpath)
-      basepath = getattr(parent, 'realpath', None)
-      self.realpath = utility.joinpath(basepath, realpath)
-      baseguards = getattr(parent, 'guards', set())
-      self.guards.update(baseguards)
-      assert inspect.isa_curry_expr(self.target)
-      assert indexing.subexpr(self.root, self.realpath) is self.target
+    self.root = root
+    self.target = target
+    self.realpath = realpath
+    self.guards = set() if guards is None else guards
+
+  @staticmethod
+  def from_root(rts, parent):
+    root = getattr(parent, 'root', parent)
+    return Variable(rts, root, root)
+
+  @staticmethod
+  def from_logicalpath(rts, parent, logicalpath):
+    root = getattr(parent, 'root', parent)
+    basetarget = getattr(parent, 'target', parent)
+    basepath = getattr(parent, 'realpath', None)
+    baseguards = getattr(parent, 'guards', set())
+    target, realpath, guards = indexing.realpath(basetarget, logicalpath)
+    realpath = utility.joinpath(basepath, realpath)
+    guards.update(baseguards)
+    assert inspect.isa_curry_expr(target)
+    assert indexing.subexpr(root, realpath) is target
+    return Variable(rts, root, target, realpath, guards)
 
   def __repr__(self):
     return '%s(realpath=%r, guards=%r' % (

@@ -51,7 +51,7 @@ class ToPython(object):
           pass
       return l
     elif inspect.isa_tuple(value):
-      return tuple(self.__convert(x) for x in value)
+      return tuple(self.__convert(x) for x in value.successors)
     else:
       return value
 
