@@ -33,9 +33,14 @@ def kill(rts):
   if rts.tracing:
     show('K', ':::', 0, rts.qid, rts.C)
 
-def activate_frame(rts):
+def activate_queue(rts, qid):
   if rts.tracing:
-    show('F', ':::', 0, rts.qid, rts.C)
+    print 'I ::: (switching to queue %s)' % qid
+
+def set_goal(rts, goal, qid):
+  if rts.tracing:
+    print 'I ::: setting goal: %s' % goal
+
 
 class Trace(object):
   def __init__(self, rts):
@@ -59,8 +64,11 @@ class Trace(object):
   def kill(self):
     kill(self.rts)
 
-  def activate_frame(self):
-    active_frame(self.rts)
+  def activate_queue(self, qid):
+    activate_queue(self.rts, qid)
+
+  def set_goal(self, goal, qid):
+    set_goal(self.rts, goal, qid)
 
 def trace_values(f):
   '''Wraps the D procedure to trace value creation.'''

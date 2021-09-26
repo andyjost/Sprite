@@ -58,6 +58,9 @@ class RuntimeState(object):
     self.setfactory = interp.context.runtime.get_interpreter_state(interp).setfactory
     self.stepcounter = stepcounter.StepCounter()
 
+    # The trace object.
+    self.trace = trace.Trace(self)
+
     # The Fair Scheme work queues.
     self.qstack = []
     self.qtable = {}
@@ -70,9 +73,6 @@ class RuntimeState(object):
     # The table of setfunction evaluations.
     self.sftable = {}
 
-    # The trace object.
-    self.trace = trace.Trace(self)
-
   def walk_configs(self):
     for qid in self.qstack[::-1]:
       yield self.qtable[qid][0]
@@ -80,6 +80,7 @@ class RuntimeState(object):
   def set_goal(self, goal):
     assert not self.Q
     if goal is not None:
+      self.trace.set_goal(goal, self.qid)
       self.Q.append(configuration.Configuration(goal))
 
   @property

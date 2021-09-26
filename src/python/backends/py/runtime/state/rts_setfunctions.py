@@ -52,11 +52,13 @@ def in_recursive_call(rts):
 
 def pop_queue(rts):
   rts.qstack.pop()
+  rts.trace.activate_queue(rts.qstack[-1])
 
 def push_queue(rts, sid=None, qid=None):
   if qid is None:
     qid = next(rts.setfactory)
     rts.qtable[qid] = queue.Queue([], sid=sid)
+  rts.trace.activate_queue(qid)
   rts.qstack.append(qid)
 
 def qid(rts):

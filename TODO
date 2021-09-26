@@ -15,5 +15,3 @@
 
 - Come to think of it, I should remove the mutual recursion between D, N, and S.  All of the recusion should be done synthetically.
 - Finish testing set functions.
-- Can I remove the dependency on expressions in the runtime?
-- In runtime/currylib/setfunctions.py there is a call to graph.guard_args.  That function does not exist in that location.  Is that branch ever hit?
