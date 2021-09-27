@@ -73,10 +73,6 @@ class RuntimeState(object):
     # The table of setfunction evaluations.
     self.sftable = {}
 
-  def walk_configs(self):
-    for qid in self.qstack[::-1]:
-      yield self.qtable[qid][0]
-
   def set_goal(self, goal):
     assert not self.Q
     if goal is not None:
@@ -136,9 +132,9 @@ class RuntimeState(object):
     , register_freevar
     )
   from .rts_setfunctions import (
-      create_setfunction, guard_args, guard, in_recursive_call, pop_queue
-    , push_queue, qid, queue_scope, qid, SetFunctionEval, sid
-    , update_escape_set, update_escape_sets
+      create_setfunction, choice_escapes, guard_args, guard, in_recursive_call
+    , pop_queue, push_queue, qid, queue_scope, qid, SetFunctionEval, sid
+    , update_escape_set, update_escape_sets, walk_qstack
     )
 
   in_recursive_call = property(in_recursive_call)

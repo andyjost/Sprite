@@ -53,7 +53,12 @@ def read_fp(rts, arg=None, config=None):
     return arg
   else:
     config = config or rts.C
-    return config.fingerprint[rts.grp_id(arg, config=config)]
+    cid = rts.grp_id(arg, config=config)
+    for cfg in rts.walk_qstack(firstconfig=config):
+      if cid in cfg.fingerprint:
+        return cfg.fingerprint[cid]
+    else:
+      return UNDETERMINED
 
 def fork(rts, config=None):
   '''

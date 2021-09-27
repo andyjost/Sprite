@@ -35,28 +35,13 @@ def D(rts):
         rts.unwind()
       rts.E = rts.E.successors[1]
     elif tag == T_CHOICE:
-      ## FIXME
       cid = rts.obj_id()
-      with rts.trace.fork():
-        if (cid in getattr(rts.S, 'escape_set', []) or rts.C.escape_all) and not any(
-            cid in config.fingerprint for config in rts.walk_configs()
-          ):
-          rts.unwind()
-        else:
-          configs = rts.walk_configs()
-          next(configs)
-          configs = list(configs)
-          for child in rts.fork():
-            for config in configs:
-              if cid in config.fingerprint:
-                if child.fingerprint[cid] == config.fingerprint[cid]:
-                  rts.append(child)
-                break
-            else:
-              rts.append(child)
-          rts.drop()
-          # rts.extend(rts.fork())
-          # rts.drop()
+      if rts.choice_escapes(cid):
+        rts.unwind()
+      else:
+        with rts.trace.fork():
+          rts.extend(rts.fork())
+          rts.drop(trace=False)
     else:
       with rts.catch_control(residual=True, restart=True):
         if tag == T_FUNC:

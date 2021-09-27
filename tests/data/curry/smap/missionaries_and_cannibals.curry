@@ -22,8 +22,8 @@ data State = State Int Int Bool deriving Eq
 -- on each bank he missionaries, if any, on either bank of the river
 -- cannot be outnumbered by the cannibals
 
--- Note: the Python implementation of Sprite is too slow the run the full
--- problem quickly enough.  We'll just make a baby version.
+-- Note: the Python backend is too slow the run the full problem quickly
+-- enough.  We'll just make a baby version.
 M = 2
 C = 1
 
