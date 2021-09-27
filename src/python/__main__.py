@@ -29,7 +29,7 @@ def main(program_name, argv):
   except AttributeError:
     sort_keys = 'unknown'
   parser.add_argument( '--psort', type=str, default='tottime'
-      , help='sets the profile sort key; allowed values are %s' % sort_keys
+      , help='sets the profile sort key [default: "tottime"];\nallowed values are %s' % sort_keys
       )
   parser.add_argument( 'name', nargs='?', default=None, type=str, help='a Curry file name (default) or module name to run')
 
