@@ -7,6 +7,7 @@ from .....common import T_FUNC
 from ..control import E_RESIDUAL, E_RESTART, E_TERMINATE, E_UNWIND
 from ..graph.copy import copygraph
 from ..... import exceptions
+from .. import graph
 from ..... import inspect
 import contextlib
 
@@ -64,9 +65,11 @@ def catch_control(
     if not restart:
       raise
 
-def drop(rts):
+def drop(rts, trace=True):
   '''Drop the current configuration.'''
   rts.Q.popleft()
+  if trace:
+    rts.trace.failed()
 
 def extend(rts, configs):
   '''Extend the queue.'''
@@ -126,7 +129,7 @@ def release_value(rts):
   from the computation state, and then returns the value.
   '''
   value = rts.make_value()
-  rts.drop()
+  rts.drop(trace=False)
   return value
 
 def restart(rts):

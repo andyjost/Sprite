@@ -64,7 +64,7 @@ class RuntimeState(object):
     # The Fair Scheme work queues.
     self.qstack = []
     self.qtable = {}
-    self.push_queue()
+    self.push_queue(trace=False)
     self.set_goal(goal)
 
     # The free variable table.  Mapping from ID to Node.
@@ -80,7 +80,6 @@ class RuntimeState(object):
   def set_goal(self, goal):
     assert not self.Q
     if goal is not None:
-      self.trace.set_goal(goal, self.qid)
       self.Q.append(configuration.Configuration(goal))
 
   @property

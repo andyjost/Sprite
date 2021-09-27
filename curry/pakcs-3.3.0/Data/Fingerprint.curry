@@ -1,0 +1,1 @@
+../../Data/Fingerprint.curry

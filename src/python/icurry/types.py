@@ -1,9 +1,10 @@
 from abc import ABCMeta
 from collections import Iterator, OrderedDict, Mapping, Sequence
-from ..utility import translateKwds
 from ..utility.formatting import indent, wrapblock
+from ..utility import translateKwds
 from ..utility.proptree import proptree
 from ..utility.visitation import dispatch
+from ..backends.py.sprite import Fingerprint
 import logging
 import re
 import weakref
@@ -186,6 +187,8 @@ IUnboxedLiteral.register(float)
 # to reduce it.  This should always be the argument to an instance of
 # Prelude._PyGenerator.
 IUnboxedLiteral.register(Iterator)
+# Extend the builtins to include fingerprints.
+IUnboxedLiteral.register(Fingerprint)
 
 class ILiteral(IObject):
   __metaclass__ = ABCMeta

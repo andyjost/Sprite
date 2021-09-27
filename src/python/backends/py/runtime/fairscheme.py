@@ -4,6 +4,7 @@ from . import graph, trace
 from .... import icurry, inspect
 from .state import callstack
 
+@trace.trace_values
 def D(rts):
   while rts.ready():
     tag = inspect.tag_of(rts.E)
@@ -122,7 +123,8 @@ def N(rts, var, state, ground=True):
         state.push(data=sid)
         break
       elif tag == T_FUNC:
-        S(rts, state.cursor)
+        with rts.trace.position(rts.E, state.realpath):
+          S(rts, state.cursor)
       elif tag >= T_CTOR:
         if inspect.info_of(state.cursor) is not rts.prelude._PartApplic.info:
           state.push()

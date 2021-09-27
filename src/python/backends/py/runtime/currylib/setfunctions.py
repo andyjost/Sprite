@@ -4,6 +4,7 @@ from copy import deepcopy, copy
 from .. import fairscheme, graph
 from ..... import icurry, inspect
 
+
 def exports():
   yield '_SetGuard'
   yield 'Values'
@@ -36,7 +37,7 @@ def make_subgoal(rts, f, *args):
 
 def setN(rts, _0):
   sid = rts.create_setfunction()
-  with rts.queue_scope(sid=sid):
+  with rts.queue_scope(sid=sid, trace=False):
     goal = make_subgoal(rts, *_0.successors)
     rts.set_goal(goal)
     yield rts.setfunctions.Values
@@ -58,27 +59,16 @@ def allValues(rts, _0):
         yield rts.prelude.Nil
   except E_UNWIND:
     subconfig = rts.qtable[qid][0]
-    tag = inspect.tag_of(subconfig.root)
-    if tag == T_SETGRD:
-      assert False # This branch is uncovered
-      # gexpr = subconfig.root
-      # valueset.guards.add(gexpr[0])
-      # for arg in graph.guard_args(rts, _0.target.copy(), valueset.guards):
-      #   yield arg
-      # with rts.queue_scope(sid=sid, qid=qid):
-      #   rts.E = rts.E[1]
-    elif tag == T_CHOICE:
-      cid = rts.obj_id(config=subconfig)
-      with rts.queue_scope(sid=sid):
-        rts.Q = copy(rts.qtable[qid])
-        assert rts.qid != qid
-        right_valueset = graph.Node(valueset.info, sid, rts.qid)
-      yield rts.prelude._Choice
-      yield cid
-      yield graph.Node(rts.setfunctions.allValues, valueset)
-      yield graph.Node(rts.setfunctions.allValues, right_valueset)
-    else:
-      assert False
+    assert inspect.tag_of(subconfig.root) == T_CHOICE
+    cid = rts.obj_id(config=subconfig)
+    with rts.queue_scope(sid=sid):
+      rts.Q = copy(rts.qtable[qid])
+      assert rts.qid != qid
+      right_valueset = graph.Node(valueset.info, sid, rts.qid)
+    yield rts.prelude._Choice
+    yield cid
+    yield graph.Node(rts.setfunctions.allValues, valueset)
+    yield graph.Node(rts.setfunctions.allValues, right_valueset)
 
 _functions_ = [
     _F('set0', 1, metadata={'py.rawfunc': setN})

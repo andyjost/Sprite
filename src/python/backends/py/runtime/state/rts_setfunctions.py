@@ -50,15 +50,17 @@ def guard(rts, expr, guards, target=None):
 def in_recursive_call(rts):
   return len(rts.qstack) > 1
 
-def pop_queue(rts):
+def pop_queue(rts, trace=True):
   rts.qstack.pop()
-  rts.trace.activate_queue(rts.qstack[-1])
+  if trace:
+    rts.trace.activate_queue(rts.qstack[-1])
 
-def push_queue(rts, sid=None, qid=None):
+def push_queue(rts, sid=None, qid=None, trace=True):
   if qid is None:
     qid = next(rts.setfactory)
     rts.qtable[qid] = queue.Queue([], sid=sid)
-  rts.trace.activate_queue(qid)
+  if trace:
+    rts.trace.activate_queue(qid)
   rts.qstack.append(qid)
 
 def qid(rts):
@@ -66,12 +68,12 @@ def qid(rts):
   return rts.qstack[-1]
 
 @contextlib.contextmanager
-def queue_scope(rts, sid=None, qid=None):
-  rts.push_queue(sid, qid)
+def queue_scope(rts, sid=None, qid=None, trace=True):
+  rts.push_queue(sid, qid, trace=trace)
   try:
     yield
   finally:
-    rts.pop_queue()
+    rts.pop_queue(trace=trace)
 
 def sid(rts):
   '''The ID of the current set.'''

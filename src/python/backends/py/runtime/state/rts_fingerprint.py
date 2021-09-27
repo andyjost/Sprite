@@ -8,10 +8,7 @@ from .....common import T_FREE, T_CHOICE, LEFT, RIGHT, UNDETERMINED, ChoiceState
 from .. import graph
 from ..... import inspect
 
-__all__ = [
-    'equate_fp', 'grp_id', 'obj_id', 'make_left', 'make_right', 'read_fp'
-  , 'update_fp'
-  ]
+__all__ = ['equate_fp', 'grp_id', 'obj_id', 'read_fp', 'update_fp']
 
 def grp_id(rts, arg=None, config=None):
   '''

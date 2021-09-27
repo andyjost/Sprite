@@ -14,8 +14,7 @@ class Evaluator(object):
 
   def evaluate(self):
     '''Evaluate the goal.'''
-    D = trace.trace_values(fairscheme.D)
-    return D(self.rts)
+    return fairscheme.D(self.rts)
 
   def set_global_step_limit(self, limit=None, reset=True):
     '''

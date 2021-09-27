@@ -35,15 +35,15 @@ valueOf e s = e `elem` valuesOf s
 --     let vs = allvalues values in (x, xs)
 --   where x = foldr1 (?) vs
 --         xs = delete x vs
--- 
+--
 -- chooseValue :: Eq a => Values a -> a
 -- chooseValue s = fst (choose s)
--- 
+--
 -- select :: Values a -> (a,Values a)
 -- select values@(Values _) =
 --     case (allValues values) of
 --         (x:xs) -> (x, xs)
--- 
+--
 -- selectValue :: Values a -> a
 -- selectValue s = fst (select s)
 

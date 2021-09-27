@@ -1,59 +1,86 @@
-'''
-Implements tracing to debug Curry evaluation.
-'''
+'''Functions for tracing Curry evaluation.'''
+import collections, contextlib
 
-def show(char, symbol, indent, qid, config, expr=None):
-  if config is not None:
-    expr = config.expr[()] if expr is None else expr
-    print '%1s %3s %-50s %s:%s' % (
-        char, symbol, '%s%s' % ('  ' * indent, expr), qid, config
-      )
-  else:
-    print '%1s %3s %-50s' % (
-        char, symbol, '%s%s' % ('  ' * indent, expr)
-      )
+def show_queue(rts, qid=None):
+  qid = rts.qid if qid is None else qid
+  return 'queue %s: %s' % (qid, list(e.fingerprint for e in rts.qtable[qid]))
 
 def enter_rewrite(rts, indent, expr):
   if rts.tracing:
-    show('S', '<<<', indent, rts.qid, rts.C, expr)
+    print 'S <<< %s%s' % ('  ' * indent, expr)
 
 def exit_rewrite(rts, indent, expr):
   if rts.tracing:
-    show('S', '>>>', indent, rts.qid, rts.C, expr)
+    print 'S >>> %s%s' % ('  ' * indent, expr)
 
-def failed(rts):
+def failed(rts, qid=None):
   if rts.tracing:
-    show('F', ':::', 0, rts.qid, rts.C)
+    print 'Q ::: failed config dropped from %s' % show_queue(rts, qid)
 
 def yield_(rts, value):
   if rts.tracing:
-    show('Y', ':::', 0, None, None, value)
+    print 'Y ::: %s' % value
 
-def kill(rts):
+def position(rts, indent, expr, path):
   if rts.tracing:
-    show('K', ':::', 0, rts.qid, rts.C)
+    print 'I ::: %sat path=%s of %s' % (
+        '  ' * (indent + 1)
+      , '[' + ','.join(map(str, path)) + ']'
+      , expr
+      )
 
 def activate_queue(rts, qid):
   if rts.tracing:
-    print 'I ::: (switching to queue %s)' % qid
+    print 'Q ::: switching to %s' % show_queue(rts, qid)
 
-def set_goal(rts, goal, qid):
+@contextlib.contextmanager
+def fork(rts, qid=None):
   if rts.tracing:
-    print 'I ::: setting goal: %s' % goal
+    qid = rts.qid if qid is None else qid
+    cid = rts.grp_id()
+    head_fp = str(rts.qtable[qid][0].fingerprint)
+    try:
+      yield
+    finally:
+      print 'Q ::: fork %s on cid=%s appending to %s' % (
+          head_fp, cid, show_queue(rts, qid)
+        )
+  else:
+    yield
 
 
 class Trace(object):
+  '''
+  This object calls the freestanding trace functions to print log output.  It
+  keeps track of the indent level and filters out clutter.  As an example of
+  the latter, when an expression being inspected was just created in the
+  previous step, it is not repeated.
+  '''
   def __init__(self, rts):
     self.rts = rts
-    self.indent = 0
+    self.indents = collections.defaultdict(int)
+    self.prevexprs = collections.defaultdict(lambda: None)
+    self.prevpaths = collections.defaultdict(lambda: None)
+
+  def indent(self, qid=None):
+    qid = self.rts.qid if qid is None else qid
+    self.indent_value = self.indents[qid]
+    self.indents[qid] += 1
+
+  def dedent(self, qid=None):
+    qid = self.rts.qid if qid is None else qid
+    self.indents[qid] -= 1
+    self.indent_value = self.indents[qid]
 
   def enter_rewrite(self, expr):
-    enter_rewrite(self.rts, self.indent, expr)
-    self.indent += 1
+    self.indent()
+    if self.prevexprs[self.rts.qid] != id(expr):
+      enter_rewrite(self.rts, self.indent_value, expr)
 
-  def exit_rewrite(self, expr):
-    self.indent -= 1
-    exit_rewrite(self.rts, self.indent, expr)
+  def exit_rewrite(self, expr, buffering=False):
+    self.dedent()
+    exit_rewrite(self.rts, self.indent_value, expr)
+    self.prevexprs[self.rts.qid] = id(expr)
 
   def failed(self):
     failed(self.rts)
@@ -61,14 +88,26 @@ class Trace(object):
   def yield_(self, value):
     yield_(self.rts, value)
 
-  def kill(self):
-    kill(self.rts)
-
   def activate_queue(self, qid):
     activate_queue(self.rts, qid)
 
-  def set_goal(self, goal, qid):
-    set_goal(self.rts, goal, qid)
+  def fork(self, qid=None):
+    return fork(self.rts, qid)
+
+  @contextlib.contextmanager
+  def position(self, expr, path):
+    qid = self.rts.qid
+    key = id(expr), tuple(path)
+    self.indent(qid)
+    try:
+      if self.prevpaths[qid] != key:
+        position(self.rts, self.indent_value, expr, path)
+      yield
+      self.prevpaths[qid] = id(expr), tuple(path)
+    finally:
+      self.dedent(qid)
+
+
 
 def trace_values(f):
   '''Wraps the D procedure to trace value creation.'''
