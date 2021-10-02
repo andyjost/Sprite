@@ -12,89 +12,99 @@ import operator as op
 
 logger = logging.getLogger(__name__)
 
-def hnf_or_free(rts, var, typedef=None):
-  '''Reduce the expression to head normal form or a free variable.'''
-  try:
-    return var.hnf(typedef)
-  except E_RESIDUAL:
-    # The argument could be a free variable or an expression containing a free
-    # variable that cannot be narrowed, such as "ensureNotFree x".
-    if inspect.isa_freevar(var.target):
-      return var
-    else:
-      raise
+# def narrow_args(typename):
+#   '''
+#   Creates a decorator for built-in functions over a fundamental data type.
+#   This will normalize the arguments, raising E_RESIDUAL when they are not
+#   ground.
+#   '''
+#   def decorator(f):
+#     def repl(rts, _0):
+#       typedef = getattr(rts.prelude, typename).info.typedef()
+#       args = [
+#           hnf_or_free(rts, rts.variable(_0, i), typedef=typedef)
+#               for i in xrange(len(_0.successors))
+#         ]
+#       variables = [arg for arg in args if inspect.isa_freevar(arg.target)]
+#       if variables:
+#         rts.suspend(variables)
+#       else:
+#         return f(rts, *[arg.target for arg in args])
+#     return repl
+#   return decorator
+#
+# @narrow_args('Int')
+# def eqInt(rts, lhs, rhs):
+#   result = op.eq(*map(rts.topython, [lhs, rhs]))
+#   yield rts.prelude.True if result else rts.prelude.False
+#
+# @narrow_args('Int')
+# def ltEqInt(rts, lhs, rhs):
+#   result = op.le(*map(rts.topython, [lhs, rhs]))
+#   yield rts.prelude.True if result else rts.prelude.False
+#
+# @narrow_args('Int')
+# def plusInt(rts, lhs, rhs):
+#   yield rts.prelude.Int
+#   yield op.add(*map(rts.topython, [lhs, rhs]))
+#
+# @narrow_args('Int')
+# def minusInt(rts, lhs, rhs):
+#   yield rts.prelude.Int
+#   yield op.sub(*map(rts.topython, [lhs, rhs]))
+#
+# @narrow_args('Int')
+# def timesInt(rts, lhs, rhs):
+#   yield rts.prelude.Int
+#   yield op.mul(*map(rts.topython, [lhs, rhs]))
+#
+# @narrow_args('Int')
+# def divInt(rts, lhs, rhs):
+#   yield rts.prelude.Int
+#   yield op.floordiv(*map(rts.topython, [lhs, rhs]))
+#
+# @narrow_args('Int')
+# def modInt(rts, lhs, rhs):
+#   yield rts.prelude.Int
+#   f = lambda x, y: x - y * op.floordiv(x,y)
+#   yield f(*map(rts.topython, [lhs, rhs]))
+#
+# @narrow_args('Int')
+# def quotInt(rts, lhs, rhs):
+#   yield rts.prelude.Int
+#   f = lambda x, y: int(op.truediv(x, y))
+#   yield f(*map(rts.topython, [lhs, rhs]))
+#
+# @narrow_args('Int')
+# def remInt(rts, lhs, rhs):
+#   yield rts.prelude.Int
+#   f = lambda x, y: x - y * int(op.truediv(x, y))
+#   yield f(*map(rts.topython, [lhs, rhs]))
+#
+# @narrow_args('Char')
+# def eqChar(rts, lhs, rhs):
+#   result = op.eq(*map(rts.topython, [lhs, rhs]))
+#   yield rts.prelude.True if result else rts.prelude.False
+#
+# @narrow_args('Char')
+# def ltEqChar(rts, lhs, rhs):
+#   result = op.le(*map(rts.topython, [lhs, rhs]))
+#   yield rts.prelude.True if result else rts.prelude.False
+#
+# @narrow_args('Float')
+# def eqFloat(rts, lhs, rhs):
+#   result = op.eq(*map(rts.topython, [lhs, rhs]))
+#   yield rts.prelude.True if result else rts.prelude.False
+#
+# @narrow_args('Float')
+# def ltEqFloat(rts, lhs, rhs):
+#   result = op.le(*map(rts.topython, [lhs, rhs]))
+#   yield rts.prelude.True if result else rts.prelude.False
 
-def hnf_or_free_int(rts, var):
-  return hnf_or_free(rts, var, typedef=rts.prelude.Int.info.typedef())
-
-def narrow_integer_args(f):
-  '''
-  Decorate a built-in function over integers.  This will handle the arguments,
-  raising E_RESIDUAL when they are not ground.
-  '''
-  def repl(rts, _0):
-    args = [
-        hnf_or_free_int(rts, rts.variable(_0, i))
-            for i in xrange(len(_0.successors))
-      ]
-    variables = [arg for arg in args if inspect.isa_freevar(arg.target)]
-    if variables:
-      rts.suspend(variables)
-    else:
-      return f(rts, *[arg.target for arg in args])
-  return repl
-
-@narrow_integer_args
-def eqInt(rts, lhs, rhs):
-  result = op.eq(*map(rts.topython, [lhs, rhs]))
-  yield rts.prelude.True if result else rts.prelude.False
-
-@narrow_integer_args
-def ltEqInt(rts, lhs, rhs):
-  result = op.le(*map(rts.topython, [lhs, rhs]))
-  yield rts.prelude.True if result else rts.prelude.False
-
-@narrow_integer_args
-def plusInt(rts, lhs, rhs):
-  yield rts.prelude.Int
-  yield op.add(*map(rts.topython, [lhs, rhs]))
-
-@narrow_integer_args
-def minusInt(rts, lhs, rhs):
-  yield rts.prelude.Int
-  yield op.sub(*map(rts.topython, [lhs, rhs]))
-
-@narrow_integer_args
-def timesInt(rts, lhs, rhs):
-  yield rts.prelude.Int
-  yield op.mul(*map(rts.topython, [lhs, rhs]))
-
-@narrow_integer_args
-def divInt(rts, lhs, rhs):
-  yield rts.prelude.Int
-  yield op.floordiv(*map(rts.topython, [lhs, rhs]))
-
-@narrow_integer_args
-def modInt(rts, lhs, rhs):
-  yield rts.prelude.Int
-  f = lambda x, y: x - y * op.floordiv(x,y)
-  yield f(*map(rts.topython, [lhs, rhs]))
-
-@narrow_integer_args
-def quotInt(rts, lhs, rhs):
-  yield rts.prelude.Int
-  f = lambda x, y: int(op.truediv(x, y))
-  yield f(*map(rts.topython, [lhs, rhs]))
-
-@narrow_integer_args
-def remInt(rts, lhs, rhs):
-  yield rts.prelude.Int
-  f = lambda x, y: x - y * int(op.truediv(x, y))
-  yield f(*map(rts.topython, [lhs, rhs]))
 
 def constr_eq(rts, _0):
   '''Implements =:=.'''
-  lhs, rhs = [hnf_or_free(rts, rts.variable(_0, i)) for i in (0,1)]
+  lhs, rhs = [fairscheme.hnf_or_free(rts, rts.variable(_0, i)) for i in (0,1)]
   if lhs.is_boxed and rhs.is_boxed:
     ltag, rtag = lhs.info.tag, rhs.info.tag
     if ltag == T_FREE:
@@ -149,7 +159,7 @@ def nonstrict_eq(rts, _0):
   lhs = rts.variable(_0, 0)
   rhs = rts.variable(_0, 1)
   if lhs.is_boxed and rhs.is_boxed:
-    lhs = hnf_or_free(rts, lhs)
+    lhs = fairscheme.hnf_or_free(rts, lhs)
     if lhs.info.tag == T_FREE:
       # Bind lhs -> rhs
       yield rts.prelude._NonStrictConstraint.info
@@ -157,7 +167,7 @@ def nonstrict_eq(rts, _0):
       yield rts.expr((lhs, rhs))
     else:
       assert inspect.is_data(lhs.target)
-      rhs = hnf_or_free(rts, rhs)
+      rhs = fairscheme.hnf_or_free(rts, rhs)
       if rhs.info.tag == T_FREE:
         rhs.hnf(typedef=lhs.typedef)
       else:
@@ -595,6 +605,7 @@ def normalize_wrapper(rts, var, ground):
 def apply_special(rts, _0, action, **kwds):
   '''Apply with a special action applied to the argument.'''
   partapplic = rts.variable(_0, 0)
+  partapplic.hnf()
   term = partapplic.successors[1]
   assert inspect.isa_func(term) # not a forward node or set guard
   with rts.catch_control(nondet=rts.is_io(term)):
@@ -614,7 +625,7 @@ def apply_gnf(rts, _0):
   return apply_special(rts, _0, normalize_wrapper, ground=True)
 
 def ensureNotFree(rts, _0):
-  _1 = hnf_or_free(rts, rts.variable(_0, 0))
+  _1 = fairscheme.hnf_or_free(rts, rts.variable(_0, 0))
   if rts.is_void(_1.target):
     rts.suspend(_1.target)
   else:

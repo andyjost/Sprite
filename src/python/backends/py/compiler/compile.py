@@ -1,5 +1,5 @@
 from ....icurry import analysis
-from . import closure, render
+from . import closure, render, synthesis
 from .... import icurry
 from ..runtime.currylib import prelude_impl
 from ..runtime import graph
@@ -33,17 +33,9 @@ def compile_function(interp, ifun, extern=None):
   '''
   while True:
     try:
-      assert isinstance(ifun, icurry.IFunction)
-      assert 2 >= sum(1
-          for k in ['py.boxedfunc', 'py.rawfunc', 'py.unboxedfunc']
-          if k in ifun.metadata
-        )
-      if 'py.unboxedfunc' in ifun.metadata:
-        return compile_py_unboxedfunc(interp, ifun.metadata)
-      elif 'py.boxedfunc' in ifun.metadata:
-        return compile_py_boxedfunc(interp, ifun.metadata)
-      elif 'py.rawfunc' in ifun.metadata:
-        return compile_py_rawfunc(interp, ifun.metadata)
+      func = synthesis.synthesize_function(interp, ifun)
+      if func is not None:
+        return func
       compiler = FunctionCompiler(interp, ifun, extern)
       compiler.compile()
     except ExternallyDefined as e:
@@ -66,48 +58,6 @@ def compile_function(interp, ifun, extern=None):
         for line in str(compiler).split('\n')
       ]
   return compiler.get()
-
-def compile_py_boxedfunc(interp, metadata):
-  '''
-  Compiles code for a built-in function.  See README.md.  Corresponds to the
-  "py.boxedfunc" metadata.
-
-  The Python implementation function must accept the arguments in head-normal
-  form, but without any other preprocessing (e.g., unboxing).  It returns a
-  sequence of arguments accepted by ``runtime.Node.__new__``.
-  '''
-  boxedfunc = metadata['py.boxedfunc']
-  def step(rts, _0):
-    args = (rts.variable(_0, i).hnf() for i in xrange(len(_0.successors)))
-    _0.rewrite(*boxedfunc(rts, *args))
-  return step
-
-def compile_py_rawfunc(interp, metadata):
-  '''
-  Compiles code for a raw built-in function.  See README.md.  Corresponds to
-  the "py.rawfunc" metadata.
-
-  Like compile_py_boxedfunc but does not head-normalize the arguments.  The
-  left-hand-side expression is simply passed to the implementation function.
-  '''
-  rawfunc = metadata['py.rawfunc']
-  def step(rts, _0):
-    graph.Node(*rawfunc(rts, _0), target=_0.target)
-  return step
-
-def compile_py_unboxedfunc(interp, metadata):
-  '''
-  Compiles code for built-in functions on primitive data.  See README.md.
-  Corresponds to the "py.unboxedfunc" metadata.
-  '''
-  unboxedfunc = metadata['py.unboxedfunc']
-  def step(rts, _0):
-    args = (
-        rts.variable(_0, i).hnf().unboxed_value
-            for i in reversed(xrange(len(_0.successors)))
-      )
-    return rts.expr(unboxedfunc(*args), target=_0.target)
-  return step
 
 class FunctionCompiler(object):
   '''

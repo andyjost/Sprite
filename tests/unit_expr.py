@@ -112,7 +112,7 @@ class TestExpr(cytest.TestCase):
   @cytest.check_expressions()
   def test_str(self):
     yield '', '[]', "<[]>", []  # empty string and list are indistiguishable
-    yield 'hi', "['h', 'i']", "<: <Char 'h'> <: <Char 'i'> <[]>>>", 'hi'
+    yield 'hi', '"hi"', "<: <Char 'h'> <: <Char 'i'> <[]>>>", 'hi'
 
   def test_choice(self):
     yield choice(1, True, False), '_Choice 1 True False' \

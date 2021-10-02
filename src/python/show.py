@@ -120,10 +120,22 @@ class Stringifier(object):
 
 class ListStringifier(Stringifier):
   '''
-  Formats lists using square-bracket-style, when possible.  If some tail is a
-  non-constructor symbol, then cons-style is used.
+  Formats lists using the best style.  Depending on the list type and whether
+  it is ground, the style will use square brackets, cons symbols, or
+  double-quotes.
   '''
   def format(self, arg, **kwds):
+    if self.style != 'repr':
+      string = self.format_as_string(arg, **kwds)
+      if string is not None:
+        return string
+    return self.format_as_list(arg, **kwds)
+
+  def format_as_list(self, arg, **kwds):
+    '''
+    Formats lists using square-bracket-style, when possible; or, if some tail is a
+    non-constructor symbol, then using cons symbols.
+    '''
     if inspect.isa_cons(arg) and self.style != 'repr':
       l = [self.stringify(arg.successors[0], outer=True)]
       spine = []
@@ -151,6 +163,25 @@ class ListStringifier(Stringifier):
     else:
       return super(ListStringifier, self).format(arg, **kwds)
 
+  def format_as_string(self, tail, **kwds):
+    '''
+    A list of Chars is formatted as a double-quoted string.  The list must be
+    non-nil, each element must be a ground value of type Prelude.Char or
+    unboxed character data, and the list itself must consist of only ground
+    values.  If these conditions are not met None is returned.
+    '''
+    chars = ['"']
+    while inspect.isa_cons(tail):
+      head, tail = tail.successors
+      if inspect.isa_char(head):
+        ch = inspect.unboxed_value(head)
+        chars.append(ch)
+      else:
+        return
+    if len(chars) > 1 and inspect.isa_nil(tail):
+      chars.append('"')
+      return ''.join(chars)
+
 
 class LitNormalStringifier(Stringifier):
   '''Represents literals in the usual, human-readable, way.'''
@@ -160,11 +191,11 @@ class LitNormalStringifier(Stringifier):
 
   @format.when(int)
   def format(self, lit, **kwds):
-    return str(lit)
+    return ('(%r)' if lit<0 else '%r') % lit
 
   @format.when(float)
   def format(self, lit, **kwds):
-    return ('(%s)' if lit<0 else '%s') % lit
+    return ('(%r)' if lit<0 else '%r') % lit
 
   @format.when(str)
   def format(self, lit, **kwds):

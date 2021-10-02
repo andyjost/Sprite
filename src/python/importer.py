@@ -14,26 +14,11 @@ files.  The following file types are used:
 
 from .exceptions import CompileError, ModuleLookupError, PrerequisiteError
 from .icurry import json as icurry_json
-from . import cache
-from . import config
-from . import icurry
-from . import utility
+from . import cache, config, icurry, utility
 from .tools.utility import make_exception
 from .utility.binding import binding, del_
-from .utility import filesys
-from .utility import formatting
-import errno
-import logging
-import os
-import re
-import shutil
-import subprocess
-import sys
-import tempfile
-import time
-import types
-import zlib
-
+from .utility import filesys, formatting
+import errno, logging, os, re, shutil, subprocess, sys, tempfile, time, types, zlib
 
 __all__ = [
     'curryFilename'
@@ -371,7 +356,8 @@ class Curry2ICurryConverter(object):
         if self.quiet:
           cmd.insert(1, '-q')
         logger.debug('Command: %s', ' '.join(cmd))
-        _popen(cmd)
+        with filesys.remove_file_on_error(file_out):
+          _popen(cmd)
         if self.use_cache:
           cached.update()
       else:
@@ -407,21 +393,25 @@ class ICurry2JsonConverter(object):
     if file_in.endswith('.json'):
       if self.do_zip:
         with open(file_in, 'r') as json_in:
-          with open(file_in + '.z', 'wb') as json_out:
-            json = json_in.read()
-            json = zlib.compress(json)
-            json_out.write(json)
-        return file_in + '.z'
+          file_out = file_in + '.z'
+          with filesys.remove_file_on_error(file_out):
+            with open(file_out, 'wb') as json_out:
+              json = json_in.read()
+              json = zlib.compress(json)
+              json_out.write(json)
+        return file_out
       else:
         return file_in
     elif file_in.endswith('.json.z'):
       if not self.do_zip:
         with open(file_in, 'rb') as json_in:
-          with open(file_in[:-2], 'w') as json_out:
-            json = json_in.read()
-            json = zlib.decompress(json).encode('utf-8')
-            json_out.write(json)
-        return file_in[:-2]
+          file_out = file_in[:-2]
+          with filesys.remove_file_on_error(file_out):
+            with open(file_out, 'w') as json_out:
+              json = json_in.read()
+              json = zlib.decompress(json).encode('utf-8')
+              json_out.write(json)
+        return file_out
       else:
         return file_in
     elif file_in.endswith('.curry'):
@@ -449,8 +439,9 @@ class ICurry2JsonConverter(object):
         mode = 'wb'
       else:
         mode = 'w'
-      with open(file_out, mode) as output:
-        output.write(json)
+      with filesys.remove_file_on_error(file_out):
+        with open(file_out, mode) as output:
+          output.write(json)
     return file_out
 
 def icurry2json(icurryfile, currypath, **kwds):

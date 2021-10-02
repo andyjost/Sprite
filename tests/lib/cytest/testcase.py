@@ -45,22 +45,22 @@ class TestCase(unittest.TestCase):
         If true, then just update the golden file.
     '''
     if isinstance(objs, str):
-      value = objs
+      sprite_answer = objs
     else:
       buf = StringIO()
       if isinstance(objs, collections.Sequence):
         for obj in objs: buf.write(str(obj))
       else:
         buf.write(str(objs))
-      value = buf.getvalue()
+      sprite_answer = buf.getvalue()
     open_ = gzip.open if filename.endswith('.gz') else open
     if update:
       with open_(filename, 'wb') as au:
-        au.write(value)
+        au.write(sprite_answer)
     else:
       with open_(filename, 'rb') as au:
-        text = au.read()
-      self.assertEqual(value, text)
+        correct_answer = au.read()
+      self.assertEqual(sprite_answer, correct_answer)
 
   def assertStructEqual(self, e0, e1):
     '''Compare two Curry expressions for exact structural equality.'''

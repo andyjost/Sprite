@@ -1,15 +1,18 @@
 from .. import config
-import os
-import shutil
-import sys
-import tempfile
+import contextlib, logging, os, shutil, sys, tempfile
+
+logger = logging.getLogger(__name__)
 
 try:
   from tempfile import TemporaryDirectory # Py3
 except ImportError:
   from ._tempfile import TemporaryDirectory # Py2
 
-__all__ = ['findfiles', 'getDebugSourceDir', 'getdir', 'makeNewfile', 'newer', 'CurryModuleDir']
+__all__ = [
+    'CurryModuleDir'
+  , 'findfiles', 'getDebugSourceDir', 'getdir', 'makeNewfile', 'newer'
+  , 'remove_file_on_error'
+  ]
 
 def getdir(name, mkdirs=False, access=os.O_RDWR):
   '''
@@ -148,3 +151,21 @@ def getDebugSourceDir():
     debug_source_dir_init = False
   return srcdir
 
+@contextlib.contextmanager
+def remove_file_on_error(filename):
+  try:
+    yield
+  except:
+    if os.path.exists(filename):
+      try:
+        os.unlink(filename)
+      except BaseException as err:
+        logger.warn(
+            'an error occurred while writing the output file %r; while removing '
+            'that file, the following additional error was ignored: %s'
+                % (filename, str(err))
+          )
+    raise
+
+    
+    

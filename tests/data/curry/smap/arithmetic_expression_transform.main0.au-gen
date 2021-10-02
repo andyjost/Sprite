@@ -1,0 +1,2 @@
+Add(Var"x")(Lit0)
+Mul(Lit1)(Var"x")

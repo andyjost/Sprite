@@ -126,6 +126,14 @@ def isa_cons(arg):
   info = info_of(arg)
   return info is not None and info.is_list and info.tag == 0
 
+def cons_head(arg):
+  if isa_cons(arg):
+    return arg.successors[0]
+
+def cons_tail(arg):
+  if isa_cons(arg):
+    return arg.successors[1]
+
 def isa_nil(arg):
   info = info_of(arg)
   return info is not None and info.is_list and info.tag == 1

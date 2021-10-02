@@ -7,7 +7,7 @@ from ..... import icurry, inspect
 
 def exports():
   yield '_SetGuard'
-  yield 'Values'
+  yield 'SetEval'
 
 def aliases():
   return []
@@ -18,7 +18,7 @@ def _C(name, *args, **kwds):
   return icurry.IConstructor('Control.SetFunctions.' + name, *args, **kwds)
 
 _types_ = [
-    _T('Values'   , [_C('Values', 2)])
+    _T('SetEval'   , [_C('SetEval', 2)])
   , _T('_SetGuard', [_C('_SetGuard', 2, metadata={'all.tag':T_SETGRD})])
   ]
 
@@ -36,25 +36,29 @@ def make_subgoal(rts, f, *args):
   return expr
 
 def setN(rts, _0):
+  # setN :: (a1 -> ... -> aN -> b) -> a1 -> ... -> aN -> Values b
   sid = rts.create_setfunction()
   with rts.queue_scope(sid=sid, trace=False):
     goal = make_subgoal(rts, *_0.successors)
     rts.set_goal(goal)
     yield rts.setfunctions.Values
-    yield sid
-    yield rts.qid
+    yield graph.Node(
+        rts.setfunctions.allValues
+      , graph.Node(rts.setfunctions.SetEval, sid, rts.qid)
+      )
 
 def allValues(rts, _0):
-  valueset = rts.variable(_0, 0)
-  valueset.hnf()
-  sid, qid = valueset.successors
+  # allValues a :: SetEval sid qid -> [a]
+  seteval = rts.variable(_0, 0)
+  seteval.hnf()
+  sid, qid = seteval.successors
   try:
     with rts.queue_scope(sid=sid, qid=qid):
       try:
         value = next(fairscheme.D(rts))
         yield rts.prelude.Cons
         yield value
-        yield graph.Node(rts.setfunctions.allValues, valueset)
+        yield graph.Node(rts.setfunctions.allValues, seteval)
       except StopIteration:
         yield rts.prelude.Nil
   except E_UNWIND:
@@ -64,11 +68,11 @@ def allValues(rts, _0):
     with rts.queue_scope(sid=sid):
       rts.Q = copy(rts.qtable[qid])
       assert rts.qid != qid
-      right_valueset = graph.Node(valueset.info, sid, rts.qid)
+      rhs_seteval = graph.Node(seteval.info, sid, rts.qid)
     yield rts.prelude._Choice
     yield cid
-    yield graph.Node(rts.setfunctions.allValues, valueset)
-    yield graph.Node(rts.setfunctions.allValues, right_valueset)
+    yield graph.Node(rts.setfunctions.allValues, seteval)
+    yield graph.Node(rts.setfunctions.allValues, rhs_seteval)
 
 _functions_ = [
     _F('set0', 1, metadata={'py.rawfunc': setN})

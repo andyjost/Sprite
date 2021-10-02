@@ -1,6 +1,6 @@
 from ....common import T_SETGRD, T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .graph import indexing
-from . import graph, trace
+from . import control, graph, trace
 from .... import icurry, inspect
 from .state import callstack
 
@@ -194,4 +194,16 @@ def hnf(rts, var, typedef=None, values=None):
       return var
     else:
       assert False
+
+def hnf_or_free(rts, var, typedef=None):
+  '''Reduce the expression to head normal form or a free variable.'''
+  try:
+    return var.hnf(typedef)
+  except control.E_RESIDUAL:
+    # The argument could be a free variable or an expression containing a free
+    # variable that cannot be narrowed, such as "ensureNotFree x".
+    if inspect.isa_freevar(var.target):
+      return var
+    else:
+      raise
 

@@ -56,7 +56,7 @@ should apply the Fair Scheme normally.  When and if a head-normal value is
 obtained (in this case, the next character of an error string) the given Python
 function is called.
 
-See compile_builtin.
+See the compiler.synthesis module.
 
 
 Metadata: all.monadic
@@ -77,7 +77,7 @@ up to the implementation function to do that, if necessary.
 One use of this is to implement the =:= operator, which needs to work directly
 with unbound free variables.
 
-See compile_rawfunc.
+See the compiler.synthesis module.
 
 
 Metadata: py.unboxedfunc
@@ -99,6 +99,13 @@ Such a function is adapted to Curry as follows:
     must return a scalar that can be interpreted as the appropriate type in
     Curry.
 
-See compile_primitive_builtin.
+The argument and result types can be specified by setting the metadata to a
+triple containing the function, argument type name, and result type name in
+that order.  Each type name should be one of 'Int', 'Char', or 'Float'.  By
+default, the argument type name is deduced by matching each datatype against
+the function name.  So, 'plusInt' is assumed to be a function over integers.
+The result type name is by default assumed to equal that of the arguments
+unless the function name begins with 'eq', 'le', 'prim_eq', or 'prim_le', in
+which case it is assumed to return a Boolean
 
-
+See the compiler.synthesis module.
