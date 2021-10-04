@@ -38,7 +38,7 @@ def breakOn(exc_name):
 # ================================================================================
 # It is now OK to load the curry module.
 
-from .testcase import *
+from .testcase import TestCase, FunctionalTestCase
 
 def setio(stdin=None, stdout=None, stderr=None):
   '''
