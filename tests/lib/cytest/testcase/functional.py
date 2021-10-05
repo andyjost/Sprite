@@ -51,6 +51,7 @@ class FunctionalTestCaseMetaclass(type):
     defs.setdefault('ORACLE_TIMEOUT'     , None)
     defs['CURRYPATH']         = defs['CURRYPATH'].split(':') + [defs['SOURCE_DIR']] + curry.path
     defs['GOAL_PATTERN']      = compile_pattern(defs['GOAL_PATTERN'])
+    defs['RUN_ONLY_EXACT']    = compile_pattern(defs['RUN_ONLY'], exact=True)
     defs['RUN_ONLY']          = compile_pattern(defs['RUN_ONLY'])
     defs['SKIP']              = compile_pattern(defs['SKIP'])
     defs['CLEAN_KWDS']        = TSKeywords(defs['CLEAN_KWDS']       , dict, {})
@@ -64,9 +65,10 @@ class FunctionalTestCaseMetaclass(type):
     # Create a test for every file under the source directory.
     for cysrc in glob(defs['SOURCE_DIR'] + defs['FILE_PATTERN']):
       testname = os.path.splitext(os.path.split(cysrc)[-1])[0]
-      skipped = not defs['RUN_ONLY'] and defs['SKIP'] and re.match(defs['SKIP'], testname)
+      skipped = defs['SKIP'] and re.match(defs['SKIP'], testname)
       excluded = defs['RUN_ONLY'] and not re.match(defs['RUN_ONLY'], testname)
-      if skipped or excluded:
+      forced = defs['RUN_ONLY_EXACT'] and re.match(defs['RUN_ONLY_EXACT'], testname)
+      if (skipped and not forced) or excluded:
         if defs['PRINT_SKIPPED_FILES']:
           print >>sys.stderr, 'skipping file %s' % cysrc
       else:
@@ -114,13 +116,14 @@ class FunctionalTestCase(testcase.TestCase):
         goals with arity zero can be run.
 
       RUN_ONLY [Optional, set or str, default=None]
-        The opposite of SKIP.  Specifies the tests to run.
+        The opposite of SKIP.  Specifies the tests to run.  If RUN_ONLY and
+        SKIP both apply to a test, then the test is run only if the RUN_ONLY
+        pattern exactly matches the test name.
 
       SKIP [Optional, set or str, default=None]
         A list of tests to skip.  Each element is interpreted as a regular
         expression.  Any .curry file whose base name (i.e., with the .curry
-        extension stripped) matches one of these patterns will be skipped.  If
-        RUN_ONLY is specified, it takes priority.
+        extension stripped) matches one of these patterns will be skipped.
 
   The following variables can be used to fine-tune the behavior of individual
   tests.  If a value is supplied, it applies to all tests.  If a mapping from
@@ -220,7 +223,7 @@ class FunctionalTestCase(testcase.TestCase):
     self.assertGreater(num_tests_run, 0)
 
 
-def compile_pattern(arg):
+def compile_pattern(arg, exact=False):
   '''
   Compiles a string or list of strings into a regex.  When a list of strings is
   provided, they are joined with |.
@@ -228,6 +231,8 @@ def compile_pattern(arg):
   if arg is not None:
     if isinstance(arg, basestring):
       arg = [arg]
+    if exact:
+      arg = ['^%s$' % re.escape(a) for a in arg]
     return re.compile('|'.join(arg))
 
 class TSKeywords(object):
