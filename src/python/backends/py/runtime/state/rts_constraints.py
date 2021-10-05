@@ -69,12 +69,16 @@ def constrain_equal(
 
   '''
   config = config or rts.C
+  arg0, arg1 = [rts.variable(arg, ()) for arg in [arg0, arg1]]
   i, j = [rts.obj_id(arg, config) for arg in [arg0, arg1]]
   if i != j:
     if constraint_type == STRICT_CONSTRAINT:
       if not rts.equate_fp(i, j, config=config):
         return False
       config.strict_constraints.write.unite(i, j)
+      # for sid in arg0.guards.union(arg1.guards):
+      #   rts.update_escape_set(sid, i)
+      #   rts.update_escape_set(sid, j)
       rts.update_binding(i, config=config)
       rts.update_binding(j, config=config)
       if any(map(inspect.isa_freevar, [arg0, arg1])):

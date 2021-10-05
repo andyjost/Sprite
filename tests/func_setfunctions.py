@@ -4,10 +4,9 @@ class TestSetFunctions(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/setfunctions/'
   DO_CLEAN = False
   COMPARISON_METHOD = cytest.FunctionalTestCase.assertSameResultSet
-  # RUN_ONLY = ['']
+  # RUN_ONLY = []
   SKIP = [
-      'basic03', 'basic04', 'basic05', 'basic06', 'basic08', 'basic20'
-    , 'basic21', 'basic22', 'basic23', 'basic24', 'basic25', 'basic26'
-    , 'basic27', 'basic28', 'basic29', 'basic30', 'basic31', 'basic32'
-    , 'constr04', 'constr05', 'constr07', 'constr10', 'constr11'
+      'basic00', 'basic01', 'constr07', 'constr09', 'constr18', 'constr19'
+    , 'constr21', 'constr25', 'constr26', 'constr30', 'constr35'
+    , 'notground03', 'notground07'
     ]

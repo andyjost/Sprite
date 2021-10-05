@@ -16,7 +16,7 @@ result per line, and nothing else.
 
 from curry import importer
 from curry.utility import filesys
-import os, re, subprocess, unittest
+import glob, os, re, subprocess, unittest
 
 def oracle(flavor=None):
   '''Gets the path to the oracle.  Returns None if there is no oracle.'''
@@ -28,9 +28,33 @@ def oracle(flavor=None):
   else:
     return None
 
+def get_embedded_result(currymodule, goal):
+  # The oracle can be bypassed by specifying the result directly in the Curry
+  # source file:
+  #
+  #     {-# ORACLE_RESULT * True #-}
+  #
+  # The first argument is a pattern to match against the goal name.  The
+  # first such line with a matching pattern (if any) will be used.
+  # If the pattern is enclosed with slashes, as in /.*/, it is treated as
+  # a regular expression.  Otherwise, it is a glob pattern.
+  filename = currymodule.__file__
+  linepat = re.compile(r'{-#\s*ORACLE_RESULT\s+(\S+)\s+(.*)#-}')
+  if filename:
+    with open(filename) as stream:
+      for line in stream:
+        m = re.search(linepat, line)
+        if m:
+          goalpat, text = m.groups()
+          if goalpat.startswith('/') and goalpat.endswith('/'):
+            if re.match(goalpat[1:-1], str(goal)):
+              return text.strip()
+          elif glob.fnmatch.fnmatch(str(goal), goalpat):
+            return text.strip()
+
 def get_flavor(currymodule):
   # The oracle flavor can be specified by putting a line such as the following
-  # in the Cury source file:
+  # in the Curry source file:
   #
   #     {-# ORACLE KICS2 #-}
   #
@@ -79,18 +103,17 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None):
     if not filesys.newer(module.__file__, goldenfile):
       return False
 
-  # Call the oracle.
-  oracle_ = oracle(flavor=get_flavor(module))
-  assert oracle_
-  try:
-    goal = goal.ident.basename
-  except AttributeError:
-    pass
-  with importer.binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
-    cmd = '%s %s %s' % (oracle_, module.__name__, goal)
-    if timeout:
-      cmd = 'timeout %s %s' % (timeout, cmd)
-    output = subprocess.check_output(cmd.split())
+  # Check whether the file provides the result directly.
+  output = get_embedded_result(module, goal)
+  if output is None:
+    # Call the oracle.
+    oracle_ = oracle(flavor=get_flavor(module))
+    assert oracle_
+    with importer.binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
+      cmd = '%s %s %s' % (oracle_, module.__name__, goal)
+      if timeout:
+        cmd = 'timeout %s %s' % (timeout, cmd)
+      output = subprocess.check_output(cmd.split())
 
   # Update the golden file or return the output.
   if goldenfile is not None:

@@ -64,8 +64,9 @@ class FunctionalTestCaseMetaclass(type):
     # Create a test for every file under the source directory.
     for cysrc in glob(defs['SOURCE_DIR'] + defs['FILE_PATTERN']):
       testname = os.path.splitext(os.path.split(cysrc)[-1])[0]
-      if defs['SKIP'] and re.match(defs['SKIP'], testname) or \
-         defs['RUN_ONLY'] and not re.match(defs['RUN_ONLY'], testname):
+      skipped = not defs['RUN_ONLY'] and defs['SKIP'] and re.match(defs['SKIP'], testname)
+      excluded = defs['RUN_ONLY'] and not re.match(defs['RUN_ONLY'], testname)
+      if skipped or excluded:
         if defs['PRINT_SKIPPED_FILES']:
           print >>sys.stderr, 'skipping file %s' % cysrc
       else:
@@ -118,7 +119,8 @@ class FunctionalTestCase(testcase.TestCase):
       SKIP [Optional, set or str, default=None]
         A list of tests to skip.  Each element is interpreted as a regular
         expression.  Any .curry file whose base name (i.e., with the .curry
-        extension stripped) matches one of these patterns will be skipped.
+        extension stripped) matches one of these patterns will be skipped.  If
+        RUN_ONLY is specified, it takes priority.
 
   The following variables can be used to fine-tune the behavior of individual
   tests.  If a value is supplied, it applies to all tests.  If a mapping from
@@ -261,4 +263,4 @@ class TSKeywords(object):
         return value
     else:
       return self.default
-    
+

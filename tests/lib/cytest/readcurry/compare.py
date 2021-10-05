@@ -1,5 +1,5 @@
 from . import types
-from itertools import izip
+from itertools import izip_longest
 import operator, re
 
 __all__ = ['compare']
@@ -11,15 +11,16 @@ def compare(a, b, modulo_variable_renaming=False):
 
 def cmap(comparefunc, a, b):
   '''Maps a comparison function over Curry expressions.'''
+  if type(a) != type(b):
+    return False
   if isinstance(a, (list, tuple)):
     return reduce(
         lambda u,v: u and v
-      , (comparefunc(u, v) for u,v in izip(a, b))
+      , (comparefunc(u, v) for u,v in izip_longest(a, b))
       , True
       )
   else:
     return comparefunc(a, b)
-
 
 class EqualModuleVariableRenaming(object):
   def __init__(self):

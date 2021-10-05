@@ -135,7 +135,7 @@ class TestFindCurry(cytest.TestCase):
         , os.path.abspath(jsonfile)
         )
       self.assertTrue(os.path.exists(jsonfile))
-      self.compareEqualToFile(
+      self.assertEqualToFile(
           open('data/curry/.curry/sprite/hello.json').read()
         , goldenfile
         , GENERATE_GOLDENS

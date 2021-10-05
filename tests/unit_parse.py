@@ -32,7 +32,7 @@ class ParseJSON(cytest.TestCase):
 
       # Check against the golden.
       goldenfile = jsonfile.replace('.json', '.au')
-      self.compareEqualToFile(icur, goldenfile, GENERATE_GOLDENS)
+      self.assertEqualToFile(icur, goldenfile, GENERATE_GOLDENS)
 
   def test_exempt(self):
     curry.import_('head')

@@ -96,17 +96,82 @@ CONSTRAINT_PROGRAMS = [
   , r'main = sortValues $ set1 (\u -> a =:= u) y where y free'
   , r'main = sortValues $ set1 (\u -> x =:= u) (y::Bool) where x,y free'
   , r'main = sortValues $ set1 (\u -> unknown =:= u) (y::Bool) where y free'
-  #
   , r'main = (sortValues $ set1 (\u -> u =:= x) a, x) where x free'
   , r'main = (x, sortValues $ set1 (\u -> u =:= x) a) where x free'
   , r'main = (x, sortValues $ set1 (\u -> u =:= x) a, x) where x free'
+  , r'main = sortValues $ set1 (\u -> let x=unknown in u=:=x &> x) a'
+  , r'main = sortValues $ set1 (\u -> let x=unknown in u=:=x &> u) a'
+  , r'main = sortValues $ set1 (\u -> let x=unknown in u=:=x &> a) a'
+  , r'main = sortValues $ set1 (\u -> let x=unknown in u=:=x &> x) (y::Bool) where y free'
+  , r'main = sortValues $ set1 (\u -> let x=unknown in u=:=x &> u) (y::Bool) where y free'
+  , r'main = sortValues $ set1 (\u -> let x=unknown in u=:=x &> a) (y::Bool) where y free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow x) (x::Bool) where x free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow u) (x::Bool) where x free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow a) (x::Bool) where x free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> a       ) (x::Bool) where x free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow y) (x::Bool) where x,y free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow x) (y::Bool) where x,y free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow u) (y::Bool) where x,y free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow a) (y::Bool) where x,y free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> a       ) (y::Bool) where x,y free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow y) (y::Bool) where x,y free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow x) (a::Bool) where x free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow u) (a::Bool) where x free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow a) (a::Bool) where x free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> a       ) (a::Bool) where x free'
+  , r'main = sortValues $ set1 (\u -> u=:=x &> narrow y) (a::Bool) where x,y free'
+  ]
+
+NOT_GROUND_PROGRAMS = [
+    '{-# ORACLE_RESULT * _a #-}\n'
+    'main :: Bool\n'
+    'main = chooseValue $ set0 f\n'
+    '    where f = x\n'
+    '          x free\n'
+
+  , '{-# ORACLE_RESULT * (_a, _a) #-}\n'
+    'main :: (Bool, Bool)\n'
+    'main = chooseValue $ set1 f x\n'
+    '    where f u = (x, u)\n'
+    '          x free\n'
+
+  , '{-# ORACLE_RESULT * (_a, _a, _b) #-}\n'
+    'main :: (Bool, Bool, Bool)\n'
+    'main = chooseValue $ set2 f x y\n'
+    '    where f u v = (x, u, v)\n'
+    '          x,y free\n'
+
+  ### Also involving constraints.
+
+  , 'main = sortValues $\n'
+    '  set1 (\\u -> let x=unknown in u=:=x &> (z::Bool)) (y::Bool)\n'
+    '  where y,z free\n'
+
+  , '{-# ORACLE_RESULT * [_a] #-}\n'
+    'main = sortValues $\n'
+    '  set1 (\\u -> let x=unknown in u=:=x &> x) (y::Bool)\n'
+    '  where y free\n'
+
+  , '{-# ORACLE_RESULT * [_a] #-}\n'
+    'main = sortValues $\n'
+    '  set1 (\\u -> let x=unknown in u=:=x &> u) (y::Bool)\n'
+    '  where y free\n'
+
+  , 'main = sortValues $\n'
+    '  set1 (\\u -> let x=unknown in u=:=x &> a) (y::Bool)\n'
+    '  where y free\n'
+
+  , 'main = sortValues $\n'
+    '  set1 (\\u -> (x::Bool)) (y::Bool)\n'
+    '  where x,y free\n'
 
   ]
 
 generate_test_programs([
-  # programtext           fileprefix  digits  predef
-  # +---------------------+-----------+-------+-----------------------------
-    (BASIC_PROGRAMS       , 'basic'   , 2     , PREDEF                     )
-  , (APPLY_PROGRAMS       , 'apply'   , 2     , PREDEF                     )
-  , (CONSTRAINT_PROGRAMS  , 'constr'  , 2     , PREDEF                     )
+  # programtext           fileprefix   digits  predef
+  # +---------------------+------------+-------+-----------------------------
+    (BASIC_PROGRAMS       , 'basic'    , 2     , PREDEF                     )
+  , (APPLY_PROGRAMS       , 'apply'    , 2     , PREDEF                     )
+  , (CONSTRAINT_PROGRAMS  , 'constr'   , 2     , PREDEF                     )
+  , (NOT_GROUND_PROGRAMS  , 'notground', 2     , PREDEF                     )
   ])

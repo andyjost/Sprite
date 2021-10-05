@@ -30,7 +30,7 @@ def create_guarded_expr(rts, arg):
          graph.Node(rts.setfunctions._SetGuard, rts.sid, arg)
 
 def make_subgoal(rts, f, *args):
-  expr = f
+  expr = create_guarded_expr(rts, f)
   for arg in args:
     expr = graph.Node(rts.prelude.apply, expr, create_guarded_expr(rts, arg))
   return expr

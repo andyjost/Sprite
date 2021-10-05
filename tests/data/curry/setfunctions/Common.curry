@@ -2,6 +2,9 @@ a = True ? False
 comb b = b ? not b
 k b = [b, a]
 
+narrow True = True
+narrow False = False
+
 data Result1 = G_T | G_F | H_T | H_F deriving (Eq, Ord, Show)
 
 f1 = g1 ? h1
