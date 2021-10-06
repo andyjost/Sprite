@@ -2,18 +2,10 @@
 A pure-Python Curry interpreter.
 '''
 
-from .. import config
-from .. import context
-from .. import exceptions
-from .. import icurry
+from .. import config, context, exceptions, icurry, objects, utility
 from . import import_
-from .. import objects
-from .. import utility
-from ..utility import curryname
-import itertools
-import logging
-import os
-import sys
+from ..utility import curryname, flagutils
+import itertools, logging, os, sys
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +34,14 @@ class Interpreter(object):
           directory name and all temporary files will be written there.
       ``lazycompile`` (*True*|False)
           Delays compilation of functions until they are needed.
+      ``setfunction_strategy`` (*'lazy'*|'eager')
+          Indicates how to evaluate set functions.  If 'lazy', then set guards
+          are used.  Otherwise, each argument is reduced to ground normal form
+          before applying the set function.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
-    self.flags = {
-        'backend':config.default_backend(), 'debug':False
-      , 'defaultconverter':None, 'trace':False, 'lazycompile':True
-      , 'keep_temp_files':False
-      }
+    self.flags = flagutils.get_default_flags()
     bad_flags = set(flags) - set(self.flags)
     if bad_flags:
       raise ValueError('unknown flag%s: %s' % (

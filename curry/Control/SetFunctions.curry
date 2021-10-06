@@ -171,3 +171,29 @@ allValues external
 valuesOf :: Values a -> [a]
 valuesOf (Values s) = s
 
+prim_set0 :: b -> Values b
+prim_set0 external
+
+prim_set1 :: (a1 -> b) -> a1 -> Values b
+prim_set1 external
+
+prim_set2 :: (a1 -> a2 -> b) -> a1 -> a2 -> Values b
+prim_set2 external
+
+prim_set3 :: (a1 -> a2 -> a3 -> b) -> a1 -> a2 -> a3 -> Values b
+prim_set3 external
+
+prim_set4 :: (a1 -> a2 -> a3 -> a4 -> b) -> a1 -> a2 -> a3 -> a4 -> Values b
+prim_set4 external
+
+prim_set5 :: (a1 -> a2 -> a3 -> a4 -> a5 -> b)
+           -> a1 -> a2 -> a3 -> a4 -> a5 -> Values b
+prim_set5 external
+
+prim_set6 :: (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> b)
+           -> a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> Values b
+prim_set6 external
+
+prim_set7 :: (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7 -> b)
+           -> a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7 -> Values b
+prim_set7 external

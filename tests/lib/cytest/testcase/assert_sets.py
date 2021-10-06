@@ -41,7 +41,7 @@ def assertSameResultSet(
     # Each system should generate the same number of unique answers.
     tc.assertEqual(
         len(s_count), len(o_count)
-      , 'the number of unique results do not match'
+      , 'the number of unique results does not match'
       )
 
     # Each answer in one matches an answer in the other.

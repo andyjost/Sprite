@@ -51,7 +51,7 @@ def D(rts):
             yield rts.release_value()
 
 @callstack.with_N_stackframe
-def N(rts, var, state, ground=True):
+def N(rts, var, state, force_ground=False):
   for _ in state:
     while True:
       tag = inspect.tag_of(state.cursor)
@@ -74,20 +74,22 @@ def N(rts, var, state, ground=True):
           # rts.lift_constraint(var, rewrite=root)
         return False
       elif tag == T_FREE:
-        if ground:
-          # Path not relevant here.  We must clone the whole context.
-          if rts.has_binding(state.cursor):
-            binding = rts.get_binding(state.cursor)
-            rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=binding)
-            rts.restart()
-          elif rts.is_narrowed(state.cursor):
-            gen = rts.get_generator(state.cursor)
-            rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=gen)
-            rts.restart()
-          elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
-            x = rts.get_freevar(rts.grp_id(state.cursor))
-            rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=x)
-            rts.restart()
+        # Path not relevant here.  We must clone the whole context.
+        if rts.has_binding(state.cursor):
+          binding = rts.get_binding(state.cursor)
+          rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=binding)
+          rts.restart()
+        elif rts.is_narrowed(state.cursor) or \
+            (force_ground and rts.has_generator(state.cursor)):
+          gen = rts.get_generator(state.cursor)
+          rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=gen)
+          rts.restart()
+        elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
+          x = rts.get_freevar(rts.grp_id(state.cursor))
+          rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=x)
+          rts.restart()
+        elif force_ground:
+          rts.suspend(state.cursor)
         break
       elif tag == T_FWD:
         state.spine[-1] = indexing.logical_subexpr(
@@ -98,12 +100,11 @@ def N(rts, var, state, ground=True):
         rts.update_escape_sets(sids=state.data, cid=cid)
         if var.is_root:
           rts.E = rts.pull_tab(var.root, state.cursor, state.realpath)
+          return False
         else:
-          # Not covered
-          assert False
-          # var = rts.variable(root, state.realpath)
-          # rts.pull_tab(var, rewrite=root)
-        return False
+          assert inspect.isa_func(var.root)
+          rts.pull_tab(var.root, var.target, var.realpath, rewrite=var.root)
+          return False
       elif tag == T_SETGRD:
         sid = state.cursor.successors[0]
         state.push(data=sid)

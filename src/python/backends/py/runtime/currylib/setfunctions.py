@@ -4,7 +4,6 @@ from copy import deepcopy, copy
 from .. import fairscheme, graph
 from ..... import icurry, inspect
 
-
 def exports():
   yield '_SetGuard'
   yield 'SetEval'
@@ -25,21 +24,30 @@ _types_ = [
 def _F(name, *args, **kwds):
   return icurry.IFunction('Control.SetFunctions.' + name, *args, **kwds)
 
-def create_guarded_expr(rts, arg):
-  return arg if not hasattr(arg, 'info') else \
-         graph.Node(rts.setfunctions._SetGuard, rts.sid, arg)
-
-def make_subgoal(rts, f, *args):
-  expr = create_guarded_expr(rts, f)
-  for arg in args:
-    expr = graph.Node(rts.prelude.apply, expr, create_guarded_expr(rts, arg))
-  return expr
-
 def setN(rts, _0):
   # setN :: (a1 -> ... -> aN -> b) -> a1 -> ... -> aN -> Values b
+  if rts.lazy_set_functions:
+    return prim_setN(rts, _0)
+  else:
+    name =  'prim_set%s' % (len(_0.successors) - 1)
+    prim_setN_symbol = getattr(rts.setfunctions, '.symbols')[name]
+    initial = graph.Node(
+        rts.prelude._PartApplic
+      , len(_0.successors)
+      , graph.Node(prim_setN_symbol, partial=True)
+      )
+    gnf_apply = getattr(rts.prelude, '$##')
+    return graph.utility.foldl(gnf_apply, _0.successors, initial)
+
+def prim_setN(rts, _0, guard=lambda _,arg: arg):
   sid = rts.create_setfunction()
+  if rts.lazy_set_functions:
+    _SetGuard = rts.setfunctions._SetGuard
+    args = (graph.Node(_SetGuard, sid, arg) for arg in _0.successors)
+  else:
+    args = _0.successors
+  goal = reduce(lambda a, b: graph.Node(rts.prelude.apply, a, b), args)
   with rts.queue_scope(sid=sid, trace=False):
-    goal = make_subgoal(rts, *_0.successors)
     rts.set_goal(goal)
     yield rts.setfunctions.Values
     yield graph.Node(
@@ -83,6 +91,14 @@ _functions_ = [
   , _F('set5', 1, metadata={'py.rawfunc': setN})
   , _F('set6', 1, metadata={'py.rawfunc': setN})
   , _F('set7', 1, metadata={'py.rawfunc': setN})
+  , _F('prim_set0', 1, metadata={'py.rawfunc': prim_setN})
+  , _F('prim_set1', 1, metadata={'py.rawfunc': prim_setN})
+  , _F('prim_set2', 1, metadata={'py.rawfunc': prim_setN})
+  , _F('prim_set3', 1, metadata={'py.rawfunc': prim_setN})
+  , _F('prim_set4', 1, metadata={'py.rawfunc': prim_setN})
+  , _F('prim_set5', 1, metadata={'py.rawfunc': prim_setN})
+  , _F('prim_set6', 1, metadata={'py.rawfunc': prim_setN})
+  , _F('prim_set7', 1, metadata={'py.rawfunc': prim_setN})
   , _F('allValues', 1, metadata={'py.rawfunc': allValues})
   ]
 

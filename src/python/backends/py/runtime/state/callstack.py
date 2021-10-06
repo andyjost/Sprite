@@ -38,12 +38,12 @@ def with_N_stackframe(N_body):
   Performs stack manipulations for N.  Creates an instance of of WalkState,
   pushes it onto the stack, and adds it to the call.
   '''
-  def N(rts, var, ground=True):
+  def N(rts, var, force_ground=False):
     C = rts.C
     state = graph.walk(var.root, realpath=var.realpath)
     C.callstack.push(state)
     try:
-      return N_body(rts, var, state, ground)
+      return N_body(rts, var, state, force_ground)
     finally:
       C.callstack.pop()
   return N

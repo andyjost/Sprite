@@ -2,7 +2,7 @@ from ..... import icurry, inspect, utility
 from .....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 import itertools, numbers
 
-__all__ = ['copy_spine', 'joinpath', 'rewrite']
+__all__ = ['copy_spine', 'foldr', 'joinpath', 'rewrite']
 
 def copy_spine(root, realpath, end=None, rewrite=None):
   '''
@@ -45,6 +45,29 @@ def copy_spine(root, realpath, end=None, rewrite=None):
       return node if end is None else end
   assert rewrite is None or inspect.isa_func(getattr(rewrite, 'target', rewrite))
   return construct(root, realpath, target=rewrite)
+
+
+def foldl(f, args, initial=None):
+  '''
+  Builds a Curry expression by folding a binary operation over arguments.
+  For example, given f=$##, args=[f, a, b], and initial=set2, this would
+  build:
+
+      (((set2 $## f) $## a) $## b)
+
+  The result is returned as a generator producing arguments suitable for
+  calling the Node constructor.
+  '''
+  from .node import Node
+  if len(args) + (0 if initial is None else 1) < 2:
+    raise TypeError('not enough args to fold')
+  if initial is None:
+    subexpr = reduce(lambda a, b: Node(f, a, b), args[:-1])
+  else:
+    subexpr = reduce(lambda a, b: Node(f, a, b), args[:-1], initial)
+  yield f
+  yield subexpr
+  yield args[-1]
 
 
 def joinpath(*parts):
