@@ -8,4 +8,4 @@ import Control.SetFunctions
 #endif
 
 import Common
-main = sortValues $ set2 g2 (False ? True) (True ? False)
+main = sortValues $ set2 f2 a (False ? True)

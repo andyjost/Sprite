@@ -1,4 +1,2 @@
-[G_TF]
-[G_FF]
-[G_TT]
-[G_FT]
+[[True,False],[True,True]]
+[[False,False],[False,True]]

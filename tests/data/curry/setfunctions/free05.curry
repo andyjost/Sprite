@@ -8,4 +8,4 @@ import Control.SetFunctions
 #endif
 
 import Common
-main = sortValues $ set2 g2 a a
+main = sortValues $ set2 g2 x (True ? False) where x free

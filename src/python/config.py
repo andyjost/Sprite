@@ -1,12 +1,58 @@
 '''
 Code related to the configuration of Sprite.
 '''
-from .utility.currypath import clean_currypath
-import logging
-import os
-import sys
+
+###############################
+# Logging set-up.
+import logging, os
+
+_LOG_FILE_ = os.environ.get('SPRITE_LOG_FILE', '-')
+_LOG_LEVEL_NAME_ = os.environ.get('SPRITE_LOG_LEVEL', 'WARNING').upper()
+_LOG_LEVEL_NAMES_ = 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
+_LOG_LEVEL_VALUES_ = tuple(getattr(logging, s) for s in _LOG_LEVEL_NAMES_)
+if _LOG_LEVEL_NAME_ not in _LOG_LEVEL_NAMES_:
+  raise EnvironmentError(
+      'SPRITE_LOG_LEVEL should be one of %s or %r, not %r' % (
+          ', '.join(map(repr, _LOG_LEVEL_NAMES_[:-1]))
+        , _LOG_LEVEL_NAMES_[-1]
+        , _LOG_LEVEL_NAME_
+        )
+    )
+else:
+  _LOG_LEVEL_ = getattr(logging, _LOG_LEVEL_NAME_)
+
+logging.basicConfig(
+    level=_LOG_LEVEL_
+  , format='%(asctime)s [%(levelname)s] %(message)s'
+  , datefmt='%m/%d/%Y %H:%M:%S'
+  , **({'filename': _LOG_FILE_} if _LOG_FILE_ not in ['-', ''] else {})
+  )
 
 logger = logging.getLogger(__name__)
+
+# Logging query API.
+
+def log_file_name():
+  return _LOG_FILE_
+
+def log_level():
+  return _LOG_LEVEL_
+
+def log_level_names():
+  return _LOG_LEVEL_NAMES_
+
+def log_level_map():
+  return dict(zip(_LOG_LEVEL_NAMES_, _LOG_LEVEL_VALUES_))
+
+def logging_enabled_for(level):
+  if isinstance(level, basestring) and level in log_level_names():
+    level = log_level_map()[level]
+  if level not in _LOG_LEVEL_VALUES_:
+    raise ValueError('logging level %r is not valid')
+  return level <= _LOG_LEVEL_
+
+###############################
+# Debugging set-up.
 
 def debugging():
   '''Indicates whether debugging is turned on.'''
@@ -14,6 +60,12 @@ def debugging():
 
 if debugging():
   logger.info('Debugging is enabled because SPRITE_DEBUG is set.')
+
+###############################
+# The rest of the module.
+
+from .utility.currypath import clean_currypath
+import sys
 
 def interactive_modname():
   return 'sprite__interactive_'

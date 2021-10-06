@@ -17,47 +17,51 @@ import Control.SetFunctions
 import Common
 '''
 
-# Rewriting, choices, free variables.
+# Test encapsulated narrowing computations.
 BASIC_PROGRAMS = [
     'main = sortValues (set0 a)'
   , 'main = sortValues (set0 (True ? False))'
   , 'main = sortValues (set1 g1 a)'
   , 'main = sortValues (set1 f1 a)'
-  , 'main = sortValues (set1 (g1 ? h1) a)'
-  , 'main = sortValues (set1 (f1 ? f1) a)'
-  , 'main = sortValues (set1 (f1 ? f1) (True ? False))'
-  , 'main = sortValues (set1 g1 x) where x free'
-  , 'main = sortValues (set1 f1 x) where x free'
-
   , 'main = sortValues $ set2 g2 a a'
   , 'main = sortValues $ set2 g2 a (True ? False)'
   , 'main = sortValues $ set2 g2 (True ? False) a'
   , 'main = sortValues $ set2 g2 (True ? False) (True ? False)'
   , 'main = sortValues $ set2 g2 a (False ? True)'
   , 'main = sortValues $ set2 g2 (False ? True) (True ? False)'
-  , 'main = sortValues $ set2 g2 a x where x free'
-  , 'main = sortValues $ set2 g2 x x where x free'
-  , 'main = sortValues $ set2 g2 x y where x,y free'
-  , 'main = sortValues $ set2 g2 x (True ? False) where x free'
-  , 'main = sortValues $ set2 g2 (True ? False) x where x free'
-
   , 'main = sortValues $ set2 f2 a a'
   , 'main = sortValues $ set2 f2 a (True ? False)'
   , 'main = sortValues $ set2 f2 (True ? False) a'
   , 'main = sortValues $ set2 f2 (True ? False) (True ? False)'
   , 'main = sortValues $ set2 f2 a (False ? True)'
   , 'main = sortValues $ set2 f2 (False ? True) (True ? False)'
+  , 'main = sortValues $ set1 f3 ab'
+  , 'main = sortValues $ set1 f3 abc'
+  , 'main = sortValues $ set1 k a'
+  , 'main = sortValues $ set1 k (True ? False)'
+  ]
+
+# Test set functions applied to free variables.  PAKCS cannot evaluate them.
+FREE_PROGRAMS = [
+    'main = sortValues (set1 g1 x) where x free'
+  , 'main = sortValues (set1 f1 x) where x free'
+  , 'main = sortValues $ set2 g2 a x where x free'
+  , 'main = sortValues $ set2 g2 x x where x free'
+  , 'main = sortValues $ set2 g2 x y where x,y free'
+  , 'main = sortValues $ set2 g2 x (True ? False) where x free'
+  , 'main = sortValues $ set2 g2 (True ? False) x where x free'
   , 'main = sortValues $ set2 f2 a x where x free'
   , 'main = sortValues $ set2 f2 x x where x free'
   , 'main = sortValues $ set2 f2 x y where x,y free'
   , 'main = sortValues $ set2 f2 x (True ? False) where x free'
   , 'main = sortValues $ set2 f2 (True ? False) x where x free'
+  ]
 
-  , 'main = sortValues $ set1 f3 ab'
-  , 'main = sortValues $ set1 f3 abc'
-
-  , 'main = sortValues $ set1 k a'
-  , 'main = sortValues $ set1 k (True ? False)'
+# Test when a set function applies to an expression.
+EXPR_PROGRAMS = [
+    'main = sortValues (set1 (g1 ? h1) a)'
+  , 'main = sortValues (set1 (f1 ? f1) a)'
+  , 'main = sortValues (set1 (f1 ? f1) (True ? False))'
   ]
 
 # Test when a set function applies one of its argument.
@@ -171,7 +175,9 @@ generate_test_programs([
   # programtext           fileprefix   digits  predef
   # +---------------------+------------+-------+-----------------------------
     (BASIC_PROGRAMS       , 'basic'    , 2     , PREDEF                     )
-  , (APPLY_PROGRAMS       , 'apply'    , 2     , PREDEF                     )
-  , (CONSTRAINT_PROGRAMS  , 'constr'   , 2     , PREDEF                     )
-  , (NOT_GROUND_PROGRAMS  , 'notground', 2     , PREDEF                     )
+  , (FREE_PROGRAMS        , 'free'     , 2     , PREDEF                     )
+  # , (EXPR_PROGRAMS        , 'expr',    , 2     , PREDEF                     )
+  # , (APPLY_PROGRAMS       , 'apply'    , 2     , PREDEF                     )
+  # , (CONSTRAINT_PROGRAMS  , 'constr'   , 2     , PREDEF                     )
+  # , (NOT_GROUND_PROGRAMS  , 'notground', 2     , PREDEF                     )
   ])

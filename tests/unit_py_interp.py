@@ -2,22 +2,17 @@
 import cytest # from ./lib; must be first
 from curry.backends.py import runtime
 from curry.backends.py.runtime.currylib.prelude import Prelude
+from curry.exceptions import ModuleLookupError, SymbolLookupError, TypeLookupError
 from curry.icurry import *
-from curry import importer
-from curry import interpreter
+from curry import importer, interpreter
+from curry import unboxed
 from curry.interpreter import Interpreter
 from curry.utility.binding import binding, del_
 from curry.utility import filesys
-from curry import unboxed
 from curry.utility.visitation import dispatch
 from cytest import bootstrap
 from glob import glob
-import curry
-import os
-import shutil
-import unittest
-
-from curry.interpreter import ModuleLookupError, SymbolLookupError, TypeLookupError
+import curry, os, shutil, unittest
 
 class TestPyInterp(cytest.TestCase):
   '''Tests for the pure-Python Curry interpreter.'''

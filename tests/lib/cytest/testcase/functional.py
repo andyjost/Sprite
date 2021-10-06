@@ -212,7 +212,8 @@ class FunctionalTestCase(testcase.TestCase):
       oracle.divine(module, goal, [self.SOURCE_DIR], '20s', goldenfile=goldenfile)
 
       oracle_answer_raw = open(goldenfile).read()
-      sprite_answer_raw = '\n'.join(map(curry.show_value, curry.eval(goal))+[''])
+      evaluation = self.evaluate(testname, module, goal)
+      sprite_answer_raw = '\n'.join(map(curry.show_value, evaluation)+[''])
 
       if self.DO_CLEAN[testname]:
         oracle_answer = clean(oracle_answer_raw, **self.CLEAN_KWDS[testname])
@@ -225,6 +226,13 @@ class FunctionalTestCase(testcase.TestCase):
       compare(self, sprite_answer, oracle_answer)
 
     self.assertGreater(num_tests_run, 0)
+
+  def evaluate(self, testname, module, goal):
+    '''
+    Evaluates a Curry expression under Sprite.  Subclasses may override this to
+    control evaluation.
+    '''
+    return curry.eval(goal)
 
 
 def compile_pattern(arg, exact=False):

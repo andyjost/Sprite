@@ -36,36 +36,39 @@ def setN(rts, _0):
     n = (len(_0.successors) - 1)
     symbols = getattr(rts.setfunctions, '.symbols')
     prim_setN_symbol = symbols['prim_set%s' % n]
-    rv = graph.utility.curry(
-        rts, prim_setN_symbol, *_0.successors, fapply='$##'
-      )
+    if n == 0:
+      rv = graph.utility.curry(
+          rts, prim_setN_symbol, *_0.successors, fapply='apply'
+        )
+    else:
+      rv = graph.utility.curry(
+          rts, prim_setN_symbol, *_0.successors, fapply='$##'
+        )
     return graph.utility.shallow_copy(rv)
-  else:
-    assert False
 
 def prim_setN(rts, _0, guard=lambda _,arg: arg):
+  n = (len(_0.successors) - 1)
+  sid = rts.create_setfunction()
   if rts.setfunction_strategy == 'sprite':
-    n = (len(_0.successors) - 1)
     if n == 0:
       logger.warn('set0 is amgibuous with strategy %r', 'sprite')
       logger.warn(
           'instead of %r consider %r', 'set0 f', r'set1 (\() -> f) ()'
         )
+      args = _0.successors
     else:
       _1 = rts.variable(_0, 0)
       _1.hnf()
-    _SetGuard = rts.setfunctions._SetGuard
-    sid = rts.create_setfunction()
-    args = (graph.Node(_SetGuard, sid, arg) for arg in _0.successors)
+      _SetGuard = rts.setfunctions._SetGuard
+      args = (graph.Node(_SetGuard, sid, arg) for arg in _0.successors)
   elif rts.setfunction_strategy == 'kics2':
-    _SetGuard = rts.setfunctions._SetGuard
-    sid = rts.create_setfunction()
-    args = (graph.Node(_SetGuard, sid, arg) for arg in _0.successors)
+    if n == 0:
+      args = _0.successors
+    else:
+      _SetGuard = rts.setfunctions._SetGuard
+      args = (graph.Node(_SetGuard, sid, arg) for arg in _0.successors)
   elif rts.setfunction_strategy == 'pakcs':
-    sid = rts.create_setfunction()
     args = _0.successors
-  else:
-    assert False
   goal = reduce(lambda a, b: graph.Node(rts.prelude.apply, a, b), args)
     
   with rts.queue_scope(sid=sid, trace=False):
@@ -75,6 +78,10 @@ def prim_setN(rts, _0, guard=lambda _,arg: arg):
         rts.setfunctions.allValues
       , graph.Node(rts.setfunctions.SetEval, sid, rts.qid)
       )
+
+# def applyS(rts, _0):
+#   # applyS :: (a -> b) -> a -> Values b
+#   applyS (applyS (+) 1) 2
 
 def allValues(rts, _0):
   # allValues a :: SetEval sid qid -> [a]
