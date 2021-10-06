@@ -1,9 +1,9 @@
 from ..... import icurry, inspect, utility
-from .....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .....common import T_FUNC, T_CTOR
 import itertools, numbers
 
-__all__ = ['copy_spine', 'foldr', 'joinpath', 'rewrite']
-
+__all__ = ['copy_spine', 'curry', 'joinpath', 'rewrite', 'shallow_copy']
+  
 def copy_spine(root, realpath, end=None, rewrite=None):
   '''
   Copies the spine from ``root`` along ``realpath``.
@@ -46,29 +46,51 @@ def copy_spine(root, realpath, end=None, rewrite=None):
   assert rewrite is None or inspect.isa_func(getattr(rewrite, 'target', rewrite))
   return construct(root, realpath, target=rewrite)
 
-
-def foldl(f, args, initial=None):
+def curry(rts, f, *args, **kwds):
   '''
-  Builds a Curry expression by folding a binary operation over arguments.
-  For example, given f=$##, args=[f, a, b], and initial=set2, this would
-  build:
+  Curries a function with a list of arguments.
 
-      (((set2 $## f) $## a) $## b)
+  Parameters:
+  -----------
+    ``f``
+      The expression to apply.  If this is a Node, it is simply used.
+      Otherwise, it must have an 'info' attribute with information about a
+      function or constructor node.  That will be used to create a partial
+      application object or expression, in the case of a nullary symbol.
 
-  The result is returned as a generator producing arguments suitable for
-  calling the Node constructor.
+    ``args``
+      The arguments that ``f`` shall be applied to.
+
+    ``fapply``
+      A keyword-only argument indicating which function to use for
+      applications.  By default, Prelude.apply is used.  If a string
+      is provided, it is used to look up a symbol in the Prelude.  Otherwise,
+      the supplied argument should be node info.
+
+  Examples:
+  ---------
+
+  1. ``curry(f, a, b)`` returns the expression ``apply(apply(f, a), b)``.
+  2. ``curry(prelude.Nil)`` creates the empty list.
+  3. ``curry(prelude.Cons)`` creates the partial application ``(:)``; i.e., the
+     list constructor applied to no arguments.
+  4. ``curry(prelude.Cons, 1)`` creates the partial list ``(1:)``. ; i.e., the
+     list constructor applied to 1.
+  5. ``curry(f, a, fapply='$##')`` returns the expression ``f $## a``.
   '''
   from .node import Node
-  if len(args) + (0 if initial is None else 1) < 2:
-    raise TypeError('not enough args to fold')
-  if initial is None:
-    subexpr = reduce(lambda a, b: Node(f, a, b), args[:-1])
-  else:
-    subexpr = reduce(lambda a, b: Node(f, a, b), args[:-1], initial)
-  yield f
-  yield subexpr
-  yield args[-1]
-
+  fapply = kwds.pop('fapply', 'apply')
+  assert not kwds
+  if isinstance(fapply, str):
+    fapply = getattr(rts.prelude, fapply)
+  if not isinstance(f, Node):
+    info = f.info
+    assert info.tag == T_FUNC or info.tag > T_CTOR
+    partial = (info.arity > 0)
+    f = Node(info, partial=partial)
+    if partial:
+      f = Node(rts.prelude._PartApplic, info.arity, f)
+  return reduce(lambda a, b: Node(fapply, a, b), args, f)
 
 def joinpath(*parts):
   '''
@@ -86,4 +108,9 @@ def joinpath(*parts):
 def rewrite(rts, target, info, *args, **kwds):
   from .node import Node
   return Node(info, *args, target=target, **kwds)
+
+def shallow_copy(node):
+  yield node.info
+  for succ in node.successors:
+    yield succ
 

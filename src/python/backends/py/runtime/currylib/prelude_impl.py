@@ -151,12 +151,12 @@ def apply(rts, _0):
   arg = _0.target.successors[1]
   assert missing >= 1
   if missing == 1:
-    yield term
+    yield term.info
     for t in term.successors:
       yield t
     yield arg
   else:
-    yield partapplic
+    yield partapplic.info
     yield missing-1
     yield graph.Node(term, *(term.successors+[arg]), partial=True)
 

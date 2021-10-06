@@ -4,5 +4,5 @@ import cytest # from ./lib; must be first
 class TestSmap(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/smap/'
   # RUN_ONLY = ['']
-  SKIP = ['flight']
+  EXPECTED_FAILURE = ['flight']
 

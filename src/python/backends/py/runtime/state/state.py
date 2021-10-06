@@ -44,7 +44,7 @@ class RuntimeState(object):
     self.currypath = tuple(interp.path)
     self.expr = interp.expr
     self.integer = interp.integer
-    self.lazy_set_functions = interp.flags['setfunction_strategy'] == 'lazy'
+    self.setfunction_strategy = interp.flags['setfunction_strategy']
     self.prelude = interp.prelude
     self.setfunctions = interp.setfunctions
     self.stdin = interp.stdin

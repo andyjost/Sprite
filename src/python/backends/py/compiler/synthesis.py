@@ -30,7 +30,7 @@ def compile_boxedfunc(interp, ifun):
   if boxedfunc is not None:
     def step(rts, _0):
       args = (rts.variable(_0, i).hnf() for i in xrange(len(_0.successors)))
-      _0.rewrite(*boxedfunc(rts, *args))
+      _0.rewrite(boxedfunc(rts, *args))
     return step
 
 
@@ -45,7 +45,7 @@ def compile_rawfunc(interp, ifun):
   rawfunc = ifun.metadata.get('py.rawfunc', None)
   if rawfunc is not None:
     def step(rts, _0):
-      graph.Node(*rawfunc(rts, _0), target=_0.target)
+      graph.Node(rawfunc(rts, _0), target=_0.target)
     return step
 
 

@@ -3,6 +3,9 @@ from ..control import E_UNWIND
 from copy import deepcopy, copy
 from .. import fairscheme, graph
 from ..... import icurry, inspect
+import logging
+
+logger = logging.getLogger(__name__)
 
 def exports():
   yield '_SetGuard'
@@ -26,27 +29,45 @@ def _F(name, *args, **kwds):
 
 def setN(rts, _0):
   # setN :: (a1 -> ... -> aN -> b) -> a1 -> ... -> aN -> Values b
-  if rts.lazy_set_functions:
+  if rts.setfunction_strategy in ['sprite', 'kics2']:
     return prim_setN(rts, _0)
-  else:
-    name =  'prim_set%s' % (len(_0.successors) - 1)
-    prim_setN_symbol = getattr(rts.setfunctions, '.symbols')[name]
-    initial = graph.Node(
-        rts.prelude._PartApplic
-      , len(_0.successors)
-      , graph.Node(prim_setN_symbol, partial=True)
+  elif rts.setfunction_strategy == 'pakcs':
+    # E.g., set2 f a b -> (((prim_set2 f) $## a) $## b)
+    n = (len(_0.successors) - 1)
+    symbols = getattr(rts.setfunctions, '.symbols')
+    prim_setN_symbol = symbols['prim_set%s' % n]
+    rv = graph.utility.curry(
+        rts, prim_setN_symbol, *_0.successors, fapply='$##'
       )
-    gnf_apply = getattr(rts.prelude, '$##')
-    return graph.utility.foldl(gnf_apply, _0.successors, initial)
+    return graph.utility.shallow_copy(rv)
+  else:
+    assert False
 
 def prim_setN(rts, _0, guard=lambda _,arg: arg):
-  sid = rts.create_setfunction()
-  if rts.lazy_set_functions:
+  if rts.setfunction_strategy == 'sprite':
+    n = (len(_0.successors) - 1)
+    if n == 0:
+      logger.warn('set0 is amgibuous with strategy %r', 'sprite')
+      logger.warn(
+          'instead of %r consider %r', 'set0 f', r'set1 (\() -> f) ()'
+        )
+    else:
+      _1 = rts.variable(_0, 0)
+      _1.hnf()
     _SetGuard = rts.setfunctions._SetGuard
+    sid = rts.create_setfunction()
     args = (graph.Node(_SetGuard, sid, arg) for arg in _0.successors)
-  else:
+  elif rts.setfunction_strategy == 'kics2':
+    _SetGuard = rts.setfunctions._SetGuard
+    sid = rts.create_setfunction()
+    args = (graph.Node(_SetGuard, sid, arg) for arg in _0.successors)
+  elif rts.setfunction_strategy == 'pakcs':
+    sid = rts.create_setfunction()
     args = _0.successors
+  else:
+    assert False
   goal = reduce(lambda a, b: graph.Node(rts.prelude.apply, a, b), args)
+    
   with rts.queue_scope(sid=sid, trace=False):
     rts.set_goal(goal)
     yield rts.setfunctions.Values

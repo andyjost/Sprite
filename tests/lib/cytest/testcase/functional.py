@@ -38,6 +38,7 @@ class FunctionalTestCaseMetaclass(type):
     if 'SOURCE_DIR' not in defs:
       raise ValueError('SOURCE_DIR was not supplied in the base class')
     defs.setdefault('CURRYPATH'          , '')
+    defs.setdefault('EXPECTED_FAILURE'   , None)
     defs.setdefault('FILE_PATTERN'       , '[a-z]*.curry')
     defs.setdefault('GOAL_PATTERN'       , r'(sprite_)?(goal|main)\d*$')
     defs.setdefault('PRINT_SKIPPED_FILES', False)
@@ -50,6 +51,7 @@ class FunctionalTestCaseMetaclass(type):
     defs.setdefault('DO_CLEAN'           , None)
     defs.setdefault('ORACLE_TIMEOUT'     , None)
     defs['CURRYPATH']         = defs['CURRYPATH'].split(':') + [defs['SOURCE_DIR']] + curry.path
+    defs['EXPECTED_FAILURE']  = compile_pattern(defs['EXPECTED_FAILURE'])
     defs['GOAL_PATTERN']      = compile_pattern(defs['GOAL_PATTERN'])
     defs['RUN_ONLY_EXACT']    = compile_pattern(defs['RUN_ONLY'], exact=True)
     defs['RUN_ONLY']          = compile_pattern(defs['RUN_ONLY'])
@@ -74,6 +76,8 @@ class FunctionalTestCaseMetaclass(type):
       else:
         meth_name = 'test_' + testname
         defs[meth_name] = lambda self, testname=testname: self.check(testname)
+        if defs['EXPECTED_FAILURE'] and re.match(defs['EXPECTED_FAILURE'], testname):
+          defs[meth_name] = unittest.expectedFailure(defs[meth_name])
 
 
 class FunctionalTestCase(testcase.TestCase):

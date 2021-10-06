@@ -1,9 +1,7 @@
 from ..... import context, icurry, utility
 from .....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from ..... import inspect, show
-import collections
-import numbers
-import operator
+import collections, numbers, operator, types
 
 class Node(object):
   '''A node in a Curry expression graph.'''
@@ -80,6 +78,9 @@ def new_node(cls, info, *args, **kwds):
     applying a function to too few arguments will cause ``TypeError`` to be
     raised.
   '''
+  if isinstance(info, (types.GeneratorType, collections.Sequence)):
+    assert not args
+    return new_node(cls, *info, **kwds)
   info = getattr(info, 'info', info)
   bad_length = operator.ge if kwds.get('partial') else operator.ne
   if bad_length(len(args), info.arity):
