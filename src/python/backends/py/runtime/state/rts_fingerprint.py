@@ -69,13 +69,18 @@ def fork(rts, config=None):
   for idx, choicestate in [(1, LEFT), (2, RIGHT)]:
     clone = config.clone(config.root.successors[idx])
     if rts.update_fp(choicestate, config.root, config=clone):
-      if rts.obj_id(config=config) in rts.vtable:
-        i = rts.obj_id(config=config)
-        j = rts.grp_id(i, config=clone)
-        rts.apply_binding(i, config=clone)
-        rts.apply_binding(j, config=clone)
-        if not rts.constrain_equal(*map(rts.get_freevar, [i,j]), config=clone):
+      cid = rts.obj_id(config=config)
+      gid = rts.grp_id(cid, config=clone)
+      if cid in rts.vtable:
+        rts.apply_binding(cid, config=clone)
+        rts.apply_binding(gid, config=clone)
+        if not rts.constrain_equal(*map(rts.get_freevar, [cid,gid]), config=clone):
           continue
+      if any(config.fingerprint.get(i, choicestate) != choicestate
+          for config in rts.walk_qstack()
+          for i in [cid, gid]
+        ):
+        continue
       yield clone
 
 def equate_fp(rts, arg0, arg1, config=None):

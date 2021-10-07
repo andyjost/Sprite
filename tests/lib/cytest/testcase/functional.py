@@ -201,6 +201,7 @@ class FunctionalTestCase(testcase.TestCase):
     module = curry.import_(testname)
     goals = [v for k,v in module.__dict__.items() if re.match(self.GOAL_PATTERN, k)]
     num_tests_run = 0
+    failures = []
     for goal in sorted(goals, key=lambda x: x.name):
       if goal.info.arity and self.PRINT_SKIPPED_GOALS:
         print >>sys.stderr, 'skipping goal %s because its arity (%s) is not zero' % (
@@ -223,9 +224,14 @@ class FunctionalTestCase(testcase.TestCase):
         sprite_answer = sprite_answer_raw
 
       compare = self.COMPARISON_METHOD[testname]
-      compare(self, sprite_answer, oracle_answer)
+      try:
+        compare(self, sprite_answer, oracle_answer)
+      except BaseException as exc:
+        failures.append('\n====== %r ======\n%s' % (goal.name, exc))
 
     self.assertGreater(num_tests_run, 0)
+    if failures:
+      self.fail('the following tests failed:\n%s' % '\n\n'.join(failures))
 
   def evaluate(self, testname, module, goal):
     '''

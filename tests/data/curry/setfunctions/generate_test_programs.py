@@ -35,8 +35,8 @@ BASIC_PROGRAMS = [
   , 'main = sortValues $ set2 f2 (True ? False) (True ? False)'
   , 'main = sortValues $ set2 f2 a (False ? True)'
   , 'main = sortValues $ set2 f2 (False ? True) (True ? False)'
-  , 'main = sortValues $ set1 f3 ab'
-  , 'main = sortValues $ set1 f3 abc'
+  , 'main = sortValues $ set1 fa ab'
+  , 'main = sortValues $ set1 fa abc'
   , 'main = sortValues $ set1 k a'
   , 'main = sortValues $ set1 k (True ? False)'
   ]
@@ -77,13 +77,13 @@ APPLY_PROGRAMS = [
   , r'main = sortValues $ set1 (\x -> let y = a in x y y) (f2 ? g2)'
   , r'main = sortValues $ set2 (\x y -> x y a) (f2 ? g2) True'
   , r'main = sortValues $ set2 (\x y -> x y a) (f2 ? g2) a'
-  , r'main = sortValues $ (set3 (\x a b -> x a ? x b)) f3 ab A'
-  , r'main = sortValues $ (set3 (\x a b -> x (a ? b))) f3 ab A'
-  , r'main = sortValues $ (set2 (\a b -> f3 a ? f3 b)) ab A'
-  , r'main = sortValues $ (set2 (\a b -> f3 (a ? b))) ab A'
-  , r'main = sortValues $ (set3 (\x a b -> x a ? x b)) g3 A x where x free'
-  , r'main = sortValues $ (set3 (\x a b -> x a ? x b)) f3 ab x where x free'
-  , r'main = sortValues $ (set3 (\x a b -> x (a ? b))) f3 ab x where x free'
+  , r'main = sortValues $ (set3 (\x a b -> x a ? x b)) fa ab A'
+  , r'main = sortValues $ (set3 (\x a b -> x (a ? b))) fa ab A'
+  , r'main = sortValues $ (set2 (\a b -> fa a ? fa b)) ab A'
+  , r'main = sortValues $ (set2 (\a b -> fa (a ? b))) ab A'
+  , r'main = sortValues $ (set3 (\x a b -> x a ? x b)) ga A x where x free'
+  , r'main = sortValues $ (set3 (\x a b -> x a ? x b)) fa ab x where x free'
+  , r'main = sortValues $ (set3 (\x a b -> x (a ? b))) fa ab x where x free'
   ]
 
 # Test set functions involving constraints.
@@ -171,6 +171,45 @@ NOT_GROUND_PROGRAMS = [
 
   ]
 
+# Programs for applicative set functions.
+APPLICATIVE_PROGRAMS = [
+    '-- Split on the argument.\n'
+    '{-# ORACLE_RESULT * Values [G_T] #-}\n'
+    '{-# ORACLE_RESULT * Values [G_F] #-}\n'
+    'main = evalS (set g1 $> x) where x free\n'
+
+  , '-- No splits.\n'
+    '{-# ORACLE_RESULT * Values [G_T, G_F] #-}\n'
+    'main = evalS (set g1 $< x) where x free\n'
+
+  , '-- Split on g/h.  (f1) reduces to (g1) and (h1).\n'
+    '{-# ORACLE_RESULT * Values [G_F, G_T] #-}\n'
+    '{-# ORACLE_RESULT * Values [H_F, H_T] #-}\n'
+    'main = evalS (set f1 $< x) where x free\n'
+
+  , '-- Split on g/h and the argument.\n'
+    '{-# ORACLE_RESULT * Values [G_F] #-}\n'
+    '{-# ORACLE_RESULT * Values [G_T] #-}\n'
+    '{-# ORACLE_RESULT * Values [H_F] #-}\n'
+    '{-# ORACLE_RESULT * Values [H_T] #-}\n'
+    'main = evalS (set f1 $> x) where x free\n'
+
+  , "-- No splits.  (h') is not reducible.\n"
+    '{-# ORACLE_RESULT * Values [G_F, G_T, H_F, H_T] #-}\n'
+    "main = evalS (set f1' $< x) where x free\n"
+
+  , '-- Split on the argument only.\n'
+    '{-# ORACLE_RESULT * Values [G_F, H_F] #-}\n'
+    '{-# ORACLE_RESULT * Values [G_T, H_T] #-}\n'
+    "main = evalS (set f1' $> x) where x free\n"
+
+  , '-- Split on g/h.  (f3) reduces to (g3) and (h3).\n'
+    '{-# ORACLE_RESULT * Values [G_F, G_T] #-}\n'
+    '{-# ORACLE_RESULT * Values [H_F, H_T] #-}\n'
+    'main = evalS (set f1 $< x) where x free\n'
+
+  ]
+
 generate_test_programs([
   # programtext           fileprefix   digits  predef
   # +---------------------+------------+-------+-----------------------------
@@ -180,4 +219,5 @@ generate_test_programs([
   # , (APPLY_PROGRAMS       , 'apply'    , 2     , PREDEF                     )
   # , (CONSTRAINT_PROGRAMS  , 'constr'   , 2     , PREDEF                     )
   # , (NOT_GROUND_PROGRAMS  , 'notground', 2     , PREDEF                     )
+  , (APPLICATIVE_PROGRAMS , 'applic'   , 2     , PREDEF                     )
   ])

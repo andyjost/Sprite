@@ -22,10 +22,20 @@ class Identifier(object):
     return self.name
   def __repr__(self):
     return '<%s %r>' % (type(self).__name__, self.name)
+  def __hash__(self):
+    return hash(self.name)
   def __eq__(self, rhs):
-    return isinstance(rhs, Identifier) and self.name == rhs.name
+    return self.name == rhs.name
   def __ne__(self, rhs):
     return not (self == rhs)
+  def __lt__(self, rhs):
+    return self.name < rhs.name
+  def __gt__(self, rhs):
+    return rhs.name < self.name
+  def __le__(self, rhs):
+    return self.name <= rhs.name
+  def __ge__(self, rhs):
+    return rhs.name <= self.name
 
 class Applicative(Identifier) : pass # Identifiers that can be applied.
 class Constructor(Applicative): pass
@@ -56,8 +66,17 @@ class Applic(object):
     return show(self)
   def __repr__(self):
     return '<Applic %s>' % ' '.join(map(repr, self._seq_))
+  def __hash__(self):
+    return hash(tuple(self._seq_))
   def __eq__(self, rhs):
-    return isinstance(rhs, Applic) and \
-        all(a==b for a,b in zip(self._seq_, rhs._seq_))
+    return tuple(self._seq_) == tuple(rhs._seq_)
   def __ne__(self, rhs):
     return not (self == rhs)
+  def __lt__(self, rhs):
+    return tuple(self._seq_) < tuple(rhs._seq_)
+  def __gt__(self, rhs):
+    return rhs < self
+  def __le__(self, rhs):
+    return tuple(self._seq_) <= tuple(rhs._seq_)
+  def __ge__(self, rhs):
+    return tuple(rhs._seq_) <= tuple(self._seq_)

@@ -1,0 +1,83 @@
+S <<< goal10
+S >>> evalS (($>) (($<) (set goal10.f.26) ((?) True False)) ((?) True False))
+S <<<   ($>) (($<) (set goal10.f.26) ((?) True False)) ((?) True False)
+S >>>   applyS (($<) (set goal10.f.26) ((?) True False)) ((?) True False)
+S <<<     ($<) (set goal10.f.26) ((?) True False)
+S >>>     captureS (set goal10.f.26) ((?) True False)
+S <<<       set goal10.f.26
+S >>>       PartialS 2 goal10.f.26
+S >>>     PartialS 1 (goal10.f.26 ((?) True False))
+S >>>   PartialS 0 (goal10.f.26 ((?) True False) (_SetGuard (-1) ((?) True False)))
+S >>> Values (allValues (SetEval 1 2))
+I :::     at path=[0] of Values (allValues (SetEval 1 2))
+S <<<     allValues (SetEval 1 2)
+Q ::: switching to queue 2: [<>]
+S <<< goal10.f.26 ((?) True False) (_SetGuard 1 ((?) True False))
+S >>> ((?) True False, _SetGuard 1 ((?) True False))
+I :::     at path=[0] of ((?) True False, _SetGuard 1 ((?) True False))
+S <<<     (?) True False
+S >>>     _Choice 0 True False
+S >>> (_Choice 0 True False, _SetGuard 1 (_Choice 0 True False))
+Q ::: fork <> on cid=0 appending to queue 2: [<0L>, <0R>]
+S <<< (True, _SetGuard 1 (_Choice 0 True False))
+S >>> (True, _SetGuard 1 (_Choice 0 True False))
+Q ::: switching to queue 0: [<>]
+S >>>     _Choice 0 (allValues (SetEval 1 2)) (allValues (SetEval 1 3))
+S >>> Values (_Choice 0 (allValues (SetEval 1 2)) (allValues (SetEval 1 3)))
+Q ::: fork <> on cid=0 appending to queue 0: [<0L>, <0R>]
+S <<< Values (allValues (SetEval 1 2))
+I :::     at path=[0] of Values (allValues (SetEval 1 2))
+S <<<     allValues (SetEval 1 2)
+Q ::: switching to queue 2: [<0L>, <0R>]
+Q ::: fork <0L> on cid=0 appending to queue 2: [<0R>, <0L>]
+S <<< (False, _SetGuard 1 (_Choice 0 True False))
+S >>> (False, _SetGuard 1 (_Choice 0 True False))
+Q ::: fork <0R> on cid=0 appending to queue 2: [<0L>, <0R>]
+S <<< (True, _SetGuard 1 True)
+S >>> (True, _SetGuard 1 True)
+Y ::: (True, True)
+Q ::: switching to queue 0: [<0L>, <0R>]
+S >>>     ((True, True)):((allValues (SetEval 1 2)))
+I :::     at path=[0,1] of Values ((True, True)):((allValues (SetEval 1 2)))
+S <<<     allValues (SetEval 1 2)
+Q ::: switching to queue 2: [<0R>]
+S <<< (False, _SetGuard 1 False)
+S >>> (False, _SetGuard 1 False)
+Y ::: (False, False)
+Q ::: switching to queue 0: [<0L>, <0R>]
+S >>>     ((False, False)):((allValues (SetEval 1 2)))
+I :::     at path=[0,1,1] of Values ((True, True)):((False, False)):((allValues (SetEval 1 2)))
+S <<<     allValues (SetEval 1 2)
+Q ::: switching to queue 2: []
+Q ::: switching to queue 0: [<0L>, <0R>]
+S >>>     []
+S >>> Values [(True, True), (False, False)]
+Y ::: Values [(True, True), (False, False)]
+Values [(True, True), (False, False)]
+S <<< Values (allValues (SetEval 1 3))
+I :::     at path=[0] of Values (allValues (SetEval 1 3))
+S <<<     allValues (SetEval 1 3)
+Q ::: switching to queue 3: [<0L>, <0R>]
+Q ::: fork <0L> on cid=0 appending to queue 3: [<0R>, <0L>]
+Q ::: fork <0R> on cid=0 appending to queue 3: [<0L>, <0R>]
+S <<< (True, _SetGuard 1 True)
+S >>> (True, _SetGuard 1 True)
+Y ::: (True, True)
+Q ::: switching to queue 0: [<0R>]
+S >>>     ((True, True)):((allValues (SetEval 1 3)))
+I :::     at path=[0,1] of Values ((True, True)):((allValues (SetEval 1 3)))
+S <<<     allValues (SetEval 1 3)
+Q ::: switching to queue 3: [<0R>]
+S <<< (False, _SetGuard 1 False)
+S >>> (False, _SetGuard 1 False)
+Y ::: (False, False)
+Q ::: switching to queue 0: [<0R>]
+S >>>     ((False, False)):((allValues (SetEval 1 3)))
+I :::     at path=[0,1,1] of Values ((True, True)):((False, False)):((allValues (SetEval 1 3)))
+S <<<     allValues (SetEval 1 3)
+Q ::: switching to queue 3: []
+Q ::: switching to queue 0: [<0R>]
+S >>>     []
+S >>> Values [(True, True), (False, False)]
+Y ::: Values [(True, True), (False, False)]
+Values [(True, True), (False, False)]

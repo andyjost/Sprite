@@ -55,10 +55,13 @@ def allValues(rts, _0):
     subconfig = rts.qtable[qid][0]
     assert inspect.tag_of(subconfig.root) == T_CHOICE
     cid = rts.obj_id(config=subconfig)
-    with rts.queue_scope(sid=sid):
+    with rts.queue_scope(sid=sid, trace=False):
       rts.Q = copy(rts.qtable[qid])
       assert rts.qid != qid
+      rhs_qid = rts.qid
       rhs_seteval = graph.Node(seteval.info, sid, rts.qid)
+    rts.filter_queue(qid, cid, LEFT)
+    rts.filter_queue(rhs_qid, cid, RIGHT)
     yield rts.prelude._Choice
     yield cid
     yield graph.Node(rts.setfunctions.allValues, seteval)

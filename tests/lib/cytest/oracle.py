@@ -12,6 +12,33 @@ provides correct answers.  The expected interface is "oracle <modulename>
 <goal>".  This program should use the CURRYPATH environment variable to locate
 <modulename>.  The oracle should print the result of the specified goal, one
 result per line, and nothing else.
+
+Selecting the Oracle
+--------------------
+The oracle flavor can be specified by putting a line such as the following in
+the Curry source file:
+
+    {-# ORACLE KICS2 #-}
+
+The provided string is lowered and appended to the oracle name with a dot.
+So, the above line would use oracle.kics2 to provide golden results.
+
+
+Bypassing the Oracle
+--------------------
+The oracle can be bypassed by specifying result(s) directly in the Curry
+source using an ORACLE_RESULT directive.  The format is as follows:
+
+    {-# ORACLE_RESULT pattern: result #-}
+
+``pattern`` is matched against the goal name.  It is a glob pattern unless
+enclosed with slashes, as in /.*/, in which case it is a regular expression.
+``result`` is a Curry result expression indicating the expected result as the
+REPL prints it.  It must be understood by the ``cytest.readcurry`` module.
+
+Each matching occurrence of an ORACLE_RESULT directive indicates a result for
+the matching goal(s).  The program is expected to output each and only the
+specified results.
 '''
 
 from curry import importer
@@ -28,38 +55,7 @@ def oracle(flavor=None):
   else:
     return None
 
-def get_embedded_result(currymodule, goal):
-  # The oracle can be bypassed by specifying the result directly in the Curry
-  # source file:
-  #
-  #     {-# ORACLE_RESULT * True #-}
-  #
-  # The first argument is a pattern to match against the goal name.  The
-  # first such line with a matching pattern (if any) will be used.
-  # If the pattern is enclosed with slashes, as in /.*/, it is treated as
-  # a regular expression.  Otherwise, it is a glob pattern.
-  filename = currymodule.__file__
-  linepat = re.compile(r'{-#\s*ORACLE_RESULT\s+(\S+)\s+(.*)#-}')
-  if filename:
-    with open(filename) as stream:
-      for line in stream:
-        m = re.search(linepat, line)
-        if m:
-          goalpat, text = m.groups()
-          if goalpat.startswith('/') and goalpat.endswith('/'):
-            if re.match(goalpat[1:-1], str(goal)):
-              return text.strip()
-          elif glob.fnmatch.fnmatch(str(goal), goalpat):
-            return text.strip()
-
 def get_flavor(currymodule):
-  # The oracle flavor can be specified by putting a line such as the following
-  # in the Curry source file:
-  #
-  #     {-# ORACLE KICS2 #-}
-  #
-  # The provided string is lowered and appended to the oracle name with a dot.
-  # So, the above line would use oracle.kics2 to provide golden results.
   filename = currymodule.__file__
   pat = re.compile(r'{-#\s*ORACLE\s+(\w+)\s*#-}')
   if filename:
@@ -67,6 +63,25 @@ def get_flavor(currymodule):
       m = re.search(pat, stream.read())
       if m:
         return m.group(1).lower()
+
+def get_embedded_results(currymodule, goal):
+  filename = currymodule.__file__
+  linepat = re.compile(r'{-#\s*ORACLE_RESULT\s+(\S+)\s+(.*)#-}')
+  if filename:
+    results = []
+    with open(filename) as stream:
+      for line in stream:
+        m = re.search(linepat, line)
+        if m:
+          goalpat, text = m.groups()
+          if goalpat.endswith(':'):
+            goalpat = goalpat[:-1]
+          if goalpat.startswith('/') and goalpat.endswith('/'):
+            if re.match(goalpat[1:-1], str(goal)):
+              results.append(text.strip())
+          elif glob.fnmatch.fnmatch(str(goal), goalpat):
+            results.append(text.strip())
+    return '\n'.join(results) if results else None
 
 def require(f):
   '''Decorator that skips a test if the oracle is not present.'''
@@ -103,8 +118,8 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None):
     if not filesys.newer(module.__file__, goldenfile):
       return False
 
-  # Check whether the file provides the result directly.
-  output = get_embedded_result(module, goal)
+  # Check whether the file specifies the expected result.
+  output = get_embedded_results(module, goal)
   if output is None:
     # Call the oracle.
     oracle_ = oracle(flavor=get_flavor(module))

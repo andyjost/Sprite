@@ -50,6 +50,7 @@ def D(rts):
           if N(rts, rts.variable(rts.E)):
             yield rts.release_value()
 
+@trace.trace_steps
 @callstack.with_N_stackframe
 def N(rts, var, state, force_ground=False):
   for _ in state:
@@ -100,11 +101,10 @@ def N(rts, var, state, force_ground=False):
         rts.update_escape_sets(sids=state.data, cid=cid)
         if var.is_root:
           rts.E = rts.pull_tab(var.root, state.cursor, state.realpath)
-          return False
         else:
           assert inspect.isa_func(var.root)
           rts.pull_tab(var.root, var.target, var.realpath, rewrite=var.root)
-          return False
+        return False
       elif tag == T_SETGRD:
         sid = state.cursor.successors[0]
         state.push(data=sid)

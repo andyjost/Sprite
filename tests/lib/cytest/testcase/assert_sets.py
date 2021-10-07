@@ -1,5 +1,7 @@
-import collections, contextlib
+from ..readcurry.compare import compare
+from ..readcurry.parse import parse
 from ..readcurry.show import show
+import collections, contextlib
 
 TEMPLATE = \
 '''%s
@@ -28,8 +30,6 @@ def format_counts(valueset):
 def assertSameResultSet(
     tc, sprite_results, oracle_results, check_multiplicity=False
   ):
-  from ..readcurry.parse import parse
-  from ..readcurry.compare import compare
 
   # Ensure the results are in a bijection.
   s_count, o_count = (
@@ -54,7 +54,7 @@ def assertSameResultSet(
         o_key = s_key
       else:
         for o_key, o_val in o_parsed.items():
-          if compare(s_val, o_val, modulo_variable_renaming=True):
+          if compare(s_val, o_val):
             break
         else:
           tc.fail(

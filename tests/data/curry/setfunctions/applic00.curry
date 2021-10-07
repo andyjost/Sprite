@@ -8,4 +8,6 @@ import Control.SetFunctions
 #endif
 
 import Common
-main = sortValues $ set1 fa ab
+{-# ORACLE_RESULT * Values [G_T] #-}
+{-# ORACLE_RESULT * Values [G_F] #-}
+main = evalS (set g1 $> x) where x free

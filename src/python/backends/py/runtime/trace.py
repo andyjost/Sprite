@@ -74,11 +74,13 @@ class Trace(object):
 
   def enter_rewrite(self, expr):
     self.indent()
+    expr = getattr(expr, 'target', expr)
     if self.prevexprs[self.rts.qid] != id(expr):
       enter_rewrite(self.rts, self.indent_value, expr)
 
   def exit_rewrite(self, expr, buffering=False):
     self.dedent()
+    expr = getattr(expr, 'target', expr)
     exit_rewrite(self.rts, self.indent_value, expr)
     self.prevexprs[self.rts.qid] = id(expr)
 
@@ -119,10 +121,10 @@ def trace_values(f):
 
 def trace_steps(f):
   '''Wraps the S procedure to trace the application of steps.'''
-  def step_tracer(rts, node):
+  def step_tracer(rts, node, *args, **kwds):
     rts.trace.enter_rewrite(node)
     try:
-      f(rts, node)
+      return f(rts, node, *args, **kwds)
     finally:
       rts.trace.exit_rewrite(node)
   return step_tracer

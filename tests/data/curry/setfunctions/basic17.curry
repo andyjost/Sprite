@@ -8,4 +8,4 @@ import Control.SetFunctions
 #endif
 
 import Common
-main = sortValues $ set1 f3 abc
+main = sortValues $ set1 fa abc

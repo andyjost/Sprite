@@ -4,9 +4,9 @@ intended to be imported except by state.py.
 '''
 
 __all__ = [
-    'create_queue', 'create_setfunction', 'choice_escapes', 'guard_args'
-  , 'guard', 'in_recursive_call', 'pop_queue', 'push_queue', 'qid'
-  , 'queue_scope', 'SetFunctionEval', 'sid', 'update_escape_set'
+    'create_queue', 'create_setfunction', 'choice_escapes', 'filter_queue'
+  , 'guard_args', 'guard', 'in_recursive_call', 'pop_queue', 'push_queue'
+  , 'qid', 'queue_scope', 'SetFunctionEval', 'sid', 'update_escape_set'
   , 'update_scape_sets', 'walk_qstack'
   ]
 
@@ -42,11 +42,19 @@ def choice_escapes(rts, cid):
   '''
   Tells whether a choice at the root of an expression should escape to an outer
   set function.  This occurs when the choice is in the escape set, and does not
-  appear in the global fingerprint.
+  appear in any fingerprint along the chain or parents.
   '''
   if (rts.S is not None and cid in rts.S.escape_set) or rts.C.escape_all:
-    return not any(cid in config.fingerprint for config in walk_qstack(rts))
+    configs = walk_qstack(rts)
+    next(configs)
+    return not any(cid in config.fingerprint for config in configs)
   return False
+
+def filter_queue(rts, qid, cid, lr):
+  Q = rts.qtable[qid]
+  configs = (config for config in Q
+                    if config.fingerprint.get(cid, lr) == lr)
+  rts.qtable[qid] = queue.Queue(configs, sid=Q.sid)
 
 def guard_args(rts, expr, guards):
   guards = iter(guards)
