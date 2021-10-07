@@ -69,7 +69,8 @@ _types_ = [
   , _T('_Free'      , [_C('_Free'      , 2, metadata={'py.format':'_{1}', 'all.tag':T_FREE})])
   , _T('_Fwd'       , [_C('_Fwd'       , 1, metadata={'py.format':'{1}', 'all.tag':T_FWD})])
   , _T('_Choice'    , [_C('_Choice'    , 3, metadata={'all.tag':T_CHOICE})])
-  , _T('_PartApplic', [_C('_PartApplic', 2, metadata={'py.format': '{2}', 'all.tag':T_CTOR})])
+  , _T('_PartApplic', [_C('_PartApplic', 2, metadata={'py.format': '{2}', 'all.tag':T_CTOR
+                                                     , 'all.flags': infotable.InfoTable.PARTIAL_TYPE})])
   , _T('Bool'       , [ _C('False'     , 0, metadata={'all.flags': infotable.InfoTable.BOOL_TYPE})
                       , _C('True'      , 0, metadata={'all.flags': infotable.InfoTable.BOOL_TYPE})
                       ])

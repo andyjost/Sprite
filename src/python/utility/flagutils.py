@@ -22,7 +22,7 @@ FLAG_INFO = {
   , 'trace'               : ( bool             , False )
   , 'keep_temp_files'     : ((bool, str)       , False )
   , 'lazycompile'         : ( bool             , True  )
-  , 'setfunction_strategy': ({'sprite', 'kics2', 'pakcs'} , 'sprite')
+  , 'setfunction_strategy': ({'eager', 'lazy'} , 'lazy')
   }
 
 def get_default_flags():

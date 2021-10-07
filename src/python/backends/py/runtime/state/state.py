@@ -133,9 +133,9 @@ class RuntimeState(object):
     , register_freevar
     )
   from .rts_setfunctions import (
-      create_setfunction, choice_escapes, guard_args, guard, in_recursive_call
-    , pop_queue, push_queue, qid, queue_scope, qid, SetFunctionEval, sid
-    , update_escape_set, update_escape_sets, walk_qstack
+      create_queue, create_setfunction, choice_escapes, guard_args, guard
+    , in_recursive_call, pop_queue, push_queue, qid, queue_scope, qid
+    , SetFunctionEval, sid, update_escape_set, update_escape_sets, walk_qstack
     )
 
   in_recursive_call = property(in_recursive_call)

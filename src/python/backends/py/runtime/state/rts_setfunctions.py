@@ -4,10 +4,10 @@ intended to be imported except by state.py.
 '''
 
 __all__ = [
-    'create_setfunction', 'choice_escapes', 'guard_args', 'guard'
-  , 'in_recursive_call', 'pop_queue', 'push_queue', 'qid', 'queue_scope'
-  , 'SetFunctionEval', 'sid', 'update_escape_set', 'update_scape_sets'
-  , 'walk_qstack'
+    'create_queue', 'create_setfunction', 'choice_escapes', 'guard_args'
+  , 'guard', 'in_recursive_call', 'pop_queue', 'push_queue', 'qid'
+  , 'queue_scope', 'SetFunctionEval', 'sid', 'update_escape_set'
+  , 'update_scape_sets', 'walk_qstack'
   ]
 
 from .. import graph
@@ -27,6 +27,11 @@ class SetFunctionEval(object):
   '''
   def __init__(self):
     self.escape_set = set()
+
+def create_queue(rts, sid, goal):
+  with rts.queue_scope(sid=sid, trace=False):
+    rts.set_goal(goal)
+    return rts.qid
 
 def create_setfunction(rts):
   sid = next(rts.setfactory)

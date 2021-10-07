@@ -113,7 +113,7 @@ def N(rts, var, state, force_ground=False):
         with rts.trace.position(rts.E, state.realpath):
           S(rts, state.cursor)
       elif tag >= T_CTOR:
-        if inspect.info_of(state.cursor) is not rts.prelude._PartApplic.info:
+        if not getattr(inspect.info_of(state.cursor), 'is_partial', False):
           state.push()
         break
       else:

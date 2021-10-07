@@ -1,6 +1,7 @@
 module Control.SetFunctions
   (set0, set1, set2, set3, set4, set5, set6, set7
   , Values
+  , set, applyS, captureS, evalS, exprS, ($<), ($>), ($##<), ($##>)
   , {--> private -} allValues, valuesOf {- private <--}
   , isEmpty, notEmpty, valueOf
   , choose, chooseValue, select, selectValue, mapValues
@@ -38,6 +39,49 @@ set6 external
 set7 :: (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7 -> b)
       -> a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7 -> Values b
 set7 external
+
+--- Generic set function application.
+--- E.g., evalS ((set f) `applyS` a)  -- produces set {f a}.
+
+-- Partial set function appliction.
+external data PartialS _
+
+-- Create the set function of a normal function.
+set :: a -> PartialS a
+set external
+
+-- Create the set function of an expression.
+exprS :: a -> PartialS a
+exprS external
+
+-- Apply an argument in a set context, excluding its non-determinism.
+applyS :: PartialS (a -> b) -> a -> PartialS b
+applyS external
+
+($>) :: PartialS (a -> b) -> a -> PartialS b
+($>) a b = applyS a b
+infixl 0 $>
+
+($##>) :: PartialS (a -> b) -> a -> PartialS b
+($##>) f a = (f $>) $## a
+infixl 0 $##>
+
+-- Apply an argument in a set context, including its non-determinism.
+captureS :: PartialS (a -> b) -> a -> PartialS b
+captureS external
+
+($<) :: PartialS (a -> b) -> a -> PartialS b
+($<) a b = captureS a b
+infixl 0 $<
+
+($##<) :: PartialS (a -> b) -> a -> PartialS b
+($##<) f a = (f $<) $## a
+infixl 0 $##<
+
+-- Evaluate a set function.
+evalS :: PartialS a -> Values a
+evalS external
+
 
 --- Abstract type representing multisets of values.
 data Values a = Values [a]
@@ -170,30 +214,3 @@ allValues external
 --- Internal operation to extract all elements of a multiset of values.
 valuesOf :: Values a -> [a]
 valuesOf (Values s) = s
-
-prim_set0 :: b -> Values b
-prim_set0 external
-
-prim_set1 :: (a1 -> b) -> a1 -> Values b
-prim_set1 external
-
-prim_set2 :: (a1 -> a2 -> b) -> a1 -> a2 -> Values b
-prim_set2 external
-
-prim_set3 :: (a1 -> a2 -> a3 -> b) -> a1 -> a2 -> a3 -> Values b
-prim_set3 external
-
-prim_set4 :: (a1 -> a2 -> a3 -> a4 -> b) -> a1 -> a2 -> a3 -> a4 -> Values b
-prim_set4 external
-
-prim_set5 :: (a1 -> a2 -> a3 -> a4 -> a5 -> b)
-           -> a1 -> a2 -> a3 -> a4 -> a5 -> Values b
-prim_set5 external
-
-prim_set6 :: (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> b)
-           -> a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> Values b
-prim_set6 external
-
-prim_set7 :: (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7 -> b)
-           -> a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7 -> Values b
-prim_set7 external

@@ -15,8 +15,9 @@ class InfoTable(object):
   LIST_TYPE      = 0x5 # Constructor of Prelude.List
   TUPLE_TYPE     = 0x6 # Constructor of Prelude.() et. al
   IO_TYPE        = 0x7 # Constructor of Prelude.IO
+  PARTIAL_TYPE   = 0x8 # A partial application
   # Function flags.
-  MONADIC = 0x8 # Whether any monadic function can be reached.
+  MONADIC = 0x9 # Whether any monadic function can be reached.
 
   __slots__ = ['name', 'arity', 'tag', '_step', 'format', 'typecheck', 'typedef', 'flags']
   def __init__(self, name, arity, tag, step, format, typecheck, flags):
@@ -44,39 +45,43 @@ class InfoTable(object):
 
   @property
   def is_special(self):
-    return self.flags & 0x7
+    return self.flags & 0xf
 
   @property
   def is_primitive(self):
-    return (self.flags & 0x7) in [self.INT_TYPE, self.CHAR_TYPE, self.FLOAT_TYPE]
+    return (self.flags & 0xf) in [self.INT_TYPE, self.CHAR_TYPE, self.FLOAT_TYPE]
 
   @property
   def is_int(self):
-    return (self.flags & 0x7) == self.INT_TYPE
+    return (self.flags & 0xf) == self.INT_TYPE
 
   @property
   def is_char(self):
-    return (self.flags & 0x7) == self.CHAR_TYPE
+    return (self.flags & 0xf) == self.CHAR_TYPE
 
   @property
   def is_float(self):
-    return (self.flags & 0x7) == self.FLOAT_TYPE
+    return (self.flags & 0xf) == self.FLOAT_TYPE
 
   @property
   def is_bool(self):
-    return (self.flags & 0x7) == InfoTable.BOOL_TYPE
+    return (self.flags & 0xf) == InfoTable.BOOL_TYPE
 
   @property
   def is_list(self):
-    return (self.flags & 0x7) == InfoTable.LIST_TYPE
+    return (self.flags & 0xf) == InfoTable.LIST_TYPE
 
   @property
   def is_tuple(self):
-    return (self.flags & 0x7) == InfoTable.TUPLE_TYPE
+    return (self.flags & 0xf) == InfoTable.TUPLE_TYPE
 
   @property
   def is_io(self):
-    return (self.flags & 0x7) == InfoTable.IO_TYPE
+    return (self.flags & 0xf) == InfoTable.IO_TYPE
+
+  @property
+  def is_partial(self):
+    return (self.flags & 0xf) == InfoTable.PARTIAL_TYPE
 
   @property
   def is_monadic(self):

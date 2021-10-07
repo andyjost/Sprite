@@ -59,6 +59,10 @@ class ProgramErrorHandler(object):
     self.hint_kwds = hint_kwds
     self.nerrors = 0
   def print_error(self, exc_type, exc_value, exc_tb):
+    if issubclass(exc_type, AssertionError):
+      exc_value = 'an internal error occurred.'
+      if not config.debugging():
+        exc_value += '  Rerun with SPRITE_DEBUG=1 for details.'
     carp(exc_value, self.program_name, self.hint_timeout_sec, self.hint_kwds)
   def __enter__(self):
     return self
@@ -70,7 +74,6 @@ class ProgramErrorHandler(object):
         return True
       elif not config.debugging():
         sys.exit(self.exit_status)
-      # else reraise the exception
 
 class timeout:
   def __init__(self, seconds):
