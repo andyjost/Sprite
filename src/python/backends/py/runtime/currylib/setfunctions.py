@@ -145,19 +145,19 @@ def setN(rts, _0):
 
 _functions_ = [
     _F('allValues', 1, metadata={'py.rawfunc': allValues})
-  , _F('applyS'   , 1, metadata={'py.rawfunc': applyS})
-  , _F('captureS' , 1, metadata={'py.rawfunc': captureS})
+  , _F('applyS'   , 2, metadata={'py.rawfunc': applyS})
+  , _F('captureS' , 2, metadata={'py.rawfunc': captureS})
   , _F('evalS'    , 1, metadata={'py.rawfunc': evalS})
   , _F('exprS'    , 1, metadata={'py.rawfunc': exprS})
   , _F('set'      , 1, metadata={'py.rawfunc': set_})
   , _F('set0'     , 1, metadata={'py.rawfunc': setN})
-  , _F('set1'     , 1, metadata={'py.rawfunc': setN})
-  , _F('set2'     , 1, metadata={'py.rawfunc': setN})
-  , _F('set3'     , 1, metadata={'py.rawfunc': setN})
-  , _F('set4'     , 1, metadata={'py.rawfunc': setN})
-  , _F('set5'     , 1, metadata={'py.rawfunc': setN})
-  , _F('set6'     , 1, metadata={'py.rawfunc': setN})
-  , _F('set7'     , 1, metadata={'py.rawfunc': setN})
+  , _F('set1'     , 2, metadata={'py.rawfunc': setN})
+  , _F('set2'     , 3, metadata={'py.rawfunc': setN})
+  , _F('set3'     , 4, metadata={'py.rawfunc': setN})
+  , _F('set4'     , 5, metadata={'py.rawfunc': setN})
+  , _F('set5'     , 6, metadata={'py.rawfunc': setN})
+  , _F('set6'     , 7, metadata={'py.rawfunc': setN})
+  , _F('set7'     , 8, metadata={'py.rawfunc': setN})
   ]
 
 SetFunctions = icurry.IModule(

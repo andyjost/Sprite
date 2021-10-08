@@ -49,31 +49,33 @@ def compile_rawfunc(interp, ifun):
     return step
 
 
-# TODO: I don't think the typename is actually needed here.
-def with_unboxed_args(typename):
+def with_unboxed_args(f):
   '''
   Calls a wrapped function with unboxed args.  This will normalize the
   arguments, raising E_RESIDUAL when they are not ground.
 
   The decorated function should generate arguments to a node replaement.
   '''
-  assert typename in ['Int', 'Char', 'Float']
-  def decorator(f):
-    def repl(rts, _0):
-      typedef = getattr(rts.prelude, typename).info.typedef()
-      args = [
-          hnf_or_free(rts, rts.variable(_0, i), typedef=typedef)
-              for i in xrange(len(_0.successors))
-        ]
-      variables = [arg for arg in args if inspect.isa_freevar(arg.target)]
-      if variables:
-        rts.suspend(variables)
-      else:
-        args = (arg.unboxed_value for arg in args)
-        result = f(rts, *args)
-        return graph.Node(*result, target=_0)
-    return repl
-  return decorator
+  def repl(rts, _0):
+    args = [
+        hnf_or_free(rts, rts.variable(_0, i))
+            for i in xrange(len(_0.successors))
+      ]
+    freevars = [arg for arg in args if inspect.isa_freevar(arg.target)]
+    if freevars:
+      rts.suspend(freevars)
+    else:
+      args = (arg.unboxed_value for arg in args)
+      result = f(rts, *args)
+      return graph.Node(*result, target=_0)
+  return repl
+
+HANDLERS = {
+    bool:  lambda rts, rv: [getattr(rts.prelude, 'True' if rv else 'False')]
+  , float: lambda rts, rv: [rts.prelude.Float, rv]
+  , int:   lambda rts, rv: [rts.prelude.Int, rv]
+  , str:   lambda rts, rv: [rts.prelude.Char, rv]
+  }
 
 def compile_unboxedfunc(interp, ifun):
   '''
@@ -81,31 +83,11 @@ def compile_unboxedfunc(interp, ifun):
 
   See README.md.  Corresponds to the "py.unboxedfunc" metadata.
   '''
-  md = ifun.metadata.get('py.unboxedfunc', None)
-  if md is not None:
-    # The metadata is either a function or a triple of (function, typename,
-    # rtypename).
-    if isinstance(md, tuple):
-      unboxedfunc, typename, rtypename = md
-    else:
-      unboxedfunc = md
-      typename, = (ty for ty in ['Int', 'Char', 'Float'] if ty in ifun.name)
-      if any(ifun.name.startswith(stem) for stem in ['eq', 'lt', 'prim_eq', 'prim_lt']):
-        rtypename = 'Bool'
-      else:
-        rtypename = typename
-    if rtypename == 'Bool':
-      # The result type is Boolean.  E.g., eqInt.
-      @with_unboxed_args(typename)
-      def step(rts, lhs, rhs):
-        result_value = unboxedfunc(lhs, rhs)
-        yield rts.prelude.True if result_value else rts.prelude.False
-    else:
-      # The result type matches the argument type.  E.g., plusInt
-      @with_unboxed_args(typename)
-      def step(rts, *args):
-        typeinfo = getattr(rts.prelude, typename)
-        result_value = unboxedfunc(*args)
-        yield typeinfo
-        yield result_value
+  unboxedfunc = ifun.metadata.get('py.unboxedfunc', None)
+  if unboxedfunc is not None:
+    @with_unboxed_args
+    def step(rts, *args):
+      result_value = unboxedfunc(*args)
+      handler = HANDLERS[type(result_value)]
+      return handler(rts, result_value)
     return step
