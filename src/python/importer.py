@@ -86,9 +86,9 @@ def loadJsonFile(jsonfile):
   must contain one Curry module.
   '''
   assert os.path.exists(jsonfile)
-  cached = cache.ParsedJsonCache(jsonfile)
+  cached = cache.ParsedJsonCache.Slot(jsonfile)
   if cached:
-    logger.info('Loading cached ICurry-JSON for %s from %s', jsonfile, cache.filename)
+    logger.info('Loading cached ICurry-JSON for %s', jsonfile)
     return cached.icur
   else:
     logger.info('Reading ICurry-JSON from %s', jsonfile)
@@ -348,7 +348,8 @@ class Curry2ICurryConverter(object):
   def convert(self, file_in, currypath):
     with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
       file_out = icurryFilename(file_in)
-      cached = self.use_cache and cache.Curry2ICurryCache(file_in, file_out)
+      cached = self.use_cache and \
+          cache.Curry2ICurryCache.Slot(file_in, file_out)
       if not cached:
         logger.debug('Using CURRYPATH %s', os.environ['CURRYPATH'])
         _makeOutputDir(file_out)

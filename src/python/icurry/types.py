@@ -609,23 +609,20 @@ class ICaseCons(ICase): pass
 class ICaseLit(ICase): pass
 
 class IConsBranch(IObject):
-  @translateKwds({'name': 'typename'})
-  def __init__(self, typename, arity, block, **kwds):
-    self.typename = typename
+  @translateKwds({'name': 'symbolname'})
+  def __init__(self, symbolname, arity, block, **kwds):
+    self.symbolname = symbolname
     self.arity = arity
     self.block = block
     IObject.__init__(self, **kwds)
   @property
-  def ctorname(self):
-    return self.typename
-  @property
   def children(self):
     return self.block,
   def __str__(self):
-    return '%s %s->%s' % (self.typename, ''.join('_ ' * self.arity), wrapblock(self.block))
+    return '%s %s->%s' % (self.symbolname, ''.join('_ ' * self.arity), wrapblock(self.block))
   def __repr__(self):
-    return 'IConsBranch(typename=%r, arity=%r, block=%r)' % (
-        self.typename, self.arity, self.block
+    return 'IConsBranch(symbolname=%r, arity=%r, block=%r)' % (
+        self.symbolname, self.arity, self.block
       )
 
 class ILitBranch(IObject):

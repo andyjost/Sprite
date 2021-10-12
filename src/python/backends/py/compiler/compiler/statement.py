@@ -72,7 +72,7 @@ def compileS(cc, icase):
   yield 'selector = %s.tag' % varident
   el = ''
   for branch in icase.branches[:-1]:
-    rhs = cc.interp.symbol(branch.ctorname).info.tag
+    rhs = cc.interp.symbol(branch.symbolname).info.tag
     yield '%sif selector == %s:' % (el, rhs)
     yield list(compileS(cc, branch.block))
     el = 'el'
@@ -115,7 +115,7 @@ def casetype(interp, arg):
 
 @casetype.when(icurry.ICaseCons)
 def casetype(interp, icase):
-  return interp.symbol(icase.branches[0].ctorname).typedef()
+  return interp.symbol(icase.branches[0].symbolname).typedef()
 
 @casetype.when(icurry.ICaseLit)
 def casetype(interp, icase):
