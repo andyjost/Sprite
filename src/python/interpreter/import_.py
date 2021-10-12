@@ -131,7 +131,7 @@ def loadSymbols(
     , _gettypechecker(interp, metadata)
     , getattr(metadata, 'all.flags', 0)
     )
-  nodeinfo = objects.CurryNodeLabel(icons, info)
+  nodeinfo = objects.CurryNodeInfo(icons, info)
   insertSymbol(moduleobj, icons.name, nodeinfo)
   return nodeinfo
 
@@ -148,7 +148,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
     , _gettypechecker(interp, metadata)
     , InfoTable.MONADIC if metadata.get('all.monadic') else 0
     )
-  nodeinfo = objects.CurryNodeLabel(ifun, info)
+  nodeinfo = objects.CurryNodeInfo(ifun, info)
   insertSymbol(moduleobj, ifun.name, nodeinfo, ifun.is_private)
   return nodeinfo
 
@@ -273,12 +273,10 @@ def compileICurry(interp, ifun, moduleobj, extern=None):
   if interp.flags['lazycompile'] and \
       ifun.modulename != config.interactive_modname():
     # Delayed.
-    info.step = LazyFunction(
-        interp.context.compiler.compile_function, interp, ifun, extern
-      )
+    info.step = LazyFunction(_materialize_function, interp, ifun, extern)
   else:
     # Immediate.
-    info.step = interp.context.compiler.compile_function(interp, ifun, extern)
+    info.step = _materialize_function(interp, ifun, extern)
 
 def _no_step(*args, **kwds):
   pass
@@ -298,6 +296,13 @@ def _gettypechecker(interp, metadata):
     checker = getattr(metadata, 'py.typecheck', None)
     if checker is not None:
       return lambda *args: checker(interp, *args)
+
+def _materialize_function(interp, ifun, extern):
+  '''Compile and materialize a function.'''
+  ir = interp.context.compiler.compile(interp, ifun, extern)
+  return interp.context.compiler.materialize(
+      interp, ir, debug=interp.flags['debug'], ifun=ifun
+    )
 
 class LazyFunction(tuple):
   def __new__(cls, *args):

@@ -1,6 +1,6 @@
 from . import configuration
 from ..... import inspect
-from .. import stepcounter, trace
+from .. import graph, stepcounter, trace
 import itertools
 
 __all__ = ['InterpreterState', 'RuntimeState']
@@ -49,10 +49,13 @@ class RuntimeState(object):
     self.setfunctions = interp.setfunctions
     self.stdin = interp.stdin
     self.stdout = interp.stdout
+    self.symbol = interp.symbol
     self.topython = interp.topython
     self.tracing = interp.flags['trace']
     self.type = interp.type
     self.unbox = interp.unbox
+
+    self.Node = graph.Node
 
     # State unique to this evaluation.
     self.idfactory = interp.context.runtime.get_interpreter_state(interp).idfactory

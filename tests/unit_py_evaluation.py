@@ -5,7 +5,6 @@ import unittest
 from curry.backends.py import runtime
 
 class TestPyEvaluation(cytest.TestCase):
-  @cytest.with_flags(defaultconverter='topython')
   def check(self, name, expected):
     '''
     Run the main function the the named module and ensure it produces the
@@ -16,7 +15,6 @@ class TestPyEvaluation(cytest.TestCase):
     values = list(curry.eval(main))
     self.assertEqual(values, expected)
 
-  @cytest.with_flags(defaultconverter='topython')
   def checkAsString(self, args, expected):
     '''
     Form an expression from the given args, evaluate it, convert it to a
@@ -28,15 +26,19 @@ class TestPyEvaluation(cytest.TestCase):
     self.assertEqual(len(values), 1)
     self.assertEqual(str(values[0]), expected)
 
+  @cytest.with_flags(defaultconverter='topython')
   def test_atableFlex(self):
     self.check('atableFlex', [True])
 
+  @cytest.with_flags(defaultconverter='topython')
   def test_atableNoflex(self):
     self.check('atableNoflex', [False])
 
+  @cytest.with_flags(defaultconverter='topython')
   def test_btable(self):
     self.check('btable', [0])
 
+  @cytest.with_flags(defaultconverter='topython')
   def test_partial(self):
     '''Checks the string representation of partial applications.'''
     m = curry.import_('myand')

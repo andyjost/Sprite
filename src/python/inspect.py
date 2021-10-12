@@ -34,11 +34,11 @@ def isa(arg, what):
 @visitation.dispatch.on('what')
 def _isa(addr, what):
   raise TypeError(
-      'arg 2 must be an instance or sequence of %s.objects.CurryNodeLabel '
+      'arg 2 must be an instance or sequence of %s.objects.CurryNodeInfo '
       'objects.' % __package__
     )
 
-@_isa.when(objects.CurryNodeLabel)
+@_isa.when(objects.CurryNodeInfo)
 def _isa(addr, nodeinfo):
   return addr == id(nodeinfo.info)
 

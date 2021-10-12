@@ -2,10 +2,10 @@
 Code for synthesizing built-in functions.
 '''
 
-import operator as op
-from ..runtime.fairscheme import hnf_or_free  # Fixme: should be a method of variable
-from ..runtime import graph
 from .... import inspect
+from . import misc, statics
+from ..runtime.fairscheme import hnf_or_free  # Fixme: should be a method of variable
+import operator as op
 
 __all__ = ['synthesize_function']
 
@@ -28,11 +28,15 @@ def compile_boxedfunc(interp, ifun):
   '''
   boxedfunc = ifun.metadata.get('py.boxedfunc', None)
   if boxedfunc is not None:
-    def step(rts, _0):
-      args = (rts.variable(_0, i).hnf() for i in xrange(len(_0.successors)))
-      _0.rewrite(boxedfunc(rts, *args))
-    return step
-
+    closure = statics.Closure()
+    # h_impl = closure.insert(statics.PX_FUNC, boxedfunc)
+    h_impl = closure.intern(boxedfunc)
+    lines = [
+        'def entry(rts, _0):'
+      , '  args = (rts.variable(_0, i).hnf() for i in xrange(len(_0.successors)))'
+      , '  _0.rewrite(%s(rts, *args))' % h_impl
+      ]
+    return misc.IR('entry', '\n'.join(lines), closure)
 
 def compile_rawfunc(interp, ifun):
   '''
@@ -44,10 +48,14 @@ def compile_rawfunc(interp, ifun):
   '''
   rawfunc = ifun.metadata.get('py.rawfunc', None)
   if rawfunc is not None:
-    def step(rts, _0):
-      graph.Node(rawfunc(rts, _0), target=_0.target)
-    return step
-
+    closure = statics.Closure()
+    # h_impl = closure.insert(statics.PX_FUNC, rawfunc)
+    h_impl = closure.intern(rawfunc)
+    lines = [
+        'def entry(rts, _0):'
+      , '  rts.Node(%s(rts, _0), target=_0.target)' % h_impl
+      ]
+    return misc.IR('entry', '\n'.join(lines), closure)
 
 def with_unboxed_args(f):
   '''
@@ -67,7 +75,7 @@ def with_unboxed_args(f):
     else:
       args = (arg.unboxed_value for arg in args)
       result = f(rts, *args)
-      return graph.Node(*result, target=_0)
+      return rts.Node(*result, target=_0)
   return repl
 
 HANDLERS = {
@@ -77,6 +85,9 @@ HANDLERS = {
   , str:   lambda rts, rv: [rts.prelude.Char, rv]
   }
 
+def get_handler(key):
+  return HANDLERS[key]
+
 def compile_unboxedfunc(interp, ifun):
   '''
   Compiles a function over primitive data.
@@ -85,9 +96,18 @@ def compile_unboxedfunc(interp, ifun):
   '''
   unboxedfunc = ifun.metadata.get('py.unboxedfunc', None)
   if unboxedfunc is not None:
-    @with_unboxed_args
-    def step(rts, *args):
-      result_value = unboxedfunc(*args)
-      handler = HANDLERS[type(result_value)]
-      return handler(rts, result_value)
-    return step
+    closure = statics.Closure()
+    h_decorator = closure.intern(with_unboxed_args)
+    h_gethandler = closure.intern(get_handler)
+    h_impl = closure.intern(unboxedfunc)
+    # sym_decorator = closure.insert(statics.PX_FUNC, with_unboxed_args)
+    # sym_gethandler = closure.insert(statics.PX_FUNC, get_handler)
+    # h_impl = closure.insert(statics.PX_FUNC, unboxedfunc)
+    lines = [
+        '@%s' % h_decorator
+      , 'def entry(rts, *args):'
+      , '  result_value = %s(*args)' % h_impl
+      , '  handler = %s(type(result_value))' % h_gethandler
+      , '  return handler(rts, result_value)'
+      ]
+    return misc.IR('entry', '\n'.join(lines), closure)

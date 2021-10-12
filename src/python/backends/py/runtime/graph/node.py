@@ -59,7 +59,7 @@ def new_node(cls, info, *args, **kwds):
   Parameters:
   -----------
   ``info``
-    An instance of ``CurryNodeLabel`` or ``InfoTable`` indicating the kind of node to
+    An instance of ``CurryNodeInfo`` or ``InfoTable`` indicating the kind of node to
     create.
 
   ``*args``

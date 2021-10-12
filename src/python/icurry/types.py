@@ -145,6 +145,7 @@ class IInt(ISymbol):
     self.fullname = 'Prelude.Int'
     self.value = int(value)
     ISymbol.__init__(self, **kwds)
+  @property
   def modulename(self):
     return 'Prelude'
   def __str__(self):
@@ -158,6 +159,7 @@ class IChar(ISymbol):
     self.value = str(value)
     assert len(self.value) in (1,2) # Unicode can have length 2 in utf-8
     ISymbol.__init__(self, **kwds)
+  @property
   def modulename(self):
     return 'Prelude'
   def __str__(self):
@@ -613,6 +615,9 @@ class IConsBranch(IObject):
     self.arity = arity
     self.block = block
     IObject.__init__(self, **kwds)
+  @property
+  def ctorname(self):
+    return self.typename
   @property
   def children(self):
     return self.block,

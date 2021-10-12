@@ -3,5 +3,5 @@ import cytest # from ./lib; must be first
 
 class TestMath(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/math/'
-  # RUN_ONLY = ['intmath008']
+  # RUN_ONLY = ['']
   # SKIP = ['']

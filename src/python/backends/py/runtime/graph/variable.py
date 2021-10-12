@@ -80,7 +80,6 @@ class Variable(object):
     (4).  At (5a,5b), the root is rewritten.  When considering set functions,
     this step might need to insert set guards before _2.
   '''
-  # def __init__(self, rts, parent, logicalpath=None):
   def __init__(self, rts, root, target, realpath=None, guards=None):
     self.rts = rts
     self.root = root
@@ -115,6 +114,16 @@ class Variable(object):
   def rvalue(self):
     '''Returns the target with the appropriate set guards inserted.'''
     return self.rts.guard(self.target, self.guards)
+
+  # Item access.
+  # ------------
+  def __getitem__(self, logicalpath):
+    return variable(self.rts, self, logicalpath)
+
+  def __setitem__(self, i, value):
+    # Used only to construct cyclic expressions.
+    assert self.successors[i] is None
+    self.successors[i] = value
 
   # Properties.
   # -----------

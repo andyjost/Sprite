@@ -18,7 +18,6 @@ class ICurryTestCase(cytest.TestCase):
     self.assertFalse(ifun_main == None)
 
   def testICurryGetMDFromType(self):
-    # reload(curry)
     from curry.lib import atableFlex, hello
     imodule1 = getattr(atableFlex, '.icurry')
     imodule2 = getattr(hello, '.icurry')
@@ -31,7 +30,7 @@ class ICurryTestCase(cytest.TestCase):
       del sys.modules['curry.lib.helloExternal']
     except KeyError:
       pass
-    with capture_log('curry.backends.py.compiler.compile') as log \
+    with capture_log('curry.backends.py.compiler.compiler.function') as log \
        , binding(curry.flags, 'lazycompile', False):
       from curry.lib import helloExternal
     log.checkMessages(

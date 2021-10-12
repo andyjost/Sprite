@@ -8,7 +8,7 @@ import types
 import weakref
 import icurry
 
-__all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeLabel']
+__all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeInfo']
 
 # Note: artibrary symbols imported from Curry are added to Curry modules,
 # risking name clashes.  Therefore, only hidden attributes are allowed here,
@@ -52,7 +52,7 @@ class CurryDataType(object):
     return "<curry type %s>" % self.fullname
 
 
-class CurryNodeLabel(object):
+class CurryNodeInfo(object):
   '''
   Compile-time node info.
 
@@ -100,9 +100,9 @@ class CurryNodeLabel(object):
 
   def __repr__(self):
     if self.info.tag >= T_CTOR:
-      return "<curry constructor '%s'>" % self.name
+      return "<curry constructor '%s'>" % self.fullname
     if self.info.tag == T_FUNC:
-      return "<curry function '%s'>" % self.name
+      return "<curry function '%s'>" % self.fullname
     if self.info.tag == T_CHOICE:
       return "<curry choice>"
     if self.info.tag == T_FWD:
@@ -145,8 +145,11 @@ class _Handle(object):
   def is_package(self):
     return isinstance(self.obj, CurryPackage)
 
+  def packagename(self):
+    return self.icurry.packagename
+
   def package(self, interp):
-    pkg = interp.modules.get(self.icurry.packagename, None)
+    pkg = interp.modules.get(self.packagename, None)
     if pkg is not None:
       return _Handle(pkg)
 

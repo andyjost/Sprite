@@ -103,7 +103,7 @@ class LogCapture(object):
               if self.data.get(l) is not None:
                 errmsg += ['    ' + logging.getLevelName(l) + ':']
                 errmsg += ['        (%s) ' % i + s for i,s in enumerate(self.data.get(l))]
-            testcase.assertTrue(False, msg='\n'.join(errmsg))
+            testcase.fail('\n'.join(errmsg))
 
 def capture_log(*args, **kwds):
   return LogCapture(*args, **kwds)

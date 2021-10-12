@@ -122,6 +122,18 @@ class Compiler(object):
       return object.__new__(cls)
 
   @abc.abstractproperty
-  def compile_function(self):
+  def IR(self):
+    '''The intermediate representation of a program.'''
     assert 0
+
+  @abc.abstractproperty
+  def compile(self):
+    '''Converts ICurry to an instance of IR.'''
+    assert 0
+
+  @abc.abstractproperty
+  def materialize(self):
+    '''Converts the IR to runnable code.'''
+    assert 0
+
 

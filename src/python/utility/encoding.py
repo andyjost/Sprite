@@ -2,11 +2,11 @@
 Encoding of Curry identifiers.
 '''
 
-import itertools
-import logging
-import re
+import collections, itertools, logging, re
 
 logger = logging.getLogger(__name__)
+
+__all__ = ['best', 'clean', 'encode', 'isaCurryIdentifier', 'symbolToFilename']
 
 P_SYMBOL = re.compile('[^0-9a-zA-Z_\s]')
 TR = {
@@ -64,13 +64,47 @@ SPECIAL = {
   , 'Prelude.^'  : 'pow'
   }
 
-def clean(s):
+def best(prefix, thing, disallow, limit=20):
+  '''
+  Choose the best name for something.
+  
+  This is more art than science.  Every name must be unique and must be a valid
+  Python identifier.  Names should be as short and easy to read as possible.
+  Some context (i.e., the module or package name) is helpful unless the name
+  gets too long.  Names need not be deterministic.
+  '''
+  if isinstance(thing, str):
+    best = encode(thing, prefix, disallow)
+  else:
+    for x in (getattr(thing, 'fullname', None)
+            , getattr(thing, 'name', None)
+            , _shortername(getattr(thing, 'name', None))
+            , _shortrepr(thing)
+            ):
+      if x is not None:
+        best = encode(x, prefix, disallow)
+        if len(best) <= limit:
+          return best
+
+  if len(best) > limit:
+    try:
+      h = hash(thing)
+    except TypeError:
+      h = hash(best)
+    best = encode(hex(h & 0xffff), prefix, disallow)
+
+  assert len(best) <= limit
+  return best
+
+def clean(s, dot_as_us=True):
   '''Clean up a string by encoding or removing illegal characters.'''
   if s in SPECIAL:
     return SPECIAL[s]
   elif s.startswith('Prelude.'):
-    return clean(s[8:])
+    return clean(s[8:], dot_as_us)
   else:
+    if dot_as_us:
+      s = s.replace('.', '_')
     a = ''.join(TR.get(ch, ch) for ch in s)
     return str(re.sub(P_SYMBOL, '', a))
 
@@ -102,11 +136,25 @@ def encode(name, prefix='', disallow={}):
   assert k.startswith(prefix)
   return k
 
+def _shortername(name):
+  if name is not None:
+    parts = name.split('.')
+    for i in reversed(range(len(parts))):
+      if isaCurryIdentifier(parts[i]):
+        return '.'.join(parts[i:])
+
+def _shortrepr(obj):
+  if isinstance(obj, collections.Sequence):
+    return '_'.join(map(str, obj))
+  else:
+    return repr(obj)
+
 def symbolToFilename(name):
   '''Makes the given symbol name into a valid UNIX filename.'''
   assert name not in ['.', '..']
   return ''.join(TR.get('/') if ch=='/' else ch for ch in name)
 
+# Fixme: This does not match names such as a'.
 P_IDENTIFIER = re.compile('^[a-zA-Z_][0-9a-zA-Z_]*$|^[^0-9a-zA-Z_\s]+$')
 def isaCurryIdentifier(basename):
   '''

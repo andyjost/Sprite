@@ -132,7 +132,7 @@ def expr(interp, *args, **kwds):
     Converted to a Curry tuple.
 
   Any (possibly nested) sequence whose first element is an instance of
-  ``{0}.runtime.CurryNodeLabel`` specifies a node.  The remaining arguments are
+  ``{0}.runtime.CurryNodeInfo`` specifies a node.  The remaining arguments are
   recursivly converted to Curry expressions to form the successors list.  Thus,
   given suitable definitions, it is possible to build the Curry list
   ``[0,1,2]`` with the following code:
@@ -225,7 +225,7 @@ class ExpressionBuilder(object):
   def __call__(self, lst, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % lst)
-    if len(lst) and isinstance(lst[0], objects.CurryNodeLabel):
+    if len(lst) and isinstance(lst[0], objects.CurryNodeInfo):
       return self(*lst)
     else:
       Cons = self.prelude.Cons
@@ -320,7 +320,7 @@ class ExpressionBuilder(object):
     pygen = self.prelude._PyGenerator
     return self.Node(pygen, arg, target=self.target)
 
-  @__call__.when(objects.CurryNodeLabel)
+  @__call__.when(objects.CurryNodeInfo)
   def __call__(self, ti, *args):
     missing =  ti.info.arity - len(args)
     if missing > 0:
