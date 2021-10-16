@@ -2,11 +2,7 @@
 Implements Interpreter.compile.
 '''
 
-from .. import config
-from .. import exceptions
-from .. import importer
-from .. import icurry
-from .. import objects
+from .. import config, exceptions, importer, icurry, objects
 from ..utility.visitation import dispatch
 import types
 

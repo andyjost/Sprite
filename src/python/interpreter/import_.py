@@ -1,15 +1,14 @@
 from ..common import T_FUNC, T_CTOR
-from .. import config
-from .. import icurry
-from .. import importer
-from .. import objects
+from .. import config, icurry, importer, objects
+from ..objects.handle import getHandle
 from ..utility.currypath import clean_currypath
 from ..utility import encoding, visitation, formatDocstring, validateModulename
-import collections
-import logging
-import weakref
+import collections, logging, weakref
 
 logger = logging.getLogger(__name__)
+
+__all__ = ['import_']
+
 
 def insertSymbol(module, basename, nodeinfo, private=False):
   '''
@@ -213,9 +212,11 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
       kwds.setdefault('export', setfunctions.exports())
       kwds.setdefault('alias', setfunctions.aliases())
     currypath = clean_currypath(interp.path if currypath is None else currypath)
-    icur = importer.loadModule(name, currypath, is_sourcefile=is_sourcefile)
+    icur = importer.getICurryForModule(
+        name, currypath, is_sourcefile=is_sourcefile
+      )
     cymodule = import_(interp, icur, **kwds)
-    return objects._Handle(cymodule).findmodule(modulename)
+    return getHandle(cymodule).findmodule(modulename)
 
 @import_.when(collections.Sequence, no=str)
 def import_(interp, seq, *args, **kwds):
@@ -266,7 +267,7 @@ def compileICurry(interp, imodule, moduleobj, extern=None):
 
 @compileICurry.when(icurry.IFunction)
 def compileICurry(interp, ifun, moduleobj, extern=None):
-  info = objects._Handle(moduleobj).getsymbol(ifun.name).info
+  info = getHandle(moduleobj).getsymbol(ifun.name).info
   # Compile interactive code right away.  Otherwise, if lazycompile is set,
   # delay compilation until the function is actually used.  See InfoTable in
   # interpreter/runtime.py.

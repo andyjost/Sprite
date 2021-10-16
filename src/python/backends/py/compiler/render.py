@@ -1,29 +1,163 @@
+from . import ir
+from .... import config, objects
 from ....utility import visitation
 import collections
 
-@visitation.dispatch.on('arg')
-def indent(arg, level=-1):
-  '''
-  Indents list-formatted Python code into a flat list of strings.  See
-  ``render``.
-  '''
-  assert False
+__all__ = ['render']
 
-@indent.when(str)
-def indent(line, level=-1):
-  yield '  ' * level + line
+def render(obj, **kwds):
+  '''See Renderer.'''
+  renderer = Renderer(**kwds)
+  if isinstance(obj, ir.IR):
+    return renderer.renderIR(obj)
+  else:
+    return renderer.renderLines(obj)
 
-@indent.when(collections.Sequence, no=str)
-def indent(seq, level=-1):
-  for line in seq:
-    for rline in indent(line, level+1):
-      yield rline
+class Renderer(object):
+  def __init__(self, width=80, indent=2, hcol=39):
+    '''
+    Renders the Python IR as Python source code.
 
-def render(pycode):
-  '''
-  Renders list-formatted Python code into a string containing valid Python.
+    Parameters:
+    -----------
+      ``width``
+        The ideal line length.
 
-  The input is possibly-nested lists of strings.  The list nestings correspond
-  to indentation levels.
-  '''
-  return '\n'.join(indent(pycode))
+      ``indent``
+        The number of spaces to prefix for each indentation level.
+
+      ``hcol``
+        The column at which to start side-by-side content.
+
+    Returns:
+    -------
+    A string
+    '''
+    self.width = width
+    self.indent = indent
+    self.hcol = hcol
+
+  def renderIR(self, ir):
+    '''
+    Render Python IR into the text of a Python module to define, load, and link
+    the Curry module.
+    '''
+    return self.renderLines(self._convertIR2Lines(ir))
+
+  def renderLines(self, pycode):
+    '''
+    Renders list-formatted Python code into a string containing valid Python.
+
+    The input is possibly-nested lists of strings or string pairs.  The list
+    nestings correspond to indentation levels.  Pairs are rendered as code
+    followed by a comment to the right.
+    '''
+    return '\n'.join(self.format(pycode))
+
+  @visitation.dispatch.on('arg')
+  def format(self, arg, level=-1):
+    '''
+    Formats one line or block of Python code, with the proper indentation.
+    Long lines are split.
+    '''
+    assert False
+
+  @format.when(str)
+  def format(self, line, level=-1):
+    prefix = ' ' * (self.indent * level)
+    yield prefix + line
+
+  @format.when(collections.Iterable, no=(str, tuple))
+  def format(self, seq, level=-1):
+    for line in seq:
+      for rline in self.format(line, level+1):
+        yield rline
+
+  @format.when(tuple)
+  def format(self, pair, level=-1):
+    width = self.hcol - self.indent * level
+    fmt = '%%-%ss # %%s' % width
+    for line in self.format(fmt % pair, level):
+      yield line
+
+
+  def _close(self, level=0, string=']'):
+    '''Prints a block-closing string at the specified intentation level.'''
+    return (2 * level + 1) * self.indent * ' ' + string
+
+  def _plist(self, seq, level=0):
+    '''Formats a list as one element per line with leading commas.'''
+    it = iter(seq)
+    try:
+      v = next(it)
+    except StopIteration:
+      pass
+    else:
+      prefill = (2 * level + 1) * self.indent * ' '
+      fprefix = '{}%-{}s'.format(prefill, self.indent)
+      yield fprefix % ' ', v
+      commafill = fprefix % ','
+      for v in seq:
+        yield commafill, v
+
+  def _convertIR2Lines(self, ir):
+    imodule = ir.icurry
+    banner = 'Python code for Curry module %r' % imodule.fullname
+    yield '# ' + '-' * len(banner)
+    yield '# ' + banner
+    yield '# ' + '-' * len(banner)
+    yield ''
+    curry = config.python_package_name()
+    yield 'import %s' % curry
+    yield 'from %s.icurry import \\' % curry
+    yield '    IModuleFacade, IDataType, IConstructor, IFunction, PUBLIC, PRIVATE'
+    yield 'from %s.importer import getICurryForModule' % curry
+    yield 'import collections, itertools'
+    yield ''
+    for line in ir.lines:
+      yield line
+    yield ''
+    yield ''
+    yield '# Interface'
+    yield '# ---------'
+    yield '_icurry_ = IModuleFacade('
+    yield '    fullname=%r' % imodule.fullname
+    yield '  , filename=%r' % imodule.filename
+    yield '  , imports=%s'  % repr(imodule.imports)
+    yield '  , icurry=getICurryForModule(%r, curry.path)' % imodule.fullname
+    yield '  , types=('
+    for prefix, itype in self._plist(imodule.types.itervalues(), level=1):
+      yield '%sIDataType(%r, (' % (prefix, itype.fullname)
+      for prefix, ictor in self._plist(itype.constructors, level=2):
+        yield '%s%r' % (prefix, ictor)
+      yield self._close(2, '))')
+    yield self._close(1, ')')
+    yield '  , functions=itertools.starmap(IFunction, ('
+    width = max([len(fullname) for fullname in imodule.functions.keys()])
+    width = min(width, self.hcol + 2 * self.indent + 1)
+    for prefix, ifun in self._plist(imodule.functions.values(), level=1):
+      yield '%s(%-{0}r, %r, %-7r, %-3r, %s)'.format(width+2) % (
+          prefix, ifun.fullname, ifun.arity, ifun.vis, ifun.needed
+        , ifun.body.linkname
+        )
+    yield self._close(1, '))')
+    yield self._close(0, ')')
+    yield ''
+    yield '_module_ = %s.import_(_icurry_)' % config.python_package_name()
+    yield ''
+    yield ''
+    yield '# Linking'
+    yield '# -------'
+    items = ir.closure.dict.items()
+    width = max([len(name) for name,_ in items])
+    width = min(width, self.hcol + 2 * self.indent + 1)
+    fmt = '%-{}s = %s'.format(width)
+    for name, value in sorted(items):
+      if isinstance(value, objects.CurryNodeInfo):
+        yield fmt % (name, 'curry.symbol(%r)' % value.fullname)
+      elif isinstance(value, objects.CurryDataType):
+        yield fmt % (name, 'curry.type(%r)' % value.fullname)
+      elif isinstance(value, tuple):
+        yield fmt % (name, value)
+    yield ''
+    yield ''

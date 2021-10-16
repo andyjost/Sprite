@@ -73,11 +73,11 @@ def compileS(cc, icase):
   el = ''
   for branch in icase.branches[:-1]:
     rhs = cc.interp.symbol(branch.symbolname).info.tag
-    yield '%sif selector == %s:' % (el, rhs)
+    yield '%sif selector == %s:' % (el, rhs), branch.symbolname
     yield list(compileS(cc, branch.block))
     el = 'el'
   if el:
-    yield 'else:'
+    yield 'else:', icase.branches[-1].symbolname
     yield list(compileS(cc, icase.branches[-1].block))
   else:
     for line in compileS(cc, icase.branches[-1].block):

@@ -27,8 +27,8 @@ __all__ = [
   , 'findOrBuildICurry'
   , 'icurryFilename'
   , 'jsonFilenames'
+  , 'getICurryForModule'
   , 'loadJsonFile'
-  , 'loadModule'
   , 'str2icurry'
   ]
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ class CurryImporter(object):
       sys.modules[fullname] = moduleobj
     return sys.modules[fullname]
 
-def loadModule(name, currypath, **kwds):
+def getICurryForModule(name, currypath, **kwds):
   '''
   Loads into Python the ICurry for a Curry module or source file, building if
   necessary.

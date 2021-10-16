@@ -3,21 +3,21 @@ Code for synthesizing built-in functions.
 '''
 
 from .... import inspect
-from . import misc, statics
+from . import ir, statics
 from ..runtime.fairscheme import hnf_or_free  # Fixme: should be a method of variable
 import operator as op
 
 __all__ = ['synthesize_function']
 
-def synthesize_function(interp, ifun):
+def synthesize_function(*args, **kwds):
   '''
   Synthesize a special function, if possible, or return None.
   '''
-  return compile_boxedfunc(interp, ifun) or \
-         compile_rawfunc(interp, ifun) or \
-         compile_unboxedfunc(interp, ifun)
+  return compile_boxedfunc(*args, **kwds) or \
+         compile_rawfunc(*args, **kwds) or \
+         compile_unboxedfunc(*args, **kwds)
 
-def compile_boxedfunc(interp, ifun):
+def compile_boxedfunc(interp, ifun, closure, entry):
   '''
   Compiles code for a built-in function.  See README.md.  Corresponds to the
   "py.boxedfunc" metadata.
@@ -28,17 +28,16 @@ def compile_boxedfunc(interp, ifun):
   '''
   boxedfunc = ifun.metadata.get('py.boxedfunc', None)
   if boxedfunc is not None:
-    closure = statics.Closure()
-    # h_impl = closure.insert(statics.PX_FUNC, boxedfunc)
     h_impl = closure.intern(boxedfunc)
     lines = [
-        'def entry(rts, _0):'
-      , '  args = (rts.variable(_0, i).hnf() for i in xrange(len(_0.successors)))'
-      , '  _0.rewrite(%s(rts, *args))' % h_impl
+        'def %s(rts, _0):' % entry
+      , [ 'args = (rts.variable(_0, i).hnf() for i in xrange(len(_0.successors)))'
+        , '_0.rewrite(%s(rts, *args))' % h_impl
+        ]
       ]
-    return misc.IR('entry', '\n'.join(lines), closure)
+    return lines
 
-def compile_rawfunc(interp, ifun):
+def compile_rawfunc(interp, ifun, closure, entry):
   '''
   Compiles code for a raw built-in function.  See README.md.  Corresponds to
   the "py.rawfunc" metadata.
@@ -48,14 +47,12 @@ def compile_rawfunc(interp, ifun):
   '''
   rawfunc = ifun.metadata.get('py.rawfunc', None)
   if rawfunc is not None:
-    closure = statics.Closure()
-    # h_impl = closure.insert(statics.PX_FUNC, rawfunc)
     h_impl = closure.intern(rawfunc)
     lines = [
-        'def entry(rts, _0):'
-      , '  rts.Node(%s(rts, _0), target=_0.target)' % h_impl
+        'def %s(rts, _0):' % entry
+      , ['rts.Node(%s(rts, _0), target=_0.target)' % h_impl]
       ]
-    return misc.IR('entry', '\n'.join(lines), closure)
+    return lines
 
 def with_unboxed_args(f):
   '''
@@ -88,7 +85,7 @@ HANDLERS = {
 def get_handler(key):
   return HANDLERS[key]
 
-def compile_unboxedfunc(interp, ifun):
+def compile_unboxedfunc(interp, ifun, closure, entry):
   '''
   Compiles a function over primitive data.
 
@@ -96,18 +93,15 @@ def compile_unboxedfunc(interp, ifun):
   '''
   unboxedfunc = ifun.metadata.get('py.unboxedfunc', None)
   if unboxedfunc is not None:
-    closure = statics.Closure()
     h_decorator = closure.intern(with_unboxed_args)
     h_gethandler = closure.intern(get_handler)
     h_impl = closure.intern(unboxedfunc)
-    # sym_decorator = closure.insert(statics.PX_FUNC, with_unboxed_args)
-    # sym_gethandler = closure.insert(statics.PX_FUNC, get_handler)
-    # h_impl = closure.insert(statics.PX_FUNC, unboxedfunc)
     lines = [
         '@%s' % h_decorator
-      , 'def entry(rts, *args):'
-      , '  result_value = %s(*args)' % h_impl
-      , '  handler = %s(type(result_value))' % h_gethandler
-      , '  return handler(rts, result_value)'
+      , 'def %s(rts, *args):' % entry
+      , [ 'result_value = %s(*args)' % h_impl
+        , 'handler = %s(type(result_value))' % h_gethandler
+        , 'return handler(rts, result_value)'
+        ]
       ]
-    return misc.IR('entry', '\n'.join(lines), closure)
+    return lines

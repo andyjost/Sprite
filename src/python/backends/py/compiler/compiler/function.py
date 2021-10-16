@@ -24,7 +24,7 @@ def compileF(cc, seq):
 
 @compileF.when(icurry.IFunction)
 def compileF(cc, ifun):
-  compileF(cc, ifun.function)
+  compileF(cc, ifun.body)
 
 @compileF.when(icurry.IExternal)
 def compileF(cc, iexternal):
@@ -46,10 +46,10 @@ def compileF(cc, iexternal):
 @compileF.when(icurry.IFuncBody)
 def compileF(cc, function):
   lines = compileS(cc, function.block)
-  cc.program.append(list(lines))
+  cc.lines.append(list(lines))
 
 @compileF.when(icurry.IStatement)
 def compileF(cc, stmt):
   lines = compileS(cc, stmt)
-  cc.program.append(list(lines))
+  cc.lines.append(list(lines))
 

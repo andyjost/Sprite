@@ -2,7 +2,7 @@
 Encoding of Curry identifiers.
 '''
 
-import collections, itertools, logging, re
+import collections, itertools, keyword, logging, re
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ SPECIAL = {
   , 'Prelude.^'  : 'pow'
   }
 
-def best(prefix, thing, disallow, limit=20):
+def best(prefix, thing, disallow, limit=26):
   '''
   Choose the best name for something.
   
@@ -74,19 +74,22 @@ def best(prefix, thing, disallow, limit=20):
   gets too long.  Names need not be deterministic.
   '''
   if isinstance(thing, str):
-    best = encode(thing, prefix, disallow)
+    def stems():
+      yield thing
+      yield _shortername(thing)
   else:
-    for x in (getattr(thing, 'fullname', None)
-            , getattr(thing, 'name', None)
-            , _shortername(getattr(thing, 'name', None))
-            , _shortrepr(thing)
-            ):
-      if x is not None:
-        best = encode(x, prefix, disallow)
-        if len(best) <= limit:
-          return best
+    def stems():
+      yield getattr(thing, 'fullname', None)
+      yield getattr(thing, 'name', None)
+      yield _shortername(getattr(thing, 'name', None))
+      yield _shortrepr(thing)
 
-  if len(best) > limit:
+  for stem in stems():
+    if stem is not None:
+      best = encode(stem, prefix, disallow)
+      if len(best) <= limit:
+        return best
+  else:
     try:
       h = hash(thing)
     except TypeError:
@@ -125,11 +128,11 @@ def encode(name, prefix='', disallow={}):
   '''
   a = clean(name)
   k = '%s%s' % (prefix, a)
-  if k in disallow:
+  if k in disallow or keyword.iskeyword(k):
     # Append a number.
     k_ = k
     i = itertools.count()
-    while k_ in disallow:
+    while k_ in disallow or keyword.iskeyword(k_):
       k_ = '%s_%d' % (k, next(i))
     k = k_
   assert k not in disallow
@@ -144,10 +147,11 @@ def _shortername(name):
         return '.'.join(parts[i:])
 
 def _shortrepr(obj):
-  if isinstance(obj, collections.Sequence):
-    return '_'.join(map(str, obj))
-  else:
-    return repr(obj)
+  if not isinstance(obj, basestring):
+    if isinstance(obj, collections.Sequence):
+      return '_'.join(map(str, obj))
+    else:
+      return repr(obj)
 
 def symbolToFilename(name):
   '''Makes the given symbol name into a valid UNIX filename.'''

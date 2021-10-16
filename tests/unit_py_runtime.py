@@ -246,7 +246,7 @@ class TestPyRuntime(cytest.TestCase):
   def test_getimpl(self):
     # Positive test.
     from curry.lib import hello
-    self.assertTrue(hello.main.getimpl().startswith('def entry(rts, _0):'))
+    self.assertRegex(hello.main.getimpl(), '^def (\w+)\(rts, _0\):\s+# hello\.main')
     # Negative test.
     self.assertRaisesRegexp(
         ValueError

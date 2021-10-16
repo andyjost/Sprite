@@ -11,3 +11,6 @@
 - At Python3 support without losing Python2.
 - Create a batch compile capability.
 - Come to think of it, I should remove the mutual recursion between D, N, and S.  All of the recusion should be done synthetically.
+
+
+- curry.compile seems unable to import Control.SetFunctions

@@ -9,7 +9,7 @@ import pprint, textwrap
 __all__ = 'materialize'
 
 def materialize(interp, ir, debug=False, ifun=None):
-  '''Materializes the Python function.'''
+  '''Materializes a Python function from the IR.'''
   container = {}
   source = render.render(ir.lines) # Python source code for this function.
   if debug:
@@ -20,7 +20,6 @@ def materialize(interp, ir, debug=False, ifun=None):
     name = encoding.symbolToFilename(ifun.name)
     srcfile = filesys.makeNewfile(srcdir, name)
     with open(srcfile, 'w') as out:
-      out.write('# %s' % ifun.fullname)
       out.write(source)
       out.write('\n\n\n')
       comment = (
@@ -29,14 +28,14 @@ def materialize(interp, ir, debug=False, ifun=None):
         ) % ifun.name
       out.write('\n'.join('# ' + line for line in textwrap.wrap(comment)))
       out.write('\n\n# Globals:\n# --------\n')
-      context = pprint.pformat(ir.closure.context, indent=2)
-      out.write('\n'.join('# ' + line for line in context.split('\n')))
+      closures = pprint.pformat(ir.closure.dict, indent=2)
+      out.write('\n'.join('# ' + line for line in closures.split('\n')))
       out.write('\n\n# ICurry:\n# -------\n')
       out.write('\n'.join('# ' + line for line in str(ifun).split('\n')))
     co = compile(source, srcfile, 'exec')
-    exec co in ir.closure.context, container
+    exec co in ir.closure.dict, container
   else:
-    exec source in ir.closure.context, container
-  entry = container[ir.entry]
+    exec source in ir.closure.dict, container
+  entry = container.values().pop()
   entry.source = source
   return entry

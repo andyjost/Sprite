@@ -1,12 +1,12 @@
 from .... import context
-from . import compile, misc, materialize
+from . import compile, ir, materialize, render
 
 __all__ = ['Compiler']
 
 class Compiler(context.Compiler):
   @property
   def IR(self):
-    return misc.IR
+    return ir.IR
 
   @property
   def compile(self):
@@ -16,3 +16,6 @@ class Compiler(context.Compiler):
   def materialize(self):
     return materialize.materialize
 
+  @property
+  def render(self):
+    return render.render

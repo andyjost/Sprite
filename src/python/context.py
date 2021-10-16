@@ -136,4 +136,9 @@ class Compiler(object):
     '''Converts the IR to runnable code.'''
     assert 0
 
+  @abc.abstractproperty
+  def render(self):
+    '''Converts the IR to a string.'''
+    assert 0
+
 

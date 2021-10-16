@@ -29,6 +29,7 @@ def _object_hook(kwds):
     clsname = kwds.pop('__class__')
     cls = types.__dict__[clsname]
   except KeyError:
+    breakpoint()
     raise TypeError('No ICurry class named %s was found' % clsname)
   try:
     kwds = fmap(uni2str, kwds)

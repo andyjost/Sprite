@@ -1,18 +1,38 @@
+from __future__ import absolute_import
 from abc import ABCMeta
+from ..backends.py.sprite import Fingerprint
 from collections import Iterator, OrderedDict, Mapping, Sequence
+from . import utility
 from ..utility.formatting import indent, wrapblock
 from ..utility import translateKwds
 from ..utility.proptree import proptree
 from ..utility.visitation import dispatch
-from ..backends.py.sprite import Fingerprint
-import logging
-import re
-import weakref
+import logging, re, types, weakref
 
 logger = logging.getLogger(__name__)
 
-PUBLIC = 0
-PRIVATE = 1
+__all__ = [
+    'IPackage', 'IModule', 'IModuleFacade', 'IProg'
+  , 'IDataType', 'IType', 'IConstructor'
+
+  , 'IVisibility', 'PUBLIC', 'PRIVATE'
+  , 'IFunction', 'IExternal', 'ILink', 'IMaterial', 'IFuncBody'
+
+  , 'IStatement'
+  , 'IBlock', 'IExempt', 'IReturn', 'IFreeDecl', 'IVarDecl'
+  , 'IAssign', 'IVarAssign', 'INodeAssign'
+  , 'ICase', 'ICaseCons', 'ICaseLit', 'IConsBranch', 'ILitBranch'
+
+  , 'IExpression', 'IExpr'
+  , 'ICall', 'IFCall', 'ICCall', 'IPartialCall', 'IFPCall', 'ICPCall'
+  , 'IInt', 'IChar', 'IFloat', 'IUnboxedLiteral', 'ILiteral'
+  , 'IOr'
+  , 'IReference', 'IVar', 'IVarAccess', 'ILit'
+
+    # Note: It should be possible to reconstruct an ICurry object by doing an
+    # import * from this module and then eval'ing the representation.
+  , 'OrderedDict'
+  ]
 
 class IObject(object):
   def __init__(self, metadata=None):
@@ -32,6 +52,22 @@ class IObject(object):
   def children(self):
     return ()
 
+  def copy(self, **updates):
+    '''Copy an IObject with optional updates.'''
+    data = self.dict()
+    data.update(**updates)
+    return type(self)(**data)
+
+  def dict(self):
+    '''Get the object properties as a dictionary.'''
+    if hasattr(self, '_fields_'):
+      return OrderedDict((name, getattr(self, name)) for name in self._fields_)
+    else:
+      return {
+          k:v for k,v in self.__dict__.iteritems()
+              if k not in ('parent', 'metadata')
+        }
+
   # Make objects comparable by their contents.
   def __eq__(lhs, rhs):
     if rhs is None:
@@ -40,17 +76,21 @@ class IObject(object):
       return False
 
     # Compare dicts, ignoring parents.
-    d_lhs = {k:v for k,v in lhs.__dict__.iteritems() if k not in ('parent', 'metadata')}
-    d_rhs = {k:v for k,v in rhs.__dict__.iteritems() if k not in ('parent', 'metadata')}
-    return d_lhs == d_rhs
+    return lhs.dict() == rhs.dict()
 
   def __ne__(lhs, rhs):
     return not (lhs == rhs)
 
   def __hash__(self):
-    return hash(tuple(sorted(
-        (k,v) for k,v in self.__dict__.iteritems() if k != 'parent'
-      )))
+    return hash(tuple(sorted(self.dict())))
+
+  def __repr__(self):
+    return '%s(%s)' % (
+        type(self).__name__
+      , ', '.join(
+            '%s=%r' % item for item in self.dict().items()
+          )
+      )
 
   # Make pickling safe.  Attribute parent is a weakref, which cannot be
   # pickled.  Just convert it to a normal ref and back.
@@ -64,6 +104,7 @@ class IObject(object):
     self.__dict__ = state.copy()
     if getattr(self, 'parent', None) is not None:
       self.parent = weakref.ref(self.parent)
+
 
 class ISymbol(IObject):
   '''
@@ -200,10 +241,14 @@ ILiteral.register(IFloat)
 ILiteral.register(IUnboxedLiteral)
 
 def symboltable(parent, objs):
-  return OrderedDict((v.name, v) for v in (v.setparent(parent) for v in objs))
+  if isinstance(objs, OrderedDict):
+    return objs
+  else:
+    return OrderedDict(
+        (v.name, v) for v in (v.setparent(parent) for v in objs)
+      )
 
 class IPackageOrModule(ISymbol):
-
   def setparent(self, parent):
     if parent is None:
       del self.__dict__['parent']
@@ -231,6 +276,8 @@ class IPackage(IPackageOrModule):
     for module in submodules:
       self.insert(module)
 
+  _fields_ = 'fullname', 'submodules'
+
   @property
   def children(self):
     return self.submodules.values()
@@ -248,7 +295,7 @@ class IPackage(IPackageOrModule):
     assert isinstance(submodule, (IPackage, IModule))
     assert submodule.fullname.startswith(self.fullname)
     shortname = submodule.fullname[len(self.fullname)+1:]
-    key,_ = splitname(shortname)
+    key,_ = utility.splitname(shortname)
     self.submodules[key] = submodule
     submodule.setparent(self)
 
@@ -291,9 +338,6 @@ class IPackage(IPackageOrModule):
           ]
       )
 
-  def __repr__(self):
-    return 'IPackage(name=%r, submodules=%r)' % (self.fullname, self.submodules)
-
 
 class IModule(IPackageOrModule):
   @translateKwds({'name': 'fullname'})
@@ -313,6 +357,8 @@ class IModule(IPackageOrModule):
     self.functions = symboltable(self, functions)
     self.filename = str(filename) if filename is not None else None
     ISymbol.__init__(self, **kwds)
+
+  _fields_ = 'fullname', 'filename', 'imports', 'types', 'functions'
 
   def __str__(self):
     return '\n'.join(
@@ -337,11 +383,6 @@ class IModule(IPackageOrModule):
           ]
       )
 
-  def __repr__(self):
-    return 'IModule(name=%r, filename=%r, imports=%r, types=%r, functions=%r)' % (
-        self.fullname, self.filename, self.imports, self.types.values(), self.functions.values()
-      )
-
   def merge(self, extern, export):
     '''
     Copies the symbols specified in ``export`` from ``extern`` into this
@@ -361,12 +402,27 @@ class IModule(IPackageOrModule):
 
 IProg = IModule
 
+class IModuleFacade(IModule):
+  '''
+  A module in which every IFunction body is an instance of IMaterial.  Used for
+  loading compiled code.
+  '''
+  def __init__(self, *args, **kwds):
+    self.icurry = kwds.pop('icurry')
+    IModule.__init__(self, *args, **kwds)
+    for ifun in self.functions.values():
+      if not isinstance(ifun.body, IMaterial):
+        ifun.body = IMaterial(ifun.body)
+
 class IConstructor(ISymbol):
-  def __init__(self, name, arity, **kwds):
+  @translateKwds({'name': 'fullname'})
+  def __init__(self, fullname, arity, **kwds):
     assert arity >= 0
-    self.fullname = name
+    self.fullname = fullname
     self.arity = IArity(arity)
     ISymbol.__init__(self, **kwds)
+
+  _fields_ = 'fullname', 'arity'
 
   def setparent(self, parent, index):
     assert isinstance(parent, IDataType)
@@ -381,14 +437,15 @@ class IConstructor(ISymbol):
   def __str__(self):
     return self.name + ' _' * self.arity
 
-  def __repr__(self):
-    return 'IConstructor(name=%r, arity=%r)' % (self.fullname, self.arity)
 
 class IDataType(ISymbol):
-  def __init__(self, name, constructors, **kwds):
-    self.fullname = name
+  @translateKwds({'name': 'fullname'})
+  def __init__(self, fullname, constructors, **kwds):
+    self.fullname = fullname
     self.constructors = [ctor.setparent(self, i) for i,ctor in enumerate(constructors)]
     ISymbol.__init__(self, **kwds)
+
+  _fields_ = 'fullname', 'constructors'
 
   def setparent(self, parent):
     assert isinstance(parent, IModule)
@@ -398,20 +455,23 @@ class IDataType(ISymbol):
   def __str__(self):
     return 'data %s = %s' % (self.name, ' | '.join(map(str, self.constructors)))
 
-  def __repr__(self):
-    return 'IDataType(name=%r, constructors=%r)' % (self.fullname, self.constructors)
+  # def __repr__(self):
+  #   return 'IDataType(name=%r, constructors=%r)' % (self.fullname, self.constructors)
 IType = IDataType
 
 class IFunction(ISymbol):
-  def __init__(self, name, arity, vis=None, needed=None, body=[], **kwds):
+  @translateKwds({'name': 'fullname'})
+  def __init__(self, fullname, arity, vis=None, needed=None, body=[], **kwds):
     assert arity >= 0
-    self.fullname = name
+    self.fullname = fullname
     self.arity = IArity(arity)
     self.vis = PUBLIC if vis is None else vis
     # None means no info; [] means nothing needed.
     self.needed = None if needed is None else map(int, needed)
     self.body = body
     ISymbol.__init__(self, **kwds)
+
+  _fields_ = 'fullname', 'arity', 'vis', 'needed', 'body'
 
   def setparent(self, parent):
     assert isinstance(parent, IModule)
@@ -425,10 +485,6 @@ class IFunction(ISymbol):
   def __str__(self):
     return '%s:\n%s' % (self.name, indent(self.body))
 
-  def __repr__(self):
-    return 'IFunction(name=%r, arity=%r, vis=%r, needed=%r, body=%r)' % (
-        self.fullname, self.arity, self.vis, self.needed, self.body
-      )
 
 class Public(IObject):
   def __repr__(self):
@@ -450,6 +506,7 @@ IVisibility.register(Public)
 IVisibility.register(Private)
 
 class IExternal(IObject):
+  '''A link to external Curry function.'''
   @translateKwds({'name': 'symbolname'})
   def __init__(self, symbolname, **kwds):
     self.symbolname = str(symbolname)
@@ -457,7 +514,31 @@ class IExternal(IObject):
   def __str__(self):
     return 'extern(%s)' % self.symbolname
   def __repr__(self):
-    return 'IExternal(symbolname=%r)' % self.symbolname
+    return '%s(symbolname=%r)' % (type(self).__name__, self.symbolname)
+
+class ILink(IExternal):
+  '''A link to an external backend function.'''
+  @property
+  def linkname(self):
+    return self.symbolname
+
+class IMaterial(IObject):
+  '''A materialized backend function.'''
+  def __init__(self, function, **kwds):
+    if not isinstance(function, types.FunctionType):
+      raise TypeError(
+          'expected a materialized function, not type %r'
+              % type(function).__name__
+        )
+    self.function = function
+    IObject.__init__(self, **kwds)
+  @property
+  def function_name(self):
+    return self.function.__name__
+  def __str__(self):
+    return 'material(%s)' % self.function_name
+  def __repr__(self):
+    return '<IMaterial for %r>' % self.function_name
 
 class IFuncBody(IObject):
   __metaclass__ = ABCMeta
@@ -740,11 +821,4 @@ IExpression.register(ICall)
 IExpression.register(IOr)
 
 IExpr = IExpression
-
-def splitname(name):
-  parts = name.split('.')
-  return parts[0], '.'.join(parts[1:])
-
-def joinname(*parts):
-  return '.'.join(parts)
 

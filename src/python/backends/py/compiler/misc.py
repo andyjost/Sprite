@@ -1,4 +1,4 @@
-__all__ = ['ExternallyDefined', 'IR']
+__all__ = ['ExternallyDefined']
 
 class ExternallyDefined(Exception):
   '''
@@ -7,10 +7,3 @@ class ExternallyDefined(Exception):
   '''
   def __init__(self, ifun):
     self.ifun = ifun
-
-class IR(object):
-  def __init__(self, entry, lines, closure):
-    self.closure = closure
-    self.entry = entry
-    self.lines = lines
-

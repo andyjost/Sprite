@@ -1,7 +1,7 @@
 from .function import compileF
 from .....icurry import analysis
 from ..... import icurry, objects
-from .. import misc, render, statics
+from .. import ir, render, statics
 from .....utility import encoding, filesys, visitation
 import collections, pprint, sys, textwrap
 
@@ -14,30 +14,31 @@ class FunctionCompiler(object):
 
   Assembles list-formatted Python code (see ``render``).
 
-  The following naming conventions are used:
+  The compiler may generate local variables.  To avoid name clashes, the
+  following names are reserved:
 
-    Node Info:
-        ``ni_$name``, where $name is a symbol name as defined in the source
-        program with whatever modifications are required to avoid conflicts and
-        make it a Python identifier.  A variant of the symbol name is used to
-        improve readability while debugging.
+    System functions:
+        The runtime system is passed via a variable named "rts".  All methods
+        of the runtime system are accessed through this object.
 
     ICurry Variables:
-        ``_$i``, where $i is the numeric variable ID (``vid`` in ICurry).
+        ``_$i``, where $i is the numeric variable ID (``vid`` in ICurry).  The
+        redex root, denoted _0, is passed as an argument to the function.
 
-    System functions and variables:
-        E.g., ``hnf`` (head-normalizing function) or ``selector`` (jump table
-        selector).  No special rules; must not begin with an underscore or
-        conflict with the above.
+    Static data:
+        Static variables begin with two lowercase characters followed
+        by an underscore.  E.g., ty_List for the list type, or ni_Nil for the empty
+        list constructor.  See statics.py for details.
   '''
-  def __init__(self, interp, ifun, extern=None, entry='entry'):
+  def __init__(self, interp, ifun, closure, entry, extern=None):
     assert isinstance(ifun, icurry.IFunction)
-    self.closure = statics.Closure()
+    self.interp = interp
+    self.ifun = ifun
+    self.closure = closure
     self.entry = entry
     self.extern = extern
-    self.ifun = ifun
-    self.interp = interp
-    self.program = ['def %s(rts, _0):' % self.entry]
+    #
+    self.lines = [('def %s(rts, _0):' % self.entry, ifun.fullname)]
     self.varinfo = None
 
   def __str__(self):
@@ -49,29 +50,25 @@ class FunctionCompiler(object):
     lines += [fmt % item for item in sorted(self.closure.context.items())]
     lines += ['', 'Code:'
                 , '-----']
-    lines += render.indent(self.program)
+    lines += render.indent(self.lines)
     return '\n'.join(lines)
 
-  def compile(compiler):
+  def compile(self):
     # ICurry data can be deeply nested.  Adjusting the recursion limit up from
     # its default of 1000 is necessary, e.g., to process strings longer than
     # 999 characters.
     limit = sys.getrecursionlimit()
-    compiler.varinfo = analysis.varinfo(compiler.ifun.body)
+    self.varinfo = analysis.varinfo(self.ifun.body)
     try:
       sys.setrecursionlimit(1<<30)
-      compileF(compiler, compiler.ifun.body)
+      compileF(self, self.ifun)
     finally:
       sys.setrecursionlimit(limit)
-      compiler.varinfo = None
+      self.varinfo = None
 
   def intern(self, obj):
     '''Internalize an object into the static section.'''
     if isinstance(obj, str):
       obj = self.interp.symbol(obj)
     return self.closure.intern(obj)
-
-  def ir(self):
-    '''Get the IR.'''
-    return misc.IR(self.entry, self.program, self.closure)
 

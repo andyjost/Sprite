@@ -7,7 +7,8 @@ instance has a separate copy of the settings and runtime.
 
 __all__ = ['Interpreter']
 
-from .. import config, context, exceptions, icurry, objects, utility
+from .. import config, context, exceptions, icurry, utility
+from ..objects.handle import getHandle
 from . import import_
 from ..utility import curryname, flagutils
 import itertools, logging, os, sys
@@ -96,7 +97,7 @@ class Interpreter(object):
     self.stderr = sys.stderr
     self.automodules = config.syslibs()
     for name, module in self.modules.items():
-      module = objects._Handle(module)
+      module = getHandle(module)
       if not module.is_package and name != 'Prelude':
         module.unlink(self)
     self.path[:] = config.currypath(reset=True)
@@ -116,15 +117,15 @@ class Interpreter(object):
     Look up a symbol by its fully-qualified name or by its name relative to a
     module.
     '''
-    modulename, objname = icurry.splitname(name)
+    modulename, objname = icurry.utility.splitname(name)
     moduleobj = self.module(modulename)
-    return objects._Handle(moduleobj).getsymbol(objname)
+    return getHandle(moduleobj).getsymbol(objname)
 
   def type(self, name):
     '''Returns the constructor info tables for the named type.'''
-    modulename, name = icurry.splitname(name)
+    modulename, name = icurry.utility.splitname(name)
     moduleobj = self.module(modulename)
-    return objects._Handle(moduleobj).gettype(name)
+    return getHandle(moduleobj).gettype(name)
 
   # Externally-implemented methods.
   from .compile import compile
