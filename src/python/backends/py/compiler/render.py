@@ -161,3 +161,8 @@ class Renderer(object):
         yield fmt % (name, value)
     yield ''
     yield ''
+    yield '''if __name__ == '__main__':'''
+    yield '''  from %s import __main__''' % config.python_package_name()
+    yield '''  __main__.main(__file__, ['-m', %r])''' % imodule.fullname
+    yield ''
+    yield ''

@@ -33,7 +33,7 @@ def main(program_name, argv):
       )
   parser.add_argument( 'name', nargs='?', default=None, type=str, help='a Curry file name (default) or module name to run')
 
-  with handle_program_errors(PROGRAM_NAME, exit_status=1):
+  with handle_program_errors(program_name, exit_status=1):
     args = parser.parse_args(argv)
 
     if args.name is None:
