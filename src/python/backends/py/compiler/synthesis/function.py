@@ -2,9 +2,9 @@
 Code for synthesizing built-in functions.
 '''
 
-from .... import inspect
-from . import ir, statics
-from ..runtime.fairscheme import hnf_or_free  # Fixme: should be a method of variable
+from ..... import inspect
+from .. import ir, statics
+from ...runtime.fairscheme import hnf_or_free  # Fixme: should be a method of variable
 import operator as op
 
 __all__ = ['synthesize_function']

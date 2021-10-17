@@ -141,4 +141,13 @@ class Compiler(object):
     '''Converts the IR to a string.'''
     assert 0
 
+  @abc.abstractproperty
+  def synthesize_constructor_info(self):
+    '''Synthesizes a constructor InfoTable from an icurry.IConstructor.'''
+    assert 0
+
+  @abc.abstractproperty
+  def synthesize_function_info_stub(self):
+    '''Synthesizes a function InfoTable from an icurry.IFunction.'''
+    assert 0
 
