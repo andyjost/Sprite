@@ -40,7 +40,7 @@ class ICurry2JsonConverter(object):
     file_out = file_in[:-4] + '.json'
     if self.do_zip:
       file_out += '.z'
-    with binding(os.environ, 'CURRYPATH', ''): # FIXME currypath?
+    with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
       _system.makeOutputDir(file_out)
       cmd = [config.icurry2jsontext_tool(), '-i', file_in]
       cmd_compact = [config.jq_tool(), '--compact-output', '.'] \
