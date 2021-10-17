@@ -1,3 +1,5 @@
+'''Code for importing Curry modules into a Curry interpreter.'''
+
 from ..common import T_FUNC, T_CTOR
 from .. import config, icurry, importer, objects
 from ..objects.handle import getHandle
@@ -8,7 +10,6 @@ import collections, logging, weakref
 logger = logging.getLogger(__name__)
 
 __all__ = ['import_']
-
 
 def insertSymbol(module, basename, nodeinfo, private=False):
   '''
@@ -125,7 +126,7 @@ def loadSymbols(
       icons.name
     , icons.arity
     , T_CTOR + icons.index if not builtin else metadata['all.tag']
-    , _no_step if not builtin else _unreachable
+    , _nostep if not builtin else _unreachable
     , getattr(metadata, 'py.format', None)
     , _gettypechecker(interp, metadata)
     , getattr(metadata, 'all.flags', 0)
@@ -271,15 +272,14 @@ def compileICurry(interp, ifun, moduleobj, extern=None):
   # Compile interactive code right away.  Otherwise, if lazycompile is set,
   # delay compilation until the function is actually used.  See InfoTable in
   # interpreter/runtime.py.
-  if interp.flags['lazycompile'] and \
-      ifun.modulename != config.interactive_modname():
-    # Delayed.
-    info.step = LazyFunction(_materialize_function, interp, ifun, extern)
+  lazyf = LazyFunction(interp, ifun, extern)
+  allowed_lazy = ifun.modulename != config.interactive_modname()
+  if allowed_lazy and interp.flags['lazycompile']:
+    info.step = lazyf
   else:
-    # Immediate.
-    info.step = _materialize_function(interp, ifun, extern)
+    info.step = lazyf.materialize()
 
-def _no_step(*args, **kwds):
+def _nostep(*args, **kwds):
   pass
 
 def _unreachable(*args, **kwds):
@@ -298,17 +298,26 @@ def _gettypechecker(interp, metadata):
     if checker is not None:
       return lambda *args: checker(interp, *args)
 
-def _materialize_function(interp, ifun, extern):
-  '''Compile and materialize a function.'''
-  ir = interp.context.compiler.compile(interp, ifun, extern)
-  return interp.context.compiler.materialize(
-      interp, ir, debug=interp.flags['debug'], ifun=ifun
-    )
 
-class LazyFunction(tuple):
+class LazyFunction(
+    collections.namedtuple('LazyFunction', ['interp', 'ifun', 'extern'])
+  ):
+  '''
+  Materializes a step function when ``materialize`` is called.  This improves
+  execution times by only compiling the functions that are actually used.
+  '''
   def __new__(cls, *args):
-    self = tuple.__new__(cls, args)
+    self = super(LazyFunction, cls).__new__(cls, *args)
     return self
+  def materialize(self):
+    cc = self.interp.context.compiler
+    ir = cc.compile(*self)
+    return cc.materialize(
+        self.interp
+      , ir
+      , debug=self.interp.flags['debug']
+      , ifun=self.ifun
+      )
   def __repr__(self):
     return '<not yet compiled>'
 

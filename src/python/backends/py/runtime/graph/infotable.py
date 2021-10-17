@@ -89,12 +89,8 @@ class InfoTable(object):
 
   @property
   def step(self):
-    # The step function can either be a function or a tuple (f, a, b, ...).  If
-    # the latter, then f(a, b, ...) is called to get the actual step function
-    # the first time it is accessed.  LazyFunction is a tuple that omits lengthy
-    # details from the representation.
-    if isinstance(self._step, tuple):
-      self._step = self._step[0](*self._step[1:])
+    if hasattr(self._step, 'materialize'):
+      self._step = self._step.materialize()
     return self._step
 
   @step.setter
