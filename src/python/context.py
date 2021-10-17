@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 '''
 Defines the context object, which mediates interations between the Python API
 and a backend.
@@ -7,8 +8,7 @@ implement.
 '''
 
 from . import config
-import abc
-import importlib
+import abc, importlib
 
 __all__ = ['Compiler', 'Context', 'InfoTable', 'Node', 'Runtime']
 

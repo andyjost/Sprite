@@ -41,8 +41,7 @@ the matching goal(s).  The program is expected to output each and only the
 specified results.
 '''
 
-from curry import importer
-from curry.utility import filesys
+from curry.utility import binding, filesys
 import glob, os, re, subprocess, unittest
 
 def oracle(flavor=None):
@@ -124,7 +123,7 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None):
     # Call the oracle.
     oracle_ = oracle(flavor=get_flavor(module))
     assert oracle_
-    with importer.binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
+    with binding.binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
       cmd = '%s %s %s' % (oracle_, module.__name__, goal)
       if timeout:
         cmd = 'timeout %s %s' % (timeout, cmd)

@@ -2,7 +2,7 @@
 Implements Interpreter.compile.
 '''
 
-from .. import config, exceptions, importer, icurry, objects
+from .. import config, exceptions, icurry, objects, toolchain
 from ..utility.visitation import dispatch
 import types
 
@@ -41,7 +41,7 @@ def compile(
   if mode == 'module':
     if modulename in interp.modules:
       raise ValueError('module %r is already defined' % modulename)
-    icur = importer.str2icurry(
+    icur = toolchain.str2icurry(
         string, interp.path, modulename=modulename
       , keep_temp_files=interp.flags['keep_temp_files']
       )
@@ -67,7 +67,7 @@ def compile(
       stmts += ['%s :: %s' % (compiled_name, exprtype)]
     stmts += ['%s = %s' % (compiled_name, string)]
     curry_code = '\n'.join(stmts)
-    icur = importer.str2icurry(
+    icur = toolchain.str2icurry(
         curry_code, currypath
       , keep_temp_files=interp.flags['keep_temp_files']
       )

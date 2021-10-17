@@ -1,7 +1,7 @@
 '''Code for importing Curry modules into a Curry interpreter.'''
 
 from ..common import T_FUNC, T_CTOR
-from .. import config, icurry, importer, objects
+from .. import config, icurry, objects, toolchain
 from ..objects.handle import getHandle
 from ..utility.currypath import clean_currypath
 from ..utility import encoding, visitation, formatDocstring, validateModulename
@@ -213,9 +213,7 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
       kwds.setdefault('export', setfunctions.exports())
       kwds.setdefault('alias', setfunctions.aliases())
     currypath = clean_currypath(interp.path if currypath is None else currypath)
-    icur = importer.getICurryForModule(
-        name, currypath, is_sourcefile=is_sourcefile
-      )
+    icur = toolchain.loadicurry(name, currypath, is_sourcefile=is_sourcefile)
     cymodule = import_(interp, icur, **kwds)
     return getHandle(cymodule).findmodule(modulename)
 

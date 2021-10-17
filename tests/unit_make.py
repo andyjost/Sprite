@@ -1,6 +1,6 @@
 # Encoding: utf-8
 import cytest # from ./lib; must be first
-from curry import config, importer
+from curry import config, toolchain
 from curry.utility import _tempfile
 import glob
 import os
@@ -26,9 +26,9 @@ class TestMake(cytest.TestCase):
       files = [curry_file, icy_file, json_file]
       files += [name + '.z' for name in files]
       for file_ in files:
-        self.assertEqual(importer.curryFilename(file_), curry_file)
-        self.assertEqual(importer.icurryFilename(file_), icy_file)
-        self.assertEqual(set(importer.jsonFilenames(file_)), set(json_files))
+        self.assertEqual(toolchain.curryfilename(file_), curry_file)
+        self.assertEqual(toolchain.icurryfilename(file_), icy_file)
+        self.assertEqual(set(toolchain.jsonfilenames(file_)), set(json_files))
 
   def test_make_icurry_and_json(self):
     '''Test the conversion from .curry to .icy.'''
@@ -39,16 +39,16 @@ class TestMake(cytest.TestCase):
         shutil.copy(input_file, tmpdir)
         curry_file = os.path.join(tmpdir, filename)
         # Build .icy.
-        ret = importer.curry2icurry(curry_file, currypath=[], quiet=True)
+        ret = toolchain.curry2icurry(curry_file, currypath=[], quiet=True)
         file_out = os.path.join(tmpdir, SUBDIR, stem + '.icy')
         self.assertTrue(os.path.exists(file_out))
         self.assertEqual(ret, file_out)
         # Repeat -- no exception.
-        ret = importer.curry2icurry(curry_file, currypath=[], quiet=True)
+        ret = toolchain.curry2icurry(curry_file, currypath=[], quiet=True)
         self.assertEqual(ret, file_out)
 
         # Build .json.
-        ret = importer.icurry2json(curry_file, currypath=[], compact=False, zip=False)
+        ret = toolchain.icurry2json(curry_file, currypath=[], compact=False, zip=False)
         json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
@@ -56,7 +56,7 @@ class TestMake(cytest.TestCase):
 
         # Build compacted .json.
         self.assertFalse(os.path.exists(json_file))
-        ret = importer.icurry2json(curry_file, currypath=[], compact=True, zip=False)
+        ret = toolchain.icurry2json(curry_file, currypath=[], compact=True, zip=False)
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
         if config.jq_tool() is not None:
@@ -67,7 +67,7 @@ class TestMake(cytest.TestCase):
         shutil.move(json_file, json_file + '.nozip')
 
         # Build compacted, compressed .json.
-        ret = importer.icurry2json(curry_file, currypath=[], compact=True, zip=True)
+        ret = toolchain.icurry2json(curry_file, currypath=[], compact=True, zip=True)
         self.assertTrue(os.path.exists(json_file + '.z'))
         self.assertEqual(ret, json_file + '.z')
         self.assertLess(
@@ -75,8 +75,8 @@ class TestMake(cytest.TestCase):
           , os.stat(json_file + '.nozip').st_size
           )
 
-  def test_findOrBuildICurry(self):
-    '''Test the findOrBuildICurry function.'''
+  def test_makecurry(self):
+    '''Test the makecurry function.'''
     for input_file in glob.glob('data/importer/*.curry'):
       dirname, filename = os.path.split(input_file)
       stem = filename[:-6]
@@ -86,20 +86,20 @@ class TestMake(cytest.TestCase):
         json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
         curry_file = os.path.join(tmpdir, filename)
         # Make .icy.  Returns None.
-        ret = importer.findOrBuildICurry(curry_file, json=False, is_sourcefile=True)
+        ret = toolchain.makecurry(curry_file, json=False, is_sourcefile=True)
         self.assertTrue(os.path.exists(icy_file))
         self.assertEqual(ret, None)
         # Repeat
-        ret = importer.findOrBuildICurry(curry_file, json=False, is_sourcefile=True)
+        ret = toolchain.makecurry(curry_file, json=False, is_sourcefile=True)
         self.assertTrue(os.path.exists(icy_file))
         self.assertIs(ret, None)
 
         # Make .json.  Returns the JSON file name.
-        ret = importer.findOrBuildICurry(curry_file, zip=False, is_sourcefile=True)
+        ret = toolchain.makecurry(curry_file, zip=False, is_sourcefile=True)
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
         # Repeat
-        ret = importer.findOrBuildICurry(curry_file, zip=False, is_sourcefile=True)
+        ret = toolchain.makecurry(curry_file, zip=False, is_sourcefile=True)
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
 

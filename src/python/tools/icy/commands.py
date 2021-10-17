@@ -1,9 +1,6 @@
 from . import options
 from .resolve import resolve
-import importlib
-import os
-import sys
-import traceback
+import importlib, os, sys, traceback
 curry = importlib.import_module(__package__[:__package__.find('.')])
 
 __all__ = ['COMMANDS', 'eval']

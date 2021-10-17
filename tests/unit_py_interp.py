@@ -4,8 +4,7 @@ from curry.backends.py import runtime
 from curry.backends.py.runtime.currylib.prelude import Prelude
 from curry.exceptions import ModuleLookupError, SymbolLookupError, TypeLookupError
 from curry.icurry import *
-from curry import importer, interpreter
-from curry import unboxed
+from curry import interpreter, toolchain, unboxed
 from curry.interpreter import Interpreter
 from curry.utility.binding import binding, del_
 from curry.utility import filesys
@@ -86,7 +85,7 @@ class TestPyInterp(cytest.TestCase):
         shutil.copy(srcfile, tgtfile)
       module = interp.import_('test')
       value = next(interp.eval(interp.expr(module.main), converter='topython'))
-      for jsonfile in importer.jsonFilenames(tgtfile):
+      for jsonfile in toolchain.jsonfilenames(tgtfile):
         try:
           mtime = os.path.getmtime(jsonfile)
           break

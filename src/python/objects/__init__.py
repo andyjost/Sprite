@@ -3,7 +3,7 @@ Python wrappers for Curry objects.
 '''
 
 from ..common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from .. import icurry, importer
+from .. import icurry
 import types, weakref
 
 __all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeInfo']

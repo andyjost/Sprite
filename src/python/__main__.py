@@ -2,12 +2,7 @@ PROGRAM_NAME = 'sprite-exec'
 
 from .exceptions import SymbolLookupError
 from .tools.utility import handle_program_errors
-import argparse
-import code
-import cProfile
-import pstats
-import importlib
-import sys
+import argparse, code, cProfile, pstats, importlib, sys
 
 curry = importlib.import_module(__package__)
 

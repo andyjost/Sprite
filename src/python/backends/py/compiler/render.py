@@ -111,7 +111,7 @@ class Renderer(object):
     yield 'import %s' % curry
     yield 'from %s.icurry import \\' % curry
     yield '    IModuleFacade, IDataType, IConstructor, IFunction, PUBLIC, PRIVATE'
-    yield 'from %s.importer import getICurryForModule' % curry
+    yield 'from %s import toolchain' % curry
     yield 'import collections, itertools'
     yield ''
     for line in ir.lines:
@@ -124,7 +124,7 @@ class Renderer(object):
     yield '    fullname=%r' % imodule.fullname
     yield '  , filename=%r' % imodule.filename
     yield '  , imports=%s'  % repr(imodule.imports)
-    yield '  , icurry=getICurryForModule(%r, curry.path)' % imodule.fullname
+    yield '  , icurry=toolchain.loadicurry(%r, curry.path)' % imodule.fullname
     yield '  , types=('
     for prefix, itype in self._plist(imodule.types.itervalues(), level=1):
       yield '%sIDataType(%r, (' % (prefix, itype.fullname)

@@ -1,13 +1,8 @@
 # Encoding: utf-8
 import cytest # from ./lib; must be first
-from curry import config, importer
-from curry import icurry
-from curry.utility import filesys
-from curry.utility import _tempfile
-import curry
-import os
-import shutil
-import time
+from curry import config, icurry, toolchain
+from curry.utility import filesys, _tempfile
+import curry, os, shutil, time
 
 GENERATE_GOLDENS = False
 
@@ -90,17 +85,17 @@ class TestFindCurry(cytest.TestCase):
   @set_intermediate_subdir
   def test_findCurry(self):
     self.assertEqual(
-        importer.findCurryModule('c', currypath=['data/findFile/c'])
+        toolchain.currentfile('c', currypath=['data/findFile/c'])
       , os.path.abspath('data/findFile/c/c.curry')
       )
     self.assertEqual(
-        importer.findCurryModule('a', currypath=['data/findFile/b'])
+        toolchain.currentfile('a', currypath=['data/findFile/b'])
       , os.path.abspath('data/findFile/b/a.curry')
       )
     # Under a/ there is no a.curry, but there is .curry/sprite/a.json.
     # It should be found before b/a.curry is located.
     self.assertEqual(
-        importer.findCurryModule(
+        toolchain.currentfile(
             'a'
           , currypath=['data/findFile/'+a_or_b for a_or_b in 'ab']
           )
@@ -113,7 +108,7 @@ class TestFindCurry(cytest.TestCase):
     # If the JSON file already exists, this should find it, just like
     # findCurryModule does.
     self.assertEqual(
-        importer.findOrBuildICurry('a', ['data/findFile/a'], zip=False)
+        toolchain.currentfile('a', ['data/findFile/a'], zip=False)
       , os.path.abspath('data/findFile/a/.curry/sprite/a.json')
       )
 
@@ -131,7 +126,7 @@ class TestFindCurry(cytest.TestCase):
       rmfiles()
       self.assertFalse(os.path.exists(jsonfile))
       self.assertEqual(
-          importer.findOrBuildICurry('hello', ['data/curry'], zip=False)
+          toolchain.currentfile('hello', ['data/curry'], zip=False)
         , os.path.abspath(jsonfile)
         )
       self.assertTrue(os.path.exists(jsonfile))
@@ -142,7 +137,7 @@ class TestFindCurry(cytest.TestCase):
         )
       rmfiles()
       # Check loadModule.
-      icur = importer.loadModule('hello', ['data/curry'])
+      icur = toolchain.loadicurry('hello', ['data/curry'])
       icur.filename = None
       au = icurry.json.parse(open(goldenfile, 'r').read())
       self.assertEqual(icur, au)

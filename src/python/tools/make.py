@@ -1,14 +1,9 @@
 PROGRAM_NAME = 'sprite-make'
 
 from cStringIO import StringIO
-from curry import importer
-from .. import config
-from .. import utility
+from .. import config, toolchain, utility
 from .utility import handle_program_errors
-import argparse
-import os
-import pydoc
-import sys
+import argparse, os, pydoc, sys
 
 __doc__ = '''\
 Execute the toolchain to compile Curry code.
@@ -131,7 +126,7 @@ def main(program_name, argv):
   for name in args.names:
     kwds['is_sourcefile'] = name.endswith('.curry')
     with error_handler:
-      importer.findOrBuildICurry(name, config.currypath(), **kwds)
+      toolchain.makecurry(name, config.currypath(), **kwds)
   if error_handler.nerrors:
     sys.exit(1)
 
