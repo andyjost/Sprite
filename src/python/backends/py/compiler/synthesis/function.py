@@ -4,7 +4,6 @@ Code for synthesizing built-in functions.
 
 from ..... import inspect
 from .. import ir, statics
-from ...runtime.fairscheme import hnf_or_free  # Fixme: should be a method of variable
 import operator as op
 
 __all__ = ['synthesize_function']
@@ -63,7 +62,7 @@ def with_unboxed_args(f):
   '''
   def repl(rts, _0):
     args = [
-        hnf_or_free(rts, rts.variable(_0, i))
+        rts.variable(_0, i).hnf_or_free()
             for i in xrange(len(_0.successors))
       ]
     freevars = [arg for arg in args if inspect.isa_freevar(arg.target)]

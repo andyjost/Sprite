@@ -184,6 +184,10 @@ class Variable(object):
     from .. import fairscheme
     return fairscheme.hnf(self.rts, self, typedef, values)
 
+  def hnf_or_free(self, typedef=None):
+    from .. import fairscheme
+    return fairscheme.hnf_or_free(self.rts, self, typedef)
+
   def replace_target(self, replacement):
     '''Replace the target by rewriting the root.'''
     utility.copy_spine(self.root, self.realpath, end=replacement, rewrite=self.root)
