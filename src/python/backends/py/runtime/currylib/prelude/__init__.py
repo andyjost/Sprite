@@ -5,13 +5,23 @@ This is merged into the real module compiled from Prelude.curry to resolve the
 external declarations.
 '''
 
-from .....common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from ..graph import infotable
-from ..... import icurry, inspect
-from . import prelude_impl as impl
-from .. import typecheckers as tc
-import math
-import operator as op
+from __future__ import absolute_import
+
+from ......common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ...graph import infotable
+from ...... import icurry, inspect
+from . import prelude as impl
+from ... import typecheckers as tc
+import math, operator as op
+
+__all__ = ['aliases', 'exports', 'Prelude']
+
+def aliases():
+  '''Returns prelude aliases.  Simply for convenience.'''
+  yield 'Unit', '()'
+  yield 'Pair', '(,)'
+  yield 'Cons', ':'
+  yield 'Nil', '[]'
 
 def exports():
   '''
@@ -43,13 +53,6 @@ def exports():
   for fun in _functions_:
     if fun.name.startswith('prim_'):
       yield fun.name
-
-def aliases():
-  '''Returns prelude aliases.  Simply for convenience.'''
-  yield 'Unit', '()'
-  yield 'Pair', '(,)'
-  yield 'Cons', ':'
-  yield 'Nil', '[]'
 
 
 # Types.

@@ -4,7 +4,7 @@ Code for synthesizing built-in functions.
 
 from ..... import inspect
 from .. import ir, statics
-from ...runtime.currylib.prelude_impl import apply_unboxed
+from ...runtime.currylib.prelude.math import apply_unboxed
 import operator as op
 
 __all__ = ['synthesize_function']
