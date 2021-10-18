@@ -45,7 +45,8 @@ TR = {
   }
 
 SPECIAL = {
-    '[]'   : 'Nil'
+    '(->)' : 'Arrow'
+  , '[]'   : 'Nil'
   , ':'    : 'Cons'
   , '?'    : 'Choice'
   , '()'   : 'Unit'
@@ -53,10 +54,15 @@ SPECIAL = {
   , '(,,)' : 'Triple'
   , '&&'   : 'and'
   , '||'   : 'or'
-  , '(->)' : 'Arrow'
+  , '&'    : 'bitand'
+  , '|'    : 'bitor'
+  , '^'    : 'bitxor'
   , '.'    : 'compose'
-  , '=='   : 'eq'
+  , '=:='  : 'constrEqOp'
+  , '=:<=' : 'nonstrictEqOp'
+  , '=:<<=': 'unifEqLinearOp'
   , '==='  : 'eq3'
+  , '=='   : 'eq'
   , '/='   : 'ne'
   , '<'    : 'lt'
   , '>'    : 'gt'
@@ -67,11 +73,14 @@ SPECIAL = {
   , '*'    : 'mul'
   , '/'    : 'div'
   , '%'    : 'mod'
-  , '^'    : 'pow'
   , '>>'   : 'rsh'
   , '<<'   : 'lsh'
   , '>>='  : 'irsh'
   , '<<='  : 'ilsh'
+  , '++'   : 'append'
+  , '**'   : 'pow'
+  , '<*>'  : 'ufo'
+  , '<|>'  : 'alt'
   }
 
 P_TRAILING = re.compile('(\S+)(_CASE\d+)')
@@ -202,7 +211,7 @@ def isaCurryIdentifier(basename):
   '''
   return bool(re.match(P_IDENTIFIER, basename))
 
-P_TYPECLASS_KEYS = re.compile('^_(inst|impl|def|Dict)#')
+P_TYPECLASS_KEYS = re.compile('^_(def|Dict|impl|inst|super)#')
 def isaTypeclassIdentifier(basename):
   return bool(re.match(P_TYPECLASS_KEYS, basename))
 

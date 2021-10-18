@@ -51,7 +51,7 @@ def prim_divFloat(x, y):
 def prim_minusFloat(x, y):
   return y - x
 
-def prim_roundFloat(x, y):
+def prim_roundFloat(x):
   return int(round(x))
 
 def constr_eq(rts, _0):
