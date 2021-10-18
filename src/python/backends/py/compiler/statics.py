@@ -1,13 +1,14 @@
 from .... import objects
 from ....utility import encoding, visitation
+import sys
 
 __all__ = ['Closure', 'handle']
 
-PX_TYPE = 'ty_' # typedef
-PX_INFO = 'ni_' # node info
+PX_DATA = 'da_' # data
 PX_FUNC = 'fn_' # external function
-PX_DATA = 'va_' # values
+PX_INFO = 'ni_' # node info
 PX_SYMB = 'cy_' # a Curry symbol
+PX_TYPE = 'ty_' # typedef
 
 class Closure(object):
   def __init__(self):
@@ -65,7 +66,14 @@ class Closure(object):
     '''
     if callable(obj):
       # Note: since functions are incomparable, a function only matches if the
-      # very same function object is pased in subsequent calls.
+      # very same function object is pased in subsequent calls.  Furthermore,
+      # only functions that can be imported relative to their module can be
+      # used.
+      if not importable(obj):
+        raise TypeError(
+            'cannot intern %r because it cannot be imported'
+                % getattr(obj, '__name__', '<unknown>')
+          )
       return self.insert(obj, prefix=PX_FUNC)
     else:
       raise TypeError('cannot intern %r' % obj)
@@ -89,3 +97,9 @@ class Closure(object):
            all(isinstance(v, float) for v in values)
     return self.insert(values, prefix=PX_DATA)
 
+def importable(obj):
+  modulename = getattr(obj, '__module__', None)
+  name = getattr(obj, '__name__', None)
+  module = sys.modules.get(modulename, None)
+  found = getattr(module, name, None)
+  return found is not None

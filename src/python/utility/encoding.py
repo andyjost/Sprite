@@ -81,9 +81,9 @@ def best(prefix, thing, disallow, limit=26):
     def stems():
       yield getattr(thing, 'fullname', None)
       yield getattr(thing, 'name', None)
+      yield getattr(thing, '__name__', None)
       yield _shortername(getattr(thing, 'name', None))
       yield _shortrepr(thing)
-
   for stem in stems():
     if stem is not None:
       best = encode(stem, prefix, disallow)
@@ -104,7 +104,7 @@ def clean(s, dot_as_us=True):
   if s in SPECIAL:
     return SPECIAL[s]
   elif s.startswith('Prelude.'):
-    return clean(s[8:], dot_as_us)
+    return clean(s[8:], dot_as_us and not all(c == '.' for c in s[8:]))
   else:
     if dot_as_us:
       s = s.replace('.', '_')

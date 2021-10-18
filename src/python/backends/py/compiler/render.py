@@ -1,7 +1,7 @@
-from . import ir
+from . import ir, statics
 from .... import config, objects
 from ....utility import visitation
-import collections
+import collections, types
 
 __all__ = ['render']
 
@@ -152,13 +152,15 @@ class Renderer(object):
     width = max([len(name) for name,_ in items])
     width = min(width, self.hcol + 2 * self.indent + 1)
     fmt = '%-{}s = %s'.format(width)
-    for name, value in sorted(items):
-      if isinstance(value, objects.CurryNodeInfo):
-        yield fmt % (name, 'curry.symbol(%r)' % value.fullname)
-      elif isinstance(value, objects.CurryDataType):
-        yield fmt % (name, 'curry.type(%r)' % value.fullname)
-      elif isinstance(value, tuple):
+    for name, value in sorted(items, key=_sortkey):
+      if name.startswith(statics.PX_DATA):
         yield fmt % (name, value)
+      elif name.startswith(statics.PX_FUNC):
+        yield 'from %s import %s as %s' % (value.__module__, value.__name__, name)
+      elif name.startswith(statics.PX_INFO):
+        yield fmt % (name, 'curry.symbol(%r)' % value.fullname)
+      elif name.startswith(statics.PX_TYPE):
+        yield fmt % (name, 'curry.type(%r)' % value.fullname)
     yield ''
     yield ''
     yield '''if __name__ == '__main__':'''
@@ -166,3 +168,14 @@ class Renderer(object):
     yield   '  __main__.moduleMain(__file__, %r)' % imodule.fullname
     yield ''
     yield ''
+
+def _sortkey(item):
+  name, value = item
+  if name.startswith(statics.PX_FUNC):
+    return 1, value.__module__, value.__name__
+  elif name.startswith(statics.PX_INFO):
+    return 2, value.fullname
+  elif name.startswith(statics.PX_TYPE):
+    return 3, value.fullname
+  elif name.startswith(statics.PX_DATA):
+    return 4, name,

@@ -36,6 +36,24 @@ def apply_unboxed(rts, unboxedfunc, _0):
   box = BOXER[type(result_value)]
   return rts.Node(*box(rts, result_value), target=_0)
 
+def modInt(x, y):
+  return x - y * op.floordiv(x,y)
+
+def remInt(x, y):
+  return x - y * quotInt(x, y)
+
+def quotInt(x, y):
+  return int(op.truediv(x, y))
+
+def prim_divFloat(x, y):
+  return op.truediv(y, x)
+
+def prim_minusFloat(x, y):
+  return y - x
+
+def prim_roundFloat(x, y):
+  return int(round(x))
+
 def constr_eq(rts, _0):
   '''Implements =:=.'''
   lhs, rhs = [fairscheme.hnf_or_free(rts, rts.variable(_0, i)) for i in (0,1)]
