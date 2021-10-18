@@ -12,6 +12,31 @@ import operator as op
 
 logger = logging.getLogger(__name__)
 
+def unboxargs(rts, _0):
+  args = [
+      rts.variable(_0, i).hnf_or_free()
+          for i in xrange(len(_0.successors))
+    ]
+  freevars = [arg for arg in args if inspect.isa_freevar(arg.target)]
+  if freevars:
+    rts.suspend(freevars)
+  else:
+    return (arg.unboxed_value for arg in args)
+
+HANDLERS = {
+    bool:  lambda rts, rv: [getattr(rts.prelude, 'True' if rv else 'False')]
+  , float: lambda rts, rv: [rts.prelude.Float, rv]
+  , int:   lambda rts, rv: [rts.prelude.Int, rv]
+  , str:   lambda rts, rv: [rts.prelude.Char, rv]
+  }
+
+def eval_unboxed(rts, unboxedfunc, _0):
+  args = unboxargs(rts, _0)
+  result_value = unboxedfunc(*args)
+  handler = HANDLERS[type(result_value)]
+  result_args = handler(rts, result_value)
+  return rts.Node(*result_args, target=_0)
+
 def constr_eq(rts, _0):
   '''Implements =:=.'''
   lhs, rhs = [fairscheme.hnf_or_free(rts, rts.variable(_0, i)) for i in (0,1)]

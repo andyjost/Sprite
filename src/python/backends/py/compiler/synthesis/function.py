@@ -53,37 +53,6 @@ def compile_rawfunc(interp, ifun, closure, entry):
       ]
     return lines
 
-def with_unboxed_args(f):
-  '''
-  Calls a wrapped function with unboxed args.  This will normalize the
-  arguments, raising E_RESIDUAL when they are not ground.
-
-  The decorated function should generate arguments to a node replaement.
-  '''
-  def repl(rts, _0):
-    args = [
-        rts.variable(_0, i).hnf_or_free()
-            for i in xrange(len(_0.successors))
-      ]
-    freevars = [arg for arg in args if inspect.isa_freevar(arg.target)]
-    if freevars:
-      rts.suspend(freevars)
-    else:
-      args = (arg.unboxed_value for arg in args)
-      result = f(rts, *args)
-      return rts.Node(*result, target=_0)
-  return repl
-
-HANDLERS = {
-    bool:  lambda rts, rv: [getattr(rts.prelude, 'True' if rv else 'False')]
-  , float: lambda rts, rv: [rts.prelude.Float, rv]
-  , int:   lambda rts, rv: [rts.prelude.Int, rv]
-  , str:   lambda rts, rv: [rts.prelude.Char, rv]
-  }
-
-def get_handler(key):
-  return HANDLERS[key]
-
 def compile_unboxedfunc(interp, ifun, closure, entry):
   '''
   Compiles a function over primitive data.
@@ -92,15 +61,11 @@ def compile_unboxedfunc(interp, ifun, closure, entry):
   '''
   unboxedfunc = ifun.metadata.get('py.unboxedfunc', None)
   if unboxedfunc is not None:
-    h_decorator = closure.intern(with_unboxed_args)
-    h_gethandler = closure.intern(get_handler)
     h_impl = closure.intern(unboxedfunc)
+    from ...runtime.currylib.prelude_impl import eval_unboxed
+    h_eval = closure.intern(eval_unboxed)
     lines = [
-        '@%s' % h_decorator
-      , 'def %s(rts, *args):' % entry
-      , [ 'result_value = %s(*args)' % h_impl
-        , 'handler = %s(type(result_value))' % h_gethandler
-        , 'return handler(rts, result_value)'
-        ]
+        'def %s(rts, _0):' % entry
+      , [ 'return %s(rts, %s, _0)' % (h_eval, h_impl) ]
       ]
     return lines
