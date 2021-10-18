@@ -2,6 +2,7 @@
 Encoding of Curry identifiers.
 '''
 
+from .. import inspect
 import collections, itertools, keyword, logging, re
 
 logger = logging.getLogger(__name__)
@@ -44,30 +45,55 @@ TR = {
   }
 
 SPECIAL = {
-    'Prelude.[]' : 'Nil'
-  , 'Prelude.:'  : 'Cons'
-  , 'Prelude.?'  : 'Choice'
-  , 'Prelude.()' : 'Unit'
-  , 'Prelude.&&' : 'and'
-  , 'Prelude.||' : 'or'
-  , 'Prelude.==' : 'eq'
-  , 'Prelude./=' : 'ne'
-  , 'Prelude.<'  : 'lt'
-  , 'Prelude.>'  : 'gt'
-  , 'Prelude.<=' : 'le'
-  , 'Prelude.>=' : 'ge'
-  , 'Prelude.+'  : 'add'
-  , 'Prelude.-'  : 'sub'
-  , 'Prelude.*'  : 'mul'
-  , 'Prelude./'  : 'div'
-  , 'Prelude.%'  : 'mod'
-  , 'Prelude.^'  : 'pow'
+    '[]'   : 'Nil'
+  , ':'    : 'Cons'
+  , '?'    : 'Choice'
+  , '()'   : 'Unit'
+  , '(,)'  : 'Pair'
+  , '(,,)' : 'Triple'
+  , '&&'   : 'and'
+  , '||'   : 'or'
+  , '(->)' : 'Arrow'
+  , '.'    : 'compose'
+  , '=='   : 'eq'
+  , '==='  : 'eq3'
+  , '/='   : 'ne'
+  , '<'    : 'lt'
+  , '>'    : 'gt'
+  , '<='   : 'le'
+  , '>='   : 'ge'
+  , '+'    : 'add'
+  , '-'    : 'sub'
+  , '*'    : 'mul'
+  , '/'    : 'div'
+  , '%'    : 'mod'
+  , '^'    : 'pow'
+  , '>>'   : 'rsh'
+  , '<<'   : 'lsh'
+  , '>>='  : 'irsh'
+  , '<<='  : 'ilsh'
   }
 
-def best(prefix, thing, disallow, limit=26):
+P_TRAILING = re.compile('(\S+)(_CASE\d+)')
+def specialName(s):
+  if s in SPECIAL:
+    return SPECIAL[s]
+  elif inspect.isa_tuple_name(s):
+    return 'Tuple%s' % (s.count(',') + 1)
+  elif s.startswith('Prelude.'):
+    return specialName(s[8:])
+  else:
+    m = re.match(P_TRAILING, s)
+    if m:
+      front, back = m.groups()
+      special = specialName(front)
+      if special:
+        return special + back
+
+def best(prefix, thing, disallow, limit=40):
   '''
   Choose the best name for something.
-  
+
   This is more art than science.  Every name must be unique and must be a valid
   Python identifier.  Names should be as short and easy to read as possible.
   Some context (i.e., the module or package name) is helpful unless the name
@@ -99,12 +125,19 @@ def best(prefix, thing, disallow, limit=26):
   assert len(best) <= limit
   return best
 
+
 def clean(s, dot_as_us=True):
   '''Clean up a string by encoding or removing illegal characters.'''
-  if s in SPECIAL:
-    return SPECIAL[s]
+  special = specialName(s)
+  if special:
+    return special
   elif s.startswith('Prelude.'):
-    return clean(s[8:], dot_as_us and not all(c == '.' for c in s[8:]))
+    tailname = s[8:]
+    if isaTypeclassIdentifier(tailname):
+      name = '_'.join(map(clean, tailname.split('#')[1:]))
+      return clean(name, dot_as_us)
+    else:
+      return clean(tailname, dot_as_us)
   else:
     if dot_as_us:
       s = s.replace('.', '_')
@@ -168,4 +201,8 @@ def isaCurryIdentifier(basename):
   non-alphanumeric, non-underscore, non-whitespace characters.
   '''
   return bool(re.match(P_IDENTIFIER, basename))
+
+P_TYPECLASS_KEYS = re.compile('^_(inst|impl|def|Dict)#')
+def isaTypeclassIdentifier(basename):
+  return bool(re.match(P_TYPECLASS_KEYS, basename))
 

@@ -85,6 +85,10 @@ class Renderer(object):
     '''Prints a block-closing string at the specified intentation level.'''
     return (2 * level + 1) * self.indent * ' ' + string
 
+  def _justify(self, seq):
+    width = max([len(x) for x in seq])
+    return min(width, self.hcol + 2 * self.indent + 1)
+
   def _plist(self, seq, level=0):
     '''Formats a list as one element per line with leading commas.'''
     it = iter(seq)
@@ -133,8 +137,7 @@ class Renderer(object):
       yield self._close(2, '))')
     yield self._close(1, ')')
     yield '  , functions=itertools.starmap(IFunction, ('
-    width = max([len(fullname) for fullname in imodule.functions.keys()])
-    width = min(width, self.hcol + 2 * self.indent + 1)
+    width = self._justify(imodule.functions.keys())
     for prefix, ifun in self._plist(imodule.functions.values(), level=1):
       yield '%s(%-{0}r, %r, %-7r, %-3r, %s)'.format(width+2) % (
           prefix, ifun.fullname, ifun.arity, ifun.vis, ifun.needed
@@ -149,8 +152,7 @@ class Renderer(object):
     yield '# Linking'
     yield '# -------'
     items = ir.closure.dict.items()
-    width = max([len(name) for name,_ in items])
-    width = min(width, self.hcol + 2 * self.indent + 1)
+    width = self._justify([name for name,_ in items])
     fmt = '%-{}s = %s'.format(width)
     for name, value in sorted(items, key=_sortkey):
       if name.startswith(statics.PX_DATA):

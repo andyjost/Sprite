@@ -10,6 +10,8 @@ PX_INFO = 'ni_' # node info
 PX_SYMB = 'cy_' # a Curry symbol
 PX_TYPE = 'ty_' # typedef
 
+LIMIT = 40
+
 class Closure(object):
   def __init__(self):
     # Bidirectional mapping:
@@ -47,7 +49,7 @@ class Closure(object):
     '''
     key = prefix, obj
     if key not in self.data:
-      handle = encoding.best(prefix, obj, disallow=self.data)
+      handle = encoding.best(prefix, obj, disallow=self.data, limit=LIMIT)
       self.data[key] = handle
       self.data[handle] = key
     return self.data[key]
