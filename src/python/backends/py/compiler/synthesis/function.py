@@ -4,6 +4,7 @@ Code for synthesizing built-in functions.
 
 from ..... import inspect
 from .. import ir, statics
+from ...runtime.currylib.prelude_impl import apply_unboxed
 import operator as op
 
 __all__ = ['synthesize_function']
@@ -62,8 +63,7 @@ def compile_unboxedfunc(interp, ifun, closure, entry):
   unboxedfunc = ifun.metadata.get('py.unboxedfunc', None)
   if unboxedfunc is not None:
     h_impl = closure.intern(unboxedfunc)
-    from ...runtime.currylib.prelude_impl import eval_unboxed
-    h_eval = closure.intern(eval_unboxed)
+    h_eval = closure.intern(apply_unboxed)
     lines = [
         'def %s(rts, _0):' % entry
       , [ 'return %s(rts, %s, _0)' % (h_eval, h_impl) ]

@@ -12,7 +12,7 @@ import operator as op
 
 logger = logging.getLogger(__name__)
 
-def unboxargs(rts, _0):
+def unbox_successors(rts, _0):
   args = [
       rts.variable(_0, i).hnf_or_free()
           for i in xrange(len(_0.successors))
@@ -23,19 +23,18 @@ def unboxargs(rts, _0):
   else:
     return (arg.unboxed_value for arg in args)
 
-HANDLERS = {
+BOXER = {
     bool:  lambda rts, rv: [getattr(rts.prelude, 'True' if rv else 'False')]
   , float: lambda rts, rv: [rts.prelude.Float, rv]
   , int:   lambda rts, rv: [rts.prelude.Int, rv]
   , str:   lambda rts, rv: [rts.prelude.Char, rv]
   }
 
-def eval_unboxed(rts, unboxedfunc, _0):
-  args = unboxargs(rts, _0)
-  result_value = unboxedfunc(*args)
-  handler = HANDLERS[type(result_value)]
-  result_args = handler(rts, result_value)
-  return rts.Node(*result_args, target=_0)
+def apply_unboxed(rts, unboxedfunc, _0):
+  '''Apply an unboxed function to the successors of _0 and box the result.'''
+  result_value = unboxedfunc(*unbox_successors(rts, _0))
+  box = BOXER[type(result_value)]
+  return rts.Node(*box(rts, result_value), target=_0)
 
 def constr_eq(rts, _0):
   '''Implements =:=.'''
