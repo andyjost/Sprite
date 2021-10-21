@@ -67,12 +67,20 @@ class Runtime(object):
   def InfoTable(self):
     assert 0
 
-  @abc.abstractmethod
-  def init_interpreter_state(self, interp):
+  @abc.abstractproperty
+  def evaluate(self):
     assert 0
 
   @abc.abstractmethod
   def get_interpreter_state(self, interp):
+    assert 0
+
+  @abc.abstractmethod
+  def init_interpreter_state(self, interp):
+    assert 0
+
+  @abc.abstractproperty
+  def lookup_builtin_module(self):
     assert 0
 
   @abc.abstractproperty
@@ -81,10 +89,6 @@ class Runtime(object):
 
   @abc.abstractproperty
   def setfunctions(self):
-    assert 0
-
-  @abc.abstractproperty
-  def evaluate(self):
     assert 0
 
   @abc.abstractmethod

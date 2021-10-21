@@ -17,7 +17,7 @@ class TestImporter(cytest.TestCase):
     self.assertNotIn('Control', interp.modules)
     self.assertNotIn('Control.SetFunctions', interp.modules)
     setf = interp.setfunctions
-    self.assertEqual(setf.__name__, 'SetFunctions')
+    self.assertEqual(setf.__name__, 'Control.SetFunctions')
     self.assertIn('Control', interp.modules)
     self.assertIn('Control.SetFunctions', interp.modules)
 
@@ -26,7 +26,8 @@ class TestImporter(cytest.TestCase):
     for name in [
         'Char', 'Either', 'Function', 'Functor.Identity', 'List', 'Maybe'
       ]:
-      cymodule = interp.import_('Data.' + name)
-      self.assertEqual(cymodule.__name__, name.split('.')[-1])
+      modulename = 'Data.' + name
+      cymodule = interp.import_(modulename)
+      self.assertEqual(cymodule.__name__, modulename)
 
 

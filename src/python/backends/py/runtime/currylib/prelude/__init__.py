@@ -14,7 +14,7 @@ from . import prelude as impl
 from ... import typecheckers as tc
 import math, operator as op
 
-__all__ = ['aliases', 'exports', 'Prelude']
+__all__ = ['aliases', 'exports', 'extern', 'Prelude']
 
 def aliases():
   '''Returns prelude aliases.  Simply for convenience.'''
@@ -219,3 +219,6 @@ _functions_ = [
 Prelude = icurry.IModule(
     name='Prelude', imports=[], types=_types_, functions=_functions_
   )
+
+def extern():
+  return Prelude

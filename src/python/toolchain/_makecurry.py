@@ -37,6 +37,8 @@ def makecurry(name, currypath=[], **kwds):
       currentfile = _findcurry.currentfile(
           name, currypath, json=do_json, **kwds
         )
+      if os.path.isdir(currentfile):
+        return currentfile
       # suffix = .curry, .icy, .json, or .json.z.
       if currentfile.endswith('.curry'):
         currentfile = _curry2icurry.curry2icurry(currentfile, currypath, **kwds)

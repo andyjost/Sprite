@@ -1,4 +1,4 @@
-from ..icurry import json as icurry_json
+from ..icurry import json as icurry_json, types as icurry_types
 from .. import cache
 from . import _filenames, _makecurry
 import logging, os, zlib
@@ -15,7 +15,7 @@ def loadicurry(name, currypath, **kwds):
   Parameters:
   -----------
   ``name``
-      The module name or source file name.
+      The source file, module, or package name.
   ``currypath``
       A sequence of paths to search (i.e., CURRYPATH split on ':').
   ``is_sourcefile``
@@ -32,7 +32,12 @@ def loadicurry(name, currypath, **kwds):
   '''
   filename = _makecurry.makecurry(name, currypath, **kwds)
   logger.debug('Found module %s at %s', name, filename)
-  return loadjson(filename)
+  if os.path.isdir(filename):
+    package = icurry_types.IPackage(name, [])
+    package.filename = filename
+    return package
+  else:
+    return loadjson(filename)
 
 def loadjson(jsonfile):
   '''

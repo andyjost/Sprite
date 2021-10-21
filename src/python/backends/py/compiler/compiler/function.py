@@ -43,7 +43,7 @@ def compileF(cc, iexternal):
   else:
     raise misc.ExternallyDefined(ifun)
 
-@compileF.when(icurry.IFuncBody)
+@compileF.when(icurry.IBody)
 def compileF(cc, function):
   lines = compileS(cc, function.block)
   cc.lines.append(list(lines))

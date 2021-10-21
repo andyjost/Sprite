@@ -29,7 +29,6 @@ def _object_hook(kwds):
     clsname = kwds.pop('__class__')
     cls = types.__dict__[clsname]
   except KeyError:
-    breakpoint()
     raise TypeError('No ICurry class named %s was found' % clsname)
   try:
     kwds = fmap(uni2str, kwds)
@@ -43,16 +42,7 @@ def _object_hook(kwds):
 def get_decoder():
   return json.JSONDecoder(object_hook=_object_hook)
 
-def parse(data, decoder=get_decoder()):
+def parse(json, decoder=get_decoder()):
   '''Parse ICurry encoded as JSON.'''
-  json = decoder.decode(data)
-  return postprocess(json)
-
-def postprocess(imodule):
-  assert isinstance(imodule, types.IModule)
-  if '.' in imodule.fullname:
-    parts = imodule.fullname.split('.')
-    for iend in reversed(range(1, len(parts))):
-      pkgname = '.'.join(parts[:iend])
-      imodule = types.IPackage(pkgname, [imodule])
-  return imodule
+  icurry = decoder.decode(json)
+  return icurry

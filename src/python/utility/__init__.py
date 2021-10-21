@@ -1,11 +1,5 @@
-import os
-import re
-from ..exceptions import ModuleLookupError
 
-__all__ = [
-    'formatDocstring', 'isLegalModulename', 'removeSuffix', 'translateKwds'
-  , 'unique'
-  ]
+__all__ = ['formatDocstring', 'translateKwds', 'unique']
 
 def formatDocstring(*args, **kwds):
   def decorator(arg):
@@ -20,19 +14,6 @@ def formatDocstring(*args, **kwds):
       arg.__doc__ = arg.__doc__.format(*args, **kwds)
       return arg
   return decorator
-
-g_ident = re.compile(r'[_a-zA-Z][_a-zA-Z0-9]*$')
-def isLegalModulename(name):
-  return all(re.match(g_ident, part) for part in name.split('.'))
-
-def validateModulename(name):
-  if not isLegalModulename(name):
-    raise ModuleLookupError('%r is not a legal module name.' % name)
-
-def removeSuffix(name, suffix):
-  if not name.endswith(suffix):
-    raise ValueError('expected suffix %r' % suffix)
-  return name[:-len(suffix)]
 
 def translateKwds(kwmap):
   '''

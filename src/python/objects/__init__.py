@@ -1,10 +1,22 @@
 '''
 Python wrappers for Curry objects.
+
+These objects constitute the primary user interface to Curry from Python, and,
+as such, merge the Python and Curry worlds.  A CurryModule, for example,
+contains not only attributes for all of the Curry objects in that module, but
+also special Python attributes such as __name__, __file__, and __path__, which
+are needed to convince Python to treat the object as a Python module.
+
+When the interest is to interact with Curry -- e.g., get symbols, form Curry
+expressions, and evaluate Curry goals -- the objects in this module should be
+used directly.  Alternatively, when the focus is on system-level activities, such
+as finding submodules, getting the ICurry, and so on, these objects should be
+wrapped in handle.Handle.
 '''
 
 from ..common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .. import icurry
-import types, weakref
+import os, types, weakref
 
 __all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeInfo']
 
@@ -13,26 +25,60 @@ __all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeInfo']
 # and all must begin with a dot.  The exceptions are Python special names,
 # which are unavoidable.
 class CurryModule(types.ModuleType):
-  '''A Python module for interfacing with Curry code.'''
+  '''
+  A Python module for interfacing with Curry modules.
+
+  This object is produced when a Curry module is imported into Python.  The
+  public module contents are exposed as attributes.
+
+  Special attributes beginning with '.' (so as not to conflict with Curry
+  names) contain information used by the Curry system.  These should generally
+  be accessed by other means, such as curry.symbol, curry.type, or
+  curry.inspect.icurry.
+  '''
   def __new__(cls, imodule):
-    assert isinstance(imodule, (icurry.IPackage, icurry.IModule))
+    assert not isinstance(imodule, icurry.IPackage) or cls is CurryPackage
+    assert not isinstance(imodule, icurry.IModule) or cls is CurryModule
     self = types.ModuleType.__new__(cls, imodule.name)
-    self.__file__ = getattr(imodule, 'filename', None)
     setattr(self, '.icurry', getattr(imodule, 'icurry', imodule))
     setattr(self, '.symbols', {})
     setattr(self, '.types', {})
     return self
 
   def __init__(self, imodule):
-    super(CurryModule, self).__init__(imodule.name)
+    types.ModuleType.__init__(self, imodule.name)
+    self.__file__ = imodule.filename
+    self.__package__ = self.__name__.rpartition('.')[0]
 
   def __repr__(self):
     return "<curry module '%s'>" % self.__name__
 
   __str__ = __repr__
 
+  @property
+  def is_package(self):
+    return False
+
+
 class CurryPackage(CurryModule):
-  pass
+  '''
+  A Python package for interfacing with Curry packages.
+  '''
+  def __init__(self, imodule):
+    CurryModule.__init__(self, imodule)
+    self.__file__ = os.path.join(self.__file__, '<virtual>')
+    self.__path__ = [os.path.dirname(self.__file__)]
+    self.__package__ = self.__name__
+
+  def __repr__(self):
+    return "<curry package '%s'>" % self.__name__
+
+  __str__ = __repr__
+
+  @property
+  def is_package(self):
+    return True
+
 
 class CurryDataType(object):
   def __init__(self, name, constructors, module):
@@ -112,4 +158,10 @@ class CurryNodeInfo(object):
     if self.info.tag == T_CONSTR:
       return "<curry constraint>"
     return "<invalid curry node>"
+
+def create_module_or_pacakge(icur):
+  if isinstance(icur, icurry.IPackage):
+    return CurryPackage(icur)
+  else:
+    return CurryModule(icur)
 

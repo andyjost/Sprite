@@ -1,0 +1,80 @@
+from ...utility.proptree import proptree
+import collections, weakref
+
+__all__ = ['IArity', 'IObject', 'IVarIndex']
+
+IArity = int
+IVarIndex = int
+
+class IObject(object):
+  def __init__(self, metadata=None):
+    if metadata is not None:
+      self._metadata = proptree(metadata)
+
+  @property
+  def metadata(self):
+    return getattr(self, '_metadata', {})
+
+  def update_metadata(self, items):
+    md = getattr(self.metadata, '_asdict', self.metadata)
+    md.update(items)
+    self._metadata = proptree(md)
+
+  @property
+  def children(self):
+    return ()
+
+  def copy(self, **updates):
+    '''Copy an IObject with optional updates.'''
+    data = self.dict()
+    data.update(**updates)
+    return type(self)(**data)
+
+  def dict(self):
+    '''Get the object properties as a dictionary.'''
+    if hasattr(self, '_fields_'):
+      return collections.OrderedDict(
+         (name, getattr(self, name)) for name in self._fields_
+       )
+    else:
+      return {
+          k:v for k,v in self.__dict__.iteritems()
+              if k not in ('parent', 'metadata')
+        }
+
+  # Make objects comparable by their contents.
+  def __eq__(lhs, rhs):
+    if rhs is None:
+      return False
+    if type(lhs) != type(rhs):
+      return False
+
+    # Compare dicts, ignoring parents.
+    return lhs.dict() == rhs.dict()
+
+  def __ne__(lhs, rhs):
+    return not (lhs == rhs)
+
+  def __hash__(self):
+    return hash(tuple(sorted(self.dict())))
+
+  def __repr__(self):
+    return '%s(%s)' % (
+        type(self).__name__
+      , ', '.join(
+            '%s=%r' % item for item in self.dict().items()
+          )
+      )
+
+  # Make pickling safe.  Attribute parent is a weakref, which cannot be
+  # pickled.  Just convert it to a normal ref and back.
+  def __getstate__(self):
+    state = self.__dict__.copy()
+    if 'parent' in state:
+      state['parent'] = self.parent()
+    return state
+
+  def __setstate__(self, state):
+    self.__dict__ = state.copy()
+    if getattr(self, 'parent', None) is not None:
+      self.parent = weakref.ref(self.parent)

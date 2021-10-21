@@ -64,7 +64,7 @@ if debugging():
 ###############################
 # The rest of the module.
 
-from .utility.currypath import clean_currypath
+from .utility import curryname
 import sys
 
 def interactive_modname():
@@ -159,7 +159,7 @@ def currypath(reset=False, cache=[]):
   if not cache:
     envpath = os.environ.get('CURRYPATH', '').split(':')
     syspath = system_curry_path().split(':')
-    currypath = clean_currypath(envpath + syspath)
+    currypath = curryname.makeCurryPath(envpath + syspath)
     cache.append(currypath)
     verify_syslibs()
   return cache[0]

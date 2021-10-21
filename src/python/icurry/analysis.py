@@ -1,5 +1,4 @@
-from . import types
-from . import visit
+from . import types, visit
 from ..utility.visitation import dispatch
 import sys
 

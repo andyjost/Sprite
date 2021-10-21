@@ -1,8 +1,38 @@
-import contextlib
 
 del_ = object()
 
-@contextlib.contextmanager
+class Binding(object):
+  def __init__(self, mapping, key, value):
+    self.committed = False
+    self.key = key
+    self.mapping = mapping
+    self.value = value
+
+  def commit(self):
+    self.committed = True
+
+  def __enter__(self):
+    self.prev = self.mapping.get(self.key, del_)
+    if self.value is del_:
+      try:
+        del self.mapping[self.key]
+      except KeyError:
+        pass
+    else:
+      self.mapping[self.key] = self.value
+    return self
+
+  def __exit__(self, *args):
+    if not self.committed:
+      if self.prev is del_:
+        try:
+          del self.mapping[self.key]
+        except KeyError:
+          pass
+      else:
+        self.mapping[self.key] = self.prev
+
+
 def binding(mapping, key, value):
   '''
   Context manager that temporarily binds a value in some mapping.
@@ -22,22 +52,5 @@ def binding(mapping, key, value):
   If value is ``del_``, then the element will be deleted.  The original state
   will be restored when exiting the context.
   '''
-  prev = mapping.get(key, del_)
-  if value is del_:
-    try:
-      del mapping[key]
-    except KeyError:
-      pass
-  else:
-    mapping[key] = value
-  try:
-    yield
-  finally:
-    if prev is del_:
-      try:
-        del mapping[key]
-      except KeyError:
-        pass
-    else:
-      mapping[key] = prev
+  return Binding(mapping, key, value)
 

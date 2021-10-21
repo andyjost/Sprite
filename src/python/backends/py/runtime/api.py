@@ -17,12 +17,22 @@ class Runtime(context.Runtime):
     from .graph import InfoTable
     return InfoTable
 
+  @property
+  def evaluate(self):
+    from .evaluator import Evaluator
+    return lambda *args, **kwds: Evaluator(*args, **kwds).evaluate()
+
+  def get_interpreter_state(self, interp):
+    return interp._its
+
   def init_interpreter_state(self, interp):
     from .state import InterpreterState
     interp._its = InterpreterState(interp)
 
-  def get_interpreter_state(self, interp):
-    return interp._its
+  @property
+  def lookup_builtin_module(self):
+    from .currylib import index
+    return index.lookup
 
   @property
   def prelude(self):
@@ -34,14 +44,8 @@ class Runtime(context.Runtime):
     from .currylib import setfunctions
     return setfunctions
 
-  @property
-  def evaluate(self):
-    from .evaluator import Evaluator
-    return lambda *args, **kwds: Evaluator(*args, **kwds).evaluate()
-
   def single_step(self, interp, expr):
     from .evaluator import Evaluator
     evaluator = Evaluator(interp, expr)
     expr.info.step(evaluator.rts, expr)
     return expr
-

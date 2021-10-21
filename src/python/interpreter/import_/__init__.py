@@ -3,9 +3,9 @@
 from . import link, load
 from ... import icurry, objects, toolchain
 from ...objects.handle import getHandle
-from ...utility.currypath import clean_currypath
-from ...utility import visitation, formatDocstring, validateModulename
-import collections, logging
+from ...utility.binding import binding
+from ...utility import curryname, formatDocstring, visitation
+import collections, contextlib, logging
 
 logger = logging.getLogger(__name__)
 
@@ -48,84 +48,120 @@ def import_(
   '''
   raise TypeError('cannot import type %r' % type(arg).__name__)
 
+# Import a module or package by name.
 @import_.when(str)
 def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
-  if is_sourcefile:
-    if not name.endswith('.curry'):
-      raise ValueError('expected a file name ending with .curry')
-    modulename = name[:-len('.curry')]
-  else:
-    modulename = name
-  validateModulename(modulename)
+  modulename = curryname.getModuleName(name, is_sourcefile)
   try:
     return interp.modules[modulename]
   except KeyError:
-    logger.info('Importing %s', modulename)
-    if modulename == 'Prelude':
-      prelude = interp.context.runtime.prelude
-      kwds.setdefault('extern', prelude.Prelude)
-      kwds.setdefault('export', prelude.exports())
-      kwds.setdefault('alias', prelude.aliases())
-    elif modulename == 'Control.SetFunctions':
-      setfunctions = interp.context.runtime.setfunctions
-      kwds.setdefault('extern', setfunctions.SetFunctions)
-      kwds.setdefault('export', setfunctions.exports())
-      kwds.setdefault('alias', setfunctions.aliases())
-    currypath = clean_currypath(interp.path if currypath is None else currypath)
-    icur = toolchain.loadicurry(name, currypath, is_sourcefile=is_sourcefile)
-    cymodule = interp.import_(icur, **kwds)
-    return getHandle(cymodule).findmodule(modulename)
+    importEx = ImportEx(interp, currypath, kwds)
+    prefixes = list(curryname.prefixes(modulename))
+    return importEx(prefixes)
 
+# Import a sequence or specifiers.
 @import_.when(collections.Sequence, no=str)
 def import_(interp, seq, *args, **kwds):
   return [interp.import_(item, *args, **kwds) for item in seq]
 
+# Import an ICurry package.
 @import_.when(icurry.IPackage)
-def import_(
-    interp, ipkg, currypath=None, extern=None, export=(), alias=()
-  ):
-  if ipkg.fullname not in interp.modules:
-    moduleobj = objects.CurryPackage(ipkg)
-    interp.modules[ipkg.fullname] = moduleobj
-  package = interp.modules[ipkg.fullname]
-  updatePackage(interp, package)
-  loadSubmodules(interp, ipkg, package, extern, export, alias)
-  return package
+def import_(interp, ipkg, currypath=None, **kwds):
+  importEx = ImportEx(interp, currypath, kwds)
+  return importEx(ipkg)
 
+# Import an ICurry module.
 @import_.when(icurry.IModule)
-def import_(
-    interp, imodule, currypath=None, extern=None, export=(), alias=()
-  ):
-  if imodule.fullname not in interp.modules:
-    imodule.merge(extern, export)
-    moduleobj = objects.CurryModule(imodule)
-    interp.modules[imodule.fullname] = moduleobj
-    updatePackage(interp, moduleobj)
-    load.loadSymbols(interp, imodule, moduleobj, extern=extern)
-    link.link(interp, imodule, moduleobj, extern=extern)
-    for name, target in alias:
-      if hasattr(moduleobj, name):
-        raise ValueError("cannot alias previously defined name '%s'" % name)
-      setattr(moduleobj, name, getattr(moduleobj, target))
-  return interp.modules[imodule.fullname]
+def import_(interp, imodule, currypath=None, **kwds):
+  importEx = ImportEx(interp, currypath, kwds)
+  return importEx(imodule)
 
-def loadSubmodules(interp, ipkg, package, extern, export, alias):
-  for name in ipkg.submodules.keys():
-    if not hasattr(package, name):
-      moduleobj = interp.import_(
-          ipkg[name], extern=extern, export=export, alias=alias
-        )
-      assert hasattr(package, name)
 
-def updatePackage(interp, moduleobj):
-  imodule = getattr(moduleobj, '.icurry')
-  if imodule.package is not None:
-    ipkg_from = imodule.package
-    pkgobj = interp.modules[ipkg_from.fullname]
-    assert not hasattr(pkgobj, imodule.name)
-    setattr(pkgobj, imodule.name, moduleobj)
-    ipkg_to = getattr(pkgobj, '.icurry')
-    assert ipkg_to.fullname == ipkg_from.fullname
-    ipkg_to.merge(ipkg_from, [imodule.name])
-    imodule.setparent(ipkg_to)
+class ImportEx(object):
+  '''
+  Low-level routine to import Curry packages and modules.
+  '''
+  def __init__(self, interp, currypath, kwds):
+    self.interp = interp
+    self.currypath = curryname.makeCurryPath(
+        interp.path if currypath is None else currypath
+      )
+    self.kwds = kwds
+
+  @visitation.dispatch.on('arg')
+  def __call__(self, arg, *args, **kwds):
+    assert False
+
+  @__call__.when(list)
+  def __call__(self, seq, rv=None):
+    if seq:
+      obj = seq.pop(0)
+      return self(obj, tail=seq)
+    else:
+      return rv
+
+  @__call__.when(str)
+  def __call__(self, modulename, tail=[]):
+    logger.info('Importing %s', modulename)
+    imodule = toolchain.loadicurry(modulename, self.currypath)
+    modspec = self.interp.context.runtime.lookup_builtin_module(modulename)
+    if modspec is not None:
+      kwds = self.kwds.copy()
+      kwds.setdefault('alias', modspec.aliases())
+      kwds.setdefault('export', modspec.exports())
+      kwds.setdefault('extern', modspec.extern())
+      moduleobj = self(imodule, tail, **kwds)
+    else:
+      moduleobj = self(imodule, tail, **self.kwds)
+    return moduleobj
+
+  @__call__.when(icurry.IPackage)
+  def __call__(self, ipkg, tail=[], **kwds):
+    if ipkg.fullname not in self.interp.modules:
+      with _provisionalModule(self.interp, ipkg) as pkgobj:
+        return self(tail, rv=pkgobj)
+    else:
+      pkgobj = self.interp.modules[ipkg.fullname]
+      return self(tail, rv=pkgobj)
+
+  @__call__.when(icurry.IModule)
+  def __call__(self, imodule, tail=[], extern=None, export=(), alias=()):
+    if imodule.fullname not in self.interp.modules:
+      imodule.merge(extern, export)
+      with _provisionalModule(self.interp, imodule) as moduleobj:
+        load.loadSymbols(self.interp, imodule, moduleobj, extern=extern)
+        link.link(self.interp, imodule, moduleobj, extern=extern)
+        for name, target in alias:
+          if hasattr(moduleobj, name):
+            raise ValueError("cannot alias previously defined name %r" % name)
+          setattr(moduleobj, name, getattr(moduleobj, target))
+        return self(tail, rv=moduleobj)
+    else:
+      moduleobj = self.interp.modules[imodule.fullname]
+      return self(tail, rv=moduleobj)
+
+
+@contextlib.contextmanager
+def _provisionalModule(interp, imodule):
+  '''
+  Context manager that creates a provisional CurryModule.
+
+  The provisional module is inserted into interp.modules and its parent
+  package, if any.  If the context exits abnormally then those changes are
+  rolled back.
+  '''
+  obj = objects.create_module_or_pacakge(imodule)
+  with binding(interp.modules, imodule.fullname, obj) as bind1:
+    packagename, _, modulename = imodule.fullname.rpartition('.')
+    if packagename:
+      packageobj = interp.modules[packagename]
+      packageicur = getattr(packageobj, '.icurry')
+      with binding(packageobj.__dict__, modulename, obj) as bind2:
+        with binding(packageicur.submodules, modulename, imodule) as bind3:
+          yield obj
+          bind3.commit()
+        bind2.commit()
+    else:
+      yield obj
+    bind1.commit()
 

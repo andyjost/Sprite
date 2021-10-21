@@ -10,6 +10,8 @@ from .. import fairscheme, graph
 from ..... import icurry, inspect
 import logging
 
+__all__ = ['aliases', 'exports', 'extern', 'SetFunctions']
+
 logger = logging.getLogger(__name__)
 
 NO_SID = -1            # an undetermined set ID.
@@ -163,3 +165,6 @@ _functions_ = [
 SetFunctions = icurry.IModule(
     fullname='Control.SetFunctions', imports=[], types=_types_, functions=_functions_
   )
+
+def extern():
+  return SetFunctions

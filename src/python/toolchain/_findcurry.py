@@ -2,12 +2,13 @@ from ..exceptions import ModuleLookupError, PrerequisiteError
 from .. import config
 from . import _filenames
 from ..tools.utility import make_exception
-from ..utility import filesys, validateModulename
+from ..utility import curryname, filesys
 import logging, os
 
 __all__ = ['currentfile']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
+# PACKAGE_INITFILE = 'init.curry'
 
 def currentfile(
     name, currypath, is_sourcefile=False, json=True, icy=True, **ignored
@@ -21,11 +22,13 @@ def currentfile(
   Parameters:
   -----------
   ``name``
-      The module name or source file name.
+      The module, source file, or package name.
   ``currypath``
       A sequence of paths to search (i.e., CURRYPATH split on ':').
   ``is_sourcefile``
-      Indicates how to interpreter the name.
+      Indicates whether to interpret the name as a source file.  If True, the
+      name should end with extension .curry.  Otherwise the name is interpreted
+      as a module or package name.
   ``json``
       Whether to include JSON files in the search.  Setting this to false can
       be used to find an .icy file.
@@ -39,9 +42,11 @@ def currentfile(
 
   Returns:
   --------
-  The name of either an ICurry-JSON file (suffix: .json) or Curry source file
-  (suffix: .curry).  The JSON name may have an additional .z suffix.  The JSON
-  file is returned if it is up-to-date, otherwise, the Curry file is returned.
+  The name of an ICurry-JSON file (suffix: .json), Curry source file (suffix:
+  .curry) or directory.  The JSON name may have an additional .z suffix.  The
+  JSON file is returned if it is up-to-date, otherwise, the Curry file is
+  returned if it exists.  If neither of those applies, the package directory
+  name is returned, if it exists.
   '''
   if not is_sourcefile:
     # If name is a module name, then search CURRYPATH for the source file or
@@ -49,7 +54,7 @@ def currentfile(
     # is_sourcefile=True.  It is acceptable to use a JSON file that has no
     # corresponding source file.  This means a library could be installed as
     # JSON only, without needing to install its source.
-    validateModulename(name)
+    curryname.validateModulename(name)
     # Search for the JSON file first, then ICurry, then .curry.
     suffixes = ['.json', '.json.z'] if json else []
     suffixes += ['.icy'] if icy else []
@@ -60,6 +65,7 @@ def currentfile(
             for suffix in suffixes
       ]
     search_names += [os.path.join(package_path, name + '.curry')]
+    search_names += [os.path.join(package_path, name, '')]
     files = filesys.findfiles(currypath, search_names)
     try:
       name = next(files)
@@ -69,7 +75,10 @@ def currentfile(
         , 'Curry module %r not found.' % name
         , hint=lambda:_fileNotFoundHint(name)
         )
-    name = _filenames.curryfilename(name)
+    if os.path.isdir(name):
+      return name
+    else:
+      name = _filenames.curryfilename(name)
 
   # Find the newest prerequisite.
   curryfile = name
