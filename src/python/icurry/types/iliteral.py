@@ -8,9 +8,8 @@ __all__ = ['IChar', 'IFloat', 'IInt', 'IUnboxedLiteral', 'ILiteral']
 
 class IInt(ISymbol):
   def __init__(self, value, **kwds):
-    self.fullname = 'Prelude.Int'
+    ISymbol.__init__(self, 'Prelude.Int', **kwds)
     self.value = int(value)
-    ISymbol.__init__(self, **kwds)
   @property
   def modulename(self):
     return 'Prelude'
@@ -21,10 +20,9 @@ class IInt(ISymbol):
 
 class IChar(ISymbol):
   def __init__(self, value, **kwds):
-    self.fullname = 'Prelude.Char'
+    ISymbol.__init__(self, 'Prelude.Char', **kwds)
     self.value = str(value)
     assert len(self.value) in (1,2) # Unicode can have length 2 in utf-8
-    ISymbol.__init__(self, **kwds)
   @property
   def modulename(self):
     return 'Prelude'
@@ -35,9 +33,8 @@ class IChar(ISymbol):
 
 class IFloat(ISymbol):
   def __init__(self, value, **kwds):
-    self.fullname = 'Prelude.Float'
+    ISymbol.__init__(self, 'Prelude.Float', **kwds)
     self.value = float(value)
-    ISymbol.__init__(self, **kwds)
   @property
   def modulename(self):
     return 'Prelude'

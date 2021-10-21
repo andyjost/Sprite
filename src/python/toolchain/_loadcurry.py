@@ -33,7 +33,7 @@ def loadicurry(name, currypath, **kwds):
   filename = _makecurry.makecurry(name, currypath, **kwds)
   logger.debug('Found module %s at %s', name, filename)
   if os.path.isdir(filename):
-    package = icurry_types.IPackage(name, [])
+    package = icurry_types.IPackage(name)
     package.filename = filename
     return package
   else:

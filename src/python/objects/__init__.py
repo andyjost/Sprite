@@ -46,7 +46,7 @@ class CurryModule(types.ModuleType):
     return self
 
   def __init__(self, imodule):
-    types.ModuleType.__init__(self, imodule.name)
+    types.ModuleType.__init__(self, imodule.fullname)
     self.__file__ = imodule.filename
     self.__package__ = self.__name__.rpartition('.')[0]
 

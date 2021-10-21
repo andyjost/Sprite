@@ -1,5 +1,4 @@
-from .isymbol import ISymbol
-from . import inspect
+from .isymbol import IContainer
 from abc import ABCMeta
 from collections import OrderedDict
 from ...utility import translateKwds
@@ -7,26 +6,9 @@ import weakref
 
 # Note: 'from curry.types import *' must import all dependencies needed to
 # reconstruct a dump of ICurry.  For this purpose, OrderedDict is included.
-__all__ = ['IModule', 'IModuleFacade', 'IProg', 'OrderedDict']
+__all__ = ['IModule', 'IModuleFacade', 'IPackage', 'IProg', 'OrderedDict']
 
-# FIXME: it looks like this can be merged into ISymbol.
-class IPackageOrModule(ISymbol):
-  def setparent(self, parent):
-    if parent is None:
-      del self.__dict__['parent']
-    else:
-      assert inspect.isa_package(parent)
-      self.parent = weakref.ref(parent)
-    return self
-
-  @property
-  def package(self):
-    if hasattr(self, 'parent'):
-      parent = self.parent()
-      assert inspect.isa_package(parent)
-      return parent
-
-class IModule(IPackageOrModule):
+class IModule(IContainer):
   @translateKwds({'name': 'fullname'})
   def __init__(self, fullname, imports, types, functions, filename=None, **kwds):
     '''
@@ -38,12 +20,12 @@ class IModule(IPackageOrModule):
       functions   A sequence of IFunctions, or a mapping or sequence of pairs
                   from string to IFunction.
     '''
-    self.fullname = str(fullname)
+    # self.fullname = str(fullname)
+    IContainer.__init__(self, fullname, **kwds)
     self.imports = tuple(set(str(x) for x in imports))
-    self.types = symboltable(self, types)
-    self.functions = symboltable(self, functions)
+    self.types = _makeSymboltable(self, types)
+    self.functions = _makeSymboltable(self, functions)
     self.filename = str(filename) if filename is not None else None
-    ISymbol.__init__(self, **kwds)
 
   _fields_ = 'fullname', 'filename', 'imports', 'types', 'functions'
 
@@ -89,6 +71,43 @@ class IModule(IPackageOrModule):
 
 IProg = IModule
 
+
+class IPackage(IContainer, dict):
+  '''
+  A container for subpackages and/or modules.
+  '''
+  def __init__(self, fullname, **kwds):
+    IContainer.__init__(self, fullname, **kwds)
+    dict.__init__(self)
+
+  _fields_ = 'fullname', 'submodules'
+
+  @property
+  def submodules(self):
+    return self
+
+  @property
+  def children(self):
+    return self.submodules.values()
+
+  def __str__(self):
+    return '\n'.join(
+        [
+            'Package:'
+          , '--------'
+          , '  name: %s' % self.name
+          , '  fullname: %s' % self.fullname
+          , '  keys: %s' % sorted(self.submodules.keys())
+          , ''
+          , '  submodules:'
+          , '  -----------'
+          ]
+      + [   '    ' + line for key in sorted(self)
+                          for line in str(self[key]).split('\n')
+          ]
+      )
+
+
 class IModuleFacade(IModule):
   '''
   A module in which every IFunction body is an instance of IMaterial.  Used for
@@ -101,11 +120,11 @@ class IModuleFacade(IModule):
       if not isinstance(ifun.body, IMaterial):
         ifun.body = IMaterial(ifun.body)
 
-def symboltable(parent, objs):
+def _makeSymboltable(parent, objs):
   if isinstance(objs, OrderedDict):
     return objs
   else:
-    return OrderedDict(
-        (v.name, v) for v in (v.setparent(parent) for v in objs)
-      )
+    for v in objs:
+      v.modulename = parent.fullname
+    return OrderedDict((v.name, v) for v in objs)
 

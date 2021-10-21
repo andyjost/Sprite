@@ -157,7 +157,7 @@ def _provisionalModule(interp, imodule):
       packageobj = interp.modules[packagename]
       packageicur = getattr(packageobj, '.icurry')
       with binding(packageobj.__dict__, modulename, obj) as bind2:
-        with binding(packageicur.submodules, modulename, imodule) as bind3:
+        with binding(packageicur, modulename, imodule) as bind3:
           yield obj
           bind3.commit()
         bind2.commit()

@@ -1,7 +1,6 @@
 from abc import ABCMeta
 from .iobject import IArity, IObject
 from .isymbol import ISymbol
-from . import inspect
 from ...utility.formatting import indent
 from ...utility import translateKwds
 import weakref
@@ -11,21 +10,22 @@ __all__ = ['IFunction', 'IVisibility', 'Private', 'PRIVATE', 'Public', 'PUBLIC']
 class IFunction(ISymbol):
   @translateKwds({'name': 'fullname'})
   def __init__(self, fullname, arity, vis=None, needed=None, body=[], **kwds):
-    assert arity >= 0
-    self.fullname = fullname
+    ISymbol.__init__(self, fullname, **kwds)
     self.arity = IArity(arity)
     self.vis = PUBLIC if vis is None else vis
     # None means no info; [] means nothing needed.
     self.needed = None if needed is None else map(int, needed)
     self.body = body
-    ISymbol.__init__(self, **kwds)
 
   _fields_ = 'fullname', 'arity', 'vis', 'needed', 'body'
 
-  def setparent(self, parent):
-    assert inspect.isa_module(parent)
-    self.parent = weakref.ref(parent)
-    return self
+  @property
+  def name(self):
+    return self.fullname[len(self.modulename)+1:]
+
+  @property
+  def packagename(self):
+    return self.modulename.rpartition('.')[0]
 
   @property
   def is_private(self):

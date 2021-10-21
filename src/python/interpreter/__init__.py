@@ -117,13 +117,13 @@ class Interpreter(object):
     Look up a symbol by its fully-qualified name or by its name relative to a
     module.
     '''
-    modulename, objname = icurry.utility.splitname(name)
+    modulename, _, objname = name.partition('.')
     moduleobj = self.module(modulename)
     return getHandle(moduleobj).getsymbol(objname)
 
   def type(self, name):
     '''Returns the constructor info tables for the named type.'''
-    modulename, name = icurry.utility.splitname(name)
+    modulename, _, name = name.partition('.')
     moduleobj = self.module(modulename)
     return getHandle(moduleobj).gettype(name)
 

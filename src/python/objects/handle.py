@@ -40,7 +40,7 @@ class Handle(object):
 
   def package(self, interp):
     pkg = interp.modules.get(self.packagename, None)
-    if pkg is not None:
+    if pkg:
       return Handle(pkg)
 
   def __nonzero__(self):
@@ -124,7 +124,8 @@ class Handle(object):
   def getsymbol(self, name):
     '''Method of CurryModule to look up a symbol by name.'''
     if self.is_package:
-      head, tail = icurry.utility.splitname(name)
+      # head, tail = icurry.utility.splitname(name)
+      head, _, tail = name.partition('.')
       return self.submodule(head).getsymbol(tail)
     else:
       try:
@@ -137,7 +138,8 @@ class Handle(object):
   def gettype(self, name):
     '''Method of CurryModule to look up a type by name.'''
     if self.is_package:
-      head, tail = icurry.utility.splitname(name)
+      # head, tail = icurry.utility.splitname(name)
+      head, _, tail = name.partition('.')
       return self.submodule(head).getsymbol(tail)
     else:
       try:

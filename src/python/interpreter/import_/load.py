@@ -57,7 +57,6 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
   constructors.extend(
       loadSymbols(
           interp, itype.constructors, moduleobj, extern, itype=itype
-        # , constructors=constructors
         )
     )
   typedef = objects.CurryDataType(itype.name, constructors, moduleobj)
@@ -67,9 +66,7 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
   return typedef
 
 @loadSymbols.when(icurry.IConstructor)
-def loadSymbols(
-    interp, icons, moduleobj, extern=None, itype=None # , constructors=None
-  ):
+def loadSymbols(interp, icons, moduleobj, extern=None, itype=None):
   cc = interp.context.compiler
   info = cc.synthesize_constructor_info(interp, itype, icons, extern)
   info_object = objects.CurryNodeInfo(icons, info)

@@ -1,3 +1,4 @@
+from ...utility import curryname
 from ...utility.proptree import proptree
 import collections, weakref
 
@@ -39,7 +40,7 @@ class IObject(object):
     else:
       return {
           k:v for k,v in self.__dict__.iteritems()
-              if k not in ('parent', 'metadata')
+              if k != 'metadata'
         }
 
   # Make objects comparable by their contents.
@@ -49,7 +50,7 @@ class IObject(object):
     if type(lhs) != type(rhs):
       return False
 
-    # Compare dicts, ignoring parents.
+    # Compare dicts.
     return lhs.dict() == rhs.dict()
 
   def __ne__(lhs, rhs):
@@ -65,16 +66,3 @@ class IObject(object):
             '%s=%r' % item for item in self.dict().items()
           )
       )
-
-  # Make pickling safe.  Attribute parent is a weakref, which cannot be
-  # pickled.  Just convert it to a normal ref and back.
-  def __getstate__(self):
-    state = self.__dict__.copy()
-    if 'parent' in state:
-      state['parent'] = self.parent()
-    return state
-
-  def __setstate__(self, state):
-    self.__dict__ = state.copy()
-    if getattr(self, 'parent', None) is not None:
-      self.parent = weakref.ref(self.parent)

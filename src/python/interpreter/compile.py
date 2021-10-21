@@ -71,8 +71,9 @@ def compile(
         curry_code, currypath
       , keep_temp_files=interp.flags['keep_temp_files']
       )
-    icur.functions[visible_name] = icur.functions.pop(compiled_name)
-    icur.functions[visible_name].name = visible_name
+    funobj = icur.functions.pop(compiled_name)
+    funobj.fullname = '.'.join([funobj.modulename, visible_name])
+    icur.functions[visible_name] = funobj
     module = interp.import_(icur)
     del interp.modules[icur.name]
     func = getattr(module, '.symbols')[visible_name]

@@ -17,7 +17,6 @@ from .ifunction   import *
 from .iliteral    import *
 from .imodule     import *
 from .iobject     import *
-from .ipackage    import *
 from .istatement  import *
 from .isymbol     import *
 from .itype       import *
