@@ -133,6 +133,7 @@ class Interpreter(object):
   from ..expressions import expr
   from .eval import eval
   from .import_ import import_
+  from .loadsave import load, save
 
   unbox = staticmethod(unbox)
 

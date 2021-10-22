@@ -27,13 +27,16 @@ class IR(object):
     assert not any('\n' in line for line in lines)
 
   @visitation.dispatch.on('stream')
-  def dump(self, stream):
+  def dump(self, stream=None):
+    stream.write(self.dump())
+
+  @dump.when(type(None))
+  def dump(self, _=None):
     from . import render
-    python_code = render.render(self)
-    stream.write(python_code)
+    return render.render(self)
 
   @dump.when(basestring)
-  def dump(self, filename):
+  def dump(self, filename=None):
     with open(filename, 'w') as out:
       self.dump(out)
 

@@ -101,7 +101,7 @@ class Renderer(object):
       fprefix = '{}%-{}s'.format(prefill, self.indent)
       yield fprefix % ' ', v
       commafill = fprefix % ','
-      for v in seq:
+      for v in it:
         yield commafill, v
 
   def _convertIR2Lines(self, ir):
@@ -129,22 +129,28 @@ class Renderer(object):
     yield '  , filename=%r' % imodule.filename
     yield '  , imports=%s'  % repr(imodule.imports)
     yield '  , icurry=toolchain.loadicurry(%r, curry.path)' % imodule.fullname
-    yield '  , types=('
-    for prefix, itype in self._plist(imodule.types.itervalues(), level=1):
-      yield '%sIDataType(%r, (' % (prefix, itype.fullname)
-      for prefix, ictor in self._plist(itype.constructors, level=2):
-        yield '%s%r' % (prefix, ictor)
-      yield self._close(2, '))')
-    yield self._close(1, ')')
-    yield '  , functions=itertools.starmap(IFunction, ('
-    width = self._justify(imodule.functions.keys())
-    for prefix, ifun in self._plist(imodule.functions.values(), level=1):
-      yield '%s(%-{0}r, %r, %-7r, %-3r, %s)'.format(width+2) % (
-          prefix, ifun.fullname, ifun.arity, ifun.vis, ifun.needed
-        , ifun.body.linkname
-        )
-    yield self._close(1, '))')
-    yield self._close(0, ')')
+    if not imodule.types:
+      yield '  , types=[]'
+    else:
+      yield '  , types=['
+      for prefix, itype in self._plist(imodule.types.itervalues(), level=1):
+        yield '%sIDataType(%r, [' % (prefix, itype.fullname)
+        for prefix, ictor in self._plist(itype.constructors, level=2):
+          yield '%s%r' % (prefix, ictor)
+        yield self._close(2, '])')
+      yield self._close(1, ']')
+    if not imodule.functions:
+      yield '  , functions=[]'
+    else:
+      yield '  , functions=itertools.starmap(IFunction, ['
+      width = self._justify(imodule.functions.keys())
+      for prefix, ifun in self._plist(imodule.functions.values(), level=1):
+        yield '%s(%-{0}r, %r, %-7r, %-3r, %s)'.format(width+2) % (
+            prefix, ifun.fullname, ifun.arity, ifun.vis, ifun.needed
+          , ifun.body.linkname
+          )
+      yield self._close(1, '])')
+      yield self._close(0, ')')
     yield ''
     yield '_module_ = %s.import_(_icurry_)' % config.python_package_name()
     yield ''
