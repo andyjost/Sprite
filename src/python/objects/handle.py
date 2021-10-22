@@ -124,7 +124,6 @@ class Handle(object):
   def getsymbol(self, name):
     '''Method of CurryModule to look up a symbol by name.'''
     if self.is_package:
-      # head, tail = icurry.utility.splitname(name)
       head, _, tail = name.partition('.')
       return self.submodule(head).getsymbol(tail)
     else:
@@ -138,7 +137,6 @@ class Handle(object):
   def gettype(self, name):
     '''Method of CurryModule to look up a type by name.'''
     if self.is_package:
-      # head, tail = icurry.utility.splitname(name)
       head, _, tail = name.partition('.')
       return self.submodule(head).getsymbol(tail)
     else:
