@@ -1,7 +1,6 @@
 from ......exceptions import ExecutionError
-from ... import graph
 
-__all__ = ['choice', 'error', 'failed', 'not_used', '_PyGenerator']
+__all__ = ['choice', 'error', 'failed', 'not_used']
 
 def choice(rts, _0):
   yield rts.prelude._Choice
@@ -19,13 +18,3 @@ def failed(rts):
 def not_used(rts, _0):
   raise RuntimeError("function 'Prelude.%s' is not used by Sprite" % _0.info.name)
 
-def _PyGenerator(rts, gen):
-  '''Implements a Python generator as a Curry list.'''
-  try:
-    item = next(gen.target)
-  except StopIteration:
-    yield rts.prelude.Nil
-  else:
-    yield rts.prelude.Cons
-    yield rts.expr(item)
-    yield graph.Node(rts.prelude._PyGenerator, gen.target)

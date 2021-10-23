@@ -6,11 +6,29 @@ import types
 
 __all__ = [
     'IBody'       # Normal definition (i.e., IBlock).
-  , 'IExternal'   # External definition.
+  , 'IBuiltin'    # No body specified.
+  , 'IExternal'   # External definition.  The body will be resolved later.
   , 'IFuncBody'   # Alias for IBody.
   , 'ILink'       # Linker name.
   , 'IMaterial'   # Back-end code implementing the function.
   ]
+
+class IBuiltin(IObject):
+  '''The function implementation should be provided in the metadata.'''
+  def __init__(self, metadata):
+    for kind in ['py.boxedfunc', 'py.rawfunc', 'py.unboxedfunc']:
+      if kind in metadata:
+        kindname = kind.partition('.')[-1]
+        impl = metadata[kind]
+        self.text = '(%s %r from %r)' % (kindname, impl.__name__, impl.__module__)
+        break
+    else:
+      self.text = '(built-in)'
+  def __str__(self):
+    return self.text
+  def __repr__(self):
+    return '%s()' % type(self).__name__
+
 
 class IExternal(IObject):
   '''A link to external Curry function.'''
@@ -63,6 +81,7 @@ class IFuncBody(IObject):
   def __repr__(self):
     return 'IFuncBody(block=%r)' % self.block
 
+IFuncBody.register(IBuiltin)
 IFuncBody.register(IExternal)
 IFuncBody.register(ILink)
 IFuncBody.register(IMaterial)

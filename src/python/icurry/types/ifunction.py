@@ -1,4 +1,5 @@
 from abc import ABCMeta
+from .ibody import IBuiltin
 from .iobject import IArity, IObject
 from .isymbol import ISymbol
 from ...utility.formatting import indent
@@ -9,13 +10,13 @@ __all__ = ['IFunction', 'IVisibility', 'Private', 'PRIVATE', 'Public', 'PUBLIC']
 
 class IFunction(ISymbol):
   @translateKwds({'name': 'fullname'})
-  def __init__(self, fullname, arity, vis=None, needed=None, body=[], **kwds):
+  def __init__(self, fullname, arity, vis=None, needed=None, body=None, **kwds):
     ISymbol.__init__(self, fullname, **kwds)
     self.arity = IArity(arity)
     self.vis = PUBLIC if vis is None else vis
     # None means no info; [] means nothing needed.
     self.needed = None if needed is None else map(int, needed)
-    self.body = body
+    self.body = body if body is not None else IBuiltin(self.metadata)
 
   _fields_ = 'fullname', 'arity', 'vis', 'needed', 'body'
 

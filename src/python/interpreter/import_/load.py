@@ -6,6 +6,7 @@ from ... import icurry, objects
 from ...utility import encoding, visitation
 import collections, weakref
 
+
 __all__ = ['loadSymbols']
 
 @visitation.dispatch.on('idef')
@@ -31,7 +32,7 @@ def loadSymbols(interp, mapping, moduleobj, **kwds):
 def loadSymbols(interp, imodule, moduleobj, **kwds):
   for modulename in imodule.imports:
     interp.import_(modulename)
-  icurry.analysis.set_monadic_metadata(imodule, interp.modules)
+  interp.optimize(imodule)
   loadSymbols(interp, imodule.types, moduleobj, **kwds)
   loadSymbols(interp, imodule.functions, moduleobj, **kwds)
   return moduleobj

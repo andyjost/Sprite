@@ -32,6 +32,12 @@ def compileE(cc, iliteral, primary=False):
   text = '%s, %r' % (h_lit, iliteral.value)
   return 'rts.Node(%s)' % text if primary else text
 
+@compileE.when(icurry.IString)
+def compileE(cc, istring, primary=False):
+  h_str = cc.intern(istring)
+  text = 'rts.prelude._PyString, memoryview(%s)' % h_str
+  return 'rts.Node(%s)' % text if primary else text
+
 @compileE.when(icurry.IUnboxedLiteral)
 def compileE(cc, iunboxed, primary=False):
   return repr(iunboxed)

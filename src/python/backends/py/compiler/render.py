@@ -169,6 +169,8 @@ class Renderer(object):
         yield fmt % (name, 'curry.symbol(%r)' % value.fullname)
       elif name.startswith(statics.PX_TYPE):
         yield fmt % (name, 'curry.type(%r)' % value.fullname)
+      elif name.startswith(statics.PX_STR):
+        yield fmt % (name, '%r' % value)
     yield ''
     yield ''
     yield '''if __name__ == '__main__':'''

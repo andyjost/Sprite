@@ -1,5 +1,6 @@
+import contextlib, sys
 
-__all__ = ['formatDocstring', 'translateKwds', 'unique']
+__all__ = ['formatDocstring', 'maxrecursion', 'translateKwds', 'unique']
 
 def formatDocstring(*args, **kwds):
   def decorator(arg):
@@ -14,6 +15,15 @@ def formatDocstring(*args, **kwds):
       arg.__doc__ = arg.__doc__.format(*args, **kwds)
       return arg
   return decorator
+
+@contextlib.contextmanager
+def maxrecursion(limit=1<<30):
+  prevlimit = sys.getrecursionlimit()
+  try:
+    sys.setrecursionlimit(limit)
+    yield
+  finally:
+    sys.setrecursionlimit(prevlimit)
 
 def translateKwds(kwmap):
   '''

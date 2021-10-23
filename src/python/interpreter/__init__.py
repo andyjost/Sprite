@@ -134,6 +134,7 @@ class Interpreter(object):
   from .eval import eval
   from .import_ import import_
   from .loadsave import load, save
+  from .optimize import optimize
 
   unbox = staticmethod(unbox)
 

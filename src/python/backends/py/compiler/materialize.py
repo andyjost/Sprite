@@ -17,7 +17,7 @@ def materialize(interp, ir, debug=False, ifun=None):
     # function.
     assert ifun is not None
     srcdir = filesys.getDebugSourceDir()
-    name = encoding.symbolToFilename(ifun.name)
+    name = encoding.symbolToFilename(ifun.fullname)
     srcfile = filesys.makeNewfile(srcdir, name)
     with open(srcfile, 'w') as out:
       out.write(source)

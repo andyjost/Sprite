@@ -4,7 +4,7 @@ from abc import ABCMeta
 from ...backends.py.sprite import Fingerprint
 import collections
 
-__all__ = ['IChar', 'IFloat', 'IInt', 'IUnboxedLiteral', 'ILiteral']
+__all__ = ['IChar', 'IFloat', 'IInt', 'ILiteral', 'IString', 'IUnboxedLiteral']
 
 class IInt(ISymbol):
   def __init__(self, value, **kwds):
@@ -43,6 +43,18 @@ class IFloat(ISymbol):
   def __repr__(self):
     return 'IFloat(value=%r)' % self.value
 
+class IString(ISymbol):
+  def __init__(self, value, **kwds):
+    ISymbol.__init__(self, 'Prelude._PyString', **kwds)
+    self.value = str(value)
+  @property
+  def modulename(self):
+    return 'Prelude'
+  def __str__(self):
+    return '_PyString(%r)' % self.value
+  def __repr__(self):
+    return 'IString(value=%r)' % self.value
+
 class IUnboxedLiteral(IObject):
   __metaclass__ = ABCMeta
 IUnboxedLiteral.register(int)
@@ -52,6 +64,8 @@ IUnboxedLiteral.register(float)
 # to reduce it.  This should always be the argument to an instance of
 # Prelude._PyGenerator.
 IUnboxedLiteral.register(collections.Iterator)
+# A view of raw memory (used by _PyString).
+IUnboxedLiteral.register(memoryview)
 # Extend the builtins to include fingerprints.
 IUnboxedLiteral.register(Fingerprint)
 
@@ -61,4 +75,5 @@ ILiteral.register(IInt)
 ILiteral.register(IChar)
 ILiteral.register(IFloat)
 ILiteral.register(IUnboxedLiteral)
+ILiteral.register(IString)
 

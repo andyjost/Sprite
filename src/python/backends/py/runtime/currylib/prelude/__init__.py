@@ -45,6 +45,7 @@ def exports():
   yield '(->)'
   # Helper functions.
   yield '_PyGenerator'
+  yield '_PyString'
   # Clobber the definition of Prelude.? with Sprite's own.
   yield '?'
   # Include all of the primitives.  Sprite compiles the Prelude with __KICS2__
@@ -189,6 +190,7 @@ _functions_ = [
   , _F('prim_truncateFloat'    , 1, metadata={'py.unboxedfunc': int                     })
   , _F('prim_writeFile'        , 2, metadata={'py.rawfunc'    : impl.writeFile          , 'all.monadic': True })
   , _F('_PyGenerator'          , 1, metadata={'py.boxedfunc'  : impl._PyGenerator       })
+  , _F('_PyString'             , 1, metadata={'py.boxedfunc'  : impl._PyString          })
   , _F('quotInt'               , 2, metadata={'py.unboxedfunc': impl.quotInt            })
   , _F('remInt'                , 2, metadata={'py.unboxedfunc': impl.remInt             })
   , _F('returnIO'              , 1, metadata={'py.rawfunc'    : impl.returnIO           , 'all.monadic': True })
