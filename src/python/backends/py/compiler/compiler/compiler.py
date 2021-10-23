@@ -42,15 +42,18 @@ class FunctionCompiler(object):
     self.varinfo = None
 
   def __str__(self):
-    maxlen = max(map(len, self.closure.context.keys()) or [0])
+    code = render.render(self.lines, istart=1)
+    maxlen = max(map(len, self.closure.data.keys()) or [0])
     fmt = '  %%-%ds -> %%s' % min(maxlen, 25)
     lines = []
     lines += ['Closure:'
            ,  '--------']
-    lines += [fmt % item for item in sorted(self.closure.context.items())]
+    # lines += [fmt % item for item in sorted(self.closure.data.items())]
+    cpred = lambda cname: cname in code
+    lines += render.render(self.closure, cpred=cpred).split('\n')
     lines += ['', 'Code:'
                 , '-----']
-    lines += render.indent(self.lines)
+    lines += code.split('\n')
     return '\n'.join(lines)
 
   def compile(self):

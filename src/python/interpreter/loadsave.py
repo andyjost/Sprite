@@ -1,5 +1,9 @@
-from .. import inspect
-import runpy
+from ..objects import handle
+import logging, runpy
+
+logger = logging.getLogger(__name__)
+
+__all__ = ['load', 'save']
 
 def load(interp, name):
   '''
@@ -14,12 +18,20 @@ def load(interp, name):
   --------
     An instance of object.CurryModule.
   '''
+  logger.info('Loading %r', name)
   if name.endswith('.py'):
     pymodule = runpy.run_path(name)
-    return pymodule['_module_']
+    cymodule = pymodule['_module_']
   else:
     pymodule = __import__(name)
-    return pymodule._module_
+    cymodule = pymodule._module_
+  if logger.isEnabledFor(logging.INFO):
+    h = handle.getHandle(cymodule)
+    logger.info(
+        'Loaded Curry module %r from %r (%r types, %r symbols)'
+      , h.fullname, name, len(h.types), len(h.symbols)
+      )
+  return cymodule
 
 def save(interp, cymodule, filename=None):
   '''
@@ -40,8 +52,13 @@ def save(interp, cymodule, filename=None):
     If ``filename`` is None, the module contents are returned as a string.
     Otherwise, None.
   '''
+  h = handle.getHandle(cymodule)
+  if logger.isEnabledFor(logging.INFO):
+    logger.info(
+        'Saving Curry module %r to %r (%r types, %r symbols)'
+      , h.fullname, filename, len(h.types), len(h.symbols)
+      )
   cc = interp.context.compiler
-  icy = inspect.geticurry(cymodule)
-  ir = cc.compile(interp, icy)
+  ir = cc.compile(interp, h.icurry)
   return ir.dump(filename)
 

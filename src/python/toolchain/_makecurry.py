@@ -1,10 +1,12 @@
 from . import _findcurry, _curry2icurry, _icurry2json
+from ..utility import formatDocstring
 import logging, os, shutil
 
 __all__ = ['makecurry']
 logger = logging.getLogger(__name__)
 
-def makecurry(name, currypath=[], **kwds):
+@formatDocstring(__package__[:__package__.find('.')])
+def makecurry(name, currypath=None, **kwds):
   '''
   Run the build toolchain for a Curry target.
 
@@ -16,7 +18,8 @@ def makecurry(name, currypath=[], **kwds):
   ``name``
       The module or source file name.
   ``currypath``
-      A sequence of paths to search (i.e., CURRYPATH split on ':').
+      A sequence of paths to search (i.e., CURRYPATH split on ':').  By default,
+      ``{0}.path`` is used.
   ``is_sourcefile``
       If true, the name arguments is interpreted as a source file.  Otherwise,
       it is interpreted as a module name.
@@ -27,6 +30,8 @@ def makecurry(name, currypath=[], **kwds):
   --------
   The JSON file name if json=True (the default) was supplied, else None.
   '''
+  if currypath is None:
+    from .. import path as currypath
   do_json = kwds.pop('json', True)
   do_icy = do_json or kwds.pop('icy', True)
   do_tidy = kwds.pop('tidy', False)

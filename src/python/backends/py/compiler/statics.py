@@ -12,13 +12,17 @@ PX_STR  = 'st_' # string
 PX_SYMB = 'cy_' # a Curry symbol
 PX_TYPE = 'ty_' # typedef
 
-LIMIT = 40
+NAME_LENGTH_LIMIT = 40
 
 class Closure(object):
   def __init__(self):
     # Bidirectional mapping:
     #     (category, object) <-> identifier
     self.data = {}
+
+  def __str__(self):
+    from .. import render
+    return '\n'.join(render.render(self))
 
   @property
   def dict(self):
@@ -52,7 +56,9 @@ class Closure(object):
     key = prefix, obj
     if key not in self.data:
       seed = obj if name is None else name
-      handle = encoding.best(prefix, seed, disallow=self.data, limit=LIMIT)
+      handle = encoding.best(
+          prefix, seed, disallow=self.data, limit=NAME_LENGTH_LIMIT
+        )
       self.data[key] = handle
       self.data[handle] = key
     return self.data[key]

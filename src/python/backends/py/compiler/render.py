@@ -5,16 +5,27 @@ import collections, types
 
 __all__ = ['render']
 
+DEFAULT_HCOL              = 39
+DEFAULT_INDENT            = 2
+DEFAULT_WIDTH             = 80
+MAX_JUSTIFY_FUNCTION_NAME = 36
+MAX_JUSTIFY_NEEDED        = 8
+
 def render(obj, **kwds):
   '''See Renderer.'''
   renderer = Renderer(**kwds)
   if isinstance(obj, ir.IR):
     return renderer.renderIR(obj)
+  elif isinstance(obj, statics.Closure):
+    return renderer.renderClosure(obj)
   else:
     return renderer.renderLines(obj)
 
 class Renderer(object):
-  def __init__(self, width=80, indent=2, hcol=39):
+  def __init__(
+      self, width=DEFAULT_WIDTH, indent=DEFAULT_INDENT, hcol=DEFAULT_HCOL
+    , istart=0, cpred=None
+    ):
     '''
     Renders the Python IR as Python source code.
 
@@ -29,6 +40,13 @@ class Renderer(object):
       ``hcol``
         The column at which to start side-by-side content.
 
+      ``istart``
+        The starting indentation level.  This time ``indent`` gives the
+        starting column for each line.
+
+      ``cpred``
+        A predicate for closure keys indicating which items to include.
+
     Returns:
     -------
     A string
@@ -36,6 +54,10 @@ class Renderer(object):
     self.width = width
     self.indent = indent
     self.hcol = hcol
+    self.istart = istart
+    cpred = (lambda _: True) if cpred is None else cpred
+    self.cpred = lambda name: \
+        not name.startswith(statics.PX_SYMB) and cpred(name)
 
   def renderIR(self, ir):
     '''
@@ -52,7 +74,17 @@ class Renderer(object):
     nestings correspond to indentation levels.  Pairs are rendered as code
     followed by a comment to the right.
     '''
-    return '\n'.join(self.format(pycode))
+    return self._addPrefix(self.format(pycode))
+
+  def renderClosure(self, closure):
+    return self._addPrefix(self._convertClosure2Lines(closure))
+
+  def _addPrefix(self, lines):
+    prefix = ' ' * (self.indent * self.istart)
+    if prefix:
+      return '\n'.join('%s%s' % (prefix, line) for line in lines)
+    else:
+      return '\n'.join(lines)
 
   @visitation.dispatch.on('arg')
   def format(self, arg, level=-1):
@@ -80,14 +112,15 @@ class Renderer(object):
     for line in self.format(fmt % pair, level):
       yield line
 
-
   def _close(self, level=0, string=']'):
     '''Prints a block-closing string at the specified intentation level.'''
     return (2 * level + 1) * self.indent * ' ' + string
 
-  def _justify(self, seq):
+  def _justify(self, seq, maximum=None):
     width = max([len(x) for x in seq])
-    return min(width, self.hcol + 2 * self.indent + 1)
+    if maximum is None:
+      maximum = self.hcol + 2 * self.indent + 1
+    return min(width, maximum)
 
   def _plist(self, seq, level=0):
     '''Formats a list as one element per line with leading commas.'''
@@ -114,9 +147,7 @@ class Renderer(object):
     curry = config.python_package_name()
     yield 'import %s' % curry
     yield 'from %s.icurry import \\' % curry
-    yield '    IModuleFacade, IDataType, IConstructor, IFunction, PUBLIC, PRIVATE'
-    yield 'from %s import toolchain' % curry
-    yield 'import collections, itertools'
+    yield '    IModule, IDataType, IConstructor, PUBLIC, PRIVATE'
     yield ''
     for line in ir.lines:
       yield line
@@ -124,11 +155,10 @@ class Renderer(object):
     yield ''
     yield '# Interface'
     yield '# ---------'
-    yield '_icurry_ = IModuleFacade('
+    yield '_icurry_ = IModule.fromBOM('
     yield '    fullname=%r' % imodule.fullname
     yield '  , filename=%r' % imodule.filename
     yield '  , imports=%s'  % repr(imodule.imports)
-    yield '  , icurry=toolchain.loadicurry(%r, curry.path)' % imodule.fullname
     if not imodule.types:
       yield '  , types=[]'
     else:
@@ -142,14 +172,23 @@ class Renderer(object):
     if not imodule.functions:
       yield '  , functions=[]'
     else:
-      yield '  , functions=itertools.starmap(IFunction, ['
-      width = self._justify(imodule.functions.keys())
-      for prefix, ifun in self._plist(imodule.functions.values(), level=1):
-        yield '%s(%-{0}r, %r, %-7r, %-3r, %s)'.format(width+2) % (
+      yield '  , functions=['
+      functions = imodule.functions.values()
+      w1 = self._justify(
+          [repr(ifun.fullname) for ifun in functions]
+        , maximum=MAX_JUSTIFY_FUNCTION_NAME
+        )
+      w2 = self._justify(
+          [repr(ifun.needed) for ifun in functions]
+        , maximum=MAX_JUSTIFY_NEEDED
+        )
+      fmt = '%s(%-{0}r, %r, %-7r, %-{1}r, %s)'.format(w1, w2)
+      for prefix, ifun in self._plist(functions, level=1):
+        yield fmt % (
             prefix, ifun.fullname, ifun.arity, ifun.vis, ifun.needed
           , ifun.body.linkname
           )
-      yield self._close(1, '])')
+      yield self._close(1, ']')
       yield self._close(0, ')')
     yield ''
     yield '_module_ = %s.import_(_icurry_)' % config.python_package_name()
@@ -157,7 +196,18 @@ class Renderer(object):
     yield ''
     yield '# Linking'
     yield '# -------'
-    items = ir.closure.dict.items()
+    for line in self._convertClosure2Lines(ir.closure):
+      yield line
+    yield ''
+    yield ''
+    yield '''if __name__ == '__main__':'''
+    yield   '  from %s import __main__' % config.python_package_name()
+    yield   '  __main__.moduleMain(__file__, %r)' % imodule.fullname
+    yield ''
+    yield ''
+
+  def _convertClosure2Lines(self, closure):
+    items = [item for item in closure.dict.items() if self.cpred(item[0])]
     width = self._justify([name for name,_ in items])
     fmt = '%-{}s = %s'.format(width)
     for name, value in sorted(items, key=_sortkey):
@@ -167,17 +217,10 @@ class Renderer(object):
         yield 'from %s import %s as %s' % (value.__module__, value.__name__, name)
       elif name.startswith(statics.PX_INFO):
         yield fmt % (name, 'curry.symbol(%r)' % value.fullname)
-      elif name.startswith(statics.PX_TYPE):
-        yield fmt % (name, 'curry.type(%r)' % value.fullname)
       elif name.startswith(statics.PX_STR):
         yield fmt % (name, '%r' % value)
-    yield ''
-    yield ''
-    yield '''if __name__ == '__main__':'''
-    yield   '  from %s import __main__' % config.python_package_name()
-    yield   '  __main__.moduleMain(__file__, %r)' % imodule.fullname
-    yield ''
-    yield ''
+      elif name.startswith(statics.PX_TYPE):
+        yield fmt % (name, 'curry.type(%r)' % value.fullname)
 
 def _sortkey(item):
   name, value = item

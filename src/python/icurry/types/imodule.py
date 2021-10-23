@@ -2,11 +2,11 @@ from .isymbol import IContainer
 from abc import ABCMeta
 from collections import OrderedDict
 from ...utility import translateKwds
-import weakref
+import itertools, weakref
 
 # Note: 'from curry.types import *' must import all dependencies needed to
 # reconstruct a dump of ICurry.  For this purpose, OrderedDict is included.
-__all__ = ['IModule', 'IModuleFacade', 'IPackage', 'IProg', 'OrderedDict']
+__all__ = ['IModule', 'IPackage', 'IProg', 'OrderedDict']
 
 class IModule(IContainer):
   @translateKwds({'name': 'fullname'})
@@ -28,6 +28,30 @@ class IModule(IContainer):
     self.filename = str(filename) if filename is not None else None
 
   _fields_ = 'fullname', 'filename', 'imports', 'types', 'functions'
+
+  @staticmethod
+  def fromBOM(fullname, imports, types, functions, filename=None):
+    '''
+    Construct a module from the bill of materials.  The Curry functions should
+    be implemented as native functions of the backend (e.g., Python function
+    objects if the Python backend is used).  A module is constructed in which
+    each function is implemented as IMaterial.  Finally, the true ICurry
+    for this module is loaded and attached to attribute 'icurry'.
+    '''
+    from . import IFunction, IMaterial
+    from ... import toolchain
+    makefun = lambda name, arity, vis, needed, func: \
+        IFunction(
+            name, arity, vis, needed
+          , IMaterial(func) if not isinstance(func, IMaterial) else func
+          )
+    module = IModule(
+        fullname, imports, types
+      , itertools.starmap(makefun, functions)
+      , filename
+      )
+    module.icurry = toolchain.loadicurry(fullname)
+    return module
 
   def __str__(self):
     return '\n'.join(
@@ -107,18 +131,6 @@ class IPackage(IContainer, dict):
           ]
       )
 
-
-class IModuleFacade(IModule):
-  '''
-  A module in which every IFunction body is an instance of IMaterial.  Used for
-  loading compiled code.
-  '''
-  def __init__(self, *args, **kwds):
-    self.icurry = kwds.pop('icurry')
-    IModule.__init__(self, *args, **kwds)
-    for ifun in self.functions.values():
-      if not isinstance(ifun.body, IMaterial):
-        ifun.body = IMaterial(ifun.body)
 
 def _makeSymboltable(parent, objs):
   if isinstance(objs, OrderedDict):
