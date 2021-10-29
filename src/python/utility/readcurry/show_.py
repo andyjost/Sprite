@@ -1,5 +1,7 @@
 from . import types
 
+__all__ =['show']
+
 def show(arg, top=True):
   if isinstance(arg, types.Applic):
     if getattr(arg.f, 'is_operator', False) and len(arg.args) == 2:

@@ -16,11 +16,12 @@ def makeOutputDir(file_out):
     if e.errno != errno.EEXIST:
       raise
 
-def popen(cmd, stdin=None, pipecmd=None):
+def popen(cmd, input=None, pipecmd=None):
   '''
   Invokes the given command and returns its stdout as a string.  A second
   pipeline stage may be provided.
   '''
+  stdin = None if input is None else sp.PIPE
   child = sp.Popen(cmd, stdin=stdin, stdout=sp.PIPE, stderr=sp.PIPE)
   if pipecmd:
     term = sp.Popen(pipecmd, stdin=child.stdout, stdout=sp.PIPE)
@@ -29,7 +30,7 @@ def popen(cmd, stdin=None, pipecmd=None):
     term = child
 
   try:
-    stdout,stderr = term.communicate()
+    stdout,stderr = term.communicate(input=input)
   except:
     term.kill()
     raise

@@ -38,15 +38,14 @@ class RuntimeState(object):
     # the standard file streams; system lbraries, such as the Prelude; and
     # functions that might be required by built-ins, such as ``expr``,
     # ``type``, or ``unbox``.
+    self.interp = interp
     self.builtin_types = tuple(map(
         interp.type, ('Prelude.Int', 'Prelude.Char', 'Prelude.Float')
       ))
     self.currypath = tuple(interp.path)
     self.expr = interp.expr
-    self.integer = interp.integer
     self.setfunction_strategy = interp.flags['setfunction_strategy']
     self.prelude = interp.prelude
-    self.setfunctions = interp.setfunctions
     self.stdin = interp.stdin
     self.stdout = interp.stdout
     self.symbol = interp.symbol
@@ -76,6 +75,10 @@ class RuntimeState(object):
 
     # The table of setfunction evaluations.
     self.sftable = {}
+
+  @property
+  def setfunctions(self):
+    return self.interp.setfunctions
 
   def set_goal(self, goal):
     assert not self.Q

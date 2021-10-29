@@ -1,0 +1,1 @@
+../../../Data/Functor/Identity.curry

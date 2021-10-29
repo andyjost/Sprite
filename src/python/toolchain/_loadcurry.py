@@ -55,11 +55,13 @@ def loadjson(jsonfile):
   else:
     logger.info('Reading ICurry-JSON from %s', jsonfile)
   if jsonfile.endswith('.z'):
-    json = open(jsonfile, 'rb').read()
+    with open(jsonfile, 'rb') as istream:
+      json = istream.read()
     json = zlib.decompress(json)
   else:
-    json = open(jsonfile).read()
-  icur = icurry_json.parse(json)
+    with open(jsonfile) as istream:
+      json = istream.read()
+  icur = icurry_json.loads(json)
   icur.filename = _filenames.curryfilename(jsonfile)
   cached.update(icur)
   return icur

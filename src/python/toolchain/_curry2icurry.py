@@ -41,7 +41,8 @@ class Curry2ICurryConverter(object):
       if not cached:
         logger.debug('Using CURRYPATH %s', os.environ['CURRYPATH'])
         _system.makeOutputDir(file_out)
-        cmd = [config.icurry_tool(), '--optvardecls', '-o', file_out, file_in]
+        # '--optvardecls' try to use this
+        cmd = [config.icurry_tool(), '-o', file_out, file_in]
         if self.quiet:
           cmd.insert(1, '-q')
         logger.debug('Command: %s', ' '.join(cmd))

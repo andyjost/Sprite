@@ -62,7 +62,7 @@ class Applic(object):
     for arg in self.args:
       yield arg
   def __str__(self):
-    from .show import show
+    from .show_ import show
     return show(self)
   def __repr__(self):
     return '<Applic %s>' % ' '.join(map(repr, self._seq_))

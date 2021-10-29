@@ -2,7 +2,7 @@
 Defines in pure ICurry a few simple modules designed for system testing.
 '''
 from curry.icurry import *
-from curry.icurry.json import parse
+from curry.icurry.json import load
 from curry import unboxed
 
 # An arbitrary choice id.
@@ -82,5 +82,5 @@ def getx():
     )
 
 def getexample():
-  return parse(open('data/json/example.json', 'rb').read())
+  return load('data/json/example.json')
 

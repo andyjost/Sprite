@@ -147,7 +147,7 @@ class TestVisitation(unittest.TestCase):
       count(node.constructors)
 
     json = open('data/json/example.json', 'rb').read()
-    icur = icurry.json.parse(json)
+    icur = icurry.json.loads(json)
     count(icur)
     self.assertEqual(tally, {'modules':1, 'datatypes':1, 'constructors':2, 'functions':4})
 

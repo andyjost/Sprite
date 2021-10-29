@@ -34,7 +34,7 @@ source using an ORACLE_RESULT directive.  The format is as follows:
 ``pattern`` is matched against the goal name.  It is a glob pattern unless
 enclosed with slashes, as in /.*/, in which case it is a regular expression.
 ``result`` is a Curry result expression indicating the expected result as the
-REPL prints it.  It must be understood by the ``cytest.readcurry`` module.
+REPL prints it.  It must be understood by the ``readcurry`` module.
 
 Each matching occurrence of an ORACLE_RESULT directive indicates a result for
 the matching goal(s).  The program is expected to output each and only the

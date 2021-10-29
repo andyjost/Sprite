@@ -1,3 +1,4 @@
+from ..icurry import readcurry as iread, json as ijson
 from .. import config
 from . import _filenames, _system
 from ..utility.binding import binding
@@ -6,6 +7,11 @@ import logging, os, zlib
 
 __all__ = ['icurry2json']
 logger = logging.getLogger(__name__)
+
+# The ability to read ICurry files with curry.utility.readcurry was developed
+# in Oct 2021.  Before that, an external program called icurry2jsontext was
+# used to convert those to JSON.
+CONVERT_JSON_INTERNALLY = True
 
 def icurry2json(icurryfile, currypath, **kwds):
   '''
@@ -40,27 +46,40 @@ class ICurry2JsonConverter(object):
     file_out = file_in[:-4] + '.json'
     if self.do_zip:
       file_out += '.z'
-    with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
-      _system.makeOutputDir(file_out)
+    cmd_compact = [config.jq_tool(), '--compact-output', '.'] \
+        if self.do_compact else None
+    _system.makeOutputDir(file_out)
+
+    if CONVERT_JSON_INTERNALLY:
+      cmd = None
+    else:
       cmd = [config.icurry2jsontext_tool(), '-i', file_in]
-      cmd_compact = [config.jq_tool(), '--compact-output', '.'] \
-          if self.do_compact else None
-      logger.debug(
-          'Command: %s %s%s> %s'
-        ,  ' '.join(cmd)
-        , '| %s ' % ' '.join(cmd_compact) if cmd_compact else ''
-        , '| zlib-flate -compress ' if self.do_zip else ''
-        , file_out
-        )
-      json = _system.popen(cmd, pipecmd=cmd_compact)
-      if self.do_zip:
-        json = zlib.compress(json)
-        mode = 'wb'
-      else:
-        mode = 'w'
-      with filesys.remove_file_on_error(file_out):
-        with open(file_out, mode) as output:
-          output.write(json)
+
+    logger.debug(
+        'Command: %s %s%s> %s'
+      ,  ' '.join(cmd) if cmd else '<internal-icurry2json>'
+      , '| %s ' % ' '.join(cmd_compact) if cmd_compact else ''
+      , '| zlib-flate -compress ' if self.do_zip else ''
+      , file_out
+      )
+
+    if cmd:
+      with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
+        json = _system.popen(cmd, pipecmd=cmd_compact)
+    else:
+      rcdata = iread.load(file_in)
+      json = ijson.dumps(rcdata)
+      if self.do_compact:
+        with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
+          json = _system.popen(cmd_compact, input=json)
+    if self.do_zip:
+      json = zlib.compress(json)
+      mode = 'wb'
+    else:
+      mode = 'w'
+    with filesys.remove_file_on_error(file_out):
+      with open(file_out, mode) as output:
+        output.write(json)
     return file_out
 
 def _getIcyOrShortcut(file_in, do_zip):

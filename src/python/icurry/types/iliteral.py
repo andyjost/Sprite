@@ -11,6 +11,9 @@ class IInt(ISymbol):
     ISymbol.__init__(self, 'Prelude.Int', **kwds)
     self.value = int(value)
   @property
+  def _fields_(self):
+    return 'value',
+  @property
   def modulename(self):
     return 'Prelude'
   def __str__(self):
@@ -24,6 +27,9 @@ class IChar(ISymbol):
     self.value = str(value)
     assert len(self.value) in (1,2) # Unicode can have length 2 in utf-8
   @property
+  def _fields_(self):
+    return 'value',
+  @property
   def modulename(self):
     return 'Prelude'
   def __str__(self):
@@ -35,6 +41,9 @@ class IFloat(ISymbol):
   def __init__(self, value, **kwds):
     ISymbol.__init__(self, 'Prelude.Float', **kwds)
     self.value = float(value)
+  @property
+  def _fields_(self):
+    return 'value',
   @property
   def modulename(self):
     return 'Prelude'

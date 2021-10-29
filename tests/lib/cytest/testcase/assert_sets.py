@@ -1,6 +1,4 @@
-from ..readcurry.compare import compare
-from ..readcurry.parse import parse
-from ..readcurry.show import show
+from curry.utility.readcurry import compare, parse, show
 import collections, contextlib
 
 TEMPLATE = \

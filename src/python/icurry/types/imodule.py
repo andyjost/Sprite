@@ -1,8 +1,9 @@
-from .isymbol import IContainer
 from abc import ABCMeta
-from collections import OrderedDict
-from ...utility import translateKwds
-import itertools, weakref
+from .isymbol import IContainer
+from ...utility import translateKwds, visitation
+import collections, itertools, weakref
+
+OrderedDict = collections.OrderedDict
 
 # Note: 'from curry.types import *' must import all dependencies needed to
 # reconstruct a dump of ICurry.  For this purpose, OrderedDict is included.
@@ -132,11 +133,23 @@ class IPackage(IContainer, dict):
       )
 
 
+@visitation.dispatch.on('objs')
 def _makeSymboltable(parent, objs):
-  if isinstance(objs, OrderedDict):
-    return objs
-  else:
-    for v in objs:
-      v.modulename = parent.fullname
-    return OrderedDict((v.name, v) for v in objs)
+  assert False
+
+@_makeSymboltable.when(collections.Iterable)
+def _makeSymboltable(parent, objs):
+  return _makeSymboltable(parent, list(objs))
+
+@_makeSymboltable.when(collections.Mapping)
+def _makeSymboltable(parent, objs):
+  for v in objs.itervalues():
+    v.modulename = parent.fullname
+  return objs
+
+@_makeSymboltable.when(collections.Sequence)
+def _makeSymboltable(parent, objs):
+  for v in objs:
+    v.modulename = parent.fullname
+  return OrderedDict((v.name, v) for v in objs)
 

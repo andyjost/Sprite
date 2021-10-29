@@ -13,13 +13,6 @@ class TRUE(BaseException): pass
 #   To determine whether a function is monadic, its call graph is walked.  If
 #   the function calls any monadic function, then it is determined to be monadic.
 #   '''
-#   # limit = sys.getrecursionlimit()
-#   # try:
-#   #   sys.setrecursionlimit(1<<30)
-#   # for ifun in imodule.functions.values():
-#   #   is_monadic(ifun, modules)
-#   # finally:
-#   #   sys.setrecursionlimit(limit)
 
 def set_monadic_metadata(ifun, modules):
   '''
