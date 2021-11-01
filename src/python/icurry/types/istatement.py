@@ -60,6 +60,7 @@ class IVarAssign(IObject):
     self.vid = vid
     self.expr = expr
     IObject.__init__(self, **kwds)
+  _fields_ = 'vid', 'expr'
   @property
   def lhs(self):
     return IVar(self.vid)
@@ -80,6 +81,7 @@ class INodeAssign(IObject):
     self.path = path
     self.expr = expr
     IObject.__init__(self, **kwds)
+  _fields_ = 'vid', 'path', 'expr'
   @property
   def lhs(self):
     return IVarAccess(self.vid, self.path)
@@ -126,6 +128,7 @@ class ICase(IObject):
     self.vid = vid
     self.branches = branches
     IObject.__init__(self, **kwds)
+  _fields_ = 'vid', 'branches'
   @property
   def var(self):
     return IVar(self.vid)
@@ -152,6 +155,7 @@ class IConsBranch(IObject):
     self.arity = arity
     self.block = block
     IObject.__init__(self, **kwds)
+  _fields_ = 'symbolname', 'arity', 'block'
   @property
   def children(self):
     return self.block,

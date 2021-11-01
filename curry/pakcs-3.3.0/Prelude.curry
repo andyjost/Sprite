@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 #define __KICS2__ 1
+#undef __PAKCS__
 
 --------------------------------------------------------------------------------
 --- The standard prelude of Curry with type classes.

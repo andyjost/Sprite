@@ -54,6 +54,7 @@ class RuntimeState(object):
     self.type = interp.type
     self.unbox = interp.unbox
 
+    # Other runtime objects.
     self.Node = graph.Node
 
     # State unique to this evaluation.

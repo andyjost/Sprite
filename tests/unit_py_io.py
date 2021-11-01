@@ -7,18 +7,33 @@ import unittest
 from import_blocker import with_import_blocked
 
 class TestPyIO(cytest.TestCase):
+  MONADIC_PAKCS_3_3_0 = [
+        'appendFile', 'prim_appendFile', 'prim_ioError', 'prim_putChar', 'prim_readFile'
+      , 'prim_writeFile', 'print', 'putChar', 'putStr', 'putStrLn'
+      , 'readFile', 'writeFile'
+      ]
+  MONADIC_PAKCS_3_4_1 = sorted(MONADIC_PAKCS_3_3_0 + [
+      'ioError'
+    , '_impl#empty#Prelude.Alternative#Prelude.IO'
+    , '_impl#fail#Prelude.MonadFail#Prelude.IO'
+    , '_impl#many#Prelude.Alternative#Prelude.IO'
+    , '_impl#some#Prelude.Alternative#Prelude.IO'
+    , '_inst#Prelude.Alternative#Prelude.IO'
+    , '_inst#Prelude.MonadFail#Prelude.IO'
+    ])
+  MONADIC = {
+      (3,3,0): MONADIC_PAKCS_3_3_0
+    , (3,4,1): MONADIC_PAKCS_3_4_1
+    }
+
   def test_monadic_property1(self):
     stab = getattr(curry.getInterpreter().prelude, '.symbols')
     monadic_symbols = sorted([
         symbol for symbol, obj in stab.items()
             if obj.icurry.metadata.get('all.monadic', False)
       ])
-    correct = [
-          'appendFile', 'prim_appendFile', 'prim_ioError', 'prim_putChar', 'prim_readFile'
-        , 'prim_writeFile', 'print', 'putChar', 'putStr', 'putStrLn'
-        , 'readFile', 'writeFile'
-        ]
-    self.assertEqual(monadic_symbols, correct)
+    libversion = curry.config.syslibversion()
+    self.assertEqual(monadic_symbols, self.MONADIC[libversion])
 
   def test_monadic_property2(self):
     Test = curry.compile(
@@ -109,12 +124,14 @@ class TestPyIO(cytest.TestCase):
 
   @cytest.with_flags(defaultconverter='topython')
   def test_ioError(self):
-    goal = curry.compile('readFile "nofile" `catch` ioError', 'expr')
-    self.assertRaisesRegexp(
-        curry.ExecutionError
-      , r"i/o error: \[Errno 2\] No such file or directory: 'nofile'"
-      , lambda: list(curry.eval(goal))
-      )
+    from curry.utility import maxrecursion
+    with maxrecursion():
+      goal = curry.compile('readFile "nofile" `catch` ioError', 'expr')
+      self.assertRaisesRegexp(
+          curry.ExecutionError
+        , r"i/o error: \[Errno 2\] No such file or directory: 'nofile'"
+        , lambda: list(curry.eval(goal))
+        )
 
   @cytest.with_flags(defaultconverter='topython')
   def test_readFile(self):

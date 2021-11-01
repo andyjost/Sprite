@@ -56,8 +56,11 @@ def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
     return interp.modules[modulename]
   except KeyError:
     importEx = ImportEx(interp, currypath, kwds)
-    prefixes = list(curryname.prefixes(modulename))
-    return importEx(prefixes)
+    if is_sourcefile:
+      return importEx(name, is_sourcefile=is_sourcefile)
+    else:
+      prefixes = list(curryname.prefixes(modulename))
+      return importEx(prefixes)
 
 # Import a sequence or specifiers.
 @import_.when(collections.Sequence, no=str)
@@ -101,9 +104,11 @@ class ImportEx(object):
       return rv
 
   @__call__.when(str)
-  def __call__(self, modulename, tail=[]):
+  def __call__(self, modulename, tail=[], is_sourcefile=False):
     logger.info('Importing %s', modulename)
-    imodule = toolchain.loadicurry(modulename, self.currypath)
+    imodule = toolchain.loadicurry(
+       modulename, self.currypath, is_sourcefile=is_sourcefile
+     )
     modspec = self.interp.context.runtime.lookup_builtin_module(modulename)
     if modspec is not None:
       kwds = self.kwds.copy()

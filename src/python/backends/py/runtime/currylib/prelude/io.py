@@ -1,5 +1,6 @@
 from ......exceptions import MonadError
 from ... import graph
+from . import show, string
 
 try:
   import mmap
@@ -32,7 +33,7 @@ def catch(rts, func):
     idx = getattr(exc, 'CTOR_INDEX', 0)
     yield graph.Node(
         rts.prelude.IOError.info.typedef().constructors[idx]
-      , rts.expr(iter(str(exc)))
+      , string.pystring(rts, str(exc))
       )
   else:
     yield rts.prelude._Fwd
@@ -44,7 +45,8 @@ def getChar(rts):
 
 def ioError(rts, func):
   yield rts.prelude.error
-  yield graph.Node(rts.prelude.show, func.successors[0])
+  showf = rts.symbol('Prelude._impl#show#Prelude.Show#Prelude.IOError')
+  yield graph.Node(showf, func[0])
 
 def putChar(rts, a):
   rts.stdout.write(a.unboxed_value)

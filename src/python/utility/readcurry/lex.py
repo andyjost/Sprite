@@ -34,18 +34,29 @@ def printtok(tok):
 def showtok(tok):
   return '%-18s %s' % (type(tok).__name__, tok)
 
-QESCAPE = {r"\t", r"\b", r"\n", r"\r", r"\f", r"\'", r"\"", r"\\", r"\a", r"\v"}
+NAMED_ESC = {
+    r"\'" : "'"
+  , r"\"" : '"'
+  , r"\\" : '\\'
+  , r"\a" : '\a'
+  , r"\b" : '\b'
+  , r"\f" : '\f'
+  , r"\n" : '\n'
+  , r"\r" : '\r'
+  , r"\t" : '\t'
+  , r"\v" : '\v'
+  }
 OCTAL = re.compile(r'\\([0-7]{1,3})')
 UNICODE = re.compile(r'\\u[0-9a-fA-f]{4}')
 
 def qescape(text, chars, j):
   # Must be one of:
-  #   - One of the named escape sequences listed in QESCAPE.
+  #   - One of the named escape sequences listed in NAMED_ESC.
   #   - An octal escape sequence; '\' followed by one two or three octal digits,
   #     not all zero.
   #   - A Unicode escape sequence; 'u' followed by four hex digits.
-  if text[j:j+2] in QESCAPE:
-    chars.append(text[j+1])
+  if text[j:j+2] in NAMED_ESC:
+    chars.append(NAMED_ESC[text[j:j+2]])
     return 2
 
   match = re.match(OCTAL, text[j:])
@@ -55,7 +66,6 @@ def qescape(text, chars, j):
       raise ValueError('Invalid escape sequence: %s' % r'\000')
     chars.append(unichr(int(digits, base=8)).encode('utf-8'))
     return match.end()
-    
   match = re.match(UNICODE, text[j:])
   if match:
     digits = match.group(1)[1:]

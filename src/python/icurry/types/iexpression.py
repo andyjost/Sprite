@@ -21,6 +21,7 @@ class IVarAccess(IObject):
     self.vid = vid
     self.path = path
     IObject.__init__(self, **kwds)
+  _fields_ = 'vid', 'path'
   @property
   def var(self):
     return IVar(self.vid)
@@ -50,6 +51,7 @@ class ICall(IObject):
     self.symbolname = symbolname
     self.exprs = exprs
     IObject.__init__(self, **kwds)
+  _fields_ = 'symbolname', 'exprs'
   @property
   def children(self):
     return self.exprs
@@ -69,6 +71,7 @@ class IPartialCall(ICall):
   def __init__(self, symbolname, missing, exprs, **kwds):
     ICall.__init__(self, symbolname, exprs, **kwds)
     self.missing = int(missing)
+  _fields_ = 'symbolname', 'missing', 'exprs'
   def __repr__(self):
     return '%s(symbolname=%r, missing=%r, exprs=%r)' % (
         type(self).__name__, self.symbolname, self.missing, self.exprs

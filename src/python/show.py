@@ -50,7 +50,7 @@ class Stringifier(object):
     addr = id(arg)
     self.memo[addr] -= 1
 
-  def stringify(self, arg, outer=False):
+  def stringify(self, arg, outer=False, partial=False):
     '''
     Converts the argument to a string according to the specified style.
     Subclasses are expected to override the ``format`` method to apply
@@ -58,6 +58,9 @@ class Stringifier(object):
 
     Unless ``outer`` is True, the result will be parenthesized if it contains
     spaces and does not begin with a bracket-like character.
+
+    If ``partial`` is supplied, the argument treated as a subexpression of a
+    partial application.
     '''
     with self.enter_subexpr(arg) as status:
       if not status:
@@ -66,21 +69,21 @@ class Stringifier(object):
         if hasattr(arg, 'info'):
           return '<%s>' % ' '.join(self.flatten(arg))
         else:
-          return self.format(arg)
+          return self.format(arg, partial=partial)
       else:
         if inspect.isa_fwd(arg):
           target = inspect.fwd_target(arg)
           return self.stringify(target, outer)
         else:
-          string = self.format(arg)
+          string = self.format(arg, partial=partial)
           if not outer and self.__needparens(arg, string):
             return '(%s)' % string
           else:
             return string
 
-  def format(self, arg):
+  def format(self, arg, **kwds):
     if self.style == 'repr':
-      return self.stringify(arg)
+      return self.stringify(arg, **kwds)
     else:
       if hasattr(arg, 'info'):
         formatter = getattr(arg.info, 'format', None)
@@ -88,13 +91,20 @@ class Stringifier(object):
           return formatter.format(*self.flatten(arg))
         else:
           return ' '.join(map(str, self.flatten(arg)))
+      elif isinstance(arg, memoryview):
+        MAXLEN = 8
+        string = arg.tobytes()
+        elip = '' if len(arg) < MAXLEN else '...'
+        return repr(string[:MAXLEN] + elip)
       else:
         return repr(arg)
 
   def flatten(self, arg):
     # Special cases.  For certain types, including lists and tuples,
     # subexpressions should be treated as outer expressions.  For example, we
-    # write [f a] not [(f a)] and (f a, f b) rather than ((f a), (f b)).
+    # write [f a] not [(f a)] and (f a, f b) rather than ((f a), (f b)).  For
+    # partial applications, do not recurse (the to-string routines will fail
+    # for a partial application of ':').
     if inspect.isa_operator_name(arg.info.name) and self.style != 'repr':
       # This could be useful, but needs to be controlled.
       #
@@ -111,12 +121,19 @@ class Stringifier(object):
       yield arg.info.name
     treat_subexpr_as_outer = inspect.isa_list(arg) or inspect.isa_tuple(arg)
     for succ in arg.successors:
-      yield self.stringify(succ, outer=treat_subexpr_as_outer)
+      yield self.stringify(
+          succ, outer=treat_subexpr_as_outer, partial=arg.info.is_partial
+        )
 
   @staticmethod
   def __needparens(arg, string):
     assert not inspect.isa_fwd(arg)
-    return ' ' in string and not (inspect.isa_list(arg) or inspect.isa_tuple(arg))
+    if inspect.isa_list(arg) or inspect.isa_tuple(arg):
+      return False
+    elif any(string.startswith(q) and string.endswith(q) for q in '"\''):
+      return False
+    else:
+      return ' ' in string
 
 class ListStringifier(Stringifier):
   '''
@@ -136,7 +153,7 @@ class ListStringifier(Stringifier):
     Formats lists using square-bracket-style, when possible; or, if some tail is a
     non-constructor symbol, then using cons symbols.
     '''
-    if inspect.isa_cons(arg) and self.style != 'repr':
+    if inspect.isa_cons(arg) and self.style != 'repr' and not kwds.get('partial'):
       l = [self.stringify(arg.successors[0], outer=True)]
       spine = []
       arg = arg.successors[1]
@@ -170,17 +187,18 @@ class ListStringifier(Stringifier):
     unboxed character data, and the list itself must consist of only ground
     values.  If these conditions are not met None is returned.
     '''
-    chars = ['"']
-    while inspect.isa_cons(tail):
-      head, tail = tail.successors
-      if inspect.isa_char(head):
-        ch = inspect.unboxed_value(head)
-        chars.append(ch)
-      else:
-        return
-    if len(chars) > 1 and inspect.isa_nil(tail):
-      chars.append('"')
-      return ''.join(chars)
+    if not kwds.get('partial'):
+      chars = ['"']
+      while inspect.isa_cons(tail):
+        head, tail = tail.successors
+        if inspect.isa_char(head):
+          ch = inspect.unboxed_value(head)
+          chars.append(ch)
+        else:
+          return
+      if len(chars) > 1 and inspect.isa_nil(tail):
+        chars.append('"')
+        return ''.join(chars)
 
 
 class LitNormalStringifier(Stringifier):

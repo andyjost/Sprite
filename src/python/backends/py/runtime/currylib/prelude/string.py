@@ -1,6 +1,6 @@
 from ... import graph
 
-__all__ = ['_PyGenerator', '_PyString']
+__all__ = ['_PyGenerator', '_PyString', 'pystring']
 
 def _PyGenerator(rts, gen):
   '''
@@ -15,6 +15,10 @@ def _PyGenerator(rts, gen):
     yield rts.prelude.Cons
     yield rts.expr(item)
     yield graph.Node(rts.prelude._PyGenerator, gen.target)
+
+# Convert a Python string to a Curry string.
+def pystring(rts, string):
+  return graph.Node(rts.prelude._PyString, memoryview(string))
 
 def _PyString(rts, _1):
   '''

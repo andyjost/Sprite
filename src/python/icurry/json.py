@@ -52,18 +52,35 @@ def get_encoder():
 class Encoder(json.JSONEncoder):
   @dispatch.on('obj')
   def default(self, obj):
-    print obj
     return json.JSONEncoder.encode(self, obj)
 
-  EXCLUDED = {'filename'}
+  # These mapping
+  KEY_MAP = {
+      'filename'  : None
+    , 'fullname'  : 'name'
+    , 'IModule'   : 'IProg'
+    , 'IDataType' : 'IType'
+    , 'symbolname': 'name'
+  }
+
+  VALUE_MAP = {
+      'functions': lambda v: v.values()
+    , 'imports'  : lambda v: list(v)
+    , 'types'    : lambda v: v.values()
+  }
 
   @default.when(types.IObject)
   def default(self, iobj):
     data = collections.OrderedDict()
-    data['__class__'] = type(iobj).__name__
+    clsname = type(iobj).__name__
+    data['__class__'] = self.KEY_MAP.get(clsname, clsname)
     for k in getattr(iobj, '_fields_', iobj.__dict__):
-      if k not in self.EXCLUDED:
-        v = getattr(iobj, k)
+      v = getattr(iobj, k)
+      vmapper = self.VALUE_MAP.get(k)
+      k = self.KEY_MAP.get(k, k)
+      if k is not None:
+        if vmapper is not None:
+          v = vmapper(v)
         data[k] = v
     return data
 

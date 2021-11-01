@@ -12,7 +12,7 @@ class ParseJSON(cytest.TestCase):
     for jsonfile in glob('data/json/*.json*'):
       open_ = gzip.open if jsonfile.endswith('.gz') else open
       json = open_(jsonfile, 'rb').read()
-      icur = icurry.json.parse(json)
+      icur = icurry.json.loads(json)
 
       # Test equality.
       self.assertTrue(icur, icur)

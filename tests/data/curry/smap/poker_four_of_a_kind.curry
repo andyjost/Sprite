@@ -5,6 +5,8 @@
 -- Version Fri Jul 15 12:45:38 PDT 2016
 -- Determine whether a poker hand scores a four-of-a-kind
 
+import Control.SetFunctions
+
 -------- the cards --------
 
 data Suit = Club | Spade | Heart | Diamond
