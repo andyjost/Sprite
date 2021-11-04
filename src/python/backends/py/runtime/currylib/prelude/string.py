@@ -27,7 +27,7 @@ def _PyString(rts, _1):
   mem = _1.target
   if mem:
     yield rts.prelude.Cons
-    yield mem[0]
+    yield graph.Node(rts.prelude.Char, mem[0])
     yield graph.Node(rts.prelude._PyString, mem[1:])
   else:
     yield rts.prelude.Nil
