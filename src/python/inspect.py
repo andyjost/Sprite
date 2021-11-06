@@ -229,19 +229,6 @@ def fwd_chain_target(arg):
     else:
       arg = after
 
-def _getfile(moduleobj, suffixes):
-  if moduleobj.__file__:
-    for suffix in suffixes:
-      filename = os.path.join(
-          os.path.dirname(moduleobj.__file__)
-        , '.curry'
-        , SUBDIR
-        , config.interactive_modname() + suffix
-        )
-      breakpoint()
-      if os.path.exists(filename):
-        return filename
-
 def getjsonfile(moduleobj):
   '''Returns the file containing ICurry-JSON, if one exists, or None.'''
   from . import toolchain
