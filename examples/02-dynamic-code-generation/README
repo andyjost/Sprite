@@ -1,0 +1,4 @@
+This example demonstrates the dynamic compilation features of Sprite.
+
+curry.compile is used to compile a string containing Curry code into a module object.
+curry.expr builds a goal.

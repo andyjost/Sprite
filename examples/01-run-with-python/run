@@ -1,0 +1,7 @@
+#!/bin/bash
+
+export PATH="../../install/bin/:$PATH"
+
+echo Run rev.curry using the Python API.
+echo % python go.py
+python go.py

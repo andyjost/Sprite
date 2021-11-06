@@ -90,6 +90,10 @@ class Handle(object):
     return getattr(self.obj, '.symbols')
 
   @property
+  def symbolnames(self):
+    return self.symbols.keys()
+
+  @property
   def types(self):
     return getattr(self.obj, '.types')
 

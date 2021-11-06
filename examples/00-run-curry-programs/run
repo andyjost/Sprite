@@ -1,0 +1,22 @@
+#!/bin/bash
+
+export PATH="../../install/bin/:$PATH"
+
+# This version takes a file name.  The program must contain a symbol "main".
+echo "Run by file name"
+echo % sprite-exec program.curry
+sprite-exec program.curry
+echo
+
+# With the -m switch, a module name is provided.  The module will be loaded
+# using CURRYPATH and is "main" symbol evaluated.
+echo "Run by module name"
+echo % CURRYPATH=. sprite-exec -m program
+CURRYPATH=. sprite-exec -m program
+echo
+
+# The -g switch can be used to specify a different goal symbol.
+echo "Specify a different goal"
+echo % sprite-exec program.curry -g mainalt
+sprite-exec program.curry -g mainalt
+echo

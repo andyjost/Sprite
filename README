@@ -70,18 +70,27 @@ To build and install documentation:
 4. Getting Started
 ------------------
 
-To run a Curry program found in file "myprogram.curry", use the following:
+To run a Curry program found in file "myprogram.curry", issue the following
+command:
 
-    $(SPRITE_HOME)/bin/curryexec myprogram.curry
+    sprite-exec myprogram.curry
 
-This is equivalent to the following application of Python's -m command-line argument:
+If the program imports anything, then you must ensure CURRYPATH is set
+correctly.
 
-    $(SPRITE_HOME)/bin/python -m curry myprogram.curry
+Complete documentation can be found under the doc/ subdirectory.  To build it,
+first cd to that directory, then type "make help" to see the available formats.
 
-If the program uses import statements, then you must ensure CURRYPATH is set properly.
+    cd docs
+    make help
 
-To view the computation trace, you may set SPRITE_INTERPRETER_FLAGS=trace:True
-in the environment.
+You may, for instance, build the documentation as HTML or PDF using one of the
+following:
+
+    make html
+    make pdflatex
+
+Examples can be found under the examples/ subdirectory.
 
 
 5. Environment Variables

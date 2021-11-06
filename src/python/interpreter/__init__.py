@@ -96,6 +96,7 @@ class Interpreter(object):
     self.stdout = sys.stdout
     self.stderr = sys.stderr
     self.automodules = config.syslibs()
+    self._counter = itertools.count()
     for name, module in self.modules.items():
       module = getHandle(module)
       if not module.is_package and name != 'Prelude':

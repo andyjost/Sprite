@@ -1,0 +1,10 @@
+The subdirectories contain small examples showing how to use various aspects of
+Sprite.
+
+Before running these, you must "make install" Sprite and add its bin directory
+to your path.  The default location relative to this file is ../install.
+
+Run Python scripts using the Python wrapper installed with Sprite.  For example, if
+Sprite is installed at the default location, then say:
+
+    % ../../install/bin/python run.py

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+export PATH="../../install/bin/:$PATH"
+
+echo Use curry.inspect to inspect live Curry objects.
+echo % python go.py
+python go.py

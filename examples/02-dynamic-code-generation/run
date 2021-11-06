@@ -1,0 +1,6 @@
+#!/bin/bash
+
+export PATH="../../install/bin/:$PATH"
+
+echo % python go.py
+python go.py

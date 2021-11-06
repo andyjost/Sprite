@@ -1,4 +1,5 @@
 from abc import ABCMeta
+from ...exceptions import ModuleLookupError
 from .isymbol import IContainer
 from ...utility import translateKwds, visitation
 import collections, itertools, weakref
@@ -51,7 +52,10 @@ class IModule(IContainer):
       , itertools.starmap(makefun, functions)
       , filename
       )
-    module.icurry = toolchain.loadicurry(fullname)
+    try:
+      module.icurry = toolchain.loadicurry(fullname)
+    except ModuleLookupError:
+      module.icurry = None
     return module
 
   def __str__(self):

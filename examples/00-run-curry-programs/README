@@ -1,0 +1,3 @@
+This example shows how to run a Curry program under Sprite using sprite-exec.
+
+sprite-exec is a standalone Curry interpreter.

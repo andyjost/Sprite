@@ -1,0 +1,11 @@
+#!/bin/bash
+
+export PATH="../../install/bin/:$PATH"
+
+echo Compile wildcard_matching.curry to Python.
+echo % python go.py
+python go.py
+
+echo Running wildcard_matching.py
+echo % python wildcard_matching.py -g main
+python wildcard_matching.py -g main

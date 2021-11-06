@@ -1,0 +1,5 @@
+This example demonstrates how to interact with Curry from Python.
+
+The file run.py contains Python code that uses module "curry" to import and run
+a Curry program.
+

@@ -3,8 +3,8 @@
 SUBMODULES :=
 include Make.include
 
-ifeq ($(shell [ -x $(PREFIX)/bin/.invoker ] && [ -f $(PREFIX)/bin/.invoker ]; echo $$?),1)
-  $(error Not an executable file: $(PREFIX)/bin/.invoker.  Please install Sprite before building the documentation.)
+ifeq ($(shell [ -x $(PREFIX)/bin/sprite-invoke ] && [ -f $(PREFIX)/bin/sprite-invoke ]; echo $$?),1)
+  $(error Not an executable file: $(PREFIX)/bin/sprite-invoke.  Please install Sprite before building the documentation.)
 endif
 
 # You can set these variables from the command line.
@@ -27,8 +27,8 @@ INSTALLDIR    = $(PREFIX)/docs
 # $(error The \'$(SPHINXAPIDOC)\' command was not found. Make sure you have Sphinx installed, then set the SPHINXAPIDOC environment variable to point to the full path of the \'$(SPHINXAPIDOC)\' executable. Alternatively you can add the directory with the executable to your PATH. If you don\'t have Sphinx installed, grab it from http://sphinx-doc.org/)
 # endif
 
-# SPHINXBUILD := $(PREFIX)/bin/.invoker $(SPHINXBUILD)
-# SPHINXAPIDOC := $(PREFIX)/bin/.invoker $(SPHINXAPIDOC)
+# SPHINXBUILD := $(PREFIX)/bin/sprite-invoke $(SPHINXBUILD)
+# SPHINXAPIDOC := $(PREFIX)/bin/sprite-invoke $(SPHINXAPIDOC)
 
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
@@ -64,7 +64,7 @@ apidoc:
 
 .PHONY: install
 # ifdef DOCS_ENABLED
-install: all $(INSTALLDIR)
+install:: all $(INSTALLDIR)
 	rsync -az $(BUILDDIR)/ $(INSTALLDIR)
 # else
 # install:
@@ -74,7 +74,7 @@ install: all $(INSTALLDIR)
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  all        to make the default documentation"
-	@echo "  apidocc    to run sphinx-apidoc to update the modules .rst files'
+	@echo "  apidocc    to run sphinx-apidoc to update the modules .rst files"
 	@echo '  install    to install documentation under $$PREFIX [$(PREFIX)]'
 	@echo '  uninstall  to uninstall documentation under $$PREFIX [$(PREFIX)]'
 	@echo "  html       to make standalone HTML files"

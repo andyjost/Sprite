@@ -9,9 +9,7 @@ import types
 __all__ = ['compile']
 
 def compile(
-    interp, string, mode='module', imports=None
-  , exprtype=None
-  , modulename=config.interactive_modname()
+    interp, string, mode='module', imports=None, exprtype=None, modulename=None
   ):
   '''
   Compile a string containing Curry code.  In mode 'module', the string is
@@ -32,13 +30,15 @@ def compile(
   ``modulename``
       Specifies the module name.  Used only in 'module' mode.  If the name
       begins with an underscore, then it will not be placed in
-      ``Interpreter.modules``.
+      ``Interpreter.modules``.  By default, a unique name is chosen.
 
   Returns:
   --------
   In 'module' mode, a Curry module.  In 'expr' mode, a Curry expression.
   '''
   if mode == 'module':
+    if modulename is None:
+      modulename = config.interactive_modname() + str(next(interp._counter))
     if modulename in interp.modules:
       raise ValueError('module %r is already defined' % modulename)
     icur = toolchain.str2icurry(

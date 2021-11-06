@@ -238,17 +238,74 @@ def _getfile(moduleobj, suffixes):
         , SUBDIR
         , config.interactive_modname() + suffix
         )
+      breakpoint()
       if os.path.exists(filename):
         return filename
 
 def getjsonfile(moduleobj):
   '''Returns the file containing ICurry-JSON, if one exists, or None.'''
-  return _getfile(moduleobj, ['.json', '.json.z'])
+  from . import toolchain
+  for filename in toolchain.jsonfilenames(moduleobj.__file__):
+    if os.path.exists(filename):
+      return filename
 
 def geticurryfile(moduleobj):
   '''Gets the ICurry file associated with a module.'''
-  return _getfile(moduleobj, ['.icy'])
+  from . import toolchain
+  filename = toolchain.icurryfilename(moduleobj.__file__)
+  if os.path.exists(filename):
+    return filename
 
-def geticurry(moduleobj):
-  '''Gets the ICurry associated with a module.'''
-  return getattr(moduleobj, '.icurry')
+def geticurry(obj):
+  '''Gets the ICurry associated with a module or symbol.'''
+  icy = getattr(obj, '.icurry', None)
+  icy = icy or getattr(obj, 'icurry', None)
+  return icy
+
+def getimpl(obj):
+  '''Gets the implementation of a module or symbol.'''
+  if hasattr(obj, 'getimpl'):
+    return obj.getimpl()
+  elif isinstance(obj, objects.CurryModule):
+    curry = __import__(__package__)
+    return curry.save(obj)
+
+def symbols(moduleobj, private=False):
+  '''
+  Gets the name of each function and constructor symbol defined in a module.
+
+  Parameters:
+  -----------
+    ``moduleobj``
+      An instance of CurryModule.
+
+    ``private``
+      Whether to include private symbols.
+
+  Returns:
+  --------
+  A list of strings.
+  '''
+  if private:
+    from .objects.handle import getHandle
+    h = getHandle(moduleobj)
+    return sorted(h.symbolnames)
+  else:
+    return sorted(n for n in dir(moduleobj) if n[:1].isalnum())
+
+def types(moduleobj):
+  '''
+  Gets the name of each type defined in a module.
+
+  Parameters:
+  -----------
+    ``moduleobj``
+      An instance of CurryModule.
+
+  Returns:
+  --------
+  A list of strings.
+  '''
+  return sorted(getattr(moduleobj, '.types').keys())
+
+

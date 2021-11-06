@@ -16,6 +16,7 @@ def getModuleName(name, is_sourcefile):
     - ModuleLookupError if an invalid module name was provided.
   '''
   if is_sourcefile:
+    name = os.path.basename(name)
     name = removeSuffix(name, '.curry')
   validateModulename(name)
   return name
