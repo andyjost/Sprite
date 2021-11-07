@@ -3,11 +3,16 @@ Assertions based on the curry.inspect module.
 '''
 
 from curry import inspect
-from curry.llvm import isa as llvm_isa
 from curry.context import Node
 from curry.backends.py.runtime.graph.equality import (
     logically_equal, structurally_equal
   )
+
+try:
+  from curry.llvm import isa as llvm_isa
+except ImportError:
+  def llvm_isa(*args, **kwds):
+    raise RuntimeError('LLVM is not available')
 
 def assertStructEqual(tc, e0, e1):
   '''Compare two Curry expressions for exact structural equality.'''

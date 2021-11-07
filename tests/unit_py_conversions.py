@@ -3,8 +3,12 @@ from curry.interpreter import Interpreter
 from cytest import bootstrap
 import curry
 import itertools
-import numpy as np
 import unittest
+
+try:
+  import numpy as np
+except ImportError:
+  np = None
 
 class TestPyConversions(cytest.TestCase):
   '''Tests conversions between Python and Curry.'''
@@ -156,15 +160,16 @@ class TestPyConversions(cytest.TestCase):
     self.assertEqual(interp.currytype(bool), interp.type('Prelude.Bool'))
     self.assertEqual(interp.currytype(list), interp.type('Prelude.[]'))
     #
-    self.assertEqual(interp.currytype(np.float16), interp.type('Prelude.Float'))
-    self.assertEqual(interp.currytype(np.float32), interp.type('Prelude.Float'))
-    self.assertEqual(interp.currytype(np.int8), interp.type('Prelude.Int'))
-    self.assertEqual(interp.currytype(np.byte), interp.type('Prelude.Int'))
-    #
+    if np is not None:
+      self.assertEqual(interp.currytype(np.float16), interp.type('Prelude.Float'))
+      self.assertEqual(interp.currytype(np.float32), interp.type('Prelude.Float'))
+      self.assertEqual(interp.currytype(np.int8), interp.type('Prelude.Int'))
+      self.assertEqual(interp.currytype(np.byte), interp.type('Prelude.Int'))
+      self.assertIsNone(interp.currytype(np.complex64))
+      #
     # Note: the Python tuple type has no analog in Curry, where each arity is a
     # distinct type.
     self.assertIsNone(interp.currytype(tuple))
-    self.assertIsNone(interp.currytype(np.complex64))
 
   def testUnboxedExpr(self):
     self.assertIs(curry.expr(curry.unboxed(0)), 0)
