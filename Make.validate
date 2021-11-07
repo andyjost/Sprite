@@ -12,14 +12,7 @@ ifneq ($(NVALIDATE),1)
   ifneq ($(shell test -d $(PREFIX) -o \! -e $(PREFIX); echo $$?),0)
     $(error PREFIX "$(PREFIX)" exists but is not a directory)
   endif
-  1 = $(shell echo $(PREFIX)) # expand ~
-  2 = $(shell python -c 'from __future__ import print_function; \
-                         import os;                             \
-                         print(os.path.isabs("""$1"""))         \
-                         ')
-  ifneq ($(strip $2),True)
-    $(error PREFIX must be an absolute path)
-  endif
+	PREFIX := $(abspath $(PREFIX))
 
   ifndef PAKCS_HOME
     $(error PAKCS_HOME is not defined)
@@ -44,25 +37,25 @@ ifneq ($(NVALIDATE),1)
     $(error C++ compiler $(CXX) not found)
   endif
 
-  ifeq ($(shell [ -d $(MPS_HOME) ]; echo $$?),1)
-    $(error Not a directory: MPS_HOME=$(MPS_HOME).  Please check your MPS installation.)
-  endif
+  # ifeq ($(shell [ -d $(MPS_HOME) ]; echo $$?),1)
+  #   $(error Not a directory: MPS_HOME=$(MPS_HOME).  Please check your MPS installation.)
+  # endif
 
-  ifeq ($(shell [ -d $(LLVM_INCLUDE_PATH) ]; echo $$?),1)
-    $(error Not a directory: LLVM_INCLUDE_PATH=$(LLVM_INCLUDE_PATH).  Please check your LLVM installation.)
-  endif
+  # ifeq ($(shell [ -d $(LLVM_INCLUDE_PATH) ]; echo $$?),1)
+  #   $(error Not a directory: LLVM_INCLUDE_PATH=$(LLVM_INCLUDE_PATH).  Please check your LLVM installation.)
+  # endif
 
-  ifeq ($(shell [ -d $(LLVM_C_INCLUDE_PATH) ]; echo $$?),1)
-    $(error Not a directory: LLVM_C_INCLUDE_PATH=$(LLVM_C_INCLUDE_PATH).  Please check your LLVM installation.)
-  endif
+  # ifeq ($(shell [ -d $(LLVM_C_INCLUDE_PATH) ]; echo $$?),1)
+  #   $(error Not a directory: LLVM_C_INCLUDE_PATH=$(LLVM_C_INCLUDE_PATH).  Please check your LLVM installation.)
+  # endif
 
-  ifeq ($(shell [ -d $(LLVM_LIBRARY_PATH) ]; echo $$?),1)
-    $(error Not a directory: LLVM_LIBRARY_PATH=$(LLVM_LIBRARY_PATH).  Please check your LLVM installation.)
-  endif
+  # ifeq ($(shell [ -d $(LLVM_LIBRARY_PATH) ]; echo $$?),1)
+  #   $(error Not a directory: LLVM_LIBRARY_PATH=$(LLVM_LIBRARY_PATH).  Please check your LLVM installation.)
+  # endif
 
-  ifeq ($(shell [ -x $(LLVM)-config ]; echo $$?),1)
-    $(error Not an executable file: $(LLVM)-config.  Please check your LLVM installation.)
-  endif
+  # ifeq ($(shell [ -x $(LLVM)-config ]; echo $$?),1)
+  #   $(error Not an executable file: $(LLVM)-config.  Please check your LLVM installation.)
+  # endif
 
   ifeq ($(shell [ -d $(PYTHON_INCLUDE_PATH) ]; echo $$?),1)
     $(error Not a directory: PYTHON_INCLUDE_PATH=$(PYTHON_INCLUDE_PATH).  Please check your Python installation.)
@@ -88,19 +81,19 @@ ifneq ($(NVALIDATE),1)
     $(error Python library not found at $(PYTHON_LIBRARY_PATH)/$(PYTHON_LIBRARY_NAME)$nPYTHON_LIBRARY_PATH=$(PYTHON_LIBRARY_PATH)$nPYTHON_LIBRARY_NAME=$(PYTHON_LIBRARY_NAME))
   endif
 
-  ifeq ($(shell [ -d $(BOOST_HOME) ]; echo $$?),1)
-    $(error Not a directory: BOOST_HOME=$(BOOST_HOME).  Please check your Boost installation.)
-  endif
+  # ifeq ($(shell [ -d $(BOOST_HOME) ]; echo $$?),1)
+  #   $(error Not a directory: BOOST_HOME=$(BOOST_HOME).  Please check your Boost installation.)
+  # endif
 
-  ifeq ($(shell [ -d $(BOOST_INCLUDE_PATH) ]; echo $$?),1)
-    $(error Not a directory: BOOST_INCLUDE_PATH=$(BOOST_INCLUDE_PATH).  Please check your Boost installation.)
-  endif
+  # ifeq ($(shell [ -d $(BOOST_INCLUDE_PATH) ]; echo $$?),1)
+  #   $(error Not a directory: BOOST_INCLUDE_PATH=$(BOOST_INCLUDE_PATH).  Please check your Boost installation.)
+  # endif
 
-  ifeq ($(shell [ -d $(BOOST_LIBRARY_PATH) ]; echo $$?),1)
-    $(error Not a directory: BOOST_LIBRARY_PATH=$(BOOST_LIBRARY_PATH).  Please check your Boost installation.)
-  endif
+  # ifeq ($(shell [ -d $(BOOST_LIBRARY_PATH) ]; echo $$?),1)
+  #   $(error Not a directory: BOOST_LIBRARY_PATH=$(BOOST_LIBRARY_PATH).  Please check your Boost installation.)
+  # endif
 
-  ifeq ($(shell [ -e $(BOOST_LIBRARY_PATH)/lib$(BOOST_PYTHON_LIBRARY).so ]; echo $$?),1)
-    $(error Boost.Python library not found at $(BOOST_LIBRARY_PATH)/lib$(BOOST_PYTHON_LIBRARY).so$nBOOST_LIBRARY_PATH=$(BOOST_LIBRARY_PATH)$nBOOST_PYTHON_LIBRARY=$(BOOST_PYTHON_LIBRARY))
-  endif
+  # ifeq ($(shell [ -e $(BOOST_LIBRARY_PATH)/lib$(BOOST_PYTHON_LIBRARY).so ]; echo $$?),1)
+  #   $(error Boost.Python library not found at $(BOOST_LIBRARY_PATH)/lib$(BOOST_PYTHON_LIBRARY).so$nBOOST_LIBRARY_PATH=$(BOOST_LIBRARY_PATH)$nBOOST_PYTHON_LIBRARY=$(BOOST_PYTHON_LIBRARY))
+  # endif
 endif

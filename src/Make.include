@@ -2,7 +2,8 @@
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
 
 CFLAGS  += -fPIC
-LDFLAGS += -lLLVM -Wl,--no-undefined
+# LDFLAGS += -lLLVM -Wl,--no-undefined
+LDFLAGS += -Wl,--no-undefined
 
 # Rules and targets
 # =================

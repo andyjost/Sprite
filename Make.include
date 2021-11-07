@@ -74,21 +74,21 @@ ifndef BOOST_INCLUDE_PATH
   BOOST_INCLUDE_PATH := $(BOOST_HOME)/include
 endif
 
-ifndef BOOST_LIBRARY_PATH
-  ifeq ($(shell [ -d $(BOOST_HOME)/lib/$(MULTIARCH) ]; echo $$?),0)
-    BOOST_LIBRARY_PATH := $(BOOST_HOME)/lib/$(MULTIARCH)
-  else
-    BOOST_LIBRARY_PATH := $(BOOST_HOME)/lib
-  endif
-endif
-
-ifndef BOOST_PYTHON_LIBRARY
-  ifeq ($(shell [ -f $(BOOST_LIBRARY_PATH)/libboost_python27.so ]; echo $$?),0)
-    BOOST_PYTHON_LIBRARY := boost_python27
-  else
-    BOOST_PYTHON_LIBRARY := boost_python
-  endif
-endif
+# ifndef BOOST_LIBRARY_PATH
+#   ifeq ($(shell [ -d $(BOOST_HOME)/lib/$(MULTIARCH) ]; echo $$?),0)
+#     BOOST_LIBRARY_PATH := $(BOOST_HOME)/lib/$(MULTIARCH)
+#   else
+#     BOOST_LIBRARY_PATH := $(BOOST_HOME)/lib
+#   endif
+# endif
+#
+# ifndef BOOST_PYTHON_LIBRARY
+#   ifeq ($(shell [ -f $(BOOST_LIBRARY_PATH)/libboost_python27.so ]; echo $$?),0)
+#     BOOST_PYTHON_LIBRARY := boost_python27
+#   else
+#     BOOST_PYTHON_LIBRARY := boost_python
+#   endif
+# endif
 
 # Functions.
 # ==========
@@ -98,10 +98,14 @@ endef
 
 # Compiler flags
 # ==============
-CFLAGS   += -I$(ROOT_DIR)/src -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH) \
-            -I$(BOOST_HOME)/include -I$(PYTHON_INCLUDE_PATH)
-LDFLAGS  += -L $(LLVM_LIBRARY_PATH) -L $(PYTHON_LIBRARY_PATH) -L $(BOOST_LIBRARY_PATH) \
-            -Wl,-rpath=$(LLVM_LIBRARY_PATH) -Wl,-rpath=$(PYTHON_LIBRARY_PATH) -Wl,-rpath=$(BOOST_LIBRARY_PATH)
+CFLAGS   += -I$(ROOT_DIR)/src -I$(BOOST_HOME)/include -I$(PYTHON_INCLUDE_PATH) \
+            -I$(ROOT_DIR)/extern/pybind11/include
+
+# CFLAGS   += -I$(ROOT_DIR)/src -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH) \
+#             -I$(BOOST_HOME)/include -I$(PYTHON_INCLUDE_PATH) -I$(ROOT_DIR)/extern/pybind11/include
+LDFLAGS  += -L $(PYTHON_LIBRARY_PATH) -Wl,-rpath=$(PYTHON_LIBRARY_PATH)
+# LDFLAGS  += -L $(LLVM_LIBRARY_PATH) -L $(PYTHON_LIBRARY_PATH) -L $(BOOST_LIBRARY_PATH) \
+#             -Wl,-rpath=$(LLVM_LIBRARY_PATH) -Wl,-rpath=$(PYTHON_LIBRARY_PATH) -Wl,-rpath=$(BOOST_LIBRARY_PATH)
 
 # Recursion
 # =========
