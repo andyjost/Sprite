@@ -1,11 +1,10 @@
-#include "boost/python.hpp"
-#include "boost/python/enum.hpp"
+#include "pybind11/pybind11.h"
 #include "sprite/fingerprint.hpp"
 #include <functional>
 #include <map>
 
-using namespace boost::python;
 using namespace sprite;
+namespace py = pybind11;
 
 namespace
 {
@@ -18,21 +17,21 @@ namespace
       default: throw std::invalid_argument("expected LEFT or RIGHT");
     }
   }
-  object Fingerprint__tree__(Fingerprint const & self)
+  py::object Fingerprint__tree__(Fingerprint const & self)
   {
-    std::map<fingerprints::Branch const *, object> branches;
-    std::function<object(fingerprints::Node const *, size_t)> buildtree;
-    buildtree = [&](fingerprints::Node const * node, size_t depth) -> object
+    std::map<fingerprints::Branch const *, py::object> branches;
+    std::function<py::object(fingerprints::Node const *, size_t)> buildtree;
+    buildtree = [&](fingerprints::Node const * node, size_t depth) -> py::object
     {
       if(depth == self.depth())
-        return object(node->block);
+        return py::cast(node->block);
       auto const * branch = node->branch;
       if(branches.count(branch) == 0)
       {
-        boost::python::list args;
+        py::list args;
         for(size_t i=0; i<FP_BRANCH_SIZE; ++i)
           args.append(buildtree(&branch->next[i], depth+1));
-        branches[branch] = boost::python::tuple(args);
+        branches[branch] = py::tuple(args);
       }
       return branches[branch];
     };
@@ -42,16 +41,18 @@ namespace
 
 namespace sprite { namespace python
 {
-  void register_fingerprint()
+  void register_fingerprint(py::object module)
   {
-    enum_<ChoiceState>("ChoiceState")
+    py::enum_<ChoiceState>(module, "ChoiceState")
         .value("UNDETERMINED", ChoiceState::UNDETERMINED)
         .value("LEFT", ChoiceState::LEFT)
         .value("RIGHT", ChoiceState::RIGHT)
         .export_values();
 
-    class_<Fingerprint>("Fingerprint", init<>())
-      .def(init<Fingerprint const &>())
+    // py::class_<Fingerprint>(module, "Fingerprint", py::init<>())
+    py::class_<Fingerprint>(module, "Fingerprint")
+      .def(py::init<>())
+      .def(py::init<Fingerprint const &>())
       .def("__copy__", +[](Fingerprint const & self)->Fingerprint{return self;})
       .def("get", +[](Fingerprint & self, size_t id, ChoiceState default_)
           -> ChoiceState
@@ -59,7 +60,8 @@ namespace sprite { namespace python
             auto lr = self.test(id);
             return lr == ChoiceState::UNDETERMINED ? default_ : lr;
           }
-        , (arg("self"), arg("id"), arg("default")=ChoiceState::UNDETERMINED)
+        , py::arg("id")
+        , py::arg("default")=ChoiceState::UNDETERMINED
         )
       .def("set_left", &Fingerprint::set_left)
       .def("set_right", &Fingerprint::set_right)
@@ -68,24 +70,22 @@ namespace sprite { namespace python
         )
       .def("__setitem__", &Fingerprint__setitem__)
       .def("__getitem__", &Fingerprint::test)
-      .def_readonly("capacity", &Fingerprint::capacity)
-      .def_readonly("depth", &Fingerprint::depth)
-      .def("BASIC_SIZE", +[]{return FP_BLOCK_SIZE;})
-      .staticmethod("BASIC_SIZE")
-      .def("BRANCHING_FACTOR", +[]{return FP_BRANCH_SIZE;})
-      .staticmethod("BRANCHING_FACTOR")
+      .def_property_readonly("capacity", &Fingerprint::capacity)
+      .def_property_readonly("depth", &Fingerprint::depth)
+      .def_static("BASIC_SIZE", +[]{return FP_BLOCK_SIZE;})
+      .def_static("BRANCHING_FACTOR", +[]{return FP_BRANCH_SIZE;})
       .def("tree", Fingerprint__tree__
         , "Builds a Python representation of the internal tree.  For testing."
         )
       ;
 
     // For testing.
-    class_<fingerprints::Block>("Block", no_init)
+    py::class_<fingerprints::Block>(module, "Block")
       .def_readonly("used", &fingerprints::Block::used)
       .def_readonly("lr", &fingerprints::Block::lr)
-      .def("values", +[](fingerprints::Block const & self) -> object
+      .def("values", +[](fingerprints::Block const & self) -> py::object
         {
-          boost::python::list values;
+          py::list values;
           for(size_t i=0; i<FP_BLOCK_SIZE; ++i)
             values.append(
                 (self.used & (1<<i)) ? (self.lr & (1<<i)) ? 1 : -1 : 0
@@ -96,9 +96,9 @@ namespace sprite { namespace python
           fingerprints::Block const & lhs, fingerprints::Block const & rhs
         ) -> bool
         { return lhs.used == rhs.used && lhs.lr == rhs.lr; })
-      .def("__repr__", +[](object const & self) -> object
+      .def("__repr__", +[](py::object const & self) -> py::object
         {
-          return boost::python::str(self.attr("values")());
+          return py::str(self.attr("values")());
         })
       ;
   }

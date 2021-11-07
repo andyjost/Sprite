@@ -1,17 +1,12 @@
-#include "boost/python.hpp"
-//
+#include "pybind11/pybind11.h"
 #include "sprite/fingerprint.hpp"
-#include "sprite/misc/register_exception.hpp"
-
-using namespace boost::python;
-using namespace sprite::python;
 
 namespace sprite { namespace python
 {
-  void register_fingerprint();
+  void register_fingerprint(pybind11::object);
 }}
 
-BOOST_PYTHON_MODULE(_sprite)
+PYBIND11_MODULE(_sprite, module)
 {
-  sprite::python::register_fingerprint();
+  sprite::python::register_fingerprint(module);
 }
