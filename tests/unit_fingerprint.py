@@ -157,7 +157,7 @@ class Fingerprint(cytest.TestCase):
     cidR = choiceid([0,3,0,5])
     fp[cidR] = RIGHT
     self.assertTrue(all(
-        fp[i] == (-1 if i == cid else 1 if i == cidR else 0)
+        fp[i] == (LEFT if i == cid else RIGHT if i == cidR else UNDETERMINED)
             for i in range(fp.capacity)
       ))
 
