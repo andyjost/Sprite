@@ -1,56 +1,45 @@
 Sprite unit tests
 =================
 
-0. NOTICE
----------
+1. RUNNING TESTS
+----------------
 
-!!! DO NOT MISS THESE SPECIAL FUNCTIONS !!!
+To run all tests, say `./run_tests`.
 
-See lib/cytest/__init__.py for the following special functions: breakpoint,
-pdbtrace, trap.  These extremely useful functions are added to the global
-namespace (i.e., module __builtin__) whenever unit tests are run.  You can
-therefore use them anywhere, including in unit tests or in the Sprite Python
-code itself.  To get an interactive prompt at a certain location, simply add
-"breakpoint()" to the code.  Use "pdbtrace()" instead to get a PDB (Python
-Debugger) prompt.  With PDB you can move up and down the stack, inspect
-variables, and so on.
-
-
-1. USAGE
---------
-
-        make ['test' | filename...]
-
-This method can be used to check that Sprite works as intended.  One may wish
-to do this following installation.  Use 'make' or 'make test' to run all tests.
-Optionally, supply one or more unit test file names to run only those
-tests. For example, say 'make unit_prelude.py' to test the prelude.
+To run a specific test, say, e.g., `./run_tests func_kiel.py`
 
 
 2. TEST CATEGORIES
 ------------------
-Tests are divided into two categories.  Unit tests begin with 'unit_' and are
-intended to target specific code areas.  Running all unit tests should in
-principle cover every line of code.  Functional tests begin with 'func_' and
-compare the behavior of Sprite to another Curry system called the oracle (see
-section 5).  Their purpose is to provide evidence that Sprite compiles programs
-correctly and behaves as intended.
+
+Two kinds of tests are used:
+
+  * Unit tests:
+
+      These tests, beginning with 'unit_', pinpoint specific code areas.
+      Running the unit tests should cover every line of code.
+
+  * Functional tests:
+
+      These tests, beginning with 'func_', compare the output of Sprite to
+      another Curry system called the oracle (see section 5).  Their purpose is
+      to provide evidence that Sprite behaves as intended.
 
 
 3. FILE LAYOUT
 --------------
 
-        data/  Test data files (e.g., sample input, golden results).
+The files under this directory are arranged as follows:
+
+        data/  Test data (e.g., source code, sample inputs, expected output).
         lib/   Test harness code.
-        *.py   Unit test source code.
+        *.py   Test cases.
 
 
-4. RUNNING TESTS UNDER DEVELOPMENT
-----------------------------------
+4. ADVANCED USAGE
+-----------------
 
-When writing or debugging unit tests the 'Make' interface described above may
-not be convenient.  Instead, one may prefer to run tests directly through a
-driver script.  The following drivers are provided:
+The following test drivers are provided:
 
         run_tests       Run unit tests.
         debug_tests     Run unit tests under gdb.
@@ -64,25 +53,20 @@ Each of these uses the same command line interface:
 
         <driver> [pattern]
 
-Note that the drivers take a pattern, not a list of files.  Therefore, the
-pattern should be escaped to avoid it being interpreted by a shell.  The
-pattern is a glob that specifies which files to run.  Use the pattern '*.py'
-(with quotes) to run all tests.  If no pattern is supplied then all unit tests
-will be run, except in the case of cov_tests, which runs both unit and
-functional tests.
+The pattern should be quoted.  To run just the unit tests, for example, say:
+
+        ./run_tests 'unit*.py'
 
 
 5. ORACLE CONFIGURATION
 -----------------------
 
-Some tests use an oracle to generate known-good ("golden") results.  To run
-these tests, you will need access to another Curry system such as PAKCS or
-KiCS2.  That system is expected to support the same command-line arguments as
-PAKCS and KiCS2, most importantly ':i' (import), ':eval' (evaluate), ':q'
-(quit).  The script 'oracle' in this directory is responsible for invoking the
-other Curry system.  By default, it searches for "pakcs" in your path.  You can
-update this to use another Curry system.  To skip tests that use an oracle,
-remove execute permission from that script.
+Some tests rely on another Curry system, called the "oracle," to generate
+expected results.  To run these tests, you will need access to another Curry
+system such as PAKCS or KiCS2.
+
+The oracles are configured through the 'oracle*' scripts in this directory.  To
+disable oracle-based tests, remove these or make them non-executable.
 
 
 6. TESTING GUIDELINES
@@ -91,23 +75,19 @@ remove execute permission from that script.
 Unit tests match the pattern unit_*.py.
 
   - To run: run_tests 'unit_*.py'
-  - The goal of unit testing is line coverage.
-	- Every new feature requires a unit test.  Untested features will not be
-		accepted into Sprite.
-	- Changes that break unit tests will not be accepted.
-	- Do not add large-scale or long-running tests to the unit test area.  Large
-		tests are almost always inefficient in terms of unique source lines covered
-		per unit time.  Unit tests are expected to run very quickly, as they are
-		part of the critical inner loop in the edit-build-test development cycle.
-	- Use the cov_tests driver to assess the quality of new tests.  New tests
-		should increase line coverage with the smallest possible resource footprint
-		(time, memory, etc.).
+  - Unit tests check isolated code.  The key metric is line coverage.
+	- Every new feature requires a unit test.
+  - Unit tests are expected to run quickly, as they are part of the
+    edit-build-test cycle.  Tests that take a long time to run do not belong in
+    the unit test area.
+  - Use the cov_tests driver to assess the quality of new tests.  A good test
+    increases line coverage with the smallest possible increase in resource
+    usage (e.g., time and memory).
 
 Functional tests match the pattern func_*.py:
 
   - To run: run_tests 'func_*.py'
-	- The goal of functional testing in Sprite is to ensure Curry programs give
-		the correct behavior.
+  - Functional testing ensures Curry programs produce the correct output.
 	- These tests check the behavior of sample programs against other Curry
 		implementations or known results.
 	- These tests are allowed to consume more resources than unit tests, but
@@ -120,8 +100,8 @@ Functional tests match the pattern func_*.py:
 7. EDITOR INTEGRATION
 ---------------------
 
-A makefile is used to simplify integration with text editors.  For instance, in
-vim, pressing <Enter> runs "make" by default.  That shortcut can be used to
-easily run the tests directly from a text editor.  Other editors have similar
-features.
+A makefile is used to (possibly) simplify integration with text editors.  For
+instance, in vim, pressing <Enter> runs "make" by default.  That shortcut can
+be used to easily run the tests directly from a text editor.  Other editors
+have similar features.
 
