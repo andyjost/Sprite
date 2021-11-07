@@ -4,8 +4,8 @@ Contributing to Sprite
 1. SOURCE LOCATION
 ------------------
 
-Sprite is hosted at <TBD>.  Anyone may submit a pull request.  Follow the
-guidelines in this document.
+Sprite is hosted at <TBD>.  Anyone may submit a pull request.  Please follow
+the guidelines in this document.
 
 
 2. DEVELOPMENT-SPECIFIC ENVIRONMENT VARIABLES
@@ -18,12 +18,43 @@ require that each test file imports 'cytest' before loading anything from the
     - SPRITE_CATCH_ERRORS
 
         Default: ''
-        Used at: tests/lib/cytest.py
 
         Sets a breakpoint whenever a specified error type is created.  The
         value is a comma-separated list of Python exception names.  For
         example, the value "AssertionError,RuntimeError" will cause an
         interactive prompt to start whenever either of those exceptions occurs.
+
+    - SPRITE_CACHE_FILE
+
+        Default: $HOME/.sprite/cache.db
+
+        Specifies the cache database file, which stores the results of slow
+        conversions that occur in compiling Curry code.  This is used primarily
+        to speed up development, when the same programs are run over and over.
+        If set to the empty string, caching is disabled.
+
+    - SPRITE_CACHE_UPDATE
+
+        Default: Not set
+
+        Specifies which cache entries to update.  This can be needed when part
+        of the toolchain changes.  For instance, if the tool converting Curry
+        to ICurry is updated and gives a new output (because, say, the Prelude
+        has changed), then the old cache files will be out of date.  It is fine
+        to simply delete the cache file in that case, but this variable provides
+        a less extreme option.
+
+        Files matching the pattern will be forced out-of-date and therefore
+        updated in the cache.  The value is a glob pattern unless written as
+        /pattern/.
+
+    - SPRITE_DEBUG
+
+        Default: Not set.
+
+        Enables features to debug internal errors within Sprite itself.
+        The command-line tools, such as sprite-exec and sprite-make, catch
+        all errors.  Use this to get a stack trace when Sprite fails.
 
 
 3. TEST-SPECIFIC MAKE VARIABLES
@@ -34,8 +65,8 @@ command line.
 
     - SYMLINK_PYTHON
 
-			 Defining this causes Python files to be installed as symbolic links into
-			 the source area.  This way, one can edit Python files and then run tests
-			 without re-installing.  Modifying non-Python files or adding new files
-			 necessitates a call to 'make install'.
+        Defining this causes Python files to be installed as symbolic links
+        back to the source area.  This way, one can edit Python files and then
+        run tests without re-installing.  Modifying non-Python files or adding
+        new files necessitates a call to 'make install'.
 
