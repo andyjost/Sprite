@@ -2,9 +2,10 @@ PROGRAM_NAME = 'sprite-exec'
 
 from .exceptions import SymbolLookupError
 from .tools.utility import handle_program_errors
-import argparse, code, cProfile, os, pstats, importlib, sys
+import argparse, code, cProfile, os, pstats, importlib, logging, sys
 
 curry = importlib.import_module(__package__)
+logger = logging.getLogger(__name__)
 
 class Main(object):
   def __init__(self, program_name, module_name=None):
@@ -60,6 +61,7 @@ class Main(object):
         if args.goal is not None:
           goal = curry.symbol(module.__name__ + '.' + args.goal)
           def doeval():
+            logger.info('Evaluating %s', goal.fullname)
             for value in curry.eval(goal):
               print curry.show_value(value)
           if args.profile:
