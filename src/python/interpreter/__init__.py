@@ -44,6 +44,9 @@ class Interpreter(object):
           Indicates how to evaluate set functions.  If 'lazy', then set guards
           are used.  Otherwise, each argument is reduced to ground normal form
           before applying the set function.
+      ``telemetry_interval`` (*None*|<number>)
+          Specifies the number of seconds between telemetry reports in the log
+          output.  If non-positive, telemetry information is not reported.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)

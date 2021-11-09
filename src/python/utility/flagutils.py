@@ -23,6 +23,7 @@ FLAG_INFO = {
   , 'keep_temp_files'     : ((bool, str)       , False )
   , 'lazycompile'         : ( bool             , True  )
   , 'setfunction_strategy': ({'eager', 'lazy'} , 'lazy')
+  , 'telemetry_interval'  : ({None, float}     , None  )
   }
 
 def get_default_flags():
@@ -52,6 +53,10 @@ def show(valspec): # pragma no cover
     return 'a Boolean'
   elif valspec is str:
     return 'a string'
+  elif valspec is int:
+    return 'an integer'
+  elif valspec is float:
+    return 'a number'
   assert False
 
 def convert(given, valspec): # pragma no cover
@@ -65,6 +70,10 @@ def convert(given, valspec): # pragma no cover
       return valspec
   elif valspec is str:
     return given
+  elif valspec is int:
+    return int(given)
+  elif valspec is float:
+    return float(given)
   elif valspec is bool:
     if any(s.startswith(given.lower())
            for s in ['true', 'on', 'yes', 'enable']):

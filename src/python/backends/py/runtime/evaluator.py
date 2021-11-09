@@ -3,7 +3,7 @@ Code for evaluating Curry expressions.
 '''
 
 from . import fairscheme
-from . import state, trace
+from . import state, telemetry, trace
 
 class Evaluator(object):
   '''Manages the evaluation of a Curry expression.'''
@@ -14,7 +14,13 @@ class Evaluator(object):
 
   def evaluate(self):
     '''Evaluate the goal.'''
-    return fairscheme.D(self.rts)
+    interval = self.rts.interp.flags['telemetry_interval']
+    if interval is not None and interval > 0:
+      return telemetry.report_telemetry(
+          self.rts, interval, fairscheme.D(self.rts)
+        )
+    else:
+      return fairscheme.D(self.rts)
 
   def set_global_step_limit(self, limit=None, reset=True):
     '''
