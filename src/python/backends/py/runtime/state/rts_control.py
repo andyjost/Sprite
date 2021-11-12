@@ -128,6 +128,7 @@ def release_value(rts):
   Makes a value from the first configuration, detaches that configuration
   from the computation state, and then returns the value.
   '''
+  rts.telemetry._values += 1
   value = rts.make_value()
   rts.drop(trace=False)
   return value

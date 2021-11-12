@@ -1,6 +1,6 @@
 from . import configuration
 from ..... import inspect
-from .. import graph, stepcounter, trace
+from .. import graph, stepcounter, telemetry, trace
 import itertools
 
 __all__ = ['InterpreterState', 'RuntimeState']
@@ -62,8 +62,8 @@ class RuntimeState(object):
     self.setfactory = interp.context.runtime.get_interpreter_state(interp).setfactory
     self.stepcounter = stepcounter.StepCounter()
 
-    # The trace object.
     self.trace = trace.Trace(self)
+    self.telemetry = telemetry.TelemetryData(self)
 
     # The Fair Scheme work queues.
     self.qstack = []

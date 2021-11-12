@@ -65,6 +65,7 @@ def fork(rts, config=None):
   Fork a choice-rooted configuration.  Yields each consistent configuration
   arising from fixing the choice to the LEFT or RIGHT.
   '''
+  rts.telemetry._forks += 1
   config = config or rts.C
   for idx, choicestate in [(1, LEFT), (2, RIGHT)]:
     clone = config.clone(config.root.successors[idx])
@@ -99,6 +100,7 @@ def pull_tab(rts, root, target, realpath, rewrite=None):
   ``node[path]`` is used.  If ``rewrite`` is supplied, the specified node is
   overwritten.  Otherwise a new node is created.
   '''
+  rts.telemetry._pulltabs += 1
   cid,l,r = target.successors
   lhs = graph.utility.copy_spine(root, realpath, end=l)
   rhs = graph.utility.copy_spine(root, realpath, end=r)

@@ -68,6 +68,7 @@ def constrain_equal(
   consistent.
 
   '''
+  rts.telemetry._eqconstr += 1
   config = config or rts.C
   # arg0, arg1 = [rts.variable(arg, ()) for arg in [arg0, arg1]]
   i, j = [rts.obj_id(arg, config) for arg in [arg0, arg1]]
@@ -160,6 +161,7 @@ def lift_constraint(rts, var, rewrite=None):
   Similar to a pull-tab step, lift the constraint at ``var.target`` above
   ``var.root.``
   '''
+  rts.telemetry._constrlift += 1
   value, pair = var.target.successors
   value = graph.utility.copy_spine(var.root, var.realpath, end=value)
   return Node(var.target.info, value, pair, target=rewrite)

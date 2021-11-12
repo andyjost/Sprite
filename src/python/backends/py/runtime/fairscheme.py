@@ -6,7 +6,9 @@ from .state import callstack
 
 @trace.trace_values
 def D(rts):
+  rts.telemetry._enterD += 1
   while rts.ready():
+    rts.telemetry._iterD += 1
     tag = inspect.tag_of(rts.E)
     if tag == T_FAIL:
       rts.drop()
@@ -53,6 +55,7 @@ def D(rts):
 @trace.trace_steps
 @callstack.with_N_stackframe
 def N(rts, var, state, force_ground=False):
+  rts.telemetry._enterN += 1
   for _ in state:
     while True:
       tag = inspect.tag_of(state.cursor)
@@ -77,15 +80,18 @@ def N(rts, var, state, force_ground=False):
       elif tag == T_FREE:
         # Path not relevant here.  We must clone the whole context.
         if rts.has_binding(state.cursor):
+          rts.telemetry._copyspine += 1
           binding = rts.get_binding(state.cursor)
           rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=binding)
           rts.restart()
         elif rts.is_narrowed(state.cursor) or \
             (force_ground and rts.has_generator(state.cursor)):
+          rts.telemetry._copyspine += 1
           gen = rts.get_generator(state.cursor)
           rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=gen)
           rts.restart()
         elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
+          rts.telemetry._copyspine += 1
           x = rts.get_freevar(rts.grp_id(state.cursor))
           rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=x)
           rts.restart()
@@ -122,6 +128,7 @@ def N(rts, var, state, force_ground=False):
 
 @trace.trace_steps
 def S(rts, node):
+  rts.telemetry._enterS += 1
   with rts.catch_control(unwind=True, nondet=rts.is_io(node)):
     _0 = rts.variable(node)
     node.info.step(rts, _0)
@@ -153,7 +160,9 @@ def hnf(rts, var, typedef=None, values=None):
   --------
     The updated variable, ``var``.
   '''
+  rts.telemetry._enterhnf += 1
   while True:
+    rts.telemetry._iterhnf += 1
     if isinstance(var.target, icurry.ILiteral):
       return var
     tag = var.tag
