@@ -1,0 +1,1 @@
+Prog "applic05" ["Prelude","Common","Control.SetFunctions"] [] [Func ("applic05","main") 0 Public (TCons ("Control.SetFunctions","Values") [TCons ("Common","Result1") []]) (Rule [] (Var 0))] []

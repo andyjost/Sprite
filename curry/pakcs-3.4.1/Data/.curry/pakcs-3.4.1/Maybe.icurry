@@ -1,0 +1,14 @@
+interface Data.Maybe where {
+import Prelude;
+data Prelude.Maybe a = Nothing | Just a;
+catMaybes 1 :: [Prelude.Maybe a] -> [a];
+fromJust 1 :: Prelude.Maybe a -> a;
+fromMaybe 2 :: a -> Prelude.Maybe a -> a;
+isJust 1 :: Prelude.Maybe a -> Prelude.Bool;
+isNothing 1 :: Prelude.Maybe a -> Prelude.Bool;
+listToMaybe 1 :: [a] -> Prelude.Maybe a;
+mapMaybe 1 :: (a -> Prelude.Maybe b) -> [a] -> [b];
+maybeToList 1 :: Prelude.Maybe a -> [a];
+Prelude.maybe 3 :: a -> (b -> a) -> Prelude.Maybe b -> a;
+hiding data Prelude.Bool
+}

@@ -1,0 +1,1 @@
+Prog "intmath006" ["Prelude"] [] [Func ("intmath006","main") 0 Public (TCons ("Prelude","Int") []) (Rule [] (Comb FuncCall ("Prelude","_impl#*#Prelude.Num#Prelude.Int") [Lit (Intc 3),Lit (Intc 7)]))] []

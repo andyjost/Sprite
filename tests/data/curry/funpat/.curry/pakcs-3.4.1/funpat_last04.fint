@@ -1,0 +1,1 @@
+Prog "funpat_last04" ["Prelude"] [] [Func ("funpat_last04","last") 2 Public (ForallType [(0,KStar)] (FuncType (FuncType (TCons ("Prelude","()") []) (TCons ("Prelude","_Dict#Data") [TVar 0])) (FuncType (TCons ("Prelude","[]") [TVar 0]) (TVar 0)))) (Rule [] (Var 0)),Func ("funpat_last04","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Var 0))] []

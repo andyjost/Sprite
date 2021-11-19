@@ -1,0 +1,1 @@
+Prog "ex6a" ["Prelude"] [] [Func ("ex6a","main") 0 Public (TCons ("Prelude","(,)") [TCons ("Prelude","Bool") [],TCons ("Prelude","[]") [TCons ("Prelude","Bool") []]]) (Rule [] (Free [1] (Comb ConsCall ("Prelude","(,)") [Comb FuncCall ("Prelude","head") [Var 1],Var 1])))] []

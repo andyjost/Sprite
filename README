@@ -15,10 +15,14 @@ hybrid applications that leverage the strengths of both languages.
 2. Build, Testing, and Installation
 -----------------------------------
 
+Before buidling, initialize the submodules as follows:
+
+    git submodule init
+    git submodule update
+
 To build and install, run `make install`.  Say `make help` for details.
 
-The default installation location is a subdirectory 'install/' of the project root.  This
-is a convenient staging area from which to test Sprite.
+This will install sprite to subdirectory 'install/'.
 
 To test, run `cd tests; ./run_tests`
 

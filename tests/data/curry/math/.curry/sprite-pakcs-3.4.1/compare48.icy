@@ -1,0 +1,1 @@
+(IProg "compare48" ["Prelude"] [] [(IFunction ("compare48","main",0) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (IFCall ("Prelude","apply",760) [(IFCall ("Prelude","apply",760) [(IFCall ("Prelude","_impl#>#Prelude.Ord#Prelude.Float",96) []),(ILit (IFloat 1.1))]),(ILit (IFloat 1.1))])))))])

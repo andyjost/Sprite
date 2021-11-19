@@ -1,0 +1,1 @@
+Prog "fprog00" ["Prelude"] [] [Func ("fprog00","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Free [1] (Comb FuncCall ("Prelude","=:=") [Comb (FuncPartCall 1) ("Prelude","_inst#Prelude.Data#Prelude.Float") [],Var 1,Lit (Floatc 3.14)])))] []

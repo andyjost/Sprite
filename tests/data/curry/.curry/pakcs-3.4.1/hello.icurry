@@ -1,0 +1,5 @@
+interface hello where {
+import Prelude;
+main 0 :: Prelude.IO ();
+hiding data Prelude.IO a
+}

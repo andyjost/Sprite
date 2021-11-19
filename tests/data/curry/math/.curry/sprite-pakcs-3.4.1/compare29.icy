@@ -1,0 +1,1 @@
+(IProg "compare29" ["Prelude"] [] [(IFunction ("compare29","main",0) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (IFCall ("Prelude","_impl#<=#Prelude.Ord#Prelude.Char",81) [(ILit (IChar 'b')),(ILit (IChar 'a'))])))))])

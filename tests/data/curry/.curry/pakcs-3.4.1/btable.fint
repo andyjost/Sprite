@@ -1,0 +1,1 @@
+Prog "btable" ["Prelude"] [] [Func ("btable","f") 2 Public (ForallType [(0,KStar)] (FuncType (FuncType (TCons ("Prelude","()") []) (TCons ("Prelude","_Dict#Num") [TVar 0])) (FuncType (TCons ("Prelude","Int") []) (TVar 0)))) (Rule [] (Var 0)),Func ("btable","main") 0 Public (TCons ("Prelude","Int") []) (Rule [] (Var 0))] []

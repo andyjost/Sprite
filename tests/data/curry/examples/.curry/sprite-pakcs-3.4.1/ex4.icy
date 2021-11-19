@@ -1,0 +1,1 @@
+(IProg "ex4" ["Prelude"] [] [(IFunction ("ex4","main",0) 0 Public [] (IFuncBody (IBlock [(IVarDecl 1)] [(IVarAssign 1 (IOr (ICCall ("Prelude","True",1) []) (ICCall ("Prelude","False",0) [])))] (IReturn (ICCall ("Prelude","(,)",0) [(IVar 1),(IVar 1)])))))])

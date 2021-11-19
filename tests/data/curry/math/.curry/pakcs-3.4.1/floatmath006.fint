@@ -1,0 +1,1 @@
+Prog "floatmath006" ["Prelude"] [] [Func ("floatmath006","main") 0 Public (TCons ("Prelude","Float") []) (Rule [] (Var 0))] []

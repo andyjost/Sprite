@@ -1,0 +1,6 @@
+interface quicksort where {
+import Prelude;
+goal 0 :: [Prelude.Int];
+qsort 1 :: [Prelude.Int] -> [Prelude.Int];
+hiding data Prelude.Int
+}

@@ -1,0 +1,5 @@
+interface helloExternal where {
+import Prelude;
+undef 0 :: Prelude.IO ();
+hiding data Prelude.IO a
+}

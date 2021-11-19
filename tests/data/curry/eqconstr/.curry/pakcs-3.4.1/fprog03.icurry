@@ -1,0 +1,7 @@
+interface fprog03 where {
+import Prelude;
+f 2 :: Prelude.Float -> Prelude.Bool -> Prelude.Bool;
+main 0 :: Prelude.Bool;
+hiding data Prelude.Float;
+hiding data Prelude.Bool
+}

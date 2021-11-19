@@ -1,0 +1,6 @@
+interface mynot where {
+import Prelude;
+main 0 :: Prelude.Bool;
+mynot 1 :: Prelude.Bool -> Prelude.Bool;
+hiding data Prelude.Bool
+}

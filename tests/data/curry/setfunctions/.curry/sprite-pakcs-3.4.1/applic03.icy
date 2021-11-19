@@ -1,0 +1,1 @@
+(IProg "applic03" ["Prelude","Common","Control.SetFunctions"] [] [(IFunction ("applic03","main",0) 0 Public [] (IFuncBody (IBlock [(IFreeDecl 1)] [] (IReturn (IFCall ("Control.SetFunctions","evalS",19) [(IFCall ("Control.SetFunctions","$>",14) [(IFCall ("Control.SetFunctions","set",11) [(IFCall ("Common","f1",94) [])]),(IVar 1)])])))))])

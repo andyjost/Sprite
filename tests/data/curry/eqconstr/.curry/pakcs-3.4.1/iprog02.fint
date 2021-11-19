@@ -1,0 +1,1 @@
+Prog "iprog02" ["Prelude"] [] [Func ("iprog02","f") 3 Public (ForallType [(0,KStar)] (FuncType (FuncType (TCons ("Prelude","()") []) (TCons ("Prelude","_Dict#Num") [TVar 0])) (FuncType (TCons ("Prelude","Int") []) (FuncType (TCons ("Prelude","Int") []) (TVar 0))))) (Rule [] (Var 0)),Func ("iprog02","main") 0 Public (TCons ("Prelude","Int") []) (Rule [] (Var 0))] []

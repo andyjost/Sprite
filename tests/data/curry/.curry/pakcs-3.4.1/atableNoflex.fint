@@ -1,0 +1,1 @@
+Prog "atableNoflex" ["Prelude"] [] [Func ("atableNoflex","f") 1 Public (FuncType (TCons ("Prelude","Int") []) (TCons ("Prelude","Bool") [])) (Rule [] (Var 0)),Func ("atableNoflex","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Var 0))] []

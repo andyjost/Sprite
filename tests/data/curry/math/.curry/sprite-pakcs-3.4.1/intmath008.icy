@@ -1,0 +1,1 @@
+(IProg "intmath008" ["Prelude"] [] [(IFunction ("intmath008","main",0) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (IFCall ("Prelude","apply",760) [(IFCall ("Prelude","apply",760) [(IFCall ("Prelude","_impl#div#Prelude.Integral#Prelude.Int",376) []),(ILit (IInt 3))]),(ILit (IInt 7))])))))])

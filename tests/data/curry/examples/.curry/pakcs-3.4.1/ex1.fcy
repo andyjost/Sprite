@@ -1,0 +1,1 @@
+Prog "ex1" ["Prelude"] [] [Func ("ex1","loop") 0 Public (ForallType [(0,KStar)] (TVar 0)) (Rule [] (Comb FuncCall ("ex1","loop") [])),Func ("ex1","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Comb FuncCall ("Prelude","snd") [Comb ConsCall ("Prelude","(,)") [Comb FuncCall ("ex1","loop") [],Comb FuncCall ("Prelude","not") [Comb ConsCall ("Prelude","True") []]]]))] []

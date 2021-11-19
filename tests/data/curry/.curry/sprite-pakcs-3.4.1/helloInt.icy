@@ -1,0 +1,1 @@
+(IProg "helloInt" ["Prelude"] [] [(IFunction ("helloInt","main",0) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (ILit (IInt 0))))))])

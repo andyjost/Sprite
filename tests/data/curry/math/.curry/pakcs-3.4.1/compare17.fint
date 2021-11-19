@@ -1,0 +1,1 @@
+Prog "compare17" ["Prelude"] [] [Func ("compare17","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Var 0))] []

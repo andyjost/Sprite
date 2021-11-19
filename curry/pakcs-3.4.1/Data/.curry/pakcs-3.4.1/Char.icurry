@@ -1,0 +1,26 @@
+interface Data.Char where {
+import Prelude;
+digitToInt 1 :: Prelude.Char -> Prelude.Int;
+intToDigit 1 :: Prelude.Int -> Prelude.Char;
+isAscii 1 :: Prelude.Char -> Prelude.Bool;
+isAsciiLower 1 :: Prelude.Char -> Prelude.Bool;
+isAsciiUpper 1 :: Prelude.Char -> Prelude.Bool;
+isControl 1 :: Prelude.Char -> Prelude.Bool;
+isLatin1 1 :: Prelude.Char -> Prelude.Bool;
+toLower 1 :: Prelude.Char -> Prelude.Char;
+toUpper 1 :: Prelude.Char -> Prelude.Char;
+Prelude.chr 1 :: Prelude.Int -> Prelude.Char;
+Prelude.isAlpha 1 :: Prelude.Char -> Prelude.Bool;
+Prelude.isAlphaNum 1 :: Prelude.Char -> Prelude.Bool;
+Prelude.isBinDigit 1 :: Prelude.Char -> Prelude.Bool;
+Prelude.isDigit 1 :: Prelude.Char -> Prelude.Bool;
+Prelude.isHexDigit 1 :: Prelude.Char -> Prelude.Bool;
+Prelude.isLower 1 :: Prelude.Char -> Prelude.Bool;
+Prelude.isOctDigit 1 :: Prelude.Char -> Prelude.Bool;
+Prelude.isSpace 1 :: Prelude.Char -> Prelude.Bool;
+Prelude.isUpper 1 :: Prelude.Char -> Prelude.Bool;
+Prelude.ord 1 :: Prelude.Char -> Prelude.Int;
+hiding data Prelude.Char;
+hiding data Prelude.Int;
+hiding data Prelude.Bool
+}

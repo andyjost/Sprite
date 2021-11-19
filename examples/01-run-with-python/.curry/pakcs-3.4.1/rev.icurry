@@ -1,0 +1,7 @@
+interface rev where {
+import Prelude;
+append 2 :: [a] -> [a] -> [a];
+main 0 :: [Prelude.Int];
+rev 1 :: [a] -> [a];
+hiding data Prelude.Int
+}

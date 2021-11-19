@@ -1,0 +1,1 @@
+Prog "prog26" ["Prelude"] [] [Func ("prog26","fwd") 1 Public (ForallType [(0,KStar)] (FuncType (TVar 0) (TVar 0))) (Rule [] (Var 0)),Func ("prog26","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Var 0))] []

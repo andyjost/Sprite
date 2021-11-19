@@ -1,0 +1,6 @@
+interface stanford1947 where {
+import Prelude;
+digit 0 :: Prelude.Int;
+main 0 :: Prelude.Int;
+hiding data Prelude.Int
+}

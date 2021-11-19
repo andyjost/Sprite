@@ -1,0 +1,1 @@
+(IProg "compare58" ["Prelude"] [] [(IFunction ("compare58","main",0) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (IFCall ("Prelude","&&",687) [(ICCall ("Prelude","False",0) []),(ICCall ("Prelude","False",0) [])])))))])

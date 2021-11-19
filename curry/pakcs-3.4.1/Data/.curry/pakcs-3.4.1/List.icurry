@@ -1,0 +1,177 @@
+interface Data.List where {
+import Prelude;
+infix 5 \\;
+(\\) 2 :: Prelude.Eq a => [a] -> [a] -> [a];
+cycle 1 :: [a] -> [a];
+delete 0 :: Prelude.Eq a => a -> [a] -> [a];
+deleteBy 3 :: (a -> a -> Prelude.Bool) -> a -> [a] -> [a];
+diagonal 0 :: [[a]] -> [a];
+elemIndex
+1
+::
+Prelude.Eq a => a -> [a] -> Prelude.Maybe Prelude.Int;
+elemIndices 1 :: Prelude.Eq a => a -> [a] -> [Prelude.Int];
+find 1 :: (a -> Prelude.Bool) -> [a] -> Prelude.Maybe a;
+findIndex
+1
+::
+(a -> Prelude.Bool) -> [a] -> Prelude.Maybe Prelude.Int;
+findIndices 2 :: (a -> Prelude.Bool) -> [a] -> [Prelude.Int];
+group 0 :: Prelude.Eq a => [a] -> [[a]];
+groupBy 2 :: (a -> a -> Prelude.Bool) -> [a] -> [[a]];
+init 1 :: [a] -> [a];
+inits 1 :: [a] -> [[a]];
+insertBy 3 :: (a -> a -> Prelude.Bool) -> a -> [a] -> [a];
+intercalate 2 :: [a] -> [[a]] -> [a];
+intersect 2 :: Prelude.Eq a => [a] -> [a] -> [a];
+intersectBy 3 :: (a -> a -> Prelude.Bool) -> [a] -> [a] -> [a];
+intersperse 2 :: a -> [a] -> [a];
+isInfixOf 2 :: Prelude.Eq a => [a] -> [a] -> Prelude.Bool;
+isPrefixOf 2 :: Prelude.Eq a => [a] -> [a] -> Prelude.Bool;
+isSuffixOf 2 :: Prelude.Eq a => [a] -> [a] -> Prelude.Bool;
+last 1 :: [a] -> a;
+mapAccumL 3 :: (a -> b -> (a, c)) -> a -> [b] -> (a, [c]);
+mapAccumR 3 :: (a -> b -> (a, c)) -> a -> [b] -> (a, [c]);
+maximum 1 :: Prelude.Ord a => [a] -> a;
+maximumBy 2 :: (a -> a -> Prelude.Ordering) -> [a] -> a;
+minimum 1 :: Prelude.Ord a => [a] -> a;
+minimumBy 2 :: (a -> a -> Prelude.Ordering) -> [a] -> a;
+nub 1 :: Prelude.Eq a => [a] -> [a];
+nubBy 2 :: (a -> a -> Prelude.Bool) -> [a] -> [a];
+partition 2 :: (a -> Prelude.Bool) -> [a] -> ([a], [a]);
+permutations 1 :: [a] -> [[a]];
+product 1 :: Prelude.Num a => [a] -> a;
+replace 3 :: a -> Prelude.Int -> [a] -> [a];
+scanl 3 :: (a -> b -> a) -> a -> [b] -> [a];
+scanl1 2 :: (a -> a -> a) -> [a] -> [a];
+scanr 3 :: (a -> b -> b) -> b -> [a] -> [b];
+scanr1 2 :: (a -> a -> a) -> [a] -> [a];
+sort 0 :: Prelude.Ord a => [a] -> [a];
+sortBy 0 :: (a -> a -> Prelude.Bool) -> [a] -> [a];
+split 2 :: (a -> Prelude.Bool) -> [a] -> [[a]];
+splitOn 2 :: Prelude.Eq a => [a] -> [a] -> [[a]];
+sum 1 :: Prelude.Num a => [a] -> a;
+tails 1 :: [a] -> [[a]];
+transpose 1 :: [[a]] -> [[a]];
+unfoldr 2 :: (a -> Prelude.Maybe (b, a)) -> a -> [b];
+union 2 :: Prelude.Eq a => [a] -> [a] -> [a];
+unionBy 3 :: (a -> a -> Prelude.Bool) -> [a] -> [a] -> [a];
+hiding class Prelude.Eq a;
+hiding data Prelude.Bool;
+hiding data Prelude.Maybe a;
+hiding data Prelude.Int;
+hiding class Prelude.Eq a => Prelude.Ord a;
+hiding data Prelude.Ordering;
+hiding class Prelude.Num a;
+instance Prelude.Eq () {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance (Prelude.Eq a, Prelude.Eq b) => Prelude.Eq (a, b) {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance (Prelude.Eq a, Prelude.Eq b,
+          Prelude.Eq c) => Prelude.Eq (a, b, c) {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance (Prelude.Eq a, Prelude.Eq b, Prelude.Eq c,
+          Prelude.Eq d) => Prelude.Eq (a, b, c, d) {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance (Prelude.Eq a, Prelude.Eq b, Prelude.Eq c, Prelude.Eq d,
+          Prelude.Eq e) => Prelude.Eq (a, b, c, d, e) {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Eq a => Prelude.Eq [a] {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Eq Prelude.Bool {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Eq Prelude.Char {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance (Prelude.Eq a,
+          Prelude.Eq b) => Prelude.Eq (Prelude.Either a b) {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Eq Prelude.Float {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Eq Prelude.IOError {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Eq Prelude.Int {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Eq a => Prelude.Eq (Prelude.Maybe a) {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Eq Prelude.Ordering {
+  (==) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Ord () {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance (Prelude.Ord a, Prelude.Ord b) => Prelude.Ord (a, b) {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance (Prelude.Ord a, Prelude.Ord b,
+          Prelude.Ord c) => Prelude.Ord (a, b, c) {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance (Prelude.Ord a, Prelude.Ord b, Prelude.Ord c,
+          Prelude.Ord d) => Prelude.Ord (a, b, c, d) {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance (Prelude.Ord a, Prelude.Ord b, Prelude.Ord c,
+          Prelude.Ord d, Prelude.Ord e) => Prelude.Ord (a, b, c, d, e) {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Ord a => Prelude.Ord [a] {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Ord Prelude.Bool {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Ord Prelude.Char {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance (Prelude.Ord a,
+          Prelude.Ord b) => Prelude.Ord (Prelude.Either a b) {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Ord Prelude.Float {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Ord Prelude.Int {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Ord a => Prelude.Ord (Prelude.Maybe a) {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Ord Prelude.Ordering {
+  (<=) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Num Prelude.Float {
+  fromInt 1;
+  signum 1;
+  abs 1;
+  negate 1;
+  (*) 2;
+  (-) 2;
+  (+) 2
+} {-# MODULE Prelude #-};
+instance Prelude.Num Prelude.Int {
+  fromInt 1;
+  signum 1;
+  abs 1;
+  negate 1;
+  (*) 2;
+  (-) 2;
+  (+) 2
+} {-# MODULE Prelude #-};
+hiding data Prelude.Char;
+hiding data Prelude.Either a b;
+hiding data Prelude.Float;
+hiding data Prelude.IOError
+}

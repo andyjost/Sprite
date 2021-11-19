@@ -1,0 +1,1 @@
+(IProg "import_test" ["Prelude"] [] [(IFunction ("import_test","main",0) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (ICCall ("Prelude","True",1) [])))))])

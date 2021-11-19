@@ -1,0 +1,6 @@
+interface cprog02 where {
+import Prelude;
+f 2 :: Prelude.Char -> Prelude.Char -> Prelude.Char;
+main 0 :: Prelude.Char;
+hiding data Prelude.Char
+}
