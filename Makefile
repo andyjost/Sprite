@@ -3,7 +3,7 @@ SUBMODULES := src curry
 DIRS_TO_CLEAN += $(OBJECT_ROOT)
 include Make.include
 
-.DEFAULT_GOAL := help
+.DEFAULT_GOAL := default-goal
 
 .PHONY: MANIFEST
 MANIFEST:
@@ -15,9 +15,9 @@ MANIFEST:
 help:
 	@echo "Usage: make [target ...] [var=value ...]"
 	@echo ""
-	@echo "************************************************"
-	@echo "    To build and install, say \`make install\`"
-	@echo "************************************************"
+	@echo "******************************************************"
+	@echo "    To build, stage, and test, say \`make install\`"
+	@echo "******************************************************"
 	@echo ""
 	@echo "  * Installing to PREFIX=$(PREFIX)."
 ifeq ($(DEBUG),1)
@@ -39,6 +39,11 @@ endif
 	@echo "    install PREFIX=<dirname>   : install files under <dirname>"
 	@echo "    uninstall PREFIX=<dirname> : uninstall files under <dirname>"
 	@echo ""
+	@echo "Targets to overlay PAKCS files (improves test speed):"
+	@echo "-----------------------------------------------------"
+	@echo "    overlay      : overlay PAKCS files"
+	@echo "    overlay-file : build a new tarball of overlayable files"
+	@echo ""
 	@echo "Targets for debugging:"
 	@echo "----------------------"
 	@echo "    print-<varname> : print the value of a make variable;  E.g., say"
@@ -52,9 +57,34 @@ endif
 # The overlay file captures build products for a particular version of PAKCS.
 # Installing these dramatically improves the test performance.
 OVERLAY_FILE := overlay-$(PAKCS_SUBDIR).tgz
+.PHONY: overlay overlay-file $(OVERLAY_FILE)
 $(OVERLAY_FILE):
 	find curry src tests -type f -wholename '*/.curry/*$(PAKCS_SUBDIR)*' | xargs tar cvzf $@
-.PHONY: overlay overlay-install
-overlay: $(OVERLAY_FILE)
-install-overlay:
+overlay-file: $(OVERLAY_FILE)
+ifeq ($(shell [ -e $(OVERLAY_FILE) ]; echo $$?),1)
+overlay:
+else
+overlay:
 	tar xvzf $(OVERLAY_FILE)
+endif
+
+.PHONY: test
+test:
+	make -C tests
+
+.PHONY: stage
+stage:
+	make install
+
+.PHONY: docs
+docs:
+	make -C docs html latexpdf
+
+.PHONY: default-goal
+default-goal:
+	git submodule init
+	git submodule update
+	make stage
+	make overlay
+	make test
+

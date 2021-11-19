@@ -70,7 +70,7 @@ ifeq ($(flavor SUBMODULES),undefined)
   SUBMODULES = $(dir $(wildcard */.))
 endif
 
-RECURSIVE_TARGETS := all clean install libs objs shlibs uninstall test
+RECURSIVE_TARGETS := all clean install libs objs shlibs uninstall
 .PHONY: $(RECURSIVE_TARGETS) $(SUBMODULES)
 $(RECURSIVE_TARGETS):: | $(SUBMODULES)
 $(SUBMODULES):

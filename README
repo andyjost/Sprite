@@ -15,23 +15,34 @@ hybrid applications that leverage the strengths of both languages.
 2. Build, Testing, and Installation
 -----------------------------------
 
-Before buidling, initialize the submodules as follows:
+Simple instructions:
+
+    make
+    make install PREFIX=<install-dir>
+
+Long instructions:
+
+Before buidling, you must initialize the submodules:
 
     git submodule init
     git submodule update
 
-To build and install, run `make install`.  Say `make help` for details.
+To build and stage, run `make install`.  Say `make help` for details.  This
+will install sprite under 'install/'.
 
-This will install sprite to subdirectory 'install/'.
+To reduce the time required for testing, you may wish to overlay files specific
+to your version of PAKCS with `make overlay`.  For this to work, your version
+of PACKS must match one of the overlay*.tgz files.
 
-To test, run `cd tests; ./run_tests`
+To test, run `make test`.  You can also `cd tests` and then `./run_tests`.  See
+tests/README for details on running a subset of tests.
 
 To install Sprite to a directory of your choosing run:
 
-    make install PREFIX=<your-prefix-dir>
+    make install PREFIX=<install-dir>
 
-To build documentation, run `cd doc; make html latexpdf`.  Several formats are
-available; say `cd doc; make help` for details.
+To build PDF and HTML documentation, run `make docs`.  Many formats are
+available; say `make -C docs help` for details.
 
 
 3. Getting Started
