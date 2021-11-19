@@ -70,7 +70,7 @@ ifeq ($(shell [ -e $(OVERLAY_ARCHIVE) ]; echo $$?),1)
 overlay:
 else
 overlay:
-	tar xvzf $(OVERLAY_ARCHIVE) < $(OVERLAY_LIST)
+	tar xvzf $(OVERLAY_ARCHIVE)
 endif
 
 .PHONY: test
