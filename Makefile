@@ -41,8 +41,8 @@ endif
 	@echo ""
 	@echo "Targets to overlay PAKCS files (improves test speed):"
 	@echo "-----------------------------------------------------"
-	@echo "    overlay      : overlay PAKCS files"
-	@echo "    overlay-file : build a new tarball of overlayable files"
+	@echo "    overlay         : overlay PAKCS files"
+	@echo "    overlay-archive : build a new archive of overlayable files"
 	@echo ""
 	@echo "Targets for debugging:"
 	@echo "----------------------"
@@ -54,18 +54,23 @@ endif
 # @echo "To build documentation, add WITHDOC=1 to the commandline or invoke"
 # @echo "make from the docs/ subdirectory."
 
-# The overlay file captures build products for a particular version of PAKCS.
-# Installing these dramatically improves the test performance.
-OVERLAY_FILE := overlay-$(PAKCS_SUBDIR).tgz
-.PHONY: overlay overlay-file $(OVERLAY_FILE)
-$(OVERLAY_FILE):
-	find curry src tests -type f -wholename '*/.curry/*$(PAKCS_SUBDIR)*' | xargs tar cvzf $@
-overlay-file: $(OVERLAY_FILE)
-ifeq ($(shell [ -e $(OVERLAY_FILE) ]; echo $$?),1)
+# The overlay archive captures build products for a particular version of
+# PAKCS.  Installing these dramatically improves the test performance.
+OVERLAY_ARCHIVE := overlay-$(PAKCS_SUBDIR).tgz
+OVERLAY_LIST_FILE := OVERLAY_FILES.txt
+.PHONY: overlay overlay-archive $(OVERLAY_ARCHIVE) $(OVERLAY_LIST_FILE)
+$(OVERLAY_LIST_FILE):
+	find tests -type f -wholename '*/.curry/*$(PAKCS_SUBDIR)*' >  $(OVERLAY_LIST_FILE)
+	find curry/$(PAKCS_SUBDIR) -type f                         >> $(OVERLAY_LIST_FILE)
+$(OVERLAY_ARCHIVE): $(OVERLAY_LIST_FILE)
+	tar cvT $(OVERLAY_LIST_FILE) | gzip -n > $@
+	rm $(OVERLAY_LIST_FILE)
+overlay-archive: $(OVERLAY_ARCHIVE)
+ifeq ($(shell [ -e $(OVERLAY_ARCHIVE) ]; echo $$?),1)
 overlay:
 else
 overlay:
-	tar xvzf $(OVERLAY_FILE)
+	tar xvzf $(OVERLAY_ARCHIVE) < $(OVERLAY_LIST)
 endif
 
 .PHONY: test
