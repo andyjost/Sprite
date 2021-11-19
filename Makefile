@@ -89,7 +89,7 @@ docs:
 default-goal:
 	git submodule init
 	git submodule update
-	make stage
 	make overlay
+	make stage
 	make test
 
