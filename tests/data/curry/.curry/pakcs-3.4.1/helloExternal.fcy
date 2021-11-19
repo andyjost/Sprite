@@ -1,1 +1,0 @@
-Prog "helloExternal" ["Prelude"] [] [Func ("helloExternal","undef") 0 Public (TCons ("Prelude","IO") [TCons ("Prelude","()") []]) (External "helloExternal.undef")] []

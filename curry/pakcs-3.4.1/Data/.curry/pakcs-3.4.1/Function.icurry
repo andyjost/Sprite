@@ -1,4 +1,0 @@
-interface Data.Function where {
-fix 1 :: (a -> a) -> a;
-on 4 :: (a -> a -> b) -> (c -> a) -> c -> c -> b
-}

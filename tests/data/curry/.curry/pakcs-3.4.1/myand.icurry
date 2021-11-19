@@ -1,5 +1,0 @@
-interface myand where {
-import Prelude;
-and_ 2 :: Prelude.Bool -> Prelude.Bool -> Prelude.Bool;
-hiding data Prelude.Bool
-}

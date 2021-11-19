@@ -1,1 +1,0 @@
-(IProg "helloFloat" ["Prelude"] [] [(IFunction ("helloFloat","main",0) 1 Public [] (IFuncBody (IBlock [(IVarDecl 1)] [(IVarAssign 1 (IVarAccess 0 [0]))] (IReturn (IFCall ("Prelude","apply",760) [(IFCall ("Prelude","fromFloat",802) [(IVar 1)]),(ILit (IFloat 0.1))])))))])

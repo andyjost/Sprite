@@ -1,1 +1,0 @@
-(IProg "helloChar" ["Prelude"] [] [(IFunction ("helloChar","main",0) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (ILit (IChar 'a'))))))])

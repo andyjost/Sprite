@@ -1,7 +1,0 @@
-interface cprog03 where {
-import Prelude;
-f 2 :: Prelude.Char -> Prelude.Bool -> Prelude.Bool;
-main 0 :: Prelude.Bool;
-hiding data Prelude.Char;
-hiding data Prelude.Bool
-}

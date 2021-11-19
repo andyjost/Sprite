@@ -1,5 +1,0 @@
-interface cprog05 where {
-import Prelude;
-main 0 :: Prelude.Char;
-hiding data Prelude.Char
-}

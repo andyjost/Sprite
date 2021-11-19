@@ -1,9 +1,0 @@
-interface queens where {
-import Prelude;
-goal1 0 :: [Prelude.Int];
-goal2 0 :: [Prelude.Int];
-main 0 :: [Prelude.Int];
-perm 1 :: [a] -> [a];
-queens 1 :: Prelude.Int -> [Prelude.Int];
-hiding data Prelude.Int
-}

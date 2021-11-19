@@ -1,1 +1,0 @@
-(IProg "helloExternal" ["Prelude"] [] [(IFunction ("helloExternal","undef",0) 0 Public [] (IExternal "helloExternal.undef"))])

@@ -1,1 +1,0 @@
-Prog "fprog02" ["Prelude"] [] [Func ("fprog02","f") 3 Public (ForallType [(0,KStar)] (FuncType (FuncType (TCons ("Prelude","()") []) (TCons ("Prelude","_Dict#Fractional") [TVar 0])) (FuncType (TCons ("Prelude","Float") []) (FuncType (TCons ("Prelude","Float") []) (TVar 0))))) (Rule [] (Var 0)),Func ("fprog02","main") 0 Public (TCons ("Prelude","Float") []) (Rule [] (Var 0))] []

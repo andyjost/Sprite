@@ -1,7 +1,0 @@
-interface iprog03 where {
-import Prelude;
-f 2 :: Prelude.Int -> Prelude.Bool -> Prelude.Bool;
-main 0 :: Prelude.Bool;
-hiding data Prelude.Int;
-hiding data Prelude.Bool
-}

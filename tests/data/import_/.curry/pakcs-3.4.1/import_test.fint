@@ -1,1 +1,0 @@
-Prog "import_test" ["Prelude"] [] [Func ("import_test","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Var 0))] []

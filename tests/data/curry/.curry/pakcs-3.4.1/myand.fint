@@ -1,1 +1,0 @@
-Prog "myand" ["Prelude"] [] [Func ("myand","and_") 2 Public (FuncType (TCons ("Prelude","Bool") []) (FuncType (TCons ("Prelude","Bool") []) (TCons ("Prelude","Bool") []))) (Rule [] (Var 0))] []

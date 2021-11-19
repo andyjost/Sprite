@@ -28,6 +28,8 @@ import cPickle as pickle, cStringIO, glob, hashlib, logging, os, re
 
 logger = logging.getLogger(__name__)
 
+__all__ = ['enabled', 'filename', 'Curry2ICuryCache', 'ParsedJsonCache']
+
 try:
   import sqlite3
 except ImportError:

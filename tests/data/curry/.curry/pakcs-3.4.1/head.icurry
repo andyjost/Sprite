@@ -1,3 +1,0 @@
-interface head where {
-head 1 :: [a] -> a
-}

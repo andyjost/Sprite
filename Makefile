@@ -49,3 +49,12 @@ endif
 # @echo "To build documentation, add WITHDOC=1 to the commandline or invoke"
 # @echo "make from the docs/ subdirectory."
 
+# The overlay file captures build products for a particular version of PAKCS.
+# Installing these dramatically improves the test performance.
+OVERLAY_FILE := overlay-$(PAKCS_SUBDIR).tgz
+$(OVERLAY_FILE):
+	find curry src tests -type f -wholename '*/.curry/*$(PAKCS_SUBDIR)*' | xargs tar cvzf $@
+.PHONY: overlay overlay-install
+overlay: $(OVERLAY_FILE)
+install-overlay:
+	tar xvzf $(OVERLAY_FILE)

@@ -1,1 +1,0 @@
-Prog "cprog07" ["Prelude"] [] [Func ("cprog07","main") 0 Public (TCons ("Prelude","Int") []) (Rule [] (Free [1] (Comb FuncCall ("Prelude","&>") [Comb FuncCall ("Prelude","=:=") [Comb (FuncPartCall 1) ("Prelude","_inst#Prelude.Data#Prelude.Char") [],Var 1,Lit (Charc 'b')],Comb FuncCall ("Prelude","ord") [Var 1]])))] []

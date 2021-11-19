@@ -1,1 +1,0 @@
-Prog "mynot" ["Prelude"] [] [Func ("mynot","mynot") 1 Public (FuncType (TCons ("Prelude","Bool") []) (TCons ("Prelude","Bool") [])) (Rule [] (Var 0)),Func ("mynot","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Var 0))] []
