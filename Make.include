@@ -13,55 +13,30 @@ MULTIARCH := $(shell $(CC) --print-multiarch)
 # OLD_SHELL := $(SHELL)
 # SHELL = $(warning Building $@)$(OLD_SHELL)
 
-
 # Derived variables
 # =================
 # Variables derived from Make.config variables.
 
-PAKCS := $(realpath $(PAKCS_HOME)/bin/pakcs)
+PAKCS_HOME := $(realpath $(dir $(PAKCS))/..)
 PAKCS_NAME := $(shell $(PAKCS) --compiler-name)
 PAKCS_VER := $(shell $(PAKCS) --numeric-version)
 PAKCS_SUBDIR := $(PAKCS_NAME)-$(PAKCS_VER)
 
-# The name of the top-level Python package.  For example, if this is 'curry',
-# then users can import this project by writing 'import curry'.
-ifndef PYTHON_PACKAGE_NAME
-  PYTHON_PACKAGE_NAME := curry
-endif
+# The directory under .curry in which to place intermediate files.  By default,
+# just prepent "sprite-" to the PAKCS directory name.
+INTERMEDIATE_SUBDIR = sprite-$(PAKCS_SUBDIR)
 
-# This name must match one of the subpackages under src/python/backends.
-ifndef DEFAULT_BACKEND
-  DEFAULT_BACKEND := py
-endif
+PYTHON_CONFIG_SCRIPT = $(PYTHON_EXECUTABLE) -c \
+"from __future__ import print_function; \
+import re, sysconfig; \
+print(sysconfig.get_config_vars()['CONFINCLUDEPY']); \
+print(sysconfig.get_config_vars()['LIBDIR']); \
+print(re.match('lib(\S+)\.so', sysconfig.get_config_vars()['INSTSONAME']).group(1))"
 
-ifndef PYTHON_INCLUDE_PATH
-  # Added to CFLAGS as -I$(PYTHON_INCLUDE_PATH) for certain targets.
-  PYTHON_INCLUDE_PATH := $(PYTHON_HOME)/include/$(PYTHON_VERSION)
-endif
-
-ifndef PYTHON_EXECUTABLE
-  # The Python executable corresponding to PYTHON_LIBRARY_PATH.
-  PYTHON_EXECUTABLE := $(PYTHON_HOME)/bin/python
-endif
-
-ifndef PYTHON_COVERAGE_EXECUTABLE
-  PYTHON_COVERAGE_EXECUTABLE := $(PYTHON_HOME)/bin/coverage
-endif
-
-ifndef PYTHON_LIBRARY
-  # Added to LDFLAGS as -l$(PYTHON_LIBRARY) for certain targets.
-  PYTHON_LIBRARY := $(PYTHON_VERSION)
-endif
-PYTHON_LIBRARY_NAME := lib$(PYTHON_LIBRARY).so
-
-ifndef PYTHON_LIBRARY_PATH
-  # Added to LDFLAGS as -L$(PYTHON_LIBRARY_PATH) for certain targets.
-  ifeq ($(shell [ -d $(PYTHON_HOME)/lib/$(MULTIARCH) ]; echo $$?),0)
-    PYTHON_LIBRARY_PATH := $(PYTHON_HOME)/lib/$(MULTIARCH)
-  else
-    PYTHON_LIBRARY_PATH := $(PYTHON_HOME)/lib
-  endif
-endif
+PYTHON_CONFIG := $(shell $(call PYTHON_CONFIG_SCRIPT))
+PYTHON_INCLUDE_PATH := $(word 1,$(PYTHON_CONFIG))
+PYTHON_LIBRARY_PATH := $(word 2,$(PYTHON_CONFIG))
+PYTHON_LIBRARY      := $(word 3,$(PYTHON_CONFIG))
 
 $(PREFIX)/lib:
 	mkdir -p $(PREFIX)/lib
@@ -74,22 +49,6 @@ ifndef BOOST_INCLUDE_PATH
   BOOST_INCLUDE_PATH := $(BOOST_HOME)/include
 endif
 
-# ifndef BOOST_LIBRARY_PATH
-#   ifeq ($(shell [ -d $(BOOST_HOME)/lib/$(MULTIARCH) ]; echo $$?),0)
-#     BOOST_LIBRARY_PATH := $(BOOST_HOME)/lib/$(MULTIARCH)
-#   else
-#     BOOST_LIBRARY_PATH := $(BOOST_HOME)/lib
-#   endif
-# endif
-#
-# ifndef BOOST_PYTHON_LIBRARY
-#   ifeq ($(shell [ -f $(BOOST_LIBRARY_PATH)/libboost_python27.so ]; echo $$?),0)
-#     BOOST_PYTHON_LIBRARY := boost_python27
-#   else
-#     BOOST_PYTHON_LIBRARY := boost_python
-#   endif
-# endif
-
 # Functions.
 # ==========
 define clean_files =
@@ -100,12 +59,7 @@ endef
 # ==============
 CFLAGS   += -I$(ROOT_DIR)/src -I$(BOOST_HOME)/include -I$(PYTHON_INCLUDE_PATH) \
             -I$(ROOT_DIR)/extern/pybind11/include
-
-# CFLAGS   += -I$(ROOT_DIR)/src -I$(LLVM_INCLUDE_PATH) -I$(LLVM_C_INCLUDE_PATH) \
-#             -I$(BOOST_HOME)/include -I$(PYTHON_INCLUDE_PATH) -I$(ROOT_DIR)/extern/pybind11/include
 LDFLAGS  += -L $(PYTHON_LIBRARY_PATH) -Wl,-rpath=$(PYTHON_LIBRARY_PATH)
-# LDFLAGS  += -L $(LLVM_LIBRARY_PATH) -L $(PYTHON_LIBRARY_PATH) -L $(BOOST_LIBRARY_PATH) \
-#             -Wl,-rpath=$(LLVM_LIBRARY_PATH) -Wl,-rpath=$(PYTHON_LIBRARY_PATH) -Wl,-rpath=$(BOOST_LIBRARY_PATH)
 
 # Recursion
 # =========

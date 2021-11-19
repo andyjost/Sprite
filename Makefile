@@ -19,7 +19,12 @@ help:
 	@echo "    To build and install, say \`make install\`"
 	@echo "************************************************"
 	@echo ""
-	@echo "Installing to PREFIX=$(PREFIX)"
+	@echo "  * Installing to PREFIX=$(PREFIX)."
+ifeq ($(DEBUG),1)
+	@echo "  * Making *DEBUG* flavor."
+else
+	@echo "  * Making *OPTIMIZED* flavor.  Say \`make <target> DEBUG=1\` for debug."
+endif
 	@echo ""
 	@echo "Targets for building:"
 	@echo "---------------------"
@@ -36,7 +41,8 @@ help:
 	@echo ""
 	@echo "Targets for debugging:"
 	@echo "----------------------"
-	@echo "    print-<varname> : print the value of make variable <varname>"
+	@echo "    print-<varname> : print the value of a make variable;  E.g., say"
+	@echo "                      \`make print-CC\` to see the selected compiler."
 	@echo ""
 	@echo "For information on testing, refer to tests/README."
 	@echo ""

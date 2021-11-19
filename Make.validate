@@ -25,8 +25,17 @@ ifneq ($(NVALIDATE),1)
   ifndef PYTHON_PACKAGE_NAME
     $(error PYTHON_PACKAGE_NAME must be defined))
   endif
-  ifndef PYTHON_VERSION
-    $(error PYTHON_VERSION must be defined))
+  ifndef PYTHON_EXECUTABLE
+    $(error PYTHON_EXECUTABLE must be defined))
+  endif
+  ifndef PYTHON_INCLUDE_PATH
+    $(error PYTHON_INCLUDE_PATH must be defined))
+  endif
+  ifndef PYTHON_LIBRARY_PATH
+    $(error PYTHON_LIBRARY_PATH must be defined))
+  endif
+  ifndef PYTHON_LIBRARY
+    $(error PYTHON_LIBRARY must be defined))
   endif
 
   ifeq ($(shell [ -e $(CC) ]; echo $$?),1)
