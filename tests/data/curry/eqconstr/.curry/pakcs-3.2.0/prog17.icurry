@@ -1,6 +1,0 @@
-interface prog17 where {
-import Prelude;
-f 2 :: Prelude.Bool -> Prelude.Bool -> Prelude.Bool;
-main 0 :: Prelude.Bool;
-hiding data Prelude.Bool
-}

@@ -1,1 +1,0 @@
-Prog "ex2" ["Prelude"] [] [Func ("ex2","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Comb FuncCall ("Prelude","?") [Comb ConsCall ("Prelude","True") [],Comb FuncCall ("Prelude","not") [Comb ConsCall ("Prelude","True") []]]))] []

@@ -1,6 +1,0 @@
-interface prog08 where {
-import Prelude;
-f 0 :: Prelude.Bool;
-main 0 :: Prelude.Bool;
-hiding data Prelude.Bool
-}

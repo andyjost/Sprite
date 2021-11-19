@@ -1,1 +1,0 @@
-Prog "floatmath007" ["Prelude"] [] [Func ("floatmath007","main") 0 Public (TCons ("Prelude","Float") []) (Rule [] (Comb FuncCall ("Prelude","apply") [Comb FuncCall ("Prelude","_impl#asin#Prelude.Floating#Prelude.Float") [],Lit (Floatc 0.25)]))] []

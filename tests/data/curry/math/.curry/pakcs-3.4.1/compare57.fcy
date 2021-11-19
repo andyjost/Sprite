@@ -1,1 +1,0 @@
-Prog "compare57" ["Prelude"] [] [Func ("compare57","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Comb FuncCall ("Prelude","||") [Comb ConsCall ("Prelude","True") [],Comb ConsCall ("Prelude","True") []]))] []

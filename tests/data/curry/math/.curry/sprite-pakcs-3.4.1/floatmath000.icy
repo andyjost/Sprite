@@ -1,1 +1,0 @@
-(IProg "floatmath000" ["Prelude"] [] [(IFunction ("floatmath000","main",0) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (IFCall ("Prelude","_impl#negate#Prelude.Num#Prelude.Float",352) [(ILit (IFloat 0.25))])))))])

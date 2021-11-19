@@ -1,1 +1,0 @@
-(IProg "ex3a" ["Prelude"] [] [(IFunction ("ex3a","main",0) 0 Public [] (IFuncBody (IBlock [] [] (IReturn (IFCall ("Prelude","not",689) [(IOr (ICCall ("Prelude","True",1) []) (IFCall ("Prelude","not",689) [(ICCall ("Prelude","True",1) [])]))])))))])

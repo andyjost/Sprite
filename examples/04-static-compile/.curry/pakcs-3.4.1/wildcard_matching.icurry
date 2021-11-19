@@ -1,8 +1,0 @@
-interface wildcard_matching where {
-import Prelude;
-main 0 :: Prelude.Bool;
-match 2 :: [Prelude.Char] -> [Prelude.Char] -> Prelude.Bool;
-tails 1 :: [a] -> [a];
-hiding data Prelude.Bool;
-hiding data Prelude.Char
-}

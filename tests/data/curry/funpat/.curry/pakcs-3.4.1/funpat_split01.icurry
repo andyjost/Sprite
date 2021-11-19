@@ -1,6 +1,0 @@
-interface funpat_split01 where {
-import Prelude;
-main 0 :: ([Prelude.Bool], [Prelude.Bool]);
-split 1 :: [Prelude.Bool] -> ([Prelude.Bool], [Prelude.Bool]);
-hiding data Prelude.Bool
-}

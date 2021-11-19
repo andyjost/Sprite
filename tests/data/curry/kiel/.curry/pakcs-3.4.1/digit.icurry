@@ -1,8 +1,0 @@
-interface digit where {
-import Prelude;
-digit 1 :: Prelude.Int -> Prelude.Bool;
-goal 2 :: Prelude.Int -> Prelude.Int -> Prelude.Bool;
-main 0 :: Prelude.Bool;
-hiding data Prelude.Int;
-hiding data Prelude.Bool
-}

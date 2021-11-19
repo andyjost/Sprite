@@ -1,1 +1,0 @@
-Prog "ex3b" ["Prelude"] [] [Func ("ex3b","main") 0 Public (ForallType [(0,KStar)] (TCons ("Prelude","(,)") [TCons ("Prelude","[]") [TVar 0],TCons ("Prelude","Bool") []])) (Rule [] (Var 0))] []

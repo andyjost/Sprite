@@ -1,5 +1,0 @@
-interface compare17 where {
-import Prelude;
-main 0 :: Prelude.Bool;
-hiding data Prelude.Bool
-}

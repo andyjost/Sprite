@@ -1,1 +1,0 @@
-Prog "prog14" ["Prelude"] [] [Func ("prog14","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Comb FuncCall ("Prelude","=:=") [Comb FuncCall ("Prelude","_inst#Prelude.Data#Prelude.Int") [],Comb FuncCall ("Prelude","failed") [],Comb FuncCall ("Prelude","?") [Lit (Intc 0),Lit (Intc 1)]]))] []

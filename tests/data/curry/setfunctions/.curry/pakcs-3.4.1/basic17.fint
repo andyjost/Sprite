@@ -1,1 +1,0 @@
-Prog "basic17" ["Prelude","Common","Control.SetFunctions"] [] [Func ("basic17","main") 0 Public (TCons ("Prelude","[]") [TCons ("Common","ResultABC") []]) (Rule [] (Var 0))] []

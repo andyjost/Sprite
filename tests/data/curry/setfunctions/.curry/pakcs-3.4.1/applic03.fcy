@@ -1,1 +1,0 @@
-Prog "applic03" ["Prelude","Common","Control.SetFunctions"] [] [Func ("applic03","main") 0 Public (TCons ("Control.SetFunctions","Values") [TCons ("Common","Result1") []]) (Rule [] (Free [1] (Comb FuncCall ("Control.SetFunctions","evalS") [Comb FuncCall ("Control.SetFunctions","$>") [Comb FuncCall ("Control.SetFunctions","set") [Comb FuncCall ("Common","f1") []],Var 1]])))] []

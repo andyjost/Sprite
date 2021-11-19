@@ -1,5 +1,0 @@
-interface floatmath036 where {
-import Prelude;
-main 0 :: Prelude.Float;
-hiding data Prelude.Float
-}

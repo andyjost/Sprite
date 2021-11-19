@@ -1,5 +1,0 @@
-interface ex3b where {
-import Prelude;
-main 0 :: ([a], Prelude.Bool);
-hiding data Prelude.Bool
-}

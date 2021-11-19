@@ -1,1 +1,0 @@
-Prog "sort03" ["Prelude","Data.List"] [] [Func ("sort03","main") 0 Public (TCons ("Prelude","[]") [TCons ("Prelude","Float") []]) (Rule [] (Var 0))] []

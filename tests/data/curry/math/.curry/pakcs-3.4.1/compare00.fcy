@@ -1,1 +1,0 @@
-Prog "compare00" ["Prelude"] [] [Func ("compare00","main") 0 Public (TCons ("Prelude","Bool") []) (Rule [] (Comb FuncCall ("Prelude","_impl#==#Prelude.Eq#Prelude.Int") [Lit (Intc 1),Lit (Intc 1)]))] []

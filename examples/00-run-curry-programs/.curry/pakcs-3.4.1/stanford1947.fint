@@ -1,1 +1,0 @@
-Prog "stanford1947" ["Prelude"] [] [Func ("stanford1947","digit") 0 Public (TCons ("Prelude","Int") []) (Rule [] (Var 0)),Func ("stanford1947","main") 0 Public (TCons ("Prelude","Int") []) (Rule [] (Var 0))] []

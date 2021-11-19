@@ -1,6 +1,0 @@
-interface ex1 where {
-import Prelude;
-loop 0 :: a;
-main 0 :: Prelude.Bool;
-hiding data Prelude.Bool
-}

@@ -1,1 +1,0 @@
-Prog "intmath037" ["Prelude"] [] [Func ("intmath037","main") 0 Public (TCons ("Prelude","Int") []) (Rule [] (Var 0))] []
