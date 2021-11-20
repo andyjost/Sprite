@@ -1,6 +1,6 @@
 from . import types
-from itertools import izip_longest
-import operator, re
+from six.moves import reduce
+import operator, re, six
 
 __all__ = ['compare']
 
@@ -18,7 +18,7 @@ def cmap(comparefunc, a, b):
   if isinstance(a, (list, tuple)):
     return reduce(
         lambda u,v: u and v
-      , (comparefunc(u, v) for u,v in izip_longest(a, b))
+      , (comparefunc(u, v) for u,v in six.moves.zip_longest(a, b))
       , True
       )
   else:

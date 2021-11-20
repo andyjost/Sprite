@@ -1,5 +1,7 @@
-from cStringIO import StringIO
 import collections, gzip, unittest
+
+from six.moves import cStringIO as StringIO
+
 
 def assertEqualToFile(
     tc, objs, filename, update=False, checker=unittest.TestCase.assertEqual

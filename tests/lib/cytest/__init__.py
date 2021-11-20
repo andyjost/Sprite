@@ -1,8 +1,7 @@
-from cStringIO import StringIO
+from .checkers import check_expressions, check_indexing, check_predicate
+from six.moves import builtins
 import contextlib
 import functools
-import __builtin__
-from .checkers import check_expressions, check_indexing, check_predicate
 
 @contextlib.contextmanager
 def trap():
@@ -18,19 +17,19 @@ def trap():
     breakpoint(msg=repr(str(e)), depth=2)
     raise
 
-__builtin__.trap = trap
+builtins.trap = trap
 
 # Enable a break when certain exceptions occur.  For instance, this can be used
 # to break whenever a RuntimeError or AssertionError occurs (n.b., that's an
 # assertion failure, NOT a unittest.assert* failure).
 def breakOn(exc_name):
-  exception = getattr(__builtin__, exc_name)
+  exception = getattr(builtins, exc_name)
   def __new__(cls, *args, **kwds):
     # breakpoint(depth=1)
     pdbtrace()
     return exception(*args, **kwds)
   replacement = type(exc_name, (exception,), {'__new__': __new__})
-  setattr(__builtin__, exc_name, replacement)
+  setattr(builtins, exc_name, replacement)
 
   if exc_name:
     breakOn(exc_name)
@@ -39,6 +38,10 @@ def breakOn(exc_name):
 # It is now OK to load the curry module.
 
 from .testcase import TestCase, FunctionalTestCase
+from six.moves import cStringIO as StringIO
+from six.moves import reload_module
+
+
 
 def setio(stdin=None, stdout=None, stderr=None):
   '''
@@ -113,6 +116,6 @@ def hardreset(f):
       return f(*args, **kwds)
     finally:
       import curry
-      reload(curry)
+      reload_module(curry)
   return decorator
 

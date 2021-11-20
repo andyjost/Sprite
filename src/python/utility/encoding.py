@@ -3,7 +3,7 @@ Encoding of Curry identifiers.
 '''
 
 from .. import inspect
-import collections, itertools, keyword, logging, re
+import collections, itertools, keyword, logging, re, six
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +189,7 @@ def _shortername(name):
         return '.'.join(parts[i:])
 
 def _shortrepr(obj):
-  if not isinstance(obj, basestring):
+  if not isinstance(obj, six.string_types):
     if isinstance(obj, collections.Sequence):
       return '_'.join(map(str, obj))
     else:

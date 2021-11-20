@@ -1,10 +1,9 @@
 import cytest # from ./lib; must be first
-from cStringIO import StringIO
 from curry.utility.visitation import dispatch
-from cytest.dissect import dissect
 from cytest.clean import clean as cyclean
-import collections
-import sys
+from cytest.dissect import dissect
+from six.moves import cStringIO as StringIO
+import collections, sys
 
 def capture(a, b):
   '''Capture the printed output of a call to dissect.'''

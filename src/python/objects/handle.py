@@ -1,5 +1,6 @@
 from .. import exceptions, icurry
 from . import CurryModule, CurryPackage
+import six
 
 __all__ = ['Handle', 'getHandle']
 
@@ -48,7 +49,7 @@ class Handle(object):
 
   def empty(self):
     try:
-      next(self.iterkeys())
+      next(six.iterkeys(self))
     except StopIteration:
       return True
     else:
@@ -58,16 +59,16 @@ class Handle(object):
     return (name for name in dir(self.obj) if name[0].isalpha())
 
   def keys(self):
-    return list(self.iterkeys())
+    return list(six.iterkeys(self))
 
   def itervalues(self):
-    return (self[key] for key in self.iterkeys())
+    return (self[key] for key in six.iterkeys(self))
 
   def values(self):
     return list(itervalues())
 
   def iteritems(self):
-    return ((key, self[key]) for key in self.iterkeys())
+    return ((key, self[key]) for key in six.iterkeys(self))
 
   def items(self):
     return list(iteritems())
@@ -110,7 +111,7 @@ class Handle(object):
 
   def itermodules(self):
     if self.is_package:
-      for subpkg in self.itervalues():
+      for subpkg in six.itervalues(self):
         for module in Handle(subpkg).itermodules():
           yield module
     else:

@@ -4,7 +4,7 @@ Code related to the configuration of Sprite.
 
 ###############################
 # Logging set-up.
-import logging, os
+import logging, os, six, sys
 
 _LOG_FILE_ = os.environ.get('SPRITE_LOG_FILE', '-')
 _LOG_LEVEL_NAME_ = os.environ.get('SPRITE_LOG_LEVEL', 'WARNING').upper()
@@ -45,7 +45,7 @@ def log_level_map():
   return dict(zip(_LOG_LEVEL_NAMES_, _LOG_LEVEL_VALUES_))
 
 def logging_enabled_for(level):
-  if isinstance(level, basestring) and level in log_level_names():
+  if isinstance(level, six.string_types) and level in log_level_names():
     level = log_level_map()[level]
   if level not in _LOG_LEVEL_VALUES_:
     raise ValueError('logging level %r is not valid')
@@ -60,12 +60,6 @@ def debugging():
 
 if debugging():
   logger.info('Debugging is enabled because SPRITE_DEBUG is set.')
-
-###############################
-# The rest of the module.
-
-from .utility import curryname
-import sys
 
 def interactive_modname():
   return 'sprite__interactive_'
@@ -157,6 +151,7 @@ def currypath(reset=False, cache=[]):
   if reset:
     cache[:] = ()
   if not cache:
+    from .utility import curryname
     envpath = os.environ.get('CURRYPATH', '').split(':')
     syspath = system_curry_path().split(':')
     currypath = curryname.makeCurryPath(envpath + syspath)

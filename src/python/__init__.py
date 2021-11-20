@@ -25,7 +25,7 @@ under ``modules``.  Use ``topython`` to convert Curry values to Python objects.
     ... main = rotate A ? rotate B
     ... """)
     >>> for value in curry.eval(mymodule.main):
-    ...   print value
+    ...   print(value)
     B
     A
 '''
@@ -51,6 +51,7 @@ from . import interpreter
 from .utility import flagutils as _flagutils
 from .utility import visitation as _visitation
 import collections as _collections
+import six as _six
 
 _interpreter_ = interpreter.Interpreter(flags=_flagutils.getflags())
 
@@ -118,7 +119,7 @@ class ShowValue(object):
 
   @__call__.when(_collections.Mapping)
   def __call__(self, value):
-    return {self(k): self(v) for k,v in value.iteritems()}
+    return {self(k): self(v) for k,v in _six.iteritems(value)}
 
 
 def show_value(value):

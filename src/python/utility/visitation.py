@@ -1,8 +1,8 @@
 '''Implementation of the visitor pattern.'''
 # See https://chris-lamb.co.uk/posts/visitor-pattern-in-python
 from __future__ import absolute_import
-import functools
-import inspect
+import functools, inspect
+from six.moves import reduce
 
 # From http://code.activestate.com/recipes/577413-topological-sort/
 def toposort(data):

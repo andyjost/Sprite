@@ -1,10 +1,5 @@
-The subdirectories contain small examples showing how to use various aspects of
-Sprite.
+The subdirectories contain short examples demonstrating various aspects of
+Sprite.  To run an example, cd to its directory and execute the "run" script.
 
-Before running these, you must "make install" Sprite and add its bin directory
-to your path.  The default location relative to this file is ../install.
-
-Run Python scripts using the Python wrapper installed with Sprite.  For example, if
-Sprite is installed at the default location, then say:
-
-    % ../../install/bin/python run.py
+Before running these, you must say "make stage" from the root of this project.
+This installs sprite under ../install.

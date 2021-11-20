@@ -18,6 +18,9 @@ from .. import oracle
 from . import testcase
 import curry, functools, inspect, os, re, sys, unittest
 
+import six
+
+
 __all__ = ['FunctionalTestCase']
 
 class FunctionalTestCaseMetaclass(type):
@@ -247,7 +250,7 @@ def compile_pattern(arg, exact=False):
   provided, they are joined with |.
   '''
   if arg is not None:
-    if isinstance(arg, basestring):
+    if isinstance(arg, six.string_types):
       arg = [arg]
     if exact:
       arg = ['^%s$' % re.escape(a) for a in arg]
@@ -270,7 +273,7 @@ class TSKeywords(object):
     # provided, that would be a single value -- a set of keyword arguments --
     # that applies to all tests.
     is_map = isinstance(supplied, dict) and all(
-        isinstance(k, basestring) and isinstance(v, value_type)
+        isinstance(k, six.string_types) and isinstance(v, value_type)
             for k,v in supplied.items()
       )
     if is_map:

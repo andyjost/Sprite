@@ -1,10 +1,8 @@
 import cytest # from ./lib; must be first
-from cStringIO import StringIO
 from curry.utility import _tempfile
-import curry
-import os
-import unittest
 from import_blocker import with_import_blocked
+from six.moves import cStringIO as StringIO
+import curry, os, unittest
 
 class TestPyIO(cytest.TestCase):
   MONADIC_PAKCS_3_3_0 = [

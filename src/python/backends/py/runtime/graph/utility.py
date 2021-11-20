@@ -1,9 +1,10 @@
 from ..... import icurry, inspect, utility
 from .....common import T_FUNC, T_CTOR
 import itertools, numbers
+from six.moves import reduce
 
 __all__ = ['copy_spine', 'curry', 'joinpath', 'rewrite', 'shallow_copy']
-  
+
 def copy_spine(root, realpath, end=None, rewrite=None):
   '''
   Copies the spine from ``root`` along ``realpath``.

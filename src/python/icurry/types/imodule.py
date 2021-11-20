@@ -2,7 +2,7 @@ from abc import ABCMeta
 from ...exceptions import ModuleLookupError
 from .isymbol import IContainer
 from ...utility import translateKwds, visitation
-import collections, itertools, weakref
+import collections, itertools, six, weakref
 
 OrderedDict = collections.OrderedDict
 
@@ -147,7 +147,7 @@ def _makeSymboltable(parent, objs):
 
 @_makeSymboltable.when(collections.Mapping)
 def _makeSymboltable(parent, objs):
-  for v in objs.itervalues():
+  for v in six.itervalues(objs):
     v.modulename = parent.fullname
   return objs
 

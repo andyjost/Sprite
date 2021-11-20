@@ -6,6 +6,9 @@ import collections
 import functools
 import re
 
+import six
+
+
 class Difference(Exception):
   '''Indicates a found difference.'''
 
@@ -51,7 +54,7 @@ class Ignore(object):
     elif callable(spec):
       self.testf = spec
     else:
-      if isinstance(spec, basestring):
+      if isinstance(spec, six.string_types):
         spec = re.compile(spec)
       if isinstance(spec, PATTERN_TYPE):
         self.testf = lambda s: re.match(spec, s)
@@ -125,7 +128,7 @@ def dissect(a, b, limit=0, print_results=True, ignore='_|parent'):
     pass
   if print_results:
     for msg, a, b in dissector.diffs:
-      print msg
+      print(msg)
       print '        a =', a, '(%s)' % type(a)
       print '        b =', b, '(%s)' % type(b)
   else:

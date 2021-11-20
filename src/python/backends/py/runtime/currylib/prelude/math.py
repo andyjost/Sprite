@@ -1,4 +1,5 @@
 from ...... import inspect
+from six.moves import range
 import operator as op
 
 __all__ = [
@@ -33,7 +34,7 @@ def remInt(x, y):
 def _unbox(rts, _0):
   args = [
       rts.variable(_0, i).hnf_or_free()
-          for i in xrange(len(_0.successors))
+          for i in range(len(_0.successors))
     ]
   freevars = [arg for arg in args if inspect.isa_freevar(arg.target)]
   if freevars:

@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
-from cStringIO import StringIO
 from curry.backends.py.runtime.graph import Node, equality
 from curry import config, inspect
+from six.moves import cStringIO as StringIO
 import curry, cytest.step, sys, unittest
 
 class TestPrelude(cytest.TestCase):
@@ -17,15 +17,15 @@ class TestPrelude(cytest.TestCase):
     '''
     Tests the built-in Prelude types and, indicentally, the ``isa`` function.
     '''
-    e2s = lambda expr: str(curry.eval(expr).next())
+    e2s = lambda expr: str(next(curry.eval(expr)))
 
     # Int, Char, Float.
     Int = curry.symbol('Prelude.Int')
     Char = curry.symbol('Prelude.Char')
     Float = curry.symbol('Prelude.Float')
-    int_ = curry.eval(1, converter=None).next()
-    char_ = curry.eval('a', converter=None).next()
-    float_ = curry.eval(1., converter=None).next()
+    int_ = next(curry.eval(1, converter=None))
+    char_ = next(curry.eval('a', converter=None))
+    float_ = next(curry.eval(1., converter=None))
 
     self.assertIsa(int_, Int)
     self.assertIsNotA(int_, Char)
@@ -74,38 +74,38 @@ class TestPrelude(cytest.TestCase):
     self.assertEqual(e2s([Cons, T, [Cons, F, Nil]]), '[True, False]')
 
   def testLitParsers(self):
-    eval_ = lambda e: curry.eval(e, converter=None)
+    eval_ = lambda e: next(curry.eval(e, converter=None))
     sym = lambda s: curry.symbol('Prelude.' + s)
     # Int
-    self.assertEqual(eval_([sym('prim_readNatLiteral'), ['0']]).next(), curry.expr((0, "")))
-    self.assertEqual(eval_([sym('prim_readNatLiteral'), "123 foo"]).next(), curry.expr((123, " foo")))
-    self.assertEqual(eval_([sym('prim_readNatLiteral'), "-1"]).next(), curry.expr((0, "-1")))
+    self.assertEqual(eval_([sym('prim_readNatLiteral'), ['0']]), curry.expr((0, "")))
+    self.assertEqual(eval_([sym('prim_readNatLiteral'), "123 foo"]), curry.expr((123, " foo")))
+    self.assertEqual(eval_([sym('prim_readNatLiteral'), "-1"]), curry.expr((0, "-1")))
     # Float
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.23 foo"]).next(), curry.expr((1.23, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+1.23 foo"]).next(), curry.expr((1.23, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "-1.23 foo"]).next(), curry.expr((-1.23, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1. foo"]).next(), curry.expr((1.0, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1foo"]).next(), curry.expr((1.0, "foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+.9 foo"]).next(), curry.expr((0.9, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.2.3"]).next(), curry.expr((1.2, ".3")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'a'xx"]).next(), curry.expr(('a', "xx")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.23 foo"]), curry.expr((1.23, " foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+1.23 foo"]), curry.expr((1.23, " foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "-1.23 foo"]), curry.expr((-1.23, " foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1. foo"]), curry.expr((1.0, " foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1foo"]), curry.expr((1.0, "foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+.9 foo"]), curry.expr((0.9, " foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.2.3"]), curry.expr((1.2, ".3")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'a'xx"]), curry.expr(('a', "xx")))
     # Char
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\''xx"]).next(), curry.expr(('\'', "xx")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\\'"]).next(), curry.expr(('\\', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\''"]).next(), curry.expr(('\'', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\"'"]).next(), curry.expr(('"', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\b'"]).next(), curry.expr(('\b', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\f'"]).next(), curry.expr(('\f', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\n'"]).next(), curry.expr(('\n', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\r'"]).next(), curry.expr(('\r', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\t'"]).next(), curry.expr(('\t', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\v'"]).next(), curry.expr(('\v', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\x41'xx"]).next(), curry.expr(('A', "xx")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\65'xx"]).next(), curry.expr(('A', "xx")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\''xx"]), curry.expr(('\'', "xx")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\\'"]), curry.expr(('\\', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\''"]), curry.expr(('\'', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\"'"]), curry.expr(('"', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\b'"]), curry.expr(('\b', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\f'"]), curry.expr(('\f', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\n'"]), curry.expr(('\n', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\r'"]), curry.expr(('\r', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\t'"]), curry.expr(('\t', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\v'"]), curry.expr(('\v', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\x41'xx"]), curry.expr(('A', "xx")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\65'xx"]), curry.expr(('A', "xx")))
     # String
-    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"A"xx''']).next(), curry.expr(('A', "xx")))
-    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\x41\\66""xx''']).next(), curry.expr(('AB', "\"xx")))
-    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\\\ \\' \\" \\b \\f \\n \\r \\t \\v" tail''']).next()
+    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"A"xx''']), curry.expr(('A', "xx")))
+    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\x41\\66""xx''']), curry.expr(('AB', "\"xx")))
+    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\\\ \\' \\" \\b \\f \\n \\r \\t \\v" tail'''])
       , curry.expr(('\\ \' " \b \f \n \r \t \v', " tail"))
       )
 
@@ -116,12 +116,12 @@ class TestPrelude(cytest.TestCase):
     #
     e = curry.expr(apply_, [apply_, add, 1], 2)
     self.assertEqual(str(e), 'apply (apply (_PartApplic 2 +) 1) 2')
-    self.assertEqual(curry.eval(e).next(), 3)
+    self.assertEqual(next(curry.eval(e)), 3)
     #
     incr = curry.expr(add, 1)
     self.assertEqual(str(incr), '_PartApplic 1 (+ 1)')
     e = curry.expr(apply_, incr, 6)
-    self.assertEqual(curry.eval(e).next(), 7)
+    self.assertEqual(next(curry.eval(e)), 7)
 
   def testFailed(self):
     failed = curry.symbol('Prelude.failed')

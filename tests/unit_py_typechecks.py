@@ -4,7 +4,7 @@ from curry.backends.py.runtime import typecheckers as tc
 from curry.backends.py.runtime.state import RuntimeState
 from curry.backends.py.runtime.graph import Node
 from curry import inspect
-import curry, unittest
+import curry, sys, unittest
 
 u = curry.unboxed
 hint = r'  \(An unboxed value was expected but a boxed value of the ' \
@@ -31,7 +31,7 @@ class TestPyTypeChecks(cytest.TestCase):
         , r'Cannot construct a Float node from an argument of type int\.'
         , lambda: Node(I.prelude.Float.info, 1)
         )
-      if debug:
+      if debug and sys.version_info.major == 2:
         # There is an assertion for this even in non-debug mode.
         self.assertRaisesRegexp(
             TypeError

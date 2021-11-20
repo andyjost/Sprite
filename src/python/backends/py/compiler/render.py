@@ -1,7 +1,7 @@
 from . import ir, statics
 from .... import config, objects
 from ....utility import visitation
-import collections, types
+import collections, six, types
 
 __all__ = ['render']
 
@@ -163,7 +163,7 @@ class Renderer(object):
       yield '  , types=[]'
     else:
       yield '  , types=['
-      for prefix, itype in self._plist(imodule.types.itervalues(), level=1):
+      for prefix, itype in self._plist(six.itervalues(imodule.types), level=1):
         yield '%sIDataType(%r, [' % (prefix, itype.fullname)
         for prefix, ictor in self._plist(itype.constructors, level=2):
           yield '%s%r' % (prefix, ictor)

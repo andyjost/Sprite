@@ -1,6 +1,5 @@
 import cytest # from ./lib; must be first
 import curry
-import unittest
 
 class TestPyCompile(cytest.TestCase):
   '''Tests for curry.compile.'''
@@ -44,7 +43,7 @@ class TestPyCompile(cytest.TestCase):
     '''
     fib = curry.compile(text).fib
     eight = curry.eval([fib, 6])
-    self.assertEqual(eight.next(), 8)
+    self.assertEqual(next(eight), 8)
 
     # Compile another version (zero-based index this time).  Ensure each one
     # works independently.
@@ -55,9 +54,9 @@ class TestPyCompile(cytest.TestCase):
     '''
     fib2 = curry.compile(text2).fib
     five = curry.eval([fib2, 4])
-    self.assertEqual(five.next(), 5)
+    self.assertEqual(next(five), 5)
     two = curry.eval([fib, 3])
-    self.assertEqual(two.next(), 2)
+    self.assertEqual(next(two), 2)
 
   @cytest.with_flags(defaultconverter='topython')
   def testCompielStringAsExpr(self):

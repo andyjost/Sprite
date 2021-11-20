@@ -1,10 +1,11 @@
 import cytest # from ./lib; must be first
-import curry
 from curry.backends.py.runtime.graph.indexing import (
     logical_subexpr, realpath, subexpr
   )
-from curry import inspect
 from curry.expressions import fwd, _setgrd
+from curry import inspect
+from six.moves import reduce
+import curry
 
 out_of_range = curry.CurryIndexError(r'node index out of range')
 

@@ -1,7 +1,6 @@
-from .... import icurry
-from .... import inspect
+from .... import icurry, inspect
 from .graph import Node
-import numbers
+import numbers, six
 
 '''Passes isinstance for any node or valid unboxed type.'''
 ANY_CURRY_TYPE = (Node, icurry.ILiteral)
@@ -18,7 +17,7 @@ def _typecategory(ty):
   Classify a Python type as integral-, real-, or string-like.  Returns () if
   none of these apply.
   '''
-  for cls in (numbers.Integral, numbers.Real, basestring):
+  for cls in (numbers.Integral, numbers.Real, six.string_types):
     if issubclass(ty, cls):
       return cls
   return ()

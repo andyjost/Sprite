@@ -8,6 +8,9 @@ import curry
 import importlib
 import logging
 
+import six
+
+
 class Logger(logging.Logger):
   '''
   A replacement for logging.Logger that captures output.  Keywords arguments to
@@ -57,7 +60,7 @@ class LogCapture(object):
     bindings = []
     for modulename in self.modulenames:
       module = importlib.import_module(modulename)
-      for loggername, obj in module.__dict__.iteritems():
+      for loggername, obj in six.iteritems(module.__dict__):
         if isinstance(obj, logging.Logger):
           break
       else:

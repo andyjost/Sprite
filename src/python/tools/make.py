@@ -1,7 +1,7 @@
 PROGRAM_NAME = 'sprite-make'
 
-from cStringIO import StringIO
 from .. import config, toolchain, utility
+from six.moves import cStringIO as StringIO
 from .utility import handle_program_errors
 import argparse, os, pydoc, sys
 

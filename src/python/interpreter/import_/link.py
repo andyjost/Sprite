@@ -6,7 +6,7 @@ from ... import config, icurry
 from .lazy_function import LazyFunction
 from ...objects.handle import getHandle
 from ...utility import visitation
-import collections
+import collections, six
 
 __all__ = ['link']
 
@@ -19,7 +19,7 @@ def link(interp, idef, moduleobj, extern=None): # pragma: no cover
 
 @link.when(collections.Mapping)
 def link(interp, mapping, *args, **kwds):
-  for item in mapping.itervalues():
+  for item in six.itervalues(mapping):
    link(interp, item, *args, **kwds)
 
 @link.when(icurry.IModule)

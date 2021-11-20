@@ -1,6 +1,6 @@
 from ...utility import curryname
 from ...utility.proptree import proptree
-import collections, weakref
+import collections, six, weakref
 
 __all__ = ['IArity', 'IObject', 'IVarIndex']
 
@@ -39,7 +39,7 @@ class IObject(object):
        )
     else:
       return {
-          k:v for k,v in self.__dict__.iteritems()
+          k:v for k,v in six.iteritems(self.__dict__)
               if k != 'metadata'
         }
 

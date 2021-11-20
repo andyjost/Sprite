@@ -2,6 +2,7 @@
 
 from ..... import context, icurry
 from . import indexing, variable
+from six.moves import range
 
 __all__ = ['iterexpr', 'walk']
 
@@ -28,7 +29,7 @@ class WalkState(object):
     self.realpath = list(realpath)
     self.spine = [
         indexing.subexpr(root, p)
-            for p in [realpath[:i] for i in xrange(len(realpath)+1)]
+            for p in [realpath[:i] for i in range(len(realpath)+1)]
       ]
     self.data = []
 

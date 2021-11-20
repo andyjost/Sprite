@@ -4,6 +4,7 @@ Functions for parsing literals.
 # FIXME: the functions in this module may not handle set guards properly.
 
 from ...... import inspect
+import six
 
 __all__ = [
     'readCharLiteral', 'readFloatLiteral', 'readNatLiteral'
@@ -179,7 +180,7 @@ def _parseDecChar(rts, s, digits=None):
     elif not digits:
       raise ParseError()
     else:
-      return unichr(int(''.join(digits), 10)).encode('utf-8'), s_prev
+      return six.unichr(int(''.join(digits), 10)).encode('utf-8'), s_prev
     s_prev = s
 
 ESCAPE_CODES = {
@@ -216,6 +217,6 @@ def _parseHexChar(rts, s, digits=None):
     elif not digits:
       raise ParseError()
     else:
-      return unichr(int(''.join(digits), 16)).encode('utf-8'), s_prev
+      return six.unichr(int(''.join(digits), 16)).encode('utf-8'), s_prev
     s_prev = s
 

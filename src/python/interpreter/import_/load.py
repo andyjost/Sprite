@@ -4,8 +4,7 @@ Code to load runtime symbols.
 
 from ... import icurry, objects
 from ...utility import encoding, visitation
-import collections, weakref
-
+import collections, six, weakref
 
 __all__ = ['loadSymbols']
 
@@ -25,7 +24,7 @@ def loadSymbols(interp, seq, *args, **kwds):
 def loadSymbols(interp, mapping, moduleobj, **kwds):
   return {
       k: loadSymbols(interp, v, moduleobj, **kwds)
-        for k,v in mapping.iteritems()
+        for k,v in six.iteritems(mapping)
     }
 
 @loadSymbols.when(icurry.IModule)

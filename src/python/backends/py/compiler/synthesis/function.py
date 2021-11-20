@@ -6,6 +6,7 @@ from ..... import inspect
 from .. import ir, statics
 from ...runtime.currylib.prelude.math import apply_unboxed
 import operator as op
+from six.moves import range
 
 __all__ = ['synthesize_function']
 
@@ -31,7 +32,7 @@ def compile_boxedfunc(interp, ifun, closure, entry):
     h_impl = closure.intern(boxedfunc)
     lines = [
         'def %s(rts, _0):' % entry
-      , [ 'args = (rts.variable(_0, i).hnf() for i in xrange(len(_0.successors)))'
+      , [ 'args = (rts.variable(_0, i).hnf() for i in range(len(_0.successors)))'
         , '_0.rewrite(%s(rts, *args))' % h_impl
         ]
       ]

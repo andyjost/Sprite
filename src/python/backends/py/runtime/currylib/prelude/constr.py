@@ -3,6 +3,7 @@ from ...control import E_RESIDUAL
 from ......exceptions import InstantiationError
 from ... import graph
 from ...... import inspect
+from six.moves import range, reduce
 
 # Prelude.& is implemented as follows:
 #   Evaluate an argument and inspect its head symbol:
@@ -65,7 +66,7 @@ def constr_eq(rts, _0):
           if arity:
             conj = getattr(rts.prelude, '&')
             def terms():
-              for i in xrange(arity):
+              for i in range(arity):
                 _1 = rts.variable(lhs, i)
                 _2 = rts.variable(rhs, i)
                 yield graph.Node(_0.info, _1, _2)
@@ -112,7 +113,7 @@ def nonstrict_eq(rts, _0):
           if arity:
             conj = getattr(rts.prelude, '&')
             def terms():
-              for i in xrange(arity):
+              for i in range(arity):
                 _1 = rts.variable(lhs, i)
                 _2 = rts.variable(rhs, i)
                 yield graph.Node(_0.info, _1, _2)

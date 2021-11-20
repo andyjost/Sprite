@@ -1,5 +1,5 @@
 from .resolve import resolve
-import collections
+import collections, six
 
 class OptionSpec(collections.namedtuple(
     '_OptionSpec', ('name', 'type', 'default', 'argnames', 'setter', 'doc')
@@ -9,7 +9,7 @@ class OptionSpec(collections.namedtuple(
     sup = super(OptionSpec, self)
     return sup.setter if sup.setter else self._defaultsetter
   def _defaultsetter(self, inst, value):
-    if issubclass(self.type, bool) and isinstance(value, (str, unicode)):
+    if issubclass(self.type, bool) and isinstance(value, six.string_types):
       arg = str(value).lower()
       if arg in ['true', 'on', 'yes']:
         value = True

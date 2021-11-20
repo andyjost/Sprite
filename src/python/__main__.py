@@ -63,7 +63,7 @@ class Main(object):
           def doeval():
             logger.info('Evaluating %s', goal.fullname)
             for value in curry.eval(goal):
-              print curry.show_value(value)
+              print(curry.show_value(value))
           if args.profile:
             profile = cProfile.Profile()
             profile.runctx('doeval()', globals(), locals())

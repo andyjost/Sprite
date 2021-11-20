@@ -1,4 +1,4 @@
-import re
+import re, six
 
 __all__ = [
     'tokenize'
@@ -29,7 +29,7 @@ OPERATOR    = re.compile(r'([^\w\s]+)')   # E.g., : or =:= or <<
 DELIMITERS = {s: DelimiterToken(s) for s in '()[],'}
 
 def printtok(tok):
-  print showtok(tok)
+  print(showtok(tok))
 
 def showtok(tok):
   return '%-18s %s' % (type(tok).__name__, tok)
@@ -64,12 +64,12 @@ def qescape(text, chars, j):
     digits = match.group(1)[1:]
     if digits == '000':
       raise ValueError('Invalid escape sequence: %s' % r'\000')
-    chars.append(unichr(int(digits, base=8)).encode('utf-8'))
+    chars.append(six.unichr(int(digits, base=8)).encode('utf-8'))
     return match.end()
   match = re.match(UNICODE, text[j:])
   if match:
     digits = match.group(1)[1:]
-    chars.append(unichr(int(digits, base=16)).encode('utf-8'))
+    chars.append(six.unichr(int(digits, base=16)).encode('utf-8'))
     return match.end()
 
   raise ValueError('Invalid escape sequence: %s ...' % text[j:j+8])

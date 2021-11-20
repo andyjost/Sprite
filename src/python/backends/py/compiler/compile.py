@@ -3,12 +3,10 @@ from .... import icurry
 from . import misc, statics, synthesis
 from .ir import IR
 from ....utility import formatDocstring, visitation
-import collections, logging
+import collections, logging, six
 
 logger = logging.getLogger(__name__)
-
 __all__ = ['compile', 'compileEx']
-
 
 @formatDocstring(__package__[:__package__.find('.')])
 def compile(interp, icy, extern=None):
@@ -69,7 +67,7 @@ def compileEx(interp, icy, closure, lines, extern=None):
 def compileEx(interp, imodule, closure, lines, extern=None):
   functions = [
       compileEx(interp, ifun, closure, lines, extern)
-          for ifun in imodule.functions.itervalues()
+          for ifun in six.itervalues(imodule.functions)
     ]
   return imodule.copy(functions=functions)
 

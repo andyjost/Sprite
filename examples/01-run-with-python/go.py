@@ -1,3 +1,4 @@
+from __future__ import print_function
 import curry
 
 ### Load and run rev.curry.
@@ -10,5 +11,5 @@ rev = curry.import_('rev')
 
 # Evaluate rev.main and print the values.
 for value in curry.eval(rev.main):
-  print value
+  print(value)
 

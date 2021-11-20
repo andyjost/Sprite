@@ -1,4 +1,5 @@
 from .shared import Shared
+import six
 
 class UnionFind(object):
   '''Weighted quick-union with path compression.'''
@@ -34,5 +35,5 @@ class UnionFind(object):
       self.parent.write[j] = i
       self.size.write[i] += self.size[j]
   def __repr__(self):
-    return repr({k:v for k,v in self.parent.read.iteritems() if k!=v})
+    return repr({k:v for k,v in six.iteritems(self.parent.read) if k!=v})
 

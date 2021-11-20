@@ -1,6 +1,7 @@
 __all__ = ['IR']
 
 from ....utility import visitation
+import six
 
 class IR(object):
   def __init__(self, icurry, closure, lines):
@@ -35,7 +36,7 @@ class IR(object):
     from . import render
     return render.render(self)
 
-  @dump.when(basestring)
+  @dump.when(six.string_types)
   def dump(self, filename=None):
     with open(filename, 'w') as out:
       self.dump(out)

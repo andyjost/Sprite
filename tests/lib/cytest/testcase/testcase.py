@@ -5,6 +5,9 @@ from .assert_equal_to_file import *
 from .assert_sets import *
 from .assert_inspect import *
 
+import six
+
+
 __all__ = ['TestCase']
 
 class TestCase(unittest.TestCase):
@@ -12,7 +15,7 @@ class TestCase(unittest.TestCase):
 
   # Pull the Curry-specific assert* functions into this class.
   locals().update({
-      name: obj for name, obj in globals().iteritems()
+      name: obj for name, obj in six.iteritems(globals())
                 if name.startswith('assert')
     })
 

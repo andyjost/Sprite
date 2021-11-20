@@ -1,7 +1,7 @@
 from . import context, icurry, objects, utility
 from .exceptions import CurryTypeError
 from .utility import visitation
-import collections, itertools, numbers
+import collections, itertools, numbers, six
 
 __all__ = [
     'anchor', 'choice', 'cons', 'expr', 'fail', 'fwd', 'nil', 'ref', 'unboxed'
@@ -163,7 +163,7 @@ def expr(interp, *args, **kwds):
   '''
   builder = ExpressionBuilder(interp)
   target = kwds.pop('target', None)
-  for anchorname, subexpr in kwds.iteritems():
+  for anchorname, subexpr in six.iteritems(kwds):
     subexpr = anchor(subexpr, name=anchorname)
     builder(subexpr)
     assert anchorname in builder.anchors

@@ -1,10 +1,11 @@
 '''Python wrappers for libsprite.so.'''
 
 from _sprite import *
-import itertools
+import itertools, six
+from six.moves import range
 
 def Fingerprint__iter__(self):
-  for i in xrange(self.capacity):
+  for i in range(self.capacity):
     v = self.get(i)
     if v != UNDETERMINED:
       yield i, v
@@ -22,7 +23,7 @@ def Fingerprint__reduce__(self):
   return Fingerprint, (), None, None, self.__iter__()
 
 def Fingerprint__eq__(self, rhs):
-  return all(a==b for a,b in itertools.izip_longest(self, rhs))
+  return all(a==b for a,b in six.moves.zip_longest(self, rhs))
 
 def Fingerprint__ne__(self, rhs):
   return not (self == rhs)

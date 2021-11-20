@@ -1,10 +1,8 @@
 import cytest # from ./lib; must be first
 from curry.common import LEFT, RIGHT, UNDETERMINED
 from curry.utility import unionfind
-import curry
-import cytest.step
-import itertools
-import unittest
+from six.moves import range
+import curry, cytest.step, itertools, unittest
 
 @unittest.skip
 class TestConstraintStore(cytest.TestCase):
@@ -87,7 +85,7 @@ class TestConstraintStore(cytest.TestCase):
     # those mentioned in ``values``.
     f = getattr(f, 'fingerprint', f)
     self.assertTrue(all(
-        f.get(i) == values.get(i, UNDETERMINED) for i in xrange(f.capacity)
+        f.get(i) == values.get(i, UNDETERMINED) for i in range(f.capacity)
       ))
 
   @unittest.expectedFailure

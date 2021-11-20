@@ -24,6 +24,9 @@ import shutil
 import subprocess
 import glob
 
+import six
+
+
 # This script should be called from the tests/data/scripts directory.
 assert os.path.split(os.getcwd())[-1] == 'scripts'
 os.chdir('../curry')
@@ -66,7 +69,7 @@ for filename in glob.glob('index.html*'):
   os.remove(filename)
 
 with open('../index.py', 'w') as tocfile:
-  tocfile.write(str({k:list(v) for k,v in index.iteritems()}))
+  tocfile.write(str({k:list(v) for k,v in six.iteritems(index)}))
 
 # Get the Curry files.
 os.chdir('kiel')

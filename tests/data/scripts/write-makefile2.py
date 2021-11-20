@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import print_function
+
 import os
 
 # This script should be called from the tests/data/scripts directory.
@@ -13,21 +15,21 @@ for category in index:
 		files.append(cyfile)
 
 with open('Makefile2', 'w') as makefile:
-  print >>makefile, '.PHONY : clean json'
+  print('.PHONY : clean json', file=makefile)
   print >>makefile, 'PROGRAMS := %s' % ' '.join(files)
-  print >>makefile, 'JSONFILES := $(foreach file,$(PROGRAMS),json/kiel-$(file).json)'
-  print >>makefile, ''
-  print >>makefile, 'json : $(JSONFILES)'
-  print >>makefile, ''
-  print >>makefile, 'json/kiel-%.json : curry/kiel/.curry/%.json'
-  print >>makefile, '	cp $< $@'
-  print >>makefile, ''
-  print >>makefile, 'ICURRY := $(shell which ICURRY)'
-  print >>makefile, 'ICURRY2JSON := $(shell which ICURRY2JSON)'
-  print >>makefile, 'curry/kiel/.curry/%.json : curry/kiel/%.curry $(CURRY2JSON)'
-  print >>makefile, '	-$(ICURRY) $<'
-  print >>makefile, '	-$(ICURRY2JSON) $< > $@'
-  print >>makefile, ''
-  print >>makefile, 'clean :'
-  print >>makefile, '	rm -f $(JSONFILES)'
+  print('JSONFILES := $(foreach file,$(PROGRAMS),json/kiel-$(file).json)', file=makefile)
+  print('', file=makefile)
+  print('json : $(JSONFILES)', file=makefile)
+  print('', file=makefile)
+  print('json/kiel-%.json : curry/kiel/.curry/%.json', file=makefile)
+  print('	cp $< $@', file=makefile)
+  print('', file=makefile)
+  print('ICURRY := $(shell which ICURRY)', file=makefile)
+  print('ICURRY2JSON := $(shell which ICURRY2JSON)', file=makefile)
+  print('curry/kiel/.curry/%.json : curry/kiel/%.curry $(CURRY2JSON)', file=makefile)
+  print('	-$(ICURRY) $<', file=makefile)
+  print('	-$(ICURRY2JSON) $< > $@', file=makefile)
+  print('', file=makefile)
+  print('clean :', file=makefile)
+  print('	rm -f $(JSONFILES)', file=makefile)
 

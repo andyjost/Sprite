@@ -1,5 +1,5 @@
 from . import types
-import collections
+import collections, six
 from ..utility.visitation import dispatch
 
 __all__ = ['replace', 'visit', 'visitslots']
@@ -12,7 +12,7 @@ def visit(visitor, arg=None, **kwds):
 
 @visit.when(collections.Mapping, no=(str,))
 def visit(visitor, mapping, **kwds):
-  for elem in mapping.itervalues():
+  for elem in six.itervalues(mapping):
     visit(visitor, elem, **kwds)
 
 @visit.when(collections.Sequence, no=(str,))

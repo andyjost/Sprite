@@ -24,7 +24,7 @@ class TestLLVMTypes(cytest.TestCase):
     isz = lambda ty: "i%d" % (8 * ctypes.sizeof(ty))
     self.assertEqual(str(int_())      , isz(ctypes.c_int))
     self.assertEqual(str(int_(12))    , "i12")
-    self.assertEqual(str(long())      , isz(ctypes.c_long))
+    self.assertEqual(str()      , isz(ctypes.c_long))
     self.assertEqual(str(longlong())  , isz(ctypes.c_longlong))
     self.assertEqual(str(float_())    , "float")
     self.assertEqual(str(double())    , "double")

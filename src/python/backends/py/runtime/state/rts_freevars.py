@@ -4,11 +4,11 @@ intended to be imported except by state.py.
 '''
 
 from .....common import (
-    LEFT, RIGHT, UNDETERMINED, ChoiceState
-  , T_FAIL, T_FREE, T_CHOICE, T_CTOR
+    LEFT, RIGHT, UNDETERMINED, ChoiceState, T_FAIL, T_FREE, T_CHOICE, T_CTOR
   )
 from .. import graph
 from ..... import inspect
+from six.moves import range
 
 __all__ = [
     'clone_generator', 'freshvar_args', 'freshvar', 'get_generator'
@@ -137,7 +137,7 @@ def _create_generator(rts, ctors, vid=None, target=None):
     ctor, = ctors
     return graph.Node(
         ctor
-      , *[freshvar(rts) for _ in xrange(ctor.arity)]
+      , *[freshvar(rts) for _ in range(ctor.arity)]
       , target=target
       )
   else:

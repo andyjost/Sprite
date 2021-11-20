@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from . import options
 from .resolve import resolve
 import importlib, os, sys, traceback
@@ -63,15 +65,15 @@ def cmdSet(repl):
     except ValueError:
       if repl.args:
         raise ValueError('Invalid command.  Type ":set" for help.')
-      print >>sys.stderr, 'Usage:'
-      print >>sys.stderr, '    :set <option> <value>'
-      print >>sys.stderr, '    :set [+/-]<option>        (Boolean options only)'
+      print('Usage:', file=sys.stderr)
+      print('    :set <option> <value>', file=sys.stderr)
+      print('    :set [+/-]<option>        (Boolean options only)', file=sys.stderr)
       print >>sys.stderr
-      print >>sys.stderr, 'Options for ":set" command:'
+      print('Options for ":set" command:', file=sys.stderr)
       for name in sorted(options.Options.names()):
-        print >>sys.stderr, options.Options.usage(name, indent=4)
+        print(options.Options.usage(name, indent=4), file=sys.stderr)
       print >>sys.stderr
-      print >>sys.stderr, 'Current settings:'
+      print('Current settings:', file=sys.stderr)
       boolopts = []
       valueopts = []
       for name in sorted(options.Options.names()):

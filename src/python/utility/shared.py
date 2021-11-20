@@ -1,6 +1,5 @@
-import sys
 from copy import copy
-import collections
+import collections, six, sys
 
 class Shared(object):
   '''
@@ -50,7 +49,7 @@ class Shared(object):
 class DefaultDict(collections.defaultdict):
   '''Like defaultdict but recursively copies values.'''
   def __copy__(self):
-    return DefaultDict(self.default_factory, {k: copy(v) for k,v in self.iteritems()})
+    return DefaultDict(self.default_factory, {k: copy(v) for k,v in six.iteritems(self)})
   copy = __copy__
 
 def compose(typefunction, ty):

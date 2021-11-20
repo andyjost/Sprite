@@ -1,5 +1,6 @@
-from . import options
 from . import commands
+from . import options
+from six.moves import input
 import sys
 
 __all__ = ['REPL']
@@ -68,7 +69,7 @@ class REPL(object):
   def read(self):
     '''Read user input.'''
     try:
-      line = raw_input('%s> ' % self.module.__name__)
+      line = input('%s> ' % self.module.__name__)
     except EOFError:
       sys.exit(0)
     if not line:
@@ -91,7 +92,7 @@ class REPL(object):
 
   def defaultaction(self, value):
     '''The default handler for values.'''
-    print value
+    print(value)
 
   def enter(self):
     '''Enter the loop.'''

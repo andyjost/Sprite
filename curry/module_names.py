@@ -16,4 +16,4 @@ def get_modules():
 
 if __name__ == '__main__':
   for module in get_modules():
-    print module
+    print(module)

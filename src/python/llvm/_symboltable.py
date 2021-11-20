@@ -1,8 +1,9 @@
 # Pure-Python extensions for class symboltable.
 
-from ._llvm import symboltable
 from . import _utility
+from ._llvm import symboltable
 import collections as _coll
+import six as _six
 
 _coll.Mapping.register(symboltable)
 
@@ -10,15 +11,15 @@ method = _utility.method(symboltable)
 
 @method
 def keys(self):
-  return list(self.iterkeys())
+  return list(_six.iterkeys(self))
 
 @method
 def values(self):
-  return list(self.itervalues())
+  return list(_six.itervalues(self))
 
 @method
 def items(self):
-  return list(self.iteritems())
+  return list(_six.iteritems(self))
 
 @method
 def iterkeys(self):
@@ -40,11 +41,11 @@ def __delitem__(self, name):
 
 @method
 def __str__(self):
-  return str(dict(self.iteritems()))
+  return str(dict(_six.iteritems(self)))
 
 @method
 def __repr__(self):
-  return repr(dict(self.iteritems()))
+  return repr(dict(_six.iteritems(self)))
 
 @method
 def __eq__(self, rhs):
