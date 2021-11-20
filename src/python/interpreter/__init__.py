@@ -31,22 +31,28 @@ class Interpreter(object):
           Sacrifice speed to add more consistency checks and enable debugging
           with PDB.
       ``defaultconverter`` ('topython'|*None*)
-          Indicates the conversion to apply to results of eval.
+          Indicates how to convert Curry results when returning to Python.
+          With no conversion a list value, for example, is returned as a Curry
+          list.  The 'topython' converter converts lists, tuples, strings,
+          numbers, and other basic objects to their Python equivalents.
       ``trace`` (True|*False*)
-          Shows the effect of each step in a computation.
+          Trace computations.
       ``keep_temp_files``  (True|*False*|<str>)
-          Indicates whether temporary files (and directories) should be
-          deleted.  If a non-null string is passed, then it is treated as a
-          directory name and all temporary files will be written there.
+          Keep temporary files and directories.  If a nonempty string is
+          supplied, then it is treated as a directory name and all temporary
+          files will be written there.
       ``lazycompile`` (*True*|False)
-          Delays compilation of functions until they are needed.
+          Functions are not materialized until the first time they are needed.
       ``setfunction_strategy`` (*'lazy'*|'eager')
           Indicates how to evaluate set functions.  If 'lazy', then set guards
-          are used.  Otherwise, each argument is reduced to ground normal form
-          before applying the set function.
+          are used (similar to KiCS2).  Otherwise, each argument is reduced to
+          ground normal form before applying the set function (similar to
+          PAKCS).
       ``telemetry_interval`` (*None*|<number>)
-          Specifies the number of seconds between telemetry reports in the log
-          output.  If non-positive, telemetry information is not reported.
+          Specifies the number of seconds between event reports in the log
+          output.  Events provide information about the state of the runtime
+          system, such as the number of nodes created or steps performed.  If
+          None or non-positive, this information is not reported.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)

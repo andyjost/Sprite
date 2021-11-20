@@ -79,7 +79,7 @@ test:
 
 .PHONY: stage
 stage:
-	make install
+	make install SYMLINK_PYTHON=1
 
 .PHONY: docs
 docs:

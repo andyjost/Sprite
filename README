@@ -15,28 +15,39 @@ hybrid applications that leverage the strengths of both languages.
 2. Build, Testing, and Installation
 -----------------------------------
 
-Simple instructions:
+* Short instructions:
 
     make
     make install PREFIX=<install-dir>
 
-Long instructions:
+* Long instructions:
 
-Before buidling, you must initialize the submodules:
+Say `make help` for details concerning available targets and options.
+
+The default target builds Sprite, installs it to a staging area, and runs the
+tests.  If you prefer to do things one step at a time, follow the instructions
+below.
+
+You must first initialize the GIT submodules:
 
     git submodule init
     git submodule update
 
-To reduce the time required for installing the Curry library and testing, you
-may wish to overlay files specific to your version of PAKCS with `make
-overlay`.  To use this your version of PACKS must match one of the overlay*.tgz
-files.
+To use pre-built ICurry files say `make overlay`.  This avoids having to
+compile the Curry libraries and accelerates the first invocation of the tests.
+For most people, running the tests will be impractical without this.  To use
+this, your version of PACKS must match one of the overlay*.tgz files.
 
-To build and stage, run `make install`.  Say `make help` for details.  This
-will install sprite under 'install/'.
+To build object files say `make objs`.  To build static and shared libraries
+say `make libs` and `make shlibs`, respectively.
 
-To test, run `make test`.  You can also `cd tests` and then `./run_tests`.  See
-tests/README for details on running a subset of tests.
+To stage the programs and libraries, run `make stage`.  This is needed to run
+tests.  A mock installation will be created under 'install/'.  This step also
+builds the necessary objects and libraries, so you can skip those steps if you
+like.
+
+To run the tests, say `make test`.  You can also `cd tests` and then say
+`./run_tests`.  See tests/README for details on how to run a subset of tests.
 
 To install Sprite to a directory of your choosing run:
 
@@ -107,10 +118,10 @@ To use the Python API, say `import curry` from Python.
 5. Contact and Bug Reporting
 ----------------------------
 
-Sprite was developed and is maintained by Andy Jost (ajost@synopsys.com).  Feel
-free to contact him with questions, bug reports, feature requests, and other
-miscellania.  Direct general questions about Curry to the Curry mailing list
-(curry@lists.RWTH-Aachen.DE).
+Sprite was developed and is maintained by Andy Jost (andy.m.jost@gmail.com).
+Feel free to contact him with questions, bug reports, feature requests, and
+other miscellania.  Direct general questions about Curry to the Curry mailing
+list (curry@lists.RWTH-Aachen.DE).
 
 If you find a bug, please report it.  The easiest way is to create a minimal
 unit test decorated with ``unittest.expectedFailure``.  Further instructions on
