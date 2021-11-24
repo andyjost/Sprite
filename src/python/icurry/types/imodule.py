@@ -1,4 +1,3 @@
-from abc import ABCMeta
 from ...exceptions import ModuleLookupError
 from .isymbol import IContainer
 from ...utility import translateKwds, visitation

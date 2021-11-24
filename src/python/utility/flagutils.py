@@ -8,8 +8,9 @@ working with the flags that come from the environment.
 '''
 from .binding import binding
 from .. import config
+from six.moves import reload_module
 from ..utility import formatDocstring
-import __builtin__, logging, os, sys
+import logging, os, sys
 
 logger = logging.getLogger(__name__)
 
@@ -142,5 +143,5 @@ def reload(name, flags={}):
   envflags = ','.join('%s:%s' % (str(k), str(v)) for k,v in flags.items())
   with binding(os.environ, 'SPRITE_INTERPRETER_FLAGS', envflags):
     this = sys.modules[name]
-    __builtin__.reload(this)
+    reload_module(this)
 

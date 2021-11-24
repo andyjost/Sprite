@@ -75,7 +75,8 @@ class _Variable(object):
     if self.value is None:
       filename = os.path.join(os.environ['SPRITE_HOME'], 'sysconfig', self.name)
       assert os.path.exists(filename)
-      self.value = self.convert(open(filename).read().strip('\n'))
+      with open(filename) as istream:
+        self.value = self.convert(istream.read().strip('\n'))
       logger.debug(
           'Config %r read from file %r (%s: %r)'
         , self.name, filename, self.type.__name__, self.value

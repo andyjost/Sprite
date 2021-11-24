@@ -256,9 +256,9 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % arg)
     if arg:
-      return self.Node(self.prelude.True, target=self.target)
+      return self.Node(self.prelude.True_, target=self.target)
     else:
-      return self.Node(self.prelude.False, target=self.target)
+      return self.Node(self.prelude.False_, target=self.target)
 
   @__call__.when(numbers.Integral)
   def __call__(self, arg, *trailing):

@@ -124,9 +124,7 @@ class TelemetryData(object):
     'The number of set functions currently being evaluated'
     return len(self.rts.sftable)
 
-  ATTRS = sorted([
-      attr for attr in locals().keys() if isinstance(locals()[attr], property)
-    ])
+  ATTRS = sorted([k for k,v in locals().items() if isinstance(v, property)])
 
   def capture(self):
     '''Capture the telemetry information.'''

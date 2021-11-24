@@ -1,4 +1,5 @@
 '''Functions for tracing Curry evaluation.'''
+from __future__ import print_function
 import collections, contextlib
 
 def show_queue(rts, qid=None):
@@ -7,31 +8,31 @@ def show_queue(rts, qid=None):
 
 def enter_rewrite(rts, indent, expr):
   if rts.tracing:
-    print 'S <<< %s%s' % ('  ' * indent, expr)
+    print('S <<< %s%s' % ('  ' * indent, expr))
 
 def exit_rewrite(rts, indent, expr):
   if rts.tracing:
-    print 'S >>> %s%s' % ('  ' * indent, expr)
+    print('S >>> %s%s' % ('  ' * indent, expr))
 
 def failed(rts, qid=None):
   if rts.tracing:
-    print 'Q ::: failed config dropped from %s' % show_queue(rts, qid)
+    print('Q ::: failed config dropped from %s' % show_queue(rts, qid))
 
 def yield_(rts, value):
   if rts.tracing:
-    print 'Y ::: %s' % value
+    print('Y ::: %s' % value)
 
 def position(rts, indent, expr, path):
   if rts.tracing:
-    print 'I ::: %sat path=%s of %s' % (
+    print('I ::: %sat path=%s of %s' % (
         '  ' * (indent + 1)
       , '[' + ','.join(map(str, path)) + ']'
       , expr
-      )
+      ))
 
 def activate_queue(rts, qid):
   if rts.tracing:
-    print 'Q ::: switching to %s' % show_queue(rts, qid)
+    print('Q ::: switching to %s' % show_queue(rts, qid))
 
 @contextlib.contextmanager
 def fork(rts, qid=None):
@@ -42,9 +43,9 @@ def fork(rts, qid=None):
     try:
       yield
     finally:
-      print 'Q ::: fork %s on cid=%s appending to %s' % (
+      print('Q ::: fork %s on cid=%s appending to %s' % (
           head_fp, cid, show_queue(rts, qid)
-        )
+        ))
   else:
     yield
 

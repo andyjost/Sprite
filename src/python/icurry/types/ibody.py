@@ -1,8 +1,7 @@
 from __future__ import absolute_import
 from .iobject import IObject
-from abc import ABCMeta
 from ...utility import translateKwds
-import types
+import abc, six, types
 
 __all__ = [
     'IBody'       # Normal definition (i.e., IBlock).
@@ -68,8 +67,7 @@ class IMaterial(IObject):
     return '<IMaterial for %r>' % self.function_name
 
 
-class IFuncBody(IObject):
-  __metaclass__ = ABCMeta
+class IFuncBody(six.with_metaclass(abc.ABCMeta, IObject)):
   def __init__(self, block, **kwds):
     self.block = block
     IObject.__init__(self, **kwds)

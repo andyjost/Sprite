@@ -12,10 +12,6 @@ class String(str): pass
 Literal = String, Char, Int, Float
 
 class Identifier(object):
-  def __new__(cls, token):
-    if cls is Identifier:
-      cls = _TYPE_MAP_.get(type(token), Identifier)
-    return object.__new__(cls, token)
   def __init__(self, token, is_operator=False):
     self.name = str(token)
   def __str__(self):
@@ -49,6 +45,10 @@ _TYPE_MAP_ = {
   , lex.FunctionToken    : Function
   , lex.OperatorToken    : Operator
   }
+
+def make_identifier(token):
+  ty = _TYPE_MAP_.get(type(token), Identifier)
+  return ty(token)
   
 class Applic(object):
   '''Application of an ``Applicative`` symbol to arguments.'''

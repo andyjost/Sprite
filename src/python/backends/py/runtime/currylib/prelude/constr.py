@@ -16,8 +16,8 @@ from six.moves import range, reduce
 # Use digits.curry as an example.
 def concurrent_and(rts, _0):
   Bool = rts.type('Prelude.Bool')
-  assert rts.prelude.False.info.tag == 0
-  assert rts.prelude.True.info.tag == 1
+  assert rts.prelude.False_.info.tag == 0
+  assert rts.prelude.True_.info.tag == 1
   errs = [None, None]
   i = 0
   while True:
@@ -25,7 +25,8 @@ def concurrent_and(rts, _0):
     try:
       _1 = rts.variable(_0, i)
       _1.hnf(typedef=Bool)
-    except E_RESIDUAL as errs[i]:
+    except E_RESIDUAL as err:
+      errs[i] = err
       if errs[1-i] and rts.stepcounter.count == stepnumber:
         raise
     else:
@@ -33,7 +34,7 @@ def concurrent_and(rts, _0):
         yield rts.prelude._Fwd
         yield _0.successors[1-i]
       else:               # False
-        yield rts.prelude.False
+        yield rts.prelude.False_
       return
     i = 1-i
 
@@ -49,7 +50,7 @@ def constr_eq(rts, _0):
           yield rts.expr(True)
           yield rts.expr((lhs, rhs))
         else:
-          yield rts.prelude.True
+          yield rts.prelude.True_
       else:
         values = [rhs.unboxed_value] if rhs.typedef in rts.builtin_types else None
         _1 = rts.variable(_0, 0)
@@ -75,12 +76,12 @@ def constr_eq(rts, _0):
             for succ in expr.successors:
               yield succ
           else:
-            yield rts.prelude.True
+            yield rts.prelude.True_
         else:
           yield rts.prelude._Failure
   elif not lhs.is_boxed and not rhs.is_boxed:
-    yield rts.prelude.True if lhs.unboxed_value == rhs.unboxed_value \
-                           else rts.prelude._Failure
+    yield rts.prelude.True_ if lhs.unboxed_value == rhs.unboxed_value \
+                            else rts.prelude._Failure
   else:
     raise InstantiationError('=:= cannot bind to an unboxed value')
 
@@ -122,11 +123,11 @@ def nonstrict_eq(rts, _0):
             for succ in expr.successors:
               yield succ
           else:
-            yield rts.prelude.True
+            yield rts.prelude.True_
         else:
           yield rts.prelude._Failure
   elif not lhs.is_boxed and not rhs.is_boxed:
-    yield rts.prelude.True if lhs.unboxed_value == rhs.unboxed_value \
+    yield rts.prelude.True_ if lhs.unboxed_value == rhs.unboxed_value \
                            else rts.prelude._Failure
   else:
     raise InstantiationError('=:<= cannot bind to an unboxed value')

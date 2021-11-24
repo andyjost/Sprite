@@ -4,7 +4,7 @@ Code for converting the intermediate representation to executable code.
 
 from . import render
 from ....utility import encoding, filesys
-import pprint, textwrap
+import pprint, six, textwrap
 
 __all__ = 'materialize'
 
@@ -33,9 +33,9 @@ def materialize(interp, ir, debug=False, ifun=None):
       out.write('\n\n# ICurry:\n# -------\n')
       out.write('\n'.join('# ' + line for line in str(ifun).split('\n')))
     co = compile(source, srcfile, 'exec')
-    exec co in ir.closure.dict, container
+    six.exec_(co, ir.closure.dict, container)
   else:
-    exec source in ir.closure.dict, container
+    six.exec_(source, ir.closure.dict, container)
   entry = container.values().pop()
   entry.source = source
   return entry

@@ -113,8 +113,13 @@ ifdef LINKS
     install:: $(LINKS_INSTALL)
     $(foreach link,$(LINKS),$(eval $(call define_link_target,$(link))))
     $(INSTALL_DIR)/% : %.link
-			@mkdir -p $(dir $@)
-			ln -sf $(LINK_TARGET_$<) $@
+			@if [ -n "$(LINK_TARGET_$<)" ]; then \
+        mkdir -p $(dir $@); \
+        echo ln -sf $(LINK_TARGET_$<) $@; \
+        ln -sf $(LINK_TARGET_$<) $@; \
+      else \
+        echo 1>&2 "Skipping installation of link $@ because it has no target."; \
+      fi
   endif
 endif
 

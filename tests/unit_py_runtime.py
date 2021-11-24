@@ -1,22 +1,17 @@
 import cytest # from ./lib; must be first
 from copy import copy
-from curry.common import T_FAIL, T_CHOICE
 from curry.backends.py.runtime.control import E_UNWIND
-from curry.backends.py.runtime.graph import Node
-from curry.backends.py.runtime.graph import equality
-from curry.backends.py.runtime.state.rts_freevars import _gen_ctors
+from curry.backends.py.runtime.graph import Node, equality
 from curry.backends.py.runtime.state import Bindings, RuntimeState
-from curry import icurry
-from curry import inspect
-from curry import interpreter
+from curry.backends.py.runtime.state.rts_freevars import _gen_ctors
+from curry.common import T_FAIL, T_CHOICE
+from curry import icurry, inspect, interpreter
 from curry.utility.binding import binding
 from cytest import bootstrap
 from glob import glob
-import curry
 import curry.backends.py.runtime.currylib.prelude
+import curry, os, unittest
 import cytest.step
-import os
-import unittest
 
 class TestPyRuntime(cytest.TestCase):
   '''Tests for the Python runtime functions.'''

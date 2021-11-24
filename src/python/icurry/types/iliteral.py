@@ -1,8 +1,7 @@
 from .iobject import IObject
 from .isymbol import ISymbol
-from abc import ABCMeta
 from ...backends.py.sprite import Fingerprint
-import collections
+import abc, collections, six
 
 __all__ = ['IChar', 'IFloat', 'IInt', 'ILiteral', 'IString', 'IUnboxedLiteral']
 
@@ -64,8 +63,8 @@ class IString(ISymbol):
   def __repr__(self):
     return 'IString(value=%r)' % self.value
 
-class IUnboxedLiteral(IObject):
-  __metaclass__ = ABCMeta
+class IUnboxedLiteral(six.with_metaclass(abc.ABCMeta, IObject)):
+  pass
 IUnboxedLiteral.register(int)
 IUnboxedLiteral.register(str)
 IUnboxedLiteral.register(float)
@@ -78,8 +77,8 @@ IUnboxedLiteral.register(memoryview)
 # Extend the builtins to include fingerprints.
 IUnboxedLiteral.register(Fingerprint)
 
-class ILiteral(IObject):
-  __metaclass__ = ABCMeta
+class ILiteral(six.with_metaclass(abc.ABCMeta, IObject)):
+  pass
 ILiteral.register(IInt)
 ILiteral.register(IChar)
 ILiteral.register(IFloat)

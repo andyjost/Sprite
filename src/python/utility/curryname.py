@@ -46,7 +46,7 @@ def makeCurryPath(currypath):
             % currypath
       )
   currypath = map(os.path.abspath, filter(lambda x:x, currypath))
-  return currypath
+  return list(currypath)
 
 def prefixes(name, sep='.'):
   '''

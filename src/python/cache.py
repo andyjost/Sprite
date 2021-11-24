@@ -24,7 +24,9 @@ Environment Variables:
 
 from . import config
 from .utility import filesys
-import cPickle as pickle, cStringIO, glob, hashlib, logging, os, re
+import glob, hashlib, logging, os, re
+from six.moves import cPickle as pickle
+from six.moves import cStringIO as StringIO
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +214,7 @@ class ParsedJsonCache(object):
             if must_force_update(self.jsonfile):
               logger.info('file %s is being forced to update', self.jsonfile)
             else:
-              self.icur = pickle.load(cStringIO.StringIO(buf))
+              self.icur = pickle.load(StringIO(buf))
 
     def __nonzero__(self):
       return self.icur is not None

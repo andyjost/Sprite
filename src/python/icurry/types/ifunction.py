@@ -1,10 +1,9 @@
-from abc import ABCMeta
 from .ibody import IBuiltin
 from .iobject import IArity, IObject
 from .isymbol import ISymbol
 from ...utility.formatting import indent
 from ...utility import translateKwds
-import weakref
+import abc, six, weakref
 
 __all__ = ['IFunction', 'IVisibility', 'Private', 'PRIVATE', 'Public', 'PUBLIC']
 
@@ -52,8 +51,8 @@ class Private(IObject):
 PRIVATE = Private()
 
 
-class IVisibility(IObject):
-  __metaclass__ = ABCMeta
+class IVisibility(six.with_metaclass(abc.ABCMeta, IObject)):
+  pass
 IVisibility.register(Public)
 IVisibility.register(Private)
 

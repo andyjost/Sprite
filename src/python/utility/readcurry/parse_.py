@@ -83,7 +83,7 @@ class Parser(object):
           term, begin = self.parse_expr(begin, begin+1)
           terms.append(term)
         else:
-          terms.append(types.Identifier(tok))
+          terms.append(types.make_identifier(tok))
           begin += 1
       else:
         assert False

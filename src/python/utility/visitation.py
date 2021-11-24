@@ -1,7 +1,7 @@
 '''Implementation of the visitor pattern.'''
 # See https://chris-lamb.co.uk/posts/visitor-pattern-in-python
 from __future__ import absolute_import
-import functools, inspect
+import functools, inspect, six
 from six.moves import reduce
 
 # From http://code.activestate.com/recipes/577413-topological-sort/
@@ -118,12 +118,13 @@ def instance_checker(yes=None, no=None):
   memoized = instance_checker.__dict__.setdefault('_memoized', {})
   key = tuple(tuple(set(x if type(x) == tuple else [x])) for x in [yes,no])
   if key not in memoized:
-    class InstanceChecker(object):
-      class __metaclass__(type):
-        def __instancecheck__(self, obj):
-          return isinstance(obj, yes) and not isinstance(obj, no)
-        def __subclasscheck__(self, cls):
-          return issubclass(cls, yes) and not issubclass(cls, no)
+    class __metaclass__(type):
+      def __instancecheck__(self, obj):
+        return isinstance(obj, yes) and not isinstance(obj, no)
+      def __subclasscheck__(self, cls):
+        return issubclass(cls, yes) and not issubclass(cls, no)
+    class InstanceChecker(six.with_metaclass(__metaclass__)):
+      pass
     memoized[key] = InstanceChecker
   return memoized[key]
 

@@ -4,9 +4,7 @@ import curry, re, sys, unittest
 from .assert_equal_to_file import *
 from .assert_sets import *
 from .assert_inspect import *
-
 import six
-
 
 __all__ = ['TestCase']
 
@@ -22,14 +20,10 @@ class TestCase(unittest.TestCase):
   def tearDown(self):
     curry.reset() # Undo, e.g., path and I/O modifications after each test.
 
-  # New in Python 3.4.
-  if not hasattr(unittest.TestCase, 'assertRegex'):
-    def assertRegex(self, string, pattern):
-      string, pattern = str(string), str(pattern)
-      self.assertTrue(
-          re.search(pattern, string)
-        , msg='%r does not match pattern %r' % (string, pattern)
-        )
+  # Pull in the assertions defined in six.
+  locals().update({
+      name: obj for name, obj in six.__dict__.items() if name.startswith('assert')
+    })
 
   def assertMayRaise(self, exception, expr, msg=None):
     if exception is None:
@@ -45,7 +39,7 @@ class TestCase(unittest.TestCase):
       except:
         ty,val,tb = sys.exc_info()
         tail = '' if msg is None else ' %s' % msg
-        raise ty, ty(str(val) + tail), tb
+        six.raise_from(ty(str(val) + tail), val)
 
   def assertMayRaiseRegexp(self, exception, regexp, expr, msg=None):
     if exception is None:
@@ -61,6 +55,6 @@ class TestCase(unittest.TestCase):
       except:
         ty,val,tb = sys.exc_info()
         tail = '' if msg is None else ' %s' % msg
-        raise ty, ty(str(val) + tail), tb
+        six.raise_from(ty(str(val) + tail), val)
 
 

@@ -18,10 +18,12 @@ __all__ = ['aliases', 'exports', 'extern', 'Prelude']
 
 def aliases():
   '''Returns prelude aliases.  Simply for convenience.'''
-  yield 'Unit', '()'
-  yield 'Pair', '(,)'
-  yield 'Cons', ':'
-  yield 'Nil', '[]'
+  yield 'Unit'  , '()'
+  yield 'Pair'  , '(,)'
+  yield 'Cons'  , ':'
+  yield 'Nil'   , '[]'
+  yield 'True_' , 'True'
+  yield 'False_', 'False'
 
 def exports():
   '''
@@ -134,7 +136,7 @@ _functions_ = [
   , _F('catch'                 , 2, metadata={'py.rawfunc'    : impl.catch              , 'all.monadic': True })
   , _F('cond'                  , 2, metadata={'py.rawfunc'    : impl.cond               })
   , _F('constrEq'              , 2, metadata={'py.rawfunc'    : impl.constr_eq          })
-  , _F('divInt'                , 2, metadata={'py.unboxedfunc': op.div                  })
+  , _F('divInt'                , 2, metadata={'py.unboxedfunc': op.floordiv             })
   , _F('ensureNotFree'         , 1, metadata={'py.rawfunc'    : impl.ensureNotFree      })
   , _F('eqChar'                , 2, metadata={'py.unboxedfunc': op.eq                   })
   , _F('eqFloat'               , 2, metadata={'py.unboxedfunc': op.eq                   })

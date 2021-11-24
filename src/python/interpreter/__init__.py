@@ -81,12 +81,6 @@ class Interpreter(object):
     return self.__preludelib
 
   @property
-  def integer(self):
-    if not hasattr(self, '__integerlib'):
-      self.__integerlib = self.module('Integer')
-    return self.__integerlib
-
-  @property
   def setfunctions(self):
     if not hasattr(self, '__setflib'):
       self.__setflib = self.module('Control.SetFunctions')

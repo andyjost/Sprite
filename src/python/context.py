@@ -8,7 +8,7 @@ implement.
 '''
 
 from . import config
-import abc, importlib
+import abc, importlib, six
 
 __all__ = ['Compiler', 'Context', 'InfoTable', 'Node', 'Runtime']
 
@@ -45,10 +45,8 @@ class Context(object):
     return self._runtime
 
 
-class Runtime(object):
+class Runtime(six.with_metaclass(abc.ABCMeta)):
   '''Abstract interface for a runtime system.'''
-  __metaclass__ = abc.ABCMeta
-
   def __new__(cls, backend='py'):
     if cls is Runtime:
       # Each backend must implement this class at
@@ -96,24 +94,21 @@ class Runtime(object):
     assert 0
 
 # Each backend must provide a Node object and register it with this class.
-class Node(object):
-  __metaclass__ = abc.ABCMeta
-
+class Node(six.with_metaclass(abc.ABCMeta)):
+  pass
 
 # Each backend must provide an InterpreterState object and register it with this
 # class.
-class InterpreterState(object):
-  __metaclass__ = abc.ABCMeta
+class InterpreterState(six.with_metaclass(abc.ABCMeta)):
+  pass
 
 # Each backend must provide an InfoTable object and register it with this
 # class.
-class InfoTable(object):
-  __metaclass__ = abc.ABCMeta
+class InfoTable(six.with_metaclass(abc.ABCMeta)):
+  pass
 
-
-class Compiler(object):
+class Compiler(six.with_metaclass(abc.ABCMeta)):
   '''Abstract interface for an ICurry compiler.'''
-  __metaclass__ = abc.ABCMeta
 
   def __new__(cls, backend='py'):
     # Each backend must implement this class at

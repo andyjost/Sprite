@@ -1,6 +1,6 @@
 '''Python wrappers for libsprite.so.'''
 
-from _sprite import *
+from ._sprite import *
 import itertools, six
 from six.moves import range
 

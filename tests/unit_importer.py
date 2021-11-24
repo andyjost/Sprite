@@ -9,11 +9,6 @@ class TestImporter(cytest.TestCase):
     self.assertEqual(prelude.__name__, 'Prelude')
     self.assertIn('Prelude', interp.modules)
     #
-    self.assertNotIn('Integer', interp.modules)
-    integer = interp.integer
-    self.assertEqual(integer.__name__, 'Integer')
-    self.assertIn('Integer', interp.modules)
-    #
     self.assertNotIn('Control', interp.modules)
     self.assertNotIn('Control.SetFunctions', interp.modules)
     setf = interp.setfunctions
