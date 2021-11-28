@@ -62,7 +62,7 @@ class TestPyConversions(cytest.TestCase):
     self.assertNotEqual(list2, list3)
 
     # Negative tests.
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeError
       , r"cannot build a Curry expression from type 'dict'"
       , lambda: interp.expr({})
@@ -117,7 +117,7 @@ class TestPyConversions(cytest.TestCase):
     self.assertEqual(interp.topython(x), ())
     self.assertEqual(repr(x), "<()>")
     # (one-tuple)
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeError, 'Curry has no 1-tuple', lambda: interp.expr((1,))
       )
     # Complex/nested.
@@ -183,7 +183,7 @@ class TestPyConversions(cytest.TestCase):
 
   def testUnboxedRewriteTarget(self):
     e = curry.expr('dummy')
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ValueError
       , 'cannot rewrite a node to an unboxed value'
       , lambda: curry.expr(curry.unboxed(0), target=e)

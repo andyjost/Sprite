@@ -1,5 +1,5 @@
 from ..icurry import json as icurry_json, types as icurry_types
-from .. import cache
+from .. import cache, config
 from . import _filenames, _makecurry
 from ..utility import formatDocstring
 import logging, os, zlib
@@ -48,7 +48,10 @@ def loadjson(jsonfile):
   must contain one Curry module.
   '''
   assert os.path.exists(jsonfile)
-  cached = cache.ParsedJsonCache.Slot(jsonfile)
+  if config.enable_parsed_json_cache():
+    cached = cache.ParsedJsonCache.Slot(jsonfile)
+  else:
+    cached = None
   if cached:
     logger.info('Loading cached ICurry-JSON for %s', jsonfile)
     return cached.icur
@@ -61,8 +64,10 @@ def loadjson(jsonfile):
   else:
     with open(jsonfile) as istream:
       json = istream.read()
+  json = json.decode('utf-8')
   icur = icurry_json.loads(json)
   icur.filename = _filenames.curryfilename(jsonfile)
-  cached.update(icur)
+  if cached is not None:
+    cached.update(icur)
   return icur
 

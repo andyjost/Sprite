@@ -44,7 +44,7 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(str(struct("abc")), "%abc = type opaque")
     self.assertEqual(str(struct([char,i32,fp32])), "{ i8, i32, float }")
     self.assertEqual(str(struct("abc", [bool_, char])), "%abc = type { i1, i8 }")
-    self.assertRaisesRegexp(TypeError, 'pointer to void is not permitted', lambda: void.p)
+    self.assertRaisesRegex(TypeError, 'pointer to void is not permitted', lambda: void.p)
 
   def test_isa_checks(self):
     self.assertIsa(i32[2], ArrayType)
@@ -78,11 +78,11 @@ class TestLLVMTypes(cytest.TestCase):
 
   def test_struct_name(self):
     self.assertEqual(struct('foo', [i32,i8.p]).struct_name, 'foo')
-    self.assertRaisesRegexp(TypeError, "expected a struct, got 'i8'", lambda: i8.struct_name)
+    self.assertRaisesRegex(TypeError, "expected a struct, got 'i8'", lambda: i8.struct_name)
 
   def test_array_extents(self):
     self.assertEqual(i8[2][3][7].array_extents, [7,3,2])
-    self.assertRaisesRegexp(TypeError, "expected an array, got 'i8'", lambda: i8.array_extents)
+    self.assertRaisesRegex(TypeError, "expected an array, got 'i8'", lambda: i8.array_extents)
 
   def test_sizeof(self):
     self.assertEqual(i8.sizeof, 1)
@@ -99,8 +99,8 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(i8[2][3][5].sizeof, 30)
     self.assertEqual((4*i32).sizeof, 16)
     self.assertEqual(struct({i8,i32}).sizeof, 2*i32.sizeof)
-    self.assertRaisesRegexp(TypeError, "type 'void' is unsized", lambda: void.sizeof)
-    self.assertRaisesRegexp(TypeError, "type 'i8 \(\)' is unsized", lambda: i8().sizeof)
+    self.assertRaisesRegex(TypeError, "type 'void' is unsized", lambda: void.sizeof)
+    self.assertRaisesRegex(TypeError, "type 'i8 \(\)' is unsized", lambda: i8().sizeof)
 
   def test_decay(self):
     self.assertEqual(i8().decay, i8().p) # function -> pointer
@@ -113,10 +113,10 @@ class TestLLVMTypes(cytest.TestCase):
     self.assertEqual(common_type(bool_, fp64), fp64)
     self.assertEqual(common_type(i8(), i8().p), i8().p)
     self.assertEqual(common_type(i8.p(), i8.p().p), i8.p().p)
-    self.assertRaisesRegexp(TypeError, 'no common type', lambda: common_type(i8(), i8.p().p))
+    self.assertRaisesRegex(TypeError, 'no common type', lambda: common_type(i8(), i8.p().p))
     self.assertEqual(common_type(i8[3], i8[4]), i8.p)
     self.assertEqual(common_type(struct([i8,i32]), struct([i8,i32])), struct([i8,i32]))
-    self.assertRaisesRegexp(TypeError, 'no common type', lambda: common_type(struct([i8,i32]), struct([i8.p,i32])))
+    self.assertRaisesRegex(TypeError, 'no common type', lambda: common_type(struct([i8,i32]), struct([i8.p,i32])))
 
   def test_isa(self):
     self.assertTrue(i32.isa(IntegerType))

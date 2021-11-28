@@ -4,14 +4,14 @@ import curry
 class TestPyCompile(cytest.TestCase):
   '''Tests for curry.compile.'''
   def testIllegalProgram(self):
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         curry.CompileError
       , '.x. is undefined'
       , lambda: curry.compile('f=x')
       )
 
   def testIllegalMode(self):
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeError
       , "expected mode 'module' or 'expr'"
       , lambda: curry.compile('goal=0', mode='foo')
@@ -19,14 +19,14 @@ class TestPyCompile(cytest.TestCase):
 
   def testModuleRedefined(self):
     curry.compile('goal=0', modulename='a')
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ValueError
       , "module 'a' is already defined"
       , lambda: curry.compile('goal=0', modulename='a')
       )
 
   def testMissingExternalConstructorDefinition(self):
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ValueError
       , "'sprite__interactive_\d+.A' has no constructors and no external definition "
         "was found."
@@ -86,7 +86,7 @@ class TestPyCompile(cytest.TestCase):
   def testExprType(self):
     '''Test the exprtype argument.'''
     # 1+2
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         curry.CompileError
       , r'''expression '1\+2' requires a type annotation'''
       , lambda: curry.compile('1+2', mode='expr')
@@ -98,7 +98,7 @@ class TestPyCompile(cytest.TestCase):
            , [3]
 
     # 1 ? 2
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         curry.CompileError
       , r'''expression '1 \? 2' requires a type annotation'''
       , lambda: curry.compile('1 ? 2', mode='expr')

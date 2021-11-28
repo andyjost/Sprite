@@ -1,7 +1,7 @@
 from ..exceptions import CompileError
 from .. import config
 from ..tools.utility import make_exception
-from ..utility import filesys, formatting
+from ..utility import filesys, formatting, strings
 import errno, logging, os, subprocess as sp, sys, time
 
 __all__ = ['makeOutputDir', 'popen', 'targetNotUpdatedHint', 'updateCheck']
@@ -22,6 +22,7 @@ def popen(cmd, input=None, pipecmd=None):
   pipeline stage may be provided.
   '''
   stdin = None if input is None else sp.PIPE
+  input = None if input is None else strings.ensure_binary(input)
   child = sp.Popen(cmd, stdin=stdin, stdout=sp.PIPE, stderr=sp.PIPE)
   if pipecmd:
     term = sp.Popen(pipecmd, stdin=child.stdout, stdout=sp.PIPE)
@@ -31,6 +32,8 @@ def popen(cmd, input=None, pipecmd=None):
 
   try:
     stdout,stderr = term.communicate(input=input)
+    stdout = strings.ensure_text(stdout)
+    stderr = strings.ensure_text(stderr)
   except:
     term.kill()
     raise

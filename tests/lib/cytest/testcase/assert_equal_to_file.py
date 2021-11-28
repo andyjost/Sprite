@@ -31,10 +31,10 @@ def assertEqualToFile(
     sprite_answer = buf.getvalue()
   open_ = gzip.open if filename.endswith('.gz') else open
   if update:
-    with open_(filename, 'wb') as au:
+    with open_(filename, 'w') as au:
       au.write(sprite_answer)
   else:
-    with open_(filename, 'rb') as au:
+    with open_(filename, 'r') as au:
       correct_answer = au.read()
     checker(tc, sprite_answer, correct_answer)
 

@@ -49,7 +49,7 @@ _TYPE_MAP_ = {
 def make_identifier(token):
   ty = _TYPE_MAP_.get(type(token), Identifier)
   return ty(token)
-  
+
 class Applic(object):
   '''Application of an ``Applicative`` symbol to arguments.'''
   def __init__(self, f, *args):

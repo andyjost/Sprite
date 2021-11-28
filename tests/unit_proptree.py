@@ -4,11 +4,11 @@ from curry.utility.proptree import proptree
 
 class PropertyTree(cytest.TestCase):
   def test_proptree(self):
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeError, r"key 'a.b' cannot be created at 'b'"
       , lambda: proptree(OrderedDict([('a',0), ('a.b',1)]))
       )
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeError, r"key 'a.b' cannot be created at 'b'"
       , lambda: proptree(OrderedDict([('a.b.c',0), ('a.b',1)]))
       )
@@ -31,7 +31,7 @@ class PropertyTree(cytest.TestCase):
     # Assignment.
     pt.a.a = 42
     self.assertEqual(pt.a.a, 42)
-    with self.assertRaisesRegexp(
+    with self.assertRaisesRegex(
         AttributeError, r"'proptreenode_a_b' object has no attribute 'x'"
       ):
       pt.a.x = None
@@ -57,7 +57,7 @@ class PropertyTree(cytest.TestCase):
 
     # __getitem__.
     self.assertEqual(pt['a'], pt.a)
-    self.assertRaisesRegexp(KeyError, "'x'", lambda: pt.a['x'])
+    self.assertRaisesRegex(KeyError, "'x'", lambda: pt.a['x'])
 
     # get.
     self.assertEqual(pt.get('a.b.a'), 0)
@@ -68,9 +68,9 @@ class PropertyTree(cytest.TestCase):
     # __setitem__.
     pt.a['a'] = 97
     self.assertEqual(pt.a.a, 97)
-    with self.assertRaisesRegexp(KeyError, "'x'"):
+    with self.assertRaisesRegex(KeyError, "'x'"):
       pt.a['x'] = None
-    with self.assertRaisesRegexp(KeyError, "'a.x'"):
+    with self.assertRaisesRegex(KeyError, "'a.x'"):
       pt['a.x'] = None
 
     # Equality.

@@ -76,7 +76,7 @@ class TestLLVMValues(cytest.TestCase):
   #     maxval = 2**(bitwidth-1)-1
   #     # print 'for', ty, 'min =', minval, 'max =', maxval
 
-    # self.assertRaisesRegexp(TypeError, r"cannot cast 'i64' to 'void \*'", lambda: void.p(value(1)))
+    # self.assertRaisesRegex(TypeError, r"cannot cast 'i64' to 'void \*'", lambda: void.p(value(1)))
 
     # Equality among values.
     # self.assertEqual(value(1), 1)

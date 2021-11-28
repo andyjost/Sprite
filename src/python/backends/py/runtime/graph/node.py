@@ -34,6 +34,9 @@ class Node(object):
 
   from .equality import logically_equal as __eq__
 
+  def __hash__(self):
+    return hash(id(self)) # for testing
+
   def __ne__(self, rhs):
     return not (self == rhs)
 

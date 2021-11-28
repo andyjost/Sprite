@@ -1,7 +1,7 @@
 from ....icurry.types import IString
 from .... import objects
-from ....utility import encoding, visitation
-import sys
+from ....utility import encoding, strings, visitation
+import six, sys
 
 __all__ = ['Closure', 'handle']
 
@@ -97,14 +97,14 @@ class Closure(object):
   def intern(self, typedef):
     return self.insert(typedef, prefix=PX_TYPE)
 
-  @intern.when(str)
+  @intern.when(six.string_types)
   def intern(self, name):
     return self.insert(name, prefix=PX_SYMB)
 
   @intern.when(IString)
   def intern(self, istring):
     return self.insert(
-        istring.value
+        strings.ensure_binary(istring.value)
       , name=hex(hash(istring.value))[-6:]
       , prefix=PX_STR
       )

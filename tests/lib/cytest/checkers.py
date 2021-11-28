@@ -83,9 +83,6 @@ def check_expressions(converter=curry.topython, postprocessor=sorted):
   '''
   def decorator(testmethod):
     def checker(self, spec):
-      # specs = testmethod(self)
-      # for spec in specs:
-      #   with capture_generator(specs):
       expr, str_, repr_, python, evaluated = (spec + 5 * (None,))[:5]
       e = curry.expr(expr)
       if str_ is not None:
@@ -101,8 +98,6 @@ def check_expressions(converter=curry.topython, postprocessor=sorted):
         if postprocessor is not None:
           values = postprocessor(values)
         self.assertEqual(values, evaluated)
-    # testmethod.continuation = checker
-    # return checker
     return _makechecker(testmethod, checker)
   return decorator
 
@@ -137,7 +132,7 @@ def check_indexing(testmethod):
       d = self.INDEXER(e, path)
       self.assertEqual(d, expected)
     elif regex:
-      self.assertRaisesRegexp(excty, regex, lambda: self.INDEXER(e, path))
+      self.assertRaisesRegex(excty, regex, lambda: self.INDEXER(e, path))
     else:
       self.assertRaises(excty, lambda: self.INDEXER(e, path))
   # testmethod.continuation = checker

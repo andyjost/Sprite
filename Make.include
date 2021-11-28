@@ -26,8 +26,8 @@ PAKCS_SUBDIR := $(PAKCS_NAME)-$(PAKCS_VER)
 # just prepent "sprite-" to the PAKCS directory name.
 INTERMEDIATE_SUBDIR = sprite-$(PAKCS_SUBDIR)
 
-PYTHON_CONFIG_SCRIPT = $(PYTHON_EXECUTABLE) -c \
-"from __future__ import print_function; \
+PYTHON_CONFIG_SCRIPT = cd $(ROOT_DIR) && $(PYTHON_EXECUTABLE) -c \
+"from __future__ import print_function, absolute_import; \
 import re, sysconfig; \
 print(sysconfig.get_config_vars()['CONFINCLUDEPY']); \
 print(sysconfig.get_config_vars()['LIBDIR']); \

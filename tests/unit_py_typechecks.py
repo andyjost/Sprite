@@ -33,7 +33,7 @@ class TestPyTypeChecks(cytest.TestCase):
         )
       if debug and sys.version_info.major == 2:
         # There is an assertion for this even in non-debug mode.
-        self.assertRaisesRegexp(
+        self.assertRaisesRegex(
             TypeError
           , r'Cannot construct a Char node from an argument of type unicode\.'
           , lambda: Node(I.prelude.Char.info, unicode('a'))

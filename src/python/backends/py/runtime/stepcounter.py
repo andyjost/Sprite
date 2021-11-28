@@ -10,7 +10,7 @@ class StepCounter(object):
   specified number of steps.
   '''
   def __init__(self, limit=None, global_limit=None):
-    assert limit > 0 or limit is None
+    assert limit is None or limit > 0
     self.reset_global()
     self.reset()
     self._limit = float('inf') if limit is None else limit

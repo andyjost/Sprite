@@ -56,7 +56,10 @@ class ICall(IObject):
   def children(self):
     return self.exprs
   def __str__(self):
-    string = ', '.join([repr(self.symbolname)] + map(str, self.exprs))
+    string = ', '.join(
+        [repr(self.symbolname)] \
+      + [str(x) for x in self.exprs]
+      )
     return '%s(%s)' % (self.__class__.__name__, string)
   def __repr__(self):
     return '%s(symbolname=%r, exprs=%r)' % (

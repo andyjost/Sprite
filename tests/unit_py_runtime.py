@@ -32,15 +32,15 @@ class TestPyRuntime(cytest.TestCase):
     self.assertTrue(repr(prelude.prim_negateFloat.info).startswith('InfoTable'))
 
     n = Node(getattr(prelude, '()').info)
-    self.assertRaisesRegexp(curry.CurryIndexError, r"not 'str'", lambda: n['foo'])
-    self.assertRaisesRegexp(curry.CurryIndexError, r"not 'float'", lambda: n[1.])
+    self.assertRaisesRegex(curry.CurryIndexError, r"not 'str'", lambda: n['foo'])
+    self.assertRaisesRegex(curry.CurryIndexError, r"not 'float'", lambda: n[1.])
 
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeError
       , r"cannot construct 'Int' \(arity=1\), with 2 args"
       , lambda: interp.expr(prelude.Int, 1, 2)
       )
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeError, r"cannot import type 'int'", lambda: interp.import_(1)
       )
 
@@ -243,7 +243,7 @@ class TestPyRuntime(cytest.TestCase):
     from curry.lib import hello
     self.assertRegex(hello.main.getimpl(), '^def (\w+)\(rts, _0\):\s+# hello\.main')
     # Negative test.
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ValueError
       , "no implementation code available for 'Prelude.True'"
       , lambda: curry.symbol('Prelude.True').getimpl()

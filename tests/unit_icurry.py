@@ -41,7 +41,7 @@ class ICurryTestCase(cytest.TestCase):
     from curry.lib import hello, helloExternal
     imodule1 = getattr(helloExternal, '.icurry')
     imodule2 = getattr(hello, '.icurry')
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeError
       , "cannot import 'undef' from module 'hello'"
       , lambda: imodule1.merge(imodule2, ['undef'])

@@ -1,8 +1,7 @@
 import cytest # from ./lib; must be first
 from curry import icurry
 from glob import glob
-import curry
-import gzip
+import curry, gzip, six
 
 GENERATE_GOLDENS = False
 
@@ -11,7 +10,7 @@ class ParseJSON(cytest.TestCase):
   def test_parseJSON(self):
     for jsonfile in glob('data/json/*.json*'):
       open_ = gzip.open if jsonfile.endswith('.gz') else open
-      json = open_(jsonfile, 'rb').read()
+      json = cytest.readfile(jsonfile, mode='r', fopen=open_)
       icur = icurry.json.loads(json)
 
       # Test equality.
@@ -19,7 +18,7 @@ class ParseJSON(cytest.TestCase):
 
       # Test repr.
       local={}
-      exec 'from curry.icurry import *' in local
+      six.exec_('from curry.icurry import *', local)
       icur2 = eval(repr(icur), local)
       try:
         self.assertEqual(icur, icur2)

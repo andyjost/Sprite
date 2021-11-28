@@ -77,10 +77,10 @@ class TestPyIO(cytest.TestCase):
         txt = ('djiod', r' and finally,...')
         goal = curry.compile('writeFile "file.txt" ("%s" ++ "%s")' % txt, 'expr')
         next(curry.eval(goal))
-        self.assertEqual(open('file.txt', 'r').read(), ''.join(txt))
+        self.assertEqual(cytest.readfile('file.txt'), ''.join(txt))
 
         goal = curry.compile('writeFile "file.txt" ("%s" ? "%s")' % txt, 'expr')
-        self.assertRaisesRegexp(
+        self.assertRaisesRegex(
             RuntimeError
           , r'non-determinism in monadic actions occurred'
           , lambda: list(curry.eval(goal))
@@ -91,7 +91,7 @@ class TestPyIO(cytest.TestCase):
   @cytest.setio(stdout='')
   def test_nd_io(self):
     goal = curry.compile("putChar ('a' ? 'b')", 'expr')
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         RuntimeError
       , r'non-determinism in monadic actions occurred'
       , lambda: list(curry.eval(goal))
@@ -100,7 +100,7 @@ class TestPyIO(cytest.TestCase):
   @cytest.setio(stdout='')
   def test_nd_io2(self):
     goal = curry.compile('''putStrLn ("one" ? "two")''', 'expr')
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         RuntimeError
       , r'non-determinism in monadic actions occurred'
       , lambda: list(curry.eval(goal))
@@ -109,7 +109,7 @@ class TestPyIO(cytest.TestCase):
   @cytest.with_flags(defaultconverter='topython')
   def test_io_error(self):
     goal = curry.compile('readFile "nofile"', 'expr')
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         IOError
       , r"\[Errno 2\] No such file or directory: 'nofile'"
       , lambda: list(curry.eval(goal))
@@ -125,7 +125,7 @@ class TestPyIO(cytest.TestCase):
     from curry.utility import maxrecursion
     with maxrecursion():
       goal = curry.compile('readFile "nofile" `catch` ioError', 'expr')
-      self.assertRaisesRegexp(
+      self.assertRaisesRegex(
           curry.ExecutionError
         , r"i/o error: \[Errno 2\] No such file or directory: 'nofile'"
         , lambda: list(curry.eval(goal))

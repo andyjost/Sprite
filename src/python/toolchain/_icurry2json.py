@@ -3,6 +3,7 @@ from .. import config
 from . import _filenames, _system
 from ..utility.binding import binding
 from ..utility import filesys
+from ..utility.strings import ensure_str, ensure_binary
 import logging, os, zlib
 
 __all__ = ['icurry2json']
@@ -73,10 +74,11 @@ class ICurry2JsonConverter(object):
         with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
           json = _system.popen(cmd_compact, input=json)
     if self.do_zip:
-      json = zlib.compress(json)
       mode = 'wb'
+      json = zlib.compress(ensure_binary(json))
     else:
       mode = 'w'
+      json = ensure_str(json)
     with filesys.remove_file_on_error(file_out):
       with open(file_out, mode) as output:
         output.write(json)
@@ -119,7 +121,7 @@ def _convertFile(file_in, file_out, convert):
   '''
   Read from file_in, apply the conversion, and write the result to file_out.
   '''
-  with open(file_in, 'r') as istream:
+  with open(file_in, 'rb') as istream:
     with filesys.remove_file_on_error(file_out):
       with open(file_out, 'wb') as ostream:
         json = istream.read()

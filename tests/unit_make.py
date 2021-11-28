@@ -2,10 +2,8 @@
 import cytest # from ./lib; must be first
 from curry import config, toolchain
 from curry.utility import _tempfile
-import glob
-import os
-import shutil
-import subprocess
+from curry.utility.strings import ensure_str
+import glob, os, shutil, subprocess
 
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 
@@ -107,7 +105,7 @@ class TestMake(cytest.TestCase):
     '''Test the sprite-make program.'''
     makeprg = os.path.join(os.environ['SPRITE_HOME'], 'bin', 'sprite-make')
     def sprite_make(*args):
-      return subprocess.check_output((makeprg,) + args)
+      return ensure_str(subprocess.check_output((makeprg,) + args))
 
     self.assertEqual(sprite_make('--subdir'), SUBDIR)
     self.assertEqual(sprite_make('-S'), SUBDIR)

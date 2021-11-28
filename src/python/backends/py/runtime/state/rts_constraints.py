@@ -129,7 +129,7 @@ def _constrain_equal_rec(rts, arg0, arg1, config=None):
   consistent).
   '''
   try:
-    xs = map(rts.get_freevar, [arg0, arg1])
+    xs = [rts.get_freevar(x) for x in [arg0, arg1]]
   except KeyError:
     return True
   else:

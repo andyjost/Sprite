@@ -1,4 +1,6 @@
 from ... import graph
+from ......utility.strings import ensure_binary, ensure_str
+import six
 
 __all__ = ['_PyGenerator', '_PyString', 'pystring']
 
@@ -18,7 +20,13 @@ def _PyGenerator(rts, gen):
 
 # Convert a Python string to a Curry string.
 def pystring(rts, string):
-  return graph.Node(rts.prelude._PyString, memoryview(string))
+  memory = memoryview(ensure_binary(string))
+  return graph.Node(rts.prelude._PyString, memory)
+
+if six.PY2:
+  ensure_char = lambda x: x # memoryview element is a str
+else:
+  ensure_char = chr         # memoryview element is an integer
 
 def _PyString(rts, _1):
   '''
@@ -27,7 +35,7 @@ def _PyString(rts, _1):
   mem = _1.target
   if mem:
     yield rts.prelude.Cons
-    yield graph.Node(rts.prelude.Char, mem[0])
+    yield graph.Node(rts.prelude.Char, ensure_char(mem[0]))
     yield graph.Node(rts.prelude._PyString, mem[1:])
   else:
     yield rts.prelude.Nil

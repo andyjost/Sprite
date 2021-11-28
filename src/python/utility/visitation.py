@@ -89,8 +89,13 @@ class dispatch(object):
   @staticmethod
   def on(selector):
     def decorator(f):
-      argspec = inspect.getargspec(f)
-      if selector not in argspec.args and argspec.keywords is None:
+      if six.PY2:
+        argspec = inspect.getargspec(f)
+        bad = selector not in argspec.args and argspec.keywords is None
+      else:
+        sig = inspect.signature(f)
+        bad = selector not in sig.parameters
+      if bad:
         raise TypeError(
             "'%s' has no parameter '%s'" % (f.__name__, selector)
           )

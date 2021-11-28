@@ -2,14 +2,8 @@
 
 from __future__ import absolute_import
 from curry.utility.binding import binding
-import collections
-import contextlib
-import curry
-import importlib
-import logging
-
-import six
-
+from . import exitstack
+import collections, curry, importlib, logging, six
 
 class Logger(logging.Logger):
   '''
@@ -73,7 +67,7 @@ class LogCapture(object):
       bindings += [binding(logging.Logger.manager.loggerDict, modulename, self.logger)]
       # This binding overrides the logger in the named module.
       bindings += [binding(getattr(module, '__dict__'), loggername, self.logger)]
-    with contextlib.nested(*bindings):
+    with exitstack.nested(*bindings):
       yield
 
   def __enter__(self):

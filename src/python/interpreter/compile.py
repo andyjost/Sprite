@@ -4,7 +4,7 @@ Implements Interpreter.compile.
 
 from .. import config, exceptions, icurry, objects, toolchain
 from ..utility.visitation import dispatch
-import types
+import six, types
 
 __all__ = ['compile']
 
@@ -116,7 +116,7 @@ def getImportSpecForExpr(interpreter, modules):
 def _updateImports(interpreter, module, stmts, currypath):
   assert False
 
-@_updateImports.when(str)
+@_updateImports.when(six.string_types)
 def _updateImports(interpreter, modulename, stmts, currypath):
   module = interpreter.modules[modulename]
   return _updateImports(interpreter, module, stmts, currypath)
@@ -126,8 +126,6 @@ def _updateImports(interpreter, module, stmts, currypath):
   if module.__name__ != '_System':
     stmts.append('import ' + module.__name__)
     # If this is a dynamic module, add its directory to the search path.
-    try:
-      currypath.insert(0, module._tmpd_.name)
-    except AttributeError:
-      pass
+    if getattr(module, '_tmpd_', None) is not None:
+      currypath.insert(0, module._tmpd_)
 

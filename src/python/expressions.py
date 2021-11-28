@@ -1,6 +1,6 @@
 from . import context, icurry, objects, utility
 from .exceptions import CurryTypeError
-from .utility import visitation
+from .utility import strings, visitation
 import collections, itertools, numbers, six
 
 __all__ = [
@@ -212,8 +212,9 @@ class ExpressionBuilder(object):
         'cannot build a Curry expression from type %r' % type(arg).__name__
       )
 
-  @__call__.when(str) # Char or [Char].
+  @__call__.when(six.string_types + (six.binary_type,)) # Char or [Char].
   def __call__(self, arg, *trailing):
+    arg = strings.ensure_str(arg)
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % arg)
     if len(arg) == 1:

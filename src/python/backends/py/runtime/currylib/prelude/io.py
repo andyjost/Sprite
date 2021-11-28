@@ -1,11 +1,7 @@
 from ......exceptions import MonadError
 from ... import graph
 from . import show, string
-
-try:
-  import mmap
-except ImportError:
-  mmap = None
+import mmap, os
 
 __all__ = [
     'appendFile', 'bindIO', 'catch', 'getChar', 'ioError', 'putChar'
@@ -55,20 +51,12 @@ def putChar(rts, a):
 
 def readFile(rts, filename):
   filename = rts.topython(filename.target)
-  stream = open(filename, 'r')
-  if mmap is None:
-    def generateBytes():
-      while True:
-        chunk = stream.read(chunksize)
-        if not chunk:
-          return
-        for byte in chunk:
-          yield byte
-    gen = generator()
-  else:
-    gen = iter(mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ))
   yield rts.prelude._PyGenerator
-  yield gen
+  def generator():
+    with open(filename, 'r') as istream:
+      for byte in mmap.mmap(istream.fileno(), 0, access=mmap.ACCESS_READ):
+        yield byte
+  yield generator()
 
 def returnIO(rts, _0):
   yield rts.prelude.IO
@@ -83,21 +71,21 @@ def seqIO(rts, lhs):
 def writeFile(rts, func, mode='w'):
   filename, data = func.successors
   filename = rts.topython(filename)
-  stream = open(filename, 'w')
   List = rts.prelude.Cons.typedef()
   Char = rts.prelude.Char.typedef()
-  while True:
-    _1 = rts.variable(func, 1)
-    _1.hnf(typedef=List)
-    tag = _1.info.tag
-    if tag == 0: # Cons
-      char = rts.variable(_1, 0)
-      char.hnf(typedef=Char)
-      stream.write(char.unboxed_value)
-      func.successors[1] = _1.successors[1]
-    else:        # Nil
-      assert tag == 1
-      yield rts.prelude.IO
-      yield graph.Node(rts.prelude.Unit)
-      break
+  with open(filename, 'w') as ostream:
+    while True:
+      _1 = rts.variable(func, 1)
+      _1.hnf(typedef=List)
+      tag = _1.info.tag
+      if tag == 0: # Cons
+        char = rts.variable(_1, 0)
+        char.hnf(typedef=Char)
+        ostream.write(char.unboxed_value)
+        func.successors[1] = _1.successors[1]
+      else:        # Nil
+        assert tag == 1
+        yield rts.prelude.IO
+        yield graph.Node(rts.prelude.Unit)
+        break
 

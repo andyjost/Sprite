@@ -16,12 +16,12 @@ class TestLLVMModule(cytest.TestCase):
     self.assertFalse(m.globals)
     self.assertNotIn('x', m.globals)
     self.assertEqual(list(m.globals), [])
-    self.assertRaisesRegexp(KeyError, 'x', lambda: m.globals['x'])
+    self.assertRaisesRegex(KeyError, 'x', lambda: m.globals['x'])
 
     # Define a few globals.
     m.def_('x', i64)
     m.def_('y', i8, const=True, linkage=STATIC, init=7)
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ValueError, "global 'x' exists", lambda: m.def_('x', i64)
       )
 

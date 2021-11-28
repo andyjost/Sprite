@@ -39,13 +39,13 @@ def makeCurryPath(currypath):
   if isinstance(currypath, str):
     currypath = currypath.split(':')
   try:
-    currypath = map(str, currypath)
+    currypath = [str(x) for x in currypath]
   except:
     raise TypeError(
         "'currypath' must be a string or sequence of strings, got %r."
             % currypath
       )
-  currypath = map(os.path.abspath, filter(lambda x:x, currypath))
+  currypath = [os.path.abspath(x) for x in currypath if x]
   return list(currypath)
 
 def prefixes(name, sep='.'):

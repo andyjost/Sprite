@@ -129,7 +129,7 @@ class TestPrelude(cytest.TestCase):
 
   def testError(self):
     error = curry.symbol('Prelude.error')
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         RuntimeError, 'oops', lambda: next(curry.eval(error, "oops"))
       )
 

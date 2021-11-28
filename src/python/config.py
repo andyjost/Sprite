@@ -13,7 +13,7 @@ _LOG_LEVEL_VALUES_ = tuple(getattr(logging, s) for s in _LOG_LEVEL_NAMES_)
 if _LOG_LEVEL_NAME_ not in _LOG_LEVEL_NAMES_:
   raise EnvironmentError(
       'SPRITE_LOG_LEVEL should be one of %s or %r, not %r' % (
-          ', '.join(map(repr, _LOG_LEVEL_NAMES_[:-1]))
+          ', '.join(repr(x) for x in _LOG_LEVEL_NAMES_[:-1])
         , _LOG_LEVEL_NAMES_[-1]
         , _LOG_LEVEL_NAME_
         )
@@ -133,7 +133,7 @@ def syslibs():
   return currylib_module_names().split()
 
 def syslibversion():
-  return tuple(map(int, currylib_version().split('.')))
+  return tuple(int(x) for x in currylib_version().split('.'))
 
 def currypath(reset=False, cache=[]):
   '''

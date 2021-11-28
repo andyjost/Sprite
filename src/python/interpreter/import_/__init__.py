@@ -5,7 +5,7 @@ from ... import icurry, objects, toolchain
 from ...objects.handle import getHandle
 from ...utility.binding import binding
 from ...utility import curryname, formatDocstring, visitation
-import collections, contextlib, logging
+import collections, contextlib, logging, six
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ def import_(
   raise TypeError('cannot import type %r' % type(arg).__name__)
 
 # Import a module or package by name.
-@import_.when(str)
+@import_.when(six.string_types)
 def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
   modulename = curryname.getModuleName(name, is_sourcefile)
   try:
@@ -93,6 +93,7 @@ class ImportEx(object):
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
+    pdbtrace()
     assert False
 
   @__call__.when(list)
@@ -103,7 +104,7 @@ class ImportEx(object):
     else:
       return rv
 
-  @__call__.when(str)
+  @__call__.when(six.string_types)
   def __call__(self, modulename, tail=[], is_sourcefile=False):
     logger.info('Importing %s', modulename)
     imodule = toolchain.loadicurry(

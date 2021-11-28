@@ -16,7 +16,7 @@ class TestPyPullTab(cytest.TestCase):
         P.id
       , [module.f
           , (1, 2, [getattr(P, '?'), 8, 9])
-          , P.True
+          , P.True_
           , (1, 2, 3)
           ]
       )

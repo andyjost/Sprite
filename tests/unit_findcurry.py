@@ -131,7 +131,7 @@ class TestFindCurry(cytest.TestCase):
         )
       self.assertTrue(os.path.exists(jsonfile))
       self.assertEqualToFile(
-          open('data/curry/.curry/sprite/hello.json').read()
+          cytest.readfile('data/curry/.curry/sprite/hello.json')
         , goldenfile
         , GENERATE_GOLDENS
         )
@@ -139,40 +139,40 @@ class TestFindCurry(cytest.TestCase):
       # Check loadModule.
       icur = toolchain.loadicurry('hello', ['data/curry'])
       icur.filename = None
-      au = icurry.json.parse(open(goldenfile, 'r').read())
+      au = icurry.json.parse(cytest.readfile(goldenfile))
       self.assertEqual(icur, au)
 
     finally:
       rmfiles()
 
   def test_illegal_name(self):
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ValueError, r"'kiel/rev' is not a legal module name."
       , lambda: curry.import_('kiel/rev')
       )
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ValueError, r"'.' is not a legal module name."
       , lambda: curry.import_('.')
       )
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ValueError, r"'..' is not a legal module name."
       , lambda: curry.import_('..')
       )
 
   def test_bad_alias(self):
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ValueError
       , r"cannot alias previously defined name 'head'"
       , lambda: curry.import_('head', alias=[('head', 'foo')])
       )
 
   def test_import_with_currypath(self):
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ValueError
       , r"module 'import_test' not found"
       , lambda: curry.import_('import_test')
       )
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeError
       , r"'currypath' must be a string or sequence of strings, got 1."
       , lambda: curry.import_('import_test', currypath=1)

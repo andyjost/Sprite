@@ -109,7 +109,7 @@ class ShowValue(object):
   def __call__(self, value):
     return self(list(value))
 
-  @__call__.when(str)
+  @__call__.when(_six.string_types)
   def __call__(self, value):
     # We need to add a single quote to the string to trick Python into
     # surrounding it with double quotes.

@@ -150,26 +150,26 @@ class IndexingTests(object):
 
   def test_index_invalid(self):
     onetwo = curry.expr([1,2])
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         curry.CurryIndexError
       , r"node index must be an integer or sequence of integers, not 'str'"
       , lambda: subexpr(onetwo, 'foo')
       )
 
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         curry.CurryTypeError
       , r"invalid Curry expression \[1, 2\]"
       , lambda: subexpr([1,2], 0)
       )
 
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         curry.CurryIndexError
       , r"node index out of range"
       , lambda: subexpr(1, 0)
       )
 
     for badidx in [-3, 4]:
-      self.assertRaisesRegexp(
+      self.assertRaisesRegex(
           curry.CurryIndexError
         , r"node index out of range"
         , lambda: subexpr(onetwo, badidx)
@@ -181,7 +181,7 @@ class IndexingTests(object):
         , (1.0, 'float')
         , ([0.], 'float')
         ]:
-      self.assertRaisesRegexp(
+      self.assertRaisesRegex(
           curry.CurryIndexError
         , r"node index must be an integer or sequence of integers, not %r"
               % name

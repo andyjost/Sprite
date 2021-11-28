@@ -39,8 +39,8 @@ class SetValues(Comparison):
         isinstance(x, types.Applic) and x.f.name == 'Values'
         for x in [a, b]
       ):
-      a, = map(set, a.args)
-      b, = map(set, b.args)
+      a, = [set(x) for x in a.args]
+      b, = [set(x) for x in b.args]
     return self.nextf(a, b)
 
 class VariableRenaming(Comparison):

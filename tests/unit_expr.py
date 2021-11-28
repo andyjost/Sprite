@@ -7,6 +7,8 @@ from curry.expressions import (
 from curry import inspect
 from curry.exceptions import CurryTypeError
 
+listiterator_name = type(iter([])).__name__
+
 class TestExpr(cytest.TestCase):
   '''Tests expression-building with ``curry.expr``.'''
 
@@ -25,7 +27,7 @@ class TestExpr(cytest.TestCase):
       , (anchor(0), "anchor '_1'")
       , (anchor(0, name='a'), "anchor 'a'")
       , (ref('a'), "ref 'a'")
-      , (iter([1,2]), r'\<listiterator object at 0x\w+\>')
+      , (iter([1,2]), r'\<%s object at 0x\w+\>' % listiterator_name)
       , (curry.expr(0), r"'Int' node")
       , (unboxed(0), r'unboxed 0')
       , (cons(0, []), r"'cons'")
@@ -39,14 +41,10 @@ class TestExpr(cytest.TestCase):
       , (fwd(0), "'fwd'")
       , (choice(0, 1), "'choice'")
       ]:
-      try:
-        self.assertRaisesRegexp(
-            CurryTypeError, r'invalid arguments after %s' % what
-          , lambda: curry.expr(before, True)
-          )
-      except:
-        curry.expr(before, True)
-        breakpoint()
+      self.assertRaisesRegex(
+          CurryTypeError, r'invalid arguments after %s' % what
+        , lambda: curry.expr(before, True)
+        )
 
   @cytest.check_expressions()
   def test_bool(self):
@@ -103,7 +101,7 @@ class TestExpr(cytest.TestCase):
     yield (), '()', '<()>', ()
     yield (1,2), '(1, 2)', '<(,) <Int 1> <Int 2>>', (1,2)
 
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeError
       , r'Curry has no 1-tuple'
       , lambda: curry.expr((1,))

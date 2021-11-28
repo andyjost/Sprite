@@ -2,14 +2,9 @@ from __future__ import absolute_import
 
 from . import types
 from ..utility.fmap import fmap
+from ..utility.strings import ensure_str_safe, ensure_str
 from ..utility.visitation import dispatch
 import collections, json, traceback
-
-def uni2str(arg):
-  try:
-    return arg.encode('utf-8')
-  except:
-    return arg
 
 def _object_hook(kwds):
   try:
@@ -23,7 +18,7 @@ def _object_hook(kwds):
     raise TypeError('No ICurry class named %s was found' % clsname)
 
   try:
-    kwds = fmap(uni2str, kwds)
+    kwds = fmap(ensure_str_safe, kwds)
     return cls(**kwds)
   except Exception:
     raise TypeError(
@@ -36,13 +31,14 @@ def get_decoder():
 
 def loads(json, decoder=get_decoder()):
   '''Load ICurry encoded as JSON.'''
-  icurry = decoder.decode(json)
+  icurry = decoder.decode(ensure_str(json))
   return icurry
 
 def load(file, decoder=get_decoder()):
   if isinstance(file, str):
-    with open(file, 'rb') as istream:
-      return loads(istream.read())
+    with open(file, 'r') as istream:
+      data = istream.read()
+    return loads(data)
   else:
     return loads(file.read())
 
@@ -64,9 +60,9 @@ class Encoder(json.JSONEncoder):
   }
 
   VALUE_MAP = {
-      'functions': lambda v: v.values()
+      'functions': lambda v: list(v.values())
     , 'imports'  : lambda v: list(v)
-    , 'types'    : lambda v: v.values()
+    , 'types'    : lambda v: list(v.values())
   }
 
   @default.when(types.IObject)
@@ -86,7 +82,7 @@ class Encoder(json.JSONEncoder):
 
 def dumps(icurry, encoder=get_encoder()):
   json = encoder.encode(icurry)
-  return json
+  return ensure_str(json)
 
 def dump(icurry, file, encoder=get_encoder()):
   if isinstance(file, str):

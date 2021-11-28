@@ -180,7 +180,7 @@ def _parseDecChar(rts, s, digits=None):
     elif not digits:
       raise ParseError()
     else:
-      return six.unichr(int(''.join(digits), 10)).encode('utf-8'), s_prev
+      return six.unichr(int(''.join(digits), 10)), s_prev
     s_prev = s
 
 ESCAPE_CODES = {
@@ -217,6 +217,6 @@ def _parseHexChar(rts, s, digits=None):
     elif not digits:
       raise ParseError()
     else:
-      return six.unichr(int(''.join(digits), 16)).encode('utf-8'), s_prev
+      return six.unichr(int(''.join(digits), 16)), s_prev
     s_prev = s
 

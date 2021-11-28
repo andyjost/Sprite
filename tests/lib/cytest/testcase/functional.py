@@ -16,10 +16,7 @@ from ..clean import clean
 from glob import glob
 from .. import oracle
 from . import testcase
-import curry, functools, inspect, os, re, sys, unittest
-
-import six
-
+import curry, functools, inspect, os, re, six, sys, unittest
 
 __all__ = ['FunctionalTestCase']
 
@@ -75,7 +72,7 @@ class FunctionalTestCaseMetaclass(type):
       forced = defs['RUN_ONLY_EXACT'] and re.match(defs['RUN_ONLY_EXACT'], testname)
       if (skipped and not forced) or excluded:
         if defs['PRINT_SKIPPED_FILES']:
-          print >>sys.stderr, 'skipping file %s' % cysrc
+          sys.stderr.write('skipping file %s\n' % cysrc)
       else:
         meth_name = 'test_' + testname
         defs[meth_name] = lambda self, testname=testname: self.check(testname)
@@ -83,7 +80,10 @@ class FunctionalTestCaseMetaclass(type):
           defs[meth_name] = unittest.expectedFailure(defs[meth_name])
 
 
-class FunctionalTestCase(testcase.TestCase):
+
+class FunctionalTestCase(
+    six.with_metaclass(FunctionalTestCaseMetaclass, testcase.TestCase)
+  ):
   '''
   Base class for functional test cases.
 
@@ -159,8 +159,6 @@ class FunctionalTestCase(testcase.TestCase):
         The timeout in seconds to use when generating golden results.
 
   '''
-  __metaclass__ = FunctionalTestCaseMetaclass
-
   def setUp(self):
     super(FunctionalTestCase, self).setUp()
     curry.path[:] = self.CURRYPATH
@@ -176,11 +174,11 @@ class FunctionalTestCase(testcase.TestCase):
     super(FunctionalTestCase, cls).tearDownClass()
     curry.path[:] = cls.old_curry_path
     if cls.failed:
-      print >>sys.stderr, (
-          'The tests listed below failed.  Update %r to skip them.'
+      sys.stderr.write(
+          'The tests listed below failed.  Update %r to skip them.\n'
               % inspect.getfile(cls)
         )
-      print >>sys.stderr, 'SKIP =', sorted(cls.failed)
+      sys.stderr.write('SKIP = %s\n' % sorted(cls.failed))
 
   def __collectFailures(f):
     '''Record the tests that fail and print them at the end.'''
@@ -207,17 +205,21 @@ class FunctionalTestCase(testcase.TestCase):
     failures = []
     for goal in sorted(goals, key=lambda x: x.name):
       if goal.info.arity and self.PRINT_SKIPPED_GOALS:
-        print >>sys.stderr, 'skipping goal %s because its arity (%s) is not zero' % (
-            goal.info.name, goal.info.arity
+        sys.stderr.write(
+            'skipping goal %s because its arity (%s) is not zero\n' % (
+                goal.info.name, goal.info.arity
+              )
           )
         continue
       num_tests_run += 1
       goldenfile = os.path.join(self.SOURCE_DIR, goal.fullname + '.au-gen')
       oracle.divine(module, goal, [self.SOURCE_DIR], '20s', goldenfile=goldenfile)
 
-      oracle_answer_raw = open(goldenfile).read()
+      with open(goldenfile) as istream:
+        oracle_answer_raw = istream.read()
       evaluation = self.evaluate(testname, module, goal)
-      sprite_answer_raw = '\n'.join(map(curry.show_value, evaluation)+[''])
+      sprite_answer_raw = '\n'.join([curry.show_value(x) for x in evaluation])
+      sprite_answer_raw += '\n'
 
       if self.DO_CLEAN[testname]:
         oracle_answer = clean(oracle_answer_raw, **self.CLEAN_KWDS[testname])

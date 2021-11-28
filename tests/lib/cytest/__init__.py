@@ -119,3 +119,7 @@ def hardreset(f):
       reload_module(curry)
   return decorator
 
+def readfile(filename, mode='r', fopen=open):
+  with fopen(filename, mode) as istream:
+    return istream.read()
+

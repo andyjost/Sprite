@@ -3,9 +3,7 @@ from curry import icurry
 from curry.utility.binding import binding, del_
 from curry.utility import encoding
 from curry.utility.visitation import dispatch, instance_checker
-import collections
-import re
-import unittest
+import collections, re, six, unittest
 
 
 class TestUtility(unittest.TestCase):
@@ -25,7 +23,7 @@ class TestUtility(unittest.TestCase):
         )
 
 
-class TestVisitation(unittest.TestCase):
+class TestVisitation(cytest.TestCase):
   @classmethod
   def setUpClass(cls):
     global F
@@ -74,17 +72,27 @@ class TestVisitation(unittest.TestCase):
     self.assertEqual(h(), 42)
 
   def testErrorPropagation(self):
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeError
       , re.escape(r"F() got an unexpected keyword argument 'z'")
       , lambda: F(1,z=1)
       )
-    self.assertRaisesRegexp(
-        TypeError, re.escape(r"G() takes exactly 1 argument (0 given)"), G
+    self.assertRaisesRegex(
+        TypeError
+      , re.escape(
+            r"G() takes exactly 1 argument (0 given)" if six.PY2 else
+            r"G() missing 1 required positional argument: 'a'"
+          )
+      , G
       )
-    self.assertRaisesRegexp(MyErr, re.escape(r"foo"), lambda: G(1))
-    self.assertRaisesRegexp(
-        TypeError, re.escape(r"F() takes exactly 2 arguments (0 given)"), F
+    self.assertRaisesRegex(MyErr, re.escape(r"foo"), lambda: G(1))
+    self.assertRaisesRegex(
+        TypeError
+      , re.escape(
+            r"F() takes exactly 2 arguments (0 given)" if six.PY2 else
+            r"F() missing 2 required positional arguments: 'x' and 'y'"
+          )
+      , F
       )
 
   def testBadSelector(self):
@@ -92,25 +100,28 @@ class TestVisitation(unittest.TestCase):
     def go():
       @dispatch.on('a')
       def h(x,y,z): pass
-    self.assertRaisesRegexp(TypeError, "'h' has no parameter 'a'", go)
+    self.assertRaisesRegex(TypeError, "'h' has no parameter 'a'", go)
 
-    # unless there are keywords.
+    # unless there are keywords (Python 2 only).
     def go():
       @dispatch.on('a')
       def h(x,y,z,**kwds): pass
-    go()
+    if six.PY2:
+      go() # passes
+    else:
+      self.assertRaisesRegex(TypeError, "'h' has no parameter 'a'", go)
 
     # Varargs make no difference.
     def go():
       @dispatch.on('a')
       def h(x,y,z,*args): pass
-    self.assertRaisesRegexp(TypeError, "'h' has no parameter 'a'", go)
+    self.assertRaisesRegex(TypeError, "'h' has no parameter 'a'", go)
 
     # Check the no-args corner.
     def go():
       @dispatch.on('a')
       def h(): pass
-    self.assertRaisesRegexp(TypeError, "'h' has no parameter 'a'", go)
+    self.assertRaisesRegex(TypeError, "'h' has no parameter 'a'", go)
 
   def testVisitICurry(self):
     '''Visit elements of an ICurry module.'''
@@ -119,11 +130,9 @@ class TestVisitation(unittest.TestCase):
     @dispatch.on('node')
     def count(node):
       if isinstance(node, collections.Sequence):
-        map(count, node)
+        [count(x) for x in node]
       elif isinstance(node, collections.Mapping):
-        map(count, node.values())
-      # else:
-      #   raise TypeError("'%s' not handled" % str(type(node)))
+        [count(x) for x in node.values()]
 
     @count.when(icurry.IModule)
     def count(node):
@@ -146,7 +155,7 @@ class TestVisitation(unittest.TestCase):
       tally['datatypes'] += 1
       count(node.constructors)
 
-    json = open('data/json/example.json', 'rb').read()
+    json = cytest.readfile('data/json/example.json')
     icur = icurry.json.loads(json)
     count(icur)
     self.assertEqual(tally, {'modules':1, 'datatypes':1, 'constructors':2, 'functions':4})

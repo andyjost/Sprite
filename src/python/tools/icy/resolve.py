@@ -6,7 +6,7 @@ def resolve(arg, keys, what):
   except ValueError:
     if candidates:
       raise ValueError("Ambiguous %s: '%s'\nCandidates are: %s"
-          % (what, arg, ' '.join(map(repr, candidates)))
+          % (what, arg, ' '.join(repr(x) for x in candidates))
         )
     else:
       raise ValueError("Unknown %s: '%s'" % (what, arg))

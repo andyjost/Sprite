@@ -129,8 +129,8 @@ def dissect(a, b, limit=0, print_results=True, ignore='_|parent'):
   if print_results:
     for msg, a, b in dissector.diffs:
       print(msg)
-      print '        a =', a, '(%s)' % type(a)
-      print '        b =', b, '(%s)' % type(b)
+      print('        a =', a, '(%s)' % type(a))
+      print('        b =', b, '(%s)' % type(b))
   else:
     return dissector.diffs
 

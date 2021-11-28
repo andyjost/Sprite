@@ -1,4 +1,5 @@
 object-root
+build*
 install/**
 !install/README
 .clang_complete

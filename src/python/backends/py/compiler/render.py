@@ -94,7 +94,7 @@ class Renderer(object):
     '''
     assert False
 
-  @format.when(str)
+  @format.when(six.string_types)
   def format(self, line, level=-1):
     prefix = ' ' * (self.indent * level)
     yield prefix + line
@@ -231,4 +231,6 @@ def _sortkey(item):
   elif name.startswith(statics.PX_TYPE):
     return 3, value.fullname
   elif name.startswith(statics.PX_DATA):
-    return 4, name,
+    return 4, name
+  else:
+    return 5, name

@@ -14,7 +14,7 @@ class IFunction(ISymbol):
     self.arity = IArity(arity)
     self.vis = PUBLIC if vis is None else vis
     # None means no info; [] means nothing needed.
-    self.needed = None if needed is None else map(int, needed)
+    self.needed = None if needed is None else list(map(int, needed))
     self.body = body if body is not None else IBuiltin(self.metadata)
 
   _fields_ = 'fullname', 'arity', 'vis', 'needed', 'body'

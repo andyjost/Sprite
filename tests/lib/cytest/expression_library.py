@@ -27,7 +27,7 @@ expressions = {
   , 'float': curry.expr(1.0)
   , 'unboxed_float': 1.0
   , 'just_nil': curry.expr(prelude.Just, [])
-  , 'io': curry.expr(prelude.IO, prelude.True)
+  , 'io': curry.expr(prelude.IO, prelude.True_)
   , 'true': curry.expr(True)
   , 'false': curry.expr(False)
   , 'tuple': curry.expr((1,2,3))
@@ -35,7 +35,7 @@ expressions = {
   , 'empty_list': curry.expr([])
   , 'py_generator': curry.expr(iter([1,2]))
   , 'failure': curry.expr(fail)
-  , 'fwd': curry.expr(fwd(prelude.True))
+  , 'fwd': curry.expr(fwd(prelude.True_))
   , 'var': curry.expr(var(vid()))
   , 'choice': curry.expr(choice(cid(), 0, 1))
   , 'nonstrict_constraint': curry.expr(_nonstrictconstr(True, (var(vid()), False)))

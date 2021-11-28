@@ -36,6 +36,6 @@ def materialize(interp, ir, debug=False, ifun=None):
     six.exec_(co, ir.closure.dict, container)
   else:
     six.exec_(source, ir.closure.dict, container)
-  entry = container.values().pop()
+  entry = list(container.values()).pop()
   entry.source = source
   return entry

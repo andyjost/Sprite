@@ -20,9 +20,9 @@ class IBlock(IObject):
   def children(self):
     return self.vardecls + self.assigns + (self.stms,)
   def __str__(self):
-    lines = map(str, self.vardecls)
-    lines += map(str, self.assigns)
-    lines.append(str(self.stmt))
+    lines = [str(x) for x in self.vardecls] \
+          + [str(x) for x in self.assigns] \
+          + [str(self.stmt)]
     return '\n'.join(lines)
   def __repr__(self):
     return 'IBlock(vardecls=%r, assigns=%r, stmt=%r)' % (

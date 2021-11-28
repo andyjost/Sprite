@@ -39,11 +39,11 @@ class TestPyInterp(cytest.TestCase):
 
     # Symbol lookup.
     self.assertIs(interp.symbol('Prelude.Int'), interp.modules['Prelude'].Int)
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ModuleLookupError, "Curry module 'blah' not found"
       , lambda: interp.symbol('blah.x')
       )
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         SymbolLookupError, "module 'Prelude' has no symbol 'foo'"
       , lambda: interp.symbol('Prelude.foo')
       )
@@ -53,11 +53,11 @@ class TestPyInterp(cytest.TestCase):
     self.assertEqual(typedef.constructors , [interp.symbol('Prelude.Int')])
     self.assertEqual(typedef.fullname , 'Prelude.Int')
     self.assertEqual(typedef.name , 'Int')
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         ModuleLookupError, "module 'blah' not found"
       , lambda: interp.type('blah.x')
       )
-    self.assertRaisesRegexp(
+    self.assertRaisesRegex(
         TypeLookupError, "module 'Prelude' has no type 'foo'"
       , lambda: interp.type('Prelude.foo')
       )

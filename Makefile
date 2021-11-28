@@ -19,6 +19,7 @@ help:
 	@echo "    To build, stage, and test, say \`make install\`"
 	@echo "******************************************************"
 	@echo ""
+	@echo "  * See Make.config for editable configuration options."
 	@echo "  * Installing to PREFIX=$(PREFIX)."
 ifeq ($(DEBUG),1)
 	@echo "  * Making *DEBUG* flavor."

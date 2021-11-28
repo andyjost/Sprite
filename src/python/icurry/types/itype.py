@@ -19,7 +19,9 @@ class IDataType(ISymbol):
     return self.constructors
 
   def __str__(self):
-    return 'data %s = %s' % (self.name, ' | '.join(map(str, self.constructors)))
+    return 'data %s = %s' % (
+        self.name, ' | '.join(str(x) for x in self.constructors)
+      )
 
 IType = IDataType
 
