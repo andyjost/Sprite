@@ -17,33 +17,13 @@ hybrid applications that leverage the strengths of both languages.
 
 * Short instructions:
 
+    ./configure
     make
     make install PREFIX=<install-dir>
 
 * Configuration:
 
-See Make.config for editable configuration options.  You may edit that file, or
-supply options to `make` on the command line.  The following options could be
-useful:
-
-    PREFIX=<install-dir>
-        Specifies the directory under which to install Sprite.
-
-    PYTHON_EXECUTABLE=<full-path-to-python-exe>
-        Selects the Python version.  By default, your PATH is searched for
-        Python.
-
-    PAKCS=<full-path-to-pakcs-exe>
-        Selects the PAKCS version.  By default, your PATH is searched for
-        PAKCS.
-
-    CC=<full-path-to-C-compiler>
-    CXX=<full-path-to-C++-compiler>
-        Selects the C and C++ compilers.
-
-When reconfiguring, first remove everything by saying:
-
-    rm -rf install object_root
+Run the ./configure script to configure Sprite.  Say `./configure -h` for help.
 
 * Long instructions:
 

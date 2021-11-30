@@ -1,5 +1,9 @@
 SUBMODULES := src curry
 
+ifeq ("$(wildcard Make.config)","")
+  $(error "Make.config not found.  Please run ./configure")
+endif
+
 DIRS_TO_CLEAN += $(OBJECT_ROOT)
 include Make.include
 

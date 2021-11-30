@@ -1,0 +1,425 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import argparse, atexit, os, re, shutil, subprocess, sys
+
+DIR = os.path.dirname(os.path.realpath(__file__))
+CONF = os.path.join(DIR, 'Make.config')
+TMP = os.path.join(DIR, 'configure-tmp')
+OPTS = None
+
+@atexit.register
+def remove_tmpdir():
+  rmdir(TMP)
+
+def rmdir(dirname):
+  if os.path.exists(dirname):
+    log('Removing %s' % dirname)
+    shutil.rmtree(dirname)
+
+ # Python 2/3 compatibility.
+PY2 = sys.version_info[0] == 2
+PY3 = sys.version_info[0] == 3
+
+if PY2:
+  input = raw_input
+
+def ensure_str(s):
+  if type(s) is str:
+    return s
+  elif PY2 and isinstance(s, unicode):
+    return s.encode('utf-8')
+  elif PY3 and isinstance(s, bytes):
+    return s.decode('utf-8')
+  elif PY2:
+    assert isinstance(s, (unicode, str))
+  else:
+    assert isinstance(s, (str, bytes))
+  return s
+
+# System commands.
+def log(msg, tail='\n'):
+  sys.stdout.write(msg)
+  sys.stdout.write(tail)
+
+try:
+  from shutil import which
+except ImportError:
+  try:
+    from distutils.spawn import find_executable as which
+  except ImportError:
+    def which(program):
+      try:
+        return shell('which %s' % program)
+      except subprocess.CalledProcessError:
+        pass
+
+def shell(cmd):
+  ans = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+  return ensure_str(ans).strip()
+
+def commit(settings, variable_name, value, validation=[]):
+  log('Selecting %s=%r' % (variable_name, value))
+  for v in validation:
+    if not v(value):
+      return False
+  settings[variable_name] = value
+  return True
+
+def abort():
+  log('\nAborted.')
+  sys.exit(1)
+
+def abort_python():
+  log('\nPython development files could not be located.')
+  log('If you are using a package manager, you might need to install one of the -dev packages.')
+  abort()
+
+def get_options():
+  global OPTS
+  parser = argparse.ArgumentParser(description='Sprite configuration')
+  parser.add_argument('--with-python', type=str, help='specify the Python executable')
+  parser.add_argument('-i', '--interactive', action='store_true', help='configure interactively')
+  parser.add_argument('-r', '--reconfigure', action='store_true', help='repeat the configuration process')
+  parser.add_argument('-f', '--fast', action='store_true', help='skip expensive checks')
+  OPTS = parser.parse_args()
+
+def main():
+  get_options()
+
+  if os.path.exists(CONF):
+    if OPTS.reconfigure:
+      log('Reconfiguring Sprite')
+    else:
+      log('Sprite is already configured; supply -r to reconfigure.', '')
+      abort()
+  else:
+    log('Configuring Sprite')
+
+  # Preparation.
+  os.chdir(DIR)
+  remove_tmpdir()
+  os.mkdir(TMP)
+  rmdir(os.path.join(DIR, 'install'))
+  rmdir(os.path.join(DIR, 'object-root'))
+
+  # Determine the settings.
+  try:
+    settings = {}
+    set_from_path(
+        settings, 'PYTHON_EXECUTABLE', 'python', 'Python installation'
+      , default=OPTS.with_python
+      )
+    check_python_version(settings)
+    check_python_modules(settings)
+    set_python_config(settings)
+    set_from_path(settings, 'CC', 'gcc', 'C compiler')
+    set_from_path(settings, 'CXX', 'g++', 'C++ compiler')
+    set_from_path(settings, 'PAKCS', 'pakcs', 'PAKCS executable'
+      , web='https://www.informatik.uni-kiel.de/~pakcs/download.html'
+      )
+    set_pakcs_home(settings)
+    set_pakcs_name(settings)
+    set_pakcs_version(settings)
+    set_from_path(settings, 'ICURRY_EXECUTABLE', 'icurry', 'icurry executable'
+      , web='https://www-ps.informatik.uni-kiel.de/currywiki/tools/cpm'
+      )
+    check_icurry(settings)
+    set_from_path(settings, 'JQ_EXECUTABLE', 'jq', 'jq executable'
+      , web='https://stedolan.github.io/jq/'
+      )
+  except KeyboardInterrupt:
+    abort()
+  except EOFError:
+    abort()
+
+  # Render the output file.
+  text = TEMPLATE.format(**settings)
+  with open(CONF, 'w') as ostream:
+    ostream.write(text)
+  log('Configuration written to %s' % CONF)
+
+
+def set_from_path(settings, variable_name, program_name, desc, web=None, default=None):
+  if default is None:
+    default = os.environ.get(variable_name)
+    if default is not None:
+      log("Using default %s=%r from the environment" % (variable_name, default))
+    else:
+      default = which(program_name)
+
+  if default is None and web is not None:
+    more = 'See %s\n' % web
+  else:
+    more = ''
+
+  if OPTS.interactive:
+    while True:
+      value = input('\nPlease specify the %s [%s]\n%s> ' % (desc, default, more))
+      if not value:
+        value = default
+      if commit(settings, variable_name, value, [executable]):
+        return
+  else:
+    if default is None:
+      log('%s was not found in the PATH.  Try again with -i to specify it.')
+      abort()
+    if not commit(settings, variable_name, default, [executable]):
+      abort()
+
+# Validation.
+def executable(program):
+  log('Checking whether %s is executable' % program, '...')
+  ok = os.access(program, os.R_OK | os.X_OK)
+  log('OK' if ok else 'FAILED')
+  return ok
+
+def readable(filename):
+  log('Checking whether %s is readable' % filename, '...')
+  ok = os.access(filename, os.R_OK)
+  log('OK' if ok else 'FAILED')
+  return ok
+
+def readabledir(dirname):
+  log('Checking whether %s is a readable directory' % dirname, '...')
+  ok = os.access(dirname, os.R_OK)
+  ok = ok and os.path.isdir(dirname)
+  log('OK' if ok else 'FAILED')
+  return ok
+
+def check_python_version(settings):
+  log('Checking the Python version', '...')
+  vstr = shell(
+      '''{} -c "import sys; sys.stdout.write('%s.%s.%s' % sys.version_info[:3])"'''
+          .format(settings['PYTHON_EXECUTABLE'])
+    )
+  vtuple = tuple(int(x) for x in vstr.split('.'))
+  minimum = 2,7,18
+  if vtuple < minimum:
+    log('FAILED')
+    log('The Python version %s is less than the minimum requirement [%s.%s.%s]' % ((vstr,) + minimum))
+    abort()
+  else:
+    log('%s, OK' % vstr)
+    if vtuple[0] == 3 and vtuple < (3,5,1):
+      log('Sprite has not been tested with Python %s' % vstr)
+      log('Consider using Python 2.7.18 or 3.5.1+')
+
+def check_python_modules(settings):
+  pyexe = settings['PYTHON_EXECUTABLE']
+  modules = [
+      ('json'    , True )
+    , ('mmap'    , True )
+    , ('numpy'   , False)
+    , ('six'     , True )
+    , ('sqlite3' , False)
+    , ('zlib'    , True )
+    ]
+
+  for modname,required in modules:
+    try:
+      log('Checking for module %r' % modname, '...')
+      shell("""%s -c 'import %s'""" % (pyexe, modname))
+    except subprocess.CalledProcessError:
+      log('FAILED')
+      log('\nThe Python %r module is %s.  Suggestion:' % (modname, 'required' if required else 'recommended'))
+      log('')
+      log('    %s -m pip install %s' % (pyexe, modname))
+      if required:
+        abort()
+    else:
+      log('OK')
+
+PYTHON_CONFIG_SCRIPT = \
+r'''
+from __future__ import print_function
+import sys, sysconfig
+for val in sysconfig.get_config_vars('CONFINCLUDEPY', 'LIBDIR', 'MULTIARCH', 'INSTSONAME'):
+  sys.stdout.write(str(val))
+  sys.stdout.write('\n')
+'''
+
+def set_python_config(settings):
+  scriptname = os.path.join(TMP, 'version_script.py')
+  with open(scriptname, 'w') as ostream:
+    ostream.write(PYTHON_CONFIG_SCRIPT)
+  data = shell('%s %s' % (settings['PYTHON_EXECUTABLE'], scriptname))
+  include, libdir, multiarch, soname = data.split('\n')
+
+  keyfile = os.path.join(include, 'pyconfig.h')
+  if not commit(settings, 'PYTHON_INCLUDE_PATH', include, [readabledir, lambda _: readable(keyfile)]):
+    abort_python()
+
+  log('Looking for %r' % soname, '...')
+  pylib = re.match('lib(\S+)\.so', soname).group(1)
+  for maybe_libdir in [libdir, os.path.join(libdir, multiarch)]:
+    libfile = os.path.join(maybe_libdir, soname)
+    if os.access(libfile, os.R_OK):
+      log('found %s, OK' % libfile)
+      commit(settings, 'PYTHON_LIBRARY_PATH', maybe_libdir)
+      commit(settings, 'PYTHON_LIBRARY', pylib)
+      break
+  else:
+    log('FAILED')
+    abort_python()
+
+def set_pakcs_home(settings):
+  pakcs = settings['PAKCS']
+  dirname = os.path.dirname(pakcs)
+  parent = os.path.join(dirname, '..')
+  pakcshome = os.path.realpath(parent)
+  commit(settings, 'PAKCS_HOME', pakcshome, [readabledir])
+
+def set_pakcs_name(settings):
+  pakcs = settings['PAKCS']
+  log('Checking the PAKCS compiler name', '...')
+  name = shell('%s --compiler-name' % pakcs)
+  ok = (name == 'pakcs')
+  log('OK' if ok else 'FAILED')
+  if not ok:
+    log('The PAKCS Curry system is required.')
+    abort()
+  commit(settings, 'PAKCS_NAME', name)
+
+def set_pakcs_version(settings):
+  pakcs = settings['PAKCS']
+  GOOD_PAKCS_VERSIONS = ['3.4.1']
+  log('Checking the PAKCS version', '...')
+  ver = shell('%s --numeric-version' % pakcs)
+  ok = ver in GOOD_PAKCS_VERSIONS
+  log('OK' if ok else 'FAILED')
+  if not ok:
+    log('Acceptable PAKCS versions are: %s' % GOOD_PAKCS_VERSIONS)
+    abort()
+  commit(settings, 'PAKCS_VERSION', ver)
+
+def check_icurry(settings):
+  if not OPTS.fast:
+    log('Checking the behavior of the icurry program')
+    icurry = settings['ICURRY_EXECUTABLE']
+    filename = os.path.join(TMP, 'sample.curry')
+    with open(filename, 'w') as ostream:
+      ostream.write('main :: Int\n')
+      ostream.write('main = 42\n')
+    status = os.system('cd %s && %s sample' % (TMP, icurry))
+    if status:
+      abort()
+
+    # Look for the expected files and directories.
+    currydir = os.path.join(TMP, '.curry')
+    pakcs_subdir_name = '{PAKCS_NAME}-{PAKCS_VERSION}'.format(**settings)
+    pakcs_subdir = os.path.join(currydir, pakcs_subdir_name)
+    if not all([
+        readabledir(currydir)
+      , readabledir(pakcs_subdir)
+      , readable(os.path.join(pakcs_subdir, 'sample.icy'))
+      ]):
+      abort()
+
+TEMPLATE = '''
+# Python Configuration
+# ====================
+PYTHON_EXECUTABLE   := {PYTHON_EXECUTABLE}
+PYTHON_INCLUDE_PATH := {PYTHON_INCLUDE_PATH}
+PYTHON_LIBRARY_PATH := {PYTHON_LIBRARY_PATH}
+PYTHON_LIBRARY      := {PYTHON_LIBRARY}
+
+# FIXME
+PYTHON_COVERAGE_EXECUTABLE := $(shell which coverage)
+ICURRY2JSONTEXT_EXECUTABLE := $(shell which icurry2jsontext)
+
+# C/C++ Compilers
+# ===============
+CC  := {CC}
+CXX := {CXX}
+
+ifeq ($(DEBUG),1)
+  CFLAGS   += -O0 -ggdb -Wno-register -Wall
+else
+  CFLAGS   += -O2 -Wno-register -Wall
+endif
+CXXFLAGS += $(CFLAGS) -std=c++17
+
+# PAKCS
+# =====
+# PAKCS is an implementation of Curry that Sprite relies on.  Download it from
+# https://www.informatik.uni-kiel.de/~pakcs/download.html.
+PAKCS         := {PAKCS}
+PAKCS_HOME    := {PAKCS_HOME}
+PAKCS_NAME    := {PAKCS_NAME}
+PAKCS_VERSION := {PAKCS_VERSION}
+
+# ICURRY
+# ======
+# ICurry is used to convert Curry source code into ICurry.  It can be
+# downloaded with CPM.  See
+# https://www-ps.informatik.uni-kiel.de/currywiki/tools/cpm.
+ICURRY_EXECUTABLE := {ICURRY_EXECUTABLE}
+
+# MISC
+# ====
+# JQ is used to manipulate JSON efficiently.  Sprite will use it, if it is
+# available.
+JQ_EXECUTABLE := {JQ_EXECUTABLE}
+
+# Sprite Configuration
+# ====================
+# The name of the top-level Python package, e.g., curry in 'import curry'.
+PYTHON_PACKAGE_NAME := curry
+
+# The name of the backed used by default.  Must match one of the subpackages
+# under src/python/backends.
+DEFAULT_BACKEND := py
+
+# MPS
+# ===
+# Download the Memory Pool System (MPS) from www.ravenbrook.com/project/mps.
+# MPS_HOME := /usr/local/src/mps
+
+# Caching (development feature)
+# =============================
+# Sprite can be configured to cache certain steps in the compile chain, such as
+# the conversion from Curry to ICurry, or ICurry to Python.  This is intended
+# for development use, so you should leave it off unless you plan to edit the
+# Sprite source and run the unit tests repeatedly.  Cached data is stored in an
+# SQLite database.
+#
+# The following environment variables can be used to control
+# caching at *runtime*:
+#
+#     SPRITE_CACHE_FILE
+#       Overrides the default cache file.  Setting this to the empty string
+#       disables caching.
+#
+#     SPRITE_CACHE_UPDATE=<pattern>
+#       Upates cached data matching the pattern.  Everything in the cache is
+#       keyed by a file name (e.g., of the ICurry file or JSON file), and the
+#       pattern is compared against these file names.  The pattern is a glob
+#       unless it is enclosed with slashes (/), in which case it is a regular
+#       expression.  Regex patterns are not anchored, so the pattern needs only
+#       to match some part of the file name.
+#
+#       Examples:
+#           SPRITE_CACHE_UPDATE='*'         -- update everything
+#           SPRITE_CACHE_UPDATE='*.json'    -- update JSON data
+#           SPRITE_CACHE_UPDATE='/foo\d+/'  -- update files associated with
+#                                           -- foo00.curry, foo01.curry, etc.
+
+# This specifies the file to use by default for caching.  Clear the value to
+# disable caching by default.  The environment variable SPRITE_CACHE_FILE can
+# be used when invoking Sprite to override this or disable caching altogether.
+DEFAULT_SPRITE_CACHE_FILE := {{HOME}}/.sprite/cache.db
+
+# Whether to cache Curry-to-ICurry conversions.  If True, the cache file will
+# store the output of the 'icurry' program keyed on the input filename, source
+# text, and CURRYPATH environment variable.
+ENABLE_ICURRY_CACHE := 0
+
+# Whether to cache parsing of ICurry-JSON.  If True, the cache file will store
+# the result of loading a JSON file into Python.  The stored data consists of
+# pickled objects from the curry.icurry module.
+ENABLE_PARSED_JSON_CACHE := 0
+'''
+
+if __name__ == '__main__':
+  main()

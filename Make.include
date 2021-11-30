@@ -7,36 +7,16 @@ include $(ROOT_DIR)/Make.config
 ifndef PREFIX
   PREFIX := $(abspath $(ROOT_DIR)/install)
 endif
-MULTIARCH := $(shell $(CC) --print-multiarch)
+# MULTIARCH := $(shell $(CC) --print-multiarch)
 
 # Makefile debugging.  Helps trace which rules are triggered.
 # OLD_SHELL := $(SHELL)
 # SHELL = $(warning Building $@)$(OLD_SHELL)
 
-# Derived variables
-# =================
-# Variables derived from Make.config variables.
-
-PAKCS_HOME := $(realpath $(dir $(PAKCS))/..)
-PAKCS_NAME := $(shell $(PAKCS) --compiler-name)
-PAKCS_VER := $(shell $(PAKCS) --numeric-version)
-PAKCS_SUBDIR := $(PAKCS_NAME)-$(PAKCS_VER)
-
 # The directory under .curry in which to place intermediate files.  By default,
 # just prepent "sprite-" to the PAKCS directory name.
 INTERMEDIATE_SUBDIR = sprite-$(PAKCS_SUBDIR)
-
-PYTHON_CONFIG_SCRIPT = cd $(ROOT_DIR) && $(PYTHON_EXECUTABLE) -c \
-"from __future__ import print_function, absolute_import; \
-import re, sysconfig; \
-print(sysconfig.get_config_vars()['CONFINCLUDEPY']); \
-print(sysconfig.get_config_vars()['LIBDIR']); \
-print(re.match('lib(\S+)\.so', sysconfig.get_config_vars()['INSTSONAME']).group(1))"
-
-PYTHON_CONFIG := $(shell $(call PYTHON_CONFIG_SCRIPT))
-PYTHON_INCLUDE_PATH := $(word 1,$(PYTHON_CONFIG))
-PYTHON_LIBRARY_PATH := $(word 2,$(PYTHON_CONFIG))
-PYTHON_LIBRARY      := $(word 3,$(PYTHON_CONFIG))
+PAKCS_SUBDIR := $(PAKCS_NAME)-$(PAKCS_VERSION)
 
 $(PREFIX)/lib:
 	mkdir -p $(PREFIX)/lib
@@ -44,10 +24,6 @@ $(PREFIX)/lib/curry : | $(PREFIX)/lib
 	mkdir -p $(PREFIX)/lib/curry
 $(PREFIX)/lib/curry/.curry : | $(PREFIX)/lib/curry
 	mkdir -p $(PREFIX)/lib/curry/.curry
-
-ifndef BOOST_INCLUDE_PATH
-  BOOST_INCLUDE_PATH := $(BOOST_HOME)/include
-endif
 
 # Functions.
 # ==========
