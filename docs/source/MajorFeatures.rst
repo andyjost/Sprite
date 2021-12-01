@@ -75,18 +75,18 @@ Important aspects of this API include the following:
 
 - Tasks that may be unfamiliar, tedious, or difficult to explain to certain
   users can be done in Python.  This significantly lowers the average barrier
-  to entry, since Python is orders-of-magnitude more widely used than Curry or
-  the closely-related Haskell.  In particular, there is no need to perform any
-  I/O actions in encapsulated Curry code, since the values of any program can
-  be obtained in Python.
+  to entry, since Python is orders-of-magnitude more widely used than either
+  Curry or Haskell.  In particular, there is no need to perform any I/O actions
+  in encapsulated Curry code, since the values of any program can be obtained
+  in Python and I/O performed there.
 
 
 Command-Line Tools
 ------------------
 
 Executable programs are located under the ``bin`` directory of the installation
-tree.  For example, after `make stage`, these programs can be found under
-``./install/bin/`` relative to the repository root.
+tree.  For example, after saying ``make stage``, these programs can be found
+under ``./install/bin/`` relative to the repository root.
 
 Sprite provides the following tools:
 
@@ -111,9 +111,9 @@ say ``sprite-invoke $SHELL``.
 ``sprite-exec``
 
 Executes a Curry script.  The argument is a Curry source file or module name.
-Curry code is located via the CURRYPATH environment variable.  This program
-compiles the Curry, evaluates it `main` goal (or another goal supplied with the
-``-g`` option) and prints the result.
+Needed Curry modules are located via the CURRYPATH environment variable.  This
+program compiles the Curry, evaluates its ``main`` goal (or another goal
+specified by the ``-g`` option) and prints all values obtained.
 
 
 ``sprite-make``

@@ -10,6 +10,7 @@ Sprite was developed and tested with the following software:
 - SWI Prolog 8.0
 - Curry Package Manger 3.1.0
 - gcc 7.4.0
+- GNU Make 4.1
 
 Known compatibility problems are discussed below.
 
@@ -35,4 +36,5 @@ Although Python 2 has reached its end-of-life, it is still actively used.
 Sprite works with the final version of Python 2, namely 2.7.18.  Older versions
 (in particular 2.7.12) fail to build due to incompatibilities with pybind11.
 
+Sprite is expected to work with all Python versions from 3.5.2 forward.
 
