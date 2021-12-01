@@ -28,7 +28,7 @@ The Sprite repository is organized as follows:
     to remove this directory.
 
     If Sprite is installed with ``make install``, then the structure of the
-    instalation directory matches that of this directory.
+    instalation directory matches what you see here.
 
     ``bin/``
         Executable files installed by Sprite.
@@ -54,7 +54,7 @@ The Sprite repository is organized as follows:
 ``object-root/`` (dynamically created)
     The directory containing all build products such as object files,
     libraries, and help documents.  It is safe to remove this directory, for
-    instance, to reclaim disk space or perform a clean build.
+    instance, to reclaim disk space or prepare for a clean build.
 
 ``overlay*.tgz``
     Contains ICurry and related files for a specific version of PAKCS.  Say
@@ -82,13 +82,14 @@ The Sprite repository is organized as follows:
         The Python code implementing Sprite.
 
     ``sprite/``
-        Code for the Sprite runtime libraries.
+        Source code of the Sprite runtime libraries.
 
 ``tests/``
-    The test suite.  See tests/README for details.
+    The test suite.  See ``tests/README`` for help running tests.
 
     ``data/``
-        Test data, include Curry source files, text files, and expected results.
+        The test data. This includes Curry source files, text (data) files, and
+        expected results.
 
     ``func_*.py``
         Functional tests.  These execute whole Curry programs, checking for the
@@ -99,10 +100,10 @@ The Sprite repository is organized as follows:
         extensions to Python's ``unittest`` module for testing Curry programs.
 
     ``oracle*``
-        Driver scripts for Curry oracles.  An oracle is another Curry system,
-        such as PAKCS or KiCS2, the produces expected results of Curry
-        programs.  The output of Sprite can be compared with that of other
-        Curry systems by configuring the oracle scripts.
+        Driver scripts for Curry oracles.  An oracle is a Curry system such as
+        PAKCS or KiCS2 that generates the expected output a Curry program.
+        Functional tests validate Sprite by comparing its output to that of an
+        oracle.
 
     ``run_tests``
         The test driver.  Used to run tests.

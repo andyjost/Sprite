@@ -1,4 +1,8 @@
+============
 Installation
 ============
 
-(Explain how to build etc.)
+Short Instructions
+==================
+
+..

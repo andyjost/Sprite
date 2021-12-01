@@ -1,3 +1,5 @@
+.. highlight:: haskell
+
 Curry Syntax
 ============
 
