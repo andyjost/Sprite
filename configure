@@ -55,7 +55,7 @@ except ImportError:
         pass
 
 def shell(cmd):
-  ans = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+  ans = subprocess.check_output(cmd, shell=True)
   return ensure_str(ans).strip()
 
 def commit(settings, variable_name, value, validation=[]):
@@ -123,6 +123,8 @@ def main():
     set_pakcs_version(settings)
     set_from_path(settings, 'ICURRY_EXECUTABLE', 'icurry', 'icurry executable'
       , web='https://www-ps.informatik.uni-kiel.de/currywiki/tools/cpm'
+      , hint='try `cypm update; cypm add icurry; cypm install icurry`'
+      , altdir=os.path.join(os.environ.get('HOME', ''), '.cpm', 'bin')
       )
     check_icurry(settings)
     set_from_path(settings, 'JQ_EXECUTABLE', 'jq', 'jq executable'
@@ -140,13 +142,20 @@ def main():
   log('Configuration written to %s' % CONF)
 
 
-def set_from_path(settings, variable_name, program_name, desc, web=None, default=None):
+def set_from_path(
+    settings, variable_name, program_name, desc, web=None, hint=None
+  , altdir=None, default=None
+  ):
   if default is None:
     default = os.environ.get(variable_name)
     if default is not None:
       log("Using default %s=%r from the environment" % (variable_name, default))
     else:
       default = which(program_name)
+      if default is None and altdir is not None:
+        default = os.path.join(altdir, program_name)
+        if not os.path.exists(default):
+          default = None
 
   if default is None and web is not None:
     more = 'See %s\n' % web
@@ -162,7 +171,11 @@ def set_from_path(settings, variable_name, program_name, desc, web=None, default
         return
   else:
     if default is None:
-      log('%s was not found in the PATH.  Try again with -i to specify it.')
+      log('%s was not found in the PATH.  Try again with -i to specify it.' % program_name)
+      if web is not None:
+        log('For installation info, see %s' % web)
+      if hint is not None:
+        log('hint: %s' % hint)
       abort()
     if not commit(settings, variable_name, default, [executable]):
       abort()
@@ -208,26 +221,34 @@ def check_python_version(settings):
 def check_python_modules(settings):
   pyexe = settings['PYTHON_EXECUTABLE']
   modules = [
-      ('json'    , True )
-    , ('mmap'    , True )
-    , ('numpy'   , False)
-    , ('six'     , True )
-    , ('sqlite3' , False)
-    , ('zlib'    , True )
+    #  module      required   whatfor
+    # -------------------------------------------------
+      ('json'    , True     , None)
+    , ('mmap'    , True     , None)
+    , ('numpy'   , False    , 'for some unit tests')
+    , ('six'     , True     , None)
+    , ('sqlite3' , False    , 'for caching')
+    , ('sphinx'  , False    , 'to build documentation')
+    , ('zlib'    , True     , None)
     ]
 
-  for modname,required in modules:
+  for modname,required,whatfor in modules:
     try:
       log('Checking for module %r' % modname, '...')
       shell("""%s -c 'import %s'""" % (pyexe, modname))
     except subprocess.CalledProcessError:
       log('FAILED')
-      log('\nThe Python %r module is %s.  Suggestion:' % (modname, 'required' if required else 'recommended'))
+      log('\nThe Python %r module is %s.  Suggestion:'
+          % (modname, 'required' if required else 'recommended.  It is needed %s' % whatfor)
+        )
       log('')
       log('    %s -m pip install %s' % (pyexe, modname))
+      log('')
       if required:
         abort()
+      settings['HAVE_PYTHON_' + modname] = 0
     else:
+      settings['HAVE_PYTHON_' + modname] = 1
       log('OK')
 
 PYTHON_CONFIG_SCRIPT = \
@@ -360,7 +381,10 @@ ICURRY_EXECUTABLE := {ICURRY_EXECUTABLE}
 # ====
 # JQ is used to manipulate JSON efficiently.  Sprite will use it, if it is
 # available.
-JQ_EXECUTABLE := {JQ_EXECUTABLE}
+JQ_EXECUTABLE       := {JQ_EXECUTABLE}
+HAVE_PYTHON_numpy   := {HAVE_PYTHON_numpy}
+HAVE_PYTHON_sqlite3 := {HAVE_PYTHON_sqlite3}
+HAVE_PYTHON_sphinx  := {HAVE_PYTHON_sphinx}
 
 # Sprite Configuration
 # ====================

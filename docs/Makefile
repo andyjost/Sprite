@@ -4,7 +4,7 @@ SUBMODULES :=
 include Make.include
 
 ifeq ($(shell [ -x $(PREFIX)/bin/sprite-invoke ] && [ -f $(PREFIX)/bin/sprite-invoke ]; echo $$?),1)
-  $(error Not an executable file: $(PREFIX)/bin/sprite-invoke.  Please install Sprite before building the documentation.)
+  $(error Not an executable file: $(PREFIX)/bin/sprite-invoke.  Please `make stage` Sprite before building the documentation.)
 endif
 
 # You can set these variables from the command line.
@@ -153,9 +153,9 @@ qthelp: $(CURRYPY_SOURCE_LINK)
 	@echo
 	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
 	      ".qhcp project file in $(BUILDDIR)/qthelp, like this:"
-	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/Sprite.qhcp"
+	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/SpriteUserGuide.qhcp"
 	@echo "To view the help file:"
-	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/Sprite.qhc"
+	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/SpriteUserGuide.qhc"
 
 .PHONY: applehelp
 applehelp: $(CURRYPY_SOURCE_LINK)
@@ -172,8 +172,8 @@ devhelp: $(CURRYPY_SOURCE_LINK)
 	@echo
 	@echo "Build finished."
 	@echo "To view the help file:"
-	@echo "# mkdir -p $$HOME/.local/share/devhelp/Sprite"
-	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/Sprite"
+	@echo "# mkdir -p $$HOME/.local/share/devhelp/SpriteUserGuide"
+	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/SpriteUserGuide"
 	@echo "# devhelp"
 
 .PHONY: epub
