@@ -221,15 +221,16 @@ def check_python_version(settings):
 def check_python_modules(settings):
   pyexe = settings['PYTHON_EXECUTABLE']
   modules = [
-    #  module      required   whatfor
+    #  module              required   whatfor
     # -------------------------------------------------
-      ('json'    , True     , None)
-    , ('mmap'    , True     , None)
-    , ('numpy'   , False    , 'for some unit tests')
-    , ('six'     , True     , None)
-    , ('sqlite3' , False    , 'for caching')
-    , ('sphinx'  , False    , 'to build documentation')
-    , ('zlib'    , True     , None)
+      ('json'            , True     , None)
+    , ('mmap'            , True     , None)
+    , ('numpy'           , False    , 'for some unit tests')
+    , ('six'             , True     , None)
+    , ('sqlite3'         , False    , 'for caching')
+    , ('sphinx'          , False    , 'to build documentation')
+    , ('sphinx_rtd_theme', False    , 'for HTML theming')
+    , ('zlib'            , True     , None)
     ]
 
   for modname,required,whatfor in modules:

@@ -88,20 +88,20 @@ The type annotation of this function can be written as::
 
 This means ``succ`` takes an ``Int`` and returns an ``Int``.
 
-Guards
-......
+Rule Guards
+...........
 
 Functions may be made conditional by one or more Boolean expressions called
 `guards`.  Guards are separated from the left-hand side of the definition by a
-vertical bar `|`.  The use of guards makes is possible to define functions in a
-piecewise manner.  For example, a function for calculating the absolute value
-of a number may be defined as follows::
+vertical bar, `|`.  The use of guards makes is possible to define functions in
+piecewise fashion.  A function for calculating the absolute value of a number,
+for instance, may be defined as follows::
 
     abs n | n<0  = -n
           | True = n
 
-The guards, ``n<0`` and ``True`` are evaluated sequentially from top to bottom
-and when one evaluates to true the corresponding rule is fired.
+The guard expressions, ``n<0`` and ``True`` are evaluated sequentially from top
+to bottom and when one evaluates to true the corresponding rule is fired.
 
 
 Pattern Matching
@@ -128,14 +128,14 @@ When ``isNull`` is called, the ``Binary`` argument is inspected and only the
 matching rule is fired.  Thus, ``isNull Null`` evaluates to ``True``, whereas
 ``isNull (I Null)`` evaluates to ``False``.
 
-Other Expressions
------------------
+Other Constructs
+----------------
 
 Curry inherts other syntactic constructs from Haskell.  A few of these are
 discussed below (though the list is by no means exhaustive):
 
-Let expressions
-...............
+``let`` expressions
+...................
 
 `let` expressions introduce and bind local variables.
 
@@ -150,8 +150,8 @@ Multiple bindings are permitted, as in::
 
     poly' n = let a=(n+1), b=(n-1) in a*b
 
-Case expressions
-................
+``case`` expressions
+.....................
 
 A `case` expression performs pattern matching in an expression context.  For
 example, another way to write ``isNull`` is as follows:
@@ -166,6 +166,22 @@ Example::
 .. note::
    Single quotes may appear at the end of an identifier.  This is often used to
    suggest multiple versions of an entity.
+
+``where`` clauses
+.................
+
+A block of local definitions can be introduced by the ``where`` keyword.  The
+definitions are visible only to the enclosing function.
+
+Example:
+
+The following code block defines a function to return every other element of a
+list.  An auxiliary function, ``skip``, is defined in a ``where`` clause::
+
+    everyOther [] = []
+    everyOther (h:t) = h:everyOther (skip t)
+        where skip [] = []
+              skip (h':t') = t'
 
 If-Then-Else expressions
 ........................

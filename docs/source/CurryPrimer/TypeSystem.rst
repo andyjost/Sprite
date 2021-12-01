@@ -80,8 +80,8 @@ Curry provides polymorphism through two constructs:
 
 `Type Classes`
     `Type Classes`_ enable ad-hoc polymorphism in which a function
-    implementation is selected based on the argument types provided at each call site.
-    In the simplest cases, type classes provide a capability similar to
+    implementation is selected based on the argument types provided at the call
+    site.  In the simplest cases, type classes provide a capability similar to
     function overloading.  A type class defines a set of functions, i.e., an
     interface, that may be applied to arguments of a variety of types.  To use
     an arbitrary type as a instance of the type class, a programmer implements
