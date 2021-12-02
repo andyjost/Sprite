@@ -2,11 +2,14 @@
 The Command-Line Interface
 ==========================
 
-Sprite offers a variety of tools for compiling and running Curry programs.
-This section discusses how to configure Sprite and complete those tasks.
+Sprite provides a suite of tools for compiling and running Curry programs.
+This section discusses how to configure Sprite and use those tools.
 
 .. toctree::
 
-   Environment Variables <EnvironmentVariables>
-   Command-Line Tools    <CommandLineTools>
+   Environment Variables    <EnvironmentVariables>
+   Starting Python          <StartingPython>
+   Running Curry Programs   <RunningCurryPrograms>
+   Static Compilation       <StaticCompilation>
+
 

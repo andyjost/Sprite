@@ -93,7 +93,7 @@ class CurryDataType(object):
     return '%s.%s' % (self.module().__name__, self.name)
 
   def __repr__(self):
-    return "<curry type %s>" % self.fullname
+    return "<curry type %r>" % self.fullname
 
 
 class CurryNodeInfo(object):

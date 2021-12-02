@@ -65,6 +65,19 @@ extension, it instantly becomes approachable to a vast community.
 With Sprite, anyone can use Functional and Logic Programming where it makes
 sense, while relying on Python where it is preferred.
 
+The remainder of this introduction gives a high-level overview of Sprite.  It
+is intended to orient new users so that they may understand Sprite well enough
+to begin using it.
+
+.. toctree::
+   :maxdepth: 1
+
+   Major Features of Sprite        <MajorFeatures>
+   External Softare                <ExternalSoftware>
+   Project Layout                  <ProjectLayout>
+   The Curry Compilation Pipeline  <CompilationPipeline>
+
+
 .. _Curry: https://curry.pages.ps.informatik.uni-kiel.de/curry-lang.org/
 .. _Haskell: https://www.haskell.org/
 .. _Curry Homepage: https://curry.pages.ps.informatik.uni-kiel.de/curry-lang.org/

@@ -74,12 +74,22 @@ manipulate it with Python scripts.
 In-Memory IR to Target IR
 -------------------------
 
-This stage converts in-memory ICurry into a target-specific IR, which depends on the
-backend selected.
+The target IR depends on the backend selected.  The LLVM backend, for instance,
+generates LLVM IR, whereas the Python backend generates Python.  This stage
+performs a straight-line translation of the in-memory IR to target IR.  
 
 
-Target IR to Target Code
-------------------------
+Target IR to Executable Code
+----------------------------
+
+Depending on the backend, additional conversions may be needed to produce
+executable code.  LLVM IR is at this stage converted first into assembly and
+then machine-specific binary code such as x86-64.  The Python backend on the
+other hand does not require this stage, since the Python code emitted in the
+previous stage can be run directly under a Python interpreter.  In the future,
+a package such as `PyPy`_ could be used to post-process Python code into a more
+efficient, but Sprite does not currently do so.
+
 
 .. _ICurry: http://web.cecs.pdx.edu/~antoy/homepage/publications/wflp19/paper.pdf
 .. _FlatCurry: http://www.informatik.uni-kiel.de/∼curry/flat
@@ -89,3 +99,4 @@ Target IR to Target Code
 .. _zlib: https://zlib.net/
 .. _ICurry package: https://www-ps.informatik.uni-kiel.de/~cpm/pkgs/icurry.html
 .. _Curry Package Manager: https://www-ps.informatik.uni-kiel.de/currywiki/tools/cpm
+.. _PyPy: https://www.pypy.org/

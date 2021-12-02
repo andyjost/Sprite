@@ -11,12 +11,11 @@ programming in a single environment, so **you** are in control.
    :maxdepth: 2
 
    Preface                     <Preface>
-   Introduction                <Introduction>
-   Overview of Sprite          <Overview>
+   Quickstart                  <Quickstart>
+   Introduction                <Introduction/Introduction>
    Installation Guide          <Installation>
    The Command-Line Interface  <CommandLineInterface/index>
    The Python API              <PythonAPI/index>
-   Development Guide           <DevelopmentGuide>
    Appendix: Curry Primer      <CurryPrimer/index>
    Old Docs <old-docs/index>
 

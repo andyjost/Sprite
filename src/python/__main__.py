@@ -94,7 +94,7 @@ class MainForFile(Main):
 class MainForModule(Main):
   DESCRIPTION = \
   '''
-  Run or inspect Curry module %r.  If a goal is supplied, it will be evaluated.
+  Run or inspect Curry module {!r}.  If a goal is supplied, it will be evaluated.
   Otherwise, an interactive prompt will be started in the module context.  Set
   CURRYPATH to control the search for Curry code.
   '''
