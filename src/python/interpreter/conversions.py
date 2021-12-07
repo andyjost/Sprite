@@ -80,7 +80,6 @@ def topython(interp, value, convert_strings=True):
   --------
   The value converted to Python.
   '''
-  value = getattr(value, 'target', value) # handle Variable
   return _topython(value, convert_strings)
 
 def _topython(value, convert_strings=True):
@@ -88,6 +87,7 @@ def _topython(value, convert_strings=True):
   # This conversion probably ought to depend on the interpreter.  The flags
   # could control how this conversion is performed.  For forward compatibility,
   # it is probably best to require an interpreter even if currently unused.
+  value = getattr(value, 'target', value) # handle Variable
   return _topython_converter_(value, convert_strings)
 
 def _listiter(arg):
