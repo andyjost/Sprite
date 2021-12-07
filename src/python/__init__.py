@@ -30,6 +30,40 @@ under ``modules``.  Use ``topython`` to convert Curry values to Python objects.
     A
 '''
 
+__all__ = [
+  # Global API
+    'getInterpreter'
+  , 'reload'
+  , 'show_value'
+
+  # Methods of the global interpreter.
+  , 'compile'
+  , 'currytype'
+  , 'eval'
+  , 'expr'
+  , 'flags'
+  , 'import_'
+  , 'load'
+  , 'module'
+  , 'modules'
+  , 'path'
+  , 'raw_expr'
+  , 'reset'
+  , 'save'
+  , 'symbol'
+  , 'topython'
+  , 'type'
+
+  # Wrappers to control expression building.
+  , 'choice'
+  , 'cons'
+  , 'fail'
+  , 'nil'
+  , 'ref'
+  , 'unboxed'
+  , 'var'
+  ]
+
 # Install breakpoint() into __builtins__.
 import os
 if os.environ.get('SPRITE_ENABLE_BREAKPOINT', False):

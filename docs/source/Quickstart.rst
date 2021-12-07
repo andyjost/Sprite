@@ -26,11 +26,12 @@ versions.  Then configure and stage Sprite:
     Add ``$ROOT/install/bin`` to your PATH or supply full paths in the commands
     below.  $ROOT refers the Sprite repository root.
 
-Running a Curry Program
-=======================
+Running Curry Programs
+======================
 
-Change the working directory to ``$ROOT/examples``, where you will find
-a file named ``Peano.curry`` with the following contents:
+Curry programs can be run with ``sprite-exec``.  To try this, go to
+the ``examples/`` directory.  You will there find a file named ``Peano.curry``
+containing the following:
 
 .. code-block:: haskell
 
@@ -42,49 +43,61 @@ a file named ``Peano.curry`` with the following contents:
     main :: Nat
     main = add (S O) (S O)
 
-To compile and run this program, say:
+To evaluate this program, say:
 
 .. code-block:: bash
 
     % sprite-exec Peano.curry
     S (S O)
 
+Sprite runs the goal ``main`` by default, or you can use ``-g`` to specify a
+different one.
+
 The Python API
 ==============
 
-Start Python by executing ``$ROOT/install/bin/python``.  This will
-automatically set up your environment for Sprite.  To import Sprite, say:
+Start Python by executing ``$ROOT/install/bin/python``.  To import Sprite, say:
 
     >>> import curry
+
+At this point, you may wish to use ``dir`` and ``help`` to explore for
+yourself.  To list the functions, submoudles, and other objects provided by
+Sprite, say:
+
+    >>> dir(curry)
+
+To read the help documentation, pass any of these objects to the ``help``
+command.  Take this opportunity to say:
+
+    >>> help(curry)
+
 
 Loading Curry Modules
 ---------------------
 
-Curry modules can be imported into Python via the ``import`` keyword.  Any
-import from the special module ``curry.lib`` will import Curry code.  We will
-see an example of this shortly.
+Curry modules can be imported into Python via the ``import`` keyword.  To avoid
+ambiguity with Python modules, Curry code is imported from a virtual package called
+``curry.lib``.  We will see an example shortly.
 
-To import the ``Peano`` module, it is first necessary to set up the search path
-for Curry files.  This resides in the list variable ``curry.path``.  Update
-this variable to include the directory containing ``Peano.curry``.  If it is in
-the current directory, for instance, you might say:
+To import ``Peano`` it is first necessary to configure the search path residing
+at ``curry.path``.  To prepend the current directory, say:
 
     >>> curry.path.insert(0, '.')
 
 .. note::
 
-  The initial value of ``curry.path`` comes by splitting the CURRYPATH environment
-  variable on colons.
+  The initial value of ``curry.path`` comes from the environment variable
+  CURRYPATH.
 
-Now import ``Peano`` by saying:
+Now, to compile ``Peano`` and load it into Python, say:
 
     >>> from curry.lib import Peano
 
-This compiles ``Peano`` and loads it into Python.  It can be examined or used to
-build and evaluate expressions.
+The module can now be examined or used to build and evaluate expressions.
 
-A reference to every loaded Curry module is stored in ``curry.modules``.  This
-now contains the implict module ``Prelude`` as well as ``Peano``:
+Whenever a Curry module is imported, a reference to it is stored in
+``curry.modules``.  We can see that it now contains the implict module
+``Prelude`` as well as ``Peano``:
 
     >>> curry.modules
     {'Prelude': <curry module 'Prelude'>, 'Peano': <curry module 'Peano'>}
@@ -93,8 +106,11 @@ now contains the implict module ``Prelude`` as well as ``Peano``:
 Inspecting Curry Code
 ---------------------
 
-``Peano`` exposes its exported symbols through Python attributes.  Symbols are
-constructor and function names.  These can be accessed in the usual way:
+Inspecting Symbols
+..................
+
+``Peano`` has an attribute for each public symbol (i.e., constructor or
+function) in the Curry source.  These can be accessed in the usual way:
 
     >>> Peano.S
     <curry constructor 'Peano.S'>
@@ -103,31 +119,12 @@ constructor and function names.  These can be accessed in the usual way:
     >>> Peano.add
     <curry function 'Peano.add'>
 
-Sprite also provides the function ``curry.symbol`` to look up any symbol by its
-fully-qualified name:
+These objects contain a wealth of information.
 
-    >>> curry.symbol('Peano.S')
-    <curry constructor 'Peano.S'>
+.. tip::
+   Rely on the ``dir`` function rather than documentation to more fully explore these.
 
-This function only searches loaded modules; it will not import anything.
-
-To look up a type, use ``curry.type``:
-
-    >>> curry.type('Peano.Nat')
-    <curry type 'Peano.Nat'>
-
-.. note::
-
-    Types are not exposed as module attributes because they can conflict with
-    symbol names.  To access types, use ``curry.type``, the ``curry.inspect``
-    module, or access the "hidden" attribute ``.types`` as follows:
-
-        >>> getattr(Peano, '.types')
-        {'Nat': <curry type 'Peano.Nat'>}
-
-
-
-These objects contain a wealth of information as you look deeper.  For examples:
+For example:
 
     >>> Peano.add.name
     'add'
@@ -138,36 +135,86 @@ These objects contain a wealth of information as you look deeper.  For examples:
 
 To see the ICurry and generated backend code try the following commands:
 
-    >>> print Peano.add.icurry
-    >>> print Peano.add.getimpl()
+    >>> print(Peano.add.icurry)
+    >>> print(Peano.add.getimpl())
+
+Sprite provides the function ``curry.symbol``, which can find a symbol
+by its fully-qualified name:
+
+    >>> curry.symbol('Peano.S')
+    <curry constructor 'Peano.S'>
+
+This function only searches loaded modules; it will not import anything.
+
+Inspecting Types
+................
+
+Sprite provides the function ``curry.type``, which can find a type by its
+fully-qualified name:
+
+    >>> Nat = curry.type('Peano.Nat')
+    >>> Nat
+    <curry type 'Peano.Nat'>
+
+.. note::
+
+    Types are not exposed as module attributes because they can conflict with
+    symbol names.
+
+Type objects contain useful information:
+
+    >>> Nat.module()
+    <curry module 'Peano'>
+    >>> Nat.constructors
+    [<curry constructor 'Peano.O'>, <curry constructor 'Peano.S'>]
 
 
 Dynamic Compilation
 -------------------
 
-Curry definitions can be created dynamically by using ``curry.compile``.  This
-has the same effect as importing a Curry source file with the same contents.
-
-For example:
+Curry definitions can be created on the fly with ``curry.compile``:
 
     >>> Fib = curry.compile(
-    ...   '''
-    ...   fib :: Int -> Int
-    ...   fib n | n < 3 = 1
-    ...         | True  = (fib (n-1)) + (fib (n-2))
-    ...   '''
-    ... )
+    ...     '''
+    ...     fib :: Int -> Int
+    ...     fib n | n < 3 = 1
+    ...           | True  = (fib (n-1)) + (fib (n-2))
+    ...     '''
+    ...   , modulename='Fib'
+    ...   )
 
 
-Building expressions
---------------------
+.. note::
 
-To evaluate Curry code, one first builds an expression.  One way to do so is
-with the function ``curry.expr``.  This function takes a mixed list of Curry
-symbols or literals, and returns a Curry expression:
+    Sprite dedents leading whitespace common to every line, so Curry code can
+    be formatted in blocks, as shown above.
 
-    >>> goal2 = curry.expr([Fib.fib, 7])
-    >>> print goal2
+This by default interprets the string as a module definition.  To build an
+expression, set the mode to ``'expr'``:
+
+    >>> fib3 = curry.compile('fib 3', mode='expr', imports=[Fib])
+
+Adding ``Fib`` to the import list makes ``Fib.fib`` available.
+
+Building Expressions in Python
+------------------------------
+
+Curry expressions can be created directly in Python with ``curry.expr``.  One
+might use this to improve performance, as it bypasses the Curry fronend.  This
+approach, however, performs neither type deduction or validation.
+
+.. warning::
+
+   Use extreme caution when building complex expressions with ``curry.expr`` so
+   as not to introduce type errors.
+
+``curry.expr`` takes a mixed list of Curry symbols and literals.  It returns a
+``CurrExpression`` object:
+
+    >>> fib7 = curry.expr([Fib.fib, 7])
+    >>> print(repr(fib7))
+    <curry function expression: head='fib'>
+    >>> print(fib7)
     fib 7
 
 This function automatically converts many Python objects into their Curry
@@ -175,24 +222,13 @@ equivalents.  Type ``help(curry.expr)`` at the Python prompt for details.
 
 Nested expressions can be specified with nested lists:
 
-    >>> print curry.expr([Peano.S, [Peano.S, Peano.O]])
+    >>> print(curry.expr([Peano.S, [Peano.S, Peano.O]]))
     S (S O)
-
-Expressions can also be created using ``curry.compile`` with the ``mode``
-argument set to 'expr'.  This causes ``compile`` to interpret the Curry code as
-an expression rather than a definition:
-
-    >>> goal = curry.compile('add (S (S O)) (S O)', mode='expr', imports=[Peano])
-    >>> print goal
-    add (S (S O)) (S O)
-
-Since the expression uses unqualified names, the Peano module needs to be
-listed as an import to make its symbols visible.
 
 Curry expressions have so far been printed as strings.  Applying ``repr``
 produces a more direct visualization of the structure:
 
-    >>> print repr(goal2)
+    >>> print(repr(fib7))
     <fib <Int 7>>
 
 Each bracketed expression describes a node, and consists of a label followed by
@@ -209,13 +245,50 @@ Evaluating expressions
 
 To evaluate an expression pass it to ``curry.eval``.
 
-    >>> print next(curry.eval(goal))
+    >>> print(next(curry.eval(goal)))
     S (S (S O))
-    >>> print next(curry.eval(goal2))
+    >>> print(next(curry.eval(fib7)))
     13
 
-``curry.eval`` returns a generator that yields one value of the goal with each
-invocation of ``next``.  The goal is evaluated lazily, meaning that each call
-to ``next`` performs the minimum evaluation necessary to compute the next
-value.
+``curry.eval`` returns a generator that yields one value with each invocation
+of ``next``.  The goal is evaluated lazily, so ``next`` performs only the
+computational steps it must to compute the next value.
 
+By default, no conversions are performed.  That means the '13' returned above is a
+Curry integer rather than a Python integer.  We can see this by looking at the type:
+
+    >>> value = next(curry.eval(fib7))
+    >>> print(type(value))
+
+
+.. warning::
+    Gotta say something about type annotations.
+
+
+Non-deterministic computations are in general multi-valued.  To
+partially evaluate an expression, simply drop the generator.  To print
+the Fibonacci numbers less than 100, for instance, your could say:
+
+    >>> fibs = curry.compile(
+    ...     'anyOf (map fib [1..])', mode='expr', exprtype='Int', imports=[Fib]
+    ...   )
+    >>> for value in curry.eval(fibs, converter='topython'):
+    ...   if value < 100:
+    ...     print(x)
+    ...   else:
+    ...     break
+    1
+    1
+    2
+    3
+    5
+    8
+    13
+    21
+    34
+    55
+    89
+
+Converting Values
+-----------------
+ The previous examplek
