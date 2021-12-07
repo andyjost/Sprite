@@ -12,7 +12,7 @@ class TestPyPullTab(cytest.TestCase):
     module = curry.compile('f (_,_,9) True a = a', modulename='M')
     interp = curry.getInterpreter()
     P = interp.prelude
-    goal = curry.expr( # id (M.f (1,2,8?9) True (1,2,3))
+    goal = curry.raw_expr( # id (M.f (1,2,8?9) True (1,2,3))
         P.id
       , [module.f
           , (1, 2, [getattr(P, '?'), 8, 9])
@@ -34,14 +34,14 @@ class TestPyPullTab(cytest.TestCase):
     lhs = goal[0,1]
     self.assertEqual(id(lhs[0,2]), id8)
     self.assertEqual(id(lhs[2]), id123)
-    lhs = curry.expr(interp.prelude.id, lhs) # id (f...8)
+    lhs = curry.raw_expr(interp.prelude.id, lhs) # id (f...8)
     self.assertRaises(E_UNWIND, lambda: hnf(rts, rts.variable(lhs, 0)))
     self.assertEqual(lhs.info.tag, T_FAIL)
     # RHS -> True
     rhs = goal[0,2]
     self.assertEqual(id(rhs[0,2]), id9)
     self.assertEqual(id(rhs[2]), id123)
-    rhs = curry.expr(interp.prelude.id, rhs) # id (f...9)
+    rhs = curry.raw_expr(interp.prelude.id, rhs) # id (f...9)
     self.assertMayRaise(None, lambda: hnf(rts, rts.variable(rhs, 0)))
     self.assertEqual(id(rhs[0]), id123)
 
@@ -51,10 +51,10 @@ class TestPyPullTab(cytest.TestCase):
     interp = curry.getInterpreter()
     rts = RuntimeState(interp)
     u = curry.unboxed
-    constraint = curry.expr(
+    constraint = curry.raw_expr(
         interp.prelude._EqChoices, True, (u(101), u(102))
       )
-    e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
+    e = curry.raw_expr(interp.prelude.id, [(0, constraint, 1)])
     pyruntime.pull_choice(rts, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._EqChoices.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
@@ -66,19 +66,19 @@ class TestPyPullTab(cytest.TestCase):
     interp = curry.getInterpreter()
     rts = RuntimeState(interp)
     u = curry.unboxed
-    constraint = curry.expr(
+    constraint = curry.raw_expr(
         interp.prelude._ChoiceConstr, True, (u(109), u(LEFT))
       )
-    e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
+    e = curry.raw_expr(interp.prelude.id, [(0, constraint, 1)])
     pyruntime.pull_choice(rts, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._ChoiceConstr.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
     self.assertEqual(curry.topython(e[1]), (109, LEFT))
 
-    constraint = curry.expr(
+    constraint = curry.raw_expr(
         interp.prelude._ChoiceConstr, True, (u(109), u(RIGHT))
       )
-    e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
+    e = curry.raw_expr(interp.prelude.id, [(0, constraint, 1)])
     pyruntime.pull_choice(rts, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._ChoiceConstr.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, True, 1)])
@@ -93,8 +93,8 @@ class TestPyPullTab(cytest.TestCase):
     unknown = interp.symbol('Prelude.unknown')
     x = next(interp.eval(unknown))
     y = next(interp.eval(unknown))
-    constraint = curry.expr(interp.prelude._EqVars, 314, (x, y))
-    e = curry.expr(interp.prelude.id, [(0, constraint, 1)])
+    constraint = curry.raw_expr(interp.prelude._EqVars, 314, (x, y))
+    e = curry.raw_expr(interp.prelude.id, [(0, constraint, 1)])
     pyruntime.pull_choice(rts, e, [0,0,1])
     self.assertIs(e.info, interp.prelude._EqVars.info)
     self.assertEqual(curry.topython(e[0][0]), [(0, 314, 1)])

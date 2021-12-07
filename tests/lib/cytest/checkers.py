@@ -30,9 +30,9 @@ def check_expressions(converter=curry.topython, postprocessor=sorted):
   expression and its expected properties.  This function will build each
   expression and check the given properties.
 
-  The first tuple element is passed to curry.expr to build an expression,
-  ``e``.  Up to four additional elements are accepted, and for each that is
-  not None, the corresponding property is checked:
+  The first tuple element is passed to curry.raw_expr to build an expression,
+  ``e``.  Up to four additional elements are accepted, and for each that is not
+  None, the corresponding property is checked:
 
       - The expected str(e).
       - The expected repr(e).
@@ -73,7 +73,7 @@ def check_expressions(converter=curry.topython, postprocessor=sorted):
   example, the representation of a failure both as a string and a Python value
   are ignored.  The fifth argument ensures this expression produced no values:
 
-      yield curry.expr.fail, 'failed', None, None, []  # no results
+      yield curry.raw_expr.fail, 'failed', None, None, []  # no results
 
   For non-deterministic computations, the results should be put in a
   deterministic order.  By default, values are sorted:
@@ -84,7 +84,7 @@ def check_expressions(converter=curry.topython, postprocessor=sorted):
   def decorator(testmethod):
     def checker(self, spec):
       expr, str_, repr_, python, evaluated = (spec + 5 * (None,))[:5]
-      e = curry.expr(expr)
+      e = curry.raw_expr(expr)
       if str_ is not None:
         self.assertEqual(str(e), str_)
       if repr_ is not None:
@@ -127,7 +127,7 @@ def check_indexing(testmethod):
     else:
       regex = None
       excty = None
-    e = curry.expr(exprspec)
+    e = curry.raw_expr(exprspec)
     if excty is None:
       d = self.INDEXER(e, path)
       self.assertEqual(d, expected)

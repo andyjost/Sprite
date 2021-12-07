@@ -10,6 +10,7 @@ class Evaluator(object):
 
   def __init__(self, interp, goal):
     '''Initialize evaluation of ``goal`` under interpreter ``interp``.'''
+    goal = getattr(goal, 'raw_expr', goal)
     self.rts = state.RuntimeState(interp, goal)
 
   def evaluate(self):

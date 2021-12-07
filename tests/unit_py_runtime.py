@@ -38,7 +38,7 @@ class TestPyRuntime(cytest.TestCase):
     self.assertRaisesRegex(
         TypeError
       , r"cannot construct 'Int' \(arity=1\), with 2 args"
-      , lambda: interp.expr(prelude.Int, 1, 2)
+      , lambda: interp.raw_expr(prelude.Int, 1, 2)
       )
     self.assertRaisesRegex(
         TypeError, r"cannot import type 'int'", lambda: interp.import_(1)
@@ -164,8 +164,8 @@ class TestPyRuntime(cytest.TestCase):
         # (1) that the modified expression matches the expected result and (2)
         # that E_UNWIND was raised if and only if the result head symbol is a
         # failure or choice.
-        expr = interp.expr(expr)
-        expected = interp.expr(expected)
+        expr = interp.raw_expr(expr)
+        expected = interp.raw_expr(expected)
         try:
           N(expr)
         except E_UNWIND:
@@ -226,10 +226,10 @@ class TestPyRuntime(cytest.TestCase):
         step3 = f 0
         '''
       )
-    goal = interp.expr(code.goal)
-    step2 = interp.expr(code.step2)
+    goal = interp.raw_expr(code.goal)
+    step2 = interp.raw_expr(code.step2)
     cytest.step.step(interp, step2)
-    step3 = interp.expr(code.step3)
+    step3 = interp.raw_expr(code.step3)
     cytest.step.step(interp, step3)
     #
     cytest.step.step(interp, goal, num=2)
@@ -316,7 +316,7 @@ class TestInstantiation(cytest.TestCase):
       )))
     self.assertIsaFreevar(x)
     self.assertChoiceIdEquals(x, 0)
-    return self.interp.expr(self.interp.prelude.id, x)
+    return self.interp.raw_expr(self.interp.prelude.id, x)
 
   def q(self, cid, l, r):
     return [self.interp.prelude._Choice, curry.unboxed(cid), l, r]
@@ -335,7 +335,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q,x,e = self.interp, self.q, self.x, self.e(typename='()')
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Prelude.[]'))
-    au = curry.expr(*q(0, [interp.prelude.Cons, x(1), x(2)], [interp.prelude.Nil]))
+    au = curry.raw_expr(*q(0, [interp.prelude.Cons, x(1), x(2)], [interp.prelude.Nil]))
     self.assertEqual(instance, au)
 
   def check_gen_ctors(self, interp, module, typename, generator):
@@ -354,7 +354,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q,e = self.interp, self.q, self.e(typename='()')
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Prelude.()'))
-    au = curry.expr(*q(0, [interp.prelude.Unit], [interp.prelude._Failure]))
+    au = curry.raw_expr(*q(0, [interp.prelude.Unit], [interp.prelude._Failure]))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, interp.prelude, '()', instance)
 
@@ -369,7 +369,7 @@ class TestInstantiation(cytest.TestCase):
     e = self.e(typename='Type.T', imports=Type)
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Type.T'))
-    au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
+    au = curry.raw_expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
 
@@ -384,7 +384,7 @@ class TestInstantiation(cytest.TestCase):
     e = self.e(typename='Type.T', imports=Type)
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Type.T'))
-    au = curry.expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
+    au = curry.raw_expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
 
@@ -398,7 +398,7 @@ class TestInstantiation(cytest.TestCase):
     e = self.e(typename='Type.T ()', imports=Type)
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Type.T'))
-    au = curry.expr(*q(0, q(1, q(2, Type.A, [Type.B, x(3)]), [Type.C, x(4), x(5)]), q(6, [Type.D, x(7), x(8), x(9)], [Type.E, x(10), x(11), x(12), x(13)])))
+    au = curry.raw_expr(*q(0, q(1, q(2, Type.A, [Type.B, x(3)]), [Type.C, x(4), x(5)]), q(6, [Type.D, x(7), x(8), x(9)], [Type.E, x(10), x(11), x(12), x(13)])))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
 

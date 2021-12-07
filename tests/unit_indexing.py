@@ -71,8 +71,8 @@ class IndexingTests(object):
   @cytest.check_indexing
   def test_index_algebraic(self):
     prelude = curry.import_('Prelude')
-    e = curry.expr([prelude.Just, 5])
-    five = curry.expr(5)
+    e = curry.raw_expr([prelude.Just, 5])
+    five = curry.raw_expr(5)
     yield e, 0, five
     yield e, [0], five
     yield e, -1, five
@@ -85,16 +85,16 @@ class IndexingTests(object):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_list(self):
-    e = curry.expr([0, 1, [2, 3, [], [4]]])
-    middle = curry.expr([2, 3, [], [4]])
-    bot = curry.expr([4])
+    e = curry.raw_expr([0, 1, [2, 3, [], [4]]])
+    middle = curry.raw_expr([2, 3, [], [4]])
+    bot = curry.raw_expr([4])
     yield e, (), e
-    yield e, 0, curry.expr(0)
-    yield e, (1,0), curry.expr(1)
+    yield e, 0, curry.raw_expr(0)
+    yield e, (1,0), curry.raw_expr(1)
     yield e, (1,1,0), middle
     yield e, (1,1,-2), middle
-    yield e, (1,1,0,0), curry.expr(2)
-    yield e, (1,1,0,1,1,0), curry.expr([])
+    yield e, (1,1,0,0), curry.raw_expr(2)
+    yield e, (1,1,0,1,1,0), curry.raw_expr([])
     yield e, (1,1,0,1,1,1,0,0,0), 4
     yield e, iter((1,1,0,1,1,1,0,0,0)), 4
     def path():
@@ -107,33 +107,33 @@ class IndexingTests(object):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_tuple(self):
-    e = curry.expr((0, (1, 2), [3]))
+    e = curry.raw_expr((0, (1, 2), [3]))
     yield e, (), e
-    yield e, 1, curry.expr((1, 2))
-    yield e, 2, curry.expr([3])
+    yield e, 1, curry.raw_expr((1, 2))
+    yield e, 2, curry.raw_expr([3])
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_string(self):
-    e = curry.expr('Hello, you!')
+    e = curry.raw_expr('Hello, you!')
     yield e, (), e
-    yield e, (1,1,1,1,0), curry.expr('o')
+    yield e, (1,1,1,1,0), curry.raw_expr('o')
     yield e, (1,1,1,1,0,0), 'o'
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_choice(self):
-    e = curry.expr(curry.expressions.choice(5, 'a', 'b'))
+    e = curry.raw_expr(curry.expressions.choice(5, 'a', 'b'))
     yield e, 0, 5
     yield e, (0, 0), out_of_range
-    yield e, 1, curry.expr('a')
+    yield e, 1, curry.raw_expr('a')
     yield e, (1, 0), 'a'
-    yield e, 2, curry.expr('b')
+    yield e, 2, curry.raw_expr('b')
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_fail(self):
-    e = curry.expr(curry.fail)
+    e = curry.raw_expr(curry.fail)
     yield e, (), e
     yield e, 0, out_of_range
 
@@ -141,7 +141,7 @@ class IndexingTests(object):
   @cytest.check_indexing
   def test_index_cyclical(self):
     cons, nil, ref = curry.cons, curry.nil, curry.ref
-    e = curry.expr(ref('a'), a=cons(0, ref('b')), b=cons(1, ref('a')))
+    e = curry.raw_expr(ref('a'), a=cons(0, ref('b')), b=cons(1, ref('a')))
     self.assertIs(subexpr(e, ()), e)
     yield e, (0,0), 0
     yield e, (1,0,0), 1
@@ -149,7 +149,7 @@ class IndexingTests(object):
     yield e, (1,1,1,0,0), 1
 
   def test_index_invalid(self):
-    onetwo = curry.expr([1,2])
+    onetwo = curry.raw_expr([1,2])
     self.assertRaisesRegex(
         curry.CurryIndexError
       , r"node index must be an integer or sequence of integers, not 'str'"
@@ -196,20 +196,20 @@ class TestIndex(IndexingTests, cytest.TestCase):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_fwd(self):
-    e = curry.expr(fwd([0, fwd(1)]))
+    e = curry.raw_expr(fwd([0, fwd(1)]))
     yield e, (), e
-    yield e, (0,0), curry.expr(0)
+    yield e, (0,0), curry.raw_expr(0)
     yield e, (0,0,0), 0
-    yield e, (0,1), curry.expr([fwd(1)])
-    yield e, (0,1,0), curry.expr(fwd(1))
-    yield e, (0,1,0,0), curry.expr(1)
+    yield e, (0,1), curry.raw_expr([fwd(1)])
+    yield e, (0,1,0), curry.raw_expr(fwd(1))
+    yield e, (0,1,0,0), curry.raw_expr(1)
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_setgrd(self):
-    e = curry.expr(_setgrd(0, True))
+    e = curry.raw_expr(_setgrd(0, True))
     yield e, 0, 0
-    yield e, 1, curry.expr(True)
+    yield e, 1, curry.raw_expr(True)
 
 
 # Note: many tests are inherited.
@@ -229,12 +229,12 @@ class TestRealpathNoUFN(cytest.TestCase):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_realpath_fwd(self):
-    e = curry.expr(fwd([0, fwd(1)]))
-    e_copy = curry.expr(fwd([0, fwd(1)]))
-    yield e, ()   , (curry.expr([0, fwd(1)]), [0]      , set())
+    e = curry.raw_expr(fwd([0, fwd(1)]))
+    e_copy = curry.raw_expr(fwd([0, fwd(1)]))
+    yield e, ()   , (curry.raw_expr([0, fwd(1)]), [0]      , set())
     yield e, (0,0), (0                      , [0,0,0]  , set())
-    yield e, 1    , (curry.expr([fwd(1)])   , [0,1]    , set())
-    yield e, (1,0), (curry.expr(1)          , [0,1,0,0], set())
+    yield e, 1    , (curry.raw_expr([fwd(1)])   , [0,1]    , set())
+    yield e, (1,0), (curry.raw_expr(1)          , [0,1,0,0], set())
 
     # Ensure indexing did not modify the expression.
     self.assertStructEqual(e, e_copy)
@@ -242,12 +242,12 @@ class TestRealpathNoUFN(cytest.TestCase):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_realpath_setgrd(self):
-    e = curry.expr(_setgrd(0, True))
-    true = curry.expr(True)
+    e = curry.raw_expr(_setgrd(0, True))
+    true = curry.raw_expr(True)
     yield e, (), (true, [1], set([0]))
     self.assertStructEqual(subexpr(e, [1]), true)
 
-    e = curry.expr(_setgrd(0, _setgrd(1, _setgrd(0, True))))
+    e = curry.raw_expr(_setgrd(0, _setgrd(1, _setgrd(0, True))))
     yield e, (), (true, [1,1,1], set([0,1]))
     self.assertStructEqual(subexpr(e, [1,1,1]), true)
 
@@ -255,10 +255,10 @@ class TestRealpathNoUFN(cytest.TestCase):
   @cytest.check_indexing
   def test_realpath_interleaved(self):
     '''Test interleaved forward nodes and set guards.'''
-    e = curry.expr(_setgrd(0, fwd(fwd(_setgrd(1, True)))))
-    true = curry.expr(True)
+    e = curry.raw_expr(_setgrd(0, fwd(fwd(_setgrd(1, True)))))
+    true = curry.raw_expr(True)
     yield e, (), (true, [1,0,0,1], set([0,1]))
-    self.assertStructEqual(e, curry.expr(_setgrd(0, fwd(fwd(_setgrd(1, True))))))
+    self.assertStructEqual(e, curry.raw_expr(_setgrd(0, fwd(fwd(_setgrd(1, True))))))
 
 
 class TestRealpathUFN(cytest.TestCase):
@@ -270,20 +270,20 @@ class TestRealpathUFN(cytest.TestCase):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_realpath_fwd(self):
-    e = curry.expr(fwd([0, fwd(1)]))
-    yield e, ()   , (curry.expr([0, fwd(1)]), [0]     , set())
+    e = curry.raw_expr(fwd([0, fwd(1)]))
+    yield e, ()   , (curry.raw_expr([0, fwd(1)]), [0]     , set())
     self.assertIsaFwd(e)
 
-    e = curry.expr(fwd([0, fwd(1)]))
+    e = curry.raw_expr(fwd([0, fwd(1)]))
     yield e, (0,0), (0                      , [0,0,0] , set())
     self.assertIsaFwd(e)
 
-    e = curry.expr(fwd([0, fwd(1)]))
-    yield e, 1    , (curry.expr([1])        , [0, 1]  , set())
+    e = curry.raw_expr(fwd([0, fwd(1)]))
+    yield e, 1    , (curry.raw_expr([1])        , [0, 1]  , set())
     self.assertIsaFwd(e)
 
-    e = curry.expr(fwd([0, fwd(1)]))
-    yield e, (1,0), (curry.expr(1)          , [0, 1,0], set())
+    e = curry.raw_expr(fwd([0, fwd(1)]))
+    yield e, (1,0), (curry.raw_expr(1)          , [0, 1,0], set())
     self.assertIsaFwd(e)
 
   def test_realpath_compress_fwd_chain1(self):
@@ -291,8 +291,8 @@ class TestRealpathUFN(cytest.TestCase):
     # Try the following with chains of various lengths.
     for N in range(2, 5):
       # Make a chain of N forward nodes: fwd(...fwd(-1)...)
-      end = curry.expr(-1)
-      e = curry.expr(reduce(lambda a,_: fwd(a), range(N), end))
+      end = curry.raw_expr(-1)
+      e = curry.raw_expr(reduce(lambda a,_: fwd(a), range(N), end))
       chain = [subexpr(e, [0]*i) for i in range(N)] # keep each link
       # Everything in the chain is a forward node.
       map(self.assertIsaFwd, chain)
@@ -305,7 +305,7 @@ class TestRealpathUFN(cytest.TestCase):
       self.assertStructEqual(subexpr(e, path), end)
       self.assertEqual(grds, set())
       # The head remains a FWD b/c we don't have its parent.
-      self.assertStructEqual(e, curry.expr(fwd(end)))
+      self.assertStructEqual(e, curry.raw_expr(fwd(end)))
       # Now, every link is short-cut to the end.
       self.assertTrue(all(inspect.fwd_target(link) is end for link in chain))
 
@@ -318,8 +318,8 @@ class TestRealpathUFN(cytest.TestCase):
     for head in [prelude.Just, prelude.id]: # try with a ctor and function
       for N in range(2, 5):
         # Make a chain of N forward nodes: fwd(...fwd(-1)...)
-        end = curry.expr(-1)
-        e = curry.expr([head, reduce(lambda a,_: fwd(a), range(N), end)])
+        end = curry.raw_expr(-1)
+        e = curry.raw_expr([head, reduce(lambda a,_: fwd(a), range(N), end)])
         chain = [subexpr(e, [0]+[0]*i) for i in range(N)] # keep each link
         # Everything in the chain is a forward node.
         map(self.assertIsaFwd, chain)
@@ -334,20 +334,20 @@ class TestRealpathUFN(cytest.TestCase):
         # Now, every link is short-cut to the end.
         self.assertTrue(all(inspect.fwd_target(link) is end for link in chain))
         # And there are no forward nodes at all in the expression.
-        self.assertStructEqual(e, curry.expr([head, -1]))
+        self.assertStructEqual(e, curry.raw_expr([head, -1]))
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_realpath_interleaved(self):
     '''Test interleaved forward nodes and set guards.'''
-    e = curry.expr(_setgrd(0, fwd(fwd(_setgrd(1, True)))))
-    true = curry.expr(True)
+    e = curry.raw_expr(_setgrd(0, fwd(fwd(_setgrd(1, True)))))
+    true = curry.raw_expr(True)
     yield e, (), (true, [1,1], set([0,1]))
-    self.assertStructEqual(e, curry.expr(_setgrd(0, _setgrd(1, True))))
+    self.assertStructEqual(e, curry.raw_expr(_setgrd(0, _setgrd(1, True))))
 
-    e = curry.expr(_setgrd(0, [fwd(fwd(_setgrd(1, fwd(True))))]))
-    true = curry.expr(True)
-    yield e, 1, (curry.expr([]), [1,1], set([0]))
+    e = curry.raw_expr(_setgrd(0, [fwd(fwd(_setgrd(1, fwd(True))))]))
+    true = curry.raw_expr(True)
+    yield e, 1, (curry.raw_expr([]), [1,1], set([0]))
     yield e, 0, (true, [1,0,1], set([0,1]))
-    self.assertStructEqual(e, curry.expr(_setgrd(0, [_setgrd(1, True)])))
+    self.assertStructEqual(e, curry.raw_expr(_setgrd(0, [_setgrd(1, True)])))
 

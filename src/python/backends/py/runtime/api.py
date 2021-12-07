@@ -46,6 +46,7 @@ class Runtime(context.Runtime):
 
   def single_step(self, interp, expr):
     from .evaluator import Evaluator
+    expr = getattr(expr, 'raw_expr', expr)
     evaluator = Evaluator(interp, expr)
     expr.info.step(evaluator.rts, expr)
     return expr

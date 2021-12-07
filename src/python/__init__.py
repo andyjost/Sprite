@@ -65,6 +65,7 @@ load = _interpreter_.load
 module = _interpreter_.module
 modules = _interpreter_.modules
 path = _interpreter_.path
+raw_expr = _interpreter_.raw_expr
 reset = _interpreter_.reset
 save = _interpreter_.save
 symbol = _interpreter_.symbol

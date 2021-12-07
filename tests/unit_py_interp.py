@@ -84,7 +84,7 @@ class TestPyInterp(cytest.TestCase):
       else:
         shutil.copy(srcfile, tgtfile)
       module = interp.import_('test')
-      value = next(interp.eval(interp.expr(module.main), converter='topython'))
+      value = next(interp.eval(interp.raw_expr(module.main), converter='topython'))
       for jsonfile in toolchain.jsonfilenames(tgtfile):
         try:
           mtime = os.path.getmtime(jsonfile)
@@ -117,12 +117,12 @@ class TestPyInterp(cytest.TestCase):
     '''Tests to get complete line coverage.'''
     interp = Interpreter()
     # Run interp.eval with a literal as input (not Node).
-    self.assertEqual(list(interp.eval(1)), [interp.expr(1)])
+    self.assertEqual(list(interp.eval(1)), [interp.raw_expr(1)])
 
     # Evaluate an expressionw ith a leading FWD node.  It should be removed.
     P = interp.import_(Prelude)
     W = P._Fwd
-    self.assertEqual(list(interp.eval([W, 1])), [interp.expr(1)])
+    self.assertEqual(list(interp.eval([W, 1])), [interp.raw_expr(1)])
 
 
   @cytest.with_flags(defaultconverter='topython')
@@ -165,7 +165,7 @@ class TestPyInterp(cytest.TestCase):
       , [[Z, ZW], ['N']]
       ]
     for expr, expected in TESTS:
-      goal = interp.expr(*expr)
+      goal = interp.raw_expr(*expr)
       result = map(str, interp.eval(goal))
       expected = map(self.format_list, expected)
       self.assertEqual(set(result), set(expected))

@@ -186,7 +186,7 @@ def is_data(arg):
   return isa_ctor(arg) or isa_unboxed_primitive(arg)
 
 def is_boxed(node):
-  return isinstance(node, context.Node)
+  return isinstance(node, context.Node) or getattr(node, 'is_boxed', False)
 
 def get_choice_id(arg):
   # Note: a variable has a choice ID (which equals its variable ID).

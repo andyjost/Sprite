@@ -9,11 +9,11 @@ def MAP(*args):
 
 class TestInspect(cytest.expression_library.ExpressionLibTestCase):
   def testIsaTypeError(self):
-    self.assertIsa(curry.expr(1), curry.symbol('Prelude.Int'))
+    self.assertIsa(curry.raw_expr(1), curry.symbol('Prelude.Int'))
     self.assertRaisesRegex(
         TypeError
       , 'arg 2 must be an instance or sequence of curry.objects.CurryNodeInfo objects.'
-      , lambda: inspect.isa(curry.expr(1), self.not_a_node)
+      , lambda: inspect.isa(curry.raw_expr(1), self.not_a_node)
       )
 
   def testIsaCurryExpr(self):

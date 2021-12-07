@@ -4,8 +4,8 @@ from .utility import strings, visitation
 import collections, itertools, numbers, six
 
 __all__ = [
-    'anchor', 'choice', 'cons', 'expr', 'fail', 'fwd', 'nil', 'ref', 'unboxed'
-  , 'var'
+    'anchor', 'choice', 'cons', 'expr', 'fail', 'fwd', 'nil', 'raw_expr'
+  , 'ref', 'unboxed' , 'var'
   ]
 
 class anchor(object):
@@ -159,7 +159,15 @@ def expr(interp, *args, **kwds):
 
   Returns:
   --------
-  The Node created or rewritten.
+  An instance of ``object.CurryExpression``.
+  '''
+  raw = raw_expr(interp, *args, **kwds)
+  return objects.CurryExpression(raw)
+
+def raw_expr(interp, *args, **kwds):
+  '''
+  Like ``expr`` except the result is not wrapped.  It will either be an unboxed
+  expression or a backend-dependent instance of ``context.Node``.
   '''
   builder = ExpressionBuilder(interp)
   target = kwds.pop('target', None)

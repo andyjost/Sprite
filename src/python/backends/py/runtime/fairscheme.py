@@ -8,6 +8,7 @@ from .state import callstack
 def D(rts):
   rts.telemetry._enterD += 1
   while rts.ready():
+    assert not hasattr(rts.E, 'raw_expr')
     rts.telemetry._iterD += 1
     tag = inspect.tag_of(rts.E)
     if tag == T_FAIL:

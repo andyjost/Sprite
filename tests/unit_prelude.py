@@ -77,36 +77,36 @@ class TestPrelude(cytest.TestCase):
     eval_ = lambda e: next(curry.eval(e, converter=None))
     sym = lambda s: curry.symbol('Prelude.' + s)
     # Int
-    self.assertEqual(eval_([sym('prim_readNatLiteral'), ['0']]), curry.expr((0, "")))
-    self.assertEqual(eval_([sym('prim_readNatLiteral'), "123 foo"]), curry.expr((123, " foo")))
-    self.assertEqual(eval_([sym('prim_readNatLiteral'), "-1"]), curry.expr((0, "-1")))
+    self.assertEqual(eval_([sym('prim_readNatLiteral'), ['0']]), curry.raw_expr((0, "")))
+    self.assertEqual(eval_([sym('prim_readNatLiteral'), "123 foo"]), curry.raw_expr((123, " foo")))
+    self.assertEqual(eval_([sym('prim_readNatLiteral'), "-1"]), curry.raw_expr((0, "-1")))
     # Float
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.23 foo"]), curry.expr((1.23, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+1.23 foo"]), curry.expr((1.23, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "-1.23 foo"]), curry.expr((-1.23, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1. foo"]), curry.expr((1.0, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1foo"]), curry.expr((1.0, "foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+.9 foo"]), curry.expr((0.9, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.2.3"]), curry.expr((1.2, ".3")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'a'xx"]), curry.expr(('a', "xx")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.23 foo"]), curry.raw_expr((1.23, " foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+1.23 foo"]), curry.raw_expr((1.23, " foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "-1.23 foo"]), curry.raw_expr((-1.23, " foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1. foo"]), curry.raw_expr((1.0, " foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1foo"]), curry.raw_expr((1.0, "foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+.9 foo"]), curry.raw_expr((0.9, " foo")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.2.3"]), curry.raw_expr((1.2, ".3")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'a'xx"]), curry.raw_expr(('a', "xx")))
     # Char
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\''xx"]), curry.expr(('\'', "xx")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\\'"]), curry.expr(('\\', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\''"]), curry.expr(('\'', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\"'"]), curry.expr(('"', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\b'"]), curry.expr(('\b', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\f'"]), curry.expr(('\f', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\n'"]), curry.expr(('\n', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\r'"]), curry.expr(('\r', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\t'"]), curry.expr(('\t', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\v'"]), curry.expr(('\v', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\x41'xx"]), curry.expr(('A', "xx")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\65'xx"]), curry.expr(('A', "xx")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\''xx"]), curry.raw_expr(('\'', "xx")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\\'"]), curry.raw_expr(('\\', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\''"]), curry.raw_expr(('\'', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\"'"]), curry.raw_expr(('"', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\b'"]), curry.raw_expr(('\b', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\f'"]), curry.raw_expr(('\f', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\n'"]), curry.raw_expr(('\n', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\r'"]), curry.raw_expr(('\r', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\t'"]), curry.raw_expr(('\t', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\v'"]), curry.raw_expr(('\v', "")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\x41'xx"]), curry.raw_expr(('A', "xx")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\65'xx"]), curry.raw_expr(('A', "xx")))
     # String
-    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"A"xx''']), curry.expr(('A', "xx")))
-    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\x41\\66""xx''']), curry.expr(('AB', "\"xx")))
+    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"A"xx''']), curry.raw_expr(('A', "xx")))
+    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\x41\\66""xx''']), curry.raw_expr(('AB', "\"xx")))
     self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\\\ \\' \\" \\b \\f \\n \\r \\t \\v" tail'''])
-      , curry.expr(('\\ \' " \b \f \n \r \t \v', " tail"))
+      , curry.raw_expr(('\\ \' " \b \f \n \r \t \v', " tail"))
       )
 
   @unittest.expectedFailure
@@ -114,13 +114,13 @@ class TestPrelude(cytest.TestCase):
     add = curry.symbol('Prelude.+')
     apply_ = curry.symbol('Prelude.apply')
     #
-    e = curry.expr(apply_, [apply_, add, 1], 2)
+    e = curry.raw_expr(apply_, [apply_, add, 1], 2)
     self.assertEqual(str(e), 'apply (apply (_PartApplic 2 +) 1) 2')
     self.assertEqual(next(curry.eval(e)), 3)
     #
-    incr = curry.expr(add, 1)
+    incr = curry.raw_expr(add, 1)
     self.assertEqual(str(incr), '_PartApplic 1 (+ 1)')
-    e = curry.expr(apply_, incr, 6)
+    e = curry.raw_expr(apply_, incr, 6)
     self.assertEqual(next(curry.eval(e)), 7)
 
   def testFailed(self):
@@ -157,8 +157,8 @@ class TestPrelude(cytest.TestCase):
         step2 = id $!! 1
         '''
       )
-    goal = interp.expr(code.goal)
-    step2 = interp.expr(code.step2)
+    goal = interp.raw_expr(code.goal)
+    step2 = interp.raw_expr(code.step2)
     cytest.step.step(interp, step2)
     cytest.step.step(interp, goal, num=2)
     self.assertEqual(goal, step2)
@@ -171,15 +171,15 @@ class TestPrelude(cytest.TestCase):
 
   # Used by testEqualityConstraint.
   def checkSatisfied(self, lhs, rhs):
-    e = curry.expr(self.constrEq, lhs, rhs)
+    e = curry.raw_expr(self.constrEq, lhs, rhs)
     self.assertEqual(list(curry.eval(e)), [True])
 
   def checkUnsatisfied(self, lhs, rhs):
-    e = curry.expr(self.constrEq, lhs, rhs)
+    e = curry.raw_expr(self.constrEq, lhs, rhs)
     self.assertEqual(list(curry.eval(e)), [])
 
   def checkError(self, lhs, rhs, type=curry.InstantiationError):
-    e = curry.expr(self.constrEq, lhs, rhs)
+    e = curry.raw_expr(self.constrEq, lhs, rhs)
     self.assertRaises(type, lambda: next(curry.eval(e)))
 
   @cytest.with_flags(defaultconverter='topython')
@@ -190,7 +190,7 @@ class TestPrelude(cytest.TestCase):
     # Note: a type dictionary is needed to call Prelude.unknown, but the type
     # is irrelevant for these tests.
     inst_unit = curry.symbol('Prelude._inst#Prelude.Data#()')
-    unknown = curry.expr([interp.prelude.unknown, inst_unit])
+    unknown = curry.raw_expr([interp.prelude.unknown, inst_unit])
 
     # First, test with no free variable constraints.
     # unboxed <=> unboxed

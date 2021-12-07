@@ -137,7 +137,7 @@ class Interpreter(object):
   # Externally-implemented methods.
   from .compile import compile
   from .conversions import currytype, topython, unbox
-  from ..expressions import expr
+  from ..expressions import expr, raw_expr
   from .eval import eval
   from .import_ import import_
   from .loadsave import load, save

@@ -11,7 +11,7 @@ class TestPyEvaluation(cytest.TestCase):
     expected results.
     '''
     module = curry.import_(name)
-    main = curry.expr(module.main)
+    main = curry.raw_expr(module.main)
     values = list(curry.eval(main))
     self.assertEqual(values, expected)
 
@@ -21,7 +21,7 @@ class TestPyEvaluation(cytest.TestCase):
     string, and then compare that string against the expected results.  This
     can be used to check partial applications.
     '''
-    expr = curry.expr(*args)
+    expr = curry.raw_expr(*args)
     values = list(curry.eval(expr))
     self.assertEqual(len(values), 1)
     self.assertEqual(str(values[0]), expected)

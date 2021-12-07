@@ -51,7 +51,7 @@ class CurryModule(types.ModuleType):
     self.__package__ = self.__name__.rpartition('.')[0]
 
   def __repr__(self):
-    return "<curry module '%s'>" % self.__name__
+    return '<curry module %r>' % self.__name__
 
   __str__ = __repr__
 
@@ -71,7 +71,7 @@ class CurryPackage(CurryModule):
     self.__package__ = self.__name__
 
   def __repr__(self):
-    return "<curry package %r>" % self.__name__
+    return '<curry package %r>' % self.__name__
 
   __str__ = __repr__
 
@@ -79,6 +79,53 @@ class CurryPackage(CurryModule):
   def is_package(self):
     return True
 
+
+class CurryExpression(object):
+  def __init__(self, raw_expr):
+    self.raw_expr = raw_expr
+
+  def __getitem__(self, key):
+    return CurryExpression(self.raw_expr[key])
+
+  @property
+  def info(self):
+    from .. import inspect
+    return inspect.info_of(self.raw_expr)
+
+  @property
+  def is_boxed(self):
+    from .. import inspect
+    return inspect.is_boxed(self.raw_expr)
+
+  def __str__(self):
+    return str(self.raw_expr)
+
+  def __repr__(self):
+    from .. import inspect
+    info = inspect.info_of(self.raw_expr)
+    if info is None:
+      return '<curry constructor expression: type=unboxed %r, value=%r>' % (
+          type(self.raw_info).__name__, self.raw_expr
+        )
+    if info.tag >= T_CTOR:
+      return '<curry constructor expression: type=%r, head=%r>' % (
+          info.typedef().name, info.name
+        )
+    if info.tag == T_FUNC:
+      return '<curry function expression: head=%r>' % info.name
+    if info.tag == T_CHOICE:
+      return '<curry choice expression>: id=%r>' % \
+          inspect.get_choice_id(self.raw_expr)
+    if info.tag == T_FWD:
+      return '<curry forward expression>'
+    if info.tag == T_FAIL:
+      return '<curry failure expression>'
+    if info.tag == T_FREE:
+      return '<curry free variable expression: id=%r>' % \
+          inspect.get_freevar_id(self.raw_expr)
+    if info.tag == T_CONSTR:
+      return '<curry constraint expression>'
+    return '<invalid curry expression>'
 
 class CurryDataType(object):
   def __init__(self, name, constructors, module):
@@ -93,7 +140,7 @@ class CurryDataType(object):
     return '%s.%s' % (self.module().__name__, self.name)
 
   def __repr__(self):
-    return "<curry type %r>" % self.fullname
+    return '<curry type %r>' % self.fullname
 
 
 class CurryNodeInfo(object):
@@ -144,20 +191,20 @@ class CurryNodeInfo(object):
 
   def __repr__(self):
     if self.info.tag >= T_CTOR:
-      return "<curry constructor '%s'>" % self.fullname
+      return '<curry constructor %r>' % self.fullname
     if self.info.tag == T_FUNC:
-      return "<curry function '%s'>" % self.fullname
+      return '<curry function %r>' % self.fullname
     if self.info.tag == T_CHOICE:
-      return "<curry choice>"
+      return '<curry choice>'
     if self.info.tag == T_FWD:
-      return "<curry forward node>"
+      return '<curry forward node>'
     if self.info.tag == T_FAIL:
-      return "<curry failure>"
+      return '<curry failure>'
     if self.info.tag == T_FREE:
-      return "<curry free variable>"
+      return '<curry free variable>'
     if self.info.tag == T_CONSTR:
-      return "<curry constraint>"
-    return "<invalid curry node>"
+      return '<curry constraint>'
+    return '<invalid curry node>'
 
 def create_module_or_pacakge(icur):
   if isinstance(icur, icurry.IPackage):

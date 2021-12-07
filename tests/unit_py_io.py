@@ -154,5 +154,5 @@ class TestPyIO(cytest.TestCase):
     putChar = curry.symbol('Prelude.putChar')
     IO = curry.symbol('Prelude.IO')
     Unit = curry.symbol('Prelude.()')
-    self.assertEqual(list(curry.eval(putChar, 'x')), [curry.expr(Unit)])
+    self.assertEqual(list(curry.eval(putChar, 'x')), [curry.raw_expr(Unit)])
     self.assertEqual(curry.getInterpreter().stdout.getvalue(), 'x')

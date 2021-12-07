@@ -43,7 +43,7 @@ class RuntimeState(object):
         interp.type, ('Prelude.Int', 'Prelude.Char', 'Prelude.Float')
       ))
     self.currypath = tuple(interp.path)
-    self.expr = interp.expr
+    self.expr = interp.raw_expr
     self.setfunction_strategy = interp.flags['setfunction_strategy']
     self.prelude = interp.prelude
     self.stdin = interp.stdin

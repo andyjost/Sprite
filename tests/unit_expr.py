@@ -10,10 +10,10 @@ from curry.exceptions import CurryTypeError
 listiterator_name = type(iter([])).__name__
 
 class TestExpr(cytest.TestCase):
-  '''Tests expression-building with ``curry.expr``.'''
+  '''Tests expression-building with ``curry.raw_expr``.'''
 
   def test_negative(self):
-    # A bunch of things that cannot accept trailing arguments in curry.expr.
+    # A bunch of things that cannot accept trailing arguments in curry.raw_expr.
     for (before, what) in [
         (True, 'True')
       , (1, '1')
@@ -28,7 +28,7 @@ class TestExpr(cytest.TestCase):
       , (anchor(0, name='a'), "anchor 'a'")
       , (ref('a'), "ref 'a'")
       , (iter([1,2]), r'\<%s object at 0x\w+\>' % listiterator_name)
-      , (curry.expr(0), r"'Int' node")
+      , (curry.raw_expr(0), r"'Int' node")
       , (unboxed(0), r'unboxed 0')
       , (cons(0, []), r"'cons'")
       , (nil, r"'nil'")
@@ -43,7 +43,7 @@ class TestExpr(cytest.TestCase):
       ]:
       self.assertRaisesRegex(
           CurryTypeError, r'invalid arguments after %s' % what
-        , lambda: curry.expr(before, True)
+        , lambda: curry.raw_expr(before, True)
         )
 
   @cytest.check_expressions()
@@ -86,12 +86,12 @@ class TestExpr(cytest.TestCase):
 
   def test_iterators(self):
     '''Python iterators become lazy lists in Curry.'''
-    e = curry.expr(iter([]))
+    e = curry.raw_expr(iter([]))
     self.assertRegex(str(e), '_PyGenerator')
     val = next(curry.eval(e))
     self.assertEqual(str(e), '[]')
 
-    e = curry.expr(iter([1,2]))
+    e = curry.raw_expr(iter([1,2]))
     self.assertRegex(str(e), '_PyGenerator')
     val = curry.topython(next(curry.eval(e)))
     self.assertEqual(val, [1, 2])
@@ -104,7 +104,7 @@ class TestExpr(cytest.TestCase):
     self.assertRaisesRegex(
         TypeError
       , r'Curry has no 1-tuple'
-      , lambda: curry.expr((1,))
+      , lambda: curry.raw_expr((1,))
       )
 
   @cytest.check_expressions()
@@ -119,7 +119,7 @@ class TestExpr(cytest.TestCase):
                                 , sorted([True, False])
 
   def test_fail(self):
-    e = curry.expr(fail)
+    e = curry.raw_expr(fail)
     self.assertEqual(str(e), 'failure')
     self.assertEqual(list(curry.eval(e)), [])
 
@@ -165,7 +165,7 @@ class TestExpr(cytest.TestCase):
 
   def test_nonlinear(self):
     # let a=1 in [a, a]
-    e = curry.expr([curry.anchor(1), curry.ref()])
+    e = curry.raw_expr([curry.anchor(1), curry.ref()])
     a, b = e[0], e[1][0]
     self.assertEqual(id(a), id(b))
     yield e, None, None, None, [[1, 1]]
@@ -175,25 +175,25 @@ class TestExpr(cytest.TestCase):
     anchor, ref = curry.expressions.anchor, curry.ref
 
     # let a=a in a
-    e = curry.expr(anchor(ref()))
+    e = curry.raw_expr(anchor(ref()))
     self.assertIsaFwd(e)
     also_e = inspect.fwd_target(e)
     self.assertIs(e, also_e)
     yield e, '...', '<_Fwd ...>'
     #
-    e = curry.expr(ref('a'), a=ref('a'))
+    e = curry.raw_expr(ref('a'), a=ref('a'))
     self.assertIsaFwd(e)
     also_e = inspect.fwd_target(e)
     self.assertIs(e, also_e)
     yield e, '...', '<_Fwd ...>'
 
     # let a=[a] in a
-    e = curry.expr(anchor([ref()]))
+    e = curry.raw_expr(anchor([ref()]))
     self.assertEqual(id(e), id(e[0]))
     yield e, '[...]', '<: ... <[]>>'
     #
     exprs = {'a': [ref('a')]}
-    e = curry.expr(ref('a'), **exprs)
+    e = curry.raw_expr(ref('a'), **exprs)
     self.assertEqual(id(e), id(e[0]))
     yield e, '[...]', '<: ... <[]>>'
 
@@ -205,7 +205,7 @@ class TestExpr(cytest.TestCase):
     anchor, cons, ref = curry.expressions.anchor, curry.cons, curry.ref
     b = anchor(cons(1, ref('a')), name='b')
     a = anchor(cons(0, b), name='a')
-    e = curry.expr(prelude.take, 5, a)
+    e = curry.raw_expr(prelude.take, 5, a)
     A = e[1]
     B = A[1]
     self.assertEqual(id(A), id(B[1]))
@@ -221,7 +221,7 @@ class TestExpr(cytest.TestCase):
         'a': cons(0, ref('b'))
       , 'b': cons(1, ref('a'))
       }
-    e = curry.expr(prelude.take, 5, ref('a'), **exprs)
+    e = curry.raw_expr(prelude.take, 5, ref('a'), **exprs)
     A = e[1]
     B = A[1]
     self.assertEqual(id(A), id(B[1]))
@@ -236,7 +236,7 @@ class TestExpr(cytest.TestCase):
       , 'b': [5]
       , 'c': [prelude.Just, []]
       }
-    e = curry.expr((ref('a'), ref('b'), ref('c')), **exprs)
+    e = curry.raw_expr((ref('a'), ref('b'), ref('c')), **exprs)
     yield e, '(5, [5], Just [])' \
            , '<(,,) <Int 5> <: <Int 5> <[]>> <Just <[]>>>'
 
