@@ -12,6 +12,7 @@ def str2icurry(
   , currypath=None
   , modulename=config.interactive_modname()
   , keep_temp_files=False
+  , postmortem=False
   ):
   '''
   Compile a string into ICurry.
@@ -26,7 +27,10 @@ def str2icurry(
   ``modulename``
       The module name.
   ``keep_temp_files``
-      Whether to keep temporary intermediate files.
+      Whether to keep intermediate files.
+  ``postmoretem``
+      Whether to copy intermediate files to the current working directory upon
+      failure.
 
   Returns:
   --------
@@ -53,7 +57,7 @@ def str2icurry(
         icur.__del__ = lambda self: _rmdir(moduledir)
     return icur
   except:
-    if config.debugging():
+    if postmortem:
       dst = os.path.basename(moduledir)
       try:
         shutil.copytree(moduledir, dst)

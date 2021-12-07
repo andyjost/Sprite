@@ -43,6 +43,9 @@ class Interpreter(object):
           files will be written there.
       ``lazycompile`` (*True*|False)
           Functions are not materialized until the first time they are needed.
+      ``postmortem`` (*True*|False)
+          When compiling a string of Curry code fails, copy the generated code
+          to the current working directory for post-mortem analysis.
       ``setfunction_strategy`` (*'lazy'*|'eager')
           Indicates how to evaluate set functions.  If 'lazy', then set guards
           are used (similar to KiCS2).  Otherwise, each argument is reduced to

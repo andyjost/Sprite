@@ -23,8 +23,10 @@ def compile(
   ``mode``
       Indicates how to interpret the string (see above).
   ``imports``
-      Names the modules to import when compiling an expresion.  Unused in
-      'module' mode.  By default, nothing is imported.
+      Names additional modules to import.  Import statements will be prepended
+      to the code string and CURRYPATH will be adjusted accordingly.  This can
+      be useful when importing a dynamically-generated module whose name and
+      location on disk are difficult to find.
   ``exprtype``
       A string specifying the expression type. Used only in 'expr' mode.
   ``modulename``
@@ -36,14 +38,22 @@ def compile(
   --------
   In 'module' mode, a Curry module.  In 'expr' mode, a Curry expression.
   '''
+  stmts, currypath = getImportSpecForExpr(
+      interp, [] if imports is None else imports
+    )
+  currypath = currypath + interp.path
   if mode == 'module':
+    if exprtype is not None:
+      raise ValueError('%r is only allowed in mode=%r', ('exprtype', 'expr'))
     if modulename is None:
       modulename = config.interactive_modname() + str(next(interp._counter))
     if modulename in interp.modules:
       raise ValueError('module %r is already defined' % modulename)
+    string = '%s\n%s' % ('\n'.join(stmts), string)
     icur = toolchain.str2icurry(
-        string, interp.path, modulename=modulename
+        string, currypath, modulename=modulename
       , keep_temp_files=interp.flags['keep_temp_files']
+      , postmortem=interp.flags['postmortem']
       )
     try:
       module = interp.import_(icur)
@@ -58,11 +68,10 @@ def compile(
     # Compile the expression with a legal name but then rename it to "<expr>".
     # The frontend requires a legal name, of course, but renaming makes it
     # clear that this is a system-generated name when reported to the user.
+    if modulename is not None:
+      raise ValueError('%r is only allowed in mode=%r', ('modulename', 'module'))
     compiled_name = 'compiled_expression'
     visible_name = '<expr>'
-    stmts, currypath = getImportSpecForExpr(
-        interp, [] if imports is None else imports
-      )
     if exprtype:
       stmts += ['%s :: %s' % (compiled_name, exprtype)]
     stmts += ['%s = %s' % (compiled_name, string)]
@@ -70,6 +79,7 @@ def compile(
     icur = toolchain.str2icurry(
         curry_code, currypath
       , keep_temp_files=interp.flags['keep_temp_files']
+      , postmortem=interp.flags['postmortem']
       )
     funobj = icur.functions.pop(compiled_name)
     funobj.fullname = '.'.join([funobj.modulename, visible_name])

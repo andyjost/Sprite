@@ -71,7 +71,7 @@ class CurryPackage(CurryModule):
     self.__package__ = self.__name__
 
   def __repr__(self):
-    return "<curry package '%s'>" % self.__name__
+    return "<curry package %r>" % self.__name__
 
   __str__ = __repr__
 

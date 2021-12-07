@@ -23,6 +23,7 @@ FLAG_INFO = {
   , 'trace'               : ( bool             , False )
   , 'keep_temp_files'     : ((bool, str)       , False )
   , 'lazycompile'         : ( bool             , True  )
+  , 'postmortem'          : ( bool             , True  )
   , 'setfunction_strategy': ({'eager', 'lazy'} , 'lazy')
   , 'telemetry_interval'  : ({None, float}     , None  )
   }
