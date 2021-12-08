@@ -39,8 +39,8 @@ def import_(
       module produced will have a binding called ``name`` referring to
       ``target``.
   ``is_sourcefile``
-      Indicates whether to interpret ``arg`` as a sourcefile name rather than a
-      module name.
+      Indicates whether to interpret ``arg`` as a source file name rather than
+      a module name.
 
   Returns:
   --------

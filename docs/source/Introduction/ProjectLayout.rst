@@ -4,6 +4,11 @@ Project Layout
 
 The Sprite repository is organized as follows:
 
+.. note::
+
+    The installation tree created by ``make install`` matches the ``install/``
+    directory shown below.
+
 ``configure``
     The script used to configure Sprite.  Run this before running ``make``.
     Doing so creates a file ``Make.config``.
@@ -26,9 +31,6 @@ The Sprite repository is organized as follows:
     The staging area created by the ``make stage`` command.  Sprite is
     installed here for use in testing and building help documents.  It is safe
     to remove this directory.
-
-    If Sprite is installed with ``make install``, then the structure of the
-    instalation directory matches what you see here.
 
     ``bin/``
         Executable files installed by Sprite.

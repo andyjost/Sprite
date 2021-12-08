@@ -17,10 +17,13 @@ For detailed usage, say::
 
     sprite-exec -h
 
-The program must have a goal named ``main``.  To specify a different goal, use
-the ``-g`` option, as in::
+The default goal is ``main``.  To specify a different one, use the ``-g``
+option::
 
     sprite-exec Peano.curry -g O
+
+Finding Curry Code
+------------------
 
 If the program contains ``import`` statements, then you may need to set
 CURRYPATH in the environment.  This is a colon-delimited list of paths used to

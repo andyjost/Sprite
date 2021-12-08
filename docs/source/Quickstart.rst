@@ -12,9 +12,9 @@ Python API.
 Quick Build
 ===========
 
-Ensure Python, PAKCS, and icurry are in your PATH, and that you are using
-:ref:`compatible <Introduction/ExternalSoftware:Compatibility Software>`
-versions.  Then configure and stage Sprite:
+Ensure Python, PAKCS, and icurry are in your PATH, and that their versions are
+:ref:`compatible <Introduction/ExternalSoftware:Compatibility>` with Sprite.
+Then configure and stage Sprite:
 
 .. code-block:: bash
 
@@ -50,19 +50,25 @@ To evaluate this program, say:
     % sprite-exec Peano.curry
     S (S O)
 
-Sprite runs the goal ``main`` by default, or you can use ``-g`` to specify a
+Sprite runs goal ``main`` by default.  You can use ``-g`` to specify a
 different one.
 
 The Python API
 ==============
 
-Start Python by executing ``$ROOT/install/bin/python``.  To import Sprite, say:
+Start Python by executing ``$ROOT/install/bin/python``.
+
+.. note::
+
+    Starting Python this way configures PYTHONPATH and other environment
+    variables.
+
+To import the API, say:
 
     >>> import curry
 
-At this point, you may wish to use ``dir`` and ``help`` to explore for
-yourself.  To list the functions, submoudles, and other objects provided by
-Sprite, say:
+Use ``dir`` and ``help`` to explore ``curry`` for yourself.  To list the
+functions, submoudles, and other objects provided by Sprite, say:
 
     >>> dir(curry)
 

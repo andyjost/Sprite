@@ -4,7 +4,7 @@
 
 Sprite is a Python-based implementation of the Functional-Logic Programming
 language `Curry`_.  It seamlessly combines Functional, Logic, and Imperative
-programming in a single environment, so **you** are in control.
+programming in a single environment.
 
 
 .. toctree::

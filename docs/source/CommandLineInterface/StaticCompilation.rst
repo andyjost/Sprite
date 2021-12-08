@@ -36,18 +36,18 @@ To print this location say::
 
     sprite-make --subdir
 
-Specify an alternative output file with ``-o``::
+You can specify the output file with ``-o``::
 
     sprite-make --icy Peano.curry -o Peano.icy
 
 Generating JSON
 ---------------
 
-To generate JSON, supply ``--json``, as in::
+To generate JSON, supply ``--json``::
 
     sprite-make --json Peano.curry -o Peano.json
 
-Since ICurry is a prerequisite of JSON in the compilation pipeline building
+Since ICurry is a prerequisite of JSON in the compilation pipeline, building
 JSON implies building ICurry.
 
 Additional options are provided to compact JSON with ``jq`` (``--compact``),
@@ -62,7 +62,7 @@ Additional targets generate backend-specific code.  For the Python backend, the
 following option is available:
 
 ``--py``
-    Converts the Curry to Python.  The output file can be run standalone or
+    Compiles the program to Python.  The output file can be run standalone or
     imported into Python.
 
 ..
@@ -83,8 +83,8 @@ Specifying Curry files
 
 Similar to ``sprite-exec``, Curry files can be specified by their file name or
 module name.  To treat names as Curry modules, suply ``-m`` and set CURRYPATH,
-if needed as described :ref:`here
-<CommandLineInterface/RunningCurryPrograms:Running Curry Programs>`.
+if needed, as described :ref:`here
+<CommandLineInterface/RunningCurryPrograms:Finding Curry Code>`.
 
 Creating Executables
 ====================

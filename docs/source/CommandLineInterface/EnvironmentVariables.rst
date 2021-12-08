@@ -10,8 +10,8 @@ Sprite's behavior can be controlled by setting certain environment variables.
 The following are recognized:
 
 ``CURRYPATH``
-  A colon-separated list of paths used to search for Curry modules.  To this
-  Sprite silently appends its path to the Curry system libraries.
+  A colon-separated list of paths used to search for Curry modules.  Sprite
+  silently appends to this the path to its system libraries.
 
 ``SPRITE_INTERPRETER_FLAGS``
   Overrides default flags in Sprite's Curry interpreter.  This can be set to a
@@ -28,7 +28,7 @@ The following are recognized:
 
 ``SPRITE_LOG_FILE``
   The file to which logging output is directed.  The default, ``-``, directs
-  output to the standard output stream.
+  this to standard output.
 
 ``SPRITE_LOG_LEVEL``
   Sets the logging verbosity.  The **default** level is ``WARNING``.  Supported
@@ -45,15 +45,15 @@ The following are recognized:
 Development Variables
 ---------------------
 
-Additional environment variables aimed at development are recognized.  These
-are intended for people developing Sprite itself.  If you plan only to compile
-and run Curry programs with Sprite, then you should not need these.
+Additional environment variables are recognized.  These are intended for people
+developing Sprite itself.  If you plan only to compile and run Curry programs
+with Sprite, then you should not need these.
 
 ``SPRITE_CACHE_FILE``
-  Specifies the cache database file.  That file stores the results of slow
-  conversions that occur when compiling Curry, especially the conversions from
-  :ref:`Curry to ICurry <Introduction/CompilationPipeline:Curry to ICurry>`
-  and :ref:`ICurry to Sprite's in-memory IR
+  Specifies the cache database file.  The cache database stores the results of
+  slow conversions that occur when compiling Curry, especially the conversions
+  from :ref:`Curry to ICurry <Introduction/CompilationPipeline:Curry to
+  ICurry>` and :ref:`ICurry to Sprite's in-memory IR
   <Introduction/CompilationPipeline:JSON to In-Memory IR>`.  This aims to
   shorten the development cycle when the same programs are compiled and run
   many times.  If set to the empty string, caching is disabled.
@@ -83,7 +83,7 @@ and run Curry programs with Sprite, then you should not need these.
       ``SPRITE_CACHE_UPDATE='*.json.gz'`` in the environment.
 
 ``SPRITE_DEBUG``
-  Enables debugging of internal errors in Sprite.  The command-line tools
+  Enables debugging for Sprite internal errors.  The command-line tools
   ``sprite-exec`` and ``sprite-make`` normally report unexpected errors
   tersely.  Enabling this allows one to see the full stack trace when Sprite
   fails.  Set this to the value ``1`` to enable debugging.
