@@ -11,8 +11,8 @@ Curry Compilation Pipeline>` to run.
 Sprite uses this program to compile the Curry library before installation.  Users
 can rely on it to statically compile Curry programs.
 
-Using ``sprite-make``
-=====================
+``sprite-make``
+===============
 
 To view the help content say::
 

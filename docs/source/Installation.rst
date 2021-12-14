@@ -20,9 +20,7 @@ the desired installation root::
     make
     make install PREFIX=<install-dir>
 
-.. note::
-    Refer to the :ref:`project layout <Introduction/ProjectLayout:Project
-    Layout>` for the substructure of the installation tree.
+The install tree layout is described :ref:`here <install-tree-layout>`.
 
 Long Instructions
 =================

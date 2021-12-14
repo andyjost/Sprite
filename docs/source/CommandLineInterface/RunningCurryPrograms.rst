@@ -3,8 +3,8 @@
 Running Curry Programs
 ======================
 
-Using ``sprite-exec``
----------------------
+``sprite-exec``
+---------------
 
 ``sprite-exec`` can be used to run Curry programs from the command line.  For
 simple programs, it suffices to simply pass the filename to this program.  To

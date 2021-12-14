@@ -131,4 +131,5 @@ def main(program_name, argv):
     sys.exit(1)
 
 
-main(PROGRAM_NAME, sys.argv[1:])
+if __name__ == '__main__':
+  main(PROGRAM_NAME, sys.argv[1:])

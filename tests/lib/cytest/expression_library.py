@@ -2,7 +2,7 @@ import curry
 from . import testcase
 from curry.expressions import (
     unboxed
-  , _setgrd, fail, _strictconstr, _nonstrictconstr, _valuebinding, var, fwd
+  , _setgrd, fail, _strictconstr, _nonstrictconstr, _valuebinding, free, fwd
   , choice
   )
 
@@ -36,12 +36,12 @@ expressions = {
   , 'py_generator': curry.raw_expr(iter([1,2]))
   , 'failure': curry.raw_expr(fail)
   , 'fwd': curry.raw_expr(fwd(prelude.True_))
-  , 'var': curry.raw_expr(var(vid()))
+  , 'free': curry.raw_expr(free(vid()))
   , 'choice': curry.raw_expr(choice(cid(), 0, 1))
-  , 'nonstrict_constraint': curry.raw_expr(_nonstrictconstr(True, (var(vid()), False)))
+  , 'nonstrict_constraint': curry.raw_expr(_nonstrictconstr(True, (free(vid()), False)))
   , 'setgrd': curry.raw_expr(_setgrd(sid(), True))
-  , 'strict_constraint': curry.raw_expr(_strictconstr(True, (var(1), var(2))))
-  , 'value_binding': curry.raw_expr(_valuebinding(True, (var(1), unboxed(2))))
+  , 'strict_constraint': curry.raw_expr(_strictconstr(True, (free(1), free(2))))
+  , 'value_binding': curry.raw_expr(_valuebinding(True, (free(1), unboxed(2))))
   , 'func': curry.raw_expr(prelude.head, getattr(prelude, '[]'))
   }
 

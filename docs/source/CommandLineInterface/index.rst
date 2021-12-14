@@ -7,9 +7,9 @@ This section discusses how to configure Sprite and use those tools.
 
 .. toctree::
 
-   Environment Variables    <EnvironmentVariables>
-   Starting Python          <StartingPython>
-   Running Curry Programs   <RunningCurryPrograms>
-   Static Compilation       <StaticCompilation>
+   EnvironmentVariables
+   StartingPython
+   RunningCurryPrograms
+   StaticCompilation
 
 

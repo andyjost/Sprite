@@ -1,0 +1,8 @@
+This directory contains auto-generated files providing the reference
+documentation for the ``curry`` Python module.
+
+To update the API documentation.
+
+  1. Ensure sphinx and autodoc and installed via PIP.
+  2. Stage Sprite.
+  3. Run build-api.bash.

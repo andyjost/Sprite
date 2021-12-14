@@ -257,6 +257,29 @@ def getimpl(obj):
     curry = __import__(__package__)
     return curry.save(obj)
 
+def getsymbol(moduleobj, symbolname):
+  '''
+  Looks up a symbol relative to a module.
+
+  The name may contain dots.  For example, looking up ``'List.nub'`` relative
+  to the ``Data`` module returns ``Data.List.nub``.
+
+  Parameters:
+  -----------
+    ``moduleobj``
+      An instance of CurryModule.
+
+    ``symbolname``
+      The symbol name.
+
+  Returns:
+  --------
+  A Curry symbol.
+  '''
+  from .objects.handle import getHandle
+  h = getHandle(moduleobj)
+  return h.getsymbol(symbolname)
+
 def symbols(moduleobj, private=False):
   '''
   Gets the name of each function and constructor symbol defined in a module.
@@ -271,14 +294,34 @@ def symbols(moduleobj, private=False):
 
   Returns:
   --------
-  A list of strings.
+  A dict.
   '''
-  if private:
-    from .objects.handle import getHandle
-    h = getHandle(moduleobj)
-    return sorted(h.symbolnames)
-  else:
-    return sorted(n for n in dir(moduleobj) if n[:1].isalnum())
+  from .objects.handle import getHandle
+  h = getHandle(moduleobj)
+  return h.symbols if private else h.public_symbols
+
+def gettype(moduleobj, typename):
+  '''
+  Looks up a type relative to a module.
+
+  The name may contain dots.  For example, looking up ``'SetFunctions.Values'``
+  relative to the ``Control`` module returns ``Control.SetFunctions.Values``.
+
+  Parameters:
+  -----------
+    ``moduleobj``
+      An instance of CurryModule.
+
+    ``typename``
+      The type name.
+
+  Returns:
+  --------
+  A Curry type.
+  '''
+  from .objects.handle import getHandle
+  h = getHandle(moduleobj)
+  return h.gettype(typename)
 
 def types(moduleobj):
   '''
@@ -291,8 +334,10 @@ def types(moduleobj):
 
   Returns:
   --------
-  A list of strings.
+  A dict.
   '''
-  return sorted(getattr(moduleobj, '.types').keys())
+  from .objects.handle import getHandle
+  h = getHandle(moduleobj)
+  return h.types
 
 

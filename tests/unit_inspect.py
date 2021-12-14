@@ -1,8 +1,9 @@
 import cytest # from ./lib; must be first
-import cytest.expression_library
-import curry
+from curry.expressions import free, unboxed
 from curry import inspect
-from curry.expressions import unboxed, var
+from curry.interpreter import Interpreter
+import curry
+import cytest.expression_library
 
 def MAP(*args):
   list(map(*args))
@@ -105,8 +106,8 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     MAP(self.assertIsNotAConstraint, self.everything - set(constraints))
 
   def testIsaVariable(self):
-    self.assertIsaFreevar(self.var)
-    MAP(self.assertIsNotAFreevar, self.everything - set([self.var]))
+    self.assertIsaFreevar(self.free)
+    MAP(self.assertIsNotAFreevar, self.everything - set([self.free]))
 
   def testIsaFwd(self):
     self.assertIsaFwd(self.fwd)
@@ -151,18 +152,18 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     MAP(self.assertIsNotData, self.everything - set(data))
 
   def testGetChoiceID(self):
-    self.assertEqual(inspect.get_choice_id(self.var), self.vid)
+    self.assertEqual(inspect.get_choice_id(self.free), self.vid)
     self.assertEqual(inspect.get_choice_id(self.choice), self.cid)
     self.assertTrue(all(
         inspect.get_choice_id(x) is None
-            for x in self.everything - set([self.var, self.choice])
+            for x in self.everything - set([self.free, self.choice])
       ))
 
   def testGetVariableID(self):
-    self.assertEqual(inspect.get_freevar_id(self.var), self.vid)
+    self.assertEqual(inspect.get_freevar_id(self.free), self.vid)
     self.assertTrue(all(
         inspect.get_freevar_id(x) is None
-            for x in self.everything - set([self.var])
+            for x in self.everything - set([self.free])
       ))
 
   def testGetSetID(self):
@@ -172,3 +173,39 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
             for x in self.everything - set([self.setgrd])
       ))
 
+  def testSymbolsAndTypes(self):
+    curry.path.insert(0, 'data/curry')
+    Peano = curry.import_('Peano')
+    Nat = curry.type('Peano.Nat')
+
+    # inspect.types
+    self.assertEqual(inspect.types(Peano), {'Nat': Nat})
+    self.assertEqual(inspect.gettype(Peano, 'Nat'), Nat)
+    self.assertRaises(curry.TypeLookupError, lambda: inspect.gettype(Peano, 'Foo'))
+    self.assertRaises(curry.TypeLookupError, lambda: inspect.gettype(Peano, 'add'))
+    self.assertRaises(curry.TypeLookupError, lambda: inspect.gettype(Peano, 'O'))
+
+    # inspect.gettype
+    Control = curry.import_('Control')
+    SetFunctions = curry.import_('Control.SetFunctions')
+    self.assertEqual(
+        inspect.gettype(Control, 'SetFunctions.Values'), SetFunctions.Values
+      )
+    self.assertEqual(inspect.gettype(Peano, 'Nat'), Nat)
+
+    # inspect.symbols
+    public_symbols = {'O': Peano.O, 'S': Peano.S, 'add': Peano.add, 'main': Peano.main}
+    self.assertEqual(inspect.symbols(Peano), public_symbols)
+    self.assertEqual(inspect.getsymbol(Peano, 'S'), Peano.S)
+    self.assertRaises(curry.SymbolLookupError, lambda: inspect.getsymbol(Peano, 'Foo'))
+    self.assertRaises(curry.SymbolLookupError, lambda: inspect.getsymbol(Peano, 'Nat'))
+
+    # There are additional symbols for Prelude.Data.
+    all_symbols = inspect.symbols(Peano, private=True)
+    self.assertTrue(len(all_symbols) > len(public_symbols))
+
+    # inspect.getsymbol
+    Data = curry.import_('Data')
+    curry.import_('Data.List')
+    nub = inspect.getsymbol(Data, 'List.nub')
+    self.assertEqual(nub.fullname, 'Data.List.nub')

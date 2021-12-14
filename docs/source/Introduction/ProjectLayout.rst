@@ -4,11 +4,6 @@ Project Layout
 
 The Sprite repository is organized as follows:
 
-.. note::
-
-    The installation tree created by ``make install`` matches the ``install/``
-    directory shown below.
-
 ``configure``
     The script used to configure Sprite.  Run this before running ``make``.
     Doing so creates a file ``Make.config``.
@@ -27,7 +22,14 @@ The Sprite repository is organized as follows:
     External projects used by Sprite.  The GIT `submodules` subcommand
     populates this on the first build.
 
+.. _install-tree-layout:
+
 ``install/`` (dynamically created)
+    .. note::
+
+        The installation tree created by ``make install`` matches this
+        directory.
+
     The staging area created by the ``make stage`` command.  Sprite is
     installed here for use in testing and building help documents.  It is safe
     to remove this directory.
@@ -94,8 +96,8 @@ The Sprite repository is organized as follows:
         expected results.
 
     ``func_*.py``
-        Functional tests.  These execute whole Curry programs, checking for the
-        expected behavior.
+        Functional tests.  These execute whole Curry programs and check their
+        output against another Curry system.
 
     ``lib/``
         Test support code.  The ``cytest`` subdirectory contains useful

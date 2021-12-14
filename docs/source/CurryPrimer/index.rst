@@ -1,6 +1,6 @@
-============
-Curry Primer
-============
+========================
+Appendix: A Curry Primer
+========================
 
 This appendix provides an introduction to the type system, syntax, and
 semantics of Curry.  It assumes no prior knowledge of Functional Programming,
@@ -11,7 +11,7 @@ will find the Sprite documentation comprehensible.
    :maxdepth: 1
    :caption: Contents:
 
-   The Curry Type System  <TypeSystem>
-   Curry Syntax           <Syntax>
-   Curry Semantics        <Semantics>
+   TypeSystem
+   Syntax
+   Semantics
 

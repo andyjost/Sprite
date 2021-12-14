@@ -4,8 +4,8 @@ from .utility import strings, visitation
 import collections, itertools, numbers, six
 
 __all__ = [
-    'anchor', 'choice', 'cons', 'expr', 'fail', 'fwd', 'nil', 'raw_expr'
-  , 'ref', 'unboxed' , 'var'
+    'anchor', 'choice', 'cons', 'expr', 'fail', 'fwd', 'free', 'nil'
+  , 'raw_expr', 'ref', 'unboxed'
   ]
 
 class anchor(object):
@@ -88,7 +88,7 @@ class _valuebinding(object):
     self.value = value
     self.pair = pair
 
-class var(object):
+class free(object):
   '''Places a free variable into a Curry expression.'''
   def __init__(self, vid=0):
     self.vid = int(vid)
@@ -162,7 +162,8 @@ def expr(interp, *args, **kwds):
   An instance of ``object.CurryExpression``.
   '''
   raw = raw_expr(interp, *args, **kwds)
-  return objects.CurryExpression(raw)
+  # return objects.CurryExpression(raw)
+  return raw
 
 def raw_expr(interp, *args, **kwds):
   '''
@@ -416,10 +417,10 @@ class ExpressionBuilder(object):
       , self(arg.value), self(arg.pair), target=self.target
       )
 
-  @__call__.when(var)
+  @__call__.when(free)
   def __call__(self, arg, *trailing):
     if trailing:
-      raise CurryTypeError('invalid arguments after %r' % 'var')
+      raise CurryTypeError('invalid arguments after %r' % 'free')
     return self.Node(
         self.prelude._Free
       , arg.vid

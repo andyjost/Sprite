@@ -2,27 +2,19 @@
 The Python Interface
 ====================
 
-The ``curry`` Module
-====================
+The Sprite Python API integrates a full-featured Curry compiler and runtime
+environment into Python.  One can analyze, compile, link, load, and run Curry
+programs from Python.  Data and control may cross the boundary between Python
+and Curry.  In this way, the functional and logic capabilities are integrated
+into an imperative setting, creating an unprecedented, fully integrated
+programming environment.
 
-Curry Interpreters
-==================
+.. toctree::
+    :maxdepth: 2
 
-Interpreter Flags
------------------
-
-Importing Curry Code
-====================
-
-Building Expressions
-====================
-
-Evaluating Curry Code
-=====================
-
-Converting Between Curry and Python
-===================================
-
-Dynamic Compilation
-===================
+    ModuleLayout
+    Configuration
+    Architecture
+    Interactive
+    Compilation
 

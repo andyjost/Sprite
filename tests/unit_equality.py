@@ -122,8 +122,8 @@ class TestGraphComparison(cytest.expression_library.ExpressionLibTestCase):
 
   @cytest.check_predicate(mapper=curry.raw_expr)
   def test_equals_var(self):
-    yield equal, self.var, self.var
-    for spec in self.negative_cases(self.var):
+    yield equal, self.free, self.free
+    for spec in self.negative_cases(self.free):
       yield spec
 
   @cytest.check_predicate(mapper=curry.raw_expr)

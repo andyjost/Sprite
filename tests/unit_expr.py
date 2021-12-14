@@ -2,7 +2,7 @@ import cytest # from ./lib; must be first
 import curry
 from curry.expressions import (
     anchor, ref, _setgrd, fail, _strictconstr, _nonstrictconstr, _valuebinding
-  , var, fwd, choice, unboxed, cons, nil
+  , free, fwd, choice, unboxed, cons, nil
   )
 from curry import inspect
 from curry.exceptions import CurryTypeError
@@ -34,10 +34,10 @@ class TestExpr(cytest.TestCase):
       , (nil, r"'nil'")
       , (_setgrd(0, True), "'_setgrd'")
       , (fail, "'fail'")
-      , (_strictconstr(0, (var(0), var(1))), "'_strictconstr'")
-      , (_nonstrictconstr(0, (var(0), var(1))), "'_nonstrictconstr'")
-      , (_valuebinding(0, (var(0), 1)), "'_valuebinding'")
-      , (var(0), "'var'")
+      , (_strictconstr(0, (free(0), free(1))), "'_strictconstr'")
+      , (_nonstrictconstr(0, (free(0), free(1))), "'_nonstrictconstr'")
+      , (_valuebinding(0, (free(0), 1)), "'_valuebinding'")
+      , (free(0), "'free'")
       , (fwd(0), "'fwd'")
       , (choice(0, 1), "'choice'")
       ]:
@@ -130,7 +130,7 @@ class TestExpr(cytest.TestCase):
   @cytest.check_expressions()
   def test_nonstrictconstr(self):
     yield (
-        _nonstrictconstr(True, (var(1), False))
+        _nonstrictconstr(True, (free(1), False))
       , '_NonStrictConstraint True (_1, False)'
       , '<_NonStrictConstraint <True> <(,) <_Free 1 <()>> <False>>>'
       )
@@ -146,7 +146,7 @@ class TestExpr(cytest.TestCase):
   @cytest.check_expressions()
   def test_strictconstr(self):
     yield (
-        _strictconstr(True, (var(1), var(2)))
+        _strictconstr(True, (free(1), free(2)))
       , '_StrictConstraint True (_1, _2)'
       , '<_StrictConstraint <True> <(,) <_Free 1 <()>> <_Free 2 <()>>>>'
       )
@@ -154,14 +154,14 @@ class TestExpr(cytest.TestCase):
   @cytest.check_expressions()
   def test_valuebinding(self):
     yield (
-        _valuebinding(True, (var(1), curry.unboxed(2)))
+        _valuebinding(True, (free(1), curry.unboxed(2)))
       , '_ValueBinding True (_1, 2)'
       , '<_ValueBinding <True> <(,) <_Free 1 <()>> 2>>'
       )
 
   @cytest.check_expressions()
   def test_var(self):
-    yield var(5), '_5', '<_Free 5 <()>>'
+    yield free(5), '_5', '<_Free 5 <()>>'
 
   def test_nonlinear(self):
     # let a=1 in [a, a]

@@ -91,6 +91,10 @@ class Handle(object):
     return getattr(self.obj, '.symbols')
 
   @property
+  def public_symbols(self):
+    return {k:v for k,v in self.symbols.items() if k[:1].isalnum()}
+
+  @property
   def symbolnames(self):
     return self.symbols.keys()
 

@@ -30,7 +30,7 @@ from six.moves import cStringIO as StringIO
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['enabled', 'filename', 'Curry2ICuryCache', 'ParsedJsonCache']
+__all__ = ['enabled', 'filename', 'Curry2ICurryCache', 'ParsedJsonCache']
 
 try:
   import sqlite3

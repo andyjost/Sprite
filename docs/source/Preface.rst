@@ -5,8 +5,9 @@ Preface
 This document describes the Sprite Curry system, developed by Andrew Jost.
 Sprite is an implementation of the `Curry`_ programming language based on an
 evaluation strategy called the `Fair Scheme`_, developed by Sergio Antoy and
-Andrew Jost.  This is a `pull-tabbing`_ strategy that aims to avoid committing
-to any step that would later need to be undone in a complete search.
+Andrew Jost.  This is a `sequential` strategy that relies on `pull-tabbing`_ to
+avoid taking irrevocable non-deterministic steps that could jeopardize the
+competeness of computations.
 
 Sprite provides everything one needs to compile and execute Curry programs.
 This can be done in batch using command-line tools or through a Python API.
@@ -33,8 +34,10 @@ to Sergio Antoy for guiding me through the world of Functional-Logic
 Programming, helping to develop the Fair Scheme, and much more.  Without his
 patient effort, this work would not have been possible.  Thanks also go to the
 many people who developed and supported PAKCS and KiCS2, but especially Michael
-Hanus for important bug fixes and improvements, and Bernd Brassel whose
-prior work deeply influenced my thinking.
+Hanus for his conscientious efforts to develop and thoroughly document Curry,
+and his many useful suggestions, bug fixes, and other improvements that
+affected my work.  Thanks also to Bernd Brassel, whose prior work deeply
+informed my understanding.
 
 
 .. _Fair Scheme: https://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf

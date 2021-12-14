@@ -54,7 +54,7 @@ with Sprite, then you should not need these.
   slow conversions that occur when compiling Curry, especially the conversions
   from :ref:`Curry to ICurry <Introduction/CompilationPipeline:Curry to
   ICurry>` and :ref:`ICurry to Sprite's in-memory IR
-  <Introduction/CompilationPipeline:JSON to In-Memory IR>`.  This aims to
+  <Introduction/CompilationPipeline:JSON to Sprite IR>`.  This aims to
   shorten the development cycle when the same programs are compiled and run
   many times.  If set to the empty string, caching is disabled.
 

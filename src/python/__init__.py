@@ -80,8 +80,8 @@ if not os.access(os.environ['SPRITE_HOME'], os.O_RDONLY):
 del os
 
 from .exceptions import *
-from .expressions import choice, cons, fail, nil, ref, unboxed, var
-from . import interpreter
+from .expressions import choice, cons, fail, free, nil, ref, unboxed
+from . import interpreter, lib
 from .utility import flagutils as _flagutils
 from .utility import visitation as _visitation
 import collections as _collections
