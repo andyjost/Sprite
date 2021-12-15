@@ -34,15 +34,16 @@ def apply_binding(rts, arg=None, config=None):
   applied by replacing the root expression ``e`` with ``b &> e``, where ``b``
   is the binding.
 
-  Parameters:
-  -----------
-    ``arg``
+  Args:
+    arg:
         The argument whose binding to apply.  Must be a choice or free variable
         node, or ID. The associated ID must refer to a free variable.
 
-     ``config``
+     config:
         The configuration to use as context.
 
+  Returns:
+    Nothing.
   '''
   config = config or rts.C
   if rts.has_binding(arg, config=config):

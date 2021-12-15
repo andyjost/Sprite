@@ -10,7 +10,7 @@ Submodules
 ----------
 
 .. toctree::
-   :maxdepth: 1000
+   :maxdepth: 4
 
    curry.backends.py.runtime.currylib.prelude.apply
    curry.backends.py.runtime.currylib.prelude.basic

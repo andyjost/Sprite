@@ -6,20 +6,18 @@ def getmd(arg, extern, **kwds):
   '''
   Get metadata from an ICurry object
 
-  Parameters:
-  -----------
-    ``arg``
+  Args:
+    arg:
       An instance of IConstructor, IFunction or IDataType.
-    ``extern``
+    extern:
       An instance of IModule that provides external definitions.  If provided,
-      this takes precedence over the metadata found in ``arg``.
-    ``itype``
+      this takes precedence over the metadata found in arg.
+    itype:
       Keyword only.  An instance of IDataType, used to resolve constructors.
       Required for IConstructor.
 
-  Return:
-  -------
-  The metadata value, if found, or None otherwise.
+  Returns:
+    The metadata value, if found, or None otherwise.
   '''
   assert False
 

@@ -10,7 +10,7 @@ Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 1000
+   :maxdepth: 4
 
    curry.backends.py.runtime.currylib
    curry.backends.py.runtime.graph
@@ -20,7 +20,7 @@ Submodules
 ----------
 
 .. toctree::
-   :maxdepth: 1000
+   :maxdepth: 4
 
    curry.backends.py.runtime.api
    curry.backends.py.runtime.control

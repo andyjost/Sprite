@@ -1,23 +1,15 @@
 .. _reference-material:
 
-Reference Material
-==================
+API Reference
+=============
 
-Index
------
+.. toctree::
+    :maxdepth: 3
 
-:ref:`genindex`
+    The curry Package <curry>
 
 Module Index
 ------------
 
 :ref:`modindex`
-
-API Reference
--------------
-
-.. toctree::
-    :maxdepth: 3
-
-    curry
 

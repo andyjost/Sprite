@@ -31,10 +31,12 @@ def makeCurryPath(currypath):
   supplied path will be interpreted as a string and converted to an absolute
   path.
 
-  Parameters:
-  -----------
-    ``currypath``
+  Args:
+    currypath:
       A colon-delimited string or list of strings.
+
+  Returns:
+    A list of absolute paths.
   '''
   if isinstance(currypath, str):
     currypath = currypath.split(':')

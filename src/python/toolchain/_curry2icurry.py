@@ -11,14 +11,13 @@ def curry2icurry(curryfile, currypath, **kwds):
   '''
   Calls "icurry" to produce an ICurry file from a Curry file.
 
-  Parameters:
-  -----------
-  ``curryfile``
-      The name of the Curry file to convert.
-  ``currypath``
-      The list of Curry code search paths.
-  ``kwds``
-      Additional keywords.  See Curry2ICurryConverter.
+  Args:
+    curryfile:
+        The name of the Curry file to convert.
+    currypath:
+        The list of Curry code search paths.
+    **kwds:
+        Additional keywords.  See :class:`Curry2ICurryConverter`.
 
   Returns:
   -------

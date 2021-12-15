@@ -27,24 +27,26 @@ def catch_control(
   '''
   Catch and handle flow-control exceptions.
 
-  Parameters:
-  -----------
-    ``ground``
+  Args:
+    ground:
       Require ground terms.  Propagate E_RESIDUAL only if this is true.
 
-    ``nondet``
+    nondet:
       Catch non-determinism and raise NondetMonadError if it occurs.  This takes
       priority over all other options.
 
-    ``residual``
+    residual:
       Handle residuals by updating the current configuration and rotating the
       queue.
 
-    ``restart``
+    restart:
       Catch and ignore E_RESTART.
 
-    ``unwind``
+    unwind:
       Catch and ignore E_UNWIND.
+
+  Returns:
+    A context manager.
   '''
   try:
     yield

@@ -64,21 +64,18 @@ def topython(interp, value, convert_strings=True):
   This functions converts (recursively) the types ``int``, ``float``, ``str``,
   ``bool``, ``list``, and ``tuple``.  Other types are passed through untouched.
 
-  Parameters:
-  -----------
-    ``value``
+  Args:
+    value:
         The Curry value to convert.
-    ``convert_strings``
-        If true, then lists of characters are converted to Python strings.
+    convert_strings:
+        If True, then lists of characters are converted to Python strings.
 
   Raises:
-  -------
     ``NotConstructorError`` if a free variable is encountered along a list
     spine.
 
   Returns:
-  --------
-  The value converted to Python.
+    The value converted to Python.
   '''
   return _topython(value, convert_strings)
 

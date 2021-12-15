@@ -29,12 +29,11 @@ class Evaluator(object):
     no limit.  This can be used to apply no more than a set number of steps,
     which is useful for debugging and perhaps in other situations.
 
-    Parameters:
-    -----------
-      ``limit``
-        The new global step limit.  Supply ``None`` to indicate no limit.
+    Args:
+      limit:
+        The new global step limit.  Pass None to indicate no limit.
 
-      ``reset``
+      reset:
         Indicates whether to reset the global step count to zero.
     '''
     if reset:

@@ -102,27 +102,25 @@ def realpath(root, path, update_fwd_nodes=True):
   can be passed to ``index``.  Optionally, forward nodes can be spliced out
   instead of added to the real path.
 
-  Parameters:
-  -----------
-    ``root``
+  Args:
+    root:
       A Curry expression.  Can be an instance of graph.Node or a built-in such
       as an ``int``, ``str``, or ``float``.
 
-    ``path``
+    path:
       A sequence of integers specifying the logical path to the intended
       subexpression.
 
-    ``update_fwd_nodes``
+    update_fwd_nodes:
       When True, forward nodes are spliced out, where possible, and chains of
       forward nodes are short-cut to their end.
 
   Returns:
-  --------
-  A ``namedtuple`` (target, realpath, guards), where ``target`` is the
-  subexpression at ``root[path]``; ``realpath`` is the actual path used to
-  reach the target, including entries for any forward nodes or set guards
-  skipped over; and ``guards`` is a set containing the IDs for each guard
-  crossed.
+    A ``namedtuple`` (target, realpath, guards), where ``target`` is the
+    subexpression at ``root[path]``; ``realpath`` is the actual path used to
+    reach the target, including entries for any forward nodes or set guards
+    skipped over; and ``guards`` is a set containing the IDs for each guard
+    crossed.
   '''
   indexer = RealPathIndexer(root, update_fwd_nodes)
   indexer.advance(path)
@@ -138,26 +136,23 @@ def subexpr(root, path):
   skipped, and boxed fundamental types can be indexed to find their unboxed
   contents.
 
-  Parameters:
-  -----------
-    ``root``
+  Args:
+    root:
       The expression at which to begin indexing.  This is usually an instance
       of ``Node``, though unboxed values are accepted if the path is empty.
 
-    ``path``
+    path:
       An integral number or sequence of such numbers specifying the path.
 
   Raises:
-  -------
-    ``CurryTypeError``
-      When ``root`` is not a Curry expression.
+    CurryTypeError:
+      ``root`` is not a Curry expression.
 
-    ``CurryIndexError``
-      When a path component is invalid.
+    CurryIndexError:
+      A path component is invalid.
 
   Returns:
-  --------
-  The subexpression at ``root[path]``.
+    The subexpression at ``root[path]``.
   '''
   raise CurryIndexError(
       'node index must be an integer or sequence of integers, not %r'

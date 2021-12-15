@@ -16,10 +16,12 @@ class Stringifier(object):
   In both modes, cyclical expressions are displayed by replacing
   back-references with ellipses.
 
-  Parameters:
-  -----------
-    ``style``
+  Args:
+    style:
       One of 'str' or 'repr'.
+
+  Returns:
+    A string.
   '''
   def __init__(self, style='str'):
     self.memo = collections.Counter()
@@ -288,17 +290,19 @@ def show(arg, stringifier=None, **kwds):
   '''
   Converts an expression to a string.
 
-  Parameters:
-  -----------
-  ``stringifier``
-      Specifies a callable object used to stringify subexpressions.  This can
-      be used to apply arbitrary translations, e.g., from free variables to
-      stylized names such as _a, _b, etc.
+  Args:
+    stringifier:
+        Specifies a callable object used to stringify subexpressions.  This can
+        be used to apply arbitrary translations, e.g., from free variables to
+        stylized names such as _a, _b, etc.
 
-  ``kwds``
-      As an alternative to supplying the stringifier, when ``stringifier`` is
-      None, additional keywords are passed tot he constructor of the default
-      stringifier.
+    kwds:
+        As an alternative to supplying the stringifier, when ``stringifier`` is
+        None, additional keywords are passed tot he constructor of the default
+        stringifier.
+
+  Returns:
+    The string representation of ``arg``.
   '''
   stringifier = stringifier or DefaultStringifier(**kwds)
   return stringifier.stringify(arg, outer=True)

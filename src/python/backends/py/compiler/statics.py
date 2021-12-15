@@ -36,20 +36,18 @@ class Closure(object):
     '''
     Insert an object into the closure (if needed) and return its handle.
 
-    Parameters:
-    -----------
-      ``obj``
+    Args:
+      obj:
         The object to place into the closure.
 
-      ``name``
+      name:
         An optional base name used to construct the handle.  By default, this
         is determined from the object by calling encoding.best.
 
-      ``prefix``
+      prefix:
         A string that will be prepended to the handle name.
 
     Returns:
-    --------
       A handle to the specified object.
 
     '''

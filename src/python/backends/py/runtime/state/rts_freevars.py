@@ -115,19 +115,18 @@ def _create_generator(rts, ctors, vid=None, target=None):
   '''
   Creates a generator tree.
 
-  Parameters:
-  -----------
-    ``rts``
+  Args:
+    rts:
       The RuntimeState object.
 
-    ``ctors``
+    ctors:
       A sequence of ``InfoTable`` objects defining the type to generate.
 
-    ``vid``
+    vid:
       The variable ID.  The root choice will be labeled with this ID.  By
       default, a new ID is allocated.
 
-    ``target``
+    target:
       The node to overwrite with the generator tree.  By default, a new node
       will be allocated.
   '''
@@ -169,15 +168,14 @@ def _make_generator(rts, variable, typedef=None):
   '''
   Get the generator for a variable.  Instantiate it, if necessary.
 
-  Parameters:
-  -----------
-    ``rts``
+  Args:
+    rts:
       The RuntimeState object.
 
-    ``variable``
+    variable:
       The variable indicating which generator to get.
 
-    ``typedef``
+    typedef:
       A ``CurryDataType`` that indicates the type of ``variable``.  This can
       alternatively be a list of ``icurry.IConstructor``s or ``InfoTables``.
       If the variable is not free, then this can be None.

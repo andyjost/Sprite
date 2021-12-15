@@ -49,23 +49,21 @@ def constrain_equal(
   this function creates a binding.  When (and if) the binding is later applied,
   the recursive non-strict constraints between subvariables are evaluated.
 
-  Parameters:
-  -----------
-    ``arg0``, ``arg1``
+  Args:
+    arg0, arg1:
         The arguments to constrain.  Each must be a choice or free variable
         node, or ID. The associated IDs must refer to free variables.
 
-     ``constraint_type``
+     constraint_type:
          The constraint type.  Must be STRICT_CONSTRAINT or
          NONSTRICT_CONSTRAINT.
 
-     ``config``
+     config:
         The configuration to use as context.
 
   Returns:
-  --------
-  A Boolean that indicates whether the resulting configuration remains
-  consistent.
+    A Boolean indicating whether the resulting configuration remains
+    consistent.
 
   '''
   rts.telemetry._eqconstr += 1
@@ -95,38 +93,35 @@ def _constrain_equal_rec(rts, arg0, arg1, config=None):
   constrain the subvariables to be equal.  The arguments must all be free
   variables (or arguments convertible to free variables) of the same type.
 
-  Example:
-  --------
-  1. Suppose the arguments are free variables x and y, x has been narrowed to a
-  non-empty list, (x0:x1), and y is uninstantiated.  Assuming lists are defined
-  with constructor Nil before Cons, this implies xR is in the fingerprint
-  (where x is the ID of variable x).  This function would instantiate y,
-  creating fresh variables y0, y1, and giving it the generator "[] ?_y
-  (y0:y1)"; update the fingerprint with yR; and evaluate the equational
-  constraints x0 =:= y0 and x1 =:= y1.  Symbol ?_y means a choice whose ID
-  equals the ID of variable y.
+  Examples:
+    1. Suppose the arguments are free variables x and y, x has been narrowed to a
+    non-empty list, (x0:x1), and y is uninstantiated.  Assuming lists are defined
+    with constructor Nil before Cons, this implies xR is in the fingerprint
+    (where x is the ID of variable x).  This function would instantiate y,
+    creating fresh variables y0, y1, and giving it the generator "[] ?_y
+    (y0:y1)"; update the fingerprint with yR; and evaluate the equational
+    constraints x0 =:= y0 and x1 =:= y1.  Symbol ?_y means a choice whose ID
+    equals the ID of variable y.
 
-  If all these operations succeed in the sense that none invalidate the
-  fingerprint, then True is returned.
+    If all these operations succeed in the sense that none invalidate the
+    fingerprint, then True is returned.
 
-  2. Suppose neither free variable was narrowed.  This function does
-  nothing and returns True.
+    2. Suppose neither free variable was narrowed.  This function does
+    nothing and returns True.
 
-  Parameters:
-  -----------
-    ``arg0``, ``arg1``
+  Args:
+    arg0, arg1:
         The arguments to check.  Each must be a choice or free variable node,
         or ID. If any associated ID does not correspond to a free variable in
         the ``vtable`` then this function does nothing.  At least one of the
         variables must have been narrowed in the given configuration.
 
-     ``config``
+     config:
         The configuration to use as context.
 
   Returns:
-  --------
-  A Boolean indicating whether the new constraints succeeded (i.e., could be
-  consistent).
+    A Boolean indicating whether the new constraints succeeded (i.e., could be
+    consistent).
   '''
   try:
     xs = [rts.get_freevar(x) for x in [arg0, arg1]]

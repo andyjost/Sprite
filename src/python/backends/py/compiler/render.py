@@ -29,27 +29,25 @@ class Renderer(object):
     '''
     Renders the Python IR as Python source code.
 
-    Parameters:
-    -----------
-      ``width``
+    Args:
+      width:
         The ideal line length.
 
-      ``indent``
+      indent:
         The number of spaces to prefix for each indentation level.
 
-      ``hcol``
+      hcol:
         The column at which to start side-by-side content.
 
-      ``istart``
+      istart:
         The starting indentation level.  This time ``indent`` gives the
         starting column for each line.
 
-      ``cpred``
+      cpred:
         A predicate for closure keys indicating which items to include.
 
     Returns:
-    -------
-    A string
+      A string of Python code.
     '''
     self.width = width
     self.indent = indent

@@ -60,21 +60,19 @@ def copygraph(expr, memo=None, **kwds):
   '''
   Copies a Curry expression with the option to remove certain nodes.
 
-  Parameters:
-  -----------
-    ``expr``
+  Args:
+    expr:
       An instance of ``graph.Node`` or a built-in type such as ``int``,
       ``str``, or ``float``.
 
-    ``skipfwd``
+    skipfwd:
       Indicates whether to skip FWD nodes.
 
-    ``skipgrds``
+    skipgrds:
       A container of set identifer indicating which set guards to skip.
 
   Returns:
-  --------
-  A deep copy of ``expr``.
+    A deep copy of ``expr``.
 
   '''
   copier = GraphCopier(skipper=Skipper(**kwds))

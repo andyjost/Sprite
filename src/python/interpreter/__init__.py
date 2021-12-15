@@ -8,58 +8,38 @@ instance has a separate copy of the settings and runtime.
 __all__ = ['Interpreter']
 
 from .. import config, context, exceptions, icurry, utility
+from . import flags as _flagmod, import_
 from ..objects.handle import getHandle
-from . import import_
-from ..utility import curryname, flagutils
+from six.moves import reload_module
+from ..utility.binding import binding
+from ..utility import curryname, formatDocstring
 import itertools, logging, os, sys
 
 logger = logging.getLogger(__name__)
 
-@utility.formatDocstring(config.default_backend())
+@utility.formatDocstring(config.python_package_name())
 class Interpreter(object):
   '''
   A Curry interpreter.
 
-  Use ``import_`` to add modules to the system.  Then use ``eval`` to evaluate
-  expressions.
+  Use :meth:`import_` to add modules to the system.  Use :meth:`eval` to
+  evaluate expressions.
 
-  Supported flags:
-  ----------------
-      ``backend`` ({0!r})
-          The name of the backend used to compile and run Curry.
-      ``debug`` (True|*False*)
-          Sacrifice speed to add more consistency checks and enable debugging
-          with PDB.
-      ``defaultconverter`` ('topython'|*None*)
-          Indicates how to convert Curry results when returning to Python.
-          With no conversion a list value, for example, is returned as a Curry
-          list.  The 'topython' converter converts lists, tuples, strings,
-          numbers, and other basic objects to their Python equivalents.
-      ``trace`` (True|*False*)
-          Trace computations.
-      ``keep_temp_files``  (True|*False*|<str>)
-          Keep temporary files and directories.  If a nonempty string is
-          supplied, then it is treated as a directory name and all temporary
-          files will be written there.
-      ``lazycompile`` (*True*|False)
-          Functions are not materialized until the first time they are needed.
-      ``postmortem`` (*True*|False)
-          When compiling a string of Curry code fails, copy the generated code
-          to the current working directory for post-mortem analysis.
-      ``setfunction_strategy`` (*'lazy'*|'eager')
-          Indicates how to evaluate set functions.  If 'lazy', then set guards
-          are used (similar to KiCS2).  Otherwise, each argument is reduced to
-          ground normal form before applying the set function (similar to
-          PAKCS).
-      ``telemetry_interval`` (*None*|<number>)
-          Specifies the number of seconds between event reports in the log
-          output.  Events provide information about the state of the runtime
-          system, such as the number of nodes created or steps performed.  If
-          None or non-positive, this information is not reported.
+  Attributes:
+      flags:
+        A dict containing the configuration flags.  Modify this to change
+        the behavior of the Curry system.  See :mod:`{0}.interpreter.flags`.
+      modules:
+        A dict containing the imported Curry modules.  This maps module names
+        to :class:`CurryModule <{0}.objects.CurryModule>` objects.
+      path:
+        A list of strings specifying the Curry search path.  Modify this to
+        adjust where to search for Curry files.
+
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
-    self.flags = flagutils.get_default_flags()
+    self.flags = _flagmod.get_default_flags()
     bad_flags = set(flags) - set(self.flags)
     if bad_flags:
       raise ValueError('unknown flag%s: %s' % (
@@ -144,4 +124,13 @@ class Interpreter(object):
   from .optimize import optimize
 
   unbox = staticmethod(unbox)
+
+@formatDocstring(config.python_package_name())
+def reload(name, flags={}):
+  '''Hard-resets the interpreter found in module ``{}``.'''
+  flags = _flagmod.getflags(flags)
+  envflags = ','.join('%s:%s' % (str(k), str(v)) for k,v in flags.items())
+  with binding(os.environ, 'SPRITE_INTERPRETER_FLAGS', envflags):
+    this = sys.modules[name]
+    reload_module(this)
 

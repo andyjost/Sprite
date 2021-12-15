@@ -1,6 +1,6 @@
-========================
-Appendix: A Curry Primer
-========================
+======================
+Appendix: Curry Primer
+======================
 
 This appendix provides an introduction to the type system, syntax, and
 semantics of Curry.  It assumes no prior knowledge of Functional Programming,

@@ -10,7 +10,7 @@ Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 1000
+   :maxdepth: 4
 
    curry.interpreter.import_
 
@@ -18,10 +18,11 @@ Submodules
 ----------
 
 .. toctree::
-   :maxdepth: 1000
+   :maxdepth: 4
 
    curry.interpreter.compile
    curry.interpreter.conversions
    curry.interpreter.eval
+   curry.interpreter.flags
    curry.interpreter.loadsave
    curry.interpreter.optimize

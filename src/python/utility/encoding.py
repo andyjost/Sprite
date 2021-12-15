@@ -157,16 +157,14 @@ def encode(name, prefix='', disallow={}):
   '''
   Encode a Curry name into a legal Python identifier.
 
-  Parameters:
-  -----------
-  ``name``
-      The Curry identifier to encode.
-  ``disallow``
-      A container of disallowed names.
+  Args:
+    name:
+        The Curry identifier to encode.
+    disallow:
+        A container of disallowed names.
 
   Returns:
-  --------
-  A string holding the encoded identifier.
+    A string holding the encoded identifier.
   '''
   a = clean(name)
   k = '%s%s' % (prefix, a)

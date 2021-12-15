@@ -19,34 +19,31 @@ def currentfile(
   The file returned is the newest among the Curry source file (suffix: .curry),
   the ICurry file (suffix: .icy), and the JSON file (suffix: .json or .json.z).
 
-  Parameters:
-  -----------
-  ``name``
-      The module, source file, or package name.
-  ``currypath``
-      A sequence of paths to search (i.e., CURRYPATH split on ':').
-  ``is_sourcefile``
-      Indicates whether to interpret the name as a source file.  If True, the
-      name should end with extension .curry.  Otherwise the name is interpreted
-      as a module or package name.
-  ``json``
-      Whether to include JSON files in the search.  Setting this to false can
-      be used to find an .icy file.
-  ``icy``
-      Whether to include ICurry .icy files in the search.  Setting this to
-      false can be used to search for Curry source code.
+  Args:
+    name:
+        The module, source file, or package name.
+    currypath:
+        A sequence of paths to search (i.e., CURRYPATH split on ':').
+    is_sourcefile:
+        Indicates whether to interpret the name as a source file.  If True, the
+        name should end with extension .curry.  Otherwise the name is
+        interpreted as a module or package name.
+    json:
+        Whether to include JSON files in the search.  Setting this to false can
+        be used to find an .icy file.
+    icy:
+        Whether to include ICurry .icy files in the search.  Setting this to
+        false can be used to search for Curry source code.
 
   Raises:
-  -------
-  ``ModuleLookupError`` if the module is not found.
+    ModuleLookupError: the module was not found.
 
   Returns:
-  --------
-  The name of an ICurry-JSON file (suffix: .json), Curry source file (suffix:
-  .curry) or directory.  The JSON name may have an additional .z suffix.  The
-  JSON file is returned if it is up-to-date, otherwise, the Curry file is
-  returned if it exists.  If neither of those applies, the package directory
-  name is returned, if it exists.
+    The name of an ICurry-JSON file (suffix: .json), Curry source file (suffix:
+    .curry) or directory.  The JSON name may have an additional .z suffix.  The
+    JSON file is returned if it is up-to-date, otherwise, the Curry file is
+    returned if it exists.  If neither of those applies, the package directory
+    name is returned, if it exists.
   '''
   if not is_sourcefile:
     # If name is a module name, then search CURRYPATH for the source file or

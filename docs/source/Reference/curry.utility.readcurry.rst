@@ -10,7 +10,7 @@ Submodules
 ----------
 
 .. toctree::
-   :maxdepth: 1000
+   :maxdepth: 4
 
    curry.utility.readcurry.compare_
    curry.utility.readcurry.lex

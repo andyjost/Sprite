@@ -6,7 +6,7 @@ import logging, os, shutil, tempfile, weakref
 __all__ = ['str2icurry']
 logger = logging.getLogger(__name__)
 
-@formatDocstring(__package__[:__package__.find('.')])
+@formatDocstring(config.python_package_name())
 def str2icurry(
     moduletext
   , currypath=None
@@ -17,24 +17,22 @@ def str2icurry(
   '''
   Compile a string into ICurry.
 
-  Parameters:
-  -----------
-  ``moduletext``
-      A string containing a Curry module definition to compile.
-  ``currypath``
-      A sequence of paths to search (i.e., CURRYPATH split on ':').  By default,
-      ``{0}.path`` is used.
-  ``modulename``
-      The module name.
-  ``keep_temp_files``
-      Whether to keep intermediate files.
-  ``postmoretem``
-      Whether to copy intermediate files to the current working directory upon
-      failure.
+  Args:
+    moduletext:
+        A string containing a Curry module definition to compile.
+    `currypath:
+        A sequence of paths to search (i.e., CURRYPATH split on ':').  By default,
+        ``{0}.path`` is used.
+    `modulename:
+        The module name.
+    `keep_temp_files:
+        Whether to keep intermediate files.
+    `postmoretem:
+        Whether to copy intermediate files to the current working directory upon
+        failure.
 
   Returns:
-  --------
-  The ICurry object.  The attributes __file__ and _tmpd_ will be set.
+    The ICurry object.  The attributes __file__ and _tmpd_ will be set.
   '''
   if keep_temp_files and isinstance(keep_temp_files, str):
     parentdir = filesys.getdir(keep_temp_files)

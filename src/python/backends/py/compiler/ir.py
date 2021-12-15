@@ -8,18 +8,17 @@ class IR(object):
     '''
     The intermediate representation for compiled Python code.
 
-    Parameters:
-    -----------
-      ``icurry``
+    Args:
+      icurry:
         The ICurry for this IR.  Every IFunction body should be implemented as
         ILink.
 
-      ``closure``
+      closure:
         Definitions used by the Python code.  This includes nodeinfo, typedefs,
         and value lists needed at runtime.  When materializing code, these must
         be available.
 
-      ``lines``
+      lines:
         List-formatted Python code defining the compiled functions.
     '''
     self.icurry = icurry

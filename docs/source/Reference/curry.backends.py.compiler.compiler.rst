@@ -10,7 +10,7 @@ Submodules
 ----------
 
 .. toctree::
-   :maxdepth: 1000
+   :maxdepth: 4
 
    curry.backends.py.compiler.compiler.compiler
    curry.backends.py.compiler.compiler.expression

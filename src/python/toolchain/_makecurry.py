@@ -1,3 +1,4 @@
+from .. import config
 from . import _findcurry, _curry2icurry, _icurry2json
 from ..utility import formatDocstring
 import logging, os, shutil, sys
@@ -5,7 +6,7 @@ import logging, os, shutil, sys
 __all__ = ['makecurry']
 logger = logging.getLogger(__name__)
 
-@formatDocstring(__package__[:__package__.find('.')])
+@formatDocstring(config.python_package_name())
 def makecurry(name, currypath=None, **kwds):
   '''
   Run the build toolchain for a Curry target.
@@ -13,22 +14,20 @@ def makecurry(name, currypath=None, **kwds):
   Following this, the specified file is up-to-date and can be loaded.  This
   function uses the timestamps of prerequisite files to avoid repeating steps.
 
-  Parameters:
-  -----------
-  ``name``
-      The module or source file name.
-  ``currypath``
-      A sequence of paths to search (i.e., CURRYPATH split on ':').  By default,
-      ``{0}.path`` is used.
-  ``is_sourcefile``
-      If true, the name arguments is interpreted as a source file.  Otherwise,
-      it is interpreted as a module name.
-  ``kwds``
-      See documentation for sprite-make.
+  Args:
+    name:
+        The module or source file name.
+    currypath:
+        A sequence of paths to search (i.e., CURRYPATH split on ':').  By
+        default, ``{0}.path`` is used.
+    is_sourcefile:
+        If true, the name arguments is interpreted as a source file.
+        Otherwise, it is interpreted as a module name.
+    **kwds:
+        See documentation for :ref:`sprite-make`.
 
   Returns:
-  --------
-  The JSON file name if json=True (the default) was supplied, else None.
+    The JSON file name if json=True (the default) was supplied, else None.
   '''
   if currypath is None:
     from .. import path as currypath

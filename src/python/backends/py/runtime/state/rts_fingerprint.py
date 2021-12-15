@@ -116,20 +116,18 @@ def update_fp(rts, choicestate, arg=None, config=None):
   necessary.  If it is consistent with ``choicestate`` then it is updated and
   True is returned.  Otherwise, False is returned.
 
-  Parameters:
-  -----------
-      ``choicestate``
-          The choice state to set.  Must be a ChoiceState, choice or free
-          variable node, or ID.
-      ``arg``
-          The ID to update in the fingerprint.  Must be a choice or free variable node,
-          or ID.
-      ``config``
-          The Configuration to use as context.
+  Args:
+    choicestate:
+      The choice state to set.  Must be a ChoiceState, choice or free variable
+      node, or ID.
+    arg:
+      The ID to update in the fingerprint.  Must be a choice or free variable
+      node, or ID.
+    config:
+      The Configuration to use as context.
 
   Returns:
-  --------
-  A Boolean indicating whether the change is consistent.
+    A Boolean indicating whether the change is consistent.
   '''
   config = config or rts.C
   choicestate = rts.read_fp(choicestate, config=config)

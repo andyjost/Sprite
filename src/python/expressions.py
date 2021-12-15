@@ -1,4 +1,4 @@
-from . import context, icurry, objects, utility
+from . import config, context, icurry, objects, utility
 from .exceptions import CurryTypeError
 from .utility import strings, visitation
 import collections, itertools, numbers, six
@@ -107,69 +107,63 @@ class choice(object):
     self.lhs = lhs
     self.rhs = rhs
 
-@utility.formatDocstring(__package__[:__package__.find('.')])
+@utility.formatDocstring(config.python_package_name())
 def expr(interp, *args, **kwds):
   '''
   Builds a Curry expression.
 
-  The arguments form an expression specification.  Each positional argument
-  must either be directly convertible to Curry or describe a node.  The
-  following direct conversions are recognized:
+  The arguments specify the expression to build.  Each positional argument must
+  be directly convertible to Curry or describe a node.  The following direct
+  conversions are recognized:
 
-  ``bool``
-    Converted to ``Prelude.Bool``.
-  ``float``
-    Converted to ``Prelude.Float``.
-  ``int``
-    Converted to ``Prelude.Int``.
-  ``iterator``
-    Lazily Converted to a list.
-  ``list``
-    Eagerly Converted to a list.
-  ``str``
-    For strings of length one, Prelude.Char.  Otherwise, ``[Prelude.Char]``.
-  ``tuple``
-    Converted to a Curry tuple.
+    * ``bool``:
+      Converted to ``Prelude.Bool``.
+    * ``float``
+      Converted to ``Prelude.Float``.
+    * ``int``
+      Converted to ``Prelude.Int``.
+    * ``iterator``
+      Lazily Converted to a Curry list.
+    * ``list``
+      Eagerly Converted to a Curry list.
+    * ``str``
+      For strings of length one, ``Prelude.Char``.  Otherwise, ``[Prelude.Char]``.
+    * ``tuple``
+      Converted to a Curry tuple.
 
   Any (possibly nested) sequence whose first element is an instance of
-  ``{0}.runtime.CurryNodeInfo`` specifies a node.  The remaining arguments are
-  recursivly converted to Curry expressions to form the successors list.  Thus,
-  given suitable definitions, it is possible to build the Curry list
-  ``[0,1,2]`` with the following code:
+  :class:`NodeInfo <{0}.objects.CurryNodeInfo>` specifies a node.  The remaining
+  arguments are recursively converted to Curry expressions to form the
+  successors list.  Thus, given suitable definitions, it is possible to build
+  the Curry list ``[0,1,2]`` with the following code:
 
       expr([Cons, 0, [Cons, 1, [Cons, 2, Nil]]])
 
-  Several special symbols are recognized and can be used to control the
-  conversion.  See ``anchor``, ``cons``, ``nil``, ``ref``, and ``unboxed``.
+  Several special symbols are provided.  See :class:`anchor`, :class:`choice`,
+  :class:`cons`, :data:`fail`, :class:`free`, :class:`nil`, :class:`ref`, and
+  :class:`unboxed`.
 
-  Parameters:
-  -----------
-  ``interp``
-      An interpreter object.
-  ``*args``
-      Positional arguments used to construct expressions.
-  ``**kwds``
-      Keyword arguments specifying subexpressions that may be referenced via
-      ``ref``.  Each keyword specifies the name of an anchor.  See the examples
-      below.
-  ``target``
-      Reserved keyword-only argument.  If a target is supplied, then it will be
-      rewritten with the specified expression.  Otherwise a new node is
-      created.
+  Args:
+    interp:
+        An interpreter object.
+    *args:
+        Positional arguments used to construct expressions.
+    **kwds:
+        Keyword arguments specifying subexpressions that may be referenced via
+        ``ref``.  Each keyword specifies the name of an anchor.  See the
+        examples below.
+    target:
+        Reserved keyword-only argument.  If a target is supplied, then it will
+        be rewritten with the specified expression.  Otherwise a new node is
+        created.
 
   Returns:
-  --------
-  An instance of ``object.CurryExpression``.
+    A Curry expression.
   '''
-  raw = raw_expr(interp, *args, **kwds)
-  # return objects.CurryExpression(raw)
-  return raw
+  return raw_expr(interp, *args, **kwds)
 
 def raw_expr(interp, *args, **kwds):
-  '''
-  Like ``expr`` except the result is not wrapped.  It will either be an unboxed
-  expression or a backend-dependent instance of ``context.Node``.
-  '''
+  '''Equivalent to expr.'''
   builder = ExpressionBuilder(interp)
   target = kwds.pop('target', None)
   for anchorname, subexpr in six.iteritems(kwds):

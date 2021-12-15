@@ -89,20 +89,18 @@ def insertSymbol(module, basename, nodeinfo, private=False):
   All symbols are added to the module's '.symbols' dict.  Public symbols are
   also bound directly to the module itself.
 
-  Parameters:
-  -----------
-  ``module``
-      An instance of ``CurryModule``.
-  ``basename``
-      A stirng containing the unqualified symbol name.
-  ``nodeinfo``
-      The nodeinfo for this symbol.
-  ``private``
-      Whether this is a private symbol.
+  Args:
+    module:
+        An instance of ``CurryModule``.
+    basename:
+        A stirng containing the unqualified symbol name.
+    nodeinfo:
+        The nodeinfo for this symbol.
+    private:
+        Whether this is a private symbol.
 
   Returns:
-  --------
-  Nothing.
+    Nothing.
   '''
   getattr(module, '.symbols')[basename] = nodeinfo
   if not private and encoding.isaCurryIdentifier(basename):

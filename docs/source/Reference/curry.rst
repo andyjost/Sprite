@@ -10,7 +10,7 @@ Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 1000
+   :maxdepth: 4
 
    curry.backends
    curry.icurry
@@ -25,7 +25,7 @@ Submodules
 ----------
 
 .. toctree::
-   :maxdepth: 1000
+   :maxdepth: 4
 
    curry.cache
    curry.common

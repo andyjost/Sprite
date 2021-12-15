@@ -9,18 +9,17 @@ def eval(interp, *args, **kwds):
   '''
   Evaluate a Curry goal.
 
-  Parameters:
-  -----------
-  ``*args``
-      Positional arguments that specify the goal.  These are passed to
-      ``Interpreter.expr``.
-  ``converter``
-      Keyword-only argument specifying the converter to use when returning
-      results.  The default is 'default'.  See ``conversions.getconverter``.
+  Args:
+    *args:
+        Positional arguments that specify the goal.  These are passed to
+        ``Interpreter.expr``.
+    converter:
+        Keyword-only argument specifying the converter to use when returning
+        results.  The default is 'default'.  See
+        :func:``curry.interpreter.conversions.getconverter``.
 
   Returns:
-  --------
-  A generator producing the values of the specified Curry program.
+    A generator producing the values of the specified Curry program.
   '''
   converter = kwds.pop('converter', 'default')
   convert = conversions.getconverter(

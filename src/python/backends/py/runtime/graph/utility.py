@@ -9,32 +9,42 @@ def copy_spine(root, realpath, end=None, rewrite=None):
   '''
   Copies the spine from ``root`` along ``realpath``.
 
-  Parameters:
-  -----------
-    ``root``
+  Args:
+    root:
       The node at which to begin.
 
-    ``realpath``
+    realpath:
       The real path along which to copy.
 
-    ``end``
-      If supplied, this expression is placed at the end of the spine copied.
+    end:
+      The expression to place at the end of the copied spine.
 
-    ``rewrite``
-      Specifies a node to rewrite with the result.
+    rewrite:
+      A node to rewrite with the result.
 
   Returns:
-  --------
-  The root of the copied expression.
+    The root of the copied expression.
+
+  Example:
+
+    The following command could perform the transformation shown after:
+
+      >>> copy_spine(root=f, path=[1,0], end=u)
+
+    ::
+
+             f                f'
+           / | \   ---->    / | \ 
+          A  B  C          A  B' C
+             |                |
+             ?                u
+            / \ 
+           u   v
+
+    Supplying ``rewrite=f`` would overwrite ``f`` rather than create a new
+    node, ``f'``.
+
   '''
-  # Example:
-  #      f      path=[1,0]                     f'
-  #    / | \                                 / | \
-  #   A  B  C   -- copy_spine(end=u) -->    A  B' C
-  #      |                                     |
-  #      ?                                     u
-  #     / \
-  #    u   v
   from .node import Node
   def construct(node, path, target=None):
     if path:
@@ -51,33 +61,33 @@ def curry(rts, f, *args, **kwds):
   '''
   Curries a function with a list of arguments.
 
-  Parameters:
-  -----------
-    ``f``
+  Args:
+    f:
       The expression to apply.  If this is a Node, it is simply used.
       Otherwise, it must have an 'info' attribute with information about a
       function or constructor node.  That will be used to create a partial
       application object or expression, in the case of a nullary symbol.
 
-    ``args``
+    args:
       The arguments that ``f`` shall be applied to.
 
-    ``fapply``
+    fapply:
       A keyword-only argument indicating which function to use for
-      applications.  By default, Prelude.apply is used.  If a string
-      is provided, it is used to look up a symbol in the Prelude.  Otherwise,
-      the supplied argument should be node info.
+      applications.  By default, ``Prelude.apply`` is used.  If a string is
+      provided, it is used to look up a symbol in the Prelude.  Otherwise, the
+      supplied argument should be node info.
+
+  Returns:
+    A Curry expression.
 
   Examples:
-  ---------
-
-  1. ``curry(f, a, b)`` returns the expression ``apply(apply(f, a), b)``.
-  2. ``curry(prelude.Nil)`` creates the empty list.
-  3. ``curry(prelude.Cons)`` creates the partial application ``(:)``; i.e., the
-     list constructor applied to no arguments.
-  4. ``curry(prelude.Cons, 1)`` creates the partial list ``(1:)``. ; i.e., the
-     list constructor applied to 1.
-  5. ``curry(f, a, fapply='$##')`` returns the expression ``f $## a``.
+    1. ``curry(f, a, b)`` returns the expression ``apply(apply(f, a), b)``.
+    2. ``curry(prelude.Nil)`` creates the empty list.
+    3. ``curry(prelude.Cons)`` creates the partial application ``(:)``; i.e., the
+       list constructor applied to no arguments.
+    4. ``curry(prelude.Cons, 1)`` creates the partial list ``(1:)``. ; i.e., the
+       list constructor applied to 1.
+    5. ``curry(f, a, fapply='$##')`` returns the expression ``f $## a``.
   '''
   from .node import Node
   fapply = kwds.pop('fapply', 'apply')

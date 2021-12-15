@@ -1,7 +1,7 @@
-curry.utility.flagutils module
+curry.interpreter.flags module
 ==============================
 
-.. automodule:: curry.utility.flagutils
+.. automodule:: curry.interpreter.flags
    :members:
    :undoc-members:
    :show-inheritance:

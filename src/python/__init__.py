@@ -5,17 +5,18 @@ This package contains everything one needs to compile and execute Curry code.
 The topmost module provides an instance of the Curry system and an API to
 interact with it.
 
-To perform a soft reset call ``reset``.  This returns the system to its
+To perform a soft reset call :func:`reset`.  This returns the system to its
 original state, with no definitions and no modules imported.  The configuration
 is taken from environment variable SPRITE_INTERPRETER_FLAGS.  To change that at
-runtime, use the ``reload`` function while specifying new flags.
+runtime, call :func:`reload` and specify new flags.
 
-Use ``import_`` to import Curry modules, ``compile`` to compile Curry code,
-``expr`` to build Curry expressions, and ``eval`` to evaluate them.  ``path``
-determines where Sprite searches for Curry code.  Loaded modules can be found
-under ``modules``.  Use ``topython`` to convert Curry values to Python objects.
+Use :func:`import_` to import Curry modules, :func:`compile` to compile Curry
+code, :func:`expr` to build Curry expressions, and :func:`eval` to evaluate
+them.  :data:`path` determines where Sprite searches for Curry code.  Loaded
+modules can be found under :data:`modules`.  Use :func:`topython` to convert
+Curry values to Python objects.
 
-*Example* ::
+Example:
 
     >>> mymodule = curry.compile("""
     ... data Item = A | B
@@ -82,23 +83,43 @@ del os
 from .exceptions import *
 from .expressions import choice, cons, fail, free, nil, ref, unboxed
 from . import interpreter, lib
-from .utility import flagutils as _flagutils
+from .interpreter import flags as _flags
 from .utility import visitation as _visitation
 import collections as _collections
 import six as _six
 
-_interpreter_ = interpreter.Interpreter(flags=_flagutils.getflags())
+_interpreter_ = interpreter.Interpreter(flags=_flags.getflags())
 
 compile = _interpreter_.compile
 currytype = _interpreter_.currytype
 eval = _interpreter_.eval
 expr = _interpreter_.expr
 flags = _interpreter_.flags
+'''
+The ``flags`` attribute of the global interpreter.  Modify this to reconfigure
+the interpreter.
+
+:meta hide-value:
+'''
 import_ = _interpreter_.import_
 load = _interpreter_.load
 module = _interpreter_.module
 modules = _interpreter_.modules
+'''
+The ``modules`` attribute of the global interpreter.  This is a ``dict`` that
+contains the imported Curry modules.
+
+:meta hide-value:
+'''
+
 path = _interpreter_.path
+'''
+The ``path`` attribute of the global interpreter.  Modify this to dynamically
+adjust the Curry search path.
+
+:meta hide-value:
+'''
+
 raw_expr = _interpreter_.raw_expr
 reset = _interpreter_.reset
 save = _interpreter_.save
@@ -116,7 +137,7 @@ def reload(flags={}):
   constructor, overriding flags supplied via the environment variable
   SPRITE_INTERPRETER_FLAGS.
   '''
-  _flagutils.reload(__name__, flags)
+  interpreter.reload(__name__, flags)
 
 
 class ShowValue(object):

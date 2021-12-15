@@ -28,10 +28,9 @@ class E_RESIDUAL(RuntimeFlowException):
   '''Raised when evaluation cannot complete due to uninstantiated free variables.'''
   def __init__(self, ids):
     '''
-    Parameters:
-    -----------
-        ``ids``
-            A collection of free variable IDs (ints) blocking evaluation.
+    Args:
+      ``ids``
+          A collection of free variable IDs (ints) blocking evaluation.
     '''
     assert all(isinstance(x, int) for x in ids)
     self.ids = set(ids)

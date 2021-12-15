@@ -8,30 +8,27 @@ __all__ = ['loadicurry', 'loadjson']
 
 logger = logging.getLogger(__name__)
 
-@formatDocstring(__package__[:__package__.find('.')])
+@formatDocstring(config.python_package_name())
 def loadicurry(name, currypath=None, **kwds):
   '''
   Loads into Python the ICurry for a Curry module or source file, building if
   necessary.
 
-  Parameters:
-  -----------
-  ``name``
-      The source file, module, or package name.
-  ``currypath``
-      A sequence of paths to search (i.e., CURRYPATH split on ':').  By default,
-      ``{0}.path`` is used.
-  ``is_sourcefile``
-      If true, the name arguments is interpreted as a source file.  Otherwise,
-      it is interpreted as a module name.
+  Args:
+    name:
+        The source file, module, or package name.
+    currypath:
+        A sequence of paths to search (i.e., CURRYPATH split on ':').  By
+        default, ``{0}.path`` is used.
+    is_sourcefile:
+        If true, the name arguments is interpreted as a source file.
+        Otherwise, it is interpreted as a module name.
 
   Raises:
-  -------
-  ``ModuleLookupError`` if the module is not found.
+    ModuleLookupError: the module was not found.
 
   Returns:
-  --------
-  A Python object containing the ICurry for the given name.
+    A Python object containing the ICurry for the given name.
   '''
   filename = _makecurry.makecurry(name, currypath, **kwds)
   logger.debug('Found module %s at %s', name, filename)

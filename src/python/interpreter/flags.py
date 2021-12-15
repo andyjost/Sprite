@@ -1,18 +1,45 @@
-'''
-Utilities for working with interpreter flags.
-
-The curry module provides a global interpreter instance whose flags are
-controlled by the environment variable SPRITE_INTERPRETER_FLAGS.  Only this
-interpreter is affected by the environment.  This module contains functions for
-working with the flags that come from the environment.
-'''
-from .binding import binding
 from .. import config
-from six.moves import reload_module
-from ..utility import formatDocstring
 import logging, os, sys
 
 logger = logging.getLogger(__name__)
+
+__doc__ =\
+'''
+Defines the flags used to configure a Curry interpreter.  The following flags
+are available:
+
+  * ``backend`` ({0!r})
+      The name of the backend used to compile and run Curry.
+  * ``debug`` (True|*False*)
+      Sacrifice speed to add more consistency checks and enable debugging
+      with PDB.
+  * ``defaultconverter`` ('topython'|*None*)
+      Indicates how to convert Curry results when returning to Python.
+      With no conversion a list value, for example, is returned as a Curry
+      list.  The 'topython' converter converts lists, tuples, strings,
+      numbers, and other basic objects to their Python equivalents.
+  * ``trace`` (True|*False*)
+      Trace computations.
+  * ``keep_temp_files``  (True|*False*|<str>)
+      Keep temporary files and directories.  If a nonempty string is
+      supplied, then it is treated as a directory name and all temporary
+      files will be written there.
+  * ``lazycompile`` (*True*|False)
+      Functions are not materialized until the first time they are needed.
+  * ``postmortem`` (*True*|False)
+      When compiling a string of Curry code fails, copy the generated code
+      to the current working directory for post-mortem analysis.
+  * ``setfunction_strategy`` (*'lazy'*|'eager')
+      Indicates how to evaluate set functions.  If 'lazy', then set guards
+      are used (similar to KiCS2).  Otherwise, each argument is reduced to
+      ground normal form before applying the set function (similar to
+      PAKCS).
+  * ``telemetry_interval`` (*None*|<number>)
+      Specifies the number of seconds between event reports in the log
+      output.  Events provide information about the state of the runtime
+      system, such as the number of nodes created or steps performed.  If
+      None or non-positive, this information is not reported.
+'''.format(config.default_backend())
 
 FLAG_INFO = {
   #  Flag                   Value Spec           Default
@@ -29,9 +56,10 @@ FLAG_INFO = {
   }
 
 def get_default_flags():
+  '''Returns the default flag values.'''
   return {flag: default for flag,(_,default) in FLAG_INFO.items()}
 
-def show(valspec): # pragma no cover
+def _show(valspec): # pragma no cover
   if isinstance(valspec, str):
     return repr(valspec)
   if isinstance(valspec, set):
@@ -40,16 +68,16 @@ def show(valspec): # pragma no cover
       return repr(list(valspec).pop())
     else:
       return '%s or %s' % (
-          ', '.join(map(show, valspec[:-1]))
-        , show(valspec[-1])
+          ', '.join(map(_show, valspec[:-1]))
+        , _show(valspec[-1])
         )
   elif isinstance(valspec, tuple):
     if len(valspec) == 1:
       return repr(valspec[0])
     else:
       return '%s or %s' % (
-          ', '.join(map(show, valspec[:-1]))
-        , show(valspec[-1])
+          ', '.join(map(_show, valspec[:-1]))
+        , _show(valspec[-1])
         )
   elif valspec is bool:
     return 'a Boolean'
@@ -61,9 +89,9 @@ def show(valspec): # pragma no cover
     return 'a number'
   assert False
 
-def convert(given, valspec): # pragma no cover
+def _convert(given, valspec): # pragma no cover
   if isinstance(valspec, set):
-    xs = [x for x in [convert(given, tgt) for tgt in valspec]
+    xs = [x for x in [_convert(given, tgt) for tgt in valspec]
             if x is not NotImplemented]
     if len(xs) == 1:
       return xs.pop()
@@ -96,33 +124,46 @@ def convert(given, valspec): # pragma no cover
       return None
   elif isinstance(valspec, tuple):
     for t in valspec:
-      v = convert(given, t)
+      v = _convert(given, t)
       if v is not NotImplemented:
         return v
   return NotImplemented
 
-def flagval(flag, given, currentflags): # pragma: no cover
+def _flagval(flag, given, currentflags): # pragma: no cover
   if flag not in FLAG_INFO:
     logger.warn('unknown flag: %r', flag)
     return NotImplemented
   else:
     valspec, default = FLAG_INFO[flag]
-    converted = convert(given, valspec)
+    converted = _convert(given, valspec)
     if converted is NotImplemented:
       logger.warn('cannot convert %r to a value for flag %r', given, flag)
       logger.warn('the prior value %r will be used'
         , str(currentflags.get(flag, default)))
-      logger.warn('note: expected %s', show(valspec))
+      logger.warn('note: expected %s', _show(valspec))
     return converted
 
 def getflags(flags={}, weakflags={}):
   '''
-  Reads interpreter flags from the environment variable
-  SPRITE_INTERPRETER_FLAGS and then combines them with the ones supplied to
-  this function.
+  Merges flags specified in the environement with those supplied.
 
-  Those supplied via ``flags`` supercede ones found in the environment.  Those
-  supplied via ``weakflags`` are superceded by ones found in the environment.
+  Reads flags from the environment variable SPRITE_INTERPRETER_FLAGS,
+  interprets them as Python values, and then combines them with the ones
+  supplied to this function.
+
+  The precedence order is as follows:
+
+      ``flags`` > SPRITE_INTERPRETER_FLAGS > ``weakflags`` > defaults
+
+  Args:
+    flags:
+      A dict containing flag settings with the highest precedence.
+    weakflags:
+      A dict containing flag settings with the lowest precedence (aside from
+      defaults).
+
+  Returns:
+    A dict containing the combined flag settings.
   '''
   flags_out = {}
   flags_out.update(weakflags)
@@ -131,18 +172,8 @@ def getflags(flags={}, weakflags={}):
     flags_out.update({
         flag: converted for e in envflags.split(',')
                         for flag, given in [e.split(':')]
-                        for converted in [flagval(flag, given, flags_out)]
+                        for converted in [_flagval(flag, given, flags_out)]
                         if converted is not NotImplemented
       })
   flags_out.update(flags)
   return flags_out
-
-@formatDocstring(__package__[:__package__.find('.')])
-def reload(name, flags={}):
-  '''Hard-resets the interpreter found in module "{}".'''
-  flags = getflags(flags)
-  envflags = ','.join('%s:%s' % (str(k), str(v)) for k,v in flags.items())
-  with binding(os.environ, 'SPRITE_INTERPRETER_FLAGS', envflags):
-    this = sys.modules[name]
-    reload_module(this)
-

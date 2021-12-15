@@ -57,16 +57,14 @@ def findfiles(searchpaths, names):
   '''
   Searches the specified paths for a file with the given name.
 
-  Parameters:
-  -----------
-  ``searchpaths``
-      A sequence of paths to search.
-  ``names``
-      A sequence of file names to search for.
+  Args:
+    searchpaths:
+        A sequence of paths to search.
+    names:
+        A sequence of file names to search for.
 
   Returns:
-  --------
-  A sequence containing the files found.
+    A sequence containing the files found.
   '''
   if isinstance(searchpaths, str):
     searchpaths = [searchpaths]

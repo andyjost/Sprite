@@ -16,27 +16,29 @@ def compile(
   interpreted as a Curry module.  In mode 'expr', the string is interpreted
   as a Curry expression.
 
-  Parameters:
-  -----------
-  ``string``
-      A string containing Curry code.
-  ``mode``
-      Indicates how to interpret the string (see above).
-  ``imports``
-      Names additional modules to import.  Import statements will be prepended
-      to the code string and CURRYPATH will be adjusted accordingly.  This can
-      be useful when importing a dynamically-generated module whose name and
-      location on disk are difficult to find.
-  ``exprtype``
-      A string specifying the expression type. Used only in 'expr' mode.
-  ``modulename``
-      Specifies the module name.  Used only in 'module' mode.  If the name
-      begins with an underscore, then it will not be placed in
-      ``Interpreter.modules``.  By default, a unique name is chosen.
+  Args:
+    string:
+        A string containing Curry code.
+    mode:
+        Indicates how to interpret the string (see above).
+    imports:
+        A list specifying additional modules to import.  The elements can be
+        strings or ``CurryModule`` objects.  Import statements will be
+        prepended to the code string and CURRYPATH will be adjusted
+        accordingly.  This can be useful when importing dynamically-compiled
+        modules whose names and locations are difficult to obtain.
+    exprtype:
+        A string specifying the expression type. This is what would appear to
+        the right of ``::`` in a Curry type annotation for the expression.
+        Used only in 'expr' mode.
+    modulename:
+        Specifies the module name.  Used only in 'module' mode.  If the name
+        begins with an underscore, then it will not be placed in
+        :data:`curry.interpreter:Interpreter.modules`.  By default, a unique
+        name is chosen.
 
   Returns:
-  --------
-  In 'module' mode, a Curry module.  In 'expr' mode, a Curry expression.
+    In 'module' mode, a Curry module.  In 'expr' mode, a Curry expression.
   '''
   stmts, currypath = getImportSpecForExpr(
       interp, [] if imports is None else imports
@@ -96,43 +98,41 @@ def compile(
   else:
     raise TypeError('expected mode %r or %r' % ('module', 'expr'))
 
-def getImportSpecForExpr(interpreter, modules):
+def getImportSpecForExpr(interp, modules):
   '''
   Generates the import statements and the CURRYPATH to use when compiling a
   standalone Curry expression.
 
-  Parameters:
-  -----------
-  ``interpreter``
-      The interpreter.
-  ``modules``
-      The list of modules to import.  Each one may be a string or a Curry
-      module object.  Instead of a list, a module object may be passed.
+  Args:
+    interp:
+        The interpreter.
+    modules:
+        The list of modules to import.  Each one may be a string or a Curry
+        module object.  Instead of a list, a module object may be passed.
 
   Returns:
-  --------
-  A pair consisting of a list of Curry import statements and the updated search
-  path.
+    A pair consisting of a list of Curry import statements and the updated
+    search path.
   '''
   stmts = []
-  currypath = list(interpreter.path)
+  currypath = list(interp.path)
   if isinstance(modules, objects.CurryModule):
     modules = [modules]
   for module in modules:
-    _updateImports(interpreter, module, stmts, currypath)
+    _updateImports(interp, module, stmts, currypath)
   return stmts, currypath
 
 @dispatch.on('module')
-def _updateImports(interpreter, module, stmts, currypath):
+def _updateImports(interp, module, stmts, currypath):
   assert False
 
 @_updateImports.when(six.string_types)
-def _updateImports(interpreter, modulename, stmts, currypath):
-  module = interpreter.modules[modulename]
-  return _updateImports(interpreter, module, stmts, currypath)
+def _updateImports(interp, modulename, stmts, currypath):
+  module = interp.modules[modulename]
+  return _updateImports(interp, module, stmts, currypath)
 
 @_updateImports.when(types.ModuleType)
-def _updateImports(interpreter, module, stmts, currypath):
+def _updateImports(interp, module, stmts, currypath):
   if module.__name__ != '_System':
     stmts.append('import ' + module.__name__)
     # If this is a dynamic module, add its directory to the search path.

@@ -16,20 +16,18 @@ CONVERT_JSON_INTERNALLY = True
 
 def icurry2json(icurryfile, currypath, **kwds):
   '''
-  Calls "icurry2jsontext" to produce an ICurry-JSON file.
+  Calls ``icurry2jsontext`` to produce an ICurry-JSON file.
 
-  Parameters:
-  -----------
-  ``curryfile``
-      The name of the Curry file to convert.
-  ``currypath``
-      The list of Curry code search paths.
-  ``kwds``
-      Additional keywords.  See ICurry2JsonConverter.
+  Args:
+    curryfile:
+        The name of the Curry file to convert.
+    currypath:
+        The list of Curry code search paths.
+    **kwds:
+        Additional keywords.  See :class:`ICurry2JsonConverter`.
 
   Returns:
-  -------
-  The JSON file name.  May end with .json or .json.z.
+    The JSON file name.  May end with .json or .json.z.
   '''
   return ICurry2JsonConverter(**kwds).convert(icurryfile, currypath)
 

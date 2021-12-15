@@ -143,22 +143,20 @@ def hnf(rts, var, typedef=None, values=None):
   This function either succeeds and returns the updated variable or raises an
   exception.
 
-  Parameters:
-  -----------
-    ``var``
+  Args:
+    var:
       An instance of ``Variable``.
 
-    ``typedef``
+    typedef:
       The type of the inductive position.  Needed when ``var`` is a free
       variable.
 
-    ``values``
+    values:
       An optional list of integers, floats, or characters indicating the values
       that may occur at the inductive position.  This is only meaningful when
       ``typedef`` is Prelude.Int, Prelude.Float, or Prelude.Char.
 
   Returns:
-  --------
     The updated variable, ``var``.
   '''
   rts.telemetry._enterhnf += 1

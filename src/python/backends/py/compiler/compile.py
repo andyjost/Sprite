@@ -1,5 +1,5 @@
 from .compiler import FunctionCompiler
-from .... import icurry
+from .... import config, icurry
 from . import misc, statics, synthesis
 from .ir import IR
 from ....utility import formatDocstring, visitation
@@ -8,24 +8,22 @@ import collections, logging, six
 logger = logging.getLogger(__name__)
 __all__ = ['compile', 'compileEx']
 
-@formatDocstring(__package__[:__package__.find('.')])
+@formatDocstring(config.python_package_name())
 def compile(interp, icy, extern=None):
   '''
   Compiles ICurry into IR.
 
-  Parameters:
-  -----------
-  ``interp``
+  Args:
+    interp:
       The interpreter that owns this function.
-  ``icy``
+    icy:
       ICurry for the function to compile.
-  ``extern``
+    extern:
       An instance of ``{0}.icurry.IModule`` used to resolve external
       declarations.
 
   Returns:
-  --------
-  Python IR for the given function.
+    Python IR for the given function.
   '''
   closure = statics.Closure()
   lines = []

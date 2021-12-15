@@ -140,13 +140,12 @@ def currypath(reset=False, cache=[]):
   Gets the Curry path from the environment variable CURRYPATH and appends the
   system path.
 
-  Parameters:
-  -----------
-    ``reset``
+  Args:
+    reset:
       If true, the cache will be cleared and the Curry path reloaded from the
       environment.
 
-    ``cache``
+    cache:
       A list into which the Cury path is cached.
   '''
   if reset:

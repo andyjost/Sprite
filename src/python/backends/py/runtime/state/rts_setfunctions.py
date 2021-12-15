@@ -117,12 +117,14 @@ def walk_qstack(rts, firstconfig=None):
   Walk the chain of active configurations up the queue stack.  This visits each
   set function application up to the top.
 
-  Parameters:
-  -----------
-    ``firstconfig``
+  Args:
+    firstconfig:
       The optional first (i.e., current) configuration.  If provided , it will
       take the place of the current configuration.  This does not affect any
       parent configuration in the chain.
+
+  Yields:
+    Each active configuration on the stack.
   '''
   firstconfig = rts.C if firstconfig is None else firstconfig
   yield firstconfig

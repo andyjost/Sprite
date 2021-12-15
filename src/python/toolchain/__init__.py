@@ -4,11 +4,13 @@ Code for finding and converting Curry source.
 Contains functions for invoking the toolchain to build ICurry and ICurry-JSON
 files.  The following file types are used:
 
-  Suffix      Ext. Tool        Description
-  +-------    +----------      +---------------------------------------
+::
+
+  Suffix      External Tool    Description
+  +--------   +--------------  +---------------------------------------
   .curry                       Curry source code.
   .icy        icurry           ICurry code in Curry format.
-  .json[.z]   icurry2jsontext  ICurry code in JSON format [compressed].
+  .json[.z]                    ICurry code in JSON format [compressed].
 '''
 
 from ._curry2icurry import curry2icurry

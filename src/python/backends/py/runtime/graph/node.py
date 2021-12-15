@@ -59,27 +59,29 @@ def new_node(cls, info, *args, **kwds):
   there.  This low-level function is intended for internal use only.  To
   construct an expression, use ``Interpreter.expr``.
 
-  Parameters:
-  -----------
-  ``info``
-    An instance of ``CurryNodeInfo`` or ``InfoTable`` indicating the kind of node to
-    create.
+  Args:
+    info:
+      An instance of ``CurryNodeInfo`` or ``InfoTable`` indicating the kind of node to
+      create.
 
-  ``*args``
-    The successors.  Each one should be a Node, built-in data object, or
-    None.  The value None is not a valid successor, but is used to construct
-    cyclic expressions.  These must be replaced before the object is used as
-    an expression.  The number of successors must equal info.arity, unless
-    partial=True, in which case it should be strictly less.
+    *args:
+      The successors.  Each one should be a Node, built-in data object, or
+      None.  The value None is not a valid successor, but is used to construct
+      cyclic expressions.  These must be replaced before the object is used as
+      an expression.  The number of successors must equal info.arity, unless
+      partial=True, in which case it should be strictly less.
 
-  ``target=None``
-    Keyword-only argument.  If not None, this specifies an existing Node object
-    to rewrite.
+    target=None:
+      Keyword-only argument.  If not None, this specifies an existing Node object
+      to rewrite.
 
-  ``partial=False``
-    Indicates whether this constructs a partial application.  If false,
-    applying a function to too few arguments will cause ``TypeError`` to be
-    raised.
+    partial=False:
+      Indicates whether this constructs a partial application.  If False,
+      applying a function to too few arguments will cause ``TypeError`` to be
+      raised.
+
+  Returns:
+    A ``Node``.
   '''
   if isinstance(info, (types.GeneratorType, collections.Sequence)):
     assert not args

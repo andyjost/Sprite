@@ -13,12 +13,11 @@ class IModule(IContainer):
   @translateKwds({'name': 'fullname'})
   def __init__(self, fullname, imports, types, functions, filename=None, **kwds):
     '''
-    Parameters:
-    -----------
-      fullname    The fully-qualified module name.
-      imports     A list of imported module names.
-      types       A mapping or sequence of pairs: str -> [IConstructor].
-      functions   A sequence of IFunctions, or a mapping or sequence of pairs
+    Args:
+      fullname:    The fully-qualified module name.
+      imports:     A list of imported module names.
+      types:       A mapping or sequence of pairs: str -> [IConstructor].
+      functions:   A sequence of IFunctions, or a mapping or sequence of pairs
                   from string to IFunction.
     '''
     # self.fullname = str(fullname)

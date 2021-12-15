@@ -10,7 +10,7 @@ Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 1000
+   :maxdepth: 4
 
    curry.icurry.analysis
    curry.icurry.types
@@ -19,7 +19,7 @@ Submodules
 ----------
 
 .. toctree::
-   :maxdepth: 1000
+   :maxdepth: 4
 
    curry.icurry.json
    curry.icurry.metadata
