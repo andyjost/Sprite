@@ -2,7 +2,7 @@
 Code to load runtime symbols.
 '''
 
-from ... import icurry, objects
+from ... import config, icurry, objects, utility
 from ...utility import encoding, visitation
 import collections, six, weakref
 
@@ -81,7 +81,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
   insertSymbol(moduleobj, ifun.name, info_object, ifun.is_private)
   return info_object
 
-
+@utility.formatDocstring(config.python_package_name())
 def insertSymbol(module, basename, nodeinfo, private=False):
   '''
   Inserts a symbol into the given module.
@@ -91,7 +91,7 @@ def insertSymbol(module, basename, nodeinfo, private=False):
 
   Args:
     module:
-        An instance of ``CurryModule``.
+        An instance of :class:`CurryModule <{0}.objects.CurryModule>`.
     basename:
         A stirng containing the unqualified symbol name.
     nodeinfo:

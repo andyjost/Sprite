@@ -12,8 +12,11 @@ def getModuleName(name, is_sourcefile):
 
   Raises:
   -------
-    - ValueError if the name is a source file with the wrong suffix.
-    - ModuleLookupError if an invalid module name was provided.
+    ValueError:
+      The name is a source file with the wrong suffix.
+
+    ModuleLookupError:
+      An invalid module name was provided.
   '''
   if is_sourcefile:
     name = os.path.basename(name)

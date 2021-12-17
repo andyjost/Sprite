@@ -8,9 +8,18 @@ curry = importlib.import_module(__package__)
 logger = logging.getLogger(__name__)
 
 class Main(object):
-  def __init__(self, program_name, module_name=None):
+  DESCRIPTION = \
+  '''
+  Run or inspect a Curry program.  If no module is supplied, an
+  interactive prompt is started in module %r.  Otherwise, the supplied
+  Curry file or module is loaded, and the specified goal (if any) is
+  evaluated.  Set CURRYPATH to control the search for Curry code.
+  ''' % __package__
+  ARGUMENTS = 'imgpsn'
+  def __init__(self, program_name, module_name=None, default_goal='main'):
     self.program_name = program_name
     self.module_name = module_name
+    self.default_goal = default_goal
     self.parser = self.buildParser()
 
   def description(self):
@@ -28,9 +37,9 @@ class Main(object):
       parser.add_argument( '-m', '--module', action='store_true'
         , help='interpret the NAME argument as a module name rather than a file name')
     if 'g' in self.ARGUMENTS:
-      parser.add_argument( '-g', '--goal', type=str, default=self.DEFAULT_GOAL
+      parser.add_argument( '-g', '--goal', type=str, default=self.default_goal
         , help='specifies the goal to evaluate; supply %r to run nothing '
-               '[default: %s]' % ('', self.DEFAULT_GOAL))
+               '[default: %s]' % ('', self.default_goal))
     if 'p' in self.ARGUMENTS:
       parser.add_argument( '-p', '--profile', action='store_true'
         , help='profile the program with cProfile')
@@ -48,9 +57,14 @@ class Main(object):
         , help='a Curry file name (default) or module name to run')
     return parser
 
+  def parseArgs(self, argv):
+    args = self.parser.parse_args(argv)
+    args.goal = args.goal or None
+    return args
+
   def __call__(self, argv):
+    args = self.parseArgs(argv)
     with handle_program_errors(self.program_name, exit_status=1):
-      args = self.parseArgs(argv)
       if args.NAME is None:
         code.interact(local={'__package__': curry})
         return
@@ -73,54 +87,17 @@ class Main(object):
     if args.interact:
       code.interact(banner='In Curry module %s.' % module.__name__, local=module.__dict__)
 
-
-class MainForFile(Main):
-  DESCRIPTION = \
-  '''
-  Run or inspect a Curry program.  If no module is supplied, an
-  interactive prompt is started in module %r.  Otherwise, the supplied
-  Curry file or module is loaded, and the specified goal (if any) is
-  evaluated.  Set CURRYPATH to control the search for Curry code.
-  ''' % __package__
-
-  DEFAULT_GOAL = 'main'
-  ARGUMENTS = 'imgpsn'
-
-  def parseArgs(self, argv):
-    args = self.parser.parse_args(argv)
-    args.goal = args.goal or None
-    return args
-
-class MainForModule(Main):
-  DESCRIPTION = \
-  '''
-  Run or inspect Curry module {!r}.  If a goal is supplied, it will be evaluated.
-  Otherwise, an interactive prompt will be started in the module context.  Set
-  CURRYPATH to control the search for Curry code.
-  '''
-  DEFAULT_GOAL = None
-  ARGUMENTS = 'igps'
-
-  def parseArgs(self, argv):
-    args = self.parser.parse_args(argv)
-    args.goal = args.goal or None
-    if args.goal is None:
-      args.interact = True
-    args.NAME = self.module_name
-    args.module = True
-    return args
-
 def main(program_name, argv=None):
   '''Main program for Curry.'''
   argv = sys.argv[1:] if argv is None else argv
-  mainobj = MainForFile(program_name)
+  mainobj = Main(program_name)
   mainobj(argv)
 
-def moduleMain(filename, module_name, argv=None):
+def moduleMain(filename, module_name, goal=None):
   '''Main program for a Curry module.'''
-  argv = sys.argv[1:] if argv is None else argv
-  mainobj = MainForModule(filename, module_name)
-  mainobj(argv)
+  if goal is not None:
+    mainobj = Main(filename, module_name, default_goal=goal)
+    mainobj(['-m', module_name, '-g', goal])
 
 if __name__ == '__main__':
   main(PROGRAM_NAME)

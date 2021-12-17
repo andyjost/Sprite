@@ -2,12 +2,13 @@
 Implements Interpreter.compile.
 '''
 
-from .. import config, exceptions, icurry, objects, toolchain
+from .. import config, exceptions, icurry, objects, toolchain, utility
 from ..utility.visitation import dispatch
 import six, types
 
 __all__ = ['compile']
 
+@utility.formatDocstring(config.python_package_name())
 def compile(
     interp, string, mode='module', imports=None, exprtype=None, modulename=None
   ):
@@ -23,10 +24,11 @@ def compile(
         Indicates how to interpret the string (see above).
     imports:
         A list specifying additional modules to import.  The elements can be
-        strings or ``CurryModule`` objects.  Import statements will be
-        prepended to the code string and CURRYPATH will be adjusted
-        accordingly.  This can be useful when importing dynamically-compiled
-        modules whose names and locations are difficult to obtain.
+        strings or :class:`CurryModule <{0}.objects.CurryModule>` objects.
+        Import statements will be prepended to the code string and CURRYPATH
+        will be adjusted accordingly.  This can be useful when importing
+        dynamically-compiled modules whose names and locations are difficult to
+        obtain.
     exprtype:
         A string specifying the expression type. This is what would appear to
         the right of ``::`` in a Curry type annotation for the expression.
@@ -38,7 +40,8 @@ def compile(
         name is chosen.
 
   Returns:
-    In 'module' mode, a Curry module.  In 'expr' mode, a Curry expression.
+    In 'module' mode, a :class:`CurryModule <{0}.objects.CurryModule>`.  In
+    'expr' mode, a Curry expression.
   '''
   stmts, currypath = getImportSpecForExpr(
       interp, [] if imports is None else imports

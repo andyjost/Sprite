@@ -1,29 +1,34 @@
 .. highlight:: bash
 
+======================
 Running Curry Programs
 ======================
 
-``sprite-exec``
----------------
-
-``sprite-exec`` can be used to run Curry programs from the command line.  For
+``sprite-exec`` is used to run Curry programs from the command line.  For
 simple programs, it suffices to simply pass the filename to this program.  To
 run ``Peano.curry`` say::
 
     cd examples
     sprite-exec Peano.curry
 
-For detailed usage, say::
-
-    sprite-exec -h
-
 The default goal is ``main``.  To specify a different one, use the ``-g``
 option::
 
     sprite-exec Peano.curry -g O
 
+For detailed usage, say::
+
+    sprite-exec -h
+
+.. _sprite-exec:
+
+``sprite-exec`` Manual
+======================
+
+.. include:: sprite-exec-usage.rst
+
 Finding Curry Code
-------------------
+==================
 
 If the program contains ``import`` statements, then you may need to set
 CURRYPATH in the environment.  This is a colon-delimited list of paths used to
@@ -44,7 +49,7 @@ repository root with this command::
     CURRYPATH=examples/ sprite-exec -m Peano
 
 Profiling
----------
+=========
 
 When using the Python backend, it is possible to run a Curry program under
 Python's ``cProfile`` profiler.  To do so, simply add the ``-p`` or
@@ -57,7 +62,7 @@ calls, say::
     sprite-exec Peano.curry --profile --psort=calls
 
 Generating Traces
------------------
+=================
 
 To generate a computation trace, set SPRITE_INTERPRETER_FLAGS as shown here::
 

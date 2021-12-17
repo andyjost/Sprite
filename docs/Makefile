@@ -37,38 +37,20 @@ ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) sou
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
-# To build or install documentation, either WITHDOC must be set or make must
-# have been invoked from this directory.
-# ifeq ($(MAKELEVEL),0)
-#   DOCS_ENABLED = 1
-# else
-#   ifdef WITHDOC
-#     DOCS_ENABLED = 1
-#   endif
-# endif
-
 .PHONY: all
-# ifdef DOCS_ENABLED
 all:: html man info
-# else
-# all:
-# endif
 
 $(INSTALLDIR):
 	mkdir -p $@
 
 .PHONY: apidoc
 apidoc:
-	$(SPHINXAPIDOC) -f -o source $(PREFIX)/lib/python2.7/$(PYTHON_PACKAGE_NAME)
-	# $(PREFIX)/bin/python -m sphinx.ext.apidoc -f -o source $(PREFIX)/lib/python2.7/$(PYTHON_PACKAGE_NAME)
+	cd source/Reference/ && ./build-api.bash
+	cd source/CommandLineInterface && ./build.bash
 
 .PHONY: install
-# ifdef DOCS_ENABLED
 install:: all $(INSTALLDIR)
 	rsync -az $(BUILDDIR)/ $(INSTALLDIR)
-# else
-# install:
-# endif
 
 .PHONY: help
 help:
@@ -111,44 +93,44 @@ clean::
 	rm -rf $(BUILDDIR)/*
 
 .PHONY: html
-html: $(CURRYPY_SOURCE_LINK)
+html: apidoc
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
 .PHONY: dirhtml
-dirhtml: $(CURRYPY_SOURCE_LINK)
+dirhtml: apidoc
 	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/dirhtml."
 
 .PHONY: singlehtml
-singlehtml: $(CURRYPY_SOURCE_LINK)
+singlehtml: apidoc
 	$(SPHINXBUILD) -b singlehtml $(ALLSPHINXOPTS) $(BUILDDIR)/singlehtml
 	@echo
 	@echo "Build finished. The HTML page is in $(BUILDDIR)/singlehtml."
 
 .PHONY: pickle
-pickle: $(CURRYPY_SOURCE_LINK)
+pickle: apidoc
 	$(SPHINXBUILD) -b pickle $(ALLSPHINXOPTS) $(BUILDDIR)/pickle
 	@echo
 	@echo "Build finished; now you can process the pickle files."
 
 .PHONY: json
-json: $(CURRYPY_SOURCE_LINK)
+json: apidoc
 	$(SPHINXBUILD) -b json $(ALLSPHINXOPTS) $(BUILDDIR)/json
 	@echo
 	@echo "Build finished; now you can process the JSON files."
 
 .PHONY: htmlhelp
-htmlhelp: $(CURRYPY_SOURCE_LINK)
+htmlhelp: apidoc
 	$(SPHINXBUILD) -b htmlhelp $(ALLSPHINXOPTS) $(BUILDDIR)/htmlhelp
 	@echo
 	@echo "Build finished; now you can run HTML Help Workshop with the" \
 	      ".hhp project file in $(BUILDDIR)/htmlhelp."
 
 .PHONY: qthelp
-qthelp: $(CURRYPY_SOURCE_LINK)
+qthelp: apidoc
 	$(SPHINXBUILD) -b qthelp $(ALLSPHINXOPTS) $(BUILDDIR)/qthelp
 	@echo
 	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
@@ -158,7 +140,7 @@ qthelp: $(CURRYPY_SOURCE_LINK)
 	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/SpriteUserGuide.qhc"
 
 .PHONY: applehelp
-applehelp: $(CURRYPY_SOURCE_LINK)
+applehelp: apidoc
 	$(SPHINXBUILD) -b applehelp $(ALLSPHINXOPTS) $(BUILDDIR)/applehelp
 	@echo
 	@echo "Build finished. The help book is in $(BUILDDIR)/applehelp."
@@ -167,7 +149,7 @@ applehelp: $(CURRYPY_SOURCE_LINK)
 	      "bundle."
 
 .PHONY: devhelp
-devhelp: $(CURRYPY_SOURCE_LINK)
+devhelp: apidoc
 	$(SPHINXBUILD) -b devhelp $(ALLSPHINXOPTS) $(BUILDDIR)/devhelp
 	@echo
 	@echo "Build finished."
@@ -177,13 +159,13 @@ devhelp: $(CURRYPY_SOURCE_LINK)
 	@echo "# devhelp"
 
 .PHONY: epub
-epub: $(CURRYPY_SOURCE_LINK)
+epub: apidoc
 	$(SPHINXBUILD) -b epub $(ALLSPHINXOPTS) $(BUILDDIR)/epub
 	@echo
 	@echo "Build finished. The epub file is in $(BUILDDIR)/epub."
 
 .PHONY: latex
-latex: $(CURRYPY_SOURCE_LINK)
+latex: apidoc
 	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
 	@echo
 	@echo "Build finished; the LaTeX files are in $(BUILDDIR)/latex."
@@ -191,33 +173,33 @@ latex: $(CURRYPY_SOURCE_LINK)
 	      "(use \`make latexpdf' here to do that automatically)."
 
 .PHONY: latexpdf
-latexpdf: $(CURRYPY_SOURCE_LINK)
+latexpdf: apidoc
 	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
 	@echo "Running LaTeX files through pdflatex..."
 	$(MAKE) -C $(BUILDDIR)/latex all-pdf
 	@echo "pdflatex finished; the PDF files are in $(BUILDDIR)/latex."
 
 .PHONY: latexpdfja
-latexpdfja: $(CURRYPY_SOURCE_LINK)
+latexpdfja: apidoc
 	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
 	@echo "Running LaTeX files through platex and dvipdfmx..."
 	$(MAKE) -C $(BUILDDIR)/latex all-pdf-ja
 	@echo "pdflatex finished; the PDF files are in $(BUILDDIR)/latex."
 
 .PHONY: text
-text: $(CURRYPY_SOURCE_LINK)
+text: apidoc
 	$(SPHINXBUILD) -b text $(ALLSPHINXOPTS) $(BUILDDIR)/text
 	@echo
 	@echo "Build finished. The text files are in $(BUILDDIR)/text."
 
 .PHONY: man
-man: $(CURRYPY_SOURCE_LINK)
+man: apidoc
 	$(SPHINXBUILD) -b man $(ALLSPHINXOPTS) $(BUILDDIR)/man
 	@echo
 	@echo "Build finished. The manual pages are in $(BUILDDIR)/man."
 
 .PHONY: texinfo
-texinfo: $(CURRYPY_SOURCE_LINK)
+texinfo: apidoc
 	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) $(BUILDDIR)/texinfo
 	@echo
 	@echo "Build finished. The Texinfo files are in $(BUILDDIR)/texinfo."
@@ -225,51 +207,51 @@ texinfo: $(CURRYPY_SOURCE_LINK)
 	      "(use \`make info' here to do that automatically)."
 
 .PHONY: info
-info: $(CURRYPY_SOURCE_LINK)
+info: apidoc
 	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) $(BUILDDIR)/texinfo
 	@echo "Running Texinfo files through makeinfo..."
 	make -C $(BUILDDIR)/texinfo info
 	@echo "makeinfo finished; the Info files are in $(BUILDDIR)/texinfo."
 
 .PHONY: gettext
-gettext: $(CURRYPY_SOURCE_LINK)
+gettext: apidoc
 	$(SPHINXBUILD) -b gettext $(I18NSPHINXOPTS) $(BUILDDIR)/locale
 	@echo
 	@echo "Build finished. The message catalogs are in $(BUILDDIR)/locale."
 
 .PHONY: changes
-changes: $(CURRYPY_SOURCE_LINK)
+changes: apidoc
 	$(SPHINXBUILD) -b changes $(ALLSPHINXOPTS) $(BUILDDIR)/changes
 	@echo
 	@echo "The overview file is in $(BUILDDIR)/changes."
 
 .PHONY: linkcheck
-linkcheck: $(CURRYPY_SOURCE_LINK)
+linkcheck: apidoc
 	$(SPHINXBUILD) -b linkcheck $(ALLSPHINXOPTS) $(BUILDDIR)/linkcheck
 	@echo
 	@echo "Link check complete; look for any errors in the above output " \
 	      "or in $(BUILDDIR)/linkcheck/output.txt."
 
 .PHONY: doctest
-doctest: $(CURRYPY_SOURCE_LINK)
+doctest: apidoc
 	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."
 
 .PHONY: coverage
-coverage: $(CURRYPY_SOURCE_LINK)
+coverage: apidoc
 	$(SPHINXBUILD) -b coverage $(ALLSPHINXOPTS) $(BUILDDIR)/coverage
 	@echo "Testing of coverage in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/coverage/python.txt."
 
 .PHONY: xml
-xml: $(CURRYPY_SOURCE_LINK)
+xml: apidoc
 	$(SPHINXBUILD) -b xml $(ALLSPHINXOPTS) $(BUILDDIR)/xml
 	@echo
 	@echo "Build finished. The XML files are in $(BUILDDIR)/xml."
 
 .PHONY: pseudoxml
-pseudoxml: $(CURRYPY_SOURCE_LINK)
+pseudoxml: apidoc
 	$(SPHINXBUILD) -b pseudoxml $(ALLSPHINXOPTS) $(BUILDDIR)/pseudoxml
 	@echo
 	@echo "Build finished. The pseudo-XML files are in $(BUILDDIR)/pseudoxml."

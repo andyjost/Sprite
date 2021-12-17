@@ -17,7 +17,7 @@ in a single environment.
    CommandLineInterface/index
    PythonAPI/index
    Reference/index
-   genindex
    CurryPrimer/index
+   genindex
 
 .. _Curry: https://curry.pages.ps.informatik.uni-kiel.de/curry-lang.org/

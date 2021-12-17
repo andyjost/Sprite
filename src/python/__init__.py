@@ -59,10 +59,10 @@ __all__ = [
   , 'choice'
   , 'cons'
   , 'fail'
+  , 'free'
   , 'nil'
   , 'ref'
   , 'unboxed'
-  , 'var'
   ]
 
 # Install breakpoint() into __builtins__.
@@ -81,12 +81,31 @@ if not os.access(os.environ['SPRITE_HOME'], os.O_RDONLY):
 del os
 
 from .exceptions import *
-from .expressions import choice, cons, fail, free, nil, ref, unboxed
 from . import interpreter, lib
 from .interpreter import flags as _flags
 from .utility import visitation as _visitation
 import collections as _collections
 import six as _six
+
+from . import expressions as _expressions
+choice  = _expressions.choice
+cons    = _expressions.cons
+fail    = _expressions.fail
+'''
+Places a failure into a Curry expression.
+
+:meta hide-value:
+'''
+free    = _expressions.free
+nil     = _expressions.nil
+'''
+Places a list terminator into a Curry expression.
+
+:meta hide-value:
+'''
+ref     = _expressions.ref
+unboxed = _expressions.unboxed
+del _expressions
 
 _interpreter_ = interpreter.Interpreter(flags=_flags.getflags())
 
@@ -114,8 +133,8 @@ contains the imported Curry modules.
 
 path = _interpreter_.path
 '''
-The ``path`` attribute of the global interpreter.  Modify this to dynamically
-adjust the Curry search path.
+The ``path`` attribute of the global interpreter.  Initialized from environment
+variable CURRYPATH.  Modify this to dynamically adjust the Curry search path.
 
 :meta hide-value:
 '''

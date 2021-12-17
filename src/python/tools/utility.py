@@ -1,14 +1,10 @@
 from ..exceptions import TimeoutError
 from .. import config
-import contextlib
-import logging
-import os
-import signal
-import sys
+import contextlib, logging, os, re, signal, sys
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['carp', 'handle_program_errors', 'make_exception']
+__all__ = ['carp', 'handle_program_errors', 'make_exception', 'unrst']
 
 def make_exception(ExcClass, message, hint=None):
   '''
@@ -87,3 +83,14 @@ class timeout:
   def __exit__(self, type, value, traceback):
     signal.alarm(0)
     signal.signal(signal.SIGALRM, self.prev)
+
+P_LINK = re.compile(r':\w+:`(\S+)\s*(<[^>]+>)?`')
+def unrst(text):
+  '''Removes some ReStructuredText annotations.'''
+  def gen():
+    for line in text.split('\n'):
+      line = re.sub(P_LINK, r'\1', line)
+      line = line.replace('`', '')
+      line = line.replace('::\n', ':\n')
+      yield line
+  return '\n'.join(gen())

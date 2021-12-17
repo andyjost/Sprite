@@ -83,14 +83,14 @@ class TestMake(cytest.TestCase):
         icy_file = os.path.join(tmpdir, SUBDIR, stem + '.icy')
         json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
         curry_file = os.path.join(tmpdir, filename)
-        # Make .icy.  Returns None.
+        # Make .icy.
         ret = toolchain.makecurry(curry_file, json=False, is_sourcefile=True)
         self.assertTrue(os.path.exists(icy_file))
-        self.assertEqual(ret, None)
+        self.assertTrue(ret.endswith('.icy'))
         # Repeat
         ret = toolchain.makecurry(curry_file, json=False, is_sourcefile=True)
         self.assertTrue(os.path.exists(icy_file))
-        self.assertIs(ret, None)
+        self.assertTrue(ret.endswith('.icy'))
 
         # Make .json.  Returns the JSON file name.
         ret = toolchain.makecurry(curry_file, zip=False, is_sourcefile=True)
@@ -113,7 +113,7 @@ class TestMake(cytest.TestCase):
     maninfo = sprite_make('--man')
     self.assertEqual(sprite_make('-M'), maninfo)
     self.assertGreater(len(maninfo), 100)
-    self.assertIn('Examples:', maninfo)
+    self.assertIn('Examples', maninfo)
     self.assertIn('CURRYPATH', maninfo)
     self.assertIn('SPRITE_LOG_LEVEL', maninfo)
 

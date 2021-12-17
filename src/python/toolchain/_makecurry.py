@@ -1,5 +1,5 @@
 from .. import config
-from . import _findcurry, _curry2icurry, _icurry2json
+from . import plans, _findcurry
 from ..utility import formatDocstring
 import logging, os, shutil, sys
 
@@ -27,37 +27,58 @@ def makecurry(name, currypath=None, **kwds):
         See documentation for :ref:`sprite-make`.
 
   Returns:
-    The JSON file name if json=True (the default) was supplied, else None.
+    The name of the final file in the build pipeline.
   '''
   if currypath is None:
     from .. import path as currypath
-  do_json = kwds.pop('json', True)
-  do_icy = do_json or kwds.pop('icy', True)
-  with IntermediateStep(
-      tidy=kwds.pop('tidy', False)
-    , output=kwds.get('output', None)
-    ) as step:
-    if do_icy:
-      step.currentfile = _findcurry.currentfile(
-          name, currypath, json=do_json, **kwds
-        )
-      if os.path.isdir(step.currentfile):
-        return step.currentfile
-      # suffix = .curry, .icy, .json, or .json.z.
-      if step.currentfile.endswith('.curry'):
-        step.currentfile = _curry2icurry.curry2icurry(step.currentfile, currypath, **kwds)
-        assert step.currentfile.endswith('.icy')
-        if do_json:
-          step.intermediates.append(step.currentfile)
-      # suffix = .icy, .json, or .json.z.
-      if do_json:
-        step.currentfile = _icurry2json.icurry2json(step.currentfile, currypath, **kwds)
-        # suffix = .json, or .json.z.
-        return step.currentfile
+  do_tidy = kwds.pop('tidy', False)
+  output = kwds.pop('output', None)
+  with ToolchainContext(tidy=do_tidy, output=output) as pipeline:
+    plan = plans.Plan(kwds)
+    pipeline.currentfile = _findcurry.currentfile(
+        name, currypath
+      , py=plan.do_py, json=plan.do_json, icy=plan.do_icy
+      , **kwds
+      )
+    if not os.path.isdir(pipeline.currentfile):
+      Maker(plan, pipeline, name, currypath, kwds).make()
+    return pipeline.currentfile
 
-class IntermediateStep(object):
+class Maker(object):
   '''
-  Context manager to handle a toolchain step.
+  Executes a compilation plan.
+  '''
+  def __init__(self, plan, pipeline, name, currypath, kwds):
+    self.plan = plan
+    self.pipeline = pipeline
+    self.name = name
+    self.currypath = currypath
+    self.kwds = kwds
+
+  @property
+  def current_position(self):
+    return self.plan.position(self.pipeline.currentfile)
+
+  @property
+  def done(self):
+    return self.current_position == len(self.plan)
+
+  def make(self):
+    if self.done:
+      return
+    while True:
+      stage = self.plan.stages[self.current_position]
+      self.pipeline.currentfile = stage.step(
+          self.pipeline.currentfile, self.currypath, **self.kwds
+        )
+      if not self.done:
+        self.pipeline.intermediates.append(self.pipeline.currentfile)
+      else:
+        break
+
+class ToolchainContext(object):
+  '''
+  Context manager to handle a toolchain invocation.
 
   Handles the removal of intermediate files.  Moves the output file
   to its proper location, if the external tool could not manage that.
@@ -90,3 +111,4 @@ class IntermediateStep(object):
     else:
       return not (os.path.exists(self.output) and
                   os.path.samefile(self.output, self.currentfile))
+

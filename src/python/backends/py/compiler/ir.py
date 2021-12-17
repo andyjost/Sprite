@@ -1,5 +1,7 @@
 __all__ = ['IR']
 
+from .... import config
+from six.moves import cStringIO as StringIO
 from ....utility import visitation
 import six
 
@@ -27,19 +29,21 @@ class IR(object):
     assert not any('\n' in line for line in lines)
 
   @visitation.dispatch.on('stream')
-  def dump(self, stream=None):
-    stream.write(self.dump())
+  def dump(self, stream=None, goal=None):
+    stream.write(self.dump(None, goal))
 
   @dump.when(type(None))
-  def dump(self, _=None):
+  def dump(self, _=None, goal=None):
     from . import render
-    return render.render(self)
+    stream = StringIO()
+    stream.write('#!%s\n' % config.python_exe())
+    stream.write(render.render(self, goal=goal))
+    return stream.getvalue()
 
   @dump.when(six.string_types)
-  def dump(self, filename=None):
+  def dump(self, filename=None, goal=None):
     with open(filename, 'w') as out:
-      self.dump(out)
-
+      self.dump(out, goal=goal)
 
   def __repr__(self):
     return '<Python IR for %r>' % icurry.name

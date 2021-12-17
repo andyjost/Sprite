@@ -203,3 +203,10 @@ def icurry2jsontext_tool(cached=[]):
     cached.append(path)
   return cached[0]
 
+def python_exe(cached=[]):
+  if not cached:
+    path = os.path.join(os.environ['SPRITE_HOME'], 'bin', 'python')
+    path = os.path.abspath(path)
+    cached.append(path)
+  return cached[0]
+

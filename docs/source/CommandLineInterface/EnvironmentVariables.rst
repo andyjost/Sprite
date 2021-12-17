@@ -84,6 +84,6 @@ with Sprite, then you should not need these.
 
 ``SPRITE_DEBUG``
   Enables debugging for Sprite internal errors.  The command-line tools
-  ``sprite-exec`` and ``sprite-make`` normally report unexpected errors
+  :ref:`sprite-exec` and :ref:`sprite-make` normally report unexpected errors
   tersely.  Enabling this allows one to see the full stack trace when Sprite
   fails.  Set this to the value ``1`` to enable debugging.

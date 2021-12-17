@@ -1,7 +1,7 @@
 '''Code for importing Curry modules into a Curry interpreter.'''
 
 from . import link, load
-from ... import config, icurry, objects, toolchain
+from ... import config, icurry, objects, toolchain, utility
 from ...objects.handle import getHandle
 from ...utility.binding import binding
 from ...utility import curryname, formatDocstring, visitation
@@ -42,7 +42,7 @@ def import_(
         than a module name.
 
   Returns:
-    A ``CurryModule`` or sequence thereof.
+    A :class:`CurryModule <{0}.objects.CurryModule>` or sequence thereof.
   '''
   raise TypeError('cannot import type %r' % type(arg).__name__)
 
@@ -91,7 +91,6 @@ class ImportEx(object):
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
-    pdbtrace()
     assert False
 
   @__call__.when(list)
@@ -146,9 +145,11 @@ class ImportEx(object):
 
 
 @contextlib.contextmanager
+@utility.formatDocstring(config.python_package_name())
 def _provisionalModule(interp, imodule):
   '''
-  Context manager that creates a provisional CurryModule.
+  Context manager that creates a provisional :class:`CurryModule
+  <{0}.objects.CurryModule>`.
 
   The provisional module is inserted into interp.modules and its parent
   package, if any.  If the context exits abnormally then those changes are

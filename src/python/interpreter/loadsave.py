@@ -1,3 +1,4 @@
+from .. import config, utility
 from ..objects import handle
 import logging, runpy
 
@@ -5,16 +6,22 @@ logger = logging.getLogger(__name__)
 
 __all__ = ['load', 'save']
 
+@utility.formatDocstring(config.python_package_name())
 def load(interp, name):
   '''
-  Load a saved Curry module.  The (Python) module file must be importable.
+  Loads a Curry module saved with :func:`save`.
+
+  Aside from how the file is located, this follows the import protocol, so the
+  module is added to :data:`curry.modules`.
 
   Args:
     name:
-      An importable Python module name or path to a Python file.
+      An importable Python module name or a path to a Python file.  If this
+      ends with ``.py``, it is assumed to be a file name.  If a module name is
+      given, ``sys.path`` (as opposed to ``curry.path``) is searched.
 
   Returns:
-    An instance of object.CurryModule.
+    A :class:`CurryModule <{0}.objects.CurryModule>`.
   '''
   logger.info('Loading %r', name)
   if name.endswith('.py'):
@@ -31,9 +38,9 @@ def load(interp, name):
       )
   return cymodule
 
-def save(interp, cymodule, filename=None):
+def save(interp, cymodule, filename=None, goal=None):
   '''
-  Save a Curry module.
+  Saves a Curry module.
 
   Args:
     cymodule:
@@ -44,11 +51,17 @@ def save(interp, cymodule, filename=None):
       the file is created, if specified, and the output is written to the file
       or stream.
 
+    goal:
+      Indicates a goal to evaluate when running the module.  By default,
+      running the generated code imports the module but evaluates nothing.
+
   Returns:
     If ``filename`` is None, the module contents are returned as a string.
     Otherwise, None.
   '''
   h = handle.getHandle(cymodule)
+  if goal is not None:
+    h.getsymbol(goal) # Raises SymbolLookupError on failure
   if logger.isEnabledFor(logging.INFO):
     logger.info(
         'Saving Curry module %r to %r (%r types, %r symbols)'
@@ -56,5 +69,5 @@ def save(interp, cymodule, filename=None):
       )
   cc = interp.context.compiler
   ir = cc.compile(interp, h.icurry)
-  return ir.dump(filename)
+  return ir.dump(filename, goal=goal)
 

@@ -3,7 +3,7 @@
 from .. import config
 import logging, os
 
-__all__ = ['curryfilename', 'icurryfilename', 'jsonfilenames']
+__all__ = ['curryfilename', 'icurryfilename', 'jsonfilenames', 'pyfilename']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
 
@@ -45,7 +45,7 @@ def icurryfilename(filename):
   path,name = os.path.split(filename)
   return os.path.join(path, '.curry', SUBDIR, name[:-6]+'.icy')
 
-def jsonfilenames(filename):
+def jsonfilenames(filename, suffixes=None):
   '''Gets the JSON file name(s) associated with a Curry or ICY file.'''
   if filename.endswith('.z'):
     filename = filename[:-2]
@@ -53,5 +53,14 @@ def jsonfilenames(filename):
     filename = icurryfilename(filename)
   assert filename.endswith('.icy')
   base = filename[:-4] + '.json'
-  return base, base + '.z'
+  return tuple(
+      name for name in [base, base + '.z']
+           if suffixes is None or
+              any(name.endswith(suffix) for suffix in suffixes)
+    )
 
+def pyfilename(filename):
+  '''Gets the Python file name associated with a Curry, ICY, or JSON file.'''
+  icy = icurryfilename(filename)
+  assert icy.endswith('.icy')
+  return icy[:-4] + '.py'

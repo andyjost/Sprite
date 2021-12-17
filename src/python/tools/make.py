@@ -1,46 +1,53 @@
-PROGRAM_NAME = 'sprite-make'
-
 from .. import config, toolchain, utility
 from six.moves import cStringIO as StringIO
-from .utility import handle_program_errors
+from .utility import handle_program_errors, unrst
 import argparse, os, pydoc, sys
 
+PROGRAM_NAME = 'sprite-make'
+
 __doc__ = '''\
-Execute the toolchain to compile Curry code.
+Executes the toolchain to compile Curry code.
 
 This program uses timestamps and prerequisites to lazily update targets.  Each
 positional argument can be a Curry module name or Curry source file.  Modules
 are located by searching the CURRYPATH environment variable.
 
-Two target formats are supported.  Curry-formatted ICurry (extension:
-.icy) is generated with the -i,--icy option.  These files can be read
+Three target formats are supported.  Curry-formatted ICurry (extension:
+``.icy``) is generated with the ``-i,--icy`` option.  These files can be read
 into Curry programs using the standard module ICurry.Files.readICurry.
 
-JSON-formatted ICurry (extension: .json) is generated with the -j,--json
-option.  This format is more suitable when a Curry interpreter is not
-available.  Sprite only reads the JSON format.  Note that an ICY file is the
-prerequisite of JSON, meaning that --json also implies --icy.
+JSON-formatted ICurry (extension: ``.json``) is generated with the
+``-j,--json`` option.  This format is more suitable when a Curry interpreter is
+not available.  Sprite only reads the JSON format.  Note that an ICY file is
+the prerequisite of JSON, meaning that ``--json`` implies ``--icy``.
+
+Python (extension: ``.py``) is generated with the ``-p,--py,--python`` option.
+This implies both ``--json`` and ``--icy``.  The generated file can be imported
+as a regular Python module, loaded via the Python API with
+:func:`{python_package_name}.load` or executed from the command line.  By default,
+running the file imports the module but does nothing else.  Supply ``-g`` to name a
+goal.
 
 Following the conventions of other Curry systems, output files are by default
-written to <dir>/.curry/{intermediate_subdir}, where <dir> is the directory
-containing the source code.  For example, a curry file /path/to/A.curry gives
-rise to /path/to/.curry/{intermediate_subdir}/A.icy and
-/path/to/.curry/{intermediate_subdir}/A.json.  The -o,--output option can be
-used to specify the output file.
+written to ``<dir>/.curry/{intermediate_subdir}``, where ``<dir>`` is the
+directory containing the source code.  For example, a curry file
+``/path/to/A.curry`` gives rise to
+``/path/to/.curry/{intermediate_subdir}/A.icy`` and
+``/path/to/.curry/{intermediate_subdir}/A.json``.  The ``-o,--output`` option
+can be used to specify the output file.
 
-The -c,--compact option causes JSON output to be compacted by removing
+The ``-c,--compact`` option causes JSON output to be compacted by removing
 insignificant whitespace.  Compacted JSON is less human-readable but smaller.
 
-The -t,--tidy option removes any ICY files generated in the process of
-creating JSON files.  It will not remove up-to-date ICY files that were
-present before running this program.
+The ``-t,--tidy`` option removes intermediate files generated in the
+compilation process.
 
-The -z,--zip option causes JSON output to be compressed, in which case a .z
-extension is appended to the JSON file.  JSON that is both compacted and zipped
-is often smaller than JSON that is only zipped.
+The ``-z,--zip`` option causes JSON output to be compressed, in which case a
+``.z`` extension is appended to the JSON file.  JSON that is both compacted and
+zipped is often smaller than JSON that is only zipped.
 
-Environment Variables:
-----------------------
+Environment Variables
+---------------------
 
     CURRYPATH
         a colon-separated list of paths to search for Curry modules.
@@ -49,25 +56,33 @@ Environment Variables:
         adjusts logging output.  Values are CRITICAL, ERROR,
         WARNING (default), INFO, and DEBUG.
 
-Examples:
----------
+Examples
+--------
 
-The following converts A.curry to the ICurry file A.icy.  Module A is found by
-searching CURRYPATH.  The output is placed at
-<dir>/.curry/{intermediate_subdir}/A.icy, where <dir> is the directory
-containing A.curry.
+The following converts ``A.curry`` to the ICurry file ``A.icy``.  Module A is
+found by searching CURRYPATH.  The output is placed at
+``<dir>/.curry/{intermediate_subdir}/A.icy``, where ``<dir>`` is the directory
+containing ``A.curry``::
 
     % curry-make --icurry A.curry
 
-The following creates a compacted, zipped JSON file:
+The following creates a compacted, zipped JSON file::
 
     % curry-make --json -czt /path/to/A.curry
 
-The output is written to /path/to/.curry/{intermediate_subdir}/A.json.z.  The
-intermediate file /path/to/.curry/{intermediate_subdir}/A.icy will be removed
-unless it was up-to-date prior to the command running.
+The output is written to ``/path/to/.curry/{intermediate_subdir}/A.json.z``.
+The intermediate file ``/path/to/.curry/{intermediate_subdir}/A.icy`` will be
+removed unless it was up-to-date prior to the command running.
 
-'''.format(intermediate_subdir=config.intermediate_subdir())
+The following compiles the Curry code in ``A.curry`` to a Python script named
+``A.py`` that evaluates ``'A.main'``::
+
+    % curry-make --py A.curry -g main -o A.py
+
+'''.format(
+    intermediate_subdir=config.intermediate_subdir()
+  , python_package_name=config.python_package_name()
+  )
 
 def main(program_name, argv):
   '''
@@ -79,11 +94,13 @@ def main(program_name, argv):
     )
   # E.g., sprite-make --icurry Prelude --json Nat
   parser.add_argument('-c', '--compact', action='store_true', help='compact JSON output')
-  parser.add_argument('-M', '--man'    , action='store_true', help='show detailed usage')
+  parser.add_argument('-g', '--goal'   , default=None, help='specifies the goal in --python mode')
   parser.add_argument('-i', '--icy'    , action='store_true', help='make ICY files')
   parser.add_argument('-j', '--json'   , action='store_true', help='make JSON files')
   parser.add_argument('-k', '--keep-going', action='store_true', help='keep working after an error')
+  parser.add_argument('-M', '--man'    , action='store_true', help='show detailed usage')
   parser.add_argument('-o', '--output' , action='store', type=str, help='specify the output file')
+  parser.add_argument('-p', '--py', '--python', action='store_true', help='make Python files')
   parser.add_argument('-q', '--quiet'  , action='store_true', help='work quietly')
   parser.add_argument('-S', '--subdir' , action='store_true'
     , help='print the subdirectory to which output files are written then exit')
@@ -92,13 +109,16 @@ def main(program_name, argv):
   parser.add_argument('-z', '--zip'    , action='store_true'
     , help='zip JSON output with zlib (adds .z extension)')
   parser.add_argument('names', nargs='*', help='Curry modules or source files to process')
+  parser.add_argument('--no-header'  , action='store_true', help=argparse.SUPPRESS)
+  parser.add_argument('--with-rst'   , action='store_true', help=argparse.SUPPRESS)
   args = parser.parse_args(argv)
 
   if args.man:
     mantext = StringIO()
-    parser.print_usage(file=mantext)
-    mantext.write('\n')
-    mantext.write(__doc__)
+    if not args.no_header:
+      parser.print_usage(file=mantext)
+      mantext.write('\n')
+    mantext.write(__doc__ if args.with_rst else unrst(__doc__))
     pydoc.getpager()(mantext.getvalue())
     return
   else:
@@ -113,11 +133,21 @@ def main(program_name, argv):
   if len(args.names) > 1 and args.output:
     sys.stderr.write(program_name + ': -o,--output cannot be used with multiple input files.\n')
     sys.exit(1)
-  if not args.icy and not args.json:
-    sys.stderr.write(program_name + ': one of -i,--icy or -j,--json must be supplied.\n')
+  if not any([args.icy, args.json, args.py]):
+    sys.stderr.write(
+        program_name + ': one of (-i,--icy) or (-p,--py,--python) or '
+                       '(-j,--json) must be supplied.\n'
+      )
     sys.exit(1)
+  if args.py:
+    args.json = True
   if args.json:
     args.icy = True
+  if args.goal is not None and not args.py:
+    sys.stderr.write(
+        program_name + ': (-g,--goal) is only allowed with (-p,--py,--python).\n'
+      )
+    sys.exit(1)
   kwds = dict(args._get_kwargs())
   error_handler = handle_program_errors(
       program_name
@@ -129,7 +159,6 @@ def main(program_name, argv):
       toolchain.makecurry(name, config.currypath(), **kwds)
   if error_handler.nerrors:
     sys.exit(1)
-
 
 if __name__ == '__main__':
   main(PROGRAM_NAME, sys.argv[1:])

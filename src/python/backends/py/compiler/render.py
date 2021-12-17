@@ -24,7 +24,7 @@ def render(obj, **kwds):
 class Renderer(object):
   def __init__(
       self, width=DEFAULT_WIDTH, indent=DEFAULT_INDENT, hcol=DEFAULT_HCOL
-    , istart=0, cpred=None
+    , istart=0, cpred=None, goal=None
     ):
     '''
     Renders the Python IR as Python source code.
@@ -46,6 +46,9 @@ class Renderer(object):
       cpred:
         A predicate for closure keys indicating which items to include.
 
+      goal:
+        The default goal to evaluate when running in file mode.
+
     Returns:
       A string of Python code.
     '''
@@ -56,6 +59,7 @@ class Renderer(object):
     cpred = (lambda _: True) if cpred is None else cpred
     self.cpred = lambda name: \
         not name.startswith(statics.PX_SYMB) and cpred(name)
+    self.goal = goal
 
   def renderIR(self, ir):
     '''
@@ -200,7 +204,7 @@ class Renderer(object):
     yield ''
     yield '''if __name__ == '__main__':'''
     yield   '  from %s import __main__' % config.python_package_name()
-    yield   '  __main__.moduleMain(__file__, %r)' % imodule.fullname
+    yield   '  __main__.moduleMain(__file__, %r, goal=%r)' % (imodule.fullname, self.goal)
     yield ''
     yield ''
 

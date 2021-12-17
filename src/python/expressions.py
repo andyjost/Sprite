@@ -43,11 +43,10 @@ class cons(object):
     else:
       self.tail = tail0
 
-class _nil(object):
-  '''Places a list terminator into a Curry expression.'''
-  pass
-nil = _nil()
-del _nil
+class _nilcls(object): pass
+nil = _nilcls()
+'''Places a list terminator into a Curry expression.'''
+del _nilcls
 
 class unboxed(object):
   '''Unboxes its argument into a Curry expression.'''
@@ -64,10 +63,9 @@ class _setgrd(object):
     self.sid = int(sid)
     self.value = value
 
-class _failcls(object):
-  '''Places a failure into a Curry expression.'''
-  pass
+class _failcls(object): pass
 fail = _failcls()
+'''Places a failure into a Curry expression.'''
 del _failcls
 
 class _strictconstr(object):
@@ -140,7 +138,7 @@ def expr(interp, *args, **kwds):
       expr([Cons, 0, [Cons, 1, [Cons, 2, Nil]]])
 
   Several special symbols are provided.  See :class:`anchor`, :class:`choice`,
-  :class:`cons`, :data:`fail`, :class:`free`, :class:`nil`, :class:`ref`, and
+  :class:`cons`, :data:`fail`, :class:`free`, :data:`nil`, :class:`ref`, and
   :class:`unboxed`.
 
   Args:

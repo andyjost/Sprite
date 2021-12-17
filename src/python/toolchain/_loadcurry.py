@@ -61,7 +61,6 @@ def loadjson(jsonfile):
   else:
     with open(jsonfile) as istream:
       json = istream.read()
-  json = json.decode('utf-8')
   icur = icurry_json.loads(json)
   icur.filename = _filenames.curryfilename(jsonfile)
   if cached is not None:

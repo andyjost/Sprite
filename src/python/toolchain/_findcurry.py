@@ -2,16 +2,16 @@ from ..exceptions import ModuleLookupError, PrerequisiteError
 from .. import config
 from . import _filenames
 from ..tools.utility import make_exception
-from ..utility import curryname, filesys
+from ..utility import curryname, filesys, formatDocstring
 import logging, os
 
 __all__ = ['currentfile']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
-# PACKAGE_INITFILE = 'init.curry'
 
+@formatDocstring(config.python_package_name())
 def currentfile(
-    name, currypath, is_sourcefile=False, json=True, icy=True, **ignored
+    name, currypath, is_sourcefile=False, plan=None, **ignored
   ):
   '''
   Finds the newest prerequisite along the Curry build pipeline.
@@ -28,23 +28,23 @@ def currentfile(
         Indicates whether to interpret the name as a source file.  If True, the
         name should end with extension .curry.  Otherwise the name is
         interpreted as a module or package name.
-    json:
-        Whether to include JSON files in the search.  Setting this to false can
-        be used to find an .icy file.
-    icy:
-        Whether to include ICurry .icy files in the search.  Setting this to
-        false can be used to search for Curry source code.
+    plan:
+        The compilation :class:`plan <{0}.toolchain.plan.Plan>`  This indicates
+        which files to consider as prerequisites.  If None, a default plan
 
   Raises:
     ModuleLookupError: the module was not found.
 
   Returns:
     The name of an ICurry-JSON file (suffix: .json), Curry source file (suffix:
-    .curry) or directory.  The JSON name may have an additional .z suffix.  The
-    JSON file is returned if it is up-to-date, otherwise, the Curry file is
-    returned if it exists.  If neither of those applies, the package directory
-    name is returned, if it exists.
+    .curry), Python file (suffix: .py), or directory.  The JSON name may have
+    an additional .z suffix.  The JSON file is returned if it is up-to-date,
+    otherwise, the Curry file is returned if it exists.  If neither of those
+    applies, the package directory name is returned, if it exists.
   '''
+  if plan is None:
+    from .plans import Plan
+    plan = Plan()
   if not is_sourcefile:
     # If name is a module name, then search CURRYPATH for the source file or
     # (possibly zipped) JSON and set it as the name.  source file and
@@ -53,13 +53,12 @@ def currentfile(
     # JSON only, without needing to install its source.
     curryname.validateModulename(name)
     # Search for the JSON file first, then ICurry, then .curry.
-    suffixes = ['.json', '.json.z'] if json else []
-    suffixes += ['.icy'] if icy else []
     parts = name.split('.')
     package_path, name = os.sep.join(parts[:-1]), parts[-1]
     search_names = [
         os.path.join(package_path, '.curry', SUBDIR, name + suffix)
-            for suffix in suffixes
+            for suffix in reversed(plan.suffixes[1:])
+            #             [.json[.z], .icy]
       ]
     search_names += [os.path.join(package_path, name + '.curry')]
     search_names += [os.path.join(package_path, name, '')]
@@ -83,11 +82,11 @@ def currentfile(
     raise ModuleLookupError('expected .curry extension in %r' % curryfile)
   curryfile = os.path.abspath(curryfile)
   filelist = [curryfile]
-  if icy:
+  if plan.do_icy:
     icyfile = _filenames.icurryfilename(curryfile)
     filelist += [icyfile]
-  if json:
-    filelist += _filenames.jsonfilenames(curryfile)
+  if plan.do_json:
+    filelist += _filenames.jsonfilenames(curryfile, set(plan.suffixes))
   prereq = os.path.abspath(filesys.newest(filelist))
   if not os.path.exists(prereq):
     # If there is no prerequisite, then there is no Curry file or any of its

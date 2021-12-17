@@ -29,8 +29,8 @@ Then configure and stage Sprite:
 Running Curry Programs
 ======================
 
-Curry programs can be run with ``sprite-exec``.  To try this, go to
-the ``examples/`` directory.  You will there find a file named ``Peano.curry``
+Curry programs can be run with :ref:`sprite-exec`.  To try this, go to the
+``examples/`` directory.  You will there find a file named ``Peano.curry``
 containing the following:
 
 .. code-block:: haskell
@@ -71,7 +71,7 @@ To import Sprite, say:
 
     >>> import curry
 
-Use ``dir`` and ``help`` to explore ``curry`` for yourself.  To list the
+Use ``dir`` and ``help`` to explore :mod:`curry` for yourself.  To list the
 functions, submoudles, and other objects provided by Sprite, say:
 
     >>> dir(curry)
@@ -90,13 +90,13 @@ Importing Curry
 ---------------
 
 To import a Curry module, import it relative to the virtual package
-``curry.lib``:
+:mod:`curry.lib`:
 
     >>> from curry.lib import Prelude
 
 This statement uses CURRYPATH to search for Curry files.  Sprite automatically
 appends its path to system Curry libraries, such as the Prelude.  The CURRYPATH
-is reflected in Python as the list variable ``curry.path``.  Updating this
+is reflected in Python as the list variable :data:`curry.path`.  Updating this
 modifies the search path dynamically.
 
 The examples below rely on the ``Peano`` module defined in
@@ -121,7 +121,7 @@ identifier:
     >>> getattr(Prelude, '++')
     <curry function 'Prelude.++'>
 
-You may also use ``curry.symbol`` to look up a symbol by its full name:
+You may also use :func:`curry.symbol` to look up a symbol by its full name:
 
     >>> curry.symbol('Prelude.++')
     <curry function 'Prelude.++'>
@@ -130,11 +130,11 @@ You may also use ``curry.symbol`` to look up a symbol by its full name:
 Building and Evaluating Goals
 -----------------------------
 
-To build a goal, use ``curry.compile`` with mode ``'expr'``:
+To build a goal, use :func:`curry.compile` with mode ``'expr'``:
 
     >>> goal = curry.compile('add (S O) (S O)', mode='expr', import=[Peano])
 
-To evaluate the goal, use ``curry.eval``.
+To evaluate the goal, use :func:`curry.eval`.
 
     >>> values = curry.eval(goal)
 
@@ -174,8 +174,8 @@ it is exhaused.
 Building Curry Expressions in Python
 ------------------------------------
 
-``curry.compile`` invokes the Curry frontend, which can be quite slow.  To
-build expressions more quickly, use ``curry.expr``.
+:func:`curry.compile` invokes the Curry frontend, which can be quite slow.  To
+build expressions more quickly, use :func:`curry.expr`.
 
     >>> goal2 = curry.expr(Peano.add, [Peano.S, Peano.O], [Peano.S, Peano.O])
     >>> print(next(curry.eval(goal2)))
@@ -183,7 +183,7 @@ build expressions more quickly, use ``curry.expr``.
 
 .. warning::
 
-  ``cury.expr`` bypasses the frontend, and so can produce ill-typed
+  :func:`curry.expr` bypasses the frontend, and so can produce ill-typed
   expressions.  Use caution, since evaluating one results in undefined
   behavior.
 
@@ -192,27 +192,28 @@ To build an expression containing a choice, use ``Prelude.?``:
     >>> print(curry.expr(getattr(Prelude, '?'), 1, 2))
     (?) 1 2
 
-To build an expression containing a free variable, use ``curry.free``:
+To build an expression containing a free variable, use :class:`curry.free`:
 
     >>> print(curry.expr(curry.free()))
     _0
 
-To build a cons-style list, use ``curry.cons`` and ``curry.nil``:
+To build a cons-style list, use :class:`curry.cons` and :data:`curry.nil`:
 
     >>> print(curry.expr(curry.cons(1, curry.nil)))
     [1]
 
 To build an expression containing a cycle or shared subexpression, supply a
-named subexpression and refer to it with ``curry.ref``.  For example, the
+named subexpression and refer to it with :class:`curry.ref`.  For example, the
 following constructs ``let a=(1:a) in a``:
 
-    >>> curry.expr(curry.ref('a'), a=curry.cons(1, curry.ref('a')))
+    >>> cons, ref = curry.cons, curry.ref
+    >>> curry.expr(ref('a'), a=cons(1, ref('a')))
     <: <Int 1> ...>
 
 Converting Values
 -----------------
 
-To convert Curry values to Python, use ``curry.topython``:
+To convert Curry values to Python, use :func:`curry.topython`:
 
     >>> cy123 = curry.expr([1, 2, 3])
     >>> cy123
@@ -223,13 +224,47 @@ To convert Curry values to Python, use ``curry.topython``:
     >>> type(py123)
     <type 'list'>
 
-You may also instruct ``curry.eval`` to convert results as they are
+You may also instruct :func:`curry.eval` to convert results as they are
 generated:
 
     >>> append = getattr(Prelude, '++')
     >>> goal3 = curry.expr(append, [1], [2,3])
     >>> next(curry.eval(goal3, converter='topython'))
     [1, 2, 3]
+
+Saving Compiled Curry
+---------------------
+
+Use :func:`curry.save` to save compiled Cury code to a file:
+
+    >>> curry.save(Peano, 'Peano.py')
+
+This can be used to inspect the compiled code.
+
+The generated program is given an interface similar to that of :ref:`sprite-exec`.
+Say ``Peano.py -h`` to see the command-line options.  By default, running
+``Peano.py`` starts an interactive prompt in the context of the ``Peano``
+module.  To evaluate a goal, supply it with ``-g``:
+
+.. code-block:: bash
+
+    ./Peano.py -g main
+    S (S O)
+
+You can specify a default goal when saving the file.  For instance:
+
+    >>> curry.save(Peano, 'Peano.py', default_goal='main')
+
+Now, running ``Peano.py`` with no arguments evaluates ``main``.
+
+The compiled module cannot be imported via CURRYPATH because it no longer
+resides in a ``.curry`` file.  To load the compiled module, use
+:func:`curry.load`:
+
+    >>> Peano = curry.load('Peano.py')
+
+This does everything the corresponding ``import`` statement would; so, for
+instance, the module is added to :data:`curry.modules`.
 
 .. _Python Tutorial: https://docs.python.org/3/tutorial/
 

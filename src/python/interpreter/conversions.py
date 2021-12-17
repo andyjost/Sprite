@@ -71,8 +71,8 @@ def topython(interp, value, convert_strings=True):
         If True, then lists of characters are converted to Python strings.
 
   Raises:
-    ``NotConstructorError`` if a free variable is encountered along a list
-    spine.
+    NotConstructorError:
+      Non-ground data was encountered along a list spine.
 
   Returns:
     The value converted to Python.
