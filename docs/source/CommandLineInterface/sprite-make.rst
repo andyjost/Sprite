@@ -1,8 +1,10 @@
 .. highlight:: bash
 
-==================
-Static Compilation
-==================
+.. _sprite-make:
+
+===============
+``sprite-make``
+===============
 
 ``sprite-make`` is used to convert Curry files into various other formats.  One
 may select which stages of the :ref:`Compilation Pipeline
@@ -19,8 +21,6 @@ To view the help content say::
 For more detailed information say::
 
     sprite-make --man
-
-.. _sprite-make:
 
 ``sprite-make`` Manual
 ======================
@@ -91,7 +91,7 @@ compress it with ``zlib`` (``--zip``), and remove intermediate files
     As with :ref:`sprite-exec`, Curry files can be specified by their file name or
     module name.  To treat names as Curry modules, suply ``-m`` and set CURRYPATH,
     if needed, as described :ref:`here
-    <CommandLineInterface/RunningCurryPrograms:Finding Curry Code>`.
+    <CommandLineInterface/sprite-exec:Finding Curry Code>`.
 
 Generating Python
 =================

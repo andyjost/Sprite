@@ -34,16 +34,6 @@ class Runtime(context.Runtime):
     from .currylib import index
     return index.lookup
 
-  @property
-  def prelude(self):
-    from .currylib import prelude
-    return prelude
-
-  @property
-  def setfunctions(self):
-    from .currylib import setfunctions
-    return setfunctions
-
   def single_step(self, interp, expr):
     from .evaluator import Evaluator
     expr = getattr(expr, 'raw_expr', expr)

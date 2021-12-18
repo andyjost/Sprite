@@ -16,9 +16,9 @@ an interpreter, let alone creating one.
 
 The global interpreter can be obtained by calling :func:`curry.getInterpreter`.
 
-The top-level methods fall roughly into the following four categories:
+The top-level data and methods fall roughly into the following four categories:
 
-  - **System Configuration**
+  - **System Control**
 
     These can be used to manipulate the global interpreter:
 
@@ -32,7 +32,7 @@ The top-level methods fall roughly into the following four categories:
 
     Also, see the :mod:`curry.config` module.
 
-  - **Lookup**
+  - **Symbols & Types**
 
     These can be used to find Curry objects.
 
@@ -44,7 +44,7 @@ The top-level methods fall roughly into the following four categories:
 
         :func:`curry.currytype` : Get the Curry type that corresponds to a Python type.
 
-  - **Interacting with Curry Code**
+  - **Curry Modules**
 
     These can be used to create, transform, load, or save Curry code.
 
@@ -72,8 +72,7 @@ Package Structure
 =================
 
 The contents of the ``curry`` package are documented in detail in the
-:ref:`Reference Material <Reference/index:Reference Material>`.  The major
-submodules are described briefly below.
+:ref:`reference-material`.  The major submodules are described briefly below.
 
 :mod:`curry.backends`
     Implementations of the available compiler and runtime backends.

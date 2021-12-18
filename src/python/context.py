@@ -59,38 +59,37 @@ class Runtime(six.with_metaclass(abc.ABCMeta)):
 
   @abc.abstractproperty
   def Node(self):
+    '''Represents a Curry expression.'''
     assert 0
 
   @abc.abstractproperty
   def InfoTable(self):
+    '''Stores compiler-generated symbol information.'''
     assert 0
 
   @abc.abstractproperty
   def evaluate(self):
+    '''Evaluates a Curry expression.'''
     assert 0
 
   @abc.abstractmethod
   def get_interpreter_state(self, interp):
+    '''Gets the runtime-specific state attached to an interpreter.'''
     assert 0
 
   @abc.abstractmethod
   def init_interpreter_state(self, interp):
+    '''Initializes an interpreter with the runtime-specific state.'''
     assert 0
 
   @abc.abstractproperty
   def lookup_builtin_module(self):
-    assert 0
-
-  @abc.abstractproperty
-  def prelude(self):
-    assert 0
-
-  @abc.abstractproperty
-  def setfunctions(self):
+    '''Looks up the implementation for a built-in module.'''
     assert 0
 
   @abc.abstractmethod
   def single_step(self, interp, expr):
+    '''Performs a single step on an expression.'''
     assert 0
 
 # Each backend must provide a Node object and register it with this class.

@@ -104,5 +104,4 @@ def getconverter(converter):
     return converter
   elif converter == 'topython':
     return topython
-    # return ToPython(convert_freevars=True)
 

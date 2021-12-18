@@ -15,15 +15,24 @@ The Python API is considered a major contribution of this work, as it greatly
 simplifies the integration of Functional-Logic Programming into imperative
 environments.
 
+.. _important-notes:
 
-Important Note
-==============
+Important Notes
+===============
 
-Sprite relies on an external program to convert Curry source code into an
-intermediate representation called ICurry.  This is typically the slowest step
-by far in the compilation process, requiring several seconds even for trivial
-programs.  Although this greatly affects compilation times, it does not affect
-the performance of programs compiled by Sprite.
+[1] Supply type signatures for goals.
+    Recent implementations of Curry support type classes.  Sprite is no
+    different in this regard, but it currently does not have a type inferrence
+    system.  This means that goals with no type signature might fail, as Sprite
+    has no way to supply a default instance.
+
+
+[2] Have patience when compiling.
+    Sprite relies on an external program to convert Curry source code into an
+    intermediate representation called ICurry.  This is typically the slowest
+    step by far in the compilation process, requiring several seconds even for
+    trivial programs.  Although this greatly affects compilation times, it does
+    not affect the performance of programs compiled by Sprite.
 
 
 Acknowledgements
@@ -32,12 +41,12 @@ Acknowledgements
 This work has been supported by NSF grant #1317249.  My deepest gratitude goes
 to Sergio Antoy for guiding me through the world of Functional-Logic
 Programming, helping to develop the Fair Scheme, and much more.  Without his
-patient effort, this work would not have been possible.  Thanks also go to the
-many people who developed and supported PAKCS and KiCS2, but especially Michael
-Hanus for his conscientious efforts to develop and thoroughly document Curry,
-and his many useful suggestions, bug fixes, and other improvements that
-affected my work.  Thanks also to Bernd Brassel, whose prior work deeply
-informed my understanding.
+patience and persistence, this work would not have been possible.  Thanks also
+go to the many people who developed and supported PAKCS and KiCS2, but
+especially Michael Hanus for his conscientious efforts to develop and
+thoroughly document Curry, and his many useful suggestions, bug fixes, and
+other improvements that affected my work.  Thanks also to Bernd Brassel, whose
+prior work deeply informed my understanding.
 
 
 .. _Fair Scheme: https://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf

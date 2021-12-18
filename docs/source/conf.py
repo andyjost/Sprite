@@ -44,6 +44,11 @@ extensions = [
 # autodoc_default_flags = ['members']
 autodoc_preserve_defaults = True
 autosummary_generate = True
+autodoc_default_options = {
+    'members': True
+  , 'imported-members': True
+  , 'inherited-members': True
+  }
 
 # Make sure the target is unique
 autosectionlabel_prefix_document = True

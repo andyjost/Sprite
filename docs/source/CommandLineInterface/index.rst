@@ -9,7 +9,7 @@ This section discusses how to configure Sprite and use those tools.
 
    EnvironmentVariables
    StartingPython
-   RunningCurryPrograms
-   StaticCompilation
+   sprite-exec
+   sprite-make
 
 

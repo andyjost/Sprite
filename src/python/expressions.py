@@ -10,8 +10,8 @@ __all__ = [
 
 class anchor(object):
   '''
-  Creates an anchor in an expression.  This can be used to build nonlinear
-  expressions.
+  Used with :func:`expr` to create an anchor in an expression.  This can be
+  used to construct nonlinear expressions.
 
   When no argument is supplied, the anchor name is automatically generated from
   the sequence _1, _2, ..., according to its position in a left-to-right,
@@ -23,8 +23,8 @@ class anchor(object):
 
 class ref(object):
   '''
-  Creates a reference to another node in a call to ``expr``.  This can be used
-  to build nonlinear expressions.
+  Used with :func:`expr` to create a reference to a named subexpression.
+  This can be used to construct nonlinear expressions.
 
   The argument is optional when the expression contains exactly one anchor at
   the point where the reference appears.
@@ -34,7 +34,8 @@ class ref(object):
 
 class cons(object):
   '''
-  Places one or more list constructors into a Curry expression.
+  Used with :func:`expr` to place one or more list constructors into a Curry
+  expression.
   '''
   def __init__(self, head, tail0, *tail):
     self.head = head
@@ -45,18 +46,22 @@ class cons(object):
 
 class _nilcls(object): pass
 nil = _nilcls()
-'''Places a list terminator into a Curry expression.'''
+'''
+Used with :func:`expr` to place a list terminator into a Curry expression.
+'''
 del _nilcls
 
 class unboxed(object):
-  '''Unboxes its argument into a Curry expression.'''
+  '''
+  Used with :func:`expr` to place an unboxed argument into a Curry expression.
+  '''
   def __init__(self, value):
     if not isinstance(value, icurry.IUnboxedLiteral):
       raise CurryTypeError('expected an unboxed literal, got %r' % value)
     self.value = value
 
 class _setgrd(object):
-  '''Places a set guard into a Curry expression.'''
+  '''Used with :func:`expr` to place a set guard into a Curry expression.'''
   def __init__(self, sid, value=None):
     if value is None:
       sid, value = 0, sid # shift right
@@ -65,39 +70,39 @@ class _setgrd(object):
 
 class _failcls(object): pass
 fail = _failcls()
-'''Places a failure into a Curry expression.'''
+'''Used with :func:`expr` to place a failure into a Curry expression.'''
 del _failcls
 
 class _strictconstr(object):
-  '''Places a strict constraint into a Curry expression.'''
+  '''Used with :func:`expr` to place a strict constraint into a Curry expression.'''
   def __init__(self, value, pair):
     self.value = value
     self.pair = pair
 
 class _nonstrictconstr(object):
-  '''Places a nonstrict constraint into a Curry expression.'''
+  '''Used with :func:`expr` to place a nonstrict constraint into a Curry expression.'''
   def __init__(self, value, pair):
     self.value = value
     self.pair = pair
 
 class _valuebinding(object):
-  '''Places a value binding into a Curry expression.'''
+  '''Used with :func:`expr` to place a value binding into a Curry expression.'''
   def __init__(self, value, pair):
     self.value = value
     self.pair = pair
 
 class free(object):
-  '''Places a free variable into a Curry expression.'''
+  '''Used with :func:`expr` to place a free variable into a Curry expression.'''
   def __init__(self, vid=0):
     self.vid = int(vid)
 
 class fwd(object):
-  '''Places a forwarding node into a Curry expression.'''
+  '''Used with :func:`expr` to place a forward node into a Curry expression.'''
   def __init__(self, value):
     self.value = value
 
 class choice(object):
-  '''Places a choice into a Curry expression.'''
+  '''Used with :func:`expr` to place a choice into a Curry expression.'''
   def __init__(self, cid, lhs, rhs=None):
     if rhs is None:
       cid, lhs, rhs = 0, cid, lhs # shift right

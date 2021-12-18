@@ -1,8 +1,10 @@
 .. highlight:: bash
 
-======================
-Running Curry Programs
-======================
+.. _sprite-exec:
+
+===============
+``sprite-exec``
+===============
 
 ``sprite-exec`` is used to run Curry programs from the command line.  For
 simple programs, it suffices to simply pass the filename to this program.  To
@@ -19,8 +21,6 @@ option::
 For detailed usage, say::
 
     sprite-exec -h
-
-.. _sprite-exec:
 
 ``sprite-exec`` Manual
 ======================

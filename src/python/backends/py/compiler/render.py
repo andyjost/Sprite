@@ -151,6 +151,9 @@ class Renderer(object):
     yield 'from %s.icurry import \\' % curry
     yield '    IModule, IDataType, IConstructor, PUBLIC, PRIVATE'
     yield ''
+    yield "if 'interp' not in globals():"
+    yield '  interp = %s.getInterpreter()' % curry
+    yield ''
     for line in ir.lines:
       yield line
     yield ''
@@ -193,7 +196,7 @@ class Renderer(object):
       yield self._close(1, ']')
       yield self._close(0, ')')
     yield ''
-    yield '_module_ = %s.import_(_icurry_)' % config.python_package_name()
+    yield '_module_ = interp.import_(_icurry_)'
     yield ''
     yield ''
     yield '# Linking'
@@ -218,11 +221,11 @@ class Renderer(object):
       elif name.startswith(statics.PX_FUNC):
         yield 'from %s import %s as %s' % (value.__module__, value.__name__, name)
       elif name.startswith(statics.PX_INFO):
-        yield fmt % (name, 'curry.symbol(%r)' % value.fullname)
+        yield fmt % (name, 'interp.symbol(%r)' % value.fullname)
       elif name.startswith(statics.PX_STR):
         yield fmt % (name, '%r' % value)
       elif name.startswith(statics.PX_TYPE):
-        yield fmt % (name, 'curry.type(%r)' % value.fullname)
+        yield fmt % (name, 'interp.type(%r)' % value.fullname)
 
 def _sortkey(item):
   name, value = item

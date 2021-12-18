@@ -1,4 +1,5 @@
 from .. import config, utility
+from ..utility.binding import binding
 from ..objects import handle
 import logging, runpy
 
@@ -12,23 +13,24 @@ def load(interp, name):
   Loads a Curry module saved with :func:`save`.
 
   Aside from how the file is located, this follows the import protocol, so the
-  module is added to :data:`curry.modules`.
+  module is added to the interpreter's ``modules`` dict.
 
   Args:
     name:
       An importable Python module name or a path to a Python file.  If this
       ends with ``.py``, it is assumed to be a file name.  If a module name is
-      given, ``sys.path`` (as opposed to ``curry.path``) is searched.
+      given, ``sys.path`` (as opposed to ``{0}.path``) is searched.
 
   Returns:
     A :class:`CurryModule <{0}.objects.CurryModule>`.
   '''
   logger.info('Loading %r', name)
+  globals_ = {'interp':interp}
   if name.endswith('.py'):
-    pymodule = runpy.run_path(name)
+    pymodule = runpy.run_path(name, init_globals=globals_)
     cymodule = pymodule['_module_']
   else:
-    pymodule = __import__(name)
+    pymodule = __import__(name, globals=globals_)
     cymodule = pymodule._module_
   if logger.isEnabledFor(logging.INFO):
     h = handle.getHandle(cymodule)

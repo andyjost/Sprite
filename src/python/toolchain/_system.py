@@ -1,12 +1,20 @@
 from ..exceptions import CompileError
 from .. import config
 from ..tools.utility import make_exception
-from ..utility import filesys, formatting, strings
+from ..utility import binding, curryname, filesys, formatting, strings
 import errno, logging, os, subprocess as sp, sys, time
 
-__all__ = ['makeOutputDir', 'popen', 'targetNotUpdatedHint', 'updateCheck']
+__all__ = ['bindCurryPath', 'makeOutputDir', 'popen', 'targetNotUpdatedHint', 'updateCheck']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
+
+def bindCurryPath(currypath):
+  '''
+  Returns a context manager that temporarily binds ``currypath`` to the
+  environment variable CURRYPATH.
+  '''
+  value = ':'.join(curryname.makeCurryPath(currypath))
+  return binding.binding(os.environ, 'CURRYPATH', value)
 
 def makeOutputDir(file_out):
   dirname, _ = os.path.split(file_out)

@@ -9,36 +9,52 @@ Defines the flags used to configure a Curry interpreter.  The following flags
 are available:
 
   * ``backend`` ({0!r})
-      The name of the backend used to compile and run Curry.
-  * ``debug`` (True|*False*)
-      Sacrifice speed to add more consistency checks and enable debugging
-      with PDB.
-  * ``defaultconverter`` ('topython'|*None*)
-      Indicates how to convert Curry results when returning to Python.
-      With no conversion a list value, for example, is returned as a Curry
-      list.  The 'topython' converter converts lists, tuples, strings,
-      numbers, and other basic objects to their Python equivalents.
-  * ``trace`` (True|*False*)
-      Trace computations.
-  * ``keep_temp_files``  (True|*False*|<str>)
-      Keep temporary files and directories.  If a nonempty string is
-      supplied, then it is treated as a directory name and all temporary
-      files will be written there.
-  * ``lazycompile`` (*True*|False)
-      Functions are not materialized until the first time they are needed.
-  * ``postmortem`` (*True*|False)
-      When compiling a string of Curry code fails, copy the generated code
-      to the current working directory for post-mortem analysis.
-  * ``setfunction_strategy`` (*'lazy'*|'eager')
-      Indicates how to evaluate set functions.  If 'lazy', then set guards
-      are used (similar to KiCS2).  Otherwise, each argument is reduced to
-      ground normal form before applying the set function (similar to
-      PAKCS).
-  * ``telemetry_interval`` (*None*|<number>)
-      Specifies the number of seconds between event reports in the log
-      output.  Events provide information about the state of the runtime
-      system, such as the number of nodes created or steps performed.  If
-      None or non-positive, this information is not reported.
+
+    The name of the backend used to compile and run Curry.
+
+  * ``debug`` (True | **False**)
+
+    Sacrifice speed to add more consistency checks and enable debugging with
+    PDB.
+
+  * ``defaultconverter`` ('topython' | **None**)
+
+    Indicates how to convert Curry results when returning to Python.
+    With no conversion a list value, for example, is returned as a Curry
+    list.  The 'topython' converter converts lists, tuples, strings,
+    numbers, and other basic objects to their Python equivalents.
+
+  * ``trace`` (True | **False**)
+
+    Trace computations.
+
+  * ``keep_temp_files``  (True | **False** | <str>)
+
+    Keep temporary files and directories.  If a nonempty string is supplied,
+    then it is treated as a directory name and all temporary files will be
+    written there.
+
+  * ``lazycompile`` (**True** | False)
+
+    Wait to materialize Functions until they are needed.
+
+  * ``postmortem`` (True | **False**)
+
+    When compiling a string of Curry code fails, copy the generated code to the
+    current working directory for post-mortem analysis.
+
+  * ``setfunction_strategy`` (**'lazy'** | 'eager')
+
+    Indicates how to evaluate set functions.  If 'lazy', then set guards are
+    used (similar to KiCS2).  Otherwise, each argument is reduced to ground
+    normal form before applying the set function (similar to PAKCS).
+
+  * ``telemetry_interval`` (**None** | <number>)
+
+    Specifies the number of seconds between event reports in the log output.
+    Events provide information about the state of the runtime system, such as
+    the number of nodes created or steps performed.  If None or non-positive,
+    this information is not reported.
 '''.format(config.default_backend())
 
 FLAG_INFO = {
@@ -50,7 +66,7 @@ FLAG_INFO = {
   , 'trace'               : ( bool             , False )
   , 'keep_temp_files'     : ((bool, str)       , False )
   , 'lazycompile'         : ( bool             , True  )
-  , 'postmortem'          : ( bool             , True  )
+  , 'postmortem'          : ( bool             , False )
   , 'setfunction_strategy': ({'eager', 'lazy'} , 'lazy')
   , 'telemetry_interval'  : ({None, float}     , None  )
   }

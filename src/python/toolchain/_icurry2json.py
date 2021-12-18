@@ -63,13 +63,13 @@ class ICurry2JsonConverter(object):
       )
 
     if cmd:
-      with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
+      with _system.bindCurryPath(currypath):
         json = _system.popen(cmd, pipecmd=cmd_compact)
     else:
       rcdata = iread.load(file_in)
       json = ijson.dumps(rcdata)
       if self.do_compact:
-        with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
+        with _system.bindCurryPath(currypath):
           json = _system.popen(cmd_compact, input=json)
     if self.do_zip:
       mode = 'wb'

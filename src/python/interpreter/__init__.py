@@ -20,51 +20,107 @@ logger = logging.getLogger(__name__)
 @utility.formatDocstring(config.python_package_name())
 class Interpreter(object):
   '''
-  A Curry interpreter.
+  Represents one instance of a Curry system.
 
-  Use :meth:`import_` to add modules to the system.  Use :meth:`eval` to
-  evaluate expressions.
+  Key data and methods are as follows:
 
-  Attributes:
-      flags:
-        A dict containing the configuration flags.  Modify this to change
-        the behavior of the Curry system.  See :mod:`{0}.interpreter.flags`.
-      modules:
-        A dict containing the imported Curry modules.  This maps module names
-        to :class:`CurryModule <{0}.objects.CurryModule>` objects.
-      path:
-        A list of strings specifying the Curry search path.  Modify this to
-        adjust where to search for Curry files.
+    Data:
+      :data:`flags`
+          Configuration flags.
+      :data:`modules`
+          Imported Curry modules.
+      :data:`path`
+          The Curry search path.
+      :data:`prelude`
+          The built-in Curry module ``Prelude``.
+      :data:`setfunctions`
+          The built-in Curry module ``Control.SetFunctions``.
 
+    Methods:
+      :meth:`compile`
+          Compile a string containing Curry code.
+      :meth:`eval`
+          Evaluate a Curry expression.
+      :meth:`expr`
+          Build a Curry expression.
+      :meth:`import_`
+          Import a Curry module.
+      :meth:`load`
+          Load compiled Curry.
+      :meth:`module`
+          Look up a module by name.
+      :meth:`reset`
+          Soft-reset the interpreter.
+      :meth:`save`
+          Save compiled Curry.
+      :meth:`symbol`
+          Look up a symbol by name.
+      :meth:`topython`
+          Convert Curry data to Python.
+      :meth:`type`
+          Look up a data type by name.
   '''
   def __new__(cls, flags={}):
     self = object.__new__(cls)
-    self.flags = _flagmod.get_default_flags()
-    bad_flags = set(flags) - set(self.flags)
+    self._flags = _flagmod.get_default_flags()
+    bad_flags = set(flags) - set(self._flags)
     if bad_flags:
       raise ValueError('unknown flag%s: %s' % (
           's' if len(bad_flags) > 1 else ''
         , ', '.join(map(repr, bad_flags))
         ))
-    self.flags.update(flags)
-    self._context = context.Context(self.flags['backend'])
-    self.modules = {}
-    self.path = []
+    self._flags.update(flags)
+    self._context = context.Context(self._flags['backend'])
+    self._modules = {}
+    self._path = []
     self.reset() # set remaining attributes.
     return self
 
   @property
+  @utility.formatDocstring(config.python_package_name())
+  def flags(self):
+    '''
+    A dict containing the configuration flags.  Modify this to change
+    the behavior of the Curry system.  See :mod:`{0}.interpreter.flags`.
+    '''
+    return self._flags
+
+  @property
+  @utility.formatDocstring(config.python_package_name())
+  def modules(self):
+    '''
+    A dict containing the imported Curry modules.  Maps module names
+    to :class:`CurryModule <{0}.objects.CurryModule>` objects.
+    '''
+    return self._modules
+
+  @property
+  def path(self):
+    '''
+    A list of strings specifying the Curry search path.  Modify this to
+    adjust where to search for Curry files.
+    '''
+    return self._path
+
+  @path.setter
+  def path(self, values):
+    self._path[:] = [str(x) for x in values]
+
+  @property
   def context(self):
+    '''The context object associated with this interpreter.'''
     return self._context
 
   @property
   def prelude(self):
+    '''The built-in module Prelude.'''
     if not hasattr(self, '__preludelib'):
       self.__preludelib = self.module('Prelude')
     return self.__preludelib
 
   @property
   def setfunctions(self):
+    '''The built-in module Control.SetFunctions.'''
     if not hasattr(self, '__setflib'):
       self.__setflib = self.module('Control.SetFunctions')
     return self.__setflib

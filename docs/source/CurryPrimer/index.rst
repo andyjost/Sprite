@@ -1,3 +1,5 @@
+.. _curry-primer:
+
 ======================
 Appendix: Curry Primer
 ======================

@@ -17,14 +17,12 @@ The following are recognized:
   Overrides default flags in Sprite's Curry interpreter.  This can be set to a
   comma-separated list of colon-separated pairs (without spaces).
 
+  See the :mod:`list of flags <curry.interpreter.flags>` for details.
+
   For example, to have Sprite generate debug code and print execution traces,
   set the following::
 
      SPRITE_INTERPRETER_FLAGS=trace:True,debug:True
-
-  Use the following command to see a list of all flags::
-
-      python -c 'import curry; help(curry.interpreter.Interpreter)'
 
 ``SPRITE_LOG_FILE``
   The file to which logging output is directed.  The default, ``-``, directs

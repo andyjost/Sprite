@@ -1,26 +1,13 @@
 .. highlight:: bash
 
+.. _starting-python:
+
 Starting Python
 ===============
 
-``sprite-invoke`` sets up the environment for Sprite.  It takes a command to be
-run in the configured environment.  For example, to start a shell one could say::
-
-    sprite-invoke $SHELL
-
-For convenience, a wrapper script that starts Python under ``sprite-invoke`` is also
-provided.  Given an installation tree located at PREFIX, this script is located
-at ``$PREFIX/bin/python``.
-
-Starting Python through this script has the added benefit of ensuring the correct
-Python version is used.
-
-.. warning::
-
-    Sprite is only compatible with the Python speicified during configuration.
-    Using a different version will result in undefined behavior.
-
-After running ``make stage``, you can start using Sprite as follows::
+A Sprite-enabled Python session can be started by running the ``python``
+wrapper script that appears under the Sprite installation tree.  After running
+``make stage``, say::
 
     % ./install/bin/python
     >>> import curry
@@ -32,4 +19,18 @@ After running ``make stage``, you can start using Sprite as follows::
     Sprite is installed under ``/path/to/sprite``, then begin scripts with::
 
         #!/path/to/sprite/bin/python
+
+``sprite-invoke``
+-----------------
+
+``sprite-invoke`` sets up the environment for Sprite.  It takes a command to be
+run in the configured environment.  To start a shell configured for Sprite
+say::
+
+    sprite-invoke $SHELL
+
+The wrapper script mentioned above uses :ref:`sprite-invoke` to start Python.
+This method ensures the correct Python is used.  Sprite is only compatible with
+the Python specified during configuration and using another results in
+undefined behavior.
 

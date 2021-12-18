@@ -12,9 +12,7 @@ programming environment.
 .. toctree::
     :maxdepth: 2
 
-    ModuleLayout
-    Configuration
     Architecture
-    Interactive
-    Compilation
+    ModuleLayout
+    UsingTheAPI
 

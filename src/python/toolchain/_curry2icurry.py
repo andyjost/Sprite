@@ -1,7 +1,7 @@
 from .. import cache, config
 from . import _filenames, _system
 from ..utility.binding import binding
-from ..utility import filesys
+from ..utility import curryname, filesys
 import logging, os
 
 __all__ = ['curry2icurry']
@@ -33,7 +33,7 @@ class Curry2ICurryConverter(object):
 
   @_system.updateCheck
   def convert(self, file_in, currypath):
-    with binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
+    with _system.bindCurryPath(currypath):
       file_out = _filenames.icurryfilename(file_in)
       cached = self.use_cache and \
           cache.Curry2ICurryCache.Slot(file_in, file_out)

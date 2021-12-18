@@ -1,18 +1,19 @@
-'''
+from .. import config
+
+__doc__ = '''
 A virtual package that overloads the import mechanism to import Curry modules
 into Python.
 
 Any name imported relative to this package is considered to be a Curry module.
-It will be located using CURRYPATH and imported into the global interpreter via
-``import_``.
+It will be located using :data:`{0}.path` (which is initialized from CURRYPATH)
+and imported into the global interpreter via :func:`{0}.import_`.
 
 Example:
---------
 
   To import the Prelude:
 
       >>> from curry.lib import Prelude
-'''
+'''.format(config.python_package_name())
 
 class CurryImportHook(object):
   '''An import hook that loads Curry modules into Python.'''
@@ -34,7 +35,7 @@ class CurryImportHook(object):
       assert moduleobj.__name__
       assert moduleobj.__file__
       moduleobj.__loader__ = self
-      # The module should notmally be placed into sys.modules before processing
+      # The module should normally be placed into sys.modules before processing
       # the import.  In this case, however, this is not critical because the
       # import is anyways cached in curry.modules.  There could be a
       # multiple-import, but it will not be expensive and updating
@@ -45,5 +46,5 @@ class CurryImportHook(object):
 
 import sys
 sys.meta_path.insert(0, CurryImportHook())
-del CurryImportHook, sys # Leave it empty so that imported Curry moduels cannot clash.
+del config, CurryImportHook, sys # Empty this module to avoid name clashes.
 
