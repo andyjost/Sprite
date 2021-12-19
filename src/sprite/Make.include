@@ -1,5 +1,4 @@
 .SECONDEXPANSION:
-LIB := sprite/libsprite
 LIB_DEPENDS := $$(OBJS_OUT)
 SHLIB_DEPENDS := $$(LIB_OUT)
 SHLIB_EXTRA_DEPENDS := shlib_extra

@@ -41,16 +41,15 @@ namespace
 
 namespace sprite { namespace python
 {
-  void register_fingerprint(py::object module)
+  void register_fingerprint(py::module_ mod)
   {
-    py::enum_<ChoiceState>(module, "ChoiceState")
+    py::enum_<ChoiceState>(mod, "ChoiceState")
         .value("UNDETERMINED", ChoiceState::UNDETERMINED)
         .value("LEFT", ChoiceState::LEFT)
         .value("RIGHT", ChoiceState::RIGHT)
         .export_values();
 
-    // py::class_<Fingerprint>(module, "Fingerprint", py::init<>())
-    py::class_<Fingerprint>(module, "Fingerprint")
+    py::class_<Fingerprint>(mod, "Fingerprint")
       .def(py::init<>())
       .def(py::init<Fingerprint const &>())
       .def("__copy__", +[](Fingerprint const & self)->Fingerprint{return self;})
@@ -80,7 +79,7 @@ namespace sprite { namespace python
       ;
 
     // For testing.
-    py::class_<fingerprints::Block>(module, "Block")
+    py::class_<fingerprints::Block>(mod, "Block")
       .def_readonly("used", &fingerprints::Block::used)
       .def_readonly("lr", &fingerprints::Block::lr)
       .def("values", +[](fingerprints::Block const & self) -> py::object

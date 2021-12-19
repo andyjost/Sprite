@@ -1,10 +1,7 @@
-# Disable code related to LLVM.  There is no LLVM backend yet.
-SUBMODULES =
-# Disable the gc module, too.
+# Currently disabled: gc, llvm
+SUBMODULES = runtime
 SRCS := fingerprint.cpp
-
 SHLIB := libsprite
 RELATIVE_INSTALL_DIR := lib
-
+LIB := sprite/libsprite
 include Make.include
-

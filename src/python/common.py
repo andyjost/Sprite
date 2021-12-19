@@ -14,5 +14,5 @@ T_CHOICE = -2
 T_FUNC   = -1
 T_CTOR   =  0 # constructors for each Curry type are numbered from zero.
 
-from .backends.py.sprite import ChoiceState, LEFT, RIGHT, UNDETERMINED
+from .backends.cpp.runtime.pybindings import ChoiceState, LEFT, RIGHT, UNDETERMINED
 

@@ -1,5 +1,5 @@
 from copy import copy
-from ...sprite import Fingerprint
+from ....cpp.runtime.pybindings import Fingerprint
 from .....utility import shared, unionfind
 from . import callstack
 

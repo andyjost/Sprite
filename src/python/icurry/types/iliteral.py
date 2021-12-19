@@ -1,6 +1,6 @@
 from .iobject import IObject
 from .isymbol import ISymbol
-from ...backends.py.sprite import Fingerprint
+from ...backends.cpp.runtime.pybindings import Fingerprint
 import abc, collections, six
 
 __all__ = ['IChar', 'IFloat', 'IInt', 'ILiteral', 'IString', 'IUnboxedLiteral']
