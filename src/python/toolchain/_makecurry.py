@@ -36,9 +36,7 @@ def makecurry(name, currypath=None, **kwds):
   with ToolchainContext(tidy=do_tidy, output=output) as pipeline:
     plan = plans.Plan(kwds)
     pipeline.currentfile = _findcurry.currentfile(
-        name, currypath
-      , py=plan.do_py, json=plan.do_json, icy=plan.do_icy
-      , **kwds
+        name, currypath, plan=plan, **kwds
       )
     if not os.path.isdir(pipeline.currentfile):
       Maker(plan, pipeline, name, currypath, kwds).make()
