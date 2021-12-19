@@ -22,10 +22,10 @@ The Global Interpreter
 
 As most applications do not require multiple interpreters, Sprite creates a
 global interpreter when first imported and lifts its data and methods into the
-``curry`` module.  The :ref:`Top-Level API <PythonAPI/ModuleLayout:Top-Level
-API>` consists mainly of these objects.  So, for example, :func:`curry.import_`
-is a method that imports a Curry module into the global interpreter and
-:func:`curry.eval` evaluates an expression according to its settings.
+``curry`` module.  The :ref:`Top-Level API <top-api>` consists mainly of these
+objects.  So, for example, :func:`curry.import_` is a method that imports a
+Curry module into the global interpreter and :func:`curry.eval` evaluates an
+expression according to its settings.
 
 
 Context Object

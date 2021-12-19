@@ -22,16 +22,15 @@ class RuntimeState(object):
   activated an object of this type is created.
 
   Attributes:
-  -----------
-      ``C``
-          The active configuration.  Equivalent to Q[0].
-      ``E``
-          The active expression.  Equivalent to Q[0].root.
-      ``Q``
-          The active work queue.  A sequence of Configurations comprising
-          a set of disjoint paths through the non-deterministic solution
-          space.  Set functions are implemented with by using multiple queues.  This
-          attribute returns the current one.
+    ``C``
+      The active configuration.  Equivalent to Q[0].
+    ``E``
+      The active expression.  Equivalent to Q[0].root.
+    ``Q``
+      The active work queue.  A sequence of Configurations comprising a set of
+      disjoint paths through the non-deterministic solution space.  Set
+      functions are implemented with by using multiple queues.  This attribute
+      returns the current one.
   '''
   def __init__(self, interp, goal=None):
     # Capture the interpreter state.  This includes mutable objects, such as

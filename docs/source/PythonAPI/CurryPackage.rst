@@ -5,6 +5,8 @@ The ``curry`` Package
 This section gives a high-level view of the ``curry`` package.  The intent
 is to give readers some idea of where various bits of Sprite can be located.
 
+.. _top-api:
+
 Top-Level API
 =============
 
@@ -114,7 +116,7 @@ The contents of the ``curry`` package are documented in detail in the
 
 :mod:`curry.toolchain`
     Contains code for manipulating the :ref:`compilation pipeline
-    <Introduction/CompilationPipeline>`.  Driver functions for external
+    <compilation-pipeline>`.  Driver functions for external
     programs used by Sprite can be found here.
 
 :mod:`curry.tools`

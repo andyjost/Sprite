@@ -4,6 +4,7 @@ from .utility import handle_program_errors, unrst
 import argparse, os, pydoc, sys
 
 PROGRAM_NAME = 'sprite-make'
+__all__ = ['main']
 
 __doc__ = '''\
 Executes the toolchain to compile Curry code.

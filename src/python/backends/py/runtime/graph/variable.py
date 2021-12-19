@@ -17,37 +17,35 @@ class Variable(object):
   code.  These objects help with accessing and head-normalizing subexpressions,
   getting case selectors, building replacement expressions, and rewriting.
 
-  Key Attributes:
-  ---------------
-    ``root``
+  Attributes:
+    root
       The function-labeled redex root.  Dominates the target expression.
 
-    ``target``
+    target
       The Curry expression referenced by this variable.  Typically an inductive
       position of the root function.
 
-    ``realpath``
+    realpath
       The real path from ``root`` to ``target``.
 
-    ``guards``
+    guards
       A set containing the set guards crossed on the path from ``root`` to
       ``target``.
 
-    ``rvalue``
+    rvalue
       The value to use when this variable appears in a RHS replacement
       expression.  Any guards crossed along the path from root to target are
       inserted before the target.
 
   Example:
-  --------
-    The ``Prelude.head`` function is defined as follows:
+    The ``Prelude.head`` function is defined as follows::
 
         head (a:as) = a
 
     Here, both 'a' and 'as' are variables.  In addition, for the purpose of
     finding redexes, the compiler generates variables for unnamed inductive
     positions, such as (:) in this example.  This might be compiled to the
-    following ICurry:
+    following ICurry::
 
         var $1
         $1 <- $0[0]
@@ -58,7 +56,7 @@ class Variable(object):
             $2 <- $1[0]
             return $2
 
-    The generated Python code might use ``Variable`` as follows:
+    The generated Python code might use ``Variable`` as follows::
 
         def step(rts, _0):
           # _0 = rts.variable(_0)    # (1)

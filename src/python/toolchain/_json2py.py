@@ -17,8 +17,7 @@ def json2py(jsonfile, currypath, **kwds):
         Additional keywords.  See :class:`Json2PyConverter`.
 
   Returns:
-  -------
-  The Python file name.
+    The Python file name.
   '''
   return Json2PyConverter(**kwds).convert(jsonfile, currypath)
 

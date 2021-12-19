@@ -68,7 +68,6 @@ def instantiate(rts, var, typedef, config=None):
   Instantiates a needed free variable, at the specified location.
 
   Returns:
-  --------
     The expression the free variable was replaced with.
   '''
   if typedef is None:

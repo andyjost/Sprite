@@ -55,6 +55,10 @@ different one.
 Python API Quickstart
 =====================
 
+The Python API is where the imperative, functional, and logic paradigms are
+integrated.  It provides the 'glue' with which one creates, compiles, saves,
+loads, and executes Curry code.
+
 To begin, start Python:
 
 .. code-block:: bash

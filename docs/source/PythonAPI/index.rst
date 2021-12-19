@@ -13,6 +13,6 @@ programming environment.
     :maxdepth: 2
 
     Architecture
-    ModuleLayout
+    CurryPackage
     UsingTheAPI
 

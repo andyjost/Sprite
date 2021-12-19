@@ -20,6 +20,8 @@ wrapper script that appears under the Sprite installation tree.  After running
 
         #!/path/to/sprite/bin/python
 
+.. _sprite-invoke:
+
 ``sprite-invoke``
 -----------------
 

@@ -20,8 +20,7 @@ def curry2icurry(curryfile, currypath, **kwds):
         Additional keywords.  See :class:`Curry2ICurryConverter`.
 
   Returns:
-  -------
-  The ICurry file name.
+    The ICurry file name.
   '''
   return Curry2ICurryConverter(**kwds).convert(curryfile, currypath)
 

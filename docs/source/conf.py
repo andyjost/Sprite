@@ -41,13 +41,11 @@ extensions = [
     'sphinx.ext.autosummary',
 ]
 
-# autodoc_default_flags = ['members']
 autodoc_preserve_defaults = True
 autosummary_generate = True
 autodoc_default_options = {
     'members': True
   , 'imported-members': True
-  , 'inherited-members': True
   }
 
 # Make sure the target is unique
@@ -86,7 +84,7 @@ release = version
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = 'python'
+# language = ''
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:

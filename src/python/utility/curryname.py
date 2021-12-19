@@ -11,7 +11,6 @@ def getModuleName(name, is_sourcefile):
   Interpret ``name`` as a modulename, removing the suffix from source files.
 
   Raises:
-  -------
     ValueError:
       The name is a source file with the wrong suffix.
 
@@ -58,9 +57,8 @@ def prefixes(name, sep='.'):
   Yields the prefixes of ``name``, separated on ``sep``.
 
   Examples:
-  ---------
-  'Prelude' yields 'Prelude'.  'Data.Maybe', yields 'Data' followed by
-  'Data.Maybe'.
+    'Prelude' yields 'Prelude'.  'Data.Maybe', yields 'Data' followed by
+    'Data.Maybe'.
   '''
   parts = name.split(sep)
   for end in range(len(parts)):

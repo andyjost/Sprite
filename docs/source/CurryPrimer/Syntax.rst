@@ -26,13 +26,12 @@ Curry provides the following three fundamental types:
   ``1.`` or ``3.14159265``, for example.
 
 Many other built-in types are provided by Curry.  Among these is a type ``Bool``
-with constructors ``True`` and ``False``.  Curry also provides built-in lists and
-tuples.  Lists are writen in one of two ways.  A complete list may be witten
-enclosed in square brackets, as in ``[1, 2]``.  The empty list is written
-``[]``.  Alternatively, a nonempty list may be written in constructor notation,
-as ``h:t``, where `h` is the `head` element and `t` is another list called the
-`tail`.
-Tuples are written enclosed within parentheses, as in
+with constructors ``True`` and ``False``.  Curry also provides built-in lists
+and tuples.  Lists are writen in one of two ways.  A complete list may be
+witten enclosed in square brackets, as in ``[1, 2]``.  The empty list is
+written ``[]``.  Alternatively, a nonempty list may be written in constructor
+notation, as ``h:t``, where `h` is the `head` element and `t` is another list
+called the `tail`.  Tuples are written enclosed within parentheses, as in
 ``('a', 1)``.  Curry has no 1-tuple.
 
 User-Defined Data Types
@@ -43,22 +42,26 @@ representing a string of binary digits might be written as::
 
     data Binary = O Binary | I Binary | Null
 
-``Binary`` has three `constructors`, manely ``O``, ``I``, and ``Null``.  These represent
-the binary digits 0 and 1, and the end of the string, respectively.  ``O`` and
-``I`` each take one argument of type ``Binary``, whereas ``Null`` takes none.  Note
-that the self-reference makes ``Binary`` a recursive type.  Thus, a binary string
-of any length can be written.  To create an instance, expressions of type
-``Binary`` expressions are juxtaposed.  For example, the following are all
-instances of ``Binary``: ``Null``, ``I Null``, ``I (O Null)``.
+``Binary`` has three `constructors`, namely ``O``, ``I``, and ``Null``.  These
+represent the binary digits 0 and 1, and the end of the string, respectively.
+``O`` and ``I`` each take one argument of type ``Binary``, whereas ``Null``
+takes none.  Note that the self-reference makes ``Binary`` a recursive type,
+and that a binary string of any length can be written.  To create an instance,
+expressions of type ``Binary`` expressions are juxtaposed.  A few instances of
+this type are as follows: ``Null``, ``I Null``, ``I (O Null)``.
 
 Data type definitions may contain type variables, in which case the type
-defined is a polytype.  The following list definition illustrates::
+defined is a polytype.  The following definition of a list type illustrates::
 
     data List a = Cons a (List a) | Nil
 
-The ``Cons`` constructor takes two arguments, an element of type ``a`` and a
-tail of type ``List a``.  A monomorphic (i.e., concrete) list is formed by
-substituting ``a`` with a monomorphic type, as in  ``List Int``, for instance.
+Constructor ``Cons`` takes two arguments, an element of type ``a`` and a tail
+of type ``List a``.  ``Nil`` terminates the list.  Like ``Binary``, ``List`` is
+a recursive type and a list of any length can be defined.  Unlike ``Binary``,
+the free type parameter allows one to build a list over any type.  A
+monomorphic (i.e., concrete) list is formed by substituting ``a`` with a
+monomorphic type.  For instance, ``List Int`` describes a list of integers,
+which is monomorphic.
 
 Defined Operations
 ------------------
@@ -107,12 +110,13 @@ to bottom and when one evaluates to true the corresponding rule is fired.
 Pattern Matching
 ................
 
-So far, each function argument has been a variable.  More generally, these
-arguments are patterns.  A pattern is an expression involving variables and/or
-constructors.  By using multiple patterns, a function can be written as a set
-rules.  When evaluating such a function, the patterns are compared with the
-actual argument provided to determine which rule to fire.  (For now, we will
-assume that only one rule ever matches, though this is a simplification.)
+So far, each function argument has been a variable.  More generally, the
+arguments in a function definition are patterns.  A pattern is an expression
+involving variables and/or constructors.  By using multiple patterns, a
+function can be written as a set rules.  When evaluating such a function, the
+patterns are compared with the actual argument provided to determine which rule
+to fire.  (For now, we will assume that only one rule ever matches, though this
+is a simplification.)
 
 To illustrate, we can write write a function ``isNull`` that indicates whether
 a ``Binary`` argument has any digits at all::
@@ -127,6 +131,24 @@ a ``Binary`` argument has any digits at all::
 When ``isNull`` is called, the ``Binary`` argument is inspected and only the
 matching rule is fired.  Thus, ``isNull Null`` evaluates to ``True``, whereas
 ``isNull (I Null)`` evaluates to ``False``.
+
+Curry supports another kind of function definition.  When a pattern contains a
+function application, it is called a `functional pattern`.  This provides a
+useful way to describe data constructively.
+
+The following example implements a data store as a list of key-value pairs.
+Function ``find`` uses a functional pattern to select all values with a given
+key::
+
+    data Data a = [(String, a)]
+
+    find :: String -> Data -> a
+    find key (_ ++ (key, value) ++ _) = value
+
+This pattern uses the list append function, ``++``, to build any list
+containing a pair with the supplied key.  When this rule matches, ``find``
+evaluates to the corresponding value.
+
 
 Other Constructs
 ----------------

@@ -50,16 +50,15 @@ def equal(lhs, rhs, skipfwd=False):
   <Int 3>> are not equal by this metric.
 
   Examples:
-  ---------
-  Equivalent cyclic expressions will always compare equal, provided sufficient
-  resources (especially stack space).  The following, for example, will all
-  compare equal:
+    Equivalent cyclic expressions will always compare equal, provided
+    sufficient resources (especially stack space).  The following, for example,
+    will all compare equal:
 
-      let a=(0:b), b=(1:a) in a
-      let a=(0:1:a) in a
-      let a=(0:1:b), b=(0:1:a) in a
-      let a=(0:1:0:b), b=(1:0:1:a) in a
-  '''
+        let a=(0:b), b=(1:a) in a
+        let a=(0:1:a) in a
+        let a=(0:1:b), b=(0:1:a) in a
+        let a=(0:1:0:b), b=(1:0:1:a) in a
+    '''
   equality = GraphEquality(skipfwd=skipfwd)
   return equality(lhs, rhs)
 

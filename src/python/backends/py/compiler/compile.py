@@ -39,8 +39,7 @@ def compileEx(interp, icy, closure, lines, extern=None):
   ICurry object identical to ``icy`` except that every function body is
   specified as IMaterial.
 
-  Paramters:
-  ----------
+  Args:
     ``icy``
       An IPackage, IModule, or IFunction to compile.
 
@@ -56,8 +55,7 @@ def compileEx(interp, icy, closure, lines, extern=None):
       IExternal data.
 
   Returns:
-  --------
-  A new ICurry object.
+    A new ICurry object.
   '''
   raise TypeError('Cannot compile type %r' % type(icy).__name__)
 

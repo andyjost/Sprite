@@ -43,12 +43,12 @@ Sources
 - Python is available through most software package managers.  For fine control
   over the version on Ubuntu, consider using the `deadsnakes PPA
   <https://github.com/deadsnakes>`_.  To build from source, download Python
-  `here <https://www.python.org/downloads/>`_.  
+  `here <https://www.python.org/downloads/>`__.
 
-- Prolog is available `here <https://www.swi-prolog.org>`_.  It is a
+- Prolog is available `here <https://www.swi-prolog.org>`__.  It is a
   prerequisite of PAKCS.
 
-- Download PAKCS `here <https://www.informatik.uni-kiel.de/~pakcs/download.html>`_.
+- Download PAKCS `here <https://www.informatik.uni-kiel.de/~pakcs/download.html>`__.
 
 - ICurry is available through the `Curry Package Manager`_.  After installing
   PAKCS, say the following from your home directory:

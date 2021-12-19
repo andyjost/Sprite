@@ -5,9 +5,9 @@ Preface
 This document describes the Sprite Curry system, developed by Andrew Jost.
 Sprite is an implementation of the `Curry`_ programming language based on an
 evaluation strategy called the `Fair Scheme`_, developed by Sergio Antoy and
-Andrew Jost.  This is a `sequential` strategy that relies on `pull-tabbing`_ to
-avoid taking irrevocable non-deterministic steps that could jeopardize the
-competeness of computations.
+Andrew Jost.  The Fair Scheme is a `sequential` strategy that relies on
+`pull-tabbing`_ to avoid taking irrevocable non-deterministic steps that could
+jeopardize the competeness of computations.
 
 Sprite provides everything one needs to compile and execute Curry programs.
 This can be done in batch using command-line tools or through a Python API.
@@ -22,7 +22,7 @@ Important Notes
 
 [1] Supply type signatures for goals.
     Recent implementations of Curry support type classes.  Sprite is no
-    different in this regard, but it currently does not have a type inferrence
+    different in this regard, but it currently does not have a type inference
     system.  This means that goals with no type signature might fail, as Sprite
     has no way to supply a default instance.
 
@@ -40,13 +40,16 @@ Acknowledgements
 
 This work has been supported by NSF grant #1317249.  My deepest gratitude goes
 to Sergio Antoy for guiding me through the world of Functional-Logic
-Programming, helping to develop the Fair Scheme, and much more.  Without his
-patience and persistence, this work would not have been possible.  Thanks also
-go to the many people who developed and supported PAKCS and KiCS2, but
-especially Michael Hanus for his conscientious efforts to develop and
-thoroughly document Curry, and his many useful suggestions, bug fixes, and
-other improvements that affected my work.  Thanks also to Bernd Brassel, whose
-prior work deeply informed my understanding.
+Programming, helping to develop the Fair Scheme and ICurry, and much more.
+Without his patience and persistence, or his passion to share his considerable
+knowledge, this work would not have been remotely possible.  Special thanks go
+to Michael Hanus, whose contributions to Curry and Function-Logic Programming
+would be difficult to overstate.  His conscientious efforts to develop and
+thoroughly document Curry over many years, plus his countless useful
+suggestions, bug fixes, and other improvements (especially with respect to
+ICurry) made this work possible.  Thanks also go to the many people who
+developed and supported Curry, PAKCS and KiCS2, but particularly Bernd Brassel,
+whose prior work deeply informed my understanding.
 
 
 .. _Fair Scheme: https://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf

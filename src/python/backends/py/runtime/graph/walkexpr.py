@@ -85,19 +85,18 @@ def walk(root, realpath=None):
   state.  The subexpression under the cursor may be modified.
 
   Attributes:
-  -----------
-    ``stack``
+    stack
         The remaining iteration state.  May be modified to control the search.
         Call ``push`` to add the successors of the node under the cursor.
-    ``realpath``
+    realpath
         A list of integers giving the real path from the root to the cursor.
         Not to be modified.
-    ``spine``
+    spine
         A list of nodes, equal in length to ``realpath``, giving the node at
         each point along the path.  Not to be modified.
-    ``cursor``
+    cursor
         The node currently being visited.  Equivalent to spine[-1].
-    ``parent``
+    parent
         The parent of the node at the cursor.  Equivalent to spine[-2].
   '''
   return WalkState(root, () if realpath is None else realpath)

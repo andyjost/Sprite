@@ -1,4 +1,6 @@
 
+.. _compilation-pipeline:
+
 The Curry Compilation Pipeline
 ==============================
 
@@ -10,17 +12,20 @@ performed by an external program.  Taken in order, the stages form the
 compilation pipeline.  Sprite chooses as its starting point the newest
 among a Curry source file and all its intermediates along the pipeline.
 
-The following setions discuss the compilation stages in detail.
+The following sections discuss the compilation stages in detail.
 
 
 Curry to ICurry
 ---------------
 
-Curry source code is transformed into a format called `ICurry`_ by an external
-program called ``icurry``.  This stage involves sub-transformations and
-additional intermediate files, which are managed by ``icurry``.  An important
-one of these is a representation called `FlatCurry`_, which desugars and
-otherwise simplifies the source material.
+Sprite first translates Curry source code into a format called `ICurry
+<http://arxiv.org/abs/1908.11101>`__.  For this it relies on the external
+program `icurry
+<https://www-ps.informatik.uni-kiel.de/~cpm/pkgs/icurry.html>`__, available
+through the `Curry Package Manager`_.  This stage involves sub-transformations
+and additional intermediate files, which are managed by ``icurry``.  An
+important intermediate called `FlatCurry`_, contains the desugared and
+otherwise simplified program.
 
 Sprite uses PAKCS to drive ``icurry``.  This affects where certain
 intermediate files are placed.  For details refer to the `PAKCS
@@ -55,10 +60,10 @@ suffix ``.json.z``.
 JSON to Sprite IR
 -----------------
 
-Sprite's in-memory IR closely reflects the standard `ICurry package`_ available
-from the `Curry Package Manager`_.  This is implemented in Python as
-``curry.icurry``.  That module also provides functions to load ICurry from JSON
-or native ICurry, and to dump ICurry in human-readable format or as JSON.
+Sprite's in-memory IR closely reflects `ICurry`.  This is implemented in Python
+under :mod:`curry.icurry`.  That module also provides functions to load ICurry
+from JSON or native ICurry, and to dump ICurry into a human-readable format or
+as JSON.
 
 The in-memory representation is suitable for viewing and transforming ICurry.
 Using the Python API, one can inspect ICurry interactively from Python or
@@ -84,8 +89,10 @@ so, a package such as `PyPy`_ could in principle be used to post-process Python
 code into a more efficient form.
 
 
-.. _ICurry: http://web.cecs.pdx.edu/~antoy/homepage/publications/wflp19/paper.pdf
-.. _FlatCurry: http://www.informatik.uni-kiel.de/∼curry/flat
+..
+  .. _FlatCurry: http://www.informatik.uni-kiel.de/∼curry/flat
+
+.. _FlatCurry: https://www-ps.informatik.uni-kiel.de/~cpm/pkgs/flatcurry.html
 .. _PAKCS manual: https://www.informatik.uni-kiel.de/~pakcs/Manual.pdf
 .. _JSON: https://www.json.org/
 .. _jq: https://stedolan.github.io/jq/

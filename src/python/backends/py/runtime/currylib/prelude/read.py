@@ -26,7 +26,6 @@ def readCharLiteral(rts, s):
     - A hexadecimal integer less than 0x110000.
 
   Yields:
-  --------
     Components of a Curry pair consisting of the parsed character and the
     string tail following the closing quote.  If no character can be parsed,
     returns char '\0' and the original string.
@@ -121,7 +120,6 @@ def readStringLiteral(rts, s):
   characters and uses the same escape codes as for character literals.
 
   Yields:
-  --------
     Components of a Curry pair consisting of the parsed string literal and the
     Curry string tail following the closing quote.  If no string can be parsed,
     returns and empty string and the original string.

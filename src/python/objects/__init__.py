@@ -152,13 +152,12 @@ class CurryNodeInfo(object):
   FWD, and CHOICE is associated with an instance of this object.
 
   Attributes:
-  -----------
-  ``icurry``
-      The ICurry source of this Node.
-  ``name``
-      The fully-qualified Curry identifier for this kind of node.
-  ``info``
-      An instance of ``InfoTable``.
+    ``icurry``
+        The ICurry source of this Node.
+    ``name``
+        The fully-qualified Curry identifier for this kind of node.
+    ``info``
+        An instance of ``InfoTable``.
   '''
   def __init__(self, icurry, info):
     self.icurry = icurry

@@ -3,18 +3,21 @@ from ...control import E_RESIDUAL
 from ......exceptions import InstantiationError
 from ... import graph
 from ...... import inspect
-from six.moves import range, reduce
 
-# Prelude.& is implemented as follows:
-#   Evaluate an argument and inspect its head symbol:
-#     - If true, rewrite to the other argument;
-#     - If false, rewrite to false;
-#     - If it suspends:
-#         - if the other arg has not been inspected, work on the other arg;
-#         - if any step occurred, work on the other arg;
-#         - otherwise, suspend;
-# Use digits.curry as an example.
 def concurrent_and(rts, _0):
+  '''
+  Implements Prelude.&.
+
+  Evaluate an argument and inspect its head symbol:
+    - If true, rewrite to the other argument;
+    - If false, rewrite to false;
+    - If it suspends:
+        - if the other arg has not been inspected, work on the other arg;
+        - if any step occurred, work on the other arg;
+        - otherwise, suspend;
+
+  See ``digits.curry``.
+  '''
   Bool = rts.type('Prelude.Bool')
   assert rts.prelude.False_.info.tag == 0
   assert rts.prelude.True_.info.tag == 1
@@ -67,11 +70,11 @@ def constr_eq(rts, _0):
           if arity:
             conj = getattr(rts.prelude, '&')
             def terms():
-              for i in range(arity):
+              for i in six.moves.range(arity):
                 _1 = rts.variable(lhs, i)
                 _2 = rts.variable(rhs, i)
                 yield graph.Node(_0.info, _1, _2)
-            expr = reduce((lambda a,b: graph.Node(conj, a, b)), terms())
+            expr = six.moves.reduce((lambda a,b: graph.Node(conj, a, b)), terms())
             yield expr.info
             for succ in expr.successors:
               yield succ
@@ -114,11 +117,11 @@ def nonstrict_eq(rts, _0):
           if arity:
             conj = getattr(rts.prelude, '&')
             def terms():
-              for i in range(arity):
+              for i in six.moves.range(arity):
                 _1 = rts.variable(lhs, i)
                 _2 = rts.variable(rhs, i)
                 yield graph.Node(_0.info, _1, _2)
-            expr = reduce((lambda a,b: graph.Node(conj, a, b)), terms())
+            expr = six.moves.reduce((lambda a,b: graph.Node(conj, a, b)), terms())
             yield expr.info
             for succ in expr.successors:
               yield succ

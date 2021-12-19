@@ -90,9 +90,8 @@ def _getIcyOrShortcut(file_in, do_zip):
   that.
 
   Returns:
-  --------
-  A pair contining the JSON or ICurry filename, and a Boolean indicating
-  whether the opertion was shortcut.
+    A pair containing the JSON or ICurry filename, and a Boolean indicating
+    whether the opertion was shortcut.
   '''
   if file_in.endswith('.json'):
     if do_zip:

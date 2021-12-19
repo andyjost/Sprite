@@ -60,7 +60,7 @@ Constraint nodes contain two data elements.  The first is a reference to the
 value of the constraint.  Since constraints belong to the runtime, not the
 program being evaluated, they are always eliminated before a program value is
 produced.  The constraint value is what is left behind after eliminating the
-constraint.  In practice, since constraints eminate from applications of
+constraint.  In practice, since constraints emanate from applications of
 ``=:=``, the value is always a Boolean type.
 
 The second is a description of the constraint.  Constraints come in three flavors:
@@ -161,7 +161,7 @@ store, then it may need to be (partially) instantiated.  Consider:
     (x =:= [y]) &> x where x, y free
 
 ``x`` is unneeded in the same sense as in the previous example.  However,
-application of ``=:=`` produces an entry in the constraint store pertinant to
+application of ``=:=`` produces an entry in the constraint store pertinent to
 ``x``.  Let's assume the following generator for the List type:
 
 .. code-block:: haskell

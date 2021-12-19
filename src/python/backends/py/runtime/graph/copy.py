@@ -82,19 +82,17 @@ def copynode(expr, mapf=None):
   '''
   Makes a shallow copy of a Curry expression.
 
-  Paramters:
-  ----------
-    ``expr``
+  Args:
+    expr
       The expression to copy.  Can be an instance of ``graph.Node`` or a
       built-in type such as ``int``, ``str``, or ``float``.
 
-    ``mapf``
+    mapf
       An optional map function.  If supplied, this function will be applied
       to the successors.
 
   Returns:
-  --------
-  A shallow copy of ``expr``.
+    A shallow copy of ``expr``.
   '''
   if isinstance(expr, node.Node):
     info = expr.info

@@ -8,18 +8,18 @@ operation has a definite static type, so Curry can be statically compiled by
 Sprite and other Curry systems.
 
 
-Type Inferrence
----------------
+Type Inference
+--------------
 
-Curry uses a system of type inferrence whereby ommitted types are deduced by
-the compiler.  A broad class of programmer errors can be detected as errors in
-type deduction.
+Curry uses a system of type inference whereby ommitted types are deduced by the
+compiler.  A broad class of programmer errors can be detected as errors in type
+deduction.
 
-Type inferrence can significanly reduce visual clutter by allowing the
+Type inference can significanly reduce visual clutter by allowing the
 programmer to omit redundant details.  If taken to far, however, this can
 become inconvenient.  For instance, someone reading Curry code may wish to know
 the type of a function.  If this is not written down, then that person must
-resort to performing type inferrence mentally.
+resort to performing type inference mentally.
 
 To balance these considerations, it is customary to write type annotations
 wherever it improves readability and especially for definitions at module
@@ -41,7 +41,7 @@ type of a unary function that takes an integer, ``Int``, and returns an integer
 can be written ``Int -> Int``.  An expression that applies this to an argument
 of type ``Int`` has type ``Int``.  A binary function over integers would be
 written ``Int -> Int -> Int``.  Applying this to an integer produces an
-expression of type ``Int -> Int``.  This process, called `currying``, is how
+expression of type ``Int -> Int``.  This process, called `currying`, is how
 partial application is achieved.  Applying another ``Int`` produces an ``Int``.
 
 As in any functional language, we may regard all expressions as functions.  For

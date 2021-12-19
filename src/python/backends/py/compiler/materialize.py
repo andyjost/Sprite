@@ -6,7 +6,7 @@ from . import render
 from ....utility import encoding, filesys
 import pprint, six, textwrap
 
-__all__ = 'materialize'
+__all__ = ['materialize']
 
 def materialize(interp, ir, debug=False, ifun=None):
   '''Materializes a Python function from the IR.'''

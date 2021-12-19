@@ -1,15 +1,15 @@
-# ================================================================================
-# Install built-in functions for debugging and development.  This must be done
-# before loading anything from the project.
+'''
+Importing this module adds ``breakpoint`` and ``pdbtrace`` as built-ins.
+'''
 
 import six
-from six.moves import builtins, range
+__all__ = ['breakpoint', 'pdbtrace']
 
 def breakpoint(msg='', depth=0):
   '''(Built-in) Starts an interactive prompt.  For development and debugging.'''
   import code, inspect, pydoc
   frame = inspect.currentframe()
-  for i in range(depth+1):
+  for i in six.moves.range(depth+1):
     frame = frame.f_back
   namespace = dict(help=pydoc.help)
   namespace.update(frame.f_globals)
@@ -22,11 +22,11 @@ def breakpoint(msg='', depth=0):
     kwds['exitmsg'] = ''
   code.interact(**kwds)
 
-builtins.breakpoint = breakpoint
+six.moves.builtins.breakpoint = breakpoint
 
 def pdbtrace():
   '''(Built-in) Starts PDB.'''
   import pdb
   pdb.set_trace()
 
-builtins.pdbtrace = pdbtrace
+six.moves.builtins.pdbtrace = pdbtrace
