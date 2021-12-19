@@ -3,6 +3,7 @@ from ...control import E_RESIDUAL
 from ......exceptions import InstantiationError
 from ... import graph
 from ...... import inspect
+import six
 
 def concurrent_and(rts, _0):
   '''
