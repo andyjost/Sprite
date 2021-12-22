@@ -1,5 +1,5 @@
 # Currently disabled: gc, llvm
-SUBMODULES = runtime
+SUBMODULES = graph misc
 SRCS := fingerprint.cpp
 SHLIB := libsprite
 RELATIVE_INSTALL_DIR := lib
