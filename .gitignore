@@ -1,6 +1,6 @@
 object-root
 Make.config
-build*
+/build*
 configure-tmp/**
 install/**
 !install/README
