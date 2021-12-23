@@ -22,7 +22,7 @@ in a single environment.
    Preface
    Quickstart
    Introduction/Introduction
-   Installation
+   Installation/Installation
    CommandLineInterface/index
    PythonAPI/index
    Reference/index

@@ -70,7 +70,6 @@ To generate a computation trace, set SPRITE_INTERPRETER_FLAGS as shown here::
 
 .. note::
 
-  Vim users may wish to :ref:`install <Installation:Syntax Highlighting for
-  Spritelog Files>` ``spritelog.vim`` to view the output with syntax
-  highlighting.
+  Vim users may wish to :ref:`install <spritelog-highlighting>`
+  ``spritelog.vim`` to view the output with syntax highlighting.
 

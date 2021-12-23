@@ -12,45 +12,13 @@ Curry code modules can thus be imported directly into Python, enabling
 hybrid applications that leverage the strengths of both languages.
 
 
-2. Build, Testing, and Installation
------------------------------------
+2. Documentation
+----------------
 
-* Make sure you have the prerequisites listed in EXTERNAL_SOFTWARE.rst.
-
-* Short instructions:
-
-    ./configure
-    make
-    make install PREFIX=<install-dir>
+Read the documentation at http://web.cecs.pdx.edu/~josta/sprite/.
 
 
-* Long instructions:
-
-Run the ./configure script first.  Say `./configure -h` for help.
-
-Say `make help` for details concerning available targets and options.
-
-See `INSTALLATION.rst` for more details.
-
-
-3. Getting Started
-------------------
-
-Build and read the documentation:
-
-    make docs
-
-See the examples/ subdirectory.
-
-To run a Curry program use a command such as:
-
-    sprite-exec myprogram.curry
-
-To use the Python API, start Python from Sprite's bin/ directory and say
-`import curry`.
-
-
-4. Contact and Bug Reporting
+3. Contact and Bug Reporting
 ----------------------------
 
 Sprite was developed and is maintained by Andy Jost (andy.m.jost@gmail.com).
@@ -64,7 +32,7 @@ developing and running tests can be found under tests/README.  Once you have
 written the test, submit a pull request or send the diff by email.
 
 
-5. Contributing to Sprite
+4. Contributing to Sprite
 -------------------------
 
 Contributions are welcome!  For more information, see README.contrib.

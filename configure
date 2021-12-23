@@ -7,6 +7,25 @@ DIR = os.path.dirname(os.path.realpath(__file__))
 CONF = os.path.join(DIR, 'Make.config')
 TMP = os.path.join(DIR, 'configure-tmp')
 OPTS = None
+INSTALL_STEPS = []
+
+LOGFILE = 'configure.log'
+LOG = open(LOGFILE, 'w')
+
+class Tee(object):
+  def __init__(self, stream):
+    self.term = stream
+    self.log = LOG
+
+  def write(self, msg):
+    self.term.write(msg)
+    self.log.write(msg)
+
+  def flush(self):
+    pass
+
+sys.stdout = Tee(sys.stdout)
+sys.stderr = Tee(sys.stderr)
 
 @atexit.register
 def remove_tmpdir():
@@ -38,9 +57,17 @@ def ensure_str(s):
   return s
 
 # System commands.
-def log(msg, tail='\n'):
+def log(msg='', tail='\n'):
+  LOG.write(msg)
+  LOG.write(tail)
+
+def say(msg='', tail='\n'):
   sys.stdout.write(msg)
   sys.stdout.write(tail)
+
+def warn(msg='', tail='\n'):
+  sys.stderr.write(msg)
+  sys.stderr.write(tail)
 
 try:
   from shutil import which
@@ -55,24 +82,49 @@ except ImportError:
         pass
 
 def shell(cmd):
-  ans = subprocess.check_output(cmd, shell=True)
+  ans = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
   return ensure_str(ans).strip()
 
+def shellexec(cmd, echo=True):
+  if echo:
+    child = subprocess.Popen(cmd, shell=True)
+  else:
+    child = subprocess.Popen(cmd, shell=True, stdout=LOG, stderr=LOG)
+
+  try:
+    child.communicate()
+  except:
+    child.kill()
+    raise
+
+  try:
+    retcode = child.wait()
+  except:
+    child.kill()
+    raise
+  # subprocess.check_output(cmd, shell=True, stdout=sys.stdout)
+
 def commit(settings, variable_name, value, validation=[]):
-  log('Selecting %s=%r' % (variable_name, value))
+  if variable_name is not None:
+    log('Selecting %s=%r' % (variable_name, value))
   for v in validation:
     if not v(value):
       return False
-  settings[variable_name] = value
+  if settings is not None:
+    settings[variable_name] = value
   return True
 
-def abort():
-  log('\nAborted.')
+def abort(soft=False):
+  if soft:
+    warn('\nAborted.')
+  else:
+    warn('\nConfiguration failed.  See %s for details.' % LOGFILE)
+    warn('\nAborted.')
   sys.exit(1)
 
 def abort_python():
-  log('\nPython development files could not be located.')
-  log('If you are using a package manager, you might need to install one of the -dev packages.')
+  warn('\nPython development files could not be located.')
+  warn('If you are using a package manager, you might need to install one of the -dev packages.')
   abort()
 
 def get_options():
@@ -82,6 +134,12 @@ def get_options():
   parser.add_argument('-i', '--interactive', action='store_true', help='configure interactively')
   parser.add_argument('-r', '--reconfigure', action='store_true', help='repeat the configuration process')
   parser.add_argument('-f', '--fast', action='store_true', help='skip expensive checks')
+  parser.add_argument('-D', '--doc', action='store_true', help='check dependencies needed to build documentation')
+  parser.add_argument('-p', '--install-prereqs', action='store_true', help='install missing prerequisites')
+  parser.add_argument('-n', '--dry-run', action='store_true', help='show what would be installed')
+  parser.add_argument('-y', '--yes', action='store_true'
+     , help='do not prompt before installing software'
+     )
   OPTS = parser.parse_args()
 
 def main():
@@ -89,12 +147,13 @@ def main():
 
   if os.path.exists(CONF):
     if OPTS.reconfigure:
-      log('Reconfiguring Sprite')
+      say('Reconfiguring Sprite.\n')
     else:
-      log('Sprite is already configured; supply -r to reconfigure.', '')
-      abort()
+      warn('Refusing to overwrite previous configuration at %s' % CONF)
+      warn('Use -r to reconfigure.', '')
+      abort(soft=True)
   else:
-    log('Configuring Sprite')
+    say('Configuring Sprite.\n')
 
   # Preparation.
   os.chdir(DIR)
@@ -104,32 +163,48 @@ def main():
   rmdir(os.path.join(DIR, 'object-root'))
 
   # Determine the settings.
+  say('*** Finding programs')
   try:
     settings = {}
     set_from_path(
         settings, 'PYTHON_EXECUTABLE', 'python', 'Python installation'
       , default=OPTS.with_python
       )
-    check_python_version(settings)
-    check_python_modules(settings)
-    set_python_config(settings)
-    set_from_path(settings, 'CC', 'gcc', 'C compiler')
-    set_from_path(settings, 'CXX', 'g++', 'C++ compiler')
+    set_from_path(settings, 'CC', 'gcc', 'GNU C compiler'
+      , install_steps=get_build_essential_install_steps
+      )
+    set_from_path(settings, 'CXX', 'g++', 'GNU C++ compiler'
+      , install_steps=get_build_essential_install_steps
+      )
     set_from_path(settings, 'PAKCS', 'pakcs', 'PAKCS executable'
       , web='https://www.informatik.uni-kiel.de/~pakcs/download.html'
+      , altdir='extern/pakcs-3.4.1/bin'
+      , install_steps=get_pakcs_install_steps
       )
-    set_pakcs_home(settings)
-    set_pakcs_name(settings)
-    set_pakcs_version(settings)
     set_from_path(settings, 'ICURRY_EXECUTABLE', 'icurry', 'icurry executable'
       , web='https://www-ps.informatik.uni-kiel.de/currywiki/tools/cpm'
       , hint='try `cypm update; cypm add icurry; cypm install icurry`'
       , altdir=os.path.join(os.environ.get('HOME', ''), '.cpm', 'bin')
+      , install_steps=get_icurry_install_steps
       )
-    check_icurry(settings)
     set_from_path(settings, 'JQ_EXECUTABLE', 'jq', 'jq executable'
       , web='https://stedolan.github.io/jq/'
+      , install_steps=get_jq_install_steps
       )
+
+    if not install():
+      return
+
+    say('*** Checking Python')
+    check_python_version(settings)
+    check_python_modules(settings)
+    set_python_config(settings)
+    say('*** Checking PAKCS')
+    set_pakcs_home(settings)
+    set_pakcs_name(settings)
+    set_pakcs_version(settings)
+    check_icurry(settings)
+
   except KeyboardInterrupt:
     abort()
   except EOFError:
@@ -139,15 +214,19 @@ def main():
   text = TEMPLATE.format(**settings)
   with open(CONF, 'w') as ostream:
     ostream.write(text)
-  log('Configuration written to %s' % CONF)
+  say()
+  say('****** Configuration succeeded! ******')
+  say('Details logged to %s' % LOGFILE)
+  say('Configuration written to %s' % CONF)
 
 
 def set_from_path(
     settings, variable_name, program_name, desc, web=None, hint=None
-  , altdir=None, default=None
+  , altdir=None, default=None, install_steps=None
   ):
   if default is None:
-    default = os.environ.get(variable_name)
+    if variable_name is not None:
+      default = os.environ.get(variable_name)
     if default is not None:
       log("Using default %s=%r from the environment" % (variable_name, default))
     else:
@@ -171,11 +250,20 @@ def set_from_path(
         return
   else:
     if default is None:
-      log('%s was not found in the PATH.  Try again with -i to specify it.' % program_name)
+      if OPTS.install_prereqs and install_steps:
+        global INSTALL_STEPS
+        steps = tuple(install_steps())
+        if not any(steps == s for s,_ in INSTALL_STEPS):
+          retry = lambda: set_from_path(
+              settings, variable_name, program_name, desc, web, hint, altdir
+            )
+          INSTALL_STEPS.append((steps, retry))
+        return
+      warn('%s was not found in PATH.  You must install it manually.' % program_name)
       if web is not None:
-        log('For installation info, see %s' % web)
+        warn('For installation info, see %s' % web)
       if hint is not None:
-        log('hint: %s' % hint)
+        warn('hint: %s' % hint)
       abort()
     if not commit(settings, variable_name, default, [executable]):
       abort()
@@ -210,47 +298,59 @@ def check_python_version(settings):
   minimum = 2,7,18
   if vtuple < minimum:
     log('FAILED')
-    log('The Python version %s is less than the minimum requirement [%s.%s.%s]' % ((vstr,) + minimum))
+    warn('The Python version %s is less than the minimum requirement [%s.%s.%s]' % ((vstr,) + minimum))
     abort()
   else:
     log('%s, OK' % vstr)
     if vtuple[0] == 3 and vtuple < (3,5,1):
-      log('Sprite has not been tested with Python %s' % vstr)
-      log('Consider using Python 2.7.18 or 3.5.1+')
+      warn('Sprite has not been tested with Python %s' % vstr)
+      warn('Consider using Python 2.7.18 or 3.5.1+')
+
+g_num_warnings = 0
 
 def check_python_modules(settings):
   pyexe = settings['PYTHON_EXECUTABLE']
   modules = [
-    #  module              required   whatfor
-    # -------------------------------------------------
-      ('json'            , True     , None)
-    , ('mmap'            , True     , None)
-    , ('numpy'           , False    , 'for some unit tests')
-    , ('six'             , True     , None)
-    , ('sqlite3'         , False    , 'for caching')
-    , ('sphinx'          , False    , 'to build documentation')
-    , ('sphinx_rtd_theme', False    , 'for HTML theming')
-    , ('zlib'            , True     , None)
+    #  module              required   enabled   whatfor
+    # -------------------------------------------------------------------
+      ('json'            , True     , True,     None)
+    , ('mmap'            , True     , True,     None)
+    , ('numpy'           , False    , True,     'for some unit tests')
+    , ('six'             , True     , True,     None)
+    , ('sphinx'          , False    , OPTS.doc, 'to build documentation')
+    , ('sphinx_rtd_theme', False    , OPTS.doc, 'for HTML theming')
+    , ('sqlite3'         , False    , True,     'for caching')
+    , ('zlib'            , True     , True,     None)
     ]
 
-  for modname,required,whatfor in modules:
+  for modname,required,enabled,whatfor in modules:
     try:
-      log('Checking for module %r' % modname, '...')
-      shell("""%s -c 'import %s'""" % (pyexe, modname))
+      if enabled:
+        log('Checking for module %r' % modname, '...')
+        shell("""%s -c 'import %s'""" % (pyexe, modname))
+        log('OK')
     except subprocess.CalledProcessError:
+      global g_num_warnings
+      g_num_warnings += 1
       log('FAILED')
-      log('\nThe Python %r module is %s.  Suggestion:'
-          % (modname, 'required' if required else 'recommended.  It is needed %s' % whatfor)
+      warn()
+      banner = ' PREREQUISITE ISSUE #%s ' % g_num_warnings
+      ndashes = max(3, (80 - len(banner)) // 2)
+      warn('-' * ndashes + banner + '-' * ndashes)
+      warn()
+      warn('    The Python %r module is %s.'
+          % (modname, 'required' if required else 'recommended %s' % whatfor)
         )
-      log('')
-      log('    %s -m pip install %s' % (pyexe, modname))
-      log('')
+      warn()
+      warn('    Suggestion:')
+      warn('')
+      warn('        %s -m pip install %s' % (pyexe, modname))
+      warn('')
       if required:
         abort()
       settings['HAVE_PYTHON_' + modname] = 0
     else:
       settings['HAVE_PYTHON_' + modname] = 1
-      log('OK')
 
 PYTHON_CONFIG_SCRIPT = \
 r'''
@@ -311,20 +411,23 @@ def set_pakcs_version(settings):
   ok = ver in GOOD_PAKCS_VERSIONS
   log('OK' if ok else 'FAILED')
   if not ok:
-    log('Acceptable PAKCS versions are: %s' % GOOD_PAKCS_VERSIONS)
+    warn('Acceptable PAKCS versions are: %s' % GOOD_PAKCS_VERSIONS)
     abort()
   commit(settings, 'PAKCS_VERSION', ver)
 
 def check_icurry(settings):
   if not OPTS.fast:
+    say('*** Checking ICurry (this takes some time).')
     log('Checking the behavior of the icurry program')
     icurry = settings['ICURRY_EXECUTABLE']
     filename = os.path.join(TMP, 'sample.curry')
     with open(filename, 'w') as ostream:
       ostream.write('main :: Int\n')
       ostream.write('main = 42\n')
-    status = os.system('cd %s && %s sample' % (TMP, icurry))
-    if status:
+    try:
+      shellexec('cd %s && %s sample' % (TMP, icurry), echo=False)
+    except subprocess.CalledProcessError:
+      warn('Failed to run icury')
       abort()
 
     # Look for the expected files and directories.
@@ -337,6 +440,96 @@ def check_icurry(settings):
       , readable(os.path.join(pakcs_subdir, 'sample.icy'))
       ]):
       abort()
+
+def install():
+  if INSTALL_STEPS:
+    if not OPTS.yes:
+      warn()
+      warn('-' * 80)
+      warn('The following steps are needed to install prerequisites:')
+      warn()
+      for steps,commit in INSTALL_STEPS:
+        for step in steps:
+          warn('    ' + step)
+        warn()
+      if OPTS.dry_run:
+        warn('Quitting becuase --dry-run was supplied.')
+        return False
+
+      while True:
+        go = input('\nContinue? [Y/n]> ')
+        if not go or go in 'yY':
+          break
+        elif go in 'nN':
+          return False
+    
+    for steps,commit in INSTALL_STEPS:
+      for step in steps:
+        if step and not step.startswith('#'):
+          say('% ' + step)
+          pass
+          # shell(step)
+        else:
+          say(step)
+      say()
+    return False ## FIXME
+  return True
+
+def prereq_wget():
+  set_from_path(None, None, 'wget', 'wget'
+    , install_steps=get_wget_install_steps
+    )
+
+def prereq_make():
+  set_from_path(None, None, 'make', 'make'
+    , install_steps=get_build_essential_install_steps
+    )
+
+def prereq_tar():
+  set_from_path(None, None, 'tar', 'tar')
+
+def get_wget_install_steps():
+  yield '# Install wget.'
+  yield 'sudo apt-get install wget'
+
+def get_build_essential_install_steps():
+  yield '# Install gcc, g++, make.'
+  yield 'sudo apt-get install build-essential'
+
+def get_jq_install_steps():
+  yield '# Install jq.'
+  yield 'sudo apt-get install jq'
+  
+
+def get_swipl_install_steps():
+  yield '# Install SWI Prolog.'
+  yield 'sudo apt-get install swi-prolog'
+
+def get_stack_install_steps():
+  prereq_wget()
+  yield '# Install Haskell Stack.'
+  yield 'wget -qO- https://get.haskellstack.org/ | sh'
+
+def get_pakcs_install_steps():
+  prereq_make()
+  prereq_tar()
+  prereq_wget()
+  set_from_path(None, None, 'swipl', 'SWI Prolog'
+    , install_steps=get_swipl_install_steps
+    )
+  set_from_path(None, None, 'stack', 'Haskell Stack'
+    , install_steps=get_stack_install_steps
+    )
+  yield '# Install PAKCS 3.4.1.'
+  yield 'cd extern && wget https://www.informatik.uni-kiel.de/~pakcs/download/pakcs-3.4.1-src.tar.gz'
+  yield 'cd extern && tar xvzf pakcs-3.4.1-src'
+  yield 'cd extern/pakcs-3.4.1src && make'
+  
+
+def get_icurry_install_steps():
+  yield '# Install icurry.'
+  yield 'cd && cypm add icurry && cypm install icurry'
+
 
 TEMPLATE = '''
 # Python Configuration

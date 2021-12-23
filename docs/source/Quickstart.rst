@@ -12,18 +12,13 @@ using the Python API.
 Quick Build
 ===========
 
-Ensure Python, PAKCS, and icurry are in your PATH, and that their versions are
-:ref:`compatible <Introduction/ExternalSoftware:Compatibility>` with Sprite.
-Then configure and stage Sprite:
-
 .. code-block:: bash
 
     ./configure
-    make stage
+    make
 
-This creates an installation of Sprite at ``$ROOT/install``, where ROOT refers
-the Sprite repository root.  To run the examples below prepend
-``$ROOT/install/bin`` to your PATH.
+This installs Sprite under ``install/``.  To run the examples below prepend
+``install/bin`` to your PATH or use fully-qualified names.
 
 Running Curry Programs
 ======================
@@ -63,12 +58,7 @@ To begin, start Python:
 
 .. code-block:: bash
 
-    % python
-
-.. important::
-
-    Ensure you are using ``$ROOT/install/bin/python``, as this configures
-    PYTHONPATH and other environment variables.
+    % install/bin/python
 
 To import Sprite, say:
 

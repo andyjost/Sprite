@@ -80,7 +80,6 @@ to begin using it.
    :maxdepth: 1
 
    MajorFeatures
-   ExternalSoftware
    ProjectLayout
    CompilationPipeline
 

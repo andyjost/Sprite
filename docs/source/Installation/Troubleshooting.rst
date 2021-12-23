@@ -1,6 +1,6 @@
-=================
-External Software
-=================
+================
+Troubleshooting
+================
 
 Compatibility
 =============

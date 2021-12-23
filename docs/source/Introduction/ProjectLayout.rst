@@ -25,14 +25,11 @@ The Sprite repository is organized as follows:
 .. _install-tree-layout:
 
 ``install/`` (dynamically created)
-    .. note::
-
-        The installation tree created by ``make install`` matches this
-        directory.
-
     The staging area created by the ``make stage`` command.  Sprite is
     installed here for use in testing and building help documents.  It is safe
     to remove this directory.
+
+    The installation tree created by ``make install`` also follows this layout.
 
     ``bin/``
         Executable files installed by Sprite.

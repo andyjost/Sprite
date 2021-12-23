@@ -4,26 +4,26 @@
 Installation
 ============
 
-.. important::
-
-    Refer to the :ref:`External Software
-    <Introduction/ExternalSoftware:External Software>` list to ensure
-    compatible prerequisites are installed.
-
 Short Instructions
 ==================
 
-From the Sprite repository root, issue the command below.  Replace ``<install-dir>`` with
-the desired installation root::
+Follow these instructions to get started quickly.  If you prefer doing things
+one step at a time, follow the instructions in the next section.
+
+Run the following from the Sprite repository root::
 
     ./configure
     make
-    make install PREFIX=<install-dir>
 
-The install tree layout is described :ref:`here <install-tree-layout>`.
+Running ``make`` with no arguments builds Sprite, installs it under
+``install/``, and then runs the tests.
+
 
 Long Instructions
 =================
+
+Step 1: Configure the build
+---------------------------
 
 Begin by configuring Sprite::
 
@@ -37,33 +37,38 @@ follow the instructions to install missing software.
 Following configuration, you can invoke ``make``.  Say ``make help`` for
 information about targets and options.
 
-The default target builds Sprite, installs it to a staging area, and runs the
-tests::
-
-    make
-
-If you prefer to do things one step at a time, follow the instructions below.
+Step 2: Initialize submodules
+------------------------------
 
 You must initialize and update the GIT submodules before building::
 
     git submodule init
     git submodule update
 
+Step 3: Overlay ICurry files
+----------------------------
+
 To overlay pre-built ICurry files for the Curry standard library and tests,
 say::
 
     make overlay
 
-.. important::
 
-    This step avoids converting hundreds of Curry files to ICurry, which
-    accelerates the first invocation of these tests by **several hours**.  To
-    use this, your version of PACKS must match one of the ``overlay*.tgz``
-    files at the repository root.
+This step **saves several hours** by avoiding hundreds of Curry-to-ICurry
+conversions.  See :ref:`important-notes`.
+
+To use this, your version of PACKS must match one of the ``overlay*.tgz``
+files at the repository root.
+
+Step 4: Build objects and libraries
+-----------------------------------
 
 To build object files, static libraries, and shared libraries say::
 
     make objs libs shlibs
+
+Step 5: Stage
+-------------
 
 To stage Sprite say::
 
@@ -73,6 +78,9 @@ This must be done before tests are run.  It creates a mock installation under
 ``install/``.  This step also builds the necessary objects and libraries, so
 you can skip the previous two steps if you like.
 
+Step 6: Test
+------------
+
 To run the tests, say::
 
     make test
@@ -80,9 +88,27 @@ To run the tests, say::
 You can also say ``cd tests && ./run_tests``.  See tests/README for fine
 control of testing.
 
+Step 7: Install (optional)
+--------------------------
+
+You can use Sprite directly from the staging area.  If you prefer to install it
+elsewhere, use ``make install`` while setting PREFIX to the desired location.
+
 To install Sprite under ``/path/to/sprite`` say::
 
     make install PREFIX=/path/to/sprite
+
+Refer to the :ref:`install tree layout <install-tree-layout>` for the
+directories this creates.
+
+
+Building Documentation
+======================
+
+.. note::
+
+    Most people will not need to build the documentation.  It is available
+    `here <http://web.cecs.pdx.edu/~josta/sprite/>`__.
 
 To build PDF and HTML documentation, say::
 
@@ -103,6 +129,8 @@ file ``~/.vim/ftdetect/curry.vim`` with the following contents:
 
     au BufRead,BufNewFile *.curry set filetype=haskell
 
+.. _spritelog-highlighting:
+
 Syntax Highlighting for Spritelog Files
 ---------------------------------------
 
@@ -118,3 +146,6 @@ the syntax highlighting for ``spritelog`` files.  Do the following for Vim:
 
          au BufRead,BufNewFile *spritelog set filetype=spritelog
 
+
+.. toctree::
+    Troubleshooting
