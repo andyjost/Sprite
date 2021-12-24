@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
 from __future__ import print_function
+import os, sys
 
-import os
+print("This script is obsolete because it uses ICURRY2JSON.")
+sys.exit(1)
 
 # This script should be called from the tests/data/scripts directory.
 assert os.path.split(os.getcwd())[-1] == 'scripts'

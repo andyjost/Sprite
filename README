@@ -12,13 +12,37 @@ Curry code modules can thus be imported directly into Python, enabling
 hybrid applications that leverage the strengths of both languages.
 
 
-2. Documentation
+2. Installation
+---------------
+
+For common Linux platforms, all you need to do is run ONE of the commands
+below:
+
+  - Automated:
+
+        wget -qO- https://github.com/andyjost/Sprite/blob/release/getsprite | sh
+        curl -sSL https://github.com/andyjost/Sprite/blob/release/getsprite | sh
+
+  - Interactive:
+
+        wget -qO- https://github.com/andyjost/Sprite/blob/release/getsprite-i | sh
+        curl -sSL https://github.com/andyjost/Sprite/blob/release/getsprite-i | sh
+
+Sprite will be installed under $HOME/Sprite/install.
+
+These commands may ask for root access to install dependencies using your
+platform's package manager (currently, only apt is supported) and Python's
+package manger (pip).  If you prefer more control, see the installation guide
+in the documentation.
+
+
+3. Documentation
 ----------------
 
 Read the documentation at http://web.cecs.pdx.edu/~josta/sprite/.
 
 
-3. Contact and Bug Reporting
+4. Contact and Bug Reporting
 ----------------------------
 
 Sprite was developed and is maintained by Andy Jost (andy.m.jost@gmail.com).
@@ -32,7 +56,7 @@ developing and running tests can be found under tests/README.  Once you have
 written the test, submit a pull request or send the diff by email.
 
 
-4. Contributing to Sprite
+5. Contributing to Sprite
 -------------------------
 
 Contributions are welcome!  For more information, see README.contrib.

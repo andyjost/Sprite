@@ -1,0 +1,7 @@
+set -e
+cd $HOME
+git clone git@github.com:andyjost/Sprite.git
+cd Sprite
+./configure --install-prereqs --yes
+make
+echo "Sprite is installed at $HOME/Sprite/install/bin"

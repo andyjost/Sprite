@@ -5,8 +5,8 @@ Quickstart
 .. toctree::
 
 For the impatient among us, this guide demonstrates some basic capabilities of
-Sprite.  It shows how to install Sprite; run Curry programs from the command
-line; and load modules, build expressions, evaluate code, and convert values
+Sprite.  It shows how to install Sprite, run Curry programs from the command
+line, and load modules, build expressions, evaluate code, and convert values
 using the Python API.
 
 Quick Build
@@ -14,7 +14,13 @@ Quick Build
 
 .. code-block:: bash
 
-    ./configure
+    ./configure --check-prereqs
+
+If you are satisfied with how the prerequisites will be installed:
+
+.. code-block:: bash
+
+    ./configure --install-prereqs --yes
     make
 
 This installs Sprite under ``install/``.  To run the examples below prepend

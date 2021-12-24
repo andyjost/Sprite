@@ -12,7 +12,7 @@ in a single environment.
 +--------------------+--------------------+--------------------------------+-----------------------+
 | `Curry Homepage`_  | `Curry Tutorial`_                                   | `Curry Live Demo`_    |
 +--------------------+--------------------+--------------------------------+-----------------------+
-| `Python Homepage`_ | `Python Tutorial`_ | `Python Interactive Tutorial`_ | `Python Live Demo`_   |
+| `Python Homepage`_ | `Python Tutorial`_ | `Interactive Python Tutorial`_ | `Python Live Demo`_   |
 +--------------------+--------------------+--------------------------------+-----------------------+
 
 .. toctree::
@@ -35,6 +35,6 @@ in a single environment.
 
 .. _Python Homepage: https://www.python.org
 .. _Python Tutorial: https://docs.python.org/3/tutorial
-.. _Python Interactive Tutorial: https://www.learnpython.org
+.. _Interactive Python Tutorial: https://www.learnpython.org
 .. _Python Live Demo: https://www.tutorialspoint.com/execute_python_online.php
 

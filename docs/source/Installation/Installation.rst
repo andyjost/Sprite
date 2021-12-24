@@ -1,11 +1,85 @@
 .. highlight:: bash
 
-============
-Installation
-============
-
-Short Instructions
 ==================
+Installation Guide
+==================
+
+Configuring the Build
+=====================
+
+Find Missing Prerequisites
+..........................
+
+Sprite requires the following software:
+
+  * `Python <https://github.com/deadsnakes>`__ 2.7.18, or 3.5.2+, with development files.
+    (Example: install python3.9 `AND` python3.9-dev.)
+  * `PAKCS 3.4.1 <https://www.informatik.uni-kiel.de/~pakcs/download.html>`__
+    * `Haskell stack <https://docs.haskellstack.org/en/stable/install_and_upgrade>`__
+    * Prolog (`SWI <https://www.swi-prolog.org/download/stable>`__ or `SICStus <https://sicstus.sics.se/download4.html>`__)
+  * `ICurry Compiler 3.1.0 <https://www-ps.informatik.uni-kiel.de/~cpm/pkgs/icurry-3.1.0.html>`__
+  * `jq <https://stedolan.github.io/jq/download>`__
+
+If you already have some of these installed, ensure they are in your PATH (or
+see the next section).  To check for missing prerequisites, say::
+
+    ./configure --check-prereqs
+
+If missing programs are detected, ``configure`` prints the commands it would
+use to install them.
+
+Selecting Programs
+..................
+
+For more control over the software used, ``configure`` provides ``--with-*``
+options and environment variables.  These are summarized in the following
+table:
+
++-------------------+----------------------+---------------------------+
+| Option            | Environment Variable | Description               |
++===================+======================+===========================+
+| ``--with-python`` | PYTHON               | Selects Python            |
++-------------------+----------------------+---------------------------+
+| ``--with-pakcs``  | PAKCS                | Selects PAKCS             |
++-------------------+----------------------+---------------------------+
+| ``--with-icurry`` | ICURRY               | Selects ``icurry``        |
++-------------------+----------------------+---------------------------+
+| ``--with-cc``     | CC                   | Selects the C compiler    |
++-------------------+----------------------+---------------------------+
+| ``--with-cxx``    | CXX                  | Selects the C++ compiler  |
++-------------------+----------------------+---------------------------+
+| ``--with-prolog`` | PROLOG               | Selects Prolog            |
++-------------------+----------------------+---------------------------+
+| ``--with-jq``     | JQ                   | Selects ``jq``            |
++-------------------+----------------------+---------------------------+
+| ``--with-stack``  | STACK                | Selects Haskell ``stack`` |
++-------------------+----------------------+---------------------------+
+
+For example, suppose you installed Python 3.11 from the `deadsnakes PPA
+<https://github.com/deadsnakes>`__.  To use it, say::
+
+    ./configure --with-python=python3.11 --check-prereqs
+
+Alternatively, to specify Python via the environment, users of a BASH-like
+shell might say::
+
+    PYTHON=python3.11 ./configure --check-prereqs
+
+Install Missing Prerequisites
+.............................
+
+If ``configure`` identifies missing programs, you must install them before
+proceeding.  If you are satisfied with the steps proposed by ``./configure
+--check-prereqs`` then say::
+
+    ./configure --install-prereqs --yes
+
+Otherwise, follow the links at the top of this page, then download and install
+the missing software yourself.
+
+
+Building Sprite (Short Instructions)
+====================================
 
 Follow these instructions to get started quickly.  If you prefer doing things
 one step at a time, follow the instructions in the next section.
@@ -19,8 +93,8 @@ Running ``make`` with no arguments builds Sprite, installs it under
 ``install/``, and then runs the tests.
 
 
-Long Instructions
-=================
+Building Sprite (Long Instructions)
+===================================
 
 Step 1: Configure the build
 ---------------------------

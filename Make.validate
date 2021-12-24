@@ -78,9 +78,9 @@ ifneq ($(NVALIDATE),1)
     $(error Not an executable file: ICURRY=$(ICURRY)$nPlease check your installation.)
   endif
 
-  ifeq ($(shell [ -f $(ICURRY2JSON) ] && [ -x $(ICURRY2JSON) ]; echo $$?),1)
-    $(error Not an executable file: ICURRY2JSON=$(ICURRY2JSON)$nPlease check your installation.)
-  endif
+  # ifeq ($(shell [ -f $(ICURRY2JSON) ] && [ -x $(ICURRY2JSON) ]; echo $$?),1)
+  #   $(error Not an executable file: ICURRY2JSON=$(ICURRY2JSON)$nPlease check your installation.)
+  # endif
 
   ifeq ($(shell [ -d $(PYTHON_LIBRARY_PATH) ]; echo $$?),1)
     $(error Not a directory: PYTHON_LIBRARY_PATH=$(PYTHON_LIBRARY_PATH).)

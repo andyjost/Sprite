@@ -7,10 +7,11 @@ DIR = os.path.dirname(os.path.realpath(__file__))
 CONF = os.path.join(DIR, 'Make.config')
 TMP = os.path.join(DIR, 'configure-tmp')
 OPTS = None
-INSTALL_STEPS = []
-
 LOGFILE = 'configure.log'
 LOG = open(LOGFILE, 'w')
+g_missing_prereqs = []
+g_install_steps = []
+g_did_pipcheck = False
 
 class Tee(object):
   def __init__(self, stream):
@@ -85,14 +86,11 @@ def shell(cmd):
   ans = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
   return ensure_str(ans).strip()
 
-def shellexec(cmd, echo=True):
-  if echo:
-    child = subprocess.Popen(cmd, shell=True)
-  else:
-    child = subprocess.Popen(cmd, shell=True, stdout=LOG, stderr=LOG)
+def shellexec(cmd):
+  child = subprocess.Popen(cmd, shell=True)
 
   try:
-    child.communicate()
+    out,err = child.communicate()
   except:
     child.kill()
     raise
@@ -102,9 +100,12 @@ def shellexec(cmd, echo=True):
   except:
     child.kill()
     raise
-  # subprocess.check_output(cmd, shell=True, stdout=sys.stdout)
+
+  return retcode == os.EX_OK
 
 def commit(settings, variable_name, value, validation=[]):
+  if value is None:
+    return False
   if variable_name is not None:
     log('Selecting %s=%r' % (variable_name, value))
   for v in validation:
@@ -118,7 +119,7 @@ def abort(soft=False):
   if soft:
     warn('\nAborted.')
   else:
-    warn('\nConfiguration failed.  See %s for details.' % LOGFILE)
+    warn('\nSee %s for details.' % LOGFILE)
     warn('\nAborted.')
   sys.exit(1)
 
@@ -129,95 +130,144 @@ def abort_python():
 
 def get_options():
   global OPTS
-  parser = argparse.ArgumentParser(description='Sprite configuration')
-  parser.add_argument('--with-python', type=str, help='specify the Python executable')
-  parser.add_argument('-i', '--interactive', action='store_true', help='configure interactively')
-  parser.add_argument('-r', '--reconfigure', action='store_true', help='repeat the configuration process')
-  parser.add_argument('-f', '--fast', action='store_true', help='skip expensive checks')
+  parser = argparse.ArgumentParser(
+      description='Configure Sprite Builds'
+    , usage='\n    configure [-Dfi] [--with...]'
+            '\n    configure [-Dfi] [--with...] --check-prereqs'
+            '\n    configure [-Dfi] [--with...] --install-prereqs [--yes]'
+    )
+
   parser.add_argument('-D', '--doc', action='store_true', help='check dependencies needed to build documentation')
-  parser.add_argument('-p', '--install-prereqs', action='store_true', help='install missing prerequisites')
-  parser.add_argument('-n', '--dry-run', action='store_true', help='show what would be installed')
-  parser.add_argument('-y', '--yes', action='store_true'
-     , help='do not prompt before installing software'
-     )
+  parser.add_argument('--cache', type=str, metavar="['all'|'icurry'|'json']", help='enables caching (development feature)')
+  parser.add_argument('-f', '--fast', action='store_true', help='skip expensive checks')
+  parser.add_argument('-i', '--interactive', action='store_true', help='configure interactively')
+
+  prereqs = parser.add_argument_group('prerequisite arguments', 'Args to check or install prerequites.')
+  prereqs.add_argument('--check-prereqs', action='store_true', help='list missing prerequisites but do not install them')
+  prereqs.add_argument('--install-prereqs', action='store_true', help='install missing prerequisites')
+  prereqs.add_argument('-y', '--yes', action='store_true', help='do not prompt before installing prerequisites')
+  prereqs.add_argument('--pip-nosudo', action='store_true', help='install Python packages with --user not sudo); see pip documentation')
+
+  versions = parser.add_argument_group(
+      'software selection arguments'
+    , 'Options to specify external programs.  By default, the PATH is searched. '
+      '--with... options override this.  Environment variables can also be used'
+      '(command-line args take precedence).'
+    )
+  versions.add_argument('--with-cc'    , type=str, metavar='PROG', help='specifies the C compiler (env: CC)')
+  versions.add_argument('--with-cxx'   , type=str, metavar='PROG', help='specifies the C++ compiler (env: CXX)')
+  versions.add_argument('--with-icurry', type=str, metavar='PROG', help='specifies the icurry executable (env: ICURRY)')
+  versions.add_argument('--with-jq'    , type=str, metavar='PROG', help='specifies the jq executable (env: JQ)')
+  versions.add_argument('--with-pakcs' , type=str, metavar='PROG', help='specifies the PAKCS executable (env: PAKCS)')
+  versions.add_argument('--with-prolog', type=str, metavar='PROG', help='specifies the Prolog executable (env: PROLOG)')
+  versions.add_argument('--with-python', type=str, metavar='PROG', help='specifies the Python executable (env: PYTHON)')
+  versions.add_argument('--with-stack' , type=str, metavar='PROG', help='specifies the Haskell stack executable (env: STACK)')
   OPTS = parser.parse_args()
+  if OPTS.check_prereqs:
+    OPTS.install_prereqs = True
+  if OPTS.cache not in [None, 'all', 'icurry', 'json']:
+    warn('invalid argument to --enable-cache')
+    warn('    expected %r, %r or %r' % ('all', 'icurry', 'json'))
+    warn('    got %r' % OPTS.cache)
+    abort()
 
 def main():
   get_options()
-
-  if os.path.exists(CONF):
-    if OPTS.reconfigure:
-      say('Reconfiguring Sprite.\n')
-    else:
-      warn('Refusing to overwrite previous configuration at %s' % CONF)
-      warn('Use -r to reconfigure.', '')
-      abort(soft=True)
+  if OPTS.check_prereqs:
+    say('Checking prerequisites.')
   else:
-    say('Configuring Sprite.\n')
+    say('Configuring Sprite.')
 
   # Preparation.
   os.chdir(DIR)
   remove_tmpdir()
   os.mkdir(TMP)
-  rmdir(os.path.join(DIR, 'install'))
-  rmdir(os.path.join(DIR, 'object-root'))
+  if not OPTS.check_prereqs:
+    rmdir(os.path.join(DIR, 'install'))
+    rmdir(os.path.join(DIR, 'object-root'))
 
   # Determine the settings.
   say('*** Finding programs')
   try:
-    settings = {}
+    settings = {
+        'ENABLE_ICURRY_CACHE'     : int(OPTS.cache in ['all', 'icurry'])
+      , 'ENABLE_PARSED_JSON_CACHE': int(OPTS.cache in ['all', 'json'])
+      }
     set_from_path(
-        settings, 'PYTHON_EXECUTABLE', 'python', 'Python installation'
+        settings, 'PYTHON', 'python', 'Python installation'
       , default=OPTS.with_python
       )
     set_from_path(settings, 'CC', 'gcc', 'GNU C compiler'
       , install_steps=get_build_essential_install_steps
+      , default=OPTS.with_cc
       )
     set_from_path(settings, 'CXX', 'g++', 'GNU C++ compiler'
       , install_steps=get_build_essential_install_steps
+      , default=OPTS.with_cxx
       )
     set_from_path(settings, 'PAKCS', 'pakcs', 'PAKCS executable'
       , web='https://www.informatik.uni-kiel.de/~pakcs/download.html'
       , altdir='extern/pakcs-3.4.1/bin'
       , install_steps=get_pakcs_install_steps
+      , default=OPTS.with_pakcs
       )
-    set_from_path(settings, 'ICURRY_EXECUTABLE', 'icurry', 'icurry executable'
+    set_from_path(settings, 'ICURRY', 'icurry', 'icurry executable'
       , web='https://www-ps.informatik.uni-kiel.de/currywiki/tools/cpm'
       , hint='try `cypm update; cypm add icurry; cypm install icurry`'
       , altdir=os.path.join(os.environ.get('HOME', ''), '.cpm', 'bin')
       , install_steps=get_icurry_install_steps
+      , default=OPTS.with_icurry
       )
-    set_from_path(settings, 'JQ_EXECUTABLE', 'jq', 'jq executable'
+    set_from_path(settings, 'JQ', 'jq', 'jq executable'
       , web='https://stedolan.github.io/jq/'
       , install_steps=get_jq_install_steps
+      , default=OPTS.with_jq
       )
 
-    if not install():
-      return
-
-    say('*** Checking Python')
-    check_python_version(settings)
-    check_python_modules(settings)
-    set_python_config(settings)
-    say('*** Checking PAKCS')
-    set_pakcs_home(settings)
-    set_pakcs_name(settings)
-    set_pakcs_version(settings)
-    check_icurry(settings)
+    if 'PYTHON' in settings:
+      say('*** Checking Python')
+      check_python_version(settings)
+      check_python_modules(settings)
+      set_python_config(settings)
+    if 'PAKCS' in settings:
+      say('*** Checking PAKCS')
+      set_pakcs_home(settings)
+      set_pakcs_name(settings)
+      set_pakcs_version(settings)
+    if 'ICURRY' in settings and not OPTS.fast:
+      say('*** Checking ICurry (this takes some time).')
+      check_icurry(settings)
 
   except KeyboardInterrupt:
     abort()
   except EOFError:
     abort()
 
-  # Render the output file.
-  text = TEMPLATE.format(**settings)
-  with open(CONF, 'w') as ostream:
-    ostream.write(text)
-  say()
-  say('****** Configuration succeeded! ******')
-  say('Details logged to %s' % LOGFILE)
-  say('Configuration written to %s' % CONF)
+  if OPTS.check_prereqs:
+    say()
+    if g_install_steps:
+      say(get_banner('SUMMARY', '='))
+      say()
+      say('Missing: %s' % ', '.join(g_missing_prereqs))
+      say()
+      say('Installation steps:')
+      say('(rerun with --install-prereqs [--yes] to install)')
+      say()
+      say('\n'.join('    ' + step for step in g_install_steps))
+    else:
+      say('Prerequisite check complete.')
+    say()
+    say('Details logged to %s' % LOGFILE)
+    say('Configuration NOT written.')
+  else:
+    # Render the output file.
+    text = TEMPLATE.format(**settings)
+    with open(CONF, 'w') as ostream:
+      ostream.write(text)
+    say()
+    say('****** Configuration succeeded! ******')
+    say('Details logged to %s' % LOGFILE)
+    say('Configuration written to %s' % CONF)
 
 
 def set_from_path(
@@ -229,12 +279,15 @@ def set_from_path(
       default = os.environ.get(variable_name)
     if default is not None:
       log("Using default %s=%r from the environment" % (variable_name, default))
-    else:
-      default = which(program_name)
-      if default is None and altdir is not None:
-        default = os.path.join(altdir, program_name)
-        if not os.path.exists(default):
-          default = None
+
+  if default is None or os.sep not in default:
+    program_name = program_name if default is None else default
+    default = which(program_name)
+    if default is None and altdir is not None:
+      default = os.path.join(altdir, program_name)
+      default = os.path.abspath(default)
+      if not os.path.exists(default):
+        default = None
 
   if default is None and web is not None:
     more = 'See %s\n' % web
@@ -250,21 +303,19 @@ def set_from_path(
         return
   else:
     if default is None:
-      if OPTS.install_prereqs and install_steps:
-        global INSTALL_STEPS
-        steps = tuple(install_steps())
-        if not any(steps == s for s,_ in INSTALL_STEPS):
-          retry = lambda: set_from_path(
-              settings, variable_name, program_name, desc, web, hint, altdir
-            )
-          INSTALL_STEPS.append((steps, retry))
-        return
-      warn('%s was not found in PATH.  You must install it manually.' % program_name)
-      if web is not None:
-        warn('For installation info, see %s' % web)
-      if hint is not None:
-        warn('hint: %s' % hint)
-      abort()
+      steps = list(install_steps(settings)) if install_steps else None
+      installed = handle_missing_prereq(
+          program_name
+        , 'The %s program is required.' % program_name
+        , steps
+        , web=web
+        , hint=hint
+        )
+      if installed:
+        set_from_path(
+            settings, variable_name, program_name, desc, web, hint, altdir
+          )
+      return
     if not commit(settings, variable_name, default, [executable]):
       abort()
 
@@ -292,7 +343,7 @@ def check_python_version(settings):
   log('Checking the Python version', '...')
   vstr = shell(
       '''{} -c "import sys; sys.stdout.write('%s.%s.%s' % sys.version_info[:3])"'''
-          .format(settings['PYTHON_EXECUTABLE'])
+          .format(settings['PYTHON'])
     )
   vtuple = tuple(int(x) for x in vstr.split('.'))
   minimum = 2,7,18
@@ -309,48 +360,112 @@ def check_python_version(settings):
 g_num_warnings = 0
 
 def check_python_modules(settings):
-  pyexe = settings['PYTHON_EXECUTABLE']
   modules = [
-    #  module              required   enabled   whatfor
-    # -------------------------------------------------------------------
-      ('json'            , True     , True,     None)
-    , ('mmap'            , True     , True,     None)
-    , ('numpy'           , False    , True,     'for some unit tests')
-    , ('six'             , True     , True,     None)
-    , ('sphinx'          , False    , OPTS.doc, 'to build documentation')
-    , ('sphinx_rtd_theme', False    , OPTS.doc, 'for HTML theming')
-    , ('sqlite3'         , False    , True,     'for caching')
-    , ('zlib'            , True     , True,     None)
+    #  module              req'd  enabled     whatfor
+    # -----------------------------------------------------------------
+      ('json'            , True , True      , None                    )
+    , ('mmap'            , True , True      , None                    )
+    , ('numpy'           , False, True      , 'for certain tests'     )
+    , ('six'             , True , True      , None                    )
+    , ('sphinx'          , True , OPTS.doc  , 'to build documentation')
+    , ('sphinx_rtd_theme', False, OPTS.doc  , 'for HTML theming'      )
+    , ('sqlite3'         , False, OPTS.cache, 'for caching'           )
+    , ('zlib'            , True , True      , None                    )
     ]
-
   for modname,required,enabled,whatfor in modules:
-    try:
-      if enabled:
-        log('Checking for module %r' % modname, '...')
-        shell("""%s -c 'import %s'""" % (pyexe, modname))
-        log('OK')
-    except subprocess.CalledProcessError:
-      global g_num_warnings
-      g_num_warnings += 1
-      log('FAILED')
-      warn()
-      banner = ' PREREQUISITE ISSUE #%s ' % g_num_warnings
-      ndashes = max(3, (80 - len(banner)) // 2)
-      warn('-' * ndashes + banner + '-' * ndashes)
-      warn()
-      warn('    The Python %r module is %s.'
-          % (modname, 'required' if required else 'recommended %s' % whatfor)
-        )
-      warn()
-      warn('    Suggestion:')
-      warn('')
-      warn('        %s -m pip install %s' % (pyexe, modname))
-      warn('')
-      if required:
-        abort()
-      settings['HAVE_PYTHON_' + modname] = 0
+    check_python_module(settings, modname, required, enabled, whatfor)
+
+def ensurepip(settings, required, whatfor):
+  pyexe = settings['PYTHON']
+  global g_did_pipcheck
+  if not g_did_pipcheck:
+    g_did_pipcheck = True
+    if OPTS.pip_nosudo:
+      steps = [
+          '# Install pip.'
+        , '%s -m ensurepip --user' % pyexe
+        ]
     else:
-      settings['HAVE_PYTHON_' + modname] = 1
+      steps = [
+          '# Install pip.'
+        , 'sudo %s -m ensurepip' % pyexe
+        ]
+    check_python_module(settings, 'pip', required, True, whatfor, steps)
+
+def check_python_module(
+    settings, modname, required, enabled, whatfor, steps=None
+  ):
+  pyexe = settings['PYTHON']
+  try:
+    if enabled:
+      log('Checking for module %r' % modname, '...')
+      shell("""%s -c 'import %s'""" % (pyexe, modname))
+      log('OK')
+  except subprocess.CalledProcessError:
+    log('FAILED')
+    msg='The Python %r module is %s%s.' % (
+        modname
+      , 'required' if required else 'recommended'
+      , ' %s' % whatfor if whatfor is not None else ''
+      )
+    if steps is None:
+      if OPTS.pip_nosudo:
+        steps = [
+            '# Install %s.' % modname
+          , '%s -m pip --user install %s' % (pyexe, modname)
+          ]
+      else:
+        steps = [
+            '# Install %s.' % modname
+          , 'sudo %s -m pip install %s' % (pyexe, modname)
+          ]
+    handle_missing_prereq(
+        modname, msg, steps, required
+      , deps=lambda: ensurepip(settings, required, 'to install %s' % modname)
+      )
+    settings['HAVE_PYTHON_' + modname] = 0
+  else:
+    settings['HAVE_PYTHON_' + modname] = 1
+
+def get_banner(title, char='-', width=80):
+  title = ' %s ' % title
+  n = max(3, (width - len(title)) // 2)
+  return char * n + title + char * n
+
+def handle_missing_prereq(
+    name, msg, steps=None, required=True, web=None, hint=None
+  , deps=None
+  ):
+  global g_num_warnings, g_missing_prereqs, g_install_steps
+  g_num_warnings += 1
+  g_missing_prereqs.append(name)
+  warn()
+  warn(get_banner('PREREQUISITE ISSUE #%s' % g_num_warnings))
+  warn()
+  warn('    ' + msg)
+  warn()
+  if steps:
+    warn('    Suggestion:')
+    warn('')
+    for step in steps:
+      warn('        ' + step)
+    warn('')
+  if deps is not None:
+    deps()
+  if steps:
+    g_install_steps += (list(steps) + [''])
+  if OPTS.check_prereqs:
+    return False
+  if OPTS.install_prereqs and steps:
+    if install(name, steps):
+      return True
+    elif not required:
+      return False
+  if web is not None:
+    warn('For installation info, see %s' % web)
+  if hint is not None:
+    warn('hint: %s' % hint)
+  abort()
 
 PYTHON_CONFIG_SCRIPT = \
 r'''
@@ -365,7 +480,7 @@ def set_python_config(settings):
   scriptname = os.path.join(TMP, 'version_script.py')
   with open(scriptname, 'w') as ostream:
     ostream.write(PYTHON_CONFIG_SCRIPT)
-  data = shell('%s %s' % (settings['PYTHON_EXECUTABLE'], scriptname))
+  data = shell('%s %s' % (settings['PYTHON'], scriptname))
   include, libdir, multiarch, soname = data.split('\n')
 
   keyfile = os.path.join(include, 'pyconfig.h')
@@ -416,63 +531,53 @@ def set_pakcs_version(settings):
   commit(settings, 'PAKCS_VERSION', ver)
 
 def check_icurry(settings):
-  if not OPTS.fast:
-    say('*** Checking ICurry (this takes some time).')
-    log('Checking the behavior of the icurry program')
-    icurry = settings['ICURRY_EXECUTABLE']
-    filename = os.path.join(TMP, 'sample.curry')
-    with open(filename, 'w') as ostream:
-      ostream.write('main :: Int\n')
-      ostream.write('main = 42\n')
-    try:
-      shellexec('cd %s && %s sample' % (TMP, icurry), echo=False)
-    except subprocess.CalledProcessError:
-      warn('Failed to run icury')
-      abort()
+  log('Checking the behavior of the icurry program')
+  icurry = settings['ICURRY']
+  filename = os.path.join(TMP, 'sample.curry')
+  with open(filename, 'w') as ostream:
+    ostream.write('main :: Int\n')
+    ostream.write('main = 42\n')
+  try:
+    shell('cd %s && %s sample' % (TMP, icurry))
+  except subprocess.CalledProcessError:
+    warn('Failed to run icury')
+    abort()
 
-    # Look for the expected files and directories.
-    currydir = os.path.join(TMP, '.curry')
-    pakcs_subdir_name = '{PAKCS_NAME}-{PAKCS_VERSION}'.format(**settings)
-    pakcs_subdir = os.path.join(currydir, pakcs_subdir_name)
-    if not all([
-        readabledir(currydir)
-      , readabledir(pakcs_subdir)
-      , readable(os.path.join(pakcs_subdir, 'sample.icy'))
-      ]):
-      abort()
+  # Look for the expected files and directories.
+  currydir = os.path.join(TMP, '.curry')
+  pakcs_subdir_name = '{PAKCS_NAME}-{PAKCS_VERSION}'.format(**settings)
+  pakcs_subdir = os.path.join(currydir, pakcs_subdir_name)
+  if not all([
+      readabledir(currydir)
+    , readabledir(pakcs_subdir)
+    , readable(os.path.join(pakcs_subdir, 'sample.icy'))
+    ]):
+    abort()
 
-def install():
-  if INSTALL_STEPS:
-    if not OPTS.yes:
-      warn()
-      warn('-' * 80)
-      warn('The following steps are needed to install prerequisites:')
-      warn()
-      for steps,commit in INSTALL_STEPS:
-        for step in steps:
-          warn('    ' + step)
-        warn()
-      if OPTS.dry_run:
-        warn('Quitting becuase --dry-run was supplied.')
+def install(name, steps):
+  steps = list(steps)
+  if not OPTS.yes:
+    warn()
+    warn('-' * 80)
+    warn('configure wants to install %r:' % name)
+    warn()
+    for step in steps:
+      warn('    ' + step)
+    warn()
+
+    while True:
+      warn('(run configure with --yes to skip this question)')
+      go = input('Continue? [Y/n]> ')
+      if not go or go in 'yY':
+        break
+      elif go in 'nN':
         return False
 
-      while True:
-        go = input('\nContinue? [Y/n]> ')
-        if not go or go in 'yY':
-          break
-        elif go in 'nN':
-          return False
-    
-    for steps,commit in INSTALL_STEPS:
-      for step in steps:
-        if step and not step.startswith('#'):
-          say('% ' + step)
-          pass
-          # shell(step)
-        else:
-          say(step)
-      say()
-    return False ## FIXME
+  for step in steps:
+    if step and not step.startswith('#'):
+      say('% ' + step)
+      if not shellexec(step):
+        abort()
   return True
 
 def prereq_wget():
@@ -485,63 +590,75 @@ def prereq_make():
     , install_steps=get_build_essential_install_steps
     )
 
+def prereq_cypm(settings):
+  dirname,pakcs = os.path.split(settings['PAKCS'])
+  cypm = os.path.join(dirname, 'cypm')
+  if not executable(cypm):
+    abort()
+  return cypm
+
 def prereq_tar():
   set_from_path(None, None, 'tar', 'tar')
 
-def get_wget_install_steps():
+def get_wget_install_steps(settings=None):
   yield '# Install wget.'
   yield 'sudo apt-get install wget'
 
-def get_build_essential_install_steps():
+def get_build_essential_install_steps(settings=None):
   yield '# Install gcc, g++, make.'
   yield 'sudo apt-get install build-essential'
 
-def get_jq_install_steps():
+def get_jq_install_steps(settings=None):
   yield '# Install jq.'
   yield 'sudo apt-get install jq'
-  
 
-def get_swipl_install_steps():
+def get_swipl_install_steps(settings=None):
   yield '# Install SWI Prolog.'
   yield 'sudo apt-get install swi-prolog'
 
-def get_stack_install_steps():
+def get_stack_install_steps(settings=None):
   prereq_wget()
   yield '# Install Haskell Stack.'
   yield 'wget -qO- https://get.haskellstack.org/ | sh'
 
-def get_pakcs_install_steps():
+def get_pakcs_install_steps(settings=None):
   prereq_make()
   prereq_tar()
   prereq_wget()
-  set_from_path(None, None, 'swipl', 'SWI Prolog'
+  set_from_path(None, None, 'swipl', 'Prolog'
     , install_steps=get_swipl_install_steps
+    , default=OPTS.with_prolog
     )
   set_from_path(None, None, 'stack', 'Haskell Stack'
     , install_steps=get_stack_install_steps
+    , default=OPTS.with_stack
     )
   yield '# Install PAKCS 3.4.1.'
-  yield 'cd extern && wget https://www.informatik.uni-kiel.de/~pakcs/download/pakcs-3.4.1-src.tar.gz'
-  yield 'cd extern && tar xvzf pakcs-3.4.1-src'
-  yield 'cd extern/pakcs-3.4.1src && make'
-  
+  pakcs_dir = 'extern/pakcs-3.4.1'
+  pakcs_url = 'https://www.informatik.uni-kiel.de/~pakcs/download/pakcs-3.4.1-src.tar.gz'
+  pakcs_tar = 'extern/pakcs-3.4.1-src.tar.gz'
 
-def get_icurry_install_steps():
+  if not os.path.exists(pakcs_dir):
+    if not os.path.exists(pakcs_tar):
+      yield 'wget -p extern --no-clobber %s' % pakcs_url
+    yield 'tar xvzf %s -C extern' % pakcs_tar
+  yield 'cd %s && make' % pakcs_dir
+
+def get_icurry_install_steps(settings=None):
+  cypm = prereq_cypm(settings)
   yield '# Install icurry.'
-  yield 'cd && cypm add icurry && cypm install icurry'
+  yield '%s update' % cypm
+  yield 'cd && %s add icurry' % cypm
+  yield 'cd && %s install icurry' % cypm
 
 
 TEMPLATE = '''
 # Python Configuration
 # ====================
-PYTHON_EXECUTABLE   := {PYTHON_EXECUTABLE}
+PYTHON_EXECUTABLE   := {PYTHON}
 PYTHON_INCLUDE_PATH := {PYTHON_INCLUDE_PATH}
 PYTHON_LIBRARY_PATH := {PYTHON_LIBRARY_PATH}
 PYTHON_LIBRARY      := {PYTHON_LIBRARY}
-
-# FIXME
-PYTHON_COVERAGE_EXECUTABLE := $(shell which coverage)
-ICURRY2JSONTEXT_EXECUTABLE := $(shell which icurry2jsontext)
 
 # C/C++ Compilers
 # ===============
@@ -569,13 +686,12 @@ PAKCS_VERSION := {PAKCS_VERSION}
 # ICurry is used to convert Curry source code into ICurry.  It can be
 # downloaded with CPM.  See
 # https://www-ps.informatik.uni-kiel.de/currywiki/tools/cpm.
-ICURRY_EXECUTABLE := {ICURRY_EXECUTABLE}
+ICURRY_EXECUTABLE := {ICURRY}
 
 # MISC
 # ====
-# JQ is used to manipulate JSON efficiently.  Sprite will use it, if it is
-# available.
-JQ_EXECUTABLE       := {JQ_EXECUTABLE}
+# JQ is used to compact JSON.
+JQ_EXECUTABLE       := {JQ}
 HAVE_PYTHON_numpy   := {HAVE_PYTHON_numpy}
 HAVE_PYTHON_sqlite3 := {HAVE_PYTHON_sqlite3}
 HAVE_PYTHON_sphinx  := {HAVE_PYTHON_sphinx}
@@ -588,11 +704,6 @@ PYTHON_PACKAGE_NAME := curry
 # The name of the backed used by default.  Must match one of the subpackages
 # under src/python/backends.
 DEFAULT_BACKEND := py
-
-# MPS
-# ===
-# Download the Memory Pool System (MPS) from www.ravenbrook.com/project/mps.
-# MPS_HOME := /usr/local/src/mps
 
 # Caching (development feature)
 # =============================
@@ -631,13 +742,19 @@ DEFAULT_SPRITE_CACHE_FILE := {{HOME}}/.sprite/cache.db
 # Whether to cache Curry-to-ICurry conversions.  If True, the cache file will
 # store the output of the 'icurry' program keyed on the input filename, source
 # text, and CURRYPATH environment variable.
-ENABLE_ICURRY_CACHE := 0
+ENABLE_ICURRY_CACHE := {ENABLE_ICURRY_CACHE}
 
 # Whether to cache parsing of ICurry-JSON.  If True, the cache file will store
 # the result of loading a JSON file into Python.  The stored data consists of
 # pickled objects from the curry.icurry module.
-ENABLE_PARSED_JSON_CACHE := 0
+ENABLE_PARSED_JSON_CACHE := {ENABLE_PARSED_JSON_CACHE}
 '''
+
+# MPS
+# ===
+# Download the Memory Pool System (MPS) from www.ravenbrook.com/project/mps.
+# MPS_HOME := /usr/local/src/mps
+
 
 if __name__ == '__main__':
   main()
