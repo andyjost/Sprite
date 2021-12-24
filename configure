@@ -640,9 +640,9 @@ def get_pakcs_install_steps(settings=None):
 
   if not os.path.exists(pakcs_dir):
     if not os.path.exists(pakcs_tar):
-      yield 'wget -p extern --no-clobber %s' % pakcs_url
+      yield 'wget -P extern --no-clobber %s' % pakcs_url
     yield 'tar xvzf %s -C extern' % pakcs_tar
-  yield 'cd %s && make' % pakcs_dir
+  yield 'make -C %s' % pakcs_dir
 
 def get_icurry_install_steps(settings=None):
   cypm = prereq_cypm(settings)

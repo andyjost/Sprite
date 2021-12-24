@@ -20,13 +20,13 @@ below:
 
   - Automated:
 
-        wget -qO- https://github.com/andyjost/Sprite/blob/release/getsprite | sh
-        curl -sSL https://github.com/andyjost/Sprite/blob/release/getsprite | sh
+        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite | sh
+        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite | sh
 
   - Interactive:
 
-        wget -qO- https://github.com/andyjost/Sprite/blob/release/getsprite-i | sh
-        curl -sSL https://github.com/andyjost/Sprite/blob/release/getsprite-i | sh
+        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh
+        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh
 
 Sprite will be installed under $HOME/Sprite/install.
 
