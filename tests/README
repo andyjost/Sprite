@@ -6,7 +6,9 @@ Sprite unit tests
 
 To run all tests, say `./run_tests`.
 
-To run a specific test, say, e.g., `./run_tests func_kiel.py`
+To run a specific test, say, e.g., `./run_tests func_kiel.py`.
+
+To run several tests, use a regex, e.g., `./run_tests 'unit_(prelude|compiler).py'`.
 
 
 2. TEST CATEGORIES
@@ -46,8 +48,6 @@ The following test drivers are provided:
                         (For debugging C++ code.)
         valgrind_tests  Run unit tests under valgrind.
                         (For debugging memory problems.)
-        cov_tests       Run unit tests under coverage.py.
-                        (For measuring line coverage.)
 
 Each of these uses the same command line interface:
 
@@ -80,9 +80,6 @@ Unit tests match the pattern unit_*.py.
   - Unit tests are expected to run quickly, as they are part of the
     edit-build-test cycle.  Tests that take a long time to run do not belong in
     the unit test area.
-  - Use the cov_tests driver to assess the quality of new tests.  A good test
-    increases line coverage with the smallest possible increase in resource
-    usage (e.g., time and memory).
 
 Functional tests match the pattern func_*.py:
 
