@@ -22,6 +22,7 @@ For detailed usage, say::
 
     sprite-exec -h
 
+
 ``sprite-exec`` Manual
 ======================
 

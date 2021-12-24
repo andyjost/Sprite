@@ -22,6 +22,7 @@ For more detailed information say::
 
     sprite-make --man
 
+
 ``sprite-make`` Manual
 ======================
 

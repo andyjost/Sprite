@@ -18,12 +18,12 @@ hybrid applications that leverage the strengths of both languages.
 For common Linux platforms, all you need to do is run ONE of the commands
 below:
 
-  - Automated:
+  - Automated (no confirmation):
 
         wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite | sh
         curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite | sh
 
-  - Interactive:
+  - Interactive (confirmation at each step):
 
         wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh
         curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh

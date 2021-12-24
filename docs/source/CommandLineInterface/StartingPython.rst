@@ -31,7 +31,7 @@ say::
 
     sprite-invoke $SHELL
 
-The wrapper script mentioned above uses :ref:`sprite-invoke` to start Python.
+The wrapper script mentioned above uses ``sprite-invoke`` to start Python.
 This method ensures the correct Python is used.  Sprite is only compatible with
 the Python specified during configuration and using another results in
 undefined behavior.

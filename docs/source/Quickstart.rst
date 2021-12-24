@@ -9,22 +9,39 @@ Sprite.  It shows how to install Sprite, run Curry programs from the command
 line, and load modules, build expressions, evaluate code, and convert values
 using the Python API.
 
-Quick Build
-===========
+.. important::
 
-.. code-block:: bash
+    To run the examples, prepend ``install/bin`` to your PATH or use
+    fully-qualified names.
 
-    ./configure --check-prereqs
+Quick Install
+=============
 
-If you are satisfied with how the prerequisites will be installed:
+* For the bold:
 
-.. code-block:: bash
+    .. code-block:: bash
 
-    ./configure --install-prereqs --yes
-    make
+        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite | sh
 
-This installs Sprite under ``install/``.  To run the examples below prepend
-``install/bin`` to your PATH or use fully-qualified names.
+    See :ref:`easy-install` for more options.
+
+* For the cautious:
+
+    .. code-block:: bash
+
+        git clone git@github.com:andyjost/Sprite.git
+        cd Sprite
+        ./configure --check-prereqs
+
+    If you are satisfied with how the prerequisites will be installed:
+
+    .. code-block:: bash
+
+        ./configure --install-prereqs --yes
+        make
+
+    See :ref:`custom-install` for more options.
+
 
 Running Curry Programs
 ======================

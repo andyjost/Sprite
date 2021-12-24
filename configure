@@ -132,39 +132,44 @@ def get_options():
   global OPTS
   parser = argparse.ArgumentParser(
       description='Configure Sprite Builds'
-    , usage='\n    configure [-Dfi] [--with...]'
-            '\n    configure [-Dfi] [--with...] --check-prereqs'
-            '\n    configure [-Dfi] [--with...] --install-prereqs [--yes]'
+    , usage='\n    configure [-Dfi] [--with...] [--install-prereqs[-only] [--yes] [--pip-nosudo]]'
+            '\n    configure [-Dfi] [--with...] --check-prereqs [--pip-nosudo]'
     )
 
   parser.add_argument('-D', '--doc', action='store_true', help='check dependencies needed to build documentation')
-  parser.add_argument('--cache', type=str, metavar="['all'|'icurry'|'json']", help='enables caching (development feature)')
   parser.add_argument('-f', '--fast', action='store_true', help='skip expensive checks')
   parser.add_argument('-i', '--interactive', action='store_true', help='configure interactively')
 
-  prereqs = parser.add_argument_group('prerequisite arguments', 'Args to check or install prerequites.')
+  prereqs = parser.add_argument_group('prerequisite arguments', 'Checks or installs prerequites.')
   prereqs.add_argument('--check-prereqs', action='store_true', help='list missing prerequisites but do not install them')
-  prereqs.add_argument('--install-prereqs', action='store_true', help='install missing prerequisites')
+  prereqs.add_argument('--install-prereqs', action='store_true', help='install missing prerequisites and configure')
+  prereqs.add_argument('--install-prereqs-only', action='store_true', help='install missing prerequisites only; '
+                                                       'do not remove prior builds or write a configuruation file')
   prereqs.add_argument('-y', '--yes', action='store_true', help='do not prompt before installing prerequisites')
-  prereqs.add_argument('--pip-nosudo', action='store_true', help='install Python packages with --user not sudo); see pip documentation')
+  prereqs.add_argument('--pip-nosudo', action='store_true', help='install Python packages with --user rather than sudo; see pip documentation')
 
   versions = parser.add_argument_group(
       'software selection arguments'
-    , 'Options to specify external programs.  By default, the PATH is searched. '
-      '--with... options override this.  Environment variables can also be used'
-      '(command-line args take precedence).'
+    , 'Specifies external programs.  Program names are taken, in order of '
+      'preference, from: (1) the command-line arguments below; (2) the '
+      'environment; (3) the defaults shown below.  If the program name is not an '
+      'absolute path, then PATH will be searched to find the program.'
     )
-  versions.add_argument('--with-cc'    , type=str, metavar='PROG', help='specifies the C compiler (env: CC)')
-  versions.add_argument('--with-cxx'   , type=str, metavar='PROG', help='specifies the C++ compiler (env: CXX)')
-  versions.add_argument('--with-icurry', type=str, metavar='PROG', help='specifies the icurry executable (env: ICURRY)')
-  versions.add_argument('--with-jq'    , type=str, metavar='PROG', help='specifies the jq executable (env: JQ)')
-  versions.add_argument('--with-pakcs' , type=str, metavar='PROG', help='specifies the PAKCS executable (env: PAKCS)')
-  versions.add_argument('--with-prolog', type=str, metavar='PROG', help='specifies the Prolog executable (env: PROLOG)')
-  versions.add_argument('--with-python', type=str, metavar='PROG', help='specifies the Python executable (env: PYTHON)')
-  versions.add_argument('--with-stack' , type=str, metavar='PROG', help='specifies the Haskell stack executable (env: STACK)')
+  versions.add_argument('--with-cc'    , type=str, metavar='gcc', help='specifies the C compiler (env: CC)')
+  versions.add_argument('--with-cxx'   , type=str, metavar='g++', help='specifies the C++ compiler (env: CXX)')
+  versions.add_argument('--with-icurry', type=str, metavar='icurry', help='specifies the icurry executable (env: ICURRY)')
+  versions.add_argument('--with-jq'    , type=str, metavar='jq', help='specifies the jq executable (env: JQ)')
+  versions.add_argument('--with-pakcs' , type=str, metavar='pakcs', help='specifies the PAKCS executable (env: PAKCS)')
+  versions.add_argument('--with-prolog', type=str, metavar='swipl', help='specifies the Prolog executable (env: PROLOG)')
+  versions.add_argument('--with-python', type=str, metavar='python', help='specifies the Python executable (env: PYTHON)')
+  versions.add_argument('--with-stack' , type=str, metavar='stack', help='specifies the Haskell stack executable (env: STACK)')
+
+  dev = parser.add_argument_group('development arguments', 'Enables features for Sprite developers.')
+  dev.add_argument('--cache', type=str, metavar="['all'|'icurry'|'json']", help='enables caching; useful when the same Curry program will be run many times')
+
   OPTS = parser.parse_args()
-  if OPTS.check_prereqs:
-    OPTS.install_prereqs = True
+  OPTS.write_config = not OPTS.check_prereqs and not OPTS.install_prereqs_only
+  OPTS.install_prereqs = OPTS.install_prereqs or not OPTS.write_config
   if OPTS.cache not in [None, 'all', 'icurry', 'json']:
     warn('invalid argument to --enable-cache')
     warn('    expected %r, %r or %r' % ('all', 'icurry', 'json'))
@@ -182,7 +187,7 @@ def main():
   os.chdir(DIR)
   remove_tmpdir()
   os.mkdir(TMP)
-  if not OPTS.check_prereqs:
+  if OPTS.write_config:
     rmdir(os.path.join(DIR, 'install'))
     rmdir(os.path.join(DIR, 'object-root'))
 
@@ -245,21 +250,21 @@ def main():
 
   if OPTS.check_prereqs:
     say()
-    if g_install_steps:
+    if g_install_steps or g_missing_prereqs:
       say(get_banner('SUMMARY', '='))
       say()
       say('Missing: %s' % ', '.join(g_missing_prereqs))
       say()
       say('Installation steps:')
-      say('(rerun with --install-prereqs [--yes] to install)')
+      say('(rerun with --install-prereqs[-only] [--yes] to install)')
       say()
       say('\n'.join('    ' + step for step in g_install_steps))
-    else:
-      say('Prerequisite check complete.')
-    say()
-    say('Details logged to %s' % LOGFILE)
-    say('Configuration NOT written.')
-  else:
+      say()
+    say('Prerequisite check complete.')
+    n_prob = len(g_missing_prereqs)
+    say('Found %s problem%s.' % (n_prob, '' if n_prob == 1 else 's'))
+
+  if OPTS.write_config:
     # Render the output file.
     text = TEMPLATE.format(**settings)
     with open(CONF, 'w') as ostream:
@@ -268,6 +273,10 @@ def main():
     say('****** Configuration succeeded! ******')
     say('Details logged to %s' % LOGFILE)
     say('Configuration written to %s' % CONF)
+  else:
+    say()
+    say('Details logged to %s' % LOGFILE)
+    say('Configuration NOT written.')
 
 
 def set_from_path(

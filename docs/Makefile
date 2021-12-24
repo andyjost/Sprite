@@ -48,6 +48,7 @@ $(INSTALLDIR):
 build-module:
 	cd source/Reference/ && ./build-api.bash
 	cd source/CommandLineInterface && ./build.bash
+	cd source/Installation && ./build.bash
 
 .PHONY: install
 install:: all $(INSTALLDIR)
