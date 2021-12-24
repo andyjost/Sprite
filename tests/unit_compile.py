@@ -59,7 +59,7 @@ class TestPyCompile(cytest.TestCase):
     self.assertEqual(next(two), 2)
 
   @cytest.with_flags(defaultconverter='topython')
-  def testCompielStringAsExpr(self):
+  def testCompileStringAsExpr(self):
     '''Test dynamic expression compilation.'''
     Or = curry.compile(
         '''

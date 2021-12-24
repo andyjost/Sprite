@@ -1,3 +1,18 @@
+# Installs Sprite interactively.
+#
+# Usage:
+#
+#     wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh
+#     curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh
+#
+# GitHub:
+#
+#     https://github.com/andyjost/Sprite
+#
+# Documentation:
+#
+#     http://web.cecs.pdx.edu/~josta/sprite/
+
 set -e
 set -x
 cd $HOME
@@ -5,4 +20,19 @@ git clone git@github.com:andyjost/Sprite.git
 cd Sprite
 ./configure --install-prereqs -i
 make
+
+echo
+echo "********************************************************************************"
+echo "                            Installation succeeded!"
+echo "********************************************************************************"
+echo
 echo "Sprite is installed at $HOME/Sprite/install/bin"
+echo
+echo "Next steps:"
+echo "    - Read the documentation at http://web.cecs.pdx.edu/~josta/sprite/."
+echo "    - Go through the Quickstart Tutorial (in the docs)."
+echo "    - Explore the Python API: $HOME/Sprite/install/bin/python -ic 'import curry'"
+echo "    - Run the examples under 'examples/'."
+echo "    - Run the test suite: make test"
+echo "    - Install it elsewhere: make install PREFIX=/path/to/dir"
+echo

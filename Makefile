@@ -96,5 +96,4 @@ default-goal:
 	git submodule update
 	make overlay
 	make stage
-	make test
 

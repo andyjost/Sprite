@@ -25,6 +25,7 @@
 
 .PHONY: test
 test:
+	# Running the Sprite test suite.  This takes several minutes.
 	./run_tests
 
 .PHONY: unit_*.py
