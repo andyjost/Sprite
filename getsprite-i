@@ -13,6 +13,9 @@
 #
 #     http://web.cecs.pdx.edu/~josta/sprite/
 
+SCRIPT=$HOME/getsprite-i.sh
+(
+cat <<'EOF'
 set -e
 set -x
 cd $HOME
@@ -36,3 +39,7 @@ echo "    - Run the examples under 'examples/'."
 echo "    - Run the test suite: make test"
 echo "    - Install it elsewhere: make install PREFIX=/path/to/dir"
 echo
+EOF
+) > $SCRIPT
+
+exec sh $SCRIPT < /dev/tty

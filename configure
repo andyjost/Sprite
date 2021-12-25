@@ -225,7 +225,10 @@ def main():
       )
     set_from_path(settings, 'JQ', 'jq', 'jq executable'
       , web='https://stedolan.github.io/jq/'
-      , install_steps=get_jq_install_steps
+      , install_steps=[
+            '# Install jq.'
+          , 'sudo apt-get install jq'
+          ]
       , default=OPTS.with_jq
       )
 
@@ -307,26 +310,30 @@ def set_from_path(
     while True:
       value = input('\nPlease specify the %s [%s]\n%s> ' % (desc, default, more))
       if not value:
+        if default is None and OPTS.install_prereqs:
+          say('%s will be installed.  Checking its prerequisites now.' % desc)
+          break
         value = default
       if commit(settings, variable_name, value, [executable]):
         return
-  else:
-    if default is None:
-      steps = list(install_steps(settings)) if install_steps else None
-      installed = handle_missing_prereq(
-          program_name
-        , 'The %s program is required.' % program_name
-        , steps
-        , web=web
-        , hint=hint
+  if default is None:
+    steps = list(
+        install_steps(settings) if callable(install_steps) else install_steps
+      ) if install_steps else None
+    installed = handle_missing_prereq(
+        program_name
+      , 'The %s program is required.' % program_name
+      , steps
+      , web=web
+      , hint=hint
+      )
+    if installed:
+      set_from_path(
+          settings, variable_name, program_name, desc, web, hint, altdir
         )
-      if installed:
-        set_from_path(
-            settings, variable_name, program_name, desc, web, hint, altdir
-          )
-      return
-    if not commit(settings, variable_name, default, [executable]):
-      abort()
+    return
+  if not commit(settings, variable_name, default, [executable]):
+    abort()
 
 # Validation.
 def executable(program):
@@ -389,17 +396,17 @@ def ensurepip(settings, required, whatfor):
   global g_did_pipcheck
   if not g_did_pipcheck:
     g_did_pipcheck = True
-    if OPTS.pip_nosudo:
-      steps = [
-          '# Install pip.'
-        , '%s -m ensurepip --user' % pyexe
-        ]
-    else:
-      steps = [
-          '# Install pip.'
-        , 'sudo %s -m ensurepip' % pyexe
-        ]
-    check_python_module(settings, 'pip', required, True, whatfor, steps)
+    # if OPTS.pip_nosudo:
+    #   steps = [
+    #       '# Install pip.'
+    #     , '%s -m ensurepip --user' % pyexe
+    #     ]
+    # else:
+    #   steps = [
+    #       '# Install pip.'
+    #     , 'sudo %s -m ensurepip' % pyexe
+    #     ]
+    check_python_module(settings, 'pip', required, True, whatfor)
 
 def check_python_module(
     settings, modname, required, enabled, whatfor, steps=None
@@ -589,16 +596,11 @@ def install(name, steps):
         abort()
   return True
 
-def prereq_wget():
-  set_from_path(None, None, 'wget', 'wget'
-    , install_steps=get_wget_install_steps
-    )
-
-def prereq_make():
-  set_from_path(None, None, 'make', 'make'
-    , install_steps=get_build_essential_install_steps
-    )
-
+def prereq_curl():
+  set_from_path(None, None, 'curl', 'curl program', install_steps=[
+      '# Install curl.'
+    , 'sudo apt-get install curl'
+    ])
 def prereq_cypm(settings):
   dirname,pakcs = os.path.split(settings['PAKCS'])
   cypm = os.path.join(dirname, 'cypm')
@@ -606,40 +608,49 @@ def prereq_cypm(settings):
     abort()
   return cypm
 
-def prereq_tar():
-  set_from_path(None, None, 'tar', 'tar')
+def prereq_make():
+  set_from_path(None, None, 'make', 'make program'
+    , install_steps=get_build_essential_install_steps
+    )
 
-def get_wget_install_steps(settings=None):
-  yield '# Install wget.'
-  yield 'sudo apt-get install wget'
+def prereq_sqlite3():
+  set_from_path(None, None, 'sqlite3', 'sqlite3 program'
+    , install_steps=[
+          '# Install SQLITE.'
+        , 'sudo apt-get install sqlite'
+        ]
+    )
+
+def prereq_tar():
+  set_from_path(None, None, 'tar', 'tar program')
+
+def prereq_wget():
+  set_from_path(None, None, 'wget', 'wget program', install_steps=[
+      '# Install wget.'
+    , 'sudo apt-get install wget'
+    ])
 
 def get_build_essential_install_steps(settings=None):
   yield '# Install gcc, g++, make.'
   yield 'sudo apt-get install build-essential'
 
-def get_jq_install_steps(settings=None):
-  yield '# Install jq.'
-  yield 'sudo apt-get install jq'
-
-def get_swipl_install_steps(settings=None):
-  yield '# Install SWI Prolog.'
-  yield 'sudo apt-get install swi-prolog'
-
-def get_stack_install_steps(settings=None):
-  prereq_wget()
-  yield '# Install Haskell Stack.'
-  yield 'wget -qO- https://get.haskellstack.org/ | sh'
-
 def get_pakcs_install_steps(settings=None):
   prereq_make()
   prereq_tar()
   prereq_wget()
-  set_from_path(None, None, 'swipl', 'Prolog'
-    , install_steps=get_swipl_install_steps
+  prereq_curl()
+  set_from_path(None, None, 'swipl', 'Prolog system'
+    , install_steps=[
+          '# Install SWI Prolog.'
+        , 'sudo apt-get install swi-prolog'
+        ]
     , default=OPTS.with_prolog
     )
   set_from_path(None, None, 'stack', 'Haskell Stack'
-    , install_steps=get_stack_install_steps
+    , install_steps=[
+          '# Install Haskell Stack.'
+        , 'wget -qO- https://get.haskellstack.org/ | sh'
+        ]
     , default=OPTS.with_stack
     )
   yield '# Install PAKCS 3.4.1.'
@@ -655,6 +666,7 @@ def get_pakcs_install_steps(settings=None):
 
 def get_icurry_install_steps(settings=None):
   cypm = prereq_cypm(settings)
+  prereq_sqlite3()
   yield '# Install icurry.'
   yield '%s update' % cypm
   yield 'cd && %s add icurry' % cypm
