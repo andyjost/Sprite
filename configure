@@ -70,17 +70,15 @@ def warn(msg='', tail='\n'):
   sys.stderr.write(msg)
   sys.stderr.write(tail)
 
-try:
-  from shutil import which
-except ImportError:
-  try:
-    from distutils.spawn import find_executable as which
-  except ImportError:
-    def which(program):
-      try:
-        return shell('which %s' % program)
-      except subprocess.CalledProcessError:
-        pass
+def which(name, path=None):
+  if path is None:
+    path = os.environ['PATH'].split(':')
+  for dirname in path:
+    dirname = dirname.strip()
+    filename = os.path.join(dirname, name)
+    if os.path.exists(filename):
+      return filename
+  return
 
 def shell(cmd):
   ans = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
@@ -103,12 +101,12 @@ def shellexec(cmd):
 
   return retcode == os.EX_OK
 
-def commit(settings, variable_name, value, validation=[]):
+def commit(settings, variable_name, value, validation=None):
   if value is None:
     return False
   if variable_name is not None:
     log('Selecting %s=%r' % (variable_name, value))
-  for v in validation:
+  for v in (validation or []):
     if not v(value):
       return False
   if settings is not None:
@@ -198,6 +196,15 @@ def main():
         'ENABLE_ICURRY_CACHE'     : int(OPTS.cache in ['all', 'icurry'])
       , 'ENABLE_PARSED_JSON_CACHE': int(OPTS.cache in ['all', 'json'])
       }
+    set_from_path(settings, 'BOOST', 'boost/version.hpp', 'Boost libraries'
+      , web='https://www.boost.org'
+      , install_steps=[
+            '# Install Boost.'
+          , 'sudo apt-get install libboost-all-dev'
+          ]
+      , path=['/usr/local/include', '/usr/include']
+      , validation=None
+      )
     set_from_path(
         settings, 'PYTHON', 'python', 'Python installation'
       , default=OPTS.with_python
@@ -281,60 +288,6 @@ def main():
     say('Details logged to %s' % LOGFILE)
     say('Configuration NOT written.')
 
-
-def set_from_path(
-    settings, variable_name, program_name, desc, web=None, hint=None
-  , altdir=None, default=None, install_steps=None
-  ):
-  if default is None:
-    if variable_name is not None:
-      default = os.environ.get(variable_name)
-    if default is not None:
-      log("Using default %s=%r from the environment" % (variable_name, default))
-
-  if default is None or os.sep not in default:
-    program_name = program_name if default is None else default
-    default = which(program_name)
-    if default is None and altdir is not None:
-      default = os.path.join(altdir, program_name)
-      default = os.path.abspath(default)
-      if not os.path.exists(default):
-        default = None
-
-  if default is None and web is not None:
-    more = 'See %s\n' % web
-  else:
-    more = ''
-
-  if OPTS.interactive:
-    while True:
-      value = input('\nPlease specify the %s [%s]\n%s> ' % (desc, default, more))
-      if not value:
-        if default is None and OPTS.install_prereqs:
-          say('%s will be installed.  Checking its prerequisites now.' % desc)
-          break
-        value = default
-      if commit(settings, variable_name, value, [executable]):
-        return
-  if default is None:
-    steps = list(
-        install_steps(settings) if callable(install_steps) else install_steps
-      ) if install_steps else None
-    installed = handle_missing_prereq(
-        program_name
-      , 'The %s program is required.' % program_name
-      , steps
-      , web=web
-      , hint=hint
-      )
-    if installed:
-      set_from_path(
-          settings, variable_name, program_name, desc, web, hint, altdir
-        )
-    return
-  if not commit(settings, variable_name, default, [executable]):
-    abort()
-
 # Validation.
 def executable(program):
   log('Checking whether %s is executable' % program, '...')
@@ -354,6 +307,60 @@ def readabledir(dirname):
   ok = ok and os.path.isdir(dirname)
   log('OK' if ok else 'FAILED')
   return ok
+
+
+def set_from_path(
+    settings, variable_name, program_name, desc, web=None, hint=None
+  , altdir=None, default=None, install_steps=None, path=None
+  , validation=[executable]
+  ):
+  if default is None:
+    if variable_name is not None:
+      default = os.environ.get(variable_name)
+    if default is not None: log("Using default %s=%r from the environment" % (variable_name, default))
+
+  if default is None or os.sep not in default:
+    program_name = program_name if default is None else default
+    default = which(program_name, path=path)
+    if default is None and altdir is not None:
+      default = os.path.join(altdir, program_name)
+      default = os.path.abspath(default)
+      if not os.path.exists(default):
+        default = None
+
+  if default is None and web is not None:
+    more = 'See %s\n' % web
+  else:
+    more = ''
+
+  if OPTS.interactive:
+    while True:
+      value = input('\nPlease specify the %s [%s]\n%s> ' % (desc, default, more))
+      if not value:
+        if default is None and OPTS.install_prereqs:
+          say('%s will be installed.  Checking its prerequisites now.' % desc)
+          break
+        value = default
+      if commit(settings, variable_name, value, validation):
+        return
+  if default is None:
+    steps = list(
+        install_steps(settings) if callable(install_steps) else install_steps
+      ) if install_steps else None
+    installed = handle_missing_prereq(
+        program_name
+      , '%r is required.' % desc
+      , steps
+      , web=web
+      , hint=hint
+      )
+    if installed:
+      set_from_path(
+          settings, variable_name, program_name, desc, web, hint, altdir
+        )
+    return
+  if not commit(settings, variable_name, default, validation):
+    abort()
 
 def check_python_version(settings):
   log('Checking the Python version', '...')
