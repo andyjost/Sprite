@@ -13,6 +13,12 @@
 #
 #     http://web.cecs.pdx.edu/~josta/sprite/
 
+if [ -d $HOME/Sprite ]; then
+  echo 1>&2 Found previous installation at $HOME/Sprite.
+  echo 1>&2 Nothing to do.
+  exit 0
+fi
+
 SCRIPT=$HOME/getsprite-i.sh
 (
 cat <<'EOF'
@@ -24,6 +30,7 @@ cd Sprite
 ./configure --install-prereqs -i
 make
 
+set +x
 echo
 echo "********************************************************************************"
 echo "                            Installation succeeded!"
@@ -42,4 +49,4 @@ echo
 EOF
 ) > $SCRIPT
 
-exec sh $SCRIPT < /dev/tty
+exec sh $SCRIPT </dev/tty 2>&1

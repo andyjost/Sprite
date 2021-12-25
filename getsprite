@@ -13,6 +13,12 @@
 #
 #     http://web.cecs.pdx.edu/~josta/sprite/
 
+if [ -d $HOME/Sprite ]; then
+  echo 1>&2 Found previous installation at $HOME/Sprite.
+  echo 1>&2 Nothing to do.
+  exit 0
+fi
+
 set -e
 set -x
 cd $HOME
@@ -21,6 +27,7 @@ cd Sprite
 ./configure --install-prereqs --yes
 make
 
+set +x
 echo
 echo "********************************************************************************"
 echo "                            Installation succeeded!"

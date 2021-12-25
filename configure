@@ -216,15 +216,6 @@ def main():
         'ENABLE_ICURRY_CACHE'     : int(OPTS.cache in ['all', 'icurry'])
       , 'ENABLE_PARSED_JSON_CACHE': int(OPTS.cache in ['all', 'json'])
       }
-    set_from_path(settings, 'BOOST', 'boost', 'Boost libraries'
-      , web='https://www.boost.org'
-      , install_steps=[
-            '# Install Boost.'
-          , 'sudo apt-get install libboost-all-dev'
-          ]
-      , path=['/usr/local/include', '/usr/include']
-      , validation=[readabledir]
-      )
     set_from_path(
         settings, 'PYTHON', 'python', 'Python installation'
       , default=OPTS.with_python
@@ -257,6 +248,15 @@ def main():
           , 'sudo apt-get install jq'
           ]
       , default=OPTS.with_jq
+      )
+    set_from_path(settings, 'BOOST', 'boost', 'Boost libraries'
+      , web='https://www.boost.org'
+      , install_steps=[
+            '# Install Boost.'
+          , 'sudo apt-get install libboost-all-dev'
+          ]
+      , path=['/usr/local/include', '/usr/include']
+      , validation=[readabledir]
       )
 
     if 'PYTHON' in settings:
@@ -311,7 +311,7 @@ def main():
 def set_from_path(
     settings, variable_name, program_name, desc, web=None, hint=None
   , altdir=None, default=None, install_steps=None, path=None
-  , validation=[executable]
+  , validation=[executable], allow_interact=True
   ):
   if default is None:
     if variable_name is not None:
@@ -332,7 +332,7 @@ def set_from_path(
   else:
     more = ''
 
-  if OPTS.interactive:
+  if OPTS.interactive and allow_interact:
     while True:
       value = input('\nPlease specify the %s [%s]\n%s> ' % (desc, default, more))
       if not value:
@@ -356,6 +356,7 @@ def set_from_path(
     if installed:
       set_from_path(
           settings, variable_name, program_name, desc, web, hint, altdir
+        , path=path, validation=validation, allow_interact=False)
         )
     return
   if not commit(settings, variable_name, default, validation):
@@ -603,10 +604,14 @@ def install(name, steps):
   return True
 
 def prereq_curl():
-  set_from_path(None, None, 'curl', 'curl program', install_steps=[
-      '# Install curl.'
-    , 'sudo apt-get install curl'
-    ])
+  set_from_path(None, None, 'curl', 'curl program'
+    , install_steps=[
+        '# Install curl.'
+      , 'sudo apt-get install curl'
+      ]
+    , allow_interact=False
+    )
+
 def prereq_cypm(settings):
   dirname,pakcs = os.path.split(settings['PAKCS'])
   cypm = os.path.join(dirname, 'cypm')
@@ -617,6 +622,7 @@ def prereq_cypm(settings):
 def prereq_make():
   set_from_path(None, None, 'make', 'make program'
     , install_steps=get_build_essential_install_steps
+    , allow_interact=False
     )
 
 def prereq_sqlite3():
@@ -628,13 +634,16 @@ def prereq_sqlite3():
     )
 
 def prereq_tar():
-  set_from_path(None, None, 'tar', 'tar program')
+  set_from_path(None, None, 'tar', 'tar program', allow_interact=False)
 
 def prereq_wget():
-  set_from_path(None, None, 'wget', 'wget program', install_steps=[
-      '# Install wget.'
-    , 'sudo apt-get install wget'
-    ])
+  set_from_path(None, None, 'wget', 'wget program'
+    , install_steps=[
+        '# Install wget.'
+      , 'sudo apt-get install wget'
+      ]
+    , allow_interact=False
+    )
 
 def get_build_essential_install_steps(settings=None):
   yield '# Install gcc, g++, make.'
