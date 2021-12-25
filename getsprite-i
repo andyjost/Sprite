@@ -13,20 +13,23 @@
 #
 #     http://web.cecs.pdx.edu/~josta/sprite/
 
-if [ -d $HOME/Sprite ]; then
-  echo 1>&2 Found previous installation at $HOME/Sprite.
-  echo 1>&2 Nothing to do.
-  exit 0
-fi
-
 SCRIPT=$HOME/getsprite-i.sh
 (
 cat <<'EOF'
-set -e
-set -x
-cd $HOME
-git clone git@github.com:andyjost/Sprite.git
-cd Sprite
+if [ -d $HOME/Sprite ]; then
+  echo 1>&2 Found previous installation at $HOME/Sprite.
+  set -e
+  set -x
+  cd Sprite
+  git pull
+else
+  set -e
+  set -x
+  cd $HOME
+  git clone git@github.com:andyjost/Sprite.git
+  cd Sprite
+fi
+
 ./configure --install-prereqs -i
 make
 
@@ -42,10 +45,11 @@ echo "Next steps:"
 echo "    - Read the documentation at http://web.cecs.pdx.edu/~josta/sprite/."
 echo "    - Go through the Quickstart Tutorial (in the docs)."
 echo "    - Explore the Python API: $HOME/Sprite/install/bin/python -ic 'import curry'"
-echo "    - Run the examples under 'examples/'."
-echo "    - Run the test suite: make test"
-echo "    - Install it elsewhere: make install PREFIX=/path/to/dir"
+echo "    - Run the examples under '$HOME/Sprite/examples/'."
+echo "    - Run the test suite: make -C $HOME/Sprite test"
+echo "    - Install it elsewhere: make -C $HOME/Sprite install PREFIX=/path/to/dir"
 echo
+rm $HOME/getsprite-i.sh
 EOF
 ) > $SCRIPT
 
