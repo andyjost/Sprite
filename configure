@@ -174,6 +174,26 @@ def get_options():
     warn('    got %r' % OPTS.cache)
     abort()
 
+# Validation.
+def executable(program):
+  log('Checking whether %s is executable' % program, '...')
+  ok = os.access(program, os.R_OK | os.X_OK)
+  log('OK' if ok else 'FAILED')
+  return ok
+
+def readable(filename):
+  log('Checking whether %s is readable' % filename, '...')
+  ok = os.access(filename, os.R_OK)
+  log('OK' if ok else 'FAILED')
+  return ok
+
+def readabledir(dirname):
+  log('Checking whether %s is a readable directory' % dirname, '...')
+  ok = os.access(dirname, os.R_OK)
+  ok = ok and os.path.isdir(dirname)
+  log('OK' if ok else 'FAILED')
+  return ok
+
 def main():
   get_options()
   if OPTS.check_prereqs:
@@ -196,14 +216,14 @@ def main():
         'ENABLE_ICURRY_CACHE'     : int(OPTS.cache in ['all', 'icurry'])
       , 'ENABLE_PARSED_JSON_CACHE': int(OPTS.cache in ['all', 'json'])
       }
-    set_from_path(settings, 'BOOST', 'boost/version.hpp', 'Boost libraries'
+    set_from_path(settings, 'BOOST', 'boost', 'Boost libraries'
       , web='https://www.boost.org'
       , install_steps=[
             '# Install Boost.'
           , 'sudo apt-get install libboost-all-dev'
           ]
       , path=['/usr/local/include', '/usr/include']
-      , validation=None
+      , validation=[readabledir]
       )
     set_from_path(
         settings, 'PYTHON', 'python', 'Python installation'
@@ -287,27 +307,6 @@ def main():
     say()
     say('Details logged to %s' % LOGFILE)
     say('Configuration NOT written.')
-
-# Validation.
-def executable(program):
-  log('Checking whether %s is executable' % program, '...')
-  ok = os.access(program, os.R_OK | os.X_OK)
-  log('OK' if ok else 'FAILED')
-  return ok
-
-def readable(filename):
-  log('Checking whether %s is readable' % filename, '...')
-  ok = os.access(filename, os.R_OK)
-  log('OK' if ok else 'FAILED')
-  return ok
-
-def readabledir(dirname):
-  log('Checking whether %s is a readable directory' % dirname, '...')
-  ok = os.access(dirname, os.R_OK)
-  ok = ok and os.path.isdir(dirname)
-  log('OK' if ok else 'FAILED')
-  return ok
-
 
 def set_from_path(
     settings, variable_name, program_name, desc, web=None, hint=None
