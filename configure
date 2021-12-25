@@ -356,7 +356,7 @@ def set_from_path(
     if installed:
       set_from_path(
           settings, variable_name, program_name, desc, web, hint, altdir
-        , path=path, validation=validation, allow_interact=False)
+        , path=path, validation=validation, allow_interact=False
         )
     return
   if not commit(settings, variable_name, default, validation):
