@@ -18,15 +18,15 @@ def make_exception(ExcClass, message, hint=None):
     exc.hint = hint
   return exc
 
-def carp(exc_ty, exc_value, program_name=None, hint_timeout_sec=1, hint_kwds={}):
+def carp(exc_value, program_name=None, hint_timeout_sec=1, hint_kwds={}):
   '''Display an exception and exit with the given status value, unless it is None.'''
   def write_ln(*args, **kwds):
     if program_name is not None:
       sys.stderr.write('%s: ' % program_name)
     sys.stderr.write(*args, **kwds)
 
-  exc_message = traceback.format_exception_only(exc_ty, exc_value)
-  for line in exc_message:
+  exc_message = str(exc_value)
+  for line in exc_message.split('\n'):
     line = line.strip()
     write_ln('%s\n' % line)
   # If a hint attribute was attached to the exception, then evaluate it and
@@ -62,9 +62,7 @@ class ProgramErrorHandler(object):
       exc_value = 'an internal error occurred.'
       if not config.debugging():
         exc_value += '  Rerun with SPRITE_DEBUG=1 for details.'
-    carp(exc_type, exc_value
-      , self.program_name, self.hint_timeout_sec, self.hint_kwds
-      )
+    carp(exc_value, self.program_name, self.hint_timeout_sec, self.hint_kwds)
   def __enter__(self):
     return self
   def __exit__(self, exc_type, exc_value, exc_tb):
