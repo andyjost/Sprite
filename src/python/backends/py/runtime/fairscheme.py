@@ -53,9 +53,10 @@ def D(rts):
           if N(rts, rts.variable(rts.E)):
             yield rts.release_value()
 
+# Note: "state" is added by the system.
 @trace.trace_steps
 @callstack.with_N_stackframe
-def N(rts, var, state, force_ground=False):
+def N(rts, var, state):
   rts.telemetry._enterN += 1
   for _ in state:
     while True:
@@ -64,9 +65,7 @@ def N(rts, var, state, force_ground=False):
         if var.is_root:
           rts.drop()
         else:
-          # Not covered
-          assert False
-          # var.rewrite(rts.prelude._Failure)
+          var.rewrite(rts.prelude._Failure)
         return False
       elif tag == T_CONSTR:
         if var.is_root:
@@ -83,8 +82,7 @@ def N(rts, var, state, force_ground=False):
           binding = rts.get_binding(state.cursor)
           rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=binding)
           rts.restart()
-        elif rts.is_narrowed(state.cursor) or \
-            (force_ground and rts.has_generator(state.cursor)):
+        elif rts.is_narrowed(state.cursor):
           rts.telemetry._copyspine += 1
           gen = rts.get_generator(state.cursor)
           rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=gen)
@@ -94,8 +92,6 @@ def N(rts, var, state, force_ground=False):
           x = rts.get_freevar(rts.grp_id(state.cursor))
           rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=x)
           rts.restart()
-        elif force_ground:
-          rts.suspend(state.cursor)
         break
       elif tag == T_FWD:
         state.spine[-1] = indexing.logical_subexpr(

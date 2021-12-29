@@ -29,7 +29,7 @@ def apply(rts, _0):
 
 def apply_gnf(rts, _0):
   '''Implements ($##).'''
-  return _applyspecial(rts, _0, _normalize, force_ground=True)
+  return _applyspecial(rts, _0, _normalize)
 
 def apply_hnf(rts, _0):
   '''Implements ($!).'''
@@ -37,7 +37,7 @@ def apply_hnf(rts, _0):
 
 def apply_nf(rts, _0):
   '''Implements ($!!).'''
-  return _applyspecial(rts, _0, _normalize, force_ground=False)
+  return _applyspecial(rts, _0, _normalize)
 
 def cond(rts, _0):
   Bool = rts.type('Prelude.Bool')
@@ -70,8 +70,8 @@ def _applyspecial(rts, _0, action, **kwds):
   yield _0.successors[0]
   yield transformed_arg
 
-def _normalize(rts, var, force_ground):
-  if not fairscheme.N(rts, var, force_ground):
+def _normalize(rts, var, **kwds):
+  if not fairscheme.N(rts, var, **kwds):
     rts.unwind()
   else:
     return var
