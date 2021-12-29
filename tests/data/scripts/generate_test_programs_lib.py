@@ -1,8 +1,6 @@
 import os
 import sys
-
 from six.moves import cStringIO as StringIO
-
 
 def generate_test_programs(spec):
   '''
@@ -49,7 +47,7 @@ def generate_test_programs(spec):
       text.write(predef)
       text.write(program_text)
       if not os.path.exists(filename) or open(filename).read() != text.getvalue():
-        print >>sys.stderr, 'generating', filename
+        sys.stderr.write('generating %r\n' % filename)
         with open(filename, 'w') as out:
           out.write(text.getvalue())
 

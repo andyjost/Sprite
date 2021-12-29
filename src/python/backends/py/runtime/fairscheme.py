@@ -73,10 +73,8 @@ def N(rts, var, state, force_ground=False):
           var = rts.variable(rts.E, state.realpath)
           rts.E = rts.lift_constraint(var)
         else:
-          # Not covered
-          assert False
-          # var = rts.variable(root, state.realpath)
-          # rts.lift_constraint(var, rewrite=root)
+          var = rts.variable(var.root, state.realpath)
+          rts.lift_constraint(var, rewrite=var.root)
         return False
       elif tag == T_FREE:
         # Path not relevant here.  We must clone the whole context.

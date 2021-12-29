@@ -28,12 +28,15 @@ def apply(rts, _0):
     yield graph.Node(term, *(term.successors+[arg]), partial=True)
 
 def apply_gnf(rts, _0):
+  '''Implements ($##).'''
   return _applyspecial(rts, _0, _normalize, force_ground=True)
 
 def apply_hnf(rts, _0):
+  '''Implements ($!).'''
   return _applyspecial(rts, _0, fairscheme.hnf)
 
 def apply_nf(rts, _0):
+  '''Implements ($!!).'''
   return _applyspecial(rts, _0, _normalize, force_ground=False)
 
 def cond(rts, _0):
