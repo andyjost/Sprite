@@ -81,7 +81,7 @@ class TestPyIO(cytest.TestCase):
 
         goal = curry.compile('writeFile "file.txt" ("%s" ? "%s")' % txt, 'expr')
         self.assertRaisesRegex(
-            RuntimeError
+            curry.EvaluationError
           , r'non-determinism in monadic actions occurred'
           , lambda: list(curry.eval(goal))
           )
@@ -92,7 +92,7 @@ class TestPyIO(cytest.TestCase):
   def test_nd_io(self):
     goal = curry.compile("putChar ('a' ? 'b')", 'expr')
     self.assertRaisesRegex(
-        RuntimeError
+        curry.EvaluationError
       , r'non-determinism in monadic actions occurred'
       , lambda: list(curry.eval(goal))
       )
@@ -101,7 +101,7 @@ class TestPyIO(cytest.TestCase):
   def test_nd_io2(self):
     goal = curry.compile('''putStrLn ("one" ? "two")''', 'expr')
     self.assertRaisesRegex(
-        RuntimeError
+        curry.EvaluationError
       , r'non-determinism in monadic actions occurred'
       , lambda: list(curry.eval(goal))
       )
@@ -126,7 +126,7 @@ class TestPyIO(cytest.TestCase):
     with maxrecursion():
       goal = curry.compile('readFile "nofile" `catch` ioError', 'expr')
       self.assertRaisesRegex(
-          curry.ExecutionError
+          curry.EvaluationError
         , r"i/o error: \[Errno 2\] No such file or directory: 'nofile'"
         , lambda: list(curry.eval(goal))
         )
