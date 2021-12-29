@@ -1,9 +1,6 @@
 class CompileError(BaseException):
   '''Raised when an error occurs while compiling Curry code.'''
 
-class EvaluationSuspended(BaseException):
-  '''Raised when evaluation fails due to suspended constraints.'''
-
 class InstantiationError(BaseException):
   '''Raised when a free variable is bound to an unboxed value.'''
 
@@ -35,32 +32,44 @@ class TimeoutError(RuntimeError):
 class PrerequisiteError(IOError):
   '''Raised when a prerequisite file is not found.'''
 
-class ExecutionError(RuntimeError):
-  '''
-  The root of all exceptions represent errors in the Curry program that were
-  properly handled by Sprite.
-  '''
+######
+# Evaluation Errors
+
+class EvaluationError(BaseException):
+  '''Signals an error raised from a Curry program.'''
   pass
 
-class MonadError(ExecutionError):
+class EvaluationSuspended(EvaluationError):
+  '''Evaluation failed due to suspended constraints.'''
+  def __init__(self):
+    EvaluationError.__init__(self, 'Evaluation Suspended!')
+
+class MonadError(EvaluationError):
   # Prelude.IOError
-  # An IO error occurred in monadic actions.
   CTOR_INDEX = 0
+  def __init__(self):
+    EvaluationError.__init__(self, 'An IO error occurred in monadic actions!')
 
 class UserMonadError(MonadError):
   # Prelude.UserError
-  # A user error in monadic actions.
   CTOR_INDEX = 1
+  def __init__(self):
+    EvaluationError.__init__(self, 'A user error occurred in monadic actions!')
 
 class FailMonadError(MonadError):
   # Prelude.FailError
-  # A failed computation occurred in monadic actions.
   CTOR_INDEX = 2
+  def __init__(self):
+    EvaluationError.__init__(
+        self, 'A failed computation occurred in monadic actions!'
+      )
 
 class NondetMonadError(MonadError):
   # Prelude.NondetError
   # Non-determinism occurred in monadic actions.
   CTOR_INDEX = 3
   def __init__(self):
-    RuntimeError.__init__(self, 'non-determinism in monadic actions occurred')
+    EvaluationError.__init__(
+        self, 'non-determinism in monadic actions occurred!'
+      )
 

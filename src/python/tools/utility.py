@@ -1,6 +1,6 @@
 from ..exceptions import TimeoutError
 from .. import config
-import contextlib, logging, os, re, signal, sys
+import contextlib, logging, os, re, signal, sys, traceback
 
 logger = logging.getLogger(__name__)
 
@@ -18,19 +18,22 @@ def make_exception(ExcClass, message, hint=None):
     exc.hint = hint
   return exc
 
-def carp(exception, program_name=None, hint_timeout_sec=1, hint_kwds={}):
+def carp(exc_ty, exc_value, program_name=None, hint_timeout_sec=1, hint_kwds={}):
   '''Display an exception and exit with the given status value, unless it is None.'''
   def write_ln(*args, **kwds):
     if program_name is not None:
       sys.stderr.write('%s: ' % program_name)
     sys.stderr.write(*args, **kwds)
 
-  write_ln('%s\n' % exception)
+  exc_message = traceback.format_exception_only(exc_ty, exc_value)
+  for line in exc_message:
+    line = line.strip()
+    write_ln('%s\n' % line)
   # If a hint attribute was attached to the exception, then evaluate it and
   # display the result.
-  if hasattr(exception, 'hint'):
+  if hasattr(exc_value, 'hint'):
     try:
-      hint = exception.hint
+      hint = exc_value.hint
       if callable(hint):
         # A timeout is used to cap the time for calculating the hint.  this
         # is disabled for now.
@@ -59,17 +62,20 @@ class ProgramErrorHandler(object):
       exc_value = 'an internal error occurred.'
       if not config.debugging():
         exc_value += '  Rerun with SPRITE_DEBUG=1 for details.'
-    carp(exc_value, self.program_name, self.hint_timeout_sec, self.hint_kwds)
+    carp(exc_type, exc_value
+      , self.program_name, self.hint_timeout_sec, self.hint_kwds
+      )
   def __enter__(self):
     return self
   def __exit__(self, exc_type, exc_value, exc_tb):
     if exc_type:
-      self.nerrors += 1
-      self.print_error(exc_type, exc_value, exc_tb)
-      if self.exit_status is None:
-        return True
-      elif not config.debugging():
-        sys.exit(self.exit_status)
+      if not issubclass(exc_type, SystemExit):
+        self.nerrors += 1
+        self.print_error(exc_type, exc_value, exc_tb)
+        if self.exit_status is None:
+          return True
+        elif not config.debugging():
+          sys.exit(self.exit_status)
 
 class timeout:
   def __init__(self, seconds):

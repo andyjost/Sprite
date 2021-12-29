@@ -1,4 +1,4 @@
-from ......exceptions import ExecutionError
+from ......exceptions import EvaluationError
 
 __all__ = ['choice', 'error', 'failed', 'not_used']
 
@@ -10,7 +10,7 @@ def choice(rts, _0):
 
 def error(rts, msg):
   msg = str(rts.topython(msg))
-  raise ExecutionError(msg)
+  raise EvaluationError(msg)
 
 def failed(rts):
   return [rts.prelude._Failure]

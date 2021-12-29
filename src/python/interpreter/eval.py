@@ -18,6 +18,10 @@ def eval(interp, *args, **kwds):
         results.  The default is 'default'.  See
         :func:``curry.interpreter.conversions.getconverter``.
 
+  Raises:
+    EvaluationError:
+        A Curry error occurred during evaluation.
+
   Returns:
     A generator producing the values of the specified Curry program.
   '''
