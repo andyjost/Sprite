@@ -184,8 +184,7 @@ class TestPrelude(cytest.TestCase):
     self.assertRaises(type, lambda: next(curry.eval(e)))
 
   @cytest.with_flags(defaultconverter='topython')
-  def testEqualityConstraint(self):
-    '''Test =:=.'''
+  def testEquationalConstraint(self):
     interp = curry.getInterpreter()
     unboxed = curry.unboxed
     # Note: a type dictionary is needed to call Prelude.unknown, but the type

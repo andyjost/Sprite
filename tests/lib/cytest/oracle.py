@@ -39,6 +39,10 @@ REPL prints it.  It must be understood by the ``readcurry`` module.
 Each matching occurrence of an ORACLE_RESULT directive indicates a result for
 the matching goal(s).  The program is expected to output each and only the
 specified results.
+
+An abnormal exit status can also be specified by giving ORACLE_RESULT the
+result "!suspend" (without quotes).  In this case, the test only passes if
+Sprite's computation suspends (i.e., due to unsatisfied constraints).
 '''
 
 from curry.utility import binding, filesys

@@ -5,5 +5,5 @@ class TestResiduation(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/residuation/'
   # RUN_ONLY = []
   # EXPECTED_FAILURE = []
-  SKIP = ['reslist01']
+  SKIP = ['reslist02']
 

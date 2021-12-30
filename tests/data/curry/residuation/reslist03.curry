@@ -2,4 +2,4 @@
 
 list21 :: [Int]
 list21 = [x, x=:=2&>1] where x free
-main = list21
+main = show [2,1]

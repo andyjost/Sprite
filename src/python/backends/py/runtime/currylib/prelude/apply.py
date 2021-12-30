@@ -29,7 +29,15 @@ def apply(rts, _0):
 
 def apply_gnf(rts, _0):
   '''Implements ($##).'''
-  return _applyspecial(rts, _0, _normalize)
+  rv = _applyspecial(rts, _0, _normalize) # Apply ($!!).
+  unbound = [
+      y for y in (x.target for x in graph.iterexpr(_0))
+          if inspect.isa_freevar(y) and not rts.has_generator(y)
+    ]
+  if unbound:
+    rts.suspend(unbound)
+  else:
+    return rv
 
 def apply_hnf(rts, _0):
   '''Implements ($!).'''

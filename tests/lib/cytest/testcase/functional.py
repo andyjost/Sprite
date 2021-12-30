@@ -217,8 +217,23 @@ class FunctionalTestCase(
 
       with open(goldenfile) as istream:
         oracle_answer_raw = istream.read()
-      evaluation = self.evaluate(testname, module, goal)
-      sprite_answer_raw = '\n'.join([curry.show_value(x) for x in evaluation])
+
+      try:
+        results = list(self.evaluate(testname, module, goal))
+      except curry.EvaluationSuspended:
+        if oracle_answer_raw != '!suspend':
+          failures.append('\n====== %r ======\n%s'
+              % (goal.name, 'evaluation suspended unexpectedly')
+              )
+        continue
+      else:
+        if oracle_answer_raw == '!suspend':
+          failures.append('\n====== %r ======\n%s'
+              % (goal.name, 'evaluation did not suspend as expected')
+              )
+          continue
+
+      sprite_answer_raw = '\n'.join([curry.show_value(x) for x in results])
       sprite_answer_raw += '\n'
 
       if self.DO_CLEAN[testname]:
