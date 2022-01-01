@@ -44,8 +44,10 @@ class Handle(object):
     if pkg:
       return Handle(pkg)
 
-  def __nonzero__(self):
+  def __bool__(self):
     return not self.empty()
+
+  __nonzero__ = __bool__
 
   def empty(self):
     try:

@@ -23,7 +23,7 @@ Environment Variables:
 '''
 
 from . import config
-from .utility import filesys
+from .utility import filesys, strings
 import glob, hashlib, logging, os, re
 from six.moves import cPickle as pickle
 from six.moves import cStringIO as StringIO
@@ -134,13 +134,16 @@ class Curry2ICurryCache(object):
         # output because the file name is embedded into JSON as the module name.
         modulename = os.path.splitext(os.path.basename(file_out))[0]
         hasher = hashlib.sha1()
+        update_hash = lambda data: hasher.update(strings.ensure_binary(data))
         # The name of the subdirectory under .curry should uniquely identify the
         # Curry library version.
-        hasher.update(config.intermediate_subdir())
-        hasher.update('#')
-        hasher.update(modulename)
-        hasher.update('#')
-        hasher.update(open(self.file_in).read())
+        update_hash(config.intermediate_subdir())
+        update_hash('#')
+        update_hash(modulename)
+        update_hash('#')
+        with open(self.file_in) as istream:
+          content = strings.ensure_str(istream.read())
+        update_hash(content)
         self.key = hasher.hexdigest()
         self.cur.execute(
             'SELECT value FROM [%s] WHERE key=?' % self.tablename, (self.key,)
@@ -152,17 +155,20 @@ class Curry2ICurryCache(object):
             os.makedirs(dirname)
           with open(file_out, 'w') as out:
             assert isinstance(result, tuple) and len(result) == 1
-            out.write(result[0].encode('utf-8'))
+            out.write(strings.ensure_str(result[0]))
           self.found = True
 
-    def __nonzero__(self):
+    def __bool__(self):
       return self.found
+
+    __nonzero__ = __bool__
 
     def update(self):
       '''Updates the cache.'''
       assert not self.found
       if self.db:
-        text = open(self.file_out).read()
+        with open(self.file_out) as istream:
+          text = istream.read()
         self.cur.execute(
             'INSERT INTO [%s](key, value) VALUES(?, ?)' % self.tablename
           , (self.key, text)
@@ -214,10 +220,15 @@ class ParsedJsonCache(object):
             if must_force_update(self.jsonfile):
               logger.info('file %s is being forced to update', self.jsonfile)
             else:
-              self.icur = pickle.load(StringIO(buf))
+              try:
+                self.icur = pickle.loads(buf)
+              except:
+                self.icur = pickle.load(StringIO(buf))
 
-    def __nonzero__(self):
+    def __bool__(self):
       return self.icur is not None
+
+    __nonzero__ = __bool__
 
     def update(self, icur):
       assert self.icur is None

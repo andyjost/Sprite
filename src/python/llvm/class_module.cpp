@@ -96,6 +96,7 @@ namespace sprite { namespace python
         .def("__getitem__", &symboltable__getitem__, with_custodian_and_ward_postcall<1,0>())
         .def("__len__", &SymbolTable::size)
         .def("__nonzero__", &SymbolTable::size)
+        .def("__bool__", &SymbolTable::size)
         .def("__iter__", iterator<SymbolTable>())
       ;
   }

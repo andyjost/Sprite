@@ -84,6 +84,8 @@ class _Variable(object):
     return self.value
 
   def convert(self, x):
+    from .utility.strings import ensure_str
+    x = ensure_str(x)
     if self.type is bool:
       if x.strip().lower() in ('true', 'yes', 'on'):
         return True

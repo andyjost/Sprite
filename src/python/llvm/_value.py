@@ -10,6 +10,10 @@ def __nonzero__(self):
   return self.id != 0
 
 @method
+def __bool__(self):
+  return self.id != 0
+
+@method
 def __eq__(self, rhs):
   return self.id == rhs.id
 
