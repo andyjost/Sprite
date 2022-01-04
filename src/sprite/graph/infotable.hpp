@@ -1,5 +1,6 @@
 #pragma once
 #include "sprite/tags.hpp"
+#include "sprite/types.hpp"
 #include <cstdint>
 
 namespace sprite
@@ -19,14 +20,14 @@ namespace sprite
   struct InfoTable
   {
     char const *       name;
-    arity_type         arity;
+    index_type         arity;
     tag_type           tag;
     stepfunc_type      step;
-    formatfunc_type    format;
+    showfunc_type      show; // FIXME: name does not match Python
     typecheckfunc_type typecheck;
     Typedef * const    typedef_;
     flag_type          flags;
-    char const *       packing;
+    char const *       format;
     size_t             alloc_size;
   };
 }

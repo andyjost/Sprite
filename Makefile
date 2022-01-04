@@ -78,6 +78,10 @@ overlay:
 	tar xvzf $(OVERLAY_ARCHIVE)
 endif
 
+.PHONY: clean
+clean:
+	rm -r $(OBJECT_ROOT)
+
 .PHONY: test
 test:
 	make -C tests
@@ -85,6 +89,10 @@ test:
 .PHONY: stage
 stage:
 	make install SYMLINK_PYTHON=1
+
+.PHONY: unstage
+unstage:
+	rm -r $(STAGE_DIR)
 
 .PHONY: docs
 docs:

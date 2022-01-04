@@ -197,7 +197,7 @@ FILES_TO_UNINSTALL := $(call reverse, $(sort $(foreach path,$(FILES_TO_UNINSTALL
 DIRS_TO_REC_UNINSTALL := $(call reverse, $(sort $(foreach path,$(DIRS_TO_REC_UNINSTALL),$(abspath $(path)))))
 DIRS_TO_UNINSTALL := $(call reverse, $(sort $(foreach path,$(DIRS_TO_UNINSTALL),$(abspath $(path)))))
 
-clean ::
+safe-clean ::
 	$(call clean_files,$(FILES_TO_CLEAN),rm -f)
 	$(call clean_files,$(DIRS_TO_REC_CLEAN),rm -rf)
 	$(call clean_files,$(DIRS_TO_CLEAN),rmdir)

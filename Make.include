@@ -4,8 +4,9 @@
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 OBJECT_ROOT := $(abspath $(ROOT_DIR)/object-root)
 include $(ROOT_DIR)/Make.config
+STAGE_DIR := $(abspath $(ROOT_DIR)/install)
 ifndef PREFIX
-  PREFIX := $(abspath $(ROOT_DIR)/install)
+  PREFIX := $(STAGE_DIR)
 endif
 # MULTIARCH := $(shell $(CC) --print-multiarch)
 
@@ -46,7 +47,7 @@ ifeq ($(flavor SUBMODULES),undefined)
   SUBMODULES = $(dir $(wildcard */.))
 endif
 
-RECURSIVE_TARGETS := all clean install libs objs shlibs uninstall
+RECURSIVE_TARGETS := all safe-clean install libs objs shlibs uninstall
 .PHONY: $(RECURSIVE_TARGETS) $(SUBMODULES)
 $(RECURSIVE_TARGETS):: | $(SUBMODULES)
 $(SUBMODULES):
