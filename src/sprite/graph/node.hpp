@@ -1,4 +1,5 @@
 #pragma once
+#include <cassert>
 #include <cstdint>
 #include "sprite/graph/infotable.hpp"
 #include "sprite/types.hpp"
@@ -10,6 +11,7 @@ namespace sprite
   using unboxed_float_type = double;
   using unboxed_char_type = signed char;
 
+  // Defines the fundamental data that may appear in a node.
   union Arg
   {
     Node *             node;
@@ -26,25 +28,63 @@ namespace sprite
     Arg(char value)           : ub_char(value) {}
     Arg(signed char value)    : ub_char(value) {}
     Arg(unsigned char value)  : ub_char(value) {}
+
+    template<typename T>
+    Arg & operator=(T const & value)
+    {
+      Arg tmp{value};
+      this->node = tmp.node;
+      return *this;
+    }
   };
-
-  struct Expr
-  {
-    char kind;
-    Arg arg;
-
-    Expr(Node * value=nullptr) : kind('p'), arg(value) {}
-    Expr(int16_t value)        : kind('i'), arg(value) {}
-    Expr(int32_t value)        : kind('i'), arg(value) {}
-    Expr(int64_t value)        : kind('i'), arg(value) {}
-    Expr(float value)          : kind('f'), arg(value) {}
-    Expr(double value)         : kind('f'), arg(value) {}
-    Expr(char value)           : kind('c'), arg(value) {}
-    Expr(signed char value)    : kind('c'), arg(value) {}
-    Expr(unsigned char value)  : kind('c'), arg(value) {}
-  };
-
   static_assert(sizeof(Arg) == sizeof(Node *));
+
+  // // A Curry expression, including its C type (not the type in Curry).
+  // struct Expr
+  // {
+  //   Arg & arg;
+  //   char kind;
+
+  //   Expr(Arg & arg, char kind) : arg(arg), kind(kind) {}
+  //   Expr(Node *& value)        : 
+
+  //   Expr & operator=(Node * v)        { assert(kind=='p'); arg.node=v; return *this; }
+  //   Expr & operator=(int16_t v)       { assert(kind=='i'); arg.ub_int=v; return *this; }
+  //   Expr & operator=(int32_t v)       { assert(kind=='i'); arg.ub_int=v; return *this; }
+  //   Expr & operator=(int64_t v)       { assert(kind=='i'); arg.ub_int=v; return *this; }
+  //   Expr & operator=(float v)         { assert(kind=='f'); arg.ub_float=v; return *this; }
+  //   Expr & operator=(double v)        { assert(kind=='f'); arg.ub_float=v; return *this; }
+  //   Expr & operator=(char v)          { assert(kind=='c'); arg.ub_char=v; return *this; }
+  //   Expr & operator=(signed char v)   { assert(kind=='c'); arg.ub_char=v; return *this; }
+  //   Expr & operator=(unsigned char v) { assert(kind=='c'); arg.ub_char=v; return *this; }
+
+  //   void * id() const { return &this->arg; }
+  //   Node *& operator->() const { return arg.node; }
+  // };
+
+  // A position in a Curry expression.
+  struct Cursor
+  {
+    Arg * arg;
+    char  kind;
+
+    Cursor() : arg(nullptr), kind('u') {}
+    Cursor(Arg & value, char kind)     : arg(&value)        , kind(kind) {}
+    Cursor(Node *& value)              : arg((Arg *) &value), kind('p')  {}
+    Cursor(unboxed_int_type   & value) : arg((Arg *) &value), kind('i')  {}
+    Cursor(unboxed_float_type & value) : arg((Arg *) &value), kind('f')  {}
+    Cursor(unboxed_char_type  & value) : arg((Arg *) &value), kind('c')  {}
+
+    friend bool operator==(Cursor lhs, Cursor rhs) { return lhs.arg == rhs.arg; }
+    friend bool operator!=(Cursor lhs, Cursor rhs) { return !(lhs==rhs); }
+    explicit operator bool() const { return arg; }
+    Arg * operator->() const { return this->arg; }
+    // Expr operator*() const { assert(this->arg); return Expr(*arg, kind); }
+    operator Node *&() const { assert(arg && kind=='p'); return this->arg->node; }
+    void * id() const { return arg; }
+    InfoTable const * info() const;
+  };
+
   static bool constexpr PARTIAL = true;
 
   struct Node
@@ -57,7 +97,7 @@ namespace sprite
     static Node * rewrite(Node *, InfoTable const *, Arg *, bool partial=false);
 
     Arg * successors();
-    Arg & successor(index_type i, char * kind_out=nullptr);
+    Cursor successor(index_type i);
 
     std::string str(Node *);
     std::string repr(Node *);
@@ -67,13 +107,16 @@ namespace sprite
     Node * deepcopy(Node *);
 
     // getitem
-    Arg getitem(Node *, index_type, char * kind=nullptr);
+    Cursor getitem(Node *, index_type);
 
     // equality/hash
-    bool eq(Node *, Node *);
-    bool ne(Node *, Node *);
-    hash_type hash(Node *);
+    // static bool eq(Node *, Node *);
+    // static bool ne(Node *, Node *);
+    // hash_type hash(Node *);
   };
+
+  inline InfoTable const * Cursor::info() const
+    { return arg && arg->node ? arg->node->info : nullptr; }
 
   struct Node1 : Node
   {

@@ -3,62 +3,71 @@
 
 namespace sprite
 {
-  WalkState walk(Node * root, index_type const * path);
+  WalkState walk(Cursor root, index_type const * path)
     { return WalkState(root, path); }
 
-  WalkState::WalkState(Node * root, index_type const * realpath)
+  WalkState::WalkState(Cursor root, index_type const * realpath)
   {
     this->spine.push_back(root);
     if(realpath)
     {
       for(auto i = *realpath++; i != NOINDEX; i = *realpath++)
       {
-        this->realpath.push_back(i);
-        Node * next = subexpr(this->spine.back(), i);
+        this->realpath_.push_back(i);
+        Cursor && next = subexpr(this->spine.back(), i);
         this->spine.push_back(next);
       }
     }
   }
 
-  bool WalkState::advance()
+  void WalkState::operator++()
   {
     while(!this->stack.empty() && this->stack.back().empty())
       this->pop();
     if(this->stack.empty())
-      return false;
+      this->spine.clear();
     else
     {
-      this->realpath_.back() = this->stack.back().index;
-      this->spine.back()     = this->stack.back().succ;
-      this->stack.pop();
-      return true;
+      auto && frame = this->stack.back();
+      this->realpath_.back() = frame.back().index;
+      this->spine.back()     = frame.back().succ;
+      frame.pop_back();
     }
   }
 
   void WalkState::pop()
   {
-    this->stack.pop();
-    this->realpath_.pop();
-    this->spine.pop();
-    this->data.pop();
+    this->stack.pop_back();
+    this->realpath_.pop_back();
+    this->spine.pop_back();
+    this->data.pop_back();
   }
 
-  void WalkState::push(sid_type sid=NOSID)
+  void WalkState::push(sid_type sid)
   {
-    Node * cur = this->cursor();
-
-
+    Cursor cur = this->cursor();
+    Frame frame;
+    if(cur.kind == 'p')
+    {
+      index_type const n = cur->node->info->arity;
+      frame.reserve(n);
+      for(index_type i=0; i<n; ++i)
+      {
+        index_type const j = n - 1 - i;
+        frame.emplace_back(Successor{cur->node->successor(j), j});
+      }
+    }
     this->realpath_.push_back(NOINDEX);
-    this->spine.push_back(nullptr);
+    this->spine.emplace_back();
     this->data.push_back(sid);
   }
 
-  Node *& WalkState::cursor()
+  Cursor WalkState::cursor()
     { return this->spine.back(); }
 
-  Node * WalkState::parent() const
+  Cursor WalkState::parent()
   {
-    size_t n = this->spine.size()
-    return n < 2 : nullptr ? &this->spine[n-2];
+    size_t n = this->spine.size();
+    return n < 2 ? Cursor() : this->spine[n-2];
   }
 }

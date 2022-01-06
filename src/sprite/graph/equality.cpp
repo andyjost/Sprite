@@ -1,0 +1,62 @@
+#include "sprite/graph/equality.hpp"
+#include "sprite/inspect.hpp"
+#include <unordered_map>
+#include <unordered_set>
+
+namespace
+{
+  using namespace sprite;
+
+  struct GraphEquality
+  {
+    bool skipfwd;
+    std::unordered_map<void *, std::unordered_set<void *>> memo;
+
+    GraphEquality(bool skipfwd) : skipfwd(skipfwd) {}
+
+    bool apply(Cursor lhs, Cursor rhs)
+    {
+      auto p = memo.find(lhs.id());
+      if(p != memo.end() && p->second.find(rhs.id()) != p->second.end())
+        return true;
+      if(lhs.kind != rhs.kind)
+        return false;
+      switch(lhs.kind)
+      {
+        case 'i':
+          return lhs->ub_int == rhs->ub_int;
+        case 'f':
+          return lhs->ub_float == rhs->ub_float;
+        case 'c':
+          return lhs->ub_char == rhs->ub_char;
+      }
+      assert(lhs.kind == 'p');
+      auto && bucket = p==memo.end() ? memo[lhs.id()] : p->second;
+      bucket.insert(rhs.id());
+      if(lhs.info() != rhs.info())
+        return false;
+      for(index_type i=0; i<lhs.info()->arity; ++i)
+      {
+        Cursor l = lhs->node->successor(i);
+        Cursor r = rhs->node->successor(i);
+        if(skipfwd)
+        {
+          l = inspect::fwd_chain_target(l);
+          r = inspect::fwd_chain_target(r);
+        }
+        if(!this->apply(l, r))
+          return false;
+      }
+      return true;
+    }
+  };
+}
+
+namespace sprite
+{
+  bool equal(Cursor lhs, Cursor rhs, bool skipfwd)
+  {
+    auto && equality = GraphEquality(skipfwd);
+    return equality.apply(lhs, rhs);
+  }
+}

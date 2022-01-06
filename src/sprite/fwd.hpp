@@ -4,10 +4,11 @@
 
 namespace sprite
 {
-  union Arg;
   class Fingerprint;
   class RuntimeState;
+  struct Cursor;
   struct InfoTable;
   struct Node;
   struct Typedef;
+  union Arg;
 }
