@@ -1,4 +1,4 @@
 # Currently disabled: gc, llvm
 SUBMODULES = graph misc
-SRCS := fingerprint.cpp symbols.cpp
+SRCS := fingerprint.cpp builtins.cpp
 include Make.include

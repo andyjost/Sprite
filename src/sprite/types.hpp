@@ -18,7 +18,7 @@ namespace sprite
   using tag_type = int16_t;
   using typecheckfunc_type = void (*)(Node *);
 
-  using memo_type = std::unordered_map<Node *, Node *>;
+  using memo_type = std::unordered_map<void *, Arg>;
   using sid_set_type = std::unordered_set<sid_type>;
 
   static constexpr index_type NOINDEX = std::numeric_limits<index_type>::max();

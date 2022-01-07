@@ -6,6 +6,7 @@
 namespace sprite
 {
   // Constructor flags.
+  static flag_type constexpr NO_FLAGS       = 0x0;
   static flag_type constexpr INT_TYPE       = 0x1; // Prelude.Int
   static flag_type constexpr CHAR_TYPE      = 0x2; // Prelude.Char
   static flag_type constexpr FLOAT_TYPE     = 0x3; // Prelude.Float

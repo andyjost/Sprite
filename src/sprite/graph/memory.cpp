@@ -1,38 +1,33 @@
 #include <cassert>
 #include <cstdlib>
-#include "sprite/graph/raw.hpp"
+#include "sprite/graph/memory.hpp"
 
 namespace sprite
 {
-  char * node_alloc(InfoTable const * info)
-  {
-    assert(info);
-    return (char *) std::malloc(info->alloc_size);
-  }
+  char * node_alloc(size_t bytes)
+    { return (char *) std::malloc(bytes); }
 
   void node_free(char * px)
-  {
-    std::free(px);
-  }
+    { std::free(px); }
 
   Arg * pack(char * out, char const *format, Arg * args)
   {
-    RawNodeMemory raw{out};
+    RawNodeMemory mem{out};
     for(; *format; ++format)
     {
       switch(*format)
       {
         case 'p':
-          *raw.boxed++ = *(Node **)(args++);
+          *mem.boxed++ = *(Node **)(args++);
           break;
         case 'i':
-          *raw.ub_int++ = *(unboxed_int_type*)(args++);
+          *mem.ub_int++ = *(unboxed_int_type*)(args++);
           break;
         case 'f':
-          *raw.ub_float++ = *(unboxed_float_type*)(args++);
+          *mem.ub_float++ = *(unboxed_float_type*)(args++);
           break;
         case 'c':
-          *raw.ub_char++ = *(unboxed_char_type*)(args++);
+          *mem.ub_char++ = *(unboxed_char_type*)(args++);
           break;
         default: assert(0);
       }

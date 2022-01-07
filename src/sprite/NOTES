@@ -1,3 +1,4 @@
 * FWD nodes cannot target unboxed values because there is no way to look at
   data and tell what it is.  I may need to create more FWD node types to
   indicate the target type.
+* copynode is a poor name for "shallow copy".

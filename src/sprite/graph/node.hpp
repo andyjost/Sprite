@@ -39,10 +39,10 @@ namespace sprite
   };
   static_assert(sizeof(Arg) == sizeof(Node *));
 
-  // // A Curry expression, including its C type (not the type in Curry).
+  // A Curry expression, including its C type (not the type in Curry).
   // struct Expr
   // {
-  //   Arg & arg;
+  //   Arg arg;
   //   char kind;
 
   //   Expr(Arg & arg, char kind) : arg(arg), kind(kind) {}
@@ -85,16 +85,12 @@ namespace sprite
     InfoTable const * info() const;
   };
 
-  static bool constexpr PARTIAL = true;
-
   struct Node
   {
     InfoTable const * info;
 
-    static Node * create(
-        InfoTable const *, Arg *, bool partial=false, Node * target=nullptr
-      );
-    static Node * rewrite(Node *, InfoTable const *, Arg *, bool partial=false);
+    static Node * create(InfoTable const *, Arg *, Node * target=nullptr);
+    static Node * rewrite(Node *, InfoTable const *, Arg *);
 
     Arg * successors();
     Cursor successor(index_type i);
@@ -108,91 +104,10 @@ namespace sprite
 
     // getitem
     Cursor getitem(Node *, index_type);
-
-    // equality/hash
-    // static bool eq(Node *, Node *);
-    // static bool ne(Node *, Node *);
-    // hash_type hash(Node *);
   };
 
   inline InfoTable const * Cursor::info() const
     { return arg && arg->node ? arg->node->info : nullptr; }
 
-  struct Node1 : Node
-  {
-    Arg arg;
-  };
-
-  struct SetGrdNode : Node
-  {
-    sid_type sid;
-    Node *   value;
-  };
-
-  using FailNode = Node;
-
-  struct ConstrNode : Node
-  {
-    Node * value;
-    Node * pair;
-  };
-
-  struct FreeNode : Node
-  {
-    cid_type cid;
-    Node *   genexpr;
-  };
-
-  struct FwdNode : Node
-  {
-    Node * target;
-  };
-
-  struct ChoiceNode : Node
-  {
-    unboxed_int_type id;
-    Node * lhs;
-    Node * rhs;
-  };
-
-  struct IntNode : Node
-  {
-    unboxed_int_type value;
-  };
-
-  struct FloatNode : Node
-  {
-    unboxed_float_type value;
-  };
-
-  struct CharNode : Node
-  {
-    unboxed_char_type value;
-  };
-
-  struct ConsNode : Node
-  {
-    Node * head;
-    Node * tail;
-  };
-
-  struct NilNode : Node {};
-
-  union NodeU
-  {
-    Node       * head;
-    Node1      * node1;
-    SetGrdNode * setgrd;
-    FailNode   * fail;
-    ConstrNode * constr;
-    FreeNode   * free;
-    FwdNode    * fwd;
-    ChoiceNode * choice;
-    IntNode    * int_;
-    FloatNode  * float_;
-    CharNode   * char_;
-    ConsNode   * cons;
-    NilNode    * nil;
-  };
 }
 

@@ -4,10 +4,10 @@
 
 namespace sprite
 {
+  Arg copynode(Cursor);
 
-  Node * copynode(Node *);
-  Node * copygraph(
-      Node *
+  Arg copygraph(
+      Cursor
     , memo_type * = nullptr
     , bool skipfwd=false
     , sid_set_type * skipgrds = nullptr

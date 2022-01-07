@@ -15,10 +15,7 @@ namespace sprite
   {
     Node * end = *begin;
     while(end->info->tag == T_FWD)
-    {
-      NodeU u{end};
-      end = u.fwd->target;
-    }
+      end = NodeU{end}.fwd->target;
     while(*begin != end)
     {
       NodeU u{*begin};

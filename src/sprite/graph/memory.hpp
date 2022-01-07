@@ -3,7 +3,7 @@
 
 namespace sprite
 {
-  char * node_alloc(InfoTable const *);
+  char * node_alloc(size_t bytes);
   void node_free(char *);
 
   union RawNodeMemory
