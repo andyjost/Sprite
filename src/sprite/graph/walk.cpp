@@ -3,19 +3,25 @@
 
 namespace sprite
 {
-  WalkState walk(Cursor root, index_type const * path)
-    { return WalkState(root, path); }
-
-  WalkState::WalkState(Cursor root, index_type const * realpath)
+  WalkState::WalkState(
+      Cursor root
+    , index_type const * realpath
+    , void * static_data
+    , datadisposer_type dispose
+    )
+    : static_data(static_data), dispose(dispose)
   {
-    this->spine.push_back(root);
-    if(realpath)
+    if(root)
     {
-      for(auto i = *realpath++; i != NOINDEX; i = *realpath++)
+      this->spine.push_back(root);
+      if(realpath)
       {
-        this->realpath_.push_back(i);
-        Cursor && next = subexpr(this->spine.back(), i);
-        this->spine.push_back(next);
+        for(auto i = *realpath++; i != NOINDEX; i = *realpath++)
+        {
+          this->realpath_.push_back(i);
+          Cursor && next = subexpr(this->spine.back(), i);
+          this->spine.push_back(next);
+        }
       }
     }
   }
@@ -40,26 +46,27 @@ namespace sprite
     this->stack.pop_back();
     this->realpath_.pop_back();
     this->spine.pop_back();
+    if(this->dispose)
+      this->dispose(this->static_data, this->data.back());
     this->data.pop_back();
   }
 
-  void WalkState::push(sid_type sid)
+  void WalkState::push(void * data)
   {
     Cursor cur = this->cursor();
     Frame frame;
-    if(cur.kind == 'p')
+    assert(cur.kind == 'p');
+    index_type const n = cur->node->info->arity;
+    frame.reserve(n);
+    for(index_type i=0; i<n; ++i)
     {
-      index_type const n = cur->node->info->arity;
-      frame.reserve(n);
-      for(index_type i=0; i<n; ++i)
-      {
-        index_type const j = n - 1 - i;
-        frame.emplace_back(Successor{cur->node->successor(j), j});
-      }
+      index_type const j = n - 1 - i;
+      frame.emplace_back(Successor{cur->node->successor(j), j});
     }
+    this->stack.emplace_back(std::move(frame));
     this->realpath_.push_back(NOINDEX);
     this->spine.emplace_back();
-    this->data.push_back(sid);
+    this->data.push_back(data);
   }
 
   Cursor WalkState::cursor()

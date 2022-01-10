@@ -9,7 +9,6 @@ namespace sprite
     , /*arity*/      2
     , /*tag*/        T_SETGRD
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      NO_FLAGS
@@ -22,7 +21,6 @@ namespace sprite
     , /*arity*/      0
     , /*tag*/        T_FAIL
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      NO_FLAGS
@@ -35,7 +33,6 @@ namespace sprite
     , /*arity*/      2
     , /*tag*/        T_CONSTR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      NO_FLAGS
@@ -48,7 +45,6 @@ namespace sprite
     , /*arity*/      2
     , /*tag*/        T_CONSTR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      NO_FLAGS
@@ -61,7 +57,6 @@ namespace sprite
     , /*arity*/      2
     , /*tag*/        T_CONSTR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      NO_FLAGS
@@ -74,7 +69,6 @@ namespace sprite
     , /*arity*/      2
     , /*tag*/        T_FREE
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      NO_FLAGS
@@ -87,7 +81,6 @@ namespace sprite
     , /*arity*/      1
     , /*tag*/        T_FWD
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      NO_FLAGS
@@ -100,7 +93,6 @@ namespace sprite
     , /*arity*/      3
     , /*tag*/        T_CHOICE
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      NO_FLAGS
@@ -113,7 +105,6 @@ namespace sprite
     , /*arity*/      1
     , /*tag*/        T_CTOR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      INT_TYPE
@@ -126,7 +117,6 @@ namespace sprite
     , /*arity*/      1
     , /*tag*/        T_CTOR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      FLOAT_TYPE
@@ -139,7 +129,6 @@ namespace sprite
     , /*arity*/      1
     , /*tag*/        T_CTOR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      CHAR_TYPE
@@ -152,7 +141,6 @@ namespace sprite
     , /*arity*/      2
     , /*tag*/        T_CTOR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      PARTIAL_TYPE
@@ -165,7 +153,6 @@ namespace sprite
     , /*arity*/      0
     , /*tag*/        T_CTOR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      BOOL_TYPE
@@ -178,7 +165,6 @@ namespace sprite
     , /*arity*/      0
     , /*tag*/        T_CTOR + 1
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      BOOL_TYPE
@@ -191,7 +177,6 @@ namespace sprite
     , /*arity*/      2
     , /*tag*/        T_CTOR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      LIST_TYPE
@@ -204,7 +189,6 @@ namespace sprite
     , /*arity*/      0
     , /*tag*/        T_CTOR + 1
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      LIST_TYPE
@@ -217,7 +201,6 @@ namespace sprite
     , /*arity*/      0
     , /*tag*/        T_CTOR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      TUPLE_TYPE
@@ -230,7 +213,6 @@ namespace sprite
     , /*arity*/      2
     , /*tag*/        T_CTOR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      TUPLE_TYPE
@@ -243,7 +225,6 @@ namespace sprite
     , /*arity*/      2
     , /*tag*/        T_CTOR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      PARTIAL_TYPE
@@ -256,7 +237,6 @@ namespace sprite
     , /*arity*/      2
     , /*tag*/        T_CTOR
     , /*step*/       nullptr
-    , /*show*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     , /*flags*/      NO_FLAGS

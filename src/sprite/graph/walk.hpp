@@ -3,15 +3,22 @@
 
 namespace sprite
 {
+  using datadisposer_type = void(*)(void * static_data, void * data);
+
   struct WalkState
   {
-    WalkState(Cursor root, index_type const * realpath);
+    WalkState(
+        Cursor root
+      , index_type const * realpath=nullptr
+      , void * static_data=nullptr
+      , datadisposer_type=nullptr
+      );
 
     explicit operator bool() const { return !this->spine.empty(); }
     void operator++();
 
-    void push(sid_type sid=NOSID);
     void pop();
+    void push(void * data=nullptr);
 
     Cursor cursor();
     Cursor parent();
@@ -24,8 +31,12 @@ namespace sprite
     std::vector<Frame>      stack;
     std::vector<index_type> realpath_;
     std::vector<Cursor>     spine;
-    std::vector<sid_type>   data;
+    std::vector<void *>     data;
+    void *                  static_data;
+    datadisposer_type       dispose;
   };
 
-  WalkState walk(Cursor root, index_type const * path=nullptr);
+  template<typename ... Args>
+  WalkState walk(Args && ... args)
+    { return WalkState(std::forward<Args>(args)...); }
 }

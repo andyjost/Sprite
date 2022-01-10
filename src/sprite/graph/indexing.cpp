@@ -65,7 +65,7 @@ namespace
             if(update_fwd_nodes && !this->result.realpath.empty())
             {
               Cursor end = compress_fwd_chain(this->result.target);
-              this->parent->successor(this->result.realpath.back()) = end;
+              *this->parent->successor(this->result.realpath.back()) = end;
               this->result.target = end;
             }
             else

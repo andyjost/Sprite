@@ -12,7 +12,6 @@ namespace sprite
   using hash_type = std::size_t;
   using index_type = std::uint16_t;
   using qid_type = size_t;
-  using showfunc_type = void (*)(char const ** format, Node *);
   using sid_type = size_t;
   using stepfunc_type = void (*)(RuntimeState *, Node *);
   using tag_type = int16_t;

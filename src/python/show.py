@@ -298,7 +298,7 @@ def show(arg, stringifier=None, **kwds):
 
     kwds:
         As an alternative to supplying the stringifier, when ``stringifier`` is
-        None, additional keywords are passed tot he constructor of the default
+        None, additional keywords are passed to the constructor of the default
         stringifier.
 
   Returns:

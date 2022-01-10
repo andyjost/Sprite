@@ -17,6 +17,7 @@ namespace sprite
   static flag_type constexpr PARTIAL_TYPE   = 0x8; // A partial application
   // Function flags.
   static flag_type constexpr MONADIC = 0x9;  // Whether any monadic function can be reached.
+  static flag_type constexpr OPERATOR = 0xa; // Whether the function is an operator.
 
   struct InfoTable
   {
@@ -24,7 +25,6 @@ namespace sprite
     index_type         arity;
     tag_type           tag;
     stepfunc_type      step;
-    showfunc_type      show; // FIXME: name does not match Python
     typecheckfunc_type typecheck;
     Typedef * const    typedef_;
     flag_type          flags;

@@ -1,10 +1,13 @@
 #include <cassert>
 #include "sprite/builtins.hpp"
 #include "sprite/exceptions.hpp"
+#include "sprite/graph/copy.hpp"
 #include "sprite/graph/equality.hpp"
 #include "sprite/graph/indexing.hpp"
-#include "sprite/graph/node.hpp"
 #include "sprite/graph/memory.hpp"
+#include "sprite/graph/node.hpp"
+#include "sprite/graph/show.hpp"
+#include <sstream>
 
 namespace sprite
 {
@@ -28,10 +31,43 @@ namespace sprite
     return create(info, args, node);
   }
 
-  // std::string str(Node *);
-  // std::string repr(Node *);
-  // Node * copy(Node *);
-  // Node * deepcopy(Node *);
+  std::string Node::str()
+  {
+    std::stringstream ss;
+    this->str(ss);
+    return ss.str();
+  }
+
+  void Node::str(std::ostream & os)
+  {
+    Node * self = this;
+    show(os, self, SHOW_STR);
+  }
+
+  std::string Node::repr()
+  {
+    std::stringstream ss;
+    this->repr(ss);
+    return ss.str();
+  }
+
+  void Node::repr(std::ostream & os)
+  {
+    Node * self = this;
+    show(os, self, SHOW_REPR);
+  }
+
+  Node * Node::copy()
+  {
+    Node * self = this;
+    return copynode(self).node;
+  }
+
+  Node * Node::deepcopy()
+  {
+    Node * self = this;
+    return copygraph(self).node;
+  }
 
   Cursor Node::getitem(Node * root, index_type i)
   {
@@ -42,7 +78,7 @@ namespace sprite
   Arg * Node::successors()
     { return NodeU{this}.nodeN->data; }
 
-  Cursor Node::successor(index_type i)
+  Cursor const Node::successor(index_type i)
   {
     return Cursor{
         this->successors()[i]
