@@ -12,17 +12,10 @@ namespace py = pybind11;
 
 namespace sprite { namespace python
 {
-  Node * _i42()
+  Node * int_(int value)
   {
     Arg args[1];
-    args[0] = Arg(42);
-    return Node::create(&Int_Info, args);
-  }
-
-  Node * _i7()
-  {
-    Arg args[1];
-    args[0] = Arg(7);
+    args[0] = Arg(value);
     return Node::create(&Int_Info, args);
   }
 
@@ -52,22 +45,22 @@ namespace sprite { namespace python
 
   int hello()
   {
-    Node * node = _i42();
+    Node * node = int_(42);
     NodeU u{node};
     return u.int_->value;
   }
 
   void walk()
   {
-    Node * node = _i42();
+    Node * node = int_(42);
     for(auto && state = walk(node); state; ++state)
       std::cout << state.cursor().kind << "\n";
   }
 
   void equality()
   {
-    Node * i42 = _i42();
-    Node * i7 = _i7();
+    Node * i42 = int_(42);
+    Node * i7 = int_(7);
     Node * i42_7a = pair(i42, i7);
     Node * i42_7b = pair(i42, i7);
     Node * i7_7 = pair(i7, i7);
@@ -82,8 +75,8 @@ namespace sprite { namespace python
 
   void copy()
   {
-    Node * i42 = _i42();
-    Node * i7 = _i7();
+    Node * i42 = int_(42);
+    Node * i7 = int_(7);
     Node * i42_7a = pair(i42, i7);
 
     Arg copy42 = copynode(i42);
@@ -95,7 +88,7 @@ namespace sprite { namespace python
 
   void show()
   {
-    Node * i42 = _i42();
+    Node * i42 = int_(42);
     std::cout << i42->str() << std::endl;
 
     Node * cycle = pair(i42, nullptr);
@@ -105,7 +98,7 @@ namespace sprite { namespace python
     Node * p = pair(i42, i42);
     std::cout << p->str() << std::endl;
 
-    Node * a = cons(i42, cons(_i7(), cons(i42, nil())));
+    Node * a = cons(i42, cons(int_(-7), cons(i42, nil())));
     std::cout << a->repr() << std::endl;
     std::cout << a->str() << std::endl;
 

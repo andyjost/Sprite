@@ -34,9 +34,9 @@ namespace
         if(first) first = false; else this->os << ' ';
         switch(cur.kind)
         {
-          case 'i': os << cur->ub_int;   continue;
-          case 'f': os << cur->ub_float; continue;
-          case 'c': os << cur->ub_char;  continue;
+          case 'i': show(cur->ub_int);   continue;
+          case 'f': show(cur->ub_float); continue;
+          case 'c': show(cur->ub_char);  continue;
         }
         void * id = cur.id();
         if(!this->memo.insert(id).second)
@@ -51,6 +51,27 @@ namespace
           state.push(id);
         }
       }
+    }
+
+    void show(unboxed_int_type value) { this->os << value; }
+    void show(unboxed_float_type value) { this->os << value; }
+    void show(unboxed_char_type value)
+    {
+      this->os << '\'';
+      switch(value)
+      {
+        case '\'': this->os << "\\'" ; break;
+        case '\\': this->os << "\\\\"; break;
+        case '\a': this->os << "\\a" ; break;
+        case '\b': this->os << "\\b" ; break;
+        case '\f': this->os << "\\f" ; break;
+        case '\n': this->os << "\\n" ; break;
+        case '\r': this->os << "\\r" ; break;
+        case '\t': this->os << "\\t" ; break;
+        case '\v': this->os << "\\v" ; break;
+        default  : this->os << value ; break;
+      }
+      this->os << '\'';
     }
   };
 
@@ -146,9 +167,9 @@ namespace
 
         switch(cur.kind)
         {
-          case 'i': os << cur->ub_int;   continue;
-          case 'f': os << cur->ub_float; continue;
-          case 'c': os << cur->ub_char;  continue;
+          case 'i': show(cur->ub_int);   continue;
+          case 'f': show(cur->ub_float); continue;
+          case 'c': show(cur->ub_char);  continue;
         }
 
         auto * info = cur.info();
@@ -190,6 +211,24 @@ namespace
         }
       }
     }
+
+    void show(unboxed_int_type value)
+    {
+      if(value < 0)
+        this->os << '(' << value << ')';
+      else
+        this->os << value;
+    }
+
+    void show(unboxed_float_type value)
+    {
+      if(value < 0)
+        this->os << '(' << value << ')';
+      else
+        this->os << value;
+    }
+
+    void show(unboxed_char_type value) { this->os << value; }
 
     Context analyze_list(Cursor cur)
     {
