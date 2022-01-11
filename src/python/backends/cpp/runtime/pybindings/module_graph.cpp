@@ -12,48 +12,35 @@ namespace py = pybind11;
 
 namespace sprite { namespace python
 {
-  InfoTable Int = {
-      "Int"
-    , 1
-    , 0
-    , nullptr
-    , nullptr
-    , nullptr
-    , 0
-    , "i"
-    , sizeof(void*) * 2
-    };
-
-  InfoTable Pair = {
-      "Pair"
-    , 2
-    , 0
-    , nullptr
-    , nullptr
-    , nullptr
-    , 0
-    , "pp"
-    , sizeof(void*) * 3
-    };
-
   Node * _i42()
   {
     Arg args[1];
     args[0] = Arg(42);
-    return Node::create(&Int, args);
+    return Node::create(&Int_Info, args);
   }
 
   Node * _i7()
   {
     Arg args[1];
     args[0] = Arg(7);
-    return Node::create(&Int, args);
+    return Node::create(&Int_Info, args);
   }
 
   Node * pair(Node * lhs, Node * rhs)
   {
     Arg args[2] = {lhs, rhs};
-    return Node::create(&Pair, args);
+    return Node::create(&Pair_Info, args);
+  }
+
+  Node * cons(Node * head, Node * tail)
+  {
+    Arg args[2] = {head, tail};
+    return Node::create(&Cons_Info, args);
+  }
+
+  Node * nil()
+  {
+    return Node::create(&Nil_Info, nullptr);
   }
 
   int hello()
@@ -106,7 +93,14 @@ namespace sprite { namespace python
 
     Node * cycle = pair(i42, nullptr);
     *cycle->successor(1) = cycle;
-    std::cout << cycle->str() << std::endl;
+    std::cout << cycle->repr() << std::endl;
+
+    Node * p = pair(i42, i42);
+    std::cout << p->str() << std::endl;
+
+    Node * a = cons(i42, cons(_i7(), cons(i42, nil())));
+    std::cout << a->repr() << std::endl;
+    std::cout << a->str() << std::endl;
   }
 
   void register_graph(py::module_ mod)

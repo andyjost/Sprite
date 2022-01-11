@@ -5,243 +5,262 @@
 namespace sprite
 {
   InfoTable SetGuard_Info{
-      /*name*/       "_SetGuard"
+      /*tag*/        T_SETGRD
     , /*arity*/      2
-    , /*tag*/        T_SETGRD
+    , /*alloc_size*/ sizeof(FwdNode)
+    , /*flags*/      NO_FLAGS
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "_SetGuard"
+    , /*format*/     "ip"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      NO_FLAGS
-    , /*format*/     "ip"
-    , /*alloc_size*/ sizeof(FwdNode)
     };
 
   InfoTable Fail_Info{
-      /*name*/       "_Failure"
+      /*tag*/        T_FAIL
     , /*arity*/      0
-    , /*tag*/        T_FAIL
+    , /*alloc_size*/ sizeof(Node0)
+    , /*flags*/      NO_FLAGS
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "_Failure"
+    , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      NO_FLAGS
-    , /*format*/     ""
-    , /*alloc_size*/ sizeof(Node0)
     };
 
   InfoTable StrictConstraint_Info{
-      /*name*/       "_StrictConstraint"
+      /*tag*/        T_CONSTR
     , /*arity*/      2
-    , /*tag*/        T_CONSTR
+    , /*alloc_size*/ sizeof(ConstrNode)
+    , /*flags*/      NO_FLAGS
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "_StrictConstraint"
+    , /*format*/     "pp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      NO_FLAGS
-    , /*format*/     "pp"
-    , /*alloc_size*/ sizeof(ConstrNode)
     };
 
   InfoTable NonStrictConstraint_Info{
-      /*name*/       "_NonStrictConstraint"
+      /*tag*/        T_CONSTR
     , /*arity*/      2
-    , /*tag*/        T_CONSTR
+    , /*alloc_size*/ sizeof(ConstrNode)
+    , /*flags*/      NO_FLAGS
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "_NonStrictConstraint"
+    , /*format*/     "pp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      NO_FLAGS
-    , /*format*/     "pp"
-    , /*alloc_size*/ sizeof(ConstrNode)
     };
 
   InfoTable ValueBinding_Info{
-      /*name*/       "_ValueBinding"
+      /*tag*/        T_CONSTR
     , /*arity*/      2
-    , /*tag*/        T_CONSTR
+    , /*alloc_size*/ sizeof(ConstrNode)
+    , /*flags*/      NO_FLAGS
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "_ValueBinding"
+    , /*format*/     "pp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      NO_FLAGS
-    , /*format*/     "pp"
-    , /*alloc_size*/ sizeof(ConstrNode)
     };
 
   InfoTable Free_Info{
-      /*name*/       "_Free"
+      /*tag*/        T_FREE
     , /*arity*/      2
-    , /*tag*/        T_FREE
+    , /*alloc_size*/ sizeof(FreeNode)
+    , /*flags*/      NO_FLAGS
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "_Free"
+    , /*format*/     "ip"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      NO_FLAGS
-    , /*format*/     "ip"
-    , /*alloc_size*/ sizeof(FreeNode)
     };
 
   InfoTable Fwd_Info{
-      /*name*/       "_Fwd"
+      /*tag*/        T_FWD
     , /*arity*/      1
-    , /*tag*/        T_FWD
+    , /*alloc_size*/ sizeof(FwdNode)
+    , /*flags*/      NO_FLAGS
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "_Fwd"
+    , /*format*/     "p"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      NO_FLAGS
-    , /*format*/     "p"
-    , /*alloc_size*/ sizeof(FwdNode)
     };
 
   InfoTable Choice_Info{
-      /*name*/       "_Choice"
+      /*tag*/        T_CHOICE
     , /*arity*/      3
-    , /*tag*/        T_CHOICE
+    , /*alloc_size*/ sizeof(ChoiceNode)
+    , /*flags*/      NO_FLAGS
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "_Choice"
+    , /*format*/     "ipp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      NO_FLAGS
-    , /*format*/     "ipp"
-    , /*alloc_size*/ sizeof(ChoiceNode)
     };
 
   InfoTable Int_Info{
-      /*name*/       "Int"
+      /*tag*/        T_CTOR
     , /*arity*/      1
-    , /*tag*/        T_CTOR
+    , /*alloc_size*/ sizeof(IntNode)
+    , /*flags*/      INT_TYPE
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "Int"
+    , /*format*/     "i"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      INT_TYPE
-    , /*format*/     "i"
-    , /*alloc_size*/ sizeof(IntNode)
     };
 
   InfoTable Float_Info{
-      /*name*/       "Float"
+      /*tag*/        T_CTOR
     , /*arity*/      1
-    , /*tag*/        T_CTOR
+    , /*alloc_size*/ sizeof(FloatNode)
+    , /*flags*/      FLOAT_TYPE
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "Float"
+    , /*format*/     "f"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      FLOAT_TYPE
-    , /*format*/     "f"
-    , /*alloc_size*/ sizeof(FloatNode)
     };
 
   InfoTable Char_Info{
-      /*name*/       "Char"
+      /*tag*/        T_CTOR
     , /*arity*/      1
-    , /*tag*/        T_CTOR
+    , /*alloc_size*/ sizeof(CharNode)
+    , /*flags*/      CHAR_TYPE
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "Char"
+    , /*format*/     "c"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      CHAR_TYPE
-    , /*format*/     "f"
-    , /*alloc_size*/ sizeof(CharNode)
     };
 
   InfoTable PartApplic_Info{
-      /*name*/       "_PartApplic"
+      /*tag*/        T_CTOR
     , /*arity*/      2
-    , /*tag*/        T_CTOR
+    , /*alloc_size*/ sizeof(PartApplicNode)
+    , /*flags*/      PARTIAL_TYPE
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "_PartApplic"
+    , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      PARTIAL_TYPE
-    , /*format*/     ""
-    , /*alloc_size*/ sizeof(PartApplicNode)
     };
 
   InfoTable False_Info{
-      /*name*/       "False"
+      /*tag*/        T_FALSE
     , /*arity*/      0
-    , /*tag*/        T_CTOR
+    , /*alloc_size*/ sizeof(Node0)
+    , /*flags*/      BOOL_TYPE
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "False"
+    , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      BOOL_TYPE
-    , /*format*/     ""
-    , /*alloc_size*/ sizeof(Node0)
     };
 
   InfoTable True_Info{
-      /*name*/       "True"
+      /*tag*/        T_TRUE
     , /*arity*/      0
-    , /*tag*/        T_CTOR + 1
+    , /*alloc_size*/ sizeof(Node0)
+    , /*flags*/      BOOL_TYPE
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "True"
+    , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      BOOL_TYPE
-    , /*format*/     ""
-    , /*alloc_size*/ sizeof(Node0)
     };
 
   InfoTable Cons_Info{
-      /*name*/       ":"
+      /*tag*/        T_CONS
     , /*arity*/      2
-    , /*tag*/        T_CTOR
+    , /*alloc_size*/ sizeof(ConsNode)
+    , /*flags*/      LIST_TYPE
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       ":"
+    , /*format*/     "pp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      LIST_TYPE
-    , /*format*/     "pp"
-    , /*alloc_size*/ sizeof(ConsNode)
     };
 
   InfoTable Nil_Info{
-      /*name*/       "[]"
+      /*tag*/        T_NIL
     , /*arity*/      0
-    , /*tag*/        T_CTOR + 1
+    , /*alloc_size*/ sizeof(Node0)
+    , /*flags*/      LIST_TYPE
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "[]"
+    , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      LIST_TYPE
-    , /*format*/     ""
-    , /*alloc_size*/ sizeof(Node0)
     };
 
   InfoTable Unit_Info{
-      /*name*/       "()"
+      /*tag*/        T_CTOR
     , /*arity*/      0
-    , /*tag*/        T_CTOR
+    , /*alloc_size*/ sizeof(Node0)
+    , /*flags*/      TUPLE_TYPE
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "()"
+    , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      TUPLE_TYPE
-    , /*format*/     ""
-    , /*alloc_size*/ sizeof(Node0)
     };
 
   InfoTable Pair_Info{
-      /*name*/       "(,)"
+      /*tag*/        T_CTOR
     , /*arity*/      2
-    , /*tag*/        T_CTOR
+    , /*alloc_size*/ sizeof(PairNode)
+    , /*flags*/      TUPLE_TYPE
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "(,)"
+    , /*format*/     "pp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      TUPLE_TYPE
-    , /*format*/     "pp"
-    , /*alloc_size*/ sizeof(PairNode)
     };
 
   InfoTable PartialS_Info{
-      /*name*/       "PartialS"
+      /*tag*/        T_CTOR
     , /*arity*/      2
-    , /*tag*/        T_CTOR
+    , /*alloc_size*/ sizeof(Node2)
+    , /*flags*/      PARTIAL_TYPE
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "PartialS"
+    , /*format*/     "ip"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      PARTIAL_TYPE
-    , /*format*/     "ip"
-    , /*alloc_size*/ sizeof(Node2)
     };
 
   InfoTable SetEval_Info{
-      /*name*/       "SetEval"
+      /*tag*/        T_CTOR
     , /*arity*/      2
-    , /*tag*/        T_CTOR
+    , /*alloc_size*/ sizeof(Node2)
+    , /*flags*/      NO_FLAGS
+    , /*bitflags*/   NO_FLAGS
+    , /*name*/       "SetEval"
+    , /*format*/     "ip"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
-    , /*flags*/      NO_FLAGS
-    , /*format*/     "ip"
-    , /*alloc_size*/ sizeof(Node2)
     };
-
 }

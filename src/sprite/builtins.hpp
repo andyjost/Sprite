@@ -4,6 +4,11 @@
 
 namespace sprite
 {
+  static constexpr tag_type T_CONS  = T_CTOR;
+  static constexpr tag_type T_NIL   = T_CTOR + 1;
+  static constexpr tag_type T_FALSE = T_CTOR;
+  static constexpr tag_type T_TRUE  = T_CTOR + 1;
+
   extern InfoTable SetGuard_Info;
   extern InfoTable Fail_Info;
   extern InfoTable StrictConstraint_Info;

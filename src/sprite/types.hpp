@@ -8,7 +8,7 @@ namespace sprite
   using std::size_t;
 
   using cid_type = size_t;
-  using flag_type = std::uint16_t;
+  using flag_type = std::uint8_t;
   using hash_type = std::size_t;
   using index_type = std::uint16_t;
   using qid_type = size_t;
@@ -16,6 +16,7 @@ namespace sprite
   using stepfunc_type = void (*)(RuntimeState *, Node *);
   using tag_type = int16_t;
   using typecheckfunc_type = void (*)(Node *);
+
 
   using memo_type = std::unordered_map<void *, Arg>;
   using sid_set_type = std::unordered_set<sid_type>;

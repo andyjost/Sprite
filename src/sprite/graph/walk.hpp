@@ -12,6 +12,7 @@ namespace sprite
       , index_type const * realpath=nullptr
       , void * static_data=nullptr
       , datadisposer_type=nullptr
+      , void * data=nullptr
       );
 
     explicit operator bool() const { return !this->spine.empty(); }
@@ -22,6 +23,7 @@ namespace sprite
 
     Cursor cursor();
     Cursor parent();
+    void *& data() { return data_.back(); }
     index_type const * realpath() const { return realpath_.data(); }
 
   private:
@@ -31,7 +33,7 @@ namespace sprite
     std::vector<Frame>      stack;
     std::vector<index_type> realpath_;
     std::vector<Cursor>     spine;
-    std::vector<void *>     data;
+    std::vector<void *>     data_;
     void *                  static_data;
     datadisposer_type       dispose;
   };

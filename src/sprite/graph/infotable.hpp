@@ -5,7 +5,7 @@
 
 namespace sprite
 {
-  // Constructor flags.
+  // Mututally-exclusive flags:
   static flag_type constexpr NO_FLAGS       = 0x0;
   static flag_type constexpr INT_TYPE       = 0x1; // Prelude.Int
   static flag_type constexpr CHAR_TYPE      = 0x2; // Prelude.Char
@@ -15,20 +15,24 @@ namespace sprite
   static flag_type constexpr TUPLE_TYPE     = 0x6; // Constructor of Prelude.() et. al
   static flag_type constexpr IO_TYPE        = 0x7; // Constructor of Prelude.IO
   static flag_type constexpr PARTIAL_TYPE   = 0x8; // A partial application
-  // Function flags.
-  static flag_type constexpr MONADIC = 0x9;  // Whether any monadic function can be reached.
-  static flag_type constexpr OPERATOR = 0xa; // Whether the function is an operator.
+  static flag_type constexpr OPERATOR       = 0x9; // Whether a function is an operator.
+
+  // Combinable flags:
+  static flag_type constexpr MONADIC = 0x1;  // Whether any monadic function can be reached.
 
   struct InfoTable
   {
+    tag_type           tag;        // 16
+    index_type         arity;      // 16
+    index_type         alloc_size; // 16
+    flag_type          flags;      // 8
+    flag_type          bitflags;   // 8
     char const *       name;
-    index_type         arity;
-    tag_type           tag;
+    char const *       format;
     stepfunc_type      step;
     typecheckfunc_type typecheck;
     Typedef * const    typedef_;
-    flag_type          flags;
-    char const *       format;
-    size_t             alloc_size;
+
+
   };
 }

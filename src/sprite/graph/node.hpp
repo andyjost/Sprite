@@ -89,8 +89,8 @@ namespace sprite
   {
     InfoTable const * info;
 
-    static Node * create(InfoTable const *, Arg *, Node * target=nullptr);
-    static Node * rewrite(Node *, InfoTable const *, Arg *);
+    static Node * create(InfoTable const *, Arg * = nullptr, Node * target=nullptr);
+    static Node * rewrite(Node *, InfoTable const *, Arg * = nullptr);
 
     Arg * successors();
     Cursor const successor(index_type i);

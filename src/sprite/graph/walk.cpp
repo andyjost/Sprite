@@ -8,6 +8,7 @@ namespace sprite
     , index_type const * realpath
     , void * static_data
     , datadisposer_type dispose
+    , void * data
     )
     : static_data(static_data), dispose(dispose)
   {
@@ -23,6 +24,7 @@ namespace sprite
           this->spine.push_back(next);
         }
       }
+      this->data_.push_back(data);
     }
   }
 
@@ -47,8 +49,8 @@ namespace sprite
     this->realpath_.pop_back();
     this->spine.pop_back();
     if(this->dispose)
-      this->dispose(this->static_data, this->data.back());
-    this->data.pop_back();
+      this->dispose(this->static_data, this->data_.back());
+    this->data_.pop_back();
   }
 
   void WalkState::push(void * data)
@@ -66,7 +68,7 @@ namespace sprite
     this->stack.emplace_back(std::move(frame));
     this->realpath_.push_back(NOINDEX);
     this->spine.emplace_back();
-    this->data.push_back(data);
+    this->data_.push_back(data);
   }
 
   Cursor WalkState::cursor()
