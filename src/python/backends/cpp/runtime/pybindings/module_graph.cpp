@@ -26,6 +26,19 @@ namespace sprite { namespace python
     return Node::create(&Char_Info, args);
   }
 
+  Node * unit()
+  {
+    return Node::create(&Unit_Info);
+  }
+
+  Node * free_()
+  {
+    Arg args[2];
+    args[0] = Arg(0);
+    args[1] = Arg(unit());
+    return Node::create(&Free_Info, args);
+  }
+
   Node * pair(Node * lhs, Node * rhs)
   {
     Arg args[2] = {lhs, rhs};
@@ -40,7 +53,7 @@ namespace sprite { namespace python
 
   Node * nil()
   {
-    return Node::create(&Nil_Info, nullptr);
+    return Node::create(&Nil_Info);
   }
 
   int hello()
@@ -105,6 +118,10 @@ namespace sprite { namespace python
     Node * b = cons(char_('h'), cons(char_('i'), cons(char_('!'), nil())));
     std::cout << b->repr() << std::endl;
     std::cout << b->str() << std::endl;
+
+    Node * c = cons(int_(42), free_());
+    std::cout << c->repr() << std::endl;
+    std::cout << c->str() << std::endl;
   }
 
   void register_graph(py::module_ mod)

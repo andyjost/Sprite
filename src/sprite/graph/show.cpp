@@ -12,6 +12,23 @@ namespace
 {
   using namespace sprite;
 
+  void show_escaped(std::ostream & os, char value)
+  {
+    switch(value)
+    {
+      case '\'': os << '\\' << '\''; break;
+      case '\\': os << '\\' << '\\'; break;
+      case '\a': os << '\\' << 'a' ; break;
+      case '\b': os << '\\' << 'b' ; break;
+      case '\f': os << '\\' << 'f' ; break;
+      case '\n': os << '\\' << 'n' ; break;
+      case '\r': os << '\\' << 'r' ; break;
+      case '\t': os << '\\' << 't' ; break;
+      case '\v': os << '\\' << 'v' ; break;
+      default  : os << value ; break;
+    }
+  }
+
   struct ReprStringifier
   {
     ReprStringifier(std::ostream & os) : os(os) {}
@@ -58,19 +75,7 @@ namespace
     void show(unboxed_char_type value)
     {
       this->os << '\'';
-      switch(value)
-      {
-        case '\'': this->os << "\\'" ; break;
-        case '\\': this->os << "\\\\"; break;
-        case '\a': this->os << "\\a" ; break;
-        case '\b': this->os << "\\b" ; break;
-        case '\f': this->os << "\\f" ; break;
-        case '\n': this->os << "\\n" ; break;
-        case '\r': this->os << "\\r" ; break;
-        case '\t': this->os << "\\t" ; break;
-        case '\v': this->os << "\\v" ; break;
-        default  : this->os << value ; break;
-      }
+      show_escaped(this->os, value);
       this->os << '\'';
     }
   };
@@ -93,8 +98,8 @@ namespace
       //     ')'     tuple non-first term
       //     '['     square list item
       //     ']'     square list spine
-      //     '!'     cons list item
-      //     ':'     cons list spine
+      //     ':'     cons list item
+      //     '!'     cons list spine
       //     '"'     string item
       //     '`'     string spine
 
@@ -109,8 +114,8 @@ namespace
       switch(Context(data).value)
       {
         case '(':
-        case ')': 
-        case '{': 
+        case ')':
+        case '{':
         case '}': self->os << ')';
       }
     }
@@ -154,12 +159,15 @@ namespace
             continue;
 
           // Cons list.
-          case '!' : data = Context(':'); break;
-          case ':' :
-            if(cur.info()->flags == LIST_TYPE && cur.info()->tag == T_CONS)
+          case ':' : data = Context('!'); break;
+          case '!' :
+            os << ':';
+            if(cur.info()->flags == LIST_TYPE)
             {
-              os << ':';
-              state.push(Context('!'));
+              if(cur.info()->tag == T_CONS)
+                state.push(Context(':'));
+              else
+                os << '[' << ']';
               continue;
             }
             break;
@@ -177,7 +185,7 @@ namespace
         {
           case T_FAIL: os << "failed";                    continue;
           case T_FREE: os << '_' << NodeU{cur}.free->cid; continue;
-          case T_FWD: /*state.push();*/ assert(0);        continue;
+          case T_FWD:  assert(0);                         continue;
         }
 
         switch(cur.info()->flags)
@@ -189,7 +197,7 @@ namespace
             state.push();
             continue;
           case LIST_TYPE:
-            state.push(analyze_list(cur));
+            begin_list(state, cur);
             continue;
           case TUPLE_TYPE:
             os << '(';
@@ -228,9 +236,10 @@ namespace
         this->os << value;
     }
 
-    void show(unboxed_char_type value) { this->os << value; }
+    void show(unboxed_char_type value)
+      { show_escaped(this->os, value); }
 
-    Context analyze_list(Cursor cur)
+    void begin_list(WalkState & state, Cursor cur)
     {
       Node * end = cur->node;
       bool is_string = true;
@@ -246,16 +255,16 @@ namespace
         if(is_string)
         {
           this->os << '"';
-          return Context('"');
+          state.push(Context('"'));
         }
         else
         {
           this->os << '[';
-          return Context('[');
+          state.push(Context('['));
         }
       }
       else
-        return Context('!');
+        state.push(Context(':'));
     }
   };
 }
