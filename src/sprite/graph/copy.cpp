@@ -2,6 +2,7 @@
 #include "sprite/builtins.hpp"
 #include "sprite/graph/copy.hpp"
 #include "sprite/graph/memory.hpp"
+#include "sprite/graph/node.hpp"
 #include <vector>
 
 namespace sprite

@@ -1,6 +1,7 @@
 #pragma once
 #include "sprite/graph/infotable.hpp"
-#include "sprite/graph/node.hpp"
+#include "sprite/fwd.hpp"
+// #include "sprite/graph/node.hpp"
 
 namespace sprite
 {
@@ -32,80 +33,80 @@ namespace sprite
   extern InfoTable SetEval_Info;
 
   template<index_type N>
-  struct Node_ : Node
+  struct Node_ : Head
   {
     static constexpr index_type Arity = N;
     Arg data[N];
   };
 
-  using Node0 = Node;
+  using Node0 = Head;
   using Node1 = Node_<1>;
   using Node2 = Node_<2>;
   using Node3 = Node_<3>;
 
-  struct SetGrdNode : Node
+  struct SetGrdNode : Head
   {
     sid_type sid;
     Node *   value;
   };
 
-  struct ConstrNode : Node
+  struct ConstrNode : Head
   {
     Node * value;
     Node * pair;
   };
 
-  struct FreeNode : Node
+  struct FreeNode : Head
   {
     cid_type cid;
     Node *   genexpr;
   };
 
-  struct FwdNode : Node
+  struct FwdNode : Head
   {
     Node * target;
   };
 
-  struct ChoiceNode : Node
+  struct ChoiceNode : Head
   {
     unboxed_int_type id;
     Node * lhs;
     Node * rhs;
   };
-  struct IntNode : Node
+  struct IntNode : Head
   {
     unboxed_int_type value;
   };
 
-  struct FloatNode : Node
+  struct FloatNode : Head
   {
     unboxed_float_type value;
   };
 
-  struct CharNode : Node
+  struct CharNode : Head
   {
     unboxed_char_type value;
   };
 
-  struct PartApplicNode : Node
+  struct PartApplicNode : Head
   {
     unboxed_int_type missing;
     Node * term;
   };
 
-  struct ConsNode : Node
+  struct ConsNode : Head
   {
     Node * head;
     Node * tail;
   };
 
-  struct PairNode : Node
+  struct PairNode : Head
   {
     Node * lhs;
     Node * rhs;
   };
 
-  struct SetEvalNode : Node
+  struct SetEvalNode : Head
   {
     sid_type sid;
     qid_type qid;

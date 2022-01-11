@@ -1,6 +1,5 @@
 #pragma once
-#include "sprite/tags.hpp"
-#include "sprite/types.hpp"
+#include "sprite/fwd.hpp"
 #include <cstdint>
 
 namespace sprite

@@ -1,6 +1,6 @@
 #pragma once
 #include "sprite/graph/memory.hpp"
-#include "sprite/graph/node.hpp"
+#include "sprite/graph/cursor.hpp"
 #include <vector>
 
 namespace sprite

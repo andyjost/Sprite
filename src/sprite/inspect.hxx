@@ -1,5 +1,5 @@
-#pragma once
 #include "sprite/builtins.hpp"
+#include "sprite/graph/node.hpp"
 
 namespace sprite { namespace inspect
 {
@@ -11,7 +11,7 @@ namespace sprite { namespace inspect
 
   inline Cursor fwd_target(Cursor arg)
   {
-    if(arg.kind != 'p' || arg->node->info != &Fwd_Info)
+    if(arg.kind != 'p' || arg->node->info->tag != T_FWD)
       return Cursor();
     else
       return NodeU{arg}.fwd->target;
@@ -50,3 +50,12 @@ namespace sprite { namespace inspect
       return Cursor();
   }
 }}
+
+namespace sprite
+{
+  inline Cursor & Cursor::skipfwd()
+  {
+    **this = *inspect::fwd_chain_target(*this);
+    return *this;
+  }
+}

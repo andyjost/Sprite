@@ -1,4 +1,3 @@
-#include "sprite/tags.hpp"
 #include "sprite/builtins.hpp"
 #include "sprite/graph/node.hpp"
 

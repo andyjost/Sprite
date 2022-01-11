@@ -1,5 +1,5 @@
 #pragma once
-#include "sprite/graph/node.hpp"
+#include "sprite/fwd.hpp"
 
 namespace sprite
 {

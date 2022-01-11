@@ -5,6 +5,7 @@
 #include "sprite/graph/node.hpp"
 #include "sprite/graph/show.hpp"
 #include "sprite/graph/walk.hpp"
+#include "sprite/inspect.hpp"
 #include <unordered_map>
 
 namespace
@@ -55,31 +56,26 @@ namespace
 
   struct StrStringifier
   {
-    StrStringifier(std::ostream & os) : os(os)
-    {
-      this->context.reserve(16);
-      this->context.push_back('\0');
-    }
+    StrStringifier(std::ostream & os) : os(os) {}
 
     std::ostream & os;
-    std::vector<char> context;
-
     union Context
     {
       char value;
       void * p;
       // values:
-      //     '\0'    top begin
-      //     ' '     top body
-      //     '{'     parenthesized subexpr begin
-      //     '}'     parenthesized subexpr body
-      //     '('     tuple begin
-      //     ')'     tuple body
-      //     '['     bracketed list begin
-      //     ']'     bracketed list body
-      //     '!'     cons list begin
-      //     ':'     cons list body
-      //     '"'     string
+      //     '\0'    top expression first term
+      //     ' '     top expression non-first term
+      //     '{'     parenthesized subexpr first term
+      //     '}'     parenthesized subexpr non-first term
+      //     '('     tuple first term
+      //     ')'     tuple non-first term
+      //     '['     square list item
+      //     ']'     square list spine
+      //     '!'     cons list item
+      //     ':'     cons list spine
+      //     '"'     string item
+      //     '`'     string spine
 
       Context(char value) : value(value) {}
       Context(void * p) : p(p) {}
@@ -94,12 +90,7 @@ namespace
         case '(':
         case ')': 
         case '{': 
-        case '}': 
-          self->os << ')';
-          break;
-        case '"':
-          self->os << '"';
-          break;
+        case '}': self->os << ')';
       }
     }
 
@@ -107,7 +98,7 @@ namespace
     {
       for(auto && state=walk(expr, nullptr, this, &callback); state; ++state)
       {
-        auto && cur = state.cursor();
+        auto cur = state.cursor().skipfwd();
         void *& data = state.data();
         switch(Context(data).value)
         {
@@ -118,6 +109,7 @@ namespace
           case '(' : data = Context(')'); break;
           case ')' : os << ", ";          break;
 
+          // Bracketed list.
           case '[' : data = Context(']'); break;
           case ']' :
             assert(cur.info()->flags == LIST_TYPE);
@@ -127,9 +119,20 @@ namespace
               state.push(Context('['));
             }
             else
-              os << "]";
+              os << ']';
             continue;
 
+          // String.
+          case '"': data = Context('`'); break;
+          case '`' :
+            assert(cur.info()->flags == LIST_TYPE);
+            if(cur.info()->tag == T_CONS)
+              state.push(Context('"'));
+            else
+              os << '"';
+            continue;
+
+          // Cons list.
           case '!' : data = Context(':'); break;
           case ':' :
             if(cur.info()->flags == LIST_TYPE && cur.info()->tag == T_CONS)
@@ -151,9 +154,9 @@ namespace
         auto * info = cur.info();
         switch(info->tag)
         {
-          case T_FAIL: os << "failed"; continue;
+          case T_FAIL: os << "failed";                    continue;
           case T_FREE: os << '_' << NodeU{cur}.free->cid; continue;
-          case T_FWD: state.push(); continue;
+          case T_FWD: /*state.push();*/ assert(0);        continue;
         }
 
         switch(cur.info()->flags)
@@ -191,12 +194,26 @@ namespace
     Context analyze_list(Cursor cur)
     {
       Node * end = cur->node;
-      while(end->info->flags == LIST_TYPE && end->info->tag == T_CONS)
-        end = NodeU{end}.cons->tail;
-      if(end->info->flags == LIST_TYPE)
+      bool is_string = true;
+      while(end && end->info->flags == LIST_TYPE && end->info->tag == T_CONS)
       {
-        this->os << '[';
-        return Context('[');
+        auto cons = NodeU{end}.cons;
+        is_string = is_string
+            && (cons->head && cons->head->info->flags == CHAR_TYPE);
+        end = cons->tail;
+      }
+      if(end && end->info->flags == LIST_TYPE)
+      {
+        if(is_string)
+        {
+          this->os << '"';
+          return Context('"');
+        }
+        else
+        {
+          this->os << '[';
+          return Context('[');
+        }
       }
       else
         return Context('!');

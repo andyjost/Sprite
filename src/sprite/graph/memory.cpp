@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstdlib>
+#include "sprite/graph/cursor.hpp"
 #include "sprite/graph/memory.hpp"
 
 namespace sprite

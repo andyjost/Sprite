@@ -1,5 +1,5 @@
 #pragma once
-#include "sprite/graph/node.hpp"
+#include "sprite/graph/cursor.hpp"
 #include <set>
 
 namespace sprite
