@@ -6,13 +6,23 @@
 
 namespace sprite
 {
-  class Fingerprint;
-  class RuntimeState;
   struct Cursor;
-  struct InfoTable;
+  struct Expr;
   struct Node;
-  struct Typedef;
   union Arg;
+
+  struct InfoTable;
+  struct Typedef;
+
+  class Fingerprint;
+  struct Bindings;
+  struct Configuration;
+  struct InterpreterState;
+  struct Residuals;
+  struct RuntimeState;
+  struct SetFunctionEval;
+  struct StrictConstraints;
+  struct Queue;
 
   using cid_type = size_t;
   using flag_type = std::uint8_t;
@@ -28,12 +38,13 @@ namespace sprite
   using unboxed_char_type = signed char;
   using unboxed_float_type = double;
   using unboxed_int_type = int64_t;
+  using vid_type = size_t;
 
   struct Head { InfoTable const * info; };
-  using sid_set_type = std::unordered_set<sid_type>;
 
   static constexpr index_type NOINDEX = std::numeric_limits<index_type>::max();
   static constexpr sid_type   NOSID = std::numeric_limits<sid_type>::max();
+  static constexpr sid_type   NOQID = std::numeric_limits<qid_type>::max();
   static constexpr size_t     NOLIMIT = std::numeric_limits<size_t>::max();
   static constexpr tag_type   NOTAG = std::numeric_limits<tag_type>::min();
 

@@ -49,6 +49,18 @@ namespace sprite { namespace inspect
     else
       return Cursor();
   }
+
+	inline tag_type tag_of(Cursor cur)
+	{
+		switch(cur.kind)
+		{
+			case 'p': return cur.info()->tag;
+			case 'i':
+			case 'f':
+			case 'c': return T_CTOR;
+			default: assert(0); __builtin_unreachable();
+		}
+	}
 }}
 
 namespace sprite

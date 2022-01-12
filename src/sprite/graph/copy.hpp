@@ -4,12 +4,14 @@
 
 namespace sprite
 {
-  Arg copynode(Cursor);
+  enum SkipOpt : bool { SKIPFWD = true, NOSKIPFWD = false };
 
-  Arg copygraph(
+  Expr copynode(Cursor);
+
+  Expr copygraph(
       Cursor
-    , memo_type * = nullptr
-    , bool skipfwd=false
-    , sid_set_type * skipgrds = nullptr
+    , SkipOpt           skipfwd = NOSKIPFWD
+    , sid_type const *  skipgrd = nullptr
+    , memo_type *               = nullptr
     );
 }

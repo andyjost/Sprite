@@ -8,11 +8,11 @@ namespace sprite
   struct WalkState
   {
     WalkState(
-        Cursor root
-      , index_type const * realpath=nullptr
-      , void * static_data=nullptr
-      , datadisposer_type=nullptr
-      , void * data=nullptr
+        Cursor root                 = Cursor()
+      , index_type const * realpath = nullptr
+      , void * static_dat           = nullptr
+      , datadisposer_type           = nullptr
+      , void * data                 = nullptr
       );
 
     explicit operator bool() const { return !this->spine.empty(); }
@@ -30,6 +30,7 @@ namespace sprite
 
     struct Successor { Cursor succ; index_type index; };
     using Frame = std::vector<Successor>;
+
     std::vector<Frame>      stack;
     std::vector<index_type> realpath_;
     std::vector<Cursor>     spine;

@@ -92,10 +92,10 @@ namespace sprite { namespace python
     Node * i7 = int_(7);
     Node * i42_7a = pair(i42, i7);
 
-    Arg copy42 = copynode(i42);
+    Arg copy42 = copynode(i42).arg;
     std::cout << "i42 == i42': " << logically_equal(i42, copy42.node) << "\n";
 
-    Arg copyP = copygraph(i42_7a);
+    Arg copyP = copygraph(i42_7a).arg;
     std::cout << "(42,7) == (42,7)': " << logically_equal(i42_7a, copyP.node) << "\n";
   }
 

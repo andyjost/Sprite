@@ -26,6 +26,21 @@ namespace sprite
     template<typename T> Arg & operator=(T &&);
   };
 
+  struct Expr
+  {
+    Arg  arg;
+    char kind; // 'p': pointer (i.e., Node *)
+		           // 'i': unboxed integer
+		           // 'f': unboxed float
+		           // 'c': unboxed char
+		           // 'u': undefined
+
+    Expr() : arg((Node *) nullptr), kind('u') {}
+    Expr(Arg arg, char kind) : arg(arg), kind(kind) {}
+
+		explicit operator bool() const { return kind != 'u'; }
+  };
+
   struct Cursor
   {
     Arg * arg;

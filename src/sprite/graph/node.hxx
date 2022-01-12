@@ -43,13 +43,13 @@ namespace sprite
   inline Node * Node::copy()
   {
     Node * self = this;
-    return copynode(self).node;
+    return copynode(self).arg.node;
   }
 
   inline Node * Node::deepcopy()
   {
     Node * self = this;
-    return copygraph(self).node;
+    return copygraph(self).arg.node;
   }
 
   inline Arg * Node::successors()

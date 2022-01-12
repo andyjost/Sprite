@@ -7,26 +7,26 @@
 
 namespace sprite
 {
-  Arg copynode(Cursor expr)
+  Expr copynode(Cursor expr)
   {
     if(expr.kind != 'p')
-      return *expr.arg;
+      return Expr{*expr.arg, expr.kind};
     auto const alloc_size = expr.info()->alloc_size;
     char * copy = node_alloc(alloc_size);
     std::memcpy(copy, expr.arg->node, alloc_size);
-    return (Node *) copy;
+    return Expr{(Node *) copy, expr.kind};
   }
 
   namespace
   {
     struct SkipNothing
     {
-      Node ** operator()(Node *, sid_set_type *) { return nullptr; }
+      Node ** operator()(Node *, sid_type) { return nullptr; }
     };
 
     struct SkipFwd
     {
-      Node ** operator()(Node * expr, sid_set_type *)
+      Node ** operator()(Node * expr, sid_type)
       {
         return expr->info->tag == T_FWD ? &NodeU{expr}.fwd->target : nullptr;
       }
@@ -34,10 +34,10 @@ namespace sprite
 
     struct SkipGrd
     {
-      Node ** operator()(Node * expr, sid_set_type * sid_set)
+      Node ** operator()(Node * expr, sid_type skipgrd)
       {
         if(expr->info->tag == T_SETGRD)
-          if(sid_set->count(NodeU{expr}.setgrd->sid))
+          if(skipgrd == NodeU{expr}.setgrd->sid)
             return &NodeU{expr}.setgrd->value;
         return nullptr;
       }
@@ -45,7 +45,7 @@ namespace sprite
 
     struct SkipBoth : SkipGrd
     {
-      Node ** operator()(Node * expr, sid_set_type * sid_set)
+      Node ** operator()(Node * expr, sid_type skipgrd)
       {
         NodeU u{expr};
         switch(expr->info->tag)
@@ -53,7 +53,7 @@ namespace sprite
           case T_FWD:
             return &u.fwd->target;
           case T_SETGRD:
-            if(sid_set->count(u.setgrd->sid))
+            if(skipgrd == u.setgrd->sid)
               return &u.setgrd->value;
             break;
         }
@@ -64,13 +64,13 @@ namespace sprite
     template<typename Skipper>
     struct GraphCopier
     {
-      GraphCopier(memo_type & memo, sid_set_type * sid_set = nullptr)
-        : expr(), memo(memo), sid_set(sid_set), skip()
+      GraphCopier(memo_type & memo, sid_type skipgrd=NOSID)
+        : expr(), memo(memo), skipgrd(skipgrd), skip()
       {}
 
       Cursor expr;
       memo_type & memo;
-      sid_set_type * sid_set;
+      sid_type skipgrd;
       Skipper skip;
 
       Arg operator()(Cursor expr)
@@ -90,7 +90,7 @@ namespace sprite
             return p->second;
           else
           {
-            Node ** target = this->skip(this->expr, this->sid_set);
+            Node ** target = this->skip(this->expr, this->skipgrd);
             if(target)
               return (*this)(*target);
             else
@@ -109,39 +109,36 @@ namespace sprite
     };
   }
 
-  Arg copygraph(
-      Cursor expr
-    , memo_type * memo
-    , bool skipfwd
-    , sid_set_type * sid_set
+  Expr copygraph(
+      Cursor expr, SkipOpt skipfwd, sid_type const * skipgrd, memo_type * memo
     )
   {
     if(!memo)
     {
       memo_type memo_;
-      return copygraph(expr, &memo_, skipfwd, sid_set);
+      return copygraph(expr, skipfwd, skipgrd, &memo_);
     }
-    switch((skipfwd ? 2 : 0) + (sid_set ? 1 : 0))
+    switch((skipfwd ? 2 : 0) + (skipgrd ? 1 : 0))
     {
       case 2 | 1:
       {
-        GraphCopier<SkipBoth> copier(*memo, sid_set);
-        return copier(expr);
+        GraphCopier<SkipBoth> copier(*memo, *skipgrd);
+        return Expr{copier(expr), expr.kind};
       }
       case 2 | 0:
       {
         GraphCopier<SkipFwd> copier(*memo);
-        return copier(expr);
+        return Expr{copier(expr), expr.kind};
       }
       case 0 | 1:
       {
-        GraphCopier<SkipGrd> copier(*memo, sid_set);
-        return copier(expr);
+        GraphCopier<SkipGrd> copier(*memo, *skipgrd);
+        return Expr{copier(expr), expr.kind};
       }
       case 0 | 0:
       {
         GraphCopier<SkipNothing> copier(*memo);
-        return copier(expr);
+        return Expr{copier(expr), expr.kind};
       }
       default: __builtin_unreachable();
     }

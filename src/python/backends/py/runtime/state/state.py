@@ -83,7 +83,7 @@ class RuntimeState(object):
   def set_goal(self, goal):
     assert not self.Q
     if goal is not None:
-      self.Q.append(configuration.Configuration(goal))
+      self.append(configuration.Configuration(goal))
 
   @property
   def C(self):
@@ -115,7 +115,7 @@ class RuntimeState(object):
 
   @property
   def S(self):
-    '''The current set ID.'''
+    '''The current set evaluation.'''
     return self.sftable.get(self.Q.sid, None)
 
   from ..graph.variable import variable

@@ -9,6 +9,7 @@ namespace sprite { namespace inspect
   tag_type tag_of(Node *);
   sid_type get_set_id(Node *);
   Cursor get_setguard_value(Node *);
+	tag_type tag_of(Cursor);
 }}
 
 #include "sprite/inspect.hxx"
