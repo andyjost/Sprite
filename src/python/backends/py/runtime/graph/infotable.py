@@ -16,8 +16,9 @@ class InfoTable(object):
   TUPLE_TYPE     = 0x6 # Constructor of Prelude.() et. al
   IO_TYPE        = 0x7 # Constructor of Prelude.IO
   PARTIAL_TYPE   = 0x8 # A partial application
+  OPERATOR       = 0x9 # Whether this is an operator.
   # Function flags.
-  MONADIC = 0x9 # Whether any monadic function can be reached.
+  MONADIC = 0x10 # Whether any monadic function can be reached.
 
   __slots__ = ['name', 'arity', 'tag', '_step', 'format', 'typecheck', 'typedef', 'flags']
   def __init__(self, name, arity, tag, step, format, typecheck, flags):
