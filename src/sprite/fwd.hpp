@@ -48,12 +48,13 @@ namespace sprite
   static constexpr size_t     NOLIMIT = std::numeric_limits<size_t>::max();
   static constexpr tag_type   NOTAG = std::numeric_limits<tag_type>::min();
 
-  static constexpr tag_type T_SETGRD = -7;
-  static constexpr tag_type T_FAIL   = -6;
-  static constexpr tag_type T_CONSTR = -5;
-  static constexpr tag_type T_FREE   = -4;
-  static constexpr tag_type T_FWD    = -3;
-  static constexpr tag_type T_CHOICE = -2;
-  static constexpr tag_type T_FUNC   = -1;
-  static constexpr tag_type T_CTOR   =  0;
+  static constexpr tag_type T_UNBOXED = -8;
+  static constexpr tag_type T_SETGRD  = -7;
+  static constexpr tag_type T_FAIL    = -6;
+  static constexpr tag_type T_CONSTR  = -5;
+  static constexpr tag_type T_FREE    = -4;
+  static constexpr tag_type T_FWD     = -3;
+  static constexpr tag_type T_CHOICE  = -2;
+  static constexpr tag_type T_FUNC    = -1;
+  static constexpr tag_type T_CTOR    =  0;
 }

@@ -71,12 +71,22 @@ namespace sprite
     this->data_.push_back(data);
   }
 
-  Cursor WalkState::cursor()
-    { return this->spine.back(); }
+  Cursor & WalkState::root()
+  {
+    assert(!this->spine.empty());
+    return this->spine.front();
+  }
 
-  Cursor WalkState::parent()
+  Cursor & WalkState::cursor()
+  {
+    assert(!this->spine.empty());
+    return this->spine.back();
+  }
+
+  Cursor & WalkState::parent()
   {
     size_t n = this->spine.size();
-    return n < 2 ? Cursor() : this->spine[n-2];
+    assert(n >= 2);
+    return this->spine[n-2];
   }
 }

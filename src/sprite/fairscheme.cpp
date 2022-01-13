@@ -1,33 +1,68 @@
+#include "sprite/builtins.hpp"
 #include "sprite/fairscheme.hpp"
+#include "sprite/graph/indexing.hpp"
 #include "sprite/inspect.hpp"
 
 namespace sprite
 {
   Expr FairSchemeAlgo::eval()
   {
-    static void * procs[] = {&&procD, &&procN};
-  entry:
-    goto *procs[0];
+    // static void * procs[] = {&&procD, &&procN};
+    Configuration * C = nullptr;
+    WalkState * state = nullptr;
+    tag_type tag = NOTAG;
+    Cursor * cur;
+
+  // jump:
+  //   goto *procs[0];
     
   procD:
     while(rts->ready())
     {
-      auto tag = inspect::tag_of(rts->E());
+      C = &rts->C();
+    redoD:
+      tag = inspect::tag_of(C->root);
       switch(tag)
       {
-        case T_SETGRD: assert(0); continue;
-        case T_FAIL  : rts->drop(); continue;
-        case T_CONSTR: assert(0); continue;
-        case T_FREE  : assert(0); continue;
-        case T_FWD   : assert(0); continue;
-        case T_CHOICE: assert(0); continue;
-        case T_FUNC  : assert(0); continue;
+        case T_UNBOXED: return Expr{C->root};
+        case T_SETGRD : assert(0); continue;
+        case T_FAIL   : rts->drop(); continue;
+        case T_CONSTR : assert(0); continue;
+        case T_FREE   : assert(0); continue;
+        case T_FWD    : C->reset(compress_fwd_chain(C->root)); goto redoD;
+        case T_CHOICE : assert(0); continue;
+        case T_FUNC   : assert(0); continue;
+        default       : goto procN;
+      }
+    }
+    return Expr{};
+
+  procN:
+    for(state = &C->callstack.state; *state; ++(*state))
+    {
+      cur = &state->cursor();
+    redoN:
+      tag = inspect::tag_of(*cur);
+      switch(tag)
+      {
+        case T_UNBOXED: continue;
+        case T_SETGRD : assert(0); continue;
+        case T_FAIL   :
+          if(*cur == rts->E())
+            { rts->drop(); goto procD; }
+          else
+            { (*cur)->node->rewrite(&Fail_Info); break; }
+        case T_CONSTR : assert(0); continue;
+        case T_FREE   : assert(0); continue;
+        case T_FWD    : *cur = compress_fwd_chain(*cur); goto redoN;
+        case T_CHOICE : assert(0); continue;
+        case T_FUNC   : assert(0); continue;
         default:
+          if((*cur)->node->info->typetag != PARTIAL_TYPE)
+            state->push();
           break;
       }
     }
-    return Expr();
-
-  procN:
+    return rts->release_value();
   }
 }

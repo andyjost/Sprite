@@ -7,8 +7,8 @@ namespace sprite
       /*tag*/        T_SETGRD
     , /*arity*/      2
     , /*alloc_size*/ sizeof(FwdNode)
+    , /*typetag*/    NO_FLAGS
     , /*flags*/      NO_FLAGS
-    , /*bitflags*/   NO_FLAGS
     , /*name*/       "_SetGuard"
     , /*format*/     "ip"
     , /*step*/       nullptr
@@ -20,8 +20,8 @@ namespace sprite
       /*tag*/        T_FAIL
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
+    , /*typetag*/    NO_FLAGS
     , /*flags*/      NO_FLAGS
-    , /*bitflags*/   NO_FLAGS
     , /*name*/       "_Failure"
     , /*format*/     ""
     , /*step*/       nullptr
@@ -33,8 +33,8 @@ namespace sprite
       /*tag*/        T_CONSTR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(ConstrNode)
+    , /*typetag*/    NO_FLAGS
     , /*flags*/      NO_FLAGS
-    , /*bitflags*/   NO_FLAGS
     , /*name*/       "_StrictConstraint"
     , /*format*/     "pp"
     , /*step*/       nullptr
@@ -46,8 +46,8 @@ namespace sprite
       /*tag*/        T_CONSTR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(ConstrNode)
+    , /*typetag*/    NO_FLAGS
     , /*flags*/      NO_FLAGS
-    , /*bitflags*/   NO_FLAGS
     , /*name*/       "_NonStrictConstraint"
     , /*format*/     "pp"
     , /*step*/       nullptr
@@ -59,8 +59,8 @@ namespace sprite
       /*tag*/        T_CONSTR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(ConstrNode)
+    , /*typetag*/    NO_FLAGS
     , /*flags*/      NO_FLAGS
-    , /*bitflags*/   NO_FLAGS
     , /*name*/       "_ValueBinding"
     , /*format*/     "pp"
     , /*step*/       nullptr
@@ -72,8 +72,8 @@ namespace sprite
       /*tag*/        T_FREE
     , /*arity*/      2
     , /*alloc_size*/ sizeof(FreeNode)
+    , /*typetag*/    NO_FLAGS
     , /*flags*/      NO_FLAGS
-    , /*bitflags*/   NO_FLAGS
     , /*name*/       "_Free"
     , /*format*/     "ip"
     , /*step*/       nullptr
@@ -85,8 +85,8 @@ namespace sprite
       /*tag*/        T_FWD
     , /*arity*/      1
     , /*alloc_size*/ sizeof(FwdNode)
+    , /*typetag*/    NO_FLAGS
     , /*flags*/      NO_FLAGS
-    , /*bitflags*/   NO_FLAGS
     , /*name*/       "_Fwd"
     , /*format*/     "p"
     , /*step*/       nullptr
@@ -98,8 +98,8 @@ namespace sprite
       /*tag*/        T_CHOICE
     , /*arity*/      3
     , /*alloc_size*/ sizeof(ChoiceNode)
+    , /*typetag*/    NO_FLAGS
     , /*flags*/      NO_FLAGS
-    , /*bitflags*/   NO_FLAGS
     , /*name*/       "_Choice"
     , /*format*/     "ipp"
     , /*step*/       nullptr
@@ -111,8 +111,8 @@ namespace sprite
       /*tag*/        T_CTOR
     , /*arity*/      1
     , /*alloc_size*/ sizeof(IntNode)
-    , /*flags*/      INT_TYPE
-    , /*bitflags*/   NO_FLAGS
+    , /*typetag*/    INT_TYPE
+    , /*flags*/      NO_FLAGS
     , /*name*/       "Int"
     , /*format*/     "i"
     , /*step*/       nullptr
@@ -124,8 +124,8 @@ namespace sprite
       /*tag*/        T_CTOR
     , /*arity*/      1
     , /*alloc_size*/ sizeof(FloatNode)
-    , /*flags*/      FLOAT_TYPE
-    , /*bitflags*/   NO_FLAGS
+    , /*typetag*/    FLOAT_TYPE
+    , /*flags*/      NO_FLAGS
     , /*name*/       "Float"
     , /*format*/     "f"
     , /*step*/       nullptr
@@ -137,8 +137,8 @@ namespace sprite
       /*tag*/        T_CTOR
     , /*arity*/      1
     , /*alloc_size*/ sizeof(CharNode)
-    , /*flags*/      CHAR_TYPE
-    , /*bitflags*/   NO_FLAGS
+    , /*typetag*/    CHAR_TYPE
+    , /*flags*/      NO_FLAGS
     , /*name*/       "Char"
     , /*format*/     "c"
     , /*step*/       nullptr
@@ -150,8 +150,8 @@ namespace sprite
       /*tag*/        T_CTOR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(PartApplicNode)
-    , /*flags*/      PARTIAL_TYPE
-    , /*bitflags*/   NO_FLAGS
+    , /*typetag*/    PARTIAL_TYPE
+    , /*flags*/      NO_FLAGS
     , /*name*/       "_PartApplic"
     , /*format*/     ""
     , /*step*/       nullptr
@@ -163,8 +163,8 @@ namespace sprite
       /*tag*/        T_FALSE
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
-    , /*flags*/      BOOL_TYPE
-    , /*bitflags*/   NO_FLAGS
+    , /*typetag*/    BOOL_TYPE
+    , /*flags*/      NO_FLAGS
     , /*name*/       "False"
     , /*format*/     ""
     , /*step*/       nullptr
@@ -176,8 +176,8 @@ namespace sprite
       /*tag*/        T_TRUE
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
-    , /*flags*/      BOOL_TYPE
-    , /*bitflags*/   NO_FLAGS
+    , /*typetag*/    BOOL_TYPE
+    , /*flags*/      NO_FLAGS
     , /*name*/       "True"
     , /*format*/     ""
     , /*step*/       nullptr
@@ -189,8 +189,8 @@ namespace sprite
       /*tag*/        T_CONS
     , /*arity*/      2
     , /*alloc_size*/ sizeof(ConsNode)
-    , /*flags*/      LIST_TYPE
-    , /*bitflags*/   NO_FLAGS
+    , /*typetag*/    LIST_TYPE
+    , /*flags*/      NO_FLAGS
     , /*name*/       ":"
     , /*format*/     "pp"
     , /*step*/       nullptr
@@ -202,8 +202,8 @@ namespace sprite
       /*tag*/        T_NIL
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
-    , /*flags*/      LIST_TYPE
-    , /*bitflags*/   NO_FLAGS
+    , /*typetag*/    LIST_TYPE
+    , /*flags*/      NO_FLAGS
     , /*name*/       "[]"
     , /*format*/     ""
     , /*step*/       nullptr
@@ -215,8 +215,8 @@ namespace sprite
       /*tag*/        T_CTOR
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
-    , /*flags*/      TUPLE_TYPE
-    , /*bitflags*/   NO_FLAGS
+    , /*typetag*/    TUPLE_TYPE
+    , /*flags*/      NO_FLAGS
     , /*name*/       "()"
     , /*format*/     ""
     , /*step*/       nullptr
@@ -228,8 +228,8 @@ namespace sprite
       /*tag*/        T_CTOR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(PairNode)
-    , /*flags*/      TUPLE_TYPE
-    , /*bitflags*/   NO_FLAGS
+    , /*typetag*/    TUPLE_TYPE
+    , /*flags*/      NO_FLAGS
     , /*name*/       "(,)"
     , /*format*/     "pp"
     , /*step*/       nullptr
@@ -241,8 +241,8 @@ namespace sprite
       /*tag*/        T_CTOR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*flags*/      PARTIAL_TYPE
-    , /*bitflags*/   NO_FLAGS
+    , /*typetag*/    PARTIAL_TYPE
+    , /*flags*/      NO_FLAGS
     , /*name*/       "PartialS"
     , /*format*/     "ip"
     , /*step*/       nullptr
@@ -254,8 +254,8 @@ namespace sprite
       /*tag*/        T_CTOR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
+    , /*typetag*/    NO_FLAGS
     , /*flags*/      NO_FLAGS
-    , /*bitflags*/   NO_FLAGS
     , /*name*/       "SetEval"
     , /*format*/     "ip"
     , /*step*/       nullptr

@@ -8,10 +8,9 @@
 
 namespace sprite
 {
-  inline Node * Node::rewrite(Node * node, InfoTable const * info, Arg * args)
+  inline Node * Node::rewrite(InfoTable const * info, Arg * args)
   {
-    assert(node);
-    return create(info, args, node);
+    return create(info, args, this);
   }
 
   inline std::string Node::str()

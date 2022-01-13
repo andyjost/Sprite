@@ -29,11 +29,6 @@ namespace sprite { namespace inspect
     }
   }
 
-  inline tag_type tag_of(Node * node)
-  {
-    return node->info->tag;
-  }
-
   inline sid_type get_set_id(Node * node)
   {
     if(isa_setguard(node))
@@ -50,17 +45,32 @@ namespace sprite { namespace inspect
       return Cursor();
   }
 
-	inline tag_type tag_of(Cursor cur)
-	{
-		switch(cur.kind)
-		{
-			case 'p': return cur.info()->tag;
-			case 'i':
-			case 'f':
-			case 'c': return T_CTOR;
-			default: assert(0); __builtin_unreachable();
-		}
-	}
+  inline InfoTable const * info_of(Node * node)
+  {
+    return node ? node->info : nullptr;
+  }
+
+  inline InfoTable const * info_of(Cursor cur)
+  {
+    return cur.kind == 'p' ? info_of(cur->node) : nullptr;
+  }
+
+  inline tag_type tag_of(Node * node)
+  {
+    return node->info->tag;
+  }
+
+  inline tag_type tag_of(Cursor cur)
+  {
+    switch(cur.kind)
+    {
+      case 'p': return cur.info()->tag;
+      case 'i':
+      case 'f':
+      case 'c': return T_UNBOXED;
+      default: assert(0); __builtin_unreachable();
+    }
+  }
 }}
 
 namespace sprite

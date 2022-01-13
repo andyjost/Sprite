@@ -26,21 +26,6 @@ namespace sprite
     template<typename T> Arg & operator=(T &&);
   };
 
-  struct Expr
-  {
-    Arg  arg;
-    char kind; // 'p': pointer (i.e., Node *)
-		           // 'i': unboxed integer
-		           // 'f': unboxed float
-		           // 'c': unboxed char
-		           // 'u': undefined
-
-    Expr() : arg((Node *) nullptr), kind('u') {}
-    Expr(Arg arg, char kind) : arg(arg), kind(kind) {}
-
-		explicit operator bool() const { return kind != 'u'; }
-  };
-
   struct Cursor
   {
     Arg * arg;
@@ -63,6 +48,23 @@ namespace sprite
     InfoTable const * info() const;
     Cursor & skipfwd();
   };
+
+  struct Expr
+  {
+    Arg  arg;
+    char kind; // 'p': pointer (i.e., Node *)
+               // 'i': unboxed integer
+               // 'f': unboxed float
+               // 'c': unboxed char
+               // 'u': undefined
+
+    Expr()                   : arg((Node *) nullptr), kind('u') {}
+    Expr(Cursor cur)         : arg(*cur.arg), kind(cur.kind) {}
+    Expr(Arg arg, char kind) : arg(arg), kind(kind) {}
+
+    explicit operator bool() const { return kind != 'u'; }
+  };
+
 }
 
 #include "sprite/graph/cursor.hxx"

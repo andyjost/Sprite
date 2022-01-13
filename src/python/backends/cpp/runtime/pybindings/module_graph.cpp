@@ -27,7 +27,7 @@ namespace sprite { namespace python
       // .def_readonly("typecheck", &InfoTable::typecheck)
       // .def_readonly("typedef", &InfoTable::typedef_)
        .def_property_readonly("flags"
-         , [](InfoTable const & self) { return self.flags | self.bitflags << 1; }
+         , [](InfoTable const & self) { return self.typetag | self.flags << 1; }
          )
       ;
 

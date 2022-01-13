@@ -19,7 +19,8 @@ namespace sprite
       , Residuals * r          = nullptr
       , bool escape_all        = false
       )
-      : root(root)
+      : callstack(root)
+      , root(root)
       , fingerprint(fp ? *fp : Fingerprint())
       , strict_constraints(sc ? *sc : StrictConstraints())
       , bindings(b ? *b : Bindings())
@@ -31,13 +32,18 @@ namespace sprite
     static Configuration * create(Args && ... args)
       { return new Configuration(std::forward<Args>(args)...); }
 
+    void reset(Cursor root)
+    {
+      this->root = root;
+      this->callstack.reset(root);
+    }
+
+    CallStack         callstack;
     Cursor            root;
     Fingerprint       fingerprint;
     StrictConstraints strict_constraints;
     Bindings          bindings;
     Residuals         residuals;
-    CallStack         callstack;
     bool              escape_all;
   };
-
 }

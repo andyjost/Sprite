@@ -61,7 +61,7 @@ namespace
         else
         {
           this->os << '<';
-          if(cur.info()->flags == OPERATOR)
+          if(cur.info()->typetag == OPERATOR)
             os << '(' << cur.info()->name << ')';
           else
             os << cur.info()->name;
@@ -138,7 +138,7 @@ namespace
           // Bracketed list.
           case '[' : data = Context(']'); break;
           case ']' :
-            assert(cur.info()->flags == LIST_TYPE);
+            assert(cur.info()->typetag == LIST_TYPE);
             if(cur.info()->tag == T_CONS)
             {
               os << ", ";
@@ -151,7 +151,7 @@ namespace
           // String.
           case '"': data = Context('`'); break;
           case '`' :
-            assert(cur.info()->flags == LIST_TYPE);
+            assert(cur.info()->typetag == LIST_TYPE);
             if(cur.info()->tag == T_CONS)
               state.push(Context('"'));
             else
@@ -162,7 +162,7 @@ namespace
           case ':' : data = Context('!'); break;
           case '!' :
             os << ':';
-            if(cur.info()->flags == LIST_TYPE)
+            if(cur.info()->typetag == LIST_TYPE)
             {
               if(cur.info()->tag == T_CONS)
                 state.push(Context(':'));
@@ -188,7 +188,7 @@ namespace
           case T_FWD:  assert(0);                         continue;
         }
 
-        switch(cur.info()->flags)
+        switch(cur.info()->typetag)
         {
           case INT_TYPE:
           case CHAR_TYPE:
@@ -243,14 +243,14 @@ namespace
     {
       Node * end = cur->node;
       bool is_string = true;
-      while(end && end->info->flags == LIST_TYPE && end->info->tag == T_CONS)
+      while(end && end->info->typetag == LIST_TYPE && end->info->tag == T_CONS)
       {
         auto cons = NodeU{end}.cons;
         is_string = is_string
-            && (cons->head && cons->head->info->flags == CHAR_TYPE);
+            && (cons->head && cons->head->info->typetag == CHAR_TYPE);
         end = cons->tail;
       }
-      if(end && end->info->flags == LIST_TYPE)
+      if(end && end->info->typetag == LIST_TYPE)
       {
         if(is_string)
         {

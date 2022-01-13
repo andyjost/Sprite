@@ -5,6 +5,7 @@
 #include "sprite/graph/copy.hpp"
 #include "sprite/graph/memory.hpp"
 #include "sprite/graph/walk.hpp"
+#include "sprite/fairscheme.hpp"
 #include <iostream>
 
 using namespace sprite;
@@ -24,6 +25,13 @@ namespace sprite { namespace python
     Arg args[1];
     args[0] = Arg(c);
     return Node::create(&Char_Info, args);
+  }
+
+  Node * fwd(Node * node)
+  {
+    Arg args[1];
+    args[0] = Arg(node);
+    return Node::create(&Fwd_Info, args);
   }
 
   Node * unit()
@@ -124,6 +132,36 @@ namespace sprite { namespace python
     std::cout << c->str() << std::endl;
   }
 
+  void evalone(Node * goal)
+  {
+    InterpreterState is;
+    auto rts = RuntimeState(is, goal);
+    auto algo = FairSchemeAlgo(&rts);
+    Expr result = algo.eval();
+    std::cout << result.arg.node->str() << std::endl;
+  }
+
+  void eval()
+  {
+    Node * goal1 = int_(42);
+    evalone(goal1);
+
+    Node * goal2 = pair(int_(42), int_(7));
+    evalone(goal2);
+
+    Node * goal3 = fwd(int_(5));
+    evalone(goal3);
+
+    Node * goal4 = fwd(fwd(int_(6)));
+    evalone(goal4);
+
+    Node * goal5 = fwd(fwd(fwd(int_(7))));
+    evalone(goal5);
+
+    Node * goal6 = fwd(pair(fwd(int_(42)), int_(7)));
+    evalone(goal6);
+  }
+
   void register_scratch(py::module_ mod)
   {
     mod.def("hello", &hello);
@@ -131,5 +169,6 @@ namespace sprite { namespace python
     mod.def("equality", &equality);
     mod.def("copy", &copy);
     mod.def("show", &show);
+    mod.def("eval", &eval);
   }
 }}

@@ -10,7 +10,7 @@ namespace sprite
     WalkState(
         Cursor root                 = Cursor()
       , index_type const * realpath = nullptr
-      , void * static_dat           = nullptr
+      , void * static_data          = nullptr
       , datadisposer_type           = nullptr
       , void * data                 = nullptr
       );
@@ -21,8 +21,9 @@ namespace sprite
     void pop();
     void push(void * data=nullptr);
 
-    Cursor cursor();
-    Cursor parent();
+    Cursor & root();
+    Cursor & cursor();
+    Cursor & parent();
     void *& data() { return data_.back(); }
     index_type const * realpath() const { return realpath_.data(); }
 

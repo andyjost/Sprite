@@ -10,7 +10,7 @@ namespace sprite
   Expr copynode(Cursor expr)
   {
     if(expr.kind != 'p')
-      return Expr{*expr.arg, expr.kind};
+      return expr;
     auto const alloc_size = expr.info()->alloc_size;
     char * copy = node_alloc(alloc_size);
     std::memcpy(copy, expr.arg->node, alloc_size);
