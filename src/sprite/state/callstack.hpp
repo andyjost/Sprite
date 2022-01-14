@@ -7,8 +7,8 @@ namespace sprite
   struct CallStack
   {
     CallStack(Cursor root) : state(root) {}
-    WalkState state;
+    Walk state;
 
-    void reset(Cursor root) { this->state = WalkState(root); }
+    void reset(Cursor root) { this->state = Walk(root); }
   };
 }

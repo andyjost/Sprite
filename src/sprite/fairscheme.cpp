@@ -10,14 +10,14 @@ namespace sprite
     // static void * procs[] = {&&procD, &&procN};
     Queue * Q = nullptr;
     Configuration * C = nullptr;
-    WalkState * state = nullptr;
+    Walk * state = nullptr;
     Cursor * cur;
     tag_type tag = NOTAG;
     // cid_type cid = NOCID;
 
   // jump:
   //   goto *procs[0];
-    
+
   procD:
     while(rts->ready())
     {
@@ -54,8 +54,7 @@ namespace sprite
         case T_CONSTR : assert(0); continue;
         case T_FREE   : assert(0); continue;
         case T_FWD    : *cur = compress_fwd_chain(*cur); goto redoN;
-        case T_CHOICE : assert(0); continue;
-        // case T_CHOICE : rts->forkN(C); goto procD;
+        case T_CHOICE : rts->forkN(Q); goto procD;
         case T_FUNC   : assert(0); continue;
         default:
           if((*cur)->node->info->typetag != PARTIAL_TYPE)

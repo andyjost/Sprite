@@ -10,7 +10,8 @@ namespace sprite
     InfoTable const * info;
 
     static Node * create(InfoTable const *, Arg * = nullptr, Node * target=nullptr);
-    Node * rewrite(InfoTable const *, Arg * = nullptr);
+    // Node * rewrite(InfoTable const *, Arg * = nullptr);
+    void forward_to(Node * target);
 
     // Copy.
     Node * copy();

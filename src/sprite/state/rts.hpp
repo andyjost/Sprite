@@ -4,12 +4,13 @@
 #include "sprite/state/queue.hpp"
 #include <unordered_map>
 #include <vector>
+#include "boost/utility.hpp"
 
 namespace sprite
 {
   enum TraceOpt : bool { TRACE = true, NOTRACE = false };
 
-  struct InterpreterState
+  struct InterpreterState : boost::noncopyable
   {
     cid_type idfactory = 0;
     sid_type setfactory = 0;
@@ -20,7 +21,7 @@ namespace sprite
   using qstack_type = std::vector<Queue*>;
   using qtable_type = std::unordered_map<qid_type, Queue*>;
 
-  struct RuntimeState
+  struct RuntimeState : boost::noncopyable
   {
     RuntimeState(InterpreterState & istate, Cursor goal);
 
@@ -49,6 +50,7 @@ namespace sprite
     void set_goal(Cursor goal);
     // void pull_tab(Configuration *);
     void forkD(Queue *);
+    void forkN(Queue *);
     bool update_fp(Configuration *, cid_type, ChoiceState);
     ChoiceState read_fp(cid_type, Configuration *);
   };

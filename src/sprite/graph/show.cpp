@@ -45,7 +45,7 @@ namespace
     void stringify(Cursor expr)
     {
       bool first = true;
-      for(auto && state=walk(expr, nullptr, this, &callback); state; ++state)
+      for(auto && state=walk(expr, this, &callback); state; ++state)
       {
         auto && cur = state.cursor();
         if(first) first = false; else this->os << ' ';
@@ -122,7 +122,7 @@ namespace
 
     void stringify(Cursor expr)
     {
-      for(auto && state=walk(expr, nullptr, this, &callback); state; ++state)
+      for(auto && state=walk(expr, this, &callback); state; ++state)
       {
         auto cur = state.cursor().skipfwd();
         void *& data = state.data();
@@ -239,7 +239,7 @@ namespace
     void show(unboxed_char_type value)
       { show_escaped(this->os, value); }
 
-    void begin_list(WalkState & state, Cursor cur)
+    void begin_list(Walk & state, Cursor cur)
     {
       Node * end = cur->node;
       bool is_string = true;

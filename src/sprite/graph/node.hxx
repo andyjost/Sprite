@@ -1,4 +1,5 @@
 #pragma once
+#include <cassert>
 #include "sprite/builtins.hpp"
 #include "sprite/graph/copy.hpp"
 #include "sprite/graph/equality.hpp"
@@ -8,10 +9,16 @@
 
 namespace sprite
 {
-  inline Node * Node::rewrite(InfoTable const * info, Arg * args)
+  // inline Node * Node::rewrite(InfoTable const * info, Arg * args)
+  // {
+  //   return create(info, args, this);
+  // }
+
+  inline void Node::forward_to(Node * target)
   {
-    return create(info, args, this);
-  }
+		assert(target);
+		new(this) FwdNode{&Fwd_Info, target};
+	}
 
   inline std::string Node::str()
   {

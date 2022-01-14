@@ -29,8 +29,8 @@ namespace sprite
 
   void RuntimeState::set_goal(Cursor goal)
   {
-    auto * config = Configuration::create(goal);
-    this->append(config);
+    auto config = Configuration::create(goal);
+    this->append(config.release());
   }
 
   bool RuntimeState::ready()
@@ -58,6 +58,21 @@ namespace sprite
     copy = C->clone(choice->rhs);
     if(this->update_fp(copy.get(), choice->cid, RIGHT))
       Q->push_back(copy.release());
+
+    Q->pop_front();
+  }
+
+  void RuntimeState::forkN(Queue * Q)
+  {
+    assert(Q == &this->Q());
+    Configuration * C = Q->front();
+    auto && state = C->callstack.state;
+    ChoiceNode * tgt = NodeU{state.cursor()->node}.choice;
+    Node * lhs = state.copy_spine(tgt->lhs);
+    Node * rhs = state.copy_spine(tgt->rhs);
+    Node * repl = make_node<ChoiceNode>(tgt->cid, lhs, rhs);
+    C->root->node->forward_to(repl);
+    C->reset();
   }
 
   bool RuntimeState::update_fp(Configuration * C, cid_type cid, ChoiceState lr)
@@ -93,13 +108,6 @@ namespace sprite
 
   // void RuntimeState::pull_tab(Configuration * C)
   // {
-  //   auto && state = C->callstack.state;
-  //   ChoiceNode * tgt = NodeU{state.cursor()->node}.choice;
-  //   Node * lhs = state.copy_spine(tgt->lhs);
-  //   Node * rhs = state.copy_spine(tgt->rhs);
-  //   Node * repl = ChoiceNode::create(tgt->cid, lhs, rhs);
-  //   C->root->node->rewrite(&Fwd_Info, repl);
-  //   C->reset();
   // }
 
   // Set Functions

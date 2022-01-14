@@ -5,17 +5,12 @@ namespace sprite
 {
   using datadisposer_type = void(*)(void * static_data, void * data);
 
-  struct WalkState
+  struct Walk
   {
-    WalkState(
-        Cursor root                 = Cursor()
-      , index_type const * realpath = nullptr
-      , void * static_data          = nullptr
-      , datadisposer_type           = nullptr
-      , void * data                 = nullptr
-      );
+    Walk() {}
+    Walk(Cursor root, void * static_data=nullptr, datadisposer_type =nullptr);
 
-    explicit operator bool() const { return !this->spine.empty(); }
+    explicit operator bool() const;
     void operator++();
 
     void pop();
@@ -23,28 +18,32 @@ namespace sprite
 
     Cursor & root();
     Cursor & cursor();
-    Cursor & parent();
-    void *& data() { return data_.back(); }
-    index_type const * realpath() const { return realpath_.data(); }
+    void *& data();
 
-    // Expr copy_spine
+    Node * copy_spine(Node * end);
 
   private:
 
-    struct Successor { Cursor succ; index_type index; };
-    using Frame = std::vector<Successor>;
+    struct Frame
+    {
+      Cursor cur;
+      void * data;
+      index_type index = NOINDEX - 1;
+      index_type end;
+
+      Frame(Cursor cur=Cursor(), void * data=nullptr)
+        : cur(cur), data(data)
+        , end(cur.kind == 'p' ? cur->node->info->arity : 0)
+      {}
+      explicit operator bool() const { return index < end; }
+    };
 
     std::vector<Frame>      stack;
-    std::vector<index_type> realpath_;
-    std::vector<Cursor>     spine;
-    std::vector<void *>     data_;
     void *                  static_data;
     datadisposer_type       dispose;
-
-    index_type & _rpback() { return *(this->realpath_.end() - 2); }
   };
 
   template<typename ... Args>
-  WalkState walk(Args && ... args)
-    { return WalkState(std::forward<Args>(args)...); }
+  Walk walk(Args && ... args)
+    { return Walk(std::forward<Args>(args)...); }
 }

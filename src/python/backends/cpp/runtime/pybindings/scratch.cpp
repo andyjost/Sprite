@@ -1,73 +1,18 @@
 #include "pybind11/pybind11.h"
-#include "sprite/builtins.hpp"
-#include "sprite/graph/equality.hpp"
-#include "sprite/graph/node.hpp"
-#include "sprite/graph/copy.hpp"
-#include "sprite/graph/memory.hpp"
-#include "sprite/graph/walk.hpp"
-#include "sprite/fairscheme.hpp"
 #include <iostream>
+#include "sprite/builtins.hpp"
+#include "sprite/fairscheme.hpp"
+#include "sprite/graph/copy.hpp"
+#include "sprite/graph/equality.hpp"
+#include "sprite/graph/memory.hpp"
+#include "sprite/graph/node.hpp"
+#include "sprite/graph/walk.hpp"
 
 using namespace sprite;
 namespace py = pybind11;
 
 namespace sprite { namespace python
 {
-  Node * int_(int value)
-  {
-    Arg args[1];
-    args[0] = Arg(value);
-    return Node::create(&Int_Info, args);
-  }
-
-  Node * char_(char c)
-  {
-    Arg args[1];
-    args[0] = Arg(c);
-    return Node::create(&Char_Info, args);
-  }
-
-  Node * fwd(Node * node)
-  {
-    Arg args[1];
-    args[0] = Arg(node);
-    return Node::create(&Fwd_Info, args);
-  }
-
-  Node * fail()
-  {
-    return Node::create(&Fail_Info);
-  }
-  Node * unit()
-  {
-    return Node::create(&Unit_Info);
-  }
-
-  Node * free_()
-  {
-    Arg args[2];
-    args[0] = Arg(0);
-    args[1] = Arg(unit());
-    return Node::create(&Free_Info, args);
-  }
-
-  Node * pair(Node * lhs, Node * rhs)
-  {
-    Arg args[2] = {lhs, rhs};
-    return Node::create(&Pair_Info, args);
-  }
-
-  Node * cons(Node * head, Node * tail)
-  {
-    Arg args[2] = {head, tail};
-    return Node::create(&Cons_Info, args);
-  }
-
-  Node * nil()
-  {
-    return Node::create(&Nil_Info);
-  }
-
   int hello()
   {
     Node * node = int_(42);
@@ -131,54 +76,47 @@ namespace sprite { namespace python
     std::cout << b->repr() << std::endl;
     std::cout << b->str() << std::endl;
 
-    Node * c = cons(int_(42), free_());
+    Node * c = cons(int_(42), free(0));
     std::cout << c->repr() << std::endl;
     std::cout << c->str() << std::endl;
   }
 
-  void evalone(Node * goal)
+  void do_eval(Node * goal)
   {
     InterpreterState is;
     auto rts = RuntimeState(is, goal);
     auto algo = FairSchemeAlgo(&rts);
-    Expr result = algo.eval();
-    if(result)
-      std::cout << result.arg.node->str() << std::endl;
-    else
-      std::cout << "No result!" << std::endl;
+    size_t n=0;
+    std::cout << "*** EVAL: ";
+    while(true)
+    {
+      Expr result = algo.eval();
+      if(result)
+      {
+        ++n;
+        std::cout << result.arg.node->str() << ' ';
+      }
+      else
+        break;
+    }
+    if(!n) std::cout << "No result!";
+    std::cout << std::endl;
   }
 
   void eval()
   {
-    Node * goal1 = int_(42);
-    evalone(goal1);
-
-    Node * goal2 = pair(int_(42), int_(7));
-    evalone(goal2);
-
-    Node * goal3 = fwd(int_(5));
-    evalone(goal3);
-
-    Node * goal4 = fwd(fwd(int_(6)));
-    evalone(goal4);
-
-    Node * goal5 = fwd(fwd(fwd(int_(7))));
-    evalone(goal5);
-
-    Node * goal6 = fwd(pair(fwd(int_(42)), int_(7)));
-    evalone(goal6);
-
-    Node * goal7 = fail();
-    evalone(goal7);
-
-    Node * goal8 = fwd(fail());
-    evalone(goal8);
-
-    Node * goal9 = pair(int_(3), fail());
-    evalone(goal9);
-
-    Node * goal10 = pair(int_(3), fwd(fail()));
-    evalone(goal10);
+    do_eval(int_(42));
+    do_eval(pair(int_(42), int_(7)));
+    do_eval(fwd(int_(5)));
+    do_eval(fwd(fwd(int_(6))));
+    do_eval(fwd(fwd(fwd(int_(7)))));
+    do_eval(fwd(pair(fwd(int_(42)), int_(7))));
+    do_eval(fail());
+    do_eval(fwd(fail()));
+    do_eval(pair(int_(3), fail()));
+    do_eval(pair(int_(3), fwd(fail())));
+    do_eval(choice(0, int_(1), int_(2)));
+    // do_eval(pair(int_(4), choice(0, int_(1), int_(2))));
   }
 
   void register_scratch(py::module_ mod)

@@ -3,92 +3,76 @@
 
 namespace sprite
 {
-  WalkState::WalkState(
+  Walk::Walk(
       Cursor root
-    , index_type const * realpath
     , void * static_data
     , datadisposer_type dispose
-    , void * data
     )
-    : static_data(static_data), dispose(dispose)
+    : stack({Frame{}, Frame{root}})
+    , static_data(static_data), dispose(dispose)
   {
-    if(root)
+    assert(root);
+  }
+
+  Walk::operator bool() const
+  {
+    return this->stack.size() > 1;
+  }
+
+  void Walk::operator++()
+  {
+    while(*this)
     {
-      this->spine.push_back(root);
-      if(realpath)
+      Frame & frame = this->stack.back();
+      ++frame.index;
+      if(!frame)
+        this->pop();
+      else
       {
-        for(auto i = *realpath++; i != NOINDEX; i = *realpath++)
-        {
-          this->realpath_.push_back(i);
-          Cursor && next = subexpr(this->spine.back(), i);
-          this->spine.push_back(next);
-        }
+        this->stack.emplace_back(
+            frame.cur->node->successor(frame.index)
+          );
+        return;
       }
-      this->realpath_.push_back(NOINDEX);
-      this->data_.push_back(data);
     }
   }
 
-  void WalkState::operator++()
+  void Walk::push(void * data)
   {
-    while(!this->stack.empty() && this->stack.back().empty())
-      this->pop();
-    if(this->stack.empty())
-      this->spine.clear();
-    else
-    {
-      auto && frame = this->stack.back();
-      this->_rpback() = frame.back().index;
-      this->spine.back()     = frame.back().succ;
-      frame.pop_back();
-    }
+    Frame & frame = stack.back();
+    assert(frame.index == NOINDEX - 1);
+    ++frame.index;
+    frame.data = data;
   }
 
-  void WalkState::pop()
+  void Walk::pop()
   {
+    Frame & frame = this->stack.back();
+    if(this->dispose && frame.index < NOINDEX)
+      this->dispose(this->static_data, frame.data);
     this->stack.pop_back();
-    this->_rpback() = NOINDEX;
-    this->realpath_.pop_back();
-    this->spine.pop_back();
-    if(this->dispose)
-      this->dispose(this->static_data, this->data_.back());
-    this->data_.pop_back();
   }
 
-  void WalkState::push(void * data)
+  Cursor & Walk::root()
   {
-    Cursor cur = this->cursor();
-    Frame frame;
-    assert(cur.kind == 'p');
-    index_type const n = cur->node->info->arity;
-    frame.reserve(n);
-    for(index_type i=0; i<n; ++i)
-    {
-      index_type const j = n - 1 - i;
-      frame.emplace_back(Successor{cur->node->successor(j), j});
-    }
-    this->stack.emplace_back(std::move(frame));
-    this->realpath_.push_back(NOINDEX);
-    this->spine.emplace_back();
-    this->data_.push_back(data);
+    assert(*this);
+    return this->stack.front().cur;
   }
 
-  Cursor & WalkState::root()
+  Cursor & Walk::cursor()
   {
-    assert(!this->spine.empty());
-    return this->spine.front();
+    assert(*this);
+    return this->stack.back().cur;
   }
 
-  Cursor & WalkState::cursor()
+  void *& Walk::data()
   {
-    assert(!this->spine.empty());
-    return this->spine.back();
+    assert(*this);
+    return (this->stack.end() - 2)->data;
   }
 
-  Cursor & WalkState::parent()
+  Node * Walk::copy_spine(Node * end)
   {
-    size_t n = this->spine.size();
-    assert(n >= 2);
-    return this->spine[n-2];
+    return nullptr;
   }
 }

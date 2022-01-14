@@ -3,7 +3,7 @@
 
 namespace sprite
 {
-  InfoTable SetGuard_Info{
+  InfoTable const SetGuard_Info{
       /*tag*/        T_SETGRD
     , /*arity*/      2
     , /*alloc_size*/ sizeof(FwdNode)
@@ -16,7 +16,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable Fail_Info{
+  InfoTable const Fail_Info{
       /*tag*/        T_FAIL
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
@@ -29,7 +29,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable StrictConstraint_Info{
+  InfoTable const StrictConstraint_Info{
       /*tag*/        T_CONSTR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(ConstrNode)
@@ -42,7 +42,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable NonStrictConstraint_Info{
+  InfoTable const NonStrictConstraint_Info{
       /*tag*/        T_CONSTR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(ConstrNode)
@@ -55,7 +55,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable ValueBinding_Info{
+  InfoTable const ValueBinding_Info{
       /*tag*/        T_CONSTR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(ConstrNode)
@@ -68,7 +68,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable Free_Info{
+  InfoTable const Free_Info{
       /*tag*/        T_FREE
     , /*arity*/      2
     , /*alloc_size*/ sizeof(FreeNode)
@@ -81,7 +81,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable Fwd_Info{
+  InfoTable const Fwd_Info{
       /*tag*/        T_FWD
     , /*arity*/      1
     , /*alloc_size*/ sizeof(FwdNode)
@@ -94,7 +94,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable Choice_Info{
+  InfoTable const Choice_Info{
       /*tag*/        T_CHOICE
     , /*arity*/      3
     , /*alloc_size*/ sizeof(ChoiceNode)
@@ -107,7 +107,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable Int_Info{
+  InfoTable const Int_Info{
       /*tag*/        T_CTOR
     , /*arity*/      1
     , /*alloc_size*/ sizeof(IntNode)
@@ -120,7 +120,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable Float_Info{
+  InfoTable const Float_Info{
       /*tag*/        T_CTOR
     , /*arity*/      1
     , /*alloc_size*/ sizeof(FloatNode)
@@ -133,7 +133,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable Char_Info{
+  InfoTable const Char_Info{
       /*tag*/        T_CTOR
     , /*arity*/      1
     , /*alloc_size*/ sizeof(CharNode)
@@ -146,7 +146,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable PartApplic_Info{
+  InfoTable const PartApplic_Info{
       /*tag*/        T_CTOR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(PartApplicNode)
@@ -159,7 +159,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable False_Info{
+  InfoTable const False_Info{
       /*tag*/        T_FALSE
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
@@ -172,7 +172,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable True_Info{
+  InfoTable const True_Info{
       /*tag*/        T_TRUE
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
@@ -185,7 +185,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable Cons_Info{
+  InfoTable const Cons_Info{
       /*tag*/        T_CONS
     , /*arity*/      2
     , /*alloc_size*/ sizeof(ConsNode)
@@ -198,7 +198,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable Nil_Info{
+  InfoTable const Nil_Info{
       /*tag*/        T_NIL
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
@@ -211,7 +211,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable Unit_Info{
+  InfoTable const Unit_Info{
       /*tag*/        T_CTOR
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
@@ -224,7 +224,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable Pair_Info{
+  InfoTable const Pair_Info{
       /*tag*/        T_CTOR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(PairNode)
@@ -237,7 +237,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable PartialS_Info{
+  InfoTable const PartialS_Info{
       /*tag*/        T_CTOR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
@@ -250,7 +250,7 @@ namespace sprite
     , /*typedef*/    nullptr
     };
 
-  InfoTable SetEval_Info{
+  InfoTable const SetEval_Info{
       /*tag*/        T_CTOR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
@@ -277,12 +277,4 @@ namespace sprite
 
   static Node Unit_Node_{&Unit_Info};
   Node * Unit_Node = &Unit_Node_;
-
-  Node * ChoiceNode::create(unboxed_int_type cid, Node * lhs, Node * rhs)
-  {
-    auto target = (void *) node_alloc(sizeof(ChoiceNode));
-    assert(target);
-    new(target) ChoiceNode{&Choice_Info, cid, lhs, rhs};
-    return (Node *) target;
-  }
 }

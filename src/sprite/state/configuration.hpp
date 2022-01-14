@@ -1,9 +1,10 @@
 #pragma once
+#include "boost/utility.hpp"
+#include <memory>
 #include "sprite/fingerprint.hpp"
 #include "sprite/fingerprint.hpp"
 #include "sprite/graph/cursor.hpp"
 #include "sprite/state/callstack.hpp"
-#include <memory>
 
 namespace sprite
 {
@@ -11,28 +12,29 @@ namespace sprite
   struct Bindings {};
   struct Residuals {};
 
-  struct Configuration
+  struct Configuration : boost::noncopyable
   {
-    Configuration(
-        Cursor root            = Cursor()
-      , Fingerprint * fp       = nullptr
-      , StrictConstraints * sc = nullptr
-      , Bindings * b           = nullptr
-      , Residuals * r          = nullptr
-      , bool escape_all        = false
-      )
+    Configuration(Cursor root=Cursor()) : callstack(root) , root(root) {}
+    Configuration(Cursor root, Configuration const & obj)
       : callstack(root)
       , root(root)
-      , fingerprint(fp ? *fp : Fingerprint())
-      , strict_constraints(sc ? *sc : StrictConstraints())
-      , bindings(b ? *b : Bindings())
-      , residuals(r ? *r : Residuals())
-      , escape_all(escape_all)
+      , fingerprint(obj.fingerprint)
+      , strict_constraints(obj.strict_constraints)
+      , bindings(obj.bindings)
+      , residuals(obj.residuals)
+      , escape_all(obj.escape_all)
     {}
 
     template<typename ... Args>
-    static Configuration * create(Args && ... args)
-      { return new Configuration(std::forward<Args>(args)...); }
+    static std::unique_ptr<Configuration> create(Args && ... args)
+    {
+      return std::unique_ptr<Configuration>(
+          new Configuration(std::forward<Args>(args)...)
+        );
+    }
+
+    std::unique_ptr<Configuration> clone(Cursor root)
+      { return Configuration::create(root, *this); }
 
     CallStack         callstack;
     Cursor            root;
@@ -40,9 +42,8 @@ namespace sprite
     StrictConstraints strict_constraints;
     Bindings          bindings;
     Residuals         residuals;
-    bool              escape_all;
+    bool              escape_all = false;
 
-    std::unique_ptr<Configuration> clone(Cursor root);
     void reset(Cursor root = Cursor());
   };
 }

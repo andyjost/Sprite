@@ -1,5 +1,7 @@
 #pragma once
+#include <cassert>
 #include "sprite/graph/infotable.hpp"
+#include "sprite/graph/memory.hpp"
 #include "sprite/fwd.hpp"
 // #include "sprite/graph/node.hpp"
 
@@ -16,27 +18,27 @@ namespace sprite
   extern Node * Nil_Node;
   extern Node * Unit_Node;
 
-  extern InfoTable SetGuard_Info;
-  extern InfoTable Fail_Info;
-  extern InfoTable StrictConstraint_Info;
-  extern InfoTable NonStrictConstraint_Info;
-  extern InfoTable ValueBinding_Info;
-  extern InfoTable Free_Info;
-  extern InfoTable Fwd_Info;
-  extern InfoTable Choice_Info;
+  extern InfoTable const SetGuard_Info;
+  extern InfoTable const Fail_Info;
+  extern InfoTable const StrictConstraint_Info;
+  extern InfoTable const NonStrictConstraint_Info;
+  extern InfoTable const ValueBinding_Info;
+  extern InfoTable const Free_Info;
+  extern InfoTable const Fwd_Info;
+  extern InfoTable const Choice_Info;
   //
-  extern InfoTable Int_Info;
-  extern InfoTable Float_Info;
-  extern InfoTable Char_Info;
-  extern InfoTable PartApplic_Info;
-  extern InfoTable False_Info;
-  extern InfoTable True_Info;
-  extern InfoTable Cons_Info;
-  extern InfoTable Nil_Info;
-  extern InfoTable Unit_Info;
-  extern InfoTable Pair_Info;
-  extern InfoTable PartialS_Info;
-  extern InfoTable SetEval_Info;
+  extern InfoTable const Int_Info;
+  extern InfoTable const Float_Info;
+  extern InfoTable const Char_Info;
+  extern InfoTable const PartApplic_Info;
+  extern InfoTable const False_Info;
+  extern InfoTable const True_Info;
+  extern InfoTable const Cons_Info;
+  extern InfoTable const Nil_Info;
+  extern InfoTable const Unit_Info;
+  extern InfoTable const Pair_Info;
+  extern InfoTable const PartialS_Info;
+  extern InfoTable const SetEval_Info;
 
   template<index_type N>
   struct Node_ : Head
@@ -66,34 +68,39 @@ namespace sprite
   {
     vid_type vid;
     Node *   genexpr;
+    static constexpr InfoTable const * static_info = &Free_Info;
   };
 
   struct FwdNode : Head
   {
     Node * target;
+    static constexpr InfoTable const * static_info = &Fwd_Info;
   };
 
   struct ChoiceNode : Head
   {
-    unboxed_int_type cid;
-    Node * lhs;
-    Node * rhs;
-    static Node * create(unboxed_int_type cid, Node * lhs, Node * rhs);
+    cid_type cid;
+    Node *   lhs;
+    Node *   rhs;
+    static constexpr InfoTable const * static_info = &Choice_Info;
   };
 
   struct IntNode : Head
   {
     unboxed_int_type value;
+    static constexpr InfoTable const * static_info = &Int_Info;
   };
 
   struct FloatNode : Head
   {
     unboxed_float_type value;
+    static constexpr InfoTable const * static_info = &Float_Info;
   };
 
   struct CharNode : Head
   {
     unboxed_char_type value;
+    static constexpr InfoTable const * static_info = &Char_Info;
   };
 
   struct PartApplicNode : Head
@@ -106,12 +113,14 @@ namespace sprite
   {
     Node * head;
     Node * tail;
+    static constexpr InfoTable const * static_info = &Cons_Info;
   };
 
   struct PairNode : Head
   {
     Node * lhs;
     Node * rhs;
+    static constexpr InfoTable const * static_info = &Pair_Info;
   };
 
   struct SetEvalNode : Head
@@ -137,4 +146,26 @@ namespace sprite
     PairNode       * pair;
     SetEvalNode    * seteval;
   };
+
+  template<typename NodeType, typename ... Args>
+  Node * make_node(Args && ... args)
+  {
+    auto target = (void *) node_alloc(sizeof(NodeType));
+    assert(target);
+    new(target) NodeType{NodeType::static_info, std::forward<Args>(args)...};
+    return (Node *) target;
+  }
+
+  inline Node * char_(unboxed_char_type x)   { return make_node<CharNode>(x); }
+  inline Node * choice(cid_type cid, Node * lhs, Node * rhs)
+      { return make_node<ChoiceNode>(cid, lhs, rhs); }
+  inline Node * cons(Node * h, Node * t)     { return make_node<ConsNode>(h, t); }
+  inline Node * fail()                       { return Fail_Node; }
+  inline Node * float_(unboxed_float_type x) { return make_node<FloatNode>(x); }
+  inline Node * free(vid_type vid)           { return make_node<FreeNode>(vid, Unit_Node); }
+  inline Node * fwd(Node * tgt)              { return make_node<FwdNode>(tgt); }
+  inline Node * int_(unboxed_int_type x)     { return make_node<IntNode>(x); }
+  inline Node * nil()                        { return Nil_Node; }
+  inline Node * pair(Node * a, Node * b)     { return make_node<PairNode>(a, b); }
+  inline Node * unit()                       { return Unit_Node; }
 }
