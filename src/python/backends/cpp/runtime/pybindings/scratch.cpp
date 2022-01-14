@@ -34,6 +34,10 @@ namespace sprite { namespace python
     return Node::create(&Fwd_Info, args);
   }
 
+  Node * fail()
+  {
+    return Node::create(&Fail_Info);
+  }
   Node * unit()
   {
     return Node::create(&Unit_Info);
@@ -100,10 +104,10 @@ namespace sprite { namespace python
     Node * i7 = int_(7);
     Node * i42_7a = pair(i42, i7);
 
-    Arg copy42 = copynode(i42).arg;
+    Arg copy42 = copy_node(i42).arg;
     std::cout << "i42 == i42': " << logically_equal(i42, copy42.node) << "\n";
 
-    Arg copyP = copygraph(i42_7a).arg;
+    Arg copyP = copy_graph(i42_7a).arg;
     std::cout << "(42,7) == (42,7)': " << logically_equal(i42_7a, copyP.node) << "\n";
   }
 
@@ -138,7 +142,10 @@ namespace sprite { namespace python
     auto rts = RuntimeState(is, goal);
     auto algo = FairSchemeAlgo(&rts);
     Expr result = algo.eval();
-    std::cout << result.arg.node->str() << std::endl;
+    if(result)
+      std::cout << result.arg.node->str() << std::endl;
+    else
+      std::cout << "No result!" << std::endl;
   }
 
   void eval()
@@ -160,6 +167,18 @@ namespace sprite { namespace python
 
     Node * goal6 = fwd(pair(fwd(int_(42)), int_(7)));
     evalone(goal6);
+
+    Node * goal7 = fail();
+    evalone(goal7);
+
+    Node * goal8 = fwd(fail());
+    evalone(goal8);
+
+    Node * goal9 = pair(int_(3), fail());
+    evalone(goal9);
+
+    Node * goal10 = pair(int_(3), fwd(fail()));
+    evalone(goal10);
   }
 
   void register_scratch(py::module_ mod)

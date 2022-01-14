@@ -10,6 +10,12 @@ namespace sprite
   static constexpr tag_type T_FALSE = T_CTOR;
   static constexpr tag_type T_TRUE  = T_CTOR + 1;
 
+  extern Node * Fail_Node;
+  extern Node * False_Node;
+  extern Node * True_Node;
+  extern Node * Nil_Node;
+  extern Node * Unit_Node;
+
   extern InfoTable SetGuard_Info;
   extern InfoTable Fail_Info;
   extern InfoTable StrictConstraint_Info;
@@ -58,7 +64,7 @@ namespace sprite
 
   struct FreeNode : Head
   {
-    cid_type cid;
+    vid_type vid;
     Node *   genexpr;
   };
 
@@ -69,10 +75,12 @@ namespace sprite
 
   struct ChoiceNode : Head
   {
-    unboxed_int_type id;
+    unboxed_int_type cid;
     Node * lhs;
     Node * rhs;
+    static Node * create(unboxed_int_type cid, Node * lhs, Node * rhs);
   };
+
   struct IntNode : Head
   {
     unboxed_int_type value;

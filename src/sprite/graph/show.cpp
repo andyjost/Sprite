@@ -184,7 +184,7 @@ namespace
         switch(info->tag)
         {
           case T_FAIL: os << "failed";                    continue;
-          case T_FREE: os << '_' << NodeU{cur}.free->cid; continue;
+          case T_FREE: os << '_' << NodeU{cur}.free->vid; continue;
           case T_FWD:  assert(0);                         continue;
         }
 

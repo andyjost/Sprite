@@ -42,9 +42,10 @@ namespace sprite
 
   struct Head { InfoTable const * info; };
 
+  static constexpr cid_type   NOCID = std::numeric_limits<sid_type>::max();
   static constexpr index_type NOINDEX = std::numeric_limits<index_type>::max();
+  static constexpr qid_type   NOQID = std::numeric_limits<qid_type>::max();
   static constexpr sid_type   NOSID = std::numeric_limits<sid_type>::max();
-  static constexpr sid_type   NOQID = std::numeric_limits<qid_type>::max();
   static constexpr size_t     NOLIMIT = std::numeric_limits<size_t>::max();
   static constexpr tag_type   NOTAG = std::numeric_limits<tag_type>::min();
 
@@ -57,4 +58,6 @@ namespace sprite
   static constexpr tag_type T_CHOICE  = -2;
   static constexpr tag_type T_FUNC    = -1;
   static constexpr tag_type T_CTOR    =  0;
+
+  enum ChoiceState { UNDETERMINED=0, LEFT=-1, RIGHT=1 };
 }

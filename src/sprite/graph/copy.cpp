@@ -7,7 +7,7 @@
 
 namespace sprite
 {
-  Expr copynode(Cursor expr)
+  Expr copy_node(Cursor expr)
   {
     if(expr.kind != 'p')
       return expr;
@@ -109,14 +109,14 @@ namespace sprite
     };
   }
 
-  Expr copygraph(
+  Expr copy_graph(
       Cursor expr, SkipOpt skipfwd, sid_type const * skipgrd, memo_type * memo
     )
   {
     if(!memo)
     {
       memo_type memo_;
-      return copygraph(expr, skipfwd, skipgrd, &memo_);
+      return copy_graph(expr, skipfwd, skipgrd, &memo_);
     }
     switch((skipfwd ? 2 : 0) + (skipgrd ? 1 : 0))
     {

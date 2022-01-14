@@ -161,10 +161,8 @@ namespace sprite
     auto & block = read_block(id);
     size_t const offset = id & FP_BLOCK_MASK;
     return (block.used & (1<<offset))
-        ? (block.lr & (1<<offset))
-            ? ChoiceState::RIGHT
-            : ChoiceState::LEFT
-        : ChoiceState::UNDETERMINED;
+        ? (block.lr & (1<<offset)) ? RIGHT : LEFT
+        : UNDETERMINED;
   }
 
   bool Fingerprint::choice_is_made(size_t id) const

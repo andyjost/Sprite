@@ -36,8 +36,8 @@ namespace sprite
     sid_type const * sid() { return nullptr; } // FIXME
 
     Queue & Q() { return *this->qtable[this->qid()]; }
-    Configuration & C() { return *this->Q()[0]; }
-    Cursor & E() { return C().root; }
+    Configuration * C() { return this->Q().front(); }
+    Cursor & E() { return C()->root; }
 
     bool ready();
     Expr make_value();
@@ -47,6 +47,10 @@ namespace sprite
     void push_queue(Queue *, TraceOpt=TRACE);
     Queue * make_queue(sid_type=NOSID);
     void set_goal(Cursor goal);
+    // void pull_tab(Configuration *);
+    void forkD(Queue *);
+    bool update_fp(Configuration *, cid_type, ChoiceState);
+    ChoiceState read_fp(cid_type, Configuration *);
   };
 }
 

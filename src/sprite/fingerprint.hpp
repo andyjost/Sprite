@@ -63,11 +63,10 @@
 #include "boost/integer.hpp"
 #include "boost/integer/static_log2.hpp"
 #include "boost/pool/pool.hpp"
+#include "sprite/fwd.hpp"
 
 namespace sprite
 {
-  enum class ChoiceState { UNDETERMINED=0, LEFT=-1, RIGHT=1 };
-
   // Each bit block contains however many choices fit into one pointer (each
   // choice requires two bits).  On x86_64, for instance, there are 32 choices
   // per block.
@@ -186,7 +185,7 @@ namespace sprite
     ChoiceState test_no_check(size_t id) const;
     bool choice_is_made(size_t id) const;
     bool choice_is_left_no_check(size_t id) const
-      { return test_no_check(id) == ChoiceState::LEFT; }
+      { return test_no_check(id) == LEFT; }
     size_t capacity() const { return m_capacity; }
     size_t depth() const { return m_depth; } // size_t not int is OK.
     Node const & root() const { return m_root; }

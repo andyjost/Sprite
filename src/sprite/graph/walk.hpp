@@ -27,6 +27,8 @@ namespace sprite
     void *& data() { return data_.back(); }
     index_type const * realpath() const { return realpath_.data(); }
 
+    // Expr copy_spine
+
   private:
 
     struct Successor { Cursor succ; index_type index; };
@@ -38,6 +40,8 @@ namespace sprite
     std::vector<void *>     data_;
     void *                  static_data;
     datadisposer_type       dispose;
+
+    index_type & _rpback() { return *(this->realpath_.end() - 2); }
   };
 
   template<typename ... Args>

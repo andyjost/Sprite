@@ -8,10 +8,12 @@ namespace sprite
   Expr FairSchemeAlgo::eval()
   {
     // static void * procs[] = {&&procD, &&procN};
+    Queue * Q = nullptr;
     Configuration * C = nullptr;
     WalkState * state = nullptr;
-    tag_type tag = NOTAG;
     Cursor * cur;
+    tag_type tag = NOTAG;
+    // cid_type cid = NOCID;
 
   // jump:
   //   goto *procs[0];
@@ -19,7 +21,8 @@ namespace sprite
   procD:
     while(rts->ready())
     {
-      C = &rts->C();
+      Q = &rts->Q();
+      C = Q->front();
     redoD:
       tag = inspect::tag_of(C->root);
       switch(tag)
@@ -30,7 +33,7 @@ namespace sprite
         case T_CONSTR : assert(0); continue;
         case T_FREE   : assert(0); continue;
         case T_FWD    : C->reset(compress_fwd_chain(C->root)); goto redoD;
-        case T_CHOICE : assert(0); continue;
+        case T_CHOICE : rts->forkD(Q); continue;
         case T_FUNC   : assert(0); continue;
         default       : goto procN;
       }
@@ -47,15 +50,12 @@ namespace sprite
       {
         case T_UNBOXED: continue;
         case T_SETGRD : assert(0); continue;
-        case T_FAIL   :
-          if(*cur == rts->E())
-            { rts->drop(); goto procD; }
-          else
-            { (*cur)->node->rewrite(&Fail_Info); break; }
+        case T_FAIL   : rts->drop(); goto procD;
         case T_CONSTR : assert(0); continue;
         case T_FREE   : assert(0); continue;
         case T_FWD    : *cur = compress_fwd_chain(*cur); goto redoN;
         case T_CHOICE : assert(0); continue;
+        // case T_CHOICE : rts->forkN(C); goto procD;
         case T_FUNC   : assert(0); continue;
         default:
           if((*cur)->node->info->typetag != PARTIAL_TYPE)

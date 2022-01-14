@@ -1,4 +1,6 @@
+#include "sprite/fingerprint.hpp"
 #include "sprite/state/rts.hpp"
+#include <memory>
 
 namespace sprite
 {
@@ -22,7 +24,7 @@ namespace sprite
   Expr RuntimeState::make_value()
   {
     // if value is IO...
-    return copygraph(this->E(), SKIPFWD, this->sid());
+    return copy_graph(this->E(), SKIPFWD, this->sid());
   }
 
   void RuntimeState::set_goal(Cursor goal)
@@ -42,6 +44,63 @@ namespace sprite
     this->drop(NOTRACE);
     return value;
   }
+
+  void RuntimeState::forkD(Queue * Q)
+  {
+    assert(Q == &this->Q());
+    Configuration * C = Q->front();
+    ChoiceNode * choice = NodeU{C->root->node}.choice;
+
+    auto copy = C->clone(choice->lhs);
+    if(this->update_fp(copy.get(), choice->cid, LEFT))
+      Q->push_back(copy.release());
+
+    copy = C->clone(choice->rhs);
+    if(this->update_fp(copy.get(), choice->cid, RIGHT))
+      Q->push_back(copy.release());
+  }
+
+  bool RuntimeState::update_fp(Configuration * C, cid_type cid, ChoiceState lr)
+  {
+    switch(lr)
+    {
+      case LEFT:
+        switch(this->read_fp(cid, C))
+        {
+          case RIGHT:    return false;
+          case UNDETERMINED: C->fingerprint.set_left(cid);
+          case LEFT:     return true;
+          default: assert(0); __builtin_unreachable();
+        }
+      case RIGHT:
+        switch(this->read_fp(cid, C))
+        {
+          case LEFT:     return false;
+          case UNDETERMINED: C->fingerprint.set_right(cid);
+          case RIGHT:    return true;
+          default: assert(0); __builtin_unreachable();
+        }
+      case UNDETERMINED: return true;
+      default: assert(0); __builtin_unreachable();
+    }
+  }
+
+  ChoiceState RuntimeState::read_fp(cid_type cid, Configuration * C)
+  {
+    return C->fingerprint.test(cid);
+  }
+
+
+  // void RuntimeState::pull_tab(Configuration * C)
+  // {
+  //   auto && state = C->callstack.state;
+  //   ChoiceNode * tgt = NodeU{state.cursor()->node}.choice;
+  //   Node * lhs = state.copy_spine(tgt->lhs);
+  //   Node * rhs = state.copy_spine(tgt->rhs);
+  //   Node * repl = ChoiceNode::create(tgt->cid, lhs, rhs);
+  //   C->root->node->rewrite(&Fwd_Info, repl);
+  //   C->reset();
+  // }
 
   // Set Functions
   Queue * RuntimeState::make_queue(sid_type sid)

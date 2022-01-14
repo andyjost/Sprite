@@ -24,6 +24,7 @@ namespace sprite
           this->spine.push_back(next);
         }
       }
+      this->realpath_.push_back(NOINDEX);
       this->data_.push_back(data);
     }
   }
@@ -37,7 +38,7 @@ namespace sprite
     else
     {
       auto && frame = this->stack.back();
-      this->realpath_.back() = frame.back().index;
+      this->_rpback() = frame.back().index;
       this->spine.back()     = frame.back().succ;
       frame.pop_back();
     }
@@ -46,6 +47,7 @@ namespace sprite
   void WalkState::pop()
   {
     this->stack.pop_back();
+    this->_rpback() = NOINDEX;
     this->realpath_.pop_back();
     this->spine.pop_back();
     if(this->dispose)

@@ -1,7 +1,9 @@
 #pragma once
 #include "sprite/fingerprint.hpp"
+#include "sprite/fingerprint.hpp"
 #include "sprite/graph/cursor.hpp"
 #include "sprite/state/callstack.hpp"
+#include <memory>
 
 namespace sprite
 {
@@ -32,12 +34,6 @@ namespace sprite
     static Configuration * create(Args && ... args)
       { return new Configuration(std::forward<Args>(args)...); }
 
-    void reset(Cursor root)
-    {
-      this->root = root;
-      this->callstack.reset(root);
-    }
-
     CallStack         callstack;
     Cursor            root;
     Fingerprint       fingerprint;
@@ -45,5 +41,8 @@ namespace sprite
     Bindings          bindings;
     Residuals         residuals;
     bool              escape_all;
+
+    std::unique_ptr<Configuration> clone(Cursor root);
+    void reset(Cursor root = Cursor());
   };
 }

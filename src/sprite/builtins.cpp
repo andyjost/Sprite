@@ -262,4 +262,27 @@ namespace sprite
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
+
+  static Node Fail_Node_{&Fail_Info};
+  Node * Fail_Node = &Fail_Node_;
+
+  static Node False_Node_{&False_Info};
+  Node * False_Node = &False_Node_;
+
+  static Node True_Node_{&True_Info};
+  Node * True_Node = &True_Node_;
+
+  static Node Nil_Node_{&Nil_Info};
+  Node * Nil_Node = &Nil_Node_;
+
+  static Node Unit_Node_{&Unit_Info};
+  Node * Unit_Node = &Unit_Node_;
+
+  Node * ChoiceNode::create(unboxed_int_type cid, Node * lhs, Node * rhs)
+  {
+    auto target = (void *) node_alloc(sizeof(ChoiceNode));
+    assert(target);
+    new(target) ChoiceNode{&Choice_Info, cid, lhs, rhs};
+    return (Node *) target;
+  }
 }
