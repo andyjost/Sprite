@@ -56,7 +56,7 @@ namespace sprite
   Cursor & Walk::root()
   {
     assert(*this);
-    return this->stack.front().cur;
+    return this->stack[1].cur;
   }
 
   Cursor & Walk::cursor()

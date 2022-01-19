@@ -92,8 +92,7 @@ namespace
       // values:
       //     '\0'    top expression first term
       //     ' '     top expression non-first term
-      //     '{'     parenthesized subexpr first term
-      //     '}'     parenthesized subexpr non-first term
+      //     '&'     parenthesized subexpr
       //     '('     tuple first term
       //     ')'     tuple non-first term
       //     '['     square list item
@@ -115,8 +114,7 @@ namespace
       {
         case '(':
         case ')':
-        case '{':
-        case '}': self->os << ')';
+        case '&': self->os << ')';
       }
     }
 
@@ -126,19 +124,20 @@ namespace
       {
         auto cur = state.cursor().skipfwd();
         void *& data = state.data();
+        bool bare = false;
         switch(Context(data).value)
         {
-          case '\0': data = Context(' '); break;
-          case ' ' : os << ' ';           break;
-          case '{' : data = Context('}'); break;
-          case '}' : os << ' ';           break;
-          case '(' : data = Context(')'); break;
-          case ')' : os << ", ";          break;
+          case '\0': bare = true; data = Context(' '); break;
+          case ' ' :
+          case '&' : os << ' ';                        break;
+          case '(' : bare = true; data = Context(')'); break;
+          case ')' : bare = true; os << ", ";          break;
 
           // Bracketed list.
-          case '[' : data = Context(']'); break;
+          case '[' : bare = true; data = Context(']'); break;
           case ']' :
             assert(cur.info()->typetag == LIST_TYPE);
+            bare = true;
             if(cur.info()->tag == T_CONS)
             {
               os << ", ";
@@ -183,12 +182,10 @@ namespace
         auto * info = cur.info();
         switch(info->tag)
         {
-          case T_FAIL: os << "failed";                    continue;
           case T_FREE: os << '_' << NodeU{cur}.free->vid; continue;
-          case T_FWD:  assert(0);                         continue;
         }
 
-        switch(cur.info()->typetag)
+        switch(info->typetag)
         {
           case INT_TYPE:
           case CHAR_TYPE:
@@ -204,16 +201,16 @@ namespace
             state.push(Context('('));
             continue;
           default:
-            if(cur.info()->arity)
+            if(!bare && info->arity)
             {
               os << '(';
-              os << cur.info()->name;
-              state.push(Context('{'));
+              os << info->name;
+              state.push(Context('&'));
             }
             else
             {
-              os << cur.info()->name;
-              state.push();
+              os << info->name;
+              state.push(Context(' '));
             }
             continue;
         }

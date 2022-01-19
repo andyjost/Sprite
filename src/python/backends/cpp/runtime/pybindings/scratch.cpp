@@ -105,18 +105,21 @@ namespace sprite { namespace python
 
   void eval()
   {
-    do_eval(int_(42));
-    do_eval(pair(int_(42), int_(7)));
-    do_eval(fwd(int_(5)));
-    do_eval(fwd(fwd(int_(6))));
-    do_eval(fwd(fwd(fwd(int_(7)))));
-    do_eval(fwd(pair(fwd(int_(42)), int_(7))));
-    do_eval(fail());
-    do_eval(fwd(fail()));
-    do_eval(pair(int_(3), fail()));
-    do_eval(pair(int_(3), fwd(fail())));
-    do_eval(choice(0, int_(1), int_(2)));
+    // do_eval(int_(42));
+    // do_eval(pair(int_(42), int_(7)));
+    // do_eval(fwd(int_(5)));
+    // do_eval(fwd(fwd(int_(6))));
+    // do_eval(fwd(fwd(fwd(int_(7)))));
+    // do_eval(fwd(pair(fwd(int_(42)), int_(7))));
+    // do_eval(fail());
+    // do_eval(fwd(fail()));
+    // do_eval(pair(int_(3), fail()));
+    // do_eval(pair(int_(3), fwd(fail())));
+    // do_eval(choice(0, int_(1), int_(2)));
     // do_eval(pair(int_(4), choice(0, int_(1), int_(2))));
+    auto goal = pair(int_(4), choice(0, int_(1), int_(2)));
+    std::cout << goal->str() << std::endl;
+    do_eval(goal);
   }
 
   void register_scratch(py::module_ mod)

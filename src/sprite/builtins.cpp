@@ -22,7 +22,7 @@ namespace sprite
     , /*alloc_size*/ sizeof(Node0)
     , /*typetag*/    NO_FLAGS
     , /*flags*/      NO_FLAGS
-    , /*name*/       "_Failure"
+    , /*name*/       "failed"
     , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
