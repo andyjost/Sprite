@@ -7,6 +7,7 @@
 #include "sprite/graph/memory.hpp"
 #include "sprite/graph/node.hpp"
 #include "sprite/graph/walk.hpp"
+#include "sprite/misc/unionfind.hpp"
 
 using namespace sprite;
 namespace py = pybind11;
@@ -119,6 +120,20 @@ namespace sprite { namespace python
     do_eval(pair(int_(4), choice(0, int_(1), int_(2))));
   }
 
+  void unionfind()
+  {
+    UnionFind uf;
+    std::cout << uf << std::endl;
+    uf.unite(2,3);
+    std::cout << uf << std::endl;
+    uf.unite(4,3);
+    std::cout << uf << std::endl;
+    uf.unite(7,2);
+    std::cout << uf << std::endl;
+    uf.unite(8,1);
+    std::cout << uf << std::endl;
+  }
+
   void register_scratch(py::module_ mod)
   {
     mod.def("hello", &hello);
@@ -127,5 +142,6 @@ namespace sprite { namespace python
     mod.def("copy", &copy);
     mod.def("show", &show);
     mod.def("eval", &eval);
+    mod.def("unionfind", &unionfind);
   }
 }}

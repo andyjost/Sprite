@@ -23,6 +23,7 @@ namespace sprite
   struct SetFunctionEval;
   struct StrictConstraints;
   struct Queue;
+  struct UnionFind;
 
   using cid_type = size_t;
   using flag_type = std::uint8_t;
