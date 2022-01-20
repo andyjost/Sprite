@@ -49,7 +49,7 @@ namespace sprite { namespace python
     Node * i7 = int_(7);
     Node * i42_7a = pair(i42, i7);
 
-    Arg copy42 = copy_node(i42).arg;
+    Arg copy42 = copy_node(i42);
     std::cout << "i42 == i42': " << logically_equal(i42, copy42.node) << "\n";
 
     Arg copyP = copy_graph(i42_7a).arg;
@@ -105,21 +105,18 @@ namespace sprite { namespace python
 
   void eval()
   {
-    // do_eval(int_(42));
-    // do_eval(pair(int_(42), int_(7)));
-    // do_eval(fwd(int_(5)));
-    // do_eval(fwd(fwd(int_(6))));
-    // do_eval(fwd(fwd(fwd(int_(7)))));
-    // do_eval(fwd(pair(fwd(int_(42)), int_(7))));
-    // do_eval(fail());
-    // do_eval(fwd(fail()));
-    // do_eval(pair(int_(3), fail()));
-    // do_eval(pair(int_(3), fwd(fail())));
-    // do_eval(choice(0, int_(1), int_(2)));
-    // do_eval(pair(int_(4), choice(0, int_(1), int_(2))));
-    auto goal = pair(int_(4), choice(0, int_(1), int_(2)));
-    std::cout << goal->str() << std::endl;
-    do_eval(goal);
+    do_eval(int_(42));
+    do_eval(pair(int_(42), int_(7)));
+    do_eval(fwd(int_(5)));
+    do_eval(fwd(fwd(int_(6))));
+    do_eval(fwd(fwd(fwd(int_(7)))));
+    do_eval(fwd(pair(fwd(int_(42)), int_(7))));
+    do_eval(fail());
+    do_eval(fwd(fail()));
+    do_eval(pair(int_(3), fail()));
+    do_eval(pair(int_(3), fwd(fail())));
+    do_eval(choice(0, int_(1), int_(2)));
+    do_eval(pair(int_(4), choice(0, int_(1), int_(2))));
   }
 
   void register_scratch(py::module_ mod)

@@ -8,7 +8,7 @@ namespace sprite
     , void * static_data
     , datadisposer_type dispose
     )
-    : stack({Frame{}, Frame{root}})
+    : stack({Frame{root}})
     , static_data(static_data), dispose(dispose)
   {
     assert(root);
@@ -16,22 +16,25 @@ namespace sprite
 
   Walk::operator bool() const
   {
-    return this->stack.size() > 1;
+    return !this->stack.empty();
   }
 
   void Walk::operator++()
   {
-    while(*this)
+    while(true)
     {
-      Frame & frame = this->stack.back();
-      ++frame.index;
-      if(!frame)
+      switch(this->stack.size())
+      {
+        case 1: this->pop();
+        case 0: return;
+      }
+      Frame & parent = *(this->stack.end() - 2);
+      ++parent.index;
+      if(parent.index >= parent.end)
         this->pop();
       else
       {
-        this->stack.emplace_back(
-            frame.cur->node->successor(frame.index)
-          );
+        this->stack.back().cur = parent.cur->node->successor(parent.index);
         return;
       }
     }
@@ -39,24 +42,24 @@ namespace sprite
 
   void Walk::push(void * data)
   {
-    Frame & frame = stack.back();
-    assert(frame.index == NOINDEX - 1);
-    ++frame.index;
-    frame.data = data;
+    Frame & parent = stack.back();
+    parent.index = NOINDEX;
+    parent.end = parent.cur.kind == 'p' ? parent.cur->node->info->arity : 0;
+    this->stack.emplace_back();
+    this->stack.back().data = data;
   }
 
   void Walk::pop()
   {
-    Frame & frame = this->stack.back();
-    if(this->dispose && frame.index < NOINDEX)
-      this->dispose(this->static_data, frame.data);
+    if(this->dispose)
+      this->dispose(this->static_data, this->stack.back().data);
     this->stack.pop_back();
   }
 
   Cursor & Walk::root()
   {
     assert(*this);
-    return this->stack[1].cur;
+    return this->stack.front().cur;
   }
 
   Cursor & Walk::cursor()
@@ -68,11 +71,19 @@ namespace sprite
   void *& Walk::data()
   {
     assert(*this);
-    return (this->stack.end() - 2)->data;
+    return this->stack.back().data;
   }
 
   Node * Walk::copy_spine(Node * end)
   {
-    return nullptr;
+    auto p = this->stack.rbegin() + 1;
+    auto e = this->stack.rend();
+    for(; p!=e; ++p)
+    {
+      Node * tmp = copy_node(p->cur->node);
+      *tmp->successor(p->index) = Arg(end);
+      end = tmp;
+    }
+    return end;
   }
 }

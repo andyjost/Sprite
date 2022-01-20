@@ -7,6 +7,7 @@ namespace sprite
   enum SkipOpt : bool { SKIPFWD = true, NOSKIPFWD = false };
 
   Expr copy_node(Cursor);
+  Node * copy_node(Node *);
 
   Expr copy_graph(
       Cursor

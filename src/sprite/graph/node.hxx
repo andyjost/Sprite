@@ -49,7 +49,7 @@ namespace sprite
   inline Node * Node::copy()
   {
     Node * self = this;
-    return copy_node(self).arg.node;
+    return copy_node(self);
   }
 
   inline Node * Node::deepcopy()

@@ -11,10 +11,15 @@ namespace sprite
   {
     if(expr.kind != 'p')
       return expr;
-    auto const alloc_size = expr.info()->alloc_size;
+    return Expr{copy_node(expr.arg->node), 'p'};
+  }
+
+  Node * copy_node(Node * node)
+  {
+    auto const alloc_size = node->info->alloc_size;
     char * copy = node_alloc(alloc_size);
-    std::memcpy(copy, expr.arg->node, alloc_size);
-    return Expr{(Node *) copy, expr.kind};
+    std::memcpy(copy, node, alloc_size);
+    return (Node *) copy;
   }
 
   namespace

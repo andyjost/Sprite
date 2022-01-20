@@ -8,7 +8,7 @@ namespace sprite
   struct Walk
   {
     Walk() {}
-    Walk(Cursor root, void * static_data=nullptr, datadisposer_type =nullptr);
+    Walk(Cursor root, void * static_data=nullptr, datadisposer_type=nullptr);
 
     explicit operator bool() const;
     void operator++();
@@ -27,20 +27,14 @@ namespace sprite
     struct Frame
     {
       Cursor cur;
-      void * data;
-      index_type index = NOINDEX - 1;
-      index_type end;
-
-      Frame(Cursor cur=Cursor(), void * data=nullptr)
-        : cur(cur), data(data)
-        , end(cur.kind == 'p' ? cur->node->info->arity : 0)
-      {}
-      explicit operator bool() const { return index < end; }
+      void * data = nullptr;
+      index_type index = (index_type)(-1);
+      index_type end = 0;
     };
 
-    std::vector<Frame>      stack;
-    void *                  static_data;
-    datadisposer_type       dispose;
+    std::vector<Frame> stack;
+    void *             static_data;
+    datadisposer_type  dispose;
   };
 
   template<typename ... Args>

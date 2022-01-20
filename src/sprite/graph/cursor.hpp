@@ -60,9 +60,13 @@ namespace sprite
                // 'c': unboxed char
                // 'u': undefined
 
-    Expr()                   : arg((Node *) nullptr), kind('u') {}
-    Expr(Cursor cur)         : arg(*cur.arg), kind(cur.kind) {}
-    Expr(Arg arg, char kind) : arg(arg), kind(kind) {}
+    Expr()                         : arg((Node *) nullptr), kind('u') {}
+    Expr(Cursor cur)               : arg(*cur.arg), kind(cur.kind) {}
+    Expr(Arg arg, char kind)       : arg(arg), kind(kind) {}
+    Expr(Node * node)              : arg(node), kind('p') {}
+    Expr(unboxed_int_type   value) : arg(value), kind('i') {}
+    Expr(unboxed_float_type value) : arg(value), kind('f') {}
+    Expr(unboxed_char_type  value) : arg(value), kind('c') {}
 
     explicit operator bool() const { return kind != 'u'; }
   };
