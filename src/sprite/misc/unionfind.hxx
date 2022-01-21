@@ -3,9 +3,9 @@
 
 namespace sprite
 {
-  inline cid_type UnionFind::root(cid_type i) const
+  inline id_type UnionFind::root(id_type i) const
   {
-    cid_type a_i = this->get(i);
+    id_type a_i = this->get(i);
     while(i != a_i)
     {
       i = this->set(i, this->get(a_i));
@@ -14,15 +14,15 @@ namespace sprite
     return i;
   }
 
-  inline bool UnionFind::find(cid_type i, cid_type j) const
+  inline bool UnionFind::find(id_type i, id_type j) const
   {
     return this->root(i) == this->root(j);
   }
 
-  inline void UnionFind::unite(cid_type p, cid_type q)
+  inline void UnionFind::unite(id_type p, id_type q)
   {
-    cid_type i = this->root(p);
-    cid_type j = this->root(q);
+    id_type i = this->root(p);
+    id_type j = this->root(q);
     this->increase_capacity(std::max(i, j));
     Item & I = this->data[i];
     Item & J = this->data[j];
@@ -38,7 +38,7 @@ namespace sprite
     }
   }
 
-  inline void UnionFind::increase_capacity(cid_type maxindex) const
+  inline void UnionFind::increase_capacity(id_type maxindex) const
   {
     size_t limit = maxindex + 1;
     size_t n = this->data.size();
@@ -50,14 +50,14 @@ namespace sprite
     }
   }
 
-  inline cid_type UnionFind::get(cid_type i) const
+  inline id_type UnionFind::get(id_type i) const
   {
     return (i < this->data.size())
         ? this->data[i].parent
         : i;
   }
 
-  inline cid_type UnionFind::set(cid_type i, cid_type j) const
+  inline id_type UnionFind::set(id_type i, id_type j) const
   {
     this->increase_capacity(i);
     return (this->data[i].parent = j);

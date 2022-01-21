@@ -1,4 +1,5 @@
 #include "sprite/state/configuration.hpp"
+#include "sprite/builtins.hpp"
 
 namespace sprite
 {

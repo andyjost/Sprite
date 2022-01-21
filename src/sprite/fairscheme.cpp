@@ -5,23 +5,18 @@
 
 namespace sprite
 {
-  Expr FairSchemeAlgo::eval()
+  Expr eval_next(RuntimeState * rts)
   {
-    // static void * procs[] = {&&procD, &&procN};
     Queue * Q = nullptr;
     Configuration * C = nullptr;
     Walk * state = nullptr;
     Cursor * cur;
     tag_type tag = NOTAG;
-    // cid_type cid = NOCID;
-
-  // jump:
-  //   goto *procs[0];
 
   procD:
+    Q = rts->Q();
     while(rts->ready())
     {
-      Q = &rts->Q();
       C = Q->front();
     redoD:
       tag = inspect::tag_of(C->root);

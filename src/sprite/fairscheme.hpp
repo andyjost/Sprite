@@ -4,14 +4,5 @@
 
 namespace sprite
 {
-  struct FairSchemeAlgo
-  {
-    FairSchemeAlgo(RuntimeState * rts)
-      : rts(rts)
-    {}
-
-    RuntimeState * rts;
-
-    Expr eval();
-  };
+  Expr eval_next(RuntimeState *);
 }

@@ -86,12 +86,11 @@ namespace sprite { namespace python
   {
     InterpreterState is;
     auto rts = RuntimeState(is, goal);
-    auto algo = FairSchemeAlgo(&rts);
     size_t n=0;
     std::cout << "*** EVAL: ";
     while(true)
     {
-      Expr result = algo.eval();
+      Expr result = eval_next(&rts);
       if(result)
       {
         ++n;
@@ -118,6 +117,9 @@ namespace sprite { namespace python
     do_eval(pair(int_(3), fwd(fail())));
     do_eval(choice(0, int_(1), int_(2)));
     do_eval(pair(int_(4), choice(0, int_(1), int_(2))));
+
+    Node * ch = choice(0, int_(1), int_(2));
+    do_eval(pair(ch, ch));
   }
 
   void unionfind()

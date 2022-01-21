@@ -12,12 +12,12 @@ namespace sprite
 
   struct InterpreterState : boost::noncopyable
   {
-    cid_type idfactory = 0;
+    id_type idfactory = 0;
     sid_type setfactory = 0;
   };
 
   using sftable_type = std::unordered_map<sid_type, SetFunctionEval*>;
-  using vtable_type = std::unordered_map<vid_type, Node*>;
+  using vtable_type = std::unordered_map<id_type, Node*>;
   using qstack_type = std::vector<Queue*>;
   using qtable_type = std::unordered_map<qid_type, Queue*>;
 
@@ -25,7 +25,7 @@ namespace sprite
   {
     RuntimeState(InterpreterState & istate, Cursor goal);
 
-    cid_type &   idfactory;
+    id_type &   idfactory;
     sid_type &   setfactory;
     size_t       stepcount   = 0;
     qstack_type  qstack;
@@ -36,23 +36,28 @@ namespace sprite
     qid_type qid() { return 0; } // FIXME
     sid_type const * sid() { return nullptr; } // FIXME
 
-    Queue & Q() { return *this->qtable[this->qid()]; }
-    Configuration * C() { return this->Q().front(); }
+    Queue * Q() { return this->qstack.back(); }
+    Configuration * C() { return this->Q()->front(); }
     Cursor & E() { return C()->root; }
 
-    bool ready();
-    Expr make_value();
-    Expr release_value();
+    // rts_control:
     void append(Configuration *);
     void drop(TraceOpt=TRACE);
-    void push_queue(Queue *, TraceOpt=TRACE);
-    Queue * make_queue(sid_type=NOSID);
+    Expr make_value();
+    bool ready();
+    Expr release_value();
     void set_goal(Cursor goal);
-    // void pull_tab(Configuration *);
+
+    // rts_fingerprint:
+    bool equate_fp(Configuration *, id_type, id_type);
     void forkD(Queue *);
     void forkN(Queue *);
-    bool update_fp(Configuration *, cid_type, ChoiceState);
-    ChoiceState read_fp(cid_type, Configuration *);
+    ChoiceState read_fp(Configuration *, id_type);
+    bool update_fp(Configuration *, id_type, ChoiceState);
+
+    // rts_setfunctions:
+    Queue * make_queue(sid_type=NOSID);
+    void push_queue(Queue *, TraceOpt=TRACE);
   };
 }
 

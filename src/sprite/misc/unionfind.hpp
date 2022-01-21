@@ -7,20 +7,20 @@ namespace sprite
 {
   struct UnionFind
   {
-    struct Item { cid_type parent; size_t size=1; };
+    struct Item { id_type parent; size_t size=1; };
     mutable std::vector<Item> data;
 
-    cid_type root(cid_type) const;
-    bool find(cid_type, cid_type) const;
-    void unite(cid_type, cid_type);
+    id_type root(id_type) const;
+    bool find(id_type, id_type) const;
+    void unite(id_type, id_type);
 
     friend std::ostream & operator<<(std::ostream &, UnionFind const &);
 
   private:
 
-    void increase_capacity(cid_type limit) const;
-    cid_type get(cid_type) const;
-    cid_type set(cid_type, cid_type) const;
+    void increase_capacity(id_type limit) const;
+    id_type get(id_type) const;
+    id_type set(id_type, id_type) const;
   };
 }
 

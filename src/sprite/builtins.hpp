@@ -66,8 +66,8 @@ namespace sprite
 
   struct FreeNode : Head
   {
-    vid_type vid;
-    Node *   genexpr;
+    id_type vid;
+    Node *  genexpr;
     static constexpr InfoTable const * static_info = &Free_Info;
   };
 
@@ -79,9 +79,9 @@ namespace sprite
 
   struct ChoiceNode : Head
   {
-    cid_type cid;
-    Node *   lhs;
-    Node *   rhs;
+    id_type cid;
+    Node *  lhs;
+    Node *  rhs;
     static constexpr InfoTable const * static_info = &Choice_Info;
   };
 
@@ -157,12 +157,12 @@ namespace sprite
   }
 
   inline Node * char_(unboxed_char_type x)   { return make_node<CharNode>(x); }
-  inline Node * choice(cid_type cid, Node * lhs, Node * rhs)
+  inline Node * choice(id_type cid, Node * lhs, Node * rhs)
       { return make_node<ChoiceNode>(cid, lhs, rhs); }
   inline Node * cons(Node * h, Node * t)     { return make_node<ConsNode>(h, t); }
   inline Node * fail()                       { return Fail_Node; }
   inline Node * float_(unboxed_float_type x) { return make_node<FloatNode>(x); }
-  inline Node * free(vid_type vid)           { return make_node<FreeNode>(vid, Unit_Node); }
+  inline Node * free(id_type vid)            { return make_node<FreeNode>(vid, Unit_Node); }
   inline Node * fwd(Node * tgt)              { return make_node<FwdNode>(tgt); }
   inline Node * int_(unboxed_int_type x)     { return make_node<IntNode>(x); }
   inline Node * nil()                        { return Nil_Node; }
