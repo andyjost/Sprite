@@ -34,7 +34,7 @@ namespace sprite
         case T_FWD    : C->reset(compress_fwd_chain(C->root)); goto redoD;
         case T_CHOICE : rts->forkD(Q); continue;
         case T_FUNC   :
-          status = rts->S(C, &Variable(C->callstack.search));
+          status = rts->S(C, Redex(C->callstack.search));
           switch(status)
           {
             case E_OK      : goto redoD;
@@ -65,7 +65,7 @@ namespace sprite
         case T_CHOICE : C->reset(rts->pull_tab(C, C->root));
                         goto procD;
         case T_FUNC   :
-          status = rts->S(C, &Variable(C->callstack.search));
+          status = rts->S(C, Redex(C->callstack.search));
           switch(status)
           {
             case E_OK      : goto redoN;
@@ -98,56 +98,46 @@ namespace sprite
   //   goto *l_ret;
   }
 
-  StepStatus RuntimeState::S(Configuration * C, Variable * _0)
+  StepStatus RuntimeState::S(Configuration * C, Redex const & redex)
   {
-    // Node * root = C->cursor()->node;
+    Redex * _0 = const_cast<Redex *>(&redex);
     std::cout << "S <<< " << _0->root()->str() << std::endl;
-    // Variable _0(&C->callstack.search);
-    auto status = root->info->step(this, C, _0);
+    auto status = _0->root()->info->step(this, C, _0);
     std::cout << "S >>> " << _0->root()->str() << std::endl;
     return status;
   }
 
   StepStatus RuntimeState::hnf(
-      Configuration * C, Variable * var
-    // , Node * root
-    // , std::initializer_list<index_type> path
+      Configuration * C, Variable * inductive
     // , Typedef const * typedef_, void const * values
     )
   {
-    StepStatus status = E_OK;
-    // Variable inductive(C->callstack.search, root, path);
-    // auto const ret = C->callstack.search.size();
-    // for(index_type i: path)
-    //   C->callstack.search.extend(i);
     while(true)
     {
-      // switch(inspect::tag_of(C->cursor()))
-       switch(inspect::tag_of(var->target()))
+      switch(inspect::tag_of(inductive->target()))
       {
         case T_SETGRD : assert(0); continue;
-        case T_FAIL   : var->root()->make_failure();
-                        status = E_UNWIND;
-                        goto exit;
+        case T_FAIL   : inductive->root()->make_failure();
+                        return E_UNWIND;
         case T_CONSTR : assert(0); continue;
         case T_FREE   : assert(0); continue;
-        // case T_FWD    : compress_fwd_chain(C->cursor());
-        case T_FWD    : compress_fwd_chain(var->target());
+        case T_FWD    : compress_fwd_chain(inductive->target());
                         continue;
-        case T_CHOICE : var->root()->forward_to(
-                            this->pull_tab(C, var->root())
+        case T_CHOICE : inductive->root()->forward_to(
+                            this->pull_tab(C, inductive->root())
                           );
-                        status = E_UNWIND;
-                        goto exit;
-        case T_FUNC   : status = this->S(C, &Variable(var);
-                        if(status != E_OK) goto exit; else continue;
+                        return E_UNWIND;
+        case T_FUNC   : switch(this->S(C, Redex(*inductive)))
+                        {
+                          case E_OK      : continue;
+                          case E_RESIDUAL: return E_RESIDUAL;
+                          case E_UNWIND  : return E_UNWIND;
+                          case E_RESTART : return E_RESTART;
+                        }
         case T_UNBOXED:
-        default       : status = E_OK; goto exit;
+        default       : return E_OK;
       }
     }
-  exit:
-    // C->callstack.search.resize(ret);
-    return status;
   }
 }
 

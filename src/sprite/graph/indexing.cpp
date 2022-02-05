@@ -54,6 +54,12 @@ namespace
       this->skip();
     }
 
+    RealpathResult & getresult()
+    {
+      this->result.realpath.push_back(NOINDEX);
+      return this->result;
+    }
+
     void skip()
     {
       while(true)
@@ -118,21 +124,21 @@ namespace sprite
   {
     RealPathIndexer indexer{root, update_fwd_nodes};
     indexer.advance(path);
-    return indexer.result;
+    return std::move(indexer.getresult());
   }
 
   RealpathResult realpath(Node * root, index_type const * path, bool update_fwd_nodes)
   {
     RealPathIndexer indexer{root, update_fwd_nodes};
     indexer.advance(path);
-    return indexer.result;
+    return std::move(indexer.getresult());
   }
 
   RealpathResult realpath(Node * root, index_type pos, bool update_fwd_nodes)
   {
     RealPathIndexer indexer{root, update_fwd_nodes};
     indexer.advance({pos});
-    return indexer.result;
+    return std::move(indexer.getresult());
   }
 
   Cursor subexpr(Node * root, index_type i)

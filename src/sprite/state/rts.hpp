@@ -42,11 +42,9 @@ namespace sprite
     Configuration * C() { return this->Q()->front(); }
     Cursor & E() { return C()->root; }
 
-    StepStatus S(Configuration *, Variable *);
+    StepStatus S(Configuration *, Redex const &);
     StepStatus hnf(
         Configuration *, Variable * inductive
-      // , Node * root
-      // , std::initializer_list<index_type> path
       // , Typedef const * = nullptr, void const * values = nullptr
       );
 

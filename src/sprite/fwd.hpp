@@ -9,6 +9,7 @@ namespace sprite
   struct Cursor;
   struct Expr;
   struct Node;
+  struct Redex;
   struct Variable;
   union Arg;
 
@@ -33,7 +34,7 @@ namespace sprite
   using qid_type = size_t;
   using sid_type = size_t;
   using std::size_t;
-  using stepfunc_type = StepStatus (*)(RuntimeState *, Configuration *, Variable *);
+  using stepfunc_type = StepStatus (*)(RuntimeState *, Configuration *, Redex *);
   using tag_type = int16_t;
   using typecheckfunc_type = void (*)(Node *);
   using unboxed_char_type = signed char;

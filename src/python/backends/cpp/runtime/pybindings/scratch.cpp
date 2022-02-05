@@ -138,7 +138,7 @@ namespace sprite { namespace python
     std::cout << uf << std::endl;
   }
 
-  StepStatus main42_step(RuntimeState * rts, Configuration * C, Variable * _0)
+  StepStatus main42_step(RuntimeState * rts, Configuration * C, Redex * _0)
   {
     auto i42 = int_(42);
     _0->root()->forward_to(i42);

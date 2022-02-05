@@ -8,7 +8,7 @@ namespace sprite
 {
   struct RealpathResult
   {
-    Cursor                  target;
+    mutable Cursor          target;
     std::vector<index_type> realpath;
     std::vector<sid_type>   guards;
   };

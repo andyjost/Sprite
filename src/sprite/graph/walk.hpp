@@ -15,6 +15,7 @@ namespace sprite
     void pop();
     void push(void * data=nullptr);
     void extend(index_type pos);
+    void extend(index_type const * path);
 
     size_t size() const { return this->stack.size(); }
     void resize(size_t n) { this->stack.resize(n); }
@@ -24,7 +25,6 @@ namespace sprite
     Cursor & at(size_t n) const { return this->stack[n].cur; }
     void *& data() const;
 
-    // Node * copy_spine(size_t start, Node * end);
     Node * copy_spine(Node * root, Node * end);
 
   private:

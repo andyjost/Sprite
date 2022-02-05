@@ -46,7 +46,6 @@ namespace sprite
     parent.index = NOINDEX;
     parent.end = parent.cur.kind == 'p' ? parent.cur->node->info->arity : 0;
     this->stack.emplace_back(data);
-    // this->stack.back().data = data;
   }
 
   void Walk::extend(index_type pos)
@@ -56,8 +55,13 @@ namespace sprite
     parent.end = pos + 1;
     Cursor succ = parent.cur->node->successor(pos);
     this->stack.emplace_back(succ);
-    // this->stack.back().cur = succ;
-    // this->stack.back().data = data;
+  }
+
+  void Walk::extend(index_type const * path)
+  {
+    if(path)
+      while(*path != NOINDEX)
+        this->extend(*path++);
   }
 
   void Walk::pop()

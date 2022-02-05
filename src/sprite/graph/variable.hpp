@@ -1,32 +1,49 @@
 #pragma once
+#include <list>
+#include "sprite/fwd.hpp"
 #include "sprite/graph/indexing.hpp"
 #include "sprite/graph/walk.hpp"
 
 namespace sprite
 {
-  struct Variable
+  struct Redex
   {
-    Variable(Walk & search) : search(&search), ret(search->size()) {}
-
-    Variable(Variable * parent, index_type pos)
-      : Variable(*parent, pos)
-    {}
-
-    Variable(Variable & parent, index_type pos)
-      : search(parent.search)
-      , ret(parent.search->size())
-      , pathdata(sprite::realpath(this->root(), pos))
-    {}
+    Redex(Walk & search) : search(&search), ret(search.size()) {}
+    explicit Redex(Variable const &);
+    ~Redex() { this->search->resize(this->ret); }
 
     Walk * search;
     size_t ret;
+
+    Node * root() const { return this->search->at(this->ret - 1)->node; }
+  };
+
+  struct Variable
+  {
+    Variable(Redex const & parent, index_type pos)
+      : redex(&parent)
+      , pathdata(sprite::realpath(parent.root(), pos))
+    {}
+
+    Variable(Variable const & parent, index_type pos)
+      : redex(parent.redex)
+      , pathdata(sprite::realpath(parent.target(), pos))
+    {}
+
+    Redex const * redex;
     RealpathResult pathdata;
 
-    Node * root() { return search->at(this->ret - 1)->node; }
-    Cursor & target() { return pathdata.target; }
-    std::vector<index_type> & realpath() { return pathdata.realpath; }
-    std::vector<sid_type> & guards() { return pathdata.guards; }
-
-    Node * rvalue() { return this->target()->node; }
+    Node * root() const { return this->redex->root(); }
+    Cursor & target() const { return pathdata.target; }
+    std::vector<index_type> const & realpath() { return pathdata.realpath; }
+    std::vector<sid_type> const & guards() { return pathdata.guards; }
+    Node * rvalue() const { return this->target()->node; }
   };
+
+  inline Redex::Redex(Variable const & var)
+    : search(var.redex->search)
+  {
+    this->search->extend(var.pathdata.realpath.data());
+    this->ret = this->search->size();
+  }
 }
