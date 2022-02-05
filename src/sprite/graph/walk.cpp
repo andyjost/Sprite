@@ -45,8 +45,19 @@ namespace sprite
     Frame & parent = stack.back();
     parent.index = NOINDEX;
     parent.end = parent.cur.kind == 'p' ? parent.cur->node->info->arity : 0;
-    this->stack.emplace_back();
-    this->stack.back().data = data;
+    this->stack.emplace_back(data);
+    // this->stack.back().data = data;
+  }
+
+  void Walk::extend(index_type pos)
+  {
+    Frame & parent = stack.back();
+    parent.index = pos;
+    parent.end = pos + 1;
+    Cursor succ = parent.cur->node->successor(pos);
+    this->stack.emplace_back(succ);
+    // this->stack.back().cur = succ;
+    // this->stack.back().data = data;
   }
 
   void Walk::pop()
@@ -56,33 +67,36 @@ namespace sprite
     this->stack.pop_back();
   }
 
-  Cursor & Walk::root()
+  Cursor & Walk::root() const
   {
     assert(*this);
     return this->stack.front().cur;
   }
 
-  Cursor & Walk::cursor()
+  Cursor & Walk::cursor() const
   {
     assert(*this);
     return this->stack.back().cur;
   }
 
-  void *& Walk::data()
+  void *& Walk::data() const
   {
     assert(*this);
     return this->stack.back().data;
   }
 
-  Node * Walk::copy_spine(Node * end)
+  Node * Walk::copy_spine(Node * root, Node * end)
   {
     auto p = this->stack.rbegin() + 1;
     auto e = this->stack.rend();
+    assert(p<=e);
     for(; p!=e; ++p)
     {
       Node * tmp = copy_node(p->cur->node);
       *tmp->successor(p->index) = Arg(end);
       end = tmp;
+      if(p->cur->node == root)
+        break;
     }
     return end;
   }

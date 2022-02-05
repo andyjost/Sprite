@@ -3,10 +3,9 @@
 
 namespace sprite
 {
-  void Configuration::reset(Cursor root)
+  void Configuration::reset(Node * root)
   {
-    if(root)
-      this->root = root;
+    *(this->root) = root;
     this->callstack.reset(this->root);
   }
 }

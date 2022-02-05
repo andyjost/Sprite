@@ -1,3 +1,4 @@
+#include "sprite/builtins.hpp"
 #include "sprite/fingerprint.hpp"
 #include "sprite/state/rts.hpp"
 
@@ -26,18 +27,27 @@ namespace sprite
     Q->pop_front();
   }
 
-  void RuntimeState::forkN(Queue * Q)
+  Node * RuntimeState::pull_tab(Configuration * C, Node * root)
   {
-    assert(Q == this->Q());
-    Configuration * C = Q->front();
-    auto && state = C->callstack.state;
-    ChoiceNode * tgt = NodeU{state.cursor()->node}.choice;
-    Node * lhs = state.copy_spine(tgt->lhs);
-    Node * rhs = state.copy_spine(tgt->rhs);
-    Node * repl = make_node<ChoiceNode>(tgt->cid, lhs, rhs);
-    C->root->node->forward_to(repl);
-    C->reset();
+    auto & search = C->callstack.search;
+    ChoiceNode * target = NodeU{search.cursor()->node}.choice;
+    Node * lhs = search.copy_spine(root, target->lhs);
+    Node * rhs = search.copy_spine(root, target->rhs);
+    Node * repl = make_node<ChoiceNode>(target->cid, lhs, rhs);
+    return repl;
+    // C->reset(&repl);
   }
+
+  // void RuntimeState::pull_tabS(Configuration * C, Node * root)
+  // {
+  //   assert(root->info->tag == T_FUNC);
+  //   auto & search = C->callstack.search;
+  //   ChoiceNode * target = NodeU{search.cursor()->node}.choice;
+  //   Node * lhs = search.copy_spine(root, target->lhs);
+  //   Node * rhs = search.copy_spine(root, target->rhs);
+  //   Node * replacement = choice(target->cid, lhs, rhs);
+  //   root->forward_to(replacement);
+  // }
 
   ChoiceState RuntimeState::read_fp(Configuration * C, id_type cid)
   {

@@ -56,7 +56,8 @@ namespace sprite
     Residuals         residuals;
     bool              escape_all = false;
 
-    void reset(Cursor root = Cursor());
+    Cursor & cursor() const { return this->callstack.search.cursor(); }
+    void reset(Node * root);
     id_type grp_id(id_type id) { return this->strict_constraints->root(id); }
   };
 

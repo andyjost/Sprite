@@ -6,9 +6,9 @@ namespace sprite
 {
   Cursor compress_fwd_chain(Cursor cur)
   {
-    return cur.kind == 'p'
-        ? Cursor(*compress_fwd_chain(&cur->node))
-        : cur;
+    if(cur.kind == 'p')
+      *cur = *compress_fwd_chain(&cur->node);
+    return cur;
   }
 
   Node ** compress_fwd_chain(Node ** begin)
@@ -90,7 +90,7 @@ namespace
     void advance(index_type i)
     {
       Node * parent_ = this->result.target;
-      this->result.target = this->parent->successor(i);
+      this->result.target = parent_->successor(i);
       this->parent = parent_;
       this->result.realpath.push_back(i);
       this->skip();
@@ -101,15 +101,37 @@ namespace
       while(*path != NOINDEX)
         advance(*path++);
     }
+
+    void advance(std::initializer_list<index_type> path)
+    {
+      for(index_type pos: path)
+        advance(pos);
+    }
   };
 }
 
 namespace sprite
 {
+  RealpathResult realpath(
+      Node * root, std::initializer_list<index_type> path, bool update_fwd_nodes
+    )
+  {
+    RealPathIndexer indexer{root, update_fwd_nodes};
+    indexer.advance(path);
+    return indexer.result;
+  }
+
   RealpathResult realpath(Node * root, index_type const * path, bool update_fwd_nodes)
   {
     RealPathIndexer indexer{root, update_fwd_nodes};
     indexer.advance(path);
+    return indexer.result;
+  }
+
+  RealpathResult realpath(Node * root, index_type pos, bool update_fwd_nodes)
+  {
+    RealPathIndexer indexer{root, update_fwd_nodes};
+    indexer.advance({pos});
     return indexer.result;
   }
 

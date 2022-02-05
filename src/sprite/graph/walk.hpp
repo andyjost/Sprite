@@ -12,15 +12,20 @@ namespace sprite
 
     explicit operator bool() const;
     void operator++();
-
     void pop();
     void push(void * data=nullptr);
+    void extend(index_type pos);
 
-    Cursor & root();
-    Cursor & cursor();
-    void *& data();
+    size_t size() const { return this->stack.size(); }
+    void resize(size_t n) { this->stack.resize(n); }
 
-    Node * copy_spine(Node * end);
+    Cursor & root() const;
+    Cursor & cursor() const;
+    Cursor & at(size_t n) const { return this->stack[n].cur; }
+    void *& data() const;
+
+    // Node * copy_spine(size_t start, Node * end);
+    Node * copy_spine(Node * root, Node * end);
 
   private:
 
@@ -30,11 +35,17 @@ namespace sprite
       void * data = nullptr;
       index_type index = (index_type)(-1);
       index_type end = 0;
+
+      Frame() {}
+      Frame(void * data) : data(data) {}
+      Frame(Cursor const & cur, void * data=nullptr)
+        : cur(cur), data(data)
+      {}
     };
 
-    std::vector<Frame> stack;
-    void *             static_data;
-    datadisposer_type  dispose;
+    mutable std::vector<Frame> stack;
+    void *                     static_data;
+    datadisposer_type          dispose;
   };
 
   template<typename ... Args>

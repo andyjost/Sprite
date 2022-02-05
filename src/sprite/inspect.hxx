@@ -5,8 +5,12 @@ namespace sprite { namespace inspect
 {
   inline bool isa_setguard(Node * node)
   {
-    // FIXME
-    return true;
+    return node->info->tag == T_SETGRD;
+  }
+
+  inline bool isa_choice(Node * node)
+  {
+    return node->info->tag == T_CHOICE;
   }
 
   inline Cursor fwd_target(Cursor arg)
@@ -14,7 +18,7 @@ namespace sprite { namespace inspect
     if(arg.kind != 'p' || arg->node->info->tag != T_FWD)
       return Cursor();
     else
-      return NodeU{arg}.fwd->target;
+      return NodeU{arg->node}.fwd->target;
   }
 
   inline Cursor fwd_chain_target(Cursor arg)
@@ -27,6 +31,14 @@ namespace sprite { namespace inspect
       else
         arg = after;
     }
+  }
+
+  inline id_type get_choice_id(Node * node)
+  {
+    if(isa_choice(node))
+      return NodeU{node}.choice->cid;
+    else
+      return NOCID;
   }
 
   inline sid_type get_set_id(Node * node)

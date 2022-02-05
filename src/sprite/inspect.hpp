@@ -4,9 +4,11 @@
 namespace sprite { namespace inspect
 {
   bool isa_setguard(Node *);
+  bool isa_choice(Node *);
   Cursor fwd_target(Cursor);
   Cursor fwd_chain_target(Cursor);
   sid_type get_set_id(Node *);
+  id_type get_choice_id(Node *);
   Cursor get_setguard_value(Node *);
 
   tag_type tag_of(Node *);

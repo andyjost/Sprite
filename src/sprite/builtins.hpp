@@ -3,7 +3,6 @@
 #include "sprite/graph/infotable.hpp"
 #include "sprite/graph/memory.hpp"
 #include "sprite/fwd.hpp"
-// #include "sprite/graph/node.hpp"
 
 namespace sprite
 {

@@ -1,14 +1,21 @@
 #pragma once
 #include "sprite/graph/walk.hpp"
 #include <utility>
+#include <vector>
 
 namespace sprite
 {
   struct CallStack
   {
-    CallStack(Cursor root) : state(root) {}
-    Walk state;
+    CallStack(Cursor root) : search(root) {}
 
-    void reset(Cursor root) { this->state = Walk(root); }
+    Walk search;
+
+    // size_t search_depth() const { return this->search.size(); }
+
+    void reset(Cursor root)
+    {
+      this->search = Walk(root);
+    }
   };
 }

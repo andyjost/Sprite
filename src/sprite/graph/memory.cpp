@@ -11,7 +11,7 @@ namespace sprite
   void node_free(char * px)
     { std::free(px); }
 
-  Arg * pack(char * out, char const *format, Arg * args)
+  Arg const * pack(char * out, char const *format, Arg const * args)
   {
     RawNodeMemory mem{out};
     for(; *format; ++format)

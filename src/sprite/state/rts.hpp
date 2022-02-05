@@ -1,10 +1,12 @@
 #pragma once
+#include "boost/utility.hpp"
+#include <initializer_list>
 #include "sprite/fwd.hpp"
+#include "sprite/graph/variable.hpp"
 #include "sprite/state/configuration.hpp"
 #include "sprite/state/queue.hpp"
 #include <unordered_map>
 #include <vector>
-#include "boost/utility.hpp"
 
 namespace sprite
 {
@@ -40,6 +42,14 @@ namespace sprite
     Configuration * C() { return this->Q()->front(); }
     Cursor & E() { return C()->root; }
 
+    StepStatus S(Configuration *, Variable *);
+    StepStatus hnf(
+        Configuration *, Variable * inductive
+      // , Node * root
+      // , std::initializer_list<index_type> path
+      // , Typedef const * = nullptr, void const * values = nullptr
+      );
+
     // rts_control:
     void append(Configuration *);
     void drop(TraceOpt=TRACE);
@@ -51,7 +61,7 @@ namespace sprite
     // rts_fingerprint:
     bool equate_fp(Configuration *, id_type, id_type);
     void forkD(Queue *);
-    void forkN(Queue *);
+    Node * pull_tab(Configuration *, Node * root);
     ChoiceState read_fp(Configuration *, id_type);
     bool update_fp(Configuration *, id_type, ChoiceState);
 

@@ -1,4 +1,5 @@
 #pragma once
+#include <initializer_list>
 #include <iosfwd>
 #include "sprite/fwd.hpp"
 #include <string>
@@ -9,9 +10,12 @@ namespace sprite
   {
     InfoTable const * info;
 
-    static Node * create(InfoTable const *, Arg * = nullptr, Node * target=nullptr);
-    // Node * rewrite(InfoTable const *, Arg * = nullptr);
+    static Node * create(InfoTable const *, Arg const * = nullptr, Node * target=nullptr);
+    static Node * create(InfoTable const *, std::initializer_list<Arg>, Node * target=nullptr);
     void forward_to(Node * target);
+    void make_failure();
+    void make_nil();
+    void make_unit();
 
     // Copy.
     Node * copy();

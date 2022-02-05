@@ -1,6 +1,7 @@
 #pragma once
-#include "sprite/graph/memory.hpp"
+#include <initializer_list>
 #include "sprite/graph/cursor.hpp"
+#include "sprite/graph/memory.hpp"
 #include <vector>
 
 namespace sprite
@@ -19,7 +20,9 @@ namespace sprite
       Node *, index_type const *, bool update_fwd_nodes=true
     );
 
+  RealpathResult realpath(Node *, std::initializer_list<index_type>, bool update_fwd_nodes=true);
   RealpathResult realpath(Node *, index_type const *, bool update_fwd_nodes=true);
+  RealpathResult realpath(Node *, index_type, bool update_fwd_nodes=true);
 
   Cursor subexpr(Node *, index_type const *);
   Cursor subexpr(Cursor, index_type);

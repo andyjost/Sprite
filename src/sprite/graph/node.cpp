@@ -7,7 +7,7 @@
 namespace sprite
 {
   Node * Node::create(
-      InfoTable const * info, Arg * args, Node * target
+      InfoTable const * info, Arg const * args, Node * target
     )
   {
     if(!target)

@@ -22,7 +22,7 @@ namespace sprite
 
   // Pack arguments according to the format string.  Returns the position of
   // the first argument not processed.
-  Arg * pack(char * out, char const * format, Arg * args);
+  Arg const * pack(char * out, char const * format, Arg const * args);
 
   // Compute the number of bytes needed to hold the given format string, up to
   // the specified number of arguments.

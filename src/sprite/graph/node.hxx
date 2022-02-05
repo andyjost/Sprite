@@ -9,16 +9,38 @@
 
 namespace sprite
 {
-  // inline Node * Node::rewrite(InfoTable const * info, Arg * args)
-  // {
-  //   return create(info, args, this);
-  // }
+  inline Node * Node::create(
+      InfoTable const * info
+    , std::initializer_list<Arg> args
+    , Node * target
+    )
+  {
+    return Node::create(info, std::data(args), target);
+  }
 
   inline void Node::forward_to(Node * target)
   {
 		assert(target);
 		new(this) FwdNode{&Fwd_Info, target};
 	}
+
+  inline void Node::make_failure()
+  {
+    if(this->info != &Fail_Info)
+      this->forward_to(fail());
+  }
+
+  inline void Node::make_nil()
+  {
+    if(this->info != &Nil_Info)
+      this->forward_to(nil());
+  }
+
+  inline void Node::make_unit()
+  {
+    if(this->info != &Unit_Info)
+      this->forward_to(unit());
+  }
 
   inline std::string Node::str()
   {

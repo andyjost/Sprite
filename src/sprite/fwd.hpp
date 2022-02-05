@@ -9,6 +9,7 @@ namespace sprite
   struct Cursor;
   struct Expr;
   struct Node;
+  struct Variable;
   union Arg;
 
   struct InfoTable;
@@ -22,6 +23,8 @@ namespace sprite
   struct Queue;
   struct UnionFind;
 
+  enum StepStatus { E_OK, E_UNWIND, E_RESIDUAL, E_RESTART };
+
   using flag_type = std::uint8_t;
   using hash_type = std::size_t;
   using id_type = size_t;
@@ -30,7 +33,7 @@ namespace sprite
   using qid_type = size_t;
   using sid_type = size_t;
   using std::size_t;
-  using stepfunc_type = void (*)(RuntimeState *, Node *);
+  using stepfunc_type = StepStatus (*)(RuntimeState *, Configuration *, Variable *);
   using tag_type = int16_t;
   using typecheckfunc_type = void (*)(Node *);
   using unboxed_char_type = signed char;

@@ -6,6 +6,7 @@
 #include "sprite/graph/equality.hpp"
 #include "sprite/graph/memory.hpp"
 #include "sprite/graph/node.hpp"
+#include "sprite/graph/variable.hpp"
 #include "sprite/graph/walk.hpp"
 #include "sprite/misc/unionfind.hpp"
 
@@ -120,6 +121,7 @@ namespace sprite { namespace python
 
     Node * ch = choice(0, int_(1), int_(2));
     do_eval(pair(ch, ch));
+
   }
 
   void unionfind()
@@ -136,6 +138,39 @@ namespace sprite { namespace python
     std::cout << uf << std::endl;
   }
 
+  StepStatus main42_step(RuntimeState * rts, Configuration * C, Variable * _0)
+  {
+    auto i42 = int_(42);
+    _0->root()->forward_to(i42);
+    return E_OK;
+  }
+
+  InfoTable const Main42_Info{
+      /*tag*/        T_FUNC
+    , /*arity*/      0
+    , /*alloc_size*/ sizeof(Node1)
+    , /*typetag*/    NO_FLAGS
+    , /*flags*/      NO_FLAGS
+    , /*name*/       "main"
+    , /*format*/     ""
+    , /*step*/       &main42_step
+    , /*typecheck*/  nullptr
+    , /*typedef*/    nullptr
+    };
+
+  struct Main42Node : Node1
+  {
+    static constexpr InfoTable const * static_info = &Main42_Info;
+  };
+  
+  Node * make_zip_goal();
+
+  void eval2()
+  {
+    // do_eval(make_node<Main42Node>());
+    do_eval(make_zip_goal());
+  }
+
   void register_scratch(py::module_ mod)
   {
     mod.def("hello", &hello);
@@ -144,6 +179,7 @@ namespace sprite { namespace python
     mod.def("copy", &copy);
     mod.def("show", &show);
     mod.def("eval", &eval);
+    mod.def("eval2", &eval2);
     mod.def("unionfind", &unionfind);
   }
 }}
