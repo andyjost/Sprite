@@ -114,7 +114,8 @@ namespace
       {
         case '(':
         case ')':
-        case '&': self->os << ')';
+        case '&': self->os << ')'; break;
+        case '[': self->os << ']'; break;
       }
     }
 
@@ -240,16 +241,18 @@ namespace
     {
       Node * end = cur->node;
       bool is_string = true;
+      bool is_empty = true;
       while(end && end->info->typetag == LIST_TYPE && end->info->tag == T_CONS)
       {
         auto cons = NodeU{end}.cons;
         is_string = is_string
             && (cons->head && cons->head->info->typetag == CHAR_TYPE);
         end = cons->tail;
+        is_empty = false;
       }
       if(end && end->info->typetag == LIST_TYPE)
       {
-        if(is_string)
+        if(is_string && !is_empty)
         {
           this->os << '"';
           state.push(Context('"'));
