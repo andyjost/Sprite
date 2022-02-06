@@ -16,4 +16,16 @@ namespace sprite
   // Cursor
   inline InfoTable const * Cursor::info() const
     { return arg && arg->head ? arg->head->info : nullptr; }
+
+  // Values
+  inline bool Values::is_builtin() const
+  {
+    switch(this->kind)
+    {
+      case 'i':
+      case 'f':
+      case 'c': return true;
+      default : return false;
+    }
+  }
 }

@@ -1,3 +1,4 @@
+#include <cassert>
 #include "sprite/state/rts.hpp"
 
 namespace sprite
@@ -24,5 +25,40 @@ namespace sprite
     if(vid != gid)
       if(C->bindings->count(vid))
         this->add_binding(C, gid, this->get_binding(C, vid));
+  }
+
+  struct ValueBindingsMaker
+  {
+    ValueBindingsMaker(RuntimeState * rts, Node * freevar, InfoTable const * info)
+      : rts(rts), freevar(freevar), info(info)
+    {}
+
+    RuntimeState *    rts;
+    Node *            freevar;
+    InfoTable const * info;
+
+    Node * make(Arg * data, size_t size) const
+    {
+      assert(size);
+      if(size==1)
+      {
+        Node * value = Node::create(this->info, {data[0]});
+        Node * binding = pair(freevar, value);
+        return Node::create(&ValueBinding_Info, {value, binding});
+      }
+      else
+      {
+        id_type const cid = rts->idfactory++;
+        Node * left = this->make(data, size/2);
+        Node * right = this->make(data+size/2, size/2);
+        return choice(cid, left, right);
+      }
+    }
+  };
+
+  Node * RuntimeState::make_value_bindings(Node * freevar, Values const * values)
+  {
+    ValueBindingsMaker maker(this, freevar, builtin_info(values->kind));
+    return maker.make(values->args, values->size);
   }
 }

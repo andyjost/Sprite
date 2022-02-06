@@ -13,19 +13,29 @@ namespace sprite
     id_type            cid;
     void *             blob;
     Head *             head;
+    InfoTable const *  info;
 
-    Arg(Node * value=nullptr) : node(value) {}
-    Arg(int16_t value)        : ub_int(value) {}
-    Arg(int32_t value)        : ub_int(value) {}
-    Arg(int64_t value)        : ub_int(value) {}
-    Arg(id_type value)        : cid(value) {}
-    Arg(float value)          : ub_float(value) {}
-    Arg(double value)         : ub_float(value) {}
-    Arg(char value)           : ub_char(value) {}
-    Arg(signed char value)    : ub_char(value) {}
-    Arg(unsigned char value)  : ub_char(value) {}
+    Arg(Node * value=nullptr)    : node(value)     {}
+    Arg(int16_t value)           : ub_int(value)   {}
+    Arg(int32_t value)           : ub_int(value)   {}
+    Arg(int64_t value)           : ub_int(value)   {}
+    Arg(id_type value)           : cid(value)      {}
+    Arg(float value)             : ub_float(value) {}
+    Arg(double value)            : ub_float(value) {}
+    Arg(char value)              : ub_char(value)  {}
+    Arg(signed char value)       : ub_char(value)  {}
+    Arg(unsigned char value)     : ub_char(value)  {}
+    Arg(InfoTable const * value) : info(value)     {}
 
     template<typename T> Arg & operator=(T &&);
+  };
+
+  struct Values
+  {
+    Arg *      args;
+    index_type size;
+    char       kind; // Int:'i', Float:'f', Char:'c', Typedef:'t'
+    bool is_builtin() const;
   };
 
   struct Cursor

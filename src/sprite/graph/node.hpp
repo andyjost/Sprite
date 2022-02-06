@@ -12,6 +12,7 @@ namespace sprite
 
     static Node * create(InfoTable const *, Arg const * = nullptr, Node * target=nullptr);
     static Node * create(InfoTable const *, std::initializer_list<Arg>, Node * target=nullptr);
+    static Node * create(InfoTable const *, id_type & idfactory);
     void forward_to(Node * target);
     void make_failure();
     void make_nil();

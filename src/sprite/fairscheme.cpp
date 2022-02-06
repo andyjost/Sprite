@@ -29,12 +29,12 @@ namespace sprite
         case T_SETGRD : assert(0); continue;
         case T_FAIL   : rts->drop(); continue;
         case T_CONSTR : assert(0); continue;
-        case T_FREE   : if(!rts->replace_freevar(C, C->root))
-                          return rts->release_value();
+        case T_FREE   : if(rts->replace_freevar(C))
+                          goto redoD;
                         else
-                          continue;
+                          return rts->release_value();
         case T_FWD    : C->reset(compress_fwd_chain(C->root)); goto redoD;
-        case T_CHOICE : rts->forkD(Q); continue;
+        case T_CHOICE : rts->fork(Q); continue;
         case T_FUNC   :
           status = rts->S(C, Redex(C->callstack.search));
           switch(status)
@@ -62,7 +62,7 @@ namespace sprite
         case T_SETGRD : assert(0); continue;
         case T_FAIL   : rts->drop(); goto procD;
         case T_CONSTR : assert(0); continue;
-        case T_FREE   : assert(0); continue;
+        case T_FREE   : if(rts->replace_freevar(C)) goto redoD; else goto redoN;
         case T_FWD    : compress_fwd_chain(*cur); goto redoN;
         case T_CHOICE : C->reset(rts->pull_tab(C, C->root));
                         goto procD;
@@ -93,10 +93,10 @@ namespace sprite
   }
 
   StepStatus RuntimeState::hnf(
-      Configuration * C, Variable * inductive
-    // , Typedef const * typedef_, void const * values
+      Configuration * C, Variable * inductive, Values const * values
     )
   {
+    StepStatus status = E_OK;
     while(true)
     {
       switch(inspect::tag_of(inductive->target()))
@@ -105,20 +105,18 @@ namespace sprite
         case T_FAIL   : inductive->root()->make_failure();
                         return E_UNWIND;
         case T_CONSTR : assert(0); continue;
-        case T_FREE   : assert(0); continue;
+        case T_FREE   : status = this->replace_freevar(
+                            C, inductive->target(), values
+                          );
+                        if(status == E_OK) continue; else return status;
         case T_FWD    : compress_fwd_chain(inductive->target());
                         continue;
         case T_CHOICE : inductive->root()->forward_to(
                             this->pull_tab(C, inductive->root())
                           );
                         return E_UNWIND;
-        case T_FUNC   : switch(this->S(C, Redex(*inductive)))
-                        {
-                          case E_OK      : continue;
-                          case E_RESIDUAL: return E_RESIDUAL;
-                          case E_UNWIND  : return E_UNWIND;
-                          case E_RESTART : return E_RESTART;
-                        }
+        case T_FUNC   : status = this->S(C, Redex(*inductive));
+                        if(status == E_OK) continue; else return status;
         case T_UNBOXED:
         default       : return E_OK;
       }

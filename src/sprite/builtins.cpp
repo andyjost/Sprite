@@ -13,7 +13,7 @@ namespace sprite
     , /*format*/     "ip"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const Fail_Info{
@@ -26,7 +26,7 @@ namespace sprite
     , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const StrictConstraint_Info{
@@ -39,7 +39,7 @@ namespace sprite
     , /*format*/     "pp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const NonStrictConstraint_Info{
@@ -52,7 +52,7 @@ namespace sprite
     , /*format*/     "pp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const ValueBinding_Info{
@@ -65,7 +65,7 @@ namespace sprite
     , /*format*/     "pp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const Free_Info{
@@ -78,7 +78,7 @@ namespace sprite
     , /*format*/     "ip"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const Fwd_Info{
@@ -91,7 +91,7 @@ namespace sprite
     , /*format*/     "p"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const Choice_Info{
@@ -104,7 +104,7 @@ namespace sprite
     , /*format*/     "ipp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const Int_Info{
@@ -117,7 +117,7 @@ namespace sprite
     , /*format*/     "i"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const Float_Info{
@@ -130,7 +130,7 @@ namespace sprite
     , /*format*/     "f"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const Char_Info{
@@ -143,7 +143,7 @@ namespace sprite
     , /*format*/     "c"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const PartApplic_Info{
@@ -156,7 +156,7 @@ namespace sprite
     , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const False_Info{
@@ -169,7 +169,7 @@ namespace sprite
     , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const True_Info{
@@ -182,7 +182,7 @@ namespace sprite
     , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const Cons_Info{
@@ -195,7 +195,7 @@ namespace sprite
     , /*format*/     "pp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const Nil_Info{
@@ -208,7 +208,7 @@ namespace sprite
     , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const Unit_Info{
@@ -221,7 +221,7 @@ namespace sprite
     , /*format*/     ""
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const Pair_Info{
@@ -234,7 +234,7 @@ namespace sprite
     , /*format*/     "pp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const PartialS_Info{
@@ -247,7 +247,7 @@ namespace sprite
     , /*format*/     "ip"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   InfoTable const SetEval_Info{
@@ -260,7 +260,7 @@ namespace sprite
     , /*format*/     "ip"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
+    , /*typedef*/    Typedef()
     };
 
   static Node Fail_Node_{&Fail_Info};
@@ -277,4 +277,15 @@ namespace sprite
 
   static Node Unit_Node_{&Unit_Info};
   Node * Unit_Node = &Unit_Node_;
+
+  InfoTable const * builtin_info(char kind)
+  {
+    switch(kind)
+    {
+      case 'i': return &Int_Info;
+      case 'f': return &Float_Info;
+      case 'c': return &Char_Info;
+      default: assert(0); __builtin_unreachable();
+    }
+  }
 }

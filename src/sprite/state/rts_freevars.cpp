@@ -1,6 +1,7 @@
 #include <cassert>
 #include "sprite/builtins.hpp"
 #include "sprite/fwd.hpp"
+#include "sprite/graph/memory.hpp"
 #include "sprite/state/configuration.hpp"
 #include "sprite/state/rts.hpp"
 
@@ -25,17 +26,49 @@ namespace sprite
     return NodeU{x}.free->genexpr;
   }
 
-  bool RuntimeState::replace_freevar(Configuration * C, Cursor & cur)
+  bool RuntimeState::replace_freevar(Configuration * C)
   {
-    assert(cur.info()->tag == T_FREE);
-    id_type vid = obj_id(cur->node);
+    assert(C->cursor().info()->tag == T_FREE);
+    id_type vid = obj_id(C->cursor());
     id_type gid = C->grp_id(vid);
     Node * node = this->get_binding(C, gid);
     if(!node && this->is_narrowed(C, gid))
       node = this->get_generator(C, vid);
+    if(!node && vid != gid)
+      node = this->get_freevar(gid);
     if(node)
-      *C->root = node;
+      // *C->root = node;
+      *C->root = C->callstack.search.copy_spine(C->root, node);
     return node;
+  }
+
+  StepStatus RuntimeState::replace_freevar(
+      Configuration * C, Cursor & inductive, Values const * values
+    )
+  {
+    assert(inductive.info()->tag == T_FREE);
+    if(has_generator(inductive))
+    {
+      *inductive = this->get_generator(C, inductive);
+      return E_OK;
+    }
+    else if(Node * binding = this->get_binding(C, inductive))
+    {
+      *C->root = C->callstack.search.copy_spine(C->root, binding);
+      return E_RESTART;
+    }
+    else if(values && values->is_builtin())
+    {
+      if(values->size)
+      {
+        *inductive = this->make_value_bindings(inductive, values);
+        return E_OK;
+      }
+      else
+        return E_RESIDUAL;
+    }
+    else
+      return this->instantiate(C, C->cursor(), inductive, values);
   }
   
   Node * RuntimeState::freshvar()
@@ -74,6 +107,72 @@ namespace sprite
     Node * rhs = _clone_generator_rec(this, top_choice->rhs);
     id_type vid = obj_id(unbound);
     NodeU{unbound}.free->genexpr = choice(vid, lhs, rhs);
+  }
+
+  struct GeneratorMaker
+  {
+    GeneratorMaker(RuntimeState * rts) : rts(rts) {}
+    RuntimeState * rts;
+
+    Node * make(Values const * values, id_type vid) const
+    {
+      Node * genexpr = this->_rec(&values->args[0].info, values->size, vid);
+      if(values->size == 1)
+        genexpr = choice(vid, genexpr, fail());
+      return genexpr;
+    }
+
+    Node * _rec(
+        InfoTable const * const * ctors
+      , size_t n
+      , id_type vid = NOVID
+      ) const
+    {
+      assert(n);
+      if(n == 1)
+        return Node::create(ctors[0], rts->idfactory);
+      else
+      {
+        size_t mfloor = n/2;
+        size_t mceil = n - mfloor;
+        id_type cid = vid == NOVID ? rts->idfactory++ : vid;
+        return choice(
+            cid
+          , this->_rec(ctors, mceil)
+          , this->_rec(ctors + mceil, mfloor)
+          );
+      }
+    }
+  };
+
+  Node * _make_generator(
+      RuntimeState * rts, Node * redex, Node * inductive, Values const * values
+    )
+  {
+    if(!has_generator(inductive))
+    {
+      GeneratorMaker maker(rts);
+      Node * genexpr = maker.make(values, obj_id(inductive));
+      NodeU{inductive}.free->genexpr = genexpr;
+    }
+    return NodeU{inductive}.free->genexpr;
+  }
+
+  StepStatus RuntimeState::instantiate(
+      Configuration * C, Node * redex, Node * inductive
+    , Values const * values
+    )
+  {
+    assert(values && values->kind == 't');
+    if(values->size == 0)
+      return E_RESIDUAL;
+    else
+    {
+      Node * genexpr = _make_generator(this, redex, inductive, values);
+      Node * replacement = C->callstack.search.copy_spine(redex, genexpr);
+      redex->forward_to(replacement);
+      return E_OK;
+    }
   }
 }
 

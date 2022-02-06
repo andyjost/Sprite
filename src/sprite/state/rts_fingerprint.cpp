@@ -10,7 +10,7 @@ namespace sprite
         && this->update_fp(C, j, this->read_fp(C, i));
   }
 
-  void RuntimeState::forkD(Queue * Q)
+  void RuntimeState::fork(Queue * Q)
   {
     assert(Q == this->Q());
     Configuration * C = Q->front();
@@ -35,19 +35,7 @@ namespace sprite
     Node * rhs = search.copy_spine(root, target->rhs);
     Node * repl = make_node<ChoiceNode>(target->cid, lhs, rhs);
     return repl;
-    // C->reset(&repl);
   }
-
-  // void RuntimeState::pull_tabS(Configuration * C, Node * root)
-  // {
-  //   assert(root->info->tag == T_FUNC);
-  //   auto & search = C->callstack.search;
-  //   ChoiceNode * target = NodeU{search.cursor()->node}.choice;
-  //   Node * lhs = search.copy_spine(root, target->lhs);
-  //   Node * rhs = search.copy_spine(root, target->rhs);
-  //   Node * replacement = choice(target->cid, lhs, rhs);
-  //   root->forward_to(replacement);
-  // }
 
   ChoiceState RuntimeState::read_fp(Configuration * C, id_type cid)
   {

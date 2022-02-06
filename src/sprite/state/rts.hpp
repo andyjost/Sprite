@@ -44,13 +44,13 @@ namespace sprite
 
     StepStatus S(Configuration *, Redex const &);
     StepStatus hnf(
-        Configuration *, Variable * inductive
-      // , Typedef const * = nullptr, void const * values = nullptr
+        Configuration *, Variable * inductive, Values const * =nullptr
       );
 
     // rts_bindings:
     bool add_binding(Configuration *, id_type, Node *);
     void update_binding(Configuration *, id_type);
+    Node * make_value_bindings(Node * freevar, Values const *);
 
     // rts_constraints:
     bool constrain_equal(Configuration *, Node * x, Node * y, ConstraintType);
@@ -65,7 +65,7 @@ namespace sprite
 
     // rts_fingerprint:
     bool equate_fp(Configuration *, id_type, id_type);
-    void forkD(Queue *);
+    void fork(Queue *);
     Node * pull_tab(Configuration *, Node * root);
     ChoiceState read_fp(Configuration *, id_type);
     bool update_fp(Configuration *, id_type, ChoiceState);
@@ -74,12 +74,17 @@ namespace sprite
     Node * freshvar();
     Node * get_freevar(id_type vid);
     Node * get_binding(Configuration *, id_type vid);
+    Node * get_binding(Configuration *, Node *);
     Node * get_generator(Configuration *, id_type vid);
     Node * get_generator(Configuration *, Node *);
     bool is_narrowed(Configuration *, id_type vid);
     bool is_narrowed(Configuration *, Node * vid);
-    bool replace_freevar(Configuration *, Cursor &);
+    bool replace_freevar(Configuration *);
+    StepStatus replace_freevar(Configuration *, Cursor & inductive, Values const *);
     void clone_generator(Node * bound, Node * unbound);
+    StepStatus instantiate(
+        Configuration *, Node * redex, Node * target, Values const * values
+      );
 
     // rts_setfunctions:
     Queue * make_queue(sid_type=NOSID);

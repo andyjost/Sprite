@@ -155,6 +155,8 @@ namespace sprite
     return (Node *) target;
   }
 
+  InfoTable const * builtin_info(char);
+
   inline Node * char_(unboxed_char_type x)   { return make_node<CharNode>(x); }
   inline Node * choice(id_type cid, Node * lhs, Node * rhs)
       { return make_node<ChoiceNode>(cid, lhs, rhs); }

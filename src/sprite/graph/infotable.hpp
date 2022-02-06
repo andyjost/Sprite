@@ -12,6 +12,12 @@ namespace sprite
 
   static flag_type constexpr MONADIC = 0x1;  // Whether any monadic function can be reached.
 
+  struct Typedef
+  {
+    InfoTable const * const * ctors = nullptr;
+    size_t n = 0;
+  };
+
   struct InfoTable
   {
     tag_type           tag;        // 16
@@ -23,6 +29,6 @@ namespace sprite
     char const *       format;
     stepfunc_type      step;
     typecheckfunc_type typecheck;
-    Typedef * const    typedef_;
+    Typedef            typedef_;
   };
 }

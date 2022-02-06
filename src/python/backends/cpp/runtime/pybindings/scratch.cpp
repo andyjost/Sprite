@@ -104,40 +104,6 @@ namespace sprite { namespace python
     std::cout << std::endl;
   }
 
-  void eval()
-  {
-    do_eval(int_(42));
-    do_eval(pair(int_(42), int_(7)));
-    do_eval(fwd(int_(5)));
-    do_eval(fwd(fwd(int_(6))));
-    do_eval(fwd(fwd(fwd(int_(7)))));
-    do_eval(fwd(pair(fwd(int_(42)), int_(7))));
-    do_eval(fail());
-    do_eval(fwd(fail()));
-    do_eval(pair(int_(3), fail()));
-    do_eval(pair(int_(3), fwd(fail())));
-    do_eval(choice(0, int_(1), int_(2)));
-    do_eval(pair(int_(4), choice(0, int_(1), int_(2))));
-
-    Node * ch = choice(0, int_(1), int_(2));
-    do_eval(pair(ch, ch));
-    do_eval(free(0));
-  }
-
-  void unionfind()
-  {
-    UnionFind uf;
-    std::cout << uf << std::endl;
-    uf.unite(2,3);
-    std::cout << uf << std::endl;
-    uf.unite(4,3);
-    std::cout << uf << std::endl;
-    uf.unite(7,2);
-    std::cout << uf << std::endl;
-    uf.unite(8,1);
-    std::cout << uf << std::endl;
-  }
-
   StepStatus main42_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     auto i42 = int_(42);
@@ -162,13 +128,42 @@ namespace sprite { namespace python
   {
     static constexpr InfoTable const * static_info = &Main42_Info;
   };
-  
+
   Node * make_zip_goal();
 
-  void eval2()
+  void eval()
   {
+    do_eval(int_(42));
+    do_eval(pair(int_(42), int_(7)));
+    do_eval(fwd(int_(5)));
+    do_eval(fwd(fwd(int_(6))));
+    do_eval(fwd(fwd(fwd(int_(7)))));
+    do_eval(fwd(pair(fwd(int_(42)), int_(7))));
+    do_eval(fail());
+    do_eval(fwd(fail()));
+    do_eval(pair(int_(3), fail()));
+    do_eval(pair(int_(3), fwd(fail())));
+    do_eval(choice(0, int_(1), int_(2)));
+    do_eval(pair(int_(4), choice(0, int_(1), int_(2))));
+    Node * ch = choice(0, int_(1), int_(2));
+    do_eval(pair(ch, ch));
+    do_eval(free(0));
     do_eval(make_node<Main42Node>());
     do_eval(make_zip_goal());
+  }
+
+  void unionfind()
+  {
+    UnionFind uf;
+    std::cout << uf << std::endl;
+    uf.unite(2,3);
+    std::cout << uf << std::endl;
+    uf.unite(4,3);
+    std::cout << uf << std::endl;
+    uf.unite(7,2);
+    std::cout << uf << std::endl;
+    uf.unite(8,1);
+    std::cout << uf << std::endl;
   }
 
   void register_scratch(py::module_ mod)
@@ -179,7 +174,6 @@ namespace sprite { namespace python
     mod.def("copy", &copy);
     mod.def("show", &show);
     mod.def("eval", &eval);
-    mod.def("eval2", &eval2);
     mod.def("unionfind", &unionfind);
   }
 }}
