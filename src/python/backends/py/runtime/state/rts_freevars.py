@@ -17,7 +17,7 @@ __all__ = [
   ]
 
 def clone_generator(rts, bound, unbound):
-  vid = unbound[0]
+  # vid = unbound[0]
   constructors = list(_gen_ctors(rts, bound[1]))
   _make_generator(rts, unbound, typedef=constructors)
 

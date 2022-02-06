@@ -10,10 +10,10 @@ using namespace sprite;
 
 namespace sprite { namespace python
 {
-  StepStatus zip_step(RuntimeState * rts, Configuration * C, Redex * _0);
-  StepStatus zip_step_CASE0(RuntimeState * rts, Configuration * C, Redex * _0);
-  StepStatus list01_step(RuntimeState * rts, Configuration * C, Redex * _0);
-  StepStatus mainzip_step(RuntimeState * rts, Configuration * C, Redex * _0);
+  StepStatus zip_step(RuntimeState * rts, Configuration * C, Redex const * _0);
+  StepStatus zip_step_CASE0(RuntimeState * rts, Configuration * C, Redex const * _0);
+  StepStatus list01_step(RuntimeState * rts, Configuration * C, Redex const * _0);
+  StepStatus mainzip_step(RuntimeState * rts, Configuration * C, Redex const * _0);
 
   InfoTable const zip_Info{
       /*tag*/        T_FUNC
@@ -50,7 +50,7 @@ namespace sprite { namespace python
   };
 
 
-  StepStatus zip_step(RuntimeState * rts, Configuration * C, Redex * _0)
+  StepStatus zip_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     // ZipNode * zip = (ZipNode *) _0->root();
     // StepStatus status = rts->hnf(C, root, {0});
@@ -75,7 +75,7 @@ namespace sprite { namespace python
     }
   }
 
-  StepStatus zip_step_CASE0(RuntimeState * rts, Configuration * C, Redex * _0)
+  StepStatus zip_step_CASE0(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     // ZipNode * zip = (ZipNode *) _0->root();
     // StepStatus status = rts->hnf(C, root, {1});
@@ -131,7 +131,7 @@ namespace sprite { namespace python
     , /*typedef*/    nullptr
     };
 
-  StepStatus list01_step(RuntimeState * rts, Configuration * C, Redex * _0)
+  StepStatus list01_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     auto i0 = int_(0);
     auto i1 = int_(1);
@@ -140,7 +140,7 @@ namespace sprite { namespace python
     return E_OK;
   }
 
-  StepStatus mainzip_step(RuntimeState * rts, Configuration * C, Redex * _0)
+  StepStatus mainzip_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     auto i2 = int_(2);
     auto i3 = int_(3);

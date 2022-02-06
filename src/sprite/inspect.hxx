@@ -13,6 +13,21 @@ namespace sprite { namespace inspect
     return node->info->tag == T_CHOICE;
   }
 
+  inline bool isa_freevar(Cursor arg)
+  {
+    return tag_of(arg) == T_FREE;
+  }
+
+  inline bool is_nondet(Cursor arg)
+  {
+    switch(tag_of(arg))
+    {
+      case T_CHOICE:
+      case T_FREE  : return true;
+      default      : return false;
+    }
+  }
+
   inline Cursor fwd_target(Cursor arg)
   {
     if(arg.kind != 'p' || arg->node->info->tag != T_FWD)

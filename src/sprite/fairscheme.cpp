@@ -15,7 +15,6 @@ namespace sprite
     Cursor * cur;
     tag_type tag = NOTAG;
     StepStatus status = E_OK;
-    // void * l_ret = nullptr;
 
   procD:
     Q = rts->Q();
@@ -26,11 +25,14 @@ namespace sprite
       tag = inspect::tag_of(C->root);
       switch(tag)
       {
-        case T_UNBOXED: return Expr{C->root};
+        case T_UNBOXED: return rts->release_value();
         case T_SETGRD : assert(0); continue;
         case T_FAIL   : rts->drop(); continue;
         case T_CONSTR : assert(0); continue;
-        case T_FREE   : assert(0); continue;
+        case T_FREE   : if(!rts->replace_freevar(C, C->root))
+                          return rts->release_value();
+                        else
+                          continue;
         case T_FWD    : C->reset(compress_fwd_chain(C->root)); goto redoD;
         case T_CHOICE : rts->forkD(Q); continue;
         case T_FUNC   :
@@ -80,30 +82,13 @@ namespace sprite
       }
     }
     return rts->release_value();
-
-  // procS:
-  //   C->callstack.push();
-  //   while(C->callstack)
-  //   {
-  //     status = C->callstack.runframe(rts, C);
-  //     switch(status)
-  //     {
-  //       case E_OK      : C->callstack.exit(); break;
-  //       case E_RESIDUAL: assert(0); goto procD;
-  //       case E_UNWIND  : assert(0); goto procD;
-  //       case E_RESTART : assert(0); goto procD;
-  //       case E_CONTINUE: continue;
-  //     }
-  //   }
-  //   goto *l_ret;
   }
 
-  StepStatus RuntimeState::S(Configuration * C, Redex const & redex)
+  StepStatus RuntimeState::S(Configuration * C, Redex const & _0)
   {
-    Redex * _0 = const_cast<Redex *>(&redex);
-    std::cout << "S <<< " << _0->root()->str() << std::endl;
-    auto status = _0->root()->info->step(this, C, _0);
-    std::cout << "S >>> " << _0->root()->str() << std::endl;
+    // std::cout << "S <<< " << _0.root()->str() << std::endl;
+    auto status = _0.root()->info->step(this, C, &_0);
+    // std::cout << "S >>> " << _0.root()->str() << std::endl;
     return status;
   }
 

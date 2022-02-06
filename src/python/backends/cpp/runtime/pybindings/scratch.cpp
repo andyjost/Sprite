@@ -121,7 +121,7 @@ namespace sprite { namespace python
 
     Node * ch = choice(0, int_(1), int_(2));
     do_eval(pair(ch, ch));
-
+    do_eval(free(0));
   }
 
   void unionfind()
@@ -138,7 +138,7 @@ namespace sprite { namespace python
     std::cout << uf << std::endl;
   }
 
-  StepStatus main42_step(RuntimeState * rts, Configuration * C, Redex * _0)
+  StepStatus main42_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     auto i42 = int_(42);
     _0->root()->forward_to(i42);
@@ -167,7 +167,7 @@ namespace sprite { namespace python
 
   void eval2()
   {
-    // do_eval(make_node<Main42Node>());
+    do_eval(make_node<Main42Node>());
     do_eval(make_zip_goal());
   }
 

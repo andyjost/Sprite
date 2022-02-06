@@ -1,4 +1,5 @@
 #pragma once
+#include <cassert>
 #include "boost/utility.hpp"
 #include <memory>
 #include "sprite/builtins.hpp"
@@ -58,9 +59,20 @@ namespace sprite
 
     Cursor & cursor() const { return this->callstack.search.cursor(); }
     void reset(Node * root);
-    id_type grp_id(id_type id) { return this->strict_constraints->root(id); }
+    id_type grp_id(id_type id) const
+      { return this->strict_constraints->root(id); }
+    bool has_binding(id_type id) const { return this->bindings->count(id); }
   };
 
   inline id_type obj_id(Node * node) { return NodeU{node}.choice->cid; }
+
+  template<typename T>
+  inline T & write(std::shared_ptr<T> & shared)
+  {
+    if(shared.use_count() != 1)
+      shared = std::shared_ptr<T>(new T(*shared));
+    assert(shared.use_count() == 1);
+    return *shared;
+  }
 }
 

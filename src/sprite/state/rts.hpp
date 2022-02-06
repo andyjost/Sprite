@@ -48,6 +48,13 @@ namespace sprite
       // , Typedef const * = nullptr, void const * values = nullptr
       );
 
+    // rts_bindings:
+    bool add_binding(Configuration *, id_type, Node *);
+    void update_binding(Configuration *, id_type);
+
+    // rts_constraints:
+    bool constrain_equal(Configuration *, Node * x, Node * y, ConstraintType);
+
     // rts_control:
     void append(Configuration *);
     void drop(TraceOpt=TRACE);
@@ -63,9 +70,24 @@ namespace sprite
     ChoiceState read_fp(Configuration *, id_type);
     bool update_fp(Configuration *, id_type, ChoiceState);
 
+    // rts_freevars:
+    Node * freshvar();
+    Node * get_freevar(id_type vid);
+    Node * get_binding(Configuration *, id_type vid);
+    Node * get_generator(Configuration *, id_type vid);
+    Node * get_generator(Configuration *, Node *);
+    bool is_narrowed(Configuration *, id_type vid);
+    bool is_narrowed(Configuration *, Node * vid);
+    bool replace_freevar(Configuration *, Cursor &);
+    void clone_generator(Node * bound, Node * unbound);
+
     // rts_setfunctions:
     Queue * make_queue(sid_type=NOSID);
     void push_queue(Queue *, TraceOpt=TRACE);
   };
+
+  Node * has_generator(Node * freevar);
 }
+
+#include "sprite/state/rts.hxx"
 

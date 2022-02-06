@@ -3,26 +3,24 @@
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace sprite
 {
-  struct Cursor;
-  struct Expr;
-  struct Node;
-  struct Redex;
-  struct Variable;
-  union Arg;
-
-  struct InfoTable;
-  struct Typedef;
-
   class Fingerprint;
   struct Configuration;
+  struct Cursor;
+  struct Expr;
+  struct InfoTable;
   struct InterpreterState;
+  struct Node;
+  struct Queue;
+  struct Redex;
   struct RuntimeState;
   struct SetFunctionEval;
-  struct Queue;
   struct UnionFind;
+  struct Variable;
+  union Arg;
 
   enum StepStatus { E_OK, E_UNWIND, E_RESIDUAL, E_RESTART };
 
@@ -34,7 +32,7 @@ namespace sprite
   using qid_type = size_t;
   using sid_type = size_t;
   using std::size_t;
-  using stepfunc_type = StepStatus (*)(RuntimeState *, Configuration *, Redex *);
+  using stepfunc_type = StepStatus (*)(RuntimeState *, Configuration *, Redex const *);
   using tag_type = int16_t;
   using typecheckfunc_type = void (*)(Node *);
   using unboxed_char_type = signed char;
@@ -42,6 +40,7 @@ namespace sprite
   using unboxed_int_type = int64_t;
 
   struct Head { InfoTable const * info; };
+  using Typedef = std::vector<InfoTable const *>;
 
   static constexpr id_type    NOCID = std::numeric_limits<sid_type>::max();
   static constexpr index_type NOINDEX = std::numeric_limits<index_type>::max();
@@ -61,4 +60,5 @@ namespace sprite
   static constexpr tag_type T_CTOR    =  0;
 
   enum ChoiceState { UNDETERMINED=0, LEFT=-1, RIGHT=1 };
+  enum ConstraintType { STRICT_CONSTRAINT, NONSTRICT_CONSTRAINT, VALUE_BINDING };
 }

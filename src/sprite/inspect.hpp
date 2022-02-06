@@ -5,6 +5,8 @@ namespace sprite { namespace inspect
 {
   bool isa_setguard(Node *);
   bool isa_choice(Node *);
+  bool isa_freevar(Cursor);
+  bool is_nondet(Cursor);
   Cursor fwd_target(Cursor);
   Cursor fwd_chain_target(Cursor);
   sid_type get_set_id(Node *);
