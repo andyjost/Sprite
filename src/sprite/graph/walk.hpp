@@ -1,5 +1,6 @@
 #pragma once
 #include "sprite/graph/node.hpp"
+#include <vector>
 
 namespace sprite
 {
@@ -20,12 +21,12 @@ namespace sprite
     size_t size() const { return this->stack.size(); }
     void resize(size_t n) { this->stack.resize(n); }
 
-    Cursor & root() const;
-    Cursor & cursor() const;
-    Cursor & at(size_t n) const { return this->stack[n].cur; }
+    Cursor root() const;
+    Cursor cursor() const;
+    Cursor at(size_t n) const { return this->stack[n].cur; }
     void *& data() const;
 
-    Node * copy_spine(Node * root, Node * end);
+    Node * copy_spine(Node * root, Node * end, Cursor * target=nullptr);
 
   private:
 

@@ -44,13 +44,13 @@ namespace sprite
 
     StepStatus S(Configuration *, Redex const &);
     StepStatus hnf(
-        Configuration *, Variable * inductive, Values const * =nullptr
+        Configuration *, Variable * inductive, void const * guides=nullptr
       );
 
     // rts_bindings:
     bool add_binding(Configuration *, id_type, Node *);
     void update_binding(Configuration *, id_type);
-    Node * make_value_bindings(Node * freevar, Values const *);
+    Node * make_value_bindings(Node * freevar, ValueSet const *);
 
     // rts_constraints:
     bool constrain_equal(Configuration *, Node * x, Node * y, ConstraintType);
@@ -80,10 +80,10 @@ namespace sprite
     bool is_narrowed(Configuration *, id_type vid);
     bool is_narrowed(Configuration *, Node * vid);
     bool replace_freevar(Configuration *);
-    StepStatus replace_freevar(Configuration *, Cursor & inductive, Values const *);
+    StepStatus replace_freevar(Configuration *, Variable * inductive, void const *);
     void clone_generator(Node * bound, Node * unbound);
     StepStatus instantiate(
-        Configuration *, Node * redex, Node * target, Values const * values
+        Configuration *, Node * redex, Variable * inductive, void const * guides
       );
 
     // rts_setfunctions:

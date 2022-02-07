@@ -37,38 +37,42 @@ namespace sprite
     if(!node && vid != gid)
       node = this->get_freevar(gid);
     if(node)
-      // *C->root = node;
       *C->root = C->callstack.search.copy_spine(C->root, node);
     return node;
   }
 
   StepStatus RuntimeState::replace_freevar(
-      Configuration * C, Cursor & inductive, Values const * values
+      Configuration * C, Variable * inductive, void const * guides
     )
   {
-    assert(inductive.info()->tag == T_FREE);
-    if(has_generator(inductive))
+    Cursor & freevar = inductive->target();
+    assert(freevar.info()->tag == T_FREE);
+    if(has_generator(freevar))
     {
-      *inductive = this->get_generator(C, inductive);
+      *freevar = this->get_generator(C, freevar);
       return E_OK;
     }
-    else if(Node * binding = this->get_binding(C, inductive))
+    else if(Node * binding = this->get_binding(C, freevar))
     {
       *C->root = C->callstack.search.copy_spine(C->root, binding);
       return E_RESTART;
     }
-    else if(values && values->is_builtin())
+    ValueSet const * values = (ValueSet const *) guides;
+    if(values && values->kind != 't')
     {
       if(values->size)
       {
-        *inductive = this->make_value_bindings(inductive, values);
+        *freevar = this->make_value_bindings(freevar, values);
         return E_OK;
       }
       else
         return E_RESIDUAL;
     }
     else
-      return this->instantiate(C, C->cursor(), inductive, values);
+    {
+      Node * root = C->cursor();
+      return this->instantiate(C, root, inductive, values);
+    }
   }
   
   Node * RuntimeState::freshvar()
@@ -111,10 +115,10 @@ namespace sprite
 
   struct GeneratorMaker
   {
-    GeneratorMaker(RuntimeState * rts) : rts(rts) {}
-    RuntimeState * rts;
+    GeneratorMaker(id_type & idfactory) : idfactory(idfactory) {}
+    id_type & idfactory;
 
-    Node * make(Values const * values, id_type vid) const
+    Node * make(ValueSet const * values, id_type vid) const
     {
       Node * genexpr = this->_rec(&values->args[0].info, values->size, vid);
       if(values->size == 1)
@@ -130,12 +134,12 @@ namespace sprite
     {
       assert(n);
       if(n == 1)
-        return Node::create(ctors[0], rts->idfactory);
+        return Node::create(ctors[0], idfactory);
       else
       {
         size_t mfloor = n/2;
         size_t mceil = n - mfloor;
-        id_type cid = vid == NOVID ? rts->idfactory++ : vid;
+        id_type cid = vid == NOVID ? idfactory++ : vid;
         return choice(
             cid
           , this->_rec(ctors, mceil)
@@ -146,31 +150,36 @@ namespace sprite
   };
 
   Node * _make_generator(
-      RuntimeState * rts, Node * redex, Node * inductive, Values const * values
+      RuntimeState * rts, Node * freevar, ValueSet const * values
     )
   {
-    if(!has_generator(inductive))
+    if(!has_generator(freevar))
     {
-      GeneratorMaker maker(rts);
-      Node * genexpr = maker.make(values, obj_id(inductive));
-      NodeU{inductive}.free->genexpr = genexpr;
+      GeneratorMaker maker(rts->idfactory);
+      Node * genexpr = maker.make(values, obj_id(freevar));
+      NodeU{freevar}.free->genexpr = genexpr;
     }
-    return NodeU{inductive}.free->genexpr;
+    return NodeU{freevar}.free->genexpr;
   }
 
   StepStatus RuntimeState::instantiate(
-      Configuration * C, Node * redex, Node * inductive
-    , Values const * values
+      Configuration * C, Node * root, Variable * inductive
+    , void const * guides
     )
   {
+    ValueSet const * values = (ValueSet const *) guides;
     assert(values && values->kind == 't');
     if(values->size == 0)
       return E_RESIDUAL;
     else
     {
-      Node * genexpr = _make_generator(this, redex, inductive, values);
-      Node * replacement = C->callstack.search.copy_spine(redex, genexpr);
-      redex->forward_to(replacement);
+      Redex tmp_frame(*inductive);
+      Node * genexpr = _make_generator(this, inductive->target(), values);
+      Cursor target;
+      Node * replacement = C->callstack.search.copy_spine(root, genexpr, &target);
+      inductive->target() = target;
+      assert(inductive->target()->node = genexpr);
+      root->forward_to(replacement);
       return E_OK;
     }
   }

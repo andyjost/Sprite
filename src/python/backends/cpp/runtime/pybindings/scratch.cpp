@@ -83,6 +83,20 @@ namespace sprite { namespace python
     std::cout << c->str() << std::endl;
   }
 
+  void unionfind()
+  {
+    UnionFind uf;
+    std::cout << uf << std::endl;
+    uf.unite(2,3);
+    std::cout << uf << std::endl;
+    uf.unite(4,3);
+    std::cout << uf << std::endl;
+    uf.unite(7,2);
+    std::cout << uf << std::endl;
+    uf.unite(8,1);
+    std::cout << uf << std::endl;
+  }
+
   void do_eval(Node * goal)
   {
     InterpreterState is;
@@ -130,6 +144,8 @@ namespace sprite { namespace python
   };
 
   Node * make_zip_goal();
+  Node * make_narrow_goal1();
+  Node * make_narrow_goal2();
 
   void eval()
   {
@@ -150,30 +166,17 @@ namespace sprite { namespace python
     do_eval(free(0));
     do_eval(make_node<Main42Node>());
     do_eval(make_zip_goal());
+    do_eval(make_narrow_goal1());
+    do_eval(make_narrow_goal2());
   }
-
-  void unionfind()
-  {
-    UnionFind uf;
-    std::cout << uf << std::endl;
-    uf.unite(2,3);
-    std::cout << uf << std::endl;
-    uf.unite(4,3);
-    std::cout << uf << std::endl;
-    uf.unite(7,2);
-    std::cout << uf << std::endl;
-    uf.unite(8,1);
-    std::cout << uf << std::endl;
-  }
-
   void register_scratch(py::module_ mod)
   {
-    mod.def("hello", &hello);
-    mod.def("walk", &walk);
-    mod.def("equality", &equality);
     mod.def("copy", &copy);
-    mod.def("show", &show);
+    mod.def("equality", &equality);
     mod.def("eval", &eval);
+    mod.def("hello", &hello);
+    mod.def("show", &show);
     mod.def("unionfind", &unionfind);
+    mod.def("walk", &walk);
   }
 }}

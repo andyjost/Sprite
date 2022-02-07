@@ -71,13 +71,13 @@ namespace sprite
     this->stack.pop_back();
   }
 
-  Cursor & Walk::root() const
+  Cursor Walk::root() const
   {
     assert(*this);
     return this->stack.front().cur;
   }
 
-  Cursor & Walk::cursor() const
+  Cursor Walk::cursor() const
   {
     assert(*this);
     return this->stack.back().cur;
@@ -89,7 +89,7 @@ namespace sprite
     return this->stack.back().data;
   }
 
-  Node * Walk::copy_spine(Node * root, Node * end)
+  Node * Walk::copy_spine(Node * root, Node * end, Cursor * target)
   {
     auto p = this->stack.rbegin() + 1;
     auto e = this->stack.rend();
@@ -98,6 +98,11 @@ namespace sprite
     {
       Node * tmp = copy_node(p->cur->node);
       *tmp->successor(p->index) = Arg(end);
+      if(target)
+      {
+        *target = tmp->successor(p->index);
+        target = nullptr;
+      }
       end = tmp;
       if(p->cur->node == root)
         break;

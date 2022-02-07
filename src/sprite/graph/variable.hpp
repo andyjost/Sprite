@@ -16,6 +16,7 @@ namespace sprite
     size_t ret;
 
     Node * root() const { return this->search->at(this->ret - 1)->node; }
+    operator Node *() const { return this->root(); }
   };
 
   struct Variable

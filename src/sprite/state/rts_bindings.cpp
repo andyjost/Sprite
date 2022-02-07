@@ -56,7 +56,7 @@ namespace sprite
     }
   };
 
-  Node * RuntimeState::make_value_bindings(Node * freevar, Values const * values)
+  Node * RuntimeState::make_value_bindings(Node * freevar, ValueSet const * values)
   {
     ValueBindingsMaker maker(this, freevar, builtin_info(values->kind));
     return maker.make(values->args, values->size);

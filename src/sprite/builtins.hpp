@@ -13,31 +13,42 @@ namespace sprite
 
   extern Node * Fail_Node;
   extern Node * False_Node;
-  extern Node * True_Node;
   extern Node * Nil_Node;
+  extern Node * True_Node;
   extern Node * Unit_Node;
 
-  extern InfoTable const SetGuard_Info;
+  extern InfoTable const Char_Info;
+  extern InfoTable const Choice_Info;
+  extern InfoTable const Cons_Info;
   extern InfoTable const Fail_Info;
-  extern InfoTable const StrictConstraint_Info;
-  extern InfoTable const NonStrictConstraint_Info;
-  extern InfoTable const ValueBinding_Info;
+  extern InfoTable const False_Info;
+  extern InfoTable const Float_Info;
   extern InfoTable const Free_Info;
   extern InfoTable const Fwd_Info;
-  extern InfoTable const Choice_Info;
-  //
   extern InfoTable const Int_Info;
-  extern InfoTable const Float_Info;
-  extern InfoTable const Char_Info;
-  extern InfoTable const PartApplic_Info;
-  extern InfoTable const False_Info;
-  extern InfoTable const True_Info;
-  extern InfoTable const Cons_Info;
   extern InfoTable const Nil_Info;
-  extern InfoTable const Unit_Info;
+  extern InfoTable const NonStrictConstraint_Info;
   extern InfoTable const Pair_Info;
+  extern InfoTable const PartApplic_Info;
   extern InfoTable const PartialS_Info;
   extern InfoTable const SetEval_Info;
+  extern InfoTable const SetGuard_Info;
+  extern InfoTable const StrictConstraint_Info;
+  extern InfoTable const True_Info;
+  extern InfoTable const Unit_Info;
+  extern InfoTable const ValueBinding_Info;
+
+  extern Type const Bool_Type;
+  extern Type const Char_Type;
+  extern Type const Float_Type;
+  extern Type const Int_Type;
+  extern Type const List_Type;
+  extern Type const Pair_Type;
+  extern Type const PartApplic_Type;
+  extern Type const PartialS_Type;
+  extern Type const SetEval_Type;
+  extern Type const SetGuard_Type;
+  extern Type const Unit_Type;
 
   template<index_type N>
   struct Node_ : Head
@@ -169,4 +180,6 @@ namespace sprite
   inline Node * nil()                        { return Nil_Node; }
   inline Node * pair(Node * a, Node * b)     { return make_node<PairNode>(a, b); }
   inline Node * unit()                       { return Unit_Node; }
+  inline Node * false_()                     { return False_Node; }
+  inline Node * true_()                      { return True_Node; }
 }

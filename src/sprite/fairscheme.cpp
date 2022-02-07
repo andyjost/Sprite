@@ -12,7 +12,6 @@ namespace sprite
     Queue * Q = nullptr;
     Configuration * C = nullptr;
     Walk * state = nullptr;
-    Cursor * cur;
     tag_type tag = NOTAG;
     StepStatus status = E_OK;
 
@@ -53,9 +52,8 @@ namespace sprite
   procN:
     for(state = &C->callstack.search; *state; ++(*state))
     {
-      cur = &state->cursor();
     redoN:
-      tag = inspect::tag_of(*cur);
+      tag = inspect::tag_of(state->cursor());
       switch(tag)
       {
         case T_UNBOXED: continue;
@@ -63,7 +61,7 @@ namespace sprite
         case T_FAIL   : rts->drop(); goto procD;
         case T_CONSTR : assert(0); continue;
         case T_FREE   : if(rts->replace_freevar(C)) goto redoD; else goto redoN;
-        case T_FWD    : compress_fwd_chain(*cur); goto redoN;
+        case T_FWD    : compress_fwd_chain(state->cursor()); goto redoN;
         case T_CHOICE : C->reset(rts->pull_tab(C, C->root));
                         goto procD;
         case T_FUNC   :
@@ -77,7 +75,7 @@ namespace sprite
           }
           break;
         default:
-          if(cur->info()->typetag != PARTIAL_TYPE)
+          if(state->cursor().info()->typetag != PARTIAL_TYPE)
             state->push();
       }
     }
@@ -93,7 +91,7 @@ namespace sprite
   }
 
   StepStatus RuntimeState::hnf(
-      Configuration * C, Variable * inductive, Values const * values
+      Configuration * C, Variable * inductive, void const * guides
     )
   {
     StepStatus status = E_OK;
@@ -105,14 +103,12 @@ namespace sprite
         case T_FAIL   : inductive->root()->make_failure();
                         return E_UNWIND;
         case T_CONSTR : assert(0); continue;
-        case T_FREE   : status = this->replace_freevar(
-                            C, inductive->target(), values
-                          );
+        case T_FREE   : status = this->replace_freevar(C, inductive, guides);
                         if(status == E_OK) continue; else return status;
         case T_FWD    : compress_fwd_chain(inductive->target());
                         continue;
         case T_CHOICE : inductive->root()->forward_to(
-                            this->pull_tab(C, inductive->root())
+                            this->pull_tab(C, Redex(*inductive))
                           );
                         return E_UNWIND;
         case T_FUNC   : status = this->S(C, Redex(*inductive));

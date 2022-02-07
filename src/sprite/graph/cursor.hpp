@@ -30,14 +30,6 @@ namespace sprite
     template<typename T> Arg & operator=(T &&);
   };
 
-  struct Values
-  {
-    Arg *      args;
-    index_type size;
-    char       kind; // Int:'i', Float:'f', Char:'c', Typedef:'t'
-    bool is_builtin() const;
-  };
-
   struct Cursor
   {
     Arg * arg;

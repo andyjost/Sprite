@@ -18,7 +18,7 @@ namespace sprite
   struct Redex;
   struct RuntimeState;
   struct SetFunctionEval;
-  struct Typedef;
+  struct Type;
   struct UnionFind;
   struct Variable;
   union Arg;
