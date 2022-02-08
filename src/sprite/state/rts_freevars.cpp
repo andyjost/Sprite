@@ -39,7 +39,7 @@ namespace sprite
     return node ? C->callstack.search.copy_spine(C->root, node) : node;
   }
 
-  StepStatus RuntimeState::replace_freevar(
+  step_status RuntimeState::replace_freevar(
       Configuration * C, Variable * inductive, void const * guides
     )
   {
@@ -48,7 +48,8 @@ namespace sprite
     if(has_generator(freevar))
     {
       *freevar = this->get_generator(C, freevar);
-      return E_OK;
+      assert(freevar.info()->tag == T_CHOICE);
+      return T_CHOICE;
     }
     else if(Node * binding = this->get_binding(C, freevar))
     {
@@ -61,7 +62,7 @@ namespace sprite
       if(values->size)
       {
         *freevar = this->make_value_bindings(freevar, values);
-        return E_OK;
+        return freevar.info()->tag;
       }
       else
         return E_RESIDUAL;
@@ -160,7 +161,7 @@ namespace sprite
     return NodeU{freevar}.free->genexpr;
   }
 
-  StepStatus RuntimeState::instantiate(
+  step_status RuntimeState::instantiate(
       Configuration * C, Node * root, Variable * inductive
     , void const * guides
     )
@@ -178,7 +179,7 @@ namespace sprite
       inductive->target() = target;
       assert(inductive->target()->node = genexpr);
       root->forward_to(replacement);
-      return E_OK;
+      return T_FWD;
     }
   }
 }

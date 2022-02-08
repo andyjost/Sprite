@@ -42,8 +42,8 @@ namespace sprite
     Configuration * C() { return this->Q()->front(); }
     Cursor & E() { return C()->root; }
 
-    StepStatus S(Configuration *, Redex const &);
-    StepStatus hnf(
+    step_status S(Configuration *, Redex const &);
+    step_status hnf(
         Configuration *, Variable * inductive, void const * guides=nullptr
       );
 
@@ -84,9 +84,9 @@ namespace sprite
     bool is_narrowed(Configuration *, id_type vid);
     bool is_narrowed(Configuration *, Node * vid);
     Node * replace_freevar(Configuration *);
-    StepStatus replace_freevar(Configuration *, Variable * inductive, void const *);
+    step_status replace_freevar(Configuration *, Variable * inductive, void const *);
     void clone_generator(Node * bound, Node * unbound);
-    StepStatus instantiate(
+    step_status instantiate(
         Configuration *, Node * redex, Variable * inductive, void const * guides
       );
 

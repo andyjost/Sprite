@@ -69,7 +69,7 @@ namespace sprite
 
     explicit operator bool() const { return !this->stack.empty(); }
 
-    StepStatus runframe(RuntimeState * rts, Configuration * C)
+    step_status runframe(RuntimeState * rts, Configuration * C)
     {
       assert(!this->stack.empty());
       auto & f = this->stack.back();

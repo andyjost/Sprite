@@ -10,7 +10,7 @@ using namespace sprite;
 
 namespace sprite { inline namespace
 {
-  StepStatus not_step(RuntimeState * rts, Configuration * C, Redex const * _0);
+  step_status not_step(RuntimeState * rts, Configuration * C, Redex const * _0);
 
   InfoTable const not_Info{
       /*tag*/        T_FUNC
@@ -25,33 +25,25 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  StepStatus not_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  step_status not_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Variable _1(*_0, 0);
-    StepStatus status = rts->hnf(C, &_1, &Bool_Type);
-    switch(status)
-    {
-      case E_OK      : break;
-      case E_RESIDUAL: assert(0); return status;
-      case E_UNWIND  : return E_OK;
-      case E_RESTART : assert(0); return status;
-    }
-    auto tag = inspect::tag_of(_1.target());
+    auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {
       case T_FALSE: _0->root()->forward_to(true_());
-                    return E_OK;
+                    return T_FWD;
       case T_TRUE:  _0->root()->forward_to(false_());
-                    return E_OK;
-      default: __builtin_unreachable();
+                    return T_FWD;
+      default: return tag;
     }
   }
 
-  StepStatus main1_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  step_status main1_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Node * goal = Node::create(&not_Info, {false_()});
     _0->root()->forward_to(goal);
-    return E_OK;
+    return T_FWD;
   }
 
   InfoTable const Main1_Info{
@@ -67,11 +59,11 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  StepStatus main2_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  step_status main2_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Node * goal = Node::create(&not_Info, {free(0)});
     _0->root()->forward_to(goal);
-    return E_OK;
+    return T_FWD;
   }
 
   InfoTable const Main2_Info{
@@ -87,7 +79,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  StepStatus main3_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  step_status main3_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     // _B((not x, y), (x, y))
     Node * x = rts->freshvar();
@@ -97,7 +89,7 @@ namespace sprite { inline namespace
     Node * value = Node::create(&Pair_Info, {notx, y});
     Node * goal = Node::create(&StrictConstraint_Info, {value, pair});
     _0->root()->forward_to(goal);
-    return E_OK;
+    return T_FWD;
   }
 
   InfoTable const Main3_Info{
@@ -113,7 +105,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  StepStatus main4_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  step_status main4_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     // (_B(not x, (x, y)), y)
     Node * x = rts->freshvar();
@@ -123,7 +115,7 @@ namespace sprite { inline namespace
     Node * binding = Node::create(&StrictConstraint_Info, {notx, pair});
     Node * goal = Node::create(&Pair_Info, {binding, y});
     _0->root()->forward_to(goal);
-    return E_OK;
+    return T_FWD;
   }
 
   InfoTable const Main4_Info{
@@ -139,7 +131,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  StepStatus main5_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  step_status main5_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     // (not x, y)
     Node * x = rts->freshvar();
@@ -147,7 +139,7 @@ namespace sprite { inline namespace
     Node * notx = Node::create(&not_Info, {x});
     Node * goal = Node::create(&Pair_Info, {notx, y});
     _0->root()->forward_to(goal);
-    return E_OK;
+    return T_FWD;
   }
 
   InfoTable const Main5_Info{
@@ -163,7 +155,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  StepStatus main6_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  step_status main6_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     // (not _B(x, (x, y)), y)
     Node * x = rts->freshvar();
@@ -173,7 +165,7 @@ namespace sprite { inline namespace
     Node * notb = Node::create(&not_Info, {binding});
     Node * goal = Node::create(&Pair_Info, {notb, y});
     _0->root()->forward_to(goal);
-    return E_OK;
+    return T_FWD;
   }
 
   InfoTable const Main6_Info{

@@ -118,11 +118,11 @@ namespace sprite { namespace python
     std::cout << std::endl;
   }
 
-  StepStatus main42_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  step_status main42_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     auto i42 = int_(42);
     _0->root()->forward_to(i42);
-    return E_OK;
+    return T_FWD;
   }
 
   InfoTable const Main42_Info{

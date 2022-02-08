@@ -24,22 +24,34 @@ namespace sprite
 		new(this) FwdNode{&Fwd_Info, target};
 	}
 
-  inline void Node::make_failure()
+  inline tag_type Node::make_failure()
   {
     if(this->info != &Fail_Info)
+    {
       this->forward_to(fail());
+      return T_FWD;
+    }
+    return T_FAIL;
   }
 
-  inline void Node::make_nil()
+  inline tag_type Node::make_nil()
   {
     if(this->info != &Nil_Info)
+    {
       this->forward_to(nil());
+      return T_FWD;
+    }
+    return T_NIL;
   }
 
-  inline void Node::make_unit()
+  inline tag_type Node::make_unit()
   {
     if(this->info != &Unit_Info)
+    {
       this->forward_to(unit());
+      return T_FWD;
+    }
+    return T_UNIT;
   }
 
   inline std::string Node::str()

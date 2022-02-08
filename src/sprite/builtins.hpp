@@ -10,6 +10,7 @@ namespace sprite
   static constexpr tag_type T_NIL   = T_CTOR + 1;
   static constexpr tag_type T_FALSE = T_CTOR;
   static constexpr tag_type T_TRUE  = T_CTOR + 1;
+  static constexpr tag_type T_UNIT  = T_CTOR;
 
   extern Node * Fail_Node;
   extern Node * False_Node;
