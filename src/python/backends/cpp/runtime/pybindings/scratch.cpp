@@ -146,6 +146,10 @@ namespace sprite { namespace python
   Node * make_zip_goal();
   Node * make_narrow_goal1();
   Node * make_narrow_goal2();
+  Node * make_narrow_goal3();
+  Node * make_narrow_goal4();
+  Node * make_narrow_goal5();
+  Node * make_narrow_goal6();
 
   void eval()
   {
@@ -168,6 +172,10 @@ namespace sprite { namespace python
     do_eval(make_zip_goal());
     do_eval(make_narrow_goal1());
     do_eval(make_narrow_goal2());
+    do_eval(make_narrow_goal3());
+    do_eval(make_narrow_goal4());
+    do_eval(make_narrow_goal5());
+    do_eval(make_narrow_goal6());
   }
   void register_scratch(py::module_ mod)
   {

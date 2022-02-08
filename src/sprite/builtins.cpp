@@ -321,4 +321,17 @@ namespace sprite
       default: assert(0); __builtin_unreachable();
     }
   }
+
+  ConstraintType constraint_type(Node * constraint)
+  {
+    if(constraint->info == &StrictConstraint_Info)
+      return STRICT_CONSTRAINT;
+    else if(constraint->info == &NonStrictConstraint_Info)
+      return NONSTRICT_CONSTRAINT;
+    else
+    {
+      assert(constraint->info == &ValueBinding_Info);
+      return VALUE_BINDING;
+    }
+  }
 }

@@ -1,3 +1,4 @@
+#include "sprite/builtins.hpp"
 #include "sprite/graph/walk.hpp"
 #include "sprite/inspect.hpp"
 #include "sprite/state/configuration.hpp"
@@ -6,6 +7,14 @@
 namespace sprite
 {
   bool _constrain_equal_rec(RuntimeState *, Configuration *, id_type, id_type);
+
+  bool RuntimeState::constrain_equal(Configuration * C, Cursor cur)
+  {
+    ConstrNode * constr = NodeU{cur}.constr;
+    return this->constrain_equal(
+        C, constr->lhs(), constr->rhs(), constraint_type(cur)
+      );
+  }
 
   bool RuntimeState::constrain_equal(
       Configuration * C, Node * x, Node * y, ConstraintType ctype
@@ -60,5 +69,18 @@ namespace sprite
         { p.push(); q.push(); }
     }
     return true;
+  }
+
+  Node * RuntimeState::lift_constraint(Configuration * C, Node * source, Node * target)
+  {
+    ConstrNode * constr = NodeU{target}.constr;
+    Node * value = C->callstack.search.copy_spine(source, constr->value);
+    return Node::create(constr->info, {value, constr->pair});
+  }
+
+  Node * RuntimeState::lift_constraint(Configuration * C, Variable * inductive)
+  {
+    Redex scope(*inductive);
+    return lift_constraint(C, inductive->root(), inductive->target());
   }
 }

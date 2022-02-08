@@ -27,14 +27,19 @@ namespace sprite
     Q->pop_front();
   }
 
-  Node * RuntimeState::pull_tab(Configuration * C, Node * root)
+  Node * RuntimeState::pull_tab(Configuration * C, Node * source, Node * target)
   {
     auto & search = C->callstack.search;
-    ChoiceNode * target = NodeU{search.cursor()->node}.choice;
-    Node * lhs = search.copy_spine(root, target->lhs);
-    Node * rhs = search.copy_spine(root, target->rhs);
-    Node * repl = make_node<ChoiceNode>(target->cid, lhs, rhs);
-    return repl;
+    ChoiceNode * choice = NodeU{target}.choice;
+    Node * lhs = search.copy_spine(source, choice->lhs);
+    Node * rhs = search.copy_spine(source, choice->rhs);
+    return make_node<ChoiceNode>(choice->cid, lhs, rhs);
+  }
+
+  Node * RuntimeState::pull_tab(Configuration * C, Variable * inductive)
+  {
+    Redex scope(*inductive);
+    return RuntimeState::pull_tab(C, inductive->root(), inductive->target());
   }
 
   ChoiceState RuntimeState::read_fp(Configuration * C, id_type cid)

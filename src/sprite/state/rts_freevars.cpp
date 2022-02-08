@@ -26,19 +26,17 @@ namespace sprite
     return NodeU{x}.free->genexpr;
   }
 
-  bool RuntimeState::replace_freevar(Configuration * C)
+  Node * RuntimeState::replace_freevar(Configuration * C)
   {
     assert(C->cursor().info()->tag == T_FREE);
     id_type vid = obj_id(C->cursor());
     id_type gid = C->grp_id(vid);
     Node * node = this->get_binding(C, gid);
     if(!node && this->is_narrowed(C, gid))
-      node = this->get_generator(C, vid);
+      node = this->get_generator(C, gid);
     if(!node && vid != gid)
       node = this->get_freevar(gid);
-    if(node)
-      *C->root = C->callstack.search.copy_spine(C->root, node);
-    return node;
+    return node ? C->callstack.search.copy_spine(C->root, node) : node;
   }
 
   StepStatus RuntimeState::replace_freevar(

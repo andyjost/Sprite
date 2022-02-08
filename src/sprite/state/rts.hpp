@@ -27,7 +27,7 @@ namespace sprite
   {
     RuntimeState(InterpreterState & istate, Cursor goal);
 
-    id_type &   idfactory;
+    id_type &    idfactory;
     sid_type &   setfactory;
     size_t       stepcount   = 0;
     qstack_type  qstack;
@@ -53,7 +53,10 @@ namespace sprite
     Node * make_value_bindings(Node * freevar, ValueSet const *);
 
     // rts_constraints:
+    bool constrain_equal(Configuration *, Cursor constraint);
     bool constrain_equal(Configuration *, Node * x, Node * y, ConstraintType);
+    static Node * lift_constraint(Configuration *, Variable * inductive);
+    static Node * lift_constraint(Configuration *, Node * source, Node * target);
 
     // rts_control:
     void append(Configuration *);
@@ -66,7 +69,8 @@ namespace sprite
     // rts_fingerprint:
     bool equate_fp(Configuration *, id_type, id_type);
     void fork(Queue *);
-    Node * pull_tab(Configuration *, Node * root);
+    static Node * pull_tab(Configuration *, Variable * inductive);
+    static Node * pull_tab(Configuration *, Node * source, Node * target);
     ChoiceState read_fp(Configuration *, id_type);
     bool update_fp(Configuration *, id_type, ChoiceState);
 
@@ -79,7 +83,7 @@ namespace sprite
     Node * get_generator(Configuration *, Node *);
     bool is_narrowed(Configuration *, id_type vid);
     bool is_narrowed(Configuration *, Node * vid);
-    bool replace_freevar(Configuration *);
+    Node * replace_freevar(Configuration *);
     StepStatus replace_freevar(Configuration *, Variable * inductive, void const *);
     void clone_generator(Node * bound, Node * unbound);
     StepStatus instantiate(

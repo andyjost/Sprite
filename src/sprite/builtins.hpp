@@ -62,6 +62,13 @@ namespace sprite
   using Node2 = Node_<2>;
   using Node3 = Node_<3>;
 
+  struct PairNode : Head
+  {
+    Node * lhs;
+    Node * rhs;
+    static constexpr InfoTable const * static_info = &Pair_Info;
+  };
+
   struct SetGrdNode : Head
   {
     sid_type sid;
@@ -72,6 +79,8 @@ namespace sprite
   {
     Node * value;
     Node * pair;
+    Node * lhs() const { return ((PairNode *) this->pair)->lhs; }
+    Node * rhs() const { return ((PairNode *) this->pair)->rhs; }
   };
 
   struct FreeNode : Head
@@ -126,13 +135,6 @@ namespace sprite
     static constexpr InfoTable const * static_info = &Cons_Info;
   };
 
-  struct PairNode : Head
-  {
-    Node * lhs;
-    Node * rhs;
-    static constexpr InfoTable const * static_info = &Pair_Info;
-  };
-
   struct SetEvalNode : Head
   {
     sid_type sid;
@@ -167,6 +169,7 @@ namespace sprite
   }
 
   InfoTable const * builtin_info(char);
+  ConstraintType constraint_type(Node *);
 
   inline Node * char_(unboxed_char_type x)   { return make_node<CharNode>(x); }
   inline Node * choice(id_type cid, Node * lhs, Node * rhs)
