@@ -97,7 +97,8 @@ namespace sprite
       }
       case T_FAIL  : return fail();
       case T_FREE  : return rts->freshvar();
-      default      : assert(0); __builtin_unreachable();
+      default      : assert(node->info->tag >= T_CTOR);
+                     return Node::create(node->info, rts->idfactory);
     }
   }
 

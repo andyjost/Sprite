@@ -221,5 +221,8 @@ namespace sprite
 
     // The root of the tree structure containing fingerprint data.
     mutable Node m_root;
+
   };
+
+  std::ostream & operator<<(std::ostream &, Fingerprint const &);
 }

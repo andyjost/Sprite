@@ -1,5 +1,6 @@
 #include <cassert>
 #include "sprite/state/rts.hpp"
+#include "sprite/currylib/prelude.hpp"
 
 namespace sprite
 {
@@ -16,6 +17,17 @@ namespace sprite
       id_type gid = C->grp_id(vid);
       write(C->bindings)[gid] = value;
       return true;
+    }
+  }
+
+  void RuntimeState::apply_binding(Configuration * C, id_type id)
+  {
+    if(C->has_binding(id))
+    {
+      Node * genexpr = this->get_generator(C, id);
+      Node * binding = this->get_binding(C, id);
+      Node * eq = Node::create(&nonstrictEq_Info, {genexpr, binding});
+      *C->root = Node::create(&seq_Info, {eq, C->root->node});
     }
   }
 

@@ -26,7 +26,11 @@ namespace sprite
     Cursor at(size_t n) const { return this->stack[n].cur; }
     void *& data() const;
 
-    Node * copy_spine(Node * root, Node * end, Cursor * target=nullptr);
+    Node * copy_spine(
+        Node * root, Node * end, Cursor * target=nullptr
+      , size_t start=1
+      );
+    Node * copy_spine(Node * root, Node * end, size_t start);
 
   private:
 

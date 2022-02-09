@@ -7,4 +7,5 @@ namespace sprite
   extern InfoTable const concurrentAnd_Info;
   extern InfoTable const constrEq_Info;
   extern InfoTable const nonstrictEq_Info;
+  extern InfoTable const seq_Info;
 }

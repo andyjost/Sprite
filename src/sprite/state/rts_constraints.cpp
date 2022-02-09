@@ -74,7 +74,7 @@ namespace sprite
   Node * RuntimeState::lift_constraint(Configuration * C, Node * source, Node * target)
   {
     ConstrNode * constr = NodeU{target}.constr;
-    Node * value = C->callstack.search.copy_spine(source, constr->value);
+    Node * value = C->callstack.search.copy_spine(source, constr->value, 2);
     return Node::create(constr->info, {value, constr->pair});
   }
 

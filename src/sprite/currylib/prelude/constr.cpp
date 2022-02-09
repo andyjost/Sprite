@@ -115,6 +115,20 @@ namespace sprite { inline namespace
   {
     return T_CTOR;
   }
+
+  step_status seq_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  {
+    Variable _1(*_0, 0);
+    auto tag = rts->hnf(C, &_1, &Bool_Type);
+    switch(tag)
+    {
+      case T_FALSE: _0->root()->forward_to(fail());
+                    return T_FWD;
+      case T_TRUE:  _0->root()->forward_to(_0->root()->successor(1));
+                    return T_FWD;
+      default: return tag;
+    }
+  }
 }}
 
 namespace sprite
@@ -154,6 +168,19 @@ namespace sprite
     , /*name*/       "=:<="
     , /*format*/     "pp"
     , /*step*/       nonstrictEq_step
+    , /*typecheck*/  nullptr
+    , /*type*/       nullptr
+    };
+
+  InfoTable const seq_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      2
+    , /*alloc_size*/ sizeof(Node2)
+    , /*typetag*/    NO_FLAGS
+    , /*flags*/      NO_FLAGS
+    , /*name*/       "&>"
+    , /*format*/     "pp"
+    , /*step*/       seq_step
     , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };

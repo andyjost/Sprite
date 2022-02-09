@@ -10,20 +10,49 @@ namespace sprite
         && this->update_fp(C, j, this->read_fp(C, i));
   }
 
-  void RuntimeState::fork(Queue * Q)
+  static bool is_consistent(Fingerprint const & fp, id_type id, ChoiceState expected)
+  {
+    ChoiceState lr = fp.test_no_check(id);
+    return lr == UNDETERMINED || lr == expected;
+  }
+
+  void RuntimeState::fork(Queue * Q, Configuration * C)
   {
     assert(Q == this->Q());
-    Configuration * C = Q->front();
     ChoiceNode * choice = NodeU{C->root->node}.choice;
-
-    auto copy = C->clone(choice->lhs);
-    if(this->update_fp(copy.get(), choice->cid, LEFT))
-      Q->push_back(copy.release());
-
-    copy = C->clone(choice->rhs);
-    if(this->update_fp(copy.get(), choice->cid, RIGHT))
-      Q->push_back(copy.release());
-
+    auto && process_one = [this,Q,C,choice](Node * alt, ChoiceState lr) -> void
+    {
+      auto copy = C->clone(alt);
+      if(this->update_fp(copy.get(), choice->cid, lr))
+      {
+        id_type gid = copy->grp_id(choice->cid);
+        if(this->vtable.count(choice->cid))
+        {
+          this->apply_binding(copy.get(), choice->cid);
+          this->apply_binding(copy.get(), gid);
+          if(!this->constrain_equal(
+              copy.get(), this->get_freevar(choice->cid), this->get_freevar(gid)
+            , STRICT_CONSTRAINT
+            ))
+            return;
+        }
+        // walk_qstack
+        if(!is_consistent(copy->fingerprint, choice->cid, lr))
+          return;
+        if(!is_consistent(copy->fingerprint, gid, lr))
+          return;
+        for(auto p=this->qstack.rbegin()+1, e=this->qstack.rend(); p!=e; ++p)
+        {
+          if(!is_consistent((*p)->front()->fingerprint, choice->cid, lr))
+            return;
+          if(!is_consistent((*p)->front()->fingerprint, gid, lr))
+            return;
+        }
+        Q->push_back(copy.release());
+      }
+    };
+    process_one(choice->lhs, LEFT);
+    process_one(choice->rhs, RIGHT);
     Q->pop_front();
   }
 
@@ -66,17 +95,19 @@ namespace sprite
       case LEFT:
         switch(this->read_fp(C, cid))
         {
-          case RIGHT:    return false;
+          case RIGHT:        return false;
           case UNDETERMINED: C->fingerprint.set_left(cid);
-          case LEFT:     return true;
+                             C->fingerprint.set_left(C->grp_id(cid));
+          case LEFT:         return true;
           default: assert(0); __builtin_unreachable();
         }
       case RIGHT:
         switch(this->read_fp(C, cid))
         {
-          case LEFT:     return false;
+          case LEFT:         return false;
           case UNDETERMINED: C->fingerprint.set_right(cid);
-          case RIGHT:    return true;
+                             C->fingerprint.set_right(C->grp_id(cid));
+          case RIGHT:        return true;
           default: assert(0); __builtin_unreachable();
         }
       case UNDETERMINED: return true;

@@ -48,7 +48,7 @@ namespace sprite
         case T_FWD    : compress_fwd_chain(C->root);
                         tag = inspect::tag_of(C->root);
                         goto redoD;
-        case T_CHOICE : rts->fork(Q);
+        case T_CHOICE : rts->fork(Q, C);
                         continue;
         case T_FUNC   : tag = rts->S(C, Redex(C->callstack.search));
                         goto redoD;

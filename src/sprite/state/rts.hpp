@@ -52,6 +52,7 @@ namespace sprite
 
     // rts_bindings:
     bool add_binding(Configuration *, id_type, Node *);
+    void apply_binding(Configuration *, id_type);
     void update_binding(Configuration *, id_type);
     Node * make_value_bindings(Node * freevar, ValueSet const *);
 
@@ -71,7 +72,7 @@ namespace sprite
 
     // rts_fingerprint:
     bool equate_fp(Configuration *, id_type, id_type);
-    void fork(Queue *);
+    void fork(Queue *, Configuration *);
     static Node * pull_tab(Configuration *, Variable * inductive);
     static Node * pull_tab(Configuration *, Node * source, Node * target);
     ChoiceState read_fp(Configuration *, id_type);

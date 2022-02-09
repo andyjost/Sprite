@@ -22,8 +22,7 @@ namespace sprite
   inline Node * RuntimeState::get_generator(Configuration * C, Node * x)
   {
     id_type vid = obj_id(x);
-    id_type gid = C->grp_id(vid);
-    return this->get_generator(C, gid);
+    return this->get_generator(C, vid);
   }
 
   inline Node * RuntimeState::get_binding(Configuration * C, Node * x)

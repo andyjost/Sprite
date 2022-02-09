@@ -1,5 +1,6 @@
 #include "sprite/fingerprint.hpp"
 #include <new>
+#include <iostream>
 
 namespace sprite { namespace fingerprints
 {
@@ -236,4 +237,22 @@ namespace sprite
     #endif
     return p->block;
   }
+
+  std::ostream & operator<<(std::ostream & os, Fingerprint const & fp)
+  {
+    os << '<';
+    size_t const n = fp.capacity();
+    for(size_t i=0; i<n; ++i)
+    {
+      switch(fp.test_no_check(i))
+      {
+        case LEFT:  os << i << "L"; break;
+        case RIGHT: os << i << "R"; break;
+        case UNDETERMINED: break;
+      }
+    }
+    os << '>';
+    return os;
+  }
+
 }

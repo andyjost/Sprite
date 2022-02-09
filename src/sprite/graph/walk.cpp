@@ -89,9 +89,16 @@ namespace sprite
     return this->stack.back().data;
   }
 
-  Node * Walk::copy_spine(Node * root, Node * end, Cursor * target)
+  Node * Walk::copy_spine(Node * root, Node * end, size_t start)
   {
-    auto p = this->stack.rbegin() + 1;
+    return this->copy_spine(root, end, nullptr, start);
+  }
+
+  Node * Walk::copy_spine(
+      Node * root, Node * end, Cursor * target, size_t start
+    )
+  {
+    auto p = this->stack.rbegin() + start;
     auto e = this->stack.rend();
     assert(p<=e);
     for(; p!=e; ++p)

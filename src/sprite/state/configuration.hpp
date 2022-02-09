@@ -1,6 +1,7 @@
 #pragma once
-#include <cassert>
 #include "boost/utility.hpp"
+#include <cassert>
+#include <iosfwd>
 #include <memory>
 #include "sprite/builtins.hpp"
 #include "sprite/fingerprint.hpp"
@@ -9,6 +10,7 @@
 #include "sprite/misc/unionfind.hpp"
 #include "sprite/state/callstack.hpp"
 #include "sprite/state/callstack.hpp"
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -21,16 +23,18 @@ namespace sprite
 
   struct Configuration : boost::noncopyable
   {
-    Configuration(Cursor root=Cursor())
-      : callstack(root)
-      , root(root)
+    Configuration(Node * root=nullptr)
+      : root_storage(root)
+      , root(this->root_storage)
+      , callstack(this->root)
       , strict_constraints(new UnionFind())
       , bindings(new BindingMap())
     {}
 
-    Configuration(Cursor root, Configuration const & obj)
-      : callstack(root)
-      , root(root)
+    Configuration(Node * root, Configuration const & obj)
+      : root_storage(root)
+      , root(this->root_storage)
+      , callstack(this->root)
       , fingerprint(obj.fingerprint)
       , strict_constraints(obj.strict_constraints)
       , bindings(obj.bindings)
@@ -46,11 +50,12 @@ namespace sprite
         );
     }
 
-    std::unique_ptr<Configuration> clone(Cursor root)
+    std::unique_ptr<Configuration> clone(Node * root)
       { return Configuration::create(root, *this); }
 
-    CallStack         callstack;
+    Node *            root_storage;
     Cursor            root;
+    CallStack         callstack;
     Fingerprint       fingerprint;
     StrictConstraints strict_constraints;
     Bindings          bindings;
@@ -62,6 +67,8 @@ namespace sprite
     id_type grp_id(id_type id) const
       { return this->strict_constraints->root(id); }
     bool has_binding(id_type id) const { return this->bindings->count(id); }
+    std::string str() const;
+    void str(std::ostream &) const;
   };
 
   inline id_type obj_id(Node * node) { return NodeU{node}.choice->cid; }
@@ -74,5 +81,7 @@ namespace sprite
     assert(shared.use_count() == 1);
     return *shared;
   }
+
+  std::ostream & operator<<(std::ostream &, BindingMap const &);
 }
 
