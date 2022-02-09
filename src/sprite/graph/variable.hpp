@@ -3,6 +3,7 @@
 #include "sprite/fwd.hpp"
 #include "sprite/graph/indexing.hpp"
 #include "sprite/graph/walk.hpp"
+#include "sprite/builtins.hpp"
 
 namespace sprite
 {
@@ -10,6 +11,7 @@ namespace sprite
   {
     Redex(Walk & search) : search(&search), ret(search.size()) {}
     explicit Redex(Variable const &);
+    explicit Redex(Variable const * v) : Redex(*v) {}
     ~Redex() { this->search->resize(this->ret); }
 
     Walk * search;
@@ -17,6 +19,7 @@ namespace sprite
 
     Node * root() const { return this->search->at(this->ret - 1)->node; }
     operator Node *() const { return this->root(); }
+    InfoTable const * info() const { return this->root()->info; }
   };
 
   struct Variable
@@ -26,9 +29,17 @@ namespace sprite
       , pathdata(sprite::realpath(parent.root(), pos))
     {}
 
+    Variable(Redex const * parent, index_type pos)
+      : Variable(*parent, pos)
+    {}
+
     Variable(Variable const & parent, index_type pos)
       : redex(parent.redex)
       , pathdata(sprite::realpath(parent.target(), pos))
+    {}
+
+    Variable(Variable const * parent, index_type pos)
+      : Variable(*parent, pos)
     {}
 
     Redex const * redex;
@@ -39,6 +50,7 @@ namespace sprite
     std::vector<index_type> const & realpath() { return pathdata.realpath; }
     std::vector<sid_type> const & guards() { return pathdata.guards; }
     Node * rvalue() const { return this->target()->node; }
+    id_type vid() const { return NodeU{this->target()}.free->vid; }
   };
 
   inline Redex::Redex(Variable const & var)

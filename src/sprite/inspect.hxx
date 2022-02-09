@@ -56,6 +56,14 @@ namespace sprite { namespace inspect
       return NOCID;
   }
 
+  inline id_type get_freevar_id(Node * node)
+  {
+    if(isa_freevar(node))
+      return NodeU{node}.free->vid;
+    else
+      return NOVID;
+  }
+
   inline sid_type get_set_id(Node * node)
   {
     if(isa_setguard(node))

@@ -167,8 +167,7 @@ namespace sprite
     )
   {
     ValueSet const * values = (ValueSet const *) guides;
-    assert(values && values->kind == 't');
-    if(values->size == 0)
+    if(!values || values->size == 0)
       return E_RESIDUAL;
     else
     {

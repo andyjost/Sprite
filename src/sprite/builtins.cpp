@@ -107,6 +107,20 @@ namespace sprite
     , /*type*/       nullptr
     };
 
+  InfoTable const IO_Info{
+      /*tag*/        T_CTOR
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(IONode)
+    , /*typetag*/    IO_TYPE
+    , /*flags*/      NO_FLAGS
+    , /*name*/       "IO"
+    , /*format*/     "i"
+    , /*step*/       nullptr
+    , /*typecheck*/  nullptr
+    , /*type*/       &IO_Type
+    };
+
+
   InfoTable const Int_Info{
       /*tag*/        T_CTOR
     , /*arity*/      1
@@ -286,6 +300,9 @@ namespace sprite
 
   static InfoTable const * Float_Ctors[] = { &Float_Info };
   Type const Float_Type { Float_Ctors, 1 };
+
+  static InfoTable const * IO_Ctors[] = { &IO_Info };
+  Type const IO_Type { IO_Ctors, 1 };
 
   static InfoTable const * Int_Ctors[] = { &Int_Info };
   Type const Int_Type { Int_Ctors, 1 };

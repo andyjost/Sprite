@@ -7,4 +7,9 @@ namespace sprite
   {
     using std::invalid_argument::invalid_argument;
   };
+
+  struct InstantiationError : std::logic_error
+  {
+    using std::logic_error::logic_error;
+  };
 }

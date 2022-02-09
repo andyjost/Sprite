@@ -11,6 +11,7 @@ namespace sprite { namespace inspect
   Cursor fwd_chain_target(Cursor);
   sid_type get_set_id(Node *);
   id_type get_choice_id(Node *);
+  id_type get_freevar_id(Node *);
   Cursor get_setguard_value(Node *);
 
   tag_type tag_of(Node *);

@@ -46,6 +46,9 @@ namespace sprite
     step_status hnf(
         Configuration *, Variable * inductive, void const * guides=nullptr
       );
+    step_status hnf_or_free(
+        Configuration *, Variable * inductive, void const * guides=nullptr
+      );
 
     // rts_bindings:
     bool add_binding(Configuration *, id_type, Node *);

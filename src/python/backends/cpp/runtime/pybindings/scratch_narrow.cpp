@@ -1,4 +1,5 @@
 #include "sprite/builtins.hpp"
+#include "sprite/currylib/prelude.hpp"
 #include "sprite/graph/memory.hpp"
 #include "sprite/graph/node.hpp"
 #include "sprite/graph/variable.hpp"
@@ -10,7 +11,19 @@ using namespace sprite;
 
 namespace sprite { inline namespace
 {
-  step_status not_step(RuntimeState * rts, Configuration * C, Redex const * _0);
+  step_status not_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  {
+    Variable _1(*_0, 0);
+    auto tag = rts->hnf(C, &_1, &Bool_Type);
+    switch(tag)
+    {
+      case T_FALSE: _0->root()->forward_to(true_());
+                    return T_FWD;
+      case T_TRUE:  _0->root()->forward_to(false_());
+                    return T_FWD;
+      default: return tag;
+    }
+  }
 
   InfoTable const not_Info{
       /*tag*/        T_FUNC
@@ -25,19 +38,32 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  step_status not_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  step_status seq_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Variable _1(*_0, 0);
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {
-      case T_FALSE: _0->root()->forward_to(true_());
+      case T_FALSE: _0->root()->forward_to(fail());
                     return T_FWD;
-      case T_TRUE:  _0->root()->forward_to(false_());
+      case T_TRUE:  _0->root()->forward_to(_0->root()->successor(1));
                     return T_FWD;
       default: return tag;
     }
   }
+
+  InfoTable const seq_Info{
+      /*tag*/        T_FUNC
+    , /*arity*/      2
+    , /*alloc_size*/ sizeof(Node2)
+    , /*typetag*/    NO_FLAGS
+    , /*flags*/      NO_FLAGS
+    , /*name*/       "&>"
+    , /*format*/     "pp"
+    , /*step*/       &seq_step
+    , /*typecheck*/  nullptr
+    , /*typedef*/    nullptr
+    };
 
   step_status main1_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
@@ -180,6 +206,32 @@ namespace sprite { inline namespace
     , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
+
+  step_status main7_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  {
+    // x=:=y &> (x, not y)
+    Node * x = rts->freshvar();
+    Node * y = rts->freshvar();
+    Node * eq = Node::create(&constrEq_Info, {x, y});
+    Node * noty = Node::create(&not_Info, {y});
+    Node * pair = Node::create(&Pair_Info, {x, noty});
+    Node * goal = Node::create(&seq_Info, {eq, pair});
+    _0->root()->forward_to(goal);
+    return T_FWD;
+  }
+
+  InfoTable const Main7_Info{
+      /*tag*/        T_FUNC
+    , /*arity*/      0
+    , /*alloc_size*/ sizeof(Node1)
+    , /*typetag*/    NO_FLAGS
+    , /*flags*/      NO_FLAGS
+    , /*name*/       "main7"
+    , /*format*/     ""
+    , /*step*/       &main7_step
+    , /*typecheck*/  nullptr
+    , /*typedef*/    nullptr
+    };
 }}
 
 namespace sprite { namespace python
@@ -190,4 +242,5 @@ namespace sprite { namespace python
   Node * make_narrow_goal4() { return Node::create(&Main4_Info); }
   Node * make_narrow_goal5() { return Node::create(&Main5_Info); }
   Node * make_narrow_goal6() { return Node::create(&Main6_Info); }
+  Node * make_narrow_goal7() { return Node::create(&Main7_Info); }
 }}

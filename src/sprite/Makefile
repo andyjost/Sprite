@@ -1,4 +1,4 @@
 # Currently disabled: gc, llvm
-SUBMODULES = graph misc state
+SUBMODULES = currylib graph misc state
 SRCS := fingerprint.cpp builtins.cpp fairscheme.cpp
 include Make.include

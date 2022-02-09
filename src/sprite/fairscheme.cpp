@@ -45,7 +45,7 @@ namespace sprite
                         }
                         else
                           return rts->release_value();
-        case T_FWD    : *C->root = compress_fwd_chain(C->root);
+        case T_FWD    : compress_fwd_chain(C->root);
                         tag = inspect::tag_of(C->root);
                         goto redoD;
         case T_CHOICE : rts->fork(Q);
@@ -130,6 +130,7 @@ namespace sprite
                        continue;
         case T_FWD   : compress_fwd_chain(inductive->target());
                        tag = inspect::tag_of(inductive->target());
+                       this->stepcount++;
                        continue;
         case T_CHOICE: inductive->root()->forward_to(
                            this->pull_tab(C, inductive)
@@ -140,6 +141,17 @@ namespace sprite
         default      : return tag;
       }
     }
+  }
+
+  step_status RuntimeState::hnf_or_free(
+      Configuration * C, Variable * inductive, void const * guides
+    )
+  {
+    tag_type tag = this->hnf(C, inductive, guides);
+    if(tag == E_RESIDUAL && inspect::isa_freevar(inductive->target()))
+      return T_FREE;
+    else
+      return tag;
   }
 }
 

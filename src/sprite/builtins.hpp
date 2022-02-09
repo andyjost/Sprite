@@ -1,8 +1,8 @@
 #pragma once
 #include <cassert>
+#include "sprite/fwd.hpp"
 #include "sprite/graph/infotable.hpp"
 #include "sprite/graph/memory.hpp"
-#include "sprite/fwd.hpp"
 
 namespace sprite
 {
@@ -27,6 +27,7 @@ namespace sprite
   extern InfoTable const Free_Info;
   extern InfoTable const Fwd_Info;
   extern InfoTable const Int_Info;
+  extern InfoTable const IO_Info;
   extern InfoTable const Nil_Info;
   extern InfoTable const NonStrictConstraint_Info;
   extern InfoTable const Pair_Info;
@@ -42,6 +43,7 @@ namespace sprite
   extern Type const Bool_Type;
   extern Type const Char_Type;
   extern Type const Float_Type;
+  extern Type const IO_Type;
   extern Type const Int_Type;
   extern Type const List_Type;
   extern Type const Pair_Type;
@@ -103,6 +105,12 @@ namespace sprite
     Node *  lhs;
     Node *  rhs;
     static constexpr InfoTable const * static_info = &Choice_Info;
+  };
+
+  struct IONode : Head
+  {
+    Node * value;
+    static constexpr InfoTable const * static_info = &IO_Info;
   };
 
   struct IntNode : Head
