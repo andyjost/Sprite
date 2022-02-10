@@ -16,9 +16,9 @@
 namespace sprite
 {
   using StrictConstraints = std::shared_ptr<UnionFind>;
-  using BindingMap = std::unordered_map<id_type, Node *>;
+  using BindingMap = std::unordered_map<xid_type, Node *>;
   using Bindings = std::shared_ptr<BindingMap>;
-  using Residuals = std::unordered_set<id_type>;
+  using Residuals = std::unordered_set<xid_type>;
 
   struct Configuration : boost::noncopyable
   {
@@ -62,14 +62,14 @@ namespace sprite
     bool              escape_all = false;
 
     Cursor cursor() const { return this->search.cursor(); }
-    id_type grp_id(id_type id) const
+    xid_type grp_id(xid_type id) const
       { return this->strict_constraints->root(id); }
-    bool has_binding(id_type id) const { return this->bindings->count(id); }
+    bool has_binding(xid_type id) const { return this->bindings->count(id); }
     std::string str() const;
     void str(std::ostream &) const;
   };
 
-  inline id_type obj_id(Node * node) { return NodeU{node}.choice->cid; }
+  inline xid_type obj_id(Node * node) { return NodeU{node}.choice->cid; }
 
   template<typename T>
   inline T & write(std::shared_ptr<T> & shared)

@@ -4,7 +4,7 @@
 
 namespace sprite
 {
-  bool RuntimeState::add_binding(Configuration * C, id_type vid, Node * value)
+  bool RuntimeState::add_binding(Configuration * C, xid_type vid, Node * value)
   {
     if(C->has_binding(vid))
     {
@@ -14,13 +14,13 @@ namespace sprite
     }
     else
     {
-      id_type gid = C->grp_id(vid);
+      xid_type gid = C->grp_id(vid);
       write(C->bindings)[gid] = value;
       return true;
     }
   }
 
-  void RuntimeState::apply_binding(Configuration * C, id_type id)
+  void RuntimeState::apply_binding(Configuration * C, xid_type id)
   {
     if(C->has_binding(id))
     {
@@ -31,9 +31,9 @@ namespace sprite
     }
   }
 
-  void RuntimeState::update_binding(Configuration * C, id_type vid)
+  void RuntimeState::update_binding(Configuration * C, xid_type vid)
   {
-    id_type gid = C->grp_id(vid);
+    xid_type gid = C->grp_id(vid);
     if(vid != gid)
       if(C->bindings->count(vid))
         this->add_binding(C, gid, this->get_binding(C, vid));
@@ -60,7 +60,7 @@ namespace sprite
       }
       else
       {
-        id_type const cid = rts->idfactory++;
+        xid_type const cid = rts->istate.xidfactory++;
         Node * left = this->make(data, size/2);
         Node * right = this->make(data+size/2, size/2);
         return choice(cid, left, right);

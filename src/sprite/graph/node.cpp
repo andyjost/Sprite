@@ -20,13 +20,13 @@ namespace sprite
     return target;
   }
 
-  Node * Node::create(InfoTable const * info, id_type & idfactory)
+  Node * Node::create(InfoTable const * info, xid_type & xidfactory)
   {
     Node * node = (Node *) node_alloc(info->alloc_size);
     RawNodeMemory mem{node};
     *mem.info++ = info;
     for(size_t i=0; i<info->arity; ++i)
-      *mem.boxed++ = free(idfactory++);
+      *mem.boxed++ = free(xidfactory++);
     return node;
   }
 }

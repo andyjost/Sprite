@@ -10,7 +10,7 @@ namespace sprite
     unboxed_int_type   ub_int;
     unboxed_float_type ub_float;
     unboxed_char_type  ub_char;
-    id_type            cid;
+    xid_type           cid;
     void *             blob;
     Head *             head;
     InfoTable const *  info;
@@ -19,7 +19,7 @@ namespace sprite
     Arg(int16_t value)           : ub_int(value)   {}
     Arg(int32_t value)           : ub_int(value)   {}
     Arg(int64_t value)           : ub_int(value)   {}
-    Arg(id_type value)           : cid(value)      {}
+    Arg(xid_type value)          : cid(value)      {}
     Arg(float value)             : ub_float(value) {}
     Arg(double value)            : ub_float(value) {}
     Arg(char value)              : ub_char(value)  {}

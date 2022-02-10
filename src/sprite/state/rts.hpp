@@ -14,12 +14,13 @@ namespace sprite
 
   struct InterpreterState : boost::noncopyable
   {
-    id_type idfactory = 0;
-    sid_type setfactory = 0;
+    xid_type xidfactory = 0;
+    sid_type sidfactory = 0;
+    qid_type qidfactory = 0;
   };
 
   using sftable_type = std::unordered_map<sid_type, SetFunctionEval*>;
-  using vtable_type = std::unordered_map<id_type, Node*>;
+  using vtable_type = std::unordered_map<xid_type, Node*>;
   using qstack_type = std::vector<Queue*>;
   using qtable_type = std::unordered_map<qid_type, Queue*>;
 
@@ -27,15 +28,14 @@ namespace sprite
   {
     RuntimeState(InterpreterState & istate, Cursor goal);
 
-    id_type &    idfactory;
-    sid_type &   setfactory;
-    size_t       stepcount   = 0;
-    qstack_type  qstack;
-    qtable_type  qtable;
-    vtable_type  vtable;
-    sftable_type sftable;
+    InterpreterState & istate;
+    size_t             stepcount   = 0;
+    qstack_type        qstack;
+    qtable_type        qtable;
+    vtable_type        vtable;
+    sftable_type       sftable;
 
-    qid_type qid() { return 0; } // FIXME
+    qid_type qid() { return this->qstack.back()->qid; }
     sid_type const * sid() { return nullptr; } // FIXME
 
     Queue * Q() { return this->qstack.back(); }
@@ -51,9 +51,9 @@ namespace sprite
       );
 
     // rts_bindings:
-    bool add_binding(Configuration *, id_type, Node *);
-    void apply_binding(Configuration *, id_type);
-    void update_binding(Configuration *, id_type);
+    bool add_binding(Configuration *, xid_type, Node *);
+    void apply_binding(Configuration *, xid_type);
+    void update_binding(Configuration *, xid_type);
     Node * make_value_bindings(Node * freevar, ValueSet const *);
 
     // rts_constraints:
@@ -71,21 +71,21 @@ namespace sprite
     void set_goal(Cursor goal);
 
     // rts_fingerprint:
-    bool equate_fp(Configuration *, id_type, id_type);
+    bool equate_fp(Configuration *, xid_type, xid_type);
     void fork(Queue *, Configuration *);
     static Node * pull_tab(Configuration *, Variable * inductive);
     static Node * pull_tab(Configuration *, Node * source, Node * target);
-    ChoiceState read_fp(Configuration *, id_type);
-    bool update_fp(Configuration *, id_type, ChoiceState);
+    ChoiceState read_fp(Configuration *, xid_type);
+    bool update_fp(Configuration *, xid_type, ChoiceState);
 
     // rts_freevars:
     Node * freshvar();
-    Node * get_freevar(id_type vid);
-    Node * get_binding(Configuration *, id_type vid);
+    Node * get_freevar(xid_type vid);
+    Node * get_binding(Configuration *, xid_type vid);
     Node * get_binding(Configuration *, Node *);
-    Node * get_generator(Configuration *, id_type vid);
+    Node * get_generator(Configuration *, xid_type vid);
     Node * get_generator(Configuration *, Node *);
-    bool is_narrowed(Configuration *, id_type vid);
+    bool is_narrowed(Configuration *, xid_type vid);
     bool is_narrowed(Configuration *, Node * vid);
     Node * replace_freevar(Configuration *);
     step_status replace_freevar(Configuration *, Variable * inductive, void const *);

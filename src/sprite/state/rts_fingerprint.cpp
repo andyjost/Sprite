@@ -4,13 +4,13 @@
 
 namespace sprite
 {
-  bool RuntimeState::equate_fp(Configuration * C, id_type i, id_type j)
+  bool RuntimeState::equate_fp(Configuration * C, xid_type i, xid_type j)
   {
     return this->update_fp(C, i, this->read_fp(C, j))
         && this->update_fp(C, j, this->read_fp(C, i));
   }
 
-  static bool is_consistent(Fingerprint const & fp, id_type id, ChoiceState expected)
+  static bool is_consistent(Fingerprint const & fp, xid_type id, ChoiceState expected)
   {
     ChoiceState lr = fp.test_no_check(id);
     return lr == UNDETERMINED || lr == expected;
@@ -25,7 +25,7 @@ namespace sprite
       auto copy = C->clone(alt);
       if(this->update_fp(copy.get(), choice->cid, lr))
       {
-        id_type gid = copy->grp_id(choice->cid);
+        xid_type gid = copy->grp_id(choice->cid);
         if(this->vtable.count(choice->cid))
         {
           this->apply_binding(copy.get(), choice->cid);
@@ -70,7 +70,7 @@ namespace sprite
     return RuntimeState::pull_tab(C, inductive->root(), inductive->target());
   }
 
-  ChoiceState RuntimeState::read_fp(Configuration * C, id_type cid)
+  ChoiceState RuntimeState::read_fp(Configuration * C, xid_type cid)
   {
     auto gid = C->grp_id(cid);
     auto lr = C->fingerprint.test(gid);
@@ -87,7 +87,7 @@ namespace sprite
     return lr;
   }
 
-  bool RuntimeState::update_fp(Configuration * C, id_type cid, ChoiceState lr)
+  bool RuntimeState::update_fp(Configuration * C, xid_type cid, ChoiceState lr)
   {
     switch(lr)
     {

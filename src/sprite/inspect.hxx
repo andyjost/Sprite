@@ -48,20 +48,20 @@ namespace sprite { namespace inspect
     }
   }
 
-  inline id_type get_choice_id(Node * node)
+  inline xid_type get_choice_id(Node * node)
   {
     if(isa_choice(node))
       return NodeU{node}.choice->cid;
     else
-      return NOCID;
+      return NOXID;
   }
 
-  inline id_type get_freevar_id(Node * node)
+  inline xid_type get_freevar_id(Node * node)
   {
     if(isa_freevar(node))
       return NodeU{node}.free->vid;
     else
-      return NOVID;
+      return NOXID;
   }
 
   inline sid_type get_set_id(Node * node)

@@ -8,7 +8,7 @@ namespace sprite
 {
   std::ostream & operator<<(std::ostream & os, BindingMap const & bnd)
   {
-    std::vector<id_type> keys;
+    std::vector<xid_type> keys;
     keys.reserve(bnd.size());
     for(auto && pair: bnd)
       keys.push_back(pair.first);

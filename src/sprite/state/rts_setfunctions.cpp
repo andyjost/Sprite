@@ -4,8 +4,9 @@ namespace sprite
 {
   Queue * RuntimeState::make_queue(sid_type sid)
   {
-    Queue * q = Queue::create(sid);
-    this->qtable[this->setfactory++] = q;
+    auto qid = this->istate.qidfactory++;
+    Queue * q = Queue::create(qid, sid);
+    this->qtable[qid] = q;
     return q;
   }
 

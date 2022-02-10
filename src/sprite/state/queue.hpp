@@ -9,13 +9,16 @@ namespace sprite
 
   struct Queue : private queue_type
   {
-    Queue(sid_type sid=NOSID) : queue_type(), sid(sid) {}
+    Queue(qid_type qid, sid_type sid)
+      : queue_type(), qid(qid), sid(sid)
+    {}
 
     template<typename ... Args>
     static Queue * create(Args && ... args)
       { return new Queue(std::forward<Args>(args)...); }
 
-    sid_type   sid;
+    qid_type qid;
+    sid_type sid;
 
     using queue_type::front;
     using queue_type::pop_front;

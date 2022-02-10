@@ -6,7 +6,7 @@
 
 namespace sprite
 {
-  bool _constrain_equal_rec(RuntimeState *, Configuration *, id_type, id_type);
+  bool _constrain_equal_rec(RuntimeState *, Configuration *, xid_type, xid_type);
 
   bool RuntimeState::constrain_equal(Configuration * C, Cursor cur)
   {
@@ -20,8 +20,8 @@ namespace sprite
       Configuration * C, Node * x, Node * y, ConstraintType ctype
     )
   {
-    id_type i = obj_id(x);
-    id_type j = obj_id(y);
+    xid_type i = obj_id(x);
+    xid_type j = obj_id(y);
     if(i != j)
     {
       if(ctype == STRICT_CONSTRAINT)
@@ -41,7 +41,7 @@ namespace sprite
   }
 
   bool _constrain_equal_rec(
-      RuntimeState * rts, Configuration * C, id_type i, id_type j
+      RuntimeState * rts, Configuration * C, xid_type i, xid_type j
     )
   {
     Node * x = rts->get_freevar(i);

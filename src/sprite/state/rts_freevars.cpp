@@ -7,18 +7,18 @@
 
 namespace sprite
 {
-  Node * RuntimeState::get_binding(Configuration * C, id_type vid)
+  Node * RuntimeState::get_binding(Configuration * C, xid_type vid)
   {
     auto p = C->bindings->find(vid);
     return p == C->bindings->end() ? nullptr : p->second;
   }
 
-  Node * RuntimeState::get_generator(Configuration * C, id_type vid)
+  Node * RuntimeState::get_generator(Configuration * C, xid_type vid)
   {
     Node * x = this->get_freevar(vid);
     if(!has_generator(x))
     {
-      id_type gid = C->grp_id(vid);
+      xid_type gid = C->grp_id(vid);
       Node * y = this->get_freevar(gid);
       this->constrain_equal(C, x, y, STRICT_CONSTRAINT);
       assert(has_generator(x));
@@ -29,8 +29,8 @@ namespace sprite
   Node * RuntimeState::replace_freevar(Configuration * C)
   {
     assert(C->cursor().info()->tag == T_FREE);
-    id_type vid = obj_id(C->cursor());
-    id_type gid = C->grp_id(vid);
+    xid_type vid = obj_id(C->cursor());
+    xid_type gid = C->grp_id(vid);
     Node * node = this->get_binding(C, gid);
     if(!node && this->is_narrowed(C, gid))
       node = this->get_generator(C, gid);
@@ -76,7 +76,7 @@ namespace sprite
   
   Node * RuntimeState::freshvar()
   {
-    id_type vid = this->idfactory++;
+    xid_type vid = this->istate.xidfactory++;
     Node * x = free(vid);
     this->vtable[vid] = x;
     return x;
@@ -88,7 +88,7 @@ namespace sprite
     {
       case T_CHOICE:
       {
-        id_type cid = rts->idfactory++;
+        xid_type cid = rts->istate.xidfactory++;
         return choice(
             cid
           , _clone_generator_rec(rts, NodeU{node}.choice->lhs)
@@ -98,7 +98,7 @@ namespace sprite
       case T_FAIL  : return fail();
       case T_FREE  : return rts->freshvar();
       default      : assert(node->info->tag >= T_CTOR);
-                     return Node::create(node->info, rts->idfactory);
+                     return Node::create(node->info, rts->istate.xidfactory);
     }
   }
 
@@ -109,16 +109,16 @@ namespace sprite
     ChoiceNode * top_choice = NodeU{genexpr}.choice;
     Node * lhs = _clone_generator_rec(this, top_choice->lhs);
     Node * rhs = _clone_generator_rec(this, top_choice->rhs);
-    id_type vid = obj_id(unbound);
+    xid_type vid = obj_id(unbound);
     NodeU{unbound}.free->genexpr = choice(vid, lhs, rhs);
   }
 
   struct GeneratorMaker
   {
-    GeneratorMaker(id_type & idfactory) : idfactory(idfactory) {}
-    id_type & idfactory;
+    GeneratorMaker(xid_type & xidfactory) : xidfactory(xidfactory) {}
+    xid_type & xidfactory;
 
-    Node * make(ValueSet const * values, id_type vid) const
+    Node * make(ValueSet const * values, xid_type vid) const
     {
       Node * genexpr = this->_rec(&values->args[0].info, values->size, vid);
       if(values->size == 1)
@@ -129,17 +129,17 @@ namespace sprite
     Node * _rec(
         InfoTable const * const * ctors
       , size_t n
-      , id_type vid = NOVID
+      , xid_type vid = NOXID
       ) const
     {
       assert(n);
       if(n == 1)
-        return Node::create(ctors[0], idfactory);
+        return Node::create(ctors[0], xidfactory);
       else
       {
         size_t mfloor = n/2;
         size_t mceil = n - mfloor;
-        id_type cid = vid == NOVID ? idfactory++ : vid;
+        xid_type cid = vid == NOXID ? xidfactory++ : vid;
         return choice(
             cid
           , this->_rec(ctors, mceil)
@@ -155,7 +155,7 @@ namespace sprite
   {
     if(!has_generator(freevar))
     {
-      GeneratorMaker maker(rts->idfactory);
+      GeneratorMaker maker(rts->istate.xidfactory);
       Node * genexpr = maker.make(values, obj_id(freevar));
       NodeU{freevar}.free->genexpr = genexpr;
     }

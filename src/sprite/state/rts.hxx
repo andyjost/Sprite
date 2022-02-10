@@ -2,33 +2,33 @@
 
 namespace sprite
 {
-  inline bool RuntimeState::is_narrowed(Configuration * C, id_type vid)
+  inline bool RuntimeState::is_narrowed(Configuration * C, xid_type vid)
   {
     return this->read_fp(C, vid) != UNDETERMINED;
   }
 
   inline bool RuntimeState::is_narrowed(Configuration * C, Node * x)
   {
-    id_type vid = obj_id(x);
-    id_type gid = C->grp_id(vid);
+    xid_type vid = obj_id(x);
+    xid_type gid = C->grp_id(vid);
     return this->is_narrowed(C, gid);
   }
 
-  inline Node * RuntimeState::get_freevar(id_type vid)
+  inline Node * RuntimeState::get_freevar(xid_type vid)
   {
     return this->vtable[vid];
   }
 
   inline Node * RuntimeState::get_generator(Configuration * C, Node * x)
   {
-    id_type vid = obj_id(x);
+    xid_type vid = obj_id(x);
     return this->get_generator(C, vid);
   }
 
   inline Node * RuntimeState::get_binding(Configuration * C, Node * x)
   {
-    id_type vid = obj_id(x);
-    id_type gid = C->grp_id(vid);
+    xid_type vid = obj_id(x);
+    xid_type gid = C->grp_id(vid);
     return this->get_binding(C, gid);
   }
 

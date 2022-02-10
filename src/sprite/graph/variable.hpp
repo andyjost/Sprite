@@ -50,7 +50,7 @@ namespace sprite
     std::vector<index_type> const & realpath() { return pathdata.realpath; }
     std::vector<sid_type> const & guards() { return pathdata.guards; }
     Node * rvalue() const { return this->target()->node; }
-    id_type vid() const { return NodeU{this->target()}.free->vid; }
+    xid_type vid() const { return NodeU{this->target()}.free->vid; }
   };
 
   inline Redex::Redex(Variable const & var)
