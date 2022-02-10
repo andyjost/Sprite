@@ -10,7 +10,7 @@ namespace sprite
   {
     mutable Cursor          target;
     std::vector<index_type> realpath;
-    std::vector<sid_type>   guards;
+    std::vector<Set *>      guards;
   };
 
   Cursor compress_fwd_chain(Cursor);

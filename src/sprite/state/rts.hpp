@@ -6,6 +6,7 @@
 #include "sprite/state/configuration.hpp"
 #include "sprite/state/queue.hpp"
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace sprite
@@ -15,14 +16,15 @@ namespace sprite
   struct InterpreterState : boost::noncopyable
   {
     xid_type xidfactory = 0;
-    sid_type sidfactory = 0;
-    qid_type qidfactory = 0;
   };
 
-  using sftable_type = std::unordered_map<sid_type, SetFunctionEval*>;
-  using vtable_type = std::unordered_map<xid_type, Node*>;
-  using qstack_type = std::vector<Queue*>;
-  using qtable_type = std::unordered_map<qid_type, Queue*>;
+  struct Set
+  {
+    std::unordered_set<xid_type> escape_set;
+  };
+
+  using qstack_type  = std::vector<Queue*>;
+  using vtable_type  = std::unordered_map<xid_type, Node*>;
 
   struct RuntimeState : boost::noncopyable
   {
@@ -31,18 +33,14 @@ namespace sprite
     InterpreterState & istate;
     size_t             stepcount   = 0;
     qstack_type        qstack;
-    qtable_type        qtable;
     vtable_type        vtable;
-    sftable_type       sftable;
-
-    qid_type qid() { return this->qstack.back()->qid; }
-    sid_type const * sid() { return nullptr; } // FIXME
 
     Queue * Q() { return this->qstack.back(); }
     Configuration * C() { return this->Q()->front(); }
     Cursor & E() { return C()->root; }
+    Set * S() { return Q()->set; }
 
-    step_status S(Configuration *, Redex const &);
+    step_status step(Configuration *, Redex const &);
     step_status hnf(
         Configuration *, Variable * inductive, void const * guides=nullptr
       );
@@ -95,8 +93,11 @@ namespace sprite
       );
 
     // rts_setfunctions:
-    Queue * make_queue(sid_type=NOSID);
     void push_queue(Queue *, TraceOpt=TRACE);
+    void pop_queue(TraceOpt=TRACE);
+    bool choice_escapes(Configuration *, xid_type);
+    void filter_queue(Queue *, xid_type, ChoiceState);
+    bool in_recursive_call() const;
   };
 
   Node * has_generator(Node * freevar);

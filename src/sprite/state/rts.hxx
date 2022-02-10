@@ -37,4 +37,9 @@ namespace sprite
     Node * genexpr = NodeU{freevar}.free->genexpr;
     return genexpr->info == &Unit_Info ? nullptr : genexpr;
   }
+
+  inline bool RuntimeState::in_recursive_call() const
+  {
+    return this->qstack.size() > 1;
+  }
 }

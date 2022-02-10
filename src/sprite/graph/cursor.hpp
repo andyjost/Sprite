@@ -26,6 +26,7 @@ namespace sprite
     Arg(signed char value)       : ub_char(value)  {}
     Arg(unsigned char value)     : ub_char(value)  {}
     Arg(InfoTable const * value) : info(value)     {}
+    Arg(void * value)            : blob(value)     {}
 
     template<typename T> Arg & operator=(T &&);
   };
@@ -41,6 +42,7 @@ namespace sprite
     Cursor(unboxed_int_type   & value) : arg((Arg *) &value), kind('i')  {}
     Cursor(unboxed_float_type & value) : arg((Arg *) &value), kind('f')  {}
     Cursor(unboxed_char_type  & value) : arg((Arg *) &value), kind('c')  {}
+    Cursor(unboxed_ptr_type   & value) : arg((Arg *) &value), kind('x')  {}
 
     friend bool operator==(Cursor lhs, Cursor rhs) { return lhs.arg == rhs.arg; }
     friend bool operator!=(Cursor lhs, Cursor rhs) { return !(lhs==rhs); }
@@ -60,6 +62,7 @@ namespace sprite
                // 'i': unboxed integer
                // 'f': unboxed float
                // 'c': unboxed char
+               // 'x': unboxed pointer
                // 'u': undefined
 
     Expr()                         : arg((Node *) nullptr), kind('u') {}
@@ -69,6 +72,7 @@ namespace sprite
     Expr(unboxed_int_type   value) : arg(value), kind('i') {}
     Expr(unboxed_float_type value) : arg(value), kind('f') {}
     Expr(unboxed_char_type  value) : arg(value), kind('c') {}
+    Expr(unboxed_ptr_type  value)  : arg(value), kind('x') {}
 
     explicit operator bool() const { return kind != 'u'; }
   };

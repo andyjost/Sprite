@@ -74,8 +74,8 @@ namespace sprite
 
   struct SetGrdNode : Head
   {
-    sid_type sid;
-    Node *   value;
+    Set  * set;
+    Node * value;
   };
 
   struct ConstrNode : Head
@@ -146,8 +146,8 @@ namespace sprite
 
   struct SetEvalNode : Head
   {
-    sid_type sid;
-    qid_type qid;
+    Set   * set;
+    Queue * queue;
   };
 
   union NodeU

@@ -13,6 +13,7 @@ namespace sprite
     unboxed_int_type   * ub_int;
     unboxed_float_type * ub_float;
     unboxed_char_type  * ub_char;
+    void              ** ub_ptr;
     char               * pos;
 
     RawNodeMemory(Node * mem) : pos((char *) mem) {}

@@ -30,6 +30,9 @@ namespace sprite
         case 'c':
           *mem.ub_char++ = *(unboxed_char_type*)(args++);
           break;
+        case 'x':
+          *mem.ub_ptr++ = *(unboxed_ptr_type*)(args++);
+          break;
         default: assert(0);
       }
     }
@@ -54,6 +57,9 @@ namespace sprite
           break;
         case 'c':
           size += sizeof(unboxed_char_type);
+          break;
+        case 'x':
+          size += sizeof(unboxed_ptr_type);
           break;
         default: assert(0);
       }

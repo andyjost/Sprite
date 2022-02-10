@@ -11,8 +11,8 @@ namespace sprite
 
   Expr copy_graph(
       Cursor
-    , SkipOpt           skipfwd = NOSKIPFWD
-    , sid_type const *  skipgrd = nullptr
-    , memo_type *               = nullptr
+    , SkipOpt     skipfwd = NOSKIPFWD
+    , Set *       skipgrd = nullptr
+    , memo_type *         = nullptr
     );
 }

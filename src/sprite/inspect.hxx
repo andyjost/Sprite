@@ -64,12 +64,12 @@ namespace sprite { namespace inspect
       return NOXID;
   }
 
-  inline sid_type get_set_id(Node * node)
+  inline Set * get_set(Node * node)
   {
     if(isa_setguard(node))
-      return NodeU{node}.setgrd->sid;
+      return NodeU{node}.setgrd->set;
     else
-      return NOSID;
+      return nullptr;
   }
 
   inline Cursor get_setguard_value(Node * node)

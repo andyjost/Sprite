@@ -166,6 +166,18 @@ namespace sprite
         : UNDETERMINED;
   }
 
+  ChoiceState Fingerprint::test2(size_t id, ChoiceState lr) const
+  {
+    auto result = this->test(id);
+    return result == UNDETERMINED ? lr : result;
+  }
+
+  ChoiceState Fingerprint::test_no_check2(size_t id, ChoiceState lr) const
+  {
+    auto result = this->test_no_check(id);
+    return result == UNDETERMINED ? lr : result;
+  }
+
   bool Fingerprint::choice_is_made(size_t id) const
   {
     if(id >= m_capacity) return false;

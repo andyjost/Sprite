@@ -50,7 +50,7 @@ namespace sprite
                         goto redoD;
         case T_CHOICE : rts->fork(Q, C);
                         continue;
-        case T_FUNC   : tag = rts->S(C, Redex(C->search));
+        case T_FUNC   : tag = rts->step(C, Redex(C->search));
                         goto redoD;
         case E_RESTART: tag = inspect::tag_of(C->root);
                         goto redoD;
@@ -92,7 +92,7 @@ namespace sprite
                         search->reset();
                         assert(C->root.info()->tag == T_CHOICE);
                         goto redoD;
-        case T_FUNC   : tag = rts->S(C, Redex(C->search));
+        case T_FUNC   : tag = rts->step(C, Redex(C->search));
                         goto redoN;
         case E_RESTART: tag = inspect::tag_of(C->root);
                         goto redoD;
@@ -105,7 +105,7 @@ namespace sprite
     return rts->release_value();
   }
 
-  step_status RuntimeState::S(Configuration * C, Redex const & _0)
+  step_status RuntimeState::step(Configuration * C, Redex const & _0)
   {
     // std::cout << "S <<< " << _0.root()->str() << std::endl;
     auto status = _0.root()->info->step(this, C, &_0);
@@ -139,7 +139,7 @@ namespace sprite
                            this->pull_tab(C, inductive)
                          );
                        return T_FWD;
-        case T_FUNC  : tag = this->S(C, Redex(*inductive));
+        case T_FUNC  : tag = this->step(C, Redex(*inductive));
                        continue;
         default      : return tag;
       }

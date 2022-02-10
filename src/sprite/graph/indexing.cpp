@@ -82,7 +82,7 @@ namespace
             }
             break;
           case T_SETGRD:
-            this->result.guards.push_back(inspect::get_set_id(this->result.target));
+            this->result.guards.push_back(inspect::get_set(this->result.target));
             this->parent = this->result.target;
             this->result.realpath.push_back(1);
             this->result.target = inspect::get_setguard_value(this->result.target);

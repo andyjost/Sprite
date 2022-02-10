@@ -9,7 +9,7 @@ namespace sprite { namespace inspect
   bool is_nondet(Cursor);
   Cursor fwd_target(Cursor);
   Cursor fwd_chain_target(Cursor);
-  sid_type get_set_id(Node *);
+  Set * get_set(Node *);
   xid_type get_choice_id(Node *);
   xid_type get_freevar_id(Node *);
   Cursor get_setguard_value(Node *);

@@ -48,7 +48,7 @@ namespace sprite
     Node * root() const { return this->redex->root(); }
     Cursor & target() const { return pathdata.target; }
     std::vector<index_type> const & realpath() { return pathdata.realpath; }
-    std::vector<sid_type> const & guards() { return pathdata.guards; }
+    std::vector<Set *> const & guards() { return pathdata.guards; }
     Node * rvalue() const { return this->target()->node; }
     xid_type vid() const { return NodeU{this->target()}.free->vid; }
   };

@@ -183,6 +183,8 @@ namespace sprite
     void check_alloc(size_t id) const;
     ChoiceState test(size_t id) const;
     ChoiceState test_no_check(size_t id) const;
+    ChoiceState test2(size_t id, ChoiceState def) const;
+    ChoiceState test_no_check2(size_t id, ChoiceState def) const;
     bool choice_is_made(size_t id) const;
     bool choice_is_left_no_check(size_t id) const
       { return test_no_check(id) == LEFT; }

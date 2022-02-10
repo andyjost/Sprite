@@ -16,7 +16,7 @@ namespace sprite
   Expr RuntimeState::make_value()
   {
     // if value is IO...
-    return copy_graph(this->E(), SKIPFWD, this->sid());
+    return copy_graph(this->E(), SKIPFWD, this->S());
   }
 
   bool RuntimeState::ready()

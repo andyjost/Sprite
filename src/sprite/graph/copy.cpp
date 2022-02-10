@@ -26,12 +26,12 @@ namespace sprite
   {
     struct SkipNothing
     {
-      Node ** operator()(Node *, sid_type) { return nullptr; }
+      Node ** operator()(Node *, Set *) { return nullptr; }
     };
 
     struct SkipFwd
     {
-      Node ** operator()(Node * expr, sid_type)
+      Node ** operator()(Node * expr, Set *)
       {
         return expr->info->tag == T_FWD ? &NodeU{expr}.fwd->target : nullptr;
       }
@@ -39,10 +39,10 @@ namespace sprite
 
     struct SkipGrd
     {
-      Node ** operator()(Node * expr, sid_type skipgrd)
+      Node ** operator()(Node * expr, Set * skipgrd)
       {
         if(expr->info->tag == T_SETGRD)
-          if(skipgrd == NodeU{expr}.setgrd->sid)
+          if(skipgrd == NodeU{expr}.setgrd->set)
             return &NodeU{expr}.setgrd->value;
         return nullptr;
       }
@@ -50,7 +50,7 @@ namespace sprite
 
     struct SkipBoth : SkipGrd
     {
-      Node ** operator()(Node * expr, sid_type skipgrd)
+      Node ** operator()(Node * expr, Set * skipgrd)
       {
         NodeU u{expr};
         switch(expr->info->tag)
@@ -58,7 +58,7 @@ namespace sprite
           case T_FWD:
             return &u.fwd->target;
           case T_SETGRD:
-            if(skipgrd == u.setgrd->sid)
+            if(skipgrd == u.setgrd->set)
               return &u.setgrd->value;
             break;
         }
@@ -69,14 +69,14 @@ namespace sprite
     template<typename Skipper>
     struct GraphCopier
     {
-      GraphCopier(memo_type & memo, sid_type skipgrd=NOSID)
+      GraphCopier(memo_type & memo, Set * skipgrd=nullptr)
         : expr(), memo(memo), skipgrd(skipgrd), skip()
       {}
 
-      Cursor expr;
+      Cursor      expr;
       memo_type & memo;
-      sid_type skipgrd;
-      Skipper skip;
+      Set *       skipgrd;
+      Skipper     skip;
 
       Arg operator()(Cursor expr)
       {
@@ -115,7 +115,7 @@ namespace sprite
   }
 
   Expr copy_graph(
-      Cursor expr, SkipOpt skipfwd, sid_type const * skipgrd, memo_type * memo
+      Cursor expr, SkipOpt skipfwd, Set * skipgrd, memo_type * memo
     )
   {
     if(!memo)
@@ -127,7 +127,7 @@ namespace sprite
     {
       case 2 | 1:
       {
-        GraphCopier<SkipBoth> copier(*memo, *skipgrd);
+        GraphCopier<SkipBoth> copier(*memo, skipgrd);
         return Expr{copier(expr), expr.kind};
       }
       case 2 | 0:
@@ -137,7 +137,7 @@ namespace sprite
       }
       case 0 | 1:
       {
-        GraphCopier<SkipGrd> copier(*memo, *skipgrd);
+        GraphCopier<SkipGrd> copier(*memo, skipgrd);
         return Expr{copier(expr), expr.kind};
       }
       case 0 | 0:

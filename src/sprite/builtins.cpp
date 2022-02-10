@@ -10,7 +10,7 @@ namespace sprite
     , /*typetag*/    NO_FLAGS
     , /*flags*/      NO_FLAGS
     , /*name*/       "_SetGuard"
-    , /*format*/     "ip"
+    , /*format*/     "xp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*type*/       &SetGuard_Type
