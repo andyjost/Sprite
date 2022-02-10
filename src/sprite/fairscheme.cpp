@@ -9,11 +9,11 @@ namespace sprite
 {
   Expr eval_next(RuntimeState * rts)
   {
-    Queue * Q = nullptr;
+    Queue * Q         = nullptr;
     Configuration * C = nullptr;
-    Walk * state = nullptr;
-    Node * tmp = nullptr;
-    tag_type tag = NOTAG;
+    Search * search   = nullptr;
+    Node * tmp        = nullptr;
+    tag_type tag      = NOTAG;
 
   procD:
     Q = rts->Q();
@@ -50,7 +50,7 @@ namespace sprite
                         goto redoD;
         case T_CHOICE : rts->fork(Q, C);
                         continue;
-        case T_FUNC   : tag = rts->S(C, Redex(C->callstack.search));
+        case T_FUNC   : tag = rts->S(C, Redex(C->search));
                         goto redoD;
         case E_RESTART: tag = inspect::tag_of(C->root);
                         goto redoD;
@@ -61,9 +61,9 @@ namespace sprite
     return Expr{};
 
   procN:
-    for(state = &C->callstack.search; *state; ++(*state))
+    for(search = &C->search; *search; ++(*search))
     {
-      tag = inspect::tag_of(state->cursor());
+      tag = inspect::tag_of(search->cursor());
     redoN:
       switch(tag)
       {
@@ -71,32 +71,35 @@ namespace sprite
         case T_SETGRD : assert(0); continue;
         case T_FAIL   : rts->drop();
                         goto procD;
-        case T_CONSTR : C->reset(rts->lift_constraint(C, C->root, state->cursor()));
+        case T_CONSTR : *C->root = rts->lift_constraint(C, C->root, search->cursor());
                         tag = inspect::tag_of(C->root);
+                        search->reset();
                         goto redoD;
         case T_FREE   : tmp = rts->replace_freevar(C);
                         if(tmp)
                         {
-                          C->reset(tmp);
+                          *C->root = tmp;
+                          search->reset();
                           tag = inspect::tag_of(tmp);
                           goto redoD;
                         }
                         else
                           continue;
-        case T_FWD    : compress_fwd_chain(state->cursor());
-                        tag = inspect::tag_of(state->cursor());
+        case T_FWD    : compress_fwd_chain(search->cursor());
+                        tag = inspect::tag_of(search->cursor());
                         goto redoN;
-        case T_CHOICE : C->reset(rts->pull_tab(C, C->root, state->cursor()));
+        case T_CHOICE : *C->root = rts->pull_tab(C, C->root, search->cursor());
+                        search->reset();
                         assert(C->root.info()->tag == T_CHOICE);
                         goto redoD;
-        case T_FUNC   : tag = rts->S(C, Redex(C->callstack.search));
+        case T_FUNC   : tag = rts->S(C, Redex(C->search));
                         goto redoN;
         case E_RESTART: tag = inspect::tag_of(C->root);
                         goto redoD;
         case E_RESIDUAL: assert(0); continue;
         default:
-          if(state->cursor().info()->typetag != PARTIAL_TYPE)
-            state->push();
+          if(search->cursor().info()->typetag != PARTIAL_TYPE)
+            search->push();
       }
     }
     return rts->release_value();

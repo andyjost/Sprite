@@ -45,9 +45,9 @@ namespace
     void stringify(Cursor expr)
     {
       bool first = true;
-      for(auto && state=walk(expr, this, &callback); state; ++state)
+      for(auto && search=walk(expr, this, &callback); search; ++search)
       {
-        auto && cur = state.cursor();
+        auto && cur = search.cursor();
         if(first) first = false; else this->os << ' ';
         switch(cur.kind)
         {
@@ -65,7 +65,7 @@ namespace
             os << '(' << cur.info()->name << ')';
           else
             os << cur.info()->name;
-          state.push(id);
+          search.push(id);
         }
       }
     }
@@ -121,10 +121,10 @@ namespace
 
     void stringify(Cursor expr)
     {
-      for(auto && state=walk(expr, this, &callback); state; ++state)
+      for(auto && search=walk(expr, this, &callback); search; ++search)
       {
-        auto cur = state.cursor().skipfwd();
-        void *& data = state.data();
+        auto cur = search.cursor().skipfwd();
+        void *& data = search.data();
         bool bare = false;
         switch(Context(data).value)
         {
@@ -142,7 +142,7 @@ namespace
             if(cur.info()->tag == T_CONS)
             {
               os << ", ";
-              state.push(Context('['));
+              search.push(Context('['));
             }
             else
               os << ']';
@@ -153,7 +153,7 @@ namespace
           case '`' :
             assert(cur.info()->typetag == LIST_TYPE);
             if(cur.info()->tag == T_CONS)
-              state.push(Context('"'));
+              search.push(Context('"'));
             else
               os << '"';
             continue;
@@ -165,7 +165,7 @@ namespace
             if(cur.info()->typetag == LIST_TYPE)
             {
               if(cur.info()->tag == T_CONS)
-                state.push(Context(':'));
+                search.push(Context(':'));
               else
                 os << '[' << ']';
               continue;
@@ -192,26 +192,26 @@ namespace
           case CHAR_TYPE:
           case FLOAT_TYPE:
           case PARTIAL_TYPE:
-            state.push();
+            search.push();
             continue;
           case LIST_TYPE:
-            begin_list(state, cur);
+            begin_list(search, cur);
             continue;
           case TUPLE_TYPE:
             os << '(';
-            state.push(Context('('));
+            search.push(Context('('));
             continue;
           default:
             if(!bare && info->arity)
             {
               os << '(';
               os << info->name;
-              state.push(Context('&'));
+              search.push(Context('&'));
             }
             else
             {
               os << info->name;
-              state.push(Context(' '));
+              search.push(Context(' '));
             }
             continue;
         }
@@ -237,7 +237,7 @@ namespace
     void show(unboxed_char_type value)
       { show_escaped(this->os, value); }
 
-    void begin_list(Walk & state, Cursor cur)
+    void begin_list(Search & search, Cursor cur)
     {
       Node * end = cur->node;
       bool is_string = true;
@@ -255,16 +255,16 @@ namespace
         if(is_string && !is_empty)
         {
           this->os << '"';
-          state.push(Context('"'));
+          search.push(Context('"'));
         }
         else
         {
           this->os << '[';
-          state.push(Context('['));
+          search.push(Context('['));
         }
       }
       else
-        state.push(Context(':'));
+        search.push(Context(':'));
     }
   };
 }

@@ -3,18 +3,19 @@
 #include "sprite/currylib/prelude.hpp"
 #include "sprite/exceptions.hpp"
 #include "sprite/graph/variable.hpp"
+#include "sprite/inspect.hpp"
 #include "sprite/state/rts.hpp"
 
 namespace sprite { inline namespace
 {
-  Node * ub_equals(Cursor & lhs, Cursor & rhs)
+  bool ub_equals(Cursor & lhs, Cursor & rhs)
   {
     assert(lhs.kind == rhs.kind);
     switch(lhs.kind)
     {
-      case 'i': return (lhs->ub_int == rhs->ub_int)     ? true_() : false_();
-      case 'f': return (lhs->ub_float == rhs->ub_float) ? true_() : false_();
-      case 'c': return (lhs->ub_char == rhs->ub_char)   ? true_() : false_();
+      case 'i': return (lhs->ub_int == rhs->ub_int);
+      case 'f': return (lhs->ub_float == rhs->ub_float);
+      case 'c': return (lhs->ub_char == rhs->ub_char);
       default: assert(0); __builtin_unreachable();
     }
   }
@@ -64,14 +65,16 @@ namespace sprite { inline namespace
     Variable lhs(_0, 0), rhs(_0, 1);
     auto tagl = rts->hnf_or_free(C, &lhs);
     auto tagr = rts->hnf_or_free(C, &rhs);
-    auto code = ((tagl != T_UNBOXED) ? 2 : 0) + ((tagr != T_UNBOXED) ? 1 : 0);
+    auto code = ((tagl == T_UNBOXED) ? 2 : 0) + ((tagr == T_UNBOXED) ? 1 : 0);
     ValueSet vs;
     switch(code)
     {
-      case 0: _0->root()->forward_to(ub_equals(lhs.target(), rhs.target()));
-              return T_FWD;
       case 1:
       case 2: throw InstantiationError("=:= cannot bind to an unboxed value");
+      case 3: _0->root()->forward_to(
+                  ub_equals(lhs.target(), rhs.target()) ? true_() : fail()
+                );
+              return T_FWD;
     }
     code = ((tagl == T_FREE) ? 2 : 0) + ((tagr == T_FREE) ? 1 : 0);
     switch(code)
@@ -88,10 +91,14 @@ namespace sprite { inline namespace
                 );
               return T_FWD;
     }
-    if(tagl == tagr)
+    if(tagl != tagr) // case 0
+      _0->root()->forward_to(fail());
+    else
     {
       index_type arity = lhs.target().info()->arity;
-      if(arity)
+      if(!arity)
+        _0->root()->forward_to(true_());
+      else
       {
         Arg * lsuc = lhs.target()->node->successors();
         Arg * rsuc = rhs.target()->node->successors();
@@ -103,17 +110,65 @@ namespace sprite { inline namespace
             );
         _0->root()->forward_to(tmp);
       }
-      else
-        _0->root()->forward_to(true_());
     }
-    else
-      _0->root()->forward_to(fail());
     return T_FWD;
   }
 
   step_status nonstrictEq_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
-    return T_CTOR;
+    Variable lhs(_0, 0), rhs(_0, 1);
+    auto tagl = inspect::tag_of(lhs.target());
+    auto tagr = inspect::tag_of(rhs.target());
+    auto code = ((tagl == T_UNBOXED) ? 2 : 0) + ((tagr == T_UNBOXED) ? 1 : 0);
+    switch(code)
+    {
+      case 1:
+      case 2: throw InstantiationError("=:<= cannot bind to an unboxed value");
+      case 3: _0->root()->forward_to(
+                  ub_equals(lhs.target(), rhs.target()) ? true_() : fail()
+                );
+              return T_FWD;
+    }
+    tagl = rts->hnf_or_free(C, &lhs);
+    if(tagl == T_FREE)
+    {
+      _0->root()->forward_to(
+            Node::create(
+                &NonStrictConstraint_Info
+              , {true_(), pair(lhs.target(), rhs.target())}
+              )
+        );
+      return T_FWD;
+    }
+    else if(tagl < T_CTOR)
+      return tagl;
+    tagr = rts->hnf_or_free(C, &rhs);
+    if(tagr == T_FREE)
+      return rts->hnf(C, &rhs, lhs.target().info()->type);
+    else if(tagr < T_CTOR)
+      return tagr;
+    if(tagl != tagr)
+      _0->root()->forward_to(fail());
+    else
+    {
+      assert(lhs.target().info() == rhs.target().info());
+      index_type arity = lhs.target().info()->arity;
+      if(!arity)
+        _0->root()->forward_to(true_());
+      else
+      {
+        Arg * lsuc = lhs.target()->node->successors();
+        Arg * rsuc = rhs.target()->node->successors();
+        Node * tmp = Node::create(_0->info(), {lsuc[0], rsuc[0]});
+        for(index_type i=1; i<arity; ++i)
+          tmp = Node::create(
+              &concurrentAnd_Info
+            , {tmp, Node::create(_0->info(), {lsuc[i], rsuc[i]})}
+            );
+        _0->root()->forward_to(tmp);
+      }
+    }
+    return T_FWD;
   }
 
   step_status seq_step(RuntimeState * rts, Configuration * C, Redex const * _0)

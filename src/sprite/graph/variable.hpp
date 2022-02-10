@@ -9,12 +9,12 @@ namespace sprite
 {
   struct Redex
   {
-    Redex(Walk & search) : search(&search), ret(search.size()) {}
+    Redex(Search & search) : search(&search), ret(search.size()) {}
     explicit Redex(Variable const &);
     explicit Redex(Variable const * v) : Redex(*v) {}
     ~Redex() { this->search->resize(this->ret); }
 
-    Walk * search;
+    Search * search;
     size_t ret;
 
     Node * root() const { return this->search->at(this->ret - 1)->node; }

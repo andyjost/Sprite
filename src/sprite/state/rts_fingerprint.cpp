@@ -58,10 +58,9 @@ namespace sprite
 
   Node * RuntimeState::pull_tab(Configuration * C, Node * source, Node * target)
   {
-    auto & search = C->callstack.search;
     ChoiceNode * choice = NodeU{target}.choice;
-    Node * lhs = search.copy_spine(source, choice->lhs);
-    Node * rhs = search.copy_spine(source, choice->rhs);
+    Node * lhs = C->search.copy_spine(source, choice->lhs);
+    Node * rhs = C->search.copy_spine(source, choice->rhs);
     return make_node<ChoiceNode>(choice->cid, lhs, rhs);
   }
 

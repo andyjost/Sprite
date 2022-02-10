@@ -3,7 +3,7 @@
 
 namespace sprite
 {
-  Walk::Walk(
+  Search::Search(
       Cursor root
     , void * static_data
     , datadisposer_type dispose
@@ -14,12 +14,18 @@ namespace sprite
     assert(root);
   }
 
-  Walk::operator bool() const
+  void Search::reset()
+  {
+    if(this->stack.size() > 1)
+      this->stack.resize(1);
+  }
+
+  Search::operator bool() const
   {
     return !this->stack.empty();
   }
 
-  void Walk::operator++()
+  void Search::operator++()
   {
     while(true)
     {
@@ -40,7 +46,7 @@ namespace sprite
     }
   }
 
-  void Walk::push(void * data)
+  void Search::push(void * data)
   {
     Frame & parent = stack.back();
     parent.index = NOINDEX;
@@ -48,7 +54,7 @@ namespace sprite
     this->stack.emplace_back(data);
   }
 
-  void Walk::extend(index_type pos)
+  void Search::extend(index_type pos)
   {
     Frame & parent = stack.back();
     parent.index = pos;
@@ -57,44 +63,44 @@ namespace sprite
     this->stack.emplace_back(succ);
   }
 
-  void Walk::extend(index_type const * path)
+  void Search::extend(index_type const * path)
   {
     if(path)
       while(*path != NOINDEX)
         this->extend(*path++);
   }
 
-  void Walk::pop()
+  void Search::pop()
   {
     if(this->dispose)
       this->dispose(this->static_data, this->stack.back().data);
     this->stack.pop_back();
   }
 
-  Cursor Walk::root() const
+  Cursor Search::root() const
   {
     assert(*this);
     return this->stack.front().cur;
   }
 
-  Cursor Walk::cursor() const
+  Cursor Search::cursor() const
   {
     assert(*this);
     return this->stack.back().cur;
   }
 
-  void *& Walk::data() const
+  void *& Search::data() const
   {
     assert(*this);
     return this->stack.back().data;
   }
 
-  Node * Walk::copy_spine(Node * root, Node * end, size_t start)
+  Node * Search::copy_spine(Node * root, Node * end, size_t start)
   {
     return this->copy_spine(root, end, nullptr, start);
   }
 
-  Node * Walk::copy_spine(
+  Node * Search::copy_spine(
       Node * root, Node * end, Cursor * target, size_t start
     )
   {

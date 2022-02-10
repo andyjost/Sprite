@@ -36,7 +36,7 @@ namespace sprite
       node = this->get_generator(C, gid);
     if(!node && vid != gid)
       node = this->get_freevar(gid);
-    return node ? C->callstack.search.copy_spine(C->root, node) : node;
+    return node ? C->search.copy_spine(C->root, node) : node;
   }
 
   step_status RuntimeState::replace_freevar(
@@ -53,7 +53,7 @@ namespace sprite
     }
     else if(Node * binding = this->get_binding(C, freevar))
     {
-      *C->root = C->callstack.search.copy_spine(C->root, binding);
+      *C->root = C->search.copy_spine(C->root, binding);
       return E_RESTART;
     }
     ValueSet const * values = (ValueSet const *) guides;
@@ -175,7 +175,7 @@ namespace sprite
       Redex tmp_frame(*inductive);
       Node * genexpr = _make_generator(this, inductive->target(), values);
       Cursor target;
-      Node * replacement = C->callstack.search.copy_spine(root, genexpr, &target);
+      Node * replacement = C->search.copy_spine(root, genexpr, &target);
       inductive->target() = target;
       assert(inductive->target()->node = genexpr);
       root->forward_to(replacement);

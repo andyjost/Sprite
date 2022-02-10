@@ -6,10 +6,10 @@ namespace sprite
 {
   using datadisposer_type = void(*)(void * static_data, void * data);
 
-  struct Walk
+  struct Search
   {
-    Walk() {}
-    Walk(Cursor root, void * static_data=nullptr, datadisposer_type=nullptr);
+    Search() {}
+    Search(Cursor root, void * static_data=nullptr, datadisposer_type=nullptr);
 
     explicit operator bool() const;
     void operator++();
@@ -25,6 +25,7 @@ namespace sprite
     Cursor cursor() const;
     Cursor at(size_t n) const { return this->stack[n].cur; }
     void *& data() const;
+    void reset();
 
     Node * copy_spine(
         Node * root, Node * end, Cursor * target=nullptr
@@ -54,6 +55,6 @@ namespace sprite
   };
 
   template<typename ... Args>
-  Walk walk(Args && ... args)
-    { return Walk(std::forward<Args>(args)...); }
+  Search walk(Args && ... args)
+    { return Search(std::forward<Args>(args)...); }
 }

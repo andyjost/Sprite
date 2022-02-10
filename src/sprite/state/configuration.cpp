@@ -6,12 +6,6 @@
 
 namespace sprite
 {
-  void Configuration::reset(Node * root)
-  {
-    *(this->root) = root;
-    this->callstack.reset(this->root);
-  }
-
   std::ostream & operator<<(std::ostream & os, BindingMap const & bnd)
   {
     std::vector<id_type> keys;
