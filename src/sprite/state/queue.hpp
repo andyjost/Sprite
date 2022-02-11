@@ -10,7 +10,13 @@ namespace sprite
 
   struct Queue : private queue_type
   {
-    Queue(Set * set=nullptr) : queue_type(), set(set) {}
+    Queue(Set * set=nullptr, Node * root=nullptr)
+      : queue_type(), set(set)
+    {
+      if(root)
+        this->push_back(new Configuration(root));
+    }
+
     Set * set;
 
     using queue_type::front;
@@ -25,15 +31,5 @@ namespace sprite
 			if(C)
 				this->queue_type::push_back(C);
 		}
-
-    void filter(xid_type cid, ChoiceState lr)
-    {
-      auto end = std::copy_if(
-          this->begin(), this->end(), this->begin()
-        , [cid,lr](Configuration * C)
-          { return C->fingerprint.test2(cid, lr) == lr; }
-        );
-      this->resize(end - this->begin());
-    }
   };
 }

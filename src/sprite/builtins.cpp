@@ -162,12 +162,12 @@ namespace sprite
 
   InfoTable const PartApplic_Info{
       /*tag*/        T_CTOR
-    , /*arity*/      2
+    , /*arity*/      3
     , /*alloc_size*/ sizeof(PartApplicNode)
     , /*typetag*/    PARTIAL_TYPE
     , /*flags*/      NO_FLAGS
     , /*name*/       "_PartApplic"
-    , /*format*/     ""
+    , /*format*/     "ixp"
     , /*step*/       nullptr
     , /*typecheck*/  nullptr
     , /*type*/       &PartApplic_Type
@@ -350,5 +350,22 @@ namespace sprite
       assert(constraint->info == &ValueBinding_Info);
       return VALUE_BINDING;
     }
+  }
+
+  bool PartApplicNode::complete(Node * arg) const
+  {
+    assert(!this->is_encapsulated || !arg);
+    return this->is_encapsulated()
+        || this->missing - (arg ? 1 : 0) == 0;
+  }
+
+  bool PartApplicNode::is_encapsulated() const
+    { return this->missing == ENCAPSULATED_EXPR; }
+
+  Node * PartApplicNode::materialize(Node * arg) const
+  {
+    assert(this->complete(arg));
+    return this->is_encapsulated()
+      ? this->terms : Node::from_partial(this, arg);
   }
 }

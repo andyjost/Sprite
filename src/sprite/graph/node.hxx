@@ -4,6 +4,7 @@
 #include "sprite/graph/copy.hpp"
 #include "sprite/graph/equality.hpp"
 #include "sprite/graph/indexing.hpp"
+#include "sprite/graph/memory.hpp"
 #include "sprite/graph/show.hpp"
 #include <sstream>
 
@@ -16,6 +17,28 @@ namespace sprite
     )
   {
     return Node::create(info, std::data(args), target);
+  }
+
+  inline void _loadargs(Node ** slot) {}
+
+  template<typename ... Args> 
+  void _loadargs(Node ** slot, Arg arg0, Args && ... args)
+  {
+    *slot++ = arg0.node;
+    _load_args(slot, std::forward<Args>(args)...);
+  }
+
+  template<typename ... Args>
+  Node * create(InfoTable const * info, Arg arg0, Args && ... args)
+  {
+    Node * target = (Node *) node_alloc(info->alloc_size);
+    assert(target);
+
+    RawNodeMemory mem{target};
+    *mem.info++ = info;
+    *mem.boxed++ = arg0.node;
+    _loadargs(mem.boxed, std::forward<Args>(args)...);
+    return target;
   }
 
   inline void Node::forward_to(Node * target)
@@ -111,4 +134,5 @@ namespace sprite
 
   inline Cursor Node::operator[](index_type const * path)
     { return logical_subexpr(this, path); }
+
 }

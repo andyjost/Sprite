@@ -14,6 +14,7 @@ namespace sprite
   struct InfoTable;
   struct InterpreterState;
   struct Node;
+  struct PartApplicNode;
   struct Queue;
   struct Redex;
   struct RuntimeState;
@@ -23,15 +24,18 @@ namespace sprite
   struct Variable;
   union Arg;
 
+  enum NStatus = {N_YIELD, N_REDO, N_CONTINUE};
+  enum TraceOpt : bool { TRACE = true, NOTRACE = false };
+  enum SetFStrategy { SETF_EAGER, SETF_LAZY };
   using tag_type = int16_t;
-  using step_status = tag_type;
+  using SStatus = tag_type;
 
   using flag_type = std::uint8_t;
   using hash_type = std::size_t;
   using index_type = std::uint16_t;
   using memo_type = std::unordered_map<void *, Arg>;
   using std::size_t;
-  using stepfunc_type = step_status (*)(RuntimeState *, Configuration *, Redex const *);
+  using stepfunc_type = SStatus (*)(RuntimeState *, Configuration *, Redex const *);
   using typecheckfunc_type = void (*)(Node *);
   using unboxed_char_type = signed char;
   using unboxed_float_type = double;
@@ -46,8 +50,8 @@ namespace sprite
   static constexpr tag_type   NOTAG   = std::numeric_limits<tag_type>::min();
   static constexpr xid_type   NOXID   = std::numeric_limits<xid_type>::max();
 
-  static constexpr step_status E_RESIDUAL = -10;
-  static constexpr step_status E_RESTART  = -9;
+  static constexpr SStatus E_RESIDUAL = -10;
+  static constexpr SStatus E_RESTART  = -9;
   static constexpr tag_type T_UNBOXED     = -8;
   static constexpr tag_type T_SETGRD      = -7;
   static constexpr tag_type T_FAIL        = -6;

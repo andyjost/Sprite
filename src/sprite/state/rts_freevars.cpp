@@ -39,7 +39,7 @@ namespace sprite
     return node ? C->search.copy_spine(C->root, node) : node;
   }
 
-  step_status RuntimeState::replace_freevar(
+  SStatus RuntimeState::replace_freevar(
       Configuration * C, Variable * inductive, void const * guides
     )
   {
@@ -162,7 +162,7 @@ namespace sprite
     return NodeU{freevar}.free->genexpr;
   }
 
-  step_status RuntimeState::instantiate(
+  SStatus RuntimeState::instantiate(
       Configuration * C, Node * root, Variable * inductive
     , void const * guides
     )

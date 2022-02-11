@@ -26,7 +26,9 @@ namespace sprite
     Arg(signed char value)       : ub_char(value)  {}
     Arg(unsigned char value)     : ub_char(value)  {}
     Arg(InfoTable const * value) : info(value)     {}
-    Arg(void * value)            : blob(value)     {}
+    template<typename T>
+    Arg(T * value)               : blob(value)     {}
+    Arg(std::nullptr_t)          : blob(nullptr)   {}
 
     template<typename T> Arg & operator=(T &&);
   };

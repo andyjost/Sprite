@@ -6,6 +6,8 @@
 
 namespace sprite
 {
+  static constexpr unboxed_int_type ENCAPSULATED_EXPR = -1;
+
   static constexpr tag_type T_CONS  = T_CTOR;
   static constexpr tag_type T_NIL   = T_CTOR + 1;
   static constexpr tag_type T_FALSE = T_CTOR;
@@ -134,7 +136,12 @@ namespace sprite
   struct PartApplicNode : Head
   {
     unboxed_int_type missing;
-    Node * term;
+    InfoTable * func_info;
+    Node * terms;
+
+    bool complete(Node * = nullptr) const;
+    Node * materialize(Node * = nullptr) const;
+    bool is_encapsulated() const;
   };
 
   struct ConsNode : Head

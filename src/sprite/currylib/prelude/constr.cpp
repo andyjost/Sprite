@@ -33,7 +33,7 @@ namespace sprite { inline namespace
     }
   }
 
-  step_status concurrentAnd_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus concurrentAnd_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     bool errs[2] = {false, false};
     index_type i = 0;
@@ -60,7 +60,7 @@ namespace sprite { inline namespace
     }
   }
 
-  step_status constrEq_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus constrEq_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Variable lhs(_0, 0), rhs(_0, 1);
     auto tagl = rts->hnf_or_free(C, &lhs);
@@ -114,7 +114,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  step_status nonstrictEq_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus nonstrictEq_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Variable lhs(_0, 0), rhs(_0, 1);
     auto tagl = inspect::tag_of(lhs.target());
@@ -171,7 +171,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  step_status seq_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus seq_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Variable _1(*_0, 0);
     auto tag = rts->hnf(C, &_1, &Bool_Type);

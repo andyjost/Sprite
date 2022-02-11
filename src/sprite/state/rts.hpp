@@ -11,8 +11,6 @@
 
 namespace sprite
 {
-  enum TraceOpt : bool { TRACE = true, NOTRACE = false };
-
   struct InterpreterState : boost::noncopyable
   {
     xid_type xidfactory = 0;
@@ -31,20 +29,22 @@ namespace sprite
     RuntimeState(InterpreterState & istate, Cursor goal);
 
     InterpreterState & istate;
-    size_t             stepcount   = 0;
+    size_t             stepcount = 0;
     qstack_type        qstack;
     vtable_type        vtable;
+    SetFStrategy       setfunction_strategy = SETF_EAGER;
 
     Queue * Q() { return this->qstack.back(); }
     Configuration * C() { return this->Q()->front(); }
     Cursor & E() { return C()->root; }
     Set * S() { return Q()->set; }
 
-    step_status step(Configuration *, Redex const &);
-    step_status hnf(
+    NStatus procN(Configuration *, tag_type &);
+    SStatus procS(Configuration *, Redex const &);
+    SStatus hnf(
         Configuration *, Variable * inductive, void const * guides=nullptr
       );
-    step_status hnf_or_free(
+    SStatus hnf_or_free(
         Configuration *, Variable * inductive, void const * guides=nullptr
       );
 
@@ -86,9 +86,9 @@ namespace sprite
     bool is_narrowed(Configuration *, xid_type vid);
     bool is_narrowed(Configuration *, Node * vid);
     Node * replace_freevar(Configuration *);
-    step_status replace_freevar(Configuration *, Variable * inductive, void const *);
+    SStatus replace_freevar(Configuration *, Variable * inductive, void const *);
     void clone_generator(Node * bound, Node * unbound);
-    step_status instantiate(
+    SStatus instantiate(
         Configuration *, Node * redex, Variable * inductive, void const * guides
       );
 
