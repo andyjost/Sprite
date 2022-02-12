@@ -24,7 +24,7 @@ namespace sprite
   struct Variable;
   union Arg;
 
-  enum NStatus = {N_YIELD, N_REDO, N_CONTINUE};
+  enum NStatus {N_YIELD, N_REDO, N_CONTINUE};
   enum TraceOpt : bool { TRACE = true, NOTRACE = false };
   enum SetFStrategy { SETF_EAGER, SETF_LAZY };
   using tag_type = int16_t;

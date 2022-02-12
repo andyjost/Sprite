@@ -13,6 +13,8 @@ namespace sprite
     return *this;
   }
 
+  inline Arg::Arg(Cursor const & value) : Arg(*value) {}
+
   // Cursor
   inline InfoTable const * Cursor::info() const
     { return arg && arg->head ? arg->head->info : nullptr; }

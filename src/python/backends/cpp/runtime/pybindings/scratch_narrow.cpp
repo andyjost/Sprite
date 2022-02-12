@@ -11,7 +11,7 @@ using namespace sprite;
 
 namespace sprite { inline namespace
 {
-  step_status not_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus not_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Variable _1(*_0, 0);
     auto tag = rts->hnf(C, &_1, &Bool_Type);
@@ -38,7 +38,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  step_status main1_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main1_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Node * goal = Node::create(&not_Info, {false_()});
     _0->root()->forward_to(goal);
@@ -58,7 +58,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  step_status main2_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main2_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Node * goal = Node::create(&not_Info, {free(0)});
     _0->root()->forward_to(goal);
@@ -78,7 +78,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  step_status main3_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main3_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     // _B((not x, y), (x, y))
     Node * x = rts->freshvar();
@@ -104,7 +104,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  step_status main4_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main4_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     // (_B(not x, (x, y)), y)
     Node * x = rts->freshvar();
@@ -130,7 +130,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  step_status main5_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main5_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     // (not x, y)
     Node * x = rts->freshvar();
@@ -154,7 +154,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  step_status main6_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main6_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     // (not _B(x, (x, y)), y)
     Node * x = rts->freshvar();
@@ -180,7 +180,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  step_status main7_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main7_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     // x=:=y &> (x, not y)
     Node * x = rts->freshvar();

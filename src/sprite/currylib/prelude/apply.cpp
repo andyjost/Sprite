@@ -1,5 +1,4 @@
 #include <cassert>
-#include <functional>
 #include "sprite/builtins.hpp"
 #include "sprite/currylib/prelude.hpp"
 #include "sprite/exceptions.hpp"
@@ -12,12 +11,12 @@ namespace sprite { inline namespace
   SStatus cond_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Variable _1(_0, 0);
-    auto tag = rts->hnf(C, _1, &Bool_Type);
+    auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {
-      case T_FALSE: _0->root.forward_to(fail());
+      case T_FALSE: _0->root()->forward_to(fail());
                     return T_FWD;
-      case T_TRUE : _0->root.forward_to(_0->root()->sucessor(1));
+      case T_TRUE : _0->root()->forward_to(_0->root()->successor(1));
                     return T_FWD;
       default: return tag;
     }
@@ -26,18 +25,20 @@ namespace sprite { inline namespace
   SStatus apply_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Variable _1(_0, 0);
-    auto tag = rts->hnf(C, _1);
+    auto tag = rts->hnf(C, &_1);
     if(tag != T_CTOR)
       return tag;
-    PartApplicNode * partial = NodeU{_1->target()}.partapplic;
-    Node * arg = _0->root().successors(1);
+    PartApplicNode * partial = NodeU{_1.target()}.partapplic;
+    Node * arg = _0->root()->successor(1);
     Node * replacement = partial->complete(arg)
         ? Node::from_partial(partial, arg)
         : Node::create(
-              &PartApplic_Info, partial->missing - 1, partial->func_info
+              &PartApplic_Info
+            , partial->missing - 1
+            , partial->func_info
             , cons(arg, partial->terms)
             );
-    _0->root().forward_to(replacement);
+    _0->root()->forward_to(replacement);
     return T_FWD;
   }
 
@@ -48,26 +49,38 @@ namespace sprite { inline namespace
     )
   {
     Variable _1(_0, 0);
-    auto tag = rts->hnf(C, _1);
+    auto tag = rts->hnf(C, &_1);
     if(tag != T_CTOR)
       return tag;
-    PartApplicNode * partial = NodeU{_1->target()}.partapplic;
-    Node * arg = _0->root().successors(1);
     // TODO: catch nondeterminism in IO
     Variable _2(_0, 1);
-    Node * xformed = action(rts, C, &_2);
+    tag = action(rts, C, &_2);
+    if(_2.target()->info->tag < T_CTOR)
+      return tag;
     Node * replacement = Node::create(
-        &apply_Info, _0->root->successor(0), xformed
+        &apply_Info, _0->root()->successor(0)->node, _2.target()->node
       );
-    _0->root().forward_to(replacement);
+    _0->root()->forward_to(replacement);
     return T_FWD;
+  }
+
+  SStatus applynf_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  {
+    auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
+    {
+
+      tag_type tag;
+      return rts->procN(C, tag);
+    };
+    return _applyspecial(rts, C, _0, normalize);
   }
 
   SStatus applygnf_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     auto rv = applynf_step(rts, C, _0);
     std::unordered_set<xid_type> unbound;
-    for(Node * node: iterexpr(_0->root()))
+    auto nodes = iternodes(_0->root());
+    while(Node * node = nodes.next())
     {
       if(inspect::isa_freevar(node) && !has_generator(node))
         unbound.insert(obj_id(node));
@@ -81,23 +94,11 @@ namespace sprite { inline namespace
 
   SStatus applyhnf_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
-    return _applyspecial(rts, C, _0, std::bind(&RuntimeState::hnf));
+    auto && headnormalize = [](RuntimeState * rts, Configuration * C, Variable * var)
+      { return rts->hnf(C, var); };
+    return _applyspecial(rts, C, _0, headnormalize);
   }
-
-  SStatus applynf_step(RuntimeState * rts, Configuration * C, Redex const * _0)
-  {
-    auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
-      -> Node *
-    {
-      tag_type tag;
-      NStatus status = rts->procN(C, tag);
-      if(status != N_YIELD)
-        return tag;
-      return var->target();
-    };
-    return _applyspecial(rts, C, _0, normalize);
-  }
-}
+}}
 
 namespace sprite
 {

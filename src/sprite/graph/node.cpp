@@ -35,7 +35,7 @@ namespace sprite
     assert(partial->info->flags == PARTIAL_TYPE);
     assert(partial->complete(arg));
     Node * out = (Node *) node_alloc(partial->func_info->alloc_size);
-    RawNodeMemory mem(goal);
+    RawNodeMemory mem(out);
     *mem.info++ = partial->func_info;
     Node ** slot = mem.boxed + partial->func_info->arity;
     Node * pos = partial->terms;

@@ -354,7 +354,7 @@ namespace sprite
 
   bool PartApplicNode::complete(Node * arg) const
   {
-    assert(!this->is_encapsulated || !arg);
+    assert(!this->is_encapsulated() || !arg);
     return this->is_encapsulated()
         || this->missing - (arg ? 1 : 0) == 0;
   }

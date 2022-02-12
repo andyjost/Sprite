@@ -29,6 +29,7 @@ namespace sprite
     template<typename T>
     Arg(T * value)               : blob(value)     {}
     Arg(std::nullptr_t)          : blob(nullptr)   {}
+    Arg(Cursor const &);
 
     template<typename T> Arg & operator=(T &&);
   };
@@ -78,7 +79,6 @@ namespace sprite
 
     explicit operator bool() const { return kind != 'u'; }
   };
-
 }
 
 #include "sprite/graph/cursor.hxx"

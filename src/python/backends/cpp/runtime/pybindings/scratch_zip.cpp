@@ -10,10 +10,10 @@ using namespace sprite;
 
 namespace sprite { namespace python
 {
-  step_status zip_step(RuntimeState * rts, Configuration * C, Redex const * _0);
-  step_status zip_step_CASE0(RuntimeState * rts, Configuration * C, Redex const * _0);
-  step_status list01_step(RuntimeState * rts, Configuration * C, Redex const * _0);
-  step_status mainzip_step(RuntimeState * rts, Configuration * C, Redex const * _0);
+  SStatus zip_step(RuntimeState * rts, Configuration * C, Redex const * _0);
+  SStatus zip_step_CASE0(RuntimeState * rts, Configuration * C, Redex const * _0);
+  SStatus list01_step(RuntimeState * rts, Configuration * C, Redex const * _0);
+  SStatus mainzip_step(RuntimeState * rts, Configuration * C, Redex const * _0);
 
   InfoTable const zip_Info{
       /*tag*/        T_FUNC
@@ -50,7 +50,7 @@ namespace sprite { namespace python
   };
 
 
-  step_status zip_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus zip_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Variable _1(*_0, 0);
     auto tag = rts->hnf(C, &_1);
@@ -64,7 +64,7 @@ namespace sprite { namespace python
     }
   }
 
-  step_status zip_step_CASE0(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus zip_step_CASE0(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Variable _2(*_0, 1);
     auto tag = rts->hnf(C, &_2);
@@ -103,7 +103,7 @@ namespace sprite { namespace python
     , /*typedef*/    nullptr
     };
 
-  step_status list01_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus list01_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     auto i0 = int_(0);
     auto i1 = int_(1);
@@ -112,7 +112,7 @@ namespace sprite { namespace python
     return T_FWD;
   }
 
-  step_status mainzip_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus mainzip_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     auto i2 = int_(2);
     auto i3 = int_(3);

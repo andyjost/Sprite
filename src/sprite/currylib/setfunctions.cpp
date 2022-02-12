@@ -1,9 +1,10 @@
 #include "sprite/builtins.hpp"
+#include "sprite/currylib/prelude.hpp"
 #include "sprite/currylib/setfunctions.hpp"
 #include "sprite/fairscheme.hpp"
 #include "sprite/graph/memory.hpp"
-#include "sprite/inspect.hpp"
 #include "sprite/graph/variable.hpp"
+#include "sprite/inspect.hpp"
 
 namespace sprite { inline namespace
 {
@@ -103,9 +104,14 @@ namespace sprite { inline namespace
   SStatus eagerApplyS_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     Node * partial = Node::create(
-        &PartAplic_Info, 1, &eagerApplyS_Info, cons(_0->root()->successor(0))
+        &PartApplic_Info
+      , 1
+      , &eagerApplyS_Info
+      , cons(_0->root()->successor(0), nil())
       );
-    Node * replacement = Node::create(&applygnf_Info, lhs, _0->root()->successor(1));
+    Node * replacement = Node::create(
+        &applygnf_Info, partial, _0->root()->successor(1)
+      );
     _0->root()->forward_to(replacement);
     return T_FWD;
   }
@@ -158,6 +164,13 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
+  Node * curry(InfoTable const * fapply, Node * head, Arg * tail, Arg * end)
+  {
+    while(tail != end)
+      head = Node::create(fapply, head, *tail++);
+    return head;
+  }
+
   SStatus setN_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
     index_type const n = _0->root()->info->arity - 1;
@@ -165,12 +178,12 @@ namespace sprite { inline namespace
         n==0 ? &exprS_Info : &set_Info
       , {_0->root()->successor(0)}
       );
-    // FIXME: total guess
     InfoTable const * fapply = rts->setfunction_strategy == SETF_EAGER
         ? &eagerApplyS_Info : &applyS_Info;
-    Node * replacement = Node::create(
-        &evalS_Info, curry(rts, setf, _0->root(), fapply
+    Node * subexpr = curry(
+        fapply, setf, _0->root()->begin(), _0->root()->end()
       );
+    Node * replacement = Node::create(&evalS_Info, subexpr);
     _0->root()->forward_to(replacement);
     return T_FWD;
   }
@@ -267,7 +280,7 @@ namespace sprite
     , /*flags*/      NO_FLAGS
     , /*name*/       "exprS"
     , /*format*/     "p"
-    , /*step*/       evalS_step
+    , /*step*/       exprS_step
     , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };

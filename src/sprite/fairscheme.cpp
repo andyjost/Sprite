@@ -14,10 +14,9 @@ namespace sprite
     Node * tmp        = nullptr;
     tag_type tag      = NOTAG;
 
-  procD:
-    Q = rts->Q();
     while(rts->ready())
     {
+      Q = rts->Q();
       C = Q->front();
       tag = inspect::tag_of(C->root);
     redoD:
@@ -54,7 +53,7 @@ namespace sprite
         case E_RESTART : tag = inspect::tag_of(C->root);
                          goto redoD;
         case E_RESIDUAL: assert(0); continue;
-        default        : switch(rts->N(C, &tag))
+        default        : switch(rts->procN(C, tag))
                          {
                            case N_YIELD:    return rts->release_value();
                            case N_REDO:     goto redoD;
@@ -115,7 +114,7 @@ namespace sprite
   SStatus RuntimeState::procS(Configuration * C, Redex const & _0)
   {
     // std::cout << "S <<< " << _0.root()->str() << std::endl;
-    auto status = _0.root()->info->procS(this, C, &_0);
+    auto status = _0.root()->info->step(this, C, &_0);
     // std::cout << "S >>> " << _0.root()->str() << std::endl;
     return status;
   }

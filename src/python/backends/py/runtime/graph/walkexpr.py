@@ -6,7 +6,7 @@ from six.moves import range
 
 __all__ = ['iterexpr', 'walk']
 
-def iterexpr(expr, once=True):
+def iterexpr(expr):
   '''Generate each node in a Curry expression exactly once.'''
   queue = [expr]
   seen = set()

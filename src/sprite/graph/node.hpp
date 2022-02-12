@@ -2,6 +2,7 @@
 #include <initializer_list>
 #include <iosfwd>
 #include "sprite/fwd.hpp"
+#include "sprite/graph/cursor.hpp"
 #include <string>
 
 namespace sprite
@@ -35,6 +36,10 @@ namespace sprite
     Arg * successors();
     Cursor operator[](index_type);
     Cursor operator[](index_type const *);
+
+    index_type size() const;
+    Arg * begin();
+    Arg * end();
   };
 }
 

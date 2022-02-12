@@ -122,4 +122,25 @@ namespace sprite
     }
     return end;
   }
+
+  Node * NodeIterator::next()
+  {
+    while(!this->queue.empty())
+    {
+      Node * x = this->queue.front();
+      this->queue.pop_front();
+      if(this->seen.count(x) == 0)
+      {
+        this->seen.insert(x);
+        for(index_type i=0; i<x->info->arity; ++i)
+        {
+          Cursor succ = x->successor(i);
+          if(succ.kind == 'p')
+            this->queue.push_back(succ->node);
+        }
+        return x;
+      }
+    }
+    return nullptr;
+  }
 }

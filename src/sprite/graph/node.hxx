@@ -25,11 +25,11 @@ namespace sprite
   void _loadargs(Node ** slot, Arg arg0, Args && ... args)
   {
     *slot++ = arg0.node;
-    _load_args(slot, std::forward<Args>(args)...);
+    _loadargs(slot, std::forward<Args>(args)...);
   }
 
   template<typename ... Args>
-  Node * create(InfoTable const * info, Arg arg0, Args && ... args)
+  Node * Node::create(InfoTable const * info, Arg arg0, Args && ... args)
   {
     Node * target = (Node *) node_alloc(info->alloc_size);
     assert(target);
@@ -135,4 +135,7 @@ namespace sprite
   inline Cursor Node::operator[](index_type const * path)
     { return logical_subexpr(this, path); }
 
+  inline index_type Node::size() const { return this->info->arity; }
+  inline Arg * Node::begin() { return successors(); }
+  inline Arg * Node::end() { return begin() + size(); }
 }

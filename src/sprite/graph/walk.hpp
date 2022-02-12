@@ -1,5 +1,7 @@
 #pragma once
+#include <deque>
 #include "sprite/graph/node.hpp"
+#include <unordered_set>
 #include <vector>
 
 namespace sprite
@@ -57,4 +59,14 @@ namespace sprite
   template<typename ... Args>
   Search walk(Args && ... args)
     { return Search(std::forward<Args>(args)...); }
+
+  struct NodeIterator
+  {
+    NodeIterator(Node * root) : queue({root}) {}
+    Node * next();
+    std::deque<Node*> queue;
+    std::unordered_set<Node*> seen;
+  };
+
+  inline NodeIterator iternodes(Node * root) { return NodeIterator(root); }
 }
