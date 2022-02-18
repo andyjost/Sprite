@@ -36,7 +36,7 @@ namespace sprite { inline namespace
         _0->root()->forward_to(
             cons(
                 value.arg.node
-              , Node::create(&allValues_Info, {_1.target()->node})
+              , Node::create(&allValues_Info, _1.target()->node)
               )
           );
         return T_FWD;
@@ -48,7 +48,7 @@ namespace sprite { inline namespace
     assert(subC->root->node == (Node *) choice);
     Queue * Qlhs = seteval->queue;
     Queue * Qrhs = new Queue(seteval->set);
-    Node * rhs_seteval = Node::create(seteval->info, {seteval->set, Qrhs});
+    Node * rhs_seteval = Node::create(seteval->info, seteval->set, Qrhs);
     auto out = Qlhs->begin();
     for(auto p=Qlhs->begin(), e=Qlhs->end(); p!=e; ++p)
     {
@@ -66,8 +66,8 @@ namespace sprite { inline namespace
     Qlhs->resize(out - Qlhs->begin());
     Node * replacement = make_node<ChoiceNode>(
         choice->cid
-      , Node::create(&allValues_Info, {(Node *) seteval})
-      , Node::create(&allValues_Info, {rhs_seteval})
+      , Node::create(&allValues_Info, (Node *) seteval)
+      , Node::create(&allValues_Info, rhs_seteval)
       );
     _0->root()->forward_to(replacement);
     return T_FWD;
@@ -83,11 +83,11 @@ namespace sprite { inline namespace
     assert(partial->missing >= 1);
     Node * arg = _0->root()->successor(1);
     if(!capture)
-      arg = Node::create(&SetGuard_Info, {nullptr, arg});
+      arg = Node::create(&SetGuard_Info, nullptr, arg);
     Node * replacement = Node::create(
         &PartialS_Info
       , partial->missing - 1
-      , partial->func_info
+      , partial->head_info
       , cons(partial->terms, arg)
       );
     _0->root()->forward_to(replacement);
@@ -107,7 +107,7 @@ namespace sprite { inline namespace
         &PartApplic_Info
       , 1
       , &eagerApplyS_Info
-      , cons(_0->root()->successor(0), nil())
+      , cons(_0->root()->successor(0), Nil)
       );
     Node * replacement = Node::create(
         &applygnf_Info, partial, _0->root()->successor(1)
@@ -176,7 +176,7 @@ namespace sprite { inline namespace
     index_type const n = _0->root()->info->arity - 1;
     Node * setf = Node::create(
         n==0 ? &exprS_Info : &set_Info
-      , {_0->root()->successor(0)}
+      , _0->root()->successor(0)
       );
     InfoTable const * fapply = rts->setfunction_strategy == SETF_EAGER
         ? &eagerApplyS_Info : &applyS_Info;

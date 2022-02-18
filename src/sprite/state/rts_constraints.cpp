@@ -75,7 +75,7 @@ namespace sprite
   {
     ConstrNode * constr = NodeU{target}.constr;
     Node * value = C->search.copy_spine(source, constr->value, 2);
-    return Node::create(constr->info, {value, constr->pair});
+    return Node::create(constr->info, value, constr->pair);
   }
 
   Node * RuntimeState::lift_constraint(Configuration * C, Variable * inductive)

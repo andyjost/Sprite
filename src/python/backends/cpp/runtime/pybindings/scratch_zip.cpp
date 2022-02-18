@@ -79,7 +79,7 @@ namespace sprite { namespace python
         Variable _21(_2, 1);
         Node * repl = cons(
             pair(_10.rvalue(), _20.rvalue())
-          , Node::create(&zip_Info, {_11.rvalue(), _21.rvalue()})
+          , Node::create(&zip_Info, _11.rvalue(), _21.rvalue())
           );
         _0->root()->forward_to(repl);
         return T_CONS;
@@ -118,7 +118,7 @@ namespace sprite { namespace python
     auto i3 = int_(3);
     Node * lhs = Node::create(&list01_Info);
     Node * rhs = cons(i2, cons(i3, nil()));
-    Node * goal = Node::create(&zip_Info, {lhs, rhs});
+    Node * goal = Node::create(&zip_Info, lhs, rhs);
     _0->root()->forward_to(goal);
     return T_FWD;
   }

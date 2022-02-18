@@ -11,36 +11,9 @@ using namespace sprite;
 
 namespace sprite { inline namespace
 {
-  SStatus not_step(RuntimeState * rts, Configuration * C, Redex const * _0)
-  {
-    Variable _1(*_0, 0);
-    auto tag = rts->hnf(C, &_1, &Bool_Type);
-    switch(tag)
-    {
-      case T_FALSE: _0->root()->forward_to(true_());
-                    return T_FWD;
-      case T_TRUE:  _0->root()->forward_to(false_());
-                    return T_FWD;
-      default: return tag;
-    }
-  }
-
-  InfoTable const not_Info{
-      /*tag*/        T_FUNC
-    , /*arity*/      1
-    , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
-    , /*name*/       "not"
-    , /*format*/     "p"
-    , /*step*/       &not_step
-    , /*typecheck*/  nullptr
-    , /*typedef*/    nullptr
-    };
-
   SStatus main1_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
-    Node * goal = Node::create(&not_Info, {false_()});
+    Node * goal = Node::create(&not_Info, false_());
     _0->root()->forward_to(goal);
     return T_FWD;
   }
@@ -60,7 +33,7 @@ namespace sprite { inline namespace
 
   SStatus main2_step(RuntimeState * rts, Configuration * C, Redex const * _0)
   {
-    Node * goal = Node::create(&not_Info, {free(0)});
+    Node * goal = Node::create(&not_Info, free(0));
     _0->root()->forward_to(goal);
     return T_FWD;
   }
@@ -83,10 +56,10 @@ namespace sprite { inline namespace
     // _B((not x, y), (x, y))
     Node * x = rts->freshvar();
     Node * y = rts->freshvar();
-    Node * pair = Node::create(&Pair_Info, {x, y});
-    Node * notx = Node::create(&not_Info, {x});
-    Node * value = Node::create(&Pair_Info, {notx, y});
-    Node * goal = Node::create(&StrictConstraint_Info, {value, pair});
+    Node * pair = Node::create(&Pair_Info, x, y);
+    Node * notx = Node::create(&not_Info, x);
+    Node * value = Node::create(&Pair_Info, notx, y);
+    Node * goal = Node::create(&StrictConstraint_Info, value, pair);
     _0->root()->forward_to(goal);
     return T_FWD;
   }
@@ -109,10 +82,10 @@ namespace sprite { inline namespace
     // (_B(not x, (x, y)), y)
     Node * x = rts->freshvar();
     Node * y = rts->freshvar();
-    Node * pair = Node::create(&Pair_Info, {x, y});
-    Node * notx = Node::create(&not_Info, {x});
-    Node * binding = Node::create(&StrictConstraint_Info, {notx, pair});
-    Node * goal = Node::create(&Pair_Info, {binding, y});
+    Node * pair = Node::create(&Pair_Info, x, y);
+    Node * notx = Node::create(&not_Info, x);
+    Node * binding = Node::create(&StrictConstraint_Info, notx, pair);
+    Node * goal = Node::create(&Pair_Info, binding, y);
     _0->root()->forward_to(goal);
     return T_FWD;
   }
@@ -135,8 +108,8 @@ namespace sprite { inline namespace
     // (not x, y)
     Node * x = rts->freshvar();
     Node * y = rts->freshvar();
-    Node * notx = Node::create(&not_Info, {x});
-    Node * goal = Node::create(&Pair_Info, {notx, y});
+    Node * notx = Node::create(&not_Info, x);
+    Node * goal = Node::create(&Pair_Info, notx, y);
     _0->root()->forward_to(goal);
     return T_FWD;
   }
@@ -159,10 +132,10 @@ namespace sprite { inline namespace
     // (not _B(x, (x, y)), y)
     Node * x = rts->freshvar();
     Node * y = rts->freshvar();
-    Node * pair = Node::create(&Pair_Info, {x, y});
-    Node * binding = Node::create(&StrictConstraint_Info, {x, pair});
-    Node * notb = Node::create(&not_Info, {binding});
-    Node * goal = Node::create(&Pair_Info, {notb, y});
+    Node * pair = Node::create(&Pair_Info, x, y);
+    Node * binding = Node::create(&StrictConstraint_Info, x, pair);
+    Node * notb = Node::create(&not_Info, binding);
+    Node * goal = Node::create(&Pair_Info, notb, y);
     _0->root()->forward_to(goal);
     return T_FWD;
   }
@@ -185,10 +158,10 @@ namespace sprite { inline namespace
     // x=:=y &> (x, not y)
     Node * x = rts->freshvar();
     Node * y = rts->freshvar();
-    Node * eq = Node::create(&constrEq_Info, {x, y});
-    Node * noty = Node::create(&not_Info, {y});
-    Node * pair = Node::create(&Pair_Info, {x, noty});
-    Node * goal = Node::create(&seq_Info, {eq, pair});
+    Node * eq = Node::create(&constrEq_Info, x, y);
+    Node * noty = Node::create(&not_Info, y);
+    Node * pair = Node::create(&Pair_Info, x, noty);
+    Node * goal = Node::create(&seq_Info, eq, pair);
     _0->root()->forward_to(goal);
     return T_FWD;
   }

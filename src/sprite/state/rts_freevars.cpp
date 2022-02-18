@@ -95,10 +95,10 @@ namespace sprite
           , _clone_generator_rec(rts, NodeU{node}.choice->rhs)
           );
       }
-      case T_FAIL  : return fail();
+      case T_FAIL  : return Fail;
       case T_FREE  : return rts->freshvar();
       default      : assert(node->info->tag >= T_CTOR);
-                     return Node::create(node->info, rts->istate.xidfactory);
+                     return Node::create_flat(node->info, rts->istate.xidfactory);
     }
   }
 
@@ -122,7 +122,7 @@ namespace sprite
     {
       Node * genexpr = this->_rec(&values->args[0].info, values->size, vid);
       if(values->size == 1)
-        genexpr = choice(vid, genexpr, fail());
+        genexpr = choice(vid, genexpr, Fail);
       return genexpr;
     }
 
@@ -134,7 +134,7 @@ namespace sprite
     {
       assert(n);
       if(n == 1)
-        return Node::create(ctors[0], xidfactory);
+        return Node::create_flat(ctors[0], xidfactory);
       else
       {
         size_t mfloor = n/2;

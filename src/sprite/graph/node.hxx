@@ -10,15 +10,6 @@
 
 namespace sprite
 {
-  inline Node * Node::create(
-      InfoTable const * info
-    , std::initializer_list<Arg> args
-    , Node * target
-    )
-  {
-    return Node::create(info, std::data(args), target);
-  }
-
   inline void _loadargs(Node ** slot) {}
 
   template<typename ... Args> 
@@ -31,14 +22,34 @@ namespace sprite
   template<typename ... Args>
   Node * Node::create(InfoTable const * info, Arg arg0, Args && ... args)
   {
+    assert(sizeof...(args) + 1 == info->arity);
     Node * target = (Node *) node_alloc(info->alloc_size);
     assert(target);
-
     RawNodeMemory mem{target};
     *mem.info++ = info;
     *mem.boxed++ = arg0.node;
     _loadargs(mem.boxed, std::forward<Args>(args)...);
     return target;
+  }
+
+  inline Node * _args2list() { return Nil; }
+
+  template<typename ... Args>
+  inline Node * _args2list(Arg arg0, Args && ... args)
+    { return cons(arg0.node, _args2list(std::forward<Args>(args)...)); }
+
+  template<typename ... Args>
+  Node * Node::create_partial(InfoTable const * info, Args && ... args)
+  {
+    unboxed_int_type const missing = int(info->arity) - int(sizeof...(args));
+    assert(missing > 0);
+    Node * partial = Node::create(
+        &PartApplic_Info
+      , missing
+      , info
+      , _args2list(std::forward<Args>(args)...)
+      );
+    return partial;
   }
 
   inline void Node::forward_to(Node * target)
@@ -51,7 +62,7 @@ namespace sprite
   {
     if(this->info != &Fail_Info)
     {
-      this->forward_to(fail());
+      this->forward_to(Fail);
       return T_FWD;
     }
     return T_FAIL;
@@ -61,7 +72,7 @@ namespace sprite
   {
     if(this->info != &Nil_Info)
     {
-      this->forward_to(nil());
+      this->forward_to(Nil);
       return T_FWD;
     }
     return T_NIL;
@@ -71,7 +82,7 @@ namespace sprite
   {
     if(this->info != &Unit_Info)
     {
-      this->forward_to(unit());
+      this->forward_to(Unit);
       return T_FWD;
     }
     return T_UNIT;

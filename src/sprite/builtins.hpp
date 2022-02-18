@@ -14,11 +14,11 @@ namespace sprite
   static constexpr tag_type T_TRUE  = T_CTOR + 1;
   static constexpr tag_type T_UNIT  = T_CTOR;
 
-  extern Node * Fail_Node;
-  extern Node * False_Node;
-  extern Node * Nil_Node;
-  extern Node * True_Node;
-  extern Node * Unit_Node;
+  extern Node * Fail;
+  extern Node * False;
+  extern Node * Nil;
+  extern Node * True;
+  extern Node * Unit;
 
   extern InfoTable const Char_Info;
   extern InfoTable const Choice_Info;
@@ -136,7 +136,7 @@ namespace sprite
   struct PartApplicNode : Head
   {
     unboxed_int_type missing;
-    InfoTable * func_info;
+    InfoTable * head_info;
     Node * terms;
 
     bool complete(Node * = nullptr) const;
@@ -191,14 +191,14 @@ namespace sprite
   inline Node * choice(xid_type cid, Node * lhs, Node * rhs)
       { return make_node<ChoiceNode>(cid, lhs, rhs); }
   inline Node * cons(Node * h, Node * t)     { return make_node<ConsNode>(h, t); }
-  inline Node * fail()                       { return Fail_Node; }
+  inline Node * fail()                       { return Fail; }
   inline Node * float_(unboxed_float_type x) { return make_node<FloatNode>(x); }
-  inline Node * free(xid_type vid)           { return make_node<FreeNode>(vid, Unit_Node); }
+  inline Node * free(xid_type vid)           { return make_node<FreeNode>(vid, Unit); }
   inline Node * fwd(Node * tgt)              { return make_node<FwdNode>(tgt); }
   inline Node * int_(unboxed_int_type x)     { return make_node<IntNode>(x); }
-  inline Node * nil()                        { return Nil_Node; }
+  inline Node * nil()                        { return Nil; }
   inline Node * pair(Node * a, Node * b)     { return make_node<PairNode>(a, b); }
-  inline Node * unit()                       { return Unit_Node; }
-  inline Node * false_()                     { return False_Node; }
-  inline Node * true_()                      { return True_Node; }
+  inline Node * unit()                       { return Unit; }
+  inline Node * false_()                     { return False; }
+  inline Node * true_()                      { return True; }
 }

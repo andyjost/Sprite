@@ -52,7 +52,7 @@ namespace sprite { inline namespace
                          break;
         case T_TRUE    : _0->root()->forward_to(_0->root()->successor(1-i));
                          return T_FWD;
-        case T_FALSE   : _0->root()->forward_to(false_());
+        case T_FALSE   : _0->root()->forward_to(False);
                          return T_FWD;
         default        : return tag;
       }
@@ -72,7 +72,7 @@ namespace sprite { inline namespace
       case 1:
       case 2: throw InstantiationError("=:= cannot bind to an unboxed value");
       case 3: _0->root()->forward_to(
-                  ub_equals(lhs.target(), rhs.target()) ? true_() : fail()
+                  ub_equals(lhs.target(), rhs.target()) ? True : Fail
                 );
               return T_FWD;
     }
@@ -83,30 +83,31 @@ namespace sprite { inline namespace
       case 2: return rts->hnf(C, &rhs, make_guides(&vs, lhs.target()));
       case 3: _0->root()->forward_to(
                   lhs.vid() == rhs.vid()
-                      ? true_()
+                      ? True
                       : Node::create(
                             &StrictConstraint_Info
-                          , {true_(), pair(lhs.target(), rhs.target())}
+                          , True, pair(lhs.target(), rhs.target())
                           )
                 );
               return T_FWD;
     }
     if(tagl != tagr) // case 0
-      _0->root()->forward_to(fail());
+      _0->root()->forward_to(Fail);
     else
     {
       index_type arity = lhs.target().info()->arity;
       if(!arity)
-        _0->root()->forward_to(true_());
+        _0->root()->forward_to(True);
       else
       {
         Arg * lsuc = lhs.target()->node->successors();
         Arg * rsuc = rhs.target()->node->successors();
-        Node * tmp = Node::create(_0->info(), {lsuc[0], rsuc[0]});
+        Node * tmp = Node::create(_0->info(), lsuc[0], rsuc[0]);
         for(index_type i=1; i<arity; ++i)
           tmp = Node::create(
               &concurrentAnd_Info
-            , {tmp, Node::create(_0->info(), {lsuc[i], rsuc[i]})}
+            , tmp
+            , Node::create(_0->info(), lsuc[i], rsuc[i])
             );
         _0->root()->forward_to(tmp);
       }
@@ -125,7 +126,7 @@ namespace sprite { inline namespace
       case 1:
       case 2: throw InstantiationError("=:<= cannot bind to an unboxed value");
       case 3: _0->root()->forward_to(
-                  ub_equals(lhs.target(), rhs.target()) ? true_() : fail()
+                  ub_equals(lhs.target(), rhs.target()) ? True : Fail
                 );
               return T_FWD;
     }
@@ -135,7 +136,7 @@ namespace sprite { inline namespace
       _0->root()->forward_to(
             Node::create(
                 &NonStrictConstraint_Info
-              , {true_(), pair(lhs.target(), rhs.target())}
+              , True, pair(lhs.target(), rhs.target())
               )
         );
       return T_FWD;
@@ -148,22 +149,23 @@ namespace sprite { inline namespace
     else if(tagr < T_CTOR)
       return tagr;
     if(tagl != tagr)
-      _0->root()->forward_to(fail());
+      _0->root()->forward_to(Fail);
     else
     {
       assert(lhs.target().info() == rhs.target().info());
       index_type arity = lhs.target().info()->arity;
       if(!arity)
-        _0->root()->forward_to(true_());
+        _0->root()->forward_to(True);
       else
       {
         Arg * lsuc = lhs.target()->node->successors();
         Arg * rsuc = rhs.target()->node->successors();
-        Node * tmp = Node::create(_0->info(), {lsuc[0], rsuc[0]});
+        Node * tmp = Node::create(_0->info(), lsuc[0], rsuc[0]);
         for(index_type i=1; i<arity; ++i)
           tmp = Node::create(
               &concurrentAnd_Info
-            , {tmp, Node::create(_0->info(), {lsuc[i], rsuc[i]})}
+            , tmp
+            , Node::create(_0->info(), lsuc[i], rsuc[i])
             );
         _0->root()->forward_to(tmp);
       }
@@ -177,7 +179,7 @@ namespace sprite { inline namespace
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {
-      case T_FALSE: _0->root()->forward_to(fail());
+      case T_FALSE: _0->root()->forward_to(Fail);
                     return T_FWD;
       case T_TRUE:  _0->root()->forward_to(_0->root()->successor(1));
                     return T_FWD;

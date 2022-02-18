@@ -26,8 +26,8 @@ namespace sprite
     {
       Node * genexpr = this->get_generator(C, id);
       Node * binding = this->get_binding(C, id);
-      Node * eq = Node::create(&nonstrictEq_Info, {genexpr, binding});
-      *C->root = Node::create(&seq_Info, {eq, C->root->node});
+      Node * eq = Node::create(&nonstrictEq_Info, genexpr, binding);
+      *C->root = Node::create(&seq_Info, eq, C->root->node);
     }
   }
 
@@ -54,9 +54,9 @@ namespace sprite
       assert(size);
       if(size==1)
       {
-        Node * value = Node::create(this->info, {data[0]});
+        Node * value = Node::create(this->info, data[0]);
         Node * binding = pair(freevar, value);
-        return Node::create(&ValueBinding_Info, {value, binding});
+        return Node::create(&ValueBinding_Info, value, binding);
       }
       else
       {

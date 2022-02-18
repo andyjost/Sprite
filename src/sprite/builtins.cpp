@@ -278,19 +278,19 @@ namespace sprite
     };
 
   static Node Fail_Node_{&Fail_Info};
-  Node * Fail_Node = &Fail_Node_;
+  Node * Fail = &Fail_Node_;
 
   static Node False_Node_{&False_Info};
-  Node * False_Node = &False_Node_;
+  Node * False = &False_Node_;
 
   static Node True_Node_{&True_Info};
-  Node * True_Node = &True_Node_;
+  Node * True = &True_Node_;
 
   static Node Nil_Node_{&Nil_Info};
-  Node * Nil_Node = &Nil_Node_;
+  Node * Nil = &Nil_Node_;
 
   static Node Unit_Node_{&Unit_Info};
-  Node * Unit_Node = &Unit_Node_;
+  Node * Unit = &Unit_Node_;
 
   static InfoTable const * Bool_Ctors[] = { &False_Info, &True_Info };
   Type const Bool_Type { Bool_Ctors, 2 };

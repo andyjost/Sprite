@@ -1,5 +1,5 @@
 #pragma once
-#include <initializer_list>
+// #include <initializer_list>
 #include <iosfwd>
 #include "sprite/fwd.hpp"
 #include "sprite/graph/cursor.hpp"
@@ -11,11 +11,21 @@ namespace sprite
   {
     InfoTable const * info;
 
-    static Node * create(InfoTable const *, Arg const * = nullptr, Node * target=nullptr);
-    static Node * create(InfoTable const *, std::initializer_list<Arg>, Node * target=nullptr);
-    static Node * create(InfoTable const *, xid_type & xidfactory);
+    // Create a complete node.
+    static Node * create(InfoTable const *, Arg const * = nullptr);
     template<typename ... Args> static Node * create(InfoTable const *, Arg, Args && ...);
-    static Node * from_partial(PartApplicNode const *, Node * arg = nullptr);
+
+    // Create a partial application.
+    template<typename ... Args>
+    static Node * create_partial(InfoTable const *, Args && ...);
+
+    // Materialize a completed partial application.
+    static Node * from_partial(PartApplicNode const *, Node * finalarg = nullptr);
+
+    // Create a flat expression (each successor is a fresh variable).
+    static Node * create_flat(InfoTable const *, xid_type & xidfactory);
+
+
     void forward_to(Node * target);
     tag_type make_failure();
     tag_type make_nil();

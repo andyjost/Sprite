@@ -15,4 +15,7 @@ namespace sprite
   extern InfoTable const applyhnf_Info;
   extern InfoTable const applynf_Info;
   extern InfoTable const cond_Info;
+
+  // prelude/testing.cpp -- OK TO REMOVE
+  extern InfoTable const not_Info;
 }

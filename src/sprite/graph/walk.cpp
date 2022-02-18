@@ -20,13 +20,19 @@ namespace sprite
       this->stack.resize(1);
   }
 
+  void Search::set_barrier()
+  {
+    this->stack.back().barrier++;
+  }
+
   Search::operator bool() const
   {
-    return !this->stack.empty();
+    return !this->bad && !this->stack.empty();
   }
 
   void Search::operator++()
   {
+    this->bad = false;
     while(true)
     {
       switch(this->stack.size())
@@ -37,7 +43,14 @@ namespace sprite
       Frame & parent = *(this->stack.end() - 2);
       ++parent.index;
       if(parent.index >= parent.end)
-        this->pop();
+        if(parent.barrier)
+        {
+          --parent.barrier;
+          this->bad = true;
+          return;
+        }
+        else
+          this->pop();
       else
       {
         this->stack.back().cur = parent.cur->node->successor(parent.index);

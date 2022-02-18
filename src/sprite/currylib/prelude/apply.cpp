@@ -14,7 +14,7 @@ namespace sprite { inline namespace
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {
-      case T_FALSE: _0->root()->forward_to(fail());
+      case T_FALSE: _0->root()->forward_to(Fail);
                     return T_FWD;
       case T_TRUE : _0->root()->forward_to(_0->root()->successor(1));
                     return T_FWD;
@@ -35,7 +35,7 @@ namespace sprite { inline namespace
         : Node::create(
               &PartApplic_Info
             , partial->missing - 1
-            , partial->func_info
+            , partial->head_info
             , cons(arg, partial->terms)
             );
     _0->root()->forward_to(replacement);
@@ -58,7 +58,7 @@ namespace sprite { inline namespace
     if(_2.target()->info->tag < T_CTOR)
       return tag;
     Node * replacement = Node::create(
-        &apply_Info, _0->root()->successor(0)->node, _2.target()->node
+        &apply_Info, _1.target()->node, _2.target()->node
       );
     _0->root()->forward_to(replacement);
     return T_FWD;
@@ -68,7 +68,8 @@ namespace sprite { inline namespace
   {
     auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
     {
-
+      Redex scope(var);
+      C->search.set_barrier();
       tag_type tag;
       return rts->procN(C, tag);
     };
@@ -106,7 +107,7 @@ namespace sprite
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    NO_FLAGS
+    , /*typetag*/    OPERATOR
     , /*flags*/      NO_FLAGS
     , /*name*/       "$"
     , /*format*/     "pp"
@@ -119,7 +120,7 @@ namespace sprite
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    NO_FLAGS
+    , /*typetag*/    OPERATOR
     , /*flags*/      NO_FLAGS
     , /*name*/       "$##"
     , /*format*/     "pp"
@@ -132,7 +133,7 @@ namespace sprite
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    NO_FLAGS
+    , /*typetag*/    OPERATOR
     , /*flags*/      NO_FLAGS
     , /*name*/       "$!"
     , /*format*/     "pp"
@@ -145,7 +146,7 @@ namespace sprite
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    NO_FLAGS
+    , /*typetag*/    OPERATOR
     , /*flags*/      NO_FLAGS
     , /*name*/       "$!!"
     , /*format*/     "pp"

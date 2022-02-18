@@ -57,7 +57,6 @@ namespace sprite
                          {
                            case N_YIELD:    return rts->release_value();
                            case N_REDO:     goto redoD;
-                           case N_CONTINUE: continue;
                          }
       }
     }
@@ -75,8 +74,8 @@ namespace sprite
       {
         case T_UNBOXED : continue;
         case T_SETGRD  : assert(0); continue;
-        case T_FAIL    : this->drop();
-                         return N_CONTINUE;
+        case T_FAIL    : tag = C->root->node->make_failure();
+                         return N_REDO;
         case T_CONSTR  : *C->root = this->lift_constraint(C, C->root, search->cursor());
                          tag = inspect::tag_of(C->root);
                          search->reset();
@@ -129,7 +128,7 @@ namespace sprite
       switch(tag)
       {
         case T_SETGRD: assert(0); continue;
-        case T_FAIL  : inductive->root()->forward_to(fail());
+        case T_FAIL  : inductive->root()->forward_to(Fail);
                        return T_FWD;
         case T_CONSTR: inductive->root()->forward_to(
                            this->lift_constraint(C, inductive)
