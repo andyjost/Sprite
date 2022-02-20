@@ -78,7 +78,7 @@ namespace sprite
         this->extend(*path++);
   }
 
-  size_t Search::extend(RealpathResult const * inductive)
+  size_t Search::extend(Variable const * inductive)
   {
     size_t ret = this->size();
     this->extend(inductive->realpath.data());
@@ -90,12 +90,6 @@ namespace sprite
     if(this->dispose)
       this->dispose(this->static_data, this->stack.back().data);
     this->stack.pop_back();
-  }
-
-  Cursor Search::root() const
-  {
-    assert(*this);
-    return this->stack.front().cur;
   }
 
   Cursor Search::cursor() const

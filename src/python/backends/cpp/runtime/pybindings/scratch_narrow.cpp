@@ -2,7 +2,6 @@
 #include "sprite/currylib/prelude.hpp"
 #include "sprite/graph/memory.hpp"
 #include "sprite/graph/node.hpp"
-#include "sprite/graph/variable.hpp"
 #include "sprite/graph/walk.hpp"
 #include "sprite/inspect.hpp"
 #include "sprite/state/rts.hpp"

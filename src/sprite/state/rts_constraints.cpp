@@ -78,7 +78,7 @@ namespace sprite
     return Node::create(constr->info, value, constr->pair);
   }
 
-  Node * RuntimeState::lift_constraint(Configuration * C, Var * inductive)
+  Node * RuntimeState::lift_constraint(Configuration * C, Variable * inductive)
   {
     size_t ret = C->search.extend(inductive);
     auto result = lift_constraint(C, C->cursor(), inductive->target);

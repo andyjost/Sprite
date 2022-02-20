@@ -25,12 +25,6 @@ namespace sprite
     }
     return begin;
   }
-
-  Cursor logical_subexpr(Node * root, index_type path, bool update_fwd_nodes)
-  {
-    auto && rv = realpath(root, path, update_fwd_nodes);
-    return rv.target;
-  }
 }
 
 namespace
@@ -39,49 +33,49 @@ namespace
 
   struct RealPathIndexer
   {
-    RealpathResult result;
+    Variable var;
     Node * parent = nullptr;
     bool update_fwd_nodes;
 
     RealPathIndexer(Node *& root, bool update_fwd_nodes)
       : update_fwd_nodes(update_fwd_nodes)
     {
-      this->result.target = root;
+      this->var.target = root;
       this->skip();
     }
 
-    RealpathResult & getresult()
+    Variable & getresult()
     {
-      this->result.realpath.push_back(NOINDEX);
-      return this->result;
+      this->var.realpath.push_back(NOINDEX);
+      return this->var;
     }
 
     void skip()
     {
       while(true)
       {
-        auto tag = this->result.target->node->info->tag;
+        auto tag = this->var.target->node->info->tag;
         switch(tag)
         {
           case T_FWD:
-            if(update_fwd_nodes && !this->result.realpath.empty())
+            if(update_fwd_nodes && !this->var.realpath.empty())
             {
-              Cursor end = compress_fwd_chain(this->result.target);
-              *this->parent->successor(this->result.realpath.back()) = end;
-              this->result.target = end;
+              Cursor end = compress_fwd_chain(this->var.target);
+              *this->parent->successor(this->var.realpath.back()) = end;
+              this->var.target = end;
             }
             else
             {
-              this->parent = this->result.target;
-              this->result.realpath.push_back(0);
-              this->result.target = inspect::fwd_target(this->result.target);
+              this->parent = this->var.target;
+              this->var.realpath.push_back(0);
+              this->var.target = inspect::fwd_target(this->var.target);
             }
             break;
           case T_SETGRD:
-            this->result.guards.push_back(inspect::get_set(this->result.target));
-            this->parent = this->result.target;
-            this->result.realpath.push_back(1);
-            this->result.target = inspect::get_setguard_value(this->result.target);
+            this->var.guards.push_back(inspect::get_set(this->var.target));
+            this->parent = this->var.target;
+            this->var.realpath.push_back(1);
+            this->var.target = inspect::get_setguard_value(this->var.target);
             break;
           default:
             return;
@@ -91,59 +85,24 @@ namespace
 
     void advance(index_type i)
     {
-      Node * parent_ = this->result.target;
-      this->result.target = parent_->successor(i);
+      Node * parent_ = this->var.target;
+      this->var.target = parent_->successor(i);
       this->parent = parent_;
-      this->result.realpath.push_back(i);
+      this->var.realpath.push_back(i);
       this->skip();
-    }
-
-    void advance(index_type const * path)
-    {
-      while(*path != NOINDEX)
-        advance(*path++);
-    }
-
-    void advance(std::initializer_list<index_type> path)
-    {
-      for(index_type pos: path)
-        advance(pos);
     }
   };
 }
 
 namespace sprite
 {
-  RealpathResult realpath(
-      Node * root, std::initializer_list<index_type> path, bool update_fwd_nodes
-    )
+  Variable variable(Node * root, index_type pos, bool update_fwd_nodes)
   {
     RealPathIndexer indexer{root, update_fwd_nodes};
-    indexer.advance(path);
-    return std::move(indexer.getresult());
-  }
-
-  RealpathResult realpath(Node * root, index_type pos, bool update_fwd_nodes)
-  {
-    RealPathIndexer indexer{root, update_fwd_nodes};
-    indexer.advance({pos});
+    indexer.advance(pos);
     return std::move(indexer.getresult());
   }
 
   Cursor subexpr(Node * root, index_type i)
     { return root->successor(i); }
-
-  Cursor subexpr(Cursor root, index_type i)
-  {
-    assert(root.kind == 'p');
-    return root->node->successor(i);
-  }
-
-  Cursor subexpr(Cursor root, index_type const * path)
-  {
-    if(path)
-      while(*path != NOINDEX)
-        root = subexpr(root, *path++);
-    return root;
-  }
 }

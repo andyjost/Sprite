@@ -3,7 +3,6 @@
 #include "sprite/currylib/setfunctions.hpp"
 #include "sprite/fairscheme.hpp"
 #include "sprite/graph/memory.hpp"
-#include "sprite/graph/variable.hpp"
 #include "sprite/inspect.hpp"
 
 namespace sprite { inline namespace
@@ -11,7 +10,7 @@ namespace sprite { inline namespace
   SStatus allValues_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Var _1 = realpath(_0, 0);
+    Variable _1 = variable(_0, 0);
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
@@ -65,7 +64,7 @@ namespace sprite { inline namespace
   SStatus _applyS(RuntimeState * rts, Configuration * C, bool capture)
   {
     Cursor _0 = C->cursor();
-    Var _1 = realpath(_0, 0);
+    Variable _1 = variable(_0, 0);
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
@@ -110,7 +109,7 @@ namespace sprite { inline namespace
   SStatus evalS_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Var _1 = realpath(_0, 0);
+    Variable _1 = variable(_0, 0);
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
@@ -149,7 +148,7 @@ namespace sprite { inline namespace
   SStatus set_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Var _1 = realpath(_0, 0);
+    Variable _1 = variable(_0, 0);
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;

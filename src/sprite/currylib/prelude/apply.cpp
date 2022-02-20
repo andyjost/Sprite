@@ -2,7 +2,6 @@
 #include "sprite/builtins.hpp"
 #include "sprite/currylib/prelude.hpp"
 #include "sprite/exceptions.hpp"
-#include "sprite/graph/variable.hpp"
 #include "sprite/inspect.hpp"
 #include "sprite/state/rts.hpp"
 
@@ -11,7 +10,7 @@ namespace sprite { inline namespace
   SStatus cond_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Var _1 = realpath(_0, 0);
+    Variable _1 = variable(_0, 0);
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {
@@ -26,7 +25,7 @@ namespace sprite { inline namespace
   SStatus apply_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Var _1 = realpath(_0, 0);
+    Variable _1 = variable(_0, 0);
     auto tag = rts->hnf(C, &_1);
     if(tag != T_CTOR)
       return tag;
@@ -50,12 +49,12 @@ namespace sprite { inline namespace
     )
   {
     Cursor _0 = C->cursor();
-    Var _1 = realpath(_0, 0);
+    Variable _1 = variable(_0, 0);
     auto tag = rts->hnf(C, &_1);
     if(tag != T_CTOR)
       return tag;
     // TODO: catch nondeterminism in IO
-    Var _2 = realpath(_0, 1);
+    Variable _2 = variable(_0, 1);
     tag = action(rts, C, &_2);
     if(_2.target.info()->tag < T_CTOR)
       return tag;
@@ -68,7 +67,7 @@ namespace sprite { inline namespace
 
   SStatus applynf_step(RuntimeState * rts, Configuration * C)
   {
-    auto && normalize = [](RuntimeState * rts, Configuration * C, RealpathResult * var)
+    auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
     {
       C->search.push_barrier();
       size_t ret = C->search.extend(var);
@@ -101,7 +100,7 @@ namespace sprite { inline namespace
 
   SStatus applyhnf_step(RuntimeState * rts, Configuration * C)
   {
-    auto && headnormalize = [](RuntimeState * rts, Configuration * C, RealpathResult * var)
+    auto && headnormalize = [](RuntimeState * rts, Configuration * C, Variable * var)
       { return rts->hnf(C, var); };
     return _applyspecial(rts, C, headnormalize);
   }

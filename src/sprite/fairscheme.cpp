@@ -1,7 +1,6 @@
 #include "sprite/builtins.hpp"
 #include "sprite/fairscheme.hpp"
 #include "sprite/graph/indexing.hpp"
-#include "sprite/graph/variable.hpp"
 #include "sprite/inspect.hpp"
 #include "sprite/state/rts.hpp"
 
@@ -116,14 +115,14 @@ namespace sprite
   SStatus RuntimeState::procS(Configuration * C)
   {
     Cursor _0 = C->cursor();
-    std::cout << "S <<< " << _0->node->str() << std::endl;
+    // std::cout << "S <<< " << _0->node->str() << std::endl;
     auto status = _0.info()->step(this, C);
-    std::cout << "S >>> " << _0->node->str() << std::endl;
+    // std::cout << "S >>> " << _0->node->str() << std::endl;
     return status;
   }
 
   SStatus RuntimeState::hnf(
-      Configuration * C, RealpathResult * inductive, void const * guides
+      Configuration * C, Variable * inductive, void const * guides
     )
   {
     Cursor _0 = C->cursor();
@@ -160,7 +159,7 @@ namespace sprite
   }
 
   SStatus RuntimeState::hnf_or_free(
-      Configuration * C, RealpathResult * inductive
+      Configuration * C, Variable * inductive
     , void const * guides
     )
   {

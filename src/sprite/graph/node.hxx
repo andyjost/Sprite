@@ -139,7 +139,7 @@ namespace sprite
 
   inline Cursor Node::operator[](index_type i)
   {
-    return logical_subexpr(this, i);
+    return variable(this, i).target;
   }
 
   inline index_type Node::size() const { return this->info->arity; }

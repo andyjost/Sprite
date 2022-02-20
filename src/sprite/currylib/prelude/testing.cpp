@@ -1,6 +1,5 @@
 #include "sprite/builtins.hpp"
 #include "sprite/currylib/prelude.hpp"
-#include "sprite/graph/variable.hpp"
 #include "sprite/state/rts.hpp"
 
 namespace sprite { inline namespace
@@ -8,7 +7,7 @@ namespace sprite { inline namespace
   SStatus not_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Var _1 = realpath(_0, 0);
+    Variable _1 = variable(_0, 0);
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {

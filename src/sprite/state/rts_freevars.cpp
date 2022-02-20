@@ -40,7 +40,7 @@ namespace sprite
   }
 
   SStatus RuntimeState::replace_freevar(
-      Configuration * C, Var * inductive, void const * guides
+      Configuration * C, Variable * inductive, void const * guides
     )
   {
     Cursor & freevar = inductive->target;
@@ -162,7 +162,7 @@ namespace sprite
   }
 
   SStatus RuntimeState::instantiate(
-      Configuration * C, Cursor root, RealpathResult * inductive
+      Configuration * C, Cursor root, Variable * inductive
     , void const * guides
     )
   {

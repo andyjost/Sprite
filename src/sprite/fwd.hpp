@@ -7,20 +7,20 @@
 
 namespace sprite
 {
-  class Fingerprint;
   struct Configuration;
   struct Cursor;
   struct Expr;
+  struct Fingerprint;
   struct InfoTable;
   struct InterpreterState;
   struct Node;
   struct PartApplicNode;
   struct Queue;
-  struct RealpathResult;
   struct RuntimeState;
   struct Set;
   struct Type;
   struct UnionFind;
+  struct Variable;
   union Arg;
 
   enum NStatus {N_YIELD, N_REDO};

@@ -6,27 +6,22 @@
 
 namespace sprite
 {
-  struct RealpathResult
+  struct Variable
   {
     mutable Cursor          target;
     std::vector<index_type> realpath;
     std::vector<Set *>      guards;
   };
-  using Var = RealpathResult;
+
+  Variable variable(Node *, index_type, bool update_fwd_nodes=true);
 
   // FIXME
-  inline Node * rvalue(RealpathResult const & var)
+  inline Node * rvalue(Variable const & var)
     { return var.target->node; }
 
+  Cursor subexpr(Node *, index_type);
 
   Cursor compress_fwd_chain(Cursor);
   Node ** compress_fwd_chain(Node **);
 
-  Cursor logical_subexpr(Node *, index_type, bool update_fwd_nodes=true);
-
-  RealpathResult realpath(Node *, std::initializer_list<index_type>, bool update_fwd_nodes=true);
-  RealpathResult realpath(Node *, index_type, bool update_fwd_nodes=true);
-
-  Cursor subexpr(Node *, index_type const *);
-  Cursor subexpr(Cursor, index_type);
 }

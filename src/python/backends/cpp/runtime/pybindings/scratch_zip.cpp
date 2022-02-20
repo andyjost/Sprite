@@ -1,7 +1,6 @@
 #include "sprite/builtins.hpp"
 #include "sprite/graph/memory.hpp"
 #include "sprite/graph/node.hpp"
-#include "sprite/graph/variable.hpp"
 #include "sprite/graph/walk.hpp"
 #include "sprite/inspect.hpp"
 #include "sprite/state/rts.hpp"
@@ -53,7 +52,7 @@ namespace sprite { namespace python
   SStatus zip_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Var _1 = realpath(_0, 0);
+    Variable _1 = variable(_0, 0);
     auto tag = rts->hnf(C, &_1);
     switch(tag)
     {
@@ -68,17 +67,17 @@ namespace sprite { namespace python
   SStatus zip_step_CASE0(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Var _2 = realpath(_0, 1);
+    Variable _2 = variable(_0, 1);
     auto tag = rts->hnf(C, &_2);
     switch(tag)
     {
       case T_CONS:
       {
-        Var _1  = realpath(_0, 0);
-        Var _10 = realpath(_1.target, 0);
-        Var _11 = realpath(_1.target, 1);
-        Var _20 = realpath(_2.target, 0);
-        Var _21 = realpath(_2.target, 1);
+        Variable _1  = variable(_0, 0);
+        Variable _10 = variable(_1.target, 0);
+        Variable _11 = variable(_1.target, 1);
+        Variable _20 = variable(_2.target, 0);
+        Variable _21 = variable(_2.target, 1);
         Node * repl = cons(
             pair(rvalue(_10), rvalue(_20))
           , Node::create(&zip_Info, rvalue(_11), rvalue(_21))

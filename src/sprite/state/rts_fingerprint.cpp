@@ -64,7 +64,7 @@ namespace sprite
     return make_node<ChoiceNode>(choice->cid, lhs, rhs);
   }
 
-  Node * RuntimeState::pull_tab(Configuration * C, RealpathResult * inductive)
+  Node * RuntimeState::pull_tab(Configuration * C, Variable * inductive)
   {
     size_t ret = C->search.extend(inductive);
     auto result = RuntimeState::pull_tab(C, C->cursor(), inductive->target);
