@@ -5,15 +5,16 @@
 
 namespace sprite { inline namespace
 {
-  SStatus not_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus not_step(RuntimeState * rts, Configuration * C)
   {
-    Variable _1(*_0, 0);
+    Cursor _0 = C->cursor();
+    Var _1 = realpath(_0, 0);
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {
-      case T_FALSE: _0->root()->forward_to(True);
+      case T_FALSE: _0->node->forward_to(True);
                     return T_FWD;
-      case T_TRUE:  _0->root()->forward_to(False);
+      case T_TRUE:  _0->node->forward_to(False);
                     return T_FWD;
       default: return tag;
     }

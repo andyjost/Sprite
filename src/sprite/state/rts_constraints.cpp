@@ -78,9 +78,11 @@ namespace sprite
     return Node::create(constr->info, value, constr->pair);
   }
 
-  Node * RuntimeState::lift_constraint(Configuration * C, Variable * inductive)
+  Node * RuntimeState::lift_constraint(Configuration * C, Var * inductive)
   {
-    Redex scope(*inductive);
-    return lift_constraint(C, inductive->root(), inductive->target());
+    size_t ret = C->search.extend(inductive);
+    auto result = lift_constraint(C, C->cursor(), inductive->target);
+    C->search.resize(ret);
+    return result;
   }
 }

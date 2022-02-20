@@ -8,42 +8,31 @@
 
 namespace sprite { inline namespace
 {
-  struct QueueScope
+  SStatus allValues_step(RuntimeState * rts, Configuration * C)
   {
-    RuntimeState * rts;
-    Set * S;
-    Queue * Q;
-
-    QueueScope(RuntimeState * rts, Set * S, Queue * Q) : rts(rts), S(S), Q(Q)
-      { rts->push_queue(Q); }
-    ~QueueScope() { rts->pop_queue(); }
-  };
-
-  SStatus allValues_step(RuntimeState * rts, Configuration * C, Redex const * _0)
-  {
-    Variable _1(_0, 0);
+    Cursor _0 = C->cursor();
+    Var _1 = realpath(_0, 0);
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
     ChoiceNode * choice = nullptr;
-    SetEvalNode * seteval = NodeU{_1.target()}.seteval;
+    SetEvalNode * seteval = NodeU{_1.target}.seteval;
+    rts->push_queue(seteval->queue);
+    auto value = eval_next(rts);
+    assert(value.kind == 'p');
+    rts->pop_queue();
+    if(value.arg.node->info->tag >= T_CTOR)
     {
-      auto scope = QueueScope(rts, seteval->set, seteval->queue);
-      auto value = eval_next(rts);
-      assert(value.kind == 'p');
-      if(value.arg.node->info->tag >= T_CTOR)
-      {
-        _0->root()->forward_to(
-            cons(
-                value.arg.node
-              , Node::create(&allValues_Info, _1.target()->node)
-              )
-          );
-        return T_FWD;
-      }
-      assert(value.arg.node->info->tag == T_CHOICE);
-      choice = NodeU{value.arg.node}.choice;
+      _0->node->forward_to(
+          cons(
+              value.arg.node
+            , Node::create(&allValues_Info, _1.target->node)
+            )
+        );
+      return T_FWD;
     }
+    assert(value.arg.node->info->tag == T_CHOICE);
+    choice = NodeU{value.arg.node}.choice;
     Configuration * subC = seteval->queue->front();
     assert(subC->root->node == (Node *) choice);
     Queue * Qlhs = seteval->queue;
@@ -69,19 +58,20 @@ namespace sprite { inline namespace
       , Node::create(&allValues_Info, (Node *) seteval)
       , Node::create(&allValues_Info, rhs_seteval)
       );
-    _0->root()->forward_to(replacement);
+    _0->node->forward_to(replacement);
     return T_FWD;
   }
 
-  SStatus _applyS(RuntimeState * rts, Configuration * C, Redex const * _0, bool capture)
+  SStatus _applyS(RuntimeState * rts, Configuration * C, bool capture)
   {
-    Variable _1(_0, 0);
+    Cursor _0 = C->cursor();
+    Var _1 = realpath(_0, 0);
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
-    PartApplicNode * partial = NodeU{_1.target()}.partapplic;
+    PartApplicNode * partial = NodeU{_1.target}.partapplic;
     assert(partial->missing >= 1);
-    Node * arg = _0->root()->successor(1);
+    Node * arg = _0->node->successor(1);
     if(!capture)
       arg = Node::create(&SetGuard_Info, nullptr, arg);
     Node * replacement = Node::create(
@@ -90,39 +80,41 @@ namespace sprite { inline namespace
       , partial->head_info
       , cons(partial->terms, arg)
       );
-    _0->root()->forward_to(replacement);
+    _0->node->forward_to(replacement);
     return T_FWD;
   }
 
-  SStatus applyS_step(RuntimeState * rts, Configuration * C, Redex const * _0)
-    { return _applyS(rts, C, _0, false); }
+  SStatus applyS_step(RuntimeState * rts, Configuration * C)
+    { return _applyS(rts, C, false); }
 
-  SStatus captureS_step(RuntimeState * rts, Configuration * C, Redex const * _0)
-    { return _applyS(rts, C, _0, true); }
+  SStatus captureS_step(RuntimeState * rts, Configuration * C)
+    { return _applyS(rts, C, true); }
 
   // ($##>) f a = (f $>) $## a
-  SStatus eagerApplyS_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus eagerApplyS_step(RuntimeState * rts, Configuration * C)
   {
+    Cursor _0 = C->cursor();
     Node * partial = Node::create(
         &PartApplic_Info
       , 1
       , &eagerApplyS_Info
-      , cons(_0->root()->successor(0), Nil)
+      , cons(_0->node->successor(0), Nil)
       );
     Node * replacement = Node::create(
-        &applygnf_Info, partial, _0->root()->successor(1)
+        &applygnf_Info, partial, _0->node->successor(1)
       );
-    _0->root()->forward_to(replacement);
+    _0->node->forward_to(replacement);
     return T_FWD;
   }
 
-  SStatus evalS_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus evalS_step(RuntimeState * rts, Configuration * C)
   {
-    Variable _1(_0, 0);
+    Cursor _0 = C->cursor();
+    Var _1 = realpath(_0, 0);
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
-    PartApplicNode * partial = NodeU{_1.target()}.partapplic;
+    PartApplicNode * partial = NodeU{_1.target}.partapplic;
     Set * new_set = new Set();
     Node * goal = partial->materialize();
     auto const arity = goal->info->arity;
@@ -138,29 +130,31 @@ namespace sprite { inline namespace
     Node * seteval = Node::create(&SetEval_Info, new_set, new_queue);
     Node * allvalues = Node::create(&allValues_Info, seteval);
     Node * replacement = Node::create(&Values_Info, allvalues);
-    _0->root()->forward_to(replacement);
+    _0->node->forward_to(replacement);
     return T_FWD;
   }
 
-  SStatus exprS_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus exprS_step(RuntimeState * rts, Configuration * C)
   {
+    Cursor _0 = C->cursor();
     Node * replacement = Node::create(
         &PartialS_Info
       , Arg(ENCAPSULATED_EXPR)
-      , _0->root()->successor(0)
+      , _0->node->successor(0)
       );
-    _0->root()->forward_to(replacement);
+    _0->node->forward_to(replacement);
     return T_FWD;
   }
 
-  SStatus set_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus set_step(RuntimeState * rts, Configuration * C)
   {
-    Variable _1(_0, 0);
+    Cursor _0 = C->cursor();
+    Var _1 = realpath(_0, 0);
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
-    assert(_1.target().info() == &PartApplic_Info);
-    _0->root()->forward_to(_1.target());
+    assert(_1.target.info() == &PartApplic_Info);
+    _0->node->forward_to(_1.target);
     return T_FWD;
   }
 
@@ -171,20 +165,21 @@ namespace sprite { inline namespace
     return head;
   }
 
-  SStatus setN_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus setN_step(RuntimeState * rts, Configuration * C)
   {
-    index_type const n = _0->root()->info->arity - 1;
+    Cursor _0 = C->cursor();
+    index_type const n = _0->node->info->arity - 1;
     Node * setf = Node::create(
         n==0 ? &exprS_Info : &set_Info
-      , _0->root()->successor(0)
+      , _0->node->successor(0)
       );
     InfoTable const * fapply = rts->setfunction_strategy == SETF_EAGER
         ? &eagerApplyS_Info : &applyS_Info;
     Node * subexpr = curry(
-        fapply, setf, _0->root()->begin(), _0->root()->end()
+        fapply, setf, _0->node->begin(), _0->node->end()
       );
     Node * replacement = Node::create(&evalS_Info, subexpr);
-    _0->root()->forward_to(replacement);
+    _0->node->forward_to(replacement);
     return T_FWD;
   }
 }}

@@ -64,10 +64,12 @@ namespace sprite
     return make_node<ChoiceNode>(choice->cid, lhs, rhs);
   }
 
-  Node * RuntimeState::pull_tab(Configuration * C, Variable * inductive)
+  Node * RuntimeState::pull_tab(Configuration * C, RealpathResult * inductive)
   {
-    Redex scope(*inductive);
-    return RuntimeState::pull_tab(C, inductive->root(), inductive->target());
+    size_t ret = C->search.extend(inductive);
+    auto result = RuntimeState::pull_tab(C, C->cursor(), inductive->target);
+    C->search.resize(ret);
+    return result;
   }
 
   ChoiceState RuntimeState::read_fp(Configuration * C, xid_type cid)

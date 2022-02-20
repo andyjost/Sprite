@@ -48,18 +48,28 @@ namespace sprite { namespace inspect
     }
   }
 
+  inline xid_type xget_choice_id(Node * node)
+  {
+    return NodeU{node}.choice->cid;
+  }
+
   inline xid_type get_choice_id(Node * node)
   {
     if(isa_choice(node))
-      return NodeU{node}.choice->cid;
+      return xget_choice_id(node);
     else
       return NOXID;
+  }
+
+  inline xid_type xget_freevar_id(Node * node)
+  {
+    return NodeU{node}.free->vid;
   }
 
   inline xid_type get_freevar_id(Node * node)
   {
     if(isa_freevar(node))
-      return NodeU{node}.free->vid;
+      return xget_freevar_id(node);
     else
       return NOXID;
   }

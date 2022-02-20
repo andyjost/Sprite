@@ -48,7 +48,7 @@ namespace sprite
                          goto redoD;
         case T_CHOICE  : rts->fork(Q, C);
                          continue;
-        case T_FUNC    : tag = rts->procS(C, Redex(C->search));
+        case T_FUNC    : tag = rts->procS(C);
                          goto redoD;
         case E_RESTART : tag = inspect::tag_of(C->root);
                          goto redoD;
@@ -66,6 +66,7 @@ namespace sprite
   NStatus RuntimeState::procN(Configuration * C, tag_type & tag)
   {
     Node * tmp = nullptr;
+    size_t ret = 0;
     for(Search * search = &C->search; *search; ++(*search))
     {
       tag = inspect::tag_of(search->cursor());
@@ -97,7 +98,9 @@ namespace sprite
                          search->reset();
                          assert(C->root.info()->tag == T_CHOICE);
                          return N_REDO;
-        case T_FUNC    : tag = this->procS(C, Redex(C->search));
+        case T_FUNC    : ret = search->size();
+                         tag = this->procS(C);
+                         search->resize(ret);
                          goto redoN;
         case E_RESTART : tag = inspect::tag_of(C->root);
                         return N_REDO;
@@ -110,41 +113,46 @@ namespace sprite
     return N_YIELD;
   }
 
-  SStatus RuntimeState::procS(Configuration * C, Redex const & _0)
+  SStatus RuntimeState::procS(Configuration * C)
   {
-    // std::cout << "S <<< " << _0.root()->str() << std::endl;
-    auto status = _0.root()->info->step(this, C, &_0);
-    // std::cout << "S >>> " << _0.root()->str() << std::endl;
+    Cursor _0 = C->cursor();
+    std::cout << "S <<< " << _0->node->str() << std::endl;
+    auto status = _0.info()->step(this, C);
+    std::cout << "S >>> " << _0->node->str() << std::endl;
     return status;
   }
 
   SStatus RuntimeState::hnf(
-      Configuration * C, Variable * inductive, void const * guides
+      Configuration * C, RealpathResult * inductive, void const * guides
     )
   {
-    tag_type tag = inspect::tag_of(inductive->target());
+    Cursor _0 = C->cursor();
+    tag_type tag = inspect::tag_of(inductive->target);
+    size_t ret = 0;
     while(true)
     {
       switch(tag)
       {
         case T_SETGRD: assert(0); continue;
-        case T_FAIL  : inductive->root()->forward_to(Fail);
+        case T_FAIL  : _0->node->forward_to(Fail);
                        return T_FWD;
-        case T_CONSTR: inductive->root()->forward_to(
+        case T_CONSTR: _0->node->forward_to(
                            this->lift_constraint(C, inductive)
                          );
                        return T_FWD;
         case T_FREE  : tag = this->replace_freevar(C, inductive, guides);
                        continue;
-        case T_FWD   : compress_fwd_chain(inductive->target());
-                       tag = inspect::tag_of(inductive->target());
+        case T_FWD   : compress_fwd_chain(inductive->target);
+                       tag = inspect::tag_of(inductive->target);
                        this->stepcount++;
                        continue;
-        case T_CHOICE: inductive->root()->forward_to(
+        case T_CHOICE: _0->node->forward_to(
                            this->pull_tab(C, inductive)
                          );
                        return T_FWD;
-        case T_FUNC  : tag = this->procS(C, Redex(*inductive));
+        case T_FUNC  : ret = C->search.extend(inductive);
+                       tag = this->procS(C);
+                       C->search.resize(ret);
                        continue;
         default      : return tag;
       }
@@ -152,11 +160,12 @@ namespace sprite
   }
 
   SStatus RuntimeState::hnf_or_free(
-      Configuration * C, Variable * inductive, void const * guides
+      Configuration * C, RealpathResult * inductive
+    , void const * guides
     )
   {
     tag_type tag = this->hnf(C, inductive, guides);
-    if(tag == E_RESIDUAL && inspect::isa_freevar(inductive->target()))
+    if(tag == E_RESIDUAL && inspect::isa_freevar(inductive->target))
       return T_FREE;
     else
       return tag;

@@ -1,3 +1,4 @@
+#if 0
 #pragma once
 #include <list>
 #include "sprite/fwd.hpp"
@@ -60,3 +61,4 @@ namespace sprite
     this->ret = this->search->size();
   }
 }
+#endif

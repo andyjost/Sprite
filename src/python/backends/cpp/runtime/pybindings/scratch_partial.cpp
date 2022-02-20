@@ -11,51 +11,56 @@ using namespace sprite;
 
 namespace sprite { inline namespace
 {
-  SStatus main1_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main1_step(RuntimeState * rts, Configuration * C)
   {
     // (not) True
+    Cursor _0 = C->cursor();
     Node * not_ = Node::create_partial(&not_Info);
     Node * goal = Node::create(&apply_Info, not_, True);
-    _0->root()->forward_to(goal);
+    _0->node->forward_to(goal);
     return T_FWD;
   }
 
-  SStatus main2_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main2_step(RuntimeState * rts, Configuration * C)
   {
     // (True:) []
+    Cursor _0 = C->cursor();
     Node * cons_ = Node::create_partial(&Cons_Info, True);
     Node * goal = Node::create(&apply_Info, cons_, nil());
-    _0->root()->forward_to(goal);
+    _0->node->forward_to(goal);
     return T_FWD;
   }
 
-  SStatus main3_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main3_step(RuntimeState * rts, Configuration * C)
   {
     // not $! (not True)
+    Cursor _0 = C->cursor();
     Node * not_ = Node::create_partial(&not_Info);
     Node * rhs = Node::create(&not_Info, True);
     Node * goal = Node::create(&applyhnf_Info, not_, rhs);
-    _0->root()->forward_to(goal);
+    _0->node->forward_to(goal);
     return T_FWD;
   }
 
-  SStatus main4_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main4_step(RuntimeState * rts, Configuration * C)
   {
     // not $!! (not True)
+    Cursor _0 = C->cursor();
     Node * not_ = Node::create_partial(&not_Info);
     Node * rhs = Node::create(&not_Info, True);
     Node * goal = Node::create(&applynf_Info, not_, rhs);
-    _0->root()->forward_to(goal);
+    _0->node->forward_to(goal);
     return T_FWD;
   }
 
-  SStatus main5_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main5_step(RuntimeState * rts, Configuration * C)
   {
     // not $## (not True)
+    Cursor _0 = C->cursor();
     Node * not_ = Node::create_partial(&not_Info);
     Node * rhs = Node::create(&not_Info, True);
     Node * goal = Node::create(&applygnf_Info, not_, rhs);
-    _0->root()->forward_to(goal);
+    _0->node->forward_to(goal);
     return T_FWD;
   }
 }}

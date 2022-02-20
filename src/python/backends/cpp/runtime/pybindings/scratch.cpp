@@ -118,10 +118,11 @@ namespace sprite { namespace python
     std::cout << std::endl;
   }
 
-  SStatus main42_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus main42_step(RuntimeState * rts, Configuration * C)
   {
+    Cursor _0 = C->cursor();
     auto i42 = int_(42);
-    _0->root()->forward_to(i42);
+    _0->node->forward_to(i42);
     return T_FWD;
   }
 

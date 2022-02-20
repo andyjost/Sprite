@@ -10,9 +10,12 @@ namespace sprite { namespace inspect
   Cursor fwd_target(Cursor);
   Cursor fwd_chain_target(Cursor);
   Set * get_set(Node *);
-  xid_type get_choice_id(Node *);
-  xid_type get_freevar_id(Node *);
   Cursor get_setguard_value(Node *);
+
+  xid_type get_choice_id(Node *);
+  xid_type get_choice_id(Node *);
+  xid_type xget_freevar_id(Node *);
+  xid_type xget_freevar_id(Node *);
 
   tag_type tag_of(Node *);
   tag_type tag_of(Cursor);

@@ -12,16 +12,19 @@ namespace sprite
     std::vector<index_type> realpath;
     std::vector<Set *>      guards;
   };
+  using Var = RealpathResult;
+
+  // FIXME
+  inline Node * rvalue(RealpathResult const & var)
+    { return var.target->node; }
+
 
   Cursor compress_fwd_chain(Cursor);
   Node ** compress_fwd_chain(Node **);
 
-  Cursor logical_subexpr(
-      Node *, index_type const *, bool update_fwd_nodes=true
-    );
+  Cursor logical_subexpr(Node *, index_type, bool update_fwd_nodes=true);
 
   RealpathResult realpath(Node *, std::initializer_list<index_type>, bool update_fwd_nodes=true);
-  RealpathResult realpath(Node *, index_type const *, bool update_fwd_nodes=true);
   RealpathResult realpath(Node *, index_type, bool update_fwd_nodes=true);
 
   Cursor subexpr(Node *, index_type const *);

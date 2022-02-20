@@ -19,6 +19,7 @@ namespace sprite
     void push(void * data=nullptr);
     void extend(index_type pos);
     void extend(index_type const * path);
+    size_t extend(RealpathResult const *);
 
     size_t size() const { return this->stack.size(); }
     void resize(size_t n) { this->stack.resize(n); }

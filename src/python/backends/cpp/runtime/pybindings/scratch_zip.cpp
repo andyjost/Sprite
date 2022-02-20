@@ -10,10 +10,10 @@ using namespace sprite;
 
 namespace sprite { namespace python
 {
-  SStatus zip_step(RuntimeState * rts, Configuration * C, Redex const * _0);
-  SStatus zip_step_CASE0(RuntimeState * rts, Configuration * C, Redex const * _0);
-  SStatus list01_step(RuntimeState * rts, Configuration * C, Redex const * _0);
-  SStatus mainzip_step(RuntimeState * rts, Configuration * C, Redex const * _0);
+  SStatus zip_step(RuntimeState * rts, Configuration * C);
+  SStatus zip_step_CASE0(RuntimeState * rts, Configuration * C);
+  SStatus list01_step(RuntimeState * rts, Configuration * C);
+  SStatus mainzip_step(RuntimeState * rts, Configuration * C);
 
   InfoTable const zip_Info{
       /*tag*/        T_FUNC
@@ -50,41 +50,43 @@ namespace sprite { namespace python
   };
 
 
-  SStatus zip_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus zip_step(RuntimeState * rts, Configuration * C)
   {
-    Variable _1(*_0, 0);
+    Cursor _0 = C->cursor();
+    Var _1 = realpath(_0, 0);
     auto tag = rts->hnf(C, &_1);
     switch(tag)
     {
-      case T_CONS: _0->root()->info = &zip_Info_CASE0;
+      case T_CONS: _0->node->info = &zip_Info_CASE0;
                    return T_FUNC;
-      case T_NIL : _0->root()->make_nil();
+      case T_NIL : _0->node->make_nil();
                    return T_NIL;
       default    : return tag;
     }
   }
 
-  SStatus zip_step_CASE0(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus zip_step_CASE0(RuntimeState * rts, Configuration * C)
   {
-    Variable _2(*_0, 1);
+    Cursor _0 = C->cursor();
+    Var _2 = realpath(_0, 1);
     auto tag = rts->hnf(C, &_2);
     switch(tag)
     {
       case T_CONS:
       {
-        Variable _1 (*_0, 0);
-        Variable _10(_1, 0);
-        Variable _11(_1, 1);
-        Variable _20(_2, 0);
-        Variable _21(_2, 1);
+        Var _1  = realpath(_0, 0);
+        Var _10 = realpath(_1.target, 0);
+        Var _11 = realpath(_1.target, 1);
+        Var _20 = realpath(_2.target, 0);
+        Var _21 = realpath(_2.target, 1);
         Node * repl = cons(
-            pair(_10.rvalue(), _20.rvalue())
-          , Node::create(&zip_Info, _11.rvalue(), _21.rvalue())
+            pair(rvalue(_10), rvalue(_20))
+          , Node::create(&zip_Info, rvalue(_11), rvalue(_21))
           );
-        _0->root()->forward_to(repl);
+        _0->node->forward_to(repl);
         return T_CONS;
       }
-      case T_NIL: _0->root()->make_nil();
+      case T_NIL: _0->node->make_nil();
                   return T_NIL;
       default   : return tag;
     }
@@ -103,23 +105,25 @@ namespace sprite { namespace python
     , /*typedef*/    nullptr
     };
 
-  SStatus list01_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus list01_step(RuntimeState * rts, Configuration * C)
   {
+    Cursor _0 = C->cursor();
     auto i0 = int_(0);
     auto i1 = int_(1);
     Node * goal = cons(i0, cons(i1, nil()));
-    _0->root()->forward_to(goal);
+    _0->node->forward_to(goal);
     return T_FWD;
   }
 
-  SStatus mainzip_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus mainzip_step(RuntimeState * rts, Configuration * C)
   {
+    Cursor _0 = C->cursor();
     auto i2 = int_(2);
     auto i3 = int_(3);
     Node * lhs = Node::create(&list01_Info);
     Node * rhs = cons(i2, cons(i3, nil()));
     Node * goal = Node::create(&zip_Info, lhs, rhs);
-    _0->root()->forward_to(goal);
+    _0->node->forward_to(goal);
     return T_FWD;
   }
 

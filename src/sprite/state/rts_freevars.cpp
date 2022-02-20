@@ -40,10 +40,10 @@ namespace sprite
   }
 
   SStatus RuntimeState::replace_freevar(
-      Configuration * C, Variable * inductive, void const * guides
+      Configuration * C, Var * inductive, void const * guides
     )
   {
-    Cursor & freevar = inductive->target();
+    Cursor & freevar = inductive->target;
     assert(freevar.info()->tag == T_FREE);
     if(has_generator(freevar))
     {
@@ -69,8 +69,7 @@ namespace sprite
     }
     else
     {
-      Node * root = C->cursor();
-      return this->instantiate(C, root, inductive, values);
+      return this->instantiate(C, C->cursor(), inductive, values);
     }
   }
   
@@ -163,7 +162,7 @@ namespace sprite
   }
 
   SStatus RuntimeState::instantiate(
-      Configuration * C, Node * root, Variable * inductive
+      Configuration * C, Cursor root, RealpathResult * inductive
     , void const * guides
     )
   {
@@ -172,13 +171,14 @@ namespace sprite
       return E_RESIDUAL;
     else
     {
-      Redex tmp_frame(*inductive);
-      Node * genexpr = _make_generator(this, inductive->target(), values);
-      Cursor target;
-      Node * replacement = C->search.copy_spine(root, genexpr, &target);
-      inductive->target() = target;
-      assert(inductive->target()->node = genexpr);
-      root->forward_to(replacement);
+      size_t ret = C->search.extend(inductive);
+      Node * genexpr = _make_generator(this, inductive->target, values);
+      Node * replacement = C->search.copy_spine(
+          root->node, genexpr, &inductive->target
+        );
+      assert(inductive->target->node == genexpr);
+      C->search.resize(ret);
+      root->node->forward_to(replacement);
       return T_FWD;
     }
   }

@@ -16,12 +16,11 @@ namespace sprite
   struct Node;
   struct PartApplicNode;
   struct Queue;
-  struct Redex;
+  struct RealpathResult;
   struct RuntimeState;
   struct Set;
   struct Type;
   struct UnionFind;
-  struct Variable;
   union Arg;
 
   enum NStatus {N_YIELD, N_REDO};
@@ -35,7 +34,7 @@ namespace sprite
   using index_type = std::uint16_t;
   using memo_type = std::unordered_map<void *, Arg>;
   using std::size_t;
-  using stepfunc_type = SStatus (*)(RuntimeState *, Configuration *, Redex const *);
+  using stepfunc_type = SStatus (*)(RuntimeState *, Configuration *);
   using typecheckfunc_type = void (*)(Node *);
   using unboxed_char_type = signed char;
   using unboxed_float_type = double;

@@ -139,12 +139,8 @@ namespace sprite
 
   inline Cursor Node::operator[](index_type i)
   {
-    index_type path[] = {i, NOINDEX};
-    return (*this)[path];
+    return logical_subexpr(this, i);
   }
-
-  inline Cursor Node::operator[](index_type const * path)
-    { return logical_subexpr(this, path); }
 
   inline index_type Node::size() const { return this->info->arity; }
   inline Arg * Node::begin() { return successors(); }

@@ -8,28 +8,30 @@
 
 namespace sprite { inline namespace
 {
-  SStatus cond_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus cond_step(RuntimeState * rts, Configuration * C)
   {
-    Variable _1(_0, 0);
+    Cursor _0 = C->cursor();
+    Var _1 = realpath(_0, 0);
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {
-      case T_FALSE: _0->root()->forward_to(Fail);
+      case T_FALSE: _0->node->forward_to(Fail);
                     return T_FWD;
-      case T_TRUE : _0->root()->forward_to(_0->root()->successor(1));
+      case T_TRUE : _0->node->forward_to(_0->node->successor(1));
                     return T_FWD;
       default: return tag;
     }
   }
 
-  SStatus apply_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus apply_step(RuntimeState * rts, Configuration * C)
   {
-    Variable _1(_0, 0);
+    Cursor _0 = C->cursor();
+    Var _1 = realpath(_0, 0);
     auto tag = rts->hnf(C, &_1);
     if(tag != T_CTOR)
       return tag;
-    PartApplicNode * partial = NodeU{_1.target()}.partapplic;
-    Node * arg = _0->root()->successor(1);
+    PartApplicNode * partial = NodeU{_1.target}.partapplic;
+    Node * arg = _0->node->successor(1);
     Node * replacement = partial->complete(arg)
         ? Node::from_partial(partial, arg)
         : Node::create(
@@ -38,49 +40,52 @@ namespace sprite { inline namespace
             , partial->head_info
             , cons(arg, partial->terms)
             );
-    _0->root()->forward_to(replacement);
+    _0->node->forward_to(replacement);
     return T_FWD;
   }
 
   template<typename Action>
   static SStatus _applyspecial(
-      RuntimeState * rts, Configuration * C, Redex const * _0
-    , Action const & action
+      RuntimeState * rts, Configuration * C, Action const & action
     )
   {
-    Variable _1(_0, 0);
+    Cursor _0 = C->cursor();
+    Var _1 = realpath(_0, 0);
     auto tag = rts->hnf(C, &_1);
     if(tag != T_CTOR)
       return tag;
     // TODO: catch nondeterminism in IO
-    Variable _2(_0, 1);
+    Var _2 = realpath(_0, 1);
     tag = action(rts, C, &_2);
-    if(_2.target()->info->tag < T_CTOR)
+    if(_2.target->info->tag < T_CTOR)
       return tag;
     Node * replacement = Node::create(
-        &apply_Info, _1.target()->node, _2.target()->node
+        &apply_Info, _1.target->node, _2.target->node
       );
-    _0->root()->forward_to(replacement);
+    _0->node->forward_to(replacement);
     return T_FWD;
   }
 
-  SStatus applynf_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus applynf_step(RuntimeState * rts, Configuration * C)
   {
-    auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
+    auto && normalize = [](RuntimeState * rts, Configuration * C, RealpathResult * var)
     {
-      Redex scope(var);
+      size_t ret = C->search.extend(var);
       C->search.set_barrier();
       tag_type tag;
-      return rts->procN(C, tag);
+      auto result = rts->procN(C, tag);
+      C->search.resize(ret);
+      return result;
     };
-    return _applyspecial(rts, C, _0, normalize);
+    return _applyspecial(rts, C, normalize);
   }
 
-  SStatus applygnf_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus applygnf_step(RuntimeState * rts, Configuration * C)
   {
-    auto rv = applynf_step(rts, C, _0);
+    Cursor _0 = C->cursor();
+    auto rv = applynf_step(rts, C);
     std::unordered_set<xid_type> unbound;
-    auto nodes = iternodes(_0->root());
+    auto nodes = iternodes(_0->node);
     while(Node * node = nodes.next())
     {
       if(inspect::isa_freevar(node) && !has_generator(node))
@@ -93,11 +98,11 @@ namespace sprite { inline namespace
       return rv;
   }
 
-  SStatus applyhnf_step(RuntimeState * rts, Configuration * C, Redex const * _0)
+  SStatus applyhnf_step(RuntimeState * rts, Configuration * C)
   {
-    auto && headnormalize = [](RuntimeState * rts, Configuration * C, Variable * var)
+    auto && headnormalize = [](RuntimeState * rts, Configuration * C, RealpathResult * var)
       { return rts->hnf(C, var); };
-    return _applyspecial(rts, C, _0, headnormalize);
+    return _applyspecial(rts, C, headnormalize);
   }
 }}
 

@@ -83,6 +83,13 @@ namespace sprite
         this->extend(*path++);
   }
 
+  size_t Search::extend(RealpathResult const * inductive)
+  {
+    size_t ret = this->size();
+    this->extend(inductive->realpath.data());
+    return ret;
+  }
+
   void Search::pop()
   {
     if(this->dispose)

@@ -40,12 +40,12 @@ namespace sprite
     Set * S() { return Q()->set; }
 
     NStatus procN(Configuration *, tag_type &);
-    SStatus procS(Configuration *, Redex const &);
+    SStatus procS(Configuration *);
     SStatus hnf(
-        Configuration *, Variable * inductive, void const * guides=nullptr
+        Configuration *, Var * inductive, void const * guides=nullptr
       );
     SStatus hnf_or_free(
-        Configuration *, Variable * inductive, void const * guides=nullptr
+        Configuration *, Var * inductive, void const * guides=nullptr
       );
 
     // rts_bindings:
@@ -57,7 +57,7 @@ namespace sprite
     // rts_constraints:
     bool constrain_equal(Configuration *, Cursor constraint);
     bool constrain_equal(Configuration *, Node * x, Node * y, ConstraintType);
-    static Node * lift_constraint(Configuration *, Variable * inductive);
+    static Node * lift_constraint(Configuration *, Var * inductive);
     static Node * lift_constraint(Configuration *, Node * source, Node * target);
 
     // rts_control:
@@ -71,7 +71,7 @@ namespace sprite
     // rts_fingerprint:
     bool equate_fp(Configuration *, xid_type, xid_type);
     void fork(Queue *, Configuration *);
-    static Node * pull_tab(Configuration *, Variable * inductive);
+    static Node * pull_tab(Configuration *, Var * inductive);
     static Node * pull_tab(Configuration *, Node * source, Node * target);
     ChoiceState read_fp(Configuration *, xid_type);
     bool update_fp(Configuration *, xid_type, ChoiceState);
@@ -86,10 +86,11 @@ namespace sprite
     bool is_narrowed(Configuration *, xid_type vid);
     bool is_narrowed(Configuration *, Node * vid);
     Node * replace_freevar(Configuration *);
-    SStatus replace_freevar(Configuration *, Variable * inductive, void const *);
+    SStatus replace_freevar(Configuration *, Var * inductive, void const *);
     void clone_generator(Node * bound, Node * unbound);
     SStatus instantiate(
-        Configuration *, Node * redex, Variable * inductive, void const * guides
+        Configuration *, Cursor redex, Var * inductive
+      , void const * guides
       );
 
     // rts_setfunctions:

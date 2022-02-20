@@ -26,11 +26,7 @@ namespace sprite
     return begin;
   }
 
-  Cursor logical_subexpr(
-      Node * root
-    , index_type const * path
-    , bool update_fwd_nodes
-    )
+  Cursor logical_subexpr(Node * root, index_type path, bool update_fwd_nodes)
   {
     auto && rv = realpath(root, path, update_fwd_nodes);
     return rv.target;
@@ -121,13 +117,6 @@ namespace sprite
   RealpathResult realpath(
       Node * root, std::initializer_list<index_type> path, bool update_fwd_nodes
     )
-  {
-    RealPathIndexer indexer{root, update_fwd_nodes};
-    indexer.advance(path);
-    return std::move(indexer.getresult());
-  }
-
-  RealpathResult realpath(Node * root, index_type const * path, bool update_fwd_nodes)
   {
     RealPathIndexer indexer{root, update_fwd_nodes};
     indexer.advance(path);
