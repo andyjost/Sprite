@@ -57,7 +57,7 @@ namespace sprite { inline namespace
     // TODO: catch nondeterminism in IO
     Var _2 = realpath(_0, 1);
     tag = action(rts, C, &_2);
-    if(_2.target->info->tag < T_CTOR)
+    if(_2.target.info()->tag < T_CTOR)
       return tag;
     Node * replacement = Node::create(
         &apply_Info, _1.target->node, _2.target->node
@@ -70,11 +70,12 @@ namespace sprite { inline namespace
   {
     auto && normalize = [](RuntimeState * rts, Configuration * C, RealpathResult * var)
     {
+      C->search.push_barrier();
       size_t ret = C->search.extend(var);
-      C->search.set_barrier();
       tag_type tag;
       auto result = rts->procN(C, tag);
       C->search.resize(ret);
+      C->search.pop_barrier();
       return result;
     };
     return _applyspecial(rts, C, normalize);

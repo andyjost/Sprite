@@ -7,34 +7,34 @@
 
 namespace sprite
 {
-  Expr eval_next(RuntimeState * rts)
+  Expr RuntimeState::procD()
   {
     Queue * Q         = nullptr;
     Configuration * C = nullptr;
     Node * tmp        = nullptr;
     tag_type tag      = NOTAG;
 
-    while(rts->ready())
+    while(this->ready())
     {
-      Q = rts->Q();
+      Q = this->Q();
       C = Q->front();
       tag = inspect::tag_of(C->root);
     redoD:
       switch(tag)
       {
-        case T_UNBOXED : return rts->release_value();
+        case T_UNBOXED : return this->release_value();
         case T_SETGRD  : assert(0); continue;
-        case T_FAIL    : rts->drop();
+        case T_FAIL    : this->drop();
                          continue;
-        case T_CONSTR  : if(!rts->constrain_equal(C, C->root))
-                           { rts->drop(); continue; }
+        case T_CONSTR  : if(!this->constrain_equal(C, C->root))
+                           { this->drop(); continue; }
                          else
                          {
                            *C->root = NodeU{C->root}.constr->value;
                            tag = inspect::tag_of(C->root);
                            goto redoD;
                          }
-        case T_FREE    : tmp = rts->replace_freevar(C);
+        case T_FREE    : tmp = this->replace_freevar(C);
                          if(tmp)
                          {
                            *C->root = tmp;
@@ -42,21 +42,21 @@ namespace sprite
                            goto redoD;
                          }
                          else
-                           return rts->release_value();
+                           return this->release_value();
         case T_FWD     : compress_fwd_chain(C->root);
                          tag = inspect::tag_of(C->root);
                          goto redoD;
-        case T_CHOICE  : rts->fork(Q, C);
+        case T_CHOICE  : this->fork(Q, C);
                          continue;
-        case T_FUNC    : tag = rts->procS(C);
+        case T_FUNC    : tag = this->procS(C);
                          goto redoD;
         case E_RESTART : tag = inspect::tag_of(C->root);
                          goto redoD;
         case E_RESIDUAL: assert(0); continue;
-        default        : switch(rts->procN(C, tag))
+        default        : switch(this->procN(C, tag))
                          {
-                           case N_YIELD:    return rts->release_value();
-                           case N_REDO:     goto redoD;
+                           case N_YIELD: return this->release_value();
+                           case N_REDO:  goto redoD;
                          }
       }
     }

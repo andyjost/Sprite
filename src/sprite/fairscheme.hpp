@@ -4,5 +4,5 @@
 
 namespace sprite
 {
-  Expr eval_next(RuntimeState *);
+  inline Expr eval_next(RuntimeState * rts) { return rts->procD(); }
 }

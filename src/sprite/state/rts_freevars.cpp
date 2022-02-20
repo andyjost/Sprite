@@ -119,7 +119,7 @@ namespace sprite
 
     Node * make(ValueSet const * values, xid_type vid) const
     {
-      Node * genexpr = this->_rec(&values->args[0].info, values->size, vid);
+      Node * genexpr = this->_rec(&values->args[0].xinfo, values->size, vid);
       if(values->size == 1)
         genexpr = choice(vid, genexpr, Fail);
       return genexpr;

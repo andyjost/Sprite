@@ -13,7 +13,7 @@ namespace sprite
     xid_type           cid;
     void *             blob;
     Head *             head;
-    InfoTable const *  info;
+    InfoTable const *  xinfo;
 
     Arg(Node * value=nullptr)    : node(value)     {}
     Arg(int16_t value)           : ub_int(value)   {}
@@ -25,7 +25,7 @@ namespace sprite
     Arg(char value)              : ub_char(value)  {}
     Arg(signed char value)       : ub_char(value)  {}
     Arg(unsigned char value)     : ub_char(value)  {}
-    Arg(InfoTable const * value) : info(value)     {}
+    Arg(InfoTable const * value) : xinfo(value)    {}
     template<typename T>
     Arg(T * value)               : blob(value)     {}
     Arg(std::nullptr_t)          : blob(nullptr)   {}

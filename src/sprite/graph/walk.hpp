@@ -24,7 +24,8 @@ namespace sprite
     size_t size() const { return this->stack.size(); }
     void resize(size_t n) { this->stack.resize(n); }
 
-    void set_barrier();
+    void push_barrier();
+    void pop_barrier();
 
     Cursor root() const;
     Cursor cursor() const;
@@ -46,7 +47,6 @@ namespace sprite
       void * data = nullptr;
       index_type index = (index_type)(-1);
       index_type end = 0;
-      index_type barrier = 0;
 
       Frame() {}
       Frame(void * data) : data(data) {}
@@ -55,10 +55,10 @@ namespace sprite
       {}
     };
 
-    mutable std::vector<Frame> stack;
-    void *                     static_data;
-    datadisposer_type          dispose;
-    bool                       bad = false;
+    mutable std::vector<Frame>  stack;
+    mutable std::vector<size_t> barriers;
+    void *                      static_data;
+    datadisposer_type           dispose;
   };
 
   template<typename ... Args>

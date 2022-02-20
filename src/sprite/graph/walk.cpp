@@ -20,21 +20,23 @@ namespace sprite
       this->stack.resize(1);
   }
 
-  void Search::set_barrier()
-  {
-    this->stack.back().barrier++;
-  }
+  void Search::push_barrier() { this->barriers.push_back(this->size()); }
+  void Search::pop_barrier() { this->barriers.pop_back(); }
 
   Search::operator bool() const
   {
-    return !this->bad && !this->stack.empty();
+    if(this->stack.empty())
+      return false;
+    else
+      return this->barriers.empty() || this->stack.size() > this->barriers.back();
   }
 
   void Search::operator++()
   {
-    this->bad = false;
     while(true)
     {
+      if(!this->barriers.empty() && this->stack.size() == this->barriers.back())
+        return;
       switch(this->stack.size())
       {
         case 1: this->pop();
@@ -43,14 +45,7 @@ namespace sprite
       Frame & parent = *(this->stack.end() - 2);
       ++parent.index;
       if(parent.index >= parent.end)
-        if(parent.barrier)
-        {
-          --parent.barrier;
-          this->bad = true;
-          return;
-        }
-        else
-          this->pop();
+        this->pop();
       else
       {
         this->stack.back().cur = parent.cur->node->successor(parent.index);

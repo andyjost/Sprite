@@ -39,6 +39,7 @@ namespace sprite
     Cursor & E() { return C()->root; }
     Set * S() { return Q()->set; }
 
+    Expr procD();
     NStatus procN(Configuration *, tag_type &);
     SStatus procS(Configuration *);
     SStatus hnf(
