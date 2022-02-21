@@ -64,9 +64,9 @@ namespace sprite
   {
     Node * tmp = nullptr;
     size_t ret = 0;
-    for(Search * search = &C->search; *search; ++(*search))
+    for(auto * scan = &C->scan; *scan; ++(*scan))
     {
-      tag = inspect::tag_of(search->cursor());
+      tag = inspect::tag_of(scan->cursor());
     redoN:
       switch(tag)
       {
@@ -75,40 +75,40 @@ namespace sprite
         case T_FAIL    : tag = C->root->make_failure();
                          return false;
         case T_CONSTR  : *C->root = this->lift_constraint(
-                             C, C->root, search->cursor()
+                             C, C->root, scan->cursor()
                            );
                          tag = inspect::tag_of(C->root);
-                         search->reset();
+                         scan->reset();
                          return false;
         case T_FREE    : tmp = this->replace_freevar(C);
                          if(tmp)
                          {
                            *C->root = tmp;
-                           search->reset();
+                           scan->reset();
                            tag = inspect::tag_of(tmp);
                            return false;
                          }
                          else
                            continue;
-        case T_FWD     : compress_fwd_chain(search->cursor());
-                         tag = inspect::tag_of(search->cursor());
+        case T_FWD     : compress_fwd_chain(scan->cursor());
+                         tag = inspect::tag_of(scan->cursor());
                          goto redoN;
         case T_CHOICE  : *C->root = this->pull_tab(
-                             C, C->root, search->cursor()
+                             C, C->root, scan->cursor()
                            );
-                         search->reset();
+                         scan->reset();
                          assert(C->root->info->tag == T_CHOICE);
                          return false;
-        case T_FUNC    : ret = search->size();
+        case T_FUNC    : ret = scan->size();
                          tag = this->procS(C);
-                         search->resize(ret);
+                         scan->resize(ret);
                          goto redoN;
         case E_RESTART : tag = inspect::tag_of(C->root);
                          return false;
         case E_RESIDUAL: assert(0); continue;
         default        :
-          if(search->cursor()->info->typetag != PARTIAL_TYPE)
-            search->push();
+          if(scan->cursor()->info->typetag != PARTIAL_TYPE)
+            scan->push();
       }
     }
     return true;
@@ -147,9 +147,9 @@ namespace sprite
                        continue;
         case T_CHOICE: _0->forward_to(this->pull_tab(C, inductive));
                        return T_FWD;
-        case T_FUNC  : ret = C->search.extend(inductive);
+        case T_FUNC  : ret = C->scan.extend(inductive);
                        tag = this->procS(C);
-                       C->search.resize(ret);
+                       C->scan.resize(ret);
                        continue;
         default      : return tag;
       }

@@ -7,62 +7,58 @@
 namespace sprite
 {
   using datadisposer_type = void(*)(void * static_data, void * data);
+  struct Walk;
+  struct Walk2;
 
-  struct Search
+  Walk walk(Cursor root);
+  Walk2 walk(Cursor root, void * static_data, datadisposer_type);
+
+  // Walk a graph.
+  struct Walk
   {
-    Search() {}
-    Search(Cursor root, void * static_data=nullptr, datadisposer_type=nullptr);
-
+    Walk() {}
+    Walk(Cursor root);
     explicit operator bool() const;
     void operator++();
-    void push(void * data=nullptr);
-    void pop();
-    void extend(index_type pos);
-    void extend(index_type const * path);
-    size_t extend(Variable const *);
-
-    size_t size() const { return this->stack.size(); }
-    void resize(size_t n) { this->stack.resize(n); }
-
-    void push_barrier();
-    void pop_barrier();
-
+    void push();
     Cursor cursor() const;
-    Cursor at(size_t n) const { return this->stack[n].cur; }
-    void *& data() const;
-    void reset();
-
-    Node * copy_spine(
-        Node * root, Node * end, Cursor * target=nullptr
-      , size_t start=1
-      );
-    Node * copy_spine(Node * root, Node * end, size_t start);
-
   private:
-
+    void pop();
     struct Frame
     {
       Cursor cur;
-      void * data = nullptr;
       index_type index = (index_type)(-1);
       index_type end = 0;
-
-      Frame() {}
-      Frame(void * data) : data(data) {}
-      Frame(Cursor const & cur, void * data=nullptr)
-        : cur(cur), data(data)
-      {}
     };
-
-    mutable std::vector<Frame>  stack;
-    mutable std::vector<size_t> barriers;
-    void *                      static_data;
-    datadisposer_type           dispose;
+    std::vector<Frame> stack;
   };
 
-  template<typename ... Args>
-  Search walk(Args && ... args)
-    { return Search(std::forward<Args>(args)...); }
+  // Walk a graph, with support for contextual data.
+  struct Walk2
+  {
+    Walk2() {}
+    Walk2(Cursor root, void * static_data, datadisposer_type);
+    explicit operator bool() const;
+    void operator++();
+    void push(void * data=nullptr);
+    Cursor cursor() const;
+    void *& data() const;
+  private:
+    void pop();
+    struct Frame
+    {
+      Cursor         cur;
+      mutable void * data = nullptr;
+      index_type     index = (index_type)(-1);
+      index_type     end = 0;
+
+      Frame(void * data) : data(data) {}
+      Frame(Cursor const & cur, void * data=nullptr) : cur(cur), data(data) {}
+    };
+    std::vector<Frame>  stack;
+    void *              static_data;
+    datadisposer_type   dispose;
+  };
 
   struct UniqueNodeVisitor
   {
@@ -75,3 +71,5 @@ namespace sprite
   inline UniqueNodeVisitor visit_unique(Node * root)
       { return UniqueNodeVisitor(root); }
 }
+
+#include "sprite/graph/walk.hxx"

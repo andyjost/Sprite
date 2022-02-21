@@ -45,9 +45,9 @@ namespace
     void stringify(Cursor expr)
     {
       bool first = true;
-      for(auto && search=walk(expr, this, &callback); search; ++search)
+      for(auto && walk=sprite::walk(expr, this, &callback); walk; ++walk)
       {
-        auto && cur = search.cursor();
+        auto && cur = walk.cursor();
         if(first) first = false; else this->os << ' ';
         switch(cur.kind)
         {
@@ -66,7 +66,7 @@ namespace
             os << '(' << cur->info->name << ')';
           else
             os << cur->info->name;
-          search.push(id);
+          walk.push(id);
         }
       }
     }
@@ -133,10 +133,10 @@ namespace
 
     void stringify(Cursor expr)
     {
-      for(auto && search=walk(expr, this, &callback); search; ++search)
+      for(auto && walk=sprite::walk(expr, this, &callback); walk; ++walk)
       {
-        auto cur = search.cursor().skipfwd();
-        void *& data = search.data();
+        auto cur = walk.cursor().skipfwd();
+        void *& data = walk.data();
         bool bare = false;
         switch(Context(data).value)
         {
@@ -154,7 +154,7 @@ namespace
             if(cur->info->tag == T_CONS)
             {
               os << ", ";
-              search.push(Context('['));
+              walk.push(Context('['));
             }
             else
               os << ']';
@@ -167,7 +167,7 @@ namespace
             if(cur->info->tag == T_CONS)
             {
               os << ' ';
-              search.push(Context('_'));
+              walk.push(Context('_'));
             }
             else
               os << ')';
@@ -178,7 +178,7 @@ namespace
           case '`' :
             assert(cur->info->typetag == LIST_TYPE);
             if(cur->info->tag == T_CONS)
-              search.push(Context('"'));
+              walk.push(Context('"'));
             else
               os << '"';
             continue;
@@ -190,7 +190,7 @@ namespace
             if(cur->info->typetag == LIST_TYPE)
             {
               if(cur->info->tag == T_CONS)
-                search.push(Context(':'));
+                walk.push(Context(':'));
               else
                 os << '[' << ']';
               continue;
@@ -217,36 +217,36 @@ namespace
           case INT_TYPE:
           case CHAR_TYPE:
           case FLOAT_TYPE:
-            search.push();
+            walk.push();
             continue;
           case PARTIAL_TYPE:
           {
             auto const * partial = NodeU{cur}.partapplic;
             os << '(';
             show_name(os, partial->head_info);
-            search.push(Context('^'));
-            ++search; // skip #missing
-            ++search; // skip head_info
+            walk.push(Context('^'));
+            ++walk; // skip #missing
+            ++walk; // skip head_info
             continue;
           }
           case LIST_TYPE:
-            begin_list(search, cur);
+            begin_list(walk, cur);
             continue;
           case TUPLE_TYPE:
             os << '(';
-            search.push(Context('('));
+            walk.push(Context('('));
             continue;
           default:
             if(!bare && info->arity)
             {
               os << '(';
               this->show_name(os, info);
-              search.push(Context('&'));
+              walk.push(Context('&'));
             }
             else
             {
               this->show_name(os, info);
-              search.push(Context(' '));
+              walk.push(Context(' '));
             }
             continue;
         }
@@ -275,7 +275,7 @@ namespace
     void show(void const * value)
       { this->os << value; }
 
-    void begin_list(Search & search, Cursor cur)
+    void begin_list(Walk2 & walk, Cursor cur)
     {
       Node * end = cur;
       bool is_string = true;
@@ -293,16 +293,16 @@ namespace
         if(is_string && !is_empty)
         {
           this->os << '"';
-          search.push(Context('"'));
+          walk.push(Context('"'));
         }
         else
         {
           this->os << '[';
-          search.push(Context('['));
+          walk.push(Context('['));
         }
       }
       else
-        search.push(Context(':'));
+        walk.push(Context(':'));
     }
   };
 }

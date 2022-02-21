@@ -60,7 +60,7 @@ namespace sprite
     if(!has_generator(y))
       rts->clone_generator(x, y);
     Node * v = rts->get_generator(C, y);
-    for(Search p(u), q(v); p && q; ++p, ++q)
+    for(Walk p(u), q(v); p && q; ++p, ++q)
     {
       if(inspect::is_nondet(p.cursor()))
         if(!rts->constrain_equal(C, p.cursor(), q.cursor(), STRICT_CONSTRAINT))
@@ -74,15 +74,15 @@ namespace sprite
   Node * RuntimeState::lift_constraint(Configuration * C, Node * source, Node * target)
   {
     ConstrNode * constr = NodeU{target}.constr;
-    Node * value = C->search.copy_spine(source, constr->value, 2);
+    Node * value = C->scan.copy_spine(source, constr->value, 2);
     return Node::create(constr->info, value, constr->pair);
   }
 
   Node * RuntimeState::lift_constraint(Configuration * C, Variable * inductive)
   {
-    size_t ret = C->search.extend(inductive);
+    size_t ret = C->scan.extend(inductive);
     auto result = lift_constraint(C, C->cursor(), inductive->target);
-    C->search.resize(ret);
+    C->scan.resize(ret);
     return result;
   }
 }

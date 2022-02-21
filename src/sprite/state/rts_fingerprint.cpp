@@ -59,16 +59,16 @@ namespace sprite
   Node * RuntimeState::pull_tab(Configuration * C, Node * source, Node * target)
   {
     ChoiceNode * choice = NodeU{target}.choice;
-    Node * lhs = C->search.copy_spine(source, choice->lhs);
-    Node * rhs = C->search.copy_spine(source, choice->rhs);
+    Node * lhs = C->scan.copy_spine(source, choice->lhs);
+    Node * rhs = C->scan.copy_spine(source, choice->rhs);
     return make_node<ChoiceNode>(choice->cid, lhs, rhs);
   }
 
   Node * RuntimeState::pull_tab(Configuration * C, Variable * inductive)
   {
-    size_t ret = C->search.extend(inductive);
+    size_t ret = C->scan.extend(inductive);
     auto result = RuntimeState::pull_tab(C, C->cursor(), inductive->target);
-    C->search.resize(ret);
+    C->scan.resize(ret);
     return result;
   }
 

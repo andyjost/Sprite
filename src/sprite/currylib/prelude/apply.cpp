@@ -2,6 +2,7 @@
 #include "sprite/builtins.hpp"
 #include "sprite/currylib/prelude.hpp"
 #include "sprite/exceptions.hpp"
+#include "sprite/graph/walk.hpp"
 #include "sprite/inspect.hpp"
 #include "sprite/state/rts.hpp"
 
@@ -69,12 +70,12 @@ namespace sprite { inline namespace
   {
     auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
     {
-      C->search.push_barrier();
-      size_t ret = C->search.extend(var);
+      C->scan.push_barrier();
+      size_t ret = C->scan.extend(var);
       tag_type tag;
       rts->procN(C, tag);
-      C->search.resize(ret);
-      C->search.pop_barrier();
+      C->scan.resize(ret);
+      C->scan.pop_barrier();
       return tag;
     };
     return _applyspecial(rts, C, normalize);

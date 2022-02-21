@@ -7,8 +7,8 @@
 #include "sprite/fingerprint.hpp"
 #include "sprite/fingerprint.hpp"
 #include "sprite/graph/cursor.hpp"
-#include "sprite/graph/walk.hpp"
 #include "sprite/misc/unionfind.hpp"
+#include "sprite/state/scan.hpp"
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -25,7 +25,7 @@ namespace sprite
     Configuration(Node * root=nullptr)
       : root_storage(root)
       , root(this->root_storage)
-      , search(this->root)
+      , scan(this->root)
       , strict_constraints(new UnionFind())
       , bindings(new BindingMap())
     {}
@@ -33,7 +33,7 @@ namespace sprite
     Configuration(Node * root, Configuration const & obj)
       : root_storage(root)
       , root(this->root_storage)
-      , search(this->root)
+      , scan(this->root)
       , fingerprint(obj.fingerprint)
       , strict_constraints(obj.strict_constraints)
       , bindings(obj.bindings)
@@ -54,14 +54,14 @@ namespace sprite
 
     Node *            root_storage;
     Cursor            root;
-    Search            search;
+    Scan              scan;
     Fingerprint       fingerprint;
     StrictConstraints strict_constraints;
     Bindings          bindings;
     Residuals         residuals;
     bool              escape_all = false;
 
-    Cursor cursor() const { return this->search.cursor(); }
+    Cursor cursor() const { return this->scan.cursor(); }
     xid_type grp_id(xid_type id) const
       { return this->strict_constraints->root(id); }
     bool has_binding(xid_type id) const { return this->bindings->count(id); }

@@ -36,7 +36,7 @@ namespace sprite
       node = this->get_generator(C, gid);
     if(!node && vid != gid)
       node = this->get_freevar(gid);
-    return node ? C->search.copy_spine(C->root, node) : node;
+    return node ? C->scan.copy_spine(C->root, node) : node;
   }
 
   tag_type RuntimeState::replace_freevar(
@@ -53,7 +53,7 @@ namespace sprite
     }
     else if(Node * binding = this->get_binding(C, freevar))
     {
-      *C->root = C->search.copy_spine(C->root, binding);
+      *C->root = C->scan.copy_spine(C->root, binding);
       return E_RESTART;
     }
     ValueSet const * values = (ValueSet const *) guides;
@@ -72,7 +72,7 @@ namespace sprite
       return this->instantiate(C, C->cursor(), inductive, values);
     }
   }
-  
+
   Node * RuntimeState::freshvar()
   {
     xid_type vid = this->istate.xidfactory++;
@@ -171,13 +171,13 @@ namespace sprite
       return E_RESIDUAL;
     else
     {
-      size_t ret = C->search.extend(inductive);
+      size_t ret = C->scan.extend(inductive);
       Node * genexpr = _make_generator(this, inductive->target, values);
-      Node * replacement = C->search.copy_spine(
+      Node * replacement = C->scan.copy_spine(
           root, genexpr, &inductive->target
         );
       assert(*inductive->target == genexpr);
-      C->search.resize(ret);
+      C->scan.resize(ret);
       root->forward_to(replacement);
       return T_FWD;
     }
