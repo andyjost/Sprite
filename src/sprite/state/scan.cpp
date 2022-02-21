@@ -3,118 +3,49 @@
 
 namespace sprite
 {
-  Scan::Scan(
-      Cursor root
-    , void * static_data
-    , datadisposer_type dispose
-    )
-    : stack({Frame{root}})
-    , static_data(static_data), dispose(dispose)
-  {
-    assert(root);
-  }
-
-  void Scan::reset()
-  {
-    if(this->stack.size() > 1)
-      this->stack.resize(1);
-  }
-
-  void Scan::push_barrier() { this->barriers.push_back(this->size()); }
-  void Scan::pop_barrier() { this->barriers.pop_back(); }
-
-  Scan::operator bool() const
-  {
-    if(this->stack.empty())
-      return false;
-    else
-      return this->barriers.empty() || this->stack.size() > this->barriers.back();
-  }
-
   void Scan::operator++()
   {
     while(true)
     {
-      if(!this->barriers.empty() && this->stack.size() == this->barriers.back())
+      if(this->search.size() == this->callstack.back())
         return;
-      switch(this->stack.size())
+      switch(this->search.size())
       {
-        case 1: this->pop();
+        case 1:  this->search.pop_back();
         case 0: return;
       }
-      Frame & parent = *(this->stack.end() - 2);
+      Level & parent = *(this->search.end() - 2);
       ++parent.index;
       if(parent.index >= parent.end)
-        this->pop();
+        this->search.pop_back();
       else
       {
-        this->stack.back().cur = parent.cur->successor(parent.index);
+        this->search.back().cur = parent.cur->successor(parent.index);
         return;
       }
     }
   }
 
-  void Scan::push(void * data)
+  void Scan::push(Variable const * inductive)
   {
-    Frame & parent = stack.back();
-    parent.index = NOINDEX;
-    parent.end = parent.cur.kind == 'p' ? parent.cur->info->arity : 0;
-    this->stack.emplace_back(data);
-  }
-
-  void Scan::extend(index_type pos)
-  {
-    Frame & parent = stack.back();
-    parent.index = pos;
-    parent.end = pos + 1;
-    Cursor succ = parent.cur->successor(pos);
-    this->stack.emplace_back(succ);
-  }
-
-  void Scan::extend(index_type const * path)
-  {
-    if(path)
-      while(*path != NOINDEX)
-        this->extend(*path++);
-  }
-
-  size_t Scan::extend(Variable const * inductive)
-  {
-    size_t ret = this->size();
-    this->extend(inductive->realpath.data());
-    return ret;
-  }
-
-  void Scan::pop()
-  {
-    if(this->dispose)
-      this->dispose(this->static_data, this->stack.back().data);
-    this->stack.pop_back();
-  }
-
-  Cursor Scan::cursor() const
-  {
-    assert(*this);
-    return this->stack.back().cur;
-  }
-
-  void *& Scan::data() const
-  {
-    assert(*this);
-    return this->stack.back().data;
-  }
-
-  Node * Scan::copy_spine(Node * root, Node * end, size_t start)
-  {
-    return this->copy_spine(root, end, nullptr, start);
+    size_t ret = this->search.size();
+    for(auto pos: inductive->realpath)
+    {
+      Level & parent = this->search.back();
+      parent.index = pos;
+      parent.end = pos + 1;
+      Cursor succ = parent.cur->successor(pos);
+      this->search.emplace_back(succ);
+    }
+    this->callstack.push_back(ret);
   }
 
   Node * Scan::copy_spine(
       Node * root, Node * end, Cursor * target, size_t start
     )
   {
-    auto p = this->stack.rbegin() + start;
-    auto e = this->stack.rend();
+    auto p = this->search.rbegin() + start;
+    auto e = this->search.rend();
     assert(p<=e);
     for(; p!=e; ++p)
     {

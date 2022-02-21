@@ -20,17 +20,16 @@ namespace sprite
     Walk(Cursor root);
     explicit operator bool() const;
     void operator++();
-    void push();
+    void extend();
     Cursor cursor() const;
   private:
-    void pop();
-    struct Frame
+    struct Level
     {
       Cursor cur;
       index_type index = (index_type)(-1);
       index_type end = 0;
     };
-    std::vector<Frame> stack;
+    std::vector<Level> stack;
   };
 
   // Walk a graph, with support for contextual data.
@@ -40,22 +39,21 @@ namespace sprite
     Walk2(Cursor root, void * static_data, datadisposer_type);
     explicit operator bool() const;
     void operator++();
-    void push(void * data=nullptr);
+    void extend(void * data=nullptr);
     Cursor cursor() const;
     void *& data() const;
   private:
-    void pop();
-    struct Frame
+    struct Level
     {
       Cursor         cur;
       mutable void * data = nullptr;
       index_type     index = (index_type)(-1);
       index_type     end = 0;
 
-      Frame(void * data) : data(data) {}
-      Frame(Cursor const & cur, void * data=nullptr) : cur(cur), data(data) {}
+      Level(void * data) : data(data) {}
+      Level(Cursor const & cur, void * data=nullptr) : cur(cur), data(data) {}
     };
-    std::vector<Frame>  stack;
+    std::vector<Level>  stack;
     void *              static_data;
     datadisposer_type   dispose;
   };

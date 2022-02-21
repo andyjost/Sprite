@@ -171,13 +171,13 @@ namespace sprite
       return E_RESIDUAL;
     else
     {
-      size_t ret = C->scan.extend(inductive);
+      C->scan.push(inductive);
       Node * genexpr = _make_generator(this, inductive->target, values);
       Node * replacement = C->scan.copy_spine(
           root, genexpr, &inductive->target
         );
       assert(*inductive->target == genexpr);
-      C->scan.resize(ret);
+      C->scan.pop();
       root->forward_to(replacement);
       return T_FWD;
     }

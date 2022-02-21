@@ -9,13 +9,13 @@ namespace sprite
     {
       switch(this->stack.size())
       {
-        case 1: this->pop();
+        case 1: this->stack.pop_back();
         case 0: return;
       }
-      Frame & parent = *(this->stack.end() - 2);
+      Level & parent = *(this->stack.end() - 2);
       ++parent.index;
       if(parent.index >= parent.end)
-        this->pop();
+        this->stack.pop_back();
       else
       {
         this->stack.back().cur = parent.cur->successor(parent.index);
@@ -30,13 +30,19 @@ namespace sprite
     {
       switch(this->stack.size())
       {
-        case 1: this->pop();
+        case 1: if(this->dispose)
+                  this->dispose(this->static_data, this->stack.back().data);
+                this->stack.pop_back();
         case 0: return;
       }
-      Frame & parent = *(this->stack.end() - 2);
+      Level & parent = *(this->stack.end() - 2);
       ++parent.index;
       if(parent.index >= parent.end)
-        this->pop();
+      {
+        if(this->dispose)
+          this->dispose(this->static_data, this->stack.back().data);
+        this->stack.pop_back();
+      }
       else
       {
         this->stack.back().cur = parent.cur->successor(parent.index);

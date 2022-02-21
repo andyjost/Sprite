@@ -66,7 +66,7 @@ namespace
             os << '(' << cur->info->name << ')';
           else
             os << cur->info->name;
-          walk.push(id);
+          walk.extend(id);
         }
       }
     }
@@ -154,7 +154,7 @@ namespace
             if(cur->info->tag == T_CONS)
             {
               os << ", ";
-              walk.push(Context('['));
+              walk.extend(Context('['));
             }
             else
               os << ']';
@@ -167,7 +167,7 @@ namespace
             if(cur->info->tag == T_CONS)
             {
               os << ' ';
-              walk.push(Context('_'));
+              walk.extend(Context('_'));
             }
             else
               os << ')';
@@ -178,7 +178,7 @@ namespace
           case '`' :
             assert(cur->info->typetag == LIST_TYPE);
             if(cur->info->tag == T_CONS)
-              walk.push(Context('"'));
+              walk.extend(Context('"'));
             else
               os << '"';
             continue;
@@ -190,7 +190,7 @@ namespace
             if(cur->info->typetag == LIST_TYPE)
             {
               if(cur->info->tag == T_CONS)
-                walk.push(Context(':'));
+                walk.extend(Context(':'));
               else
                 os << '[' << ']';
               continue;
@@ -217,14 +217,14 @@ namespace
           case INT_TYPE:
           case CHAR_TYPE:
           case FLOAT_TYPE:
-            walk.push();
+            walk.extend();
             continue;
           case PARTIAL_TYPE:
           {
             auto const * partial = NodeU{cur}.partapplic;
             os << '(';
             show_name(os, partial->head_info);
-            walk.push(Context('^'));
+            walk.extend(Context('^'));
             ++walk; // skip #missing
             ++walk; // skip head_info
             continue;
@@ -234,19 +234,19 @@ namespace
             continue;
           case TUPLE_TYPE:
             os << '(';
-            walk.push(Context('('));
+            walk.extend(Context('('));
             continue;
           default:
             if(!bare && info->arity)
             {
               os << '(';
               this->show_name(os, info);
-              walk.push(Context('&'));
+              walk.extend(Context('&'));
             }
             else
             {
               this->show_name(os, info);
-              walk.push(Context(' '));
+              walk.extend(Context(' '));
             }
             continue;
         }
@@ -293,16 +293,16 @@ namespace
         if(is_string && !is_empty)
         {
           this->os << '"';
-          walk.push(Context('"'));
+          walk.extend(Context('"'));
         }
         else
         {
           this->os << '[';
-          walk.push(Context('['));
+          walk.extend(Context('['));
         }
       }
       else
-        walk.push(Context(':'));
+        walk.extend(Context(':'));
     }
   };
 }

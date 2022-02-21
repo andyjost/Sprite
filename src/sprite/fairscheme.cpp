@@ -108,7 +108,7 @@ namespace sprite
         case E_RESIDUAL: assert(0); continue;
         default        :
           if(scan->cursor()->info->typetag != PARTIAL_TYPE)
-            scan->push();
+            scan->extend();
       }
     }
     return true;
@@ -129,7 +129,6 @@ namespace sprite
   {
     Cursor _0 = C->cursor();
     tag_type tag = inspect::tag_of(inductive->target);
-    size_t ret = 0;
     while(true)
     {
       switch(tag)
@@ -147,9 +146,9 @@ namespace sprite
                        continue;
         case T_CHOICE: _0->forward_to(this->pull_tab(C, inductive));
                        return T_FWD;
-        case T_FUNC  : ret = C->scan.extend(inductive);
+        case T_FUNC  : C->scan.push(inductive);
                        tag = this->procS(C);
-                       C->scan.resize(ret);
+                       C->scan.pop();
                        continue;
         default      : return tag;
       }

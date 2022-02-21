@@ -66,9 +66,9 @@ namespace sprite
 
   Node * RuntimeState::pull_tab(Configuration * C, Variable * inductive)
   {
-    size_t ret = C->scan.extend(inductive);
+    C->scan.push(inductive);
     auto result = RuntimeState::pull_tab(C, C->cursor(), inductive->target);
-    C->scan.resize(ret);
+    C->scan.pop();
     return result;
   }
 

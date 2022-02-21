@@ -70,12 +70,10 @@ namespace sprite { inline namespace
   {
     auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
     {
-      C->scan.push_barrier();
-      size_t ret = C->scan.extend(var);
+      C->scan.push(var);
       tag_type tag;
       rts->procN(C, tag);
-      C->scan.resize(ret);
-      C->scan.pop_barrier();
+      C->scan.pop();
       return tag;
     };
     return _applyspecial(rts, C, normalize);

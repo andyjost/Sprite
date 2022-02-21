@@ -66,7 +66,7 @@ namespace sprite
         if(!rts->constrain_equal(C, p.cursor(), q.cursor(), STRICT_CONSTRAINT))
           return false;
       if(!inspect::isa_freevar(p.cursor()))
-        { p.push(); q.push(); }
+        { p.extend(); q.extend(); }
     }
     return true;
   }
@@ -80,9 +80,9 @@ namespace sprite
 
   Node * RuntimeState::lift_constraint(Configuration * C, Variable * inductive)
   {
-    size_t ret = C->scan.extend(inductive);
+    C->scan.push(inductive);
     auto result = lift_constraint(C, C->cursor(), inductive->target);
-    C->scan.resize(ret);
+    C->scan.pop();
     return result;
   }
 }
