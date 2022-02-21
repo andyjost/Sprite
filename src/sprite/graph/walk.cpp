@@ -132,7 +132,7 @@ namespace sprite
     return end;
   }
 
-  Node * NodeIterator::next()
+  Node * UniqueNodeVisitor::next()
   {
     while(!this->queue.empty())
     {

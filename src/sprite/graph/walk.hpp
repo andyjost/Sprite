@@ -15,8 +15,8 @@ namespace sprite
 
     explicit operator bool() const;
     void operator++();
-    void pop();
     void push(void * data=nullptr);
+    void pop();
     void extend(index_type pos);
     void extend(index_type const * path);
     size_t extend(Variable const *);
@@ -64,13 +64,14 @@ namespace sprite
   Search walk(Args && ... args)
     { return Search(std::forward<Args>(args)...); }
 
-  struct NodeIterator
+  struct UniqueNodeVisitor
   {
-    NodeIterator(Node * root) : queue({root}) {}
+    UniqueNodeVisitor(Node * root) : queue({root}) {}
     Node * next();
     std::deque<Node*> queue;
     std::unordered_set<Node*> seen;
   };
 
-  inline NodeIterator iternodes(Node * root) { return NodeIterator(root); }
+  inline UniqueNodeVisitor visit_unique(Node * root)
+      { return UniqueNodeVisitor(root); }
 }

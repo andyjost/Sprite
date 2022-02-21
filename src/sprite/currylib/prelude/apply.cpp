@@ -85,8 +85,8 @@ namespace sprite { inline namespace
     Cursor _0 = C->cursor();
     auto rv = applynf_step(rts, C);
     std::unordered_set<xid_type> unbound;
-    auto nodes = iternodes(_0);
-    while(Node * node = nodes.next())
+    auto node_visitor = visit_unique(_0);
+    while(Node * node = node_visitor.next())
     {
       if(inspect::isa_freevar(node) && !has_generator(node))
         unbound.insert(obj_id(node));
