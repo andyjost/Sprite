@@ -39,7 +39,7 @@ namespace sprite
     Set * S() { return Q()->set; }
 
     Expr procD();
-    bool procN(Configuration *, tag_type &);
+    tag_type procN(Configuration *, Cursor root);
     tag_type procS(Configuration *);
     tag_type hnf(
         Configuration *, Variable * inductive, void const * guides=nullptr

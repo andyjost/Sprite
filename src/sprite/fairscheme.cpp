@@ -22,16 +22,14 @@ namespace sprite
       {
         case T_UNBOXED : return this->release_value();
         case T_SETGRD  : assert(0); continue;
-        case T_FAIL    : this->drop();
-                         continue;
-        case T_CONSTR  : if(!this->constrain_equal(C, C->root))
-                           { this->drop(); continue; }
-                         else
+        case T_CONSTR  : if(this->constrain_equal(C, C->root))
                          {
                            *C->root = NodeU{C->root}.constr->value;
                            tag = inspect::tag_of(C->root);
                            goto redoD;
                          }
+        case T_FAIL    : this->drop();
+                         continue;
         case T_FREE    : tmp = this->replace_freevar(C);
                          if(tmp)
                          {
@@ -51,19 +49,24 @@ namespace sprite
         case E_RESTART : tag = inspect::tag_of(C->root);
                          goto redoD;
         case E_RESIDUAL: assert(0); continue;
-        default        : if(this->procN(C, tag))
+        default        : tag = this->procN(C, C->root);
+                         if(tag == T_CTOR)
                            return this->release_value();
                          else
+                         {
+                           C->scan.reset();
                            goto redoD;
+                         }
       }
     }
     return Expr{};
   }
 
-  bool RuntimeState::procN(Configuration * C, tag_type & tag)
+  tag_type RuntimeState::procN(Configuration * C, Cursor root)
   {
     Node * tmp = nullptr;
     size_t ret = 0;
+    tag_type tag = 0;
     for(auto * scan = &C->scan; *scan; ++(*scan))
     {
       tag = inspect::tag_of(scan->cursor());
@@ -72,46 +75,34 @@ namespace sprite
       {
         case T_UNBOXED : continue;
         case T_SETGRD  : assert(0); continue;
-        case T_FAIL    : tag = C->root->make_failure();
-                         return false;
-        case T_CONSTR  : *C->root = this->lift_constraint(
-                             C, C->root, scan->cursor()
-                           );
-                         tag = inspect::tag_of(C->root);
-                         scan->reset();
-                         return false;
+        case T_FAIL    : return root->make_failure();
+        case T_CONSTR  : *root = this->lift_constraint(C, root, scan->cursor());
+                         return inspect::tag_of(root);
         case T_FREE    : tmp = this->replace_freevar(C);
                          if(tmp)
                          {
-                           *C->root = tmp;
-                           scan->reset();
-                           tag = inspect::tag_of(tmp);
-                           return false;
+                           *root = tmp;
+                           return inspect::tag_of(tmp);
                          }
                          else
                            continue;
         case T_FWD     : compress_fwd_chain(scan->cursor());
                          tag = inspect::tag_of(scan->cursor());
                          goto redoN;
-        case T_CHOICE  : *C->root = this->pull_tab(
-                             C, C->root, scan->cursor()
-                           );
-                         scan->reset();
-                         assert(C->root->info->tag == T_CHOICE);
-                         return false;
+        case T_CHOICE  : *root = this->pull_tab(C, root, scan->cursor());
+                         return T_CHOICE;
         case T_FUNC    : ret = scan->size();
                          tag = this->procS(C);
                          scan->resize(ret);
                          goto redoN;
-        case E_RESTART : tag = inspect::tag_of(C->root);
-                         return false;
+        case E_RESTART : return inspect::tag_of(root);
         case E_RESIDUAL: assert(0); continue;
         default        :
           if(scan->cursor()->info->typetag != PARTIAL_TYPE)
             scan->extend();
       }
     }
-    return true;
+    return T_CTOR;
   }
 
   tag_type RuntimeState::procS(Configuration * C)

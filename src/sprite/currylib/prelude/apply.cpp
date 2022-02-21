@@ -70,9 +70,9 @@ namespace sprite { inline namespace
   {
     auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
     {
+      Cursor root = C->cursor();
       C->scan.push(var);
-      tag_type tag;
-      rts->procN(C, tag);
+      tag_type tag = rts->procN(C, root);
       C->scan.pop();
       return tag;
     };
