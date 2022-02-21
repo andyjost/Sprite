@@ -26,7 +26,7 @@ namespace sprite
     return NodeU{x}.free->genexpr;
   }
 
-  Node * RuntimeState::replace_freevar(Configuration * C)
+  tag_type RuntimeState::replace_freevar(Configuration * C, Cursor root)
   {
     assert(C->cursor()->info->tag == T_FREE);
     xid_type vid = obj_id(C->cursor());
@@ -36,7 +36,13 @@ namespace sprite
       node = this->get_generator(C, gid);
     if(!node && vid != gid)
       node = this->get_freevar(gid);
-    return node ? C->scan.copy_spine(C->root, node) : node;
+    if(node)
+    {
+      *root = C->scan.copy_spine(root, node);
+      return E_RESTART;
+    }
+    else
+      return T_FREE;
   }
 
   tag_type RuntimeState::replace_freevar(

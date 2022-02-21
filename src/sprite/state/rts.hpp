@@ -85,7 +85,7 @@ namespace sprite
     Node * get_generator(Configuration *, Node *);
     bool is_narrowed(Configuration *, xid_type vid);
     bool is_narrowed(Configuration *, Node * vid);
-    Node * replace_freevar(Configuration *);
+    tag_type replace_freevar(Configuration *, Cursor root);
     tag_type replace_freevar(
         Configuration *, Variable * inductive, void const *
       );

@@ -72,7 +72,10 @@ namespace sprite { inline namespace
     {
       Cursor root = C->cursor();
       C->scan.push(var);
+    redo:
       tag_type tag = rts->procN(C, root);
+      if(tag == E_RESTART)
+        goto redo;
       C->scan.pop();
       return tag;
     };

@@ -9,7 +9,6 @@ namespace sprite
   {
     Queue * Q         = nullptr;
     Configuration * C = nullptr;
-    Node * tmp        = nullptr;
     tag_type tag      = NOTAG;
 
     while(this->ready())
@@ -30,14 +29,8 @@ namespace sprite
                          }
         case T_FAIL    : this->drop();
                          continue;
-        case T_FREE    : tmp = this->replace_freevar(C);
-                         if(tmp)
-                         {
-                           *C->root = tmp;
-                           tag = inspect::tag_of(C->root);
-                           goto redoD;
-                         }
-                         else
+        case T_FREE    : tag = this->replace_freevar(C, C->root);
+                         if(tag == T_FREE)
                            return this->release_value();
         case T_FWD     : compress_fwd_chain(C->root);
                          tag = inspect::tag_of(C->root);
@@ -64,7 +57,6 @@ namespace sprite
 
   tag_type RuntimeState::procN(Configuration * C, Cursor root)
   {
-    Node * tmp = nullptr;
     size_t ret = 0;
     tag_type tag = 0;
     for(auto * scan = &C->scan; *scan; ++(*scan))
@@ -78,14 +70,8 @@ namespace sprite
         case T_FAIL    : return root->make_failure();
         case T_CONSTR  : *root = this->lift_constraint(C, root, scan->cursor());
                          return inspect::tag_of(root);
-        case T_FREE    : tmp = this->replace_freevar(C);
-                         if(tmp)
-                         {
-                           *root = tmp;
-                           return inspect::tag_of(tmp);
-                         }
-                         else
-                           continue;
+        case T_FREE    : tag = this->replace_freevar(C, root);
+                         continue;
         case T_FWD     : compress_fwd_chain(scan->cursor());
                          tag = inspect::tag_of(scan->cursor());
                          goto redoN;
