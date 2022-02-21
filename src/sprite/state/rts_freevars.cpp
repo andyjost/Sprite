@@ -28,7 +28,7 @@ namespace sprite
 
   Node * RuntimeState::replace_freevar(Configuration * C)
   {
-    assert(C->cursor().info()->tag == T_FREE);
+    assert(C->cursor()->info->tag == T_FREE);
     xid_type vid = obj_id(C->cursor());
     xid_type gid = C->grp_id(vid);
     Node * node = this->get_binding(C, gid);
@@ -44,11 +44,11 @@ namespace sprite
     )
   {
     Cursor & freevar = inductive->target;
-    assert(freevar.info()->tag == T_FREE);
+    assert(freevar->info->tag == T_FREE);
     if(has_generator(freevar))
     {
       *freevar = this->get_generator(C, freevar);
-      assert(freevar.info()->tag == T_CHOICE);
+      assert(freevar->info->tag == T_CHOICE);
       return T_CHOICE;
     }
     else if(Node * binding = this->get_binding(C, freevar))
@@ -62,7 +62,7 @@ namespace sprite
       if(values->size)
       {
         *freevar = this->make_value_bindings(freevar, values);
-        return freevar.info()->tag;
+        return freevar->info->tag;
       }
       else
         return E_RESIDUAL;
@@ -174,11 +174,11 @@ namespace sprite
       size_t ret = C->search.extend(inductive);
       Node * genexpr = _make_generator(this, inductive->target, values);
       Node * replacement = C->search.copy_spine(
-          root->node, genexpr, &inductive->target
+          root, genexpr, &inductive->target
         );
-      assert(inductive->target->node == genexpr);
+      assert(*inductive->target == genexpr);
       C->search.resize(ret);
-      root->node->forward_to(replacement);
+      root->forward_to(replacement);
       return T_FWD;
     }
   }

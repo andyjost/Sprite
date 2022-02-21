@@ -16,7 +16,7 @@ namespace sprite { inline namespace
     Cursor _0 = C->cursor();
     Node * not_ = Node::create_partial(&not_Info);
     Node * goal = Node::create(&apply_Info, not_, True);
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 
@@ -26,7 +26,7 @@ namespace sprite { inline namespace
     Cursor _0 = C->cursor();
     Node * cons_ = Node::create_partial(&Cons_Info, True);
     Node * goal = Node::create(&apply_Info, cons_, nil());
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 
@@ -37,7 +37,7 @@ namespace sprite { inline namespace
     Node * not_ = Node::create_partial(&not_Info);
     Node * rhs = Node::create(&not_Info, True);
     Node * goal = Node::create(&applyhnf_Info, not_, rhs);
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 
@@ -48,7 +48,7 @@ namespace sprite { inline namespace
     Node * not_ = Node::create_partial(&not_Info);
     Node * rhs = Node::create(&not_Info, True);
     Node * goal = Node::create(&applynf_Info, not_, rhs);
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 
@@ -59,7 +59,7 @@ namespace sprite { inline namespace
     Node * not_ = Node::create_partial(&not_Info);
     Node * rhs = Node::create(&not_Info, True);
     Node * goal = Node::create(&applygnf_Info, not_, rhs);
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 }}

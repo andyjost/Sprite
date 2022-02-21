@@ -27,7 +27,7 @@ namespace sprite
       Node * genexpr = this->get_generator(C, id);
       Node * binding = this->get_binding(C, id);
       Node * eq = Node::create(&nonstrictEq_Info, genexpr, binding);
-      *C->root = Node::create(&seq_Info, eq, C->root->node);
+      *C->root = Node::create(&seq_Info, eq, C->root);
     }
   }
 

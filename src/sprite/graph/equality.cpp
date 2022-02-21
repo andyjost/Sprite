@@ -24,21 +24,21 @@ namespace
       switch(lhs.kind)
       {
         case 'i':
-          return lhs->ub_int == rhs->ub_int;
+          return lhs.arg->ub_int == rhs.arg->ub_int;
         case 'f':
-          return lhs->ub_float == rhs->ub_float;
+          return lhs.arg->ub_float == rhs.arg->ub_float;
         case 'c':
-          return lhs->ub_char == rhs->ub_char;
+          return lhs.arg->ub_char == rhs.arg->ub_char;
       }
       assert(lhs.kind == 'p');
       auto && bucket = p==memo.end() ? memo[lhs.id()] : p->second;
       bucket.insert(rhs.id());
-      if(lhs.info() != rhs.info())
+      if(lhs->info != rhs->info)
         return false;
-      for(index_type i=0; i<lhs.info()->arity; ++i)
+      for(index_type i=0; i<lhs->info->arity; ++i)
       {
-        Cursor l = lhs->node->successor(i);
-        Cursor r = rhs->node->successor(i);
+        Cursor l = lhs->successor(i);
+        Cursor r = rhs->successor(i);
         if(skipfwd)
         {
           l = inspect::fwd_chain_target(l);

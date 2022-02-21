@@ -19,7 +19,7 @@ namespace sprite
   void RuntimeState::fork(Queue * Q, Configuration * C)
   {
     assert(Q == this->Q());
-    ChoiceNode * choice = NodeU{C->root->node}.choice;
+    ChoiceNode * choice = NodeU{C->root}.choice;
     auto && process_one = [this,Q,C,choice](Node * alt, ChoiceState lr) -> void
     {
       auto copy = C->clone(alt);

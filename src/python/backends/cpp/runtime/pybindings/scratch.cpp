@@ -1,13 +1,13 @@
 #include "pybind11/pybind11.h"
 #include <iostream>
 #include "sprite/builtins.hpp"
-#include "sprite/fairscheme.hpp"
 #include "sprite/graph/copy.hpp"
 #include "sprite/graph/equality.hpp"
 #include "sprite/graph/memory.hpp"
 #include "sprite/graph/node.hpp"
 #include "sprite/graph/walk.hpp"
 #include "sprite/misc/unionfind.hpp"
+#include "sprite/state/rts.hpp"
 
 using namespace sprite;
 namespace py = pybind11;
@@ -104,7 +104,7 @@ namespace sprite { namespace python
     std::cout << "*** EVAL: ";
     while(true)
     {
-      Expr result = eval_next(&rts);
+      Expr result = rts.procD();
       if(result)
       {
         ++n;
@@ -121,7 +121,7 @@ namespace sprite { namespace python
   {
     Cursor _0 = C->cursor();
     auto i42 = int_(42);
-    _0->node->forward_to(i42);
+    _0->forward_to(i42);
     return T_FWD;
   }
 

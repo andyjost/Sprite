@@ -1,9 +1,9 @@
 #include "sprite/builtins.hpp"
 #include "sprite/currylib/prelude.hpp"
 #include "sprite/currylib/setfunctions.hpp"
-#include "sprite/fairscheme.hpp"
 #include "sprite/graph/memory.hpp"
 #include "sprite/inspect.hpp"
+#include "sprite/state/rts.hpp"
 
 namespace sprite { inline namespace
 {
@@ -17,15 +17,15 @@ namespace sprite { inline namespace
     ChoiceNode * choice = nullptr;
     SetEvalNode * seteval = NodeU{_1.target}.seteval;
     rts->push_queue(seteval->queue);
-    auto value = eval_next(rts);
+    auto value = rts->procD();
     assert(value.kind == 'p');
     rts->pop_queue();
     if(value.arg.node->info->tag >= T_CTOR)
     {
-      _0->node->forward_to(
+      _0->forward_to(
           cons(
               value.arg.node
-            , Node::create(&allValues_Info, _1.target->node)
+            , Node::create(&allValues_Info, _1.target)
             )
         );
       return T_FWD;
@@ -33,7 +33,7 @@ namespace sprite { inline namespace
     assert(value.arg.node->info->tag == T_CHOICE);
     choice = NodeU{value.arg.node}.choice;
     Configuration * subC = seteval->queue->front();
-    assert(subC->root->node == (Node *) choice);
+    assert(subC->root == (Node *) choice);
     Queue * Qlhs = seteval->queue;
     Queue * Qrhs = new Queue(seteval->set);
     Node * rhs_seteval = Node::create(seteval->info, seteval->set, Qrhs);
@@ -57,7 +57,7 @@ namespace sprite { inline namespace
       , Node::create(&allValues_Info, (Node *) seteval)
       , Node::create(&allValues_Info, rhs_seteval)
       );
-    _0->node->forward_to(replacement);
+    _0->forward_to(replacement);
     return T_FWD;
   }
 
@@ -70,7 +70,7 @@ namespace sprite { inline namespace
       return status;
     PartApplicNode * partial = NodeU{_1.target}.partapplic;
     assert(partial->missing >= 1);
-    Node * arg = _0->node->successor(1);
+    Node * arg = _0->successor(1);
     if(!capture)
       arg = Node::create(&SetGuard_Info, nullptr, arg);
     Node * replacement = Node::create(
@@ -79,7 +79,7 @@ namespace sprite { inline namespace
       , partial->head_info
       , cons(partial->terms, arg)
       );
-    _0->node->forward_to(replacement);
+    _0->forward_to(replacement);
     return T_FWD;
   }
 
@@ -97,12 +97,12 @@ namespace sprite { inline namespace
         &PartApplic_Info
       , 1
       , &eagerApplyS_Info
-      , cons(_0->node->successor(0), Nil)
+      , cons(_0->successor(0), Nil)
       );
     Node * replacement = Node::create(
-        &applygnf_Info, partial, _0->node->successor(1)
+        &applygnf_Info, partial, _0->successor(1)
       );
-    _0->node->forward_to(replacement);
+    _0->forward_to(replacement);
     return T_FWD;
   }
 
@@ -129,7 +129,7 @@ namespace sprite { inline namespace
     Node * seteval = Node::create(&SetEval_Info, new_set, new_queue);
     Node * allvalues = Node::create(&allValues_Info, seteval);
     Node * replacement = Node::create(&Values_Info, allvalues);
-    _0->node->forward_to(replacement);
+    _0->forward_to(replacement);
     return T_FWD;
   }
 
@@ -139,9 +139,9 @@ namespace sprite { inline namespace
     Node * replacement = Node::create(
         &PartialS_Info
       , Arg(ENCAPSULATED_EXPR)
-      , _0->node->successor(0)
+      , _0->successor(0)
       );
-    _0->node->forward_to(replacement);
+    _0->forward_to(replacement);
     return T_FWD;
   }
 
@@ -152,8 +152,8 @@ namespace sprite { inline namespace
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
-    assert(_1.target.info() == &PartApplic_Info);
-    _0->node->forward_to(_1.target);
+    assert(_1.target->info == &PartApplic_Info);
+    _0->forward_to(_1.target);
     return T_FWD;
   }
 
@@ -167,18 +167,18 @@ namespace sprite { inline namespace
   tag_type setN_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    index_type const n = _0->node->info->arity - 1;
+    index_type const n = _0->info->arity - 1;
     Node * setf = Node::create(
         n==0 ? &exprS_Info : &set_Info
-      , _0->node->successor(0)
+      , _0->successor(0)
       );
     InfoTable const * fapply = rts->setfunction_strategy == SETF_EAGER
         ? &eagerApplyS_Info : &applyS_Info;
     Node * subexpr = curry(
-        fapply, setf, _0->node->begin(), _0->node->end()
+        fapply, setf, _0->begin(), _0->end()
       );
     Node * replacement = Node::create(&evalS_Info, subexpr);
-    _0->node->forward_to(replacement);
+    _0->forward_to(replacement);
     return T_FWD;
   }
 }}

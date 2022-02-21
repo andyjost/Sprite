@@ -14,7 +14,7 @@ namespace sprite { inline namespace
   {
     Cursor _0 = C->cursor();
     Node * goal = Node::create(&not_Info, false_());
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 
@@ -35,7 +35,7 @@ namespace sprite { inline namespace
   {
     Cursor _0 = C->cursor();
     Node * goal = Node::create(&not_Info, free(0));
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 
@@ -62,7 +62,7 @@ namespace sprite { inline namespace
     Node * notx = Node::create(&not_Info, x);
     Node * value = Node::create(&Pair_Info, notx, y);
     Node * goal = Node::create(&StrictConstraint_Info, value, pair);
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 
@@ -89,7 +89,7 @@ namespace sprite { inline namespace
     Node * notx = Node::create(&not_Info, x);
     Node * binding = Node::create(&StrictConstraint_Info, notx, pair);
     Node * goal = Node::create(&Pair_Info, binding, y);
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 
@@ -114,7 +114,7 @@ namespace sprite { inline namespace
     Node * y = rts->freshvar();
     Node * notx = Node::create(&not_Info, x);
     Node * goal = Node::create(&Pair_Info, notx, y);
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 
@@ -141,7 +141,7 @@ namespace sprite { inline namespace
     Node * binding = Node::create(&StrictConstraint_Info, x, pair);
     Node * notb = Node::create(&not_Info, binding);
     Node * goal = Node::create(&Pair_Info, notb, y);
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 
@@ -168,7 +168,7 @@ namespace sprite { inline namespace
     Node * noty = Node::create(&not_Info, y);
     Node * pair = Node::create(&Pair_Info, x, noty);
     Node * goal = Node::create(&seq_Info, eq, pair);
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 

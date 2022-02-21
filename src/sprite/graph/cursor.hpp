@@ -50,11 +50,11 @@ namespace sprite
     friend bool operator==(Cursor lhs, Cursor rhs) { return lhs.arg == rhs.arg; }
     friend bool operator!=(Cursor lhs, Cursor rhs) { return !(lhs==rhs); }
     explicit operator bool() const { return arg; }
-    Arg * operator->() const { return this->arg; }
-    Arg & operator*() const { return *this->arg; }
-    operator Node *&() const { assert(arg && kind=='p'); return this->arg->node; }
-    void * id() const { return kind=='p' ? (void *) arg->node : (void *) arg; }
-    InfoTable const * info() const;
+    Node * operator->() const { return this->arg->node; }
+    Node *& operator*() const { return this->arg->node; }
+    operator Node *&() const { assert(arg && kind=='p'); return **this; }
+    void * id() const
+        { return kind=='p' ? (void *) this->arg->node : (void *) this->arg; }
     Cursor & skipfwd();
   };
 

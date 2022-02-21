@@ -14,9 +14,9 @@ namespace sprite { inline namespace
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {
-      case T_FALSE: _0->node->forward_to(Fail);
+      case T_FALSE: _0->forward_to(Fail);
                     return T_FWD;
-      case T_TRUE : _0->node->forward_to(_0->node->successor(1));
+      case T_TRUE : _0->forward_to(_0->successor(1));
                     return T_FWD;
       default: return tag;
     }
@@ -30,7 +30,7 @@ namespace sprite { inline namespace
     if(tag != T_CTOR)
       return tag;
     PartApplicNode * partial = NodeU{_1.target}.partapplic;
-    Node * arg = _0->node->successor(1);
+    Node * arg = _0->successor(1);
     Node * replacement = partial->complete(arg)
         ? Node::from_partial(partial, arg)
         : Node::create(
@@ -39,7 +39,7 @@ namespace sprite { inline namespace
             , partial->head_info
             , cons(arg, partial->terms)
             );
-    _0->node->forward_to(replacement);
+    _0->forward_to(replacement);
     return T_FWD;
   }
 
@@ -56,12 +56,12 @@ namespace sprite { inline namespace
     // TODO: catch nondeterminism in IO
     Variable _2 = variable(_0, 1);
     tag = action(rts, C, &_2);
-    if(_2.target.info()->tag < T_CTOR)
+    if(_2.target->info->tag < T_CTOR)
       return tag;
     Node * replacement = Node::create(
-        &apply_Info, _1.target->node, _2.target->node
+        &apply_Info, _1.target, _2.target
       );
-    _0->node->forward_to(replacement);
+    _0->forward_to(replacement);
     return T_FWD;
   }
 
@@ -85,7 +85,7 @@ namespace sprite { inline namespace
     Cursor _0 = C->cursor();
     auto rv = applynf_step(rts, C);
     std::unordered_set<xid_type> unbound;
-    auto nodes = iternodes(_0->node);
+    auto nodes = iternodes(_0);
     while(Node * node = nodes.next())
     {
       if(inspect::isa_freevar(node) && !has_generator(node))

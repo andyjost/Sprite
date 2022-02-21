@@ -48,7 +48,7 @@ namespace sprite
         this->pop();
       else
       {
-        this->stack.back().cur = parent.cur->node->successor(parent.index);
+        this->stack.back().cur = parent.cur->successor(parent.index);
         return;
       }
     }
@@ -58,7 +58,7 @@ namespace sprite
   {
     Frame & parent = stack.back();
     parent.index = NOINDEX;
-    parent.end = parent.cur.kind == 'p' ? parent.cur->node->info->arity : 0;
+    parent.end = parent.cur.kind == 'p' ? parent.cur->info->arity : 0;
     this->stack.emplace_back(data);
   }
 
@@ -67,7 +67,7 @@ namespace sprite
     Frame & parent = stack.back();
     parent.index = pos;
     parent.end = pos + 1;
-    Cursor succ = parent.cur->node->successor(pos);
+    Cursor succ = parent.cur->successor(pos);
     this->stack.emplace_back(succ);
   }
 
@@ -118,15 +118,15 @@ namespace sprite
     assert(p<=e);
     for(; p!=e; ++p)
     {
-      Node * tmp = copy_node(p->cur->node);
-      *tmp->successor(p->index) = Arg(end);
+      Node * tmp = copy_node(*p->cur);
+      *tmp->successor(p->index) = end;
       if(target)
       {
         *target = tmp->successor(p->index);
         target = nullptr;
       }
       end = tmp;
-      if(p->cur->node == root)
+      if(*p->cur == root)
         break;
     }
     return end;
@@ -145,7 +145,7 @@ namespace sprite
         {
           Cursor succ = x->successor(i);
           if(succ.kind == 'p')
-            this->queue.push_back(succ->node);
+            this->queue.push_back(succ);
         }
         return x;
       }

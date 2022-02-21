@@ -56,9 +56,9 @@ namespace sprite { namespace python
     auto tag = rts->hnf(C, &_1);
     switch(tag)
     {
-      case T_CONS: _0->node->info = &zip_Info_CASE0;
+      case T_CONS: _0->info = &zip_Info_CASE0;
                    return T_FUNC;
-      case T_NIL : _0->node->make_nil();
+      case T_NIL : _0->make_nil();
                    return T_NIL;
       default    : return tag;
     }
@@ -82,10 +82,10 @@ namespace sprite { namespace python
             pair(rvalue(_10), rvalue(_20))
           , Node::create(&zip_Info, rvalue(_11), rvalue(_21))
           );
-        _0->node->forward_to(repl);
+        _0->forward_to(repl);
         return T_CONS;
       }
-      case T_NIL: _0->node->make_nil();
+      case T_NIL: _0->make_nil();
                   return T_NIL;
       default   : return tag;
     }
@@ -110,7 +110,7 @@ namespace sprite { namespace python
     auto i0 = int_(0);
     auto i1 = int_(1);
     Node * goal = cons(i0, cons(i1, nil()));
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 
@@ -122,7 +122,7 @@ namespace sprite { namespace python
     Node * lhs = Node::create(&list01_Info);
     Node * rhs = cons(i2, cons(i3, nil()));
     Node * goal = Node::create(&zip_Info, lhs, rhs);
-    _0->node->forward_to(goal);
+    _0->forward_to(goal);
     return T_FWD;
   }
 

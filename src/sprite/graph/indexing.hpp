@@ -17,7 +17,7 @@ namespace sprite
 
   // FIXME
   inline Node * rvalue(Variable const & var)
-    { return var.target->node; }
+    { return var.target; }
 
   Cursor subexpr(Node *, index_type);
 

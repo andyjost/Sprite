@@ -30,10 +30,10 @@ namespace sprite { namespace inspect
 
   inline Cursor fwd_target(Cursor arg)
   {
-    if(arg.kind != 'p' || arg->node->info->tag != T_FWD)
+    if(arg.kind != 'p' || arg->info->tag != T_FWD)
       return Cursor();
     else
-      return NodeU{arg->node}.fwd->target;
+      return NodeU{arg}.fwd->target;
   }
 
   inline Cursor fwd_chain_target(Cursor arg)
@@ -97,7 +97,7 @@ namespace sprite { namespace inspect
 
   inline InfoTable const * info_of(Cursor cur)
   {
-    return cur.kind == 'p' ? info_of(cur->node) : nullptr;
+    return cur.kind == 'p' ? info_of(cur) : nullptr;
   }
 
   inline tag_type tag_of(Node * node)
@@ -109,7 +109,7 @@ namespace sprite { namespace inspect
   {
     switch(cur.kind)
     {
-      case 'p': return cur.info()->tag;
+      case 'p': return cur->info->tag;
       case 'i':
       case 'f':
       case 'c': return T_UNBOXED;

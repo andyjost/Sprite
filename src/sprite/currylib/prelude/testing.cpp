@@ -11,9 +11,9 @@ namespace sprite { inline namespace
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {
-      case T_FALSE: _0->node->forward_to(True);
+      case T_FALSE: _0->forward_to(True);
                     return T_FWD;
-      case T_TRUE:  _0->node->forward_to(False);
+      case T_TRUE:  _0->forward_to(False);
                     return T_FWD;
       default: return tag;
     }

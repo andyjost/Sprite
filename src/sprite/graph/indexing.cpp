@@ -7,7 +7,7 @@ namespace sprite
   Cursor compress_fwd_chain(Cursor cur)
   {
     if(cur.kind == 'p')
-      *cur = *compress_fwd_chain(&cur->node);
+      *cur = *compress_fwd_chain(&cur.arg->node);
     return cur;
   }
 
@@ -54,7 +54,7 @@ namespace
     {
       while(true)
       {
-        auto tag = this->var.target->node->info->tag;
+        auto tag = this->var.target->info->tag;
         switch(tag)
         {
           case T_FWD:

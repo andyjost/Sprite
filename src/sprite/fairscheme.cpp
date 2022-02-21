@@ -1,5 +1,4 @@
 #include "sprite/builtins.hpp"
-#include "sprite/fairscheme.hpp"
 #include "sprite/graph/indexing.hpp"
 #include "sprite/inspect.hpp"
 #include "sprite/state/rts.hpp"
@@ -73,7 +72,7 @@ namespace sprite
       {
         case T_UNBOXED : continue;
         case T_SETGRD  : assert(0); continue;
-        case T_FAIL    : tag = C->root->node->make_failure();
+        case T_FAIL    : tag = C->root->make_failure();
                          return false;
         case T_CONSTR  : *C->root = this->lift_constraint(
                              C, C->root, search->cursor()
@@ -98,7 +97,7 @@ namespace sprite
                              C, C->root, search->cursor()
                            );
                          search->reset();
-                         assert(C->root.info()->tag == T_CHOICE);
+                         assert(C->root->info->tag == T_CHOICE);
                          return false;
         case T_FUNC    : ret = search->size();
                          tag = this->procS(C);
@@ -108,7 +107,7 @@ namespace sprite
                          return false;
         case E_RESIDUAL: assert(0); continue;
         default        :
-          if(search->cursor().info()->typetag != PARTIAL_TYPE)
+          if(search->cursor()->info->typetag != PARTIAL_TYPE)
             search->push();
       }
     }
@@ -118,9 +117,9 @@ namespace sprite
   tag_type RuntimeState::procS(Configuration * C)
   {
     Cursor _0 = C->cursor();
-    // std::cout << "S <<< " << _0->node->str() << std::endl;
-    auto status = _0.info()->step(this, C);
-    // std::cout << "S >>> " << _0->node->str() << std::endl;
+    // std::cout << "S <<< " << _0->str() << std::endl;
+    auto status = _0->info->step(this, C);
+    // std::cout << "S >>> " << _0->str() << std::endl;
     return status;
   }
 
@@ -136,11 +135,9 @@ namespace sprite
       switch(tag)
       {
         case T_SETGRD: assert(0); continue;
-        case T_FAIL  : _0->node->forward_to(Fail);
+        case T_FAIL  : _0->forward_to(Fail);
                        return T_FWD;
-        case T_CONSTR: _0->node->forward_to(
-                           this->lift_constraint(C, inductive)
-                         );
+        case T_CONSTR: _0->forward_to(this->lift_constraint(C, inductive));
                        return T_FWD;
         case T_FREE  : tag = this->replace_freevar(C, inductive, guides);
                        continue;
@@ -148,9 +145,7 @@ namespace sprite
                        tag = inspect::tag_of(inductive->target);
                        this->stepcount++;
                        continue;
-        case T_CHOICE: _0->node->forward_to(
-                           this->pull_tab(C, inductive)
-                         );
+        case T_CHOICE: _0->forward_to(this->pull_tab(C, inductive));
                        return T_FWD;
         case T_FUNC  : ret = C->search.extend(inductive);
                        tag = this->procS(C);

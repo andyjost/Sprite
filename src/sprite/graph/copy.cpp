@@ -11,7 +11,7 @@ namespace sprite
   {
     if(expr.kind != 'p')
       return expr;
-    return Expr{copy_node(expr.arg->node), 'p'};
+    return Expr{copy_node(*expr), 'p'};
   }
 
   Node * copy_node(Node * node)
@@ -86,7 +86,7 @@ namespace sprite
 
       Arg deepcopy()
       {
-        if(this->expr.kind != 'p' || !this->expr->node)
+        if(this->expr.kind != 'p' || !this->expr)
           return *this->expr.arg;
         else
         {
@@ -100,10 +100,10 @@ namespace sprite
               return (*this)(*target);
             else
             {
-              index_type const arity = this->expr.info()->arity;
+              index_type const arity = this->expr->info->arity;
               std::vector<Arg> args;
               args.reserve(arity);
-              Node * parent = this->expr->node;
+              Node * parent = this->expr;
               for(auto i=0; i<arity; ++i)
                 args.push_back((*this)(parent->successor(i)));
               return Node::create(parent->info, args.data());

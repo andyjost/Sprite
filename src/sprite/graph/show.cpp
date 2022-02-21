@@ -51,10 +51,10 @@ namespace
         if(first) first = false; else this->os << ' ';
         switch(cur.kind)
         {
-          case 'i': show(cur->ub_int);   continue;
-          case 'f': show(cur->ub_float); continue;
-          case 'c': show(cur->ub_char);  continue;
-          case 'x': show(cur->blob);  continue;
+          case 'i': show(cur.arg->ub_int);   continue;
+          case 'f': show(cur.arg->ub_float); continue;
+          case 'c': show(cur.arg->ub_char);  continue;
+          case 'x': show(cur.arg->blob);  continue;
         }
         void * id = cur.id();
         if(!this->memo.insert(id).second)
@@ -62,10 +62,10 @@ namespace
         else
         {
           this->os << '<';
-          if(cur.info()->typetag == OPERATOR)
-            os << '(' << cur.info()->name << ')';
+          if(cur->info->typetag == OPERATOR)
+            os << '(' << cur->info->name << ')';
           else
-            os << cur.info()->name;
+            os << cur->info->name;
           search.push(id);
         }
       }
@@ -149,9 +149,9 @@ namespace
           // Bracketed list.
           case '[' : bare = true; data = Context(']'); break;
           case ']' :
-            assert(cur.info()->typetag == LIST_TYPE);
+            assert(cur->info->typetag == LIST_TYPE);
             bare = true;
-            if(cur.info()->tag == T_CONS)
+            if(cur->info->tag == T_CONS)
             {
               os << ", ";
               search.push(Context('['));
@@ -163,8 +163,8 @@ namespace
           // Concat list.
           case '_' : data = Context('^'); break;
           case '^' :
-            assert(cur.info()->typetag == LIST_TYPE);
-            if(cur.info()->tag == T_CONS)
+            assert(cur->info->typetag == LIST_TYPE);
+            if(cur->info->tag == T_CONS)
             {
               os << ' ';
               search.push(Context('_'));
@@ -176,8 +176,8 @@ namespace
           // String.
           case '"': data = Context('`'); break;
           case '`' :
-            assert(cur.info()->typetag == LIST_TYPE);
-            if(cur.info()->tag == T_CONS)
+            assert(cur->info->typetag == LIST_TYPE);
+            if(cur->info->tag == T_CONS)
               search.push(Context('"'));
             else
               os << '"';
@@ -187,9 +187,9 @@ namespace
           case ':' : data = Context('!'); break;
           case '!' :
             os << ':';
-            if(cur.info()->typetag == LIST_TYPE)
+            if(cur->info->typetag == LIST_TYPE)
             {
-              if(cur.info()->tag == T_CONS)
+              if(cur->info->tag == T_CONS)
                 search.push(Context(':'));
               else
                 os << '[' << ']';
@@ -200,13 +200,13 @@ namespace
 
         switch(cur.kind)
         {
-          case 'i': show(cur->ub_int);   continue;
-          case 'f': show(cur->ub_float); continue;
-          case 'c': show(cur->ub_char);  continue;
-          case 'x': show(cur->blob);  continue;
+          case 'i': show(cur.arg->ub_int);   continue;
+          case 'f': show(cur.arg->ub_float); continue;
+          case 'c': show(cur.arg->ub_char);  continue;
+          case 'x': show(cur.arg->blob);  continue;
         }
 
-        auto * info = cur.info();
+        auto * info = cur->info;
         switch(info->tag)
         {
           case T_FREE: os << '_' << NodeU{cur}.free->vid; continue;
@@ -221,7 +221,7 @@ namespace
             continue;
           case PARTIAL_TYPE:
           {
-            auto const * partial = NodeU{cur->node}.partapplic;
+            auto const * partial = NodeU{cur}.partapplic;
             os << '(';
             show_name(os, partial->head_info);
             search.push(Context('^'));
@@ -277,7 +277,7 @@ namespace
 
     void begin_list(Search & search, Cursor cur)
     {
-      Node * end = cur->node;
+      Node * end = cur;
       bool is_string = true;
       bool is_empty = true;
       while(end && end->info->typetag == LIST_TYPE && end->info->tag == T_CONS)
