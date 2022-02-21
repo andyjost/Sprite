@@ -7,7 +7,7 @@
 
 namespace sprite { inline namespace
 {
-  SStatus allValues_step(RuntimeState * rts, Configuration * C)
+  tag_type allValues_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _1 = variable(_0, 0);
@@ -61,7 +61,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus _applyS(RuntimeState * rts, Configuration * C, bool capture)
+  tag_type _applyS(RuntimeState * rts, Configuration * C, bool capture)
   {
     Cursor _0 = C->cursor();
     Variable _1 = variable(_0, 0);
@@ -83,14 +83,14 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus applyS_step(RuntimeState * rts, Configuration * C)
+  tag_type applyS_step(RuntimeState * rts, Configuration * C)
     { return _applyS(rts, C, false); }
 
-  SStatus captureS_step(RuntimeState * rts, Configuration * C)
+  tag_type captureS_step(RuntimeState * rts, Configuration * C)
     { return _applyS(rts, C, true); }
 
   // ($##>) f a = (f $>) $## a
-  SStatus eagerApplyS_step(RuntimeState * rts, Configuration * C)
+  tag_type eagerApplyS_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Node * partial = Node::create(
@@ -106,7 +106,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus evalS_step(RuntimeState * rts, Configuration * C)
+  tag_type evalS_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _1 = variable(_0, 0);
@@ -133,7 +133,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus exprS_step(RuntimeState * rts, Configuration * C)
+  tag_type exprS_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Node * replacement = Node::create(
@@ -145,7 +145,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus set_step(RuntimeState * rts, Configuration * C)
+  tag_type set_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _1 = variable(_0, 0);
@@ -164,7 +164,7 @@ namespace sprite { inline namespace
     return head;
   }
 
-  SStatus setN_step(RuntimeState * rts, Configuration * C)
+  tag_type setN_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     index_type const n = _0->node->info->arity - 1;

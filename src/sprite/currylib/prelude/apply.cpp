@@ -7,7 +7,7 @@
 
 namespace sprite { inline namespace
 {
-  SStatus cond_step(RuntimeState * rts, Configuration * C)
+  tag_type cond_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _1 = variable(_0, 0);
@@ -22,7 +22,7 @@ namespace sprite { inline namespace
     }
   }
 
-  SStatus apply_step(RuntimeState * rts, Configuration * C)
+  tag_type apply_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _1 = variable(_0, 0);
@@ -44,7 +44,7 @@ namespace sprite { inline namespace
   }
 
   template<typename Action>
-  static SStatus _applyspecial(
+  static tag_type _applyspecial(
       RuntimeState * rts, Configuration * C, Action const & action
     )
   {
@@ -65,22 +65,22 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus applynf_step(RuntimeState * rts, Configuration * C)
+  tag_type applynf_step(RuntimeState * rts, Configuration * C)
   {
     auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
     {
       C->search.push_barrier();
       size_t ret = C->search.extend(var);
       tag_type tag;
-      auto result = rts->procN(C, tag);
+      rts->procN(C, tag);
       C->search.resize(ret);
       C->search.pop_barrier();
-      return result;
+      return tag;
     };
     return _applyspecial(rts, C, normalize);
   }
 
-  SStatus applygnf_step(RuntimeState * rts, Configuration * C)
+  tag_type applygnf_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     auto rv = applynf_step(rts, C);
@@ -98,7 +98,7 @@ namespace sprite { inline namespace
       return rv;
   }
 
-  SStatus applyhnf_step(RuntimeState * rts, Configuration * C)
+  tag_type applyhnf_step(RuntimeState * rts, Configuration * C)
   {
     auto && headnormalize = [](RuntimeState * rts, Configuration * C, Variable * var)
       { return rts->hnf(C, var); };

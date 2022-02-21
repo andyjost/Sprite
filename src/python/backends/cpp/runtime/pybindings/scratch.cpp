@@ -117,7 +117,7 @@ namespace sprite { namespace python
     std::cout << std::endl;
   }
 
-  SStatus main42_step(RuntimeState * rts, Configuration * C)
+  tag_type main42_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     auto i42 = int_(42);

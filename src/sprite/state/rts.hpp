@@ -39,12 +39,12 @@ namespace sprite
     Set * S() { return Q()->set; }
 
     Expr procD();
-    NStatus procN(Configuration *, tag_type &);
-    SStatus procS(Configuration *);
-    SStatus hnf(
+    bool procN(Configuration *, tag_type &);
+    tag_type procS(Configuration *);
+    tag_type hnf(
         Configuration *, Variable * inductive, void const * guides=nullptr
       );
-    SStatus hnf_or_free(
+    tag_type hnf_or_free(
         Configuration *, Variable * inductive, void const * guides=nullptr
       );
 
@@ -86,9 +86,11 @@ namespace sprite
     bool is_narrowed(Configuration *, xid_type vid);
     bool is_narrowed(Configuration *, Node * vid);
     Node * replace_freevar(Configuration *);
-    SStatus replace_freevar(Configuration *, Variable * inductive, void const *);
+    tag_type replace_freevar(
+        Configuration *, Variable * inductive, void const *
+      );
     void clone_generator(Node * bound, Node * unbound);
-    SStatus instantiate(
+    tag_type instantiate(
         Configuration *, Cursor redex, Variable * inductive
       , void const * guides
       );

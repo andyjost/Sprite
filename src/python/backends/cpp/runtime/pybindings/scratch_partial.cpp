@@ -10,7 +10,7 @@ using namespace sprite;
 
 namespace sprite { inline namespace
 {
-  SStatus main1_step(RuntimeState * rts, Configuration * C)
+  tag_type main1_step(RuntimeState * rts, Configuration * C)
   {
     // (not) True
     Cursor _0 = C->cursor();
@@ -20,7 +20,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus main2_step(RuntimeState * rts, Configuration * C)
+  tag_type main2_step(RuntimeState * rts, Configuration * C)
   {
     // (True:) []
     Cursor _0 = C->cursor();
@@ -30,7 +30,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus main3_step(RuntimeState * rts, Configuration * C)
+  tag_type main3_step(RuntimeState * rts, Configuration * C)
   {
     // not $! (not True)
     Cursor _0 = C->cursor();
@@ -41,7 +41,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus main4_step(RuntimeState * rts, Configuration * C)
+  tag_type main4_step(RuntimeState * rts, Configuration * C)
   {
     // not $!! (not True)
     Cursor _0 = C->cursor();
@@ -52,7 +52,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus main5_step(RuntimeState * rts, Configuration * C)
+  tag_type main5_step(RuntimeState * rts, Configuration * C)
   {
     // not $## (not True)
     Cursor _0 = C->cursor();

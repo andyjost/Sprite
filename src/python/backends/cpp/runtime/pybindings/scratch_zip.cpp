@@ -9,10 +9,10 @@ using namespace sprite;
 
 namespace sprite { namespace python
 {
-  SStatus zip_step(RuntimeState * rts, Configuration * C);
-  SStatus zip_step_CASE0(RuntimeState * rts, Configuration * C);
-  SStatus list01_step(RuntimeState * rts, Configuration * C);
-  SStatus mainzip_step(RuntimeState * rts, Configuration * C);
+  tag_type zip_step(RuntimeState * rts, Configuration * C);
+  tag_type zip_step_CASE0(RuntimeState * rts, Configuration * C);
+  tag_type list01_step(RuntimeState * rts, Configuration * C);
+  tag_type mainzip_step(RuntimeState * rts, Configuration * C);
 
   InfoTable const zip_Info{
       /*tag*/        T_FUNC
@@ -49,7 +49,7 @@ namespace sprite { namespace python
   };
 
 
-  SStatus zip_step(RuntimeState * rts, Configuration * C)
+  tag_type zip_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _1 = variable(_0, 0);
@@ -64,7 +64,7 @@ namespace sprite { namespace python
     }
   }
 
-  SStatus zip_step_CASE0(RuntimeState * rts, Configuration * C)
+  tag_type zip_step_CASE0(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _2 = variable(_0, 1);
@@ -104,7 +104,7 @@ namespace sprite { namespace python
     , /*typedef*/    nullptr
     };
 
-  SStatus list01_step(RuntimeState * rts, Configuration * C)
+  tag_type list01_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     auto i0 = int_(0);
@@ -114,7 +114,7 @@ namespace sprite { namespace python
     return T_FWD;
   }
 
-  SStatus mainzip_step(RuntimeState * rts, Configuration * C)
+  tag_type mainzip_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     auto i2 = int_(2);

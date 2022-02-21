@@ -10,7 +10,7 @@ using namespace sprite;
 
 namespace sprite { inline namespace
 {
-  SStatus main1_step(RuntimeState * rts, Configuration * C)
+  tag_type main1_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Node * goal = Node::create(&not_Info, false_());
@@ -31,7 +31,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  SStatus main2_step(RuntimeState * rts, Configuration * C)
+  tag_type main2_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Node * goal = Node::create(&not_Info, free(0));
@@ -52,7 +52,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  SStatus main3_step(RuntimeState * rts, Configuration * C)
+  tag_type main3_step(RuntimeState * rts, Configuration * C)
   {
     // _B((not x, y), (x, y))
     Cursor _0 = C->cursor();
@@ -79,7 +79,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  SStatus main4_step(RuntimeState * rts, Configuration * C)
+  tag_type main4_step(RuntimeState * rts, Configuration * C)
   {
     // (_B(not x, (x, y)), y)
     Cursor _0 = C->cursor();
@@ -106,7 +106,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  SStatus main5_step(RuntimeState * rts, Configuration * C)
+  tag_type main5_step(RuntimeState * rts, Configuration * C)
   {
     // (not x, y)
     Cursor _0 = C->cursor();
@@ -131,7 +131,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  SStatus main6_step(RuntimeState * rts, Configuration * C)
+  tag_type main6_step(RuntimeState * rts, Configuration * C)
   {
     // (not _B(x, (x, y)), y)
     Cursor _0 = C->cursor();
@@ -158,7 +158,7 @@ namespace sprite { inline namespace
     , /*typedef*/    nullptr
     };
 
-  SStatus main7_step(RuntimeState * rts, Configuration * C)
+  tag_type main7_step(RuntimeState * rts, Configuration * C)
   {
     // x=:=y &> (x, not y)
     Cursor _0 = C->cursor();

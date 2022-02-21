@@ -52,17 +52,16 @@ namespace sprite
         case E_RESTART : tag = inspect::tag_of(C->root);
                          goto redoD;
         case E_RESIDUAL: assert(0); continue;
-        default        : switch(this->procN(C, tag))
-                         {
-                           case N_YIELD: return this->release_value();
-                           case N_REDO:  goto redoD;
-                         }
+        default        : if(this->procN(C, tag))
+                           return this->release_value();
+                         else
+                           goto redoD;
       }
     }
     return Expr{};
   }
 
-  NStatus RuntimeState::procN(Configuration * C, tag_type & tag)
+  bool RuntimeState::procN(Configuration * C, tag_type & tag)
   {
     Node * tmp = nullptr;
     size_t ret = 0;
@@ -75,44 +74,48 @@ namespace sprite
         case T_UNBOXED : continue;
         case T_SETGRD  : assert(0); continue;
         case T_FAIL    : tag = C->root->node->make_failure();
-                         return N_REDO;
-        case T_CONSTR  : *C->root = this->lift_constraint(C, C->root, search->cursor());
+                         return false;
+        case T_CONSTR  : *C->root = this->lift_constraint(
+                             C, C->root, search->cursor()
+                           );
                          tag = inspect::tag_of(C->root);
                          search->reset();
-                         return N_REDO;
+                         return false;
         case T_FREE    : tmp = this->replace_freevar(C);
                          if(tmp)
                          {
                            *C->root = tmp;
                            search->reset();
                            tag = inspect::tag_of(tmp);
-                           return N_REDO;
+                           return false;
                          }
                          else
                            continue;
         case T_FWD     : compress_fwd_chain(search->cursor());
                          tag = inspect::tag_of(search->cursor());
                          goto redoN;
-        case T_CHOICE  : *C->root = this->pull_tab(C, C->root, search->cursor());
+        case T_CHOICE  : *C->root = this->pull_tab(
+                             C, C->root, search->cursor()
+                           );
                          search->reset();
                          assert(C->root.info()->tag == T_CHOICE);
-                         return N_REDO;
+                         return false;
         case T_FUNC    : ret = search->size();
                          tag = this->procS(C);
                          search->resize(ret);
                          goto redoN;
         case E_RESTART : tag = inspect::tag_of(C->root);
-                        return N_REDO;
+                         return false;
         case E_RESIDUAL: assert(0); continue;
         default        :
           if(search->cursor().info()->typetag != PARTIAL_TYPE)
             search->push();
       }
     }
-    return N_YIELD;
+    return true;
   }
 
-  SStatus RuntimeState::procS(Configuration * C)
+  tag_type RuntimeState::procS(Configuration * C)
   {
     Cursor _0 = C->cursor();
     // std::cout << "S <<< " << _0->node->str() << std::endl;
@@ -121,7 +124,7 @@ namespace sprite
     return status;
   }
 
-  SStatus RuntimeState::hnf(
+  tag_type RuntimeState::hnf(
       Configuration * C, Variable * inductive, void const * guides
     )
   {
@@ -158,9 +161,8 @@ namespace sprite
     }
   }
 
-  SStatus RuntimeState::hnf_or_free(
-      Configuration * C, Variable * inductive
-    , void const * guides
+  tag_type RuntimeState::hnf_or_free(
+      Configuration * C, Variable * inductive, void const * guides
     )
   {
     tag_type tag = this->hnf(C, inductive, guides);

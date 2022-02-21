@@ -4,7 +4,7 @@
 
 namespace sprite { inline namespace
 {
-  SStatus not_step(RuntimeState * rts, Configuration * C)
+  tag_type not_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _1 = variable(_0, 0);

@@ -32,7 +32,7 @@ namespace sprite { inline namespace
     }
   }
 
-  SStatus concurrentAnd_step(RuntimeState * rts, Configuration * C)
+  tag_type concurrentAnd_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     bool errs[2] = {false, false};
@@ -63,7 +63,7 @@ namespace sprite { inline namespace
   static xid_type vid(Variable const & var)
     { return inspect::xget_freevar_id(var.target); }
 
-  SStatus constrEq_step(RuntimeState * rts, Configuration * C)
+  tag_type constrEq_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable lhs = variable(_0, 0);
@@ -120,7 +120,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus nonstrictEq_step(RuntimeState * rts, Configuration * C)
+  tag_type nonstrictEq_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable lhs = variable(_0, 0);
@@ -180,7 +180,7 @@ namespace sprite { inline namespace
     return T_FWD;
   }
 
-  SStatus seq_step(RuntimeState * rts, Configuration * C)
+  tag_type seq_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _1 = variable(_0, 0);
