@@ -30,7 +30,7 @@ class ICurryTestCase(cytest.TestCase):
       del sys.modules['curry.lib.helloExternal']
     except KeyError:
       pass
-    with capture_log('curry.backends.py.compiler.compiler.function') as log \
+    with capture_log('curry.backends.generic.compiler.function_compiler') as log \
        , binding(curry.flags, 'lazycompile', False):
       from curry.lib import helloExternal
     log.checkMessages(

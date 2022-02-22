@@ -7,3 +7,4 @@ class ExternallyDefined(Exception):
   '''
   def __init__(self, ifun):
     self.ifun = ifun
+

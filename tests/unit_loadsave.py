@@ -12,7 +12,7 @@ class LoadSaveTestCase(cytest.TestCase):
 
       # Save the module.
       filename = os.path.join(tmpdir, 'Module.py')
-      with capture_log('curry.backends.py.compiler.compiler.function') as log:
+      with capture_log('curry.backends.generic.compiler.function_compiler') as log:
         curry.save(Module, filename)
 
       # Ensure warnings were issued (only) for external functions.

@@ -3,7 +3,7 @@ from .... import objects
 from ....utility import encoding, strings, visitation
 import six, sys
 
-__all__ = ['Closure', 'handle']
+__all__ = ['Closure']
 
 PX_DATA = 'da_' # data
 PX_FUNC = 'fn_' # external function

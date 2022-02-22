@@ -59,16 +59,16 @@ are available:
 
 FLAG_INFO = {
   #  Flag                   Value Spec           Default
-  #  --------------------   -------------------  -------------------------
-    'backend'             : ({'py'}            , config.default_backend())
-  , 'debug'               : ( bool             , False )
-  , 'defaultconverter'    : ({'topython', None}, None  )
-  , 'trace'               : ( bool             , False )
-  , 'keep_temp_files'     : ((bool, str)       , False )
-  , 'lazycompile'         : ( bool             , True  )
-  , 'postmortem'          : ( bool             , False )
-  , 'setfunction_strategy': ({'eager', 'lazy'} , 'lazy')
-  , 'telemetry_interval'  : ({None, float}     , None  )
+  #  --------------------   -------------------  ----------------------------
+    'backend'             : ({'cpp', 'llvm', 'py'}, config.default_backend())
+  , 'debug'               : ( bool                , False )
+  , 'defaultconverter'    : ({'topython', None}   , None  )
+  , 'trace'               : ( bool                , False )
+  , 'keep_temp_files'     : ((bool, str)          , False )
+  , 'lazycompile'         : ( bool                , True  )
+  , 'postmortem'          : ( bool                , False )
+  , 'setfunction_strategy': ({'eager', 'lazy'}    , 'lazy')
+  , 'telemetry_interval'  : ({None, float}        , None  )
   }
 
 def get_default_flags():

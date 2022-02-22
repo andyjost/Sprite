@@ -1,121 +1,196 @@
-from .compiler import FunctionCompiler
-from .... import config, icurry
-from . import misc, statics, synthesis
-from .ir import IR
-from ....utility import formatDocstring, visitation
-import collections, logging, six
+from ...generic.compiler import module_compiler
+from ...generic.compiler import function_compiler
+from .... import icurry
+from ....utility import visitation
+from . import ir, synthesize
+import collections
 
-logger = logging.getLogger(__name__)
-__all__ = ['compile', 'compileEx']
+__all__ = ['compile']
 
-@formatDocstring(config.python_package_name())
 def compile(interp, icy, extern=None):
-  '''
-  Compiles ICurry into IR.
+  compileM = ModuleCompiler()
+  return compileM.compile(interp, icy, extern)
 
-  Args:
-    interp:
-      The interpreter that owns this function.
-    icy:
-      ICurry for the function to compile.
-    extern:
-      An instance of ``{0}.icurry.IModule`` used to resolve external
-      declarations.
+class ModuleCompiler(module_compiler.ModuleCompiler):
+  @property
+  def IR(self):
+    return ir.IR
 
-  Returns:
-    Python IR for the given function.
-  '''
-  closure = statics.Closure()
-  lines = []
-  iobj = compileEx(interp, icy, closure, lines, extern)
-  return IR(iobj, closure, lines)
+  @property
+  def FunctionCompiler(self):
+    return FunctionCompiler
 
-@visitation.dispatch.on('icy')
-def compileEx(interp, icy, closure, lines, extern=None):
-  '''
-  Compiles an ICurry object.
+  def synthesize_function(self, *args, **kwds):
+    return synthesize.synthesize_function(*args, **kwds)
 
-  The output consists of updates to ``closure`` and ``lines`` as well as a new
-  ICurry object identical to ``icy`` except that every function body is
-  specified as IMaterial.
 
-  Args:
-    ``icy``
-      An IPackage, IModule, or IFunction to compile.
+class FunctionCompiler(function_compiler.FunctionCompiler):
+  @visitation.dispatch.on('stmt')
+  def compileS(self, stmt):
+    '''
+    Compile a statement.  Returns list-structured Python code.
+    '''
+    assert False
 
-    ``closure``
-      The closre in which this code resides.  This will be updated if the
-      generated code requires external data or symbols.
+  @compileS.when(collections.Sequence, no=str)
+  def compileS(self, seq):
+    for lines in (self.compileS(x) for x in seq):
+      for line in lines:
+        yield line
 
-    ``lines``
-      The output lines of Python source.  New code will be appended.
+  @compileS.when(icurry.IVarDecl)
+  def compileS(self, vardecl):
+    varname = self.compileE(vardecl.lhs)
+    yield '%s = None' % varname
 
-    ``extern``
-      An IPackage or IModule containing external definitions.  Use to resolve
-      IExternal data.
+  @compileS.when(icurry.IFreeDecl)
+  def compileS(self, vardecl):
+    varname = self.compileE(vardecl.lhs)
+    yield '%s = rts.freshvar()' % varname
 
-  Returns:
-    A new ICurry object.
-  '''
-  raise TypeError('Cannot compile type %r' % type(icy).__name__)
+  @compileS.when(icurry.IVarAssign)
+  def compileS(self, assign):
+    lhs = self.compileE(assign.lhs, primary=True)
+    rhs = self.compileE(assign.rhs, primary=True)
+    yield '%s = %s' % (lhs, rhs)
 
-@compileEx.when(icurry.IModule)
-def compileEx(interp, imodule, closure, lines, extern=None):
-  functions = [
-      compileEx(interp, ifun, closure, lines, extern)
-          for ifun in six.itervalues(imodule.functions)
-    ]
-  return imodule.copy(functions=functions)
+  @compileS.when(icurry.INodeAssign)
+  def compileS(self, assign):
+    lhs = self.compileE(assign.lhs)
+    rhs = self.compileE(assign.rhs, primary=True)
+    yield '%s = %s' % (lhs, rhs)
 
-def withNewEntry(f):
-  def decorator(interp, ifun, closure, lines, extern=None):
-    entry = closure.intern(ifun.fullname)
-    try:
-      return f(interp, ifun, closure, lines, extern, entry)
-    except:
-      closure.delete(entry)
-      raise
-  return decorator
+  @compileS.when(icurry.IBlock)
+  def compileS(self, block):
+    for sect in [block.vardecls, block.assigns, block.stmt]:
+      for line in self.compileS(sect):
+        yield line
 
-@compileEx.when(icurry.IFunction)
-@withNewEntry
-def compileEx(interp, ifun, closure, lines, extern=None, entry=None):
-  while True:
-    # First, try to synthesize the function.
-    new_lines = synthesis.synthesize_function(interp, ifun, closure, entry)
-    if new_lines is not None:
-      break
+  @compileS.when(icurry.IExempt)
+  def compileS(self, exempt):
+    h_failure = self.intern('Prelude._Failure')
+    yield '_0.rewrite(%s)' % h_failure
 
-    # If that cannot be done, compile it.
-    compiler = FunctionCompiler(interp, ifun, closure, entry, extern)
-    try:
-      compiler.compile()
-    except misc.ExternallyDefined as e:
-      # The compile routine resolved an external definition.  Start over.
-      ifun = e.ifun
+  @compileS.when(icurry.IReturn)
+  def compileS(self, ret):
+    if isinstance(ret.expr, icurry.IReference):
+      h_fwd = self.intern('Prelude._Fwd')
+      yield '_0.rewrite(%s, %s)' % (
+          h_fwd, self.compileE(ret.expr, primary=True)
+        )
     else:
-      # Compilation succeeded.  Log the info and return it.
-      if logger.isEnabledFor(logging.DEBUG):
-        title = 'Compiling %r:' % ifun.fullname
-        logger.debug('')
-        logger.debug(title)
-        logger.debug('=' * len(title))
-        logger.debug('    ICurry:')
-        logger.debug('    -------')
-        [logger.debug('    ' + line if line else '')
-            for line in str(ifun).split('\n')
-          ]
-        logger.debug('')
-        [logger.debug('    ' + line if line else '')
-            for line in str(compiler).split('\n')
-          ]
-      new_lines = compiler.lines
-      break
+      yield '_0.rewrite(%s)' % self.compileE(ret.expr)
 
-  # Update the lines and return the new IFunction.
-  new_ifun = ifun.copy(body=icurry.ILink(entry))
-  if lines:
-    lines.append('')
-  lines.extend(new_lines)
-  return new_ifun
+  @compileS.when(icurry.ICaseCons)
+  def compileS(self, icase):
+    varident = self.compileE(icase.var)
+    assert icase.branches
+    h_typedef = self.intern(self.casetype(self.interp, icase))
+    yield '%s.hnf(typedef=%s)' % (varident, h_typedef)
+    yield 'selector = %s.tag' % varident
+    el = ''
+    for branch in icase.branches[:-1]:
+      rhs = self.interp.symbol(branch.symbolname).info.tag
+      yield '%sif selector == %s:' % (el, rhs), branch.symbolname
+      yield list(self.compileS(branch.block))
+      el = 'el'
+    if el:
+      yield 'else:', icase.branches[-1].symbolname
+      yield list(self.compileS(icase.branches[-1].block))
+    else:
+      for line in self.compileS(icase.branches[-1].block):
+        yield line
+
+  @compileS.when(icurry.ICaseLit)
+  def compileS(self, icase):
+    h_sel = self.compileE(icase.var)
+    h_typedef = self.intern(self.casetype(self.interp, icase))
+    values = tuple(branch.lit.value for branch in icase.branches)
+    h_values = self.intern(values)
+    yield '%s.hnf(typedef=%s, values=%s)' % (h_sel, h_typedef, h_values)
+    yield 'selector = %s.unboxed_value' % h_sel
+    el = ''
+    for branch in icase.branches:
+      rhs = repr(branch.lit.value)
+      yield '%sif selector == %s:' % (el, rhs)
+      yield list(self.compileS(branch.block))
+      el = 'el'
+    h_failure = self.intern('Prelude._Failure')
+    last_line = '_0.rewrite(%s)' % h_failure
+    if el:
+      yield 'else:'
+      yield [last_line]
+    else:
+      yield last_line
+
+  @visitation.dispatch.on('expr')
+  def compileE(self, expr, primary=False):
+    '''
+    Compile an expression into a string.  For primary expressions, the string
+    evaluates to a value (boxed or unboxed).  For non-primary expressions, it
+    contains comma-separated arguments that may be passed to the Node constructor
+    or Node.rewrite.
+    '''
+    assert False
+
+  @compileE.when(icurry.IVar)
+  def compileE(self, ivar, primary=False):
+    return '_%s' % ivar.vid
+
+  @compileE.when(icurry.IVarAccess)
+  def compileE(self, ivaraccess, primary=False):
+    return '%s[%s]' % (
+        self.compileE(ivaraccess.var, primary=primary)
+      , ','.join(map(str, ivaraccess.path))
+      )
+
+  @compileE.when(icurry.ILiteral)
+  def compileE(self, iliteral, primary=False):
+    h_lit = self.intern(iliteral.fullname)
+    text = '%s, %r' % (h_lit, iliteral.value)
+    return 'rts.Node(%s)' % text if primary else text
+
+  @compileE.when(icurry.IString)
+  def compileE(self, istring, primary=False):
+    h_str = self.intern(istring)
+    text = 'rts.prelude._PyString, memoryview(%s)' % h_str
+    return 'rts.Node(%s)' % text if primary else text
+
+  @compileE.when(icurry.IUnboxedLiteral)
+  def compileE(self, iunboxed, primary=False):
+    return repr(iunboxed)
+
+  @compileE.when(icurry.ILit)
+  def compileE(self, ilit, primary=False):
+    return self.compileE(ilit.lit, primary)
+
+  @compileE.when(icurry.ICall)
+  def compileE(self, icall, primary=False):
+    subexprs = (self.compileE(x, primary=True) for x in icall.exprs)
+    h_info = self.intern(icall.symbolname)
+    text = '%s%s' % (h_info, ''.join(', ' + e for e in subexprs))
+    return 'rts.Node(%s)' % text if primary else text
+
+  @compileE.when(icurry.IPartialCall)
+  def compileE(self, ipcall, primary=False):
+    subexprs = (self.compileE(x, primary=True) for x in ipcall.exprs)
+    h_info = self.intern(ipcall.symbolname)
+    h_part = self.intern('Prelude._PartApplic')
+    text = '%s, %s, rts.Node(%s%s, partial=True)' % (
+        h_part
+      , self.compileE(ipcall.missing)
+      , h_info
+      , ''.join(', ' + e for e in subexprs)
+      )
+    return 'rts.Node(%s)' % text if primary else text
+
+  @compileE.when(icurry.IOr)
+  def compileE(self, ior, primary=False):
+    h_info = self.intern('Prelude.?')
+    text = "%s, %s, %s" % (
+        h_info
+      , self.compileE(ior.lhs, primary=True)
+      , self.compileE(ior.rhs, primary=True)
+      )
+    return 'rts.Node(%s)' % text if primary else text
 
