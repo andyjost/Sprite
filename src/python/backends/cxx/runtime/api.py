@@ -1,5 +1,5 @@
 from .... import context
-from . import pybindings
+from .. import libsprite
 from ...generic.runtime import api
 
 __all__ = ['Runtime']
@@ -30,15 +30,15 @@ class Runtime(api.Runtime):
 
   @property
   def Node(self):
-    return pybindings.Node
+    return libsprite.Node
 
   @property
   def InfoTable(self):
-    return pybindings.InfoTable
+    return libsprite.InfoTable
 
   def get_interpreter_state(self, interp):
     return interp._its
 
   def init_interpreter_state(self, interp):
-    interp._its = pybindings.InterpreterState()
+    interp._its = libsprite.InterpreterState()
 

@@ -9,7 +9,7 @@ namespace sprite { namespace python
   void register_scratch(pybind11::module_); // temp
 }}
 
-PYBIND11_MODULE(_pybindings, mod)
+PYBIND11_MODULE(_libsprite, mod)
 {
   sprite::python::register_fingerprint(mod);
   sprite::python::register_graph(mod);

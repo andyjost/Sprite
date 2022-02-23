@@ -1,5 +1,5 @@
 from copy import copy
-from ....cxx.runtime.pybindings import Fingerprint
+from .....common import Fingerprint
 from .....utility import shared, unionfind
 from . import callstack
 

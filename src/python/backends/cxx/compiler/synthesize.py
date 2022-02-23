@@ -83,7 +83,7 @@ def synthesize_constructor_info(interp, itype, icons, extern):
   builtin = 'all.tag' in icons.metadata
   metadata = icurry.metadata.getmd(icons, extern, itype=itype)
   InfoTable = interp.context.runtime.InfoTable
-  breakpoint()
+  pdbtrace()
   info = InfoTable(
       icons.name
     , icons.arity
