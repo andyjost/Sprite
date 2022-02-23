@@ -1,6 +1,6 @@
 import cytest # from ./lib; must be first
 from copy import copy
-from curry.backends.cpp.runtime import pybindings
+from curry.backends.cxx.runtime import pybindings
 from curry.common import LEFT, RIGHT, UNDETERMINED
 import itertools, unittest
 

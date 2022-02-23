@@ -11,6 +11,7 @@ class ISymbol(IObject):
   '''
   def __init__(self, fullname, **kwds):
     self.fullname = fullname
+    self._modulename = kwds.pop('modulename', None)
     IObject.__init__(self, **kwds)
 
   @property

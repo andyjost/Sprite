@@ -1,4 +1,5 @@
 from .... import context
+from . import pybindings
 
 __all__ = ['Runtime']
 
@@ -33,9 +34,8 @@ class Runtime(context.Runtime):
 
   @property
   def lookup_builtin_module(self):
-    assert False
-    # from .currylib import index
-    # return index.lookup
+    from .currylib import index
+    return index.lookup
 
   def single_step(self, interp, expr):
     assert False

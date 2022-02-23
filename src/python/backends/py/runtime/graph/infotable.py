@@ -7,19 +7,10 @@ class InfoTable(object):
   Runtime info for a node.  Every Curry node stores an `InfoTable`` instance,
   which contains instance-independent data.
   '''
-  # Constructor flags.
-  INT_TYPE       = 0x1 # Prelude.Int
-  CHAR_TYPE      = 0x2 # Prelude.Char
-  FLOAT_TYPE     = 0x3 # Prelude.Float
-  BOOL_TYPE      = 0x4 # Constructor of Prelude.Bool
-  LIST_TYPE      = 0x5 # Constructor of Prelude.List
-  TUPLE_TYPE     = 0x6 # Constructor of Prelude.() et. al
-  IO_TYPE        = 0x7 # Constructor of Prelude.IO
-  PARTIAL_TYPE   = 0x8 # A partial application
-  OPERATOR       = 0x9 # Whether this is an operator.
-  # Function flags.
-  MONADIC = 0x10 # Whether any monadic function can be reached.
-
+  from .....common import (
+      INT_TYPE, CHAR_TYPE, FLOAT_TYPE, BOOL_TYPE, LIST_TYPE, TUPLE_TYPE
+    , IO_TYPE, PARTIAL_TYPE, OPERATOR, MONADIC
+    )
   __slots__ = ['name', 'arity', 'tag', '_step', 'format', 'typecheck', 'typedef', 'flags']
   def __init__(self, name, arity, tag, step, format, typecheck, flags):
     # The node name.  Normally the constructor or function name.

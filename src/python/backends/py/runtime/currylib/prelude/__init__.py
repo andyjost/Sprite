@@ -1,228 +1,136 @@
-'''
-Builds a custom icurry.IModule holding the built-in parts of the Prelude.
-
-This is merged into the real module compiled from Prelude.curry to resolve the
-external declarations.
-'''
-
-from __future__ import absolute_import
-
-from ......common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from ...graph import infotable
-from ...... import icurry, inspect
+from .....generic.runtime.currylib import prelude as generic_prelude
 from . import prelude as impl
-from ... import typecheckers as tc
 import math, operator as op
+from ... import typecheckers as tc
 
-__all__ = ['aliases', 'exports', 'extern', 'Prelude']
+PreludeSpecification = generic_prelude.PreludeSpecification
 
-def aliases():
-  '''Returns prelude aliases.  Simply for convenience.'''
-  yield 'Unit'  , '()'
-  yield 'Pair'  , '(,)'
-  yield 'Cons'  , ':'
-  yield 'Nil'   , '[]'
-  yield 'True_' , 'True'
-  yield 'False_', 'False'
+METADATA = {
+      '$##'                   : {'py.rawfunc'    : impl.apply_gnf          }
+    , '$!'                    : {'py.rawfunc'    : impl.apply_hnf          }
+    , '$!!'                   : {'py.rawfunc'    : impl.apply_nf           }
+    , '?'                     : {'py.rawfunc'    : impl.choice             }
+    , '&'                     : {'py.rawfunc'    : impl.concurrent_and     }
+    , '=:='                   : {'py.rawfunc'    : impl.constr_eq          }
+    , '=:<='                  : {'py.rawfunc'    : impl.nonstrict_eq       }
+    , 'apply'                 : {'py.rawfunc'    : impl.apply              }
+    , 'bindIO'                : {'py.rawfunc'    : impl.bindIO             }
+    , 'catch'                 : {'py.rawfunc'    : impl.catch              }
+    , 'cond'                  : {'py.rawfunc'    : impl.cond               }
+    , 'constrEq'              : {'py.rawfunc'    : impl.constr_eq          }
+    , 'divInt'                : {'py.unboxedfunc': op.floordiv             }
+    , 'ensureNotFree'         : {'py.rawfunc'    : impl.ensureNotFree      }
+    , 'eqChar'                : {'py.unboxedfunc': op.eq                   }
+    , 'eqFloat'               : {'py.unboxedfunc': op.eq                   }
+    , 'eqInt'                 : {'py.unboxedfunc': op.eq                   }
+    , 'failed'                : {'py.boxedfunc'  : impl.failed             }
+    , 'getChar'               : {'py.boxedfunc'  : impl.getChar            }
+    , 'ltEqChar'              : {'py.unboxedfunc': op.le                   }
+    , 'ltEqFloat'             : {'py.unboxedfunc': op.le                   }
+    , 'ltEqInt'               : {'py.unboxedfunc': op.le                   }
+    , 'minusInt'              : {'py.unboxedfunc': op.sub                  }
+    , 'modInt'                : {'py.unboxedfunc': impl.modInt             }
+    , 'negateFloat'           : {'py.unboxedfunc': op.neg                  }
+    , 'nonstrictEq'           : {'py.rawfunc'    : impl.nonstrict_eq       }
+    , 'plusInt'               : {'py.unboxedfunc': op.add                  }
+    , 'prim_acosFloat'        : {'py.unboxedfunc': math.acos               }
+    , 'prim_acoshFloat'       : {'py.unboxedfunc': math.acosh              }
+    , 'prim_appendFile'       : {'py.rawfunc'    : impl.appendFile         }
+    , 'prim_asinFloat'        : {'py.unboxedfunc': math.asin               }
+    , 'prim_asinhFloat'       : {'py.unboxedfunc': math.asinh              }
+    , 'prim_atanFloat'        : {'py.unboxedfunc': math.atan               }
+    , 'prim_atanhFloat'       : {'py.unboxedfunc': math.atanh              }
+    , 'prim_chr'              : {'py.unboxedfunc': chr                     }
+    , 'prim_constrEq'         : {'py.rawfunc'    : impl.constr_eq          }
+    , 'prim_cosFloat'         : {'py.unboxedfunc': math.cos                }
+    , 'prim_coshFloat'        : {'py.unboxedfunc': math.cosh               }
+    , 'prim_divFloat'         : {'py.unboxedfunc': impl.prim_divFloat      }
+    , 'prim_error'            : {'py.boxedfunc'  : impl.error              }
+    , 'prim_expFloat'         : {'py.unboxedfunc': math.exp                }
+    , 'prim_intToFloat'       : {'py.unboxedfunc': float                   }
+    , 'prim_ioError'          : {'py.rawfunc'    : impl.ioError            }
+    , 'prim_logFloat'         : {'py.unboxedfunc': math.log                }
+    , 'prim_minusFloat'       : {'py.unboxedfunc': impl.prim_minusFloat    }
+    , 'prim_nonstrictEq'      : {'py.rawfunc'    : impl.nonstrict_eq       }
+    , 'prim_ord'              : {'py.unboxedfunc': ord                     }
+    , 'prim_plusFloat'        : {'py.unboxedfunc': op.add                  }
+    , 'prim_putChar'          : {'py.boxedfunc'  : impl.putChar            }
+    , 'prim_readCharLiteral'  : {'py.boxedfunc'  : impl.readCharLiteral    }
+    , 'prim_readFile'         : {'py.boxedfunc'  : impl.readFile           }
+    , 'prim_readFloatLiteral' : {'py.boxedfunc'  : impl.readFloatLiteral   }
+    , 'prim_readNatLiteral'   : {'py.boxedfunc'  : impl.readNatLiteral     }
+    , 'prim_readStringLiteral': {'py.boxedfunc'  : impl.readStringLiteral  }
+    , 'prim_roundFloat'       : {'py.unboxedfunc': impl.prim_roundFloat    }
+    , 'prim_showCharLiteral'  : {'py.boxedfunc'  : impl.show               }
+    , 'prim_showFloatLiteral' : {'py.boxedfunc'  : impl.show               }
+    , 'prim_showIntLiteral'   : {'py.boxedfunc'  : impl.show               }
+    , 'prim_showStringLiteral': {'py.boxedfunc'  : impl.show               }
+    , 'prim_sinFloat'         : {'py.unboxedfunc': math.sin                }
+    , 'prim_sinhFloat'        : {'py.unboxedfunc': math.sinh               }
+    , 'prim_sqrtFloat'        : {'py.unboxedfunc': math.sqrt               }
+    , 'prim_tanFloat'         : {'py.unboxedfunc': math.tan                }
+    , 'prim_tanhFloat'        : {'py.unboxedfunc': math.tanh               }
+    , 'prim_timesFloat'       : {'py.unboxedfunc': op.mul                  }
+    , 'prim_truncateFloat'    : {'py.unboxedfunc': int                     }
+    , 'prim_writeFile'        : {'py.rawfunc'    : impl.writeFile          }
+    , '_PyGenerator'          : {'py.boxedfunc'  : impl._PyGenerator       }
+    , '_PyString'             : {'py.boxedfunc'  : impl._PyString          }
+    , 'quotInt'               : {'py.unboxedfunc': impl.quotInt            }
+    , 'remInt'                : {'py.unboxedfunc': impl.remInt             }
+    , 'returnIO'              : {'py.rawfunc'    : impl.returnIO           }
+    , 'seqIO'                 : {'py.rawfunc'    : impl.seqIO              }
+    , 'timesInt'              : {'py.unboxedfunc': op.mul                  }
+    # Unused PAKCS functions.
+    , 'failure'               : {'py.rawfunc'    : impl.not_used           }
+    , 'ifVar'                 : {'py.rawfunc'    : impl.not_used           }
+    , 'letrec'                : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_divInt'           : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_eqChar'           : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_eqFloat'          : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_eqInt'            : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_ltEqChar'         : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_ltEqFloat'        : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_ltEqInt'          : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_minusInt'         : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_modInt'           : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_negateFloat'      : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_plusInt'          : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_quotInt'          : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_readFileContents' : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_remInt'           : {'py.rawfunc'    : impl.not_used           }
+    , 'prim_timesInt'         : {'py.rawfunc'    : impl.not_used           }
+    , 'unifEqLinear'          : {'py.rawfunc'    : impl.not_used           }
+    }
 
-def exports():
-  '''
-  Returns the name of each symbol that must be added to the Prelude but does
-  not appear with a definition in Prelude.curry.
-  '''
-  # Special symbols.
-  yield '_Failure'
-  yield '_Constraint'
-  yield '_Free'
-  yield '_Fwd'
-  yield '_Choice'
-  yield '_PartApplic'
-  # Opaque types.
-  yield '[]'
-  yield 'IO'
-  for ty in _types_:
-    name = ty.name
-    if inspect.isa_tuple_name(name):
-      yield name
-  yield '(->)'
-  # Helper functions.
-  yield '_PyGenerator'
-  yield '_PyString'
-  # Clobber the definition of Prelude.? with Sprite's own.
-  yield '?'
-  # Include all of the primitives.  Sprite compiles the Prelude with __KICS2__
-  # defined.  This hides some primitive functions.  To emulate PAKCS-style
-  # fundamental types, we need those.
-  for fun in _functions_:
-    if fun.name.startswith('prim_'):
-      yield fun.name
+for f in generic_prelude.FUNCTIONS:
+  if f.name in METADATA:
+    f.update_metadata(METADATA[f.name])
 
 
-# Types.
-# ======
-def _T(name, constructors):
-  return icurry.IDataType('Prelude.' + name, constructors)
-def _C(name, *args, **kwds):
-  return icurry.IConstructor('Prelude.' + name, *args, **kwds)
+for typename, ctor, md in [
+    ('_Failure'   , 0, {'py.format': 'failure'                       })
+  , ('_Constraint', 0, {'py.typecheck': tc.Constraint                })
+  , ('_Constraint', 1, {'py.typecheck': tc.Constraint                })
+  , ('_Constraint', 2, {'py.typecheck': tc.Constraint                })
+  , ('_PartApplic', 0, {'py.format': '{2}'                           })
+  , ('_Free'      , 0, {'py.format': '_{1}'                          })
+  , ('_Fwd'       , 0, {'py.format': '{1}'                           })
+  , ('Int'        , 0, {'py.format': '{1}', 'py.typecheck': tc.Int   })
+  , ('Float'      , 0, {'py.format': '{1}', 'py.typecheck': tc.Float })
+  , ('Char'       , 0, {'py.format': '{1}', 'py.typecheck': tc.Char  })
+  , ('[]'         , 0, {'py.format': '({1}:{2})'                     })
+  , ('[]'         , 1, {'py.format': '[]'                            })
+  , ('()'         , 0, {'py.format': '()'                            })
+  ]:
+  generic_prelude.MODULE.types[typename].constructors[ctor].update_metadata(md)
 
-_types_ = [
-    _T('_Failure'   , [_C('_Failure', 0, metadata={'py.format':'failure', 'all.tag':T_FAIL})])
-  , _T('_Constraint', [
-        _C('_StrictConstraint'   , 2, metadata={'all.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
-      , _C('_NonStrictConstraint', 2, metadata={'all.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
-      , _C('_ValueBinding'       , 2, metadata={'all.tag':T_CONSTR, 'py.typecheck':tc.Constraint})
-      ])
-  , _T('_Free'      , [_C('_Free'      , 2, metadata={'py.format':'_{1}', 'all.tag':T_FREE})])
-  , _T('_Fwd'       , [_C('_Fwd'       , 1, metadata={'py.format':'{1}', 'all.tag':T_FWD})])
-  , _T('_Choice'    , [_C('_Choice'    , 3, metadata={'all.tag':T_CHOICE})])
-  , _T('_PartApplic', [_C('_PartApplic', 2, metadata={'py.format': '{2}', 'all.tag':T_CTOR
-                                                     , 'all.flags': infotable.InfoTable.PARTIAL_TYPE})])
-  , _T('Bool'       , [ _C('False'     , 0, metadata={'all.flags': infotable.InfoTable.BOOL_TYPE})
-                      , _C('True'      , 0, metadata={'all.flags': infotable.InfoTable.BOOL_TYPE})
-                      ])
-  , _T('Char'       , [_C('Char'       , 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Char, 'all.flags': infotable.InfoTable.CHAR_TYPE }) ])
-  , _T('Float'      , [_C('Float'      , 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Float, 'all.flags': infotable.InfoTable.FLOAT_TYPE }) ])
-  , _T('Int'        , [_C('Int'        , 1, metadata={'py.format': '{1}', 'py.typecheck': tc.Int, 'all.flags': infotable.InfoTable.INT_TYPE }) ])
-  , _T('IO'         , [_C('IO'         , 1, metadata={'all.flags': infotable.InfoTable.IO_TYPE})])
-  , _T('(->)'       , [_C('->'         , 2)])
-  ]
+i = 2
+while True:
+  tuple_typename = '(%s)' % (','*(i-1))
+  tuple_type = generic_prelude.MODULE.types.get(tuple_typename, None)
+  if tuple_type is None:
+    break
+  tuple_format = '(%s)' % ', '.join(['{%d}' % j for j in range(1,i+1)])
+  tuple_type.constructors[0].update_metadata({'py.format': tuple_format})
+  i += 1
 
-# List
-_types_.append(
-    _T('[]', [
-        _C(':' , 2, metadata={ 'py.format':'({1}:{2})', 'all.flags': infotable.InfoTable.LIST_TYPE })
-      , _C('[]', 0, metadata={ 'py.format':'[]', 'all.flags': infotable.InfoTable.LIST_TYPE })
-      ])
-  )
-
-# Tuples
-MAX_TUPLE_SIZE = 15
-Unit = _T('()', [
-    _C('()', 0, metadata={ 'py.format':'()'
-                         , 'all.flags': infotable.InfoTable.TUPLE_TYPE
-                         })
-  ])
-_types_.append(Unit)
-for i in range(2, MAX_TUPLE_SIZE):
-  name = '(%s)' % (','*(i-1))
-  Tuple = _T(name, [
-      _C(
-          name
-        , i
-        , metadata={
-              'py.format':
-                  '(%s)' % ', '.join(['{%d}' % j for j in range(1,i+1)])
-            , 'all.flags': infotable.InfoTable.TUPLE_TYPE
-            }
-        )
-    ])
-  _types_.append(Tuple)
-
-# Functions.
-# ==========
-def _F(name, *args, **kwds):
-  return icurry.IFunction('Prelude.' + name, *args, **kwds)
-
-_functions_ = [
-    _F('$##'                   , 2, metadata={'py.rawfunc'    : impl.apply_gnf          })
-  , _F('$!'                    , 2, metadata={'py.rawfunc'    : impl.apply_hnf          })
-  , _F('$!!'                   , 2, metadata={'py.rawfunc'    : impl.apply_nf           })
-  , _F('?'                     , 2, metadata={'py.rawfunc'    : impl.choice             })
-  , _F('&'                     , 2, metadata={'py.rawfunc'    : impl.concurrent_and     })
-  , _F('=:='                   , 2, metadata={'py.rawfunc'    : impl.constr_eq          })
-  , _F('=:<='                  , 2, metadata={'py.rawfunc'    : impl.nonstrict_eq       })
-  , _F('apply'                 , 2, metadata={'py.rawfunc'    : impl.apply              })
-  , _F('bindIO'                , 2, metadata={'py.rawfunc'    : impl.bindIO             , 'all.monadic': True })
-  , _F('catch'                 , 2, metadata={'py.rawfunc'    : impl.catch              , 'all.monadic': True })
-  , _F('cond'                  , 2, metadata={'py.rawfunc'    : impl.cond               })
-  , _F('constrEq'              , 2, metadata={'py.rawfunc'    : impl.constr_eq          })
-  , _F('divInt'                , 2, metadata={'py.unboxedfunc': op.floordiv             })
-  , _F('ensureNotFree'         , 1, metadata={'py.rawfunc'    : impl.ensureNotFree      })
-  , _F('eqChar'                , 2, metadata={'py.unboxedfunc': op.eq                   })
-  , _F('eqFloat'               , 2, metadata={'py.unboxedfunc': op.eq                   })
-  , _F('eqInt'                 , 3, metadata={'py.unboxedfunc': op.eq                   })
-  , _F('failed'                , 0, metadata={'py.boxedfunc'  : impl.failed             })
-  , _F('getChar'               , 0, metadata={'py.boxedfunc'  : impl.getChar            , 'all.monadic': True })
-  , _F('ltEqChar'              , 2, metadata={'py.unboxedfunc': op.le                   })
-  , _F('ltEqFloat'             , 2, metadata={'py.unboxedfunc': op.le                   })
-  , _F('ltEqInt'               , 2, metadata={'py.unboxedfunc': op.le                   })
-  , _F('minusInt'              , 2, metadata={'py.unboxedfunc': op.sub                  })
-  , _F('modInt'                , 2, metadata={'py.unboxedfunc': impl.modInt             })
-  , _F('negateFloat'           , 1, metadata={'py.unboxedfunc': op.neg                  })
-  , _F('nonstrictEq'           , 2, metadata={'py.rawfunc'    : impl.nonstrict_eq       })
-  , _F('plusInt'               , 2, metadata={'py.unboxedfunc': op.add                  })
-  , _F('prim_acosFloat'        , 1, metadata={'py.unboxedfunc': math.acos               })
-  , _F('prim_acoshFloat'       , 1, metadata={'py.unboxedfunc': math.acosh              })
-  , _F('prim_appendFile'       , 2, metadata={'py.rawfunc'    : impl.appendFile         , 'all.monadic': True })
-  , _F('prim_asinFloat'        , 1, metadata={'py.unboxedfunc': math.asin               })
-  , _F('prim_asinhFloat'       , 1, metadata={'py.unboxedfunc': math.asinh              })
-  , _F('prim_atanFloat'        , 1, metadata={'py.unboxedfunc': math.atan               })
-  , _F('prim_atanhFloat'       , 1, metadata={'py.unboxedfunc': math.atanh              })
-  , _F('prim_chr'              , 1, metadata={'py.unboxedfunc': chr                     })
-  , _F('prim_constrEq'         , 2, metadata={'py.rawfunc'    : impl.constr_eq          })
-  , _F('prim_cosFloat'         , 1, metadata={'py.unboxedfunc': math.cos                })
-  , _F('prim_coshFloat'        , 1, metadata={'py.unboxedfunc': math.cosh               })
-  , _F('prim_divFloat'         , 2, metadata={'py.unboxedfunc': impl.prim_divFloat      })
-  , _F('prim_error'            , 1, metadata={'py.boxedfunc'  : impl.error              })
-  , _F('prim_expFloat'         , 1, metadata={'py.unboxedfunc': math.exp                })
-  , _F('prim_intToFloat'       , 1, metadata={'py.unboxedfunc': float                   })
-  , _F('prim_ioError'          , 1, metadata={'py.rawfunc'    : impl.ioError            , 'all.monadic': True })
-  , _F('prim_logFloat'         , 1, metadata={'py.unboxedfunc': math.log                })
-  , _F('prim_minusFloat'       , 2, metadata={'py.unboxedfunc': impl.prim_minusFloat    })
-  , _F('prim_nonstrictEq'      , 2, metadata={'py.rawfunc'    : impl.nonstrict_eq       })
-  , _F('prim_ord'              , 1, metadata={'py.unboxedfunc': ord                     })
-  , _F('prim_plusFloat'        , 2, metadata={'py.unboxedfunc': op.add                  })
-  , _F('prim_putChar'          , 1, metadata={'py.boxedfunc'  : impl.putChar            , 'all.monadic': True })
-  , _F('prim_readCharLiteral'  , 1, metadata={'py.boxedfunc'  : impl.readCharLiteral    })
-  , _F('prim_readFile'         , 1, metadata={'py.boxedfunc'  : impl.readFile           , 'all.monadic': True })
-  , _F('prim_readFloatLiteral' , 1, metadata={'py.boxedfunc'  : impl.readFloatLiteral   })
-  , _F('prim_readNatLiteral'   , 1, metadata={'py.boxedfunc'  : impl.readNatLiteral     })
-  , _F('prim_readStringLiteral', 1, metadata={'py.boxedfunc'  : impl.readStringLiteral  })
-  , _F('prim_roundFloat'       , 1, metadata={'py.unboxedfunc': impl.prim_roundFloat    })
-  , _F('prim_showCharLiteral'  , 1, metadata={'py.boxedfunc'  : impl.show               })
-  , _F('prim_showFloatLiteral' , 1, metadata={'py.boxedfunc'  : impl.show               })
-  , _F('prim_showIntLiteral'   , 1, metadata={'py.boxedfunc'  : impl.show               })
-  , _F('prim_showStringLiteral', 1, metadata={'py.boxedfunc'  : impl.show               })
-  , _F('prim_sinFloat'         , 1, metadata={'py.unboxedfunc': math.sin                })
-  , _F('prim_sinhFloat'        , 1, metadata={'py.unboxedfunc': math.sinh               })
-  , _F('prim_sqrtFloat'        , 1, metadata={'py.unboxedfunc': math.sqrt               })
-  , _F('prim_tanFloat'         , 1, metadata={'py.unboxedfunc': math.tan                })
-  , _F('prim_tanhFloat'        , 1, metadata={'py.unboxedfunc': math.tanh               })
-  , _F('prim_timesFloat'       , 2, metadata={'py.unboxedfunc': op.mul                  })
-  , _F('prim_truncateFloat'    , 1, metadata={'py.unboxedfunc': int                     })
-  , _F('prim_writeFile'        , 2, metadata={'py.rawfunc'    : impl.writeFile          , 'all.monadic': True })
-  , _F('_PyGenerator'          , 1, metadata={'py.boxedfunc'  : impl._PyGenerator       })
-  , _F('_PyString'             , 1, metadata={'py.boxedfunc'  : impl._PyString          })
-  , _F('quotInt'               , 2, metadata={'py.unboxedfunc': impl.quotInt            })
-  , _F('remInt'                , 2, metadata={'py.unboxedfunc': impl.remInt             })
-  , _F('returnIO'              , 1, metadata={'py.rawfunc'    : impl.returnIO           , 'all.monadic': True })
-  , _F('seqIO'                 , 2, metadata={'py.rawfunc'    : impl.seqIO              , 'all.monadic': True })
-  , _F('timesInt'              , 2, metadata={'py.unboxedfunc': op.mul                  })
-  # Unused PAKCS functions.
-  , _F('failure'               , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('ifVar'                 , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('letrec'                , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_divInt'           , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_eqChar'           , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_eqFloat'          , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_eqInt'            , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_ltEqChar'         , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_ltEqFloat'        , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_ltEqInt'          , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_minusInt'         , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_modInt'           , 3, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_negateFloat'      , 1, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_plusInt'          , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_quotInt'          , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_readFileContents' , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_remInt'           , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('prim_timesInt'         , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  , _F('unifEqLinear'          , 2, metadata={'py.rawfunc'    : impl.not_used           })
-  ]
-
-Prelude = icurry.IModule(
-    name='Prelude', imports=[], types=_types_, functions=_functions_
-  )
-
-def extern():
-  return Prelude

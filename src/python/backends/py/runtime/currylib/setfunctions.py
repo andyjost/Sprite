@@ -1,43 +1,14 @@
-'''
-Implements the external parts of Control.SetFunctions.
-'''
-
-from .....common import T_SETGRD, T_CHOICE, LEFT, RIGHT
+from ....generic.runtime.currylib import setfunctions as generic_setfunctions
+from .....common import T_CHOICE, LEFT, RIGHT
 from ..control import E_UNWIND
-from copy import deepcopy, copy
-from ..graph import infotable
+from copy import copy
 from .. import fairscheme, graph
-from ..... import icurry, inspect
-import logging
+from ..... import inspect
 
-__all__ = ['aliases', 'exports', 'extern', 'SetFunctions']
-
-logger = logging.getLogger(__name__)
+SetFunctionsSpecification = generic_setfunctions.SetFunctionsSpecification
 
 NO_SID = -1            # an undetermined set ID.
 ENCAPSULATED_EXPR = -1 # indicates a partialS is an encapsulated expression.
-
-def exports():
-  yield 'PartialS'
-  yield 'SetEval'
-  yield '_SetGuard'
-
-def aliases():
-  return []
-
-def _T(name, constructors):
-  return icurry.IDataType('Control.SetFunctions.' + name, constructors)
-def _C(name, *args, **kwds):
-  return icurry.IConstructor('Control.SetFunctions.' + name, *args, **kwds)
-
-_types_ = [
-    _T('PartialS' , [_C('PartialS', 2, metadata={'all.flags': infotable.InfoTable.PARTIAL_TYPE})])
-  , _T('SetEval'  , [_C('SetEval', 2)])
-  , _T('_SetGuard', [_C('_SetGuard', 2, metadata={'all.tag':T_SETGRD})])
-  ]
-
-def _F(name, *args, **kwds):
-  return icurry.IFunction('Control.SetFunctions.' + name, *args, **kwds)
 
 def allValues(rts, _0):
   # allValues a :: SetEval sid qid -> [a]
@@ -145,26 +116,23 @@ def setN(rts, _0):
   yield rts.setfunctions.evalS
   yield graph.utility.curry(rts, setf, *_0.successors[1:], fapply=fapply)
 
-_functions_ = [
-    _F('allValues', 1, metadata={'py.rawfunc': allValues})
-  , _F('applyS'   , 2, metadata={'py.rawfunc': applyS})
-  , _F('captureS' , 2, metadata={'py.rawfunc': captureS})
-  , _F('evalS'    , 1, metadata={'py.rawfunc': evalS})
-  , _F('exprS'    , 1, metadata={'py.rawfunc': exprS})
-  , _F('set'      , 1, metadata={'py.rawfunc': set_})
-  , _F('set0'     , 1, metadata={'py.rawfunc': setN})
-  , _F('set1'     , 2, metadata={'py.rawfunc': setN})
-  , _F('set2'     , 3, metadata={'py.rawfunc': setN})
-  , _F('set3'     , 4, metadata={'py.rawfunc': setN})
-  , _F('set4'     , 5, metadata={'py.rawfunc': setN})
-  , _F('set5'     , 6, metadata={'py.rawfunc': setN})
-  , _F('set6'     , 7, metadata={'py.rawfunc': setN})
-  , _F('set7'     , 8, metadata={'py.rawfunc': setN})
-  ]
+METADATA = {
+    'allValues': {'py.rawfunc': allValues}
+  , 'applyS'   : {'py.rawfunc': applyS}
+  , 'captureS' : {'py.rawfunc': captureS}
+  , 'evalS'    : {'py.rawfunc': evalS}
+  , 'exprS'    : {'py.rawfunc': exprS}
+  , 'set'      : {'py.rawfunc': set_}
+  , 'set0'     : {'py.rawfunc': setN}
+  , 'set1'     : {'py.rawfunc': setN}
+  , 'set2'     : {'py.rawfunc': setN}
+  , 'set3'     : {'py.rawfunc': setN}
+  , 'set4'     : {'py.rawfunc': setN}
+  , 'set5'     : {'py.rawfunc': setN}
+  , 'set6'     : {'py.rawfunc': setN}
+  , 'set7'     : {'py.rawfunc': setN}
+  }
 
-SetFunctions = icurry.IModule(
-    fullname='Control.SetFunctions', imports=[], types=_types_, functions=_functions_
-  )
-
-def extern():
-  return SetFunctions
+for f in generic_setfunctions.FUNCTIONS:
+  if f.name in METADATA:
+    f.update_metadata(METADATA[f.name])

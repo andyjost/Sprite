@@ -26,7 +26,7 @@ class TestPyRuntime(cytest.TestCase):
   def test_coverage(self):
     '''Tests to improve line coverage.'''
     interp = interpreter.Interpreter()
-    prelude = interp.import_(curry.backends.py.runtime.currylib.prelude.Prelude)
+    prelude = interp.prelude
     self.assertEqual(prelude.prim_negateFloat.fullname, 'Prelude.prim_negateFloat')
     self.assertEqual(str(prelude.prim_negateFloat.info), "Info for 'prim_negateFloat'")
     self.assertTrue(repr(prelude.prim_negateFloat.info).startswith('InfoTable'))

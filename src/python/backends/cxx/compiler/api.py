@@ -1,5 +1,5 @@
 from .... import context
-from . import compile, ir, materialize, render, synthesis
+from . import compile, ir, materialize, render, synthesize
 
 __all__ = ['Compiler']
 
@@ -22,8 +22,8 @@ class Compiler(context.Compiler):
 
   @property
   def synthesize_constructor_info(self):
-    return synthesis.synthesize_constructor_info
+    return synthesize.synthesize_constructor_info
 
   @property
   def synthesize_function_info_stub(self):
-    return synthesis.synthesize_function_info_stub
+    return synthesize.synthesize_function_info_stub

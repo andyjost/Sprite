@@ -1,9 +1,9 @@
 
 def lookup(modulename):
   if modulename == 'Prelude':
-    from . import prelude
-    return prelude
+    from .prelude import PreludeSpecification
+    return PreludeSpecification
   elif modulename == 'Control.SetFunctions':
-    from . import setfunctions
-    return setfunctions
+    from .setfunctions import SetFunctionsSpecification
+    return SetFunctionsSpecification
 

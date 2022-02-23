@@ -60,7 +60,7 @@ are available:
 FLAG_INFO = {
   #  Flag                   Value Spec           Default
   #  --------------------   -------------------  ----------------------------
-    'backend'             : ({'cpp', 'llvm', 'py'}, config.default_backend())
+    'backend'             : ({'cxx', 'llvm', 'py'}, config.default_backend())
   , 'debug'               : ( bool                , False )
   , 'defaultconverter'    : ({'topython', None}   , None  )
   , 'trace'               : ( bool                , False )

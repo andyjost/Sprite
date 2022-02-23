@@ -1,7 +1,6 @@
 '''Tests for the pure-Python Curry interpreter.'''
 import cytest # from ./lib; must be first
 from curry.backends.py import runtime
-from curry.backends.py.runtime.currylib.prelude import Prelude
 from curry.exceptions import ModuleLookupError, SymbolLookupError, TypeLookupError
 from curry.icurry import *
 from curry import interpreter, toolchain, unboxed
@@ -120,7 +119,7 @@ class TestPyInterp(cytest.TestCase):
     self.assertEqual(list(interp.eval(1)), [interp.raw_expr(1)])
 
     # Evaluate an expressionw ith a leading FWD node.  It should be removed.
-    P = interp.import_(Prelude)
+    P = interp.prelude
     W = P._Fwd
     self.assertEqual(list(interp.eval([W, 1])), [interp.raw_expr(1)])
 
@@ -148,7 +147,7 @@ class TestPyInterp(cytest.TestCase):
   def checkEvalValues(self, interp):
     L = interp.import_(self.MYLIST)
     X = interp.import_(self.X)
-    P = interp.import_(Prelude)
+    P = interp.prelude
     bs = interp.import_(self.BOOTSTRAP)
     cid = bootstrap.cid
     N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
