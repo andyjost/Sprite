@@ -4,11 +4,10 @@ not intended to be imported except by state.py.
 '''
 
 from .....common import T_FUNC
-from ..control import E_RESIDUAL, E_RESTART, E_TERMINATE, E_UNWIND
+from ....generic.runtime.control import E_RESIDUAL, E_RESTART, E_TERMINATE, E_UNWIND
 from ..graph.copy import copygraph
-from ..... import exceptions
+from ..... import exceptions, inspect
 from .. import graph
-from ..... import inspect
 import contextlib
 
 __all__ = [

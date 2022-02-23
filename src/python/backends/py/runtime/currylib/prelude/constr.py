@@ -1,6 +1,6 @@
 from ......common import T_FREE
-from ...control import E_RESIDUAL
 from ......exceptions import InstantiationError
+from .....generic.runtime.control import E_RESIDUAL
 from ... import graph
 from ...... import inspect
 import six

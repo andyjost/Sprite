@@ -1,6 +1,7 @@
 from . import configuration
 from ..... import inspect
-from .. import graph, stepcounter, telemetry, trace
+from .. import graph
+from ....generic.runtime import stepcounter, telemetry, trace
 import itertools
 
 __all__ = ['InterpreterState', 'RuntimeState']

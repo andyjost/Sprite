@@ -1,6 +1,7 @@
 from ....common import T_SETGRD, T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .graph import indexing
-from . import control, graph, trace
+from . import graph
+from ...generic.runtime import control, trace
 from .... import icurry, inspect
 from .state import callstack
 

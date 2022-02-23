@@ -1,6 +1,6 @@
 import cytest # from ./lib; must be first
 from copy import copy
-from curry.backends.py.runtime.control import E_UNWIND
+from curry.backends.generic.runtime.control import E_UNWIND
 from curry.backends.py.runtime.graph import Node, equality
 from curry.backends.py.runtime.state import Bindings, RuntimeState
 from curry.backends.py.runtime.state.rts_freevars import _gen_ctors

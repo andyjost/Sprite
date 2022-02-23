@@ -1,9 +1,5 @@
-from curry.backends.py.runtime.evaluator import Evaluator
-from curry.backends.py.runtime import control
-from curry.common import T_CTOR, T_FUNC
-from curry import context
-from curry import icurry
-from curry.utility.binding import binding
+from curry.backends.generic.runtime import control
+from curry.common import T_CTOR
 
 def step(interp, expr, num=1):
   '''
@@ -13,7 +9,7 @@ def step(interp, expr, num=1):
   '''
   if not hasattr(expr, 'info') or expr.info.tag >= T_CTOR:
     expr = interp.expr(expr)
-  evaluator = Evaluator(interp, expr)
+  evaluator = interp.context.runtime.Evaluator(interp, expr)
   evaluator.set_global_step_limit(num)
   try:
     list(evaluator.evaluate())

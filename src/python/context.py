@@ -67,8 +67,12 @@ class Runtime(six.with_metaclass(abc.ABCMeta)):
     '''Stores compiler-generated symbol information.'''
     assert 0
 
+  @abc.abstractmethod
+  def evaluate(self, interp, goal):
+    pass
+
   @abc.abstractproperty
-  def evaluate(self):
+  def Evaluator(self):
     '''Evaluates a Curry expression.'''
     assert 0
 
@@ -82,7 +86,7 @@ class Runtime(six.with_metaclass(abc.ABCMeta)):
     '''Initializes an interpreter with the runtime-specific state.'''
     assert 0
 
-  @abc.abstractproperty
+  @abc.abstractmethod
   def lookup_builtin_module(self):
     '''Looks up the implementation for a built-in module.'''
     assert 0

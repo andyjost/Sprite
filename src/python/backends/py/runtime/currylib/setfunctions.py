@@ -1,7 +1,7 @@
-from ....generic.runtime.currylib import setfunctions as generic_setfunctions
 from .....common import T_CHOICE, LEFT, RIGHT
-from ..control import E_UNWIND
 from copy import copy
+from ....generic.runtime.control import E_UNWIND
+from ....generic.runtime.currylib import setfunctions as generic_setfunctions
 from .. import fairscheme, graph
 from ..... import inspect
 
