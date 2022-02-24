@@ -21,14 +21,9 @@ class Compiler(context.Compiler):
     return render.render
 
   @property
-  def synthesize_constructor_info(self):
-    return synthesize.synthesize_constructor_info
-
-  @property
   def synthesize_function_info_stub(self):
     return synthesize.synthesize_function_info_stub
 
   @property
-  def synthesize_and_attach_typedef(self):
-    return synthesize.synthesize_typedef
-
+  def synthesize_type(self):
+    return synthesize.synthesize_type

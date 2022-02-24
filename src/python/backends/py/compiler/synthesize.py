@@ -11,10 +11,9 @@ import operator as op
 import weakref
 
 __all__ = [
-    'synthesize_constructor_info'
-  , 'synthesize_function'
+    'synthesize_function'
   , 'synthesize_function_info_stub'
-  , 'synthesize_typedef'
+  , 'synthesize_type'
   ]
 
 def synthesize_function(*args, **kwds):
@@ -127,7 +126,15 @@ def _gettypechecker(interp, metadata):
     if checker is not None:
       return lambda *args: checker(interp, *args)
 
-def synthesize_typedef(interp, itype, constructors, moduleobj):
+def synthesize_type(interp, itype, moduleobj, extern):
+  '''
+  Synthesize a type object, including its constructors.
+  '''
+  constructors = []
+  for icons in itype.constructors:
+    info = synthesize_constructor_info(interp, itype, icons, extern)
+    info_object = objects.CurryNodeInfo(icons, info)
+    constructors.append(info_object)
   typedef = objects.CurryDataType(itype.name, constructors, moduleobj)
   for ctor in constructors:
     ctor.info.typedef = weakref.ref(typedef)

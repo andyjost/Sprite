@@ -144,17 +144,11 @@ class Compiler(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractproperty
-  def synthesize_constructor_info(self):
-    '''Synthesize a constructor InfoTable from an icurry.IConstructor.'''
-    assert 0
-
-  @abc.abstractproperty
   def synthesize_function_info_stub(self):
     '''Synthesizes a function InfoTable from an icurry.IFunction.'''
     assert 0
 
   @abc.abstractproperty
-  def synthesize_and_attach_typedef(self):
-    '''Synthesize a Typedef and attach it to the constructors.'''
+  def synthesize_type(self):
     assert 0
 

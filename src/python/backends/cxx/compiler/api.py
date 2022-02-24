@@ -22,14 +22,10 @@ class Compiler(context.Compiler):
     return render.render
 
   @property
-  def synthesize_constructor_info(self):
-    return _sprite.synthesize_constructor_info
-
-  @property
   def synthesize_function_info_stub(self):
     return _sprite.synthesize_function_info_stub
     assert False
 
   @property
-  def synthesize_and_attach_typedef(self):
-    return _sprite.synthesize_and_attach_typedef
+  def synthesize_type(self):
+    return _sprite.synthesize_type

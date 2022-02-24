@@ -53,24 +53,12 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
               % itype.fullname
         )
   assert itype.constructors
-  constructors = []
-  constructors.extend(
-      loadSymbols(
-          interp, itype.constructors, moduleobj, extern, itype=itype
-        )
-    )
   cc = interp.context.compiler
-  typedef = cc.synthesize_and_attach_typedef(interp, itype, constructors, moduleobj)
+  typedef = cc.synthesize_type(interp, itype, moduleobj, extern)
+  for ctor in typedef.constructors:
+    insertSymbol(moduleobj, ctor.name, ctor)
   getattr(moduleobj, '.types')[itype.name] = typedef
   return typedef
-
-@loadSymbols.when(icurry.IConstructor)
-def loadSymbols(interp, icons, moduleobj, extern=None, itype=None):
-  cc = interp.context.compiler
-  info = cc.synthesize_constructor_info(interp, itype, icons, extern)
-  info_object = objects.CurryNodeInfo(icons, info)
-  insertSymbol(moduleobj, icons.name, info_object)
-  return info_object
 
 @loadSymbols.when(icurry.IFunction)
 def loadSymbols(interp, ifun, moduleobj, extern=None):
