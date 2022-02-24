@@ -9,6 +9,7 @@ implement.
 
 from . import config
 import abc, importlib, six
+from .backends.generic.compiler import materialize
 
 __all__ = ['Compiler', 'Context', 'InfoTable', 'Node', 'Runtime']
 
@@ -143,12 +144,11 @@ class Compiler(six.with_metaclass(abc.ABCMeta)):
     '''Converts the IR to a string.'''
     assert 0
 
-  @abc.abstractproperty
-  def synthesize_function_info_stub(self):
-    '''Synthesizes a function InfoTable from an icurry.IFunction.'''
-    assert 0
+  @property
+  def materialize_type(self):
+    return materialize.materialize_type
 
-  @abc.abstractproperty
-  def synthesize_type(self):
-    assert 0
+  @property
+  def materialize_function_info_stub(self):
+    return materialize.materialize_function_info_stub
 

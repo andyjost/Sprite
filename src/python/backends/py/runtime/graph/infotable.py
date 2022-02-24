@@ -35,6 +35,10 @@ class InfoTable(object):
     self.typedef = None
     self.flags = flags
 
+  @staticmethod
+  def create(cls, owner, *args):
+    return InfoTable(*args)
+
   @property
   def is_special(self):
     return self.flags & 0xf

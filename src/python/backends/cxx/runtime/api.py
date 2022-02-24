@@ -1,5 +1,5 @@
 from .... import context
-from .. import _sprite
+from .... import _sprite
 from ...generic.runtime import api
 
 __all__ = ['Runtime']

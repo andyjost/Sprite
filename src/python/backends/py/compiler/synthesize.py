@@ -2,29 +2,21 @@
 Code for synthesizing built-in functions and node info.
 '''
 
-from ....common import T_CTOR, T_FUNC
-from ....import objects
-from .... import icurry, inspect
 from ..runtime.currylib.prelude.math import apply_unboxed
 from six.moves import range
 import operator as op
-import weakref
 
-__all__ = [
-    'synthesize_function'
-  , 'synthesize_function_info_stub'
-  , 'synthesize_type'
-  ]
+__all__ = ['synthesize_function']
 
 def synthesize_function(*args, **kwds):
   '''
   Synthesize a special function, if possible, or return None.
   '''
-  return compile_boxedfunc(*args, **kwds) or \
-         compile_rawfunc(*args, **kwds) or \
-         compile_unboxedfunc(*args, **kwds)
+  return synthesize_boxedfunc(*args, **kwds) or \
+         synthesize_rawfunc(*args, **kwds) or \
+         synthesize_unboxedfunc(*args, **kwds)
 
-def compile_boxedfunc(interp, ifun, closure, entry):
+def synthesize_boxedfunc(interp, ifun, closure, entry):
   '''
   Compiles code for a built-in function.  See README.md.  Corresponds to the
   "py.boxedfunc" metadata.
@@ -44,12 +36,12 @@ def compile_boxedfunc(interp, ifun, closure, entry):
       ]
     return lines
 
-def compile_rawfunc(interp, ifun, closure, entry):
+def synthesize_rawfunc(interp, ifun, closure, entry):
   '''
   Compiles code for a raw built-in function.  See README.md.  Corresponds to
   the "py.rawfunc" metadata.
 
-  Like compile_boxedfunc but does not head-normalize the arguments.  The
+  Like synthesize_boxedfunc but does not head-normalize the arguments.  The
   left-hand-side expression is simply passed to the implementation function.
   '''
   rawfunc = ifun.metadata.get('py.rawfunc', None)
@@ -61,7 +53,7 @@ def compile_rawfunc(interp, ifun, closure, entry):
       ]
     return lines
 
-def compile_unboxedfunc(interp, ifun, closure, entry):
+def synthesize_unboxedfunc(interp, ifun, closure, entry):
   '''
   Compiles a function over primitive data.
 
@@ -76,67 +68,4 @@ def compile_unboxedfunc(interp, ifun, closure, entry):
       , [ 'return %s(rts, %s, _0)' % (h_eval, h_impl) ]
       ]
     return lines
-
-def synthesize_constructor_info(interp, itype, icons, extern):
-  # For builtins, the 'all.tag' metadata contains the tag.
-  builtin = 'all.tag' in icons.metadata
-  metadata = icurry.metadata.getmd(icons, extern, itype=itype)
-  InfoTable = interp.context.runtime.InfoTable
-  info = InfoTable(
-      icons.name
-    , icons.arity
-    , T_CTOR + icons.index if not builtin else metadata['all.tag']
-    , _nostep if not builtin else _unreachable
-    , getattr(metadata, 'py.format', None)
-    , _gettypechecker(interp, metadata)
-    , getattr(metadata, 'all.flags', 0)
-    )
-  return info
-
-def synthesize_function_info_stub(interp, ifun, extern):
-  metadata = icurry.metadata.getmd(ifun, extern)
-  InfoTable = interp.context.runtime.InfoTable
-  info = InfoTable(
-      ifun.name
-    , ifun.arity
-    , T_FUNC
-    , None
-    , getattr(metadata, 'py.format', None)
-    , _gettypechecker(interp, metadata)
-    , InfoTable.MONADIC if metadata.get('all.monadic') else 0
-    )
-  return info
-
-def _nostep(*args, **kwds):
-  pass
-
-def _unreachable(*args, **kwds):
-  assert False
-
-# FIXME: several things in the info table now have an interpreter bound.  It
-# would be great to simplify that.  Maybe it should just be added as an entry
-# to the info table.
-def _gettypechecker(interp, metadata):
-  '''
-  If debugging is enabled, and a typechecker is defined, get it and bind the
-  interpreter.
-  '''
-  if interp.flags['debug']:
-    checker = getattr(metadata, 'py.typecheck', None)
-    if checker is not None:
-      return lambda *args: checker(interp, *args)
-
-def synthesize_type(interp, itype, moduleobj, extern):
-  '''
-  Synthesize a type object, including its constructors.
-  '''
-  constructors = []
-  for icons in itype.constructors:
-    info = synthesize_constructor_info(interp, itype, icons, extern)
-    info_object = objects.CurryNodeInfo(icons, info)
-    constructors.append(info_object)
-  typedef = objects.CurryDataType(itype.name, constructors, moduleobj)
-  for ctor in constructors:
-    ctor.info.typedef = weakref.ref(typedef)
-  return typedef
 

@@ -20,12 +20,3 @@ class Compiler(context.Compiler):
   @property
   def render(self):
     return render.render
-
-  @property
-  def synthesize_function_info_stub(self):
-    return _sprite.synthesize_function_info_stub
-    assert False
-
-  @property
-  def synthesize_type(self):
-    return _sprite.synthesize_type
