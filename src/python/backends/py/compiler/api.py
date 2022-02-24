@@ -27,3 +27,8 @@ class Compiler(context.Compiler):
   @property
   def synthesize_function_info_stub(self):
     return synthesize.synthesize_function_info_stub
+
+  @property
+  def synthesize_and_attach_typedef(self):
+    return synthesize.synthesize_typedef
+

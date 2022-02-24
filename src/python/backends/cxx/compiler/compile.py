@@ -2,7 +2,7 @@ from ...generic.compiler import module_compiler
 from ...generic.compiler import function_compiler
 from .... import icurry
 from ....utility import visitation
-from . import ir, synthesize
+from . import ir
 import collections
 
 __all__ = ['compile']
@@ -21,7 +21,8 @@ class ModuleCompiler(module_compiler.ModuleCompiler):
     return FunctionCompiler
 
   def synthesize_function(self, *args, **kwds):
-    return synthesize.synthesize_function(*args, **kwds)
+    assert False
+    # return synthesize.synthesize_function(*args, **kwds)
 
 
 class FunctionCompiler(function_compiler.FunctionCompiler):

@@ -1,3 +1,6 @@
+#pragma once
+
+#if 0
 '''
 Code for synthesizing built-in functions and node info.
 '''
@@ -129,3 +132,4 @@ def _gettypechecker(interp, metadata):
     if checker is not None:
       return lambda *args: checker(interp, *args)
 
+#endif

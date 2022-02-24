@@ -16,7 +16,7 @@ wrapped in handle.Handle.
 
 from ..common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .. import icurry
-import os, types, weakref
+import abc, os, six, types, weakref
 
 __all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeInfo']
 
@@ -127,12 +127,10 @@ class CurryExpression(object):
       return '<curry constraint expression>'
     return '<invalid curry expression>'
 
-class CurryDataType(object):
+class CurryDataType(six.with_metaclass(abc.ABCMeta)):
   def __init__(self, name, constructors, module):
     self.name = name
     self.constructors = constructors
-    for ctor in self.constructors:
-      ctor.typedef = weakref.ref(self)
     self.module = weakref.ref(module)
 
   @property
@@ -166,6 +164,10 @@ class CurryNodeInfo(object):
   @property
   def name(self):
     return self.icurry.name
+
+  @property
+  def typedef(self):
+    return self.info.typedef
 
   # TODO: add getsource to get the Curry source.  It will require an
   # enhancement to CMC and maybe FlatCurry to generate source range

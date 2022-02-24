@@ -59,10 +59,9 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
           interp, itype.constructors, moduleobj, extern, itype=itype
         )
     )
-  typedef = objects.CurryDataType(itype.name, constructors, moduleobj)
+  cc = interp.context.compiler
+  typedef = cc.synthesize_and_attach_typedef(interp, itype, constructors, moduleobj)
   getattr(moduleobj, '.types')[itype.name] = typedef
-  for i,ctor in enumerate(constructors):
-    ctor.info.typedef = weakref.ref(typedef)
   return typedef
 
 @loadSymbols.when(icurry.IConstructor)

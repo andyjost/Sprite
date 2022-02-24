@@ -1,5 +1,6 @@
 from .... import context
-from . import compile, ir, materialize, render, synthesize
+from .... import _sprite
+from . import compile, ir, materialize, render
 
 __all__ = ['Compiler']
 
@@ -22,8 +23,13 @@ class Compiler(context.Compiler):
 
   @property
   def synthesize_constructor_info(self):
-    return synthesize.synthesize_constructor_info
+    return _sprite.synthesize_constructor_info
 
   @property
   def synthesize_function_info_stub(self):
-    return synthesize.synthesize_function_info_stub
+    return _sprite.synthesize_function_info_stub
+    assert False
+
+  @property
+  def synthesize_and_attach_typedef(self):
+    return _sprite.synthesize_and_attach_typedef

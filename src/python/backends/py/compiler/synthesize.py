@@ -3,15 +3,18 @@ Code for synthesizing built-in functions and node info.
 '''
 
 from ....common import T_CTOR, T_FUNC
+from ....import objects
 from .... import icurry, inspect
 from ..runtime.currylib.prelude.math import apply_unboxed
 from six.moves import range
 import operator as op
+import weakref
 
 __all__ = [
     'synthesize_constructor_info'
   , 'synthesize_function'
   , 'synthesize_function_info_stub'
+  , 'synthesize_typedef'
   ]
 
 def synthesize_function(*args, **kwds):
@@ -123,4 +126,10 @@ def _gettypechecker(interp, metadata):
     checker = getattr(metadata, 'py.typecheck', None)
     if checker is not None:
       return lambda *args: checker(interp, *args)
+
+def synthesize_typedef(interp, itype, constructors, moduleobj):
+  typedef = objects.CurryDataType(itype.name, constructors, moduleobj)
+  for ctor in constructors:
+    ctor.info.typedef = weakref.ref(typedef)
+  return typedef
 

@@ -1,18 +1,16 @@
 import cytest # from ./lib; must be first
-from copy import copy
-from curry.backends.cxx.runtime import pybindings
-from curry.common import LEFT, RIGHT, UNDETERMINED
-import itertools, unittest
+from curry.common import LEFT, RIGHT, UNDETERMINED, Fingerprint
+import copy, itertools, unittest
 
 try:
   import numpy as np
 except ImportError:
   np = None
 
-BASIC_SIZE = pybindings.Fingerprint.BASIC_SIZE()
-BRANCHING_FACTOR = pybindings.Fingerprint.BRANCHING_FACTOR()
+BASIC_SIZE = Fingerprint.BASIC_SIZE()
+BRANCHING_FACTOR = Fingerprint.BRANCHING_FACTOR()
 
-class Fingerprint(cytest.TestCase):
+class FingerprintTC(cytest.TestCase):
   def testTreeShape(self):
     # The fingerprint is an efficient data structure for storing choice states.
     #
@@ -31,7 +29,7 @@ class Fingerprint(cytest.TestCase):
 
     # Depth=0.
     # There is simply one block.
-    fp = pybindings.Fingerprint()
+    fp = Fingerprint()
     self.assertEqual(fp.capacity, BASIC_SIZE)
     self.assertEqual(fp.depth, 0)
     self.assertEqual([int(fp[i]) for i in range(8)], [0]*8)
@@ -157,10 +155,10 @@ class Fingerprint(cytest.TestCase):
       ))
 
   def testGetSetItem(self):
-    fp = pybindings.Fingerprint()
-    self.assertEqual(fp[3], pybindings.UNDETERMINED)
+    fp = Fingerprint()
+    self.assertEqual(fp[3], UNDETERMINED)
     with self.assertRaisesRegex(ValueError, 'expected LEFT or RIGHT'):
-      fp[3] = pybindings.UNDETERMINED
+      fp[3] = UNDETERMINED
     for value in [15, None, 'left', -1, 0, 1]:
       with self.assertRaises(TypeError):
         fp[3] = value
@@ -187,7 +185,7 @@ class Fingerprint(cytest.TestCase):
       fp[cid] = memory[cid] = lr
     def clone(data, maxindex):
       fp,memory = choose_dataset(data)
-      data.append((copy(fp), dict(memory)))
+      data.append((copy.copy(fp), dict(memory)))
     def test(data, maxindex):
       fp,memory = choose_dataset(data)
       if not memory or np.random.random() < 0.5:
@@ -215,7 +213,7 @@ class Fingerprint(cytest.TestCase):
     for _ in range(ITERATIONS):
       # The first element (data) is a list of pairs of a fingerprint and a
       # dict.  Choice are remembered in the dict for cross-checking.
-      args = [(pybindings.Fingerprint(), {})], choice(MAXINDEX)
+      args = [(Fingerprint(), {})], choice(MAXINDEX)
       p = WEIGHTS[choice(len(WEIGHTS))]
       for _ in range(NUM_ACTIONS):
         choice(ACTIONS, p=p)(*args)
