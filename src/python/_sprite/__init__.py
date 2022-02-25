@@ -1,18 +1,18 @@
 '''Python bindings for libsprite.so.'''
-from . import __sprite
+from .__sprite import *
 from . import fingerprint
 
-from .__sprite import (
-    ChoiceState
-  , Fingerprint
-  , InfoTable
-  , InterpreterState
-  , LEFT
-  , Node
-  , RIGHT
-  , Type
-  , UNDETERMINED
-  )
+# from .__sprite import (
+#     ChoiceState
+#   , Fingerprint
+#   , InfoTable
+#   , InterpreterState
+#   , LEFT
+#   , Node
+#   , RIGHT
+#   , Type
+#   , UNDETERMINED
+#   )
 
 # class InfoTable(_c.InfoTable):
 #   def create(moduleobj, name, arity, tag, step, format, typecheck, flags):

@@ -10,13 +10,16 @@ namespace sprite
     , TUPLE_TYPE, IO_TYPE, PARTIAL_TYPE, OPERATOR
 	  };
 
-  static flag_type constexpr MONADIC = 0x1;  // Whether any monadic function can be reached.
+  // Whether any monadic function can be reached.
+  static flag_type constexpr MONADIC        = 0x1;
+  static flag_type constexpr STATIC_OBJECT  = 0x2;
 
   struct Type
   {
     InfoTable const * const * ctors;
     index_type size;
     char kind = 't';
+    char flags = NO_FLAGS;
   };
 
   struct ValueSet
