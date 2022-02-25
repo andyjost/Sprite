@@ -101,15 +101,79 @@ class Runtime(six.with_metaclass(abc.ABCMeta)):
 class Node(six.with_metaclass(abc.ABCMeta)):
   pass
 
-# Each backend must provide an InterpreterState object and register it with this
-# class.
+# Each backend must provide an InterpreterState object and register it with
+# this class.  This is an opaque type that may contain whatever the backend
+# needs.
 class InterpreterState(six.with_metaclass(abc.ABCMeta)):
   pass
 
-# Each backend must provide an InfoTable object and register it with this
-# class.
-class InfoTable(six.with_metaclass(abc.ABCMeta)):
-  pass
+# Each backend must provide an InfoTable derived from this class.
+class InfoTable(object):
+  from .common import (
+      INT_TYPE, CHAR_TYPE, FLOAT_TYPE, BOOL_TYPE, LIST_TYPE, TUPLE_TYPE
+    , IO_TYPE, PARTIAL_TYPE, OPERATOR, MONADIC
+    )
+
+  _fields_ = ['name', 'arity', 'tag', 'step', 'format', 'typecheck', 'typedef', 'flags']
+
+  @property
+  def is_special(self):
+    return self.flags & 0xf
+
+  @property
+  def is_primitive(self):
+    return (self.flags & 0xf) in [self.INT_TYPE, self.CHAR_TYPE, self.FLOAT_TYPE]
+
+  @property
+  def is_int(self):
+    return (self.flags & 0xf) == self.INT_TYPE
+
+  @property
+  def is_char(self):
+    return (self.flags & 0xf) == self.CHAR_TYPE
+
+  @property
+  def is_float(self):
+    return (self.flags & 0xf) == self.FLOAT_TYPE
+
+  @property
+  def is_bool(self):
+    return (self.flags & 0xf) == InfoTable.BOOL_TYPE
+
+  @property
+  def is_list(self):
+    return (self.flags & 0xf) == InfoTable.LIST_TYPE
+
+  @property
+  def is_tuple(self):
+    return (self.flags & 0xf) == InfoTable.TUPLE_TYPE
+
+  @property
+  def is_io(self):
+    return (self.flags & 0xf) == InfoTable.IO_TYPE
+
+  @property
+  def is_partial(self):
+    return (self.flags & 0xf) == InfoTable.PARTIAL_TYPE
+
+  @property
+  def is_monadic(self):
+    return self.flags & InfoTable.MONADIC
+
+  def __str__(self):
+    return 'Info for %r' % self.name
+
+  def __repr__(self):
+    show = lambda x: repr(x()) if isinstance(x, weakref.ref) else repr(x)
+    return ''.join([
+        'InfoTable('
+      , ', '.join(
+            '%s=%s' % (field, show(getattr(self, field)))
+                for field in self._fields_
+          )
+      , ')'
+      ])
+
 
 class Compiler(six.with_metaclass(abc.ABCMeta)):
   '''Abstract interface for an ICurry compiler.'''

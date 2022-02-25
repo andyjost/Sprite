@@ -1,7 +1,6 @@
 from ....common import T_CTOR, T_FUNC
 from ....import objects
 from .... import icurry
-import weakref
 
 __all__ = ['materialize_function_info_stub', 'materialize_type']
 
@@ -54,7 +53,8 @@ def materialize_type(interp, itype, moduleobj, extern):
     constructors.append(info_object)
   typedef = objects.CurryDataType(itype.name, constructors, moduleobj)
   for ctor in constructors:
-    ctor.info.typedef = weakref.ref(typedef)
+    # ctor.info.typedef = weakref.ref(typedef)
+    ctor.info.typedef = typedef
   return typedef
 
 # FIXME: several things in the info table now have an interpreter bound.  It

@@ -42,14 +42,14 @@ PYBIND11_MODULE(__sprite, mod)
     ;
 
   py::class_<InfoTable>(mod, "InfoTable")
-    // .def(py::init(&get_or_create_info, py::return_value_policy::reference))
+    // .def_static("create", &InfoTable_create, reference)
     .def_readonly("name", &InfoTable::name)
     .def_readonly("arity", &InfoTable::arity)
     .def_readonly("tag", &InfoTable::tag)
-    // .def_readonly("step", &InfoTable::step)
-    // .def_readonly("format", &InfoTable::step)
-    // .def_readonly("typecheck", &InfoTable::typecheck)
-    .def_readwrite("typedef", &InfoTable::type)
+    .def_property_readonly("step", [](InfoTable const &){})
+    .def_readonly("format", &InfoTable::format)
+    .def_property_readonly("typecheck", [](InfoTable const &){})
+    .def_readwrite("_typedef", &InfoTable::type)
     .def_property_readonly("flags"
       , [](InfoTable const & self) { return self.typetag | self.flags << 1; }
       )
