@@ -64,9 +64,9 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
 def loadSymbols(interp, ifun, moduleobj, extern=None):
   cc = interp.context.compiler
   info = cc.materialize_function_info_stub(interp, ifun, moduleobj, extern)
-  info_object = objects.CurryNodeInfo(ifun, info)
-  insertSymbol(moduleobj, ifun.name, info_object, ifun.is_private)
-  return info_object
+  infosym = objects.CurryNodeInfo(ifun, info)
+  insertSymbol(moduleobj, ifun.name, infosym, ifun.is_private)
+  return infosym
 
 @utility.formatDocstring(config.python_package_name())
 def insertSymbol(module, basename, nodeinfo, private=False):

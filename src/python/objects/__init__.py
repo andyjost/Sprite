@@ -127,11 +127,16 @@ class CurryExpression(object):
       return '<curry constraint expression>'
     return '<invalid curry expression>'
 
-class CurryDataType(six.with_metaclass(abc.ABCMeta)):
-  def __init__(self, name, constructors, module):
-    self.name = name
-    self.constructors = constructors
+
+class CurryDataType(object):
+  def __init__(self, icurry, constructors, module):
+    self.icurry = icurry
+    self.constructors = tuple(constructors)
     self.module = weakref.ref(module)
+
+  @property
+  def name(self):
+    return self.icurry.name
 
   @property
   def fullname(self):

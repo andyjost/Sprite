@@ -26,7 +26,7 @@ class InfoTable(context.InfoTable):
     # The type that this constructor belongs to.  This is needed at runtime to
     # implement =:=, when a free variable must be bound to an HNF.  It could be
     # improved to use just a runtime version of the typeinfo.
-    self._typedef = None
+    self.typedef = None
     self.flags = flags
 
   @staticmethod
@@ -42,12 +42,4 @@ class InfoTable(context.InfoTable):
   @step.setter
   def step(self, value):
     self._step = value
-
-  @property
-  def typedef(self):
-    return self._typedef
-
-  @typedef.setter
-  def typedef(self, value):
-    self._typedef = weakref.ref(value)
 

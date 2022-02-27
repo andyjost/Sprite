@@ -6,9 +6,13 @@ from . import render
 from ....utility import encoding, filesys
 import pprint, six, textwrap
 
-__all__ = ['materialize']
+__all__ = [
+    'materialize_function'
+  , 'materialize_function_info_stub'
+  , 'materialize_type'
+  ]
 
-def materialize(interp, ir, debug=False, ifun=None):
+def materialize_function(interp, ir, debug=False, ifun=None):
   '''Materializes a C++ function from the IR.'''
   breakpoint()
   # container = {}
@@ -40,3 +44,9 @@ def materialize(interp, ir, debug=False, ifun=None):
   # entry = list(container.values()).pop()
   # entry.source = source
   # return entry
+
+def materialize_type(interp, itype, moduleobj, extern):
+  breakpoint()
+
+def materialize_function_info_stub(interp, ifun, moduleobj, extern):
+  breakpoint()

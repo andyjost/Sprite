@@ -9,7 +9,6 @@ implement.
 
 from . import config
 import abc, importlib, six, weakref
-from .backends.generic.compiler import materialize
 
 __all__ = ['Compiler', 'Context', 'InfoTable', 'Node', 'Runtime']
 
@@ -199,20 +198,24 @@ class Compiler(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractproperty
-  def materialize(self):
+  def materialize_function(self):
     '''Converts the IR to runnable code.'''
+    assert 0
+
+  @abc.abstractproperty
+  def materialize_function_info_stub(self):
+    '''
+    Generates a function info table with the step function set to a compile
+    hook.
+    '''
+    assert 0
+
+  @abc.abstractproperty
+  def materialize_type(self):
+    '''Converts the IR to a type.'''
     assert 0
 
   @abc.abstractproperty
   def render(self):
     '''Converts the IR to a string.'''
     assert 0
-
-  @property
-  def materialize_type(self):
-    return materialize.materialize_type
-
-  @property
-  def materialize_function_info_stub(self):
-    return materialize.materialize_function_info_stub
-

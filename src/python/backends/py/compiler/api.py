@@ -13,8 +13,16 @@ class Compiler(context.Compiler):
     return compile.compile
 
   @property
-  def materialize(self):
-    return materialize.materialize
+  def materialize_function(self):
+    return materialize.materialize_function
+
+  @property
+  def materialize_function_info_stub(self):
+    return materialize.materialize_function_info_stub
+
+  @property
+  def materialize_type(self):
+    return materialize.materialize_type
 
   @property
   def render(self):

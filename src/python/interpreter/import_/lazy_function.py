@@ -19,7 +19,7 @@ class LazyFunction(
     else:
       cc = self.interp.context.compiler
       ir = cc.compile(*self)
-      return cc.materialize(
+      return cc.materialize_function(
           self.interp
         , ir
         , debug=self.interp.flags['debug']
