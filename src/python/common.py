@@ -16,7 +16,7 @@ T_CHOICE = -2
 T_FUNC   = -1
 T_CTOR   =  0 # constructors for each Curry type are numbered from zero.
 
-from ._sprite import (
+from .backends.cxx.cyrt import (
     Fingerprint, ChoiceState, LEFT, RIGHT, UNDETERMINED
   , INT_TYPE, CHAR_TYPE, FLOAT_TYPE, BOOL_TYPE, LIST_TYPE
   , TUPLE_TYPE, IO_TYPE, PARTIAL_TYPE, OPERATOR, MONADIC

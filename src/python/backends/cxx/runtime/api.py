@@ -1,5 +1,5 @@
 from .... import context
-from .... import _sprite
+from .. import cyrt
 from ...generic.runtime import api
 
 __all__ = ['Runtime']
@@ -30,15 +30,15 @@ class Runtime(api.Runtime):
 
   @property
   def Node(self):
-    return _sprite.Node
+    return cyrt.Node
 
   @property
   def InfoTable(self):
-    return _sprite.InfoTable
+    return cyrt.InfoTable
 
   def get_interpreter_state(self, interp):
     return interp._its
 
   def init_interpreter_state(self, interp):
-    interp._its = _sprite.InterpreterState()
+    interp._its = cyrt.InterpreterState()
 

@@ -1,7 +1,7 @@
 #include "python/llvm/conversions.hpp"
 #include <iostream>
 
-namespace sprite
+namespace cyrt
 {
   PyObject * NoneConversion::convert(boost::none_t const &)
     { return incref(Py_None); }

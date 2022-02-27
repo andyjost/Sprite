@@ -7,27 +7,27 @@
 #include "boost/variant.hpp"
 #include "boost/none.hpp"
 
-#define DECL_PYTHON_CONVERSION(name, type, prereqs)              \
-    struct name {                                                \
-      /* Register this converter. */                             \
-      static void init()                                         \
-        { prereqs; ::sprite::register_conversion<name,type>(); } \
-                                                                 \
-      /* C++ to Python. */                                       \
-      static PyObject * convert(type const &);                   \
-                                                                 \
-      /* Python to C++. */                                       \
-      static void * check(PyObject *);                           \
-      static void construct(                                     \
-          PyObject *                                             \
-        , converter::rvalue_from_python_stage1_data *            \
-        );                                                       \
-    }                                                            \
+#define DECL_PYTHON_CONVERSION(name, type, prereqs)            \
+    struct name {                                              \
+      /* Register this converter. */                           \
+      static void init()                                       \
+        { prereqs; ::cyrt::register_conversion<name,type>(); } \
+                                                               \
+      /* C++ to Python. */                                     \
+      static PyObject * convert(type const &);                 \
+                                                               \
+      /* Python to C++. */                                     \
+      static void * check(PyObject *);                         \
+      static void construct(                                   \
+          PyObject *                                           \
+        , converter::rvalue_from_python_stage1_data *          \
+        );                                                     \
+    }                                                          \
   /**/
 
 
 
-namespace sprite
+namespace cyrt
 {
   using namespace ::boost::python;
 

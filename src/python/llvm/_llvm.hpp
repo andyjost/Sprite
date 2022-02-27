@@ -1,6 +1,6 @@
 #pragma once
 
-namespace sprite { namespace python
+namespace cyrt { namespace python
 {
   void register_globalvalues();
   void register_module();

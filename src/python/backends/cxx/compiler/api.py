@@ -1,5 +1,5 @@
 from .... import context
-from .... import _sprite
+from .. import cyrt
 from . import compile, ir, materialize, render
 
 __all__ = ['Compiler']

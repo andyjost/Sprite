@@ -1,22 +1,22 @@
 import cytest # from ./lib; must be first
-from curry import _sprite as sprite
+from curry.backends.cxx import cyrt
 from curry import common
 
 class TestCxxRuntime(cytest.TestCase):
   def testModuleCreation(self):
-    count_modules = lambda: len(sprite.Module.getall())
+    count_modules = lambda: len(cyrt.Module.getall())
     self.assertEqual(count_modules(), 0)
 
     # Create.
-    Hello = sprite.Module.find_or_create('Hello')
+    Hello = cyrt.Module.find_or_create('Hello')
     self.assertEqual(count_modules(), 1)
-    self.assertIs(sprite.Module.getall()['Hello'], Hello)
+    self.assertIs(cyrt.Module.getall()['Hello'], Hello)
 
     # Attributes.
     self.assertEqual(Hello.name, 'Hello')
 
     # Recreate.
-    Hello2 = sprite.Module.find_or_create('Hello')
+    Hello2 = cyrt.Module.find_or_create('Hello')
     self.assertIs(Hello, Hello2)
 
     # Delete
@@ -24,7 +24,7 @@ class TestCxxRuntime(cytest.TestCase):
     self.assertEqual(count_modules(), 0)
 
   def testTypeCreation(self):
-    Hello = sprite.Module.find_or_create('Hello')
+    Hello = cyrt.Module.find_or_create('Hello')
 
     Cons = Hello.create_infotable(':', 2, common.T_CTOR  , common.LIST_TYPE)
     Nil = Hello.create_infotable('[]', 0, common.T_CTOR+1, common.LIST_TYPE)

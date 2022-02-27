@@ -1,10 +1,10 @@
 #include "boost/python.hpp"
-#include "sprite/llvm/exceptions.hpp"
+#include "cyrt/llvm/exceptions.hpp"
 #include "python/llvm/_llvm.hpp"
 #include <functional>
 
 using namespace boost::python;
-using namespace sprite::llvm;
+using namespace cyrt::llvm;
 
 namespace
 {
@@ -28,8 +28,8 @@ BOOST_PYTHON_MODULE(_llvm)
   register_exception<scope_error>(PyExc_RuntimeError);
   register_exception<type_error>(PyExc_TypeError);
   register_exception<value_error>(PyExc_ValueError);
-  sprite::python::register_globalvalues();
-  sprite::python::register_type();
-  sprite::python::register_value();
-  sprite::python::register_module(); // depends on value
+  cyrt::python::register_globalvalues();
+  cyrt::python::register_type();
+  cyrt::python::register_value();
+  cyrt::python::register_module(); // depends on value
 }

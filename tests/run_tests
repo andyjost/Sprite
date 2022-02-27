@@ -23,7 +23,7 @@ if [ ! -d "$SPRITE_HOME" ]; then
   exit 1
 fi
 
-if [ ! -r "$SPRITE_HOME/lib/libsprite.so" ]; then
+if [ ! -r "$SPRITE_HOME/lib/libcyrt.so" ]; then
   1>&2 echo Error: SPRITE_HOME does not appear to point to a valid installation of Sprite.  Please check the path and ensure installation completed successfully.
   exit 1
 fi

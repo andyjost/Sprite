@@ -4,16 +4,16 @@
 #include "boost/python/raw_function.hpp"
 #include "python/llvm/conversions.hpp"
 #include "python/llvm/_llvm.hpp"
-#include "sprite/llvm/isa.hpp"
-#include "sprite/llvm/module.hpp"
+#include "cyrt/llvm/isa.hpp"
+#include "cyrt/llvm/module.hpp"
 #include "python/llvm/utility.hpp"
-#include "sprite/llvm/value.hpp"
+#include "cyrt/llvm/value.hpp"
 #include <memory>
 #include <string>
 
 using namespace boost::python;
-using namespace sprite::llvm;
-using namespace sprite::python;
+using namespace cyrt::llvm;
+using namespace cyrt::python;
 
 namespace
 {
@@ -53,7 +53,7 @@ namespace
   }
 }
 
-namespace sprite { namespace python
+namespace cyrt { namespace python
 {
   void register_value()
   {
