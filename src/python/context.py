@@ -8,7 +8,7 @@ implement.
 '''
 
 from . import config
-import abc, importlib, six
+import abc, importlib, six, weakref
 from .backends.generic.compiler import materialize
 
 __all__ = ['Compiler', 'Context', 'InfoTable', 'Node', 'Runtime']

@@ -1,8 +1,8 @@
 #pragma once
+#include <map>
 #include <memory>
 #include "sprite/fwd.hpp"
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace sprite
@@ -17,6 +17,7 @@ namespace sprite
     ~Module();
 
     static std::shared_ptr<Module> find_or_create(std::string);
+    static std::map<std::string, std::shared_ptr<Module>> getall();
 
     InfoTable const * create_infotable(
         std::string const & name

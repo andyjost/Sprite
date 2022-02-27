@@ -28,7 +28,7 @@ if [ ! -r "$SPRITE_HOME/lib/libsprite.so" ]; then
   exit 1
 fi
 
-python=$SPRITE_HOME/bin/python
+# python=$SPRITE_HOME/bin/python
 export SPRITE_HOME
 export PYTHONPATH=`pwd`/lib/:$PYTHONPATH
 export CURRYPATH=`pwd`/data/curry:$CURRYPATH
@@ -53,20 +53,21 @@ fi
 case `basename $0` in
   "run_tests")
     # Run the Python unit tests.
-    $python -B -m unittest discover -v `pwd` "$pattern"
+    $SPRITE_HOME/bin/python -B -m unittest discover -v `pwd` "$pattern"
     ;;
   "debug_tests")
     # Run the Python unit tests under gdb.
-    ldd ../install/lib/python2.7/curry/llvm/_llvm.so
-    gdb --args $python -B -m unittest discover -v `pwd` "$@"
+    # gdb --args $python -B -m unittest discover -v `pwd` "$pattern"
+    $SPRITE_HOME/bin/sprite-invoke gdb --args \
+        $SPRITE_HOME/tools/python -B -m unittest discover -v `pwd` "$pattern"
     ;;
   "cov_tests")
     # Run the Python unit tests under coverage.py to get line coverage information.
-    if [ ! -e `readlink -f $SPRITE_HOME/.bin/coverage` ]; then
+    if [ ! -e `readlink -f $SPRITE_HOME/tools/coverage` ]; then
       1>&2 echo "coverage.py not found.  Installing via pip."
-      pyinstall=$(readlink -f $SPRITE_HOME/.bin/python)
+      pyinstall=$(readlink -f $SPRITE_HOME/tools/python)
       if [ -z "$pyinstall" ]; then
-        1>&2 echo "Python installation not found via 'readlink -f $SPRITE_HOME/.bin/python'"
+        1>&2 echo "Python installation not found via 'readlink -f $SPRITE_HOME/tools/python'"
         exit 1
       fi
       install="$(dirname $pyinstall)/pip install coverage"
@@ -103,7 +104,8 @@ case `basename $0` in
     #
     # You may also want to replace the valgrind-python.supp file in this
     # directory with the one that came with your version of Python.
-    valgrind --suppressions=valgrind-python.supp $python -B -m unittest discover -v `pwd` "$pattern"
+    valgrind --suppressions=valgrind-python.supp \
+        $SPRITE_HOME/bin/python -B -m unittest discover -v `pwd` "$pattern"
     ;;
   "shell")
     # Start a new shell with the  environment used to run Python unit tests.

@@ -1,0 +1,44 @@
+import cytest # from ./lib; must be first
+from curry import _sprite as sprite
+from curry import common
+
+class TestCxxRuntime(cytest.TestCase):
+  def testModuleCreation(self):
+    count_modules = lambda: len(sprite.Module.getall())
+    self.assertEqual(count_modules(), 0)
+
+    # Create.
+    Hello = sprite.Module.find_or_create('Hello')
+    self.assertEqual(count_modules(), 1)
+    self.assertIs(sprite.Module.getall()['Hello'], Hello)
+
+    # Attributes.
+    self.assertEqual(Hello.name, 'Hello')
+
+    # Recreate.
+    Hello2 = sprite.Module.find_or_create('Hello')
+    self.assertIs(Hello, Hello2)
+
+    # Delete
+    del Hello, Hello2
+    self.assertEqual(count_modules(), 0)
+
+  def testTypeCreation(self):
+    Hello = sprite.Module.find_or_create('Hello')
+
+    Cons = Hello.create_infotable(':', 2, common.T_CTOR  , common.LIST_TYPE)
+    Nil = Hello.create_infotable('[]', 0, common.T_CTOR+1, common.LIST_TYPE)
+    List = Hello.create_type('[]', [Cons, Nil])
+
+    self.assertEqual(Cons.arity, 2)
+    self.assertEqual(Cons.flags, common.LIST_TYPE)
+    self.assertEqual(Cons.format, 'pp')
+    self.assertEqual(Cons.name, ':')
+    self.assertEqual(Cons.tag, common.T_CTOR)
+    self.assertIs(Cons.step, None)
+    self.assertIs(Cons.typecheck, None)
+    self.assertIs(Cons.typedef, List)
+
+    self.assertIs(List.constructors[0], Cons)
+    self.assertIs(List.constructors[1], Nil)
+

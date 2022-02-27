@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstring>
 #include <iostream>
+#include <unordered_map>
 #include "sprite/builtins.hpp"
 #include "sprite/cxx.hpp"
 #include "sprite/graph/infotable.hpp"
@@ -61,6 +62,17 @@ namespace sprite
     return handle;
   }
 
+  std::map<std::string, std::shared_ptr<Module>> Module::getall()
+  {
+    std::map<std::string, std::shared_ptr<Module>> out;
+    for(auto && item: g_modules)
+    {
+      if(auto p = item.second.lock())
+        out[item.first] = p;
+    }
+    return out;
+  }
+
   Module::Module(std::string name)
     : name(name), impl(new Impl)
   {
@@ -108,7 +120,7 @@ namespace sprite
     info->arity      = arity;
     info->alloc_size = sizeof(void *) * std::max(arity + 1, 2);
     info->typetag    = (TypeTag) flags;
-    info->flags      = flags >> 2;
+    info->flags      = flags >> 8 * sizeof(TypeTag);
     info->name       = info_name;
     info->format     = format;
     info->step       = nullptr;
@@ -146,7 +158,11 @@ namespace sprite
     type->size = constructors.size();
     size_t i=0;
     for(; i<constructors.size(); ++i)
-      ctor_list[i] = constructors[i];
+    {
+      auto ctor = const_cast<InfoTable *>(constructors[i]);
+      ctor_list[i] = ctor;
+      ctor->type = type;
+    }
     assert((char *) &ctor_list[i] == mem.get() + bytes);
     this->impl->types[name] = (Type const *) mem.release();
     return type;

@@ -53,7 +53,6 @@ def materialize_type(interp, itype, moduleobj, extern):
     constructors.append(info_object)
   typedef = objects.CurryDataType(itype.name, constructors, moduleobj)
   for ctor in constructors:
-    # ctor.info.typedef = weakref.ref(typedef)
     ctor.info.typedef = typedef
   return typedef
 
