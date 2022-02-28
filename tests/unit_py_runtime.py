@@ -1,15 +1,16 @@
 import cytest # from ./lib; must be first
 from copy import copy
-from curry.backends.generic.runtime.control import E_UNWIND
-from curry.backends.py.runtime.graph import Node, equality
-from curry.backends.py.runtime.state import Bindings, RuntimeState
-from curry.backends.py.runtime.state.rts_freevars import _gen_ctors
+from curry.backends.generic.eval.control import E_UNWIND
+from curry.backends.py.graph import Node, equality
+from curry.backends.py.eval.rts import RuntimeState
+from curry.backends.py.eval.configuration import Bindings
+from curry.backends.py.eval.rts_freevars import _gen_ctors
 from curry.common import T_FAIL, T_CHOICE
 from curry import icurry, inspect, interpreter
 from curry.utility.binding import binding
 from cytest import bootstrap
 from glob import glob
-import curry.backends.py.runtime.currylib.prelude
+import curry.backends.py.currylib.prelude
 import curry, os, unittest
 import cytest.step
 

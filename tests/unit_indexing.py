@@ -1,5 +1,5 @@
 import cytest # from ./lib; must be first
-from curry.backends.py.runtime.graph.indexing import (
+from curry.backends.py.graph.indexing import (
     logical_subexpr, realpath, subexpr
   )
 from curry.expressions import fwd, _setgrd

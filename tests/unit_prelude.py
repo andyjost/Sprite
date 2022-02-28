@@ -1,5 +1,5 @@
 import cytest # from ./lib; must be first
-from curry.backends.py.runtime.graph import Node, equality
+from curry.backends.py.graph import Node, equality
 from curry import config, inspect
 from six.moves import cStringIO as StringIO
 import curry, cytest.step, sys, unittest

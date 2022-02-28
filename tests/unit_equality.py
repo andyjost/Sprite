@@ -2,7 +2,7 @@ import cytest # from ./lib; must be first
 import cytest.expression_library
 import curry
 from curry import inspect
-from curry.backends.py.runtime.graph.equality import equal
+from curry.backends.py.graph.equality import equal
 import itertools
 
 not_equal = lambda *args: not equal(*args)

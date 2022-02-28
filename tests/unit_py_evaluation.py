@@ -2,7 +2,6 @@
 import cytest # from ./lib; must be first
 import curry
 import unittest
-from curry.backends.py import runtime
 
 class TestPyEvaluation(cytest.TestCase):
   def check(self, name, expected):

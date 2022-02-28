@@ -1,8 +1,8 @@
 import cytest # from ./lib; must be first
 from curry.common import *
-from curry.backends.py.runtime.state import RuntimeState
-from curry.backends.generic.runtime.control import E_UNWIND
-from curry.backends.py.runtime.fairscheme import hnf
+from curry.backends.py.eval.rts import RuntimeState
+from curry.backends.generic.eval.control import E_UNWIND
+from curry.backends.py.eval.fairscheme import hnf
 import curry, unittest
 
 class TestPyPullTab(cytest.TestCase):

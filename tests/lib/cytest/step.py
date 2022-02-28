@@ -1,4 +1,4 @@
-from curry.backends.generic.runtime import control
+from curry.backends.generic.eval import control
 from curry.common import T_CTOR
 
 def step(interp, expr, num=1):

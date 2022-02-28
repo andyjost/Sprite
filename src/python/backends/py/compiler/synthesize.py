@@ -2,7 +2,7 @@
 Code for synthesizing built-in functions and node info.
 '''
 
-from ..runtime.currylib.prelude.math import apply_unboxed
+from ..currylib.prelude.math import apply_unboxed
 from six.moves import range
 import operator as op
 

@@ -1,6 +1,5 @@
 '''Tests for the pure-Python Curry interpreter.'''
 import cytest # from ./lib; must be first
-from curry.backends.py import runtime
 from curry.exceptions import ModuleLookupError, SymbolLookupError, TypeLookupError
 from curry.icurry import *
 from curry import interpreter, toolchain, unboxed

@@ -50,9 +50,9 @@ class Runtime(six.with_metaclass(abc.ABCMeta)):
   def __new__(cls, backend='py'):
     if cls is Runtime:
       # Each backend must implement this class at
-      # backends/<name>/runtime.api.Runtime.
+      # backends/<name>/api.Runtime.
       currypkg = config.python_package_name()
-      api = importlib.import_module('%s.backends.%s.runtime.api' % (currypkg, backend))
+      api = importlib.import_module('%s.backends.%s.api' % (currypkg, backend))
       return api.Runtime()
     else:
       return object.__new__(cls)
@@ -179,10 +179,10 @@ class Compiler(six.with_metaclass(abc.ABCMeta)):
 
   def __new__(cls, backend='py'):
     # Each backend must implement this class at
-    # backends/<name>/compiler.api.Compiler.
+    # backends/<name>/api.Compiler.
     if cls is Compiler:
       currypkg = config.python_package_name()
-      api = importlib.import_module('%s.backends.%s.compiler.api' % (currypkg, backend))
+      api = importlib.import_module('%s.backends.%s.api' % (currypkg, backend))
       return api.Compiler()
     else:
       return object.__new__(cls)
