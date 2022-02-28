@@ -22,8 +22,7 @@ namespace cyrt { inline namespace
       /*tag*/        T_FUNC
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "main1"
     , /*format*/     ""
     , /*step*/       &main1_step
@@ -43,8 +42,7 @@ namespace cyrt { inline namespace
       /*tag*/        T_FUNC
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "main2"
     , /*format*/     ""
     , /*step*/       &main2_step
@@ -70,8 +68,7 @@ namespace cyrt { inline namespace
       /*tag*/        T_FUNC
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "main3"
     , /*format*/     ""
     , /*step*/       &main3_step
@@ -97,8 +94,7 @@ namespace cyrt { inline namespace
       /*tag*/        T_FUNC
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "main4"
     , /*format*/     ""
     , /*step*/       &main4_step
@@ -122,8 +118,7 @@ namespace cyrt { inline namespace
       /*tag*/        T_FUNC
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "main5"
     , /*format*/     ""
     , /*step*/       &main5_step
@@ -149,8 +144,7 @@ namespace cyrt { inline namespace
       /*tag*/        T_FUNC
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "main6"
     , /*format*/     ""
     , /*step*/       &main6_step
@@ -176,8 +170,7 @@ namespace cyrt { inline namespace
       /*tag*/        T_FUNC
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "main7"
     , /*format*/     ""
     , /*step*/       &main7_step

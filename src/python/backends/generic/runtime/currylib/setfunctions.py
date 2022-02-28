@@ -2,7 +2,7 @@
 Implements the external parts of Control.SetFunctions.
 '''
 
-from .....common import T_SETGRD, PARTIAL_TYPE
+from .....common import T_SETGRD, F_PARTIAL_TYPE
 from . import ModuleSpecification
 from ..... import icurry
 
@@ -14,7 +14,7 @@ def _F(name, *args, **kwds):
   return icurry.IFunction('Control.SetFunctions.' + name, *args, **kwds)
 
 TYPES = [
-    _T('PartialS' , [_C('PartialS', 2, metadata={'all.flags': PARTIAL_TYPE})])
+    _T('PartialS' , [_C('PartialS', 2, metadata={'all.flags': F_PARTIAL_TYPE})])
   , _T('SetEval'  , [_C('SetEval', 2)])
   , _T('_SetGuard', [_C('_SetGuard', 2, metadata={'all.tag':T_SETGRD})])
   ]

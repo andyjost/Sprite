@@ -28,7 +28,7 @@ namespace cyrt
 
   Node * Node::from_partial(PartApplicNode const * partial, Node * arg)
   {
-    assert(partial->info->typetag == PARTIAL_TYPE);
+    assert(is_partial(*partial->info));
     assert(partial->complete(arg));
     Node * out = (Node *) node_alloc(partial->head_info->alloc_size);
     RawNodeMemory mem(out);

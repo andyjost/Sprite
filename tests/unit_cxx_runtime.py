@@ -26,12 +26,12 @@ class TestCxxRuntime(cytest.TestCase):
   def testTypeCreation(self):
     Hello = cyrt.Module.find_or_create('Hello')
 
-    Cons = Hello.create_infotable(':', 2, common.T_CTOR  , common.LIST_TYPE)
-    Nil = Hello.create_infotable('[]', 0, common.T_CTOR+1, common.LIST_TYPE)
+    Cons = Hello.create_infotable(':', 2, common.T_CTOR  , common.F_LIST_TYPE)
+    Nil = Hello.create_infotable('[]', 0, common.T_CTOR+1, common.F_LIST_TYPE)
     List = Hello.create_type('[]', [Cons, Nil])
 
     self.assertEqual(Cons.arity, 2)
-    self.assertEqual(Cons.flags, common.LIST_TYPE)
+    self.assertEqual(Cons.flags, common.F_LIST_TYPE)
     self.assertEqual(Cons.format, 'pp')
     self.assertEqual(Cons.name, ':')
     self.assertEqual(Cons.tag, common.T_CTOR)

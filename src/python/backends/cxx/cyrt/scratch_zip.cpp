@@ -18,8 +18,7 @@ namespace cyrt { namespace python
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "zip"
     , /*format*/     "pp"
     , /*step*/       &zip_step
@@ -32,8 +31,7 @@ namespace cyrt { namespace python
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "zip_CASE0"
     , /*format*/     "pp"
     , /*step*/       &zip_step_CASE0
@@ -95,8 +93,7 @@ namespace cyrt { namespace python
       /*tag*/        T_FUNC
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "list01"
     , /*format*/     ""
     , /*step*/       &list01_step
@@ -130,8 +127,7 @@ namespace cyrt { namespace python
       /*tag*/        T_FUNC
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "main"
     , /*format*/     ""
     , /*step*/       &mainzip_step

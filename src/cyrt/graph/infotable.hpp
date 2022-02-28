@@ -4,15 +4,20 @@
 
 namespace cyrt
 {
-	enum TypeTag : flag_type
-	{ 
-      NO_FLAGS, INT_TYPE, CHAR_TYPE, FLOAT_TYPE, BOOL_TYPE, LIST_TYPE
-    , TUPLE_TYPE, IO_TYPE, PARTIAL_TYPE, OPERATOR
-	  };
-
-  // Whether any monadic function can be reached.
-  static flag_type constexpr MONADIC        = 0x1;
-  static flag_type constexpr STATIC_OBJECT  = 0x2;
+  // Type tags.
+  static flag_type constexpr NO_FLAGS        = 0x0;
+  static flag_type constexpr TYPETAG_MASK    = 0xf;
+  static flag_type constexpr F_INT_TYPE      = 0x1; // enum
+  static flag_type constexpr F_CHAR_TYPE     = 0x2; // enum
+  static flag_type constexpr F_FLOAT_TYPE    = 0x3; // enum
+  static flag_type constexpr F_BOOL_TYPE     = 0x4; // enum
+  static flag_type constexpr F_LIST_TYPE     = 0x5; // enum
+  static flag_type constexpr F_TUPLE_TYPE    = 0x6; // enum
+  static flag_type constexpr F_IO_TYPE       = 0x7; // enum
+  static flag_type constexpr F_PARTIAL_TYPE  = 0x8; // enum
+  static flag_type constexpr F_OPERATOR      = 0x9; // enum
+  static flag_type constexpr F_MONADIC       = 0x10; // bit-or 
+  static flag_type constexpr F_STATIC_OBJECT = 0x20; // bit-or
 
   struct Type
   {
@@ -34,7 +39,6 @@ namespace cyrt
     tag_type           tag;        // 16
     index_type         arity;      // 16
     index_type         alloc_size; // 16
-    TypeTag            typetag;    // 8
     flag_type          flags;      // 8
     char const *       name;
     char const *       format;
@@ -42,4 +46,43 @@ namespace cyrt
     typecheckfunc_type typecheck;
     Type const *       type;
   };
+
+  inline flag_type typetag(InfoTable const & info)
+    { return info.flags & TYPETAG_MASK; }
+
+  inline bool is_int(InfoTable const & info)
+    { return typetag(info) == F_INT_TYPE; }
+
+  inline bool is_char(InfoTable const & info)
+    { return typetag(info) == F_CHAR_TYPE; }
+
+  inline bool is_float(InfoTable const & info)
+    { return typetag(info) == F_FLOAT_TYPE; }
+
+  inline bool is_bool(InfoTable const & info)
+    { return typetag(info) == F_BOOL_TYPE; }
+
+  inline bool is_list(InfoTable const & info)
+    { return typetag(info) == F_LIST_TYPE; }
+
+  inline bool is_tuple(InfoTable const & info)
+    { return typetag(info) == F_TUPLE_TYPE; }
+
+  inline bool is_io(InfoTable const & info)
+    { return typetag(info) == F_IO_TYPE; }
+
+  inline bool is_partial(InfoTable const & info)
+    { return typetag(info) == F_PARTIAL_TYPE; }
+
+  inline bool is_operator(InfoTable const & info)
+    { return typetag(info) == F_OPERATOR; }
+
+  inline bool is_monadic(InfoTable const & info)
+    { return info.flags & F_MONADIC; }
+
+  inline bool is_static(InfoTable const & info)
+    { return info.flags & F_STATIC_OBJECT; }
+
+  inline bool is_static(Type const & type)
+    { return type.flags & F_STATIC_OBJECT; }
 }

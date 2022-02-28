@@ -62,7 +62,7 @@ namespace
         else
         {
           this->os << '<';
-          if(cur->info->typetag == OPERATOR)
+          if(is_operator(*cur->info))
             os << '(' << cur->info->name << ')';
           else
             os << cur->info->name;
@@ -125,7 +125,7 @@ namespace
 
     void show_name(std::ostream & os, InfoTable const * info)
     {
-      if(info->typetag & OPERATOR)
+      if(is_operator(*info))
         os << '(' << info->name << ')';
       else
         os << info->name;
@@ -149,7 +149,7 @@ namespace
           // Bracketed list.
           case '[' : bare = true; data = Context(']'); break;
           case ']' :
-            assert(cur->info->typetag == LIST_TYPE);
+            assert(is_list(*cur->info));
             bare = true;
             if(cur->info->tag == T_CONS)
             {
@@ -163,7 +163,7 @@ namespace
           // Concat list.
           case '_' : data = Context('^'); break;
           case '^' :
-            assert(cur->info->typetag == LIST_TYPE);
+            assert(is_list(*cur->info));
             if(cur->info->tag == T_CONS)
             {
               os << ' ';
@@ -176,7 +176,7 @@ namespace
           // String.
           case '"': data = Context('`'); break;
           case '`' :
-            assert(cur->info->typetag == LIST_TYPE);
+            assert(is_list(*cur->info));
             if(cur->info->tag == T_CONS)
               walk.extend(Context('"'));
             else
@@ -187,7 +187,7 @@ namespace
           case ':' : data = Context('!'); break;
           case '!' :
             os << ':';
-            if(cur->info->typetag == LIST_TYPE)
+            if(is_list(*cur->info))
             {
               if(cur->info->tag == T_CONS)
                 walk.extend(Context(':'));
@@ -212,14 +212,14 @@ namespace
           case T_FREE: os << '_' << NodeU{cur}.free->vid; continue;
         }
 
-        switch(info->typetag)
+        switch(typetag(*info))
         {
-          case INT_TYPE:
-          case CHAR_TYPE:
-          case FLOAT_TYPE:
+          case F_INT_TYPE:
+          case F_CHAR_TYPE:
+          case F_FLOAT_TYPE:
             walk.extend();
             continue;
-          case PARTIAL_TYPE:
+          case F_PARTIAL_TYPE:
           {
             auto const * partial = NodeU{cur}.partapplic;
             os << '(';
@@ -229,10 +229,10 @@ namespace
             ++walk; // skip head_info
             continue;
           }
-          case LIST_TYPE:
+          case F_LIST_TYPE:
             begin_list(walk, cur);
             continue;
-          case TUPLE_TYPE:
+          case F_TUPLE_TYPE:
             os << '(';
             walk.extend(Context('('));
             continue;
@@ -280,15 +280,15 @@ namespace
       Node * end = cur;
       bool is_string = true;
       bool is_empty = true;
-      while(end && end->info->typetag == LIST_TYPE && end->info->tag == T_CONS)
+      while(end && is_list(*end->info) && end->info->tag == T_CONS)
       {
         auto cons = NodeU{end}.cons;
         is_string = is_string
-            && (cons->head && cons->head->info->typetag == CHAR_TYPE);
+            && (cons->head && is_char(*cons->head->info));
         end = cons->tail;
         is_empty = false;
       }
-      if(end && end->info->typetag == LIST_TYPE)
+      if(end && is_list(*end->info))
       {
         if(is_string && !is_empty)
         {

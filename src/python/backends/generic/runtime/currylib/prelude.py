@@ -8,8 +8,8 @@ from __future__ import absolute_import
 from . import ModuleSpecification
 from .....common import (
     T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-  , INT_TYPE, CHAR_TYPE, FLOAT_TYPE, BOOL_TYPE, LIST_TYPE, TUPLE_TYPE
-  , IO_TYPE, PARTIAL_TYPE , OPERATOR, MONADIC
+  , F_INT_TYPE, F_CHAR_TYPE, F_FLOAT_TYPE, F_BOOL_TYPE, F_LIST_TYPE, F_TUPLE_TYPE
+  , F_IO_TYPE, F_PARTIAL_TYPE , F_OPERATOR, F_MONADIC
   )
 from ..... import icurry, inspect
 
@@ -19,44 +19,44 @@ def _C(name, *args, **kwds):
   return icurry.IConstructor('Prelude.' + name, *args, modulename='Prelude', **kwds)
 def _F(name, *args, **kwds):
   return icurry.IFunction('Prelude.' + name, *args, modulename='Prelude', **kwds)
-  
+
 # Types.
 # ======
 TYPES = [
-    _T('_Failure'   , [_C('_Failure'            , 0, metadata={'all.tag'  : T_FAIL       })])
-  , _T('_Constraint', [_C('_StrictConstraint'   , 2, metadata={'all.tag'  : T_CONSTR     })
-                      ,_C('_NonStrictConstraint', 2, metadata={'all.tag'  : T_CONSTR     })
-                      ,_C('_ValueBinding'       , 2, metadata={'all.tag'  : T_CONSTR     })])
-  , _T('_Free'      , [_C('_Free'               , 2, metadata={'all.tag'  : T_FREE       })])
-  , _T('_Fwd'       , [_C('_Fwd'                , 1, metadata={'all.tag'  : T_FWD        })])
-  , _T('_Choice'    , [_C('_Choice'             , 3, metadata={'all.tag'  : T_CHOICE     })])
-  , _T('_PartApplic', [_C('_PartApplic'         , 2, metadata={'all.flags': PARTIAL_TYPE })])
-  , _T('Bool'       , [_C('False'               , 0, metadata={'all.flags': BOOL_TYPE    })
-                      ,_C('True'                , 0, metadata={'all.flags': BOOL_TYPE    })])
-  , _T('Char'       , [_C('Char'                , 1, metadata={'all.flags': CHAR_TYPE    })])
-  , _T('Float'      , [_C('Float'               , 1, metadata={'all.flags': FLOAT_TYPE   })])
-  , _T('Int'        , [_C('Int'                 , 1, metadata={'all.flags': INT_TYPE     })])
-  , _T('IO'         , [_C('IO'                  , 1, metadata={'all.flags': IO_TYPE      })])
+    _T('_Failure'   , [_C('_Failure'            , 0, metadata={'all.tag'  : T_FAIL         })])
+  , _T('_Constraint', [_C('_StrictConstraint'   , 2, metadata={'all.tag'  : T_CONSTR       })
+                      ,_C('_NonStrictConstraint', 2, metadata={'all.tag'  : T_CONSTR       })
+                      ,_C('_ValueBinding'       , 2, metadata={'all.tag'  : T_CONSTR       })])
+  , _T('_Free'      , [_C('_Free'               , 2, metadata={'all.tag'  : T_FREE         })])
+  , _T('_Fwd'       , [_C('_Fwd'                , 1, metadata={'all.tag'  : T_FWD          })])
+  , _T('_Choice'    , [_C('_Choice'             , 3, metadata={'all.tag'  : T_CHOICE       })])
+  , _T('_PartApplic', [_C('_PartApplic'         , 2, metadata={'all.flags': F_PARTIAL_TYPE })])
+  , _T('Bool'       , [_C('False'               , 0, metadata={'all.flags': F_BOOL_TYPE    })
+                      ,_C('True'                , 0, metadata={'all.flags': F_BOOL_TYPE    })])
+  , _T('Char'       , [_C('Char'                , 1, metadata={'all.flags': F_CHAR_TYPE    })])
+  , _T('Float'      , [_C('Float'               , 1, metadata={'all.flags': F_FLOAT_TYPE   })])
+  , _T('Int'        , [_C('Int'                 , 1, metadata={'all.flags': F_INT_TYPE     })])
+  , _T('IO'         , [_C('IO'                  , 1, metadata={'all.flags': F_IO_TYPE      })])
   , _T('(->)'       , [_C('->'                  , 2)])
   ]
 
 # List
 TYPES.append(
     _T('[]', [
-        _C(':' , 2, metadata={'all.flags': LIST_TYPE })
-      , _C('[]', 0, metadata={'all.flags': LIST_TYPE })
+        _C(':' , 2, metadata={'all.flags': F_LIST_TYPE })
+      , _C('[]', 0, metadata={'all.flags': F_LIST_TYPE })
       ])
   )
 
 # Tuples
 MAX_TUPLE_SIZE = 15
 Unit = _T('()', [
-    _C('()', 0, metadata={'all.flags': TUPLE_TYPE })
+    _C('()', 0, metadata={'all.flags': F_TUPLE_TYPE })
   ])
 TYPES.append(Unit)
 for i in range(2, MAX_TUPLE_SIZE):
   name = '(%s)' % (','*(i-1))
-  Tuple = _T(name, [_C(name, i, metadata={'all.flags': TUPLE_TYPE})])
+  Tuple = _T(name, [_C(name, i, metadata={'all.flags': F_TUPLE_TYPE})])
   TYPES.append(Tuple)
 
 # Functions.
@@ -172,7 +172,7 @@ class PreludeSpecification(ModuleSpecification):
     yield 'Nil'   , '[]'
     yield 'True_' , 'True'
     yield 'False_', 'False'
-  
+
   @staticmethod
   def exports():
     '''
@@ -205,8 +205,8 @@ class PreludeSpecification(ModuleSpecification):
     for fun in FUNCTIONS:
       if fun.name.startswith('prim_'):
         yield fun.name
-  
+
   @staticmethod
   def extern():
     return MODULE
-  
+

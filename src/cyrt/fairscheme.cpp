@@ -84,7 +84,7 @@ namespace cyrt
         case E_RESTART : return inspect::tag_of(root);
         case E_RESIDUAL: assert(0); continue;
         default        :
-          if(scan->cursor()->info->typetag != PARTIAL_TYPE)
+          if(is_partial(*scan->cursor()->info))
             scan->extend();
       }
     }

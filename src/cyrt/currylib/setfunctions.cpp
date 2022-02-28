@@ -185,28 +185,11 @@ namespace cyrt { inline namespace
 
 namespace cyrt
 {
-  static InfoTable const * Values_Ctors[] = { &Values_Info };
-  Type const Values_Type { Values_Ctors, 1 };
-
-  InfoTable const Values_Info {
-      /*tag*/        T_CTOR
-    , /*arity*/      1
-    , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
-    , /*name*/       "Values"
-    , /*format*/     "p"
-    , /*step*/       nullptr
-    , /*typecheck*/  nullptr
-    , /*type*/       &Values_Type
-    };
-
   InfoTable const allValues_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "allValues"
     , /*format*/     "p"
     , /*step*/       allValues_step
@@ -218,24 +201,10 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "applyS"
     , /*format*/     "pp"
     , /*step*/       applyS_step
-    , /*typecheck*/  nullptr
-    , /*type*/       nullptr
-    };
-
-  InfoTable const eagerApplyS_Info {
-      /*tag*/        T_FUNC
-    , /*arity*/      2
-    , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
-    , /*name*/       "$##>"
-    , /*format*/     "pp"
-    , /*step*/       eagerApplyS_step
     , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
@@ -244,11 +213,22 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "captureS"
     , /*format*/     "pp"
     , /*step*/       captureS_step
+    , /*typecheck*/  nullptr
+    , /*type*/       nullptr
+    };
+
+  InfoTable const eagerApplyS_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      2
+    , /*alloc_size*/ sizeof(Node2)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "$##>"
+    , /*format*/     "pp"
+    , /*step*/       eagerApplyS_step
     , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
@@ -257,8 +237,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "evalS"
     , /*format*/     "p"
     , /*step*/       evalS_step
@@ -270,8 +249,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "exprS"
     , /*format*/     "p"
     , /*step*/       exprS_step
@@ -279,25 +257,23 @@ namespace cyrt
     , /*type*/       nullptr
     };
 
-  InfoTable const set_Info {
-      /*tag*/        T_FUNC
-    , /*arity*/      1
-    , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
-    , /*name*/       "set"
-    , /*format*/     "p"
-    , /*step*/       set_step
+  InfoTable const PartialS_Info{
+      /*tag*/        T_CTOR
+    , /*arity*/      2
+    , /*alloc_size*/ sizeof(Node2)
+    , /*flags*/      F_PARTIAL_TYPE | F_STATIC_OBJECT
+    , /*name*/       "PartialS"
+    , /*format*/     "ip"
+    , /*step*/       nullptr
     , /*typecheck*/  nullptr
-    , /*type*/       nullptr
+    , /*type*/       &PartialS_Type
     };
 
   InfoTable const set0_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "set0"
     , /*format*/     "p"
     , /*step*/       setN_step
@@ -309,8 +285,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "set1"
     , /*format*/     "pp"
     , /*step*/       setN_step
@@ -322,8 +297,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      3
     , /*alloc_size*/ sizeof(Node_<3>)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "set2"
     , /*format*/     "ppp"
     , /*step*/       setN_step
@@ -335,8 +309,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      4
     , /*alloc_size*/ sizeof(Node_<4>)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "set3"
     , /*format*/     "pppp"
     , /*step*/       setN_step
@@ -348,8 +321,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      5
     , /*alloc_size*/ sizeof(Node_<5>)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "set4"
     , /*format*/     "ppppp"
     , /*step*/       setN_step
@@ -361,8 +333,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      6
     , /*alloc_size*/ sizeof(Node_<6>)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "set5"
     , /*format*/     "pppppp"
     , /*step*/       setN_step
@@ -374,8 +345,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      7
     , /*alloc_size*/ sizeof(Node_<7>)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "set6"
     , /*format*/     "ppppppp"
     , /*step*/       setN_step
@@ -387,12 +357,56 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      8
     , /*alloc_size*/ sizeof(Node_<8>)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "set7"
     , /*format*/     "pppppppp"
     , /*step*/       setN_step
     , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
+
+  InfoTable const SetEval_Info{
+      /*tag*/        T_CTOR
+    , /*arity*/      2
+    , /*alloc_size*/ sizeof(Node2)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "SetEval"
+    , /*format*/     "ip"
+    , /*step*/       nullptr
+    , /*typecheck*/  nullptr
+    , /*type*/       &SetEval_Type
+    };
+
+  InfoTable const set_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "set"
+    , /*format*/     "p"
+    , /*step*/       set_step
+    , /*typecheck*/  nullptr
+    , /*type*/       nullptr
+    };
+
+  InfoTable const Values_Info {
+      /*tag*/        T_CTOR
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "Values"
+    , /*format*/     "p"
+    , /*step*/       nullptr
+    , /*typecheck*/  nullptr
+    , /*type*/       &Values_Type
+    };
+
+  static InfoTable const * PartialS_Ctors[] = { &PartialS_Info };
+  Type const PartialS_Type { PartialS_Ctors, 1, 't', F_STATIC_OBJECT };
+
+  static InfoTable const * SetEval_Ctors[] = { &SetEval_Info };
+  Type const SetEval_Type { SetEval_Ctors, 1, 't', F_STATIC_OBJECT };
+
+  static InfoTable const * Values_Ctors[] = { &Values_Info };
+  Type const Values_Type { Values_Ctors, 1, 't', F_STATIC_OBJECT };
 }

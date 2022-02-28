@@ -14,17 +14,14 @@ namespace cyrt { namespace python
   void register_cxx(pybind11::module_ mod)
   {
     py::class_<InfoTable>(mod, "InfoTable")
+      .def_readonly("name", &InfoTable::name)
+      .def_readonly("arity", &InfoTable::arity)
+      .def_readonly("tag", &InfoTable::tag)
+      .def_readonly("flags", &InfoTable::flags)
+      .def_readonly("format", &InfoTable::format)
       .def_property_readonly("step", [](InfoTable const &){})
       .def_property_readonly("typecheck", [](InfoTable const &){})
-      .def_readonly("arity", &InfoTable::arity)
-      .def_readonly("format", &InfoTable::format)
-      .def_readonly("name", &InfoTable::name)
-      .def_readonly("tag", &InfoTable::tag)
       .def_readwrite("typedef", &InfoTable::type)
-      .def_property_readonly("flags"
-        , [](InfoTable const & self)
-            { return self.typetag | (self.flags << 8 * sizeof(flag_type)); }
-        )
       ;
 
     py::class_<InterpreterState>(mod, "InterpreterState")
@@ -61,18 +58,18 @@ namespace cyrt { namespace python
     mod.attr("T_FUNC")    = (int) T_FUNC;
     mod.attr("T_CTOR")    = (int) T_CTOR;
 
-    mod.attr("NO_FLAGS")      = (int) NO_FLAGS;
-    mod.attr("INT_TYPE")      = (int) INT_TYPE;
-    mod.attr("CHAR_TYPE")     = (int) CHAR_TYPE;
-    mod.attr("FLOAT_TYPE")    = (int) FLOAT_TYPE;
-    mod.attr("BOOL_TYPE")     = (int) BOOL_TYPE;
-    mod.attr("LIST_TYPE")     = (int) LIST_TYPE;
-    mod.attr("TUPLE_TYPE")    = (int) TUPLE_TYPE;
-    mod.attr("IO_TYPE")       = (int) IO_TYPE;
-    mod.attr("PARTIAL_TYPE")  = (int) PARTIAL_TYPE;
-    mod.attr("OPERATOR")      = (int) OPERATOR;
-    mod.attr("MONADIC")       = (int) MONADIC;
-    mod.attr("STATIC_OBJECT") = (int) STATIC_OBJECT;
+    mod.attr("NO_FLAGS")        = (int) NO_FLAGS;
+    mod.attr("F_INT_TYPE")      = (int) F_INT_TYPE;
+    mod.attr("F_CHAR_TYPE")     = (int) F_CHAR_TYPE;
+    mod.attr("F_FLOAT_TYPE")    = (int) F_FLOAT_TYPE;
+    mod.attr("F_BOOL_TYPE")     = (int) F_BOOL_TYPE;
+    mod.attr("F_LIST_TYPE")     = (int) F_LIST_TYPE;
+    mod.attr("F_TUPLE_TYPE")    = (int) F_TUPLE_TYPE;
+    mod.attr("F_IO_TYPE")       = (int) F_IO_TYPE;
+    mod.attr("F_PARTIAL_TYPE")  = (int) F_PARTIAL_TYPE;
+    mod.attr("F_OPERATOR")      = (int) F_OPERATOR;
+    mod.attr("F_MONADIC")       = (int) F_MONADIC;
+    mod.attr("F_STATIC_OBJECT") = (int) F_STATIC_OBJECT;
 
     py::enum_<ConstraintType>(mod, "ConstraintType")
         .value("STRICT_CONSTRAINT"   , STRICT_CONSTRAINT)

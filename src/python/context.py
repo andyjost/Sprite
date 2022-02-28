@@ -7,7 +7,7 @@ This contains definitions common to all backends and the interfaces each should
 implement.
 '''
 
-from . import config
+from . import common, config
 import abc, importlib, six, weakref
 
 __all__ = ['Compiler', 'Context', 'InfoTable', 'Node', 'Runtime']
@@ -108,11 +108,6 @@ class InterpreterState(six.with_metaclass(abc.ABCMeta)):
 
 # Each backend must provide an InfoTable derived from this class.
 class InfoTable(object):
-  from .common import (
-      INT_TYPE, CHAR_TYPE, FLOAT_TYPE, BOOL_TYPE, LIST_TYPE, TUPLE_TYPE
-    , IO_TYPE, PARTIAL_TYPE, OPERATOR, MONADIC
-    )
-
   _fields_ = ['name', 'arity', 'tag', 'step', 'format', 'typecheck', 'typedef', 'flags']
 
   @property
@@ -121,43 +116,48 @@ class InfoTable(object):
 
   @property
   def is_primitive(self):
-    return (self.flags & 0xf) in [self.INT_TYPE, self.CHAR_TYPE, self.FLOAT_TYPE]
+    return self.typetag in \
+        [common.F_INT_TYPE, common.F_CHAR_TYPE, common.F_FLOAT_TYPE]
+
+  @property
+  def typetag(self):
+    return self.flags & 0xf
 
   @property
   def is_int(self):
-    return (self.flags & 0xf) == self.INT_TYPE
+    return self.typetag == common.F_INT_TYPE
 
   @property
   def is_char(self):
-    return (self.flags & 0xf) == self.CHAR_TYPE
+    return self.typetag == common.F_CHAR_TYPE
 
   @property
   def is_float(self):
-    return (self.flags & 0xf) == self.FLOAT_TYPE
+    return self.typetag == common.F_FLOAT_TYPE
 
   @property
   def is_bool(self):
-    return (self.flags & 0xf) == InfoTable.BOOL_TYPE
+    return self.typetag == common.F_BOOL_TYPE
 
   @property
   def is_list(self):
-    return (self.flags & 0xf) == InfoTable.LIST_TYPE
+    return self.typetag == common.F_LIST_TYPE
 
   @property
   def is_tuple(self):
-    return (self.flags & 0xf) == InfoTable.TUPLE_TYPE
+    return self.typetag == common.F_TUPLE_TYPE
 
   @property
   def is_io(self):
-    return (self.flags & 0xf) == InfoTable.IO_TYPE
+    return self.typetag == common.F_IO_TYPE
 
   @property
   def is_partial(self):
-    return (self.flags & 0xf) == InfoTable.PARTIAL_TYPE
+    return self.typetag == common.F_PARTIAL_TYPE
 
   @property
   def is_monadic(self):
-    return self.flags & InfoTable.MONADIC
+    return self.flags & common.F_MONADIC
 
   def __str__(self):
     return 'Info for %r' % self.name

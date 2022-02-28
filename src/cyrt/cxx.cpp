@@ -3,6 +3,7 @@
 #include <iostream>
 #include <unordered_map>
 #include "cyrt/builtins.hpp"
+#include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/cxx.hpp"
 #include "cyrt/graph/infotable.hpp"
 
@@ -50,6 +51,7 @@ namespace cyrt
   SymbolTable const builtin_setfunction_symbols{
       {"PartialS", &PartialS_Info}
     , {"SetEval" , &SetEval_Info}
+    , {"Values"  , &Values_Info}
     };
 
   std::shared_ptr<Module> Module::find_or_create(std::string name)
@@ -87,12 +89,12 @@ namespace cyrt
 
   Module::~Module()
   {
-    for(auto & p: this->impl->symbols)
-      if(!(p.second->flags & STATIC_OBJECT))
-        delete[] (char *) p.second;
-    for(auto & p: this->impl->types)
-      if(!(p.second->flags & STATIC_OBJECT))
-        delete[] (char *) p.second;
+    for(auto & p_symbol: this->impl->symbols)
+      if(!is_static(*p_symbol.second))
+        delete[] (char *) p_symbol.second;
+    for(auto & p_type: this->impl->types)
+      if(!is_static(*p_type.second))
+        delete[] (char *) p_type.second;
   }
 
   InfoTable const * Module::get_infotable(std::string const & name) const
@@ -119,8 +121,7 @@ namespace cyrt
     info->tag        = tag;
     info->arity      = arity;
     info->alloc_size = sizeof(void *) * std::max(arity + 1, 2);
-    info->typetag    = (TypeTag) flags;
-    info->flags      = flags >> 8 * sizeof(TypeTag);
+    info->flags      = flags;
     info->name       = info_name;
     info->format     = format;
     info->step       = nullptr;

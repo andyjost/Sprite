@@ -129,8 +129,7 @@ namespace cyrt { namespace python
       /*tag*/        T_FUNC
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "main"
     , /*format*/     ""
     , /*step*/       &main42_step

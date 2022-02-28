@@ -114,8 +114,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    OPERATOR
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       "$"
     , /*format*/     "pp"
     , /*step*/       apply_step
@@ -127,8 +126,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    OPERATOR
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       "$##"
     , /*format*/     "pp"
     , /*step*/       applygnf_step
@@ -140,8 +138,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    OPERATOR
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       "$!"
     , /*format*/     "pp"
     , /*step*/       applyhnf_step
@@ -153,8 +150,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    OPERATOR
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       "$!!"
     , /*format*/     "pp"
     , /*step*/       applynf_step
@@ -166,8 +162,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "cond"
     , /*format*/     "pp"
     , /*step*/       cond_step

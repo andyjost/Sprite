@@ -34,8 +34,6 @@ namespace cyrt
   extern InfoTable const NonStrictConstraint_Info;
   extern InfoTable const Pair_Info;
   extern InfoTable const PartApplic_Info;
-  extern InfoTable const PartialS_Info;
-  extern InfoTable const SetEval_Info;
   extern InfoTable const SetGuard_Info;
   extern InfoTable const StrictConstraint_Info;
   extern InfoTable const True_Info;
@@ -50,8 +48,6 @@ namespace cyrt
   extern Type const List_Type;
   extern Type const Pair_Type;
   extern Type const PartApplic_Type;
-  extern Type const PartialS_Type;
-  extern Type const SetEval_Type;
   extern Type const SetGuard_Type;
   extern Type const Unit_Type;
 

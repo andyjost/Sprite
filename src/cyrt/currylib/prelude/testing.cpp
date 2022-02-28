@@ -26,8 +26,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
-    , /*typetag*/    NO_FLAGS
-    , /*flags*/      NO_FLAGS
+    , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "not"
     , /*format*/     "p"
     , /*step*/       &not_step
