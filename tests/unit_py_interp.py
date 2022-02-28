@@ -49,7 +49,7 @@ class TestPyInterp(cytest.TestCase):
 
     # Type lookup.
     typedef = interp.type('Prelude.Int')
-    self.assertEqual(typedef.constructors , [interp.symbol('Prelude.Int')])
+    self.assertEqual(typedef.constructors , (interp.symbol('Prelude.Int'),))
     self.assertEqual(typedef.fullname , 'Prelude.Int')
     self.assertEqual(typedef.name , 'Int')
     self.assertRaisesRegex(
