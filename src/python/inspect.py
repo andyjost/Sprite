@@ -3,7 +3,7 @@ Inspect live Curry objects.
 '''
 
 from .common import T_SETGRD, T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from . import config, context, icurry, objects
+from . import backends, config, icurry, objects
 from .utility import visitation
 import collections
 import os
@@ -186,7 +186,7 @@ def is_data(arg):
   return isa_ctor(arg) or isa_unboxed_primitive(arg)
 
 def is_boxed(node):
-  return isinstance(node, context.Node) or getattr(node, 'is_boxed', False)
+  return isinstance(node, backends.Node) or getattr(node, 'is_boxed', False)
 
 def get_choice_id(arg):
   # Note: a variable has a choice ID (which equals its variable ID).

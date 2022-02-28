@@ -1,4 +1,4 @@
-from . import context, exceptions, inspect
+from . import exceptions, inspect
 from .interpreter import conversions
 from .utility import visitation
 import collections, contextlib, itertools, six

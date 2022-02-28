@@ -1,4 +1,4 @@
-from ... import context
+from ... import backends
 from .eval import telemetry
 import abc, importlib
 
@@ -44,7 +44,8 @@ class Evaluator(abc.ABC):
     self.rts.stepcounter.global_limit = limit
 
 
-class Runtime(context.Runtime):
+# class Runtime(backends.Runtime):
+class BackendAPI(backends.BackendAPI):
   def lookup_builtin_module(self, modulename):
     basepath = '..%s.currylib.' % self.BACKEND_NAME
     if modulename == 'Prelude':

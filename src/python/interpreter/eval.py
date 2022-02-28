@@ -29,7 +29,7 @@ def eval(interp, *args, **kwds):
   convert = conversions.getconverter(
       converter if converter != 'default' else interp.flags['defaultconverter']
     )
-  results = interp.context.runtime.evaluate(interp, interp.expr(*args))
+  results = interp.backend.evaluate(interp, interp.expr(*args))
   if convert is None:
     return results
   else:

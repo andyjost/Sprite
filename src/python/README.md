@@ -72,7 +72,7 @@ Specifies a regular Python function that implements a Curry built-in.
 The value is a Python function that takes an interpreter and the root node, of
 the expression to rewrite.  The system will not do anything before calling that
 function.  In particular, the successors will not be head-normalized, so it is
-up to the implementation function to do that, if necessary.  
+up to the implementation function to do that, if necessary.
 
 One use of this is to implement the =:= operator, which needs to work directly
 with unbound free variables.

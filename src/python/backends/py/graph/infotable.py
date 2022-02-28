@@ -1,7 +1,7 @@
-from .... import context
+from .... import backends
 import weakref
 
-class InfoTable(context.InfoTable):
+class InfoTable(backends.InfoTable):
   '''
   Runtime info for a node.  Every Curry node stores an `InfoTable`` instance,
   which contains instance-independent data.

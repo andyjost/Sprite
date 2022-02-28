@@ -1,11 +1,11 @@
-from ... import context
+from ... import backends
 from . import cyrt
 from .compiler import compile, ir, materialize, render
 from ..generic import api
 
 __all__ = ['Compiler', 'Runtime']
 
-class Compiler(context.Compiler):
+class Compiler(backends.Compiler):
   @property
   def IR(self):
     return ir.IR

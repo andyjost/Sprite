@@ -56,7 +56,7 @@ def materialize_constructor_info(interp, itype, icons, moduleobj, extern):
   # For builtins, the 'all.tag' metadata contains the tag.
   builtin = 'all.tag' in icons.metadata
   metadata = icurry.metadata.getmd(icons, extern, itype=itype)
-  InfoTable = interp.context.runtime.InfoTable
+  InfoTable = interp.backend.InfoTable
   info = InfoTable.create(
       moduleobj
     , icons.name
@@ -71,7 +71,7 @@ def materialize_constructor_info(interp, itype, icons, moduleobj, extern):
 
 def materialize_function_info_stub(interp, ifun, moduleobj, extern):
   metadata = icurry.metadata.getmd(ifun, extern)
-  InfoTable = interp.context.runtime.InfoTable
+  InfoTable = interp.backend.InfoTable
   info = InfoTable.create(
       getattr(moduleobj, '_handle', moduleobj)
     , ifun.name

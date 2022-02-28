@@ -1,5 +1,4 @@
-from ...generic.compiler import module_compiler
-from ...generic.compiler import function_compiler
+from ...generic.compiler import function_compiler, module_compiler
 from .... import icurry
 from ....utility import visitation
 from . import ir

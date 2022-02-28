@@ -58,8 +58,8 @@ class RuntimeState(object):
     self.Node = graph.Node
 
     # State unique to this evaluation.
-    self.idfactory = interp.context.runtime.get_interpreter_state(interp).idfactory
-    self.setfactory = interp.context.runtime.get_interpreter_state(interp).setfactory
+    self.idfactory = interp.backend.get_interpreter_state(interp).idfactory
+    self.setfactory = interp.backend.get_interpreter_state(interp).setfactory
     self.stepcounter = stepcounter.StepCounter()
 
     self.trace = trace.Trace(self)

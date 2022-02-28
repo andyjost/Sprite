@@ -1,6 +1,6 @@
 '''Utilities for working with Curry expressions.'''
 
-from .... import context, icurry
+from .... import backends, icurry
 from . import indexing, variable
 from six.moves import range
 

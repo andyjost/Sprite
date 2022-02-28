@@ -97,7 +97,7 @@ def compile(
           'expression %r requires a type annotation' % string
         )
     expr = interp.expr(func)
-    return interp.context.runtime.single_step(interp, expr)
+    return interp.backend.single_step(interp, expr)
   else:
     raise TypeError('expected mode %r or %r' % ('module', 'expr'))
 

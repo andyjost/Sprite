@@ -17,9 +17,9 @@ class LazyFunction(
     if isinstance(self.ifun.body, icurry.IMaterial):
       return self.ifun.body.function
     else:
-      cc = self.interp.context.compiler
-      ir = cc.compile(*self)
-      return cc.materialize_function(
+      be = self.interp.backend
+      ir = be.compile(*self)
+      return be.materialize_function(
           self.interp
         , ir
         , debug=self.interp.flags['debug']

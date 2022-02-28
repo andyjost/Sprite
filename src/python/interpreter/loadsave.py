@@ -69,7 +69,7 @@ def save(interp, cymodule, filename=None, goal=None):
         'Saving Curry module %r to %r (%r types, %r symbols)'
       , h.fullname, filename, len(h.types), len(h.symbols)
       )
-  cc = interp.context.compiler
-  ir = cc.compile(interp, h.icurry)
+  be = interp.backend
+  ir = be.compile(interp, h.icurry)
   return ir.dump(filename, goal=goal)
 

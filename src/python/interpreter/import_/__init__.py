@@ -105,9 +105,12 @@ class ImportEx(object):
   def __call__(self, modulename, tail=[], is_sourcefile=False):
     logger.info('Importing %s', modulename)
     imodule = toolchain.loadicurry(
-       modulename, self.currypath, is_sourcefile=is_sourcefile
-     )
-    modspec = self.interp.context.runtime.lookup_builtin_module(modulename)
+        modulename, self.currypath, is_sourcefile=is_sourcefile
+      )
+    try:
+      modspec = self.interp.backend.lookup_builtin_module(modulename)
+    except:
+      breakpoint()
     if modspec is not None:
       kwds = self.kwds.copy()
       kwds.setdefault('alias', modspec.aliases())

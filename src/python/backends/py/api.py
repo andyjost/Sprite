@@ -1,11 +1,12 @@
 from .compiler import compile, ir, materialize, render
 from .eval import fairscheme, rts
 from ..generic import api
-from ... import context
+# from ... import backends
 
 __all__ = ['Compiler', 'Runtime']
 
-class Compiler(context.Compiler):
+
+class BackendAPI(api.BackendAPI):
   @property
   def IR(self):
     return ir.IR
@@ -30,20 +31,6 @@ class Compiler(context.Compiler):
   def render(self):
     return render.render
 
-class Evaluator(api.Evaluator):
-
-  def _make_rts(self, interp, goal):
-    return rts.RuntimeState(interp, goal)
-
-  def _eval(self):
-    return fairscheme.D(self.rts)
-
-
-class Runtime(api.Runtime):
-  '''
-  Implementation of the runtime system interface for the Python backend.  Used
-  by the Interpreter object.
-  '''
   @property
   def BACKEND_NAME(self):
     return 'py'
@@ -68,3 +55,11 @@ class Runtime(api.Runtime):
   def init_interpreter_state(self, interp):
     from .eval.rts import InterpreterState
     interp._its = InterpreterState(interp)
+
+class Evaluator(api.Evaluator):
+
+  def _make_rts(self, interp, goal):
+    return rts.RuntimeState(interp, goal)
+
+  def _eval(self):
+    return fairscheme.D(self.rts)

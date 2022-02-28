@@ -1,4 +1,4 @@
-from .... import context, icurry, utility
+from .... import backends, icurry, utility
 from ....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .... import inspect, show
 import collections, numbers, operator, types
@@ -49,7 +49,7 @@ class Node(object):
     return walk(self, path)
 
 
-context.Node.register(Node)
+backends.Node.register(Node)
 
 def new_node(cls, info, *args, **kwds):
   '''

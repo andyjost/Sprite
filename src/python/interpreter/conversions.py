@@ -3,7 +3,7 @@ Functions for working with Curry expresions.  Handles conversions between Curry
 and Python.
 '''
 
-from .. import context, exceptions, inspect
+from .. import backends, exceptions, inspect
 import numbers
 
 __all__ = ['currytype', 'getconverter', 'topython', 'unbox']
@@ -27,7 +27,7 @@ def currytype(interp, ty):
 
 def unbox(arg):
   '''Unbox a built-in primitive or IO type.'''
-  assert isinstance(arg, context.Node)
+  assert isinstance(arg, backends.Node)
   assert inspect.isa_primitive(arg) or inspect.isa_io(arg)
   return arg.successors[0]
 

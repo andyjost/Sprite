@@ -7,7 +7,7 @@ instance has a separate copy of the settings and runtime.
 
 __all__ = ['Interpreter']
 
-from .. import config, context, exceptions, icurry, utility
+from .. import backends, config, exceptions, icurry, utility
 from . import flags as _flagmod, import_
 from ..objects.handle import getHandle
 from six.moves import reload_module
@@ -70,7 +70,7 @@ class Interpreter(object):
         , ', '.join(map(repr, bad_flags))
         ))
     self._flags.update(flags)
-    self._context = context.Context(self._flags['backend'])
+    self._backend = backends.BackendAPI(self._flags['backend'])
     self._modules = {}
     self._path = []
     self.reset() # set remaining attributes.
@@ -107,9 +107,9 @@ class Interpreter(object):
     self._path[:] = [str(x) for x in values]
 
   @property
-  def context(self):
-    '''The context object associated with this interpreter.'''
-    return self._context
+  def backend(self):
+    '''The backend object associated with this interpreter.'''
+    return self._backend
 
   @property
   def prelude(self):
@@ -144,7 +144,7 @@ class Interpreter(object):
       if not module.is_package and name != 'Prelude':
         module.unlink(self)
     self.path[:] = config.currypath(reset=True)
-    self.context.runtime.init_interpreter_state(self)
+    self.backend.init_interpreter_state(self)
 
   def module(self, name):
     '''Look up a module by name.'''

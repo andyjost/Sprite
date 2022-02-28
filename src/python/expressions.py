@@ -1,4 +1,4 @@
-from . import config, context, icurry, objects, utility
+from . import backends, config, icurry, objects, utility
 from .exceptions import CurryTypeError
 from .utility import strings, visitation
 import collections, itertools, numbers, six
@@ -208,7 +208,7 @@ class ExpressionBuilder(object):
 
   @property
   def Node(self):
-    return self.interp.context.runtime.Node
+    return self.interp.backend.Node
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
@@ -341,7 +341,7 @@ class ExpressionBuilder(object):
           ti, *map(lambda s: self(s), args), target=self.target
         )
 
-  @__call__.when(context.Node)
+  @__call__.when(backends.Node)
   def __call__(self, node, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after %r node' % node.info.name)
