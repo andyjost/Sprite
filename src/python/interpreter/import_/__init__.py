@@ -155,7 +155,8 @@ def _provisionalModule(interp, imodule):
   package, if any.  If the context exits abnormally then those changes are
   rolled back.
   '''
-  obj = objects.create_module_or_pacakge(imodule)
+  obj = objects.create_module_or_package(imodule)
+  interp.backend.init_module_state(obj)
   with binding(interp.modules, imodule.fullname, obj) as bind1:
     packagename, _, modulename = imodule.fullname.rpartition('.')
     if packagename:

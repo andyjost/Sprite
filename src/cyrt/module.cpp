@@ -1,11 +1,11 @@
 #include <algorithm>
 #include <cstring>
-#include <iostream>
-#include <unordered_map>
 #include "cyrt/builtins.hpp"
 #include "cyrt/currylib/setfunctions.hpp"
-#include "cyrt/cxx.hpp"
 #include "cyrt/graph/infotable.hpp"
+#include "cyrt/module.hpp"
+#include <iostream>
+#include <unordered_map>
 
 using namespace cyrt;
 using SymbolTable = std::unordered_map<std::string, InfoTable const *>;
@@ -26,26 +26,26 @@ namespace cyrt
 
   SymbolTable const builtin_prelude_symbols{
       {"Char" , &Char_Info}
-    , {"IO"   , &IO_Info}
-    , {"Int"  , &Int_Info}
-    , {"Float", &Float_Info}
-    , {"False", &False_Info}
-    , {"True" , &True_Info}
     , {":"    , &Cons_Info}
+    , {"False", &False_Info}
+    , {"Float", &Float_Info}
+    , {"Int"  , &Int_Info}
+    , {"IO"   , &IO_Info}
     , {"[]"   , &Nil_Info}
-    , {"()"   , &Unit_Info}
     , {"(,)"  , &Pair_Info}
+    , {"True" , &True_Info}
+    , {"()"   , &Unit_Info}
     };
 
   TypeTable const builtin_prelude_types{
       {"Bool" , &Bool_Type}
     , {"Char" , &Char_Type}
     , {"Float", &Float_Type}
-    , {"IO"   , &IO_Type}
     , {"Int"  , &Int_Type}
-    , {"List" , &List_Type}
-    , {"Pair" , &Pair_Type}
-    , {"Unit" , &Unit_Type}
+    , {"IO"   , &IO_Type}
+    , {"[]"   , &List_Type}
+    , {"(,)"  , &Pair_Type}
+    , {"()"   , &Unit_Type}
     };
 
   SymbolTable const builtin_setfunction_symbols{
@@ -127,7 +127,7 @@ namespace cyrt
     info->step       = nullptr;
     info->typecheck  = nullptr;
     info->type       = nullptr;
-    std::strncpy(info_name, name.c_str(), name.size());
+    std::strcpy(info_name, name.c_str());
     index_type i=0;
     for(; i<arity; ++i)
       format[i] = 'p';
@@ -167,5 +167,17 @@ namespace cyrt
     assert((char *) &ctor_list[i] == mem.get() + bytes);
     this->impl->types[name] = (Type const *) mem.release();
     return type;
+  }
+
+  bool  Module::is_builtin_type(std::string const & name) const
+  {
+    auto * ty = this->get_type(name);
+    return ty && is_static(*ty);
+  }
+
+  bool  Module::is_builtin_function(std::string const & name) const
+  {
+    auto * info = this->get_infotable(name);
+    return info && is_static(*info) && info->tag == T_FUNC;
   }
 }

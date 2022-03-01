@@ -33,6 +33,9 @@ namespace cyrt
       );
     Type const * get_type(std::string const & name) const;
 
+    bool is_builtin_function(std::string const &) const;
+    bool is_builtin_type(std::string const &) const;
+
     struct Impl;
     std::string name;
     std::unique_ptr<Impl> impl;

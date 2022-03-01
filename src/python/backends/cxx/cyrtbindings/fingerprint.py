@@ -1,5 +1,5 @@
 from six.moves import range, zip_longest
-from ._cyrt import Fingerprint
+from ._cyrtbindings import Fingerprint
 import itertools
 
 def Fingerprint__iter__(self):

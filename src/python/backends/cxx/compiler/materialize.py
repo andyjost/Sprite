@@ -5,6 +5,8 @@ Code for converting the intermediate representation to executable code.
 from . import render
 from ....utility import encoding, filesys
 import pprint, six, textwrap
+from .. import cyrtbindings as cyrt
+from .... import icurry, common
 
 __all__ = [
     'materialize_function'
@@ -46,7 +48,28 @@ def materialize_function(interp, ir, debug=False, ifun=None):
   # return entry
 
 def materialize_type(interp, itype, moduleobj, extern):
-  breakpoint()
+  M = moduleobj._cxx
+  if M.is_builtin_type(itype.name):
+    return M.get_type(itype.name)
+  else:
+    flags = lambda ictor: \
+        icurry.metadata.getmd(ictor, extern, itype=itype).get('all.flags', 0)
+    infos = [
+        M.create_infotable(ictor.name, ictor.arity, tag, flags(ictor))
+          for tag,ictor in enumerate(itype.constructors)
+      ]
+    return M.create_type(itype.name, infos)
 
 def materialize_function_info_stub(interp, ifun, moduleobj, extern):
-  breakpoint()
+  M = moduleobj._cxx
+  if M.is_builtin_function(ifun.name):
+    return M.get_function(ifun.name)
+  else:
+    metadata = icurry.metadata.getmd(ifun, extern)
+    return M.create_infotable(
+        ifun.name
+      , ifun.arity
+      , common.T_FUNC
+      , common.F_MONADIC if metadata.get('all.monadic') else 0
+      )
+

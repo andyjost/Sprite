@@ -212,7 +212,7 @@ class CurryNodeInfo(object):
       return '<curry constraint>'
     return '<invalid curry node>'
 
-def create_module_or_pacakge(icur):
+def create_module_or_package(icur):
   if isinstance(icur, icurry.IPackage):
     return CurryPackage(icur)
   else:

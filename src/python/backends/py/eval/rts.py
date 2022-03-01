@@ -13,7 +13,7 @@ class InterpreterState(object):
   necessary to ensure that all expressions built by the interpreter are
   compatible.
   '''
-  def __init__(self, interp):
+  def __init__(self):
     self.idfactory = itertools.count()
     self.setfactory = itertools.count()
 

@@ -1,5 +1,5 @@
 import cytest # from ./lib; must be first
-from curry.backends.cxx import cyrt
+from curry.backends.cxx import cyrtbindings as cyrt
 from curry import common
 
 class TestCxxRuntime(cytest.TestCase):

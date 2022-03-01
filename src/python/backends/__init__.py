@@ -48,6 +48,10 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractmethod
+  def init_module_state(self, moduleobj):
+    assert 0
+
+  @abc.abstractmethod
   def init_interpreter_state(self, interp):
     '''Initializes an interpreter with the runtime-specific state.'''
     assert 0

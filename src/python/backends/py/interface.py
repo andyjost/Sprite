@@ -3,7 +3,7 @@ from .eval import evaluator
 from ... import backends
 import importlib
 
-__all__ = ['Compiler', 'Runtime']
+__all__ = ['IBackend']
 
 class IBackend(backends.IBackend):
   @property
@@ -19,15 +19,18 @@ class IBackend(backends.IBackend):
 
   def init_interpreter_state(self, interp):
     from .eval.rts import InterpreterState
-    interp._its = InterpreterState(interp)
+    interp._its = InterpreterState()
+
+  def init_module_state(self, moduleobj):
+    pass
 
   def lookup_builtin_module(self, modulename):
     if modulename == 'Prelude':
-      path = '..py.currylib.prelude'
+      path = '.currylib.prelude'
       module = importlib.import_module(path, package=__package__)
       return module.PreludeSpecification
     elif modulename == 'Control.SetFunctions':
-      path = '..py.currylib.setfunctions'
+      path = '.currylib.setfunctions'
       module = importlib.import_module(path, package=__package__)
       return module.SetFunctionsSpecification
 
