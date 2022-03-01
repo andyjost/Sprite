@@ -70,7 +70,7 @@ class Interpreter(object):
         , ', '.join(map(repr, bad_flags))
         ))
     self._flags.update(flags)
-    self._backend = backends.BackendAPI(self._flags['backend'])
+    self._backend = backends.IBackend(self._flags['backend'])
     self._modules = {}
     self._path = []
     self.reset() # set remaining attributes.

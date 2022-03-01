@@ -6,7 +6,7 @@ from ..generic import api
 __all__ = ['Compiler', 'Runtime']
 
 
-class BackendAPI(api.BackendAPI):
+class IBackend(api.IBackend):
   @property
   def IR(self):
     return ir.IR

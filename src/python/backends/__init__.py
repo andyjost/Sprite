@@ -1,5 +1,5 @@
 '''
-Defines the BackendAPI object, which mediates interations between the Python
+Defines the IBackend object, which mediates interations between the Python
 API and backends.
 
 This contains definitions common to all backends and the interfaces each should
@@ -9,34 +9,34 @@ implement.
 from .. import common, config
 import abc, importlib, six, weakref
 
-__all__ = ['BackendAPI', 'InfoTable', 'InterpreterState', 'Node']
+__all__ = ['IBackend', 'InfoTable', 'InterpreterState', 'Node']
 
-class BackendAPI(object):
+class IBackend(object):
   '''
   The interface to a Curry implementation.
 
-  The context mediates all interactions bewteen the Sprite API (e.g., the
-  Interpreter class) and a backend implementation.  The context is a singleton
-  (each backend can have at most one).
+  This interface mediates all interactions bewteen the Sprite API (e.g., the
+  Interpreter class) and a backend implementation.  This stateless object
+  is shared among all interpreters using the same backend.
   '''
   _instances = {}
 
   def __new__(cls, backend=None):
     if backend not in cls._instances:
-      if cls is BackendAPI:
+      if cls is IBackend:
         assert backend is not None
         # Each backend must implement this class at
-        # backends.<name>.api.BackendAPI.
+        # backends.<name>.api.IBackend.
         currypkg = config.python_package_name()
         api = importlib.import_module('%s.backends.%s.api' % (currypkg, backend))
-        cls._instances[backend] = api.BackendAPI()
+        cls._instances[backend] = api.IBackend()
       else:
         return object.__new__(cls)
     return cls._instances[backend]
 
   @abc.abstractproperty
-  def Node(self):
-    '''Represents a Curry expression.'''
+  def Evaluator(self):
+    '''Evaluates a Curry expression.'''
     assert 0
 
   @abc.abstractproperty
@@ -44,14 +44,25 @@ class BackendAPI(object):
     '''Stores compiler-generated symbol information.'''
     assert 0
 
+  @abc.abstractproperty
+  def IR(self):
+    '''The intermediate representation of a program.'''
+    assert 0
+
+  @abc.abstractproperty
+  def Node(self):
+    '''Represents a Curry expression.'''
+    assert 0
+
+
+  @abc.abstractproperty
+  def compile(self):
+    '''Converts ICurry to an instance of IR.'''
+    assert 0
+
   @abc.abstractmethod
   def evaluate(self, interp, goal):
     pass
-
-  @abc.abstractproperty
-  def Evaluator(self):
-    '''Evaluates a Curry expression.'''
-    assert 0
 
   @abc.abstractmethod
   def get_interpreter_state(self, interp):
@@ -66,21 +77,6 @@ class BackendAPI(object):
   @abc.abstractmethod
   def lookup_builtin_module(self):
     '''Looks up the implementation for a built-in module.'''
-    assert 0
-
-  @abc.abstractmethod
-  def single_step(self, interp, expr):
-    '''Performs a single step on an expression.'''
-    assert 0
-
-  @abc.abstractproperty
-  def IR(self):
-    '''The intermediate representation of a program.'''
-    assert 0
-
-  @abc.abstractproperty
-  def compile(self):
-    '''Converts ICurry to an instance of IR.'''
     assert 0
 
   @abc.abstractproperty
@@ -105,6 +101,12 @@ class BackendAPI(object):
   def render(self):
     '''Converts the IR to a string.'''
     assert 0
+
+  @abc.abstractmethod
+  def single_step(self, interp, expr):
+    '''Performs a single step on an expression.'''
+    assert 0
+
 # Each backend must provide a Node object and register it with this class.
 class Node(six.with_metaclass(abc.ABCMeta)):
   pass

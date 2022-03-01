@@ -9,7 +9,7 @@ def step(interp, expr, num=1):
   '''
   if not hasattr(expr, 'info') or expr.info.tag >= T_CTOR:
     expr = interp.expr(expr)
-  evaluator = interp.backend.runtime.Evaluator(interp, expr)
+  evaluator = interp.backend.Evaluator(interp, expr)
   evaluator.set_global_step_limit(num)
   try:
     list(evaluator.evaluate())

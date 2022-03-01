@@ -45,7 +45,7 @@ class Evaluator(abc.ABC):
 
 
 # class Runtime(backends.Runtime):
-class BackendAPI(backends.BackendAPI):
+class IBackend(backends.IBackend):
   def lookup_builtin_module(self, modulename):
     basepath = '..%s.currylib.' % self.BACKEND_NAME
     if modulename == 'Prelude':
