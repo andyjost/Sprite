@@ -84,7 +84,7 @@ class Stringifier(object):
       return self.stringify(arg, **kwds)
     else:
       if hasattr(arg, 'info'):
-        formatter = getattr(arg.info, 'format', None)
+        formatter = getattr(arg.info, 'pyformat', None)
         if formatter is not None and len(arg.successors) == arg.info.arity:
           return formatter.format(*self.flatten(arg))
         else:

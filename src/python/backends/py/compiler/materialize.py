@@ -7,6 +7,7 @@ from .... import icurry, objects
 from . import render
 from ....utility import encoding, filesys
 import pprint, six, textwrap, weakref
+from ..graph import InfoTable
 
 __all__ = [
     'materialize_function'
@@ -56,31 +57,27 @@ def materialize_constructor_info(interp, itype, icons, moduleobj, extern):
   # For builtins, the 'all.tag' metadata contains the tag.
   builtin = 'all.tag' in icons.metadata
   metadata = icurry.metadata.getmd(icons, extern, itype=itype)
-  InfoTable = interp.backend.InfoTable
-  info = InfoTable.create(
-      moduleobj
-    , icons.name
+  info = InfoTable(
+      icons.name
     , icons.arity
     , T_CTOR + icons.index if not builtin else metadata['all.tag']
+    , getattr(metadata, 'all.flags', 0)
     , _nostep if not builtin else _unreachable
     , getattr(metadata, 'py.format', None)
     , _gettypechecker(interp, metadata)
-    , getattr(metadata, 'all.flags', 0)
     )
   return info
 
 def materialize_function_info_stub(interp, ifun, moduleobj, extern):
   metadata = icurry.metadata.getmd(ifun, extern)
-  InfoTable = interp.backend.InfoTable
-  info = InfoTable.create(
-      getattr(moduleobj, '_handle', moduleobj)
-    , ifun.name
+  info = InfoTable(
+      ifun.name
     , ifun.arity
     , T_FUNC
+    , F_MONADIC if metadata.get('all.monadic') else 0
     , None
     , getattr(metadata, 'py.format', None)
     , _gettypechecker(interp, metadata)
-    , F_MONADIC if metadata.get('all.monadic') else 0
     )
   return info
 

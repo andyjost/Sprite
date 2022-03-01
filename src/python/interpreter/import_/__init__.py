@@ -107,10 +107,7 @@ class ImportEx(object):
     imodule = toolchain.loadicurry(
         modulename, self.currypath, is_sourcefile=is_sourcefile
       )
-    try:
-      modspec = self.interp.backend.lookup_builtin_module(modulename)
-    except:
-      breakpoint()
+    modspec = self.interp.backend.lookup_builtin_module(modulename)
     if modspec is not None:
       kwds = self.kwds.copy()
       kwds.setdefault('alias', modspec.aliases())
