@@ -39,8 +39,16 @@ class FunctionCompiler(abc.ABC):
     self.entry = entry
     self.extern = extern
     #
-    self.lines = [('def %s(rts, _0):' % self.entry, ifun.fullname)]
+    self.lines = [(self.function_declaration(self.entry), ifun.fullname)]
     self.varinfo = None
+
+  @abc.abstractmethod
+  def function_declaration(self, name):
+    assert False
+
+  @abc.abstractmethod
+  def function_head(self):
+    assert False
 
   def __str__(self):
     code = render.render(self.lines, istart=1)
@@ -110,7 +118,14 @@ class FunctionCompiler(abc.ABC):
   @compileF.when(icurry.IBody)
   def compileF(self, function):
     lines = self.compileS(function.block)
-    self.lines.append(list(lines))
+    head = self.function_head()
+    if head is not None:
+      head = list(head)
+      head.extend(lines)
+      lines = head
+    else:
+      lines = list(lines)
+    self.lines.append(lines)
 
   @compileF.when(icurry.IStatement)
   def compileF(self, stmt):
@@ -134,7 +149,7 @@ class FunctionCompiler(abc.ABC):
 
   @casetype.when(icurry.ICaseCons)
   def casetype(self, interp, icase):
-    return interp.symbol(icase.branches[0].symbolname).typedef()
+    return interp.symbol(icase.branches[0].symbolname).typedef
 
   @casetype.when(icurry.ICaseLit)
   def casetype(self, interp, icase):

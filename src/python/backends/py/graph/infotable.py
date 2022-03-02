@@ -17,7 +17,7 @@ class InfoTable(object):
     # The type that this constructor belongs to.  This is needed at runtime to
     # implement =:=, when a free variable must be bound to an HNF.  It could be
     # improved to use just a runtime version of the typeinfo.
-    self.typedef = None
+    self._typedef = None
 
     # PYTHON-SPECIFIC:
 
@@ -28,6 +28,10 @@ class InfoTable(object):
     # generated code, but this is helpful for checking the hand-written code
     # implementing built-in functions.
     self.typecheck = typecheck
+
+  @property
+  def typedef(self):
+    return self._typedef()
 
   @property
   def typetag(self):

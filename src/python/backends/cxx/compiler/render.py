@@ -11,6 +11,10 @@ def render(obj, **kwds):
   return generic_render.render(obj, cls=Renderer, **kwds)
 
 class Renderer(generic_render.Renderer):
+  COMMENT_STR = '//'
+  BLOCK_OPEN = '{'
+  BLOCK_CLOSE = '}'
+
   def _convertIR2Lines(self, ir):
     breakpoint()
     # imodule = ir.icurry

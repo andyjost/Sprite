@@ -1,5 +1,5 @@
 from ....icurry.types import IString
-from .... import objects
+from .... import backends
 from ....utility import encoding, strings, visitation
 import six, sys
 
@@ -87,11 +87,11 @@ class Closure(object):
     else:
       raise TypeError('cannot intern %r' % obj)
 
-  @intern.when(objects.CurryNodeInfo)
+  @intern.when(backends.NodeInfo)
   def intern(self, nodeinfo):
     return self.insert(nodeinfo, prefix=PX_INFO)
 
-  @intern.when(objects.CurryDataType)
+  @intern.when(backends.DataType)
   def intern(self, typedef):
     return self.insert(typedef, prefix=PX_TYPE)
 

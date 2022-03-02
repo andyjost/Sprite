@@ -24,6 +24,12 @@ class IBackend(backends.IBackend):
   def init_module_state(self, moduleobj):
     pass
 
+  def link_function(self, info, function_spec, lazy):
+    if lazy:
+      info.step = function_spec
+    else:
+      info.step = function_spec.materialize()
+
   def lookup_builtin_module(self, modulename):
     if modulename == 'Prelude':
       path = '.currylib.prelude'

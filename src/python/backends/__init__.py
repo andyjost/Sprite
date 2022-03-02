@@ -9,7 +9,7 @@ implement.
 from .. import config
 import abc, importlib, six
 
-__all__ = ['IBackend', 'Node']
+__all__ = ['IBackend', 'Node', 'DataType', 'NodeInfo']
 
 class IBackend(six.with_metaclass(abc.ABCMeta)):
   '''
@@ -57,6 +57,11 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractmethod
+  def link_function(self, info, function_spec, lazy):
+    '''Link a function (or trampoline) into the info table.'''
+    assert 0
+
+  @abc.abstractmethod
   def lookup_builtin_module(self, modulename):
     '''Looks up the implementation for a built-in module.'''
     assert 0
@@ -98,3 +103,8 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
 class Node(six.with_metaclass(abc.ABCMeta)):
   pass
 
+class DataType(six.with_metaclass(abc.ABCMeta)):
+  pass
+
+class NodeInfo(six.with_metaclass(abc.ABCMeta)):
+  pass

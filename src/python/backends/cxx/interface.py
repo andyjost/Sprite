@@ -20,6 +20,9 @@ class IBackend(backends.IBackend):
   def init_module_state(self, moduleobj):
     moduleobj._cxx = cyrtbindings.Module.find_or_create(moduleobj.__name__)
 
+  def link_function(self, info, function_spec, lazy):
+    cyrtbindings.link_function(info, function_spec.materialize, lazy)
+
   def lookup_builtin_module(self, modulename):
     if modulename == 'Prelude':
       from ..generic.currylib import prelude

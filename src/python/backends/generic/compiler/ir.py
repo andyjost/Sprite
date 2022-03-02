@@ -52,5 +52,5 @@ class IR(abc.ABC):
       self.dump(out, goal=goal)
 
   def __repr__(self):
-    return '<%s IR for %r>' % (self.CODETYPE, icurry.name)
+    return '<%s IR for %r>' % (self.CODETYPE, self.icurry.name)
 

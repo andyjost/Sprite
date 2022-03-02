@@ -25,6 +25,12 @@ class ModuleCompiler(module_compiler.ModuleCompiler):
 
 
 class FunctionCompiler(function_compiler.FunctionCompiler):
+  def function_declaration(self, name):
+    return 'def %s(rts, _0):' % name
+
+  def function_head(self):
+    return
+
   @visitation.dispatch.on('stmt')
   def compileS(self, stmt):
     '''

@@ -11,6 +11,10 @@ def render(obj, **kwds):
   return generic_render.render(obj, cls=Renderer, **kwds)
 
 class Renderer(generic_render.Renderer):
+  COMMENT_STR = '#'
+  BLOCK_OPEN = None
+  BLOCK_CLOSE = None
+
   def _convertIR2Lines(self, ir):
     imodule = ir.icurry
     banner = 'Python code for Curry module %r' % imodule.fullname

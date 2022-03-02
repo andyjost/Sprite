@@ -1,7 +1,7 @@
 from ...generic.compiler import function_compiler, module_compiler
 from .... import icurry
 from ....utility import visitation
-from . import ir
+from . import ir, synthesize
 import collections
 
 __all__ = ['compile']
@@ -20,11 +20,16 @@ class ModuleCompiler(module_compiler.ModuleCompiler):
     return FunctionCompiler
 
   def synthesize_function(self, *args, **kwds):
-    assert False
-    # return synthesize.synthesize_function(*args, **kwds)
+    return synthesize.synthesize_function(*args, **kwds)
 
 
 class FunctionCompiler(function_compiler.FunctionCompiler):
+  def function_declaration(self, name):
+    return 'tag_type %s(RuntimeState * rts, Configuration * C)' % name
+
+  def function_head(self):
+    yield 'Cursor _0 = C->cursor();'
+
   @visitation.dispatch.on('stmt')
   def compileS(self, stmt):
     '''
@@ -41,28 +46,24 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   @compileS.when(icurry.IVarDecl)
   def compileS(self, vardecl):
     varname = self.compileE(vardecl.lhs)
-    breakpoint()
-    # yield '%s = None' % varname
+    yield 'Variable %s;' % varname
 
   @compileS.when(icurry.IFreeDecl)
   def compileS(self, vardecl):
     varname = self.compileE(vardecl.lhs)
-    breakpoint()
-    # yield '%s = rts.freshvar()' % varname
+    yield 'auto %s = rts->freshvar()' % varname
 
   @compileS.when(icurry.IVarAssign)
   def compileS(self, assign):
     lhs = self.compileE(assign.lhs, primary=True)
     rhs = self.compileE(assign.rhs, primary=True)
-    breakpoint()
-    # yield '%s = %s' % (lhs, rhs)
+    yield '%s = %s' % (lhs, rhs)
 
   @compileS.when(icurry.INodeAssign)
   def compileS(self, assign):
     lhs = self.compileE(assign.lhs)
     rhs = self.compileE(assign.rhs, primary=True)
-    breakpoint()
-    # yield '%s = %s' % (lhs, rhs)
+    yield '%s = %s' % (lhs, rhs)
 
   @compileS.when(icurry.IBlock)
   def compileS(self, block):
@@ -73,64 +74,50 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   @compileS.when(icurry.IExempt)
   def compileS(self, exempt):
     h_failure = self.intern('Prelude._Failure')
-    breakpoint()
-    # yield '_0.rewrite(%s)' % h_failure
+    yield '_0->forward_to(%s);' % h_failure
 
   @compileS.when(icurry.IReturn)
   def compileS(self, ret):
     if isinstance(ret.expr, icurry.IReference):
       h_fwd = self.intern('Prelude._Fwd')
-      breakpoint()
-      # yield '_0.rewrite(%s, %s)' % (
-      #     h_fwd, self.compileE(ret.expr, primary=True)
-      #   )
+      yield '_0.forward_to(%s, %s);' % (
+          h_fwd, self.compileE(ret.expr, primary=True)
+        )
     else:
-      breakpoint()
-      # yield '_0.rewrite(%s)' % self.compileE(ret.expr)
+      yield '_0->forward_to(%s);' % self.compileE(ret.expr)
 
   @compileS.when(icurry.ICaseCons)
   def compileS(self, icase):
     varident = self.compileE(icase.var)
     assert icase.branches
     h_typedef = self.intern(self.casetype(self.interp, icase))
-    breakpoint()
-    # yield '%s.hnf(typedef=%s)' % (varident, h_typedef)
-    # yield 'selector = %s.tag' % varident
-    # el = ''
-    # for branch in icase.branches[:-1]:
-    #   rhs = self.interp.symbol(branch.symbolname).info.tag
-    #   yield '%sif selector == %s:' % (el, rhs), branch.symbolname
-    #   yield list(self.compileS(branch.block))
-    #   el = 'el'
-    # if el:
-    #   yield 'else:', icase.branches[-1].symbolname
-    #   yield list(self.compileS(icase.branches[-1].block))
-    # else:
-    #   for line in self.compileS(icase.branches[-1].block):
-    #     yield line
+    yield 'auto tag = rts->hnf(C, &%s, %s)' % (varident, h_typedef)
+    yield 'switch(tag)'
+    switchbody = []
+    for branch in icase.branches:
+      value = self.interp.symbol(branch.symbolname).tag
+      switchbody.append(('case %s:' % value, branch.symbolname))
+      switchbody.append(list(self.compileS(branch.block)))
+    switchbody.append('default: return tag;')
+    yield switchbody
 
   @compileS.when(icurry.ICaseLit)
   def compileS(self, icase):
     h_sel = self.compileE(icase.var)
-    h_typedef = self.intern(self.casetype(self.interp, icase))
+    # h_typedef = self.intern(self.casetype(self.interp, icase))
+    # value_type = 'ub_int' # FIXME
     values = tuple(branch.lit.value for branch in icase.branches)
     h_values = self.intern(values)
-    breakpoint()
-    # yield '%s.hnf(typedef=%s, values=%s)' % (h_sel, h_typedef, h_values)
-    # yield 'selector = %s.unboxed_value' % h_sel
-    # el = ''
-    # for branch in icase.branches:
-    #   rhs = repr(branch.lit.value)
-    #   yield '%sif selector == %s:' % (el, rhs)
-    #   yield list(self.compileS(branch.block))
-    #   el = 'el'
-    # h_failure = self.intern('Prelude._Failure')
-    # last_line = '_0.rewrite(%s)' % h_failure
-    # if el:
-    #   yield 'else:'
-    #   yield [last_line]
-    # else:
-    #   yield last_line
+    yield 'auto tag = rts->hnf(C, &%s, %s)' % (h_sel, h_values)
+    yield 'if(tag != T_UNBOXED) return tag;'
+    yield 'switch(%s.target->ub_int)' % h_sel
+    switchbody = []
+    for branch in icase.branches:
+      value = repr(branch.lit.value)
+      switchbody.append('case %s:' % value)
+      switchbody.append(list(self.compileS(branch.block)))
+    switchbody.append('default: _0->make_failure();')
+    yield switchbody
 
   @visitation.dispatch.on('expr')
   def compileE(self, expr, primary=False):
@@ -138,18 +125,16 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
     Compile an expression into a string.  For primary expressions, the string
     evaluates to a value (boxed or unboxed).  For non-primary expressions, it
     contains comma-separated arguments that may be passed to the Node constructor
-    or Node.rewrite.
+    or Node->forward_to.
     '''
     assert False
 
   @compileE.when(icurry.IVar)
   def compileE(self, ivar, primary=False):
-    breakpoint()
     return '_%s' % ivar.vid
 
   @compileE.when(icurry.IVarAccess)
   def compileE(self, ivaraccess, primary=False):
-    breakpoint()
     return '%s[%s]' % (
         self.compileE(ivaraccess.var, primary=primary)
       , ','.join(map(str, ivaraccess.path))
@@ -159,15 +144,13 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   def compileE(self, iliteral, primary=False):
     h_lit = self.intern(iliteral.fullname)
     text = '%s, %r' % (h_lit, iliteral.value)
-    breakpoint()
-    return 'rts.Node(%s)' % text if primary else text
+    return 'Node::create(%s)' % text if primary else text
 
   @compileE.when(icurry.IString)
   def compileE(self, istring, primary=False):
     h_str = self.intern(istring)
-    breakpoint()
-    text = 'rts.prelude._PyString, memoryview(%s)' % h_str
-    return 'rts.Node(%s)' % text if primary else text
+    text = '&String_Info, %s' % h_str
+    return 'Node::create(%s)' % text if primary else text
 
   @compileE.when(icurry.IUnboxedLiteral)
   def compileE(self, iunboxed, primary=False):
@@ -182,22 +165,20 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
     subexprs = (self.compileE(x, primary=True) for x in icall.exprs)
     h_info = self.intern(icall.symbolname)
     text = '%s%s' % (h_info, ''.join(', ' + e for e in subexprs))
-    breakpoint()
-    return 'rts.Node(%s)' % text if primary else text
+    return 'Node::create(%s)' % text if primary else text
 
   @compileE.when(icurry.IPartialCall)
   def compileE(self, ipcall, primary=False):
     subexprs = (self.compileE(x, primary=True) for x in ipcall.exprs)
     h_info = self.intern(ipcall.symbolname)
     h_part = self.intern('Prelude._PartApplic')
-    text = '%s, %s, rts.Node(%s%s, partial=True)' % (
+    text = '%s, %s, Node::create(%s%s, partial=True)' % (
         h_part
       , self.compileE(ipcall.missing)
       , h_info
       , ''.join(', ' + e for e in subexprs)
       )
-    breakpoint()
-    return 'rts.Node(%s)' % text if primary else text
+    return 'Node::create(%s)' % text if primary else text
 
   @compileE.when(icurry.IOr)
   def compileE(self, ior, primary=False):
@@ -207,6 +188,5 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
       , self.compileE(ior.lhs, primary=True)
       , self.compileE(ior.rhs, primary=True)
       )
-    breakpoint()
-    return 'rts.Node(%s)' % text if primary else text
+    return 'Node::create(%s)' % text if primary else text
 

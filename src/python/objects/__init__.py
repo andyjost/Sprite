@@ -15,7 +15,7 @@ wrapped in handle.Handle.
 '''
 
 from ..common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from .. import icurry
+from .. import backends, icurry
 import abc, os, six, types, weakref
 
 __all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeInfo']
@@ -145,6 +145,7 @@ class CurryDataType(object):
   def __repr__(self):
     return '<curry type %r>' % self.fullname
 
+backends.DataType.register(CurryDataType)
 
 class CurryNodeInfo(object):
   '''
@@ -211,6 +212,8 @@ class CurryNodeInfo(object):
     if self.info.tag == T_CONSTR:
       return '<curry constraint>'
     return '<invalid curry node>'
+
+backends.NodeInfo.register(CurryNodeInfo)
 
 def create_module_or_package(icur):
   if isinstance(icur, icurry.IPackage):

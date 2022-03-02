@@ -102,14 +102,18 @@ class Renderer(abc.ABC):
 
   @format.when(collections.Iterable, no=(str, tuple))
   def format(self, seq, level=-1):
+    if self.BLOCK_OPEN and level >= 0:
+      yield next(self.format(self.BLOCK_OPEN, level))
     for line in seq:
       for rline in self.format(line, level+1):
         yield rline
+    if self.BLOCK_CLOSE and level >= 0:
+      yield next(self.format(self.BLOCK_CLOSE, level))
 
   @format.when(tuple)
   def format(self, pair, level=-1):
     width = self.hcol - self.indent * level
-    fmt = '%%-%ss # %%s' % width
+    fmt = '%%-%ss %s %%s' % (width, self.COMMENT_STR)
     for line in self.format(fmt % pair, level):
       yield line
 
