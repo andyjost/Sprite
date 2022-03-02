@@ -25,10 +25,10 @@ class IBackend(backends.IBackend):
 
   def lookup_builtin_module(self, modulename):
     if modulename == 'Prelude':
-      from ..generic.currylib import prelude
+      from ..cxx.currylib import prelude
       return prelude.PreludeSpecification
     elif modulename == 'Control.SetFunctions':
-      from ..generic.currylib import setfunctions
+      from ..cxx.currylib import setfunctions
       return prelude.SetFunctionsSpecification
 
   @property

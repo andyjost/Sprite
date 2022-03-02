@@ -3,6 +3,7 @@ from .... import icurry, objects
 from . import ExternallyDefined, ir, render, statics
 from ....utility import encoding, filesys, visitation
 import abc, collections, logging, pprint, sys, textwrap
+from ....exceptions import CompileError
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,12 @@ class FunctionCompiler(abc.ABC):
 
   @compileF.when(icurry.IFunction)
   def compileF(self, ifun):
-    self.compileF(ifun.body)
+    try:
+      self.compileF(ifun.body)
+    except CompileError as e:
+      raise CompileError(
+          'failed to compile function %r: %s' % (ifun.fullname, e)
+        )
 
   @compileF.when(icurry.IExternal)
   def compileF(self, iexternal):
@@ -126,6 +132,10 @@ class FunctionCompiler(abc.ABC):
     else:
       lines = list(lines)
     self.lines.append(lines)
+
+  @compileF.when(icurry.IBuiltin)
+  def compileF(self, ibuiltin):
+    raise CompileError('expected a built-in definition')
 
   @compileF.when(icurry.IStatement)
   def compileF(self, stmt):

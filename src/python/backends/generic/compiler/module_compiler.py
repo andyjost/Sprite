@@ -79,6 +79,7 @@ class ModuleCompiler(abc.ABC):
     functions = [
         self.compileEx(interp, ifun, closure, lines, extern)
             for ifun in six.itervalues(imodule.functions)
+                if not ifun.is_builtin
       ]
     return imodule.copy(functions=functions)
 

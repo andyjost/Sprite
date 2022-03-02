@@ -16,27 +16,24 @@ class Renderer(generic_render.Renderer):
   BLOCK_CLOSE = '}'
 
   def _convertIR2Lines(self, ir):
-    breakpoint()
-    # imodule = ir.icurry
-    # banner = 'Python code for Curry module %r' % imodule.fullname
-    # yield '# ' + '-' * len(banner)
-    # yield '# ' + banner
-    # yield '# ' + '-' * len(banner)
-    # yield ''
-    # curry = config.python_package_name()
-    # yield 'import %s' % curry
-    # yield 'from %s.icurry import \\' % curry
-    # yield '    IModule, IDataType, IConstructor, PUBLIC, PRIVATE'
-    # yield ''
+    imodule = ir.icurry
+    banner = 'C++ code for Curry module %r' % imodule.fullname
+    yield '// ' + '-' * len(banner)
+    yield '// ' + banner
+    yield '// ' + '-' * len(banner)
+    yield ''
+    curry = config.python_package_name()
+    yield '#include "cyrt/cyrt.hpp"'
+    yield 'using namespace cyrt;'
     # yield "if 'interp' not in globals():"
     # yield '  interp = %s.getInterpreter()' % curry
+    yield ''
+    for line in ir.lines:
+      yield line
+    yield ''
     # yield ''
-    # for line in ir.lines:
-    #   yield line
-    # yield ''
-    # yield ''
-    # yield '# Interface'
-    # yield '# ---------'
+    # yield '// Interface'
+    # yield '// ---------'
     # yield '_icurry_ = IModule.fromBOM('
     # yield '    fullname=%r' % imodule.fullname
     # yield '  , filename=%r' % imodule.filename

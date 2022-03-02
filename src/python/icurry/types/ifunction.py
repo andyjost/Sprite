@@ -31,6 +31,10 @@ class IFunction(ISymbol):
   def is_private(self):
     return self.vis == PRIVATE
 
+  @property
+  def is_builtin(self):
+    return isinstance(self.body, IBuiltin)
+
   def __str__(self):
     return '%s:\n%s' % (self.name, indent(self.body))
 
