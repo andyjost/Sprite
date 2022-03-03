@@ -7,7 +7,7 @@ namespace cyrt { inline namespace
   tag_type not_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = variable(_0, 0);
+    Variable _1 = _0[0];
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {

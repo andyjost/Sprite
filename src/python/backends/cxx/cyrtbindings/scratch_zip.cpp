@@ -50,7 +50,7 @@ namespace cyrt { namespace python
   tag_type zip_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = variable(_0, 0);
+    Variable _1 = _0[0];
     auto tag = rts->hnf(C, &_1);
     switch(tag)
     {
@@ -65,17 +65,17 @@ namespace cyrt { namespace python
   tag_type zip_step_CASE0(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _2 = variable(_0, 1);
+    Variable _2 = _0[1];
     auto tag = rts->hnf(C, &_2);
     switch(tag)
     {
       case T_CONS:
       {
-        Variable _1  = variable(_0, 0);
-        Variable _10 = variable(_1.target, 0);
-        Variable _11 = variable(_1.target, 1);
-        Variable _20 = variable(_2.target, 0);
-        Variable _21 = variable(_2.target, 1);
+        Variable _1  = _0[0];
+        Variable _10 = _1[0];
+        Variable _11 = _1[1];
+        Variable _20 = _2[0];
+        Variable _21 = _2[1];
         Node * repl = cons(
             pair(rvalue(_10), rvalue(_20))
           , Node::create(&zip_Info, rvalue(_11), rvalue(_21))

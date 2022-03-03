@@ -42,7 +42,7 @@ namespace cyrt { inline namespace
     while(true)
     {
       stepnumber = rts->stepcount;
-      Variable _1 = variable(_0, i);
+      Variable _1 = _0[i];
       tag = rts->hnf(C, &_1, &Bool_Type);
       switch(tag)
       {
@@ -66,8 +66,8 @@ namespace cyrt { inline namespace
   tag_type constrEq_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable lhs = variable(_0, 0);
-    Variable rhs = variable(_0, 1);
+    Variable lhs = _0[0];
+    Variable rhs = _0[1];
     auto tagl = rts->hnf_or_free(C, &lhs);
     auto tagr = rts->hnf_or_free(C, &rhs);
     auto code = ((tagl == T_UNBOXED) ? 2 : 0) + ((tagr == T_UNBOXED) ? 1 : 0);
@@ -123,8 +123,8 @@ namespace cyrt { inline namespace
   tag_type nonstrictEq_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable lhs = variable(_0, 0);
-    Variable rhs = variable(_0, 1);
+    Variable lhs = _0[0];
+    Variable rhs = _0[1];
     auto tagl = inspect::tag_of(lhs.target);
     auto tagr = inspect::tag_of(rhs.target);
     auto code = ((tagl == T_UNBOXED) ? 2 : 0) + ((tagr == T_UNBOXED) ? 1 : 0);
@@ -183,7 +183,7 @@ namespace cyrt { inline namespace
   tag_type seq_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = variable(_0, 0);
+    Variable _1 = _0[0];
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {

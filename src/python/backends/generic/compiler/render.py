@@ -21,6 +21,14 @@ def render(obj, cls=None, **kwds):
     return renderer.renderLines(obj)
 
 class Renderer(abc.ABC):
+  @abc.abstractmethod
+  def _convertIR2Lines(self, ir):
+    pass
+
+  @abc.abstractmethod
+  def _convertClosure2Lines(self, closure):
+    pass
+
   def __init__(
       self, width=DEFAULT_WIDTH, indent=DEFAULT_INDENT, hcol=DEFAULT_HCOL
     , istart=0, cpred=None, goal=None
@@ -141,14 +149,6 @@ class Renderer(abc.ABC):
       commafill = fprefix % ','
       for v in it:
         yield commafill, v
-
-  @abc.abstractmethod
-  def _convertIR2Lines(self, ir):
-    pass
-
-  @abc.abstractmethod
-  def _convertClosure2Lines(self, closure):
-    pass
 
   @staticmethod
   def _sortkey(item):

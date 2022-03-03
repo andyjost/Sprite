@@ -37,8 +37,8 @@ namespace
     Node * parent = nullptr;
     bool update_fwd_nodes;
 
-    RealPathIndexer(Node *& root, bool update_fwd_nodes)
-      : update_fwd_nodes(update_fwd_nodes)
+    RealPathIndexer(Variable & var, Node *& root, bool update_fwd_nodes)
+      : var(var), update_fwd_nodes(update_fwd_nodes)
     {
       this->var.target = root;
       this->skip();
@@ -90,11 +90,10 @@ namespace
 
 namespace cyrt
 {
-  Variable variable(Node * root, index_type pos, bool update_fwd_nodes)
+  Variable::Variable(Node * root, index_type pos, bool update_fwd_nodes)
   {
-    RealPathIndexer indexer{root, update_fwd_nodes};
+    RealPathIndexer indexer{*this, root, update_fwd_nodes};
     indexer.advance(pos);
-    return std::move(indexer.var);
   }
 
   Cursor subexpr(Node * root, index_type i)

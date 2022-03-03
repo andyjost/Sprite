@@ -24,8 +24,9 @@ class ModuleCompiler(module_compiler.ModuleCompiler):
 
 
 class FunctionCompiler(function_compiler.FunctionCompiler):
-  def function_declaration(self, name):
-    return 'tag_type %s(RuntimeState * rts, Configuration * C)' % name
+  def function_declaration(self):
+    yield '/****** %s ******/' % self.ifun.fullname
+    yield 'tag_type %s(RuntimeState * rts, Configuration * C)' % self.entry
 
   def function_head(self):
     yield 'Cursor _0 = C->cursor();'
@@ -51,19 +52,19 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   @compileS.when(icurry.IFreeDecl)
   def compileS(self, vardecl):
     varname = self.compileE(vardecl.lhs)
-    yield 'auto %s = rts->freshvar()' % varname
+    yield 'auto %s = rts->freshvar();' % varname
 
   @compileS.when(icurry.IVarAssign)
   def compileS(self, assign):
     lhs = self.compileE(assign.lhs, primary=True)
     rhs = self.compileE(assign.rhs, primary=True)
-    yield '%s = %s' % (lhs, rhs)
+    yield '%s = %s;' % (lhs, rhs)
 
   @compileS.when(icurry.INodeAssign)
   def compileS(self, assign):
     lhs = self.compileE(assign.lhs)
     rhs = self.compileE(assign.rhs, primary=True)
-    yield '%s = %s' % (lhs, rhs)
+    yield '%s = %s;' % (lhs, rhs)
 
   @compileS.when(icurry.IBlock)
   def compileS(self, block):
@@ -73,25 +74,21 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
 
   @compileS.when(icurry.IExempt)
   def compileS(self, exempt):
-    h_failure = self.intern('Prelude._Failure')
-    yield '_0->forward_to(%s);' % h_failure
+    yield 'return _0->make_failure();'
 
   @compileS.when(icurry.IReturn)
   def compileS(self, ret):
-    if isinstance(ret.expr, icurry.IReference):
-      h_fwd = self.intern('Prelude._Fwd')
-      yield '_0.forward_to(%s, %s);' % (
-          h_fwd, self.compileE(ret.expr, primary=True)
-        )
-    else:
-      yield '_0->forward_to(%s);' % self.compileE(ret.expr)
+    primary = isinstance(ret.expr, icurry.IReference)
+    expr = self.compileE(ret.expr, primary=primary)
+    yield '_0.forward_to(%s);' % expr
+    yield 'return T_FWD;'
 
   @compileS.when(icurry.ICaseCons)
   def compileS(self, icase):
     varident = self.compileE(icase.var)
     assert icase.branches
     h_typedef = self.intern(self.casetype(self.interp, icase))
-    yield 'auto tag = rts->hnf(C, &%s, %s)' % (varident, h_typedef)
+    yield 'auto tag = rts->hnf(C, &%s, %s);' % (varident, h_typedef)
     yield 'switch(tag)'
     switchbody = []
     for branch in icase.branches:
@@ -108,7 +105,7 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
     # value_type = 'ub_int' # FIXME
     values = tuple(branch.lit.value for branch in icase.branches)
     h_values = self.intern(values)
-    yield 'auto tag = rts->hnf(C, &%s, %s)' % (h_sel, h_values)
+    yield 'auto tag = rts->hnf(C, &%s, %s);' % (h_sel, h_values)
     yield 'if(tag != T_UNBOXED) return tag;'
     yield 'switch(%s.target->ub_int)' % h_sel
     switchbody = []
@@ -149,7 +146,7 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   @compileE.when(icurry.IString)
   def compileE(self, istring, primary=False):
     h_str = self.intern(istring)
-    text = '&String_Info, %s' % h_str
+    text = '&CString_Info, %s' % h_str
     return 'Node::create(%s)' % text if primary else text
 
   @compileE.when(icurry.IUnboxedLiteral)

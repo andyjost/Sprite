@@ -7,6 +7,7 @@
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/graph/show.hpp"
 #include <sstream>
+#include <type_traits>
 
 namespace cyrt
 {
@@ -55,8 +56,16 @@ namespace cyrt
   inline void Node::forward_to(Node * target)
   {
 		assert(target);
+    static_assert(std::is_trivially_destructible<Node>::value, "");
 		new(this) FwdNode{&Fwd_Info, target};
 	}
+
+  template<typename ... Args>
+  void Node::forward_to(InfoTable const * info, Args && ... args)
+  {
+    Node * target = Node::create(info, std::forward<Args>(args)...);
+    this->forward_to(target);
+  }
 
   inline tag_type Node::make_failure()
   {
@@ -139,7 +148,8 @@ namespace cyrt
 
   inline Cursor Node::operator[](index_type i)
   {
-    return variable(this, i).target;
+    Variable v(this, i);
+    return v.target;
   }
 
   inline index_type Node::size() const { return this->info->arity; }

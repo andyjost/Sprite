@@ -15,6 +15,10 @@ class Renderer(generic_render.Renderer):
   BLOCK_OPEN = '{'
   BLOCK_CLOSE = '}'
 
+  def __init__(self, *args, **kwds):
+    kwds['hcol'] = 20
+    super(Renderer, self).__init__(*args, **kwds)
+
   def _convertIR2Lines(self, ir):
     imodule = ir.icurry
     banner = 'C++ code for Curry module %r' % imodule.fullname

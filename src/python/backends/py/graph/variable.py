@@ -150,7 +150,7 @@ class Variable(object):
 
   @property
   def typedef(self):
-    return self.target.info.typedef()
+    return self.target.info.typedef
 
   @property
   def unboxed_value(self):

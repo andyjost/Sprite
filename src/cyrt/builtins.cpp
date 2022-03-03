@@ -1,5 +1,6 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/graph/node.hpp"
+#include <cstring>
 
 namespace cyrt
 {
@@ -196,6 +197,18 @@ namespace cyrt
     , /*type*/       &List_Type
     };
 
+  InfoTable const CString_Info{
+      /*tag*/        T_CSTRING
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(CStringNode)
+    , /*flags*/      F_CSTRING_TYPE | F_STATIC_OBJECT
+    , /*name*/       "_CString"
+    , /*format*/     "x"
+    , /*step*/       nullptr
+    , /*typecheck*/  nullptr
+    , /*type*/       &CString_Type
+    };
+
   InfoTable const Nil_Info{
       /*tag*/        T_NIL
     , /*arity*/      0
@@ -253,6 +266,9 @@ namespace cyrt
   static InfoTable const * Char_Ctors[] = { &Char_Info };
   Type const Char_Type { Char_Ctors, 1, 't', F_STATIC_OBJECT };
 
+  static InfoTable const * CString_Ctors[] = { &CString_Info };
+  Type const CString_Type { CString_Ctors, 1, 't', F_STATIC_OBJECT };
+
   static InfoTable const * Float_Ctors[] = { &Float_Info };
   Type const Float_Type { Float_Ctors, 1, 't', F_STATIC_OBJECT };
 
@@ -262,7 +278,7 @@ namespace cyrt
   static InfoTable const * Int_Ctors[] = { &Int_Info };
   Type const Int_Type { Int_Ctors, 1, 't', F_STATIC_OBJECT };
 
-  static InfoTable const * List_Ctors[] = { &Cons_Info, &Nil_Info };
+  static InfoTable const * List_Ctors[] = { &Nil_Info, &Cons_Info };
   Type const List_Type { List_Ctors, 2, 't', F_STATIC_OBJECT };
 
   static InfoTable const * Pair_Ctors[] = { &Pair_Info };

@@ -1,6 +1,7 @@
 #pragma once
 #include <cassert>
 #include "cyrt/fwd.hpp"
+#include <vector>
 
 namespace cyrt
 {
@@ -56,7 +57,19 @@ namespace cyrt
     void * id() const
         { return kind=='p' ? (void *) this->arg->node : (void *) this->arg; }
     Cursor & skipfwd();
+    Variable operator[](index_type) const;
   };
+
+  struct Variable
+  {
+    mutable Cursor          target;
+    std::vector<index_type> realpath;
+    std::vector<Set *>      guards;
+
+    Variable(Node *, index_type, bool update_fwd_nodes=true); // indexing.cpp
+    Variable operator[](index_type) const;
+  };
+
 
   struct Expr
   {

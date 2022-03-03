@@ -10,7 +10,7 @@ namespace cyrt { inline namespace
   tag_type allValues_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = variable(_0, 0);
+    Variable _1 = _0[0];
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
@@ -64,7 +64,7 @@ namespace cyrt { inline namespace
   tag_type _applyS(RuntimeState * rts, Configuration * C, bool capture)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = variable(_0, 0);
+    Variable _1 = _0[0];
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
@@ -109,7 +109,7 @@ namespace cyrt { inline namespace
   tag_type evalS_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = variable(_0, 0);
+    Variable _1 = _0[0];
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
@@ -148,7 +148,7 @@ namespace cyrt { inline namespace
   tag_type set_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = variable(_0, 0);
+    Variable _1 = _0[0];
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;

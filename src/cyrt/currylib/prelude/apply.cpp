@@ -11,7 +11,7 @@ namespace cyrt { inline namespace
   tag_type cond_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = variable(_0, 0);
+    Variable _1 = _0[0];
     auto tag = rts->hnf(C, &_1, &Bool_Type);
     switch(tag)
     {
@@ -26,7 +26,7 @@ namespace cyrt { inline namespace
   tag_type apply_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = variable(_0, 0);
+    Variable _1 = _0[0];
     auto tag = rts->hnf(C, &_1);
     if(tag != T_CTOR)
       return tag;
@@ -50,12 +50,12 @@ namespace cyrt { inline namespace
     )
   {
     Cursor _0 = C->cursor();
-    Variable _1 = variable(_0, 0);
+    Variable _1 = _0[0];
     auto tag = rts->hnf(C, &_1);
     if(tag != T_CTOR)
       return tag;
     // TODO: catch nondeterminism in IO
-    Variable _2 = variable(_0, 1);
+    Variable _2 = _0[1];
     tag = action(rts, C, &_2);
     if(_2.target->info->tag < T_CTOR)
       return tag;

@@ -1,18 +1,18 @@
 #include <cassert>
-#include <functional>
-#include <iostream>
 #include "cyrt/builtins.hpp"
 #include "cyrt/graph/node.hpp"
 #include "cyrt/graph/show.hpp"
 #include "cyrt/graph/walk.hpp"
 #include "cyrt/inspect.hpp"
+#include <functional>
+#include <iostream>
 #include <unordered_map>
 
 namespace
 {
   using namespace cyrt;
 
-  void show_escaped(std::ostream & os, char value)
+  void show_sq_escaped(std::ostream & os, char value)
   {
     switch(value)
     {
@@ -28,6 +28,24 @@ namespace
       default  : os << value ; break;
     }
   }
+
+  void show_dq_escaped(std::ostream & os, char value)
+  {
+    switch(value)
+    {
+      case '"' : os << '\\' << '"' ; break;
+      case '\\': os << '\\' << '\\'; break;
+      case '\a': os << '\\' << 'a' ; break;
+      case '\b': os << '\\' << 'b' ; break;
+      case '\f': os << '\\' << 'f' ; break;
+      case '\n': os << '\\' << 'n' ; break;
+      case '\r': os << '\\' << 'r' ; break;
+      case '\t': os << '\\' << 't' ; break;
+      case '\v': os << '\\' << 'v' ; break;
+      default  : os << value ; break;
+    }
+  }
+
 
   struct ReprStringifier
   {
@@ -54,7 +72,7 @@ namespace
           case 'i': show(cur.arg->ub_int);   continue;
           case 'f': show(cur.arg->ub_float); continue;
           case 'c': show(cur.arg->ub_char);  continue;
-          case 'x': show(cur.arg->blob);  continue;
+          case 'x': show(cur.arg->blob);     continue;
         }
         void * id = cur.id();
         if(!this->memo.insert(id).second)
@@ -76,7 +94,7 @@ namespace
     void show(unboxed_char_type value)
     {
       this->os << '\'';
-      show_escaped(this->os, value);
+      show_sq_escaped(this->os, value);
       this->os << '\'';
     }
     void show(void const * value) { this->os << value; }
@@ -203,7 +221,7 @@ namespace
           case 'i': show(cur.arg->ub_int);   continue;
           case 'f': show(cur.arg->ub_float); continue;
           case 'c': show(cur.arg->ub_char);  continue;
-          case 'x': show(cur.arg->blob);  continue;
+          case 'x': show(cur.arg->blob);     continue;
         }
 
         auto * info = cur->info;
@@ -236,6 +254,14 @@ namespace
             os << '(';
             walk.extend(Context('('));
             continue;
+          case F_CSTRING_TYPE:
+          {
+            os << '"';
+            char const * p = NodeU{cur}.c_str->data;
+            while(*p) show_dq_escaped(os, *p++);
+            os << '"';
+            continue;
+          }
           default:
             if(!bare && info->arity)
             {
@@ -270,7 +296,7 @@ namespace
     }
 
     void show(unboxed_char_type value)
-      { show_escaped(this->os, value); }
+      { show_sq_escaped(this->os, value); }
 
     void show(void const * value)
       { this->os << value; }

@@ -31,7 +31,11 @@ class InfoTable(object):
 
   @property
   def typedef(self):
-    return self._typedef()
+    return None if self._typedef is None else self._typedef()
+
+  @typedef.setter
+  def typedef(self, value):
+    self._typedef = weakref.ref(value)
 
   @property
   def typetag(self):

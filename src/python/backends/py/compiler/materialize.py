@@ -6,7 +6,7 @@ from ....common import T_CTOR, T_FUNC, F_MONADIC
 from .... import icurry, objects
 from . import render
 from ....utility import encoding, filesys
-import pprint, six, textwrap, weakref
+import pprint, six, textwrap
 from ..graph import InfoTable
 
 __all__ = [
@@ -92,7 +92,7 @@ def materialize_type(interp, itype, moduleobj, extern):
     constructors.append(info_object)
   typedef = objects.CurryDataType(itype, constructors, moduleobj)
   for ctor in constructors:
-    ctor.info.typedef = weakref.ref(typedef)
+    ctor.info.typedef = typedef
   return typedef
 
 # FIXME: several things in the info table now have an interpreter bound.  It

@@ -3,16 +3,19 @@
 #include "cyrt/fwd.hpp"
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/graph/memory.hpp"
+#include <string>
 
 namespace cyrt
 {
   static constexpr unboxed_int_type ENCAPSULATED_EXPR = -1;
 
-  static constexpr tag_type T_CONS  = T_CTOR;
-  static constexpr tag_type T_NIL   = T_CTOR + 1;
+  static constexpr tag_type T_NIL   = T_CTOR;
+  static constexpr tag_type T_CONS  = T_CTOR + 1;
   static constexpr tag_type T_FALSE = T_CTOR;
   static constexpr tag_type T_TRUE  = T_CTOR + 1;
   static constexpr tag_type T_UNIT  = T_CTOR;
+  static constexpr tag_type T_CSTRING        = T_CTOR;
+  static constexpr tag_type T_STATIC_CSTRING = T_CTOR + 1;
 
   extern Node * Fail;
   extern Node * False;
@@ -23,6 +26,7 @@ namespace cyrt
   extern InfoTable const Char_Info;
   extern InfoTable const Choice_Info;
   extern InfoTable const Cons_Info;
+  extern InfoTable const CString_Info;
   extern InfoTable const Fail_Info;
   extern InfoTable const False_Info;
   extern InfoTable const Float_Info;
@@ -42,6 +46,8 @@ namespace cyrt
 
   extern Type const Bool_Type;
   extern Type const Char_Type;
+  extern Type const CString_Type;
+  extern Type const CStaticString_Type;
   extern Type const Float_Type;
   extern Type const IO_Type;
   extern Type const Int_Type;
@@ -140,6 +146,12 @@ namespace cyrt
     bool is_encapsulated() const;
   };
 
+  struct CStringNode : Head
+  {
+    char const * data;
+    static constexpr InfoTable const * static_info = &CString_Info;
+  };
+
   struct ConsNode : Head
   {
     Node * head;
@@ -162,6 +174,7 @@ namespace cyrt
     FreeNode       * free;
     FwdNode        * fwd;
     ChoiceNode     * choice;
+    CStringNode    * c_str;
     IntNode        * int_;
     FloatNode      * float_;
     CharNode       * char_;
@@ -197,4 +210,5 @@ namespace cyrt
   inline Node * unit()                       { return Unit; }
   inline Node * false_()                     { return False; }
   inline Node * true_()                      { return True; }
+  inline Node * cstring(char const * str)    { return make_node<CStringNode>(str); }
 }

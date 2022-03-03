@@ -40,11 +40,11 @@ class FunctionCompiler(abc.ABC):
     self.entry = entry
     self.extern = extern
     #
-    self.lines = [(self.function_declaration(self.entry), ifun.fullname)]
+    self.lines = list(self.function_declaration())
     self.varinfo = None
 
   @abc.abstractmethod
-  def function_declaration(self, name):
+  def function_declaration(self):
     assert False
 
   @abc.abstractmethod

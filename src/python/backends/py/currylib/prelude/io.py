@@ -28,7 +28,7 @@ def catch(rts, func):
     yield func.successors[1]
     idx = getattr(exc, 'CTOR_INDEX', 0)
     yield graph.Node(
-        rts.prelude.IOError.info.typedef().constructors[idx]
+        rts.prelude.IOError.info.typedef.constructors[idx]
       , string.pystring(rts, str(exc))
       )
   else:
@@ -71,8 +71,8 @@ def seqIO(rts, lhs):
 def writeFile(rts, func, mode='w'):
   filename, data = func.successors
   filename = rts.topython(filename)
-  List = rts.prelude.Cons.typedef()
-  Char = rts.prelude.Char.typedef()
+  List = rts.prelude.Cons.typedef
+  Char = rts.prelude.Char.typedef
   with open(filename, 'w') as ostream:
     while True:
       _1 = rts.variable(func, 1)

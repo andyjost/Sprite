@@ -80,6 +80,10 @@ namespace cyrt { namespace python
     Node * c = cons(int_(42), free(0));
     std::cout << c->repr() << std::endl;
     std::cout << c->str() << std::endl;
+
+    Node * hello = cstring("Hello, World!");
+    std::cout << hello->repr() << std::endl;
+    std::cout << hello->str() << std::endl;
   }
 
   void unionfind()

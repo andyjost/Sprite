@@ -26,7 +26,10 @@ namespace cyrt
     static Node * create_flat(InfoTable const *, xid_type & xidfactory);
 
 
-    void forward_to(Node * target);
+    void forward_to(Node *);
+    template<typename ... Args> void forward_to(InfoTable const *, Args && ...);
+
+
     tag_type make_failure();
     tag_type make_nil();
     tag_type make_unit();
