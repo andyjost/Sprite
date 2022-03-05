@@ -1,8 +1,7 @@
-from ...generic.compiler import module_compiler
-from ...generic.compiler import function_compiler
+from ...generic.compiler import module_compiler, ir, function_compiler, render
 from .... import icurry
 from ....utility import visitation
-from . import ir, synthesize
+from . import synthesize
 import collections
 
 __all__ = ['compile']
@@ -11,10 +10,13 @@ def compile(interp, icy, extern=None):
   compileM = ModuleCompiler()
   return compileM.compile(interp, icy, extern)
 
+class IR(ir.IR):
+  CODETYPE = 'Python'
+
 class ModuleCompiler(module_compiler.ModuleCompiler):
   @property
   def IR(self):
-    return ir.IR
+    return IR
 
   @property
   def FunctionCompiler(self):
@@ -25,10 +27,10 @@ class ModuleCompiler(module_compiler.ModuleCompiler):
 
 
 class FunctionCompiler(function_compiler.FunctionCompiler):
-  def function_declaration(self):
+  def make_function_decl(self):
     yield 'def %s(rts, _0):' % self.entry, self.ifun.fullname
 
-  def function_head(self):
+  def make_funcion_prelude(self):
     pass
 
   @visitation.dispatch.on('stmt')

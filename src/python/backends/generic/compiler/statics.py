@@ -1,5 +1,5 @@
 from ....icurry.types import IString
-from .... import backends
+from .... import objects
 from ....utility import encoding, strings, visitation
 import six, sys
 
@@ -87,12 +87,13 @@ class Closure(object):
     else:
       raise TypeError('cannot intern %r' % obj)
 
-  @intern.when(backends.NodeInfo)
+  @intern.when(objects.CurryNodeInfo)
   def intern(self, nodeinfo):
     return self.insert(nodeinfo, prefix=PX_INFO)
 
-  @intern.when(backends.DataType)
+  @intern.when(objects.CurryDataType)
   def intern(self, typedef):
+    # assert isinstance(typedef, objects.CurryDataType)
     return self.insert(typedef, prefix=PX_TYPE)
 
   @intern.when(six.string_types)
@@ -120,3 +121,17 @@ def importable(obj):
   module = sys.modules.get(modulename, None)
   found = getattr(module, name, None)
   return found is not None
+
+def sortkey(item):
+  name, value = item
+  if name.startswith(PX_FUNC):
+    return 1, value.__module__, value.__name__
+  elif name.startswith(PX_INFO):
+    return 2, value.fullname
+  elif name.startswith(PX_TYPE):
+    return 3, value.fullname
+  elif name.startswith(PX_DATA):
+    return 4, name
+  else:
+    return 5, name
+

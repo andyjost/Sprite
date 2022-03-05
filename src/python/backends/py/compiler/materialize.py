@@ -4,7 +4,7 @@ Code for converting the intermediate representation to executable code.
 
 from ....common import T_CTOR, T_FUNC, F_MONADIC
 from .... import icurry, objects
-from . import render
+from ...generic.compiler import render
 from ....utility import encoding, filesys
 import pprint, six, textwrap
 from ..graph import InfoTable
@@ -18,7 +18,7 @@ __all__ = [
 def materialize_function(interp, ir, debug=False, ifun=None):
   '''Materializes a Python function from the IR.'''
   container = {}
-  source = render.render(ir.lines) # Python source code for this function.
+  source = render.PY_RENDERER.renderLines(ir.lines)
   if debug:
     # If debugging, write a source file so that PDB can step into this
     # function.
@@ -66,7 +66,7 @@ def materialize_constructor_info(interp, itype, icons, moduleobj, extern):
     , getattr(metadata, 'py.format', None)
     , _gettypechecker(interp, metadata)
     )
-  return info
+  return objects.CurryNodeInfo(icons, info)
 
 def materialize_function_info_stub(interp, ifun, moduleobj, extern):
   metadata = icurry.metadata.getmd(ifun, extern)
@@ -79,20 +79,20 @@ def materialize_function_info_stub(interp, ifun, moduleobj, extern):
     , getattr(metadata, 'py.format', None)
     , _gettypechecker(interp, metadata)
     )
-  return info
+  return objects.CurryNodeInfo(ifun, info)
 
 def materialize_type(interp, itype, moduleobj, extern):
   '''
   Synthesize the constructors of a type.
   '''
-  constructors = []
+  infos = []
   for icons in itype.constructors:
-    info = materialize_constructor_info(interp, itype, icons, moduleobj, extern)
-    info_object = objects.CurryNodeInfo(icons, info)
-    constructors.append(info_object)
-  typedef = objects.CurryDataType(itype, constructors, moduleobj)
-  for ctor in constructors:
-    ctor.info.typedef = typedef
+    info_object = materialize_constructor_info(interp, itype, icons, moduleobj, extern)
+    infos.append(info_object)
+  typedef = objects.CurryDataType(itype, infos, moduleobj)
+  for node_info in infos:
+    node_info.typedef = typedef
+    node_info.info.typedef = typedef
   return typedef
 
 # FIXME: several things in the info table now have an interpreter bound.  It

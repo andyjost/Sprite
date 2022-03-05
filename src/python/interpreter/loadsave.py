@@ -71,5 +71,5 @@ def save(interp, cymodule, filename=None, goal=None):
       )
   be = interp.backend
   ir = be.compile(interp, h.icurry)
-  return ir.dump(filename, goal=goal)
+  return be.save_module(ir, filename, goal=goal)
 

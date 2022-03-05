@@ -63,8 +63,7 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
 @loadSymbols.when(icurry.IFunction)
 def loadSymbols(interp, ifun, moduleobj, extern=None):
   be = interp.backend
-  info = be.materialize_function_info_stub(interp, ifun, moduleobj, extern)
-  infosym = objects.CurryNodeInfo(ifun, info)
+  infosym = be.materialize_function_info_stub(interp, ifun, moduleobj, extern)
   insertSymbol(moduleobj, ifun.name, infosym, ifun.is_private)
   return infosym
 

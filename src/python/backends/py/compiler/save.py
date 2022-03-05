@@ -1,0 +1,19 @@
+from ...generic.compiler import save, statics
+from .... import config
+
+class PackageCreator(save.PackageCreator):
+  def generate__init__(self):
+    return ModuleInterfaceGenerator(self.ir, self.defaultgoal).render()
+
+
+class ModuleInterfaceGenerator(save.ModuleInterfaceGenerator):
+  def symbolDefs(self):
+    yield '# Symbol Definitions'
+    yield '# ------------------'
+    for line in self.ir.lines:
+      yield line
+
+def save_module(ir, filename, goal=None):
+  creator = PackageCreator(ir, filename, goal)
+  creator.createPackage()
+

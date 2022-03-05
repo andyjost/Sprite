@@ -15,7 +15,7 @@ wrapped in handle.Handle.
 '''
 
 from ..common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
-from .. import backends, icurry
+from .. import icurry
 import abc, os, six, types, weakref
 
 __all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeInfo']
@@ -145,7 +145,6 @@ class CurryDataType(object):
   def __repr__(self):
     return '<curry type %r>' % self.fullname
 
-backends.DataType.register(CurryDataType)
 
 class CurryNodeInfo(object):
   '''
@@ -166,6 +165,7 @@ class CurryNodeInfo(object):
   def __init__(self, icurry, info):
     self.icurry = icurry
     self.info = info
+    self._typedef = None
 
   @property
   def name(self):
@@ -173,7 +173,12 @@ class CurryNodeInfo(object):
 
   @property
   def typedef(self):
-    return self.info.typedef
+    if self._typedef is not None:
+      return self._typedef()
+
+  @typedef.setter
+  def typedef(self, value):
+    self._typedef = weakref.ref(value)
 
   # TODO: add getsource to get the Curry source.  It will require an
   # enhancement to CMC and maybe FlatCurry to generate source range
@@ -213,7 +218,6 @@ class CurryNodeInfo(object):
       return '<curry constraint>'
     return '<invalid curry node>'
 
-backends.NodeInfo.register(CurryNodeInfo)
 
 def create_module_or_package(icur):
   if isinstance(icur, icurry.IPackage):

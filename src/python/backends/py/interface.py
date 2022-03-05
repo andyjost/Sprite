@@ -1,5 +1,6 @@
-from .compiler import compile, ir, materialize, render
+from .compiler import compile, materialize, save
 from .eval import evaluator
+from .graph import Node
 from ... import backends
 import importlib
 
@@ -42,7 +43,6 @@ class IBackend(backends.IBackend):
 
   @property
   def make_node(self):
-    from .graph import Node
     return Node
 
   @property
@@ -58,8 +58,8 @@ class IBackend(backends.IBackend):
     return materialize.materialize_type
 
   @property
-  def render(self):
-    return render.render
+  def save_module(self):
+    return save.save_module
 
   @property
   def single_step(self):

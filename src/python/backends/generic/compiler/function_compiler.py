@@ -1,6 +1,6 @@
 from ....icurry import analysis
 from .... import icurry, objects
-from . import ExternallyDefined, ir, render, statics
+from . import ExternallyDefined, ir, statics
 from ....utility import encoding, filesys, visitation
 import abc, collections, logging, pprint, sys, textwrap
 from ....exceptions import CompileError
@@ -40,31 +40,16 @@ class FunctionCompiler(abc.ABC):
     self.entry = entry
     self.extern = extern
     #
-    self.lines = list(self.function_declaration())
+    self.lines = list(self.make_function_decl())
     self.varinfo = None
 
   @abc.abstractmethod
-  def function_declaration(self):
+  def make_function_decl(self):
     assert False
 
   @abc.abstractmethod
-  def function_head(self):
+  def make_funcion_prelude(self):
     assert False
-
-  def __str__(self):
-    code = render.render(self.lines, istart=1)
-    maxlen = max(map(len, self.closure.data.keys()) or [0])
-    fmt = '  %%-%ds -> %%s' % min(maxlen, 25)
-    lines = []
-    lines += ['Closure:'
-           ,  '--------']
-    # lines += [fmt % item for item in sorted(self.closure.data.items())]
-    cpred = lambda cname: cname in code
-    lines += render.render(self.closure, cpred=cpred).split('\n')
-    lines += ['', 'Code:'
-                , '-----']
-    lines += code.split('\n')
-    return '\n'.join(lines)
 
   def compile(self):
     # ICurry data can be deeply nested.  Adjusting the recursion limit up from
@@ -124,7 +109,7 @@ class FunctionCompiler(abc.ABC):
   @compileF.when(icurry.IBody)
   def compileF(self, function):
     lines = self.compileS(function.block)
-    head = self.function_head()
+    head = self.make_funcion_prelude()
     if head is not None:
       head = list(head)
       head.extend(lines)

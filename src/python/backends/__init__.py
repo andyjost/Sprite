@@ -9,7 +9,7 @@ implement.
 from .. import config
 import abc, importlib, six
 
-__all__ = ['IBackend', 'Node', 'DataType', 'NodeInfo']
+__all__ = ['IBackend', 'Node']
 
 class IBackend(six.with_metaclass(abc.ABCMeta)):
   '''
@@ -89,8 +89,8 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractproperty
-  def render(self, ir):
-    '''Converts the IR to a string.'''
+  def save_module(self):
+    '''Save a Curry module into a Python package.'''
     assert 0
 
   @abc.abstractproperty
@@ -103,8 +103,3 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
 class Node(six.with_metaclass(abc.ABCMeta)):
   pass
 
-class DataType(six.with_metaclass(abc.ABCMeta)):
-  pass
-
-class NodeInfo(six.with_metaclass(abc.ABCMeta)):
-  pass

@@ -1,7 +1,6 @@
-from ...generic.compiler import function_compiler, module_compiler
+from ...generic.compiler import function_compiler, ir, module_compiler
 from .... import icurry
 from ....utility import visitation
-from . import ir
 import collections
 
 __all__ = ['compile']
@@ -10,10 +9,13 @@ def compile(interp, icy, extern=None):
   compileM = ModuleCompiler()
   return compileM.compile(interp, icy, extern)
 
+class IR(ir.IR):
+  CODETYPE = 'C++'
+
 class ModuleCompiler(module_compiler.ModuleCompiler):
   @property
   def IR(self):
-    return ir.IR
+    return IR
 
   @property
   def FunctionCompiler(self):
@@ -24,11 +26,11 @@ class ModuleCompiler(module_compiler.ModuleCompiler):
 
 
 class FunctionCompiler(function_compiler.FunctionCompiler):
-  def function_declaration(self):
+  def make_function_decl(self):
     yield '/****** %s ******/' % self.ifun.fullname
     yield 'tag_type %s(RuntimeState * rts, Configuration * C)' % self.entry
 
-  def function_head(self):
+  def make_funcion_prelude(self):
     yield 'Cursor _0 = C->cursor();'
 
   @visitation.dispatch.on('stmt')
@@ -92,7 +94,7 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
     yield 'switch(tag)'
     switchbody = []
     for branch in icase.branches:
-      value = self.interp.symbol(branch.symbolname).tag
+      value = self.interp.symbol(branch.symbolname).info.tag
       switchbody.append(('case %s:' % value, branch.symbolname))
       switchbody.append(list(self.compileS(branch.block)))
     switchbody.append('default: return tag;')
@@ -101,8 +103,6 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   @compileS.when(icurry.ICaseLit)
   def compileS(self, icase):
     h_sel = self.compileE(icase.var)
-    # h_typedef = self.intern(self.casetype(self.interp, icase))
-    # value_type = 'ub_int' # FIXME
     values = tuple(branch.lit.value for branch in icase.branches)
     h_values = self.intern(values)
     yield 'auto tag = rts->hnf(C, &%s, %s);' % (h_sel, h_values)
