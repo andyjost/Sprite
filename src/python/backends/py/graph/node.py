@@ -8,6 +8,13 @@ class Node(object):
   def __new__(*args, **kwds):
     return new_node(*args, **kwds)
 
+  @staticmethod
+  def create_partial_applic(ti, *args, target=None, partial_info=None):
+    missing =  ti.info.arity - len(args)
+    assert missing > 0
+    partexpr = Node(ti, *args, partial=True)
+    return Node(partial_info, missing, partexpr, target=target)
+
   def __str__(self):
     return show.show(self)
 

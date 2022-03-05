@@ -21,9 +21,9 @@ class LazyFunction(
       ir = be.compile(*self)
       return be.materialize_function(
           self.interp
+        , self.ifun
         , ir
         , debug=self.interp.flags['debug']
-        , ifun=self.ifun
         )
   def __repr__(self):
     return '<not yet compiled>'

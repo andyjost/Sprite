@@ -16,6 +16,24 @@ namespace cyrt
     return target;
   }
 
+  Node * Node::create_partial(InfoTable const * info, Arg const * args, size_t numargs)
+  {
+    unboxed_int_type const missing = int(info->arity) - (int) numargs;
+    assert(missing > 0);
+
+    Node * arglist = nil();
+    for(size_t i=0; i<numargs; ++i)
+      arglist = cons(args[numargs-i-1].node, arglist);
+
+    Node * partial = Node::create(
+        &PartApplic_Info
+      , missing
+      , info
+      , arglist
+      );
+    return partial;
+  }
+
   Node * Node::create_flat(InfoTable const * info, xid_type & xidfactory)
   {
     Node * node = (Node *) node_alloc(info->alloc_size);

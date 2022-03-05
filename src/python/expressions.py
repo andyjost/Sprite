@@ -327,16 +327,10 @@ class ExpressionBuilder(object):
   @__call__.when(objects.CurryNodeInfo)
   def __call__(self, ti, *args):
     missing =  ti.info.arity - len(args)
-    if missing > 0:
-      partial = self._mknode(ti, *map(lambda s: self(s), args), partial=True)
-      return self._mknode(
-          self.prelude._PartApplic, missing, partial
-        , target=self.target
-        )
-    else:
-      return self._mknode(
-          ti, *map(lambda s: self(s), args), target=self.target
-        )
+    partial = self.prelude._PartApplic if missing > 0 else None
+    return self._mknode(
+        ti, *map(lambda s: self(s), args), target=self.target, partial=partial
+      )
 
   @__call__.when(backends.Node)
   def __call__(self, node, *trailing):

@@ -36,8 +36,4 @@ def link(interp, ifun, moduleobj, extern=None):
   lazy = interp.flags['lazycompile'] and \
       ifun.modulename != config.interactive_modname()
   interp.backend.link_function(info, function_spec, lazy=lazy)
-  # if allowed_lazy and
-  #   info.step = lazyf
-  # else:
-  #   info.step = lazyf.materialize()
 

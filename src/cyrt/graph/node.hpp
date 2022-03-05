@@ -1,5 +1,4 @@
 #pragma once
-// #include <initializer_list>
 #include <iosfwd>
 #include "cyrt/fwd.hpp"
 #include "cyrt/graph/cursor.hpp"
@@ -16,6 +15,7 @@ namespace cyrt
     template<typename ... Args> static Node * create(InfoTable const *, Arg, Args && ...);
 
     // Create a partial application.
+    static Node * create_partial(InfoTable const *, Arg const *, size_t numargs);
     template<typename ... Args>
     static Node * create_partial(InfoTable const *, Args && ...);
 

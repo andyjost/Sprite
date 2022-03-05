@@ -21,7 +21,7 @@ class IBackend(backends.IBackend):
     moduleobj._cxx = cyrtbindings.Module.find_or_create(moduleobj.__name__)
 
   def link_function(self, info, function_spec, lazy):
-    cyrtbindings.link_function(info, function_spec.materialize, lazy)
+    cyrtbindings.link_function(info, function_spec, lazy)
 
   def lookup_builtin_module(self, modulename):
     if modulename == 'Prelude':

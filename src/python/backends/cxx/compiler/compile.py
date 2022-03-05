@@ -168,14 +168,12 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   def compileE(self, ipcall, primary=False):
     subexprs = (self.compileE(x, primary=True) for x in ipcall.exprs)
     h_info = self.intern(ipcall.symbolname)
-    h_part = self.intern('Prelude._PartApplic')
-    text = '%s, %s, Node::create(%s%s, partial=True)' % (
-        h_part
-      , self.compileE(ipcall.missing)
-      , h_info
+    text = '%s%s' % (
+        h_info
       , ''.join(', ' + e for e in subexprs)
       )
-    return 'Node::create(%s)' % text if primary else text
+    # 'primary' intentionally ignored.
+    return 'Node::create_partial(%s)' % text
 
   @compileE.when(icurry.IOr)
   def compileE(self, ior, primary=False):

@@ -15,7 +15,7 @@ __all__ = [
   , 'materialize_type'
   ]
 
-def materialize_function(interp, ir, debug=False, ifun=None):
+def materialize_function(interp, ifun, ir, debug=False):
   '''Materializes a Python function from the IR.'''
   container = {}
   source = render.PY_RENDERER.renderLines(ir.lines)

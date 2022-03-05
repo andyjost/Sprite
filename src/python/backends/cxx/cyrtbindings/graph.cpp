@@ -11,12 +11,21 @@ namespace
 {
   using namespace cyrt;
 
-  void link_function(
-      InfoTable const & info, py::object materialize_cb, bool lazy
+  Node * Node_create(
+      InfoTable const * info, std::vector<Arg> const & args
+    , Node * target, bool partial
     )
   {
-    // py::object stepfunction = materialize_cb();
-    // assert(0);
+    Node * node = partial
+        ? Node::create_partial(info, args.data(), args.size())
+        : Node::create(info, args.data());
+    if(target)
+    {
+      target->forward_to(node);
+      return target;
+    }
+    else
+      return node;
   }
 }
 
@@ -25,17 +34,26 @@ namespace cyrt { namespace python
   void register_graph(pybind11::module_ mod)
   {
     py::class_<InfoTable>(mod, "InfoTable")
-      .def_readonly("arity"    , &InfoTable::arity)
-      .def_readonly("flags"    , &InfoTable::flags)
-      .def_readonly("format"   , &InfoTable::format)
-      .def_readonly("name"     , &InfoTable::name)
-      // .def_readonly("step"     , &InfoTable::step)
-      .def_readonly("tag"      , &InfoTable::tag)
-      // .def_readonly("typecheck", &InfoTable::typecheck)
-      .def_readwrite("typedef" , &InfoTable::type)
+      .def_readonly("arity"   , &InfoTable::arity)
+      .def_readonly("flags"   , &InfoTable::flags)
+      .def_readonly("format"  , &InfoTable::format)
+      .def_readonly("name"    , &InfoTable::name)
+      .def_readonly("tag"     , &InfoTable::tag)
+      .def_readwrite("typedef", &InfoTable::type)
       ;
 
-    py::class_<Node>(mod, "Node");
+    py::class_<Arg>(mod, "Arg")
+      .def(py::init<Node *>())
+      .def(py::init<unboxed_int_type>())
+      .def(py::init<unboxed_float_type>())
+      .def(py::init<unboxed_char_type>())
+      ;
+
+    py::class_<Node>(mod, "Node")
+      // TODO attach a refcount.  Wild nodes attached to Python objects need to
+      // be added to the GC roots.
+      .def_static("create", &Node_create, reference)
+      ;
 
     py::class_<Type>(mod, "Type")
       .def_property_readonly(
@@ -44,7 +62,5 @@ namespace cyrt { namespace python
               { return std::vector(self.ctors, self.ctors+self.size); }
         )
       ;
-
-    mod.def("link_function", &link_function);
   }
 }}

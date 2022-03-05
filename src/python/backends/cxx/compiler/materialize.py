@@ -15,12 +15,11 @@ __all__ = [
   , 'materialize_type'
   ]
 
-def materialize_function(interp, ir, debug=False, ifun=None):
+def materialize_function(interp, ifun, ir, debug=False):
   '''Materializes a C++ function from the IR.'''
   breakpoint()
   # container = {}
   # source = render.render(ir.lines)
-  # assert ifun is not None
   # srcdir = filesys.getDebugSourceDir()
   # name = encoding.symbolToFilename(ifun.fullname) + '.cpp'
   # srcfile = filesys.makeNewfile(srcdir, name)
