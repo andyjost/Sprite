@@ -37,7 +37,7 @@ namespace
     Node * parent = nullptr;
     bool update_fwd_nodes;
 
-    RealPathIndexer(Variable & var, Node *& root, bool update_fwd_nodes)
+    RealPathIndexer(Variable & var, Cursor root, bool update_fwd_nodes)
       : var(var), update_fwd_nodes(update_fwd_nodes)
     {
       this->var.target = root;

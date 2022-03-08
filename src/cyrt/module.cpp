@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstring>
 #include "cyrt/builtins.hpp"
+#include "cyrt/currylib/prelude.hpp"
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/module.hpp"
@@ -25,16 +26,113 @@ namespace cyrt
   };
 
   SymbolTable const builtin_prelude_symbols{
-      {"Char" , &Char_Info}
-    , {":"    , &Cons_Info}
-    , {"False", &False_Info}
-    , {"Float", &Float_Info}
-    , {"Int"  , &Int_Info}
-    , {"IO"   , &IO_Info}
-    , {"[]"   , &Nil_Info}
-    , {"(,)"  , &Pair_Info}
-    , {"True" , &True_Info}
-    , {"()"   , &Unit_Info}
+      // Built-in types
+      {"Char"                  , &Char_Info              }
+    , {":"                     , &Cons_Info              }
+    , {"False"                 , &False_Info             }
+    , {"Float"                 , &Float_Info             }
+    , {"Int"                   , &Int_Info               }
+    , {"IO"                    , &IO_Info                }
+    , {"[]"                    , &Nil_Info               }
+    , {"(,)"                   , &Pair_Info              }
+    , {"True"                  , &True_Info              }
+    , {"()"                    , &Unit_Info              }
+      // Built-in functions
+    , {"constrEq"              , &constrEq_Info          }
+    , {"$##"                   , &applygnf_Info          }
+    , {"$!"                    , &applyhnf_Info          }
+    , {"$!!"                   , &applynf_Info           }
+    , {"?"                     , &choice_Info            }
+    , {"&"                     , &concurrentAnd_Info     }
+    , {"=:="                   , &constEq_Info           }
+    , {"=:<="                  , &nonstrictEq_Info       }
+    , {"apply"                 , &apply_Info             }
+    , {"bindIO"                , &bindIO_Info            }
+    , {"catch"                 , &catch_Info             }
+    , {"cond"                  , &cond_Info              }
+    , {"constrEq"              , &constrEq_Info          }
+    , {"divInt"                , &divInt_Info            }
+    , {"ensureNotFree"         , &ensureNotFree_Info     }
+    , {"eqChar"                , &eqChar_Info            }
+    , {"eqFloat"               , &eqFloat_Info           }
+    , {"eqInt"                 , &eqInt_Info             }
+    , {"failed"                , &failed_Info            }
+    , {"getChar"               , &getChar_Info           }
+    , {"ltEqChar"              , &ltEqChar_Info          }
+    , {"ltEqFloat"             , &ltEqFloat_Info         }
+    , {"ltEqInt"               , &ltEqInt_Info           }
+    , {"minusInt"              , &minusInt_Info          }
+    , {"modInt"                , &modInt_Info            }
+    , {"negateFloat"           , &negateFloat_Info       }
+    , {"nonstrictEq"           , &nonstrictEq_Info       }
+    , {"plusInt"               , &plusInt_Info           }
+    , {"prim_acosFloat"        , &acosFloat_Info         }
+    , {"prim_acoshFloat"       , &acoshFloat_Info        }
+    , {"prim_appendFile"       , &appendFile_Info        }
+    , {"prim_asinFloat"        , &asinFloat_Info         }
+    , {"prim_asinhFloat"       , &asinhFloat_Info        }
+    , {"prim_atanFloat"        , &atanFloat_Info         }
+    , {"prim_atanhFloat"       , &atanhFloat_Info        }
+    , {"prim_chr"              , &chr_Info               }
+    , {"prim_constrEq"         , &constrEq_Info          }
+    , {"prim_cosFloat"         , &cosFloat_Info          }
+    , {"prim_coshFloat"        , &coshFloat_Info         }
+    , {"prim_divFloat"         , &divFloat_Info          }
+    , {"prim_error"            , &error_Info             }
+    , {"prim_expFloat"         , &expFloat_Info          }
+    , {"prim_intToFloat"       , &intToFloat_Info        }
+    , {"prim_ioError"          , &ioError_Info           }
+    , {"prim_logFloat"         , &logFloat_Info          }
+    , {"prim_minusFloat"       , &minusFloat_Info        }
+    , {"prim_nonstrictEq"      , &nonstrictEq_Info       }
+    , {"prim_ord"              , &ord_Info               }
+    , {"prim_plusFloat"        , &plusFloat_Info         }
+    , {"prim_putChar"          , &putChar_Info           }
+    , {"prim_readCharLiteral"  , &readCharLiteral_Info   }
+    , {"prim_readFile"         , &readFile_Info          }
+    , {"prim_readFloatLiteral" , &readFloatLiteral_Info  }
+    , {"prim_readNatLiteral"   , &readNatLiteral_Info    }
+    , {"prim_readStringLiteral", &readStringLIteral_Info }
+    , {"prim_roundFloat"       , &roundFloat_Info        }
+    , {"prim_showCharLiteral"  , &showCharLiteral_Info   }
+    , {"prim_showFloatLiteral" , &showFloatLiteral_Info  }
+    , {"prim_showIntLiteral"   , &showIntLiteral_Info    }
+    , {"prim_showStringLiteral", &showStringLiteral_Info }
+    , {"prim_sinFloat"         , &sinFloat_Info          }
+    , {"prim_sinhFloat"        , &sinhFloat_Info         }
+    , {"prim_sqrtFloat"        , &sqrtFloat_Info         }
+    , {"prim_tanFloat"         , &tanFloat_Info          }
+    , {"prim_tanhFloat"        , &tanhFloat_Info         }
+    , {"prim_timesFloat"       , &timesFloat_Info        }
+    , {"prim_truncateFloat"    , &truncateFloat_Info     }
+    , {"prim_writeFile"        , &writeFile_Info         }
+    , {"_PyGenerator"          , &_PyGenerator_Info      }
+    , {"_PyString"             , &_PyString_Info         }
+    , {"quotInt"               , &quotInt_Info           }
+    , {"remInt"                , &remInt_Info            }
+    , {"returnIO"              , &returnIO_Info          }
+    , {"seqIO"                 , &seqIO_Info             }
+    , {"timesInt"              , &timesInt_Info          }
+    // Unused functions.
+    , {"failure"               , &notused_Info           }
+    , {"ifVar"                 , &notused_Info           }
+    , {"letrec"                , &notused_Info           }
+    , {"prim_divInt"           , &notused_Info           }
+    , {"prim_eqChar"           , &notused_Info           }
+    , {"prim_eqFloat"          , &notused_Info           }
+    , {"prim_eqInt"            , &notused_Info           }
+    , {"prim_ltEqChar"         , &notused_Info           }
+    , {"prim_ltEqFloat"        , &notused_Info           }
+    , {"prim_ltEqInt"          , &notused_Info           }
+    , {"prim_minusInt"         , &notused_Info           }
+    , {"prim_modInt"           , &notused_Info           }
+    , {"prim_negateFloat"      , &notused_Info           }
+    , {"prim_plusInt"          , &notused_Info           }
+    , {"prim_quotInt"          , &notused_Info           }
+    , {"prim_readFileContents" , &notused_Info           }
+    , {"prim_remInt"           , &notused_Info           }
+    , {"prim_timesInt"         , &notused_Info           }
+    , {"unifEqLinear"          , &notused_Info           }
     };
 
   TypeTable const builtin_prelude_types{

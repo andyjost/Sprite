@@ -88,7 +88,7 @@ test:
 
 .PHONY: stage
 stage:
-	make install SYMLINK_PYTHON=1
+	make install SYMLINK_INTERFACES=1
 
 .PHONY: unstage
 unstage:

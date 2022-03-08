@@ -3,7 +3,7 @@ from ..exceptions import ModuleLookupError
 
 __all__ = [
     'getModuleName', 'isLegalModulename', 'makeCurryPath', 'prefixes'
-  , 'removeSuffix', 'split', 'validateModulename'
+  , 'removeSuffix', 'validateModulename'
   ]
 
 def getModuleName(name, is_sourcefile):

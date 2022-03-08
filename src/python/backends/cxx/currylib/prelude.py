@@ -1,4 +1,5 @@
 from ...generic.currylib import prelude as generic_prelude
+from .. import cyrtbindings as impl
 
 PreludeSpecification = generic_prelude.PreludeSpecification
 
@@ -63,7 +64,7 @@ PreludeSpecification = generic_prelude.PreludeSpecification
 #     , 'prim_readCharLiteral'  : {'cxx.builtin': impl.readCharLiteral    }
 #     , 'prim_readFile'         : {'cxx.builtin': impl.readFile           }
 #     , 'prim_readFloatLiteral' : {'cxx.builtin': impl.readFloatLiteral   }
-#     , 'prim_readNatLiteral'   : {'cxx.builtin': impl.readNatLiteral     }
+#     ,  'prim_readNatLiteral'  : {'cxx.builtin': impl.readNatLiteral     }
 #     , 'prim_readStringLiteral': {'cxx.builtin': impl.readStringLiteral  }
 #     , 'prim_roundFloat'       : {'cxx.builtin': impl.prim_roundFloat    }
 #     , 'prim_showCharLiteral'  : {'cxx.builtin': impl.showCharLiteral    }
@@ -110,4 +111,4 @@ PreludeSpecification = generic_prelude.PreludeSpecification
 # for f in generic_prelude.FUNCTIONS:
 #   if f.name in METADATA:
 #     f.update_metadata(METADATA[f.name])
-#
+

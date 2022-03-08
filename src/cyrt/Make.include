@@ -9,6 +9,9 @@ SHLIB := libcyrt
 RELATIVE_INSTALL_DIR := lib
 LIB := cyrt/libcyrt
 
+HEADER_INSTALL_DIR = $(PREFIX)/include/cyrt/$(shell realpath --relative-to $(ROOT_DIR)/src/cyrt $(shell pwd))
+EXPORTED_HEADERS := $(wildcard *.h??)
+
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
 

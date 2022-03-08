@@ -78,7 +78,7 @@ case `basename $0` in
         }
     fi
     if [ -L $SPRITE_HOME/lib/python2.7/curry/__init__.py ]; then
-      # It looks like the SYMLINK_PYTHON install option was used so report on
+      # It looks like the SYMLINK_INTERFACES install option was used so report on
       # the source dir.
       SRC=../src/python
     else

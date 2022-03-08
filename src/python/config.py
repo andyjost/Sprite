@@ -73,7 +73,7 @@ class _Variable(object):
 
   def __call__(self):
     if self.value is None:
-      filename = os.path.join(os.environ['SPRITE_HOME'], 'sysconfig', self.name)
+      filename = installed_path('sysconfig', self.name)
       assert os.path.exists(filename)
       with open(filename) as istream:
         self.value = self.convert(istream.read().strip('\n'))
@@ -120,9 +120,6 @@ enable_parsed_json_cache  = _Variable('enable_parsed_json_cache', type=bool)
 intermediate_subdir       = _Variable('intermediate_subdir')
 # The name of the top-level Python package.  By default, 'curry'.
 python_package_name       = _Variable('python_package_name')
-# The path to system Curry files, such as the Prelude.  This is appended to
-# whatever the user might supply via the CURRYPATH environment variable.
-system_curry_path         = _Variable('system_curry_path')
 # The version of the Curry library.  Corresponds with a PAKCS version, since
 # that is where the Prelude is taken from.
 currylib_version          = _Variable('currylib_version')
@@ -136,6 +133,14 @@ def syslibs():
 
 def syslibversion():
   return tuple(int(x) for x in currylib_version().split('.'))
+
+def prefix():
+  return os.environ['SPRITE_HOME']
+
+# The path to system Curry files, such as the Prelude.  This is appended to
+# whatever the user might supply via the CURRYPATH environment variable.
+def system_curry_path():
+  return os.path.join(prefix(), 'curry')
 
 def currypath(reset=False, cache=[]):
   '''
@@ -183,31 +188,43 @@ def verify_syslibs():
     logger.critical('Set SPRITE_DISABLE_SYSLIB_CHECKS to ignore')
     sys.exit(1)
 
+def installed_path(*relpath):
+  return os.path.join(prefix(), *relpath)
+
 # External tools.
+def cxx_compiler(cached=[]):
+  '''The C++ compiler used with the cxx backend.'''
+  return os.environ.get('CXX', 'g++')
+
+def cxx_flags(cached=[]):
+  '''The C++ compiler flags used with the cxx backend.'''
+  default = '-shared -fPIC -std=c++17 -O3'
+  return os.environ.get('CXXFLAGS', os.environ.get('CFLAGS', default))
+
 def jq_tool(cached=[]):
   '''The jq tool, if it can be found.  Otherwise, None.'''
   if not cached:
-    jq = os.path.join(os.environ['SPRITE_HOME'], 'tools', 'jq')
+    jq = installed_path('tools', 'jq')
     cached.append(jq if os.path.exists(jq) else None)
   return cached[0]
 
 def icurry_tool(cached=[]):
   if not cached:
-    path = os.path.join(os.environ['SPRITE_HOME'], 'tools', 'icurry')
+    path = installed_path('tools', 'icurry')
     path = os.path.abspath(path)
     cached.append(path)
   return cached[0]
 
 def icurry2jsontext_tool(cached=[]):
   if not cached:
-    path = os.path.join(os.environ['SPRITE_HOME'], 'tools', 'icurry2jsontext')
+    path = installed_path('tools', 'icurry2jsontext')
     path = os.path.abspath(path)
     cached.append(path)
   return cached[0]
 
 def python_exe(cached=[]):
   if not cached:
-    path = os.path.join(os.environ['SPRITE_HOME'], 'bin', 'python')
+    path = installed_path('bin', 'python')
     path = os.path.abspath(path)
     cached.append(path)
   return cached[0]

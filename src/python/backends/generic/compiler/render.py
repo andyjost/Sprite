@@ -55,12 +55,14 @@ class SourceRenderer(object):
   @format.when(collections.Iterable, no=(str, tuple))
   def format(self, seq, level=-1):
     if self.BLOCK_OPEN and level >= 0:
-      yield self.blockdelim(level-1, self.BLOCK_OPEN)
+      for line in self.format(self.BLOCK_OPEN, level):
+        yield line
     for line in seq:
       for rline in self.format(line, level+1):
         yield rline
     if self.BLOCK_CLOSE and level >= 0:
-      yield self.blockdelim(level-1, self.BLOCK_CLOSE)
+      for line in self.format(self.BLOCK_CLOSE, level):
+        yield line
 
   @format.when(tuple)
   def format(self, pair, level=-1):
@@ -68,10 +70,6 @@ class SourceRenderer(object):
     fmt = '%%-%ss %s %%s' % (width, self.COMMENT_STR)
     for line in self.format(fmt % pair, level):
       yield line
-
-  def blockdelim(self, level, string):
-    '''Prints a block-opening or closing string at the specified intentation level.'''
-    return (2 * level + 1) * self.INDENT * ' ' + string
 
   def _addPrefix(self, lines):
     prefix = ' ' * (self.INDENT * self.istart)
@@ -100,6 +98,14 @@ class SourceRenderer(object):
       commafill = fprefix % ','
       for v in it:
         yield commafill, v
+
+class ShSourceRenderer(SourceRenderer):
+  BLOCK_CLOSE = None
+  BLOCK_OPEN  = None
+  COMMENT_STR = '#'
+  SOURCE_NAME = 'sh'
+
+SH_RENDERER = ShSourceRenderer()
 
 class PySourceRenderer(SourceRenderer):
   BLOCK_CLOSE = None

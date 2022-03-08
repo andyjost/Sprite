@@ -12,7 +12,7 @@ namespace cyrt
     unboxed_float_type ub_float;
     unboxed_char_type  ub_char;
     xid_type           cid;
-    void *             blob;
+    void const *       blob;
     Head *             head;
     InfoTable const *  xinfo;
 
@@ -28,9 +28,10 @@ namespace cyrt
     Arg(unsigned char value)     : ub_char(value)  {}
     Arg(InfoTable const * value) : xinfo(value)    {}
     template<typename T>
-    Arg(T * value)               : blob(value)     {}
+    Arg(T const * value)         : blob(value)     {}
     Arg(std::nullptr_t)          : blob(nullptr)   {}
     Arg(Cursor const &);
+    Arg(Variable const &);
 
     template<typename T> Arg & operator=(T &&);
   };
@@ -66,8 +67,11 @@ namespace cyrt
     std::vector<index_type> realpath;
     std::vector<Set *>      guards;
 
+    Variable() {}
     Variable(Node *, index_type, bool update_fwd_nodes=true); // indexing.cpp
     Variable operator[](index_type) const;
+
+    operator Node *&() const { return target; }
   };
 
 

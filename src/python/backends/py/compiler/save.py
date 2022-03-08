@@ -2,8 +2,9 @@ from ...generic.compiler import save, statics
 from .... import config
 
 class PackageCreator(save.PackageCreator):
+  @property
   def generate__init__(self):
-    return ModuleInterfaceGenerator(self.ir, self.defaultgoal).render()
+    return ModuleInterfaceGenerator(self.ir, self.defaultgoal)
 
 
 class ModuleInterfaceGenerator(save.ModuleInterfaceGenerator):

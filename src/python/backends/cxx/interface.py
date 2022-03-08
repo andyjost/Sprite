@@ -29,7 +29,7 @@ class IBackend(backends.IBackend):
       return prelude.PreludeSpecification
     elif modulename == 'Control.SetFunctions':
       from ..cxx.currylib import setfunctions
-      return prelude.SetFunctionsSpecification
+      return setfunctions.SetFunctionsSpecification
 
   @property
   def make_node(self):

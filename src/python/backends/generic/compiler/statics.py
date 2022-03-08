@@ -24,6 +24,25 @@ class Closure(object):
     from .. import render
     return '\n'.join(render.render(self))
 
+  def triples(self):
+    # Generates [(identifier, category, object)].
+    for k,v in self.data.items():
+      if isinstance(k, tuple):
+        yield v, k[0], k[1]
+
+  def find(self, obj):
+    for item in self.triples():
+      if obj in item:
+        return item
+
+  def nodeinfo(self, symbol):
+    return self.data[PX_INFO, symbol]
+
+  def typedefs(self):
+    for name, cat, obj in self.triples():
+      if cat == PX_TYPE:
+        yield name, obj
+
   @property
   def dict(self):
     # Prepares a dictionary containing the name-object pairs of this closure.

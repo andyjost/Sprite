@@ -60,7 +60,12 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   def compileS(self, assign):
     lhs = self.compileE(assign.lhs, primary=True)
     rhs = self.compileE(assign.rhs, primary=True)
-    yield '%s = %s;' % (lhs, rhs)
+    if isinstance(assign.rhs, icurry.ICall):
+      tmpname = 'tmp%s' % lhs
+      yield 'Node * %s = %s;' % (tmpname, rhs)
+      yield '%s.target = %s;' % (lhs, tmpname)
+    else:
+      yield '%s = %s;' % (lhs, rhs)
 
   @compileS.when(icurry.INodeAssign)
   def compileS(self, assign):
@@ -82,7 +87,7 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   def compileS(self, ret):
     primary = isinstance(ret.expr, icurry.IReference)
     expr = self.compileE(ret.expr, primary=primary)
-    yield '_0.forward_to(%s);' % expr
+    yield '_0->forward_to(%s);' % expr
     yield 'return T_FWD;'
 
   @compileS.when(icurry.ICaseCons)
@@ -90,7 +95,7 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
     varident = self.compileE(icase.var)
     assert icase.branches
     h_typedef = self.intern(self.casetype(self.interp, icase))
-    yield 'auto tag = rts->hnf(C, &%s, %s);' % (varident, h_typedef)
+    yield 'auto tag = rts->hnf(C, &%s, &%s);' % (varident, h_typedef)
     yield 'switch(tag)'
     switchbody = []
     for branch in icase.branches:
@@ -105,15 +110,15 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
     h_sel = self.compileE(icase.var)
     values = tuple(branch.lit.value for branch in icase.branches)
     h_values = self.intern(values)
-    yield 'auto tag = rts->hnf(C, &%s, %s);' % (h_sel, h_values)
+    yield 'auto tag = rts->hnf(C, &%s, &%s);' % (h_sel, h_values)
     yield 'if(tag != T_UNBOXED) return tag;'
-    yield 'switch(%s.target->ub_int)' % h_sel
+    yield 'switch(%s.target.arg->ub_int)' % h_sel
     switchbody = []
     for branch in icase.branches:
       value = repr(branch.lit.value)
       switchbody.append('case %s:' % value)
       switchbody.append(list(self.compileS(branch.block)))
-    switchbody.append('default: _0->make_failure();')
+    switchbody.append('default: return _0->make_failure();')
     yield switchbody
 
   @visitation.dispatch.on('expr')
@@ -140,13 +145,13 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   @compileE.when(icurry.ILiteral)
   def compileE(self, iliteral, primary=False):
     h_lit = self.intern(iliteral.fullname)
-    text = '%s, %r' % (h_lit, iliteral.value)
+    text = '&%s, Arg(%r)' % (h_lit, iliteral.value)
     return 'Node::create(%s)' % text if primary else text
 
   @compileE.when(icurry.IString)
   def compileE(self, istring, primary=False):
     h_str = self.intern(istring)
-    text = '&CString_Info, %s' % h_str
+    text = '&CString_Info, Arg(%s)' % h_str
     return 'Node::create(%s)' % text if primary else text
 
   @compileE.when(icurry.IUnboxedLiteral)
@@ -161,14 +166,14 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   def compileE(self, icall, primary=False):
     subexprs = (self.compileE(x, primary=True) for x in icall.exprs)
     h_info = self.intern(icall.symbolname)
-    text = '%s%s' % (h_info, ''.join(', ' + e for e in subexprs))
+    text = '&%s%s' % (h_info, ''.join(', ' + e for e in subexprs))
     return 'Node::create(%s)' % text if primary else text
 
   @compileE.when(icurry.IPartialCall)
   def compileE(self, ipcall, primary=False):
     subexprs = (self.compileE(x, primary=True) for x in ipcall.exprs)
     h_info = self.intern(ipcall.symbolname)
-    text = '%s%s' % (
+    text = '&%s%s' % (
         h_info
       , ''.join(', ' + e for e in subexprs)
       )
@@ -178,7 +183,7 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   @compileE.when(icurry.IOr)
   def compileE(self, ior, primary=False):
     h_info = self.intern('Prelude.?')
-    text = "%s, %s, %s" % (
+    text = "&%s, %s, %s" % (
         h_info
       , self.compileE(ior.lhs, primary=True)
       , self.compileE(ior.rhs, primary=True)

@@ -63,10 +63,11 @@ require that each test file imports 'cytest' before loading anything from the
 These variables control the build process.  You specify them on the make
 command line.
 
-    - SYMLINK_PYTHON
+    - SYMLINK_INTERFACES
 
-        Defining this causes Python files to be installed as symbolic links
-        back to the source area.  This way, one can edit Python files and then
-        run tests without re-installing.  Modifying non-Python files or adding
-        new files necessitates a call to 'make install'.
+				Defining this causes Python files and exported C++ headers to be
+				installed as symbolic links back to the source area.  This way, one can
+				run tests following an edit to these files without re-installing.
+				Modifying other files or adding new files necessitates a call to 'make
+				stage'.
 

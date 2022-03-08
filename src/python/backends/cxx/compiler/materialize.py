@@ -3,6 +3,7 @@ Code for converting the intermediate representation to executable code.
 '''
 
 from ....common import T_FUNC, F_MONADIC
+from ....exceptions import CompileError
 from .. import cyrtbindings as cyrt
 from .... import icurry, objects
 from . import save
@@ -17,31 +18,7 @@ __all__ = [
 
 def materialize_function(interp, ifun, ir, debug=False):
   '''Materializes a C++ function from the IR.'''
-  breakpoint()
-  # container = {}
-  # source = render.render(ir.lines)
-  # srcdir = filesys.getDebugSourceDir()
-  # name = encoding.symbolToFilename(ifun.fullname) + '.cpp'
-  # srcfile = filesys.makeNewfile(srcdir, name)
-  # with open(srcfile, 'w') as out:
-  #   out.write(source)
-  #   out.write('\n\n\n')
-  #   comment = (
-  #       'This file was created by Sprite because %s was compiled in cxx '
-  #       'mode.'
-  #     ) % ifun.name
-  #   out.write('\n'.join('// ' + line for line in textwrap.wrap(comment)))
-  #   out.write('\n\n// Globals:\n// --------\n')
-  #   closures = pprint.pformat(ir.closure.dict, indent=2)
-  #   out.write('\n'.join('// ' + line for line in closures.split('\n')))
-  #   out.write('\n\n// ICurry:\n// -------\n')
-  #   out.write('\n'.join('// ' + line for line in str(ifun).split('\n')))
-  # # co = compile(source, srcfile, 'exec')
-  # # six.exec_(co, ir.closure.dict, container)
-  # # entry = list(container.values()).pop()
-  # source = None # FIXME
-  # entry.source = source
-  # return entry
+  raise CompileError('JIT compilation is not supported by the %r backend' % 'cxx')
 
 def materialize_type(interp, itype, moduleobj, extern):
   M = moduleobj._cxx
@@ -67,7 +44,7 @@ def materialize_type(interp, itype, moduleobj, extern):
 def materialize_function_info_stub(interp, ifun, moduleobj, extern):
   M = moduleobj._cxx
   if M.is_builtin_function(ifun.name):
-    info = M.get_function(ifun.name)
+    info = M.get_infotable(ifun.name)
   else:
     metadata = icurry.metadata.getmd(ifun, extern)
     info = M.create_infotable(

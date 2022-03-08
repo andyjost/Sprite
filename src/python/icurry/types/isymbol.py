@@ -36,8 +36,21 @@ class ISymbol(IObject):
 
   @property
   def packagename(self):
-    return self.modulename.rpartition('.')[0]
+    return self.fullname.rpartition('.')[0]
 
+  def splitname(self):
+    '''
+    Returns the components of the symbol path as a list.  For example,
+    'Control.SetFunctions.evalS' returns ['Control', 'SetFunctions', 'evalS'].
+    '''
+    def gen():
+      pkgname, _, modname = self.fullname.rpartition('.')
+      for part in pkgname.split('.'):
+        if part:
+          yield part
+      yield modname
+    return list(gen())
+    
 
 class IContainer(ISymbol):
   '''Specialization of ISymbol for packages and modules.'''

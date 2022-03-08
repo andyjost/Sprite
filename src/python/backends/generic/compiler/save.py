@@ -40,11 +40,15 @@ class PackageCreator(abc.ABC):
 
   def createFile(self, filename, generator=None):
     generator = self.getGenerator(filename) if generator is None else generator
-    text = generator()
+    text = generator.render()
     with open(filename, 'w') as stream:
       stream.write(text)
+    if hasattr(generator, 'PERMISSIONS'):
+      os.chmod(filename, generator.PERMISSIONS)
 
   def getGenerator(self, filename):
+    # The generator must provide a render() method.  Optionally, it may supply
+    # PERMISSIONS.
     base = os.path.basename(filename)
     stem = os.path.splitext(base)[0]
     generator_name = 'generate%s' % stem
@@ -117,9 +121,12 @@ class ModuleInterfaceGenerator(abc.ABC, FileGenerator):
   def symbolDefs(self):
     pass
 
+
   def moduleDef(self):
     imodule = self.imodule
     py = render.PY_RENDERER
+    def _close(level, string):
+      return (2 * level + 1) * py.INDENT * ' ' + string
     yield '# Interface'
     yield '# ---------'
     yield '_icurry_ = IModule.fromBOM('
@@ -134,8 +141,8 @@ class ModuleInterfaceGenerator(abc.ABC, FileGenerator):
         yield '%sIDataType(%r, [' % (prefix, itype.fullname)
         for prefix, ictor in py.prettylist(itype.constructors, level=2):
           yield '%s%r' % (prefix, ictor)
-        yield py.blockdelim(2, '])')
-      yield py.blockdelim(1, ']')
+        yield _close(2, '])')
+      yield _close(1, ']')
     if not imodule.functions:
       yield '  , functions=[]'
     else:
@@ -155,8 +162,8 @@ class ModuleInterfaceGenerator(abc.ABC, FileGenerator):
             prefix, ifun.fullname, ifun.arity, ifun.vis, ifun.needed
           , ifun.body.linkname
           )
-      yield py.blockdelim(1, ']')
-      yield py.blockdelim(0, ')')
+      yield _close(1, ']')
+      yield _close(0, ')')
 
   def moduleImport(self):
     yield '_module_ = interp.import_(_icurry_)'

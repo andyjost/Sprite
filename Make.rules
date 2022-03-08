@@ -92,6 +92,30 @@ ifdef SHLIB
   endif
 endif
 
+# Submodules may set EXPORTED_HEADERS to export header files.
+ifdef EXPORTED_HEADERS
+  ifdef HEADER_INSTALL_DIR
+    HEADERS_INSTALL = $(addprefix $(HEADER_INSTALL_DIR)/, $(EXPORTED_HEADERS))
+    DIRS_TO_UNINSTALL += $(dir $(HEADERS_INSTALL))
+    FILES_TO_UNINSTALL += $(HEADERS_INSTALL)
+    install:: $(HEADERS_INSTALL)
+    $(HEADER_INSTALL_DIR)/%.hpp : %.hpp
+			@mkdir -p $(dir $@)
+      ifdef SYMLINK_INTERFACES
+			  ln -sf $(abspath $<) $@
+      else
+			  cp $< $@
+      endif
+    $(HEADER_INSTALL_DIR)/%.hxx : %.hxx
+			@mkdir -p $(dir $@)
+      ifdef SYMLINK_INTERFACES
+			  ln -sf $(abspath $<) $@
+      else
+			  cp $< $@
+      endif
+  endif
+endif
+
 # Submodules may override LINKS.
 #
 # The following evaluates the .link file contents as a make expression to
@@ -180,7 +204,7 @@ ifdef PYTHONFILES
     install:: $(PYTHONFILES_INSTALL)
     $(INSTALL_DIR)/%.py : %.py
 			@mkdir -p $(dir $@)
-      ifdef SYMLINK_PYTHON
+      ifdef SYMLINK_INTERFACES
 				ln -sf $(abspath $<) $@
       else
 				cp $< $@

@@ -15,6 +15,8 @@ namespace cyrt
 
   inline Arg::Arg(Cursor const & value) : Arg(*value) {}
 
+  inline Arg::Arg(Variable const & value) : Arg(value.target) {}
+
   inline Variable Variable::operator[](index_type pos) const
     { return Variable(this->target, pos); }
 

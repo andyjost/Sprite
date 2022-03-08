@@ -102,7 +102,8 @@ class FunctionCompiler(abc.ABC):
       msg = 'external function %r is not defined' % fname
       logger.warn(msg)
       stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))
-      self.compileF( stmt)
+      body = icurry.IBody(stmt)
+      self.compileF(body)
     else:
       raise ExternallyDefined(ifun)
 
