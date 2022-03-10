@@ -4,6 +4,14 @@ from .compiler import compile, materialize, save
 
 class IBackend(backends.IBackend):
   @property
+  def backend_name(self):
+    return 'cxx'
+
+  @property
+  def target_suffix(self):
+    return '.cpp'
+
+  @property
   def compile(self):
     return compile.compile
 

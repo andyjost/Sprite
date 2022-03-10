@@ -34,6 +34,16 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     return cls._instances[backend]
 
   @abc.abstractproperty
+  def backend_name(self):
+    '''E.g., 'py' or 'cxx'.'''
+    assert 0
+
+  @abc.abstractproperty
+  def target_suffix(self):
+    '''The suffix for target files, e.g., '.py' or '.cpp'.'''
+    assert 0
+
+  @abc.abstractproperty
   def compile(self):
     '''Converts ICurry to an instance of IR.'''
     assert 0

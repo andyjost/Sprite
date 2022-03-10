@@ -1,9 +1,10 @@
 '''Code for determining related filenames.'''
 
+from ..backends import IBackend
 from .. import config
 import logging, os
 
-__all__ = ['curryfilename', 'icurryfilename', 'jsonfilenames', 'pyfilename']
+__all__ = ['curryfilename', 'icurryfilename', 'jsonfilenames', 'tgtfilename']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
 
@@ -59,8 +60,10 @@ def jsonfilenames(filename, suffixes=None):
               any(name.endswith(suffix) for suffix in suffixes)
     )
 
-def pyfilename(filename):
-  '''Gets the Python file name associated with a Curry, ICY, or JSON file.'''
+def tgtfilename(filename, backend_name=None):
+  '''Gets the Target file name associated with a Curry, ICY, or JSON file.'''
   icy = icurryfilename(filename)
   assert icy.endswith('.icy')
-  return icy[:-4] + '.py'
+  suffix = '' if backend_name is None else \
+      IBackend(backend=backend_name).target_suffix
+  return icy[:-4] + suffix

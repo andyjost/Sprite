@@ -8,6 +8,14 @@ __all__ = ['IBackend']
 
 class IBackend(backends.IBackend):
   @property
+  def backend_name(self):
+    return 'py'
+
+  @property
+  def target_suffix(self):
+    return '.py'
+
+  @property
   def compile(self):
     return compile.compile
 

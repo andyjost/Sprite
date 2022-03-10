@@ -1,5 +1,6 @@
 import collections, itertools
-from . import _curry2icurry, _icurry2json, _json2py
+from . import _curry2icurry, _icurry2json, _json2tgt
+from ..backends import IBackend
 
 Stage = collections.namedtuple('Stage', ['suffixes', 'step'])
 
@@ -11,24 +12,31 @@ class Plan(object):
   implement them.
   '''
   def __init__(self, kwds={}):
-    self.do_py = kwds.pop('py', False)
-    self.do_json = kwds.pop('json', True) or self.do_py
+    self.backend_name = kwds.pop('backend_name', None)
+    self.suffix = '' if self.backend_name is None else \
+        IBackend(self.backend_name).target_suffix
+    self.do_tgt = bool(self.backend_name)
+    self.do_json = kwds.pop('json', True) or self.do_tgt
     self.do_icy = kwds.pop('icy', True) or self.do_json
-    self.enabled = [self.do_icy, self.do_json, self.do_py]
+    self.enabled = [self.do_icy, self.do_json, self.do_tgt]
     do_zip = kwds.get('zip', True)
-    self.stages = list(self.get_stages(do_zip))
+    self.stages = list(self._getstages(do_zip))
     assert len(self.enabled) == len(self.stages) - 1
     self.n_steps = sum(1 for _ in itertools.takewhile(lambda a:a, self.enabled))
 
-  @staticmethod
-  def get_stages(zip_json):
+  def _getstages(self, zip_json):
     yield Stage(['.curry']   , _curry2icurry.curry2icurry)
     yield Stage(['.icy']     , _icurry2json.icurry2json)
+
+    json2tgt_func = lambda *args, **kwds: \
+      _json2tgt.json2tgt(self.backend_name, *args, **kwds)
+
     if zip_json:
-      yield Stage(['.json.z'], _json2py.json2py)
+      yield Stage(['.json.z'], json2tgt_func)
     else:
-      yield Stage(['.json']  , _json2py.json2py)
-    yield Stage(['.py']      , None)
+      yield Stage(['.json']  , json2tgt_func)
+
+    yield Stage([self.suffix], None)
 
   @property
   def suffixes(self):

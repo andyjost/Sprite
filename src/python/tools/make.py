@@ -95,6 +95,7 @@ def main(program_name, argv):
     )
   # E.g., sprite-make --icurry Prelude --json Nat
   parser.add_argument('-c', '--compact', action='store_true', help='compact JSON output')
+  parser.add_argument(      '--cxx'    , action='store_true', help='make C++ files')
   parser.add_argument('-g', '--goal'   , default=None, help='specifies the goal in --python mode')
   parser.add_argument('-i', '--icy'    , action='store_true', help='make ICY files')
   parser.add_argument('-j', '--json'   , action='store_true', help='make JSON files')
@@ -113,6 +114,7 @@ def main(program_name, argv):
   parser.add_argument('--no-header'  , action='store_true', help=argparse.SUPPRESS)
   parser.add_argument('--with-rst'   , action='store_true', help=argparse.SUPPRESS)
   args = parser.parse_args(argv)
+
 
   if args.man:
     mantext = StringIO()
@@ -134,21 +136,32 @@ def main(program_name, argv):
   if len(args.names) > 1 and args.output:
     sys.stderr.write(program_name + ': -o,--output cannot be used with multiple input files.\n')
     sys.exit(1)
-  if not any([args.icy, args.json, args.py]):
+  if not any([args.icy, args.json, args.py, args.cxx]):
     sys.stderr.write(
-        program_name + ': one of (-i,--icy) or (-p,--py,--python) or '
-                       '(-j,--json) must be supplied.\n'
+        program_name + ': at least one of (-i,--icy) or (-j,--json) or --cxx or '
+                       '(-p,--py,--python) must be supplied.\n'
       )
     sys.exit(1)
   if args.py:
     args.json = True
   if args.json:
     args.icy = True
-  if args.goal is not None and not args.py:
+
+  CODEGEN_OPTIONS = 'py', 'cxx'
+  num_codegens = sum(getattr(args, opt) for opt in CODEGEN_OPTIONS)
+  if args.goal is not None and num_codegens == 0:
     sys.stderr.write(
-        program_name + ': (-g,--goal) is only allowed with (-p,--py,--python).\n'
+        program_name + ': (-g,--goal) is only allowed when at least one of '
+                       '(-p,--py,--python) or --cxx is supplied.\n'
       )
     sys.exit(1)
+  elif num_codegens > 1:
+    sys.stderr.write(
+        program_name + ': at most one of (-p,--py,--python) or --cxx can be '
+                       'supplied.\n'
+      )
+    sys.exit(1)
+  args.backend_name = 'py' if args.py else 'cxx' if args.cxx else None
   kwds = dict(args._get_kwargs())
   error_handler = handle_program_errors(
       program_name
