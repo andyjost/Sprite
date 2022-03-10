@@ -6,6 +6,7 @@ from ....common import T_FUNC, F_MONADIC
 from ....exceptions import CompileError
 from .. import cyrtbindings as cyrt
 from .... import icurry, objects
+from ....objects import handle
 from . import save
 from ....utility import encoding, filesys
 import pprint, six, textwrap
@@ -21,14 +22,14 @@ def materialize_function(interp, ifun, ir, debug=False):
   raise CompileError('JIT compilation is not supported by the %r backend' % 'cxx')
 
 def materialize_type(interp, itype, moduleobj, extern):
-  M = moduleobj._cxx
-  if M.is_builtin_type(itype.name):
-    typeobj = M.get_type(itype.name)
-  else:
-    flags = lambda ictor: \
-        icurry.metadata.getmd(ictor, extern, itype=itype).get('all.flags', 0)
+  M = handle.getHandle(moduleobj).backend_handle
+  typeobj = M.get_builtin_type(itype.name)
+  if typeobj is None:
     infos = [
-        M.create_infotable(ictor.name, ictor.arity, tag, flags(ictor))
+        M.create_infotable(
+            ictor.name, ictor.arity, tag
+          , ictor.metadata.get('all.flags', 0)
+          )
           for tag,ictor in enumerate(itype.constructors)
       ]
     typeobj = M.create_type(itype.name, infos)
@@ -42,16 +43,14 @@ def materialize_type(interp, itype, moduleobj, extern):
   return typedef
 
 def materialize_function_info_stub(interp, ifun, moduleobj, extern):
-  M = moduleobj._cxx
-  if M.is_builtin_function(ifun.name):
-    info = M.get_infotable(ifun.name)
-  else:
-    metadata = icurry.metadata.getmd(ifun, extern)
+  M = handle.getHandle(moduleobj).backend_handle
+  info = M.get_builtin_symbol(ifun.name)
+  if info is None or info.tag != T_FUNC:
     info = M.create_infotable(
         ifun.name
       , ifun.arity
       , T_FUNC
-      , F_MONADIC if metadata.get('all.monadic') else 0
+      , F_MONADIC if ifun.metadata.get('all.monadic') else 0
       )
   return objects.CurryNodeInfo(ifun, info)
 

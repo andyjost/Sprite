@@ -1,0 +1,37 @@
+#ifndef NAME
+#error "Define a NAME"
+#endif
+
+#ifndef SPRITE_STRINGIFY
+#define SPRITE_STRINGIFY(a) SPRITE_STRINGIFY_I(a)
+#define SPRITE_STRINGIFY_I(...) #__VA_ARGS__
+#endif
+
+#define STEP_FUNCTION_NAME(name)    STEP_FUNCTION_NAME_I(name)
+#define STEP_FUNCTION_NAME_I(name)  __ ## name ## _step
+
+#define INFOTABLE_NAME(name)    INFOTABLE_NAME_I(name)
+#define INFOTABLE_NAME_I(name)  name ## _Info
+
+tag_type STEP_FUNCTION_NAME(NAME)(RuntimeState * rts, Configuration * C)
+{
+  Cursor _0 = C->cursor();
+  _0->forward_to(cstring(SPRITE_STRINGIFY(NAME) " is not implemented"));
+  return T_FWD;
+}
+
+InfoTable const INFOTABLE_NAME(NAME) {
+    /*tag*/        T_FUNC
+  , /*arity*/      0
+  , /*alloc_size*/ sizeof(FwdNode)
+  , /*flags*/      F_STATIC_OBJECT
+  , /*name*/       SPRITE_STRINGIFY(NAME)
+  , /*format*/     ""
+  , /*step*/       STEP_FUNCTION_NAME(NAME)
+  , /*typecheck*/  nullptr
+  , /*type*/       nullptr
+  };
+
+#undef INFOTABLE_NAME
+#undef NAME
+#undef STEP_FUNCTION_NAME

@@ -54,8 +54,10 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
         )
   assert itype.constructors
   be = interp.backend
+  icurry.metadata.merge(itype, extern)
   typedef = be.materialize_type(interp, itype, moduleobj, extern)
   for ctor in typedef.constructors:
+    icurry.metadata.merge(ctor.icurry, extern, itype=itype)
     insertSymbol(moduleobj, ctor.name, ctor)
   getattr(moduleobj, '.types')[itype.name] = typedef
   return typedef
@@ -63,6 +65,7 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
 @loadSymbols.when(icurry.IFunction)
 def loadSymbols(interp, ifun, moduleobj, extern=None):
   be = interp.backend
+  icurry.metadata.merge(ifun, extern)
   infosym = be.materialize_function_info_stub(interp, ifun, moduleobj, extern)
   insertSymbol(moduleobj, ifun.name, infosym, ifun.is_private)
   return infosym

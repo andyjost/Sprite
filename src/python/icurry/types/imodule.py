@@ -96,6 +96,7 @@ class IModule(IContainer):
       if not found:
         raise TypeError('cannot import %r from module %r' % (name, extern.fullname))
 
+
 IProg = IModule
 
 

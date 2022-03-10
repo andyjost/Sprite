@@ -1,4 +1,4 @@
-from ...generic.compiler import function_compiler, ir, module_compiler
+from ...generic.compiler import function_compiler, ir, module_compiler, statics
 from .... import icurry
 from ....utility import visitation
 import collections
@@ -6,13 +6,25 @@ import collections
 __all__ = ['compile']
 
 def compile(interp, icy, extern=None):
-  compileM = ModuleCompiler()
-  return compileM.compile(interp, icy, extern)
+  moduleobj = interp.module(icy.fullname)
+  compileM = ModuleCompiler(interp, moduleobj, extern)
+  return compileM.compile(icy)
 
 class IR(ir.IR):
   CODETYPE = 'C++'
 
+
+class Closure(statics.Closure):
+  def __init__(self, interp, moduleobj):
+    statics.Closure.__init__(self, interp, moduleobj)
+
+  def get_builtin_symbolname(self, nodeinfo):
+    return nodeinfo.icurry.metadata.get('cxx.symbolname')
+
+
 class ModuleCompiler(module_compiler.ModuleCompiler):
+  CLOSURE = Closure
+
   @property
   def IR(self):
     return IR

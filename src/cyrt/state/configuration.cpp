@@ -2,6 +2,7 @@
 #include <iostream>
 #include "cyrt/builtins.hpp"
 #include "cyrt/state/configuration.hpp"
+#include "cyrt/graph/show.hpp"
 #include <sstream>
 
 namespace cyrt

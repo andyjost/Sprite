@@ -1,10 +1,5 @@
-#include <cassert>
-#include "cyrt/builtins.hpp"
-#include "cyrt/currylib/prelude.hpp"
-#include "cyrt/exceptions.hpp"
+#include "cyrt/cyrt.hpp"
 #include "cyrt/graph/walk.hpp"
-#include "cyrt/inspect.hpp"
-#include "cyrt/state/rts.hpp"
 
 namespace cyrt { inline namespace
 {
@@ -169,4 +164,7 @@ namespace cyrt
     , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
+
+  #define NAME ensureNotFree
+  #include "cyrt/not_used.def"
 }

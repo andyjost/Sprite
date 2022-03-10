@@ -6,12 +6,13 @@ import collections
 
 __all__ = ['compile']
 
-def compile(interp, icy, extern=None):
-  compileM = ModuleCompiler()
-  return compileM.compile(interp, icy, extern)
-
 class IR(ir.IR):
   CODETYPE = 'Python'
+
+def compile(interp, icy, extern=None):
+  moduleobj = interp.module(icy.fullname)
+  compileM = ModuleCompiler(interp, moduleobj, extern)
+  return compileM.compile(icy)
 
 class ModuleCompiler(module_compiler.ModuleCompiler):
   @property

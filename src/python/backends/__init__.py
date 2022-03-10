@@ -48,7 +48,7 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractmethod
-  def init_module_state(self, moduleobj):
+  def find_or_create_module(self, moduleobj):
     assert 0
 
   @abc.abstractmethod

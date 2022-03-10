@@ -158,6 +158,26 @@ class Handle(object):
             'module %r has no type %r' % (self.obj.__name__, name)
           )
 
+  @property
+  def backend_handle(self):
+    return getattr(self.obj, '.backend_handle', None)
+
+  @property
+  def get_builtin_symbolname(self):
+    h = self.backend_handle
+    if h is None:
+      return lambda _: None
+    else:
+      return h.get_builtin_symbolname
+
+  @property
+  def get_builtin_typename(self):
+    h = self.backend_handle
+    if h is None:
+      return lambda _: None
+    else:
+      return h.get_builtin_typename
+
   def unlink(self, interp):
     del interp.modules[self.fullname]
     pkg = self.package(interp)

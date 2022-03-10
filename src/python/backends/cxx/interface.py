@@ -17,8 +17,8 @@ class IBackend(backends.IBackend):
   def init_interpreter_state(self, interp):
     interp._its = cyrtbindings.InterpreterState()
 
-  def init_module_state(self, moduleobj):
-    moduleobj._cxx = cyrtbindings.Module.find_or_create(moduleobj.__name__)
+  def find_or_create_module(self, moduleobj):
+    return cyrtbindings.Module.find_or_create(moduleobj.__name__)
 
   def link_function(self, info, function_spec, lazy):
     cyrtbindings.link_function(info, function_spec, lazy)

@@ -56,28 +56,26 @@ def _unreachable(*args, **kwds):
 def materialize_constructor_info(interp, itype, icons, moduleobj, extern):
   # For builtins, the 'all.tag' metadata contains the tag.
   builtin = 'all.tag' in icons.metadata
-  metadata = icurry.metadata.getmd(icons, extern, itype=itype)
   info = InfoTable(
       icons.name
     , icons.arity
-    , T_CTOR + icons.index if not builtin else metadata['all.tag']
-    , getattr(metadata, 'all.flags', 0)
+    , T_CTOR + icons.index if not builtin else icons.metadata['all.tag']
+    , getattr(icons.metadata, 'all.flags', 0)
     , _nostep if not builtin else _unreachable
-    , getattr(metadata, 'py.format', None)
-    , _gettypechecker(interp, metadata)
+    , getattr(icons.metadata, 'py.format', None)
+    , _gettypechecker(interp, icons.metadata)
     )
   return objects.CurryNodeInfo(icons, info)
 
 def materialize_function_info_stub(interp, ifun, moduleobj, extern):
-  metadata = icurry.metadata.getmd(ifun, extern)
   info = InfoTable(
       ifun.name
     , ifun.arity
     , T_FUNC
-    , F_MONADIC if metadata.get('all.monadic') else 0
+    , F_MONADIC if ifun.metadata.get('all.monadic') else 0
     , None
-    , getattr(metadata, 'py.format', None)
-    , _gettypechecker(interp, metadata)
+    , getattr(ifun.metadata, 'py.format', None)
+    , _gettypechecker(interp, ifun.metadata)
     )
   return objects.CurryNodeInfo(ifun, info)
 
@@ -107,3 +105,4 @@ def _gettypechecker(interp, metadata):
     checker = getattr(metadata, 'py.typecheck', None)
     if checker is not None:
       return lambda *args: checker(interp, *args)
+

@@ -23,7 +23,7 @@ LOCKFILE := $(OBJECT_ROOT)/lock
 FILES_TO_CLEAN += $(LOCKFILE)
 # Update archives from .o files using a lock to prevent concurrent access.
 .o.a:
-	flock $(LOCKFILE) $(AR) $(ARFLAGS) -U $@ $<
+	flock $(LOCKFILE) $(AR) rvP -U $@ $<
 
 # Contextual variables
 # ====================

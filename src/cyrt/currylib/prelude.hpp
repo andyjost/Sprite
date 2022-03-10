@@ -77,7 +77,7 @@ namespace cyrt
   extern InfoTable const readCharLiteral_Info;
   extern InfoTable const readFloatLiteral_Info;
   extern InfoTable const readNatLiteral_Info;
-  extern InfoTable const readStringLIteral_Info;
+  extern InfoTable const readStringLiteral_Info;
 
   // prelude/show.cpp
   extern InfoTable const showCharLiteral_Info;

@@ -11,6 +11,7 @@ def make_node(info, *args, **kwds):
   info = getattr(info, 'info', info)
   return Node.create(info, list(args), target, bool(partial))
 
+
 def link_function(info, function_spec, lazy):
   pass
   # if lazy:

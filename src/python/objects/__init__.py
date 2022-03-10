@@ -36,19 +36,21 @@ class CurryModule(types.ModuleType):
   be accessed by other means, such as curry.symbol, curry.type, or
   curry.inspect.icurry.
   '''
-  def __new__(cls, imodule):
+  def __new__(cls, interp, imodule):
     assert not isinstance(imodule, icurry.IPackage) or cls is CurryPackage
     assert not isinstance(imodule, icurry.IModule) or cls is CurryModule
     self = types.ModuleType.__new__(cls, imodule.name)
     setattr(self, '.icurry', getattr(imodule, 'icurry', imodule))
     setattr(self, '.symbols', {})
     setattr(self, '.types', {})
+    setattr(self, '.backend_handle', None)
     return self
 
-  def __init__(self, imodule):
+  def __init__(self, interp, imodule):
     types.ModuleType.__init__(self, imodule.fullname)
     self.__file__ = imodule.filename
     self.__package__ = self.__name__.rpartition('.')[0]
+    setattr(self, '.backend_handle', interp.backend.find_or_create_module(self))
 
   def __repr__(self):
     return '<curry module %r>' % self.__name__
@@ -64,8 +66,8 @@ class CurryPackage(CurryModule):
   '''
   A Python package for interfacing with Curry packages.
   '''
-  def __init__(self, imodule):
-    CurryModule.__init__(self, imodule)
+  def __init__(self, interp, imodule):
+    CurryModule.__init__(self, interp, imodule)
     self.__file__ = os.path.join(self.__file__, '<virtual>')
     self.__path__ = [os.path.dirname(self.__file__)]
     self.__package__ = self.__name__
@@ -219,9 +221,9 @@ class CurryNodeInfo(object):
     return '<invalid curry node>'
 
 
-def create_module_or_package(icur):
+def create_module_or_package(interp, icur):
   if isinstance(icur, icurry.IPackage):
-    return CurryPackage(icur)
+    return CurryPackage(interp, icur)
   else:
-    return CurryModule(icur)
+    return CurryModule(interp, icur)
 

@@ -44,7 +44,7 @@ namespace cyrt
     , {"$!!"                   , &applynf_Info           }
     , {"?"                     , &choice_Info            }
     , {"&"                     , &concurrentAnd_Info     }
-    , {"=:="                   , &constEq_Info           }
+    , {"=:="                   , &constrEq_Info          }
     , {"=:<="                  , &nonstrictEq_Info       }
     , {"apply"                 , &apply_Info             }
     , {"bindIO"                , &bindIO_Info            }
@@ -92,7 +92,7 @@ namespace cyrt
     , {"prim_readFile"         , &readFile_Info          }
     , {"prim_readFloatLiteral" , &readFloatLiteral_Info  }
     , {"prim_readNatLiteral"   , &readNatLiteral_Info    }
-    , {"prim_readStringLiteral", &readStringLIteral_Info }
+    , {"prim_readStringLiteral", &readStringLiteral_Info }
     , {"prim_roundFloat"       , &roundFloat_Info        }
     , {"prim_showCharLiteral"  , &showCharLiteral_Info   }
     , {"prim_showFloatLiteral" , &showFloatLiteral_Info  }
@@ -198,9 +198,7 @@ namespace cyrt
   InfoTable const * Module::get_infotable(std::string const & name) const
   {
     auto p = this->impl->symbols.find(name);
-    if(p != this->impl->symbols.end())
-      return p->second;
-    return nullptr;
+    return (p != this->impl->symbols.end()) ? p->second : nullptr;
   }
 
   InfoTable const * Module::create_infotable(
@@ -238,9 +236,7 @@ namespace cyrt
   Type const * Module::get_type(std::string const & name) const
   {
     auto p = this->impl->types.find(name);
-    if(p != this->impl->types.end())
-      return p->second;
-    return nullptr;
+    return (p != this->impl->types.end()) ? p->second : nullptr;
   }
 
   Type const * Module::create_type(
@@ -267,15 +263,15 @@ namespace cyrt
     return type;
   }
 
-  bool  Module::is_builtin_type(std::string const & name) const
+  Type const * Module::get_builtin_type(std::string const & name) const
   {
     auto * ty = this->get_type(name);
-    return ty && is_static(*ty);
+    return (ty && is_static(*ty)) ? ty : nullptr;
   }
 
-  bool  Module::is_builtin_function(std::string const & name) const
+  InfoTable const * Module::get_builtin_symbol(std::string const & name) const
   {
     auto * info = this->get_infotable(name);
-    return info && is_static(*info) && info->tag == T_FUNC;
+    return (info && is_static(*info)) ? info : nullptr;
   }
 }

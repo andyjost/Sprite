@@ -2,9 +2,9 @@ from . import types
 from ..utility.visitation import dispatch
 
 @dispatch.on('arg')
-def getmd(arg, extern, **kwds):
+def merge(arg, extern, **kwds):
   '''
-  Get metadata from an ICurry object
+  Merge metadata from an external module into an ICurry object
 
   Args:
     arg:
@@ -15,31 +15,26 @@ def getmd(arg, extern, **kwds):
     itype:
       Keyword only.  An instance of IDataType, used to resolve constructors.
       Required for IConstructor.
-
-  Returns:
-    The metadata value, if found, or None otherwise.
   '''
   assert False
 
-@getmd.when(types.IConstructor)
-def getmd(icons, extern, itype):
+@merge.when(types.IConstructor)
+def merge(icons, extern, itype):
   if extern is not None and itype.name in extern.types:
     for ctor in extern.types[itype.name].constructors:
       if ctor.name == icons.name:
-        return ctor.metadata
-  return getattr(icons, 'metadata', None)
+        icons.update_metadata(ctor.metadata)
 
-@getmd.when(types.IFunction)
-def getmd(ifun, extern):
+@merge.when(types.IFunction)
+def merge(ifun, extern):
   if extern is not None and ifun.name in extern.functions:
-    return extern.functions[ifun.name].metadata
-  else:
-    return getattr(ifun, 'metadata', None)
+    ifun.update_metadata(extern.functions[ifun.name].metadata)
 
-@getmd.when(types.IDataType)
-def getmd(itype, extern):
+@merge.when(types.IDataType)
+def merge(itype, extern):
   if extern is not None and itype.name in extern.types:
-    return extern.types[itype.name].metadata
-  else:
-    return getattr(itype, 'metadata', None)
+    itype.update_metadata(extern.types[itype.name].metadata)
+
+
+
 

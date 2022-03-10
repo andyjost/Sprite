@@ -22,7 +22,7 @@ class IBackend(backends.IBackend):
     from .eval.rts import InterpreterState
     interp._its = InterpreterState()
 
-  def init_module_state(self, moduleobj):
+  def find_or_create_module(self, moduleobj):
     pass
 
   def link_function(self, info, function_spec, lazy):

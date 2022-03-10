@@ -1,4 +1,4 @@
-from ...utility import curryname
+from ...utility import curryname, visitation
 from ...utility.proptree import proptree
 import collections, six, weakref
 
@@ -17,9 +17,11 @@ class IObject(object):
     return getattr(self, '_metadata', {})
 
   def update_metadata(self, items):
-    md = getattr(self.metadata, '_asdict', self.metadata)
-    md.update(items)
-    self._metadata = proptree(md)
+    if items:
+      md = getattr(self.metadata, '_asdict', self.metadata)
+      items = getattr(items, '_asdict', items)
+      md.update(items)
+      self._metadata = proptree(md)
 
   @property
   def children(self):

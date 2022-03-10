@@ -9,7 +9,26 @@ __all__ = ['ModuleCompiler']
 
 class ModuleCompiler(abc.ABC):
 
-  Closure = statics.Closure
+  CLOSURE = statics.Closure
+
+  def __init__(self, interp, moduleobj, extern=None):
+    '''
+    Compiles ICurry into IR.
+
+    Args:
+      interp:
+        The interpreter that owns this module.
+
+      moduleobj:
+        The CurryModule object associated with this compilation.
+
+      extern:
+        An instance of ``{0}.icurry.IModule`` used to resolve external
+        declarations.
+    '''
+    self.interp = interp
+    self.closure = self.CLOSURE(interp, moduleobj)
+    self.extern = extern
 
   @abc.abstractproperty
   def FunctionCompiler(self):
@@ -24,29 +43,23 @@ class ModuleCompiler(abc.ABC):
     pass
 
   @formatDocstring(config.python_package_name())
-  def compile(self, interp, icy, extern=None):
+  def compile(self, icy):
     '''
-    Compiles ICurry into IR.
+    Compiles the module.
 
     Args:
-      interp:
-        The interpreter that owns this function.
       icy:
-        ICurry for the function to compile.
-      extern:
-        An instance of ``{0}.icurry.IModule`` used to resolve external
-        declarations.
+        The IModule object to compile.
 
     Returns:
       Python IR for the given function.
     '''
-    closure = self.Closure()
     lines = []
-    iobj = self.compileEx(interp, icy, closure, lines, extern)
-    return self.IR(iobj, closure, lines)
+    iobj = self.compileEx(icy, lines)
+    return self.IR(iobj, self.closure, lines)
 
   @visitation.dispatch.on('icy')
-  def compileEx(self, interp, icy, closure, lines, extern=None):
+  def compileEx(self, icy, lines):
     '''
     Compiles an ICurry object.
 
@@ -58,16 +71,8 @@ class ModuleCompiler(abc.ABC):
       ``icy``
         An IPackage, IModule, or IFunction to compile.
 
-      ``closure``
-        The closre in which this code resides.  This will be updated if the
-        generated code requires external data or symbols.
-
       ``lines``
         The output lines of Python source.  New code will be appended.
-
-      ``extern``
-        An IPackage or IModule containing external definitions.  Use to resolve
-        IExternal data.
 
     Returns:
       A new ICurry object.
@@ -75,35 +80,35 @@ class ModuleCompiler(abc.ABC):
     raise TypeError('Cannot compile type %r' % type(icy).__name__)
 
   @compileEx.when(icurry.IModule)
-  def compileEx(self, interp, imodule, closure, lines, extern=None):
+  def compileEx(self, imodule, lines):
     functions = [
-        self.compileEx(interp, ifun, closure, lines, extern)
+        self.compileEx(ifun, lines)
             for ifun in six.itervalues(imodule.functions)
                 if not ifun.is_builtin
       ]
     return imodule.copy(functions=functions)
 
   def withNewEntry(f):
-    def decorator(self, interp, ifun, closure, lines, extern=None):
-      entry = closure.intern(ifun.fullname)
+    def decorator(self, ifun, lines):
+      entry = self.closure.intern(ifun.fullname)
       try:
-        return f(self, interp, ifun, closure, lines, extern, entry)
+        return f(self, ifun, lines, entry)
       except:
-        closure.delete(entry)
+        self.closure.delete(entry)
         raise
     return decorator
 
   @compileEx.when(icurry.IFunction)
   @withNewEntry
-  def compileEx(self, interp, ifun, closure, lines, extern=None, entry=None):
+  def compileEx(self, ifun, lines, entry=None):
     while True:
       # First, try to synthesize the function.
-      new_lines = self.synthesize_function(interp, ifun, closure, entry)
+      new_lines = self.synthesize_function(self.interp, ifun, self.closure, entry)
       if new_lines is not None:
         break
 
       # If that cannot be done, compile it.
-      compiler = self.FunctionCompiler(interp, ifun, closure, entry, extern)
+      compiler = self.FunctionCompiler(self.interp, ifun, self.closure, entry, self.extern)
       try:
         compiler.compile()
       except ExternallyDefined as e:

@@ -1,6 +1,4 @@
-#include "cyrt/builtins.hpp"
-#include "cyrt/currylib/prelude.hpp"
-#include "cyrt/state/rts.hpp"
+#include "cyrt/cyrt.hpp"
 
 namespace cyrt { inline namespace
 {

@@ -33,8 +33,8 @@ namespace cyrt
       );
     Type const * get_type(std::string const & name) const;
 
-    bool is_builtin_function(std::string const &) const;
-    bool is_builtin_type(std::string const &) const;
+    InfoTable const * get_builtin_symbol(std::string const &) const;
+    Type const * get_builtin_type(std::string const &) const;
 
     struct Impl;
     std::string name;

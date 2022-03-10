@@ -15,9 +15,14 @@ PX_TYPE = 'ty_' # typedef
 NAME_LENGTH_LIMIT = 40
 
 class Closure(object):
-  def __init__(self):
+  def get_builtin_symbolname(self, nodeinfo):
+    pass
+
+  def __init__(self, interp, moduleobj):
     # Bidirectional mapping:
     #     (category, object) <-> identifier
+    self.interp = interp
+    self.moduleobj = moduleobj
     self.data = {}
 
   def __str__(self):
@@ -36,7 +41,11 @@ class Closure(object):
         return item
 
   def nodeinfo(self, symbol):
-    return self.data[PX_INFO, symbol]
+    symbolname = self.get_builtin_symbolname(symbol)
+    if symbolname is not None:
+      return symbolname
+    else:
+      return self.data[PX_INFO, symbol]
 
   def typedefs(self):
     for name, cat, obj in self.triples():
@@ -108,12 +117,19 @@ class Closure(object):
 
   @intern.when(objects.CurryNodeInfo)
   def intern(self, nodeinfo):
-    return self.insert(nodeinfo, prefix=PX_INFO)
+    symbolname = self.get_builtin_symbolname(nodeinfo)
+    if symbolname is not None:
+      return symbolname
+    else:
+      return self.insert(nodeinfo, prefix=PX_INFO)
 
   @intern.when(objects.CurryDataType)
   def intern(self, typedef):
-    # assert isinstance(typedef, objects.CurryDataType)
-    return self.insert(typedef, prefix=PX_TYPE)
+    symbolname = self.get_builtin_symbolname(typedef)
+    if symbolname is not None:
+      return symbolname
+    else:
+      return self.insert(typedef, prefix=PX_TYPE)
 
   @intern.when(six.string_types)
   def intern(self, name):
