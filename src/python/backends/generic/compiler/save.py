@@ -17,12 +17,10 @@ class PackageCreator(abc.ABC):
   '''
   FILES = '__init__.py',
 
-  def __init__(self, ir, filename, defaultgoal=None):
-    self.defaultgoal = defaultgoal
-    self.ir          = ir
-    self.filename    = os.path.normpath(
-        ir.icurry.name if filename is None else filename
-      )
+  def __init__(self, target_object, filename, defaultgoal=None):
+    self.defaultgoal   = defaultgoal
+    self.target_object = target_object
+    self.filename      = os.path.normpath(filename)
 
   def createPackage(self):
     # If the package would contain only the __init__.py file, just create a .py

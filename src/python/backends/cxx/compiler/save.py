@@ -8,7 +8,7 @@ class PackageCreator(save.PackageCreator):
 
   @property
   def generate__init__(self):
-    return ModuleInterfaceGenerator(self.ir, self.defaultgoal)
+    return ModuleInterfaceGenerator(self.target_object, self.defaultgoal)
 
   @property
   def generatemake(self):
@@ -16,20 +16,16 @@ class PackageCreator(save.PackageCreator):
 
   @property
   def generate_symbols_(self):
-    return SymbolsGenerator(self.ir)
-
-  # @property
-  # def generate_link_(self):
-  #   return LinkGenerator(self.ir)
+    return SymbolsGenerator(self.target_object)
 
 
 class SymbolsGenerator(save.FileGenerator):
   RENDERER = render.CXX_RENDERER
   SECTIONS = 'header', 'declarations', 'stepfuncs', 'infotables', 'typedefs', 'footer'
 
-  def __init__(self, ir):
-    self.ir = ir
-    self.path = ir.icurry.splitname()
+  def __init__(self, target_object):
+    self.target_object = target_object
+    self.path = target_object.imodule_linked.splitname()
 
   def header(self):
     yield '#include "cyrt/cyrt.hpp"'

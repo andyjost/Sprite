@@ -48,7 +48,7 @@ class FunctionCompiler(abc.ABC):
     assert False
 
   @abc.abstractmethod
-  def make_funcion_prelude(self):
+  def make_function_prelude(self):
     assert False
 
   def compile(self):
@@ -110,7 +110,7 @@ class FunctionCompiler(abc.ABC):
   @compileF.when(icurry.IBody)
   def compileF(self, function):
     lines = self.compileS(function.block)
-    head = self.make_funcion_prelude()
+    head = self.make_function_prelude()
     if head is not None:
       head = list(head)
       head.extend(lines)

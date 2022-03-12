@@ -31,7 +31,7 @@ class FunctionCompiler(function_compiler.FunctionCompiler):
   def make_function_decl(self):
     yield 'def %s(rts, _0):' % self.entry, self.ifun.fullname
 
-  def make_funcion_prelude(self):
+  def make_function_prelude(self):
     pass
 
   @visitation.dispatch.on('stmt')

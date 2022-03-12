@@ -1,7 +1,7 @@
 from .. import config, utility
 from ..utility.binding import binding
 from ..objects import handle
-import logging, runpy
+import logging, os, runpy
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,6 @@ def save(interp, cymodule, filename=None, goal=None):
       , h.fullname, filename, len(h.types), len(h.symbols)
       )
   be = interp.backend
-  ir = be.compile(interp, h.icurry)
-  return be.save_module(ir, filename, goal=goal)
+  target_object = be.compile(interp, h.icurry)
+  return be.save_module(target_object, filename or h.icurry.name, goal=goal)
 
