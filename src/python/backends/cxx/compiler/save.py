@@ -166,7 +166,7 @@ class ModuleInterfaceGenerator(save.ModuleInterfaceGenerator):
     yield '# from . import _link_'
 
 
-def save_module(ir, filename, goal=None):
+def generate_module(ir, filename, goal=None):
   creator = PackageCreator(ir, filename, goal)
   creator.createPackage()
 

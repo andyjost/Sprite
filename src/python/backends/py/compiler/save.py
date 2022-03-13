@@ -14,7 +14,7 @@ class ModuleInterfaceGenerator(save.ModuleInterfaceGenerator):
     for line in self.ir.lines:
       yield line
 
-def save_module(ir, filename, goal=None):
+def generate_module(ir, filename, goal=None):
   creator = PackageCreator(ir, filename, goal)
   creator.createPackage()
 

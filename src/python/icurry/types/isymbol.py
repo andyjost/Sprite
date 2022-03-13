@@ -44,11 +44,10 @@ class ISymbol(IObject):
     'Control.SetFunctions.evalS' returns ['Control', 'SetFunctions', 'evalS'].
     '''
     def gen():
-      pkgname, _, modname = self.fullname.rpartition('.')
-      for part in pkgname.split('.'):
+      for part in self.modulename.split('.'):
         if part:
           yield part
-      yield modname
+      yield self.name
     return list(gen())
     
 

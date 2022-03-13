@@ -1,7 +1,8 @@
 from .. import config, utility
 from ..utility.binding import binding
 from ..objects import handle
-import logging, os, runpy
+import logging, os, runpy, six
+from six.moves import cStringIO as StringIO
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +68,18 @@ def save(interp, cymodule, filename=None, goal=None):
   if logger.isEnabledFor(logging.INFO):
     logger.info(
         'Saving Curry module %r to %r (%r types, %r symbols)'
-      , h.fullname, filename, len(h.types), len(h.symbols)
+      , h.fullname, filename or '<string>', len(h.types), len(h.symbols)
       )
   be = interp.backend
   target_object = be.compile(interp, h.icurry)
-  return be.save_module(target_object, filename or h.icurry.name, goal=goal)
+  if isinstance(filename, six.string_types):
+    with open(filename, 'w') as stream:
+      be.generate_module(target_object, stream, goal=goal)
+  elif not filename:
+    stream = StringIO()
+    be.generate_module(target_object, stream, goal=goal)
+    return stream.getvalue()
+  else:
+    stream = filename
+    be.generate_module(target_object, stream, goal=goal)
 

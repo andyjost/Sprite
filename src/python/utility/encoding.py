@@ -134,9 +134,9 @@ def best(prefix, thing, disallow, limit=40):
   assert len(best) <= limit
   return best
 
-def clean(s, dot_as_us=True, is_special=specialName):
+def clean(s, dot_as_us=True):
   '''Clean up a string by encoding or removing illegal characters.'''
-  special = is_special(s)
+  special = specialName(s)
   if special:
     return special
   elif s.startswith('Prelude.'):
@@ -152,13 +152,9 @@ def clean(s, dot_as_us=True, is_special=specialName):
     a = ''.join(TR.get(ch, ch) for ch in s)
     return str(re.sub(P_SYMBOL, '', a))
 
-def encode_nospecial(name, prefix='', disallow={}):
-  not_special = lambda _: False
-  return encode(name, prefix, disallow, is_special=not_special)
-
-def encode(name, prefix='', disallow={}, is_special=specialName):
+def encode(name, prefix='', disallow={}):
   '''
-  Encode a Curry name into a legal Python identifier.
+  Encode a Curry name into an alphanumeric identifier.
 
   Args:
     name:
@@ -169,7 +165,7 @@ def encode(name, prefix='', disallow={}, is_special=specialName):
   Returns:
     A string holding the encoded identifier.
   '''
-  a = clean(name, is_special=is_special)
+  a = clean(name)
   k = '%s%s' % (prefix, a)
   if k in disallow or keyword.iskeyword(k):
     # Append a number.

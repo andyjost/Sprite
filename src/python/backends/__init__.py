@@ -99,8 +99,8 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractproperty
-  def save_module(self):
-    '''Save a Curry module into a Python package.'''
+  def generate_module(self):
+    '''Generate the contents of a Curry module.'''
     assert 0
 
   @abc.abstractproperty

@@ -1,10 +1,11 @@
 from ....exceptions import CompileError
-from ...generic.compiler import ExternallyDefined
+from ...generic.compiler import ExternallyDefined, render, save
+from ...generic.compiler.render import CXX_RENDERER
 # from ....icurry import analysis
 from .... import config, icurry
 from ....objects import handle
-from ....utility import encoding, formatDocstring, strings, visitation
-import abc, collections, functools, itertools, json, logging, six, sys
+from ....utility import formatDocstring, strings, visitation
+import abc, collections, functools, itertools, json, logging, re, six, sys
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,8 @@ KIND_CODE = {
   , CONSTRUCTOR_TABLE : 'C'
 }
 
+KIND_CODE_R = {v:k for k,v in KIND_CODE.items()}
+
 # Symbol status.
 DEFINED   = 'T'
 UNDEFINED = 'U'
@@ -35,15 +38,70 @@ Symbol = collections.namedtuple(
     'Symbol', ['tgtname', 'stat', 'kind', 'descr']
   )
 
+TR = {
+    '_' : '__' , '&' : '_M' , '@' : '_A' , '!' : '_B' , '`' : '_T'
+  , '^' : '_c' , ':' : '_C' , ',' : '_m' , '$' : '_D' , '.' : '_d'
+  , '"' : '_Q' , '=' : '_E' , '\\': '_z' , '>' : '_G' , '{' : '_R'
+  , '[' : '_K' , '(' : '_Y' , '<' : '_L' , '-' : '_n' , '#' : '_h'
+  , '%' : '_s' , '|' : '_p' , '+' : '_P' , '?' : '_u' , '}' : '_r'
+  , ']' : '_k' , ')' : '_y' , ';' : '_S' , '/' : '_l' , '\'': '_q'
+  , '*' : '_a' , '~' : '_t'
+  }
+TRR = {v:k for k,v in TR.items()}
+
+# Check for duplicates in TR and TRR.
+assert all(n == 1 for n in collections.Counter(TR.values()).values())
+assert all(n == 1 for n in collections.Counter(TRR.values()).values())
+assert len(TR) == len(TRR)
+
+def encode(name):
+  '''Encode a Curry identifier string to alphnumeric.'''
+  enc = ''.join(TR.get(ch, ch) for ch in name)
+  # assert decode(enc) == name
+  return enc
+
+def decode(name):
+  '''Decode an encoded Curry identifier string.'''
+  def gen():
+    i = 0
+    n = len(name)
+    while i<n:
+      if name[i] == '_':
+        enc = name[i:i+2]
+        yield TRR[enc]
+        i += 2
+      else:
+        yield name[i]
+        i += 1
+  return ''.join(gen())
+
 def mangle(parts, kind):
   # E.g., Prelude.: -> CyI7Prelude5_col_
   #    Cy       = prefix for all Curry symbols
   #    I        = symbol kind (info table)
   #    7Prelude = name qualifier
   #    5_col_   = encoded name
+  parts_ = parts[:-1] + [encode(parts[-1])]
+  tail = ''.join('%s%s' % (len(p), p) for p in parts_)
+  symbolname = 'Cy%s%s' % (KIND_CODE[kind], tail)
+  # assert demangle(symbolname) == (parts, kind)
+  return symbolname
 
-  parts = parts[:-1] + [encoding.encode_nospecial(parts[-1])]
-  return 'Cy%s%s' % (kind[0], ''.join('%s%s' % (len(p), p) for p in parts))
+P_INTEGER = re.compile('(^\d+)')
+def demangle(symbolname):
+  assert symbolname.startswith('Cy')
+  kind = KIND_CODE_R[symbolname[2]]
+  def gen():
+    i = 3
+    n = len(symbolname)
+    while i<n:
+      text = re.match(P_INTEGER, symbolname[i:]).group()
+      chunksz = int(text)
+      i += len(text)
+      chunk = symbolname[i:i+chunksz]
+      yield decode(chunk)
+      i += chunksz
+  return list(gen()), kind
 
 # E.g.: the symbol for Prelude.: might appear in the symbol table for the
 # Prelude as follows:
@@ -68,15 +126,20 @@ def disableRecursionLimit(f):
 class TargetObject(object):
   SECTIONS = (
       '.header'
-    , '.footer'
-    , '.infotab'      # InfoTable definitions.
-    , '.infotab.fwd'  # InfoTable forward declarations.
-    , '.module'       # Module definition.
-    , '.rodata'       # Value sets, string literals.
-    , '.stepfunc'     # Step function definitions.
+  ### Forward declarations.
     , '.stepfunc.fwd' # Step function forward declarations.
-    , '.datatype'     # Type definitions.
+    , '.infotab.fwd'  # InfoTable forward declarations.
     , '.datatype.fwd' # Type definition forward declarations.
+  ### Read-only data.
+    , '.strings'      # String literals.
+    , '.valuesets'    # Value sets.
+  ### Code.
+    , '.stepfunc'     # Step function definitions.
+  ### Object definitions.
+    , '.infotab'      # InfoTable definitions.
+    , '.datatype'     # Type definitions.
+    , '.module'       # Module definition.
+    , '.footer'
     )
 
   def __init__(self, codetype, unitname):
@@ -119,7 +182,7 @@ class CxxCompiler(object):
     self.module_handle = handle.getHandle(moduleobj)
     self.extern = extern
     self.target_object = TargetObject('C++', imodule.fullname)
-    self.count = itertools.count()
+    self.counts = collections.defaultdict(itertools.count)
 
   def insert_symbol(self, symbol):
     tab = self.target_object.symtab
@@ -139,9 +202,9 @@ class CxxCompiler(object):
           return True
     return False
 
-  def make_private_name(self, kind):
-    i = next(self.count)
-    return mangle([str(i)], kind)
+  def next_private_symbolname(self, kind):
+    i = next(self.counts[kind])
+    return mangle(['_%s' % i], kind)
 
   @formatDocstring(config.python_package_name())
   @disableRecursionLimit
@@ -157,10 +220,10 @@ class CxxCompiler(object):
     header.append('#include "cyrt/cyrt.hpp"')
     header.append('')
     header.append('using namespace cyrt;')
-    header.append('namespace curryprog {')
+    # header.append('namespace curryprog {')
 
     footer = self.target_object['.footer']
-    footer.append('} // curryprog')
+    # footer.append('} // curryprog')
 
     assert self.target_object.imodule_linked is None
     self.target_object.imodule_linked = self.compileEx(self.imodule)
@@ -230,6 +293,8 @@ class CxxCompiler(object):
 
     # Emit the info table.
     h_info = mangle(ifun.splitname(), INFO_TABLE)
+    if h_info == 'CyI7Prelude12__Dict_hData':
+      breakpoint()
     if h_info not in self.target_object.symtab:
       self.target_object['.infotab.fwd'].append(
           'extern InfoTable const %s;' % h_info
@@ -445,11 +510,11 @@ class CxxCompiler(object):
   def compileS(self, icase):
     h_sel = self.compileE(icase.var)
     values = tuple(branch.lit.value for branch in icase.branches)
-    h_values = self.make_private_name(VALUE_SET)
+    h_values = self.next_private_symbolname(VALUE_SET)
     symbol = Symbol(h_values, DEFINED, VALUE_SET, '<literal case values>')
     inserted = self.insert_symbol(symbol)
     assert inserted
-    self.target_object['.rodata'].append(
+    self.target_object['.valuesets'].append(
         'static %s constexpr %s[] = {%s};' % (
             _datatype(values), h_values, ', '.join(str(v) for v in values)
           )
@@ -508,10 +573,10 @@ class CxxCompiler(object):
   @compileE.when(icurry.IString)
   def compileE(self, istring, primary=False):
     string = strings.ensure_str(istring.value)
-    h_string = self.make_private_name(STRING_DATA)
+    h_string = self.next_private_symbolname(STRING_DATA)
     symbol = Symbol(h_string, DEFINED, STRING_DATA, '<string data %r>' % string)
     if self.insert_symbol(symbol):
-      self.target_object['.rodata'].append(
+      self.target_object['.strings'].append(
           'static char const * %s = %s;' % (h_string, _dquote(string))
         )
 
@@ -532,6 +597,8 @@ class CxxCompiler(object):
     info = self.interp.symbol(infoname)
     h_info = mangle(info.icurry.splitname(), INFO_TABLE)
     symbol = Symbol(h_info, UNDEFINED, INFO_TABLE, infoname)
+    if h_info == 'CyI7Prelude12__Dict_hData':
+      breakpoint()
     if self.insert_symbol(symbol):
       self.target_object['.infotab.fwd'].append(
           'extern InfoTable const %s;' % h_info
@@ -588,3 +655,11 @@ def _dquote(string):
   # Note: Use JSON to get double-quote-style escaping.
   string_data = strings.ensure_str(string)
   return json.dumps(string_data)
+
+def generate_module(target_object, stream, goal=None):
+  render = CXX_RENDERER.renderLines
+  for section_name in TargetObject.SECTIONS:
+    section_data = target_object[section_name]
+    section_text = render(section_data)
+    stream.write(section_text)
+    stream.write('\n')
