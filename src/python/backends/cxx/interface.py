@@ -1,6 +1,5 @@
 from ... import backends
-from . import cyrtbindings
-from .compiler import compile, materialize, save
+from . import compile, cyrtbindings, materialize
 
 class IBackend(backends.IBackend):
   @property
@@ -56,9 +55,8 @@ class IBackend(backends.IBackend):
     return materialize.materialize_type
 
   @property
-  def generate_module(self):
-    # return save.generate_module
-    return compile.generate_module
+  def write_module(self):
+    return compile.write_module
 
   @property
   def single_step(self):

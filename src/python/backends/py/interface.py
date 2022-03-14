@@ -66,8 +66,8 @@ class IBackend(backends.IBackend):
     return materialize.materialize_type
 
   @property
-  def generate_module(self):
-    return save.generate_module
+  def write_module(self):
+    return save.write_module
 
   @property
   def single_step(self):

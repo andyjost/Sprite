@@ -74,12 +74,12 @@ def save(interp, cymodule, filename=None, goal=None):
   target_object = be.compile(interp, h.icurry)
   if isinstance(filename, six.string_types):
     with open(filename, 'w') as stream:
-      be.generate_module(target_object, stream, goal=goal)
+      be.write_module(target_object, stream, goal=goal)
   elif not filename:
     stream = StringIO()
-    be.generate_module(target_object, stream, goal=goal)
+    be.write_module(target_object, stream, goal=goal)
     return stream.getvalue()
   else:
     stream = filename
-    be.generate_module(target_object, stream, goal=goal)
+    be.write_module(target_object, stream, goal=goal)
 

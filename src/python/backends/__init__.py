@@ -99,8 +99,8 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractproperty
-  def generate_module(self):
-    '''Generate the contents of a Curry module.'''
+  def write_module(self):
+    '''Write the contents of a Curry module to a stream.'''
     assert 0
 
   @abc.abstractproperty

@@ -2,13 +2,12 @@
 Code for converting the intermediate representation to executable code.
 '''
 
-from ....common import T_FUNC, F_MONADIC
-from ....exceptions import CompileError
-from .. import cyrtbindings as cyrt
-from .... import icurry, objects
-from ....objects import handle
-from . import save
-from ....utility import encoding, filesys
+from ...common import T_FUNC, F_MONADIC
+from ...exceptions import CompileError
+from . import cyrtbindings as cyrt
+from ... import icurry, objects
+from ...objects import handle
+from ...utility import encoding, filesys
 import pprint, six, textwrap
 
 __all__ = [
