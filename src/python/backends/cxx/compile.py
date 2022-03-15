@@ -1,43 +1,14 @@
 from ...exceptions import CompileError
-from ..generic.compiler import ExternallyDefined
-from ..generic.compiler.render import CXX_RENDERER
+from ..generic import compiler, renderer
 from ... import config, icurry
-# from ...objects import handle
-from ...utility import formatDocstring, strings, visitation
-import collections, functools, itertools, json, logging, re, six, sys
-
-logger = logging.getLogger(__name__)
+from ...utility import formatDocstring, strings
+import collections, itertools, json, re
 
 __all__ = ['compile', 'demangle', 'mangle', 'write_module']
 
 def compile(interp, imodule, extern=None):
   compileM = CxxCompiler(interp, imodule, extern)
   return compileM.compile()
-
-# Symbol kind.
-DATA_TYPE         = 'DATA_TYPE'     # A Curry data type (for narrowing).
-INFO_TABLE        = 'INFO_TABLE'    # Constructor or Function info table.
-STRING_DATA       = 'STRING_DATA'   # Static string data.
-VALUE_SET         = 'VALUE_SET'     # Case values (for narrowing).
-STEP_FUNCTION     = 'STEP_FUNCTION' # A step function.
-CONSTRUCTOR_TABLE = 'CONSTRUCTOR_TABLE'
-
-KIND_CODE = {
-    DATA_TYPE         : 'D'
-  , INFO_TABLE        : 'I'
-  , STRING_DATA       : 'S'
-  , VALUE_SET         : 'V'
-  , STEP_FUNCTION     : 'F'
-  , CONSTRUCTOR_TABLE : 'C'
-}
-
-KIND_CODE_R = {v:k for k,v in KIND_CODE.items()}
-
-# Symbol status.
-DEFINED   = 'T'
-UNDEFINED = 'U'
-
-Symbol = collections.namedtuple('Symbol', ['name', 'stat', 'kind', 'descr'])
 
 TR = {
     '_' : '__' , '&' : '_M' , '@' : '_A' , '!' : '_B' , '`' : '_T'
@@ -54,6 +25,17 @@ TRR = {v:k for k,v in TR.items()}
 assert all(n == 1 for n in collections.Counter(TR.values()).values())
 assert all(n == 1 for n in collections.Counter(TRR.values()).values())
 assert len(TR) == len(TRR)
+
+KIND_CODE = {
+    compiler.DATA_TYPE         : 'D'
+  , compiler.INFO_TABLE        : 'I'
+  , compiler.STRING_DATA       : 'S'
+  , compiler.VALUE_SET         : 'V'
+  , compiler.STEP_FUNCTION     : 'F'
+  , compiler.CONSTRUCTOR_TABLE : 'C'
+}
+
+KIND_CODE_R = {v:k for k,v in KIND_CODE.items()}
 
 def encode(name):
   '''Encode a Curry identifier string to alphnumeric.'''
@@ -104,59 +86,9 @@ def demangle(symbolname):
       i += chunksz
   return list(gen()), kind
 
-# E.g.: the symbol for Prelude.: might appear in the symbol table for the
-# Prelude as follows:
-#
-#   ('_7Prelude4Cons', 'T', INFO_TABLE, EXTERNAL, 'Prelude.:')
 
-def recursionLimitDisabled(f):
-  limit = sys.getrecursionlimit()
-  @functools.wraps(f)
-  def decorator(*args, **kwds):
-    try:
-      sys.setrecursionlimit(1<<30)
-      return f(*args, **kwds)
-    finally:
-      sys.setrecursionlimit(limit)
-  return decorator
-
-class TargetObject(object):
-  SECTIONS = (
-      '.header'
-  ### Forward declarations.
-    , '.stepfunc.fwd' # Step function forward declarations.
-    , '.infotab.fwd'  # InfoTable forward declarations.
-    , '.datatype.fwd' # Type definition forward declarations.
-  ### Read-only data.
-    , '.strings'      # String literals.
-    , '.valuesets'    # Value sets.
-  ### Code.
-    , '.stepfunc'     # Step function definitions.
-  ### Object definitions.
-    , '.infotab'      # InfoTable definitions.
-    , '.datatype'     # Type definitions.
-    , '.module'       # Module definition.
-    )
-
-  def __init__(self, codetype, unitname):
-    self.codetype = codetype
-    self.unitname = unitname
-    self.sections = collections.defaultdict(list) # {str: [str]}
-    self.symtab = {}   # {str: Symbol}
-    # After compilation, imodule_linked contains an IModule in which every
-    # IFunction body is implemented as an ILink object that references a symbol
-    # defined in this target object.
-    self.imodule_linked = None
-
-  def __getitem__(self, sectname):
-    assert sectname in self.SECTIONS
-    return self.sections[sectname]
-
-  def __repr__(self):
-    return '<%r TargetObject for %r>' % (self.codetype, self.unitname)
-
-
-class CxxCompiler(object):
+class CxxCompiler(compiler.CompilerBase):
+  @formatDocstring(config.python_package_name())
   def __init__(self, interp, imodule, extern=None):
     '''
     Compiles ICurry to a C++ target object.
@@ -172,270 +104,89 @@ class CxxCompiler(object):
         An instance of ``{0}.icurry.IModule`` used to resolve external
         declarations.
     '''
-    self.interp = interp
-    self.imodule = imodule
-    self.extern = extern
-    self.target_object = TargetObject('C++', imodule.fullname)
+    compiler.CompilerBase.__init__(self, interp, imodule, extern)
     self.counts = collections.defaultdict(itertools.count)
-
-  def insert_symbol(self, name, kind, descr):
-    tab = self.target_object.symtab
-    if name not in tab:
-      tab[name] = Symbol(name, UNDEFINED, kind, descr)
-      return True
-    else:
-      return False
-
-  def make_symbol_defined(self, name):
-    tab = self.target_object.symtab
-    existing = tab.get(name)
-    if existing and existing.stat == DEFINED:
-      raise CompileError('multiple definition of %r' % existing.descr)
-    else:
-      assert name == existing.name
-      tab[name] = Symbol(name, DEFINED, existing.kind, existing.descr)
 
   def next_private_symbolname(self, kind):
     i = next(self.counts[kind])
     return mangle(['_%s' % i], kind)
 
-  @formatDocstring(config.python_package_name())
-  @recursionLimitDisabled
-  def compile(self):
-    '''
-    Performs compilation.
+  def vGetSymbolName(self, iobj, kind):
+    return mangle(iobj.splitname(), kind)
 
-    Returns:
-      A target object containing object code and with imodule_linked set to non-None.
+  def vEmitHeader(self):
+    yield '#include "cyrt/cyrt.hpp"'
+    yield ''
+    yield 'using namespace cyrt;'
 
-    '''
-    header = self.target_object['.header']
-    header.append('#include "cyrt/cyrt.hpp"')
-    header.append('')
-    header.append('using namespace cyrt;')
+  def vEmitStepfuncFwd(self, h_stepfunc):
+    yield 'tag_type %s(RuntimeState *, Configuration *);' % h_stepfunc
 
-    assert self.target_object.imodule_linked is None
-    self.target_object.imodule_linked = self.compileEx(self.imodule)
-    return self.target_object
+  def vEmitInfotabFwd(self, h_info):
+    yield 'extern InfoTable const %s;' % h_info
 
-  @visitation.dispatch.on('icy')
-  def compileEx(self, icy):
-    '''
-    Compiles an ICurry object.
+  def vEmitDataTypeFwd(self, h_datatype):
+    yield 'extern Type const %s;' % h_datatype
 
-    Updates the TargetObject and returns a new ICurry 'interface' object in which
-    each function body has been replaced with IMaterial.
+  def vEmitStepfuncHead(self, ifun, h_stepfunc):
+    yield '/****** %s ******/' % ifun.fullname
+    yield 'tag_type %s(RuntimeState * rts, Configuration * C)' % h_stepfunc
 
-    Args:
-      ``icy``
-        An IPackage, IModule, or IFunction to compile.
+  def vEmitStepfuncEntry(self):
+    yield 'Cursor _0 = C->cursor();'
 
-    Returns:
-      The ICurry interface.
-    '''
-    raise TypeError('Cannot compile type %r' % type(icy).__name__)
+  def vEmitFunctionInfotab(self, ifun, h_info, h_stepfunc):
+    yield 'InfoTable const %s{'                 % h_info
+    yield '    /*tag*/        T_FUNC'
+    yield '  , /*arity*/      %s'               % ifun.arity
+    yield '  , /*alloc_size*/ %s'               % _sizeof(ifun.arity)
+    yield '  , /*flags*/      F_STATIC_OBJECT'
+    yield '  , /*name*/       %s'               % _dquote(ifun.name)
+    yield '  , /*format*/     "%s"'             % ('p' * ifun.arity)
+    yield '  , /*step*/       %s'               % h_stepfunc
+    yield '  , /*typecheck*/  nullptr'
+    yield '  , /*type*/       nullptr'
+    yield '  };'
+    yield ''
 
-  @compileEx.when(icurry.IModule)
-  def compileEx(self, imodule):
-    for itype in six.itervalues(imodule.types):
-      # if not itype.is_builtin  ### FIXME
-      self.compileEx(itype)
-    functions = [
-        self.compileEx(ifun)
-            for ifun in six.itervalues(imodule.functions)
-                if not ifun.is_builtin
-      ]
-    return imodule.copy(functions=functions)
+  def vEmitConstructorInfotab(self, i, ictor, h_info, h_datatype):
+    flags = ictor.metadata.get('all.flags', 0)
+    yield 'InfoTable const %s{'                     % h_info
+    yield '    /*tag*/        T_CTOR + %s'          % str(i)
+    yield '  , /*arity*/      %s'                   % ictor.arity
+    yield '  , /*alloc_size*/ %s'                   % _sizeof(ictor.arity)
+    yield '  , /*flags*/      F_STATIC_OBJECT | %s' % flags
+    yield '  , /*name*/       %s'                   % _dquote(ictor.name)
+    yield '  , /*format*/     "%s"'                 % ('p' * ictor.arity)
+    yield '  , /*step*/       nullptr'
+    yield '  , /*typecheck*/  nullptr'
+    yield '  , /*type*/       &%s'                  % h_datatype
+    yield '  };'
+    yield ''
 
-  @compileEx.when(icurry.IFunction)
-  def compileEx(self, ifun):
-    # Build the symbol and update the symbol table.
-    h_stepfunc = mangle(ifun.splitname(), STEP_FUNCTION)
-    self.insert_symbol(
-        h_stepfunc, STEP_FUNCTION, 'step function for %r' % ifun.fullname
+  def vEmitDataType(self, itype, h_datatype, ctor_handles):
+    # h_ctortable = self.vGetSymbolName(itype, CONSTRUCTOR_TABLE)
+    h_ctortable = self.next_private_symbolname(compiler.CONSTRUCTOR_TABLE)
+    self.symtab.insert(
+        h_ctortable, compiler.CONSTRUCTOR_TABLE
+      , 'constructor table for %r' % itype.fullname
       )
-    self.target_object['.stepfunc.fwd'].append(
-        'tag_type %s(RuntimeState *, Configuration *);' % h_stepfunc
+    yield 'static InfoTable const * %s[] = { %s };' % (
+        h_ctortable, ', '.join('&%s' % h for h in ctor_handles)
       )
-
-    # Append to section '.stepfunc'.
-    out = self.target_object['.stepfunc']
-    if out:
-      out.append('')
-    out.append('/****** %s ******/' % ifun.fullname)
-    out.append('tag_type %s(RuntimeState * rts, Configuration * C)' % h_stepfunc)
-    linesF = [] # the function body
-    out.append(linesF)
-
-    # Compile the function body.
-    while True:
-      linesF.clear()
-      try:
-        self.compileF(ifun, linesF)
-      except ExternallyDefined as e:
-        # Retry if compileF resolved an external definition.
-        ifun = e.ifun
-      else:
-        break
-
-    self.make_symbol_defined(h_stepfunc)
-
-    # Emit the info table.
-    h_info = mangle(ifun.splitname(), INFO_TABLE)
-    self.insert_symbol(h_info, INFO_TABLE, 'info table for %r' % ifun.fullname)
-    self.target_object['.infotab.fwd'].append(
-        'extern InfoTable const %s;' % h_info
+    self.symtab.make_defined(h_ctortable)
+    yield 'Type const %s { %s, %r, %r, F_STATIC_OBJECT };' % (
+        h_datatype, h_ctortable, 't', len(itype.constructors)
       )
+    yield ''
 
-    infotab = self.target_object['.infotab']
-    infotab.append('InfoTable const %s{'                 % h_info)
-    infotab.append('    /*tag*/        T_FUNC')
-    infotab.append('  , /*arity*/      %s'               % ifun.arity)
-    infotab.append('  , /*alloc_size*/ %s'               % _sizeof(ifun.arity))
-    infotab.append('  , /*flags*/      F_STATIC_OBJECT')
-    infotab.append('  , /*name*/       %s'               % _dquote(ifun.name))
-    infotab.append('  , /*format*/     "%s"'             % ('p' * ifun.arity))
-    infotab.append('  , /*step*/       %s'               % h_stepfunc)
-    infotab.append('  , /*typecheck*/  nullptr')
-    infotab.append('  , /*type*/       nullptr')
-    infotab.append('  };')
-    infotab.append('')
-    self.make_symbol_defined(h_info)
-
-    return ifun.copy(body=icurry.ILink(h_stepfunc))
-
-  @compileEx.when(icurry.IDataType)
-  def compileEx(self, itype):
-    h_datatype = mangle(itype.splitname(), DATA_TYPE)
-    self.insert_symbol(h_datatype, DATA_TYPE, itype.fullname)
-    self.target_object['.datatype.fwd'].append(
-        'extern Type const %s;' % h_datatype
-      )
-    
-    constructor_handles = []
-    infotab = self.target_object['.infotab']
-    for i,ictor in enumerate(itype.constructors):
-      h_ctorinfo = mangle(ictor.splitname(), INFO_TABLE)
-      constructor_handles.append(h_ctorinfo)
-      self.insert_symbol(
-          h_ctorinfo, INFO_TABLE, 'info table for %r' % ictor.fullname
-        )
-      self.target_object['.infotab.fwd'].append(
-          'extern InfoTable const %s;' % h_ctorinfo
-        )
-
-      flags = ictor.metadata.get('all.flags', 0)
-      infotab.append('InfoTable const %s{'                     % h_ctorinfo)
-      infotab.append('    /*tag*/        T_CTOR + %s'          % str(i))
-      infotab.append('  , /*arity*/      %s'                   % ictor.arity)
-      infotab.append('  , /*alloc_size*/ %s'                   % _sizeof(ictor.arity))
-      infotab.append('  , /*flags*/      F_STATIC_OBJECT | %s' % flags)
-      infotab.append('  , /*name*/       %s'                   % _dquote(ictor.name))
-      infotab.append('  , /*format*/     "%s"'                 % ('p' * ictor.arity))
-      infotab.append('  , /*step*/       nullptr')
-      infotab.append('  , /*typecheck*/  nullptr')
-      infotab.append('  , /*type*/       &%s'                  % h_datatype)
-      infotab.append('  };')
-      infotab.append('')
-
-      self.make_symbol_defined(h_ctorinfo)
-
-    datatype = self.target_object['.datatype']
-    h_ctortable = mangle(itype.splitname(), CONSTRUCTOR_TABLE)
-    datatype.append(
-        'static InfoTable const * %s[] = { %s };' % (
-            h_ctortable, ', '.join('&%s' % h for h in constructor_handles)
-          )
-      )
-    datatype.append(
-        'Type const %s { %s, %r, %r, F_STATIC_OBJECT };' % (
-            h_datatype, h_ctortable, 't', len(itype.constructors)
-          )
-      )
-    datatype.append('')
-    self.make_symbol_defined(h_datatype)
-
-  ################
-  ### compileF ###
-  ################
-
-  @visitation.dispatch.on('iobj')
-  def compileF(self, iobj, linesF):
-    assert False
-
-  @compileF.when(collections.Sequence, no=str)
-  def compileF(self, seq, linesF):
-    for x in seq:
-      self.compileF(x, linesF)
-
-  @compileF.when(icurry.IFunction)
-  def compileF(self, ifun, linesF):
-    try:
-      return self.compileF(ifun.body, linesF)
-    except CompileError as e:
-      raise CompileError(
-          'failed to compile function %r: %s' % (ifun.fullname, e)
-        )
-
-  @compileF.when(icurry.IExternal)
-  def compileF(self, iexternal, linesF):
-    try:
-      localname = iexternal.symbolname[len(self.extern.fullname)+1:]
-      ifun = self.extern.functions[localname]
-    except (KeyError, AttributeError):
-      msg = 'external function %r is not defined' % iexternal.symbolname
-      logger.warn(msg)
-      stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))
-      body = icurry.IBody(stmt)
-      self.compileF(body, linesF)
-    else:
-      raise ExternallyDefined(ifun)
-
-  @compileF.when(icurry.IBody)
-  def compileF(self, function, linesF):
-    linesF.append('Cursor _0 = C->cursor();')
-    linesF.extend(self.compileS(function.block))
-
-  @compileF.when(icurry.IBuiltin)
-  def compileF(self, ibuiltin, linesF):
-    raise CompileError('expected a built-in definition')
-
-  @compileF.when(icurry.IStatement)
-  def compileF(self, stmt, linesF):
-    linesS = list(self.compileS(stmt))
-    linesF.append(linesS)
-
-  ################
-  ### compileS ###
-  ################
-
-  @visitation.dispatch.on('stmt')
-  def compileS(self, stmt):
-    '''
-    Compile a statement into nested lists of target code lines.
-    '''
-    assert False
-
-  @compileS.when(collections.Sequence, no=str)
-  def compileS(self, seq):
-    for lines in (self.compileS(x) for x in seq):
-      for line in lines:
-        yield line
-
-  @compileS.when(icurry.IVarDecl)
-  def compileS(self, vardecl):
-    varname = self.compileE(vardecl.lhs)
+  def vEmit_compileS_IVarDecl(self, vardecl, varname):
     yield 'Variable %s;' % varname
 
-  @compileS.when(icurry.IFreeDecl)
-  def compileS(self, vardecl):
-    varname = self.compileE(vardecl.lhs)
+  def vEmit_compileS_IFreeDecl(self, vardecl, varname):
     yield 'auto %s = rts->freshvar();' % varname
 
-  @compileS.when(icurry.IVarAssign)
-  def compileS(self, assign):
-    lhs = self.compileE(assign.lhs, primary=True)
-    rhs = self.compileE(assign.rhs, primary=True)
+  def vEmit_compileS_IVarAssign(self, assign, lhs, rhs):
     if isinstance(assign.rhs, icurry.ICall):
       tmpname = 'tmp%s' % lhs
       yield 'Node * %s = %s;' % (tmpname, rhs)
@@ -443,42 +194,18 @@ class CxxCompiler(object):
     else:
       yield '%s = %s;' % (lhs, rhs)
 
-  @compileS.when(icurry.INodeAssign)
-  def compileS(self, assign):
-    lhs = self.compileE(assign.lhs)
-    rhs = self.compileE(assign.rhs, primary=True)
+  def vEmit_compileS_INodeAssign(self, assign, lhs, rhs):
     yield '%s = %s;' % (lhs, rhs)
 
-  @compileS.when(icurry.IBlock)
-  def compileS(self, block):
-    for sect in [block.vardecls, block.assigns, block.stmt]:
-      for line in self.compileS(sect):
-        yield line
-
-  @compileS.when(icurry.IExempt)
-  def compileS(self, exempt):
+  def vEmit_compileS_IExempt(self, exempt):
     yield 'return _0->make_failure();'
 
-  @compileS.when(icurry.IReturn)
-  def compileS(self, ret):
-    primary = isinstance(ret.expr, icurry.IReference)
-    expr = self.compileE(ret.expr, primary=primary)
+  def vEmit_compileS_IReturn(self, expr):
     yield '_0->forward_to(%s);' % expr
     yield 'return T_FWD;'
 
-  @compileS.when(icurry.ICaseCons)
-  def compileS(self, icase):
-    assert icase.branches
-    infoname = icase.branches[0].symbolname
-    typedef = self.interp.symbol(infoname).typedef
-    h_typename = mangle(typedef.icurry.splitname(), DATA_TYPE)
-    if self.insert_symbol(h_typename, DATA_TYPE, typedef.fullname):
-      self.target_object['.datatype.fwd'].append(
-          'extern Type const %s;' % h_typename
-        )
-
-    varident = self.compileE(icase.var)
-    yield 'auto tag = rts->hnf(C, &%s, &%s);' % (varident, h_typename)
+  def vEmit_compileS_ICaseCons(self, icase, h_datatype, varident):
+    yield 'auto tag = rts->hnf(C, &%s, &%s);' % (varident, h_datatype)
     yield 'switch(tag)'
     switchbody = []
     for branch in icase.branches:
@@ -488,18 +215,15 @@ class CxxCompiler(object):
     switchbody.append('default: return tag;')
     yield switchbody
 
-  @compileS.when(icurry.ICaseLit)
-  def compileS(self, icase):
-    h_sel = self.compileE(icase.var)
-    values = tuple(branch.lit.value for branch in icase.branches)
-    h_values = self.next_private_symbolname(VALUE_SET)
-    self.insert_symbol(h_values, VALUE_SET, '<literal case values>')
+  def vEmit_compileS_ICaseLit(self, icase, h_sel, values):
+    h_values = self.next_private_symbolname(compiler.VALUE_SET)
+    self.symtab.insert(h_values, compiler.VALUE_SET, '<literal case values>')
     self.target_object['.valuesets'].append(
         'static %s constexpr %s[] = {%s};' % (
             _datatype(values), h_values, ', '.join(str(v) for v in values)
           )
       )
-    self.make_symbol_defined(h_values)
+    self.symtab.make_defined(h_values)
 
     yield 'auto tag = rts->hnf(C, &%s, &%s);' % (h_sel, h_values)
     yield 'if(tag != T_UNBOXED) return tag;'
@@ -512,115 +236,43 @@ class CxxCompiler(object):
     switchbody.append('default: return _0->make_failure();')
     yield switchbody
 
-  ################
-  ### compileE ###
-  ################
-
-  @visitation.dispatch.on('expr')
-  def compileE(self, expr, primary=False):
-    '''
-    Compile an expression into a string.  For primary expressions, the string
-    evaluates to a value (boxed or unboxed).  For non-primary expressions, it
-    contains comma-separated arguments that may be passed to the Node constructor
-    or Node->forward_to.
-    '''
-    assert False
-
-  @compileE.when(icurry.IVar)
-  def compileE(self, ivar, primary=False):
+  def vEmit_compileE_IVar(self, ivar):
     return '_%s' % ivar.vid
 
-  @compileE.when(icurry.IVarAccess)
-  def compileE(self, ivaraccess, primary=False):
-    return '%s[%s]' % (
-        self.compileE(ivaraccess.var, primary=primary)
-      , ','.join(map(str, ivaraccess.path))
-      )
+  def vEmit_compileE_IVarAccess(self, ivaraccess, var):
+    return '%s[%s]' % (var, ','.join(map(str, ivaraccess.path)))
 
-  @compileE.when(icurry.ILiteral)
-  def compileE(self, iliteral, primary=False):
-    ctorname = iliteral.fullname
-    ctor = self.interp.symbol(ctorname)
-    h_ctor = mangle(ctor.icurry.splitname(), INFO_TABLE)
-    if self.insert_symbol(h_ctor, INFO_TABLE, ctorname):
-      self.target_object['.infotab.fwd'].append(
-         'extern InfoTable const %s;' % h_ctor
-       )
-
+  def vEmit_compileE_ILiteral(self, iliteral, h_ctor, primary):
     text = '&%s, Arg(%r)' % (h_ctor, iliteral.value)
     return 'Node::create(%s)' % text if primary else text
 
-  @compileE.when(icurry.IString)
-  def compileE(self, istring, primary=False):
+  def vEmit_compileE_IString(self, istring, primary):
     string = strings.ensure_str(istring.value)
-    h_string = self.next_private_symbolname(STRING_DATA)
-    self.insert_symbol(h_string, STRING_DATA, '<string data %r>' % string)
+    h_string = self.next_private_symbolname(compiler.STRING_DATA)
+    self.symtab.insert(h_string, compiler.STRING_DATA, '<string data %r>' % string)
     self.target_object['.strings'].append(
         'static char const * %s = %s;' % (h_string, _dquote(string))
       )
-    self.make_symbol_defined(h_string)
-
+    self.symtab.make_defined(h_string)
     text = '&CString_Info, Arg(%s)' % h_string
     return 'Node::create(%s)' % text if primary else text
 
-  @compileE.when(icurry.IUnboxedLiteral)
-  def compileE(self, iunboxed, primary=False):
+  def vEmit_compileE_IUnboxedLiteral(self, iunboxed, primary):
     return repr(iunboxed)
 
-  @compileE.when(icurry.ILit)
-  def compileE(self, ilit, primary=False):
-    return self.compileE(ilit.lit, primary)
-
-  @compileE.when(icurry.ICall)
-  def compileE(self, icall, primary=False):
-    infoname = icall.symbolname
-    info = self.interp.symbol(infoname)
-    h_info = mangle(info.icurry.splitname(), INFO_TABLE)
-    if self.insert_symbol(h_info, INFO_TABLE, infoname):
-      self.target_object['.infotab.fwd'].append(
-          'extern InfoTable const %s;' % h_info
-        )
-    else:
-      assert 'extern InfoTable const %s;' % h_info in self.target_object['.infotab.fwd']
-
-    subexprs = (self.compileE(x, primary=True) for x in icall.exprs)
-    text = '&%s%s' % (h_info, ''.join(', ' + e for e in subexprs))
+  def vEmit_compileE_ICall(self, icall, h_info, args, primary):
+    text = '&%s%s' % (h_info, ''.join(', ' + e for e in args))
     return 'Node::create(%s)' % text if primary else text
 
-  @compileE.when(icurry.IPartialCall)
-  def compileE(self, ipcall, primary=False):
-    infoname = ipcall.symbolname
-    info = self.interp.symbol(infoname)
-    h_info = mangle(info.icurry.splitname(), INFO_TABLE)
-    if self.insert_symbol(h_info, INFO_TABLE, infoname):
-      self.target_object['.infotab.fwd'].append(
-          'extern InfoTable const %s;' % h_info
-        )
-
-    subexprs = (self.compileE(x, primary=True) for x in ipcall.exprs)
-    text = '&%s%s' % (
-        h_info
-      , ''.join(', ' + e for e in subexprs)
-      )
+  def vEmit_compileE_IPartialCall(self, icall, h_info, args, primary):
+    text = '&%s%s' % (h_info, ''.join(', ' + e for e in args))
     # 'primary' intentionally ignored.
     return 'Node::create_partial(%s)' % text
 
-  @compileE.when(icurry.IOr)
-  def compileE(self, ior, primary=False):
-    infoname = 'Prelude.?'
-    info = self.interp.symbol(infoname)
-    h_info = mangle(info.icurry.splitname(), INFO_TABLE)
-    if self.insert_symbol(h_info, INFO_TABLE, infoname):
-      self.target_object['.infotab.fwd'].append(
-          'extern InfoTable const %s;' % h_info
-        )
-
-    text = "&%s, %s, %s" % (
-        h_info
-      , self.compileE(ior.lhs, primary=True)
-      , self.compileE(ior.rhs, primary=True)
-      )
+  def vEmit_compileE_IOr(self, ior, h_info, lhs, rhs, primary):
+    text = "&%s, %s, %s" % (h_info, lhs, rhs)
     return 'Node::create(%s)' % text if primary else text
+
 
 def _datatype(values):
   if len(values) == 0 or isinstance(values[0], int):
@@ -640,8 +292,8 @@ def _sizeof(arity):
     return 'sizeof(Head) + sizeof(Arg[%s])' % arity
 
 def write_module(target_object, stream, goal=None):
-  render = CXX_RENDERER.renderLines
-  for section_name in TargetObject.SECTIONS:
+  render = renderer.CXX_RENDERER.renderLines
+  for section_name in compiler.TargetObject.SECTIONS:
     section_data = target_object[section_name]
     section_text = render(section_data)
     stream.write(section_text)
