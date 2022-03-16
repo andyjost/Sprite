@@ -1,4 +1,4 @@
-from ...generic.compiler import save, statics
+from ...generic.compiler_old import save, statics
 from .... import config
 
 class PackageCreator(save.PackageCreator):

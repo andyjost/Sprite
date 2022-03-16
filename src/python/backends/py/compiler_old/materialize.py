@@ -4,7 +4,7 @@ Code for converting the intermediate representation to executable code.
 
 from ....common import T_CTOR, T_FUNC, F_MONADIC
 from .... import icurry, objects
-from ...generic.compiler import render
+from ...generic import renderer
 from ....utility import encoding, filesys
 import pprint, six, textwrap
 from ..graph import InfoTable
@@ -18,7 +18,7 @@ __all__ = [
 def materialize_function(interp, ifun, ir, debug=False):
   '''Materializes a Python function from the IR.'''
   container = {}
-  source = render.PY_RENDERER.renderLines(ir.lines)
+  source = renderer.PY_RENDERER.renderLines(ir.lines)
   if debug:
     # If debugging, write a source file so that PDB can step into this
     # function.

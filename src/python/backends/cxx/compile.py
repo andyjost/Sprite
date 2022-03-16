@@ -1,119 +1,16 @@
 from ...exceptions import CompileError
 from ..generic import compiler, renderer
-from ... import config, icurry
+from ... import icurry
 from ...utility import formatDocstring, strings
-import collections, itertools, json, re
+import json
 
-__all__ = ['compile', 'demangle', 'mangle', 'write_module']
+__all__ = ['compile', 'write_module']
 
 def compile(interp, imodule, extern=None):
   compileM = CxxCompiler(interp, imodule, extern)
   return compileM.compile()
 
-TR = {
-    '_' : '__' , '&' : '_M' , '@' : '_A' , '!' : '_B' , '`' : '_T'
-  , '^' : '_c' , ':' : '_C' , ',' : '_m' , '$' : '_D' , '.' : '_d'
-  , '"' : '_Q' , '=' : '_E' , '\\': '_z' , '>' : '_G' , '{' : '_R'
-  , '[' : '_K' , '(' : '_Y' , '<' : '_L' , '-' : '_n' , '#' : '_h'
-  , '%' : '_s' , '|' : '_p' , '+' : '_P' , '?' : '_u' , '}' : '_r'
-  , ']' : '_k' , ')' : '_y' , ';' : '_S' , '/' : '_l' , '\'': '_q'
-  , '*' : '_a' , '~' : '_t'
-  }
-TRR = {v:k for k,v in TR.items()}
-
-# Check for duplicates in TR and TRR.
-assert all(n == 1 for n in collections.Counter(TR.values()).values())
-assert all(n == 1 for n in collections.Counter(TRR.values()).values())
-assert len(TR) == len(TRR)
-
-KIND_CODE = {
-    compiler.DATA_TYPE         : 'D'
-  , compiler.INFO_TABLE        : 'I'
-  , compiler.STRING_DATA       : 'S'
-  , compiler.VALUE_SET         : 'V'
-  , compiler.STEP_FUNCTION     : 'F'
-  , compiler.CONSTRUCTOR_TABLE : 'C'
-}
-
-KIND_CODE_R = {v:k for k,v in KIND_CODE.items()}
-
-def encode(name):
-  '''Encode a Curry identifier string to alphnumeric.'''
-  enc = ''.join(TR.get(ch, ch) for ch in name)
-  # assert decode(enc) == name
-  return enc
-
-def decode(name):
-  '''Decode an encoded Curry identifier string.'''
-  def gen():
-    i = 0
-    n = len(name)
-    while i<n:
-      if name[i] == '_':
-        enc = name[i:i+2]
-        yield TRR[enc]
-        i += 2
-      else:
-        yield name[i]
-        i += 1
-  return ''.join(gen())
-
-def mangle(parts, kind):
-  # E.g., Prelude.: -> CyI7Prelude5_col_
-  #    Cy       = prefix for all Curry symbols
-  #    I        = symbol kind (info table)
-  #    7Prelude = name qualifier
-  #    5_col_   = encoded name
-  parts_ = parts[:-1] + [encode(parts[-1])]
-  tail = ''.join('%s%s' % (len(p), p) for p in parts_)
-  symbolname = 'Cy%s%s' % (KIND_CODE[kind], tail)
-  # assert demangle(symbolname) == (parts, kind)
-  return symbolname
-
-P_INTEGER = re.compile('(^\d+)')
-def demangle(symbolname):
-  assert symbolname.startswith('Cy')
-  kind = KIND_CODE_R[symbolname[2]]
-  def gen():
-    i = 3
-    n = len(symbolname)
-    while i<n:
-      text = re.match(P_INTEGER, symbolname[i:]).group()
-      chunksz = int(text)
-      i += len(text)
-      chunk = symbolname[i:i+chunksz]
-      yield decode(chunk)
-      i += chunksz
-  return list(gen()), kind
-
-
 class CxxCompiler(compiler.CompilerBase):
-  @formatDocstring(config.python_package_name())
-  def __init__(self, interp, imodule, extern=None):
-    '''
-    Compiles ICurry to a C++ target object.
-
-    Args:
-      interp:
-        The interpreter that owns this module.
-
-      imodule:
-        The IModule object representing the module to compile.
-
-      extern:
-        An instance of ``{0}.icurry.IModule`` used to resolve external
-        declarations.
-    '''
-    compiler.CompilerBase.__init__(self, interp, imodule, extern)
-    self.counts = collections.defaultdict(itertools.count)
-
-  def next_private_symbolname(self, kind):
-    i = next(self.counts[kind])
-    return mangle(['_%s' % i], kind)
-
-  def vGetSymbolName(self, iobj, kind):
-    return mangle(iobj.splitname(), kind)
-
   def vEmitHeader(self):
     yield '#include "cyrt/cyrt.hpp"'
     yield ''
@@ -165,7 +62,6 @@ class CxxCompiler(compiler.CompilerBase):
     yield ''
 
   def vEmitDataType(self, itype, h_datatype, ctor_handles):
-    # h_ctortable = self.vGetSymbolName(itype, CONSTRUCTOR_TABLE)
     h_ctortable = self.next_private_symbolname(compiler.CONSTRUCTOR_TABLE)
     self.symtab.insert(
         h_ctortable, compiler.CONSTRUCTOR_TABLE
@@ -179,6 +75,14 @@ class CxxCompiler(compiler.CompilerBase):
         h_datatype, h_ctortable, 't', len(itype.constructors)
       )
     yield ''
+
+  def vEmitStringLiteral(self, h_string, string):
+    yield 'static char const * %s = %s;' % (h_string, _dquote(string))
+
+  def vEmitValueSetLiteral(self, h_valueset, values):
+    yield 'static %s constexpr %s[] = {%s};' % (
+        _datatype(values), h_valueset, ', '.join(str(v) for v in values)
+      )
 
   def vEmit_compileS_IVarDecl(self, vardecl, varname):
     yield 'Variable %s;' % varname
@@ -200,7 +104,7 @@ class CxxCompiler(compiler.CompilerBase):
   def vEmit_compileS_IExempt(self, exempt):
     yield 'return _0->make_failure();'
 
-  def vEmit_compileS_IReturn(self, expr):
+  def vEmit_compileS_IReturn(self, iret, expr):
     yield '_0->forward_to(%s);' % expr
     yield 'return T_FWD;'
 
@@ -215,16 +119,7 @@ class CxxCompiler(compiler.CompilerBase):
     switchbody.append('default: return tag;')
     yield switchbody
 
-  def vEmit_compileS_ICaseLit(self, icase, h_sel, values):
-    h_values = self.next_private_symbolname(compiler.VALUE_SET)
-    self.symtab.insert(h_values, compiler.VALUE_SET, '<literal case values>')
-    self.target_object['.valuesets'].append(
-        'static %s constexpr %s[] = {%s};' % (
-            _datatype(values), h_values, ', '.join(str(v) for v in values)
-          )
-      )
-    self.symtab.make_defined(h_values)
-
+  def vEmit_compileS_ICaseLit(self, icase, h_sel, h_values):
     yield 'auto tag = rts->hnf(C, &%s, &%s);' % (h_sel, h_values)
     yield 'if(tag != T_UNBOXED) return tag;'
     yield 'switch(%s.target.arg->ub_int)' % h_sel
@@ -246,14 +141,7 @@ class CxxCompiler(compiler.CompilerBase):
     text = '&%s, Arg(%r)' % (h_ctor, iliteral.value)
     return 'Node::create(%s)' % text if primary else text
 
-  def vEmit_compileE_IString(self, istring, primary):
-    string = strings.ensure_str(istring.value)
-    h_string = self.next_private_symbolname(compiler.STRING_DATA)
-    self.symtab.insert(h_string, compiler.STRING_DATA, '<string data %r>' % string)
-    self.target_object['.strings'].append(
-        'static char const * %s = %s;' % (h_string, _dquote(string))
-      )
-    self.symtab.make_defined(h_string)
+  def vEmit_compileE_IString(self, istring, h_string, primary):
     text = '&CString_Info, Arg(%s)' % h_string
     return 'Node::create(%s)' % text if primary else text
 
@@ -264,13 +152,13 @@ class CxxCompiler(compiler.CompilerBase):
     text = '&%s%s' % (h_info, ''.join(', ' + e for e in args))
     return 'Node::create(%s)' % text if primary else text
 
-  def vEmit_compileE_IPartialCall(self, icall, h_info, args, primary):
+  def vEmit_compileE_IPartialCall(self, ipcall, h_info, args, primary):
     text = '&%s%s' % (h_info, ''.join(', ' + e for e in args))
     # 'primary' intentionally ignored.
     return 'Node::create_partial(%s)' % text
 
-  def vEmit_compileE_IOr(self, ior, h_info, lhs, rhs, primary):
-    text = "&%s, %s, %s" % (h_info, lhs, rhs)
+  def vEmit_compileE_IOr(self, ior, h_choice, lhs, rhs, primary):
+    text = "&%s, %s, %s" % (h_choice, lhs, rhs)
     return 'Node::create(%s)' % text if primary else text
 
 

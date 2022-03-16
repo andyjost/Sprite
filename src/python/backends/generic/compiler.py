@@ -1,15 +1,16 @@
 from ...exceptions import CompileError
-from ... import icurry
-from ...utility import maxrecursion, visitation
-import collections, logging, six
+from ... import config, icurry
+from ...utility import formatDocstring, maxrecursion, strings, visitation
+import abc, collections, itertools, logging, re, six
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
     'CompilerBase', 'ExternallyDefined', 'SymbolTable', 'TargetObject'
+  , 'decode', 'demangle', 'encode', 'mangle'
 
   , 'CONSTRUCTOR_TABLE', 'DATA_TYPE', 'DEFINED', 'INFO_TABLE', 'STEP_FUNCTION'
-  , 'STRING_DATA', 'UNDEFINE', 'VALUE_SET'
+  , 'STRING_DATA', 'UNDEFINED', 'VALUE_SET'
   ]
 
 
@@ -55,6 +56,82 @@ class SymbolTable(dict): # {str: Symbol}
       assert name == existing.name
       self[name] = Symbol(name, DEFINED, existing.kind, existing.descr)
 
+TR = {
+    '_' : '__' , '&' : '_M' , '@' : '_A' , '!' : '_B' , '`' : '_T'
+  , '^' : '_c' , ':' : '_C' , ',' : '_m' , '$' : '_D' , '.' : '_d'
+  , '"' : '_Q' , '=' : '_E' , '\\': '_z' , '>' : '_G' , '{' : '_R'
+  , '[' : '_K' , '(' : '_Y' , '<' : '_L' , '-' : '_n' , '#' : '_h'
+  , '%' : '_s' , '|' : '_p' , '+' : '_P' , '?' : '_u' , '}' : '_r'
+  , ']' : '_k' , ')' : '_y' , ';' : '_S' , '/' : '_l' , '\'': '_q'
+  , '*' : '_a' , '~' : '_t'
+  }
+TRR = {v:k for k,v in TR.items()}
+
+# Check for duplicates in TR and TRR.
+assert all(n == 1 for n in collections.Counter(TR.values()).values())
+assert all(n == 1 for n in collections.Counter(TRR.values()).values())
+assert len(TR) == len(TRR)
+
+KIND_CODE = {
+    DATA_TYPE         : 'D'
+  , INFO_TABLE        : 'I'
+  , STRING_DATA       : 'S'
+  , VALUE_SET         : 'V'
+  , STEP_FUNCTION     : 'F'
+  , CONSTRUCTOR_TABLE : 'C'
+}
+
+KIND_CODE_R = {v:k for k,v in KIND_CODE.items()}
+
+def encode(name):
+  '''Encode a Curry identifier string to alphnumeric.'''
+  enc = ''.join(TR.get(ch, ch) for ch in name)
+  # assert decode(enc) == name
+  return enc
+
+def decode(name):
+  '''Decode an encoded Curry identifier string.'''
+  def gen():
+    i = 0
+    n = len(name)
+    while i<n:
+      if name[i] == '_':
+        enc = name[i:i+2]
+        yield TRR[enc]
+        i += 2
+      else:
+        yield name[i]
+        i += 1
+  return ''.join(gen())
+
+def mangle(parts, kind):
+  # E.g., Prelude.: -> CyI7Prelude5_col_
+  #    Cy       = prefix for all Curry symbols
+  #    I        = symbol kind (info table)
+  #    7Prelude = name qualifier
+  #    5_col_   = encoded name
+  parts_ = parts[:-1] + [encode(parts[-1])]
+  tail = ''.join('%s%s' % (len(p), p) for p in parts_)
+  symbolname = 'Cy%s%s' % (KIND_CODE[kind], tail)
+  # assert demangle(symbolname) == (parts, kind)
+  return symbolname
+
+P_INTEGER = re.compile('(^\d+)')
+def demangle(symbolname):
+  assert symbolname.startswith('Cy')
+  kind = KIND_CODE_R[symbolname[2]]
+  def gen():
+    i = 3
+    n = len(symbolname)
+    while i<n:
+      text = re.match(P_INTEGER, symbolname[i:]).group()
+      chunksz = int(text)
+      i += len(text)
+      chunk = symbolname[i:i+chunksz]
+      yield decode(chunk)
+      i += chunksz
+  return list(gen()), kind
+
 
 class TargetObject(object):
   SECTIONS = (
@@ -92,15 +169,95 @@ class TargetObject(object):
     return '<%r TargetObject for %r>' % (self.codetype, self.unitname)
 
 
-class CompilerBase(object):
+class CompilerBase(abc.ABC):
   # Customization points.
   CODE_TYPE = None
 
+  def vGetSymbolName(self, iobj, kind):
+    return mangle(iobj.splitname(), kind)
+
+  locals().update({
+      methname: abc.abstractmethod(lambda *args: None)
+              for methname in [
+          'vEmitHeader'
+        , 'vEmitStepfuncFwd'
+        , 'vEmitInfotabFwd'
+        , 'vEmitDataTypeFwd'
+        , 'vEmitStepfuncHead'
+        , 'vEmitStepfuncEntry'
+        , 'vEmitFunctionInfotab'
+        , 'vEmitConstructorInfotab'
+        , 'vEmitDataType'
+        , 'vEmitStringLiteral'
+        , 'vEmitValueSetLiteral'
+        , 'vEmit_compileS_IVarDecl'
+        , 'vEmit_compileS_IFreeDecl'
+        , 'vEmit_compileS_IVarAssign'
+        , 'vEmit_compileS_INodeAssign'
+        , 'vEmit_compileS_IExempt'
+        , 'vEmit_compileS_IReturn'
+        , 'vEmit_compileS_ICaseCons'
+        , 'vEmit_compileS_ICaseLit'
+        , 'vEmit_compileE_IVar'
+        , 'vEmit_compileE_IVarAccess'
+        , 'vEmit_compileE_ILiteral'
+        , 'vEmit_compileE_IString'
+        , 'vEmit_compileE_IUnboxedLiteral'
+        , 'vEmit_compileE_ICall'
+        , 'vEmit_compileE_IPartialCall'
+        , 'vEmit_compileE_IOr'
+        ]
+    })
+
+  @formatDocstring(config.python_package_name())
   def __init__(self, interp, imodule, extern=None):
+    '''
+    Compiles ICurry to a C++ target object.
+
+    Args:
+      interp:
+        The interpreter that owns this module.
+
+      imodule:
+        The IModule object representing the module to compile.
+
+      extern:
+        An instance of ``{0}.icurry.IModule`` used to resolve external
+        declarations.
+    '''
     self.interp = interp
     self.imodule = imodule
     self.extern = extern
     self.target_object = TargetObject(self.CODE_TYPE, imodule.fullname)
+    self.counts = collections.defaultdict(itertools.count)
+
+  def next_private_symbolname(self, kind):
+    i = next(self.counts[kind])
+    return mangle(['_%s' % i], kind)
+
+  def importSymbol(self, symbolname):
+    '''Import a symbol into the taget object by name.'''
+    info = self.interp.symbol(symbolname)
+    h_info = self.vGetSymbolName(info.icurry, INFO_TABLE)
+    if self.symtab.insert(h_info, INFO_TABLE, symbolname):
+      self.target_object['.infotab.fwd'].extend(self.vEmitInfotabFwd(h_info))
+    return h_info
+
+  def internStringLiteral(self, string):
+    h_string = self.next_private_symbolname(STRING_DATA)
+    self.symtab.insert(h_string, STRING_DATA, '<string data: %r>' % string)
+    prog_text = self.vEmitStringLiteral(h_string, string)
+    self.target_object['.strings'].extend(prog_text)
+    self.symtab.make_defined(h_string)
+    return h_string
+
+  def internValueSetLiteral(self, values):
+    h_valueset = self.next_private_symbolname(VALUE_SET)
+    self.symtab.insert(h_valueset, VALUE_SET, '<case values: %r>' % (values,))
+    prog_text = self.vEmitValueSetLiteral(h_valueset, values)
+    self.target_object['.valuesets'].extend(prog_text)
+    self.symtab.make_defined(h_valueset)
+    return h_valueset
 
   @property
   def symtab(self):
@@ -313,10 +470,10 @@ class CompilerBase(object):
     return self.vEmit_compileS_IExempt(exempt)
 
   @compileS.when(icurry.IReturn)
-  def compileS(self, ret):
-    primary = isinstance(ret.expr, icurry.IReference)
-    expr = self.compileE(ret.expr, primary=primary)
-    return self.vEmit_compileS_IReturn(expr)
+  def compileS(self, iret):
+    primary = isinstance(iret.expr, icurry.IReference)
+    expr = self.compileE(iret.expr, primary=primary)
+    return self.vEmit_compileS_IReturn(iret, expr)
 
   @compileS.when(icurry.ICaseCons)
   def compileS(self, icase):
@@ -333,7 +490,8 @@ class CompilerBase(object):
   def compileS(self, icase):
     h_sel = self.compileE(icase.var)
     values = tuple(branch.lit.value for branch in icase.branches)
-    return self.vEmit_compileS_ICaseLit(icase, h_sel, values)
+    h_values = self.internValueSetLiteral(values)
+    return self.vEmit_compileS_ICaseLit(icase, h_sel, h_values)
 
   ################
   ### compileE ###
@@ -369,7 +527,9 @@ class CompilerBase(object):
 
   @compileE.when(icurry.IString)
   def compileE(self, istring, primary=False):
-    return self.vEmit_compileE_IString(istring, primary)
+    string = strings.ensure_str(istring.value)
+    h_string = self.internStringLiteral(string)
+    return self.vEmit_compileE_IString(istring, h_string, primary)
 
   @compileE.when(icurry.IUnboxedLiteral)
   def compileE(self, iunboxed, primary=False):
@@ -401,13 +561,10 @@ class CompilerBase(object):
 
   @compileE.when(icurry.IOr)
   def compileE(self, ior, primary=False):
-    infoname = 'Prelude.?'
-    info = self.interp.symbol(infoname)
-    h_info = self.vGetSymbolName(info.icurry, INFO_TABLE)
-    if self.symtab.insert(h_info, INFO_TABLE, infoname):
-      self.target_object['.infotab.fwd'].extend(self.vEmitInfotabFwd(h_info))
+    h_choice = self.importSymbol('Prelude.?')
     lhs = self.compileE(ior.lhs, primary=True)
     rhs = self.compileE(ior.rhs, primary=True)
-    return self.vEmit_compileE_IOr(ior, h_info, lhs, rhs, primary)
+    return self.vEmit_compileE_IOr(ior, h_choice, lhs, rhs, primary)
+
 
 

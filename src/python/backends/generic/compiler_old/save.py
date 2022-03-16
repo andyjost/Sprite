@@ -1,5 +1,6 @@
 from .... import config
-from . import render, statics
+from . import statics
+from .. import renderer
 from ....utility import filesys
 import abc, os, six
 
@@ -77,7 +78,7 @@ class ModuleInterfaceGenerator(abc.ABC, FileGenerator):
   Generates the contents of the __init__.py file needed to load a Curry
   module.
   '''
-  RENDERER = render.PY_RENDERER
+  RENDERER = renderer.PY_RENDERER
   SECTIONS = (
       'banner'
     , 'imports'
@@ -122,7 +123,7 @@ class ModuleInterfaceGenerator(abc.ABC, FileGenerator):
 
   def moduleDef(self):
     imodule = self.imodule
-    py = render.PY_RENDERER
+    py = renderer.PY_RENDERER
     def _close(level, string):
       return (2 * level + 1) * py.INDENT * ' ' + string
     yield '# Interface'

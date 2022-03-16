@@ -1,4 +1,5 @@
-from .compiler import compile, materialize, save
+from . import compile
+from .compiler_old import materialize, save
 from .eval import evaluator
 from .graph import Node
 from ... import backends
