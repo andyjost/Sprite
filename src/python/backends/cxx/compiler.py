@@ -11,32 +11,40 @@ def compile(interp, imodule, extern=None):
   return compileM.compile()
 
 class CxxCompiler(compiler.CompilerBase):
+  CODE_TYPE = 'C++'
+
   def vEmitHeader(self):
     yield '#include "cyrt/cyrt.hpp"'
     yield ''
     yield 'using namespace cyrt;'
 
-  def vEmitStepfuncFwd(self, h_stepfunc):
+  def vEmitFooter(self):
+    return []
+
+  def vEmitStepfuncLink(self, ifun, h_stepfunc):
     yield 'tag_type %s(RuntimeState *, Configuration *);' % h_stepfunc
 
-  def vEmitInfotabFwd(self, h_info):
+  def vEmitInfotabLink(self, isym, h_info):
     yield 'extern InfoTable const %s;' % h_info
 
-  def vEmitDataTypeFwd(self, h_datatype):
+  def vEmitDataTypeLink(self, itype, h_datatype):
     yield 'extern Type const %s;' % h_datatype
 
-  def vEmitStepfuncHead(self, ifun, h_stepfunc):
+  def vEmitStepfuncHeader(self, ifun, h_stepfunc):
     yield '/****** %s ******/' % ifun.fullname
     yield 'tag_type %s(RuntimeState * rts, Configuration * C)' % h_stepfunc
 
   def vEmitStepfuncEntry(self):
     yield 'Cursor _0 = C->cursor();'
 
+  def vEmitBuiltinStepfunc(self, ibuiltin, h_stepfunc):
+    breakpoint()
+
   def vEmitFunctionInfotab(self, ifun, h_info, h_stepfunc):
     yield 'InfoTable const %s{'                 % h_info
     yield '    /*tag*/        T_FUNC'
     yield '  , /*arity*/      %s'               % ifun.arity
-    yield '  , /*alloc_size*/ %s'               % _sizeof(ifun.arity)
+    yield '  , /*alloc_size*/ sizeof(Head) + sizeof(Arg[%s])' % ifun.arity
     yield '  , /*flags*/      F_STATIC_OBJECT'
     yield '  , /*name*/       %s'               % _dquote(ifun.name)
     yield '  , /*format*/     "%s"'             % ('p' * ifun.arity)
@@ -51,7 +59,7 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'InfoTable const %s{'                     % h_info
     yield '    /*tag*/        T_CTOR + %s'          % str(i)
     yield '  , /*arity*/      %s'                   % ictor.arity
-    yield '  , /*alloc_size*/ %s'                   % _sizeof(ictor.arity)
+    yield '  , /*alloc_size*/ sizeof(Head) + sizeof(Arg[%s])' % ictor.arity
     yield '  , /*flags*/      F_STATIC_OBJECT | %s' % flags
     yield '  , /*name*/       %s'                   % _dquote(ictor.name)
     yield '  , /*format*/     "%s"'                 % ('p' * ictor.arity)
@@ -76,14 +84,18 @@ class CxxCompiler(compiler.CompilerBase):
       )
     yield ''
 
-  def vEmitStringLiteral(self, h_string, string):
+  def vEmitStringLiteral(self, string, h_string):
     yield 'static char const * %s = %s;' % (h_string, _dquote(string))
 
-  def vEmitValueSetLiteral(self, h_valueset, values):
+  def vEmitValueSetLiteral(self, values, h_valueset):
     yield 'static %s constexpr %s[] = {%s};' % (
         _datatype(values), h_valueset, ', '.join(str(v) for v in values)
       )
 
+  def vEmitModuleDefinition(self, imodule, h_module):
+    assert False # TODO
+
+  def vEmitModuleImport(self, imodule, h_module):
   def vEmit_compileS_IVarDecl(self, vardecl, varname):
     yield 'Variable %s;' % varname
 
@@ -157,7 +169,8 @@ class CxxCompiler(compiler.CompilerBase):
     # 'primary' intentionally ignored.
     return 'Node::create_partial(%s)' % text
 
-  def vEmit_compileE_IOr(self, ior, h_choice, lhs, rhs, primary):
+  def vEmit_compileE_IOr(self, ior, lhs, rhs, primary):
+    h_choice = self.importSymbol('Prelude.?')
     text = "&%s, %s, %s" % (h_choice, lhs, rhs)
     return 'Node::create(%s)' % text if primary else text
 
@@ -176,12 +189,10 @@ def _dquote(string):
   string_data = strings.ensure_str(string)
   return json.dumps(string_data)
 
-def _sizeof(arity):
-    return 'sizeof(Head) + sizeof(Arg[%s])' % arity
-
 def write_module(target_object, stream, goal=None):
   render = renderer.CXX_RENDERER.renderLines
   for section_name in compiler.TargetObject.SECTIONS:
+    stream.write('/* SECTION: %s */\n' % section_name)
     section_data = target_object[section_name]
     section_text = render(section_data)
     stream.write(section_text)

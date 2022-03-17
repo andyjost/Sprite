@@ -15,14 +15,15 @@ __all__ = [
 class IBuiltin(IObject):
   '''The function implementation should be provided in the metadata.'''
   def __init__(self, metadata):
-    for kind in ['py.boxedfunc', 'py.rawfunc', 'py.unboxedfunc']:
-      if kind in metadata:
-        kindname = kind.partition('.')[-1]
-        impl = metadata[kind]
-        self.text = '(%s %r from %r)' % (kindname, impl.__name__, impl.__module__)
-        break
-    else:
-      self.text = '(built-in)'
+    # for kind in ['py.boxedfunc', 'py.rawfunc', 'py.unboxedfunc']:
+    #   if kind in metadata:
+    #     kindname = kind.partition('.')[-1]
+    #     impl = metadata[kind]
+    #     self.text = '(%s %r from %r)' % (kindname, impl.__name__, impl.__module__)
+    #     break
+    # else:
+    self.update_metadata(metadata)
+    self.text = '(built-in)'
   def __str__(self):
     return self.text
   def __repr__(self):

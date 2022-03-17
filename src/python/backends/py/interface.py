@@ -1,5 +1,5 @@
-from . import compile
-from .compiler_old import materialize, save
+from . import compiler
+from .compiler_old import materialize
 from .eval import evaluator
 from .graph import Node
 from ... import backends
@@ -18,7 +18,7 @@ class IBackend(backends.IBackend):
 
   @property
   def compile(self):
-    return compile.compile
+    return compiler.compile
 
   @property
   def evaluate(self):
@@ -44,11 +44,11 @@ class IBackend(backends.IBackend):
     if modulename == 'Prelude':
       path = '.currylib.prelude'
       module = importlib.import_module(path, package=__package__)
-      return module.PreludeSpecification
+      return module.PreludeSpecification()
     elif modulename == 'Control.SetFunctions':
       path = '.currylib.setfunctions'
       module = importlib.import_module(path, package=__package__)
-      return module.SetFunctionsSpecification
+      return module.SetFunctionsSpecification()
 
   @property
   def make_node(self):
@@ -67,10 +67,10 @@ class IBackend(backends.IBackend):
     return materialize.materialize_type
 
   @property
-  def write_module(self):
-    return save.write_module
-
-  @property
   def single_step(self):
     return evaluator.single_step
+
+  @property
+  def write_module(self):
+    return compiler.write_module
 

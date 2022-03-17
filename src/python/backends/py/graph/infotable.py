@@ -1,6 +1,18 @@
 from .... import common
 import weakref
 
+class DataType(object):
+  def __init__(self, *ctorinfos):
+    self._ctorinfos = ctorinfos
+    for ctorinfo in ctorinfos:
+      assert ctorinfo.typedef is None
+      ctorinfo.typedef = self
+
+  @property
+  def constructors(self):
+    return self._ctorinfos
+
+
 class InfoTable(object):
   '''
   Runtime info for a node.  Every Curry node stores an `InfoTable`` instance,

@@ -40,6 +40,7 @@ class IModule(IContainer):
     '''
     from . import IFunction, IMaterial
     from ... import toolchain
+    breakpoint()
     makefun = lambda name, arity, vis, needed, func: \
         IFunction(
             name, arity, vis, needed

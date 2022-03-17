@@ -1,5 +1,5 @@
 from ... import backends
-from . import compile, cyrtbindings, materialize
+from . import compiler, cyrtbindings, materialize
 
 class IBackend(backends.IBackend):
   @property
@@ -12,7 +12,7 @@ class IBackend(backends.IBackend):
 
   @property
   def compile(self):
-    return compile.compile
+    return compiler.compile
 
   @property
   def evaluate(self):
@@ -33,10 +33,10 @@ class IBackend(backends.IBackend):
   def lookup_builtin_module(self, modulename):
     if modulename == 'Prelude':
       from ..cxx.currylib import prelude
-      return prelude.PreludeSpecification
+      return prelude.PreludeSpecification()
     elif modulename == 'Control.SetFunctions':
       from ..cxx.currylib import setfunctions
-      return setfunctions.SetFunctionsSpecification
+      return setfunctions.SetFunctionsSpecification()
 
   @property
   def make_node(self):
@@ -56,7 +56,7 @@ class IBackend(backends.IBackend):
 
   @property
   def write_module(self):
-    return compile.write_module
+    return compiler.write_module
 
   @property
   def single_step(self):

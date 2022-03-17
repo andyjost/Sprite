@@ -99,6 +99,7 @@ class FunctionCompiler(abc.ABC):
       localname = fname[len(extmod.fullname)+1:]
       ifun = extmod.functions[localname]
     except (KeyError, AttributeError):
+      breakpoint()
       msg = 'external function %r is not defined' % fname
       logger.warn(msg)
       stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))

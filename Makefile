@@ -19,10 +19,6 @@ MANIFEST:
 help:
 	@echo "Usage: make [target ...] [var=value ...]"
 	@echo ""
-	@echo "******************************************************"
-	@echo "    To build, stage, and test, say \`make install\`"
-	@echo "******************************************************"
-	@echo ""
 	@echo "  * See Make.config for editable configuration options."
 	@echo "  * Installing to PREFIX=$(PREFIX)."
 ifeq ($(DEBUG),1)
@@ -30,6 +26,11 @@ ifeq ($(DEBUG),1)
 else
 	@echo "  * Making *OPTIMIZED* flavor.  Say \`make <target> DEBUG=1\` for debug."
 endif
+	@echo ""
+	@echo "Targets for testing:"
+	@echo "--------------------"
+	@echo "    stage  : build a local copy for testing"
+	@echo "    test   : run unit tests (must stage first)"
 	@echo ""
 	@echo "Targets for building:"
 	@echo "---------------------"
@@ -49,8 +50,8 @@ endif
 	@echo "    overlay         : overlay PAKCS files"
 	@echo "    overlay-archive : build a new archive of overlayable files"
 	@echo ""
-	@echo "Targets for debugging:"
-	@echo "----------------------"
+	@echo "Targets for debugging the build:"
+	@echo "--------------------------------"
 	@echo "    print-<varname> : print the value of a make variable;  E.g., say"
 	@echo "                      \`make print-CC\` to see the selected compiler."
 	@echo ""

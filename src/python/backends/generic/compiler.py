@@ -24,11 +24,13 @@ class ExternallyDefined(Exception):
 
 # Symbol kind.
 CONSTRUCTOR_TABLE = 'CONSTRUCTOR_TABLE'
-DATA_TYPE         = 'DATA_TYPE'     # A Curry data type (for narrowing).
-INFO_TABLE        = 'INFO_TABLE'    # Constructor or Function info table.
-STEP_FUNCTION     = 'STEP_FUNCTION' # A step function.
-STRING_DATA       = 'STRING_DATA'   # Static string data.
-VALUE_SET         = 'VALUE_SET'     # Case values (for narrowing).
+DATA_TYPE         = 'DATA_TYPE'         # A Curry data type (for narrowing).
+INFO_TABLE        = 'INFO_TABLE'        # Constructor or Function info table.
+MODULE_DEF        = 'MODULE_DEF'
+STEP_FUNCTION     = 'STEP_FUNCTION'     # A step function.
+STRING_DATA       = 'STRING_DATA'       # Static string data.
+VALUE_SET         = 'VALUE_SET'         # Case values (for narrowing).
+BUILTIN_FUNCTION  = 'BUILTIN_FUNCTION'  # A function provided by the execution environment.
 
 # Symbol status.
 DEFINED   = 'T'
@@ -73,12 +75,14 @@ assert all(n == 1 for n in collections.Counter(TRR.values()).values())
 assert len(TR) == len(TRR)
 
 KIND_CODE = {
-    DATA_TYPE         : 'D'
+    BUILTIN_FUNCTION  : 'B'
+  , CONSTRUCTOR_TABLE : 'C'
+  , DATA_TYPE         : 'D'
   , INFO_TABLE        : 'I'
+  , MODULE_DEF        : 'M'
+  , STEP_FUNCTION     : 'F'
   , STRING_DATA       : 'S'
   , VALUE_SET         : 'V'
-  , STEP_FUNCTION     : 'F'
-  , CONSTRUCTOR_TABLE : 'C'
 }
 
 KIND_CODE_R = {v:k for k,v in KIND_CODE.items()}
@@ -137,18 +141,22 @@ class TargetObject(object):
   SECTIONS = (
       '.header'
   ### Forward declarations.
-    , '.stepfunc.fwd' # Step function forward declarations.
-    , '.infotab.fwd'  # InfoTable forward declarations.
-    , '.datatype.fwd' # Type definition forward declarations.
+    , '.stepfuncs.link' # Step function forward declarations.
+    , '.infotabs.link'  # InfoTable forward declarations.
+    , '.datatypes.link' # Type definition forward declarations.
   ### Read-only data.
-    , '.strings'      # String literals.
-    , '.valuesets'    # Value sets.
+    , '.strings'        # String literals.
+    , '.valuesets'      # Value sets.
+    , '.primitives'     # Primitive functions.
   ### Code.
-    , '.stepfunc'     # Step function definitions.
+    , '.stepfuncs'      # Step function definitions.
   ### Object definitions.
-    , '.infotab'      # InfoTable definitions.
-    , '.datatype'     # Type definitions.
-    , '.module'       # Module definition.
+    , '.infotabs'       # InfoTable definitions.
+    , '.datatypes'      # Type definitions.
+    , '.moduledef'      # Module definition.
+    , '.moduleimp'      # Module import.
+  ###
+    , '.footer'
     )
 
   def __init__(self, codetype, unitname):
@@ -159,7 +167,7 @@ class TargetObject(object):
     # After compilation, imodule_linked contains an IModule in which every
     # IFunction body is implemented as an ILink object that references a symbol
     # defined in this target object.
-    self.imodule_linked = None
+    # self.imodule_linked = None
 
   def __getitem__(self, sectname):
     assert sectname in self.SECTIONS
@@ -180,16 +188,20 @@ class CompilerBase(abc.ABC):
       methname: abc.abstractmethod(lambda *args: None)
               for methname in [
           'vEmitHeader'
-        , 'vEmitStepfuncFwd'
-        , 'vEmitInfotabFwd'
-        , 'vEmitDataTypeFwd'
-        , 'vEmitStepfuncHead'
+        , 'vEmitFooter'
+        , 'vEmitStepfuncLink'
+        , 'vEmitInfotabLink'
+        , 'vEmitDataTypeLink'
+        , 'vEmitStepfuncHeader'
         , 'vEmitStepfuncEntry'
+        , 'vEmitBuiltinStepfunc'
         , 'vEmitFunctionInfotab'
         , 'vEmitConstructorInfotab'
         , 'vEmitDataType'
         , 'vEmitStringLiteral'
         , 'vEmitValueSetLiteral'
+        , 'vEmitModuleDefinition'
+        , 'vEmitModuleImport'
         , 'vEmit_compileS_IVarDecl'
         , 'vEmit_compileS_IFreeDecl'
         , 'vEmit_compileS_IVarAssign'
@@ -230,34 +242,90 @@ class CompilerBase(abc.ABC):
     self.extern = extern
     self.target_object = TargetObject(self.CODE_TYPE, imodule.fullname)
     self.counts = collections.defaultdict(itertools.count)
+    self.intern_store = {}
 
-  def next_private_symbolname(self, kind):
+  def next_private_symbolname(self, kind, suffix=None):
     i = next(self.counts[kind])
-    return mangle(['_%s' % i], kind)
+    if suffix is None:
+      return mangle(['_%s' % i], kind)
+    else:
+      return mangle(['_%s' % i, suffix], kind)
 
-  def importSymbol(self, symbolname):
+  ### importSymbol
+  @visitation.dispatch.on('symbol')
+  def importSymbol(self, symbol):
     '''Import a symbol into the taget object by name.'''
-    info = self.interp.symbol(symbolname)
-    h_info = self.vGetSymbolName(info.icurry, INFO_TABLE)
-    if self.symtab.insert(h_info, INFO_TABLE, symbolname):
-      self.target_object['.infotab.fwd'].extend(self.vEmitInfotabFwd(h_info))
+    assert False
+
+  @importSymbol.when(six.string_types)
+  def importSymbol(self, symbolname):
+    cy_symbol = self.interp.symbol(symbolname)
+    return self.importSymbol(cy_symbol.icurry)
+
+  @importSymbol.when(icurry.ISymbol)
+  def importSymbol(self, isymbol):
+    h_info = self.vGetSymbolName(isymbol, INFO_TABLE)
+    if self.symtab.insert(h_info, INFO_TABLE, 'info table for %r' % isymbol.fullname):
+      self.target_object['.infotabs.link'].extend(self.vEmitInfotabLink(isymbol, h_info))
     return h_info
 
+  ### importDataType
+  @visitation.dispatch.on('symbol')
+  def importDataType(self, symbol):
+    '''Import a symbol into the taget object by name.'''
+    assert False
+
+  @importDataType.when(six.string_types)
+  def importDataType(self, symbolname):
+    cy_datatype = self.interp.type(symbolname)
+    return self.importDataType(cy_datatype.icurry)
+
+  @importDataType.when(icurry.ISymbol)
+  def importDataType(self, itype):
+    h_datatype = self.vGetSymbolName(itype, DATA_TYPE)
+    if self.symtab.insert(h_datatype, DATA_TYPE, 'datatype %r' % itype.fullname):
+      self.target_object['.datatypes.link'].extend(self.vEmitDataTypeLink(itype, h_datatype))
+    return h_datatype
+
+
   def internStringLiteral(self, string):
-    h_string = self.next_private_symbolname(STRING_DATA)
-    self.symtab.insert(h_string, STRING_DATA, '<string data: %r>' % string)
-    prog_text = self.vEmitStringLiteral(h_string, string)
-    self.target_object['.strings'].extend(prog_text)
-    self.symtab.make_defined(h_string)
-    return h_string
+    existing = self.intern_store.get(string)
+    if existing is not None:
+      return existing
+    else:
+      h_string = self.next_private_symbolname(STRING_DATA)
+      self.symtab.insert(h_string, STRING_DATA, '<string data: %r>' % string)
+      prog_text = self.vEmitStringLiteral(string, h_string)
+      self.target_object['.strings'].extend(prog_text)
+      self.symtab.make_defined(h_string)
+      self.intern_store[string] = h_string
+      return h_string
 
   def internValueSetLiteral(self, values):
-    h_valueset = self.next_private_symbolname(VALUE_SET)
-    self.symtab.insert(h_valueset, VALUE_SET, '<case values: %r>' % (values,))
-    prog_text = self.vEmitValueSetLiteral(h_valueset, values)
-    self.target_object['.valuesets'].extend(prog_text)
-    self.symtab.make_defined(h_valueset)
-    return h_valueset
+    existing = self.intern_store.get(values)
+    if existing is not None:
+      return existing
+    else:
+      h_valueset = self.next_private_symbolname(VALUE_SET)
+      self.symtab.insert(h_valueset, VALUE_SET, '<case values: %r>' % (values,))
+      prog_text = self.vEmitValueSetLiteral(values, h_valueset)
+      self.target_object['.valuesets'].extend(prog_text)
+      self.symtab.make_defined(h_valueset)
+      self.intern_store[values] = h_valueset
+      return h_valueset
+
+  def internBuiltinFunction(self, func, key):
+    existing = self.intern_store.get(key)
+    if existing is not None:
+      return existing
+    else:
+      h_func = self.next_private_symbolname(BUILTIN_FUNCTION, func.__name__)
+      self.symtab.insert(h_func, BUILTIN_FUNCTION, '<function: %r>' % func)
+      prog_text = self.vEmitImportBackendFunction(func, h_func)
+      self.target_object['.primitives'].extend(prog_text)
+      self.symtab.make_defined(h_func)
+      self.intern_store[key] = h_func
+      return h_func
 
   @property
   def symtab(self):
@@ -268,14 +336,15 @@ class CompilerBase(abc.ABC):
     Performs compilation.
 
     Returns:
-      A target object containing object code and with imodule_linked set to non-None.
+      A target object containing the generated object code.
 
     '''
     self.target_object['.header'].extend(self.vEmitHeader())
-
-    assert self.target_object.imodule_linked is None
+    # assert self.target_object.imodule_linked is None
     with maxrecursion():
-      self.target_object.imodule_linked = self.compileEx(self.imodule)
+      # self.target_object.imodule_linked = self.compileEx(self.imodule)
+      self.compileEx(self.imodule)
+    self.target_object['.footer'].extend(self.vEmitFooter())
     return self.target_object
 
   @visitation.dispatch.on('icy')
@@ -300,14 +369,22 @@ class CompilerBase(abc.ABC):
     types = [
         self.compileEx(itype)
             for itype in six.itervalues(imodule.types)
-                # if not itype.is_builtin  ### FIXME
       ]
     functions = [
         self.compileEx(ifun)
             for ifun in six.itervalues(imodule.functions)
-                if not ifun.is_builtin
       ]
-    return imodule.copy(functions=functions)
+    h_module = self.vGetSymbolName(imodule, MODULE_DEF)
+    self.symtab.insert(h_module, MODULE_DEF, 'module %r' % imodule.fullname)
+    self.target_object['.moduledef'].extend(
+        self.vEmitModuleDefinition(imodule, h_module)
+      )
+    self.symtab.make_defined(h_module)
+    self.target_object['.moduleimp'].extend(
+        self.vEmitModuleImport(imodule, h_module)
+      )
+    # return imodule.copy(types=types, functions=functions)
+    # return imodule
 
   @compileEx.when(icurry.IFunction)
   def compileEx(self, ifun):
@@ -316,13 +393,15 @@ class CompilerBase(abc.ABC):
     self.symtab.insert(
         h_stepfunc, STEP_FUNCTION, 'step function for %r' % ifun.fullname
       )
-    self.target_object['.stepfunc.fwd'].extend(self.vEmitStepfuncFwd(h_stepfunc))
+    self.target_object['.stepfuncs.link'].extend(
+        self.vEmitStepfuncLink(ifun, h_stepfunc)
+      )
 
-    # Append to section '.stepfunc'.
-    out = self.target_object['.stepfunc']
+    # Append to section '.stepfuncs'.
+    out = self.target_object['.stepfuncs']
     if out:
       out.append('')
-    out.extend(self.vEmitStepfuncHead(ifun, h_stepfunc))
+    out.extend(self.vEmitStepfuncHeader(ifun, h_stepfunc))
     linesF = [] # the function body
     out.append(linesF)
 
@@ -330,7 +409,7 @@ class CompilerBase(abc.ABC):
     while True:
       linesF.clear()
       try:
-        self.compileF(ifun, linesF)
+        self.compileF(ifun, h_stepfunc, linesF)
       except ExternallyDefined as e:
         # Retry if compileF resolved an external definition.
         ifun = e.ifun
@@ -340,32 +419,25 @@ class CompilerBase(abc.ABC):
     self.symtab.make_defined(h_stepfunc)
 
     # Emit the info table.
-    h_info = self.vGetSymbolName(ifun, INFO_TABLE)
-    self.symtab.insert(h_info, INFO_TABLE, 'info table for %r' % ifun.fullname)
-    self.target_object['.infotab.fwd'].extend(self.vEmitInfotabFwd(h_info))
-    self.target_object['.infotab'].extend(self.vEmitFunctionInfotab(ifun, h_info, h_stepfunc))
+    h_info = self.importSymbol(ifun)
+    self.target_object['.infotabs'].extend(self.vEmitFunctionInfotab(ifun, h_info, h_stepfunc))
     self.symtab.make_defined(h_info)
 
-    return ifun.copy(body=icurry.ILink(h_stepfunc))
+    # return ifun
+    # return ifun.copy(body=icurry.ILink(h_stepfunc))
 
   @compileEx.when(icurry.IDataType)
   def compileEx(self, itype):
-    h_datatype = self.vGetSymbolName(itype, DATA_TYPE)
-    self.symtab.insert(h_datatype, DATA_TYPE, itype.fullname)
-    self.target_object['.datatype.fwd'].extend(self.vEmitDataTypeFwd(h_datatype))
+    h_datatype = self.importDataType(itype)
     ctor_handles = []
     for i,ictor in enumerate(itype.constructors):
-      h_ctorinfo = self.vGetSymbolName(ictor, INFO_TABLE)
+      h_ctorinfo = self.importSymbol(ictor)
       ctor_handles.append(h_ctorinfo)
-      self.symtab.insert(
-          h_ctorinfo, INFO_TABLE, 'info table for %r' % ictor.fullname
-        )
-      self.target_object['.infotab.fwd'].extend(self.vEmitInfotabFwd(h_ctorinfo))
-      self.target_object['.infotab'].extend(
+      self.target_object['.infotabs'].extend(
           self.vEmitConstructorInfotab(i, ictor, h_ctorinfo, h_datatype)
         )
       self.symtab.make_defined(h_ctorinfo)
-    self.target_object['.datatype'].extend(
+    self.target_object['.datatypes'].extend(
         self.vEmitDataType(itype, h_datatype, ctor_handles)
       )
     self.symtab.make_defined(h_datatype)
@@ -375,48 +447,50 @@ class CompilerBase(abc.ABC):
   ################
 
   @visitation.dispatch.on('iobj')
-  def compileF(self, iobj, linesF):
+  def compileF(self, iobj, h_stepfunc, linesF):
     assert False
 
   @compileF.when(collections.Sequence, no=str)
-  def compileF(self, seq, linesF):
+  def compileF(self, seq, h_stepfunc, linesF):
     for x in seq:
-      self.compileF(x, linesF)
+      self.compileF(x, h_stepfunc, linesF)
 
   @compileF.when(icurry.IFunction)
-  def compileF(self, ifun, linesF):
+  def compileF(self, ifun, h_stepfunc, linesF):
     try:
-      return self.compileF(ifun.body, linesF)
+      return self.compileF(ifun.body, h_stepfunc, linesF)
     except CompileError as e:
       raise CompileError(
           'failed to compile function %r: %s' % (ifun.fullname, e)
         )
 
   @compileF.when(icurry.IExternal)
-  def compileF(self, iexternal, linesF):
+  def compileF(self, iexternal, h_stepfunc, linesF):
+    prefix_length = len(self.imodule.fullname) + 1
     try:
-      localname = iexternal.symbolname[len(self.extern.fullname)+1:]
+      localname = iexternal.symbolname[prefix_length:]
       ifun = self.extern.functions[localname]
     except (KeyError, AttributeError):
       msg = 'external function %r is not defined' % iexternal.symbolname
       logger.warn(msg)
       stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))
       body = icurry.IBody(stmt)
-      self.compileF(body, linesF)
+      self.compileF(body, h_stepfunc, linesF)
     else:
       raise ExternallyDefined(ifun)
 
   @compileF.when(icurry.IBody)
-  def compileF(self, ibody, linesF):
+  def compileF(self, ibody, h_stepfunc, linesF):
     linesF.extend(self.vEmitStepfuncEntry())
     linesF.extend(self.compileS(ibody.block))
 
   @compileF.when(icurry.IBuiltin)
-  def compileF(self, ibuiltin, linesF):
-    raise CompileError('expected a built-in definition')
+  def compileF(self, ibuiltin, h_stepfunc, linesF):
+    linesF.extend(self.vEmitBuiltinStepfunc(ibuiltin, h_stepfunc))
+    # raise CompileError('expected a built-in definition')
 
   @compileF.when(icurry.IStatement)
-  def compileF(self, stmt, linesF):
+  def compileF(self, stmt, h_stepfunc, linesF):
     linesS = list(self.compileS(stmt))
     linesF.append(linesS)
 
@@ -478,11 +552,9 @@ class CompilerBase(abc.ABC):
   @compileS.when(icurry.ICaseCons)
   def compileS(self, icase):
     assert icase.branches
-    infoname = icase.branches[0].symbolname
-    datatype = self.interp.symbol(infoname).typedef
-    h_datatype = self.vGetSymbolName(datatype.icurry, DATA_TYPE)
-    if self.symtab.insert(h_datatype, DATA_TYPE, datatype.fullname):
-      self.target_object['.datatype.fwd'].extend(self.vEmitDataTypeFwd(h_datatype))
+    ctorname = icase.branches[0].symbolname
+    datatype = self.interp.symbol(ctorname).typedef
+    h_datatype = self.importDataType(datatype.icurry)
     varident = self.compileE(icase.var)
     return self.vEmit_compileS_ICaseCons(icase, h_datatype, varident)
 
@@ -518,11 +590,7 @@ class CompilerBase(abc.ABC):
 
   @compileE.when(icurry.ILiteral)
   def compileE(self, iliteral, primary=False):
-    ctorname = iliteral.fullname
-    ctor = self.interp.symbol(ctorname)
-    h_ctor = self.vGetSymbolName(ctor.icurry, INFO_TABLE)
-    if self.symtab.insert(h_ctor, INFO_TABLE, ctorname):
-      self.target_object['.infotab.fwd'].extend(vEmitInfotabFwd(h_ctor))
+    h_ctor = self.importSymbol(iliteral.fullname)
     return self.vEmit_compileE_ILiteral(iliteral, h_ctor, primary)
 
   @compileE.when(icurry.IString)
@@ -541,30 +609,21 @@ class CompilerBase(abc.ABC):
 
   @compileE.when(icurry.ICall)
   def compileE(self, icall, primary=False):
-    infoname = icall.symbolname
-    info = self.interp.symbol(infoname)
-    h_info = self.vGetSymbolName(info.icurry, INFO_TABLE)
-    if self.symtab.insert(h_info, INFO_TABLE, infoname):
-      self.target_object['.infotab.fwd'].extend(self.vEmitInfotabFwd(h_info))
+    h_info = self.importSymbol(icall.symbolname)
     args = (self.compileE(x, primary=True) for x in icall.exprs)
     return self.vEmit_compileE_ICall(icall, h_info, args, primary)
 
   @compileE.when(icurry.IPartialCall)
   def compileE(self, ipcall, primary=False):
-    infoname = ipcall.symbolname
-    info = self.interp.symbol(infoname)
-    h_info = self.vGetSymbolName(info.icurry, INFO_TABLE)
-    if self.symtab.insert(h_info, INFO_TABLE, infoname):
-      self.target_object['.infotab.fwd'].extend(self.vEmitInfotabFwd(h_info))
+    h_info = self.importSymbol(ipcall.symbolname)
     args = (self.compileE(x, primary=True) for x in ipcall.exprs)
     return self.vEmit_compileE_IPartialCall(ipcall, h_info, args, primary)
 
   @compileE.when(icurry.IOr)
   def compileE(self, ior, primary=False):
-    h_choice = self.importSymbol('Prelude.?')
     lhs = self.compileE(ior.lhs, primary=True)
     rhs = self.compileE(ior.rhs, primary=True)
-    return self.vEmit_compileE_IOr(ior, h_choice, lhs, rhs, primary)
+    return self.vEmit_compileE_IOr(ior, lhs, rhs, primary)
 
 
 
