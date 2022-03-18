@@ -54,10 +54,10 @@ class CxxCompiler(compiler.CompilerBase):
     yield '  };'
     yield ''
 
-  def vEmitConstructorInfotab(self, i, ictor, h_info, h_datatype):
+  def vEmitConstructorInfotab(self, ictor, h_info, h_datatype):
     flags = ictor.metadata.get('all.flags', 0)
     yield 'InfoTable const %s{'                     % h_info
-    yield '    /*tag*/        T_CTOR + %s'          % str(i)
+    yield '    /*tag*/        T_CTOR + %r'          % ictor.index
     yield '  , /*arity*/      %s'                   % ictor.arity
     yield '  , /*alloc_size*/ sizeof(Head) + sizeof(Arg[%s])' % ictor.arity
     yield '  , /*flags*/      F_STATIC_OBJECT | %s' % flags

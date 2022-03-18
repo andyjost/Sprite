@@ -222,7 +222,7 @@ class CompilerBase(abc.ABC):
     })
 
   @formatDocstring(config.python_package_name())
-  def __init__(self, interp, imodule, extern=None):
+  def __init__(self, interp, iroot, extern=None):
     '''
     Compiles ICurry to a C++ target object.
 
@@ -230,19 +230,26 @@ class CompilerBase(abc.ABC):
       interp:
         The interpreter that owns this module.
 
-      imodule:
-        The IModule object representing the module to compile.
+      iroot:
+        The ICurry object to compile.  Must be an IModule or IFunction.
 
       extern:
         An instance of ``{0}.icurry.IModule`` used to resolve external
         declarations.
     '''
     self.interp = interp
-    self.imodule = imodule
+    self.iroot = iroot
     self.extern = extern
-    self.target_object = TargetObject(self.CODE_TYPE, imodule.fullname)
+    self.target_object = TargetObject(self.CODE_TYPE, iroot.fullname)
     self.counts = collections.defaultdict(itertools.count)
     self.intern_store = {}
+    self._is_external_check = is_external_check(iroot)
+
+  def isExternal(self, iobj):
+    if self.iroot.modulename != iobj.modulename:
+      return True
+    else:
+      return self._is_external_check(iobj)
 
   def next_private_symbolname(self, kind, suffix=None):
     i = next(self.counts[kind])
@@ -264,10 +271,16 @@ class CompilerBase(abc.ABC):
 
   @importSymbol.when(icurry.ISymbol)
   def importSymbol(self, isymbol):
-    h_info = self.vGetSymbolName(isymbol, INFO_TABLE)
-    if self.symtab.insert(h_info, INFO_TABLE, 'info table for %r' % isymbol.fullname):
+    h_info, new = self.declareSymbol(isymbol)
+    if new and self.isExternal(isymbol):
       self.target_object['.infotabs.link'].extend(self.vEmitInfotabLink(isymbol, h_info))
     return h_info
+
+  ### declareSymbol
+  def declareSymbol(self, isymbol):
+    h_info = self.vGetSymbolName(isymbol, INFO_TABLE)
+    new = self.symtab.insert(h_info, INFO_TABLE, 'info table for %r' % isymbol.fullname)
+    return h_info, new
 
   ### importDataType
   @visitation.dispatch.on('symbol')
@@ -282,11 +295,16 @@ class CompilerBase(abc.ABC):
 
   @importDataType.when(icurry.ISymbol)
   def importDataType(self, itype):
-    h_datatype = self.vGetSymbolName(itype, DATA_TYPE)
-    if self.symtab.insert(h_datatype, DATA_TYPE, 'datatype %r' % itype.fullname):
+    h_datatype, new = self.declareDataType(itype)
+    if new and self.isExternal(itype):
       self.target_object['.datatypes.link'].extend(self.vEmitDataTypeLink(itype, h_datatype))
     return h_datatype
 
+  ### declareDataType
+  def declareDataType(self, itype):
+    h_datatype = self.vGetSymbolName(itype, DATA_TYPE)
+    new = self.symtab.insert(h_datatype, DATA_TYPE, 'datatype %r' % itype.fullname)
+    return h_datatype, new
 
   def internStringLiteral(self, string):
     existing = self.intern_store.get(string)
@@ -340,10 +358,8 @@ class CompilerBase(abc.ABC):
 
     '''
     self.target_object['.header'].extend(self.vEmitHeader())
-    # assert self.target_object.imodule_linked is None
     with maxrecursion():
-      # self.target_object.imodule_linked = self.compileEx(self.imodule)
-      self.compileEx(self.imodule)
+      self.compileEx(self.iroot)
     self.target_object['.footer'].extend(self.vEmitFooter())
     return self.target_object
 
@@ -419,22 +435,19 @@ class CompilerBase(abc.ABC):
     self.symtab.make_defined(h_stepfunc)
 
     # Emit the info table.
-    h_info = self.importSymbol(ifun)
+    h_info, _ = self.declareSymbol(ifun)
     self.target_object['.infotabs'].extend(self.vEmitFunctionInfotab(ifun, h_info, h_stepfunc))
     self.symtab.make_defined(h_info)
 
-    # return ifun
-    # return ifun.copy(body=icurry.ILink(h_stepfunc))
-
   @compileEx.when(icurry.IDataType)
   def compileEx(self, itype):
-    h_datatype = self.importDataType(itype)
+    h_datatype, _ = self.declareDataType(itype)
     ctor_handles = []
-    for i,ictor in enumerate(itype.constructors):
-      h_ctorinfo = self.importSymbol(ictor)
+    for ictor in itype.constructors:
+      h_ctorinfo, _ = self.declareSymbol(ictor)
       ctor_handles.append(h_ctorinfo)
       self.target_object['.infotabs'].extend(
-          self.vEmitConstructorInfotab(i, ictor, h_ctorinfo, h_datatype)
+          self.vEmitConstructorInfotab(ictor, h_ctorinfo, h_datatype)
         )
       self.symtab.make_defined(h_ctorinfo)
     self.target_object['.datatypes'].extend(
@@ -466,7 +479,7 @@ class CompilerBase(abc.ABC):
 
   @compileF.when(icurry.IExternal)
   def compileF(self, iexternal, h_stepfunc, linesF):
-    prefix_length = len(self.imodule.fullname) + 1
+    prefix_length = len(self.iroot.modulename) + 1
     try:
       localname = iexternal.symbolname[prefix_length:]
       ifun = self.extern.functions[localname]
@@ -552,9 +565,8 @@ class CompilerBase(abc.ABC):
   @compileS.when(icurry.ICaseCons)
   def compileS(self, icase):
     assert icase.branches
-    ctorname = icase.branches[0].symbolname
-    datatype = self.interp.symbol(ctorname).typedef
-    h_datatype = self.importDataType(datatype.icurry)
+    cy_ctorobj = self.interp.symbol(icase.branches[0].symbolname)
+    h_datatype = self.importDataType(cy_ctorobj.typename)
     varident = self.compileE(icase.var)
     return self.vEmit_compileS_ICaseCons(icase, h_datatype, varident)
 
@@ -626,4 +638,41 @@ class CompilerBase(abc.ABC):
     return self.vEmit_compileE_IOr(ior, lhs, rhs, primary)
 
 
+@visitation.dispatch.on('iobj')
+def is_external_check(iobj):
+  assert False
 
+@is_external_check.when(icurry.IModule)
+def is_external_check(imodule):
+
+  @visitation.dispatch.on('iobj')
+  def check(iobj):
+    assert False
+
+  @check.when((icurry.IDataType, icurry.IConstructor))
+  def check(iobj):
+    _, _, name = iobj.typename.rpartition('.')
+    return itype.name not in imodule.types
+
+  @check.when(icurry.IFunction)
+  def check(ifun):
+    return ifun.name not in imodule.functions
+
+  return check
+
+@is_external_check.when(icurry.IFunction)
+def is_external_check(ifun):
+
+  @visitation.dispatch.on('iobj')
+  def check(iobj):
+    assert False
+
+  @check.when((icurry.IDataType, icurry.IConstructor))
+  def check(iobj):
+    return True
+
+  @check.when(icurry.IFunction)
+  def check(ifun2):
+    return ifun2.name != ifun.name
+
+  return check

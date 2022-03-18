@@ -81,6 +81,10 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractproperty
+  def materialize(self):
+    assert 0
+
+  @abc.abstractproperty
   def materialize_function(self):
     '''Converts the IR to runnable code.'''
     assert 0

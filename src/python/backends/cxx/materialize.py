@@ -33,7 +33,7 @@ def materialize_type(interp, itype, moduleobj, extern):
       ]
     typeobj = M.create_type(itype.name, infos)
   infos = [
-      objects.CurryNodeInfo(ictor, info)
+      objects.CurryNodeInfo(info, icurry=ictor)
           for ictor, info in zip(itype.constructors, typeobj.constructors)
     ]
   typedef = objects.CurryDataType(itype, infos, moduleobj)
@@ -51,5 +51,5 @@ def materialize_function_info_stub(interp, ifun, moduleobj, extern):
       , T_FUNC
       , F_MONADIC if ifun.metadata.get('all.monadic') else 0
       )
-  return objects.CurryNodeInfo(ifun, info)
+  return objects.CurryNodeInfo(info, icurry=ifun)
 

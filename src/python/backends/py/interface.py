@@ -1,5 +1,6 @@
 from . import compiler
-from .compiler_old import materialize
+from .compiler_old import materialize as materialize_old
+from . import materialize
 from .eval import evaluator
 from .graph import Node
 from ... import backends
@@ -55,16 +56,20 @@ class IBackend(backends.IBackend):
     return Node
 
   @property
+  def materialize(self):
+    return materialize.materialize
+
+  @property
   def materialize_function(self):
-    return materialize.materialize_function
+    return materialize_old.materialize_function
 
   @property
   def materialize_function_info_stub(self):
-    return materialize.materialize_function_info_stub
+    return materialize_old.materialize_function_info_stub
 
   @property
   def materialize_type(self):
-    return materialize.materialize_type
+    return materialize_old.materialize_type
 
   @property
   def single_step(self):

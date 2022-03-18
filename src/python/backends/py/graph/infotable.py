@@ -2,8 +2,9 @@ from .... import common
 import weakref
 
 class DataType(object):
-  def __init__(self, *ctorinfos):
-    self._ctorinfos = ctorinfos
+  def __init__(self, name, ctorinfos):
+    self.name = name
+    self._ctorinfos = tuple(ctorinfos)
     for ctorinfo in ctorinfos:
       assert ctorinfo.typedef is None
       ctorinfo.typedef = self

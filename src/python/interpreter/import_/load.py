@@ -55,43 +55,35 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
   assert itype.constructors
   be = interp.backend
   icurry.metadata.merge(itype, extern)
-  typedef = be.materialize_type(interp, itype, moduleobj, extern)
-  for ctor in typedef.constructors:
-    icurry.metadata.merge(ctor.icurry, extern, itype=itype)
-    insertSymbol(moduleobj, ctor.name, ctor)
-  getattr(moduleobj, '.types')[itype.name] = typedef
-  return typedef
+  dt_impl = be.materialize(interp, itype, extern)
+  for ictor, ctorinfo in zip(itype.constructors, dt_impl.constructors):
+    icurry.metadata.merge(ictor, extern, itype=itype)
+    cy_ctorobj = objects.CurryNodeInfo(ctorinfo, icurry=ictor, typename=itype.fullname)
+    _attachToModule(moduleobj, cy_ctorobj)
+  cy_dtobj = objects.CurryDataType(dt_impl, icurry=itype)
+  _attachToModule(moduleobj, cy_dtobj)
+  return cy_dtobj
 
 @loadSymbols.when(icurry.IFunction)
 def loadSymbols(interp, ifun, moduleobj, extern=None):
   be = interp.backend
   icurry.metadata.merge(ifun, extern)
-  infosym = be.materialize_function_info_stub(interp, ifun, moduleobj, extern)
-  insertSymbol(moduleobj, ifun.name, infosym, ifun.is_private)
-  return infosym
+  info = be.materialize(interp, ifun, extern)
+  cy_fobj = objects.CurryNodeInfo(info, icurry=ifun)
+  _attachToModule(moduleobj, cy_fobj)
+  return cy_fobj
 
-@utility.formatDocstring(config.python_package_name())
-def insertSymbol(module, basename, nodeinfo, private=False):
-  '''
-  Inserts a symbol into the given module.
+@visitation.dispatch.on('obj')
+def _attachToModule(moduleobj, obj, private=False):
+  assert False
 
-  All symbols are added to the module's '.symbols' dict.  Public symbols are
-  also bound directly to the module itself.
+@_attachToModule.when(objects.CurryNodeInfo)
+def _attachToModule(moduleobj, cy_infoobj, private=False):
+  getattr(moduleobj, '.symbols')[cy_infoobj.name] = cy_infoobj
+  if not private and encoding.isaCurryIdentifier(cy_infoobj.name):
+    setattr(moduleobj, cy_infoobj.name, cy_infoobj)
 
-  Args:
-    module:
-        An instance of :class:`CurryModule <{0}.objects.CurryModule>`.
-    basename:
-        A stirng containing the unqualified symbol name.
-    nodeinfo:
-        The nodeinfo for this symbol.
-    private:
-        Whether this is a private symbol.
-
-  Returns:
-    Nothing.
-  '''
-  getattr(module, '.symbols')[basename] = nodeinfo
-  if not private and encoding.isaCurryIdentifier(basename):
-    setattr(module, basename, nodeinfo)
+@_attachToModule.when(objects.CurryDataType)
+def _attachToModule(moduleobj, cy_dtobj, private=False):
+  getattr(moduleobj, '.types')[cy_dtobj.name] = cy_dtobj
 

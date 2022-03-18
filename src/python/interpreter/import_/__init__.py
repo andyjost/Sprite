@@ -1,6 +1,6 @@
 '''Code for importing Curry modules into a Curry interpreter.'''
 
-from . import link, load
+from . import load
 from ... import config, icurry, objects, toolchain, utility
 from ...objects.handle import getHandle
 from ...utility.binding import binding
@@ -133,7 +133,7 @@ class ImportEx(object):
       imodule.merge(extern, export)
       with _provisionalModule(self.interp, imodule) as moduleobj:
         load.loadSymbols(self.interp, imodule, moduleobj, extern=extern)
-        link.link(self.interp, imodule, moduleobj, extern=extern)
+        # link.link(self.interp, imodule, moduleobj, extern=extern)
         for name, target in alias:
           if hasattr(moduleobj, name):
             raise ValueError("cannot alias previously defined name %r" % name)

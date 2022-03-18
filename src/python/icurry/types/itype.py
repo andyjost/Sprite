@@ -10,9 +10,15 @@ class IDataType(ISymbol):
   @translateKwds({'name': 'fullname'})
   def __init__(self, fullname, constructors, **kwds):
     ISymbol.__init__(self, fullname, **kwds)
-    self.constructors = [ctor.setindex(i) for i,ctor in enumerate(constructors)]
+    self.constructors = [
+        ctor._postinit_(i, fullname) for i,ctor in enumerate(constructors)
+      ]
 
   _fields_ = 'fullname', 'constructors'
+
+  @property
+  def typename(self):
+    return typename
 
   @property
   def children(self):
@@ -31,11 +37,13 @@ class IConstructor(ISymbol):
   def __init__(self, fullname, arity, **kwds):
     ISymbol.__init__(self, fullname, **kwds)
     self.arity = IArity(arity)
+    self.typename = kwds.pop('typename', None)
 
-  _fields_ = 'fullname', 'arity'
+  _fields_ = 'fullname', 'arity', 'typename'
 
-  def setindex(self, index):
+  def _postinit_(self, index, typename):
     self.index = index
+    self.typename = typename
     return self
 
   def __str__(self):

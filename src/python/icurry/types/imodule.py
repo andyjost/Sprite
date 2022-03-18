@@ -30,7 +30,7 @@ class IModule(IContainer):
   _fields_ = 'fullname', 'filename', 'imports', 'types', 'functions'
 
   @staticmethod
-  def fromBOM(fullname, imports, types, functions, filename=None):
+  def fromBOM(fullname, imports, types, functions, mdkey, filename=None):
     '''
     Construct a module from the bill of materials.  The Curry functions should
     be implemented as native functions of the backend (e.g., Python function
@@ -38,24 +38,46 @@ class IModule(IContainer):
     each function is implemented as IMaterial.  Finally, the true ICurry
     for this module is loaded and attached to attribute 'icurry'.
     '''
-    from . import IFunction, IMaterial
+    from . import IConstructor, IDataType, IFunction, IExternal, PUBLIC
     from ... import toolchain
-    breakpoint()
-    makefun = lambda name, arity, vis, needed, func: \
-        IFunction(
-            name, arity, vis, needed
-          , IMaterial(func) if not isinstance(func, IMaterial) else func
+    itypes = [
+        IDataType(
+            '%s.%s' % (fullname, typeinfo.name)
+          , [ IConstructor(
+                  '%s.%s' % (fullname, ctorinfo.name), ctorinfo.arity
+                , metadata={mdkey: ctorinfo}
+                )
+                for ctorinfo in typeinfo.constructors
+              ]
+          , metadata={mdkey: typeinfo}
           )
-    module = IModule(
-        fullname, imports, types
-      , itertools.starmap(makefun, functions)
-      , filename
-      )
-    try:
-      module.icurry = toolchain.loadicurry(fullname)
-    except ModuleLookupError:
-      module.icurry = None
-    return module
+          for typeinfo in types
+      ]
+    ifunctions = [
+        IFunction(
+            '%s.%s' % (fullname, funcinfo.name), funcinfo.arity, PUBLIC, None
+          , IExternal(funcinfo.name), metadata={mdkey: funcinfo}
+          )
+          for funcinfo in functions
+      ]
+    # # makefun = lambda name, arity, vis, needed, func: \
+    # #     IFunction(
+    # #         name, arity, vis, needed
+    # #       , IMaterial(func) if not isinstance(func, IMaterial) else func
+    # #       )
+    imodule = IModule(fullname, imports, itypes, ifunctions, filename)
+
+    for info in types:
+      imodule.types[info.name].update_metadata({'py.material': info})
+    for info in functions:
+      imodule.functions[info.name].update_metadata({'py.material': info})
+
+    # try:
+    #   imodule.icurry = toolchain.loadicurry(fullname)
+    # except ModuleLookupError:
+    #   imodule.icurry = None
+
+    return imodule
 
   def __str__(self):
     return '\n'.join(

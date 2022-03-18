@@ -16,7 +16,7 @@ wrapped in handle.Handle.
 
 from ..common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .. import icurry
-import abc, os, six, types, weakref
+import abc, inspect, os, six, types, weakref
 
 __all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeInfo']
 
@@ -131,64 +131,34 @@ class CurryExpression(object):
 
 
 class CurryDataType(object):
-  def __init__(self, icurry, constructors, module):
+  def __init__(self, datatype, icurry=None):
+    self.datatype = datatype
     self.icurry = icurry
-    self.constructors = tuple(constructors)
-    self.module = weakref.ref(module)
 
   @property
   def name(self):
-    return self.icurry.name
-
-  @property
-  def fullname(self):
-    return '%s.%s' % (self.module().__name__, self.name)
+    return self.datatype.name
 
   def __repr__(self):
-    return '<curry type %r>' % self.fullname
+    return '<curry type %r>' % self.name
 
 
 class CurryNodeInfo(object):
   '''
-  Compile-time node info.
-
-  Each kind of node has its own compiler-generated info.  Each Curry function,
-  each constructor of a Curry type, and each of the special nodes such as FAIL,
-  FWD, and CHOICE is associated with an instance of this object.
-
-  Attributes:
-    ``icurry``
-        The ICurry source of this Node.
-    ``name``
-        The fully-qualified Curry identifier for this kind of node.
-    ``info``
-        An instance of ``InfoTable``.
+  Static information for a Curry function or constructor symbol.
   '''
-  def __init__(self, icurry, info):
-    self.icurry = icurry
+  def __init__(self, info, icurry=None, typename=None):
     self.info = info
-    self._typedef = None
+    self.icurry = icurry
+    self.typename = typename
 
   @property
   def name(self):
-    return self.icurry.name
-
-  @property
-  def typedef(self):
-    if self._typedef is not None:
-      return self._typedef()
-
-  @typedef.setter
-  def typedef(self, value):
-    self._typedef = weakref.ref(value)
+    return self.info.name
 
   # TODO: add getsource to get the Curry source.  It will require an
   # enhancement to CMC and maybe FlatCurry to generate source range
   # annotations.
-
-  @property
-  def fullname(self):
-    return '%s.%s' % (self.icurry.modulename, self.name)
 
   def getimpl(self):
     '''Returns the implementation code of the step function, if available.'''
@@ -196,18 +166,25 @@ class CurryNodeInfo(object):
     try:
       return getattr(step, 'source')
     except AttributeError:
-      raise ValueError(
-          'no implementation code available for %r' % self.fullname
-        )
+      pass
+
+    try:
+      return inspect.getsource(step)
+    except OSError:
+      pass
+
+    raise ValueError(
+        'no implementation code available for %r' % self.fullname
+      )
 
   def __str__(self):
     return self.name
 
   def __repr__(self):
     if self.info.tag >= T_CTOR:
-      return '<curry constructor %r>' % self.fullname
+      return '<curry constructor %r>' % self.name
     if self.info.tag == T_FUNC:
-      return '<curry function %r>' % self.fullname
+      return '<curry function %r>' % self.name
     if self.info.tag == T_CHOICE:
       return '<curry choice>'
     if self.info.tag == T_FWD:

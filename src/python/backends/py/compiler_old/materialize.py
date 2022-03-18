@@ -65,7 +65,7 @@ def materialize_constructor_info(interp, itype, icons, moduleobj, extern):
     , getattr(icons.metadata, 'py.format', None)
     , _gettypechecker(interp, icons.metadata)
     )
-  return objects.CurryNodeInfo(icons, info)
+  return objects.CurryNodeInfo(info, icurry=icons)
 
 def materialize_function_info_stub(interp, ifun, moduleobj, extern):
   info = InfoTable(
@@ -77,7 +77,7 @@ def materialize_function_info_stub(interp, ifun, moduleobj, extern):
     , getattr(ifun.metadata, 'py.format', None)
     , _gettypechecker(interp, ifun.metadata)
     )
-  return objects.CurryNodeInfo(ifun, info)
+  return objects.CurryNodeInfo(info, icurry=ifun)
 
 def materialize_type(interp, itype, moduleobj, extern):
   '''
