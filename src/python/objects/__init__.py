@@ -28,8 +28,9 @@ class CurryModule(types.ModuleType):
   '''
   A Python module for interfacing with Curry modules.
 
-  This object is produced when a Curry module is imported into Python.  The
-  public module contents are exposed as attributes.
+  This type of object is produced when Curry code is imported into Python.
+  The public functions and constructors whose names are valid Python
+  identifiers are attached as module attributes.
 
   Special attributes beginning with '.' (so as not to conflict with Curry
   names) contain information used by the Curry system.  These should generally
@@ -64,7 +65,7 @@ class CurryModule(types.ModuleType):
 
 class CurryPackage(CurryModule):
   '''
-  A Python package for interfacing with Curry packages.
+  A Curry package.  Submodules are available as module attributes.
   '''
   def __init__(self, interp, imodule):
     CurryModule.__init__(self, interp, imodule)
@@ -131,8 +132,14 @@ class CurryExpression(object):
 
 
 class CurryDataType(object):
-  def __init__(self, datatype, icurry=None):
-    self.datatype = datatype
+  '''
+  Static information for a Curry data type.
+  '''
+  # This class wraps whatever datatype object is provided by the backend, providing
+  # client interface.
+  def __init__(self, datatype, constructors, icurry=None):
+    self.datatype = datatype # Specific to the backend.
+    self.constructors = tuple(constructors)
     self.icurry = icurry
 
   @property
@@ -147,8 +154,10 @@ class CurryNodeInfo(object):
   '''
   Static information for a Curry function or constructor symbol.
   '''
+  # This class wraps whatever info object is provided by the backend, providing
+  # client interface.
   def __init__(self, info, icurry=None, typename=None):
-    self.info = info
+    self.info = info # Specific to the backend.
     self.icurry = icurry
     self.typename = typename
 

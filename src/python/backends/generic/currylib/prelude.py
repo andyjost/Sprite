@@ -14,13 +14,6 @@ from ....common import (
 from .... import icurry, inspect
 import abc
 
-# def _T(name, constructors):
-#   return icurry.IDataType('Prelude.' + name, constructors, modulename='Prelude')
-# def _C(name, *args, **kwds):
-#   return icurry.IConstructor('Prelude.' + name, *args, modulename='Prelude', **kwds)
-# def _F(name, *args, **kwds):
-#   return icurry.IFunction('Prelude.' + name, *args, modulename='Prelude', **kwds)
-
 # Types.
 # ======
 TYPES = [

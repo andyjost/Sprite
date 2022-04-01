@@ -54,20 +54,19 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
         )
   assert itype.constructors
   be = interp.backend
-  icurry.metadata.merge(itype, extern)
   dt_impl = be.materialize(interp, itype, extern)
+  cy_ctors = []
   for ictor, ctorinfo in zip(itype.constructors, dt_impl.constructors):
-    icurry.metadata.merge(ictor, extern, itype=itype)
     cy_ctorobj = objects.CurryNodeInfo(ctorinfo, icurry=ictor, typename=itype.fullname)
+    cy_ctors.append(cy_ctorobj)
     _attachToModule(moduleobj, cy_ctorobj)
-  cy_dtobj = objects.CurryDataType(dt_impl, icurry=itype)
+  cy_dtobj = objects.CurryDataType(dt_impl, cy_ctors, icurry=itype)
   _attachToModule(moduleobj, cy_dtobj)
   return cy_dtobj
 
 @loadSymbols.when(icurry.IFunction)
 def loadSymbols(interp, ifun, moduleobj, extern=None):
   be = interp.backend
-  icurry.metadata.merge(ifun, extern)
   info = be.materialize(interp, ifun, extern)
   cy_fobj = objects.CurryNodeInfo(info, icurry=ifun)
   _attachToModule(moduleobj, cy_fobj)

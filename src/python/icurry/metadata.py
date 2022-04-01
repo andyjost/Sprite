@@ -8,7 +8,7 @@ def merge(arg, extern, **kwds):
 
   Args:
     arg:
-      An instance of IConstructor, IFunction or IDataType.
+      An instance of IFunction or IDataType.
     extern:
       An instance of IModule that provides external definitions.  If provided,
       this takes precedence over the metadata found in arg.
@@ -18,13 +18,6 @@ def merge(arg, extern, **kwds):
   '''
   assert False
 
-@merge.when(types.IConstructor)
-def merge(icons, extern, itype):
-  if extern is not None and itype.name in extern.types:
-    for ctor in extern.types[itype.name].constructors:
-      if ctor.name == icons.name:
-        icons.update_metadata(ctor.metadata)
-
 @merge.when(types.IFunction)
 def merge(ifun, extern):
   if extern is not None and ifun.name in extern.functions:
@@ -33,8 +26,8 @@ def merge(ifun, extern):
 @merge.when(types.IDataType)
 def merge(itype, extern):
   if extern is not None and itype.name in extern.types:
-    itype.update_metadata(extern.types[itype.name].metadata)
-
-
-
+    itype_extern = extern.types[itype.name]
+    itype.update_metadata(itype_extern.metadata)
+    for ictor, ictor_extern in zip(itype.constructors, itype_extern.constructors):
+      ictor.update_metadata(ictor_extern.metadata)
 

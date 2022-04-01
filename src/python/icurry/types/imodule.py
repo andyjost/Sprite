@@ -105,8 +105,9 @@ class IModule(IContainer):
   def merge(self, extern, export):
     '''
     Copies the symbols specified in ``export`` from ``extern`` into this
-    module.
+    module.  Merges metadata.
     '''
+    # Merge symbols.
     for name in export:
       found = 0
       for to,from_ in zip(*[[m.types, m.functions] for m in [self, extern]]):
@@ -118,7 +119,12 @@ class IModule(IContainer):
           found += 1
       if not found:
         raise TypeError('cannot import %r from module %r' % (name, extern.fullname))
-
+    # Merge metadata.
+    from .. import metadata
+    for itype in self.types.values():
+      metadata.merge(itype, extern)
+    for ifun in self.functions.values():
+      metadata.merge(ifun, extern)
 
 IProg = IModule
 

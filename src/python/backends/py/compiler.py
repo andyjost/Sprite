@@ -16,13 +16,15 @@ class PyCompiler(compiler.CompilerBase):
   def __init__(self, interp, iobj, extern=None):
     compiler.CompilerBase.__init__(self, interp, iobj, extern)
     self.counts = collections.defaultdict(itertools.count)
+    self.is_module = isinstance(self.iroot, icurry.IModule)
 
   def vEmitHeader(self):
-    curry = config.python_package_name()
-    yield 'import %s' % curry
-    yield 'from %s.icurry import IModule' % curry
-    yield 'from %s.common import T_FUNC, F_MONADIC' % curry
-    yield 'from %s.backends.py.graph import DataType, InfoTable' % curry
+    if self.is_module:
+      curry = config.python_package_name()
+      yield 'import %s' % curry
+      yield 'from %s.icurry import IModule' % curry
+      yield 'from %s.common import T_FUNC, F_MONADIC' % curry
+      yield 'from %s.backends.py.graph import DataType, InfoTable' % curry
 
   def vEmitFooter(self):
     return []
@@ -31,11 +33,9 @@ class PyCompiler(compiler.CompilerBase):
     return []
 
   def vEmitInfotabLink(self, isym, h_info):
-    # if isym.modulename != self.imodule.name:
     yield '%s = interp.symbol(%r)' % (h_info, isym.fullname)
 
   def vEmitDataTypeLink(self, itype, h_datatype):
-    # if isym.modulename != self.imodule.name:
     yield '%s = interp.type(%r)' % (h_datatype, itype.fullname)
 
   def vEmitStepfuncHeader(self, ifun, h_stepfunc):
@@ -69,26 +69,29 @@ class PyCompiler(compiler.CompilerBase):
       raise CompileError('no built-in Python definition found')
 
   def vEmitFunctionInfotab(self, ifun, h_info, h_stepfunc):
-    yield '%s = InfoTable(%r, %r, T_FUNC, %s, %s, %r, None)' % (
-        h_info, ifun.name, ifun.arity
-      , 'F_MONADIC' if ifun.metadata.get('all.monadic') else 0
-      , h_stepfunc
-      , getattr(ifun.metadata, 'py.format', None)
-      )
+    if self.is_module:
+      yield '%s = InfoTable(%r, %r, T_FUNC, %s, %s, %r, None)' % (
+          h_info, ifun.name, ifun.arity
+        , 'F_MONADIC' if ifun.metadata.get('all.monadic') else 0
+        , h_stepfunc
+        , getattr(ifun.metadata, 'py.format', None)
+        )
 
   def vEmitConstructorInfotab(self, ictor, h_info, h_datatype):
-    builtin = 'all.tag' in ictor.metadata
-    yield '%s = InfoTable(%r, %r, %r, %r, None, %r, None)' % (
-        h_info, ictor.name, ictor.arity
-      , ictor.index if not builtin else ictor.metadata['all.tag']
-      , ictor.metadata.get('all.flags', 0)
-      , getattr(ictor.metadata, 'py.format', None)
-      )
+    if self.is_module:
+      builtin = 'all.tag' in ictor.metadata
+      yield '%s = InfoTable(%r, %r, %r, %r, None, %r, None)' % (
+          h_info, ictor.name, ictor.arity
+        , ictor.index if not builtin else ictor.metadata['all.tag']
+        , ictor.metadata.get('all.flags', 0)
+        , getattr(ictor.metadata, 'py.format', None)
+        )
 
   def vEmitDataType(self, itype, h_datatype, ctor_handles):
-    yield '%s = DataType(%r, [%s])' % (
-        h_datatype, itype.name, ', '.join(str(h) for h in ctor_handles)
-      )
+    if self.is_module:
+      yield '%s = DataType(%r, [%s])' % (
+          h_datatype, itype.name, ', '.join(str(h) for h in ctor_handles)
+        )
 
   def vEmitStringLiteral(self, string, h_string):
     yield '%s = %r' % (h_string, string)
@@ -235,7 +238,6 @@ def importable(obj):
   return found is not None
 
 
-
 def write_module(target_object, stream, goal=None, section_headers=True, module_main=True):
   render = renderer.PY_RENDERER.renderLines
   SECTIONS = (
@@ -260,7 +262,8 @@ def write_module(target_object, stream, goal=None, section_headers=True, module_
     section_data = target_object[section_name]
     section_text = render(section_data)
     stream.write(section_text)
-    stream.write('\n\n')
+    if section_text:
+      stream.write('\n\n')
   if module_main:
     stream.write('''if __name__ == '__main__':\n''')
     stream.write(  '  from %s import __main__\n' % config.python_package_name())
