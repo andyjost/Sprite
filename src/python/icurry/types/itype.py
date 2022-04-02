@@ -35,9 +35,9 @@ IType = IDataType
 class IConstructor(ISymbol):
   @translateKwds({'name': 'fullname'})
   def __init__(self, fullname, arity, **kwds):
-    ISymbol.__init__(self, fullname, **kwds)
     self.arity = IArity(arity)
     self.typename = kwds.pop('typename', None)
+    ISymbol.__init__(self, fullname, **kwds)
 
   _fields_ = 'fullname', 'arity', 'typename'
 

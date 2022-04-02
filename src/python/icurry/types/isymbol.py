@@ -6,7 +6,7 @@ class ISymbol(IObject):
   '''
   A named IObject that may appear in a symbol table or package.  Has
   ``fullname``, ``modulename``, ``name``, and ``packagename`` attributes.
-  Derived types include packages, modules, types, constructors, liteals, and
+  Derived types include packages, modules, types, constructors, literals, and
   functions.
   '''
   def __init__(self, fullname, **kwds):
@@ -16,6 +16,7 @@ class ISymbol(IObject):
 
   @property
   def modulename(self):
+    # The full module name, as in 'Prelude' or 'Data.List'.
     return self._modulename
 
   @modulename.setter
@@ -36,7 +37,7 @@ class ISymbol(IObject):
 
   @property
   def packagename(self):
-    return self.fullname.rpartition('.')[0]
+    return self.modulename.rpartition('.')[0]
 
   def splitname(self):
     '''
@@ -47,7 +48,8 @@ class ISymbol(IObject):
       for part in self.modulename.split('.'):
         if part:
           yield part
-      yield self.name
+      if not isinstance(self, IContainer):
+        yield self.name
     return list(gen())
     
 
@@ -55,9 +57,10 @@ class IContainer(ISymbol):
   '''Specialization of ISymbol for packages and modules.'''
   @property
   def modulename(self):
-    return self.name
+    return self.fullname
 
   @property
   def name(self):
     return self.fullname.rpartition('.')[2]
+
 

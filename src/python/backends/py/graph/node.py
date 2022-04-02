@@ -5,14 +5,24 @@ import collections, numbers, operator, types
 
 class Node(object):
   '''A node in a Curry expression graph.'''
-  def __new__(*args, **kwds):
-    return new_node(*args, **kwds)
+  def __new__(cls, info, *args, **kwds):
+    if isinstance(info, (types.GeneratorType, collections.Sequence)):
+      assert not args
+      return Node(*info, **kwds)
+    info = getattr(info, 'info', info)
+    partial_info = kwds.pop('partial_info', None)
+    target = kwds.pop('target', None)
+    target = getattr(target, 'target', target) # accept target=Variable
+    if partial_info:
+      return Node.create_partial_applic(cls, info, *args, target=target, partial_info=partial_info)
+    else:
+      return new_node(cls, info, *args, target=target, **kwds)
 
   @staticmethod
-  def create_partial_applic(ti, *args, target=None, partial_info=None):
-    missing =  ti.info.arity - len(args)
+  def create_partial_applic(cls, info, *args, target=None, partial_info=None):
+    missing = info.arity - len(args)
     assert missing > 0
-    partexpr = Node(ti, *args, partial=True)
+    partexpr = new_node(cls, info, *args, partial=True)
     return Node(partial_info, missing, partexpr, target=target)
 
   def __str__(self):
@@ -90,10 +100,6 @@ def new_node(cls, info, *args, **kwds):
   Returns:
     A ``Node``.
   '''
-  if isinstance(info, (types.GeneratorType, collections.Sequence)):
-    assert not args
-    return new_node(cls, *info, **kwds)
-  info = getattr(info, 'info', info)
   bad_length = operator.ge if kwds.get('partial') else operator.ne
   if bad_length(len(args), info.arity):
     raise TypeError(
@@ -106,7 +112,6 @@ def new_node(cls, info, *args, **kwds):
           )
       )
   target = kwds.get('target', None)
-  target = getattr(target, 'target', target) # accept target=Variable
   self = object.__new__(cls) if target is None else target
   self.info = info
   successors = [getattr(arg, 'rvalue', arg) for arg in args]

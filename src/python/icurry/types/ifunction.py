@@ -20,14 +20,6 @@ class IFunction(ISymbol):
   _fields_ = 'fullname', 'arity', 'vis', 'needed', 'body'
 
   @property
-  def name(self):
-    return self.fullname[len(self.modulename)+1:]
-
-  @property
-  def packagename(self):
-    return self.modulename.rpartition('.')[0]
-
-  @property
   def is_private(self):
     return self.vis == PRIVATE
 

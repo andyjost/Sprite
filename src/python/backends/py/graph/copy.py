@@ -33,8 +33,9 @@ class GraphCopier(object):
       else:
         info = self.expr.info
         partial = info.arity > len(self.expr.successors)
-        return node.Node(
-            info
+        return node.new_node(
+            type(self.expr)
+          , info
           , *(self(succ) for succ in self.expr.successors)
           , partial=partial
           )

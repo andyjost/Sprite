@@ -47,12 +47,6 @@ def materialize_function(interp, ifun, ir, debug=False):
   entry.source = source
   return entry
 
-def _nostep(*args, **kwds):
-  pass
-
-def _unreachable(*args, **kwds):
-  assert False
-
 def materialize_constructor_info(interp, itype, icons, moduleobj, extern):
   # For builtins, the 'all.tag' metadata contains the tag.
   builtin = 'all.tag' in icons.metadata
@@ -61,7 +55,7 @@ def materialize_constructor_info(interp, itype, icons, moduleobj, extern):
     , icons.arity
     , T_CTOR + icons.index if not builtin else icons.metadata['all.tag']
     , getattr(icons.metadata, 'all.flags', 0)
-    , _nostep if not builtin else _unreachable
+    , None
     , getattr(icons.metadata, 'py.format', None)
     , _gettypechecker(interp, icons.metadata)
     )

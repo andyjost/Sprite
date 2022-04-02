@@ -28,7 +28,7 @@ class TestPyRuntime(cytest.TestCase):
     '''Tests to improve line coverage.'''
     interp = interpreter.Interpreter()
     prelude = interp.prelude
-    self.assertEqual(prelude.prim_negateFloat.fullname, 'Prelude.prim_negateFloat')
+    self.assertEqual(prelude.prim_negateFloat.name, 'prim_negateFloat')
     self.assertEqual(str(prelude.prim_negateFloat.info), "Info for 'prim_negateFloat'")
     self.assertTrue(repr(prelude.prim_negateFloat.info).startswith('InfoTable'))
 
@@ -242,7 +242,7 @@ class TestPyRuntime(cytest.TestCase):
   def test_getimpl(self):
     # Positive test.
     from curry.lib import hello
-    self.assertRegex(hello.main.getimpl(), '^def (\w+)\(rts, _0\):\s+# hello\.main')
+    self.assertRegex(hello.main.getimpl(), '(^|\n)def (\w+)\(rts, _0\):\s+# hello\.main')
     # Negative test.
     self.assertRaisesRegex(
         ValueError

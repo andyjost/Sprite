@@ -132,7 +132,7 @@ class PyCompiler(compiler.CompilerBase):
       yield _close(0, ')')
 
   def vEmitModuleImport(self, imodule, h_module):
-    yield '%s.import_(%s)' % (config.python_package_name(), h_module)
+    yield '_module_ = %s.import_(%s)' % (config.python_package_name(), h_module)
 
   def vEmit_compileS_IVarDecl(self, vardecl, varname):
     yield '%s = None' % varname

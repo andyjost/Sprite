@@ -69,7 +69,7 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
   be = interp.backend
   info = be.materialize(interp, ifun, extern)
   cy_fobj = objects.CurryNodeInfo(info, icurry=ifun)
-  _attachToModule(moduleobj, cy_fobj)
+  _attachToModule(moduleobj, cy_fobj, private=ifun.is_private)
   return cy_fobj
 
 @visitation.dispatch.on('obj')

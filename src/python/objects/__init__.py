@@ -146,6 +146,10 @@ class CurryDataType(object):
   def name(self):
     return self.datatype.name
 
+  @property
+  def fullname(self):
+    return self.icurry.fullname
+
   def __repr__(self):
     return '<curry type %r>' % self.name
 
@@ -165,6 +169,10 @@ class CurryNodeInfo(object):
   def name(self):
     return self.info.name
 
+  @property
+  def fullname(self):
+    return self.icurry.fullname
+
   # TODO: add getsource to get the Curry source.  It will require an
   # enhancement to CMC and maybe FlatCurry to generate source range
   # annotations.
@@ -172,16 +180,15 @@ class CurryNodeInfo(object):
   def getimpl(self):
     '''Returns the implementation code of the step function, if available.'''
     step = self.info.step
-    try:
-      return getattr(step, 'source')
-    except AttributeError:
-      pass
-
-    try:
-      return inspect.getsource(step)
-    except OSError:
-      pass
-
+    if step is not None:
+      try:
+        return getattr(step, 'source')
+      except AttributeError:
+        pass
+      try:
+        return inspect.getsource(step)
+      except OSError:
+        pass
     raise ValueError(
         'no implementation code available for %r' % self.fullname
       )

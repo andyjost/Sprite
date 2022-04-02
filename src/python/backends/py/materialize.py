@@ -46,7 +46,7 @@ class Materializer(object):
       , ictor.arity
       , T_CTOR + ictor.index if not builtin else ictor.metadata['all.tag']
       , getattr(ictor.metadata, 'all.flags', 0)
-      , _nostep if not builtin else _unreachable
+      , None
       , getattr(ictor.metadata, 'py.format', None)
       , _gettypechecker(self.interp, ictor.metadata)
       )
@@ -125,12 +125,6 @@ class Trampoline(object):
   def __call__(self, *args, **kwds):
     f = self.materialize()
     return f(*args, **kwds)
-
-def _nostep(*args, **kwds):
-  pass
-
-def _unreachable(*args, **kwds):
-  assert False
 
 # FIXME: several things in the info table now have an interpreter bound.  It
 # would be great to simplify that.  Maybe it should just be added as an entry
