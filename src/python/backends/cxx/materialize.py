@@ -2,7 +2,7 @@
 Code for converting the intermediate representation to executable code.
 '''
 
-from ...common import T_FUNC, F_MONADIC
+from ...common import T_FUNC
 from ...exceptions import CompileError
 from . import cyrtbindings as cyrt
 from ... import icurry, objects
@@ -49,7 +49,7 @@ def materialize_function_info_stub(interp, ifun, moduleobj, extern):
         ifun.name
       , ifun.arity
       , T_FUNC
-      , F_MONADIC if ifun.metadata.get('all.monadic') else 0
+      , ifun.metadata.get('all.flags', 0)
       )
   return objects.CurryNodeInfo(info, icurry=ifun)
 

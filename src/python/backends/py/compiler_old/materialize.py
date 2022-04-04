@@ -2,7 +2,7 @@
 Code for converting the intermediate representation to executable code.
 '''
 
-from ....common import T_CTOR, T_FUNC, F_MONADIC
+from ....common import T_CTOR, T_FUNC
 from .... import icurry, objects
 from ...generic import renderer
 from ....utility import encoding, filesys
@@ -66,7 +66,7 @@ def materialize_function_info_stub(interp, ifun, moduleobj, extern):
       ifun.name
     , ifun.arity
     , T_FUNC
-    , F_MONADIC if ifun.metadata.get('all.monadic') else 0
+    , ifun.metadata.get('all.flags', 0)
     , None
     , getattr(ifun.metadata, 'py.format', None)
     , _gettypechecker(interp, ifun.metadata)

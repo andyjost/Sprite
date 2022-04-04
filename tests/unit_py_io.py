@@ -70,10 +70,6 @@ class TestPyIO(cytest.TestCase):
         symbol for symbol, obj in stab.items()
                if obj.info.flags & common.F_MONADIC
       ])
-    self.assertTrue(all(
-        obj.icurry.metadata.get('all.monadic', False) == (symbol in monadic_symbols)
-            for symbol, obj in stab.items()
-      ))
     libversion = curry.config.syslibversion()
     self.assertEqual(monadic_symbols, self.MONADIC[libversion])
 

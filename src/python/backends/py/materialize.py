@@ -1,4 +1,4 @@
-from ...common import T_CTOR, T_FUNC, F_MONADIC
+from ...common import T_CTOR, T_FUNC
 from ..generic.compiler import DEFINED, STEP_FUNCTION
 from .graph.infotable import DataType, InfoTable
 from . import compiler
@@ -65,7 +65,7 @@ class Materializer(object):
         ifun.name
       , ifun.arity
       , T_FUNC
-      , F_MONADIC if ifun.metadata.get('all.monadic') else 0
+      , ifun.metadata.get('all.flags', 0)
       , trampoline if lazy else trampoline.materialize()
       , getattr(ifun.metadata, 'py.format', None)
       , _gettypechecker(self.interp, ifun.metadata)

@@ -1,3 +1,4 @@
+from ...common import F_MONADIC
 from .. import types, visit
 import sys
 
@@ -5,30 +6,35 @@ __all__ = ['set_monadic_metadata']
 
 class TRUE(BaseException): pass
 
-# def set_monadic_metadata(imodule, modules):
-#   '''
-#   Determines whether each ICurry function in a module is monadic.  The result
-#   is stored in the 'all.monadic' metadata.
-# 
-#   To determine whether a function is monadic, its call graph is walked.  If
-#   the function calls any monadic function, then it is determined to be monadic.
-#   '''
-
 def set_monadic_metadata(ifun, modules):
   '''
-  Tells or determines whether an ICurry function is monadic.
+  Determines whether an ICurry function is monadic.
+
+  The result is stored in the 'all.monadic' metadata and also in 'all.flags' by
+  OR-ing with F_MONADIC.  This apparent redundancy is needed because
+  'all.monadic' is actually a tristate: True or False indicates the monadic
+  check has been performed, while its absense indicates the check needs to be
+  performed.
+
+  To determine whether a function is monadic, its call graph is walked.  If the
+  function calls any monadic function, then it is determined to be monadic.
   '''
   if isinstance(ifun, types.IFunction):
     if 'all.monadic' not in ifun.metadata:
-      ifun.update_metadata({'all.monadic': False})
-      visitor = lambda iobj, **kwds: _checkmonadic(iobj, modules, **kwds)
-      try:
-        visit.visit(visitor, ifun.body)
-      except TRUE:
-        result = True
+      flags = ifun.metadata.get('all.flags', 0)
+      if flags & F_MONADIC:
+        ifun.update_metadata({'all.monadic': True})
       else:
-        result = False
-      ifun.update_metadata({'all.monadic': result})
+        ifun.update_metadata({'all.monadic': False})
+        visitor = lambda iobj, **kwds: _checkmonadic(iobj, modules, **kwds)
+        try:
+          visit.visit(visitor, ifun.body)
+        except TRUE:
+          ifun.update_metadata({
+              'all.flags': flags | F_MONADIC
+            , 'all.monadic': True
+            })
+          return True
     return ifun.metadata['all.monadic']
   else:
     return False

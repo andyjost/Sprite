@@ -1,6 +1,6 @@
 from ...exceptions import CompileError
 from ..generic import compiler, renderer
-from ... import config, icurry
+from ... import common, config, icurry
 from .currylib.prelude.math import apply_unboxed
 import collections, itertools, json, re, six, sys
 
@@ -21,7 +21,7 @@ class PyCompiler(compiler.CompilerBase):
   def vEmitHeader(self):
     curry = config.python_package_name()
     yield 'import %s' % curry
-    yield 'from %s.common import T_FUNC, F_MONADIC' % curry
+    yield 'from %s.common import *' % curry
     yield 'from %s.backends.py.graph import DataType, InfoTable' % curry
     if self.is_module:
       yield 'from %s.icurry import IModule' % curry
@@ -71,7 +71,7 @@ class PyCompiler(compiler.CompilerBase):
   def vEmitFunctionInfotab(self, ifun, h_info, h_stepfunc):
     yield '%s = InfoTable(%r, %r, T_FUNC, %s, %s, %r, None)' % (
         h_info, ifun.name, ifun.arity
-      , 'F_MONADIC' if ifun.metadata.get('all.monadic') else 0
+      , prettyflags(ifun.metadata.get('all.flags', 0))
       , h_stepfunc
       , getattr(ifun.metadata, 'py.format', None)
       )
@@ -235,6 +235,19 @@ def importable(obj):
   found = getattr(module, name, None)
   return found is not None
 
+def prettyflags(flagvalue):
+  for name, value in common.BITFLAGS.items():
+    parts = []
+    if isinstance(name, str):
+      if flagvalue & value:
+        flagvalue = flagvalue &~ value
+        parts.append(name)
+    stem = common.FLAGS.get(flagvalue, flagvalue)
+    if stem:
+      parts.insert(0, stem)
+    if not parts:
+      parts = [0]
+    text = ' | '.join(str(p) for p in parts)
 
 def write_module(target_object, stream, goal=None, section_headers=True, module_main=True):
   render = renderer.PY_RENDERER.renderLines
