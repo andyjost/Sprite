@@ -176,7 +176,7 @@ def hnf(rts, var, typedef=None, values=None):
         binding = rts.get_binding(var.target)
         rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=binding)
         rts.restart()
-      elif typedef in rts.builtin_types:
+      elif rts.is_builtin_type(typedef):
         if values:
           value_bindings = rts.make_value_bindings(var, values, typedef)
           var.replace_target(replacement=value_bindings)

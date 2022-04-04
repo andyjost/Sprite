@@ -33,10 +33,10 @@ class PyCompiler(compiler.CompilerBase):
     return []
 
   def vEmitInfotabLink(self, isym, h_info):
-    yield '%s = interp.symbol(%r)' % (h_info, isym.fullname)
+    yield '%s = interp.symbol(%r).info' % (h_info, isym.fullname)
 
   def vEmitDataTypeLink(self, itype, h_datatype):
-    yield '%s = interp.type(%r)' % (h_datatype, itype.fullname)
+    yield '%s = interp.type(%r).datatype' % (h_datatype, itype.fullname)
 
   def vEmitStepfuncHeader(self, ifun, h_stepfunc):
     yield 'def %s(rts, _0):' % h_stepfunc, ifun.fullname

@@ -399,8 +399,6 @@ class CompilerBase(abc.ABC):
     self.target_object['.moduleimp'].extend(
         self.vEmitModuleImport(imodule, h_module)
       )
-    # return imodule.copy(types=types, functions=functions)
-    # return imodule
 
   @compileEx.when(icurry.IFunction)
   def compileEx(self, ifun):
@@ -470,12 +468,15 @@ class CompilerBase(abc.ABC):
 
   @compileF.when(icurry.IFunction)
   def compileF(self, ifun, h_stepfunc, linesF):
-    try:
-      return self.compileF(ifun.body, h_stepfunc, linesF)
-    except CompileError as e:
-      raise CompileError(
-          'failed to compile function %r: %s' % (ifun.fullname, e)
-        )
+    if isinstance(ifun.body, icurry.IBuiltin):
+      linesF.extend(self.vEmitBuiltinStepfunc(ifun, h_stepfunc))
+    else:
+      try:
+        return self.compileF(ifun.body, h_stepfunc, linesF)
+      except CompileError as e:
+        raise CompileError(
+            'failed to compile function %r: %s' % (ifun.fullname, e)
+          )
 
   @compileF.when(icurry.IExternal)
   def compileF(self, iexternal, h_stepfunc, linesF):
@@ -499,8 +500,7 @@ class CompilerBase(abc.ABC):
 
   @compileF.when(icurry.IBuiltin)
   def compileF(self, ibuiltin, h_stepfunc, linesF):
-    linesF.extend(self.vEmitBuiltinStepfunc(ibuiltin, h_stepfunc))
-    # raise CompileError('expected a built-in definition')
+    assert False # handled, above, in case IFunction.
 
   @compileF.when(icurry.IStatement)
   def compileF(self, stmt, h_stepfunc, linesF):

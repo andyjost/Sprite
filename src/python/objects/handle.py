@@ -149,7 +149,7 @@ class Handle(object):
     '''Method of CurryModule to look up a type by name.'''
     if self.is_package:
       head, _, tail = name.partition('.')
-      return self.submodule(head).getsymbol(tail)
+      return self.submodule(head).gettype(tail)
     else:
       try:
         return self.types[name]

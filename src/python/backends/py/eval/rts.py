@@ -1,7 +1,8 @@
-from . import configuration
-from .... import inspect
-from .. import graph
 from ...generic.eval import stepcounter, telemetry, trace
+from ..graph import infotable
+from . import configuration
+from .. import graph
+from .... import inspect
 import itertools
 
 __all__ = ['InterpreterState', 'RuntimeState']
@@ -39,7 +40,7 @@ class RuntimeState(object):
     # functions that might be required by built-ins, such as ``expr``,
     # ``type``, or ``unbox``.
     self.interp = interp
-    self.builtin_types = tuple(
+    self.__builtin_types = tuple(
         interp.type(typename).datatype
             for typename in ('Prelude.Int', 'Prelude.Char', 'Prelude.Float')
       )
@@ -119,6 +120,10 @@ class RuntimeState(object):
   def S(self):
     '''The current set evaluation.'''
     return self.sftable.get(self.Q.sid, None)
+
+  def is_builtin_type(self, ty):
+    assert ty is None or isinstance(ty, infotable.DataType)
+    return ty in self.__builtin_types
 
   from ..graph.variable import variable
   from .rts_bindings import (

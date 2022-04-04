@@ -18,7 +18,7 @@ def add_binding(rts, arg, value, config=None):
   config = config or rts.C
   if rts.has_binding(arg, config):
     current = rts.get_binding(arg, config)
-    assert current.info.typedef in rts.builtin_types
+    assert rts.is_builtin_type(current.info.typedef)
     return current.info is value.info and current[0] == value[0]
   else:
     vid = rts.grp_id(arg)

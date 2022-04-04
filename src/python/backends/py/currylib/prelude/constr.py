@@ -56,12 +56,12 @@ def constr_eq(rts, _0):
         else:
           yield rts.prelude.True_
       else:
-        values = [rhs.unboxed_value] if rhs.typedef in rts.builtin_types else None
+        values = [rhs.unboxed_value] if rts.is_builtin_type(rhs.typedef) else None
         _1 = rts.variable(_0, 0)
         _1.hnf(rhs.typedef, values)
     else:
       if rtag == T_FREE:
-        values = [lhs.unboxed_value] if lhs.typedef in rts.builtin_types else None
+        values = [lhs.unboxed_value] if rts.is_builtin_type(lhs.typedef) else None
         _1 = rts.variable(_0, 1)
         _1.hnf(lhs.typedef, values)
       else:

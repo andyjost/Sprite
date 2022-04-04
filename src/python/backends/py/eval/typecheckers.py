@@ -43,7 +43,6 @@ def _typecheck(ty, arg, name, p=None):
                        and _samecategory(arg[0], ty)
             else ''
       )
-    breakpoint()
     raise TypeError(
         'Cannot construct %s %s node from an argument %sof type %s.%s'
             % (_articlefor(name)
