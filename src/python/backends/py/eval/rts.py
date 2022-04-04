@@ -39,9 +39,10 @@ class RuntimeState(object):
     # functions that might be required by built-ins, such as ``expr``,
     # ``type``, or ``unbox``.
     self.interp = interp
-    self.builtin_types = tuple(map(
-        interp.type, ('Prelude.Int', 'Prelude.Char', 'Prelude.Float')
-      ))
+    self.builtin_types = tuple(
+        interp.type(typename).datatype
+            for typename in ('Prelude.Int', 'Prelude.Char', 'Prelude.Float')
+      )
     self.currypath = tuple(interp.path)
     self.expr = interp.raw_expr
     self.setfunction_strategy = interp.flags['setfunction_strategy']

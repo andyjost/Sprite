@@ -176,9 +176,7 @@ class PyCompiler(compiler.CompilerBase):
     }
 
   def vEmit_compileS_ICaseLit(self, icase, h_sel, h_values):
-    # Is the datatype needed here?
-    h_datatype = self.importSymbol(icase.branches[0].lit.fullname)
-
+    h_datatype = self.importDataType(icase.branches[0].lit.fullname)
     yield '%s.hnf(typedef=%s, values=%s)' % (h_sel, h_datatype, h_values)
     yield 'selector = %s.unboxed_value' % h_sel
     el = ''

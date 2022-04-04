@@ -39,10 +39,11 @@ def _typecheck(ty, arg, name, p=None):
         '  (An unboxed value was expected but a boxed value of the '
         'correct type was supplied.  Perhaps you need to wrap an '
         'argument with %s.unboxed?)' % __package__[:__package__.find('.')]
-            if this_unboxed and arg_boxed and len(arg) \
+            if this_unboxed and arg_boxed and len(arg.successors) \
                        and _samecategory(arg[0], ty)
             else ''
       )
+    breakpoint()
     raise TypeError(
         'Cannot construct %s %s node from an argument %sof type %s.%s'
             % (_articlefor(name)
@@ -55,19 +56,22 @@ def _typecheck(ty, arg, name, p=None):
 
 def Char(interp, info, arg):
   '''Typechecker for the Curry Char type.'''
-  _typecheck(str, arg, 'Char')
-  if len(arg) != 1:
-    raise TypeError(
-        'Cannot construct a Char node from a str of length %d.' % len(arg)
-      )
+  if not inspect.isa_freevar(arg):
+    _typecheck(str, arg, 'Char')
+    if len(arg) != 1:
+      raise TypeError(
+          'Cannot construct a Char node from a str of length %d.' % len(arg)
+        )
 
 def Float(interp, info, arg):
   '''Typechecker for the Curry Float type.'''
-  _typecheck(float, arg, 'Float')
+  if not inspect.isa_freevar(arg):
+    _typecheck(float, arg, 'Float')
 
 def Int(interp, info, arg):
   '''Typechecker for the Curry Int type.'''
-  _typecheck(int, arg, 'Int')
+  if not inspect.isa_freevar(arg):
+    _typecheck(int, arg, 'Int')
 
 def Constraint(interp, info, result, constr):
   name = '_Constraint'
