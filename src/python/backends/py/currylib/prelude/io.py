@@ -71,8 +71,8 @@ def seqIO(rts, lhs):
 def writeFile(rts, func, mode='w'):
   filename, data = func.successors
   filename = rts.topython(filename)
-  List = rts.prelude.Cons.typedef
-  Char = rts.prelude.Char.typedef
+  List = getattr(rts.prelude, '.types')['[]']
+  Char = getattr(rts.prelude, '.types')['Char']
   with open(filename, 'w') as ostream:
     while True:
       _1 = rts.variable(func, 1)

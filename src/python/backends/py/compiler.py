@@ -19,12 +19,12 @@ class PyCompiler(compiler.CompilerBase):
     self.is_module = isinstance(self.iroot, icurry.IModule)
 
   def vEmitHeader(self):
+    curry = config.python_package_name()
+    yield 'import %s' % curry
+    yield 'from %s.common import T_FUNC, F_MONADIC' % curry
+    yield 'from %s.backends.py.graph import DataType, InfoTable' % curry
     if self.is_module:
-      curry = config.python_package_name()
-      yield 'import %s' % curry
       yield 'from %s.icurry import IModule' % curry
-      yield 'from %s.common import T_FUNC, F_MONADIC' % curry
-      yield 'from %s.backends.py.graph import DataType, InfoTable' % curry
 
   def vEmitFooter(self):
     return []
@@ -69,23 +69,21 @@ class PyCompiler(compiler.CompilerBase):
       raise CompileError('no built-in Python definition found')
 
   def vEmitFunctionInfotab(self, ifun, h_info, h_stepfunc):
-    if self.is_module:
-      yield '%s = InfoTable(%r, %r, T_FUNC, %s, %s, %r, None)' % (
-          h_info, ifun.name, ifun.arity
-        , 'F_MONADIC' if ifun.metadata.get('all.monadic') else 0
-        , h_stepfunc
-        , getattr(ifun.metadata, 'py.format', None)
-        )
+    yield '%s = InfoTable(%r, %r, T_FUNC, %s, %s, %r, None)' % (
+        h_info, ifun.name, ifun.arity
+      , 'F_MONADIC' if ifun.metadata.get('all.monadic') else 0
+      , h_stepfunc
+      , getattr(ifun.metadata, 'py.format', None)
+      )
 
   def vEmitConstructorInfotab(self, ictor, h_info, h_datatype):
-    if self.is_module:
-      builtin = 'all.tag' in ictor.metadata
-      yield '%s = InfoTable(%r, %r, %r, %r, None, %r, None)' % (
-          h_info, ictor.name, ictor.arity
-        , ictor.index if not builtin else ictor.metadata['all.tag']
-        , ictor.metadata.get('all.flags', 0)
-        , getattr(ictor.metadata, 'py.format', None)
-        )
+    builtin = 'all.tag' in ictor.metadata
+    yield '%s = InfoTable(%r, %r, %r, %r, None, %r, None)' % (
+        h_info, ictor.name, ictor.arity
+      , ictor.index if not builtin else ictor.metadata['all.tag']
+      , ictor.metadata.get('all.flags', 0)
+      , getattr(ictor.metadata, 'py.format', None)
+      )
 
   def vEmitDataType(self, itype, h_datatype, ctor_handles):
     if self.is_module:
@@ -94,7 +92,7 @@ class PyCompiler(compiler.CompilerBase):
         )
 
   def vEmitStringLiteral(self, string, h_string):
-    yield '%s = %r' % (h_string, string)
+    yield '%s = b%r' % (h_string, string)
 
   def vEmitValueSetLiteral(self, values, h_valueset):
     yield '%s = %r' % (h_valueset, values)

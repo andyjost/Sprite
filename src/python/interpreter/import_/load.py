@@ -59,9 +59,13 @@ def loadSymbols(interp, itype, moduleobj, extern=None):
   for ictor, ctorinfo in zip(itype.constructors, dt_impl.constructors):
     cy_ctorobj = objects.CurryNodeInfo(ctorinfo, icurry=ictor, typename=itype.fullname)
     cy_ctors.append(cy_ctorobj)
-    _attachToModule(moduleobj, cy_ctorobj)
+    # _attachToModule(moduleobj, cy_ctorobj)
+    getattr(moduleobj, '.symbols')[cy_ctorobj.name] = cy_ctorobj
+    if encoding.isaCurryIdentifier(cy_ctorobj.name):
+      setattr(moduleobj, cy_ctorobj.name, cy_ctorobj)
   cy_dtobj = objects.CurryDataType(dt_impl, cy_ctors, icurry=itype)
-  _attachToModule(moduleobj, cy_dtobj)
+  # _attachToModule(moduleobj, cy_dtobj)
+  getattr(moduleobj, '.types')[cy_dtobj.name] = cy_dtobj
   return cy_dtobj
 
 @loadSymbols.when(icurry.IFunction)
@@ -69,20 +73,9 @@ def loadSymbols(interp, ifun, moduleobj, extern=None):
   be = interp.backend
   info = be.materialize(interp, ifun, extern)
   cy_fobj = objects.CurryNodeInfo(info, icurry=ifun)
-  _attachToModule(moduleobj, cy_fobj, private=ifun.is_private)
+  # _attachToModule(moduleobj, cy_fobj, private=ifun.is_private)
+  getattr(moduleobj, '.symbols')[cy_fobj.name] = cy_fobj
+  if not ifun.is_private and encoding.isaCurryIdentifier(cy_fobj.name):
+    setattr(moduleobj, cy_fobj.name, cy_fobj)
   return cy_fobj
-
-@visitation.dispatch.on('obj')
-def _attachToModule(moduleobj, obj, private=False):
-  assert False
-
-@_attachToModule.when(objects.CurryNodeInfo)
-def _attachToModule(moduleobj, cy_infoobj, private=False):
-  getattr(moduleobj, '.symbols')[cy_infoobj.name] = cy_infoobj
-  if not private and encoding.isaCurryIdentifier(cy_infoobj.name):
-    setattr(moduleobj, cy_infoobj.name, cy_infoobj)
-
-@_attachToModule.when(objects.CurryDataType)
-def _attachToModule(moduleobj, cy_dtobj, private=False):
-  getattr(moduleobj, '.types')[cy_dtobj.name] = cy_dtobj
 
