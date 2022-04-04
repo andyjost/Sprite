@@ -161,7 +161,7 @@ class PreludeSpecification(ModuleSpecification):
         , [ icurry.IConstructor(
                 'Prelude.' + ctorname
               , arity
-              , metadata=dict(md, **self.CONSTRUCTOR_METADATA.get((ctorname, i), {}))
+              , metadata=dict(md, **self.CONSTRUCTOR_METADATA.get((typename, i), {}))
               )
               for i,(ctorname, arity, md) in enumerate(constructors)
             ]
