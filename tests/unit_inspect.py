@@ -189,7 +189,8 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     Control = curry.import_('Control')
     SetFunctions = curry.import_('Control.SetFunctions')
     self.assertEqual(
-        inspect.gettype(Control, 'SetFunctions.Values'), SetFunctions.Values
+        inspect.gettype(Control, 'SetFunctions.Values')
+      , curry.type('Control.SetFunctions.Values')
       )
     self.assertEqual(inspect.gettype(Peano, 'Nat'), Nat)
 
