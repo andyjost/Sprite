@@ -24,11 +24,11 @@ class IBackend(backends.IBackend):
   def init_interpreter_state(self, interp):
     interp._its = cyrtbindings.InterpreterState()
 
-  def find_or_create_module(self, moduleobj):
+  def find_or_create_internal_module(self, moduleobj):
     return cyrtbindings.Module.find_or_create(moduleobj.__name__)
 
-  def link_function(self, info, function_spec, lazy):
-    cyrtbindings.link_function(info, function_spec, lazy)
+  # def link_function(self, info, function_spec, lazy):
+  #   cyrtbindings.link_function(info, function_spec, lazy)
 
   def lookup_builtin_module(self, modulename):
     if modulename == 'Prelude':
@@ -42,17 +42,10 @@ class IBackend(backends.IBackend):
   def make_node(self):
     return cyrtbindings.make_node
 
-  @property
-  def materialize_function(self):
-    return materialize.materialize_function
-
-  @property
-  def materialize_function_info_stub(self):
-    return materialize.materialize_function_info_stub
-
-  @property
-  def materialize_type(self):
-    return materialize.materialize_type
+  # TODO
+  # @property
+  # def materialize(self):
+  #   ## return materialize.materialize
 
   @property
   def write_module(self):

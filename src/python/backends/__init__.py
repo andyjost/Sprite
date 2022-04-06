@@ -58,17 +58,12 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractmethod
-  def find_or_create_module(self, moduleobj):
+  def find_or_create_internal_module(self, moduleobj):
     assert 0
 
   @abc.abstractmethod
   def init_interpreter_state(self, interp):
     '''Initializes an interpreter with the runtime-specific state.'''
-    assert 0
-
-  @abc.abstractmethod
-  def link_function(self, info, function_spec, lazy):
-    '''Link a function (or trampoline) into the info table.'''
     assert 0
 
   @abc.abstractmethod
@@ -82,24 +77,6 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
 
   @abc.abstractproperty
   def materialize(self):
-    assert 0
-
-  @abc.abstractproperty
-  def materialize_function(self):
-    '''Converts the IR to runnable code.'''
-    assert 0
-
-  @abc.abstractproperty
-  def materialize_function_info_stub(self):
-    '''
-    Generates a function info table with the step function set to a compile
-    hook.
-    '''
-    assert 0
-
-  @abc.abstractproperty
-  def materialize_type(self):
-    '''Converts the IR to a type.'''
     assert 0
 
   @abc.abstractproperty

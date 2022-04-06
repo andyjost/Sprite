@@ -51,7 +51,9 @@ class CurryModule(types.ModuleType):
     types.ModuleType.__init__(self, imodule.fullname)
     self.__file__ = imodule.filename
     self.__package__ = self.__name__.rpartition('.')[0]
-    setattr(self, '.backend_handle', interp.backend.find_or_create_module(self))
+    setattr(self, '.backend_handle'
+      , interp.backend.find_or_create_internal_module(self)
+      )
 
   def __repr__(self):
     return '<curry module %r>' % self.__name__

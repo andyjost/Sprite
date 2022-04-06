@@ -1,5 +1,4 @@
 from . import compiler
-from .compiler_old import materialize as materialize_old
 from . import materialize
 from .eval import evaluator
 from .graph import Node
@@ -32,14 +31,8 @@ class IBackend(backends.IBackend):
     from .eval.rts import InterpreterState
     interp._its = InterpreterState()
 
-  def find_or_create_module(self, moduleobj):
+  def find_or_create_internal_module(self, moduleobj):
     pass
-
-  def link_function(self, info, function_spec, lazy):
-    if lazy:
-      info.step = function_spec
-    else:
-      info.step = function_spec.materialize()
 
   def lookup_builtin_module(self, modulename):
     if modulename == 'Prelude':
@@ -58,18 +51,6 @@ class IBackend(backends.IBackend):
   @property
   def materialize(self):
     return materialize.materialize
-
-  @property
-  def materialize_function(self):
-    return materialize_old.materialize_function
-
-  @property
-  def materialize_function_info_stub(self):
-    return materialize_old.materialize_function_info_stub
-
-  @property
-  def materialize_type(self):
-    return materialize_old.materialize_type
 
   @property
   def single_step(self):
