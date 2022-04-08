@@ -109,8 +109,8 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*flags*/      F_OPERATOR | F_STATIC_OBJECT
-    , /*name*/       "$"
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "apply"
     , /*format*/     "pp"
     , /*step*/       apply_step
     , /*typecheck*/  nullptr

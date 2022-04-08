@@ -230,6 +230,10 @@ class CompilerBase(abc.ABC):
     self.intern_store = {}
     self._is_external_check = is_external_check(iroot)
 
+  @property
+  def root_isa_module(self):
+    return isinstance(self.iroot, icurry.IModule)
+
   def isExternal(self, iobj):
     if self.iroot.modulename != iobj.modulename:
       return True
@@ -251,10 +255,7 @@ class CompilerBase(abc.ABC):
 
   @importSymbol.when(six.string_types)
   def importSymbol(self, symbolname):
-    try:
-      cy_symbol = self.interp.symbol(symbolname)
-    except:
-      pdbtrace()
+    cy_symbol = self.interp.symbol(symbolname)
     return self.importSymbol(cy_symbol.icurry)
 
   @importSymbol.when(icurry.ISymbol)

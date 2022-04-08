@@ -39,9 +39,17 @@ def loadSymbols(interp, imodule, moduleobj, **kwds):
 @loadSymbols.when(icurry.IDataType)
 def loadSymbols(interp, itype, moduleobj):
   dt_impl = interp.backend.materialize(interp, itype, moduleobj)
+  try:
+    assert dt_impl.name == itype.name
+  except:
+    breakpoint()
   cy_ctors = []
   for ictor, ctorinfo in zip(itype.constructors, dt_impl.constructors):
     cy_ctorobj = objects.CurryNodeInfo(ctorinfo, icurry=ictor, typename=itype.fullname)
+    try:
+      assert cy_ctorobj.name == ictor.name == ctorinfo.name
+    except:
+      breakpoint()
     cy_ctors.append(cy_ctorobj)
     getattr(moduleobj, '.symbols')[cy_ctorobj.name] = cy_ctorobj
     if encoding.isaCurryIdentifier(cy_ctorobj.name):
@@ -54,6 +62,10 @@ def loadSymbols(interp, itype, moduleobj):
 def loadSymbols(interp, ifun, moduleobj):
   info = interp.backend.materialize(interp, ifun, moduleobj)
   cy_fobj = objects.CurryNodeInfo(info, icurry=ifun)
+  # try:
+  #   assert cy_fobj.name == info.name == ifun.name
+  # except:
+  #   breakpoint()
   getattr(moduleobj, '.symbols')[cy_fobj.name] = cy_fobj
   if not ifun.is_private and encoding.isaCurryIdentifier(cy_fobj.name):
     setattr(moduleobj, cy_fobj.name, cy_fobj)

@@ -61,6 +61,10 @@ namespace cyrt { namespace python
         , [](Type const & self)
               { return std::vector(self.ctors, self.ctors+self.size); }
         )
+      .def_readonly("flags", &Type::flags)
+      .def_readonly("kind", &Type::kind)
+      .def_readonly("name", &Type::name)
+      .def_readonly("size", &Type::size)
       ;
   }
 }}

@@ -4,12 +4,13 @@ Code for converting the intermediate representation to executable code.
 
 from ...common import T_FUNC
 from ...exceptions import CompileError
-# from . import cyrtbindings as cyrt
+from . import cyrtbindings as cyrt
 from ... import icurry, objects
 from ...objects import handle
-# from ...utility import encoding, filesys
-# import pprint, six, textwrap
 from ...utility import visitation
+import logging
+
+logger = logging.getLogger(__name__)
 
 def materialize(interp, iobj, moduleobj):
   materializer = Materializer(interp, moduleobj)
@@ -43,7 +44,9 @@ class Materializer(object):
             )
             for tag,ictor in enumerate(itype.constructors)
         ]
-      typeobj = self.M.create_type(itype.name, infos)
+      typeobj = self.M.create_type(
+          itype.name, infos, itype.metadata.get('all.flags', 0)
+        )
     return typeobj
 
   @materializeEx.when(icurry.IFunction)

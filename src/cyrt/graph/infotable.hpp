@@ -15,19 +15,22 @@ namespace cyrt
   static flag_type constexpr F_TUPLE_TYPE    = 0x6; // enum
   static flag_type constexpr F_IO_TYPE       = 0x7; // enum
   static flag_type constexpr F_PARTIAL_TYPE  = 0x8; // enum
-  static flag_type constexpr F_OPERATOR      = 0x9; // enum
-  static flag_type constexpr F_CSTRING_TYPE  = 0xa; // enum
-  static flag_type constexpr F_MONADIC       = 0x10; // bit-or
-  static flag_type constexpr F_STATIC_OBJECT = 0x20; // bit-or
+  static flag_type constexpr F_CSTRING_TYPE  = 0x9; // enum
+  static flag_type constexpr F_MONADIC       = 0x10; // bitwise
+  static flag_type constexpr F_OPERATOR      = 0x20; // bitwise
+  static flag_type constexpr F_STATIC_OBJECT = 0x40; // bitwise
 
-  struct Type
+  // Note: the head must remain bitwise-compatible with ValueSet.
+  struct Type 
   {
     InfoTable const * const * ctors;
     index_type size;
     char kind = 't';
     char flags = NO_FLAGS;
+    char const * name = nullptr;
   };
 
+  // Note: the head must remain bitwise-compatible with Type.
   struct ValueSet
   {
     Arg *      args;

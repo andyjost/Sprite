@@ -2,6 +2,7 @@
 #include <map>
 #include <memory>
 #include "cyrt/fwd.hpp"
+#include "cyrt/graph/infotable.hpp"
 #include <string>
 #include <vector>
 
@@ -30,6 +31,7 @@ namespace cyrt
     Type const * create_type(
         std::string const & name
       , std::vector<InfoTable const *> constructors
+      , flag_type flags = NO_FLAGS
       );
     Type const * get_type(std::string const & name) const;
 

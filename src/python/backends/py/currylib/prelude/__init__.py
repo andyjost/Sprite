@@ -25,7 +25,6 @@ class PreludeSpecification(generic_prelude.PreludeSpecification):
     tuple_format = '(%s)' % ', '.join(['{%d}' % j for j in range(1,i+1)])
     CONSTRUCTOR_METADATA[(name, 0)] = {'py.format': tuple_format}
   
-  
   FUNCTION_METADATA = {
         '$##'                   : {'py.rawfunc'    : impl.apply_gnf          }
       , '$!'                    : {'py.rawfunc'    : impl.apply_hnf          }

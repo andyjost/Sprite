@@ -242,15 +242,20 @@ namespace cyrt
   Type const * Module::create_type(
       std::string const & name
     , std::vector<InfoTable const *> constructors
+    , flag_type flags
     )
   {
     assert(!this->get_type(name));
-    size_t const bytes = sizeof(Type) + sizeof(void *) * constructors.size();
+    size_t const bytes = sizeof(Type) + sizeof(void *) * constructors.size() + name.size() + 1;
     std::unique_ptr<char[]> mem(new char[bytes]);
     Type * type = (Type *) mem.get();
     InfoTable const ** ctor_list = (InfoTable const **) (type + 1);
+    char * type_name = (char *) &ctor_list[constructors.size()];
     type->ctors = ctor_list;
     type->size = constructors.size();
+    type->kind = 't';
+    type->flags = flags;
+    type->name = type_name;
     size_t i=0;
     for(; i<constructors.size(); ++i)
     {
@@ -258,7 +263,8 @@ namespace cyrt
       ctor_list[i] = ctor;
       ctor->type = type;
     }
-    assert((char *) &ctor_list[i] == mem.get() + bytes);
+    std::strcpy(type_name, name.c_str());
+    assert(type_name + name.size() + 1 == mem.get() + bytes);
     this->impl->types[name] = (Type const *) mem.release();
     return type;
   }

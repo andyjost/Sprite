@@ -153,7 +153,8 @@ FUNCTIONS = [
     ]
 
 class PreludeSpecification(ModuleSpecification):
-  # Note: derived classes should provide CONSTRUCTOR_METADATA and FUNCTION_METADATA.
+  # Note: derived classes should provide CONSTRUCTOR_METADATA,
+  # FUNCTION_METADATA, and TYPE_METADATA.
   def types(self):
     for (typename, constructors) in TYPES:
       yield icurry.IDataType(
@@ -166,6 +167,7 @@ class PreludeSpecification(ModuleSpecification):
               for i,(ctorname, arity, md) in enumerate(constructors)
             ]
         , modulename='Prelude'
+        , metadata=self.TYPE_METADATA.get(typename, {})
         )
 
   def functions(self):

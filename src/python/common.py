@@ -10,8 +10,10 @@ from .backends.cxx.cyrtbindings import (
   , F_TUPLE_TYPE
   , F_IO_TYPE
   , F_PARTIAL_TYPE
-  , F_OPERATOR
+  , F_CSTRING_TYPE
   , F_MONADIC
+  , F_OPERATOR
+  , F_STATIC_OBJECT
 
   # Node tags.
   , T_UNBOXED
@@ -34,11 +36,13 @@ FLAGS = {
   , F_TUPLE_TYPE  : 'F_TUPLE_TYPE'
   , F_IO_TYPE     : 'F_IO_TYPE'
   , F_PARTIAL_TYPE: 'F_PARTIAL_TYPE'
+  , F_CSTRING_TYPE: 'F_CSTRING_TYPE'
 }
 FLAGS.update({k:v for v,k in FLAGS.items()})
 
 BITFLAGS = {
-    F_OPERATOR: 'F_OPERATOR'
-  , F_MONADIC : 'F_MONADIC'
+    F_MONADIC       : 'F_MONADIC'
+  , F_OPERATOR      : 'F_OPERATOR'
+  , F_STATIC_OBJECT : 'F_STATIC_OBJECT'
   }
 BITFLAGS.update({k:v for v,k in BITFLAGS.items()})

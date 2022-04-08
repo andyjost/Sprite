@@ -1,7 +1,8 @@
+from .currylib.prelude.math import apply_unboxed
 from ...exceptions import CompileError
 from ..generic import compiler, renderer
-from ... import common, config, icurry
-from .currylib.prelude.math import apply_unboxed
+from ... import config, icurry
+from ...utility.showflags import showflags
 import collections, itertools, json, re, six, sys
 
 __all__ = ['compile', 'write_module']
@@ -16,14 +17,13 @@ class PyCompiler(compiler.CompilerBase):
   def __init__(self, interp, iobj):
     compiler.CompilerBase.__init__(self, interp, iobj)
     self.counts = collections.defaultdict(itertools.count)
-    self.is_module = isinstance(self.iroot, icurry.IModule)
 
   def vEmitHeader(self):
     curry = config.python_package_name()
     yield 'import %s' % curry
     yield 'from %s.common import *' % curry
     yield 'from %s.backends.py.graph import DataType, InfoTable' % curry
-    if self.is_module:
+    if self.root_isa_module:
       yield 'from %s.icurry import IModule' % curry
       yield "if 'interp' not in globals():"
       yield "  interp = %s.getInterpreter()" % curry
@@ -76,7 +76,7 @@ class PyCompiler(compiler.CompilerBase):
   def vEmitFunctionInfotab(self, ifun, h_info, h_stepfunc):
     yield '%s = InfoTable(%r, %r, T_FUNC, %s, %s, %r, None)' % (
         h_info, ifun.name, ifun.arity
-      , prettyflags(ifun.metadata.get('all.flags', 0))
+      , showflags(ifun.metadata.get('all.flags', 0))
       , h_stepfunc
       , getattr(ifun.metadata, 'py.format', None)
       )
@@ -91,7 +91,7 @@ class PyCompiler(compiler.CompilerBase):
       )
 
   def vEmitDataType(self, itype, h_datatype, ctor_handles):
-    if self.is_module:
+    if self.root_isa_module:
       yield '%s = DataType(%r, [%s])' % (
           h_datatype, itype.name, ', '.join(str(h) for h in ctor_handles)
         )
@@ -237,20 +237,6 @@ def importable(obj):
   module = sys.modules.get(modulename, None)
   found = getattr(module, name, None)
   return found is not None
-
-def prettyflags(flagvalue):
-  parts = []
-  for name, value in common.BITFLAGS.items():
-    if isinstance(name, str):
-      if flagvalue & value:
-        flagvalue = flagvalue &~ value
-        parts.append(name)
-  stem = common.FLAGS.get(flagvalue, flagvalue)
-  if stem:
-    parts.insert(0, stem)
-  if not parts:
-    parts = [0]
-  return ' | '.join(str(p) for p in parts)
 
 def write_module(target_object, stream, goal=None, section_headers=True, module_main=True):
   render = renderer.PY_RENDERER.renderLines
