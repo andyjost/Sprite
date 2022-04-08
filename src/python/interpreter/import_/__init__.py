@@ -133,7 +133,7 @@ class ImportEx(object):
       imodule.merge(extern)
       imodule.copy_exported_names(extern, export)
       with _provisionalModule(self.interp, imodule) as moduleobj:
-        load.loadSymbols(self.interp, imodule, moduleobj, extern=extern)
+        load.loadSymbols(self.interp, imodule, moduleobj)
         for name, target in alias:
           if hasattr(moduleobj, name):
             raise ValueError("cannot alias previously defined name %r" % name)

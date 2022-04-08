@@ -212,7 +212,7 @@ class CompilerBase(abc.ABC):
     })
 
   @formatDocstring(config.python_package_name())
-  def __init__(self, interp, iroot, extern=None):
+  def __init__(self, interp, iroot):
     '''
     Compiles ICurry to a C++ target object.
 
@@ -222,14 +222,9 @@ class CompilerBase(abc.ABC):
 
       iroot:
         The ICurry object to compile.  Must be an IModule or IFunction.
-
-      extern:
-        An instance of ``{0}.icurry.IModule`` used to resolve external
-        declarations.
     '''
     self.interp = interp
     self.iroot = iroot
-    self.extern = extern
     self.target_object = TargetObject(self.CODE_TYPE, iroot.fullname)
     self.counts = collections.defaultdict(itertools.count)
     self.intern_store = {}

@@ -6,15 +6,15 @@ import collections, itertools, json, re, six, sys
 
 __all__ = ['compile', 'write_module']
 
-def compile(interp, iobj, extern=None):
-  compileM = PyCompiler(interp, iobj, extern)
+def compile(interp, iobj):
+  compileM = PyCompiler(interp, iobj)
   return compileM.compile()
 
 class PyCompiler(compiler.CompilerBase):
   CODE_TYPE = 'Python'
 
-  def __init__(self, interp, iobj, extern=None):
-    compiler.CompilerBase.__init__(self, interp, iobj, extern)
+  def __init__(self, interp, iobj):
+    compiler.CompilerBase.__init__(self, interp, iobj)
     self.counts = collections.defaultdict(itertools.count)
     self.is_module = isinstance(self.iroot, icurry.IModule)
 

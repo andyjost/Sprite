@@ -11,13 +11,15 @@ __all__ = ['IModule', 'IPackage', 'IProg', 'OrderedDict']
 
 class IModule(IContainer):
   @translateKwds({'name': 'fullname'})
-  def __init__(self, fullname, imports, types, functions, filename=None, **kwds):
+  def __init__(
+      self, fullname, imports, types, functions, filename=None, **kwds
+    ):
     '''
     Args:
-      fullname:    The fully-qualified module name.
-      imports:     A list of imported module names.
-      types:       A mapping or sequence of pairs: str -> [IConstructor].
-      functions:   A sequence of IFunctions, or a mapping or sequence of pairs
+      fullname:   The fully-qualified module name.
+      imports:    A list of imported module names.
+      types:      A mapping or sequence of pairs: str -> [IConstructor].
+      functions:  A sequence of IFunctions, or a mapping or sequence of pairs
                   from string to IFunction.
     '''
     # self.fullname = str(fullname)
@@ -32,14 +34,17 @@ class IModule(IContainer):
   @staticmethod
   def fromBOM(fullname, imports, types, functions, mdkey, filename=None):
     '''
-    Construct a module from the bill of materials.  The Curry functions should
-    be implemented as native functions of the backend (e.g., Python function
-    objects if the Python backend is used).  A module is constructed in which
-    each function is implemented as IMaterial.  Finally, the true ICurry
-    for this module is loaded and attached to attribute 'icurry'.
+    Construct a module from its bill of materials.
+
+    This prepares a special pre-compiled module that can be passed to the
+    ``import_`` function.
+
+    Each data type, constructor, and function is tagged with the metadata
+    ``mdkey`` referring to the corresponding object in the bill of materials.
+    The ``materialize`` function should intercept these and simply return the
+    referred item.
     '''
     from . import IConstructor, IDataType, IFunction, IBody, IExempt, PUBLIC
-    from ... import toolchain
     itypes = [
         IDataType(
             '%s.%s' % (fullname, typeinfo.name)
@@ -60,23 +65,7 @@ class IModule(IContainer):
           )
           for funcinfo in functions
       ]
-    # # makefun = lambda name, arity, vis, needed, func: \
-    # #     IFunction(
-    # #         name, arity, vis, needed
-    # #       , IMaterial(func) if not isinstance(func, IMaterial) else func
-    # #       )
     imodule = IModule(fullname, imports, itypes, ifunctions, filename)
-
-    # for info in types:
-    #   imodule.types[info.name].update_metadata({'py.material': info})
-    # for info in functions:
-    #   imodule.functions[info.name].update_metadata({'py.material': info})
-
-    # try:
-    #   imodule.icurry = toolchain.loadicurry(fullname)
-    # except ModuleLookupError:
-    #   imodule.icurry = None
-
     return imodule
 
   def __str__(self):
@@ -127,6 +116,12 @@ class IModule(IContainer):
     for itype in self.types.values():
       if merge_metadata:
         metadata.merge(itype, extern)
+    for itype in self.types.values():
+      if not itype.constructors and resolve_externals:
+        if extern is None or itype.name not in extern.types:
+          raise TypeError('failed to resolve external type %r' % itype.fullname)
+        else:
+          itype.constructors = extern.types[itype.name].constructors
     for ifun in self.functions.values():
       if ifun.is_external and resolve_externals:
         if extern is None or ifun.name not in extern.functions:

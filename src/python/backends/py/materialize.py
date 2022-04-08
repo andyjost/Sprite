@@ -7,14 +7,13 @@ from six.moves import StringIO
 from ...utility import encoding, filesys, visitation
 import six, textwrap
 
-def materialize(interp, iobj, extern):
-  materializer = Materializer(interp, extern)
+def materialize(interp, iobj):
+  materializer = Materializer(interp)
   return materializer.materialize(iobj)
 
 class Materializer(object):
-  def __init__(self, interp, extern):
+  def __init__(self, interp):
     self.interp = interp
-    self.extern = extern
 
   def materialize(self, iobj):
     info = iobj.metadata.get('py.material')
@@ -57,7 +56,7 @@ class Materializer(object):
     # delay compilation until the function is actually used.  See InfoTable in
     # interpreter/runtime.py.
     trampoline = Trampoline(
-        lambda: materializeStepfunc(self.interp, ifun, self.extern)
+        lambda: materializeStepfunc(self.interp, ifun)
       )
     lazy = self.interp.flags['lazycompile'] and \
         ifun.modulename != config.interactive_modname()
@@ -74,9 +73,9 @@ class Materializer(object):
       trampoline.slot = info, 'step'
     return info
 
-def materializeStepfunc(interp, ifun, extern):
+def materializeStepfunc(interp, ifun):
   '''JIT-compiles a Python step function.'''
-  target_object = compiler.compile(interp, ifun, extern)
+  target_object = compiler.compile(interp, ifun)
   stream = StringIO()
   compiler.write_module(target_object, stream, module_main=False, section_headers=False)
   source = stream.getvalue()
@@ -109,7 +108,6 @@ def materializeStepfunc(interp, ifun, extern):
       return stepfunc
   assert False
 
-
 class Trampoline(object):
   def __init__(self, callback, slot=None):
     self.callback = callback
@@ -125,6 +123,7 @@ class Trampoline(object):
   def __call__(self, *args, **kwds):
     f = self.materialize()
     return f(*args, **kwds)
+
 
 # FIXME: several things in the info table now have an interpreter bound.  It
 # would be great to simplify that.  Maybe it should just be added as an entry

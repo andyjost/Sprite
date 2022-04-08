@@ -41,7 +41,7 @@ class CurryModule(types.ModuleType):
     assert not isinstance(imodule, icurry.IPackage) or cls is CurryPackage
     assert not isinstance(imodule, icurry.IModule) or cls is CurryModule
     self = types.ModuleType.__new__(cls, imodule.name)
-    setattr(self, '.icurry', getattr(imodule, 'icurry', imodule))
+    setattr(self, '.icurry', imodule)
     setattr(self, '.symbols', {})
     setattr(self, '.types', {})
     setattr(self, '.backend_handle', None)
