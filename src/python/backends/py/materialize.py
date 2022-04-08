@@ -75,7 +75,7 @@ class Materializer(object):
     return info
 
 def materializeStepfunc(interp, ifun, extern):
-  '''Materializes a Python function from the IR.'''
+  '''JIT-compiles a Python step function.'''
   target_object = compiler.compile(interp, ifun, extern)
   stream = StringIO()
   compiler.write_module(target_object, stream, module_main=False, section_headers=False)

@@ -130,7 +130,8 @@ class ImportEx(object):
   @__call__.when(icurry.IModule)
   def __call__(self, imodule, tail=[], extern=None, export=(), alias=()):
     if imodule.fullname not in self.interp.modules:
-      imodule.merge(extern, export)
+      imodule.merge(extern)
+      imodule.copy_exported_names(extern, export)
       with _provisionalModule(self.interp, imodule) as moduleobj:
         load.loadSymbols(self.interp, imodule, moduleobj, extern=extern)
         for name, target in alias:

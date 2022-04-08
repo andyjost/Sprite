@@ -25,9 +25,14 @@ class PyCompiler(compiler.CompilerBase):
     yield 'from %s.backends.py.graph import DataType, InfoTable' % curry
     if self.is_module:
       yield 'from %s.icurry import IModule' % curry
+      yield "if 'interp' not in globals():"
+      yield "  interp = %s.getInterpreter()" % curry
 
   def vEmitFooter(self):
     return []
+
+  def vEmitImported(self, modulename):
+    yield 'interp.import_(%r)' % modulename
 
   def vEmitStepfuncLink(self, ifun, h_stepfunc):
     return []
@@ -234,23 +239,24 @@ def importable(obj):
   return found is not None
 
 def prettyflags(flagvalue):
+  parts = []
   for name, value in common.BITFLAGS.items():
-    parts = []
     if isinstance(name, str):
       if flagvalue & value:
         flagvalue = flagvalue &~ value
         parts.append(name)
-    stem = common.FLAGS.get(flagvalue, flagvalue)
-    if stem:
-      parts.insert(0, stem)
-    if not parts:
-      parts = [0]
-    text = ' | '.join(str(p) for p in parts)
+  stem = common.FLAGS.get(flagvalue, flagvalue)
+  if stem:
+    parts.insert(0, stem)
+  if not parts:
+    parts = [0]
+  return ' | '.join(str(p) for p in parts)
 
 def write_module(target_object, stream, goal=None, section_headers=True, module_main=True):
   render = renderer.PY_RENDERER.renderLines
   SECTIONS = (
       '.header'
+    , '.imports'
     , '.strings'
     , '.valuesets'
     , '.primitives'

@@ -6,21 +6,13 @@ import abc, collections, itertools, logging, re, six
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    'CompilerBase', 'ExternallyDefined', 'SymbolTable', 'TargetObject'
+    'CompilerBase', 'SymbolTable', 'TargetObject'
   , 'decode', 'demangle', 'encode', 'mangle'
 
   , 'CONSTRUCTOR_TABLE', 'DATA_TYPE', 'DEFINED', 'INFO_TABLE', 'STEP_FUNCTION'
   , 'STRING_DATA', 'UNDEFINED', 'VALUE_SET'
   ]
 
-
-class ExternallyDefined(Exception):
-  '''
-  Raised to indicate that a function is externally defined.  Provides the
-  replacement.
-  '''
-  def __init__(self, ifun):
-    self.ifun = ifun
 
 # Symbol kind.
 CONSTRUCTOR_TABLE = 'CONSTRUCTOR_TABLE'
@@ -141,6 +133,7 @@ class TargetObject(object):
   SECTIONS = (
       '.header'
   ### Forward declarations.
+    , '.imports'        # Imported Curry modules.
     , '.stepfuncs.link' # Step function forward declarations.
     , '.infotabs.link'  # InfoTable forward declarations.
     , '.datatypes.link' # Type definition forward declarations.
@@ -164,10 +157,6 @@ class TargetObject(object):
     self.unitname = unitname
     self.sections = collections.defaultdict(list) # {str: [str]}
     self.symtab = SymbolTable()
-    # After compilation, imodule_linked contains an IModule in which every
-    # IFunction body is implemented as an ILink object that references a symbol
-    # defined in this target object.
-    # self.imodule_linked = None
 
   def __getitem__(self, sectname):
     assert sectname in self.SECTIONS
@@ -189,6 +178,7 @@ class CompilerBase(abc.ABC):
               for methname in [
           'vEmitHeader'
         , 'vEmitFooter'
+        , 'vEmitImported'
         , 'vEmitStepfuncLink'
         , 'vEmitInfotabLink'
         , 'vEmitDataTypeLink'
@@ -382,6 +372,11 @@ class CompilerBase(abc.ABC):
 
   @compileEx.when(icurry.IModule)
   def compileEx(self, imodule):
+    imported_names = set(imodule.imports)
+    imported_names.update(imodule.splitname()[:-1])
+    for imported in sorted(imported_names):
+      self.target_object['.imports'].extend(self.vEmitImported(imported))
+
     types = [
         self.compileEx(itype)
             for itype in six.itervalues(imodule.types)
@@ -418,18 +413,7 @@ class CompilerBase(abc.ABC):
     out.extend(self.vEmitStepfuncHeader(ifun, h_stepfunc))
     linesF = [] # the function body
     out.append(linesF)
-
-    # Compile the function body.
-    while True:
-      linesF.clear()
-      try:
-        self.compileF(ifun, h_stepfunc, linesF)
-      except ExternallyDefined as e:
-        # Retry if compileF resolved an external definition.
-        ifun = e.ifun
-      else:
-        break
-
+    self.compileF(ifun, h_stepfunc, linesF)
     self.symtab.make_defined(h_stepfunc)
 
     # Emit the info table.
@@ -468,7 +452,7 @@ class CompilerBase(abc.ABC):
 
   @compileF.when(icurry.IFunction)
   def compileF(self, ifun, h_stepfunc, linesF):
-    if isinstance(ifun.body, icurry.IBuiltin):
+    if ifun.is_builtin:
       linesF.extend(self.vEmitBuiltinStepfunc(ifun, h_stepfunc))
     else:
       try:
@@ -480,18 +464,11 @@ class CompilerBase(abc.ABC):
 
   @compileF.when(icurry.IExternal)
   def compileF(self, iexternal, h_stepfunc, linesF):
-    prefix_length = len(self.iroot.modulename) + 1
-    try:
-      localname = iexternal.symbolname[prefix_length:]
-      ifun = self.extern.functions[localname]
-    except (KeyError, AttributeError):
-      msg = 'external function %r is not defined' % iexternal.symbolname
-      logger.warn(msg)
-      stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))
-      body = icurry.IBody(stmt)
-      self.compileF(body, h_stepfunc, linesF)
-    else:
-      raise ExternallyDefined(ifun)
+    msg = 'external function %r is not defined' % iexternal.symbolname
+    logger.warn(msg)
+    stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))
+    body = icurry.IBody(stmt)
+    self.compileF(body, h_stepfunc, linesF)
 
   @compileF.when(icurry.IBody)
   def compileF(self, ibody, h_stepfunc, linesF):

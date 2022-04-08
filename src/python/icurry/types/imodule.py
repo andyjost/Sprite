@@ -38,7 +38,7 @@ class IModule(IContainer):
     each function is implemented as IMaterial.  Finally, the true ICurry
     for this module is loaded and attached to attribute 'icurry'.
     '''
-    from . import IConstructor, IDataType, IFunction, IExternal, PUBLIC
+    from . import IConstructor, IDataType, IFunction, IBody, IExempt, PUBLIC
     from ... import toolchain
     itypes = [
         IDataType(
@@ -56,7 +56,7 @@ class IModule(IContainer):
     ifunctions = [
         IFunction(
             '%s.%s' % (fullname, funcinfo.name), funcinfo.arity, PUBLIC, None
-          , IExternal(funcinfo.name), metadata={mdkey: funcinfo}
+          , IBody(IExempt()), metadata={mdkey: funcinfo}
           )
           for funcinfo in functions
       ]
@@ -67,10 +67,10 @@ class IModule(IContainer):
     # #       )
     imodule = IModule(fullname, imports, itypes, ifunctions, filename)
 
-    for info in types:
-      imodule.types[info.name].update_metadata({'py.material': info})
-    for info in functions:
-      imodule.functions[info.name].update_metadata({'py.material': info})
+    # for info in types:
+    #   imodule.types[info.name].update_metadata({'py.material': info})
+    # for info in functions:
+    #   imodule.functions[info.name].update_metadata({'py.material': info})
 
     # try:
     #   imodule.icurry = toolchain.loadicurry(fullname)
@@ -102,12 +102,11 @@ class IModule(IContainer):
           ]
       )
 
-  def merge(self, extern, export):
+  def copy_exported_names(self, extern, export):
     '''
-    Copies the symbols specified in ``export`` from ``extern`` into this
-    module.  Merges metadata.
+    Copies exported functions and types, as specified in ``export``, from
+    ``extern`` into this module.
     '''
-    # Merge symbols.
     for name in export:
       found = 0
       for to,from_ in zip(*[[m.types, m.functions] for m in [self, extern]]):
@@ -119,12 +118,22 @@ class IModule(IContainer):
           found += 1
       if not found:
         raise TypeError('cannot import %r from module %r' % (name, extern.fullname))
-    # Merge metadata.
+
+  def merge(self, extern, merge_metadata=True, resolve_externals=True):
+    '''
+    Merges metadata and external symbols from ``extern``.
+    '''
     from .. import metadata
     for itype in self.types.values():
-      metadata.merge(itype, extern)
+      if merge_metadata:
+        metadata.merge(itype, extern)
     for ifun in self.functions.values():
-      metadata.merge(ifun, extern)
+      if ifun.is_external and resolve_externals:
+        if extern is None or ifun.name not in extern.functions:
+          raise TypeError('failed to resolve external function %r' % ifun.fullname)
+        ifun.body = extern.functions[ifun.name].body
+      if merge_metadata:
+        metadata.merge(ifun, extern)
 
 IProg = IModule
 

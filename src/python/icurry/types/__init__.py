@@ -1,4 +1,4 @@
-from .ibody       import *
+# from .ibody       import *
 from .iexpression import *
 from .ifunction   import *
 from .iliteral    import *
