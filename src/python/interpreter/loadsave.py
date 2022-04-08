@@ -1,5 +1,6 @@
-from .. import config, utility
+from .. import config, exceptions, icurry, inspect, utility
 from ..utility.binding import binding
+from ..utility.strings import ensure_str
 from ..objects import handle
 import logging, os, runpy, six
 from six.moves import cStringIO as StringIO
@@ -62,13 +63,19 @@ def save(interp, cymodule, filename=None, goal=None):
     If ``filename`` is None, the module contents are returned as a string.
     Otherwise, None.
   '''
-  h = handle.getHandle(cymodule)
+  icy = inspect.geticurry(cymodule)
+  if not isinstance(icy, icurry.IModule):
+    raise exceptions.ModuleLookupError(
+        'Cannot get ICurry for %r object' % type(cymodule).__name__
+      )
   if goal is not None:
-    h.getsymbol(goal) # Raises SymbolLookupError on failure
+    goal = ensure_str(goal)
+    interp.symbol('%s.%s' % (icy.fullname, goal)) # Raises SymbolLookupError on failure
   if logger.isEnabledFor(logging.INFO):
+    h = handle.getHandle(interp.import_(icy))
     logger.info(
         'Saving Curry module %r to %r (%r types, %r symbols)'
-      , h.fullname, filename or '<string>', len(h.types), len(h.symbols)
+      , icy.fullname, filename or '<string>', len(h.types), len(h.symbols)
       )
   be = interp.backend
   target_object = be.compile(interp, h.icurry)

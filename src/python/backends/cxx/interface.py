@@ -27,9 +27,6 @@ class IBackend(backends.IBackend):
   def find_or_create_internal_module(self, moduleobj):
     return cyrtbindings.Module.find_or_create(moduleobj.__name__)
 
-  # def link_function(self, info, function_spec, lazy):
-  #   cyrtbindings.link_function(info, function_spec, lazy)
-
   def lookup_builtin_module(self, modulename):
     if modulename == 'Prelude':
       from ..cxx.currylib import prelude
@@ -42,17 +39,16 @@ class IBackend(backends.IBackend):
   def make_node(self):
     return cyrtbindings.make_node
 
-  # TODO
-  # @property
-  # def materialize(self):
-  #   ## return materialize.materialize
-
   @property
-  def write_module(self):
-    return compiler.write_module
+  def materialize(self):
+    return materialize.materialize
 
   @property
   def single_step(self):
     return cyrtbindings.single_step
+
+  @property
+  def write_module(self):
+    return compiler.write_module
 
 

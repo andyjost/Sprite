@@ -7,7 +7,7 @@ from six.moves import StringIO
 from ...utility import encoding, filesys, visitation
 import six, textwrap
 
-def materialize(interp, iobj):
+def materialize(interp, iobj, moduleobj):
   materializer = Materializer(interp)
   return materializer.materialize(iobj)
 

@@ -251,7 +251,10 @@ class CompilerBase(abc.ABC):
 
   @importSymbol.when(six.string_types)
   def importSymbol(self, symbolname):
-    cy_symbol = self.interp.symbol(symbolname)
+    try:
+      cy_symbol = self.interp.symbol(symbolname)
+    except:
+      pdbtrace()
     return self.importSymbol(cy_symbol.icurry)
 
   @importSymbol.when(icurry.ISymbol)

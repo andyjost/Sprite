@@ -122,34 +122,3 @@ class PreludeSpecification(generic_prelude.PreludeSpecification):
       , 'prim_timesInt'         : {'py.rawfunc'    : impl.not_used           }
       , 'unifEqLinear'          : {'py.rawfunc'    : impl.not_used           }
       }
-
-# for f in generic_prelude.FUNCTIONS:
-#   if f.name in METADATA:
-#     f.update_metadata(METADATA[f.name])
-# for typename, ctor, md in [
-#     ('_Failure'   , 0, {'py.format': 'failure'                       })
-#   , ('_Constraint', 0, {'py.typecheck': tc.Constraint                })
-#   , ('_Constraint', 1, {'py.typecheck': tc.Constraint                })
-#   , ('_Constraint', 2, {'py.typecheck': tc.Constraint                })
-#   , ('_PartApplic', 0, {'py.format': '{2}'                           })
-#   , ('_Free'      , 0, {'py.format': '_{1}'                          })
-#   , ('_Fwd'       , 0, {'py.format': '{1}'                           })
-#   , ('Int'        , 0, {'py.format': '{1}', 'py.typecheck': tc.Int   })
-#   , ('Float'      , 0, {'py.format': '{1}', 'py.typecheck': tc.Float })
-#   , ('Char'       , 0, {'py.format': '{1}', 'py.typecheck': tc.Char  })
-#   , ('[]'         , 0, {'py.format': '({1}:{2})'                     })
-#   , ('[]'         , 1, {'py.format': '[]'                            })
-#   , ('()'         , 0, {'py.format': '()'                            })
-#   ]:
-#   generic_prelude.MODULE.types[typename].constructors[ctor].update_metadata(md)
-
-# i = 2
-# while True:
-#   tuple_typename = '(%s)' % (','*(i-1))
-#   tuple_type = generic_prelude.MODULE.types.get(tuple_typename, None)
-#   if tuple_type is None:
-#     break
-#   tuple_format = '(%s)' % ', '.join(['{%d}' % j for j in range(1,i+1)])
-#   tuple_type.constructors[0].update_metadata({'py.format': tuple_format})
-#   i += 1
-

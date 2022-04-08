@@ -34,7 +34,7 @@ class IModule(IContainer):
   @staticmethod
   def fromBOM(fullname, imports, types, functions, mdkey, filename=None):
     '''
-    Construct a module from its bill of materials.
+    Construct a module from its bill-of-materials.
 
     This prepares a special pre-compiled module that can be passed to the
     ``import_`` function.

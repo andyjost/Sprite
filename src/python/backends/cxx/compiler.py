@@ -6,8 +6,8 @@ import json
 
 __all__ = ['compile', 'write_module']
 
-def compile(interp, imodule, extern=None):
-  compileM = CxxCompiler(interp, imodule, extern)
+def compile(interp, imodule):
+  compileM = CxxCompiler(interp, imodule)
   return compileM.compile()
 
 class CxxCompiler(compiler.CompilerBase):
@@ -20,6 +20,9 @@ class CxxCompiler(compiler.CompilerBase):
 
   def vEmitFooter(self):
     return []
+
+  def vEmitImported(self, modulename):
+    yield '// TODO imported modules'
 
   def vEmitStepfuncLink(self, ifun, h_stepfunc):
     yield 'tag_type %s(RuntimeState *, Configuration *);' % h_stepfunc
@@ -96,6 +99,9 @@ class CxxCompiler(compiler.CompilerBase):
     assert False # TODO
 
   def vEmitModuleImport(self, imodule, h_module):
+    yield '// TODO: vEmitModuleImport'
+    pass
+
   def vEmit_compileS_IVarDecl(self, vardecl, varname):
     yield 'Variable %s;' % varname
 

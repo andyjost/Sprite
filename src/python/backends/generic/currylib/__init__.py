@@ -13,3 +13,7 @@ class ModuleSpecification(abc.ABC):
   @abc.abstractmethod
   def extern(self):
     pass
+
+  TYPE_METADATA = {}
+  CONSTRUCTOR_METADATA = {}
+  FUNCTION_METADATA = {}
