@@ -18,6 +18,13 @@ class PyCompiler(compiler.CompilerBase):
     compiler.CompilerBase.__init__(self, interp, iobj)
     self.counts = collections.defaultdict(itertools.count)
 
+  def vIsBuiltin(self, ifun):
+    return False
+
+  SYNTH_TAGS = 'py.boxedfunc', 'py.rawfunc', 'py.unboxedfunc'
+  def vIsSynthesized(self, ifun):
+    return any(md in ifun.metadata for md in self.SYNTH_TAGS)
+
   def vEmitHeader(self):
     curry = config.python_package_name()
     yield 'import %s' % curry
@@ -38,10 +45,12 @@ class PyCompiler(compiler.CompilerBase):
     return []
 
   def vEmitInfotabLink(self, isym, h_info):
-    yield '%s = interp.symbol(%r).info' % (h_info, isym.fullname)
+    if self.isExternal(isym):
+      yield '%s = interp.symbol(%r).info' % (h_info, isym.fullname)
 
   def vEmitDataTypeLink(self, itype, h_datatype):
-    yield '%s = interp.type(%r).datatype' % (h_datatype, itype.fullname)
+    if self.isExternal(itype):
+      yield '%s = interp.type(%r).datatype' % (h_datatype, itype.fullname)
 
   def vEmitStepfuncHeader(self, ifun, h_stepfunc):
     yield 'def %s(rts, _0):' % h_stepfunc, ifun.fullname
@@ -52,23 +61,23 @@ class PyCompiler(compiler.CompilerBase):
   def vEmitImportBackendFunction(self, func, h_func):
     yield 'from %s import %s as %s' % (func.__module__, func.__name__, h_func)
 
-  def vEmitBuiltinStepfunc(self, ibuiltin, h_stepfunc):
+  def vEmitSynthesizedStepfunc(self, ibuiltin, h_stepfunc):
     if 'py.boxedfunc' in ibuiltin.metadata:
       boxedfunc = ibuiltin.metadata['py.boxedfunc']
       assert importable(boxedfunc)
-      h_func = self.internBuiltinFunction(boxedfunc, key=hex(id(boxedfunc)))
+      h_func = self.internBackendFunction(boxedfunc, key=hex(id(boxedfunc)))
       yield 'args = (rts.variable(_0, i).hnf() for i in range(len(_0.successors)))'
       yield '_0.rewrite(%s(rts, *args))' % h_func
     elif 'py.rawfunc' in ibuiltin.metadata:
       rawfunc = ibuiltin.metadata['py.rawfunc']
       assert importable(rawfunc)
-      h_func = self.internBuiltinFunction(rawfunc, key=hex(id(rawfunc)))
+      h_func = self.internBackendFunction(rawfunc, key=hex(id(rawfunc)))
       yield 'rts.Node(%s(rts, _0), target=_0.target)' % h_func
     elif 'py.unboxedfunc' in ibuiltin.metadata:
       unboxedfunc = ibuiltin.metadata['py.unboxedfunc']
       assert importable(unboxedfunc)
-      h_func = self.internBuiltinFunction(unboxedfunc, key=hex(id(unboxedfunc)))
-      h_apply = self.internBuiltinFunction(apply_unboxed, key=hex(id(apply_unboxed)))
+      h_func = self.internBackendFunction(unboxedfunc, key=hex(id(unboxedfunc)))
+      h_apply = self.internBackendFunction(apply_unboxed, key=hex(id(apply_unboxed)))
       yield 'return %s(rts, %s, _0)' % (h_apply, h_func)
     else:
       raise CompileError('no built-in Python definition found')

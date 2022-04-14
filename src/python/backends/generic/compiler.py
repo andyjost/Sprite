@@ -184,7 +184,7 @@ class CompilerBase(abc.ABC):
         , 'vEmitDataTypeLink'
         , 'vEmitStepfuncHeader'
         , 'vEmitStepfuncEntry'
-        , 'vEmitBuiltinStepfunc'
+        , 'vEmitSynthesizedStepfunc'
         , 'vEmitFunctionInfotab'
         , 'vEmitConstructorInfotab'
         , 'vEmitDataType'
@@ -208,6 +208,8 @@ class CompilerBase(abc.ABC):
         , 'vEmit_compileE_ICall'
         , 'vEmit_compileE_IPartialCall'
         , 'vEmit_compileE_IOr'
+        , 'vIsBuiltin'
+        , 'vIsSynthesized'
         ]
     })
 
@@ -261,14 +263,14 @@ class CompilerBase(abc.ABC):
   @importSymbol.when(icurry.ISymbol)
   def importSymbol(self, isymbol):
     h_info, new = self.declareSymbol(isymbol)
-    if new and self.isExternal(isymbol):
-      self.target_object['.infotabs.link'].extend(self.vEmitInfotabLink(isymbol, h_info))
     return h_info
 
   ### declareSymbol
   def declareSymbol(self, isymbol):
     h_info = self.vGetSymbolName(isymbol, INFO_TABLE)
     new = self.symtab.insert(h_info, INFO_TABLE, 'info table for %r' % isymbol.fullname)
+    if new:
+      self.target_object['.infotabs.link'].extend(self.vEmitInfotabLink(isymbol, h_info))
     return h_info, new
 
   ### importDataType
@@ -285,14 +287,14 @@ class CompilerBase(abc.ABC):
   @importDataType.when(icurry.ISymbol)
   def importDataType(self, itype):
     h_datatype, new = self.declareDataType(itype)
-    if new and self.isExternal(itype):
-      self.target_object['.datatypes.link'].extend(self.vEmitDataTypeLink(itype, h_datatype))
     return h_datatype
 
   ### declareDataType
   def declareDataType(self, itype):
     h_datatype = self.vGetSymbolName(itype, DATA_TYPE)
     new = self.symtab.insert(h_datatype, DATA_TYPE, 'datatype %r' % itype.fullname)
+    if new:
+      self.target_object['.datatypes.link'].extend(self.vEmitDataTypeLink(itype, h_datatype))
     return h_datatype, new
 
   def internStringLiteral(self, string):
@@ -321,7 +323,7 @@ class CompilerBase(abc.ABC):
       self.intern_store[values] = h_valueset
       return h_valueset
 
-  def internBuiltinFunction(self, func, key):
+  def internBackendFunction(self, func, key):
     existing = self.intern_store.get(key)
     if existing is not None:
       return existing
@@ -375,15 +377,10 @@ class CompilerBase(abc.ABC):
     imported_names.update(imodule.splitname()[:-1])
     for imported in sorted(imported_names):
       self.target_object['.imports'].extend(self.vEmitImported(imported))
-
-    types = [
-        self.compileEx(itype)
-            for itype in six.itervalues(imodule.types)
-      ]
-    functions = [
-        self.compileEx(ifun)
-            for ifun in six.itervalues(imodule.functions)
-      ]
+    for itype in six.itervalues(imodule.types):
+      self.compileEx(itype)
+    for ifun in six.itervalues(imodule.functions):
+      self.compileEx(ifun)
     h_module = self.vGetSymbolName(imodule, MODULE_DEF)
     self.symtab.insert(h_module, MODULE_DEF, 'module %r' % imodule.fullname)
     self.target_object['.moduledef'].extend(
@@ -396,36 +393,46 @@ class CompilerBase(abc.ABC):
 
   @compileEx.when(icurry.IFunction)
   def compileEx(self, ifun):
-    # Build the symbol and update the symbol table.
-    h_stepfunc = self.vGetSymbolName(ifun, STEP_FUNCTION)
-    self.symtab.insert(
-        h_stepfunc, STEP_FUNCTION, 'step function for %r' % ifun.fullname
-      )
-    self.target_object['.stepfuncs.link'].extend(
-        self.vEmitStepfuncLink(ifun, h_stepfunc)
-      )
+    if self.vIsBuiltin(ifun):
+      h_info, new = self.declareSymbol(ifun)
+      if new:
+        self.target_object['.infotabs.link'].extend(
+            self.vEmitInfotabLink(ifun, h_info)
+          )
+    else:
+      # Build the symbol and update the symbol table.
+      h_stepfunc = self.vGetSymbolName(ifun, STEP_FUNCTION)
+      self.symtab.insert(
+          h_stepfunc, STEP_FUNCTION, 'step function for %r' % ifun.fullname
+        )
+      self.target_object['.stepfuncs.link'].extend(
+          self.vEmitStepfuncLink(ifun, h_stepfunc)
+        )
 
-    # Append to section '.stepfuncs'.
-    out = self.target_object['.stepfuncs']
-    if out:
-      out.append('')
-    out.extend(self.vEmitStepfuncHeader(ifun, h_stepfunc))
-    linesF = [] # the function body
-    out.append(linesF)
-    self.compileF(ifun, h_stepfunc, linesF)
-    self.symtab.make_defined(h_stepfunc)
+      # Append to section '.stepfuncs'.
+      out = self.target_object['.stepfuncs']
+      if out:
+        out.append('')
+      out.extend(self.vEmitStepfuncHeader(ifun, h_stepfunc))
+      linesF = [] # the function body
+      out.append(linesF)
+      self.compileF(ifun, h_stepfunc, linesF)
+      self.symtab.make_defined(h_stepfunc)
 
-    # Emit the info table.
-    h_info, _ = self.declareSymbol(ifun)
-    self.target_object['.infotabs'].extend(self.vEmitFunctionInfotab(ifun, h_info, h_stepfunc))
-    self.symtab.make_defined(h_info)
+      # Emit the info table.
+      h_info, _ = self.declareSymbol(ifun)
+      self.target_object['.infotabs'].extend(
+          self.vEmitFunctionInfotab(ifun, h_info, h_stepfunc)
+        )
+      self.symtab.make_defined(h_info)
 
   @compileEx.when(icurry.IDataType)
   def compileEx(self, itype):
     h_datatype, _ = self.declareDataType(itype)
     ctor_handles = []
     for ictor in itype.constructors:
-      h_ctorinfo, _ = self.declareSymbol(ictor)
+      h_ctorinfo, new = self.declareSymbol(ictor)
+      assert new
       ctor_handles.append(h_ctorinfo)
       self.target_object['.infotabs'].extend(
           self.vEmitConstructorInfotab(ictor, h_ctorinfo, h_datatype)
@@ -451,8 +458,8 @@ class CompilerBase(abc.ABC):
 
   @compileF.when(icurry.IFunction)
   def compileF(self, ifun, h_stepfunc, linesF):
-    if ifun.is_builtin:
-      linesF.extend(self.vEmitBuiltinStepfunc(ifun, h_stepfunc))
+    if self.vIsSynthesized(ifun):
+      linesF.extend(self.vEmitSynthesizedStepfunc(ifun, h_stepfunc))
     else:
       try:
         return self.compileF(ifun.body, h_stepfunc, linesF)
@@ -473,10 +480,6 @@ class CompilerBase(abc.ABC):
   def compileF(self, ibody, h_stepfunc, linesF):
     linesF.extend(self.vEmitStepfuncEntry())
     linesF.extend(self.compileS(ibody.block))
-
-  @compileF.when(icurry.IBuiltin)
-  def compileF(self, ibuiltin, h_stepfunc, linesF):
-    assert False # handled, above, in case IFunction.
 
   @compileF.when(icurry.IStatement)
   def compileF(self, stmt, h_stepfunc, linesF):
@@ -628,7 +631,7 @@ def is_external_check(imodule):
   @check.when((icurry.IDataType, icurry.IConstructor))
   def check(iobj):
     _, _, name = iobj.typename.rpartition('.')
-    return itype.name not in imodule.types
+    return name not in imodule.types
 
   @check.when(icurry.IFunction)
   def check(ifun):

@@ -198,7 +198,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*flags*/      F_STATIC_OBJECT
+    , /*flags*/      F_STATIC_OBJECT | F_OPERATOR
     , /*name*/       "&"
     , /*format*/     "pp"
     , /*step*/       concurrentAnd_step
@@ -211,7 +211,7 @@ namespace cyrt
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "=:="
+    , /*name*/       "constrEq"
     , /*format*/     "pp"
     , /*step*/       constrEq_step
     , /*typecheck*/  nullptr
@@ -223,7 +223,7 @@ namespace cyrt
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "=:<="
+    , /*name*/       "nonStrictEq"
     , /*format*/     "pp"
     , /*step*/       nonstrictEq_step
     , /*typecheck*/  nullptr
@@ -234,7 +234,7 @@ namespace cyrt
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*flags*/      F_STATIC_OBJECT
+    , /*flags*/      F_STATIC_OBJECT | F_OPERATOR
     , /*name*/       "&>"
     , /*format*/     "pp"
     , /*step*/       seq_step

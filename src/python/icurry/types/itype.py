@@ -18,7 +18,7 @@ class IDataType(ISymbol):
 
   @property
   def typename(self):
-    return typename
+    return self.fullname
 
   @property
   def children(self):

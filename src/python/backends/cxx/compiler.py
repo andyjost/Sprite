@@ -13,6 +13,19 @@ def compile(interp, imodule):
 class CxxCompiler(compiler.CompilerBase):
   CODE_TYPE = 'C++'
 
+  def vGetSymbolName(self, iobj, kind):
+    alias = iobj.metadata.get('cxx.symbolname', None)
+    if alias:
+      return alias
+    else:
+      return super(CxxCompiler, self).vGetSymbolName(iobj, kind)
+
+  def vIsBuiltin(self, ifun):
+    return 'cxx.symbolname' in ifun.metadata
+
+  def vIsSynthesized(self, ifun):
+    return False
+
   def vEmitHeader(self):
     yield '#include "cyrt/cyrt.hpp"'
     yield ''
@@ -40,8 +53,8 @@ class CxxCompiler(compiler.CompilerBase):
   def vEmitStepfuncEntry(self):
     yield 'Cursor _0 = C->cursor();'
 
-  def vEmitBuiltinStepfunc(self, ibuiltin, h_stepfunc):
-    breakpoint()
+  def vEmitSynthesizedStepfunc(self, ibuiltin, h_stepfunc):
+    assert False
 
   def vEmitFunctionInfotab(self, ifun, h_info, h_stepfunc):
     yield 'InfoTable const %s{'                 % h_info

@@ -1,4 +1,3 @@
-# from .ibody import IBuiltin, IExternal
 from .iobject import IArity, IObject
 from .isymbol import ISymbol
 from ...utility.formatting import indent
@@ -6,7 +5,7 @@ from ...utility import translateKwds
 import abc, six, weakref
 
 __all__ = [
-    'IBody', 'IBuiltin', 'IExternal', 'IFuncBody', 'IFunction', 'IVisibility'
+    'IBody', 'IExternal', 'IFuncBody', 'IFunction', 'IVisibility'
   , 'Private', 'PRIVATE', 'Public', 'PUBLIC'
   ]
 
@@ -18,17 +17,13 @@ class IFunction(ISymbol):
     self.vis = PUBLIC if vis is None else vis
     # None means no info; [] means nothing needed.
     self.needed = None if needed is None else list(map(int, needed))
-    self.body = body if body is not None else IBuiltin(self.metadata)
+    self.body = body if body is not None else IExternal(fullname) # (self.metadata)
 
   _fields_ = 'fullname', 'arity', 'vis', 'needed', 'body'
 
   @property
   def is_private(self):
     return self.vis == PRIVATE
-
-  @property
-  def is_builtin(self):
-    return isinstance(self.body, IBuiltin)
 
   @property
   def is_external(self):
@@ -60,17 +55,6 @@ IVisibility.register(Public)
 IVisibility.register(Private)
 
 
-class IBuiltin(IObject):
-  '''The function implementation should be provided in the metadata.'''
-  def __init__(self, metadata):
-    self.update_metadata(metadata)
-    self.text = '(built-in)'
-  def __str__(self):
-    return self.text
-  def __repr__(self):
-    return '%s()' % type(self).__name__
-
-
 class IExternal(IObject):
   '''A link to external Curry function.'''
   @translateKwds({'name': 'symbolname'})
@@ -94,6 +78,5 @@ class IFuncBody(six.with_metaclass(abc.ABCMeta, IObject)):
     return str(self.block)
   def __repr__(self):
     return 'IFuncBody(block=%r)' % self.block
-IFuncBody.register(IBuiltin)
 IFuncBody.register(IExternal)
 IBody = IFuncBody
