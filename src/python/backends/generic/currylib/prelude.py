@@ -61,8 +61,6 @@ FUNCTIONS = [
     , ('$!!'                   , 2, {}                      )
     , ('?'                     , 2, {}                      )
     , ('&'                     , 2, {}                      )
-    , ('=:='                   , 2, {}                      )
-    , ('=:<='                  , 2, {}                      )
     , ('apply'                 , 2, {}                      )
     , ('bindIO'                , 2, {'all.flags': F_MONADIC})
     , ('catch'                 , 2, {'all.flags': F_MONADIC})
@@ -123,8 +121,6 @@ FUNCTIONS = [
     , ('prim_timesFloat'       , 2, {}                      )
     , ('prim_truncateFloat'    , 1, {}                      )
     , ('prim_writeFile'        , 2, {'all.flags': F_MONADIC})
-    , ('_PyGenerator'          , 1, {}                      )
-    , ('_PyString'             , 1, {}                      )
     , ('quotInt'               , 2, {}                      )
     , ('remInt'                , 2, {}                      )
     , ('returnIO'              , 1, {'all.flags': F_MONADIC})
@@ -155,8 +151,11 @@ FUNCTIONS = [
 class PreludeSpecification(ModuleSpecification):
   # Note: derived classes should provide CONSTRUCTOR_METADATA,
   # FUNCTION_METADATA, and TYPE_METADATA.
+  TYPES = TYPES
+  FUNCTIONS = FUNCTIONS
+
   def types(self):
-    for (typename, constructors) in TYPES:
+    for (typename, constructors) in self.TYPES:
       yield icurry.IDataType(
           'Prelude.' + typename
         , [ icurry.IConstructor(
@@ -171,7 +170,7 @@ class PreludeSpecification(ModuleSpecification):
         )
 
   def functions(self):
-    for name, arity, md in FUNCTIONS:
+    for name, arity, md in self.FUNCTIONS:
       yield icurry.IFunction(
           'Prelude.' + name
         , arity
@@ -190,8 +189,8 @@ class PreludeSpecification(ModuleSpecification):
 
   def exports(self):
     '''
-    Returns the name of each symbol that must be added to the Prelude but does
-    not appear with a definition in Prelude.curry.
+    Returns the name of each symbol that must be copied to the Prelude.  This
+    is allowed to clobber symbols defined in Prelude.curry.
     '''
     # Special symbols.
     yield '_Failure'
@@ -203,19 +202,14 @@ class PreludeSpecification(ModuleSpecification):
     # Opaque types.
     yield '[]'
     yield 'IO'
-    for typename,_ in TYPES:
+    for typename,_ in self.TYPES:
       if inspect.isa_tuple_name(typename):
         yield typename
     yield '(->)'
-    # Helper functions.
-    yield '_PyGenerator'
-    yield '_PyString'
-    # Clobber the definition of Prelude.? with Sprite's own.
-    yield '?'
     # Include all of the primitives.  Sprite compiles the Prelude with __KICS2__
     # defined.  This hides some primitive functions.  To emulate PAKCS-style
     # fundamental types, we need those.
-    for funcname,_, _ in FUNCTIONS:
+    for funcname,_, _ in self.FUNCTIONS:
       if funcname.startswith('prim_'):
         yield funcname
 

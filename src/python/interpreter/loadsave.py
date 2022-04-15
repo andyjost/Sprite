@@ -71,8 +71,8 @@ def save(interp, cymodule, filename=None, goal=None):
   if goal is not None:
     goal = ensure_str(goal)
     interp.symbol('%s.%s' % (icy.fullname, goal)) # Raises SymbolLookupError on failure
+  h = handle.getHandle(interp.import_(icy))
   if logger.isEnabledFor(logging.INFO):
-    h = handle.getHandle(interp.import_(icy))
     logger.info(
         'Saving Curry module %r to %r (%r types, %r symbols)'
       , icy.fullname, filename or '<string>', len(h.types), len(h.symbols)

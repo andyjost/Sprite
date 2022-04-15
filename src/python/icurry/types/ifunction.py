@@ -17,7 +17,7 @@ class IFunction(ISymbol):
     self.vis = PUBLIC if vis is None else vis
     # None means no info; [] means nothing needed.
     self.needed = None if needed is None else list(map(int, needed))
-    self.body = body if body is not None else IExternal(fullname) # (self.metadata)
+    self.body = body if body is not None else IExternal(fullname)
 
   _fields_ = 'fullname', 'arity', 'vis', 'needed', 'body'
 
