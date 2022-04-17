@@ -11,7 +11,7 @@ from ....common import (
   , F_INT_TYPE, F_CHAR_TYPE, F_FLOAT_TYPE, F_BOOL_TYPE, F_LIST_TYPE, F_TUPLE_TYPE
   , F_IO_TYPE, F_PARTIAL_TYPE , F_OPERATOR, F_MONADIC
   )
-from .... import icurry, inspect
+from .... import inspect
 import abc
 
 # Types.
@@ -151,32 +151,10 @@ FUNCTIONS = [
 class PreludeSpecification(ModuleSpecification):
   # Note: derived classes should provide CONSTRUCTOR_METADATA,
   # FUNCTION_METADATA, and TYPE_METADATA.
-  TYPES = TYPES
+  NAME      = 'Prelude'
+  TYPES     = TYPES
   FUNCTIONS = FUNCTIONS
-
-  def types(self):
-    for (typename, constructors) in self.TYPES:
-      yield icurry.IDataType(
-          'Prelude.' + typename
-        , [ icurry.IConstructor(
-                'Prelude.' + ctorname
-              , arity
-              , metadata=dict(md, **self.CONSTRUCTOR_METADATA.get((typename, i), {}))
-              )
-              for i,(ctorname, arity, md) in enumerate(constructors)
-            ]
-        , modulename='Prelude'
-        , metadata=self.TYPE_METADATA.get(typename, {})
-        )
-
-  def functions(self):
-    for name, arity, md in self.FUNCTIONS:
-      yield icurry.IFunction(
-          'Prelude.' + name
-        , arity
-        , modulename='Prelude'
-        , metadata=dict(md, **self.FUNCTION_METADATA.get(name, {}))
-        )
+  IMPORTS   = []
 
   def aliases(self):
     '''Returns prelude aliases.  Simply for convenience.'''
@@ -213,10 +191,4 @@ class PreludeSpecification(ModuleSpecification):
       if funcname.startswith('prim_'):
         yield funcname
 
-  def extern(self):
-    return icurry.IModule(
-          name='Prelude', imports=[]
-        , types=self.types()
-        , functions=self.functions()
-        )
 

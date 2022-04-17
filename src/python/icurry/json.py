@@ -48,9 +48,8 @@ def get_encoder():
 class Encoder(json.JSONEncoder):
   @dispatch.on('obj')
   def default(self, obj):
-    return json.JSONEncoder.encode(self, obj)
+    return json.JSONEncoder.default(self, obj)
 
-  # These mapping
   KEY_MAP = {
       'filename'  : None
     , 'fullname'  : 'name'
@@ -60,7 +59,8 @@ class Encoder(json.JSONEncoder):
   }
 
   VALUE_MAP = {
-      'functions': lambda v: list(v.values())
+      'aliases'  : lambda v: list(v)
+    , 'functions': lambda v: list(v.values())
     , 'imports'  : lambda v: list(v)
     , 'types'    : lambda v: list(v.values())
   }

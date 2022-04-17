@@ -14,7 +14,7 @@ __all__ = ['import_']
 @visitation.dispatch.on('arg')
 @formatDocstring(config.python_package_name())
 def import_(
-    interp, arg, currypath=None, extern=True, export=(), alias=()
+    interp, arg, currypath=None, extern=None, exports=None, aliases=None
   , is_sourcefile=False
   ):
   '''
@@ -30,10 +30,10 @@ def import_(
     extern:
         An instance of ``{0}.icurry.IModule`` used to resolve external
         declarations.
-    export:
+    exports:
         A set of symbols exported unconditionally from ``extern``.  These will
         be copied into the imported module.
-    alias:
+    aliases:
         A set of name-target pairs specifying aliases.  For each alias, the
         module produced will have a binding called ``name`` referring to
         ``target``.
@@ -48,12 +48,15 @@ def import_(
 
 # Import a module or package by name.
 @import_.when(six.string_types)
-def import_(interp, name, currypath=None, is_sourcefile=False, **kwds):
+def import_(
+    interp, name, currypath=None, is_sourcefile=False
+  , extern=None, exports=None, aliases=None
+  ):
   modulename = curryname.getModuleName(name, is_sourcefile)
   try:
     return interp.modules[modulename]
   except KeyError:
-    importEx = ImportEx(interp, currypath, kwds)
+    importEx = ImportEx(interp, currypath, extern, exports, aliases)
     if is_sourcefile:
       return importEx(name, is_sourcefile=is_sourcefile)
     else:
@@ -68,13 +71,13 @@ def import_(interp, seq, *args, **kwds):
 # Import an ICurry package.
 @import_.when(icurry.IPackage)
 def import_(interp, ipkg, currypath=None, **kwds):
-  importEx = ImportEx(interp, currypath, kwds)
+  importEx = ImportEx(interp, currypath, **kwds)
   return importEx(ipkg)
 
 # Import an ICurry module.
 @import_.when(icurry.IModule)
 def import_(interp, imodule, currypath=None, **kwds):
-  importEx = ImportEx(interp, currypath, kwds)
+  importEx = ImportEx(interp, currypath, **kwds)
   return importEx(imodule)
 
 
@@ -82,12 +85,14 @@ class ImportEx(object):
   '''
   Low-level routine to import Curry packages and modules.
   '''
-  def __init__(self, interp, currypath, kwds):
+  def __init__(self, interp, currypath, extern=None, exports=None, aliases=None):
     self.interp = interp
     self.currypath = curryname.makeCurryPath(
         interp.path if currypath is None else currypath
       )
-    self.kwds = kwds
+    self.extern = extern
+    self.exports = set() if exports is None else exports
+    self.aliases = {} if aliases is None else aliases
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
@@ -104,22 +109,17 @@ class ImportEx(object):
   @__call__.when(six.string_types)
   def __call__(self, modulename, tail=[], is_sourcefile=False):
     logger.info('Importing %s', modulename)
-    imodule = toolchain.loadicurry(
+    icontainer = toolchain.loadicurry(
         modulename, self.currypath, is_sourcefile=is_sourcefile
       )
-    modspec = self.interp.backend.lookup_builtin_module(modulename)
-    if modspec is not None:
-      kwds = self.kwds.copy()
-      kwds.setdefault('alias', modspec.aliases())
-      kwds.setdefault('export', modspec.exports())
-      kwds.setdefault('extern', modspec.extern())
-      moduleobj = self(imodule, tail, **kwds)
-    else:
-      moduleobj = self(imodule, tail, **self.kwds)
+    if isinstance(icontainer, icurry.IModule):
+      toolchain.mergebuiltins(icontainer, self.interp.backend)
+      # toolchain.mergemodule(icontainer, self.extern, self.exports, self.aliases)
+    moduleobj = self(icontainer, tail)
     return moduleobj
 
   @__call__.when(icurry.IPackage)
-  def __call__(self, ipkg, tail=[], **kwds):
+  def __call__(self, ipkg, tail=[]):
     if ipkg.fullname not in self.interp.modules:
       with _provisionalModule(self.interp, ipkg) as pkgobj:
         return self(tail, rv=pkgobj)
@@ -128,13 +128,12 @@ class ImportEx(object):
       return self(tail, rv=pkgobj)
 
   @__call__.when(icurry.IModule)
-  def __call__(self, imodule, tail=[], extern=None, export=(), alias=()):
+  def __call__(self, imodule, tail=[]):
     if imodule.fullname not in self.interp.modules:
-      imodule.merge(extern)
-      imodule.copy_exported_names(extern, export)
+      toolchain.mergemodule(imodule, self.extern, self.exports, self.aliases)
       with _provisionalModule(self.interp, imodule) as moduleobj:
         load.loadSymbols(self.interp, imodule, moduleobj)
-        for name, target in alias:
+        for name, target in imodule.aliases:
           if hasattr(moduleobj, name):
             raise ValueError("cannot alias previously defined name %r" % name)
           setattr(moduleobj, name, getattr(moduleobj, target))

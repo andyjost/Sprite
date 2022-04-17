@@ -2,53 +2,48 @@ import cytest # from ./lib; must be first
 from cytest.logging import capture_log
 from curry import icurry
 from curry.utility.binding import binding
-import curry
-import sys
+import curry, importlib, sys, unittest
 
 class ICurryTestCase(cytest.TestCase):
-  # def testICurryCoverage1(self):
-  #   from curry.lib import mynot
-  #   imodule = getattr(mynot, '.icurry')
-  #   ifun_main = imodule.functions['main']
-  #   ifun_mynot = imodule.functions['mynot']
-  #   self.assertFalse(imodule == ifun_mynot)
-  #   self.assertFalse(ifun_main == ifun_mynot)
-  #   self.assertTrue(ifun_main != ifun_mynot)
-  #   self.assertFalse(ifun_main == ifun_mynot)
-  #   self.assertFalse(ifun_main == None)
+  def testICurryCoverage1(self):
+    from curry.lib import mynot
+    imodule = getattr(mynot, '.icurry')
+    ifun_main = imodule.functions['main']
+    ifun_mynot = imodule.functions['mynot']
+    self.assertFalse(imodule == ifun_mynot)
+    self.assertFalse(ifun_main == ifun_mynot)
+    self.assertTrue(ifun_main != ifun_mynot)
+    self.assertFalse(ifun_main == ifun_mynot)
+    self.assertFalse(ifun_main == None)
 
-  # def testICurryGetMDFromType(self):
-  #   from curry.lib import atableFlex, hello
-  #   imodule1 = getattr(atableFlex, '.icurry')
-  #   imodule2 = getattr(hello, '.icurry')
-  #   AB = imodule1.types['AB']
-  #   self.assertEqual(AB.metadata, {})
-  #   self.assertEqual(imodule1.types['AB'].metadata, {})
-  #   self.assertNotIn('AB', imodule2.types)
+  def testICurryGetMDFromType(self):
+    from curry.lib import atableFlex, hello
+    imodule1 = getattr(atableFlex, '.icurry')
+    imodule2 = getattr(hello, '.icurry')
+    AB = imodule1.types['AB']
+    self.assertEqual(AB.metadata, {})
+    self.assertEqual(imodule1.types['AB'].metadata, {})
+    self.assertNotIn('AB', imodule2.types)
 
-  #   # self.assertEqual(icurry.metadata.getmd(AB, imodule1), {})
-  #   # self.assertEqual(icurry.metadata.getmd(AB, imodule2), {})
-
-  # def testICurryCoverage4(self):
-  #   try:
-  #     del sys.modules['curry.lib.helloExternal']
-  #   except KeyError:
-  #     pass
-  #   with capture_log('curry.backends.generic.compiler') as log \
-  #      , binding(curry.flags, 'lazycompile', False):
-  #     from curry.lib import helloExternal
-  #   log.checkMessages(
-  #       self, warning="external function 'helloExternal.undef' is not defined"
-  #     )
+  def testICurryCoverage4(self):
+    try:
+      del sys.modules['curry.lib.helloExternal']
+    except KeyError:
+      pass
+    self.assertRaisesRegex(
+        curry.CompileError
+      , "failed to resolve external function 'helloExternal.undef'"
+      , lambda: importlib.import_module('curry.lib.helloExternal')
+      )
 
   def testIModuleMerge(self):
-    from curry.lib import hello, helloExternal
-    imodule1 = getattr(helloExternal, '.icurry')
-    imodule2 = getattr(hello, '.icurry')
+    from curry.lib import hello
+    from curry.toolchain._mergecurry import copyExportedNames
+    helloM = getattr(hello, '.icurry')
     self.assertRaisesRegex(
-        TypeError
+        curry.CompileError
       , "cannot import 'undef' from module 'hello'"
-      , lambda: imodule1.merge(imodule2, ['undef'])
+      , lambda: copyExportedNames(helloM, helloM, ['undef'])
       )
 
   def testSymbolNames1(self):

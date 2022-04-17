@@ -12,7 +12,7 @@ __all__ = ['IModule', 'IPackage', 'IProg', 'OrderedDict']
 class IModule(IContainer):
   @translateKwds({'name': 'fullname'})
   def __init__(
-      self, fullname, imports, types, functions, filename=None, **kwds
+      self, fullname, imports, types, functions, filename=None, aliases=None, **kwds
     ):
     '''
     Args:
@@ -21,6 +21,7 @@ class IModule(IContainer):
       types:      A mapping or sequence of pairs: str -> [IConstructor].
       functions:  A sequence of IFunctions, or a mapping or sequence of pairs
                   from string to IFunction.
+      aliases     A mapping from symbol names to symbol names.
     '''
     # self.fullname = str(fullname)
     IContainer.__init__(self, fullname, **kwds)
@@ -28,11 +29,12 @@ class IModule(IContainer):
     self.types = _makeSymboltable(self, types)
     self.functions = _makeSymboltable(self, functions)
     self.filename = str(filename) if filename is not None else None
+    self.aliases = set([] if aliases is None else aliases)
 
-  _fields_ = 'fullname', 'filename', 'imports', 'types', 'functions'
+  _fields_ = 'fullname', 'filename', 'imports', 'types', 'functions', 'aliases'
 
   @staticmethod
-  def fromBOM(fullname, imports, types, functions, mdkey, filename=None):
+  def fromBOM(fullname, imports, types, functions, mdkey, filename=None, aliases=None):
     '''
     Construct a module from its bill-of-materials.
 
@@ -65,7 +67,7 @@ class IModule(IContainer):
           )
           for funcinfo in functions
       ]
-    imodule = IModule(fullname, imports, itypes, ifunctions, filename)
+    imodule = IModule(fullname, imports, itypes, ifunctions, filename, aliases)
     return imodule
 
   def __str__(self):
@@ -90,45 +92,6 @@ class IModule(IContainer):
                           for line in str(func).split('\n')
           ]
       )
-
-  def copy_exported_names(self, extern, export):
-    '''
-    Copies exported functions and types, as specified in ``export``, from
-    ``extern`` into this module.
-    '''
-    for name in export:
-      found = 0
-      for to,from_ in zip(*[[m.types, m.functions] for m in [self, extern]]):
-        try:
-          to[name] = from_[name]
-        except KeyError:
-          pass
-        else:
-          found += 1
-      if not found:
-        raise TypeError('cannot import %r from module %r' % (name, extern.fullname))
-
-  def merge(self, extern, merge_metadata=True, resolve_externals=True):
-    '''
-    Merges metadata and external symbols from ``extern``.
-    '''
-    from .. import metadata
-    for itype in self.types.values():
-      if merge_metadata:
-        metadata.merge(itype, extern)
-    for itype in self.types.values():
-      if not itype.constructors and resolve_externals:
-        if extern is None or itype.name not in extern.types:
-          raise TypeError('failed to resolve external type %r' % itype.fullname)
-        else:
-          itype.constructors = extern.types[itype.name].constructors
-    for ifun in self.functions.values():
-      if ifun.is_external and resolve_externals:
-        if extern is None or ifun.name not in extern.functions:
-          raise TypeError('failed to resolve external function %r' % ifun.fullname)
-        ifun.body = extern.functions[ifun.name].body
-      if merge_metadata:
-        metadata.merge(ifun, extern)
 
 IProg = IModule
 

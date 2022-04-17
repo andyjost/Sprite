@@ -28,7 +28,7 @@ class TestCxxRuntime(cytest.TestCase):
 
     Cons = Hello.create_infotable(':', 2, common.T_CTOR  , common.F_LIST_TYPE)
     Nil = Hello.create_infotable('[]', 0, common.T_CTOR+1, common.F_LIST_TYPE)
-    List = Hello.create_type('[]', [Cons, Nil])
+    List = Hello.create_type('[]', [Cons, Nil], 0)
 
     self.assertEqual(Cons.arity, 2)
     self.assertEqual(Cons.flags, common.F_LIST_TYPE)

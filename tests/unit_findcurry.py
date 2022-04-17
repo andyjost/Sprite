@@ -163,7 +163,7 @@ class TestFindCurry(cytest.TestCase):
     self.assertRaisesRegex(
         ValueError
       , r"cannot alias previously defined name 'head'"
-      , lambda: curry.import_('head', alias=[('head', 'foo')])
+      , lambda: curry.import_('head', aliases=[('head', 'foo')])
       )
 
   def test_import_with_currypath(self):

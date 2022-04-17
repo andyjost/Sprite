@@ -66,4 +66,3 @@ def loadjson(jsonfile):
   if cached is not None:
     cached.update(icur)
   return icur
-

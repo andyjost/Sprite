@@ -5,7 +5,7 @@ from ...utility import translateKwds
 import abc, six, weakref
 
 __all__ = [
-    'IBody', 'IExternal', 'IFuncBody', 'IFunction', 'IVisibility'
+    'IBody', 'IBuiltin', 'IExternal', 'IFuncBody', 'IFunction', 'IVisibility'
   , 'Private', 'PRIVATE', 'Public', 'PUBLIC'
   ]
 
@@ -17,13 +17,18 @@ class IFunction(ISymbol):
     self.vis = PUBLIC if vis is None else vis
     # None means no info; [] means nothing needed.
     self.needed = None if needed is None else list(map(int, needed))
-    self.body = body if body is not None else IExternal(fullname)
+    assert body is not None
+    self.body = body
 
   _fields_ = 'fullname', 'arity', 'vis', 'needed', 'body'
 
   @property
   def is_private(self):
     return self.vis == PRIVATE
+
+  @property
+  def is_builtin(self):
+    return isinstance(self.body, IBuiltin)
 
   @property
   def is_external(self):
@@ -55,6 +60,16 @@ IVisibility.register(Public)
 IVisibility.register(Private)
 
 
+class IBuiltin(IObject):
+  '''Stands in for the body of a built-in function.'''
+  def __init__(self, **kwds):
+    IObject.__init__(self, **kwds)
+  def __str__(self):
+    return '(built-in)'
+  def __repr__(self):
+    return '%s()' % type(self).__name__
+
+
 class IExternal(IObject):
   '''A link to external Curry function.'''
   @translateKwds({'name': 'symbolname'})
@@ -78,5 +93,6 @@ class IFuncBody(six.with_metaclass(abc.ABCMeta, IObject)):
     return str(self.block)
   def __repr__(self):
     return 'IFuncBody(block=%r)' % self.block
+IFuncBody.register(IBuiltin)
 IFuncBody.register(IExternal)
 IBody = IFuncBody

@@ -12,12 +12,7 @@ class LoadSaveTestCase(cytest.TestCase):
 
       # Save the module.
       filename = os.path.join(tmpdir, 'Module.py')
-      with capture_log('curry.backends.generic.compiler') as log:
-        curry.save(Module, filename)
-
-      # Ensure warnings were issued (only) for external functions.
-      has_warnings = bool(log.data[logging.WARNING])
-      self.assertEqual(has_externs, has_warnings)
+      curry.save(Module, filename)
 
       # Load the module.
       Module2 = curry.load(filename)
@@ -33,3 +28,4 @@ class LoadSaveTestCase(cytest.TestCase):
     ]:
     locals()['test_' + name.replace('.', '')] = \
         lambda self, modulename=name, has_externs=ext: self.check(modulename, has_externs)
+

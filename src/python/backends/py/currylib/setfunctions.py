@@ -6,8 +6,6 @@ from ...generic.eval.control import E_UNWIND
 from .. import graph
 from .... import inspect
 
-SetFunctionsSpecification = generic_setfunctions.SetFunctionsSpecification
-
 NO_SID = -1            # an undetermined set ID.
 ENCAPSULATED_EXPR = -1 # indicates a partialS is an encapsulated expression.
 
@@ -117,7 +115,7 @@ def setN(rts, _0):
   yield rts.setfunctions.evalS
   yield graph.utility.curry(rts, setf, *_0.successors[1:], fapply=fapply)
 
-METADATA = {
+FUNCTION_METADATA = {
     'allValues': {'py.rawfunc': allValues}
   , 'applyS'   : {'py.rawfunc': applyS}
   , 'captureS' : {'py.rawfunc': captureS}
@@ -134,6 +132,10 @@ METADATA = {
   , 'set7'     : {'py.rawfunc': setN}
   }
 
-for f in generic_setfunctions.FUNCTIONS:
-  if f.name in METADATA:
-    f.update_metadata(METADATA[f.name])
+class SetFunctionsSpecification(generic_setfunctions.SetFunctionsSpecification):
+  FUNCTION_METADATA = FUNCTION_METADATA
+
+
+# for f in generic_setfunctions.FUNCTIONS:
+#   if f.name in METADATA:
+#     f.update_metadata(METADATA[f.name])
