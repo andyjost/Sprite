@@ -11,7 +11,7 @@ SUBDIR = config.intermediate_subdir()
 
 @formatDocstring(config.python_package_name())
 def currentfile(
-    name, currypath, is_sourcefile=False, plan=None, **ignored
+    plan, name, currypath, is_sourcefile=False, **ignored
   ):
   '''
   Finds the newest prerequisite along the Curry build pipeline.
@@ -20,6 +20,8 @@ def currentfile(
   the ICurry file (suffix: .icy), and the JSON file (suffix: .json or .json.z).
 
   Args:
+    plan:
+        The compile plan.
     name:
         The module, source file, or package name.
     currypath:
@@ -42,9 +44,6 @@ def currentfile(
     otherwise, the Curry file is returned if it exists.  If neither of those
     applies, the package directory name is returned, if it exists.
   '''
-  if plan is None:
-    from .plans import Plan
-    plan = Plan()
   if not is_sourcefile:
     # If name is a module name, then search CURRYPATH for the source file or
     # (possibly zipped) JSON and set it as the name.  source file and
@@ -81,12 +80,7 @@ def currentfile(
   if not curryfile.endswith('.curry'):
     raise ModuleLookupError('expected .curry extension in %r' % curryfile)
   curryfile = os.path.abspath(curryfile)
-  filelist = [curryfile]
-  if plan.do_icy:
-    icyfile = _filenames.icurryfilename(curryfile)
-    filelist += [icyfile]
-  if plan.do_json:
-    filelist += _filenames.jsonfilenames(curryfile, set(plan.suffixes))
+  filelist = plan.filelist(curryfile)
   prereq = os.path.abspath(filesys.newest(filelist))
   if not os.path.exists(prereq):
     # If there is no prerequisite, then there is no Curry file or any of its

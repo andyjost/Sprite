@@ -39,8 +39,7 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractproperty
-  def target_suffix(self):
-    '''The suffix for target files, e.g., '.py' or '.cpp'.'''
+  def extend_plan_skeleton(self):
     assert 0
 
   @abc.abstractproperty

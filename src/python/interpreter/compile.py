@@ -46,7 +46,7 @@ def compile(
   stmts, currypath = getImportSpecForExpr(
       interp, [] if imports is None else imports
     )
-  currypath = currypath + interp.path
+  # currypath = currypath + interp.path
   if mode == 'module':
     if exprtype is not None:
       raise ValueError('%r is only allowed in mode=%r', ('exprtype', 'expr'))
@@ -56,7 +56,8 @@ def compile(
       raise ValueError('module %r is already defined' % modulename)
     string = '%s\n%s' % ('\n'.join(stmts), string)
     icur = toolchain.str2icurry(
-        string, currypath, modulename=modulename
+        interp, string, currypath
+      , modulename=modulename
       , keep_temp_files=interp.flags['keep_temp_files']
       , postmortem=interp.flags['postmortem']
       )
@@ -82,7 +83,7 @@ def compile(
     stmts += ['%s = %s' % (compiled_name, string)]
     curry_code = '\n'.join(stmts)
     icur = toolchain.str2icurry(
-        curry_code, currypath
+        interp, curry_code, currypath
       , keep_temp_files=interp.flags['keep_temp_files']
       , postmortem=interp.flags['postmortem']
       )

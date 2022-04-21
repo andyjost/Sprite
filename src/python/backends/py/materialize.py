@@ -47,7 +47,6 @@ class Materializer(object):
       , getattr(ictor.metadata, 'all.flags', 0)
       , None
       , getattr(ictor.metadata, 'py.format', None)
-      , _gettypechecker(self.interp, ictor.metadata)
       )
 
   @materializeEx.when(icurry.IFunction)
@@ -67,7 +66,6 @@ class Materializer(object):
       , ifun.metadata.get('all.flags', 0)
       , trampoline if lazy else trampoline.materialize()
       , getattr(ifun.metadata, 'py.format', None)
-      , _gettypechecker(self.interp, ifun.metadata)
       )
     if lazy:
       trampoline.slot = info, 'step'
@@ -124,16 +122,3 @@ class Trampoline(object):
     f = self.materialize()
     return f(*args, **kwds)
 
-
-# FIXME: several things in the info table now have an interpreter bound.  It
-# would be great to simplify that.  Maybe it should just be added as an entry
-# to the info table.
-def _gettypechecker(interp, metadata):
-  '''
-  If debugging is enabled, and a typechecker is defined, get it and bind the
-  interpreter.
-  '''
-  if interp.flags['debug']:
-    checker = getattr(metadata, 'py.typecheck', None)
-    if checker is not None:
-      return lambda *args: checker(interp, *args)

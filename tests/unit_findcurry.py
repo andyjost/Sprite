@@ -159,13 +159,6 @@ class TestFindCurry(cytest.TestCase):
       , lambda: curry.import_('..')
       )
 
-  def test_bad_alias(self):
-    self.assertRaisesRegex(
-        ValueError
-      , r"cannot alias previously defined name 'head'"
-      , lambda: curry.import_('head', aliases=[('head', 'foo')])
-      )
-
   def test_import_with_currypath(self):
     self.assertRaisesRegex(
         ValueError

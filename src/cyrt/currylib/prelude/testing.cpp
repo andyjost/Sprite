@@ -28,7 +28,6 @@ namespace cyrt
     , /*name*/       "not"
     , /*format*/     "p"
     , /*step*/       &not_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 }

@@ -1,5 +1,5 @@
 from ...utility import curryname, visitation
-from ...utility.proptree import proptree
+from ...utility.proptree import proptree, EMPTY
 import collections, six, weakref
 
 __all__ = ['IArity', 'IObject', 'IVarIndex']
@@ -14,7 +14,7 @@ class IObject(object):
 
   @property
   def metadata(self):
-    return getattr(self, '_metadata', {})
+    return getattr(self, '_metadata', EMPTY)
 
   def update_metadata(self, items):
     if items:

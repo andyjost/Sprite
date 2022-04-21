@@ -13,6 +13,8 @@ def compile(interp, iobj):
 
 class PyCompiler(compiler.CompilerBase):
   CODE_TYPE = 'Python'
+  SYNTH_TAGS = 'py.boxedfunc', 'py.rawfunc', 'py.unboxedfunc'
+  EXCLUDED_METADATA = set(SYNTH_TAGS + ('py.material',))
 
   def __init__(self, interp, iobj):
     compiler.CompilerBase.__init__(self, interp, iobj)
@@ -21,9 +23,11 @@ class PyCompiler(compiler.CompilerBase):
   def vIsBuiltin(self, ifun):
     return False
 
-  SYNTH_TAGS = 'py.boxedfunc', 'py.rawfunc', 'py.unboxedfunc'
   def vIsSynthesized(self, ifun):
     return any(md in ifun.metadata for md in self.SYNTH_TAGS)
+
+  def vBackendFunctionKey(self, func):
+    return hex(id(func))
 
   def vEmitHeader(self):
     curry = config.python_package_name()
@@ -31,7 +35,7 @@ class PyCompiler(compiler.CompilerBase):
     yield 'from %s.common import *' % curry
     yield 'from %s.backends.py.graph import DataType, InfoTable' % curry
     if self.root_isa_module:
-      yield 'from %s.icurry import IModule' % curry
+      yield 'from %s.icurry import IModule, PUBLIC, PRIVATE' % curry
       yield "if 'interp' not in globals():"
       yield "  interp = %s.getInterpreter()" % curry
 
@@ -65,25 +69,25 @@ class PyCompiler(compiler.CompilerBase):
     if 'py.boxedfunc' in ibuiltin.metadata:
       boxedfunc = ibuiltin.metadata['py.boxedfunc']
       assert importable(boxedfunc)
-      h_func = self.internBackendFunction(boxedfunc, key=hex(id(boxedfunc)))
+      h_func = self.internBackendFunction(boxedfunc)
       yield 'args = (rts.variable(_0, i).hnf() for i in range(len(_0.successors)))'
       yield '_0.rewrite(%s(rts, *args))' % h_func
     elif 'py.rawfunc' in ibuiltin.metadata:
       rawfunc = ibuiltin.metadata['py.rawfunc']
       assert importable(rawfunc)
-      h_func = self.internBackendFunction(rawfunc, key=hex(id(rawfunc)))
+      h_func = self.internBackendFunction(rawfunc)
       yield 'rts.Node(%s(rts, _0), target=_0.target)' % h_func
     elif 'py.unboxedfunc' in ibuiltin.metadata:
       unboxedfunc = ibuiltin.metadata['py.unboxedfunc']
       assert importable(unboxedfunc)
-      h_func = self.internBackendFunction(unboxedfunc, key=hex(id(unboxedfunc)))
-      h_apply = self.internBackendFunction(apply_unboxed, key=hex(id(apply_unboxed)))
+      h_func = self.internBackendFunction(unboxedfunc)
+      h_apply = self.internBackendFunction(apply_unboxed)
       yield 'return %s(rts, %s, _0)' % (h_apply, h_func)
     else:
       raise CompileError('no built-in Python definition found')
 
   def vEmitFunctionInfotab(self, ifun, h_info, h_stepfunc):
-    yield '%s = InfoTable(%r, %r, T_FUNC, %s, %s, %r, None)' % (
+    yield '%s = InfoTable(%r, %r, T_FUNC, %s, %s, %r)' % (
         h_info, ifun.name, ifun.arity
       , showflags(ifun.metadata.get('all.flags', 0))
       , h_stepfunc
@@ -92,7 +96,7 @@ class PyCompiler(compiler.CompilerBase):
 
   def vEmitConstructorInfotab(self, ictor, h_info, h_datatype):
     builtin = 'all.tag' in ictor.metadata
-    yield '%s = InfoTable(%r, %r, %r, %r, None, %r, None)' % (
+    yield '%s = InfoTable(%r, %r, %r, %r, None, %r)' % (
         h_info, ictor.name, ictor.arity
       , ictor.index if not builtin else ictor.metadata['all.tag']
       , ictor.metadata.get('all.flags', 0)
@@ -111,6 +115,9 @@ class PyCompiler(compiler.CompilerBase):
   def vEmitValueSetLiteral(self, values, h_valueset):
     yield '%s = %r' % (h_valueset, values)
 
+  def vEmitMetadata(self, metadata, h_md):
+    yield '%s = %r' % (h_md, metadata)
+
   def vEmitModuleDefinition(self, imodule, h_module):
     py = renderer.PY_RENDERER
     MAX_JUSTIFY_FUNCTION_NAME = 36
@@ -121,15 +128,22 @@ class PyCompiler(compiler.CompilerBase):
     yield '    fullname=%r' % imodule.fullname
     yield '  , filename=%r' % imodule.filename
     yield '  , imports=%s'  % repr(imodule.imports)
+    yield '  , metadata=%r' % imodule.metadata._asdict
     yield '  , mdkey=%r'    % 'py.material'
+    yield '  , aliases=%r'  % imodule.aliases
     if not imodule.types:
       yield '  , types=[]'
     else:
       yield '  , types=['
       types = imodule.types.values()
       for prefix, itype in py.prettylist(types, level=1):
-        h_info = self.vGetSymbolName(itype, compiler.DATA_TYPE)
-        yield '%s%s' % (prefix, h_info)
+        h_type = self.vGetSymbolName(itype, compiler.DATA_TYPE)
+        type_md = self.internMetadata(itype.metadata)
+        ctor_mds = tuple(
+            self.internMetadata(ictor.metadata)
+                for ictor in itype.constructors
+          )
+        yield '%s(%s, [%s], %s)' % (prefix, type_md, ', '.join(ctor_mds), h_type)
       yield _close(1, ']')
     if not imodule.functions:
       yield '  , functions=[]'
@@ -137,14 +151,15 @@ class PyCompiler(compiler.CompilerBase):
       yield '  , functions=['
       functions = imodule.functions.values()
       for prefix, ifun in py.prettylist(functions, level=1):
-        if not ifun.is_private:
-          h_info = self.vGetSymbolName(ifun, compiler.INFO_TABLE)
-          yield '%s%s' % (prefix, h_info)
+        vis = 'PRIVATE' if ifun.is_private else 'PUBLIC '
+        h_info = self.vGetSymbolName(ifun, compiler.INFO_TABLE)
+        h_md = self.internMetadata(ifun.metadata)
+        yield '%s(%s, %s, %s)' % (prefix, vis, h_md, h_info)
       yield _close(1, ']')
       yield _close(0, ')')
 
   def vEmitModuleImport(self, imodule, h_module):
-    yield '_module_ = %s.import_(%s)' % (config.python_package_name(), h_module)
+    yield '_module_ = interp.import_(%s)' % h_module
 
   def vEmit_compileS_IVarDecl(self, vardecl, varname):
     yield '%s = None' % varname
@@ -247,7 +262,9 @@ def importable(obj):
   found = getattr(module, name, None)
   return found is not None
 
-def write_module(target_object, stream, goal=None, section_headers=True, module_main=True):
+def write_module(
+    target_object, stream, goal=None, section_headers=True, module_main=True
+  ):
   render = renderer.PY_RENDERER.renderLines
   SECTIONS = (
       '.header'
@@ -255,6 +272,7 @@ def write_module(target_object, stream, goal=None, section_headers=True, module_
     , '.strings'
     , '.valuesets'
     , '.primitives'
+    , '.metadata'
     , '.stepfuncs'
     , '.infotabs'
     , '.datatypes'

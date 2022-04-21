@@ -47,7 +47,6 @@ namespace cyrt
     char const *       name;
     char const *       format;
     stepfunc_type      step;
-    typecheckfunc_type typecheck;
     Type const *       type;
   };
 

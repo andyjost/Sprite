@@ -1,5 +1,5 @@
 from ... import backends
-from . import compiler, cyrtbindings, materialize
+from . import compiler, cyrtbindings, materialize, plan
 
 class IBackend(backends.IBackend):
   @property
@@ -7,8 +7,8 @@ class IBackend(backends.IBackend):
     return 'cxx'
 
   @property
-  def target_suffix(self):
-    return '.cpp'
+  def extend_plan_skeleton(self):
+    return plan.extend_plan_skeleton
 
   @property
   def compile(self):

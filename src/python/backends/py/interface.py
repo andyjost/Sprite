@@ -1,5 +1,4 @@
-from . import compiler
-from . import materialize
+from . import compiler, materialize, plan
 from .eval import evaluator
 from .graph import Node
 from ... import backends
@@ -13,8 +12,8 @@ class IBackend(backends.IBackend):
     return 'py'
 
   @property
-  def target_suffix(self):
-    return '.py'
+  def extend_plan_skeleton(self):
+    return plan.extend_plan_skeleton
 
   @property
   def compile(self):

@@ -1,6 +1,6 @@
 import cytest # from ./lib; must be first
 from curry.common import LEFT, RIGHT, UNDETERMINED
-from curry.backends.py.eval import typecheckers as tc
+# from curry.backends.py.eval import typecheckers as tc
 from curry.backends.py.eval.rts import RuntimeState
 from curry.backends.py.graph import Node
 from curry import inspect
@@ -11,6 +11,7 @@ hint = r'  \(An unboxed value was expected but a boxed value of the ' \
         'correct type was supplied\.  Perhaps you need to wrap an '   \
         'argument with curry\.unboxed\?\)'
 
+@unittest.skip('typechecks were removed Apr 2022')
 class TestPyTypeChecks(cytest.TestCase):
   '''These checks are enabled in debug mode.'''
   def testBuiltins(self):

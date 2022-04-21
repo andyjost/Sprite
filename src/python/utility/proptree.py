@@ -110,7 +110,7 @@ def _buildtree(data):
 def _error(key, part):
   raise TypeError("key '%s' cannot be created at '%s'" % (key, part))
 
-def proptree(flat):
+def proptree(flat={}):
   '''
   Convert a dict into a property tree.
 
@@ -139,3 +139,4 @@ def proptree(flat):
       _error(k, part)
   return _buildtree(tree)
 
+EMPTY = proptree()

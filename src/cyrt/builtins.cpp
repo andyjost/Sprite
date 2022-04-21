@@ -12,7 +12,6 @@ namespace cyrt
     , /*name*/       "_SetGuard"
     , /*format*/     "xp"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &SetGuard_Type
     };
 
@@ -24,7 +23,6 @@ namespace cyrt
     , /*name*/       "failed"
     , /*format*/     ""
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -36,7 +34,6 @@ namespace cyrt
     , /*name*/       "_StrictConstraint"
     , /*format*/     "pp"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -48,7 +45,6 @@ namespace cyrt
     , /*name*/       "_NonStrictConstraint"
     , /*format*/     "pp"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -60,7 +56,6 @@ namespace cyrt
     , /*name*/       "_ValueBinding"
     , /*format*/     "pp"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -72,7 +67,6 @@ namespace cyrt
     , /*name*/       "_Free"
     , /*format*/     "ip"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -84,7 +78,6 @@ namespace cyrt
     , /*name*/       "_Fwd"
     , /*format*/     "p"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -96,7 +89,6 @@ namespace cyrt
     , /*name*/       "_Choice"
     , /*format*/     "ipp"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -108,7 +100,6 @@ namespace cyrt
     , /*name*/       "IO"
     , /*format*/     "i"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &IO_Type
     };
 
@@ -121,7 +112,6 @@ namespace cyrt
     , /*name*/       "Int"
     , /*format*/     "i"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &Int_Type
     };
 
@@ -133,7 +123,6 @@ namespace cyrt
     , /*name*/       "Float"
     , /*format*/     "f"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &Float_Type
     };
 
@@ -145,7 +134,6 @@ namespace cyrt
     , /*name*/       "Char"
     , /*format*/     "c"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &Char_Type
     };
 
@@ -157,7 +145,6 @@ namespace cyrt
     , /*name*/       "_PartApplic"
     , /*format*/     "ixp"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &PartApplic_Type
     };
 
@@ -169,7 +156,6 @@ namespace cyrt
     , /*name*/       "False"
     , /*format*/     ""
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &Bool_Type
     };
 
@@ -181,7 +167,6 @@ namespace cyrt
     , /*name*/       "True"
     , /*format*/     ""
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &Bool_Type
     };
 
@@ -193,7 +178,6 @@ namespace cyrt
     , /*name*/       ":"
     , /*format*/     "pp"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &List_Type
     };
 
@@ -205,7 +189,6 @@ namespace cyrt
     , /*name*/       "_CString"
     , /*format*/     "x"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &CString_Type
     };
 
@@ -217,7 +200,6 @@ namespace cyrt
     , /*name*/       "[]"
     , /*format*/     ""
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &List_Type
     };
 
@@ -229,7 +211,6 @@ namespace cyrt
     , /*name*/       "()"
     , /*format*/     ""
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &Unit_Type
     };
 
@@ -241,7 +222,6 @@ namespace cyrt
     , /*name*/       "(,)"
     , /*format*/     "pp"
     , /*step*/       nullptr
-    , /*typecheck*/  nullptr
     , /*type*/       &Pair_Type
     };
 

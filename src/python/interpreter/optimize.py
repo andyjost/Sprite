@@ -5,16 +5,22 @@ import sys
 __all__ = ['optimize']
 
 default_optimizers = [
-    lambda interp, ifun: analysis.set_monadic_metadata(ifun, interp.modules)
-  , lambda interp, ifun: replace_static_strings(ifun)
+    ('%s.opt.set_monadic_metadata'
+        , lambda interp, ifun: analysis.set_monadic_metadata(ifun, interp.modules)
+        )
+  , ('%s.opt.replace_static_strings'
+        , lambda interp, ifun: replace_static_strings(ifun)
+        )
   ]
 
 def optimize(interp, imodule, optimizers=default_optimizers):
   with utility.maxrecursion():
-    for ifun in imodule.functions.values():
-      for optimizer in optimizers:
-        optimizer(interp, ifun)
-
+    for optstem, optimizer in optimizers:
+      optkey = optstem % interp.backend.backend_name
+      if not imodule.metadata.get(optkey, False):
+        for ifun in imodule.functions.values():
+          optimizer(interp, ifun)
+        imodule.update_metadata({optkey: True})
 
 def replace_static_strings(ifun):
   '''

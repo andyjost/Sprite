@@ -1,7 +1,6 @@
 from ....generic.currylib import prelude as generic_prelude
 from . import prelude as impl
 import math, operator as op
-from ...eval import typecheckers as tc
 
 FUNCTIONS = generic_prelude.PreludeSpecification.FUNCTIONS + [
     ('_PyGenerator'          , 1, {'py.boxedfunc'  : impl._PyGenerator})
@@ -10,15 +9,12 @@ FUNCTIONS = generic_prelude.PreludeSpecification.FUNCTIONS + [
 
 CONSTRUCTOR_METADATA = {
     ('_Failure'   , 0): {'py.format': 'failure'                       }
-  , ('_Constraint', 0): {'py.typecheck': tc.Constraint                }
-  , ('_Constraint', 1): {'py.typecheck': tc.Constraint                }
-  , ('_Constraint', 2): {'py.typecheck': tc.Constraint                }
   , ('_PartApplic', 0): {'py.format': '{2}'                           }
   , ('_Free'      , 0): {'py.format': '_{1}'                          }
   , ('_Fwd'       , 0): {'py.format': '{1}'                           }
-  , ('Int'        , 0): {'py.format': '{1}', 'py.typecheck': tc.Int   }
-  , ('Float'      , 0): {'py.format': '{1}', 'py.typecheck': tc.Float }
-  , ('Char'       , 0): {'py.format': '{1}', 'py.typecheck': tc.Char  }
+  , ('Int'        , 0): {'py.format': '{1}'                           }
+  , ('Float'      , 0): {'py.format': '{1}'                           }
+  , ('Char'       , 0): {'py.format': '{1}'                           }
   , ('[]'         , 0): {'py.format': '({1}:{2})'                     }
   , ('[]'         , 1): {'py.format': '[]'                            }
   , ('()'         , 0): {'py.format': '()'                            }

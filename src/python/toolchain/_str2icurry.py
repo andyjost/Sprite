@@ -1,6 +1,8 @@
 from .. import config
-from ..utility import filesys, formatDocstring
 from . import makecurry, loadjson
+from ..toolchain import plans
+from ..utility import filesys
+from ..utility import filesys, formatDocstring
 import logging, os, shutil, tempfile, weakref
 
 __all__ = ['str2icurry']
@@ -8,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 @formatDocstring(config.python_package_name())
 def str2icurry(
-    moduletext
+    interp
+  , moduletext
   , currypath=None
   , modulename=config.interactive_modname()
   , keep_temp_files=False
@@ -18,16 +21,18 @@ def str2icurry(
   Compile a string into ICurry.
 
   Args:
+    interp:
+        The interpreter in charge of this compilation.
     moduletext:
         A string containing a Curry module definition to compile.
-    `currypath:
+    currypath:
         A sequence of paths to search (i.e., CURRYPATH split on ':').  By default,
         ``{0}.path`` is used.
-    `modulename:
+    modulename:
         The module name.
-    `keep_temp_files:
+    keep_temp_files:
         Whether to keep intermediate files.
-    `postmoretem:
+    postmoretem:
         Whether to copy intermediate files to the current working directory upon
         failure.
 
@@ -44,7 +49,11 @@ def str2icurry(
     curryfile = os.path.join(moduledir, modulename + '.curry')
     with open(curryfile, 'w') as ostream:
       ostream.write(moduletext)
-    jsonfile = makecurry(curryfile, currypath, is_sourcefile=True)
+    plan = plans.makeplan(
+        interp
+      , flags=plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+      )
+    jsonfile = makecurry(plan, curryfile, currypath, is_sourcefile=True)
     icur = loadjson(jsonfile)
     icur.__file__ = curryfile
     icur._tmpd_ = moduledir

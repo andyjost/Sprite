@@ -202,7 +202,6 @@ namespace cyrt
     , /*name*/       "&"
     , /*format*/     "pp"
     , /*step*/       concurrentAnd_step
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -214,7 +213,6 @@ namespace cyrt
     , /*name*/       "constrEq"
     , /*format*/     "pp"
     , /*step*/       constrEq_step
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -226,7 +224,6 @@ namespace cyrt
     , /*name*/       "nonStrictEq"
     , /*format*/     "pp"
     , /*step*/       nonstrictEq_step
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -238,7 +235,6 @@ namespace cyrt
     , /*name*/       "&>"
     , /*format*/     "pp"
     , /*step*/       seq_step
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 }

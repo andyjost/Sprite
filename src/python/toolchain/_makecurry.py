@@ -7,7 +7,7 @@ __all__ = ['makecurry']
 logger = logging.getLogger(__name__)
 
 @formatDocstring(config.python_package_name())
-def makecurry(name, currypath=None, **kwds):
+def makecurry(plan, name, currypath=None, **kwds):
   '''
   Run the build toolchain for a Curry target.
 
@@ -15,6 +15,8 @@ def makecurry(name, currypath=None, **kwds):
   function uses the timestamps of prerequisite files to avoid repeating steps.
 
   Args:
+    plan:
+        The build plan.
     name:
         The module or source file name.
     currypath:
@@ -33,10 +35,10 @@ def makecurry(name, currypath=None, **kwds):
     from .. import path as currypath
   do_tidy = kwds.pop('tidy', False)
   output = kwds.pop('output', None)
+  kwds['zip'] = bool(kwds.get('zip', plan.flags & plans.ZIP_JSON))
   with ToolchainContext(tidy=do_tidy, output=output) as pipeline:
-    plan = plans.Plan(kwds)
     pipeline.currentfile = _findcurry.currentfile(
-        name, currypath, plan=plan, **kwds
+        plan, name, currypath, **kwds
       )
     if not os.path.isdir(pipeline.currentfile):
       Maker(plan, pipeline, name, currypath, kwds).make()

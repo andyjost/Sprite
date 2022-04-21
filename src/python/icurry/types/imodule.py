@@ -23,18 +23,20 @@ class IModule(IContainer):
                   from string to IFunction.
       aliases     A mapping from symbol names to symbol names.
     '''
-    # self.fullname = str(fullname)
     IContainer.__init__(self, fullname, **kwds)
     self.imports = tuple(set(str(x) for x in imports))
     self.types = _makeSymboltable(self, types)
     self.functions = _makeSymboltable(self, functions)
     self.filename = str(filename) if filename is not None else None
-    self.aliases = set([] if aliases is None else aliases)
+    self.aliases = {} if aliases is None else dict(aliases)
 
   _fields_ = 'fullname', 'filename', 'imports', 'types', 'functions', 'aliases'
 
   @staticmethod
-  def fromBOM(fullname, imports, types, functions, mdkey, filename=None, aliases=None):
+  def fromBOM(
+      fullname, imports, types, functions, mdkey, filename=None, aliases=None
+    , **kwds
+    ):
     '''
     Construct a module from its bill-of-materials.
 
@@ -46,28 +48,30 @@ class IModule(IContainer):
     The ``materialize`` function should intercept these and simply return the
     referred item.
     '''
-    from . import IConstructor, IDataType, IFunction, IBody, IExempt, PUBLIC
+    from . import IConstructor, IDataType, IFunction, IBody, IExempt
     itypes = [
         IDataType(
             '%s.%s' % (fullname, typeinfo.name)
           , [ IConstructor(
                   '%s.%s' % (fullname, ctorinfo.name), ctorinfo.arity
-                , metadata={mdkey: ctorinfo}
+                , metadata=dict(ctor_md, **{mdkey: ctorinfo})
                 )
-                for ctorinfo in typeinfo.constructors
+                for ctor_md, ctorinfo in zip(ctor_mds, typeinfo.constructors)
               ]
-          , metadata={mdkey: typeinfo}
+          , metadata=dict(type_md, **{mdkey: typeinfo})
           )
-          for typeinfo in types
+          for type_md, ctor_mds, typeinfo in types
       ]
     ifunctions = [
         IFunction(
-            '%s.%s' % (fullname, funcinfo.name), funcinfo.arity, PUBLIC, None
-          , IBody(IExempt()), metadata={mdkey: funcinfo}
+            '%s.%s' % (fullname, funcinfo.name), funcinfo.arity, vis, None
+          , IBody(IExempt()), metadata=dict(md, **{mdkey: funcinfo})
           )
-          for funcinfo in functions
+          for vis, md, funcinfo in functions
       ]
-    imodule = IModule(fullname, imports, itypes, ifunctions, filename, aliases)
+    imodule = IModule(
+        fullname, imports, itypes, ifunctions, filename, aliases, **kwds
+      )
     return imodule
 
   def __str__(self):

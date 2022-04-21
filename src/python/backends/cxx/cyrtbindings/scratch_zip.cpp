@@ -22,7 +22,6 @@ namespace cyrt { namespace python
     , /*name*/       "zip"
     , /*format*/     "pp"
     , /*step*/       &zip_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 
@@ -35,7 +34,6 @@ namespace cyrt { namespace python
     , /*name*/       "zip_CASE0"
     , /*format*/     "pp"
     , /*step*/       &zip_step_CASE0
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 
@@ -97,7 +95,6 @@ namespace cyrt { namespace python
     , /*name*/       "list01"
     , /*format*/     ""
     , /*step*/       &list01_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 
@@ -131,7 +128,6 @@ namespace cyrt { namespace python
     , /*name*/       "main"
     , /*format*/     ""
     , /*step*/       &mainzip_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 

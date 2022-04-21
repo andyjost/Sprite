@@ -137,7 +137,6 @@ namespace cyrt { namespace python
     , /*name*/       "main"
     , /*format*/     ""
     , /*step*/       &main42_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 

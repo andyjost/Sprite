@@ -42,7 +42,7 @@ def load(interp, name):
       )
   return cymodule
 
-def save(interp, cymodule, filename=None, goal=None):
+def save(interp, cymodule, filename=None, goal=None, **kwds):
   '''
   Saves a Curry module.
 
@@ -59,6 +59,9 @@ def save(interp, cymodule, filename=None, goal=None):
       Indicates a goal to evaluate when running the module.  By default,
       running the generated code imports the module but evaluates nothing.
 
+    kwds:
+      Additional keyword arguments passed to ``IBackend.write_module``.
+      Possibly specific to the backend.
   Returns:
     If ``filename`` is None, the module contents are returned as a string.
     Otherwise, None.
@@ -81,12 +84,12 @@ def save(interp, cymodule, filename=None, goal=None):
   target_object = be.compile(interp, h.icurry)
   if isinstance(filename, six.string_types):
     with open(filename, 'w') as stream:
-      be.write_module(target_object, stream, goal=goal)
+      be.write_module(target_object, stream, goal=goal, **kwds)
   elif not filename:
     stream = StringIO()
-    be.write_module(target_object, stream, goal=goal)
+    be.write_module(target_object, stream, goal=goal, **kwds)
     return stream.getvalue()
   else:
     stream = filename
-    be.write_module(target_object, stream, goal=goal)
+    be.write_module(target_object, stream, goal=goal, **kwds)
 

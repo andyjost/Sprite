@@ -3,7 +3,11 @@ Code for merging ICurry modules.
 '''
 from ..exceptions import CompileError 
 
-__all__ = ['copyExportedNames', 'mergebuiltins', 'mergemodule', 'mergesymbols']
+__all__ = [
+    'copyExportedNames', 'mergebuiltins', 'mergemodule', 'mergesymbols'
+  , 'validatemodule'
+  ]
+
 
 def mergebuiltins(tgt, backend, **kwds):
   '''
@@ -20,11 +24,14 @@ def mergebuiltins(tgt, backend, **kwds):
     **kwds:
         Additional keywords passed to ``mergemodule``.
   '''
-  modspec = backend.lookup_builtin_module(tgt.fullname)
-  if modspec is not None:
-    mergemodule(tgt, modspec.extern(), modspec.exports(), modspec.aliases())
+  mergekey = '%s.is_merged' % backend.backend_name
+  if not tgt.metadata.get(mergekey, False):
+    modspec = backend.lookup_builtin_module(tgt.fullname)
+    if modspec is not None:
+      mergemodule(tgt, modspec.extern(), modspec.exports(), modspec.aliases())
+    tgt.update_metadata({mergekey: True})
 
-def mergemodule(tgt, src, exports=None, aliases=None, **kwds):
+def mergemodule(tgt, src=None, exports=None, aliases=None, **kwds):
   '''
   Merge content from IModule ``src`` into Imodule ``tgt`` with the specified content.
 
@@ -122,3 +129,7 @@ def mergesymbols(tgt, src, merge_metadata=True, resolve_externals=True):
       ifun.body = src.functions[ifun.name].body
     if merge_metadata:
       metadata.merge(ifun, src)
+
+def validatemodule(imodule):
+  mergemodule(imodule) # Implemented as merge with nothing.
+

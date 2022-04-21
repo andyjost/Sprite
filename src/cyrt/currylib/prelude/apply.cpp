@@ -113,7 +113,6 @@ namespace cyrt
     , /*name*/       "apply"
     , /*format*/     "pp"
     , /*step*/       apply_step
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -125,7 +124,6 @@ namespace cyrt
     , /*name*/       "$##"
     , /*format*/     "pp"
     , /*step*/       applygnf_step
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -137,7 +135,6 @@ namespace cyrt
     , /*name*/       "$!"
     , /*format*/     "pp"
     , /*step*/       applyhnf_step
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -149,7 +146,6 @@ namespace cyrt
     , /*name*/       "$!!"
     , /*format*/     "pp"
     , /*step*/       applynf_step
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 
@@ -161,7 +157,6 @@ namespace cyrt
     , /*name*/       "cond"
     , /*format*/     "pp"
     , /*step*/       cond_step
-    , /*typecheck*/  nullptr
     , /*type*/       nullptr
     };
 

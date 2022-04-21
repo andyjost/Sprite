@@ -1,6 +1,8 @@
 # Encoding: utf-8
 import cytest # from ./lib; must be first
+import curry
 from curry import config, toolchain
+from curry.toolchain import plans
 from curry.utility import _tempfile
 from curry.utility.strings import ensure_str
 import glob, os, shutil, subprocess
@@ -78,26 +80,32 @@ class TestMake(cytest.TestCase):
     for input_file in glob.glob('data/importer/*.curry'):
       dirname, filename = os.path.split(input_file)
       stem = filename[:-6]
+      plan_icy = plans.makeplan(
+          curry.getInterpreter(), plans.MAKE_ICURRY
+        )
+      plan_json = plans.makeplan(
+          curry.getInterpreter(), plans.MAKE_ICURRY | plans.MAKE_JSON
+        )
       with _tempfile.TemporaryDirectory() as tmpdir:
         shutil.copy(input_file, tmpdir)
         icy_file = os.path.join(tmpdir, SUBDIR, stem + '.icy')
         json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
         curry_file = os.path.join(tmpdir, filename)
         # Make .icy.
-        ret = toolchain.makecurry(curry_file, json=False, is_sourcefile=True)
+        ret = toolchain.makecurry(plan_icy, curry_file, is_sourcefile=True)
         self.assertTrue(os.path.exists(icy_file))
         self.assertTrue(ret.endswith('.icy'))
         # Repeat
-        ret = toolchain.makecurry(curry_file, json=False, is_sourcefile=True)
+        ret = toolchain.makecurry(plan_icy, curry_file, is_sourcefile=True)
         self.assertTrue(os.path.exists(icy_file))
         self.assertTrue(ret.endswith('.icy'))
 
         # Make .json.  Returns the JSON file name.
-        ret = toolchain.makecurry(curry_file, zip=False, is_sourcefile=True)
+        ret = toolchain.makecurry(plan_json, curry_file, is_sourcefile=True)
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
         # Repeat
-        ret = toolchain.makecurry(curry_file, zip=False, is_sourcefile=True)
+        ret = toolchain.makecurry(plan_json, curry_file, is_sourcefile=True)
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
 

@@ -28,7 +28,6 @@ InfoTable const INFOTABLE_NAME(NAME) {
   , /*name*/       SPRITE_STRINGIFY(NAME)
   , /*format*/     ""
   , /*step*/       STEP_FUNCTION_NAME(NAME)
-  , /*typecheck*/  nullptr
   , /*type*/       nullptr
   };
 

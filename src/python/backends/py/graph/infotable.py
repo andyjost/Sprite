@@ -19,9 +19,9 @@ class InfoTable(object):
   Runtime info for a node.  Every Curry node stores an `InfoTable`` instance,
   which contains instance-independent data.
   '''
-  _fields_ = ['name', 'arity', 'tag', 'flags', 'step', 'typedef', 'pyformat', 'typecheck']
+  _fields_ = ['name', 'arity', 'tag', 'flags', 'step', 'typedef', 'pyformat']
 
-  def __init__(self, name, arity, tag, flags, step, pyformat, typecheck):
+  def __init__(self, name, arity, tag, flags, step, pyformat):
     self.name = name
     self.arity = arity
     self.tag = tag
@@ -37,10 +37,6 @@ class InfoTable(object):
     # Describes the node format.  It must have a ``format`` method, which will
     # be passed the node name followed by its rendered arguments.
     self.pyformat = pyformat
-    # Used in debug mode to verify argument types.  The frontend typechecks
-    # generated code, but this is helpful for checking the hand-written code
-    # implementing built-in functions.
-    self.typecheck = typecheck
 
   @property
   def typedef(self):

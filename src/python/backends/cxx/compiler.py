@@ -26,6 +26,9 @@ class CxxCompiler(compiler.CompilerBase):
   def vIsSynthesized(self, ifun):
     return False
 
+  def vBackendFunctionKey(self, ifun):
+    assert False
+
   def vEmitHeader(self):
     yield '#include "cyrt/cyrt.hpp"'
     yield ''
@@ -65,7 +68,6 @@ class CxxCompiler(compiler.CompilerBase):
     yield '  , /*name*/       %s'               % _dquote(ifun.name)
     yield '  , /*format*/     "%s"'             % ('p' * ifun.arity)
     yield '  , /*step*/       %s'               % h_stepfunc
-    yield '  , /*typecheck*/  nullptr'
     yield '  , /*type*/       nullptr'
     yield '  };'
     yield ''
@@ -80,7 +82,6 @@ class CxxCompiler(compiler.CompilerBase):
     yield '  , /*name*/       %s'                   % _dquote(ictor.name)
     yield '  , /*format*/     "%s"'                 % ('p' * ictor.arity)
     yield '  , /*step*/       nullptr'
-    yield '  , /*typecheck*/  nullptr'
     yield '  , /*type*/       &%s'                  % h_datatype
     yield '  };'
     yield ''
@@ -107,6 +108,9 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'static %s constexpr %s[] = {%s};' % (
         _datatype(values), h_valueset, ', '.join(str(v) for v in values)
       )
+
+  def vEmitMetadata(self, md, h_md):
+    assert False # TODO
 
   def vEmitModuleDefinition(self, imodule, h_module):
     assert False # TODO

@@ -2,7 +2,7 @@ from ..exceptions import CompileError
 from .. import config
 from ..tools.utility import make_exception
 from ..utility import binding, curryname, filesys, formatting, strings
-import errno, logging, os, subprocess as sp, sys, time
+import errno, functools, logging, os, subprocess as sp, sys, time
 
 __all__ = ['bindCurryPath', 'makeOutputDir', 'popen', 'targetNotUpdatedHint', 'updateCheck']
 logger = logging.getLogger(__name__)
@@ -74,9 +74,10 @@ def targetNotUpdatedHint(prereq, target, start_time, **kwds):
                'with %s.' % (candidate, SUBDIR)
 
 def updateCheck(f):
-  def replacement(self, file_in, currypath):
+  @functools.wraps(f)
+  def replacement(self, file_in, currypath, *args, **kwds):
     start_time = time.time()
-    file_out = f(self, file_in, currypath)
+    file_out = f(self, file_in, currypath, *args, **kwds)
     if filesys.newer(file_in, file_out):
       raise make_exception(
           CompileError

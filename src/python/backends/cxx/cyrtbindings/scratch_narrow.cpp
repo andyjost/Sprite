@@ -26,7 +26,6 @@ namespace cyrt { inline namespace
     , /*name*/       "main1"
     , /*format*/     ""
     , /*step*/       &main1_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 
@@ -46,7 +45,6 @@ namespace cyrt { inline namespace
     , /*name*/       "main2"
     , /*format*/     ""
     , /*step*/       &main2_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 
@@ -72,7 +70,6 @@ namespace cyrt { inline namespace
     , /*name*/       "main3"
     , /*format*/     ""
     , /*step*/       &main3_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 
@@ -98,7 +95,6 @@ namespace cyrt { inline namespace
     , /*name*/       "main4"
     , /*format*/     ""
     , /*step*/       &main4_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 
@@ -122,7 +118,6 @@ namespace cyrt { inline namespace
     , /*name*/       "main5"
     , /*format*/     ""
     , /*step*/       &main5_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 
@@ -148,7 +143,6 @@ namespace cyrt { inline namespace
     , /*name*/       "main6"
     , /*format*/     ""
     , /*step*/       &main6_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 
@@ -174,7 +168,6 @@ namespace cyrt { inline namespace
     , /*name*/       "main7"
     , /*format*/     ""
     , /*step*/       &main7_step
-    , /*typecheck*/  nullptr
     , /*typedef*/    nullptr
     };
 }}

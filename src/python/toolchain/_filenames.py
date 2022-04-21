@@ -4,7 +4,7 @@ from ..backends import IBackend
 from .. import config
 import logging, os
 
-__all__ = ['curryfilename', 'icurryfilename', 'jsonfilenames', 'tgtfilename']
+__all__ = ['curryfilename', 'icurryfilename', 'jsonfilenames', 'replacesuffix']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
 
@@ -22,7 +22,7 @@ def curryfilename(filename):
     if len(parts) < 3 or parts[-2] != SUBDIR or parts[-3] != '.curry':
       raise ValueError('bad path for %s' % filename)
     name = parts[-1]
-    for suffix in ['.json', '.json.z', '.icy', '.icy.z']:
+    for suffix in ['.py', '.json', '.json.z', '.icy', '.icy.z']:
       if name.endswith(suffix):
         break
     else:
@@ -60,10 +60,8 @@ def jsonfilenames(filename, suffixes=None):
               any(name.endswith(suffix) for suffix in suffixes)
     )
 
-def tgtfilename(filename, backend_name=None):
-  '''Gets the Target file name associated with a Curry, ICY, or JSON file.'''
-  icy = icurryfilename(filename)
-  assert icy.endswith('.icy')
-  suffix = '' if backend_name is None else \
-      IBackend(backend=backend_name).target_suffix
-  return icy[:-4] + suffix
+def replacesuffix(filename, suffix):
+  icyname = icurryfilename(filename)
+  assert icyname.endswith('.icy')
+  return icyname[:-4] + suffix
+

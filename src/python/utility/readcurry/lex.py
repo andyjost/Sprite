@@ -1,4 +1,5 @@
 import re, six
+from .. import strings
 
 __all__ = [
     'tokenize'
@@ -61,15 +62,17 @@ def qescape(text, chars, j):
 
   match = re.match(OCTAL, text[j:])
   if match:
-    digits = match.group(1)[1:]
+    digits = match.group(1)
     if digits == '000':
       raise ValueError('Invalid escape sequence: %s' % r'\000')
-    chars.append(six.unichr(int(digits, base=8)).encode('utf-8'))
+    ch = six.unichr(int(digits, base=8)).encode('utf-8')
+    chars.append(strings.ensure_str(ch))
     return match.end()
   match = re.match(UNICODE, text[j:])
   if match:
-    digits = match.group(1)[1:]
-    chars.append(six.unichr(int(digits, base=16)).encode('utf-8'))
+    digits = match.group(1)
+    ch = six.unichr(int(digits, base=16)).encode('utf-8')
+    chars.append(strings.ensure_str(ch))
     return match.end()
 
   raise ValueError('Invalid escape sequence: %s ...' % text[j:j+8])

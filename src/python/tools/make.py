@@ -1,4 +1,5 @@
-from .. import config, toolchain, utility
+from .. import config, getInterpreter, toolchain, utility
+from ..toolchain import plans
 from six.moves import cStringIO as StringIO
 from .utility import handle_program_errors, unrst
 import argparse, os, pydoc, sys
@@ -170,9 +171,25 @@ def main(program_name, argv):
   for name in args.names:
     kwds['is_sourcefile'] = name.endswith('.curry')
     with error_handler:
-      toolchain.makecurry(name, config.currypath(), **kwds)
+      plan = _buildplan(getInterpreter(), **kwds)
+      toolchain.makecurry(plan, name, config.currypath(), **kwds)
   if error_handler.nerrors:
     sys.exit(1)
+
+KEYWORDS = {
+    'cxx' : plans.MAKE_TARGET_SOURCE
+  , 'icy' : plans.MAKE_ICURRY
+  , 'json': plans.MAKE_JSON
+  , 'py'  : plans.MAKE_TARGET_SOURCE
+  , 'zip' : plans.ZIP_JSON
+  }
+
+def _buildplan(interp, **kwds):
+  plan_flags = 0
+  for kw in KEYWORDS:
+    if kwds.get(kw, False):
+      plan_flags |= KEYWORDS[kw]
+  return plans.makeplan(interp, plan_flags)
 
 if __name__ == '__main__':
   main(PROGRAM_NAME, sys.argv[1:])

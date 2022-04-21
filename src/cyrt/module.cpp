@@ -221,7 +221,6 @@ namespace cyrt
     info->name       = info_name;
     info->format     = format;
     info->step       = nullptr;
-    info->typecheck  = nullptr;
     info->type       = nullptr;
     std::strcpy(info_name, name.c_str());
     index_type i=0;

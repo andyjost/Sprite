@@ -1,8 +1,9 @@
 '''Code for importing Curry modules into a Curry interpreter.'''
 
-from . import load
 from ... import config, icurry, objects, toolchain, utility
+from . import load
 from ...objects.handle import getHandle
+from ...toolchain import plans
 from ...utility.binding import binding
 from ...utility import curryname, formatDocstring, visitation
 import collections, contextlib, logging, six
@@ -13,10 +14,7 @@ __all__ = ['import_']
 
 @visitation.dispatch.on('arg')
 @formatDocstring(config.python_package_name())
-def import_(
-    interp, arg, currypath=None, extern=None, exports=None, aliases=None
-  , is_sourcefile=False
-  ):
+def import_(interp, arg, currypath=None, is_sourcefile=False):
   '''
   Import one or more Curry modules.
 
@@ -27,16 +25,6 @@ def import_(
         module descriptors.
     currypath:
         The search path for Curry files.  By default, ``self.path`` is used.
-    extern:
-        An instance of ``{0}.icurry.IModule`` used to resolve external
-        declarations.
-    exports:
-        A set of symbols exported unconditionally from ``extern``.  These will
-        be copied into the imported module.
-    aliases:
-        A set of name-target pairs specifying aliases.  For each alias, the
-        module produced will have a binding called ``name`` referring to
-        ``target``.
     is_sourcefile:
         Indicates whether to interpret ``arg`` as a source file name rather
         than a module name.
@@ -48,15 +36,12 @@ def import_(
 
 # Import a module or package by name.
 @import_.when(six.string_types)
-def import_(
-    interp, name, currypath=None, is_sourcefile=False
-  , extern=None, exports=None, aliases=None
-  ):
+def import_(interp, name, currypath=None, is_sourcefile=False):
   modulename = curryname.getModuleName(name, is_sourcefile)
   try:
     return interp.modules[modulename]
   except KeyError:
-    importEx = ImportEx(interp, currypath, extern, exports, aliases)
+    importEx = ImportEx(interp, currypath)
     if is_sourcefile:
       return importEx(name, is_sourcefile=is_sourcefile)
     else:
@@ -85,14 +70,15 @@ class ImportEx(object):
   '''
   Low-level routine to import Curry packages and modules.
   '''
-  def __init__(self, interp, currypath, extern=None, exports=None, aliases=None):
-    self.interp = interp
+  def __init__(self, interp, currypath):
+    self.plan = plans.makeplan(interp, plans.MAKE_ALL | plans.ZIP_JSON)
     self.currypath = curryname.makeCurryPath(
         interp.path if currypath is None else currypath
       )
-    self.extern = extern
-    self.exports = set() if exports is None else exports
-    self.aliases = {} if aliases is None else aliases
+
+  @property
+  def interp(self):
+    return self.plan.interp
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
@@ -109,14 +95,15 @@ class ImportEx(object):
   @__call__.when(six.string_types)
   def __call__(self, modulename, tail=[], is_sourcefile=False):
     logger.info('Importing %s', modulename)
-    icontainer = toolchain.loadicurry(
-        modulename, self.currypath, is_sourcefile=is_sourcefile
+    icontainer = toolchain.loadcurry(
+        self.plan, modulename, self.currypath, is_sourcefile=is_sourcefile
       )
-    if isinstance(icontainer, icurry.IModule):
-      toolchain.mergebuiltins(icontainer, self.interp.backend)
-      # toolchain.mergemodule(icontainer, self.extern, self.exports, self.aliases)
     moduleobj = self(icontainer, tail)
     return moduleobj
+
+  @__call__.when(objects.CurryModule)
+  def __call__(self, moduleobj, tail=[]):
+    return self(tail, rv=moduleobj)
 
   @__call__.when(icurry.IPackage)
   def __call__(self, ipkg, tail=[]):
@@ -130,10 +117,11 @@ class ImportEx(object):
   @__call__.when(icurry.IModule)
   def __call__(self, imodule, tail=[]):
     if imodule.fullname not in self.interp.modules:
-      toolchain.mergemodule(imodule, self.extern, self.exports, self.aliases)
+      toolchain.mergebuiltins(imodule, self.interp.backend)
+      toolchain.validatemodule(imodule)
       with _provisionalModule(self.interp, imodule) as moduleobj:
         load.loadSymbols(self.interp, imodule, moduleobj)
-        for name, target in imodule.aliases:
+        for name, target in six.iteritems(imodule.aliases):
           if hasattr(moduleobj, name):
             raise ValueError("cannot alias previously defined name %r" % name)
           setattr(moduleobj, name, getattr(moduleobj, target))

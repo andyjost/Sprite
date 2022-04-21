@@ -4,7 +4,9 @@ Code to load runtime symbols.
 
 from ... import config, icurry, objects, utility
 from ...utility import encoding, visitation
-import collections, six, weakref
+import collections, logging, six, weakref
+
+logger = logging.getLogger(__name__)
 
 __all__ = ['loadSymbols']
 
@@ -29,6 +31,11 @@ def loadSymbols(interp, mapping, moduleobj, **kwds):
 
 @loadSymbols.when(icurry.IModule)
 def loadSymbols(interp, imodule, moduleobj, **kwds):
+  if imodule.imports:
+    logger.info(
+        'Processing imports for Curry module %r: %r'
+      , imodule.name, imodule.imports
+      )
   for modulename in imodule.imports:
     interp.import_(modulename)
   interp.optimize(imodule)

@@ -1,20 +1,21 @@
 from ..icurry import json as icurry_json, types as icurry_types
-from .. import cache, config
+from .. import cache, config, exceptions
 from . import _filenames, _makecurry
 from ..utility import formatDocstring
 import logging, os, zlib
 
-__all__ = ['loadicurry', 'loadjson']
+__all__ = ['loadcurry', 'loadjson']
 
 logger = logging.getLogger(__name__)
 
 @formatDocstring(config.python_package_name())
-def loadicurry(name, currypath=None, **kwds):
+def loadcurry(plan, name, currypath=None, **kwds):
   '''
-  Loads into Python the ICurry for a Curry module or source file, building if
-  necessary.
+  Builds (if necessary) and loads the named module.
 
   Args:
+    plan:
+        The compile plan.
     name:
         The source file, module, or package name.
     currypath:
@@ -30,14 +31,18 @@ def loadicurry(name, currypath=None, **kwds):
   Returns:
     A Python object containing the ICurry for the given name.
   '''
-  filename = _makecurry.makecurry(name, currypath, **kwds)
+  filename = _makecurry.makecurry(plan, name, currypath, **kwds)
   logger.debug('Found module %s at %s', name, filename)
   if os.path.isdir(filename):
     package = icurry_types.IPackage(name)
     package.filename = filename
     return package
-  else:
+  elif filename.endswith('.json') or filename.endswith('.json.z'):
     return loadjson(filename)
+  elif filename.endswith('.py'):
+    return plan.interp.load(filename)
+  else:
+    raise exceptions.PrerequisiteError('unknown file type: %r' % filename)
 
 def loadjson(jsonfile):
   '''

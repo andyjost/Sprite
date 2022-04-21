@@ -23,6 +23,7 @@ STEP_FUNCTION     = 'STEP_FUNCTION'     # A step function.
 STRING_DATA       = 'STRING_DATA'       # Static string data.
 VALUE_SET         = 'VALUE_SET'         # Case values (for narrowing).
 BUILTIN_FUNCTION  = 'BUILTIN_FUNCTION'  # A function provided by the execution environment.
+METADATA          = 'METADATA'          # A metadata object.
 
 # Symbol status.
 DEFINED   = 'T'
@@ -71,6 +72,7 @@ KIND_CODE = {
   , CONSTRUCTOR_TABLE : 'C'
   , DATA_TYPE         : 'D'
   , INFO_TABLE        : 'I'
+  , METADATA          : 'Q'
   , MODULE_DEF        : 'M'
   , STEP_FUNCTION     : 'F'
   , STRING_DATA       : 'S'
@@ -82,7 +84,6 @@ KIND_CODE_R = {v:k for k,v in KIND_CODE.items()}
 def encode(name):
   '''Encode a Curry identifier string to alphnumeric.'''
   enc = ''.join(TR.get(ch, ch) for ch in name)
-  # assert decode(enc) == name
   return enc
 
 def decode(name):
@@ -141,6 +142,7 @@ class TargetObject(object):
     , '.strings'        # String literals.
     , '.valuesets'      # Value sets.
     , '.primitives'     # Primitive functions.
+    , '.metadata'       # Metadata definitions.
   ### Code.
     , '.stepfuncs'      # Step function definitions.
   ### Object definitions.
@@ -169,6 +171,7 @@ class TargetObject(object):
 class CompilerBase(abc.ABC):
   # Customization points.
   CODE_TYPE = None
+  EXCLUDED_METADATA = None
 
   def vGetSymbolName(self, iobj, kind):
     return mangle(iobj.splitname(), kind)
@@ -190,6 +193,7 @@ class CompilerBase(abc.ABC):
         , 'vEmitDataType'
         , 'vEmitStringLiteral'
         , 'vEmitValueSetLiteral'
+        , 'vEmitMetadata'
         , 'vEmitModuleDefinition'
         , 'vEmitModuleImport'
         , 'vEmit_compileS_IVarDecl'
@@ -210,6 +214,7 @@ class CompilerBase(abc.ABC):
         , 'vEmit_compileE_IOr'
         , 'vIsBuiltin'
         , 'vIsSynthesized'
+        , 'vBackendFunctionKey'
         ]
     })
 
@@ -298,7 +303,8 @@ class CompilerBase(abc.ABC):
     return h_datatype, new
 
   def internStringLiteral(self, string):
-    existing = self.intern_store.get(string)
+    key = STRING_DATA, string
+    existing = self.intern_store.get(key)
     if existing is not None:
       return existing
     else:
@@ -307,11 +313,12 @@ class CompilerBase(abc.ABC):
       prog_text = self.vEmitStringLiteral(string, h_string)
       self.target_object['.strings'].extend(prog_text)
       self.symtab.make_defined(h_string)
-      self.intern_store[string] = h_string
+      self.intern_store[key] = h_string
       return h_string
 
   def internValueSetLiteral(self, values):
-    existing = self.intern_store.get(values)
+    key = VALUE_SET, values
+    existing = self.intern_store.get(key)
     if existing is not None:
       return existing
     else:
@@ -320,10 +327,11 @@ class CompilerBase(abc.ABC):
       prog_text = self.vEmitValueSetLiteral(values, h_valueset)
       self.target_object['.valuesets'].extend(prog_text)
       self.symtab.make_defined(h_valueset)
-      self.intern_store[values] = h_valueset
+      self.intern_store[key] = h_valueset
       return h_valueset
 
-  def internBackendFunction(self, func, key):
+  def internBackendFunction(self, func):
+    key = BUILTIN_FUNCTION, self.vBackendFunctionKey(func)
     existing = self.intern_store.get(key)
     if existing is not None:
       return existing
@@ -335,6 +343,36 @@ class CompilerBase(abc.ABC):
       self.symtab.make_defined(h_func)
       self.intern_store[key] = h_func
       return h_func
+
+  def internMetadata(self, metadata):
+    metadata = getattr(metadata, '_asdict', metadata)
+    if self.EXCLUDED_METADATA:
+      metadata = {
+          k:v for k,v in metadata.items()
+              if k not in self.EXCLUDED_METADATA
+        }
+    prefixes = 'all.', self.interp.backend.backend_name + '.'
+    relevant_keys = tuple(
+        k for k in sorted(metadata.keys())
+          if any(k.startswith(prefix) for prefix in prefixes)
+      )
+    key = tuple((k, metadata[k]) for k in relevant_keys)
+    key = METADATA, key
+    existing = self.intern_store.get(key)
+    if existing is not None:
+      return existing
+    else:
+      h_md = self.next_private_symbolname(METADATA)
+      self.symtab.insert(h_md, METADATA, '<metadata>')
+      metadata_reduced = {
+          k:v for k,v in metadata.items()
+              if k in relevant_keys
+        }
+      md_def = self.vEmitMetadata(metadata_reduced, h_md)
+      self.target_object['.metadata'].extend(md_def)
+      self.symtab.make_defined(h_md)
+      self.intern_store[key] = h_md
+      return h_md
 
   @property
   def symtab(self):
@@ -374,7 +412,6 @@ class CompilerBase(abc.ABC):
   @compileEx.when(icurry.IModule)
   def compileEx(self, imodule):
     imported_names = set(imodule.imports)
-    imported_names.update(imodule.splitname()[:-1])
     for imported in sorted(imported_names):
       self.target_object['.imports'].extend(self.vEmitImported(imported))
     for itype in six.itervalues(imodule.types):
@@ -471,7 +508,7 @@ class CompilerBase(abc.ABC):
   @compileF.when(icurry.IExternal)
   def compileF(self, iexternal, h_stepfunc, linesF):
     msg = 'external function %r is not defined' % iexternal.symbolname
-    logger.warn(msg)
+    logger.warning(msg)
     stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))
     body = icurry.IBody(stmt)
     self.compileF(body, h_stepfunc, linesF)

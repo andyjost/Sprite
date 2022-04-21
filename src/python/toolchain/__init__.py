@@ -13,20 +13,20 @@ files.  The following file types are used:
   .json[.z]                    ICurry code in JSON format [compressed].
   .py                          Curry compiled to Python.
   .cpp                         Curry compiled to C++.
+  .so         C++ compiler     C++ Curry compiled to a shared object.
 '''
 
 from ._curry2icurry import curry2icurry
 from ._filenames import curryfilename, icurryfilename, jsonfilenames
 from ._findcurry import currentfile
 from ._icurry2json import icurry2json
-from ._json2tgt import json2tgt
-from ._loadcurry import loadicurry, loadjson
+from ._loadcurry import loadcurry, loadjson
 from ._makecurry import makecurry
-from ._mergecurry import mergebuiltins, mergemodule
+from ._mergecurry import mergebuiltins, validatemodule
 from ._str2icurry import str2icurry
 
 __all__ = [
     'currentfile', 'curry2icurry', 'curryfilename', 'icurry2json'
-  , 'icurryfilename', 'json2tgt', 'jsonfilenames', 'loadicurry', 'loadjson'
+  , 'icurryfilename', 'jsonfilenames', 'loadcurry', 'loadjson'
   , 'makecurry', 'mergebuiltins', 'mergemodule'
   ]
