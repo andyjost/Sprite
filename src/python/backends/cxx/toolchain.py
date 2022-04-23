@@ -1,6 +1,6 @@
 from ... import config
 from ...toolchain import plans, _filenames, _loadcurry, _system
-import logging
+import logging, os
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +34,20 @@ class Cpp2So(object):
   def __call__(self, file_in, currypath, **ignored):
     file_out = _filenames.replacesuffix(file_in, '.so')
     def compile_command():
-      yield config.cxx_compiler()
-      for part in config.cxx_flags():
-        yield part
+      yield config.cxx_tool()
+      yield '-I%s' % config.installed_path('include')
+      yield '-shared'
+      yield '-fPIC'
+      yield '-std=c++17'
+      if self.interp.flags['debug']:
+        yield '-O0'
+        yield '-g'
+      else:
+        yield '-O3'
+      yield '-L%s' % config.installed_path('lib')
+      yield '-lcyrt'
+      for flag in os.environ.get('CXXFLAGS', '').split():
+        yield flag
       yield file_in
       yield '-o'
       yield file_out

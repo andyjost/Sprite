@@ -1,5 +1,5 @@
 from ... import backends
-from . import compiler, cyrtbindings, materialize, plan
+from . import compiler, cyrtbindings, materialize, toolchain
 
 class IBackend(backends.IBackend):
   @property
@@ -8,7 +8,7 @@ class IBackend(backends.IBackend):
 
   @property
   def extend_plan_skeleton(self):
-    return plan.extend_plan_skeleton
+    return toolchain.extend_plan_skeleton
 
   @property
   def compile(self):

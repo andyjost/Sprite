@@ -153,14 +153,15 @@ def get_options():
       'environment; (3) the defaults shown below.  If the program name is not an '
       'absolute path, then PATH will be searched to find the program.'
     )
-  versions.add_argument('--with-cc'    , type=str, metavar='gcc', help='specifies the C compiler (env: CC)')
-  versions.add_argument('--with-cxx'   , type=str, metavar='g++', help='specifies the C++ compiler (env: CXX)')
-  versions.add_argument('--with-icurry', type=str, metavar='icurry', help='specifies the icurry executable (env: ICURRY)')
-  versions.add_argument('--with-jq'    , type=str, metavar='jq', help='specifies the jq executable (env: JQ)')
-  versions.add_argument('--with-pakcs' , type=str, metavar='pakcs', help='specifies the PAKCS executable (env: PAKCS)')
-  versions.add_argument('--with-prolog', type=str, metavar='swipl', help='specifies the Prolog executable (env: PROLOG)')
-  versions.add_argument('--with-python', type=str, metavar='python', help='specifies the Python executable (env: PYTHON)')
-  versions.add_argument('--with-stack' , type=str, metavar='stack', help='specifies the Haskell stack executable (env: STACK)')
+  versions.add_argument('--with-cc'             , type=str, metavar='gcc', help='specifies the C compiler (env: CC)')
+  versions.add_argument('--with-cxx'            , type=str, metavar='g++', help='specifies the C++ compiler (env: CXX)')
+  versions.add_argument('--with-cxx-postinstall', type=str, metavar='g++', help='specifies the C++ compiler used after installation (env: CXX)')
+  versions.add_argument('--with-icurry'         , type=str, metavar='icurry', help='specifies the icurry executable (env: ICURRY)')
+  versions.add_argument('--with-jq'             , type=str, metavar='jq', help='specifies the jq executable (env: JQ)')
+  versions.add_argument('--with-pakcs'          , type=str, metavar='pakcs', help='specifies the PAKCS executable (env: PAKCS)')
+  versions.add_argument('--with-prolog'         , type=str, metavar='swipl', help='specifies the Prolog executable (env: PROLOG)')
+  versions.add_argument('--with-python'         , type=str, metavar='python', help='specifies the Python executable (env: PYTHON)')
+  versions.add_argument('--with-stack'          , type=str, metavar='stack', help='specifies the Haskell stack executable (env: STACK)')
 
   dev = parser.add_argument_group('development arguments', 'Enables features for Sprite developers.')
   dev.add_argument('--cache', type=str, metavar="['all'|'icurry'|'json']", help='enables caching; useful when the same Curry program will be run many times')
@@ -227,6 +228,10 @@ def main():
     set_from_path(settings, 'CXX', 'g++', 'GNU C++ compiler'
       , install_steps=get_build_essential_install_steps
       , default=OPTS.with_cxx
+      )
+    set_from_path(settings, 'CXX_POSTINSTALL', 'g++', 'GNU C++ compiler'
+      , install_steps=get_build_essential_install_steps
+      , default=OPTS.with_cxx_postinstall
       )
     set_from_path(settings, 'PAKCS', 'pakcs', 'PAKCS executable'
       , web='https://www.informatik.uni-kiel.de/~pakcs/download.html'
@@ -700,6 +705,8 @@ PYTHON_LIBRARY      := {PYTHON_LIBRARY}
 # ===============
 CC  := {CC}
 CXX := {CXX}
+# Used to compile Curry for the 'cxx' backend.
+CXX_POSTINSTALL := {CXX_POSTINSTALL}
 
 ifeq ($(DEBUG),1)
   CFLAGS   += -O0 -ggdb -Wno-register -Wall

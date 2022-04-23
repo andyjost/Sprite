@@ -1,4 +1,4 @@
-from . import compiler, materialize, plan
+from . import compiler, materialize, toolchain
 from .eval import evaluator
 from .graph import Node
 from ... import backends
@@ -13,7 +13,7 @@ class IBackend(backends.IBackend):
 
   @property
   def extend_plan_skeleton(self):
-    return plan.extend_plan_skeleton
+    return toolchain.extend_plan_skeleton
 
   @property
   def compile(self):
