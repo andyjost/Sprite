@@ -41,6 +41,8 @@ def loadcurry(plan, name, currypath=None, **kwds):
     return loadjson(filename)
   elif filename.endswith('.py'):
     return plan.interp.load(filename)
+  elif filename.endswith('.so'):
+    breakpoint()
   else:
     raise exceptions.PrerequisiteError('unknown file type: %r' % filename)
 

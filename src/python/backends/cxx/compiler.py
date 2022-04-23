@@ -110,14 +110,13 @@ class CxxCompiler(compiler.CompilerBase):
       )
 
   def vEmitMetadata(self, md, h_md):
-    assert False # TODO
+    yield '// TODO: vEmitMetadata'
 
   def vEmitModuleDefinition(self, imodule, h_module):
-    assert False # TODO
+    yield '// TODO: vEmitModuleDefinition'
 
   def vEmitModuleImport(self, imodule, h_module):
     yield '// TODO: vEmitModuleImport'
-    pass
 
   def vEmit_compileS_IVarDecl(self, vardecl, varname):
     yield 'Variable %s;' % varname
@@ -212,12 +211,19 @@ def _dquote(string):
   string_data = strings.ensure_str(string)
   return json.dumps(string_data)
 
-def write_module(target_object, stream, goal=None):
+def write_module(
+    target_object, stream, goal=None, section_headers=True, module_main=True
+  ):
   render = renderer.CXX_RENDERER.renderLines
   for section_name in compiler.TargetObject.SECTIONS:
-    stream.write('/* SECTION: %s */\n' % section_name)
+    if section_headers:
+      stream.write('/* SECTION: %s */\n' % section_name)
     section_data = target_object[section_name]
     section_text = render(section_data)
     stream.write(section_text)
-    stream.write('\n')
+    if section_text:
+      stream.write('\n\n')
+  if module_main:
+    stream.write('/* TODO: module main */\n')
+    stream.write('\n\n')
 

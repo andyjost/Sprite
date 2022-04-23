@@ -7,6 +7,7 @@ import logging, os
 __all__ = ['curryfilename', 'icurryfilename', 'jsonfilenames', 'replacesuffix']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
+KNOWN_SUFFIXES = set(['.py', '.json', '.json.z', '.icy', '.icy.z', '.cpp', '.so'])
 
 def curryfilename(filename):
   '''
@@ -22,29 +23,26 @@ def curryfilename(filename):
     if len(parts) < 3 or parts[-2] != SUBDIR or parts[-3] != '.curry':
       raise ValueError('bad path for %s' % filename)
     name = parts[-1]
-    for suffix in ['.py', '.json', '.json.z', '.icy', '.icy.z']:
-      if name.endswith(suffix):
-        break
+    for suffix in KNOWN_SUFFIXES:
+      if filename.endswith(suffix):
+        return os.path.join(
+            os.sep.join(parts[:-3])
+          , name[:-len(suffix)]+'.curry'
+          )
     else:
       raise ValueError('bad suffix for %s' % filename)
-    return os.path.join(
-        os.sep.join(parts[:-3])
-      , name[:-len(suffix)]+'.curry'
-      )
 
 def icurryfilename(filename):
   '''Gets the ICurry file name associated with a Curry file.'''
-  if filename.endswith('.z'):
-    filename = filename[:-2]
-  if filename.endswith('.icy'):
-    return filename
-  elif filename.endswith('.json'):
-    return filename[:-5] + '.icy'
-  elif not filename.endswith('.curry'):
-    raise ValueError('bad suffix for %s' % filename)
-  assert filename.endswith('.curry')
-  path,name = os.path.split(filename)
-  return os.path.join(path, '.curry', SUBDIR, name[:-6]+'.icy')
+  if filename.endswith('.curry'):
+    path,name = os.path.split(filename)
+    return os.path.join(path, '.curry', SUBDIR, name[:-6]+'.icy')
+  else:
+    for suffix in KNOWN_SUFFIXES:
+      if filename.endswith(suffix):
+        return filename[:-len(suffix)] + '.icy'
+    else:
+      raise ValueError('bad suffix for %s' % filename)
 
 def jsonfilenames(filename, suffixes=None):
   '''Gets the JSON file name(s) associated with a Curry or ICY file.'''

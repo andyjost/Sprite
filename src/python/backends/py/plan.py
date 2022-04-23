@@ -1,7 +1,4 @@
 from ...toolchain import plans, _filenames, _loadcurry, _system
-import logging
-
-logger = logging.getLogger(__name__)
 
 def extend_plan_skeleton(interp, skeleton):
   assert interp is not None

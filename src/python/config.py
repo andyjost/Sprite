@@ -194,12 +194,16 @@ def installed_path(*relpath):
 # External tools.
 def cxx_compiler(cached=[]):
   '''The C++ compiler used with the cxx backend.'''
+  logger.warn('Fix g++ to be installed at config time.')
   return os.environ.get('CXX', 'g++')
 
 def cxx_flags(cached=[]):
   '''The C++ compiler flags used with the cxx backend.'''
-  default = '-shared -fPIC -std=c++17 -O3'
-  return os.environ.get('CXXFLAGS', os.environ.get('CFLAGS', default))
+  default = '-I%s -shared -fPIC -std=c++17 -O3 -L%s -lcyrt' % (
+      installed_path('include'), installed_path('lib')
+     )
+  flags = os.environ.get('CXXFLAGS', os.environ.get('CFLAGS', default))
+  return flags.split()
 
 def jq_tool(cached=[]):
   '''The jq tool, if it can be found.  Otherwise, None.'''
