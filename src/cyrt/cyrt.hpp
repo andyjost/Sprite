@@ -9,3 +9,5 @@
 #include "cyrt/graph/node.hpp"
 #include "cyrt/inspect.hpp"
 #include "cyrt/state/rts.hpp"
+// 
+#include "cyrt/module_something.hpp" // FIXME

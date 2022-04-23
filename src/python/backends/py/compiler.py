@@ -120,8 +120,6 @@ class PyCompiler(compiler.CompilerBase):
 
   def vEmitModuleDefinition(self, imodule, h_module):
     py = renderer.PY_RENDERER
-    MAX_JUSTIFY_FUNCTION_NAME = 36
-    MAX_JUSTIFY_NEEDED        = 8
     def _close(level, string):
       return (2 * level + 1) * py.INDENT * ' ' + string
     yield '%s = IModule.fromBOM(' % h_module
@@ -156,7 +154,7 @@ class PyCompiler(compiler.CompilerBase):
         h_md = self.internMetadata(ifun.metadata)
         yield '%s(%s, %s, %s)' % (prefix, vis, h_md, h_info)
       yield _close(1, ']')
-      yield _close(0, ')')
+    yield _close(0, ')')
 
   def vEmitModuleImport(self, imodule, h_module):
     yield '_module_ = interp.import_(%s)' % h_module

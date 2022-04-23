@@ -91,5 +91,6 @@ def loadso(interp, sofile):
   '''
   assert os.path.exists(sofile)
   assert sofile.endswith('.so')
+  breakpoint()
   return interp.load(sofile)
 

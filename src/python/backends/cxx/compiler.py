@@ -1,8 +1,8 @@
 from ...exceptions import CompileError
 from ..generic import compiler, renderer
 from ... import icurry
-from ...utility import formatDocstring, strings
-import json
+from ...utility import formatDocstring, strings, visitation
+import collections, json, six
 
 __all__ = ['compile', 'write_module']
 
@@ -12,6 +12,7 @@ def compile(interp, imodule):
 
 class CxxCompiler(compiler.CompilerBase):
   CODE_TYPE = 'C++'
+  EXCLUDED_METADATA = set(['cxx.material', 'cxx.symbolname'])
 
   def vGetSymbolName(self, iobj, kind):
     alias = iobj.metadata.get('cxx.symbolname', None)
@@ -110,10 +111,46 @@ class CxxCompiler(compiler.CompilerBase):
       )
 
   def vEmitMetadata(self, md, h_md):
-    yield '// TODO: vEmitMetadata'
+    yield 'static Metadata const %s = %s;' % (h_md, _cxxshow(md))
 
   def vEmitModuleDefinition(self, imodule, h_module):
-    yield '// TODO: vEmitModuleDefinition'
+    cxx = renderer.PY_RENDERER
+    def _close(level, string):
+      return (2 * level + 1) * cxx.INDENT * ' ' + string
+    yield 'static ModuleSomething const %s(' % h_module
+    yield '    /*fullname */ %s' % _dquote(imodule.fullname)
+    yield '  , /*filename */ %s' % _dquote(imodule.filename)
+    yield '  , /*imports  */ %s' % _cxxshow(imodule.imports)
+    yield '  , /*metadata */ %s' % _cxxshow(imodule.metadata._asdict)
+    yield '  , /*aliases  */ %s' % _cxxshow(imodule.aliases)
+    if not imodule.types:
+      yield '  , /*types    */ {}'
+    else:
+      yield '  , /*types    */ {'
+      types = imodule.types.values()
+      for prefix, itype in cxx.prettylist(types, level=1):
+        h_type = self.vGetSymbolName(itype, compiler.DATA_TYPE)
+        type_md = self.internMetadata(itype.metadata)
+        ctor_mds = tuple(
+            self.internMetadata(ictor.metadata)
+                for ictor in itype.constructors
+          )
+        yield '%s{&%s, {%s}, &%s}' % (
+            prefix, type_md, ', '.join('&%s' % md for md in ctor_mds), h_type
+          )
+      yield _close(1, '}')
+    if not imodule.functions:
+      yield '  , /*functions*/ {}'
+    else:
+      yield '  , /*functions*/ {'
+      functions = imodule.functions.values()
+      for prefix, ifun in cxx.prettylist(functions, level=1):
+        vis = 'PRIVATE' if ifun.is_private else 'PUBLIC '
+        h_info = self.vGetSymbolName(ifun, compiler.INFO_TABLE)
+        h_md = self.internMetadata(ifun.metadata)
+        yield '%s{%s, &%s, &%s}' % (prefix, vis, h_md, h_info)
+      yield _close(1, '}')
+    yield '  );'
 
   def vEmitModuleImport(self, imodule, h_module):
     yield '// TODO: vEmitModuleImport'
@@ -210,6 +247,32 @@ def _dquote(string):
   # Note: Use JSON to get double-quote-style escaping.
   string_data = strings.ensure_str(string)
   return json.dumps(string_data)
+
+@visitation.dispatch.on('arg')
+def _cxxshow(arg):
+  assert False
+
+@_cxxshow.when(bool)
+def _cxxshow(bit):
+  return 'true' if bit else 'false'
+
+@_cxxshow.when(int)
+def _cxxshow(i):
+  return repr(i)
+
+@_cxxshow.when(six.string_types)
+def _cxxshow(string):
+  return _dquote(string)
+
+@_cxxshow.when(collections.Mapping)
+def _cxxshow(mapping):
+  return '{%s}' % ', '.join(
+      '{%s, %s}' % (_cxxshow(k), _cxxshow(v)) for k,v in mapping.items()
+    )
+
+@_cxxshow.when(collections.Sequence)
+def _cxxshow(sequence):
+  return '{%s}' % ', '.join(_cxxshow(part) for part in sequence)
 
 def write_module(
     target_object, stream, goal=None, section_headers=True, module_main=True
