@@ -74,7 +74,7 @@ namespace cyrt
     , {"prim_atanFloat"        , &atanFloat_Info         }
     , {"prim_atanhFloat"       , &atanhFloat_Info        }
     , {"prim_chr"              , &chr_Info               }
-    , {"prim_constrEq"         , &constrEq_Info          }
+    // , {"prim_constrEq"         , &constrEq_Info          }
     , {"prim_cosFloat"         , &cosFloat_Info          }
     , {"prim_coshFloat"        , &coshFloat_Info         }
     , {"prim_divFloat"         , &divFloat_Info          }
@@ -84,7 +84,7 @@ namespace cyrt
     , {"prim_ioError"          , &ioError_Info           }
     , {"prim_logFloat"         , &logFloat_Info          }
     , {"prim_minusFloat"       , &minusFloat_Info        }
-    , {"prim_nonstrictEq"      , &nonstrictEq_Info       }
+    // , {"prim_nonstrictEq"      , &nonstrictEq_Info       }
     , {"prim_ord"              , &ord_Info               }
     , {"prim_plusFloat"        , &plusFloat_Info         }
     , {"prim_putChar"          , &putChar_Info           }
@@ -117,21 +117,7 @@ namespace cyrt
     , {"failure"               , &notused_Info           }
     , {"ifVar"                 , &notused_Info           }
     , {"letrec"                , &notused_Info           }
-    , {"prim_divInt"           , &notused_Info           }
-    , {"prim_eqChar"           , &notused_Info           }
-    , {"prim_eqFloat"          , &notused_Info           }
-    , {"prim_eqInt"            , &notused_Info           }
-    , {"prim_ltEqChar"         , &notused_Info           }
-    , {"prim_ltEqFloat"        , &notused_Info           }
-    , {"prim_ltEqInt"          , &notused_Info           }
-    , {"prim_minusInt"         , &notused_Info           }
-    , {"prim_modInt"           , &notused_Info           }
-    , {"prim_negateFloat"      , &notused_Info           }
-    , {"prim_plusInt"          , &notused_Info           }
-    , {"prim_quotInt"          , &notused_Info           }
     , {"prim_readFileContents" , &notused_Info           }
-    , {"prim_remInt"           , &notused_Info           }
-    , {"prim_timesInt"         , &notused_Info           }
     , {"unifEqLinear"          , &notused_Info           }
     };
 

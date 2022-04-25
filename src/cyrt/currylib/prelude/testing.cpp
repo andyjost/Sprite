@@ -1,5 +1,7 @@
 #include "cyrt/cyrt.hpp"
 
+using namespace cyrt;
+
 namespace cyrt { inline namespace
 {
   tag_type not_step(RuntimeState * rts, Configuration * C)
@@ -18,7 +20,7 @@ namespace cyrt { inline namespace
   }
 }}
 
-namespace cyrt
+extern "C"
 {
   InfoTable const not_Info{
       /*tag*/        T_FUNC

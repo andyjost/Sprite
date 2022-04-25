@@ -1,6 +1,8 @@
 #include "cyrt/cyrt.hpp"
 
-namespace cyrt
+using namespace cyrt;
+
+extern "C"
 {
   #define NAME appendFile
   #include "cyrt/not_used.def"
@@ -21,6 +23,9 @@ namespace cyrt
   #include "cyrt/not_used.def"
 
   #define NAME readFile
+  #include "cyrt/not_used.def"
+
+  #define NAME readFileContents
   #include "cyrt/not_used.def"
 
   #define NAME returnIO

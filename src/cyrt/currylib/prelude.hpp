@@ -1,8 +1,108 @@
 #pragma once
 #include "cyrt/builtins.hpp"
 
-namespace cyrt
+// prelude/apply.cpp
+#define apply_Info              CyI7Prelude5apply
+#define applygnf_Info           CyI7Prelude6_D_h_h    // ($##)
+#define applyhnf_Info           CyI7Prelude4_D_B      // ($!)
+#define applynf_Info            CyI7Prelude6_D_B_B    // ($!!)
+#define cond_Info               CyI7Prelude4cond
+#define ensureNotFree_Info      CyI7Prelude13ensureNotFree
+
+// prelude/basic.cpp
+#define choice_Info             CyI7Prelude2_u        // (?)
+#define error_Info              CyI7Prelude11prim__error
+#define failed_Info             CyI7Prelude6failed
+#define notused_Info            CyI7Prelude7notused
+
+// prelude/constr.cpp
+#define concurrentAnd_Info      CyI7Prelude2_M        // (&)
+#define constrEq_Info           CyI7Prelude8constrEq
+#define nonstrictEq_Info        CyI7Prelude11nonstrictEq
+#define seq_Info                CyI7Prelude3seq
+
+// prelude/io.cpp
+#define appendFile_Info         CyI7Prelude16prim__appendFile
+#define bindIO_Info             CyI7Prelude6bindIO
+#define catch_Info              CyI7Prelude5catch
+#define getChar_Info            CyI7Prelude7getChar
+#define ioError_Info            CyI7Prelude13prim__ioError
+#define putChar_Info            CyI7Prelude13prim__putChar
+#define readFile_Info           CyI7Prelude14prim__readFile
+#define readFileContents_Info   CyI7Prelude22prim__readFileContents
+#define returnIO_Info           CyI7Prelude8returnIO
+#define seqIO_Info              CyI7Prelude5seqIO
+#define writeFile_Info          CyI7Prelude15prim__writeFile
+
+// prelude/math.cpp
+#define acosFloat_Info          CyI7Prelude15prim__acosFloat
+#define acoshFloat_Info         CyI7Prelude16prim__acoshFloat
+#define asinFloat_Info          CyI7Prelude15prim__asinFloat
+#define asinhFloat_Info         CyI7Prelude16prim__asinhFloat
+#define atanFloat_Info          CyI7Prelude15prim__atanFloat
+#define atanhFloat_Info         CyI7Prelude16prim__atanhFloat
+#define cosFloat_Info           CyI7Prelude14prim__cosFloat
+#define coshFloat_Info          CyI7Prelude15prim__coshFloat
+#define divFloat_Info           CyI7Prelude14prim__divFloat
+#define divInt_Info             CyI7Prelude6divInt
+#define eqChar_Info             CyI7Prelude6eqChar
+#define eqFloat_Info            CyI7Prelude7eqFloat
+#define eqInt_Info              CyI7Prelude5eqInt
+#define expFloat_Info           CyI7Prelude14prim__expFloat
+#define intToFloat_Info         CyI7Prelude16prim__intToFloat
+#define logFloat_Info           CyI7Prelude14prim__logFloat
+#define ltEqChar_Info           CyI7Prelude8ltEqChar
+#define ltEqFloat_Info          CyI7Prelude9ltEqFloat
+#define ltEqInt_Info            CyI7Prelude7ltEqInt
+#define minusFloat_Info         CyI7Prelude16prim__minusFloat
+#define minusInt_Info           CyI7Prelude8minusInt
+#define modInt_Info             CyI7Prelude6modInt
+#define negateFloat_Info        CyI7Prelude11negateFloat
+#define plusFloat_Info          CyI7Prelude15prim__plusFloat
+#define plusInt_Info            CyI7Prelude7plusInt
+#define quotInt_Info            CyI7Prelude7quotInt
+#define remInt_Info             CyI7Prelude6remInt
+#define roundFloat_Info         CyI7Prelude16prim__roundFloat
+#define sinFloat_Info           CyI7Prelude14prim__sinFloat
+#define sinhFloat_Info          CyI7Prelude15prim__sinhFloat
+#define sqrtFloat_Info          CyI7Prelude15prim__sqrtFloat
+#define tanFloat_Info           CyI7Prelude14prim__tanFloat
+#define tanhFloat_Info          CyI7Prelude15prim__tanhFloat
+#define timesFloat_Info         CyI7Prelude16prim__timesFloat
+#define timesInt_Info           CyI7Prelude8timesInt
+#define truncateFloat_Info      CyI7Prelude19prim__truncateFloat
+
+// prelude/read.cpp
+#define readCharLiteral_Info    CyI7Prelude21prim__readCharLiteral
+#define readFloatLiteral_Info   CyI7Prelude22prim__readFloatLiteral
+#define readNatLiteral_Info     CyI7Prelude20prim__readNatLiteral
+#define readStringLiteral_Info  CyI7Prelude23prim__readStringLiteral
+
+// prelude/show.cpp
+#define showCharLiteral_Info    CyI7Prelude21prim__showCharLiteral
+#define showFloatLiteral_Info   CyI7Prelude22prim__showFloatLiteral
+#define showIntLiteral_Info     CyI7Prelude20prim__showIntLiteral
+#define showStringLiteral_Info  CyI7Prelude23prim__showStringLiteral
+
+// prelude/string.cpp
+#define _PyGenerator_Info       CyI7Prelude13__PyGenerator
+#define _PyString_Info          CyI7Prelude10__PyString
+#define chr_Info                CyI7Prelude9prim__chr
+#define ord_Info                CyI7Prelude9prim__ord
+
+// prelude/testing.cpp -- OK TO REMOVE
+#define not_Info                CyI7Prelude3not
+
+// prelude/unused.cpp
+#define failure_Info            CyI7Prelude7failure
+#define ifVar_Info              CyI7Prelude5ifVar
+#define letrec_Info             CyI7Prelude6letrec
+#define unifEqLinear_Info       CyI7Prelude12unifEqLinear
+
+extern "C"
 {
+  using namespace cyrt;
+
   // prelude/apply.cpp
   extern InfoTable const apply_Info;
   extern InfoTable const applygnf_Info;
@@ -31,6 +131,7 @@ namespace cyrt
   extern InfoTable const ioError_Info;
   extern InfoTable const putChar_Info;
   extern InfoTable const readFile_Info;
+  extern InfoTable const readFileContents_Info;
   extern InfoTable const returnIO_Info;
   extern InfoTable const seqIO_Info;
   extern InfoTable const writeFile_Info;
@@ -93,4 +194,10 @@ namespace cyrt
 
   // prelude/testing.cpp -- OK TO REMOVE
   extern InfoTable const not_Info;
+
+  // prelude/unused.cpp
+  extern InfoTable const failure_Info;
+  extern InfoTable const ifVar_Info;
+  extern InfoTable const letrec_Info;
+  extern InfoTable const unifEqLinear_Info;
 }

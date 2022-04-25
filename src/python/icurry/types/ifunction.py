@@ -14,7 +14,7 @@ class IFunction(ISymbol):
   def __init__(self, fullname, arity, vis=None, needed=None, body=None, **kwds):
     ISymbol.__init__(self, fullname, **kwds)
     self.arity = IArity(arity)
-    self.vis = PUBLIC if vis is None else vis
+    self.vis = PUBLIC if vis is None else IVisibility.cast(vis)
     # None means no info; [] means nothing needed.
     self.needed = None if needed is None else list(map(int, needed))
     assert body is not None
@@ -55,7 +55,14 @@ PRIVATE = Private()
 
 
 class IVisibility(six.with_metaclass(abc.ABCMeta, IObject)):
-  pass
+  @staticmethod
+  def cast(arg):
+    if isinstance(arg, IVisibility):
+      return arg
+    elif(arg):
+      return PUBLIC
+    else:
+      return PRIVATE
 IVisibility.register(Public)
 IVisibility.register(Private)
 

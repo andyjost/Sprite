@@ -5,6 +5,8 @@
 #include "cyrt/inspect.hpp"
 #include "cyrt/state/rts.hpp"
 
+using namespace cyrt;
+
 namespace cyrt { inline namespace
 {
   tag_type allValues_step(RuntimeState * rts, Configuration * C)
@@ -183,7 +185,7 @@ namespace cyrt { inline namespace
   }
 }}
 
-namespace cyrt
+extern "C"
 {
   InfoTable const allValues_Info {
       /*tag*/        T_FUNC

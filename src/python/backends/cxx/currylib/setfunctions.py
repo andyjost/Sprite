@@ -1,12 +1,16 @@
+from ...generic.currylib.setfunctions import SetFunctionsSpecification
+
+
+
 # from ....common import T_CHOICE, LEFT, RIGHT
 # from copy import copy
 # from ..eval import fairscheme
-from ...generic.currylib import setfunctions as generic_setfunctions
+## from ...generic.currylib import setfunctions as generic_setfunctions
 # from ...generic.eval.control import E_UNWIND
 # from .. import graph
 # from .... import inspect
 
-SetFunctionsSpecification = generic_setfunctions.SetFunctionsSpecification
+## SetFunctionsSpecification = generic_setfunctions.SetFunctionsSpecification
 
 # NO_SID = -1            # an undetermined set ID.
 # ENCAPSULATED_EXPR = -1 # indicates a partialS is an encapsulated expression.

@@ -1,6 +1,8 @@
 #include "cyrt/cyrt.hpp"
 
-namespace cyrt
+using namespace cyrt;
+
+extern "C"
 {
   #define NAME choice
   #include "cyrt/not_used.def"

@@ -1,6 +1,8 @@
 #include <cassert>
 #include "cyrt/cyrt.hpp"
 
+using namespace cyrt;
+
 namespace cyrt { inline namespace
 {
   bool ub_equals(Cursor & lhs, Cursor & rhs)
@@ -192,7 +194,8 @@ namespace cyrt { inline namespace
   }
 }}
 
-namespace cyrt
+// namespace cyrt
+extern "C"
 {
   InfoTable const concurrentAnd_Info {
       /*tag*/        T_FUNC
@@ -238,3 +241,4 @@ namespace cyrt
     , /*type*/       nullptr
     };
 }
+

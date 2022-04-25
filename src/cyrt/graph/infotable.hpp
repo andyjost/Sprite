@@ -21,7 +21,7 @@ namespace cyrt
   static flag_type constexpr F_STATIC_OBJECT = 0x40; // bitwise
 
   // Note: the head must remain bitwise-compatible with ValueSet.
-  struct Type 
+  struct Type
   {
     InfoTable const * const * ctors;
     index_type size;

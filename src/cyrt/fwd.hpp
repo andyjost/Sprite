@@ -3,6 +3,7 @@
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
 #include <vector>
 
 namespace cyrt
@@ -23,6 +24,7 @@ namespace cyrt
   struct Variable;
   union Arg;
 
+  enum Visibility : bool { PUBLIC = true, PRIVATE = false };
   enum TraceOpt : bool { TRACE = true, NOTRACE = false };
   enum SetFStrategy { SETF_EAGER, SETF_LAZY };
   using tag_type = int16_t;
@@ -38,6 +40,8 @@ namespace cyrt
   using unboxed_int_type = int64_t;
   using unboxed_ptr_type = void *;
   using xid_type = size_t;
+  using MDValue     = std::variant<std::string, int, bool>;
+  using Metadata    = std::unordered_map<std::string, MDValue>;
 
   struct Head { InfoTable const * info; };
 

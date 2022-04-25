@@ -1,18 +1,19 @@
+
 #include "cyrt/cyrt.hpp"
 
 using namespace cyrt;
 
 extern "C"
 {
-  #define NAME _PyGenerator
+  #define NAME failure
   #include "cyrt/not_used.def"
 
-  #define NAME _PyString
+  #define NAME ifVar
   #include "cyrt/not_used.def"
 
-  #define NAME chr
+  #define NAME letrec
   #include "cyrt/not_used.def"
 
-  #define NAME ord
+  #define NAME unifEqLinear
   #include "cyrt/not_used.def"
 }

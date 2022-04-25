@@ -28,9 +28,9 @@ class TestPyRuntime(cytest.TestCase):
     '''Tests to improve line coverage.'''
     interp = interpreter.Interpreter()
     prelude = interp.prelude
-    self.assertEqual(prelude.prim_negateFloat.name, 'prim_negateFloat')
-    self.assertEqual(str(prelude.prim_negateFloat.info), "Info for 'prim_negateFloat'")
-    self.assertTrue(repr(prelude.prim_negateFloat.info).startswith('InfoTable'))
+    self.assertEqual(prelude.head.name, 'head')
+    self.assertEqual(str(prelude.head.info), "Info for 'head'")
+    self.assertTrue(repr(prelude.head.info).startswith('InfoTable'))
 
     n = Node(getattr(prelude, '()').info)
     self.assertRaisesRegex(curry.CurryIndexError, r"not 'str'", lambda: n['foo'])

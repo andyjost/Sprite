@@ -1,6 +1,8 @@
 #include "cyrt/cyrt.hpp"
 #include "cyrt/graph/walk.hpp"
 
+using namespace cyrt;
+
 namespace cyrt { inline namespace
 {
   tag_type cond_step(RuntimeState * rts, Configuration * C)
@@ -103,7 +105,7 @@ namespace cyrt { inline namespace
   }
 }}
 
-namespace cyrt
+extern "C"
 {
   InfoTable const apply_Info {
       /*tag*/        T_FUNC

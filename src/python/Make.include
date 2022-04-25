@@ -1,9 +1,6 @@
 .SECONDEXPANSION:
 # Compilation
 # ===========
-# CFLAGS  += -I$(PYTHON_INCLUDE_PATH)
-# LDFLAGS += -L $(OBJECT_ROOT)/cyrt -lcyrt -L $(PYTHON_LIBRARY_PATH) -l$(PYTHON_LIBRARY) -L $(BOOST_HOME)/lib -lboost_python
-# LDFLAGS += -L $(OBJECT_ROOT)/cyrt -lcyrt -l$(PYTHON_LIBRARY) -l$(BOOST_PYTHON_LIBRARY)
 LDFLAGS += -L $(OBJECT_ROOT)/cyrt -lcyrt -l$(PYTHON_LIBRARY)
 
 # In this Python library, each subdirectory is a submodule that creates exactly

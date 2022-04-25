@@ -12,4 +12,9 @@ namespace cyrt
   {
     using std::logic_error::logic_error;
   };
+
+  struct DynloadError : std::runtime_error
+  {
+    using std::runtime_error::runtime_error;
+  };
 }

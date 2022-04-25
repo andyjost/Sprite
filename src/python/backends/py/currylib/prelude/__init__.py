@@ -59,7 +59,7 @@ FUNCTION_METADATA = {
     , 'prim_atanFloat'        : {'py.unboxedfunc': math.atan               }
     , 'prim_atanhFloat'       : {'py.unboxedfunc': math.atanh              }
     , 'prim_chr'              : {'py.unboxedfunc': chr                     }
-    , 'prim_constrEq'         : {'py.rawfunc'    : impl.constr_eq          }
+    # , 'prim_constrEq'         : {'py.rawfunc'    : impl.constr_eq          }
     , 'prim_cosFloat'         : {'py.unboxedfunc': math.cos                }
     , 'prim_coshFloat'        : {'py.unboxedfunc': math.cosh               }
     , 'prim_divFloat'         : {'py.unboxedfunc': impl.prim_divFloat      }
@@ -69,7 +69,7 @@ FUNCTION_METADATA = {
     , 'prim_ioError'          : {'py.rawfunc'    : impl.ioError            }
     , 'prim_logFloat'         : {'py.unboxedfunc': math.log                }
     , 'prim_minusFloat'       : {'py.unboxedfunc': impl.prim_minusFloat    }
-    , 'prim_nonstrictEq'      : {'py.rawfunc'    : impl.nonstrict_eq       }
+    # , 'prim_nonstrictEq'      : {'py.rawfunc'    : impl.nonstrict_eq       }
     , 'prim_ord'              : {'py.unboxedfunc': ord                     }
     , 'prim_plusFloat'        : {'py.unboxedfunc': op.add                  }
     , 'prim_putChar'          : {'py.boxedfunc'  : impl.putChar            }
@@ -100,21 +100,7 @@ FUNCTION_METADATA = {
     , 'failure'               : {'py.rawfunc'    : impl.not_used           }
     , 'ifVar'                 : {'py.rawfunc'    : impl.not_used           }
     , 'letrec'                : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_divInt'           : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_eqChar'           : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_eqFloat'          : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_eqInt'            : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_ltEqChar'         : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_ltEqFloat'        : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_ltEqInt'          : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_minusInt'         : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_modInt'           : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_negateFloat'      : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_plusInt'          : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_quotInt'          : {'py.rawfunc'    : impl.not_used           }
     , 'prim_readFileContents' : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_remInt'           : {'py.rawfunc'    : impl.not_used           }
-    , 'prim_timesInt'         : {'py.rawfunc'    : impl.not_used           }
     , 'unifEqLinear'          : {'py.rawfunc'    : impl.not_used           }
     }
 

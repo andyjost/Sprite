@@ -12,17 +12,19 @@ def compile(interp, imodule):
 
 class CxxCompiler(compiler.CompilerBase):
   CODE_TYPE = 'C++'
-  EXCLUDED_METADATA = set(['cxx.material', 'cxx.symbolname'])
+  # EXCLUDED_METADATA = set(['cxx.material', 'cxx.symbolname'])
+  EXCLUDED_METADATA = set(['cxx.material'])
 
-  def vGetSymbolName(self, iobj, kind):
-    alias = iobj.metadata.get('cxx.symbolname', None)
-    if alias:
-      return alias
-    else:
-      return super(CxxCompiler, self).vGetSymbolName(iobj, kind)
+  # def vGetSymbolName(self, iobj, kind):
+  #   alias = iobj.metadata.get('cxx.symbolname', None)
+  #   if alias:
+  #     return alias
+  #   else:
+  #     return super(CxxCompiler, self).vGetSymbolName(iobj, kind)
 
   def vIsBuiltin(self, ifun):
-    return 'cxx.symbolname' in ifun.metadata
+    return ifun.is_builtin
+    # return 'cxx.symbolname' in ifun.metadata
 
   def vIsSynthesized(self, ifun):
     return False
@@ -34,9 +36,11 @@ class CxxCompiler(compiler.CompilerBase):
     yield '#include "cyrt/cyrt.hpp"'
     yield ''
     yield 'using namespace cyrt;'
+    yield ''
+    yield 'extern "C" {'
 
   def vEmitFooter(self):
-    return []
+    yield '} // extern "C"'
 
   def vEmitImported(self, modulename):
     yield '// TODO imported modules'
@@ -97,8 +101,9 @@ class CxxCompiler(compiler.CompilerBase):
         h_ctortable, ', '.join('&%s' % h for h in ctor_handles)
       )
     self.symtab.make_defined(h_ctortable)
-    yield 'Type const %s { %s, %r, %r, F_STATIC_OBJECT };' % (
+    yield 'Type const %s { %s, %r, %r, F_STATIC_OBJECT, %s };' % (
         h_datatype, h_ctortable, 't', len(itype.constructors)
+      , _dquote(itype.name)
       )
     yield ''
 
@@ -117,7 +122,7 @@ class CxxCompiler(compiler.CompilerBase):
     cxx = renderer.PY_RENDERER
     def _close(level, string):
       return (2 * level + 1) * cxx.INDENT * ' ' + string
-    yield 'static ModuleSomething const %s(' % h_module
+    yield 'static ModuleBOM const %s{' % h_module
     yield '    /*fullname */ %s' % _dquote(imodule.fullname)
     yield '  , /*filename */ %s' % _dquote(imodule.filename)
     yield '  , /*imports  */ %s' % _cxxshow(imodule.imports)
@@ -150,7 +155,8 @@ class CxxCompiler(compiler.CompilerBase):
         h_md = self.internMetadata(ifun.metadata)
         yield '%s{%s, &%s, &%s}' % (prefix, vis, h_md, h_info)
       yield _close(1, '}')
-    yield '  );'
+    yield _close(0, '};')
+    yield 'ModuleBOM const * _bom_ = &%s;' % h_module
 
   def vEmitModuleImport(self, imodule, h_module):
     yield '// TODO: vEmitModuleImport'
@@ -248,6 +254,10 @@ def _dquote(string):
   string_data = strings.ensure_str(string)
   return json.dumps(string_data)
 
+class FooError(RuntimeError):
+  def __init__(self, obj):
+    self.obj = obj
+
 @visitation.dispatch.on('arg')
 def _cxxshow(arg):
   assert False
@@ -270,7 +280,7 @@ def _cxxshow(mapping):
       '{%s, %s}' % (_cxxshow(k), _cxxshow(v)) for k,v in mapping.items()
     )
 
-@_cxxshow.when(collections.Sequence)
+@_cxxshow.when(collections.Sequence, no=six.string_types)
 def _cxxshow(sequence):
   return '{%s}' % ', '.join(_cxxshow(part) for part in sequence)
 

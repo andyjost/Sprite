@@ -13,18 +13,20 @@ class TestMake(cytest.TestCase):
   '''Tests for the make-like features to generate ICurry and JSON.'''
 
   def test_filename_funcs(self):
-    '''
-    It should be possible to derive any intermediate file name from any .curry, .icy,
-    or .json file, with or without an additional .gz extension.
-    '''
+    '''Checks derivation of intermediate file names.'''
     prefixes = ['', '/path/to', 'a/b', '.', '..']
     for prefix in prefixes:
       curry_file = os.path.join(prefix, 'foo.curry')
-      icy_file = os.path.join(prefix, SUBDIR, 'foo.icy')
-      json_file = os.path.join(prefix, SUBDIR, 'foo.json')
-      json_files = [json_file, json_file + '.z']
-      files = [curry_file, icy_file, json_file]
-      files += [name + '.z' for name in files]
+      icy_file   = os.path.join(prefix, SUBDIR, 'foo.icy')
+      json_file  = os.path.join(prefix, SUBDIR, 'foo.json')
+      jsonz_file = os.path.join(prefix, SUBDIR, 'foo.json.z')
+      py_file    = os.path.join(prefix, SUBDIR, 'foo.py')
+      cpp_file   = os.path.join(prefix, SUBDIR, 'foo.cpp')
+      so_file    = os.path.join(prefix, SUBDIR, 'foo.so')
+      files = [
+          curry_file, icy_file, json_file, jsonz_file, py_file, cpp_file, so_file
+        ]
+      json_files = [json_file, jsonz_file]
       for file_ in files:
         self.assertEqual(toolchain.curryfilename(file_), curry_file)
         self.assertEqual(toolchain.icurryfilename(file_), icy_file)

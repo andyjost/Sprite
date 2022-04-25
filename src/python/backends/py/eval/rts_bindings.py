@@ -50,7 +50,7 @@ def apply_binding(rts, arg=None, config=None):
     config.root = graph.Node(
         getattr(rts.prelude, '&>')
       , graph.Node(
-            rts.prelude.prim_nonstrictEq
+            rts.prelude.nonstrictEq
           , rts.get_generator(arg, config=config)
           , rts.get_binding(arg, config=config)
           )

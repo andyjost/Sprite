@@ -2,6 +2,11 @@ import contextlib, sys
 
 __all__ = ['formatDocstring', 'maxrecursion', 'translateKwds', 'unique']
 
+# The recursive-descent processing of ICurry necessitates a larger recursion
+# limit.  If it is see too large, true infinite recursion may cause a SEGV
+# (depending on the process stack limit).  This value should be a compromise.
+MAX_RECURSION_LIMIT = 1<<14
+
 def formatDocstring(*args, **kwds):
   def decorator(arg):
     if isinstance(arg, type):
@@ -17,7 +22,7 @@ def formatDocstring(*args, **kwds):
   return decorator
 
 @contextlib.contextmanager
-def maxrecursion(limit=1<<30):
+def maxrecursion(limit=MAX_RECURSION_LIMIT):
   prevlimit = sys.getrecursionlimit()
   try:
     sys.setrecursionlimit(limit)

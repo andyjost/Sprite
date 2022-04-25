@@ -420,9 +420,12 @@ class CompilerBase(abc.ABC):
       self.compileEx(ifun)
     h_module = self.vGetSymbolName(imodule, MODULE_DEF)
     self.symtab.insert(h_module, MODULE_DEF, 'module %r' % imodule.fullname)
-    self.target_object['.moduledef'].extend(
-        self.vEmitModuleDefinition(imodule, h_module)
-      )
+    try:
+      self.target_object['.moduledef'].extend(
+          self.vEmitModuleDefinition(imodule, h_module)
+        )
+    except (RecursionError, AssertionError, RuntimeError) as err:
+      pdbtrace()
     self.symtab.make_defined(h_module)
     self.target_object['.moduleimp'].extend(
         self.vEmitModuleImport(imodule, h_module)
