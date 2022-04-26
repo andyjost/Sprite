@@ -31,13 +31,6 @@ def loadSymbols(interp, mapping, moduleobj, **kwds):
 
 @loadSymbols.when(icurry.IModule)
 def loadSymbols(interp, imodule, moduleobj, **kwds):
-  if imodule.imports:
-    logger.info(
-        'Processing imports for Curry module %r: %r'
-      , imodule.name, imodule.imports
-      )
-  for modulename in imodule.imports:
-    interp.import_(modulename)
   interp.optimize(imodule)
   loadSymbols(interp, imodule.types, moduleobj, **kwds)
   loadSymbols(interp, imodule.functions, moduleobj, **kwds)

@@ -120,6 +120,13 @@ class ImportEx(object):
       toolchain.mergebuiltins(imodule, self.interp.backend)
       toolchain.validatemodule(imodule)
       with _provisionalModule(self.interp, imodule) as moduleobj:
+        if imodule.imports:
+          logger.info(
+              'Processing imports for Curry module %r: %r'
+            , imodule.name, imodule.imports
+            )
+        for modulename in imodule.imports:
+          self.interp.import_(modulename)
         load.loadSymbols(self.interp, imodule, moduleobj)
         for name, target in six.iteritems(imodule.aliases):
           if hasattr(moduleobj, name):
