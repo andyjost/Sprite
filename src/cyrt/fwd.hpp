@@ -10,6 +10,7 @@ namespace cyrt
 {
   struct Configuration;
   struct Cursor;
+  struct DataType;
   struct Expr;
   struct Fingerprint;
   struct InfoTable;
@@ -19,7 +20,6 @@ namespace cyrt
   struct Queue;
   struct RuntimeState;
   struct Set;
-  struct Type;
   struct UnionFind;
   struct Variable;
   union Arg;

@@ -241,37 +241,37 @@ namespace cyrt
   Node * Unit = &Unit_Node_;
 
   static InfoTable const * Bool_Ctors[] = { &False_Info, &True_Info };
-  Type const Bool_Type { Bool_Ctors, 2, 't', F_STATIC_OBJECT, "Bool" };
+  DataType const Bool_Type { Bool_Ctors, 2, 't', F_STATIC_OBJECT, "Bool" };
 
   static InfoTable const * Char_Ctors[] = { &Char_Info };
-  Type const Char_Type { Char_Ctors, 1, 't', F_STATIC_OBJECT, "Char" };
+  DataType const Char_Type { Char_Ctors, 1, 't', F_STATIC_OBJECT, "Char" };
 
   static InfoTable const * CString_Ctors[] = { &CString_Info };
-  Type const CString_Type { CString_Ctors, 1, 't', F_STATIC_OBJECT, "CString" };
+  DataType const CString_Type { CString_Ctors, 1, 't', F_STATIC_OBJECT, "CString" };
 
   static InfoTable const * Float_Ctors[] = { &Float_Info };
-  Type const Float_Type { Float_Ctors, 1, 't', F_STATIC_OBJECT, "Float" };
+  DataType const Float_Type { Float_Ctors, 1, 't', F_STATIC_OBJECT, "Float" };
 
   static InfoTable const * IO_Ctors[] = { &IO_Info };
-  Type const IO_Type { IO_Ctors, 1, 't', F_STATIC_OBJECT, "IO" };
+  DataType const IO_Type { IO_Ctors, 1, 't', F_STATIC_OBJECT, "IO" };
 
   static InfoTable const * Int_Ctors[] = { &Int_Info };
-  Type const Int_Type { Int_Ctors, 1, 't', F_STATIC_OBJECT, "Int" };
+  DataType const Int_Type { Int_Ctors, 1, 't', F_STATIC_OBJECT, "Int" };
 
   static InfoTable const * List_Ctors[] = { &Cons_Info, &Nil_Info };
-  Type const List_Type { List_Ctors, 2, 't', F_STATIC_OBJECT, "[]" };
+  DataType const List_Type { List_Ctors, 2, 't', F_STATIC_OBJECT, "[]" };
 
   static InfoTable const * Pair_Ctors[] = { &Pair_Info };
-  Type const Pair_Type { Pair_Ctors, 1, 't', F_STATIC_OBJECT, "(,)" };
+  DataType const Pair_Type { Pair_Ctors, 1, 't', F_STATIC_OBJECT, "(,)" };
 
   static InfoTable const * PartApplic_Ctors[] = { &PartApplic_Info };
-  Type const PartApplic_Type { PartApplic_Ctors, 1, 't', F_STATIC_OBJECT, "PartApplic" };
+  DataType const PartApplic_Type { PartApplic_Ctors, 1, 't', F_STATIC_OBJECT, "PartApplic" };
 
   static InfoTable const * SetGuard_Ctors[] = { &SetGuard_Info };
-  Type const SetGuard_Type { SetGuard_Ctors, 1, 't', F_STATIC_OBJECT, "SetGuard" };
+  DataType const SetGuard_Type { SetGuard_Ctors, 1, 't', F_STATIC_OBJECT, "SetGuard" };
 
   static InfoTable const * Unit_Ctors[] = { &Unit_Info };
-  Type const Unit_Type { Unit_Ctors, 1, 't', F_STATIC_OBJECT, "()" };
+  DataType const Unit_Type { Unit_Ctors, 1, 't', F_STATIC_OBJECT, "()" };
 
   InfoTable const * builtin_info(char kind)
   {

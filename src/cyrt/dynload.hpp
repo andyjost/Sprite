@@ -2,9 +2,8 @@
 #include "cyrt/fwd.hpp"
 #include "cyrt/graph/infotable.hpp"
 #include <map>
-#include <vector>
 #include <memory>
-#include <dlfcn.h>
+#include <vector>
 
 namespace cyrt
 {
@@ -12,7 +11,9 @@ namespace cyrt
   {
     using Imports            = std::vector<std::string>;
     using Aliases            = std::map<std::string, std::string>;
-    using TypeDefinition     = std::tuple<Metadata const *, std::vector<Metadata const*>, Type const *>;
+    using TypeDefinition     = std::tuple<
+        Metadata const *, std::vector<Metadata const*>, DataType const *
+      >;
     using Types              = std::vector<TypeDefinition>;
     using FunctionDefinition = std::tuple<bool, Metadata const *, InfoTable const *>;
     using Functions          = std::vector<FunctionDefinition>;
@@ -34,8 +35,6 @@ namespace cyrt
   private:
     using Handle = std::shared_ptr<void>;
     Handle _handle;
-  public:
-    std::string const name;
   };
 
   struct SharedCurryModule : SharedLib

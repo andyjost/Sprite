@@ -2,15 +2,14 @@ from .. import config, exceptions, icurry, inspect, utility
 from ..utility.binding import binding
 from ..utility.strings import ensure_str
 from ..objects import handle
-import logging, os, runpy, six
+import logging, os, six
 from six.moves import cStringIO as StringIO
 
 logger = logging.getLogger(__name__)
 
 __all__ = ['load', 'save']
 
-@utility.formatDocstring(config.python_package_name())
-def load(interp, name):
+def load(interp, filename):
   '''
   Loads a Curry module saved with :func:`save`.
 
@@ -18,27 +17,28 @@ def load(interp, name):
   module is added to the interpreter's ``modules`` dict.
 
   Args:
-    name:
-      An importable Python module name or a path to a Python file.  If this
-      ends with ``.py``, it is assumed to be a file name.  If a module name is
-      given, ``sys.path`` (as opposed to ``{0}.path``) is searched.
+    filename:
+      The path to a file to load.  The file type and suffix must match the
+      interpreter.
 
   Returns:
     A :class:`CurryModule <{0}.objects.CurryModule>`.
   '''
-  logger.info('Loading %r', name)
-  globals_ = {'interp':interp}
-  if name.endswith('.py'):
-    pymodule = runpy.run_path(name, init_globals=globals_)
-    cymodule = pymodule['_module_']
-  else:
-    pymodule = __import__(name, globals=globals_)
-    cymodule = pymodule._module_
+  logger.info('Loading %r', filename)
+  be = interp.backend
+  if not filename.endswith(be.object_file_extension):
+    raise exceptions.PrerequisiteError(
+        'Cannot load %r into the %r backend.  Expecting extension %r.'
+            % (filename, be.backend_name, be.object_file_extension)
+      )
+  cymodule = be.load_module(interp, filename)
   if logger.isEnabledFor(logging.INFO):
     h = handle.getHandle(cymodule)
     logger.info(
-        'Loaded Curry module %r from %r (%r types, %r symbols)'
-      , h.fullname, name, len(h.types), len(h.symbols)
+        'Loaded Curry module %r from %r (%r type%s, %r symbol%s)'
+      , h.fullname, filename
+      , len(h.types), '' if len(h.types) == 1 else 's'
+      , len(h.symbols), '' if len(h.symbols) == 1 else 's'
       )
   return cymodule
 
@@ -77,8 +77,10 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
   h = handle.getHandle(interp.import_(icy))
   if logger.isEnabledFor(logging.INFO):
     logger.info(
-        'Saving Curry module %r to %r (%r types, %r symbols)'
-      , icy.fullname, filename or '<string>', len(h.types), len(h.symbols)
+        'Saving Curry module %r to %r (%r type%s, %r symbol%s)'
+      , icy.fullname, filename or '<string>'
+      , len(h.types), '' if len(h.types) == 1 else 's'
+      , len(h.symbols), '' if len(h.symbols) == 1 else 's'
       )
   be = interp.backend
   target_object = be.compile(interp, h.icurry)

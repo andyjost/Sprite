@@ -3,6 +3,7 @@
 #include "cyrt/exceptions.hpp"
 #include <iostream>
 #include <sstream>
+#include <dlfcn.h>
 
 namespace
 {
@@ -27,7 +28,7 @@ namespace
 
 namespace cyrt
 {
-  SharedLib::SharedLib(std::string const & sofile) : name(sofile)
+  SharedLib::SharedLib(std::string const & sofile)
   {
     void * handle = dlopen(sofile.c_str(), RTLD_LAZY | RTLD_GLOBAL);
     if(!handle)

@@ -17,6 +17,7 @@ namespace cyrt { namespace python
       .def("get_type", &Module::get_type, reference)
       .def("get_builtin_symbol", &Module::get_builtin_symbol, reference)
       .def("get_builtin_type", &Module::get_builtin_type, reference)
+      .def("link", &Module::link)
       .def_readonly("name", &Module::name)
       .def_static("find_or_create", &Module::find_or_create)
       .def_static("getall", &Module::getall)

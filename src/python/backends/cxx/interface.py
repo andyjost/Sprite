@@ -1,5 +1,6 @@
 from ... import backends
-from . import compiler, cyrtbindings, materialize, toolchain
+from ...objects.handle import getHandle
+from . import compiler, cyrtbindings, loader, materialize, toolchain
 
 class IBackend(backends.IBackend):
   @property
@@ -25,14 +26,21 @@ class IBackend(backends.IBackend):
     interp._its = cyrtbindings.InterpreterState()
 
   def find_or_create_internal_module(self, moduleobj):
-    return cyrtbindings.Module.find_or_create(moduleobj.__name__)
+    h = getHandle(moduleobj)
+    M = cyrtbindings.Module.find_or_create(h.fullname)
+    M.link(h.icurry.metadata.get('cxx.shlib'))
+    return M
+
+  @property
+  def load_module(self):
+    return loader.load_module
 
   def lookup_builtin_module(self, modulename):
     if modulename == 'Prelude':
-      from ..cxx.currylib import prelude
+      from ..generic.currylib import prelude
       return prelude.PreludeSpecification()
     elif modulename == 'Control.SetFunctions':
-      from ..cxx.currylib import setfunctions
+      from ..generic.currylib import setfunctions
       return setfunctions.SetFunctionsSpecification()
 
   @property
@@ -42,6 +50,10 @@ class IBackend(backends.IBackend):
   @property
   def materialize(self):
     return materialize.materialize
+
+  @property
+  def object_file_extension(self):
+    return '.so'
 
   @property
   def single_step(self):

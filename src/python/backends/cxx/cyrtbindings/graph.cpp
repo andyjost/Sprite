@@ -55,16 +55,16 @@ namespace cyrt { namespace python
       .def_static("create", &Node_create, reference)
       ;
 
-    py::class_<Type>(mod, "Type")
+    py::class_<DataType>(mod, "DataType")
       .def_property_readonly(
           "constructors"
-        , [](Type const & self)
+        , [](DataType const & self)
               { return std::vector(self.ctors, self.ctors+self.size); }
         )
-      .def_readonly("flags", &Type::flags)
-      .def_readonly("kind", &Type::kind)
-      .def_readonly("name", &Type::name)
-      .def_readonly("size", &Type::size)
+      .def_readonly("flags", &DataType::flags)
+      .def_readonly("kind", &DataType::kind)
+      .def_readonly("name", &DataType::name)
+      .def_readonly("size", &DataType::size)
       ;
   }
 }}

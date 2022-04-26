@@ -28,9 +28,9 @@ using namespace cyrt;
 
 extern "C"
 {
-  extern Type const PartialS_Type;
-  extern Type const SetEval_Type;
-  extern Type const Values_Type;
+  extern DataType const PartialS_Type;
+  extern DataType const SetEval_Type;
+  extern DataType const Values_Type;
 
   extern InfoTable const allValues_Info;
   extern InfoTable const applyS_Info;

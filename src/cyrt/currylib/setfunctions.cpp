@@ -386,11 +386,11 @@ extern "C"
     };
 
   static InfoTable const * PartialS_Ctors[] = { &PartialS_Info };
-  Type const PartialS_Type { PartialS_Ctors, 1, 't', F_STATIC_OBJECT, "PartialS" };
+  DataType const PartialS_Type { PartialS_Ctors, 1, 't', F_STATIC_OBJECT, "PartialS" };
 
   static InfoTable const * SetEval_Ctors[] = { &SetEval_Info };
-  Type const SetEval_Type { SetEval_Ctors, 1, 't', F_STATIC_OBJECT, "SetEval" };
+  DataType const SetEval_Type { SetEval_Ctors, 1, 't', F_STATIC_OBJECT, "SetEval" };
 
   static InfoTable const * Values_Ctors[] = { &Values_Info };
-  Type const Values_Type { Values_Ctors, 1, 't', F_STATIC_OBJECT, "Values" };
+  DataType const Values_Type { Values_Ctors, 1, 't', F_STATIC_OBJECT, "Values" };
 }

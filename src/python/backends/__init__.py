@@ -65,6 +65,11 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     '''Initializes an interpreter with the runtime-specific state.'''
     assert 0
 
+  @abc.abstractproperty
+  def load_module(self):
+    '''Load the contents of a Curry module.'''
+    assert 0
+
   @abc.abstractmethod
   def lookup_builtin_module(self, modulename):
     '''Looks up the implementation for a built-in module.'''
@@ -76,6 +81,10 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
 
   @abc.abstractproperty
   def materialize(self):
+    assert 0
+
+  @abc.abstractproperty
+  def object_file_extension(self):
     assert 0
 
   @abc.abstractproperty

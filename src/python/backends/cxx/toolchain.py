@@ -24,6 +24,7 @@ class Cpp2So(object):
   @_system.updateCheck
   def __call__(self, file_in, currypath, **ignored):
     file_out = _filenames.replacesuffix(file_in, '.so')
+    logger.info('Compiling %r', file_out)
     def compile_command():
       yield config.cxx_tool()
       yield '-I%s' % config.installed_path('include')

@@ -6,11 +6,12 @@
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/module.hpp"
 #include <iostream>
+#include <optional>
 #include <unordered_map>
 
 using namespace cyrt;
 using SymbolTable = std::unordered_map<std::string, InfoTable const *>;
-using TypeTable = std::unordered_map<std::string, Type const *>;
+using TypeTable = std::unordered_map<std::string, DataType const *>;
 
 namespace
 {
@@ -23,6 +24,7 @@ namespace cyrt
   {
     SymbolTable symbols;
     TypeTable types;
+    std::optional<SharedCurryModule> shlib;
   };
 
   SymbolTable const builtin_prelude_symbols{
@@ -173,12 +175,44 @@ namespace cyrt
 
   Module::~Module()
   {
+    this->clear();
+  }
+
+  void Module::link(SharedCurryModule const * shlib)
+  {
+    if(shlib)
+    {
+      this->clear();
+      this->impl->shlib = *shlib;
+      for(auto && typedef_: shlib->bom->types)
+      {
+        DataType const * ty = std::get<2>(typedef_);
+        this->impl->types[ty->name] = ty;
+        for(size_t i=0; i<ty->size; ++i)
+        {
+          InfoTable const * info = ty->ctors[i];
+          this->impl->symbols[info->name] = info;
+        }
+      }
+      for(auto && funcdef: shlib->bom->functions)
+      {
+        InfoTable const * info = std::get<2>(funcdef);
+        this->impl->symbols[info->name] = info;
+      }
+    }
+  }
+
+  void Module::clear()
+  {
     for(auto & p_symbol: this->impl->symbols)
       if(!is_static(*p_symbol.second))
         delete[] (char *) p_symbol.second;
+    this->impl->symbols.clear();
+
     for(auto & p_type: this->impl->types)
       if(!is_static(*p_type.second))
         delete[] (char *) p_type.second;
+    this->impl->types.clear();
   }
 
   InfoTable const * Module::get_infotable(std::string const & name) const
@@ -218,22 +252,22 @@ namespace cyrt
     return info;
   }
 
-  Type const * Module::get_type(std::string const & name) const
+  DataType const * Module::get_type(std::string const & name) const
   {
     auto p = this->impl->types.find(name);
     return (p != this->impl->types.end()) ? p->second : nullptr;
   }
 
-  Type const * Module::create_type(
+  DataType const * Module::create_type(
       std::string const & name
     , std::vector<InfoTable const *> constructors
     , flag_type flags
     )
   {
     assert(!this->get_type(name));
-    size_t const bytes = sizeof(Type) + sizeof(void *) * constructors.size() + name.size() + 1;
+    size_t const bytes = sizeof(DataType) + sizeof(void *) * constructors.size() + name.size() + 1;
     std::unique_ptr<char[]> mem(new char[bytes]);
-    Type * type = (Type *) mem.get();
+    DataType * type = (DataType *) mem.get();
     InfoTable const ** ctor_list = (InfoTable const **) (type + 1);
     char * type_name = (char *) &ctor_list[constructors.size()];
     type->ctors = ctor_list;
@@ -250,11 +284,11 @@ namespace cyrt
     }
     std::strcpy(type_name, name.c_str());
     assert(type_name + name.size() + 1 == mem.get() + bytes);
-    this->impl->types[name] = (Type const *) mem.release();
+    this->impl->types[name] = (DataType const *) mem.release();
     return type;
   }
 
-  Type const * Module::get_builtin_type(std::string const & name) const
+  DataType const * Module::get_builtin_type(std::string const & name) const
   {
     auto * ty = this->get_type(name);
     return (ty && is_static(*ty)) ? ty : nullptr;
@@ -266,3 +300,4 @@ namespace cyrt
     return (info && is_static(*info)) ? info : nullptr;
   }
 }
+

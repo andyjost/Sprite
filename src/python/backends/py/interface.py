@@ -1,4 +1,4 @@
-from . import compiler, materialize, toolchain
+from . import compiler, loader, materialize, toolchain
 from .eval import evaluator
 from .graph import Node
 from ... import backends
@@ -33,6 +33,10 @@ class IBackend(backends.IBackend):
   def find_or_create_internal_module(self, moduleobj):
     pass
 
+  @property
+  def load_module(self):
+    return loader.load_module
+
   def lookup_builtin_module(self, modulename):
     if modulename == 'Prelude':
       path = '.currylib.prelude'
@@ -50,6 +54,10 @@ class IBackend(backends.IBackend):
   @property
   def materialize(self):
     return materialize.materialize
+
+  @property
+  def object_file_extension(self):
+    return '.py'
 
   @property
   def single_step(self):

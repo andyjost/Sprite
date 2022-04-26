@@ -4,7 +4,7 @@
 
 namespace cyrt
 {
-  // Type tags.
+  // DataType tags.
   static flag_type constexpr NO_FLAGS        = 0x0;
   static flag_type constexpr TYPETAG_MASK    = 0xf;
   static flag_type constexpr F_INT_TYPE      = 0x1; // enum
@@ -21,7 +21,7 @@ namespace cyrt
   static flag_type constexpr F_STATIC_OBJECT = 0x40; // bitwise
 
   // Note: the head must remain bitwise-compatible with ValueSet.
-  struct Type
+  struct DataType
   {
     InfoTable const * const * ctors;
     index_type size;
@@ -30,12 +30,12 @@ namespace cyrt
     char const * name = nullptr;
   };
 
-  // Note: the head must remain bitwise-compatible with Type.
+  // Note: the head must remain bitwise-compatible with DataType.
   struct ValueSet
   {
     Arg *      args;
     index_type size;
-    char       kind; // Int:'i', Float:'f', Char:'c', Type:'t'
+    char       kind; // Int:'i', Float:'f', Char:'c', DataType:'t'
   };
 
   struct InfoTable
@@ -47,7 +47,7 @@ namespace cyrt
     char const *       name;
     char const *       format;
     stepfunc_type      step;
-    Type const *       type;
+    DataType const *   type;
   };
 
   inline flag_type typetag(InfoTable const & info)
@@ -86,6 +86,6 @@ namespace cyrt
   inline bool is_static(InfoTable const & info)
     { return info.flags & F_STATIC_OBJECT; }
 
-  inline bool is_static(Type const & type)
+  inline bool is_static(DataType const & type)
     { return type.flags & F_STATIC_OBJECT; }
 }

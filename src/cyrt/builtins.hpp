@@ -44,18 +44,18 @@ namespace cyrt
   extern InfoTable const Unit_Info;
   extern InfoTable const ValueBinding_Info;
 
-  extern Type const Bool_Type;
-  extern Type const Char_Type;
-  extern Type const CString_Type;
-  extern Type const CStaticString_Type;
-  extern Type const Float_Type;
-  extern Type const IO_Type;
-  extern Type const Int_Type;
-  extern Type const List_Type;
-  extern Type const Pair_Type;
-  extern Type const PartApplic_Type;
-  extern Type const SetGuard_Type;
-  extern Type const Unit_Type;
+  extern DataType const Bool_Type;
+  extern DataType const Char_Type;
+  extern DataType const CString_Type;
+  extern DataType const CStaticString_Type;
+  extern DataType const Float_Type;
+  extern DataType const IO_Type;
+  extern DataType const Int_Type;
+  extern DataType const List_Type;
+  extern DataType const Pair_Type;
+  extern DataType const PartApplic_Type;
+  extern DataType const SetGuard_Type;
+  extern DataType const Unit_Type;
 
   template<index_type N>
   struct Node_ : Head

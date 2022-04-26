@@ -12,19 +12,10 @@ def compile(interp, imodule):
 
 class CxxCompiler(compiler.CompilerBase):
   CODE_TYPE = 'C++'
-  # EXCLUDED_METADATA = set(['cxx.material', 'cxx.symbolname'])
   EXCLUDED_METADATA = set(['cxx.material'])
-
-  # def vGetSymbolName(self, iobj, kind):
-  #   alias = iobj.metadata.get('cxx.symbolname', None)
-  #   if alias:
-  #     return alias
-  #   else:
-  #     return super(CxxCompiler, self).vGetSymbolName(iobj, kind)
 
   def vIsBuiltin(self, ifun):
     return ifun.is_builtin
-    # return 'cxx.symbolname' in ifun.metadata
 
   def vIsSynthesized(self, ifun):
     return False
@@ -34,6 +25,7 @@ class CxxCompiler(compiler.CompilerBase):
 
   def vEmitHeader(self):
     yield '#include "cyrt/cyrt.hpp"'
+    yield '#include <iostream>' # DEBUG
     yield ''
     yield 'using namespace cyrt;'
     yield ''
@@ -52,7 +44,7 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'extern InfoTable const %s;' % h_info
 
   def vEmitDataTypeLink(self, itype, h_datatype):
-    yield 'extern Type const %s;' % h_datatype
+    yield 'extern DataType const %s;' % h_datatype
 
   def vEmitStepfuncHeader(self, ifun, h_stepfunc):
     yield '/****** %s ******/' % ifun.fullname
@@ -101,8 +93,8 @@ class CxxCompiler(compiler.CompilerBase):
         h_ctortable, ', '.join('&%s' % h for h in ctor_handles)
       )
     self.symtab.make_defined(h_ctortable)
-    yield 'Type const %s { %s, %r, %r, F_STATIC_OBJECT, %s };' % (
-        h_datatype, h_ctortable, 't', len(itype.constructors)
+    yield 'DataType const %s { %s, %r, %r, F_STATIC_OBJECT, %s };' % (
+        h_datatype, h_ctortable, len(itype.constructors), 't'
       , _dquote(itype.name)
       )
     yield ''
