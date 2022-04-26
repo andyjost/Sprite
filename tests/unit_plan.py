@@ -24,7 +24,7 @@ class TestPlan(cytest.TestCase):
       print('\n****** B ******')
       print(expected)
       raise
-    
+
   def test_00_empty(self):
     plan = plans.makeplan()
     self.checkStr(plan,

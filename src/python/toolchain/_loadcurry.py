@@ -105,5 +105,4 @@ def loadso(interp, sofile):
     )
   breakpoint() # TODO: attach shlib to something
   return imodule
-  
 
