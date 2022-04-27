@@ -1,6 +1,6 @@
 from ...exceptions import CompileError
 from ..generic import compiler, renderer
-from ... import icurry
+from ... import config, icurry
 from ...utility import formatDocstring, strings, visitation
 import collections, json, six
 
@@ -12,7 +12,7 @@ def compile(interp, imodule):
 
 class CxxCompiler(compiler.CompilerBase):
   CODE_TYPE = 'C++'
-  EXCLUDED_METADATA = set(['cxx.material'])
+  EXCLUDED_METADATA = set(['cxx.material', 'cxx.shlib'])
 
   def vIsBuiltin(self, ifun):
     return ifun.is_builtin
@@ -35,7 +35,7 @@ class CxxCompiler(compiler.CompilerBase):
     yield '} // extern "C"'
 
   def vEmitImported(self, modulename):
-    yield '// TODO imported modules'
+    return []
 
   def vEmitStepfuncLink(self, ifun, h_stepfunc):
     yield 'tag_type %s(RuntimeState *, Configuration *);' % h_stepfunc
@@ -118,7 +118,7 @@ class CxxCompiler(compiler.CompilerBase):
     yield '    /*fullname */ %s' % _dquote(imodule.fullname)
     yield '  , /*filename */ %s' % _dquote(imodule.filename)
     yield '  , /*imports  */ %s' % _cxxshow(imodule.imports)
-    yield '  , /*metadata */ %s' % _cxxshow(imodule.metadata._asdict)
+    yield '  , /*metadata */ %s' % self.internMetadata(imodule.metadata)
     yield '  , /*aliases  */ %s' % _cxxshow(imodule.aliases)
     if not imodule.types:
       yield '  , /*types    */ {}'
@@ -151,7 +151,7 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'ModuleBOM const * _bom_ = &%s;' % h_module
 
   def vEmitModuleImport(self, imodule, h_module):
-    yield '// TODO: vEmitModuleImport'
+    return []
 
   def vEmit_compileS_IVarDecl(self, vardecl, varname):
     yield 'Variable %s;' % varname
@@ -252,6 +252,7 @@ class FooError(RuntimeError):
 
 @visitation.dispatch.on('arg')
 def _cxxshow(arg):
+  pdbtrace()
   assert False
 
 @_cxxshow.when(bool)
@@ -289,6 +290,20 @@ def write_module(
     if section_text:
       stream.write('\n\n')
   if module_main:
-    stream.write('/* TODO: module main */\n')
+    for line in _generate_main(target_object, goal):
+      stream.write(line)
+      stream.write('\n')
     stream.write('\n\n')
+
+def _generate_main(target_object, goal):
+  yield '#include <iostream>'
+  yield ''
+  yield 'const char my_interp[] __attribute__((section(".interp")))' \
+        ' = %s;' % _dquote(config.ld_interpreter_path())
+  yield ''
+  yield 'extern "C" void entry()'
+  yield '{'
+  yield '  std::cout << "Entry for %r" << std::endl;' % target_object.unitname
+  yield '  std::exit(0);'
+  yield '}'
 

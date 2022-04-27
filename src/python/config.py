@@ -127,6 +127,9 @@ currylib_version          = _Variable('currylib_version')
 currylib_module_names     = _Variable('currylib_module_names')
 # The name of the default backend.
 default_backend           = _Variable('default_backend')
+# The location of ld.so.
+ld_interpreter_path       = _Variable('ld_interpreter_path')
+
 
 def syslibs():
   return currylib_module_names().split()

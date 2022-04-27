@@ -126,7 +126,7 @@ class PyCompiler(compiler.CompilerBase):
     yield '    fullname=%r' % imodule.fullname
     yield '  , filename=%r' % imodule.filename
     yield '  , imports=%s'  % repr(imodule.imports)
-    yield '  , metadata=%r' % imodule.metadata._asdict
+    yield '  , metadata=%s' % self.internMetadata(imodule.metadata)
     yield '  , mdkey=%r'    % 'py.material'
     yield '  , aliases=%r'  % imodule.aliases
     if not imodule.types:

@@ -75,6 +75,7 @@ class Cpp2So(object):
       yield '-g'
     else:
       yield '-O3'
+    yield '-Wl,-eentry'
     for flag in os.environ.get('CXXFLAGS', '').split():
       yield flag
     yield file_in
