@@ -33,6 +33,12 @@ class Handle(object):
     return self.icurry.fullname
 
   @property
+  def sofilename(self):
+    shlib = self.icurry.metadata.get('cxx.shlib')
+    if shlib is not None:
+      return shlib.sofilename()
+
+  @property
   def is_package(self):
     return isinstance(self.obj, CurryPackage)
 

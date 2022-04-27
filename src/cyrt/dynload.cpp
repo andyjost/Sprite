@@ -28,9 +28,10 @@ namespace
 
 namespace cyrt
 {
-  SharedLib::SharedLib(std::string const & sofile)
+  SharedLib::SharedLib(std::string const & sofilename)
+    : _sofilename(sofilename)
   {
-    void * handle = dlopen(sofile.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    void * handle = dlopen(sofilename.c_str(), RTLD_LAZY | RTLD_GLOBAL);
     if(!handle)
     {
       char const * msg = dlerror();
@@ -40,8 +41,8 @@ namespace cyrt
     this->_handle.reset(handle, dlcloser());
   }
 
-  SharedCurryModule::SharedCurryModule(std::string const & sofile)
-    : SharedLib(sofile)
+  SharedCurryModule::SharedCurryModule(std::string const & sofilename)
+    : SharedLib(sofilename)
   {
     auto addr = dlsym(this->handle(), "_bom_");
     if(!addr)

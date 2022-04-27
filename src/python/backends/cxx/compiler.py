@@ -24,8 +24,8 @@ class CxxCompiler(compiler.CompilerBase):
     assert False
 
   def vEmitHeader(self):
+    yield '// IMPORTS: ' + ' '.join(str(mod) for mod in self.iroot.imports)
     yield '#include "cyrt/cyrt.hpp"'
-    yield '#include <iostream>' # DEBUG
     yield ''
     yield 'using namespace cyrt;'
     yield ''

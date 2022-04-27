@@ -30,7 +30,7 @@ class TimeoutError(RuntimeError):
   pass
 
 class PrerequisiteError(IOError):
-  '''Raised when a prerequisite file is not found.'''
+  '''Raised when a build prerequisite is invalid.'''
 
 ######
 # Evaluation Errors

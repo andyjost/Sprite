@@ -4,6 +4,7 @@
 #include <string>
 
 namespace py = pybind11;
+static auto constexpr reference = py::return_value_policy::reference;
 static auto constexpr reference_internal = py::return_value_policy::reference_internal;
 
 namespace cyrt { namespace python
@@ -23,6 +24,7 @@ namespace cyrt { namespace python
     py::class_<SharedCurryModule>(mod, "SharedCurryModule")
       .def(py::init<std::string const &>())
 			.def_readonly("bom", &SharedCurryModule::bom, reference_internal)
+			.def("sofilename", &SharedCurryModule::sofilename, reference)
       ;
   }
 }}

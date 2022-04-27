@@ -29,17 +29,19 @@ namespace cyrt
 
   struct SharedLib
   {
-    SharedLib(std::string const & sofile);
+    SharedLib(std::string const & sofilename);
     void * handle() const { return _handle.get(); }
     operator void *() const { return _handle.get(); }
+    std::string const & sofilename() const { return _sofilename; }
   private:
     using Handle = std::shared_ptr<void>;
     Handle _handle;
+    std::string _sofilename;
   };
 
   struct SharedCurryModule : SharedLib
   {
-    SharedCurryModule(std::string const & sofile);
+    SharedCurryModule(std::string const & sofilename);
     ModuleBOM const * bom = nullptr;
   };
 }
