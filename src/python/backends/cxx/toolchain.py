@@ -91,6 +91,6 @@ class Cpp2So(object):
     logger.info('Compiling %r', file_out)
     cmd = list(self._compileCommand(file_in, file_out))
     logger.debug('Command: %s', ' '.join(cmd))
-    ignored = _system.popen(cmd)
+    ignored = _system.pexec(cmd)
     return file_out
 

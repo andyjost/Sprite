@@ -4,7 +4,7 @@ from ..tools.utility import make_exception
 from ..utility import binding, curryname, filesys, formatting, strings
 import errno, functools, logging, os, subprocess as sp, sys, time
 
-__all__ = ['bindCurryPath', 'makeOutputDir', 'popen', 'targetNotUpdatedHint', 'updateCheck']
+__all__ = ['bindCurryPath', 'makeOutputDir', 'pexec', 'targetNotUpdatedHint', 'updateCheck']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
 
@@ -24,7 +24,7 @@ def makeOutputDir(file_out):
     if e.errno != errno.EEXIST:
       raise
 
-def popen(cmd, input=None, pipecmd=None):
+def pexec(cmd, input=None, pipecmd=None):
   '''
   Invokes the given command and returns its stdout as a string.  A second
   pipeline stage may be provided.

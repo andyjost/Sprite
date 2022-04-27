@@ -64,13 +64,13 @@ class ICurry2JsonConverter(object):
 
     if cmd:
       with _system.bindCurryPath(currypath):
-        json = _system.popen(cmd, pipecmd=cmd_compact)
+        json = _system.pexec(cmd, pipecmd=cmd_compact)
     else:
       rcdata = iread.load(file_in)
       json = ijson.dumps(rcdata)
       if self.do_compact:
         with _system.bindCurryPath(currypath):
-          json = _system.popen(cmd_compact, input=json)
+          json = _system.pexec(cmd_compact, input=json)
     if self.do_zip:
       mode = 'wb'
       json = zlib.compress(ensure_binary(json))

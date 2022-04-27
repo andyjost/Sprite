@@ -45,7 +45,7 @@ class Curry2ICurryConverter(object):
           cmd.insert(1, '-q')
         logger.debug('Command: %s', ' '.join(cmd))
         with filesys.remove_file_on_error(file_out):
-          _system.popen(cmd)
+          _system.pexec(cmd)
         if self.use_cache:
           cached.update()
       else:
