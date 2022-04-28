@@ -56,7 +56,8 @@ namespace
     static void callback(void * static_data, void * id)
     {
       auto self = (ReprStringifier *)(static_data);
-      self->os << '>';
+      if(id) // FIXME: guess
+        self->os << '>';
       self->memo.erase(id);
     }
 

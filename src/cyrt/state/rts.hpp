@@ -103,6 +103,18 @@ namespace cyrt
     bool in_recursive_call() const;
   };
 
+  struct Evaluator
+  {
+    Evaluator(InterpreterState & istate, Node * goal)
+      : goal(goal), rts(istate, Cursor(this->goal))
+    {}
+
+    Node * goal;
+    RuntimeState rts;
+
+    Expr next() { return this->rts.procD(); }
+  };
+
   Node * has_generator(Node * freevar);
 }
 

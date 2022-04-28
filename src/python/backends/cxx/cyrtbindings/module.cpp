@@ -22,9 +22,5 @@ namespace cyrt { namespace python
       .def_static("find_or_create", &Module::find_or_create)
       .def_static("getall", &Module::getall)
       ;
-
-    py::class_<InterpreterState>(mod, "InterpreterState")
-      .def(py::init())
-      ;
   }
 }}

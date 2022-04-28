@@ -47,12 +47,15 @@ namespace cyrt { namespace python
       .def(py::init<unboxed_int_type>())
       .def(py::init<unboxed_float_type>())
       .def(py::init<unboxed_char_type>())
+      .def("__repr__", &Arg::repr)
       ;
 
     py::class_<Node>(mod, "Node")
       // TODO attach a refcount.  Wild nodes attached to Python objects need to
       // be added to the GC roots.
       .def_static("create", &Node_create, reference)
+      .def("__str__", (std::string(Node::*)()) &Node::str)
+      .def("__repr__", (std::string(Node::*)()) &Node::repr)
       ;
 
     py::class_<DataType>(mod, "DataType")

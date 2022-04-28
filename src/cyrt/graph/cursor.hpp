@@ -1,6 +1,7 @@
 #pragma once
 #include <cassert>
 #include "cyrt/fwd.hpp"
+#include <string>
 #include <vector>
 
 namespace cyrt
@@ -34,6 +35,7 @@ namespace cyrt
     Arg(Variable const &);
 
     template<typename T> Arg & operator=(T &&);
+    std::string repr() const;
   };
 
   struct Cursor
@@ -59,6 +61,7 @@ namespace cyrt
         { return kind=='p' ? (void *) this->arg->node : (void *) this->arg; }
     Cursor & skipfwd();
     Variable operator[](index_type) const;
+    std::string repr() const;
   };
 
   struct Variable
