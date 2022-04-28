@@ -2,7 +2,9 @@
 #include "cyrt/graph/node.hpp"
 #include <cstring>
 
-namespace cyrt
+using namespace cyrt;
+
+extern "C"
 {
   InfoTable const SetGuard_Info{
       /*tag*/        T_SETGRD
@@ -226,19 +228,10 @@ namespace cyrt
     };
 
   static Node Fail_Node_{&Fail_Info};
-  Node * Fail = &Fail_Node_;
-
   static Node False_Node_{&False_Info};
-  Node * False = &False_Node_;
-
   static Node True_Node_{&True_Info};
-  Node * True = &True_Node_;
-
   static Node Nil_Node_{&Nil_Info};
-  Node * Nil = &Nil_Node_;
-
   static Node Unit_Node_{&Unit_Info};
-  Node * Unit = &Unit_Node_;
 
   static InfoTable const * Bool_Ctors[] = { &False_Info, &True_Info };
   DataType const Bool_Type { Bool_Ctors, 2, 't', F_STATIC_OBJECT, "Bool" };
@@ -272,6 +265,15 @@ namespace cyrt
 
   static InfoTable const * Unit_Ctors[] = { &Unit_Info };
   DataType const Unit_Type { Unit_Ctors, 1, 't', F_STATIC_OBJECT, "()" };
+}
+
+namespace cyrt
+{
+  Node * Fail = &Fail_Node_;
+  Node * False = &False_Node_;
+  Node * True = &True_Node_;
+  Node * Nil = &Nil_Node_;
+  Node * Unit = &Unit_Node_;
 
   InfoTable const * builtin_info(char kind)
   {

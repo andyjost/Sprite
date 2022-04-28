@@ -40,14 +40,11 @@ namespace cyrt
     , {"True"                  , &True_Info              }
     , {"()"                    , &Unit_Info              }
       // Built-in functions
-    , {"constrEq"              , &constrEq_Info          }
     , {"$##"                   , &applygnf_Info          }
     , {"$!"                    , &applyhnf_Info          }
     , {"$!!"                   , &applynf_Info           }
     , {"?"                     , &choice_Info            }
     , {"&"                     , &concurrentAnd_Info     }
-    , {"=:="                   , &constrEq_Info          }
-    , {"=:<="                  , &nonstrictEq_Info       }
     , {"apply"                 , &apply_Info             }
     , {"bindIO"                , &bindIO_Info            }
     , {"catch"                 , &catch_Info             }

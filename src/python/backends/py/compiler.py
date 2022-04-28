@@ -20,7 +20,7 @@ class PyCompiler(compiler.CompilerBase):
     compiler.CompilerBase.__init__(self, interp, iobj)
     self.counts = collections.defaultdict(itertools.count)
 
-  def vIsBuiltin(self, ifun):
+  def vIsBuiltin(self, iobj):
     return False
 
   def vIsSynthesized(self, ifun):

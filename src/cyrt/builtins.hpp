@@ -5,23 +5,43 @@
 #include "cyrt/graph/memory.hpp"
 #include <string>
 
-namespace cyrt
+#define Char_Info                CyI7Prelude4Char
+#define Choice_Info              CyI7Prelude5Choice
+#define Cons_Info                CyI7Prelude2_C // (:)
+#define CString_Info             CyI7Prelude6String
+#define Fail_Info                CyI7Prelude4Fail
+#define False_Info               CyI7Prelude5False
+#define Float_Info               CyI7Prelude5Float
+#define Free_Info                CyI7Prelude4Free
+#define Fwd_Info                 CyI7Prelude3Fwd
+#define Int_Info                 CyI7Prelude3Int
+#define IO_Info                  CyI7Prelude2IO
+#define Nil_Info                 CyI7Prelude4_K_k // []
+#define NonStrictConstraint_Info CyI7Prelude19NonStrictConstraint
+#define Pair_Info                CyI7Prelude6_Y_m_y // (,)
+#define PartApplic_Info          CyI7Prelude10PartApplic
+#define SetGuard_Info            CyI7Prelude8SetGuard
+#define StrictConstraint_Info    CyI7Prelude16StrictConstraint
+#define True_Info                CyI7Prelude4True
+#define Unit_Info                CyI7Prelude4_Y_y // ()
+#define ValueBinding_Info        CyI7Prelude12ValueBinding
+
+#define Bool_Type           CyD7Prelude4Bool
+#define Char_Type           CyD7Prelude4Char
+#define CString_Type        CyD7Prelude5String
+#define CStaticString_Type  CyD7Prelude12StaticString
+#define Float_Type          CyD7Prelude5Float
+#define IO_Type             CyD7Prelude2IO
+#define Int_Type            CyD7Prelude3Int
+#define List_Type           CyD7Prelude4_K_k // []
+#define Pair_Type           CyD7Prelude6_Y_m_y // (,)
+#define PartApplic_Type     CyD7Prelude10PartApplic
+#define SetGuard_Type       CyD7Prelude8SetGuard
+#define Unit_Type           CyD7Prelude4_Y_y // ()
+
+extern "C"
 {
-  static constexpr unboxed_int_type ENCAPSULATED_EXPR = -1;
-
-  static constexpr tag_type T_NIL   = T_CTOR;
-  static constexpr tag_type T_CONS  = T_CTOR + 1;
-  static constexpr tag_type T_FALSE = T_CTOR;
-  static constexpr tag_type T_TRUE  = T_CTOR + 1;
-  static constexpr tag_type T_UNIT  = T_CTOR;
-  static constexpr tag_type T_CSTRING        = T_CTOR;
-  static constexpr tag_type T_STATIC_CSTRING = T_CTOR + 1;
-
-  extern Node * Fail;
-  extern Node * False;
-  extern Node * Nil;
-  extern Node * True;
-  extern Node * Unit;
+  using namespace cyrt;
 
   extern InfoTable const Char_Info;
   extern InfoTable const Choice_Info;
@@ -56,6 +76,25 @@ namespace cyrt
   extern DataType const PartApplic_Type;
   extern DataType const SetGuard_Type;
   extern DataType const Unit_Type;
+}
+
+namespace cyrt
+{
+  static constexpr unboxed_int_type ENCAPSULATED_EXPR = -1;
+
+  static constexpr tag_type T_NIL   = T_CTOR;
+  static constexpr tag_type T_CONS  = T_CTOR + 1;
+  static constexpr tag_type T_FALSE = T_CTOR;
+  static constexpr tag_type T_TRUE  = T_CTOR + 1;
+  static constexpr tag_type T_UNIT  = T_CTOR;
+  static constexpr tag_type T_CSTRING        = T_CTOR;
+  static constexpr tag_type T_STATIC_CSTRING = T_CTOR + 1;
+
+  extern Node * Fail;
+  extern Node * False;
+  extern Node * Nil;
+  extern Node * True;
+  extern Node * Unit;
 
   template<index_type N>
   struct Node_ : Head

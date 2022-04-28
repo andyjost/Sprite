@@ -465,20 +465,34 @@ class CompilerBase(abc.ABC):
 
   @compileEx.when(icurry.IDataType)
   def compileEx(self, itype):
-    h_datatype, _ = self.declareDataType(itype)
-    ctor_handles = []
-    for ictor in itype.constructors:
-      h_ctorinfo, new = self.declareSymbol(ictor)
-      assert new
-      ctor_handles.append(h_ctorinfo)
-      self.target_object['.infotabs'].extend(
-          self.vEmitConstructorInfotab(ictor, h_ctorinfo, h_datatype)
+    if self.vIsBuiltin(itype):
+      h_type, new = self.declareDataType(itype)
+      if new:
+        self.target_object['.datatypes.link'].extend(
+            self.vEmitDataTypeLink(itype, h_type)
+          )
+      for ictor in itype.constructors:
+        assert self.vIsBuiltin(ictor)
+        h_info, new = self.declareSymbol(ictor)
+        if new:
+          self.target_object['.infotabs.link'].extend(
+              self.vEmitInfotabLink(ictor, h_info)
+            )
+    else:
+      h_datatype, _ = self.declareDataType(itype)
+      ctor_handles = []
+      for ictor in itype.constructors:
+        h_ctorinfo, new = self.declareSymbol(ictor)
+        assert new
+        ctor_handles.append(h_ctorinfo)
+        self.target_object['.infotabs'].extend(
+            self.vEmitConstructorInfotab(ictor, h_ctorinfo, h_datatype)
+          )
+        self.symtab.make_defined(h_ctorinfo)
+      self.target_object['.datatypes'].extend(
+          self.vEmitDataType(itype, h_datatype, ctor_handles)
         )
-      self.symtab.make_defined(h_ctorinfo)
-    self.target_object['.datatypes'].extend(
-        self.vEmitDataType(itype, h_datatype, ctor_handles)
-      )
-    self.symtab.make_defined(h_datatype)
+      self.symtab.make_defined(h_datatype)
 
   ################
   ### compileF ###

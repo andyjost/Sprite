@@ -1,6 +1,7 @@
 from ...exceptions import CompileError
 from ..generic import compiler, renderer
 from ... import config, icurry
+from . import cyrtbindings as cyrt
 from ...utility import formatDocstring, strings, visitation
 import collections, json, six
 
@@ -14,8 +15,21 @@ class CxxCompiler(compiler.CompilerBase):
   CODE_TYPE = 'C++'
   EXCLUDED_METADATA = set(['cxx.material', 'cxx.shlib'])
 
-  def vIsBuiltin(self, ifun):
-    return ifun.is_builtin
+  def __init__(self, interp, iroot):
+    super(CxxCompiler, self).__init__(interp, iroot)
+    self.cxxmodule = cyrt.Module.find_or_create(iroot.modulename) \
+        if isinstance(iroot, icurry.IModule) \
+        else None
+
+  def vIsBuiltin(self, iobj):
+    if self.cxxmodule is not None:
+      if isinstance(iobj, (icurry.IFunction, icurry.IConstructor)):
+        return self.cxxmodule.get_builtin_symbol(iobj.name) is not None
+      elif isinstance(iobj, icurry.IDataType):
+        return self.cxxmodule.get_builtin_type(iobj.name) is not None
+      else:
+        assert False
+    return False
 
   def vIsSynthesized(self, ifun):
     return False
@@ -245,10 +259,6 @@ def _dquote(string):
   # Note: Use JSON to get double-quote-style escaping.
   string_data = strings.ensure_str(string)
   return json.dumps(string_data)
-
-class FooError(RuntimeError):
-  def __init__(self, obj):
-    self.obj = obj
 
 @visitation.dispatch.on('arg')
 def _cxxshow(arg):
