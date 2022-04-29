@@ -4,6 +4,7 @@ Implements Interpreter.compile.
 
 from .. import config, exceptions, icurry, objects, toolchain, utility
 from ..utility.visitation import dispatch
+from ..backends.generic.eval import evaluator
 import six, types
 
 __all__ = ['compile']
@@ -98,7 +99,7 @@ def compile(
           'expression %r requires a type annotation' % string
         )
     expr = interp.expr(func)
-    return interp.backend.single_step(interp, expr)
+    return evaluator.single_step(interp, expr)
   else:
     raise TypeError('expected mode %r or %r' % ('module', 'expr'))
 

@@ -1,5 +1,3 @@
-# from ...generic.eval import telemetry
-# from . import fairscheme, rts
 from . import telemetry
 
 class Evaluator(object):
@@ -9,7 +7,7 @@ class Evaluator(object):
     '''Initialize evaluation of ``goal`` under interpreter ``interp``.'''
     goal = getattr(goal, 'raw_expr', goal)
     self.interp = interp
-    self.rts = interp.backend.make_evaluation_state(interp, goal)
+    self.rts = interp.backend.create_evaluation_rts(interp, goal)
 
   def evaluate(self):
     '''Evaluate the goal.'''

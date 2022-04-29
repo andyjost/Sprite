@@ -16,10 +16,6 @@ class IBackend(backends.IBackend):
   def compile(self):
     return compiler.compile
 
-  @property
-  def evaluate(self):
-    return evaluator.evaluate
-
   def get_interpreter_state(self, interp):
     return interp._its
 
@@ -45,8 +41,8 @@ class IBackend(backends.IBackend):
       return setfunctions.SetFunctionsSpecification()
 
   @property
-  def make_evaluation_state(self):
-    return cyrtbindings.make_evaluation_state
+  def create_evaluation_rts(self):
+    return cyrtbindings.create_evaluation_rts
 
   @property
   def make_node(self):
@@ -59,10 +55,6 @@ class IBackend(backends.IBackend):
   @property
   def object_file_extension(self):
     return '.so'
-
-  @property
-  def single_step(self):
-    return evaluator.single_step
 
   @property
   def write_module(self):

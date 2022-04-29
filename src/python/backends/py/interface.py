@@ -19,10 +19,6 @@ class IBackend(backends.IBackend):
   def compile(self):
     return compiler.compile
 
-  @property
-  def evaluate(self):
-    return evaluator.evaluate
-
   def get_interpreter_state(self, interp):
     return interp._its
 
@@ -48,7 +44,7 @@ class IBackend(backends.IBackend):
       return module.SetFunctionsSpecification()
 
   @property
-  def make_evaluation_state(self):
+  def create_evaluation_rts(self):
     from .eval import rts
     return rts.RuntimeState
 
@@ -63,10 +59,6 @@ class IBackend(backends.IBackend):
   @property
   def object_file_extension(self):
     return '.py'
-
-  @property
-  def single_step(self):
-    return evaluator.single_step
 
   @property
   def write_module(self):

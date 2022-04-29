@@ -47,10 +47,6 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     '''Converts ICurry to an instance of IR.'''
     assert 0
 
-  @abc.abstractproperty
-  def evaluate(self):
-    pass
-
   @abc.abstractmethod
   def get_interpreter_state(self, interp):
     '''Gets the runtime-specific state attached to an interpreter.'''
@@ -76,7 +72,8 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractproperty
-  def make_evaluation_state(self):
+  def create_evaluation_rts(self):
+    '''Creates a new runtime state representing an evaluation.'''
     assert 0
 
   @abc.abstractproperty
@@ -94,11 +91,6 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
   @abc.abstractproperty
   def write_module(self):
     '''Write the contents of a Curry module to a stream.'''
-    assert 0
-
-  @abc.abstractproperty
-  def single_step(self):
-    '''Performs a single step on an expression.'''
     assert 0
 
 

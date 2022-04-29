@@ -4,6 +4,7 @@ Implements Interpreter.eval.
 
 from . import conversions
 from ..utility.binding import binding
+from ..backends.generic.eval import evaluator
 
 def eval(interp, *args, **kwds):
   '''
@@ -29,7 +30,7 @@ def eval(interp, *args, **kwds):
   convert = conversions.getconverter(
       converter if converter != 'default' else interp.flags['defaultconverter']
     )
-  results = interp.backend.evaluate(interp, interp.expr(*args))
+  results = evaluator.evaluate(interp, interp.expr(*args))
   if convert is None:
     return results
   else:

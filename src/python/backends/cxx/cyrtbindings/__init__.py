@@ -16,7 +16,7 @@ def make_node(info, *args, **kwds):
   args = [Arg(arg) for arg in args]
   return Node.create(info, args, target, bool(partial_info))
 
-def make_evaluation_state(interp, goal):
+def create_evaluation_rts(interp, goal):
   state = interp.backend.get_interpreter_state(interp)
   return RuntimeState(state, goal)
 

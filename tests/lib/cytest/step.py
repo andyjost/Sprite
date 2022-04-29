@@ -1,4 +1,4 @@
-from curry.backends.generic.eval import control
+from curry.backends.generic.eval import control, evaluator
 from curry.common import T_CTOR
 
 def step(interp, expr, num=1):
@@ -9,9 +9,9 @@ def step(interp, expr, num=1):
   '''
   if not hasattr(expr, 'info') or expr.info.tag >= T_CTOR:
     expr = interp.expr(expr)
-  value_generator = interp.backend.evaluate(interp, expr, num)
+  value_generator = evaluator.evaluate(interp, expr, num)
   try:
-    list(value_generator)
+    next(value_generator)
   except control.E_TERMINATE:
     pass
 
