@@ -31,9 +31,10 @@ namespace cyrt
     return value;
   }
 
-  void RuntimeState::set_goal(Cursor goal)
+  void RuntimeState::set_goal(Node * goal)
   {
     auto config = Configuration::create(goal);
-    this->append(config.release());
+    this->append(config.get());
+    config.release();
   }
 }

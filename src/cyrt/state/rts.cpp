@@ -2,7 +2,7 @@
 
 namespace cyrt
 {
-  RuntimeState::RuntimeState(InterpreterState & istate, Cursor goal)
+  RuntimeState::RuntimeState(InterpreterState & istate, Node * goal)
     : istate(istate)
   {
     this->push_queue(new Queue(), NOTRACE);

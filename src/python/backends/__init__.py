@@ -76,6 +76,10 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
     assert 0
 
   @abc.abstractproperty
+  def make_evaluation_state(self):
+    assert 0
+
+  @abc.abstractproperty
   def make_node(self):
     assert 0
 

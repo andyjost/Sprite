@@ -88,6 +88,10 @@ class RuntimeState(object):
     if goal is not None:
       self.append(configuration.Configuration(goal))
 
+  def generate_values(self):
+    from .fairscheme import D
+    return D(self)
+
   @property
   def C(self):
     '''The current configuration.'''

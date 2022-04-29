@@ -1,5 +1,6 @@
-from ...generic.eval import telemetry
-from . import fairscheme, rts
+# from ...generic.eval import telemetry
+# from . import fairscheme, rts
+from . import telemetry
 
 class Evaluator(object):
   '''Manages the evaluation of a Curry expression.'''
@@ -7,12 +8,13 @@ class Evaluator(object):
   def __init__(self, interp, goal):
     '''Initialize evaluation of ``goal`` under interpreter ``interp``.'''
     goal = getattr(goal, 'raw_expr', goal)
-    self.rts = rts.RuntimeState(interp, goal)
+    self.interp = interp
+    self.rts = interp.backend.make_evaluation_state(interp, goal)
 
   def evaluate(self):
     '''Evaluate the goal.'''
-    interval = self.rts.interp.flags['telemetry_interval']
-    value_generator = fairscheme.D(self.rts)
+    interval = self.interp.flags['telemetry_interval']
+    value_generator = self.rts.generate_values()
     if interval is not None and interval > 0:
       return telemetry.report_telemetry(self.rts, interval, value_generator)
     else:

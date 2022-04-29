@@ -16,13 +16,15 @@ def make_node(info, *args, **kwds):
   args = [Arg(arg) for arg in args]
   return Node.create(info, args, target, bool(partial_info))
 
-def evaluate(interp, goal, steplimit=None):
+def make_evaluation_state(interp, goal):
   state = interp.backend.get_interpreter_state(interp)
-  evaluator = Evaluator(state, goal)
-  def result_generator():
+  return RuntimeState(state, goal)
+
+class RuntimeState(RuntimeStateBase):
+  def generate_values(self):
     while True:
-      result = evaluator.next()
-      if result is None:
+      result = self.next()
+      if not result:
         return
-      yield result
-  return result_generator()
+      yield result.get()
+

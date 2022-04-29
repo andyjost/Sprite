@@ -25,7 +25,7 @@ namespace cyrt
 
   struct RuntimeState : boost::noncopyable
   {
-    RuntimeState(InterpreterState & istate, Cursor goal);
+    RuntimeState(InterpreterState & istate, Node * goal);
 
     InterpreterState & istate;
     size_t             stepcount = 0;
@@ -66,7 +66,7 @@ namespace cyrt
     Expr make_value();
     bool ready();
     Expr release_value();
-    void set_goal(Cursor goal);
+    void set_goal(Node * goal);
 
     // rts_fingerprint:
     bool equate_fp(Configuration *, xid_type, xid_type);
@@ -101,18 +101,6 @@ namespace cyrt
     bool choice_escapes(Configuration *, xid_type);
     void filter_queue(Queue *, xid_type, ChoiceState);
     bool in_recursive_call() const;
-  };
-
-  struct Evaluator
-  {
-    Evaluator(InterpreterState & istate, Node * goal)
-      : goal(goal), rts(istate, Cursor(this->goal))
-    {}
-
-    Node * goal;
-    RuntimeState rts;
-
-    Expr next() { return this->rts.procD(); }
   };
 
   Node * has_generator(Node * freevar);

@@ -1,5 +1,5 @@
 from . import compiler, loader, materialize, toolchain
-from .eval import evaluator
+from ..generic.eval import evaluator
 from .graph import Node
 from ... import backends
 import importlib
@@ -46,6 +46,11 @@ class IBackend(backends.IBackend):
       path = '.currylib.setfunctions'
       module = importlib.import_module(path, package=__package__)
       return module.SetFunctionsSpecification()
+
+  @property
+  def make_evaluation_state(self):
+    from .eval import rts
+    return rts.RuntimeState
 
   @property
   def make_node(self):

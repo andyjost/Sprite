@@ -1,6 +1,7 @@
+from ..generic.eval import evaluator
 from ... import backends
-from ...objects.handle import getHandle
 from . import compiler, cyrtbindings, loader, materialize, toolchain
+from ...objects.handle import getHandle
 
 class IBackend(backends.IBackend):
   @property
@@ -17,7 +18,7 @@ class IBackend(backends.IBackend):
 
   @property
   def evaluate(self):
-    return cyrtbindings.evaluate
+    return evaluator.evaluate
 
   def get_interpreter_state(self, interp):
     return interp._its
@@ -44,6 +45,10 @@ class IBackend(backends.IBackend):
       return setfunctions.SetFunctionsSpecification()
 
   @property
+  def make_evaluation_state(self):
+    return cyrtbindings.make_evaluation_state
+
+  @property
   def make_node(self):
     return cyrtbindings.make_node
 
@@ -57,7 +62,7 @@ class IBackend(backends.IBackend):
 
   @property
   def single_step(self):
-    return cyrtbindings.single_step
+    return evaluator.single_step
 
   @property
   def write_module(self):

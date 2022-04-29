@@ -6,23 +6,23 @@
 #include <iostream>
 
 namespace py = pybind11;
-static auto constexpr reference = py::return_value_policy::reference;
+// static auto constexpr reference = py::return_value_policy::reference;
 
 namespace cyrt { namespace python
 {
   namespace
   {
-    py::object Evaluator_next(Evaluator & evaluator)
+    py::object Expr_get(Expr const & expr)
     {
-      Expr result = evaluator.next();
-      switch(result.kind)
+      switch(expr.kind)
       {
-        case 'p': return py::cast(result.arg.node);
-        case 'i': return py::cast(result.arg.ub_int);
-        case 'f': return py::cast(result.arg.ub_float);
-        case 'c': return py::cast(result.arg.ub_char);
-        case 'x': assert(false); // FIXME
-        case 'u': return py::none();
+        case 'p': return py::cast(expr.arg.node);
+        case 'i': return py::cast(expr.arg.ub_int);
+        case 'f': return py::cast(expr.arg.ub_float);
+        case 'c': return py::cast(expr.arg.ub_char);
+        case 'x': assert(false);
+        case 'u':
+        default : return py::none();
       }
     }
   }
@@ -34,9 +34,15 @@ namespace cyrt { namespace python
       .def(py::init<>())
       ;
 
-    py::class_<Evaluator>(mod, "Evaluator")
+    py::class_<Expr>(mod, "Expr")
+      .def("get", &Expr_get)
+      .def("__nonzero__", &Expr::operator bool)
+      .def("__bool__", &Expr::operator bool)
+      ;
+
+    py::class_<RuntimeState>(mod, "RuntimeStateBase")
       .def(py::init<InterpreterState &, Node *>())
-      .def("next", &Evaluator_next)
+      .def("next", &RuntimeState::procD)
       ;
   }
 }}
