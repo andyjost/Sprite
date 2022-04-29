@@ -33,7 +33,7 @@ namespace
 
   struct RealPathIndexer
   {
-    Variable var;
+    Variable & var;
     Node * parent = nullptr;
     bool update_fwd_nodes;
 
