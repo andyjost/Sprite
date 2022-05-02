@@ -40,6 +40,18 @@ namespace cyrt { namespace python
       .def_readonly("name"    , &InfoTable::name)
       .def_readonly("tag"     , &InfoTable::tag)
       .def_readwrite("typedef", &InfoTable::type)
+      .def_property_readonly("typetag", &typetag)
+      .def_property_readonly("is_special", &is_special)
+      .def_property_readonly("is_primitive", &is_primitive)
+      .def_property_readonly("is_int", &is_int)
+      .def_property_readonly("is_char", &is_char)
+      .def_property_readonly("is_float", &is_float)
+      .def_property_readonly("is_bool", &is_bool)
+      .def_property_readonly("is_list", &is_list)
+      .def_property_readonly("is_tuple", &is_tuple)
+      .def_property_readonly("is_io", &is_io)
+      .def_property_readonly("is_partial", &is_partial)
+      .def_property_readonly("is_monadic", &is_monadic)
       ;
 
     py::class_<Arg>(mod, "Arg")
@@ -54,6 +66,10 @@ namespace cyrt { namespace python
       // TODO attach a refcount.  Wild nodes attached to Python objects need to
       // be added to the GC roots.
       .def_static("create", &Node_create, reference)
+      .def_readonly("info", &Node::info)
+      .def_property_readonly("successors"
+          , [](Node & node) { return std::vector<Arg>(node.begin(), node.end()); }
+          )
       .def("__str__", (std::string(Node::*)()) &Node::str)
       .def("__repr__", (std::string(Node::*)()) &Node::repr)
       ;

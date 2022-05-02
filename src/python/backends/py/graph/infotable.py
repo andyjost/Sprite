@@ -38,18 +38,6 @@ class InfoTable(object):
     # be passed the node name followed by its rendered arguments.
     self.pyformat = pyformat
 
-  @property
-  def typedef(self):
-    return None if self._typedef is None else self._typedef()
-
-  @typedef.setter
-  def typedef(self, value):
-    self._typedef = weakref.ref(value)
-
-  @property
-  def typetag(self):
-    return self.flags & 0xf
-
   def __str__(self):
     return 'Info for %r' % self.name
 
@@ -63,6 +51,18 @@ class InfoTable(object):
           )
       , ')'
       ])
+
+  @property
+  def typedef(self):
+    return None if self._typedef is None else self._typedef()
+
+  @typedef.setter
+  def typedef(self, value):
+    self._typedef = weakref.ref(value)
+
+  @property
+  def typetag(self):
+    return self.flags & 0xf
 
   @property
   def step(self):

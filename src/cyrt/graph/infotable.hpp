@@ -88,4 +88,18 @@ namespace cyrt
 
   inline bool is_static(DataType const & type)
     { return type.flags & F_STATIC_OBJECT; }
+
+  inline bool is_special(InfoTable const & info)
+    { return typetag(info); }
+
+  inline bool is_primitive(InfoTable const & info)
+  {
+    switch(typetag(info))
+    {
+      case F_INT_TYPE:
+      case F_CHAR_TYPE:
+      case F_FLOAT_TYPE: return true;
+      default:           return false;
+    }
+  }
 }
