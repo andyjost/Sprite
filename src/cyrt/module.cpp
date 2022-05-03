@@ -73,7 +73,6 @@ namespace cyrt
     , {"prim_atanFloat"        , &atanFloat_Info         }
     , {"prim_atanhFloat"       , &atanhFloat_Info        }
     , {"prim_chr"              , &chr_Info               }
-    // , {"prim_constrEq"         , &constrEq_Info          }
     , {"prim_cosFloat"         , &cosFloat_Info          }
     , {"prim_coshFloat"        , &coshFloat_Info         }
     , {"prim_divFloat"         , &divFloat_Info          }
@@ -83,7 +82,6 @@ namespace cyrt
     , {"prim_ioError"          , &ioError_Info           }
     , {"prim_logFloat"         , &logFloat_Info          }
     , {"prim_minusFloat"       , &minusFloat_Info        }
-    // , {"prim_nonstrictEq"      , &nonstrictEq_Info       }
     , {"prim_ord"              , &ord_Info               }
     , {"prim_plusFloat"        , &plusFloat_Info         }
     , {"prim_putChar"          , &putChar_Info           }
@@ -105,8 +103,8 @@ namespace cyrt
     , {"prim_timesFloat"       , &timesFloat_Info        }
     , {"prim_truncateFloat"    , &truncateFloat_Info     }
     , {"prim_writeFile"        , &writeFile_Info         }
-    , {"_PyGenerator"          , &_PyGenerator_Info      }
-    , {"_PyString"             , &_PyString_Info         }
+    , {"_cGenerator"           , &_cGenerator_Info       }
+    , {"_cString"              , &_cString_Info          }
     , {"quotInt"               , &quotInt_Info           }
     , {"remInt"                , &remInt_Info            }
     , {"returnIO"              , &returnIO_Info          }

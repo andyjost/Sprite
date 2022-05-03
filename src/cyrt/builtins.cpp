@@ -183,17 +183,6 @@ extern "C"
     , /*type*/       &List_Type
     };
 
-  InfoTable const CString_Info{
-      /*tag*/        T_CSTRING
-    , /*arity*/      1
-    , /*alloc_size*/ sizeof(CStringNode)
-    , /*flags*/      F_CSTRING_TYPE | F_STATIC_OBJECT
-    , /*name*/       "_CString"
-    , /*format*/     "x"
-    , /*step*/       nullptr
-    , /*type*/       &CString_Type
-    };
-
   InfoTable const Nil_Info{
       /*tag*/        T_NIL
     , /*arity*/      0
@@ -238,9 +227,6 @@ extern "C"
 
   static InfoTable const * Char_Ctors[] = { &Char_Info };
   DataType const Char_Type { Char_Ctors, 1, 't', F_STATIC_OBJECT, "Char" };
-
-  static InfoTable const * CString_Ctors[] = { &CString_Info };
-  DataType const CString_Type { CString_Ctors, 1, 't', F_STATIC_OBJECT, "CString" };
 
   static InfoTable const * Float_Ctors[] = { &Float_Info };
   DataType const Float_Type { Float_Ctors, 1, 't', F_STATIC_OBJECT, "Float" };

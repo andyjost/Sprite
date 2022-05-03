@@ -16,6 +16,7 @@
 tag_type STEP_FUNCTION_NAME(NAME)(RuntimeState * rts, Configuration * C)
 {
   Cursor _0 = C->cursor();
+  assert(false);
   _0->forward_to(cstring(SPRITE_STRINGIFY(NAME) " is not implemented"));
   return T_FWD;
 }

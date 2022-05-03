@@ -85,8 +85,8 @@
 #define showStringLiteral_Info  CyI7Prelude23prim__showStringLiteral
 
 // prelude/string.cpp
-#define _PyGenerator_Info       CyI7Prelude13__PyGenerator
-#define _PyString_Info          CyI7Prelude10__PyString
+#define _cGenerator_Info        CyI7Prelude12__cGenerator
+#define _cString_Info           CyI7Prelude9__cString
 #define chr_Info                CyI7Prelude9prim__chr
 #define ord_Info                CyI7Prelude9prim__ord
 
@@ -187,8 +187,8 @@ extern "C"
   extern InfoTable const showStringLiteral_Info;
 
   // prelude/string.cpp
-  extern InfoTable const _PyGenerator_Info;
-  extern InfoTable const _PyString_Info;
+  extern InfoTable const _cGenerator_Info;
+  extern InfoTable const _cString_Info;
   extern InfoTable const chr_Info;
   extern InfoTable const ord_Info;
 

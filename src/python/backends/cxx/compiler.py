@@ -225,7 +225,7 @@ class CxxCompiler(compiler.CompilerBase):
     return 'Node::create(%s)' % text if primary else text
 
   def vEmit_compileE_IString(self, istring, h_string, primary):
-    text = '&CString_Info, Arg(%s)' % h_string
+    text = '&_cString_Info, Arg(%s)' % h_string
     return 'Node::create(%s)' % text if primary else text
 
   def vEmit_compileE_IUnboxedLiteral(self, iunboxed, primary):

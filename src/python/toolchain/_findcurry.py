@@ -81,6 +81,11 @@ def currentfile(
     raise ModuleLookupError('expected .curry extension in %r' % curryfile)
   curryfile = os.path.abspath(curryfile)
   filelist = plan.filelist(curryfile)
+  if config.force_recompile_cxx():
+    filelist = [
+        fn for fn in filelist
+           if not any(fn.endswith(suffix) for suffix in ['.cpp', '.so'])
+      ]
   prereq = os.path.abspath(filesys.newest(filelist))
   if not os.path.exists(prereq):
     # If there is no prerequisite, then there is no Curry file or any of its

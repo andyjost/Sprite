@@ -140,6 +140,9 @@ def syslibversion():
 def prefix():
   return os.environ['SPRITE_HOME']
 
+def force_recompile_cxx():
+  return os.environ.get('SPRITE_FORCE_RECOMPILE_CXX', False)
+
 # The path to system Curry files, such as the Prelude.  This is appended to
 # whatever the user might supply via the CURRYPATH environment variable.
 def system_curry_path():

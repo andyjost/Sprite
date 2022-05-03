@@ -8,7 +8,7 @@
 #define Char_Info                CyI7Prelude4Char
 #define Choice_Info              CyI7Prelude5Choice
 #define Cons_Info                CyI7Prelude2_C // (:)
-#define CString_Info             CyI7Prelude6String
+#define _cString_Info            CyI7Prelude9__cString
 #define Fail_Info                CyI7Prelude4Fail
 #define False_Info               CyI7Prelude5False
 #define Float_Info               CyI7Prelude5Float
@@ -28,7 +28,6 @@
 
 #define Bool_Type           CyD7Prelude4Bool
 #define Char_Type           CyD7Prelude4Char
-#define CString_Type        CyD7Prelude5String
 #define CStaticString_Type  CyD7Prelude12StaticString
 #define Float_Type          CyD7Prelude5Float
 #define IO_Type             CyD7Prelude2IO
@@ -46,7 +45,7 @@ extern "C"
   extern InfoTable const Char_Info;
   extern InfoTable const Choice_Info;
   extern InfoTable const Cons_Info;
-  extern InfoTable const CString_Info;
+  extern InfoTable const _cString_Info;
   extern InfoTable const Fail_Info;
   extern InfoTable const False_Info;
   extern InfoTable const Float_Info;
@@ -66,7 +65,6 @@ extern "C"
 
   extern DataType const Bool_Type;
   extern DataType const Char_Type;
-  extern DataType const CString_Type;
   extern DataType const CStaticString_Type;
   extern DataType const Float_Type;
   extern DataType const IO_Type;
@@ -82,13 +80,11 @@ namespace cyrt
 {
   static constexpr unboxed_int_type ENCAPSULATED_EXPR = -1;
 
-  static constexpr tag_type T_NIL   = T_CTOR;
-  static constexpr tag_type T_CONS  = T_CTOR + 1;
+  static constexpr tag_type T_CONS  = T_CTOR;
+  static constexpr tag_type T_NIL   = T_CTOR + 1;
   static constexpr tag_type T_FALSE = T_CTOR;
   static constexpr tag_type T_TRUE  = T_CTOR + 1;
   static constexpr tag_type T_UNIT  = T_CTOR;
-  static constexpr tag_type T_CSTRING        = T_CTOR;
-  static constexpr tag_type T_STATIC_CSTRING = T_CTOR + 1;
 
   extern Node * Fail;
   extern Node * False;
@@ -188,7 +184,7 @@ namespace cyrt
   struct CStringNode : Head
   {
     char const * data;
-    static constexpr InfoTable const * static_info = &CString_Info;
+    static constexpr InfoTable const * static_info = &_cString_Info;
   };
 
   struct ConsNode : Head
