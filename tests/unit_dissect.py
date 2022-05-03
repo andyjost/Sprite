@@ -3,7 +3,9 @@ from curry.utility.visitation import dispatch
 from cytest.clean import clean as cyclean
 from cytest.dissect import dissect
 from six.moves import cStringIO as StringIO
-import collections, sys
+import collections, six, sys
+
+clskwd = 'type' if six.PY2 else 'class'
 
 def capture(a, b):
   '''Capture the printed output of a call to dissect.'''
@@ -39,8 +41,7 @@ class Dissect(cytest.TestCase):
   def compareSearch(self, a, b, substrs):
     out = capture(a, b)
     for substr in substrs:
-      with trap():
-        self.assertGreater(out.find(substr), -1)
+      self.assertGreater(out.find(substr), -1)
 
   def test_dissectSeq(self):
     a = [1,2,3]
@@ -52,15 +53,15 @@ class Dissect(cytest.TestCase):
     self.assertTrue(dissect(b, c, print_results=False))
     self.compareMatch(a, b, '''
                        At <object>, sequence length mismatch
-                               a = [1, 2, 3] (<type 'list'>)
-                               b = [1, 2] (<type 'list'>)
-                       '''
+                               a = [1, 2, 3] (<%s 'list'>)
+                               b = [1, 2] (<%s 'list'>)
+                       ''' % (clskwd, clskwd)
       )
     self.compareMatch(a, c, '''
                        At <object>[2], value mismatch
-                               a = 3 (<type 'int'>)
-                               b = 4 (<type 'int'>)
-                       '''
+                               a = 3 (<%s 'int'>)
+                               b = 4 (<%s 'int'>)
+                       ''' % (clskwd, clskwd)
       )
 
   def test_dissectMap(self):
@@ -79,9 +80,9 @@ class Dissect(cytest.TestCase):
                              , "At <object>, only in b: 'x'"])
     self.compareMatch(a, d, '''
                             At <object>['b'], value mismatch
-                                    a = 2 (<type 'int'>)
-                                    b = 20 (<type 'int'>)
-                            '''
+                                    a = 2 (<%s 'int'>)
+                                    b = 20 (<%s 'int'>)
+                            ''' % (clskwd, clskwd)
       )
     self.compareSearch(a, e, [ "At <object>, only in a: 'a'"
                              , "At <object>, only in b: 'x'"
@@ -98,9 +99,9 @@ class Dissect(cytest.TestCase):
     self.compareSearch(a, b, "At <object>, only in a: 'b'")
     self.compareMatch(a, c, '''
                             At <object>.b, value mismatch
-                                    a = 2 (<type 'int'>)
-                                    b = 20 (<type 'int'>)
-                            '''
+                                    a = 2 (<%s 'int'>)
+                                    b = 20 (<%s 'int'>)
+                            ''' % (clskwd, clskwd)
       )
 
   def test_dissectNested(self):

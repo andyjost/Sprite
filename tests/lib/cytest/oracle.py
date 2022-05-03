@@ -135,9 +135,13 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None):
 
   # Update the golden file or return the output.
   if goldenfile is not None:
-    with open(goldenfile, 'wb') as au:
-      au.write(output)
-    return True
+    try:
+      with open(goldenfile, 'w') as au:
+        au.write(output)
+      return True
+    except:
+      os.unlink(goldenfile)
+      raise
   else:
     return output
 

@@ -29,5 +29,5 @@ def clean(lines, **kwds):
 
 @clean.when(str)
 def clean(string, **kwds):
-  return clean('\n'.split(), **kwds)
+  return clean(string.split('\n'), **kwds)
 

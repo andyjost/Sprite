@@ -5,5 +5,5 @@ class TestSmap(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/smap/'
   # RUN_ONLY = []
   # EXPECTED_FAILURE = []
-  # SKIP = []
+  SKIP = ['flight_itinerary']
 
