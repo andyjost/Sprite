@@ -2,10 +2,10 @@
 #include <cassert>
 #include "cyrt/builtins.hpp"
 #include "cyrt/graph/copy.hpp"
-#include "cyrt/graph/equality.hpp"
 #include "cyrt/graph/indexing.hpp"
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/graph/show.hpp"
+#include <functional> // for std::hash
 #include <sstream>
 #include <type_traits>
 
@@ -155,4 +155,6 @@ namespace cyrt
   inline index_type Node::size() const { return this->info->arity; }
   inline Arg * Node::begin() { return successors(); }
   inline Arg * Node::end() { return begin() + size(); }
+  inline std::size_t Node::hash() const { return std::hash<Node const *>()(this); }
+  inline bool Node::operator!=(Node & arg) { return !(*this == arg); }
 }

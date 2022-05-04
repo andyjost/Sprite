@@ -24,7 +24,7 @@ class RuntimeState(RuntimeStateBase):
   def generate_values(self):
     while True:
       result = self.next()
-      if not result:
+      if result is None:
         return
-      yield result.get()
+      yield result
 

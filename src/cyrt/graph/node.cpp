@@ -1,6 +1,7 @@
 #include <cassert>
 #include "cyrt/builtins.hpp"
 #include "cyrt/exceptions.hpp"
+#include "cyrt/graph/equality.hpp"
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/graph/node.hpp"
 
@@ -62,6 +63,13 @@ namespace cyrt
     }
     assert(slot == mem.boxed);
     return out;
+  }
+
+  bool Node::operator==(Node & arg)
+  {
+    Node * a = this;
+    Node * b = &arg;
+    return logically_equal(a, b);
   }
 }
 

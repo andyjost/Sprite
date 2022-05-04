@@ -44,11 +44,15 @@ namespace cyrt
     std::string str();
     void str(std::ostream &);
 
+    // Equality.
+    std::size_t hash() const;
+    bool operator==(Node &);
+    bool operator!=(Node &);
+
     // Indexing.
     Cursor const successor(index_type);
     Arg * successors();
     Cursor operator[](index_type);
-    Cursor operator[](index_type const *);
 
     index_type size() const;
     Arg * begin();
