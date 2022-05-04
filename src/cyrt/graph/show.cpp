@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include "cyrt/builtins.hpp"
 #include "cyrt/graph/node.hpp"
@@ -106,6 +107,8 @@ namespace
     StrStringifier(std::ostream & os) : os(os) {}
 
     std::ostream & os;
+    std::unordered_map<xid_type, std::string> tr; // free variable translations
+    int nextid = 0;
     union Context
     {
       char value;
@@ -226,9 +229,19 @@ namespace
         }
 
         auto * info = cur->info;
-        switch(info->tag)
+        if(info->tag == T_FREE)
         {
-          case T_FREE: os << '_' << NodeU{cur}.free->vid; continue;
+          xid_type vid = NodeU{cur}.free->vid;
+          auto p = tr.find(vid);
+          if(p == tr.end())
+          {
+            auto label = this->next_label();
+            tr[vid] = label;
+            os << label;
+          }
+          else
+            os << p->second;
+          continue;
         }
 
         switch(typetag(*info))
@@ -330,6 +343,19 @@ namespace
       }
       else
         walk.extend(Context(':'));
+    }
+
+    std::string next_label()
+    {
+      std::string label("_");
+      int n = this->nextid++;
+      while(n >= 0)
+      {
+        label.push_back('a' + n % 26);
+        n = n / 26 - 1;
+      }
+      std::reverse(label.begin()+1, label.end());
+      return label;
     }
   };
 }
