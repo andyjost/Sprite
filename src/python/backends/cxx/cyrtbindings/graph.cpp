@@ -33,6 +33,14 @@ namespace cyrt { namespace python
 {
   void register_graph(pybind11::module_ mod)
   {
+    // py::object Expr_get(Expr const & expr); // FIXME
+
+    // py::object Node_successor(Node & node, int i)
+    // {
+    //   Expr expr = node.successor(i);
+    //   return Expr_get(expr);
+    // }
+
     py::class_<InfoTable>(mod, "InfoTable")
       .def_readonly("arity"   , &InfoTable::arity)
       .def_readonly("flags"   , &InfoTable::flags)
@@ -67,9 +75,16 @@ namespace cyrt { namespace python
       // be added to the GC roots.
       .def_static("create", &Node_create, reference)
       .def_readonly("info", &Node::info)
-      .def_property_readonly("successors"
-          , [](Node & node) { return std::vector<Arg>(node.begin(), node.end()); }
-          )
+      // .def_property_readonly("successor", &Node_successor)
+      // .def_property_readonly("successors"
+      //     , [](Node & self) -> std::vector<py::object>
+      //       {
+      //         std::vector<py::object> vec;
+      //         for(index_type i=0; i<self.size(); ++i)
+      //           vec.push_back(Node_successor(self, i));
+      //         return vec;
+      //       }
+      //     )
       .def("__str__", (std::string(Node::*)()) &Node::str)
       .def("__repr__", (std::string(Node::*)()) &Node::repr)
       ;

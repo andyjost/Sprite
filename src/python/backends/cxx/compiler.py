@@ -174,7 +174,7 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'auto %s = rts->freshvar();' % varname
 
   def vEmit_compileS_IVarAssign(self, assign, lhs, rhs):
-    if isinstance(assign.rhs, icurry.ICall):
+    if rhs.startswith('Node::create'):
       tmpname = 'tmp%s' % lhs
       yield 'Node * %s = %s;' % (tmpname, rhs)
       yield '%s.target = %s;' % (lhs, tmpname)

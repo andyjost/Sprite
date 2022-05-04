@@ -84,7 +84,7 @@ namespace cyrt
         case E_RESTART : return inspect::tag_of(root);
         case E_RESIDUAL: assert(0); continue;
         default        :
-          if(is_partial(*scan->cursor()->info))
+          if(!is_partial(*scan->cursor()->info))
             scan->extend();
       }
     }
@@ -94,9 +94,9 @@ namespace cyrt
   tag_type RuntimeState::procS(Configuration * C)
   {
     Cursor _0 = C->cursor();
-    // std::cout << "S <<< " << _0->str() << std::endl;
+    std::cout << "S <<< " << _0->str() << std::endl;
     auto status = _0->info->step(this, C);
-    // std::cout << "S >>> " << _0->str() << std::endl;
+    std::cout << "S >>> " << _0->str() << std::endl;
     return status;
   }
 
@@ -116,7 +116,7 @@ namespace cyrt
         case T_CONSTR: _0->forward_to(this->lift_constraint(C, inductive));
                        return T_FWD;
         case T_FREE  : tag = this->replace_freevar(C, inductive, guides);
-                       continue;
+                       return tag;
         case T_FWD   : compress_fwd_chain(inductive->target);
                        tag = inspect::tag_of(inductive->target);
                        this->stepcount++;

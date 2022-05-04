@@ -6,27 +6,22 @@
 #include <iostream>
 
 namespace py = pybind11;
-// static auto constexpr reference = py::return_value_policy::reference;
 
 namespace cyrt { namespace python
 {
-  namespace
+  py::object Expr_get(Expr const & expr)
   {
-    py::object Expr_get(Expr const & expr)
+    switch(expr.kind)
     {
-      switch(expr.kind)
-      {
-        case 'p': return py::cast(expr.arg.node);
-        case 'i': return py::cast(expr.arg.ub_int);
-        case 'f': return py::cast(expr.arg.ub_float);
-        case 'c': return py::cast(expr.arg.ub_char);
-        case 'x': assert(false);
-        case 'u':
-        default : return py::none();
-      }
+      case 'p': return py::cast(expr.arg.node);
+      case 'i': return py::cast(expr.arg.ub_int);
+      case 'f': return py::cast(expr.arg.ub_float);
+      case 'c': return py::cast(expr.arg.ub_char);
+      case 'x': assert(false);
+      case 'u':
+      default : return py::none();
     }
   }
-
 
   void register_evaluator(pybind11::module_ mod)
   {
