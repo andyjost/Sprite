@@ -131,7 +131,7 @@ class TestExpr(cytest.TestCase):
   def test_nonstrictconstr(self):
     yield (
         _nonstrictconstr(True, (free(1), False))
-      , '_NonStrictConstraint True (_1, False)'
+      , '_NonStrictConstraint True (_a, False)'
       , '<_NonStrictConstraint <True> <(,) <_Free 1 <()>> <False>>>'
       )
 
@@ -147,7 +147,7 @@ class TestExpr(cytest.TestCase):
   def test_strictconstr(self):
     yield (
         _strictconstr(True, (free(1), free(2)))
-      , '_StrictConstraint True (_1, _2)'
+      , '_StrictConstraint True (_a, _b)'
       , '<_StrictConstraint <True> <(,) <_Free 1 <()>> <_Free 2 <()>>>>'
       )
 
@@ -155,13 +155,13 @@ class TestExpr(cytest.TestCase):
   def test_valuebinding(self):
     yield (
         _valuebinding(True, (free(1), curry.unboxed(2)))
-      , '_ValueBinding True (_1, 2)'
+      , '_ValueBinding True (_a, 2)'
       , '<_ValueBinding <True> <(,) <_Free 1 <()>> 2>>'
       )
 
   @cytest.check_expressions()
   def test_var(self):
-    yield free(5), '_5', '<_Free 5 <()>>'
+    yield free(5), '_a', '<_Free 5 <()>>'
 
   def test_nonlinear(self):
     # let a=1 in [a, a]

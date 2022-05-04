@@ -271,11 +271,8 @@ class FreeVarStringifier(Stringifier):
       if n < 0:
         break
 
-class DefaultStringifier(ListStringifier, LitNormalStringifier):
-  pass
 
-
-class ReplStringifier(
+class DefaultStringifier(
     FreeVarStringifier, ListStringifier, LitNormalStringifier
   ):
   '''

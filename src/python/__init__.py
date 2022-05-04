@@ -160,14 +160,9 @@ def reload(flags={}):
 
 
 class ShowValue(object):
-  def __init__(self):
-    from . import show
-    self.stringifier = show.ReplStringifier()
-
   @_visitation.dispatch.on('value')
   def __call__(self, value):
-    from . import show
-    return show.show(value, stringifier=self.stringifier)
+    return str(value)
 
   @__call__.when(tuple)
   def __call__(self, value):
