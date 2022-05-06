@@ -1,11 +1,11 @@
 '''Python bindings for libcyrt.so.'''
 from ._cyrtbindings import *
+from ...generic.eval import trace
 from . import fingerprint
-import logging
 from ... import Node as _backends_Node
+import logging
 
 logger = logging.getLogger(__name__)
-
 _backends_Node.register(Node)
 
 def make_node(info, *args, **kwds):
@@ -16,11 +16,12 @@ def make_node(info, *args, **kwds):
   args = [Arg(arg) for arg in args]
   return Node.create(info, args, target, bool(partial_info))
 
-def create_evaluation_rts(interp, goal):
-  state = interp.backend.get_interpreter_state(interp)
-  return RuntimeState(state, goal)
-
 class RuntimeState(RuntimeStateBase):
+  def __init__(self, interp, goal=None):
+    istate = interp.backend.get_interpreter_state(interp)
+    self.tracing = interp.flags['trace']
+    RuntimeStateBase.__init__(self, istate, goal, self.tracing)
+
   def generate_values(self):
     while True:
       result = self.next()

@@ -26,6 +26,11 @@ ifeq ($(DEBUG),1)
 else
 	@echo "  * Making *OPTIMIZED* flavor.  Say \`make <target> DEBUG=1\` for debug."
 endif
+ifeq ($(TRACE),1)
+	@echo "  * Computation tracing for 'cxx' is enabled."
+else
+	@echo "  * Computation tracing for 'cxx' is disabled.  Say \`make <target> TRACE=1\` to enable."
+endif
 	@echo ""
 	@echo "Targets for testing:"
 	@echo "--------------------"

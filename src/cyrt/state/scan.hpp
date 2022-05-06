@@ -22,7 +22,6 @@ namespace cyrt
         Node * root, Node * end, Cursor * target=nullptr, size_t start=1
       );
     Node * copy_spine(Node * root, Node * end, size_t start);
-  private:
     struct Level
     {
       Cursor cur;
@@ -31,9 +30,11 @@ namespace cyrt
 
       Level(Cursor const & cur=Cursor()) : cur(cur) {}
     };
-
+  private:
     std::vector<Level>  search;
     std::vector<size_t> callstack;
+  public:
+    std::vector<Level> const & frames() const { return search; }
   };
 }
 

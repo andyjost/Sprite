@@ -59,6 +59,9 @@ namespace cyrt
   {
     size_t ret = 0;
     tag_type tag = 0;
+    #ifdef SPRITE_TRACE_ENABLED
+    PositionKey key;
+    #endif
     for(auto * scan = &C->scan; *scan; ++(*scan))
     {
       tag = inspect::tag_of(scan->cursor());
@@ -78,7 +81,13 @@ namespace cyrt
         case T_CHOICE  : *root = this->pull_tab(C, root, scan->cursor());
                          return T_CHOICE;
         case T_FUNC    : ret = scan->size();
+                         #ifdef SPRITE_TRACE_ENABLED
+                         if(this->trace) { key = this->trace->enter_position(*scan); }
+                         #endif
                          tag = this->procS(C);
+                         #ifdef SPRITE_TRACE_ENABLED
+                         if(this->trace) { this->trace->exit_position(key); }
+                         #endif
                          scan->resize(ret);
                          goto redoN;
         case E_RESTART : return inspect::tag_of(root);
@@ -93,10 +102,13 @@ namespace cyrt
 
   tag_type RuntimeState::procS(Configuration * C)
   {
-    Cursor _0 = C->cursor();
-    std::cout << "S <<< " << _0->str() << std::endl;
-    auto status = _0->info->step(this, C);
-    std::cout << "S >>> " << _0->str() << std::endl;
+    #ifdef SPRITE_TRACE_ENABLED
+    if(this->trace) { this->trace->enter_rewrite(C->root); }
+    #endif
+    auto status = C->cursor()->info->step(this, C);
+    #ifdef SPRITE_TRACE_ENABLED
+    if(this->trace) { this->trace->exit_rewrite(C->root); }
+    #endif
     return status;
   }
 

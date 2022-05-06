@@ -1,4 +1,5 @@
 #include "cyrt/graph/cursor.hpp"
+#include "cyrt/graph/node.hpp"
 #include <sstream>
 
 namespace cyrt
@@ -7,6 +8,23 @@ namespace cyrt
   {
     std::stringstream ss;
     ss << "<Arg \"" << this->blob << "\" at " << this << ">";
+    return ss.str();
+  }
+
+  std::string Cursor::str() const
+  {
+    std::stringstream ss;
+    if(this->arg)
+    {
+      switch(this->kind)
+      {
+        case 'p': ss << this->arg->node->str();           break;
+        case 'i': ss << this->arg->ub_int;                break;
+        case 'f': ss << this->arg->ub_float;              break;
+        case 'c': ss << "'" << this->arg->ub_char << "'"; break;
+        default :;
+      }
+    }
     return ss.str();
   }
 

@@ -8,8 +8,12 @@ namespace cyrt
     this->Q()->push_back(config);
   }
 
-  void RuntimeState::drop(TraceOpt /*trace*/)
+  void RuntimeState::drop(TraceOpt trace)
   {
+    #ifdef SPRITE_TRACE_ENABLED
+    if(trace && this->trace)
+      this->trace->failed();
+    #endif
     this->Q()->pop_front();
   }
 
@@ -27,6 +31,9 @@ namespace cyrt
   Expr RuntimeState::release_value()
   {
     Expr value = this->make_value();
+    #ifdef SPRITE_TRACE_ENABLED
+    this->trace->yield(value);
+    #endif
     this->drop(NOTRACE);
     return value;
   }

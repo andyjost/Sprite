@@ -17,6 +17,19 @@ namespace cyrt
   }
 
   void RuntimeState::fork(Queue * Q, Configuration * C)
+  #ifdef SPRITE_TRACE_ENABLED
+  {
+    if(this->trace)
+    {
+      auto _ = this->trace->guard_fork(Q);
+      this->_fork(Q, C);
+    }
+    else
+      this->_fork(Q, C);
+  }
+
+  void RuntimeState::_fork(Queue * Q, Configuration * C)
+  #endif
   {
     assert(Q == this->Q());
     ChoiceNode * choice = NodeU{C->root}.choice;

@@ -79,7 +79,7 @@ class Trace(object):
     if self.prevexprs[self.rts.qid] != id(expr):
       enter_rewrite(self.rts, self.indent_value, expr)
 
-  def exit_rewrite(self, expr, buffering=False):
+  def exit_rewrite(self, expr):
     self.dedent()
     expr = getattr(expr, 'target', expr)
     exit_rewrite(self.rts, self.indent_value, expr)

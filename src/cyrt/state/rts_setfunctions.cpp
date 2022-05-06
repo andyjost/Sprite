@@ -2,15 +2,23 @@
 
 namespace cyrt
 {
-  void RuntimeState::push_queue(Queue * queue, TraceOpt /*trace*/)
+  void RuntimeState::push_queue(Queue * queue, TraceOpt trace)
   {
     assert(queue);
     this->qstack.push_back(queue);
+    #ifdef SPRITE_TRACE_ENABLED
+    if(trace && this->trace)
+      this->trace->activate_queue(queue);
+    #endif
   }
 
-  void RuntimeState::pop_queue(TraceOpt /*trace*/)
+  void RuntimeState::pop_queue(TraceOpt trace)
   {
     this->qstack.pop_back();
+    #ifdef SPRITE_TRACE_ENABLED
+    if(trace && this->trace && !this->qstack.empty())
+      this->trace->activate_queue(this->Q());
+    #endif
   }
 
   bool RuntimeState::choice_escapes(Configuration * C, xid_type cid)

@@ -64,6 +64,7 @@ namespace cyrt
     Cursor cursor() const { return this->scan.cursor(); }
     xid_type grp_id(xid_type id) const
       { return this->strict_constraints->root(id); }
+    xid_type grp_id() const;
     bool has_binding(xid_type id) const { return this->bindings->count(id); }
     std::string str() const;
     void str(std::ostream &) const;
@@ -81,5 +82,6 @@ namespace cyrt
   }
 
   std::ostream & operator<<(std::ostream &, BindingMap const &);
+  inline xid_type Configuration::grp_id() const { return this->grp_id(obj_id(this->root)); }
 }
 

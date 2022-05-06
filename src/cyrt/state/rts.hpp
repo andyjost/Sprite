@@ -1,12 +1,17 @@
 #pragma once
 #include "boost/utility.hpp"
-#include <initializer_list>
 #include "cyrt/fwd.hpp"
 #include "cyrt/state/configuration.hpp"
 #include "cyrt/state/queue.hpp"
+#include <initializer_list>
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#ifdef SPRITE_TRACE_ENABLED
+#include "cyrt/trace.hpp"
+#endif
 
 namespace cyrt
 {
@@ -25,13 +30,20 @@ namespace cyrt
 
   struct RuntimeState : boost::noncopyable
   {
-    RuntimeState(InterpreterState & istate, Node * goal);
+    RuntimeState(InterpreterState & istate, Node * goal, bool trace=false);
+    RuntimeState(RuntimeState const &) = delete;
+    RuntimeState(RuntimeState &&) = delete;
+    RuntimeState & operator=(RuntimeState const &) = delete;
+    RuntimeState & operator=(RuntimeState &&) = delete;
 
-    InterpreterState & istate;
-    size_t             stepcount = 0;
-    qstack_type        qstack;
-    vtable_type        vtable;
-    SetFStrategy       setfunction_strategy = SETF_EAGER;
+    InterpreterState &     istate;
+    size_t                 stepcount = 0;
+    qstack_type            qstack;
+    vtable_type            vtable;
+    SetFStrategy           setfunction_strategy = SETF_EAGER;
+		#ifdef SPRITE_TRACE_ENABLED
+    std::unique_ptr<Trace> trace;
+    #endif
 
     Queue * Q() { return this->qstack.back(); }
     Configuration * C() { return this->Q()->front(); }
@@ -101,6 +113,10 @@ namespace cyrt
     bool choice_escapes(Configuration *, xid_type);
     void filter_queue(Queue *, xid_type, ChoiceState);
     bool in_recursive_call() const;
+  private:
+    #ifdef SPRITE_TRACE_ENABLED
+    void _fork(Queue *, Configuration *);
+    #endif
   };
 
   Node * has_generator(Node * freevar);

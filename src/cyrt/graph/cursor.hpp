@@ -61,6 +61,7 @@ namespace cyrt
         { return kind=='p' ? (void *) this->arg->node : (void *) this->arg; }
     Cursor & skipfwd();
     Variable operator[](index_type) const;
+    std::string str() const;
     std::string repr() const;
   };
 

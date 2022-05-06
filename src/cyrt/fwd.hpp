@@ -20,6 +20,7 @@ namespace cyrt
   struct Queue;
   struct RuntimeState;
   struct Set;
+  struct Trace;
   struct UnionFind;
   struct Variable;
   union Arg;

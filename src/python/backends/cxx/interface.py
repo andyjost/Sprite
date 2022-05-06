@@ -42,7 +42,7 @@ class IBackend(backends.IBackend):
 
   @property
   def create_evaluation_rts(self):
-    return cyrtbindings.create_evaluation_rts
+    return cyrtbindings.RuntimeState
 
   @property
   def make_node(self):
