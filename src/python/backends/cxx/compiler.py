@@ -1,8 +1,9 @@
 from ...exceptions import CompileError
 from ..generic import compiler, renderer
-from ... import config, icurry
+from ... import common, config, icurry
 from . import cyrtbindings as cyrt
 from ...utility import formatDocstring, strings, visitation
+from ...utility.showflags import showflags
 import collections, json, six
 
 __all__ = ['compile', 'write_module']
@@ -71,11 +72,12 @@ class CxxCompiler(compiler.CompilerBase):
     assert False
 
   def vEmitFunctionInfotab(self, ifun, h_info, h_stepfunc):
+    flags = ifun.metadata.get('all.flags', 0) | common.F_STATIC_OBJECT
     yield 'InfoTable const %s{'                 % h_info
     yield '    /*tag*/        T_FUNC'
     yield '  , /*arity*/      %s'               % ifun.arity
     yield '  , /*alloc_size*/ sizeof(Head) + sizeof(Arg[%s])' % ifun.arity
-    yield '  , /*flags*/      F_STATIC_OBJECT'
+    yield '  , /*flags*/      %s'                   % showflags(flags)
     yield '  , /*name*/       %s'               % _dquote(ifun.name)
     yield '  , /*format*/     "%s"'             % ('p' * ifun.arity)
     yield '  , /*step*/       %s'               % h_stepfunc
@@ -84,12 +86,12 @@ class CxxCompiler(compiler.CompilerBase):
     yield ''
 
   def vEmitConstructorInfotab(self, ictor, h_info, h_datatype):
-    flags = ictor.metadata.get('all.flags', 0)
+    flags = ictor.metadata.get('all.flags', 0) | common.F_STATIC_OBJECT
     yield 'InfoTable const %s{'                     % h_info
     yield '    /*tag*/        T_CTOR + %r'          % ictor.index
     yield '  , /*arity*/      %s'                   % ictor.arity
     yield '  , /*alloc_size*/ sizeof(Head) + sizeof(Arg[%s])' % ictor.arity
-    yield '  , /*flags*/      F_STATIC_OBJECT | %s' % flags
+    yield '  , /*flags*/      %s'                   % showflags(flags)
     yield '  , /*name*/       %s'                   % _dquote(ictor.name)
     yield '  , /*format*/     "%s"'                 % ('p' * ictor.arity)
     yield '  , /*step*/       nullptr'

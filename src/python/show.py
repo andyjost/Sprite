@@ -103,7 +103,8 @@ class Stringifier(object):
     # write [f a] not [(f a)] and (f a, f b) rather than ((f a), (f b)).  For
     # partial applications, do not recurse (the to-string routines will fail
     # for a partial application of ':').
-    if inspect.isa_operator_name(arg.info.name) and self.style != 'repr':
+    # if inspect.isa_operator_name(arg.info.name) and self.style != 'repr':
+    if arg.info.is_operator and self.style != 'repr':
       # This could be useful, but needs to be controlled.
       #
       # if arg.info.arity == 2:

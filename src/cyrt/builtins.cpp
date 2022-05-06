@@ -176,7 +176,7 @@ extern "C"
       /*tag*/        T_CONS
     , /*arity*/      2
     , /*alloc_size*/ sizeof(ConsNode)
-    , /*flags*/      F_LIST_TYPE | F_STATIC_OBJECT
+    , /*flags*/      F_LIST_TYPE | F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       ":"
     , /*format*/     "pp"
     , /*step*/       nullptr
@@ -187,7 +187,7 @@ extern "C"
       /*tag*/        T_NIL
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
-    , /*flags*/      F_LIST_TYPE | F_STATIC_OBJECT
+    , /*flags*/      F_LIST_TYPE | F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       "[]"
     , /*format*/     ""
     , /*step*/       nullptr
@@ -198,7 +198,7 @@ extern "C"
       /*tag*/        T_CTOR
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
-    , /*flags*/      F_TUPLE_TYPE | F_STATIC_OBJECT
+    , /*flags*/      F_TUPLE_TYPE | F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       "()"
     , /*format*/     ""
     , /*step*/       nullptr
@@ -209,7 +209,7 @@ extern "C"
       /*tag*/        T_CTOR
     , /*arity*/      2
     , /*alloc_size*/ sizeof(PairNode)
-    , /*flags*/      F_TUPLE_TYPE | F_STATIC_OBJECT
+    , /*flags*/      F_TUPLE_TYPE | F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       "(,)"
     , /*format*/     "pp"
     , /*step*/       nullptr

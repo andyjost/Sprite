@@ -1,6 +1,7 @@
 #pragma once
 #include "cyrt/fwd.hpp"
 #include <cstdint>
+#include <string>
 
 namespace cyrt
 {
@@ -48,6 +49,8 @@ namespace cyrt
     char const *       format;
     stepfunc_type      step;
     DataType const *   type;
+
+    std::string repr() const;
   };
 
   inline flag_type typetag(InfoTable const & info)
@@ -78,7 +81,7 @@ namespace cyrt
     { return typetag(info) == F_PARTIAL_TYPE; }
 
   inline bool is_operator(InfoTable const & info)
-    { return typetag(info) == F_OPERATOR; }
+    { return info.flags & F_OPERATOR; }
 
   inline bool is_monadic(InfoTable const & info)
     { return info.flags & F_MONADIC; }

@@ -1,12 +1,14 @@
 #include <cassert>
-#include "cyrt/trace.hpp"
+#include "cyrt/inspect.hpp"
 #include "cyrt/state/rts.hpp"
+#include "cyrt/trace.hpp"
 #include <iostream>
 #include <sstream>
 
 namespace cyrt
 {
-  static std::ostream & trace_out = std::cout;
+  // Trace output stream.
+  static std::ostream & tout = std::cout;
 
   void Trace::indent(Queue * Q)
   {
@@ -28,41 +30,41 @@ namespace cyrt
   {
     this->indent();
     auto * Q = this->rts->Q();
-    if(this->prevexprs[Q] != cursor.id())
+    if(this->prevexprs[Q] != cursor.fwd_chain_target().id())
     {
-      trace_out << "S <<< ";
+      tout << "S <<< ";
       this->show_indent();
-      trace_out << cursor.str() << std::endl;
+      tout << cursor.str() << "\n";
     }
   }
 
   void Trace::exit_rewrite(Cursor cursor)
   {
     this->dedent();
-    trace_out << "S >>> ";
+    tout << "S >>> ";
     this->show_indent();
-    trace_out << cursor.str() << std::endl;
+    tout << cursor.str() << "\n";
     auto * Q = this->rts->Q();
-    this->prevexprs[Q] = cursor.id();
+    this->prevexprs[Q] = cursor.fwd_chain_target().id();
   }
 
   void Trace::failed(Queue * Q)
   {
-    trace_out << "Q ::: failed config dropped from ";
+    tout << "Q ::: failed config dropped from ";
     this->show_queue(Q);
-    trace_out << std::endl;
+    tout << "\n";
   }
 
   void Trace::yield(Expr value)
   {
-    trace_out << "Y ::: " << Cursor(value.arg, value.kind).str() << std::endl;
+    tout << "Y ::: " << Cursor(value.arg, value.kind).str() << "\n";
   }
 
   void Trace::activate_queue(Queue * Q)
   {
-    trace_out << "Q ::: switching to ";
+    tout << "Q ::: switching to ";
     this->show_queue(Q);
-    trace_out << std::endl;
+    tout << "\n";
   }
 
   TraceFork Trace::guard_fork(Queue * Q)
@@ -75,20 +77,20 @@ namespace cyrt
     if(!Q)
       Q = this->rts->Q();
     assert(Q);
-    trace_out << "queue " << this->qid(Q) << ": [";
+    tout << "queue " << this->qid(Q) << ": [";
     bool first = true;
     for(auto * C: *Q)
     {
-      if(first) first = false; else trace_out << ", ";
-      trace_out << C->fingerprint;
+      if(first) first = false; else tout << ", ";
+      tout << C->fingerprint;
     }
-    trace_out << "]";
+    tout << "]";
   }
 
   void Trace::show_indent()
   {
     for(size_t i=0; i<this->indent_value; ++i)
-      trace_out << "  ";
+      tout << "  ";
   }
 
   size_t Trace::qid(Queue * Q)
@@ -119,9 +121,9 @@ namespace cyrt
   {
     if(this->trace)
     {
-      trace_out << msg;
+      tout << msg;
       trace->show_queue(this->Q);
-      trace_out << std::endl;
+      tout << "\n";
     }
   }
 
@@ -131,12 +133,12 @@ namespace cyrt
     auto n = scan.size();
     auto && frame = scan.frames()[n-2];
     this->indent(Q);
-    PositionKey key(frame.cur.id(), frame.index);
+    PositionKey key(frame.cur.fwd_chain_target().id(), frame.index);
     if(this->prevpaths[Q] != key)
     {
-      trace_out << "I ::: ";
+      tout << "I ::: ";
       this->show_indent();
-      trace_out << "at path=[" << frame.index << "] of " << frame.cur.str() << std::endl;
+      tout << "at path=[" << frame.index << "] of " << frame.cur.str() << "\n";
     }
     return key;
   }

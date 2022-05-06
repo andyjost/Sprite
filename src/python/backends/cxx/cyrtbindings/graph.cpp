@@ -76,6 +76,8 @@ namespace cyrt { namespace python
       .def_property_readonly("is_io", &is_io)
       .def_property_readonly("is_partial", &is_partial)
       .def_property_readonly("is_monadic", &is_monadic)
+      .def_property_readonly("is_operator", &is_operator)
+      .def("__repr__", &InfoTable::repr)
       ;
 
     py::class_<Arg>(mod, "Arg")

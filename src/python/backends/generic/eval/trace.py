@@ -49,6 +49,9 @@ def fork(rts, qid=None):
   else:
     yield
 
+def expr_id(expr):
+  from .... import inspect
+  return id(inspect.fwd_chain_target(expr))
 
 class Trace(object):
   '''
@@ -76,14 +79,14 @@ class Trace(object):
   def enter_rewrite(self, expr):
     self.indent()
     expr = getattr(expr, 'target', expr)
-    if self.prevexprs[self.rts.qid] != id(expr):
+    if self.prevexprs[self.rts.qid] != expr_id(expr):
       enter_rewrite(self.rts, self.indent_value, expr)
 
   def exit_rewrite(self, expr):
     self.dedent()
     expr = getattr(expr, 'target', expr)
     exit_rewrite(self.rts, self.indent_value, expr)
-    self.prevexprs[self.rts.qid] = id(expr)
+    self.prevexprs[self.rts.qid] = expr_id(expr)
 
   def failed(self):
     failed(self.rts)
@@ -100,13 +103,13 @@ class Trace(object):
   @contextlib.contextmanager
   def position(self, expr, path):
     qid = self.rts.qid
-    key = id(expr), tuple(path)
+    key = expr_id(expr), tuple(path)
     self.indent(qid)
     try:
       if self.prevpaths[qid] != key:
         position(self.rts, self.indent_value, expr, path)
       yield
-      self.prevpaths[qid] = id(expr), tuple(path)
+      self.prevpaths[qid] = expr_id(expr), tuple(path)
     finally:
       self.dedent(qid)
 

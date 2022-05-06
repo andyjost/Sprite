@@ -96,10 +96,10 @@ class PyCompiler(compiler.CompilerBase):
 
   def vEmitConstructorInfotab(self, ictor, h_info, h_datatype):
     builtin = 'all.tag' in ictor.metadata
-    yield '%s = InfoTable(%r, %r, %r, %r, None, %r)' % (
+    yield '%s = InfoTable(%r, %r, %r, %s, None, %r)' % (
         h_info, ictor.name, ictor.arity
       , ictor.index if not builtin else ictor.metadata['all.tag']
-      , ictor.metadata.get('all.flags', 0)
+      , showflags(ictor.metadata.get('all.flags', 0))
       , getattr(ictor.metadata, 'py.format', None)
       )
 

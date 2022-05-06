@@ -103,7 +103,7 @@ namespace cyrt { namespace python
   void do_eval(Node * goal)
   {
     InterpreterState is;
-    auto rts = RuntimeState(is, goal);
+    auto rts = RuntimeState(is, goal, true);
     size_t n=0;
     std::cout << "*** EVAL: ";
     while(true)

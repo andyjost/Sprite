@@ -38,14 +38,9 @@ namespace cyrt { namespace inspect
 
   inline Cursor fwd_chain_target(Cursor arg)
   {
-    while(true)
-    {
-      Cursor after = fwd_target(arg);
-      if(!after)
-        return arg;
-      else
-        arg = after;
-    }
+    while(arg.kind == 'p' && arg->info->tag == T_FWD)
+      arg = NodeU{arg}.fwd->target;
+    return arg;
   }
 
   inline xid_type xget_choice_id(Node * node)
@@ -124,5 +119,10 @@ namespace cyrt
   {
     **this = *inspect::fwd_chain_target(*this);
     return *this;
+  }
+
+  inline Cursor Cursor::fwd_chain_target() const
+  {
+    return *inspect::fwd_chain_target(*this);
   }
 }

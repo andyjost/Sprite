@@ -224,7 +224,7 @@ extern "C"
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*flags*/      F_STATIC_OBJECT
+    , /*flags*/      F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       "$##>"
     , /*format*/     "pp"
     , /*step*/       eagerApplyS_step

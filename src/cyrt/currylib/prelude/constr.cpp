@@ -201,7 +201,7 @@ extern "C"
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*flags*/      F_STATIC_OBJECT | F_OPERATOR
+    , /*flags*/      F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       "&"
     , /*format*/     "pp"
     , /*step*/       concurrentAnd_step
@@ -234,7 +234,7 @@ extern "C"
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
-    , /*flags*/      F_STATIC_OBJECT | F_OPERATOR
+    , /*flags*/      F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       "&>"
     , /*format*/     "pp"
     , /*step*/       seq_step

@@ -119,3 +119,7 @@ class InfoTable(object):
   def is_monadic(self):
     return self.flags & common.F_MONADIC
 
+  @property
+  def is_operator(self):
+    return self.flags & common.F_OPERATOR
+

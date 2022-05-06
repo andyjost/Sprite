@@ -59,7 +59,8 @@ namespace cyrt
     operator Node *&() const { assert(arg && kind=='p'); return **this; }
     void * id() const
         { return kind=='p' ? (void *) this->arg->node : (void *) this->arg; }
-    Cursor & skipfwd();
+    Cursor & skipfwd(); // inspect.hxx
+    Cursor fwd_chain_target() const; // inspect.hxx
     Variable operator[](index_type) const;
     std::string str() const;
     std::string repr() const;
