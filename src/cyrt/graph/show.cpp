@@ -57,8 +57,7 @@ namespace
     static void callback(void * static_data, void * id)
     {
       auto self = (ReprStringifier *)(static_data);
-      if(id) // FIXME: guess
-        self->os << '>';
+      if(id) self->os << '>';
       self->memo.erase(id);
     }
 
@@ -124,8 +123,10 @@ namespace
       //     ')'     tuple non-first term
       //     '['     square list item
       //     ']'     square list spine
-      //     ':'     cons list item
-      //     '!'     cons list spine
+      //     ':'     bare cons list item
+      //     '!'     bare cons list spine
+      //     '<'     parenthisized cons list item
+      //     '>'     parenthisized cons list spine
       //     '_'     concat list item
       //     '^'     concat list spine
       //     '"'     string item
@@ -143,7 +144,7 @@ namespace
       {
         case '(':
         case ')':
-        case '!':
+        case '>':
         case '&': self->os << ')'; break;
         case '[': self->os << ']'; break;
       }
@@ -163,20 +164,20 @@ namespace
       {
         auto cur = walk.cursor().skipfwd();
         void *& data = walk.data();
-        bool bare = false;
+        bool disallow_parens = false;
         switch(Context(data).value)
         {
-          case '\0': bare = true; data = Context(' '); break;
+          case '\0': disallow_parens = true; data = Context(' '); break;
           case ' ' :
           case '&' : os << ' ';                        break;
-          case '(' : bare = true; data = Context(')'); break;
-          case ')' : bare = true; os << ", ";          break;
+          case '(' : disallow_parens = true; data = Context(')'); break;
+          case ')' : disallow_parens = true; os << ", ";          break;
 
           // Bracketed list.
-          case '[' : bare = true; data = Context(']'); break;
+          case '[' : disallow_parens = true; data = Context(']'); break;
           case ']' :
             assert(is_list(*cur->info));
-            bare = true;
+            disallow_parens = true;
             if(cur->info->tag == T_CONS)
             {
               os << ", ";
@@ -211,12 +212,17 @@ namespace
 
           // Cons list.
           case ':' : data = Context('!'); break;
+          case '<' : data = Context('>'); break;
           case '!' :
+          case '>' :
             os << ':';
             if(is_list(*cur->info))
             {
               if(cur->info->tag == T_CONS)
-                walk.extend(Context(':'));
+              {
+                auto next = Context(data).value == '!' ? Context(':') : Context('<');
+                walk.extend(next);
+              }
               else
                 os << '[' << ']';
               continue;
@@ -271,7 +277,7 @@ namespace
             continue;
           }
           case F_LIST_TYPE:
-            begin_list(walk, cur);
+            begin_list(walk, cur, disallow_parens);
             continue;
           case F_TUPLE_TYPE:
             os << '(';
@@ -286,7 +292,7 @@ namespace
             continue;
           }
           default:
-            if(!bare && info->arity)
+            if(!disallow_parens && info->arity)
             {
               os << '(';
               this->show_name(os, info);
@@ -324,7 +330,7 @@ namespace
     void show(void const * value)
       { this->os << value; }
 
-    void begin_list(Walk2 & walk, Cursor cur)
+    void begin_list(Walk2 & walk, Cursor cur, bool disallow_parens)
     {
       Node * end = cur;
       bool is_string = true;
@@ -352,8 +358,13 @@ namespace
       }
       else
       {
-        this->os << '(';
-        walk.extend(Context(':'));
+        if(disallow_parens)
+          walk.extend(Context(':'));
+        else
+        {
+          this->os << '(';
+          walk.extend(Context('<'));
+        }
       }
     }
 
