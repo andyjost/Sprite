@@ -20,7 +20,10 @@ namespace cyrt { inline namespace
   void const * make_guides(ValueSet * vs, Cursor & cur)
   {
     if(cur.kind == 'p')
-      return nullptr;
+    {
+      assert(cur->info->type);
+      return cur->info->type;
+    }
     else
     {
       vs->args = cur.arg;
@@ -66,25 +69,28 @@ namespace cyrt { inline namespace
     Cursor _0 = C->cursor();
     Variable lhs = _0[0];
     Variable rhs = _0[1];
+    // lhs:{0: ctor, 1: free, 2: unboxed} + rhs:{0: ctor, 3: free, 6: unboxed}
+    int code = 0;
     auto tagl = rts->hnf_or_free(C, &lhs);
+    switch(tagl)
+    {
+      case T_UNBOXED: code += 2; break;
+      case T_FREE   : code += 1; break;
+      default       : if(tagl < T_CTOR) return tagl;
+    }
     auto tagr = rts->hnf_or_free(C, &rhs);
-    auto code = ((tagl == T_UNBOXED) ? 2 : 0) + ((tagr == T_UNBOXED) ? 1 : 0);
+    switch(tagr)
+    {
+      case T_UNBOXED: code += 6; break;
+      case T_FREE   : code += 3; break;
+      default       : if(tagr < T_CTOR) return tagr;
+    }
     ValueSet vs;
     switch(code)
     {
-      case 1:
-      case 2: throw InstantiationError("=:= cannot bind to an unboxed value");
-      case 3: _0->forward_to(
-                  ub_equals(lhs.target, rhs.target) ? True : Fail
-                );
-              return T_FWD;
-    }
-    code = ((tagl == T_FREE) ? 2 : 0) + ((tagr == T_FREE) ? 1 : 0);
-    switch(code)
-    {
       case 1: return rts->hnf(C, &lhs, make_guides(&vs, rhs.target));
-      case 2: return rts->hnf(C, &rhs, make_guides(&vs, lhs.target));
-      case 3: _0->forward_to(
+      case 3: return rts->hnf(C, &rhs, make_guides(&vs, lhs.target));
+      case 4: _0->forward_to(
                   vid(lhs) == vid(rhs)
                       ? True
                       : Node::create(
@@ -93,8 +99,18 @@ namespace cyrt { inline namespace
                           )
                 );
               return T_FWD;
+      case 2:
+      case 5:
+      case 6:
+      case 7: throw InstantiationError("=:= cannot bind to an unboxed value");
+      case 8: _0->forward_to(
+                  ub_equals(lhs.target, rhs.target) ? True : Fail
+                );
+              return T_FWD;
+      default: break;
     }
-    if(tagl != tagr) // case 0
+    assert(tagl >= T_CTOR && tagr >= T_CTOR);
+    if(tagl != tagr)
       _0->forward_to(Fail);
     else
     {
