@@ -114,7 +114,6 @@ class Trace(object):
       self.dedent(qid)
 
 
-
 def trace_values(f):
   '''Wraps the D procedure to trace value creation.'''
   def value_tracer(rts):

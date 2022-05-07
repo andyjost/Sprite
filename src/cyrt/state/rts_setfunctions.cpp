@@ -15,8 +15,9 @@ namespace cyrt
   void RuntimeState::pop_queue(TraceOpt trace)
   {
     this->qstack.pop_back();
+    assert(!this->qstack.empty());
     #ifdef SPRITE_TRACE_ENABLED
-    if(trace && this->trace && !this->qstack.empty())
+    if(trace && this->trace)
       this->trace->activate_queue(this->Q());
     #endif
   }

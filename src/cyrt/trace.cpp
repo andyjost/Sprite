@@ -10,46 +10,42 @@ namespace cyrt
   // Trace output stream.
   static std::ostream & tout = std::cout;
 
-  void Trace::indent(Queue * Q)
+  void Trace::indent(Queue const * Q)
   {
-    if(!Q)
-      Q = this->rts->Q();
     assert(Q);
     this->indent_value = this->indents[Q]++;
   }
 
-  void Trace::dedent(Queue * Q)
+  void Trace::dedent(Queue const * Q)
   {
-    if(!Q)
-      Q = this->rts->Q();
     assert(Q);
     this->indent_value = --this->indents[Q];
   }
 
-  void Trace::enter_rewrite(Cursor cursor)
+  void Trace::enter_rewrite(Queue const * Q, Cursor cursor)
   {
-    this->indent();
-    auto * Q = this->rts->Q();
+    assert(Q);
+    this->indent(Q);
     if(this->prevexprs[Q] != cursor.fwd_chain_target().id())
     {
       tout << "S <<< ";
-      this->show_indent();
+      this->show_indent(Q);
       tout << cursor.str() << "\n";
     }
   }
 
-  void Trace::exit_rewrite(Cursor cursor)
+  void Trace::exit_rewrite(Queue const * Q, Cursor cursor)
   {
-    this->dedent();
+    this->dedent(Q);
     tout << "S >>> ";
-    this->show_indent();
+    this->show_indent(Q);
     tout << cursor.str() << "\n";
-    auto * Q = this->rts->Q();
     this->prevexprs[Q] = cursor.fwd_chain_target().id();
   }
 
-  void Trace::failed(Queue * Q)
+  void Trace::failed(Queue const * Q)
   {
+    assert(Q);
     tout << "Q ::: failed config dropped from ";
     this->show_queue(Q);
     tout << "\n";
@@ -60,22 +56,21 @@ namespace cyrt
     tout << "Y ::: " << Cursor(value.arg, value.kind).str() << "\n";
   }
 
-  void Trace::activate_queue(Queue * Q)
+  void Trace::activate_queue(Queue const * Q)
   {
+    assert(Q);
     tout << "Q ::: switching to ";
     this->show_queue(Q);
     tout << "\n";
   }
 
-  TraceFork Trace::guard_fork(Queue * Q)
+  TraceFork Trace::guard_fork(Queue const * Q)
   {
     return TraceFork(this, Q);
   }
 
-  void Trace::show_queue(Queue * Q)
+  void Trace::show_queue(Queue const * Q)
   {
-    if(!Q)
-      Q = this->rts->Q();
     assert(Q);
     tout << "queue " << this->qid(Q) << ": [";
     bool first = true;
@@ -87,13 +82,14 @@ namespace cyrt
     tout << "]";
   }
 
-  void Trace::show_indent()
+  void Trace::show_indent(Queue const * Q)
   {
+    assert(Q);
     for(size_t i=0; i<this->indent_value; ++i)
       tout << "  ";
   }
 
-  size_t Trace::qid(Queue * Q)
+  size_t Trace::qid(Queue const * Q)
   {
     for(size_t i=0; i<this->rts->qstack.size(); ++i)
     {
@@ -104,9 +100,10 @@ namespace cyrt
     return -1;
   }
 
-  TraceFork::TraceFork(Trace * trace, Queue * Q)
-    : trace(trace), Q(Q ? Q : trace->rts->Q())
+  TraceFork::TraceFork(Trace * trace, Queue const * Q)
+    : trace(trace), Q(Q)
   {
+    assert(Q);
     xid_type cid = this->Q->front()->grp_id();
     std::stringstream ss;
     ss << "Q ::: fork " << Q->front()->fingerprint << " on cid=" << cid << " appending to ";
@@ -127,9 +124,9 @@ namespace cyrt
     }
   }
 
-  PositionKey Trace::enter_position(Scan const & scan)
+  PositionKey Trace::enter_position(Queue const * Q, Scan const & scan)
   {
-    Queue * Q = this->rts->Q();
+    assert(Q);
     auto n = scan.size();
     auto && frame = scan.frames()[n-2];
     this->indent(Q);
@@ -137,15 +134,15 @@ namespace cyrt
     if(this->prevpaths[Q] != key)
     {
       tout << "I ::: ";
-      this->show_indent();
-      tout << "at path=[" << frame.index << "] of " << frame.cur.str() << "\n";
+      this->show_indent(Q);
+      tout << "  at path=[" << frame.index << "] of " << frame.cur.str() << "\n";
     }
     return key;
   }
 
-  void Trace::exit_position(PositionKey const & key)
+  void Trace::exit_position(Queue const * Q, PositionKey const & key)
   {
-    Queue * Q = this->rts->Q();
+    assert(Q);
     this->prevpaths[Q] = key;
     this->dedent(Q);
   }

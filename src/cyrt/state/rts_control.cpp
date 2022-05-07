@@ -12,7 +12,7 @@ namespace cyrt
   {
     #ifdef SPRITE_TRACE_ENABLED
     if(trace && this->trace)
-      this->trace->failed();
+      this->trace->failed(this->Q());
     #endif
     this->Q()->pop_front();
   }

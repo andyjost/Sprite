@@ -3,6 +3,17 @@
 #include "cyrt/inspect.hpp"
 #include "cyrt/state/rts.hpp"
 
+
+#ifdef SPRITE_TRACE_ENABLED
+  #define TRACE_STEP_ENTER(cursor) \
+      if(this->trace) { this->trace->enter_rewrite(this->Q(), cursor); }
+  #define TRACE_STEP_EXIT(cursor) \
+      if(this->trace) { this->trace->exit_rewrite(this->Q(), cursor); }
+#else
+  #define TRACE_STEP_ENTER(cursor)
+  #define TRACE_STEP_EXIT(cursor)
+#endif
+
 namespace cyrt
 {
   Expr RuntimeState::procD()
@@ -42,7 +53,9 @@ namespace cyrt
         case E_RESTART : tag = inspect::tag_of(C->root);
                          goto redoD;
         case E_RESIDUAL: assert(0); continue;
-        default        : tag = this->procN(C, C->root);
+        default        : TRACE_STEP_ENTER(C->root)
+                         tag = this->procN(C, C->root);
+                         TRACE_STEP_EXIT(C->root)
                          if(tag == T_CTOR)
                            return this->release_value();
                          else
@@ -82,11 +95,11 @@ namespace cyrt
                          return T_CHOICE;
         case T_FUNC    : ret = scan->size();
                          #ifdef SPRITE_TRACE_ENABLED
-                         if(this->trace) { key = this->trace->enter_position(*scan); }
+                         if(this->trace) { key = this->trace->enter_position(this->Q(), *scan); }
                          #endif
                          tag = this->procS(C);
                          #ifdef SPRITE_TRACE_ENABLED
-                         if(this->trace) { this->trace->exit_position(key); }
+                         if(this->trace) { this->trace->exit_position(this->Q(), key); }
                          #endif
                          scan->resize(ret);
                          goto redoN;
@@ -102,13 +115,9 @@ namespace cyrt
 
   tag_type RuntimeState::procS(Configuration * C)
   {
-    #ifdef SPRITE_TRACE_ENABLED
-    if(this->trace) { this->trace->enter_rewrite(C->root); }
-    #endif
+    TRACE_STEP_ENTER(C->cursor())
     auto status = C->cursor()->info->step(this, C);
-    #ifdef SPRITE_TRACE_ENABLED
-    if(this->trace) { this->trace->exit_rewrite(C->root); }
-    #endif
+    TRACE_STEP_EXIT(C->cursor())
     return status;
   }
 
