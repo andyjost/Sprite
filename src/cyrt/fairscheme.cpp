@@ -87,7 +87,7 @@ namespace cyrt
         case T_CONSTR  : *root = this->lift_constraint(C, root, scan->cursor());
                          return inspect::tag_of(root);
         case T_FREE    : tag = this->replace_freevar(C, root);
-                         continue;
+                         if(tag <= E_RESTART) goto redoN; else continue;
         case T_FWD     : compress_fwd_chain(scan->cursor());
                          tag = inspect::tag_of(scan->cursor());
                          goto redoN;
@@ -103,7 +103,7 @@ namespace cyrt
                          #endif
                          scan->resize(ret);
                          goto redoN;
-        case E_RESTART : return inspect::tag_of(root);
+        case E_RESTART : return E_RESTART;
         case E_RESIDUAL: assert(0); continue;
         default        :
           if(!is_partial(*scan->cursor()->info))

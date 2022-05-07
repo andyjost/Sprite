@@ -1,3 +1,4 @@
+#include <cassert>
 #include "cyrt/builtins.hpp"
 #include "cyrt/fingerprint.hpp"
 #include "cyrt/state/rts.hpp"
@@ -71,6 +72,7 @@ namespace cyrt
 
   Node * RuntimeState::pull_tab(Configuration * C, Node * source, Node * target)
   {
+    assert(source != target);
     ChoiceNode * choice = NodeU{target}.choice;
     Node * lhs = C->scan.copy_spine(source, choice->lhs);
     Node * rhs = C->scan.copy_spine(source, choice->rhs);
@@ -79,8 +81,9 @@ namespace cyrt
 
   Node * RuntimeState::pull_tab(Configuration * C, Variable * inductive)
   {
+    Node * source = C->cursor().arg->node;
     C->scan.push(inductive);
-    auto result = RuntimeState::pull_tab(C, C->cursor(), inductive->target);
+    auto result = RuntimeState::pull_tab(C, source, inductive->target);
     C->scan.pop();
     return result;
   }
