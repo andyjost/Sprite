@@ -104,9 +104,12 @@ namespace
 
   struct StrStringifier
   {
-    StrStringifier(std::ostream & os) : os(os) {}
+    StrStringifier(std::ostream & os, SubstFreevars subst_freevars)
+      : os(os), subst_freevars(subst_freevars)
+    {}
 
     std::ostream & os;
+    SubstFreevars subst_freevars;
     std::unordered_map<xid_type, std::string> tr; // free variable translations
     int nextid = 0;
     union Context
@@ -233,15 +236,20 @@ namespace
         if(info->tag == T_FREE)
         {
           xid_type vid = NodeU{cur}.free->vid;
-          auto p = tr.find(vid);
-          if(p == tr.end())
+          if(this->subst_freevars)
           {
-            auto label = this->next_label();
-            tr[vid] = label;
-            os << label;
+            auto p = tr.find(vid);
+            if(p == tr.end())
+            {
+              auto label = this->next_label();
+              tr[vid] = label;
+              os << label;
+            }
+            else
+              os << p->second;
           }
           else
-            os << p->second;
+            os << '_' << vid;
           continue;
         }
 
@@ -368,11 +376,14 @@ namespace cyrt
 {
   void show(std::ostream & os, Cursor cur, ShowStyle sty)
   {
+    auto subst_freevars = PLAIN_FREEVARS;
     switch(sty)
     {
+      case SHOW_STR_SUBST_FREEVARS:
+        subst_freevars = SUBST_FREEVARS;
       case SHOW_STR:
       {
-        auto && stringifier = StrStringifier(os);
+        auto && stringifier = StrStringifier(os, subst_freevars);
         return stringifier.stringify(cur);
       }
       case SHOW_REPR:

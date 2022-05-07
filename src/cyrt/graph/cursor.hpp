@@ -62,7 +62,7 @@ namespace cyrt
     Cursor & skipfwd(); // inspect.hxx
     Cursor fwd_chain_target() const; // inspect.hxx
     Variable operator[](index_type) const;
-    std::string str() const;
+    std::string str(SubstFreevars=SUBST_FREEVARS) const;
     std::string repr() const;
   };
 

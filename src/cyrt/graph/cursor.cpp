@@ -11,17 +11,17 @@ namespace cyrt
     return ss.str();
   }
 
-  std::string Cursor::str() const
+  std::string Cursor::str(SubstFreevars subst_freevars) const
   {
     std::stringstream ss;
     if(this->arg)
     {
       switch(this->kind)
       {
-        case 'p': ss << this->arg->node->str();           break;
-        case 'i': ss << this->arg->ub_int;                break;
-        case 'f': ss << this->arg->ub_float;              break;
-        case 'c': ss << "'" << this->arg->ub_char << "'"; break;
+        case 'p': ss << this->arg->node->str(subst_freevars); break;
+        case 'i': ss << this->arg->ub_int;                    break;
+        case 'f': ss << this->arg->ub_float;                  break;
+        case 'c': ss << "'" << this->arg->ub_char << "'";     break;
         default :;
       }
     }

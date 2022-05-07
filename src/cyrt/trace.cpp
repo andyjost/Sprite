@@ -30,7 +30,7 @@ namespace cyrt
     {
       tout << "S <<< ";
       this->show_indent(Q);
-      tout << cursor.str() << "\n";
+      tout << cursor.str(PLAIN_FREEVARS) << "\n";
     }
   }
 
@@ -39,7 +39,7 @@ namespace cyrt
     this->dedent(Q);
     tout << "S >>> ";
     this->show_indent(Q);
-    tout << cursor.str() << "\n";
+    tout << cursor.str(PLAIN_FREEVARS) << "\n";
     this->prevexprs[Q] = cursor.fwd_chain_target().id();
   }
 
@@ -135,7 +135,7 @@ namespace cyrt
     {
       tout << "I ::: ";
       this->show_indent(Q, 1);
-      tout << "at path=[" << frame.index << "] of " << frame.cur.str() << "\n";
+      tout << "at path=[" << frame.index << "] of " << frame.cur.str(PLAIN_FREEVARS) << "\n";
     }
     return key;
   }

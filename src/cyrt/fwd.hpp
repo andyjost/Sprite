@@ -27,6 +27,8 @@ namespace cyrt
 
   enum Visibility : bool { PUBLIC = true, PRIVATE = false };
   enum TraceOpt : bool { TRACE = true, NOTRACE = false };
+  enum ShowStyle { SHOW_STR, SHOW_STR_SUBST_FREEVARS, SHOW_REPR };
+  enum SubstFreevars : bool { SUBST_FREEVARS=true, PLAIN_FREEVARS=false };
   enum SetFStrategy { SETF_EAGER, SETF_LAZY };
   using tag_type = int16_t;
 

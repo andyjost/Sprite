@@ -99,15 +99,21 @@ namespace cyrt
 
   inline std::string Node::str()
   {
+    return this->str(SUBST_FREEVARS);
+  }
+
+  inline std::string Node::str(SubstFreevars subst_freevars)
+  {
     std::stringstream ss;
-    this->str(ss);
+    this->str(ss, subst_freevars);
     return ss.str();
   }
 
-  inline void Node::str(std::ostream & os)
+  inline void Node::str(std::ostream & os, SubstFreevars subst_freevars)
   {
     Node * self = this;
-    show(os, self, SHOW_STR);
+    auto style = subst_freevars ? SHOW_STR_SUBST_FREEVARS : SHOW_STR;
+    show(os, self, style);
   }
 
   inline std::string Node::repr()

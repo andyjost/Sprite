@@ -42,7 +42,8 @@ namespace cyrt
     std::string repr();
     void repr(std::ostream &);
     std::string str();
-    void str(std::ostream &);
+    std::string str(SubstFreevars);
+    void str(std::ostream &, SubstFreevars=SUBST_FREEVARS);
 
     // Equality.
     std::size_t hash() const;
