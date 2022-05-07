@@ -32,7 +32,7 @@ namespace cyrt
   {
     Expr value = this->make_value();
     #ifdef SPRITE_TRACE_ENABLED
-    this->trace->yield(value);
+    if(this->trace) this->trace->yield(value);
     #endif
     this->drop(NOTRACE);
     return value;
