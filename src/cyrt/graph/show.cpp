@@ -140,6 +140,7 @@ namespace
       {
         case '(':
         case ')':
+        case '!':
         case '&': self->os << ')'; break;
         case '[': self->os << ']'; break;
       }
@@ -342,7 +343,10 @@ namespace
         }
       }
       else
+      {
+        this->os << '(';
         walk.extend(Context(':'));
+      }
     }
 
     std::string next_label()
