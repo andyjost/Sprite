@@ -82,10 +82,11 @@ namespace cyrt
     tout << "]";
   }
 
-  void Trace::show_indent(Queue const * Q)
+  void Trace::show_indent(Queue const * Q, size_t extra)
   {
     assert(Q);
-    for(size_t i=0; i<this->indent_value; ++i)
+    size_t n = this->indent_value + extra;
+    for(size_t i=0; i<n; ++i)
       tout << "  ";
   }
 
@@ -129,13 +130,12 @@ namespace cyrt
     assert(Q);
     auto n = scan.size();
     auto && frame = scan.frames()[n-2];
-    this->indent(Q);
     PositionKey key(frame.cur.fwd_chain_target().id(), frame.index);
     if(this->prevpaths[Q] != key)
     {
       tout << "I ::: ";
-      this->show_indent(Q);
-      tout << "  at path=[" << frame.index << "] of " << frame.cur.str() << "\n";
+      this->show_indent(Q, 1);
+      tout << "at path=[" << frame.index << "] of " << frame.cur.str() << "\n";
     }
     return key;
   }
@@ -144,6 +144,5 @@ namespace cyrt
   {
     assert(Q);
     this->prevpaths[Q] = key;
-    this->dedent(Q);
   }
 }
