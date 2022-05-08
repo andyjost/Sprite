@@ -45,7 +45,7 @@ result "!suspend" (without quotes).  In this case, the test only passes if
 Sprite's computation suspends (i.e., due to unsatisfied constraints).
 '''
 
-from curry.utility import binding, filesys
+from curry.utility import binding, filesys, strings
 import glob, os, re, subprocess, unittest
 
 def oracle(flavor=None):
@@ -137,7 +137,7 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None):
   if goldenfile is not None:
     try:
       with open(goldenfile, 'w') as au:
-        au.write(output)
+        au.write(strings.ensure_str(output))
       return True
     except:
       os.unlink(goldenfile)
