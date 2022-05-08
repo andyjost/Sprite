@@ -74,14 +74,15 @@ namespace cyrt
   Node * RuntimeState::lift_constraint(Configuration * C, Node * source, Node * target)
   {
     ConstrNode * constr = NodeU{target}.constr;
-    Node * value = C->scan.copy_spine(source, constr->value, 2);
+    Node * value = C->scan.copy_spine(source, constr->value);
     return Node::create(constr->info, value, constr->pair);
   }
 
   Node * RuntimeState::lift_constraint(Configuration * C, Variable * inductive)
   {
+    Node * source = C->cursor();
     C->scan.push(inductive);
-    auto result = lift_constraint(C, C->cursor(), inductive->target);
+    auto result = lift_constraint(C, source, inductive->target);
     C->scan.pop();
     return result;
   }
