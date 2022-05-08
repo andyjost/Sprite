@@ -20,9 +20,12 @@ namespace cyrt
   struct Queue;
   struct RuntimeState;
   struct Set;
+  struct ShowMonitor;
   struct Trace;
   struct UnionFind;
   struct Variable;
+  struct Walk;
+  struct Walk2;
   union Arg;
 
   enum Visibility : bool { PUBLIC = true, PRIVATE = false };

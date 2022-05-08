@@ -6,9 +6,7 @@
 
 namespace cyrt
 {
-  using datadisposer_type = void(*)(void * static_data, void * data);
-  struct Walk;
-  struct Walk2;
+  using datadisposer_type = void(*)(void * static_data, void * data, Walk2 const *);
 
   Walk walk(Cursor root);
   Walk2 walk(Cursor root, void * static_data, datadisposer_type);
@@ -42,12 +40,15 @@ namespace cyrt
     void extend(void * data=nullptr);
     Cursor cursor() const;
     void *& data() const;
+    std::vector<index_type> path() const;
+    bool at_terminus(std::vector<index_type> const &) const;
+
   private:
     struct Level
     {
       Cursor         cur;
       mutable void * data = nullptr;
-      index_type     index = (index_type)(-1);
+      index_type     index = NOINDEX; // must increment to 0
       index_type     end = 0;
 
       Level(void * data) : data(data) {}
@@ -56,6 +57,7 @@ namespace cyrt
     std::vector<Level>  stack;
     void *              static_data;
     datadisposer_type   dispose;
+    void _dispose_back();
   };
 
   struct UniqueNodeVisitor

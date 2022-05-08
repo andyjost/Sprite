@@ -24,14 +24,53 @@ namespace cyrt
     }
   }
 
+  std::vector<index_type> Walk2::path() const
+  {
+    std::vector<index_type> path;
+    for(auto && level: this->stack)
+    {
+      if(level.index != NOINDEX)
+        path.push_back(level.index);
+    }
+    return path;
+  }
+
+  bool Walk2::at_terminus(std::vector<index_type> const & path) const
+  {
+    auto p = path.begin();
+    auto q = path.end();
+    for(auto && frame: this->stack)
+    {
+      if(p<q)
+      {
+        if(*p++ != frame.index)
+          return false;
+      }
+      else
+      {
+        if(frame.index < frame.end)
+          return false;
+      }
+    }
+    return true;
+  }
+
+  void Walk2::_dispose_back()
+  {
+    if(this->dispose)
+    {
+      auto && back = this->stack.back();
+      this->dispose(this->static_data, back.data, this);
+    }
+  }
+
   void Walk2::operator++()
   {
     while(true)
     {
       switch(this->stack.size())
       {
-        case 1: if(this->dispose)
-                  this->dispose(this->static_data, this->stack.back().data);
+        case 1: this->_dispose_back();
                 this->stack.pop_back();
         case 0: return;
       }
@@ -39,8 +78,7 @@ namespace cyrt
       ++parent.index;
       if(parent.index >= parent.end)
       {
-        if(this->dispose)
-          this->dispose(this->static_data, this->stack.back().data);
+        this->_dispose_back();
         this->stack.pop_back();
       }
       else

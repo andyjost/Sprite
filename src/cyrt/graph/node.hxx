@@ -102,18 +102,18 @@ namespace cyrt
     return this->str(SUBST_FREEVARS);
   }
 
-  inline std::string Node::str(SubstFreevars subst_freevars)
+  inline std::string Node::str(SubstFreevars subst_freevars, ShowMonitor * monitor)
   {
     std::stringstream ss;
-    this->str(ss, subst_freevars);
+    this->str(ss, subst_freevars, monitor);
     return ss.str();
   }
 
-  inline void Node::str(std::ostream & os, SubstFreevars subst_freevars)
+  inline void Node::str(std::ostream & os, SubstFreevars subst_freevars, ShowMonitor * monitor)
   {
     Node * self = this;
     auto style = subst_freevars ? SHOW_STR_SUBST_FREEVARS : SHOW_STR;
-    show(os, self, style);
+    show(os, self, style, monitor);
   }
 
   inline std::string Node::repr()

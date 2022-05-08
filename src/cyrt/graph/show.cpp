@@ -54,7 +54,7 @@ namespace
     std::ostream & os;
     std::unordered_set<void *> memo;
 
-    static void callback(void * static_data, void * id)
+    static void callback(void * static_data, void * id, Walk2 const *)
     {
       auto self = (ReprStringifier *)(static_data);
       if(id) self->os << '>';
@@ -103,12 +103,13 @@ namespace
 
   struct StrStringifier
   {
-    StrStringifier(std::ostream & os, SubstFreevars subst_freevars)
-      : os(os), subst_freevars(subst_freevars)
+    StrStringifier(std::ostream & os, SubstFreevars subst_freevars, ShowMonitor * monitor)
+      : os(os), subst_freevars(subst_freevars), monitor(monitor)
     {}
 
     std::ostream & os;
     SubstFreevars subst_freevars;
+    ShowMonitor * monitor;
     std::unordered_map<xid_type, std::string> tr; // free variable translations
     int nextid = 0;
     union Context
@@ -137,7 +138,7 @@ namespace
       operator void *() const { return this->p; }
     };
 
-    static void callback(void * static_data, void * data)
+    static void callback(void * static_data, void * data, Walk2 const * walk)
     {
       auto self = (StrStringifier *)(static_data);
       switch(Context(data).value)
@@ -148,6 +149,8 @@ namespace
         case '&': self->os << ')'; break;
         case '[': self->os << ']'; break;
       }
+      if(self->monitor)
+        self->monitor->exit(self->os, walk, Context(data).value);
     }
 
     void show_name(std::ostream & os, InfoTable const * info)
@@ -229,6 +232,9 @@ namespace
             }
             break;
         }
+
+        if(this->monitor)
+          this->monitor->enter(this->os, &walk, Context(data).value);
 
         switch(cur.kind)
         {
@@ -385,7 +391,7 @@ namespace
 
 namespace cyrt
 {
-  void show(std::ostream & os, Cursor cur, ShowStyle sty)
+  void show(std::ostream & os, Cursor cur, ShowStyle sty, ShowMonitor * monitor)
   {
     auto subst_freevars = PLAIN_FREEVARS;
     switch(sty)
@@ -394,7 +400,7 @@ namespace cyrt
         subst_freevars = SUBST_FREEVARS;
       case SHOW_STR:
       {
-        auto && stringifier = StrStringifier(os, subst_freevars);
+        auto && stringifier = StrStringifier(os, subst_freevars, monitor);
         return stringifier.stringify(cur);
       }
       case SHOW_REPR:
@@ -403,5 +409,22 @@ namespace cyrt
         return stringifier.stringify(cur);
       }
     }
+  }
+
+  void show(std::ostream & os, std::vector<index_type> const & path)
+  {
+    os << '[';
+    bool tail = false;
+    for(auto i: path)
+    {
+      if(tail) os << ", "; else tail = true;
+      os << i;
+    }
+    os << ']';
+  }
+
+  void show(std::ostream & os, std::vector<Set *> const & path)
+  {
+    os << "{TODO}";
   }
 }

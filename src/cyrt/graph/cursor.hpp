@@ -62,7 +62,10 @@ namespace cyrt
     Cursor & skipfwd(); // inspect.hxx
     Cursor fwd_chain_target() const; // inspect.hxx
     Variable operator[](index_type) const;
-    std::string str(SubstFreevars=SUBST_FREEVARS) const;
+    std::string str() const;
+    std::string str(SubstFreevars, ShowMonitor * = nullptr) const;
+    std::string str(Variable const &) const;
+    std::string str(Variable const &, SubstFreevars) const;
     std::string repr() const;
   };
 
@@ -77,6 +80,8 @@ namespace cyrt
     Variable operator[](index_type) const;
 
     operator Node *&() const { return target; }
+    std::string str() const;
+    std::string str(SubstFreevars) const;
   };
 
 

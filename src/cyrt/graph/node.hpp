@@ -29,7 +29,6 @@ namespace cyrt
     void forward_to(Node *);
     template<typename ... Args> void forward_to(InfoTable const *, Args && ...);
 
-
     tag_type make_failure();
     tag_type make_nil();
     tag_type make_unit();
@@ -42,8 +41,8 @@ namespace cyrt
     std::string repr();
     void repr(std::ostream &);
     std::string str();
-    std::string str(SubstFreevars);
-    void str(std::ostream &, SubstFreevars=SUBST_FREEVARS);
+    std::string str(SubstFreevars, ShowMonitor * = nullptr);
+    void str(std::ostream &, SubstFreevars=SUBST_FREEVARS, ShowMonitor * = nullptr);
 
     // Equality.
     std::size_t hash() const;
