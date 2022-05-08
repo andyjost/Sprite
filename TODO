@@ -1,9 +1,45 @@
-- Add tests to tests/unit_parse.py and tests/unit_py_evaluation.py.  These
-  should cover every construct that could be encountered in ICurry.
+- Add tests to tests/unit_parse.py and tests/unit_py_evaluation.py.  These should cover every construct that could be encountered in ICurry.
 - Improve line coverage.  Run tests/cov_tests and add tests to reduce the
   number of uncovered lines.
 - fix tests in unit_py_constraints.py
 - fix tests in unit_py_pulltab.py
-- At Python3 support without losing Python2.
+- Add Python3 support without losing Python2.
 - Come to think of it, I should remove the mutual recursion between D, N, and S.  All of the recusion should be done synthetically.
 - curry.compile seems unable to import Control.SetFunctions
+- Documentation:
+    - Add information about debugging the C++ backend.
+        - Keep the testcase very small.  Reduce it if necessary.
+        - Build a unit test and then start the `debug_tests` script.
+        - Break at `procD` to get started.
+        - Use the gdb command `tty` to direct trace output to another terminal.
+        - Use the `str` method to inspect values:
+            - Node *:   gdb> p node->str()
+            - Cursor:   gdb> p cursor.str()
+            - Variable: gdb> p variable.str()
+        - To inspect an inductive position relative to the root of a possible
+          redex, use the version of `Cursor::str` that takes a variable.  For
+          example:
+
+              Cursor redex;
+              Variable inductive;
+              gdb> p redex.str(inductive);
+              head (_a:_b)
+                    ~~~~~
+                    path: [0], guards: {}
+
+        - By default, `str` substitutes free variables with stylized names _a,
+          _b, _c, ...  This can make it difficult to trace free variables
+          through steps, as shown below:
+
+              (head (_a:_b), _c)  ->  (_a, _b)
+
+          The variable _c here apparently morphs into _b in the second
+          expression.  Pass PLAIN_FREEVARS to any of the `str` methods to avoid
+          this.  Free variables will instead be shown with their numeric ID,
+          which is fixed.  Using this, the above example might be rendered as
+          follows:
+
+              (head (_0:_1), _2)  ->  (_0, _2)
+
+
+
