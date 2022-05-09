@@ -24,11 +24,11 @@ extern "C" InfoTable const choice_Info {
 extern "C"
 {
   #define NAME error
-  #include "cyrt/not_used.def"
+  #include "cyrt/currylib/defs/not_used.def"
 
   #define NAME failed
-  #include "cyrt/not_used.def"
+  #include "cyrt/currylib/defs/not_used.def"
 
   #define NAME notused
-  #include "cyrt/not_used.def"
+  #include "cyrt/currylib/defs/not_used.def"
 }

@@ -30,11 +30,11 @@ InfoTable const _cString_Info{
 extern "C"
 {
   #define NAME _cGenerator
-  #include "cyrt/not_used.def"
+  #include "cyrt/currylib/defs/not_used.def"
 
   #define NAME chr
-  #include "cyrt/not_used.def"
+  #include "cyrt/currylib/defs/not_used.def"
 
   #define NAME ord
-  #include "cyrt/not_used.def"
+  #include "cyrt/currylib/defs/not_used.def"
 }

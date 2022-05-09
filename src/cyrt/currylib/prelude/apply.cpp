@@ -163,5 +163,5 @@ extern "C"
     };
 
   #define NAME ensureNotFree
-  #include "cyrt/not_used.def"
+  #include "cyrt/currylib/defs/not_used.def"
 }
