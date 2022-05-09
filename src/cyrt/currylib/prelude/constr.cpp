@@ -19,17 +19,27 @@ namespace cyrt { inline namespace
 
   void const * make_guides(ValueSet * vs, Cursor & cur)
   {
-    if(cur.kind == 'p')
+    assert(cur.kind == 'p');
+    switch(typetag(*cur->info))
     {
-      assert(cur->info->type);
-      return cur->info->type;
-    }
-    else
-    {
-      vs->args = cur.arg;
-      vs->size = 1;
-      vs->kind = cur.kind;
-      return vs;
+      case F_INT_TYPE:
+        vs->args = &NodeU{cur}.nodeN->data[0];
+        vs->size = 1;
+        vs->kind = 'i';
+        return vs;
+      case F_CHAR_TYPE:
+        vs->args = &NodeU{cur}.nodeN->data[0];
+        vs->size = 1;
+        vs->kind = 'c';
+        return vs;
+      case F_FLOAT_TYPE:
+        vs->args = &NodeU{cur}.nodeN->data[0];
+        vs->size = 1;
+        vs->kind = 'f';
+        return vs;
+      default:
+        assert(cur->info->type);
+        return cur->info->type;
     }
   }
 
@@ -119,16 +129,32 @@ namespace cyrt { inline namespace
         _0->forward_to(True);
       else
       {
-        Arg * lsuc = lhs.target->successors();
-        Arg * rsuc = rhs.target->successors();
-        Node * tmp = Node::create(_0->info, lsuc[0], rsuc[0]);
-        for(index_type i=1; i<arity; ++i)
-          tmp = Node::create(
-              &concurrentAnd_Info
-            , tmp
-            , Node::create(_0->info, lsuc[i], rsuc[i])
-            );
-        _0->forward_to(tmp);
+        Node * result = nullptr;
+        switch(typetag(*lhs.target->info))
+        {
+          case F_INT_TYPE:
+            result = (NodeU{lhs.target}.int_->value == NodeU{rhs.target}.int_->value) ? True : False;
+            break;
+          case F_CHAR_TYPE:
+            result = (NodeU{lhs.target}.char_->value == NodeU{rhs.target}.char_->value) ? True : False;
+            break;
+          case F_FLOAT_TYPE:
+            result = (NodeU{lhs.target}.float_->value == NodeU{rhs.target}.float_->value) ? True : False;
+            break;
+          default:
+          {
+            Arg * lsuc = lhs.target->successors();
+            Arg * rsuc = rhs.target->successors();
+            result = Node::create(_0->info, lsuc[0], rsuc[0]);
+            for(index_type i=1; i<arity; ++i)
+              result = Node::create(
+                  &concurrentAnd_Info
+                , result
+                , Node::create(_0->info, lsuc[i], rsuc[i])
+                );
+          }
+        }
+        _0->forward_to(result);
       }
     }
     return T_FWD;

@@ -1,83 +1,108 @@
 #include "cyrt/cyrt.hpp"
+#include <cmath>
+#include <functional>
 
 using namespace cyrt;
 
 extern "C"
 {
   #define NAME acosFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::cos
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME acoshFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::cosh
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME asinFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::asin
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME asinhFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::asinh
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME atanFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::atan
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME atanhFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::atanh
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME cosFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::cos
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME coshFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::cosh
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME divFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::divides<void>()
+  #include "cyrt/unboxed_binary_float.def"
 
   #define NAME divInt
   #include "cyrt/not_used.def"
 
   #define NAME eqChar
-  #include "cyrt/not_used.def"
+  #define PRIM std::equal_to<void>()
+  #include "cyrt/unboxed_binary_char.def"
 
   #define NAME eqFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::equal_to<void>()
+  #include "cyrt/unboxed_binary_float.def"
 
   #define NAME eqInt
-  #include "cyrt/not_used.def"
+  #define PRIM std::equal_to<void>()
+  #include "cyrt/unboxed_binary_int.def"
 
   #define NAME expFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::exp
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME intToFloat
-  #include "cyrt/not_used.def"
+  #define PRIM float
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME logFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::log
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME ltEqChar
-  #include "cyrt/not_used.def"
+  #define PRIM std::less_equal<void>()
+  #include "cyrt/unboxed_binary_char.def"
 
   #define NAME ltEqFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::less_equal<void>()
+  #include "cyrt/unboxed_binary_float.def"
 
   #define NAME ltEqInt
-  #include "cyrt/not_used.def"
+  #define PRIM std::less_equal<void>()
+  #include "cyrt/unboxed_binary_int.def"
 
   #define NAME minusFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::minus<void>()
+  #include "cyrt/unboxed_binary_float.def"
 
   #define NAME minusInt
-  #include "cyrt/not_used.def"
+  #define PRIM std::minus<void>()
+  #include "cyrt/unboxed_binary_int.def"
 
   #define NAME modInt
   #include "cyrt/not_used.def"
 
   #define NAME negateFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::negate<void>()
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME plusFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::plus<void>()
+  #include "cyrt/unboxed_binary_float.def"
 
   #define NAME plusInt
-  #include "cyrt/not_used.def"
+  #define PRIM std::plus<void>()
+  #include "cyrt/unboxed_binary_int.def"
 
   #define NAME quotInt
   #include "cyrt/not_used.def"
@@ -86,30 +111,38 @@ extern "C"
   #include "cyrt/not_used.def"
 
   #define NAME roundFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::round
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME sinFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::sin
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME sinhFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::sinh
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME sqrtFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::sqrt
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME tanFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::tan
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME tanhFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::tanh
+  #include "cyrt/unboxed_unary_float.def"
 
   #define NAME timesFloat
-  #include "cyrt/not_used.def"
+  #define PRIM std::multiplies<void>()
+  #include "cyrt/unboxed_binary_float.def"
 
   #define NAME timesInt
-  #include "cyrt/not_used.def"
+  #define PRIM std::multiplies<void>()
+  #include "cyrt/unboxed_binary_int.def"
 
   #define NAME truncateFloat
-  #include "cyrt/not_used.def"
-
+  #define PRIM std::trunc
+  #include "cyrt/unboxed_unary_float.def"
 }

@@ -73,6 +73,7 @@ namespace cyrt
   Node * RuntimeState::pull_tab(Configuration * C, Node * source, Node * target)
   {
     assert(source != target);
+    assert(target->info->tag == T_CHOICE);
     ChoiceNode * choice = NodeU{target}.choice;
     Node * lhs = C->scan.copy_spine(source, choice->lhs);
     Node * rhs = C->scan.copy_spine(source, choice->rhs);
@@ -81,6 +82,7 @@ namespace cyrt
 
   Node * RuntimeState::pull_tab(Configuration * C, Variable * inductive)
   {
+    assert(inductive->target->info->tag == T_CHOICE);
     Node * source = C->cursor().arg->node;
     C->scan.push(inductive);
     auto result = RuntimeState::pull_tab(C, source, inductive->target);

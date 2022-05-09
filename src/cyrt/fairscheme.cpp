@@ -137,7 +137,7 @@ namespace cyrt
         case T_CONSTR: _0->forward_to(this->lift_constraint(C, inductive));
                        return T_FWD;
         case T_FREE  : tag = this->replace_freevar(C, inductive, guides);
-                       return tag;
+                       continue;
         case T_FWD   : compress_fwd_chain(inductive->target);
                        tag = inspect::tag_of(inductive->target);
                        this->stepcount++;

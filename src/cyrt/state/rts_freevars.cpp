@@ -49,15 +49,15 @@ namespace cyrt
       Configuration * C, Variable * inductive, void const * guides
     )
   {
-    Cursor & freevar = inductive->target;
-    assert(freevar->info->tag == T_FREE);
-    if(has_generator(freevar))
+    Cursor & slot = inductive->target;
+    assert(slot->info->tag == T_FREE);
+    if(has_generator(slot))
     {
-      *freevar = this->get_generator(C, freevar);
-      assert(freevar->info->tag == T_CHOICE);
+      *slot = this->get_generator(C, slot);
+      assert(slot->info->tag == T_CHOICE);
       return T_CHOICE;
     }
-    else if(Node * binding = this->get_binding(C, freevar))
+    else if(Node * binding = this->get_binding(C, slot))
     {
       *C->root = C->scan.copy_spine(C->root, binding);
       return E_RESTART;
@@ -67,8 +67,8 @@ namespace cyrt
     {
       if(values->size)
       {
-        *freevar = this->make_value_bindings(freevar, values);
-        return freevar->info->tag;
+        *slot = this->make_value_bindings(slot, values);
+        return slot->info->tag;
       }
       else
         return E_RESIDUAL;

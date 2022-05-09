@@ -73,6 +73,8 @@ namespace cyrt
 
   Node * RuntimeState::lift_constraint(Configuration * C, Node * source, Node * target)
   {
+    assert(source != target);
+    assert(target->info->tag == T_CONSTR);
     ConstrNode * constr = NodeU{target}.constr;
     Node * value = C->scan.copy_spine(source, constr->value);
     return Node::create(constr->info, value, constr->pair);
@@ -80,6 +82,7 @@ namespace cyrt
 
   Node * RuntimeState::lift_constraint(Configuration * C, Variable * inductive)
   {
+    assert(inductive->target->info->tag == T_CONSTR);
     Node * source = C->cursor();
     C->scan.push(inductive);
     auto result = lift_constraint(C, source, inductive->target);
