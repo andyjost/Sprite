@@ -177,15 +177,10 @@ namespace cyrt
       return E_RESIDUAL;
     else
     {
-      C->scan.push(inductive);
       Node * genexpr = _make_generator(this, inductive->target, values);
-      Node * replacement = C->scan.copy_spine(
-          root, genexpr, &inductive->target
-        );
-      assert(*inductive->target == genexpr);
-      C->scan.pop();
-      root->forward_to(replacement);
-      return T_FWD;
+      *inductive->target = genexpr;
+      assert(genexpr->info->tag == T_CHOICE);
+      return T_CHOICE;
     }
   }
 }
