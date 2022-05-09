@@ -4,6 +4,14 @@
 
 using namespace cyrt;
 
+namespace cyrt
+{
+  static inline unboxed_int_type _builtin_modInt(unboxed_int_type x, unboxed_int_type y)
+    { return x - y * (x/y); }
+  static inline unboxed_int_type _builtin_remInt(unboxed_int_type x, unboxed_int_type y)
+    { return x - y * unboxed_int_type(unboxed_float_type(x) / unboxed_float_type(y)); }
+}
+
 extern "C"
 {
   #define NAME acosFloat
@@ -43,7 +51,8 @@ extern "C"
   #include "cyrt/unboxed_binary_float.def"
 
   #define NAME divInt
-  #include "cyrt/not_used.def"
+  #define PRIM std::divides<void>()
+  #include "cyrt/unboxed_binary_int.def"
 
   #define NAME eqChar
   #define PRIM std::equal_to<void>()
@@ -90,7 +99,8 @@ extern "C"
   #include "cyrt/unboxed_binary_int.def"
 
   #define NAME modInt
-  #include "cyrt/not_used.def"
+  #define PRIM cyrt::_builtin_modInt
+  #include "cyrt/unboxed_binary_int.def"
 
   #define NAME negateFloat
   #define PRIM std::negate<void>()
@@ -105,10 +115,12 @@ extern "C"
   #include "cyrt/unboxed_binary_int.def"
 
   #define NAME quotInt
-  #include "cyrt/not_used.def"
+  #define PRIM std::divides<unboxed_float_type>() // true division followed by integer truncation.
+  #include "cyrt/unboxed_binary_int.def"
 
   #define NAME remInt
-  #include "cyrt/not_used.def"
+  #define PRIM cyrt::_builtin_remInt
+  #include "cyrt/unboxed_binary_int.def"
 
   #define NAME roundFloat
   #define PRIM std::round
