@@ -1,0 +1,71 @@
+// Note: no include guards desired.
+#include <boost/preprocessor/cat.hpp>
+#include <boost/preprocessor/stringize.hpp>
+#include <boost/preprocessor/tuple/elem.hpp>
+#include <type_traits>
+
+#ifndef UBSPEC
+#error "Define UBSPEC as a 4-tuple of NAME, FUNC, ARITY, ARGFIELD"
+#endif
+
+#define NAME     BOOST_PP_TUPLE_ELEM(0, UBSPEC)
+#define FUNC     BOOST_PP_TUPLE_ELEM(1, UBSPEC)
+#define ARITY    BOOST_PP_TUPLE_ELEM(2, UBSPEC)
+#define ARGFIELD BOOST_PP_TUPLE_ELEM(3, UBSPEC)
+
+#if ARITY != 1
+  #if ARITY != 2
+    #error "Expected arity 1 or 2."
+  #endif
+#endif
+
+#define STEP_FUNCTION_NAME  BOOST_PP_CAT(NAME, _step)
+#define INFOTABLE_NAME      BOOST_PP_CAT(NAME, _Info)
+
+static tag_type STEP_FUNCTION_NAME(RuntimeState * rts, Configuration * C)
+{
+  Cursor _0 = C->cursor();
+  Variable _1 = _0[0];
+  auto tagl = rts->hnf(C, &_1);
+  if(tagl < T_CTOR) return tagl;
+  #if ARITY == 1
+    auto value = FUNC(NodeU{_1.target}.int_->value);
+  #else
+    Variable _2 = _0[1];
+    auto tagr = rts->hnf(C, &_2);
+    if(tagr < T_CTOR) return tagr;
+    auto value = FUNC(NodeU{_1.target}.ARGFIELD->value, NodeU{_2.target}.ARGFIELD->value);
+  #endif
+  if constexpr(std::is_same<decltype(value),bool>::value)
+    _0->forward_to(value ? &True_Info : &False_Info);
+  else if constexpr(std::is_same<decltype(value),unboxed_int_type>::value)
+    _0->forward_to(&Int_Info, value);
+  else if constexpr(std::is_same<decltype(value),unboxed_float_type>::value)
+    _0->forward_to(&Float_Info, value);
+  else if constexpr(std::is_same<decltype(value),unboxed_char_type>::value)
+    _0->forward_to(&Char_Info, value);
+  return T_FWD;
+}
+
+InfoTable const INFOTABLE_NAME {
+    /*tag*/        T_FUNC
+  , /*arity*/      ARITY
+  , /*alloc_size*/ sizeof(BOOST_PP_CAT(Node, ARITY))
+  , /*flags*/      F_STATIC_OBJECT
+  , /*name*/       BOOST_PP_STRINGIZE(NAME)
+#if ARITY == 1
+  , /*format*/     "p"
+#else
+  , /*format*/     "pp"
+#endif
+  , /*step*/       STEP_FUNCTION_NAME
+  , /*type*/       nullptr
+  };
+
+#undef ARGFIELD
+#undef ARITY
+#undef UBSPEC
+#undef FUNC
+#undef INFOTABLE_NAME
+#undef NAME
+#undef STEP_FUNCTION_NAME

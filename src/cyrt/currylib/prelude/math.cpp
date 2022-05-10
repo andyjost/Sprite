@@ -6,155 +6,131 @@ using namespace cyrt;
 
 namespace cyrt
 {
-  static inline unboxed_int_type _builtin_modInt(unboxed_int_type x, unboxed_int_type y)
-    { return x - y * (x/y); }
   static inline unboxed_int_type _builtin_remInt(unboxed_int_type x, unboxed_int_type y)
     { return x - y * unboxed_int_type(unboxed_float_type(x) / unboxed_float_type(y)); }
+  static inline unboxed_int_type _builtin_floordivInt(unboxed_int_type x, unboxed_int_type y)
+  {
+    switch(((x<0) ? 2 : 0) + ((y<0) ? 1 : 0))
+    {
+      case 0: return x / y;
+      case 1: return (-x + y + 1) / (-y);
+      case 2: return (x - y + 1) / y;
+      case 3: return x / y;
+    }
+    return x >= 0 ? x / y : (x - y + 1) / y;
+  }
+  static inline unboxed_int_type _builtin_modInt(unboxed_int_type x, unboxed_int_type y)
+    { return x - y * _builtin_floordivInt(x, y); }
 }
 
 extern "C"
 {
-  #define NAME acosFloat
-  #define PRIM std::cos
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (acosFloat, std::cos, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME acoshFloat
-  #define PRIM std::cosh
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (acoshFloat, std::cosh, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME asinFloat
-  #define PRIM std::asin
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (asinFloat, std::asin, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME asinhFloat
-  #define PRIM std::asinh
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (asinhFloat, std::asinh, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME atanFloat
-  #define PRIM std::atan
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (atanFloat, std::atan, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME atanhFloat
-  #define PRIM std::atanh
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (atanhFloat, std::atanh, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME cosFloat
-  #define PRIM std::cos
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (cosFloat, std::cos, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME coshFloat
-  #define PRIM std::cosh
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (coshFloat, std::cosh, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME divFloat
-  #define PRIM std::divides<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_float.def"
+  #define UBSPEC (divFloat, std::divides<void>(), 2, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME divInt
-  #define PRIM std::divides<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_int.def"
+  #define UBSPEC (divInt, _builtin_floordivInt, 2, int_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME eqChar
-  #define PRIM std::equal_to<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_char.def"
+  #define UBSPEC (eqChar, std::equal_to<void>(), 2, char_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME eqFloat
-  #define PRIM std::equal_to<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_float.def"
+  #define UBSPEC (eqFloat, std::equal_to<void>(), 2, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME eqInt
-  #define PRIM std::equal_to<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_int.def"
+  #define UBSPEC (eqInt, std::equal_to<void>(), 2, int_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME expFloat
-  #define PRIM std::exp
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (expFloat, std::exp, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME intToFloat
-  #define PRIM float
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (intToFloat, float, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME logFloat
-  #define PRIM std::log
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (logFloat, std::log, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME ltEqChar
-  #define PRIM std::less_equal<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_char.def"
+  #define UBSPEC (ltEqChar, std::less_equal<void>(), 2, char_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME ltEqFloat
-  #define PRIM std::less_equal<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_float.def"
+  #define UBSPEC (ltEqFloat, std::less_equal<void>(), 2, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME ltEqInt
-  #define PRIM std::less_equal<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_int.def"
+  #define UBSPEC (ltEqInt, std::less_equal<void>(), 2, int_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME minusFloat
-  #define PRIM std::minus<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_float.def"
+  #define UBSPEC (minusFloat, std::minus<void>(), 2, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME minusInt
-  #define PRIM std::minus<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_int.def"
+  #define UBSPEC (minusInt, std::minus<void>(), 2, int_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME modInt
-  #define PRIM cyrt::_builtin_modInt
-  #include "cyrt/currylib/defs/unboxed_binary_int.def"
+  #define UBSPEC (modInt, cyrt::_builtin_modInt, 2, int_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME negateFloat
-  #define PRIM std::negate<void>()
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (negateFloat, std::negate<void>(), 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME plusFloat
-  #define PRIM std::plus<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_float.def"
+  #define UBSPEC (plusFloat, std::plus<void>(), 2, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME plusInt
-  #define PRIM std::plus<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_int.def"
+  #define UBSPEC (plusInt, std::plus<void>(), 2, int_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME quotInt
-  #define PRIM std::divides<unboxed_float_type>() // true division followed by integer truncation.
-  #include "cyrt/currylib/defs/unboxed_binary_int.def"
+  // true division followed by integer truncation.
+  #define UBSPEC (quotInt, (unboxed_int_type)std::divides<unboxed_float_type>(), 2, int_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME remInt
-  #define PRIM cyrt::_builtin_remInt
-  #include "cyrt/currylib/defs/unboxed_binary_int.def"
+  #define UBSPEC (remInt, cyrt::_builtin_remInt, 2, int_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME roundFloat
-  #define PRIM std::round
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (roundFloat, std::round, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME sinFloat
-  #define PRIM std::sin
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (sinFloat, std::sin, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME sinhFloat
-  #define PRIM std::sinh
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (sinhFloat, std::sinh, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME sqrtFloat
-  #define PRIM std::sqrt
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (sqrtFloat, std::sqrt, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME tanFloat
-  #define PRIM std::tan
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (tanFloat, std::tan, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME tanhFloat
-  #define PRIM std::tanh
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (tanhFloat, std::tanh, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME timesFloat
-  #define PRIM std::multiplies<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_float.def"
+  #define UBSPEC (timesFloat, std::multiplies<void>(), 2, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME timesInt
-  #define PRIM std::multiplies<void>()
-  #include "cyrt/currylib/defs/unboxed_binary_int.def"
+  #define UBSPEC (timesInt, std::multiplies<void>(), 2, int_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME truncateFloat
-  #define PRIM std::trunc
-  #include "cyrt/currylib/defs/unboxed_unary_float.def"
+  #define UBSPEC (truncateFloat, std::trunc, 1, float_)
+  #include "cyrt/currylib/defs/unboxed.def"
 }
