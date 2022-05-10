@@ -29,7 +29,7 @@ static tag_type STEP_FUNCTION_NAME(RuntimeState * rts, Configuration * C)
   auto tagl = rts->hnf(C, &_1);
   if(tagl < T_CTOR) return tagl;
   #if ARITY == 1
-    auto value = FUNC(NodeU{_1.target}.int_->value);
+    auto value = FUNC(NodeU{_1.target}.ARGFIELD->value);
   #else
     Variable _2 = _0[1];
     auto tagr = rts->hnf(C, &_2);

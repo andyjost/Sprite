@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <boost/io/ios_state.hpp>
 #include <cassert>
 #include "cyrt/builtins.hpp"
 #include "cyrt/graph/node.hpp"
@@ -6,12 +7,15 @@
 #include "cyrt/graph/walk.hpp"
 #include "cyrt/inspect.hpp"
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <unordered_map>
+#include <cstdio>
 
 namespace
 {
   using namespace cyrt;
+  static size_t constexpr FLOAT_PRECISION = 17;
 
   void show_sq_escaped(std::ostream & os, char value)
   {
@@ -91,7 +95,11 @@ namespace
     }
 
     void show(unboxed_int_type value) { this->os << value; }
-    void show(unboxed_float_type value) { this->os << value; }
+    void show(unboxed_float_type value)
+    {
+      boost::io::ios_flags_saver raii(this->os);
+      this->os << std::setprecision(FLOAT_PRECISION) << value;
+    }
     void show(unboxed_char_type value)
     {
       this->os << '\'';
@@ -329,6 +337,8 @@ namespace
 
     void show(unboxed_float_type value)
     {
+      boost::io::ios_flags_saver raii(this->os);
+      this->os << std::setprecision(FLOAT_PRECISION);
       if(value < 0)
         this->os << '(' << value << ')';
       else

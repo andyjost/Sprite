@@ -5,7 +5,7 @@ using namespace cyrt;
 
 namespace cyrt { inline namespace
 {
-  tag_type cond_step(RuntimeState * rts, Configuration * C)
+  static tag_type cond_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _1 = _0[0];
@@ -20,7 +20,7 @@ namespace cyrt { inline namespace
     }
   }
 
-  tag_type apply_step(RuntimeState * rts, Configuration * C)
+  static tag_type apply_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _1 = _0[0];
@@ -63,7 +63,7 @@ namespace cyrt { inline namespace
     return T_FWD;
   }
 
-  tag_type applynf_step(RuntimeState * rts, Configuration * C)
+  static tag_type applynf_step(RuntimeState * rts, Configuration * C)
   {
     auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
     {
@@ -79,7 +79,7 @@ namespace cyrt { inline namespace
     return _applyspecial(rts, C, normalize);
   }
 
-  tag_type applygnf_step(RuntimeState * rts, Configuration * C)
+  static tag_type applygnf_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     auto rv = applynf_step(rts, C);
@@ -97,11 +97,36 @@ namespace cyrt { inline namespace
       return rv;
   }
 
-  tag_type applyhnf_step(RuntimeState * rts, Configuration * C)
+  static tag_type applyhnf_step(RuntimeState * rts, Configuration * C)
   {
     auto && headnormalize = [](RuntimeState * rts, Configuration * C, Variable * var)
       { return rts->hnf(C, var); };
     return _applyspecial(rts, C, headnormalize);
+  }
+
+  static tag_type ensureNotFree_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0];
+    auto tag = rts->hnf_or_free(C, &_1);
+    if(tag < T_CTOR)
+    {
+      if(tag == T_FREE)
+      {
+        if(!has_generator(_1))
+        {
+          xid_type gid = C->grp_id(obj_id(_1));
+          if(!C->has_binding(gid) && !rts->is_narrowed(C, gid))
+            return E_RESIDUAL; // TODO verify this
+        }
+      }
+      return tag;
+    }
+    else
+    {
+      _0->forward_to(_1);
+      return T_FWD;
+    }
   }
 }}
 
@@ -162,6 +187,14 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  #define NAME ensureNotFree
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const ensureNotFree_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "ensureNotFree"
+    , /*format*/     "p"
+    , /*step*/       ensureNotFree_step
+    , /*type*/       nullptr
+    };
 }
