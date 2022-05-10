@@ -275,11 +275,16 @@ namespace
           case F_PARTIAL_TYPE:
           {
             auto const * partial = NodeU{cur}.partapplic;
-            os << '(';
-            show_name(os, partial->head_info);
-            walk.extend(Context('^'));
-            ++walk; // skip #missing
-            ++walk; // skip head_info
+            if(partial->terms == Nil)
+              show_name(os, partial->head_info);
+            else
+            {
+              os << '(';
+              show_name(os, partial->head_info);
+              walk.extend(Context('^'));
+              ++walk; // skip #missing
+              ++walk; // skip head_info
+            }
             continue;
           }
           case F_LIST_TYPE:
