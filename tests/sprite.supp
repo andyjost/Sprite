@@ -1,0 +1,18 @@
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   ...
+   obj:*/python*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   ...
+   obj:*/python*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   ...
+   obj:*/python*
+}

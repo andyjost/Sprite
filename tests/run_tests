@@ -104,8 +104,8 @@ case `basename $0` in
     #
     # You may also want to replace the valgrind-python.supp file in this
     # directory with the one that came with your version of Python.
-    valgrind --suppressions=valgrind-python.supp \
-        $SPRITE_HOME/bin/python -B -m unittest discover -v `pwd` "$pattern"
+    $SPRITE_HOME/bin/sprite-invoke valgrind --suppressions=sprite.supp \
+        $SPRITE_HOME/tools/python -B -m unittest discover -v `pwd` "$pattern"
     ;;
   "shell")
     # Start a new shell with the  environment used to run Python unit tests.
