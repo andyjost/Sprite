@@ -76,7 +76,7 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'InfoTable const %s{'                 % h_info
     yield '    /*tag*/        T_FUNC'
     yield '  , /*arity*/      %s'               % ifun.arity
-    yield '  , /*alloc_size*/ sizeof(Head) + sizeof(Arg[%s])' % ifun.arity
+    yield '  , /*alloc_size*/ sizeof(Head) + sizeof(Arg[%s])' % max(1, ifun.arity)
     yield '  , /*flags*/      %s'                   % showflags(flags)
     yield '  , /*name*/       %s'               % _dquote(ifun.name)
     yield '  , /*format*/     "%s"'             % ('p' * ifun.arity)
@@ -90,7 +90,7 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'InfoTable const %s{'                     % h_info
     yield '    /*tag*/        T_CTOR + %r'          % ictor.index
     yield '  , /*arity*/      %s'                   % ictor.arity
-    yield '  , /*alloc_size*/ sizeof(Head) + sizeof(Arg[%s])' % ictor.arity
+    yield '  , /*alloc_size*/ sizeof(Head) + sizeof(Arg[%s])' % max(1, ictor.arity)
     yield '  , /*flags*/      %s'                   % showflags(flags)
     yield '  , /*name*/       %s'                   % _dquote(ictor.name)
     yield '  , /*format*/     "%s"'                 % ('p' * ictor.arity)
