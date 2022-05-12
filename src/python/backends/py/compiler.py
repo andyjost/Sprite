@@ -112,7 +112,7 @@ class PyCompiler(compiler.CompilerBase):
   def vEmitStringLiteral(self, string, h_string):
     yield '%s = b%r' % (h_string, string)
 
-  def vEmitValueSetLiteral(self, values, h_valueset):
+  def vEmitValueSetLiteral(self, values, h_valueset, h_valueset_data):
     yield '%s = %r' % (h_valueset, values)
 
   def vEmitMetadata(self, metadata, h_md):
@@ -195,12 +195,6 @@ class PyCompiler(compiler.CompilerBase):
     else:
       for line in self.compileS(icase.branches[-1].block):
         yield line
-
-  _TYPENAMES = {
-      icurry.IInt  : 'Prelude.Int'
-    , icurry.IChar : 'Prelude.Char'
-    , icurry.IFloat: 'Prelude.Float'
-    }
 
   def vEmit_compileS_ICaseLit(self, icase, h_sel, h_values):
     h_datatype = self.importDataType(icase.branches[0].lit.fullname)

@@ -346,7 +346,11 @@ namespace
     }
 
     void show(unboxed_char_type value)
-      { show_sq_escaped(this->os, value); }
+    {
+      this->os << '\'';
+      show_sq_escaped(this->os, value);
+      this->os << '\'';
+    }
 
     void show(void const * value)
       { this->os << value; }

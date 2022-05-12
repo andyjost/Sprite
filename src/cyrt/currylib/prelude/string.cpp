@@ -32,9 +32,9 @@ extern "C"
   #define NAME _cGenerator
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME chr
-  #include "cyrt/currylib/defs/not_used.def"
+  #define UBSPEC (chr, unboxed_char_type, 1, int_)
+  #include "cyrt/currylib/defs/unboxed.def"
 
-  #define NAME ord
-  #include "cyrt/currylib/defs/not_used.def"
+  #define UBSPEC (ord, unboxed_int_type, 1, char_)
+  #include "cyrt/currylib/defs/unboxed.def"
 }

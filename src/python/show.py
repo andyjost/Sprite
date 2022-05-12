@@ -284,6 +284,10 @@ class DefaultStringifier(
   pass
 
 
+class PlainFreeVarsStringifier(ListStringifier, LitNormalStringifier):
+  pass
+
+
 def show(arg, stringifier=None, **kwds):
   '''
   Converts an expression to a string.

@@ -40,7 +40,7 @@ namespace cyrt
     TraceFork guard_fork(Queue const *);
     PositionKey enter_position(Queue const *, Scan const &);
     void exit_position(Queue const *, PositionKey const &);
-    void show_queue(Queue const *);
+    void show_queue(Queue const *, size_t skip=0);
     void show_indent(Queue const *, size_t extra=0);
     size_t qid(Queue const *);
   private:

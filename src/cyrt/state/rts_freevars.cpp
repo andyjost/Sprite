@@ -16,6 +16,7 @@ namespace cyrt
   Node * RuntimeState::get_generator(Configuration * C, xid_type vid)
   {
     Node * x = this->get_freevar(vid);
+    assert(x);
     if(!has_generator(x))
     {
       xid_type gid = C->grp_id(vid);
@@ -59,7 +60,9 @@ namespace cyrt
     }
     else if(Node * binding = this->get_binding(C, slot))
     {
+      C->scan.push(inductive);
       *C->root = C->scan.copy_spine(C->root, binding);
+      C->scan.pop();
       return E_RESTART;
     }
     ValueSet const * values = (ValueSet const *) guides;
@@ -103,7 +106,7 @@ namespace cyrt
       case T_FAIL  : return Fail;
       case T_FREE  : return rts->freshvar();
       default      : assert(node->info->tag >= T_CTOR);
-                     return Node::create_flat(node->info, rts->istate.xidfactory);
+                     return Node::create_flat(node->info, rts);
     }
   }
 
@@ -120,8 +123,8 @@ namespace cyrt
 
   struct GeneratorMaker
   {
-    GeneratorMaker(xid_type & xidfactory) : xidfactory(xidfactory) {}
-    xid_type & xidfactory;
+    GeneratorMaker(RuntimeState * rts) : rts(rts) {}
+    RuntimeState * rts;
 
     Node * make(ValueSet const * values, xid_type vid) const
     {
@@ -139,17 +142,15 @@ namespace cyrt
     {
       assert(n);
       if(n == 1)
-        return Node::create_flat(ctors[0], xidfactory);
+        return Node::create_flat(ctors[0], this->rts);
       else
       {
         size_t mfloor = n/2;
         size_t mceil = n - mfloor;
-        xid_type cid = vid == NOXID ? xidfactory++ : vid;
-        return choice(
-            cid
-          , this->_rec(ctors, mceil)
-          , this->_rec(ctors + mceil, mfloor)
-          );
+        xid_type cid = vid == NOXID ? this->rts->istate.xidfactory++ : vid;
+        Node * lhs = this->_rec(ctors, mceil);
+        Node * rhs = this->_rec(ctors + mceil, mfloor);
+        return choice(cid, lhs, rhs);
       }
     }
   };
@@ -160,7 +161,7 @@ namespace cyrt
   {
     if(!has_generator(freevar))
     {
-      GeneratorMaker maker(rts->istate.xidfactory);
+      GeneratorMaker maker(rts);
       Node * genexpr = maker.make(values, obj_id(freevar));
       NodeU{freevar}.free->genexpr = genexpr;
     }

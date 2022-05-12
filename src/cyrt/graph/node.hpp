@@ -23,7 +23,7 @@ namespace cyrt
     static Node * from_partial(PartApplicNode const *, Node * finalarg = nullptr);
 
     // Create a flat expression (each successor is a fresh variable).
-    static Node * create_flat(InfoTable const *, xid_type & xidfactory);
+    static Node * create_flat(InfoTable const *, RuntimeState *);
 
 
     void forward_to(Node *);

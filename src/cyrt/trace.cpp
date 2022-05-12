@@ -47,7 +47,7 @@ namespace cyrt
   {
     assert(Q);
     tout << "Q ::: failed config dropped from ";
-    this->show_queue(Q);
+    this->show_queue(Q, 1);
     tout << "\n";
   }
 
@@ -69,13 +69,14 @@ namespace cyrt
     return TraceFork(this, Q);
   }
 
-  void Trace::show_queue(Queue const * Q)
+  void Trace::show_queue(Queue const * Q, size_t skip)
   {
     assert(Q);
     tout << "queue " << this->qid(Q) << ": [";
     bool first = true;
     for(auto * C: *Q)
     {
+      if(skip) { --skip; continue; }
       if(first) first = false; else tout << ", ";
       tout << C->fingerprint;
     }
@@ -129,6 +130,7 @@ namespace cyrt
   {
     assert(Q);
     auto n = scan.size();
+    assert(n>=2);
     auto && frame = scan.frames()[n-2];
     PositionKey key(frame.cur.fwd_chain_target().id(), frame.index);
     if(this->prevpaths[Q] != key)

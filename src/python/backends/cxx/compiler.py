@@ -118,9 +118,18 @@ class CxxCompiler(compiler.CompilerBase):
   def vEmitStringLiteral(self, string, h_string):
     yield 'static char const * %s = %s;' % (h_string, _dquote(string))
 
-  def vEmitValueSetLiteral(self, values, h_valueset):
-    yield 'static %s constexpr %s[] = {%s};' % (
-        _datatype(values), h_valueset, ', '.join(str(v) for v in values)
+  def vEmitValueSetLiteral(self, values, h_valueset, h_valueset_data):
+    if len(values) == 0 or isinstance(values[0], int):
+      dt_name, dt_code = 'unboxed_int_type', 'i'
+    elif isinstance(values[0], float):
+      dt_name, dt_code = 'unboxed_float_type', 'f'
+    elif isinstance(values[0], str):
+      dt_name, dt_code = 'unboxed_char_type', 'c'
+    yield 'static %s const %s[] = {%s};' % (
+        dt_name, h_valueset_data, ', '.join(repr(v) for v in values)
+      )
+    yield 'static ValueSet const %s{(Arg *) %s, %r, %r};' % (
+        h_valueset, h_valueset_data, len(values), dt_code
       )
 
   def vEmitMetadata(self, md, h_md):
@@ -206,15 +215,28 @@ class CxxCompiler(compiler.CompilerBase):
 
   def vEmit_compileS_ICaseLit(self, icase, h_sel, h_values):
     yield 'auto tag = rts->hnf(C, &%s, &%s);' % (h_sel, h_values)
-    yield 'if(tag != T_UNBOXED) return tag;'
-    yield 'switch(%s.target.arg->ub_int)' % h_sel
-    switchbody = []
-    for branch in icase.branches:
-      value = repr(branch.lit.value)
-      switchbody.append('case %s:' % value)
-      switchbody.append(list(self.compileS(branch.block)))
-    switchbody.append('default: return _0->make_failure();')
-    yield switchbody
+    yield 'if(tag < T_CTOR) return tag;'
+    assert icase.branches
+    br = icase.branches[0]
+    if isinstance(br.lit, icurry.IFloat):
+      yield 'auto switch_value = NodeU{%s.target}.float_->value;' % h_sel
+      for branch in icase.branches:
+        yield 'if(switch_value == %r)' % branch.lit.value
+        yield list(self.compileS(branch.block))
+      yield 'else return _0->make_failure();'
+    else:
+      if isinstance(br.lit, icurry.IChar):
+        yield 'switch(NodeU{%s.target}.char_->value)' % h_sel
+      elif isinstance(br.lit, icurry.IInt):
+        yield 'switch(NodeU{%s.target}.int_->value)' % h_sel
+      else:
+        raise CompileError('bad switch type: %r' % type(br.lit))
+      switchbody = []
+      for branch in icase.branches:
+        switchbody.append('case %r:' % branch.lit.value)
+        switchbody.append(list(self.compileS(branch.block)))
+      switchbody.append('default: return _0->make_failure();')
+      yield switchbody
 
   def vEmit_compileE_IVar(self, ivar):
     return '_%s' % ivar.vid
@@ -247,16 +269,6 @@ class CxxCompiler(compiler.CompilerBase):
     text = "&%s, %s, %s" % (h_choice, lhs, rhs)
     return 'Node::create(%s)' % text if primary else text
 
-
-def _datatype(values):
-  if len(values) == 0 or isinstance(values[0], int):
-    return 'unboxed_int_type';
-  elif isinstance(values[0], float):
-    return 'unboxed_float_type';
-  elif isinstance(values[0], str):
-    return 'unboxed_char_type';
-  assert False
-
 def _dquote(string):
   # Note: Use JSON to get double-quote-style escaping.
   string_data = strings.ensure_str(string)
@@ -264,7 +276,6 @@ def _dquote(string):
 
 @visitation.dispatch.on('arg')
 def _cxxshow(arg):
-  pdbtrace()
   assert False
 
 @_cxxshow.when(bool)

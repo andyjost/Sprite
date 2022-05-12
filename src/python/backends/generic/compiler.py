@@ -21,6 +21,7 @@ INFO_TABLE        = 'INFO_TABLE'        # Constructor or Function info table.
 MODULE_DEF        = 'MODULE_DEF'
 STEP_FUNCTION     = 'STEP_FUNCTION'     # A step function.
 STRING_DATA       = 'STRING_DATA'       # Static string data.
+VALUE_SET_DATA    = 'VALUE_SET_DATA'    # Array data for a value set.
 VALUE_SET         = 'VALUE_SET'         # Case values (for narrowing).
 BUILTIN_FUNCTION  = 'BUILTIN_FUNCTION'  # A function provided by the execution environment.
 METADATA          = 'METADATA'          # A metadata object.
@@ -77,6 +78,7 @@ KIND_CODE = {
   , STEP_FUNCTION     : 'F'
   , STRING_DATA       : 'S'
   , VALUE_SET         : 'V'
+  , VALUE_SET_DATA    : 'A'
 }
 
 KIND_CODE_R = {v:k for k,v in KIND_CODE.items()}
@@ -322,11 +324,14 @@ class CompilerBase(abc.ABC):
     if existing is not None:
       return existing
     else:
+      h_valueset_data = self.next_private_symbolname(VALUE_SET_DATA)
+      self.symtab.insert(h_valueset_data, VALUE_SET_DATA, '<case value array: %r>' % (values,))
       h_valueset = self.next_private_symbolname(VALUE_SET)
       self.symtab.insert(h_valueset, VALUE_SET, '<case values: %r>' % (values,))
-      prog_text = self.vEmitValueSetLiteral(values, h_valueset)
+      prog_text = self.vEmitValueSetLiteral(values, h_valueset, h_valueset_data)
       self.target_object['.valuesets'].extend(prog_text)
       self.symtab.make_defined(h_valueset)
+      self.symtab.make_defined(h_valueset_data)
       self.intern_store[key] = h_valueset
       return h_valueset
 

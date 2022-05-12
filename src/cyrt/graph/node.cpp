@@ -4,6 +4,7 @@
 #include "cyrt/graph/equality.hpp"
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/graph/node.hpp"
+#include "cyrt/state/rts.hpp"
 
 namespace cyrt
 {
@@ -35,13 +36,13 @@ namespace cyrt
     return partial;
   }
 
-  Node * Node::create_flat(InfoTable const * info, xid_type & xidfactory)
+  Node * Node::create_flat(InfoTable const * info, RuntimeState * rts)
   {
     Node * node = (Node *) node_alloc(info->alloc_size);
     RawNodeMemory mem{node};
     *mem.info++ = info;
     for(size_t i=0; i<info->arity; ++i)
-      *mem.boxed++ = free(xidfactory++);
+      *mem.boxed++ = rts->freshvar();
     return node;
   }
 
