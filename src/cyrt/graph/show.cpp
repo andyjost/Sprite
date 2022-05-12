@@ -98,7 +98,7 @@ namespace
     void show(unboxed_float_type value)
     {
       boost::io::ios_flags_saver raii(this->os);
-      this->os << std::setprecision(FLOAT_PRECISION) << value;
+      this->os << std::showpoint << std::setprecision(FLOAT_PRECISION) << value;
     }
     void show(unboxed_char_type value)
     {
@@ -338,7 +338,7 @@ namespace
     void show(unboxed_float_type value)
     {
       boost::io::ios_flags_saver raii(this->os);
-      this->os << std::setprecision(FLOAT_PRECISION);
+      this->os << std::showpoint << std::setprecision(FLOAT_PRECISION);
       if(value < 0)
         this->os << '(' << value << ')';
       else

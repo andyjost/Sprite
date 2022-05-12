@@ -5,5 +5,8 @@ import curry
 class TestMath(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/math/'
   # RUN_ONLY = []
+  CLEAN_KWDS = {
+      'floatmath': {'standardize_floats': True}
+    }
   if curry.flags['backend'] == 'cxx':
-    SKIP = ['floatmath|intmath05[89]|intmath0[67][0-9]']
+    SKIP = ['intmath05[89]|intmath0[67][0-9]']

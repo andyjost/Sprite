@@ -21,14 +21,18 @@ namespace cyrt
   }
   static inline unboxed_int_type _builtin_modInt(unboxed_int_type x, unboxed_int_type y)
     { return x - y * _builtin_floordivInt(x, y); }
+  static inline unboxed_float_type _builtin_minusFloat(unboxed_float_type x, unboxed_float_type y)
+    { return y - x; }
+  static inline unboxed_float_type _builtin_divFloat(unboxed_float_type x, unboxed_float_type y)
+    { return y / x; }
 }
 
 extern "C"
 {
-  #define UBSPEC (acosFloat, std::cos, 1, float_)
+  #define UBSPEC (acosFloat, std::acos, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (acoshFloat, std::cosh, 1, float_)
+  #define UBSPEC (acoshFloat, std::acosh, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
   #define UBSPEC (asinFloat, std::asin, 1, float_)
@@ -49,7 +53,8 @@ extern "C"
   #define UBSPEC (coshFloat, std::cosh, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (divFloat, std::divides<void>(), 2, float_)
+  #define UBSPEC (divFloat, _builtin_divFloat, 2, float_)
+  #define SHOWN_NAME prim_divFloat
   #include "cyrt/currylib/defs/unboxed.def"
 
   #define UBSPEC (divInt, _builtin_floordivInt, 2, int_)
@@ -67,7 +72,7 @@ extern "C"
   #define UBSPEC (expFloat, std::exp, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (intToFloat, float, 1, float_)
+  #define UBSPEC (intToFloat, unboxed_float_type, 1, int_)
   #include "cyrt/currylib/defs/unboxed.def"
 
   #define UBSPEC (logFloat, std::log, 1, float_)
@@ -82,7 +87,8 @@ extern "C"
   #define UBSPEC (ltEqInt, std::less_equal<void>(), 2, int_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (minusFloat, std::minus<void>(), 2, float_)
+  #define UBSPEC (minusFloat, _builtin_minusFloat, 2, float_)
+  #define SHOWN_NAME prim_minusFloat
   #include "cyrt/currylib/defs/unboxed.def"
 
   #define UBSPEC (minusInt, std::minus<void>(), 2, int_)
