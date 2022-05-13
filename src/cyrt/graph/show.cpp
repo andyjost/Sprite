@@ -140,6 +140,7 @@ namespace
       //     '^'     concat list spine
       //     '"'     string item
       //     '`'     string spine
+      //     'c'     char in a string (not single-quoted)
 
       Context(char value) : value(value) {}
       Context(void * p) : p(p) {}
@@ -248,7 +249,7 @@ namespace
         {
           case 'i': show(cur.arg->ub_int);   continue;
           case 'f': show(cur.arg->ub_float); continue;
-          case 'c': show(cur.arg->ub_char);  continue;
+          case 'c': show(cur.arg->ub_char, Context(data).value != 'c');  continue;
           case 'x': show(cur.arg->blob);     continue;
         }
 
@@ -276,9 +277,14 @@ namespace
         switch(typetag(*info))
         {
           case F_INT_TYPE:
-          case F_CHAR_TYPE:
           case F_FLOAT_TYPE:
             walk.extend();
+            continue;
+          case F_CHAR_TYPE:
+            if(Context(data).value == '`')
+              walk.extend(Context('c'));
+            else
+              walk.extend();
             continue;
           case F_PARTIAL_TYPE:
           {
@@ -345,11 +351,11 @@ namespace
         this->os << value;
     }
 
-    void show(unboxed_char_type value)
+    void show(unboxed_char_type value, bool sq)
     {
-      this->os << '\'';
+      if(sq) this->os << '\'';
       show_sq_escaped(this->os, value);
-      this->os << '\'';
+      if(sq) this->os << '\'';
     }
 
     void show(void const * value)
