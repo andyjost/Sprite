@@ -1,37 +1,50 @@
-#ifndef NAME
-#error "Define a NAME"
+// Note: no include guards desired.
+#include <boost/preprocessor/cat.hpp>
+#include <boost/preprocessor/stringize.hpp>
+#include <boost/preprocessor/tuple/elem.hpp>
+
+#ifndef SPEC
+#error "Define SPEC as a 2-tuple of NAME, ARITY"
 #endif
 
-#ifndef SPRITE_STRINGIFY
-#define SPRITE_STRINGIFY(a) SPRITE_STRINGIFY_I(a)
-#define SPRITE_STRINGIFY_I(...) #__VA_ARGS__
+#define NAME     BOOST_PP_TUPLE_ELEM(0, SPEC)
+#define ARITY    BOOST_PP_TUPLE_ELEM(1, SPEC)
+
+#if ARITY != 0
+  #if ARITY != 1
+    #if ARITY != 2
+      #error "Expected arity 0, 1 or 2."
+    #endif
+  #endif
 #endif
 
-#define STEP_FUNCTION_NAME(name)    STEP_FUNCTION_NAME_I(name)
-#define STEP_FUNCTION_NAME_I(name)  __ ## name ## _step
+#define STEP_FUNCTION_NAME  BOOST_PP_CAT(NAME, _step)
+#define INFOTABLE_NAME      BOOST_PP_CAT(NAME, _Info)
 
-#define INFOTABLE_NAME(name)    INFOTABLE_NAME_I(name)
-#define INFOTABLE_NAME_I(name)  name ## _Info
-
-tag_type STEP_FUNCTION_NAME(NAME)(RuntimeState * rts, Configuration * C)
+tag_type STEP_FUNCTION_NAME(RuntimeState * rts, Configuration * C)
 {
-  Cursor _0 = C->cursor();
-  assert(false);
-  _0->forward_to(cstring(SPRITE_STRINGIFY(NAME) " is not implemented"));
-  return T_FWD;
+  return cyrt::not_used(rts, C);
 }
 
-InfoTable const INFOTABLE_NAME(NAME) {
+InfoTable const INFOTABLE_NAME {
     /*tag*/        T_FUNC
-  , /*arity*/      0
-  , /*alloc_size*/ sizeof(FwdNode)
+  , /*arity*/      ARITY
+  , /*alloc_size*/ sizeof(BOOST_PP_CAT(Node, ARITY))
   , /*flags*/      F_STATIC_OBJECT
-  , /*name*/       SPRITE_STRINGIFY(NAME)
+  , /*name*/       BOOST_PP_STRINGIZE(NAME)
+#if ARITY == 0
   , /*format*/     ""
-  , /*step*/       STEP_FUNCTION_NAME(NAME)
+#elif ARITY == 1
+  , /*format*/     "p"
+#else
+  , /*format*/     "pp"
+#endif
+  , /*step*/       STEP_FUNCTION_NAME
   , /*type*/       nullptr
   };
 
+#undef ARITY
 #undef INFOTABLE_NAME
 #undef NAME
+#undef SPEC
 #undef STEP_FUNCTION_NAME

@@ -17,6 +17,7 @@ from glob import glob
 from .. import oracle
 from . import testcase
 import curry, functools, inspect, os, re, six, sys, unittest
+from curry import exceptions
 
 __all__ = ['FunctionalTestCase']
 
@@ -39,6 +40,7 @@ class FunctionalTestCaseMetaclass(type):
       raise ValueError('SOURCE_DIR was not supplied in the base class')
     defs.setdefault('CURRYPATH'          , '')
     defs.setdefault('EXPECTED_FAILURE'   , None)
+    defs.setdefault('INTENDED_FAILURES'  , None)
     defs.setdefault('FILE_PATTERN'       , '[a-z]*.curry')
     defs.setdefault('GOAL_PATTERN'       , r'(sprite_)?(goal|main)\d*$')
     defs.setdefault('PRINT_SKIPPED_FILES', False)
@@ -52,6 +54,7 @@ class FunctionalTestCaseMetaclass(type):
     defs.setdefault('ORACLE_TIMEOUT'     , None)
     defs['CURRYPATH']         = defs['CURRYPATH'].split(':') + [defs['SOURCE_DIR']] + curry.path
     defs['EXPECTED_FAILURE']  = compile_pattern(defs['EXPECTED_FAILURE'])
+    defs['INTENDED_FAILURES'] = TSKeywords(defs['INTENDED_FAILURES'], (str, BaseException, tuple), None)
     defs['GOAL_PATTERN']      = compile_pattern(defs['GOAL_PATTERN'])
     defs['RUN_ONLY_EXACT']    = compile_pattern(defs['RUN_ONLY'], exact=True)
     defs['RUN_ONLY']          = compile_pattern(defs['RUN_ONLY'])
@@ -75,7 +78,11 @@ class FunctionalTestCaseMetaclass(type):
           sys.stderr.write('skipping file %s\n' % cysrc)
       else:
         meth_name = 'test_' + testname
-        defs[meth_name] = lambda self, testname=testname: self.check(testname)
+        if defs['INTENDED_FAILURES'][testname]:
+          error_desc = defs['INTENDED_FAILURES'][testname]
+          defs[meth_name] = lambda self, testname=testname: self.check_error(testname, error_desc)
+        else:
+          defs[meth_name] = lambda self, testname=testname: self.check(testname)
         if defs['EXPECTED_FAILURE'] and re.match(defs['EXPECTED_FAILURE'], testname):
           defs[meth_name] = unittest.expectedFailure(defs[meth_name])
 
@@ -191,18 +198,9 @@ class FunctionalTestCase(
         raise
     return wrapper
 
-  @oracle.require
-  @__collectFailures
-  def check(self, testname):
-    '''
-    Load the specified module, execute each goal, and compare with goldens
-    provided by the oracle.
-    '''
-    curry.flags['defaultconverter'] = self.CONVERTER[testname]
-    module = curry.import_(testname)
+  def iterate_goals(self, module):
     goals = [v for k,v in module.__dict__.items() if re.match(self.GOAL_PATTERN, k)]
     num_tests_run = 0
-    failures = []
     for goal in sorted(goals, key=lambda x: x.name):
       if goal.info.arity and self.PRINT_SKIPPED_GOALS:
         sys.stderr.write(
@@ -211,6 +209,39 @@ class FunctionalTestCase(
               )
           )
         continue
+      yield goal
+
+  def check_error(self, testname, error_desc):
+    etype, emsg = error_desc       if isinstance(error_desc, tuple) else \
+                  (error_desc, '') if isinstance(error_desc, BaseException) else \
+                  (exceptions.EvaluationError, error_desc)
+    module = curry.import_(testname)
+    with self.assertRaisesRegex(etype, emsg):
+      for goal in self.iterate_goals(module):
+        list(self.evaluate(testname, module, goal))
+
+  @oracle.require
+  @__collectFailures
+  def check(self, testname, ignore_result=False):
+    '''
+    Load the specified module, execute each goal, and compare with goldens
+    provided by the oracle.
+    '''
+    curry.flags['defaultconverter'] = self.CONVERTER[testname]
+    module = curry.import_(testname)
+    # goals = [v for k,v in module.__dict__.items() if re.match(self.GOAL_PATTERN, k)]
+    num_tests_run = 0
+    failures = []
+    # for goal in sorted(goals, key=lambda x: x.name):
+    #   if goal.info.arity and self.PRINT_SKIPPED_GOALS:
+    #     sys.stderr.write(
+    #         'skipping goal %s because its arity (%s) is not zero\n' % (
+    #             goal.info.name, goal.info.arity
+    #           )
+    #       )
+    #     continue
+    #   num_tests_run += 1
+    for goal in self.iterate_goals(module):
       num_tests_run += 1
       goldenfile = os.path.join(self.SOURCE_DIR, goal.fullname + '.au-gen')
       oracle.divine(module, goal, [self.SOURCE_DIR], '20s', goldenfile=goldenfile)
@@ -249,7 +280,7 @@ class FunctionalTestCase(
       except BaseException as exc:
         failures.append('\n====== %r ======\n%s' % (goal.name, exc))
 
-    self.assertGreater(num_tests_run, 0)
+    self.assertGreater(goals.num_tests_run, 0)
     if failures:
       self.fail('the following tests failed:\n%s' % '\n\n'.join(failures))
 

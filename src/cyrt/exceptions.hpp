@@ -17,4 +17,14 @@ namespace cyrt
   {
     using std::runtime_error::runtime_error;
   };
+
+  struct EvaluationError : std::runtime_error
+  {
+    using std::runtime_error::runtime_error;
+  };
+
+  struct EvaluationSuspended : EvaluationError
+  {
+    using EvaluationError::EvaluationError;
+  };
 }

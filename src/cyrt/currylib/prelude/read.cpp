@@ -4,15 +4,15 @@ using namespace cyrt;
 
 extern "C"
 {
-  #define NAME readCharLiteral
+  #define SPEC (readCharLiteral, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME readFloatLiteral
+  #define SPEC (readFloatLiteral, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME readNatLiteral
+  #define SPEC (readNatLiteral, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME readStringLiteral
+  #define SPEC (readStringLiteral, 1)
   #include "cyrt/currylib/defs/not_used.def"
 }

@@ -111,11 +111,11 @@ namespace cyrt
     , {"seqIO"                 , &seqIO_Info             }
     , {"timesInt"              , &timesInt_Info          }
     // Unused functions.
-    , {"failure"               , &notused_Info           }
-    , {"ifVar"                 , &notused_Info           }
-    , {"letrec"                , &notused_Info           }
-    , {"prim_readFileContents" , &notused_Info           }
-    , {"unifEqLinear"          , &notused_Info           }
+    , {"failure"               , &failure_Info           }
+    , {"ifVar"                 , &ifVar_Info             }
+    , {"letrec"                , &letrec_Info            }
+    , {"prim_readFileContents" , &readFileContents_Info  }
+    , {"unifEqLinear"          , &unifEqLinear_Info      }
     };
 
   TypeTable const builtin_prelude_types{

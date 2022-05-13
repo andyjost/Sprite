@@ -230,6 +230,7 @@ namespace cyrt
 
   InfoTable const * builtin_info(char);
   ConstraintType constraint_type(Node *);
+  tag_type not_used(RuntimeState *, Configuration *);
 
   inline Node * char_(unboxed_char_type x)   { return make_node<CharNode>(x); }
   inline Node * choice(xid_type cid, Node * lhs, Node * rhs)

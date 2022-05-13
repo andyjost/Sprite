@@ -5,15 +5,15 @@ using namespace cyrt;
 
 extern "C"
 {
-  #define NAME failure
+  #define SPEC (failure, 2)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME ifVar
+  #define SPEC (ifVar, 2)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME letrec
+  #define SPEC (letrec, 2)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME unifEqLinear
+  #define SPEC (unifEqLinear, 2)
   #include "cyrt/currylib/defs/not_used.def"
 }

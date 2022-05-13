@@ -1,4 +1,5 @@
 #include "cyrt/builtins.hpp"
+#include "cyrt/exceptions.hpp"
 #include "cyrt/graph/indexing.hpp"
 #include "cyrt/inspect.hpp"
 #include "cyrt/state/rts.hpp"
@@ -53,6 +54,7 @@ namespace cyrt
         case E_RESTART : tag = inspect::tag_of(C->root);
                          goto redoD;
         case E_RESIDUAL: assert(0); continue;
+        case E_ERROR   : throw EvaluationError(this->pop_error_msg());
         default        : TRACE_STEP_ENTER(C->root)
                          tag = this->procN(C, C->root);
                          TRACE_STEP_EXIT(C->root)

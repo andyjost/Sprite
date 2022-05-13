@@ -29,7 +29,7 @@ InfoTable const _cString_Info{
 
 extern "C"
 {
-  #define NAME _cGenerator
+  #define SPEC (_cGenerator, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
   #define UBSPEC (chr, unboxed_char_type, 1, int_)

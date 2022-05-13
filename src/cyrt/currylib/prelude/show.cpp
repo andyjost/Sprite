@@ -4,15 +4,15 @@ using namespace cyrt;
 
 extern "C"
 {
-  #define NAME showCharLiteral
+  #define SPEC (showCharLiteral, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME showFloatLiteral
+  #define SPEC (showFloatLiteral, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME showIntLiteral
+  #define SPEC (showIntLiteral, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME showStringLiteral
+  #define SPEC (showStringLiteral, 1)
   #include "cyrt/currylib/defs/not_used.def"
 }

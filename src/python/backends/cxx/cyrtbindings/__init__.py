@@ -5,6 +5,10 @@ from . import fingerprint
 from ... import Node as _backends_Node
 import logging
 
+from .... import exceptions
+exceptions.EvaluationError.register(EvaluationError)
+exceptions.EvaluationSuspended.register(EvaluationSuspended)
+
 logger = logging.getLogger(__name__)
 _backends_Node.register(Node)
 

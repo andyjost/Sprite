@@ -4,36 +4,36 @@ using namespace cyrt;
 
 extern "C"
 {
-  #define NAME appendFile
+  #define SPEC (appendFile, 2)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME bindIO
+  #define SPEC (bindIO, 2)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME catch
+  #define SPEC (catch, 2)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME getChar
+  #define SPEC (getChar, 0)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME ioError
+  #define SPEC (ioError, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME putChar
+  #define SPEC (putChar, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME readFile
+  #define SPEC (readFile, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME readFileContents
+  #define SPEC (readFileContents, 2)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME returnIO
+  #define SPEC (returnIO, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME seqIO
+  #define SPEC (seqIO, 2)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define NAME writeFile
+  #define SPEC (writeFile, 2)
   #include "cyrt/currylib/defs/not_used.def"
 }
