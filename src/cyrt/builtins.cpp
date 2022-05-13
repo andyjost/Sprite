@@ -100,7 +100,7 @@ extern "C"
     , /*alloc_size*/ sizeof(IONode)
     , /*flags*/      F_IO_TYPE | F_STATIC_OBJECT
     , /*name*/       "IO"
-    , /*format*/     "i"
+    , /*format*/     "p"
     , /*step*/       nullptr
     , /*type*/       &IO_Type
     };

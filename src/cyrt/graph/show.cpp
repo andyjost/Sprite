@@ -301,6 +301,11 @@ namespace
             }
             continue;
           }
+          case F_IO_TYPE:
+          {
+            walk.extend(Context(data));
+            continue;
+          }
           case F_LIST_TYPE:
             begin_list(walk, cur, disallow_parens);
             continue;
