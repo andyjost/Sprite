@@ -280,7 +280,7 @@ class FunctionalTestCase(
       except BaseException as exc:
         failures.append('\n====== %r ======\n%s' % (goal.name, exc))
 
-    self.assertGreater(goals.num_tests_run, 0)
+    self.assertGreater(num_tests_run, 0)
     if failures:
       self.fail('the following tests failed:\n%s' % '\n\n'.join(failures))
 
