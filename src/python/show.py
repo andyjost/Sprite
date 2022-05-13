@@ -91,7 +91,7 @@ class Stringifier(object):
           return ' '.join(map(str, self.flatten(arg)))
       elif isinstance(arg, memoryview):
         MAXLEN = 8
-        string = arg.tobytes()
+        string = arg.tobytes().decode('utf-8')
         elip = '' if len(arg) < MAXLEN else '...'
         return repr(string[:MAXLEN] + elip)
       else:
