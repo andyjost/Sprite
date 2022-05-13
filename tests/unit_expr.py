@@ -120,7 +120,7 @@ class TestExpr(cytest.TestCase):
 
   def test_fail(self):
     e = curry.raw_expr(fail)
-    self.assertEqual(str(e), 'failure')
+    self.assertEqual(str(e), 'failed')
     self.assertEqual(list(curry.eval(e)), [])
 
   @cytest.check_expressions()
