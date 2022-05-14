@@ -16,7 +16,8 @@ from ..clean import clean
 from glob import glob
 from .. import oracle
 from . import testcase
-import curry, functools, inspect, os, re, six, sys, unittest
+from .. import tty
+import curry, contextlib, functools, inspect, io, os, re, six, sys, unittest
 from curry import exceptions
 
 __all__ = ['FunctionalTestCase']
@@ -52,6 +53,7 @@ class FunctionalTestCaseMetaclass(type):
     defs.setdefault('CONVERTER'          , None)
     defs.setdefault('DO_CLEAN'           , None)
     defs.setdefault('ORACLE_TIMEOUT'     , None)
+    defs.setdefault('TTY'                , None)
     defs['CURRYPATH']         = defs['CURRYPATH'].split(':') + [defs['SOURCE_DIR']] + curry.path
     defs['EXPECTED_FAILURE']  = compile_pattern(defs['EXPECTED_FAILURE'])
     defs['INTENDED_FAILURES'] = TSKeywords(defs['INTENDED_FAILURES'], (str, BaseException, tuple), None)
@@ -66,6 +68,7 @@ class FunctionalTestCaseMetaclass(type):
     defs['CONVERTER']         = TSKeywords(defs['CONVERTER']        , str, None)
     defs['DO_CLEAN']          = TSKeywords(defs['DO_CLEAN']         , bool, True)
     defs['ORACLE_TIMEOUT']    = TSKeywords(defs['ORACLE_TIMEOUT']   , int, 20)
+    defs['TTY']               = TSKeywords(defs['TTY']              , tuple, None)
 
     # Create a test for every file under the source directory.
     for cysrc in glob(defs['SOURCE_DIR'] + defs['FILE_PATTERN']):
@@ -211,7 +214,47 @@ class FunctionalTestCase(
         continue
       yield goal
 
+  @contextlib.contextmanager
+  def redirect_and_check_tty(self, testname):
+    tty_args = self.TTY[testname]
+    if not tty_args:
+      yield
+    else:
+      try:
+        stdin_text, stdout_text = [arg if arg is None else str(arg) for arg in tty_args]
+      except:
+        raise TypeError('TTY information should be a pair of strings or None, not %r' % tty_args)
+
+      stdout = None if stdout_text is None else io.BytesIO()
+
+      try:
+        if stdin_text is not None:
+          stdin = io.BytesIO(stdin_text.encode('utf-8'))
+          with tty.redirect_stdin(stdin):
+            if stdout_text is not None:
+              with tty.redirect_stdout(stdout):
+                curry.reset()
+                yield
+            else:
+              curry.reset()
+              yield
+        else:
+          if stdout_text is not None:
+            with tty.redirect_stdout(stdout):
+              curry.reset()
+              yield
+          else:
+            yield
+      finally:
+        if stdin_text is not None or stdout_text is not None:
+          curry.reset() # re-read IO streams into the default interpreter
+
+      if stdout_text:
+        stdout_observed = stdout.getvalue().decode('utf-8')
+        self.assertEqual(stdout_text, stdout_observed)
+
   def check_error(self, testname, error_desc):
+    '''Run a Curry program that is intended to end with an error.'''
     etype, emsg = error_desc       if isinstance(error_desc, tuple) else \
                   (error_desc, '') if isinstance(error_desc, BaseException) else \
                   (exceptions.EvaluationError, error_desc)
@@ -240,7 +283,8 @@ class FunctionalTestCase(
         oracle_answer_raw = istream.read()
 
       try:
-        results = list(self.evaluate(testname, module, goal))
+        with self.redirect_and_check_tty(testname):
+          results = list(self.evaluate(testname, module, goal))
       except curry.EvaluationSuspended:
         if oracle_answer_raw != '!suspend':
           failures.append('\n====== %r ======\n%s'

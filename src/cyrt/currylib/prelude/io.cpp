@@ -1,5 +1,7 @@
-#include "cyrt/cyrt.hpp"
 #include <cassert>
+#include <cstdio>
+#include <cstring>
+#include "cyrt/cyrt.hpp"
 
 using namespace cyrt;
 
@@ -14,6 +16,30 @@ namespace cyrt { inline namespace
     assert(_1.target->info == &IO_Info);
     Variable _2 = _1[0];
     Node * replacement = Node::create(&apply_Info, _0[1], _2);
+    _0->forward_to(replacement);
+    return T_FWD;
+  }
+
+  static tag_type getChar_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    assert(_0->info->alloc_size >= IO_Info.alloc_size);
+    char ch = (char) std::getchar();
+    _0->info = &IO_Info;
+    ((IONode *) _0.arg->node)->value = char_(ch);
+    return T_CTOR;
+  }
+
+  static tag_type putChar_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0];
+    auto tag = rts->hnf(C, &_1);
+    if(tag < T_CTOR) return tag;
+    auto rv = std::putchar(NodeU{_1}.char_->value);
+    Node * replacement = (rv == EOF)
+        ? Node::create(&error_Info, cstring(std::strerror(errno)))
+        : io(unit());
     _0->forward_to(replacement);
     return T_FWD;
   }
@@ -56,14 +82,30 @@ extern "C"
   #define SPEC (catch, 2)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define SPEC (getChar, 0)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const getChar_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      0
+    , /*alloc_size*/ sizeof(FwdNode)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "getChar"
+    , /*format*/     ""
+    , /*step*/       getChar_step
+    , /*type*/       nullptr
+    };
 
   #define SPEC (ioError, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define SPEC (putChar, 1)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const putChar_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "putChar"
+    , /*format*/     "p"
+    , /*step*/       putChar_step
+    , /*type*/       nullptr
+    };
 
   #define SPEC (readFile, 1)
   #include "cyrt/currylib/defs/not_used.def"

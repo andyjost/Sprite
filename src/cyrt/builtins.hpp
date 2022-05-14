@@ -240,6 +240,7 @@ namespace cyrt
   inline Node * float_(unboxed_float_type x) { return make_node<FloatNode>(x); }
   inline Node * free(xid_type vid)           { return make_node<FreeNode>(vid, Unit); }
   inline Node * fwd(Node * tgt)              { return make_node<FwdNode>(tgt); }
+  inline Node * io(Node * value)             { return make_node<IONode>(value); }
   inline Node * int_(unboxed_int_type x)     { return make_node<IntNode>(x); }
   inline Node * nil()                        { return Nil; }
   inline Node * pair(Node * a, Node * b)     { return make_node<PairNode>(a, b); }
