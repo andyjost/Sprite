@@ -229,18 +229,8 @@ class FunctionalTestCase(
     '''
     curry.flags['defaultconverter'] = self.CONVERTER[testname]
     module = curry.import_(testname)
-    # goals = [v for k,v in module.__dict__.items() if re.match(self.GOAL_PATTERN, k)]
     num_tests_run = 0
     failures = []
-    # for goal in sorted(goals, key=lambda x: x.name):
-    #   if goal.info.arity and self.PRINT_SKIPPED_GOALS:
-    #     sys.stderr.write(
-    #         'skipping goal %s because its arity (%s) is not zero\n' % (
-    #             goal.info.name, goal.info.arity
-    #           )
-    #       )
-    #     continue
-    #   num_tests_run += 1
     for goal in self.iterate_goals(module):
       num_tests_run += 1
       goldenfile = os.path.join(self.SOURCE_DIR, goal.fullname + '.au-gen')

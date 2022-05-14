@@ -14,7 +14,7 @@ extern "C"
     , /*name*/       "_SetGuard"
     , /*format*/     "xp"
     , /*step*/       nullptr
-    , /*type*/       &SetGuard_Type
+    , /*type*/       nullptr /*&SetGuard_Type*/
     };
 
   InfoTable const Fail_Info{

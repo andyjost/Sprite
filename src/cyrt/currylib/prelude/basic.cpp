@@ -55,7 +55,7 @@ extern "C"
   InfoTable const failed_Info {
       /*tag*/        T_FUNC
     , /*arity*/      0
-    , /*alloc_size*/ sizeof(Node0)
+    , /*alloc_size*/ sizeof(FwdNode)
     , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "failed"
     , /*format*/     ""

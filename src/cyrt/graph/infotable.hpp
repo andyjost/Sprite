@@ -51,6 +51,19 @@ namespace cyrt
     DataType const *   type;
 
     std::string repr() const;
+
+    #ifndef NDEBUG
+    InfoTable(
+        tag_type           tag
+      , index_type         arity
+      , index_type         alloc_size
+      , flag_type          flags
+      , char const *       name
+      , char const *       format
+      , stepfunc_type      step
+      , DataType const *   type
+      );
+    #endif
   };
 
   inline flag_type typetag(InfoTable const & info)
