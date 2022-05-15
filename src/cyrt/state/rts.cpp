@@ -13,19 +13,4 @@ namespace cyrt
 		  this->trace.reset(new Trace(*this));
     #endif
   }
-
-  void RuntimeState::set_error_msg(std::string const & msg)
-  {
-    assert(msg.size());
-    assert(!this->_error_msg.size());
-    this->_error_msg = msg;
-  }
-
-  std::string RuntimeState::pop_error_msg()
-  {
-    assert(this->_error_msg.size());
-    std::string tmp;
-    std::swap(tmp, this->_error_msg);
-    return tmp;
-  }
 }

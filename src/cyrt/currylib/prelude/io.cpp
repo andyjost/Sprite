@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstring>
 #include "cyrt/cyrt.hpp"
+#include "cyrt/dynload.hpp"
 
 using namespace cyrt;
 
@@ -20,6 +21,24 @@ namespace cyrt { inline namespace
     return T_FWD;
   }
 
+  static tag_type catch_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0];
+    auto tag = rts->hnf(C, &_1);
+    if(tag < T_CTOR)
+    {
+      if(tag != E_ERROR)
+        return tag;
+      Variable _2 = _0[1];
+      Node * replacement = Node::create(&apply_Info, _2, _1);
+      _0->forward_to(replacement);
+    }
+    else
+      _0->forward_to(_1);
+    return T_FWD;
+  }
+
   static tag_type getChar_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
@@ -28,6 +47,23 @@ namespace cyrt { inline namespace
     _0->info = &IO_Info;
     ((IONode *) _0.arg->node)->value = char_(ch);
     return T_CTOR;
+  }
+
+  // prim_ioError :: IOError -> IO _
+  static tag_type ioError_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0];
+    InfoTable const * show_Info = SharedCurryModule::symbol(
+        "Prelude", "CyI7Prelude45__impl_hshow_hPrelude_dShow_hPrelude_dIOError"
+      );
+    assert(show_Info);
+    // (error2 err) $## (show err)
+    Node * error_msg = Node::create(show_Info, _1);
+    Node * lhs = Node::create_partial(&error2_Info, _1.target);
+    Node * replacement = Node::create(&applynf_Info, lhs, error_msg);
+    _0->forward_to(replacement);
+    return T_FWD;
   }
 
   static tag_type putChar_step(RuntimeState * rts, Configuration * C)
@@ -79,8 +115,16 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  #define SPEC (catch, 2)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const catch_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      2
+    , /*alloc_size*/ sizeof(Node2)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "catch"
+    , /*format*/     "pp"
+    , /*step*/       catch_step
+    , /*type*/       nullptr
+    };
 
   InfoTable const getChar_Info {
       /*tag*/        T_FUNC
@@ -93,8 +137,16 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  #define SPEC (ioError, 1)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const ioError_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "ioError"
+    , /*format*/     "p"
+    , /*step*/       ioError_step
+    , /*type*/       nullptr
+    };
 
   InfoTable const putChar_Info {
       /*tag*/        T_FUNC

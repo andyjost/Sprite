@@ -45,9 +45,6 @@ namespace cyrt
 		#ifdef SPRITE_TRACE_ENABLED
     std::unique_ptr<Trace> trace;
     #endif
-  private:
-    std::string            _error_msg;
-  public:
 
     Queue * Q() { return this->qstack.back(); }
     Configuration * C() { return this->Q()->front(); }
@@ -63,8 +60,6 @@ namespace cyrt
     tag_type hnf_or_free(
         Configuration *, Variable * inductive, void const * guides=nullptr
       );
-    void set_error_msg(std::string const &);
-    std::string pop_error_msg();
 
     // rts_bindings:
     bool add_binding(Configuration *, xid_type, Node *);

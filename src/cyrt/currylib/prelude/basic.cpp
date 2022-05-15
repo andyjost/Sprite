@@ -23,8 +23,26 @@ static tag_type error_step(RuntimeState * rts, Configuration * C)
   Variable _1 = _0[0];
   auto tag = rts->hnf(C, &_1);
   if(tag < T_CTOR) return tag;
-  std::string msg = _1.target->str();
-  rts->set_error_msg(msg);
+  C->set_error(_1.target->str());
+  return E_ERROR;
+}
+
+// error2 error_obj message -> IO ()
+static tag_type error2_step(RuntimeState * rts, Configuration * C)
+{
+  Cursor _0 = C->cursor();
+  Variable _1 = _0[0];
+  auto tag = rts->hnf(C, &_1);
+  if(tag < T_CTOR) return tag;
+  Variable _2 = _0[1];
+  tag = rts->hnf(C, &_2);
+  if(tag < T_CTOR) return tag;
+
+  C->set_error(_1, _2.target->str());
+
+  Node * replacement = io(unit());
+  _0->forward_to(replacement);
+
   return E_ERROR;
 }
 
@@ -34,7 +52,7 @@ namespace cyrt
   {
     std::stringstream ss;
     ss << "function 'Prelude." << C->cursor()->info->name << "' is not used by Sprite";
-    rts->set_error_msg(ss.str());
+    C->set_error(ss.str());
     return E_ERROR;
   }
 }
@@ -71,6 +89,17 @@ extern "C"
     , /*name*/       "error"
     , /*format*/     "p"
     , /*step*/       error_step
+    , /*type*/       nullptr
+    };
+
+  InfoTable const error2_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      2
+    , /*alloc_size*/ sizeof(Node2)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "error2"
+    , /*format*/     "pp"
+    , /*step*/       error2_step
     , /*type*/       nullptr
     };
 }

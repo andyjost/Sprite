@@ -12,6 +12,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 namespace cyrt
 {
@@ -60,6 +61,7 @@ namespace cyrt
     Bindings          bindings;
     Residuals         residuals;
     bool              escape_all = false;
+    std::pair<Node *, std::string> error; // pair of (error_object, message)
 
     Cursor cursor() const { return this->scan.cursor(); }
     xid_type grp_id(xid_type id) const
@@ -68,6 +70,12 @@ namespace cyrt
     bool has_binding(xid_type id) const { return this->bindings->count(id); }
     std::string str() const;
     void str(std::ostream &) const;
+
+    void clear_error();
+    std::pair<Node *, std::string> pop_error();
+    void set_error(std::string const &);
+    void set_error(Node *, std::string const &);
+    void raise_error();
   };
 
   inline xid_type obj_id(Node * node) { return NodeU{node}.choice->cid; }

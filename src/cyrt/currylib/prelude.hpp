@@ -12,6 +12,7 @@
 // prelude/basic.cpp
 #define choice_Info             CyI7Prelude2_u        // (?)
 #define error_Info              CyI7Prelude11prim__error
+#define error2_Info              CyI7Prelude12prim__error2
 #define failed_Info             CyI7Prelude6failed
 #define notused_Info            CyI7Prelude7notused
 
@@ -114,6 +115,7 @@ extern "C"
   // prelude/basic.cpp
   extern InfoTable const choice_Info;
   extern InfoTable const error_Info;
+  extern InfoTable const error2_Info;
   extern InfoTable const failed_Info;
   extern InfoTable const notused_Info;
 

@@ -1,6 +1,8 @@
 #pragma once
+#include "cyrt/fwd.hpp"
+#include "cyrt/graph/cursor.hpp"
 #include <iosfwd>
-#include "cyrt/graph/node.hpp"
+#include <vector>
 
 namespace cyrt
 {

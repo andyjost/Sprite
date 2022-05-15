@@ -1,6 +1,7 @@
 #pragma once
 #include "cyrt/fwd.hpp"
 #include "cyrt/graph/infotable.hpp"
+#include <functional>
 #include <map>
 #include <memory>
 #include <vector>
@@ -33,7 +34,7 @@ namespace cyrt
     void * handle() const { return _handle.get(); }
     operator void *() const { return _handle.get(); }
     std::string const & sofilename() const { return _sofilename; }
-  private:
+  protected:
     using Handle = std::shared_ptr<void>;
     Handle _handle;
     std::string _sofilename;
@@ -43,5 +44,8 @@ namespace cyrt
   {
     SharedCurryModule(std::string const & sofilename);
     ModuleBOM const * bom = nullptr;
+
+    static SharedCurryModule const * find(char const * module_fullname);
+    static InfoTable const * symbol(char const * module_fullname, char const * symbolname);
   };
 }

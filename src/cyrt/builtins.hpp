@@ -181,7 +181,7 @@ namespace cyrt
     bool is_encapsulated() const;
   };
 
-  struct CStringNode : Head
+  struct cStringNode : Head
   {
     char const * data;
     static constexpr InfoTable const * static_info = &_cString_Info;
@@ -202,21 +202,21 @@ namespace cyrt
 
   union NodeU
   {
-    Node           * head;
-    Node_<1>       * nodeN;
-    SetGrdNode     * setgrd;
-    ConstrNode     * constr;
-    FreeNode       * free;
-    FwdNode        * fwd;
-    ChoiceNode     * choice;
-    CStringNode    * c_str;
-    IntNode        * int_;
-    FloatNode      * float_;
-    CharNode       * char_;
-    PartApplicNode * partapplic;
-    ConsNode       * cons;
-    PairNode       * pair;
-    SetEvalNode    * seteval;
+    Node              * head;
+    Node_<1>          * nodeN;
+    SetGrdNode        * setgrd;
+    ConstrNode        * constr;
+    FreeNode          * free;
+    FwdNode           * fwd;
+    ChoiceNode        * choice;
+    cStringNode       * c_str;
+    IntNode           * int_;
+    FloatNode         * float_;
+    CharNode          * char_;
+    PartApplicNode    * partapplic;
+    ConsNode          * cons;
+    PairNode          * pair;
+    SetEvalNode       * seteval;
   };
 
   template<typename NodeType, typename ... Args>
@@ -247,5 +247,5 @@ namespace cyrt
   inline Node * unit()                       { return Unit; }
   inline Node * false_()                     { return False; }
   inline Node * true_()                      { return True; }
-  inline Node * cstring(char const * str)    { return make_node<CStringNode>(str); }
+  inline Node * cstring(char const * str)    { return make_node<cStringNode>(str); }
 }

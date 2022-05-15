@@ -19,7 +19,7 @@ static tag_type _cString_step(RuntimeState * rts, Configuration * C)
 InfoTable const _cString_Info{
     /*tag*/        T_FUNC
   , /*arity*/      1
-  , /*alloc_size*/ sizeof(CStringNode)
+  , /*alloc_size*/ sizeof(cStringNode)
   , /*flags*/      F_CSTRING_TYPE | F_STATIC_OBJECT
   , /*name*/       "_cString"
   , /*format*/     "x"
