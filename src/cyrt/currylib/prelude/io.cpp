@@ -8,9 +8,9 @@
 
 using namespace cyrt;
 
-namespace cyrt { inline namespace
+namespace cyrt
 {
-  char const * _make_io_error_msg(IOErrorKind error_kind, std::string const & filename)
+  static char const * _make_io_error_msg(IOErrorKind error_kind, std::string const & filename)
   {
     std::stringstream ss;
     if(error_kind == IO_ERROR && errno)
@@ -25,7 +25,7 @@ namespace cyrt { inline namespace
     return error_msg;
   }
 
-  Node * _make_io_error(char const * error_msg, IOErrorKind error_kind=IO_ERROR)
+  static Node * _make_io_error(char const * error_msg, IOErrorKind error_kind=IO_ERROR)
   {
     Node * error_object = Node::create(
         ioerror_info(error_kind), cstring(error_msg)
@@ -143,14 +143,16 @@ namespace cyrt { inline namespace
     return T_FWD;
   }
 
-  static tag_type writeFile_step(RuntimeState * rts, Configuration * C)
+  static tag_type writeFile_step_impl(
+      RuntimeState * rts, Configuration * C, std::ios_base::openmode mode
+    )
   {
     Cursor _0 = C->cursor();
     Variable vFilename = _0[0];
     Variable vChar;
     std::string filename = extract_string(vFilename);
     IOErrorKind error_kind = IO_ERROR;
-    std::ofstream stream(filename);
+    std::ofstream stream(filename, mode);
     if(!stream) goto return_error;
     while(true)
     {
@@ -180,12 +182,30 @@ namespace cyrt { inline namespace
     _0->forward_to(replacement);
     return T_FWD;
   }
-}}
+
+  static tag_type writeFile_step(RuntimeState * rts, Configuration * C)
+  {
+    return writeFile_step_impl(rts, C, std::ios_base::out);
+  }
+
+  static tag_type appendFile_step(RuntimeState * rts, Configuration * C)
+  {
+    return writeFile_step_impl(rts, C, std::ios_base::app);
+  }
+}
 
 extern "C"
 {
-  #define SPEC (appendFile, 2)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const appendFile_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      2
+    , /*alloc_size*/ sizeof(Node2)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "appendFile"
+    , /*format*/     "pp"
+    , /*step*/       appendFile_step
+    , /*type*/       nullptr
+    };
 
   InfoTable const bindIO_Info {
       /*tag*/        T_FUNC

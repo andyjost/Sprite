@@ -5,10 +5,11 @@ from cytest.tty import CLOSE
 class TestExamples(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/misc/'
   INTENDED_FAILURES = {
-      'error'          : 'A boom boom happened'
-    , 'getChar_error'  : 'i/o error: EOF'
-    , 'putChar_error'  : 'i/o error: EOF'
-    , 'writeFile_error': 'i/o error: Is a directory: /'
+      'appendFile_error': 'i/o error: Is a directory: /'
+    , 'error'           : 'A boom boom happened'
+    , 'getChar_error'   : 'i/o error: EOF'
+    , 'putChar_error'   : 'i/o error: EOF'
+    , 'writeFile_error' : 'i/o error: Is a directory: /'
     }
   TTY = {
                       #  stdin   stdout
@@ -24,8 +25,9 @@ class TestExamples(cytest.FunctionalTestCase):
     , 'catch'         : (None  , 'Caught an error\n')
     }
   CREATES_FILE = {
-      'writeFile$'    : {'data/curry/misc/output.txt': 'the content'}
+      'appendFile$'   : {'data/curry/misc/appendFile.out': 'Hello, World!'}
     , 'putChar_catch' : {'data/curry/misc/putChar_catch.out': 'yes'}
+    , 'writeFile$'    : {'data/curry/misc/output.txt': 'the content'}
     }
   if curry.flags['backend'] == 'py':
     SKIP = 'catch'
