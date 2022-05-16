@@ -4,6 +4,7 @@ Functions for parsing literals.
 # FIXME: the functions in this module may not handle set guards properly.
 
 from ..... import inspect
+from ... import graph
 import six
 
 __all__ = [
@@ -26,15 +27,11 @@ def readCharLiteral(rts, s):
     - A hexadecimal integer less than 0x110000.
 
   Yields:
-    Components of a Curry pair consisting of the parsed character and the
-    string tail following the closing quote.  If no character can be parsed,
-    returns char '\0' and the original string.
+    A list whose head is a pair of the parsed character and remaining string
+    and whose tail is this function applied to the tail.
   '''
   s_in = s
   try:
-    # First, yield the Curry symbol for a pair.
-    yield getattr(rts.prelude, '(,)')
-
     # Get the character.
     c, s = _getchar(rts, s)
     if c != "'":
@@ -52,14 +49,15 @@ def readCharLiteral(rts, s):
     if c != "'":
       raise ParseError()
 
-    # Second, yield the character as a Curry Char.
-    yield rts.expr(c_out)
-
-    # Third, yield the string tail.
-    yield s
+    yield rts.prelude.Cons
+    yield graph.Node(
+        rts.prelude.Pair
+      , graph.Node(rts.prelude.Char, c_out)
+      , s
+      )
+    yield graph.Node(rts.prelude.prim_readCharLiteral, s)
   except ParseError:
-    yield rts.expr('\0')
-    yield s_in
+    yield rts.prelude.Nil
 
 
 def readFloatLiteral(rts, s):
@@ -87,10 +85,19 @@ def readFloatLiteral(rts, s):
       num.append(c)
       s = rts.variable(s, 1)
     else:
-      break
-  yield getattr(rts.prelude, '(,)')
-  yield rts.expr(float(''.join(num) if num else 'nan'))
-  yield s
+      yield rts.prelude.Nil
+      return
+  if not num:
+    yield rts.prelude.Nil
+    return
+  value = float(''.join(num))
+  yield rts.prelude.Cons
+  yield graph.Node(
+      rts.prelude.Pair
+    , graph.Node(rts.prelude.Float, value)
+    , s
+    )
+  yield graph.Node(rts.prelude.prim_readNatLiteral, s)
 
 
 def readNatLiteral(rts, s):
@@ -107,10 +114,19 @@ def readNatLiteral(rts, s):
       num.append(c)
       s = rts.variable(s, 1)
     else:
-      break
-  yield getattr(rts.prelude, '(,)')
-  yield rts.expr(int(''.join(num)) if num else 0)
-  yield s
+      yield rts.prelude.Nil
+      return
+  if not num:
+    yield rts.prelude.Nil
+    return
+  value = int(''.join(num))
+  yield rts.prelude.Cons
+  yield graph.Node(
+      rts.prelude.Pair
+    , graph.Node(rts.prelude.Int, value)
+    , s
+    )
+  yield graph.Node(rts.prelude.prim_readNatLiteral, s)
 
 def readStringLiteral(rts, s):
   '''
@@ -120,13 +136,11 @@ def readStringLiteral(rts, s):
   characters and uses the same escape codes as for character literals.
 
   Yields:
-    Components of a Curry pair consisting of the parsed string literal and the
-    Curry string tail following the closing quote.  If no string can be parsed,
-    returns and empty string and the original string.
+    A list whose head is a pair of the parsed string and remaining string
+    and whose tail is this function applied to the tail.
   '''
   s_in = s
   try:
-    yield getattr(rts.prelude, '(,)')
     s_out = []
     c, s = _getchar(rts, s)
     if c != '"':
@@ -138,16 +152,20 @@ def readStringLiteral(rts, s):
         s_out.append(c)
       elif ord(c) < 256:
         if c == '"':
-          yield rts.expr(''.join(s_out))
-          yield s
-          return
+          break
         else:
           s_out.append(c)
       else:
         raise ParseError()
+    yield rts.prelude.Cons
+    yield graph.Node(
+        rts.prelude.Pair
+      , rts.expr(''.join(s_out))
+      , s
+      )
+    yield graph.Node(rts.prelude.prim_readStringLiteral, s)
   except ParseError:
-    yield rts.expr("")
-    yield s_in
+    yield rts.prelude.Nil
 
 
 class ParseError(BaseException):
