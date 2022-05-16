@@ -7,7 +7,8 @@ static tag_type _cString_step(RuntimeState * rts, Configuration * C)
   Cursor _0 = C->cursor();
   Node * head = nil();
   Node ** tail = &head;
-  for(char const * ch = NodeU{_0}.c_str->data; *ch; ++ch)
+  cStringNode * str = NodeU{_0}.c_str;
+  for(char const * ch = str->data; *ch; ++ch)
   {
     *tail = cons(char_(*ch), nil());
     tail = &NodeU{*tail}.cons->tail;

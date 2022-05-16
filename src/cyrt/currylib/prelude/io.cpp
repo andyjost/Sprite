@@ -143,6 +143,31 @@ namespace cyrt
     return T_FWD;
   }
 
+  static tag_type readFile_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable vFilename = _0[0];
+    std::string filename = extract_string(vFilename);
+    Node * head = nil();
+    Node ** tail = &head;
+    std::ifstream stream(filename);
+    if(!stream) goto return_error;
+    char ch;
+    while(stream.get(ch))
+    {
+      *tail = cons(char_(ch), nil());
+      tail = &NodeU{*tail}.cons->tail;
+    }
+    _0->forward_to(head);
+    return T_FWD;
+  return_error:
+    char const * error_msg = _make_io_error_msg(IO_ERROR, filename);
+    Node * replacement = _make_io_error(error_msg, IO_ERROR);
+    _0->forward_to(replacement);
+    return T_FWD;
+  }
+
+
   static tag_type writeFile_step_impl(
       RuntimeState * rts, Configuration * C, std::ios_base::openmode mode
     )
@@ -262,8 +287,16 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  #define SPEC (readFile, 1)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const readFile_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "readFile"
+    , /*format*/     "p"
+    , /*step*/       readFile_step
+    , /*type*/       nullptr
+    };
 
   #define SPEC (readFileContents, 2)
   #include "cyrt/currylib/defs/not_used.def"

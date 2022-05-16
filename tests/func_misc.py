@@ -11,8 +11,7 @@ class TestExamples(cytest.FunctionalTestCase):
     , 'putChar_error'   : 'i/o error: EOF'
     , 'writeFile_error' : 'i/o error: Is a directory: /'
     }
-  TTY = {
-                      #  stdin   stdout
+  TTY = {             #  stdin   stdout
       'putChar$'      : (None  , 'a'   )
     , 'putChar_error' : (None  , CLOSE )
     , 'putChar_catch' : (None  , CLOSE )
