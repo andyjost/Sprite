@@ -13,6 +13,7 @@ class TestExamples(cytest.FunctionalTestCase):
       'putChar'      : (None  , 'a'   )
     , 'getChar$'     : ('abcd', None  )
     , 'getChar_error': (''    , None  )
+    , 'getChar_catch': (''    , None  )
     , 'getputChar'   : ('ZYX' , 'Z'   )
     , 'catch'        : (None  , 'Caught an error\n')
     }
