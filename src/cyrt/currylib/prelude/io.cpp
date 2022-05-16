@@ -3,6 +3,8 @@
 #include <cstring>
 #include "cyrt/cyrt.hpp"
 #include "cyrt/dynload.hpp"
+#include <fstream>
+#include <sstream>
 
 using namespace cyrt;
 
@@ -97,6 +99,51 @@ namespace cyrt { inline namespace
     _0->forward_to(_0->successor(1));
     return T_FWD;
   }
+
+  static tag_type writeFile_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable vFilename = _0[0];
+    Variable vChar;
+    std::string filename = extract_string(vFilename);
+    IOErrorKind error_kind = IO_ERROR;
+    std::ofstream stream(filename);
+    if(!stream) goto return_error;
+    while(true)
+    {
+      Variable vSpine = _0[1];
+      auto tag = rts->hnf(C, &vSpine, &List_Type);
+      switch(tag)
+      {
+        case T_CONS:   vChar = vSpine[0];
+                       tag = rts->hnf(C, &vChar);
+                       if(tag < T_CTOR) return tag;
+                       stream.put(NodeU{vChar}.char_->value);
+                       if(!stream) goto return_error;
+                       *vSpine = NodeU{vSpine}.cons->tail;
+                       break;
+        case T_NIL:    _0->forward_to(io(unit()));
+                       return T_FWD;
+        case T_CHOICE: error_kind = NONDET_ERROR;
+                       goto return_error;
+        case T_FAIL:   error_kind = FAIL_ERROR;
+                       goto return_error;
+        default:       return tag;
+      }
+    }
+  return_error:
+    std::stringstream ss;
+    if(error_kind == IO_ERROR)
+      ss << std::strerror(errno) << ": ";
+    ss << filename;
+    char const * error_msg = intern_message(ss.str());
+    Node * error_object = Node::create(
+        ioerror_info(error_kind), cstring(error_msg)
+      );
+    Node * replacement = Node::create(&ioError_Info, error_object);
+    _0->forward_to(replacement);
+    return T_FWD;
+  }
 }}
 
 extern "C"
@@ -187,6 +234,14 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  #define SPEC (writeFile, 2)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const writeFile_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      2
+    , /*alloc_size*/ sizeof(Node2)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "writeFile"
+    , /*format*/     "pp"
+    , /*step*/       writeFile_step
+    , /*type*/       nullptr
+    };
 }

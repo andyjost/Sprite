@@ -54,6 +54,7 @@ class FunctionalTestCaseMetaclass(type):
     defs.setdefault('DO_CLEAN'           , None)
     defs.setdefault('ORACLE_TIMEOUT'     , None)
     defs.setdefault('TTY'                , None)
+    defs.setdefault('CREATES_FILE'       , None)
     defs['CURRYPATH']         = defs['CURRYPATH'].split(':') + [defs['SOURCE_DIR']] + curry.path
     defs['EXPECTED_FAILURE']  = compile_pattern(defs['EXPECTED_FAILURE'])
     defs['INTENDED_FAILURES'] = TSKeywords(defs['INTENDED_FAILURES'], (str, BaseException, tuple), None)
@@ -69,6 +70,7 @@ class FunctionalTestCaseMetaclass(type):
     defs['DO_CLEAN']          = TSKeywords(defs['DO_CLEAN']         , bool, True)
     defs['ORACLE_TIMEOUT']    = TSKeywords(defs['ORACLE_TIMEOUT']   , int, 20)
     defs['TTY']               = TSKeywords(defs['TTY']              , tuple, None)
+    defs['CREATES_FILE']      = TSKeywords(defs['CREATES_FILE']     , dict, None)
 
     # Create a test for every file under the source directory.
     for cysrc in glob(defs['SOURCE_DIR'] + defs['FILE_PATTERN']):
@@ -83,7 +85,7 @@ class FunctionalTestCaseMetaclass(type):
         meth_name = 'test_' + testname
         if defs['INTENDED_FAILURES'][testname]:
           error_desc = defs['INTENDED_FAILURES'][testname]
-          defs[meth_name] = lambda self, testname=testname: self.check_error(testname, error_desc)
+          defs[meth_name] = lambda self, testname=testname, error_desc=error_desc: self.check_error(testname, error_desc)
         else:
           defs[meth_name] = lambda self, testname=testname: self.check(testname)
         if defs['EXPECTED_FAILURE'] and re.match(defs['EXPECTED_FAILURE'], testname):
@@ -274,6 +276,10 @@ class FunctionalTestCase(
     module = curry.import_(testname)
     num_tests_run = 0
     failures = []
+    if self.CREATES_FILE[testname]:
+      for filename in self.CREATES_FILE[testname].keys():
+        if os.path.exists(filename):
+          os.unlink(filename)
     for goal in self.iterate_goals(module):
       num_tests_run += 1
       goldenfile = os.path.join(self.SOURCE_DIR, goal.fullname + '.au-gen')
@@ -315,6 +321,14 @@ class FunctionalTestCase(
         failures.append('\n====== %r ======\n%s' % (goal.name, exc))
 
     self.assertGreater(num_tests_run, 0)
+
+    # Check contents of created files.
+    if self.CREATES_FILE[testname]:
+      for filename, expected in self.CREATES_FILE[testname].items():
+        with open(filename, 'r') as istream:
+          got = istream.read()
+        self.assertEqual(got, expected)
+
     if failures:
       self.fail('the following tests failed:\n%s' % '\n\n'.join(failures))
 

@@ -1,7 +1,10 @@
 #include <cassert>
 #include <cstring>
 #include "cyrt/builtins.hpp"
+#include "cyrt/dynload.hpp"
 #include "cyrt/graph/node.hpp"
+#include <sstream>
+#include <stdexcept>
 
 using namespace cyrt;
 
@@ -301,5 +304,45 @@ namespace cyrt
     assert(this->complete(arg));
     return this->is_encapsulated()
       ? this->terms : Node::from_partial(this, arg);
+  }
+
+  InfoTable const * ioerror_info(IOErrorKind kind)
+  {
+    assert(((int) kind) >=0 && ((int) kind) < 4);
+    static char const * symbol_names[] = {
+        "CyI7Prelude7IOError"
+      , "CyI7Prelude9UserError"
+      , "CyI7Prelude9FailError"
+      , "CyI7Prelude11NondetError"
+      };
+    InfoTable const * info = SharedCurryModule::symbol("Prelude", symbol_names[kind]);
+    assert(info);
+    return info;
+  }
+
+  char const * intern_message(std::string const & msg)
+  {
+    static std::string saved;
+    saved = msg;
+    return saved.c_str();
+  }
+
+  std::string extract_string(Node * str)
+  {
+    assert(str);
+    if(typetag(*str->info) == F_CSTRING_TYPE)
+      return NodeU{str}.c_str->data;
+    std::stringstream ss;
+    while(true)
+    {
+      switch(str->info->tag)
+      {
+        case T_CONS: ss << NodeU{NodeU{str}.cons->head}.char_->value;
+                     str = NodeU{str}.cons->tail;
+                     break;
+        case T_NIL:  return ss.str();
+        default: throw std::invalid_argument("bad Curry string");
+      }
+    }
   }
 }

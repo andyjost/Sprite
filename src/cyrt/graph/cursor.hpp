@@ -80,6 +80,7 @@ namespace cyrt
     Variable operator[](index_type) const;
 
     operator Node *&() const { return target; }
+    Node *& operator*() const { return target; }
     std::string str() const;
     std::string str(SubstFreevars) const;
   };
