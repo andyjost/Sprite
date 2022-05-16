@@ -221,39 +221,44 @@ class FunctionalTestCase(
     tty_args = self.TTY[testname]
     if not tty_args:
       yield
-    else:
-      try:
-        stdin_text, stdout_text = [arg if arg is None else str(arg) for arg in tty_args]
-      except:
-        raise TypeError('TTY information should be a pair of strings or None, not %r' % tty_args)
+      return
+    try:
+      (stdin_text, closing_stdin), (stdout_text, closing_stdout) = [
+          (None, False) if arg is None
+                        else (None, True) if arg is tty.CLOSE
+                        else (str(arg), False)
+          for arg in tty_args
+        ]
+    except:
+      raise TypeError('TTY information should be a pair of strings, None or tty.CLOSE, not %r' % tty_args)
 
-      stdout = None if stdout_text is None else io.BytesIO()
+    if stdin_text is None and not closing_stdin and stdout_text is None and not closing_stdout:
+      yield
+      return
 
-      try:
-        if stdin_text is not None:
-          stdin = io.BytesIO(stdin_text.encode('utf-8'))
-          with tty.redirect_stdin(stdin):
-            if stdout_text is not None:
-              with tty.redirect_stdout(stdout):
-                curry.reset()
-                yield
-            else:
-              curry.reset()
-              yield
-        else:
-          if stdout_text is not None:
-            with tty.redirect_stdout(stdout):
-              curry.reset()
-              yield
-          else:
-            yield
-      finally:
-        if stdin_text is not None or stdout_text is not None:
+    stdin = None if stdin_text is None else io.BytesIO(stdin_text.encode('utf-8'))
+    stdin_context = (
+             tty.close_stdin()         if closing_stdin
+        else tty.redirect_stdin(stdin) if stdin_text is not None
+        else contextlib.nullcontext()
+      )
+    stdout = None if stdout_text is None else io.BytesIO()
+    stdout_context = (
+             tty.close_stdout()          if closing_stdout
+        else tty.redirect_stdout(stdout) if stdout_text is not None
+        else contextlib.nullcontext()
+      )
+    try:
+      with stdin_context:
+        with stdout_context:
           curry.reset() # re-read IO streams into the default interpreter
+          yield
+    finally:
+      curry.reset()
 
-      if check_result and stdout_text:
-        stdout_observed = stdout.getvalue().decode('utf-8')
-        self.assertEqual(stdout_text, stdout_observed)
+    if check_result and stdout_text:
+      stdout_observed = stdout.getvalue().decode('utf-8')
+      self.assertEqual(stdout_text, stdout_observed)
 
   def check_error(self, testname, error_desc):
     '''Run a Curry program that is intended to end with an error.'''

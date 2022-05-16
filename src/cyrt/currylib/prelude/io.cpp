@@ -78,6 +78,7 @@ namespace cyrt { inline namespace
     }
     else
     {
+      assert(_0->info->alloc_size == IO_Info.alloc_size);
       _0->info = &IO_Info;
       ((IONode *) _0.arg->node)->value = char_(ch);
       return T_CTOR;
@@ -108,11 +109,20 @@ namespace cyrt { inline namespace
     auto tag = rts->hnf(C, &_1);
     if(tag < T_CTOR) return tag;
     auto rv = std::putchar(NodeU{_1}.char_->value);
-    Node * replacement = (rv == EOF)
-        ? Node::create(&error_Info, cstring(std::strerror(errno)))
-        : io(unit());
-    _0->forward_to(replacement);
-    return T_FWD;
+    if(rv == EOF)
+    {
+      Node * replacement = _make_io_error("EOF");
+      std::clearerr(stdout);
+      _0->forward_to(replacement);
+      return T_FWD;
+    }
+    else
+    {
+      assert(_0->info->alloc_size == IO_Info.alloc_size);
+      _0->info = &IO_Info;
+      ((IONode *) _0.arg->node)->value = unit();
+      return T_CTOR;
+    }
   }
 
   static tag_type returnIO_step(RuntimeState * rts, Configuration * C)

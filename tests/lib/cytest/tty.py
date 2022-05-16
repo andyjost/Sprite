@@ -6,6 +6,24 @@ libc = ctypes.CDLL(None)
 c_stdin = ctypes.c_void_p.in_dll(libc, 'stdin')
 c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')
 
+CLOSE = object()
+
+@contextmanager
+def close_stdin():
+  original_stdin_fd = sys.stdin.fileno()
+  saved_stdin_fd = os.dup(original_stdin_fd)
+  try:
+    libc.fflush(c_stdin)
+    sys.stdin.close()
+    try:
+      yield
+    finally:
+      os.dup2(saved_stdin_fd, original_stdin_fd)
+      sys.stdin = io.TextIOWrapper(os.fdopen(original_stdin_fd, 'rb'))
+  finally:
+    os.close(saved_stdin_fd)
+
+
 @contextmanager
 def redirect_stdin(stream):
   original_stdin_fd = sys.stdin.fileno()
@@ -22,12 +40,30 @@ def redirect_stdin(stream):
     tfile.write(stream.read())
     tfile.seek(0)
     _redirect_stdin(tfile.fileno())
-    yield
-    _redirect_stdin(saved_stdin_fd)
+    try:
+      yield
+    finally:
+      _redirect_stdin(saved_stdin_fd)
     tfile.flush()
   finally:
     tfile.close()
     os.close(saved_stdin_fd)
+
+@contextmanager
+def close_stdout():
+  original_stdout_fd = sys.stdout.fileno()
+  saved_stdout_fd = os.dup(original_stdout_fd)
+  try:
+    libc.fflush(c_stdout)
+    sys.stdout.close()
+    libc.fclose(c_stdout) # not sure why this is needed.
+    try:
+      yield
+    finally:
+      os.dup2(saved_stdout_fd, original_stdout_fd)
+      sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, 'wb'))
+  finally:
+    os.close(saved_stdout_fd)
 
 @contextmanager
 def redirect_stdout(stream):
@@ -43,8 +79,10 @@ def redirect_stdout(stream):
   try:
     tfile = tempfile.TemporaryFile(mode='w+b')
     _redirect_stdout(tfile.fileno())
-    yield
-    _redirect_stdout(saved_stdout_fd)
+    try:
+      yield
+    finally:
+      _redirect_stdout(saved_stdout_fd)
     tfile.flush()
     tfile.seek(0, io.SEEK_SET)
     stream.write(tfile.read())
