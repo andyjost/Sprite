@@ -217,7 +217,7 @@ class FunctionalTestCase(
       yield goal
 
   @contextlib.contextmanager
-  def redirect_and_check_tty(self, testname):
+  def redirect_tty(self, testname, check_result):
     tty_args = self.TTY[testname]
     if not tty_args:
       yield
@@ -251,7 +251,7 @@ class FunctionalTestCase(
         if stdin_text is not None or stdout_text is not None:
           curry.reset() # re-read IO streams into the default interpreter
 
-      if stdout_text:
+      if check_result and stdout_text:
         stdout_observed = stdout.getvalue().decode('utf-8')
         self.assertEqual(stdout_text, stdout_observed)
 
@@ -263,7 +263,8 @@ class FunctionalTestCase(
     module = curry.import_(testname)
     with self.assertRaisesRegex(etype, emsg):
       for goal in self.iterate_goals(module):
-        list(self.evaluate(testname, module, goal))
+        with self.redirect_tty(testname, check_result=False):
+          list(self.evaluate(testname, module, goal))
 
   @oracle.require
   @__collectFailures
@@ -289,7 +290,7 @@ class FunctionalTestCase(
         oracle_answer_raw = istream.read()
 
       try:
-        with self.redirect_and_check_tty(testname):
+        with self.redirect_tty(testname, check_result=True):
           results = list(self.evaluate(testname, module, goal))
       except curry.EvaluationSuspended:
         if oracle_answer_raw != '!suspend':

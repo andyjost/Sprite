@@ -10,6 +10,29 @@ using namespace cyrt;
 
 namespace cyrt { inline namespace
 {
+  char const * _make_io_error_msg(IOErrorKind error_kind, std::string const & filename)
+  {
+    std::stringstream ss;
+    if(error_kind == IO_ERROR && errno)
+    {
+      ss << std::strerror(errno);
+      if(!filename.empty())
+        ss << ": ";
+    }
+    if(!filename.empty())
+      ss << filename;
+    char const * error_msg = intern_message(ss.str());
+    return error_msg;
+  }
+
+  Node * _make_io_error(char const * error_msg, IOErrorKind error_kind=IO_ERROR)
+  {
+    Node * error_object = Node::create(
+        ioerror_info(error_kind), cstring(error_msg)
+      );
+    return Node::create(&ioError_Info, error_object);
+  }
+
   static tag_type bindIO_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
@@ -45,10 +68,20 @@ namespace cyrt { inline namespace
   {
     Cursor _0 = C->cursor();
     assert(_0->info->alloc_size >= IO_Info.alloc_size);
-    char ch = (char) std::getchar();
-    _0->info = &IO_Info;
-    ((IONode *) _0.arg->node)->value = char_(ch);
-    return T_CTOR;
+    auto ch = std::getchar();
+    if(ch == EOF)
+    {
+      Node * replacement = _make_io_error("EOF");
+      std::clearerr(stdin);
+      _0->forward_to(replacement);
+      return T_FWD;
+    }
+    else
+    {
+      _0->info = &IO_Info;
+      ((IONode *) _0.arg->node)->value = char_(ch);
+      return T_CTOR;
+    }
   }
 
   // prim_ioError :: IOError -> IO _
@@ -132,15 +165,8 @@ namespace cyrt { inline namespace
       }
     }
   return_error:
-    std::stringstream ss;
-    if(error_kind == IO_ERROR)
-      ss << std::strerror(errno) << ": ";
-    ss << filename;
-    char const * error_msg = intern_message(ss.str());
-    Node * error_object = Node::create(
-        ioerror_info(error_kind), cstring(error_msg)
-      );
-    Node * replacement = Node::create(&ioError_Info, error_object);
+    char const * error_msg = _make_io_error_msg(error_kind, filename);
+    Node * replacement = _make_io_error(error_msg, error_kind);
     _0->forward_to(replacement);
     return T_FWD;
   }
