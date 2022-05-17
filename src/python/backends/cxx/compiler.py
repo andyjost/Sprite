@@ -12,6 +12,20 @@ def compile(interp, imodule):
   compileM = CxxCompiler(interp, imodule)
   return compileM.compile()
 
+SINGLETONS = {
+    'Node::create(&CyI7Prelude4_K_k)' : 'nil()'
+  , 'Node::create(&CyI7Prelude4_Y_y)' : 'unit()'
+  , 'Node::create(&CyI7Prelude4True)' : 'true_()'
+  , 'Node::create(&CyI7Prelude5False)': 'false_()'
+  , 'Node::create(&CyI7Prelude4Fail)' : 'fail()'
+  }
+
+def replace_singletons(f):
+  def emitter(*args, **kwds):
+    result = f(*args, **kwds)
+    return SINGLETONS.get(result, result)
+  return emitter
+
 class CxxCompiler(compiler.CompilerBase):
   CODE_TYPE = 'C++'
   EXCLUDED_METADATA = set(['cxx.material', 'cxx.shlib'])
@@ -244,9 +258,20 @@ class CxxCompiler(compiler.CompilerBase):
   def vEmit_compileE_IVarAccess(self, ivaraccess, var):
     return '%s[%s]' % (var, ','.join(map(str, ivaraccess.path)))
 
+  LIT_CONSTRUCTOR = {
+      'CyI7Prelude3Int'  : 'int_'
+    , 'CyI7Prelude5Float': 'float_'
+    , 'CyI7Prelude4Char' : 'char_'
+    }
+
   def vEmit_compileE_ILiteral(self, iliteral, h_ctor, primary):
-    text = '&%s, Arg(%r)' % (h_ctor, iliteral.value)
-    return 'Node::create(%s)' % text if primary else text
+    shown = _cxxshow(iliteral.value, use_char=True)
+    if primary:
+      return '%s(%s)' % (self.LIT_CONSTRUCTOR[h_ctor], shown)
+    else:
+      # text = '&%s, Arg(%r)' % (h_ctor, iliteral.value)
+      # return 'Node::create(%s)' % text if primary else text
+      return '&%s, Arg(%s)' % (h_ctor, shown)
 
   def vEmit_compileE_IString(self, istring, h_string, primary):
     text = '&_cString_Info, Arg(%s)' % h_string
@@ -255,6 +280,7 @@ class CxxCompiler(compiler.CompilerBase):
   def vEmit_compileE_IUnboxedLiteral(self, iunboxed, primary):
     return repr(iunboxed)
 
+  @replace_singletons
   def vEmit_compileE_ICall(self, icall, h_info, args, primary):
     text = '&%s%s' % (h_info, ''.join(', ' + e for e in args))
     return 'Node::create(%s)' % text if primary else text
@@ -275,30 +301,41 @@ def _dquote(string):
   return json.dumps(string_data)
 
 @visitation.dispatch.on('arg')
-def _cxxshow(arg):
+def _cxxshow(arg, use_char=False):
   assert False
 
 @_cxxshow.when(bool)
-def _cxxshow(bit):
+def _cxxshow(bit, use_char=False):
   return 'true' if bit else 'false'
 
-@_cxxshow.when(int)
-def _cxxshow(i):
+@_cxxshow.when((int, float))
+def _cxxshow(i, use_char=False):
   return repr(i)
 
 @_cxxshow.when(six.string_types)
-def _cxxshow(string):
-  return _dquote(string)
+def _cxxshow(string, use_char=False):
+  # Ensure characters always begin with a single quote.  Python uses "'" for
+  # that particular string.
+  if use_char:
+    assert len(string) == 1
+    if string == "'":
+      return "'\\''"
+    else:
+      result = repr(string)
+      assert result.startswith("'")
+      return result
+  else:
+    return _dquote(string)
 
 @_cxxshow.when(collections.Mapping)
-def _cxxshow(mapping):
+def _cxxshow(mapping, use_char=False):
   return '{%s}' % ', '.join(
-      '{%s, %s}' % (_cxxshow(k), _cxxshow(v)) for k,v in mapping.items()
+      '{%s, %s}' % (_cxxshow(k, use_char), _cxxshow(v, use_char)) for k,v in mapping.items()
     )
 
 @_cxxshow.when(collections.Sequence, no=six.string_types)
-def _cxxshow(sequence):
-  return '{%s}' % ', '.join(_cxxshow(part) for part in sequence)
+def _cxxshow(sequence, use_char=False):
+  return '{%s}' % ', '.join(_cxxshow(part, use_char) for part in sequence)
 
 def write_module(
     target_object, stream, goal=None, section_headers=True, module_main=True
