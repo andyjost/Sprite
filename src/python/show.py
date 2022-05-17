@@ -214,10 +214,19 @@ class LitNormalStringifier(Stringifier):
   def format(self, lit, **kwds):
     return ('(%r)' if lit<0 else '%r') % lit
 
+  CHAR_TRANSLATIONS = {
+      '\'': "'\\''"
+    , '\a': "'\\a'"
+    , '\b': "'\\b'"
+    , '\f': "'\\f'"
+    , '\t': "'\\t'"
+    , '\v': "'\\v'"
+    }
+
   @format.when(six.string_types)
   def format(self, lit, **kwds):
     assert len(lit) == 1
-    return repr(lit)
+    return self.CHAR_TRANSLATIONS.get(lit, repr(lit))
 
   @format.when(collections.Iterator)
   def format(self, it, **kwds):
