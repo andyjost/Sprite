@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <cstdio>
 
+// #define SHOW_PART_APPLIC_DETAILS
+
 namespace
 {
   using namespace cyrt;
@@ -289,6 +291,11 @@ namespace
           case F_PARTIAL_TYPE:
           {
             auto const * partial = NodeU{cur}.partapplic;
+            #ifdef SHOW_PART_APPLIC_DETAILS
+            os << "!{" << partial->missing << ", ";
+            show_name(os, partial->head_info);
+            os << ", " << partial->terms->repr() << "}";
+            #else
             if(partial->terms == Nil)
               show_name(os, partial->head_info);
             else
@@ -299,6 +306,7 @@ namespace
               ++walk; // skip #missing
               ++walk; // skip head_info
             }
+            #endif
             continue;
           }
           case F_IO_TYPE:

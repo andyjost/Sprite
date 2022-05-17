@@ -33,11 +33,11 @@ namespace cyrt
     return target;
   }
 
-  inline Node * _args2list() { return Nil; }
+  inline Node * _args2list_rev(Arg arg) { return arg.node; }
 
   template<typename ... Args>
-  inline Node * _args2list(Arg arg0, Args && ... args)
-    { return cons(arg0.node, _args2list(std::forward<Args>(args)...)); }
+  inline Node * _args2list_rev(Arg arg0, Arg arg1, Args && ... args)
+    { return _args2list_rev(cons(arg1.node, arg0.node), std::forward<Args>(args)...); }
 
   template<typename ... Args>
   Node * Node::create_partial(InfoTable const * info, Args && ... args)
@@ -48,7 +48,7 @@ namespace cyrt
         &PartApplic_Info
       , missing
       , info
-      , _args2list(std::forward<Args>(args)...)
+      , _args2list_rev(Nil, std::forward<Args>(args)...)
       );
     return partial;
   }

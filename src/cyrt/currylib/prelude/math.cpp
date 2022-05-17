@@ -107,13 +107,13 @@ extern "C"
   #include "cyrt/currylib/defs/unboxed.def"
 
   // true division followed by integer truncation.
-  #define UBSPEC (quotInt, (unboxed_int_type)std::divides<unboxed_float_type>(), 2, int_)
+  #define UBSPEC (quotInt, (unboxed_int_type) std::divides<unboxed_float_type>(), 2, int_)
   #include "cyrt/currylib/defs/unboxed.def"
 
   #define UBSPEC (remInt, cyrt::_builtin_remInt, 2, int_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (roundFloat, std::round, 1, float_)
+  #define UBSPEC (roundFloat, (unboxed_int_type) std::round, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
   #define UBSPEC (sinFloat, std::sin, 1, float_)
@@ -137,6 +137,6 @@ extern "C"
   #define UBSPEC (timesInt, std::multiplies<void>(), 2, int_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (truncateFloat, std::trunc, 1, float_)
+  #define UBSPEC (truncateFloat, (unboxed_int_type) std::trunc, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 }
