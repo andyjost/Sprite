@@ -55,9 +55,9 @@ def readCharLiteral(rts, s):
       , graph.Node(rts.prelude.Char, c_out)
       , s
       )
-    yield graph.Node(rts.prelude.prim_readCharLiteral, s)
+    yield graph.Node(rts.prelude.Nil)
   except ParseError:
-    yield rts.prelude.Nil
+    yield rts.prelude._Failure
 
 
 def readFloatLiteral(rts, s):
@@ -85,10 +85,10 @@ def readFloatLiteral(rts, s):
       num.append(c)
       s = rts.variable(s, 1)
     else:
-      yield rts.prelude.Nil
+      yield rts.prelude._Failure
       return
   if not num:
-    yield rts.prelude.Nil
+    yield rts.prelude._Failure
     return
   value = float(''.join(num))
   yield rts.prelude.Cons
@@ -97,7 +97,7 @@ def readFloatLiteral(rts, s):
     , graph.Node(rts.prelude.Float, value)
     , s
     )
-  yield graph.Node(rts.prelude.prim_readNatLiteral, s)
+  yield graph.Node(rts.prelude.Nil)
 
 
 def readNatLiteral(rts, s):
@@ -114,10 +114,10 @@ def readNatLiteral(rts, s):
       num.append(c)
       s = rts.variable(s, 1)
     else:
-      yield rts.prelude.Nil
+      yield rts.prelude._Failure
       return
   if not num:
-    yield rts.prelude.Nil
+    yield rts.prelude._Failure
     return
   value = int(''.join(num))
   yield rts.prelude.Cons
@@ -126,7 +126,7 @@ def readNatLiteral(rts, s):
     , graph.Node(rts.prelude.Int, value)
     , s
     )
-  yield graph.Node(rts.prelude.prim_readNatLiteral, s)
+  yield graph.Node(rts.prelude.Nil)
 
 def readStringLiteral(rts, s):
   '''
@@ -163,9 +163,9 @@ def readStringLiteral(rts, s):
       , rts.expr(''.join(s_out))
       , s
       )
-    yield graph.Node(rts.prelude.prim_readStringLiteral, s)
+    yield graph.Node(rts.prelude.Nil)
   except ParseError:
-    yield rts.prelude.Nil
+    yield rts.prelude._Failure
 
 
 class ParseError(BaseException):
