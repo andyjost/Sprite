@@ -142,7 +142,7 @@ namespace
       //     '^'     concat list spine
       //     '"'     string item
       //     '`'     string spine
-      //     'c'     char in a string (not single-quoted)
+      //     'c'     char appearing in a double-quoted string
 
       Context(char value) : value(value) {}
       Context(void * p) : p(p) {}
@@ -249,10 +249,17 @@ namespace
 
         switch(cur.kind)
         {
-          case 'i': show(cur.arg->ub_int);   continue;
-          case 'f': show(cur.arg->ub_float); continue;
-          case 'c': show(cur.arg->ub_char, Context(data).value != 'c');  continue;
-          case 'x': show(cur.arg->blob);     continue;
+          case 'i': show(cur.arg->ub_int);
+                    continue;
+          case 'f': show(cur.arg->ub_float);
+                    continue;
+          case 'c': if(Context(data).value == 'c')
+                      show_dq_escaped(this->os, cur.arg->ub_char);
+                    else
+                      show(cur.arg->ub_char);
+                    continue;
+          case 'x': show(cur.arg->blob);
+                    continue;
         }
 
         auto * info = cur->info;
@@ -364,11 +371,11 @@ namespace
         this->os << value;
     }
 
-    void show(unboxed_char_type value, bool sq)
+    void show(unboxed_char_type value)
     {
-      if(sq) this->os << '\'';
+      this->os << '\'';
       show_sq_escaped(this->os, value);
-      if(sq) this->os << '\'';
+      this->os << '\'';
     }
 
     void show(void const * value)
