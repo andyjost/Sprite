@@ -21,3 +21,4 @@ robots.txt*
 /currylib/Prelude.curry
 /currylib/Prelude.*icy
 /currylib/Prelude.*json*
+.gdbinit
