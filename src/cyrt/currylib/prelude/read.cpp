@@ -1,7 +1,8 @@
 #include <cassert>
 #include <cstdlib>
 #include "cyrt/cyrt.hpp"
-#include <limits>
+#include <sstream>
+#include <type_traits>
 
 #define CHAR_BOUND 256 // ASCII only
 
@@ -172,8 +173,29 @@ namespace cyrt
 
   static tag_type readFloatLiteral_step(RuntimeState * rts, Configuration * C)
   {
-    assert(0);
-    return T_FAIL;
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0];
+    ConsNode * string = string_cast(_1);
+    std::stringstream ss;
+    while(string)
+    {
+      auto ch = (char) head_char_ub(string);
+      switch(ch)
+      {
+        case '0': case '1': case '2': case '3': case '4':
+        case '5': case '6': case '7': case '8': case '9':
+        case 'e': case 'E': case '+': case '-': case '.':
+            ss << ch;
+            string = string_cast(string->tail);
+        default:
+            break;
+      }
+    }
+    static_assert(std::is_same<unboxed_float_type, double>::value, "stdtod assumes double");
+    unboxed_float_type const value = std::strtod(ss.str().c_str(), nullptr);
+    Node * replacement = cons(pair(int_(value), string ? (Node *) string : nil()), nil());
+    _0->forward_to(replacement);
+    return T_FWD;
   }
 
   static tag_type readNatLiteral_step(RuntimeState * rts, Configuration * C)
@@ -184,11 +206,10 @@ namespace cyrt
     static ptrdiff_t constexpr SZ = 32;
     char buf[SZ];
     char * px = &buf[0];
-    Node * replacement = nullptr;
     while(string && px < &buf[SZ-1])
     {
       auto ch = (char) head_char_ub(string);
-      if(('0' <= ch && ch <= '9') || (px == &buf[0] && ch == '-'))
+      if('0' <= ch && ch <= '9')
       {
         *px++ = ch;
         string = string_cast(string->tail);
@@ -198,13 +219,12 @@ namespace cyrt
     }
     *px++ = '\0';
     assert(px - &buf[0] <= SZ);
-    auto ll_value = std::strtoll(&buf[0], nullptr, 10);
-    auto constexpr minval = std::numeric_limits<unboxed_int_type>::min();
-    auto constexpr maxval = std::numeric_limits<unboxed_int_type>::max();
-    if(ll_value < minval || ll_value > maxval)
+    static_assert(std::is_same<unboxed_int_type, long>::value, "stdtol assumes long");
+    errno = 0;
+    unboxed_int_type value = std::strtol(&buf[0], nullptr, 10);
+    if(errno == ERANGE)
       return _0->make_failure();
-    unboxed_int_type const value = (unboxed_int_type) ll_value;
-    replacement = cons(pair(int_(value), string ? (Node *) string : nil()), nil());
+    Node * replacement = cons(pair(int_(value), string ? (Node *) string : nil()), nil());
     _0->forward_to(replacement);
     return T_FWD;
   }
