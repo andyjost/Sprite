@@ -1,18 +1,235 @@
 #include "cyrt/cyrt.hpp"
+#include <cassert>
+
+#define CHAR_BOUND 256 // ASCII only
 
 using namespace cyrt;
 
+namespace cyrt
+{
+  static inline ConsNode * string_cast(Node * string)
+  {
+    assert(!string || string->info->type == &List_Type);
+    switch(string ? string->info->tag : T_NIL)
+    {
+      case T_CONS: return NodeU{string}.cons;
+      case T_NIL:  return nullptr;
+      default:     assert(0);
+                   return nullptr;
+    }
+  }
+
+  static inline CharNode * head_char(ConsNode * string)
+  {
+    assert(string);
+    assert(string->info->type == &List_Type);
+    assert(string->info->tag == T_CONS);
+    return (CharNode *) string->head;
+  }
+
+  static inline unboxed_char_type head_char_ub(ConsNode * string)
+  {
+    assert(string);
+    return head_char(string)->value;
+  }
+
+  template<int Radix>
+  static inline Node * _parseCharOrd(ConsNode *& string, bool advance)
+  {
+    static_assert(0 <= Radix && Radix <= 10, "digits only");
+    if(advance && string)
+      string = string_cast(string->tail);
+    int ord = 0;
+    while(string)
+    {
+      int offset = head_char_ub(string) - '0';
+      if(0 <= offset && offset <= Radix)
+      {
+        if(ord < CHAR_BOUND)
+          ord = Radix * ord + offset;
+      }
+      else
+        break;
+      string = string_cast(string->tail);
+    }
+    if(ord < CHAR_BOUND)
+      return char_((char) ord);
+    else
+      return nullptr;
+  }
+
+  template<>
+  inline Node * _parseCharOrd<16>(ConsNode *& string, bool advance)
+  {
+    int ord = 0;
+    char base = 0;
+    if(advance && string)
+      string = string_cast(string->tail);
+    while(string)
+    {
+      char ch = head_char_ub(string);
+      switch(ch)
+      {
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9': base = '0'; break;
+        case 'a':
+        case 'b':
+        case 'c':
+        case 'd':
+        case 'e':
+        case 'f': base = 'a' - 10; break;
+        case 'A':
+        case 'B':
+        case 'C':
+        case 'D':
+        case 'E':
+        case 'F': base = 'A' - 10; break;
+        default : return nullptr;
+      }
+      if(ord < CHAR_BOUND)
+        ord = 16 * ord + (ch - base);
+      string = string_cast(string->tail);
+    }
+    if(ord < CHAR_BOUND)
+      return char_((char) ord);
+    else
+      return nullptr;
+  }
+
+  static inline Node * _parseEscapeCode(ConsNode *& string)
+  {
+    if(!string)
+      return nullptr;
+    switch(head_char_ub(string))
+    {
+      case '\\':
+      case '"' :
+      case '\'': return string->head;
+      case 'a' : return char_('\a');
+      case 'b' : return char_('\b');
+      case 'f' : return char_('\f');
+      case 'n' : return char_('\n');
+      case 'r' : return char_('\r');
+      case 't' : return char_('\t');
+      case 'v' : return char_('\v');
+      case 'o' : return _parseCharOrd<8>(string, true);
+      case '0' : case '1' : case '2' : case '3' : case '4' :
+      case '5' : case '6' : case '7' : case '8' : case '9' :
+                 return _parseCharOrd<10>(string, false);
+      case 'x' : return _parseCharOrd<16>(string, true);
+      default  : return nullptr;
+    }
+  }
+
+  static tag_type readCharLiteral_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0];
+    Node * char_out = nullptr;
+    ConsNode * string = string_cast(_1);
+    Node * replacement = nullptr;
+
+    // Eat the opening single quote.
+    if(!string || head_char_ub(string) != '\'') goto failed;
+    string = string_cast(string->tail);
+
+    // Parse the content.
+    if(string && head_char_ub(string) == '\\')
+    {
+      string = string_cast(string->tail);
+      char_out = _parseEscapeCode(string);
+    }
+    else if(string)
+    {
+      auto ch = head_char_ub(string);
+      if(ch < CHAR_BOUND && ch != '\'')
+        char_out = string->head;
+    }
+    if(!char_out) goto failed;
+
+    // Eat the closing single quote.
+    assert(string);
+    string = string_cast(string->tail);
+    if(!string || head_char_ub(string) != '\'') goto failed;
+
+    assert(char_out);
+    replacement = cons(pair(char_out, string->tail), nil());
+    _0->forward_to(replacement);
+    return T_FWD;
+  failed:
+    return _0->make_failure();
+  }
+
+  static tag_type readFloatLiteral_step(RuntimeState * rts, Configuration * C)
+  {
+    assert(0);
+    return T_FAIL;
+  }
+
+  static tag_type readNatLiteral_step(RuntimeState * rts, Configuration * C)
+  {
+    assert(0);
+    return T_FAIL;
+  }
+
+  static tag_type readStringLiteral_step(RuntimeState * rts, Configuration * C)
+  {
+    assert(0);
+    return T_FAIL;
+  }
+}
+
 extern "C"
 {
-  #define SPEC (readCharLiteral, 1)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const readCharLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "readCharLiteral"
+    , /*format*/     "p"
+    , /*step*/       readCharLiteral_step
+    , /*type*/       nullptr
+    };
 
-  #define SPEC (readFloatLiteral, 1)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const readFloatLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "readFloatLiteral"
+    , /*format*/     "p"
+    , /*step*/       readFloatLiteral_step
+    , /*type*/       nullptr
+    };
 
-  #define SPEC (readNatLiteral, 1)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const readNatLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "readNatLiteral"
+    , /*format*/     "p"
+    , /*step*/       readNatLiteral_step
+    , /*type*/       nullptr
+    };
 
-  #define SPEC (readStringLiteral, 1)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const readStringLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "readStringLiteral"
+    , /*format*/     "p"
+    , /*step*/       readStringLiteral_step
+    , /*type*/       nullptr
+    };
 }

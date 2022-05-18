@@ -37,7 +37,8 @@ goal7 = (read "'\\\\'",
 goal8 :: Bool
 goal8 = readList "Hello\n" == [(['H', 'e', 'l', 'l', 'o', '\n'], [])]
 
--- goal7 :: (Char, Char, Char, Char, Char, Char)
--- goal7 = (read "'\\b1000001'", read "'\b1000001'",
---          read "'\\x41'"     , read "'\x41'",
---          read "'\\o101'"    , read "'\o101'")
+goal9 :: (Char, Char, Char, Char, Char, Char, Char, Char)
+goal9 = (read "'\\65'"      , read "'\65'",
+         read "'\\x41'"     , read "'\x41'",
+         read "'\\x041'"    , read "'\x041'",
+         read "'\\o101'"    , read "'\o101'")
