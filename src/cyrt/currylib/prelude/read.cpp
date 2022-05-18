@@ -231,8 +231,44 @@ namespace cyrt
 
   static tag_type readStringLiteral_step(RuntimeState * rts, Configuration * C)
   {
-    assert(0);
-    return T_FAIL;
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0];
+    Node * str_out = nil();
+    Node ** tail_out = &str_out;
+    ConsNode * string = string_cast(_1);
+    Node * replacement = nullptr;
+
+    // Eat the opening double quote.
+    if(!string || head_char_ub(string) != '"') goto failed;
+    string = string_cast(string->tail);
+
+    // Parse the content.
+    while(true)
+    {
+      Node * char_out = nullptr;
+      if(string)
+      {
+        auto ch = head_char_ub(string);
+        if(ch == '\\')
+        {
+          string = string_cast(string->tail);
+          char_out = _parseEscapeCode(string);
+        }
+        else if(ch == '"')
+          break;
+        else if(ch < CHAR_BOUND)
+          char_out = string->head;
+      }
+      if(!char_out) goto failed;
+      *tail_out = cons(char_out, nil());
+      tail_out = &NodeU{*tail_out}.cons->tail;
+      string = string_cast(string->tail);
+    }
+    replacement = cons(pair(str_out, string->tail), nil());
+    _0->forward_to(replacement);
+    return T_FWD;
+  failed:
+    return _0->make_failure();
   }
 }
 
