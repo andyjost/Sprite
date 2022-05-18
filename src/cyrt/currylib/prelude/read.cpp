@@ -1,5 +1,7 @@
-#include "cyrt/cyrt.hpp"
 #include <cassert>
+#include <cstdlib>
+#include "cyrt/cyrt.hpp"
+#include <limits>
 
 #define CHAR_BOUND 256 // ASCII only
 
@@ -176,8 +178,35 @@ namespace cyrt
 
   static tag_type readNatLiteral_step(RuntimeState * rts, Configuration * C)
   {
-    assert(0);
-    return T_FAIL;
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0];
+    ConsNode * string = string_cast(_1);
+    static ptrdiff_t constexpr SZ = 32;
+    char buf[SZ];
+    char * px = &buf[0];
+    Node * replacement = nullptr;
+    while(string && px < &buf[SZ-1])
+    {
+      auto ch = (char) head_char_ub(string);
+      if(('0' <= ch && ch <= '9') || (px == &buf[0] && ch == '-'))
+      {
+        *px++ = ch;
+        string = string_cast(string->tail);
+      }
+      else
+        break;
+    }
+    *px++ = '\0';
+    assert(px - &buf[0] <= SZ);
+    auto ll_value = std::strtoll(&buf[0], nullptr, 10);
+    auto constexpr minval = std::numeric_limits<unboxed_int_type>::min();
+    auto constexpr maxval = std::numeric_limits<unboxed_int_type>::max();
+    if(ll_value < minval || ll_value > maxval)
+      return _0->make_failure();
+    unboxed_int_type const value = (unboxed_int_type) ll_value;
+    replacement = cons(pair(int_(value), string ? (Node *) string : nil()), nil());
+    _0->forward_to(replacement);
+    return T_FWD;
   }
 
   static tag_type readStringLiteral_step(RuntimeState * rts, Configuration * C)
