@@ -6,7 +6,6 @@
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/module.hpp"
 #include <iostream>
-#include <optional>
 #include <unordered_map>
 
 using namespace cyrt;
@@ -24,7 +23,7 @@ namespace cyrt
   {
     SymbolTable symbols;
     TypeTable types;
-    std::optional<SharedCurryModule> shlib;
+    std::shared_ptr<SharedCurryModule> shlib;
   };
 
   SymbolTable const builtin_prelude_symbols{
@@ -173,13 +172,13 @@ namespace cyrt
     this->clear();
   }
 
-  void Module::link(SharedCurryModule const * shlib)
+  void Module::link(std::shared_ptr<SharedCurryModule> const & shlib)
   {
     if(shlib)
     {
       this->clear();
-      this->impl->shlib = *shlib;
-      for(auto && typedef_: shlib->bom->types)
+      this->impl->shlib = shlib;
+      for(auto && typedef_: shlib->info()->bom->types)
       {
         DataType const * ty = std::get<2>(typedef_);
         this->impl->types[ty->name] = ty;
@@ -189,7 +188,7 @@ namespace cyrt
           this->impl->symbols[info->name] = info;
         }
       }
-      for(auto && funcdef: shlib->bom->functions)
+      for(auto && funcdef: shlib->info()->bom->functions)
       {
         InfoTable const * info = std::get<2>(funcdef);
         this->impl->symbols[info->name] = info;

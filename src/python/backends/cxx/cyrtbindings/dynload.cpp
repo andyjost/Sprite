@@ -1,6 +1,7 @@
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 #include "cyrt/dynload.hpp"
+#include <memory>
 #include <string>
 
 namespace py = pybind11;
@@ -21,9 +22,9 @@ namespace cyrt { namespace python
 		  .def_readonly("functions", &ModuleBOM::functions)
 			;
 
-    py::class_<SharedCurryModule>(mod, "SharedCurryModule")
+    py::class_<SharedCurryModule, std::shared_ptr<SharedCurryModule>>(mod, "SharedCurryModule")
       .def(py::init<std::string const &>())
-			.def_readonly("bom", &SharedCurryModule::bom, reference_internal)
+			.def_property_readonly("bom", &SharedCurryModule::bom, reference_internal)
 			.def("sofilename", &SharedCurryModule::sofilename, reference)
       ;
   }

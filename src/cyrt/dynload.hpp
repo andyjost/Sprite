@@ -28,24 +28,50 @@ namespace cyrt
     Functions   functions;
   };
 
+  struct SharedCurryModuleInfo
+  {
+    std::string fullname;
+    std::string sofilename;
+    ModuleBOM const * bom;
+    void * dlhandle;
+
+    SharedCurryModuleInfo(
+        std::string fullname
+      , std::string sofilename
+      , ModuleBOM const * bom
+      , void * dlhandle
+      )
+      : fullname(fullname), sofilename(sofilename)
+      , bom(bom), dlhandle(dlhandle)
+    {}
+  };
+
   struct SharedLib
   {
     SharedLib(std::string const & sofilename);
-    void * handle() const { return _handle.get(); }
-    operator void *() const { return _handle.get(); }
+    SharedLib(SharedLib const &)             = delete;
+    SharedLib(SharedLib &&)                  = delete;
+    SharedLib & operator=(SharedLib const &) = delete;
+    SharedLib & operator=(SharedLib &&)      = delete;
+    ~SharedLib();
+
+    void * handle() const { return _handle; }
+    operator void *() const { return _handle; }
     std::string const & sofilename() const { return _sofilename; }
-  protected:
-    using Handle = std::shared_ptr<void>;
-    Handle _handle;
+  public:
+    void * _handle;
     std::string _sofilename;
   };
 
   struct SharedCurryModule : SharedLib
   {
     SharedCurryModule(std::string const & sofilename);
-    ModuleBOM const * bom = nullptr;
+    SharedCurryModuleInfo const * info() const;
+    ModuleBOM const * bom() const;
 
-    static SharedCurryModule const * find(char const * module_fullname);
+    static SharedCurryModuleInfo const * find(char const * module_fullname);
     static InfoTable const * symbol(char const * module_fullname, char const * symbolname);
+  private:
+    std::shared_ptr<SharedCurryModuleInfo const> _info;
   };
 }

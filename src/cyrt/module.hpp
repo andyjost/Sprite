@@ -5,6 +5,7 @@
 #include "cyrt/dynload.hpp"
 #include "cyrt/graph/infotable.hpp"
 #include <string>
+#include <memory>
 #include <vector>
 
 namespace cyrt
@@ -18,7 +19,7 @@ namespace cyrt
     Module & operator=(Module &&) = delete;
     ~Module();
 
-    void link(SharedCurryModule const *);
+    void link(std::shared_ptr<SharedCurryModule> const &);
     void clear();
 
     static std::shared_ptr<Module> find_or_create(std::string);

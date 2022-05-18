@@ -9,63 +9,37 @@
 namespace
 {
   using namespace cyrt;
-
   static SharedLib const libcyrt("libcyrt.so");
-
-  std::unordered_map<std::string, SharedCurryModule const *> registry;
-
-  void register_lib(SharedCurryModule const & lib)
-  {
-    assert(lib.bom);
-    auto rv = registry.emplace(lib.bom->fullname, &lib);
-    assert(rv.second);
-  }
-
-  void unregister_lib(char const * module_fullname)
-  {
-    if(module_fullname)
-    {
-      auto rv = registry.erase(module_fullname);
-      assert(rv == 1);
-    }
-  }
-
-  struct dlcloser
-  {
-    char const * module_fullname = nullptr;
-    void operator()(void * handle) const
-    {
-      unregister_lib(this->module_fullname);
-      auto err = dlclose(handle);
-      if(err)
-      {
-        char const * msg = dlerror();
-        assert(msg);
-        std::cerr << msg << std::endl;
-      }
-    }
-  };
+  std::unordered_map<std::string, std::weak_ptr<SharedCurryModuleInfo const>> registry;
 }
 
 namespace cyrt
 {
-  extern SharedCurryModule const * Prelude;
-
   SharedLib::SharedLib(std::string const & sofilename)
-    : _sofilename(sofilename)
+    : _handle(nullptr), _sofilename(sofilename)
   {
-    void * handle = dlopen(sofilename.c_str(), RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle)
+    this->_handle = dlopen(sofilename.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    if(!this->_handle)
     {
       char const * msg = dlerror();
       assert(msg);
       throw DynloadError(msg);
     }
-    this->_handle.reset(handle, dlcloser());
+  }
+
+  SharedLib::~SharedLib()
+  {
+    auto err = dlclose(this->_handle);
+    if(err)
+    {
+      char const * msg = dlerror();
+      assert(msg);
+      std::cerr << msg << std::endl;
+    }
   }
 
   SharedCurryModule::SharedCurryModule(std::string const & sofilename)
-    : SharedLib(sofilename)
+    : SharedLib(sofilename), _info()
   {
     auto addr = dlsym(this->handle(), "_bom_");
     if(!addr)
@@ -74,29 +48,53 @@ namespace cyrt
       assert(msg);
       throw DynloadError(msg);
     }
-    this->bom = *(ModuleBOM const **) addr;
+    ModuleBOM const * bom = *(ModuleBOM const **) addr;
 
-    register_lib(*this);
-    // Register the module name with the deleter so that it can be removed from
-    // the registry when unloaded.
-    auto * deleter = std::get_deleter<dlcloser>(this->_handle);
-    assert(deleter);
-    deleter->module_fullname = this->bom->fullname.c_str();
+    auto pinfo = registry.find(bom->fullname);
+    if(pinfo != registry.end())
+      this->_info = pinfo->second.lock();
+    if(!this->_info)
+    {
+      this->_info = std::make_shared<SharedCurryModuleInfo>(
+          bom->fullname, sofilename, bom, this->handle()
+        );
+      if(pinfo == registry.end())
+      {
+        auto rv = registry.emplace(bom->fullname, this->_info);
+        assert(rv.second);
+      }
+      else
+        pinfo->second = this->_info;
+    }
+    assert(this->_info);
   }
 
-  SharedCurryModule const * SharedCurryModule::find(char const * module_fullname)
+  SharedCurryModuleInfo const * SharedCurryModule::info() const
   {
-    auto rv = registry.find(module_fullname);
-    return (rv == registry.end()) ? nullptr : rv->second;
+    return this->_info.get();
+  }
+
+  ModuleBOM const * SharedCurryModule::bom() const
+  {
+    return this->_info->bom;
+  }
+
+  SharedCurryModuleInfo const * SharedCurryModule::find(char const * module_fullname)
+  {
+    auto pinfo = registry.find(module_fullname);
+    if(pinfo != registry.end())
+      if(auto ptr = pinfo->second.lock())
+        return ptr.get();
+    return nullptr;
   }
 
   InfoTable const * SharedCurryModule::symbol(
       char const * module_fullname, char const * symbolname
     )
   {
-    auto * module = SharedCurryModule::find(module_fullname);
-    if(module)
-      return (InfoTable const *) dlsym(module->handle(), symbolname);
+    auto * info = SharedCurryModule::find(module_fullname);
+    if(info)
+      return (InfoTable const *) dlsym(info->dlhandle, symbolname);
     else
       return nullptr;
   }
