@@ -268,7 +268,7 @@ namespace cyrt
 
 extern "C"
 {
-  InfoTable const readCharLiteral_Info {
+  InfoTable const prim_readCharLiteral_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
@@ -279,7 +279,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const readFloatLiteral_Info {
+  InfoTable const prim_readFloatLiteral_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
@@ -290,7 +290,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const readNatLiteral_Info {
+  InfoTable const prim_readNatLiteral_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
@@ -301,7 +301,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const readStringLiteral_Info {
+  InfoTable const prim_readStringLiteral_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)

@@ -30,7 +30,7 @@ namespace cyrt
     Node * error_object = Node::create(
         ioerror_info(error_kind), cstring(error_msg)
       );
-    return Node::create(&ioError_Info, error_object);
+    return Node::create(&prim_ioError_Info, error_object);
   }
 
   static tag_type bindIO_step(RuntimeState * rts, Configuration * C)
@@ -96,7 +96,7 @@ namespace cyrt
     assert(show_Info);
     // (error2 err) $## (show err)
     Node * error_msg = Node::create(show_Info, _1);
-    Node * lhs = Node::create_partial(&error2_Info, _1.target);
+    Node * lhs = Node::create_partial(&prim_error2_Info, _1.target);
     Node * replacement = Node::create(&applynf_Info, lhs, error_msg);
     _0->forward_to(replacement);
     return T_FWD;
@@ -221,7 +221,7 @@ namespace cyrt
 
 extern "C"
 {
-  InfoTable const appendFile_Info {
+  InfoTable const prim_appendFile_Info {
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
@@ -265,7 +265,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const ioError_Info {
+  InfoTable const prim_ioError_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
@@ -276,7 +276,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const putChar_Info {
+  InfoTable const prim_putChar_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
@@ -287,7 +287,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const readFile_Info {
+  InfoTable const prim_readFile_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
@@ -298,7 +298,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  #define SPEC (readFileContents, 2)
+  #define SPEC (prim_readFileContents, 2)
   #include "cyrt/currylib/defs/not_used.def"
 
   InfoTable const returnIO_Info {
@@ -323,7 +323,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const writeFile_Info {
+  InfoTable const prim_writeFile_Info {
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)

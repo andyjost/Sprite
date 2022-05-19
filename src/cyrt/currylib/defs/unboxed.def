@@ -13,10 +13,6 @@
 #define ARITY    BOOST_PP_TUPLE_ELEM(2, UBSPEC)
 #define ARGFIELD BOOST_PP_TUPLE_ELEM(3, UBSPEC)
 
-#ifndef SHOWN_NAME
-  #define SHOWN_NAME NAME
-#endif
-
 #if ARITY != 1
   #if ARITY != 2
     #error "Expected arity 1 or 2."
@@ -58,7 +54,7 @@ InfoTable const INFOTABLE_NAME {
   , /*arity*/      ARITY
   , /*alloc_size*/ sizeof(BOOST_PP_CAT(Node, ARITY))
   , /*flags*/      F_STATIC_OBJECT
-  , /*name*/       BOOST_PP_STRINGIZE(SHOWN_NAME)
+  , /*name*/       BOOST_PP_STRINGIZE(NAME)
 #if ARITY == 1
   , /*format*/     "p"
 #else
@@ -74,5 +70,4 @@ InfoTable const INFOTABLE_NAME {
 #undef FUNC
 #undef INFOTABLE_NAME
 #undef NAME
-#undef SHOWN_NAME
 #undef STEP_FUNCTION_NAME

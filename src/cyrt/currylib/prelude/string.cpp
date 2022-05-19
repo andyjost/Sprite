@@ -27,9 +27,9 @@ extern "C"
   #define SPEC (_cGenerator, 1)
   #include "cyrt/currylib/defs/not_used.def"
 
-  #define UBSPEC (chr, unboxed_char_type, 1, int_)
+  #define UBSPEC (prim_chr, unboxed_char_type, 1, int_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (ord, unboxed_int_type, 1, char_)
+  #define UBSPEC (prim_ord, unboxed_int_type, 1, char_)
   #include "cyrt/currylib/defs/unboxed.def"
 }

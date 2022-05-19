@@ -17,7 +17,7 @@ namespace cyrt
 
 extern "C"
 {
-  InfoTable const showCharLiteral_Info {
+  InfoTable const prim_showCharLiteral_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
@@ -28,7 +28,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const showFloatLiteral_Info {
+  InfoTable const prim_showFloatLiteral_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
@@ -39,7 +39,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const showIntLiteral_Info {
+  InfoTable const prim_showIntLiteral_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
@@ -50,7 +50,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const showStringLiteral_Info {
+  InfoTable const prim_showStringLiteral_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)

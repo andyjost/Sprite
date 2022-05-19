@@ -81,7 +81,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const error_Info {
+  InfoTable const prim_error_Info {
       /*tag*/        T_FUNC
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
@@ -92,7 +92,7 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const error2_Info {
+  InfoTable const prim_error2_Info {
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)

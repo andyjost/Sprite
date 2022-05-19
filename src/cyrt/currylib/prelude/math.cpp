@@ -29,32 +29,31 @@ namespace cyrt
 
 extern "C"
 {
-  #define UBSPEC (acosFloat, std::acos, 1, float_)
+  #define UBSPEC (prim_acosFloat, std::acos, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (acoshFloat, std::acosh, 1, float_)
+  #define UBSPEC (prim_acoshFloat, std::acosh, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (asinFloat, std::asin, 1, float_)
+  #define UBSPEC (prim_asinFloat, std::asin, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (asinhFloat, std::asinh, 1, float_)
+  #define UBSPEC (prim_asinhFloat, std::asinh, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (atanFloat, std::atan, 1, float_)
+  #define UBSPEC (prim_atanFloat, std::atan, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (atanhFloat, std::atanh, 1, float_)
+  #define UBSPEC (prim_atanhFloat, std::atanh, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (cosFloat, std::cos, 1, float_)
+  #define UBSPEC (prim_cosFloat, std::cos, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (coshFloat, std::cosh, 1, float_)
+  #define UBSPEC (prim_coshFloat, std::cosh, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (divFloat, _builtin_divFloat, 2, float_)
-  #define SHOWN_NAME prim_divFloat
+  #define UBSPEC (prim_divFloat, _builtin_divFloat, 2, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
   #define UBSPEC (divInt, _builtin_floordivInt, 2, int_)
@@ -69,13 +68,13 @@ extern "C"
   #define UBSPEC (eqInt, std::equal_to<void>(), 2, int_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (expFloat, std::exp, 1, float_)
+  #define UBSPEC (prim_expFloat, std::exp, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (intToFloat, unboxed_float_type, 1, int_)
+  #define UBSPEC (prim_intToFloat, unboxed_float_type, 1, int_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (logFloat, std::log, 1, float_)
+  #define UBSPEC (prim_logFloat, std::log, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
   #define UBSPEC (ltEqChar, std::less_equal<void>(), 2, char_)
@@ -87,8 +86,7 @@ extern "C"
   #define UBSPEC (ltEqInt, std::less_equal<void>(), 2, int_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (minusFloat, _builtin_minusFloat, 2, float_)
-  #define SHOWN_NAME prim_minusFloat
+  #define UBSPEC (prim_minusFloat, _builtin_minusFloat, 2, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
   #define UBSPEC (minusInt, std::minus<void>(), 2, int_)
@@ -100,7 +98,7 @@ extern "C"
   #define UBSPEC (negateFloat, std::negate<void>(), 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (plusFloat, std::plus<void>(), 2, float_)
+  #define UBSPEC (prim_plusFloat, std::plus<void>(), 2, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
   #define UBSPEC (plusInt, std::plus<void>(), 2, int_)
@@ -113,30 +111,30 @@ extern "C"
   #define UBSPEC (remInt, cyrt::_builtin_remInt, 2, int_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (roundFloat, (unboxed_int_type) std::round, 1, float_)
+  #define UBSPEC (prim_roundFloat, (unboxed_int_type) std::round, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (sinFloat, std::sin, 1, float_)
+  #define UBSPEC (prim_sinFloat, std::sin, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (sinhFloat, std::sinh, 1, float_)
+  #define UBSPEC (prim_sinhFloat, std::sinh, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (sqrtFloat, std::sqrt, 1, float_)
+  #define UBSPEC (prim_sqrtFloat, std::sqrt, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (tanFloat, std::tan, 1, float_)
+  #define UBSPEC (prim_tanFloat, std::tan, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (tanhFloat, std::tanh, 1, float_)
+  #define UBSPEC (prim_tanhFloat, std::tanh, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (timesFloat, std::multiplies<void>(), 2, float_)
+  #define UBSPEC (prim_timesFloat, std::multiplies<void>(), 2, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 
   #define UBSPEC (timesInt, std::multiplies<void>(), 2, int_)
   #include "cyrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (truncateFloat, (unboxed_int_type) std::trunc, 1, float_)
+  #define UBSPEC (prim_truncateFloat, (unboxed_int_type) std::trunc, 1, float_)
   #include "cyrt/currylib/defs/unboxed.def"
 }
