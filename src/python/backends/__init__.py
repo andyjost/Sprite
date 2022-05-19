@@ -56,6 +56,10 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
   def find_or_create_internal_module(self, moduleobj):
     assert 0
 
+  @abc.abstractproperty
+  def fundamental_symbols(self):
+    assert 0
+
   @abc.abstractmethod
   def init_interpreter_state(self, interp):
     '''Initializes an interpreter with the runtime-specific state.'''
@@ -96,5 +100,9 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
 
 # Each backend must provide a Node object and register it with this class.
 class Node(six.with_metaclass(abc.ABCMeta)):
+  pass
+
+# Each backend must provide an InfoTable object and register it with this class.
+class InfoTable(six.with_metaclass(abc.ABCMeta)):
   pass
 

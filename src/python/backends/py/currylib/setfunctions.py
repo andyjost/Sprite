@@ -34,7 +34,7 @@ def allValues(rts, _0):
       rhs_seteval = graph.Node(seteval.info, sid, rts.qid)
     rts.filter_queue(qid, cid, LEFT)
     rts.filter_queue(rhs_qid, cid, RIGHT)
-    yield rts.prelude._Choice
+    yield rts.Choice
     yield cid
     yield graph.Node(rts.setfunctions.allValues, seteval)
     yield graph.Node(rts.setfunctions.allValues, rhs_seteval)
@@ -98,7 +98,7 @@ def set_(rts, _0):
   # set :: a -> PartialS a
   _1 = rts.variable(_0, 0)
   _1.hnf()
-  assert _1.info is rts.prelude._PartApplic.info
+  assert _1.info is rts.PartApplic
   yield rts.setfunctions.PartialS
   yield _1.successors[0]
   yield _1.successors[1]

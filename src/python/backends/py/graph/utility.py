@@ -100,7 +100,7 @@ def curry(rts, f, *args, **kwds):
     partial = (info.arity > 0)
     f = Node(info, partial=partial)
     if partial:
-      f = Node(rts.prelude._PartApplic, info.arity, f)
+      f = Node(rts.PartApplic, info.arity, f)
   return reduce(lambda a, b: Node(fapply, a, b), args, f)
 
 def joinpath(*parts):

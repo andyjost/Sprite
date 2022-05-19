@@ -10,6 +10,6 @@ def show(rts, arg):
   if len(string) == 1:
     string = [string]
   result = rts.expr(string)
-  yield rts.prelude._Fwd
+  yield rts.Fwd
   yield result
 

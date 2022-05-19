@@ -172,11 +172,11 @@ class PyCompiler(compiler.CompilerBase):
     yield '%s = %s' % (lhs, rhs)
 
   def vEmit_compileS_IExempt(self, exempt):
-    yield '_0.rewrite(rts.prelude._Failure)'
+    yield '_0.rewrite(rts.Failure)'
 
   def vEmit_compileS_IReturn(self, iret, expr):
     if isinstance(iret.expr, icurry.IReference):
-      yield '_0.rewrite(rts.prelude._Fwd, %s)' % expr
+      yield '_0.rewrite(rts.Fwd, %s)' % expr
     else:
       yield '_0.rewrite(%s)' % expr
 
@@ -206,7 +206,7 @@ class PyCompiler(compiler.CompilerBase):
       yield '%sif selector == %s:' % (el, rhs)
       yield list(self.compileS(branch.block))
       el = 'el'
-    last_line = '_0.rewrite(rts.prelude._Failure)'
+    last_line = '_0.rewrite(rts.Failure)'
     if el:
       yield 'else:'
       yield [last_line]
@@ -235,7 +235,7 @@ class PyCompiler(compiler.CompilerBase):
     return 'rts.Node(%s)' % text if primary else text
 
   def vEmit_compileE_IPartialCall(self, ipcall, h_info, args, primary):
-    text = 'rts.prelude._PartApplic, %s, rts.Node(%s%s, partial=True)' % (
+    text = 'rts.PartApplic, %s, rts.Node(%s%s, partial=True)' % (
         self.compileE(ipcall.missing)
       , h_info
       , ''.join(', ' + e for e in args)

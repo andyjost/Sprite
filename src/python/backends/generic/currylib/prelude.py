@@ -17,15 +17,7 @@ import abc
 # Types.
 # ======
 TYPES = [
-    ('_Failure'   , [('_Failure'            , 0, {'all.tag'  : T_FAIL         })])
-  , ('_Constraint', [('_StrictConstraint'   , 2, {'all.tag'  : T_CONSTR       })
-                    ,('_NonStrictConstraint', 2, {'all.tag'  : T_CONSTR       })
-                    ,('_ValueBinding'       , 2, {'all.tag'  : T_CONSTR       })])
-  , ('_Free'      , [('_Free'               , 2, {'all.tag'  : T_FREE         })])
-  , ('_Fwd'       , [('_Fwd'                , 1, {'all.tag'  : T_FWD          })])
-  , ('_Choice'    , [('_Choice'             , 3, {'all.tag'  : T_CHOICE       })])
-  , ('_PartApplic', [('_PartApplic'         , 2, {'all.flags': F_PARTIAL_TYPE })])
-  , ('Bool'       , [('False'               , 0, {'all.flags': F_BOOL_TYPE    })
+    ('Bool'       , [('False'               , 0, {'all.flags': F_BOOL_TYPE    })
                     ,('True'                , 0, {'all.flags': F_BOOL_TYPE    })])
   , ('Char'       , [('Char'                , 1, {'all.flags': F_CHAR_TYPE    })])
   , ('Float'      , [('Float'               , 1, {'all.flags': F_FLOAT_TYPE   })])
@@ -156,13 +148,6 @@ class PreludeSpecification(ModuleSpecification):
     Returns the name of each symbol that must be copied to the Prelude.  This
     is allowed to clobber symbols defined in Prelude.curry.
     '''
-    # Special symbols.
-    yield '_Failure'
-    yield '_Constraint'
-    yield '_Free'
-    yield '_Fwd'
-    yield '_Choice'
-    yield '_PartApplic'
     # Opaque types.
     yield '[]'
     yield 'IO'

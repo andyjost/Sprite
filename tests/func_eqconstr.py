@@ -10,5 +10,5 @@ class TestEqConstr(cytest.FunctionalTestCase):
       'fprog': {'standardize_floats': True}
     }
   if curry.flags['backend'] == 'cxx':
-    RUN_ONLY = ['iprog06|prog01|prog03|prog09|prog10$|prog11$']
+    SKIP = ['iprog06|prog01|prog03|prog09|prog10$|prog11$']
 

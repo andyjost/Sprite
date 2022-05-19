@@ -70,9 +70,8 @@ class TestPyRuntime(cytest.TestCase):
   @unittest.skip('rec was removed')
   def checkNormalization(self, interp):
     bs = interp.import_(self.BOOTSTRAP)
-    N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
-    prelude = interp.import_(interpreter.prelude.Prelude)
-    F,Q,W = prelude._Failure, prelude._Choice, prelude._Fwd
+    N,M,U,B,Z,ZN,ZF = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF
+    F,Q,W = [getattr(interp.backend.fundamental_symbols, nm) for nm in ['Failure', 'Choice', 'Fwd']]
     special_tags = [T_FAIL, T_CHOICE]
     cid = bootstrap.cid
 
@@ -90,7 +89,7 @@ class TestPyRuntime(cytest.TestCase):
           , [ZF     ,  F]
           # Choice
           , [[Q, cid, 0, 1],  [Q, cid, 0, 1]]
-          , [ZQ,  [Q, cid, N, M]  ]
+          # , [ZQ,  [Q, cid, N, M]  ]
           # Fwd
           , [[W, N]      ,  [W, N]]
           , [[W, ZN]     ,  [W, N]]  # The target of W is the head.
@@ -115,9 +114,9 @@ class TestPyRuntime(cytest.TestCase):
           , [[B, ZF, ZN], F]
           # Choice.
           , [[U, [Q, cid, 0, 1]]    , [Q, cid, [U, 0], [U, 1]]        ] # pull tab.
-          , [[U, ZQ]           , [Q, cid, [U, N], [U, M]]             ]
-          , [[B, [Q, cid, 0, 1], ZQ], [Q, cid, [B, 0, ZQ], [B, 1, ZQ]]] # N stops at the first choice.
-          , [[B, ZQ, ZQ]       , [Q, cid, [B, N, ZQ], [B, M, ZQ]]     ]
+          # , [[U, ZQ]           , [Q, cid, [U, N], [U, M]]             ]
+          # , [[B, [Q, cid, 0, 1], ZQ], [Q, cid, [B, 0, ZQ], [B, 1, ZQ]]] # N stops at the first choice.
+          # , [[B, ZQ, ZQ]       , [Q, cid, [B, N, ZQ], [B, M, ZQ]]     ]
           # Fwd.
           , [[U, [W, N]]          , [U, N]                            ]
           , [[U, [W, ZN]]         , [U, N]                            ]
@@ -153,8 +152,8 @@ class TestPyRuntime(cytest.TestCase):
           # rewrites to  a Failure, Choice, or FWD node.
           , [[Z, ZF], F]
             # The step function aborts when the choice reaches the root position.
-          , [[Z, ZQ], [Q, cid, [Z, N], [Z, M]]]
-          , [[Z, ZW], [W, N]]
+          # , [[Z, ZQ], [Q, cid, [Z, N], [Z, M]]]
+          # , [[Z, ZW], [W, N]]
           ]
       }
     for rec, testlist in TESTS.items():
@@ -320,14 +319,14 @@ class TestInstantiation(cytest.TestCase):
     return self.interp.raw_expr(self.interp.prelude.id, x)
 
   def q(self, cid, l, r):
-    return [self.interp.prelude._Choice, curry.unboxed(cid), l, r]
+    return [self.interp.backend.fundamental_symbols.Choice, curry.unboxed(cid), l, r]
 
   def u(self, rts):
     return rts.freshvar()
 
   def x(self, cid):
     return Node(
-        self.interp.prelude._Free.info
+        self.interp.backend.fundamental_symbols.Free
       , cid
       , Node(self.interp.prelude.Unit.info)
       )
@@ -355,7 +354,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q,e = self.interp, self.q, self.e(typename='()')
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Prelude.()'))
-    au = curry.raw_expr(*q(0, [interp.prelude.Unit], [interp.prelude._Failure]))
+    au = curry.raw_expr(*q(0, [interp.prelude.Unit], [interp.backend.fundamental_symbols.Failure]))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, interp.prelude, '()', instance)
 

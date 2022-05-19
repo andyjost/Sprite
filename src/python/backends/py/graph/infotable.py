@@ -1,4 +1,4 @@
-from .... import common
+from .... import backends, common
 import weakref
 
 class DataType(object):
@@ -123,3 +123,4 @@ class InfoTable(object):
   def is_operator(self):
     return self.flags & common.F_OPERATOR
 
+backends.InfoTable.register(InfoTable)

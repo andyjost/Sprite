@@ -66,7 +66,7 @@ def N(rts, var, state):
         if var.is_root:
           rts.drop()
         else:
-          var.rewrite(rts.prelude._Failure)
+          var.rewrite(rts.Failure)
         return False
       elif tag == T_CONSTR:
         if var.is_root:
@@ -163,7 +163,7 @@ def hnf(rts, var, typedef=None, values=None):
     if tag == T_SETGRD:
       var.extend()
     elif tag == T_FAIL:
-      var.root.rewrite(rts.prelude._Failure)
+      var.root.rewrite(rts.Failure)
       rts.unwind()
     elif tag == T_CONSTR:
       rts.lift_constraint(var, rewrite=var.root)

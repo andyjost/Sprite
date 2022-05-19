@@ -24,7 +24,7 @@ def freshvar_args(rts):
   '''
   Generates arguments for a fresh free variable using the next available ID.
   '''
-  yield rts.prelude._Free.info
+  yield rts.Free
   yield next(rts.idfactory)
   yield graph.Node(rts.prelude.Unit.info)
 
@@ -140,7 +140,7 @@ def _create_generator(rts, ctors, vid=None, target=None):
   else:
     middle = -(-N // 2) # ceiling-divide, e.g., 7 -> 4.
     return graph.Node(
-        rts.prelude._Choice
+        rts.Choice
       , vid if vid is not None else next(rts.idfactory)
       , _create_generator(rts, ctors[:middle])
       , _create_generator(rts, ctors[middle:])
@@ -190,7 +190,7 @@ def _make_generator(rts, variable, typedef=None):
       # Ensure the instance is always choice-rooted.  This is not the most
       # efficient approach, but it simplifies the implementation elsewhere.
       instance = graph.Node(
-          rts.prelude._Choice, vid, instance, graph.Node(rts.prelude._Failure)
+          rts.Choice, vid, instance, graph.Node(rts.Failure)
         )
     graph.Node(variable.info, vid, instance, target=variable)
   return variable.successors[1]

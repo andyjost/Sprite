@@ -104,7 +104,7 @@ def pull_tab(rts, root, target, realpath, rewrite=None):
   cid,l,r = target.successors
   lhs = graph.utility.copy_spine(root, realpath, end=l)
   rhs = graph.utility.copy_spine(root, realpath, end=r)
-  return graph.Node(rts.prelude._Choice, cid, lhs, rhs, target=rewrite)
+  return graph.Node(rts.Choice, cid, lhs, rhs, target=rewrite)
 
 def update_fp(rts, choicestate, arg=None, config=None):
   '''

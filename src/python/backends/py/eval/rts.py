@@ -19,6 +19,11 @@ class InterpreterState(object):
     self.setfactory = itertools.count()
 
 class RuntimeState(object):
+  # Fundamental symbols.
+  from ..currylib.fundamental import (
+      Choice, Failure, Free, Fwd, NonStrictConstraint
+    , PartApplic, StrictConstraint, ValueBinding
+    )
   '''
   The state of the runtime system during evaluation.  Each time a goal is
   activated an object of this type is created.

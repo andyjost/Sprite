@@ -74,12 +74,12 @@ def make_value_bindings(rts, freevar, values, typedef):
   if n == 1:
     value = graph.Node(typedef.constructors[0], values[0])
     pair = graph.Node(rts.prelude.Pair, freevar, value)
-    return graph.Node(rts.prelude._ValueBinding, value, pair)
+    return graph.Node(rts.ValueBinding, value, pair)
   else:
     cid = next(rts.idfactory)
     left = make_value_bindings(rts, freevar, values[:n//2], typedef)
     right = make_value_bindings(rts, freevar, values[n//2:], typedef)
-    return graph.Node(rts.prelude._Choice, cid, left, right)
+    return graph.Node(rts.Choice, cid, left, right)
 
 def update_binding(rts, arg=None, config=None):
   '''

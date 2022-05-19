@@ -35,7 +35,7 @@ def concurrent_and(rts, _0):
         raise
     else:
       if _1.info.tag:      # True
-        yield rts.prelude._Fwd
+        yield rts.Fwd
         yield _0.successors[1-i]
       else:               # False
         yield rts.prelude.False_
@@ -50,7 +50,7 @@ def constr_eq(rts, _0):
     if ltag == T_FREE:
       if rtag == T_FREE:
         if inspect.get_freevar_id(lhs.target) != inspect.get_freevar_id(rhs.target):
-          yield rts.prelude._StrictConstraint.info
+          yield rts.StrictConstraint
           yield rts.expr(True)
           yield rts.expr((lhs, rhs))
         else:
@@ -82,10 +82,10 @@ def constr_eq(rts, _0):
           else:
             yield rts.prelude.True_
         else:
-          yield rts.prelude._Failure
+          yield rts.Failure
   elif not lhs.is_boxed and not rhs.is_boxed:
     yield rts.prelude.True_ if lhs.unboxed_value == rhs.unboxed_value \
-                            else rts.prelude._Failure
+                            else rts.Failure
   else:
     raise InstantiationError('=:= cannot bind to an unboxed value')
 
@@ -102,7 +102,7 @@ def nonstrict_eq(rts, _0):
     lhs = lhs.hnf_or_free()
     if lhs.info.tag == T_FREE:
       # Bind lhs -> rhs
-      yield rts.prelude._NonStrictConstraint.info
+      yield rts.NonStrictConstraint
       yield rts.expr(True)
       yield rts.expr((lhs, rhs))
     else:
@@ -129,10 +129,10 @@ def nonstrict_eq(rts, _0):
           else:
             yield rts.prelude.True_
         else:
-          yield rts.prelude._Failure
+          yield rts.Failure
   elif not lhs.is_boxed and not rhs.is_boxed:
     yield rts.prelude.True_ if lhs.unboxed_value == rhs.unboxed_value \
-                           else rts.prelude._Failure
+                           else rts.Failure
   else:
     raise InstantiationError('=:<= cannot bind to an unboxed value')
 

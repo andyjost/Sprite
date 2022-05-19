@@ -32,7 +32,7 @@ def catch(rts, func):
       , string.pystring(rts, str(exc))
       )
   else:
-    yield rts.prelude._Fwd
+    yield rts.Fwd
     yield func.successors[0]
 
 def getChar(rts):
@@ -65,7 +65,7 @@ def returnIO(rts, _0):
 def seqIO(rts, lhs):
   _1 = rts.variable(lhs, 0)
   _1.hnf()
-  yield rts.prelude._Fwd
+  yield rts.Fwd
   yield lhs.successors[1]
 
 def writeFile(rts, func, mode='w'):

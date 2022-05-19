@@ -64,11 +64,11 @@ class Variable(object):
           _1 = rts.variable(_0, 0)   # (2)
           _1.hnf(typedef=ty_Nil)     # (3)
           if _1.tag == 1:            # (4)
-            _0.rewrite(ni__Failure)  # (5a)
+            _0.rewrite(rts.Failure)  # (5a)
           else:
             _2 = None
             _2 = rts.variable(_1, 0)
-            _0.rewrite(ni__Fwd, _2)  # (5b)
+            _0.rewrite(rts.Fwd, _2)  # (5b)
 
     At (1), the root variable, _0, is constructed.  This will serve as the base
     for other variables, and for rewriting.  This is in fact taken care of by

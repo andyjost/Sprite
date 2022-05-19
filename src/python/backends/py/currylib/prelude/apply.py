@@ -53,17 +53,17 @@ def cond(rts, _0):
   _1 = rts.variable(_0, 0)
   _1.hnf(typedef=Bool)
   if _1.info.tag:
-    yield rts.prelude._Fwd
+    yield rts.Fwd
     yield _0.successors[1]
   else:
-    yield rts.prelude._Failure
+    yield rts.Failure
 
 def ensureNotFree(rts, _0):
   _1 = fairscheme.hnf_or_free(rts, rts.variable(_0, 0))
   if rts.is_void(_1.target):
     rts.suspend(_1.target)
   else:
-    yield rts.prelude._Fwd
+    yield rts.Fwd
     yield _1
 
 def _applyspecial(rts, _0, action, **kwds):

@@ -117,10 +117,9 @@ class TestPyInterp(cytest.TestCase):
     # Run interp.eval with a literal as input (not Node).
     self.assertEqual(list(interp.eval(1)), [interp.raw_expr(1)])
 
-    # Evaluate an expressionw ith a leading FWD node.  It should be removed.
-    P = interp.prelude
-    W = P._Fwd
-    self.assertEqual(list(interp.eval([W, 1])), [interp.raw_expr(1)])
+    # Evaluate an expression with a leading FWD node.  It should be removed.
+    # W = interp.backend.fundamental_symbols.Fwd
+    # self.assertEqual(list(interp.eval([W, 1])), [interp.raw_expr(1)])
 
 
   @cytest.with_flags(defaultconverter='topython')
@@ -146,21 +145,20 @@ class TestPyInterp(cytest.TestCase):
   def checkEvalValues(self, interp):
     L = interp.import_(self.MYLIST)
     X = interp.import_(self.X)
-    P = interp.prelude
+    Choice = interp.backend.fundamental_symbols.Choice
+    Failure = interp.backend.fundamental_symbols.Failure
     bs = interp.import_(self.BOOTSTRAP)
     cid = bootstrap.cid
-    N,M,U,B,Z,ZN,ZF,ZQ,ZW = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF, bs.ZQ, bs.ZW
+    N,M,U,B,Z,ZN,ZF = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF
     TESTS = [
         [[1], ['1']]
       , [[2.0], ['2.0']]
       , [[L.Cons, 0, [L.Cons, 1, L.Nil]], ['[0, 1]']]
-      , [[P._Choice, cid, 1, 2], ['1', '2']]
-      , [[X.X, [P._Choice, cid, 1, 2]], ['X 1', 'X 2']]
-      , [[X.X, [P._Choice, unboxed(0), 1, [X.X, [P._Choice, unboxed(1), 2, [P._Choice, unboxed(2), 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
-      , [[P._Failure], []]
-      , [[P._Choice, cid, P._Failure, 0], ['0']]
-      , [[Z, ZQ], ['N', 'M']]
-      , [[Z, ZW], ['N']]
+      , [[Choice, cid, 1, 2], ['1', '2']]
+      , [[X.X, [Choice, cid, 1, 2]], ['X 1', 'X 2']]
+      , [[X.X, [Choice, unboxed(0), 1, [X.X, [Choice, unboxed(1), 2, [Choice, unboxed(2), 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
+      , [[Failure], []]
+      , [[Choice, cid, Failure, 0], ['0']]
       ]
     for expr, expected in TESTS:
       goal = interp.raw_expr(*expr)

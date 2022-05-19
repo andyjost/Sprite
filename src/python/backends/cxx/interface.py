@@ -1,6 +1,6 @@
 from ..generic.eval import evaluator
 from ... import backends
-from . import compiler, cyrtbindings, loader, materialize, toolchain
+from . import compiler, cyrtbindings, fundamental_symbols, loader, materialize, toolchain
 from ...objects.handle import getHandle
 
 class IBackend(backends.IBackend):
@@ -27,6 +27,10 @@ class IBackend(backends.IBackend):
     M = cyrtbindings.Module.find_or_create(h.fullname)
     M.link(h.icurry.metadata.get('cxx.shlib'))
     return M
+
+  @property
+  def fundamental_symbols(self):
+    return fundamental_symbols
 
   @property
   def load_module(self):

@@ -33,12 +33,16 @@ def getbootstrap():
     , functions=[
         IFunction('bootstrap.ZN', 0, body=retbody(ICCall('bootstrap.N')))
       , IFunction('bootstrap.ZF', 0, body=retbody(ICCall('Prelude._Failure')))
-      , IFunction('bootstrap.ZQ', 0, body=retbody(
-            ICCall('Prelude._Choice', [_cid, ICCall('bootstrap.N'), ICCall('bootstrap.M')])
-          ))
+
+      # ==== Prelude._Choice was removed. ====
+      # , IFunction('bootstrap.ZQ', 0, body=retbody(
+      #       ICCall('Prelude._Choice', [_cid, ICCall('bootstrap.N'), ICCall('bootstrap.M')])
+      #     ))
       #                                                       ^^^
       #  Not correctly typed, but three arguments are needed here.
-      , IFunction('bootstrap.ZW', 0, body=retbody(ICCall('Prelude._Fwd', [ICCall('bootstrap.N')])))
+
+      # ==== Prelude._Fwd was removed. ====
+      # , IFunction('bootstrap.ZW', 0, body=retbody(ICCall('Prelude._Fwd', [ICCall('bootstrap.N')])))
         # Evaluates its argument and then returns a FWD node refering to it.
       , IFunction('bootstrap.Z' , 1, body=IFuncBody(IBlock(
             vardecls=[IVarDecl(1)]

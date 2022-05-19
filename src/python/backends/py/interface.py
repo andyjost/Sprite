@@ -1,7 +1,8 @@
-from . import compiler, loader, materialize, toolchain
+from .currylib import fundamental
 from ..generic.eval import evaluator
 from .graph import Node
 from ... import backends
+from . import compiler, loader, materialize, toolchain
 import importlib
 
 __all__ = ['IBackend']
@@ -28,6 +29,10 @@ class IBackend(backends.IBackend):
 
   def find_or_create_internal_module(self, moduleobj):
     pass
+
+  @property
+  def fundamental_symbols(self):
+    return fundamental
 
   @property
   def load_module(self):

@@ -17,7 +17,7 @@ PYBIND11_MODULE(_cyrtbindings, mod)
   cyrt::python::register_constants(mod);
   cyrt::python::register_dynload(mod);
   cyrt::python::register_evaluator(mod);
-  cyrt::python::register_exceptions(mod); // temp
+  cyrt::python::register_exceptions(mod);
   cyrt::python::register_fingerprint(mod);
   cyrt::python::register_graph(mod);
   cyrt::python::register_module(mod);

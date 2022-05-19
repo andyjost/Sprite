@@ -19,9 +19,9 @@ def constraint_type(rts, arg=None, config=None):
   '''Indicates the constraint type.'''
   arg = (config or rts.C).root if arg is None else arg
   mapping = {
-      id(rts.prelude._StrictConstraint.info)   : STRICT_CONSTRAINT
-    , id(rts.prelude._NonStrictConstraint.info): NONSTRICT_CONSTRAINT
-    , id(rts.prelude._ValueBinding.info)       : VALUE_BINDING
+      id(rts.StrictConstraint)   : STRICT_CONSTRAINT
+    , id(rts.NonStrictConstraint): NONSTRICT_CONSTRAINT
+    , id(rts.ValueBinding)       : VALUE_BINDING
     }
   return mapping[id(arg.info)]
 

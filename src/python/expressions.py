@@ -186,6 +186,8 @@ class ExpressionBuilder(object):
     self.brokenrefs = {}
     self.target = None
     self._mknode = interp.backend.make_node
+    self.prelude = self.interp.prelude
+    self.fsyms = self.interp.backend.fundamental_symbols
 
   def fixrefs(self, expr):
     if self.brokenrefs:
@@ -196,16 +198,12 @@ class ExpressionBuilder(object):
             parent = state.parent
             if parent is None:
               # This is the trivial cycle a=a.
-              state.cursor.rewrite(self.prelude._Fwd, state.cursor)
+              state.cursor.rewrite(self.fsyms.Fwd, state.cursor)
             else:
               parent.set_successor(state.realpath[-1], self.anchors[anchorname])
           else:
             state.push()
     return expr
-
-  @property
-  def prelude(self):
-    return self.interp.prelude
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
@@ -229,7 +227,7 @@ class ExpressionBuilder(object):
   def __call__(self, lst, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % lst)
-    if len(lst) and isinstance(lst[0], objects.CurryNodeInfo):
+    if len(lst) and isinstance(lst[0], (objects.CurryNodeInfo, backends.InfoTable)):
       return self(*lst)
     else:
       Cons = self.prelude.Cons
@@ -324,10 +322,10 @@ class ExpressionBuilder(object):
     pygen = self.prelude._PyGenerator
     return self._mknode(pygen, arg, target=self.target)
 
-  @__call__.when(objects.CurryNodeInfo)
+  @__call__.when((objects.CurryNodeInfo, backends.InfoTable))
   def __call__(self, ti, *args):
-    missing =  ti.info.arity - len(args)
-    partial_info = self.prelude._PartApplic if missing > 0 else None
+    missing =  getattr(ti, 'info', ti).arity - len(args)
+    partial_info = self.fsyms.PartApplic if missing > 0 else None
     return self._mknode(
         ti, *map(lambda s: self(s), args), target=self.target
       , partial_info=partial_info
@@ -338,7 +336,7 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r node' % node.info.name)
     if self.target is not None:
-      return self._mknode(self.prelude._Fwd, node, target=self.target)
+      return self._mknode(self.fsyms.Fwd, node, target=self.target)
     return node
 
   @__call__.when(unboxed)
@@ -377,14 +375,14 @@ class ExpressionBuilder(object):
   def __call__(self, arg, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % 'fail')
-    return self._mknode(self.prelude._Failure, target=self.target)
+    return self._mknode(self.fsyms.Failure, target=self.target)
 
   @__call__.when(_strictconstr)
   def __call__(self, arg, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % '_strictconstr')
     return self._mknode(
-        self.prelude._StrictConstraint
+        self.fsyms.StrictConstraint
       , self(arg.value), self(arg.pair), target=self.target
       )
 
@@ -393,7 +391,7 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % '_nonstrictconstr')
     return self._mknode(
-        self.prelude._NonStrictConstraint
+        self.fsyms.NonStrictConstraint
       , self(arg.value), self(arg.pair), target=self.target
       )
 
@@ -402,7 +400,7 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % '_valuebinding')
     return self._mknode(
-        self.prelude._ValueBinding
+        self.fsyms.ValueBinding
       , self(arg.value), self(arg.pair), target=self.target
       )
 
@@ -411,7 +409,7 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % 'free')
     return self._mknode(
-        self.prelude._Free
+        self.fsyms.Free
       , arg.vid
       , self._mknode(self.prelude.Unit)
       , target=self.target
@@ -422,7 +420,7 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % 'fwd')
     return self._mknode(
-        self.prelude._Fwd, self(arg.value), target=self.target
+        self.fsyms.Fwd, self(arg.value), target=self.target
       )
 
   @__call__.when(choice)
@@ -430,7 +428,7 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % 'choice')
     return self._mknode(
-        self.prelude._Choice, arg.cid, self(arg.lhs), self(arg.rhs)
+        self.fsyms.Choice, arg.cid, self(arg.lhs), self(arg.rhs)
       , target=self.target
       )
 

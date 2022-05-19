@@ -3,6 +3,7 @@ from ._cyrtbindings import *
 from ...generic.eval import trace
 from . import fingerprint
 from ... import Node as _backends_Node
+from ... import InfoTable as _backends_InfoTable
 import logging
 
 from .... import exceptions
@@ -11,6 +12,7 @@ exceptions.EvaluationSuspended.register(EvaluationSuspended)
 
 logger = logging.getLogger(__name__)
 _backends_Node.register(Node)
+_backends_InfoTable.register(InfoTable)
 
 def make_node(info, *args, **kwds):
   info = getattr(info, 'info', info)
