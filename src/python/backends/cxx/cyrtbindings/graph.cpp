@@ -28,7 +28,17 @@ namespace
     else
       return node;
   }
+
+  template<typename T>
+  struct ByValueHolder
+  {
+    ByValueHolder(T arg) : data(arg) {}
+    T data;
+    T * get() { return &data; }
+  };
 }
+
+PYBIND11_DECLARE_HOLDER_TYPE(T, ByValueHolder<T>, true)
 
 namespace pybind11 { namespace detail
 {
@@ -44,7 +54,8 @@ namespace pybind11 { namespace detail
         case 'p': return py::cast(src.arg.node).inc_ref(); // TODO: review this
         case 'i': return py::cast(src.arg.ub_int).inc_ref();
         case 'f': return py::cast(src.arg.ub_float).inc_ref();
-        case 'c': return py::cast(src.arg.ub_char).inc_ref();
+        case 'c': { char buf[2] = {src.arg.ub_char, '\0'};
+                    return py::cast(&buf[0]).inc_ref(); }
         case 'x': assert(false);
         case 'u':
         default : return py::none().inc_ref();
@@ -80,11 +91,11 @@ namespace cyrt { namespace python
       .def("__repr__", &InfoTable::repr)
       ;
 
-    py::class_<Arg>(mod, "Arg")
+    py::class_<Arg, ByValueHolder<Arg>>(mod, "Arg")
       .def(py::init<Node *>())
       .def(py::init<unboxed_int_type>())
       .def(py::init<unboxed_float_type>())
-      .def(py::init<unboxed_char_type>())
+      .def(py::init([](char const * str) { assert(str); return Arg(str[0]); }))
       .def("__repr__", &Arg::repr)
       ;
 

@@ -88,7 +88,7 @@ namespace
         else
         {
           this->os << '<';
-          if(is_operator(*cur->info) && cur->info != &Nil_Info && !is_tuple(*cur->info))
+          if(is_operator(*cur->info) && !is_list(*cur->info) && !is_tuple(*cur->info))
             os << '(' << cur->info->name << ')';
           else
             os << cur->info->name;

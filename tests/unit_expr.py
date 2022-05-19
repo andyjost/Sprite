@@ -9,6 +9,9 @@ from curry.exceptions import CurryTypeError
 
 listiterator_name = type(iter([])).__name__
 
+CLEAN_KWDS = {'standardize_floats': True, 'keep_spacing': True}
+FLOAT_CLEANER = lambda s: cytest.clean.clean(s, **CLEAN_KWDS)
+
 class TestExpr(cytest.TestCase):
   '''Tests expression-building with ``curry.raw_expr``.'''
 
@@ -61,7 +64,7 @@ class TestExpr(cytest.TestCase):
     yield 'a', "'a'", "<Char 'a'>", 'a'
     yield curry.unboxed('a'), 'a', "'a'", 'a'
 
-  @cytest.check_expressions()
+  @cytest.check_expressions(cleaner=FLOAT_CLEANER)
   def test_float(self):
     yield 1.2, '1.2', "<Float 1.2>", 1.2
     yield curry.unboxed(1.0), '1.0', '1.0', 1.0

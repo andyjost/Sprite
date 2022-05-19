@@ -22,7 +22,7 @@ import contextlib, curry, inspect, traceback
 #       )
 #     raise type(e)(message)
 
-def check_expressions(converter=curry.topython, postprocessor=sorted):
+def check_expressions(converter=curry.topython, postprocessor=sorted, cleaner=None):
   '''
   A decorator for unit tests that check Curry expressions.
 
@@ -49,6 +49,10 @@ def check_expressions(converter=curry.topython, postprocessor=sorted):
     ``postprocessor`` [default: ``sorted``]
       Indicates how to process the results of curry.eval before comparing.  By
       default, the values are sorted.
+
+    ``cleaner`` [default: ``None``]
+      Indicates how to clean strings before comparing.  This can be used, e.g.,
+      to put floating-point numbers into a standard format.
 
   Examples:
   ---------
@@ -81,23 +85,32 @@ def check_expressions(converter=curry.topython, postprocessor=sorted):
       yield curry.choice(2, 1), None, None, None, [1, 2]
 
   '''
+  if cleaner is None:
+    def assert_equal(self, a, b):
+      self.assertEqual(a, b)
+  else:
+    def assert_equal(self, a, b):
+      if isinstance(a, str) or isinstance(b, str):
+        a = cleaner(a)
+        b = cleaner(b)
+      self.assertEqual(a, b)
   def decorator(testmethod):
     def checker(self, spec):
       expr, str_, repr_, python, evaluated = (spec + 5 * (None,))[:5]
       e = curry.raw_expr(expr)
       if str_ is not None:
-        self.assertEqual(str(e), str_)
+        assert_equal(self, str(e), str_)
       if repr_ is not None:
-        self.assertEqual(repr(e), repr_)
+        assert_equal(self, repr(e), repr_)
       if python is not None:
-        self.assertEqual(curry.topython(e), python)
+        assert_equal(self, curry.topython(e), python)
       if evaluated is not None:
         values = curry.eval(e)
         if converter is not None:
           values = map(converter, values)
         if postprocessor is not None:
           values = postprocessor(values)
-        self.assertEqual(values, evaluated)
+        assert_equal(self, values, evaluated)
     return _makechecker(testmethod, checker)
   return decorator
 
