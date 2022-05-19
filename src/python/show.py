@@ -85,7 +85,7 @@ class Stringifier(object):
     else:
       if hasattr(arg, 'info'):
         formatter = getattr(arg.info, 'pyformat', None)
-        if formatter is not None and len(arg.successors) == arg.info.arity:
+        if formatter is not None and len(arg) == arg.info.arity:
           return formatter.format(*self.flatten(arg))
         else:
           return ' '.join(map(str, self.flatten(arg)))
@@ -110,9 +110,9 @@ class Stringifier(object):
       # if arg.info.arity == 2:
       #   # Assume binary operators are infix.  ICurry does not have this
       #   # information.
-      #   yield self.stringify(arg.successors[0])
+      #   yield self.stringify(arg.successor(0))
       #   yield arg.info.name
-      #   yield self.stringify(arg.successors[1])
+      #   yield self.stringify(arg.successor(1))
       #   return
       # else:
       yield '(' + arg.info.name + ')'
@@ -172,15 +172,15 @@ class ListStringifier(Stringifier):
     non-constructor symbol, then using cons symbols.
     '''
     if inspect.isa_cons(arg) and self.style != 'repr' and not kwds.get('partial'):
-      l = [self.stringify(arg.successors[0], outer=True)]
+      l = [self.stringify(arg.successor(0), outer=True)]
       spine = []
-      arg = arg.successors[1]
+      arg = arg.successor(1)
       try:
         while inspect.isa_cons(arg):
           if self.push_subexpr(arg):
             spine.append(arg)
-            l.append(self.stringify(arg.successors[0], outer=True))
-            arg = arg.successors[1]
+            l.append(self.stringify(arg.successor(0), outer=True))
+            arg = arg.successor(1)
           else:
             l.append('...')
             return '[%s]' % ', '.join(l)

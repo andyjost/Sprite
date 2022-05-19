@@ -46,6 +46,15 @@ class Node(object):
     from .indexing import logical_subexpr
     return logical_subexpr(self, path, update_fwd_nodes=True)
 
+  def successor(self, i):
+    return self.successors[i]
+
+  def set_successor(self, i, value):
+    self.successors[i] = value
+
+  def __len__(self):
+    return len(self.successors)
+
   def __iter__(self):
     raise TypeError('Node does not support iteration')
 

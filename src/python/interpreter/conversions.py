@@ -29,7 +29,7 @@ def unbox(arg):
   '''Unbox a built-in primitive or IO type.'''
   assert isinstance(arg, backends.Node)
   assert inspect.isa_primitive(arg) or inspect.isa_io(arg)
-  return arg.successors[0]
+  return arg.successor(0)
 
 class ToPython(object):
   def __init__(self, convert_freevars=True):
@@ -90,8 +90,8 @@ def _topython(value, convert_strings=True):
 def _listiter(arg):
   '''Iterate through a Curry list.'''
   while inspect.isa_cons(arg):
-    yield arg.successors[0]
-    arg = arg.successors[1]
+    yield arg.successor(0)
+    arg = arg.successor(1)
   if not inspect.isa_nil(arg):
     raise exceptions.NotConstructorError(arg)
 

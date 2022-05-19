@@ -198,7 +198,7 @@ class ExpressionBuilder(object):
               # This is the trivial cycle a=a.
               state.cursor.rewrite(self.prelude._Fwd, state.cursor)
             else:
-              parent.successors[state.realpath[-1]] = self.anchors[anchorname]
+              parent.set_successor(state.realpath[-1], self.anchors[anchorname])
           else:
             state.push()
     return expr

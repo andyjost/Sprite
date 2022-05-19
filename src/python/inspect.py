@@ -62,7 +62,7 @@ def isa_boxed_primitive(arg):
 
 def unboxed_value(arg):
   if isa_boxed_primitive(arg):
-    return arg.successors[0]
+    return arg.successor(0)
   elif isa_unboxed_primitive(arg):
     return arg
 
@@ -128,11 +128,11 @@ def isa_cons(arg):
 
 def cons_head(arg):
   if isa_cons(arg):
-    return arg.successors[0]
+    return arg.successor(0)
 
 def cons_tail(arg):
   if isa_cons(arg):
-    return arg.successors[1]
+    return arg.successor(1)
 
 def isa_nil(arg):
   info = info_of(arg)
@@ -191,35 +191,35 @@ def is_boxed(node):
 def get_choice_id(arg):
   # Note: a variable has a choice ID (which equals its variable ID).
   if isa_choice(arg) or isa_freevar(arg):
-    return arg.successors[0]
+    return arg.successor(0)
 
 def get_choice_alternatives(arg):
   assert isa_choice(arg)
-  return arg.successors[1], arg.successors[2]
+  return arg.successor(1), arg.successor(2)
 
 def get_left_alternative(arg):
   assert isa_choice(arg)
-  return arg.successors[1]
+  return arg.successor(1)
 
 def get_right_alternative(arg):
   assert isa_choice(arg)
-  return arg.successors[2]
+  return arg.successor(2)
 
 def get_freevar_id(arg):
   if isa_freevar(arg):
-    return arg.successors[0]
+    return arg.successor(0)
 
 def get_set_id(arg):
   if isa_setguard(arg):
-    return arg.successors[0]
+    return arg.successor(0)
 
 def get_setguard_value(arg):
   if isa_setguard(arg):
-    return arg.successors[1]
+    return arg.successor(1)
 
 def fwd_target(arg):
   if isa_fwd(arg):
-    return arg.successors[0]
+    return arg.successor(0)
 
 def fwd_chain_target(arg):
   while True:
