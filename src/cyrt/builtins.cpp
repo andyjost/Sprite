@@ -345,4 +345,16 @@ namespace cyrt
       }
     }
   }
+
+  Node * build_curry_string(char const * str)
+  {
+    Node * head = nil();
+    Node ** tail = &head;
+    for(; *str; ++str)
+    {
+      *tail = cons(char_(*str), nil());
+      tail = &NodeU{*tail}.cons->tail;
+    }
+    return head;
+  }
 }

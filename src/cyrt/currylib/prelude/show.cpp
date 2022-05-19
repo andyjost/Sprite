@@ -2,17 +2,62 @@
 
 using namespace cyrt;
 
+namespace cyrt
+{
+  static tag_type show_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
+    std::string str = _1.target->str();
+    Node * replacement = build_curry_string(str.c_str());
+    _0->forward_to(replacement);
+    return T_FWD;
+  }
+}
+
 extern "C"
 {
-  #define SPEC (showCharLiteral, 1)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const showCharLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "showCharLiteral"
+    , /*format*/     "p"
+    , /*step*/       show_step
+    , /*type*/       nullptr
+    };
 
-  #define SPEC (showFloatLiteral, 1)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const showFloatLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "showFloatLiteral"
+    , /*format*/     "p"
+    , /*step*/       show_step
+    , /*type*/       nullptr
+    };
 
-  #define SPEC (showIntLiteral, 1)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const showIntLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "showIntLiteral"
+    , /*format*/     "p"
+    , /*step*/       show_step
+    , /*type*/       nullptr
+    };
 
-  #define SPEC (showStringLiteral, 1)
-  #include "cyrt/currylib/defs/not_used.def"
+  InfoTable const showStringLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "showStringLiteral"
+    , /*format*/     "p"
+    , /*step*/       show_step
+    , /*type*/       nullptr
+    };
 }

@@ -5,15 +5,9 @@ using namespace cyrt;
 static tag_type _cString_step(RuntimeState * rts, Configuration * C)
 {
   Cursor _0 = C->cursor();
-  Node * head = nil();
-  Node ** tail = &head;
   cStringNode * str = NodeU{_0}.c_str;
-  for(char const * ch = str->data; *ch; ++ch)
-  {
-    *tail = cons(char_(*ch), nil());
-    tail = &NodeU{*tail}.cons->tail;
-  }
-  _0->forward_to(head);
+  Node * replacement = build_curry_string(str->data);
+  _0->forward_to(replacement);
   return T_FWD;
 }
 

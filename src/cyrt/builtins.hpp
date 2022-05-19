@@ -232,6 +232,7 @@ namespace cyrt
   ConstraintType constraint_type(Node *);
   tag_type not_used(RuntimeState *, Configuration *);
   std::string extract_string(Node *);
+  Node * build_curry_string(char const *);
 
   enum IOErrorKind { IO_ERROR, USER_ERROR, FAIL_ERROR, NONDET_ERROR };
   InfoTable const * ioerror_info(IOErrorKind);

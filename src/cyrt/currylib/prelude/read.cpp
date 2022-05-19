@@ -22,18 +22,12 @@ namespace cyrt
     }
   }
 
-  static inline CharNode * head_char(ConsNode * string)
+  static inline unboxed_char_type head_char(ConsNode * string)
   {
     assert(string);
     assert(string->info->type == &List_Type);
     assert(string->info->tag == T_CONS);
-    return (CharNode *) string->head;
-  }
-
-  static inline unboxed_char_type head_char_ub(ConsNode * string)
-  {
-    assert(string);
-    return head_char(string)->value;
+    return NodeU{string->head}.char_->value;
   }
 
   template<int Radix>
@@ -45,7 +39,7 @@ namespace cyrt
     int ord = 0;
     while(string)
     {
-      int offset = head_char_ub(string) - '0';
+      int offset = head_char(string) - '0';
       if(0 <= offset && offset <= Radix)
       {
         if(ord < CHAR_BOUND)
@@ -70,7 +64,7 @@ namespace cyrt
       string = string_cast(string->tail);
     while(string)
     {
-      char ch = head_char_ub(string);
+      char ch = head_char(string);
       switch(ch)
       {
         case '0':
@@ -111,7 +105,7 @@ namespace cyrt
   {
     if(!string)
       return nullptr;
-    switch(head_char_ub(string))
+    switch(head_char(string))
     {
       case '\\':
       case '"' :
@@ -135,24 +129,24 @@ namespace cyrt
   static tag_type readCharLiteral_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = _0[0];
+    Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
     Node * char_out = nullptr;
     ConsNode * string = string_cast(_1);
     Node * replacement = nullptr;
 
     // Eat the opening single quote.
-    if(!string || head_char_ub(string) != '\'') goto failed;
+    if(!string || head_char(string) != '\'') goto failed;
     string = string_cast(string->tail);
 
     // Parse the content.
-    if(string && head_char_ub(string) == '\\')
+    if(string && head_char(string) == '\\')
     {
       string = string_cast(string->tail);
       char_out = _parseEscapeCode(string);
     }
     else if(string)
     {
-      auto ch = head_char_ub(string);
+      auto ch = head_char(string);
       if(ch < CHAR_BOUND && ch != '\'')
         char_out = string->head;
     }
@@ -161,7 +155,7 @@ namespace cyrt
     // Eat the closing single quote.
     assert(string);
     string = string_cast(string->tail);
-    if(!string || head_char_ub(string) != '\'') goto failed;
+    if(!string || head_char(string) != '\'') goto failed;
 
     assert(char_out);
     replacement = cons(pair(char_out, string->tail), nil());
@@ -174,12 +168,12 @@ namespace cyrt
   static tag_type readFloatLiteral_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = _0[0];
+    Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
     ConsNode * string = string_cast(_1);
     std::stringstream ss;
     while(string)
     {
-      auto ch = (char) head_char_ub(string);
+      auto ch = (char) head_char(string);
       switch(ch)
       {
         case '0': case '1': case '2': case '3': case '4':
@@ -201,14 +195,14 @@ namespace cyrt
   static tag_type readNatLiteral_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = _0[0];
+    Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
     ConsNode * string = string_cast(_1);
     static ptrdiff_t constexpr SZ = 32;
     char buf[SZ];
     char * px = &buf[0];
     while(string && px < &buf[SZ-1])
     {
-      auto ch = (char) head_char_ub(string);
+      auto ch = (char) head_char(string);
       if('0' <= ch && ch <= '9')
       {
         *px++ = ch;
@@ -232,14 +226,14 @@ namespace cyrt
   static tag_type readStringLiteral_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Variable _1 = _0[0];
+    Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
     Node * str_out = nil();
     Node ** tail_out = &str_out;
     ConsNode * string = string_cast(_1);
     Node * replacement = nullptr;
 
     // Eat the opening double quote.
-    if(!string || head_char_ub(string) != '"') goto failed;
+    if(!string || head_char(string) != '"') goto failed;
     string = string_cast(string->tail);
 
     // Parse the content.
@@ -248,7 +242,7 @@ namespace cyrt
       Node * char_out = nullptr;
       if(string)
       {
-        auto ch = head_char_ub(string);
+        auto ch = head_char(string);
         if(ch == '\\')
         {
           string = string_cast(string->tail);

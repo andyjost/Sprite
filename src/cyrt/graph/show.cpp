@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <boost/io/ios_state.hpp>
 #include <cassert>
+#include <ctype.h>
 #include "cyrt/builtins.hpp"
 #include "cyrt/graph/node.hpp"
 #include "cyrt/graph/show.hpp"
@@ -19,40 +20,40 @@ namespace
   using namespace cyrt;
   static size_t constexpr FLOAT_PRECISION = 17;
 
-  void show_sq_escaped(std::ostream & os, char value)
+  static bool constexpr ESCAPE_DQ = true;
+  static bool constexpr ESCAPE_SQ = false;
+
+  void show_escaped(std::ostream & os, char value, bool mode)
   {
     switch(value)
     {
-      case '\'': os << '\\' << '\''; break;
-      case '\\': os << '\\' << '\\'; break;
-      case '\a': os << '\\' << 'a' ; break;
-      case '\b': os << '\\' << 'b' ; break;
-      case '\f': os << '\\' << 'f' ; break;
-      case '\n': os << '\\' << 'n' ; break;
-      case '\r': os << '\\' << 'r' ; break;
-      case '\t': os << '\\' << 't' ; break;
-      case '\v': os << '\\' << 'v' ; break;
-      default  : os << value ; break;
+      case '"' : if(mode)  os << '\\' << '"' ; else os << value;
+                 return;
+      case '\'': if(!mode) os << '\\' << '\'' ; else os << value;
+                 return;
+      case '\\': os << '\\' << '\\'; return;
+      case '\a': os << '\\' << 'a' ; return;
+      case '\b': os << '\\' << 'b' ; return;
+      case '\f': os << '\\' << 'f' ; return;
+      case '\n': os << '\\' << 'n' ; return;
+      case '\r': os << '\\' << 'r' ; return;
+      case '\t': os << '\\' << 't' ; return;
+      case '\v': os << '\\' << 'v' ; return;
+      default  : break;
     }
-  }
 
-  void show_dq_escaped(std::ostream & os, char value)
-  {
-    switch(value)
+    if(isprint(value))
+      os << value;
+    else
     {
-      case '"' : os << '\\' << '"' ; break;
-      case '\\': os << '\\' << '\\'; break;
-      case '\a': os << '\\' << 'a' ; break;
-      case '\b': os << '\\' << 'b' ; break;
-      case '\f': os << '\\' << 'f' ; break;
-      case '\n': os << '\\' << 'n' ; break;
-      case '\r': os << '\\' << 'r' ; break;
-      case '\t': os << '\\' << 't' ; break;
-      case '\v': os << '\\' << 'v' ; break;
-      default  : os << value ; break;
+      char buf[8];
+      auto rv = snprintf(&buf[0], 8, "\\%02d", int(value));
+      if(rv < 0)
+        os.setstate(std::ios::failbit);
+      else
+        os << buf;
     }
   }
-
 
   struct ReprStringifier
   {
@@ -105,7 +106,7 @@ namespace
     void show(unboxed_char_type value)
     {
       this->os << '\'';
-      show_sq_escaped(this->os, value);
+      show_escaped(this->os, value, ESCAPE_SQ);
       this->os << '\'';
     }
     void show(void const * value) { this->os << value; }
@@ -254,7 +255,7 @@ namespace
           case 'f': show(cur.arg->ub_float);
                     continue;
           case 'c': if(Context(data).value == 'c')
-                      show_dq_escaped(this->os, cur.arg->ub_char);
+                      show_escaped(this->os, cur.arg->ub_char, ESCAPE_DQ);
                     else
                       show(cur.arg->ub_char);
                     continue;
@@ -332,7 +333,7 @@ namespace
           {
             os << '"';
             char const * p = NodeU{cur}.c_str->data;
-            while(*p) show_dq_escaped(os, *p++);
+            while(*p) show_escaped(os, *p++, ESCAPE_DQ);
             os << '"';
             continue;
           }
@@ -374,7 +375,7 @@ namespace
     void show(unboxed_char_type value)
     {
       this->os << '\'';
-      show_sq_escaped(this->os, value);
+      show_escaped(this->os, value, ESCAPE_SQ);
       this->os << '\'';
     }
 

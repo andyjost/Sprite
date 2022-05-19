@@ -134,6 +134,25 @@ class Stringifier(object):
     else:
       return ' ' in string
 
+SYMBOLIC_ESCAPES = {
+    ord('\a'): '\\a'
+  , ord('\b'): '\\b'
+  , ord('\f'): '\\f'
+  , ord('\n'): '\\n'
+  , ord('\r'): '\\r'
+  , ord('\t'): '\\t'
+  , ord('\v'): '\\v'
+  , ord('"') : '\\"'
+  , ord('\\'): '\\\\'
+  , ord('\''): '\\\''
+  }
+
+DQ_ESCAPE = str.maketrans({
+    i: SYMBOLIC_ESCAPES.get(i, '\\%02d' % i)
+        for i in range(256)
+        if not chr(i).isprintable() or chr(i) in '"\\'
+  })
+
 class ListStringifier(Stringifier):
   '''
   Formats lists using the best style.  Depending on the list type and whether
@@ -192,13 +211,18 @@ class ListStringifier(Stringifier):
         head, tail = tail.successors
         if inspect.isa_char(head):
           ch = inspect.unboxed_value(head)
-          chars.append(ch)
+          chars.append(ch.translate(DQ_ESCAPE))
         else:
           return
       if len(chars) > 1 and inspect.isa_nil(tail):
         chars.append('"')
         return ''.join(chars)
 
+SQ_ESCAPE = str.maketrans({
+    i: SYMBOLIC_ESCAPES.get(i, '\\%02d' % i)
+        for i in range(256)
+        if not chr(i).isprintable() or chr(i) in '\\\''
+  })
 
 class LitNormalStringifier(Stringifier):
   '''Represents literals in the usual, human-readable, way.'''
@@ -214,19 +238,10 @@ class LitNormalStringifier(Stringifier):
   def format(self, lit, **kwds):
     return ('(%r)' if lit<0 else '%r') % lit
 
-  CHAR_TRANSLATIONS = {
-      '\'': "'\\''"
-    , '\a': "'\\a'"
-    , '\b': "'\\b'"
-    , '\f': "'\\f'"
-    , '\t': "'\\t'"
-    , '\v': "'\\v'"
-    }
-
   @format.when(six.string_types)
   def format(self, lit, **kwds):
     assert len(lit) == 1
-    return self.CHAR_TRANSLATIONS.get(lit, repr(lit))
+    return '\'%s\'' % lit.translate(SQ_ESCAPE)
 
   @format.when(collections.Iterator)
   def format(self, it, **kwds):

@@ -5,5 +5,5 @@ from cytest.tty import CLOSE
 class TestExamples(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/readshow/'
   CLEAN_KWDS = {
-      'readfloat': {'standardize_floats': True}
+      'readfloat|show': {'standardize_floats': True}
     }
