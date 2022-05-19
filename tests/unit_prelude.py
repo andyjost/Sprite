@@ -77,37 +77,78 @@ class TestPrelude(cytest.TestCase):
     eval_ = lambda e: next(curry.eval(e, converter=None))
     sym = lambda s: curry.symbol('Prelude.' + s)
     # Int
-    self.assertEqual(eval_([sym('prim_readNatLiteral'), ['0']]), curry.raw_expr((0, "")))
-    self.assertEqual(eval_([sym('prim_readNatLiteral'), "123 foo"]), curry.raw_expr((123, " foo")))
-    self.assertEqual(eval_([sym('prim_readNatLiteral'), "-1"]), curry.raw_expr((0, "-1")))
+    self.assertEqual(eval_([sym('prim_readNatLiteral'), ['0']]), curry.raw_expr([(0, "")]))
+    self.assertEqual(eval_([sym('prim_readNatLiteral'), "123"]), curry.raw_expr([(123, "")]))
     # Float
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.23 foo"]), curry.raw_expr((1.23, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+1.23 foo"]), curry.raw_expr((1.23, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "-1.23 foo"]), curry.raw_expr((-1.23, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1. foo"]), curry.raw_expr((1.0, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1foo"]), curry.raw_expr((1.0, "foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+.9 foo"]), curry.raw_expr((0.9, " foo")))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.2.3"]), curry.raw_expr((1.2, ".3")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'a'xx"]), curry.raw_expr(('a', "xx")))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.23"]), curry.raw_expr([(1.23, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+1.23"]), curry.raw_expr([(1.23, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "-1.23"]), curry.raw_expr([(-1.23, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1."]), curry.raw_expr([(1.0, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), ["1"]]), curry.raw_expr([(1.0, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+.9"]), curry.raw_expr([(0.9, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.2"]), curry.raw_expr([(1.2, "")]))
     # Char
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\''xx"]), curry.raw_expr(('\'', "xx")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\\'"]), curry.raw_expr(('\\', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\''"]), curry.raw_expr(('\'', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\"'"]), curry.raw_expr(('"', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\b'"]), curry.raw_expr(('\b', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\f'"]), curry.raw_expr(('\f', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\n'"]), curry.raw_expr(('\n', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\r'"]), curry.raw_expr(('\r', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\t'"]), curry.raw_expr(('\t', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\v'"]), curry.raw_expr(('\v', "")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\x41'xx"]), curry.raw_expr(('A', "xx")))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\65'xx"]), curry.raw_expr(('A', "xx")))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'a'"]), curry.raw_expr([('a', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\''"]), curry.raw_expr([('\'', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\\'"]), curry.raw_expr([('\\', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\''"]), curry.raw_expr([('\'', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\"'"]), curry.raw_expr([('"', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\b'"]), curry.raw_expr([('\b', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\f'"]), curry.raw_expr([('\f', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\n'"]), curry.raw_expr([('\n', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\r'"]), curry.raw_expr([('\r', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\t'"]), curry.raw_expr([('\t', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\v'"]), curry.raw_expr([('\v', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\x41'"]), curry.raw_expr([('A', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\65'"]), curry.raw_expr([('A', "")]))
     # String
-    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"A"xx''']), curry.raw_expr(('A', "xx")))
-    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\x41\\66""xx''']), curry.raw_expr(('AB', "\"xx")))
-    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\\\ \\' \\" \\b \\f \\n \\r \\t \\v" tail'''])
-      , curry.raw_expr(('\\ \' " \b \f \n \r \t \v', " tail"))
+    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"A"''']), curry.raw_expr([('A', "")]))
+    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\x41\\66"''']), curry.raw_expr([('AB', "")]))
+    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\\\ \\' \\" \\b \\f \\n \\r \\t \\v"'''])
+      , curry.raw_expr([('\\ \' " \b \f \n \r \t \v', "")])
       )
+
+  def testLitParsersBad(self):
+    # The primitive read functions are over-specified in the Prelude.  They are
+    # always matched against [(a, "")].  Upon a parse failure, a proper
+    # implementation can either fail or produce a non-empty string.  Even this
+    # should never occur because a lexer is used beforehand to ensure the input
+    # is always valid.
+    def assertNoGood(e):
+      values = list(curry.eval(e, converter=None))
+      self.assertTrue(values == [] or values[0][1] != '')
+    sym = lambda s: curry.symbol('Prelude.' + s)
+
+    # Int
+    assertNoGood([sym('prim_readNatLiteral'), '0foo'])
+    assertNoGood([sym('prim_readNatLiteral'), "123 foo"])
+    assertNoGood([sym('prim_readNatLiteral'), "-1"])
+    # Float
+    assertNoGood([sym('prim_readFloatLiteral'), "1.23 foo"])
+    assertNoGood([sym('prim_readFloatLiteral'), "+1.23 foo"])
+    assertNoGood([sym('prim_readFloatLiteral'), "-1.23 foo"])
+    assertNoGood([sym('prim_readFloatLiteral'), "1. foo"])
+    assertNoGood([sym('prim_readFloatLiteral'), "1foo"])
+    assertNoGood([sym('prim_readFloatLiteral'), "+.9 foo"])
+    assertNoGood([sym('prim_readFloatLiteral'), "1.2.3"])
+    # Char
+    assertNoGood([sym('prim_readCharLiteral'), "'a'xx"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\\''xx"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\\\'"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\''"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\\"'"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\b'"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\f'"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\n'"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\r'"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\t'"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\v'"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\x41'xx"])
+    assertNoGood([sym('prim_readCharLiteral'), "'\\65'xx"])
+    # String
+    assertNoGood([sym('prim_readStringLiteral'), '''"A"xx'''])
+    assertNoGood([sym('prim_readStringLiteral'), '''"\\x41\\66""xx'''])
+    assertNoGood([sym('prim_readStringLiteral'), '''"\\\\ \\' \\" \\b \\f \\n \\r \\t \\v" tail'''])
 
   @unittest.expectedFailure
   def testApply(self):
@@ -220,4 +261,3 @@ class TestPrelude(cytest.TestCase):
 
     # ctor <=> free
     self.checkSatisfied([], unknown)
-

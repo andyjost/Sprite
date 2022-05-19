@@ -29,4 +29,7 @@ class TestExamples(cytest.FunctionalTestCase):
     , 'writeFile$'    : {'data/curry/io/output.txt': 'the content'}
     }
   if curry.flags['backend'] == 'py':
-    SKIP = 'catch'
+    SKIP = [
+        '^catch$', 'appendFile', 'getChar_catch', 'getChar_error'
+       , 'putChar_catch$', 'putChar_error$', 'writeFile_error'
+       ]
