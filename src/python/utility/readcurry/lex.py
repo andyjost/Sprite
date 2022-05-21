@@ -47,34 +47,31 @@ NAMED_ESC = {
   , r"\t" : '\t'
   , r"\v" : '\v'
   }
+DEC = re.compile(r'\\([1-9][0-9]{0,2})')
 OCTAL = re.compile(r'\\([0-7]{1,3})')
 UNICODE = re.compile(r'\\u[0-9a-fA-f]{4}')
 
 def qescape(text, chars, j):
   # Must be one of:
   #   - One of the named escape sequences listed in NAMED_ESC.
-  #   - An octal escape sequence; '\' followed by one two or three octal digits,
+  #   - A decimal escape sequence; '\' followed by one, two or three decimal digits,
+  #     not all zero.
+  #   - An octal escape sequence; '\0' followed by one, two or three octal digits,
   #     not all zero.
   #   - A Unicode escape sequence; 'u' followed by four hex digits.
   if text[j:j+2] in NAMED_ESC:
     chars.append(NAMED_ESC[text[j:j+2]])
     return 2
 
-  match = re.match(OCTAL, text[j:])
-  if match:
-    digits = match.group(1)
-    if digits == '000':
-      raise ValueError('Invalid escape sequence: %s' % r'\000')
-    ch = six.unichr(int(digits, base=8)).encode('utf-8')
-    chars.append(strings.ensure_str(ch))
-    return match.end()
-  match = re.match(UNICODE, text[j:])
-  if match:
-    digits = match.group(1)
-    ch = six.unichr(int(digits, base=16)).encode('utf-8')
-    chars.append(strings.ensure_str(ch))
-    return match.end()
-
+  for pattern, base in [(DEC, 10), (OCTAL, 8), (UNICODE, 16)]:
+    match = re.match(pattern, text[j:])
+    if match:
+      digits = match.group(1)
+      if digits == '000':
+        raise ValueError('Invalid escape sequence: %s' % r'\000')
+      ch = six.unichr(int(digits, base=base)).encode('utf-8')
+      chars.append(strings.ensure_str(ch))
+      return match.end()
   raise ValueError('Invalid escape sequence: %s ...' % text[j:j+8])
 
 def tokenize_quoted(text, j, iend, token_type, endquote):

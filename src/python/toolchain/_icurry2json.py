@@ -45,8 +45,8 @@ class ICurry2JsonConverter(object):
     file_out = file_in[:-4] + '.json'
     if self.do_zip:
       file_out += '.z'
-    cmd_compact = [config.jq_tool(), '--compact-output', '.'] \
-        if self.do_compact else None
+    cmd_compact = [config.jq_tool(), '--ascii-output', '--compact-output', '.'] \
+                 if self.do_compact else None
     _system.makeOutputDir(file_out)
 
     if CONVERT_JSON_INTERNALLY:

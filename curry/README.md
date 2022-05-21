@@ -12,11 +12,11 @@ The precompiled libraries are stored in subdirectories named after the PAKCS
 version.  When an unknown version of PAKCS is used, the Makefile will
 automatically create a new version-specific subdirectory and copy the Prelude.
 
-To pre-build ICY and JSON files, first perform a regular build and install.
-You might issue the following commands from the project root:
+To pre-build ICY and JSON files, first stage an installation.  You might issue
+the following commands from the project root:
 
     % make all
-    % make install
+    % make stage
 
 This will prepare the Curry source files belonging to the system library and
 install them.  Sprite is installed at this point, but the first time it is used
