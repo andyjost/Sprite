@@ -13,12 +13,12 @@ extern "C"
   InfoTable const SetGuard_Info{
       /*tag*/        T_SETGRD
     , /*arity*/      2
-    , /*alloc_size*/ sizeof(FwdNode)
+    , /*alloc_size*/ sizeof(SetGrdNode)
     , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "_SetGuard"
     , /*format*/     "xp"
     , /*step*/       nullptr
-    , /*type*/       nullptr /*&SetGuard_Type*/
+    , /*type*/       nullptr
     };
 
   InfoTable const Fail_Info{

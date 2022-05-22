@@ -8,10 +8,6 @@ FUNCTIONS = generic_prelude.PreludeSpecification.FUNCTIONS + [
   ]
 
 CONSTRUCTOR_METADATA = {
-  #   ('_Failure'   , 0): {'py.format': 'failed'                        }
-  # , ('_PartApplic', 0): {'py.format': '{2}'                           }
-  # , ('_Free'      , 0): {'py.format': '_{1}'                          }
-  # , ('_Fwd'       , 0): {'py.format': '{1}'                           }
     ('Int'        , 0): {'py.format': '{1}'                           }
   , ('Float'      , 0): {'py.format': '{1}'                           }
   , ('Char'       , 0): {'py.format': '{1}'                           }

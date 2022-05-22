@@ -10,6 +10,9 @@
 
 namespace cyrt
 {
+  using TypeTable = std::unordered_map<std::string, DataType const *>;
+  using SymbolTable = std::unordered_map<std::string, InfoTable const *>;
+
   struct Module
   {
     Module(std::string);
@@ -21,6 +24,10 @@ namespace cyrt
 
     void link(std::shared_ptr<SharedCurryModule> const &);
     void clear();
+
+    static void register_builtin_module(
+        std::string const & name, TypeTable && types, SymbolTable && symbols
+      );
 
     static std::shared_ptr<Module> find_or_create(std::string);
     static std::map<std::string, std::shared_ptr<Module>> getall();

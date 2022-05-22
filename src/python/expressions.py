@@ -367,7 +367,7 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % '_setgrd')
     return self._mknode(
-        self.interp.setfunctions._SetGuard
+        self.fsyms.SetGuard
       , arg.sid, self(arg.value), target=self.target
       )
 

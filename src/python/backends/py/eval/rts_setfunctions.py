@@ -60,8 +60,8 @@ def guard_args(rts, expr, guards):
   guards = iter(guards)
   last_sid = next(guards)
   for sid in guards:
-    expr = graph.Node(rts.setfunctions._SetGuard, sid, expr)
-  yield rts.setfunctions._SetGuard
+    expr = graph.Node(rts.SetGuard, sid, expr)
+  yield rts.SetGuard
   yield last_sid
   yield expr
 

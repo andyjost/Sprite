@@ -9,7 +9,7 @@ from .... import icurry
 TYPES = [
     ('PartialS' , [('PartialS' , 2, {'all.flags': F_PARTIAL_TYPE })])
   , ('SetEval'  , [('SetEval'  , 2, {                            })])
-  , ('_SetGuard', [('_SetGuard', 2, {'all.tag'  :T_SETGRD        })])
+  # , ('_SetGuard', [('_SetGuard', 2, {'all.tag'  :T_SETGRD        })])
   ]
 
 FUNCTIONS = [
@@ -34,9 +34,4 @@ class SetFunctionsSpecification(ModuleSpecification):
   TYPES     = TYPES
   FUNCTIONS = FUNCTIONS
   IMPORTS   = []
-
-  def exports(self):
-    yield 'PartialS'
-    yield 'SetEval'
-    yield '_SetGuard'
 

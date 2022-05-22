@@ -3,6 +3,7 @@
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/inspect.hpp"
+#include "cyrt/module.hpp"
 #include "cyrt/state/rts.hpp"
 
 using namespace cyrt;
@@ -394,3 +395,44 @@ extern "C"
   static InfoTable const * Values_Ctors[] = { &Values_Info };
   DataType const Values_Type { Values_Ctors, 1, 't', F_STATIC_OBJECT, "Values" };
 }
+
+static int register_setfunction_builtins()
+{
+  TypeTable && builtin_setfunction_types{
+      {"PartialS" , &PartialS_Type}
+    , {"SetEval"  , &SetEval_Type}
+    , {"_SetGuard", &SetGuard_Type}
+    , {"Values"   , &Values_Type}
+    };
+
+  SymbolTable && builtin_setfunction_symbols{
+      {"allValues"    , &allValues_Info}
+    , {"applyS"       , &applyS_Info}
+    , {"captureS"     , &captureS_Info}
+    , {"eagerApplyS"  , &eagerApplyS_Info}
+    , {"evalS"        , &evalS_Info}
+    , {"exprS"        , &exprS_Info}
+    , {"PartialS"     , &PartialS_Info}
+    , {"set0"         , &set0_Info}
+    , {"set1"         , &set1_Info}
+    , {"set2"         , &set2_Info}
+    , {"set3"         , &set3_Info}
+    , {"set4"         , &set4_Info}
+    , {"set5"         , &set5_Info}
+    , {"set6"         , &set6_Info}
+    , {"set7"         , &set7_Info}
+    , {"SetEval"      , &SetEval_Info}
+    , {"_SetGuardEval", &SetGuard_Info}
+    , {"set"          , &set_Info}
+    , {"Values"       , &Values_Info}
+    };
+
+  Module::register_builtin_module(
+      "Control.SetFunctions"
+    , std::move(builtin_setfunction_types)
+    , std::move(builtin_setfunction_symbols)
+    );
+  return 0;
+}
+
+static int _ = register_setfunction_builtins();

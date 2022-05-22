@@ -48,9 +48,8 @@ def applyS(rts, _0, capture=False):
   assert inspect.isa_func(term) or inspect.isa_ctor(term)
   arg = _0.target.successors[1]
   assert missing >= 1
-  _SetGuard = rts.setfunctions._SetGuard
   if not capture:
-    arg = graph.Node(_SetGuard, NO_SID, arg)
+    arg = graph.Node(rts.SetGuard, NO_SID, arg)
   yield rts.setfunctions.PartialS
   yield missing - 1
   yield graph.Node(
@@ -73,11 +72,10 @@ def evalS(rts, _0):
     goal = term
   else:
     assert missing == 0
-    _SetGuard = rts.setfunctions._SetGuard
     goal = graph.Node(
         term.info
-      , *[graph.Node(_SetGuard, sid, inspect.get_setguard_value(t))
-             if inspect.info_of(t) is _SetGuard.info and inspect.get_set_id(t) == NO_SID
+      , *[graph.Node(rts.SetGuard, sid, inspect.get_setguard_value(t))
+             if inspect.info_of(t) is rts.SetGuard.info and inspect.get_set_id(t) == NO_SID
              else t
                  for t in term.successors
            ]

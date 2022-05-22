@@ -1,5 +1,5 @@
 import cytest # from ./lib; must be first
-import curry
+import curry, unittest
 from curry.expressions import (
     anchor, ref, _setgrd, fail, _strictconstr, _nonstrictconstr, _valuebinding
   , free, fwd, choice, unboxed, cons, nil
@@ -11,6 +11,8 @@ listiterator_name = type(iter([])).__name__
 
 CLEAN_KWDS = {'standardize_floats': True, 'keep_spacing': True}
 FLOAT_CLEANER = lambda s: cytest.clean.clean(s, **CLEAN_KWDS)
+
+CXX = curry.flags['backend'] == 'cxx'
 
 class TestExpr(cytest.TestCase):
   '''Tests expression-building with ``curry.raw_expr``.'''
@@ -138,13 +140,10 @@ class TestExpr(cytest.TestCase):
       , '<_NonStrictConstraint <True> <(,) <_Free 1 <()>> <False>>>'
       )
 
+  @unittest.skipIf(CXX, 'Cannot directly create C++ values sets')
   @cytest.check_expressions()
   def test_setgrd(self):
-    yield (
-        _setgrd(1, True)
-      , '_SetGuard 1 True'
-      , '<_SetGuard 1 <True>>'
-      )
+    yield _setgrd(1, True), '_SetGuard 1 True', '<_SetGuard 1 <True>>'
 
   @cytest.check_expressions()
   def test_strictconstr(self):
@@ -157,10 +156,19 @@ class TestExpr(cytest.TestCase):
   @cytest.check_expressions()
   def test_valuebinding(self):
     yield (
-        _valuebinding(True, (free(1), curry.unboxed(2)))
+        _valuebinding(True, (free(1), 2))
       , '_ValueBinding True (_a, 2)'
-      , '<_ValueBinding <True> <(,) <_Free 1 <()>> 2>>'
+      , '<_ValueBinding <True> <(,) <_Free 1 <()>> <Int 2>>>'
       )
+
+  @cytest.check_expressions()
+  def test_unboxed(self):
+    yield curry.unboxed(2), '2', '2'
+
+  @unittest.skipIf(CXX, 'No support for heterogeneous Nodes.')
+  @cytest.check_expressions()
+  def test_unboxed_nested(self):
+    yield (curry.unboxed(2), 3), '(2, 3)', '<(,) 2 <Int 3>>'
 
   @cytest.check_expressions()
   def test_var(self):
@@ -173,6 +181,7 @@ class TestExpr(cytest.TestCase):
     self.assertEqual(id(a), id(b))
     yield e, None, None, None, [[1, 1]]
 
+  @unittest.skipIf(CXX, 'not implemented')
   @cytest.check_expressions()
   def test_circular(self):
     anchor, ref = curry.expressions.anchor, curry.ref
@@ -200,6 +209,7 @@ class TestExpr(cytest.TestCase):
     self.assertEqual(id(e), id(e[0]))
     yield e, '[...]', '<: ... <[]>>'
 
+  @unittest.skipIf(CXX, 'not implemented')
   @cytest.check_expressions()
   def test_named_anchor1(self):
     '''Test named anchors using a direct style.'''
@@ -214,6 +224,7 @@ class TestExpr(cytest.TestCase):
     self.assertEqual(id(A), id(B[1]))
     yield e, None, None, None, [[0, 1, 0, 1, 0]]
 
+  @unittest.skipIf(CXX, 'not implemented')
   @cytest.check_expressions()
   def test_named_anchor2(self):
     '''Test named anchors using keyword style.'''

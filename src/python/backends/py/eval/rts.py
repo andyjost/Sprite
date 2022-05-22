@@ -22,7 +22,7 @@ class RuntimeState(object):
   # Fundamental symbols.
   from ..currylib.fundamental import (
       Choice, Failure, Free, Fwd, NonStrictConstraint
-    , PartApplic, StrictConstraint, ValueBinding
+    , PartApplic, SetGuard, StrictConstraint, ValueBinding
     )
   '''
   The state of the runtime system during evaluation.  Each time a goal is

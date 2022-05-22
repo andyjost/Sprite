@@ -92,14 +92,15 @@ namespace cyrt { namespace python
       ;
 
     // Fundamental symbols.
+    mod.attr("Choice")              = py::cast(&Choice_Info             , reference);
     mod.attr("Failure")             = py::cast(&Fail_Info               , reference);
-    mod.attr("StrictConstraint")    = py::cast(&StrictConstraint_Info   , reference);
-    mod.attr("NonStrictConstraint") = py::cast(&NonStrictConstraint_Info, reference);
-    mod.attr("ValueBinding")        = py::cast(&ValueBinding_Info       , reference);
     mod.attr("Free")                = py::cast(&Free_Info               , reference);
     mod.attr("Fwd")                 = py::cast(&Fwd_Info                , reference);
-    mod.attr("Choice")              = py::cast(&Choice_Info             , reference);
+    mod.attr("NonStrictConstraint") = py::cast(&NonStrictConstraint_Info, reference);
     mod.attr("PartApplic")          = py::cast(&PartApplic_Info         , reference);
+    mod.attr("SetGuard")            = py::cast(&SetGuard_Info           , reference);
+    mod.attr("StrictConstraint")    = py::cast(&StrictConstraint_Info   , reference);
+    mod.attr("ValueBinding")        = py::cast(&ValueBinding_Info       , reference);
 
     py::class_<Arg, ByValueHolder<Arg>>(mod, "Arg")
       .def(py::init<Node *>())
