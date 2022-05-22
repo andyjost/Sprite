@@ -114,6 +114,7 @@ namespace cyrt { namespace python
       // TODO attach a refcount.  Wild nodes attached to Python objects need to
       // be added to the GC roots.
       .def_static("create", &Node_create, reference) // FIXME: never delete Nodes (for now)
+      .def("forward_to", [](Node * source, Node * target) { source->forward_to(target); })
       .def_readonly("info", &Node::info, reference_internal)
       .def("successor"
           , [](Node & self, index_type pos) -> Expr { return self.successor(pos); }

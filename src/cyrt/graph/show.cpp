@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <iostream>
 #include <unordered_map>
+#include <unordered_set>
 #include <cstdio>
 
 // #define SHOW_PART_APPLIC_DETAILS
@@ -123,6 +124,7 @@ namespace
     ShowMonitor * monitor;
     std::unordered_map<xid_type, std::string> tr; // free variable translations
     int nextid = 0;
+    std::unordered_multiset<void *> memo;
     union Context
     {
       char value;
@@ -161,6 +163,15 @@ namespace
         case '&': self->os << ')'; break;
         case '[': self->os << ']'; break;
       }
+      void * id = walk->cursor().id();
+      if(id)
+      {
+        assert(self->memo.count(id));
+        auto p = self->memo.find(id);
+        if(p != self->memo.end())
+          self->memo.erase(p);
+      }
+
       if(self->monitor)
         self->monitor->exit(self->os, walk, Context(data).value);
     }
@@ -177,9 +188,23 @@ namespace
     {
       for(auto && walk=cyrt::walk(expr, this, &callback); walk; ++walk)
       {
-        auto cur = walk.cursor().skipfwd();
+        auto cur = walk.cursor();
+        void * id = cur.id();
+        this->memo.insert(id);
+        if(this->memo.count(id) > 1)
+        {
+          this->os << "...";
+          continue;
+        }
+        else if(cur.kind == 'p' && cur->info == &Fwd_Info)
+        {
+          walk.extend(walk.data());
+          continue;
+        }
+
         void *& data = walk.data();
         bool disallow_parens = false;
+
         switch(Context(data).value)
         {
           case '\0': disallow_parens = true; data = Context(' '); break;
