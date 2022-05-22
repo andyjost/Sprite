@@ -191,14 +191,16 @@ class ExpressionBuilder(object):
 
   def fixrefs(self, expr):
     if self.brokenrefs:
-      for state in expr.walk():
+      # for state in expr.walk():
+      from .backends.py.graph.walkexpr import walk
+      for state in walk(expr):
         if isinstance(state.cursor, backends.Node):
-          anchorname = self.brokenrefs.get(id(state.cursor))
+          anchorname = self.brokenrefs.get(state.cursor.id())
           if anchorname is not None:
             parent = state.parent
             if parent is None:
               # This is the trivial cycle a=a.
-              state.cursor.rewrite(self.fsyms.Fwd, state.cursor)
+              state.cursor.forward_to(state.cursor)
             else:
               parent.set_successor(state.realpath[-1], self.anchors[anchorname])
           else:
@@ -310,7 +312,7 @@ class ExpressionBuilder(object):
     target = self.anchors.get(anchorname)
     if target is None:
       placeholder = self(fail)
-      self.brokenrefs[id(placeholder)] = anchorname
+      self.brokenrefs[placeholder.id()] = anchorname
       return placeholder
     else:
       return target

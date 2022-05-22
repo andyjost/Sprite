@@ -11,7 +11,6 @@ listiterator_name = type(iter([])).__name__
 
 CLEAN_KWDS = {'standardize_floats': True, 'keep_spacing': True}
 FLOAT_CLEANER = lambda s: cytest.clean.clean(s, **CLEAN_KWDS)
-
 CXX = curry.flags['backend'] == 'cxx'
 
 class TestExpr(cytest.TestCase):
@@ -182,7 +181,6 @@ class TestExpr(cytest.TestCase):
     self.assertEqual(id(a), id(b))
     yield e, None, None, None, [[1, 1]]
 
-  @unittest.skipIf(CXX, 'not implemented')
   @cytest.check_expressions()
   def test_circular(self):
     anchor, ref = curry.expressions.anchor, curry.ref
@@ -210,7 +208,6 @@ class TestExpr(cytest.TestCase):
     self.assertEqual(id(e), id(e[0]))
     yield e, '[...]', '<: ... <[]>>'
 
-  @unittest.skipIf(CXX, 'not implemented')
   @cytest.check_expressions()
   def test_named_anchor1(self):
     '''Test named anchors using a direct style.'''
@@ -225,7 +222,6 @@ class TestExpr(cytest.TestCase):
     self.assertEqual(id(A), id(B[1]))
     yield e, None, None, None, [[0, 1, 0, 1, 0]]
 
-  @unittest.skipIf(CXX, 'not implemented')
   @cytest.check_expressions()
   def test_named_anchor2(self):
     '''Test named anchors using keyword style.'''

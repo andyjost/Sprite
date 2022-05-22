@@ -191,11 +191,9 @@ namespace
         auto cur = walk.cursor();
         void * id = cur.id();
         this->memo.insert(id);
+        bool cycle = false;
         if(this->memo.count(id) > 1)
-        {
-          this->os << "...";
-          continue;
-        }
+          cycle = true;
         else if(cur.kind == 'p' && cur->info == &Fwd_Info)
         {
           walk.extend(walk.data());
@@ -209,7 +207,7 @@ namespace
         {
           case '\0': disallow_parens = true; data = Context(' '); break;
           case ' ' :
-          case '&' : os << ' ';                        break;
+          case '&' : os << ' ';                                   break;
           case '(' : disallow_parens = true; data = Context(')'); break;
           case ')' : disallow_parens = true; os << ", ";          break;
 
@@ -221,6 +219,11 @@ namespace
             if(cur->info->tag == T_CONS)
             {
               os << ", ";
+              if(cycle)
+              {
+                os << "...]";
+                continue;
+              }
               walk.extend(Context('['));
             }
             else
@@ -231,7 +234,12 @@ namespace
           case '_' : data = Context('^'); break;
           case '^' :
             assert(is_list(*cur->info));
-            if(cur->info->tag == T_CONS)
+            if(cycle)
+            {
+              os << "...)";
+              continue;
+            }
+            else if(cur->info->tag == T_CONS)
             {
               os << ' ';
               walk.extend(Context('_'));
@@ -244,6 +252,7 @@ namespace
           case '"': data = Context('`'); break;
           case '`' :
             assert(is_list(*cur->info));
+            assert(!cycle); // ensured by begin_list
             if(cur->info->tag == T_CONS)
               walk.extend(Context('"'));
             else
@@ -258,7 +267,14 @@ namespace
             os << ':';
             if(is_list(*cur->info))
             {
-              if(cur->info->tag == T_CONS)
+              if(cycle)
+              {
+                os << "...";
+                if(Context(data).value == '>')
+                  os << ")";
+                continue;
+              }
+              else if(cur->info->tag == T_CONS)
               {
                 auto next = Context(data).value == '!' ? Context(':') : Context('<');
                 walk.extend(next);
@@ -268,6 +284,12 @@ namespace
               continue;
             }
             break;
+        }
+
+        if(cycle)
+        {
+          os << "...";
+          continue;
         }
 
         if(this->monitor)
@@ -412,8 +434,14 @@ namespace
       Node * end = cur;
       bool is_string = true;
       bool is_empty = true;
+      std::unordered_set<void *> memo2;
       while(end && is_list(*end->info) && end->info->tag == T_CONS)
       {
+        if(!memo2.insert(end).second)
+        {
+          is_string = false; // use bracket-style for cyclic lists.
+          break;
+        }
         auto cons = NodeU{end}.cons;
         is_string = is_string
             && (cons->head && is_char(*cons->head->info));

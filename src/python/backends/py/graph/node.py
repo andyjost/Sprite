@@ -1,5 +1,5 @@
-from .... import backends, icurry, utility
 from ....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from .... import backends, icurry, utility
 from .... import inspect, show
 import collections, numbers, operator, types
 
@@ -66,8 +66,15 @@ class Node(object):
   def __ne__(self, rhs):
     return not (self == rhs)
 
+  def id(self):
+    return id(self)
+
   def rewrite(self, info, *args, **kwds):
     Node(info, *args, target=self, **kwds)
+
+  def forward_to(self, target):
+    from ..currylib.fundamental import Fwd
+    self.rewrite(Fwd, target)
 
   def walk(self, path=None):
     '''See walkexpr.walk.'''

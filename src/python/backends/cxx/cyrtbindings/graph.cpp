@@ -3,6 +3,7 @@
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/graph/node.hpp"
 #include "cyrt/state/rts.hpp"
+#include <cstdint>
 
 namespace py = pybind11;
 static auto constexpr reference = py::return_value_policy::reference;
@@ -128,8 +129,13 @@ namespace cyrt { namespace python
               return vec;
             }
           )
+      .def("set_successor"
+          , [](Node & self, index_type pos, Node * value)
+            { return *self.successor(pos) = value; }
+          )
       .def("__str__", (std::string(Node::*)()) &Node::str)
       .def("__repr__", (std::string(Node::*)()) &Node::repr)
+      .def("id", [](Node * self) { return (uintptr_t) self; })
       .def("copy", &Node::copy)
       .def("__copy__", &Node::copy)
       .def("__deepcopy__", &Node::deepcopy)
