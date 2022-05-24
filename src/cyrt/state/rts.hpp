@@ -31,7 +31,10 @@ namespace cyrt
 
   struct RuntimeState : boost::noncopyable
   {
-    RuntimeState(InterpreterState & istate, Node * goal, bool trace=false);
+    RuntimeState(
+        InterpreterState & istate, Node * goal, bool trace=false
+      , SetFStrategy setfunction_strategy = SETF_LAZY
+      );
     RuntimeState(RuntimeState const &) = delete;
     RuntimeState(RuntimeState &&) = delete;
     RuntimeState & operator=(RuntimeState const &) = delete;
@@ -41,7 +44,7 @@ namespace cyrt
     size_t                 stepcount = 0;
     qstack_type            qstack;
     vtable_type            vtable;
-    SetFStrategy           setfunction_strategy = SETF_EAGER;
+    SetFStrategy           setfunction_strategy;
 		#ifdef SPRITE_TRACE_ENABLED
     std::unique_ptr<Trace> trace;
     #endif

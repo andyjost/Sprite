@@ -22,11 +22,18 @@ def make_node(info, *args, **kwds):
   args = [Arg(arg) for arg in args]
   return Node.create(info, args, target, bool(partial_info))
 
+_SETF_STRATEGY = {
+    'lazy': SETF_LAZY
+  , 'eager': SETF_EAGER
+  }
+
 class RuntimeState(RuntimeStateBase):
   def __init__(self, interp, goal=None):
     istate = interp.backend.get_interpreter_state(interp)
     self.tracing = interp.flags['trace']
-    RuntimeStateBase.__init__(self, istate, goal, self.tracing)
+    self.setfunction_strategy = \
+        _SETF_STRATEGY[interp.flags['setfunction_strategy']]
+    RuntimeStateBase.__init__(self, istate, goal, self.tracing, self.setfunction_strategy)
 
   def generate_values(self):
     while True:

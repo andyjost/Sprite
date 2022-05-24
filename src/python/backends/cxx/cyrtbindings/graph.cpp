@@ -165,7 +165,7 @@ namespace cyrt { namespace python
       ;
 
     py::class_<RuntimeState>(mod, "RuntimeStateBase")
-      .def(py::init<InterpreterState &, Node *, bool>())
+      .def(py::init<InterpreterState &, Node *, bool, SetFStrategy>())
       .def("next", &RuntimeState::procD)
       ;
   }

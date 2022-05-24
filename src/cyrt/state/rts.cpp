@@ -3,8 +3,11 @@
 
 namespace cyrt
 {
-  RuntimeState::RuntimeState(InterpreterState & istate, Node * goal, bool trace)
-    : istate(istate)
+  RuntimeState::RuntimeState(
+      InterpreterState & istate, Node * goal, bool trace
+    , SetFStrategy setfunction_strategy
+    )
+    : istate(istate), setfunction_strategy(setfunction_strategy)
   {
     this->push_queue(new Queue(), NOTRACE);
     this->set_goal(goal);
