@@ -190,14 +190,17 @@ namespace
       {
         auto cur = walk.cursor();
         void * id = cur.id();
-        this->memo.insert(id);
         bool cycle = false;
-        if(this->memo.count(id) > 1)
-          cycle = true;
-        else if(cur.kind == 'p' && cur->info == &Fwd_Info)
+        this->memo.insert(id);
+        if(cur.kind == 'p')
         {
-          walk.extend(walk.data());
-          continue;
+          if(this->memo.count(id) > 1 && cur->info->arity > 0)
+            cycle = true;
+          else if(cur->info == &Fwd_Info)
+          {
+            walk.extend(walk.data());
+            continue;
+          }
         }
 
         void *& data = walk.data();

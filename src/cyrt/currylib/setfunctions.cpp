@@ -21,8 +21,13 @@ namespace cyrt { inline namespace
     SetEvalNode * seteval = NodeU{_1.target}.seteval;
     rts->push_queue(seteval->queue);
     auto value = rts->procD();
-    assert(value.kind == 'p');
     rts->pop_queue();
+    if(!value)
+    {
+      _0->forward_to(nil());
+      return T_FWD;
+    }
+    assert(value.kind == 'p');
     if(value.arg.node->info->tag >= T_CTOR)
     {
       _0->forward_to(
@@ -142,6 +147,7 @@ namespace cyrt { inline namespace
     Node * replacement = Node::create(
         &PartialS_Info
       , Arg(ENCAPSULATED_EXPR)
+      , Arg(0)
       , _0->successor(0)
       );
     _0->forward_to(replacement);
@@ -162,7 +168,7 @@ namespace cyrt { inline namespace
 
   Node * curry(InfoTable const * fapply, Node * head, Arg * tail, Arg * end)
   {
-    while(tail != end)
+    while(tail < end)
       head = Node::create(fapply, head, *tail++);
     return head;
   }
@@ -178,7 +184,7 @@ namespace cyrt { inline namespace
     InfoTable const * fapply = rts->setfunction_strategy == SETF_EAGER
         ? &eagerApplyS_Info : &applyS_Info;
     Node * subexpr = curry(
-        fapply, setf, _0->begin(), _0->end()
+        fapply, setf, _0->begin() + 1, _0->end()
       );
     Node * replacement = Node::create(&evalS_Info, subexpr);
     _0->forward_to(replacement);
@@ -256,11 +262,11 @@ extern "C"
 
   InfoTable const PartialS_Info{
       /*tag*/        T_CTOR
-    , /*arity*/      2
-    , /*alloc_size*/ sizeof(Node2)
-    , /*flags*/      F_PARTIAL_TYPE | F_STATIC_OBJECT
+    , /*arity*/      3
+    , /*alloc_size*/ sizeof(PartApplicNode)
+    , /*flags*/      /*F_PARTIAL_TYPE |*/ F_STATIC_OBJECT
     , /*name*/       "PartialS"
-    , /*format*/     "ip"
+    , /*format*/     "ixp"
     , /*step*/       nullptr
     , /*type*/       &PartialS_Type
     };
@@ -359,7 +365,7 @@ extern "C"
     , /*alloc_size*/ sizeof(Node2)
     , /*flags*/      F_STATIC_OBJECT
     , /*name*/       "SetEval"
-    , /*format*/     "ip"
+    , /*format*/     "xx"
     , /*step*/       nullptr
     , /*type*/       &SetEval_Type
     };
