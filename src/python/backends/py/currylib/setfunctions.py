@@ -75,7 +75,7 @@ def evalS(rts, _0):
     goal = graph.Node(
         term.info
       , *[graph.Node(rts.SetGuard, sid, inspect.get_setguard_value(t))
-             if inspect.info_of(t) is rts.SetGuard.info and inspect.get_set_id(t) == NO_SID
+             if inspect.info_of(t) is rts.SetGuard and inspect.get_set_id(t) == NO_SID
              else t
                  for t in term.successors
            ]
