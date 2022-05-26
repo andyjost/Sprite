@@ -115,6 +115,7 @@ namespace cyrt
   {
     Set  * set;
     Node * value;
+    static constexpr InfoTable const * static_info = &SetGuard_Info;
   };
 
   struct ConstrNode : Head
@@ -238,20 +239,21 @@ namespace cyrt
   InfoTable const * ioerror_info(IOErrorKind);
   char const * intern_message(std::string const &);
 
-  inline Node * char_(unboxed_char_type x)   { return make_node<CharNode>(x); }
+  inline Node * char_(unboxed_char_type x)     { return make_node<CharNode>(x); }
   inline Node * choice(xid_type cid, Node * lhs, Node * rhs)
       { return make_node<ChoiceNode>(cid, lhs, rhs); }
-  inline Node * cons(Node * h, Node * t)     { return make_node<ConsNode>(h, t); }
-  inline Node * fail()                       { return Fail; }
-  inline Node * float_(unboxed_float_type x) { return make_node<FloatNode>(x); }
-  inline Node * free(xid_type vid)           { return make_node<FreeNode>(vid, Unit); }
-  inline Node * fwd(Node * tgt)              { return make_node<FwdNode>(tgt); }
-  inline Node * io(Node * value)             { return make_node<IONode>(value); }
-  inline Node * int_(unboxed_int_type x)     { return make_node<IntNode>(x); }
-  inline Node * nil()                        { return Nil; }
-  inline Node * pair(Node * a, Node * b)     { return make_node<PairNode>(a, b); }
-  inline Node * unit()                       { return Unit; }
-  inline Node * false_()                     { return False; }
-  inline Node * true_()                      { return True; }
-  inline Node * cstring(char const * str)    { return make_node<cStringNode>(str); }
+  inline Node * cons(Node * h, Node * t)       { return make_node<ConsNode>(h, t); }
+  inline Node * fail()                         { return Fail; }
+  inline Node * float_(unboxed_float_type x)   { return make_node<FloatNode>(x); }
+  inline Node * free(xid_type vid)             { return make_node<FreeNode>(vid, Unit); }
+  inline Node * fwd(Node * tgt)                { return make_node<FwdNode>(tgt); }
+  inline Node * io(Node * value)               { return make_node<IONode>(value); }
+  inline Node * int_(unboxed_int_type x)       { return make_node<IntNode>(x); }
+  inline Node * nil()                          { return Nil; }
+  inline Node * pair(Node * a, Node * b)       { return make_node<PairNode>(a, b); }
+  inline Node * unit()                         { return Unit; }
+  inline Node * false_()                       { return False; }
+  inline Node * true_()                        { return True; }
+  inline Node * cstring(char const * str)      { return make_node<cStringNode>(str); }
+  inline Node * guard(Set * set, Node * value) { return make_node<SetGrdNode>(set, value); }
 }

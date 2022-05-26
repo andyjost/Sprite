@@ -131,7 +131,7 @@ namespace cyrt
     Cursor _0 = C->cursor();
     Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
     Node * char_out = nullptr;
-    ConsNode * string = string_cast(_1);
+    ConsNode * string = string_cast(_1.target);
     Node * replacement = nullptr;
 
     // Eat the opening single quote.
@@ -169,7 +169,7 @@ namespace cyrt
   {
     Cursor _0 = C->cursor();
     Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
-    ConsNode * string = string_cast(_1);
+    ConsNode * string = string_cast(_1.target);
     std::stringstream ss;
     while(string)
     {
@@ -196,7 +196,7 @@ namespace cyrt
   {
     Cursor _0 = C->cursor();
     Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
-    ConsNode * string = string_cast(_1);
+    ConsNode * string = string_cast(_1.target);
     static ptrdiff_t constexpr SZ = 32;
     char buf[SZ];
     char * px = &buf[0];
@@ -229,7 +229,7 @@ namespace cyrt
     Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
     Node * str_out = nil();
     Node ** tail_out = &str_out;
-    ConsNode * string = string_cast(_1);
+    ConsNode * string = string_cast(_1.target);
     Node * replacement = nullptr;
 
     // Eat the opening double quote.

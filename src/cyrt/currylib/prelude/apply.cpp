@@ -113,9 +113,9 @@ namespace cyrt { inline namespace
     {
       if(tag == T_FREE)
       {
-        if(!has_generator(_1))
+        if(!has_generator(_1.target))
         {
-          xid_type gid = C->grp_id(obj_id(_1));
+          xid_type gid = C->grp_id(obj_id(_1.target));
           if(!C->has_binding(gid) && !rts->is_narrowed(C, gid))
             return E_RESIDUAL; // TODO verify this
         }

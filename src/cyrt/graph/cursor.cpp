@@ -144,4 +144,12 @@ namespace cyrt
     for(auto * set: this->guards)
       set->escape_set.insert(cid);
   }
+
+  Node * Variable::rvalue() const
+  {
+    Node * value = this->target;
+    for(Set * set: this->guards)
+      value = guard(set, value);
+    return value;
+  }
 }

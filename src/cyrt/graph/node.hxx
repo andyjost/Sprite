@@ -60,6 +60,11 @@ namespace cyrt
 		new(this) FwdNode{&Fwd_Info, target};
 	}
 
+  inline void Node::forward_to(Variable const & var)
+  {
+    return this->forward_to(var.rvalue());
+  }
+
   template<typename ... Args>
   void Node::forward_to(InfoTable const * info, Args && ... args)
   {

@@ -8,6 +8,4 @@ namespace cyrt
   Cursor subexpr(Node *, index_type);
   Cursor compress_fwd_chain(Cursor);
   Node ** compress_fwd_chain(Node **);
-  // FIXME
-  inline Node * rvalue(Variable const & var) { return var.target; }
 }

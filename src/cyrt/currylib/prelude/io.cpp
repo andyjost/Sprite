@@ -108,7 +108,7 @@ namespace cyrt
     Variable _1 = _0[0];
     auto tag = rts->hnf(C, &_1);
     if(tag < T_CTOR) return tag;
-    auto rv = std::putchar(NodeU{_1}.char_->value);
+    auto rv = std::putchar(NodeU{_1.target}.char_->value);
     if(rv == EOF)
     {
       Node * replacement = _make_io_error("EOF");
@@ -147,7 +147,7 @@ namespace cyrt
   {
     Cursor _0 = C->cursor();
     Variable vFilename = _0[0];
-    std::string filename = extract_string(vFilename);
+    std::string filename = extract_string(vFilename.target);
     Node * head = nil();
     Node ** tail = &head;
     std::ifstream stream(filename);
@@ -175,7 +175,7 @@ namespace cyrt
     Cursor _0 = C->cursor();
     Variable vFilename = _0[0];
     Variable vChar;
-    std::string filename = extract_string(vFilename);
+    std::string filename = extract_string(vFilename.target);
     IOErrorKind error_kind = IO_ERROR;
     std::ofstream stream(filename, mode);
     if(!stream) goto return_error;
@@ -188,9 +188,9 @@ namespace cyrt
         case T_CONS:   vChar = vSpine[0];
                        tag = rts->hnf(C, &vChar);
                        if(tag < T_CTOR) return tag;
-                       stream.put(NodeU{vChar}.char_->value);
+                       stream.put(NodeU{vChar.target}.char_->value);
                        if(!stream) goto return_error;
-                       *vSpine = NodeU{vSpine}.cons->tail;
+                       *vSpine.target = NodeU{vSpine.target}.cons->tail;
                        break;
         case T_NIL:    _0->forward_to(io(unit()));
                        return T_FWD;

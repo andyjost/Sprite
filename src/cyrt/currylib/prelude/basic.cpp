@@ -38,7 +38,7 @@ static tag_type error2_step(RuntimeState * rts, Configuration * C)
   tag = rts->hnf(C, &_2);
   if(tag < T_CTOR) return tag;
 
-  C->set_error(_1, _2.target->str());
+  C->set_error(_1.target, _2.target->str());
 
   Node * replacement = io(unit());
   _0->forward_to(replacement);

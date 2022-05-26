@@ -27,6 +27,7 @@ namespace cyrt
 
 
     void forward_to(Node *);
+    void forward_to(Variable const &);
     template<typename ... Args> void forward_to(InfoTable const *, Args && ...);
 
     tag_type make_failure();

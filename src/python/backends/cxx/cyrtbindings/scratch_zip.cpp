@@ -75,8 +75,8 @@ namespace cyrt { namespace python
         Variable _20 = _2[0];
         Variable _21 = _2[1];
         Node * repl = cons(
-            pair(rvalue(_10), rvalue(_20))
-          , Node::create(&zip_Info, rvalue(_11), rvalue(_21))
+            pair(_10.rvalue(), _20.rvalue())
+          , Node::create(&zip_Info, _11.rvalue(), _21.rvalue())
           );
         _0->forward_to(repl);
         return T_CONS;
