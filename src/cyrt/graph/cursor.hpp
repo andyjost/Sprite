@@ -79,6 +79,8 @@ namespace cyrt
     Variable(Node *, index_type, bool update_fwd_nodes=true); // indexing.cpp
     Variable operator[](index_type) const;
 
+    void update_escape_sets();
+
     operator Node *&() const { return target; }
     Node *& operator*() const { return target; }
     std::string str() const;

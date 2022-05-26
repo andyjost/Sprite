@@ -1,6 +1,8 @@
 #include "cyrt/graph/cursor.hpp"
 #include "cyrt/graph/node.hpp"
 #include "cyrt/graph/walk.hpp"
+#include "cyrt/inspect.hpp"
+#include "cyrt/state/rts.hpp"
 #include <limits>
 #include <sstream>
 
@@ -133,5 +135,13 @@ namespace cyrt
     show(ss, this->guards);
     ss << ", target: " << this->target.str(subst_freevars);
     return ss.str();
+  }
+
+  void Variable::update_escape_sets()
+  {
+    assert(this->target.kind == 'p' && this->target->info->tag == T_CHOICE);
+    auto cid = inspect::xget_choice_id(this->target);
+    for(auto * set: this->guards)
+      set->escape_set.insert(cid);
   }
 }

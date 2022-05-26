@@ -46,7 +46,10 @@ namespace cyrt
         case T_FWD     : compress_fwd_chain(C->root);
                          tag = inspect::tag_of(C->root);
                          goto redoD;
-        case T_CHOICE  : this->fork(Q, C);
+        case T_CHOICE  : if(this->choice_escapes(C, obj_id(C->root)))
+                           return Expr{C->root};
+                         else
+                           this->fork(Q, C);
                          continue;
         case T_FUNC    : tag = this->procS(C);
                          goto redoD;
@@ -83,7 +86,7 @@ namespace cyrt
       switch(tag)
       {
         case T_UNBOXED : continue;
-        case T_SETGRD  : assert(0); continue;
+        case T_SETGRD  : assert(0); continue; // Need to push Set * into scan state...
         case T_FAIL    : return root->make_failure();
         case T_CONSTR  : *root = this->lift_constraint(C, root, scan->cursor());
                          return inspect::tag_of(root);
@@ -143,7 +146,8 @@ namespace cyrt
                        tag = inspect::tag_of(inductive->target);
                        this->stepcount++;
                        continue;
-        case T_CHOICE: _0->forward_to(this->pull_tab(C, inductive));
+        case T_CHOICE: inductive->update_escape_sets(); // move this into pull_tab?
+                       _0->forward_to(this->pull_tab(C, inductive));
                        return T_FWD;
         case T_FUNC  : C->scan.push(inductive);
                        tag = this->procS(C);

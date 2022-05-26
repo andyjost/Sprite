@@ -1,8 +1,10 @@
 #include <algorithm>
 #include <boost/io/ios_state.hpp>
 #include <cassert>
+#include <cstdio>
 #include <ctype.h>
 #include "cyrt/builtins.hpp"
+#include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/graph/node.hpp"
 #include "cyrt/graph/show.hpp"
 #include "cyrt/graph/walk.hpp"
@@ -12,9 +14,6 @@
 #include <iostream>
 #include <unordered_map>
 #include <unordered_set>
-#include <cstdio>
-
-// #define SHOW_PART_APPLIC_DETAILS
 
 namespace
 {
@@ -178,10 +177,13 @@ namespace
 
     void show_name(std::ostream & os, InfoTable const * info)
     {
-      if(is_operator(*info))
-        os << '(' << info->name << ')';
-      else
-        os << info->name;
+      if(info)
+      {
+        if(is_operator(*info))
+          os << '(' << info->name << ')';
+        else
+          os << info->name;
+      }
     }
 
     void stringify(Cursor expr)
@@ -349,22 +351,27 @@ namespace
           case F_PARTIAL_TYPE:
           {
             auto const * partial = NodeU{cur}.partapplic;
-            #ifdef SHOW_PART_APPLIC_DETAILS
-            os << "!{" << partial->missing << ", ";
-            show_name(os, partial->head_info);
-            os << ", " << partial->terms->repr() << "}";
-            #else
-            if(partial->terms == Nil)
-              show_name(os, partial->head_info);
-            else
-            {
+            if(partial->is_encapsulated())
+              goto default_case;
+            if(!disallow_parens)
               os << '(';
-              show_name(os, partial->head_info);
-              walk.extend(Context('^'));
-              ++walk; // skip #missing
-              ++walk; // skip head_info
-            }
-            #endif
+            os << partial->info->name << ' '
+               << partial->missing << " {";
+            show_name(os, partial->head_info);
+            os << "} " << partial->terms->repr();
+            if(!disallow_parens)
+              os << ')';
+            // if(partial->terms == Nil)
+            //   show_name(os, partial->head_info);
+            // else
+            // {
+            //   os << '(';
+            //   show_name(os, partial->head_info);
+            //   walk.extend(Context('^'));
+            //   ++walk; // skip #missing
+            //   ++walk; // skip head_info
+            //   // ^^^ This is wrong -- the arguments are in reverse order.
+            // }
             continue;
           }
           case F_IO_TYPE:
@@ -387,6 +394,7 @@ namespace
             os << '"';
             continue;
           }
+          default_case:
           default:
             if(!disallow_parens && info->arity)
             {

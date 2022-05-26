@@ -85,7 +85,7 @@ namespace cyrt { inline namespace
         &PartialS_Info
       , partial->missing - 1
       , partial->head_info
-      , cons(partial->terms, arg)
+      , cons(arg, partial->terms)
       );
     _0->forward_to(replacement);
     return T_FWD;
@@ -162,7 +162,11 @@ namespace cyrt { inline namespace
     if(status != T_CTOR)
       return status;
     assert(_1.target->info == &PartApplic_Info);
-    _0->forward_to(_1.target);
+    PartApplicNode * partapplic = NodeU{_1.target}.partapplic;
+    Node * replacement = Node::create(
+        &PartialS_Info, partapplic->missing, partapplic->head_info, partapplic->terms
+      );
+    _0->forward_to(replacement);
     return T_FWD;
   }
 
@@ -264,7 +268,7 @@ extern "C"
       /*tag*/        T_CTOR
     , /*arity*/      3
     , /*alloc_size*/ sizeof(PartApplicNode)
-    , /*flags*/      /*F_PARTIAL_TYPE |*/ F_STATIC_OBJECT
+    , /*flags*/      F_PARTIAL_TYPE | F_STATIC_OBJECT
     , /*name*/       "PartialS"
     , /*format*/     "ixp"
     , /*step*/       nullptr

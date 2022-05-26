@@ -92,7 +92,7 @@ namespace cyrt { namespace inspect
 
   inline InfoTable const * info_of(Cursor cur)
   {
-    return cur.kind == 'p' ? info_of(cur) : nullptr;
+    return cur.kind == 'p' ? info_of(*cur) : nullptr;
   }
 
   inline tag_type tag_of(Node * node)
