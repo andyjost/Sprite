@@ -12,8 +12,10 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <list>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace
 {
@@ -112,18 +114,35 @@ namespace
     void show(void const * value) { this->os << value; }
   };
 
+  struct OStreamReverseAdaptor
+  {
+    std::stringstream ss;
+    std::vector<std::string> buffered;
+
+    void flush()
+    {
+      auto str = ss.str();
+      if(!str.empty())
+      {
+        buffered.push_back(str);
+        ss.str(""); // clear
+      }
+    }
+  };
+
   struct StrStringifier
   {
     StrStringifier(std::ostream & os, SubstFreevars subst_freevars, ShowMonitor * monitor)
-      : os(os), subst_freevars(subst_freevars), monitor(monitor)
+      : _os(&os), subst_freevars(subst_freevars), monitor(monitor)
     {}
 
-    std::ostream & os;
+    std::ostream * _os;
     SubstFreevars subst_freevars;
     ShowMonitor * monitor;
     std::unordered_map<xid_type, std::string> tr; // free variable translations
     int nextid = 0;
     std::unordered_multiset<void *> memo;
+    std::list<OStreamReverseAdaptor> ostream_adaptors;
     union Context
     {
       char value;
@@ -151,6 +170,37 @@ namespace
       operator void *() const { return this->p; }
     };
 
+    std::ostream & os()
+    {
+      if(this->ostream_adaptors.empty())
+        return *_os;
+      else
+        return this->ostream_adaptors.back().ss;
+    }
+
+    void push_reverse_order()
+    {
+      this->ostream_adaptors.emplace_back();
+    }
+
+    void flush_reverse_order()
+    {
+      assert(!this->ostream_adaptors.empty());
+      this->ostream_adaptors.back().flush();
+    }
+
+    void pop_reverse_order()
+    {
+      this->flush_reverse_order();
+      assert(!this->ostream_adaptors.empty());
+      auto strings = std::move(this->ostream_adaptors.back().buffered);
+      this->ostream_adaptors.pop_back();
+      auto & out = this->os();
+      size_t const N = strings.size();
+      for(size_t i=0; i<N; ++i)
+        out << ' ' << strings[N-i-1];
+    }
+
     static void callback(void * static_data, void * data, Walk2 const * walk)
     {
       auto self = (StrStringifier *)(static_data);
@@ -159,8 +209,8 @@ namespace
         case '(':
         case ')':
         case '>':
-        case '&': self->os << ')'; break;
-        case '[': self->os << ']'; break;
+        case '&': self->os() << ')'; break;
+        case '[': self->os() << ']'; break;
       }
       void * id = walk->cursor().id();
       if(id)
@@ -172,17 +222,17 @@ namespace
       }
 
       if(self->monitor)
-        self->monitor->exit(self->os, walk, Context(data).value);
+        self->monitor->exit(self->os(), walk, Context(data).value);
     }
 
-    void show_name(std::ostream & os, InfoTable const * info)
+    void show_name(InfoTable const * info)
     {
       if(info)
       {
         if(is_operator(*info))
-          os << '(' << info->name << ')';
+          this->os() << '(' << info->name << ')';
         else
-          os << info->name;
+          this->os() << info->name;
       }
     }
 
@@ -196,7 +246,7 @@ namespace
         this->memo.insert(id);
         if(cur.kind == 'p')
         {
-          if(this->memo.count(id) > 1 && cur->info->arity > 0)
+          if(this->memo.count(id) > 1 && cur->info->arity > 0 && cur->info->tag != T_FREE)
             cycle = true;
           else if(cur->info == &Fwd_Info)
           {
@@ -212,9 +262,9 @@ namespace
         {
           case '\0': disallow_parens = true; data = Context(' '); break;
           case ' ' :
-          case '&' : os << ' ';                                   break;
+          case '&' : this->os() << ' ';                           break;
           case '(' : disallow_parens = true; data = Context(')'); break;
-          case ')' : disallow_parens = true; os << ", ";          break;
+          case ')' : disallow_parens = true; this->os() << ", ";  break;
 
           // Bracketed list.
           case '[' : disallow_parens = true; data = Context(']'); break;
@@ -223,34 +273,34 @@ namespace
             disallow_parens = true;
             if(cur->info->tag == T_CONS)
             {
-              os << ", ";
+              this->os() << ", ";
               if(cycle)
               {
-                os << "...]";
+                this->os() << "...]";
                 continue;
               }
               walk.extend(Context('['));
             }
             else
-              os << ']';
+              this->os() << ']';
             continue;
 
           // Concat list.
           case '_' : data = Context('^'); break;
           case '^' :
             assert(is_list(*cur->info));
-            if(cycle)
+            if(!cycle && cur->info->tag == T_CONS)
             {
-              os << "...)";
-              continue;
-            }
-            else if(cur->info->tag == T_CONS)
-            {
-              os << ' ';
+              this->flush_reverse_order();
               walk.extend(Context('_'));
             }
             else
-              os << ')';
+            {
+              this->pop_reverse_order();
+              if(cycle)
+                this->os() << "...";
+              this->os() << ')';
+            }
             continue;
 
           // String.
@@ -261,7 +311,7 @@ namespace
             if(cur->info->tag == T_CONS)
               walk.extend(Context('"'));
             else
-              os << '"';
+              this->os() << '"';
             continue;
 
           // Cons list.
@@ -269,14 +319,14 @@ namespace
           case '<' : data = Context('>'); break;
           case '!' :
           case '>' :
-            os << ':';
+            this->os() << ':';
             if(is_list(*cur->info))
             {
               if(cycle)
               {
-                os << "...";
+                this->os() << "...";
                 if(Context(data).value == '>')
-                  os << ")";
+                  this->os() << ")";
                 continue;
               }
               else if(cur->info->tag == T_CONS)
@@ -285,7 +335,7 @@ namespace
                 walk.extend(next);
               }
               else
-                os << '[' << ']';
+                this->os() << '[' << ']';
               continue;
             }
             break;
@@ -293,12 +343,12 @@ namespace
 
         if(cycle)
         {
-          os << "...";
+          this->os() << "...";
           continue;
         }
 
         if(this->monitor)
-          this->monitor->enter(this->os, &walk, Context(data).value);
+          this->monitor->enter(this->os(), &walk, Context(data).value);
 
         switch(cur.kind)
         {
@@ -307,7 +357,7 @@ namespace
           case 'f': show(cur.arg->ub_float);
                     continue;
           case 'c': if(Context(data).value == 'c')
-                      show_escaped(this->os, cur.arg->ub_char, ESCAPE_DQ);
+                      show_escaped(this->os(), cur.arg->ub_char, ESCAPE_DQ);
                     else
                       show(cur.arg->ub_char);
                     continue;
@@ -326,13 +376,13 @@ namespace
             {
               auto label = this->next_label();
               tr[vid] = label;
-              os << label;
+              this->os() << label;
             }
             else
-              os << p->second;
+              this->os() << p->second;
           }
           else
-            os << '_' << vid;
+            this->os() << '_' << vid;
           continue;
         }
 
@@ -353,25 +403,31 @@ namespace
             auto const * partial = NodeU{cur}.partapplic;
             if(partial->is_encapsulated())
               goto default_case;
-            if(!disallow_parens)
-              os << '(';
-            os << partial->info->name << ' '
-               << partial->missing << " {";
-            show_name(os, partial->head_info);
-            os << "} " << partial->terms->repr();
-            if(!disallow_parens)
-              os << ')';
-            // if(partial->terms == Nil)
-            //   show_name(os, partial->head_info);
-            // else
-            // {
-            //   os << '(';
-            //   show_name(os, partial->head_info);
-            //   walk.extend(Context('^'));
-            //   ++walk; // skip #missing
-            //   ++walk; // skip head_info
-            //   // ^^^ This is wrong -- the arguments are in reverse order.
-            // }
+            if(partial->info == &PartialS_Info)
+            {
+              if(!disallow_parens)
+                os() << '(';
+              os() << partial->info->name << ' '
+                 << partial->missing << " {";
+              show_name(partial->head_info);
+              os() << "} " << partial->terms->repr();
+              if(!disallow_parens)
+                os() << ')';
+            }
+            else
+            {
+              if(partial->terms == Nil)
+                show_name(partial->head_info);
+              else
+              {
+                os() << '(';
+                show_name(partial->head_info);
+                this->push_reverse_order();
+                walk.extend(Context('^')); // TODO: disallow_parens
+                ++walk; // skip #missing
+                ++walk; // skip head_info
+              }
+            }
             continue;
           }
           case F_IO_TYPE:
@@ -383,28 +439,28 @@ namespace
             begin_list(walk, cur, disallow_parens);
             continue;
           case F_TUPLE_TYPE:
-            os << '(';
+            this->os() << '(';
             walk.extend(Context('('));
             continue;
           case F_CSTRING_TYPE:
           {
-            os << '"';
+            this->os() << '"';
             char const * p = NodeU{cur}.c_str->data;
-            while(*p) show_escaped(os, *p++, ESCAPE_DQ);
-            os << '"';
+            while(*p) show_escaped(this->os(), *p++, ESCAPE_DQ);
+            this->os() << '"';
             continue;
           }
           default_case:
           default:
             if(!disallow_parens && info->arity)
             {
-              os << '(';
-              this->show_name(os, info);
+              this->os() << '(';
+              this->show_name(info);
               walk.extend(Context('&'));
             }
             else
             {
-              this->show_name(os, info);
+              this->show_name(info);
               walk.extend(Context(' '));
             }
             continue;
@@ -415,30 +471,30 @@ namespace
     void show(unboxed_int_type value)
     {
       if(value < 0)
-        this->os << '(' << value << ')';
+        this->os() << '(' << value << ')';
       else
-        this->os << value;
+        this->os() << value;
     }
 
     void show(unboxed_float_type value)
     {
-      boost::io::ios_flags_saver raii(this->os);
-      this->os << std::showpoint << std::setprecision(FLOAT_PRECISION);
+      boost::io::ios_flags_saver raii(this->os());
+      this->os() << std::showpoint << std::setprecision(FLOAT_PRECISION);
       if(value < 0)
-        this->os << '(' << value << ')';
+        this->os() << '(' << value << ')';
       else
-        this->os << value;
+        this->os() << value;
     }
 
     void show(unboxed_char_type value)
     {
-      this->os << '\'';
-      show_escaped(this->os, value, ESCAPE_SQ);
-      this->os << '\'';
+      this->os() << '\'';
+      show_escaped(this->os(), value, ESCAPE_SQ);
+      this->os() << '\'';
     }
 
     void show(void const * value)
-      { this->os << value; }
+      { this->os() << value; }
 
     void begin_list(Walk2 & walk, Cursor cur, bool disallow_parens)
     {
@@ -463,12 +519,12 @@ namespace
       {
         if(is_string && !is_empty)
         {
-          this->os << '"';
+          this->os() << '"';
           walk.extend(Context('"'));
         }
         else
         {
-          this->os << '[';
+          this->os() << '[';
           walk.extend(Context('['));
         }
       }
@@ -478,7 +534,7 @@ namespace
           walk.extend(Context(':'));
         else
         {
-          this->os << '(';
+          this->os() << '(';
           walk.extend(Context('<'));
         }
       }
