@@ -18,7 +18,11 @@ namespace cyrt
   inline Arg::Arg(Variable const & value) : Arg(value.rvalue()) {}
 
   inline Variable Variable::operator[](index_type pos) const
-    { return Variable(this->target, pos); }
+  {
+    Variable tmp(this->target, pos);
+    tmp.guards.insert(tmp.guards.end(), this->guards.begin(), this->guards.end());
+    return tmp;
+  }
 
   inline Variable Cursor::operator[](index_type pos) const
     { return Variable(*this, pos); }

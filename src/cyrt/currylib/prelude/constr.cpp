@@ -71,6 +71,31 @@ namespace cyrt { inline namespace
     }
   }
 
+  // Recursively applies =:= or =:<= to ground terms.
+  static Node * _equate_rec(Cursor _0, index_type arity, Variable & lhs, Variable & rhs)
+  {
+    switch(typetag(*lhs.target->info))
+    {
+      case F_INT_TYPE:
+        return (NodeU{lhs.target}.int_->value == NodeU{rhs.target}.int_->value) ? True : False;
+      case F_CHAR_TYPE:
+        return (NodeU{lhs.target}.char_->value == NodeU{rhs.target}.char_->value) ? True : False;
+      case F_FLOAT_TYPE:
+        return (NodeU{lhs.target}.float_->value == NodeU{rhs.target}.float_->value) ? True : False;
+      default:
+      {
+        Node * result = Node::create(_0->info, lhs[0], rhs[0]);
+        for(index_type i=1; i<arity; ++i)
+          result = Node::create(
+              &concurrentAnd_Info
+            , result
+            , Node::create(_0->info, lhs[i], rhs[i])
+            );
+        return result;
+      }
+    }
+  }
+
   static xid_type vid(Variable const & var)
     { return inspect::xget_freevar_id(var.target); }
 
@@ -129,32 +154,8 @@ namespace cyrt { inline namespace
         _0->forward_to(True);
       else
       {
-        Node * result = nullptr;
-        switch(typetag(*lhs.target->info))
-        {
-          case F_INT_TYPE:
-            result = (NodeU{lhs.target}.int_->value == NodeU{rhs.target}.int_->value) ? True : False;
-            break;
-          case F_CHAR_TYPE:
-            result = (NodeU{lhs.target}.char_->value == NodeU{rhs.target}.char_->value) ? True : False;
-            break;
-          case F_FLOAT_TYPE:
-            result = (NodeU{lhs.target}.float_->value == NodeU{rhs.target}.float_->value) ? True : False;
-            break;
-          default:
-          {
-            Arg * lsuc = lhs.target->successors();
-            Arg * rsuc = rhs.target->successors();
-            result = Node::create(_0->info, lsuc[0], rsuc[0]);
-            for(index_type i=1; i<arity; ++i)
-              result = Node::create(
-                  &concurrentAnd_Info
-                , result
-                , Node::create(_0->info, lsuc[i], rsuc[i])
-                );
-          }
-        }
-        _0->forward_to(result);
+        Node * replacement = _equate_rec(_0, arity, lhs, rhs);
+        _0->forward_to(replacement);
       }
     }
     return T_FWD;
@@ -205,16 +206,8 @@ namespace cyrt { inline namespace
         _0->forward_to(True);
       else
       {
-        Arg * lsuc = lhs.target->successors();
-        Arg * rsuc = rhs.target->successors();
-        Node * tmp = Node::create(_0->info, lsuc[0], rsuc[0]);
-        for(index_type i=1; i<arity; ++i)
-          tmp = Node::create(
-              &concurrentAnd_Info
-            , tmp
-            , Node::create(_0->info, lsuc[i], rsuc[i])
-            );
-        _0->forward_to(tmp);
+        Node * replacement = _equate_rec(_0, arity, lhs, rhs);
+        _0->forward_to(replacement);
       }
     }
     return T_FWD;
