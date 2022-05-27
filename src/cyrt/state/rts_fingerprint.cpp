@@ -75,8 +75,8 @@ namespace cyrt
     assert(source != target);
     assert(target->info->tag == T_CHOICE);
     ChoiceNode * choice = NodeU{target}.choice;
-    Node * lhs = C->scan.copy_spine(source, choice->lhs);
-    Node * rhs = C->scan.copy_spine(source, choice->rhs);
+    Node * lhs = C->scan.copy_spine(source, choice->lhs, choice->cid);
+    Node * rhs = C->scan.copy_spine(source, choice->rhs, choice->cid);
     return make_node<ChoiceNode>(choice->cid, lhs, rhs);
   }
 

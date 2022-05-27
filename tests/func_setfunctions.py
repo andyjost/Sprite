@@ -8,7 +8,7 @@ class TestSetFunctions(cytest.FunctionalTestCase):
   DO_CLEAN = False
   COMPARISON_METHOD = cytest.FunctionalTestCase.assertSameResultSet
   if curry.flags['backend'] == 'cxx':
-    RUN_ONLY = ['basic0[0-4]']
+    RUN_ONLY = ['basic']
 
   if curry.flags['setfunction_strategy'] == 'eager':
     SKIP = ['free'] # Evaluation suspends.

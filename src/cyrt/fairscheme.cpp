@@ -86,7 +86,7 @@ namespace cyrt
       switch(tag)
       {
         case T_UNBOXED : continue;
-        case T_SETGRD  : assert(0); continue; // Need to push Set * into scan state...
+        case T_SETGRD  : scan->extend(); ++(*scan); continue;
         case T_FAIL    : return root->make_failure();
         case T_CONSTR  : *root = this->lift_constraint(C, root, scan->cursor());
                          return inspect::tag_of(root);

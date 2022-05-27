@@ -1,4 +1,5 @@
 #include "cyrt/graph/indexing.hpp"
+#include "cyrt/state/rts.hpp"
 #include "cyrt/state/scan.hpp"
 
 namespace cyrt
@@ -11,7 +12,7 @@ namespace cyrt
         return;
       switch(this->search.size())
       {
-        case 1:  this->search.pop_back();
+        case 1: this->search.pop_back();
         case 0: return;
       }
       Level & parent = *(this->search.end() - 2);
@@ -41,7 +42,7 @@ namespace cyrt
   }
 
   Node * Scan::copy_spine(
-      Node * root, Node * end, Cursor * target, size_t start
+      Node * root, Node * end, xid_type cid, Cursor * target, size_t start
     )
   {
     auto p = this->search.rbegin() + start;
@@ -49,6 +50,8 @@ namespace cyrt
     assert(p<=e);
     for(; p!=e; ++p)
     {
+      if(cid != NOXID && p->cur.kind == 'p' && p->cur->info->tag == T_SETGRD)
+        NodeU{p->cur}.setgrd->set->escape_set.insert(cid);
       Node * tmp = copy_node(*p->cur);
       *tmp->successor(p->index) = end;
       if(target)

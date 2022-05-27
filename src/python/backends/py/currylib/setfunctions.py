@@ -133,7 +133,3 @@ FUNCTION_METADATA = {
 class SetFunctionsSpecification(generic_setfunctions.SetFunctionsSpecification):
   FUNCTION_METADATA = FUNCTION_METADATA
 
-
-# for f in generic_setfunctions.FUNCTIONS:
-#   if f.name in METADATA:
-#     f.update_metadata(METADATA[f.name])

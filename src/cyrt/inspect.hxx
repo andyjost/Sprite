@@ -107,7 +107,8 @@ namespace cyrt { namespace inspect
       case 'p': return cur->info->tag;
       case 'i':
       case 'f':
-      case 'c': return T_UNBOXED;
+      case 'c':
+      case 'x': return T_UNBOXED;
       default: assert(0); __builtin_unreachable();
     }
   }

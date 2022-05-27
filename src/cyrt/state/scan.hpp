@@ -19,9 +19,10 @@ namespace cyrt
     void resize(size_t);
     void reset();
     Node * copy_spine(
-        Node * root, Node * end, Cursor * target=nullptr, size_t start=1
+        Node * root, Node * end, xid_type cid=NOXID
+      , Cursor * target=nullptr, size_t start=1
       );
-    Node * copy_spine(Node * root, Node * end, size_t start);
+    Node * copy_spine(Node * root, Node * end, xid_type cid, size_t start);
     struct Level
     {
       Cursor cur;

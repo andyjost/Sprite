@@ -41,8 +41,8 @@ namespace cyrt
   inline size_t Scan::size() const { return this->search.size(); }
   inline void Scan::resize(size_t n) { this->search.resize(n); }
 
-  inline Node * Scan::copy_spine(Node * root, Node * end, size_t start)
+  inline Node * Scan::copy_spine(Node * root, Node * end, xid_type cid, size_t start)
   {
-    return this->copy_spine(root, end, nullptr, start);
+    return this->copy_spine(root, end, cid, nullptr, start);
   }
 }
