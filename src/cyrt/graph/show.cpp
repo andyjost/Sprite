@@ -236,6 +236,29 @@ namespace
       }
     }
 
+    bool is_terminus(InfoTable const * info)
+    {
+      // Indicates whether to always show this type of node (as opposed to an
+      // elipsis) when a cycle occurs.
+      if(info->arity == 0)
+        return true;
+      switch(typetag(*info))
+      {
+        case F_INT_TYPE  :
+        case F_CHAR_TYPE :
+        case F_FLOAT_TYPE:
+        case F_BOOL_TYPE : return true;
+        default          : break;
+      }
+      switch(info->tag)
+      {
+        case T_FAIL   :
+        case T_FREE   :
+        case T_UNBOXED: return true;
+        default       : return false;
+      }
+    }
+
     void stringify(Cursor expr)
     {
       for(auto && walk=cyrt::walk(expr, this, &callback); walk; ++walk)
@@ -246,7 +269,7 @@ namespace
         this->memo.insert(id);
         if(cur.kind == 'p')
         {
-          if(this->memo.count(id) > 1 && cur->info->arity > 0 && cur->info->tag != T_FREE)
+          if(this->memo.count(id) > 1 && !this->is_terminus(cur->info))
             cycle = true;
           else if(cur->info == &Fwd_Info)
           {
