@@ -54,8 +54,10 @@ namespace cyrt { inline namespace
     // TODO: catch nondeterminism in IO
     Variable _2 = _0[1];
     tag = action(rts, C, &_2);
-    if(_2.target->info->tag < T_CTOR)
+    if(tag < T_UNBOXED)
       return tag;
+    if(tag < T_CTOR)
+      return rts->hnf(C, &_2);
     Node * replacement = Node::create(
         &apply_Info, _1.target, _2.target
       );
@@ -68,12 +70,12 @@ namespace cyrt { inline namespace
     auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
     {
       Cursor root = C->cursor();
-      C->scan.push(var);
     redo:
-      tag_type tag = rts->procN(C, root);
+      C->scan.push(var);
+      tag_type tag = rts->procN(C, var->target);
+      C->scan.pop();
       if(tag == E_RESTART)
         goto redo;
-      C->scan.pop();
       return tag;
     };
     return _applyspecial(rts, C, normalize);
