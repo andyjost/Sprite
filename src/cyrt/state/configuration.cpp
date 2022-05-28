@@ -67,7 +67,6 @@ namespace cyrt
     this->error = std::make_pair(error_object, msg);
   }
 
-
   void Configuration::raise_error()
   {
     auto & [error_obj, msg] = this->error;
@@ -75,5 +74,11 @@ namespace cyrt
       throw std::runtime_error("raise_error() called with no error set");
     else
       throw EvaluationError(msg);
+  }
+
+  void Configuration::add_residual(xid_type vid)
+  {
+    this->residuals.insert(vid);
+    this->residuals.insert(this->grp_id(vid));
   }
 }

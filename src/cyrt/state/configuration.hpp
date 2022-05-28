@@ -76,6 +76,8 @@ namespace cyrt
     void set_error(std::string const &);
     void set_error(Node *, std::string const &);
     void raise_error();
+
+    void add_residual(xid_type vid);
   };
 
   inline xid_type obj_id(Node * node) { return NodeU{node}.choice->cid; }

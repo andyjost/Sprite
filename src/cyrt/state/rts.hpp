@@ -82,6 +82,7 @@ namespace cyrt
     Expr make_value();
     bool ready();
     Expr release_value();
+    void rotate(Queue *);
     void set_goal(Node * goal);
 
     // rts_fingerprint:
@@ -110,6 +111,7 @@ namespace cyrt
         Configuration *, Cursor redex, Variable * inductive
       , void const * guides
       );
+    bool is_void(Configuration *, Node * freevar);
 
     // rts_setfunctions:
     void push_queue(Queue *, TraceOpt=TRACE);

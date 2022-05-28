@@ -5,6 +5,4 @@ import curry
 class TestResiduation(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/residuation/'
   SKIP = ['reslist02']
-  if curry.flags['backend'] == 'cxx':
-    SKIP += ['suslist']
 

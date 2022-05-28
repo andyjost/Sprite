@@ -1,4 +1,3 @@
-import abc, six
 
 class CompileError(BaseException):
   '''Raised when an error occurs while compiling Curry code.'''
@@ -36,7 +35,7 @@ class PrerequisiteError(IOError):
 
 ######
 # Evaluation Errors
-class EvaluationError(six.with_metaclass(abc.ABCMeta, BaseException)):
+class EvaluationError(BaseException):
   '''Signals an error raised from a Curry program.'''
   pass
 

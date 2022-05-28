@@ -50,6 +50,8 @@ namespace cyrt { inline namespace
     index_type i = 0;
     tag_type tag;
     size_t stepnumber;
+    Residuals residuals;
+    C->residuals.swap(residuals);
     while(true)
     {
       stepnumber = rts->stepcount;
@@ -59,13 +61,19 @@ namespace cyrt { inline namespace
       {
         case E_RESIDUAL: errs[i] = true;
                          if(errs[1-i] && rts->stepcount == stepnumber)
+                         {
+                           C->residuals.merge(residuals);
                            return E_RESIDUAL;
+                         }
                          break;
-        case T_TRUE    : _0->forward_to(_0->successor(1-i));
+        case T_TRUE    : C->residuals.swap(residuals);
+                         _0->forward_to(_0->successor(1-i));
                          return T_FWD;
-        case T_FALSE   : _0->forward_to(False);
+        case T_FALSE   : C->residuals.swap(residuals);
+                         _0->forward_to(False);
                          return T_FWD;
-        default        : return tag;
+        default        : C->residuals.swap(residuals);
+                         return tag;
       }
       i ^= index_type(1);
     }

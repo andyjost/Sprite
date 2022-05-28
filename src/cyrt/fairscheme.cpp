@@ -53,10 +53,10 @@ namespace cyrt
                          continue;
         case T_FUNC    : tag = this->procS(C);
                          goto redoD;
+        case E_ERROR   : C->raise_error();
+        case E_RESIDUAL: this->rotate(Q); continue;
         case E_RESTART : tag = inspect::tag_of(C->root);
                          goto redoD;
-        case E_RESIDUAL: assert(0); continue;
-        case E_ERROR   : C->raise_error();
         default        : TRACE_STEP_ENTER(C->root)
                          tag = this->procN(C, C->root);
                          TRACE_STEP_EXIT(C->root)
@@ -107,8 +107,9 @@ namespace cyrt
                          #endif
                          scan->resize(ret);
                          goto redoN;
-        case E_RESTART : return E_RESTART;
-        case E_RESIDUAL: assert(0); continue;
+        case E_ERROR   :
+        case E_RESIDUAL:
+        case E_RESTART : return tag;
         default        :
           if(!is_partial(*scan->cursor()->info))
             scan->extend();

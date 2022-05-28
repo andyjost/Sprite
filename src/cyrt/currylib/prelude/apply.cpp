@@ -69,7 +69,6 @@ namespace cyrt { inline namespace
   {
     auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
     {
-      Cursor root = C->cursor();
     redo:
       C->scan.push(var);
       tag_type tag = rts->procN(C, var->target);
@@ -85,7 +84,7 @@ namespace cyrt { inline namespace
   {
     Cursor _0 = C->cursor();
     auto rv = applynf_step(rts, C);
-    std::unordered_set<xid_type> unbound;
+    Residuals unbound;
     auto node_visitor = visit_unique(_0);
     while(Node * node = node_visitor.next())
     {
@@ -93,8 +92,11 @@ namespace cyrt { inline namespace
         unbound.insert(obj_id(node));
     }
     if(!unbound.empty())
-      // FIXME: return unbound set
+    {
+      for(auto vid: unbound)
+        C->add_residual(vid);
       return E_RESIDUAL;
+    }
     else
       return rv;
   }
@@ -113,16 +115,14 @@ namespace cyrt { inline namespace
     auto tag = rts->hnf_or_free(C, &_1);
     if(tag < T_CTOR)
     {
-      if(tag == T_FREE)
+      if(tag == T_FREE && rts->is_void(C, _1.target))
       {
-        if(!has_generator(_1.target))
-        {
-          xid_type gid = C->grp_id(obj_id(_1.target));
-          if(!C->has_binding(gid) && !rts->is_narrowed(C, gid))
-            return E_RESIDUAL; // TODO verify this
-        }
+        xid_type vid = obj_id(_1.target);
+        C->add_residual(vid);
+        return E_RESIDUAL;
       }
-      return tag;
+      else
+        return tag;
     }
     else
     {

@@ -7,8 +7,3 @@ class TestMath(cytest.FunctionalTestCase):
   CLEAN_KWDS = {
       'floatmath|sort03': {'standardize_floats': True}
     }
-  # There seems to be some problem with the way symbols are loaded from Data/List.
-  # Running with SPRITE_FORCE_RECOMPILE_CXX=1 the tests pass, but without that there are
-  # linker errors.
-  if curry.flags['backend'] == 'cxx':
-    SKIP = 'sort'

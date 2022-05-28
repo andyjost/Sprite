@@ -19,12 +19,13 @@ namespace cyrt
 
     Set * set;
 
+    using queue_type::begin;
+    using queue_type::empty;
+    using queue_type::end;
     using queue_type::front;
     using queue_type::pop_front;
-    using queue_type::empty;
     using queue_type::resize;
-    using queue_type::begin;
-    using queue_type::end;
+    using queue_type::size;
 
     void push_back(Configuration * C)
 		{

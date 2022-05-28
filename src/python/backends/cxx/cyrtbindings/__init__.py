@@ -1,14 +1,11 @@
 '''Python bindings for libcyrt.so.'''
 from ._cyrtbindings import *
 from ...generic.eval import trace
-from . import fingerprint
-from ... import Node as _backends_Node
-from ... import InfoTable as _backends_InfoTable
-import logging
-
 from .... import exceptions
-exceptions.EvaluationError.register(EvaluationError)
-exceptions.EvaluationSuspended.register(EvaluationSuspended)
+from . import fingerprint
+from ... import InfoTable as _backends_InfoTable
+from ... import Node as _backends_Node
+import logging
 
 logger = logging.getLogger(__name__)
 _backends_Node.register(Node)
@@ -36,9 +33,16 @@ class RuntimeState(RuntimeStateBase):
     RuntimeStateBase.__init__(self, istate, goal, self.tracing, self.setfunction_strategy)
 
   def generate_values(self):
-    while True:
-      result = self.next()
-      if result is None:
-        return
-      yield result
+    try:
+      while True:
+        result = self.next()
+        if result is None:
+          return
+        yield result
+    except EvaluationError as err:
+      raise exceptions.EvaluationError(str(err))
+    except EvaluationSuspended:
+      raise exceptions.EvaluationSuspended()
+    except:
+      raise RuntimeError("Unknown error")
 

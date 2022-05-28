@@ -74,7 +74,11 @@ namespace cyrt
         return slot->info->tag;
       }
       else
+      {
+        auto vid = obj_id(inductive->target);
+        C->add_residual(vid);
         return E_RESIDUAL;
+      }
     }
     else
     {
@@ -175,7 +179,11 @@ namespace cyrt
   {
     ValueSet const * values = (ValueSet const *) guides;
     if(!values || values->size == 0)
+    {
+      auto const vid = obj_id(inductive->target);
+      C->add_residual(vid);
       return E_RESIDUAL;
+    }
     else
     {
       Node * genexpr = _make_generator(this, inductive->target, values);
@@ -183,6 +191,20 @@ namespace cyrt
       assert(genexpr->info->tag == T_CHOICE);
       return T_CHOICE;
     }
+  }
+
+  bool RuntimeState::is_void(Configuration * C, Node * freevar)
+  {
+    assert(freevar);
+    assert(freevar->info->tag == T_FREE);
+    if(!has_generator(freevar))
+    {
+      xid_type vid = obj_id(freevar);
+      xid_type gid = C->grp_id(vid);
+      if(!C->has_binding(gid) && !this->is_narrowed(C, gid))
+        return true;
+    }
+    return false;
   }
 }
 

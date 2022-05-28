@@ -1,3 +1,4 @@
+#include "cyrt/exceptions.hpp"
 #include "cyrt/fingerprint.hpp"
 #include "cyrt/state/rts.hpp"
 
@@ -23,9 +24,42 @@ namespace cyrt
     return copy_graph(this->E(), SKIPFWD, this->S());
   }
 
+  static bool _make_ready(RuntimeState * rts, Configuration * C)
+  {
+    if(C->residuals.empty())
+      return true;
+    Residuals remaining;
+    for(auto vid: C->residuals)
+    {
+      Node * var = rts->vtable[vid];
+      if(rts->is_void(C, var))
+        remaining.insert(vid);
+    }
+    if(remaining.size() < C->residuals.size())
+    {
+      C->residuals.swap(remaining);
+      return true;
+    }
+    else
+      return false;
+  }
+
   bool RuntimeState::ready()
   {
-    return !this->Q()->empty();
+    Queue * Q = this->Q();
+    size_t const N = Q->size();
+    if(!N)
+      return false;
+    Configuration * C = nullptr;
+    for(size_t i=0; i<N; ++i)
+    {
+      C = Q->front();
+      if(_make_ready(this, C))
+        return true;
+      else
+        this->rotate(Q);
+    }
+    throw EvaluationSuspended("");
   }
 
   Expr RuntimeState::release_value()
@@ -36,6 +70,16 @@ namespace cyrt
     #endif
     this->drop(NOTRACE);
     return value;
+  }
+
+  void RuntimeState::rotate(Queue * Q)
+  {
+    assert(Q);
+    if(Q->size() > 1)
+    {
+      Q->push_back(Q->front());
+      Q->pop_front();
+    }
   }
 
   void RuntimeState::set_goal(Node * goal)
