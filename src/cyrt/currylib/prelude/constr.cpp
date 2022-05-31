@@ -85,11 +85,11 @@ namespace cyrt { inline namespace
     switch(typetag(*lhs.target->info))
     {
       case F_INT_TYPE:
-        return (NodeU{lhs.target}.int_->value == NodeU{rhs.target}.int_->value) ? True : False;
+        return (NodeU{lhs.target}.int_->value == NodeU{rhs.target}.int_->value) ? True : Fail;
       case F_CHAR_TYPE:
-        return (NodeU{lhs.target}.char_->value == NodeU{rhs.target}.char_->value) ? True : False;
+        return (NodeU{lhs.target}.char_->value == NodeU{rhs.target}.char_->value) ? True : Fail;
       case F_FLOAT_TYPE:
-        return (NodeU{lhs.target}.float_->value == NodeU{rhs.target}.float_->value) ? True : False;
+        return (NodeU{lhs.target}.float_->value == NodeU{rhs.target}.float_->value) ? True : Fail;
       default:
       {
         Node * result = Node::create(_0->info, lhs[0], rhs[0]);

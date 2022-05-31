@@ -74,9 +74,6 @@ def constrain_equal(
       if not rts.equate_fp(i, j, config=config):
         return False
       config.strict_constraints.write.unite(i, j)
-      # for sid in arg0.guards.union(arg1.guards):
-      #   rts.update_escape_set(sid, i)
-      #   rts.update_escape_set(sid, j)
       rts.update_binding(i, config=config)
       rts.update_binding(j, config=config)
       if any(map(inspect.isa_freevar, [arg0, arg1])):

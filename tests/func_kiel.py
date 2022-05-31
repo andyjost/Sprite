@@ -10,9 +10,7 @@ class TestKiel(cytest.FunctionalTestCase):
   CLEAN_KWDS = {
       'diamond': {'keep_empty_lines': True, 'keep_spacing': True, 'sort_lines': False}
     }
-
   if curry.flags['backend'] == 'cxx':
     SKIP = [
         'account'   # crash
-      , 'digit'     # suspends
       ]
