@@ -115,20 +115,17 @@ namespace cyrt { inline namespace
     auto tag = rts->hnf_or_free(C, &_1);
     if(tag < T_CTOR)
     {
-      if(tag == T_FREE && rts->is_void(C, _1.target))
+      if(tag != T_FREE)
+        return tag;
+      if(rts->is_void(C, _1.target))
       {
         xid_type vid = obj_id(_1.target);
         C->add_residual(vid);
         return E_RESIDUAL;
       }
-      else
-        return tag;
     }
-    else
-    {
-      _0->forward_to(_1);
-      return T_FWD;
-    }
+    _0->forward_to(_1);
+    return T_FWD;
   }
 }}
 
