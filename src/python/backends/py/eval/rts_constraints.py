@@ -68,7 +68,6 @@ def constrain_equal(
   '''
   rts.telemetry._eqconstr += 1
   config = config or rts.C
-  # arg0, arg1 = [rts.variable(arg, ()) for arg in [arg0, arg1]]
   i, j = [rts.obj_id(arg, config) for arg in [arg0, arg1]]
   if i != j:
     if constraint_type == STRICT_CONSTRAINT:
