@@ -6,6 +6,7 @@ namespace cyrt { namespace inspect
   bool isa_setguard(Node *);
   bool isa_choice(Node *);
   bool isa_freevar(Cursor);
+  bool is_nondet(Node *);
   bool is_nondet(Cursor);
   Cursor fwd_target(Cursor);
   Cursor fwd_chain_target(Cursor);

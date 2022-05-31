@@ -18,6 +18,16 @@ namespace cyrt { namespace inspect
     return tag_of(arg) == T_FREE;
   }
 
+  inline bool is_nondet(Node * arg)
+  {
+    switch(tag_of(arg))
+    {
+      case T_CHOICE:
+      case T_FREE  : return true;
+      default      : return false;
+    }
+  }
+
   inline bool is_nondet(Cursor arg)
   {
     switch(tag_of(arg))

@@ -6,6 +6,3 @@ class TestSmap(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/smap/'
   SKIP = ['flight_itinerary']
 
-  if curry.flags['backend'] == 'cxx':
-    SKIP += ['queens']
-

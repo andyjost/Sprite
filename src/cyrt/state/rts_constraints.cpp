@@ -20,9 +20,9 @@ namespace cyrt
       Configuration * C, Node * x, Node * y, ConstraintType ctype
     )
   {
-    assert(x->info->tag == T_FREE);
+    assert(inspect::is_nondet(x));
     xid_type const i = obj_id(x);
-    xid_type const j = y->info->tag == T_FREE ? obj_id(y) : NOXID;
+    xid_type const j = inspect::is_nondet(y) ? obj_id(y) : NOXID;
     if(i != j)
     {
       if(ctype == STRICT_CONSTRAINT)

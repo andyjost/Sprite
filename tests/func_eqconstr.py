@@ -9,6 +9,4 @@ class TestEqConstr(cytest.FunctionalTestCase):
   CLEAN_KWDS = {
       'fprog': {'standardize_floats': True}
     }
-  if curry.flags['backend'] == 'cxx':
-    SKIP = ['iprog06|prog01|prog03|prog09|prog10$|prog11$']
 
