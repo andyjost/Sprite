@@ -1,5 +1,6 @@
 '''Tests running the Kiel code examples.'''
 import cytest # from ./lib; must be first
+import curry
 
 class TestKiel(cytest.FunctionalTestCase):
   SOURCE_DIR = 'data/curry/kiel/'
@@ -9,5 +10,9 @@ class TestKiel(cytest.FunctionalTestCase):
   CLEAN_KWDS = {
       'diamond': {'keep_empty_lines': True, 'keep_spacing': True, 'sort_lines': False}
     }
-  # RUN_ONLY = []
-  # SKIP = []
+
+  if curry.flags['backend'] == 'cxx':
+    SKIP = [
+        'account'   # crash
+      , 'digit'     # suspends
+      ]

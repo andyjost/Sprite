@@ -159,8 +159,10 @@ namespace
       //     '!'     bare cons list spine
       //     '<'     parenthisized cons list item
       //     '>'     parenthisized cons list spine
-      //     '_'     concat list item
-      //     '^'     concat list spine
+      //     '-'     bare concat list item
+      //     'v'     bare concat list spine
+      //     '_'     parenthesized concat list item
+      //     '^'     parenthesized concat list spine
       //     '"'     string item
       //     '`'     string spine
       //     'c'     char appearing in a double-quoted string
@@ -310,7 +312,9 @@ namespace
 
           // Concat list.
           case '_' : data = Context('^'); break;
+          case '-' : data = Context('v'); break;
           case '^' :
+          case 'v' :
             assert(is_list(*cur->info));
             if(!cycle && cur->info->tag == T_CONS)
             {
@@ -322,7 +326,8 @@ namespace
               this->pop_reverse_order();
               if(cycle)
                 this->os() << "...";
-              this->os() << ')';
+              if(Context(data).value == '^')
+                this->os() << ')';
             }
             continue;
 
@@ -439,14 +444,18 @@ namespace
             }
             else
             {
+              if(!disallow_parens)
+                os() << '(';
+              show_name(partial->head_info);
               if(partial->terms == Nil)
-                show_name(partial->head_info);
+              {
+                if(!disallow_parens)
+                  os() << ')';
+              }
               else
               {
-                os() << '(';
-                show_name(partial->head_info);
                 this->push_reverse_order();
-                walk.extend(Context('^')); // TODO: disallow_parens
+                walk.extend(Context(disallow_parens ? 'v' : '^'));
                 ++walk; // skip #missing
                 ++walk; // skip head_info
               }
