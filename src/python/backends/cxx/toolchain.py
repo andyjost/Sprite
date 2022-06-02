@@ -51,9 +51,9 @@ class Cpp2So(object):
     h = getHandle(module)
     sofilename = h.sofilename
     if sofilename is None:
-        raise exceptions.PrerequisiteError(
-            'No .so filename for module %r' % h.fullname
-          )
+      raise exceptions.PrerequisiteError(
+          'No .so filename for module %r' % h.fullname
+        )
     return sofilename
 
   def _dependencies(self, file_in):

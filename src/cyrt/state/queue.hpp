@@ -28,9 +28,15 @@ namespace cyrt
     using queue_type::size;
 
     void push_back(Configuration * C)
-		{
-			if(C)
-				this->queue_type::push_back(C);
-		}
+    {
+      if(C)
+        this->queue_type::push_back(C);
+    }
+
+    void push_front(Configuration * C)
+    {
+      if(C)
+        this->queue_type::push_front(C);
+    }
   };
 }

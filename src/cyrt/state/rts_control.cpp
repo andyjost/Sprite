@@ -9,6 +9,11 @@ namespace cyrt
     this->Q()->push_back(config);
   }
 
+  void RuntimeState::prepend(Configuration * config)
+  {
+    this->Q()->push_front(config);
+  }
+
   void RuntimeState::drop(TraceOpt trace)
   {
     #ifdef SPRITE_TRACE_ENABLED
@@ -85,7 +90,7 @@ namespace cyrt
   void RuntimeState::set_goal(Node * goal)
   {
     auto config = Configuration::create(goal);
-    this->append(config.get());
+    this->prepend(config.get());
     config.release();
   }
 }

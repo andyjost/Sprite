@@ -30,6 +30,13 @@ namespace
       return node;
   }
 
+  void InfoTable_step(InfoTable * info, RuntimeState * rts, Node * root)
+  {
+    rts->set_goal(root);
+    info->step(rts, rts->C());
+    rts->drop();
+  }
+
   template<typename T>
   struct ByValueHolder
   {
@@ -90,6 +97,7 @@ namespace cyrt { namespace python
       .def_property_readonly("is_monadic", &is_monadic)
       .def_property_readonly("is_operator", &is_operator)
       .def("__repr__", &InfoTable::repr)
+      .def("step", &InfoTable_step)
       ;
 
     // Fundamental symbols.

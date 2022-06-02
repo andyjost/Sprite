@@ -1,15 +1,16 @@
 from .. import config
 from . import makecurry, loadjson
+from ..objects import handle
 from ..toolchain import plans
 from ..utility import filesys
 from ..utility import filesys, formatDocstring
 import logging, os, shutil, tempfile, weakref
 
-__all__ = ['str2icurry']
+__all__ = ['str2module']
 logger = logging.getLogger(__name__)
 
 @formatDocstring(config.python_package_name())
-def str2icurry(
+def str2module(
     interp
   , moduletext
   , currypath=None
@@ -18,7 +19,12 @@ def str2icurry(
   , postmortem=False
   ):
   '''
-  Compile a string into ICurry.
+  Load a Curry module from a string.
+
+  This generates new Curry code in a temporary directory.  The ICurry object
+  stores the name of that directory in the 'all.tmpd' metadata.  A hook is
+  created to delete the temporary directory when the ICurry object is
+  destroyed.
 
   Args:
     interp:
@@ -37,7 +43,7 @@ def str2icurry(
         failure.
 
   Returns:
-    The ICurry object.  The attributes __file__ and _tmpd_ will be set.
+    A pair of the imported module and ICurry object.
   '''
   if keep_temp_files and isinstance(keep_temp_files, str):
     parentdir = filesys.getdir(keep_temp_files)
@@ -49,20 +55,18 @@ def str2icurry(
     curryfile = os.path.join(moduledir, modulename + '.curry')
     with open(curryfile, 'w') as ostream:
       ostream.write(moduletext)
-    plan = plans.makeplan(
-        interp
-      , flags=plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
-      )
-    jsonfile = makecurry(plan, curryfile, currypath, is_sourcefile=True)
-    icur = loadjson(jsonfile)
+    moduleobj = interp.import_(modulename, currypath=[moduledir] + currypath)
+    moduleobj.__file__ = curryfile
+    h = handle.Handle(moduleobj)
+    icur = h.icurry
     icur.__file__ = curryfile
-    icur._tmpd_ = moduledir
+    icur.update_metadata({'all.tmpd': moduledir})
     if not keep_temp_files:
       if hasattr(weakref, 'finalize'):
         icur._finalizer_ = weakref.finalize(icur, _rmdir, moduledir)
       else:
         icur.__del__ = lambda self: _rmdir(moduledir)
-    return icur
+    return moduleobj, icur
   except:
     if postmortem:
       dst = os.path.basename(moduledir)

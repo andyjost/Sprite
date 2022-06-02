@@ -15,7 +15,7 @@ def make_node(info, *args, **kwds):
   info = getattr(info, 'info', info)
   partial_info = kwds.pop('partial_info', None)
   target = kwds.pop('target', None)
-  target = getattr(target, 'target', target) # accept target=Variable
+  target = getattr(target, 'target', target)
   args = [Arg(arg) for arg in args]
   return Node.create(info, args, target, bool(partial_info))
 
@@ -43,6 +43,4 @@ class RuntimeState(RuntimeStateBase):
       raise exceptions.EvaluationError(str(err))
     except EvaluationSuspended:
       raise exceptions.EvaluationSuspended()
-    except:
-      raise RuntimeError("Unknown error")
 

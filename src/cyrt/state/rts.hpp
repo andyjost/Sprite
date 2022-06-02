@@ -78,6 +78,7 @@ namespace cyrt
 
     // rts_control:
     void append(Configuration *);
+    void prepend(Configuration *);
     void drop(TraceOpt=TRACE);
     Expr make_value();
     bool ready();
