@@ -5,6 +5,7 @@ from six.moves import cStringIO as StringIO
 import curry, os, unittest
 import cytest
 
+@unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
 class TestPyIO(cytest.TestCase):
   MONADIC_PAKCS_3_3_0 = [
         'appendFile', 'prim_appendFile', 'prim_ioError', 'prim_putChar', 'prim_readFile'

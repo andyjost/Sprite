@@ -1,6 +1,7 @@
 import cytest # from ./lib; must be first
 from curry.backends.cxx import cyrtbindings as cyrt
 from curry import common
+import unittest
 
 class TestCxxRuntime(cytest.TestCase):
   def testModuleCreation(self):

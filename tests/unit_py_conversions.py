@@ -174,6 +174,7 @@ class TestPyConversions(cytest.TestCase):
   def testUnboxedExpr(self):
     self.assertIs(curry.raw_expr(curry.unboxed(0)), 0)
 
+  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
   def testNestedUnboxed(self):
     t1 = curry.raw_expr((0, 1))
     t2 = curry.raw_expr((0, curry.unboxed(1)))

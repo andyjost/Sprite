@@ -73,6 +73,7 @@ class TestPrelude(cytest.TestCase):
     T,F = curry.symbol('Prelude.True'), curry.symbol('Prelude.False')
     self.assertEqual(e2s([Cons, T, [Cons, F, Nil]]), '[True, False]')
 
+  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
   def testLitParsers(self):
     eval_ = lambda e: next(curry.eval(e, converter=None))
     sym = lambda s: curry.symbol('Prelude.' + s)
@@ -108,6 +109,7 @@ class TestPrelude(cytest.TestCase):
       , curry.raw_expr([('\\ \' " \b \f \n \r \t \v', "")])
       )
 
+  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
   def testLitParsersBad(self):
     # The primitive read functions are over-specified in the Prelude.  They are
     # always matched against [(a, "")].  Upon a parse failure, a proper
@@ -224,6 +226,7 @@ class TestPrelude(cytest.TestCase):
     e = curry.raw_expr(self.constrEq, lhs, rhs)
     self.assertRaises(type, lambda: next(curry.eval(e)))
 
+  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
   @cytest.with_flags(defaultconverter='topython')
   def testEquationalConstraint(self):
     interp = curry.getInterpreter()
