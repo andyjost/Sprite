@@ -3,8 +3,9 @@ Functions for parsing literals.
 '''
 # FIXME: the functions in this module may not handle set guards properly.
 
-from ..... import inspect
 from ... import graph
+from ..... import inspect
+from . import string
 import six
 
 __all__ = [
@@ -160,7 +161,7 @@ def readStringLiteral(rts, s):
     yield rts.prelude.Cons
     yield graph.Node(
         rts.prelude.Pair
-      , rts.expr(''.join(s_out))
+      , string.pystring(rts, ''.join(s_out))
       , s
       )
     yield graph.Node(rts.prelude.Nil)

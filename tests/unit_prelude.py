@@ -73,7 +73,6 @@ class TestPrelude(cytest.TestCase):
     T,F = curry.symbol('Prelude.True'), curry.symbol('Prelude.False')
     self.assertEqual(e2s([Cons, T, [Cons, F, Nil]]), '[True, False]')
 
-  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
   def testLitParsers(self):
     eval_ = lambda e: next(curry.eval(e, converter=None))
     sym = lambda s: curry.symbol('Prelude.' + s)
@@ -103,7 +102,7 @@ class TestPrelude(cytest.TestCase):
     self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\x41'"]), curry.raw_expr([('A', "")]))
     self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\65'"]), curry.raw_expr([('A', "")]))
     # String
-    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"A"''']), curry.raw_expr([('A', "")]))
+    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"A"''']), curry.raw_expr([(['A'], "")]))
     self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\x41\\66"''']), curry.raw_expr([('AB', "")]))
     self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\\\ \\' \\" \\b \\f \\n \\r \\t \\v"'''])
       , curry.raw_expr([('\\ \' " \b \f \n \r \t \v', "")])
@@ -186,6 +185,7 @@ class TestPrelude(cytest.TestCase):
     chr_ = curry.symbol('Prelude.chr')
     self.assertEqual(list(curry.eval(chr_, 65)), ['A'])
 
+  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
   def test_apply_nf(self):
     '''Test the $!! operator.'''
     # Ensure the RHS argument is normalized before the function is applied.
