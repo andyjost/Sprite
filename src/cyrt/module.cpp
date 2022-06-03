@@ -82,7 +82,11 @@ namespace cyrt
   {
     if(shlib)
     {
-      this->clear();
+      if(this->impl->shlib)
+      {
+        assert(this->impl->shlib->bom() == shlib->bom());
+        return;
+      }
       this->impl->shlib = shlib;
       for(auto && typedef_: shlib->info()->bom->types)
       {
@@ -148,6 +152,7 @@ namespace cyrt
       format[i] = 'p';
     format[i] = '\0';
     assert(&format[i+1] == mem.get() + bytes);
+    assert(this->impl->symbols.count(name) == 0);
     this->impl->symbols[name] = (InfoTable const *) mem.release();
     return info;
   }
