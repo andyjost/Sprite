@@ -221,45 +221,37 @@ class TestPrelude(cytest.TestCase):
     e = curry.raw_expr(self.constrEq, lhs, rhs)
     self.assertEqual(list(curry.eval(e)), [])
 
-  def checkError(self, lhs, rhs, type=curry.InstantiationError):
-    e = curry.raw_expr(self.constrEq, lhs, rhs)
-    self.assertRaises(type, lambda: next(curry.eval(e)))
-
-  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
   @cytest.with_flags(defaultconverter='topython')
   def testEquationalConstraint(self):
     interp = curry.getInterpreter()
-    unboxed = curry.unboxed
     # Note: a type dictionary is needed to call Prelude.unknown, but the type
     # is irrelevant for these tests.
     inst_unit = curry.symbol('Prelude._inst#Prelude.Data#()')
     unknown = curry.raw_expr([interp.prelude.unknown, inst_unit])
 
     # First, test with no free variable constraints.
-    # unboxed <=> unboxed
-    self.checkSatisfied(unboxed(1), unboxed(1))
-    self.checkUnsatisfied(unboxed(0), unboxed(1))
-    # unboxed <=> free
-    self.checkError(unboxed(1), unknown)
-    # unboxed <=> ctor
-    self.checkError(unboxed(0), 0)
-    self.checkError(unboxed(0), 1)
-    # free <=> unboxed
-    self.checkError(unknown, unboxed(0))
-    # ctor <=> unboxed
-    self.checkError(0, unboxed(0))
-    self.checkError(1, unboxed(0))
+    # builtin <=> builtin
+    self.checkSatisfied(1, 1)
+    self.checkUnsatisfied(0, 1)
     # ctor <=> ctor
     self.checkSatisfied([], [])
     self.checkSatisfied([0], [0])
     self.checkSatisfied([0,1], [0,1])
+    self.checkSatisfied((0,1), (0,1))
     self.checkUnsatisfied([], [1])
     self.checkUnsatisfied([0], [1])
     self.checkUnsatisfied([0], [0,1])
+    self.checkUnsatisfied((0,0), (0,1))
 
     # Now, test with free variable constraints.
     # free <=> free
     self.checkSatisfied(unknown, unknown)
 
+    # builtin <=> free
+    self.checkSatisfied(1, unknown)
+    # free <=> builtin
+    self.checkSatisfied(unknown, 0)
+
     # ctor <=> free
     self.checkSatisfied([], unknown)
+
