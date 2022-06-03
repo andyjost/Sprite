@@ -218,6 +218,8 @@ def _parseEscapeCode(rts, s):
     return ESCAPE_CODES[c], s
   elif c == 'x': # hex escape code
     return _parseHexChar(rts, s)
+  elif c == 'o': # octal escape code
+    return _parseOctChar(rts, s)
   elif c.isdigit(): # decimal escape code
     return _parseDecChar(rts, s, [c])
   else:
@@ -240,5 +242,24 @@ def _parseHexChar(rts, s, digits=None):
       raise ParseError()
     else:
       return six.unichr(int(''.join(digits), 16)), s_prev
+    s_prev = s
+
+OCTDIGITS = set('01234567')
+
+def _parseOctChar(rts, s, digits=None):
+  '''
+  Parses a string of octal digits.  Returns the corresponding character
+  and string tail.
+  '''
+  digits = digits or []
+  s_prev = s
+  while True:
+    c, s = _getchar(rts, s_prev)
+    if c in OCTDIGITS:
+      digits.append(c)
+    elif not digits:
+      raise ParseError()
+    else:
+      return six.unichr(int(''.join(digits), 8)), s_prev
     s_prev = s
 

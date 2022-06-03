@@ -43,24 +43,53 @@ goal14 = read ".1"
 goal15 :: Float
 goal15 = read ".1."
 
-goal16 :: [Float]
-goal16 = [
-    read "123",
-    read "-1",
-    read "9223372036854775807",
-    read "-9223372036854775808",
-    read "0.123",
-    read "+0.123",
-    read "-0.123",
-    read ".123",
-    read "+.123",
-    read "-.123",
-    read "0.",
-    read "0.0",
-    read "12.",
-    read "+12.",
-    read "-12.",
-    read "12.34",
-    read "+12.34",
-    read "-12.34"
-  ]
+goal16 :: Float
+goal16 = read "123"
+
+goal17 :: Float
+goal17 = read "9223372036854775807"
+
+goal18 :: Float
+goal18 = read "-100"
+
+goal19 :: Float
+goal19 = read "0.123"
+
+goal20 :: Float
+goal20 = read "+0.123"
+
+goal21 :: Float
+goal21 = read "-0.123"
+
+goal22 :: Float
+goal22 = read ".123"
+
+goal23 :: Float
+goal23 = read "+.123"
+
+goal24 :: Float
+goal24 = read "-.123"
+
+goal25 :: Float
+goal25 = read "0."
+
+goal26 :: Float
+goal26 = read "0.0"
+
+goal27 :: Float
+goal27 = read "12."
+
+goal28 :: Float
+goal28 = read "+12."
+
+goal29 :: Float
+goal29 = read "-12."
+
+goal30 :: Float
+goal30 = read "12.34"
+
+goal31 :: Float
+goal31 = read "+12.34"
+
+goal32 :: Float
+goal32 = read "-12.34"

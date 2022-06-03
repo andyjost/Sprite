@@ -34,11 +34,32 @@ goal7 = (read "'\\\\'",
          read "'\\\''",
          read "'\\''")
 
-goal8 :: Bool
-goal8 = readList "Hello\n" == [(['H', 'e', 'l', 'l', 'o', '\n'], [])]
+goal8 :: [(String, String)]
+goal8 = readList "['a', 'b', 'c']"
 
-goal9 :: (Char, Char, Char, Char, Char, Char, Char, Char)
-goal9 = (read "'\\65'"      , read "'\65'",
-         read "'\\x41'"     , read "'\x41'",
-         read "'\\x041'"    , read "'\x041'",
-         read "'\\o101'"    , read "'\o101'")
+goal9 :: Char
+goal9 = read "'\\65'"
+
+goal10 :: Char
+goal10 = read "'\65'"
+
+{-# ORACLE_RESULT goal11: 'A' #-}
+goal11 :: Char
+goal11 = read "'\\x41'"
+
+goal12 :: Char
+goal12 = read "'\x41'"
+
+{-# ORACLE_RESULT goal13: 'A' #-}
+goal13 :: Char
+goal13 = read "'\\x041'"
+
+goal14 :: Char
+goal14 = read "'\x041'"
+
+{-# ORACLE_RESULT goal15: 'A' #-}
+goal15 :: Char
+goal15 = read "'\\o101'"
+
+goal16 :: Char
+goal16 = read "'\o101'"

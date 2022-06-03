@@ -62,61 +62,65 @@ namespace cyrt
     char base = 0;
     if(advance && string)
       string = string_cast(string->tail);
-    while(string)
+    while(true)
     {
-      char ch = head_char(string);
+      char ch = string ? head_char(string) : '\0';
       switch(ch)
       {
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9': base = '0'; break;
-        case 'a':
-        case 'b':
-        case 'c':
-        case 'd':
-        case 'e':
-        case 'f': base = 'a' - 10; break;
-        case 'A':
-        case 'B':
-        case 'C':
-        case 'D':
-        case 'E':
-        case 'F': base = 'A' - 10; break;
-        default : return nullptr;
+        case '0' :
+        case '1' :
+        case '2' :
+        case '3' :
+        case '4' :
+        case '5' :
+        case '6' :
+        case '7' :
+        case '8' :
+        case '9' : base = '0'; break;
+        case 'a' :
+        case 'b' :
+        case 'c' :
+        case 'd' :
+        case 'e' :
+        case 'f' : base = 'a' - 10; break;
+        case 'A' :
+        case 'B' :
+        case 'C' :
+        case 'D' :
+        case 'E' :
+        case 'F' : base = 'A' - 10; break;
+        default  : if(ord < CHAR_BOUND)
+                      return char_((char) ord);
+                    else
+                      return nullptr;
       }
       if(ord < CHAR_BOUND)
         ord = 16 * ord + (ch - base);
       string = string_cast(string->tail);
     }
-    if(ord < CHAR_BOUND)
-      return char_((char) ord);
-    else
-      return nullptr;
   }
 
   static inline Node * _parseEscapeCode(ConsNode *& string)
   {
     if(!string)
       return nullptr;
+    auto && make_result = [&](Node * rv)
+    {
+      string = string_cast(string->tail);
+      return rv;
+    };
     switch(head_char(string))
     {
       case '\\':
       case '"' :
-      case '\'': return string->head;
-      case 'a' : return char_('\a');
-      case 'b' : return char_('\b');
-      case 'f' : return char_('\f');
-      case 'n' : return char_('\n');
-      case 'r' : return char_('\r');
-      case 't' : return char_('\t');
-      case 'v' : return char_('\v');
+      case '\'': return make_result(string->head);
+      case 'a' : return make_result(char_('\a'));
+      case 'b' : return make_result(char_('\b'));
+      case 'f' : return make_result(char_('\f'));
+      case 'n' : return make_result(char_('\n'));
+      case 'r' : return make_result(char_('\r'));
+      case 't' : return make_result(char_('\t'));
+      case 'v' : return make_result(char_('\v'));
       case 'o' : return _parseCharOrd<8>(string, true);
       case '0' : case '1' : case '2' : case '3' : case '4' :
       case '5' : case '6' : case '7' : case '8' : case '9' :
@@ -148,13 +152,14 @@ namespace cyrt
     {
       auto ch = head_char(string);
       if(ch < CHAR_BOUND && ch != '\'')
+      {
         char_out = string->head;
+        string = string_cast(string->tail);
+      }
     }
     if(!char_out) goto failed;
 
     // Eat the closing single quote.
-    assert(string);
-    string = string_cast(string->tail);
     if(!string || head_char(string) != '\'') goto failed;
 
     assert(char_out);
@@ -171,9 +176,9 @@ namespace cyrt
     Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
     ConsNode * string = string_cast(_1.target);
     std::stringstream ss;
-    while(string)
+    while(true)
     {
-      auto ch = (char) head_char(string);
+      auto ch = string ? (char) head_char(string) : '\0';
       switch(ch)
       {
         case '0': case '1': case '2': case '3': case '4':
@@ -181,13 +186,15 @@ namespace cyrt
         case 'e': case 'E': case '+': case '-': case '.':
             ss << ch;
             string = string_cast(string->tail);
-        default:
             break;
+        default:
+            goto finish;
       }
     }
+  finish:
     static_assert(std::is_same<unboxed_float_type, double>::value, "stdtod assumes double");
     unboxed_float_type const value = std::strtod(ss.str().c_str(), nullptr);
-    Node * replacement = cons(pair(int_(value), string ? (Node *) string : nil()), nil());
+    Node * replacement = cons(pair(float_(value), string ? (Node *) string : nil()), nil());
     _0->forward_to(replacement);
     return T_FWD;
   }
@@ -251,12 +258,14 @@ namespace cyrt
         else if(ch == '"')
           break;
         else if(ch < CHAR_BOUND)
+        {
           char_out = string->head;
+          string = string_cast(string->tail);
+        }
       }
       if(!char_out) goto failed;
       *tail_out = cons(char_out, nil());
       tail_out = &NodeU{*tail_out}.cons->tail;
-      string = string_cast(string->tail);
     }
     replacement = cons(pair(str_out, string->tail), nil());
     _0->forward_to(replacement);
