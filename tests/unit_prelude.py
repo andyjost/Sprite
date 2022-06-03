@@ -109,7 +109,6 @@ class TestPrelude(cytest.TestCase):
       , curry.raw_expr([('\\ \' " \b \f \n \r \t \v', "")])
       )
 
-  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
   def testLitParsersBad(self):
     # The primitive read functions are over-specified in the Prelude.  They are
     # always matched against [(a, "")].  Upon a parse failure, a proper
@@ -118,7 +117,7 @@ class TestPrelude(cytest.TestCase):
     # is always valid.
     def assertNoGood(e):
       values = list(curry.eval(e, converter=None))
-      self.assertTrue(values == [] or values[0][1] != '')
+      self.assertTrue(values == [] or curry.topython(values[0][1]) == [])
     sym = lambda s: curry.symbol('Prelude.' + s)
 
     # Int
