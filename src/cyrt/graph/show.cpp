@@ -49,7 +49,7 @@ namespace
     else
     {
       char buf[8];
-      auto rv = snprintf(&buf[0], 8, "\\%02d", int(value));
+      auto rv = snprintf(&buf[0], 8, "\\%02d", int((unsigned char) value));
       if(rv < 0)
         os.setstate(std::ios::failbit);
       else
@@ -335,8 +335,9 @@ namespace
           case '"': data = Context('`'); break;
           case '`' :
             assert(is_list(*cur->info));
-            assert(!cycle); // ensured by begin_list
-            if(cur->info->tag == T_CONS)
+            if(cycle)
+              this->os() << "\"...";
+            else if(cur->info->tag == T_CONS)
               walk.extend(Context('"'));
             else
               this->os() << '"';
