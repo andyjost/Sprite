@@ -1,10 +1,10 @@
 import cytest # from ./lib; must be first
 
-import curry, logging, os
+import curry, logging, os, unittest
 from curry.utility import _tempfile
 from cytest.logging import capture_log
 
-
+@unittest.skipIf(curry.flags['backend'] == 'cxx', 'Skip offline compile.')
 class LoadSaveTestCase(cytest.TestCase):
   def check(self, modulename, has_externs):
     with _tempfile.TemporaryDirectory() as tmpdir:

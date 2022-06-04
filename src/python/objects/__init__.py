@@ -189,7 +189,7 @@ class CurryNodeInfo(object):
         pass
       try:
         return inspect.getsource(step)
-      except OSError:
+      except (OSError, TypeError):
         pass
     raise ValueError(
         'no implementation code available for %r' % self.fullname

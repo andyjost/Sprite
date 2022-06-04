@@ -54,7 +54,7 @@ class Materializer(object):
     info = self.M.get_builtin_symbol(ifun.name)
     if info is None or info.tag != T_FUNC:
       # Cannot dynamically build functions in C++.
-      assert False
+      # assert False
       info = self.M.create_infotable(
           ifun.name
         , ifun.arity
