@@ -143,6 +143,9 @@ def prefix():
 def force_recompile_cxx():
   return os.environ.get('SPRITE_FORCE_RECOMPILE_CXX', False)
 
+def ignore_cyrt_timestamp():
+  return os.environ.get('SPRITE_IGNORE_CYRT_TIMESTAMP', False)
+
 # The path to system Curry files, such as the Prelude.  This is appended to
 # whatever the user might supply via the CURRYPATH environment variable.
 def system_curry_path():
@@ -197,7 +200,7 @@ def verify_syslibs():
 def installed_path(*relpath):
   return os.path.join(prefix(), *relpath)
 
-# External tools.
+# External tools and libraries.
 def cxx_tool(cached=[]):
   '''The C++ compiler used with the cxx backend.'''
   if not cached:
@@ -230,6 +233,14 @@ def python_exe(cached=[]):
   if not cached:
     path = installed_path('bin', 'python')
     path = os.path.abspath(path)
+    cached.append(path)
+  return cached[0]
+
+def cyrt_lib(cached=[]):
+  if not cached:
+    path = installed_path('lib', 'libcyrt.so')
+    path = os.path.abspath(path)
+    assert os.path.exists(path)
     cached.append(path)
   return cached[0]
 

@@ -39,10 +39,11 @@ def currentfile(
 
   Returns:
     The name of an ICurry-JSON file (suffix: .json), Curry source file (suffix:
-    .curry), Python file (suffix: .py), or directory.  The JSON name may have
-    an additional .z suffix.  The JSON file is returned if it is up-to-date,
-    otherwise, the Curry file is returned if it exists.  If neither of those
-    applies, the package directory name is returned, if it exists.
+    .curry), Python file (suffix: .py), C++ source (suffix: .cpp) or object
+    (suffix: .so), or directory.  The JSON name may have an additional .z
+    suffix.  The JSON file is returned if it is up-to-date, otherwise, the
+    Curry file is returned if it exists.  If neither of those applies, the
+    package directory name is returned, if it exists.
   '''
   if not is_sourcefile:
     # If name is a module name, then search CURRYPATH for the source file or
@@ -57,7 +58,6 @@ def currentfile(
     search_names = [
         os.path.join(package_path, '.curry', SUBDIR, name + suffix)
             for suffix in reversed(plan.suffixes[1:])
-            #             [.json[.z], .icy]
       ]
     search_names += [os.path.join(package_path, name + '.curry')]
     search_names += [os.path.join(package_path, name, '')]
@@ -81,11 +81,17 @@ def currentfile(
     raise ModuleLookupError('expected .curry extension in %r' % curryfile)
   curryfile = os.path.abspath(curryfile)
   filelist = plan.filelist(curryfile)
+  # Force recompile, if requested.
   if config.force_recompile_cxx():
     filelist = [
         fn for fn in filelist
            if not any(fn.endswith(suffix) for suffix in ['.cpp', '.so'])
       ]
+  # Disregard (recompile) the .so if it's older than the runtime library.
+  elif not config.ignore_cyrt_timestamp():
+    if filelist and filelist[-1].endswith('.so'):
+      if filesys.newer(config.cyrt_lib(), filelist[-1]):
+        filelist.pop()
   prereq = os.path.abspath(filesys.newest(filelist))
   if not os.path.exists(prereq):
     # If there is no prerequisite, then there is no Curry file or any of its

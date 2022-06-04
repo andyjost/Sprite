@@ -46,8 +46,7 @@ class Cpp2So(object):
     '''
     Gets the name of the .so file implementing the given module.
     '''
-    assert modulename in self.interp.modules
-    module = self.interp.modules[modulename]
+    module = self.interp.import_(modulename)
     h = getHandle(module)
     sofilename = h.sofilename
     if sofilename is None:
@@ -59,7 +58,7 @@ class Cpp2So(object):
   def _dependencies(self, file_in):
     '''
     Generates the .so files the specified .cpp file depends on.  They are added
-    to the link line so that ldd will automaticall load the correct modules.
+    to the link line so that ldd will automatically load the correct modules.
     '''
     for modulename in self._importedModules(file_in):
       yield self._sofilename(modulename)
