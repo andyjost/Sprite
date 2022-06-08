@@ -2,10 +2,6 @@ from ....generic.currylib import prelude as generic_prelude
 from . import prelude as impl
 import math, operator as op
 
-# FUNCTIONS = generic_prelude.PreludeSpecification.FUNCTIONS + [
-#     ('_PyString'             , 1, {'py.boxedfunc'  : impl._PyString   })
-#   ]
-
 CONSTRUCTOR_METADATA = {
     ('Int'        , 0): {'py.format': '{1}'                           }
   , ('Float'      , 0): {'py.format': '{1}'                           }
@@ -101,8 +97,6 @@ FUNCTION_METADATA = {
     }
 
 class PreludeSpecification(generic_prelude.PreludeSpecification):
-  # FUNCTIONS = FUNCTIONS
-
   def exports(self):
     for sym in super(PreludeSpecification, self).exports():
       yield sym
