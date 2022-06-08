@@ -8,7 +8,7 @@
 #define Char_Info                CyI7Prelude4Char
 #define Choice_Info              CyI7Prelude5Choice
 #define Cons_Info                CyI7Prelude2_C // (:)
-#define _cString_Info            CyI7Prelude9__cString
+#define _biString_Info           CyI7Prelude10__biString
 #define Fail_Info                CyI7Prelude4Fail
 #define False_Info               CyI7Prelude5False
 #define Float_Info               CyI7Prelude5Float
@@ -45,7 +45,7 @@ extern "C"
   extern InfoTable const Char_Info;
   extern InfoTable const Choice_Info;
   extern InfoTable const Cons_Info;
-  extern InfoTable const _cString_Info;
+  extern InfoTable const _biString_Info;
   extern InfoTable const Fail_Info;
   extern InfoTable const False_Info;
   extern InfoTable const Float_Info;
@@ -182,10 +182,10 @@ namespace cyrt
     bool is_encapsulated() const;
   };
 
-  struct cStringNode : Head
+  struct biStringNode : Head
   {
     char const * data;
-    static constexpr InfoTable const * static_info = &_cString_Info;
+    static constexpr InfoTable const * static_info = &_biString_Info;
   };
 
   struct ConsNode : Head
@@ -210,7 +210,7 @@ namespace cyrt
     FreeNode          * free;
     FwdNode           * fwd;
     ChoiceNode        * choice;
-    cStringNode       * c_str;
+    biStringNode      * c_str;
     IntNode           * int_;
     FloatNode         * float_;
     CharNode          * char_;
@@ -254,6 +254,6 @@ namespace cyrt
   inline Node * unit()                         { return Unit; }
   inline Node * false_()                       { return False; }
   inline Node * true_()                        { return True; }
-  inline Node * cstring(char const * str)      { return make_node<cStringNode>(str); }
+  inline Node * cstring(char const * str)      { return make_node<biStringNode>(str); }
   inline Node * guard(Set * set, Node * value) { return make_node<SetGrdNode>(set, value); }
 }

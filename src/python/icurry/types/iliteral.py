@@ -70,7 +70,7 @@ IUnboxedLiteral.register(str)
 IUnboxedLiteral.register(float)
 # An iterator is considered a fundamental data type so that Sprite does not try
 # to reduce it.  This should always be the argument to an instance of
-# Prelude._PyGenerator.
+# Prelude._biGenerator.
 IUnboxedLiteral.register(collections.Iterator)
 # A view of raw memory (used by _PyString).
 IUnboxedLiteral.register(memoryview)

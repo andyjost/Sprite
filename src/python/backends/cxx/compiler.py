@@ -274,7 +274,7 @@ class CxxCompiler(compiler.CompilerBase):
       return '&%s, Arg(%s)' % (h_ctor, shown)
 
   def vEmit_compileE_IString(self, istring, h_string, primary):
-    text = '&_cString_Info, Arg(%s)' % h_string
+    text = '&_biString_Info, Arg(%s)' % h_string
     return 'Node::create(%s)' % text if primary else text
 
   def vEmit_compileE_IUnboxedLiteral(self, iunboxed, primary):

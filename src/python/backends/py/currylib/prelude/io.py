@@ -51,7 +51,7 @@ def putChar(rts, a):
 
 def readFile(rts, filename):
   filename = rts.topython(filename.target)
-  yield rts.prelude._PyGenerator
+  yield rts.prelude._biGenerator
   def generator():
     with open(filename, 'r') as istream:
       for byte in mmap.mmap(istream.fileno(), 0, access=mmap.ACCESS_READ):

@@ -2,10 +2,9 @@ from ....generic.currylib import prelude as generic_prelude
 from . import prelude as impl
 import math, operator as op
 
-FUNCTIONS = generic_prelude.PreludeSpecification.FUNCTIONS + [
-    ('_PyGenerator'          , 1, {'py.boxedfunc'  : impl._PyGenerator})
-  , ('_PyString'             , 1, {'py.boxedfunc'  : impl._PyString   })
-  ]
+# FUNCTIONS = generic_prelude.PreludeSpecification.FUNCTIONS + [
+#     ('_PyString'             , 1, {'py.boxedfunc'  : impl._PyString   })
+#   ]
 
 CONSTRUCTOR_METADATA = {
     ('Int'        , 0): {'py.format': '{1}'                           }
@@ -55,7 +54,6 @@ FUNCTION_METADATA = {
     , 'prim_atanFloat'        : {'py.unboxedfunc': math.atan               }
     , 'prim_atanhFloat'       : {'py.unboxedfunc': math.atanh              }
     , 'prim_chr'              : {'py.unboxedfunc': chr                     }
-    # , 'prim_constrEq'         : {'py.rawfunc'    : impl.constr_eq          }
     , 'prim_cosFloat'         : {'py.unboxedfunc': math.cos                }
     , 'prim_coshFloat'        : {'py.unboxedfunc': math.cosh               }
     , 'prim_divFloat'         : {'py.unboxedfunc': impl.prim_divFloat      }
@@ -65,7 +63,6 @@ FUNCTION_METADATA = {
     , 'prim_ioError'          : {'py.rawfunc'    : impl.ioError            }
     , 'prim_logFloat'         : {'py.unboxedfunc': math.log                }
     , 'prim_minusFloat'       : {'py.unboxedfunc': impl.prim_minusFloat    }
-    # , 'prim_nonstrictEq'      : {'py.rawfunc'    : impl.nonstrict_eq       }
     , 'prim_ord'              : {'py.unboxedfunc': ord                     }
     , 'prim_plusFloat'        : {'py.unboxedfunc': op.add                  }
     , 'prim_putChar'          : {'py.boxedfunc'  : impl.putChar            }
@@ -98,17 +95,19 @@ FUNCTION_METADATA = {
     , 'letrec'                : {'py.rawfunc'    : impl.not_used           }
     , 'prim_readFileContents' : {'py.rawfunc'    : impl.not_used           }
     , 'unifEqLinear'          : {'py.rawfunc'    : impl.not_used           }
+    # Internal use.
+    , '_biGenerator'          : {'py.boxedfunc'  : impl._biGenerator       }
+    , '_biString'             : {'py.boxedfunc'  : impl._biString          }
     }
 
 class PreludeSpecification(generic_prelude.PreludeSpecification):
-  FUNCTIONS = FUNCTIONS
+  # FUNCTIONS = FUNCTIONS
 
   def exports(self):
     for sym in super(PreludeSpecification, self).exports():
       yield sym
     yield '?'
-    yield '_PyGenerator'
-    yield '_PyString'
+    yield '_biString'
 
   CONSTRUCTOR_METADATA = CONSTRUCTOR_METADATA
   FUNCTION_METADATA = FUNCTION_METADATA

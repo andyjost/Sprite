@@ -81,7 +81,6 @@ FUNCTIONS = [
     , ('prim_atanFloat'        , 1, {}                      )
     , ('prim_atanhFloat'       , 1, {}                      )
     , ('prim_chr'              , 1, {}                      )
-    # , ('prim_constrEq'         , 2, {}                      )
     , ('prim_cosFloat'         , 1, {}                      )
     , ('prim_coshFloat'        , 1, {}                      )
     , ('prim_divFloat'         , 2, {}                      )
@@ -91,7 +90,6 @@ FUNCTIONS = [
     , ('prim_ioError'          , 1, {'all.flags': F_MONADIC})
     , ('prim_logFloat'         , 1, {}                      )
     , ('prim_minusFloat'       , 2, {}                      )
-    # , ('prim_nonstrictEq'      , 2, {}                      )
     , ('prim_ord'              , 1, {}                      )
     , ('prim_plusFloat'        , 2, {}                      )
     , ('prim_putChar'          , 1, {'all.flags': F_MONADIC})
@@ -124,6 +122,9 @@ FUNCTIONS = [
     , ('letrec'                , 2, {}                      )
     , ('prim_readFileContents' , 2, {}                      )
     , ('unifEqLinear'          , 2, {}                      )
+    # Internal use.
+    , ('_biGenerator'          , 1, {}                      )
+    , ('_biString'             , 1, {}                      )
     ]
 
 class PreludeSpecification(ModuleSpecification):
@@ -155,6 +156,7 @@ class PreludeSpecification(ModuleSpecification):
       if inspect.isa_tuple_name(typename):
         yield typename
     yield '(->)'
+    yield '_biGenerator'
     # Include all of the primitives.  Sprite compiles the Prelude with __KICS2__
     # defined.  This hides some primitive functions.  To emulate PAKCS-style
     # fundamental types, we need those.

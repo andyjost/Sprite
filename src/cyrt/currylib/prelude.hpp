@@ -86,13 +86,10 @@
 #define prim_showStringLiteral_Info  CyI7Prelude23prim__showStringLiteral
 
 // prelude/string.cpp
-#define _cGenerator_Info             CyI7Prelude12__cGenerator
-#define _cString_Info                CyI7Prelude9__cString
+#define _biGenerator_Info            CyI7Prelude13__biGenerator
+#define _biString_Info               CyI7Prelude10__biString
 #define prim_chr_Info                CyI7Prelude9prim__chr
 #define prim_ord_Info                CyI7Prelude9prim__ord
-
-// prelude/testing.cpp -- OK TO REMOVE
-#define not_Info                     CyI7Prelude3not
 
 // prelude/unused.cpp
 #define failure_Info                 CyI7Prelude7failure
@@ -189,8 +186,8 @@ extern "C"
   extern InfoTable const prim_showStringLiteral_Info;
 
   // prelude/string.cpp
-  extern InfoTable const _cGenerator_Info;
-  extern InfoTable const _cString_Info;
+  extern InfoTable const _biGenerator_Info;
+  extern InfoTable const _biString_Info;
   extern InfoTable const prim_chr_Info;
   extern InfoTable const prim_ord_Info;
 

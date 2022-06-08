@@ -92,8 +92,8 @@ static int register_prelude_builtins()
     , {"prim_timesFloat"       , &prim_timesFloat_Info        }
     , {"prim_truncateFloat"    , &prim_truncateFloat_Info     }
     , {"prim_writeFile"        , &prim_writeFile_Info         }
-    , {"_cGenerator"           , &_cGenerator_Info            }
-    , {"_cString"              , &_cString_Info               }
+    , {"_biGenerator"          , &_biGenerator_Info           }
+    , {"_biString"             , &_biString_Info              }
     , {"quotInt"               , &quotInt_Info                }
     , {"remInt"                , &remInt_Info                 }
     , {"returnIO"              , &returnIO_Info               }

@@ -144,7 +144,7 @@ class TestPyConversions(cytest.TestCase):
     take = curry.symbol('Prelude.take')
     seq = itertools.count() # infinite sequence.
     x = curry.raw_expr(seq)
-    self.assertEqual(repr(x), '<_PyGenerator count(0)>')
+    self.assertEqual(repr(x), '<_biGenerator count(0)>')
     goal = curry.raw_expr([take, 5, x])
     self.assertEqual(list(curry.eval(goal)), [[0,1,2,3,4]])
     # Generator.

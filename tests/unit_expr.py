@@ -92,12 +92,12 @@ class TestExpr(cytest.TestCase):
   def test_iterators(self):
     '''Python iterators become lazy lists in Curry.'''
     e = curry.raw_expr(iter([]))
-    self.assertRegex(str(e), '_PyGenerator')
+    self.assertRegex(str(e), '_biGenerator')
     val = next(curry.eval(e))
     self.assertEqual(str(e), '[]')
 
     e = curry.raw_expr(iter([1,2]))
-    self.assertRegex(str(e), '_PyGenerator')
+    self.assertRegex(str(e), '_biGenerator')
     val = curry.topython(next(curry.eval(e)))
     self.assertEqual(val, [1, 2])
 

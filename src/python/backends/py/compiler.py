@@ -224,7 +224,7 @@ class PyCompiler(compiler.CompilerBase):
     return 'rts.Node(%s)' % text if primary else text
 
   def vEmit_compileE_IString(self, istring, h_string, primary):
-    text = 'rts.prelude._PyString, memoryview(%s)' % h_string
+    text = 'rts.prelude._biString, memoryview(%s)' % h_string
     return 'rts.Node(%s)' % text if primary else text
 
   def vEmit_compileE_IUnboxedLiteral(self, iunboxed, primary):
