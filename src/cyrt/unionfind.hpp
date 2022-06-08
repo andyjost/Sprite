@@ -24,4 +24,4 @@ namespace cyrt
   };
 }
 
-#include "cyrt/misc/unionfind.hxx"
+#include "cyrt/unionfind.hxx"

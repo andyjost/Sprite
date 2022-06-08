@@ -1,14 +1,14 @@
 #pragma once
 #include "boost/utility.hpp"
 #include <cassert>
-#include <iosfwd>
-#include <memory>
 #include "cyrt/builtins.hpp"
 #include "cyrt/fingerprint.hpp"
 #include "cyrt/fingerprint.hpp"
 #include "cyrt/graph/cursor.hpp"
-#include "cyrt/misc/unionfind.hpp"
 #include "cyrt/state/scan.hpp"
+#include "cyrt/unionfind.hpp"
+#include <iosfwd>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>

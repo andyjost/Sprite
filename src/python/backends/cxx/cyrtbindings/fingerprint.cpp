@@ -17,6 +17,7 @@ namespace
       default: throw std::invalid_argument("expected LEFT or RIGHT");
     }
   }
+
   py::object Fingerprint__tree__(Fingerprint const & self)
   {
     std::map<fingerprints::Branch const *, py::object> branches;
