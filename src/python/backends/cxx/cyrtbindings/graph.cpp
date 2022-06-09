@@ -1,9 +1,11 @@
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
+#include <cassert>
+#include <cstdint>
+#include "cyrt/builtins.hpp"
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/graph/node.hpp"
 #include "cyrt/state/rts.hpp"
-#include <cstdint>
+#include "pybind11/pybind11.h"
+#include "pybind11/stl.h"
 
 namespace py = pybind11;
 static auto constexpr reference = py::return_value_policy::reference;
@@ -44,6 +46,18 @@ namespace
     T data;
     T * get() { return &data; }
   };
+
+  Node * generator_next(void * data)
+  {
+    assert(data);
+    auto * pyobj = (PyObject *) data;
+    py::object value = py::reinterpret_steal<py::object>(PyIter_Next(pyobj));
+    if(PyErr_Occurred()) { throw py::error_already_set(); }
+    // Note: the Node * is not owned directly by the PyObject but rather by the
+    // garbage collector.  So it is safe to extract the Node * and return it
+    // this way.
+    return value.ptr() ? py::cast<Node *>(value) : (Node *) nullptr;
+  }
 }
 
 PYBIND11_DECLARE_HOLDER_TYPE(T, ByValueHolder<T>, true)
@@ -76,6 +90,9 @@ namespace cyrt { namespace python
 {
   void register_graph(pybind11::module_ mod)
   {
+    // Tell the cyrt library how to interact with a Python iterator.
+    register_generator_funcs(&generator_next);
+
     py::class_<InfoTable>(mod, "InfoTable")
       .def_readonly("arity"   , &InfoTable::arity)
       .def_readonly("flags"   , &InfoTable::flags)
@@ -116,6 +133,10 @@ namespace cyrt { namespace python
       .def(py::init<unboxed_int_type>())
       .def(py::init<unboxed_float_type>())
       .def(py::init([](char const * str) { assert(str); return Arg(str[0]); }))
+      .def(py::init([](py::handle obj) {
+          obj.inc_ref(); // FIXME: leak
+          return Arg(obj.ptr());
+        }))
       .def("__repr__", &Arg::repr)
       ;
 

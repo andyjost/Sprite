@@ -41,6 +41,7 @@ namespace cyrt
   using memo_type = std::unordered_map<void *, Arg>;
   using std::size_t;
   using stepfunc_type = tag_type (*)(RuntimeState *, Configuration *);
+  using generator_next_type = Node * (*)(void *);
   using unboxed_char_type = signed char;
   using unboxed_float_type = double;
   using unboxed_int_type = int64_t;

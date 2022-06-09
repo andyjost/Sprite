@@ -9,6 +9,7 @@
 #define Choice_Info              CyI7Prelude5Choice
 #define Cons_Info                CyI7Prelude2_C // (:)
 #define _biString_Info           CyI7Prelude10__biString
+#define _biGenerator_Info        CyI7Prelude13__biGenerator
 #define Fail_Info                CyI7Prelude4Fail
 #define False_Info               CyI7Prelude5False
 #define Float_Info               CyI7Prelude5Float
@@ -46,6 +47,7 @@ extern "C"
   extern InfoTable const Choice_Info;
   extern InfoTable const Cons_Info;
   extern InfoTable const _biString_Info;
+  extern InfoTable const _biGenerator_Info;
   extern InfoTable const Fail_Info;
   extern InfoTable const False_Info;
   extern InfoTable const Float_Info;
@@ -188,6 +190,12 @@ namespace cyrt
     static constexpr InfoTable const * static_info = &_biString_Info;
   };
 
+  struct biGeneratorNode : Head
+  {
+    void * data; // using void * to avoid adding a dependency on Python.
+    static constexpr InfoTable const * static_info = &_biGenerator_Info;
+  };
+
   struct ConsNode : Head
   {
     Node * head;
@@ -211,6 +219,7 @@ namespace cyrt
     FwdNode           * fwd;
     ChoiceNode        * choice;
     biStringNode      * c_str;
+    biGeneratorNode   * generator;
     IntNode           * int_;
     FloatNode         * float_;
     CharNode          * char_;
@@ -234,10 +243,12 @@ namespace cyrt
   tag_type not_used(RuntimeState *, Configuration *);
   std::string extract_string(Node *);
   Node * build_curry_string(char const *);
-
   enum IOErrorKind { IO_ERROR, USER_ERROR, FAIL_ERROR, NONDET_ERROR };
   InfoTable const * ioerror_info(IOErrorKind);
   char const * intern_message(std::string const &);
+
+  // Registers the system functions needed to interact with Python generators.
+  void register_generator_funcs(generator_next_type);
 
   inline Node * char_(unboxed_char_type x)     { return make_node<CharNode>(x); }
   inline Node * choice(xid_type cid, Node * lhs, Node * rhs)
@@ -255,5 +266,6 @@ namespace cyrt
   inline Node * false_()                       { return False; }
   inline Node * true_()                        { return True; }
   inline Node * cstring(char const * str)      { return make_node<biStringNode>(str); }
+  inline Node * generator(void * data)         { return make_node<biGeneratorNode>(data); }
   inline Node * guard(Set * set, Node * value) { return make_node<SetGrdNode>(set, value); }
 }

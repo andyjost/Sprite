@@ -71,6 +71,7 @@ class TestPyInterp(cytest.TestCase):
     self.assertMayRaise(None, lambda: interp.import_('helloFloat'))
     self.assertMayRaise(None, lambda: interp.import_('helloChar'))
 
+  @unittest.expectedFailure
   def testImportTimeStamp(self):
     def myeval(tempd, srcfile):
       '''Copy srcfile to tempd and evaluate it in a fresh interpreter.'''

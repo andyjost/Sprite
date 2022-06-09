@@ -322,6 +322,7 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % arg)
     pygen = self.prelude._biGenerator
+    arg = (self(x) for x in arg)
     return self._mknode(pygen, arg, target=self.target)
 
   @__call__.when((objects.CurryNodeInfo, backends.InfoTable))
