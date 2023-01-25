@@ -1,0 +1,22 @@
+<form action="{{url_for("main")}}" method="post">
+<p><label size="10">Initial Configuration:</label></p>
+<p>
+  <input type="text" size="5" name="i1" placeholder="AB">
+  <input type="text" size="5" name="i2" placeholder="">
+  <input type="text" size="5" name="i3" placeholder="">
+</p>
+<p><label size="50">Final Configuration:</label></p>
+<p>
+  <input type="text" size="5" name="f1" placeholder="">
+  <input type="text" size="5" name="f2" placeholder="">
+  <input type="text" size="5" name="f3" placeholder="AB">
+</p>
+<button type="submit">Solve</button>
+
+{% if solution %}
+<hr>
+Solution:
+<pre><code>
+{{solution}}
+</code></pre>
+{% endif %}

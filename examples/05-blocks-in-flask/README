@@ -1,0 +1,3 @@
+This example demonstrates a hybrid program.  The Curry part solves the classic
+"Blocks World" puzzle.  A simple user interface to this is placed into a web
+application using the Python Flask library.

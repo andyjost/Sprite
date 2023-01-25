@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export PATH="../../install/bin/:$PATH"
+export CURRYPATH=app/
+python -m app
