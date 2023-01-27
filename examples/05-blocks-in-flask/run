@@ -2,4 +2,5 @@
 
 export PATH="../../install/bin/:$PATH"
 export CURRYPATH=app/
+export SPRITE_INTERPRETER_FLAGS=defaultconverter:topython
 python -m app

@@ -1,29 +1,26 @@
 import curry
 from curry.lib import solver
 
-def get_solution(form):
-  initial = build_config(form['i1'] or 'AB', form['i2'], form['i3'])
-  final   = build_config(form['f1'], form['f2'], form['f3'] or 'AB')
-  goal = curry.expr(solver.solve, initial, final)
-  trace = next(curry.eval(goal, converter='topython'))
+FORM = ('i1','i2','i3'),('f1','f2','f3')
+
+def get_solution(data):
+  configs = (
+      tuple(build_stack(data[fld]) for fld in fields)
+          for fields in FORM
+    )
+  goal = curry.expr(solver.solve, *configs)
+  trace = next(curry.eval(goal))
   return show_trace(trace)
 
-def get_block(label):
-  symbol = getattr(solver, label)
-  return curry.expr(symbol)
-
-def build_config(*stacks):
-  return tuple(
-      curry.expr([get_block(label) for label in stack])
-          for stack in stacks
-    )
+def build_stack(stk):
+  return [curry.expr(getattr(solver, c)) for c in stk]
 
 def show_trace(trace):
-  return '\n'.join(map(show_config, trace))
+  return '\n'.join(show_config(cfg) for cfg in trace)
 
-def show_config(config):
-  return ' '.join(map(show_stack, config))
+def show_config(cfg):
+  return ' '.join(show_stack(stk) for stk in cfg)
 
-def show_stack(stack):
-  return '[' + ''.join(str(block) for block in stack) + ']'
+def show_stack(stk):
+  return '[%s]' % ''.join(str(blk) for blk in stk)
 
