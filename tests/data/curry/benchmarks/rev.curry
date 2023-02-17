@@ -1,0 +1,5 @@
+rev :: [t] -> [t]
+rev []     = []
+rev (x:xs) = (rev xs) ++ [x]
+main :: [Int]
+main = rev [1..100000]

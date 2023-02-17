@@ -55,6 +55,10 @@ case `basename $0` in
     # Run the Python unit tests.
     $SPRITE_HOME/bin/python -B -m unittest discover -v `pwd` "$pattern"
     ;;
+  "run_benchmarks")
+    # Run the Python unit tests.
+    $SPRITE_HOME/bin/python -m benchmark
+    ;;
   "debug_tests")
     # Run the Python unit tests under gdb.
     # gdb --args $python -B -m unittest discover -v `pwd` "$pattern"

@@ -102,3 +102,8 @@ instance, in vim, pressing <Enter> runs "make" by default.  That shortcut can
 be used to easily run the tests directly from a text editor.  Other editors
 have similar features.
 
+8. BENCHMARKING
+---------------
+
+To run the benchmarks, say `./run_benchmarks`.  The benchmarking code
+is located it ./lib/benchmark.py.

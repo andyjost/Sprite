@@ -1,4 +1,5 @@
-from .. import config, getInterpreter, toolchain, utility
+from .. import config, getInterpreter, interpreter, toolchain, utility
+from ..interpreter import flags as _flags
 from ..toolchain import plans
 from six.moves import cStringIO as StringIO
 from .utility import handle_program_errors, unrst
@@ -116,7 +117,6 @@ def main(program_name, argv):
   parser.add_argument('--with-rst'   , action='store_true', help=argparse.SUPPRESS)
   args = parser.parse_args(argv)
 
-
   if args.man:
     mantext = StringIO()
     if not args.no_header:
@@ -143,7 +143,7 @@ def main(program_name, argv):
                        '(-p,--py,--python) must be supplied.\n'
       )
     sys.exit(1)
-  if args.py:
+  if args.py or args.cxx:
     args.json = True
   if args.json:
     args.icy = True
@@ -168,10 +168,14 @@ def main(program_name, argv):
       program_name
     , exit_status=None if args.keep_going else 1
     )
+  interp = getInterpreter() if args.backend_name is None else \
+           interpreter.Interpreter(
+               flags=_flags.getflags({'backend': args.backend_name})
+             )
   for name in args.names:
     kwds['is_sourcefile'] = name.endswith('.curry')
     with error_handler:
-      plan = _buildplan(getInterpreter(), **kwds)
+      plan = _buildplan(interp, **kwds)
       toolchain.makecurry(plan, name, config.currypath(), **kwds)
   if error_handler.nerrors:
     sys.exit(1)
