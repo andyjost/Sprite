@@ -236,6 +236,14 @@ def python_exe(cached=[]):
     cached.append(path)
   return cached[0]
 
+def sprite_exec(cached=[]):
+  if not cached:
+    path = installed_path('bin', 'sprite-exec')
+    path = os.path.abspath(path)
+    cached.append(path)
+  return cached[0]
+
+
 def cyrt_lib(cached=[]):
   if not cached:
     path = installed_path('lib', 'libcyrt.so')
