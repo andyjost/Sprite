@@ -2,7 +2,7 @@ PROGRAM_NAME = 'sprite-exec'
 
 from . import exceptions
 from .tools.utility import handle_program_errors
-import argparse, code, cProfile, os, pstats, importlib, logging, sys
+import argparse, code, cProfile, os, pstats, importlib, logging, sys, time
 
 curry = importlib.import_module(__package__)
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ class Main(object):
   Curry file or module is loaded, and the specified goal (if any) is
   evaluated.  Set CURRYPATH to control the search for Curry code.
   ''' % __package__
-  ARGUMENTS = 'imgpsn'
+  ARGUMENTS = 'imgpsnt'
   def __init__(self, program_name, module_name=None, default_goal='main'):
     self.program_name = program_name
     self.module_name = module_name
@@ -43,6 +43,9 @@ class Main(object):
     if 'p' in self.ARGUMENTS:
       parser.add_argument( '-p', '--profile', action='store_true'
         , help='profile the program with cProfile')
+    if 't' in self.ARGUMENTS:
+      parser.add_argument( '-t', '--time', action='store_true'
+        , help='suppress normal program output; print execution time instead')
     if 's' in self.ARGUMENTS:
       try:
         sort_keys = sorted(pstats.Stats.sort_arg_dict_default.keys())
@@ -77,8 +80,15 @@ class Main(object):
           def doeval():
             logger.info('Evaluating %s', goal.fullname)
             try:
-              for value in curry.eval(goal):
-                print(curry.show_value(value))
+              if args.time:
+                t0 = time.time()
+                for value in curry.eval(goal):
+                  pass
+                t1 = time.time()
+                sys.stdout.write('%0.3f' % (t1 - t0))
+              else:
+                for value in curry.eval(goal):
+                  print(curry.show_value(value))
             except exceptions.EvaluationError as exc:
               sys.stderr.write('** %s **\n' % exc)
               sys.exit(1)

@@ -1,86 +1,38 @@
-import collections, os, pprint, sys, time, timeit
-import curry
-from curry import config
-import subprocess
+import curry, glob, os, subprocess, sys, timeit
 
 OUTPUT_FILE = 'benchmark_data.py'
 REPEAT = 2
-EXEC = config.sprite_exec()
-CURRYDIR = os.path.normpath(config.installed_path('../tests/data/curry/benchmarks'))
+EXEC = curry.config.sprite_exec()
+CURRYDIR = os.path.normpath(curry.config.installed_path('../tests/data/curry/benchmarks'))
+CURRYFILES = glob.glob(os.path.join(CURRYDIR, '*.curry'))
 
 def run_curry(mode, cymodule):
   if mode in ['cxx', 'py']:
     cmd = ' '.join([
         'CURRYPATH=%s' % CURRYDIR, 'SPRITE_INTERPRETER_FLAGS=backend:%s' % mode
-      , EXEC, '-m', cymodule
-      , '> /dev/null'
+      , EXEC, '-tm', cymodule
       ])
+    t = subprocess.check_output(['/bin/sh', '-c', cmd])
+    t = float(t)
   elif mode == 'pakcs':
     cmd = 'cd %s; pakcs :l %s :eval main :q > /dev/null' % (CURRYDIR, cymodule)
-  t = timeit.timeit(lambda: os.system(cmd), number=1)
+    t = timeit.timeit(lambda: os.system(cmd), number=1)
   return t
 
-
-class Reporter(object):
-  def __init__(self, repeat=REPEAT):
-    self.repeat = repeat
-    self.data = collections.defaultdict(dict)
-
-  def test_context(self, name):
-    return TestContext(self, name)
-
-
-class TestContext(object):
-  def __init__(self, reporter, name):
-    self.reporter = reporter
-    self.name = name
-    assert name not in self.reporter.data
-
-  def __enter__(self, *args):
-    print(self.name)
-    return self
-
-  def __exit__(self, *args):
-    pass
-
-  def mode(self, mode):
-    return ModeContext(self, mode)
-
-class ModeContext(object):
-  def __init__(self, tc, mode):
-    self.tc = tc
-    self.mode = mode
-    self.best = float('inf')
-
-  def __enter__(self, *args):
-    sys.stdout.write('    %-16s ' % self.mode)
+def measure(cymodule):
+  print(cymodule)
+  for mode in ['cxx']:
+  # for mode in ['cxx', 'pakcs']:
+    sys.stdout.write('    %-16s ' % mode)
     sys.stdout.flush()
-    return self
+    best = float('inf')
+    for _ in range(REPEAT):
+      sec = run_curry(mode, cymodule)
+      best = min(best, sec)
+      sys.stdout.write('%7.3f  ' % sec)
+      sys.stdout.flush()
+    sys.stdout.write('  |  %0.3f\n' % best)
 
-  def __exit__(self, *args):
-    self.tc.reporter.data[self.tc.name][self.mode] = self.best
-    sys.stdout.write('  |  %0.3f\n' % self.best)
-
-  def report(self, sec):
-    self.best = min(self.best, sec)
-    sys.stdout.write('%7.3f  ' % sec)
-    sys.stdout.flush()
-
-
-def measure(reporter, cymodule):
-  '''
-  Compile and run a Curry proram, passing results to the specified reporter.
-  '''
-  with reporter.test_context(cymodule) as tc:
-    for mode in ['cxx', 'pakcs']:
-      with tc.mode(mode) as mc:
-        for t in range(reporter.repeat):
-          t = run_curry(mode, cymodule)
-          mc.report(t)
-
-
-R = Reporter()
-measure(R, 'rev')
-# with open(OUTPUT_FILE, 'w') as report:
-#   report.write(pprint.pformat(dict(R.data)))
-#   print("Results written to ", OUTPUT_FILE)
+for cyfile in [os.path.split(f)[1] for f in CURRYFILES]:
+  cymodule = cyfile[:-6]
+  measure(cymodule)
