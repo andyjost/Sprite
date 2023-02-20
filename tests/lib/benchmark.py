@@ -1,7 +1,7 @@
 import curry, glob, os, subprocess, sys, timeit
 
 OUTPUT_FILE = 'benchmark_data.py'
-REPEAT = 2
+REPEAT = 1
 EXEC = curry.config.sprite_exec()
 CURRYDIR = os.path.normpath(curry.config.installed_path('../tests/data/curry/benchmarks'))
 CURRYFILES = glob.glob(os.path.join(CURRYDIR, '*.curry'))
@@ -21,8 +21,8 @@ def run_curry(mode, cymodule):
 
 def measure(cymodule):
   print(cymodule)
-  for mode in ['cxx']:
-  # for mode in ['cxx', 'pakcs']:
+  # for mode in ['cxx']:
+  for mode in ['cxx', 'pakcs']:
     sys.stdout.write('    %-16s ' % mode)
     sys.stdout.flush()
     best = float('inf')
