@@ -1,10 +1,11 @@
-import curry, glob, os, subprocess, sys, timeit
+import curry, glob, os, re, subprocess, sys, timeit
 
 OUTPUT_FILE = 'benchmark_data.py'
 REPEAT = 1
 EXEC = curry.config.sprite_exec()
 CURRYDIR = os.path.normpath(curry.config.installed_path('../tests/data/curry/benchmarks'))
 CURRYFILES = glob.glob(os.path.join(CURRYDIR, '*.curry'))
+PAKCSTIME = re.compile(r'Execution time: (\d+) msec')
 
 def run_curry(mode, cymodule):
   if mode in ['cxx', 'py']:
@@ -12,12 +13,13 @@ def run_curry(mode, cymodule):
         'CURRYPATH=%s' % CURRYDIR, 'SPRITE_INTERPRETER_FLAGS=backend:%s' % mode
       , EXEC, '-tm', cymodule
       ])
-    t = subprocess.check_output(['/bin/sh', '-c', cmd])
-    t = float(t)
+    sec = subprocess.check_output(['/bin/zsh', '-c', cmd])
+    return float(sec)
   elif mode == 'pakcs':
-    cmd = 'cd %s; pakcs :l %s :eval main :q > /dev/null' % (CURRYDIR, cymodule)
-    t = timeit.timeit(lambda: os.system(cmd), number=1)
-  return t
+    cmd = 'cd %s; pakcs :set +time :l %s :eval main :q' % (CURRYDIR, cymodule)
+    text = subprocess.check_output(['/bin/zsh', '-c', cmd])
+    msec = re.search(PAKCSTIME, str(text)).group(1)
+    return float(msec) / 1000
 
 def measure(cymodule):
   print(cymodule)
