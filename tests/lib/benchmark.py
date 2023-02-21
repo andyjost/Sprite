@@ -4,8 +4,9 @@ OUTPUT_FILE = 'benchmark_data.py'
 REPEAT = 1
 EXEC = curry.config.sprite_exec()
 CURRYDIR = os.path.normpath(curry.config.installed_path('../tests/data/curry/benchmarks'))
-CURRYFILES = glob.glob(os.path.join(CURRYDIR, '*.curry'))
+CURRYFILES = sorted(glob.glob(os.path.join(CURRYDIR, '*.curry')))
 PAKCSTIME = re.compile(r'Execution time: (\d+) msec')
+LOG = 'benchmark.log'
 
 def run_curry(mode, cymodule):
   if mode in ['cxx', 'py']:
@@ -29,12 +30,17 @@ def measure(cymodule):
     sys.stdout.flush()
     best = float('inf')
     for _ in range(REPEAT):
-      sec = run_curry(mode, cymodule)
-      best = min(best, sec)
-      sys.stdout.write('%7.3f  ' % sec)
+      try:
+        sec = run_curry(mode, cymodule)
+      except Exception as e:
+        sys.stdout.write('%-7s  ' % 'fail')
+      else:
+        best = min(best, sec)
+        sys.stdout.write('%7.3f  ' % sec)
       sys.stdout.flush()
     sys.stdout.write('  |  %0.3f\n' % best)
 
-for cyfile in [os.path.split(f)[1] for f in CURRYFILES]:
+# for cyfile in [os.path.split(f)[1] for f in CURRYFILES]:
+for cyfile in [x+'.curry' for x in ['palindrome']]:
   cymodule = cyfile[:-6]
   measure(cymodule)

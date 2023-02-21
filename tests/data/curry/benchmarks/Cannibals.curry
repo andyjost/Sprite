@@ -22,10 +22,8 @@ data State = State Int Int Bool deriving Eq
 -- on each bank he missionaries, if any, on either bank of the river
 -- cannot be outnumbered by the cannibals
 
--- Note: the Python backend is too slow the run the full problem quickly
--- enough.  We'll just make a baby version.
-M = 2
-C = 1
+M = 3
+C = 2
 
 makeState m c l | valid && safe = State m c l
    where valid = 0 <= m && m <= M && 0 <= c && c <= C
@@ -72,4 +70,5 @@ extend p = if (head p == end) then p
 
 -- solve the puzzle
 
+main :: [State]
 main = extend [start]
