@@ -26,11 +26,8 @@ rank (Card r _) = r
 isFour (x++[_]++z) | map rank (x++z) == [r,r,r,r] = Just r where r free
 isFour'default _ = Nothing
 
-main = (isFour testYes, isFour testNo)
+hands = r1 /= r2 &> [(Card Ace Club),(Card Ace Spade),(Card Ace Heart)
+                    ,(Card r1 Diamond),(Card r2 Diamond)]
+   where r1,r2 free
 
--------- properties --------
-
-testYes = [(Card Six Club),(Card Six Spade),(Card Five Heart),
-           (Card Six Heart),(Card Six Diamond)]
-testNo  = [(Card Six Club),(Card Ace Spade),(Card Five Heart),
-           (Card Ace Club),(Card Six Diamond)]
+main = isFour hands

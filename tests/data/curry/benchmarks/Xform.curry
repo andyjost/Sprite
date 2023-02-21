@@ -68,4 +68,4 @@ allVars e = sortValues ((set1 varInExp) e)
 main2 = allVars exp2 --> ["x","y"]
 
 
-main = main1
+main = (main0, main1, main2)
