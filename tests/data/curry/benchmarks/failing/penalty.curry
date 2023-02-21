@@ -15,24 +15,12 @@ penalty1 pw = selectValue $ set1 aux1 pw
 aux1 (b++[x,x,x]++e) = 1 + aux1 (b++[x,x]++e)
 aux1'default _ = 0
 
--- Produces no values, apparently due to the "where" clause.
-penalty1' pw = selectValue $ set1 aux1' pw
-    where
-        aux1' (b++[x,x,x]++e) = 1 + aux1' (b++[x,x]++e)
-        aux1''default _ = 0
-
 ------ penalty2 ------
 -- Applies selectValue at each iteration.  Complexity should not depend on the
 -- search strategy.
 penalty2 pw = selectValue $ set1 aux2 pw
 aux2 (b++[x,x,x]++e) = 1 + penalty2 (b++[x,x]++e)
 aux2'default _ = 0
-
--- No values.  As above, the "where" clause cannot be used.
-penalty2' pw = selectValue $ set1 aux2' pw
-    where
-        aux2' (b++[x,x,x]++e) = 1 + penalty2' (b++[x,x]++e)
-        aux2''default _ = 0
 
 
 main =  penalty1 "aaaa" == 2

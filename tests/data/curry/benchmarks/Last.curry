@@ -1,11 +1,9 @@
--- Compute the last element in a list using append:
 
-append []     ys = ys
-append (x:xs) ys = x : append xs ys
+last :: Prelude.Data a => [a] -> a
+last l | xs ++ [x] =:= l = x where xs,x free
 
+-- goal0 = last (replicate 10000 True)
+goal1 = last (replicate 100000 True)
 
-last xs | append ys [x] =:= xs
-        = x  where x,ys free
-
-main :: Int
-main = last [1..1000]
+main :: Bool
+main = goal1

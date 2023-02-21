@@ -3,7 +3,8 @@ import curry, glob, os, re, subprocess, sys, timeit
 OUTPUT_FILE = 'benchmark_data.py'
 REPEAT = 1
 EXEC = curry.config.sprite_exec()
-CURRYDIR = os.path.normpath(curry.config.installed_path('../tests/data/curry/benchmarks'))
+# CURRYDIR = os.path.normpath(curry.config.installed_path('../tests/data/curry/benchmarks'))
+CURRYDIR = os.path.normpath(curry.config.installed_path('../tests/data/curry/benchmarks/kics'))
 CURRYFILES = sorted(glob.glob(os.path.join(CURRYDIR, '*.curry')))
 PAKCSTIME = re.compile(r'Execution time: (\d+) msec')
 LOG = 'benchmark.log'
@@ -38,9 +39,13 @@ def measure(cymodule):
         best = min(best, sec)
         sys.stdout.write('%7.3f  ' % sec)
       sys.stdout.flush()
-    sys.stdout.write('  |  %0.3f\n' % best)
+    if REPEAT > 1:
+      sys.stdout.write('  |  %0.3f\n' % best)
+    else:
+      sys.stdout.write('\n')
 
-# for cyfile in [os.path.split(f)[1] for f in CURRYFILES]:
-for cyfile in [x+'.curry' for x in ['palindrome']]:
+for cyfile in [os.path.split(f)[1] for f in CURRYFILES]:
+# for cyfile in [x+'.curry' for x in ['palindrome']]:
   cymodule = cyfile[:-6]
-  measure(cymodule)
+  if cymodule.startswith('TakPeano'):
+    measure(cymodule)

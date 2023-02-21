@@ -1,32 +1,18 @@
--------------------------------------------------------------------------
--- Example for the use of set functions as described in the paper
+-- Compute the number of solutions to queens placements
+-- Uses prelude operations and list comprehensions.
 
--- Sergio Antoy, Michael Hanus:
--- Set Functions for Functional Logic Programming
--- Proc. 11th International ACM SIGPLAN Conference on Principles and Practice
--- of Declarative Programming (PPDP'09), pp. 73-82, 2009 
-
-import Control.SetFunctions
-
--------------------------------------------------------------------------
--- Solving the n-queens problem in Curry with set functions
-
--- Permutations of a list defined as a non-deterministic operation
-perm [] = []
-perm (x:xs) = ndinsert (perm xs)
+queens nq = length (gen nq)
  where
-  ndinsert ys     = x : ys
-  ndinsert (y:ys) = y : ndinsert ys
+  gen :: Int -> [[Int]]
+  gen n = if n==0
+          then [[]]
+          else [ (q:b) | b <- gen (n-1), q <- [1..nq], safe q 1 b]
 
--- A placement is a solution if it is not unsafe.
--- Set functions are used to negate unsafe, and unsafe is defined
--- with a functional pattern.
-queens n | isEmpty ((set1 unsafe) p) = p
- where
-   p = perm [1..n]
+safe :: Int -> Int -> [Int] -> Bool
+safe _ _ [] = True
+safe x d (q:l) = x /= q && x /= q+d && x /= q-d && safe x (d+1) l
 
-   unsafe (_++[x]++y++[z]++_) = abs (x-z) =:= length y + 1
+goal0 = queens 10
+goal1 = queens 11
 
-main = queens 8
-
--------------------------------------------------------------------------
+main = goal0 -- AJ goal1

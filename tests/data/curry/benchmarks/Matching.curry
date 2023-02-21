@@ -18,6 +18,7 @@ match s p = notEmpty $ (set2 aux) s p
           aux (_:as) ('?':bs) = aux as bs
           aux as ('*':bs) = aux (tails as) bs
 
+main :: Bool
 main =  match "aa"     "a"     == False
      && match "aa"     "*"     == True
      && match "abc"    "a*"    == True
@@ -28,3 +29,4 @@ main =  match "aa"     "a"     == False
      && match "acdcb"  "a*cb"  == True
      && match "acdbb"  "a*c?b"  == False
      && match "acdbcccb"  "a*c?b"  == True
+     && match "aaaaaaaaaabbbbbbbbbb"  "a*a*a*a*a*b*b*b*b*b"  == True
