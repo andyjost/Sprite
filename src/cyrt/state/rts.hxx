@@ -42,4 +42,10 @@ namespace cyrt
   {
     return this->qstack.size() > 1;
   }
+
+  inline tag_type RuntimeState::check_steps(tag_type tag)
+  {
+    return (!(++this->stepcount & 0xffff) && this->Q()->size() > 1)
+        ? E_ROTATE : tag;
+  }
 }

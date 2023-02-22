@@ -3,8 +3,7 @@ import curry, glob, os, re, subprocess, sys, timeit
 OUTPUT_FILE = 'benchmark_data.py'
 REPEAT = 1
 EXEC = curry.config.sprite_exec()
-# CURRYDIR = os.path.normpath(curry.config.installed_path('../tests/data/curry/benchmarks'))
-CURRYDIR = os.path.normpath(curry.config.installed_path('../tests/data/curry/benchmarks/kics'))
+CURRYDIR = os.path.normpath(curry.config.installed_path('../tests/data/curry/benchmarks'))
 CURRYFILES = sorted(glob.glob(os.path.join(CURRYDIR, '*.curry')))
 PAKCSTIME = re.compile(r'Execution time: (\d+) msec')
 LOG = 'benchmark.log'
@@ -45,7 +44,5 @@ def measure(cymodule):
       sys.stdout.write('\n')
 
 for cyfile in [os.path.split(f)[1] for f in CURRYFILES]:
-# for cyfile in [x+'.curry' for x in ['palindrome']]:
   cymodule = cyfile[:-6]
-  if cymodule.startswith('TakPeano'):
-    measure(cymodule)
+  measure(cymodule)

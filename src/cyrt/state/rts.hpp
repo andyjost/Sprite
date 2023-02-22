@@ -85,6 +85,7 @@ namespace cyrt
     Expr release_value();
     void rotate(Queue *);
     void set_goal(Node * goal);
+    tag_type check_steps(tag_type);
 
     // rts_fingerprint:
     bool equate_fp(Configuration *, xid_type, xid_type);

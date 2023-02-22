@@ -1,6 +1,6 @@
 module UnificationBench where
 
-import List (nub)
+import Data.List (nub)
 
 iff :: Bool -> a -> a
 iff b x = if b then x else failed
@@ -52,7 +52,7 @@ data RE a = Lit a
 
 -- My characters:
 
-data Chr = A | B | C | D | E
+data Chr = A | B | C | D | E deriving Eq
 
 -- Example: regular expression (ab*)
 
@@ -69,13 +69,13 @@ sem (Alt  a b) = sem a ? sem b
 sem (Conc a b) = sem a ++ sem b
 sem (Star a)   = [] ? sem (Conc a (Star a))
 
-grepS :: RE a -> [a] -> Success
+grepS :: Prelude.Data a => RE a -> [a] -> Success
 grepS r s = xs ++ sem r ++ ys =:= s  where xs,ys free
 
 
 biggrepS n =
   grepS abstarc (take n (concatMap (\i->A : take i (repeat B)) [1..]) ++ [A,B,C])
-grepEq :: RE a -> [a] -> Success
+grepEq :: (Prelude.Data a, Prelude.Eq a) => RE a -> [a] -> Success
 grepEq r s = iff (xs ++ sem r ++ ys == s) success  where xs,ys free
 
 
@@ -89,7 +89,7 @@ goal_grep_Eq = biggrepEq 50000
 -- Half
 ----------------------------------------------------------------------------
 
-data Peano = O | S Peano
+data Peano = O | S Peano deriving Eq
 
 toPeano :: Int -> Peano
 toPeano n = if n==0 then O else S (toPeano (n-1))
@@ -114,9 +114,9 @@ goal_half_S  = fromPeano (halfS  (toPeano 10000))
 -- ExpVarFunPats
 --------------------------------------------------------------
 
-data Exp = Num Peano | Var VarName | Add Exp Exp | Mul Exp Exp
+data Exp = Num Peano | Var VarName | Add Exp Exp | Mul Exp Exp deriving Eq
 
-data VarName = X1 | X2 | X3
+data VarName = X1 | X2 | X3 deriving Eq
 data Position = Lt | Rt
 
 evalTo e = Add (Num O) e
@@ -188,11 +188,11 @@ goal_simplify_Eq = expSize (simplifyEq (genExpWithMult1 2000))
 ----------------------------------------------------------------
 
 
-paliS :: [a] -> Success
+paliS :: Prelude.Data a => [a] -> Success
 paliS ys = (xs ++ reverse xs)     =:= ys where xs free  
 paliS ys = (xs ++ x : reverse xs) =:= ys where x, xs free
 
-paliEq :: [a] -> Success
+paliEq :: (Prelude.Data a, Prelude.Eq a) => [a] -> Success
 paliEq ys = iff (xs ++ reverse xs     == ys) success where xs free
 paliEq ys = iff (xs ++ x : reverse xs == ys) success where x, xs free
 
