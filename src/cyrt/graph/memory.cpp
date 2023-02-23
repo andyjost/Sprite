@@ -2,11 +2,16 @@
 #include <cstdlib>
 #include "cyrt/graph/cursor.hpp"
 #include "cyrt/graph/memory.hpp"
+#include "cyrt/state/rts.hpp"
+#include <set>
 
 namespace cyrt
 {
   char * node_alloc(size_t bytes)
-    { return (char *) std::malloc(bytes); }
+  {
+    gc::g_alloc_this_gen += bytes;
+    return (char *) std::malloc(bytes);
+  }
 
   void node_free(char * px)
     { std::free(px); }
@@ -67,3 +72,29 @@ namespace cyrt
     return size;
   }
 }
+
+namespace cyrt { namespace gc
+{
+  static std::set<RuntimeState *> g_rtslist;
+  size_t g_alloc_this_gen = 0;
+
+  void register_rts(RuntimeState * rts)
+  {
+    assert(rts);
+    assert(g_rtslist.count(rts) == 0);
+    g_rtslist.insert(rts);
+  }
+
+  void unregister_rts(RuntimeState * rts)
+  {
+    assert(rts);
+    g_rtslist.erase(rts);
+    assert(g_rtslist.count(rts) == 0);
+  }
+
+  void run_gc()
+  {
+    g_alloc_this_gen = 0;
+  }
+}}
+

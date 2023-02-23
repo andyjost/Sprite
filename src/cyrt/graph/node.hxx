@@ -57,7 +57,15 @@ namespace cyrt
   {
 		assert(target);
     static_assert(std::is_trivially_destructible<Node>::value, "");
-		new(this) FwdNode{&Fwd_Info, target};
+    assert(this->info->tag != T_FWD);
+    size_t bytes = this->info->alloc_size;
+    if(bytes == sizeof(FwdNode))
+		  new(this) FwdNode{&Fwd_Info, target};
+    else
+    {
+      assert(bytes >= sizeof(FwdSzNode));
+		  new(this) FwdSzNode{&FwdSz_Info, target, bytes};
+    }
 	}
 
   inline void Node::forward_to(Variable const & var)

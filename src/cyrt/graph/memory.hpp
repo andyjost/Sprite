@@ -6,6 +6,14 @@ namespace cyrt
   char * node_alloc(size_t bytes);
   void node_free(char *);
 
+  namespace gc
+  {
+    extern size_t g_alloc_this_gen;
+    void register_rts(RuntimeState *);
+    void unregister_rts(RuntimeState *);
+    void run_gc();
+  }
+
   union RawNodeMemory
   {
     InfoTable const   ** info;

@@ -1,3 +1,4 @@
+#include "cyrt/graph/memory.hpp"
 #include "cyrt/state/rts.hpp"
 #include "cyrt/trace.hpp"
 
@@ -15,5 +16,11 @@ namespace cyrt
 		if(trace)
 		  this->trace.reset(new Trace(*this));
     #endif
+    gc::register_rts(this);
+  }
+
+  RuntimeState::~RuntimeState()
+  {
+    gc::unregister_rts(this);
   }
 }

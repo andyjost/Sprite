@@ -273,7 +273,7 @@ namespace
         {
           if(this->memo.count(id) > 1 && !this->is_terminus(cur->info))
             cycle = true;
-          else if(cur->info == &Fwd_Info)
+          else if(cur->info->tag == T_FWD)
           {
             walk.extend(walk.data());
             continue;

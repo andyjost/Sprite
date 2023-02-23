@@ -57,6 +57,7 @@ namespace cyrt
   static constexpr tag_type   NOTAG   = std::numeric_limits<tag_type>::min();
   static constexpr xid_type   NOXID   = std::numeric_limits<xid_type>::max();
 
+  static constexpr tag_type E_GC       = -13;
   static constexpr tag_type E_ROTATE   = -12;
   static constexpr tag_type E_ERROR    = -11;
   static constexpr tag_type E_RESIDUAL = -10;

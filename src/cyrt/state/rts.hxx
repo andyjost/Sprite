@@ -1,4 +1,5 @@
 #include "cyrt/builtins.hpp"
+#include "cyrt/graph/memory.hpp"
 
 namespace cyrt
 {
@@ -43,9 +44,12 @@ namespace cyrt
     return this->qstack.size() > 1;
   }
 
-  inline tag_type RuntimeState::check_steps(tag_type tag)
+  inline tag_type RuntimeState::check_interrupts(tag_type tag)
   {
-    return (!(++this->stepcount & 0xffff) && this->Q()->size() > 1)
-        ? E_ROTATE : tag;
+    return (gc::g_alloc_this_gen > (64*1024*1024))
+        ? E_GC
+        : (!(++this->stepcount & 0xffff) && this->Q()->size() > 1)
+            ? E_ROTATE
+            : tag;
   }
 }

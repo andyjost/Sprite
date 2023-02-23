@@ -15,6 +15,7 @@
 #define Float_Info               CyI7Prelude5Float
 #define Free_Info                CyI7Prelude4Free
 #define Fwd_Info                 CyI7Prelude3Fwd
+#define FwdSz_Info               CyI7Prelude5FwdSz
 #define Int_Info                 CyI7Prelude3Int
 #define IO_Info                  CyI7Prelude2IO
 #define Nil_Info                 CyI7Prelude4_K_k // []
@@ -53,6 +54,7 @@ extern "C"
   extern InfoTable const Float_Info;
   extern InfoTable const Free_Info;
   extern InfoTable const Fwd_Info;
+  extern InfoTable const FwdSz_Info;
   extern InfoTable const Int_Info;
   extern InfoTable const IO_Info;
   extern InfoTable const Nil_Info;
@@ -139,6 +141,13 @@ namespace cyrt
   {
     Node * target;
     static constexpr InfoTable const * static_info = &Fwd_Info;
+  };
+
+  struct FwdSzNode : Head
+  {
+    Node * target;
+    size_t bytes;
+    static constexpr InfoTable const * static_info = &FwdSz_Info;
   };
 
   struct ChoiceNode : Head

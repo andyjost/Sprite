@@ -52,7 +52,6 @@ namespace cyrt
 
     std::string repr() const;
 
-    #ifndef NDEBUG
     InfoTable(
         tag_type           tag
       , index_type         arity
@@ -63,7 +62,6 @@ namespace cyrt
       , stepfunc_type      step
       , DataType const *   type
       );
-    #endif
   };
 
   inline flag_type typetag(InfoTable const & info)

@@ -38,6 +38,7 @@ namespace cyrt
     assert(g_builtin_modules.count(name) == 0);
     BuiltinModuleData data{std::move(types), std::move(symbols)};
     auto rv = g_builtin_modules.try_emplace(name, std::move(data));
+    (void) rv;
     assert(rv.second);
   }
 

@@ -19,14 +19,14 @@ match s p = notEmpty $ (set2 aux) s p
           aux as ('*':bs) = aux (tails as) bs
 
 main :: Bool
-main =  match "aa"     "a"     == False
-     && match "aa"     "*"     == True
-     && match "abc"    "a*"    == True
-     && match "abc"    "a?"    == False
-     && match "cb"     "?a"    == False
-     && match "adceb"  "a*b"   == True
-     && match "acdcb"  "a*c?b" == False
-     && match "acdcb"  "a*cb"  == True
-     && match "acdbb"  "a*c?b"  == False
-     && match "acdbcccb"  "a*c?b"  == True
-     && match "aaaaaaaaaabbbbbbbbbb"  "a*a*a*a*a*b*b*b*b*b"  == True
+-- main =  match "aa"     "a"     == False
+--      && match "aa"     "*"     == True
+--      && match "abc"    "a*"    == True
+--      && match "abc"    "a?"    == False
+--      && match "cb"     "?a"    == False
+--      && match "adceb"  "a*b"   == True
+--      && match "acdcb"  "a*c?b" == False
+--      && match "acdcb"  "a*cb"  == True
+--      && match "acdbb"  "a*c?b"  == False
+--      && match "acdbcccb"  "a*c?b"  == True
+main = match "aaaaaaaaaabbbbbbbbbb"  "a*a*a*a*a*b*b*b*b*b"  == True

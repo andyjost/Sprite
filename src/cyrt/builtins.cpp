@@ -87,6 +87,17 @@ extern "C"
     , /*type*/       nullptr
     };
 
+  InfoTable const FwdSz_Info{
+      /*tag*/        T_FWD
+    , /*arity*/      2
+    , /*alloc_size*/ sizeof(FwdSzNode)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "_FwdSz"
+    , /*format*/     "pi"
+    , /*step*/       nullptr
+    , /*type*/       nullptr
+    };
+
   InfoTable const Choice_Info{
       /*tag*/        T_CHOICE
     , /*arity*/      3

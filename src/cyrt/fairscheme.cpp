@@ -46,7 +46,7 @@ namespace cyrt
                            return this->release_value();
         case T_FWD     : compress_fwd_chain(C->root);
                          tag = inspect::tag_of(C->root);
-                         tag = this->check_steps(tag);
+                         tag = this->check_interrupts(tag);
                          goto redoD;
         case T_CHOICE  : if(this->choice_escapes(C, obj_id(C->root)))
                            return Expr{C->root};
@@ -55,6 +55,8 @@ namespace cyrt
                          continue;
         case T_FUNC    : tag = this->procS(C);
                          goto redoD;
+        case E_GC      : gc::run_gc();
+                         continue;
         case E_ERROR   : C->raise_error();
         case E_ROTATE  :
         case E_RESIDUAL: this->rotate(Q);
@@ -98,7 +100,7 @@ namespace cyrt
                          if(tag <= E_RESTART) goto redoN; else continue;
         case T_FWD     : compress_fwd_chain(scan->cursor());
                          tag = inspect::tag_of(scan->cursor());
-                         tag = this->check_steps(tag);
+                         tag = this->check_interrupts(tag);
                          goto redoN;
         case T_CHOICE  : *root = this->pull_tab(C, root, scan->cursor());
                          return T_CHOICE;
@@ -112,6 +114,8 @@ namespace cyrt
                          #endif
                          scan->resize(ret);
                          goto redoN;
+        case E_GC      :
+        case E_ROTATE  :
         case E_ERROR   :
         case E_RESIDUAL:
         case E_RESTART : return tag;
@@ -150,7 +154,7 @@ namespace cyrt
                        continue;
         case T_FWD   : compress_fwd_chain(inductive->target);
                        tag = inspect::tag_of(inductive->target);
-                       tag = this->check_steps(tag);
+                       tag = this->check_interrupts(tag);
                        continue;
         case T_CHOICE: inductive->update_escape_sets(); // move this into pull_tab?
                        _0->forward_to(this->pull_tab(C, inductive));

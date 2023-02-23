@@ -35,6 +35,7 @@ namespace cyrt
         InterpreterState & istate, Node * goal, bool trace=false
       , SetFStrategy setfunction_strategy = SETF_LAZY
       );
+    ~RuntimeState();
     RuntimeState(RuntimeState const &) = delete;
     RuntimeState(RuntimeState &&) = delete;
     RuntimeState & operator=(RuntimeState const &) = delete;
@@ -85,7 +86,7 @@ namespace cyrt
     Expr release_value();
     void rotate(Queue *);
     void set_goal(Node * goal);
-    tag_type check_steps(tag_type);
+    tag_type check_interrupts(tag_type);
 
     // rts_fingerprint:
     bool equate_fp(Configuration *, xid_type, xid_type);

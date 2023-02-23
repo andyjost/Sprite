@@ -6,7 +6,6 @@
 
 namespace cyrt
 {
-  #ifndef NDEBUG
   InfoTable::InfoTable(
       tag_type           tag
     , index_type         arity
@@ -32,7 +31,6 @@ namespace cyrt
     // All constructors and only constructors belong to a type.
     assert((tag >= T_CTOR) == bool(type));
   }
-  #endif
 
   void showptr(std::ostream & os, void const * px)
   {

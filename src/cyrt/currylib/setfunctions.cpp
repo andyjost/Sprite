@@ -40,8 +40,7 @@ namespace cyrt { inline namespace
     }
     assert(value.arg.node->info->tag == T_CHOICE);
     choice = NodeU{value.arg.node}.choice;
-    Configuration * subC = seteval->queue->front();
-    assert(subC->root == (Node *) choice);
+    assert(seteval->queue->front()->root == (Node *) choice);
     Queue * Qlhs = seteval->queue;
     Queue * Qrhs = new Queue(seteval->set);
     Node * rhs_seteval = Node::create(seteval->info, seteval->set, Qrhs);

@@ -61,6 +61,7 @@ namespace cyrt
       if(pinfo == registry.end())
       {
         auto rv = registry.emplace(bom->fullname, this->_info);
+        (void) rv;
         assert(rv.second);
       }
       else
