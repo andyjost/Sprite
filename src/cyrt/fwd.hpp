@@ -57,11 +57,12 @@ namespace cyrt
   static constexpr tag_type   NOTAG   = std::numeric_limits<tag_type>::min();
   static constexpr xid_type   NOXID   = std::numeric_limits<xid_type>::max();
 
-  static constexpr tag_type E_GC       = -13;
-  static constexpr tag_type E_ROTATE   = -12;
-  static constexpr tag_type E_ERROR    = -11;
-  static constexpr tag_type E_RESIDUAL = -10;
-  static constexpr tag_type E_RESTART  = -9;
+  static constexpr tag_type E_GC       = -14; // time to run GC
+  static constexpr tag_type E_ROTATE   = -13; // time to rotate the queu
+  static constexpr tag_type E_ERROR    = -12;
+  static constexpr tag_type E_RESIDUAL = -11;
+  static constexpr tag_type E_RESTART  = -10;
+  static constexpr tag_type T_PAD      = -9;
   static constexpr tag_type T_UNBOXED  = -8;
   static constexpr tag_type T_SETGRD   = -7;
   static constexpr tag_type T_FAIL     = -6;

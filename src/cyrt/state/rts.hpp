@@ -84,7 +84,7 @@ namespace cyrt
     Expr make_value();
     bool ready();
     Expr release_value();
-    void rotate(Queue *);
+    void rotate(Queue *, bool forced=false);
     void set_goal(Node * goal);
     tag_type check_interrupts(tag_type);
 

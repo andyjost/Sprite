@@ -57,8 +57,9 @@ namespace cyrt
                          goto redoD;
         case E_GC      : gc::run_gc();
                          continue;
+        case E_ROTATE  : this->rotate(Q, true);
+                         continue;
         case E_ERROR   : C->raise_error();
-        case E_ROTATE  :
         case E_RESIDUAL: this->rotate(Q);
                          continue;
         case E_RESTART : tag = inspect::tag_of(C->root);

@@ -98,6 +98,28 @@ extern "C"
     , /*type*/       nullptr
     };
 
+  InfoTable const Pad_Info{
+      /*tag*/        T_PAD
+    , /*arity*/      0
+    , /*alloc_size*/ sizeof(PadNode)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "_Pad"
+    , /*format*/     ""
+    , /*step*/       nullptr
+    , /*type*/       nullptr
+    };
+
+  InfoTable const PadSz_Info{
+      /*tag*/        T_PAD
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(PadSzNode)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "_PadSz"
+    , /*format*/     "i"
+    , /*step*/       nullptr
+    , /*type*/       nullptr
+    };
+
   InfoTable const Choice_Info{
       /*tag*/        T_CHOICE
     , /*arity*/      3

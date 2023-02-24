@@ -31,6 +31,11 @@ namespace cyrt
 
   static bool _make_ready(RuntimeState * rts, Configuration * C)
   {
+    if(C->forced_rotate)
+    {
+      C->forced_rotate = false;
+      return true;
+    }
     if(C->residuals.empty())
       return true;
     Residuals remaining;
@@ -77,9 +82,11 @@ namespace cyrt
     return value;
   }
 
-  void RuntimeState::rotate(Queue * Q)
+  void RuntimeState::rotate(Queue * Q, bool forced)
   {
     assert(Q);
+    if(forced)
+      Q->front()->forced_rotate = true;
     if(Q->size() > 1)
     {
       Q->push_back(Q->front());

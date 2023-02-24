@@ -61,6 +61,7 @@ namespace cyrt
     Bindings          bindings;
     Residuals         residuals;
     bool              escape_all = false;
+    bool              forced_rotate = false;
     std::pair<Node *, std::string> error; // pair of (error_object, message)
 
     Cursor cursor() const { return this->scan.cursor(); }

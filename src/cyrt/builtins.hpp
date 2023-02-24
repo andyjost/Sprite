@@ -16,6 +16,8 @@
 #define Free_Info                CyI7Prelude4Free
 #define Fwd_Info                 CyI7Prelude3Fwd
 #define FwdSz_Info               CyI7Prelude5FwdSz
+#define Pad_Info                 CyI7Prelude3Pad
+#define PadSz_Info               CyI7Prelude5PadSz
 #define Int_Info                 CyI7Prelude3Int
 #define IO_Info                  CyI7Prelude2IO
 #define Nil_Info                 CyI7Prelude4_K_k // []
@@ -59,6 +61,8 @@ extern "C"
   extern InfoTable const IO_Info;
   extern InfoTable const Nil_Info;
   extern InfoTable const NonStrictConstraint_Info;
+  extern InfoTable const Pad_Info;
+  extern InfoTable const PadSz_Info;
   extern InfoTable const Pair_Info;
   extern InfoTable const PartApplic_Info;
   extern InfoTable const SetGuard_Info;
@@ -182,6 +186,17 @@ namespace cyrt
     static constexpr InfoTable const * static_info = &Char_Info;
   };
 
+  struct PadNode : Head
+  {
+    static constexpr InfoTable const * static_info = &Pad_Info;
+  };
+
+  struct PadSzNode : Head
+  {
+    size_t bytes;
+    static constexpr InfoTable const * static_info = &PadSz_Info;
+  };
+
   struct PartApplicNode : Head
   {
     unboxed_int_type missing;
@@ -226,6 +241,9 @@ namespace cyrt
     ConstrNode        * constr;
     FreeNode          * free;
     FwdNode           * fwd;
+    FwdSzNode         * fwdsz;
+    PadNode           * pad;
+    PadSzNode         * padsz;
     ChoiceNode        * choice;
     biStringNode      * c_str;
     biGeneratorNode   * generator;
