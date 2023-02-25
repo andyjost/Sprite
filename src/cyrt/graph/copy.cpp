@@ -17,9 +17,13 @@ namespace cyrt
   Node * copy_node(Node * node)
   {
     auto const alloc_size = node->info->alloc_size;
-    char * copy = node_alloc(alloc_size);
-    std::memcpy(copy, node, alloc_size);
-    return (Node *) copy;
+    Node * copy;
+    do
+    {
+      copy = node_reserve(alloc_size);
+      std::memcpy(copy, node, alloc_size);
+    } while(!node_commit(copy, alloc_size));
+    return copy;
   }
 
   namespace

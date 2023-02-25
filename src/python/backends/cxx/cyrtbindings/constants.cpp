@@ -31,6 +31,7 @@ namespace cyrt { namespace python
     mod.attr("F_MONADIC")       = (int) F_MONADIC;
     mod.attr("F_OPERATOR")      = (int) F_OPERATOR;
     mod.attr("F_STATIC_OBJECT") = (int) F_STATIC_OBJECT;
+    mod.attr("F_PINNED")        = (int) F_PINNED;
 
     py::enum_<ConstraintType>(mod, "ConstraintType")
         .value("STRICT_CONSTRAINT"   , STRICT_CONSTRAINT)

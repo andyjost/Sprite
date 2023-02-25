@@ -26,8 +26,8 @@ namespace cyrt
     assert(std::strlen(name));
     assert(format);
     assert(std::strlen(format) == arity);
-    // All functions and only functions have a step function.
-    assert((tag == T_FUNC) == bool(step));
+    // Functions and pinned nodes have a step value.
+    assert(!step || ((tag == T_FUNC) || (flags & F_PINNED)));
     // All constructors and only constructors belong to a type.
     assert((tag >= T_CTOR) == bool(type));
   }

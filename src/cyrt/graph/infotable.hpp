@@ -20,6 +20,7 @@ namespace cyrt
   static flag_type constexpr F_MONADIC       = 0x10; // bitwise
   static flag_type constexpr F_OPERATOR      = 0x20; // bitwise
   static flag_type constexpr F_STATIC_OBJECT = 0x40; // bitwise
+  static flag_type constexpr F_PINNED        = 0x80; // bitwise
 
   // Note: the head must remain bitwise-compatible with ValueSet.
   struct DataType
@@ -102,6 +103,9 @@ namespace cyrt
 
   inline bool is_static(DataType const & type)
     { return type.flags & F_STATIC_OBJECT; }
+
+  inline bool is_pinned(InfoTable const & info)
+    { return info.flags & F_PINNED; }
 
   inline bool is_special(InfoTable const & info)
     { return typetag(info); }

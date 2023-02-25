@@ -259,10 +259,14 @@ namespace cyrt
   template<typename NodeType, typename ... Args>
   Node * make_node(Args && ... args)
   {
-    auto target = (void *) node_alloc(sizeof(NodeType));
-    assert(target);
-    new(target) NodeType{NodeType::static_info, std::forward<Args>(args)...};
-    return (Node *) target;
+    Node * target;
+    do
+    {
+      target = node_reserve(sizeof(NodeType));
+      assert(target);
+      new(target) NodeType{NodeType::static_info, std::forward<Args>(args)...};
+    } while(!node_commit(target, sizeof(NodeType)));
+    return target;
   }
 
   InfoTable const * builtin_info(char);

@@ -10,6 +10,12 @@ using namespace cyrt;
 
 extern "C"
 {
+  extern Node Fail_Node_;
+  extern Node False_Node_;
+  extern Node True_Node_;
+  extern Node Nil_Node_;
+  extern Node Unit_Node_;
+
   InfoTable const SetGuard_Info{
       /*tag*/        T_SETGRD
     , /*arity*/      2
@@ -25,10 +31,10 @@ extern "C"
       /*tag*/        T_FAIL
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
-    , /*flags*/      F_STATIC_OBJECT
+    , /*flags*/      F_STATIC_OBJECT | F_PINNED
     , /*name*/       "failed"
     , /*format*/     ""
-    , /*step*/       nullptr
+    , /*step*/       (stepfunc_type) &Fail_Node_
     , /*type*/       nullptr
     };
 
@@ -191,10 +197,10 @@ extern "C"
       /*tag*/        T_FALSE
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
-    , /*flags*/      F_BOOL_TYPE | F_STATIC_OBJECT
+    , /*flags*/      F_BOOL_TYPE | F_STATIC_OBJECT | F_PINNED
     , /*name*/       "False"
     , /*format*/     ""
-    , /*step*/       nullptr
+    , /*step*/       (stepfunc_type) &False_Node_
     , /*type*/       &Bool_Type
     };
 
@@ -202,10 +208,10 @@ extern "C"
       /*tag*/        T_TRUE
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
-    , /*flags*/      F_BOOL_TYPE | F_STATIC_OBJECT
+    , /*flags*/      F_BOOL_TYPE | F_STATIC_OBJECT | F_PINNED
     , /*name*/       "True"
     , /*format*/     ""
-    , /*step*/       nullptr
+    , /*step*/       (stepfunc_type) &True_Node_
     , /*type*/       &Bool_Type
     };
 
@@ -224,10 +230,10 @@ extern "C"
       /*tag*/        T_NIL
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
-    , /*flags*/      F_LIST_TYPE | F_OPERATOR | F_STATIC_OBJECT
+    , /*flags*/      F_LIST_TYPE | F_OPERATOR | F_STATIC_OBJECT | F_PINNED
     , /*name*/       "[]"
     , /*format*/     ""
-    , /*step*/       nullptr
+    , /*step*/       (stepfunc_type) &Nil_Node_
     , /*type*/       &List_Type
     };
 
@@ -235,10 +241,10 @@ extern "C"
       /*tag*/        T_CTOR
     , /*arity*/      0
     , /*alloc_size*/ sizeof(Node0)
-    , /*flags*/      F_TUPLE_TYPE | F_OPERATOR | F_STATIC_OBJECT
+    , /*flags*/      F_TUPLE_TYPE | F_OPERATOR | F_STATIC_OBJECT | F_PINNED
     , /*name*/       "()"
     , /*format*/     ""
-    , /*step*/       nullptr
+    , /*step*/       (stepfunc_type) &Unit_Node_
     , /*type*/       &Unit_Type
     };
 
@@ -253,11 +259,11 @@ extern "C"
     , /*type*/       &Pair_Type
     };
 
-  static Node Fail_Node_{&Fail_Info};
-  static Node False_Node_{&False_Info};
-  static Node True_Node_{&True_Info};
-  static Node Nil_Node_{&Nil_Info};
-  static Node Unit_Node_{&Unit_Info};
+  Node Fail_Node_{&Fail_Info};
+  Node False_Node_{&False_Info};
+  Node True_Node_{&True_Info};
+  Node Nil_Node_{&Nil_Info};
+  Node Unit_Node_{&Unit_Info};
 
   static InfoTable const * Bool_Ctors[] = { &False_Info, &True_Info };
   DataType const Bool_Type { Bool_Ctors, 2, 't', F_STATIC_OBJECT, "Bool" };

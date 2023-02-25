@@ -24,12 +24,16 @@ namespace cyrt
   Node * Node::create(InfoTable const * info, Arg arg0, Args && ... args)
   {
     assert(sizeof...(args) + 1 == info->arity);
-    Node * target = (Node *) node_alloc(info->alloc_size);
-    assert(target);
-    RawNodeMemory mem{target};
-    *mem.info++ = info;
-    *mem.boxed++ = arg0.node;
-    _loadargs(mem.boxed, std::forward<Args>(args)...);
+    Node * target;
+    do
+    {
+      target = node_reserve(info->alloc_size);
+      assert(target);
+      RawNodeMemory mem{target};
+      *mem.info++ = info;
+      *mem.boxed++ = arg0.node;
+      _loadargs(mem.boxed, std::forward<Args>(args)...);
+    } while(!node_commit(target, info->alloc_size));
     return target;
   }
 

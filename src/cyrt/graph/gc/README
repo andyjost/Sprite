@@ -1,0 +1,2 @@
+No Makefiles here.  The is just a (temporary) place to store different GC
+implementations, one of which will be included from memory.cpp.

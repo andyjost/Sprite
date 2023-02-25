@@ -1,0 +1,93 @@
+Cannibals
+    cxx                0.168
+Colormap
+    cxx                0.040
+Colormap2
+    cxx                0.032
+Dev
+    cxx                0.000
+Diamond
+    cxx                0.004
+Half
+    cxx                0.802
+Hello
+    cxx                0.000
+Horseman
+    cxx                0.006
+Inflists
+    cxx                0.120
+Itinerary
+    cxx                0.003
+Last
+    cxx                0.861
+Last2
+    cxx                0.035
+LogBindTest
+    cxx                0.000
+LongestSubstring
+    cxx                0.009
+Matching
+    cxx                0.903
+Mergesort
+    cxx                0.984
+Multgen
+    cxx                0.011
+PaliFunPats
+    cxx                0.199
+Palindrome
+    cxx                0.018
+Peano
+    cxx                0.301
+PermSort
+    cxx                9.706
+PermSortPeano
+    cxx               20.693
+Poker
+    cxx                0.068
+Primes
+    cxx                8.824
+PrimesPeano
+    cxx                0.183
+Psort
+    cxx                0.041
+Qsortlet
+    cxx                0.544
+Queens
+    cxx                7.375
+QueensSet
+    cxx                0.657
+QueensUser
+    cxx                8.682
+Quicksort
+    cxx                0.266
+RegExp
+    cxx                3.652
+Rev
+    cxx                0.108
+Reverse
+    cxx                1.607
+ReverseBuiltin
+    cxx                1.331
+ReverseGroups
+    cxx                0.074
+ReverseHO
+    cxx                1.246
+ReverseUser
+    cxx                1.534
+SearchHorseman
+    cxx                0.681
+SearchMAC
+    cxx               17.519
+SearchQueens
+    cxx               15.848
+ShareNonDet
+    cxx                8.611
+Tak
+    cxx                6.120
+TakPeano
+    cxx                6.975
+ValidParens
+    cxx                0.002
+Xform
+    cxx                0.001
+

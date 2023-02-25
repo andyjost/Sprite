@@ -3,16 +3,13 @@
 
 namespace cyrt
 {
-  char * node_alloc(size_t bytes);
-  void node_free(char *);
+  Node * node_reserve(size_t bytes);
+  bool node_commit(void *, size_t bytes);
 
-  namespace gc
-  {
-    extern size_t g_alloc_this_gen;
-    void register_rts(RuntimeState *);
-    void unregister_rts(RuntimeState *);
-    void run_gc();
-  }
+  extern bool g_gc_collect;
+  void gc_register_rts(RuntimeState *);
+  void gc_unregister_rts(RuntimeState *);
+  void run_gc();
 
   union RawNodeMemory
   {

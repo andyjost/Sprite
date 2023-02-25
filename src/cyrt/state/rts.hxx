@@ -46,7 +46,7 @@ namespace cyrt
 
   inline tag_type RuntimeState::check_interrupts(tag_type tag)
   {
-    return (gc::g_alloc_this_gen > (64*1024*1024))
+    return g_gc_collect
         ? E_GC
         : (!(++this->stepcount & 0xffff) && this->Q()->size() > 1)
             ? E_ROTATE

@@ -14,6 +14,7 @@ from .backends.cxx.cyrtbindings import (
   , F_MONADIC
   , F_OPERATOR
   , F_STATIC_OBJECT
+  , F_PINNED
 
   # Node tags.
   , T_UNBOXED
@@ -44,5 +45,6 @@ BITFLAGS = {
     F_MONADIC       : 'F_MONADIC'
   , F_OPERATOR      : 'F_OPERATOR'
   , F_STATIC_OBJECT : 'F_STATIC_OBJECT'
+  , F_PINNED        : 'F_PINNED'
   }
 BITFLAGS.update({k:v for v,k in BITFLAGS.items()})

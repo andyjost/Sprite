@@ -55,7 +55,8 @@ namespace cyrt
                          continue;
         case T_FUNC    : tag = this->procS(C);
                          goto redoD;
-        case E_GC      : gc::run_gc();
+        case E_GC      : run_gc();
+                         this->rotate(Q, true);
                          continue;
         case E_ROTATE  : this->rotate(Q, true);
                          continue;

@@ -24,8 +24,8 @@ def run_curry(mode, cymodule):
 
 def measure(cymodule):
   print(cymodule)
-  # for mode in ['cxx']:
-  for mode in ['cxx', 'pakcs']:
+  for mode in ['cxx']:
+  # for mode in ['cxx', 'pakcs']:
     sys.stdout.write('    %-16s ' % mode)
     sys.stdout.flush()
     best = float('inf')
@@ -45,4 +45,5 @@ def measure(cymodule):
 
 for cyfile in [os.path.split(f)[1] for f in CURRYFILES]:
   cymodule = cyfile[:-6]
+  # if cymodule.startswith('ReverseBuiltin'):
   measure(cymodule)

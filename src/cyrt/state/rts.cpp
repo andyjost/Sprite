@@ -16,11 +16,11 @@ namespace cyrt
 		if(trace)
 		  this->trace.reset(new Trace(*this));
     #endif
-    gc::register_rts(this);
+    gc_register_rts(this);
   }
 
   RuntimeState::~RuntimeState()
   {
-    gc::unregister_rts(this);
+    gc_unregister_rts(this);
   }
 }
