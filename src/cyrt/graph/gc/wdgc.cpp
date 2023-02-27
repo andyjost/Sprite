@@ -19,7 +19,7 @@
 static std::vector<void *> g_addr;
 
 // The number of live objects at which point GC should run.
-static size_t g_threshold = 10000000;
+static size_t g_threshold = 1000000000;
 
 static struct _Init
 {
