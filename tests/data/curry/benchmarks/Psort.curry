@@ -19,7 +19,8 @@ sorted (x:y:ys) = x<=y && sorted (y:ys)
 sort :: [Int] -> [Int]
 sort xs = head [ ys | ys <- perms xs, sorted ys ]
 
-
 goal n = sort [n,n-1..1]
 -- Result: [1..n]
-main = goal 7
+main = goal 10
+-- sortmain n = sort (2:[n,n-1 .. 3]++[1])
+-- main = sortmain 14

@@ -11,6 +11,6 @@ qsort (x:xs) = let (l,r) = split x xs
                in qsort l ++ (x:qsort r)
 
 goal :: [Int]
-goal = qsort ([251..500]++[1..250])
+goal = qsort ([501..1000]++[1..500])
 
 main = goal

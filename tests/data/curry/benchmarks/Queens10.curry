@@ -12,7 +12,4 @@ safe :: Int -> Int -> [Int] -> Bool
 safe _ _ [] = True
 safe x d (q:l) = x /= q && x /= q+d && x /= q-d && safe x (d+1) l
 
-goal0 = queens 10
-goal1 = queens 11
-
-main = goal0 -- AJ goal1
+main = queens 10

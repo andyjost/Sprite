@@ -11,8 +11,11 @@
 kreverse k xs = let (h,t) = (take k xs, drop k xs) in
     if length h == k then reverse h ++ kreverse k t else h
 
-main :: [[Int]]
-main = [kreverse i [1..500] | i <- [1..25]]
+isList [] = True
+isList (_:xs) = isList xs
+
+main :: [Bool]
+main = [isList (kreverse i [1..5000]) | i <- [1..50]]
 -- main =  kreverse 1 "" == ""
 --      && kreverse 1 "abc" == "abc"
 --      && kreverse 2 "abc" == "bac"

@@ -16,8 +16,8 @@ horseman m h heads feet =
    heads =:= add m h  &  feet =:= add (add m m) (add (add h h) (add h h))
 
 
--- How many men and horses have 40 heads and 92 feet?
-goal4 m h = horseman m h (int2nat 40) (int2nat 92)
+-- How many men and horses have 460 heads and 1160 feet?
+goal4 m h = horseman m h (int2nat 460) (int2nat 1160)
 main4 = goal4 m h &> (m, h) where m,h free
 
 main = main4

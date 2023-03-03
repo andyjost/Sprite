@@ -27,6 +27,6 @@ queens n | isEmpty ((set1 unsafe) p) = p
 
    unsafe (_++[x]++y++[z]++_) = abs (x-z) =:= length y + 1
 
-main = queens 8
+main = queens 9
 
 -------------------------------------------------------------------------

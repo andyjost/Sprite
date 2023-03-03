@@ -1,0 +1,3 @@
+The following tests demonstrate completeness.  They are not included in the
+benchmark suite because they do not terminate.  They can be run by hand to show
+that Sprite produces the intended values before the computation diverges.
