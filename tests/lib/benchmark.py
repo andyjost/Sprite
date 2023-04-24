@@ -45,5 +45,5 @@ def measure(cymodule):
 
 for cyfile in [os.path.split(f)[1] for f in CURRYFILES]:
   cymodule = cyfile[:-6]
-  # if cymodule.startswith('ReverseBuiltin'):
-  measure(cymodule)
+  if cymodule.startswith('Colormap'):
+    measure(cymodule)

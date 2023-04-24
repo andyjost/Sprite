@@ -4,8 +4,6 @@
 
 -- auxiliary function:
 
--- negation of ==:
-diff x y = (x == y) =:= False
 
 -- This is our actual map:
 --
@@ -57,6 +55,7 @@ correct l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 l11 l12
    & diff l10 l12
    & diff l11 l12
    = [l1,l2,l3,l4,l5,l6,l7,l8,l9,l10,l11,l12]
+   where diff x y = (x == y) =:= False
 
 isList (_:x) = isList x
 isList [] = True
