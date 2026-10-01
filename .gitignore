@@ -3,6 +3,7 @@ object-root
 /build*
 /configure-tmp/**
 /configure.log
+/install
 /install/**
 !install/README
 .clang_complete
