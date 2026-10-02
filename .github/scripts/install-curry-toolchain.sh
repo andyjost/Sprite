@@ -12,11 +12,12 @@ PAKCS_HOME="$HOME/pakcs-$PAKCS_VERSION"
 cd "$HOME"
 curl -fsSL -o pakcs.tar.gz \
   "https://www.curry-lang.org/pakcs/download/pakcs-$PAKCS_VERSION-amd64-Linux.tar.gz"
-topdir=$(tar tzf pakcs.tar.gz | head -1 | cut -d/ -f1)
 tar xzf pakcs.tar.gz
 rm pakcs.tar.gz
-if [ "$topdir" != "pakcs-$PAKCS_VERSION" ]; then
-  mv "$topdir" "pakcs-$PAKCS_VERSION"
+if [ ! -d "$PAKCS_HOME" ]; then
+  echo "the PAKCS archive did not unpack to $PAKCS_HOME" >&2
+  ls -d "$HOME"/pakcs* >&2 || true
+  exit 1
 fi
 cd "$PAKCS_HOME"
 # The distribution sets a stack limit for SWI-Prolog 8 only.  Give 9 the same.
