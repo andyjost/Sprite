@@ -1,9 +1,9 @@
-from .. import config, getInterpreter, interpreter, toolchain, utility
+from .. import exceptions, config, getInterpreter, interpreter, toolchain, utility
 from ..interpreter import flags as _flags
 from ..toolchain import plans
 from io import StringIO
 from .utility import handle_program_errors, unrst
-import argparse, os, pydoc, sys
+import argparse, os, pydoc, shutil, sys
 
 PROGRAM_NAME = 'sprite-make'
 __all__ = ['main']
@@ -12,8 +12,10 @@ __doc__ = '''\
 Executes the toolchain to compile Curry code.
 
 This program uses timestamps and prerequisites to lazily update targets.  Each
-positional argument can be a Curry module name or Curry source file.  Modules
-are located by searching the CURRYPATH environment variable.
+positional argument can be a Curry module name, a Curry source file, or an
+ICurry file (extension: ``.icy``).  Modules are located by searching the
+CURRYPATH environment variable.  An ICurry file can only be converted to JSON;
+the JSON file is written beside it.
 
 Three target formats are supported.  Curry-formatted ICurry (extension:
 ``.icy``) is generated with the ``-i,--icy`` option.  These files can be read
@@ -173,12 +175,36 @@ def main(program_name, argv):
                flags=_flags.getflags({'backend': args.backend_name})
              )
   for name in args.names:
+    if name.endswith('.icy'):
+      # A committed ICurry file.  The JSON is written beside it, so the Curry
+      # library can be rebuilt without icurry.
+      with error_handler:
+        _convert_icy(program_name, name, args)
+      continue
     kwds['is_sourcefile'] = name.endswith('.curry')
     with error_handler:
       plan = _buildplan(interp, **kwds)
       toolchain.makecurry(plan, name, config.currypath(), **kwds)
   if error_handler.nerrors:
     sys.exit(1)
+
+def _convert_icy(program_name, name, args):
+  '''
+  Converts an ICurry file to JSON.  The JSON file is written beside the ICurry
+  file and copied to the output file, if one was given.
+  '''
+  if not args.json or args.py or args.cxx:
+    raise exceptions.CompileError(
+        '%s: an .icy file can only be converted to JSON (-j,--json).'
+            % program_name
+      )
+  jsonfile = toolchain.icurry2json(
+      name, config.currypath(), compact=args.compact, zip=args.zip
+    )
+  if args.output:
+    if not (os.path.exists(args.output) and
+            os.path.samefile(args.output, jsonfile)):
+      shutil.copy(jsonfile, args.output)
 
 KEYWORDS = {
     'cxx' : plans.MAKE_TARGET_SOURCE

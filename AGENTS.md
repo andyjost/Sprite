@@ -40,6 +40,12 @@ Merges to `master` happen at milestones.
 - `./configure` writes `Make.config`. `./configure --check-prereqs` lists
   what is missing. Use `--with-pakcs` and `--with-python` to pick tools.
 - `make stage` builds and stages a copy under `install/`.
+- The `.icy` and `.json.z` files under `curry/pakcs-3.4.1/` are committed
+  artifacts of the pinned PAKCS and `icurry` versions. `make` derives the
+  JSON from the committed `.icy` and never runs `icurry` on the library
+  unless you set `SPRITE_REBUILD_ICY=1`. After a change to the ICurry
+  reader, regenerate the JSON: delete the `.json.z` files and run
+  `make stage`.
 - `make test` runs the full suite. For the fast unit tests, run
   `./run_tests 'unit_*.py'` from `tests/`. The `func_*` tests need a PAKCS
   oracle.

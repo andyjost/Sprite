@@ -184,6 +184,24 @@ class TestPrelude(cytest.TestCase):
     chr_ = curry.symbol('Prelude.chr')
     self.assertEqual(list(curry.eval(chr_, 65)), ['A'])
 
+  @cytest.with_flags(defaultconverter='topython')
+  def testIsSpace(self):
+    '''
+    The ICurry text writes the non-breaking space in ``isSpace`` as the
+    decimal escape '\\160'.  The committed JSON cache of the Prelude, built by
+    an old reader, held '0' there, so ``isSpace '0'`` was true and
+    ``read "0"`` failed on both backends.
+    '''
+    isSpace = curry.symbol('Prelude.isSpace')
+    chr_ = curry.symbol('Prelude.chr')
+    for char, expected in [
+        ('0', False), ('1', False), ('9', False), ('a', False)
+      , (' ', True), ('\t', True), ('\n', True)
+      ]:
+      self.assertEqual(list(curry.eval(isSpace, char)), [expected], char)
+    self.assertEqual(list(curry.eval(isSpace, curry.expr(chr_, 160))), [True])
+    self.assertEqual(list(curry.eval(isSpace, curry.expr(chr_, 48))), [False])
+
   @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
   def test_apply_nf(self):
     '''Test the $!! operator.'''

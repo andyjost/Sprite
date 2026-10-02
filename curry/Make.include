@@ -71,9 +71,19 @@ $(CURRYLIB_SUBDIR)/Prelude.curry : | $(CURRYLIB_SUBDIR)
 	echo                                >> $@
 	cat $(PAKCS_HOME)/lib/Prelude.curry >> $@
 
+# The committed .icy and .json.z files are pinned to the configured PAKCS and
+# icurry versions.  A committed .icy file is kept, even when the Curry source
+# has a newer time stamp, unless SPRITE_REBUILD_ICY is set.  The JSON is
+# derived from the .icy file, so icurry never runs for a stale time stamp.
 $(CURRYLIB_SUBDIR)/%.icy : $(CURRYLIB_SUBDIR)/%.curry | $(CURRYLIB_SUBDIR)
-	SPRITE_DISABLE_SYSLIB_CHECKS=1 $(PREFIX)/bin/sprite-make --icy $< -o $@
+	@if [ -e $@ ] && [ -z "$(SPRITE_REBUILD_ICY)" ]; then \
+	  echo "Keeping the committed $@ (set SPRITE_REBUILD_ICY=1 to rebuild it)."; \
+	  touch $@; \
+	else \
+	  echo "SPRITE_DISABLE_SYSLIB_CHECKS=1 $(PREFIX)/bin/sprite-make --icy $< -o $@"; \
+	  SPRITE_DISABLE_SYSLIB_CHECKS=1 $(PREFIX)/bin/sprite-make --icy $< -o $@; \
+	fi
 
-$(CURRYLIB_SUBDIR)/%.json.z : $(CURRYLIB_SUBDIR)/%.curry | $(CURRYLIB_SUBDIR)
+$(CURRYLIB_SUBDIR)/%.json.z : $(CURRYLIB_SUBDIR)/%.icy | $(CURRYLIB_SUBDIR)
 	SPRITE_DISABLE_SYSLIB_CHECKS=1 $(PREFIX)/bin/sprite-make --json $< -zc -o $@
 

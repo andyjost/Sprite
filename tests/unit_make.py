@@ -110,6 +110,38 @@ class TestMake(cytest.TestCase):
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
 
+  def test_sprite_make_icy(self):
+    '''
+    Test the conversion of a committed ICurry file to JSON.  The Curry library
+    ships its ICurry files beside the sources, and make derives the JSON from
+    them without icurry.
+    '''
+    from curry import icurry
+    makeprg = os.path.join(os.environ['SPRITE_HOME'], 'bin', 'sprite-make')
+    def sprite_make(*args):
+      return ensure_str(subprocess.check_output((makeprg,) + args))
+    icy_src = os.path.join('data', 'curry', SUBDIR, 'hello.icy')
+    with tempfile.TemporaryDirectory() as tmpdir:
+      icy_file = os.path.join(tmpdir, 'hello.icy')
+      shutil.copy(icy_src, icy_file)
+      sprite_make('--json', '-zc', icy_file)
+      jsonz_file = os.path.join(tmpdir, 'hello.json.z')
+      self.assertTrue(os.path.exists(jsonz_file))
+      with open(jsonz_file, 'rb') as istream:
+        import zlib
+        imodule = icurry.json.loads(zlib.decompress(istream.read()))
+      self.assertEqual(imodule, icurry.readcurry.load(icy_file))
+      # The output option copies the JSON.
+      copy = os.path.join(tmpdir, 'copy.json.z')
+      sprite_make('--json', '-zc', '-o', copy, icy_file)
+      with open(copy, 'rb') as a, open(jsonz_file, 'rb') as b:
+        self.assertEqual(a.read(), b.read())
+      # Only JSON can be made from an ICurry file.
+      with self.assertRaises(subprocess.CalledProcessError):
+        subprocess.check_output(
+            [makeprg, '--icy', icy_file], stderr=subprocess.DEVNULL
+          )
+
   def test_sprite_make(self):
     '''Test the sprite-make program.'''
     makeprg = os.path.join(os.environ['SPRITE_HOME'], 'bin', 'sprite-make')
