@@ -22,9 +22,16 @@ namespace cyrt { namespace python
 		  .def_readonly("functions", &ModuleBOM::functions)
 			;
 
+    // The registry entry shared by every library loaded under one module name.
+    py::class_<SharedCurryModuleInfo>(mod, "SharedCurryModuleInfo")
+      .def_readonly("fullname"  , &SharedCurryModuleInfo::fullname)
+      .def_readonly("sofilename", &SharedCurryModuleInfo::sofilename)
+      ;
+
     py::class_<SharedCurryModule, std::shared_ptr<SharedCurryModule>>(mod, "SharedCurryModule")
       .def(py::init<std::string const &>())
 			.def_property_readonly("bom", &SharedCurryModule::bom, reference_internal)
+			.def_property_readonly("info", &SharedCurryModule::info, reference_internal)
 			.def("sofilename", &SharedCurryModule::sofilename, reference)
       ;
   }

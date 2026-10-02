@@ -28,7 +28,29 @@ class Visitable(object):
     self._ordering = None
     self.default = default
     self.selector = selector
+    # Locate the selector parameter once.  Calling inspect.getcallargs on
+    # every visit is slow, and inspect converts a RecursionError raised during
+    # deep evaluation into TypeError, which would hide it.
+    parameters = inspect.signature(default).parameters
+    param = parameters[selector]
+    positional = (
+        inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD
+      )
+    self._index = (
+        list(parameters).index(selector) if param.kind in positional else None
+      )
+    self._default = param.default
     return self
+
+  def _selected(self, args, kwds):
+    '''Find the selector argument.  Raises LookupError if it was not supplied.'''
+    if self.selector in kwds:
+      return kwds[self.selector]
+    if self._index is not None and len(args) > self._index:
+      return args[self._index]
+    if self._default is not inspect.Parameter.empty:
+      return self._default
+    raise LookupError(self.selector)
 
   @property
   def ordering(self):
@@ -54,11 +76,12 @@ class Visitable(object):
     handler, and then dispatches the call to there.
     '''
     try:
-      bindings = inspect.getcallargs(self.default, *args, **kwds)
-    except:
+      arg = self._selected(args, kwds)
+    except LookupError:
+      # The selector was not supplied.  Let the default handler report it.
       handler = self.default
     else:
-      ty = type(bindings[self.selector])
+      ty = type(arg)
       if ty in self.handlers:
         handler = self.handlers[ty]
       else:

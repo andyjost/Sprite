@@ -20,6 +20,17 @@ class Configuration(object):
     self.residuals = set()
     self.callstack = callstack.CallStack()
     self.escape_all = escape_all
+    # The number of rewrite steps taken for this configuration.  Steps of a
+    # nested set-function evaluation count as well.  See rts_control.count_step.
+    self.steps = 0
+    # The steps taken since this configuration last spent its step budget.
+    self.budget_used = 0
+    # The value of ``steps`` when this configuration last overflowed the Python
+    # stack, or None.  See rts_control.overflow.
+    self.overflow_at = None
+    # The value of the global step count when this configuration last
+    # overflowed inside a nested queue, or None.  See rts_control.overflow.
+    self.overflow_total = None
 
   def __copy__(self):
     return self.clone(self.root)

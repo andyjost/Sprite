@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <string>
 #include "cyrt/builtins.hpp"
 #include "cyrt/graph/infotable.hpp"
@@ -236,8 +237,17 @@ namespace cyrt { namespace python
       ;
 
     py::class_<RuntimeState>(mod, "RuntimeStateBase")
-      .def(py::init<InterpreterState &, Node *, bool, SetFStrategy>())
-      .def("next", &RuntimeState::procD)
+      .def(py::init<InterpreterState &, Node *, bool, SetFStrategy, size_t>())
+      .def_readonly("steps_total", &RuntimeState::steps_total)
+      // The Curry program writes to the C standard output, and Python keeps
+      // its own buffer on the same file descriptor.  Flush the C buffer when
+      // control returns to Python, with a value or with an error, so the
+      // program's output precedes what Python prints next.
+      .def("next", [](RuntimeState & rts) -> Expr
+        {
+          struct FlushStdout { ~FlushStdout() { std::fflush(stdout); } } flush;
+          return rts.procD();
+        })
       ;
   }
 }}

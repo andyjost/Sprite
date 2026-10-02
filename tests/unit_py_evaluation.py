@@ -37,6 +37,38 @@ class TestPyEvaluation(cytest.TestCase):
   def test_btable(self):
     self.check('btable', [0])
 
+  def test_naive_reverse(self):
+    '''
+    Covers a 2023 report by Michael Hanus: ``rev [1..10]`` hit the Python
+    recursion limit while converting the result to a string.  The check goes
+    through ``str`` so the show path is exercised.
+    '''
+    Rev = curry.compile(
+        '''
+        rev :: [Int] -> [Int]
+        rev []     = []
+        rev (x:xs) = rev xs ++ [x]
+
+        main :: [Int]
+        main = rev [1..10]
+        '''
+      , modulename='Rev'
+      )
+    self.checkAsString([Rev.main], '[10, 9, 8, 7, 6, 5, 4, 3, 2, 1]')
+
+  @cytest.with_flags(defaultconverter='topython')
+  def test_addSomeNum2(self):
+    '''
+    Covers a 2023 report by Michael Hanus: ``isZero (addSomeNum2 2000)`` never
+    yielded a value on the Python backend.  The evaluation is quadratic in the
+    argument: ``addSomeNum2 2000`` takes about 200 seconds on the Python
+    backend, so this test uses 50 on both backends.  func_complete checks the
+    reported size on the C++ backend.  The program is in
+    data/curry/SomeNum.curry.
+    '''
+    SomeNum = curry.import_('SomeNum')
+    self.assertEqual(list(curry.eval(SomeNum.check, 50)), [True])
+
   @cytest.with_flags(defaultconverter='topython')
   def test_partial(self):
     '''Checks the string representation of partial applications.'''

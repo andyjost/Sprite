@@ -47,12 +47,15 @@ def D(rts):
           rts.extend(rts.fork())
           rts.drop(trace=False)
     else:
-      with rts.catch_control(residual=True, restart=True):
+      with rts.catch_control(residual=True, restart=True, steplimit=True):
         if tag == T_FUNC:
           S(rts, rts.E)
         elif tag >= T_CTOR:
           if N(rts, rts.variable(rts.E)):
             yield rts.release_value()
+  # The queue is empty.  An alternative dropped at the stack limit reports its
+  # error now, after the other alternatives produced their values.
+  rts.raise_deferred_error()
 
 # Note: "state" is added by the system.
 @trace.trace_steps
@@ -128,7 +131,10 @@ def S(rts, node):
   with rts.catch_control(unwind=True, nondet=rts.is_io(node)):
     _0 = rts.variable(node)
     node.info.step(rts, _0)
+    # Only a completed step counts.  A step that raised a control exception
+    # left its redex as it was.  The C++ procS applies the same rule.
     rts.stepcounter.increment()
+    rts.count_step()
 
 @callstack.with_hnf_stackframe
 def hnf(rts, var, typedef=None, values=None):

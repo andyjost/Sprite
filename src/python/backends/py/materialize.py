@@ -58,7 +58,7 @@ class Materializer(object):
         lambda: materializeStepfunc(self.interp, ifun)
       )
     lazy = self.interp.flags['lazycompile'] and \
-        ifun.modulename != config.interactive_modname()
+        not config.is_expression_modname(ifun.modulename)
     info = InfoTable(
         ifun.name
       , ifun.arity

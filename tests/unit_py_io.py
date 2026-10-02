@@ -128,6 +128,45 @@ class TestPyIO(cytest.TestCase):
       finally:
         os.chdir(cwd)
 
+  @cytest.with_flags(step_budget=32)
+  def test_writeFile_keeps_prefix_across_rotation(self):
+    '''
+    An audit finding: writeFile truncated the file each time its step ran.
+    When the step budget rotated the queue in the middle of a write, the
+    re-entry truncated the file again and the prefix was lost.  Two writes in
+    parallel alternatives keep rotating until one of them ends.
+    '''
+    with tempfile.TemporaryDirectory() as tmpdir:
+      cwd = os.getcwd()
+      os.chdir(tmpdir)
+      try:
+        goal = curry.compile(
+            'writeFile "a.txt" (concat (replicate 50 "abcd"))'
+            ' ? writeFile "b.txt" (concat (replicate 50 "wxyz"))'
+          , 'expr'
+          )
+        results = list(curry.eval(goal))
+        self.assertEqual(len(results), 2)
+        self.assertEqual(cytest.readfile('a.txt'), 'abcd' * 50)
+        self.assertEqual(cytest.readfile('b.txt'), 'wxyz' * 50)
+      finally:
+        os.chdir(cwd)
+
+  def test_appendFile_nondet(self):
+    # A non-deterministic string is an error for appendFile, as for writeFile.
+    with tempfile.TemporaryDirectory() as tmpdir:
+      cwd = os.getcwd()
+      os.chdir(tmpdir)
+      try:
+        goal = curry.compile('appendFile "file.txt" ("a" ? "b")', 'expr')
+        self.assertRaisesRegex(
+            curry.EvaluationError
+          , r'non-determinism in monadic actions occurred'
+          , lambda: list(curry.eval(goal))
+          )
+      finally:
+        os.chdir(cwd)
+
   @cytest.setio(stdout='')
   def test_nd_io(self):
     goal = curry.compile("putChar ('a' ? 'b')", 'expr')

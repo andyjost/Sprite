@@ -37,7 +37,12 @@ class E_RESIDUAL(RuntimeFlowException):
 
 
 class E_STEPLIMIT(RuntimeFlowException):
-  '''Raised when the step limit is reached.'''
+  '''
+  Raised when a configuration has spent its step budget.  ``qid`` is the ID of
+  the queue to rotate.  None means the queue of the first handler.
+  '''
+  def __init__(self, qid=None):
+    self.qid = qid
 
 class E_TERMINATE(RuntimeFlowException):
   '''Raised to terminate evaluation.'''

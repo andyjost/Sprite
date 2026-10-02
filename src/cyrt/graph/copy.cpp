@@ -74,44 +74,85 @@ namespace cyrt
     struct GraphCopier
     {
       GraphCopier(memo_type & memo, Set * skipgrd=nullptr)
-        : expr(), memo(memo), skipgrd(skipgrd), skip()
+        : memo(memo), skipgrd(skipgrd), skip()
       {}
 
-      Cursor      expr;
       memo_type & memo;
       Set *       skipgrd;
       Skipper     skip;
 
+      // A node whose copy is under construction.  ``copy`` starts as a
+      // shallow copy of ``node``.  The copies of the successors replace the
+      // originals one by one.  ``next`` is the index of the successor copied
+      // next.
+      struct Frame
+      {
+        Node *     node;
+        Node *     copy;
+        index_type next;
+      };
+
+      // Copies the graph at ``expr``.  The traversal keeps its own stack, so
+      // a deep graph such as a long list cannot overflow the C stack.  The
+      // copy of a node is allocated, and recorded in ``memo``, before its
+      // successors are copied.  So a node reached by several paths is copied
+      // once, the copy keeps the sharing, and a cycle in the graph becomes a
+      // cycle in the copy.
       Arg operator()(Cursor expr)
       {
-        this->expr = expr;
-        return this->deepcopy();
-      }
-
-      Arg deepcopy()
-      {
-        if(this->expr.kind != 'p' || !this->expr)
-          return *this->expr.arg;
-        else
+        std::vector<Frame> stack;
+        Cursor cur = expr;
+        Arg value;
+        while(true)
         {
-          auto p = this->memo.find(expr.id());
-          if(p != this->memo.end())
-            return p->second;
-          else
+          // Descend from ``cur`` until a value is at hand.
+          while(true)
           {
-            Node ** target = this->skip(this->expr, this->skipgrd);
-            if(target)
-              return (*this)(*target);
-            else
+            if(cur.kind != 'p' || !cur)
             {
-              index_type const arity = this->expr->info->arity;
-              std::vector<Arg> args;
-              args.reserve(arity);
-              Node * parent = this->expr;
-              for(auto i=0; i<arity; ++i)
-                args.push_back((*this)(parent->successor(i)));
-              return Node::create(parent->info, args.data());
+              value = cur ? *cur.arg : Arg();
+              break;
             }
+            auto p = this->memo.find(cur.id());
+            if(p != this->memo.end())
+            {
+              value = p->second;
+              break;
+            }
+            if(Node ** target = this->skip(cur, this->skipgrd))
+            {
+              cur = Cursor(*target);
+              continue;
+            }
+            Node * node = cur;
+            index_type const arity = node->info->arity;
+            Node * copy = Node::create(
+                node->info, arity ? node->successors() : nullptr
+              );
+            this->memo[node] = copy;
+            if(arity == 0)
+            {
+              value = copy;
+              break;
+            }
+            stack.push_back(Frame{node, copy, 0});
+            cur = node->successor(0);
+          }
+          // Deliver ``value`` to the innermost frame.  Finished frames
+          // produce the value for their parent.
+          while(true)
+          {
+            if(stack.empty())
+              return value;
+            Frame & frame = stack.back();
+            frame.copy->successors()[frame.next] = value;
+            if(++frame.next < frame.node->info->arity)
+            {
+              cur = frame.node->successor(frame.next);
+              break;
+            }
+            value = frame.copy;
+            stack.pop_back();
           }
         }
       }

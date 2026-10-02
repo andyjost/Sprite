@@ -1,4 +1,5 @@
 #include "cyrt/builtins.hpp"
+#include "cyrt/exceptions.hpp"
 #include "cyrt/graph/indexing.hpp"
 #include "cyrt/inspect.hpp"
 #include "cyrt/state/rts.hpp"
@@ -22,6 +23,11 @@ namespace cyrt
     Queue * Q         = nullptr;
     Configuration * C = nullptr;
     tag_type tag      = NOTAG;
+
+    // The stack guard measures from the outermost procD.  A set function
+    // evaluates its queue in a nested procD, which keeps the base.
+    if(!this->in_recursive_call())
+      this->set_stack_base((char const *) __builtin_frame_address(0));
 
     while(this->ready())
     {
@@ -58,8 +64,25 @@ namespace cyrt
         case E_GC      : run_gc();
                          this->rotate(Q, true);
                          continue;
-        case E_ROTATE  : this->rotate(Q, true);
+        // E_ROTATE names the queue to rotate (see check_interrupts).  A
+        // nested procD rotates its own queue as well, when that queue holds
+        // more than one configuration, and hands the status outward.  So a
+        // nested sibling gets its turn too.  E_UNWIND rotates or drops at
+        // the outermost queue and rotates or goes outward at a nested one
+        // (see unwind).
+        case E_ROTATE  : if(this->rotate_target && this->rotate_target != Q
+                              && this->in_recursive_call())
+                         {
+                           if(Q->size() > 1)
+                             this->rotate(Q, true);
+                           return this->yield_control(E_ROTATE);
+                         }
+                         this->rotate_target = nullptr;
+                         this->rotate(Q, true);
                          continue;
+        case E_UNWIND  : if(this->unwind(Q, C))
+                           continue;
+                         return this->yield_control(E_UNWIND);
         case E_ERROR   : C->raise_error();
         case E_RESIDUAL: this->rotate(Q);
                          continue;
@@ -76,6 +99,14 @@ namespace cyrt
                            goto redoD;
                          }
       }
+    }
+    // The queue is empty.  An alternative dropped at the stack limit reports
+    // its error now, after the other alternatives produced their values.
+    if(!this->in_recursive_call() && !this->deferred_error.empty())
+    {
+      std::string message;
+      message.swap(this->deferred_error);
+      throw EvaluationError(message);
     }
     return Expr{};
   }
@@ -106,7 +137,8 @@ namespace cyrt
                          goto redoN;
         case T_CHOICE  : *root = this->pull_tab(C, root, scan->cursor());
                          return T_CHOICE;
-        case T_FUNC    : ret = scan->size();
+        case T_FUNC    : if(this->stack_exhausted()) return E_UNWIND;
+                         ret = scan->size();
                          #ifdef SPRITE_TRACE_ENABLED
                          if(this->trace) { key = this->trace->enter_position(this->Q(), *scan); }
                          #endif
@@ -116,6 +148,7 @@ namespace cyrt
                          #endif
                          scan->resize(ret);
                          goto redoN;
+        case E_UNWIND  :
         case E_GC      :
         case E_ROTATE  :
         case E_ERROR   :
@@ -134,6 +167,12 @@ namespace cyrt
     TRACE_STEP_ENTER(C->cursor())
     auto status = C->cursor()->info->step(this, C);
     TRACE_STEP_EXIT(C->cursor())
+    // Only a rewrite counts as a step.  A status below E_RESTART means the
+    // step was interrupted (E_UNWIND, E_GC, E_ROTATE), suspended
+    // (E_RESIDUAL), or raised an error (E_ERROR), and the redex is as it was.
+    // The Python backend applies the same rule (see S in fairscheme.py).
+    if(status >= E_RESTART)
+      this->count_step();
     return status;
   }
 
@@ -161,7 +200,8 @@ namespace cyrt
         case T_CHOICE: inductive->update_escape_sets(); // move this into pull_tab?
                        _0->forward_to(this->pull_tab(C, inductive));
                        return T_FWD;
-        case T_FUNC  : C->scan.push(inductive);
+        case T_FUNC  : if(this->stack_exhausted()) return E_UNWIND;
+                       C->scan.push(inductive);
                        tag = this->procS(C);
                        C->scan.pop();
                        continue;

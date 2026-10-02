@@ -15,7 +15,7 @@ class Main(object):
   Curry file or module is loaded, and the specified goal (if any) is
   evaluated.  Set CURRYPATH to control the search for Curry code.
   ''' % __package__
-  ARGUMENTS = 'imgpsnt'
+  ARGUMENTS = 'bimgpsnt'
   def __init__(self, program_name, module_name=None, default_goal='main'):
     self.program_name = program_name
     self.module_name = module_name
@@ -30,6 +30,10 @@ class Main(object):
         prog=self.program_name
       , description=self.description()
       )
+    if 'b' in self.ARGUMENTS:
+      parser.add_argument( '-b', '--backend', choices=['py', 'cxx'], default=None
+        , help='selects the backend; overrides SPRITE_INTERPRETER_FLAGS '
+               '[default: %s]' % curry.flags['backend'])
     if 'i' in self.ARGUMENTS:
       parser.add_argument( '-i', '--interact', action='store_true'
         , help='interact after running the program')
@@ -67,6 +71,11 @@ class Main(object):
 
   def __call__(self, argv):
     args = self.parseArgs(argv)
+    if getattr(args, 'backend', None) is not None:
+      # Reload before any Curry code is imported.  Flags passed to reload take
+      # precedence over SPRITE_INTERPRETER_FLAGS; the other flags set there
+      # are kept.
+      curry.reload({'backend': args.backend})
     with handle_program_errors(self.program_name, exit_status=1):
       if args.NAME is None:
         code.interact(local={'__package__': curry})

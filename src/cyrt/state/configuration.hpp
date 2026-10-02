@@ -62,6 +62,15 @@ namespace cyrt
     Residuals         residuals;
     bool              escape_all = false;
     bool              forced_rotate = false;
+    // The number of rewrite steps taken for this configuration.  Steps of a
+    // nested set-function evaluation count as well.  See
+    // RuntimeState::count_step.
+    size_t            steps = 0;
+    // The values of ``steps`` and of RuntimeState::steps_total when this
+    // configuration last reached the stack limit.  NOLIMIT means never.  See
+    // RuntimeState::unwind.
+    size_t            unwind_steps = NOLIMIT;
+    size_t            unwind_total = NOLIMIT;
     std::pair<Node *, std::string> error; // pair of (error_object, message)
 
     Cursor cursor() const { return this->scan.cursor(); }

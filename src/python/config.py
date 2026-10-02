@@ -64,6 +64,18 @@ if debugging():
 def interactive_modname():
   return 'sprite__interactive_'
 
+def expression_modname(n):
+  '''
+  The name of the module that holds compiled expression number ``n``.  Each
+  expression gets its own name: the C++ backend resolves a module's symbols
+  against the same-named module loaded first, so two expression modules must
+  never share a name.
+  '''
+  return 'sprite__expression_%d' % n
+
+def is_expression_modname(name):
+  return name.startswith('sprite__expression_')
+
 class _Variable(object):
   def __init__(self, name, type=str, use_env=False):
     self.use_env = use_env

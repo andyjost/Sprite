@@ -22,6 +22,16 @@ namespace cyrt { inline namespace
     rts->push_queue(seteval->queue);
     auto value = rts->procD();
     rts->pop_queue();
+    if(rts->pending_control != NOTAG)
+    {
+      // The nested scheduler yields to an enclosing queue: the stack limit
+      // was reached (E_UNWIND) or an enclosing queue is due to rotate
+      // (E_ROTATE).  The redex stays as it is, and the set function resumes
+      // when this configuration runs again.  See RuntimeState::yield_control.
+      tag_type const status = rts->pending_control;
+      rts->pending_control = NOTAG;
+      return status;
+    }
     if(!value)
     {
       _0->forward_to(nil());

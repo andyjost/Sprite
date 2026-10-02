@@ -5,7 +5,7 @@ from .... import exceptions
 from . import fingerprint
 from ... import InfoTable as _backends_InfoTable
 from ... import Node as _backends_Node
-import logging
+import logging, sys
 
 logger = logging.getLogger(__name__)
 _backends_Node.register(Node)
@@ -30,11 +30,25 @@ class RuntimeState(RuntimeStateBase):
     self.tracing = interp.flags['trace']
     self.setfunction_strategy = \
         _SETF_STRATEGY[interp.flags['setfunction_strategy']]
-    RuntimeStateBase.__init__(self, istate, goal, self.tracing, self.setfunction_strategy)
+    limit = interp.flags['stack_limit']
+    self.stack_limit = NOLIMIT if limit is None else int(limit)
+    RuntimeStateBase.__init__(
+        self, istate, goal, self.tracing, self.setfunction_strategy
+      , self.stack_limit
+      )
 
   def generate_values(self):
+    '''
+    Generates the values of the goal.
+
+    The Curry program writes to the C standard output, and Python writes to
+    ``sys.stdout``.  Both buffers share one file descriptor.  Python's buffer
+    is flushed before the scheduler runs, and the C buffer when the scheduler
+    returns (see the ``next`` binding), so the output keeps its order.
+    '''
     try:
       while True:
+        _flush_stdout()
         result = self.next()
         if result is None:
           return
@@ -43,4 +57,12 @@ class RuntimeState(RuntimeStateBase):
       raise exceptions.EvaluationError(str(err))
     except EvaluationSuspended:
       raise exceptions.EvaluationSuspended()
+
+def _flush_stdout():
+  # A closed or missing stdout is legal: some IO tests close it to provoke an
+  # error from the program.
+  try:
+    sys.stdout.flush()
+  except (AttributeError, OSError, ValueError):
+    pass
 

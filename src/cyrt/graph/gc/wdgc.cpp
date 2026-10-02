@@ -3,6 +3,7 @@
 // over that list.  There are no generations and nothing is moved.
 
 #include <cstdint>
+#include <new>
 #include <sstream>
 #include <iomanip>
 #include <iostream>
@@ -19,6 +20,9 @@
 static std::vector<void *> g_addr;
 
 // The number of live objects at which point GC should run.
+// TODO: Nodes held by Python (values handed to Python, expressions built with
+// curry.expr) are not collector roots yet, so a collection would free them.
+// The threshold stays at one billion nodes until they are.
 static size_t g_threshold = 1000000000;
 
 static struct _Init
@@ -35,7 +39,19 @@ namespace cyrt
   Node * node_reserve(size_t bytes)
   {
     void * addr = std::malloc(bytes);
-    g_addr.push_back(addr);
+    // Out of memory.  The exception leaves the step functions and the
+    // scheduler; pybind11 turns it into MemoryError.
+    if(!addr)
+      throw std::bad_alloc();
+    try
+    {
+      g_addr.push_back(addr);
+    }
+    catch(...)
+    {
+      std::free(addr);
+      throw;
+    }
     if(g_addr.size() >= g_threshold)
       g_gc_collect = true;
     return (Node *) addr;

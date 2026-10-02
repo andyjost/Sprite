@@ -53,7 +53,7 @@ def get_freevar(rts, arg=None, config=None):
   try:
     if arg.info.tag == T_FREE:
       return arg
-  except:
+  except AttributeError: # arg is a variable ID, not a node
     vid = rts.obj_id(arg, config)
     return rts.vtable[vid]
 

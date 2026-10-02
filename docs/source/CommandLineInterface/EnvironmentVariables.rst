@@ -30,6 +30,28 @@ The following are recognized:
 
      SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
 
+  The ``step_budget`` flag sets the number of rewrite steps the Python backend
+  gives one alternative before it moves to the next.  The default is 2048.
+  The backend rotates only when another alternative waits, so a program with
+  one alternative runs as before.  An alternative that overflows the Python
+  stack runs again after the others.  When it overflows again without
+  progress, it is dropped, and its error is reported after the others have
+  run.  ``None`` disables the step-budget rotation.  Rotation on residuation
+  and on Python stack overflow still occurs.  To change the budget, say::
+
+     SPRITE_INTERPRETER_FLAGS=step_budget:65536 sprite-exec prog.curry
+
+  The ``stack_limit`` flag sets the number of bytes of C stack the C++ backend
+  lets one evaluation use.  The default is 4194304.  When an alternative
+  reaches the limit, the backend unwinds to the scheduler and runs the other
+  alternatives.  An alternative that cannot proceed within the limit is
+  dropped, and its error is reported after the others have run.  A limit
+  larger than the stack of the thread is clamped to that stack, less a margin
+  of 1 MiB.  Set the flag to ``None`` to disable the guard.  To raise the
+  limit, raise the stack size (``ulimit -s``) as well, and say::
+
+     SPRITE_INTERPRETER_FLAGS=stack_limit:16777216 sprite-exec prog.curry
+
 ``SPRITE_LOG_FILE``
   The file to which logging output is directed.  The default, ``-``, directs
   this to standard output.

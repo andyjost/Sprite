@@ -2,6 +2,11 @@
 - fix tests in unit_py_constraints.py
 - fix tests in unit_py_pulltab.py
 - Come to think of it, I should remove the mutual recursion between D, N, and S.  All of the recusion should be done synthetically.
+    - Until then, RuntimeState::stack_exhausted guards the C stack: hnf and
+      procN return E_UNWIND at the stack_limit flag, procD rotates the queue,
+      and a configuration that cannot proceed within the limit raises a
+      "stack limit" error.  A configuration that needs more nesting than the
+      limit allows cannot finish; only an explicit evaluation stack fixes that.
 - curry.compile seems unable to import Control.SetFunctions
 - Documentation:
     - Add information about debugging the C++ backend.
@@ -40,3 +45,21 @@
 
 
 
+
+2026-10-02
+- readFile on a missing file raises different errors on the two backends: the
+  Python backend raises Python's FileNotFoundError from open ("[Errno 2] No
+  such file or directory: 'nofile'"), the C++ backend raises an
+  EvaluationError ("i/o error: No such file or directory: nofile").  Recorded
+  only; the parity gap is not fixed.
+- The C++ backend does not report non-determinism in monadic actions.  hnf
+  pull-tabs a choice at the inductive position of any step, so putChar ('a' ?
+  'b') forks and prints both characters, where the Python backend raises
+  NondetMonadError.  writeFile and appendFile check for the pull-tab and
+  raise the error; the general check (is_monadic in hnf) is still to do.
+  The texts differ as well: the C++ backend reports the IOError value
+  ("nondet error: file.txt"), the Python backend "non-determinism in monadic
+  actions occurred!".
+- The Python graph copier (backends/py/graph/copy.py) recurses once per node,
+  so a cyclic expression raises RecursionError when it is copied.  The C++
+  copier handles cycles.

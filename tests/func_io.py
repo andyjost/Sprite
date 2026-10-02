@@ -30,6 +30,6 @@ class TestExamples(cytest.FunctionalTestCase):
     }
   if curry.flags['backend'] == 'py':
     SKIP = [
-        '^catch$', 'appendFile', 'getChar_catch', 'getChar_error'
+        '^catch$', 'appendFile_', 'getChar_catch', 'getChar_error'
        , 'putChar_catch$', 'putChar_error$', 'writeFile_error'
        ]

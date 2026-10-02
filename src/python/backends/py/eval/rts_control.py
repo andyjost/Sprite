@@ -4,14 +4,17 @@ not intended to be imported except by rts.py.
 '''
 
 from ....common import T_FUNC
-from ...generic.eval.control import E_RESIDUAL, E_RESTART, E_TERMINATE, E_UNWIND
+from ...generic.eval.control import (
+    E_RESIDUAL, E_RESTART, E_STEPLIMIT, E_TERMINATE, E_UNWIND
+  )
 from ..graph.copy import copygraph
 from .... import exceptions, inspect
 from .. import graph
 import contextlib
 
 __all__ = [
-    'append', 'catch_control', 'drop', 'extend', 'is_io', 'make_value', 'ready'
+    'append', 'catch_control', 'count_step', 'drop', 'extend', 'is_io'
+  , 'make_value', 'overflow', 'raise_deferred_error', 'ready'
   , 'release_value', 'restart', 'rotate', 'suspend', 'unwind'
   ]
 
@@ -21,7 +24,8 @@ def append(rts, config):
 
 @contextlib.contextmanager
 def catch_control(
-    rts, ground=True, nondet=False, residual=False, restart=False, unwind=False
+    rts, ground=True, nondet=False, residual=False, restart=False
+  , steplimit=False, unwind=False
   ):
   '''
   Catch and handle flow-control exceptions.
@@ -40,6 +44,17 @@ def catch_control(
 
     restart:
       Catch and ignore E_RESTART.
+
+    steplimit:
+      Handle a spent step budget by rotating the queue.  The exception names
+      the queue to rotate (see count_step).  When that is an enclosing queue,
+      the exception propagates to the handler of that queue.  The
+      set-function evaluations in between are suspended.  They resume when
+      their configuration runs again.  A RecursionError raised by deep
+      evaluation goes to ``overflow``: the configuration runs again after the
+      others when it made progress, and an alternative that is stuck at the
+      same depth is dropped.  So the other alternatives still produce their
+      values.
 
     unwind:
       Catch and ignore E_UNWIND.
@@ -65,6 +80,100 @@ def catch_control(
   except E_RESTART:
     if not restart:
       raise
+  except E_STEPLIMIT as exc:
+    if not steplimit or (exc.qid is not None and exc.qid != rts.qid):
+      raise
+    rts.rotate()
+  except RecursionError as exc:
+    if not steplimit or not rts.overflow(exc):
+      raise
+
+def overflow(rts, error):
+  '''
+  Handle a RecursionError raised by the evaluation of the current
+  configuration.  Returns True when D continues with the current queue, and
+  False when the error goes to the enclosing queue.  This mirrors
+  ``RuntimeState::unwind`` of the C++ backend.
+
+  A configuration that took no step since it last overflowed is stuck: it
+  repeats the same descent and overflows at the same point.  The steps of a
+  nested set-function evaluation count for the enclosing configuration.
+  Re-scanning a configuration from its root repeats the descent but loses no
+  work, because the graph holds every result.
+
+  In the outermost queue, a configuration that made progress runs again after
+  the others.  A stuck one is dropped.  Its error waits in
+  ``rts.deferred_error`` until the queue is empty (see D and ready), so the
+  other alternatives still produce their values.  In a nested queue, a
+  configuration cannot be dropped without losing a value of the set function.
+  It runs again after the others when any step was taken since it last
+  overflowed.  When no step was taken, the enclosing queue decides.
+  '''
+  C = rts.C
+  if rts.in_recursive_call:
+    steps_total = rts.stepcounter.global_count
+    if len(rts.Q) > 1 and C.overflow_total != steps_total:
+      C.overflow_total = steps_total
+      rts.rotate()
+      return True
+    return False
+  if C.overflow_at != C.steps:
+    C.overflow_at = C.steps
+    rts.rotate()
+    return True
+  if rts.deferred_error is None:
+    rts.deferred_error = error
+  rts.drop()
+  return True
+
+def raise_deferred_error(rts):
+  '''
+  Raise the error of an alternative dropped at the stack limit, if there is
+  one.  Only the outermost queue reports it, after the other alternatives
+  have run.  See overflow.
+  '''
+  if not rts.in_recursive_call and rts.deferred_error is not None:
+    error, rts.deferred_error = rts.deferred_error, None
+    raise error
+
+def count_step(rts):
+  '''
+  Account for one rewrite step of the current configuration.
+
+  Called from S after each completed step.  The step belongs to the current
+  configuration and to the configuration at the head of each enclosing queue,
+  because a set-function evaluation runs inside a step of the enclosing
+  configuration.  Each of them counts the step and spends one unit of its
+  budget.
+
+  When a configuration has spent its budget, the queue that holds it rotates
+  so that the other configurations get a turn.  A queue with one configuration
+  cannot rotate.  The outermost queue that can rotate is the target.  D
+  rotates it when it handles E_STEPLIMIT, which carries the ID of the queue
+  (see catch_control).  The exception suspends the nested evaluations.  They
+  resume when their configuration runs again.  A nested queue that can rotate
+  is rotated here, in place, before the exception is raised.  Otherwise a
+  nested queue whose budget expires together with the budget of an enclosing
+  queue would never rotate.  With no step budget, only the counts are kept.
+  '''
+  budget = rts.step_budget
+  expired = [] # the queues to rotate, innermost first
+  for qid in reversed(rts.qstack):
+    Q = rts.qtable[qid]
+    C = Q[0]
+    C.steps += 1
+    if budget is None:
+      continue
+    C.budget_used += 1
+    if C.budget_used >= budget:
+      C.budget_used = 0
+      if len(Q) > 1:
+        expired.append(qid)
+  if expired:
+    target = expired.pop()
+    for qid in expired:
+      rts.qtable[qid].rotate(-1)
+    raise E_STEPLIMIT(target)
 
 def drop(rts, trace=True):
   '''Drop the current configuration.'''
@@ -79,8 +188,8 @@ def extend(rts, configs):
 def is_io(rts, func):
   assert func.info.tag == T_FUNC
   return func.info.name in [
-      'prim_putChar', 'prim_readFile', 'prim_writeFile', 'appendFile'
-    , 'putStr', 'putChr', 'putStrLn', 'print', 'seqIO'
+      'prim_putChar', 'prim_readFile', 'prim_writeFile', 'prim_appendFile'
+    , 'appendFile', 'putStr', 'putChr', 'putStrLn', 'print', 'seqIO'
     , 'returnIO', 'bindIO', 'getChar'
     ]
 
@@ -103,6 +212,9 @@ def ready(rts):
     try:
       i = next(i for i, c in enumerate(rts.Q) if _make_ready(rts, c))
     except StopIteration:
+      # Every configuration is blocked.  The error of a dropped alternative
+      # comes first.
+      rts.raise_deferred_error()
       raise exceptions.EvaluationSuspended()
     else:
       rts.rotate(i)

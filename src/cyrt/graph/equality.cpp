@@ -2,6 +2,8 @@
 #include "cyrt/inspect.hpp"
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -12,9 +14,28 @@ namespace
     bool skipfwd;
     std::unordered_map<void *, std::unordered_set<void *>> memo;
 
+    using pending_type = std::vector<std::pair<Cursor, Cursor>>;
+
     GraphEquality(bool skipfwd) : skipfwd(skipfwd) {}
 
+    // Compares two graphs.  The traversal keeps its own stack, so a deep
+    // graph such as a long list cannot overflow the C stack.
     bool apply(Cursor lhs, Cursor rhs)
+    {
+      pending_type pending{{lhs, rhs}};
+      while(!pending.empty())
+      {
+        auto [l, r] = pending.back();
+        pending.pop_back();
+        if(!this->visit(l, r, pending))
+          return false;
+      }
+      return true;
+    }
+
+    // Compares one pair of nodes.  Equal compound nodes push their successor
+    // pairs onto ``pending``; the leftmost pair goes on top.
+    bool visit(Cursor lhs, Cursor rhs, pending_type & pending)
     {
       auto p = memo.find(lhs.id());
       if(p != memo.end() && p->second.find(rhs.id()) != p->second.end())
@@ -35,7 +56,7 @@ namespace
       bucket.insert(rhs.id());
       if(lhs->info != rhs->info)
         return false;
-      for(index_type i=0; i<lhs->info->arity; ++i)
+      for(index_type i=lhs->info->arity; i-->0;)
       {
         Cursor l = lhs->successor(i);
         Cursor r = rhs->successor(i);
@@ -44,8 +65,7 @@ namespace
           l = inspect::fwd_chain_target(l);
           r = inspect::fwd_chain_target(r);
         }
-        if(!this->apply(l, r))
-          return false;
+        pending.emplace_back(l, r);
       }
       return true;
     }

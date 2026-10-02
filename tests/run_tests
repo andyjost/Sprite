@@ -20,6 +20,17 @@ if [ ! -r "$SPRITE_HOME/lib/libcyrt.so" ]; then
   exit 1
 fi
 
+# Cap the address space of every test process (and the compilers it spawns) so
+# a diverging program fails with an allocation error instead of exhausting the
+# machine.  Override with SPRITE_TEST_MAX_VMEM_KB; set it to "unlimited" to
+# disable the cap.  The valgrind drivers run without the cap: valgrind
+# reserves large address ranges at start-up.
+case `basename $0` in
+  valgrind*) : "${SPRITE_TEST_MAX_VMEM_KB:=unlimited}" ;;
+  *)         : "${SPRITE_TEST_MAX_VMEM_KB:=6291456}" ;;
+esac
+ulimit -v "$SPRITE_TEST_MAX_VMEM_KB" || 1>&2 echo "Warning: could not set the memory cap."
+
 # python=$SPRITE_HOME/bin/python
 export SPRITE_HOME
 export PYTHONPATH=`pwd`/lib/:$PYTHONPATH

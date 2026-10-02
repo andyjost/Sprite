@@ -33,7 +33,7 @@ class TelemetryData(object):
   @property
   def rewrite_steps(self):
     'The number of rewrite steps taken.'
-    return self.rts.stepcounter.count
+    return self.rts.stepcounter.global_count
 
   @property
   def forks(self):

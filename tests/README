@@ -60,6 +60,11 @@ The pattern should be quoted.  To run just the unit tests, for example, say:
 
         ./run_tests 'unit*.py'
 
+The drivers cap the address space of the test process at 6 GiB, so a
+diverging program fails with an allocation error.  The valgrind drivers run
+without the cap.  To change the cap, set SPRITE_TEST_MAX_VMEM_KB (in KiB, or
+"unlimited").
+
 
 5. ORACLE CONFIGURATION
 -----------------------

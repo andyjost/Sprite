@@ -49,6 +49,31 @@ are available:
     used (similar to KiCS2).  Otherwise, each argument is reduced to ground
     normal form before applying the set function (similar to PAKCS).
 
+  * ``stack_limit`` (**4194304** | <int> | None)
+
+    The number of bytes of C stack the C++ backend lets one evaluation use.
+    When a nested evaluation reaches the limit, the backend unwinds to the
+    scheduler and rotates the work queue.  So a deep alternative cannot crash
+    the process or starve the others.  An alternative that cannot proceed
+    within the limit is dropped.  Its error is reported after the other
+    alternatives have run.  None disables the guard.  A limit larger than the
+    stack of the thread is clamped to that stack, less a margin of 1 MiB.
+    The Python backend ignores this flag.
+
+  * ``step_budget`` (**2048** | <int> | None)
+
+    The number of rewrite steps the Python backend gives one configuration
+    before it rotates the work queue.  Rotation occurs only when another
+    configuration waits in the same queue or in an enclosing one.  So a
+    diverging alternative cannot starve the others, also not from inside a
+    set function.  An alternative that overflows the Python stack runs again
+    after the others.  When it overflows again without a step of progress,
+    it is dropped, and its RecursionError is reported after the other
+    alternatives have run.  None disables the step-budget rotation.  Rotation
+    on residuation and on Python stack overflow still occurs.  The C++
+    backend rotates after every 65536 forward nodes it compresses (about one
+    per rewrite step) and ignores this flag.
+
   * ``telemetry_interval`` (**None** | <number>)
 
     Specifies the number of seconds between event reports in the log output.
@@ -68,6 +93,8 @@ FLAG_INFO = {
   , 'lazycompile'         : ( bool                , True  )
   , 'postmortem'          : ( bool                , False )
   , 'setfunction_strategy': ({'eager', 'lazy'}    , 'lazy')
+  , 'stack_limit'         : ({None, int}          , 4194304)
+  , 'step_budget'         : ({None, int}          , 2048  )
   , 'telemetry_interval'  : ({None, float}        , None  )
   }
 
@@ -119,9 +146,15 @@ def _convert(given, valspec): # pragma no cover
   elif valspec is str:
     return given
   elif valspec is int:
-    return int(given)
+    try:
+      return int(given)
+    except ValueError:
+      pass
   elif valspec is float:
-    return float(given)
+    try:
+      return float(given)
+    except ValueError:
+      pass
   elif valspec is bool:
     if any(s.startswith(given.lower())
            for s in ['true', 'on', 'yes', 'enable']):

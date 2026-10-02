@@ -1,4 +1,4 @@
-import curry, re, sys, unittest
+import curry, gc, re, sys, unittest
 
 # Import Curry-specific assert functions.
 from .assert_equal_to_file import *
@@ -18,6 +18,7 @@ class TestCase(unittest.TestCase):
 
   def tearDown(self):
     curry.reset() # Undo, e.g., path and I/O modifications after each test.
+    gc.collect()  # Drop cyclic garbage now, so C++ modules unload before the next test.
 
   def assertMayRaise(self, exception, expr, msg=None):
     if exception is None:

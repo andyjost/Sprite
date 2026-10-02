@@ -1,6 +1,7 @@
 #include "cyrt/exceptions.hpp"
 #include "cyrt/fingerprint.hpp"
 #include "cyrt/state/rts.hpp"
+#include <sstream>
 
 namespace cyrt
 {
@@ -25,8 +26,11 @@ namespace cyrt
 
   Expr RuntimeState::make_value()
   {
-    // if value is IO...
-    return copy_graph(this->E(), SKIPFWD, this->S());
+    Cursor root = this->E();
+    // A top-level IO action yields its payload, as in the Python backend.
+    if(root.kind == 'p' && root->info == &IO_Info)
+      root = root->successor(0);
+    return copy_graph(root, SKIPFWD, this->S());
   }
 
   static bool _make_ready(RuntimeState * rts, Configuration * C)
@@ -92,6 +96,52 @@ namespace cyrt
       Q->push_back(Q->front());
       Q->pop_front();
     }
+  }
+
+  // Handles E_UNWIND for C, the head of Q: the evaluation of C reached the
+  // stack limit and unwound to procD.  Returns true when procD continues with
+  // Q, and false when the unwind goes to the enclosing queue.
+  //
+  // A configuration that took no step since it last unwound is stuck: it
+  // repeats the same descent and reaches the limit at the same point.  (A
+  // step of a nested set-function evaluation counts for the enclosing
+  // configuration.)  Re-scanning a configuration from its root repeats the
+  // descent but loses no work, because the graph holds every result.
+  //
+  // In the outermost queue, a configuration that made progress runs again
+  // after the others.  A stuck one is dropped, and its error waits until the
+  // queue is empty (see procD), so the other alternatives still produce their
+  // values.  In a nested queue, a configuration cannot be dropped without
+  // losing a value of the set function.  It runs again after the others when
+  // any step was taken since it last unwound.  That keeps a sibling that can
+  // proceed running.  When no step was taken, the enclosing queue decides.
+  bool RuntimeState::unwind(Queue * Q, Configuration * C)
+  {
+    if(this->in_recursive_call())
+    {
+      if(Q->size() > 1 && this->steps_total != C->unwind_total)
+      {
+        C->unwind_total = this->steps_total;
+        this->rotate(Q, true);
+        return true;
+      }
+      return false;
+    }
+    if(C->steps != C->unwind_steps)
+    {
+      C->unwind_steps = C->steps;
+      this->rotate(Q, true);
+      return true;
+    }
+    if(this->deferred_error.empty())
+    {
+      std::stringstream ss;
+      ss << "stack limit of " << this->stack_room
+         << " bytes exceeded (flag stack_limit)";
+      this->deferred_error = ss.str();
+    }
+    this->drop();
+    return true;
   }
 
   void RuntimeState::set_goal(Node * goal)

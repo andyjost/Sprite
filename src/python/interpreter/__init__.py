@@ -13,7 +13,7 @@ from ..objects.handle import getHandle
 import importlib
 from ..utility.binding import binding
 from ..utility import curryname, formatDocstring
-import itertools, logging, os, sys
+import logging, os, sys
 
 logger = logging.getLogger(__name__)
 
@@ -130,15 +130,16 @@ class Interpreter(object):
     Soft-resets the interpreter.
 
     Clears loaded modules (except for the Prelude), restores I/O streams to
-    their defaults, resets the Curry path from the environment, and clears
-    internal counters.  This is much faster than building a new interpreter,
+    their defaults, resets the Curry path from the environment, and releases
+    the expression modules.  The names of anonymous modules are not reused;
+    see compile.py.  This is much faster than building a new interpreter,
     which loads the Prelude.
     '''
     self.stdin = sys.stdin
     self.stdout = sys.stdout
     self.stderr = sys.stderr
     self.automodules = config.syslibs()
-    self._counter = itertools.count()
+    self._expression_modules = [] # see compile.py, mode 'expr'
     for name, module in list(self.modules.items()):
       module = getHandle(module)
       if not module.is_package and name != 'Prelude':

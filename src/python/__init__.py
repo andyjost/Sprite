@@ -106,6 +106,10 @@ ref     = _expressions.ref
 unboxed = _expressions.unboxed
 del _expressions
 
+# A reload replaces the interpreter.  Release the previous one's expression
+# modules first, so their libraries unload now; see interpreter/compile.py.
+if '_interpreter_' in globals():
+  _interpreter_._expression_modules = []
 _interpreter_ = interpreter.Interpreter(flags=_flags.getflags())
 
 compile = _interpreter_.compile

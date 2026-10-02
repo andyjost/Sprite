@@ -62,9 +62,35 @@ it, set ``SPRITE_INTERPRETER_FLAGS`` in the environment::
 
     SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
 
-``sprite-exec`` has no command-line option for the backend.  See
+The ``--backend`` option selects the backend without the environment variable
+and overrides a ``backend`` flag set there::
+
+    sprite-exec --backend cxx prog.curry
+
+See
 :ref:`Environment Variables <CommandLineInterface/EnvironmentVariables:Environment Variables>`
 for the other flags.
+
+Bounding One Alternative
+========================
+
+Two flags keep one alternative from starving the others.  On the Python
+backend, ``step_budget`` sets the number of rewrite steps one alternative gets
+before the next one runs.  The default is 2048::
+
+    SPRITE_INTERPRETER_FLAGS=step_budget:65536 sprite-exec prog.curry
+
+``None`` disables the step-budget rotation.  Rotation on residuation and on
+Python stack overflow still occurs.  An alternative that overflows the Python
+stack runs again after the others.  When it overflows again without progress,
+it is dropped, and its error is reported after the others have run.
+
+On the C++ backend, ``stack_limit`` sets the number of bytes of C stack one
+evaluation may use.  The default is 4194304.  When an alternative reaches the
+limit, the other alternatives run.  An alternative that cannot proceed within
+the limit is dropped, and its error is reported after the others have run.
+``None`` disables the guard.  A limit larger than the stack of the thread is
+clamped to that stack, less a margin of 1 MiB.
 
 Profiling
 =========

@@ -17,6 +17,7 @@ namespace cyrt { namespace python
     mod.attr("T_CHOICE")  = (int) T_CHOICE;
     mod.attr("T_FUNC")    = (int) T_FUNC;
     mod.attr("T_CTOR")    = (int) T_CTOR;
+    mod.attr("NOLIMIT")   = (size_t) NOLIMIT;
 
     mod.attr("NO_FLAGS")        = (int) NO_FLAGS;
     mod.attr("F_INT_TYPE")      = (int) F_INT_TYPE;

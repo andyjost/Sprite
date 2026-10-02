@@ -32,6 +32,9 @@ class TimeoutError(RuntimeError):
 class PrerequisiteError(IOError):
   '''Raised when a build prerequisite is invalid.'''
 
+class DynloadError(RuntimeError):
+  '''Raised when a compiled Curry module cannot be loaded.'''
+
 ######
 # Evaluation Errors
 class EvaluationError(BaseException):

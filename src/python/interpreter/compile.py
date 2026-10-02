@@ -6,9 +6,17 @@ from ..backends.generic.eval import evaluator
 from .. import config, exceptions, icurry, objects, toolchain, utility
 from ..objects import handle
 from ..utility.visitation import dispatch
-import types
+import itertools, types
 
 __all__ = ['compile']
+
+# Numbers the anonymous modules: interactive modules (mode 'module' without a
+# name) and expression modules.  The counter belongs to the process, not to
+# the interpreter, so a name never repeats after reset() or reload().  The C++
+# backend resolves a module's symbols against the same-named module loaded
+# first, so a reused name could resolve to stale code.  See
+# config.expression_modname.
+_module_counter = itertools.count()
 
 @utility.formatDocstring(config.python_package_name())
 def compile(
@@ -52,7 +60,7 @@ def compile(
     if exprtype is not None:
       raise ValueError('%r is only allowed in mode=%r', ('exprtype', 'expr'))
     if modulename is None:
-      modulename = config.interactive_modname() + str(next(interp._counter))
+      modulename = config.interactive_modname() + str(next(_module_counter))
     if modulename in interp.modules:
       raise ValueError('module %r is already defined' % modulename)
     string = '%s\n%s' % ('\n'.join(stmts), string)
@@ -78,10 +86,18 @@ def compile(
     curry_code = '\n'.join(stmts)
     moduleobj, icur = toolchain.str2module(
         interp, curry_code, currypath
+      , modulename=config.expression_modname(next(_module_counter))
       , keep_temp_files=interp.flags['keep_temp_files']
       , postmortem=interp.flags['postmortem']
       )
+    # The module leaves the registry, but it stays loaded until the
+    # interpreter resets: the goal's graph refers to the module's code and
+    # data (string literals, local functions), and nothing in the goal keeps
+    # the module alive.  On the C++ backend, an unloaded module leaves
+    # dangling pointers in any goal compiled from it.  The name is unique for
+    # the process, so the modules cannot clash.
     del interp.modules[icur.name]
+    interp._expression_modules.append(moduleobj)
     func = getattr(moduleobj, '.symbols')[compiled_name]
     if func.info.arity > 0:
       raise exceptions.CompileError(

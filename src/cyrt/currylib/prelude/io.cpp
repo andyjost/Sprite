@@ -33,6 +33,16 @@ namespace cyrt
     return Node::create(&prim_ioError_Info, error_object);
   }
 
+  // True when hnf rewrote the redex to a forward node whose target is a
+  // choice: it found a choice at the inductive position and pull-tabbed it
+  // to the root.  In a monadic action, that choice is an error.
+  static bool _pulled_tab(Cursor _0)
+  {
+    Node * node = _0;
+    return node->info->tag == T_FWD
+        && NodeU{node}.fwd->target->info->tag == T_CHOICE;
+  }
+
   static tag_type bindIO_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
@@ -158,7 +168,9 @@ namespace cyrt
       *tail = cons(char_(ch), nil());
       tail = &NodeU{*tail}.cons->tail;
     }
-    _0->forward_to(head);
+    // Wrap the list in the IO constructor: bindIO takes the payload from the
+    // IO node, and the top-level converter strips it.
+    _0->forward_to(io(head));
     return T_FWD;
   return_error:
     char const * error_msg = _make_io_error_msg(IO_ERROR, filename);
@@ -168,6 +180,12 @@ namespace cyrt
   }
 
 
+  // Writes the string to the file (``mode`` out) or appends it (app).  The
+  // string is evaluated one character at a time, so the step runs again when
+  // that evaluation is interrupted, for instance when the scheduler rotates
+  // the queue.  The first entry truncates the file and then turns the redex
+  // into appendFile, so a later entry appends to the characters already
+  // written.
   static tag_type writeFile_step_impl(
       RuntimeState * rts, Configuration * C, std::ios_base::openmode mode
     )
@@ -179,6 +197,11 @@ namespace cyrt
     IOErrorKind error_kind = IO_ERROR;
     std::ofstream stream(filename, mode);
     if(!stream) goto return_error;
+    if(!(mode & std::ios_base::app))
+    {
+      assert(_0->info->alloc_size == prim_appendFile_Info.alloc_size);
+      _0->info = &prim_appendFile_Info;
+    }
     while(true)
     {
       Variable vSpine = _0[1];
@@ -187,6 +210,8 @@ namespace cyrt
       {
         case T_CONS:   vChar = vSpine[0];
                        tag = rts->hnf(C, &vChar);
+                       if(tag == T_FWD && _pulled_tab(_0))
+                         goto return_nondet_error;
                        if(tag < T_CTOR) return tag;
                        stream.put(NodeU{vChar.target}.char_->value);
                        if(!stream) goto return_error;
@@ -194,18 +219,33 @@ namespace cyrt
                        break;
         case T_NIL:    _0->forward_to(io(unit()));
                        return T_FWD;
-        case T_CHOICE: error_kind = NONDET_ERROR;
-                       goto return_error;
-        case T_FAIL:   error_kind = FAIL_ERROR;
-                       goto return_error;
+        // hnf forwards the redex when the inductive position holds a choice
+        // (it pull-tabs the choice to the root), a failure, or a constraint.
+        // A choice means the string is non-deterministic.  A failure keeps
+        // forwarding to Fail, as before.
+        case T_FWD:    if(_pulled_tab(_0))
+                         goto return_nondet_error;
+                       return tag;
         default:       return tag;
       }
     }
   return_error:
-    char const * error_msg = _make_io_error_msg(error_kind, filename);
-    Node * replacement = _make_io_error(error_msg, error_kind);
-    _0->forward_to(replacement);
-    return T_FWD;
+    {
+      char const * error_msg = _make_io_error_msg(error_kind, filename);
+      Node * replacement = _make_io_error(error_msg, error_kind);
+      _0->forward_to(replacement);
+      return T_FWD;
+    }
+  return_nondet_error:
+    {
+      // The redex already forwards to the pull-tabbed choice.  Point it at
+      // the error instead.  The two copies in the choice become garbage.
+      char const * error_msg = _make_io_error_msg(NONDET_ERROR, filename);
+      Node * replacement = _make_io_error(error_msg, NONDET_ERROR);
+      Node * node = _0;
+      NodeU{node}.fwd->target = replacement;
+      return T_FWD;
+    }
   }
 
   static tag_type writeFile_step(RuntimeState * rts, Configuration * C)

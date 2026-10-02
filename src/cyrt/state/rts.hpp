@@ -26,6 +26,19 @@ namespace cyrt
     std::unordered_set<xid_type> escape_set;
   };
 
+  // Default number of bytes of C stack one evaluation may use.  Measured with
+  // the -O2 build: one level of hnf -> procS -> step nesting costs 260-520
+  // bytes for the Prelude's (+) and 520-1050 bytes for a user function with
+  // two nested cases.  4 MiB therefore admits roughly 4000-16000 nested
+  // evaluations and leaves half of the 8 MiB main-thread stack for Python,
+  // pybind11, and the frames above the last check.
+  static constexpr size_t DEFAULT_STACK_LIMIT = size_t(4) << 20;
+
+  // The number of bytes of the thread's stack kept free of Curry evaluation.
+  // It covers the frames above the last stack check, the value copy, and the
+  // error path.  See RuntimeState::set_stack_base.
+  static constexpr size_t STACK_MARGIN = size_t(1) << 20;
+
   using qstack_type  = std::vector<Queue*>;
   using vtable_type  = std::unordered_map<xid_type, Node*>;
 
@@ -34,6 +47,7 @@ namespace cyrt
     RuntimeState(
         InterpreterState & istate, Node * goal, bool trace=false
       , SetFStrategy setfunction_strategy = SETF_LAZY
+      , size_t stack_limit = DEFAULT_STACK_LIMIT
       );
     ~RuntimeState();
     RuntimeState(RuntimeState const &) = delete;
@@ -42,10 +56,34 @@ namespace cyrt
     RuntimeState & operator=(RuntimeState &&) = delete;
 
     InterpreterState &     istate;
+    // ``stepcount`` counts the forward nodes compressed (about one per
+    // rewrite step) and paces the periodic rotation (check_interrupts) and
+    // the concurrent conjunction.  ``steps_total`` counts the rewrite steps
+    // taken (count_step).
     size_t                 stepcount = 0;
+    size_t                 steps_total = 0;
+    // The error of an alternative dropped at the stack limit.  procD raises
+    // it when the outermost queue is empty.  See unwind.
+    std::string            deferred_error;
     qstack_type            qstack;
     vtable_type            vtable;
     SetFStrategy           setfunction_strategy;
+    // C-stack guard.  An evaluation may use ``stack_room`` bytes of C stack
+    // below ``stack_base``, the frame of the outermost procD.  ``stack_room``
+    // is ``stack_limit`` (from the flag) clamped to the stack of the thread
+    // less STACK_MARGIN; ``stack_floor`` is the lowest address of that stack,
+    // probed once per state.  NOLIMIT disables the guard.
+    size_t                 stack_limit;
+    size_t                 stack_room = NOLIMIT;
+    char const *           stack_base = nullptr;
+    char const *           stack_floor = nullptr;
+    bool                   stack_probed = false;
+    // Control handed between nested schedulers.  A nested procD that must
+    // yield to an enclosing queue stores E_UNWIND or E_ROTATE here and returns
+    // no value; allValues_step returns the status to the enclosing
+    // evaluation.  ``rotate_target`` is the queue E_ROTATE is meant for.
+    tag_type               pending_control = NOTAG;
+    Queue *                rotate_target = nullptr;
 		#ifdef SPRITE_TRACE_ENABLED
     std::unique_ptr<Trace> trace;
     #endif
@@ -87,6 +125,11 @@ namespace cyrt
     void rotate(Queue *, bool forced=false);
     void set_goal(Node * goal);
     tag_type check_interrupts(tag_type);
+    void count_step();
+    void set_stack_base(char const *);
+    bool stack_exhausted() const;
+    bool unwind(Queue *, Configuration *);
+    Expr yield_control(tag_type);
 
     // rts_fingerprint:
     bool equate_fp(Configuration *, xid_type, xid_type);

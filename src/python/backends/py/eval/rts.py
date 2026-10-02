@@ -3,6 +3,7 @@ from ..graph import infotable
 from . import configuration
 from .. import graph
 from .... import inspect
+from ....utility import maxrecursion
 import itertools
 
 __all__ = ['InterpreterState', 'RuntimeState']
@@ -68,6 +69,11 @@ class RuntimeState(object):
     self.idfactory = interp.backend.get_interpreter_state(interp).idfactory
     self.setfactory = interp.backend.get_interpreter_state(interp).setfactory
     self.stepcounter = stepcounter.StepCounter()
+    # The step budget of a configuration.  See rts_control.count_step.
+    self.step_budget = interp.flags['step_budget']
+    # The error of an alternative dropped at the stack limit.  D raises it
+    # when the outermost queue is empty.  See rts_control.overflow.
+    self.deferred_error = None
 
     self.trace = trace.Trace(self)
     self.telemetry = telemetry.TelemetryData(self)
@@ -94,8 +100,22 @@ class RuntimeState(object):
       self.append(configuration.Configuration(goal))
 
   def generate_values(self):
+    '''
+    Generate the values of the goal.
+
+    The evaluator nests one Python call per level of a deep expression, so
+    each value is computed under a raised recursion limit (see
+    utility.maxrecursion).  The limit is restored between values.
+    '''
     from .fairscheme import D
-    return D(self)
+    values = D(self)
+    while True:
+      with maxrecursion():
+        try:
+          value = next(values)
+        except StopIteration:
+          return
+      yield value
 
   @property
   def C(self):
@@ -143,8 +163,9 @@ class RuntimeState(object):
       constraint_type, constrain_equal, lift_constraint
     )
   from .rts_control import (
-      append, catch_control, drop, extend, is_io, make_value, ready
-    , release_value, restart, rotate, suspend, unwind
+      append, catch_control, count_step, drop, extend, is_io, make_value
+    , overflow, raise_deferred_error, ready, release_value, restart, rotate
+    , suspend, unwind
     )
   from .rts_fingerprint import (
       equate_fp, fork, grp_id, obj_id, pull_tab, read_fp, update_fp
