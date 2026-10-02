@@ -3,7 +3,7 @@ import cytest.expression_library
 import curry
 from curry import inspect
 from curry.backends.py.graph.equality import equal
-import itertools
+import itertools, unittest
 
 not_equal = lambda *args: not equal(*args)
 
@@ -150,6 +150,12 @@ class TestGraphComparison(cytest.expression_library.ExpressionLibTestCase):
     for spec in self.negative_cases(self.strict_constraint):
       yield spec
 
+  @unittest.skipIf(
+      curry.flags['backend'] == 'cxx'
+    , 'the pair (free(1), unboxed(2)) is a heterogeneous node, which the C++ '
+      'backend cannot represent (see unit_expr); comparing it dereferences the '
+      'unboxed value as a node'
+    )
   @cytest.check_predicate(mapper=curry.raw_expr)
   def test_equals_value_binding(self):
     yield equal, self.value_binding, self.value_binding

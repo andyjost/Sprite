@@ -48,6 +48,11 @@ namespace
     {
       while(true)
       {
+        // Stop at an unboxed value or at a null successor.  A null successor
+        // exists between the creation of a recursive let and its patch
+        // (INodeAssign).
+        if(this->var.target.kind != 'p' || !this->var.target.arg->node)
+          return;
         auto tag = this->var.target->info->tag;
         switch(tag)
         {

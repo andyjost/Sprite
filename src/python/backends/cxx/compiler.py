@@ -207,7 +207,15 @@ class CxxCompiler(compiler.CompilerBase):
       yield '%s = %s;' % (lhs, rhs)
 
   def vEmit_compileS_INodeAssign(self, assign, lhs, rhs):
-    yield '%s = %s;' % (lhs, rhs)
+    # Patch a forward reference of a recursive let.  Index to the parent of
+    # the slot, then write the slot through Variable::set_successor.  The
+    # rendered ``lhs`` is not used: ``_1[1] = _2`` would assign to a temporary
+    # Variable and never write the successor.
+    path = list(assign.path)
+    assert path
+    var = self.vEmit_compileE_IVar(assign.lhs.var)
+    parent = var + ''.join('[%s]' % i for i in path[:-1])
+    yield '%s.set_successor(%s, %s);' % (parent, path[-1], rhs)
 
   def vEmit_compileS_IExempt(self, exempt):
     yield 'return _0->make_failure();'
@@ -256,7 +264,9 @@ class CxxCompiler(compiler.CompilerBase):
     return '_%s' % ivar.vid
 
   def vEmit_compileE_IVarAccess(self, ivaraccess, var):
-    return '%s[%s]' % (var, ','.join(map(str, ivaraccess.path)))
+    # One subscript per path element.  Variable::operator[] takes one index;
+    # a comma list such as _1[0,1] would be the C++ comma operator.
+    return var + ''.join('[%s]' % i for i in ivaraccess.path)
 
   LIT_CONSTRUCTOR = {
       'CyI7Prelude3Int'  : 'int_'

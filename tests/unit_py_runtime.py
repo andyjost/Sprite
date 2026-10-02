@@ -206,6 +206,7 @@ class TestPyRuntime(cytest.TestCase):
     value, = curry.eval(goal)
     self.assertEqual(str(value), '[True]')
 
+  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'cytest.step uses the generic Evaluator step limit (rts.stepcounter), which the C++ RuntimeState does not provide')
   def test_interp_step(self):
     interp = curry.getInterpreter()
     code = interp.compile(
@@ -238,6 +239,7 @@ class TestPyRuntime(cytest.TestCase):
     self.assertEqual(goal, step3)
     self.assertEqual(list(interp.eval(goal)), [])
 
+  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'getimpl returns the generated Python step function; the C++ backend compiles steps to a shared object with no Python source')
   def test_getimpl(self):
     # Positive test.
     from curry.lib import hello
@@ -305,6 +307,7 @@ class TestPyRuntime(cytest.TestCase):
     self.assertEqual(a.read[1].refcnt, 2) # shared
 
 
+@unittest.skipIf(curry.flags['backend'] == 'cxx', 'drives the Python-backend RuntimeState.instantiate and builds Python graph Nodes directly')
 class TestInstantiation(cytest.TestCase):
   def setUp(self):
     super(TestInstantiation, self).setUp()

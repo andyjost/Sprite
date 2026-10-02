@@ -78,7 +78,16 @@ namespace cyrt
     Variable() {}
     Variable(Node *, index_type, bool update_fwd_nodes=true); // indexing.cpp
     Variable operator[](index_type) const;
+
+    // The node this variable denotes, wrapped in any set guards crossed on
+    // the way to it.  An unassigned variable yields nullptr.  Generated code
+    // relies on this for a recursive let: a forward reference is built with a
+    // null successor, then patched with set_successor.
     Node * rvalue() const;
+
+    // Writes successor ``pos`` of the target node.  Used by INodeAssign to
+    // patch a forward reference in a recursive let.
+    void set_successor(index_type pos, Arg value) const;
 
     void update_escape_sets();
 

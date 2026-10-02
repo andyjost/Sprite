@@ -311,7 +311,11 @@ class ExpressionBuilder(object):
       raise CurryTypeError('invalid arguments after ref %r' % anchorname)
     target = self.anchors.get(anchorname)
     if target is None:
-      placeholder = self(fail)
+      # The placeholder must be a fresh node that can be forwarded: fixrefs
+      # forwards it to itself for the trivial cycle a=a.  A failure will not
+      # do, because on the C++ backend failures are one shared node that is
+      # too small to forward.
+      placeholder = self(fwd(fail))
       self.brokenrefs[placeholder.id()] = anchorname
       return placeholder
     else:

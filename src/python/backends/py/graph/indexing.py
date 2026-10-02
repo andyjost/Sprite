@@ -23,7 +23,9 @@ def compress_fwd_chain(end):
     chain.append(end)
     end = inspect.fwd_target(end)
   for node in chain:
-    node.successors[0] = end
+    # set_successor writes through on both backends; on the C++ backend
+    # ``successors`` is a fresh list, so assigning into it would be lost.
+    node.set_successor(0, end)
   return end
 
 # The result of a call to ``realpath``.
@@ -55,7 +57,7 @@ class RealPathIndexer(object):
       if tag == T_FWD:
         if self.update_fwd_nodes and self.realpath:
           end = compress_fwd_chain(self.target)
-          self.parent.successors[self.realpath[-1]] = end
+          self.parent.set_successor(self.realpath[-1], end)
           self.target = end
         else:
           self.parent = self.target

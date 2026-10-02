@@ -170,7 +170,15 @@ class PyCompiler(compiler.CompilerBase):
     yield '%s = %s' % (lhs, rhs)
 
   def vEmit_compileS_INodeAssign(self, assign, lhs, rhs):
-    yield '%s = %s' % (lhs, rhs)
+    # Patch a forward reference of a recursive let.  Index to the parent of
+    # the slot, then write the slot through Node.__setitem__, which takes one
+    # integer index.  The rendered ``lhs`` is not used: ``_1[1,0] = _2`` would
+    # pass a tuple index to __setitem__.  This mirrors the C++ emission.
+    path = list(assign.path)
+    assert path
+    var = self.vEmit_compileE_IVar(assign.lhs.var)
+    parent = var + ('[%s]' % ','.join(map(str, path[:-1])) if path[:-1] else '')
+    yield '%s[%s] = %s' % (parent, path[-1], rhs)
 
   def vEmit_compileS_IExempt(self, exempt):
     yield '_0.rewrite(rts.Failure)'

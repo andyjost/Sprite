@@ -62,6 +62,7 @@ namespace cyrt
 		assert(target);
     static_assert(std::is_trivially_destructible<Node>::value, "");
     assert(this->info->tag != T_FWD);
+    assert(!is_pinned(*this->info));
     size_t bytes = this->info->alloc_size;
     if(bytes == sizeof(FwdNode))
 		  new(this) FwdNode{&Fwd_Info, target};

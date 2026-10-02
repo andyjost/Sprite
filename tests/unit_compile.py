@@ -1,5 +1,6 @@
 import cytest # from ./lib; must be first
 import curry
+from curry import inspect
 
 class TestPyCompile(cytest.TestCase):
   '''Tests for curry.compile.'''
@@ -90,8 +91,12 @@ class TestPyCompile(cytest.TestCase):
       , r'''expression '1\+2' requires a type annotation'''
       , lambda: curry.compile('1+2', mode='expr')
       )
+    # The C++ backend represents the single rewrite step taken by
+    # curry.compile(..., 'expr') as a forward node at the root; the Python
+    # backend rewrites the root in place.  Compare the forward target so one
+    # expectation serves both backends.
     e = curry.compile('1+2', mode='expr', exprtype='Int')
-    yield e, None \
+    yield inspect.fwd_chain_target(e), None \
            , '<_impl#+#Prelude.Num#Prelude.Int <Int 1> <Int 2>>' \
            , None \
            , [3]
@@ -103,10 +108,16 @@ class TestPyCompile(cytest.TestCase):
       , lambda: curry.compile('1 ? 2', mode='expr')
       )
     e = curry.compile('1 ? 2', mode='expr', exprtype='Int')
-    yield e, None, '<? <Int 1> <Int 2>>', None, [[1, 2]]
+    yield inspect.fwd_chain_target(e), None, '<? <Int 1> <Int 2>>', None, [1, 2]
 
   @cytest.check_expressions()
   def test_reclet(self):
     e = curry.compile('''let a = True:b ; b = False:a in a''', 'expr')
     yield e, '[True, False, ...]', '<_Fwd <: <True> <: <False> ...>>>'
+    # A back reference below the top-level constructor gives the INodeAssign a
+    # path of length two.  Both backends must index to the parent slot.
+    M = curry.compile('data T = T Bool T Int', modulename='RecLetT')
+    e = curry.compile('let a = T True (T False a 1) 2 in a', 'expr', imports=M)
+    yield e, 'T True (T False ... 1) 2' \
+           , '<_Fwd <T <True> <T <False> ... <Int 1>> <Int 2>>>'
 

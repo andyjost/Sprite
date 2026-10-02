@@ -6,6 +6,7 @@ from curry.backends.py.eval.fairscheme import hnf
 import curry, unittest
 
 class TestPyPullTab(cytest.TestCase):
+  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'drives the Python-backend RuntimeState and fairscheme.hnf directly')
   def testPullChoice(self):
     '''Tests the pull-tab step for choices.'''
     module = curry.compile('f (_,_,9) True a = a', modulename='M')

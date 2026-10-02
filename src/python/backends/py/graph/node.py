@@ -46,6 +46,15 @@ class Node(object):
     from .indexing import logical_subexpr
     return logical_subexpr(self, path, update_fwd_nodes=True)
 
+  def __setitem__(self, i, value):
+    # Used by generated code (INodeAssign) to close a cyclic expression built
+    # with None placeholders, e.g., a recursive let.  Takes one integer index;
+    # the compiler indexes to the parent node first.  Accepts a Variable.
+    assert isinstance(i, numbers.Integral)
+    value = getattr(value, 'rvalue', value)
+    assert inspect.isa_curry_expr_or_none(value)
+    self.successors[i] = value
+
   def successor(self, i):
     return self.successors[i]
 

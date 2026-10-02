@@ -147,9 +147,20 @@ namespace cyrt
 
   Node * Variable::rvalue() const
   {
+    if(!this->target)
+      return nullptr; // unassigned variable (forward reference)
     Node * value = this->target;
     for(Set * set: this->guards)
       value = guard(set, value);
     return value;
+  }
+
+  void Variable::set_successor(index_type pos, Arg value) const
+  {
+    assert(this->target.kind == 'p' && *this->target);
+    Node * node = this->target;
+    assert(pos < node->info->arity);
+    assert(node->info->format[pos] == 'p');
+    node->successors()[pos] = value;
   }
 }

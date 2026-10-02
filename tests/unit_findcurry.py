@@ -1,20 +1,11 @@
 import cytest # from ./lib; must be first
 from curry import config, icurry, toolchain
+from curry.toolchain import plans
 from curry.utility import filesys
 import tempfile
 import curry, os, shutil, time, unittest
 
 GENERATE_GOLDENS = False
-
-def set_intermediate_subdir(f, value='sprite'):
-  def replacement(*args, **kwds):
-    old_value = config.intermediate_subdir
-    try:
-      config.intermediate_subdir = lambda: value
-      return f(*args, **kwds)
-    finally:
-      config.intermediate_subdir = old_value
-  return replacement
 
 class TestFindCurry(cytest.TestCase):
   def test_findFile(self):
@@ -83,70 +74,77 @@ class TestFindCurry(cytest.TestCase):
       , ['data/findFile/c/a']
       )
 
-  @unittest.expectedFailure # calls currentfile with an outdated signature; needs a gitignored fixture
-  @set_intermediate_subdir
+  def setUp(self):
+    super().setUp()
+    # currentfile needs a build plan.  Searching for the ICurry-JSON file
+    # requires a plan that reaches the JSON stage.
+    self.plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_JSON)
+    # Copy the findFile tree to a temporary directory and add the gitignored
+    # fixture a/.curry/<intermediate_subdir>/a.json, which has no a.curry.
+    self.tmpdir = tempfile.TemporaryDirectory()
+    self.addCleanup(self.tmpdir.cleanup)
+    self.root = os.path.join(self.tmpdir.name, 'findFile')
+    shutil.copytree(
+        'data/findFile', self.root, ignore=shutil.ignore_patterns('.curry')
+      )
+    self.jsondir_a = os.path.join(
+        self.root, 'a', '.curry', config.intermediate_subdir()
+      )
+    os.makedirs(self.jsondir_a)
+    self.json_a = os.path.join(self.jsondir_a, 'a.json')
+    with open(self.json_a, 'w') as ostream:
+      ostream.write('{}')
+
   def test_findCurry(self):
+    sub = lambda *parts: os.path.join(self.root, *parts)
     self.assertEqual(
-        toolchain.currentfile('c', currypath=['data/findFile/c'])
-      , os.path.abspath('data/findFile/c/c.curry')
+        toolchain.currentfile(self.plan, 'c', currypath=[sub('c')])
+      , sub('c', 'c.curry')
       )
     self.assertEqual(
-        toolchain.currentfile('a', currypath=['data/findFile/b'])
-      , os.path.abspath('data/findFile/b/a.curry')
+        toolchain.currentfile(self.plan, 'a', currypath=[sub('b')])
+      , sub('b', 'a.curry')
       )
-    # Under a/ there is no a.curry, but there is .curry/sprite/a.json.
+    # Under a/ there is no a.curry, but there is .curry/<subdir>/a.json.
     # It should be found before b/a.curry is located.
     self.assertEqual(
         toolchain.currentfile(
-            'a'
-          , currypath=['data/findFile/'+a_or_b for a_or_b in 'ab']
+            self.plan, 'a', currypath=[sub(a_or_b) for a_or_b in 'ab']
           )
-      , os.path.abspath('data/findFile/a/.curry/sprite/a.json')
+      , self.json_a
       )
 
-  @unittest.expectedFailure # calls currentfile with an outdated signature; needs a gitignored fixture
-  @set_intermediate_subdir
   def test_getICurryForModule(self):
-    '''Check that curry2json is invoked to produce ICurry-JSON files.'''
-    # If the JSON file already exists, this should find it, just like
-    # findCurryModule does.
+    '''Check that the toolchain is invoked to produce ICurry-JSON files.'''
+    # If the JSON file already exists, currentfile finds it.
     self.assertEqual(
-        toolchain.currentfile('a', ['data/findFile/a'], zip=False)
-      , os.path.abspath('data/findFile/a/.curry/sprite/a.json')
+        toolchain.currentfile(self.plan, 'a', [os.path.join(self.root, 'a')])
+      , self.json_a
       )
 
-    jsondir = 'data/curry/.curry/sprite'
-    jsonfile = os.path.join(jsondir, 'hello.json')
+    # Otherwise, makecurry builds the JSON.  Work on a copy of hello.curry so
+    # that the cached build under data/curry is left alone.
+    srcdir = os.path.join(self.tmpdir.name, 'hello')
+    os.makedirs(srcdir)
+    shutil.copy('data/curry/hello.curry', srcdir)
+    jsonfile = os.path.join(
+        srcdir, '.curry', config.intermediate_subdir(), 'hello.json'
+      )
     goldenfile = 'data/curry/hello.json.au'
-    def rmfiles():
-      try:
-        shutil.rmtree(jsondir)
-      except OSError:
-        pass
-
-    try:
-      # Otherwise, it builds the JSON.
-      rmfiles()
-      self.assertFalse(os.path.exists(jsonfile))
-      self.assertEqual(
-          toolchain.currentfile('hello', ['data/curry'], zip=False)
-        , os.path.abspath(jsonfile)
-        )
-      self.assertTrue(os.path.exists(jsonfile))
-      self.assertEqualToFile(
-          cytest.readfile('data/curry/.curry/sprite/hello.json')
-        , goldenfile
-        , GENERATE_GOLDENS
-        )
-      rmfiles()
-      # Check loadModule.
-      icur = toolchain.loadicurry('hello', ['data/curry'])
-      icur.filename = None
-      au = icurry.json.parse(cytest.readfile(goldenfile))
-      self.assertEqual(icur, au)
-
-    finally:
-      rmfiles()
+    self.assertFalse(os.path.exists(jsonfile))
+    self.assertEqual(
+        toolchain.makecurry(self.plan, 'hello', [srcdir], zip=False)
+      , jsonfile
+      )
+    self.assertTrue(os.path.exists(jsonfile))
+    # The golden tracks the output of Sprite's own icurry.json encoder
+    # (toolchain._icurry2json writes the file internally).  The "aliases" key
+    # comes from IModule._fields_.
+    self.assertEqualToFile(cytest.readfile(jsonfile), goldenfile, GENERATE_GOLDENS)
+    icur = toolchain.loadcurry(self.plan, 'hello', [srcdir])
+    icur.filename = None
+    au = icurry.json.loads(cytest.readfile(goldenfile))
+    self.assertEqual(icur, au)
 
   def test_illegal_name(self):
     self.assertRaisesRegex(

@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstdint>
+#include <string>
 #include "cyrt/builtins.hpp"
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/graph/node.hpp"
@@ -15,6 +16,30 @@ namespace
 {
   using namespace cyrt;
 
+  // Forward ``source`` to ``target`` on behalf of Python code.  Node::forward_to
+  // asserts its preconditions; here a bad request becomes a Python exception.
+  void forward_node(Node * source, Node * target)
+  {
+    if(!source || !target)
+      throw py::value_error("cannot forward a null node");
+    if(source->info->tag == T_FWD)
+    {
+      // A forward node is retargeted in place.  Node::forward_to rejects it
+      // because a FwdSz node must keep its original size.
+      NodeU{source}.fwd->target = target;
+      return;
+    }
+    if(is_pinned(*source->info))
+      throw py::value_error(
+          std::string("cannot forward the shared node ") + source->info->name
+        );
+    if(source->info->alloc_size < sizeof(FwdNode))
+      throw py::value_error(
+          std::string("node ") + source->info->name + " is too small to forward"
+        );
+    source->forward_to(target);
+  }
+
   Node * Node_create(
       InfoTable const * info, std::vector<Arg> const & args
     , Node * target, bool partial
@@ -25,7 +50,7 @@ namespace
         : Node::create(info, args.data());
     if(target)
     {
-      target->forward_to(node);
+      forward_node(target, node);
       return target;
     }
     else
@@ -78,9 +103,16 @@ namespace pybind11 { namespace detail
         case 'f': return py::cast(src.arg.ub_float).inc_ref();
         case 'c': { char buf[2] = {src.arg.ub_char, '\0'};
                     return py::cast(&buf[0]).inc_ref(); }
-        case 'x': assert(false);
-        case 'u':
-        default : return py::none().inc_ref();
+        // An unboxed pointer (a set guard's Set *, a partial application's
+        // InfoTable *) is exposed as the integer value of the pointer.  A set
+        // guard built from Python with an integer id yields that id, which is
+        // what inspect.get_set_id returns on the Python backend.
+        case 'x': return py::cast((uintptr_t) src.arg.blob).inc_ref();
+        case 'u': return py::none().inc_ref();
+        default :
+          throw py::type_error(
+              std::string("cannot convert an Expr of kind '") + src.kind + "'"
+            );
       }
     }
   };
@@ -132,7 +164,11 @@ namespace cyrt { namespace python
       .def(py::init<Node *>())
       .def(py::init<unboxed_int_type>())
       .def(py::init<unboxed_float_type>())
-      .def(py::init([](char const * str) { assert(str); return Arg(str[0]); }))
+      .def(py::init([](char const * str) {
+          if(!str || !str[0] || str[1])
+            throw py::value_error("expected a string of length one");
+          return Arg(str[0]);
+        }))
       .def(py::init([](py::handle obj) {
           obj.inc_ref(); // FIXME: leak
           return Arg(obj.ptr());
@@ -144,7 +180,7 @@ namespace cyrt { namespace python
       // TODO attach a refcount.  Wild nodes attached to Python objects need to
       // be added to the GC roots.
       .def_static("create", &Node_create, reference) // FIXME: never delete Nodes (for now)
-      .def("forward_to", [](Node * source, Node * target) { source->forward_to(target); })
+      .def("forward_to", &forward_node)
       .def_readonly("info", &Node::info, reference_internal)
       .def("successor"
           , [](Node & self, index_type pos) -> Expr { return self.successor(pos); }
@@ -160,14 +196,20 @@ namespace cyrt { namespace python
           )
       .def("set_successor"
           , [](Node & self, index_type pos, Node * value)
-            { return *self.successor(pos) = value; }
+            {
+              if(pos >= self.size())
+                throw py::index_error("node index out of range");
+              if(self.info->format[pos] != 'p')
+                throw py::type_error("successor is not a node");
+              *self.successor(pos) = value;
+            }
           )
       .def("__str__", (std::string(Node::*)()) &Node::str)
       .def("__repr__", (std::string(Node::*)()) &Node::repr)
       .def("id", [](Node * self) { return (uintptr_t) self; })
-      .def("copy", &Node::copy)
-      .def("__copy__", &Node::copy)
-      .def("__deepcopy__", &Node::deepcopy)
+      .def("copy", &Node::copy, reference)
+      .def("__copy__", &Node::copy, reference)
+      .def("__deepcopy__", &Node::deepcopy, reference)
       .def("__getitem__", [](Node & self, index_type pos) -> Expr { return self[pos]; })
       .def("__hash__", &Node::hash)
       .def("__eq__", &Node::operator==)

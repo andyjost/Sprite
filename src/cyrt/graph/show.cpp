@@ -89,11 +89,9 @@ namespace
           this->os << "...";
         else
         {
-          this->os << '<';
-          if(is_operator(*cur->info) && !is_list(*cur->info) && !is_tuple(*cur->info))
-            os << '(' << cur->info->name << ')';
-          else
-            os << cur->info->name;
+          // The repr form writes the bare symbol name, as the Python backend
+          // does: <? <Int 1> <Int 2>>, not <(?) <Int 1> <Int 2>>.
+          this->os << '<' << cur->info->name;
           walk.extend(id);
         }
       }
@@ -319,7 +317,9 @@ namespace
             if(!cycle && cur->info->tag == T_CONS)
             {
               this->flush_reverse_order();
-              walk.extend(Context('_'));
+              // Items of a bare concat list ('v') get '-', items of a
+              // parenthesized one ('^') get '_'.
+              walk.extend(Context(data).value == '^' ? Context('_') : Context('-'));
             }
             else
             {
@@ -445,18 +445,17 @@ namespace
             }
             else
             {
-              if(!disallow_parens)
-                os() << '(';
-              show_name(partial->head_info);
+              // Match the Python backend: a partial application with
+              // arguments is always written (f a b), even at the top level
+              // or inside a list; one without arguments is written f.
               if(partial->terms == Nil)
-              {
-                if(!disallow_parens)
-                  os() << ')';
-              }
+                show_name(partial->head_info);
               else
               {
+                os() << '(';
+                show_name(partial->head_info);
                 this->push_reverse_order();
-                walk.extend(Context(disallow_parens ? 'v' : '^'));
+                walk.extend(Context('^'));
                 ++walk; // skip #missing
                 ++walk; // skip head_info
               }

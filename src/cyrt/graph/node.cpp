@@ -34,9 +34,11 @@ namespace cyrt
     unboxed_int_type const missing = int(info->arity) - (int) numargs;
     assert(missing > 0);
 
+    // The term list stores the last argument first, as from_partial and
+    // Prelude.apply expect.
     Node * arglist = nil();
     for(size_t i=0; i<numargs; ++i)
-      arglist = cons(args[numargs-i-1].node, arglist);
+      arglist = cons(args[i].node, arglist);
 
     Node * partial = Node::create(
         &PartApplic_Info

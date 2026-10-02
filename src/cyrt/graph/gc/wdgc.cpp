@@ -102,7 +102,7 @@ namespace cyrt
       auto data = node->begin();
       auto * info = INFO(node);
       for(index_type i=0, e=info->arity; i<e; ++i)
-        if(info->format[i] == 'p')
+        if(info->format[i] == 'p' && data[i].node)
           stack.push_back(data[i].node);
     }
   }

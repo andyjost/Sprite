@@ -177,7 +177,7 @@ class TestExpr(cytest.TestCase):
   @cytest.check_expressions()
   def test_nonlinear(self):
     # let a=1 in [a, a]
-    e = curry.raw_expr([curry.anchor(1), curry.ref()])
+    e = curry.raw_expr([curry.expressions.anchor(1), curry.ref()])
     a, b = e[0], e[1][0]
     self.assertEqual(id(a), id(b))
     yield e, None, None, None, [[1, 1]]
