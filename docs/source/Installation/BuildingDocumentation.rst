@@ -3,9 +3,11 @@
 Building Documentation
 ======================
 
-The HTML documentation is available `online
-<http://web.cecs.pdx.edu/~josta/sprite>`__.  You can build a local copy of that
-or choose a differen format.
+The documentation is not hosted online.  Build it locally.  From the
+repository root, say ``make -C docs html``.  The HTML output is written under
+``object-root/docs/html``.  The sources live under ``docs/`` in the `GitHub
+repository <https://github.com/andyjost/Sprite>`__.  You can also choose a
+different format, as described below.
 
 .. important::
    Sprite is required to build the documentation.  If needed, build and stage

@@ -29,12 +29,12 @@ in a single environment.
    CurryPrimer/index
    genindex
 
-.. _Curry Homepage: https://curry.pages.ps.informatik.uni-kiel.de/curry-lang.org
-.. _Curry Tutorial: https://www.informatik.uni-kiel.de/~curry/tutorial/tutorial.pdf
-.. _Curry Live Demo: https://smap.informatik.uni-kiel.de/smap.cgi?new/curry
+.. _Curry Homepage: https://www.curry-lang.org/
+.. _Curry Tutorial: https://www.curry-lang.org/docs/tutorial/tutorial.pdf
+.. _Curry Live Demo: https://smap.curry-lang.org/smap.cgi?new/curry
 
 .. _Python Homepage: https://www.python.org
 .. _Python Tutorial: https://docs.python.org/3/tutorial
 .. _Interactive Python Tutorial: https://www.learnpython.org
-.. _Python Live Demo: https://www.tutorialspoint.com/execute_python_online.php
+.. _Python Live Demo: https://www.tutorialspoint.com/compilers/online-python-compiler.htm
 

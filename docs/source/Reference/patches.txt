@@ -1,9 +1,9 @@
---- curry.interpreter.rst	2021-12-18 17:10:04.542797167 -0800
-+++ curry.interpreter.rst	2021-12-18 17:16:44.754365760 -0800
+--- curry.interpreter.rst
++++ curry.interpreter.rst
 @@ -5,6 +5,7 @@
     :members:
-    :undoc-members:
     :show-inheritance:
+    :undoc-members:
 +   :inherited-members:
  
  Subpackages

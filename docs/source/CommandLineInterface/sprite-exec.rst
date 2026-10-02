@@ -11,7 +11,11 @@ simple programs, it suffices to simply pass the filename to this program.  To
 run ``Peano.curry`` say::
 
     cd examples
+    PATH=../install/bin:$PATH
     sprite-exec Peano.curry
+
+The ``PATH`` line is needed only if ``install/bin`` is not already on your
+PATH.  The remaining examples on this page assume it is.
 
 The default goal is ``main``.  To specify a different one, use the ``-g``
 option::
@@ -48,6 +52,19 @@ a BASH-like syntax, one could, for instance, run ``Peano.curry`` from the
 repository root with this command::
 
     CURRYPATH=examples/ sprite-exec -m Peano
+
+Selecting a Backend
+===================
+
+Sprite has two backends.  The Python backend is the default.  It suits small
+programs.  The C++ backend is faster and suits larger programs.  To select
+it, set ``SPRITE_INTERPRETER_FLAGS`` in the environment::
+
+    SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
+
+``sprite-exec`` has no command-line option for the backend.  See
+:ref:`Environment Variables <CommandLineInterface/EnvironmentVariables:Environment Variables>`
+for the other flags.
 
 Profiling
 =========

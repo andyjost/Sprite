@@ -44,10 +44,10 @@ These options are summarized in the following table:
 | ``--with-stack``  | STACK       | ``stack``   | Selects Haskell Stack     |
 +-------------------+-------------+-------------+---------------------------+
 
-For example, suppose you wish to use Python 3.11 but it is not the system
+For example, suppose Python 3.14 is installed but it is not the system
 default.  Say::
 
-    ./configure --with-python=python3.11 [args...]
+    ./configure --with-python=python3.14 [args...]
 
 If you have a custom build of Python not in PATH, you might say::
 
@@ -81,15 +81,15 @@ Omit ``--yes`` if you prefer to confirm each step.
 
 To install these yourself, follow the instructions at the links below:
 
-  * Python 2.7.18, or 3.5.2+, with development files.
+  * Python 3.14 with development files.
       - The `deadsnakes PPA <https://github.com/deadsnakes>`__ is a good
-        source.  Be sure to install a -dev package.  For example: to use
-        version 3.9, install ``python3.9`` `AND` ``python3.9-dev``.
-  * `PAKCS 3.4.1 <https://www.informatik.uni-kiel.de/~pakcs/download.html>`__
+        source.  Be sure to install the -dev package: install ``python3.14``
+        `AND` ``python3.14-dev``.
+  * `PAKCS 3.4.1 <https://www.curry-lang.org/pakcs/>`__
       - Prerequisites for PAKCS are:
           - `Haskell stack <https://docs.haskellstack.org/en/stable/install_and_upgrade>`__
           - Prolog (`SWI <https://www.swi-prolog.org/download/stable>`__ or `SICStus <https://sicstus.sics.se/download4.html>`__)
-  * `ICurry Compiler 3.1.0 <https://www-ps.informatik.uni-kiel.de/~cpm/pkgs/icurry-3.1.0.html>`__
+  * `ICurry Compiler 3.1.0 <https://cpm.curry-lang.org/pkgs/icurry.html>`__
   * `jq <https://stedolan.github.io/jq/download>`__
 
 Setting the Configuration

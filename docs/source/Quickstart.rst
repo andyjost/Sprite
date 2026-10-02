@@ -21,7 +21,7 @@ Quick Install
 
     .. code-block:: bash
 
-        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite | sh
+        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
 
     See :ref:`easy-install` for more options.
 
@@ -29,7 +29,7 @@ Quick Install
 
     .. code-block:: bash
 
-        git clone git@github.com:andyjost/Sprite.git
+        git clone https://github.com/andyjost/Sprite.git
         cd Sprite
         ./configure --check-prereqs
 
@@ -60,15 +60,24 @@ containing the following:
     main :: Nat
     main = add (S O) (S O)
 
-To evaluate this program, say:
+To evaluate this program, run ``sprite-exec`` from the ``examples/``
+directory.  If ``install/bin`` is not on your PATH, give the relative path:
 
 .. code-block:: bash
 
-    % sprite-exec Peano.curry
+    % ../install/bin/sprite-exec Peano.curry
     S (S O)
 
 Sprite runs goal ``main`` by default.  You can use ``-g`` to specify a
 different one.
+
+The Python backend is the default.  It suits small programs.  To select the
+C++ backend, set ``SPRITE_INTERPRETER_FLAGS`` in the environment:
+
+.. code-block:: bash
+
+    % SPRITE_INTERPRETER_FLAGS=backend:cxx ../install/bin/sprite-exec Peano.curry
+    S (S O)
 
 Python API Quickstart
 =====================
@@ -128,9 +137,9 @@ Curry symbols are constructor and function names (but not type names).  The
 public symbols of ``Peano`` are exposed as attributes of the module object:
 
     >>> Peano.S
-    <curry constructor 'Peano.S'>
+    <curry constructor 'S'>
     >>> Peano.add
-    <curry function 'Peano.add'>
+    <curry function 'add'>
 
 Not all Curry symbols are valid Python identifiers.  Use ``getattr`` to access
 these:
@@ -216,7 +225,7 @@ To build an expression containing a choice, use ``Prelude.?``:
 To build an expression containing a free variable, use :class:`curry.free`:
 
     >>> print(curry.expr(curry.free()))
-    _0
+    _a
 
 To build a cons-style list, either use the symbols ``Prelude.:`` and
 ``Prelude.[]`` directly or employ :class:`curry.cons` and :data:`curry.nil`:
@@ -247,7 +256,7 @@ To convert Curry values to Python, use :func:`curry.topython`:
     >>> py123
     [1, 2, 3]
     >>> type(py123)
-    <type 'list'>
+    <class 'list'>
 
 You may also instruct :func:`curry.eval` to convert results as they are
 generated:

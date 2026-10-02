@@ -1,9 +1,6 @@
 - Add tests to tests/unit_parse.py and tests/unit_py_evaluation.py.  These should cover every construct that could be encountered in ICurry.
-- Improve line coverage.  Run tests/cov_tests and add tests to reduce the
-  number of uncovered lines.
 - fix tests in unit_py_constraints.py
 - fix tests in unit_py_pulltab.py
-- Add Python3 support without losing Python2.
 - Come to think of it, I should remove the mutual recursion between D, N, and S.  All of the recusion should be done synthetically.
 - curry.compile seems unable to import Control.SetFunctions
 - Documentation:

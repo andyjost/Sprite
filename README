@@ -2,7 +2,7 @@
 -----------
 
 Sprite is an implementation of the Curry programming language
-(https://curry.pages.ps.informatik.uni-kiel.de/curry-lang.org/).  It is based
+(https://www.curry-lang.org/).  It is based
 on an evaluation strategy called the Fair Scheme.  You can read about it at
 http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf.
 
@@ -20,13 +20,13 @@ below:
 
   - Automated (no confirmation):
 
-        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite | sh
-        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite | sh
+        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
+        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
 
   - Interactive (confirmation at each step):
 
-        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh
-        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh
+        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
+        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
 
 Sprite will be installed under $HOME/Sprite/install.
 
@@ -36,13 +36,29 @@ package manger (pip).  If you prefer more control, see the installation guide
 in the documentation.
 
 
-3. Documentation
+3. Running a Program
+--------------------
+
+Programs run with install/bin/sprite-exec.  For example, from the repository
+root:
+
+        install/bin/sprite-exec examples/Peano.curry
+
+The Python backend is the default.  It suits small programs.  To select the
+C++ backend, set SPRITE_INTERPRETER_FLAGS in the environment:
+
+        SPRITE_INTERPRETER_FLAGS=backend:cxx install/bin/sprite-exec examples/Peano.curry
+
+
+4. Documentation
 ----------------
 
-Read the documentation at http://web.cecs.pdx.edu/~josta/sprite/.
+To build the HTML documentation, run `make -C docs html` from the repository
+root after `make stage`.  The output is written under object-root/docs/html.
+The sources are hosted at https://github.com/andyjost/Sprite.
 
 
-4. Contact and Bug Reporting
+5. Contact and Bug Reporting
 ----------------------------
 
 Sprite was developed and is maintained by Andy Jost (andy.m.jost@gmail.com).
@@ -56,7 +72,7 @@ developing and running tests can be found under tests/README.  Once you have
 written the test, submit a pull request or send the diff by email.
 
 
-5. Contributing to Sprite
+6. Contributing to Sprite
 -------------------------
 
 Contributions are welcome!  For more information, see README.contrib.

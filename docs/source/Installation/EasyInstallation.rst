@@ -10,19 +10,19 @@ do is issue `one` of the commands below.
 
   - **Automated** (no confirmation)::
 
-        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite | sh
+        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
 
     or::
 
-        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite | sh
+        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
 
   - **Interactive** (confirmation at each step)::
 
-        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh
+        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
 
     or::
 
-        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh
+        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
 
 These commands may ask for root access to install dependencies using your
 platform's package manager (currently, only apt is supported) and Python's

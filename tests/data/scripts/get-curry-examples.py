@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-'''Get Curry examples by parsing the public webpage hosted at uni-kiel.'''
+'''Get Curry examples by parsing the public webpage hosted at uni-kiel.
+
+Historical.  The source site is gone and curry-lang.org publishes no
+replacement index.  The examples this script fetched are checked in under
+tests/data/curry/kiel.
+'''
 
 # ----------------------- CONFIG --------------------------
 INCLUDE = ['funprogs', 'logprogs', 'flprogs']

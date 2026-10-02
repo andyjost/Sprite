@@ -53,5 +53,5 @@ whose prior work deeply informed my understanding.
 
 
 .. _Fair Scheme: https://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf
-.. _Curry: https://curry.pages.ps.informatik.uni-kiel.de/curry-lang.org/
+.. _Curry: https://www.curry-lang.org/
 .. _pull-tabbing: https://www.researchgate.net/publication/221323261_On_a_Tighter_Integration_of_Functional_and_Logic_Programming

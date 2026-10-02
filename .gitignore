@@ -2,7 +2,7 @@ object-root
 /Make.config
 /build*
 /configure-tmp/**
-/configure.log
+configure.log
 /install
 /install/**
 !install/README

@@ -1,0 +1,111 @@
+# Benchmark programs
+
+This directory holds the Curry programs used to benchmark Sprite.  Every
+top-level `*.curry` file defines a goal `main`.  The subdirectories
+(`completeness/`, `composite/`, `failing/`, `toofast/`) hold programs that are
+not part of the timed set.
+
+## Programs from the dissertation
+
+Chapter 7 of the dissertation reports execution times for the programs below.
+Three names differ from the figures:
+
+- `Tak` is now `Tak1.curry` (`tak 27 16 8`, the middle row of Figure 7.2).
+- `Queens(10)` is now `Queens10.curry`.
+- `Primes.curry` was deleted in 2023 and has been restored from the repository
+  history.
+
+Figure 7.1, deterministic programs (18):
+
+| Figure 7.1       | File                   |
+|------------------|------------------------|
+| Half             | `Half.curry`           |
+| Hamming          | `Hamming.curry`        |
+| Fib              | `Fib.curry`            |
+| Palindrome       | `Palindrome.curry`     |
+| Peano            | `Peano.curry`          |
+| Primes           | `Primes.curry`         |
+| Psort            | `Psort.curry`          |
+| Qsortlet         | `Qsortlet.curry`       |
+| Queens(10)       | `Queens10.curry`       |
+| Quicksort        | `Quicksort.curry`      |
+| Reverse          | `Reverse.curry`        |
+| ReverseBuiltin   | `ReverseBuiltin.curry` |
+| ReverseGroups    | `ReverseGroups.curry`  |
+| ReverseHO        | `ReverseHO.curry`      |
+| ReverseUser      | `ReverseUser.curry`    |
+| SearchMAC        | `SearchMAC.curry`      |
+| Tak              | `Tak1.curry`           |
+| TakPeano         | `TakPeano.curry`       |
+
+Figure 7.3, non-deterministic programs (12).  An `S` marks a program that uses
+set functions.
+
+| Figure 7.3       | File                   |
+|------------------|------------------------|
+| ColormapChoice   | `ColormapChoice.curry` |
+| ColormapFree     | `ColormapFree.curry`   |
+| Horseman         | `Horseman.curry`       |
+| Last             | `Last.curry`           |
+| PaliFunPats      | `PaliFunPats.curry`    |
+| PermSort         | `PermSort.curry`       |
+| PermSortPeano    | `PermSortPeano.curry`  |
+| PokerChoice (S)  | `PokerChoice.curry`    |
+| PokerFree (S)    | `PokerFree.curry`      |
+| QueensSet (S)    | `QueensSet.curry`      |
+| RegExp           | `RegExp.curry`         |
+| SearchQueens     | `SearchQueens.curry`   |
+
+## Timing one program with Sprite
+
+Stage Sprite first (`make stage`).  Then, from the repository root, set
+`CURRYPATH` to this directory and run the module with the C++ backend.  The
+`-t` option suppresses the program output and prints the execution time in
+seconds:
+
+    CURRYPATH=tests/data/curry/benchmarks \
+    SPRITE_INTERPRETER_FLAGS=backend:cxx \
+    install/bin/sprite-exec -t -m Fib
+
+To time several programs, use the driver.  From `tests/`, say
+`./run_benchmarks -h` for the options.  By default, it runs every top-level
+program once on the C++ backend:
+
+    cd tests
+    ./run_benchmarks                       # all programs, cxx
+    ./run_benchmarks Fib Tak1 Queens10     # a selection
+    ./run_benchmarks --backend py --backend cxx Fib
+    ./run_benchmarks --pakcs /path/to/pakcs --backend pakcs Fib
+
+The driver is `tests/lib/benchmark.py`.  It can also be run directly with
+`install/bin/python tests/lib/benchmark.py`.
+
+## Running the programs with PAKCS or KiCS2
+
+Ten programs import `Control.SetFunctions`:
+
+    Itinerary, LongestSubstring, Matching, PokerChoice, PokerFree, QueensSet,
+    QueensSet9, QueensSet10, ValidParens, Xform
+
+Sprite ships this module in its own Curry library.  PAKCS 3.4.1 does not.  To
+run these programs with PAKCS 3.4.1, install the CPM package `setfunctions`:
+
+    cypm update
+    cypm add setfunctions
+
+`cypm add` records the dependency in the PAKCS home package, so plain `pakcs`
+then finds the module.  The CPM bundled with PAKCS 3.4.1 points at a package
+index that may no longer answer.  If `cypm update` cannot reach the index, put
+these two lines in `~/.cpmrc` and rerun:
+
+    PACKAGEINDEXURL=https://cpm.curry-lang.org/PACKAGES/INDEX.tar.gz
+    PACKAGETARFILESURL=https://cpm.curry-lang.org/PACKAGES
+
+PAKCS 3.9 and later (and current KiCS2) provide the module under the name
+`Control.Search.SetFunctions`.  With those systems, change the import line
+accordingly.
+
+To time a program with PAKCS, say:
+
+    cd tests/data/curry/benchmarks
+    pakcs :set +time :l Fib :eval main :q

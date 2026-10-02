@@ -19,9 +19,9 @@ Curry to ICurry
 ---------------
 
 Sprite first translates Curry source code into a format called `ICurry
-<http://arxiv.org/abs/1908.11101>`__.  For this it relies on the external
+<https://arxiv.org/abs/1908.11101>`__.  For this it relies on the external
 program `icurry
-<https://www-ps.informatik.uni-kiel.de/~cpm/pkgs/icurry.html>`__, available
+<https://cpm.curry-lang.org/pkgs/icurry.html>`__, available
 through the `Curry Package Manager`_.  This stage involves sub-transformations
 and additional intermediate files, which are managed by ``icurry``.  An
 important intermediate called `FlatCurry`_, contains the desugared and
@@ -89,14 +89,11 @@ so, a package such as `PyPy`_ could in principle be used to post-process Python
 code into a more efficient form.
 
 
-..
-  .. _FlatCurry: http://www.informatik.uni-kiel.de/∼curry/flat
-
-.. _FlatCurry: https://www-ps.informatik.uni-kiel.de/~cpm/pkgs/flatcurry.html
-.. _PAKCS manual: https://www.informatik.uni-kiel.de/~pakcs/Manual.pdf
+.. _FlatCurry: https://cpm.curry-lang.org/pkgs/flatcurry.html
+.. _PAKCS manual: https://www.curry-lang.org/pakcs/Manual.pdf
 .. _JSON: https://www.json.org/
 .. _jq: https://stedolan.github.io/jq/
 .. _zlib: https://zlib.net/
-.. _ICurry package: https://www-ps.informatik.uni-kiel.de/~cpm/pkgs/icurry.html
-.. _Curry Package Manager: https://www-ps.informatik.uni-kiel.de/currywiki/tools/cpm
-.. _PyPy: https://www.pypy.org/
+.. _ICurry package: https://cpm.curry-lang.org/pkgs/icurry.html
+.. _Curry Package Manager: https://www.curry-lang.org/tools/cpm/
+.. _PyPy: https://pypy.org/

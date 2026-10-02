@@ -2,8 +2,8 @@
 #
 # Usage:
 #
-#     wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh
-#     curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/release/getsprite-i | sh
+#     wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
+#     curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
 #
 # GitHub:
 #
@@ -11,7 +11,8 @@
 #
 # Documentation:
 #
-#     http://web.cecs.pdx.edu/~josta/sprite/
+#     Build it locally: make -C $HOME/Sprite/docs html
+#     (output under $HOME/Sprite/object-root/docs/html)
 
 SCRIPT=$HOME/getsprite-i.sh
 (
@@ -20,14 +21,14 @@ if [ -d $HOME/Sprite ]; then
   echo 1>&2 Found previous installation at $HOME/Sprite.
   set -e
   set -x
-  cd Sprite
+  cd "$HOME/Sprite"
   git pull
 else
   set -e
   set -x
   cd $HOME
-  git clone git@github.com:andyjost/Sprite.git
-  cd Sprite
+  git clone https://github.com/andyjost/Sprite.git
+  cd "$HOME/Sprite"
 fi
 
 ./configure --install-prereqs -i
@@ -42,7 +43,8 @@ echo
 echo "Sprite is installed at $HOME/Sprite/install/bin"
 echo
 echo "Next steps:"
-echo "    - Read the documentation at http://web.cecs.pdx.edu/~josta/sprite/."
+echo "    - Build the documentation: make -C $HOME/Sprite/docs html"
+echo "      (output under $HOME/Sprite/object-root/docs/html; sources at https://github.com/andyjost/Sprite)"
 echo "    - Go through the Quickstart Tutorial (in the docs)."
 echo "    - Explore the Python API: $HOME/Sprite/install/bin/python -ic 'import curry'"
 echo "    - Run the examples under '$HOME/Sprite/examples/'."

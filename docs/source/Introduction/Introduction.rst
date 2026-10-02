@@ -83,9 +83,9 @@ to begin using it.
    ProjectLayout
    CompilationPipeline
 
-.. _Curry: https://curry.pages.ps.informatik.uni-kiel.de/curry-lang.org/
+.. _Curry: https://www.curry-lang.org/
 .. _Haskell: https://www.haskell.org/
-.. _Curry Homepage: https://curry.pages.ps.informatik.uni-kiel.de/curry-lang.org/
-.. _Functional Programming: https://www.wikipedia.org/wiki/Functional_programming
-.. _Logic Programming: https://www.wikipedia.org/wiki/Logic_programming
+.. _Curry Homepage: https://www.curry-lang.org/
+.. _Functional Programming: https://en.wikipedia.org/wiki/Functional_programming
+.. _Logic Programming: https://en.wikipedia.org/wiki/Logic_programming
 

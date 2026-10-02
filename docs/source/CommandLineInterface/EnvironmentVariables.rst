@@ -24,6 +24,12 @@ The following are recognized:
 
      SPRITE_INTERPRETER_FLAGS=trace:True,debug:True
 
+  The ``backend`` flag selects the backend.  The Python backend (``py``) is
+  the default.  It suits small programs.  To run a program with the C++
+  backend, say::
+
+     SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
+
 ``SPRITE_LOG_FILE``
   The file to which logging output is directed.  The default, ``-``, directs
   this to standard output.

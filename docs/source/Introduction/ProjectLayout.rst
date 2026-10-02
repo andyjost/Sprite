@@ -82,7 +82,7 @@ The Sprite repository is organized as follows:
     ``python/``
         The Python code implementing Sprite.
 
-    ``sprite/``
+    ``cyrt/``
         Source code of the Sprite runtime libraries.
 
 ``tests/``

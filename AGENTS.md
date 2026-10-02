@@ -31,6 +31,9 @@ Merges to `master` happen at milestones.
   `icurry` Curry package installed with `cypm`. SWI-Prolog and Haskell
   Stack are needed to build PAKCS itself.
 - Sprite needs no GPU.
+- `configure` and the Makefiles honour `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
+  and `LDFLAGS` from the environment, so build in a clean environment when
+  a conda or cross toolchain is active.
 
 ## Build and test
 

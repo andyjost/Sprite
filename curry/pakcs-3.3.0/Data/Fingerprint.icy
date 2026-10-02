@@ -1,1 +1,0 @@
-(IProg "Data.Fingerprint" ["Prelude"] [(IDataType ("Data.Fingerprint","Fingerprint",0) [])] [(IFunction ("Data.Fingerprint","consistent",0) 2 Public [] (IExternal "Data.Fingerprint.consistent"))])

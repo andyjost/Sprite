@@ -3,8 +3,8 @@ curry package
 
 .. automodule:: curry
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 Subpackages
 -----------
@@ -30,7 +30,6 @@ Submodules
    curry.cache
    curry.common
    curry.config
-   curry.context
    curry.exceptions
    curry.expressions
    curry.inspect

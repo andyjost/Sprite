@@ -41,15 +41,18 @@ The files under this directory are arranged as follows:
 4. ADVANCED USAGE
 -----------------
 
-The following test drivers are provided:
+The following drivers are provided.  All are links to run_tests.
 
-        run_tests       Run unit tests.
-        debug_tests     Run unit tests under gdb.
-                        (For debugging C++ code.)
-        valgrind_tests  Run unit tests under valgrind.
-                        (For debugging memory problems.)
+        run_tests             Run unit tests.
+        debug_tests           Run unit tests under gdb.
+                              (For debugging C++ code.)
+        valgrind_tests        Run unit tests under valgrind.
+                              (For debugging memory problems.)
+        valgrind_debug_tests  Run unit tests under valgrind with vgdb.
+        run_benchmarks        Run the benchmarks (see section 8).
+        shell                 Start a shell with the test environment.
 
-Each of these uses the same command line interface:
+The test drivers use the same command line interface:
 
         <driver> [pattern]
 
@@ -105,5 +108,8 @@ have similar features.
 8. BENCHMARKING
 ---------------
 
-To run the benchmarks, say `./run_benchmarks`.  The benchmarking code
-is located it ./lib/benchmark.py.
+To run the benchmarks, say `./run_benchmarks [options] [MODULE ...]`.  By
+default, every top-level program under data/curry/benchmarks runs once on the
+C++ backend.  Say `./run_benchmarks -h` for the options.  The benchmarking code
+is located in ./lib/benchmark.py.  The programs are described in
+data/curry/benchmarks/README.md.
