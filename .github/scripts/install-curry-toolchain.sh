@@ -34,7 +34,12 @@ cypm update
 mkdir -p "$HOME/cpm-src"
 cd "$HOME/cpm-src"
 cypm checkout icurry "$ICURRY_VERSION"
-cd "icurry-$ICURRY_VERSION"
+# cypm names the checkout directory after the package; older versions append
+# the version.
+for dir in icurry "icurry-$ICURRY_VERSION"; do
+  if [ -d "$dir" ]; then break; fi
+done
+cd "$dir"
 # cypm install resolves the dependencies and builds the executable.  It has
 # been seen to exit 1 after computing the load path; build by hand then.
 cypm install || true
