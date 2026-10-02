@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [master, py314]
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      functional:
+        description: Run the functional suites as well
+        type: boolean
+        default: true
+
+env:
+  PAKCS_VERSION: '3.4.1'
+  ICURRY_VERSION: '3.1.0'
+  LC_ALL: C.UTF-8
+
+jobs:
+  test:
+    name: ${{ matrix.backend }} backend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [py, cxx]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make jq libboost-dev curl
+          swipl --version
+      - name: Restore the Curry toolchain
+        id: toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/pakcs-${{ env.PAKCS_VERSION }}
+            ~/.cpm
+            ~/.cpmrc
+          key: curry-toolchain-ubuntu-24.04-pakcs${{ env.PAKCS_VERSION }}-icurry${{ env.ICURRY_VERSION }}-v1
+      - name: Build the Curry toolchain
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        run: .github/scripts/install-curry-toolchain.sh
+      - name: Install Python packages
+        run: python -m pip install --quiet numpy
+      - name: Configure and stage
+        run: |
+          python ./configure \
+            --with-python="$(command -v python)" \
+            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            --with-icurry="$HOME/.cpm/bin/icurry" \
+            --with-jq="$(command -v jq)"
+          make stage
+      - name: Unit tests
+        run: .github/scripts/run-tests.sh ${{ matrix.backend }} 'unit_*.py'
+      - name: Functional tests
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.functional)
+        run: .github/scripts/run-tests.sh ${{ matrix.backend }} 'func_*.py'
+
+  docs:
+    name: docs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make jq libboost-dev curl
+      - name: Restore the Curry toolchain
+        id: toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/pakcs-${{ env.PAKCS_VERSION }}
+            ~/.cpm
+            ~/.cpmrc
+          key: curry-toolchain-ubuntu-24.04-pakcs${{ env.PAKCS_VERSION }}-icurry${{ env.ICURRY_VERSION }}-v1
+      - name: Build the Curry toolchain
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        run: .github/scripts/install-curry-toolchain.sh
+      - name: Install Python packages
+        run: python -m pip install --quiet numpy sphinx sphinx_rtd_theme
+      - name: Configure, stage, and build the docs
+        run: |
+          python ./configure \
+            --with-python="$(command -v python)" \
+            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            --with-icurry="$HOME/.cpm/bin/icurry" \
+            --with-jq="$(command -v jq)"
+          make stage
+          make -C docs html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: object-root/docs/html
+
+  deploy-docs:
+    name: deploy docs
+    needs: docs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    # Fails until GitHub Pages is enabled with the source set to GitHub
+    # Actions; the failure does not mark the run red.
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
