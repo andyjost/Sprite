@@ -1,7 +1,7 @@
 .SECONDEXPANSION:
 # Compilation
 # ===========
-LDFLAGS += -L $(OBJECT_ROOT)/cyrt -lcyrt -l$(PYTHON_LIBRARY)
+LDFLAGS += -L $(OBJECT_ROOT)/cyrt -lcyrt
 
 # In this Python library, each subdirectory is a submodule that creates exactly
 # one .so file.  Subdirectories that do not require an .so should say "SHLIB
@@ -17,6 +17,12 @@ INSTALL_DIR = $(PREFIX)/python/$(PYTHON_PACKAGE_NAME)/$(shell realpath --relativ
 
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
+
+# Python extension modules are not linked against libpython.  The interpreter
+# provides those symbols when the module is loaded.  This overrides the
+# -Wl,--no-undefined from src/Make.include; it must come after that flag
+# because the later flag wins.
+LDFLAGS += -Wl,-z,undefs
 
 # Make libcyrt.so by running make in the cyrt directory.
 $(OBJECT_ROOT)/cyrt/libcyrt.so:

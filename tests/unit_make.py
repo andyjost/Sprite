@@ -1,9 +1,8 @@
-# Encoding: utf-8
 import cytest # from ./lib; must be first
 import curry
 from curry import config, toolchain
 from curry.toolchain import plans
-from curry.utility import _tempfile
+import tempfile
 from curry.utility.strings import ensure_str
 import glob, os, shutil, subprocess
 
@@ -37,7 +36,7 @@ class TestMake(cytest.TestCase):
     for input_file in glob.glob('data/importer/*.curry'):
       dirname, filename = os.path.split(input_file)
       stem = filename[:-6]
-      with _tempfile.TemporaryDirectory() as tmpdir:
+      with tempfile.TemporaryDirectory() as tmpdir:
         shutil.copy(input_file, tmpdir)
         curry_file = os.path.join(tmpdir, filename)
         # Build .icy.
@@ -88,7 +87,7 @@ class TestMake(cytest.TestCase):
       plan_json = plans.makeplan(
           curry.getInterpreter(), plans.MAKE_ICURRY | plans.MAKE_JSON
         )
-      with _tempfile.TemporaryDirectory() as tmpdir:
+      with tempfile.TemporaryDirectory() as tmpdir:
         shutil.copy(input_file, tmpdir)
         icy_file = os.path.join(tmpdir, SUBDIR, stem + '.icy')
         json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
@@ -130,7 +129,7 @@ class TestMake(cytest.TestCase):
     for input_file in glob.glob('data/importer/*.curry'):
       dirname, filename = os.path.split(input_file)
       stem = filename[:-6]
-      with _tempfile.TemporaryDirectory() as tmpdir:
+      with tempfile.TemporaryDirectory() as tmpdir:
         shutil.copy(input_file, tmpdir)
         curry_file = os.path.join(tmpdir, filename)
         icy_file = os.path.join(tmpdir, SUBDIR, stem + '.icy')

@@ -3,7 +3,7 @@ from .....exceptions import InstantiationError
 from ....generic.eval.control import E_RESIDUAL
 from ... import graph
 from ..... import inspect
-import six
+import functools
 
 def concurrent_and(rts, _0):
   '''
@@ -71,11 +71,11 @@ def constr_eq(rts, _0):
           if arity:
             conj = getattr(rts.prelude, '&')
             def terms():
-              for i in six.moves.range(arity):
+              for i in range(arity):
                 _1 = rts.variable(lhs, i)
                 _2 = rts.variable(rhs, i)
                 yield graph.Node(_0.info, _1, _2)
-            expr = six.moves.reduce((lambda a,b: graph.Node(conj, a, b)), terms())
+            expr = functools.reduce((lambda a,b: graph.Node(conj, a, b)), terms())
             yield expr.info
             for succ in expr.successors:
               yield succ
@@ -118,11 +118,11 @@ def nonstrict_eq(rts, _0):
           if arity:
             conj = getattr(rts.prelude, '&')
             def terms():
-              for i in six.moves.range(arity):
+              for i in range(arity):
                 _1 = rts.variable(lhs, i)
                 _2 = rts.variable(rhs, i)
                 yield graph.Node(_0.info, _1, _2)
-            expr = six.moves.reduce((lambda a,b: graph.Node(conj, a, b)), terms())
+            expr = functools.reduce((lambda a,b: graph.Node(conj, a, b)), terms())
             yield expr.info
             for succ in expr.successors:
               yield succ

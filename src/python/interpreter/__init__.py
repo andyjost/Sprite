@@ -10,7 +10,7 @@ __all__ = ['Interpreter']
 from .. import backends, config, exceptions, icurry, utility
 from . import flags as _flagmod, import_
 from ..objects.handle import getHandle
-from six.moves import reload_module
+import importlib
 from ..utility.binding import binding
 from ..utility import curryname, formatDocstring
 import itertools, logging, os, sys
@@ -188,5 +188,5 @@ def reload(name, flags={}):
   envflags = ','.join('%s:%s' % (str(k), str(v)) for k,v in flags.items())
   with binding(os.environ, 'SPRITE_INTERPRETER_FLAGS', envflags):
     this = sys.modules[name]
-    reload_module(this)
+    importlib.reload(this)
 

@@ -9,7 +9,6 @@ from ....common import T_FREE, T_CHOICE
 from ..graph.node import Node
 from .. import graph
 from .... import inspect
-import six
 
 STRICT_CONSTRAINT = 0
 NONSTRICT_CONSTRAINT = 1
@@ -138,7 +137,7 @@ def _constrain_equal_rec(rts, arg0, arg1, config=None):
           if not rts.has_generator(x):
             rts.clone_generator(pivot, x)
           v = rts.get_generator(x, config=config)
-          for p, q in six.moves.zip(*[graph.walk(uv) for uv in [u,v]]):
+          for p, q in zip(*[graph.walk(uv) for uv in [u,v]]):
             if rts.is_nondet(p.cursor):
               if not rts.constrain_equal(p.cursor, q.cursor, config=config):
                 return False

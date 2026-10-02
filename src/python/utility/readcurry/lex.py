@@ -1,5 +1,4 @@
-import re, six
-from .. import strings
+import re
 
 __all__ = [
     'tokenize'
@@ -69,8 +68,7 @@ def qescape(text, chars, j):
       digits = match.group(1)
       if digits == '000':
         raise ValueError('Invalid escape sequence: %s' % r'\000')
-      ch = six.unichr(int(digits, base=base)).encode('utf-8')
-      chars.append(strings.ensure_str(ch))
+      chars.append(chr(int(digits, base=base)))
       return match.end()
   raise ValueError('Invalid escape sequence: %s ...' % text[j:j+8])
 
@@ -88,7 +86,7 @@ def tokenize_quoted(text, j, iend, token_type, endquote):
       j += 1
   return j, token_type(''.join(chars))
 
-NUMBER = re.compile('(\d+(\.\d*)?)')
+NUMBER = re.compile(r'(\d+(\.\d*)?)')
 def tokenize_number(text, i, iend):
   match = re.match(NUMBER, text[i:])
   return i+match.end(), NumberToken(match.group(1))

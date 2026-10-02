@@ -6,7 +6,6 @@ Functions for parsing literals.
 from ... import graph
 from ..... import inspect
 from . import string
-import six
 
 __all__ = [
     'readCharLiteral', 'readFloatLiteral', 'readNatLiteral'
@@ -197,7 +196,7 @@ def _parseDecChar(rts, s, digits=None):
     elif not digits:
       raise ParseError()
     else:
-      return six.unichr(int(''.join(digits), 10)), s_prev
+      return chr(int(''.join(digits), 10)), s_prev
     s_prev = s
 
 ESCAPE_CODES = {
@@ -242,7 +241,7 @@ def _parseHexChar(rts, s, digits=None):
     elif not digits:
       raise ParseError()
     else:
-      return six.unichr(int(''.join(digits), 16)), s_prev
+      return chr(int(''.join(digits), 16)), s_prev
     s_prev = s
 
 OCTDIGITS = set('01234567')
@@ -261,6 +260,6 @@ def _parseOctChar(rts, s, digits=None):
     elif not digits:
       raise ParseError()
     else:
-      return six.unichr(int(''.join(digits), 8)), s_prev
+      return chr(int(''.join(digits), 8)), s_prev
     s_prev = s
 

@@ -2,11 +2,9 @@
 Compares stuctured data recursively and reports on differences.
 '''
 from curry.utility.visitation import dispatch
-import collections
+import collections.abc
 import functools
 import re
-
-import six
 
 
 class Difference(Exception):
@@ -54,7 +52,7 @@ class Ignore(object):
     elif callable(spec):
       self.testf = spec
     else:
-      if isinstance(spec, six.string_types):
+      if isinstance(spec, str):
         spec = re.compile(spec)
       if isinstance(spec, PATTERN_TYPE):
         self.testf = lambda s: re.match(spec, s)
@@ -94,14 +92,14 @@ class Dissector(object):
       self.check(a, b, 'value')
 
   @dissectmethod
-  @__call__.when(collections.Sequence, no=(str,))
+  @__call__.when(collections.abc.Sequence, no=(str,))
   def __call__(self, a, b, **kwds):
     self.check(len(a), len(b), 'sequence length')
     for i,(a_,b_) in enumerate(zip(a,b)):
       self(a_, b_, index='[%s]' % i)
 
   @dissectmethod
-  @__call__.when(collections.Mapping)
+  @__call__.when(collections.abc.Mapping)
   def __call__(self, a, b, **kwds):
     ka = set(k for k in a.keys() if not self.ignore(k))
     kb = set(k for k in b.keys() if not self.ignore(k))

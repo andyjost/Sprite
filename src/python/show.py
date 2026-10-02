@@ -1,7 +1,7 @@
 from . import exceptions, inspect
 from .interpreter import conversions
 from .utility import visitation
-import collections, contextlib, itertools, six
+import collections.abc, contextlib, itertools
 
 class Stringifier(object):
   '''
@@ -238,12 +238,12 @@ class LitNormalStringifier(Stringifier):
   def format(self, lit, **kwds):
     return ('(%r)' if lit<0 else '%r') % lit
 
-  @format.when(six.string_types)
+  @format.when(str)
   def format(self, lit, **kwds):
     assert len(lit) == 1
     return '\'%s\'' % lit.translate(SQ_ESCAPE)
 
-  @format.when(collections.Iterator)
+  @format.when(collections.abc.Iterator)
   def format(self, it, **kwds):
     return str(it)
 
@@ -262,7 +262,7 @@ class LitUnboxedStringifier(Stringifier):
   def format(self, lit, **kwds):
     return '%r#' % lit
 
-  @format.when(six.string_types)
+  @format.when(str)
   def format(self, lit, **kwds):
     assert len(lit) == 1
     return '%r#' % lit

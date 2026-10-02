@@ -1,5 +1,5 @@
 from .checkers import check_expressions, check_indexing, check_predicate
-from six.moves import builtins
+import builtins
 import contextlib
 import functools
 
@@ -38,8 +38,8 @@ def breakOn(exc_name):
 # It is now OK to load the curry module.
 
 from .testcase import TestCase, FunctionalTestCase
-from six.moves import cStringIO as StringIO
-from six.moves import reload_module
+from io import StringIO
+import importlib
 
 
 
@@ -116,7 +116,7 @@ def hardreset(f):
       return f(*args, **kwds)
     finally:
       import curry
-      reload_module(curry)
+      importlib.reload(curry)
   return decorator
 
 def readfile(filename, mode='r', fopen=open):

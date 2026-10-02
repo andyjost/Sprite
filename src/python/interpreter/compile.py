@@ -6,7 +6,7 @@ from ..backends.generic.eval import evaluator
 from .. import config, exceptions, icurry, objects, toolchain, utility
 from ..objects import handle
 from ..utility.visitation import dispatch
-import six, types
+import types
 
 __all__ = ['compile']
 
@@ -120,7 +120,7 @@ def getImportSpecForExpr(interp, modules):
 def _updateImports(interp, module, stmts, currypath):
   assert False
 
-@_updateImports.when(six.string_types)
+@_updateImports.when(str)
 def _updateImports(interp, modulename, stmts, currypath):
   module = interp.modules[modulename]
   return _updateImports(interp, module, stmts, currypath)

@@ -6,7 +6,7 @@ from ...objects.handle import getHandle
 from ...toolchain import plans
 from ...utility.binding import binding
 from ...utility import curryname, formatDocstring, visitation
-import collections, contextlib, logging, six
+import collections.abc, contextlib, logging
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def import_(interp, arg, currypath=None, is_sourcefile=False):
   raise TypeError('cannot import type %r' % type(arg).__name__)
 
 # Import a module or package by name.
-@import_.when(six.string_types)
+@import_.when(str)
 def import_(interp, name, currypath=None, is_sourcefile=False):
   modulename = curryname.getModuleName(name, is_sourcefile)
   try:
@@ -49,7 +49,7 @@ def import_(interp, name, currypath=None, is_sourcefile=False):
       return importEx(prefixes)
 
 # Import a sequence or specifiers.
-@import_.when(collections.Sequence, no=str)
+@import_.when(collections.abc.Sequence, no=str)
 def import_(interp, seq, *args, **kwds):
   return [interp.import_(item, *args, **kwds) for item in seq]
 
@@ -92,7 +92,7 @@ class ImportEx(object):
     else:
       return rv
 
-  @__call__.when(six.string_types)
+  @__call__.when(str)
   def __call__(self, modulename, tail=[], is_sourcefile=False):
     logger.info('Importing %s', modulename)
     icontainer = toolchain.loadcurry(
@@ -128,7 +128,7 @@ class ImportEx(object):
         for modulename in imodule.imports:
           self.interp.import_(modulename)
         load.loadSymbols(self.interp, imodule, moduleobj)
-        for name, target in six.iteritems(imodule.aliases):
+        for name, target in imodule.aliases.items():
           if hasattr(moduleobj, name):
             raise ValueError("cannot alias previously defined name %r" % name)
           setattr(moduleobj, name, getattr(moduleobj, target))

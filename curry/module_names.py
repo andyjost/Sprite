@@ -1,11 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 '''Prints the names of all Curry system libraries.'''
 import os
 
 def get_modules():
   yield 'Prelude'
   for dirpath, dirnames, filenames in os.walk('.'):
-    dirnames[:] = filter(lambda dirname: not dirname.startswith('pakcs'), dirnames)
+    dirnames[:] = [dirname for dirname in dirnames if not dirname.startswith('pakcs')]
     for filename in filenames:
       if filename.endswith('.curry'):
         fullname = os.path.join(dirpath, filename[:-6])

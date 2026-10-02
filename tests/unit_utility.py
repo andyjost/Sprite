@@ -3,7 +3,7 @@ from curry import icurry
 from curry.utility.binding import binding, del_
 from curry.utility import encoding
 from curry.utility.visitation import dispatch, instance_checker
-import collections, re, six, unittest
+import collections, collections.abc, re, unittest
 
 
 class TestUtility(unittest.TestCase):
@@ -80,7 +80,6 @@ class TestVisitation(cytest.TestCase):
     self.assertRaisesRegex(
         TypeError
       , re.escape(
-            r"G() takes exactly 1 argument (0 given)" if six.PY2 else
             r"G() missing 1 required positional argument: 'a'"
           )
       , G
@@ -89,7 +88,6 @@ class TestVisitation(cytest.TestCase):
     self.assertRaisesRegex(
         TypeError
       , re.escape(
-            r"F() takes exactly 2 arguments (0 given)" if six.PY2 else
             r"F() missing 2 required positional arguments: 'x' and 'y'"
           )
       , F
@@ -106,10 +104,7 @@ class TestVisitation(cytest.TestCase):
     def go():
       @dispatch.on('a')
       def h(x,y,z,**kwds): pass
-    if six.PY2:
-      go() # passes
-    else:
-      self.assertRaisesRegex(TypeError, "'h' has no parameter 'a'", go)
+    self.assertRaisesRegex(TypeError, "'h' has no parameter 'a'", go)
 
     # Varargs make no difference.
     def go():
@@ -129,9 +124,9 @@ class TestVisitation(cytest.TestCase):
 
     @dispatch.on('node')
     def count(node):
-      if isinstance(node, collections.Sequence):
+      if isinstance(node, collections.abc.Sequence):
         [count(x) for x in node]
-      elif isinstance(node, collections.Mapping):
+      elif isinstance(node, collections.abc.Mapping):
         [count(x) for x in node.values()]
 
     @count.when(icurry.IModule)
@@ -161,7 +156,7 @@ class TestVisitation(cytest.TestCase):
     self.assertEqual(tally, {'modules':1, 'datatypes':1, 'constructors':2, 'functions':4})
 
   def testCoverage(self):
-    seq = instance_checker(yes=collections.Sequence, no=str)
+    seq = instance_checker(yes=collections.abc.Sequence, no=str)
     self.assertIsInstance([], seq)
     self.assertNotIsInstance('', seq)
     self.assertIsInstance('', (seq,str))

@@ -18,17 +18,19 @@ Example:
 class CurryImportHook(object):
   '''An import hook that loads Curry modules into Python.'''
   import sys
+  from importlib.machinery import ModuleSpec
   from .. import config
   LIBPATH = config.python_package_name() + '.lib.'
 
   def __init__(self):
     self.curry = __import__(__name__.split('.')[0])
 
-  def find_module(self, fullname, path=None):
+  def find_spec(self, fullname, path=None, target=None):
     if fullname.startswith(self.LIBPATH):
-      return self
+      return self.ModuleSpec(fullname, self)
 
-  def load_module(self, fullname):
+  def create_module(self, spec):
+    fullname = spec.name
     if fullname not in self.sys.modules:
       cyname = fullname[len(self.LIBPATH):]
       moduleobj = self.curry.import_(cyname)
@@ -42,6 +44,12 @@ class CurryImportHook(object):
       # curry.import_ to handle this is not straightforward.
       self.sys.modules[fullname] = moduleobj
     return self.sys.modules[fullname]
+
+  def exec_module(self, module):
+    # The Curry module is fully built by create_module.  The import system
+    # fills only the module attributes that are still None, so the attributes
+    # set by the interpreter survive.
+    pass
 
 
 import sys

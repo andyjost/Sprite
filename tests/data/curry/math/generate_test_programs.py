@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 import operator as op, sys
 sys.path.insert(0, '../../scripts')

@@ -6,17 +6,9 @@ if [ -z "$SPRITE_HOME" ]; then
   SPRITE_HOME=`realpath ../install`
 fi
 
-1>&2 python <<EOF
-from __future__ import print_function
-text = 'Using SPRITE_HOME=$SPRITE_HOME'
-n = len(text) + 16
-border = '*' * n
-print()
-print(border)
-print(text.center(n))
-print(border)
-print()
-EOF
+text="Using SPRITE_HOME=$SPRITE_HOME"
+border=$(printf '%*s' $(( ${#text} + 16 )) '' | tr ' ' '*')
+1>&2 printf '\n%s\n        %s\n%s\n\n' "$border" "$text" "$border"
 
 if [ ! -d "$SPRITE_HOME" ]; then
   1>&2 echo Error: SPRITE_HOME is not a directory.
@@ -81,14 +73,14 @@ case `basename $0` in
           exit 1;
         }
     fi
-    if [ -L $SPRITE_HOME/lib/python2.7/curry/__init__.py ]; then
+    if [ -L $SPRITE_HOME/python/curry/__init__.py ]; then
       # It looks like the SYMLINK_INTERFACES install option was used so report on
       # the source dir.
       SRC=../src/python
     else
-      SRC=$SPRITE_HOME/lib
+      SRC=$SPRITE_HOME/python
     fi
-    $SPRITE_HOME/bin/coverage run -m --source=$SRC --omit=$SRC/utility/_tempfile.py unittest discover -v `pwd` "$pattern" || exit 1
+    $SPRITE_HOME/bin/coverage run -m --source=$SRC unittest discover -v `pwd` "$pattern" || exit 1
     $SPRITE_HOME/bin/coverage report
     $SPRITE_HOME/bin/coverage html
     echo "See HTML output at `readlink -f htmlcov/index.html`"

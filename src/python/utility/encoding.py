@@ -3,13 +3,13 @@ Encoding of Curry identifiers.
 '''
 
 from .. import inspect
-import collections, itertools, keyword, logging, re, six
+import collections.abc, itertools, keyword, logging, re
 
 logger = logging.getLogger(__name__)
 
 __all__ = ['best', 'clean', 'encode', 'isaCurryIdentifier', 'symbolToFilename']
 
-P_SYMBOL = re.compile('[^0-9a-zA-Z_\s]')
+P_SYMBOL = re.compile(r'[^0-9a-zA-Z_\s]')
 TR = {
     '&' : '_amp_'
   , '@' : '_at_'
@@ -83,7 +83,7 @@ SPECIAL = {
   , '<|>'  : 'alt'
   }
 
-P_TRAILING = re.compile('(\S+)(_CASE\d+)')
+P_TRAILING = re.compile(r'(\S+)(_CASE\d+)')
 def specialName(s):
   if s in SPECIAL:
     return SPECIAL[s]
@@ -186,8 +186,8 @@ def _shortername(name):
         return '.'.join(parts[i:])
 
 def _shortrepr(obj):
-  if not isinstance(obj, six.string_types):
-    if isinstance(obj, collections.Sequence):
+  if not isinstance(obj, str):
+    if isinstance(obj, collections.abc.Sequence):
       return '_'.join(map(str, obj))
     else:
       return repr(obj)
@@ -198,7 +198,7 @@ def symbolToFilename(name):
   return ''.join(TR.get('/') if ch=='/' else ch for ch in name)
 
 # Fixme: This does not match names such as a'.
-P_IDENTIFIER = re.compile('^[a-zA-Z_][0-9a-zA-Z_]*$|^[^0-9a-zA-Z_\s]+$')
+P_IDENTIFIER = re.compile(r'^[a-zA-Z_][0-9a-zA-Z_]*$|^[^0-9a-zA-Z_\s]+$')
 def isaCurryIdentifier(basename):
   '''
   Indicates whether the given string is a valid Curry identifier.  Legal

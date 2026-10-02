@@ -1,7 +1,7 @@
 from ...exceptions import ModuleLookupError
 from .isymbol import IContainer
 from ...utility import translateKwds, visitation
-import collections, itertools, six, weakref
+import collections, collections.abc, itertools, weakref
 
 OrderedDict = collections.OrderedDict
 
@@ -140,17 +140,17 @@ class IPackage(IContainer, dict):
 def _makeSymboltable(parent, objs):
   assert False
 
-@_makeSymboltable.when(collections.Iterable)
+@_makeSymboltable.when(collections.abc.Iterable)
 def _makeSymboltable(parent, objs):
   return _makeSymboltable(parent, list(objs))
 
-@_makeSymboltable.when(collections.Mapping)
+@_makeSymboltable.when(collections.abc.Mapping)
 def _makeSymboltable(parent, objs):
-  for v in six.itervalues(objs):
+  for v in objs.values():
     v.modulename = parent.fullname
   return objs
 
-@_makeSymboltable.when(collections.Sequence)
+@_makeSymboltable.when(collections.abc.Sequence)
 def _makeSymboltable(parent, objs):
   for v in objs:
     v.modulename = parent.fullname

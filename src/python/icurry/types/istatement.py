@@ -2,7 +2,7 @@ from .iobject import IObject
 from .iexpression import IVar, IVarAccess
 from ...utility.formatting import indent, wrapblock
 from ...utility import translateKwds
-import abc, six
+import abc
 
 __all__ = [
     'IAssign', 'IBlock', 'ICase', 'ICaseCons', 'ICaseLit', 'IConsBranch'
@@ -41,7 +41,7 @@ class IFreeDecl(IObject):
   def __repr__(self):
     return 'IFreeDecl(vid=%r)' % self.vid
 
-class IVarDecl(six.with_metaclass(abc.ABCMeta, IObject)):
+class IVarDecl(IObject, metaclass=abc.ABCMeta):
   def __init__(self, vid, **kwds):
     self.vid = vid
     IObject.__init__(self, **kwds)
@@ -99,7 +99,7 @@ class INodeAssign(IObject):
         self.vid, self.path, self.expr
       )
 
-class IAssign(six.with_metaclass(abc.ABCMeta, IObject)):
+class IAssign(IObject, metaclass=abc.ABCMeta):
   pass
 IAssign.register(IVarAssign)
 IAssign.register(INodeAssign)
@@ -179,7 +179,7 @@ class ILitBranch(IObject):
     return 'ILitBranch(lit=%r, block=%r)' % (self.lit, self.block)
 
 
-class IStatement(six.with_metaclass(abc.ABCMeta, IObject)):
+class IStatement(IObject, metaclass=abc.ABCMeta):
   pass
 
 IStatement.register(IAssign)

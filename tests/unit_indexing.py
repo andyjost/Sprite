@@ -4,7 +4,7 @@ from curry.backends.py.graph.indexing import (
   )
 from curry.expressions import fwd, _setgrd
 from curry import inspect
-from six.moves import reduce
+import functools
 import curry, unittest
 
 out_of_range = curry.CurryIndexError(r'node index out of range')
@@ -295,10 +295,11 @@ class TestRealpathUFN(cytest.TestCase):
     for N in range(2, 5):
       # Make a chain of N forward nodes: fwd(...fwd(-1)...)
       end = curry.raw_expr(-1)
-      e = curry.raw_expr(reduce(lambda a,_: fwd(a), range(N), end))
+      e = curry.raw_expr(functools.reduce(lambda a,_: fwd(a), range(N), end))
       chain = [subexpr(e, [0]*i) for i in range(N)] # keep each link
       # Everything in the chain is a forward node.
-      map(self.assertIsaFwd, chain)
+      for fwdnode in chain:
+        self.assertIsaFwd(fwdnode)
       # Not all links point directly to the end.
       self.assertFalse(all(inspect.fwd_target(link) is end for link in chain))
 
@@ -322,10 +323,11 @@ class TestRealpathUFN(cytest.TestCase):
       for N in range(2, 5):
         # Make a chain of N forward nodes: fwd(...fwd(-1)...)
         end = curry.raw_expr(-1)
-        e = curry.raw_expr([head, reduce(lambda a,_: fwd(a), range(N), end)])
+        e = curry.raw_expr([head, functools.reduce(lambda a,_: fwd(a), range(N), end)])
         chain = [subexpr(e, [0]+[0]*i) for i in range(N)] # keep each link
         # Everything in the chain is a forward node.
-        map(self.assertIsaFwd, chain)
+        for fwdnode in chain:
+          self.assertIsaFwd(fwdnode)
         # Not all links point directly to the end.
         self.assertFalse(all(inspect.fwd_target(link) is end for link in chain))
 

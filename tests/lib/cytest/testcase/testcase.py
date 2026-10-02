@@ -4,7 +4,6 @@ import curry, re, sys, unittest
 from .assert_equal_to_file import *
 from .assert_sets import *
 from .assert_inspect import *
-import six
 
 __all__ = ['TestCase']
 
@@ -15,13 +14,6 @@ class TestCase(unittest.TestCase):
   locals().update({
       name: obj for name, obj in globals().items()
                 if name.startswith('assert')
-    })
-
-  # Pull in the assertions defined in six.
-  locals().update({
-      name: obj for name, obj in six.__dict__.items()
-                if name.startswith('assert')
-                if not hasattr(unittest.TestCase, name)
     })
 
   def tearDown(self):
@@ -41,7 +33,7 @@ class TestCase(unittest.TestCase):
       except:
         ty,val,tb = sys.exc_info()
         tail = '' if msg is None else ' %s' % msg
-        six.raise_from(ty(str(val) + tail), val)
+        raise ty(str(val) + tail) from val
 
   def assertMayRaiseRegexp(self, exception, regexp, expr, msg=None):
     if exception is None:
@@ -57,6 +49,6 @@ class TestCase(unittest.TestCase):
       except:
         ty,val,tb = sys.exc_info()
         tail = '' if msg is None else ' %s' % msg
-        six.raise_from(ty(str(val) + tail), val)
+        raise ty(str(val) + tail) from val
 
 

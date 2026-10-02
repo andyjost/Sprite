@@ -4,7 +4,7 @@ from ... import common, config, icurry
 from . import cyrtbindings as cyrt
 from ...utility import formatDocstring, strings, visitation
 from ...utility.showflags import showflags
-import collections, json, six
+import collections.abc, json
 
 __all__ = ['compile', 'write_module']
 
@@ -312,7 +312,7 @@ def _cxxshow(bit, use_char=False):
 def _cxxshow(i, use_char=False):
   return repr(i)
 
-@_cxxshow.when(six.string_types)
+@_cxxshow.when(str)
 def _cxxshow(string, use_char=False):
   # Ensure characters always begin with a single quote.  Python uses "'" for
   # that particular string.
@@ -327,13 +327,13 @@ def _cxxshow(string, use_char=False):
   else:
     return _dquote(string)
 
-@_cxxshow.when(collections.Mapping)
+@_cxxshow.when(collections.abc.Mapping)
 def _cxxshow(mapping, use_char=False):
   return '{%s}' % ', '.join(
       '{%s, %s}' % (_cxxshow(k, use_char), _cxxshow(v, use_char)) for k,v in mapping.items()
     )
 
-@_cxxshow.when(collections.Sequence, no=six.string_types)
+@_cxxshow.when(collections.abc.Sequence, no=str)
 def _cxxshow(sequence, use_char=False):
   return '{%s}' % ', '.join(_cxxshow(part, use_char) for part in sequence)
 

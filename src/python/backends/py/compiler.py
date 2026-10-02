@@ -3,7 +3,7 @@ from ...exceptions import CompileError
 from ..generic import compiler, renderer
 from ... import config, icurry
 from ...utility.showflags import showflags
-import collections, itertools, json, re, six, sys
+import collections, itertools, json, re, sys
 
 __all__ = ['compile', 'write_module']
 
@@ -110,6 +110,7 @@ class PyCompiler(compiler.CompilerBase):
         )
 
   def vEmitStringLiteral(self, string, h_string):
+    # TODO(py3): non-ASCII string literals
     yield '%s = b%r' % (h_string, string)
 
   def vEmitValueSetLiteral(self, values, h_valueset, h_valueset_data):

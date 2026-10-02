@@ -1,6 +1,6 @@
-from six.moves import range, zip_longest
 from ._cyrtbindings import Fingerprint, LEFT, UNDETERMINED
 import itertools
+from itertools import zip_longest
 
 def Fingerprint__iter__(self):
   for i in range(self.capacity):

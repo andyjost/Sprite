@@ -1,6 +1,5 @@
 from ..utility.visitation import dispatch
-from collections import Sequence
-import six
+from collections.abc import Sequence
 
 @dispatch.on('arg')
 def indent(arg, n=2):
@@ -11,7 +10,7 @@ def indent(string, n=2):
   space = ' ' * n
   return '\n'.join('%s%s' % (space, text) for text in string.split('\n'))
 
-@indent.when(Sequence, no=six.string_types)
+@indent.when(Sequence, no=str)
 def indent(seq, n=2):
   return '\n'.join(indent(line, n) for line in seq)
 

@@ -62,10 +62,7 @@ def str2module(
     icur.__file__ = curryfile
     icur.update_metadata({'all.tmpd': moduledir})
     if not keep_temp_files:
-      if hasattr(weakref, 'finalize'):
-        icur._finalizer_ = weakref.finalize(icur, _rmdir, moduledir)
-      else:
-        icur.__del__ = lambda self: _rmdir(moduledir)
+      icur._finalizer_ = weakref.finalize(icur, _rmdir, moduledir)
     return moduleobj, icur
   except:
     if postmortem:

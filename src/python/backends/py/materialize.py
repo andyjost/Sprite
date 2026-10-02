@@ -3,9 +3,9 @@ from ..generic.compiler import DEFINED, STEP_FUNCTION
 from .graph.infotable import DataType, InfoTable
 from . import compiler
 from ... import config, icurry, objects
-from six.moves import StringIO
+from io import StringIO
 from ...utility import encoding, filesys, visitation
-import six, textwrap
+import textwrap
 
 def materialize(interp, iobj, moduleobj):
   materializer = Materializer(interp)
@@ -96,9 +96,9 @@ def materializeStepfunc(interp, ifun):
       out.write('\n\n# ICurry:\n# -------\n')
       out.write('\n'.join('# ' + line for line in str(ifun).split('\n')))
     co = compile(source, srcfile, 'exec')
-    six.exec_(co, closure)
+    exec(co, closure)
   else:
-    six.exec_(source, closure)
+    exec(source, closure)
   for symbolname, symbol in target_object.symtab.items():
     if symbol.kind == STEP_FUNCTION and symbol.stat == DEFINED:
       stepfunc = closure[symbolname]

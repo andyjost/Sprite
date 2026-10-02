@@ -3,8 +3,9 @@ import contextlib, sys
 __all__ = ['formatDocstring', 'maxrecursion', 'translateKwds', 'unique']
 
 # The recursive-descent processing of ICurry necessitates a larger recursion
-# limit.  If it is see too large, true infinite recursion may cause a SEGV
-# (depending on the process stack limit).  This value should be a compromise.
+# limit.  Since Python 3.12 the limit counts only Python frames; the C stack is
+# guarded separately, so a large limit no longer risks a SEGV from pure-Python
+# recursion.  This value is still a compromise against runaway recursion.
 MAX_RECURSION_LIMIT = 1<<14
 
 def formatDocstring(*args, **kwds):

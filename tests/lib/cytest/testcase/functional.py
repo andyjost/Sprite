@@ -17,7 +17,7 @@ from glob import glob
 from .. import oracle
 from . import testcase
 from .. import tty
-import curry, contextlib, functools, inspect, io, os, re, six, sys, unittest
+import curry, contextlib, functools, inspect, io, os, re, sys, unittest
 from curry import exceptions
 
 __all__ = ['FunctionalTestCase']
@@ -93,10 +93,8 @@ class FunctionalTestCaseMetaclass(type):
 
 
 
-class FunctionalTestCase(
-    six.with_metaclass(FunctionalTestCaseMetaclass, testcase.TestCase)
-  ):
-  '''
+class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclass):
+  r'''
   Base class for functional test cases.
 
   Functional tests check whole program behavior (unlike unit tests, which test
@@ -289,7 +287,7 @@ class FunctionalTestCase(
     for goal in self.iterate_goals(module):
       num_tests_run += 1
       goldenfile = os.path.join(self.SOURCE_DIR, goal.fullname + '.au-gen')
-      oracle.divine(module, goal, [self.SOURCE_DIR], '20s', goldenfile=goldenfile)
+      oracle.divine(module, goal, [self.SOURCE_DIR], self.ORACLE_TIMEOUT[testname], goldenfile=goldenfile)
 
       with open(goldenfile) as istream:
         oracle_answer_raw = istream.read()
@@ -352,7 +350,7 @@ def compile_pattern(arg, exact=False):
   provided, they are joined with |.
   '''
   if arg is not None:
-    if isinstance(arg, six.string_types):
+    if isinstance(arg, str):
       arg = [arg]
     if exact:
       arg = ['^%s$' % re.escape(a) for a in arg]
@@ -375,7 +373,7 @@ class TSKeywords(object):
     # provided, that would be a single value -- a set of keyword arguments --
     # that applies to all tests.
     is_map = isinstance(supplied, dict) and all(
-        isinstance(k, six.string_types) and isinstance(v, value_type)
+        isinstance(k, str) and isinstance(v, value_type)
             for k,v in supplied.items()
       )
     if is_map:

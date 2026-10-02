@@ -4,12 +4,12 @@ from curry.common import LEFT, RIGHT, UNDETERMINED
 from curry.backends.py.eval.rts import RuntimeState
 from curry.backends.py.graph import Node
 from curry import inspect
-import curry, sys, unittest
+import curry, unittest
 
 u = curry.unboxed
 hint = r'  \(An unboxed value was expected but a boxed value of the ' \
-        'correct type was supplied\.  Perhaps you need to wrap an '   \
-        'argument with curry\.unboxed\?\)'
+        r'correct type was supplied\.  Perhaps you need to wrap an '   \
+        r'argument with curry\.unboxed\?\)'
 
 @unittest.skip('typechecks were removed Apr 2022')
 class TestPyTypeChecks(cytest.TestCase):
@@ -32,13 +32,6 @@ class TestPyTypeChecks(cytest.TestCase):
         , r'Cannot construct a Float node from an argument of type int\.'
         , lambda: Node(I.prelude.Float.info, 1)
         )
-      if debug and sys.version_info.major == 2:
-        # There is an assertion for this even in non-debug mode.
-        self.assertRaisesRegex(
-            TypeError
-          , r'Cannot construct a Char node from an argument of type unicode\.'
-          , lambda: Node(I.prelude.Char.info, unicode('a'))
-          )
       self.assertMayRaiseRegexp(
           TypeError if debug else None
         , r'Cannot construct a Char node from a str of length 0\.'
@@ -70,7 +63,7 @@ class TestPyTypeChecks(cytest.TestCase):
         self.assertMayRaiseRegexp(
             TypeError if debug else None
           , r'Cannot construct a _Constraint node from an argument '
-             '\(in position 2.1\) of type int\.'
+             r'\(in position 2.1\) of type int\.'
           , lambda: I.expr(constraint_type, True, (u(1), y))
           )
 

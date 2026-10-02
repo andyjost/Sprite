@@ -1,12 +1,11 @@
 from .... import icurry, inspect, utility
 from ....common import T_FUNC, T_CTOR
-import itertools, numbers
-from six.moves import reduce
+import functools, itertools, numbers
 
 __all__ = ['copy_spine', 'curry', 'joinpath', 'rewrite', 'shallow_copy']
 
 def copy_spine(root, realpath, end=None, rewrite=None):
-  '''
+  r'''
   Copies the spine from ``root`` along ``realpath``.
 
   Args:
@@ -101,7 +100,7 @@ def curry(rts, f, *args, **kwds):
     f = Node(info, partial=partial)
     if partial:
       f = Node(rts.PartApplic, info.arity, f)
-  return reduce(lambda a, b: Node(fapply, a, b), args, f)
+  return functools.reduce(lambda a, b: Node(fapply, a, b), args, f)
 
 def joinpath(*parts):
   '''

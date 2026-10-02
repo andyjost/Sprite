@@ -28,7 +28,7 @@ class TestPyCompile(cytest.TestCase):
   def testMissingExternalConstructorDefinition(self):
     self.assertRaisesRegex(
         curry.CompileError
-      , "failed to resolve external type 'sprite__interactive_\d+\.A'"
+      , r"failed to resolve external type 'sprite__interactive_\d+\.A'"
       , lambda: curry.compile('data A')
       )
 
@@ -81,7 +81,7 @@ class TestPyCompile(cytest.TestCase):
     is_public = lambda k: not (k.startswith('_') or k.startswith('.'))
     self.assertEqual(len([k for k in Or.__dict__ if is_public(k)]), 1)
 
-  @cytest.check_expressions
+  @cytest.check_expressions()
   def testExprType(self):
     '''Test the exprtype argument.'''
     # 1+2
@@ -105,7 +105,7 @@ class TestPyCompile(cytest.TestCase):
     e = curry.compile('1 ? 2', mode='expr', exprtype='Int')
     yield e, None, '<? <Int 1> <Int 2>>', None, [[1, 2]]
 
-  @cytest.check_expressions
+  @cytest.check_expressions()
   def test_reclet(self):
     e = curry.compile('''let a = True:b ; b = False:a in a''', 'expr')
     yield e, '[True, False, ...]', '<_Fwd <: <True> <: <False> ...>>>'

@@ -1,6 +1,6 @@
-import collections, gzip, unittest
+import collections.abc, gzip, unittest
 
-from six.moves import cStringIO as StringIO
+from io import StringIO
 
 
 def assertEqualToFile(
@@ -24,17 +24,17 @@ def assertEqualToFile(
     sprite_answer = objs
   else:
     buf = StringIO()
-    if isinstance(objs, collections.Sequence):
+    if isinstance(objs, collections.abc.Sequence):
       for obj in objs: buf.write(str(obj))
     else:
       buf.write(str(objs))
     sprite_answer = buf.getvalue()
   open_ = gzip.open if filename.endswith('.gz') else open
   if update:
-    with open_(filename, 'w') as au:
+    with open_(filename, 'wt') as au:
       au.write(sprite_answer)
   else:
-    with open_(filename, 'r') as au:
+    with open_(filename, 'rt') as au:
       correct_answer = au.read()
     checker(tc, sprite_answer, correct_answer)
 

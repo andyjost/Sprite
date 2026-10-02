@@ -80,13 +80,27 @@ overlay-archive: $(OVERLAY_ARCHIVE)
 ifeq ($(shell [ -e $(OVERLAY_ARCHIVE) ]; echo $$?),1)
 overlay:
 else
+# After extraction, touch the prebuilt library products so they are newer than
+# the (symlinked) .curry sources and make does not rebuild them.  -type f skips
+# the symlinks.  Every file gets the same timestamp so that a regular-file
+# source (Prelude.curry) cannot end up newer than its products.
 overlay:
 	tar xvzf $(OVERLAY_ARCHIVE)
+	find curry/$(PAKCS_SUBDIR) -type f -exec touch -d "@$$(date +%s)" {} +
 endif
+
+# Remove a directory.  If the path is a symlink, remove the contents of the
+# link target and keep the link.
+define remove_dir =
+@if [ -z "$(strip $1)" ]; then echo "remove_dir: empty path" 1>&2; exit 1; \
+elif [ -L "$1" ] && [ -d "$1" ]; then echo "rm -rf $$(realpath $1)/*"; \
+  find "$$(realpath $1)" -mindepth 1 -maxdepth 1 -exec rm -rf {} +; \
+elif [ -e "$1" ]; then echo rm -r $1; rm -r $1; fi
+endef
 
 .PHONY: clean
 clean:
-	rm -r $(OBJECT_ROOT)
+	$(call remove_dir,$(OBJECT_ROOT))
 
 .PHONY: test
 test:
@@ -98,7 +112,7 @@ stage:
 
 .PHONY: unstage
 unstage:
-	rm -r $(STAGE_DIR)
+	$(call remove_dir,$(STAGE_DIR))
 
 .PHONY: docs
 docs:

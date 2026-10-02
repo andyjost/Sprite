@@ -1,6 +1,6 @@
 def resolve(arg, keys, what):
   '''Resolves a name while allowing any non-ambiguous prefix.'''
-  candidates = filter(lambda s: s.startswith(arg), keys)
+  candidates = [s for s in keys if s.startswith(arg)]
   try:
     result, = candidates
   except ValueError:

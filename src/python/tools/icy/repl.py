@@ -1,6 +1,5 @@
 from . import commands
 from . import options
-from six.moves import input
 import sys
 
 __all__ = ['REPL']
@@ -48,7 +47,7 @@ class REPL(object):
     while args:
       command = args.pop()
       if not command.startswith(':'):
-        illegal += command
+        illegal.append(command)
       else:
         subargs = []
         while args:

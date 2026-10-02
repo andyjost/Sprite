@@ -2,7 +2,7 @@ from .iobject import IArity, IObject
 from .isymbol import ISymbol
 from ...utility.formatting import indent
 from ...utility import translateKwds
-import abc, six, weakref
+import abc, weakref
 
 __all__ = [
     'IBody', 'IBuiltin', 'IExternal', 'IFuncBody', 'IFunction', 'IVisibility'
@@ -54,7 +54,7 @@ class Private(IObject):
 PRIVATE = Private()
 
 
-class IVisibility(six.with_metaclass(abc.ABCMeta, IObject)):
+class IVisibility(IObject, metaclass=abc.ABCMeta):
   @staticmethod
   def cast(arg):
     if isinstance(arg, IVisibility):
@@ -89,7 +89,7 @@ class IExternal(IObject):
     return '%s(symbolname=%r)' % (type(self).__name__, self.symbolname)
 
 
-class IFuncBody(six.with_metaclass(abc.ABCMeta, IObject)):
+class IFuncBody(IObject, metaclass=abc.ABCMeta):
   def __init__(self, block, **kwds):
     self.block = block
     IObject.__init__(self, **kwds)

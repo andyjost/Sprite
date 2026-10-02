@@ -1,7 +1,7 @@
 from .iobject import IObject
 from .isymbol import ISymbol
 from ...common import Fingerprint
-import abc, collections, six
+import abc, collections.abc
 
 __all__ = ['IChar', 'IFloat', 'IInt', 'ILiteral', 'IString', 'IUnboxedLiteral']
 
@@ -63,7 +63,7 @@ class IString(ISymbol):
   def __repr__(self):
     return 'IString(value=%r)' % self.value
 
-class IUnboxedLiteral(six.with_metaclass(abc.ABCMeta, IObject)):
+class IUnboxedLiteral(IObject, metaclass=abc.ABCMeta):
   pass
 IUnboxedLiteral.register(int)
 IUnboxedLiteral.register(str)
@@ -71,13 +71,13 @@ IUnboxedLiteral.register(float)
 # An iterator is considered a fundamental data type so that Sprite does not try
 # to reduce it.  This should always be the argument to an instance of
 # Prelude._biGenerator.
-IUnboxedLiteral.register(collections.Iterator)
+IUnboxedLiteral.register(collections.abc.Iterator)
 # A view of raw memory (used by _PyString).
 IUnboxedLiteral.register(memoryview)
 # Extend the builtins to include fingerprints.
 IUnboxedLiteral.register(Fingerprint)
 
-class ILiteral(six.with_metaclass(abc.ABCMeta, IObject)):
+class ILiteral(IObject, metaclass=abc.ABCMeta):
   pass
 ILiteral.register(IInt)
 ILiteral.register(IChar)

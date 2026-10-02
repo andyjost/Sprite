@@ -4,7 +4,7 @@ Code to load runtime symbols.
 
 from ... import config, icurry, objects, utility
 from ...utility import encoding, visitation
-import collections, logging, six, weakref
+import collections.abc, logging, weakref
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +18,15 @@ def loadSymbols(interp, idef, moduleobj, **kwds): #pragma: no cover
   '''
   raise RuntimeError("unhandled ICurry type during symbol loading: '%s'" % type(idef))
 
-@loadSymbols.when(collections.Sequence, no=(str))
+@loadSymbols.when(collections.abc.Sequence, no=(str))
 def loadSymbols(interp, seq, *args, **kwds):
   return [loadSymbols(interp, item, *args, **kwds) for item in seq]
 
-@loadSymbols.when(collections.Mapping)
+@loadSymbols.when(collections.abc.Mapping)
 def loadSymbols(interp, mapping, moduleobj, **kwds):
   return {
       k: loadSymbols(interp, v, moduleobj, **kwds)
-        for k,v in six.iteritems(mapping)
+        for k,v in mapping.items()
     }
 
 @loadSymbols.when(icurry.IModule)

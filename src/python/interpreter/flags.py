@@ -60,7 +60,7 @@ are available:
 FLAG_INFO = {
   #  Flag                   Value Spec           Default
   #  --------------------   -------------------  ----------------------------
-    'backend'             : ({'cxx', 'llvm', 'py'}, config.default_backend())
+    'backend'             : ({'cxx', 'py'}, config.default_backend())
   , 'debug'               : ( bool                , False )
   , 'defaultconverter'    : ({'topython', None}   , None  )
   , 'trace'               : ( bool                , False )
@@ -79,7 +79,7 @@ def _show(valspec): # pragma no cover
   if isinstance(valspec, str):
     return repr(valspec)
   if isinstance(valspec, set):
-    valspec = sorted(valspec)
+    valspec = sorted(valspec, key=repr)
     if len(valspec) == 1:
       return repr(list(valspec).pop())
     else:
@@ -103,6 +103,8 @@ def _show(valspec): # pragma no cover
     return 'an integer'
   elif valspec is float:
     return 'a number'
+  elif valspec is None:
+    return repr(None)
   assert False
 
 def _convert(given, valspec): # pragma no cover
@@ -147,16 +149,16 @@ def _convert(given, valspec): # pragma no cover
 
 def _flagval(flag, given, currentflags): # pragma: no cover
   if flag not in FLAG_INFO:
-    logger.warn('unknown flag: %r', flag)
+    logger.warning('unknown flag: %r', flag)
     return NotImplemented
   else:
     valspec, default = FLAG_INFO[flag]
     converted = _convert(given, valspec)
     if converted is NotImplemented:
-      logger.warn('cannot convert %r to a value for flag %r', given, flag)
-      logger.warn('the prior value %r will be used'
+      logger.warning('cannot convert %r to a value for flag %r', given, flag)
+      logger.warning('the prior value %r will be used'
         , str(currentflags.get(flag, default)))
-      logger.warn('note: expected %s', _show(valspec))
+      logger.warning('note: expected %s', _show(valspec))
     return converted
 
 def getflags(flags={}, weakflags={}):

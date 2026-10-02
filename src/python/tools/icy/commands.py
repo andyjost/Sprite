@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 from . import options
 from .resolve import resolve
 import importlib, os, sys, traceback
@@ -68,11 +66,11 @@ def cmdSet(repl):
       print('Usage:', file=sys.stderr)
       print('    :set <option> <value>', file=sys.stderr)
       print('    :set [+/-]<option>        (Boolean options only)', file=sys.stderr)
-      print >>sys.stderr
+      print(file=sys.stderr)
       print('Options for ":set" command:', file=sys.stderr)
       for name in sorted(options.Options.names()):
         print(options.Options.usage(name, indent=4), file=sys.stderr)
-      print >>sys.stderr
+      print(file=sys.stderr)
       print('Current settings:', file=sys.stderr)
       boolopts = []
       valueopts = []
@@ -82,10 +80,10 @@ def cmdSet(repl):
           boolopts.append(('+' if value else '-') + spec.name)
         else:
           valueopts.append((name, value))
-      print >>sys.stderr, ' '.join(boolopts)
+      print(' '.join(boolopts), file=sys.stderr)
       w = max([len(item[0]) for item in valueopts] or [0]) # FIXME: remove "or [0]" when a valueopt exists
       for name,value in valueopts:
-        print >>sys.stderr, name.ljust(w), ':', repr(value)
+        print(name.ljust(w), ':', repr(value), file=sys.stderr)
       return
   else:
     if name.startswith('+') or name.startswith('-'):

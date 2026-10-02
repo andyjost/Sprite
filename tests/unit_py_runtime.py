@@ -45,6 +45,7 @@ class TestPyRuntime(cytest.TestCase):
         TypeError, r"cannot import type 'int'", lambda: interp.import_(1)
       )
 
+  @unittest.skip('rec was removed')
   def test_normalization(self):
     '''
     Tests the built-in normalizing function (nf) applied to constructors.
@@ -67,7 +68,6 @@ class TestPyRuntime(cytest.TestCase):
     interp_nodebug = interpreter.Interpreter(flags={'debug':False})
     self.checkNormalization(interp_nodebug)
 
-  @unittest.skip('rec was removed')
   def checkNormalization(self, interp):
     bs = interp.import_(self.BOOTSTRAP)
     N,M,U,B,Z,ZN,ZF = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF
@@ -241,7 +241,7 @@ class TestPyRuntime(cytest.TestCase):
   def test_getimpl(self):
     # Positive test.
     from curry.lib import hello
-    self.assertRegex(hello.main.getimpl(), '(^|\n)def (\w+)\(rts, _0\):\s+# hello\.main')
+    self.assertRegex(hello.main.getimpl(), r'(^|\n)def (\w+)\(rts, _0\):\s+# hello\.main')
     # Negative test.
     self.assertRaisesRegex(
         ValueError
@@ -259,7 +259,7 @@ class TestPyRuntime(cytest.TestCase):
 
     a.write[0]
     # a = Shared(refcnt=1, defaultdict(<function factory at ...>, {0: Shared(refcnt=1, [])}))
-    self.assertEqual(a.read.keys(), [0])
+    self.assertEqual(list(a.read.keys()), [0])
     self.assertEqual(a.read[0].refcnt, 1)
     self.assertEqual(a.read[0].read, [])
 

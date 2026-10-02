@@ -1,6 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
-from __future__ import print_function
 import os, sys
 
 print("This script is obsolete because it uses ICURRY2JSON.")
@@ -18,7 +17,7 @@ for category in index:
 
 with open('Makefile2', 'w') as makefile:
   print('.PHONY : clean json', file=makefile)
-  print >>makefile, 'PROGRAMS := %s' % ' '.join(files)
+  print('PROGRAMS := %s' % ' '.join(files), file=makefile)
   print('JSONFILES := $(foreach file,$(PROGRAMS),json/kiel-$(file).json)', file=makefile)
   print('', file=makefile)
   print('json : $(JSONFILES)', file=makefile)

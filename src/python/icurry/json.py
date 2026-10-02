@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from . import types
 from ..utility.fmap import fmap
 from ..utility.strings import ensure_str_safe, ensure_str

@@ -90,7 +90,7 @@ class TelemetryData(object):
     'The number of iterations in hnf.'
     return self._iterhnf
 
-  P_GET_COUNT = re.compile('count\((\d+)\)')
+  P_GET_COUNT = re.compile(r'count\((\d+)\)')
 
   @property
   def next_cid(self):

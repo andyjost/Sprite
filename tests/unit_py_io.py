@@ -1,7 +1,7 @@
 from curry import common
-from curry.utility import _tempfile
+import tempfile
 from import_blocker import with_import_blocked
-from six.moves import cStringIO as StringIO
+from io import StringIO
 import curry, os, unittest
 import cytest
 
@@ -110,7 +110,7 @@ class TestPyIO(cytest.TestCase):
       )
 
   def test_writefile(self):
-    with _tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
       cwd = os.getcwd()
       os.chdir(tmpdir)
       try:

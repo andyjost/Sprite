@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Sprite documentation build configuration file, created by
 # sphinx-quickstart on Sun Sep 13 14:11:44 2020.

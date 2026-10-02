@@ -1,7 +1,7 @@
 from . import backends, config, icurry, objects, utility
 from .exceptions import CurryTypeError
 from .utility import strings, visitation
-import collections, itertools, numbers, six
+import collections.abc, itertools, numbers
 
 __all__ = [
     'anchor', 'choice', 'cons', 'expr', 'fail', 'fwd', 'free', 'nil'
@@ -169,7 +169,7 @@ def raw_expr(interp, *args, **kwds):
   '''Equivalent to expr.'''
   builder = ExpressionBuilder(interp)
   target = kwds.pop('target', None)
-  for anchorname, subexpr in six.iteritems(kwds):
+  for anchorname, subexpr in kwds.items():
     subexpr = anchor(subexpr, name=anchorname)
     builder(subexpr)
     assert anchorname in builder.anchors
@@ -215,7 +215,7 @@ class ExpressionBuilder(object):
         'cannot build a Curry expression from type %r' % type(arg).__name__
       )
 
-  @__call__.when(six.string_types + (six.binary_type,)) # Char or [Char].
+  @__call__.when((str, bytes)) # Char or [Char].
   def __call__(self, arg, *trailing):
     arg = strings.ensure_str(arg)
     if trailing:
@@ -317,7 +317,7 @@ class ExpressionBuilder(object):
     else:
       return target
 
-  @__call__.when(collections.Iterator)
+  @__call__.when(collections.abc.Iterator)
   def __call__(self, arg, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % arg)

@@ -1,15 +1,11 @@
 import cytest
 from curry.interpreter import Interpreter
 from curry.toolchain import plans
-from curry.utility.strings import PY3
 import string
 
 REMOVE_CHARS = string.whitespace + '-'
-if PY3:
-  _MAPPING = {ord(c): None for c in REMOVE_CHARS}
-  clean = lambda s: s.translate(_MAPPING)
-else:
-  clean = lambda s: s.translate(None, REMOVE_CHARS)
+_MAPPING = {ord(c): None for c in REMOVE_CHARS}
+clean = lambda s: s.translate(_MAPPING)
 
 class TestPlan(cytest.TestCase):
   '''Tests the compilation plan.'''

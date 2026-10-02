@@ -22,7 +22,7 @@ from ._findcurry import currentfile
 from ._icurry2json import icurry2json
 from ._loadcurry import loadcurry, loadjson
 from ._makecurry import makecurry
-from ._mergecurry import mergebuiltins, validatemodule
+from ._mergecurry import mergebuiltins, mergemodule, validatemodule
 from ._str2module import str2module
 
 __all__ = [

@@ -24,10 +24,10 @@ class TestExpr(cytest.TestCase):
       , (1.0, '1.0')
       , ('a', "'a'")
       , ('hello', "'hello'")
-      , ([], "\[\]")
-      , ([0], "\[0\]")
-      , ((), "\(\)")
-      , ((0,1), "\(0, 1\)")
+      , ([], r"\[\]")
+      , ([0], r"\[0\]")
+      , ((), r"\(\)")
+      , ((0,1), r"\(0, 1\)")
       , (anchor(0), "anchor '_1'")
       , (anchor(0, name='a'), "anchor 'a'")
       , (ref('a'), "ref 'a'")
@@ -116,6 +116,7 @@ class TestExpr(cytest.TestCase):
     yield '', '[]', "<[]>", []  # empty string and list are indistiguishable
     yield 'hi', '"hi"', "<: <Char 'h'> <: <Char 'i'> <[]>>>", 'hi'
 
+  @cytest.check_expressions()
   def test_choice(self):
     yield choice(1, True, False), '_Choice 1 True False' \
                                 , '<_Choice 1 <True> <False>>' \
@@ -173,6 +174,7 @@ class TestExpr(cytest.TestCase):
   def test_var(self):
     yield free(5), '_a', '<_Free 5 <()>>'
 
+  @cytest.check_expressions()
   def test_nonlinear(self):
     # let a=1 in [a, a]
     e = curry.raw_expr([curry.anchor(1), curry.ref()])

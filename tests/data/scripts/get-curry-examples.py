@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 '''Get Curry examples by parsing the public webpage hosted at uni-kiel.'''
 
 # ----------------------- CONFIG --------------------------
@@ -23,8 +23,6 @@ import re
 import shutil
 import subprocess
 import glob
-
-import six
 
 
 # This script should be called from the tests/data/scripts directory.
@@ -69,7 +67,7 @@ for filename in glob.glob('index.html*'):
   os.remove(filename)
 
 with open('../index.py', 'w') as tocfile:
-  tocfile.write(str({k:list(v) for k,v in six.iteritems(index)}))
+  tocfile.write(str({k:sorted(v) for k,v in index.items()}))
 
 # Get the Curry files.
 os.chdir('kiel')

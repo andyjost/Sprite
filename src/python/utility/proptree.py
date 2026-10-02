@@ -1,7 +1,7 @@
 '''
 Implements a property tree.  Used for metadata.
 '''
-import collections
+import collections.abc
 
 __all__ = ['proptree']
 NODE_TYPES = {}
@@ -98,7 +98,7 @@ def _gettype(slots):
 
 def _buildtree(data):
   # Return non-aggregate data.
-  if not isinstance(data, collections.Mapping):
+  if not isinstance(data, collections.abc.Mapping):
     return data
   # Build a property tree node from mappings.
   slots = tuple(sorted(data.keys()))
@@ -122,7 +122,7 @@ def proptree(flat={}):
   such that the expressions ``t.a.b``, ``t.a.c`` and ``t.x`` are bound to 1, 2,
   and 3, respectively.
   '''
-  if not isinstance(flat, collections.Mapping):
+  if not isinstance(flat, collections.abc.Mapping):
     return flat
   tree = {}
   for k,v in flat.items():

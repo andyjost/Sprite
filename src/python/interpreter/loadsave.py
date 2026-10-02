@@ -2,8 +2,7 @@ from .. import config, exceptions, icurry, inspect, utility
 from ..utility.binding import binding
 from ..utility.strings import ensure_str
 from ..objects import handle
-import logging, os, six
-from six.moves import cStringIO as StringIO
+import io, logging, os
 
 logger = logging.getLogger(__name__)
 
@@ -84,11 +83,11 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
       )
   be = interp.backend
   target_object = be.compile(interp, h.icurry)
-  if isinstance(filename, six.string_types):
+  if isinstance(filename, str):
     with open(filename, 'w') as stream:
       be.write_module(target_object, stream, goal=goal, **kwds)
   elif not filename:
-    stream = StringIO()
+    stream = io.StringIO()
     be.write_module(target_object, stream, goal=goal, **kwds)
     return stream.getvalue()
   else:

@@ -1,1 +1,1 @@
-$(shell cd $(ROOT_DIR)/curry && ./module_names.py)
+$(shell cd $(ROOT_DIR)/curry && $(PYTHON_EXECUTABLE) module_names.py)

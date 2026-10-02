@@ -1,5 +1,5 @@
 from ...utility import visitation
-import collections, six
+import collections.abc
 
 class SourceRenderer(object):
   HCOL        = 39
@@ -47,12 +47,12 @@ class SourceRenderer(object):
     '''
     assert False
 
-  @format.when(six.string_types)
+  @format.when(str)
   def format(self, line, level=-1):
     prefix = ' ' * (self.INDENT * level)
     yield prefix + line
 
-  @format.when(collections.Iterable, no=(str, tuple))
+  @format.when(collections.abc.Iterable, no=(str, tuple))
   def format(self, seq, level=-1):
     if self.BLOCK_OPEN and level >= 0:
       for line in self.format(self.BLOCK_OPEN, level):

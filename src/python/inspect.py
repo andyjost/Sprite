@@ -5,7 +5,7 @@ Inspect live Curry objects.
 from .common import T_SETGRD, T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from . import backends, config, icurry, objects
 from .utility import visitation
-import collections
+import collections.abc
 import os
 import re
 
@@ -46,7 +46,7 @@ def _isa(addr, nodeinfo):
 def _isa(addr, typedef):
   return _isa(addr, typedef.constructors)
 
-@_isa.when(collections.Sequence, no=str)
+@_isa.when(collections.abc.Sequence, no=str)
 def _isa(addr, seq):
   return any(_isa(addr, ti) for ti in seq)
 

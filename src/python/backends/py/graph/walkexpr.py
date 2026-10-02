@@ -2,7 +2,6 @@
 
 from .... import icurry
 from . import indexing, variable
-from six.moves import range
 
 __all__ = ['iterexpr', 'walk']
 

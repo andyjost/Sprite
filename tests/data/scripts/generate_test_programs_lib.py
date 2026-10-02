@@ -1,6 +1,6 @@
 import os
 import sys
-from six.moves import cStringIO as StringIO
+from io import StringIO
 
 def generate_test_programs(spec):
   '''

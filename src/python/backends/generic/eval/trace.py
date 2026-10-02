@@ -1,5 +1,4 @@
 '''Functions for tracing Curry evaluation.'''
-from __future__ import print_function
 import collections, contextlib
 
 def show_queue(rts, qid=None):

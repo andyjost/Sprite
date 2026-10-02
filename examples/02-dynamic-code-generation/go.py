@@ -16,14 +16,14 @@ natFromInt i | i == 0    = O
 
 # Build a goal dynamically.
 goal = curry.expr(Nat.natToInt, [Nat.I, Nat.O])
-print 'goal1:', goal
+print('goal1:', goal)
 
 # Evaluate.
-print next(curry.eval(goal))
+print(next(curry.eval(goal)))
 
 
 # Compile a Curry expression dynamically.
 goal2 = curry.compile('natFromInt 3', mode='expr', imports=Nat)
-print 'goal2:', goal2
-print next(curry.eval(goal2))
+print('goal2:', goal2)
+print(next(curry.eval(goal2)))
 

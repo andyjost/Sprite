@@ -1,7 +1,6 @@
 '''
 Code to copy Curry expressions.
 '''
-from __future__ import absolute_import
 
 from ....common import T_SETGRD, T_FWD
 from copy import copy, deepcopy

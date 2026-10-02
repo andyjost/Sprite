@@ -4,13 +4,10 @@ class ImportBlocker(object):
   def __init__(self, *args):
     self.module_names = args
 
-  def find_module(self, fullname, path=None):
+  def find_spec(self, fullname, path=None, target=None):
     if fullname in self.module_names:
-      return self
+      raise ImportError("%s is blocked and cannot be imported" % fullname)
     return None
-
-  def load_module(self, name):
-    raise ImportError("%s is blocked and cannot be imported" % name)
 
 def with_import_blocked(*module_names):
   import_blocker = ImportBlocker(*module_names)

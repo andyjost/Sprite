@@ -1,7 +1,7 @@
 from ...exceptions import CompileError
 from ... import config, icurry
 from ...utility import formatDocstring, maxrecursion, strings, visitation
-import abc, collections, itertools, logging, re, six
+import abc, collections, collections.abc, itertools, logging, re
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +115,7 @@ def mangle(parts, kind):
   # assert demangle(symbolname) == (parts, kind)
   return symbolname
 
-P_INTEGER = re.compile('(^\d+)')
+P_INTEGER = re.compile(r'(^\d+)')
 def demangle(symbolname):
   assert symbolname.startswith('Cy')
   kind = KIND_CODE_R[symbolname[2]]
@@ -262,7 +262,7 @@ class CompilerBase(abc.ABC):
     '''Import a symbol into the taget object by name.'''
     assert False
 
-  @importSymbol.when(six.string_types)
+  @importSymbol.when(str)
   def importSymbol(self, symbolname):
     cy_symbol = self.interp.symbol(symbolname)
     return self.importSymbol(cy_symbol.icurry)
@@ -286,7 +286,7 @@ class CompilerBase(abc.ABC):
     '''Import a symbol into the taget object by name.'''
     assert False
 
-  @importDataType.when(six.string_types)
+  @importDataType.when(str)
   def importDataType(self, symbolname):
     cy_datatype = self.interp.type(symbolname)
     return self.importDataType(cy_datatype.icurry)
@@ -419,9 +419,9 @@ class CompilerBase(abc.ABC):
     imported_names = set(imodule.imports)
     for imported in sorted(imported_names):
       self.target_object['.imports'].extend(self.vEmitImported(imported))
-    for itype in six.itervalues(imodule.types):
+    for itype in imodule.types.values():
       self.compileEx(itype)
-    for ifun in six.itervalues(imodule.functions):
+    for ifun in imodule.functions.values():
       self.compileEx(ifun)
     h_module = self.vGetSymbolName(imodule, MODULE_DEF)
     self.symtab.insert(h_module, MODULE_DEF, 'module %r' % imodule.fullname)
@@ -507,7 +507,7 @@ class CompilerBase(abc.ABC):
   def compileF(self, iobj, h_stepfunc, linesF):
     assert False
 
-  @compileF.when(collections.Sequence, no=str)
+  @compileF.when(collections.abc.Sequence, no=str)
   def compileF(self, seq, h_stepfunc, linesF):
     for x in seq:
       self.compileF(x, h_stepfunc, linesF)
@@ -553,7 +553,7 @@ class CompilerBase(abc.ABC):
     '''
     assert False
 
-  @compileS.when(collections.Sequence, no=str)
+  @compileS.when(collections.abc.Sequence, no=str)
   def compileS(self, seq):
     for lines in (self.compileS(x) for x in seq):
       for line in lines:

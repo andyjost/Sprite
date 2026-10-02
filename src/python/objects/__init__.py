@@ -16,7 +16,7 @@ wrapped in handle.Handle.
 
 from ..common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .. import icurry
-import abc, inspect, os, six, types, weakref
+import abc, inspect, os, types, weakref
 
 __all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeInfo']
 

@@ -7,11 +7,11 @@ implement.
 '''
 
 from .. import config
-import abc, importlib, six
+import abc, importlib
 
 __all__ = ['IBackend', 'Node']
 
-class IBackend(six.with_metaclass(abc.ABCMeta)):
+class IBackend(metaclass=abc.ABCMeta):
   '''
   The interface to a Curry implementation.
 
@@ -99,10 +99,10 @@ class IBackend(six.with_metaclass(abc.ABCMeta)):
 
 
 # Each backend must provide a Node object and register it with this class.
-class Node(six.with_metaclass(abc.ABCMeta)):
+class Node(metaclass=abc.ABCMeta):
   pass
 
 # Each backend must provide an InfoTable object and register it with this class.
-class InfoTable(six.with_metaclass(abc.ABCMeta)):
+class InfoTable(metaclass=abc.ABCMeta):
   pass
 

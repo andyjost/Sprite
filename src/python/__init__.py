@@ -65,7 +65,7 @@ __all__ = [
   , 'unboxed'
   ]
 
-# Install breakpoint() into __builtins__.
+# Install Sprite's breakpoint() as sys.breakpointhook.
 import os
 if os.environ.get('SPRITE_ENABLE_BREAKPOINT', False):
   from .utility import breakpoint
@@ -76,7 +76,7 @@ if 'SPRITE_HOME' not in os.environ:
   raise ImportError('SPRITE_HOME is not set in the environment')
 if not os.path.isdir(os.environ['SPRITE_HOME']):
   raise ImportError('SPRITE_HOME is not a directory')
-if not os.access(os.environ['SPRITE_HOME'], os.O_RDONLY):
+if not os.access(os.environ['SPRITE_HOME'], os.R_OK):
   raise ImportError('SPRITE_HOME is not readable')
 del os
 
@@ -84,8 +84,7 @@ from .exceptions import *
 from . import interpreter, lib
 from .interpreter import flags as _flags
 from .utility import visitation as _visitation
-import collections as _collections
-import six as _six
+import collections.abc as _collections_abc
 
 from . import expressions as _expressions
 choice  = _expressions.choice
@@ -175,11 +174,11 @@ class ShowValue(object):
   def __call__(self, value):
     return '[%s]' % ','.join(map(self, value))
 
-  @__call__.when(_collections.Sequence, no=str)
+  @__call__.when(_collections_abc.Sequence, no=str)
   def __call__(self, value):
     return self(list(value))
 
-  @__call__.when(_six.string_types)
+  @__call__.when(str)
   def __call__(self, value):
     # We need to add a single quote to the string to trick Python into
     # surrounding it with double quotes.
@@ -187,9 +186,9 @@ class ShowValue(object):
     value = value[:-2] + value[-1]
     return value
 
-  @__call__.when(_collections.Mapping)
+  @__call__.when(_collections_abc.Mapping)
   def __call__(self, value):
-    return {self(k): self(v) for k,v in _six.iteritems(value)}
+    return {self(k): self(v) for k,v in value.items()}
 
 
 def show_value(value):

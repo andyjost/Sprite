@@ -1,12 +1,12 @@
 from ....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .... import backends, icurry, utility
 from .... import inspect, show
-import collections, numbers, operator, types
+import collections.abc, numbers, operator, types
 
 class Node(object):
   '''A node in a Curry expression graph.'''
   def __new__(cls, info, *args, **kwds):
-    if isinstance(info, (types.GeneratorType, collections.Sequence)):
+    if isinstance(info, (types.GeneratorType, collections.abc.Sequence)):
       assert not args
       return Node(*info, **kwds)
     info = getattr(info, 'info', info)

@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 from curry import icurry
 from glob import glob
-import curry, gzip, six
+import curry, gzip
 
 GENERATE_GOLDENS = False
 
@@ -18,7 +18,7 @@ class ParseJSON(cytest.TestCase):
 
       # Test repr.
       local={}
-      six.exec_('from curry.icurry import *', local)
+      exec('from curry.icurry import *', local)
       icur2 = eval(repr(icur), local)
       try:
         self.assertEqual(icur, icur2)

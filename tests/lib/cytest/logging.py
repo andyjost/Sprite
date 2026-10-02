@@ -1,9 +1,8 @@
 '''Facilities for checking log output.'''
 
-from __future__ import absolute_import
 from curry.utility.binding import binding
 from . import exitstack
-import collections, curry, importlib, logging, six
+import collections, curry, importlib, logging
 
 class Logger(logging.Logger):
   '''
@@ -32,6 +31,9 @@ class Logger(logging.Logger):
   def warn(self, msg, *args):
     self._data[logging.WARNING].append(self._format(msg, args))
 
+  def warning(self, msg, *args):
+    self._data[logging.WARNING].append(self._format(msg, args))
+
   def error(self, msg, *args):
     self._data[logging.ERROR].append(self._format(msg, args))
 
@@ -54,7 +56,7 @@ class LogCapture(object):
     bindings = []
     for modulename in self.modulenames:
       module = importlib.import_module(modulename)
-      for loggername, obj in six.iteritems(module.__dict__):
+      for loggername, obj in module.__dict__.items():
         if isinstance(obj, logging.Logger):
           break
       else:

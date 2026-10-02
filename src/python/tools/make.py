@@ -1,7 +1,7 @@
 from .. import config, getInterpreter, interpreter, toolchain, utility
 from ..interpreter import flags as _flags
 from ..toolchain import plans
-from six.moves import cStringIO as StringIO
+from io import StringIO
 from .utility import handle_program_errors, unrst
 import argparse, os, pydoc, sys
 

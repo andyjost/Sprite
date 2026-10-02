@@ -105,7 +105,7 @@ def _getIcyOrShortcut(file_in, do_zip):
       file_out = file_in[:-2]
       _convertFile(
           file_in, file_out
-        , lambda json: zlib.decompress(json).encode('utf-8')
+        , lambda json: zlib.decompress(json)
         )
       return file_out, True
     else:

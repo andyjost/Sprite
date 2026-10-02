@@ -25,8 +25,7 @@ Environment Variables:
 from . import config
 from .utility import filesys, strings
 import glob, hashlib, logging, os, re
-from six.moves import cPickle as pickle
-from six.moves import cStringIO as StringIO
+import pickle
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ try:
   import sqlite3
 except ImportError:
   sqlite3 = None
-  logger.warn("Cannot import sqlite3.  Caching is disabled")
+  logger.warning("Cannot import sqlite3.  Caching is disabled")
 
 def enabled():
   return filename() is not None and sqlite3 is not None
@@ -161,8 +160,6 @@ class Curry2ICurryCache(object):
     def __bool__(self):
       return self.found
 
-    __nonzero__ = __bool__
-
     def update(self):
       '''Updates the cache.'''
       assert not self.found
@@ -221,14 +218,13 @@ class ParsedJsonCache(object):
               logger.info('file %s is being forced to update', self.jsonfile)
             else:
               try:
-                self.icur = pickle.loads(buf)
-              except:
-                self.icur = pickle.load(StringIO(buf))
+                self.icur = pickle.loads(bytes(buf))
+              except Exception:
+                logger.debug('cannot unpickle cached entry for %s; treating as a miss', self.jsonfile)
+                self.icur = None
 
     def __bool__(self):
       return self.icur is not None
-
-    __nonzero__ = __bool__
 
     def update(self, icur):
       assert self.icur is None

@@ -82,7 +82,7 @@ def updateCheck(f):
       raise make_exception(
           CompileError
         , '%s was not updated as expected.' % file_out
-        , hint=lambda:_targetNotUpdatedHint(file_in, file_out, start_time)
+        , hint=lambda:targetNotUpdatedHint(file_in, file_out, start_time)
         )
     elif os.stat(file_out).st_mtime >= start_time:
       logger.debug('Updated %r', file_out)

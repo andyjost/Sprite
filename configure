@@ -1,7 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-from __future__ import print_function
-import argparse, atexit, os, re, shutil, subprocess, sys
+import argparse, atexit, os, shutil, subprocess, sys
 
 DIR = os.path.dirname(os.path.realpath(__file__))
 CONF = os.path.join(DIR, 'Make.config')
@@ -33,29 +32,21 @@ def remove_tmpdir():
   rmdir(TMP)
 
 def rmdir(dirname):
-  if os.path.exists(dirname):
+  # If dirname is a symlink to a directory, remove the contents of the target
+  # and keep the link.
+  if os.path.islink(dirname):
+    target = os.path.realpath(dirname)
+    if os.path.isdir(target):
+      log('Removing the contents of %s (target of %s)' % (target, dirname))
+      for name in os.listdir(target):
+        path = os.path.join(target, name)
+        if os.path.isdir(path) and not os.path.islink(path):
+          shutil.rmtree(path)
+        else:
+          os.remove(path)
+  elif os.path.exists(dirname):
     log('Removing %s' % dirname)
     shutil.rmtree(dirname)
-
- # Python 2/3 compatibility.
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-
-if PY2:
-  input = raw_input
-
-def ensure_str(s):
-  if type(s) is str:
-    return s
-  elif PY2 and isinstance(s, unicode):
-    return s.encode('utf-8')
-  elif PY3 and isinstance(s, bytes):
-    return s.decode('utf-8')
-  elif PY2:
-    assert isinstance(s, (unicode, str))
-  else:
-    assert isinstance(s, (str, bytes))
-  return s
 
 # System commands.
 def log(msg='', tail='\n'):
@@ -82,7 +73,7 @@ def which(name, path=None):
 
 def shell(cmd):
   ans = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-  return ensure_str(ans).strip()
+  return ans.decode('utf-8').strip()
 
 def shellexec(cmd):
   child = subprocess.Popen(cmd, shell=True)
@@ -144,7 +135,7 @@ def get_options():
   prereqs.add_argument('--install-prereqs-only', action='store_true', help='install missing prerequisites only; '
                                                        'do not remove prior builds or write a configuruation file')
   prereqs.add_argument('-y', '--yes', action='store_true', help='do not prompt before installing prerequisites')
-  prereqs.add_argument('--pip-nosudo', action='store_true', help='install Python packages with --user rather than sudo; see pip documentation')
+  prereqs.add_argument('--pip-nosudo', action='store_true', help='accepted for compatibility; Python packages are always installed with --user')
 
   versions = parser.add_argument_group(
       'software selection arguments'
@@ -160,8 +151,7 @@ def get_options():
   versions.add_argument('--with-jq'             , type=str, metavar='jq', help='specifies the jq executable (env: JQ)')
   versions.add_argument('--with-pakcs'          , type=str, metavar='pakcs', help='specifies the PAKCS executable (env: PAKCS)')
   versions.add_argument('--with-prolog'         , type=str, metavar='swipl', help='specifies the Prolog executable (env: PROLOG)')
-  versions.add_argument('--with-python'         , type=str, metavar='python', help='specifies the Python executable (env: PYTHON)')
-  versions.add_argument('--with-stack'          , type=str, metavar='stack', help='specifies the Haskell stack executable (env: STACK)')
+  versions.add_argument('--with-python'         , type=str, metavar='python3', help='specifies the Python executable (env: PYTHON)')
 
   dev = parser.add_argument_group('development arguments', 'Enables features for Sprite developers.')
   dev.add_argument('--cache', type=str, metavar="['all'|'icurry'|'json']", help='enables caching; useful when the same Curry program will be run many times')
@@ -218,7 +208,7 @@ def main():
       , 'ENABLE_PARSED_JSON_CACHE': int(OPTS.cache in ['all', 'json'])
       }
     set_from_path(
-        settings, 'PYTHON', 'python', 'Python installation'
+        settings, 'PYTHON', 'python3', 'Python installation'
       , default=OPTS.with_python
       )
     set_from_path(settings, 'CC', 'gcc', 'GNU C compiler'
@@ -234,14 +224,14 @@ def main():
       , default=OPTS.with_cxx_postinstall
       )
     set_from_path(settings, 'PAKCS', 'pakcs', 'PAKCS executable'
-      , web='https://www.informatik.uni-kiel.de/~pakcs/download.html'
+      , web='https://www.curry-lang.org/pakcs/'
       , altdir='extern/pakcs-3.4.1/bin'
       , install_steps=get_pakcs_install_steps
       , default=OPTS.with_pakcs
       )
     set_from_path(settings, 'ICURRY', 'icurry', 'icurry executable'
-      , web='https://www-ps.informatik.uni-kiel.de/currywiki/tools/cpm'
-      , hint='try `cypm update; cypm add icurry; cypm install icurry`'
+      , web='https://www.curry-lang.org/tools/cpm/'
+      , hint='try `cypm update; cypm install icurry 3.1.0`'
       , altdir=os.path.join(os.environ.get('HOME', ''), '.cpm', 'bin')
       , install_steps=get_icurry_install_steps
       , default=OPTS.with_icurry
@@ -374,16 +364,13 @@ def check_python_version(settings):
           .format(settings['PYTHON'])
     )
   vtuple = tuple(int(x) for x in vstr.split('.'))
-  minimum = 2,7,18
+  minimum = 3,14,0
   if vtuple < minimum:
     log('FAILED')
-    warn('The Python version %s is less than the minimum requirement [%s.%s.%s]' % ((vstr,) + minimum))
+    warn('Sprite requires Python 3.14 or newer; found %s' % vstr)
     abort()
   else:
     log('%s, OK' % vstr)
-    if vtuple[0] == 3 and vtuple < (3,5,1):
-      warn('Sprite has not been tested with Python %s' % vstr)
-      warn('Consider using Python 2.7.18 or 3.5.1+')
 
 g_num_warnings = 0
 
@@ -394,8 +381,7 @@ def check_python_modules(settings):
       ('json'            , True , True      , None                    )
     , ('mmap'            , True , True      , None                    )
     , ('numpy'           , False, True      , 'for certain tests'     )
-    , ('six'             , True , True      , None                    )
-    , ('sphinx'          , True , OPTS.doc  , 'to build documentation')
+    , ('sphinx'          , False, OPTS.doc  , 'to build documentation')
     , ('sphinx_rtd_theme', False, OPTS.doc  , 'for HTML theming'      )
     , ('sqlite3'         , False, OPTS.cache, 'for caching'           )
     , ('zlib'            , True , True      , None                    )
@@ -437,16 +423,10 @@ def check_python_module(
       , ' %s' % whatfor if whatfor is not None else ''
       )
     if steps is None:
-      if OPTS.pip_nosudo:
-        steps = [
-            '# Install %s.' % modname
-          , '%s -m pip --user install %s' % (pyexe, modname)
-          ]
-      else:
-        steps = [
-            '# Install %s.' % modname
-          , 'sudo %s -m pip install %s' % (pyexe, modname)
-          ]
+      steps = [
+          '# Install %s.' % modname
+        , '%s -m pip install --user %s' % (pyexe, modname)
+        ]
     handle_missing_prereq(
         modname, msg, steps, required
       , deps=lambda: ensurepip(settings, required, 'to install %s' % modname)
@@ -487,8 +467,9 @@ def handle_missing_prereq(
   if OPTS.install_prereqs and steps:
     if install(name, steps):
       return True
-    elif not required:
-      return False
+  if not required:
+    # A missing optional prerequisite is a warning, not an error.
+    return False
   if web is not None:
     warn('For installation info, see %s' % web)
   if hint is not None:
@@ -497,9 +478,8 @@ def handle_missing_prereq(
 
 PYTHON_CONFIG_SCRIPT = \
 r'''
-from __future__ import print_function
 import sys, sysconfig
-for val in sysconfig.get_config_vars('CONFINCLUDEPY', 'LIBDIR', 'MULTIARCH', 'INSTSONAME'):
+for val in sysconfig.get_config_vars('CONFINCLUDEPY', 'LIBDIR', 'MULTIARCH', 'LDVERSION'):
   sys.stdout.write(str(val))
   sys.stdout.write('\n')
 '''
@@ -509,24 +489,28 @@ def set_python_config(settings):
   with open(scriptname, 'w') as ostream:
     ostream.write(PYTHON_CONFIG_SCRIPT)
   data = shell('%s %s' % (settings['PYTHON'], scriptname))
-  include, libdir, multiarch, soname = data.split('\n')
+  include, libdir, multiarch, ldversion = data.split('\n')
 
   keyfile = os.path.join(include, 'pyconfig.h')
   if not commit(settings, 'PYTHON_INCLUDE_PATH', include, [readabledir, lambda _: readable(keyfile)]):
     abort_python()
 
+  if not commit(settings, 'PYTHON_LIBRARY_PATH', libdir, [readabledir]):
+    abort_python()
+  pylib = 'python' + ldversion
+  commit(settings, 'PYTHON_LIBRARY', pylib)
+
+  # A shared libpython is not required.  Python extension modules resolve the
+  # interpreter's symbols when they are loaded.  Report what was found.
+  soname = 'lib%s.so' % pylib
   log('Looking for %r' % soname, '...')
-  pylib = re.match('lib(\S+)\.so', soname).group(1)
   for maybe_libdir in [libdir, os.path.join(libdir, multiarch)]:
     libfile = os.path.join(maybe_libdir, soname)
     if os.access(libfile, os.R_OK):
       log('found %s, OK' % libfile)
-      commit(settings, 'PYTHON_LIBRARY_PATH', maybe_libdir)
-      commit(settings, 'PYTHON_LIBRARY', pylib)
       break
   else:
-    log('FAILED')
-    abort_python()
+    log('not found (not required)')
 
 def set_pakcs_home(settings):
   pakcs = settings['PAKCS']
@@ -618,6 +602,9 @@ def prereq_curl():
     )
 
 def prereq_cypm(settings):
+  # cypm ships with PAKCS.  Return None when PAKCS has not been found.
+  if settings is None or 'PAKCS' not in settings:
+    return None
   dirname,pakcs = os.path.split(settings['PAKCS'])
   cypm = os.path.join(dirname, 'cypm')
   if not executable(cypm):
@@ -659,41 +646,39 @@ def get_pakcs_install_steps(settings=None):
   prereq_tar()
   prereq_wget()
   prereq_curl()
-  set_from_path(None, None, 'swipl', 'Prolog system'
+  prolog = {}
+  set_from_path(prolog, 'PROLOG', 'swipl', 'Prolog system'
     , install_steps=[
           '# Install SWI Prolog.'
         , 'sudo apt-get install swi-prolog'
         ]
     , default=OPTS.with_prolog
     )
-  set_from_path(None, None, 'stack', 'Haskell Stack'
-    , install_steps=[
-          '# Install Haskell Stack.'
-        , 'wget -qO- https://get.haskellstack.org/ | sh'
-        ]
-    , default=OPTS.with_stack
-    )
-  yield '# Install PAKCS 3.4.1.'
+  swipl = prolog.get('PROLOG', 'swipl')
+  yield '# Install the PAKCS 3.4.1 binary distribution.'
   pakcs_dir = 'extern/pakcs-3.4.1'
-  pakcs_url = 'https://www.informatik.uni-kiel.de/~pakcs/download/pakcs-3.4.1-src.tar.gz'
-  pakcs_tar = 'extern/pakcs-3.4.1-src.tar.gz'
+  pakcs_url = 'https://www.curry-lang.org/pakcs/download/pakcs-3.4.1-amd64-Linux.tar.gz'
+  pakcs_tar = 'extern/pakcs-3.4.1-amd64-Linux.tar.gz'
 
   if not os.path.exists(pakcs_dir):
     if not os.path.exists(pakcs_tar):
       yield 'wget -P extern --no-clobber %s' % pakcs_url
-    yield 'tar xvzf %s -C extern' % pakcs_tar
-  yield 'make -C %s' % pakcs_dir
+    yield 'tar xzf %s -C extern' % pakcs_tar
+  yield 'cd %s && LC_ALL=C.UTF-8 make SWIPROLOG=%s' % (pakcs_dir, swipl)
 
 def get_icurry_install_steps(settings=None):
   cypm = prereq_cypm(settings)
   prereq_sqlite3()
   yield '# Install icurry.'
-  yield '%s update' % cypm
-  yield 'cd && %s add icurry' % cypm
-  yield 'cd && %s install icurry' % cypm
+  if cypm is None:
+    yield '# PAKCS must be found first.  cypm is installed with PAKCS.'
+    yield '# After PAKCS is installed, rerun configure.'
+  else:
+    yield '%s update' % cypm
+    yield '%s install icurry 3.1.0' % cypm
 
 
-TEMPLATE = '''
+TEMPLATE = r'''
 # Python Configuration
 # ====================
 PYTHON_EXECUTABLE   := {PYTHON}
@@ -721,7 +706,7 @@ CXXFLAGS += $(CFLAGS) -std=c++17
 # PAKCS
 # =====
 # PAKCS is an implementation of Curry that Sprite relies on.  Download it from
-# https://www.informatik.uni-kiel.de/~pakcs/download.html.
+# https://www.curry-lang.org/pakcs/.
 PAKCS         := {PAKCS}
 PAKCS_HOME    := {PAKCS_HOME}
 PAKCS_NAME    := {PAKCS_NAME}
@@ -731,7 +716,7 @@ PAKCS_VERSION := {PAKCS_VERSION}
 # ======
 # ICurry is used to convert Curry source code into ICurry.  It can be
 # downloaded with CPM.  See
-# https://www-ps.informatik.uni-kiel.de/currywiki/tools/cpm.
+# https://www.curry-lang.org/tools/cpm/.
 ICURRY_EXECUTABLE := {ICURRY}
 
 # MISC

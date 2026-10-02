@@ -5,7 +5,7 @@ from ....exceptions import CurryIndexError, CurryTypeError
 from .... import icurry, inspect
 from . import node
 from ....utility import visitation
-import collections, numbers
+import collections, collections.abc, numbers
 
 __all__ = ['compress_fwd_chain', 'logical_subexpr', 'realpath', 'subexpr']
 
@@ -87,7 +87,7 @@ class RealPathIndexer(object):
     self.realpath.append(i)
     self.skip()
 
-  @advance.when((collections.Sequence, collections.Iterator), no=(str,))
+  @advance.when((collections.abc.Sequence, collections.abc.Iterator), no=(str,))
   def advance(self, path):
     for i in path:
       self.advance(i)
@@ -167,7 +167,7 @@ def subexpr(root, path):
   except (IndexError, AttributeError):
     raise CurryIndexError('node index out of range')
 
-@subexpr.when((collections.Sequence, collections.Iterator), no=(str,))
+@subexpr.when((collections.abc.Sequence, collections.abc.Iterator), no=(str,))
 def subexpr(root, path):
   target = root
   for i in path:

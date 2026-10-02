@@ -46,7 +46,7 @@ Sprite's computation suspends (i.e., due to unsatisfied constraints).
 '''
 
 from curry.utility import binding, filesys, strings
-import glob, os, re, subprocess, unittest
+import curry, glob, os, re, subprocess, unittest
 
 def oracle(flavor=None):
   '''Gets the path to the oracle.  Returns None if there is no oracle.'''

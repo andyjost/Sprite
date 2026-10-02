@@ -8,7 +8,6 @@ from ....common import (
   )
 from .. import graph
 from .... import inspect
-from six.moves import range
 
 __all__ = [
     'clone_generator', 'freshvar_args', 'freshvar', 'get_generator'

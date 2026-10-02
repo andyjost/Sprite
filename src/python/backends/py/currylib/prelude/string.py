@@ -1,6 +1,5 @@
 from ... import graph
 from .....utility.strings import ensure_binary, ensure_str
-import six
 
 __all__ = ['_biGenerator', '_biString', 'pystring']
 
@@ -23,10 +22,7 @@ def pystring(rts, string):
   memory = memoryview(ensure_binary(string))
   return graph.Node(rts.prelude._biString, memory)
 
-if six.PY2:
-  ensure_char = lambda x: x # memoryview element is a str
-else:
-  ensure_char = chr         # memoryview element is an integer
+ensure_char = chr         # memoryview element is an integer
 
 def _biString(rts, _1):
   '''

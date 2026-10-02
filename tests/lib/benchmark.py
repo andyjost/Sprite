@@ -14,12 +14,12 @@ def run_curry(mode, cymodule):
         'CURRYPATH=%s' % CURRYDIR, 'SPRITE_INTERPRETER_FLAGS=backend:%s' % mode
       , EXEC, '-tm', cymodule
       ])
-    sec = subprocess.check_output(['/bin/zsh', '-c', cmd])
+    sec = subprocess.check_output(['/bin/zsh', '-c', cmd], text=True)
     return float(sec)
   elif mode == 'pakcs':
     cmd = 'cd %s; pakcs :set +time :l %s :eval main :q' % (CURRYDIR, cymodule)
-    text = subprocess.check_output(['/bin/zsh', '-c', cmd])
-    msec = re.search(PAKCSTIME, str(text)).group(1)
+    text = subprocess.check_output(['/bin/zsh', '-c', cmd], text=True)
+    msec = re.search(PAKCSTIME, text).group(1)
     return float(msec) / 1000
 
 def measure(cymodule):

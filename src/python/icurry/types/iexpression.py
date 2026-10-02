@@ -1,6 +1,6 @@
 from .iobject import IObject
 from ...utility import translateKwds
-import abc, six
+import abc
 
 __all__ = [
    'IVar', 'IVarAccess', 'ILit', 'IReference', 'ICall', 'IFCall', 'ICCall'
@@ -39,7 +39,7 @@ class ILit(IObject):
   def __repr__(self):
     return 'ILit(lit=%r)' % self.lit
 
-class IReference(six.with_metaclass(abc.ABCMeta, IObject)):
+class IReference(IObject, metaclass=abc.ABCMeta):
   pass
 IReference.register(IVar)
 IReference.register(IVarAccess)
@@ -96,7 +96,7 @@ class IOr(IObject):
   def __repr__(self):
     return 'IOr(lhs=%r, rhs=%r)' % (self.lhs, self.rhs)
 
-class IExpression(six.with_metaclass(abc.ABCMeta, IObject)):
+class IExpression(IObject, metaclass=abc.ABCMeta):
   pass
 
 IExpression.register(IVar)

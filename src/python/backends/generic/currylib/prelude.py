@@ -4,7 +4,6 @@ Builds a custom icurry.IModule holding the built-in parts of the Prelude.
 This is merged into the real module compiled from Prelude.curry to resolve the
 external declarations.
 '''
-from __future__ import absolute_import
 from . import ModuleSpecification
 from ....common import (
     T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR

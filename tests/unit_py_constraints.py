@@ -1,10 +1,9 @@
 import cytest # from ./lib; must be first
 from curry.common import LEFT, RIGHT, UNDETERMINED
 from curry.utility import unionfind
-from six.moves import range
 import curry, cytest.step, itertools, unittest
 
-@unittest.skip
+@unittest.skip('constraint store tests are broken')
 class TestConstraintStore(cytest.TestCase):
   def testShared(self):
     o = unionfind.Shared(dict)

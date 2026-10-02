@@ -1,6 +1,6 @@
 from .. import config
 import contextlib, logging, os, shutil, sys, tempfile
-from ._tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ def remove_file_on_error(filename):
       try:
         os.unlink(filename)
       except BaseException as err:
-        logger.warn(
+        logger.warning(
             'an error occurred while writing the output file %r; while removing '
             'that file, the following additional error was ignored: %s'
                 % (filename, str(err))

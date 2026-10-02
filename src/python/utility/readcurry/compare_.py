@@ -1,6 +1,5 @@
 from . import types
-from six.moves import reduce
-import operator, re, six
+import functools, itertools, operator, re
 
 __all__ = ['compare']
 
@@ -16,9 +15,9 @@ def cmap(comparefunc, a, b):
   if type(a) != type(b):
     return False
   if isinstance(a, (list, tuple)):
-    return reduce(
+    return functools.reduce(
         lambda u,v: u and v
-      , (comparefunc(u, v) for u,v in six.moves.zip_longest(a, b))
+      , (comparefunc(u, v) for u,v in itertools.zip_longest(a, b))
       , True
       )
   else:

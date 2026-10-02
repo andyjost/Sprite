@@ -1,5 +1,4 @@
 from ..... import inspect
-from six.moves import range
 import operator as op
 
 __all__ = [

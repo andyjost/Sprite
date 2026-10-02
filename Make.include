@@ -36,15 +36,15 @@ endef
 # ==============
 CFLAGS   += -I$(ROOT_DIR)/src -I$(BOOST_HOME)/include -I$(PYTHON_INCLUDE_PATH) \
             -I$(ROOT_DIR)/extern/pybind11/include
-LDFLAGS  += -L $(PYTHON_LIBRARY_PATH) -Wl,-rpath=$(PYTHON_LIBRARY_PATH)
 
 # Recursion
 # =========
 # For defined submodules (default: all directories) and certain targets,
-# recursively invoke make.  By default, all subdirectories are submodules.  To
-# change this, submakefiles should set SUBMODULES before including this file.
+# recursively invoke make.  By default, all subdirectories that contain a
+# Makefile are submodules (this skips __pycache__ and the like).  To change
+# this, submakefiles should set SUBMODULES before including this file.
 ifeq ($(flavor SUBMODULES),undefined)
-  SUBMODULES = $(dir $(wildcard */.))
+  SUBMODULES = $(dir $(wildcard */Makefile))
 endif
 
 RECURSIVE_TARGETS := all safe-clean install libs objs shlibs uninstall

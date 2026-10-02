@@ -2,10 +2,10 @@ import cytest # from ./lib; must be first
 from curry.utility.visitation import dispatch
 from cytest.clean import clean as cyclean
 from cytest.dissect import dissect
-from six.moves import cStringIO as StringIO
-import collections, six, sys
+from io import StringIO
+import collections.abc, sys
 
-clskwd = 'type' if six.PY2 else 'class'
+clskwd = 'class'
 
 def capture(a, b):
   '''Capture the printed output of a call to dissect.'''
@@ -37,7 +37,7 @@ class Dissect(cytest.TestCase):
     out = capture(a, b)
     self.assertGreater(out.find(substr), -1)
 
-  @compareSearch.when(collections.Sequence, no=(str,))
+  @compareSearch.when(collections.abc.Sequence, no=(str,))
   def compareSearch(self, a, b, substrs):
     out = capture(a, b)
     for substr in substrs:

@@ -5,7 +5,7 @@ The cleaner might, for instance, standarize whitespace, remove empty lines, or
 sort the output values.
 '''
 from curry.utility import visitation
-import collections, re
+import collections.abc, re
 
 P_FLOAT = re.compile(r'''([+-]?\d*\.\d+)''')
 
@@ -19,7 +19,7 @@ def clean(arg, **kwds):
   '''
   raise RuntimeError('unhandled type: %s' % type(arg))
 
-@clean.when(collections.Sequence, no=(str,))
+@clean.when(collections.abc.Sequence, no=(str,))
 def clean(lines, **kwds):
   if not kwds.get('keep_empty_lines', False):
     lines = (line for line in lines if line)

@@ -26,7 +26,6 @@ class CurryIndexError(IndexError):
 class CurryTypeError(TypeError):
   '''Raised when a type error occurs while evaluating a Curry program.'''
 
-assert 'TimeoutError' not in globals() # Python 2.x
 class TimeoutError(RuntimeError):
   pass
 
