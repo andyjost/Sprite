@@ -1,0 +1,13 @@
+% python go.py
+\x -> x : Fun _a _a
+\x -> \y -> x : Fun _a (Fun _b _a)
+\f -> \x -> f (f x) : Fun (Fun _a _a) (Fun _a _a)
+\f -> \g -> \x -> f (g x) : Fun (Fun _a _b) (Fun (Fun _c _a) (Fun _c _b))
+\b -> \x -> if b then x + 1 else x : Fun TBool (Fun TInt TInt)
+(\x -> x + 1) 41 : TInt
+1 2 : ill-typed
+if 1 then 2 else 3 : ill-typed
+if True then 1 else False : ill-typed
+\b -> if b then b + 1 else 0 : ill-typed
+\f -> f 1 + f True : ill-typed
+y : ill-typed

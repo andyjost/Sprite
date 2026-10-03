@@ -1,4 +1,82 @@
-This example demonstrates the dynamic compilation features of Sprite.
+Compile Curry code at run time
+==============================
 
-curry.compile is used to compile a string containing Curry code into a module object.
-curry.expr builds a goal.
+This example compiles Curry code from strings inside a Python program.  It
+builds a module, builds two goals, and evaluates them.
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+The module defines the natural numbers as data:
+
+    data Nat = O | I Nat deriving Show
+
+and two functions, natToInt and natFromInt, that convert between Nat and
+Int.  The functions are deterministic.  The point of the example is the
+Python side.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+Compiling a module.  The call
+
+    Nat = curry.compile('''...''')
+
+passes Curry source text to the front end and returns a module object.  The
+constructors and functions of the module are attributes of that object.
+
+Building a goal without the front end.  The call
+
+    curry.expr(Nat.natToInt, [Nat.I, Nat.O])
+
+builds the expression natToInt (I O) directly.  A Python list whose first
+element is a Curry symbol is an application of that symbol.
+
+Compiling an expression.  The call
+
+    curry.compile('natFromInt 3', mode='expr', imports=Nat)
+
+passes an expression to the front end, with the module Nat in scope.  The
+front end checks the types.  curry.expr does not.
+
+Both goals go to curry.eval, which returns an iterator over the values.  The
+script takes the first value of each with next.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script uses the C++ backend by default.  To pick a backend, set
+SPRITE_INTERPRETER_FLAGS in the environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run:
+
+    % python go.py
+    goal1: natToInt (I O)
+    1
+    goal2: natFromInt 3
+    I (I (I O))
+
+The output is identical on both backends.
+
+
+5. Limits
+---------
+
+Each call of curry.compile runs the Curry front end, which costs about 7 s.
+The script compiles twice on every run, so ./run took 15 s on the Python
+backend and 16 s on the C++ backend.  Code compiled from a string is not
+cached between runs.

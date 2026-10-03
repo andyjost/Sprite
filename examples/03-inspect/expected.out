@@ -1,0 +1,12 @@
+% python go.py
+Symbols defined in Nat: I, O, natFromInt, natFromInt_COMPLEXCASE0, natFromInt_COMPLEXCASE1, natToInt
+Types defined in Nat: Nat
+Constructors of Nat.Nat: O (arity 0), I (arity 1)
+
+ICurry file: Nat.icy
+ICurry-JSON file: Nat.json.z
+Both live under .curry/ next to Nat.curry.
+
+The Python implementation of Nat.natToInt starts with:
+    def CyF3Nat8natToInt(rts, _0):
+The whole code is on the standard error stream.

@@ -1,0 +1,12 @@
+host=alpha status=200 path=/index.html
+host=beta status=404 path=/missing
+host=alpha status=200 path=/about
+host=gamma status=500 path=/api/items
+status=200 host=beta path=/index.html
+host=alpha status=301 path=/old
+host=gamma status=200 path=/api/items
+host=beta path=/robots.txt
+host=alpha status=200 path=/contact
+path=/index.html host=gamma status=200
+<p>Hello, <em>world</em>!</p>
+<ul><li>one</li><li>two</li></ul>

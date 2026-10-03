@@ -1,0 +1,121 @@
+Scheduling tasks fed from Python data
+=====================================
+
+This example schedules five kitchen tasks.  Each task has a duration and
+needs one resource.  Some tasks must follow others.  Python holds the data
+and asks Curry for a schedule that fits a horizon of a given length.  It
+grows the horizon until a schedule exists and draws that schedule as a
+Gantt chart.
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+Constraint solving by search.  The schedule in
+
+    starts = [ (n, anyOf [0 .. horizon - d]) | (n, d, _) <- tasks ]
+
+gives each task anyOf the start slots that keep it inside the horizon.  The
+call anyOf xs is a choice among the elements of xs.  So the one expression
+starts means every assignment at once.
+
+Lazy generate and test.  The guard
+
+    all ordered prec && all noOverlap pairs
+
+keeps the assignments where every precedence holds and no two tasks on one
+resource overlap.  A failed guard is not an error.  It produces no value.
+The Curry side only states the constraints.  It has no loop, no search
+state, and no backtracking code.  The runtime does the search.
+
+The order of the guards matters.  The runtime makes a choice only when the
+guard needs its value.  The precedence check comes first.  It forces the
+starts along the chain of tasks, and a task that starts too soon fails
+before any later task gets a start.  The resource check comes second and
+sees only the assignments that survived.
+
+Optimization by failure.  A horizon that is too short has no schedule, so
+the call yields zero values.  Python counts upward from the longest task.
+The first horizon with a schedule is the shortest one.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+The tasks and the precedences are Python data: a list of (name, duration,
+resource) tuples and a list of (before, after) pairs.  The driver go.py
+passes them to the Curry function schedule with the horizon.  curry.eval
+converts them with curry.expr: tuples become Curry tuples, lists become
+Curry lists, and ints become Curry Ints.
+
+A Python str of length one converts to a Char.  So the driver passes every
+name as a list of characters, through the helper text().
+
+One call,
+
+    curry.eval(Sched.schedule, tasks, precedences, horizon, converter='topython')
+
+is a generator of schedules.  The driver takes the first one with next() and
+discards the generator.  This stops the search.  A horizon with no schedule
+yields zero values, so next() returns the default None, and the driver tries
+the next horizon.  The converter turns the schedule into a Python list of
+(str, int) pairs.  The driver sorts it by start slot and draws the chart.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script uses the C++ backend by default.  To pick a backend, set
+SPRITE_INTERPRETER_FLAGS in the environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+To try other tasks, edit TASKS and PRECEDENCES at the top of go.py.  If
+several schedules of the same length exist, the first one found may differ
+between the backends.
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run.  The driver prints
+the tasks and the precedences first.  Then it prints one line per horizon:
+
+    horizon 8: none
+    horizon 9: mix@0 bake@2 cool@5 frost@7 pack@8
+
+The chain mix, bake, cool, frost, pack has a total duration of 9.  So no
+schedule fits 8 slots, and exactly one fits 9.  The chart follows, with one
+row per task in order of start:
+
+    slot   012345678
+    mix    ##.......  bowl
+    bake   ..###....  oven
+    cool   .....##..  rack
+    frost  .......#.  bowl
+    pack   ........#  table
+
+The output is identical on both backends.
+
+
+5. Limits
+---------
+
+The work depends on how early the guards prune.  The precedences prune
+early, so a chain of tasks is cheap.  A chain of eight tasks on four
+resources took 0.7 s on the Python backend and 0.04 s on the C++ backend.
+Without precedences only the resource check prunes.  It forces the start of
+every task that shares a resource, so the work grows with the slot count to
+the power of the task count.  Five tasks on one resource and no precedences
+took 11 s on the Python backend and 0.4 s on the C++ backend.  Six such
+tasks did not finish in 45 s on the Python backend and ran out of memory
+under a 2 GB cap on the C++ backend.
+
+A warm run of ./run took 0.5 s on the Python backend and 0.2 s on the C++
+backend.  The first run also compiles the module.  It took about 10 s on
+each backend.

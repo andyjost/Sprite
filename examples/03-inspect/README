@@ -1,1 +1,91 @@
-This example shows how to inspect Curry objects using the curry.inspect module.
+Inspect Curry objects from Python
+=================================
+
+This example looks inside a loaded Curry module with the module curry.inspect.
+It lists the symbols and the types of the module Nat, finds the files that
+hold its ICurry, and prints the Python code that Sprite generated for one
+function.
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+The module Nat.curry defines the natural numbers as data and two conversion
+functions.  The example shows what Sprite makes of such a module: ICurry,
+the intermediate language of the Curry front end, and the code of the
+backend.  The generated code for natToInt shows the shape of a Curry
+function in Sprite.  It brings its argument to head normal form, selects on
+the constructor, and rewrites the root of the expression.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+The script adds its own directory to curry.path and imports the module Nat.
+Then it calls these functions of curry.inspect:
+
+    inspect.symbols(Nat)        the public constructors and functions
+    inspect.types(Nat)          the types
+    inspect.geticurryfile(Nat)  the ICurry file of the module
+    inspect.getjsonfile(Nat)    the ICurry-JSON file of the module
+    inspect.getimpl(Nat.natToInt)  the generated code of one function
+
+Types are not attributes of the module object.  The script looks the type up
+by its full name, curry.type('Nat.Nat'), and reads its constructors from the
+type object.
+
+The symbol list holds two names that are not in the source:
+natFromInt_COMPLEXCASE0 and natFromInt_COMPLEXCASE1.  The front end lifts
+the guarded rules of natFromInt into these helper functions.
+
+The script prints the names of the ICurry files and the first line of the
+generated code on the standard output.  The whole generated code goes to
+the standard error stream.  It changes with the compiler, and expected.out
+holds the standard output only.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script sets the Python backend.  The example runs on that backend
+only.  On the C++ backend the generated code is C++ in a shared library, and
+inspect.getimpl raises ValueError.
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run:
+
+    % python go.py
+    Symbols defined in Nat: I, O, natFromInt, natFromInt_COMPLEXCASE0, natFromInt_COMPLEXCASE1, natToInt
+    Types defined in Nat: Nat
+    Constructors of Nat.Nat: O (arity 0), I (arity 1)
+
+    ICurry file: Nat.icy
+    ICurry-JSON file: Nat.json.z
+    Both live under .curry/ next to Nat.curry.
+
+    The Python implementation of Nat.natToInt starts with:
+        def CyF3Nat8natToInt(rts, _0):
+    The whole code is on the standard error stream.
+
+The front end writes the ICurry files under .curry/ next to the source, in a
+subdirectory named after the front end version.  The whole generated code
+follows on the standard error stream.  It is a Python function of about ten
+lines.  It brings the argument to head normal form, selects on its
+constructor, and rewrites the root with 0 for O and with 1 plus the
+converted predecessor for I.
+
+
+5. Limits
+---------
+
+A warm run of ./run took 0.4 s.  The first run also compiles the module
+with the Curry front end, which takes several seconds more.  Only the first
+line of the generated code is part of expected.out, so a change of the
+generated code does not change the expected output.

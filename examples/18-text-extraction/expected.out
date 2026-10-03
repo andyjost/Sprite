@@ -1,0 +1,20 @@
+% python go.py
+12 lines from sample.log
+
+line                                    status  host   tags
+host=alpha status=200 path=/index.html  200     alpha  -
+host=beta status=404 path=/missing      404     beta   -
+host=alpha status=200 path=/about       200     alpha  -
+host=gamma status=500 path=/api/items   500     gamma  -
+status=200 host=beta path=/index.html   200     beta   -
+host=alpha status=301 path=/old         301     alpha  -
+host=gamma status=200 path=/api/items   200     gamma  -
+host=beta path=/robots.txt              -       beta   -
+host=alpha status=200 path=/contact     200     alpha  -
+path=/index.html host=gamma status=200  200     gamma  -
+<p>Hello, <em>world</em>!</p>           -       -      /em,/p,em,p
+<ul><li>one</li><li>two</li></ul>       -       -      /li,/li,/ul,li,li,ul
+
+status: 200 (6), 301 (1), 404 (1), 500 (1)
+host: alpha (4), beta (3), gamma (3)
+tags: /li (2), li (2), /em (1), /p (1), /ul (1), em (1), p (1), ul (1)

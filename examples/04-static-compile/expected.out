@@ -1,0 +1,5 @@
+% python go.py
+Loading and compiling wildcard_matching.curry
+Saving the program to wildcard_matching.py with goal main
+% python wildcard_matching.py
+True

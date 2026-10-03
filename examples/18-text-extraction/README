@@ -1,0 +1,149 @@
+Text extraction with functional patterns, compiled at run time
+==============================================================
+
+This example reads a small log file with two Curry rules and no regular
+expressions.  The rule field reads the value of a key from a line of
+key=value fields.  The rule tag lists the tag names in a line of markup.
+The rules are Curry text inside go.py.  Python compiles them at run time,
+applies them to every line of sample.log, and counts the matches.
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+Functional patterns as an extraction language.  The rule
+
+    field :: String -> String -> String
+    field k (_ ++ k ++ "=" ++ v ++ " " ++ _) | ' ' `notElem` v = v
+
+matches a line that contains the key k, then "=", then a value v, then a
+space, at any position.  The pattern contains the function ++ and the
+variables k and v.  The system matches the line against every string the
+pattern can denote.  Each match binds v to one candidate value.
+
+Non-determinism returns every match.  The rule
+
+    tag :: String -> String
+    tag (_ ++ "<" ++ t ++ ">" ++ _) | '<' `notElem` t && '>' `notElem` t = t
+
+yields one value per tag.  On the line <p>Hello, <em>world</em>!</p> it
+yields p, em, /em and /p.  A tag that occurs twice yields two values.
+
+The guard removes the longer matches.  Without its guard, field "host" on
+the line host=alpha status=200 path=/index.html yields three values: alpha,
+"alpha status=200" and "alpha status=200 path=/index.html".  Each one is a
+valid split of the line.  The guard ' ' `notElem` v keeps only the value
+without a space.  The guard of tag rejects a match that spans from one tag
+into the next in the same way.
+
+Failure is not an error.  A line without the key yields no value.  The
+driver prints "-" for such a cell.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+Compiling Curry text at run time.  The rules are a string in go.py.  The
+driver passes the string to
+
+    curry.compile(source, modulename='Rules')
+
+which runs the Curry front end and returns a module object.  The functions
+of the module are attributes of that object: Rules.field and Rules.tag.  An
+extra rule from the command line (section 3) is appended to the string
+before the call, so the module is compiled once.  There is no .curry file,
+so the driver does not touch curry.path.
+
+Curry extracts, Python aggregates.  For each line the driver calls
+
+    curry.eval(Rules.field, text('status'), text(line + ' '), converter='topython')
+
+The helper text converts a Python str to a list of characters.  A str of
+length one would convert to a Curry Char, not to a String.  The driver
+appends one space to the line, so the last field matches too.  The call is
+a generator of values.  The converter turns each Curry String into a Python
+str.  The driver sorts the values, because the scheduler does not promise an
+order, and counts them with collections.Counter.
+
+A compile error is not a Python Exception.  curry.CompileError derives from
+BaseException.  The driver catches it by name, reports a bad rule on stderr
+and exits with status 1.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script uses the C++ backend by default.  To pick a backend, set
+SPRITE_INTERPRETER_FLAGS in the environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+To add a rule, pass --rule with a name and the body of a Curry equation of
+type String -> String.  The driver applies the rule to every line, with one
+space appended, and adds a column and a total for it.  For example:
+
+    ./run --rule path '(_ ++ "path=" ++ p ++ " " ++ _) = p'
+
+To see the matches that the guard of field removes, add a rule without a
+guard:
+
+    ./run --rule hostAny '(_ ++ "host=" ++ v ++ " " ++ _) = v'
+
+The hostAny cell of the first line then reads
+
+    alpha,alpha status=200,alpha status=200 path=/index.html
+
+To read another file, pass its name after the options.
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run.  The output is the
+same on both backends.  The table has one row per line of sample.log.  The
+key rows are:
+
+    line                                    status  host   tags
+    host=alpha status=200 path=/index.html  200     alpha  -
+    status=200 host=beta path=/index.html   200     beta   -
+    host=beta path=/robots.txt              -       beta   -
+    <p>Hello, <em>world</em>!</p>           -       -      /em,/p,em,p
+    <ul><li>one</li><li>two</li></ul>       -       -      /li,/li,/ul,li,li,ul
+
+The totals follow the table:
+
+    status: 200 (6), 301 (1), 404 (1), 500 (1)
+    host: alpha (4), beta (3), gamma (3)
+    tags: /li (2), li (2), /em (1), /p (1), /ul (1), em (1), p (1), ul (1)
+
+The second row shows that the position of a field does not matter.  The
+third row has no status, so its status cell is "-".  The tags li and /li
+count twice, because each occurrence of a tag is one match.
+
+
+5. Limits
+---------
+
+The compile of the rules costs about 8 s on every run.  The module is built
+in a temporary directory, so there is no cache.  A run of ./run took 9 s on
+the C++ backend and 16 s on the Python backend, compile included.  On the
+C++ backend one call of field on a 70-character line took less than 0.1 s.
+
+On the Python backend the cost of field grows with the square of the line
+length.  The variable k occurs as a parameter and inside the pattern.  The
+front end turns the rule into a lazy unification of the pair (pattern, k')
+with (line, k), where k' is a fresh variable.  The pattern therefore tries
+every substring of the line as the key before k' meets k.  One call of field
+took 0.4 s on a 40-character line and 1.4 s on a 70-character line.  To
+stay under 30 s on the Python backend, keep the lines under 40 characters
+and the file under about 15 lines.  A rule with a literal key, such as
+(_ ++ "status=" ++ v ++ " " ++ _), took 0.02 s per line at either length.
+
+The pattern of field also matches a key that ends with k, such as vhost=
+for k = "host".  To require a whole key, put " " before k in the pattern
+and prepend a space to the line as well.

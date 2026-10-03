@@ -21,6 +21,7 @@ in a single environment.
 
    Preface
    Quickstart
+   Examples
    Introduction/Introduction
    Installation/Installation
    CommandLineInterface/index

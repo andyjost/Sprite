@@ -1,0 +1,165 @@
+Blocks World as a command-line application
+==========================================
+
+This example plans moves in the Blocks World.  A world is three stacks of
+blocks.  One move takes the top block of a stack and puts it on another
+stack.  The program finds a shortest plan from a start world to a goal
+world.  Curry states what a legal move is.  Python parses the worlds,
+drives the search, and draws the plan.
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+Non-determinism as search.  The function move has one rule per source
+stack:
+
+    move (x:xs, ys, zs) = (xs, x:ys, zs) ? (xs, ys, x:zs)
+    move (xs, y:ys, zs) = (y:xs, ys, zs) ? (xs, ys, y:zs)
+    move (xs, ys, z:zs) = (z:xs, ys, zs) ? (xs, z:ys, zs)
+
+The rules overlap, so every rule that matches applies.  Each rule offers a
+choice of two target stacks with ?.  So move w means every legal move from
+w at once.  The Curry side has no loop, no list of moves, and no search
+state.
+
+Failure prunes the search.  The call plan n start goal extends a trace one
+move at a time.  A trace that repeats an earlier world fails.  A trace that
+uses up its n moves before it reaches the goal fails too.  A failed branch
+is not an error.  It produces no value.  The values of plan n are exactly
+the traces of at most n moves that reach the goal.
+
+Iterative deepening.  A bound of n moves may have no plan.  Python asks for
+bound 0, then 1, then 2, and so on.  The first bound with a plan gives a
+shortest plan.  Python takes one plan per bound and stops the search.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+The driver go.py is a small application built with argparse:
+
+    python go.py ABC// //ABC
+
+A world is three stacks separated by slashes.  Write each stack from its
+top block to its bottom block.  The driver checks the notation and builds
+the Curry data itself.  Each block is the expression of a constructor,
+curry.expr(Blocks.A).  A Python list whose first element is a Curry symbol
+is an application, not a list, so a stack is a list of such expressions.
+A Python tuple of three lists becomes the Curry tuple World.
+
+One call,
+
+    curry.eval(Blocks.plan, bound, start, goal, converter='topython')
+
+is a generator of plans.  The driver takes the first one with next() and
+discards the generator.  This stops the search.  A bound with no plan
+yields zero values, so next() returns the default None, and the driver
+tries the next bound.  The converter turns the trace into a Python list of
+tuples of lists.  The blocks come back as Curry constructors.  str() of one
+gives its name, and the driver uses that to draw the stacks.
+
+The option --serve PORT starts a web form with http.server from the Python
+standard library.  The form calls the same function solve() as the command
+line does.  A Flask front end would call the same function.  The run
+script does not start the server.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script uses the C++ backend by default.  To pick a backend, set
+SPRITE_INTERPRETER_FLAGS in the environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+To plan other problems, pass a start world and a goal world to go.py.  Use
+the Python of the staged install.  For example, on the C++ backend:
+
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py ABCD// //ABCD
+
+The blocks are A, B, C, D, and E.  The start and the goal must hold the
+same blocks.  The option --max-moves N sets the bound at which the search
+gives up.  The default is 12.
+
+To use the web form, run
+
+    ../../install/bin/python go.py --serve 8000
+
+and open http://127.0.0.1:8000/ in a browser.  Press Ctrl-C to stop it.
+
+The module has a goal main for sprite-exec.  It prints every plan of at
+most five moves for the first problem of the run script.  There is one
+plan, so the command prints one line:
+
+    ../../install/bin/sprite-exec Blocks.curry
+    [([A, B, C], [], []), ([B, C], [A], []), ([C], [B, A], []), ([], [B, A], [C]), ([], [A], [B, C]), ([], [], [A, B, C])]
+
+That is the output of the Python backend.  The worlds of a trace share
+their stacks, and the C++ backend prints ... in place of a list that it has
+printed before.  For example, [B, ...] stands for [B, A].  The plan is the
+same; only the printer differs.
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run.  The script plans
+two problems.  The first carries A, B, C from the first stack to the third
+stack in the same order.  The key lines are:
+
+    start ABC//  goal //ABC
+    bound 0: no plan
+    bound 1: no plan
+    bound 2: no plan
+    bound 3: no plan
+    bound 4: no plan
+    shortest plan: 5 moves
+      1. A to stack 2  BC/A/
+      2. B to stack 2  C/BA/
+      3. C to stack 3  /BA/C
+      4. B to stack 3  /A/BC
+      5. A to stack 3  //ABC
+
+Each move names the block and the stack it moves to.  Then it shows the
+world after the move in the input notation.  A picture of the trace
+follows.  Each world is drawn as three stacks with the top block on top:
+
+    step 0   step 1   step 2   step 3   step 4   step 5
+    A . .    . . .    . . .    . . .    . . .    . . A
+    B . .    B . .    . B .    . B .    . . B    . . B
+    C . .    C A .    C A .    . A C    . A C    . . C
+    1 2 3    1 2 3    1 2 3    1 2 3    1 2 3    1 2 3
+
+The second problem reverses the stack onto the third stack.  It takes
+3 moves:
+
+    shortest plan: 3 moves
+      1. A to stack 3  BC//A
+      2. B to stack 3  C//BA
+      3. C to stack 3  //CBA
+
+The output is identical on both backends.  Each of the two problems has
+exactly one shortest plan.  For a problem with several shortest plans, the
+first one found may differ between the backends.
+
+
+5. Limits
+---------
+
+The work grows with the bound.  Each world has up to six moves, and the
+runtime keeps the open alternatives in memory.  Three blocks are cheap on
+both backends: a warm run of ./run took 1.9 s on the Python backend and
+0.4 s on the C++ backend.  Four blocks, ABCD// to //ABCD, need 7 moves.
+That took 1.9 s on the C++ backend and 33 s on the Python backend.  Five
+blocks, ABCDE// to //ABCDE, ran out of memory under a 2 GB cap on the C++
+backend after 16 s.  So keep the Python backend at three blocks and the
+C++ backend at four.
+
+The first run also compiles the module.  The front end took about 10 s,
+and the C++ compile took about 2 s more.

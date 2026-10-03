@@ -1,0 +1,141 @@
+Type inference by unification
+=============================
+
+This example infers the types of small lambda terms.  The Curry function
+infer has one rule for each kind of term.  A free variable stands for a
+type that is not yet known, and the constraint =:= unifies types.  Python
+builds the terms, calls infer, and prints each term with its type.  A term
+with no type prints "ill-typed".
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+Free variables are unknown types.  The rule for a lambda is
+
+    infer env (Lam x b) = Fun a (infer ((x, a) : env) b)
+      where a free
+
+The bound variable x gets the fresh type a.  Nothing is known about a yet.
+The body is inferred under that assumption.  Each use of x in the body adds
+a constraint on a.
+
+Unification is =:=.  The rule for an application is
+
+    infer env (App f x) | infer env f =:= Fun (infer env x) r = r
+      where r free
+
+The type of f must be a function type.  Its argument type must equal the
+type of x.  The constraint binds r to the result type.  It can also bind
+variables inside the type of f or the type of x.  In \f -> \x -> f (f x)
+the inner application binds the type of f to Fun a r.  The outer one binds
+r to a.  The result is Fun (Fun _a _a) (Fun _a _a).
+
+A variable that no constraint binds stays free.  The identity \x -> x has
+the type Fun _a _a.  The printer names the unbound variables _a, _b, _c in
+the order of their first appearance.  Such a type is polymorphic.  The
+term works for every choice of _a.
+
+A term with no type has no value.  In 1 2 the type of 1 is TInt, and the
+constraint TInt =:= Fun TInt r fails.  Failure is not an error in Curry.
+The computation yields zero values, and Python reports ill-typed.  The term
+\b -> if b then b + 1 else 0 fails for a subtler reason.  The condition
+binds the type of b to TBool.  The addition then needs TInt, and
+TBool =:= TInt fails.  The variable y is not in scope.  The lookup finds
+nothing, so y has no type either.
+
+The rule for a conditional shares one free variable between the two
+branches, so both branches get the same type.  The rule for an addition
+requires TInt on both sides.  There is no let, so a variable bound by a
+lambda has one type.  In \f -> f 1 + f True the two uses of f need
+different types, and the term is ill-typed.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+Python is the front end and Curry is the core.  The driver go.py writes
+each term as nested tuples, for example ('lam', 'x', ('var', 'x')).  The
+function build maps a tuple to a Curry term with curry.expr:
+
+    curry.expr(Infer.Lam, text(x), build(b))
+
+The inner call returns a Curry expression, and the outer call nests it in a
+new one.  The helper text converts a Python str to a list of characters.  A
+str of length one would convert to a Curry Char, not to a String.
+
+The driver calls
+
+    curry.eval(Infer.infer, [], build(term))
+
+The empty Python list is the empty environment.  The call returns a
+generator of types.  A well-typed term yields one type.  An ill-typed term
+yields none, and the driver prints ill-typed.
+
+A type comes back as a Curry value.  Its str form prints the constructors,
+such as Fun TBool (Fun TInt TInt).  An unbound free variable in the value
+prints as _a, _b, and so on.  The driver prints the term itself in lambda
+syntax with its own function show.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script uses the C++ backend by default.  To pick a backend, set
+SPRITE_INTERPRETER_FLAGS in the environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+To infer other terms, pass them to go.py as Python literals.  Use the
+Python of the staged install.  For example, on the C++ backend:
+
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py "('app', ('lam', 'x', ('var', 'x')), ('lit', 7))"
+
+The constructors are var, lam, app, lit, bool, if and add.  They follow the
+data type Term in Infer.curry.
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run.  The key lines are:
+
+    \x -> x : Fun _a _a
+    \f -> \x -> f (f x) : Fun (Fun _a _a) (Fun _a _a)
+    \b -> \x -> if b then x + 1 else x : Fun TBool (Fun TInt TInt)
+    1 2 : ill-typed
+
+The first line shows an unbound type variable.  The second shows a variable
+that unification links across three positions.  The third shows how the
+constants fix every variable.  The last term applies a number as a
+function, so it has no type.  The output is identical on both backends.
+
+
+5. Limits
+---------
+
+Inference does not search.  Each term has at most one type, and the cost
+grows with the size of the term.  A warm run of ./run took 0.15 s on the
+C++ backend and 0.4 s on the Python backend.  The first run also compiles
+the module.  It took 11 s on the C++ backend and 9.5 s on the Python
+backend.
+
+Larger terms: a chain of applications f (f (... x)) of length 150 took
+0.03 s on the C++ backend and 1.3 s on the Python backend.  A chain of 500
+took 0.3 s and 17 s.  The cost on the Python backend grows faster than the
+length.  Keep that backend at about 500 applications or fewer to stay under
+30 s.  A chain of 700 took 0.5 s on the C++ backend and hit the recursion
+limit of Python on the Python backend.  A chain of 1000 hit the recursion
+limit inside curry.expr on both backends.  A term on the command line has
+a lower limit.  A literal of 200 nested applications overflowed the parser
+of Python.
+
+There is no occurs check.  The term \x -> x x needs a type a equal to
+Fun a r, and no finite type satisfies that.  On the C++ backend the run
+exhausted a 2 GB address space cap after 7 s.  On the Python backend it did
+not finish in 30 s.  Do not pass this term.

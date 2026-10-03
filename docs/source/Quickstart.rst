@@ -79,6 +79,9 @@ C++ backend, set ``SPRITE_INTERPRETER_FLAGS`` in the environment:
     % SPRITE_INTERPRETER_FLAGS=backend:cxx ../install/bin/sprite-exec Peano.curry
     S (S O)
 
+The other subdirectories of ``examples/`` hold larger examples.  Each has a
+run script, a README, and its expected output.  See :doc:`Examples`.
+
 Python API Quickstart
 =====================
 

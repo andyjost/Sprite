@@ -1,3 +1,8 @@
 This example demonstrates a hybrid program.  The Curry part solves the classic
 "Blocks World" puzzle.  A simple user interface to this is placed into a web
 application using the Python Flask library.
+
+The example needs the Flask package, which is not part of the staged
+install, and its solver is slow.  The test suite does not run it.  See
+19-blocks-world-app for a Blocks World application that needs only the
+Python standard library.

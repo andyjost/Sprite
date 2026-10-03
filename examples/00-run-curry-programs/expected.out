@@ -1,0 +1,11 @@
+% sprite-exec program.curry
+(True, True)
+(False, False)
+% CURRYPATH=. sprite-exec -m program
+(True, True)
+(False, False)
+% sprite-exec program.curry -g mainalt
+(True, True)
+(True, False)
+(False, True)
+(False, False)

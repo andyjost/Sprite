@@ -14,7 +14,7 @@ To run several tests, use a regex, e.g., `./run_tests 'unit_(prelude|compiler).p
 2. TEST CATEGORIES
 ------------------
 
-Two kinds of tests are used:
+Three kinds of tests are used:
 
   * Unit tests:
 
@@ -26,6 +26,14 @@ Two kinds of tests are used:
       These tests, beginning with 'func_', compare the output of Sprite to
       another Curry system called the oracle (see section 5).  Their purpose is
       to provide evidence that Sprite behaves as intended.
+
+  * Example tests:
+
+      unit_examples.py runs the examples under examples/ in child processes
+      and compares their output with the expected.out file of each example.
+      Set SPRITE_UPDATE_EXPECTED=1 to regenerate those files.  The file takes
+      about 40 s warm and about two minutes cold on one backend (see
+      section 6).
 
 
 3. FILE LAYOUT
@@ -88,6 +96,12 @@ Unit tests match the pattern unit_*.py.
   - Unit tests are expected to run quickly, as they are part of the
     edit-build-test cycle.  Tests that take a long time to run do not belong in
     the unit test area.
+  - The exception is unit_examples.py.  It runs every example in a child
+    process: about 40 s warm and about two minutes cold on one backend,
+    because the first run compiles each Curry module and two examples compile
+    Curry text on every run.  It keeps the unit_ prefix so that CI runs the
+    examples on every push.  To leave it out of a quick cycle, name the
+    files you need, for example run_tests 'unit_prelude.py'.
 
 Functional tests match the pattern func_*.py:
 

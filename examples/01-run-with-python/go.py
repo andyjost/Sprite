@@ -1,14 +1,17 @@
+'''
+Runs a Curry program from Python.
+
+Imports the module rev from the directory of this script and prints every
+value of its goal main.
+'''
+import os
 import curry
 
-### Load and run rev.curry.
+# Find rev.curry next to this file, whatever the working directory is.
+curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from curry.lib import rev
 
-# Since rev.curry is in this directory, we should add it to curry.path.
-curry.path.insert(0, '.')
-
-# Import module rev
-rev = curry.import_('rev')
-
-# Evaluate rev.main and print the values.
+# A Curry evaluation can produce several values, so curry.eval returns an
+# iterator.  Print each value.
 for value in curry.eval(rev.main):
   print(value)
-

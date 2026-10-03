@@ -1,0 +1,21 @@
+% python go.py
+n=4: 2 solutions, smallest [2, 4, 1, 3]
+. Q . .
+. . . Q
+Q . . .
+. . Q .
+
+n=5: 10 solutions, smallest [1, 3, 5, 2, 4]
+Q . . . .
+. . Q . .
+. . . . Q
+. Q . . .
+. . . Q .
+
+n=6: 4 solutions, smallest [2, 4, 6, 1, 3, 5]
+. Q . . . .
+. . . Q . .
+. . . . . Q
+Q . . . . .
+. . Q . . .
+. . . . Q .

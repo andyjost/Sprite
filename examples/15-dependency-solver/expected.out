@@ -1,0 +1,18 @@
+% python go.py
+index:
+  app 1 needs web 2|3, db 1|2
+  app 2 needs web 3, db 2
+  web 1 needs http 1
+  web 2 needs http 1|2
+  web 3 needs http 2
+  db 1
+  db 2 needs http 1
+  http 1
+  http 2
+roots: app 1|2
+plans (4):
+  app 1  web 2  db 1  http 1
+  app 1  web 2  db 1  http 2
+  app 1  web 2  db 2  http 1
+  app 1  web 3  db 1  http 2
+newest: app 1  web 3  db 1  http 2

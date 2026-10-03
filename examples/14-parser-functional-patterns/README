@@ -1,0 +1,113 @@
+An expression parser from functional patterns
+=============================================
+
+This example parses arithmetic expressions such as 1+2*3 with three Curry
+functions and no parser library.  Each function has a rule with a functional
+pattern that splits the input around an operator.  Python prints the parse
+tree and the value of each expression.
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+Functional patterns.  The rule
+
+    expr (l ++ "+" ++ r) = Add (expr l) (term r)
+
+matches every way to split the input around a '+'.  The pattern contains the
+function ++ and the variables l and r.  The system matches the input against
+every string the pattern can denote.  Each match is one split.
+
+Failure as control.  A split whose parts do not parse fails.  Failure is not
+an error in Curry.  It yields no value.  For 1+2+3 the split with l = "1" and
+r = "2+3" fails, because "2+3" is not a term.  Only the split with l = "1+2"
+survives.  The parse of 1+2+3 is therefore Add (Add (Num 1) (Num 2)) (Num 3),
+and the operators associate to the left.
+
+Precedence from the grammar levels.  The right operand of '+' and '-' is a
+term.  The right operand of '*' is a factor.  A term never contains a sum
+unless parentheses enclose it.  So '*' binds tighter than '+' and '-' without
+a precedence table.
+
+The grammar is:
+
+    expr   ::= expr '+' term | expr '-' term | term
+    term   ::= term '*' factor | factor
+    factor ::= '(' expr ')' | digits
+
+The three Curry functions expr, term and factor follow it line by line.
+There is no lexer.  The function eval computes the value of a tree.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+The driver go.py adds its own directory to curry.path and imports the module
+Parser.  For each input it calls
+
+    curry.eval(Parser.expr, text(s))
+
+The helper text converts a Python str to a list of characters.  A str of
+length one would convert to a Curry Char, not to a String.  The call is a
+generator of parse trees.  The driver collects the trees in a list and counts
+them.  One tree per input is evidence that the grammar is unambiguous.  An
+input with no parse yields an empty list, and the driver prints "no parse".
+
+A parse tree comes back as a Curry value.  Its str form prints the
+constructors, such as Add (Num 1) (Num 2).  The driver passes the tree back
+to Curry:
+
+    next(curry.eval(Parser.eval, tree, converter='topython'))
+
+The converter turns the Curry Int into a Python int.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script uses the C++ backend by default.  To pick a backend, set
+SPRITE_INTERPRETER_FLAGS in the environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+To parse other expressions, pass them to go.py.  Use the Python of the staged
+install.  The driver removes spaces from each expression.  For example, on
+the C++ backend:
+
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py '2 * (3 + 4)' '8-1-1'
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run.  The key lines are:
+
+    1+2*3  ->  Add (Num 1) (Mul (Num 2) (Num 3))  =  7  (1 parse)
+    2*(3+4)-5  ->  Sub (Mul (Num 2) (Add (Num 3) (Num 4))) (Num 5)  =  9  (1 parse)
+    10-2-3  ->  Sub (Sub (Num 10) (Num 2)) (Num 3)  =  5  (1 parse)
+    2*(3+4  ->  no parse
+
+The tree for 1+2*3 shows that '*' binds tighter than '+'.  The tree for
+10-2-3 shows that '-' associates to the left.  The last input lacks its right
+parenthesis.  No split parses, so Python reports no parse.  The output is
+identical on both backends.
+
+
+5. Limits
+---------
+
+The number of splits grows with the length of the input.  A warm run of
+./run took 0.2 s on the C++ backend and 1.7 s on the Python backend.  The
+first run on the C++ backend also compiles the module.  It took 11 s.
+
+Longer inputs: an expression of 29 characters took 0.3 s on the C++ backend
+and 5 s on the Python backend.  One of 44 characters took 2 s on the C++
+backend and 45 s on the Python backend.  Keep the Python backend at about 30
+characters or less to stay under 30 s.  An input with no parse costs about as
+much as a well-formed one of the same length, because the search tries every
+split.

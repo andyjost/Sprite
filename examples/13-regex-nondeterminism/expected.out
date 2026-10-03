@@ -1,0 +1,22 @@
+% python go.py
+match ab*c abbbc: True
+match a.c axc: True
+match a.c abbc: False
+grep ab*c in xxxxxxxxxxxxxxxabbbcyyyyyyyyyyyyyyyyyyyyy: 1 hit
+  xxxxxxxxxxxxxxx[abbbc]yyyyyyyyyyyyyyyyyyyyy
+grep a+b? in zzaaabzz: 9 hits
+  zz[a]aabzz
+  zz[aa]abzz
+  zz[aaa]bzz
+  zz[aaab]zz
+  zza[a]abzz
+  zza[aa]bzz
+  zza[aab]zz
+  zzaa[a]bzz
+  zzaa[ab]zz
+grep (cat|dog)s? in cats and dogs and a dog: 5 hits
+  [cat]s and dogs and a dog
+  [cats] and dogs and a dog
+  cats and [dog]s and a dog
+  cats and [dogs] and a dog
+  cats and dogs and a [dog]

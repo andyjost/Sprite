@@ -1,0 +1,120 @@
+A package dependency solver
+===========================
+
+This example picks a version of every package in a small package index.  A
+plan is consistent when it meets the root requirements and the requirements
+of every version it picks.  The program states what a consistent plan is.
+The runtime finds all of them.
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+Non-determinism as values.  The plan in
+
+    plan = [ (p, anyOf (versionsOf idx p)) | p <- packages idx ]
+
+assigns each package anyOf its versions.  The call anyOf xs is a choice
+among the elements of xs.  So the one expression plan means every
+assignment at once.
+
+Lazy generate and test.  The guard
+
+    all (holds plan) roots && all (depsHold idx plan) plan
+
+keeps the assignments that meet the roots and the requirements of every
+chosen version.  A failed guard is not an error.  It produces no value.  The
+function plans has no loop, no backtracking code, and no search state.  The
+runtime does the search.
+
+A conflict.  Version 2 of app needs web 3, and web 3 needs http 2.  Version
+2 of app also needs db 2, and db 2 needs http 1.  No plan holds both, so no
+plan picks app 2.  The program does not say so anywhere.  The result follows
+from the requirements.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+The index is Python data: a list of (name, version, requirements) tuples.
+Each requirement is a (name, versions) tuple.  The driver go.py passes this
+nested data to the Curry function plans.  curry.eval converts it with
+curry.expr: tuples become Curry tuples, lists become Curry lists, and ints
+become Curry Ints.
+
+A Python str of length one converts to a Char.  So the driver passes every
+package name as a list of characters, through the helper text().
+
+The roots come from the command line.  Each argument has the form
+NAME=V1,V2.  The default is app=1,2.
+
+One call,
+
+    curry.eval(Deps.plans, index, roots, converter='topython')
+
+is a generator of consistent plans.  The converter turns each Curry plan
+into a Python list of (str, int) pairs.  The scheduler does not promise an
+order of the values across the backends, so the driver sorts the plans.  It
+then picks the newest plan in Python with max.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script uses the C++ backend by default.  To pick a backend, set
+SPRITE_INTERPRETER_FLAGS in the environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+To try other roots, pass them to go.py.  Use the Python of the staged
+install.  For example, on the Python backend:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ../../install/bin/python go.py app=2
+    SPRITE_INTERPRETER_FLAGS=backend:py ../../install/bin/python go.py web=1,2
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run.  The driver prints
+the index and the roots first.  Then it prints the plans:
+
+    plans (4):
+      app 1  web 2  db 1  http 1
+      app 1  web 2  db 1  http 2
+      app 1  web 2  db 2  http 1
+      app 1  web 3  db 1  http 2
+    newest: app 1  web 3  db 1  http 2
+
+Every plan picks app 1, because app 2 has the conflict described above.
+The output is identical on both backends.
+
+With the root app=2 the driver prints
+
+    plans (0):
+    newest: none
+
+
+5. Limits
+---------
+
+A plan assigns a version to every package in the index, used or not.  The
+guard forces one choice at a time.  It rejects a partial plan as soon as one
+choice breaks a requirement.  So the work depends on how early the
+requirements prune.  In the worst case nothing prunes, and the work grows
+with the product of the version counts.
+
+The index here has nine versions of four packages, or 24 assignments.  A
+warm run of ./run took 0.4 s on the Python backend and 0.2 s on the C++
+backend.  The first run also compiles the module.  It took about 10 s on
+each backend.
+
+Measured worst case, with three versions of every package and no
+requirements: seven packages, or 2187 plans, took 2.6 s on the Python
+backend.  Nine packages, or 19683 plans, took 1.4 s on the C++ backend.
+Keep the Python backend at seven packages or fewer to stay well under 30 s.

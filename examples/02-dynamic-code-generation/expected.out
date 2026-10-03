@@ -1,0 +1,5 @@
+% python go.py
+goal1: natToInt (I O)
+1
+goal2: natFromInt 3
+I (I (I O))

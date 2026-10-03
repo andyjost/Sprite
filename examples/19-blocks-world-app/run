@@ -1,0 +1,13 @@
+#!/bin/bash
+# Runs the example. Set SPRITE_INTERPRETER_FLAGS=backend:py|cxx to choose the backend.
+set -euo pipefail
+cd "$(dirname "$0")"
+: "${SPRITE_HOME:=$(cd ../.. && pwd)/install}"
+export SPRITE_HOME
+export SPRITE_INTERPRETER_FLAGS="${SPRITE_INTERPRETER_FLAGS:-backend:cxx}"
+export LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
+unset CURRYPATH
+echo '% python go.py ABC// //ABC'
+"$SPRITE_HOME/bin/python" go.py ABC// //ABC
+echo '% python go.py ABC// //CBA'
+"$SPRITE_HOME/bin/python" go.py ABC// //CBA

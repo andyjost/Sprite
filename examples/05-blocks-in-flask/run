@@ -1,6 +1,15 @@
 #!/bin/bash
-
-export PATH="../../install/bin/:$PATH"
+# Runs the Flask application.  It needs the Flask package in the Python of the
+# staged install.  19-blocks-world-app is the replacement without Flask.
+set -euo pipefail
+cd "$(dirname "$0")"
+: "${SPRITE_HOME:=$(cd ../.. && pwd)/install}"
+export SPRITE_HOME
+if ! "$SPRITE_HOME/bin/python" -c 'import flask' 2>/dev/null; then
+  echo 'This example needs the Flask package.  See 19-blocks-world-app.' >&2
+  exit 1
+fi
+export PATH="$SPRITE_HOME/bin:$PATH"
 export CURRYPATH=app/
 export SPRITE_INTERPRETER_FLAGS=defaultconverter:topython
 python -m app

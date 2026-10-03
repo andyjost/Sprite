@@ -1,0 +1,32 @@
+% python go.py ABC// //ABC
+start ABC//  goal //ABC
+bound 0: no plan
+bound 1: no plan
+bound 2: no plan
+bound 3: no plan
+bound 4: no plan
+shortest plan: 5 moves
+  1. A to stack 2  BC/A/
+  2. B to stack 2  C/BA/
+  3. C to stack 3  /BA/C
+  4. B to stack 3  /A/BC
+  5. A to stack 3  //ABC
+step 0   step 1   step 2   step 3   step 4   step 5
+A . .    . . .    . . .    . . .    . . .    . . A
+B . .    B . .    . B .    . B .    . . B    . . B
+C . .    C A .    C A .    . A C    . A C    . . C
+1 2 3    1 2 3    1 2 3    1 2 3    1 2 3    1 2 3
+% python go.py ABC// //CBA
+start ABC//  goal //CBA
+bound 0: no plan
+bound 1: no plan
+bound 2: no plan
+shortest plan: 3 moves
+  1. A to stack 3  BC//A
+  2. B to stack 3  C//BA
+  3. C to stack 3  //CBA
+step 0   step 1   step 2   step 3
+A . .    . . .    . . .    . . C
+B . .    B . .    . . B    . . B
+C . .    C . A    C . A    . . A
+1 2 3    1 2 3    1 2 3    1 2 3

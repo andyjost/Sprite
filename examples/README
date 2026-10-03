@@ -1,5 +1,101 @@
-The subdirectories contain short examples demonstrating various aspects of
-Sprite.  To run an example, cd to its directory and execute the "run" script.
+Sprite examples
+===============
 
-Before running these, you must say "make stage" from the root of this project.
-This installs sprite under ../install.
+Each subdirectory holds one example.  An example has a README, a run script,
+and a file expected.out with the exact output of the run script.  Most
+examples have a Python driver, go.py, and one Curry module.  Run "make stage"
+from the root of the repository first; the run scripts use the staged
+install under ../install, or the install named by SPRITE_HOME.  To run an
+example, run its script:
+
+    ./run
+
+A run script uses the C++ backend by default.  The scripts of 03-inspect and
+04-static-compile set the Python backend, because those examples run on it
+only.  To pick a backend for the others, set SPRITE_INTERPRETER_FLAGS in the
+environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+The first run of an example also compiles its Curry module, which takes
+about 10 s.  The build products go to .curry/ next to the source.  A README
+states what the example shows about functional logic programming, what it
+shows about calling Curry from Python, how to run it, the output to expect,
+and the sizes that keep the run short.
+
+The test tests/unit_examples.py runs every run script in a child process on
+the backend of the test session and compares its output with expected.out.
+To regenerate the expected output after a deliberate change, run
+SPRITE_UPDATE_EXPECTED=1 ./run_tests unit_examples.py from tests/ once per
+backend, and review the diff.
+
+The list below gives each directory, the backends it runs on, the title of
+its README, and what it teaches.
+
+00-run-curry-programs (py, cxx)
+    Run Curry programs with sprite-exec.  Call-time choice; a program by
+    file, by module, and by goal.
+
+01-run-with-python (py, cxx)
+    Run a Curry program from Python.  Import a module and iterate over the
+    values of a goal.
+
+02-dynamic-code-generation (py, cxx)
+    Compile Curry code at run time.  curry.compile for a module and for an
+    expression; curry.expr.
+
+03-inspect (py)
+    Inspect Curry objects from Python.  curry.inspect: symbols, types,
+    ICurry files, generated code.
+
+04-static-compile (py)
+    Compile a Curry module to a Python script.  curry.save with a goal, and
+    running the saved script.
+
+10-queens-set-functions (py, cxx)
+    N queens with set functions.  Non-determinism as values, functional
+    patterns, set functions.
+
+11-sudoku (cxx)
+    Sudoku by search.  Search as the program; the most constrained cell
+    first; a dead branch dies early.
+
+12-cryptarithm (cxx)
+    Cryptarithms: SEND + MORE = MONEY.  Structural permutations and
+    laziness as pruning.
+
+13-regex-nondeterminism (py, cxx)
+    Regular expressions by non-determinism.  A semantics as a function;
+    matching by unification; free variables.
+
+14-parser-functional-patterns (py, cxx)
+    An expression parser from functional patterns.  Functional patterns
+    split the input; failure prunes parses.
+
+15-dependency-solver (py, cxx)
+    A package dependency solver.  Generate and test over nested Python
+    data.
+
+16-scheduling (py, cxx)
+    Scheduling tasks fed from Python data.  Constraints as guards;
+    optimization by failure; guard order.
+
+17-type-inference (py, cxx)
+    Type inference by unification.  Free variables as unknown types; =:= as
+    unification.
+
+18-text-extraction (py, cxx)
+    Text extraction with functional patterns, compiled at run time.  Rules
+    as Curry text; Curry extracts, Python aggregates.
+
+19-blocks-world-app (py, cxx)
+    Blocks World as a command-line application.  Search by iterative
+    deepening; argparse; an http.server form.
+
+Peano.curry is the program of the Quickstart in the user guide.  Run it with
+sprite-exec from this directory.
+
+05-blocks-in-flask is an older Flask application.  It needs the Flask
+package, which is not part of the staged install, and a slow solver.
+19-blocks-world-app replaces it, and the test does not run it.

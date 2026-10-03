@@ -1,0 +1,94 @@
+N queens with set functions
+===========================
+
+This example places N queens on an N by N board so that no queen attacks
+another.  The program is the QueensSet program from the 2009 paper "Set
+Functions for Functional Logic Programming" by Antoy and Hanus.  It solves the
+puzzle in four short functions.
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+Non-determinism as values.  The function perm builds one permutation of
+[1..n] with ndinsert.  Both rules of ndinsert apply to a non-empty list, so
+each call is a choice.  The program means every permutation at once.
+
+Functional patterns.  The pattern in
+
+    unsafe (_ ++ [x] ++ y ++ [z] ++ _)
+
+names any two queens x and z, with the queens y between them.  The two queens
+share a diagonal when abs (x - z) equals length y + 1.
+
+Set functions.  A set function encapsulates the search inside one function.
+The expression set1 unsafe p is the set of every value of unsafe p.  The guard
+isEmpty (set1 unsafe p) holds when that set is empty.  This negates the
+non-deterministic predicate unsafe.  A placement is a solution when it has no
+unsafe pair.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+The driver go.py adds its own directory to curry.path and imports the module
+Queens.  It calls the function queens with a Python int.  One call is a
+generator of solutions.  The driver collects every value with
+
+    curry.eval(Queens.queens, n, converter='topython')
+
+The converter turns each Curry list of Ints into a Python list of ints.  The
+scheduler does not promise an order of the values across the backends, so the
+driver sorts the solutions.  It then counts them and draws the smallest board.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script uses the C++ backend by default.  To pick a backend, set
+SPRITE_INTERPRETER_FLAGS in the environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+To try other board sizes, pass them to go.py.  Use the Python of the staged
+install.  For example, on the C++ backend:
+
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py 7 8
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run.  The key lines are:
+
+    n=4: 2 solutions, smallest [2, 4, 1, 3]
+    n=5: 10 solutions, smallest [1, 3, 5, 2, 4]
+    n=6: 4 solutions, smallest [2, 4, 6, 1, 3, 5]
+
+The smallest board follows each line.  Each row holds one Q for the queen in
+that row.  For n = 4 the board is:
+
+    . Q . .
+    . . . Q
+    Q . . .
+    . . Q .
+
+The output is identical on both backends.  A size with no solution, such as 3,
+prints "n=3: 0 solutions" and no board.
+
+
+5. Limits
+---------
+
+The run script uses n = 4, 5, 6, so the Python backend finishes in a few
+seconds.  A warm run of ./run took 0.2 s on the C++ backend and 2 s on the
+Python backend.  The first run also compiles the module.  It took about 10 s.
+
+Larger boards: n = 7 has 40 solutions and n = 8 has 92.  On the C++ backend
+n = 8 took 1.3 s.  On the Python backend n = 7 took 8 s and n = 8 took 48 s.
+Keep the Python backend at n = 7 or less to stay under 30 s.

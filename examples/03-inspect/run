@@ -1,7 +1,11 @@
 #!/bin/bash
-
-export PATH="../../install/bin/:$PATH"
-
-echo Use curry.inspect to inspect live Curry objects.
-echo % python go.py
-python go.py
+# Runs the example on the Python backend.  The example runs on that backend only.
+set -euo pipefail
+cd "$(dirname "$0")"
+: "${SPRITE_HOME:=$(cd ../.. && pwd)/install}"
+export SPRITE_HOME
+export SPRITE_INTERPRETER_FLAGS=backend:py
+export LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
+unset CURRYPATH
+echo '% python go.py'
+"$SPRITE_HOME/bin/python" go.py

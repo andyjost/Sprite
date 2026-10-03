@@ -1,0 +1,16 @@
+% python go.py
+tasks: mix 2 bowl, bake 3 oven, frost 1 bowl, cool 2 rack, pack 1 table
+precedences: mix < bake, bake < cool, cool < frost, frost < pack
+horizon 3: none
+horizon 4: none
+horizon 5: none
+horizon 6: none
+horizon 7: none
+horizon 8: none
+horizon 9: mix@0 bake@2 cool@5 frost@7 pack@8
+slot   012345678
+mix    ##.......  bowl
+bake   ..###....  oven
+cool   .....##..  rack
+frost  .......#.  bowl
+pack   ........#  table

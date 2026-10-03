@@ -49,6 +49,10 @@ C++ backend, set SPRITE_INTERPRETER_FLAGS in the environment:
 
         SPRITE_INTERPRETER_FLAGS=backend:cxx install/bin/sprite-exec examples/Peano.curry
 
+The examples/ directory holds runnable examples of Curry programs and of
+Curry called from Python.  Each has a run script, a README, and its expected
+output.  See examples/README for the list.
+
 
 4. Documentation
 ----------------
