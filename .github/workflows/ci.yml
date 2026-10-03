@@ -29,8 +29,9 @@ jobs:
       matrix:
         include:
           - { backend: py, shard: '1/1' }
-          - { backend: cxx, shard: '1/2' }
-          - { backend: cxx, shard: '2/2' }
+          - { backend: cxx, shard: '1/3' }
+          - { backend: cxx, shard: '2/3' }
+          - { backend: cxx, shard: '3/3' }
     steps:
       - uses: actions/checkout@v4
         with:
@@ -92,9 +93,11 @@ jobs:
       - name: Functional tests
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.functional)
         run: .github/scripts/run-tests.sh ${{ matrix.backend }} 'func_*.py' ${{ matrix.shard }}
+      # Only the runtime library is cached so far: Sprite compiles and links
+      # each generated module in one g++ call, which ccache does not cache.
       - name: Compiler cache statistics
         if: always()
-        run: ccache -s | head -n 12
+        run: ccache -s | head -n 6
 
   docs:
     name: docs
