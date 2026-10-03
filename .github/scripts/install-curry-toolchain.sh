@@ -1,7 +1,10 @@
 #!/bin/bash
-# Installs the Curry toolchain that Sprite needs to compile Curry code:
-# PAKCS (binary distribution) and the icurry package.  Everything lands under
-# $HOME so that a CI cache can restore it.  Requires swipl, curl, and make.
+# Installs the Curry toolchain for CI: PAKCS (binary distribution), whose
+# front end Sprite needs and which the functional tests use as the oracle,
+# and the icurry package.  icurry is optional for Sprite; CI configures it in
+# some jobs so that the tests compare both routes from Curry to ICurry.
+# Everything lands under $HOME so that a CI cache can restore it.  Requires
+# swipl, curl, and make.
 set -euo pipefail
 : "${PAKCS_VERSION:=3.4.1}"
 : "${ICURRY_VERSION:=3.1.0}"

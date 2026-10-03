@@ -4,12 +4,19 @@ Project Layout
 
 The Sprite repository is organized as follows:
 
+``conda/``
+    The scaffold of a conda package: a recipe for Sprite and one for the
+    Curry front end.  ``conda/README.md`` describes them and what remains
+    open.  Nothing is published.
+
 ``configure``
     The script used to configure Sprite.  Run this before running ``make``.
     Doing so creates a file ``Make.config``.
 
 ``curry/``
-    The built-in Curry library that comes with Sprite.
+    The built-in Curry library.  ``curry/lib/`` holds the sources: a copy of
+    the library of the pinned PAKCS release, Sprite's own modules, the license
+    of the origin, and the pinned ICurry products.  See ``curry/README.md``.
 
 ``docs/``
     Files used to build documentation.  Say ``cd docs &&
@@ -58,15 +65,18 @@ The Sprite repository is organized as follows:
     instance, to reclaim disk space or prepare for a clean build.
 
 ``overlay*.tgz``
-    Contains ICurry and related files for a specific version of PAKCS.  Say
-    ``make overlay`` to apply the overlay.
+    Contains the prebuilt ICurry and FlatCurry files of the test programs for
+    a specific version of PAKCS.  Say ``make overlay`` to apply the overlay.
+    The archive also holds the FlatCurry interfaces of the Curry library.
+    The oracle tests of the FlatCurry-to-ICurry port read them; see
+    :ref:`compilation-pipeline`.  The ICurry products of the library itself
+    are committed under ``curry/lib``.
 
     .. warning::
        It is important to choose a version
        of PAKCS that matches one of the overlay files, as it reduces the time
        required to run tests from several hours to just a few minutes.  Applying
-       the overlay avoids having to run the ``icurry`` command-line tool hundreds
-       of times.
+       the overlay avoids having to compile hundreds of test modules to ICurry.
 
 ``spritelog.vim``
     A Vim syntax-highlighting file to aid in the analysis of Sprite debug

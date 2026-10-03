@@ -15,22 +15,36 @@ Merges to `master` happen at milestones.
 
 - `src/python/`: the `curry` Python package (interpreter, compiler, backends).
 - `src/cyrt/`: the C++ runtime library.
-- `curry/`: Curry library sources and per-PAKCS-version overlays.
+- `curry/`: the Curry library. `curry/lib/` holds a copy of the library of
+  the pinned PAKCS, Sprite's own `Control.SetFunctions`, the license of the
+  origin, and the pinned ICurry products. See `curry/README.md`.
 - `tests/`: unit tests (`unit_*.py`) and functional tests (`func_*.py`).
   `tests/README` explains the layout, the drivers, and the oracle.
 - `docs/`: Sphinx sources.
 - `examples/`: runnable examples.
+- `conda/`: the scaffold of a conda package for linux-64, not published.
+  `conda/README.md` describes the two recipes and the open questions.
 
 ## Requirements and policy
 
 - Python 3.14 only. Do not add `six` or compatibility code for older
   Pythons.
-- PAKCS 3.4.1 is the pinned front end (Curry to FlatCurry to ICurry). The
-  pin will be relaxed once the test suite passes.
-- Other tools: a C++ compiler (g++), GNU make, Boost headers, and the
-  `icurry` Curry package installed with `cypm`. SWI-Prolog and Haskell
-  Stack are needed to build PAKCS itself. GNU time (`/usr/bin/time`) is
-  optional: the benchmark harness uses it for the peak memory of a run.
+- PAKCS 3.4.1 is the pinned front end (Curry to FlatCurry) and the test
+  oracle. The pin will be relaxed once the test suite passes. PAKCS itself
+  is optional at build time: `configure --with-pakcs ''` with
+  `--with-curry-frontend PATH` builds without it, and the pinned release
+  then names the intermediate directories.
+- Curry is translated to ICurry in two steps: the front end
+  (`bin/pakcs-frontend` of PAKCS) writes FlatCurry, and
+  `curry.toolchain.flat2icurry`, a Python port of `icurry` 3.1.0, writes
+  ICurry. The `icurry` program is an optional alternative, configured with
+  `configure --with-icurry` and selected with `SPRITE_CURRY2ICURRY=icurry`
+  or `sprite-make --curry2icurry icurry`. Both routes must write
+  byte-identical `.icy` files; `tests/README` describes the oracle.
+- Other tools: a C++ compiler (g++), GNU make, and Boost headers. jq is not
+  needed: Sprite writes compact JSON itself. SWI-Prolog and Haskell Stack
+  are needed to build PAKCS itself. GNU time (`/usr/bin/time`) is optional:
+  the benchmark harness uses it for the peak memory of a run.
 - Sprite needs no GPU.
 - `configure` and the Makefiles honour `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
   and `LDFLAGS` from the environment, so build in a clean environment when
@@ -41,10 +55,10 @@ Merges to `master` happen at milestones.
 - `./configure` writes `Make.config`. `./configure --check-prereqs` lists
   what is missing. Use `--with-pakcs` and `--with-python` to pick tools.
 - `make stage` builds and stages a copy under `install/`.
-- The `.icy` and `.json.z` files under `curry/pakcs-3.4.1/` are committed
-  artifacts of the pinned PAKCS and `icurry` versions. `make` derives the
-  JSON from the committed `.icy` and never runs `icurry` on the library
-  unless you set `SPRITE_REBUILD_ICY=1`. After a change to the ICurry
+- The `.icy` and `.json.z` files beside the sources under `curry/lib/` are
+  committed artifacts of the pinned PAKCS and `icurry` versions. `make`
+  derives the JSON from the committed `.icy` and never rebuilds a committed
+  `.icy` unless you set `SPRITE_REBUILD_ICY=1`. After a change to the ICurry
   reader, regenerate the JSON: delete the `.json.z` files and run
   `make stage`.
 - `make test` runs the full suite. For the fast unit tests, run

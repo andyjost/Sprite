@@ -1,0 +1,57 @@
+# Conda recipe for the Curry front end (linux-64), repackaged from the PAKCS
+# binary distribution.  A scaffold: not published.  See ../README.md.
+{% set version = "2.0.0" %}
+{% set pakcs_version = "3.4.1" %}
+
+package:
+  name: curry-frontend
+  version: {{ version }}
+
+source:
+  # The PAKCS binary distribution for Linux.  Only bin/pakcs-frontend and
+  # LICENSE are used.  The hash is that of the archive dated 2021-10-26.
+  url: https://www.curry-lang.org/pakcs/download/pakcs-{{ pakcs_version }}-amd64-Linux.tar.gz
+  sha256: d17d8b3c30564200d5f4ee3a4ee9882fbca5ed66b77b9317050e1f71ba955db2
+
+build:
+  number: 0
+  skip: true  # [not linux64]
+  string: pakcs{{ pakcs_version | replace(".", "") }}_{{ PKG_BUILDNUM }}
+  # The binary is a GHC program linked against libgmp.so.10 and the C
+  # library.  conda-build sets its run path to the lib directory of the
+  # prefix, where gmp installs libgmp.
+
+requirements:
+  build:
+    # Names the C library, so that the check of the shared objects knows
+    # libc, libm, libpthread, and friends, and the package gets its glibc
+    # constraint.
+    - {{ stdlib("c") }}
+  host:
+    - gmp
+  run:
+    - gmp
+
+test:
+  commands:
+    - pakcs-frontend --version
+    - test "$(pakcs-frontend --numeric-version)" = "{{ version }}"
+    - test "$(curry-frontend --numeric-version)" = "{{ version }}"
+
+about:
+  home: https://www.curry-lang.org/pakcs/
+  license: BSD-3-Clause
+  # LICENSE is the PAKCS license from the binary distribution.
+  # LICENSE.curry-frontend is frontend/LICENSE of the PAKCS source
+  # distribution, the license of the front end itself; a copy sits in this
+  # recipe directory.
+  license_file:
+    - LICENSE
+    - LICENSE.curry-frontend
+  summary: The Curry front end (Curry to FlatCurry) of PAKCS {{ pakcs_version }}
+  description: |
+    The front end of the Curry compilers, version {{ version }}, as shipped
+    in the PAKCS {{ pakcs_version }} binary distribution for Linux.  It
+    translates Curry modules to FlatCurry.  Sprite runs it and translates the
+    FlatCurry to ICurry itself.  The package installs bin/pakcs-frontend and
+    the link bin/curry-frontend.

@@ -12,6 +12,16 @@ g_missing_prereqs = []
 g_install_steps = []
 g_did_pipcheck = False
 
+# The PAKCS release that Sprite is pinned to.  Its library is a copy under
+# curry/lib, and its front end writes the FlatCurry that the committed ICurry
+# files were made from.  When configure runs without PAKCS, these values name
+# the intermediate directories and set the front-end flags.
+PINNED_PAKCS_NAME = 'pakcs'
+PINNED_PAKCS_VERSION = '3.4.1'
+# The Curry front end of the pinned PAKCS.  Another front end writes different
+# FlatCurry, and the committed ICurry files and the oracle depend on it.
+PINNED_FRONTEND_VERSION = '2.0.0'
+
 class Tee(object):
   def __init__(self, stream):
     self.term = stream
@@ -147,13 +157,15 @@ def get_options():
   versions.add_argument('--with-cc'             , type=str, metavar='gcc', help='specifies the C compiler (env: CC)')
   versions.add_argument('--with-cxx'            , type=str, metavar='g++', help='specifies the C++ compiler (env: CXX)')
   versions.add_argument('--with-cxx-postinstall', type=str, metavar='g++', help='specifies the C++ compiler used after installation (env: CXX)')
-  versions.add_argument('--with-icurry'         , type=str, metavar='icurry', help='specifies the icurry executable (env: ICURRY)')
-  versions.add_argument('--with-pakcs'          , type=str, metavar='pakcs', help='specifies the PAKCS executable (env: PAKCS)')
+  versions.add_argument('--with-curry-frontend' , type=str, metavar='pakcs-frontend', help='specifies the Curry front end (env: CURRY_FRONTEND); by default the one of PAKCS; an empty value leaves it out')
+  versions.add_argument('--with-icurry'         , type=str, metavar='icurry', help='specifies the icurry executable (env: ICURRY); optional when the front end is found; an empty value leaves it out')
+  versions.add_argument('--with-pakcs'          , type=str, metavar='pakcs', help='specifies the PAKCS executable (env: PAKCS); optional when the front end is named; an empty value leaves it out')
   versions.add_argument('--with-prolog'         , type=str, metavar='swipl', help='specifies the Prolog executable (env: PROLOG)')
   versions.add_argument('--with-python'         , type=str, metavar='python3', help='specifies the Python executable (env: PYTHON)')
 
   dev = parser.add_argument_group('development arguments', 'Enables features for Sprite developers.')
   dev.add_argument('--cache', type=str, metavar="['all'|'icurry'|'json']", help='enables caching; useful when the same Curry program will be run many times')
+  dev.add_argument('--curry2icurry', type=str, choices=['frontend', 'icurry'], metavar="['frontend'|'icurry']", help='selects the route from Curry to ICurry: the Curry front end with the built-in translation (default) or icurry')
 
   OPTS = parser.parse_args()
   OPTS.write_config = not OPTS.check_prereqs and not OPTS.install_prereqs_only
@@ -222,19 +234,9 @@ def main():
       , install_steps=get_build_essential_install_steps
       , default=OPTS.with_cxx_postinstall
       )
-    set_from_path(settings, 'PAKCS', 'pakcs', 'PAKCS executable'
-      , web='https://www.curry-lang.org/pakcs/'
-      , altdir='extern/pakcs-3.4.1/bin'
-      , install_steps=get_pakcs_install_steps
-      , default=OPTS.with_pakcs
-      )
-    set_from_path(settings, 'ICURRY', 'icurry', 'icurry executable'
-      , web='https://www.curry-lang.org/tools/cpm/'
-      , hint='try `cypm update; cypm install icurry 3.1.0`'
-      , altdir=os.path.join(os.environ.get('HOME', ''), '.cpm', 'bin')
-      , install_steps=get_icurry_install_steps
-      , default=OPTS.with_icurry
-      )
+    set_pakcs(settings)
+    set_frontend(settings)
+    set_icurry(settings)
     set_from_path(settings, 'BOOST', 'boost', 'Boost libraries'
       , web='https://www.boost.org'
       , install_steps=[
@@ -250,14 +252,21 @@ def main():
       check_python_version(settings)
       check_python_modules(settings)
       set_python_config(settings)
-    if 'PAKCS' in settings:
+    if settings.get('PAKCS'):
       say('*** Checking PAKCS')
       set_pakcs_home(settings)
       set_pakcs_name(settings)
       set_pakcs_version(settings)
-    if 'ICURRY' in settings and not OPTS.fast:
+    else:
+      set_pinned_pakcs(settings)
+    set_frontend_flags(settings)
+    if settings.get('CURRY_FRONTEND') and not OPTS.fast:
+      say('*** Checking the Curry front end')
+      check_frontend(settings)
+    if settings.get('ICURRY') and not OPTS.fast:
       say('*** Checking ICurry (this takes some time).')
       check_icurry(settings)
+    set_curry2icurry_tool(settings)
 
   except KeyboardInterrupt:
     abort()
@@ -297,7 +306,7 @@ def main():
 def set_from_path(
     settings, variable_name, program_name, desc, web=None, hint=None
   , altdir=None, default=None, install_steps=None, path=None
-  , validation=[executable], allow_interact=True
+  , validation=[executable], allow_interact=True, required=True
   ):
   if default is None:
     if variable_name is not None:
@@ -334,8 +343,9 @@ def set_from_path(
       ) if install_steps else None
     installed = handle_missing_prereq(
         program_name
-      , '%r is required.' % desc
+      , '%r is %s.' % (desc, 'required' if required else 'recommended')
       , steps
+      , required=required
       , web=web
       , hint=hint
       )
@@ -503,6 +513,150 @@ def set_python_config(settings):
   else:
     log('not found (not required)')
 
+def requested(option, variable_name):
+  '''
+  The program named by a --with option or by the environment, or None.  The
+  empty string means that the program is left out by request.
+  '''
+  if option is not None:
+    return option
+  return os.environ.get(variable_name)
+
+def set_frontend(settings):
+  '''
+  Finds the Curry front end.  By default it is the pakcs-frontend of the
+  selected PAKCS.  It is required unless icurry was requested instead.
+  '''
+  given = requested(OPTS.with_curry_frontend, 'CURRY_FRONTEND')
+  if given == '':
+    log('The Curry front end is left out by request.')
+    settings['CURRY_FRONTEND'] = ''
+    return
+  default = given
+  if default is None and settings.get('PAKCS'):
+    bindir = os.path.dirname(os.path.realpath(settings['PAKCS']))
+    candidate = os.path.join(bindir, 'pakcs-frontend')
+    if os.path.exists(candidate):
+      default = candidate
+  icurry_requested = bool(requested(OPTS.with_icurry, 'ICURRY'))
+  set_from_path(settings, 'CURRY_FRONTEND', 'pakcs-frontend', 'Curry front end'
+    , web='https://www.curry-lang.org/pakcs/'
+    , hint='the front end comes with PAKCS, as bin/pakcs-frontend'
+    , default=default
+    , required=not icurry_requested
+    )
+  settings.setdefault('CURRY_FRONTEND', '')
+
+def set_icurry(settings):
+  '''
+  Finds icurry.  It is optional when the Curry front end was found: it is
+  configured only when requested.  Without the front end it is required.
+  '''
+  given = requested(OPTS.with_icurry, 'ICURRY')
+  if given == '':
+    log('icurry is left out by request.')
+    settings['ICURRY'] = ''
+    return
+  if given is None and settings.get('CURRY_FRONTEND'):
+    log('icurry is not needed: the Curry front end was found.  Pass '
+        '--with-icurry to configure it as the alternative.')
+    settings['ICURRY'] = ''
+    return
+  set_from_path(settings, 'ICURRY', 'icurry', 'icurry executable'
+    , web='https://www.curry-lang.org/tools/cpm/'
+    , hint='try `cypm update; cypm install icurry 3.1.0`'
+    , altdir=os.path.join(os.environ.get('HOME', ''), '.cpm', 'bin')
+    , install_steps=get_icurry_install_steps
+    , default=given
+    )
+  settings.setdefault('ICURRY', '')
+
+def set_pakcs(settings):
+  '''
+  Finds PAKCS.  Sprite needs only its front end, which --with-curry-frontend
+  can name directly, and the functional tests use pakcs as the oracle.  So
+  PAKCS is optional: --with-pakcs '' leaves it out, and when the front end
+  was named, a missing PAKCS is a warning.  Without PAKCS the pinned release
+  names the intermediate directories; see set_pinned_pakcs.
+  '''
+  given = requested(OPTS.with_pakcs, 'PAKCS')
+  if given == '':
+    log('PAKCS is left out by request.')
+    settings['PAKCS'] = ''
+    return
+  frontend_given = bool(requested(OPTS.with_curry_frontend, 'CURRY_FRONTEND'))
+  set_from_path(settings, 'PAKCS', 'pakcs', 'PAKCS executable'
+    , web='https://www.curry-lang.org/pakcs/'
+    , altdir='extern/pakcs-3.4.1/bin'
+    , install_steps=None if frontend_given else get_pakcs_install_steps
+    , default=given
+    , required=not frontend_given
+    )
+  settings.setdefault('PAKCS', '')
+
+def set_pinned_pakcs(settings):
+  '''
+  The PAKCS settings of a build without PAKCS.  The name and the version of
+  the pinned release name the intermediate directories (.curry/pakcs-3.4.1
+  and .curry/sprite-pakcs-3.4.1) and set the front-end flags, so the
+  committed ICurry files stay valid.
+  '''
+  log('PAKCS is not configured.  Using the pinned release %s %s.'
+      % (PINNED_PAKCS_NAME, PINNED_PAKCS_VERSION))
+  commit(settings, 'PAKCS_HOME', '')
+  commit(settings, 'PAKCS_NAME', PINNED_PAKCS_NAME)
+  commit(settings, 'PAKCS_VERSION', PINNED_PAKCS_VERSION)
+
+def set_frontend_flags(settings):
+  '''
+  The options Sprite passes to the front end.  __PAKCS__ is defined as the
+  PAKCS version, major times 100 plus minor, as PAKCS itself and icurry do.
+  '''
+  major, minor = (int(x) for x in settings['PAKCS_VERSION'].split('.')[:2])
+  flags = '--extended -D__PAKCS__=%d' % (major * 100 + minor)
+  commit(settings, 'CURRY_FRONTEND_FLAGS', flags)
+
+def check_frontend(settings):
+  '''
+  Checks that the Curry front end runs and has the pinned version.  The
+  caches under curry/lib and the overlay archive hold its FlatCurry, so
+  another version is an error.
+  '''
+  frontend = settings['CURRY_FRONTEND']
+  GOOD_FRONTEND_VERSIONS = [PINNED_FRONTEND_VERSION]
+  log('Checking the Curry front end version', '...')
+  try:
+    ver = shell('%s --numeric-version' % frontend)
+  except subprocess.CalledProcessError:
+    log('FAILED')
+    warn('Failed to run the Curry front end %s' % frontend)
+    abort()
+  ok = ver in GOOD_FRONTEND_VERSIONS
+  log('%s, %s' % (ver, 'OK' if ok else 'FAILED'))
+  if not ok:
+    warn('Acceptable Curry front end versions are: %s' % GOOD_FRONTEND_VERSIONS)
+    warn('The front end comes with PAKCS %s.' % PINNED_PAKCS_VERSION)
+    abort()
+
+def set_curry2icurry_tool(settings):
+  '''
+  The route from Curry to ICurry used by default.  The front end wins when
+  it is configured, unless --curry2icurry says otherwise.
+  '''
+  frontend = settings.get('CURRY_FRONTEND')
+  icurry = settings.get('ICURRY')
+  tool = OPTS.curry2icurry
+  if tool is None:
+    tool = 'frontend' if frontend else 'icurry' if icurry else ''
+  if (tool == 'frontend' and not frontend) or (tool == 'icurry' and not icurry):
+    warn('--curry2icurry=%s was requested, but that tool is not configured.' % tool)
+    if not OPTS.check_prereqs:
+      abort()
+  if not tool and not OPTS.check_prereqs:
+    warn('Neither the Curry front end nor icurry is configured.')
+    abort()
+  commit(settings, 'CURRY2ICURRY_TOOL', tool)
+
 def set_pakcs_home(settings):
   pakcs = settings['PAKCS']
   dirname = os.path.dirname(pakcs)
@@ -523,7 +677,7 @@ def set_pakcs_name(settings):
 
 def set_pakcs_version(settings):
   pakcs = settings['PAKCS']
-  GOOD_PAKCS_VERSIONS = ['3.4.1']
+  GOOD_PAKCS_VERSIONS = [PINNED_PAKCS_VERSION]
   log('Checking the PAKCS version', '...')
   ver = shell('%s --numeric-version' % pakcs)
   ok = ver in GOOD_PAKCS_VERSIONS
@@ -594,7 +748,7 @@ def prereq_curl():
 
 def prereq_cypm(settings):
   # cypm ships with PAKCS.  Return None when PAKCS has not been found.
-  if settings is None or 'PAKCS' not in settings:
+  if settings is None or not settings.get('PAKCS'):
     return None
   dirname,pakcs = os.path.split(settings['PAKCS'])
   cypm = os.path.join(dirname, 'cypm')
@@ -696,19 +850,37 @@ CXXFLAGS += $(CFLAGS) -std=c++17
 
 # PAKCS
 # =====
-# PAKCS is an implementation of Curry that Sprite relies on.  Download it from
-# https://www.curry-lang.org/pakcs/.
+# PAKCS is an implementation of Curry.  Sprite uses its front end to
+# translate Curry to FlatCurry, and the tests use it as the oracle.
+# The Curry library does not come from it: Sprite ships its own copy under
+# curry/lib.  Download PAKCS from https://www.curry-lang.org/pakcs/.
+# PAKCS may be empty (configure --with-pakcs '').  PAKCS_NAME and
+# PAKCS_VERSION then name the pinned release.  They name the intermediate
+# directories under .curry and must not change.
 PAKCS         := {PAKCS}
 PAKCS_HOME    := {PAKCS_HOME}
 PAKCS_NAME    := {PAKCS_NAME}
 PAKCS_VERSION := {PAKCS_VERSION}
 
+# Curry front end
+# ===============
+# The front end translates Curry to FlatCurry.  It comes with PAKCS.  Sprite
+# runs it and then its own translation from FlatCurry to ICurry.  The flags
+# follow the output directory and the search path on the command line.  They
+# must stay as they are, or the ICurry differs from the committed files.
+CURRY_FRONTEND       := {CURRY_FRONTEND}
+CURRY_FRONTEND_FLAGS := {CURRY_FRONTEND_FLAGS}
+
 # ICURRY
 # ======
-# ICurry is used to convert Curry source code into ICurry.  It can be
-# downloaded with CPM.  See
-# https://www.curry-lang.org/tools/cpm/.
+# The icurry program is the alternative route from Curry to ICurry.  It is
+# optional.  configure --with-icurry selects it; see
+# https://www.curry-lang.org/tools/cpm/.  Leave the value empty to omit it.
 ICURRY_EXECUTABLE := {ICURRY}
+
+# The route from Curry to ICurry used by default: frontend or icurry.  The
+# environment variable SPRITE_CURRY2ICURRY overrides it at run time.
+CURRY2ICURRY_TOOL := {CURRY2ICURRY_TOOL}
 
 # MISC
 # ====

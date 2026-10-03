@@ -13,6 +13,13 @@ The following are recognized:
   A colon-separated list of paths used to search for Curry modules.  Sprite
   silently appends to this the path to its system libraries.
 
+``SPRITE_HOME``
+  The installation tree of Sprite: the directory that holds ``bin``,
+  ``curry``, ``lib``, ``python``, ``sysconfig``, and ``tools``.  The
+  launchers under ``bin`` set it.  When it is not set, the Python package
+  finds the tree from its own location, so ``import curry`` works with the
+  package directory on ``PYTHONPATH``.
+
 ``SPRITE_GC_THRESHOLD``
   The number of nodes at which the collector of the C++ backend runs.  The
   default is 1048576, about 50 MB of nodes.  After a collection the
@@ -131,6 +138,14 @@ with Sprite, then you should not need these.
 
       To update all compressed JSON files, set
       ``SPRITE_CACHE_UPDATE='*.json.z'`` in the environment.
+
+``SPRITE_CURRY2ICURRY``
+  Names the route from Curry to ICurry.  ``frontend`` runs the Curry front
+  end and then Sprite's own translation from FlatCurry
+  (:mod:`curry.toolchain.flat2icurry`).  ``icurry`` runs the ``icurry``
+  program, when ``configure`` was given ``--with-icurry``.  The default is
+  the choice made by ``configure`` (option ``--curry2icurry``), else the
+  front end when it is installed.  Both routes write the same files.
 
 ``SPRITE_CXX_PCH_ROOT``
   The directory under which the C++ backend keeps the precompiled form of the

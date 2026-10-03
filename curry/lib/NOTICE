@@ -1,0 +1,41 @@
+Curry library shipped with Sprite
+=================================
+
+Origin
+------
+
+The Curry sources in this directory, except Control/SetFunctions.curry, are
+a copy of the library of PAKCS 3.4.1 (the lib directory of the binary
+distribution, https://www.curry-lang.org/pakcs/).  That library is version
+3.1.0 of the Curry package "base", as its VERSION file states.  The
+copyright holder is Michael Hanus, University of Kiel.  The license is the
+PAKCS license in the file LICENSE beside this notice.
+
+Changes
+-------
+
+Prelude.curry carries a three-line prefix:
+
+    {-# LANGUAGE CPP #-}
+    #define __KICS2__ 1
+
+The front end then compiles the KiCS2 branches of the conditional sections
+of the Prelude.  Sprite implements the primitives of those branches.  The
+rest of the file is unchanged.
+
+The other sources are unchanged.  The Prolog definitions of the externals
+(*.pakcs, *.pakcs.pl), the library Makefile, and the generated umbrella
+module AllLibraries.curry of the PAKCS distribution are not included.
+
+Sprite's own module
+-------------------
+
+Control/SetFunctions.curry is part of Sprite and is not covered by the
+PAKCS license.
+
+Pinned build products
+---------------------
+
+The .icy and .json.z files beside some sources are build products of the
+icurry tool, version 3.1.0, run with PAKCS 3.4.1 on these sources.  See
+../README.md.

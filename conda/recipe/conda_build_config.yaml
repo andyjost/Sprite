@@ -1,0 +1,6 @@
+# The variant keys that {{ stdlib("c") }} needs.  conda-forge supplies them
+# through its pinning file; a build outside conda-forge needs them here.
+c_stdlib:
+  - sysroot
+c_stdlib_version:
+  - "2.17"

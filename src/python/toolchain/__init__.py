@@ -9,7 +9,10 @@ files.  The following file types are used:
   Suffix      External Tool    Description
   +--------   +--------------  +---------------------------------------
   .curry                       Curry source code.
-  .icy        icurry           ICurry code in Curry format.
+  .icy        Curry front end  ICurry code in Curry format.  The front
+                               end writes FlatCurry; the translation to
+                               ICurry is built in (flat2icurry).  The
+                               icurry program is the alternative.
   .json[.z]                    ICurry code in JSON format [compressed].
   .py                          Curry compiled to Python.
   .cpp                         Curry compiled to C++.

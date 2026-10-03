@@ -59,11 +59,20 @@ The ``-z,--zip`` option causes JSON output to be compressed, in which case a
 ``.z`` extension is appended to the JSON file.  JSON that is both compacted and
 zipped is often smaller than JSON that is only zipped.
 
+The ``--curry2icurry`` option names the route from Curry to ICurry.
+``frontend`` runs the Curry front end and then the built-in translation from
+FlatCurry; ``icurry`` runs the ``icurry`` program.  The default is the
+value of SPRITE_CURRY2ICURRY, else the choice made by ``configure``, else
+whichever tool is installed.
+
 Environment Variables
 ---------------------
 
     CURRYPATH
         a colon-separated list of paths to search for Curry modules.
+
+    SPRITE_CURRY2ICURRY
+        names the route from Curry to ICurry: ``frontend`` or ``icurry``.
 
     SPRITE_LOG_LEVEL
         adjusts logging output.  Values are CRITICAL, ERROR,
@@ -107,6 +116,9 @@ def main(program_name, argv):
     )
   # E.g., sprite-make --icurry Prelude --json Nat
   parser.add_argument('-c', '--compact', action='store_true', help='compact JSON output')
+  parser.add_argument(      '--curry2icurry', choices=config.CURRY2ICURRY_TOOLS, default=None, metavar='TOOL'
+    , help='the route from Curry to ICurry: frontend (the Curry front end and '
+           'the built-in translation) or icurry (the icurry program)')
   parser.add_argument(      '--cxx'    , action='store_true', help='make C++ files')
   parser.add_argument(      '--so'     , action='store_true'
     , help='make shared objects for the C++ backend (implies --cxx)')

@@ -23,24 +23,42 @@ may be supplied, or the name to search for can be changed.
 
 These options are summarized in the following table:
 
-+-------------------+-------------+-------------+---------------------------+
-| Option            | Environment | Default     | Description               |
-|                   | Variable    |             |                           |
-+===================+=============+=============+===========================+
-| ``--with-cc``     | CC          | ``gcc``     | Selects the C compiler    |
-+-------------------+-------------+-------------+---------------------------+
-| ``--with-cxx``    | CXX         | ``g++``     | Selects the C++ compiler  |
-+-------------------+-------------+-------------+---------------------------+
-| ``--with-icurry`` | ICURRY      | ``icurry``  | Selects ICurry            |
-+-------------------+-------------+-------------+---------------------------+
-| ``--with-pakcs``  | PAKCS       | ``pakcs``   | Selects PAKCS             |
-+-------------------+-------------+-------------+---------------------------+
-| ``--with-prolog`` | PROLOG      | ``swipl``   | Selects Prolog            |
-+-------------------+-------------+-------------+---------------------------+
-| ``--with-python`` | PYTHON      | ``python``  | Selects Python            |
-+-------------------+-------------+-------------+---------------------------+
-| ``--with-stack``  | STACK       | ``stack``   | Selects Haskell Stack     |
-+-------------------+-------------+-------------+---------------------------+
++---------------------------+----------------+--------------------+---------------------------------+
+| Option                    | Environment    | Default            | Description                     |
+|                           | Variable       |                    |                                 |
++===========================+================+====================+=================================+
+| ``--with-cc``             | CC             | ``gcc``            | Selects the C compiler          |
++---------------------------+----------------+--------------------+---------------------------------+
+| ``--with-cxx``            | CXX            | ``g++``            | Selects the C++ compiler        |
++---------------------------+----------------+--------------------+---------------------------------+
+| ``--with-curry-frontend`` | CURRY_FRONTEND | ``pakcs-frontend`` | Selects the Curry front end.    |
+|                           |                | of PAKCS           | An empty value leaves it out.   |
++---------------------------+----------------+--------------------+---------------------------------+
+| ``--with-icurry``         | ICURRY         | none               | Selects icurry, the alternative |
+|                           |                |                    | route to ICurry (optional)      |
++---------------------------+----------------+--------------------+---------------------------------+
+| ``--with-pakcs``          | PAKCS          | ``pakcs``          | Selects PAKCS.  An empty value  |
+|                           |                |                    | leaves it out                   |
++---------------------------+----------------+--------------------+---------------------------------+
+| ``--with-prolog``         | PROLOG         | ``swipl``          | Selects Prolog                  |
++---------------------------+----------------+--------------------+---------------------------------+
+| ``--with-python``         | PYTHON         | ``python``         | Selects Python                  |
++---------------------------+----------------+--------------------+---------------------------------+
+
+Sprite translates Curry to ICurry in two steps: the Curry front end of PAKCS
+writes FlatCurry, and Sprite's own code translates that to ICurry.  The
+``icurry`` program of the Curry Package Manager does the same work and is
+kept as an alternative.  ``configure`` records it only when you pass
+``--with-icurry``.  The option ``--curry2icurry`` names the route Sprite uses
+by default; the environment variable ``SPRITE_CURRY2ICURRY`` overrides that
+choice at run time.
+
+PAKCS itself is optional.  Sprite needs its front end, which
+``--with-curry-frontend`` can name directly, and the functional tests use
+``pakcs`` as the oracle.  ``--with-pakcs ''`` builds without PAKCS; the
+intermediate directories under ``.curry`` then take their names from the
+pinned release, ``pakcs-3.4.1``, so the committed ICurry files stay valid.
+The conda recipe under ``conda/`` builds this way; see ``conda/README.md``.
 
 For example, suppose Python 3.14 is installed but it is not the system
 default.  Say::
@@ -87,7 +105,10 @@ To install these yourself, follow the instructions at the links below:
       - Prerequisites for PAKCS are:
           - `Haskell stack <https://docs.haskellstack.org/en/stable/install_and_upgrade>`__
           - Prolog (`SWI <https://www.swi-prolog.org/download/stable>`__ or `SICStus <https://sicstus.sics.se/download4.html>`__)
-  * `ICurry Compiler 3.1.0 <https://cpm.curry-lang.org/pkgs/icurry.html>`__
+      - The binary distribution includes the Curry front end,
+        ``bin/pakcs-frontend``.
+  * Optional: `ICurry Compiler 3.1.0 <https://cpm.curry-lang.org/pkgs/icurry.html>`__,
+    the alternative route from Curry to ICurry.
 
 Setting the Configuration
 -------------------------

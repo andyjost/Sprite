@@ -129,7 +129,38 @@ instance, in vim, pressing <Enter> runs "make" by default.  That shortcut can
 be used to easily run the tests directly from a text editor.  Other editors
 have similar features.
 
-8. BENCHMARKING
+8. THE ICURRY ORACLE
+--------------------
+
+The Python port of the FlatCurry-to-ICurry translation (the package
+curry.toolchain.flat2icurry) is checked against the ICurry files that icurry
+3.1.0 wrote.  Those files, with the FlatCurry files they were made from, are
+in the overlay archive at the root of the repository.  The test
+unit_flat2icurry.py checks a fixed sample of 60 files and the probe modules
+under data/curry/flat2icurry; func_flat2icurry.py checks the whole archive.
+Sprite compiles with the port by default: the Curry front end writes the
+FlatCurry, and the port writes the .icy file.  unit_curry2icurry.py checks
+that route end to end.  SPRITE_CURRY2ICURRY=icurry selects icurry instead,
+when configure was given --with-icurry.  To check files by hand, say, e.g.,
+
+        ./shell
+        python lib/flat2icurry_oracle.py --overlay
+        python lib/flat2icurry_oracle.py data/curry/.curry/pakcs-3.4.1/Peano.fcy
+
+The harness prints the first differing byte and the first differing subterm
+of each file that differs.
+
+The archive is rebuilt with `make overlay-archive` at the root of the
+repository.  The rule packs the .fcy, .fint, .icurry, .icy, and .json.z files
+under tests/ and the library interfaces that the front end writes under
+curry/lib/.curry, with fixed owner and time stamps.  The .icy files must come
+from icurry: run the tests with SPRITE_CURRY2ICURRY=icurry (configure
+--with-icurry) before the rebuild, or the port becomes its own oracle.  Two
+probe modules, TypedRoot and Externals, differ on purpose between the two
+routes; see data/curry/flat2icurry/README.md.
+
+
+9. BENCHMARKING
 ---------------
 
 The benchmark harness (lib/benchmarks) measures Sprite and PAKCS on the

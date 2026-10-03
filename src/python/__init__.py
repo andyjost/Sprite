@@ -73,7 +73,14 @@ if os.environ.get('SPRITE_ENABLE_BREAKPOINT', False):
   from .utility import breakpoint
   del breakpoint
 
-# Validate SPRITE_HOME.
+# Validate SPRITE_HOME.  When it is not set, the package finds its home from
+# its own location, <home>/python/curry/__init__.py, which is the layout
+# that make install writes.
+if 'SPRITE_HOME' not in os.environ:
+  _home = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+  if os.path.isdir(os.path.join(_home, 'sysconfig')):
+    os.environ['SPRITE_HOME'] = _home
+  del _home
 if 'SPRITE_HOME' not in os.environ:
   raise ImportError('SPRITE_HOME is not set in the environment')
 if not os.path.isdir(os.environ['SPRITE_HOME']):

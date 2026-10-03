@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
-'''Prints the names of all Curry system libraries.'''
-import os
+'''
+Prints the names of the Curry system libraries, one per line.
 
-def get_modules():
-  yield 'Prelude'
-  for dirpath, dirnames, filenames in os.walk('.'):
-    dirnames[:] = [dirname for dirname in dirnames if not dirname.startswith('pakcs')]
+The sources live under lib/ beside this script.  The Prelude comes first.
+The other names are sorted.
+'''
+import os, sys
+
+def get_modules(root=None):
+  if root is None:
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
+  names = set()
+  for dirpath, dirnames, filenames in os.walk(root):
+    dirnames[:] = [d for d in dirnames if not d.startswith('.')]
     for filename in filenames:
       if filename.endswith('.curry'):
-        fullname = os.path.join(dirpath, filename[:-6])
-        yield '.'.join(
-            part for part in fullname.split(os.sep)
-            if part and not part.startswith('.')
-          )
+        relpath = os.path.relpath(os.path.join(dirpath, filename[:-6]), root)
+        names.add('.'.join(relpath.split(os.sep)))
+  if 'Prelude' in names:
+    yield 'Prelude'
+    names.remove('Prelude')
+  for name in sorted(names):
+    yield name
 
 if __name__ == '__main__':
-  for module in get_modules():
+  for module in get_modules(*sys.argv[1:2]):
     print(module)

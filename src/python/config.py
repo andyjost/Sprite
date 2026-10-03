@@ -139,12 +139,21 @@ enable_icurry_cache       = _Variable('enable_icurry_cache', type=bool)
 enable_parsed_json_cache  = _Variable('enable_parsed_json_cache', type=bool)
 # The name of the subdirectory of .curry in which to place Sprite files.
 intermediate_subdir       = _Variable('intermediate_subdir')
+# The name of the subdirectory of .curry into which the Curry front end
+# writes FlatCurry.  It names the front end, e.g., pakcs-3.4.1.
+frontend_subdir           = _Variable('frontend_subdir')
+# The options passed to the Curry front end after the output directory and
+# the search path, as one string.
+frontend_flags            = _Variable('frontend_flags')
+# The route from Curry to ICurry chosen at configuration time: 'frontend' or
+# 'icurry'.  Empty when configure left the choice open.
+default_curry2icurry_tool = _Variable('curry2icurry_tool')
 # The name of the top-level Python package.  By default, 'curry'.
 python_package_name       = _Variable('python_package_name')
-# The version of the Curry library.  Corresponds with a PAKCS version, since
-# that is where the Prelude is taken from.
+# The version of the Curry library.  It names the PAKCS release whose library
+# Sprite ships under curry/lib.  Some tests key their expectations on it.
 currylib_version          = _Variable('currylib_version')
-# The names of all files in the system Curry library.
+# The names of all modules in the system Curry library, the Prelude first.
 currylib_module_names     = _Variable('currylib_module_names')
 # The name of the default backend.
 default_backend           = _Variable('default_backend')
@@ -153,6 +162,10 @@ ld_interpreter_path       = _Variable('ld_interpreter_path')
 
 
 def syslibs():
+  '''
+  The names of the modules of the system Curry library.  Each one is found as
+  a source under :func:`system_curry_path`.
+  '''
   return currylib_module_names().split()
 
 def syslibversion():
@@ -241,12 +254,52 @@ def cxx_tool(cached=[]):
     cached.append(cxx if os.path.exists(cxx) else None)
   return cached[0]
 
+def curry_frontend(cached=[]):
+  '''The Curry front end, if it is configured.  Otherwise, None.'''
+  if not cached:
+    path = installed_path('tools', 'curry-frontend')
+    cached.append(os.path.abspath(path) if os.path.exists(path) else None)
+  return cached[0]
+
 def icurry_tool(cached=[]):
+  '''The icurry program, if it is configured.  Otherwise, None.'''
   if not cached:
     path = installed_path('tools', 'icurry')
-    path = os.path.abspath(path)
-    cached.append(path)
+    cached.append(os.path.abspath(path) if os.path.exists(path) else None)
   return cached[0]
+
+# The names of the routes from Curry to ICurry.
+CURRY2ICURRY_TOOLS = 'frontend', 'icurry'
+
+def curry2icurry_tool(name=None):
+  '''
+  The name of the route from Curry to ICurry.  ``frontend`` runs the Curry
+  front end and the built-in translation; ``icurry`` runs the icurry program.
+
+  Args:
+    name:
+        A name given by the caller.  It wins when it is not None.
+
+  The environment variable SPRITE_CURRY2ICURRY comes next, then the choice of
+  configure, then whichever tool is installed, the front end first.
+  '''
+  if name is None:
+    name = os.environ.get('SPRITE_CURRY2ICURRY') or default_curry2icurry_tool()
+  if not name:
+    if curry_frontend() is not None:
+      name = 'frontend'
+    elif icurry_tool() is not None:
+      name = 'icurry'
+    else:
+      raise ValueError(
+          'no route from Curry to ICurry is configured; rerun configure'
+        )
+  if name not in CURRY2ICURRY_TOOLS:
+    raise ValueError(
+        'the Curry-to-ICurry tool should be one of %s, not %r'
+            % (', '.join(repr(x) for x in CURRY2ICURRY_TOOLS), name)
+      )
+  return name
 
 def python_exe(cached=[]):
   if not cached:

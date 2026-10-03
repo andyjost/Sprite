@@ -53,10 +53,10 @@ endif
 	@echo "    install PREFIX=<dirname>   : install files under <dirname>"
 	@echo "    uninstall PREFIX=<dirname> : uninstall files under <dirname>"
 	@echo ""
-	@echo "Targets to overlay PAKCS files (improves test speed):"
-	@echo "-----------------------------------------------------"
-	@echo "    overlay         : overlay PAKCS files"
-	@echo "    overlay-archive : build a new archive of overlayable files"
+	@echo "Targets to overlay prebuilt test products (improves test speed):"
+	@echo "-----------------------------------------------------------------"
+	@echo "    overlay         : extract the prebuilt products of the test programs"
+	@echo "    overlay-archive : build a new archive of the test products"
 	@echo ""
 	@echo "Targets for debugging the build:"
 	@echo "--------------------------------"
@@ -68,28 +68,41 @@ endif
 # @echo "To build documentation, add WITHDOC=1 to the commandline or invoke"
 # @echo "make from the docs/ subdirectory."
 
-# The overlay archive captures build products for a particular version of
-# PAKCS.  Installing these dramatically improves the test performance.
+# The overlay archive holds the FlatCurry and ICurry products of the test
+# programs and the FlatCurry interfaces of the Curry library, for the pinned
+# PAKCS.  Extracting the test products makes the tests much faster.  The
+# archive is also the fixed oracle of the FlatCurry-to-ICurry port: its .icy
+# files were written by icurry 3.1.0 (see tests/README, section 8).
+#
+# overlay-archive packs the products on disk.  Rebuild the archive only from
+# .icy files that icurry wrote (SPRITE_CURRY2ICURRY=icurry), never from the
+# output of the port that the oracle checks.  Only the five product kinds are
+# packed; the compiled forms beside them (.py, .cpp, .so) are left out.  The
+# library interfaces come from the front end (make -C curry interfaces).  The
+# metadata is fixed, so the archive names no user, and the same products give
+# the same bytes.
 OVERLAY_ARCHIVE := overlay-$(PAKCS_SUBDIR).tgz
 OVERLAY_LIST_FILE := OVERLAY_FILES.txt
+OVERLAY_PRODUCTS := -name '*.fcy' -o -name '*.fint' -o -name '*.icurry' \
+                    -o -name '*.icy' -o -name '*.json.z'
+OVERLAY_TAR_FLAGS := --sort=name --owner=0 --group=0 --numeric-owner \
+                     --mtime='2000-01-01 00:00:00Z'
 .PHONY: overlay overlay-archive $(OVERLAY_ARCHIVE) $(OVERLAY_LIST_FILE)
 $(OVERLAY_LIST_FILE):
-	find tests -type f -wholename '*/.curry/*$(PAKCS_SUBDIR)*' >  $(OVERLAY_LIST_FILE)
-	find curry/$(PAKCS_SUBDIR) -type f                         >> $(OVERLAY_LIST_FILE)
+	$(MAKE) -C curry interfaces
+	find tests curry/lib -type f -path '*/.curry/*$(PAKCS_SUBDIR)/*' \
+	    \( $(OVERLAY_PRODUCTS) \) | LC_ALL=C sort > $@
 $(OVERLAY_ARCHIVE): $(OVERLAY_LIST_FILE)
-	tar cvT $(OVERLAY_LIST_FILE) | gzip -n > $@
+	tar c $(OVERLAY_TAR_FLAGS) -T $(OVERLAY_LIST_FILE) | gzip -n > $@
 	rm $(OVERLAY_LIST_FILE)
 overlay-archive: $(OVERLAY_ARCHIVE)
 ifeq ($(shell [ -e $(OVERLAY_ARCHIVE) ]; echo $$?),1)
 overlay:
 else
-# After extraction, touch the prebuilt library products so they are newer than
-# the (symlinked) .curry sources and make does not rebuild them.  -type f skips
-# the symlinks.  Every file gets the same timestamp so that a regular-file
-# source (Prelude.curry) cannot end up newer than its products.
+# Only the test products are extracted.  The library interfaces serve the
+# oracle tests, which extract the archive into a scratch directory.
 overlay:
-	tar xvzf $(OVERLAY_ARCHIVE)
-	find curry/$(PAKCS_SUBDIR) -type f -exec touch -d "@$$(date +%s)" {} +
+	tar xvzf $(OVERLAY_ARCHIVE) --wildcards 'tests/*'
 endif
 
 # Remove a directory.  If the path is a symlink, remove the contents of the

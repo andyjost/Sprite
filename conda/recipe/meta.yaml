@@ -1,0 +1,94 @@
+# Conda recipe for Sprite (linux-64).  A scaffold: not published.  See
+# ../README.md for the layout of the package, the second recipe that
+# provides the Curry front end, and the open questions.
+#
+# Keep the version equal to the VERSION file at the repository root.
+{% set version = "0.9" %}
+
+package:
+  name: sprite
+  version: {{ version }}
+
+source:
+  # The repository, two levels up.  The source must carry the pybind11
+  # submodule under extern/pybind11.  A release tarball from GitHub does not;
+  # build from a clone, or add pybind11 to the host requirements and point
+  # the include path at it (see ../README.md).
+  path: ../..
+
+build:
+  number: 0
+  skip: true  # [not linux64]
+  # Sprite's tree lives under opt/sprite (see build.sh).  libcyrt.so is in
+  # opt/sprite/lib, so the run path of the extension module names that
+  # directory as well as lib.
+  rpaths:
+    - lib
+    - opt/sprite/lib
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ stdlib('c') }}
+    - make
+  host:
+    - python 3.14.*
+    # Header-only use: boost/preprocessor, boost/io, boost/utility.
+    - libboost-headers
+    # configure checks for jq, and build.sh links tools/jq to it.
+    - jq
+    # configure checks the front end, and build.sh runs it over the Curry
+    # library so that the package holds the FlatCurry of the library.
+    - curry-frontend 2.0.0.*
+  run:
+    - python 3.14.*
+    - jq
+    # The front end writes FlatCurry; Sprite translates it to ICurry.  Its
+    # own run dependency is gmp (libgmp).  The ICurry oracle depends on this
+    # exact front end, so the pin is exact.
+    - curry-frontend 2.0.0.*
+    # The C++ backend compiles the code it generates at run time against the
+    # installed headers, which include Boost.  The metapackage brings the
+    # compiler of the platform; tools/cxx resolves it at run time (see
+    # build.sh).
+    - cxx-compiler
+    - libboost-headers
+
+test:
+  # The commands with a Curry program are block scalars: a plain YAML scalar
+  # cannot hold the ": " of a type signature.
+  commands:
+    - sprite-exec --help
+    - sprite-make --help
+    - python -c "import curry; print(curry.config.prefix())"
+    # The Python backend.
+    - >-
+      d=$(mktemp -d) && cd "$d" &&
+      printf 'main :: Int\nmain = 6 * 7\n' > Smoke.curry &&
+      sprite-exec Smoke.curry | grep -x 42
+    # The C++ backend compiles the Prelude with the compiler of the
+    # environment; this takes a few minutes.
+    - >-
+      d=$(mktemp -d) && cd "$d" &&
+      printf 'main :: Int\nmain = 6 * 7\n' > Smoke.curry &&
+      SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec Smoke.curry | grep -x 42
+
+about:
+  home: https://github.com/andyjost/Sprite
+  summary: Sprite, a compiler and runtime for the Curry language
+  description: |
+    Sprite compiles Curry to Python or C++ behind a Python API.  The package
+    installs the Sprite tree under opt/sprite, the launchers sprite-exec and
+    sprite-make under bin, and makes the Python package curry importable.
+    The Curry front end of PAKCS comes from the package curry-frontend.
+  doc_url: https://andyjost.github.io/Sprite/
+  dev_url: https://github.com/andyjost/Sprite
+  # The repository has no license file yet; add one and name it here before
+  # the package is published (see ../README.md).  The notices below cover
+  # the third-party parts that the package ships: the Curry library of PAKCS
+  # and the pybind11 headers compiled into the extension module.
+  license_file:
+    - curry/lib/LICENSE
+    - curry/lib/NOTICE
+    - extern/pybind11/LICENSE

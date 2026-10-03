@@ -26,12 +26,15 @@ jobs:
     timeout-minutes: 150
     strategy:
       fail-fast: false
+      # The py job builds the default configuration, without icurry.  The
+      # cxx jobs configure icurry too, so that the tests compare both routes
+      # from Curry to ICurry.
       matrix:
         include:
-          - { backend: py, shard: '1/1' }
-          - { backend: cxx, shard: '1/3' }
-          - { backend: cxx, shard: '2/3' }
-          - { backend: cxx, shard: '3/3' }
+          - { backend: py, shard: '1/1', icurry: '' }
+          - { backend: cxx, shard: '1/3', icurry: '$HOME/.cpm/bin/icurry' }
+          - { backend: cxx, shard: '2/3', icurry: '$HOME/.cpm/bin/icurry' }
+          - { backend: cxx, shard: '3/3', icurry: '$HOME/.cpm/bin/icurry' }
     steps:
       - uses: actions/checkout@v4
         with:
@@ -101,7 +104,7 @@ jobs:
             --with-python="$(command -v python)" \
             --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
             --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry="$HOME/.cpm/bin/icurry"
+            --with-icurry="${{ matrix.icurry }}"
           make stage
       - name: Unit tests
         run: .github/scripts/run-tests.sh ${{ matrix.backend }} 'unit_*.py' ${{ matrix.shard }}
@@ -157,7 +160,7 @@ jobs:
           python ./configure \
             --with-python="$(command -v python)" \
             --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry="$HOME/.cpm/bin/icurry"
+            --with-icurry=""
           make stage
           make -C docs html
       - uses: actions/upload-pages-artifact@v3

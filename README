@@ -35,6 +35,9 @@ platform's package manager (currently, only apt is supported) and Python's
 package manger (pip).  If you prefer more control, see the installation guide
 in the documentation.
 
+A conda recipe for linux-64 is under development under conda/.  It is not
+published; conda/README.md describes it.
+
 
 3. Running a Program
 --------------------

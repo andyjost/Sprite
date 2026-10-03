@@ -46,14 +46,15 @@ except ImportError:
   logger.warning("Cannot import sqlite3.  Caching is disabled")
 
 # The state of this module for one process: the cache file name, the update
-# matcher, the database connection, and the digest of the front end.
+# matcher, the database connection, and the digest of each route from Curry
+# to ICurry.
 # ``reset`` clears it, so a test can change the environment.
 _memo = {}
 
 def reset():
   '''
   Forgets the cache file, the update pattern, the database connection, and
-  the front-end digest.  The next use reads the environment again.
+  the digests of the routes.  The next use reads the environment again.
   '''
   db = _memo.get('db')
   if db is not None:
@@ -171,21 +172,56 @@ def _sourceinfo(path):
     data = stream.read()
   return SourceInfo(path, data)
 
-def frontend_digest():
+# The sources of the built-in translation from FlatCurry to ICurry
+# (curry.toolchain.flat2icurry).  They are part of the digest of the
+# front-end route: a change to the translation changes the ICurry as a new
+# front end would.
+PORT_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'toolchain', 'flat2icurry'
+  )
+
+def _digest_file(hasher, path):
+  with open(path, 'rb') as stream:
+    hasher.update(stream.read())
+  hasher.update(b'\0')
+
+def frontend_digest(tool=None):
   '''
-  A digest of the Curry front end: the content of the ``icurry`` tool.  A new
-  front end makes a new key.  The empty string when the tool is missing.
+  A digest of the route from Curry to ICurry named by ``tool`` (see
+  ``config.curry2icurry_tool``; the configured route by default).  For
+  ``icurry`` it covers the name of the route and the content of the
+  ``icurry`` program.  For ``frontend`` it covers the name, the content of
+  the Curry front end, the front-end flags, and the sources of the built-in
+  translation.  So a new front end, new flags, or a change to the translation
+  makes a new key, and an entry written by one route is never served to the
+  other.  The empty string when the program of the route is missing.
   '''
-  if 'frontend' not in _memo:
-    digest = ''
+  if tool is None:
+    tool = config.curry2icurry_tool()
+  memokey = 'frontend:' + tool
+  if memokey not in _memo:
+    hasher = hashlib.sha256()
+    hasher.update(tool.encode('utf-8') + b'\0')
     try:
-      tool = os.path.realpath(config.icurry_tool())
-      with open(tool, 'rb') as stream:
-        digest = hashlib.sha256(stream.read()).hexdigest()
+      if tool == 'icurry':
+        program = config.icurry_tool()
+      else:
+        program = config.curry_frontend()
+      if program is None:
+        raise OSError('the %s route is not configured' % tool)
+      _digest_file(hasher, os.path.realpath(program))
+      if tool == 'frontend':
+        hasher.update(config.frontend_flags().encode('utf-8') + b'\0')
+        for name in sorted(os.listdir(PORT_DIR)):
+          if name.endswith('.py'):
+            hasher.update(name.encode('utf-8') + b'\0')
+            _digest_file(hasher, os.path.join(PORT_DIR, name))
+      digest = hasher.hexdigest()
     except OSError as err:
       logger.debug('cannot read the Curry front end: %s', err)
-    _memo['frontend'] = digest
-  return _memo['frontend']
+      digest = ''
+    _memo[memokey] = digest
+  return _memo[memokey]
 
 def import_closure(curryfile, currypath=()):
   '''
@@ -218,14 +254,16 @@ def import_closure(curryfile, currypath=()):
       break
   return closure
 
-def icurry_cache_key(curryfile, currypath=(), options=()):
+def icurry_cache_key(curryfile, currypath=(), options=(), tool=None):
   '''
   The key under which the ICurry of ``curryfile`` is cached.
 
   The key is a digest of the source text of the module, the source texts of
   the modules it imports (see ``import_closure``), the front-end options, the
-  front end itself, and the intermediate subdirectory, which names the version
-  of the Curry library.  The directory of the file is not part of the key.
+  route from Curry to ICurry with its program and flags (see
+  ``frontend_digest``), and the intermediate subdirectory, which names the
+  version of the Curry library.  The directory of the file is not part of the
+  key.
   The module name is part of the key for a named module, because the front
   end writes it into the ICurry.  For an anonymous module (see
   ``config.is_anonymous_modname``) the name is left out, and the cached text
@@ -238,6 +276,9 @@ def icurry_cache_key(curryfile, currypath=(), options=()):
         The Curry search path used for the conversion.
     options:
         The front-end options that change its output.
+    tool:
+        The route from Curry to ICurry, ``frontend`` or ``icurry``.  The
+        configured route by default.
 
   Returns:
     A hex digest.
@@ -248,7 +289,7 @@ def icurry_cache_key(curryfile, currypath=(), options=()):
     hasher.update(b'\0')
   put('sprite curry2icurry %d' % KEY_FORMAT)
   put(config.intermediate_subdir())
-  put(frontend_digest())
+  put(frontend_digest(tool))
   put(' '.join(options))
   modulename = os.path.basename(curryfile)[:-len('.curry')]
   put('' if config.is_anonymous_modname(modulename) else modulename)
@@ -343,7 +384,7 @@ class Curry2ICurryCache(object):
     file and update its entry, or ``update_error`` with the exception of the
     front end.
     '''
-    def __init__(self, file_in, file_out, currypath=(), options=()):
+    def __init__(self, file_in, file_out, currypath=(), options=(), tool=None):
       '''
       Looks the conversion up.  If the entry exists in the cache, then the
       cached result is written to file_out and this object evaluates to True,
@@ -358,6 +399,8 @@ class Curry2ICurryCache(object):
             The Curry search path of the conversion.
         options:
             The front-end options that change its output.
+        tool:
+            The route from Curry to ICurry; see ``frontend_digest``.
       '''
       self.file_in = file_in
       self.file_out = file_out
@@ -370,7 +413,7 @@ class Curry2ICurryCache(object):
       self.modulename = os.path.splitext(os.path.basename(file_out))[0]
       self.anonymous = config.is_anonymous_modname(self.modulename)
       try:
-        self.key = icurry_cache_key(file_in, currypath, options)
+        self.key = icurry_cache_key(file_in, currypath, options, tool)
         self.db.execute(
             'CREATE TABLE IF NOT EXISTS [%s]('
             'key TEXT PRIMARY KEY, name TEXT NOT NULL, text TEXT NOT NULL'

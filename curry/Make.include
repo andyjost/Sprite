@@ -1,89 +1,162 @@
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
 
-ifndef CURRYLIB_SRC_FILES
-  CURRYLIB_SRC_FILES = $(wildcard *.curry)
-endif
-CURRYLIB_ROOT = $(ROOT_DIR)/curry
-CURRYLIB_PACKAGE_SUBDIR = $(shell realpath --relative-to $(CURRYLIB_ROOT) $(shell pwd))
-
-# The subdirectory here in the source tree corresponding to the configured
-# version of PAKCS.  The .curry, .icy, and .json* files there.
-CURRYLIB_SUBDIR = $(ROOT_DIR)/curry/$(PAKCS_SUBDIR)/$(CURRYLIB_PACKAGE_SUBDIR)
-CURRYLIB_SRC = $(addprefix $(CURRYLIB_SUBDIR)/,$(CURRYLIB_SRC_FILES))
-CURRYLIB_ICY = $(CURRYLIB_SRC:.curry=.icy)
-CURRYLIB_JSON = $(CURRYLIB_SRC:.curry=.json.z)
-
-# Note: INSTALL_DIR is the root of the Curry library in the installation tree.
-# E.g., this is probably $(PREFIX)/curry.
+# The Curry library
+# =================
+# The sources live under lib/.  See lib/NOTICE for their origin.  Beside a
+# source there may be a committed ICurry file (.icy) and its JSON form
+# (.json.z).  Those are pinned artifacts of the configured PAKCS and icurry
+# versions.  make installs them and never rebuilds a committed .icy file
+# unless SPRITE_REBUILD_ICY is set.  Every other module is installed as
+# source; the prebuild step (see Makefile) compiles it into the installation.
 #
-# The subdirectory under INSTALL_DIR where the .icy and .json* files will be
-# placed.  E.g., $(PREFIX)/curry/.curry/pakcs-3.3.0.
-CURRYLIB_INSTALL_SUBDIR = $(INSTALL_DIR)/.curry/$(INTERMEDIATE_SUBDIR)
-CURRYLIB_INSTALL_SRC = $(addprefix $(INSTALL_DIR)/,$(CURRYLIB_SRC_FILES))
-CURRYLIB_INSTALL_ICY = $(addprefix $(CURRYLIB_INSTALL_SUBDIR)/,$(CURRYLIB_SRC_FILES:.curry=.icy))
-CURRYLIB_INSTALL_JSON = $(addprefix $(CURRYLIB_INSTALL_SUBDIR)/,$(CURRYLIB_SRC_FILES:.curry=.json.z))
-CURRYLIB_INSTALL_FILES = $(CURRYLIB_INSTALL_SRC) $(CURRYLIB_INSTALL_ICY) $(CURRYLIB_INSTALL_JSON)
+# INSTALL_DIR is the root of the Curry library in the installation tree,
+# $(PREFIX)/curry.  A source lib/A/B.curry is installed as
+# $(INSTALL_DIR)/A/B.curry.  Its products are installed as
+# $(INSTALL_DIR)/A/.curry/$(INTERMEDIATE_SUBDIR)/B.icy and B.json.z.  The
+# FlatCurry interfaces of every module are written by the front end into
+# $(INSTALL_DIR)/.curry/$(FRONTEND_SUBDIR)/A/B.fint; see below.
+CURRYLIB_ROOT := $(ROOT_DIR)/curry/lib
+CURRYLIB_NOTICES := LICENSE NOTICE
 
-# Do not clean via the normal rule because these files are not placed under
-# object_root.  The Curry library is special because a fresh download of Sprite
-# should contain them.  They are in a cache of sorts, intended to streamline
-# installation.
-clean-currylib:
-	$(call clean_files,$(CURRYLIB_SRC) $(CURRYLIB_ICY) $(CURRYLIB_JSON),rm -f)
-	$(call clean_files,$(CURRYLIB_SUBDIR),rmdir)
+# Module sources relative to CURRYLIB_ROOT, the Prelude first.
+CURRYLIB_SRC_FILES := Prelude.curry $(filter-out Prelude.curry, \
+    $(sort $(shell cd $(CURRYLIB_ROOT) && find . -name '*.curry' -type f \
+        -not -path '*/.curry/*' | sed 's|^\./||')))
+CURRYLIB_ICY_FILES  := $(CURRYLIB_SRC_FILES:.curry=.icy)
+CURRYLIB_JSON_FILES := $(CURRYLIB_SRC_FILES:.curry=.json.z)
+CURRYLIB_SRC  := $(addprefix $(CURRYLIB_ROOT)/,$(CURRYLIB_SRC_FILES))
+CURRYLIB_ICY  := $(addprefix $(CURRYLIB_ROOT)/,$(CURRYLIB_ICY_FILES))
+CURRYLIB_JSON := $(addprefix $(CURRYLIB_ROOT)/,$(CURRYLIB_JSON_FILES))
 
-# The files that the prebuild step writes into the installation (see
-# curry/Makefile): the generated Python and C++ sources, the shared objects
-# with their ABI stamps, and the bytecode cache of the Python files.
-CURRYLIB_INSTALL_PRODUCTS = $(foreach suffix,.py .cpp .so .so.abi,\
-    $(addprefix $(CURRYLIB_INSTALL_SUBDIR)/,\
-        $(CURRYLIB_SRC_FILES:.curry=$(suffix))))
+# The pinned artifacts: the committed .icy files and their JSON.
+CURRYLIB_PINNED_ICY_FILES  := $(patsubst $(CURRYLIB_ROOT)/%,%,$(wildcard $(CURRYLIB_ICY)))
+CURRYLIB_PINNED_JSON_FILES := $(CURRYLIB_PINNED_ICY_FILES:.icy=.json.z)
 
-FILES_TO_UNINSTALL += $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_INSTALL_PRODUCTS)
-DIRS_TO_REC_UNINSTALL += $(CURRYLIB_INSTALL_SUBDIR)/__pycache__
-DIRS_TO_UNINSTALL += $(CURRYLIB_INSTALL_SUBDIR) $(INSTALL_DIR)/.curry
+# $(call currylib_installed_product,Data/Char.icy) gives
+# $(INSTALL_DIR)/Data/.curry/$(INTERMEDIATE_SUBDIR)/Char.icy.
+currylib_installed_product = \
+    $(abspath $(INSTALL_DIR)/$(dir $1).curry/$(INTERMEDIATE_SUBDIR)/$(notdir $1))
+# $(call currylib_installed_flat,Data/Char.fcy) gives
+# $(INSTALL_DIR)/Data/.curry/$(FRONTEND_SUBDIR)/Char.fcy, the file the front
+# end writes when sprite-make compiles the module in its own directory.
+currylib_installed_flat = \
+    $(abspath $(INSTALL_DIR)/$(dir $1).curry/$(FRONTEND_SUBDIR)/$(notdir $1))
 
-.PHONY: srcs icy json currylib objs
+# The directories from the given ones up to, but not including, INSTALL_DIR.
+currylib_ancestors = $(foreach d,$1,$(if $(filter-out $(INSTALL_DIR),$d), \
+    $d $(call currylib_ancestors,$(patsubst %/,%,$(dir $d)))))
+
+# The products of the top-level modules, the Prelude among them.
+CURRYLIB_INSTALL_SUBDIR := $(INSTALL_DIR)/.curry/$(INTERMEDIATE_SUBDIR)
+
+CURRYLIB_INSTALL_SRC   := $(addprefix $(INSTALL_DIR)/,$(CURRYLIB_SRC_FILES) $(CURRYLIB_NOTICES))
+CURRYLIB_INSTALL_ICY   := $(foreach f,$(CURRYLIB_PINNED_ICY_FILES),$(call currylib_installed_product,$f))
+CURRYLIB_INSTALL_JSON  := $(foreach f,$(CURRYLIB_PINNED_JSON_FILES),$(call currylib_installed_product,$f))
+CURRYLIB_INSTALL_FILES := $(CURRYLIB_INSTALL_SRC) $(CURRYLIB_INSTALL_ICY) $(CURRYLIB_INSTALL_JSON)
+
+# The FlatCurry interfaces of the library
+# =======================================
+# The front end writes the FlatCurry (.fcy), the interface (.fint), and the
+# Curry interface (.icurry) of every module it compiles.  One run over the
+# modules of a directory writes them under <dir>/.curry/$(FRONTEND_SUBDIR)/,
+# the hierarchical module A.B at A/B.fint.  The installation carries them, so
+# the front end reads them when a program imports a library module and never
+# writes into the installation tree.  The same run under lib/ supplies the
+# library members of the overlay archive (make interfaces).
+CURRYLIB_MODULES  := $(subst /,.,$(CURRYLIB_SRC_FILES:.curry=))
+CURRYLIB_FLAT_DIR := .curry/$(FRONTEND_SUBDIR)
+# $(call currylib_flat_files,DIR) lists the files the front end writes.
+currylib_flat_files = $(foreach m,$(CURRYLIB_SRC_FILES:.curry=), \
+    $(addprefix $1/$(CURRYLIB_FLAT_DIR)/$m,.fcy .fint .icurry))
+# $(call currylib_frontend,DIR) runs the front end over the modules in DIR.
+define currylib_frontend =
+@if [ -z "$(strip $(CURRY_FRONTEND))" ]; then \
+  echo "CURRY_FRONTEND is not set: the library interfaces cannot be written." 1>&2; \
+  exit 1; fi
+cd $1 && $(CURRY_FRONTEND) --flat -o $(CURRYLIB_FLAT_DIR) --no-verb --no-warn \
+    --no-overlap-warn $(CURRY_FRONTEND_FLAGS) -i . $(CURRYLIB_MODULES)
+endef
+ifneq ($(strip $(CURRY_FRONTEND)),)
+  CURRYLIB_INSTALL_FLAT := $(call currylib_flat_files,$(INSTALL_DIR))
+  # One run writes every file.  The Prelude interface stands for all of them.
+  CURRYLIB_FLAT_STAMP   := $(INSTALL_DIR)/$(CURRYLIB_FLAT_DIR)/Prelude.fint
+endif
+
+# The products of the prebuild step
+# =================================
+# The prebuild step (see Makefile) compiles the installed library for both
+# backends.  For every module it may write, beside the pinned products, the
+# ICurry and the JSON of a module shipped as source only, the generated
+# Python and C++ sources, the shared object with its ABI stamp, and the
+# bytecode cache of the Python file, all under
+# <package>/.curry/$(INTERMEDIATE_SUBDIR)/.  The front end, when sprite-make
+# runs it on a module, writes the FlatCurry of that module under
+# <package>/.curry/$(FRONTEND_SUBDIR)/.  make uninstall removes them all.
+CURRYLIB_PRODUCT_SUFFIXES := .icy .json.z .py .cpp .so .so.abi
+CURRYLIB_INSTALL_PRODUCTS := \
+    $(foreach s,$(CURRYLIB_PRODUCT_SUFFIXES),$(foreach f,$(CURRYLIB_SRC_FILES:.curry=$s), \
+        $(call currylib_installed_product,$f))) \
+    $(foreach s,.fcy .fint .icurry,$(foreach f,$(CURRYLIB_SRC_FILES:.curry=$s), \
+        $(call currylib_installed_flat,$f)))
+CURRYLIB_INSTALL_PYCACHE := $(sort $(foreach f,$(CURRYLIB_SRC_FILES), \
+    $(abspath $(INSTALL_DIR)/$(dir $f).curry/$(INTERMEDIATE_SUBDIR)/__pycache__)))
+
+CURRYLIB_INSTALL_DIRS  := $(sort $(call currylib_ancestors, \
+    $(patsubst %/,%,$(dir $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_INSTALL_FLAT) \
+                         $(CURRYLIB_INSTALL_PRODUCTS)))))
+
+FILES_TO_UNINSTALL += $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_INSTALL_FLAT) \
+                      $(CURRYLIB_INSTALL_PRODUCTS)
+DIRS_TO_REC_UNINSTALL += $(CURRYLIB_INSTALL_PYCACHE)
+# Deepest directories first, so that rmdir removes the tree bottom-up.
+DIRS_TO_UNINSTALL := $(call reverse,$(sort $(DIRS_TO_UNINSTALL) $(CURRYLIB_INSTALL_DIRS)))
+
+.PHONY: icy json currylib clean-currylib interfaces
 .PHONY: install
 
-srcs : $(CURRYLIB_SRC)
+# Build the products of every module in the source tree.  This is the way to
+# pre-build a module or to regenerate the pinned artifacts; see README.md.
 icy  : $(CURRYLIB_ICY)
 json : $(CURRYLIB_JSON)
-currylib:: srcs icy json
+currylib:: icy json
 
-# The sources are needed prior to installation.  Extend target `objs` to
-# achieve that.
-objs :: srcs
-install :: $(CURRYLIB_INSTALL_FILES)
+# The FlatCurry interfaces of the library in the source tree, under
+# lib/.curry/$(FRONTEND_SUBDIR)/.  The overlay archive packs them.
+interfaces:
+	$(call currylib_frontend,$(CURRYLIB_ROOT))
 
-$(CURRYLIB_SUBDIR):
-	mkdir -p $@
+install :: $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_FLAT_STAMP)
 
-$(CURRYLIB_INSTALL_SUBDIR):
-	mkdir -p $@
+ifneq ($(strip $(CURRY_FRONTEND)),)
+$(CURRYLIB_FLAT_STAMP): $(CURRYLIB_INSTALL_SRC)
+	$(call currylib_frontend,$(INSTALL_DIR))
+endif
 
-$(CURRYLIB_INSTALL_SUBDIR)/% : $(CURRYLIB_SUBDIR)/% | $(CURRYLIB_INSTALL_SUBDIR)
+# The committed files stay.  This removes the scratch directories that the
+# front end and sprite-make leave under lib/ when a product is rebuilt.
+clean-currylib:
+	find $(CURRYLIB_ROOT) -type d -name .curry -prune -exec rm -rf {} +
+
+# Sources and notices are copied as they are.
+$(INSTALL_DIR)/% : $(CURRYLIB_ROOT)/%
+	@mkdir -p $(dir $@)
 	cp $< $@
 
-$(INSTALL_DIR)/% : $(CURRYLIB_SUBDIR)/% | $(CURRYLIB_INSTALL_SUBDIR)
-	cp $< $@
+# The pinned products go to the intermediate subdirectory of their package.
+define currylib_install_product_rule =
+$(call currylib_installed_product,$1): $(CURRYLIB_ROOT)/$1
+	@mkdir -p $$(dir $$@)
+	cp $$< $$@
+endef
+$(foreach f,$(CURRYLIB_PINNED_ICY_FILES) $(CURRYLIB_PINNED_JSON_FILES), \
+    $(eval $(call currylib_install_product_rule,$f)))
 
-$(CURRYLIB_SUBDIR)/%.curry : %.curry | $(CURRYLIB_SUBDIR)
-	@rm -f $@
-	ln -s $(shell realpath --relative-to $(dir $@) $<) $@
-
-$(CURRYLIB_SUBDIR)/Prelude.curry : | $(CURRYLIB_SUBDIR)
-	echo '{-# LANGUAGE CPP #-}'         >  $@
-	echo '#define __KICS2__ 1'          >> $@
-	echo                                >> $@
-	cat $(PAKCS_HOME)/lib/Prelude.curry >> $@
-
-# The committed .icy and .json.z files are pinned to the configured PAKCS and
-# icurry versions.  A committed .icy file is kept, even when the Curry source
-# has a newer time stamp, unless SPRITE_REBUILD_ICY is set.  The JSON is
-# derived from the .icy file, so icurry never runs for a stale time stamp.
-$(CURRYLIB_SUBDIR)/%.icy : $(CURRYLIB_SUBDIR)/%.curry | $(CURRYLIB_SUBDIR)
+# A committed .icy file is kept, even when the Curry source has a newer time
+# stamp, unless SPRITE_REBUILD_ICY is set.  The JSON is derived from the .icy
+# file, so the front end never runs for a stale time stamp.  sprite-make comes
+# from the installation tree, so src/ must be installed first.
+$(CURRYLIB_ROOT)/%.icy : $(CURRYLIB_ROOT)/%.curry
 	@if [ -e $@ ] && [ -z "$(SPRITE_REBUILD_ICY)" ]; then \
 	  echo "Keeping the committed $@ (set SPRITE_REBUILD_ICY=1 to rebuild it)."; \
 	  touch $@; \
@@ -92,6 +165,5 @@ $(CURRYLIB_SUBDIR)/%.icy : $(CURRYLIB_SUBDIR)/%.curry | $(CURRYLIB_SUBDIR)
 	  SPRITE_DISABLE_SYSLIB_CHECKS=1 $(PREFIX)/bin/sprite-make --icy $< -o $@; \
 	fi
 
-$(CURRYLIB_SUBDIR)/%.json.z : $(CURRYLIB_SUBDIR)/%.icy | $(CURRYLIB_SUBDIR)
+$(CURRYLIB_ROOT)/%.json.z : $(CURRYLIB_ROOT)/%.icy
 	SPRITE_DISABLE_SYSLIB_CHECKS=1 $(PREFIX)/bin/sprite-make --json $< -zc -o $@
-

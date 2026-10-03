@@ -16,8 +16,7 @@ You must initialize and update the GIT submodules before building::
 Step 2: Overlay ICurry files
 ............................
 
-To overlay pre-built ICurry files for the Curry standard library and tests,
-say::
+To overlay the pre-built ICurry files of the test programs, say::
 
     make overlay
 

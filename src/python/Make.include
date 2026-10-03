@@ -24,6 +24,14 @@ include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
 # because the later flag wins.
 LDFLAGS += -Wl,-z,undefs
 
+# An extension module finds libcyrt.so through a run path relative to its
+# own location: from $(INSTALL_DIR) to $(PREFIX)/lib.  So import curry works
+# without LD_LIBRARY_PATH in any tree that make install writes.  The flag
+# goes into a make-only variable: LDFLAGS may come from the environment, and
+# make would pass the modified value down to every sub-make.
+RPATH_TO_LIB := $(shell realpath -m --relative-to=$(INSTALL_DIR) $(PREFIX)/lib)
+SHLIB_POSTDEP_LDFLAGS += -Wl,-rpath,'$$ORIGIN/$(RPATH_TO_LIB)'
+
 # Make libcyrt.so by running make in the cyrt directory.
 $(OBJECT_ROOT)/cyrt/libcyrt.so:
 	$(MAKE) -C $(ROOT_DIR)/src/cyrt $@

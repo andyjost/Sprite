@@ -27,14 +27,14 @@ def makeOutputDir(file_out):
     if e.errno != errno.EEXIST:
       raise
 
-def pexec(cmd):
+def pexec(cmd, cwd=None):
   '''
-  Invokes the given command and returns its stdout as a string.  A command
-  that fails raises CompileError; the exception carries the command, the exit
-  status, and the standard error text as ``command``, ``returncode``, and
-  ``stderr``.
+  Invokes the given command and returns its stdout as a string.  ``cwd`` is
+  the working directory of the command.  A command that fails raises
+  CompileError; the exception carries the command, the exit status, and the
+  standard error text as ``command``, ``returncode``, and ``stderr``.
   '''
-  child = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE)
+  child = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, cwd=cwd)
 
   try:
     stdout,stderr = child.communicate()
