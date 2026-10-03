@@ -11,3 +11,4 @@
 #include "cyrt/inspect.hpp"
 #include "cyrt/module.hpp"
 #include "cyrt/state/rts.hpp"
+#include "cyrt/utf8.hpp"

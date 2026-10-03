@@ -1,7 +1,8 @@
 from ... import graph
-from .....utility.strings import ensure_binary, ensure_str
+from .....utility.strings import ensure_str
+import array, sys
 
-__all__ = ['_biGenerator', '_biString', 'pystring']
+__all__ = ['_biGenerator', '_biString', 'codepoints', 'pystring', 'text']
 
 def _biGenerator(rts, gen):
   '''
@@ -17,10 +18,25 @@ def _biGenerator(rts, gen):
     yield rts.expr(item)
     yield graph.Node(rts.prelude._biGenerator, gen.target)
 
+# A Char is a Unicode code point.  A string literal is kept as a memoryview of
+# 4-byte code points: a slice of a memoryview costs O(1), so _biString walks a
+# long string one character at a time.
+CODEPOINT_FORMAT = next(
+    code for code in 'IL' if array.array(code).itemsize == 4
+  )
+_UTF32 = 'utf-32-le' if sys.byteorder == 'little' else 'utf-32-be'
+
+def codepoints(string):
+  '''The code points of a Python string as a memoryview of 4-byte integers.'''
+  return memoryview(ensure_str(string).encode(_UTF32)).cast(CODEPOINT_FORMAT)
+
+def text(memory):
+  '''The Python string held by a memoryview that ``codepoints`` made.'''
+  return ''.join(map(chr, memory))
+
 # Convert a Python string to a Curry string.
 def pystring(rts, string):
-  memory = memoryview(ensure_binary(string))
-  return graph.Node(rts.prelude._biString, memory)
+  return graph.Node(rts.prelude._biString, codepoints(string))
 
 ensure_char = chr         # memoryview element is an integer
 

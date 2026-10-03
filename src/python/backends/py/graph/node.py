@@ -1,17 +1,21 @@
 from ....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .... import backends, icurry, utility
 from .... import inspect, show
-import collections.abc, numbers, operator, types
+from .infotable import InfoTable
+import collections.abc, numbers, types
 
 class Node(object):
   '''A node in a Curry expression graph.'''
-  def __new__(cls, info, *args, **kwds):
-    if isinstance(info, (types.GeneratorType, collections.abc.Sequence)):
-      assert not args
-      return Node(*info, **kwds)
-    info = getattr(info, 'info', info)
-    partial_info = kwds.pop('partial_info', None)
-    target = kwds.pop('target', None)
+  # A node holds its info table and its successors, nothing else.  Without an
+  # instance dictionary a node is smaller and quicker to create.
+  __slots__ = ('info', 'successors')
+
+  def __new__(cls, info, *args, target=None, partial_info=None, **kwds):
+    if not isinstance(info, InfoTable):
+      if isinstance(info, (types.GeneratorType, collections.abc.Sequence)):
+        assert not args
+        return Node(*info, target=target, partial_info=partial_info, **kwds)
+      info = getattr(info, 'info', info)
     target = getattr(target, 'target', target) # accept target=Variable
     if partial_info:
       return Node.create_partial_applic(cls, info, *args, target=target, partial_info=partial_info)
@@ -93,7 +97,7 @@ class Node(object):
 
 backends.Node.register(Node)
 
-def new_node(cls, info, *args, **kwds):
+def new_node(cls, info, *args, target=None, partial=False):
   '''
   Create or rewrite a node.
 
@@ -125,18 +129,17 @@ def new_node(cls, info, *args, **kwds):
   Returns:
     A ``Node``.
   '''
-  bad_length = operator.ge if kwds.get('partial') else operator.ne
-  if bad_length(len(args), info.arity):
+  nargs = len(args)
+  if (nargs >= info.arity) if partial else (nargs != info.arity):
     raise TypeError(
         'cannot %s %r (arity=%d), with %d arg%s' % (
-            ('curry' if kwds.get('partial') else 'construct')
+            ('curry' if partial else 'construct')
           , info.name
           , info.arity
-          , len(args)
-          , '' if len(args) == 1 else 's'
+          , nargs
+          , '' if nargs == 1 else 's'
           )
       )
-  target = kwds.get('target', None)
   self = object.__new__(cls) if target is None else target
   self.info = info
   successors = [getattr(arg, 'rvalue', arg) for arg in args]

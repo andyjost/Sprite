@@ -175,16 +175,20 @@ class timeout(contextlib.ContextDecorator):
 # The exit status of the ``timeout`` command when the time limit expires.
 TIMEOUT_STATUS = 124
 
-def run_in_subprocess(code, timeout, address_space=None):
+def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   '''
   Runs Python ``code`` in a fresh interpreter and returns the
-  ``subprocess.CompletedProcess`` with the text of both output streams.
+  ``subprocess.CompletedProcess`` with the text of both output streams, or
+  their bytes when ``text`` is false.  ``input`` feeds the standard input of
+  the child; by default the child inherits it.
 
   The child runs under the ``timeout`` command, which kills it after
   ``timeout`` seconds (exit status TIMEOUT_STATUS).  ``address_space`` caps
   its virtual memory in bytes through ``prlimit``.  The child inherits the
   environment and the working directory, so SPRITE_INTERPRETER_FLAGS selects
-  the backend and CURRYPATH finds the test modules.
+  the backend and CURRYPATH finds the test modules.  PYTHONIOENCODING is set
+  to UTF-8, so the standard streams of a Python-backend child hold UTF-8 under
+  any locale, as those of a C++-backend child do.
 
   Use this for a test that could spin or crash inside C++ on a regression.
   SIGALRM does not interrupt the C++ scheduler, so the ``timeout`` context
@@ -194,5 +198,7 @@ def run_in_subprocess(code, timeout, address_space=None):
   if address_space is not None:
     cmd = ['prlimit', '--as=%d' % address_space] + cmd
   cmd += [sys.executable, '-B', '-c', code]
-  return subprocess.run(cmd, capture_output=True, text=True)
+  kwds = {} if input is None else {'input': input}
+  env = dict(os.environ, PYTHONIOENCODING='utf-8')
+  return subprocess.run(cmd, capture_output=True, text=text, env=env, **kwds)
 

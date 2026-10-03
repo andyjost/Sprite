@@ -56,7 +56,7 @@ def loads(rcdata, decoder=Decoder()):
 def load(file, decoder=Decoder()):
   '''Load ICurry from an .icy file.'''
   if isinstance(file, str):
-    with open(file, 'r') as istream:
+    with open(file, 'r', encoding='utf-8') as istream:
       text = istream.read()
   else:
     text = file.read()

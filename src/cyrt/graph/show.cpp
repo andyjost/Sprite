@@ -9,6 +9,8 @@
 #include "cyrt/graph/show.hpp"
 #include "cyrt/graph/walk.hpp"
 #include "cyrt/inspect.hpp"
+#include "cyrt/utf8.hpp"
+#include <cstring>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -25,13 +27,17 @@ namespace
   static bool constexpr ESCAPE_DQ = true;
   static bool constexpr ESCAPE_SQ = false;
 
-  void show_escaped(std::ostream & os, char value, bool mode)
+  // Writes one code point as it appears in a character literal (ESCAPE_SQ)
+  // or a string literal (ESCAPE_DQ).  Printable ASCII is written as is.
+  // Every other code point is written as a decimal escape of at least two
+  // digits, as PAKCS writes it: show '\228' is "'\\228'".
+  void show_escaped(std::ostream & os, unboxed_char_type value, bool mode)
   {
     switch(value)
     {
-      case '"' : if(mode)  os << '\\' << '"' ; else os << value;
+      case '"' : if(mode)  os << '\\' << '"' ; else os << '"';
                  return;
-      case '\'': if(!mode) os << '\\' << '\'' ; else os << value;
+      case '\'': if(!mode) os << '\\' << '\'' ; else os << '\'';
                  return;
       case '\\': os << '\\' << '\\'; return;
       case '\a': os << '\\' << 'a' ; return;
@@ -44,16 +50,14 @@ namespace
       default  : break;
     }
 
-    if(isprint(value))
-      os << value;
+    if(0x20 <= value && value < 0x7F)
+      os << (char) value;
     else
     {
-      char buf[8];
-      auto rv = snprintf(&buf[0], 8, "\\%02d", int((unsigned char) value));
-      if(rv < 0)
-        os.setstate(std::ios::failbit);
-      else
-        os << buf;
+      os << '\\';
+      if(value < 10)
+        os << '0';
+      os << (unsigned long) value;
     }
   }
 
@@ -477,8 +481,10 @@ namespace
           case F_CSTRING_TYPE:
           {
             this->os() << '"';
+            // The data is UTF-8; each code point is shown on its own.
             char const * p = NodeU{cur}.c_str->data;
-            while(*p) show_escaped(this->os(), *p++, ESCAPE_DQ);
+            char const * end = p + std::strlen(p);
+            while(p != end) show_escaped(this->os(), utf8_decode(p, end), ESCAPE_DQ);
             this->os() << '"';
             continue;
           }

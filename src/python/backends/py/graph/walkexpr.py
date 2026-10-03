@@ -2,6 +2,7 @@
 
 from .... import icurry
 from . import indexing, variable
+from .node import Node
 
 __all__ = ['iterexpr', 'walk']
 
@@ -52,10 +53,14 @@ class WalkState(object):
     self.data.pop()
 
   def push(self, data=None):
-    self.stack.append(
-        [] if isinstance(self.cursor, icurry.ILiteral)
-           else list(enumerate(self.cursor.successors))[::-1]
-      )
+    cursor = self.spine[-1]
+    if isinstance(cursor, Node):
+      successors = list(enumerate(cursor.successors))[::-1]
+    elif isinstance(cursor, icurry.ILiteral):
+      successors = []
+    else:
+      successors = list(enumerate(cursor.successors))[::-1]
+    self.stack.append(successors)
     self.realpath.append(None)
     self.spine.append(None)
     self.data.append(data)

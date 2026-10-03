@@ -4,8 +4,6 @@
 #include <sstream>
 #include <type_traits>
 
-#define CHAR_BOUND 256 // ASCII only
-
 using namespace cyrt;
 
 namespace cyrt
@@ -30,27 +28,30 @@ namespace cyrt
     return NodeU{string->head}.char_->value;
   }
 
+  // Parses the digits of a numeric escape.  The value must be a code point;
+  // once it is too large, the remaining digits are consumed and the parse
+  // fails.
   template<int Radix>
   static inline Node * _parseCharOrd(ConsNode *& string, bool advance)
   {
     static_assert(0 <= Radix && Radix <= 10, "digits only");
     if(advance && string)
       string = string_cast(string->tail);
-    int ord = 0;
+    unboxed_char_type ord = 0;
     while(string)
     {
-      int offset = head_char(string) - '0';
-      if(0 <= offset && offset <= Radix)
+      auto const ch = head_char(string);
+      if('0' <= ch && ch < '0' + Radix)
       {
-        if(ord < CHAR_BOUND)
-          ord = Radix * ord + offset;
+        if(ord <= MAX_CODE_POINT)
+          ord = Radix * ord + (ch - '0');
       }
       else
         break;
       string = string_cast(string->tail);
     }
-    if(ord < CHAR_BOUND)
-      return char_((char) ord);
+    if(ord <= MAX_CODE_POINT)
+      return char_(ord);
     else
       return nullptr;
   }
@@ -58,13 +59,13 @@ namespace cyrt
   template<>
   inline Node * _parseCharOrd<16>(ConsNode *& string, bool advance)
   {
-    int ord = 0;
+    unboxed_char_type ord = 0;
     char base = 0;
     if(advance && string)
       string = string_cast(string->tail);
     while(true)
     {
-      char ch = string ? head_char(string) : '\0';
+      unboxed_char_type const ch = string ? head_char(string) : 0;
       switch(ch)
       {
         case '0' :
@@ -89,12 +90,12 @@ namespace cyrt
         case 'D' :
         case 'E' :
         case 'F' : base = 'A' - 10; break;
-        default  : if(ord < CHAR_BOUND)
-                      return char_((char) ord);
+        default  : if(ord <= MAX_CODE_POINT)
+                      return char_(ord);
                     else
                       return nullptr;
       }
-      if(ord < CHAR_BOUND)
+      if(ord <= MAX_CODE_POINT)
         ord = 16 * ord + (ch - base);
       string = string_cast(string->tail);
     }
@@ -148,14 +149,10 @@ namespace cyrt
       string = string_cast(string->tail);
       char_out = _parseEscapeCode(string);
     }
-    else if(string)
+    else if(string && head_char(string) != '\'')
     {
-      auto ch = head_char(string);
-      if(ch < CHAR_BOUND && ch != '\'')
-      {
-        char_out = string->head;
-        string = string_cast(string->tail);
-      }
+      char_out = string->head;
+      string = string_cast(string->tail);
     }
     if(!char_out) goto failed;
 
@@ -178,13 +175,13 @@ namespace cyrt
     std::stringstream ss;
     while(true)
     {
-      auto ch = string ? (char) head_char(string) : '\0';
+      unboxed_char_type const ch = string ? head_char(string) : 0;
       switch(ch)
       {
         case '0': case '1': case '2': case '3': case '4':
         case '5': case '6': case '7': case '8': case '9':
         case 'e': case 'E': case '+': case '-': case '.':
-            ss << ch;
+            ss << (char) ch;
             string = string_cast(string->tail);
             break;
         default:
@@ -209,10 +206,10 @@ namespace cyrt
     char * px = &buf[0];
     while(string && px < &buf[SZ-1])
     {
-      auto ch = (char) head_char(string);
+      auto const ch = head_char(string);
       if('0' <= ch && ch <= '9')
       {
-        *px++ = ch;
+        *px++ = (char) ch;
         string = string_cast(string->tail);
       }
       else
@@ -257,7 +254,7 @@ namespace cyrt
         }
         else if(ch == '"')
           break;
-        else if(ch < CHAR_BOUND)
+        else
         {
           char_out = string->head;
           string = string_cast(string->tail);

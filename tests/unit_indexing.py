@@ -106,6 +106,23 @@ class IndexingTests(object):
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
+  def test_index_path_forms(self):
+    '''A path may hold bools or nested sequences, or be a range or bytes.'''
+    e = curry.raw_expr([0, 1, [2, 3, [], [4]]])
+    tail = curry.raw_expr([1, [2, 3, [], [4]]])
+    middle = curry.raw_expr([2, 3, [], [4]])
+    yield e, [1, [1, 0]], middle
+    yield e, [[1], (1,), [[0]]], middle
+    yield e, (True, True, False), middle
+    yield e, True, tail
+    yield e, range(1, 2), tail
+    yield e, b'\x01\x01\x00', middle
+    yield e, [], e
+    yield e, iter([]), e
+    yield e, [[], ()], e
+
+  @cytest.check_predicate(cross_check_realpath)
+  @cytest.check_indexing
   def test_index_tuple(self):
     e = curry.raw_expr((0, (1, 2), [3]))
     yield e, (), e
@@ -180,6 +197,8 @@ class IndexingTests(object):
         , ('err', 'str')
         , (1.0, 'float')
         , ([0.], 'float')
+        , ([0, 'x'], 'str')
+        , ([[0], None], 'NoneType')
         ]:
       self.assertRaisesRegex(
           curry.CurryIndexError
@@ -225,6 +244,48 @@ class TestRealpathNoUFN(cytest.TestCase):
   INDEXER = staticmethod(
       lambda *args: realpath(*args, update_fwd_nodes=False)
     )
+
+  def test_realpath_invalid(self):
+    onetwo = curry.raw_expr([1,2])
+    for badpath, name in [
+          (None, 'NoneType')
+        , ('err', 'str')
+        , (1.0, 'float')
+        , ([0.], 'float')
+        , ([0, 'x'], 'str')
+        , ([[0], None], 'NoneType')
+        , ((0, (0, 'x')), 'str')
+        ]:
+      self.assertRaisesRegex(
+          curry.CurryIndexError
+        , r"path must be an integer or sequence of integers, not %r" % name
+        , lambda: realpath(onetwo, badpath)
+        )
+    self.assertRaisesRegex(
+        curry.CurryTypeError
+      , r"invalid Curry expression \[1, 2\]"
+      , lambda: realpath([1,2], 0)
+      )
+    for badidx in [-3, 4, [0, 1], (0, 0, 0)]:
+      self.assertRaisesRegex(
+          curry.CurryIndexError
+        , r"node index out of range"
+        , lambda: realpath(onetwo, badidx)
+        )
+    self.assertRaisesRegex(
+        curry.CurryIndexError
+      , r"node index out of range"
+      , lambda: realpath(1, 0)
+      )
+
+  def test_realpath_result(self):
+    '''The result is a named tuple.'''
+    e = curry.raw_expr([1,2])
+    result = realpath(e, [1, 0])
+    self.assertIs(result.target, e.successors[1].successors[0])
+    self.assertEqual(result.realpath, [1, 0])
+    self.assertEqual(result.guards, set())
+    self.assertEqual(tuple(result), (result.target, [1, 0], set()))
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing

@@ -52,14 +52,230 @@
   such file or directory: 'nofile'"), the C++ backend raises an
   EvaluationError ("i/o error: No such file or directory: nofile").  Recorded
   only; the parity gap is not fixed.
-- The C++ backend does not report non-determinism in monadic actions.  hnf
-  pull-tabs a choice at the inductive position of any step, so putChar ('a' ?
-  'b') forks and prints both characters, where the Python backend raises
-  NondetMonadError.  writeFile and appendFile check for the pull-tab and
-  raise the error; the general check (is_monadic in hnf) is still to do.
-  The texts differ as well: the C++ backend reports the IOError value
-  ("nondet error: file.txt"), the Python backend "non-determinism in monadic
-  actions occurred!".
-- The Python graph copier (backends/py/graph/copy.py) recurses once per node,
-  so a cyclic expression raises RecursionError when it is copied.  The C++
-  copier handles cycles.
+- The C++ backend did not report non-determinism in monadic actions.  hnf
+  pull-tabbed a choice at the inductive position of any step, so putChar
+  ('a' ? 'b') forked and printed both characters, where the Python backend
+  raised NondetMonadError.  Only writeFile and appendFile checked for the
+  pull-tab and raised the error, with a text of their own ("nondet error:
+  file.txt").  Fixed; see the entry below.
+- The Python graph copier (backends/py/graph/copy.py) recursed once per node,
+  so a cyclic expression raised RecursionError when it was copied, and so did
+  a long list value.  Fixed: the copier keeps its own stack and records the
+  copy of a node before its successors, as the C++ copier does, so sharing
+  and cycles are kept.  The graph equality (equality.py) had the same
+  recursion and got the same fix.  Tests: unit_py_copy.py, unit_equality.py.
+- Python backend performance.  The evaluator spent most of its time in
+  bookkeeping, not in rewrite steps: isinstance checks against abstract base
+  classes (inspect.is_boxed, inspect.isa_unboxed_primitive), the visitation
+  dispatch in graph/indexing.py, the construction of Variable objects, trace
+  bookkeeping that ran with tracing off, and a generator-based context
+  manager entered once per step.  Fixed with per-type caches for the ABC
+  checks (validated with abc.get_cache_token), one flat loop for indexing,
+  __slots__ on Node and Variable, a plain context manager for catch_control,
+  and no-op trace helpers when tracing is off.  No semantic change and no new
+  flag.  Evaluation time, median of three runs: SomeNum.check 300, 4.49 s to
+  1.35 s; naive reverse of 400 elements, 4.02 s to 0.87 s;
+  benchmarks/Multgen, 18.40 s to 4.96 s.  The assert in
+  Variable.from_logicalpath that indexed the path a second time was removed;
+  unit_indexing cross-checks every realpath result.  Tests: unit_py_graph.py,
+  unit_py_control.py, unit_inspect.py, unit_indexing.py.
+- Non-determinism in monadic actions on the C++ backend (see above).  Fixed:
+  hnf reports the error when the redex is monadic (is_monadic), or when
+  ($!), ($!!), or ($##) evaluates the argument of a monadic function, as the
+  Python _applyspecial does.  The IO built-ins in io.cpp carry F_MONADIC,
+  like the generic Prelude table.  Both backends raise "non-determinism in
+  monadic actions occurred!".  The text is defined once per backend
+  (NONDET_MONAD_ERROR_TEXT in cyrt/builtins.hpp, exceptions.NondetMonadError)
+  and unit_io_bind ties them together.  writeFile and appendFile lost their
+  own check.  Found on the way: putChar ('a' ? 'b') crashed the C++ backend,
+  because ($!) read its argument variable again after hnf had forwarded the
+  redex; ($!!) and ($##) with a choice argument failed the source != target
+  assertion in pull_tab, because procN scanned the choice as its root (hnf
+  runs first now).  The C++ catch applied the handler to the action instead
+  of the error value and never cleared the error, so a handler that read
+  its argument, or raised an error of its own, aborted the process.  Now
+  catch pops the error and hands the IOError value to the handler; an error
+  without a value (Prelude.error) becomes IOError msg, as with the PAKCS
+  catch.  The C++ error and error2 steps no longer quote the message.  The
+  rule still differs between the backends: the Python backend keys it on a
+  list of Prelude names (rts_control.is_io) and raises the error on any
+  unwind in those steps; the C++ backend reacts to a choice in any monadic
+  step, so a user function that calls putStrLn and evaluates a choice is an
+  error there and a fork on the Python backend.  Tests: unit_io_bind.py,
+  unit_prelude.py.
+- C++ backend compile time.  g++ took about 1.0 s for a one-line module
+  (-O3; 0.65 s of it in the front end, for cyrt/cyrt.hpp), and PAKCS with
+  icurry 4.9 s when the .icy was not cached.  func_eqconstr recompiles its
+  767 modules after every libcyrt rebuild, about 770 s of g++.  Measured: a
+  lower optimization level saves nothing without a precompiled header (-O0
+  0.92 s, -O3 0.98 s) and costs run time (Tak1 and PermSort: -O1 10 to 55
+  percent slower, -O0 2.3 to 5 times slower, -O2 equal to -O3); the jq pass
+  costs 3 ms per module and 0.09 s on the Prelude, the same as the internal
+  encoder.  A precompiled header halves the g++ time (0.45 to 0.5 s per
+  module).  Done: Cpp2So precompiles cyrt/cyrt.hpp once per flavor into
+  <include>/cyrt/cyrt.hpp.gch/ (SPRITE_CXX_PCH_ROOT relocates or disables
+  it) and builds it again when libcyrt.so or a header is newer; make
+  uninstall removes the directory.  func_eqconstr on the C++ backend with
+  every .so recompiled: 920 s before (as reported), 552 s after; one chunk
+  of 143 modules, forced recompile: 165 s before, 117 s after.  The time
+  that remains per module is template instantiation for the static data
+  (the Metadata maps 0.18 s, the ModuleBOM 0.25 s, the step functions
+  0.05 s); extern template declarations do not help, only another
+  representation of the module data would.  The Prelude takes 28 s at -O3
+  (17 s at -O1, 5 s at -O0), with or without the precompiled header.
+  Tests: unit_cxx_toolchain.py.
+- C++ collector.  The collector never ran before one billion nodes existed,
+  because the nodes Python holds (values handed to Python, expressions built
+  with curry.expr) were not roots.  Done: a Node wrapper registers its node
+  as a root for as long as it lives (RootHolder in the bindings; gc_add_root
+  and gc_remove_root in graph/memory.cpp).  The mark phase also visits the
+  error value of a configuration and the queue of every SetEval node it
+  meets, which holds the alternatives a lazy set function has not produced
+  yet; the old mark phase missed both.  A collection inside a nested
+  evaluation (a set function, a step run from Python, an evaluation started
+  in a Python callback) sweeps only the nodes allocated since that
+  evaluation began and treats the older nodes as roots, because the steps
+  of the enclosing evaluation hold nodes in C++ locals (EvaluationScope in
+  procD and in the step binding).  The mark phase points a forward node at
+  the end of its chain, as compress_fwd_chain does; without that, a
+  forwarded root kept every redex of a tail recursion alive.  Dead nodes go
+  to free lists by size instead of free(): with free(), the sweep cost
+  30 ns per node, and PermSort ran 75 percent slower after its first
+  collection, because the evaluation reused scattered chunks from malloc.
+  The default threshold is 2^20 nodes; SPRITE_GC_THRESHOLD overrides it,
+  and the adaptive policy never shrinks below it (the policy changed; see
+  the review follow-ups below).  Measured on the C++ backend with the
+  former doubling policy, collector off / at 2^20, evaluation time and the
+  peak resident set of the process (VmHWM; the figures given here before
+  were VmPeak, the peak virtual size; times vary by 15 percent between
+  runs): Tak1 8.8 / 7.2 s and 3.27 GB / 115 MB; Queens10 11.9 / 6.2 s and
+  5.20 GB / 115 MB; PermSort 9.3 / 12.5 s and 4.87 / 3.21 GB; ReverseHO
+  2.2 / 2.0 s and 1.15 GB / 655 MB; QueensSet9 6.0 / 8.7 s and 3.16 /
+  3.16 GB.  2^16, 2^18, and 2^22 are within the noise of 2^20; 2^24 is
+  slower on every program (measured with the doubling policy).  A walk over a million list cells (1.5 GB of short-lived
+  nodes) completes under a 1 GiB address-space cap, outside and inside a
+  set function; with the old threshold both runs end in MemoryError.  The
+  process maps 97 MB at load instead of 577 MB (the address vector was
+  reserved for the old threshold).  Bindings: gc_collect, gc_node_count,
+  gc_root_count, gc_num_roots, gc_collections, gc_seconds, gc_threshold,
+  gc_set_threshold, gc_eval_depth.  Tests: unit_cxx_gc.py; the
+  out-of-memory program in CxxRuntime.curry now keeps its list reachable.
+  Left: the runtime never deletes a Configuration, a Queue, or a Set (the
+  3 GB of PermSort and QueensSet9 are mostly those), and the free-variable
+  table keeps every free variable and its generator alive, so a program
+  that narrows many variables keeps them all.  A raw Arg object held by
+  Python is not a root (make_node creates them only for the duration of a
+  call).  A set function whose value is the guarded argument itself hits
+  assert(0) in procD (T_SETGRD at a configuration root); seen while the
+  test program was written, not fixed.  gc/mps.cpp does not define the new
+  entry points.  A collection inside a nested evaluation pushes and traces
+  every older node, so it costs the whole heap and reclaims nothing from
+  before the nested evaluation began (see the header of wdgc.cpp); the
+  precise fix is to register the Variable and Cursor locals of a suspended
+  step as roots.
+- Characters.  The C++ backend stored a Char as a signed byte: ord (chr
+  160) was -96, a character above U+00FF could not exist, and a non-ASCII
+  character could not be passed from Python (the Arg caster took one byte).
+  The Python backend kept code points, but read a file byte by byte, and
+  could not compile a string literal with a non-ASCII character (it emitted
+  a bytes literal).  Done: a Char is a Unicode code point on both backends.
+  unboxed_char_type is char32_t; the Char node keeps its 16 bytes.  Text
+  crosses the boundary of the runtime as UTF-8 (cyrt/utf8.hpp): the string
+  literals of generated code (_dquote spells the UTF-8 bytes with octal
+  escapes; a character literal is a char32_t literal such as U'\xe4'),
+  build_curry_string and extract_string, readFile, writeFile, appendFile,
+  putChar, getChar, and the display of a cstring node.  A malformed byte
+  sequence in a file or on stdin becomes U+FFFD, as in PAKCS.  show writes
+  every code point outside printable ASCII as a decimal escape of at least
+  two digits ('\228', '\00'), as PAKCS does; the Python show did so below
+  256 only.  The literal readers accept every code point (the bound was
+  256), and the Python reader accepts uppercase hex digits.  The Python
+  backend keeps a string literal as a memoryview of 4-byte code points
+  (prelude.string.codepoints), so _biString still slices in O(1).  Found on
+  the way: the C++ table of a literal case (ValueSet) held one byte per
+  Char, and the runtime read it with an Arg stride, so a free variable at a
+  case over two or more character literals read out of bounds; the table
+  holds Args now.  ValueBindingsMaker split an odd-sized table as size/2
+  and size/2, so a case over three literals lost one value.
+  Variable::operator[] dropped the realpath of its parent, so writeFile,
+  which head-normalizes the head of its string through such a variable, ran
+  the step of the wrong node when the character was not evaluated yet:
+  writeFile f (map chr xs) crashed the C++ backend.  The ICurry lexer read
+  at most three digits of a decimal escape, so '\128512' became four
+  characters.  Tests: unit_chars.py, unit_prelude.py, unit_io_bind.py,
+  unit_py_conversions.py, readshow/unicode.curry, io/readFile_utf8.curry,
+  io/writeFile_utf8.curry.  Left: the standard streams of the Python
+  backend keep the encoding of sys.stdin and sys.stdout (UTF-8 under a
+  UTF-8 locale, which the test drivers set).  A lone surrogate from chr is
+  written as three bytes by the C++ backend and rejected by the Python
+  writeFile.  topython joins a list of strings into one string, so a [Char]
+  or [String] value arrives as str; not changed.
+- Review follow-ups on the entries above.
+  Collector policy: after a collection the threshold is 8 times the
+  survivors, but not less than the configured floor, instead of one
+  doubling per collection when 15 percent survived.  The heap stays within
+  8 times the live nodes (the former bound was about 13).  Measured on the
+  C++ backend, former policy / growth 8 / collector off, with the
+  evaluation time, the number of collections, the time in the collector,
+  and VmHWM: Tak1 7.2 / 6.9 / 8.8 s, 59 / 59 / 0 collections, 115 MB /
+  115 MB / 3.27 GB; Queens10 6.2 / 6.4 / 11.9 s, 97 / 97 / 0, 115 MB /
+  115 MB / 5.20 GB; PermSort 12.5 / 13.0 / 9.3 s, 8 / 11 / 0 collections,
+  0.8 / 1.0 / 0 s in the collector, 3.21 / 3.12 / 4.87 GB; ReverseHO 2.0 /
+  2.1 / 2.2 s, 4 / 2 / 0, 655 MB / 839 MB / 1.15 GB; QueensSet9 8.7 / 6.7 /
+  6.0 s, 5 / 2 / 0 collections, 2.6 / 0.7 / 0 s in the collector, 3.16 GB
+  in all three.  Growth 2 and 4 were slower on PermSort (19.6 and 15.9 s)
+  and on QueensSet9 (8.8 and 8.2 s).  On PermSort the time is not in the
+  marks, which take 1 s of the 13 s, but in the evaluation after a sweep,
+  which reuses the dead nodes in scattered order; returning the dead nodes
+  in allocation order did not help (13.5 s).  PermSort and QueensSet9 stay
+  slower with the collector than without it because the runtime never
+  deletes a Configuration, a Queue, or a Set (the entry above).  That leak
+  is the prerequisite for a further gain; the benchmark README notes the
+  two programs.  Test: unit_cxx_gc.py.
+  Stale C++ caches: the C++ emitter stamps every generated file with its
+  format (// FORMAT: 2, compiler.FORMAT_VERSION), and the toolchain starts
+  again from the JSON file when a cached .cpp carries another stamp or none
+  (Cpp2So.is_stale, Plan.prune_stale).  Before this, a .cpp written by the
+  old emitter and newer than its .json.z was compiled against the new
+  runtime, which read the one-byte-per-Char table of a literal case with an
+  Arg stride.  A .so without its .cpp is still trusted by its timestamp.
+  The successor caster maps a Char above U+10FFFF (prim_chr does not check
+  its argument; chr clamps) to U+FFFD instead of raising ValueError.  Tests:
+  unit_cxx_toolchain.py, unit_plan.py, unit_chars.py.  Found on the way,
+  not fixed: the C++ emitter must not run for a module whose shared library
+  is loaded in the process.  vIsBuiltin asks the runtime module for the
+  symbol, and a loaded library registers every symbol it defines, so the
+  emitter declares them all extern and defines none; the library compiled
+  from that file fails to load with an undefined symbol.  A first, wrong
+  version of the stamp reader did this to the installed Prelude after a
+  curry.reload in a test process (the regenerated Prelude.cpp had 0
+  definitions and 90 extern declarations).  SPRITE_FORCE_RECOMPILE_CXX
+  with a curry.reload can do the same.
+  Python copier: an unboxed successor (an int, a float, a char, the
+  memoryview of a string literal, the iterator of a generator node) is
+  shared, not deep-copied.  copy.deepcopy rejects a memoryview, so a
+  partial application that held a string literal could not become a value.
+  Tests: unit_py_copy.py, unit_prelude.py (both backends).
+  UTF-8 decoder: a sequence cut short, by the end of the input or by a byte
+  that cannot continue it, counts as one malformed sequence, and the second
+  byte is checked against the range its lead allows.  So both backends give
+  the count of U+FFFD that the 'replace' handler of Python gives; the C++
+  decoder gave one per byte.  getChar still drops the bytes it read after
+  such a lead.  Tests: unit_chars.py.
+  inspect caches: the per-type caches of is_boxed and isa_unboxed_primitive
+  decide from the type alone and fall back to isinstance for an object
+  whose __class__ differs from its type (a proxy, a mock).  Test:
+  unit_inspect.py.
+  ICurry lexer: the empty escape (backslash, ampersand) is accepted, and the
+  seven-digit decimal escape has unit tests (unit_parse.py).
+  Tests: unit_io_bind.py and unit_chars.py evaluate the goals of
+  data/curry/IOBind.curry and data/curry/Chars.curry, built once, instead
+  of compiling a module or an expression per test.  cytest.run_in_subprocess
+  sets PYTHONIOENCODING=utf-8 for its children, and func_io compares the
+  UTF-8 file as bytes, so neither depends on the locale.  The precompiled
+  header has a test for a failed build.
+  Monadic non-determinism, a gap on both backends: a choice met by a
+  Curry-defined combinator before any monadic step is pull-tabbed to the
+  top, so mapM_ putChar ("ab" ? "cd") prints abcd and yields two values.
+  PAKCS prints abcd and then reports the non-determinism error.  Recorded
+  as an expected failure (unit_io_bind.py, test_mapM_nondet_is_an_error).

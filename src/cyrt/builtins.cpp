@@ -3,6 +3,7 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/dynload.hpp"
 #include "cyrt/graph/node.hpp"
+#include "cyrt/utf8.hpp"
 #include <sstream>
 #include <stdexcept>
 
@@ -366,32 +367,35 @@ namespace cyrt
     return saved.c_str();
   }
 
+  // The UTF-8 text of a ground string.
   std::string extract_string(Node * str)
   {
     assert(str);
     if(typetag(*str->info) == F_CSTRING_TYPE)
       return NodeU{str}.c_str->data;
-    std::stringstream ss;
+    std::string out;
     while(true)
     {
       switch(str->info->tag)
       {
-        case T_CONS: ss << NodeU{NodeU{str}.cons->head}.char_->value;
+        case T_CONS: utf8_encode(out, NodeU{NodeU{str}.cons->head}.char_->value);
                      str = NodeU{str}.cons->tail;
                      break;
-        case T_NIL:  return ss.str();
+        case T_NIL:  return out;
         default: throw std::invalid_argument("bad Curry string");
       }
     }
   }
 
+  // A Curry string with one Char per code point of the UTF-8 text.
   Node * build_curry_string(char const * str)
   {
     Node * head = nil();
     Node ** tail = &head;
-    for(; *str; ++str)
+    char const * end = str + std::strlen(str);
+    while(str != end)
     {
-      *tail = cons(char_(*str), nil());
+      *tail = cons(char_(utf8_decode(str, end)), nil());
       tail = &NodeU{*tail}.cons->tail;
     }
     return head;

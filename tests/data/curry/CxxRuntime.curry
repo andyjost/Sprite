@@ -1,11 +1,11 @@
 -- Programs for unit_cxx_runtime.py.
 module CxxRuntime where
 
--- Allocates nodes without bound and without nesting evaluations: lastOf
--- walks the list by a tail call.  The collector does not run before one
--- billion nodes exist, so the process runs out of memory first.
+-- Allocates nodes without bound.  lastOf walks the list by a tail call, and
+-- head xs holds the first cell, so every cell stays reachable and the
+-- collector reclaims nothing.  The process runs out of memory.
 unbounded :: Int
-unbounded = lastOf [1..]
+unbounded = lastOf xs + head xs where xs = [1..]
 
 lastOf :: [Int] -> Int
 lastOf (x:xs) = if null xs then x else lastOf xs

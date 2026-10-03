@@ -1,11 +1,14 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
+#include <stdexcept>
 #include <string>
 #include "cyrt/builtins.hpp"
 #include "cyrt/graph/infotable.hpp"
+#include "cyrt/graph/memory.hpp"
 #include "cyrt/graph/node.hpp"
 #include "cyrt/state/rts.hpp"
+#include "cyrt/utf8.hpp"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 
@@ -60,6 +63,10 @@ namespace
 
   void InfoTable_step(InfoTable * info, RuntimeState * rts, Node * root)
   {
+    // The step runs outside procD.  A set function inside it starts a
+    // nested evaluation, whose collections must keep the nodes this step
+    // holds.
+    EvaluationScope evaluation_scope;
     rts->set_goal(root);
     info->step(rts, rts->C());
     rts->drop();
@@ -72,6 +79,49 @@ namespace
     T data;
     T * get() { return &data; }
   };
+
+  // The holder of a Node wrapper.  The node is a root of the collector for
+  // as long as the wrapper lives.  pybind11 constructs one holder per
+  // wrapper (always_construct_holder), and one wrapper per node address.
+  template<typename T>
+  struct RootHolder
+  {
+    explicit RootHolder(T * node) : node(node)
+      { if(node) gc_add_root(node); }
+    RootHolder(RootHolder const & other) : node(other.node)
+      { if(node) gc_add_root(node); }
+    RootHolder & operator=(RootHolder const &) = delete;
+    ~RootHolder() { if(node) gc_remove_root(node); }
+    T * get() const { return node; }
+    T * node;
+  };
+
+  // Runs a collection on behalf of Python.  Returns the number of nodes
+  // reclaimed.
+  size_t gc_collect()
+  {
+    if(gc_eval_depth() != 0)
+      throw std::runtime_error(
+          "cannot run the collector while an evaluation is active"
+        );
+    size_t const before = gc_num_nodes();
+    run_gc();
+    return before - gc_num_nodes();
+  }
+
+  // The Python str of length one for a code point.  Returns a new reference.
+  py::handle char_to_python(unboxed_char_type cp)
+  {
+    // A value above the last code point (prim_chr does not check its
+    // argument) becomes REPLACEMENT_CHAR, as utf8_encode writes it, so that
+    // a traversal of a value does not raise from the caster.
+    if(cp > MAX_CODE_POINT)
+      cp = REPLACEMENT_CHAR;
+    PyObject * str = PyUnicode_FromOrdinal((int) cp);
+    if(!str)
+      throw py::error_already_set();
+    return str;
+  }
 
   Node * generator_next(void * data)
   {
@@ -87,6 +137,7 @@ namespace
 }
 
 PYBIND11_DECLARE_HOLDER_TYPE(T, ByValueHolder<T>, true)
+PYBIND11_DECLARE_HOLDER_TYPE(T, RootHolder<T>, true)
 
 namespace pybind11 { namespace detail
 {
@@ -102,8 +153,8 @@ namespace pybind11 { namespace detail
         case 'p': return py::cast(src.arg.node).inc_ref(); // TODO: review this
         case 'i': return py::cast(src.arg.ub_int).inc_ref();
         case 'f': return py::cast(src.arg.ub_float).inc_ref();
-        case 'c': { char buf[2] = {src.arg.ub_char, '\0'};
-                    return py::cast(&buf[0]).inc_ref(); }
+        // A Char is a code point; Python sees a str of length one.
+        case 'c': return char_to_python(src.arg.ub_char);
         // An unboxed pointer (a set guard's Set *, a partial application's
         // InfoTable *) is exposed as the integer value of the pointer.  A set
         // guard built from Python with an integer id yields that id, which is
@@ -165,10 +216,11 @@ namespace cyrt { namespace python
       .def(py::init<Node *>())
       .def(py::init<unboxed_int_type>())
       .def(py::init<unboxed_float_type>())
-      .def(py::init([](char const * str) {
-          if(!str || !str[0] || str[1])
+      // A str of length one gives the code point of its character.
+      .def(py::init([](py::str str) {
+          if(PyUnicode_GetLength(str.ptr()) != 1)
             throw py::value_error("expected a string of length one");
-          return Arg(str[0]);
+          return Arg((unboxed_char_type) PyUnicode_ReadChar(str.ptr(), 0));
         }))
       .def(py::init([](py::handle obj) {
           obj.inc_ref(); // FIXME: leak
@@ -177,10 +229,11 @@ namespace cyrt { namespace python
       .def("__repr__", &Arg::repr)
       ;
 
-    py::class_<Node>(mod, "Node")
-      // TODO attach a refcount.  Wild nodes attached to Python objects need to
-      // be added to the GC roots.
-      .def_static("create", &Node_create, reference) // FIXME: never delete Nodes (for now)
+    // A wrapper keeps its node alive: see RootHolder.  The collector frees
+    // the node after the last wrapper is destroyed and nothing else reaches
+    // it.
+    py::class_<Node, RootHolder<Node>>(mod, "Node")
+      .def_static("create", &Node_create, reference)
       .def("forward_to", &forward_node)
       .def_readonly("info", &Node::info, reference_internal)
       .def("successor"
@@ -216,6 +269,26 @@ namespace cyrt { namespace python
       .def("__eq__", &Node::operator==)
       .def("__ne__", &Node::operator!=)
       ;
+
+    // The collector.  See cyrt/graph/gc/wdgc.cpp.
+    mod.def("gc_collect", &gc_collect
+      , "Runs a collection between evaluations; returns the number of nodes reclaimed.");
+    mod.def("gc_node_count", &gc_num_nodes
+      , "The number of nodes allocated and not yet reclaimed.");
+    mod.def("gc_root_count", [](Node * node) { return node ? gc_root_count(node) : 0; }
+      , "The number of registrations of a node as a root.");
+    mod.def("gc_num_roots", &gc_num_roots
+      , "The number of nodes registered as roots.");
+    mod.def("gc_collections", &gc_num_collections
+      , "The number of collections run so far.");
+    mod.def("gc_seconds", &gc_seconds
+      , "The time spent in collections, in seconds.");
+    mod.def("gc_threshold", &gc_threshold
+      , "The number of nodes at which the next collection runs.");
+    mod.def("gc_set_threshold", &gc_set_threshold
+      , "Sets the collection threshold; the adaptive policy never goes below it.");
+    mod.def("gc_eval_depth", &gc_eval_depth
+      , "The number of evaluations on the C stack.");
 
     py::class_<DataType>(mod, "DataType")
       .def_property_readonly(

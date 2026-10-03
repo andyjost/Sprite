@@ -1,7 +1,7 @@
 from ..backends import IBackend
 from . import _curry2icurry, _filenames, _icurry2json
 from ..utility import curryname
-import collections, itertools
+import collections, itertools, os
 
 __all__ = ['makeplan', 'Plan', 'Stage']
 
@@ -99,6 +99,21 @@ class Plan(object):
           continue
         yield icyfile[:-4] + suffix
     return list(gen())
+
+  def prune_stale(self, filelist):
+    '''
+    Removes from ``filelist``, the files of one module in the order of this
+    plan, every file that a step refuses as its input, and every file after
+    it.  A step refuses a file through its ``is_stale`` method, when it has
+    one; see ``Cpp2So`` of the C++ backend.
+    '''
+    for i, filename in enumerate(filelist):
+      step = self.stages[self.position(filename)].step
+      is_stale = getattr(step, 'is_stale', None)
+      if is_stale is not None and os.path.isfile(filename) \
+          and is_stale(filename):
+        return filelist[:i]
+    return filelist
 
   def position(self, filename):
     '''Gives the current position in the plan.'''

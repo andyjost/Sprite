@@ -24,9 +24,12 @@ namespace cyrt
     Arg(xid_type value)          : cid(value)      {}
     Arg(float value)             : ub_float(value) {}
     Arg(double value)            : ub_float(value) {}
-    Arg(char value)              : ub_char(value)  {}
-    Arg(signed char value)       : ub_char(value)  {}
+    // A char holds one byte; a Char node holds a code point.  The byte is
+    // taken unsigned, so that a value above 127 does not sign-extend.
+    Arg(char value)              : ub_char((unsigned char) value) {}
+    Arg(signed char value)       : ub_char((unsigned char) value) {}
     Arg(unsigned char value)     : ub_char(value)  {}
+    Arg(char32_t value)          : ub_char(value)  {}
     Arg(InfoTable const * value) : xinfo(value)    {}
     template<typename T>
     Arg(T const * value)         : blob(value)     {}

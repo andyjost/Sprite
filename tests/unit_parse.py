@@ -61,6 +61,10 @@ class ReadCurryEscapes(cytest.TestCase):
     , (r"'\255'", '\xff'), (r"'\127'", '\x7f'), (r"'\00'", '\0')
     , (r"'\t'", '\t'), (r"'\n'", '\n'), (r"'\\'", '\\'), (r"'\''", "'")
     , (r"'\"'", '"'), (r"'a'", 'a'), (r"'0'", '0'), (r"' '", ' ')
+    # A decimal escape has up to seven digits.  The reader took three, so
+    # '\\128512' became four characters.
+    , (r"'\1000'", '\u03e8'), (r"'\128512'", '\U0001f600')
+    , (r"'\1114111'", '\U0010ffff')
     ]
 
   def test_char_escapes(self):
@@ -73,3 +77,13 @@ class ReadCurryEscapes(cytest.TestCase):
       # The JSON cache must hold the same character.
       ilit2 = icurry.json.loads(icurry.json.dumps(ilit))
       self.assertEqual(ilit2.lit.value, expected, text)
+
+  def test_string_escapes(self):
+    '''
+    In a string, a decimal escape is read greedily, as in Curry, and the
+    empty escape ends it before a digit.
+    '''
+    from curry.utility.readcurry import lex
+    tok, = lex.tokenize(r'"\2281\228\&1\&"')
+    self.assertIsInstance(tok, lex.StringToken)
+    self.assertEqual(tok, '\u08e9\u00e41')

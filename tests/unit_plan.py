@@ -1,7 +1,7 @@
 import cytest
 from curry.interpreter import Interpreter
 from curry.toolchain import plans
-import string
+import os, string, tempfile
 
 REMOVE_CHARS = string.whitespace + '-'
 _MAPPING = {ord(c): None for c in REMOVE_CHARS}
@@ -196,3 +196,31 @@ class TestPlan(cytest.TestCase):
       )
 
 
+
+  def test_prune_stale(self):
+    '''
+    A step may refuse a cached input through ``is_stale``.  The plan drops
+    that file and every file after it.  A file that does not exist is kept,
+    because nothing can be read from it.
+    '''
+    class Step(object):
+      def __init__(self, stale):
+        self.stale = stale
+      def is_stale(self, filename):
+        return os.path.basename(filename) in self.stale
+    plan = plans.Plan(None, 0, [
+        plans.Stage(['.curry'], object())
+      , plans.Stage(['.icy'], Step({'A.icy'}))
+      , plans.Stage(['.json'], Step(set()))
+      , plans.Stage(['.so'], None)
+      ])
+    with tempfile.TemporaryDirectory() as tmpdir:
+      files = lambda stem: [
+          os.path.join(tmpdir, stem + suffix)
+              for suffix in ['.curry', '.icy', '.json', '.so']
+        ]
+      self.assertEqual(plan.prune_stale(files('A')), files('A'))
+      for filename in files('A') + files('B'):
+        open(filename, 'w').close()
+      self.assertEqual(plan.prune_stale(files('A')), files('A')[:1])
+      self.assertEqual(plan.prune_stale(files('B')), files('B'))

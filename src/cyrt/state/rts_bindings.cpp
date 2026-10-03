@@ -60,9 +60,12 @@ namespace cyrt
       }
       else
       {
+        // The halves together hold every value: a split of size/2 and size/2
+        // dropped one value of an odd-sized set.
         xid_type const cid = rts->istate.xidfactory++;
-        Node * left = this->make(data, size/2);
-        Node * right = this->make(data+size/2, size/2);
+        size_t const half = size / 2;
+        Node * left = this->make(data, half);
+        Node * right = this->make(data + half, size - half);
         return choice(cid, left, right);
       }
     }

@@ -92,6 +92,9 @@ def currentfile(
     if filelist and filelist[-1].endswith('.so'):
       if filesys.newer(config.cyrt_lib(), filelist[-1]):
         filelist.pop()
+  # Disregard a file written in a format the toolchain no longer accepts, and
+  # everything made from it.
+  filelist = plan.prune_stale(filelist)
   prereq = os.path.abspath(filesys.newest(filelist))
   if not os.path.exists(prereq):
     # If there is no prerequisite, then there is no Curry file or any of its

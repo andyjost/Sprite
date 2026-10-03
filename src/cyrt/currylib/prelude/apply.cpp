@@ -41,6 +41,10 @@ namespace cyrt { inline namespace
     return T_FWD;
   }
 
+  // Applies a function to an argument that ``action`` evaluates first.  The
+  // argument is evaluated on behalf of the function applied.  So a choice in
+  // the argument of a monadic function is an error, as in a monadic step
+  // (see RuntimeState::hnf).  The Python backend applies the same rule.
   template<typename Action>
   static tag_type _applyspecial(
       RuntimeState * rts, Configuration * C, Action const & action
@@ -51,13 +55,20 @@ namespace cyrt { inline namespace
     auto tag = rts->hnf(C, &_1);
     if(tag != T_CTOR)
       return tag;
-    // TODO: catch nondeterminism in IO
+    PartApplicNode * partial = NodeU{_1.target}.partapplic;
+    bool const monadic = partial->head_info
+        && is_monadic(*partial->head_info);
     Variable _2 = _0[1];
-    tag = action(rts, C, &_2);
+    tag = action(rts, C, &_2, monadic);
     if(tag < T_UNBOXED)
       return tag;
+    // hnf forwards the redex when the argument fails, is a constraint, or
+    // holds a choice that it pull-tabs to the root.  The redex is then gone,
+    // and so is the slot ``_2`` refers to.
+    if(_0->info->tag == T_FWD)
+      return T_FWD;
     if(tag < T_CTOR)
-      return rts->hnf(C, &_2);
+      return rts->hnf(C, &_2, nullptr, monadic);
     Node * replacement = Node::create(
         &apply_Info, _1.target, _2.target
       );
@@ -67,11 +78,19 @@ namespace cyrt { inline namespace
 
   static tag_type applynf_step(RuntimeState * rts, Configuration * C)
   {
-    auto && normalize = [](RuntimeState * rts, Configuration * C, Variable * var)
+    auto && normalize = [](
+        RuntimeState * rts, Configuration * C, Variable * var, bool monadic
+      )
     {
     redo:
+      // hnf first: it handles a choice, a failure, or a constraint at the
+      // root of the argument.  procN pull-tabs a choice to the root of its
+      // scan, which must not be the choice itself.
+      tag_type tag = rts->hnf(C, var, nullptr, monadic);
+      if(tag < T_CTOR)
+        return tag;
       C->scan.push(var);
-      tag_type tag = rts->procN(C, var->target);
+      tag = rts->procN(C, var->target);
       C->scan.pop();
       if(tag == E_RESTART)
         goto redo;
@@ -103,8 +122,10 @@ namespace cyrt { inline namespace
 
   static tag_type applyhnf_step(RuntimeState * rts, Configuration * C)
   {
-    auto && headnormalize = [](RuntimeState * rts, Configuration * C, Variable * var)
-      { return rts->hnf(C, var); };
+    auto && headnormalize = [](
+        RuntimeState * rts, Configuration * C, Variable * var, bool monadic
+      )
+      { return rts->hnf(C, var, nullptr, monadic); };
     return _applyspecial(rts, C, headnormalize);
   }
 

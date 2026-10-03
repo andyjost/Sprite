@@ -128,6 +128,18 @@ class TestPyConversions(cytest.TestCase):
       , "<: <: <(,,) <Char 'a'> <Float 1.2> <: <Int 1> <: <Int 2> <[]>>>> <: <(,,) <Char 'b'> <Float 3.1> <: <Int 3> <: <Int 4> <[]>>>> <[]>>> <[]>>"
       )
 
+  def testUnicodeRoundTrip(self):
+    '''A Char is a code point, so any Python string converts and back.'''
+    interp = Interpreter()
+    for text in ['\u00e4', '\u00e4\u00f6\u00fc', '\U0001f600', 'a\u00a0b']:
+      x = interp.raw_expr(text)
+      self.assertEqual(interp.topython(x), text)
+    x = interp.raw_expr('\u00e4')
+    self.assertEqual(repr(x), "<Char '\\228'>")
+    x = interp.raw_expr('\u00e4\u00f6')
+    self.assertEqual(repr(x), "<: <Char '\\228'> <: <Char '\\246'> <[]>>>")
+    self.assertEqual(str(x), '"\\228\\246"')
+
   @unittest.expectedFailure
   def testConvertEmptyString(self):
     # An empty [Char] should convert to an empty Python string.  But the

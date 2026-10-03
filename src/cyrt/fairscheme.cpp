@@ -24,6 +24,10 @@ namespace cyrt
     Configuration * C = nullptr;
     tag_type tag      = NOTAG;
 
+    // Tells the collector that an evaluation is on the C stack.  A collection
+    // in a nested evaluation keeps every node allocated before this point.
+    EvaluationScope evaluation_scope;
+
     // The stack guard measures from the outermost procD.  A set function
     // evaluates its queue in a nested procD, which keeps the base.
     if(!this->in_recursive_call())
@@ -178,9 +182,15 @@ namespace cyrt
 
   tag_type RuntimeState::hnf(
       Configuration * C, Variable * inductive, void const * guides
+    , bool monadic
     )
   {
     Cursor _0 = C->cursor();
+    // A choice at the inductive position of a monadic step is an error: an
+    // I/O action cannot fork.  The Python backend raises NondetMonadError
+    // there.  The flag covers a strict application of a monadic function,
+    // whose argument is evaluated by ($!) on behalf of that function.
+    monadic = monadic || is_monadic(*_0->info);
     tag_type tag = inspect::tag_of(inductive->target);
     while(true)
     {
@@ -197,7 +207,9 @@ namespace cyrt
                        tag = inspect::tag_of(inductive->target);
                        tag = this->check_interrupts(tag);
                        continue;
-        case T_CHOICE: inductive->update_escape_sets(); // move this into pull_tab?
+        case T_CHOICE: if(monadic)
+                         return this->nondet_monad_error(C);
+                       inductive->update_escape_sets(); // move this into pull_tab?
                        _0->forward_to(this->pull_tab(C, inductive));
                        return T_FWD;
         case T_FUNC  : if(this->stack_exhausted()) return E_UNWIND;

@@ -88,6 +88,14 @@ requires nothing because Python can be run directly under an interpreter.  Even
 so, a package such as `PyPy`_ could in principle be used to post-process Python
 code into a more efficient form.
 
+The C++ backend compiles each generated module with ``g++`` into a shared
+object the first time the module is used, and again when the object is older
+than the runtime library.  Every module includes the header ``cyrt/cyrt.hpp``,
+and parsing that header is most of the compile time of a small module.  So the
+backend precompiles the header once per set of compiler flags and keeps the
+result beside the installed headers.  See ``SPRITE_CXX_PCH_ROOT`` under
+:ref:`CommandLineInterface/EnvironmentVariables:Development Variables`.
+
 
 .. _FlatCurry: https://cpm.curry-lang.org/pkgs/flatcurry.html
 .. _PAKCS manual: https://www.curry-lang.org/pakcs/Manual.pdf

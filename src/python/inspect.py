@@ -5,6 +5,7 @@ Inspect live Curry objects.
 from .common import T_SETGRD, T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from . import backends, config, icurry, objects
 from .utility import visitation
+import abc
 import collections.abc
 import os
 import re
@@ -67,7 +68,14 @@ def unboxed_value(arg):
     return arg
 
 def isa_unboxed_primitive(arg):
-  return isinstance(arg, icurry.IUnboxedLiteral)
+  ty = type(arg)
+  result = _unboxed_kinds.get(ty)
+  if result is None or (not result and _cache_token != abc.get_cache_token()):
+    _refresh_cache_token()
+    result = _unboxed_kinds[ty] = issubclass(ty, icurry.IUnboxedLiteral)
+  if not result and arg.__class__ is not ty:
+    return isinstance(arg, icurry.IUnboxedLiteral)
+  return result
 
 def isa_primitive(arg):
   return isa_boxed_primitive(arg) or isa_unboxed_primitive(arg)
@@ -185,8 +193,60 @@ def isa_ctor(arg):
 def is_data(arg):
   return isa_ctor(arg) or isa_unboxed_primitive(arg)
 
+# ``is_boxed`` and ``isa_unboxed_primitive`` test against abstract base
+# classes.  Such an isinstance call costs several Python-level calls, and the
+# evaluator makes millions of them.  The result depends on the type of the
+# object, so it is cached per type.  A negative result can change when some
+# class registers a new virtual subclass.  abc.get_cache_token reports that, so
+# a negative entry is checked against the token on every use.
+#
+# isinstance also consults ``__class__``, which a proxy or a mock may set to a
+# class other than its type, and differently per instance.  The cache stands
+# for the type alone; an object whose ``__class__`` differs from its type gets
+# the uncached check when the type says no.
+_NODE_TYPE = 1    # instances of backends.Node
+_PLAIN_TYPE = 2   # built-in value types: not a Node, and no is_boxed attribute
+_OTHER_TYPE = 3   # anything else: consult the is_boxed attribute
+_PLAIN_TYPES = frozenset([
+    bool, bytes, complex, float, int, memoryview, str, type(None)
+  ])
+_boxed_kinds = {}
+_unboxed_kinds = {}
+_cache_token = None
+
+def _refresh_cache_token():
+  global _cache_token
+  token = abc.get_cache_token()
+  if token != _cache_token:
+    _boxed_kinds.clear()
+    _unboxed_kinds.clear()
+    _cache_token = token
+
+def _boxed_kind(ty):
+  _refresh_cache_token()
+  if issubclass(ty, backends.Node):
+    kind = _NODE_TYPE
+  elif ty in _PLAIN_TYPES:
+    kind = _PLAIN_TYPE
+  else:
+    kind = _OTHER_TYPE
+  _boxed_kinds[ty] = kind
+  return kind
+
 def is_boxed(node):
-  return isinstance(node, backends.Node) or getattr(node, 'is_boxed', False)
+  ty = type(node)
+  kind = _boxed_kinds.get(ty)
+  if kind == _NODE_TYPE:
+    return True
+  if kind is None or _cache_token != abc.get_cache_token():
+    kind = _boxed_kind(ty)
+    if kind == _NODE_TYPE:
+      return True
+  if node.__class__ is not ty and isinstance(node, backends.Node):
+    return True
+  if kind == _PLAIN_TYPE:
+    return False
+  return getattr(node, 'is_boxed', False)
 
 def get_choice_id(arg):
   # Note: a variable has a choice ID (which equals its variable ID).

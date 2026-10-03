@@ -1,6 +1,10 @@
 '''Functions for tracing Curry evaluation.'''
 import collections, contextlib
 
+# The context manager used when tracing is off.  The bookkeeping of the trace
+# has no effect then, so the evaluator skips it.
+NULL_CONTEXT = contextlib.nullcontext()
+
 def show_queue(rts, qid=None):
   qid = rts.qid if qid is None else qid
   return 'queue %s: %s' % (qid, list(e.fingerprint for e in rts.qtable[qid]))
@@ -38,20 +42,23 @@ def activate_queue(rts, qid):
   if rts.tracing:
     print('Q ::: switching to %s' % show_queue(rts, qid))
 
-@contextlib.contextmanager
 def fork(rts, qid=None):
   if rts.tracing:
-    qid = rts.qid if qid is None else qid
-    cid = rts.grp_id()
-    head_fp = str(rts.qtable[qid][0].fingerprint)
-    try:
-      yield
-    finally:
-      print('Q ::: fork %s on cid=%s appending to %s' % (
-          head_fp, cid, show_queue(rts, qid)
-        ))
+    return _fork(rts, qid)
   else:
+    return NULL_CONTEXT
+
+@contextlib.contextmanager
+def _fork(rts, qid):
+  qid = rts.qid if qid is None else qid
+  cid = rts.grp_id()
+  head_fp = str(rts.qtable[qid][0].fingerprint)
+  try:
     yield
+  finally:
+    print('Q ::: fork %s on cid=%s appending to %s' % (
+        head_fp, cid, show_queue(rts, qid)
+      ))
 
 def expr_id(expr):
   from .... import inspect
@@ -104,8 +111,14 @@ class Trace(object):
   def fork(self, qid=None):
     return fork(self.rts, qid)
 
-  @contextlib.contextmanager
   def position(self, expr, path):
+    if self.rts.tracing:
+      return self._position(expr, path)
+    else:
+      return NULL_CONTEXT
+
+  @contextlib.contextmanager
+  def _position(self, expr, path):
     qid = self.rts.qid
     key = expr_id(expr), tuple(path)
     self.indent(qid)
@@ -129,6 +142,8 @@ def trace_values(f):
 def trace_steps(f):
   '''Wraps the S procedure to trace the application of steps.'''
   def step_tracer(rts, node, *args, **kwds):
+    if not rts.tracing:
+      return f(rts, node, *args, **kwds)
     rts.trace.enter_rewrite(node)
     try:
       return f(rts, node, *args, **kwds)

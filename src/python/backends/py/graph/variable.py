@@ -1,5 +1,17 @@
 from . import indexing, utility
+from .node import Node
 from .... import common, inspect
+
+# The evaluator (eval.fairscheme) imports this module, so it is imported here
+# on first use.  The module-level name saves an import statement on every call
+# to hnf.
+fairscheme = None
+
+def _import_fairscheme():
+  global fairscheme
+  from ..eval import fairscheme as module
+  fairscheme = module
+  return module
 
 def variable(rts, parent, logicalpath=None):
   '''Creates an instance of Variable.'''
@@ -78,6 +90,8 @@ class Variable(object):
     (4).  At (5a,5b), the root is rewritten.  When considering set functions,
     this step might need to insert set guards before _2.
   '''
+  __slots__ = ('rts', 'root', 'target', 'realpath', 'guards')
+
   def __init__(self, rts, root, target, realpath=None, guards=None):
     self.rts = rts
     self.root = root
@@ -92,15 +106,27 @@ class Variable(object):
 
   @staticmethod
   def from_logicalpath(rts, parent, logicalpath):
-    root = getattr(parent, 'root', parent)
-    basetarget = getattr(parent, 'target', parent)
-    basepath = getattr(parent, 'realpath', None)
-    baseguards = getattr(parent, 'guards', set())
-    target, realpath, guards = indexing.realpath(basetarget, logicalpath)
-    realpath = utility.joinpath(basepath, realpath)
-    guards.update(baseguards)
+    if isinstance(parent, Variable):
+      root = parent.root
+      basetarget = parent.target
+      basepath = parent.realpath
+      baseguards = parent.guards
+    else:
+      root = getattr(parent, 'root', parent)
+      basetarget = getattr(parent, 'target', parent)
+      basepath = getattr(parent, 'realpath', None)
+      baseguards = getattr(parent, 'guards', None)
+    target, realpath, guards = indexing.realpath_parts(
+        basetarget, logicalpath, True
+      )
+    if basepath is not None:
+      if type(basepath) is list:
+        realpath = basepath + realpath
+      else:
+        realpath = utility.joinpath(basepath, realpath)
+    if baseguards:
+      guards.update(baseguards)
     assert inspect.isa_curry_expr(target)
-    assert indexing.subexpr(root, realpath) is target
     return Variable(rts, root, target, realpath, guards)
 
   def __repr__(self):
@@ -116,7 +142,9 @@ class Variable(object):
   # Item access.
   # ------------
   def __getitem__(self, logicalpath):
-    return variable(self.rts, self, logicalpath)
+    if logicalpath is None:
+      return Variable.from_root(self.rts, self)
+    return Variable.from_logicalpath(self.rts, self, logicalpath)
 
   def __setitem__(self, i, value):
     # Used only to construct cyclic expressions.
@@ -130,7 +158,10 @@ class Variable(object):
 
   @property
   def info(self):
-    return inspect.info_of(self.target)
+    target = self.target
+    if isinstance(target, Node):
+      return target.info
+    return inspect.info_of(target)
 
   @property
   def is_boxed(self):
@@ -146,7 +177,10 @@ class Variable(object):
 
   @property
   def tag(self):
-    return inspect.tag_of(self.target)
+    target = self.target
+    if isinstance(target, Node):
+      return target.info.tag
+    return inspect.tag_of(target)
 
   @property
   def typedef(self):
@@ -179,12 +213,14 @@ class Variable(object):
 
   def hnf(self, typedef=None, values=None):
     '''Head-normalizes this variable.'''
-    from ..eval import fairscheme
-    return fairscheme.hnf(self.rts, self, typedef, values)
+    return (fairscheme or _import_fairscheme()).hnf(
+        self.rts, self, typedef, values
+      )
 
   def hnf_or_free(self, typedef=None):
-    from ..eval import fairscheme
-    return fairscheme.hnf_or_free(self.rts, self, typedef)
+    return (fairscheme or _import_fairscheme()).hnf_or_free(
+        self.rts, self, typedef
+      )
 
   def replace_target(self, replacement):
     '''Replace the target by rewriting the root.'''

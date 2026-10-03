@@ -1,5 +1,6 @@
 from ....common import T_SETGRD, T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from ..graph import indexing
+from ..graph.node import Node
 from .. import graph
 from ...generic.eval import control, trace
 from .... import icurry, inspect
@@ -9,13 +10,16 @@ from . import callstack
 def D(rts):
   rts.telemetry._enterD += 1
   while rts.ready():
-    assert not hasattr(rts.E, 'raw_expr')
+    # The root is read once per iteration.  Each read of rts.E goes through
+    # the queue table.
+    E = rts.E
+    assert not hasattr(E, 'raw_expr')
     rts.telemetry._iterD += 1
-    tag = inspect.tag_of(rts.E)
+    tag = inspect.tag_of(E)
     if tag == T_FAIL:
       rts.drop()
     elif tag == T_CONSTR:
-      value, lr = rts.E.successors
+      value, lr = E.successors
       l, r = lr.successors
       if not rts.constrain_equal(l, r, rts.constraint_type()):
         rts.drop()
@@ -30,14 +34,14 @@ def D(rts):
       else:
         yield rts.release_value()
     elif tag == T_FWD:
-      rts.E = inspect.fwd_target(rts.E)
+      rts.E = inspect.fwd_target(E)
     elif tag == T_SETGRD:
-      sid = rts.E.successors[0]
+      sid = E.successors[0]
       if sid == rts.sid:
         rts.C.escape_all = True
       elif rts.in_recursive_call:
         rts.unwind()
-      rts.E = rts.E.successors[1]
+      rts.E = E.successors[1]
     elif tag == T_CHOICE:
       cid = rts.obj_id()
       if rts.choice_escapes(cid):
@@ -49,9 +53,9 @@ def D(rts):
     else:
       with rts.catch_control(residual=True, restart=True, steplimit=True):
         if tag == T_FUNC:
-          S(rts, rts.E)
+          S(rts, E)
         elif tag >= T_CTOR:
-          if N(rts, rts.variable(rts.E)):
+          if N(rts, rts.variable(E)):
             yield rts.release_value()
   # The queue is empty.  An alternative dropped at the stack limit reports its
   # error now, after the other alternatives produced their values.
@@ -69,7 +73,9 @@ def N(rts, var, state):
         if var.is_root:
           rts.drop()
         else:
-          var.rewrite(rts.Failure)
+          # The redex becomes a failure, as in hnf.  ($!!) normalizes its
+          # argument this way.
+          var.root.rewrite(rts.Failure)
         return False
       elif tag == T_CONSTR:
         if var.is_root:
@@ -163,9 +169,13 @@ def hnf(rts, var, typedef=None, values=None):
   rts.telemetry._enterhnf += 1
   while True:
     rts.telemetry._iterhnf += 1
-    if isinstance(var.target, icurry.ILiteral):
+    target = var.target
+    if isinstance(target, Node):
+      tag = target.info.tag
+    elif isinstance(target, icurry.ILiteral):
       return var
-    tag = var.tag
+    else:
+      tag = var.tag
     if tag == T_SETGRD:
       var.extend()
     elif tag == T_FAIL:

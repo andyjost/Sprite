@@ -16,7 +16,7 @@ def readCharLiteral(rts, s):
   '''
   Parse a character literal from a Curry string.
 
-  The literal begins and ends with a single quote.  The body contains an ASCII
+  The literal begins and ends with a single quote.  The body contains a
   character other than a backslash or single quote, or a backslash followed by
   one of the following:
 
@@ -39,7 +39,7 @@ def readCharLiteral(rts, s):
     c, s = _getchar(rts, s)
     if c == '\\':
       c_out, s = _parseEscapeCode(rts, s)
-    elif ord(c) < 256 and c != "'":
+    elif c != "'":
       c_out = c
     else:
       raise ParseError()
@@ -132,8 +132,8 @@ def readStringLiteral(rts, s):
   '''
   Parse a string literal from a Curry string.
 
-  The literal begins and ends with a double quote.  The body contains a string of ASCII
-  characters and uses the same escape codes as for character literals.
+  The literal begins and ends with a double quote.  The body contains a string
+  of characters and uses the same escape codes as for character literals.
 
   Yields:
     A list whose head is a pair of the parsed string and remaining string
@@ -150,13 +150,10 @@ def readStringLiteral(rts, s):
       if c == '\\':
         c, s = _parseEscapeCode(rts, s)
         s_out.append(c)
-      elif ord(c) < 256:
-        if c == '"':
-          break
-        else:
-          s_out.append(c)
+      elif c == '"':
+        break
       else:
-        raise ParseError()
+        s_out.append(c)
     yield rts.prelude.Cons
     yield graph.Node(
         rts.prelude.Pair
@@ -225,7 +222,7 @@ def _parseEscapeCode(rts, s):
   else:
     raise ParseError()
 
-HEXDIGITS = set('0123456789abcdef')
+HEXDIGITS = set('0123456789abcdefABCDEF')
 
 def _parseHexChar(rts, s, digits=None):
   '''

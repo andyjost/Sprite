@@ -45,16 +45,18 @@ NAMED_ESC = {
   , r"\r" : '\r'
   , r"\t" : '\t'
   , r"\v" : '\v'
+  , r"\&" : ''     # the empty escape, which ends a decimal escape before a digit
   }
-DEC = re.compile(r'\\([1-9][0-9]{0,2})')
+DEC = re.compile(r'\\([1-9][0-9]{0,6})') # up to 1114111, the last code point
 OCTAL = re.compile(r'\\([0-7]{1,3})')
 UNICODE = re.compile(r'\\u[0-9a-fA-f]{4}')
 
 def qescape(text, chars, j):
   # Must be one of:
   #   - One of the named escape sequences listed in NAMED_ESC.
-  #   - A decimal escape sequence; '\' followed by one, two or three decimal digits,
-  #     not all zero.
+  #   - A decimal escape sequence; '\' followed by up to seven decimal digits,
+  #     not all zero.  A code point above 999 has more than three digits.  The
+  #     read is greedy, as in Curry: "\2281" is one character.
   #   - An octal escape sequence; '\0' followed by one, two or three octal digits,
   #     not all zero.
   #   - A Unicode escape sequence; 'u' followed by four hex digits.

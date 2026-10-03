@@ -158,6 +158,21 @@ def force_recompile_cxx():
 def ignore_cyrt_timestamp():
   return os.environ.get('SPRITE_IGNORE_CYRT_TIMESTAMP', False)
 
+def cxx_pch_root():
+  '''
+  The directory under which the C++ backend keeps its precompiled header.
+  Returns None when the header is disabled.
+
+  By default the header lives beside the installed headers, where the C++
+  compiler finds it with no extra flag.  SPRITE_CXX_PCH_ROOT names another
+  directory.  Set it to the empty string to compile without the header.
+  '''
+  root = os.environ.get('SPRITE_CXX_PCH_ROOT')
+  if root is None:
+    return installed_path('include')
+  root = root.strip()
+  return os.path.abspath(root) if root else None
+
 # The path to system Curry files, such as the Prelude.  This is appended to
 # whatever the user might supply via the CURRYPATH environment variable.
 def system_curry_path():

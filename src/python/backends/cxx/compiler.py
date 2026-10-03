@@ -4,9 +4,17 @@ from ... import common, config, icurry
 from . import cyrtbindings as cyrt
 from ...utility import formatDocstring, strings, visitation
 from ...utility.showflags import showflags
-import collections.abc, json
+import collections.abc
 
-__all__ = ['compile', 'write_module']
+__all__ = ['compile', 'write_module', 'FORMAT_VERSION']
+
+# The format of the generated C++.  vEmitHeader writes it into every file as
+# "// FORMAT: N".  The toolchain refuses a cached file with another stamp, or
+# none (Cpp2So.is_stale): such a file was written for another runtime, and the
+# runtime would read its static data with the wrong layout.  A file without a
+# stamp is format 1.  Raise the number when the generated code, or a layout it
+# depends on, changes.
+FORMAT_VERSION = 2
 
 def compile(interp, imodule):
   compileM = CxxCompiler(interp, imodule)
@@ -54,6 +62,7 @@ class CxxCompiler(compiler.CompilerBase):
 
   def vEmitHeader(self):
     yield '// IMPORTS: ' + ' '.join(str(mod) for mod in self.iroot.imports)
+    yield '// FORMAT: %d' % FORMAT_VERSION
     yield '#include "cyrt/cyrt.hpp"'
     yield ''
     yield 'using namespace cyrt;'
@@ -134,13 +143,15 @@ class CxxCompiler(compiler.CompilerBase):
 
   def vEmitValueSetLiteral(self, values, h_valueset, h_valueset_data):
     if len(values) == 0 or isinstance(values[0], int):
-      dt_name, dt_code = 'unboxed_int_type', 'i'
+      dt_code = 'i'
     elif isinstance(values[0], float):
-      dt_name, dt_code = 'unboxed_float_type', 'f'
+      dt_code = 'f'
     elif isinstance(values[0], str):
-      dt_name, dt_code = 'unboxed_char_type', 'c'
-    yield 'static %s const %s[] = {%s};' % (
-        dt_name, h_valueset_data, ', '.join(repr(v) for v in values)
+      dt_code = 'c'
+    # The runtime reads the values through an Arg pointer, so each element
+    # has the size of an Arg.  A char value is a char32_t literal.
+    yield 'static Arg const %s[] = {%s};' % (
+        h_valueset_data, ', '.join(_cxxshow(v, use_char=True) for v in values)
       )
     yield 'static ValueSet const %s{(Arg *) %s, %r, %r};' % (
         h_valueset, h_valueset_data, len(values), dt_code
@@ -255,7 +266,7 @@ class CxxCompiler(compiler.CompilerBase):
         raise CompileError('bad switch type: %r' % type(br.lit))
       switchbody = []
       for branch in icase.branches:
-        switchbody.append('case %r:' % branch.lit.value)
+        switchbody.append('case %s:' % _cxxshow(branch.lit.value, use_char=True))
         switchbody.append(list(self.compileS(branch.block)))
       switchbody.append('default: return _0->make_failure();')
       yield switchbody
@@ -305,10 +316,46 @@ class CxxCompiler(compiler.CompilerBase):
     text = "&%s, %s, %s" % (h_choice, lhs, rhs)
     return 'Node::create(%s)' % text if primary else text
 
+# The bytes that a C++ string literal spells with a symbolic escape.
+_CXX_ESCAPES = {
+    ord('"') : '\\"'
+  , ord('\\'): '\\\\'
+  , ord('\n'): '\\n'
+  , ord('\r'): '\\r'
+  , ord('\t'): '\\t'
+  }
+
 def _dquote(string):
-  # Note: Use JSON to get double-quote-style escaping.
-  string_data = strings.ensure_str(string)
-  return json.dumps(string_data)
+  '''
+  A C++ string literal that holds the UTF-8 encoding of ``string``.  Printable
+  ASCII is written as is.  Every other byte is written as a three-digit octal
+  escape, which no following character can extend.  The question mark is
+  escaped as well, so that no trigraph can form.
+  '''
+  parts = ['"']
+  for byte in strings.ensure_binary(string):
+    escape = _CXX_ESCAPES.get(byte)
+    if escape is not None:
+      parts.append(escape)
+    elif 0x20 <= byte < 0x7f and byte != ord('?'):
+      parts.append(chr(byte))
+    else:
+      parts.append('\\%03o' % byte)
+  parts.append('"')
+  return ''.join(parts)
+
+def _char_literal(char):
+  '''
+  A char32_t literal that holds the code point of ``char``.  Printable ASCII
+  is written as is; every other code point is written as a hex escape.
+  '''
+  assert len(char) == 1
+  if char in '\\\'':
+    return "U'\\%s'" % char
+  codepoint = ord(char)
+  if 0x20 <= codepoint < 0x7f:
+    return "U'%s'" % char
+  return "U'\\x%x'" % codepoint
 
 @visitation.dispatch.on('arg')
 def _cxxshow(arg, use_char=False):
@@ -324,16 +371,8 @@ def _cxxshow(i, use_char=False):
 
 @_cxxshow.when(str)
 def _cxxshow(string, use_char=False):
-  # Ensure characters always begin with a single quote.  Python uses "'" for
-  # that particular string.
   if use_char:
-    assert len(string) == 1
-    if string == "'":
-      return "'\\''"
-    else:
-      result = repr(string)
-      assert result.startswith("'")
-      return result
+    return _char_literal(string)
   else:
     return _dquote(string)
 

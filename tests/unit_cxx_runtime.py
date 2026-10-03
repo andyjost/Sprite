@@ -68,7 +68,9 @@ class TestCxxProcess(cytest.TestCase):
     pointer, and the process crashed or aborted.  std::bad_alloc now leaves
     the step functions and the scheduler, and pybind11 turns it into
     MemoryError.  The child runs under a 1 GiB address-space cap.  The
-    backend needs about 600 MB at load, so the fill is a few hundred MB.
+    backend needs about 100 MB at load.  The program keeps every cell of
+    its list reachable, so the collector frees nothing (see unit_cxx_gc.py
+    for a program that completes under the cap).
     '''
     code = '''
 import curry, os

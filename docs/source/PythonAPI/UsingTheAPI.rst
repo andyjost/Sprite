@@ -379,6 +379,13 @@ Curry expression to Python.
 Conversions to the following Python types are performed: ``bool``, ``float``,
 ``int``, ``list``, ``str``, ``tuple``.
 
+A Curry ``Char`` is a Unicode code point.  A Python ``str`` of length one
+converts to a ``Char``, and a longer one to a list of characters; both
+directions keep every code point.  The files that ``readFile``, ``writeFile``,
+and ``appendFile`` touch hold UTF-8 on both backends.  So do the standard
+streams of ``putChar`` and ``getChar`` on the C++ backend; on the Python
+backend they use the encoding of ``sys.stdout`` and ``sys.stdin``.
+
 :func:`curry.topython` prunes the recursion wherever it encounters a
 subexpression it cannot convert.  The reason for this potentially
 counter-intuitive behavior is made clear by the following example:

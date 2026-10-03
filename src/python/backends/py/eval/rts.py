@@ -117,33 +117,35 @@ class RuntimeState(object):
           return
       yield value
 
+  # The evaluator reads these properties on every iteration, so each one
+  # reads the queue table directly rather than through the other properties.
   @property
   def C(self):
-    '''The current configuration.'''
-    return self.Q[0]
+    '''The current configuration.  Equivalent to Q[0].'''
+    return self.qtable[self.qstack[-1]][0]
 
   @C.setter
   def C(self, config):
-    self.Q[0] = config
+    self.qtable[self.qstack[-1]][0] = config
 
   @property
   def E(self):
-    '''The current root expression.'''
-    return self.C.root
+    '''The current root expression.  Equivalent to C.root.'''
+    return self.qtable[self.qstack[-1]][0].root
 
   @E.setter
   def E(self, node):
-    self.C.root = node
+    self.qtable[self.qstack[-1]][0].root = node
 
   @property
   def Q(self):
-    '''The current queue.'''
-    return self.qtable[self.qid]
+    '''The current queue.  Equivalent to qtable[qid].'''
+    return self.qtable[self.qstack[-1]]
 
   @Q.setter
   def Q(self, queue):
     '''Replaces the current queue.'''
-    self.qtable[self.qid] = queue
+    self.qtable[self.qstack[-1]] = queue
 
   @property
   def S(self):

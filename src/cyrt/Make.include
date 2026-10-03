@@ -12,6 +12,13 @@ LIB := cyrt/libcyrt
 HEADER_INSTALL_DIR = $(PREFIX)/include/cyrt/$(shell realpath --relative-to $(ROOT_DIR)/src/cyrt $(shell pwd))
 EXPORTED_HEADERS := $(wildcard *.h??)
 
+# The C++ backend keeps the precompiled form of cyrt.hpp in this directory
+# (see curry.backends.cxx.toolchain.PrecompiledHeader).  Only the top-level
+# cyrt directory, the one that holds this file, lists it.
+ifeq ($(CURDIR),$(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST))))))
+  DIRS_TO_REC_UNINSTALL += $(PREFIX)/include/cyrt/cyrt.hpp.gch
+endif
+
 # Include the Make.include file one level up in the directory hierarchy.
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
 

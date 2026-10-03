@@ -1,9 +1,19 @@
+'''
+The build steps of the C++ backend: ICurry-JSON to C++, and C++ to a shared
+object.
+
+The C++ compiler is the slow step.  Every generated module includes
+cyrt/cyrt.hpp, and parsing that header costs about two thirds of the time g++
+needs for a small module.  So the toolchain precompiles the header once, and
+g++ loads the result.  See PrecompiledHeader.
+'''
 from ..generic.toolchain import Json2TargetSource
+from . import compiler
 from ... import config, exceptions
 from ...objects.handle import getHandle
-from ...utility import curryname
+from ...utility import curryname, filesys
 from ...toolchain import plans, _filenames, _loadcurry, _system
-import logging, os, re
+import hashlib, itertools, logging, os, re
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +28,135 @@ class Json2Cpp(Json2TargetSource):
   NAME = 'json2cpp'
   SUFFIX = '.cpp'
 
+class PrecompiledHeader(object):
+  '''
+  The precompiled form of cyrt/cyrt.hpp.
+
+  The files live in <root>/cyrt/cyrt.hpp.gch/.  The root is the installed
+  include directory unless SPRITE_CXX_PCH_ROOT says otherwise (see
+  config.cxx_pch_root).  g++ accepts a directory of that name in place of one
+  file and uses the member that matches its options.  So each flavor (the
+  optimized build, the debug build, custom CXXFLAGS) gets its own member,
+  named after the optimization flags and a hash of the compiler and the full
+  flag list.
+
+  A member is stale when it is older than libcyrt.so or than any header.  The
+  comparison uses modification times, so a copied tree keeps its stamps.
+  When the directory cannot be written or the build fails, the toolchain logs
+  one warning per root and compiles without the header.  The generated code
+  is the same either way.
+  '''
+  HEADER = os.path.join('cyrt', 'cyrt.hpp')
+
+  # The roots for which a build failed in this process.  No second attempt.
+  _failed = set()
+
+  def __init__(self, root, cxx, cxxflags):
+    self.root = root
+    self.cxx = cxx
+    self.cxxflags = list(cxxflags)
+    self.directory = os.path.join(root, self.HEADER + '.gch')
+    self.filename = os.path.join(self.directory, self.flavor + '.gch')
+
+  @property
+  def flavor(self):
+    '''The member name for this compiler and these flags, without suffix.'''
+    exe = os.path.realpath(self.cxx)
+    try:
+      stamp = str(os.path.getmtime(exe))
+    except OSError:
+      stamp = ''
+    key = '\0'.join([exe, stamp] + self.cxxflags)
+    digest = hashlib.sha1(key.encode('utf-8')).hexdigest()[:12]
+    level = ''.join(
+        flag[1:] for flag in self.cxxflags
+                 if flag.startswith('-O') or flag == '-g'
+      )
+    return '%s-%s' % (level or 'default', digest)
+
+  @staticmethod
+  def header_files():
+    '''The installed headers.  The precompiled header depends on them all.'''
+    top = config.installed_path('include', 'cyrt')
+    for dirpath, dirnames, filenames in os.walk(top):
+      dirnames[:] = [d for d in dirnames if not d.endswith('.gch')]
+      for name in filenames:
+        if name.endswith(('.hpp', '.hxx', '.h')):
+          yield os.path.join(dirpath, name)
+
+  def is_current(self):
+    '''True when the member exists and nothing it depends on is newer.'''
+    try:
+      stamp = os.path.getmtime(self.filename)
+      inputs = [config.cyrt_lib()] + list(self.header_files())
+      return all(os.path.getmtime(f) <= stamp for f in inputs)
+    except OSError:
+      return False
+
+  def prepare(self):
+    '''
+    Builds the member if it is missing or stale.  Returns True when g++ can
+    use it, and False when the toolchain must compile without it.
+    '''
+    if self.root in self._failed:
+      return False
+    if self.is_current():
+      return True
+    try:
+      self.build()
+    except (OSError, exceptions.CompileError) as exc:
+      self._failed.add(self.root)
+      logger.warning(
+          'cannot build the precompiled header %r (%s); generated code is '
+          'compiled without it.  Set SPRITE_CXX_PCH_ROOT to a writable '
+          'directory, or to the empty string to silence this warning.'
+        , self.filename, exc
+        )
+      return False
+    return True
+
+  def build(self):
+    '''Compiles the header into a temporary file, then moves it into place.'''
+    header = config.installed_path('include', self.HEADER)
+    os.makedirs(self.directory, exist_ok=True)
+    # A partial file must never sit in the .gch directory, where g++ would
+    # try it.  Build beside the directory and move the result in.
+    tmp = os.path.join(
+        os.path.dirname(self.directory)
+      , '.%s.%d.tmp' % (os.path.basename(self.filename), os.getpid())
+      )
+    cmd = [self.cxx, '-x', 'c++-header'] + self.cxxflags + [header, '-o', tmp]
+    logger.info('Precompiling %r', self.filename)
+    logger.debug('Command: %s', ' '.join(cmd))
+    with filesys.remove_file_on_error(tmp):
+      _system.pexec(cmd)
+      os.replace(tmp, self.filename)
+
 class Cpp2So(object):
   def __init__(self, interp):
     self.interp = interp
 
   def __repr__(self):
     return 'cpp2so'
+
+  FORMAT_PAT = re.compile(r'// FORMAT: (\d+)')
+  def is_stale(self, file_in):
+    '''
+    Tells whether a cached .cpp file was written for another runtime.  The
+    emitter stamps every file with its format (compiler.FORMAT_VERSION); a
+    file without a stamp predates the stamp.  The plan then starts again from
+    the JSON file.  A .so file without its .cpp file is trusted.
+    '''
+    return self.format_version(file_in) != compiler.FORMAT_VERSION
+
+  def format_version(self, file_in):
+    '''The format stamp of a generated file.  The stamp heads the file.'''
+    with open(file_in, 'r') as stream:
+      for line in itertools.islice(stream, 16):
+        m = self.FORMAT_PAT.match(line)
+        if m:
+          return int(m.group(1))
+    return 1
 
   IMPORT_PAT = re.compile(r'// IMPORTS: (.*)')
   def _importedModules(self, file_in):
@@ -63,10 +196,12 @@ class Cpp2So(object):
     for modulename in self._importedModules(file_in):
       yield self._sofilename(modulename)
 
-  def _compileCommand(self, file_in, file_out):
-    yield config.cxx_tool()
+  def _cxxflags(self):
+    '''
+    The flags that shape the compilation of a translation unit.  The
+    precompiled header is built with the same list.
+    '''
     yield '-I%s' % config.installed_path('include')
-    yield '-shared'
     yield '-fPIC'
     yield '-std=c++17'
     if self.interp.flags['debug']:
@@ -74,9 +209,30 @@ class Cpp2So(object):
       yield '-g'
     else:
       yield '-O3'
-    yield '-Wl,-eentry'
     for flag in os.environ.get('CXXFLAGS', '').split():
       yield flag
+
+  def _pchflags(self):
+    '''
+    Prepares the precompiled header.  Yields the include flag that lets g++
+    find it when it lives outside the installed include directory.
+    '''
+    root = config.cxx_pch_root()
+    cxx = config.cxx_tool()
+    if root is None or cxx is None:
+      return
+    pch = PrecompiledHeader(root, cxx, self._cxxflags())
+    if pch.prepare() and root != config.installed_path('include'):
+      yield '-I%s' % root
+
+  def _compileCommand(self, file_in, file_out):
+    yield config.cxx_tool()
+    for flag in self._pchflags():
+      yield flag
+    yield '-shared'
+    for flag in self._cxxflags():
+      yield flag
+    yield '-Wl,-eentry'
     yield file_in
     for sofilename in self._dependencies(file_in):
       yield sofilename
@@ -93,4 +249,3 @@ class Cpp2So(object):
     logger.debug('Command: %s', ' '.join(cmd))
     ignored = _system.pexec(cmd)
     return file_out
-

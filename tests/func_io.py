@@ -27,6 +27,10 @@ class TestExamples(cytest.FunctionalTestCase):
       'appendFile$'   : {'data/curry/io/appendFile.out': 'Hello, World!'}
     , 'putChar_catch' : {'data/curry/io/putChar_catch.out': 'yes'}
     , 'writeFile$'    : {'data/curry/io/output.txt': 'the content'}
+    , 'writeFile_utf8': {
+          'data/curry/io/output_utf8.txt':
+              '\u00e4\u00f6\u00fc\U0001f600'.encode('utf-8')
+        }
     }
   if curry.flags['backend'] == 'py':
     SKIP = [

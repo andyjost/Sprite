@@ -4,6 +4,7 @@
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/state/rts.hpp"
 #include <set>
+#include <unordered_map>
 
 namespace cyrt
 {
@@ -66,6 +67,15 @@ namespace cyrt
   static std::set<RuntimeState *> g_rtslist;
   bool g_gc_collect = false;
 
+  // The nodes Python holds, with the number of registrations of each.  The
+  // map is never destroyed: a wrapper may be destroyed after the static
+  // objects of this library.
+  using RootMap = std::unordered_map<Node *, size_t>;
+  static RootMap & g_roots = *new RootMap();
+
+  // The number of evaluations on the C stack.  See gc_enter_evaluation.
+  static size_t g_eval_depth = 0;
+
   void gc_register_rts(RuntimeState * rts)
   {
     assert(rts);
@@ -78,6 +88,38 @@ namespace cyrt
     assert(rts);
     g_rtslist.erase(rts);
     assert(g_rtslist.count(rts) == 0);
+  }
+
+  void gc_add_root(Node * node)
+  {
+    assert(node);
+    ++g_roots[node];
+  }
+
+  void gc_remove_root(Node * node)
+  {
+    auto p = g_roots.find(node);
+    assert(p != g_roots.end());
+    if(p == g_roots.end())
+      return;
+    if(--p->second == 0)
+      g_roots.erase(p);
+  }
+
+  size_t gc_root_count(Node * node)
+  {
+    auto p = g_roots.find(node);
+    return p == g_roots.end() ? 0 : p->second;
+  }
+
+  size_t gc_num_roots()
+  {
+    return g_roots.size();
+  }
+
+  size_t gc_eval_depth()
+  {
+    return g_eval_depth;
   }
 }
 

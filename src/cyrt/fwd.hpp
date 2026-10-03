@@ -43,7 +43,9 @@ namespace cyrt
   using std::size_t;
   using stepfunc_type = tag_type (*)(RuntimeState *, Configuration *);
   using generator_next_type = Node * (*)(void *);
-  using unboxed_char_type = signed char;
+  // A Char holds one Unicode code point.  Text crosses the boundary of the
+  // runtime as UTF-8; see cyrt/utf8.hpp.
+  using unboxed_char_type = char32_t;
   using unboxed_float_type = double;
   using unboxed_int_type = int64_t;
   using unboxed_ptr_type = void *;

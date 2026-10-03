@@ -24,7 +24,7 @@ class IChar(ISymbol):
   def __init__(self, value, **kwds):
     ISymbol.__init__(self, 'Prelude.Char', **kwds)
     self.value = str(value)
-    assert len(self.value) in (1,2) # Unicode can have length 2 in utf-8
+    assert len(self.value) == 1 # one code point
   @property
   def _fields_(self):
     return 'value',

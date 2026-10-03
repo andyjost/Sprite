@@ -23,7 +23,8 @@ static tag_type error_step(RuntimeState * rts, Configuration * C)
   Variable _1 = _0[0];
   auto tag = rts->hnf(C, &_1);
   if(tag < T_CTOR) return tag;
-  C->set_error(_1.target->str());
+  // The message is a ground string: error applies prim_error with ($##).
+  C->set_error(extract_string(_1.target));
   return E_ERROR;
 }
 
@@ -38,7 +39,7 @@ static tag_type error2_step(RuntimeState * rts, Configuration * C)
   tag = rts->hnf(C, &_2);
   if(tag < T_CTOR) return tag;
 
-  C->set_error(_1.target, _2.target->str());
+  C->set_error(_1.target, extract_string(_2.target));
 
   Node * replacement = io(unit());
   _0->forward_to(replacement);

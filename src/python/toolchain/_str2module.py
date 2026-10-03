@@ -53,7 +53,7 @@ def str2module(
   logger.debug('Created directory %r for a dynamic Curry module', moduledir)
   try:
     curryfile = os.path.join(moduledir, modulename + '.curry')
-    with open(curryfile, 'w') as ostream:
+    with open(curryfile, 'w', encoding='utf-8') as ostream:
       ostream.write(moduletext)
     moduleobj = interp.import_(modulename, currypath=[moduledir] + currypath)
     moduleobj.__file__ = curryfile

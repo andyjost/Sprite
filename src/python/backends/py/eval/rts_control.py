@@ -10,7 +10,6 @@ from ...generic.eval.control import (
 from ..graph.copy import copygraph
 from .... import exceptions, inspect
 from .. import graph
-import contextlib
 
 __all__ = [
     'append', 'catch_control', 'count_step', 'drop', 'extend', 'is_io'
@@ -22,7 +21,6 @@ def append(rts, config):
   '''Append a configuration to the queue.'''
   rts.Q.append(config)
 
-@contextlib.contextmanager
 def catch_control(
     rts, ground=True, nondet=False, residual=False, restart=False
   , steplimit=False, unwind=False
@@ -62,31 +60,57 @@ def catch_control(
   Returns:
     A context manager.
   '''
-  try:
-    yield
-  except E_UNWIND:
-    if nondet:
-      raise exceptions.NondetMonadError()
-    elif not unwind:
-      raise
-  except E_RESIDUAL as res:
-    if nondet:
-      raise exceptions.NondetMonadError()
-    elif residual:
-      rts.C.residuals.update(res.ids)
-      rts.rotate()
-    elif ground:
-      raise
-  except E_RESTART:
-    if not restart:
-      raise
-  except E_STEPLIMIT as exc:
-    if not steplimit or (exc.qid is not None and exc.qid != rts.qid):
-      raise
-    rts.rotate()
-  except RecursionError as exc:
-    if not steplimit or not rts.overflow(exc):
-      raise
+  return ControlHandler(
+      rts, ground, nondet, residual, restart, steplimit, unwind
+    )
+
+class ControlHandler(object):
+  '''
+  The context manager returned by ``catch_control``.  It is a plain class, not
+  a generator, because the evaluator enters one per rewrite step.
+  '''
+  __slots__ = (
+      'rts', 'ground', 'nondet', 'residual', 'restart', 'steplimit', 'unwind'
+    )
+
+  def __init__(self, rts, ground, nondet, residual, restart, steplimit, unwind):
+    self.rts = rts
+    self.ground = ground
+    self.nondet = nondet
+    self.residual = residual
+    self.restart = restart
+    self.steplimit = steplimit
+    self.unwind = unwind
+
+  def __enter__(self):
+    return None
+
+  def __exit__(self, exc_type, exc, tb):
+    # A true result swallows the exception.  See catch_control.
+    if exc_type is None:
+      return False
+    if issubclass(exc_type, E_UNWIND):
+      if self.nondet:
+        raise exceptions.NondetMonadError()
+      return bool(self.unwind)
+    if issubclass(exc_type, E_RESIDUAL):
+      if self.nondet:
+        raise exceptions.NondetMonadError()
+      if self.residual:
+        self.rts.C.residuals.update(exc.ids)
+        self.rts.rotate()
+        return True
+      return not self.ground
+    if issubclass(exc_type, E_RESTART):
+      return bool(self.restart)
+    if issubclass(exc_type, E_STEPLIMIT):
+      if not self.steplimit or (exc.qid is not None and exc.qid != self.rts.qid):
+        return False
+      self.rts.rotate()
+      return True
+    if issubclass(exc_type, RecursionError):
+      return bool(self.steplimit) and bool(self.rts.overflow(exc))
+    return False
 
 def overflow(rts, error):
   '''
@@ -185,13 +209,16 @@ def extend(rts, configs):
   '''Extend the queue.'''
   rts.Q.extend(configs)
 
+# The names of the functions that perform I/O.  See is_io.
+IO_FUNCTION_NAMES = frozenset([
+    'prim_putChar', 'prim_readFile', 'prim_writeFile', 'prim_appendFile'
+  , 'appendFile', 'putStr', 'putChr', 'putStrLn', 'print', 'seqIO'
+  , 'returnIO', 'bindIO', 'getChar'
+  ])
+
 def is_io(rts, func):
   assert func.info.tag == T_FUNC
-  return func.info.name in [
-      'prim_putChar', 'prim_readFile', 'prim_writeFile', 'prim_appendFile'
-    , 'appendFile', 'putStr', 'putChr', 'putStrLn', 'print', 'seqIO'
-    , 'returnIO', 'bindIO', 'getChar'
-    ]
+  return func.info.name in IO_FUNCTION_NAMES
 
 def make_value(rts, arg=None, config=None):
   config = config or rts.C
@@ -208,9 +235,13 @@ def ready(rts):
   only blocked configurations.  Returns True when the queue is not empty and
   the configuration at the head is ready to be further evaluated.
   '''
-  if rts.Q:
+  Q = rts.Q
+  if Q:
+    if not Q[0].residuals:
+      # The configuration at the head is ready.  This is the common case.
+      return True
     try:
-      i = next(i for i, c in enumerate(rts.Q) if _make_ready(rts, c))
+      i = next(i for i, c in enumerate(Q) if _make_ready(rts, c))
     except StopIteration:
       # Every configuration is blocked.  The error of a dropped alternative
       # comes first.

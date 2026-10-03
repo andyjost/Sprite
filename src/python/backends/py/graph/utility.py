@@ -1,5 +1,6 @@
 from .... import icurry, inspect, utility
 from ....common import T_FUNC, T_CTOR
+from .node import Node
 import functools, itertools, numbers
 
 __all__ = ['copy_spine', 'curry', 'joinpath', 'rewrite', 'shallow_copy']
@@ -44,17 +45,26 @@ def copy_spine(root, realpath, end=None, rewrite=None):
     node, ``f'``.
 
   '''
-  from .node import Node
-  def construct(node, path, target=None):
-    if path:
-      i = path[0]
-      successors = list(node.successors)
-      successors[i] = construct(successors[i], path[1:])
-      return Node(node.info, *successors, target=target)
-    else:
-      return node if end is None else end
   assert rewrite is None or inspect.isa_func(getattr(rewrite, 'target', rewrite))
-  return construct(root, realpath, target=rewrite)
+  target = getattr(rewrite, 'target', rewrite) # accept rewrite=Variable
+  end = getattr(end, 'rvalue', end)            # accept end=Variable
+  return _copy_spine(root, realpath, 0, end, target)
+
+def _copy_spine(node, realpath, i, end, target):
+  '''Copies the spine of ``node`` from position ``i`` of ``realpath``.'''
+  if i < len(realpath):
+    j = realpath[i]
+    successors = list(node.successors)
+    successors[j] = _copy_spine(successors[j], realpath, i + 1, end, None)
+    # The copy of a valid node needs no check of its arity or its successors,
+    # so the node is built directly, as the graph copier does.
+    if target is None:
+      target = object.__new__(Node)
+    target.info = node.info
+    target.successors = successors
+    return target
+  else:
+    return node if end is None else end
 
 def curry(rts, f, *args, **kwds):
   '''
@@ -88,7 +98,6 @@ def curry(rts, f, *args, **kwds):
        list constructor applied to 1.
     5. ``curry(f, a, fapply='$##')`` returns the expression ``f $## a``.
   '''
-  from .node import Node
   fapply = kwds.pop('fapply', 'apply')
   assert not kwds
   if isinstance(fapply, str):
@@ -116,7 +125,6 @@ def joinpath(*parts):
   return list(itertools.chain(*parts))
 
 def rewrite(rts, target, info, *args, **kwds):
-  from .node import Node
   return Node(info, *args, target=target, **kwds)
 
 def shallow_copy(node):

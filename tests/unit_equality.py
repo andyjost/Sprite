@@ -7,6 +7,20 @@ import itertools, unittest
 
 not_equal = lambda *args: not equal(*args)
 
+def long_list(n, last=None):
+  '''
+  Builds the list [1..n] without recursion.  ``last`` replaces the last
+  element.
+  '''
+  interp = curry.getInterpreter()
+  prelude = interp.prelude
+  make_node = interp.backend.make_node
+  tail = make_node(prelude.Nil)
+  for i in range(n, 0, -1):
+    elem = i if last is None or i < n else last
+    tail = make_node(prelude.Cons, make_node(prelude.Int, elem), tail)
+  return tail
+
 class TestGraphComparison(cytest.expression_library.ExpressionLibTestCase):
   def negative_cases(self, testexpr, exclude=None):
     exclude = [] if exclude is None else exclude
@@ -191,3 +205,37 @@ class TestGraphComparison(cytest.expression_library.ExpressionLibTestCase):
       yield not_equal, e, onezero
       yield not_equal, onezero, e
 
+  def test_equals_long_list(self):
+    '''
+    A list of 200000 elements.  The comparison recursed once per node, so it
+    raised RecursionError at a few hundred elements.  It keeps its own stack
+    now.
+    '''
+    n = 200000
+    a, b = long_list(n), long_list(n)
+    self.assertTrue(equal(a, a))
+    self.assertTrue(equal(a, b))
+    self.assertTrue(equal(a, b, skipfwd=True))
+    c = long_list(n, last=0)
+    self.assertFalse(equal(a, c))
+    self.assertFalse(equal(c, a))
+
+  def test_equals_rejects_non_expressions(self):
+    one = curry.raw_expr(1)
+    self.assertRaises(TypeError, equal, one, object())
+    self.assertRaises(TypeError, equal, object(), one)
+    self.assertRaises(TypeError, equal, curry.raw_expr([1, 2]), [1, 2])
+
+  @unittest.skipIf(
+      curry.flags['backend'] != 'py'
+    , 'needs a node with a None placeholder, which only the Python backend builds'
+    )
+  def test_equals_visits_pairs_in_order(self):
+    # The pairs are visited left to right.  A mismatch ends the comparison
+    # before a later pair that is not a Curry expression raises TypeError.
+    from curry.backends.py.graph import Node
+    prelude = curry.import_('Prelude')
+    def cons(head):
+      return Node(prelude.Cons, Node(prelude.Int, head), None)
+    self.assertFalse(equal(cons(1), cons(2)))
+    self.assertRaises(TypeError, equal, cons(1), cons(1))

@@ -90,10 +90,11 @@ class Stringifier(object):
         else:
           return ' '.join(map(str, self.flatten(arg)))
       elif isinstance(arg, memoryview):
+        # The code points of a string literal (see prelude.string.codepoints).
         MAXLEN = 8
-        string = arg.tobytes().decode('utf-8')
+        string = ''.join(map(chr, arg[:MAXLEN]))
         elip = '' if len(arg) < MAXLEN else '...'
-        return repr(string[:MAXLEN] + elip)
+        return repr(string + elip)
       else:
         return repr(arg)
 
@@ -147,11 +148,24 @@ SYMBOLIC_ESCAPES = {
   , ord('\''): '\\\''
   }
 
-DQ_ESCAPE = str.maketrans({
-    i: SYMBOLIC_ESCAPES.get(i, '\\%02d' % i)
-        for i in range(256)
-        if not chr(i).isprintable() or chr(i) in '"\\'
-  })
+def escape_char(char, quote):
+  '''
+  Writes one character as it appears in a literal delimited by ``quote``.
+  Printable ASCII is written as is.  Every other code point is written as a
+  decimal escape of at least two digits, as PAKCS writes it: show '\\228' is
+  "'\\\\228'".
+  '''
+  codepoint = ord(char)
+  if char == quote or char == '\\':
+    return '\\' + char
+  elif char in '"\'':
+    return char
+  elif codepoint in SYMBOLIC_ESCAPES:
+    return SYMBOLIC_ESCAPES[codepoint]
+  elif 0x20 <= codepoint < 0x7f:
+    return char
+  else:
+    return '\\%02d' % codepoint
 
 class ListStringifier(Stringifier):
   '''
@@ -211,18 +225,12 @@ class ListStringifier(Stringifier):
         head, tail = tail.successors
         if inspect.isa_char(head):
           ch = inspect.unboxed_value(head)
-          chars.append(ch.translate(DQ_ESCAPE))
+          chars.append(escape_char(ch, '"'))
         else:
           return
       if len(chars) > 1 and inspect.isa_nil(tail):
         chars.append('"')
         return ''.join(chars)
-
-SQ_ESCAPE = str.maketrans({
-    i: SYMBOLIC_ESCAPES.get(i, '\\%02d' % i)
-        for i in range(256)
-        if not chr(i).isprintable() or chr(i) in '\\\''
-  })
 
 class LitNormalStringifier(Stringifier):
   '''Represents literals in the usual, human-readable, way.'''
@@ -241,7 +249,7 @@ class LitNormalStringifier(Stringifier):
   @format.when(str)
   def format(self, lit, **kwds):
     assert len(lit) == 1
-    return '\'%s\'' % lit.translate(SQ_ESCAPE)
+    return "'%s'" % escape_char(lit, "'")
 
   @format.when(collections.abc.Iterator)
   def format(self, it, **kwds):

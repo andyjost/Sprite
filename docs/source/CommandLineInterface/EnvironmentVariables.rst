@@ -13,6 +13,18 @@ The following are recognized:
   A colon-separated list of paths used to search for Curry modules.  Sprite
   silently appends to this the path to its system libraries.
 
+``SPRITE_GC_THRESHOLD``
+  The number of nodes at which the collector of the C++ backend runs.  The
+  default is 1048576, about 50 MB of nodes.  After a collection the
+  threshold is eight times the survivors, but not less than the configured
+  value, so the heap stays within eight times the live nodes.  A lower
+  value keeps the heap smaller.  A higher value runs fewer collections, and
+  it costs time on most programs, because a small heap stays in the cache.
+  The value is read when the runtime library loads.  The Python backend
+  does not use it.  To run the collector every 65536 nodes, say::
+
+     SPRITE_GC_THRESHOLD=65536 SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
+
 ``SPRITE_INTERPRETER_FLAGS``
   Overrides default flags in Sprite's Curry interpreter.  This can be set to a
   comma-separated list of colon-separated pairs (without spaces).
@@ -107,6 +119,15 @@ with Sprite, then you should not need these.
 
       To update all compressed JSON files, set
       ``SPRITE_CACHE_UPDATE='*.json.gz'`` in the environment.
+
+``SPRITE_CXX_PCH_ROOT``
+  The directory under which the C++ backend keeps the precompiled form of the
+  runtime header that every generated module includes.  The default is the
+  ``include`` directory of the installation, where the compiler finds it
+  without an extra flag.  Name another directory when the installation is
+  read-only.  Set the variable to the empty string to compile without the
+  precompiled header.  The header is built again when it is older than
+  ``libcyrt.so`` or than any header file.
 
 ``SPRITE_DEBUG``
   Enables debugging for Sprite internal errors.  The command-line tools

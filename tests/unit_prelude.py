@@ -178,11 +178,37 @@ class TestPrelude(cytest.TestCase):
   def testOrd(self):
     ord_ = curry.symbol('Prelude.ord')
     self.assertEqual(list(curry.eval(ord_, 'A')), [65])
+    # A Char is a code point.  The C++ backend stored a signed byte, so this
+    # gave -96.
+    chr_ = curry.symbol('Prelude.chr')
+    self.assertEqual(list(curry.eval(ord_, curry.expr(chr_, 160))), [160])
+    self.assertEqual(list(curry.eval(ord_, '\u00e4')), [228])
+    self.assertEqual(list(curry.eval(ord_, '\U0001f600')), [0x1f600])
 
   @cytest.with_flags(defaultconverter='topython')
   def testChr(self):
     chr_ = curry.symbol('Prelude.chr')
     self.assertEqual(list(curry.eval(chr_, 65)), ['A'])
+    self.assertEqual(list(curry.eval(chr_, 228)), ['\u00e4'])
+    self.assertEqual(list(curry.eval(chr_, 0x1f600)), ['\U0001f600'])
+
+  @cytest.with_flags(defaultconverter='topython')
+  def testShowNonAscii(self):
+    '''show writes a code point outside printable ASCII as a decimal escape.'''
+    module = curry.compile(
+        '''
+        c :: String
+        c = show '\\228'
+        s :: String
+        s = show "\\228\\246\\252"
+        e :: String
+        e = show (chr 128512)
+        '''
+      , modulename='ShowNonAscii'
+      )
+    self.assertEqual(list(curry.eval(module.c)), ["'\\228'"])
+    self.assertEqual(list(curry.eval(module.s)), ['"\\228\\246\\252"'])
+    self.assertEqual(list(curry.eval(module.e)), ["'\\128512'"])
 
   @cytest.with_flags(defaultconverter='topython')
   def testIsSpace(self):
@@ -228,6 +254,33 @@ class TestPrelude(cytest.TestCase):
     cytest.step.step(interp, freevar, num=3)
     freevar = inspect.fwd_chain_target(freevar)
     self.assertIsaFreevar(freevar)
+
+  @cytest.with_flags(defaultconverter='topython')
+  def test_strict_apply_choice(self):
+    '''
+    A choice or a failure in the argument of a strict application.  An audit
+    finding: on the C++ backend, ($!) read a dead variable after hnf had
+    pull-tabbed the choice to the root, and crashed; ($!!) and ($##) ran
+    procN with the choice as its root and failed an assertion in pull_tab.
+    '''
+    for op in ['$!', '$!!', '$##']:
+      goal = curry.compile('id %s ((1 :: Int) ? 2)' % op, 'expr')
+      self.assertEqual(sorted(curry.eval(goal)), [1, 2], op)
+      goal = curry.compile('id %s (failed :: Int)' % op, 'expr')
+      self.assertEqual(list(curry.eval(goal)), [], op)
+
+  def test_partial_application_value(self):
+    '''
+    A partial application is a value, and its arguments are not normalized.
+    An audit finding: on the Python backend, a string literal inside it (a
+    memoryview) stopped the copier that makes the value.
+    '''
+    goal = curry.compile('(++) "abc"', 'expr')
+    value, = curry.eval(goal, converter=None)
+    apply = curry.symbol('Prelude.apply')
+    self.assertEqual(
+        list(curry.eval(apply, value, 'de', converter='topython')), ['abcde']
+      )
 
   # Used by testEqualityConstraint.
   def checkSatisfied(self, lhs, rhs):

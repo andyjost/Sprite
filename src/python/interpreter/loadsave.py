@@ -84,7 +84,7 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
   be = interp.backend
   target_object = be.compile(interp, h.icurry)
   if isinstance(filename, str):
-    with open(filename, 'w') as stream:
+    with open(filename, 'w', encoding='utf-8') as stream:
       be.write_module(target_object, stream, goal=goal, **kwds)
   elif not filename:
     stream = io.StringIO()

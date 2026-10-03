@@ -34,7 +34,7 @@ def loads(json, decoder=get_decoder()):
 
 def load(file, decoder=get_decoder()):
   if isinstance(file, str):
-    with open(file, 'r') as istream:
+    with open(file, 'r', encoding='utf-8') as istream:
       data = istream.read()
     return loads(data)
   else:
@@ -84,7 +84,7 @@ def dumps(icurry, encoder=get_encoder()):
 
 def dump(icurry, file, encoder=get_encoder()):
   if isinstance(file, str):
-    with open(file, 'w') as ostream:
+    with open(file, 'w', encoding='utf-8') as ostream:
       ostream.write(dumps(icurry, encoder))
   else:
     file.write(dumps(icurry, encoder))

@@ -1,8 +1,9 @@
 import cytest # from ./lib; must be first
 from curry.expressions import free, unboxed
-from curry import inspect
+from curry import backends, icurry, inspect
+from curry.common import T_CTOR
 from curry.interpreter import Interpreter
-import curry
+import curry, types
 import cytest.expression_library
 
 def MAP(*args):
@@ -35,6 +36,67 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     not_boxed = unboxed_primitives + [self.not_a_node]
     MAP(self.assertIsBoxed, self.everything - set(not_boxed))
     MAP(self.assertIsNotBoxed, not_boxed)
+
+  def testTypeCaches(self):
+    '''
+    is_boxed and isa_unboxed_primitive cache their result per type.  The
+    cache must answer as the checks it replaces do, and it must notice a class
+    registered with an ABC after the cache saw its instances.
+    '''
+    node = curry.raw_expr(1)
+    for _ in range(2):
+      self.assertTrue(inspect.is_boxed(node))
+      for value in [1, 1.0, 'a', True, None, b'ab', memoryview(b'ab'), 1j]:
+        self.assertFalse(inspect.is_boxed(value))
+      for value in [1, 1.0, 'a', True, memoryview(b'a'), iter([])]:
+        self.assertTrue(inspect.isa_unboxed_primitive(value))
+      for value in [node, None, [], {}, b'ab']:
+        self.assertFalse(inspect.isa_unboxed_primitive(value))
+    # An object that is not a node answers through its is_boxed attribute.
+    self.assertTrue(inspect.is_boxed(types.SimpleNamespace(is_boxed=True)))
+    self.assertFalse(inspect.is_boxed(types.SimpleNamespace(is_boxed=False)))
+    self.assertFalse(inspect.is_boxed(types.SimpleNamespace()))
+    # A class registered after the cache saw it.
+    class Boxed(object):
+      pass
+    class Unboxed(object):
+      pass
+    self.assertFalse(inspect.is_boxed(Boxed()))
+    self.assertIsNone(inspect.tag_of(Unboxed()))
+    backends.Node.register(Boxed)
+    icurry.IUnboxedLiteral.register(Unboxed)
+    self.assertTrue(inspect.is_boxed(Boxed()))
+    self.assertTrue(inspect.isa_unboxed_primitive(Unboxed()))
+    self.assertEqual(inspect.tag_of(Unboxed()), T_CTOR)
+
+  def testTypeCachesWithSpoofedClass(self):
+    '''
+    isinstance also consults __class__, which a proxy or a mock may set per
+    instance.  The caches key on the type, so for such an object they must
+    fall back to the uncached check, whatever the first instance of the type
+    answered.
+    '''
+    node = curry.raw_expr(1)
+    def proxy_class():
+      class Proxy(object):
+        def __init__(self, cls):
+          self._cls = cls
+        @property
+        def __class__(self):
+          return self._cls
+      return Proxy
+    for order in [(type(node), int), (int, type(node))]:
+      Proxy = proxy_class()
+      objects = [Proxy(cls) for cls in order]
+      for _ in range(2):
+        for obj in objects:
+          self.assertEqual(
+              inspect.is_boxed(obj), isinstance(obj, backends.Node), obj._cls
+            )
+          self.assertEqual(
+              inspect.isa_unboxed_primitive(obj)
+            , isinstance(obj, icurry.IUnboxedLiteral), obj._cls
+            )
 
   def testIsaInt(self):
     MAP(self.assertIsaInt, [self.int, self.unboxed_int])

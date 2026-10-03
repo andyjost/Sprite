@@ -51,12 +51,13 @@ def putChar(rts, a):
 def readFile(rts, filename):
   filename = rts.topython(filename.target)
   # Read the file now, so that an error is raised while the action executes
-  # (and ``catch`` can handle it).  Each byte becomes one character, as in the
-  # C++ backend.  An empty file gives the empty string.
+  # (and ``catch`` can handle it).  The file holds UTF-8: each code point
+  # becomes one character, and a malformed byte sequence becomes the
+  # replacement character, as in PAKCS.  An empty file gives the empty string.
   with open(filename, 'rb') as istream:
     data = istream.read()
   yield rts.prelude.IO
-  yield string.pystring(rts, data)
+  yield string.pystring(rts, data.decode('utf-8', 'replace'))
 
 def returnIO(rts, _0):
   yield rts.prelude.IO
@@ -75,12 +76,13 @@ def writeFile(rts, func, mode='w'):
   The step runs again when the evaluation of the string is interrupted, for
   instance when the step budget rotates the queue.  The first entry truncates
   the file and then turns the node into ``prim_appendFile``, so a later entry
-  appends to the characters already written.
+  appends to the characters already written.  The characters are written as
+  UTF-8.
   '''
   filename = rts.topython(func.successors[0])
   List = getattr(rts.prelude, '.types')['[]']
   Char = getattr(rts.prelude, '.types')['Char']
-  with open(filename, mode) as ostream:
+  with open(filename, mode, encoding='utf-8') as ostream:
     if mode == 'w':
       func.rewrite(rts.prelude.prim_appendFile, *func.successors)
     while True:

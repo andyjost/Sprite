@@ -2,10 +2,9 @@
 
 from ....common import T_SETGRD, T_FWD
 from ....exceptions import CurryIndexError, CurryTypeError
-from .... import icurry, inspect
-from . import node
-from ....utility import visitation
-import collections, collections.abc, numbers
+from .... import inspect
+from .node import Node
+import collections, collections.abc, itertools, numbers
 
 __all__ = ['compress_fwd_chain', 'logical_subexpr', 'realpath', 'subexpr']
 
@@ -14,7 +13,7 @@ def logical_subexpr(root, path, update_fwd_nodes=True):
   Like subexpr, but assumes a logical path.  That is, steps through forward
   nodes and set guards do not appear in the path.
   '''
-  return realpath(root, path, update_fwd_nodes)[0]
+  return realpath_parts(root, path, update_fwd_nodes)[0]
 
 def compress_fwd_chain(end):
   '''Compresses a chain of forward nodes.'''
@@ -28,71 +27,96 @@ def compress_fwd_chain(end):
     node.set_successor(0, end)
   return end
 
-# The result of a call to ``realpath``.
-Realpath = collections.namedtuple('Realpath', ['target', 'realpath', 'guards'])
+def _is_path_sequence(path):
+  '''Tells whether ``path`` is a sequence or iterator of path components.'''
+  return isinstance(path, (list, tuple)) or (
+      isinstance(path, (collections.abc.Sequence, collections.abc.Iterator))
+      and not isinstance(path, str)
+    )
 
-class RealPathIndexer(object):
-  '''See ``realpath``.'''
-  def __init__(self, root, update_fwd_nodes):
-    if not inspect.isa_curry_expr(root):
-      raise CurryTypeError('invalid Curry expression %r' % root)
-    self.target = root
-    self.realpath = []
-    self.guards = set()
-    self.parent = None
-    self.update_fwd_nodes = update_fwd_nodes
-    self.skip()
-
-  @property
-  def result(self):
-    return Realpath(self.target, self.realpath, self.guards)
-
-  def skip(self):
-    '''
-    Skips over forward nodes and set guards.  Updates the indexer state
-    accordingly.
-    '''
-    while True:
-      tag = inspect.tag_of(self.target)
-      if tag == T_FWD:
-        if self.update_fwd_nodes and self.realpath:
-          end = compress_fwd_chain(self.target)
-          self.parent.set_successor(self.realpath[-1], end)
-          self.target = end
-        else:
-          self.parent = self.target
-          self.realpath.append(0)
-          self.target = inspect.fwd_target(self.target)
-      elif tag == T_SETGRD:
-        self.guards.add(inspect.get_set_id(self.target))
-        self.parent = self.target
-        self.realpath.append(1)
-        self.target = inspect.get_setguard_value(self.target)
-      else:
-        break
-
-  @visitation.dispatch.on('path')
-  def advance(self, path):
+def _components(path):
+  '''
+  Generates the integer components of ``path``.  A nested sequence is
+  flattened.  A component that is neither an integer nor a sequence raises
+  CurryIndexError when it is reached.
+  '''
+  if isinstance(path, int) or isinstance(path, numbers.Integral):
+    yield path
+  elif _is_path_sequence(path):
+    for part in path:
+      yield from _components(part)
+  else:
     raise CurryIndexError(
         'path must be an integer or sequence of integers, not %r'
             % type(path).__name__
       )
 
-  @advance.when(numbers.Integral)
-  def advance(self, i):
-    parent = self.target
+# Marks the end of a path.
+_END = object()
+
+# The result of a call to ``realpath``.
+Realpath = collections.namedtuple('Realpath', ['target', 'realpath', 'guards'])
+
+def realpath_parts(root, path, update_fwd_nodes):
+  '''
+  Implements ``realpath``.  Returns the target, the real path, and the guards
+  as a plain tuple.  The evaluator creates a variable with this function for
+  every inductive position, so it runs as one loop without helper objects.
+  '''
+  if not inspect.isa_curry_expr(root):
+    raise CurryTypeError('invalid Curry expression %r' % root)
+  if type(path) is int:
+    components = iter((path,))
+  elif type(path) is list or type(path) is tuple:
+    components = iter(path)
+  else:
+    components = _components(path)
+  target = root
+  parent = None
+  realpath = []
+  guards = set()
+  while True:
+    # Skip over forward nodes and set guards.
+    while True:
+      if isinstance(target, Node):
+        tag = target.info.tag
+      else:
+        tag = inspect.tag_of(target)
+      if tag == T_FWD:
+        if update_fwd_nodes and realpath:
+          end = compress_fwd_chain(target)
+          parent.set_successor(realpath[-1], end)
+          target = end
+        else:
+          parent = target
+          realpath.append(0)
+          target = target.successors[0]
+      elif tag == T_SETGRD:
+        guards.add(target.successors[0])
+        parent = target
+        realpath.append(1)
+        target = target.successors[1]
+      else:
+        break
+    # Step to the next successor.
+    i = next(components, _END)
+    if i is _END:
+      return target, realpath, guards
+    if type(i) is not int:
+      if _is_path_sequence(i):
+        components = itertools.chain(_components(i), components)
+        continue
+      if not isinstance(i, numbers.Integral):
+        raise CurryIndexError(
+            'path must be an integer or sequence of integers, not %r'
+                % type(i).__name__
+          )
+    parent = target
     try:
-      self.target = parent.successors[i]
+      target = parent.successors[i]
     except (IndexError, AttributeError):
       raise CurryIndexError('node index out of range')
-    self.parent = parent
-    self.realpath.append(i)
-    self.skip()
-
-  @advance.when((collections.abc.Sequence, collections.abc.Iterator), no=(str,))
-  def advance(self, path):
-    for i in path:
-      self.advance(i)
+    realpath.append(i)
 
 
 def realpath(root, path, update_fwd_nodes=True):
@@ -123,12 +147,9 @@ def realpath(root, path, update_fwd_nodes=True):
     skipped over; and ``guards`` is a set containing the IDs for each guard
     crossed.
   '''
-  indexer = RealPathIndexer(root, update_fwd_nodes)
-  indexer.advance(path)
-  return indexer.result
+  return Realpath(*realpath_parts(root, path, update_fwd_nodes))
 
 
-@visitation.dispatch.on('path')
 def subexpr(root, path):
   '''
   Performs straightforward indexing into a Curry expression.  Returns the
@@ -155,24 +176,20 @@ def subexpr(root, path):
   Returns:
     The subexpression at ``root[path]``.
   '''
-  raise CurryIndexError(
-      'node index must be an integer or sequence of integers, not %r'
-          % type(path).__name__
-    )
-
-@subexpr.when(numbers.Integral)
-def subexpr(root, path):
-  if not inspect.isa_curry_expr(root):
-    raise CurryTypeError('invalid Curry expression %r' % root)
-  try:
-    return root.successors[path]
-  except (IndexError, AttributeError):
-    raise CurryIndexError('node index out of range')
-
-@subexpr.when((collections.abc.Sequence, collections.abc.Iterator), no=(str,))
-def subexpr(root, path):
-  target = root
-  for i in path:
-    target = subexpr(target, i)
-  return target
-
+  if isinstance(path, int) or isinstance(path, numbers.Integral):
+    if not inspect.isa_curry_expr(root):
+      raise CurryTypeError('invalid Curry expression %r' % root)
+    try:
+      return root.successors[path]
+    except (IndexError, AttributeError):
+      raise CurryIndexError('node index out of range')
+  elif _is_path_sequence(path):
+    target = root
+    for i in path:
+      target = subexpr(target, i)
+    return target
+  else:
+    raise CurryIndexError(
+        'node index must be an integer or sequence of integers, not %r'
+            % type(path).__name__
+      )

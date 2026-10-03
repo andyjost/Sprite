@@ -329,7 +329,10 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
     # Check contents of created files.
     if self.CREATES_FILE[testname]:
       for filename, expected in self.CREATES_FILE[testname].items():
-        with open(filename, 'r') as istream:
+        # A bytes value is compared with the raw file, so the check does not
+        # depend on the locale.
+        mode = 'rb' if isinstance(expected, bytes) else 'r'
+        with open(filename, mode) as istream:
           got = istream.read()
         self.assertEqual(got, expected)
 

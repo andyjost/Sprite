@@ -96,8 +96,13 @@ namespace cyrt
     Expr procD();
     tag_type procN(Configuration *, Cursor root);
     tag_type procS(Configuration *);
+    // Head-normalizes the expression at ``inductive``, a position below the
+    // current redex.  A choice there is pull-tabbed to the redex, unless the
+    // redex is a monadic step or ``monadic`` is set.  Then the step reports
+    // the non-determinism error instead.  See nondet_monad_error.
     tag_type hnf(
         Configuration *, Variable * inductive, void const * guides=nullptr
+      , bool monadic=false
       );
     tag_type hnf_or_free(
         Configuration *, Variable * inductive, void const * guides=nullptr
@@ -126,6 +131,7 @@ namespace cyrt
     void set_goal(Node * goal);
     tag_type check_interrupts(tag_type);
     void count_step();
+    tag_type nondet_monad_error(Configuration *);
     void set_stack_base(char const *);
     bool stack_exhausted() const;
     bool unwind(Queue *, Configuration *);

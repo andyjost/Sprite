@@ -34,6 +34,7 @@ class PyCompiler(compiler.CompilerBase):
     yield 'import %s' % curry
     yield 'from %s.common import *' % curry
     yield 'from %s.backends.py.graph import DataType, InfoTable' % curry
+    yield 'from %s.backends.py.currylib.prelude.string import codepoints' % curry
     if self.root_isa_module:
       yield 'from %s.icurry import IModule, PUBLIC, PRIVATE' % curry
       yield "if 'interp' not in globals():"
@@ -110,8 +111,9 @@ class PyCompiler(compiler.CompilerBase):
         )
 
   def vEmitStringLiteral(self, string, h_string):
-    # TODO(py3): non-ASCII string literals
-    yield '%s = b%r' % (h_string, string)
+    # The code points of the literal, in the form _biString walks.  The
+    # literal is spelled with ASCII escapes, so the module file stays ASCII.
+    yield '%s = codepoints(%s)' % (h_string, ascii(string))
 
   def vEmitValueSetLiteral(self, values, h_valueset, h_valueset_data):
     yield '%s = %r' % (h_valueset, values)

@@ -80,6 +80,20 @@ program once on the C++ backend:
 The driver is `tests/lib/benchmark.py`.  It can also be run directly with
 `install/bin/python tests/lib/benchmark.py`.
 
+## The collector and the timings
+
+The collector of the C++ backend runs by default (see `SPRITE_GC_THRESHOLD`
+in the documentation of the environment variables).  Two programs run slower
+with it than without it: `PermSort` (about 13 s against 9 s) and `QueensSet9`
+(about 6.7 s against 6 s).  The runtime does not delete a Configuration, a
+Queue, or a Set, so most of their heap stays reachable, and each collection
+costs time without freeing much.  The other programs run as fast or faster,
+with a far smaller peak memory.  To time a program with the collector off,
+set a threshold that no program reaches:
+
+    SPRITE_GC_THRESHOLD=1000000000 CURRYPATH=tests/data/curry/benchmarks \
+    SPRITE_INTERPRETER_FLAGS=backend:cxx install/bin/sprite-exec -t -m PermSort
+
 ## Running the programs with PAKCS or KiCS2
 
 Ten programs import `Control.SetFunctions`:
