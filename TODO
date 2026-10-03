@@ -279,3 +279,29 @@
   top, so mapM_ putChar ("ab" ? "cd") prints abcd and yields two values.
   PAKCS prints abcd and then reports the non-determinism error.  Recorded
   as an expected failure (unit_io_bind.py, test_mapM_nondet_is_an_error).
+
+2026-10-03: defects found while writing the examples (not fixed)
+- curry.save(module, file) without goal= writes a footer that runs nothing
+  and ignores -g on the command line; the saved program prints nothing where
+  sprite-exec prints the value. examples/04-static-compile is a known failure
+  in tests/unit_examples.py for this reason.
+- C++ backend: a set function that chooses among sub-terms of its own
+  argument (set1 anyOf xs, set1 tails xs, set1 id x, set1 (\xs -> head xs ?
+  last xs)) hits an assertion in procD or hnf (fairscheme.cpp) and aborts.
+  Choices built from fresh data work. The Python backend accepts every shape.
+- A free variable created in Python (curry.free()) inside a goal gives a wrong
+  value for xs ++ [3] =:= [1,2,3] &> xs, and two of them crash both backends.
+  Free variables declared in Curry work.
+- show of a Float differs between the backends: "3.5" on the Python backend,
+  "3.5000000000000000" on the C++ backend.
+- Picking distinct items from a shrinking pool in a recursion (let d = anyOf
+  pool in f (delete d pool) (d : acc)) emits its values and then aborts on the
+  C++ backend and does not end on the Python backend; structural permutations
+  (ndinsert) work.
+- Residuation-style arithmetic over free Int variables (the sendMoreMoney
+  program of the test data) suspends on the C++ backend and times out on the
+  Python backend.
+- inspect.getimpl raises ValueError on the C++ backend, and the per-function
+  ICurry view prints only "exempt" for some functions (examples/03-inspect).
+- A goal without a type signature can come back to Python unevaluated as a
+  partial application when PAKCS gives it a class-constrained type.
