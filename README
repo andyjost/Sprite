@@ -53,9 +53,11 @@ C++ backend, set SPRITE_INTERPRETER_FLAGS in the environment:
 4. Documentation
 ----------------
 
-To build the HTML documentation, run `make -C docs html` from the repository
-root after `make stage`.  The output is written under object-root/docs/html.
-The sources are hosted at https://github.com/andyjost/Sprite.
+The user guide is published at https://andyjost.github.io/Sprite/ from the
+master branch.  To build it yourself, run `make -C docs html` from the
+repository root after `make stage`.  The output is written under
+object-root/docs/html.  The sources are hosted at
+https://github.com/andyjost/Sprite.
 
 
 5. Contact and Bug Reporting
