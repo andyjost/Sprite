@@ -14,12 +14,20 @@ ifneq ($(NVALIDATE),1)
   endif
 	PREFIX := $(abspath $(PREFIX))
 
-  ifndef PAKCS_HOME
-    $(error PAKCS_HOME is not defined)
+  # PAKCS is optional (configure --with-pakcs '').  The build needs the Curry
+  # front end or icurry, checked below; the functional tests need pakcs as
+  # the oracle.  The name and the version of the pinned release are always
+  # set: they name the intermediate directories under .curry.
+  ifneq ($(strip $(PAKCS)),)
+    ifeq ($(shell [ -x "$(PAKCS)" ]; echo $$?),1)
+      $(error Not an executable: PAKCS=$(PAKCS))
+    endif
   endif
-
-  ifeq ($(shell [ -x "$(PAKCS)" ]; echo $$?),1)
-    $(error Not an executable: PAKCS=$(PAKCS))
+  ifeq ($(strip $(PAKCS_NAME)),)
+    $(error PAKCS_NAME is not set$nPlease rerun ./configure.)
+  endif
+  ifeq ($(strip $(PAKCS_VERSION)),)
+    $(error PAKCS_VERSION is not set$nPlease rerun ./configure.)
   endif
 
   ifndef PYTHON_PACKAGE_NAME
@@ -74,8 +82,23 @@ ifneq ($(NVALIDATE),1)
     $(error Not an executable file: PYTHON_EXECUTABLE=$(PYTHON_EXECUTABLE).  Please check your Python installation.)
   endif
 
-  ifeq ($(shell [ -f $(ICURRY) ] && [ -x $(ICURRY) ]; echo $$?),1)
-    $(error Not an executable file: ICURRY=$(ICURRY)$nPlease check your installation.)
+  # Curry is translated to ICurry by the Curry front end (plus the built-in
+  # translation) or by icurry.  At least one must be configured.
+  ifeq ($(strip $(CURRY_FRONTEND)$(ICURRY_EXECUTABLE)),)
+    $(error Neither CURRY_FRONTEND nor ICURRY_EXECUTABLE is set$nPlease rerun ./configure.)
+  endif
+  ifneq ($(strip $(CURRY_FRONTEND)),)
+    ifeq ($(shell [ -f "$(CURRY_FRONTEND)" ] && [ -x "$(CURRY_FRONTEND)" ]; echo $$?),1)
+      $(error Not an executable file: CURRY_FRONTEND=$(CURRY_FRONTEND)$nPlease check your installation.)
+    endif
+  endif
+  ifneq ($(strip $(ICURRY_EXECUTABLE)),)
+    ifeq ($(shell [ -f "$(ICURRY_EXECUTABLE)" ] && [ -x "$(ICURRY_EXECUTABLE)" ]; echo $$?),1)
+      $(error Not an executable file: ICURRY_EXECUTABLE=$(ICURRY_EXECUTABLE)$nPlease check your installation.)
+    endif
+  endif
+  ifneq ($(filter-out frontend icurry,$(strip $(CURRY2ICURRY_TOOL))),)
+    $(error CURRY2ICURRY_TOOL should be frontend or icurry, not "$(CURRY2ICURRY_TOOL)")
   endif
 
   # ifeq ($(shell [ -f $(ICURRY2JSON) ] && [ -x $(ICURRY2JSON) ]; echo $$?),1)

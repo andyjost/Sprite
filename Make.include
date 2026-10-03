@@ -18,6 +18,10 @@ endif
 # just prepent "sprite-" to the PAKCS directory name.
 INTERMEDIATE_SUBDIR = sprite-$(PAKCS_SUBDIR)
 PAKCS_SUBDIR := $(PAKCS_NAME)-$(PAKCS_VERSION)
+# The directory under .curry into which the Curry front end writes FlatCurry.
+# It is the PAKCS directory name, which icurry also uses, so both routes from
+# Curry to ICurry share the FlatCurry files.
+FRONTEND_SUBDIR := $(PAKCS_SUBDIR)
 
 $(PREFIX)/lib:
 	mkdir -p $(PREFIX)/lib
