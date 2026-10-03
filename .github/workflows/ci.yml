@@ -21,13 +21,16 @@ env:
 
 jobs:
   test:
-    name: ${{ matrix.backend }} backend
+    name: ${{ matrix.backend }} backend ${{ matrix.shard }}
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
-        backend: [py, cxx]
+        include:
+          - { backend: py, shard: '1/1' }
+          - { backend: cxx, shard: '1/2' }
+          - { backend: cxx, shard: '2/2' }
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,8 +41,25 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make jq libboost-dev curl
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make jq libboost-dev curl ccache
           swipl --version
+      # The C++ backend compiles every test module with g++ at run time.
+      # ccache in front of g++ keeps the output of unchanged modules between
+      # runs.
+      - name: Put ccache in front of the compilers
+        run: |
+          mkdir -p "$HOME/ccache-bin"
+          for cc in gcc g++ cc c++; do ln -sf "$(command -v ccache)" "$HOME/ccache-bin/$cc"; done
+          echo "$HOME/ccache-bin" >> "$GITHUB_PATH"
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=500M" >> "$GITHUB_ENV"
+      - name: Restore the compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ matrix.backend }}-${{ matrix.shard }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ matrix.backend }}-${{ matrix.shard }}-
       - name: Restore the Curry toolchain
         id: toolchain
         uses: actions/cache@v4
@@ -63,10 +83,13 @@ jobs:
             --with-jq="$(command -v jq)"
           make stage
       - name: Unit tests
-        run: .github/scripts/run-tests.sh ${{ matrix.backend }} 'unit_*.py'
+        run: .github/scripts/run-tests.sh ${{ matrix.backend }} 'unit_*.py' ${{ matrix.shard }}
       - name: Functional tests
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.functional)
-        run: .github/scripts/run-tests.sh ${{ matrix.backend }} 'func_*.py'
+        run: .github/scripts/run-tests.sh ${{ matrix.backend }} 'func_*.py' ${{ matrix.shard }}
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache -s | head -n 12
 
   docs:
     name: docs
