@@ -305,3 +305,328 @@
   ICurry view prints only "exempt" for some functions (examples/03-inspect).
 - A goal without a type signature can come back to Python unevaluated as a
   partial application when PAKCS gives it a class-constrained type.
+
+2026-10-03
+- Stale C++ caches (issue #15).  currentfile dropped a .so that was older
+  than libcyrt.so (by ctime), so every make stage that relinked the library
+  invalidated every object, and the first import after it compiled the
+  Prelude again (about 30 s).  Done: each object gets an ABI stamp, a file
+  beside it (<module>.so.abi) that holds a digest of the installed runtime
+  headers (cxx.toolchain.runtime_digest: SHA-256 over the names and the
+  contents of the headers under include/cyrt, 16 hex digits, cached per
+  process).  Cpp2So writes the stamp after g++ succeeds and refuses an
+  object whose stamp is missing or differs from the digest of the installed
+  headers; the plan then compiles the .cpp file again (Cpp2So.is_stale,
+  Plan.is_stale, Plan.prune_stale).  The last stage of a plan has no step,
+  so the step that made its file answers for it.  The digest leaves out the
+  build id of libcyrt.so on purpose: a relink after a .cpp-only change keeps
+  the ABI of generated code, and the headers are that ABI.  The source chain
+  (.curry, .icy, .json.z, .cpp) keeps the filesys.newer rule.  The
+  precompiled header compares its age with the headers only, not with
+  libcyrt.so.  SPRITE_IGNORE_CYRT_TIMESTAMP is gone; SPRITE_FORCE_RECOMPILE_CXX
+  stays.  Format stamp: the reader scans the first 16 lines and finds the
+  stamp on line 3 of a generated file (section comment, import list,
+  stamp), so the hazard of the latency analysis (a stamp that is never read
+  makes every process compile everything again) was not in the committed
+  tree.  Cpp2So now checks its input and raises CompileError when the stamp
+  does not read back, so that hazard is an error at the first compile, not
+  a silent recompile in every process.  Measured on the C++ backend: a
+  second process that imports a module compiled by an earlier process runs
+  zero g++ commands (counted through a hook on _system.pexec), the Prelude
+  included; the Prelude import costs 0.04 s of CPU.  A make stage that
+  changes nothing relinks and copies libcyrt.so (the archive rule touches
+  libcyrt.a), which invalidated every object under the old rule; now the
+  Prelude object, its stamp, and the precompiled header stay, and the next
+  process runs zero g++ commands.  One added comment line in a header,
+  followed by make stage, drops the Prelude object and keeps its .cpp file;
+  the next import runs two g++ commands (the header member and Prelude.so),
+  and the process after it none.  An installation from
+  before this change holds a Prelude.so without a stamp, which is compiled
+  once more (its Prelude.cpp is kept).  Tests: unit_cxx_toolchain.py
+  (TestAbiStamp, the stamp-reader tests), unit_findcurry.py, unit_plan.py.
+  Left: a change to the set of builtin symbols in the runtime (a .cpp-only
+  change under currylib) changes what the emitter writes for the Prelude,
+  which neither stamp sees; raise FORMAT_VERSION for such a change.  A
+  comment-only edit of a header invalidates every object; there is no
+  switch to trust the objects anyway.
+- jq removed (issue #16).  The ICurry-JSON encoder (icurry.json.Encoder)
+  writes the compact form itself: no space after a comma or a colon, every
+  character outside ASCII escaped.  That is the output of the jq pass
+  (--ascii-output --compact-output) byte for byte, and the converter appends
+  the newline that jq wrote, so a cache from before this change equals a
+  cache from after it.  Gone: config.jq_tool, the --with-jq option and the
+  JQ_EXECUTABLE setting of configure, the jq package and option in the CI
+  workflow, the pipe and input arguments of _system.pexec, and the external
+  icurry2jsontext path of the converter (dead since 2021).  Found on the
+  way: IModule stored its imports as a set, so the order of the import list
+  in the JSON followed the hash seed of the process, and a fresh conversion
+  matched a committed cache only by luck of the seed.  The imports now keep
+  the order of the ICurry file (duplicates dropped).  Checked against the
+  eight library caches under curry/pakcs-3.4.1: seven were in file order
+  already; Data/List.json.z held ["Data.Maybe","Prelude"] and was
+  regenerated; all eight now match a fresh conversion under any hash seed,
+  the compressed bytes included.  Measured: the conversion of the Prelude
+  costs 1.75 s of CPU, almost all in the reader; the jq child cost 0.08 to
+  0.09 s of CPU on the Prelude and about 3 ms per small module.  Tests:
+  unit_parse.py (EncodeJSON: the compact form, the import order, every
+  library cache against the encoder), unit_make.py.  Left:
+  src/export/tools/jq.link and the jq filter in src/export/tools/Makefile
+  can go.  With no JQ_EXECUTABLE in Make.config the link is skipped at
+  install time; the filter never removed it, because Make.rules expands
+  LINKS before the filter runs.
+- Prebuild in make stage (issue #17).  make stage installed only the .curry,
+  .icy, and .json.z files of the Curry library, so the first import after a
+  stage generated and compiled the Prelude: about 30 s on the C++ backend;
+  and on the Python backend every process compiled the 1.2 MB Prelude.py
+  from source (0.2 s), because the loader ran the file through runpy and
+  the test drivers run Python with -B.  Done: the library root Makefile
+  (curry/Makefile) has a prebuild step that runs after src and the library
+  files are installed: sprite-make --py -zc and, when tools/cxx resolves,
+  sprite-make --so -zc over the system modules, with CURRYPATH, CFLAGS, and
+  CXXFLAGS unset (make exports a polluted CXXFLAGS when the shell set one).
+  Without -z the plan looks for .json and regenerates the JSON from the
+  installed .icy.  sprite-make --so is new: the plan runs to the shared
+  object (MAKE_TARGET_OBJECT); it implies --cxx.  The Prelude compile builds
+  the precompiled header member of the default flavor on the way.  The
+  Python toolchain step (Json2Py) writes the bytecode cache (__pycache__,
+  py_compile) right after it writes a .py file, with or without -B, and
+  sprite-make --py writes a missing cache for a file that was current
+  already (ensure_bytecode).  The Python loader loads through
+  importlib.machinery.SourceFileLoader, which reads a valid cache and
+  compiles the source otherwise (and writes the cache unless -B).  --tidy
+  removes the cache with the file.  Cpp2So raises a CompileError that names
+  the missing compiler when tools/cxx does not resolve, instead of a
+  TypeError; the prebuilt objects load without a compiler.  make uninstall
+  removes the products.  The root Makefile orders curry after src.  Found
+  on the way: sprite-make --py Data.Maybe failed with KeyError('Data'): the
+  JSON-to-source step imported the ICurry of a packaged module without its
+  package.  The step imports the package first now.  Measured, CPU time in
+  new processes after a fresh stage (make unstage, make stage): the stage
+  took 43.8 s user and 5.1 s system, most of it the Prelude compile of the
+  C++ backend; the first Prelude import 0.032 and 0.027 s on the Python
+  backend (0.226 s before, with the source compile) and 0.038 and 0.039 s
+  on the C++ backend; zero compiler commands and zero source compiles on
+  both (hooks on _system.pexec and SourceFileLoader.source_to_code); import
+  curry costs 0.05 to 0.065 s on top.  Reading the Prelude cache costs 3 ms
+  against 196 ms for the source (prototype on a copy of Prelude.py).  A
+  stage that changes nothing keeps every product (mtimes unchanged).
+  Tests: unit_prebuild.py (the staged products of both backends, a first
+  import that compiles nothing in a child process, the cache written under
+  -B, the loader reading it and compiling again after a change,
+  ensure_bytecode, an unwritable cache, --tidy, a module in a package),
+  unit_make.py (--so), unit_cxx_toolchain.py (TestMissingCompiler).  Left:
+  a generated .py carries no format stamp, so a change to the Python
+  emitter does not invalidate a cached Prelude.py (the C++ side has
+  FORMAT_VERSION); the prebuild keeps a current .py.  The flavor of the
+  precompiled header built at stage time follows the flags of the stage; a
+  run with CXXFLAGS set builds its own member at its first compile.  CI
+  pays the Prelude compile in the make stage of every job now (about 30 s),
+  which the first test import paid before; the py job pays it too.
+- Content-keyed ICurry cache (issue #12).  The Curry-to-ICurry cache was off
+  by default and could not hit for a dynamic module: its table was named
+  after CURRYPATH, which starts with a fresh temporary directory for every
+  curry.compile, and its key held the module name, which curry.compile
+  numbers per process.  So every unit test paid the front end (about 5 s per
+  module; unit_compile.py: 21 calls, 128 s on the Python backend).  Done:
+  the key (cache.icurry_cache_key) is a SHA-256 of the module source, the
+  sources of the modules it imports (transitively, found as .curry files in
+  the Curry path and beside the file; the Prelude is implicit; a module that
+  is nowhere, such as a library of PAKCS, adds nothing), the front-end
+  options (none today), the icurry tool itself, and the intermediate
+  subdirectory, which names the library version.  The file name is not part
+  of the key.  The module name is part of it for a named module, because the
+  front end writes it into the ICurry; an anonymous module
+  (sprite__interactive_N, sprite__expression_N; config.is_anonymous_modname)
+  leaves it out, and the cached text is renamed on a hit
+  (cache.rename_module: the name follows a double quote or a hash sign and
+  precedes a double quote or a dot; verified against the front end's own
+  output for another name on a module with instances, a superclass, a
+  default method, lambdas, local functions, and an external: 133
+  occurrences, equal byte for byte).  A program error of the front end (an
+  error at a source position) is cached too and replayed as the same
+  CompileError with the new name; a failure of the environment is not
+  cached.  SPRITE_CACHE_FILE now names the file and turns the cache on; the
+  empty string turns it off; unset, Make.config decides as before.  The test
+  drivers (tests/run_tests and the CI script) set tests/.cache/icurry.db,
+  and the workflow restores and saves tests/.cache with actions/cache
+  (restore keys: the same job, then any job; saved after the tests even when
+  one failed).  SPRITE_CACHE_UPDATE matches the Curry source file name.
+  The rows live in table curry2icurry_2 (key, name, text, error, created);
+  a database error is a warning and the front end runs.  The parsed-JSON
+  cache is unchanged.  Found on the way: _system.pexec now attaches
+  command, returncode, and stderr to its CompileError.  Measured on the
+  Python backend, CPU time of the test process and its children:
+  unit_compile.py cold with the cache: 11 tests, 21 front end calls,
+  143.7 s user and 42.6 s system (the machine was shared; the same file
+  without the cache took 94.6 s user and 33.4 s system earlier in the day,
+  21 calls as well); the second run: 0 front end calls, 21 hits (one of
+  them the replayed program error), 0.67 s user and 0.09 s system, 0.6 s of
+  wall time.  A hit costs about 0.01 s of CPU in curry.compile; the key
+  alone costs 2.3 ms (it reads and digests the source and its import
+  closure every time: four library modules, 87 KB, for an expression that
+  imports Data.List and Control.SetFunctions), and the digest of the icurry
+  tool 2 ms once per process.  Tests: unit_cache.py (the rename, the key
+  and the import closure, the slot without the front end, the error replay,
+  curry.compile hits in the process and in a second process, a named module
+  through the toolchain).  Left: the import scan
+  is a regular expression over import declarations, lenient on purpose; a
+  module present only as .icy or .json.z adds nothing to the key; entries
+  never expire (delete the file); the PAKCS version is covered by the
+  subdirectory, not by a digest of PAKCS; the old tables of an existing
+  ~/.sprite/cache.db stay in the file.
+- Bytecode cache for generated Python modules (issue #13).  The prebuild
+  entry above covers the Prelude and the system modules: the toolchain
+  writes the cache when it writes a .py file, and the loader reads it
+  through importlib.  Left open there: a generated file without a cache,
+  such as a test module from the overlay archive or from an installation
+  made before the cache was written, was compiled from source in every
+  process, because the test drivers run Python with -B and importlib writes
+  no cache then (the 1,151 generated test modules under tests/data had no
+  __pycache__ at all).  Done: the loader writes a missing or stale cache
+  (ensure_bytecode) before it loads the file, -B or not; the cache is a
+  product of the toolchain, not of an import.  So a generated module is
+  compiled from source at most once per change, in any process.  A cache
+  that cannot be written gives one warning and the file loads from source.
+  Measured on the Python backend, new processes, CPU time: the Prelude
+  import costs 0.026 to 0.035 s with zero source compiles (import curry
+  0.064 to 0.076 s before it).  unit_py_evaluation.py with a warm ICurry
+  cache, CPU of the test process after the imports, whole process in
+  parentheses (user plus system): 1.23 s (1.34 to 1.35 s) with the loader of
+  the committed tree, which ran the file through runpy and compiled the
+  Prelude six times (once per hard reset) and each test module once; 0.26
+  to 0.27 s (0.37 s) with the cache of the Prelude alone, the five test
+  modules still compiled in every process; 0.32 s (0.43 s) in the run that
+  wrote their caches and 0.28 to 0.29 s (0.41 to 0.42 s) after it, zero
+  source compiles of cached files.  The five modules are small (1 to 5 KB),
+  so their compile cost is in the noise of that file; the gain of the loader
+  change is that the larger test modules and the 1,151 modules of the
+  functional suites are compiled once instead of once per process.  Tests:
+  unit_prebuild.py (the loader writes a stale or missing cache under -B, a
+  file without a cache is compiled by the first of two child processes only,
+  an unwritable cache gives one warning through the loader).  Left: a
+  generated .py still carries no format stamp (see the prebuild entry); a
+  read-only tree whose caches are missing warns at every load.
+- Run statistics (issue #8).  sprite-exec -t printed the wall time of the
+  evaluation at 1 ms resolution and nothing else, and the counters of the
+  runtimes (steps_total and gc_collections of the C++ runtime, the step
+  counter and the telemetry object of the Python backend) reached no tool.
+  Done: sprite-exec --stats prints one line of key=value pairs on stderr
+  when the program ends, after its output and after an error message:
+  wall (seconds since the process started, read from /proc on Linux, since
+  the import of the package elsewhere), cpu (user plus system seconds of
+  the process, children excluded), steps (rewrite steps), forks (forks of
+  a choice-rooted configuration), collections (the node collector of the
+  C++ backend; 0 on the Python backend), peak_rss (bytes, from getrusage),
+  and compile (seconds spent in the steps of the toolchain: front end,
+  JSON, code generator, C++ compiler; 0 when every file was current).  The
+  same numbers come from curry.stats() (Interpreter.stats, module
+  interpreter/stats.py): a dict with the seven keys in that order whose
+  str is the line.  Steps and forks are per interpreter: the runtime state
+  of an evaluation counts its own (steps_total and forks_total on both
+  backends; forks_total is new in the C++ RuntimeState, counted in fork),
+  and the generic evaluator sums them in EvaluationTotals: a running
+  evaluation is held by a weak reference and counted as it goes; an
+  evaluation whose generator ends or is dropped is added once.  No hot
+  path changed on either backend.  The compile clock sits around the step
+  loop of makecurry (outermost call only), so an import that finds every
+  file current adds nothing.  The other fields are per process.  Measured
+  on mynot (committed caches, no front end): the Python backend reports
+  steps=3 forks=1 and the C++ backend steps=4 forks=1 (the backends count
+  differently; compare steps within one backend); the first C++ run after
+  the header change compiled mynot.so again and reported compile=0.62 s,
+  the next run compile=0.000000; cpu about 0.12 s on both backends,
+  peak_rss 35 to 37 MB.  Tests: unit_api.py (TestStats: the fields and
+  the line, the counts of an evaluation and of a running one, the compile
+  field on a hand-written module and on a current one, sprite-exec --stats
+  after a run and after an error, no line without the option),
+  unit_py_interp.py (testStats: totals per interpreter, kept across a soft
+  reset), unit_cxx_gc.py (the collections field follows gc_collections).
+  Left: a direct step through evaluator.single_step is added as well, but
+  not tested; the harness (M1) is the consumer of the line.
+- Benchmark harness v2 (issue #7).  The driver tests/lib/benchmark.py printed
+  the best of N wall times of sprite-exec -t to the terminal and stored
+  nothing; no suite measured compile time, start-up, or memory.  Done: the
+  package tests/lib/benchmarks (benchmark.py forwards to it; ./run_benchmarks
+  runs it) with four suites selected by name: throughput (the 30
+  dissertation programs; sprite-exec -t --stats, or PAKCS with :set +time),
+  compile (each program compiled from source in an empty directory with the
+  ICurry cache cold and warm, and the expression 1+2 through curry.compile in
+  a child Python), import (python -c pass, import curry, the Prelude import,
+  Hello end to end), and memory (the collector on and, on the C++ backend,
+  off).  Every measurement runs in a child under timeout and prlimit --as;
+  N measured repetitions (5, 3, 5, 1 by suite) follow warm-up runs that are
+  not recorded.  One JSON Lines record per item holds the medians of wall and
+  CPU seconds (user plus system of the child and its descendants, from
+  wait4), peak RSS, the evaluation time alone, the compile seconds, the exact
+  counters steps, forks, and collections of --stats (equal in every
+  repetition, else null with a warning), the samples, the commit with
+  -dirty, the date, a label, and the machine facts.  The compare command
+  joins two files on suite, program, backend, and variant, prints the ratio
+  of one metric with a noise threshold (same, faster, slower) and the
+  counters that changed, and fails under --strict.  Found on the way: Linux
+  starts the memory high-water mark of a new process at the resident set of
+  its parent, so wait4 on a child of the harness never reports a peak below
+  the harness itself (34 MB inside the test process, where python -c pass
+  takes 9 MB); the harness runs GNU time inside the wrapper chain for the
+  peak, and falls back to wait4 with a note in the record when GNU time is
+  missing.  Measured on a shared machine (one repetition, smoke test only;
+  the baseline waits for a quiet machine): Hello costs 0.14 to 0.17 s of CPU
+  per process on either backend and 1.7 s under PAKCS; repeated records
+  agree exactly on steps (1) and forks (0); the warm module compile of Hello
+  costs 0.035 s of toolchain time on the Python backend against 5.3 s cold
+  (the front end).  Tests: unit_benchmarks.py (the runner with the cap, the
+  timeout, a grandchild, and a fat parent; the parsers; the records; the
+  suites and their commands; the options; compare on hand-made records; the
+  run command end to end on Hello and on the expression).  Docs: tests/README
+  section 8 and the README of the benchmark directory.  Left: the nightly
+  job with history (M4), the baseline run (M5), a PAKCS column outside the
+  throughput suite, in-process repetition for programs under 100 ms (the
+  toofast directory stays out of the set), and node counts, which --stats
+  does not report.
+- Review fixes for the latency items.  ICurry cache: the import scan took
+  only names with an uppercase first letter, so the import that curry.compile
+  prepends for a dynamic module (import sprite__interactive_N) was not in the
+  closure, and the key of an expression left out the source of that module.
+  A second process, whose counter gives the same name to another module,
+  replayed the expression compiled against the first (probed: show (f 3)
+  raised a TypeError after f changed from Int -> Int to Int -> [Int]).  The
+  scan accepts any identifier now, and the closure finds the dynamic module
+  in the temporary directory that curry.compile puts first in the path.  The
+  front end reports a span (line:col-line:col) for a name of more than one
+  character; the error matcher took a point only, so most program errors
+  were never cached.  It takes the span now.  A missing import ("Interface
+  for module M not found") is not cached on purpose: the key sees the Curry
+  path only through source files.  Prebuild: sprite-invoke keeps an exported
+  SPRITE_HOME, so a make stage run with the variable set compiled the
+  library of that installation.  The recipe sets SPRITE_HOME to PREFIX,
+  unsets SPRITE_INTERPRETER_FLAGS, SPRITE_CXX_PCH_ROOT, and
+  SPRITE_FORCE_RECOMPILE_CXX as well, and fails when Prelude.py (and, with a
+  compiler, Prelude.so and its stamp) is missing under PREFIX afterwards.
+  C++ toolchain: the format check of a .cpp file belongs to Json2Cpp, the
+  step that writes it, so the plan of sprite-make --cxx refuses a stale file
+  too (Cpp2So asks the same question; the plan asks a step about its input
+  as well, so Json2Cpp answers for .cpp files only).  Cpp2So removes the old
+  ABI stamp before g++ runs, so an interrupted compile leaves an object
+  without a stamp, not one with the stamp of other headers.  runtime_digest
+  raises a PrerequisiteError that names the installation when a header
+  cannot be read (a staged link into a source tree that is gone) and gives
+  None for a tree without headers; the objects are trusted then, because
+  such an installation cannot compile.  Statistics: a step through
+  evaluator.single_step (the first step of every compiled expression) was
+  never counted on either backend, because the step functions count nothing
+  themselves.  Both runtime states have single_step now: the Python one
+  passes the root as a variable and counts as S does, the C++ binding counts
+  a completed step as procS does.  A compiled expression costs one step in
+  --stats on both backends.  CI: the ICurry cache is saved under a key that
+  holds the run id, so the nightly run, which alone compiles the functional
+  suites, saves as well; the save step is skipped when tests/.cache does not
+  exist.  Docs: the wall field of --stats, the configure --cache icurry
+  option, the missing-module rule.  Tests: unit_cache.py (the dynamic import
+  in the key and across three processes, the span and the missing-module
+  errors, lowercase names in the scan), unit_cxx_toolchain.py (the
+  source-only plan, the interrupted compile, the header tree),
+  unit_prebuild.py (the recipe environment through make print-PREBUILD_ENV,
+  sprite-make --py on a current file), unit_api.py (the single step counts
+  on both backends).  The long lines of the new tests and of the harness
+  were wrapped.  Left: the three-process cache test costs four front-end
+  calls (about 20 s); entries of the old point-only error form stay valid.

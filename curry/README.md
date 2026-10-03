@@ -19,13 +19,12 @@ the following commands from the project root:
     % make stage
 
 This will prepare the Curry source files belonging to the system library and
-install them.  Sprite is installed at this point, but the first time it is used
-to run a Curry program, the Prelude will need to be compiled.  This raises two
-problems.  First, it is very slow and might be unexpected by a user of Sprite.
-Second, if that user does not have the same privileges as the installer, the
-compilation could fail.  Instead, it is preferable to pre-build the system
-libraries during installation.  This can be done by issuing the following
-command in this directory:
+install them.  The installation step also compiles the installed library for
+both backends (the `prebuild` target of the Makefile in this directory), so
+the first use of Sprite compiles nothing, and a user without the privileges
+of the installer needs no compile.  The ICY and JSON files that the compile
+starts from are built from the Curry sources by the following command in this
+directory:
 
     % make currylib
 

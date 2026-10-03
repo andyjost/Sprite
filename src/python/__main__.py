@@ -15,7 +15,7 @@ class Main(object):
   Curry file or module is loaded, and the specified goal (if any) is
   evaluated.  Set CURRYPATH to control the search for Curry code.
   ''' % __package__
-  ARGUMENTS = 'bimgpsnt'
+  ARGUMENTS = 'bimgpsntS'
   def __init__(self, program_name, module_name=None, default_goal='main'):
     self.program_name = program_name
     self.module_name = module_name
@@ -50,6 +50,11 @@ class Main(object):
     if 't' in self.ARGUMENTS:
       parser.add_argument( '-t', '--time', action='store_true'
         , help='suppress normal program output; print execution time instead')
+    if 'S' in self.ARGUMENTS:
+      parser.add_argument( '--stats', action='store_true'
+        , help='at exit, print one line of statistics on stderr: wall and '
+               'CPU seconds, rewrite steps, forks, collections, peak RSS in '
+               'bytes, and the seconds spent compiling')
     if 's' in self.ARGUMENTS:
       try:
         sort_keys = sorted(pstats.Stats.sort_arg_dict_default.keys())
@@ -71,6 +76,20 @@ class Main(object):
 
   def __call__(self, argv):
     args = self.parseArgs(argv)
+    try:
+      self.run(args)
+    finally:
+      if getattr(args, 'stats', False):
+        # The last line of the program, after its output and after an error.
+        # A closed standard output is legal; see cyrtbindings._flush_stdout.
+        try:
+          sys.stdout.flush()
+        except (AttributeError, OSError, ValueError):
+          pass
+        sys.stderr.write('%s\n' % curry.stats())
+        sys.stderr.flush()
+
+  def run(self, args):
     if getattr(args, 'backend', None) is not None:
       # Reload before any Curry code is imported.  Flags passed to reload take
       # precedence over SPRITE_INTERPRETER_FLAGS; the other flags set there

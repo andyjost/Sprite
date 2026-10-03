@@ -17,7 +17,10 @@ def currentfile(
   Finds the newest prerequisite along the Curry build pipeline.
 
   The file returned is the newest among the Curry source file (suffix: .curry),
-  the ICurry file (suffix: .icy), and the JSON file (suffix: .json or .json.z).
+  the ICurry file (suffix: .icy), the JSON file (suffix: .json or .json.z),
+  and the files of the backend (suffix: .py; or .cpp and .so), less the files
+  that a step of the plan refuses (see ``Plan.prune_stale``) and the files
+  made from them.
 
   Args:
     plan:
@@ -87,13 +90,9 @@ def currentfile(
         fn for fn in filelist
            if not any(fn.endswith(suffix) for suffix in ['.cpp', '.so'])
       ]
-  # Disregard (recompile) the .so if it's older than the runtime library.
-  elif not config.ignore_cyrt_timestamp():
-    if filelist and filelist[-1].endswith('.so'):
-      if filesys.newer(config.cyrt_lib(), filelist[-1]):
-        filelist.pop()
-  # Disregard a file written in a format the toolchain no longer accepts, and
-  # everything made from it.
+  # Disregard a file the toolchain no longer accepts, and everything made
+  # from it: a .cpp file of another format, or a .so file compiled against
+  # other runtime headers.  The age of the runtime library does not count.
   filelist = plan.prune_stale(filelist)
   prereq = os.path.abspath(filesys.newest(filelist))
   if not os.path.exists(prereq):

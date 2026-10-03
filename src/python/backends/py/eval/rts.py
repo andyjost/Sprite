@@ -94,6 +94,30 @@ class RuntimeState(object):
   def setfunctions(self):
     return self.interp.setfunctions
 
+  # The C++ runtime state has the same two attributes.  The evaluator reads
+  # them for the statistics of a run (Interpreter.stats).
+  @property
+  def steps_total(self):
+    '''The number of rewrite steps taken in this evaluation.'''
+    return self.stepcounter.global_count
+
+  @property
+  def forks_total(self):
+    '''The number of times a configuration forked in this evaluation.'''
+    return self.telemetry._forks
+
+  def single_step(self, node):
+    '''
+    Takes one rewrite step at the root of ``node``, outside the step loop
+    (see evaluator.single_step).  The step function takes the root as a
+    variable, as in S.  A completed step counts as in S: the step counter and
+    the current configuration take it up.  A step that raises left its redex
+    as it was and counts nothing.
+    '''
+    node.info.step(self, self.variable(node))
+    self.stepcounter.increment()
+    self.count_step()
+
   def set_goal(self, goal):
     assert not self.Q
     if goal is not None:

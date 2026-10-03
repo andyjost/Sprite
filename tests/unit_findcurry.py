@@ -2,6 +2,7 @@ import cytest # from ./lib; must be first
 from curry import config, icurry, toolchain
 from curry.toolchain import plans
 from curry.utility import filesys
+from curry.utility.binding import binding
 import tempfile
 import curry, os, shutil, time, unittest
 
@@ -194,3 +195,61 @@ class TestFindCurry(cytest.TestCase):
     self.assertTrue(
         filesys.newer('data/curry/hello.curry', 'this_file_does_not_exist')
       )
+
+  def test_refused_files(self):
+    '''
+    currentfile drops a file that a step of the plan refuses, and the files
+    after it, then takes the newest of the rest.  The last stage has no step,
+    so the step that made its file answers for it; the C++ backend refuses an
+    object compiled against other runtime headers this way.  The age of the
+    runtime library does not count.  A newer source still wins.
+    '''
+    class Step(object):
+      def __init__(self):
+        self.stale = set()
+      def is_stale(self, filename):
+        return os.path.basename(filename) in self.stale
+      def __call__(self, *args, **kwds):
+        raise AssertionError('no step runs')
+    icy_step, json_step = Step(), Step()
+    plan = plans.Plan(None, 0, [
+        plans.Stage(['.curry'], object())
+      , plans.Stage(['.icy'], icy_step)
+      , plans.Stage(['.json'], json_step)
+      , plans.Stage(['.so'], None)
+      ])
+    srcdir = os.path.join(self.tmpdir.name, 'refused')
+    subdir = os.path.join(srcdir, '.curry', config.intermediate_subdir())
+    os.makedirs(subdir)
+    curryfile = os.path.join(srcdir, 'm.curry')
+    files = [curryfile] + [
+        os.path.join(subdir, 'm' + suffix)
+            for suffix in ['.icy', '.json', '.so']
+      ]
+    self.assertEqual(plan.filelist(curryfile), files)
+    # Make the files in the order of the plan, so that the object is the
+    # newest.
+    for filename in files:
+      open(filename, 'w').close()
+      time.sleep(0.01)
+    current = lambda: toolchain.currentfile(
+        plan, curryfile, [], is_sourcefile=True
+      )
+    self.assertEqual(current(), files[3])
+    # The step that made the object refuses it.
+    json_step.stale.add('m.so')
+    self.assertEqual(current(), files[2])
+    # A refused file takes the files after it along.
+    icy_step.stale.add('m.icy')
+    self.assertEqual(current(), files[0])
+    icy_step.stale.clear()
+    self.assertEqual(current(), files[2])
+    json_step.stale.clear()
+    self.assertEqual(current(), files[3])
+    # SPRITE_FORCE_RECOMPILE_CXX leaves out the C++ files.
+    with binding(os.environ, 'SPRITE_FORCE_RECOMPILE_CXX', '1'):
+      self.assertEqual(current(), files[2])
+    # A newer source wins over an accepted object.
+    time.sleep(0.01)
+    os.utime(curryfile, None)
+    self.assertEqual(current(), curryfile)

@@ -8,6 +8,7 @@ instance has a separate copy of the settings and runtime.
 __all__ = ['Interpreter']
 
 from .. import backends, config, exceptions, icurry, utility
+from ..backends.generic.eval import evaluator as _evaluator
 from . import flags as _flagmod, import_
 from ..objects.handle import getHandle
 import importlib
@@ -53,6 +54,8 @@ class Interpreter(object):
           Soft-reset the interpreter.
       :meth:`save`
           Save compiled Curry.
+      :meth:`stats`
+          Report the statistics of the run.
       :meth:`symbol`
           Look up a symbol by name.
       :meth:`topython`
@@ -73,6 +76,8 @@ class Interpreter(object):
     self._backend = backends.IBackend(self._flags['backend'])
     self._modules = {}
     self._path = []
+    # The steps and forks of the evaluations of this interpreter; see stats.
+    self._evaluation_totals = _evaluator.EvaluationTotals()
     self.reset() # set remaining attributes.
     return self
 
@@ -179,6 +184,7 @@ class Interpreter(object):
   from .import_ import import_
   from .loadsave import load, save
   from .optimize import optimize
+  from .stats import stats
 
   unbox = staticmethod(unbox)
 

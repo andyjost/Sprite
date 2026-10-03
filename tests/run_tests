@@ -36,6 +36,12 @@ export SPRITE_HOME
 export PYTHONPATH=`pwd`/lib/:$PYTHONPATH
 export CURRYPATH=`pwd`/data/curry:$CURRYPATH
 
+# The tests compile the same Curry texts in every run, and the Curry front end
+# takes seconds per module.  The ICurry cache keeps its output between runs.
+# Set SPRITE_CACHE_FILE to the empty string to run without the cache.  See
+# section 1 of README.
+export SPRITE_CACHE_FILE="${SPRITE_CACHE_FILE-`pwd`/.cache/icurry.db}"
+
 # The unittest module is really weird.  There doesn't
 # seem to be a way to run tests by specifying a list of filenames.  So the arguments
 # to this script must either be empty (run all tests) or the name of a test file (which
@@ -52,8 +58,10 @@ case `basename $0` in
     $SPRITE_HOME/bin/python -B -m unittest discover -v `pwd` "$pattern"
     ;;
   "run_benchmarks")
-    # Run the benchmarks.  Arguments go to tests/lib/benchmark.py; see -h.
-    $SPRITE_HOME/bin/python -m benchmark "$@"
+    # Run the benchmarks.  Arguments go to the benchmarks package under
+    # tests/lib: "run [options] [PROGRAM ...]" (the default command),
+    # "compare OLD NEW", or "list"; see -h and section 8 of README.
+    $SPRITE_HOME/bin/python -m benchmarks "$@"
     ;;
   "debug_tests")
     # Run the Python unit tests under gdb.

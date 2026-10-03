@@ -1,10 +1,43 @@
 from .. import config
 from . import plans, _findcurry
 from ..utility import formatDocstring
-import logging, os, shutil, sys
+import importlib.util, logging, os, shutil, sys, time
 
-__all__ = ['makecurry']
+__all__ = ['compile_seconds', 'makecurry']
 logger = logging.getLogger(__name__)
+
+class CompileClock(object):
+  '''
+  Accumulates the wall time this process spends in the steps of the
+  toolchain: the Curry front end, the ICurry-JSON conversion, the code
+  generator, and the C++ compiler.  A nested call (a step that imports a
+  package) counts once, within the outermost call.  ``Interpreter.stats``
+  reports the total as ``compile``.
+  '''
+  def __init__(self):
+    self.seconds = 0.0
+    self._depth = 0
+    self._start = None
+
+  def __enter__(self):
+    if self._depth == 0:
+      self._start = time.perf_counter()
+    self._depth += 1
+    return self
+
+  def __exit__(self, *exc_info):
+    self._depth -= 1
+    if self._depth == 0:
+      self.seconds += time.perf_counter() - self._start
+
+compile_clock = CompileClock()
+
+def compile_seconds():
+  '''
+  The seconds this process has spent in the steps of the toolchain.  Zero
+  when every file was current.
+  '''
+  return compile_clock.seconds
 
 @formatDocstring(config.python_package_name())
 def makecurry(plan, name, currypath=None, **kwds):
@@ -41,7 +74,10 @@ def makecurry(plan, name, currypath=None, **kwds):
         plan, name, currypath, **kwds
       )
     if not os.path.isdir(pipeline.currentfile):
-      Maker(plan, pipeline, name, currypath, kwds).make()
+      maker = Maker(plan, pipeline, name, currypath, kwds)
+      if not maker.done:
+        with compile_clock:
+          maker.make()
     return pipeline.currentfile
 
 class Maker(object):
@@ -103,6 +139,11 @@ class ToolchainContext(object):
       for intermediate in self.intermediates:
         logger.debug('Removing intermediate %r', intermediate)
         os.unlink(intermediate)
+        if intermediate.endswith('.py'):
+          # The toolchain writes the bytecode cache beside a Python file.
+          cache = importlib.util.cache_from_source(intermediate)
+          if os.path.exists(cache):
+            os.unlink(cache)
 
   @property
   def copy_required(self):

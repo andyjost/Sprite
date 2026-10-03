@@ -42,7 +42,7 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make jq libboost-dev curl ccache
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make libboost-dev curl ccache
           swipl --version
       # The C++ backend compiles every test module with g++ at run time.
       # ccache in front of g++ keeps the output of unchanged modules between
@@ -77,6 +77,22 @@ jobs:
       - name: Build the Curry toolchain
         if: steps.toolchain.outputs.cache-hit != 'true'
         run: .github/scripts/install-curry-toolchain.sh
+      # The tests compile the same Curry texts in every run.  The ICurry cache
+      # (tests/.cache, an SQLite file keyed by the source text) keeps the
+      # output of the Curry front end between runs.  It is saved after the
+      # tests even when one fails, so a failing run still pays for the next.
+      # A cache entry cannot be overwritten, so the saved key names the run:
+      # the nightly schedule, which alone runs the functional suites, runs on
+      # the sha of the last push and must save under a key of its own.  The
+      # restore takes the newest entry of this job, or of any job.
+      - name: Restore the ICurry cache
+        uses: actions/cache/restore@v4
+        with:
+          path: tests/.cache
+          key: icurry-cache-${{ matrix.backend }}-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
+          restore-keys: |
+            icurry-cache-${{ matrix.backend }}-${{ matrix.shard }}-
+            icurry-cache-
       - name: Install Python packages
         run: python -m pip install --quiet numpy
       - name: Configure and stage
@@ -85,14 +101,22 @@ jobs:
             --with-python="$(command -v python)" \
             --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
             --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry="$HOME/.cpm/bin/icurry" \
-            --with-jq="$(command -v jq)"
+            --with-icurry="$HOME/.cpm/bin/icurry"
           make stage
       - name: Unit tests
         run: .github/scripts/run-tests.sh ${{ matrix.backend }} 'unit_*.py' ${{ matrix.shard }}
       - name: Functional tests
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.functional)
         run: .github/scripts/run-tests.sh ${{ matrix.backend }} 'func_*.py' ${{ matrix.shard }}
+      # Nothing to save when the stage failed before any test ran: the
+      # directory does not exist then, and the save step would add a second
+      # failure.
+      - name: Save the ICurry cache
+        if: always() && hashFiles('tests/.cache/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: tests/.cache
+          key: icurry-cache-${{ matrix.backend }}-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
       # Only the runtime library is cached so far: Sprite compiles and links
       # each generated module in one g++ call, which ccache does not cache.
       - name: Compiler cache statistics
@@ -113,7 +137,7 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make jq libboost-dev curl
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make libboost-dev curl
       - name: Restore the Curry toolchain
         id: toolchain
         uses: actions/cache@v4
@@ -133,8 +157,7 @@ jobs:
           python ./configure \
             --with-python="$(command -v python)" \
             --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry="$HOME/.cpm/bin/icurry" \
-            --with-jq="$(command -v jq)"
+            --with-icurry="$HOME/.cpm/bin/icurry"
           make stage
           make -C docs html
       - uses: actions/upload-pages-artifact@v3

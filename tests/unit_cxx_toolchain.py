@@ -11,15 +11,20 @@ Curry front end runs.
 The generated C++ carries a format stamp.  A cached file with another stamp,
 or none, is written again from the JSON file instead of being compiled
 against a runtime it was not written for.
+
+Each compiled object carries an ABI stamp beside it: the digest of the
+installed runtime headers it was compiled against.  An object whose stamp
+differs is compiled again; the age of the runtime library does not count.
 '''
 import cytest # from ./lib; must be first
 from cytest.logging import capture_log
 from curry import config, exceptions
 from curry.backends.cxx import compiler, toolchain
-from curry.toolchain import plans, _findcurry
+from curry.toolchain import plans, _findcurry, makecurry
 from curry.utility.binding import binding, del_
 from unittest import mock
-import curry, itertools, logging, os, shutil, subprocess, tempfile, unittest, zlib
+import curry, itertools, json, logging, os, shutil, subprocess, tempfile, time
+import unittest, zlib
 
 # A module with one goal that returns an integer.
 MODULE_JSON = (
@@ -143,17 +148,29 @@ class TestPrecompiledHeader(ToolchainTestCase):
     self.assertIn('! ' + os.path.join(self.gch_dir, member), proc.stderr.splitlines())
 
   def test_stale_member_is_rebuilt(self):
-    '''A member older than libcyrt.so is built again.'''
+    '''
+    A member older than a header is built again.  The age of libcyrt.so does
+    not count: a relink of the library keeps the member.
+    '''
     self.compile_module(4)
     member, = self.members()
     path = os.path.join(self.gch_dir, member)
-    old = os.path.getmtime(config.cyrt_lib()) - 100
-    os.utime(path, (old, old))
     pch = toolchain.PrecompiledHeader(
         self.root, config.cxx_tool()
       , toolchain.Cpp2So(curry.getInterpreter())._cxxflags()
       )
     self.assertEqual(pch.filename, path)
+    headers = list(pch.header_files())
+    self.assertTrue(headers)
+    newest_header = max(os.path.getmtime(f) for f in headers)
+    # Older than the library, but not older than any header: current.
+    before_library = os.path.getmtime(config.cyrt_lib()) - 1
+    if before_library >= newest_header:
+      os.utime(path, (before_library, before_library))
+      self.assertTrue(pch.is_current())
+    # Older than a header: stale.
+    old = newest_header - 100
+    os.utime(path, (old, old))
     self.assertFalse(pch.is_current())
     self.compile_module(5)
     self.assertEqual(self.members(), [member])
@@ -321,3 +338,360 @@ class TestFormatStamp(ToolchainTestCase):
     self.write_cpp(name, [self.IMPORTS, self.stamp(1), self.STALE])
     prereq = _findcurry.currentfile(plan, name, [self.srcdir])
     self.assertEqual(prereq, self.cached_file(name, '.json.z'))
+
+  def test_source_only_plan_refuses_a_stale_file(self):
+    '''
+    Under the plan of sprite-make --cxx, which ends at the .cpp file, the
+    step that writes the file answers for it: a file of another format is
+    written again, although no compile step is in the plan.  A current file
+    is kept.
+    '''
+    name = self.write_json(8)
+    path = self.write_cpp(name, [self.IMPORTS, self.stamp(1), self.STALE])
+    plan = plans.makeplan(
+        curry.getInterpreter()
+      , plans.MAKE_ICURRY | plans.MAKE_JSON | plans.MAKE_TARGET_SOURCE
+            | plans.ZIP_JSON
+      )
+    self.assertEqual(plan.suffixes[-1], '.cpp')
+    self.assertTrue(plan.is_stale(path))
+    self.assertFalse(plan.is_stale(self.cached_file(name, '.json.z')))
+    self.assertEqual(
+        _findcurry.currentfile(plan, name, [self.srcdir])
+      , self.cached_file(name, '.json.z')
+      )
+    self.assertEqual(makecurry(plan, name, [self.srcdir]), path)
+    self.assertFalse(plan.is_stale(path))
+    text = cytest.readfile(path)
+    self.assertIn(self.stamp(compiler.FORMAT_VERSION), text)
+    self.assertNotIn('#error', text)
+    written = os.stat(path).st_mtime_ns
+    self.assertEqual(makecurry(plan, name, [self.srcdir]), path)
+    self.assertEqual(os.stat(path).st_mtime_ns, written)
+    self.assertFalse(os.path.exists(self.cached_file(name, '.so')))
+
+  def test_unreadable_stamp_is_an_error(self):
+    '''
+    The stamp the emitter writes must read back.  Otherwise the plan would
+    refuse every cached .cpp file, and every process would write and compile
+    every module again.  The compile step checks its input and stops with an
+    error instead.  Here the reader (toolchain.format_version, which both
+    steps use) is made to misread every stamp.
+    '''
+    name = self.write_json(6)
+    with mock.patch.object(
+        toolchain, 'format_version'
+      , lambda filename: compiler.FORMAT_VERSION + 1
+      ):
+      with self.assertRaises(exceptions.CompileError) as cm:
+        self.import_module(name)
+    self.assertIn('format stamp', str(cm.exception))
+    # The emitter did write the stamp; no object was compiled.
+    text = cytest.readfile(self.cached_file(name, '.cpp'))
+    self.assertIn(self.stamp(compiler.FORMAT_VERSION), text)
+    self.assertFalse(os.path.exists(self.cached_file(name, '.so')))
+
+  def test_stamp_reads_back(self):
+    '''
+    The reader finds the stamp of a generated file, which begins with a
+    section comment and the import list, and of a file without section
+    comments.
+    '''
+    module = self.compile_module(7)
+    cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    path = self.cached_file(module.__name__, '.cpp')
+    with open(path) as stream:
+      head = [next(stream) for _ in range(3)]
+    self.assertTrue(head[0].startswith('/* SECTION: '), head[0])
+    self.assertEqual(head[2], self.stamp(compiler.FORMAT_VERSION))
+    self.assertFalse(cpp2so.is_stale(path))
+    bare = self.write_cpp(
+        'Bare', [self.IMPORTS, self.stamp(compiler.FORMAT_VERSION)]
+      )
+    self.assertFalse(cpp2so.is_stale(bare))
+    # The stamp of a cached file is read once per import, not per line of
+    # the file: a long file costs nothing more.
+    long = self.write_cpp(
+        'Long', [self.IMPORTS, self.stamp(compiler.FORMAT_VERSION)]
+                + ['// filler\n'] * 10000
+      )
+    self.assertFalse(cpp2so.is_stale(long))
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
+  )
+class TestAbiStamp(ToolchainTestCase):
+  '''
+  Each shared object gets an ABI stamp: the digest of the installed runtime
+  headers it was compiled against.  An object whose stamp is missing or
+  differs from the installed headers is compiled again.  An object with the
+  same stamp is kept, whatever the time stamps of the runtime library and the
+  object say.  Before this, an object older than libcyrt.so was compiled
+  again, so every make stage that relinked the library invalidated every
+  object, and the first import after it compiled the Prelude again.
+  '''
+  def setUp(self):
+    super().setUp()
+    self.plan = plans.makeplan(
+        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+      )
+    self.cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+
+  def prerequisite(self, name):
+    return _findcurry.currentfile(self.plan, name, [self.srcdir])
+
+  def build(self, value):
+    '''
+    Builds the object of a module whose goal returns ``value`` without
+    loading it, so that the object can be compiled again in this process.
+    Returns the module name.
+    '''
+    name = self.write_json(value)
+    sofile = makecurry(self.plan, name, [self.srcdir])
+    self.assertEqual(sofile, self.cached_file(name, '.so'))
+    return name
+
+  def test_stamp_is_written(self):
+    '''The compile step writes the stamp beside the object.'''
+    module = self.compile_module(1)
+    sofile = self.cached_file(module.__name__, '.so')
+    stamp = self.cpp2so.stampfile(sofile)
+    self.assertEqual(stamp, sofile + '.abi')
+    digest = toolchain.runtime_digest()
+    self.assertEqual(cytest.readfile(stamp), digest + '\n')
+    self.assertEqual(self.cpp2so.read_stamp(sofile), digest)
+    self.assertFalse(self.cpp2so.is_stale(sofile))
+    self.assertFalse(self.plan.is_stale(sofile))
+    self.assertEqual(self.prerequisite(module.__name__), sofile)
+    # No temporary file remains.
+    names = sorted(os.listdir(self.subdir))
+    self.assertEqual(
+        names, sorted(
+            module.__name__ + suffix
+            for suffix in ['.json.z', '.cpp', '.so', '.so.abi']
+          )
+      )
+
+  def test_object_older_than_the_library_is_kept(self):
+    '''The age of the object against libcyrt.so does not matter.'''
+    name = self.build(2)
+    sofile = self.cached_file(name, '.so')
+    old = os.path.getmtime(config.cyrt_lib()) - 100
+    for path in sofile, self.cpp2so.stampfile(sofile):
+      os.utime(path, (old, old))
+    self.assertLess(
+        os.path.getmtime(sofile), os.path.getmtime(config.cyrt_lib())
+      )
+    self.assertFalse(self.cpp2so.is_stale(sofile))
+    self.assertEqual(self.prerequisite(name), sofile)
+    self.check_value(self.import_module(name), 2)
+
+  def test_other_stamp_is_recompiled(self):
+    '''
+    An object compiled against other headers goes.  The .cpp file stays and
+    is compiled again, and the new object gets the current stamp.
+    '''
+    name = self.build(3)
+    sofile = self.cached_file(name, '.so')
+    cppfile = self.cached_file(name, '.cpp')
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write('0123456789abcdef\n')
+    self.assertTrue(self.cpp2so.is_stale(sofile))
+    self.assertEqual(self.prerequisite(name), cppfile)
+    before = os.stat(cppfile).st_mtime_ns, os.stat(sofile).st_mtime_ns
+    with capture_log('curry.backends.cxx.toolchain') as log:
+      self.assertEqual(makecurry(self.plan, name, [self.srcdir]), sofile)
+    log.checkMessages(self, info='Compiling %r' % sofile)
+    self.assertEqual(os.stat(cppfile).st_mtime_ns, before[0])
+    self.assertNotEqual(os.stat(sofile).st_mtime_ns, before[1])
+    self.assertEqual(self.cpp2so.read_stamp(sofile), toolchain.runtime_digest())
+    self.assertEqual(self.prerequisite(name), sofile)
+    self.check_value(self.import_module(name), 3)
+
+  def test_missing_stamp_is_recompiled(self):
+    '''An object without a stamp, as an older cache holds, is compiled again.'''
+    name = self.build(4)
+    sofile = self.cached_file(name, '.so')
+    os.unlink(self.cpp2so.stampfile(sofile))
+    self.assertIsNone(self.cpp2so.read_stamp(sofile))
+    self.assertTrue(self.cpp2so.is_stale(sofile))
+    self.assertEqual(self.prerequisite(name), self.cached_file(name, '.cpp'))
+    self.check_value(self.import_module(name), 4)
+    self.assertEqual(self.cpp2so.read_stamp(sofile), toolchain.runtime_digest())
+
+  def test_stamp_is_removed_before_the_compile(self):
+    '''
+    The old stamp goes before the compiler runs.  A compile that stops
+    between the compiler and the new stamp (a kill, a time limit) leaves an
+    object without a stamp, which is compiled again, and not an object with
+    the stamp of headers it was not compiled against.
+    '''
+    class Interrupted(Exception):
+      pass
+    name = self.build(6)
+    sofile = self.cached_file(name, '.so')
+    cppfile = self.cached_file(name, '.cpp')
+    # Another digest forces the compile, which stops after the compiler.
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write('0123456789abcdef\n')
+    real_pexec = toolchain._system.pexec
+    def interrupted_pexec(cmd, *args, **kwds):
+      real_pexec(cmd, *args, **kwds)
+      raise Interrupted()
+    with mock.patch.object(toolchain._system, 'pexec', interrupted_pexec):
+      with self.assertRaises(Interrupted):
+        makecurry(self.plan, name, [self.srcdir])
+    self.assertTrue(os.path.isfile(sofile))
+    self.assertIsNone(self.cpp2so.read_stamp(sofile))
+    self.assertTrue(self.cpp2so.is_stale(sofile))
+    self.assertEqual(self.prerequisite(name), cppfile)
+    # The next compile completes and stamps the object.
+    self.assertEqual(makecurry(self.plan, name, [self.srcdir]), sofile)
+    self.assertEqual(self.cpp2so.read_stamp(sofile), toolchain.runtime_digest())
+    self.assertEqual(self.prerequisite(name), sofile)
+    self.check_value(self.import_module(name), 6)
+
+  def test_header_tree_problems(self):
+    '''
+    A header that cannot be read (a staged link into a source tree that is
+    gone) is an error that names the installation.  A tree without headers
+    gives no digest, and the objects are trusted as they are: such an
+    installation cannot compile, so a refused object could not be replaced.
+    '''
+    broken = os.path.join(self.tmpdir, 'broken')
+    os.makedirs(os.path.join(broken, 'cyrt'))
+    os.symlink(
+        os.path.join(self.tmpdir, 'gone.hpp')
+      , os.path.join(broken, 'cyrt', 'cyrt.hpp')
+      )
+    with self.assertRaises(exceptions.PrerequisiteError) as cm:
+      toolchain.runtime_digest(broken)
+    self.assertIn(broken, str(cm.exception))
+    self.assertIn('cyrt.hpp', str(cm.exception))
+    empty = os.path.join(self.tmpdir, 'empty')
+    os.makedirs(os.path.join(empty, 'cyrt'))
+    self.assertIsNone(toolchain.runtime_digest(empty))
+    name = self.build(7)
+    sofile = self.cached_file(name, '.so')
+    os.unlink(self.cpp2so.stampfile(sofile))
+    self.assertTrue(self.cpp2so.is_stale(sofile))
+    with mock.patch.object(
+        toolchain, 'runtime_digest', lambda include_dir=None: None
+      ):
+      self.assertFalse(self.cpp2so.is_stale(sofile))
+      self.assertEqual(self.prerequisite(name), sofile)
+      # Without a digest no stamp is written.
+      self.cpp2so.write_stamp(sofile)
+      self.assertIsNone(self.cpp2so.read_stamp(sofile))
+    self.assertTrue(self.cpp2so.is_stale(sofile))
+    self.assertEqual(self.prerequisite(name), self.cached_file(name, '.cpp'))
+
+  def test_digest(self):
+    '''
+    The digest follows the names and the contents of the headers, not their
+    time stamps, and not the precompiled header.
+    '''
+    digest = toolchain.runtime_digest()
+    self.assertRegex(digest, r'^[0-9a-f]{16}$')
+    self.assertEqual(
+        digest, toolchain.runtime_digest(config.installed_path('include'))
+      )
+    headers = list(toolchain.runtime_headers())
+    self.assertEqual(headers, list(toolchain.runtime_headers()))
+    self.assertIn(config.installed_path('include', 'cyrt', 'cyrt.hpp'), headers)
+    # A copy of the headers with new time stamps gives the same digest.
+    root = os.path.join(self.tmpdir, 'include')
+    shutil.copytree(
+        config.installed_path('include', 'cyrt'), os.path.join(root, 'cyrt')
+      , ignore=shutil.ignore_patterns('*.gch')
+      )
+    copies = list(toolchain.runtime_headers(root))
+    self.assertEqual(len(copies), len(headers))
+    now = time.time()
+    for path in copies:
+      os.utime(path, (now, now))
+    self.assertEqual(toolchain.runtime_digest(root), digest)
+    # A precompiled header in the tree does not count.
+    gch = os.path.join(root, 'cyrt', 'cyrt.hpp.gch')
+    os.mkdir(gch)
+    open(os.path.join(gch, 'O3-0123456789ab.gch'), 'w').close()
+    toolchain.runtime_digest.cache_clear()
+    self.assertEqual(toolchain.runtime_digest(root), digest)
+    # A change to any header gives another digest.
+    with open(copies[-1], 'a') as stream:
+      stream.write('// one more line\n')
+    toolchain.runtime_digest.cache_clear()
+    changed = toolchain.runtime_digest(root)
+    self.assertNotEqual(changed, digest)
+    self.assertRegex(changed, r'^[0-9a-f]{16}$')
+    # So does the name of a header.
+    os.rename(copies[-1], copies[-1] + '.renamed.hpp')
+    toolchain.runtime_digest.cache_clear()
+    self.assertNotEqual(toolchain.runtime_digest(root), changed)
+    self.assertEqual(toolchain.runtime_digest(), digest)
+
+  def test_second_process_compiles_nothing(self):
+    '''
+    A process that imports a module compiled by an earlier process runs no
+    compiler: not for the module, not for the Prelude, not for the header.
+    '''
+    module = self.compile_module(5)
+    code = '\n'.join([
+        'import curry, json'
+      , 'from curry.toolchain import _system'
+      , 'commands = []'
+      , 'pexec = _system.pexec'
+      , 'def counting_pexec(cmd, *args, **kwds):'
+      , '  commands.append(cmd)'
+      , '  return pexec(cmd, *args, **kwds)'
+      , '_system.pexec = counting_pexec'
+      , 'module = curry.import_(%r, currypath=%r)'
+            % (module.__name__, [self.srcdir] + curry.path)
+      , 'value = list(curry.eval(module.goal, converter="topython"))'
+      , 'print(json.dumps([commands, value]))'
+      ])
+    proc = cytest.run_in_subprocess(code, timeout=300)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    commands, value = json.loads(proc.stdout.strip().splitlines()[-1])
+    self.assertEqual(commands, [])
+    self.assertEqual(value, [5])
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
+  )
+class TestMissingCompiler(ToolchainTestCase):
+  '''
+  An installation without a C++ compiler (tools/cxx does not resolve) loads
+  the objects that make stage compiled.  A module that needs a compile fails
+  with an error that names the missing compiler.
+  '''
+  def test_compile_without_compiler(self):
+    name = self.write_json(12)
+    with mock.patch.object(config, 'cxx_tool', lambda cached=None: None):
+      with self.assertRaises(exceptions.CompileError) as cm:
+        self.import_module(name)
+    self.assertIn('no C++ compiler', str(cm.exception))
+    self.assertTrue(os.path.exists(self.cached_file(name, '.cpp')))
+    self.assertFalse(os.path.exists(self.cached_file(name, '.so')))
+
+  def test_prebuilt_object_loads_without_compiler(self):
+    '''
+    A new process without a compiler imports a module compiled by an earlier
+    process, the Prelude included, and runs no command.
+    '''
+    module = self.compile_module(13)
+    code = '\n'.join([
+        'import curry, json'
+      , 'from curry import config'
+      , 'from curry.toolchain import _system'
+      , 'config.cxx_tool = lambda cached=None: None'
+      , 'def no_pexec(cmd, *args, **kwds):'
+      , '  raise AssertionError("a command ran: %r" % (cmd,))'
+      , '_system.pexec = no_pexec'
+      , 'module = curry.import_(%r, currypath=%r)'
+            % (module.__name__, [self.srcdir] + curry.path)
+      , 'print(json.dumps(list(curry.eval(module.goal, converter="topython"))))'
+      ])
+    proc = cytest.run_in_subprocess(code, timeout=300)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    self.assertEqual(json.loads(proc.stdout.strip().splitlines()[-1]), [13])

@@ -33,6 +33,7 @@ namespace cyrt
   #endif
   {
     assert(Q == this->Q());
+    ++this->forks_total;
     ChoiceNode * choice = NodeU{C->root}.choice;
     auto && process_one = [this,Q,C,choice](Node * alt, ChoiceState lr) -> void
     {

@@ -61,24 +61,30 @@ set functions.
 Stage Sprite first (`make stage`).  Then, from the repository root, set
 `CURRYPATH` to this directory and run the module with the C++ backend.  The
 `-t` option suppresses the program output and prints the execution time in
-seconds:
+seconds; `--stats` adds one line on standard error with the wall and CPU
+seconds of the process, the rewrite steps, the forks, the collections, the
+peak RSS, and the compile seconds:
 
     CURRYPATH=tests/data/curry/benchmarks \
     SPRITE_INTERPRETER_FLAGS=backend:cxx \
-    install/bin/sprite-exec -t -m Fib
+    install/bin/sprite-exec -t --stats -m Fib
 
-To time several programs, use the driver.  From `tests/`, say
-`./run_benchmarks -h` for the options.  By default, it runs every top-level
-program once on the C++ backend:
+To measure several programs, use the harness.  From `tests/`, say
+`./run_benchmarks -h` for the options.  By default, it runs the 30 programs
+of the dissertation five times each on the C++ backend and writes one JSON
+record per program:
 
     cd tests
-    ./run_benchmarks                       # all programs, cxx
-    ./run_benchmarks Fib Tak1 Queens10     # a selection
-    ./run_benchmarks --backend py --backend cxx Fib
-    ./run_benchmarks --pakcs /path/to/pakcs --backend pakcs Fib
+    ./run_benchmarks -o cxx.jsonl             # the dissertation programs, cxx
+    ./run_benchmarks -o some.jsonl Fib Tak1 Queens10
+    ./run_benchmarks -b py -b cxx -r 3 -o both.jsonl Fib
+    ./run_benchmarks -b pakcs -o pakcs.jsonl Fib   # PAKCS of the installation
+    ./run_benchmarks compare cxx.jsonl later.jsonl
 
-The driver is `tests/lib/benchmark.py`.  It can also be run directly with
-`install/bin/python tests/lib/benchmark.py`.
+Other suites (`-s compile`, `-s import`, `-s memory`) measure the compile
+times, the start-up times, and the peak memory.  Section 8 of `tests/README`
+describes the suites, the records, and the comparison.  The harness is the
+package `tests/lib/benchmarks`.
 
 ## The collector and the timings
 

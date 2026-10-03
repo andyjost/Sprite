@@ -1,28 +1,22 @@
 from ..icurry import readcurry as iread, json as ijson
-from .. import config
 from . import _filenames, _system
-from ..utility.binding import binding
 from ..utility import filesys
-from ..utility.strings import ensure_str, ensure_binary
-import logging, os, zlib
+import logging, zlib
 
 __all__ = ['icurry2json']
 logger = logging.getLogger(__name__)
 
-# The ability to read ICurry files with curry.utility.readcurry was developed
-# in Oct 2021.  Before that, an external program called icurry2jsontext was
-# used to convert those to JSON.
-CONVERT_JSON_INTERNALLY = True
-
 def icurry2json(icurryfile, currypath, **kwds):
   '''
-  Calls ``icurry2jsontext`` to produce an ICurry-JSON file.
+  Converts an ICurry file to an ICurry-JSON file.
 
   Args:
-    curryfile:
-        The name of the Curry file to convert.
+    icurryfile:
+        The name of the ICurry file to convert.  A Curry file name selects its
+        ICurry file.  A JSON file is compressed or decompressed as needed.
     currypath:
-        The list of Curry code search paths.
+        The list of Curry code search paths.  The conversion reads one file
+        and does not use it.  The compilation plan passes it to every step.
     **kwds:
         Additional keywords.  See :class:`ICurry2JsonConverter`.
 
@@ -32,8 +26,16 @@ def icurry2json(icurryfile, currypath, **kwds):
   return ICurry2JsonConverter(**kwds).convert(icurryfile, currypath)
 
 class ICurry2JsonConverter(object):
+  '''
+  Reads an ICurry file with Sprite's own reader and writes it as JSON.
+
+  Keyword ``compact`` (default True) selects the compact form of
+  :class:`curry.icurry.json.Encoder`.  Keyword ``zip`` (default True)
+  compresses the text with zlib and appends ``.z`` to the file name.  The text
+  ends with a newline.
+  '''
   def __init__(self, **kwds):
-    self.do_compact = config.jq_tool() and kwds.get('compact', True)
+    self.do_compact = kwds.get('compact', True)
     self.do_zip     = kwds.get('zip', True)
 
   @_system.updateCheck
@@ -45,41 +47,22 @@ class ICurry2JsonConverter(object):
     file_out = file_in[:-4] + '.json'
     if self.do_zip:
       file_out += '.z'
-    cmd_compact = [config.jq_tool(), '--ascii-output', '--compact-output', '.'] \
-                 if self.do_compact else None
     _system.makeOutputDir(file_out)
-
-    if CONVERT_JSON_INTERNALLY:
-      cmd = None
-    else:
-      cmd = [config.icurry2jsontext_tool(), '-i', file_in]
-
     logger.debug(
-        'Command: %s %s%s> %s'
-      ,  ' '.join(cmd) if cmd else '<internal-icurry2json>'
-      , '| %s ' % ' '.join(cmd_compact) if cmd_compact else ''
-      , '| zlib-flate -compress ' if self.do_zip else ''
+        'Converting %s to %s%sJSON %s'
+      , file_in
+      , 'compact ' if self.do_compact else ''
+      , 'compressed ' if self.do_zip else ''
       , file_out
       )
-
-    if cmd:
-      with _system.bindCurryPath(currypath):
-        json = _system.pexec(cmd, pipecmd=cmd_compact)
-    else:
-      rcdata = iread.load(file_in)
-      json = ijson.dumps(rcdata)
-      if self.do_compact:
-        with _system.bindCurryPath(currypath):
-          json = _system.pexec(cmd_compact, input=json)
+    rcdata = iread.load(file_in)
+    text = ijson.dumps(rcdata, compact=self.do_compact) + '\n'
+    data = text.encode('utf-8')
     if self.do_zip:
-      mode = 'wb'
-      json = zlib.compress(ensure_binary(json))
-    else:
-      mode = 'w'
-      json = ensure_str(json)
+      data = zlib.compress(data)
     with filesys.remove_file_on_error(file_out):
-      with open(file_out, mode) as output:
-        output.write(json)
+      with open(file_out, 'wb') as output:
+        output.write(data)
     return file_out
 
 def _getIcyOrShortcut(file_in, do_zip):

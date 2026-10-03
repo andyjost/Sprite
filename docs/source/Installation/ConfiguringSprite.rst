@@ -33,8 +33,6 @@ These options are summarized in the following table:
 +-------------------+-------------+-------------+---------------------------+
 | ``--with-icurry`` | ICURRY      | ``icurry``  | Selects ICurry            |
 +-------------------+-------------+-------------+---------------------------+
-| ``--with-jq``     | JQ          | ``jq``      | Selects JQ                |
-+-------------------+-------------+-------------+---------------------------+
 | ``--with-pakcs``  | PAKCS       | ``pakcs``   | Selects PAKCS             |
 +-------------------+-------------+-------------+---------------------------+
 | ``--with-prolog`` | PROLOG      | ``swipl``   | Selects Prolog            |
@@ -90,7 +88,6 @@ To install these yourself, follow the instructions at the links below:
           - `Haskell stack <https://docs.haskellstack.org/en/stable/install_and_upgrade>`__
           - Prolog (`SWI <https://www.swi-prolog.org/download/stable>`__ or `SICStus <https://sicstus.sics.se/download4.html>`__)
   * `ICurry Compiler 3.1.0 <https://cpm.curry-lang.org/pkgs/icurry.html>`__
-  * `jq <https://stedolan.github.io/jq/download>`__
 
 Setting the Configuration
 -------------------------

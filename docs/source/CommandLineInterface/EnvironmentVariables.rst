@@ -88,37 +88,49 @@ developing Sprite itself.  If you plan only to compile and run Curry programs
 with Sprite, then you should not need these.
 
 ``SPRITE_CACHE_FILE``
-  Specifies the cache database file.  The cache database stores the results of
-  slow conversions that occur when compiling Curry, especially the conversions
-  from :ref:`Curry to ICurry <Introduction/CompilationPipeline:Curry to
-  ICurry>` and :ref:`ICurry to Sprite's in-memory IR
-  <Introduction/CompilationPipeline:JSON to Sprite IR>`.  This aims to
-  shorten the development cycle when the same programs are compiled and run
-  many times.  If set to the empty string, caching is disabled.
+  Names the cache database, an SQLite file.  The database stores the output
+  of the Curry front end, the :ref:`Curry to ICurry
+  <Introduction/CompilationPipeline:Curry to ICurry>` step, which takes
+  seconds per module.  An entry is keyed by a digest of the module source, of
+  the sources of the modules it imports, and of the front-end options.  The
+  file name is not part of the key.  So the same text compiles once on a
+  machine, from any directory and, for a module compiled from a string, under
+  any module name.  A change in the text, or in an imported module, misses the
+  cache.  A new front end misses it too.  An error the front end reports about
+  the program is cached as well; a failure of the environment is not, and
+  neither is a missing module, because the key sees the Curry path only
+  through the source files found in it.
 
-  The default cache file is ``$HOME/.sprite/cache.db``, though this can be
-  changed at configuration time.
+  A file name turns the cache on.  The empty string turns caching off.  When
+  the variable is not set, the installation decides: ``configure --cache
+  icurry`` or ``--cache all`` (``ENABLE_ICURRY_CACHE`` in ``Make.config``)
+  turns the cache on at ``$HOME/.sprite/cache.db``.  The test drivers set
+  the variable to ``tests/.cache/icurry.db``.  The database can also hold
+  Sprite's
+  :ref:`in-memory IR <Introduction/CompilationPipeline:JSON to Sprite IR>` of
+  a JSON file (``ENABLE_PARSED_JSON_CACHE``).
 
   .. note ::
-     Caching is disabled by default.  It can be enabled when running
-     ``configure`` or by editing ``Make.config`` afterwards.
+     Outside the test drivers, caching is off by default.
 
 ``SPRITE_CACHE_UPDATE``
-  Specifies cache entries to update.  Updates can become necessary when part of
-  the build pipeline undergoes a non-backward-compatible change.  If, for
-  instance, the tool converting Curry to ICurry is updated and gives a new
-  output (because, say, the Prelude has changed), then the old cache files will
-  be out of date.  It is fine to simply delete the cache file in that case, but
-  this method provides a more conservative option.
+  Specifies cache entries to update.  An entry of the ICurry cache is replaced
+  on its own when its inputs change.  An update can still be needed for the
+  parsed-JSON cache, or when a tool behind the front end changes without a
+  change to the ``icurry`` program itself.  It is fine to simply delete the
+  cache file in that case, but this method provides a more conservative
+  option.
 
-  Files matching the given pattern are updated in the cache database.  The
-  pattern is interpreted as a glob unless it begins and ends with '/', as in
+  Files matching the given pattern are updated in the cache database.  For
+  the ICurry cache the pattern is compared with the name of the Curry source
+  file, for the parsed-JSON cache with the name of the JSON file.  The pattern
+  is interpreted as a glob unless it begins and ends with '/', as in
   ``/pattern/``, in which case it is considered a regular expression.
 
   Example:
 
       To update all compressed JSON files, set
-      ``SPRITE_CACHE_UPDATE='*.json.gz'`` in the environment.
+      ``SPRITE_CACHE_UPDATE='*.json.z'`` in the environment.
 
 ``SPRITE_CXX_PCH_ROOT``
   The directory under which the C++ backend keeps the precompiled form of the
@@ -126,8 +138,8 @@ with Sprite, then you should not need these.
   ``include`` directory of the installation, where the compiler finds it
   without an extra flag.  Name another directory when the installation is
   read-only.  Set the variable to the empty string to compile without the
-  precompiled header.  The header is built again when it is older than
-  ``libcyrt.so`` or than any header file.
+  precompiled header.  The header is built again when it is older than any
+  header file.
 
 ``SPRITE_DEBUG``
   Enables debugging for Sprite internal errors.  The command-line tools

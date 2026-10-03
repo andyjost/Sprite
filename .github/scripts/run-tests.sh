@@ -17,6 +17,11 @@ export PYTHONPATH="$PWD/lib"
 export CURRYPATH="$PWD/data/curry"
 export SPRITE_INTERPRETER_FLAGS="backend:$backend"
 export LC_ALL=C.UTF-8
+# The ICurry cache keeps the output of the Curry front end between runs; the
+# workflow restores and saves its directory.  The directory exists even when
+# no test compiles Curry, so the save step has something to save.
+export SPRITE_CACHE_FILE="${SPRITE_CACHE_FILE-$PWD/.cache/icurry.db}"
+mkdir -p "$(dirname "$SPRITE_CACHE_FILE")"
 # A diverging program fails with an allocation error instead of taking the
 # machine down.
 ulimit -v 6291456

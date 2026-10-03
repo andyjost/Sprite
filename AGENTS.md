@@ -27,9 +27,10 @@ Merges to `master` happen at milestones.
   Pythons.
 - PAKCS 3.4.1 is the pinned front end (Curry to FlatCurry to ICurry). The
   pin will be relaxed once the test suite passes.
-- Other tools: a C++ compiler (g++), GNU make, jq, Boost headers, and the
+- Other tools: a C++ compiler (g++), GNU make, Boost headers, and the
   `icurry` Curry package installed with `cypm`. SWI-Prolog and Haskell
-  Stack are needed to build PAKCS itself.
+  Stack are needed to build PAKCS itself. GNU time (`/usr/bin/time`) is
+  optional: the benchmark harness uses it for the peak memory of a run.
 - Sprite needs no GPU.
 - `configure` and the Makefiles honour `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
   and `LDFLAGS` from the environment, so build in a clean environment when
@@ -49,6 +50,10 @@ Merges to `master` happen at milestones.
 - `make test` runs the full suite. For the fast unit tests, run
   `./run_tests 'unit_*.py'` from `tests/`. The `func_*` tests need a PAKCS
   oracle.
+- The test drivers cache the output of the Curry front end in
+  `tests/.cache/icurry.db`, keyed by the source text, so a repeated run
+  compiles only the Curry texts that changed. Set `SPRITE_CACHE_FILE=` (the
+  empty string) to run without the cache.
 - `SPRITE_INTERPRETER_FLAGS=backend:cxx` selects the C++ backend. The
   Python backend is the default and suits only small programs.
 

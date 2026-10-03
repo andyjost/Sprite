@@ -32,6 +32,9 @@ The top-level data and methods fall roughly into the following four categories:
 
         :func:`curry.reset`  : Soft-reset the global interpreter.
 
+        :func:`curry.stats`  : Report the statistics of the run: time, steps,
+        forks, collections, memory, and compile time.
+
     Also, see the :mod:`curry.config` module.
 
   - **Symbols & Types**

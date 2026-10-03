@@ -6,6 +6,14 @@ The C++ compiler is the slow step.  Every generated module includes
 cyrt/cyrt.hpp, and parsing that header costs about two thirds of the time g++
 needs for a small module.  So the toolchain precompiles the header once, and
 g++ loads the result.  See PrecompiledHeader.
+
+A compiled module stays valid as long as the runtime headers it was compiled
+against do not change.  Cpp2So records a digest of the installed headers
+beside each shared object (the ABI stamp, <module>.so.abi) and compiles the
+module again when the installed headers give another digest.  See
+runtime_digest and Cpp2So.is_stale.  A generated .cpp file carries a format
+stamp; Json2Cpp, which writes the file, refuses one of another format.  See
+Json2Cpp.is_stale.
 '''
 from ..generic.toolchain import Json2TargetSource
 from . import compiler
@@ -13,9 +21,64 @@ from ... import config, exceptions
 from ...objects.handle import getHandle
 from ...utility import curryname, filesys
 from ...toolchain import plans, _filenames, _loadcurry, _system
-import hashlib, itertools, logging, os, re
+import functools, hashlib, itertools, logging, os, re
 
 logger = logging.getLogger(__name__)
+
+def runtime_headers(include_dir=None):
+  '''
+  The installed runtime headers, in a fixed order.  Generated code includes
+  cyrt/cyrt.hpp, which pulls in all of them.  ``include_dir`` is the include
+  directory to search; by default, the installed one.
+  '''
+  if include_dir is None:
+    include_dir = config.installed_path('include')
+  top = os.path.join(include_dir, 'cyrt')
+  for dirpath, dirnames, filenames in os.walk(top):
+    dirnames[:] = sorted(d for d in dirnames if not d.endswith('.gch'))
+    for name in sorted(filenames):
+      if name.endswith(('.hpp', '.hxx', '.h')):
+        yield os.path.join(dirpath, name)
+
+@functools.lru_cache(maxsize=None)
+def runtime_digest(include_dir=None):
+  '''
+  A digest of the runtime headers under ``include_dir`` (by default, the
+  installed ones): the ABI that generated code is compiled against.  The
+  digest covers the names and the contents of the headers, not their time
+  stamps.  So a new copy of the same headers, as make stage installs, gives
+  the same digest, and a change to any header gives another.  The result is
+  cached for the life of the process.
+
+  Returns None when the tree holds no header.  Such an installation cannot
+  compile, so its objects are trusted as they are (see Cpp2So.is_stale).
+
+  Raises:
+    PrerequisiteError: a header cannot be read.  make stage links the
+    installed headers to the source tree, so this happens when the source
+    tree is gone.  The message names the installation.
+  '''
+  base = include_dir
+  if base is None:
+    base = config.installed_path('include')
+  digest = hashlib.sha256()
+  found = False
+  for filename in runtime_headers(include_dir):
+    found = True
+    digest.update(os.path.relpath(filename, base).encode('utf-8'))
+    digest.update(b'\0')
+    try:
+      with open(filename, 'rb') as stream:
+        digest.update(stream.read())
+    except OSError as exc:
+      raise exceptions.PrerequisiteError(
+          'cannot read the runtime header %r of the installation at %r (%s).'
+          '  Is the installation complete?' % (filename, base, exc)
+        )
+    digest.update(b'\0')
+  if not found:
+    return None
+  return digest.hexdigest()[:16]
 
 def extend_plan_skeleton(interp, skeleton):
   assert interp is not None
@@ -24,9 +87,38 @@ def extend_plan_skeleton(interp, skeleton):
   skeleton.append((plans.MAKE_TARGET_OBJECT, ['.cpp'], Cpp2So(interp)))
   skeleton.append((plans.UNCONDITIONAL, ['.so'] , None))
 
+# The format stamp of a generated .cpp file.  The stamp heads the file.
+FORMAT_PAT = re.compile(r'// FORMAT: (\d+)')
+
+def format_version(file_in):
+  '''The format stamp of a generated file.  A file without one is format 1.'''
+  with open(file_in, 'r') as stream:
+    for line in itertools.islice(stream, 16):
+      m = FORMAT_PAT.match(line)
+      if m:
+        return int(m.group(1))
+  return 1
+
+def source_is_stale(file_in):
+  '''
+  Tells whether a generated .cpp file is unusable: its format stamp is not
+  the emitter's (compiler.FORMAT_VERSION).  It was written for another
+  runtime, and the runtime would read its static data with the wrong layout.
+  '''
+  return format_version(file_in) != compiler.FORMAT_VERSION
+
 class Json2Cpp(Json2TargetSource):
   NAME = 'json2cpp'
   SUFFIX = '.cpp'
+
+  def is_stale(self, filename):
+    '''
+    Tells whether a .cpp file this step wrote is unusable (source_is_stale).
+    The plan asks this step when the file ends the plan (sprite-make --cxx);
+    with a compile step after it, Cpp2So asks the same question.  The plan
+    asks about the JSON input of this step as well, which is never refused.
+    '''
+    return filename.endswith('.cpp') and source_is_stale(filename)
 
 class PrecompiledHeader(object):
   '''
@@ -40,8 +132,10 @@ class PrecompiledHeader(object):
   named after the optimization flags and a hash of the compiler and the full
   flag list.
 
-  A member is stale when it is older than libcyrt.so or than any header.  The
-  comparison uses modification times, so a copied tree keeps its stamps.
+  A member is stale when it is older than any header, its sources.  The
+  comparison uses modification times: make stage links the installed headers
+  to the sources, and make install copies a header only when the source is
+  newer, so a build that changes no header keeps the member.
   When the directory cannot be written or the build fails, the toolchain logs
   one warning per root and compiles without the header.  The generated code
   is the same either way.
@@ -77,19 +171,13 @@ class PrecompiledHeader(object):
   @staticmethod
   def header_files():
     '''The installed headers.  The precompiled header depends on them all.'''
-    top = config.installed_path('include', 'cyrt')
-    for dirpath, dirnames, filenames in os.walk(top):
-      dirnames[:] = [d for d in dirnames if not d.endswith('.gch')]
-      for name in filenames:
-        if name.endswith(('.hpp', '.hxx', '.h')):
-          yield os.path.join(dirpath, name)
+    return runtime_headers()
 
   def is_current(self):
-    '''True when the member exists and nothing it depends on is newer.'''
+    '''True when the member exists and no header is newer.'''
     try:
       stamp = os.path.getmtime(self.filename)
-      inputs = [config.cyrt_lib()] + list(self.header_files())
-      return all(os.path.getmtime(f) <= stamp for f in inputs)
+      return all(os.path.getmtime(f) <= stamp for f in self.header_files())
     except OSError:
       return False
 
@@ -133,30 +221,80 @@ class PrecompiledHeader(object):
       os.replace(tmp, self.filename)
 
 class Cpp2So(object):
+  '''
+  Compiles a generated .cpp file into a shared object.  Each object gets an
+  ABI stamp: a file beside it that holds the digest of the runtime headers
+  the object was compiled against (runtime_digest).  See is_stale.
+  '''
+  STAMP_SUFFIX = '.abi'
+
   def __init__(self, interp):
     self.interp = interp
 
   def __repr__(self):
     return 'cpp2so'
 
-  FORMAT_PAT = re.compile(r'// FORMAT: (\d+)')
-  def is_stale(self, file_in):
+  def is_stale(self, filename):
     '''
-    Tells whether a cached .cpp file was written for another runtime.  The
-    emitter stamps every file with its format (compiler.FORMAT_VERSION); a
-    file without a stamp predates the stamp.  The plan then starts again from
-    the JSON file.  A .so file without its .cpp file is trusted.
+    Tells whether a cached file of this step is unusable.  The plan then
+    starts again from the file before it (Plan.prune_stale).
+
+    A .cpp file is stale when its format stamp is not the emitter's
+    (source_is_stale; a file without a stamp is format 1).
+
+    A .so file is stale when its ABI stamp is missing or holds another digest
+    than the installed headers give.  It was compiled against another ABI.
+    The check reads the headers, not time stamps, so a new copy of the same
+    runtime keeps every object, and a copied cache keeps its objects.  An
+    installation without headers (runtime_digest gives None) cannot compile
+    anything, so its objects are trusted as they are.
     '''
-    return self.format_version(file_in) != compiler.FORMAT_VERSION
+    if filename.endswith('.so'):
+      digest = runtime_digest()
+      return digest is not None and self.read_stamp(filename) != digest
+    return source_is_stale(filename)
+
+  @classmethod
+  def stampfile(cls, sofile):
+    '''The ABI stamp of a shared object.'''
+    return sofile + cls.STAMP_SUFFIX
+
+  @classmethod
+  def read_stamp(cls, sofile):
+    '''The digest recorded in the ABI stamp of ``sofile``, or None.'''
+    try:
+      with open(cls.stampfile(sofile), 'r') as stream:
+        return stream.read().strip()
+    except OSError:
+      return None
+
+  @classmethod
+  def write_stamp(cls, sofile):
+    '''
+    Records the digest of the installed headers beside ``sofile``.  Without
+    headers there is no digest, and no stamp is written.
+    '''
+    digest = runtime_digest()
+    if digest is None:
+      return
+    stamp = cls.stampfile(sofile)
+    tmp = '%s.%d.tmp' % (stamp, os.getpid())
+    with filesys.remove_file_on_error(tmp):
+      with open(tmp, 'w') as stream:
+        stream.write(digest + '\n')
+      os.replace(tmp, stamp)
+
+  @classmethod
+  def remove_stamp(cls, sofile):
+    '''Removes the ABI stamp of ``sofile``, if there is one.'''
+    try:
+      os.unlink(cls.stampfile(sofile))
+    except FileNotFoundError:
+      pass
 
   def format_version(self, file_in):
-    '''The format stamp of a generated file.  The stamp heads the file.'''
-    with open(file_in, 'r') as stream:
-      for line in itertools.islice(stream, 16):
-        m = self.FORMAT_PAT.match(line)
-        if m:
-          return int(m.group(1))
-    return 1
+    '''The format stamp of a generated file (format_version).'''
+    return format_version(file_in)
 
   IMPORT_PAT = re.compile(r'// IMPORTS: (.*)')
   def _importedModules(self, file_in):
@@ -226,7 +364,15 @@ class Cpp2So(object):
       yield '-I%s' % root
 
   def _compileCommand(self, file_in, file_out):
-    yield config.cxx_tool()
+    cxx = config.cxx_tool()
+    if cxx is None:
+      raise exceptions.CompileError(
+          'cannot compile %r: no C++ compiler is installed at %r.  Install '
+          'one and configure Sprite with --with-cxx-postinstall, or use the '
+          'modules that make stage compiled.'
+        % (file_in, config.installed_path('tools', 'cxx'))
+        )
+    yield cxx
     for flag in self._pchflags():
       yield flag
     yield '-shared'
@@ -243,9 +389,23 @@ class Cpp2So(object):
 
   @_system.updateCheck
   def __call__(self, file_in, currypath, **ignored):
+    if self.is_stale(file_in):
+      # The emitter wrote this file, or the plan accepted it.  If its stamp
+      # does not read back, every process would write and compile every
+      # module again.  Stop here instead.
+      raise exceptions.CompileError(
+          'the format stamp of %r reads as %r, but the emitter writes %r'
+        % (file_in, self.format_version(file_in), compiler.FORMAT_VERSION)
+        )
     file_out = _filenames.replacesuffix(file_in, '.so')
     logger.info('Compiling %r', file_out)
     cmd = list(self._compileCommand(file_in, file_out))
     logger.debug('Command: %s', ' '.join(cmd))
-    ignored = _system.pexec(cmd)
+    # The old stamp goes before the compiler runs.  An object without a stamp
+    # is stale, so a compile that stops between the compiler and the new
+    # stamp (a kill, a time limit) leaves nothing a later process would trust
+    # under the old digest.
+    self.remove_stamp(file_out)
+    _system.pexec(cmd)
+    self.write_stamp(file_out)
     return file_out

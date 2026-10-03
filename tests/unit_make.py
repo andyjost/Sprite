@@ -1,10 +1,13 @@
 import cytest # from ./lib; must be first
 import curry
-from curry import config, toolchain
+from curry import config, icurry, toolchain
 from curry.toolchain import plans
-import tempfile
+from curry.tools import make
+from curry.toolchain import _system
+from curry.utility.binding import binding
 from curry.utility.strings import ensure_str
-import glob, os, shutil, subprocess
+from unittest import mock
+import contextlib, glob, io, os, shutil, subprocess, tempfile, zlib
 
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 
@@ -60,11 +63,21 @@ class TestMake(cytest.TestCase):
         ret = toolchain.icurry2json(curry_file, currypath=[], compact=True, zip=False)
         self.assertTrue(os.path.exists(json_file))
         self.assertEqual(ret, json_file)
-        if config.jq_tool() is not None:
-          self.assertLess(
-              os.stat(json_file).st_size
-            , os.stat(json_file + '.nocompact').st_size
-            )
+        self.assertLess(
+            os.stat(json_file).st_size
+          , os.stat(json_file + '.nocompact').st_size
+          )
+        # Both forms end with a newline and decode to the same module.  The
+        # compact form is the text of the encoder.
+        compact = cytest.readfile(json_file)
+        spaced = cytest.readfile(json_file + '.nocompact')
+        self.assertTrue(compact.endswith('}\n'))
+        self.assertTrue(spaced.endswith('}\n'))
+        self.assertIn('": ', spaced)
+        self.assertEqual(icurry.json.loads(compact), icurry.json.loads(spaced))
+        self.assertEqual(
+            compact, icurry.json.dumps(icurry.readcurry.load(file_out)) + '\n'
+          )
         shutil.move(json_file, json_file + '.nozip')
 
         # Build compacted, compressed .json.
@@ -200,3 +213,33 @@ class TestMake(cytest.TestCase):
             os.stat(json_file + '.z').st_size
           , os.stat(json_file + '.z.nocompact').st_size
           )
+
+  def test_sprite_make_so(self):
+    '''
+    --so runs the plan of the C++ backend to the shared object, and implies
+    --cxx.  A second run compiles nothing.  --so and --py exclude each other.
+    The module comes from hand-written ICurry-JSON, so no front end runs.
+    '''
+    if config.cxx_tool() is None:
+      self.skipTest('no C++ compiler is installed')
+    name = 'MakeSoTest'
+    with tempfile.TemporaryDirectory() as tmpdir:
+      subdir = os.path.join(tmpdir, SUBDIR)
+      os.makedirs(subdir)
+      with open(os.path.join(subdir, name + '.json.z'), 'wb') as stream:
+        stream.write(zlib.compress(cytest.json_module(name, 5).encode('utf-8')))
+      with binding(os.environ, 'CURRYPATH', tmpdir):
+        make.main('sprite-make', ['--so', '-z', name])
+        for suffix in ['.cpp', '.so', '.so.abi']:
+          self.assertTrue(
+              os.path.isfile(os.path.join(subdir, name + suffix)), suffix
+            )
+        # The object is current, so the second run calls no compiler.
+        with mock.patch.object(
+            _system, 'pexec', side_effect=AssertionError('a compiler ran')
+          ):
+          make.main('sprite-make', ['--so', '-z', name])
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+          with self.assertRaises(SystemExit):
+            make.main('sprite-make', ['--so', '--py', name])
+        self.assertIn('at most one of', stderr.getvalue())

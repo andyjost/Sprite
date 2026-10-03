@@ -42,6 +42,15 @@ ICurry file is placed here with extension ``.icy``.
    The PAKCS subdirectory may contain a file with extension ``.icurry``.  That
    file does `not` contain ICurry (it contains a Curry `interface`).
 
+The front end takes seconds per module.  Sprite can keep its output in a
+cache, an SQLite database named by ``SPRITE_CACHE_FILE`` (see
+:ref:`CommandLineInterface/EnvironmentVariables:Development Variables`).  The
+key of an entry is a digest of the module source, of the sources of the
+modules it imports, and of the front-end options; the file name is not part
+of it.  A module compiled from a string by ``curry.compile`` gets a new name
+in every process.  The cache stores its ICurry under the name of the first
+compile and rewrites the name on a hit.  The test drivers turn the cache on.
+
 
 ICurry to JSON
 --------------
@@ -51,10 +60,10 @@ in other programming environments, which may not have a Curry parser, Sprite
 converts them to `JSON`_.  This conversion is handled by a pure-Python parser
 that implements a sufficient subset of Curry.
 
-To compensate for the space inefficiency of JSON, Sprite compacts and
-compresses JSON files.  Compaction is performed by the `jq`_ program, if it is
-available, and compression with `zlib`_.  Compressed ICurry-JSON files use
-suffix ``.json.z``.
+To compensate for the space inefficiency of JSON, Sprite writes the JSON in a
+compact form and compresses it with `zlib`_.  The compact form has no space
+after a comma or a colon, and it escapes every character outside ASCII.
+Compressed ICurry-JSON files use suffix ``.json.z``.
 
 
 JSON to Sprite IR
@@ -84,23 +93,38 @@ Target IR to Executable Code
 Depending on the backend, additional conversions may be performed to produce
 executable code.  LLVM IR is at this stage converted into assembly and then
 machine-executable binary code.  The Python backend, on the other hand,
-requires nothing because Python can be run directly under an interpreter.  Even
-so, a package such as `PyPy`_ could in principle be used to post-process Python
-code into a more efficient form.
+requires nothing because Python can be run directly under an interpreter.
+Sprite writes the bytecode cache of a generated Python file beside it, under
+``__pycache__``, when it writes the file, and loads the file through
+``importlib``.  A file without a current cache, such as one from an older
+installation, gets its cache when it is first loaded, whether or not Python
+runs with ``-B``.  So CPython compiles a generated module once per change, not
+in every process.  Even so, a package such as `PyPy`_ could in principle be
+used to post-process Python code into a more efficient form.
 
 The C++ backend compiles each generated module with ``g++`` into a shared
-object the first time the module is used, and again when the object is older
-than the runtime library.  Every module includes the header ``cyrt/cyrt.hpp``,
+object the first time the module is used, and again when the runtime headers
+change.  Each object records a digest of the installed headers it was compiled
+against in a file beside it (``<module>.so.abi``).  An object whose record
+differs from the installed headers is compiled again; a new copy of the same
+runtime keeps every object.  Every module includes the header ``cyrt/cyrt.hpp``,
 and parsing that header is most of the compile time of a small module.  So the
 backend precompiles the header once per set of compiler flags and keeps the
 result beside the installed headers.  See ``SPRITE_CXX_PCH_ROOT`` under
 :ref:`CommandLineInterface/EnvironmentVariables:Development Variables`.
 
+``make stage`` and ``make install`` compile the Curry library for both
+backends into the installation, with ``sprite-make --py`` and ``sprite-make
+--so`` (see :ref:`sprite-make`).  So the first import after an installation
+compiles nothing, and an installation serves on a machine without a C++
+compiler for programs that need no other compiled module.  When the
+installation itself has no C++ compiler, the C++ part of this step is
+skipped, and the C++ backend compiles the library on first use.
+
 
 .. _FlatCurry: https://cpm.curry-lang.org/pkgs/flatcurry.html
 .. _PAKCS manual: https://www.curry-lang.org/pakcs/Manual.pdf
 .. _JSON: https://www.json.org/
-.. _jq: https://stedolan.github.io/jq/
 .. _zlib: https://zlib.net/
 .. _ICurry package: https://cpm.curry-lang.org/pkgs/icurry.html
 .. _Curry Package Manager: https://www.curry-lang.org/tools/cpm/

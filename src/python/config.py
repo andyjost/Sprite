@@ -76,6 +76,15 @@ def expression_modname(n):
 def is_expression_modname(name):
   return name.startswith('sprite__expression_')
 
+def is_anonymous_modname(name):
+  '''
+  Tells whether ``name`` belongs to an anonymous module: an interactive module
+  compiled without a name, or an expression module.  curry.compile numbers
+  these per process, so the same text gets another name in another process.
+  The ICurry cache leaves the name out of its key for these modules.
+  '''
+  return name.startswith(interactive_modname()) or is_expression_modname(name)
+
 class _Variable(object):
   def __init__(self, name, type=str, use_env=False):
     self.use_env = use_env
@@ -155,9 +164,6 @@ def prefix():
 def force_recompile_cxx():
   return os.environ.get('SPRITE_FORCE_RECOMPILE_CXX', False)
 
-def ignore_cyrt_timestamp():
-  return os.environ.get('SPRITE_IGNORE_CYRT_TIMESTAMP', False)
-
 def cxx_pch_root():
   '''
   The directory under which the C++ backend keeps its precompiled header.
@@ -235,23 +241,9 @@ def cxx_tool(cached=[]):
     cached.append(cxx if os.path.exists(cxx) else None)
   return cached[0]
 
-def jq_tool(cached=[]):
-  '''The jq tool, if it can be found.  Otherwise, None.'''
-  if not cached:
-    jq = installed_path('tools', 'jq')
-    cached.append(jq if os.path.exists(jq) else None)
-  return cached[0]
-
 def icurry_tool(cached=[]):
   if not cached:
     path = installed_path('tools', 'icurry')
-    path = os.path.abspath(path)
-    cached.append(path)
-  return cached[0]
-
-def icurry2jsontext_tool(cached=[]):
-  if not cached:
-    path = installed_path('tools', 'icurry2jsontext')
     path = os.path.abspath(path)
     cached.append(path)
   return cached[0]

@@ -40,10 +40,22 @@ def load(file, decoder=get_decoder()):
   else:
     return loads(file.read())
 
-def get_encoder():
-  return Encoder()
+def get_encoder(compact=True):
+  return Encoder(compact=compact)
 
 class Encoder(json.JSONEncoder):
+  '''
+  Encodes ICurry as JSON.
+
+  The compact form, the default, has no space after a comma or a colon.  Both
+  forms escape every character outside ASCII.  The toolchain writes the
+  compact form into the ``.json.z`` caches.
+  '''
+  def __init__(self, compact=True, **kwds):
+    if compact:
+      kwds.setdefault('separators', (',', ':'))
+    json.JSONEncoder.__init__(self, **kwds)
+
   @dispatch.on('obj')
   def default(self, obj):
     return json.JSONEncoder.default(self, obj)
@@ -78,14 +90,20 @@ class Encoder(json.JSONEncoder):
         data[k] = v
     return data
 
-def dumps(icurry, encoder=get_encoder()):
+_encoders = {}
+
+def dumps(icurry, compact=True):
+  '''Dump ICurry as JSON.  See :class:`Encoder` for the two forms.'''
+  encoder = _encoders.get(compact)
+  if encoder is None:
+    encoder = _encoders[compact] = get_encoder(compact)
   json = encoder.encode(icurry)
   return ensure_str(json)
 
-def dump(icurry, file, encoder=get_encoder()):
+def dump(icurry, file, compact=True):
   if isinstance(file, str):
     with open(file, 'w', encoding='utf-8') as ostream:
-      ostream.write(dumps(icurry, encoder))
+      ostream.write(dumps(icurry, compact))
   else:
-    file.write(dumps(icurry, encoder))
+    file.write(dumps(icurry, compact))
 

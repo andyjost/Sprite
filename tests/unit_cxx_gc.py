@@ -215,6 +215,29 @@ assert 8 * cyrt.gc_node_count() < floor, cyrt.gc_node_count()
 assert cyrt.gc_threshold() == floor, cyrt.gc_threshold()
 ''')
 
+  def test_stats_report_collections(self):
+    '''
+    curry.stats reports the collections of the process, the steps of the
+    evaluations, and the peak RSS.  The collections field follows
+    gc_collections before and after an evaluation that collects.
+    '''
+    proc = self.run_child('''
+cyrt.gc_set_threshold(1 << 14)
+before = curry.stats()
+assert before['collections'] == cyrt.gc_collections(), before
+assert curry.topython(next(curry.eval(M.walk, 100000))) == 100000
+after = curry.stats()
+collections = cyrt.gc_collections()
+assert after['collections'] == collections, (after, collections)
+assert after['collections'] > before['collections'] + 10, (before, after)
+assert after['steps'] >= before['steps'] + 100000, (before, after)
+assert after['forks'] == before['forks'], (before, after)
+assert after['peak_rss'] >= before['peak_rss'] > 0, (before, after)
+assert after['cpu'] > before['cpu'], (before, after)
+print(after)
+''')
+    self.assertIn('collections', proc.stdout)
+
   def test_threshold(self):
     '''
     SPRITE_GC_THRESHOLD sets the threshold when the runtime loads.  A bad

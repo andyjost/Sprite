@@ -10,6 +10,11 @@ To run a specific test, say, e.g., `./run_tests func_kiel.py`.
 
 To run several tests, use a regex, e.g., `./run_tests 'unit_(prelude|compiler).py'`.
 
+The drivers cache the output of the Curry front end in `.cache/icurry.db`
+under this directory (environment variable SPRITE_CACHE_FILE).  A repeated run
+compiles only the Curry texts that changed.  Set SPRITE_CACHE_FILE to the
+empty string to run without the cache, or delete the file to start over.
+
 
 2. TEST CATEGORIES
 ------------------
@@ -127,8 +132,71 @@ have similar features.
 8. BENCHMARKING
 ---------------
 
-To run the benchmarks, say `./run_benchmarks [options] [MODULE ...]`.  By
-default, every top-level program under data/curry/benchmarks runs once on the
-C++ backend.  Say `./run_benchmarks -h` for the options.  The benchmarking code
-is located in ./lib/benchmark.py.  The programs are described in
-data/curry/benchmarks/README.md.
+The benchmark harness (lib/benchmarks) measures Sprite and PAKCS on the
+programs under data/curry/benchmarks, which data/curry/benchmarks/README.md
+describes.  It writes one JSON record per measurement and compares two record
+files.  To run a suite, say:
+
+        ./run_benchmarks [options] [PROGRAM ...]
+
+Say `./run_benchmarks -h` for the options and `./run_benchmarks list -s SUITE`
+for the programs of a suite.  The suites are selected with --suite (-s):
+
+        throughput  Evaluates main of each program in a new process:
+                    sprite-exec -t --stats -m PROGRAM, or PAKCS with
+                    :set +time (--backend pakcs).  The default programs are
+                    the 30 programs of the dissertation.
+        compile     Compiles each program from source in an empty directory,
+                    with the ICurry cache cold and warm, and compiles the
+                    expression 1+2 from a Python child (item "expression").
+        import      Times the start of the interpreter (item "python"),
+                    import curry ("import"), the import of the Prelude
+                    ("prelude"), and Hello end to end ("hello").
+        memory      Peak memory of each program with the node collector on
+                    and, on the C++ backend, off (SPRITE_GC_THRESHOLD).
+
+Every measurement runs in a child process under a cap on its address space
+(--cap, default 6G) and a timeout (--timeout, default 600 seconds).  The
+peak RSS of the child and its descendants comes from GNU time
+(/usr/bin/time, package "time"), which the harness runs inside the wrapper
+chain; without it the peak comes from wait4, which never reports a child
+below the size of the harness itself, and the record says so
+(meta.rss_source).  An item gets N measured repetitions (--repeat; the
+defaults are 5, 3, 5, and 1 for the four suites) after warm-up runs that are
+not recorded (--warmup, default 1).  The warm-up compiles a module on its
+first use, so the measured runs find the cached files.  --backend selects cxx
+(the default), py, or pakcs (throughput only); repeat it for several.  The
+backends and variants of one program run one after the other, so a drift of
+the machine hits them alike.
+
+The records go to standard output, or to the file of -o (appended); the
+progress table goes to standard error.  A record is one line of JSON with the
+medians of the repetitions: wall and CPU seconds of the child process and its
+descendants, the peak RSS in bytes, the time of the evaluation alone
+(eval_wall: the -t time of sprite-exec, or the elapsed time of PAKCS), the
+compile seconds, and the counters steps, forks, and collections of
+sprite-exec --stats.  The counters are exact and must agree between the
+repetitions; a record whose repetitions disagree carries a warning.  Every
+record also holds the commit (with -dirty for a changed tree), the date, a
+label (--label), the samples of the repetitions, and facts about the machine
+(Python, compiler, front end, CPU model, cores).  The fields are documented in
+lib/benchmarks/records.py.
+
+To compare two record files, say:
+
+        ./run_benchmarks compare OLD NEW [-m METRIC] [-t FRACTION] [--strict]
+
+Items are matched on suite, program, backend, and variant.  The ratio is NEW
+over OLD of the metric (CPU seconds by default); a ratio within the noise
+threshold of 1 (10 percent by default) counts as the same.  The counters
+steps and forks must be equal: a change in them is a change in the program or
+the compiler, not in the machine.  With --strict the command exits with
+status 1 when an item is slower, a counter changed, or a run failed.
+
+On a shared machine, compare CPU seconds and the counters; wall seconds vary
+with the load.  Authoritative numbers come from a quiet machine.  A smoke
+test and a comparison:
+
+        ./run_benchmarks -r 1 -b cxx -b py -o before.jsonl Hello Last2 Peano
+        ./run_benchmarks -r 1 -b cxx -b py -o after.jsonl Hello Last2 Peano
+        ./run_benchmarks compare before.jsonl after.jsonl

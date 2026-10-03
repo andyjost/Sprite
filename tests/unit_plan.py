@@ -224,3 +224,32 @@ class TestPlan(cytest.TestCase):
         open(filename, 'w').close()
       self.assertEqual(plan.prune_stale(files('A')), files('A')[:1])
       self.assertEqual(plan.prune_stale(files('B')), files('B'))
+
+  def test_prune_stale_last_stage(self):
+    '''
+    The last stage has no step.  The step before it, which made the file of
+    that stage, answers for it.
+    '''
+    class Step(object):
+      def __init__(self, stale):
+        self.stale = stale
+      def is_stale(self, filename):
+        return os.path.basename(filename) in self.stale
+    plan = plans.Plan(None, 0, [
+        plans.Stage(['.curry'], object())
+      , plans.Stage(['.json'], Step(set()))
+      , plans.Stage(['.cpp'], Step({'A.so'}))
+      , plans.Stage(['.so'], None)
+      ])
+    with tempfile.TemporaryDirectory() as tmpdir:
+      files = lambda stem: [
+          os.path.join(tmpdir, stem + suffix)
+              for suffix in ['.curry', '.json', '.cpp', '.so']
+        ]
+      for filename in files('A') + files('B'):
+        open(filename, 'w').close()
+      self.assertTrue(plan.is_stale(files('A')[3]))
+      self.assertFalse(plan.is_stale(files('A')[2]))
+      self.assertFalse(plan.is_stale(files('A')[0]))
+      self.assertEqual(plan.prune_stale(files('A')), files('A')[:3])
+      self.assertEqual(plan.prune_stale(files('B')), files('B'))

@@ -65,6 +65,13 @@ class IBackend(metaclass=abc.ABCMeta):
     '''Initializes an interpreter with the runtime-specific state.'''
     assert 0
 
+  def num_collections(self):
+    '''
+    The number of collections the garbage collector of this backend has run
+    in this process.  A backend without a collector of its own answers zero.
+    '''
+    return 0
+
   @abc.abstractproperty
   def load_module(self):
     '''Load the contents of a Curry module.'''

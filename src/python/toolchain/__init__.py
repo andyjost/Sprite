@@ -21,12 +21,12 @@ from ._filenames import curryfilename, icurryfilename, jsonfilenames
 from ._findcurry import currentfile
 from ._icurry2json import icurry2json
 from ._loadcurry import loadcurry, loadjson
-from ._makecurry import makecurry
+from ._makecurry import compile_seconds, makecurry
 from ._mergecurry import mergebuiltins, mergemodule, validatemodule
 from ._str2module import str2module
 
 __all__ = [
-    'currentfile', 'curry2icurry', 'curryfilename', 'icurry2json'
-  , 'icurryfilename', 'jsonfilenames', 'loadcurry', 'loadjson'
+    'compile_seconds', 'currentfile', 'curry2icurry', 'curryfilename'
+  , 'icurry2json', 'icurryfilename', 'jsonfilenames', 'loadcurry', 'loadjson'
   , 'makecurry', 'mergebuiltins', 'mergemodule'
   ]

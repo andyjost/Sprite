@@ -111,6 +111,38 @@ class TestPyInterp(cytest.TestCase):
       self.assertEqual(c_value, 'a')
       self.assertEqual(b_mtime, c_mtime)
 
+  def testStats(self):
+    '''
+    Interpreter.stats sums the rewrite steps and the forks of the evaluations
+    of that interpreter alone.  A new interpreter starts at zero, and a soft
+    reset keeps the count.  Every evaluation of the interpreter is counted,
+    also one through a value generator that is never exhausted.
+    '''
+    interp = Interpreter()
+    self.assertEqual(interp.stats()['steps'], 0)
+    self.assertEqual(interp.stats()['forks'], 0)
+    choice = lambda: curry.choice(True, False)
+    goal = interp.expr([interp.symbol('Prelude.not'), choice()])
+    self.assertEqual(sorted(map(str, interp.eval(goal))), ['False', 'True'])
+    stats = interp.stats()
+    self.assertGreater(stats['steps'], 0)
+    self.assertEqual(stats['forks'], 1)
+    self.assertEqual(curry.stats()['forks'], 0)
+    other = Interpreter()
+    self.assertEqual(other.stats()['steps'], 0)
+    self.assertEqual(other.stats()['forks'], 0)
+    interp.reset()
+    self.assertEqual(interp.stats()['steps'], stats['steps'])
+    self.assertEqual(interp.stats()['forks'], 1)
+    # One value of a second evaluation, generator kept: the running
+    # evaluation is counted.
+    values = interp.eval(interp.expr([interp.symbol('Prelude.not'), choice()]))
+    next(values)
+    self.assertEqual(interp.stats()['forks'], 2)
+    self.assertGreater(interp.stats()['steps'], stats['steps'])
+    del values
+    self.assertEqual(interp.stats()['forks'], 2)
+
   def testCoverage(self):
     '''Tests to get complete line coverage.'''
     interp = Interpreter()

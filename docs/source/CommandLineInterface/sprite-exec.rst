@@ -92,6 +92,49 @@ the limit is dropped, and its error is reported after the others have run.
 ``None`` disables the guard.  A limit larger than the stack of the thread is
 clamped to that stack, less a margin of 1 MiB.
 
+Run Statistics
+==============
+
+The ``--stats`` option prints one line of ``key=value`` pairs on the standard
+error stream when the program ends.  The line comes after the output of the
+program, and after the error message when the run fails::
+
+    sprite-exec --stats Peano.curry
+    S (S O)
+    wall=0.129943 cpu=0.129125 steps=3 forks=0 collections=0 peak_rss=36773888 compile=0.000000
+
+The fields are:
+
+``wall``
+    Seconds since the process started (on Linux; elsewhere, since Sprite was
+    imported), with the resolution of one clock tick.
+
+``cpu``
+    User plus system CPU seconds of the process.  Child processes, such as
+    the Curry front end and the C++ compiler, are not included.
+
+``steps``
+    The number of rewrite steps.
+
+``forks``
+    The number of times a configuration forked at a choice.
+
+``collections``
+    The number of collections run by the node collector of the C++ backend.
+    The Python backend reports 0.
+
+``peak_rss``
+    The peak resident set size of the process, in bytes.
+
+``compile``
+    Seconds spent in the steps of the compilation pipeline: the Curry front
+    end, the ICurry conversion, code generation, and the C++ compiler.  The
+    field is 0 when every file was up to date.
+
+Seconds are printed with six decimals.  The same numbers are available in
+Python from :func:`curry.stats`, which returns a dict with these keys in this
+order; ``str`` of it gives the line above.
+
 Profiling
 =========
 

@@ -59,9 +59,12 @@ namespace cyrt
     // ``stepcount`` counts the forward nodes compressed (about one per
     // rewrite step) and paces the periodic rotation (check_interrupts) and
     // the concurrent conjunction.  ``steps_total`` counts the rewrite steps
-    // taken (count_step).
+    // taken (count_step).  ``forks_total`` counts the forks of a
+    // choice-rooted configuration (fork).  Python reads both totals for the
+    // statistics of a run (Interpreter.stats).
     size_t                 stepcount = 0;
     size_t                 steps_total = 0;
+    size_t                 forks_total = 0;
     // The error of an alternative dropped at the stack limit.  procD raises
     // it when the outermost queue is empty.  See unwind.
     std::string            deferred_error;

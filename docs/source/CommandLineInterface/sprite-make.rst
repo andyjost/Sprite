@@ -58,7 +58,7 @@ To generate JSON, supply ``--json``::
 Since ICurry is a prerequisite of JSON in the compilation pipeline, building
 JSON implies building ICurry.
 
-Additional options are provided to compact JSON with ``jq`` (``--compact``),
+Additional options are provided to compact JSON (``--compact``),
 compress it with ``zlib`` (``--zip``), and remove intermediate files
 (``--tidy``).
 
@@ -124,3 +124,18 @@ anything interesting, compile with ``-g`` to name the goal::
     % ./Peano.py
     S (S O)
 
+
+Generating Shared Objects
+=========================
+
+The C++ backend compiles each module into a shared object.  To build one
+ahead of time, supply ``--so``.  This implies ``--cxx``, which writes the C++
+source, and needs the C++ compiler that Sprite was configured with::
+
+    sprite-make --so Peano.curry
+
+The object is written to ``.curry/sprite-pakcs-<ver>/Peano.so``, beside a
+record of the runtime headers it was compiled against (``Peano.so.abi``).
+The installation uses ``--py`` and ``--so`` to compile the Curry library for
+both backends, so that the first import after ``make stage`` compiles
+nothing.

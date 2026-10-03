@@ -44,7 +44,10 @@ To stage Sprite say::
 
 This must be done before tests are run.  It creates a mock installation under
 ``install/``.  This step also builds the necessary objects and libraries, so
-you can skip the previous two steps if you like.
+you can skip the previous two steps if you like.  Staging also compiles the
+Curry library for both backends into the installation, so that the first
+import compiles nothing.  Most of that time goes to the Prelude of the C++
+backend, about half a minute.  A stage that changes nothing skips it.
 
 Step 5: Test (optional)
 .......................

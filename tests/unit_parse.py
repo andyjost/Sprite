@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 from curry import icurry
 from glob import glob
-import curry, gzip
+import curry, gzip, os, zlib
 
 GENERATE_GOLDENS = False
 
@@ -87,3 +87,71 @@ class ReadCurryEscapes(cytest.TestCase):
     tok, = lex.tokenize(r'"\2281\228\&1\&"')
     self.assertIsInstance(tok, lex.StringToken)
     self.assertEqual(tok, '\u08e9\u00e41')
+
+
+class EncodeJSON(cytest.TestCase):
+  '''Tests the ICurry-JSON encoder and the library caches it wrote.'''
+
+  def test_compact_form(self):
+    '''
+    The default form has no space after a comma or a colon and escapes the
+    characters outside ASCII.  Both forms decode to the same ICurry.
+    '''
+    from curry.utility import readcurry
+    imodule = icurry.readcurry.loads(
+        readcurry.parse('(IProg "M" ["Prelude","Data.List"] [] [])')
+      )
+    compact = icurry.json.dumps(imodule)
+    spaced = icurry.json.dumps(imodule, compact=False)
+    self.assertIn('"imports":["Prelude","Data.List"]', compact)
+    self.assertIn('"imports": ["Prelude", "Data.List"]', spaced)
+    self.assertLess(len(compact), len(spaced))
+    self.assertEqual(icurry.json.loads(compact), imodule)
+    self.assertEqual(icurry.json.loads(spaced), imodule)
+    ilit = icurry.readcurry.loads(readcurry.parse(r"(ILit (IChar '\160'))"))
+    for text in icurry.json.dumps(ilit), icurry.json.dumps(ilit, compact=False):
+      self.assertTrue(text.isascii())
+      self.assertIn(r'"\u00a0"', text)
+      self.assertEqual(icurry.json.loads(text), ilit)
+
+  def test_imports_keep_the_order_of_the_file(self):
+    '''
+    The import list keeps the order of the ICurry file and drops duplicates.
+    A set would order it by the string hashes, which change with the hash
+    seed of the process, and the JSON cache with them.
+    '''
+    from curry.utility import readcurry
+    names = [
+        'Z.A', 'Y.B', 'X.C', 'W.D', 'V.E', 'U.F', 'T.G', 'S.H', 'R.I', 'Q.J'
+      ]
+    text = '(IProg "M" [%s] [] [])' % ','.join(
+        '"%s"' % name for name in names + names[:3]
+      )
+    imodule = icurry.readcurry.loads(readcurry.parse(text))
+    self.assertEqual(imodule.imports, tuple(names))
+    imodule = icurry.IModule('M', names + names[:3], [], [])
+    self.assertEqual(imodule.imports, tuple(names))
+
+  def test_library_caches(self):
+    '''
+    The JSON cache of every library module is the compact form of its ICurry
+    file, byte for byte, with a trailing newline.
+    '''
+    from curry import config, toolchain
+    for name in config.syslibs():
+      curryfile = os.path.join(
+          config.system_curry_path(), name.replace('.', os.sep) + '.curry'
+        )
+      icyfile = toolchain.icurryfilename(curryfile)
+      jsonfile = icyfile[:-4] + '.json.z'
+      with open(jsonfile, 'rb') as istream:
+        cached = zlib.decompress(istream.read())
+      fresh = icurry.json.dumps(icurry.readcurry.load(icyfile)) + '\n'
+      fresh = fresh.encode('utf-8')
+      if cached != fresh:
+        pairs = zip(cached, fresh)
+        offset = next((i for i, (a, b) in enumerate(pairs) if a != b), None)
+        self.fail(
+            '%s: the cache differs from the encoder output at byte %s'
+                % (jsonfile, offset)
+          )

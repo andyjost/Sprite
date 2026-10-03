@@ -4,7 +4,10 @@ from ..tools.utility import make_exception
 from ..utility import binding, curryname, filesys, formatting, strings
 import errno, functools, logging, os, subprocess as sp, sys, time
 
-__all__ = ['bindCurryPath', 'makeOutputDir', 'pexec', 'targetNotUpdatedHint', 'updateCheck']
+__all__ = [
+    'bindCurryPath', 'makeOutputDir', 'pexec', 'pexec_message'
+  , 'targetNotUpdatedHint', 'updateCheck'
+  ]
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
 
@@ -24,40 +27,41 @@ def makeOutputDir(file_out):
     if e.errno != errno.EEXIST:
       raise
 
-def pexec(cmd, input=None, pipecmd=None):
+def pexec(cmd):
   '''
-  Invokes the given command and returns its stdout as a string.  A second
-  pipeline stage may be provided.
+  Invokes the given command and returns its stdout as a string.  A command
+  that fails raises CompileError; the exception carries the command, the exit
+  status, and the standard error text as ``command``, ``returncode``, and
+  ``stderr``.
   '''
-  stdin = None if input is None else sp.PIPE
-  input = None if input is None else strings.ensure_binary(input)
-  child = sp.Popen(cmd, stdin=stdin, stdout=sp.PIPE, stderr=sp.PIPE)
-  if pipecmd:
-    term = sp.Popen(pipecmd, stdin=child.stdout, stdout=sp.PIPE)
-    child.stdout.close()
-  else:
-    term = child
+  child = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE)
 
   try:
-    stdout,stderr = term.communicate(input=input)
+    stdout,stderr = child.communicate()
     stdout = strings.ensure_text(stdout)
     stderr = strings.ensure_text(stderr)
   except:
-    term.kill()
+    child.kill()
     raise
 
   try:
-    retcode = term.wait()
+    retcode = child.wait()
   except:
-    term.kill()
+    child.kill()
     sys.stderr.write(stderr)
     raise
 
   if retcode:
-    raise CompileError(
-        'while running %s:\n%s' % (' '.join(cmd), formatting.indent(stderr, 8))
-      )
+    err = CompileError(pexec_message(cmd, stderr))
+    err.command = list(cmd)
+    err.returncode = retcode
+    err.stderr = stderr
+    raise err
   return stdout
+
+def pexec_message(cmd, stderr):
+  '''The message of the CompileError raised for a failed command.'''
+  return 'while running %s:\n%s' % (' '.join(cmd), formatting.indent(stderr, 8))
 
 def targetNotUpdatedHint(prereq, target, start_time, **kwds):
   # Perhaps there is some file under a subdirectory of .curry with the correct

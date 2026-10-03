@@ -175,6 +175,23 @@ class timeout(contextlib.ContextDecorator):
 # The exit status of the ``timeout`` command when the time limit expires.
 TIMEOUT_STATUS = 124
 
+def json_module(name, value):
+  '''
+  The ICurry-JSON of a module ``name`` with one public function, ``goal``,
+  that returns the integer ``value``.  A toolchain test writes it to a
+  ``.json.z`` file of its own and builds from there, so no Curry front end
+  runs.  ``name`` may be dotted; the module then lives in a package.
+  '''
+  return (
+      '{"__class__":"IProg","name":"%(name)s","imports":["Prelude"],"types":[]'
+      ',"functions":[{"__class__":"IFunction","name":"%(name)s.goal","arity":0'
+      ',"vis":{"__class__":"Public"},"needed":[],"body":{"__class__":'
+      '"IFuncBody","block":{"__class__":"IBlock","vardecls":[],"assigns":[]'
+      ',"stmt":'
+      '{"__class__":"IReturn","expr":{"__class__":"ILit","lit":{"__class__":'
+      '"IInt","value":%(value)d}}}}}}],"aliases":[]}'
+    ) % {'name': name, 'value': value}
+
 def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   '''
   Runs Python ``code`` in a fresh interpreter and returns the

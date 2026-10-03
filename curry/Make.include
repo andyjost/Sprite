@@ -33,7 +33,15 @@ clean-currylib:
 	$(call clean_files,$(CURRYLIB_SRC) $(CURRYLIB_ICY) $(CURRYLIB_JSON),rm -f)
 	$(call clean_files,$(CURRYLIB_SUBDIR),rmdir)
 
-FILES_TO_UNINSTALL += $(CURRYLIB_INSTALL_FILES)
+# The files that the prebuild step writes into the installation (see
+# curry/Makefile): the generated Python and C++ sources, the shared objects
+# with their ABI stamps, and the bytecode cache of the Python files.
+CURRYLIB_INSTALL_PRODUCTS = $(foreach suffix,.py .cpp .so .so.abi,\
+    $(addprefix $(CURRYLIB_INSTALL_SUBDIR)/,\
+        $(CURRYLIB_SRC_FILES:.curry=$(suffix))))
+
+FILES_TO_UNINSTALL += $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_INSTALL_PRODUCTS)
+DIRS_TO_REC_UNINSTALL += $(CURRYLIB_INSTALL_SUBDIR)/__pycache__
 DIRS_TO_UNINSTALL += $(CURRYLIB_INSTALL_SUBDIR) $(INSTALL_DIR)/.curry
 
 .PHONY: srcs icy json currylib objs

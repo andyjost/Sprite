@@ -72,6 +72,19 @@ namespace
     rts->drop();
   }
 
+  // One rewrite step at the root of ``root``, outside procD, for
+  // evaluator.single_step.  The step is counted as procS counts it: only a
+  // completed rewrite (a status of E_RESTART or above) is a step.
+  void RuntimeState_single_step(RuntimeState * rts, Node * root)
+  {
+    EvaluationScope evaluation_scope;
+    rts->set_goal(root);
+    auto status = root->info->step(rts, rts->C());
+    if(status >= E_RESTART)
+      rts->count_step();
+    rts->drop();
+  }
+
   template<typename T>
   struct ByValueHolder
   {
@@ -312,6 +325,8 @@ namespace cyrt { namespace python
     py::class_<RuntimeState>(mod, "RuntimeStateBase")
       .def(py::init<InterpreterState &, Node *, bool, SetFStrategy, size_t>())
       .def_readonly("steps_total", &RuntimeState::steps_total)
+      .def_readonly("forks_total", &RuntimeState::forks_total)
+      .def("single_step", &RuntimeState_single_step)
       // The Curry program writes to the C standard output, and Python keeps
       // its own buffer on the same file descriptor.  Flush the C buffer when
       // control returns to Python, with a value or with an error, so the

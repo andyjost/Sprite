@@ -22,6 +22,9 @@ class IBackend(backends.IBackend):
   def init_interpreter_state(self, interp):
     interp._its = cyrtbindings.InterpreterState()
 
+  def num_collections(self):
+    return cyrtbindings.gc_collections()
+
   def find_or_create_internal_module(self, moduleobj):
     h = getHandle(moduleobj)
     M = cyrtbindings.Module.find_or_create(h.fullname)

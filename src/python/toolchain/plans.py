@@ -103,17 +103,29 @@ class Plan(object):
   def prune_stale(self, filelist):
     '''
     Removes from ``filelist``, the files of one module in the order of this
-    plan, every file that a step refuses as its input, and every file after
-    it.  A step refuses a file through its ``is_stale`` method, when it has
-    one; see ``Cpp2So`` of the C++ backend.
+    plan, every file that a step refuses, and every file after it.  A file
+    that does not exist is kept, because nothing can be read from it.  See
+    ``is_stale``.
     '''
     for i, filename in enumerate(filelist):
-      step = self.stages[self.position(filename)].step
-      is_stale = getattr(step, 'is_stale', None)
-      if is_stale is not None and os.path.isfile(filename) \
-          and is_stale(filename):
+      if os.path.isfile(filename) and self.is_stale(filename):
         return filelist[:i]
     return filelist
+
+  def is_stale(self, filename):
+    '''
+    Tells whether a step of this plan refuses ``filename``.  A step refuses a
+    file through its ``is_stale`` method, when it has one; see ``Json2Cpp``
+    and ``Cpp2So`` of the C++ backend.  The step of the file's stage is asked.
+    The last stage has no step, so the step before it, which made the file,
+    answers for it.
+    '''
+    position = self.position(filename)
+    step = self.stages[position].step
+    if step is None and position:
+      step = self.stages[position - 1].step
+    is_stale = getattr(step, 'is_stale', None)
+    return is_stale is not None and bool(is_stale(filename))
 
   def position(self, filename):
     '''Gives the current position in the plan.'''

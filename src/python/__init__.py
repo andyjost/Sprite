@@ -14,7 +14,8 @@ Use :func:`import_` to import Curry modules, :func:`compile` to compile Curry
 code, :func:`expr` to build Curry expressions, and :func:`eval` to evaluate
 them.  :data:`path` determines where Sprite searches for Curry code.  Loaded
 modules can be found under :data:`modules`.  Use :func:`topython` to convert
-Curry values to Python objects.
+Curry values to Python objects.  :func:`stats` reports the statistics of the
+run: time, rewrite steps, forks, collections, memory, and compile time.
 
 Example:
 
@@ -51,6 +52,7 @@ __all__ = [
   , 'raw_expr'
   , 'reset'
   , 'save'
+  , 'stats'
   , 'symbol'
   , 'topython'
   , 'type'
@@ -145,6 +147,7 @@ variable CURRYPATH.  Modify this to dynamically adjust the Curry search path.
 raw_expr = _interpreter_.raw_expr
 reset = _interpreter_.reset
 save = _interpreter_.save
+stats = _interpreter_.stats
 symbol = _interpreter_.symbol
 topython = _interpreter_.topython
 type = _interpreter_.type

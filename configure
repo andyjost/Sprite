@@ -148,7 +148,6 @@ def get_options():
   versions.add_argument('--with-cxx'            , type=str, metavar='g++', help='specifies the C++ compiler (env: CXX)')
   versions.add_argument('--with-cxx-postinstall', type=str, metavar='g++', help='specifies the C++ compiler used after installation (env: CXX)')
   versions.add_argument('--with-icurry'         , type=str, metavar='icurry', help='specifies the icurry executable (env: ICURRY)')
-  versions.add_argument('--with-jq'             , type=str, metavar='jq', help='specifies the jq executable (env: JQ)')
   versions.add_argument('--with-pakcs'          , type=str, metavar='pakcs', help='specifies the PAKCS executable (env: PAKCS)')
   versions.add_argument('--with-prolog'         , type=str, metavar='swipl', help='specifies the Prolog executable (env: PROLOG)')
   versions.add_argument('--with-python'         , type=str, metavar='python3', help='specifies the Python executable (env: PYTHON)')
@@ -235,14 +234,6 @@ def main():
       , altdir=os.path.join(os.environ.get('HOME', ''), '.cpm', 'bin')
       , install_steps=get_icurry_install_steps
       , default=OPTS.with_icurry
-      )
-    set_from_path(settings, 'JQ', 'jq', 'jq executable'
-      , web='https://stedolan.github.io/jq/'
-      , install_steps=[
-            '# Install jq.'
-          , 'sudo apt-get install jq'
-          ]
-      , default=OPTS.with_jq
       )
     set_from_path(settings, 'BOOST', 'boost', 'Boost libraries'
       , web='https://www.boost.org'
@@ -721,8 +712,6 @@ ICURRY_EXECUTABLE := {ICURRY}
 
 # MISC
 # ====
-# JQ is used to compact JSON.
-JQ_EXECUTABLE       := {JQ}
 HAVE_PYTHON_numpy   := {HAVE_PYTHON_numpy}
 HAVE_PYTHON_sqlite3 := {HAVE_PYTHON_sqlite3}
 HAVE_PYTHON_sphinx  := {HAVE_PYTHON_sphinx}
@@ -738,26 +727,27 @@ DEFAULT_BACKEND := py
 
 # Caching (development feature)
 # =============================
-# Sprite can be configured to cache certain steps in the compile chain, such as
-# the conversion from Curry to ICurry, or ICurry to Python.  This is intended
-# for development use, so you should leave it off unless you plan to edit the
-# Sprite source and run the unit tests repeatedly.  Cached data is stored in an
-# SQLite database.
+# Sprite can cache the output of the Curry front end (Curry to ICurry) and the
+# parsing of ICurry-JSON in an SQLite database.  The front end takes seconds
+# per module, so the cache pays off when the same programs are compiled many
+# times, as in the unit tests.  The test drivers turn the ICurry cache on
+# through SPRITE_CACHE_FILE; the settings below give the default for every
+# other use.
 #
-# The following environment variables can be used to control
-# caching at *runtime*:
+# The following environment variables control caching at *runtime*:
 #
 #     SPRITE_CACHE_FILE
-#       Overrides the default cache file.  Setting this to the empty string
-#       disables caching.
+#       Names the cache file and turns the ICurry cache on.  Setting this to
+#       the empty string disables caching.  When the variable is not set, the
+#       settings below apply.
 #
 #     SPRITE_CACHE_UPDATE=<pattern>
-#       Upates cached data matching the pattern.  Everything in the cache is
-#       keyed by a file name (e.g., of the ICurry file or JSON file), and the
-#       pattern is compared against these file names.  The pattern is a glob
-#       unless it is enclosed with slashes (/), in which case it is a regular
-#       expression.  Regex patterns are not anchored, so the pattern needs only
-#       to match some part of the file name.
+#       Updates the cached data of the files matching the pattern: the Curry
+#       source file for the ICurry cache, the JSON file for the parsed-JSON
+#       cache.  The pattern is a glob unless it is enclosed with slashes (/),
+#       in which case it is a regular expression.  Regex patterns are not
+#       anchored, so the pattern needs only to match some part of the file
+#       name.
 #
 #       Examples:
 #           SPRITE_CACHE_UPDATE='*'         -- update everything
@@ -770,9 +760,9 @@ DEFAULT_BACKEND := py
 # be used when invoking Sprite to override this or disable caching altogether.
 DEFAULT_SPRITE_CACHE_FILE := {{HOME}}/.sprite/cache.db
 
-# Whether to cache Curry-to-ICurry conversions.  If True, the cache file will
-# store the output of the 'icurry' program keyed on the input filename, source
-# text, and CURRYPATH environment variable.
+# Whether to cache Curry-to-ICurry conversions by default.  An entry is keyed
+# by a digest of the module source, of the sources of the modules it imports,
+# and of the front-end options, not by the file name; see curry.cache.
 ENABLE_ICURRY_CACHE := {ENABLE_ICURRY_CACHE}
 
 # Whether to cache parsing of ICurry-JSON.  If True, the cache file will store

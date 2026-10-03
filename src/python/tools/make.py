@@ -31,7 +31,15 @@ This implies both ``--json`` and ``--icy``.  The generated file can be imported
 as a regular Python module, loaded via the Python API with
 :func:`{python_package_name}.load` or executed from the command line.  By default,
 running the file imports the module but does nothing else.  Supply ``-g`` to name a
-goal.
+goal.  The bytecode cache of the generated file is written beside it, under
+``__pycache__``, so that the first load does not compile the source.
+
+C++ (extension: ``.cpp``) is generated with the ``--cxx`` option, which implies
+``--json`` and ``--icy``.  The shared object of the C++ backend (extension:
+``.so``) is generated with the ``--so`` option, which implies ``--cxx`` and
+needs the C++ compiler that Sprite was configured with.  The installation
+procedure uses ``--py`` and ``--so`` to build the Curry library for both
+backends.
 
 Following the conventions of other Curry systems, output files are by default
 written to ``<dir>/.curry/{intermediate_subdir}``, where ``<dir>`` is the
@@ -100,6 +108,8 @@ def main(program_name, argv):
   # E.g., sprite-make --icurry Prelude --json Nat
   parser.add_argument('-c', '--compact', action='store_true', help='compact JSON output')
   parser.add_argument(      '--cxx'    , action='store_true', help='make C++ files')
+  parser.add_argument(      '--so'     , action='store_true'
+    , help='make shared objects for the C++ backend (implies --cxx)')
   parser.add_argument('-g', '--goal'   , default=None, help='specifies the goal in --python mode')
   parser.add_argument('-i', '--icy'    , action='store_true', help='make ICY files')
   parser.add_argument('-j', '--json'   , action='store_true', help='make JSON files')
@@ -139,12 +149,14 @@ def main(program_name, argv):
   if len(args.names) > 1 and args.output:
     sys.stderr.write(program_name + ': -o,--output cannot be used with multiple input files.\n')
     sys.exit(1)
-  if not any([args.icy, args.json, args.py, args.cxx]):
+  if not any([args.icy, args.json, args.py, args.cxx, args.so]):
     sys.stderr.write(
         program_name + ': at least one of (-i,--icy) or (-j,--json) or --cxx or '
-                       '(-p,--py,--python) must be supplied.\n'
+                       '--so or (-p,--py,--python) must be supplied.\n'
       )
     sys.exit(1)
+  if args.so:
+    args.cxx = True
   if args.py or args.cxx:
     args.json = True
   if args.json:
@@ -184,7 +196,12 @@ def main(program_name, argv):
     kwds['is_sourcefile'] = name.endswith('.curry')
     with error_handler:
       plan = _buildplan(interp, **kwds)
-      toolchain.makecurry(plan, name, config.currypath(), **kwds)
+      file_out = toolchain.makecurry(plan, name, config.currypath(), **kwds)
+      if args.py and file_out.endswith('.py'):
+        # A file that was current already may lack its bytecode cache (an
+        # installation from before the cache was written).
+        from ..backends.py.toolchain import ensure_bytecode
+        ensure_bytecode(file_out)
   if error_handler.nerrors:
     sys.exit(1)
 
@@ -211,6 +228,7 @@ KEYWORDS = {
   , 'icy' : plans.MAKE_ICURRY
   , 'json': plans.MAKE_JSON
   , 'py'  : plans.MAKE_TARGET_SOURCE
+  , 'so'  : plans.MAKE_TARGET_OBJECT
   , 'zip' : plans.ZIP_JSON
   }
 
