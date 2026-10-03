@@ -50,6 +50,10 @@ jobs:
         run: |
           mkdir -p "$HOME/ccache-bin"
           for cc in gcc g++ cc c++; do ln -sf "$(command -v ccache)" "$HOME/ccache-bin/$cc"; done
+          # Sprite runs the compiler for generated code through a symlink named
+          # cxx, which ccache cannot resolve by name; give it a wrapper.
+          printf '#!/bin/sh\nexec ccache g++ "$@"\n' > "$HOME/ccache-bin/sprite-cxx"
+          chmod +x "$HOME/ccache-bin/sprite-cxx"
           echo "$HOME/ccache-bin" >> "$GITHUB_PATH"
           echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
           echo "CCACHE_MAXSIZE=500M" >> "$GITHUB_ENV"
@@ -78,6 +82,7 @@ jobs:
         run: |
           python ./configure \
             --with-python="$(command -v python)" \
+            --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
             --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
             --with-icurry="$HOME/.cpm/bin/icurry" \
             --with-jq="$(command -v jq)"
