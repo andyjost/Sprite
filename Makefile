@@ -1,4 +1,7 @@
 SUBMODULES := src curry
+# The Curry library is compiled into the installation with the tools that src
+# installs, so src goes first even under make -j.
+curry: | src
 
 ifeq ("$(wildcard Make.config)","")
   $(error "Make.config not found.  Please run ./configure")

@@ -12,6 +12,7 @@ configure.log
 *.pyc
 *.o
 /tests/htmlcov
+/tests/.cache/
 /tests/data/Makefile2
 /tests/unit_dev.py
 robots.txt*

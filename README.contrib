@@ -26,12 +26,12 @@ require that each test file imports 'cytest' before loading anything from the
 
     - SPRITE_CACHE_FILE
 
-        Default: $HOME/.sprite/cache.db
+        Default: tests/.cache/icurry.db (set by the test drivers)
 
-        Specifies the cache database file, which stores the results of slow
-        conversions that occur in compiling Curry code.  This is used primarily
-        to speed up development, when the same programs are run over and over.
-        If set to the empty string, caching is disabled.
+        Specifies the cache database file, which stores the output of the
+        Curry front end keyed by the source text, so that a repeated test run
+        compiles only the Curry texts that changed.  If set to the empty
+        string, caching is disabled.
 
     - SPRITE_CACHE_UPDATE
 
@@ -45,7 +45,8 @@ require that each test file imports 'cytest' before loading anything from the
         a less extreme option.
 
         Files matching the pattern will be forced out-of-date and therefore
-        updated in the cache.  The value is a glob pattern unless written as
+        updated in the cache.  The pattern is compared with the name of the
+        Curry source file.  The value is a glob pattern unless written as
         /pattern/.
 
     - SPRITE_DEBUG
