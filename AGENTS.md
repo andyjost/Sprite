@@ -54,7 +54,10 @@ Merges to `master` happen at milestones.
 
 - `./configure` writes `Make.config`. `./configure --check-prereqs` lists
   what is missing. Use `--with-pakcs` and `--with-python` to pick tools.
-- `make stage` builds and stages a copy under `install/`.
+- `make stage` builds and stages a copy under `install/`. It also compiles
+  the Curry library into the installation for both backends. The modules
+  Sprite cannot compile are listed in `CURRYLIB_UNSUPPORTED_MODULES` in
+  `Make.include`; they get their ICurry and JSON only.
 - The `.icy` and `.json.z` files beside the sources under `curry/lib/` are
   committed artifacts of the pinned PAKCS and `icurry` versions. `make`
   derives the JSON from the committed `.icy` and never rebuilds a committed

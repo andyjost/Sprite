@@ -23,9 +23,14 @@ include Make.include
 # The step needs sprite-make and the tools of the installation, which src
 # installs; the root Makefile orders curry after src.  An install of this
 # directory alone (as tests/unit_currylib.py runs it) has no sprite-make and
-# skips the step with a notice.  The modules are the ones under lib/
-# (CURRYLIB_MODULES), and the FlatCurry interfaces of the library are written
-# first, so the front end reads them instead of writing them again.
+# skips the step with a notice.  The FlatCurry interfaces of the library are
+# written first, so the front end reads them instead of writing them again.
+#
+# Every module under lib/ (CURRYLIB_MODULES) gets its ICurry and JSON
+# (sprite-make --json), so no run of Sprite writes into the installation for
+# a library module.  The modules Sprite can compile (CURRYLIB_PREBUILD_MODULES;
+# see CURRYLIB_UNSUPPORTED_MODULES in the root Make.include) get the generated
+# Python and, with a compiler, the shared objects.
 PREBUILD_ENV := env -u CURRYPATH -u CFLAGS -u CXXFLAGS \
                     -u SPRITE_INTERPRETER_FLAGS -u SPRITE_CXX_PCH_ROOT \
                     -u SPRITE_FORCE_RECOMPILE_CXX -u SPRITE_CURRY2ICURRY \
@@ -40,13 +45,16 @@ prebuild: $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_FLAT_STAMP)
 	       "no sprite-make under $(PREFIX)/bin (install src first)."; \
 	  exit 0; \
 	fi; \
-	echo $(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --py -zc $(CURRYLIB_MODULES); \
-	$(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --py -zc $(CURRYLIB_MODULES) \
+	echo $(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --json -zc $(CURRYLIB_MODULES); \
+	$(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --json -zc $(CURRYLIB_MODULES) \
+	  || exit 1; \
+	echo $(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --py -zc $(CURRYLIB_PREBUILD_MODULES); \
+	$(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --py -zc $(CURRYLIB_PREBUILD_MODULES) \
 	  || exit 1; \
 	$(call PREBUILD_CHECK,.py); \
 	if [ -x $(PREFIX)/tools/cxx ]; then \
-	  echo $(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --so -zc $(CURRYLIB_MODULES); \
-	  $(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --so -zc $(CURRYLIB_MODULES) \
+	  echo $(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --so -zc $(CURRYLIB_PREBUILD_MODULES); \
+	  $(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --so -zc $(CURRYLIB_PREBUILD_MODULES) \
 	    || exit 1; \
 	  $(call PREBUILD_CHECK,.so); \
 	  $(call PREBUILD_CHECK,.so.abi); \

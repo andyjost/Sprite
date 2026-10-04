@@ -7,9 +7,7 @@ ROOT = os.path.dirname(HERE)
 DATA = os.path.join(HERE, 'data')
 
 # Where the FlatCurry interfaces of the library modules may be found on disk.
-LIBRARY_DIRS = [
-    os.path.join(ROOT, 'curry', 'lib'), os.path.join(ROOT, 'curry', oracle.frontend_subdir())
-  ]
+LIBRARY_DIRS = [os.path.join(ROOT, 'curry', 'lib')]
 
 # The route through the front end looks through a type annotation at the root
 # of a rule, which icurry 3.1.0 does not (see curry.toolchain._frontend).  The

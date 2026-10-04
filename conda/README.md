@@ -43,7 +43,7 @@ Build (`build.sh`):
    serially: the recursive Makefiles link `libcyrt.so` from two places, and
    that races under `make -j`.
 3. The `tools/` links that `make` writes are absolute paths into the build
-   environments.  `build.sh` replaces them: `python`, `jq`, and
+   environments.  `build.sh` replaces them: `python` and
    `curry-frontend` become relative links into `$PREFIX/bin`; `cxx` becomes a
    wrapper script that resolves the C++ compiler at run time (see below).
 4. `$PREFIX/bin/sprite-exec` and `$PREFIX/bin/sprite-make` are launchers.
@@ -74,9 +74,8 @@ Dependencies:
 | build | `{{ compiler('c') }}`, `{{ compiler('cxx') }}`, `{{ stdlib('c') }}`, `make` | the C++ runtime and the extension |
 | host  | `python 3.14.*`         | the extension module and the Python package             |
 | host  | `libboost-headers`      | `boost/preprocessor` and `boost/io`, headers only       |
-| host  | `jq`, `curry-frontend 2.0.0.*` | `configure` checks them; the front end runs at build time |
+| host  | `curry-frontend 2.0.0.*` | `configure` checks it; the front end runs at build time |
 | run   | `python 3.14.*`         | `python_abi` pins the CPython 3.14 ABI                  |
-| run   | `jq`                    | compacts the JSON that Sprite writes                    |
 | run   | `curry-frontend 2.0.0.*` | Curry to FlatCurry; it brings `gmp` (libgmp)           |
 | run   | `cxx-compiler`          | the C++ backend compiles generated code at run time     |
 | run   | `libboost-headers`      | the installed headers of Sprite include Boost           |
@@ -89,9 +88,9 @@ Tests (`meta.yaml`): the launchers, `import curry`, and one program on each
 backend.  The C++ backend test compiles the Prelude with the compiler of
 the environment and takes a few minutes.
 
-conda-build warns that `python` and `jq` are in `requirements/run` "but not
-used".  Its check looks for linked libraries; both are used by scripts.  The
-warnings are harmless.
+conda-build warns that `python` is in `requirements/run` "but not used".
+Its check looks for linked libraries; the scripts use it.  The warning is
+harmless.
 
 ### `curry-frontend/`: the package `curry-frontend`
 
@@ -200,6 +199,3 @@ Resolve these before anything is published.
    from GitHub lacks the pybind11 submodule; a published recipe should use
    `git_url` with the submodule, or add `pybind11` to the host requirements
    and point the include path at it.
-9. jq.  Sprite uses jq only to compact JSON.  `configure --with-jq ''`
-   leaves it out; the package keeps it as a run dependency so that the
-   JSON files match the ones of a developer installation.

@@ -155,6 +155,9 @@ python_package_name       = _Variable('python_package_name')
 currylib_version          = _Variable('currylib_version')
 # The names of all modules in the system Curry library, the Prelude first.
 currylib_module_names     = _Variable('currylib_module_names')
+# The names of the system library modules that Sprite cannot compile.  See
+# CURRYLIB_UNSUPPORTED_MODULES in Make.include.
+currylib_unsupported_modules = _Variable('currylib_unsupported_modules')
 # The name of the default backend.
 default_backend           = _Variable('default_backend')
 # The location of ld.so.
@@ -167,6 +170,24 @@ def syslibs():
   a source under :func:`system_curry_path`.
   '''
   return currylib_module_names().split()
+
+def unsupported_syslibs():
+  '''
+  The names of the system library modules that Sprite cannot compile: their
+  externals have no implementation in a backend, they import such a module,
+  or the importer cannot load them.  See CURRYLIB_UNSUPPORTED_MODULES in
+  Make.include.
+  '''
+  return currylib_unsupported_modules().split()
+
+def supported_syslibs():
+  '''
+  The names of the system library modules that Sprite compiles, the Prelude
+  first: :func:`syslibs` without :func:`unsupported_syslibs`.  The
+  installation compiles them for both backends.
+  '''
+  unsupported = set(unsupported_syslibs())
+  return [name for name in syslibs() if name not in unsupported]
 
 def syslibversion():
   return tuple(int(x) for x in currylib_version().split('.'))

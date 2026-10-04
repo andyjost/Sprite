@@ -26,7 +26,8 @@ export CXXFLAGS="${CXXFLAGS:-} -ffile-prefix-map=$SRC_DIR=."
 
 # No PAKCS: the front end comes from the package curry-frontend, and the
 # pinned release names the intermediate directories.  No icurry.  The tool
-# links that this writes are replaced below.
+# links that this writes are replaced below.  Sprite writes compact JSON
+# itself; no jq.
 "$PYTHON" ./configure \
   --with-python="$PYTHON" \
   --with-cc="$CC" \
@@ -34,8 +35,7 @@ export CXXFLAGS="${CXXFLAGS:-} -ffile-prefix-map=$SRC_DIR=."
   --with-cxx-postinstall="$CXX" \
   --with-pakcs='' \
   --with-curry-frontend="$PREFIX/bin/pakcs-frontend" \
-  --with-icurry='' \
-  --with-jq="$PREFIX/bin/jq"
+  --with-icurry=''
 
 # Serial: the recursive Makefiles link libcyrt.so from two places (the cyrt
 # tree and the extension module), which races under make -j.
@@ -55,7 +55,6 @@ pyver=$("$PYTHON" -c 'import sys; print("%d.%d" % sys.version_info[:2])')
 tools="$SPRITE_HOME/tools"
 rm -f "$tools"/*
 ln -s "../../../bin/python$pyver" "$tools/python"
-ln -s ../../../bin/jq "$tools/jq"
 ln -s ../../../bin/pakcs-frontend "$tools/curry-frontend"
 cat > "$tools/cxx" <<CXX_EOF
 #!/bin/sh

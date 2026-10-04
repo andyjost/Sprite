@@ -66,6 +66,12 @@ CURRYLIB_INSTALL_FILES := $(CURRYLIB_INSTALL_SRC) $(CURRYLIB_INSTALL_ICY) $(CURR
 # library members of the overlay archive (make interfaces).
 CURRYLIB_MODULES  := $(subst /,.,$(CURRYLIB_SRC_FILES:.curry=))
 CURRYLIB_FLAT_DIR := .curry/$(FRONTEND_SUBDIR)
+# The modules the prebuild step compiles: every module Sprite can compile
+# (see CURRYLIB_UNSUPPORTED_MODULES in the root Make.include).
+ifneq ($(filter-out $(CURRYLIB_MODULES),$(CURRYLIB_UNSUPPORTED_MODULES)),)
+  $(error CURRYLIB_UNSUPPORTED_MODULES names modules that are not in the library: $(filter-out $(CURRYLIB_MODULES),$(CURRYLIB_UNSUPPORTED_MODULES)))
+endif
+CURRYLIB_PREBUILD_MODULES := $(filter-out $(CURRYLIB_UNSUPPORTED_MODULES),$(CURRYLIB_MODULES))
 # $(call currylib_flat_files,DIR) lists the files the front end writes.
 currylib_flat_files = $(foreach m,$(CURRYLIB_SRC_FILES:.curry=), \
     $(addprefix $1/$(CURRYLIB_FLAT_DIR)/$m,.fcy .fint .icurry))

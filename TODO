@@ -630,3 +630,52 @@
   on both backends).  The long lines of the new tests and of the harness
   were wrapped.  Left: the three-process cache test costs four front-end
   calls (about 20 s); entries of the old point-only error form stay valid.
+- Toolchain stream integrated (stream C onto streams A and B).  The
+  vendored library under curry/lib, the FlatCurry-to-ICurry port, and the
+  front-end route (the default; icurry is the configured fallback) now
+  carry the Phase 0 work.  The content-keyed ICurry cache wraps both routes,
+  and its key names the route and carries a digest of its program: the
+  icurry tool, or the Curry front end with its flags and the sources of the
+  port (cache.frontend_digest, icurry_cache_key, Slot(tool=)).  So an entry
+  written by one route is never served to the other, and a change to the
+  port misses the cache as a new front end does.  The prebuild of make
+  stage runs on the vendored layout: sprite-make --json over all 22 modules
+  (no run of Sprite writes into the installation for a library module),
+  then --py and --so over the modules Sprite can compile; make uninstall
+  removes every product, the per-package FlatCurry of the front end
+  included; an install of curry/ alone (no sprite-make under PREFIX) skips
+  the step with a notice.  Nine modules are left out
+  (CURRYLIB_UNSUPPORTED_MODULES in Make.include, exported as
+  sysconfig/currylib_unsupported_modules; config.unsupported_syslibs and
+  supported_syslibs): seven have externals that no backend implements
+  (Handle, IORef, getArgs, getCPUTime, the constants of
+  Curry.Compiler.Distribution) or import such a module (Debug.Trace), and
+  Test.Prop with Test.Prop.Types, which the importer cannot build: Test.Prop
+  is a module and a package and imports its own submodule; the import by
+  name walks the prefix Test.Prop and builds it again while its provisional
+  module is loaded (the assertion in Json2TargetSource fires), and
+  _provisionalModule binds a submodule into an IPackage mapping, which an
+  IModule parent is not.  Both backends reject the same nine.  jq is gone
+  from configure, the conda recipe, and the docs; the CI matrix keeps the
+  icurry key (the py job without icurry, the cxx jobs with it) with the
+  cache steps of Phase 0.  Found on the way: the flavor of the precompiled
+  header is a digest of the compiler flags, and the include flag followed
+  the spelling of SPRITE_HOME; make stage names the installation through
+  the link install/ and run_tests through its real path, so the member
+  built at stage time was never the one the tests used, and a staged tree
+  held two O3 members.  The flag is spelled by its real path now.  The
+  committed Control/SetFunctions.json.z under curry/lib predated the import
+  order fix of the encoder and was regenerated from its .icy; the other
+  seven pinned caches matched.  Measured: a make stage that changes nothing
+  keeps all 132 products of the library and the header (mtimes unchanged)
+  and runs the front end zero times.  Tests: unit_cache.py (the route in
+  the key, the digests of both routes, the calls of either front end),
+  unit_prebuild.py (the supported set; the ICurry and JSON of every module),
+  unit_currylib.py (the source-only test puts the products and the bytecode
+  cache back, in toolchain order, because the staleness rule compares
+  ctimes, which a copy cannot preserve), unit_conda.py (no jq),
+  unit_cxx_toolchain.py (the real-path include flag).
+  Left: the nine unsupported modules; the old overlay directories
+  curry/pakcs-3.2.0, curry/pakcs-3.3.0, and curry/pakcs-3.4.1 and the old
+  source overlays curry/Control and curry/Data, which nothing references
+  now and which can go with git rm.

@@ -136,7 +136,10 @@ class TestPrecompiledHeader(ToolchainTestCase):
     module = self.compile_module(3)
     cmd = self.compile_command(module)
     root_flag = '-I' + self.root
-    install_flag = '-I' + config.installed_path('include')
+    # The include flag of the installation is spelled by its real path, so
+    # that the flavor of the header does not follow the spelling of
+    # SPRITE_HOME.
+    install_flag = '-I' + os.path.realpath(config.installed_path('include'))
     self.assertIn(root_flag, cmd)
     self.assertLess(cmd.index(root_flag), cmd.index(install_flag))
     # With -H, g++ marks a precompiled header it loads with a '!'.

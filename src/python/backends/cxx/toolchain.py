@@ -337,9 +337,13 @@ class Cpp2So(object):
   def _cxxflags(self):
     '''
     The flags that shape the compilation of a translation unit.  The
-    precompiled header is built with the same list.
+    precompiled header is built with the same list, and its member name is a
+    digest of it.  The include directory is spelled by its real path, so the
+    digest does not depend on the spelling of SPRITE_HOME: make stage names
+    the installation through the link install/, the test drivers through its
+    real path, and both must find the member the stage built.
     '''
-    yield '-I%s' % config.installed_path('include')
+    yield '-I%s' % os.path.realpath(config.installed_path('include'))
     yield '-fPIC'
     yield '-std=c++17'
     if self.interp.flags['debug']:

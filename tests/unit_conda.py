@@ -59,7 +59,7 @@ class TestCondaRecipe(cytest.TestCase):
     self.assertIn('name: sprite', meta)
     self.assertIn('path: ../..', meta)
     self.assertIn('skip: true  # [not linux64]', meta)
-    for dep in ['python 3.14.*', 'curry-frontend 2.0.0.*', 'cxx-compiler', 'jq']:
+    for dep in ['python 3.14.*', 'curry-frontend 2.0.0.*', 'cxx-compiler']:
       self.assertIn(dep, meta)
     self.assertIn("{{ compiler('cxx') }}", meta)
     self.assertIn('libboost-headers', meta)
@@ -147,11 +147,9 @@ class TestCondaRecipe(cytest.TestCase):
     if config.curry_frontend() is None:
       raise unittest.SkipTest('the Curry front end is not configured')
     frontend = os.path.realpath(config.curry_frontend())
-    jq = config.jq_tool()
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
       result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend
-        , '--with-jq=' + (jq if jq else ''), fast=False
+          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend, fast=False
         )
       self.assertEqual(result.returncode, 0, result.stdout)
       self.assertIn('Configuration succeeded', result.stdout)
@@ -168,18 +166,10 @@ class TestCondaRecipe(cytest.TestCase):
       # The same subdirectory names as the committed products.
       self.assertEqual(config.frontend_subdir(), 'pakcs-3.4.1')
       self.assertEqual(config.intermediate_subdir(), 'sprite-pakcs-3.4.1')
-    # jq is optional.
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend, '--with-jq='
-        )
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertEqual(make_config_value(text, 'JQ_EXECUTABLE'), '')
     # The prerequisite check passes without PAKCS.
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
       result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend
-        , '--with-jq=', write=False
+          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend, write=False
         )
       self.assertEqual(result.returncode, 0, result.stdout)
       self.assertIn('Found 0 problems.', result.stdout)
@@ -187,7 +177,7 @@ class TestCondaRecipe(cytest.TestCase):
     # Without PAKCS and without the front end, nothing translates Curry.
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
       result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=', '--with-jq='
+          tmpdir, '--with-pakcs=', '--with-curry-frontend='
         )
       self.assertNotEqual(result.returncode, 0)
       self.assertIn('Neither the Curry front end nor icurry', result.stdout)
@@ -209,8 +199,7 @@ class TestCondaRecipe(cytest.TestCase):
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
       fake = self.fake_tool(tmpdir, 'curry-frontend', '3.3.0')
       result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + fake, '--with-jq='
-        , fast=False
+          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + fake, fast=False
         )
       self.assertNotEqual(result.returncode, 0)
       self.assertIn("Acceptable Curry front end versions are: ['2.0.0']", result.stdout)
@@ -218,8 +207,7 @@ class TestCondaRecipe(cytest.TestCase):
       # The pinned version passes.
       fake = self.fake_tool(tmpdir, 'curry-frontend', '2.0.0')
       result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + fake, '--with-jq='
-        , fast=False
+          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + fake, fast=False
         )
       self.assertEqual(result.returncode, 0, result.stdout)
       self.assertEqual(make_config_value(text, 'CURRY_FRONTEND'), fake)
@@ -232,7 +220,7 @@ class TestCondaRecipe(cytest.TestCase):
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
       # icurry is requested but not configured.
       result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend, '--with-jq='
+          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend
         , '--curry2icurry', 'icurry'
         )
       self.assertNotEqual(result.returncode, 0)
@@ -241,7 +229,7 @@ class TestCondaRecipe(cytest.TestCase):
       self.assertIsNone(text)
       # The front end is requested by name.
       result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend, '--with-jq='
+          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend
         , '--curry2icurry', 'frontend'
         )
       self.assertEqual(result.returncode, 0, result.stdout)
@@ -249,7 +237,7 @@ class TestCondaRecipe(cytest.TestCase):
       # Without the front end, icurry is required and is the default route.
       icurry = self.fake_tool(tmpdir, 'icurry', 'icurry')
       result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=', '--with-jq='
+          tmpdir, '--with-pakcs=', '--with-curry-frontend='
         , '--with-icurry=' + icurry
         )
       self.assertEqual(result.returncode, 0, result.stdout)

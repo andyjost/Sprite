@@ -22,6 +22,19 @@ PAKCS_SUBDIR := $(PAKCS_NAME)-$(PAKCS_VERSION)
 # It is the PAKCS directory name, which icurry also uses, so both routes from
 # Curry to ICurry share the FlatCurry files.
 FRONTEND_SUBDIR := $(PAKCS_SUBDIR)
+# The modules of the Curry library (curry/lib) that Sprite cannot compile:
+# their externals have no implementation in a backend (Handle, IORef,
+# getArgs, getCPUTime, the compiler constants), they import such a module
+# (Debug.Trace imports System.IO), or the importer cannot load them
+# (Test.Prop is a module and a package, and it imports its own submodule
+# Test.Prop.Types; see TODO).  Their sources and FlatCurry interfaces are
+# installed, so the front end reads them.  The prebuild of the library
+# (curry/Makefile) and the tests of the prebuilt library leave them out; the
+# installation reports them as sysconfig/currylib_unsupported_modules.
+# Remove a module from the list when Sprite can compile it.
+CURRYLIB_UNSUPPORTED_MODULES := Curry.Compiler.Distribution Data.IORef \
+    Debug.Trace System.CPUTime System.Environment System.IO System.IO.Unsafe \
+    Test.Prop Test.Prop.Types
 
 $(PREFIX)/lib:
 	mkdir -p $(PREFIX)/lib

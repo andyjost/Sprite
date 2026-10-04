@@ -32,12 +32,22 @@ committed `.icy` file is kept even when its source has a newer time stamp.
 The `.json.z` file is derived from the `.icy` file when it is older.
 
 The other modules are installed as sources only.  The install then compiles
-every module for both backends (the `prebuild` target of the Makefile in
-this directory): `sprite-make --py` and `sprite-make --so` run over the
-installed library, so the first use of Sprite compiles nothing, and a user
-without the privileges of the installer needs no compile.  A module shipped
-as source only gets its `.icy` and `.json.z` files in the installation at
-that point.  `make uninstall` removes the products.
+the library into the installation (the `prebuild` target of the Makefile in
+this directory): `sprite-make --json` writes the `.icy` and `.json.z` files
+of every module, and `sprite-make --py` and `sprite-make --so` compile every
+module that Sprite can compile for both backends.  So the first use of Sprite
+compiles nothing, and a user without the privileges of the installer needs
+no compile.  `make uninstall` removes the products.
+
+Nine modules are left out of that compile (`CURRYLIB_UNSUPPORTED_MODULES`
+in the root `Make.include`).  Seven have externals that no backend
+implements, or import such a module: `Curry.Compiler.Distribution`,
+`Data.IORef`, `Debug.Trace`, `System.CPUTime`, `System.Environment`,
+`System.IO`, and `System.IO.Unsafe`.  `Test.Prop` is a module and a package
+and imports its own submodule `Test.Prop.Types`, which the importer cannot
+load (see TODO).  A program that imports one of them fails when Sprite
+compiles it.  Their ICurry and JSON are installed all the same, and the
+front end reads their interfaces.
 
 Rebuilding the products
 -----------------------

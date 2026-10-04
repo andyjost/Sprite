@@ -51,6 +51,10 @@ def interfacefile(modulename, suffix='.fint'):
     , parts[-1] + suffix
     )
 
+def unit_currylib_pinned():
+  '''The names of the modules with committed products.'''
+  return set(PINNED_SHA256)
+
 def sha256(filename):
   with open(filename, 'rb') as istream:
     return hashlib.sha256(istream.read()).hexdigest()
@@ -149,11 +153,38 @@ class TestCurryLib(cytest.TestCase):
   @cytest.with_flags(defaultconverter='topython')
   def test_import_source_only_module(self):
     '''
-    A module shipped as source only compiles on first use.  The products an
-    earlier run left in the installation tree are removed first, so the
-    import compiles the module every time.
+    A module shipped as source only (no committed products) compiles on
+    first use.  The products that the installation holds for it are set
+    aside, so the import compiles the module, and they are put back
+    afterwards: unit_prebuild.py expects the products of every module.
     '''
-    for product in glob.glob(productfile('Numeric', '.*')):
+    self.assertNotIn('Numeric', unit_currylib_pinned())
+    saved = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    # The products and the bytecode cache of the Python file.  The cache goes
+    # with the file: a cache of another copy of the file is stale.
+    patterns = [
+        productfile('Numeric', '.*')
+      , os.path.join(os.path.dirname(productfile('Numeric', '.py')), '__pycache__', 'Numeric.*')
+      ]
+    # The products in the order of the toolchain.  The staleness rule of the
+    # toolchain compares ctimes, which a copy cannot preserve, so each product
+    # is put back after the one it is made from.
+    order = ['.icy', '.json.z', '.py', '.pyc', '.cpp', '.so', '.so.abi']
+    def rank(path):
+      return next((i for i, s in enumerate(order) if path.endswith(s)), len(order))
+    def found():
+      return sorted((f for pattern in patterns for f in glob.glob(pattern)), key=rank)
+    products = found()
+    def restore():
+      for product in found():
+        os.remove(product)
+      for product in products:
+        os.makedirs(os.path.dirname(product), exist_ok=True)
+        shutil.copy2(os.path.join(saved, os.path.basename(product)), product)
+      shutil.rmtree(saved, ignore_errors=True)
+    self.addCleanup(restore)
+    for product in products:
+      shutil.copy2(product, saved)
       os.remove(product)
     self.assertFalse(os.path.exists(productfile('Numeric', '.icy')))
     Numeric = curry.import_('Numeric')

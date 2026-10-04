@@ -99,11 +99,14 @@ with Sprite, then you should not need these.
   of the Curry front end, the :ref:`Curry to ICurry
   <Introduction/CompilationPipeline:Curry to ICurry>` step, which takes
   seconds per module.  An entry is keyed by a digest of the module source, of
-  the sources of the modules it imports, and of the front-end options.  The
-  file name is not part of the key.  So the same text compiles once on a
-  machine, from any directory and, for a module compiled from a string, under
-  any module name.  A change in the text, or in an imported module, misses the
-  cache.  A new front end misses it too.  An error the front end reports about
+  the sources of the modules it imports, of the front-end options, and of the
+  route from Curry to ICurry (``SPRITE_CURRY2ICURRY``) with its program and
+  flags.  The file name is not part of the key.  So the same text compiles
+  once on a machine, from any directory and, for a module compiled from a
+  string, under any module name.  A change in the text, or in an imported
+  module, misses the cache.  A new front end misses it too, and an entry
+  written by one route is never served to the other.  An error the front end
+  reports about
   the program is cached as well; a failure of the environment is not, and
   neither is a missing module, because the key sees the Curry path only
   through the source files found in it.

@@ -223,14 +223,10 @@ class Overlay:
     '''
     The directories under which the library interfaces lie.  The archive
     holds them under ``curry/lib`` (``make -C curry interfaces`` writes them
-    there).  An archive made before the library moved to ``curry/lib`` holds
-    them under ``curry/<subdir>``.
+    there).
     '''
-    candidates = [
-        os.path.join(self.directory, 'curry', 'lib')
-      , os.path.join(self.directory, 'curry', self.subdir)
-      ]
-    return [d for d in candidates if os.path.isdir(d)]
+    libdir = os.path.join(self.directory, 'curry', 'lib')
+    return [libdir] if os.path.isdir(libdir) else []
 
   def library_pairs(self):
     '''

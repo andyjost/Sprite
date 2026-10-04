@@ -12,8 +12,10 @@ To run several tests, use a regex, e.g., `./run_tests 'unit_(prelude|compiler).p
 
 The drivers cache the output of the Curry front end in `.cache/icurry.db`
 under this directory (environment variable SPRITE_CACHE_FILE).  A repeated run
-compiles only the Curry texts that changed.  Set SPRITE_CACHE_FILE to the
-empty string to run without the cache, or delete the file to start over.
+compiles only the Curry texts that changed.  The key of an entry names the
+route from Curry to ICurry (see section 8), so the two routes never share an
+entry.  Set SPRITE_CACHE_FILE to the empty string to run without the cache,
+or delete the file to start over.
 
 
 2. TEST CATEGORIES

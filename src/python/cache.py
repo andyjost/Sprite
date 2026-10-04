@@ -287,8 +287,11 @@ def icurry_cache_key(curryfile, currypath=(), options=(), tool=None):
   def put(part):
     hasher.update(strings.ensure_binary(part))
     hasher.update(b'\0')
+  if tool is None:
+    tool = config.curry2icurry_tool()
   put('sprite curry2icurry %d' % KEY_FORMAT)
   put(config.intermediate_subdir())
+  put(tool)
   put(frontend_digest(tool))
   put(' '.join(options))
   modulename = os.path.basename(curryfile)[:-len('.curry')]

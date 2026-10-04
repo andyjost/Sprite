@@ -57,15 +57,20 @@ def cache_file(enabled=True):
       finally:
         cache.reset()
 
+def frontend_tools():
+  '''The programs of the routes from Curry to ICurry that are configured.'''
+  return [t for t in (config.curry_frontend(), config.icurry_tool()) if t]
+
 @contextlib.contextmanager
 def frontend_calls():
-  '''Collects the commands that run the Curry front end.'''
+  '''Collects the commands that run the Curry front end or icurry.'''
   calls = []
   pexec = _system.pexec
-  def counting_pexec(cmd):
-    if cmd[0] == config.icurry_tool():
+  tools = frontend_tools()
+  def counting_pexec(cmd, *args, **kwds):
+    if cmd[0] in tools:
       calls.append(cmd)
-    return pexec(cmd)
+    return pexec(cmd, *args, **kwds)
   with mock.patch.object(_system, 'pexec', counting_pexec):
     yield calls
 
@@ -142,9 +147,47 @@ class TestKey(cytest.TestCase):
     cache.reset()
     self.addCleanup(cache.reset)
 
-  def key(self, relpath, text, currypath=(), options=()):
+  def key(self, relpath, text, currypath=(), options=(), tool=None):
     path = write(os.path.join(self.tmpdir, relpath), text)
-    return cache.icurry_cache_key(path, currypath, options)
+    return cache.icurry_cache_key(path, currypath, options, tool)
+
+  def test_route_is_part_of_the_key(self):
+    '''
+    The key names the route from Curry to ICurry and carries the digest of
+    its program; for the front end the digest covers the flags and the
+    sources of the built-in translation too.  So an entry written by one
+    route is never served to the other.
+    '''
+    text = 'f :: Int\nf = 1\n'
+    programs = {
+        'frontend': config.curry_frontend(), 'icurry': config.icurry_tool()
+      }
+    digests = {}
+    for tool in config.CURRY2ICURRY_TOOLS:
+      digests[tool] = cache.frontend_digest(tool)
+      self.assertEqual(len(digests[tool]), 64 if programs[tool] else 0, tool)
+      # Memoized per route.
+      self.assertEqual(cache.frontend_digest(tool), digests[tool])
+    keys = {
+        tool: self.key('route/M.curry', text, tool=tool)
+            for tool in config.CURRY2ICURRY_TOOLS
+      }
+    self.assertNotEqual(keys['frontend'], keys['icurry'])
+    # The default is the configured route.
+    self.assertEqual(
+        self.key('route/M.curry', text), keys[config.curry2icurry_tool()]
+      )
+    if programs['frontend'] is None:
+      self.skipTest('the Curry front end is not configured')
+    # New flags make a new digest, and so does a change to the translation.
+    cache.reset()
+    with mock.patch.object(config, 'frontend_flags', return_value='--other'):
+      self.assertNotEqual(cache.frontend_digest('frontend'), digests['frontend'])
+    cache.reset()
+    with mock.patch.object(cache, 'PORT_DIR', self.tmpdir):
+      self.assertNotEqual(cache.frontend_digest('frontend'), digests['frontend'])
+    cache.reset()
+    self.assertEqual(cache.frontend_digest('frontend'), digests['frontend'])
 
   def test_anonymous_name_is_not_part_of_the_key(self):
     text = 'f :: Int\nf = 1\n'
@@ -556,10 +599,11 @@ class TestCompile(cytest.TestCase):
         , 'from curry import cache, config'
         , 'from curry.toolchain import _system'
         , 'pexec = _system.pexec'
-        , 'def checking_pexec(cmd):'
-        , '  if cmd[0] == config.icurry_tool():'
+        , 'tools = [config.curry_frontend(), config.icurry_tool()]'
+        , 'def checking_pexec(cmd, *args, **kwds):'
+        , '  if cmd[0] in tools:'
         , '    raise AssertionError("the front end ran: %r" % (cmd,))'
-        , '  return pexec(cmd)'
+        , '  return pexec(cmd, *args, **kwds)'
         , '_system.pexec = checking_pexec'
         , 'module = curry.compile(%r)' % MODULE_TEXT
         , 'expr = curry.compile("1 + 2", "expr", exprtype="Int")'
@@ -627,8 +671,9 @@ class TestCompile(cytest.TestCase):
         ]
       self.assertNotEqual(names[0], names[1])
       for message, name in zip(messages, names):
-        # The command names the module's file, and the error its position.
-        self.assertIn('%s.curry:\n' % name, message)
+        # The command of the route names the module (its file for icurry, its
+        # name for the front end), and the error names its position.
+        self.assertIn(name, message.splitlines()[0])
         self.assertIn('%s.curry:2:3 Error:' % name, message)
       self.assertNotIn(names[0], messages[1])
       self.assertEqual([row[2] for row in rows(cachefile)], [''])

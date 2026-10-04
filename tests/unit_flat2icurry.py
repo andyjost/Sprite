@@ -15,11 +15,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DATA = os.path.join(HERE, 'data', 'curry')
 
-# Where the FlatCurry interfaces of the library modules may be found.  The
-# front end wrote them when icurry compiled the library.
-LIBRARY_DIRS = [
-    os.path.join(ROOT, 'curry', 'lib'), os.path.join(ROOT, 'curry', 'pakcs-3.4.1')
-  ]
+# Where the FlatCurry interfaces of the library modules may be found: the
+# front end writes them under curry/lib/.curry (make -C curry interfaces).
+LIBRARY_DIRS = [os.path.join(ROOT, 'curry', 'lib')]
 
 def corpus_fcy(name, directory=DATA):
   '''The FlatCurry file of a test module, written by the front end.'''

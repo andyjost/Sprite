@@ -86,8 +86,10 @@ The front end takes seconds per module.  Sprite can keep its output in a
 cache, an SQLite database named by ``SPRITE_CACHE_FILE`` (see
 :ref:`CommandLineInterface/EnvironmentVariables:Development Variables`).  The
 key of an entry is a digest of the module source, of the sources of the
-modules it imports, and of the front-end options; the file name is not part
-of it.  A module compiled from a string by ``curry.compile`` gets a new name
+modules it imports, of the front-end options, and of the route from Curry to
+ICurry with its program and flags; the file name is not part of it.  So an
+entry written by one route is never served to the other.  A module compiled
+from a string by ``curry.compile`` gets a new name
 in every process.  The cache stores its ICurry under the name of the first
 compile and rewrites the name on a hit.  The test drivers turn the cache on.
 

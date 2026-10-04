@@ -36,14 +36,11 @@ requirements:
     - python 3.14.*
     # Header-only use: boost/preprocessor, boost/io, boost/utility.
     - libboost-headers
-    # configure checks for jq, and build.sh links tools/jq to it.
-    - jq
     # configure checks the front end, and build.sh runs it over the Curry
     # library so that the package holds the FlatCurry of the library.
     - curry-frontend 2.0.0.*
   run:
     - python 3.14.*
-    - jq
     # The front end writes FlatCurry; Sprite translates it to ICurry.  Its
     # own run dependency is gmp (libgmp).  The ICurry oracle depends on this
     # exact front end, so the pin is exact.

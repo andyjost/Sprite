@@ -3,10 +3,11 @@ Tests for the prebuilt Curry library and the bytecode cache of generated
 Python modules.
 
 make stage compiles the installed Curry library for both backends (the
-prebuild step of curry/Makefile).  The Python backend finds a generated
+prebuild step of curry/Makefile): every module Sprite can compile
+(config.supported_syslibs).  The Python backend finds a generated
 module and its bytecode cache; the C++ backend finds the shared object, its
 ABI stamp, and the precompiled header.  So the first import after a stage
-compiles nothing.  The toolchain writes the bytecode cache when it writes a
+compiles nothing.  The other modules get their ICurry and JSON only.  The toolchain writes the bytecode cache when it writes a
 Python file, and the loader of the Python backend reads the cache through
 importlib and writes a missing or stale one, with or without -B.  The modules
 of the cache tests come from hand-written ICurry-JSON, so no Curry front end
@@ -41,8 +42,17 @@ class TestStagedLibrary(cytest.TestCase):
   '''The products that make stage leaves in the installation.'''
 
   def test_python_files_are_staged(self):
-    '''Every system module has its Python file and a current bytecode cache.'''
+    '''
+    Every supported system module has its Python file and a current bytecode
+    cache; every system module has its ICurry and JSON.
+    '''
     for name in config.syslibs():
+      self.assertTrue(os.path.isfile(installed_file(name, '.icy')), name)
+      self.assertTrue(os.path.isfile(installed_file(name, '.json.z')), name)
+    supported = config.supported_syslibs()
+    self.assertEqual(supported[0], 'Prelude')
+    self.assertFalse(set(supported) & set(config.unsupported_syslibs()))
+    for name in supported:
       pyfile = installed_file(name, '.py')
       self.assertTrue(os.path.isfile(pyfile), pyfile)
       cache = py_toolchain.bytecode_file(pyfile)
@@ -57,7 +67,7 @@ class TestStagedLibrary(cytest.TestCase):
     '''
     from curry.backends.cxx import toolchain as cxx_toolchain
     digest = cxx_toolchain.runtime_digest()
-    for name in config.syslibs():
+    for name in config.supported_syslibs():
       sofile = installed_file(name, '.so')
       self.assertTrue(os.path.isfile(sofile), sofile)
       self.assertTrue(os.path.isfile(installed_file(name, '.cpp')), name)
@@ -76,8 +86,9 @@ class TestStagedLibrary(cytest.TestCase):
 
   def test_first_import_compiles_nothing(self):
     '''
-    A new process imports every system module on the current backend without
-    a compiler command and without compiling a generated Python file.
+    A new process imports every supported system module on the current
+    backend without a compiler command and without compiling a generated
+    Python file.
     '''
     if curry.flags['backend'] == 'cxx' and config.cxx_tool() is None:
       self.skipTest('no C++ compiler is installed')
@@ -98,7 +109,7 @@ class TestStagedLibrary(cytest.TestCase):
       , '    compiled.append(path)'
       , '  return source_to_code(self, data, path, *args, **kwds)'
       , 'machinery.SourceFileLoader.source_to_code = counting_source_to_code'
-      , 'for name in config.syslibs():'
+      , 'for name in config.supported_syslibs():'
       , '  curry.import_(name)'
       , 'print(json.dumps([commands, compiled, sorted(curry.modules)]))'
       ])
@@ -109,7 +120,7 @@ class TestStagedLibrary(cytest.TestCase):
       )
     self.assertEqual(commands, [])
     self.assertEqual(compiled, [])
-    for name in config.syslibs():
+    for name in config.supported_syslibs():
       self.assertIn(name, modules)
 
   def test_prebuild_recipe_pins_the_installation(self):
