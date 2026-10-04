@@ -32,6 +32,11 @@ git -C "$path" submodule update --init extern/pybind11
 mkdir -p "$root/install" "$root/object-root"
 ln -s "$root/install" "$path/install"
 ln -s "$root/object-root" "$path/object-root"
+# Make.config carries the build settings of this tree, among them JOBS
+# (configure --jobs) and CCACHE (configure --with-ccache), so the worktree
+# builds with the same job count and the same compiler cache.  To build it
+# with another count once, set MAKEFLAGS=-jN in the environment: a -j wins
+# over JOBS.
 cp "$here/Make.config" "$path/Make.config"
 if [ -e "$here/CLAUDE.local.md" ]; then
   cp -P "$here/CLAUDE.local.md" "$path/CLAUDE.local.md"

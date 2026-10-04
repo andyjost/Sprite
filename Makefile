@@ -10,6 +10,34 @@ endif
 DIRS_TO_CLEAN += $(OBJECT_ROOT)
 include Make.include
 
+# Parallel build
+# ==============
+# JOBS (Make.config, configure --jobs) is the job count of the top-level
+# make: a count, or auto for one job per processor.  The flag goes into
+# MAKEFLAGS here, at level 0 only: the sub-makes join the job server of this
+# make through the MAKEFLAGS they inherit.  A -j on the command line wins,
+# and so does make JOBS=N.  The recipes below that run make say $(MAKE), so
+# the job server reaches them; a plain make in a recipe runs serially, with
+# a warning.  The order of the sub-makes under -j: src before curry (above),
+# and inside src, cyrt before python (src/Makefile).
+ifeq ($(MAKELEVEL),0)
+  ifeq ($(filter -j% --jobs%,$(MAKEFLAGS)),)
+    ifeq ($(strip $(JOBS)),auto)
+      MAKE_JOBS := $(shell nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
+    else
+      MAKE_JOBS := $(strip $(JOBS))
+    endif
+    ifneq ($(MAKE_JOBS),)
+      ifneq ($(shell [ "$(MAKE_JOBS)" -gt 0 ] 2>/dev/null && echo ok),ok)
+        $(error JOBS should be a count or auto, not "$(JOBS)".  See Make.config)
+      endif
+      ifneq ($(MAKE_JOBS),1)
+        MAKEFLAGS += -j$(MAKE_JOBS)
+      endif
+    endif
+  endif
+endif
+
 .DEFAULT_GOAL := default-goal
 
 .PHONY: MANIFEST
@@ -38,6 +66,12 @@ ifeq ($(COUNTERS),1)
 	@echo "  * The scheduler counters of 'cxx' are enabled."
 else
 	@echo "  * The scheduler counters of 'cxx' are disabled.  Say \`make <target> COUNTERS=1\` to enable."
+endif
+	@echo "  * Jobs: JOBS=$(or $(strip $(JOBS)),1) (configure --jobs N|auto).  A \`make -jN\` or \`make JOBS=N\` wins."
+ifneq ($(strip $(CCACHE)),)
+	@echo "  * ccache: $(CCACHE) runs in front of the compilers (configure --with-ccache)."
+else
+	@echo "  * ccache is not configured.  Say \`configure --with-ccache\` to put it in front of the compilers."
 endif
 	@echo ""
 	@echo "Targets for testing:"
@@ -125,24 +159,27 @@ clean:
 
 .PHONY: test
 test:
-	make -C tests
+	$(MAKE) -C tests
 
 .PHONY: stage
 stage:
-	make install SYMLINK_INTERFACES=1
+	$(MAKE) install SYMLINK_INTERFACES=1
 
 .PHONY: unstage
 unstage:
 	$(call remove_dir,$(STAGE_DIR))
 
+# One goal per make: the Sphinx targets share the doctrees directory and
+# must not run at the same time under -j.
 .PHONY: docs
 docs:
-	make -C docs html latexpdf
+	$(MAKE) -C docs html
+	$(MAKE) -C docs latexpdf
 
 .PHONY: default-goal
 default-goal:
 	git submodule init
 	git submodule update
-	make overlay
-	make stage
+	$(MAKE) overlay
+	$(MAKE) stage
 

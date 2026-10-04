@@ -26,10 +26,19 @@ fi
 # disable the cap.  The valgrind drivers run without the cap: valgrind
 # reserves large address ranges at start-up.
 case `basename $0` in
+  run_tests)
+    # The runner caps each child itself (see lib/testrunner and section 10
+    # of README): a watchdog on the resident set of the file's session, and
+    # the address-space limit as a backstop.  SPRITE_TEST_MAX_VMEM_KB, when
+    # set, names the backstop.
+    export SPRITE_TEST_MAX_VMEM_KB
+    ;;
   valgrind*) : "${SPRITE_TEST_MAX_VMEM_KB:=unlimited}" ;;
   *)         : "${SPRITE_TEST_MAX_VMEM_KB:=6291456}" ;;
 esac
-ulimit -v "$SPRITE_TEST_MAX_VMEM_KB" || 1>&2 echo "Warning: could not set the memory cap."
+if [ `basename $0` != run_tests ]; then
+  ulimit -v "$SPRITE_TEST_MAX_VMEM_KB" || 1>&2 echo "Warning: could not set the memory cap."
+fi
 
 # python=$SPRITE_HOME/bin/python
 export SPRITE_HOME
@@ -42,10 +51,10 @@ export CURRYPATH=`pwd`/data/curry:$CURRYPATH
 # section 1 of README.
 export SPRITE_CACHE_FILE="${SPRITE_CACHE_FILE-`pwd`/.cache/icurry.db}"
 
-# The unittest module is really weird.  There doesn't
-# seem to be a way to run tests by specifying a list of filenames.  So the arguments
-# to this script must either be empty (run all tests) or the name of a test file (which
-# is then taken as a pattern, meaning just that file will be run).
+# The drivers other than run_tests pass the arguments to unittest discover
+# as one pattern.  So the arguments must either be empty (run all tests) or
+# the name of a test file (which is then taken as a pattern, meaning just
+# that file will be run).
 if [ $# -eq 0 ]; then
   pattern='*.py'
 else
@@ -54,8 +63,10 @@ fi
 
 case `basename $0` in
   "run_tests")
-    # Run the Python unit tests.
-    $SPRITE_HOME/bin/python -B -m unittest discover -v `pwd` "$pattern"
+    # Run the test files in child processes, under a memory budget: see
+    # lib/testrunner and section 10 of README.  The options and the
+    # patterns go to the runner; say ./run_tests -h.
+    exec $SPRITE_HOME/bin/python -B -m testrunner "$@"
     ;;
   "run_benchmarks")
     # Run the benchmarks.  Arguments go to the benchmarks package under

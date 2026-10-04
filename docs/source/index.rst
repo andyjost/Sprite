@@ -24,6 +24,7 @@ in a single environment.
    Examples
    Introduction/Introduction
    Installation/Installation
+   DeveloperSetup
    CommandLineInterface/index
    PythonAPI/index
    Reference/index

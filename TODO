@@ -1139,3 +1139,123 @@
   assertion on a guard of an enclosing set function at the root of a nested
   configuration; escape_all of the C++ Configuration is no longer set
   anywhere.
+- Verification velocity: the test runner (V1, V2), deterministic benchmark
+  columns (M6), the parallel build and ccache (V3), and the developer setup
+  (W1).  Development is limited by verification wall time: every test file
+  ran in its own process, one at a time, under ulimit -v 6 GB, about 8.5
+  min for the unit files on the C++ backend and 9 min on the Python
+  backend; builds never passed -j; benchmarks reported load-dependent
+  seconds.  Done:
+  (1) Test runner, tests/lib/testrunner (python -m testrunner; run_tests
+  execs it): one process per file and backend in a session of its own, a
+  watchdog that walks /proc every half second, sums the resident sets of
+  the file's session and of the descendants of its process (parent links,
+  so a child that started a session of its own counts; the members of one
+  poll are the roots of the next), records the peak, and kills the session
+  over its cap or past --timeout; admission under -j and a memory budget
+  (--mem, 60 percent of MemAvailable by default) with backfill, the two
+  backends of one file never together, EXCLUSIVE files alone
+  (unit_currylib.py); tests/manifest.json (format 1: duration, peak,
+  counts, machine size per file and backend; the cap is twice the peak, at
+  least 512 MB, 2 GB without a peak; a file without a duration is assumed
+  to take the median of the measured ones); --update-manifest (the peak
+  only grows, the duration only from a run with a unittest verdict);
+  --fast, --changed REV with RULES and a fallback to everything for the
+  unknown, --list, --prepare (sprite-make over the shared corpus, one
+  directory and process at a time, before the parallel files, because the
+  front end, the ICurry and JSON writers, the code generators, and the C++
+  compiler write their products in place); SIGINT, SIGTERM, and SIGHUP set
+  a flag that the run loop turns into the kill of every session and status
+  130; a pattern that matches no file is status 2; -v at width 1 streams
+  the output and hands the file the standard input (the editor targets of
+  tests/Makefile pass -v).  The committed manifest holds four durations and
+  no peaks; DEFAULT_JOBS is 1 until the calibration below.  Tests:
+  unit_runner.py (54 tests on small Python children: admission, watchdog,
+  timeout, a child in its own session, an orphan, interrupts, manifest,
+  rules, report, cli, prepare).  Known: the sum counts a shared page once
+  per process (Pss from smaps_rollup costs 14 ms per read against 0.016 ms
+  for stat, measured on a 600 MB process, so the runner keeps stat); a
+  spike shorter than a poll in a child can be missed; a process forked
+  between the scan and the kill by a parent that is already dead escapes.
+  (2) Deterministic columns: the harness counts the user-space
+  instructions of the child and its descendants with perf stat
+  (-e instructions:u) in one repetition after the measured ones, so the
+  measured seconds stay free of perf (the repetition is the last sample,
+  "perf": true; perf is detected at start; --no-perf skips it); meta holds
+  cpu_model, cores, mem_gb and no host name; schema 2, schema 1 loads and
+  compares; compare prints the machine of each file, warns when they
+  differ, shows the ratio of the instructions, and has --deterministic:
+  the instructions decide with a tolerance of 1 percent, steps, forks, and
+  collections are listed beyond it, wall and CPU seconds are advisory
+  (~cpu, ~wall); --strict now fails on an item without the metric, so a
+  deterministic gate on records without instructions fails instead of
+  passing with no comparison.  Measured on a loaded machine: two runs of
+  Hello differed by 14 percent in CPU seconds and by 0.02 percent in
+  instructions; perf adds about 20 ms of CPU per run.  Left: an allocation
+  counter from the collector as a further column (needs a runtime change);
+  the nightly job records the new columns once perf is on the runner; the
+  baseline of 2026-10-03 has no instructions, so a comparison by
+  instructions needs a new baseline; the hybrid-processor sum is untested
+  on such a machine.
+  (3) Parallel build and ccache: configure --jobs N|auto writes JOBS into
+  Make.config and the root Makefile turns it into -j (auto is nproc at
+  make time; a -j on the command line wins, and so does make JOBS=N);
+  every recipe of the root Makefile says $(MAKE), so the job server
+  reaches the sub-makes; the order rules python | cyrt, shlibs:: | libs,
+  shlib_extra | libcyrt.a, and .NOTPARALLEL in curry/Makefile keep make -j
+  safe; configure --with-ccache puts ccache in front of CC and CXX and
+  makes tools/cxx a script that runs ccache in front of the post-install
+  compiler.  Checked with dry runs, make -p, scratch models, and
+  unit_configure.py only; no real parallel build has run; ccache was not
+  installed.  DEFAULT_JOBS in configure is '1' until the trial below.
+  Known: every make stage re-archives and relinks libcyrt.so because the
+  archive members carry full paths (ar -P); harmless.  Left: the
+  post-install compiles do not hit the cache until Cpp2So compiles with -c
+  and links separately; PrecompiledHeader.flavor should then read the
+  compiler behind the wrapper; CI keeps its own wrapper script until the
+  option is proven.
+  (4) Developer setup: scripts/setup-dev-machine.sh --prefix DIR (apt
+  check without sudo, PAKCS with its SHA-256, optional icurry, the
+  checkout with install and object-root linked into the prefix, the conda
+  environment from conda/dev-environment.yml, configure, make stage, a
+  smoke test on both backends, the next steps), docs/source/
+  DeveloperSetup.rst, tests/unit_setup_script.py (dry runs with stand-in
+  tools).  Review fixes: --jobs auto goes to configure as auto;
+  CCACHE_DIR=PREFIX/ccache is part of the clean environment; configure is
+  skipped while Make.config exists and PREFIX/configure-args holds the
+  same flags, because configure empties install and object-root
+  (--reconfigure forces it).  Verified in dry runs and the unit test only;
+  the first real run on the new machine must verify the PAKCS build, the
+  conda solve, the --icurry step, make stage, and the smoke test, then the
+  personal rules file gets the paths of that machine.
+  The quiet window (one agent, nothing else on the machine), in order:
+    1. Calibrate the manifest: from tests/, in the clean environment,
+       ./run_tests -j 1 --backend both --update-manifest (about an hour);
+       review git diff tests/manifest.json; run the files reported as
+       "killed: memory" again with --update-manifest (their caps follow the
+       recorded peaks); commit the manifest.  Then a parallel trial:
+       ./run_tests -j auto --backend both --prepare; compare the wall time
+       and the failures with the serial run.
+    2. The make -j trial: install ccache; re-run configure with the current
+       options plus --jobs auto --with-ccache (configure empties install
+       and object-root); time make stage from clean with JOBS=1, then with
+       JOBS=auto; then a no-op make stage; then a rebuild after a touch of
+       src/cyrt/graph/node.hpp and of src/cyrt/state/rts.cpp (libcyrt.so
+       must relink); run unit_cxx_toolchain.py, unit_prebuild.py, and
+       unit_currylib.py.
+    3. make -j12 stage from clean three times; diff -r two of the installed
+       trees (minus time stamps); a race shows as a difference or a
+       failure.
+    4. The ccache trial: ccache -z; make stage from clean; ccache -s; again
+       from clean; the runtime objects must hit on the second build.
+    5. Flip the defaults: DEFAULT_JOBS = 'auto' in tests/lib/testrunner/
+       __init__.py (after step 1) and DEFAULT_JOBS = 'auto' in configure
+       (after steps 2 to 4); update the sentences that say the default is
+       1 in tests/README section 10, AGENTS.md, and docs/source/
+       Installation/ConfiguringSprite.rst; run unit_runner.py and
+       unit_configure.py (they read the constants); let CI replace its
+       sprite-cxx wrapper with --with-ccache.
+    6. Merge checks: merge py314 into the branch; make stage in the clean
+       environment; ./run_tests -j auto --backend both --prepare; a
+       benchmark smoke run against a fresh baseline with
+       ./run_benchmarks compare --deterministic; then merge.

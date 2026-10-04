@@ -5,8 +5,11 @@ $(shell mkdir -p $(DEPDIR) >/dev/null)
 DIRS_TO_REC_CLEAN += $(DEPDIR)
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.Td
 
-COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
-COMPILE.cc = $(CXX) $(DEPFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
+# ccache, when configured (CCACHE in Make.config, configure --with-ccache),
+# runs in front of the compiler of every object.  The links do not go
+# through it: ccache passes a link through unchanged.
+COMPILE.c = $(strip $(CCACHE) $(CC)) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
+COMPILE.cc = $(strip $(CCACHE) $(CXX)) $(DEPFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d && touch $@
 
 # The compiler flags live in Make.config, so a change to it compiles every

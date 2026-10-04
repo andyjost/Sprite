@@ -93,10 +93,15 @@ def set_backend_flag(flags, backend):
 
 
 class Settings:
-  '''The settings of a run: the tools, the limits, the environment.'''
+  '''
+  The settings of a run: the tools, the limits, the environment.  ``perf``
+  is the path of perf for the repetition that counts the instructions, or
+  None for no such repetition; ``instructions_source`` says how the
+  instructions are counted, or why they are not, for the records.
+  '''
   def __init__(
       self, sprite_home, pakcs=None, timeout=600, cap=None, env=None, label=''
-    , warmup=1
+    , warmup=1, perf=None, instructions_source=None
     ):
     self.sprite_home = os.path.abspath(sprite_home)
     self.pakcs = pakcs
@@ -105,6 +110,11 @@ class Settings:
     self.env = dict(env or {})
     self.label = label
     self.warmup = warmup
+    self.perf = perf
+    if instructions_source is None:
+      instructions_source = 'perf stat -e %s' % measure.PERF_EVENT if perf \
+                            else 'not measured'
+    self.instructions_source = instructions_source
 
   @property
   def sprite_exec(self):
@@ -131,13 +141,18 @@ class Settings:
     env.update(extra)
     return env
 
-  def run(self, cmd, env, cwd):
+  def run(self, cmd, env, cwd, perf=False):
+    '''Runs one command; under perf when ``perf`` is set and perf is known.'''
     return measure.run_command(
         cmd, env=env, cwd=cwd, timeout=self.timeout, cap=self.cap
+      , perf=self.perf if perf else None
       )
 
   def metadata(self):
-    '''Facts about the machine and the tools, stored in every record.'''
+    '''
+    Facts about the machine and the tools, stored in every record.  The
+    machine context, cpu_model, cores, and mem_gb, names no host.
+    '''
     return {
         'python': self._version(
             [self.python, '-c', 'import sys; print(sys.version.split()[0])']
@@ -146,12 +161,14 @@ class Settings:
             [os.path.join(self.sprite_home, 'tools', 'cxx'), '--version']
           )
       , 'frontend': self._frontend()
-      , 'cpu': records.cpu_model()
-      , 'cpus': os.cpu_count()
+      , 'cpu_model': records.cpu_model()
+      , 'cores': os.cpu_count()
+      , 'mem_gb': records.memory_gb()
       , 'platform': '%s-%s-%s' % (
             platform.system(), platform.release(), platform.machine()
           )
       , 'rss_source': measure.rss_source()
+      , 'instructions_source': self.instructions_source
       , 'timeout': self.timeout
       , 'cap': self.cap
       , 'env': self.env
@@ -209,11 +226,14 @@ class Item:
   def cleanup(self):
     pass
 
-  def measure(self):
-    '''Runs the item once and returns the sample.'''
+  def measure(self, perf=False):
+    '''
+    Runs the item once and returns the sample; under perf, which counts the
+    instructions, when ``perf`` is set.
+    '''
     cmd, env, cwd = self.command()
     try:
-      run = self.settings.run(cmd, env, cwd)
+      run = self.settings.run(cmd, env, cwd, perf=perf)
       return records.sample(run, self.parse(run))
     finally:
       self.cleanup()

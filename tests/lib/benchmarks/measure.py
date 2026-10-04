@@ -14,13 +14,26 @@ size of the harness itself.  GNU time (``/usr/bin/time``) is a small program
 that forks the command and reports the peak of the command and its
 descendants; the harness runs it inside the wrapper chain when it is
 installed.  Without it the peak comes from ``wait4``, with that floor.
+
+The instructions need perf.  ``perf stat -e instructions:u`` counts the
+user-space instructions that the command and its descendants retire, a
+number that does not depend on the load of the machine and compares across
+machines of one architecture.  perf wraps the command itself, inside the
+other wrappers, so the count covers the command tree only.  perf costs a few
+milliseconds of CPU time per run, so a run under perf has wall and CPU
+seconds that are not comparable with a run without it; the harness counts
+the instructions in one more repetition after the measured ones and keeps
+the measured seconds free of perf.  perf stat exits with status 0 when the
+command died of a signal; it prints "COMMAND: Killed" (the description of
+strsignal) as its last line, which the harness reads back into the status.
 '''
 
 import json, os, re, shutil, signal, subprocess, sys, tempfile, time
 
 __all__ = [
-    'Run', 'TIMEOUT_STATUS', 'gnu_time', 'parse_json', 'parse_pakcs'
-  , 'parse_stats', 'parse_time', 'rss_source', 'run_command'
+    'PERF_EVENT', 'Run', 'TIMEOUT_STATUS', 'gnu_time', 'instructions_source'
+  , 'parse_json', 'parse_pakcs', 'parse_perf', 'parse_stats', 'parse_time'
+  , 'perf', 'rss_source', 'run_command'
   ]
 
 # The exit status of the timeout command when the child ran out of time.
@@ -28,6 +41,9 @@ TIMEOUT_STATUS = 124
 
 # ru_maxrss is in kibibytes on Linux and in bytes on macOS.
 RSS_UNIT = 1 if sys.platform == 'darwin' else 1024
+
+# The event that perf counts: instructions retired in user space.
+PERF_EVENT = 'instructions:u'
 
 # The seven fields of sprite-exec --stats.  A runtime built with the
 # scheduler counters appends more key=value pairs (see counters.py).
@@ -40,6 +56,7 @@ PAKCS_PATTERN = re.compile(
   )
 
 _GNU_TIME = []
+_PERF = []
 
 def gnu_time():
   '''The path of GNU time, or None when it is not installed.'''
@@ -63,10 +80,55 @@ def rss_source():
   return 'wait4 (never below the resident set of the harness)'
 
 
+def perf():
+  '''
+  The path of perf when ``perf stat -e instructions:u`` counts on this
+  machine, or None: perf is not installed, the kernel refuses it, or the
+  processor has no such counter.  Detected once, with a run of ``true``.
+  '''
+  return _detect_perf()[0]
+
+
+def instructions_source():
+  '''How the instructions are counted, or why they are not, for the record.'''
+  return _detect_perf()[1]
+
+
+def _detect_perf():
+  if not _PERF:
+    _PERF.append(_probe_perf())
+  return _PERF[0]
+
+
+def _probe_perf():
+  path = shutil.which('perf')
+  if path is None:
+    return None, 'not measured: perf is not installed'
+  cmd = [path, 'stat', '-e', PERF_EVENT, '-x,', '--', 'true']
+  try:
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    version = subprocess.run(
+        [path, '--version'], capture_output=True, text=True, timeout=60
+      ).stdout.strip().splitlines()
+  except (OSError, subprocess.TimeoutExpired) as exc:
+    return None, 'not measured: perf failed: %s' % exc
+  if proc.returncode == 0 and parse_perf(proc.stderr):
+    return path, 'perf stat -e %s (%s)' % (
+        PERF_EVENT, version[0] if version else 'perf'
+      )
+  lines = [
+      line.strip() for line in proc.stderr.splitlines()
+          if line.strip() and line.strip().lower() != 'error:'
+    ]
+  why = lines[0] if lines else 'exit status %d' % proc.returncode
+  return None, 'not measured: perf %s failed: %s' % (' '.join(cmd[1:5]), why)
+
+
 class Run:
   '''The outcome of one child process.'''
   def __init__(
       self, cmd, wall, usage, returncode, stdout, stderr, peak_rss=None
+    , instructions=None, perf=False
     ):
     self.cmd = cmd
     self.wall = wall
@@ -77,6 +139,9 @@ class Run:
     self.returncode = returncode
     self.stdout = stdout
     self.stderr = stderr
+    # Whether the command ran under perf, and the instructions it counted.
+    self.perf = perf
+    self.instructions = instructions
 
   @property
   def timed_out(self):
@@ -105,7 +170,7 @@ class Run:
     return '%s: %s' % (what, tail) if tail else what
 
 
-def run_command(cmd, env=None, cwd=None, timeout=600, cap=None):
+def run_command(cmd, env=None, cwd=None, timeout=600, cap=None, perf=None):
   '''
   Runs ``cmd`` to its end and returns a :class:`Run`.
 
@@ -117,16 +182,24 @@ def run_command(cmd, env=None, cwd=None, timeout=600, cap=None):
         run then has the status ``timeout``.
     cap:
         A cap on the address space of the child, in bytes; None for none.
+    perf:
+        The path of perf to count the instructions of the command and its
+        descendants with; None for no count.
   '''
   wrapper = ['timeout', '-k', '5', '%g' % timeout]
-  rssfile = None
+  rssfile = perffile = None
   if gnu_time():
     handle, rssfile = tempfile.mkstemp(prefix='rss-', suffix='.txt')
     os.close(handle)
     wrapper += [gnu_time(), '-q', '-f', '%M', '-o', rssfile]
   if cap:
     wrapper += ['prlimit', '--as=%d' % cap]
-  cmd = wrapper + list(cmd)
+  if perf:
+    handle, perffile = tempfile.mkstemp(prefix='perf-', suffix='.txt')
+    os.close(handle)
+    wrapper += [perf, 'stat', '-e', PERF_EVENT, '-x,', '-o', perffile, '--']
+  command = list(cmd)
+  cmd = wrapper + command
   try:
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
       start = time.perf_counter()
@@ -143,18 +216,22 @@ def run_command(cmd, env=None, cwd=None, timeout=600, cap=None):
         _kill_session(proc.pid)
       out.seek(0)
       err.seek(0)
+      stderr = err.read().decode('utf-8', 'replace')
+      if perf and returncode == 0:
+        returncode = _perf_signal(command[0], stderr) or 0
       return Run(
           cmd, wall, usage, returncode
-        , out.read().decode('utf-8', 'replace')
-        , err.read().decode('utf-8', 'replace')
+        , out.read().decode('utf-8', 'replace'), stderr
         , peak_rss=_read_rss(rssfile)
+        , instructions=_read_perf(perffile), perf=perf is not None
         )
   finally:
-    if rssfile is not None:
-      try:
-        os.unlink(rssfile)
-      except OSError:
-        pass
+    for filename in rssfile, perffile:
+      if filename is not None:
+        try:
+          os.unlink(filename)
+        except OSError:
+          pass
 
 
 def _read_rss(rssfile):
@@ -167,6 +244,37 @@ def _read_rss(rssfile):
     return int(lines[-1]) * 1024
   except (OSError, ValueError, IndexError):
     return None
+
+
+def _read_perf(perffile):
+  '''The instructions that perf stat wrote, or None.'''
+  if perffile is None:
+    return None
+  try:
+    with open(perffile) as stream:
+      return parse_perf(stream.read())
+  except OSError:
+    return None
+
+
+def _perf_signal(argv0, stderr):
+  '''
+  The signal that killed the command under perf, as the negative number
+  that wait reports, or None.  perf prints "ARGV0: DESCRIPTION" as its last
+  line, with the description of strsignal.
+  '''
+  lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+  prefix = argv0 + ': '
+  if not lines or not lines[-1].startswith(prefix):
+    return None
+  description = lines[-1][len(prefix):]
+  for signum in sorted(signal.valid_signals()):
+    try:
+      if signal.strsignal(signum) == description:
+        return -int(signum)
+    except ValueError:
+      pass
+  return None
 
 
 def _kill_session(pid):
@@ -191,6 +299,26 @@ def parse_stats(stderr):
         fields[key] = float(value) if '.' in value else int(value)
       return fields
   return None
+
+
+def parse_perf(text):
+  '''
+  The instructions that ``perf stat -x,`` counted: the sum of the values of
+  the instruction events in the CSV ``text`` (a hybrid processor reports one
+  line per kind of core).  None when perf counted none, as in "<not
+  counted>" and "<not supported>", or when the line is absent.
+  '''
+  total = None
+  for line in text.splitlines():
+    fields = line.split(',')
+    if len(fields) < 3 or 'instructions' not in fields[2]:
+      continue
+    try:
+      value = int(fields[0].strip())
+    except ValueError:
+      continue
+    total = value if total is None else total + value
+  return total
 
 
 def parse_time(stdout):

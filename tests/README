@@ -8,7 +8,11 @@ To run all tests, say `./run_tests`.
 
 To run a specific test, say, e.g., `./run_tests func_kiel.py`.
 
-To run several tests, use a regex, e.g., `./run_tests 'unit_(prelude|compiler).py'`.
+To run several tests, use a shell-style pattern, e.g.,
+`./run_tests 'unit_p*.py'`, or name several files.  run_tests runs each
+file in a child process under a memory watchdog and takes options: the
+width (-j), the backend, the files that a change touches (--changed), the
+fast tier (--fast), and a listing (--list).  See section 10.
 
 The drivers cache the output of the Curry front end in `.cache/icurry.db`
 under this directory (environment variable SPRITE_CACHE_FILE).  A repeated run
@@ -77,9 +81,13 @@ The pattern should be quoted.  To run just the unit tests, for example, say:
 
         ./run_tests 'unit*.py'
 
-The drivers cap the address space of the test process at 6 GiB, so a
-diverging program fails with an allocation error.  The valgrind drivers run
-without the cap.  To change the cap, set SPRITE_TEST_MAX_VMEM_KB (in KiB, or
+run_tests takes options as well (section 10).
+
+The drivers other than run_tests cap the address space of the test process
+at 6 GiB, so a diverging program fails with an allocation error.  run_tests
+watches the resident set of each file instead and keeps the address-space
+limit as a backstop (section 10).  The valgrind drivers run without the
+cap.  To change the cap, set SPRITE_TEST_MAX_VMEM_KB (in KiB, or
 "unlimited").
 
 The collector of the C++ backend has a stress mode.  With SPRITE_GC_STRESS=1
@@ -123,6 +131,14 @@ Unit tests match the pattern unit_*.py.
     Curry text on every run.  It keeps the unit_ prefix so that CI runs the
     examples on every push.  To leave it out of a quick cycle, name the
     files you need, for example run_tests 'unit_prelude.py'.
+  - unit_configure.py runs copies of configure in scratch directories and
+    make dry runs; it builds nothing.  It checks the options --jobs and
+    --with-ccache and the ordering rules that keep make -j safe.
+  - unit_setup_script.py runs scripts/setup-dev-machine.sh with --dry-run
+    against a temporary prefix and checks the printed plan; it installs
+    nothing and needs no network.
+  - unit_runner.py tests the test runner (section 10) with small Python
+    children; it compiles no Curry.
 
 Functional tests match the pattern func_*.py:
 
@@ -221,31 +237,66 @@ progress table goes to standard error.  A record is one line of JSON with the
 medians of the repetitions: wall and CPU seconds of the child process and its
 descendants, the peak RSS in bytes, the time of the evaluation alone
 (eval_wall: the -t time of sprite-exec, or the elapsed time of PAKCS), the
-compile seconds, and the counters steps, forks, and collections of
-sprite-exec --stats.  The counters are exact and must agree between the
-repetitions; a record whose repetitions disagree carries a warning.  Every
-record also holds the commit (with -dirty for a changed tree), the date, a
-label (--label), the samples of the repetitions, and facts about the machine
-(Python, compiler, front end, CPU model, cores).  The fields are documented in
-lib/benchmarks/records.py.
+compile seconds, the counters steps, forks, and collections of sprite-exec
+--stats, and the instructions (below).  The counters are exact and must
+agree between the repetitions; a record whose repetitions disagree carries a
+warning.  Every record also holds the commit (with -dirty for a changed
+tree), the date, a label (--label, for example the name of a machine or of
+a step), the samples of the repetitions, and facts about the machine without
+a host name (meta: cpu_model, cores, mem_gb in GiB, Python, compiler, front
+end).  The fields are documented in lib/benchmarks/records.py.  Records of
+the first format (schema 1) load and compare; they have no instructions.
+
+The instructions are the user-space instructions that the child process and
+its descendants retire, counted by perf (perf stat -e instructions:u).  The
+count does not depend on the load of the machine: on a loaded machine two
+runs of Hello differed by 14 percent in CPU seconds and by 0.02 percent in
+instructions.  perf costs a few milliseconds of CPU per run, so the harness
+counts the instructions in one more repetition after the measured ones and
+keeps the measured seconds free of perf.  That repetition is the last sample
+of the record ("perf": true); its wall and CPU seconds include the overhead
+of perf and never compare with seconds measured without it.  The harness
+detects perf at start and says once, in the header of the progress table,
+how the instructions are counted or why they are not (the line
+"instructions:"; meta.instructions_source in the records).  Without perf, or
+with --no-perf, the column is None.  The progress table shows the
+instructions in millions (instr_m).  perf needs kernel.perf_event_paranoid
+at 2 or below, or the capability CAP_PERFMON; a virtual machine needs a
+virtual PMU.
 
 To compare two record files, say:
 
         ./run_benchmarks compare OLD NEW [-m METRIC] [-t FRACTION] [--strict]
+        ./run_benchmarks compare --deterministic OLD NEW [-t FRACTION] [--strict]
 
-Items are matched on suite, program, backend, and variant.  The ratio is NEW
-over OLD of the metric (CPU seconds by default); a ratio within the noise
-threshold of 1 (10 percent by default) counts as the same.  The counters
-steps and forks must be equal: a change in them is a change in the program or
-the compiler, not in the machine.  With --strict the command exits with
-status 1 when an item is slower, a counter changed, or a run failed.
+Items are matched on suite, program, backend, and variant.  The command
+first prints the label, the commit, and the machine of each file and warns
+when the machines differ.  The ratio is NEW over OLD of the metric (CPU
+seconds by default); a ratio within the noise threshold of 1 (10 percent by
+default) counts as the same.  The column instr is the ratio of the
+instructions when both records have them.  The counters steps and forks
+must be equal: a change in them is a change in the program or the compiler,
+not in the machine.  With --strict the command exits with status 1 when an
+item is slower, a counter changed, a run failed, or an item lacks the
+metric: a gate that could not measure has not passed.
 
-On a shared machine, compare CPU seconds and the counters; wall seconds vary
-with the load.  Authoritative numbers come from a quiet machine.  A smoke
-test and a comparison:
+With --deterministic the columns that do not depend on the load of the
+machine decide.  The instructions are the metric, with a tolerance of 1
+percent by default (-t); steps, forks, and collections are listed under
+counters when they move beyond the tolerance ("within" marks a move inside
+it); wall and CPU seconds are advisory and appear as the ratios ~cpu and
+~wall.  The rule of the performance program: the deterministic columns
+decide the intermediate steps of a change, on any machine, loaded or quiet;
+CPU seconds on a quiet machine decide the gates; CPU seconds never compare
+across machines.
+
+On a shared machine, compare with --deterministic; wall and CPU seconds vary
+with the load.  Authoritative seconds come from a quiet machine.  A smoke
+test and the two comparisons:
 
         ./run_benchmarks -r 1 -b cxx -b py -o before.jsonl Hello Last2 Peano
         ./run_benchmarks -r 1 -b cxx -b py -o after.jsonl Hello Last2 Peano
+        ./run_benchmarks compare --deterministic before.jsonl after.jsonl
         ./run_benchmarks compare before.jsonl after.jsonl
 
 A C++ runtime built with the scheduler counters (make COUNTERS=1; see the
@@ -262,3 +313,123 @@ say:
 An item measured on a plain runtime shows dashes.  unit_cxx_counters.py
 tests the counters; its tests of the values run on an instrumented runtime
 only.
+
+
+10. THE TEST RUNNER
+-------------------
+
+run_tests hands its arguments to the runner under lib/testrunner.  The
+runner starts one process per test file and backend, in a session of its
+own.  It prints one line per file as the file finishes, then a summary
+table: file, backend, tests, failures, duration, peak RSS, status.  The
+output of each file goes to .cache/runner/<backend>/<file>.log.  The exit
+status is 1 when a file failed, crashed, or was killed, 2 when a pattern
+matches no test file, and 130 after Ctrl-C.
+
+        ./run_tests [-j N|auto] [--mem GB] [--backend py|cxx|both] [--fast [S]]
+                    [--changed [REV]] [--prepare] [--update-manifest]
+                    [--timeout S] [--list] [-v] [PATTERN ...]
+
+Without options every unit_*.py and func_*.py file runs, one at a time,
+on the backend of SPRITE_INTERPRETER_FLAGS.  The width is the constant
+DEFAULT_JOBS in lib/testrunner/__init__.py.  It is 1 until the calibration
+run described below; then the intended default is -j auto.  A PATTERN is
+a file name or a shell-style pattern of file names.  Several patterns
+select their union.  -v prints the output of every file.  With -v at width
+1 the output streams as it comes, and the file gets the standard input, so
+a breakpoint in a test works (the editor targets of the Makefile pass -v).
+Without -v the output goes to the log alone, and the file reads an empty
+standard input.
+
+The manifest.  tests/manifest.json maps a file to a backend to its
+duration, its peak resident set, the counts of tests and failures, and
+the size of the machine of the measurement: cores and memory in GiB.  The
+runner reads two things from it.  The duration orders the files, longest
+first, and selects the fast tier; a file without a duration is assumed to
+take the median of the measured ones, so a measured heavy file starts
+before it.  The peak sets the cap of the file: twice the peak, at least
+512 MB.  A file without a peak gets 2 GB.  --update-manifest writes the
+values of the run: the latest duration and counts of a file that ended by
+itself with a unittest verdict, and the largest peak seen in any run.  The
+committed seed is sparse.  It holds the durations known from the logs and
+no peaks.
+
+The budget.  A watchdog thread polls every half second.  It walks /proc
+once, matches the session id of each running file in /proc/<pid>/stat,
+walks the parent links down from the file's process, and sums the
+resident sets of the processes it found: the test process, the Curry
+front end, the C++ compiler, and the children of the tests, also one that
+started a session of its own (as the benchmark harness and func_complete.py
+do).  The processes of one poll are the roots of the next, so a process
+whose parent ended stays with its file.  The sum counts a page that two
+processes share once per process, so a peak is an upper bound; the caps
+come from peaks measured the same way.  A session over the cap of its file
+is killed with SIGKILL, and the file is reported as "killed: memory".  A
+file past --timeout (1800 s by default) is reported as "killed: timeout".
+A kill reaches every process of the file, also the children that the
+timeout command moved to another process group.  The next file starts
+when the caps of the running files plus its own stay within --mem (60
+percent of MemAvailable at the start, by default) and fewer than -j files
+run.  -j auto lets the budget decide, up to the core count.  When nothing
+runs, a file starts whatever its cap.  Two rules protect shared files.
+The py and the cxx run of one file never overlap, because they share the
+ICurry and JSON products of its modules.  A file in EXCLUSIVE
+(lib/testrunner/selection.py) runs alone; unit_currylib.py is there
+because it removes products of the installed library.  ulimit -v stays as
+a backstop: 6 GB or three times the cap, whichever is larger, or
+SPRITE_TEST_MAX_VMEM_KB when that is set.  Ctrl-C, SIGTERM, and SIGHUP
+end the run the same way: every file is killed, the summary lists the
+files that did not run, and the status is 130.
+
+Selection.  --fast keeps the files whose manifest duration is below S
+seconds (5 by default) on every backend of the run; a backend without an
+entry counts as fast.  --changed REV maps the paths that differ from REV
+(HEAD by default, with the untracked files) to test files through RULES
+in lib/testrunner/selection.py: src/cyrt and the C++ backend select the
+unit_cxx files; the Python backend selects the unit_py files; the
+toolchain, curry/, and the ICurry reader select the compile, cache,
+toolchain, flat2icurry, curry2icurry, make, and prelude files, with
+unit_plan.py, unit_currylib.py and unit_prebuild.py, and unit_icurry.py
+respectively; expressions.py, the interpreter, and inspect select the
+expr, api, conversions, and evaluation files, with unit_loadsave.py and
+unit_inspect.py; a test file selects itself; a corpus directory selects
+its functional test, data/curry/benchmarks selects unit_benchmarks.py and
+unit_cxx_variable.py, and data/curry/flat2icurry selects the files of the
+ICurry oracle; the benchmark harness, the runner, and the setup script
+select their own tests; tests/lib selects everything; documentation
+selects nothing; an unknown path, and a rule whose test files do not
+exist, select everything.  The runner prints the mapping.  --list shows
+the selection with the manifest numbers, the caps, and the reasons, and
+exits.
+
+The prepare pass.  A product under a .curry directory is written in
+place by the front end (.fcy, .fint), the ICurry writer (.icy), the JSON
+writer (.json.z), the code generator (.py, .cpp), and the C++ compiler
+(.so).  Two files that write the same product at once can leave a torn
+file for a third to read.  The ICurry cache (SQLite, busy timeout 30 s),
+the bytecode cache, the ABI stamp, and the precompiled header are written
+atomically.  --prepare runs sprite-make over the shared pool (data/curry)
+and the corpus of each selected functional test, one directory and one
+process at a time, for each backend of the run, before any file starts.
+After it the parallel files only read the products.  Use it on a fresh
+checkout, after a change to a source under data/curry, after a change to
+a code generator, and after make stage installed new runtime headers.  A
+module that fails to compile is a note in the log of the pass
+(.cache/runner/<backend>/prepare-<directory>.log), not a failure.  The
+examples under examples/ are not covered; unit_examples.py alone compiles
+them.
+
+Calibration of a new machine.  On a quiet machine, run every file once
+per backend with --update-manifest at width 1:
+
+        ./run_tests -j 1 --backend both --update-manifest
+
+Review the diff of tests/manifest.json and commit it.  The durations and
+the peaks belong to the machine size recorded in the entries.  A smaller
+machine inherits the caps and, with them, a smaller width under its own
+budget.  A file that the run killed for memory keeps the peak it reached,
+so its cap is larger on the next run: run those files again with
+--update-manifest.  A test whose child grows to its address-space cap by
+design (unit_cxx_gc.py, unit_cxx_runtime.py) needs a cap above that sum.
+Repeat the run after a change that moves the peaks, such as a new runtime,
+and after the heavy files are split.

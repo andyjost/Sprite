@@ -1,7 +1,11 @@
 # Benchmark records
 
 One JSON Lines file per suite and run, written by `tests/run_benchmarks`
-(see `tests/README`, section 8, for the fields and the compare tool).
+(see `tests/README`, section 9, for the fields and the compare tool).
+
+The files of baseline-2026-10-03 are records of schema 1: they have no
+instructions column, and their meta names the machine cpu and cpus.  The
+harness reads them; a comparison by instructions needs a newer baseline.
 
 ## baseline-2026-10-03
 

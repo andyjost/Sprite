@@ -38,6 +38,16 @@ in the documentation.
 A conda recipe for linux-64 is under development under conda/.  It is not
 published; conda/README.md describes it.
 
+A developer who sets up a new machine runs scripts/setup-dev-machine.sh
+--prefix DIR.  The script checks the apt packages and prints the apt
+command when one is missing; it never runs sudo.  It installs PAKCS 3.4.1
+and a conda environment (conda/dev-environment.yml) under the prefix, links
+install/ and object-root/ of the checkout into it, runs configure and
+make stage in a clean environment, and runs a smoke test on both backends.
+Say --dry-run to print the plan first.  The page "Developer Setup" of the
+documentation (docs/source/DeveloperSetup.rst) describes the steps, the
+options, and the layout of the prefix.
+
 
 3. Running a Program
 --------------------

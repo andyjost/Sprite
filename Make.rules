@@ -136,7 +136,10 @@ ifdef LINKS
     FILES_TO_UNINSTALL += $(LINKS_INSTALL)
     install:: $(LINKS_INSTALL)
     $(foreach link,$(LINKS),$(eval $(call define_link_target,$(link))))
-    $(INSTALL_DIR)/% : %.link
+    # Make.config names the targets, so a link follows a new configuration
+    # (and an explicit rule for a link, as the ccache wrapper of tools/cxx,
+    # gives way to the link again).
+    $(INSTALL_DIR)/% : %.link $(ROOT_DIR)/Make.config
 			@if [ -n "$(LINK_TARGET_$<)" ]; then \
         mkdir -p $(dir $@); \
         echo ln -sf $(LINK_TARGET_$<) $@; \

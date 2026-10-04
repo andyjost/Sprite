@@ -2,24 +2,27 @@
 The run command: runs the items of a suite and writes one record per item.
 
 The records go to standard output, or to the file of -o (appended); the
-progress table goes to standard error.
+progress table goes to standard error.  When perf is available, every item
+whose measured repetitions succeeded gets one more repetition under perf,
+which counts the instructions (see measure.py); --no-perf leaves it out.
 '''
 
 import argparse, os, shutil, sys, tempfile
 from . import BACKENDS, CURRYDIR, DEFAULT_SPRITE_HOME, ROOTDIR, SUITES
-from . import records, suites
+from . import measure, records, suites
 
 __all__ = ['main', 'parse_args', 'parse_cap']
 
-COLUMNS = '%-10s %-16s %-7s %-13s %9s %9s %9s %8s %10s  %s'
+COLUMNS = '%-10s %-16s %-7s %-13s %9s %9s %9s %8s %10s %9s  %s'
 HEADINGS = (
     'suite', 'program', 'backend', 'variant', 'wall', 'cpu', 'eval', 'rss_mb'
-  , 'steps', 'status'
+  , 'steps', 'instr_m', 'status'
   )
 EPILOG = '''
 Other commands: "compare OLD NEW" compares two record files (see
 "compare -h"); "list" lists the programs of a suite.  Records are JSON
-Lines; the fields are documented in benchmarks/records.py.
+Lines; the fields are documented in benchmarks/records.py.  The column
+instr_m of the table is the instructions in millions.
 '''
 
 
@@ -89,6 +92,11 @@ def parse_args(argv):
            'cap [default: 6G]'
     )
   parser.add_argument(
+      '--no-perf', action='store_true'
+    , help='do not count the instructions: skip the repetition under perf '
+           'that follows the measured ones'
+    )
+  parser.add_argument(
       '--pakcs', metavar='EXE', default=None
     , help='PAKCS executable [default: tools/pakcs of the installation]'
     )
@@ -141,6 +149,10 @@ def megabytes(value):
   return '-' if value is None else '%.1f' % (value / 1048576.0)
 
 
+def millions(value):
+  return '-' if value is None else '%.1f' % (value / 1e6)
+
+
 def count(value):
   return '-' if value is None else str(value)
 
@@ -150,13 +162,28 @@ def write_row(stream, record):
       record['suite'], record['program'][:16], record['backend']
     , record['variant'] or '-', seconds(record['wall']), seconds(record['cpu'])
     , seconds(record['eval_wall']), megabytes(record['peak_rss'])
-    , count(record['steps']), record['status']
+    , count(record['steps']), millions(record['instructions'])
+    , record['status']
     ) + '\n')
   for warning in record['warnings']:
     stream.write('    warning: %s\n' % warning)
   if record['error']:
     stream.write('    %s\n' % record['error'])
   stream.flush()
+
+
+def measure_item(item, repeat, perf):
+  '''
+  The samples of one item: the warm-up runs (not returned), the measured
+  repetitions, and, with ``perf`` and when every measured repetition
+  succeeded, one repetition under perf.
+  '''
+  for _ in range(item.warmup()):
+    item.measure()
+  samples = [item.measure() for _ in range(repeat)]
+  if perf and all(s['status'] == 'ok' for s in samples):
+    samples.append(item.measure(perf=True))
+  return samples
 
 
 def main(argv=None):
@@ -170,10 +197,14 @@ def main(argv=None):
     return 0
   home = args.sprite_home or os.environ.get('SPRITE_HOME') \
                           or DEFAULT_SPRITE_HOME
+  if args.no_perf:
+    perf, source = None, 'not measured: --no-perf'
+  else:
+    perf, source = measure.perf(), measure.instructions_source()
   settings = suites.Settings(
       home, pakcs=args.pakcs or default_pakcs(home), timeout=args.timeout
     , cap=args.cap or None, env=dict(args.env), label=args.label
-    , warmup=args.warmup
+    , warmup=args.warmup, perf=perf, instructions_source=source
     )
   if not os.access(settings.sprite_exec, os.X_OK):
     sys.exit(
@@ -198,14 +229,20 @@ def main(argv=None):
     log = sys.stderr
     log.write('programs: %s\n' % CURRYDIR)
     log.write('commit: %s\n' % (commit or 'unknown'))
+    log.write('machine: %s, %s cores, %s GiB%s\n' % (
+        meta['cpu_model'] or 'unknown processor', meta['cores'] or '?'
+      , meta['mem_gb'] if meta['mem_gb'] is not None else '?'
+      , ', label %r' % args.label if args.label else ''
+      ))
+    log.write('instructions: %s%s\n' % (
+        source, ', in one repetition after the measured ones' if perf else ''
+      ))
     log.write('records: %s\n' % (args.output or 'standard output'))
     log.write(COLUMNS % HEADINGS + '\n')
     failures = 0
     try:
       for item in items:
-        for _ in range(item.warmup()):
-          item.measure()
-        samples = [item.measure() for _ in range(args.repeat)]
+        samples = measure_item(item, args.repeat, perf)
         record = records.summarize(
             item.suite, item.program, item.backend, item.variant, samples
           , meta, label=settings.label, warmup=item.warmup(), commit=commit

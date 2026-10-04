@@ -29,6 +29,9 @@ These options are summarized in the following table:
 +===========================+================+====================+=================================+
 | ``--with-cc``             | CC             | ``gcc``            | Selects the C compiler          |
 +---------------------------+----------------+--------------------+---------------------------------+
+| ``--with-ccache``         | CCACHE         | none               | Puts ccache in front of the     |
+|                           |                |                    | compilers (optional)            |
++---------------------------+----------------+--------------------+---------------------------------+
 | ``--with-cxx``            | CXX            | ``g++``            | Selects the C++ compiler        |
 +---------------------------+----------------+--------------------+---------------------------------+
 | ``--with-curry-frontend`` | CURRY_FRONTEND | ``pakcs-frontend`` | Selects the Curry front end.    |
@@ -74,6 +77,31 @@ To use the Clang compilers (searching PATH for them), one might say::
     ./configure --with-cc=clang --with-cxx=clang++ [args...]
 
 If CC and CXX were set in the environment, this would happen anyway.
+
+Build options
+-------------
+
+``configure --jobs N`` sets the number of jobs that ``make`` runs at once.
+``--jobs auto`` gives one job per processor, counted when ``make`` starts.
+The default is 1, a serial build.  ``configure`` writes the value to
+``Make.config`` as ``JOBS``, so ``make stage`` runs in parallel without
+``-j``.  A ``-j`` on the ``make`` command line wins, and so does
+``make JOBS=N``.
+
+``configure --with-ccache`` puts ccache in front of the compilers.  The
+build compiles every object through ccache.  The compiler of the
+installation, ``tools/cxx``, becomes a script that runs ccache in front of
+the post-install compiler, so the code of the C++ backend compiles through
+ccache as well.  The value names the program (``--with-ccache=PATH``); by
+default ``configure`` searches PATH for ``ccache``.  ccache changes nothing
+in the output of the compiler, and the ABI stamps of compiled modules do not
+depend on it.  To share one cache between several copies of the source
+tree, set ``base_dir`` in the ccache configuration to a common parent
+directory.
+
+The setting for development work is::
+
+    ./configure --jobs auto --with-ccache [args...]
 
 Checking Prerequisites
 ----------------------

@@ -10,6 +10,10 @@ LDFLAGS += -Wl,--no-undefined
 .PHONY: all objs
 all:: objs libs shlibs
 objs:: $(OBJS_OUT)
+# shlibs follow libs.  The shared library of cyrt archives the objects of its
+# subdirectories through a nested make (see cyrt/Make.include), which must
+# not start while the sub-makes of libs compile the same objects.
+shlibs:: | libs
 
 # Dependencies
 # ============
