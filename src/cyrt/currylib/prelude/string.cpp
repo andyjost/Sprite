@@ -40,6 +40,11 @@ static tag_type _biGenerator_step(RuntimeState * rts, Configuration * C)
   Cursor _0 = C->cursor();
   biGeneratorNode * gen = NodeU{_0}.generator;
   Node * next_item = g_generator_next(gen->data);
+  // The item is built now, after set_goal walked the goal.  A free variable
+  // made outside this evaluation (a curry.free marker used before) is new to
+  // the variable table.  See RuntimeState::register_freevars.
+  if(next_item && rts->istate.external_freevars)
+    rts->register_freevars(next_item);
   _0->forward_to(next_item ? cons(next_item, generator(gen->data)) : nil());
   return T_FWD;
 }

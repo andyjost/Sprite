@@ -225,9 +225,14 @@ To build an expression containing a choice, use ``Prelude.?``:
     >>> print(curry.expr(getattr(Prelude, '?'), 1, 2))
     (?) 1 2
 
-To build an expression containing a free variable, use :class:`curry.free`:
+To build an expression containing a free variable, use :class:`curry.free`.
+One marker is one variable: the expression holds a call of
+``Prelude.unknown``, and the first rewrite step turns it into the variable.
 
-    >>> print(curry.expr(curry.free()))
+    >>> xs = curry.free()
+    >>> print(curry.expr(xs))
+    unknown _inst#Prelude.Data#Prelude.Bool
+    >>> print(next(curry.eval(xs)))
     _a
 
 To build a cons-style list, either use the symbols ``Prelude.:`` and

@@ -2,8 +2,11 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/fwd.hpp"
 #include "cyrt/graph/memory.hpp"
+#include "cyrt/graph/node.hpp"
 #include "cyrt/state/configuration.hpp"
 #include "cyrt/state/rts.hpp"
+#include <unordered_set>
+#include <vector>
 
 namespace cyrt
 {
@@ -92,6 +95,40 @@ namespace cyrt
     Node * x = free(vid);
     this->vtable[vid] = x;
     return x;
+  }
+
+  // Registers every free variable reachable from ``root`` in the variable
+  // table.  A goal built outside this evaluation can hold variables that no
+  // table of this state knows: a curry.free marker shared with an earlier
+  // goal, whose node the step of Prelude.unknown forwarded to a free
+  // variable; the result of the single step of a compiled expression; a raw
+  // Free node of curry.raw_expr; a value of an earlier evaluation.  The item
+  // of a generator node is built during the evaluation, so its step walks
+  // the item as well (currylib/prelude/string.cpp).  The walk is iterative
+  // with a visited set, because a goal can be cyclic.  It follows forward
+  // nodes and descends through every pointer successor: data, partial
+  // applications, set guards, constraints, choices, and the generators of
+  // free variables.  The format string of an info table names the pointer
+  // successors.
+  void RuntimeState::register_freevars(Node * root)
+  {
+    std::vector<Node *> stack;
+    std::unordered_set<Node *> seen;
+    stack.push_back(root);
+    while(!stack.empty())
+    {
+      Node * node = stack.back();
+      stack.pop_back();
+      if(!node || !seen.insert(node).second)
+        continue;
+      InfoTable const * info = node->info;
+      if(info->tag == T_FREE)
+        this->vtable[NodeU{node}.free->vid] = node;
+      Arg const * args = node->successors();
+      for(index_type i=0; i<info->arity; ++i)
+        if(info->format[i] == 'p')
+          stack.push_back(args[i].node);
+    }
   }
 
   Node * _clone_generator_rec(RuntimeState * rts, Node * node)

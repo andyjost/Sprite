@@ -91,6 +91,19 @@ namespace
       rts->count_step();
     if(!own)
       rts->drop();
+    // The variables the step created outlive this state.  Count them, so
+    // that set_goal registers them when a later goal holds them.
+    rts->istate.external_freevars += rts->vtable.size();
+  }
+
+  // The variable table as a dict from id to node, for the tests of the
+  // registration in set_goal.  The wrappers root the nodes while they live.
+  py::dict RuntimeState_vtable(RuntimeState & rts)
+  {
+    py::dict table;
+    for(auto const & entry: rts.vtable)
+      table[py::int_(entry.first)] = py::cast(entry.second, reference);
+    return table;
   }
 
   template<typename T>
@@ -406,6 +419,10 @@ namespace cyrt { namespace python
   {
     py::class_<InterpreterState>(mod, "InterpreterState")
       .def(py::init<>())
+      .def_readwrite(
+          "external_freevars", &InterpreterState::external_freevars
+        , "The free variables made outside an evaluation; see state/rts.hpp."
+        )
       ;
 
     mod.def("scheduler_counters_enabled", &scheduler_counters_enabled
@@ -416,6 +433,8 @@ namespace cyrt { namespace python
       .def(py::init<InterpreterState &, Node *, bool, SetFStrategy, size_t>())
       .def_readonly("steps_total", &RuntimeState::steps_total)
       .def_readonly("forks_total", &RuntimeState::forks_total)
+      .def_property_readonly("vtable", &RuntimeState_vtable
+        , "The variable table as a dict from id to node.")
       .def("scheduler_counters", &RuntimeState_scheduler_counters
         , "The scheduler counters of this evaluation as a dict, or None in a "
           "plain build.")

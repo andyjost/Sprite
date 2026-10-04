@@ -18,6 +18,15 @@ class InterpreterState(object):
   def __init__(self):
     self.idfactory = itertools.count()
     self.setfactory = itertools.count()
+    # The free variables made outside an evaluation of this interpreter: the
+    # markers of curry.free and the raw Free nodes of curry.raw_expr,
+    # counted by the expression builder; the variables of a single rewrite
+    # step (RuntimeState.single_step); and the variables copied into a value
+    # (rts_control.make_value).  While it is zero, RuntimeState.set_goal
+    # skips the walk that registers the free variables a goal already holds,
+    # and the generator step skips the walk of its item.  The C++ runtime
+    # keeps the same counter (cyrt::InterpreterState).
+    self.external_freevars = 0
 
 class RuntimeState(object):
   # Fundamental symbols.
@@ -66,8 +75,9 @@ class RuntimeState(object):
     self.Node = graph.Node
 
     # State unique to this evaluation.
-    self.idfactory = interp.backend.get_interpreter_state(interp).idfactory
-    self.setfactory = interp.backend.get_interpreter_state(interp).setfactory
+    self.istate = interp.backend.get_interpreter_state(interp)
+    self.idfactory = self.istate.idfactory
+    self.setfactory = self.istate.setfactory
     self.stepcounter = stepcounter.StepCounter()
     # The step budget of a configuration.  See rts_control.count_step.
     self.step_budget = interp.flags['step_budget']
@@ -78,17 +88,18 @@ class RuntimeState(object):
     self.trace = trace.Trace(self)
     self.telemetry = telemetry.TelemetryData(self)
 
+    # The free variable table.  Mapping from ID to Node.  It exists before
+    # the goal is set, because set_goal registers the variables of the goal.
+    self.vtable = {}
+
+    # The table of setfunction evaluations.
+    self.sftable = {}
+
     # The Fair Scheme work queues.
     self.qstack = []
     self.qtable = {}
     self.push_queue(trace=False)
     self.set_goal(goal)
-
-    # The free variable table.  Mapping from ID to Node.
-    self.vtable = {}
-
-    # The table of setfunction evaluations.
-    self.sftable = {}
 
   @property
   def setfunctions(self):
@@ -124,11 +135,21 @@ class RuntimeState(object):
     node.info.step(self, self.variable(node))
     self.stepcounter.increment()
     self.count_step()
+    # The variables the step created outlive this state.  Count them, so
+    # that set_goal registers them when a later goal holds them.
+    self.istate.external_freevars += len(self.vtable)
 
   def set_goal(self, goal):
     assert not self.Q
     if goal is not None:
       self.append(configuration.Configuration(goal))
+      # The goal can hold free variables that no table of this state knows
+      # (see rts_freevars.register_freevars).  The walk runs only when the
+      # interpreter made such variables (InterpreterState.external_freevars)
+      # and only for the outermost goal: the goal of a set function is part
+      # of the expression under evaluation, whose variables are registered.
+      if self.istate.external_freevars and not self.in_recursive_call:
+        self.register_freevars(goal)
 
   def generate_values(self):
     '''
@@ -206,7 +227,7 @@ class RuntimeState(object):
   from .rts_freevars import (
       clone_generator, freshvar, freshvar_args, get_freevar, get_generator
     , has_generator, instantiate, is_narrowed, is_nondet, is_void
-    , register_freevar
+    , register_freevar, register_freevars
     )
   from .rts_setfunctions import (
       create_queue, create_setfunction, choice_escapes, filter_queue, guard_args

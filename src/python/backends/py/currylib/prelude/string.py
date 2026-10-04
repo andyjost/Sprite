@@ -14,8 +14,14 @@ def _biGenerator(rts, gen):
   except StopIteration:
     yield rts.prelude.Nil
   else:
+    item = rts.expr(item)
+    # The item is built now, after set_goal walked the goal.  A free variable
+    # made outside this evaluation (a curry.free marker used before) is new
+    # to the variable table.  See rts_freevars.register_freevars.
+    if rts.istate.external_freevars:
+      rts.register_freevars(item)
     yield rts.prelude.Cons
-    yield rts.expr(item)
+    yield item
     yield graph.Node(rts.prelude._biGenerator, gen.target)
 
 # A Char is a Unicode code point.  A string literal is kept as a memoryview of

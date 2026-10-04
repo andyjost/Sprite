@@ -303,19 +303,30 @@ Expression Modifiers
 ....................
 
 In addition to ``curry.ref``, a few other helper functions and objects are
-provided.  To create a free variable, use ``curry.free``:
+provided.  To create a free variable, use ``curry.free``.  One marker is one
+variable, also when it occurs several times or in several expressions.  The
+expression holds a call of ``Prelude.unknown``, and the first rewrite step
+turns it into the variable.  ``curry.reset()`` starts a new interpreter
+state, and the marker becomes a new variable there:
 
-    >>> print(curry.expr(curry.free()))
-    _0
+    >>> xs = curry.free()
+    >>> print(curry.expr(xs))
+    unknown _inst#Prelude.Data#Prelude.Bool
+    >>> print(next(curry.eval(xs)))
+    _a
 
-To create a non-deterministic choice, use ``curry.choice``:
+To create a non-deterministic choice, use ``curry.choice``.  The expression
+holds a call of ``Prelude.?``, and the first rewrite step turns it into a
+choice with a fresh identifier:
 
-    >>> curry.expr(curry.choice(1, 2))
-    <Choice 0 <Int 1> <Int 2>
+    >>> print(curry.expr(curry.choice(1, 2)))
+    (?) 1 2
+    >>> sorted(curry.eval(curry.choice(1, 2), converter='topython'))
+    [1, 2]
 
-The number immediately following ``Choice`` is the choice identifier.  This can
-be specified by providing three arguments to ``curry.choice``, or you can let
-the ``curry.expr`` assigned it for you.
+``curry.raw_expr`` builds the raw ``Free`` and ``Choice`` nodes instead, with
+the identifiers given to the markers.  That form serves the tests of the
+runtime.
 
 Use ``curry.cons`` and ``curry.nil`` to create cons-style lists:
 

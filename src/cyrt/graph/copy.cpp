@@ -80,6 +80,8 @@ namespace cyrt
       memo_type & memo;
       Set *       skipgrd;
       Skipper     skip;
+      // The number of free variables copied.
+      size_t      freevars = 0;
 
       // A node whose copy is under construction.  ``copy`` starts as a
       // shallow copy of ``node``.  The copies of the successors replace the
@@ -129,6 +131,8 @@ namespace cyrt
             Node * copy = Node::create(
                 node->info, arity ? node->successors() : nullptr
               );
+            if(node->info->tag == T_FREE)
+              ++this->freevars;
             this->memo[node] = copy;
             if(arity == 0)
             {
@@ -159,37 +163,37 @@ namespace cyrt
     };
   }
 
+  namespace
+  {
+    template<typename Skipper>
+    Expr copy_with(
+        Cursor expr, memo_type & memo, Set * skipgrd, size_t * freevars
+      )
+    {
+      GraphCopier<Skipper> copier(memo, skipgrd);
+      Expr value{copier(expr), expr.kind};
+      if(freevars)
+        *freevars += copier.freevars;
+      return value;
+    }
+  }
+
   Expr copy_graph(
       Cursor expr, SkipOpt skipfwd, Set * skipgrd, memo_type * memo
+    , size_t * freevars
     )
   {
     if(!memo)
     {
       memo_type memo_;
-      return copy_graph(expr, skipfwd, skipgrd, &memo_);
+      return copy_graph(expr, skipfwd, skipgrd, &memo_, freevars);
     }
     switch((skipfwd ? 2 : 0) + (skipgrd ? 1 : 0))
     {
-      case 2 | 1:
-      {
-        GraphCopier<SkipBoth> copier(*memo, skipgrd);
-        return Expr{copier(expr), expr.kind};
-      }
-      case 2 | 0:
-      {
-        GraphCopier<SkipFwd> copier(*memo);
-        return Expr{copier(expr), expr.kind};
-      }
-      case 0 | 1:
-      {
-        GraphCopier<SkipGrd> copier(*memo, skipgrd);
-        return Expr{copier(expr), expr.kind};
-      }
-      case 0 | 0:
-      {
-        GraphCopier<SkipNothing> copier(*memo);
-        return Expr{copier(expr), expr.kind};
-      }
+      case 2 | 1: return copy_with<SkipBoth>(expr, *memo, skipgrd, freevars);
+      case 2 | 0: return copy_with<SkipFwd>(expr, *memo, nullptr, freevars);
+      case 0 | 1: return copy_with<SkipGrd>(expr, *memo, skipgrd, freevars);
+      case 0 | 0: return copy_with<SkipNothing>(expr, *memo, nullptr, freevars);
       default: __builtin_unreachable();
     }
   }

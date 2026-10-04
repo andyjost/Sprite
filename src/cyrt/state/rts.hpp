@@ -22,6 +22,15 @@ namespace cyrt
   struct InterpreterState : boost::noncopyable
   {
     xid_type xidfactory = 0;
+    // The free variables made outside an evaluation of this interpreter:
+    // the markers of curry.free and the raw Free nodes of curry.raw_expr,
+    // counted by the expression builder; the variables of a single rewrite
+    // step (RuntimeState_single_step in the bindings); and the variables
+    // copied into a value (make_value).  While it is zero, set_goal skips
+    // the walk that registers the free variables a goal already holds, and
+    // the generator step skips the walk of its item.  The Python backend
+    // keeps the same counter.
+    size_t external_freevars = 0;
   };
 
   // The set of a set function: the choices that escape it.  The guards of
@@ -175,6 +184,7 @@ namespace cyrt
 
     // rts_freevars:
     Node * freshvar();
+    void register_freevars(Node * root);
     Node * get_freevar(xid_type vid);
     Node * get_binding(Configuration *, xid_type vid);
     Node * get_binding(Configuration *, Node *);

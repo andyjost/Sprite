@@ -1139,3 +1139,48 @@
   assertion on a guard of an enclosing set function at the root of a nested
   configuration; escape_all of the C++ Configuration is no longer set
   anywhere.
+
+2026-10-04: typed boundary, stage 1 (epic #48)
+- Y1, free variables from Python (issue #50, fixes #33).  curry.free()
+  built a raw Free node with the id 0 at every occurrence of the marker,
+  and no table of the evaluation knew it; curry.choice used the id 0 as
+  well.  Done: through curry.expr a free marker is one shared node per
+  marker, a call of Prelude.unknown applied to the Data dictionary of Bool
+  (unknown never reads it), built at the first occurrence and cached on the
+  marker with a weak reference to the interpreter state.  The step of
+  unknown creates the variable with a fresh id of the runtime and forwards
+  the node, so one marker is one variable in one expression and across
+  expressions; curry.reset installs a new state, and the marker becomes a
+  new variable there.  A choice marker is a call of Prelude.?, so its id is
+  fresh too.  raw_expr keeps the raw Free and Choice nodes with the ids of
+  the markers (unit_expr.py unchanged).  RuntimeState.set_goal registers
+  the free variables a goal already holds, on both backends (rts.py creates
+  vtable before the call; RuntimeState::register_freevars in
+  rts_freevars.cpp): an iterative walk with a visited set that follows
+  forward nodes and every pointer successor, so a cyclic goal ends.  The
+  walk runs behind a counter of the free variables made outside an
+  evaluation, InterpreterState.external_freevars on both backends: the
+  builder counts markers and raw Free nodes, single_step counts the
+  variables of its discarded state (the let xs free of
+  compile(mode='expr')), and make_value counts the free variables it copies
+  into a value, so a value of one evaluation placed in a later goal is
+  registered.  The item of a generator node (a lazy Python iterator) is
+  built after the walk, so the step of _biGenerator walks the item on both
+  backends.  Measured on the first pass of the item: the C++ walk costs
+  about 0.05 us per node (100 ms for a goal of two million nodes that took
+  3 s to build from Python), the Python walk about 0.3 us per node; a goal
+  without such variables pays nothing.  The bindings expose
+  RuntimeState.vtable (read-only) and InterpreterState.external_freevars.
+  Tests: unit_free_markers.py (the goal of #33, two markers, one node per
+  marker, the reuse of a marker in a second goal with constrEq and with
+  the dictionary of =:=, the goal evaluated twice, a cyclic goal, let xs
+  free through compile(mode='expr'), the registration, the counter, the
+  variables of a single step, a marker inside a lazy iterator, a value with
+  a free variable, a marker after reset, raw_expr, and the choice marker
+  with fresh ids).  Docs: Quickstart and UsingTheAPI show unknown
+  _inst#Prelude.Data#Prelude.Bool before the first step.  Left: the spelling
+  curry.eval(getattr(P, '=:='), x, 1) of the issue is a partial application
+  until the typed builder (Y7) supplies the Data dictionary; the payload of
+  an IO value is not copied on the Python backend and so not counted; the
+  typed builder of Y7 passes the Data dictionary of the resolved type to
+  unknown.
