@@ -10,6 +10,19 @@ using namespace cyrt;
 
 namespace cyrt { inline namespace
 {
+  // Puts the queue of a set function on the stack of queues for its nested
+  // evaluation and takes it off on every exit, an exception included.  So an
+  // error inside a set function leaves the stack as it was.
+  struct QueueScope
+  {
+    QueueScope(RuntimeState * rts, Queue * queue) : rts(rts)
+      { rts->push_queue(queue); }
+    ~QueueScope() { this->rts->pop_queue(); }
+    QueueScope(QueueScope const &) = delete;
+    QueueScope & operator=(QueueScope const &) = delete;
+    RuntimeState * rts;
+  };
+
   tag_type allValues_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
@@ -19,15 +32,18 @@ namespace cyrt { inline namespace
       return status;
     ChoiceNode * choice = nullptr;
     SetEvalNode * seteval = NodeU{_1.target}.seteval;
-    rts->push_queue(seteval->queue);
-    auto value = rts->procD();
-    rts->pop_queue();
+    Expr value;
+    {
+      QueueScope scope(rts, seteval->queue);
+      value = rts->procD();
+    }
     if(rts->pending_control != NOTAG)
     {
       // The nested scheduler yields to an enclosing queue: the stack limit
-      // was reached (E_UNWIND) or an enclosing queue is due to rotate
-      // (E_ROTATE).  The redex stays as it is, and the set function resumes
-      // when this configuration runs again.  See RuntimeState::yield_control.
+      // was reached (E_UNWIND), an enclosing queue is due to rotate
+      // (E_ROTATE), or a collection is due (E_GC).  The redex stays as it
+      // is, and the set function resumes when this configuration runs
+      // again.  See RuntimeState::yield_control.
       tag_type const status = rts->pending_control;
       rts->pending_control = NOTAG;
       return status;
@@ -38,7 +54,10 @@ namespace cyrt { inline namespace
       return T_FWD;
     }
     assert(value.kind == 'p');
-    if(value.arg.node->info->tag >= T_CTOR)
+    // A value of the set function: a constructor, a free variable, or a
+    // term under the guard of an enclosing set function (the guards of this
+    // set are dropped by make_value).  Only a choice escapes.
+    if(value.arg.node->info->tag != T_CHOICE)
     {
       _0->forward_to(
           cons(
@@ -48,27 +67,16 @@ namespace cyrt { inline namespace
         );
       return T_FWD;
     }
-    assert(value.arg.node->info->tag == T_CHOICE);
     choice = NodeU{value.arg.node}.choice;
     assert(seteval->queue->front()->root == (Node *) choice);
-    Queue * Qlhs = seteval->queue;
+    // The choice escapes the set function.  The queue splits on it: the
+    // configurations that made it LEFT stay, those that made it RIGHT move
+    // to a new queue, and a configuration that has not made it is in both
+    // (a queue clones it before it steps it).  The new queue belongs to its
+    // SetEval node; see queue.hpp.
     Queue * Qrhs = new Queue(seteval->set);
+    seteval->queue->split(choice->cid, *Qrhs);
     Node * rhs_seteval = Node::create(seteval->info, seteval->set, Qrhs);
-    auto out = Qlhs->begin();
-    for(auto p=Qlhs->begin(), e=Qlhs->end(); p!=e; ++p)
-    {
-      switch((*p)->fingerprint.test(choice->cid))
-      {
-        case LEFT:         *out++ = *p;
-                           break;
-        case RIGHT:        Qrhs->push_back(*p);
-                           break;
-        case UNDETERMINED: *out++ = *p;
-                           Qrhs->push_back(*p);
-                           break;
-      }
-    }
-    Qlhs->resize(out - Qlhs->begin());
     Node * replacement = make_node<ChoiceNode>(
         choice->cid
       , Node::create(&allValues_Info, (Node *) seteval)
@@ -131,6 +139,8 @@ namespace cyrt { inline namespace
     if(status != T_CTOR)
       return status;
     PartApplicNode * partial = NodeU{_1.target}.partapplic;
+    // The set and the queue register themselves with the collector, which
+    // frees them when no node reaches them; see gc/wdgc.cpp.
     Set * new_set = new Set();
     Node * goal = partial->materialize();
     auto const arity = goal->info->arity;

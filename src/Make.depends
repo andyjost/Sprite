@@ -9,13 +9,15 @@ COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 COMPILE.cc = $(CXX) $(DEPFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d && touch $@
 
+# The compiler flags live in Make.config, so a change to it compiles every
+# object again.
 $(OBJECT_DIR)/%.o : %.c
-$(OBJECT_DIR)/%.o : %.c $(DEPDIR)/%.d
+$(OBJECT_DIR)/%.o : %.c $(DEPDIR)/%.d $(ROOT_DIR)/Make.config
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 	$(POSTCOMPILE)
 
 $(OBJECT_DIR)/%.o : %.cpp
-$(OBJECT_DIR)/%.o : %.cpp $(DEPDIR)/%.d
+$(OBJECT_DIR)/%.o : %.cpp $(DEPDIR)/%.d $(ROOT_DIR)/Make.config
 	$(COMPILE.cc) $(OUTPUT_OPTION) $<
 	$(POSTCOMPILE)
 

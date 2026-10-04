@@ -135,6 +135,64 @@ Seconds are printed with six decimals.  The same numbers are available in
 Python from :func:`curry.stats`, which returns a dict with these keys in this
 order; ``str`` of it gives the line above.
 
+Scheduler counters
+------------------
+
+A C++ runtime built with ``make COUNTERS=1`` counts what the scheduler does
+with its queue of configurations.  The flag changes the runtime library and
+its Python bindings only; a plain build has none of the code, and the
+generated modules of a plain build serve an instrumented one.  The build
+objects do not depend on the variable: touch ``Make.config`` before ``make
+COUNTERS=1 stage`` and again before the plain ``make stage``.  The
+instrumented runtime costs about one to three percent more instructions and
+a word more per node; see the TODO entry for the measurements.
+
+With the counters, ``--stats`` appends these fields after ``compile``, and
+:func:`curry.stats` adds the same keys:
+
+``serial_steps``
+    Steps taken while the outermost queue held one configuration.  The
+    serial fraction, ``serial_steps`` over ``steps``, bounds the gain of a
+    thread pool over the queue.
+
+``nested_steps``
+    Steps taken inside a set function, whose alternatives run in a queue of
+    their own.
+
+``shared_steps``
+    Steps whose redex another configuration created.  Every node carries the
+    serial number of the configuration whose step allocated it; a redex made
+    by an ancestor before a fork, or by a sibling, is work that more than one
+    configuration reaches.  The shared-work ratio, ``shared_steps`` over
+    ``steps``, bounds the work a design with one copy of the graph per
+    alternative would duplicate.  A node built outside the scheduler, such as
+    the goal, has no creator and never counts.
+
+``queue_max``
+    The largest number of configurations in the outermost queue.
+
+``configurations``, ``failures``, ``failed_steps``
+    The configurations of the outermost queue: those that ended with a
+    value, a failure, or a fork, and those still in the queue when the
+    statistics were read.  ``failures`` and ``failed_steps`` are the ones
+    that failed and the steps they took.
+
+``lifetime_median``, ``lifetime_mean``, ``lifetime_max``
+    The steps a configuration of the outermost queue took from its creation
+    to its end by a value, a failure, or a fork.  The steps of the set
+    functions it evaluated count for it.  The median is exact below 1024
+    steps; above, it is the lower bound of the power-of-two bucket that
+    holds it.
+
+``nested_configurations``, ``nested_lifetime_median``,
+``nested_lifetime_mean``, ``nested_lifetime_max``
+    The same for the configurations of the queues of set functions.
+
+The counters are per evaluation and summed over the evaluations of the
+interpreter, like ``steps``; the maxima take the largest value.  The
+benchmark harness keeps the fields of every run and tabulates them with
+``run_benchmarks counters FILE`` (see ``tests/README``).
+
 Profiling
 =========
 

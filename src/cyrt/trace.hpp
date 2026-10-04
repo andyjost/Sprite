@@ -46,8 +46,10 @@ namespace cyrt
   private:
     RuntimeState * rts;
     size_t indent_value = 0;
-    std::unordered_map<Queue const *, int>      indents;
-    std::unordered_map<Queue const *, void *>      prevexprs;
-    std::unordered_map<Queue const *, PositionKey> prevpaths;
+    // Keyed by the serial number of the queue: a queue is freed when its
+    // set function is done, and another may take its address.
+    std::unordered_map<size_t, int>         indents;
+    std::unordered_map<size_t, void *>      prevexprs;
+    std::unordered_map<size_t, PositionKey> prevpaths;
   };
 }

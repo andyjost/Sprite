@@ -5,16 +5,19 @@
 
 namespace cyrt
 {
-  void RuntimeState::append(Configuration * config)
+  void RuntimeState::append(std::unique_ptr<Configuration> config)
   {
-    this->Q()->push_back(config);
+    this->Q()->push_back(std::move(config));
   }
 
-  void RuntimeState::prepend(Configuration * config)
+  void RuntimeState::prepend(std::unique_ptr<Configuration> config)
   {
-    this->Q()->push_front(config);
+    this->Q()->push_front(std::move(config));
   }
 
+  // Takes the front configuration out of the current queue and destroys
+  // it.  Its nodes stay in the graph until the collector finds them
+  // unreachable.
   void RuntimeState::drop(TraceOpt trace)
   {
     #ifdef SPRITE_TRACE_ENABLED
@@ -67,7 +70,9 @@ namespace cyrt
     Configuration * C = nullptr;
     for(size_t i=0; i<N; ++i)
     {
-      C = Q->front();
+      // The front is about to be read and stepped: it must be private to
+      // this queue.
+      C = Q->unshare_front();
       if(_make_ready(this, C))
         return true;
       else
@@ -82,6 +87,7 @@ namespace cyrt
     #ifdef SPRITE_TRACE_ENABLED
     if(this->trace) this->trace->yield(value);
     #endif
+    SCHEDULER_COUNT_END(this->C(), END_VALUE);
     this->drop(NOTRACE);
     return value;
   }
@@ -92,10 +98,7 @@ namespace cyrt
     if(forced)
       Q->front()->forced_rotate = true;
     if(Q->size() > 1)
-    {
-      Q->push_back(Q->front());
-      Q->pop_front();
-    }
+      Q->rotate();
   }
 
   // Handles E_UNWIND for C, the head of Q: the evaluation of C reached the
@@ -140,6 +143,7 @@ namespace cyrt
          << " bytes exceeded (flag stack_limit)";
       this->deferred_error = ss.str();
     }
+    SCHEDULER_COUNT_END(C, END_FAILURE);
     this->drop();
     return true;
   }
@@ -158,8 +162,6 @@ namespace cyrt
 
   void RuntimeState::set_goal(Node * goal)
   {
-    auto config = Configuration::create(goal);
-    this->prepend(config.get());
-    config.release();
+    this->prepend(Configuration::create(goal));
   }
 }

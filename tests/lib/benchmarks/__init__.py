@@ -6,12 +6,13 @@ Usage, from the tests directory:
 
     ./run_benchmarks [run] [options] [PROGRAM ...]
     ./run_benchmarks compare OLD NEW [options]
+    ./run_benchmarks counters FILE [options]
     ./run_benchmarks list [--suite NAME]
 
 or, from anywhere, with the Python of an installation and tests/lib on
 PYTHONPATH:
 
-    python -m benchmarks [run|compare|list] ...
+    python -m benchmarks [run|compare|counters|list] ...
 
 Say ``./run_benchmarks -h`` and ``./run_benchmarks compare -h`` for the
 options.  The modules:
@@ -22,6 +23,8 @@ options.  The modules:
     records.py   The record format, the medians, and the JSON Lines files.
     run.py       The command that runs a suite and writes the records.
     compare.py   The command that compares two record files.
+    counters.py  The command that tabulates the scheduler counters of a
+                 record file (a runtime built with make COUNTERS=1).
     probe.py     The child program of the expression item.
 '''
 

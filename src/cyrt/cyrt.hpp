@@ -1,4 +1,5 @@
 #pragma once
+#include "cyrt/bom.hpp"
 #include "cyrt/builtins.hpp"
 #include "cyrt/currylib/prelude.hpp"
 #include "cyrt/currylib/setfunctions.hpp"

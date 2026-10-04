@@ -6,6 +6,7 @@
 #include "cyrt/utf8.hpp"
 #include <limits>
 #include <sstream>
+#include <vector>
 
 namespace cyrt
 {
@@ -68,15 +69,19 @@ namespace cyrt
 
   struct GetSpan : ShowMonitor
   {
-    GetSpan(Variable const & watched) : watched(&watched) {}
+    GetSpan(Variable const & watched)
+      : watched(&watched)
+      , path(watched.realpath.begin(), watched.realpath.end())
+    {}
     Variable const * watched;
+    std::vector<index_type> path; // the realpath, in the form Walk2 compares
     size_t begin=MAX, end=MAX;
 
     explicit operator bool() const { return this->begin != MAX && this->end != MAX; }
 
     void enter(std::ostream & os, Walk2 const * walk, char context) override
     {
-      if(walk->path() == watched->realpath)
+      if(walk->path() == this->path)
       {
         assert(walk->cursor() == this->watched->target);
         this->begin = os.tellp();
@@ -86,7 +91,7 @@ namespace cyrt
     void exit(std::ostream & os, Walk2 const * walk, char context) override
     {
       if(this->begin != MAX && this->end == MAX)
-        if(walk->at_terminus(watched->realpath))
+        if(walk->at_terminus(this->path))
           this->end = os.tellp();
     }
   };
@@ -146,7 +151,9 @@ namespace cyrt
       set->escape_set.insert(cid);
   }
 
-  Node * Variable::rvalue() const
+  // The slow path of rvalue: the variable crossed set guards, and the value
+  // is wrapped in them again.
+  Node * Variable::guarded_rvalue() const
   {
     if(!this->target)
       return nullptr; // unassigned variable (forward reference)

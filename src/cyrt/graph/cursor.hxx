@@ -17,19 +17,14 @@ namespace cyrt
 
   inline Arg::Arg(Variable const & value) : Arg(value.rvalue()) {}
 
-  // The successor of a variable.  The realpath runs from the root of the
-  // step, so the path of this variable comes first: Scan::push walks it from
-  // the root when the successor is head-normalized.
-  inline Variable Variable::operator[](index_type pos) const
+  // Variable
+  inline Node * Variable::rvalue() const
   {
-    Variable tmp(this->target, pos);
-    tmp.realpath.insert(
-        tmp.realpath.begin(), this->realpath.begin(), this->realpath.end()
-      );
-    tmp.guards.insert(tmp.guards.end(), this->guards.begin(), this->guards.end());
-    return tmp;
+    if(!this->guards.empty())
+      return this->guarded_rvalue();
+    if(!this->target)
+      return nullptr; // unassigned variable (forward reference)
+    assert(this->target.kind == 'p');
+    return *this->target;
   }
-
-  inline Variable Cursor::operator[](index_type pos) const
-    { return Variable(*this, pos); }
 }

@@ -1,19 +1,14 @@
 '''Tests for the garbage collector of the C++ backend.'''
 import cytest # from ./lib; must be first
-import curry, os, unittest
+import ast, curry, os, unittest
 from unittest import mock
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
-class TestCxxGc(cytest.TestCase):
+class ChildTests(cytest.TestCase):
   '''
-  The collector of the C++ backend (src/cyrt/graph/gc/wdgc.cpp).  The nodes
-  Python holds are roots, the queue of a set function is a root, a nested
-  evaluation collects, and a program that allocates many short-lived nodes
-  completes under a 1 GiB address-space cap.  Every test runs a child under
-  prlimit and timeout, because a missing root ends in a crash.  The programs
-  are in data/curry/CxxGc.curry.
+  The base of the test classes below.  Every test runs a child under prlimit
+  and timeout, because a missing root ends in a crash.  The children import
+  the bindings and the test module, data/curry/CxxGc.curry.  No test of its
+  own.
   '''
   TIMEOUT = 120
 
@@ -42,6 +37,22 @@ M = curry.import_('CxxGc')
       )
     return proc
 
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
+  )
+class TestCxxGc(ChildTests):
+  '''
+  The collector of the C++ backend (src/cyrt/graph/gc/wdgc.cpp).  The nodes
+  Python holds are roots, the queue of a set function is a root, a nested
+  evaluation collects, and a program that allocates many short-lived nodes
+  completes under a 1 GiB address-space cap.
+  '''
+
+  # The cells walked beside a live table of 300 pairs.  In stress mode every
+  # step marks the table, so the walk is shorter there.
+  WALK = 10000 if cytest.GC_STRESS else 100000
+
   def test_value_survives_collections(self):
     '''
     A value handed to Python stays correct across collections, and its nodes
@@ -54,7 +65,7 @@ expected = [(i, str(i)) for i in range(1, 301)]
 assert curry.topython(value) == expected
 cyrt.gc_set_threshold(1 << 14)
 n0 = cyrt.gc_collections()
-assert curry.topython(next(curry.eval(M.walk, 100000))) == 100000
+assert curry.topython(next(curry.eval(M.walk, %d))) == %d
 collections = cyrt.gc_collections() - n0
 assert collections > 10, collections
 cyrt.gc_collect()
@@ -67,7 +78,7 @@ cyrt.gc_collect()
 after = cyrt.gc_node_count()
 assert after <= before - 2000, (before, after)
 print('collections', collections, 'nodes', before, after)
-''')
+''' % (self.WALK, self.WALK))
     self.assertIn('collections', proc.stdout)
 
   def test_expression_survives_collections(self):
@@ -114,6 +125,7 @@ assert cyrt.gc_num_roots() == r0, (r0, cyrt.gc_num_roots())
 assert cyrt.gc_root_count(None) == 0
 ''')
 
+  @cytest.skipIfGcStress('the collector runs whatever the threshold says')
   def test_short_lived_nodes_complete_under_1GiB(self):
     '''
     A walk over a million list cells allocates about 1.5 GB of short-lived
@@ -193,6 +205,7 @@ else:
 assert cyrt.gc_eval_depth() == 0
 ''')
 
+  @cytest.skipIfGcStress('a test of the threshold policy; 3000 pairs live')
   def test_threshold_follows_the_survivors(self):
     '''
     After a collection the threshold is eight times the survivors, but not
@@ -238,6 +251,30 @@ print(after)
 ''')
     self.assertIn('collections', proc.stdout)
 
+  @cytest.skipIfGcStress('a test of the growth policy; 3000 pairs live')
+  def test_growth(self):
+    '''
+    SPRITE_GC_GROWTH sets the growth factor when the runtime loads: after a
+    collection the threshold is that many times the survivors.  A bad value
+    falls back to the default with a warning.
+    '''
+    code = '''
+print('growth', cyrt.gc_growth())
+cyrt.gc_set_threshold(1 << 14)
+value = next(curry.eval(M.table, 3000))
+cyrt.gc_collect()
+live = cyrt.gc_node_count()
+assert live > 1 << 14, live
+print('threshold', cyrt.gc_threshold() // live)
+'''
+    with mock.patch.dict(os.environ, {'SPRITE_GC_GROWTH': '3'}):
+      proc = self.run_child(code)
+    self.assertEqual(proc.stdout.splitlines(), ['growth 3', 'threshold 3'])
+    with mock.patch.dict(os.environ, {'SPRITE_GC_GROWTH': '1'}):
+      proc = self.run_child(code)
+    self.assertEqual(proc.stdout.splitlines(), ['growth 8', 'threshold 8'])
+    self.assertIn('SPRITE_GC_GROWTH=1', proc.stderr)
+
   def test_threshold(self):
     '''
     SPRITE_GC_THRESHOLD sets the threshold when the runtime loads.  A bad
@@ -265,3 +302,301 @@ print('depth', cyrt.gc_eval_depth(), 'reclaimed', type(cyrt.gc_collect()).__name
       proc = self.run_child(code)
     self.assertEqual(proc.stdout.splitlines()[0], 'threshold 1048576')
     self.assertIn('SPRITE_GC_THRESHOLD=abc', proc.stderr)
+
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
+  )
+class TestOwnership(ChildTests):
+  '''
+  The ownership of configurations, queues, and sets (src/cyrt/state/queue.hpp
+  and gc/wdgc.cpp).  A queue owns its configurations, so a fork and a drop
+  free them at once; the queue and the set of a set function go when no
+  SetEval node reaches them; and the counters of the bindings report what is
+  alive.
+  '''
+
+  # Reads the counters and checks their relations: the live configurations
+  # are those in the queues (a configuration shared by two queues after a
+  # split counts in both), and a queue of a set function has a set.
+  COUNTS = '''
+def counts():
+  lengths = cyrt.gc_queue_lengths()
+  configurations = cyrt.gc_configuration_count()
+  assert len(lengths) == cyrt.gc_queue_count(), (lengths, cyrt.gc_queue_count())
+  assert configurations <= sum(lengths), (configurations, lengths)
+  return configurations, cyrt.gc_queue_count(), cyrt.gc_set_count()
+
+def settled():
+  # Nothing of an evaluation survives its runtime state and a collection.
+  gc.collect()
+  cyrt.gc_collect()
+  return counts()
+'''
+
+  def test_fork_and_drop_free_configurations(self):
+    '''
+    A sort by permutation forks once per element inserted and drops every
+    unsorted prefix.  The parent of a fork and a dropped configuration are
+    freed at once, so the live count follows the queue, and nothing is left
+    when the evaluation ends.
+    '''
+    proc = self.run_child(self.COUNTS + '''
+base = settled()
+assert base == (0, 0, 0), base
+values = list(curry.eval(M.psort, 7))
+assert curry.topython(values[0]) == list(range(1, 8)), values
+assert len(values) == 1, values
+assert settled() == (0, 0, 0), counts()
+stats = curry.stats()
+assert stats['forks'] > 100, stats
+print('forks', stats['forks'])
+''')
+    self.assertIn('forks', proc.stdout)
+
+  def test_set_function_queues_are_freed(self):
+    '''
+    A set function consumed only in part leaves its queue, with the
+    alternatives not produced yet, to the collector.  The items come from a
+    Python iterator, which reads the counters between them: the queues and
+    the configurations of finished set functions go at each collection, so
+    the counts stay far below the number of set functions run.
+    '''
+    proc = self.run_child(self.COUNTS + '''
+cyrt.gc_set_threshold(1 << 14)
+seen = []
+def items(n):
+  for i in range(n):
+    seen.append(counts())
+    yield i
+n0 = cyrt.gc_collections()
+assert curry.topython(next(curry.eval(M.partial, 3, iter(items(2000))))) == 2000
+collections = cyrt.gc_collections() - n0
+assert collections > 0, collections
+peak_queues = max(q for c, q, s in seen)
+peak_sets = max(s for c, q, s in seen)
+peak_configurations = max(c for c, q, s in seen)
+# Each item leaves 7 configurations in a queue with a set of its own.
+assert peak_queues < 2000, peak_queues
+assert peak_sets < 2000, peak_sets
+assert peak_configurations < 7 * 2000, peak_configurations
+assert settled() == (0, 0, 0), counts()
+print('collections', collections, 'peak', peak_configurations, peak_queues, peak_sets)
+''')
+    self.assertIn('collections', proc.stdout)
+
+  def test_configurations_request_a_collection(self):
+    '''
+    The configurations alive request a collection when they reach one
+    eighth of the node threshold.  A wide choice tree inside a set function
+    consumed only in part leaves 63 configurations per item and allocates
+    few nodes, so without this rule the dead queues would pile up until the
+    nodes reached the threshold.
+    '''
+    proc = self.run_child(self.COUNTS + '''
+cyrt.gc_set_threshold(1 << 16)
+seen = []
+def items(n):
+  for i in range(n):
+    seen.append(counts() + (cyrt.gc_node_count(),))
+    yield i
+n0 = cyrt.gc_collections()
+assert curry.topython(next(curry.eval(M.partial, 6, iter(items(600))))) == 600
+collections = cyrt.gc_collections() - n0
+peak_configurations = max(c for c, q, s, n in seen)
+peak_nodes = max(n for c, q, s, n in seen)
+assert collections > 0, collections
+# The configuration threshold is 8192.  Without the rule the first
+# collection would come at 65536 nodes, with many more configurations.
+assert peak_configurations < 3 * 8192, peak_configurations
+print('collections', collections, 'peak', peak_configurations, peak_nodes)
+''')
+    self.assertIn('collections', proc.stdout)
+
+  def test_nested_set_functions_settle(self):
+    '''
+    The queens of a small board through nested set functions: the outer set
+    function forks on the permutation, each permutation runs a set function
+    of its own, and most of them are consumed only in part.  The values are
+    right, and nothing is left afterwards.
+    '''
+    self.run_child(self.COUNTS + '''
+cyrt.gc_set_threshold(1 << 14)
+assert curry.topython(next(curry.eval(M.countQueens, 5))) == 10
+assert cyrt.gc_eval_depth() == 0
+assert settled() == (0, 0, 0), counts()
+''')
+
+  def test_error_in_a_set_function(self):
+    '''
+    An error inside a set function leaves the nested evaluation.  The queue
+    of the set function comes off the stack of queues on the way out, so the
+    state is consistent afterwards: the depth is zero, a collection runs,
+    and nothing is left once the evaluation is dropped.
+    '''
+    self.run_child(self.COUNTS + '''
+try:
+  next(curry.eval(M.boomSet))
+except curry.exceptions.EvaluationError as err:
+  assert 'boom' in str(err), err
+else:
+  assert False, 'no error'
+assert cyrt.gc_eval_depth() == 0
+assert settled() == (0, 0, 0), counts()
+assert curry.topython(next(curry.eval(M.psort, 4))) == [1, 2, 3, 4]
+assert settled() == (0, 0, 0), counts()
+''')
+
+  def test_escaped_choice_splits_the_queue(self):
+    '''
+    A choice of the argument escapes a set function while its queue holds
+    two configurations.  Both queues of the split hold the configurations
+    that have not made the choice, and each queue clones one before it
+    steps it, so neither sees the steps of the other.  The two sets are
+    {1,2} and {2,3}.
+    '''
+    self.run_child(self.COUNTS + '''
+values = sorted(curry.topython(v) for v in curry.eval(M.escaped))
+assert values == [[1, 2], [2, 3]], values
+assert settled() == (0, 0, 0), counts()
+''')
+
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
+  )
+class TestStress(ChildTests):
+  '''
+  The stress mode of the collector: with SPRITE_GC_STRESS=1 the collector
+  runs at every safepoint of the scheduler, after every rewrite step (see
+  gc/wdgc.cpp).  The children run with the variable set, whatever the
+  environment of the test process says, and one child runs without it for
+  comparison.
+  '''
+
+  def run_stress_child(self, code, **kwds):
+    with mock.patch.dict(os.environ, {'SPRITE_GC_STRESS': '1'}):
+      return self.run_child(code, **kwds)
+
+  def test_collects_at_every_step(self):
+    '''
+    The collections of an evaluation in stress mode are at least its rewrite
+    steps, the values are right, curry.stats reports the collections, and
+    nothing is left afterwards.
+    '''
+    proc = self.run_stress_child(TestOwnership.COUNTS + '''
+assert cyrt.gc_stress()
+table = [(i, str(i)) for i in range(1, 51)]
+for goal, args, expected in [
+    (M.walk, (2000,), 2000), (M.table, (50,), table), (M.spaced, (50,), 156)
+  ]:
+  before = curry.stats()
+  value = curry.topython(next(curry.eval(goal, *args)))
+  after = curry.stats()
+  assert value == expected, (value, expected)
+  steps = after['steps'] - before['steps']
+  collections = after['collections'] - before['collections']
+  assert collections == cyrt.gc_collections() - before['collections']
+  assert steps > 100, steps
+  assert collections >= steps, (collections, steps)
+  print(goal.name, 'steps', steps, 'collections', collections)
+assert settled() == (0, 0, 0), counts()
+''')
+    self.assertIn('walk steps', proc.stdout)
+
+  def test_same_values_and_steps_as_without(self):
+    '''
+    Forks, free variables, constraints, set functions (nested schedulers,
+    which hand the request outward), a split queue, and an error inside a
+    set function give the same values, in the same order and with the same
+    step counts, with and without the stress mode: a collection changes
+    nothing in the schedule.  Two defects of the runtime showed up here as
+    false suspensions: hnf_or_free left the residual of its probe of a free
+    variable behind (fairscheme.cpp), and applygnf reported the free
+    variables of an interrupted normalization, or of a constraint lifted to
+    the root, as residuals (apply.cpp).
+    '''
+    code = TestOwnership.COUNTS + '''
+results = []
+for goal, args in [
+    (M.psort, (5,)), (M.escaped, ()), (M.countQueens, (4,)), (M.queens, (4,))
+  , (M.partial, (3, [1, 2, 3, 4])), (M.groundOwn, ())
+  ]:
+  before = curry.stats()
+  values = [curry.topython(v) for v in curry.eval(goal, *args)]
+  results.append((values, curry.stats()['steps'] - before['steps']))
+try:
+  next(curry.eval(M.boomSet))
+except curry.exceptions.EvaluationError as err:
+  assert 'boom' in str(err), err
+else:
+  assert False, 'no error'
+assert cyrt.gc_eval_depth() == 0
+assert settled() == (0, 0, 0), counts()
+print(results)
+'''
+    stressed = self.run_stress_child(code)
+    with mock.patch.dict(os.environ, {'SPRITE_GC_STRESS': '0'}):
+      plain = self.run_child(code)
+    self.assertEqual(stressed.stdout, plain.stdout)
+    results = ast.literal_eval(stressed.stdout)
+    self.assertEqual(
+        [values for values, steps in results]
+      , [ [[1, 2, 3, 4, 5]], [[1, 2], [2, 3]], [2], [[3, 1, 4, 2], [2, 4, 1, 3]]
+        , [4], [1]
+        ]
+      )
+    self.assertTrue(all(steps > 0 for values, steps in results), results)
+
+  def test_nested_callback_evaluation(self):
+    '''
+    An evaluation started from a Python callback runs nested and collects
+    there, with the older nodes as roots, at every step.
+    '''
+    self.run_stress_child('''
+depths = []
+def items():
+  for i in range(3):
+    depths.append(cyrt.gc_eval_depth())
+    yield curry.topython(next(curry.eval(M.walk, 500))) + i
+assert curry.topython(next(curry.eval(M.lastOf, iter(items())))) == 502
+assert depths == [1, 1, 1], depths
+assert cyrt.gc_eval_depth() == 0
+''')
+
+  def test_off_unless_asked(self):
+    '''
+    Without the variable, or with the value 0, the mode is off and an
+    evaluation below the threshold runs no collection.  Another value turns
+    the mode off with a warning.
+    '''
+    code = '''
+print('stress', cyrt.gc_stress())
+before = cyrt.gc_collections()
+assert curry.topython(next(curry.eval(M.walk, 1000))) == 1000
+print('collections', cyrt.gc_collections() - before)
+'''
+    expected = ['stress False', 'collections 0']
+    environment = {
+        key: value for key, value in os.environ.items()
+        if key != 'SPRITE_GC_STRESS'
+      }
+    with mock.patch.dict(os.environ, environment, clear=True):
+      proc = self.run_child(code)
+    self.assertEqual(proc.stdout.splitlines(), expected)
+    with mock.patch.dict(os.environ, {'SPRITE_GC_STRESS': '0'}):
+      proc = self.run_child(code)
+    self.assertEqual(proc.stdout.splitlines(), expected)
+    with mock.patch.dict(os.environ, {'SPRITE_GC_STRESS': 'yes'}):
+      proc = self.run_child(code)
+    self.assertEqual(proc.stdout.splitlines(), expected)
+    self.assertIn('SPRITE_GC_STRESS=yes', proc.stderr)
+
+
+class TestSplitValues(cytest.TestCase):
+  '''The values of the split of a set function's queue, on both backends.'''
+
+  def test_escaped_choice(self):
+    M = curry.import_('CxxGc')
+    values = sorted(curry.topython(v) for v in curry.eval(M.escaped))
+    self.assertEqual(values, [[1, 2], [2, 3]])

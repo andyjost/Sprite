@@ -63,6 +63,15 @@ EXCLUDED = {
 # example needs one at present.
 REQUIRES = {}
 
+# Directory -> the reason the example does not run in the stress mode of the
+# collector (SPRITE_GC_STRESS=1; see cytest.GC_STRESS).  In that mode every
+# rewrite step marks the live state, and a search that keeps thousands of
+# alternatives alive does not end in TIMEOUT.
+STRESS_EXCLUDED = {
+    '11-sudoku': 'a search over a large live state'
+  , '12-cryptarithm': 'a search over a large live state'
+  }
+
 # Directory -> the reason its output is wrong.  The run of such an example
 # must still succeed; only the comparison with expected.out is an expected
 # failure until the defect is fixed.  SPRITE_UPDATE_EXPECTED does not rewrite
@@ -99,6 +108,7 @@ class TestExamples(cytest.TestCase):
     self.assertEqual(set(EXAMPLES) | set(EXCLUDED), on_disk)
     self.assertFalse(set(EXAMPLES) & set(EXCLUDED))
     self.assertTrue(set(KNOWN_FAILURES) <= set(EXAMPLES))
+    self.assertTrue(set(STRESS_EXCLUDED) <= set(EXAMPLES))
 
   def run_example(self, name):
     '''
@@ -114,6 +124,10 @@ class TestExamples(cytest.TestCase):
     for module in REQUIRES.get(name, ()):
       if importlib.util.find_spec(module) is None:
         self.skipTest('%s needs the Python module %s' % (name, module))
+    if cytest.GC_STRESS and name in STRESS_EXCLUDED:
+      self.skipTest(
+          'collector stress mode: %s is %s' % (name, STRESS_EXCLUDED[name])
+        )
     if name in self.procs:
       return self.procs[name]
     exdir = os.path.join(EXAMPLES_DIR, name)

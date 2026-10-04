@@ -9,13 +9,15 @@ module and its bytecode cache; the C++ backend finds the shared object, its
 ABI stamp, and the precompiled header.  So the first import after a stage
 compiles nothing.  The other modules get their ICurry and JSON only.  The toolchain writes the bytecode cache when it writes a
 Python file, and the loader of the Python backend reads the cache through
-importlib and writes a missing or stale one, with or without -B.  The modules
-of the cache tests come from hand-written ICurry-JSON, so no Curry front end
-runs.
+importlib and writes a missing or stale one, with or without -B.  A generated
+Python file carries a format stamp; a cached file of another stamp, or of
+none, is written again from the JSON file.  The modules of the cache and
+stamp tests come from hand-written ICurry-JSON, so no Curry front end runs.
 '''
 import cytest # from ./lib; must be first
 from cytest.logging import capture_log
 from curry import config
+from curry.backends.py import compiler as py_compiler
 from curry.backends.py import toolchain as py_toolchain
 from curry.toolchain import plans, makecurry
 from curry.tools import make
@@ -66,7 +68,8 @@ class TestStagedLibrary(cytest.TestCase):
     precompiled header of the default flavor exists.
     '''
     from curry.backends.cxx import toolchain as cxx_toolchain
-    digest = cxx_toolchain.runtime_digest()
+    # The stamp is the digest of the headers and of the installed flavor.
+    digest = cxx_toolchain.object_digest()
     for name in config.supported_syslibs():
       sofile = installed_file(name, '.so')
       self.assertTrue(os.path.isfile(sofile), sofile)
@@ -419,3 +422,75 @@ class TestBytecodeCache(JsonModuleTestCase):
     self.assertTrue(os.path.isfile(output))
     self.assertFalse(os.path.exists(pyfile))
     self.assertFalse(os.path.exists(py_toolchain.bytecode_file(pyfile)))
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'py'
+  , 'the Python toolchain belongs to the Python backend'
+  )
+class TestFormatStamp(JsonModuleTestCase):
+  '''
+  The emitter stamps every generated Python file with its format.  A cached
+  file of another stamp, or of none, is written again from the JSON file: the
+  emitter writes other code now.  A file with the current stamp is loaded as
+  it is.  The C++ backend has the same rule (unit_cxx_toolchain).
+  '''
+  STALE = "raise RuntimeError('this file is stale')\n"
+  CURRENT = "raise RuntimeError('this file is current')\n"
+
+  def write_py(self, name, lines):
+    '''Writes a cached .py file for ``name``, newer than its JSON file.'''
+    path = self.cached_file(name, '.py')
+    with open(path, 'w') as stream:
+      stream.write(''.join(lines))
+    return path
+
+  def stamp(self, version):
+    return '# FORMAT: %d\n' % version
+
+  def test_stamp_is_written(self):
+    name = self.build(1)
+    path = self.cached_file(name, '.py')
+    with open(path) as stream:
+      head = [next(stream) for _ in range(3)]
+    # The stamp heads the file, before the first import.
+    self.assertIn(self.stamp(py_compiler.FORMAT_VERSION), head)
+    self.assertTrue(any(line.startswith('import') for line in head))
+    self.assertEqual(
+        py_toolchain.format_version(path), py_compiler.FORMAT_VERSION
+      )
+    self.assertFalse(py_toolchain.source_is_stale(path))
+    json2py = py_toolchain.Json2Py(curry.getInterpreter())
+    self.assertFalse(json2py.is_stale(path))
+    self.assertFalse(json2py.is_stale(self.cached_file(name, '.json.z')))
+    self.assertFalse(self.plan.is_stale(path))
+    self.check_value(self.import_module(name), 1)
+
+  def test_other_stamp_is_regenerated(self):
+    '''A file of another format is written again from the JSON file.'''
+    name = self.write_json(2)
+    path = self.write_py(
+        name, [self.stamp(py_compiler.FORMAT_VERSION + 1), self.STALE]
+      )
+    self.assertTrue(py_toolchain.source_is_stale(path))
+    self.assertTrue(self.plan.is_stale(path))
+    self.check_value(self.import_module(name), 2)
+    text = cytest.readfile(path)
+    self.assertIn(self.stamp(py_compiler.FORMAT_VERSION), text)
+    self.assertNotIn('this file is stale', text)
+    self.assertTrue(py_toolchain.bytecode_is_current(path))
+
+  def test_missing_stamp_is_regenerated(self):
+    '''A file from before the stamp has format 1, and is written again.'''
+    name = self.write_json(3)
+    path = self.write_py(name, [self.STALE])
+    self.assertEqual(py_toolchain.format_version(path), 1)
+    self.assertTrue(self.plan.is_stale(path))
+    self.check_value(self.import_module(name), 3)
+    self.assertNotIn('this file is stale', cytest.readfile(path))
+
+  def test_current_stamp_is_loaded(self):
+    '''A file with the current stamp is the prerequisite, as before.'''
+    name = self.write_json(4)
+    self.write_py(name, [self.stamp(py_compiler.FORMAT_VERSION), self.CURRENT])
+    with self.assertRaisesRegex(RuntimeError, 'this file is current'):
+      self.import_module(name)

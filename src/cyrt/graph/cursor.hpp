@@ -1,8 +1,9 @@
 #pragma once
 #include <cassert>
 #include "cyrt/fwd.hpp"
+#include "cyrt/smallvec.hpp"
 #include <string>
-#include <vector>
+#include <utility>
 
 namespace cyrt
 {
@@ -72,15 +73,20 @@ namespace cyrt
     std::string repr() const;
   };
 
+  // A position in the expression of a step: the slot that holds the node,
+  // the path to it from the root of the step, and the set guards crossed on
+  // the way.  A step builds one for every argument it reads, so the path and
+  // the guards have inline room (see smallvec.hpp): an argument access makes
+  // no heap call.  The indexer and the subscript are in indexing.hxx.
   struct Variable
   {
-    mutable Cursor          target;
-    std::vector<index_type> realpath;
-    std::vector<Set *>      guards;
+    mutable Cursor target;
+    RealPath       realpath;
+    GuardList      guards;
 
     Variable() {}
-    Variable(Node *, index_type, bool update_fwd_nodes=true); // indexing.cpp
-    Variable operator[](index_type) const;
+    Variable(Node *, index_type, bool update_fwd_nodes=true); // indexing.hxx
+    Variable operator[](index_type) const;                      // indexing.hxx
 
     // The node this variable denotes, wrapped in any set guards crossed on
     // the way to it.  An unassigned variable yields nullptr.  Generated code
@@ -96,6 +102,15 @@ namespace cyrt
 
     std::string str() const;
     std::string str(SubstFreevars) const;
+
+  private:
+    // Indexes from ``root`` to its successor ``pos`` and appends the path
+    // and the guards crossed.  ``skip`` steps over forward nodes and set
+    // guards at the target; ``parent`` is the node whose slot the target is,
+    // or null at the root.
+    void index(Node * root, index_type pos, bool update_fwd_nodes);
+    void skip(Node *& parent, bool update_fwd_nodes);
+    Node * guarded_rvalue() const; // cursor.cpp
   };
 
 

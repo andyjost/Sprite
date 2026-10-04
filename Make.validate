@@ -30,6 +30,15 @@ ifneq ($(NVALIDATE),1)
     $(error PAKCS_VERSION is not set$nPlease rerun ./configure.)
   endif
 
+  # configure writes Make.config from a template that holds the compiler
+  # flags of the build flavors.  A configure newer than Make.config may write
+  # other settings.  One warning, from the top-level make.
+  ifeq ($(MAKELEVEL),0)
+    ifeq ($(shell [ $(ROOT_DIR)/configure -nt $(ROOT_DIR)/Make.config ]; echo $$?),0)
+      $(warning configure is newer than Make.config.  Rerun ./configure to pick up its current settings.)
+    endif
+  endif
+
   ifndef PYTHON_PACKAGE_NAME
     $(error PYTHON_PACKAGE_NAME must be defined))
   endif

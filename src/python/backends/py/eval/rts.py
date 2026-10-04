@@ -106,6 +106,13 @@ class RuntimeState(object):
     '''The number of times a configuration forked in this evaluation.'''
     return self.telemetry._forks
 
+  def scheduler_counters(self):
+    '''
+    The scheduler counters of this evaluation.  The Python backend has none;
+    see cyrt/state/counters.hpp for the C++ runtime.
+    '''
+    return None
+
   def single_step(self, node):
     '''
     Takes one rewrite step at the root of ``node``, outside the step loop

@@ -289,6 +289,7 @@
   argument (set1 anyOf xs, set1 tails xs, set1 id x, set1 (\xs -> head xs ?
   last xs)) hits an assertion in procD or hnf (fairscheme.cpp) and aborts.
   Choices built from fresh data work. The Python backend accepts every shape.
+  Fixed on 2026-10-04 (the set guard at the root, below).
 - A free variable created in Python (curry.free()) inside a goal gives a wrong
   value for xs ++ [3] =:= [1,2,3] &> xs, and two of them crash both backends.
   Free variables declared in Curry work.
@@ -679,3 +680,462 @@
   curry/pakcs-3.2.0, curry/pakcs-3.3.0, and curry/pakcs-3.4.1 and the old
   source overlays curry/Control and curry/Data, which nothing references
   now and which can go with git rm.
+- Release flags (T1, issue #20).  The optimized build kept its assertions:
+  neither Make.config nor the flags of the C++ toolchain said -DNDEBUG, so
+  libcyrt.so imported __assert_fail (401 call sites) and so did every
+  generated module (3,610 in the Prelude, 45 in Fib); every call between
+  translation units of the runtime, and every call from a module into the
+  runtime, went through the procedure linkage table (4,188 PLT calls in the
+  runtime, 49,582 in the Prelude); and the stack protector was on (313 call
+  sites in the runtime).  Done: the optimized flavor in the Make.config
+  template of configure adds -DNDEBUG -fno-stack-protector -fno-plt
+  -fno-semantic-interposition, and libcyrt.so links with
+  -Wl,-Bsymbolic-functions; the debug flavor (make DEBUG=1) keeps the
+  assertions.  The flavor reaches the installation as sysconfig/cxx_flavor
+  (config.cxx_flavor), and the C++ toolchain compiles generated modules in
+  the same flavor (toolchain.FLAVOR_FLAGS: the flags above with -O3, and
+  -Wl,-Bsymbolic-functions for every module) unless the interpreter flag
+  debug is set.  The ABI stamp is a digest of the headers and of the flavor
+  flags now (toolchain.object_digest), so a change to either compiles every
+  object again, once: the prebuild of make stage for the library, the first
+  import for a cache.  An object of the debug flag carries the debug digest;
+  a session without the flag compiles it again, a session with the flag
+  keeps it beside the objects of the installation (Cpp2So.accepted_digests).
+  The objects depend on Make.config (src/Make.depends), and make warns once
+  when configure is newer than Make.config: a tree with an older Make.config
+  needs ./configure again.  The assert audit found no assertion with a side
+  effect among the 153 of the runtime (the two rv.second patterns already
+  cast rv to void), and the build with -DNDEBUG gives no warning.  After the
+  change, libcyrt.so and the Prelude import neither __assert_fail nor
+  __stack_chk_fail and make one PLT call each (__cxa_finalize).  Measured
+  with the harness (C++ backend, three repetitions, CPU seconds, ratio new
+  over old; steps equal): Tak1 7.21 to 6.27 (0.87), Fib 1.14 to 1.00
+  (0.88), Queens10 6.70 to 5.82 (0.87), Reverse 1.92 to 1.80 (0.94),
+  Primes 9.39 to 8.00 (0.85); peak RSS unchanged.  Tests:
+  unit_cxx_toolchain.py (TestFlavor: the installed runtime and the Prelude
+  have no assertion, the release and the debug flags and stamps, the
+  digest, the flavor file; TestAbiStamp follows the new digest).  Left: the
+  flavor of generated code is one knob with the runtime's, so a debug
+  installation compiles its modules at -O0; CXXFLAGS from the environment
+  stays out of the stamp.
+- Cheap Variable (T2, issue #21).  Every argument access in a step built a
+  Variable with two heap-backed vectors (the path from the root of the step
+  and the set guards crossed), so the step of fibgen called operator delete
+  18 times and the out-of-line constructor of Variable three times, and a
+  nested access (_1[1]) moved the vectors again.  Done: SmallVec
+  (cyrt/smallvec.hpp), a sequence with inline room for N plain values and a
+  heap block beyond it; Variable keeps its path in a SmallVec of 8 entries
+  and its guards in one of 2, and stays 64 bytes.  The heap block comes
+  from two helpers of the runtime library (smallvec_alloc, smallvec_free),
+  and the growth step is out of line, so a generated module imports no
+  allocator for its variables.  The indexer moved from indexing.cpp to
+  indexing.hxx, included from node.hxx, so the constructor, operator[], and
+  rvalue are inline: a plain successor costs a few loads and one store into
+  the inline path; a forward node of one link is shortened in place; only a
+  longer chain calls compress_fwd_chain, and only a variable with guards
+  calls guarded_rvalue.  operator[] copies the lists of the parent and
+  appends, instead of a vector insert at the front; the order of the
+  entries is as before (the path of the parent first, the guards of the
+  parent last).  The show of the guards prints the set addresses instead of
+  "{TODO}".  Found on the way: the front end lifts every level of a nested
+  pattern into a function of its own (unwrap__CASE0 ...), so no variable of
+  the Prelude or of the benchmarks has a path of more than two entries; the
+  inline room is left only through set guards.  Also, with the release
+  flags of T1, the known defect of a set function whose value is a sub-term
+  of its argument (above, 2026-10-03) is no longer an abort but an endless
+  loop: hnf and procD say assert(0); continue; at T_SETGRD.  Measured with
+  the harness (C++ backend, three repetitions, CPU seconds, ratio new over
+  old; steps equal, peak RSS unchanged): Tak1 6.26 to 3.75 (0.60), Fib 1.02
+  to 0.81 (0.80), Queens10 5.84 to 4.58 (0.78), PermSort 12.23 to 11.16
+  (0.91), Reverse 1.81 to 1.01 (0.56), Primes 8.35 to 6.06 (0.73), Psort
+  38.77 to 23.38 (0.60).  Static: the step functions of Fib.so and Tak1.so
+  call no operator new, operator delete, malloc, or free (objdump); their
+  call targets are node_reserve, node_commit, compress_fwd_chain,
+  guarded_rvalue, the cold grow of SmallVec, and the never-taken
+  smallvec_free of the destructor.  Tests: unit_cxx_variable.py
+  (TestSmallVec: a C++ program, data/cxx/smallvec_test.cpp, compiled
+  against the installed runtime: inline room, growth, copies and moves in
+  both directions, self-assignment, append, equality, pointer values, and
+  the sizes; TestStepFunctions: the call targets of the step functions of
+  Fib and Tak1; TestPatterns: a twelve-level pattern over a lazy and over a
+  literal value, two variables of one pattern, the same inside a set
+  function, a choice in the argument and one inside, and three nested set
+  functions, whose innermost match carries three guards).  Left: W3 of the
+  throughput note (plain pointers for pass-through arguments) would remove
+  the Variable of an argument that is only passed on; the T_SETGRD loop in
+  hnf and procD needs an error instead of assert(0).
+- Alias inlining (T3, issue #22).  The Prelude's instance methods for Int
+  arithmetic and comparison are aliases: i1 <= i2 = ltEqInt i1 i2, and the
+  +, -, and * wrappers forward to plusInt, minusInt, and timesInt.  A call
+  of one cost a rewrite step and a node before the call of the external it
+  forwards to; four of the ten steps of a call of tak in Tak1 were such
+  forwards.  Done: the optimizer pass inline_aliases (interpreter/optimize.py;
+  the analysis in icurry/analysis/aliases.py).  An alias is a function whose
+  body is one saturated call of another function on exactly its own
+  parameters, in order.  The pass runs last, per function, when a module is
+  loaded, so it reaches the generated code of both backends and leaves the
+  FlatCurry-to-ICurry translation alone (the oracle: 1196 equal, 0
+  different).  It replaces each IFCall of an alias by a call of the end of
+  the chain of aliases, through the loaded modules; a partial application
+  keeps the alias as its head; the alias function itself stays.  Each alias
+  records its direct target under the metadata key all.alias_target, which
+  both backends write into the module (the C++ Metadata variant takes the
+  string), so a module loaded from its compiled form still tells its aliases
+  to the modules that import it.  A target may be private to its module
+  (both backends resolve a symbol through the symbol table of its module,
+  and the C++ backend exports every info table) or external (the call
+  becomes the call of the built-in).  When the target lives in a module the
+  caller does not import, the module joins the imports, so the C++ link
+  line and the Python import list carry it.  A chain that closes on itself,
+  a target of another arity, and a target that is not loaded leave the call
+  alone.  The optimizers are called as optimizer(interp, ifun, imodule) now.
+  Cached generated code: the C++ format stamp went from 2 to 3, and the
+  Python emitter got the same stamp (# FORMAT: 2 on line 2 of a generated
+  file; Json2Py refuses a file of another stamp or of none, and a file
+  without a stamp is format 1), so make stage and the first import write
+  every cached module again, once.  The Prelude has 23 aliases; its own
+  code calls plusInt from length and ltEqInt from take now.  Found on the
+  way: unit_prebuild compared the ABI stamp of the staged objects with
+  runtime_digest after T1 made the stamp the object digest; it compares with
+  object_digest now.  Also, on the C++ backend a module imported from its
+  ICurry object and then by name crashes the process (the registry entry of
+  the first import has no library); the new tests use a name per mode.
+  Measured with the harness (C++ backend, three repetitions, CPU seconds,
+  ratio new over old; steps old -> new; peak RSS unchanged): Tak1 3.68 to
+  2.69 (0.73; 49323874 -> 33629915), Fib 0.82 to 0.75 (0.92; 4500007 ->
+  3500006), Queens10 4.54 to 4.15 (0.91; 57308654 -> 54505073), Reverse
+  1.01 to 1.00 (equal steps), Primes 6.00 to 6.22 (1.04; 61385836 ->
+  61364444), PermSort 10.99 to 11.26 (1.02; 14914448 -> 12531154), Psort
+  23.06 to 23.37 (1.01; 214193771 -> 214193769).  The values are the same:
+  Tak1 gives 16, as an independent computation does; Reverse gives MyTrue
+  under PAKCS as well; Fib gives True on both backends; Queens10 gives 724;
+  Primes gives 17393, the prime at index 2000.  Tests: unit_optimize.py (the
+  alias test on hand-built ICurry, chains, cycles, the arity rule, the
+  structure of compiled modules, private and external targets, the import
+  that joins, the steps of a call through an alias, a monadic target, the
+  installed Prelude), unit_prebuild.py (TestFormatStamp: the Python stamp),
+  unit_compile.py (1+2 compiles to plusInt 1 2).  Left: a partial
+  application of an alias (map (+ 1), foldr (+) 0, a method reached through
+  a dictionary) still goes through the alias, so Fib and Queens10 keep most
+  of their wrapper steps; the pass has no switch to turn it off.
+- Ownership of configurations, queues, and sets (G1, issue #25).  The C++
+  runtime never freed a Configuration, a Queue, or a Set: drop popped the
+  front configuration and leaked it, fork leaked the parent of its two
+  clones, and the queues and sets of set functions came from new without
+  delete.  PermSort and QueensSet9 held about 3 GB, mostly those objects.
+  Done: a Queue owns its configurations (state/queue.hpp): pop_front lets
+  the front one go, the destructor the rest, and the last queue to hold a
+  configuration destroys it (Configuration::holders).  The split of a set
+  function's queue on an escaping choice (allValues_step) put one
+  configuration object into both queues and let both step it; now both
+  queues hold it, and a queue clones it before it steps it
+  (Queue::unshare_front, from ready()), so neither sees the steps of the
+  other.  The runtime state owns its outermost queue.  The queue of a set
+  function belongs to its SetEval node, but a copy of the node shares the
+  queue, so the collector frees queues and sets: both register themselves
+  (graph/memory.cpp); the mark phase marks the queues on the stacks of the
+  runtime states and the queues of the SetEval nodes it reaches, and the
+  sets of those queues, of those nodes, and of the SetGuard nodes it
+  reaches; the sweep destroys the rest.  A pointer read from a node counts
+  only when the registry knows it, because a guard built from Python
+  carries a number in the set slot.  allValues_step pops the nested queue
+  by RAII, so an error inside a set function leaves the stack of queues as
+  it was.  The trace keys its tables by a serial number of the queue, not
+  by its address.  Configurations come from a free list, and the scan keeps
+  its levels and its call stack in SmallVecs (inline room 4 and 6; SmallVec
+  gained resize), so a clone makes no heap call; sizeof(Configuration) is
+  376 bytes, in one block.  Found on the way: every collection of
+  QueensSet9 ran inside a nested scheduler, where every older node is a
+  root, so it marked the whole heap, freed nothing (100 percent survived),
+  and raised the threshold to eight times the heap.  A nested scheduler now
+  hands E_GC outward as it hands E_ROTATE, and the outermost scheduler of
+  the state collects with no step of the state on the C stack; only an
+  evaluation started from a Python callback still collects nested.  The
+  live configurations also request a collection when they reach an eighth
+  of the node threshold, with the same growth rule, because a set function
+  consumed only in part (isEmpty) leaves its queue to the collector while
+  few nodes are allocated.  SPRITE_GC_GROWTH sets the growth factor
+  (default 8).  Bindings: gc_configuration_count, gc_queue_count,
+  gc_set_count, gc_queue_lengths, gc_growth; a debug build asserts after
+  every collection that the live configurations are exactly those in the
+  registered queues, with their holders.  Measured with the harness (C++
+  backend; memory suite, one repetition, peak RSS and CPU seconds, old to
+  new): PermSort 3036 MB to 466 MB and 10.41 s to 7.73 s (steps equal);
+  QueensSet9 3073 MB to 391 MB and 6.82 s to 7.59 s (steps 12140753 to
+  12143159 with the collector on, 12141274 to 12144098 with it off; forks
+  2979434 to 2978907 and 2979262 to 2979174).  The split changes the
+  counters of every program with a choice that escapes a set function:
+  before, both queues stepped one configuration object, so a choice made in
+  one queue was made for the other; now each clone makes its own choices.
+  QueensSet of the throughput suite is such a program: 2172616 steps and
+  511344 forks in the baseline, 2152081 and 511413 after G1 and T3
+  together (alias inlining changes the steps, the split alone the forks).
+  The collection points changed the schedule as well until G2 (below)
+  stopped the rotation after a collection: since then QueensSet9 counts
+  12144098 steps and 2979174 forks with the collector on and off alike
+  (memory suite, measured on 2026-10-04).  Throughput suite, three
+  repetitions, CPU seconds: Tak1 2.76 to
+  2.45, Fib 0.80 to 0.74, Queens10 4.19 to 3.90, PermSort 10.48 to 7.63,
+  Reverse 1.00 to 0.96, Primes 5.97 to 5.52, Psort 22.62 to 21.72; steps
+  equal.  Profile of QueensSet9 after the change: the time above the old
+  run is in node_reserve after a sweep (the free lists hand out cold
+  blocks), in the sweeps, and in the destruction of about a million
+  configurations of dead queues.  Tests: unit_cxx_gc.py (TestOwnership: a
+  sort by permutation leaves nothing, set functions consumed in part are
+  freed during a run, the configuration trigger, nested set functions, an
+  error inside a set function, the split; TestSplitValues on both
+  backends; test_growth), unit_cxx_variable.py (SmallVec resize).  Docs:
+  the environment variables, the benchmark README.  Left: QueensSet9 costs
+  11 percent more CPU with the collector on than before, the price of
+  freeing memory with this collector (the block heap of the memory note is
+  the fix); the Python backend still shares one configuration object
+  between the two queues of a split; a collection in a Python callback
+  still treats every older node as a root; a Queue still holds its
+  configurations in a std::deque, about 600 bytes even when empty.
+- Collector stress mode (G2, issue #26).  The collector of the C++ backend
+  ran once per 2^20 nodes, so a missing root showed up late or never.  Done:
+  with SPRITE_GC_STRESS=1 the request flag stays set (the library sets it
+  when it loads, and run_gc sets it again), so check_interrupts returns E_GC
+  after every rewrite step and the scheduler collects at every safepoint it
+  reaches; a nested set function hands the request outward as before.  The
+  hot path is unchanged.  gc_stress() in the bindings reports the mode,
+  gc_collections() counts.  The mark stack is kept between collections.  The
+  value 0 or an empty value is off; another value is off with a warning.
+  Found on the way, on the first run of the unit suite in stress mode: (1)
+  hnf_or_free left the residual that its probe of a free variable recorded
+  (instantiate adds one) in the configuration, so a step interrupted after
+  the rewrite of =:<= returned the nested scheduler to ready() with a void
+  residual, and queens of CxxGc.curry ended in a false suspension; a normal
+  run meets the same when the periodic rotation lands there, once in 65536
+  steps.  hnf_or_free takes the residual back now.  (2) applygnf ($##)
+  reported the free variables left in an interrupted normalization, or in a
+  constraint that hnf lifted to the root, as residuals, and the
+  configuration suspended for good: id $## (let x free in (x =:= 1) &> x)
+  suspended in a normal run as well.  The ground check applies only when the
+  normalization completed and the redex became the application.  (3) The
+  scheduler rotated the queue after every collection (rotate(Q, true)); in
+  stress mode that turned a depth-first search into a lockstep over all
+  alternatives (the sudoku and cryptarithm examples never finished) and
+  starved the sibling in a nested queue (nestedChoice of StackGuard.curry).
+  A collection changes nothing in the schedule now: the interrupted
+  configuration continues, with its forced flag so that ready() accepts it,
+  and check_interrupts counts every compression and checks the rotation
+  before the request.  So the stress mode follows the schedule of a normal
+  run: the test programs give equal values, in the same order, with equal
+  step counts.  A test whose child cannot end in stress mode skips there
+  (cytest.skipIfGcStress: the out-of-memory program, the 200000-element
+  value, the deep recursion, the threshold and growth policy tests;
+  unit_examples leaves out the two search examples).  Measured: Tak0 in
+  stress mode takes 22.7 s against 0.72 s, with 9350060 collections for
+  9350060 steps and a peak RSS of 35 MB against 122 MB; the throughput suite
+  is unchanged (ratios 0.94 to 1.08, counters equal).  The unit suite in
+  stress mode on this machine: 46 files green, one process per file, about 5
+  minutes warm.  CI: the job stress of ci.yml runs the unit suite on the C++
+  backend in stress mode on the nightly schedule and on request (input
+  stress); the push jobs are unchanged.  Tests: unit_cxx_gc.py (TestStress:
+  collections per step, the same values and steps as without the mode, a
+  nested callback evaluation, off unless asked; the base class ChildTests,
+  so the inherited tests run once), unit_examples.py (STRESS_EXCLUDED),
+  unit_cxx_stack.py and unit_cxx_runtime.py (the skips).  Docs: the
+  environment variables, tests/README.  Left: the Python backend has the
+  same probe in hnf_or_free (fairscheme.py) and no stress mode; test_convert
+  of unit_curry2icurry fails whenever the ICurry cache holds its modules
+  (the front end does not run, so no .fcy file appears), with or without the
+  stress mode; a nested scheduler that hands E_ROTATE or E_UNWIND outward
+  from a queue of one configuration leaves the front without the forced
+  flag.
+
+2026-10-04
+- Scheduler counters (M4, issue #10).  The parallelism gate asks how much of
+  the work of a program the queue could run in parallel, and nothing
+  measured it.  Done: make COUNTERS=1 adds -DSPRITE_SCHEDULER_COUNTERS (like
+  TRACE=1; the objects do not depend on the variable, so touch Make.config
+  to switch).  The runtime then counts per evaluation (state/counters.hpp):
+  the steps taken while the outermost queue held one configuration, the
+  steps inside set functions, the steps whose redex another configuration
+  created, the largest outermost queue, and the lifetime of every
+  configuration that ends by a value, a failure, or a fork (a histogram,
+  exact below 1024 steps, one bucket per power of two above), for the
+  outermost queue and for the nested ones.  The creator of a node is the
+  serial number of the configuration whose step allocated it; node_reserve
+  writes it into the word before the node, and procS compares it with the
+  stepping configuration.  So "shared" is work on a node that an ancestor
+  made before a fork or that a sibling made: an upper bound of what a design
+  with one copy of the graph per alternative would duplicate.  The flag
+  changes the runtime and the bindings only: the new fields are last in
+  RuntimeState and Configuration, node_reserve is out of line, and
+  generated code reads neither, so the staged modules serve both builds.
+  The bindings hand the raw counters to Python (RuntimeState.
+  scheduler_counters, scheduler_counters_enabled); EvaluationTotals sums
+  them over the evaluations (the maxima take the largest), and curry.stats
+  and sprite-exec --stats append fourteen keys after compile (stats.
+  SCHEDULER_KEYS: serial_steps, nested_steps, shared_steps, queue_max,
+  configurations, failures, failed_steps, lifetime_median, lifetime_mean,
+  lifetime_max, and the nested four).  The harness accepts the longer line
+  and keeps it in extra.stats; run_benchmarks counters FILE prints one row
+  per program with the serial, nested, shared, and failed fractions.  On
+  the way: Queue keeps its size in a counter (the size of a deque is an
+  arithmetic over its iterators, and count_step asks at every step), and
+  single_step of the bindings steps the configuration the evaluator made
+  instead of a second one for the same root.  Measured, the plain and the
+  instrumented runtime side by side under perf stat (the machine had
+  another load; instructions are the stable number): Tak1 26.39 to 27.23 G
+  instructions (+3.2 percent), cycles +6 to +8 percent; PermSort 29.68 to
+  30.24 G (+1.9), cycles +3 to +5; QueensSet 9.21 to 9.30 G (+1.0), cycles
+  within the noise; peak RSS +8 to +20 percent (the word per node).  The
+  5 percent budget holds for PermSort and QueensSet in cycles and for all
+  three in instructions; Tak1, which allocates most, misses it by the
+  cache misses of the larger heap.  The 30 dissertation programs (one
+  repetition each, the file in the measure directory of the build tree):
+  the sixteen programs without a fork have a serial fraction of 1 and one
+  configuration; twelve search programs have a serial fraction below 0.07
+  (Half, SearchMAC, ColormapChoice, ColormapFree, Horseman, Last,
+  PaliFunPats, PermSort, PermSortPeano, QueensSet, RegExp, SearchQueens),
+  a median lifetime of 0 to 8 steps (mean 2 to 33), and a shared-work ratio
+  of 0.10 (PermSortPeano) to 0.99 (ColormapChoice); QueensSet runs 97
+  percent of its steps inside set functions.  PokerChoice and PokerFree do
+  not compile here (the front end wants currypp), as in the baseline.
+  Tests: unit_cxx_counters.py (the median and the sum in Python on every
+  backend; on an instrumented runtime the exact counters of count, coinNot,
+  oneFails, twoValues, inSet of data/curry/CxxCounters.curry and of psort
+  and countQueens of CxxGc.curry, the invariant that every step belongs to
+  one configuration of the outermost queue, a configuration left in the
+  queue, a single step, the sum over evaluations, the sprite-exec line; on
+  a plain runtime the seven fields alone), unit_api.py (the keys after the
+  seven), unit_benchmarks.py (the parser, the counters command).  Docs: the
+  sprite-exec page, tests/README, the benchmark README.  Left: the gate
+  reading: the search programs have the parallelism in the queue but each
+  configuration lives a handful of steps and most of its steps are on
+  shared nodes, so a worker must own a subtree and the graph must stay
+  shared; the shared counter tags every node, so a build that wants the
+  serial fraction and the lifetimes alone pays for the word too (a second
+  level of the flag would split it); the nested lifetimes miss the
+  configurations still in the queues of set functions, which hang off
+  SetEval nodes.
+- Plain-data module format (L5, issue #18).  With the precompiled header a
+  small module still cost g++ about 0.3 s for its static Metadata maps
+  (std::unordered_map of std::variant) and its ModuleBOM aggregate
+  (std::string, std::vector, std::map, std::tuple): the instantiation of the
+  templates and the code of the dynamic initializers.  Done: the generated
+  code spells the bill of materials as static arrays of plain records (new
+  header cyrt/bom.hpp, namespace cyrt::bom: Entry, Metadata, Alias, Type,
+  Function, Module; every member is an integer, a pointer, or a string
+  literal) and exports one record, _bom_.  The record is declared extern
+  inside the extern "C" block, because a const object at namespace scope has
+  internal linkage otherwise.  The compiler writes the arrays as data: no
+  template is instantiated for them and no constructor runs at load.  The
+  loader (SharedCurryModule) reads the record, refuses one of another layout
+  version (bom::VERSION; the DynloadError names both versions; a library
+  without the record and a record without a name are errors too), and
+  decodes it into the ModuleBOM the runtime and the bindings read
+  (ModuleBOM::decode).  The registry entry owns the decoded object.  A
+  metadata record shared between symbols is decoded once (the Prelude shares
+  36 records among about 1,700 symbols).  Module::link, loader.py, and the
+  Python view of the bill of materials are unchanged.  FORMAT_VERSION 3 -> 4:
+  a format-3 file no longer compiles against the new headers (the first
+  member of ModuleBOM is now the deque of the decoded metadata), and the
+  stamp keeps it from the compiler.  The ABI stamp is unchanged; the header
+  change recompiles every object once.  The emitter refuses a metadata value
+  that is not a str, an int, or a bool, and an int outside the C++ range,
+  with a CompileError that names the key (g++ failed on such a value
+  before).  The symbol kind MODULE_DATA ('T') names the tables.  Measured on
+  the C++ backend: g++ on Fib.cpp with the precompiled header 0.62 -> 0.35 s
+  user (0.73 -> 0.44 s wall); -ftime-report: opt and generate 0.55 -> 0.27 s,
+  template instantiation 0.20 -> 0.15 s.  Peano takes 0.54 s user (0.64 s
+  wall) after the change: its 15 step functions cost 0.47 s in opt and
+  generate at -O3.  The Prelude 27.4 -> 26.5 s user (its 3,194 step
+  functions take almost all of it).  Compile suite (-r 3, CPU seconds of the
+  whole process): Peano warm 1.230 -> 0.855 (0.70), Fib warm 0.918 -> 0.642
+  (0.70), cold 0.83 and 0.79; the compile field: Peano warm 1.103 -> 0.737
+  (0.67), Fib warm 0.793 -> 0.530 (0.67).  func_eqconstr.py on the C++
+  backend with every module regenerated and compiled again (767 programs;
+  CPU seconds of the test process and its children; five chunks of the
+  file, one process each): 569.5 -> 318.8 s (0.56).  Throughput (seven
+  programs, -r 3): every item the same within 3 percent, counters equal;
+  the import suite the same.  Static evidence: the module objects (the test
+  module and the staged Prelude.so) import no operator new or delete, no
+  _Hashtable, and no basic_string; before, every module imported operator
+  new for its maps.  Tests: unit_cxx_bom.py (the decoded bill of materials
+  of data/curry/CxxBom.curry, with a metadata value of each kind and a
+  private function; the generated file; the undefined symbols of the
+  objects, the Prelude included; the loader's checks on hand-compiled
+  libraries; the emitter's errors).  Left: g++ now spends its time on the
+  step functions (code generation at -O3 and the instantiation of the inline
+  indexing, about 0.15 s per module), so a module of Peano's size stays
+  above 0.4 s; the InfoTable constructor is out of line, so every static
+  info table is initialized by a call at load (1,641 calls for the Prelude);
+  an aggregate InfoTable would make the tables data as well; the C++
+  DynloadError reaches Python as RuntimeError, not as
+  curry.exceptions.DynloadError.
+- Review of the throughput stream: the set guard at the root and the
+  interrupted step (issues #20, #21, #25, #26 follow-up).  (1) A set function
+  whose value is a sub-term of its guarded argument (set1 id x, set1 anyOf
+  xs, set1 tails xs, set1 (\xs -> head xs ? last xs); the defect of
+  2026-10-03) put the guard of the argument at the root of the nested
+  configuration, or at the inductive position of a step after a rewrite.
+  procD and hnf said assert(0); continue there: the debug flavor aborted,
+  the release flavor of T1 looped (isEmpty (set1 id 1) spun until the cap
+  killed it).  Done: procD treats a guard at the root as a node of the
+  spine, like a constructor.  procN descends into it, and a choice below it
+  is pulled up through it, which puts the choice into the escape set of the
+  guard's set (Scan::copy_spine), so the choice escapes the set function;
+  make_value drops the guards of the set from the value.  hnf crosses a
+  guard at the inductive position as the indexer does (Variable::skip): the
+  set joins the guards of the variable and the guarded expression becomes
+  the target, so rvalue puts the guard back and a choice below it joins the
+  escape set.  allValues_step accepted only a constructor as a value and
+  took anything else for the escaping choice; a free variable, and a term
+  under the guard of an enclosing set function (the inner of two nested set
+  functions returns its argument, which carries both guards), are values
+  too.  The C++ backend gives the values of the Python backend for every
+  shape of the defect, and two values, [[1]] and [[2]], for sortValues
+  (set1 inner (1 ? 2)) with inner x = sortValues (set1 id x), where the
+  Python backend fails an assertion (allValues expects a choice when D
+  unwinds for a guard of another set).  (2) hnf_or_free took back the
+  residual of the variable its probe recorded, but not that of the
+  variable's group (add_residual records both): after y =:= x, the probe of
+  x in x =:<= e left the group's residual in the configuration until the
+  constraint reached the root.  And a nested scheduler that yielded E_ROTATE
+  or E_UNWIND from a queue of one configuration set no forced flag (the
+  E_GC path did).  Together, a periodic rotation or the stack limit inside
+  such a step made the nested ready() find one void residual and throw
+  EvaluationSuspended for the whole goal.  Reproduced on the C++ backend: a
+  set function of one configuration beside a long alternative, the
+  constraint under 3000 strict applications (the window of the
+  interruption), and a preamble whose length puts the 65536th forward node
+  inside the window (two of 55 lengths scanned suspended); and a stack
+  limit of 64 KiB inside x =:= deep (a suspension instead of the stack
+  error).  Done: Configuration::remove_residual erases the variable and its
+  group, and both yields set the forced flag, as E_GC does.  Found on the
+  way: in a deterministic run the nested scheduler calls ready() once and
+  then not before an interrupt or a choice, so the residuals of completed
+  steps pile up in the configuration until then; they are bound by then
+  and hide a void one, which is why the suspension needs the interrupt in
+  the first such step after a ready().  Measured with the harness (C++
+  backend, three repetitions, CPU seconds, before to after; steps, forks,
+  and peak RSS equal): Tak1 2.57 to 2.59 (1.01), Fib 0.73 to 0.76 (1.05),
+  PermSort 7.92 to 8.35 (1.05), Queens10 3.84 to 3.94 (1.03); the changes
+  are off the hot path (a case label, a rare branch, and two erases), and
+  under perf stat the run after takes 24.49 G instructions for Tak1, 4.81 G
+  for Fib, and 24.24 G for PermSort, below the counts of the M4 entry
+  (measured under another load).  Against the
+  baseline of 2026-10-03: Tak1 6.87 to 2.59, Fib 1.06 to 0.76, PermSort
+  13.22 to 8.35 (peak RSS 3181 MB to 490 MB), Queens10 6.62 to 3.94,
+  QueensSet 1.30 to 1.11 (578 MB to 145 MB; steps 2172616 to 2152081,
+  forks 511344 to 511413, see the G1 entry).  Tests: unit_cxx_scheduler.py
+  with data/curry/CxxScheduler.curry (TestSetGuardRoot on both backends:
+  the values of the shapes above, the escaping choice of the argument, a
+  free variable as the argument; TestNestedSetGuard: the nested set
+  functions, and the captured argument as an expected failure;
+  TestNestedSetGuardPython: the nested case as an expected failure of the
+  Python backend; TestInterruptedStep: the stack limit and the rotation
+  inside the constraint, the latter a scan of 55 preamble lengths over one
+  rotation period, skipped in the stress mode of the collector).  Without
+  the fixes the two interruption tests fail with EvaluationSuspended, and
+  the set-guard children time out.  Left: a choice of the argument of an
+  enclosing set function that the inner function captures (not receives)
+  carries the outer guard only, so the inner set function encapsulates it,
+  on both backends (test_captured_argument); the Python backend fails an
+  assertion on a guard of an enclosing set function at the root of a nested
+  configuration; escape_all of the C++ Configuration is no longer set
+  anywhere.

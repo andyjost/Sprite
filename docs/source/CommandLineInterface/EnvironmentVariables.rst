@@ -24,13 +24,40 @@ The following are recognized:
   The number of nodes at which the collector of the C++ backend runs.  The
   default is 1048576, about 50 MB of nodes.  After a collection the
   threshold is eight times the survivors, but not less than the configured
-  value, so the heap stays within eight times the live nodes.  A lower
-  value keeps the heap smaller.  A higher value runs fewer collections, and
-  it costs time on most programs, because a small heap stays in the cache.
-  The value is read when the runtime library loads.  The Python backend
-  does not use it.  To run the collector every 65536 nodes, say::
+  value, so the heap stays within eight times the live nodes.  The
+  collector also runs when the live configurations of the scheduler reach
+  one eighth of the node threshold, with the same growth rule: a set
+  function consumed only in part leaves its queue to the collector.  A
+  lower value keeps the heap smaller.  A higher value runs fewer
+  collections, and it costs time on most programs, because a small heap
+  stays in the cache.  The value is read when the runtime library loads.
+  The Python backend does not use it.  To run the collector every 65536
+  nodes, say::
 
      SPRITE_GC_THRESHOLD=65536 SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
+
+``SPRITE_GC_GROWTH``
+  The growth factor of the collector of the C++ backend: after a
+  collection, the next one runs when the heap reaches this many times the
+  survivors, but not before the threshold.  The default is 8.  A value of
+  2 keeps the heap within twice the live nodes and runs about three times
+  as many collections.  The value must be at least 2 and is read when the
+  runtime library loads.
+
+``SPRITE_GC_STRESS``
+  The stress mode of the collector of the C++ backend.  With the value
+  ``1``, the collector runs at every safepoint of the scheduler: after
+  every rewrite step of the outermost evaluation, and a nested set function
+  hands the request outward.  A node that no root reaches is then reclaimed
+  at the next step, so a missing root shows up at once, as a wrong value or
+  a crash.  The mode costs a collection per step.  It is meant for the test
+  suite (see ``tests/README``), not for a program.  The value ``0`` or an
+  empty value turns the mode off, which is the default; another value turns
+  it off with a warning.  The value is read when the runtime library loads.
+  The Python backend does not use it.  To run the unit tests in stress
+  mode, say::
+
+     SPRITE_GC_STRESS=1 SPRITE_INTERPRETER_FLAGS=backend:cxx ./run_tests 'unit_*.py'
 
 ``SPRITE_INTERPRETER_FLAGS``
   Overrides default flags in Sprite's Curry interpreter.  This can be set to a

@@ -29,9 +29,11 @@ TIMEOUT_STATUS = 124
 # ru_maxrss is in kibibytes on Linux and in bytes on macOS.
 RSS_UNIT = 1 if sys.platform == 'darwin' else 1024
 
+# The seven fields of sprite-exec --stats.  A runtime built with the
+# scheduler counters appends more key=value pairs (see counters.py).
 STATS_PATTERN = re.compile(
     r'^wall=\S+ cpu=\S+ steps=\S+ forks=\S+ collections=\S+ peak_rss=\S+'
-    r' compile=\S+$'
+    r' compile=\S+( \w+=\S+)*$'
   )
 PAKCS_PATTERN = re.compile(
     r'Execution time: (\d+) msec\. / elapsed: (\d+) msec\.'

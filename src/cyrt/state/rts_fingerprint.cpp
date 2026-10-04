@@ -2,6 +2,7 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/fingerprint.hpp"
 #include "cyrt/state/rts.hpp"
+#include <utility>
 
 namespace cyrt
 {
@@ -63,12 +64,18 @@ namespace cyrt
           if(!is_consistent((*p)->front()->fingerprint, gid, lr))
             return;
         }
-        Q->push_back(copy.release());
+        Q->push_back(std::move(copy));
       }
     };
     process_one(choice->lhs, LEFT);
     process_one(choice->rhs, RIGHT);
+    // The alternatives are in the queue.  The parent is destroyed.
+    SCHEDULER_COUNT_END(C, END_FORK);
     Q->pop_front();
+    #ifdef SPRITE_SCHEDULER_COUNTERS
+    if(!this->in_recursive_call() && Q->size() > this->counters.queue_max)
+      this->counters.queue_max = Q->size();
+    #endif
   }
 
   Node * RuntimeState::pull_tab(Configuration * C, Node * source, Node * target)

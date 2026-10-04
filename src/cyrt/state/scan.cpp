@@ -15,7 +15,7 @@ namespace cyrt
         case 1: this->search.pop_back();
         case 0: return;
       }
-      Level & parent = *(this->search.end() - 2);
+      Level & parent = this->search[this->search.size() - 2];
       ++parent.index;
       if(parent.index >= parent.end)
         this->search.pop_back();
@@ -36,7 +36,7 @@ namespace cyrt
       parent.index = pos;
       parent.end = pos + 1;
       Cursor succ = parent.cur->successor(pos);
-      this->search.emplace_back(succ);
+      this->search.push_back(Level(succ));
     }
     this->callstack.push_back(ret);
   }
@@ -45,22 +45,23 @@ namespace cyrt
       Node * root, Node * end, xid_type cid, Cursor * target, size_t start
     )
   {
-    auto p = this->search.rbegin() + start;
-    auto e = this->search.rend();
-    assert(p<=e);
-    for(; p!=e; ++p)
+    // From the level ``start`` below the deepest one up to the root.
+    size_t const n = this->search.size();
+    assert(start <= n);
+    for(size_t i = n - start; i-- > 0;)
     {
-      if(cid != NOXID && p->cur.kind == 'p' && p->cur->info->tag == T_SETGRD)
-        NodeU{p->cur}.setgrd->set->escape_set.insert(cid);
-      Node * tmp = copy_node(*p->cur);
-      *tmp->successor(p->index) = end;
+      Level & level = this->search[i];
+      if(cid != NOXID && level.cur.kind == 'p' && level.cur->info->tag == T_SETGRD)
+        NodeU{level.cur}.setgrd->set->escape_set.insert(cid);
+      Node * tmp = copy_node(*level.cur);
+      *tmp->successor(level.index) = end;
       if(target)
       {
-        *target = tmp->successor(p->index);
+        *target = tmp->successor(level.index);
         target = nullptr;
       }
       end = tmp;
-      if(*p->cur == root)
+      if(*level.cur == root)
         break;
     }
     return end;

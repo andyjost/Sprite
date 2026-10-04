@@ -838,13 +838,34 @@ CXX := {CXX}
 # Used to compile Curry for the 'cxx' backend.
 CXX_POSTINSTALL := {CXX_POSTINSTALL}
 
+# Build flavor
+# ============
+# The optimized flavor, the default, is the release build.  It drops the
+# assertions (-DNDEBUG) and the stack protector, calls out of a translation
+# unit without the procedure linkage table, and lets the compiler bind the
+# functions of a translation unit locally.  The debug flavor (make DEBUG=1)
+# keeps the assertions.  CXX_FLAVOR reaches the installation as
+# sysconfig/cxx_flavor, and the C++ backend compiles generated modules in the
+# same flavor (see curry.backends.cxx.toolchain).  A change here rebuilds
+# every object (see src/Make.depends).
 ifeq ($(DEBUG),1)
+  CXX_FLAVOR := debug
   CFLAGS   += -O0 -ggdb -Wno-register -Wall
 else
-  CFLAGS   += -O2 -Wno-register -Wall
+  CXX_FLAVOR := release
+  CFLAGS   += -O2 -DNDEBUG -fno-stack-protector -fno-plt \
+              -fno-semantic-interposition -Wno-register -Wall
 endif
 ifeq ($(TRACE),1)
   CFLAGS   += -DSPRITE_TRACE_ENABLED
+endif
+# The scheduler counters (make COUNTERS=1): the serial fraction, the
+# lifetimes of configurations, and the shared work of an evaluation, reported
+# by sprite-exec --stats.  They change the runtime library and the bindings
+# only, not the generated code.  See src/cyrt/state/counters.hpp.  The
+# objects do not depend on this variable: touch Make.config to switch.
+ifeq ($(COUNTERS),1)
+  CFLAGS   += -DSPRITE_SCHEDULER_COUNTERS
 endif
 CXXFLAGS += $(CFLAGS) -std=c++17
 

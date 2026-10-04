@@ -7,6 +7,7 @@ import os
 import signal
 import subprocess
 import sys
+import unittest
 
 @contextlib.contextmanager
 def trap():
@@ -174,6 +175,16 @@ class timeout(contextlib.ContextDecorator):
 
 # The exit status of the ``timeout`` command when the time limit expires.
 TIMEOUT_STATUS = 124
+
+# True when the collector of the C++ backend runs at every safepoint
+# (SPRITE_GC_STRESS=1; see src/cyrt/graph/gc/wdgc.cpp and section 4 of
+# README).  A test whose child grows a large live heap, recurses deeply, or
+# must run out of memory does not end in reasonable time in that mode.
+GC_STRESS = os.environ.get('SPRITE_GC_STRESS') == '1'
+
+def skipIfGcStress(reason):
+  '''Skips a test when the collector runs in stress mode.'''
+  return unittest.skipIf(GC_STRESS, 'collector stress mode: ' + reason)
 
 def json_module(name, value):
   '''

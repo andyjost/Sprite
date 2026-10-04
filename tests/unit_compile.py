@@ -141,10 +141,11 @@ class TestPyCompile(cytest.TestCase):
     # The C++ backend represents the single rewrite step taken by
     # curry.compile(..., 'expr') as a forward node at the root; the Python
     # backend rewrites the root in place.  Compare the forward target so one
-    # expectation serves both backends.
+    # expectation serves both backends.  The optimizer replaces the call of
+    # the alias _impl#+#Prelude.Num#Prelude.Int by a call of plusInt.
     e = curry.compile('1+2', mode='expr', exprtype='Int')
     yield inspect.fwd_chain_target(e), None \
-           , '<_impl#+#Prelude.Num#Prelude.Int <Int 1> <Int 2>>' \
+           , '<plusInt <Int 1> <Int 2>>' \
            , None \
            , [3]
 

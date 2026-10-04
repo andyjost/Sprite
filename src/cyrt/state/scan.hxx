@@ -1,9 +1,10 @@
 namespace cyrt
 {
   inline Scan::Scan(Cursor root)
-    : search({Level{root}}), callstack(1)
   {
     assert(root);
+    this->search.push_back(Level{root});
+    this->callstack.push_back(0);
   }
 
   inline void Scan::reset()
@@ -22,7 +23,7 @@ namespace cyrt
     Level & parent = search.back();
     parent.index = NOINDEX;
     parent.end = parent.cur.kind == 'p' ? parent.cur->info->arity : 0;
-    this->search.emplace_back();
+    this->search.push_back(Level());
   }
 
   inline void Scan::pop()

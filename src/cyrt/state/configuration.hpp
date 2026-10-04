@@ -21,6 +21,14 @@ namespace cyrt
   using Bindings = std::shared_ptr<BindingMap>;
   using Residuals = std::unordered_set<xid_type>;
 
+  // A configuration belongs to the queues that hold it (see queue.hpp): one
+  // queue, except after the split of a set function's queue on a choice
+  // that escapes it, which puts every configuration that has not made the
+  // choice into both queues.  A queue clones a shared configuration before
+  // it evaluates it, and the last queue to let go of a configuration
+  // destroys it.  The collector counts the live configurations: for the
+  // leak checks of the tests, and to run a collection when they pile up in
+  // the queues of set functions consumed only in part (see gc/wdgc.cpp).
   struct Configuration : boost::noncopyable
   {
     Configuration(Node * root=nullptr)
@@ -29,7 +37,7 @@ namespace cyrt
       , scan(this->root)
       , strict_constraints(new UnionFind())
       , bindings(new BindingMap())
-    {}
+    { gc_configuration_created(); }
 
     Configuration(Node * root, Configuration const & obj)
       : root_storage(root)
@@ -40,7 +48,14 @@ namespace cyrt
       , bindings(obj.bindings)
       , residuals()
       , escape_all(obj.escape_all)
-    {}
+    { gc_configuration_created(); }
+
+    ~Configuration() { gc_configuration_destroyed(); }
+
+    // Configurations come and go with every fork, so their blocks come from
+    // a free list of the runtime instead of malloc (see configuration.cpp).
+    static void * operator new(size_t);
+    static void operator delete(void *, size_t);
 
     template<typename ... Args>
     static std::unique_ptr<Configuration> create(Args && ... args)
@@ -53,6 +68,8 @@ namespace cyrt
     std::unique_ptr<Configuration> clone(Node * root)
       { return Configuration::create(root, *this); }
 
+    // The number of queues that hold this configuration.  See Queue.
+    size_t            holders = 0;
     Node *            root_storage;
     Cursor            root;
     Scan              scan;
@@ -72,6 +89,14 @@ namespace cyrt
     size_t            unwind_steps = NOLIMIT;
     size_t            unwind_total = NOLIMIT;
     std::pair<Node *, std::string> error; // pair of (error_object, message)
+    #ifdef SPRITE_SCHEDULER_COUNTERS
+    // The serial number of this configuration, unique in the process and
+    // never zero.  The nodes a step allocates carry it (see graph/memory.hpp)
+    // for the shared-work counter of state/counters.hpp.  The field is last,
+    // so the layout generated code reads is that of a plain build.
+    size_t            serial = next_configuration_serial();
+    static size_t next_configuration_serial();
+    #endif
 
     Cursor cursor() const { return this->scan.cursor(); }
     xid_type grp_id(xid_type id) const
@@ -87,7 +112,10 @@ namespace cyrt
     void set_error(Node *, std::string const &);
     void raise_error();
 
+    // Records a free variable the configuration waits on, with its group,
+    // and takes both back.  See RuntimeState::ready and hnf_or_free.
     void add_residual(xid_type vid);
+    void remove_residual(xid_type vid);
   };
 
   inline xid_type obj_id(Node * node) { return NodeU{node}.choice->cid; }

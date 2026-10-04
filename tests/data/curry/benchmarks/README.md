@@ -82,20 +82,33 @@ record per program:
     ./run_benchmarks compare cxx.jsonl later.jsonl
 
 Other suites (`-s compile`, `-s import`, `-s memory`) measure the compile
-times, the start-up times, and the peak memory.  Section 8 of `tests/README`
+times, the start-up times, and the peak memory.  Section 9 of `tests/README`
 describes the suites, the records, and the comparison.  The harness is the
 package `tests/lib/benchmarks`.
+
+## Scheduler counters
+
+A runtime built with `make COUNTERS=1` reports, in the `--stats` line, how
+the scheduler used its queue: the steps taken while the queue held one
+configuration (the serial fraction), the steps inside set functions, the
+steps on a redex that another configuration created (the shared work), the
+largest queue, and the lifetimes of the configurations.  The harness keeps
+the fields in every record, and `./run_benchmarks counters FILE` prints one
+row per program.  The sprite-exec page of the documentation describes the
+fields.  Sixteen of the thirty dissertation programs never fork, so their
+serial fraction is 1; the search programs fork at almost every step and
+their configurations live a few steps.
 
 ## The collector and the timings
 
 The collector of the C++ backend runs by default (see `SPRITE_GC_THRESHOLD`
-in the documentation of the environment variables).  Two programs run slower
-with it than without it: `PermSort` (about 13 s against 9 s) and `QueensSet9`
-(about 6.7 s against 6 s).  The runtime does not delete a Configuration, a
-Queue, or a Set, so most of their heap stays reachable, and each collection
-costs time without freeing much.  The other programs run as fast or faster,
-with a far smaller peak memory.  To time a program with the collector off,
-set a threshold that no program reaches:
+and `SPRITE_GC_GROWTH` in the documentation of the environment variables).
+`QueensSet9` runs slower with it than without it (about 8 s against 5.5 s):
+its set functions are consumed only in part, so every collection frees
+queues of alternatives and their nodes, and the evaluation after a sweep
+allocates from the free lists in scattered order.  The other programs run as
+fast or faster, with a far smaller peak memory.  To time a program with the
+collector off, set a threshold that no program reaches:
 
     SPRITE_GC_THRESHOLD=1000000000 CURRYPATH=tests/data/curry/benchmarks \
     SPRITE_INTERPRETER_FLAGS=backend:cxx install/bin/sprite-exec -t -m PermSort

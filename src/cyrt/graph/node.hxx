@@ -182,3 +182,6 @@ namespace cyrt
   inline std::size_t Node::hash() const { return std::hash<Node const *>()(this); }
   inline bool Node::operator!=(Node & arg) { return !(*this == arg); }
 }
+
+// The indexer of Variable needs the node layouts and Node::successor.
+#include "cyrt/graph/indexing.hxx"

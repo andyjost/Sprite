@@ -60,7 +60,8 @@ case `basename $0` in
   "run_benchmarks")
     # Run the benchmarks.  Arguments go to the benchmarks package under
     # tests/lib: "run [options] [PROGRAM ...]" (the default command),
-    # "compare OLD NEW", or "list"; see -h and section 8 of README.
+    # "compare OLD NEW", "counters FILE", or "list"; see -h and section 9 of
+    # README.
     $SPRITE_HOME/bin/python -m benchmarks "$@"
     ;;
   "debug_tests")

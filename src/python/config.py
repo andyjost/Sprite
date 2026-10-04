@@ -162,6 +162,25 @@ currylib_unsupported_modules = _Variable('currylib_unsupported_modules')
 default_backend           = _Variable('default_backend')
 # The location of ld.so.
 ld_interpreter_path       = _Variable('ld_interpreter_path')
+# The flavor of the installed C++ runtime, as the build wrote it: 'release'
+# or 'debug'.  See cxx_flavor.
+_cxx_flavor               = _Variable('cxx_flavor')
+
+# The flavors of the C++ runtime and of generated code.
+CXX_FLAVORS = 'release', 'debug'
+
+def cxx_flavor():
+  '''
+  The flavor of the installed C++ runtime: 'release', or 'debug' for a build
+  with make DEBUG=1.  The release flavor has no assertions.  The C++ backend
+  compiles generated modules in the same flavor unless the interpreter flag
+  ``debug`` is set (see curry.backends.cxx.toolchain.Cpp2So.flavor).  An
+  installation that names no flavor, one staged before the flavors existed,
+  is a release build.
+  '''
+  if not os.path.exists(installed_path('sysconfig', 'cxx_flavor')):
+    return 'release'
+  return 'debug' if _cxx_flavor().strip() == 'debug' else 'release'
 
 
 def syslibs():

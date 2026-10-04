@@ -28,6 +28,13 @@ namespace cyrt
     // in a nested evaluation keeps every node allocated before this point.
     EvaluationScope evaluation_scope;
 
+    #ifdef SPRITE_SCHEDULER_COUNTERS
+    // The nodes a step allocates carry the serial number of the stepped
+    // configuration; the enclosing one is restored when this scheduler
+    // returns into its step.
+    CreatorScope creator_scope;
+    #endif
+
     // The stack guard measures from the outermost procD.  A set function
     // evaluates its queue in a nested procD, which keeps the base.
     if(!this->in_recursive_call())
@@ -37,19 +44,22 @@ namespace cyrt
     {
       Q = this->Q();
       C = Q->front();
+      #ifdef SPRITE_SCHEDULER_COUNTERS
+      g_creator_serial = C->serial;
+      #endif
       tag = inspect::tag_of(C->root);
     redoD:
       switch(tag)
       {
         case T_UNBOXED : return this->release_value();
-        case T_SETGRD  : assert(0); continue;
         case T_CONSTR  : if(this->constrain_equal(C, C->root))
                          {
                            *C->root = NodeU{C->root}.constr->value;
                            tag = inspect::tag_of(C->root);
                            goto redoD;
                          }
-        case T_FAIL    : this->drop();
+        case T_FAIL    : SCHEDULER_COUNT_END(C, END_FAILURE);
+                         this->drop();
                          continue;
         case T_FREE    : tag = this->replace_freevar(C, C->root);
                          if(tag == T_FREE)
@@ -65,8 +75,22 @@ namespace cyrt
                          continue;
         case T_FUNC    : tag = this->procS(C);
                          goto redoD;
-        case E_GC      : run_gc();
-                         this->rotate(Q, true);
+        // A collection runs in the outermost scheduler of the state, where
+        // no step of the state is on the C stack: it marks the live heap
+        // alone and reclaims every dead node, queue, and set.  A nested
+        // scheduler hands E_GC outward, as it hands E_ROTATE; its queue
+        // resumes when the enclosing configuration runs again.  A
+        // collection changes nothing in the schedule: no queue rotates, and
+        // the interrupted configuration continues.  Its forced flag makes
+        // ready() accept it although the residuals it kept are still void
+        // (see _make_ready).  So the stress mode of the collector, which
+        // requests a collection at every step, follows the schedule of a
+        // normal run; a rotation here turned a depth-first search into a
+        // lockstep over all alternatives.
+        case E_GC      : C->forced_rotate = true;
+                         if(this->in_recursive_call())
+                           return this->yield_control(E_GC);
+                         run_gc();
                          continue;
         // E_ROTATE names the queue to rotate (see check_interrupts).  A
         // nested procD rotates its own queue as well, when that queue holds
@@ -74,9 +98,17 @@ namespace cyrt
         // nested sibling gets its turn too.  E_UNWIND rotates or drops at
         // the outermost queue and rotates or goes outward at a nested one
         // (see unwind).
+        //
+        // A nested scheduler that yields leaves its front configuration in
+        // the middle of a step, with any residual that step recorded (see
+        // hnf_or_free).  The forced flag makes ready() accept the
+        // configuration when the scheduler resumes, as in the E_GC case; a
+        // queue of one configuration rotates nothing and would otherwise
+        // find the residual void and suspend the set function.
         case E_ROTATE  : if(this->rotate_target && this->rotate_target != Q
                               && this->in_recursive_call())
                          {
+                           C->forced_rotate = true;
                            if(Q->size() > 1)
                              this->rotate(Q, true);
                            return this->yield_control(E_ROTATE);
@@ -86,12 +118,21 @@ namespace cyrt
                          continue;
         case E_UNWIND  : if(this->unwind(Q, C))
                            continue;
+                         C->forced_rotate = true;
                          return this->yield_control(E_UNWIND);
         case E_ERROR   : C->raise_error();
         case E_RESIDUAL: this->rotate(Q);
                          continue;
         case E_RESTART : tag = inspect::tag_of(C->root);
                          goto redoD;
+        // A set guard at the root: the value of the set function is a
+        // sub-term of its guarded argument (set1 id x).  The guard is a node
+        // of the spine like a constructor.  procN descends into it, and a
+        // choice found below it is pulled up through it, which puts the
+        // choice into the escape set of the guard's set (Scan::copy_spine),
+        // so the choice escapes the set function.  release_value drops the
+        // guards of the current set from the value (make_value).
+        case T_SETGRD  :
         default        : TRACE_STEP_ENTER(C->root)
                          tag = this->procN(C, C->root);
                          TRACE_STEP_EXIT(C->root)
@@ -169,6 +210,12 @@ namespace cyrt
   tag_type RuntimeState::procS(Configuration * C)
   {
     TRACE_STEP_ENTER(C->cursor())
+    #ifdef SPRITE_SCHEDULER_COUNTERS
+    // The redex is rewritten in place, so its address names it after the
+    // step as well.  A function node is never a pinned object.
+    Node * const redex = C->cursor().arg->node;
+    assert(!is_pinned(*redex->info));
+    #endif
     auto status = C->cursor()->info->step(this, C);
     TRACE_STEP_EXIT(C->cursor())
     // Only a rewrite counts as a step.  A status below E_RESTART means the
@@ -176,7 +223,10 @@ namespace cyrt
     // (E_RESIDUAL), or raised an error (E_ERROR), and the redex is as it was.
     // The Python backend applies the same rule (see S in fairscheme.py).
     if(status >= E_RESTART)
+    {
       this->count_step();
+      SCHEDULER_COUNT_SHARED(redex, C);
+    }
     return status;
   }
 
@@ -196,7 +246,21 @@ namespace cyrt
     {
       switch(tag)
       {
-        case T_SETGRD: assert(0); continue;
+        // The step at the inductive position rewrote it to a guarded
+        // expression: a function returned its guarded argument (set1 id x).
+        // Cross the guard as the indexer does (Variable::skip): its set
+        // joins the guards of the variable, and the guarded expression
+        // becomes the target.  rvalue puts the guard back, and a choice
+        // found below it joins the escape set (update_escape_sets).
+        case T_SETGRD:
+        {
+          SetGrdNode * guard = NodeU{inductive->target}.setgrd;
+          inductive->guards.push_back(guard->set);
+          inductive->realpath.push_back(1);
+          inductive->target = Cursor(guard->value);
+          tag = inspect::tag_of(inductive->target);
+          continue;
+        }
         case T_FAIL  : _0->forward_to(Fail);
                        return T_FWD;
         case T_CONSTR: _0->forward_to(this->lift_constraint(C, inductive));
@@ -222,13 +286,24 @@ namespace cyrt
     }
   }
 
+  // Head-normalizes the expression at ``inductive`` and reports a free
+  // variable there as T_FREE instead of E_RESIDUAL.  The caller handles the
+  // variable itself (it binds it, or builds a constraint), so the residual
+  // that hnf recorded for it (see instantiate) is taken back: the variable
+  // and its group (add_residual records both).  Left in place, it made the
+  // configuration "not ready" when the step was interrupted (E_GC,
+  // E_ROTATE, E_UNWIND) before the caller acted on the variable, and a
+  // nested scheduler then reported a false suspension.
   tag_type RuntimeState::hnf_or_free(
       Configuration * C, Variable * inductive, void const * guides
     )
   {
     tag_type tag = this->hnf(C, inductive, guides);
     if(tag == E_RESIDUAL && inspect::isa_freevar(inductive->target))
+    {
+      C->remove_residual(obj_id(inductive->target));
       return T_FREE;
+    }
     else
       return tag;
   }

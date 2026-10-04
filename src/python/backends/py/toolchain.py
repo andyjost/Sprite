@@ -1,7 +1,16 @@
+'''
+The build step of the Python backend: ICurry-JSON to a Python module, with
+its bytecode cache.
+
+A generated file carries a format stamp (compiler.FORMAT_VERSION).  Json2Py,
+the step that writes the file, refuses a cached file of another stamp, or of
+none; the plan then writes the file again from the JSON file.  See is_stale.
+'''
 from ...toolchain import plans
 from ... import exceptions
 from ..generic.toolchain import Json2TargetSource
-import importlib.util, logging, os, py_compile, struct
+from . import compiler
+import importlib.util, itertools, logging, os, py_compile, re, struct
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +67,38 @@ def ensure_bytecode(pyfile):
   if os.path.isfile(pyfile) and not bytecode_is_current(pyfile):
     compile_bytecode(pyfile)
 
+# The format stamp of a generated Python file.  The stamp heads the file.
+FORMAT_PAT = re.compile(r'# FORMAT: (\d+)')
+
+def format_version(file_in):
+  '''The format stamp of a generated file.  A file without one is format 1.'''
+  with open(file_in, 'r') as stream:
+    for line in itertools.islice(stream, 16):
+      m = FORMAT_PAT.match(line)
+      if m:
+        return int(m.group(1))
+  return 1
+
+def source_is_stale(file_in):
+  '''
+  Tells whether a generated Python file is out of date: its format stamp is
+  not the emitter's (compiler.FORMAT_VERSION).  The emitter writes other
+  code now, so the plan writes the file again from the JSON file.
+  '''
+  return format_version(file_in) != compiler.FORMAT_VERSION
+
 class Json2Py(Json2TargetSource):
   NAME = 'json2py'
   SUFFIX = '.py'
+
+  def is_stale(self, filename):
+    '''
+    Tells whether a cached file of this step is out of date (source_is_stale).
+    The plan then starts again from the JSON file (Plan.prune_stale).  The
+    plan asks about the JSON input of this step as well, which is never
+    refused.
+    '''
+    return filename.endswith('.py') and source_is_stale(filename)
 
   def __call__(self, file_in, currypath, **ignored):
     file_out = super().__call__(file_in, currypath, **ignored)

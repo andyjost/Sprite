@@ -1,11 +1,26 @@
 #pragma once
 #include "cyrt/graph/node.hpp"
-#include <vector>
+#include "cyrt/smallvec.hpp"
 
 namespace cyrt
 {
+  // The position of the scan of a configuration: one level per nesting of
+  // the expression on the way from the root to the current position, and
+  // the levels at which the nested evaluations of a step began (push and
+  // pop).  Both have inline room (see smallvec.hpp), so a configuration
+  // costs one block, and a shallow scan makes no heap call.
   struct Scan
   {
+    struct Level
+    {
+      Cursor cur;
+      index_type index = (index_type)(-1);
+      index_type end = 0;
+
+      Level(Cursor const & cur=Cursor()) : cur(cur) {}
+    };
+    using Levels = SmallVec<Level, 4>;
+
     Scan() {}
     Scan(Cursor root);
 
@@ -23,19 +38,10 @@ namespace cyrt
       , Cursor * target=nullptr, size_t start=1
       );
     Node * copy_spine(Node * root, Node * end, xid_type cid, size_t start);
-    struct Level
-    {
-      Cursor cur;
-      index_type index = (index_type)(-1);
-      index_type end = 0;
-
-      Level(Cursor const & cur=Cursor()) : cur(cur) {}
-    };
+    Levels const & frames() const { return search; }
   private:
-    std::vector<Level>  search;
-    std::vector<size_t> callstack;
-  public:
-    std::vector<Level> const & frames() const { return search; }
+    Levels               search;
+    SmallVec<size_t, 6>  callstack;
   };
 }
 

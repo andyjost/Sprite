@@ -13,6 +13,6 @@ namespace cyrt
   };
 
   void show(std::ostream &, Cursor, ShowStyle, ShowMonitor * = nullptr);
-  void show(std::ostream &, std::vector<index_type> const &);
-  void show(std::ostream &, std::vector<Set *> const &);
+  void show(std::ostream &, RealPath const &);
+  void show(std::ostream &, GuardList const &);
 }

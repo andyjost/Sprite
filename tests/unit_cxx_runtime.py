@@ -62,6 +62,7 @@ class TestCxxProcess(cytest.TestCase):
     # Compile the module once here.  The children then load it from the cache.
     curry.import_('CxxRuntime')
 
+  @cytest.skipIfGcStress('the program keeps every node reachable')
   def test_out_of_memory_raises_MemoryError(self):
     '''
     An audit finding: when malloc failed, node allocation returned a null

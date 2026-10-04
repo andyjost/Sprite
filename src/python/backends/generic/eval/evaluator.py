@@ -1,6 +1,39 @@
 from . import telemetry
 import weakref
 
+# The keys of the scheduler counters that hold a largest value.  Over several
+# evaluations the largest of them counts; every other number adds.
+MAX_KEYS = ('max', 'queue_max')
+
+def merge_counters(total, part):
+  '''
+  Adds the counters of ``part`` to ``total`` and returns ``total``: numbers
+  add (a largest value, see MAX_KEYS, takes the maximum), lists add element
+  by element, dicts merge key by key.  ``total`` may be None, which stands
+  for nothing counted yet.
+  '''
+  if total is None:
+    return _copy_counters(part)
+  for key, value in part.items():
+    if isinstance(value, dict):
+      total[key] = merge_counters(total.get(key), value)
+    elif isinstance(value, list):
+      old = total.get(key)
+      total[key] = list(value) if old is None \
+                   else [a + b for a, b in zip(old, value)]
+    elif key in MAX_KEYS:
+      total[key] = max(total.get(key, 0), value)
+    else:
+      total[key] = total.get(key, 0) + value
+  return total
+
+def _copy_counters(part):
+  return {
+      key: _copy_counters(value) if isinstance(value, dict)
+           else list(value) if isinstance(value, list) else value
+        for key, value in part.items()
+    }
+
 class EvaluationTotals(object):
   '''
   Sums the rewrite steps and the forks of the evaluations of one interpreter.
@@ -9,10 +42,15 @@ class EvaluationTotals(object):
   reference, so the totals include its counts so far.  An evaluation that
   ended is added once, when its value generator is exhausted or closed.
   ``Interpreter.stats`` reports the totals.
+
+  The scheduler counters of an instrumented C++ runtime (make COUNTERS=1)
+  are summed the same way: ``rts.scheduler_counters()`` gives a dict of
+  numbers, lists, and dicts, or None when the runtime has none.
   '''
   def __init__(self):
     self._steps = 0
     self._forks = 0
+    self._scheduler = None
     self._running = weakref.WeakSet()
 
   @property
@@ -25,11 +63,27 @@ class EvaluationTotals(object):
     '''The forks taken, running evaluations included.'''
     return self._forks + sum(rts.forks_total for rts in self._running)
 
+  @property
+  def scheduler(self):
+    '''
+    The scheduler counters summed, running evaluations included; None when
+    the runtime has no counters or no evaluation reported any.
+    '''
+    total = _copy_counters(self._scheduler) if self._scheduler else None
+    for rts in self._running:
+      counters = rts.scheduler_counters()
+      if counters is not None:
+        total = merge_counters(total, counters)
+    return total
+
   def add(self, rts):
     '''Adds the counts of a runtime state that takes no more steps.'''
     self._running.discard(rts)
     self._steps += rts.steps_total
     self._forks += rts.forks_total
+    counters = rts.scheduler_counters()
+    if counters is not None:
+      self._scheduler = merge_counters(self._scheduler, counters)
 
   def track(self, rts, values):
     '''

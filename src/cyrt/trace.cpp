@@ -13,20 +13,20 @@ namespace cyrt
   void Trace::indent(Queue const * Q)
   {
     assert(Q);
-    this->indent_value = this->indents[Q]++;
+    this->indent_value = this->indents[Q->serial]++;
   }
 
   void Trace::dedent(Queue const * Q)
   {
     assert(Q);
-    this->indent_value = --this->indents[Q];
+    this->indent_value = --this->indents[Q->serial];
   }
 
   void Trace::enter_rewrite(Queue const * Q, Cursor cursor)
   {
     assert(Q);
     this->indent(Q);
-    if(this->prevexprs[Q] != cursor.fwd_chain_target().id())
+    if(this->prevexprs[Q->serial] != cursor.fwd_chain_target().id())
     {
       tout << "S <<< ";
       this->show_indent(Q);
@@ -40,7 +40,7 @@ namespace cyrt
     tout << "S >>> ";
     this->show_indent(Q);
     tout << cursor.str(PLAIN_FREEVARS) << "\n";
-    this->prevexprs[Q] = cursor.fwd_chain_target().id();
+    this->prevexprs[Q->serial] = cursor.fwd_chain_target().id();
   }
 
   void Trace::failed(Queue const * Q)
@@ -133,7 +133,7 @@ namespace cyrt
     assert(n>=2);
     auto && frame = scan.frames()[n-2];
     PositionKey key(frame.cur.fwd_chain_target().id(), frame.index);
-    if(this->prevpaths[Q] != key)
+    if(this->prevpaths[Q->serial] != key)
     {
       tout << "I ::: ";
       this->show_indent(Q, 1);
@@ -145,6 +145,6 @@ namespace cyrt
   void Trace::exit_position(Queue const * Q, PositionKey const & key)
   {
     assert(Q);
-    this->prevpaths[Q] = key;
+    this->prevpaths[Q->serial] = key;
   }
 }

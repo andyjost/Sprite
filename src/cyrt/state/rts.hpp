@@ -13,6 +13,9 @@
 #ifdef SPRITE_TRACE_ENABLED
 #include "cyrt/trace.hpp"
 #endif
+#ifdef SPRITE_SCHEDULER_COUNTERS
+#include "cyrt/state/counters.hpp"
+#endif
 
 namespace cyrt
 {
@@ -21,9 +24,17 @@ namespace cyrt
     xid_type xidfactory = 0;
   };
 
-  struct Set
+  // The set of a set function: the choices that escape it.  The guards of
+  // the arguments, the SetEval nodes, and the queues of the set function
+  // point to it.  The collector frees it when none of them reaches it any
+  // more; see gc/wdgc.cpp.
+  struct Set : boost::noncopyable
   {
+    Set() { gc_register_set(this); }
+    ~Set() { gc_unregister_set(this); }
     std::unordered_set<xid_type> escape_set;
+    // The mark of the current collection.
+    bool marked = false;
   };
 
   // Default number of bytes of C stack one evaluation may use.  Measured with
@@ -68,6 +79,10 @@ namespace cyrt
     // The error of an alternative dropped at the stack limit.  procD raises
     // it when the outermost queue is empty.  See unwind.
     std::string            deferred_error;
+    // The outermost queue.  It goes with the state, and so do the
+    // configurations in it.  The other queues of ``qstack`` belong to the
+    // SetEval nodes of the set functions under evaluation.
+    std::unique_ptr<Queue> root_queue;
     qstack_type            qstack;
     vtable_type            vtable;
     SetFStrategy           setfunction_strategy;
@@ -82,13 +97,23 @@ namespace cyrt
     char const *           stack_floor = nullptr;
     bool                   stack_probed = false;
     // Control handed between nested schedulers.  A nested procD that must
-    // yield to an enclosing queue stores E_UNWIND or E_ROTATE here and returns
-    // no value; allValues_step returns the status to the enclosing
-    // evaluation.  ``rotate_target`` is the queue E_ROTATE is meant for.
+    // yield to an enclosing queue stores E_UNWIND, E_ROTATE, or E_GC here
+    // and returns no value; allValues_step returns the status to the
+    // enclosing evaluation.  ``rotate_target`` is the queue E_ROTATE is
+    // meant for.
     tag_type               pending_control = NOTAG;
     Queue *                rotate_target = nullptr;
 		#ifdef SPRITE_TRACE_ENABLED
     std::unique_ptr<Trace> trace;
+    #endif
+    #ifdef SPRITE_SCHEDULER_COUNTERS
+    // The scheduler counters of an instrumented build (make COUNTERS=1).
+    // The field is last, so the layout generated code reads is that of a
+    // plain build.  See state/counters.hpp and the hooks in fairscheme.cpp,
+    // rts_control.cpp, and rts_fingerprint.cpp.
+    SchedulerCounters      counters;
+    void count_end(Configuration *, ConfigurationEnd);
+    void count_shared(Node * redex, Configuration *);
     #endif
 
     Queue * Q() { return this->qstack.back(); }
@@ -124,8 +149,8 @@ namespace cyrt
     static Node * lift_constraint(Configuration *, Node * source, Node * target);
 
     // rts_control:
-    void append(Configuration *);
-    void prepend(Configuration *);
+    void append(std::unique_ptr<Configuration>);
+    void prepend(std::unique_ptr<Configuration>);
     void drop(TraceOpt=TRACE);
     Expr make_value();
     bool ready();
@@ -182,6 +207,15 @@ namespace cyrt
 
   Node * has_generator(Node * freevar);
 }
+
+// The hooks of the scheduler counters.  They vanish in a plain build.
+#ifdef SPRITE_SCHEDULER_COUNTERS
+  #define SCHEDULER_COUNT_END(C, end) this->count_end(C, end)
+  #define SCHEDULER_COUNT_SHARED(redex, C) this->count_shared(redex, C)
+#else
+  #define SCHEDULER_COUNT_END(C, end)
+  #define SCHEDULER_COUNT_SHARED(redex, C)
+#endif
 
 #include "cyrt/state/rts.hxx"
 

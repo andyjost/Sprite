@@ -5,7 +5,15 @@ from ... import config, icurry
 from ...utility.showflags import showflags
 import collections, itertools, json, re, sys
 
-__all__ = ['compile', 'write_module']
+__all__ = ['compile', 'write_module', 'FORMAT_VERSION']
+
+# The format of the generated Python.  vEmitHeader writes it into every file
+# as "# FORMAT: N".  The toolchain writes a cached file of another stamp, or
+# none, again from the JSON file (Json2Py.is_stale): the emitter has changed
+# what it writes since then.  A file without a stamp is format 1.  Raise the
+# number when the generated code changes.  Format 2: the optimizer replaces
+# calls of alias functions (interpreter.optimize.inline_aliases).
+FORMAT_VERSION = 2
 
 def compile(interp, iobj):
   compileM = PyCompiler(interp, iobj)
@@ -31,6 +39,7 @@ class PyCompiler(compiler.CompilerBase):
 
   def vEmitHeader(self):
     curry = config.python_package_name()
+    yield '# FORMAT: %d' % FORMAT_VERSION
     yield 'import %s' % curry
     yield 'from %s.common import *' % curry
     yield 'from %s.backends.py.graph import DataType, InfoTable' % curry

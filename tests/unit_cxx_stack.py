@@ -151,6 +151,7 @@ class TestStackGuard(cytest.TestCase):
     # way to the other one.
     self.assertEqual(self.evaluate('M.setLoopAlt'), ['value 1'])
 
+  @cytest.skipIfGcStress('a deep recursion costs a re-descent per step')
   def test_limit_above_stack_is_clamped(self):
     '''
     An audit finding: a limit larger than the stack of the thread let the
@@ -218,6 +219,7 @@ class TestDeepValue(cytest.TestCase):
     self.assertEqual(len(value), n)
     self.assertEqual(value[-1], n)
 
+  @cytest.skipIfGcStress('a collection per step over 200000 live cells')
   def test_long_list_value_in_child(self):
     '''
     An audit finding: copying a value of 200000 list elements out of the

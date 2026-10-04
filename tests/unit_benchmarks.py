@@ -10,7 +10,7 @@ in the first warm-up, and Hello and the expression in the compile suite.
 '''
 import cytest # from ./lib; must be first
 from benchmarks import CURRYDIR, DISSERTATION, ROOTDIR
-from benchmarks import compare, measure, records, run, suites
+from benchmarks import compare, counters, measure, records, run, suites
 from curry import config
 import contextlib, curry, io, json, os, shutil, sys, tempfile, unittest
 
@@ -21,6 +21,14 @@ TIMEOUT = 120
 STATS_LINE = (
     'wall=0.124318 cpu=0.116882 steps=7 forks=2 collections=3 '
     'peak_rss=36528128 compile=0.500000'
+  )
+# The line of a runtime built with the scheduler counters (make COUNTERS=1).
+COUNTERS_LINE = STATS_LINE + (
+    ' serial_steps=5 nested_steps=0 shared_steps=4 queue_max=4'
+    ' configurations=6 failures=1 failed_steps=2 lifetime_median=1'
+    ' lifetime_mean=1.166667 lifetime_max=3 nested_configurations=0'
+    ' nested_lifetime_median=0 nested_lifetime_mean=0.000000'
+    ' nested_lifetime_max=0'
   )
 
 
@@ -133,6 +141,14 @@ class TestMeasure(unittest.TestCase):
       })
     self.assertIsNone(measure.parse_stats('no statistics\n'))
     self.assertIsNone(measure.parse_stats('wall=1 cpu=2\n'))
+    # The scheduler counters follow the seven fields and are kept.
+    stats = measure.parse_stats(COUNTERS_LINE + '\n')
+    self.assertEqual(stats['steps'], 7)
+    self.assertEqual(stats['serial_steps'], 5)
+    self.assertEqual(stats['lifetime_mean'], 1.166667)
+    self.assertEqual(stats['nested_lifetime_max'], 0)
+    self.assertEqual(len(stats), 7 + 14)
+    self.assertIsNone(measure.parse_stats(STATS_LINE + ' trailing\n'))
     # -t prints the seconds without a newline.
     self.assertEqual(measure.parse_time('0.001'), 0.001)
     self.assertEqual(measure.parse_time('True\n0.250\n'), 0.25)
@@ -671,6 +687,90 @@ class TestCompare(unittest.TestCase):
       stream.write('{}\n')
     with self.assertRaisesRegex(SystemExit, 'line 1'):
       compare.main([old, bad])
+
+
+class TestCounters(unittest.TestCase):
+  '''The counters command on hand-made records.'''
+
+  def setUp(self):
+    self.tmpdir = tempfile.mkdtemp(prefix='sprite-benchmarks-test-')
+    self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+
+  @staticmethod
+  def record(program, line, status='ok', backend='cxx'):
+    '''A record of one sample whose stderr holds the stats line.'''
+    run = FakeRun(status=status, stdout='0.25', stderr=line + '\n')
+    item = suites.SpriteExecItem(program, backend, None)
+    sample = records.sample(run, item.parse(run))
+    return records.summarize(
+        'throughput', program, backend, None, [sample], {}, commit='abc'
+      )
+
+  def test_row(self):
+    '''The fractions and the lifetimes of one record.'''
+    row = counters.row(self.record('A', COUNTERS_LINE))
+    self.assertEqual(tuple(row), counters.HEADINGS)
+    self.assertEqual(row['program'], 'A')
+    self.assertEqual(row['steps'], 7)
+    self.assertEqual(row['forks'], 2)
+    self.assertAlmostEqual(row['serial'], 5 / 7)
+    self.assertEqual(row['nested'], 0.0)
+    self.assertAlmostEqual(row['shared'], 4 / 7)
+    self.assertAlmostEqual(row['failed'], 2 / 7)
+    self.assertEqual(row['qmax'], 4)
+    self.assertEqual(row['configs'], 6)
+    self.assertEqual(row['median'], 1)
+    self.assertEqual(row['mean'], 1.166667)
+    self.assertEqual(row['max'], 3)
+    self.assertEqual(row['nconfigs'], 0)
+    self.assertEqual(row['nmedian'], 0)
+    # A plain runtime reports no counters; a failed sample does not count;
+    # a run without steps has no fractions.
+    for record in (
+        self.record('B', STATS_LINE), self.record('C', COUNTERS_LINE, 'fail')
+      ):
+      row = counters.row(record)
+      self.assertEqual(row['program'], record['program'])
+      self.assertTrue(all(row[h] is None for h in counters.HEADINGS[1:]))
+    idle = self.record('D', COUNTERS_LINE.replace('steps=7', 'steps=0'))
+    row = counters.row(idle)
+    self.assertEqual(row['steps'], 0)
+    self.assertIsNone(row['serial'])
+    self.assertEqual(row['configs'], 6)
+
+  def test_main(self):
+    '''The table, the CSV form, the backend filter, and the errors.'''
+    filename = os.path.join(self.tmpdir, 'counters.jsonl')
+    with open(filename, 'w') as stream:
+      records.write(stream, self.record('A', COUNTERS_LINE))
+      records.write(stream, self.record('B', STATS_LINE))
+      records.write(stream, self.record('C', COUNTERS_LINE, backend='py'))
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+      self.assertEqual(counters.main([filename]), 0)
+    lines = out.getvalue().splitlines()
+    self.assertEqual(tuple(lines[0].split()), counters.HEADINGS)
+    self.assertEqual(
+        lines[1].split()
+      , [ 'A', '7', '2', '0.714', '0.000', '0.571', '0.286', '4', '6', '1'
+        , '1.2', '3', '0', '0'
+        ]
+      )
+    self.assertEqual(lines[2].split(), ['B'] + ['-'] * 13)
+    self.assertEqual(lines[3].split()[:2], ['C', '7'])
+    self.assertEqual(len(lines), 4)
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+      self.assertEqual(counters.main(['--csv', '-b', 'py', filename]), 0)
+    lines = out.getvalue().splitlines()
+    self.assertEqual(lines[0], ','.join(counters.HEADINGS))
+    self.assertEqual(lines[1].split(',')[:4], ['C', '7', '2', '0.714'])
+    self.assertEqual(len(lines), 2)
+    # No record with the counters: status 1.
+    with contextlib.redirect_stdout(io.StringIO()):
+      self.assertEqual(counters.main(['-b', 'pakcs', filename]), 1)
+    with self.assertRaisesRegex(SystemExit, 'counters: '):
+      counters.main([os.path.join(self.tmpdir, 'missing.jsonl')])
 
 
 class TestSmoke(cytest.TestCase):

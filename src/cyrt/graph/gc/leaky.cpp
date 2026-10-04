@@ -1,5 +1,9 @@
 // A "garbage collector" that just leaks everything.
 
+#ifdef SPRITE_SCHEDULER_COUNTERS
+#error "the scheduler counters need the creator word that gc/wdgc.cpp writes"
+#endif
+
 namespace cyrt
 {
   Node * node_reserve(size_t bytes)
@@ -18,6 +22,8 @@ namespace cyrt
   double gc_seconds() { return 0.0; }
   size_t gc_threshold() { return NOLIMIT; }
   void gc_set_threshold(size_t) {}
+  size_t gc_growth() { return 0; }
+  bool gc_stress() { return false; }
   size_t gc_enter_evaluation() { ++g_eval_depth; return 0; }
   void gc_leave_evaluation(size_t) { --g_eval_depth; }
 }

@@ -38,18 +38,24 @@ namespace cyrt
       InterpreterState & istate, Node * goal, bool trace
     , SetFStrategy setfunction_strategy, size_t stack_limit
     )
-    : istate(istate), setfunction_strategy(setfunction_strategy)
-    , stack_limit(stack_limit)
+    : istate(istate), root_queue(new Queue())
+    , setfunction_strategy(setfunction_strategy), stack_limit(stack_limit)
   {
-    this->push_queue(new Queue(), NOTRACE);
+    this->push_queue(this->root_queue.get(), NOTRACE);
     this->set_goal(goal);
 		#ifdef SPRITE_TRACE_ENABLED
 		if(trace)
 		  this->trace.reset(new Trace(*this));
     #endif
+    #ifdef SPRITE_SCHEDULER_COUNTERS
+    // The queue holds the goal; a run without a fork never grows it.
+    this->counters.queue_max = this->root_queue->size();
+    #endif
     gc_register_rts(this);
   }
 
+  // The outermost queue and its configurations go with the state.  A queue
+  // of a set function belongs to its SetEval node; the collector frees it.
   RuntimeState::~RuntimeState()
   {
     gc_unregister_rts(this);

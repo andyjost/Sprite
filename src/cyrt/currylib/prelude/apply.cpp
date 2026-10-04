@@ -103,6 +103,17 @@ namespace cyrt { inline namespace
   {
     Cursor _0 = C->cursor();
     auto rv = applynf_step(rts, C);
+    // The ground check applies when the normalization completed and the
+    // redex became the application.  Any other outcome is handed on as it
+    // is: the normalization was interrupted (E_GC, E_ROTATE, E_UNWIND),
+    // suspended, or raised an error, or hnf forwarded the redex to a
+    // failure, a lifted constraint, or a pull-tabbed choice.  The free
+    // variables still in the expression may be bound when the evaluation
+    // resumes (a constraint at the root binds them); a residual for them
+    // here suspended the configuration for good.
+    if(rv != T_FWD || _0->info->tag != T_FWD
+        || NodeU{_0}.fwd->target->info != &apply_Info)
+      return rv;
     Residuals unbound;
     auto node_visitor = visit_unique(_0);
     while(Node * node = node_visitor.next())

@@ -13,6 +13,10 @@ on:
         description: Run the functional suites as well
         type: boolean
         default: true
+      stress:
+        description: Run the unit suite on the C++ backend in the collector stress mode as well
+        type: boolean
+        default: false
 
 env:
   PAKCS_VERSION: '3.4.1'
@@ -122,6 +126,91 @@ jobs:
           key: icurry-cache-${{ matrix.backend }}-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
       # Only the runtime library is cached so far: Sprite compiles and links
       # each generated module in one g++ call, which ccache does not cache.
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache -s | head -n 6
+
+  # The stress mode of the collector (SPRITE_GC_STRESS=1): the C++ collector
+  # runs at every safepoint, so a missing root fails a test at once instead
+  # of once per million nodes.  The job runs the unit suite on the C++
+  # backend in one shard, on the nightly schedule and on request; it does
+  # not run on a push.  The steps are those of the test job; the caches are
+  # restored from the cxx jobs and saved under keys of this job.
+  stress:
+    name: cxx backend, collector stress
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.stress)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make libboost-dev curl ccache
+          swipl --version
+      - name: Put ccache in front of the compilers
+        run: |
+          mkdir -p "$HOME/ccache-bin"
+          for cc in gcc g++ cc c++; do ln -sf "$(command -v ccache)" "$HOME/ccache-bin/$cc"; done
+          printf '#!/bin/sh\nexec ccache g++ "$@"\n' > "$HOME/ccache-bin/sprite-cxx"
+          chmod +x "$HOME/ccache-bin/sprite-cxx"
+          echo "$HOME/ccache-bin" >> "$GITHUB_PATH"
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=500M" >> "$GITHUB_ENV"
+      - name: Restore the compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-cxx-stress-${{ github.sha }}
+          restore-keys: |
+            ccache-cxx-stress-
+            ccache-cxx-
+      - name: Restore the Curry toolchain
+        id: toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/pakcs-${{ env.PAKCS_VERSION }}
+            ~/.cpm
+            ~/.cpmrc
+          key: curry-toolchain-ubuntu-24.04-pakcs${{ env.PAKCS_VERSION }}-icurry${{ env.ICURRY_VERSION }}-v1
+      - name: Build the Curry toolchain
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        run: .github/scripts/install-curry-toolchain.sh
+      - name: Restore the ICurry cache
+        uses: actions/cache/restore@v4
+        with:
+          path: tests/.cache
+          key: icurry-cache-cxx-stress-${{ github.sha }}-${{ github.run_id }}
+          restore-keys: |
+            icurry-cache-cxx-stress-
+            icurry-cache-cxx-
+            icurry-cache-
+      - name: Install Python packages
+        run: python -m pip install --quiet numpy
+      - name: Configure and stage
+        run: |
+          python ./configure \
+            --with-python="$(command -v python)" \
+            --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
+            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            --with-icurry="$HOME/.cpm/bin/icurry"
+          make stage
+      - name: Unit tests in the collector stress mode
+        env:
+          SPRITE_GC_STRESS: '1'
+        run: .github/scripts/run-tests.sh cxx 'unit_*.py' 1/1
+      - name: Save the ICurry cache
+        if: always() && hashFiles('tests/.cache/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: tests/.cache
+          key: icurry-cache-cxx-stress-${{ github.sha }}-${{ github.run_id }}
       - name: Compiler cache statistics
         if: always()
         run: ccache -s | head -n 6

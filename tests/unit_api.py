@@ -22,7 +22,9 @@ class TestStats(cytest.TestCase):
   '''
   ``curry.stats`` and ``sprite-exec --stats``.  Both report the same seven
   fields on both backends: wall and CPU seconds, rewrite steps, forks,
-  collections, peak RSS, and compile seconds.
+  collections, peak RSS, and compile seconds.  A C++ runtime built with the
+  scheduler counters (make COUNTERS=1) appends the keys of
+  stats.SCHEDULER_KEYS; unit_cxx_counters.py tests those.
   '''
   KEYS = ('wall', 'cpu', 'steps', 'forks', 'collections', 'peak_rss', 'compile')
   TIMEOUT = 120
@@ -42,11 +44,18 @@ class TestStats(cytest.TestCase):
     return {key: float(value) if '.' in value else int(value)
             for key, value in fields}
 
+  @staticmethod
+  def extra_keys():
+    '''The keys after the seven: the scheduler counters, when the runtime has them.'''
+    if curry.getInterpreter().backend.scheduler_counters_enabled():
+      return statsmod.SCHEDULER_KEYS
+    return ()
+
   def test_fields(self):
     '''The seven fields, their types, and the key=value line.'''
     stats = curry.stats()
     self.assertIsInstance(stats, statsmod.Stats)
-    self.assertEqual(tuple(stats), self.KEYS)
+    self.assertEqual(tuple(stats), self.KEYS + self.extra_keys())
     self.assertEqual(statsmod.KEYS, self.KEYS)
     for key in 'wall', 'cpu', 'compile':
       self.assertIsInstance(stats[key], float, key)
@@ -63,11 +72,11 @@ class TestStats(cytest.TestCase):
     self.assertRegex(
         line
       , r'^wall=\d+\.\d{6} cpu=\d+\.\d{6} steps=\d+ forks=\d+ collections=\d+'
-        r' peak_rss=\d+ compile=\d+\.\d{6}$'
+        r' peak_rss=\d+ compile=\d+\.\d{6}( \w+=[\d.]+)*$'
       )
     parsed = self.parse(line)
-    self.assertEqual(tuple(parsed), self.KEYS)
-    for key in self.KEYS:
+    self.assertEqual(tuple(parsed), self.KEYS + self.extra_keys())
+    for key in parsed:
       self.assertAlmostEqual(parsed[key], stats[key], places=6, msg=key)
     self.assertEqual(statsmod.format_stats(stats), line)
 
@@ -167,7 +176,9 @@ class TestStats(cytest.TestCase):
       )
     lines = proc.stderr.splitlines()
     self.assertTrue(lines, 'no statistics line on stderr')
-    self.assertRegex(lines[-1], r'^wall=.* compile=\d+\.\d{6}$')
+    self.assertRegex(
+        lines[-1], r'^wall=.* compile=\d+\.\d{6}( \w+=[\d.]+)*$'
+      )
     return self.parse(lines[-1]), proc.stdout, lines[:-1]
 
   def test_sprite_exec_stats(self):
@@ -177,7 +188,7 @@ class TestStats(cytest.TestCase):
     '''
     stats, stdout, rest = self.sprite_exec('--stats', '-m', 'mynot')
     self.assertEqual(sorted(stdout.split()), ['False', 'True'])
-    self.assertEqual(tuple(stats), self.KEYS)
+    self.assertEqual(tuple(stats), self.KEYS + self.extra_keys())
     self.assertGreater(stats['wall'], 0.0)
     self.assertGreater(stats['cpu'], 0.0)
     self.assertGreater(stats['steps'], 0)
@@ -194,7 +205,7 @@ class TestStats(cytest.TestCase):
       )
     self.assertEqual(stdout, '')
     self.assertTrue(any('nosuchgoal' in line for line in rest), rest)
-    self.assertEqual(tuple(stats), self.KEYS)
+    self.assertEqual(tuple(stats), self.KEYS + self.extra_keys())
     self.assertEqual(stats['steps'], 0)
 
   def test_without_stats_option(self):

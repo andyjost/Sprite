@@ -13,8 +13,14 @@ or none, is written again from the JSON file instead of being compiled
 against a runtime it was not written for.
 
 Each compiled object carries an ABI stamp beside it: the digest of the
-installed runtime headers it was compiled against.  An object whose stamp
-differs is compiled again; the age of the runtime library does not count.
+installed runtime headers it was compiled against and of the flags of its
+flavor.  An object whose stamp differs is compiled again; the age of the
+runtime library does not count.
+
+Generated code comes in two flavors.  The release flavor has no assertions,
+no stack protector, and no procedure linkage table.  The debug flavor keeps
+the assertions.  A module follows the flavor of the installed runtime unless
+the interpreter flag ``debug`` is set.
 '''
 import cytest # from ./lib; must be first
 from cytest.logging import capture_log
@@ -24,7 +30,7 @@ from curry.toolchain import plans, _findcurry, makecurry
 from curry.utility.binding import binding, del_
 from unittest import mock
 import curry, itertools, json, logging, os, shutil, subprocess, tempfile, time
-import unittest, zlib
+import types, unittest, zlib
 
 # A module with one goal that returns an integer.
 MODULE_JSON = (
@@ -426,8 +432,9 @@ class TestFormatStamp(ToolchainTestCase):
 class TestAbiStamp(ToolchainTestCase):
   '''
   Each shared object gets an ABI stamp: the digest of the installed runtime
-  headers it was compiled against.  An object whose stamp is missing or
-  differs from the installed headers is compiled again.  An object with the
+  headers it was compiled against and of the flags of its flavor.  An object
+  whose stamp is missing or differs from the digest of the installation is
+  compiled again (TestFlavor covers the flavors).  An object with the
   same stamp is kept, whatever the time stamps of the runtime library and the
   object say.  Before this, an object older than libcyrt.so was compiled
   again, so every make stage that relinked the library invalidated every
@@ -460,7 +467,9 @@ class TestAbiStamp(ToolchainTestCase):
     sofile = self.cached_file(module.__name__, '.so')
     stamp = self.cpp2so.stampfile(sofile)
     self.assertEqual(stamp, sofile + '.abi')
-    digest = toolchain.runtime_digest()
+    digest = self.cpp2so.digest()
+    self.assertEqual(digest, toolchain.object_digest(config.cxx_flavor()))
+    self.assertNotEqual(digest, toolchain.runtime_digest())
     self.assertEqual(cytest.readfile(stamp), digest + '\n')
     self.assertEqual(self.cpp2so.read_stamp(sofile), digest)
     self.assertFalse(self.cpp2so.is_stale(sofile))
@@ -507,7 +516,7 @@ class TestAbiStamp(ToolchainTestCase):
     log.checkMessages(self, info='Compiling %r' % sofile)
     self.assertEqual(os.stat(cppfile).st_mtime_ns, before[0])
     self.assertNotEqual(os.stat(sofile).st_mtime_ns, before[1])
-    self.assertEqual(self.cpp2so.read_stamp(sofile), toolchain.runtime_digest())
+    self.assertEqual(self.cpp2so.read_stamp(sofile), self.cpp2so.digest())
     self.assertEqual(self.prerequisite(name), sofile)
     self.check_value(self.import_module(name), 3)
 
@@ -520,7 +529,7 @@ class TestAbiStamp(ToolchainTestCase):
     self.assertTrue(self.cpp2so.is_stale(sofile))
     self.assertEqual(self.prerequisite(name), self.cached_file(name, '.cpp'))
     self.check_value(self.import_module(name), 4)
-    self.assertEqual(self.cpp2so.read_stamp(sofile), toolchain.runtime_digest())
+    self.assertEqual(self.cpp2so.read_stamp(sofile), self.cpp2so.digest())
 
   def test_stamp_is_removed_before_the_compile(self):
     '''
@@ -550,7 +559,7 @@ class TestAbiStamp(ToolchainTestCase):
     self.assertEqual(self.prerequisite(name), cppfile)
     # The next compile completes and stamps the object.
     self.assertEqual(makecurry(self.plan, name, [self.srcdir]), sofile)
-    self.assertEqual(self.cpp2so.read_stamp(sofile), toolchain.runtime_digest())
+    self.assertEqual(self.cpp2so.read_stamp(sofile), self.cpp2so.digest())
     self.assertEqual(self.prerequisite(name), sofile)
     self.check_value(self.import_module(name), 6)
 
@@ -658,6 +667,242 @@ class TestAbiStamp(ToolchainTestCase):
     commands, value = json.loads(proc.stdout.strip().splitlines()[-1])
     self.assertEqual(commands, [])
     self.assertEqual(value, [5])
+
+def undefined_symbols(path):
+  '''The undefined dynamic symbols of a shared object, without versions.'''
+  proc = subprocess.run(
+      ['nm', '-D', '-u', path], capture_output=True, text=True, check=True
+    )
+  return set(
+      line.split()[-1].split('@')[0]
+      for line in proc.stdout.splitlines() if line.strip()
+    )
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
+  )
+@unittest.skipIf(shutil.which('nm') is None, 'nm is not installed')
+class TestFlavor(ToolchainTestCase):
+  '''
+  Generated code comes in two flavors.  The release flavor drops the
+  assertions, the stack protector, and the procedure linkage table.  The
+  debug flavor keeps the assertions.  A module follows the flavor of the
+  installed runtime unless the interpreter flag ``debug`` is set.  The stamp
+  of an object names its flavor.  Before this, the optimized build kept its
+  assertions: neither Make.config nor the toolchain said -DNDEBUG.
+  '''
+  ASSERT = '__assert_fail'
+  STACK_CHECK = '__stack_chk_fail'
+  RELEASE_FLAGS = [
+      '-O3', '-DNDEBUG', '-fno-stack-protector', '-fno-plt'
+    , '-Wl,-Bsymbolic-functions'
+    ]
+
+  def setUp(self):
+    super().setUp()
+    self.plan = plans.makeplan(
+        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+      )
+    self.cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+
+  def prerequisite(self, name):
+    return _findcurry.currentfile(self.plan, name, [self.srcdir])
+
+  def compile_command(self, cpp2so, name):
+    cpp = self.cached_file(name, '.cpp')
+    out = os.path.join(self.tmpdir, 'probe.so')
+    return list(cpp2so._compileCommand(cpp, out))
+
+  def build(self, value):
+    '''Builds the object of a module without loading it.  Returns its name.'''
+    name = self.write_json(value)
+    sofile = makecurry(self.plan, name, [self.srcdir])
+    self.assertEqual(sofile, self.cached_file(name, '.so'))
+    return name
+
+  def test_installed_runtime(self):
+    '''
+    The installation names its flavor.  The runtime library and the Prelude
+    the stage compiled are of that flavor: no assertion and no stack check
+    in a release build, assertions in a debug build.
+    '''
+    flavor = config.cxx_flavor()
+    self.assertIn(flavor, config.CXX_FLAVORS)
+    filename = config.installed_path('sysconfig', 'cxx_flavor')
+    self.assertEqual(cytest.readfile(filename).strip(), flavor)
+    prelude = self.cpp2so._sofilename('Prelude')
+    self.assertEqual(
+        self.cpp2so.read_stamp(prelude), toolchain.object_digest(flavor)
+      )
+    for path in config.cyrt_lib(), prelude:
+      symbols = undefined_symbols(path)
+      if flavor == 'release':
+        self.assertNotIn(self.ASSERT, symbols, path)
+        self.assertNotIn(self.STACK_CHECK, symbols, path)
+      else:
+        self.assertIn(self.ASSERT, symbols, path)
+
+  def test_installed_flavor_file(self):
+    '''
+    The file sysconfig/cxx_flavor decides.  An installation without the
+    file, one staged before the flavors existed, is a release build.
+    '''
+    root = os.path.join(self.tmpdir, 'install')
+    os.makedirs(os.path.join(root, 'sysconfig'))
+    variable = config._cxx_flavor
+    saved = variable.value
+    try:
+      with mock.patch.object(
+          config, 'installed_path', lambda *parts: os.path.join(root, *parts)
+        ):
+        variable.value = None
+        self.assertEqual(config.cxx_flavor(), 'release')
+        cases = [
+            ('debug\n', 'debug'), ('release\n', 'release'), ('\n', 'release')
+          , ('fast\n', 'release')
+          ]
+        filename = os.path.join(root, 'sysconfig', 'cxx_flavor')
+        for text, flavor in cases:
+          with open(filename, 'w') as stream:
+            stream.write(text)
+          variable.value = None
+          self.assertEqual(config.cxx_flavor(), flavor, text)
+    finally:
+      variable.value = saved
+
+  def test_digest(self):
+    '''
+    The digest of an object follows the headers and the flavor.  The flavor
+    of the installation is the default.  Another installed flavor, after a
+    stage of the other build, makes an object stale.
+    '''
+    release = toolchain.object_digest('release')
+    debug = toolchain.object_digest('debug')
+    for digest in release, debug:
+      self.assertRegex(digest, r'^[0-9a-f]{16}$')
+    self.assertNotEqual(release, debug)
+    self.assertNotEqual(release, toolchain.runtime_digest())
+    self.assertNotEqual(debug, toolchain.runtime_digest())
+    self.assertEqual(
+        toolchain.object_digest(), toolchain.object_digest(config.cxx_flavor())
+      )
+    self.assertEqual(
+        toolchain.object_digest('release', config.installed_path('include'))
+      , release
+      )
+    self.assertRaises(KeyError, toolchain.object_digest, 'fast')
+    self.assertEqual(toolchain.flavor_flags('debug'), ['-O0', '-g'])
+    for flag in self.RELEASE_FLAGS[:-1]:
+      self.assertIn(flag, toolchain.flavor_flags('release'))
+    name = self.build(1)
+    sofile = self.cached_file(name, '.so')
+    self.assertEqual(self.cpp2so.read_stamp(sofile), self.cpp2so.digest())
+    self.assertFalse(self.cpp2so.is_stale(sofile))
+    other = 'debug' if config.cxx_flavor() == 'release' else 'release'
+    with mock.patch.object(config, 'cxx_flavor', lambda: other):
+      self.assertEqual(
+          toolchain.object_digest(), toolchain.object_digest(other)
+        )
+      if not curry.flags['debug']:
+        self.assertEqual(self.cpp2so.flavor, other)
+        self.assertTrue(self.cpp2so.is_stale(sofile))
+        self.assertEqual(
+            self.prerequisite(name), self.cached_file(name, '.cpp')
+          )
+    self.assertFalse(self.cpp2so.is_stale(sofile))
+
+  @unittest.skipIf(
+      config.cxx_flavor() != 'release' or curry.flags['debug']
+    , 'needs a release installation and a session without the debug flag'
+    )
+  def test_release_flavor(self):
+    '''
+    Without the flag a module gets the release flags, imports no assertion
+    and no stack check, and carries the release stamp.
+    '''
+    module = self.compile_module(2)
+    self.assertEqual(self.cpp2so.flavor, 'release')
+    cmd = self.compile_command(self.cpp2so, module.__name__)
+    for flag in self.RELEASE_FLAGS:
+      self.assertIn(flag, cmd)
+    self.assertNotIn('-O0', cmd)
+    self.assertNotIn('-g', cmd)
+    sofile = self.cached_file(module.__name__, '.so')
+    symbols = undefined_symbols(sofile)
+    self.assertNotIn(self.ASSERT, symbols)
+    self.assertNotIn(self.STACK_CHECK, symbols)
+    self.assertEqual(
+        self.cpp2so.read_stamp(sofile), toolchain.object_digest('release')
+      )
+    self.assertEqual(
+        self.cpp2so.accepted_digests(), {toolchain.object_digest('release')}
+      )
+
+  @cytest.with_flags(backend='cxx', debug=True)
+  def test_debug_flag(self):
+    '''
+    Under the flag a module gets the debug flags and keeps its assertions,
+    and its stamp names the debug flavor.  The objects of the installation
+    are kept: the Prelude is not compiled again.
+    '''
+    cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    self.assertEqual(cpp2so.flavor, 'debug')
+    self.assertEqual(cpp2so.digest(), toolchain.object_digest('debug'))
+    self.assertEqual(
+        cpp2so.accepted_digests()
+      , {toolchain.object_digest(), toolchain.object_digest('debug')}
+      )
+    prelude = cpp2so._sofilename('Prelude')
+    self.assertFalse(cpp2so.is_stale(prelude))
+    module = self.compile_module(3)
+    cmd = self.compile_command(cpp2so, module.__name__)
+    self.assertIn('-O0', cmd)
+    self.assertIn('-g', cmd)
+    self.assertIn('-Wl,-Bsymbolic-functions', cmd)
+    for flag in '-O3', '-DNDEBUG', '-fno-stack-protector':
+      self.assertNotIn(flag, cmd)
+    sofile = self.cached_file(module.__name__, '.so')
+    self.assertIn(self.ASSERT, undefined_symbols(sofile))
+    self.assertEqual(
+        cpp2so.read_stamp(sofile), toolchain.object_digest('debug')
+      )
+
+  @unittest.skipIf(
+      config.cxx_flavor() != 'release' or curry.flags['debug']
+    , 'needs a release installation and a session without the debug flag'
+    )
+  def test_debug_object_is_compiled_again_without_the_flag(self):
+    '''
+    A session without the flag compiles an object of the debug flavor again,
+    once.  A session with the flag keeps it, and keeps a release object too.
+    '''
+    name = self.build(4)
+    sofile = self.cached_file(name, '.so')
+    cppfile = self.cached_file(name, '.cpp')
+    release = self.cpp2so
+    debug = toolchain.Cpp2So(types.SimpleNamespace(flags={'debug': True}))
+    self.assertEqual(release.flavor, 'release')
+    self.assertEqual(debug.flavor, 'debug')
+    # A release object serves both sessions.
+    self.assertFalse(release.is_stale(sofile))
+    self.assertFalse(debug.is_stale(sofile))
+    # A debug object serves the debug session only.
+    debug.write_stamp(sofile)
+    self.assertEqual(
+        release.read_stamp(sofile), toolchain.object_digest('debug')
+      )
+    self.assertFalse(debug.is_stale(sofile))
+    self.assertTrue(release.is_stale(sofile))
+    self.assertEqual(self.prerequisite(name), cppfile)
+    with capture_log('curry.backends.cxx.toolchain') as log:
+      self.assertEqual(makecurry(self.plan, name, [self.srcdir]), sofile)
+    log.checkMessages(self, info='Compiling %r' % sofile)
+    self.assertEqual(
+        release.read_stamp(sofile), toolchain.object_digest('release')
+      )
+    self.assertFalse(release.is_stale(sofile))
+    self.assertEqual(self.prerequisite(name), sofile)
+    self.check_value(self.import_module(name), 4)
 
 @unittest.skipIf(
     curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'

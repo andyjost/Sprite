@@ -49,6 +49,8 @@ Three kinds of tests are used:
 The files under this directory are arranged as follows:
 
         data/  Test data (e.g., source code, sample inputs, expected output).
+               data/cxx holds C++ programs that a test compiles against the
+               installed runtime and runs (see unit_cxx_variable.py).
         lib/   Test harness code.
         *.py   Test cases.
 
@@ -64,7 +66,7 @@ The following drivers are provided.  All are links to run_tests.
         valgrind_tests        Run unit tests under valgrind.
                               (For debugging memory problems.)
         valgrind_debug_tests  Run unit tests under valgrind with vgdb.
-        run_benchmarks        Run the benchmarks (see section 8).
+        run_benchmarks        Run the benchmarks (see section 9).
         shell                 Start a shell with the test environment.
 
 The test drivers use the same command line interface:
@@ -79,6 +81,18 @@ The drivers cap the address space of the test process at 6 GiB, so a
 diverging program fails with an allocation error.  The valgrind drivers run
 without the cap.  To change the cap, set SPRITE_TEST_MAX_VMEM_KB (in KiB, or
 "unlimited").
+
+The collector of the C++ backend has a stress mode.  With SPRITE_GC_STRESS=1
+it runs at every safepoint of the scheduler, after every rewrite step, so a
+missing root fails a test at once instead of once per million nodes.  To
+run the unit tests that way, say:
+
+        SPRITE_GC_STRESS=1 SPRITE_INTERPRETER_FLAGS=backend:cxx ./run_tests 'unit_*.py'
+
+A test whose child must grow a large live heap, recurse deeply, or run out
+of memory skips in that mode (cytest.skipIfGcStress).  The nightly CI job
+runs the unit suite on the C++ backend in stress mode (job "stress" in
+.github/workflows/ci.yml).
 
 
 5. ORACLE CONFIGURATION
@@ -233,3 +247,18 @@ test and a comparison:
         ./run_benchmarks -r 1 -b cxx -b py -o before.jsonl Hello Last2 Peano
         ./run_benchmarks -r 1 -b cxx -b py -o after.jsonl Hello Last2 Peano
         ./run_benchmarks compare before.jsonl after.jsonl
+
+A C++ runtime built with the scheduler counters (make COUNTERS=1; see the
+sprite-exec page of the documentation) appends fields to the --stats line:
+the steps taken while the queue held one configuration, the steps inside set
+functions, the steps on a redex that another configuration created, the
+largest queue, and the lifetimes of the configurations.  The harness keeps
+the whole line in extra.stats of every sample.  To print them as one row per
+program, with the serial, nested, shared, and failed fractions of the steps,
+say:
+
+        ./run_benchmarks counters FILE [-b BACKEND] [--csv]
+
+An item measured on a plain runtime shows dashes.  unit_cxx_counters.py
+tests the counters; its tests of the values run on an instrumented runtime
+only.

@@ -3,7 +3,12 @@ LIB_DEPENDS := $$(OBJS_OUT)
 SHLIB_DEPENDS := $$(LIB_OUT)
 SHLIB_EXTRA_DEPENDS := shlib_extra
 SHLIB_PREDEP_LDFLAGS := -Wl,--whole-archive
-SHLIB_POSTDEP_LDFLAGS := -Wl,--no-whole-archive -lpthread -ldl
+# The runtime binds its own functions locally (-Bsymbolic-functions), so a
+# call from one of its translation units into another does not go through
+# the procedure linkage table.  Its symbols stay exported: generated modules
+# and the Python bindings resolve them as before.
+SHLIB_POSTDEP_LDFLAGS := -Wl,--no-whole-archive -Wl,-Bsymbolic-functions \
+                         -lpthread -ldl
 
 SHLIB := libcyrt
 RELATIVE_INSTALL_DIR := lib

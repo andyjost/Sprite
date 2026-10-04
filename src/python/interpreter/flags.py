@@ -15,7 +15,10 @@ are available:
   * ``debug`` (True | **False**)
 
     Sacrifice speed to add more consistency checks and enable debugging with
-    PDB.
+    PDB.  The C++ backend compiles the modules it builds in the debug flavor
+    (-O0 -g, assertions on) and keeps the objects the installation holds.  A
+    session without the flag compiles the debug objects again, once.  See
+    curry.backends.cxx.toolchain.
 
   * ``defaultconverter`` ('topython' | **None**)
 

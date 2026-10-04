@@ -9,8 +9,8 @@ __all__ = [
     'CompilerBase', 'SymbolTable', 'TargetObject'
   , 'decode', 'demangle', 'encode', 'mangle'
 
-  , 'CONSTRUCTOR_TABLE', 'DATA_TYPE', 'DEFINED', 'INFO_TABLE', 'STEP_FUNCTION'
-  , 'STRING_DATA', 'UNDEFINED', 'VALUE_SET'
+  , 'CONSTRUCTOR_TABLE', 'DATA_TYPE', 'DEFINED', 'INFO_TABLE', 'MODULE_DATA'
+  , 'STEP_FUNCTION', 'STRING_DATA', 'UNDEFINED', 'VALUE_SET'
   ]
 
 
@@ -25,6 +25,7 @@ VALUE_SET_DATA    = 'VALUE_SET_DATA'    # Array data for a value set.
 VALUE_SET         = 'VALUE_SET'         # Case values (for narrowing).
 BUILTIN_FUNCTION  = 'BUILTIN_FUNCTION'  # A function provided by the execution environment.
 METADATA          = 'METADATA'          # A metadata object.
+MODULE_DATA       = 'MODULE_DATA'       # A table of the module definition.
 
 # Symbol status.
 DEFINED   = 'T'
@@ -74,6 +75,7 @@ KIND_CODE = {
   , DATA_TYPE         : 'D'
   , INFO_TABLE        : 'I'
   , METADATA          : 'Q'
+  , MODULE_DATA       : 'T'
   , MODULE_DEF        : 'M'
   , STEP_FUNCTION     : 'F'
   , STRING_DATA       : 'S'

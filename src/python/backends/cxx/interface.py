@@ -25,6 +25,9 @@ class IBackend(backends.IBackend):
   def num_collections(self):
     return cyrtbindings.gc_collections()
 
+  def scheduler_counters_enabled(self):
+    return cyrtbindings.scheduler_counters_enabled()
+
   def find_or_create_internal_module(self, moduleobj):
     h = getHandle(moduleobj)
     M = cyrtbindings.Module.find_or_create(h.fullname)

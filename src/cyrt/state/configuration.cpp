@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <cstdlib>
+#include <new>
 #include "cyrt/builtins.hpp"
 #include "cyrt/exceptions.hpp"
 #include "cyrt/graph/show.hpp"
@@ -9,6 +11,38 @@
 
 namespace cyrt
 {
+  // The free list of configuration blocks.  A block holds the link to the
+  // next free block.  The memory is not returned to the system.
+  static void * g_free_configurations = nullptr;
+
+  void * Configuration::operator new(size_t bytes)
+  {
+    assert(bytes == sizeof(Configuration));
+    if(void * block = g_free_configurations)
+    {
+      g_free_configurations = *(void **) block;
+      return block;
+    }
+    void * block = std::malloc(bytes);
+    if(!block)
+      throw std::bad_alloc();
+    return block;
+  }
+
+  void Configuration::operator delete(void * block, size_t)
+  {
+    *(void **) block = g_free_configurations;
+    g_free_configurations = block;
+  }
+
+  #ifdef SPRITE_SCHEDULER_COUNTERS
+  size_t Configuration::next_configuration_serial()
+  {
+    static size_t serial = 0;
+    return ++serial;
+  }
+  #endif
+
   std::ostream & operator<<(std::ostream & os, BindingMap const & bnd)
   {
     std::vector<xid_type> keys;
@@ -80,5 +114,11 @@ namespace cyrt
   {
     this->residuals.insert(vid);
     this->residuals.insert(this->grp_id(vid));
+  }
+
+  void Configuration::remove_residual(xid_type vid)
+  {
+    this->residuals.erase(vid);
+    this->residuals.erase(this->grp_id(vid));
   }
 }

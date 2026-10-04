@@ -615,7 +615,7 @@ namespace cyrt
     }
   }
 
-  void show(std::ostream & os, std::vector<index_type> const & path)
+  void show(std::ostream & os, RealPath const & path)
   {
     os << '[';
     bool tail = false;
@@ -627,8 +627,15 @@ namespace cyrt
     os << ']';
   }
 
-  void show(std::ostream & os, std::vector<Set *> const & path)
+  void show(std::ostream & os, GuardList const & guards)
   {
-    os << "{TODO}";
+    os << '{';
+    bool tail = false;
+    for(Set * set: guards)
+    {
+      if(tail) os << ", "; else tail = true;
+      os << (void const *) set;
+    }
+    os << '}';
   }
 }

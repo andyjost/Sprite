@@ -74,15 +74,23 @@ namespace
 
   // One rewrite step at the root of ``root``, outside procD, for
   // evaluator.single_step.  The step is counted as procS counts it: only a
-  // completed rewrite (a status of E_RESTART or above) is a step.
+  // completed rewrite (a status of E_RESTART or above) is a step.  The
+  // evaluator makes the state for ``root``, so the front configuration holds
+  // it already and takes the step; a state made for another goal gets a
+  // configuration for the step, dropped afterwards.  So the queue holds one
+  // configuration during the step, as the scheduler counters expect of a
+  // step outside a search.
   void RuntimeState_single_step(RuntimeState * rts, Node * root)
   {
     EvaluationScope evaluation_scope;
-    rts->set_goal(root);
+    bool const own = !rts->Q()->empty() && rts->C()->root_storage == root;
+    if(!own)
+      rts->set_goal(root);
     auto status = root->info->step(rts, rts->C());
     if(status >= E_RESTART)
       rts->count_step();
-    rts->drop();
+    if(!own)
+      rts->drop();
   }
 
   template<typename T>
@@ -300,8 +308,22 @@ namespace cyrt { namespace python
       , "The number of nodes at which the next collection runs.");
     mod.def("gc_set_threshold", &gc_set_threshold
       , "Sets the collection threshold; the adaptive policy never goes below it.");
+    mod.def("gc_growth", &gc_growth
+      , "The growth factor: after a collection the threshold is this many times the survivors.");
+    mod.def("gc_stress", &gc_stress
+      , "True when the collector runs at every safepoint (SPRITE_GC_STRESS=1).");
     mod.def("gc_eval_depth", &gc_eval_depth
       , "The number of evaluations on the C stack.");
+    // The objects of the scheduler, for leak checks.  See state/queue.hpp.
+    mod.def("gc_configuration_count", &gc_num_configurations
+      , "The number of configurations alive, in every queue of every evaluation.");
+    mod.def("gc_queue_count", &gc_num_queues
+      , "The number of queues alive: the outermost queue of every evaluation, "
+        "and the queues of set functions not yet freed.");
+    mod.def("gc_set_count", &gc_num_sets
+      , "The number of sets of set functions alive.");
+    mod.def("gc_queue_lengths", &gc_queue_lengths
+      , "The number of configurations in each queue alive, in no particular order.");
 
     py::class_<DataType>(mod, "DataType")
       .def_property_readonly(
@@ -316,16 +338,87 @@ namespace cyrt { namespace python
       ;
   }
 
+  // The scheduler counters of a runtime state (cyrt/state/counters.hpp) as a
+  // dict of plain values and lists, for Interpreter.stats, which sums the
+  // dicts of the evaluations of an interpreter.  None in a plain build.  The
+  // configurations still in the outermost queue have not ended; they are
+  // reported as "left" with their steps so far.  The queues of set functions
+  // hang off SetEval nodes, so their left configurations are not known.
+  py::object RuntimeState_scheduler_counters(RuntimeState & rts)
+  {
+    #ifdef SPRITE_SCHEDULER_COUNTERS
+    SchedulerCounters const & c = rts.counters;
+    auto histogram = [](StepHistogram const & h)
+    {
+      py::dict d;
+      d["count"] = h.count;
+      d["sum"] = h.sum;
+      d["max"] = h.max;
+      d["exact"] = std::vector<size_t>(h.exact, h.exact + StepHistogram::EXACT);
+      d["coarse"] = std::vector<size_t>(
+          h.coarse, h.coarse + StepHistogram::COARSE
+        );
+      return d;
+    };
+    auto queue = [&](size_t i, size_t left, size_t left_steps)
+    {
+      py::dict d;
+      d["values"] = c.ended[i][END_VALUE];
+      d["failures"] = c.ended[i][END_FAILURE];
+      d["forked"] = c.ended[i][END_FORK];
+      d["left"] = left;
+      d["value_steps"] = c.end_steps[i][END_VALUE];
+      d["failure_steps"] = c.end_steps[i][END_FAILURE];
+      d["fork_steps"] = c.end_steps[i][END_FORK];
+      d["left_steps"] = left_steps;
+      d["lifetimes"] = histogram(c.lifetimes[i]);
+      return d;
+    };
+    size_t left = 0, left_steps = 0;
+    for(Configuration * C: *rts.root_queue)
+    {
+      ++left;
+      left_steps += C->steps;
+    }
+    py::dict d;
+    d["serial_steps"] = c.steps_serial;
+    d["nested_steps"] = c.steps_nested;
+    d["shared_steps"] = c.steps_shared;
+    d["queue_max"] = c.queue_max;
+    d["outer"] = queue(0, left, left_steps);
+    d["nested"] = queue(1, 0, 0);
+    return std::move(d);
+    #else
+    return py::none();
+    #endif
+  }
+
+  bool scheduler_counters_enabled()
+  {
+    #ifdef SPRITE_SCHEDULER_COUNTERS
+    return true;
+    #else
+    return false;
+    #endif
+  }
+
   void register_evaluator(pybind11::module_ mod)
   {
     py::class_<InterpreterState>(mod, "InterpreterState")
       .def(py::init<>())
       ;
 
+    mod.def("scheduler_counters_enabled", &scheduler_counters_enabled
+      , "True when the runtime was built with the scheduler counters "
+        "(make COUNTERS=1).");
+
     py::class_<RuntimeState>(mod, "RuntimeStateBase")
       .def(py::init<InterpreterState &, Node *, bool, SetFStrategy, size_t>())
       .def_readonly("steps_total", &RuntimeState::steps_total)
       .def_readonly("forks_total", &RuntimeState::forks_total)
+      .def("scheduler_counters", &RuntimeState_scheduler_counters
+        , "The scheduler counters of this evaluation as a dict, or None in a "
+          "plain build.")
       .def("single_step", &RuntimeState_single_step)
       // The Curry program writes to the C standard output, and Python keeps
       // its own buffer on the same file descriptor.  Flush the C buffer when

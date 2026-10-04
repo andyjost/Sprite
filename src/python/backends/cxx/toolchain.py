@@ -7,13 +7,20 @@ cyrt/cyrt.hpp, and parsing that header costs about two thirds of the time g++
 needs for a small module.  So the toolchain precompiles the header once, and
 g++ loads the result.  See PrecompiledHeader.
 
+Generated code comes in two flavors, as the runtime does (make DEBUG=1).  The
+release flavor drops the assertions, the stack protector, and the procedure
+linkage table.  The debug flavor keeps the assertions and compiles for a
+debugger.  A module follows the flavor of the installed runtime
+(config.cxx_flavor) unless the interpreter flag ``debug`` is set.  See
+FLAVOR_FLAGS and Cpp2So.flavor.
+
 A compiled module stays valid as long as the runtime headers it was compiled
-against do not change.  Cpp2So records a digest of the installed headers
-beside each shared object (the ABI stamp, <module>.so.abi) and compiles the
-module again when the installed headers give another digest.  See
-runtime_digest and Cpp2So.is_stale.  A generated .cpp file carries a format
-stamp; Json2Cpp, which writes the file, refuses one of another format.  See
-Json2Cpp.is_stale.
+against and the flags of its flavor do not change.  Cpp2So records a digest of
+both beside each shared object (the ABI stamp, <module>.so.abi) and compiles
+the module again when the installation gives another digest.  See
+runtime_digest, object_digest, and Cpp2So.is_stale.  A generated .cpp file
+carries a format stamp; Json2Cpp, which writes the file, refuses one of
+another format.  See Json2Cpp.is_stale.
 '''
 from ..generic.toolchain import Json2TargetSource
 from . import compiler
@@ -78,6 +85,51 @@ def runtime_digest(include_dir=None):
     digest.update(b'\0')
   if not found:
     return None
+  return digest.hexdigest()[:16]
+
+# The compiler flags of the two flavors of generated code.  They follow the
+# flags of the runtime build (see the build flavor in configure).  The release
+# flavor drops the assertions (-DNDEBUG) and the stack protector, calls the
+# runtime without the procedure linkage table, and lets the compiler bind the
+# functions of a translation unit locally.  The debug flavor keeps the
+# assertions and compiles for a debugger.
+FLAVOR_FLAGS = {
+    'release': [
+        '-O3', '-DNDEBUG', '-fno-stack-protector', '-fno-plt'
+      , '-fno-semantic-interposition'
+      ]
+  , 'debug': ['-O0', '-g']
+  }
+
+# The link flags of a module.  A module binds its own functions locally.  So a
+# call to a function of the runtime headers that the compiler did not inline
+# does not go through the procedure linkage table to the copy in the module
+# loaded first.
+LINK_FLAGS = ['-Wl,-Bsymbolic-functions']
+
+def flavor_flags(flavor):
+  '''The compiler flags of a flavor of generated code: 'release' or 'debug'.'''
+  return list(FLAVOR_FLAGS[flavor])
+
+def object_digest(flavor=None, include_dir=None):
+  '''
+  The stamp of an object compiled now: a digest of the runtime headers
+  (runtime_digest) and of the flags of ``flavor``, by default the flavor of
+  the installed runtime (config.cxx_flavor).  So a change to a header or to
+  the flags of a flavor compiles every object again, once.  The flags of the
+  environment (CXXFLAGS) are not part of it.
+
+  Returns None when the tree holds no header (see runtime_digest).
+  '''
+  headers = runtime_digest(include_dir)
+  if headers is None:
+    return None
+  if flavor is None:
+    flavor = config.cxx_flavor()
+  digest = hashlib.sha256(headers.encode('utf-8'))
+  for flag in flavor_flags(flavor) + LINK_FLAGS:
+    digest.update(b'\0')
+    digest.update(flag.encode('utf-8'))
   return digest.hexdigest()[:16]
 
 def extend_plan_skeleton(interp, skeleton):
@@ -222,9 +274,11 @@ class PrecompiledHeader(object):
 
 class Cpp2So(object):
   '''
-  Compiles a generated .cpp file into a shared object.  Each object gets an
-  ABI stamp: a file beside it that holds the digest of the runtime headers
-  the object was compiled against (runtime_digest).  See is_stale.
+  Compiles a generated .cpp file into a shared object, in the flavor of the
+  installed runtime or, under the interpreter flag ``debug``, in the debug
+  flavor (see flavor).  Each object gets an ABI stamp: a file beside it that
+  holds the digest of the runtime headers and of the flavor flags the object
+  was compiled with (object_digest).  See is_stale.
   '''
   STAMP_SUFFIX = '.abi'
 
@@ -234,6 +288,37 @@ class Cpp2So(object):
   def __repr__(self):
     return 'cpp2so'
 
+  @property
+  def flavor(self):
+    '''
+    The flavor this step compiles in: 'debug' under the interpreter flag
+    ``debug`` or in a debug installation (make DEBUG=1), else 'release'.
+    '''
+    if self.interp.flags['debug']:
+      return 'debug'
+    return config.cxx_flavor()
+
+  def digest(self):
+    '''The stamp this step writes: the object_digest of its flavor.'''
+    return object_digest(self.flavor)
+
+  def accepted_digests(self):
+    '''
+    The stamps of the objects this step keeps.  An object of the installed
+    flavor is always kept.  Under the interpreter flag ``debug`` an object of
+    the debug flavor is kept as well.  So a debug session keeps the objects
+    of the installation and its own, and a session without the flag compiles
+    the debug objects again, once.  Empty when the installation holds no
+    headers.
+    '''
+    installed = object_digest()
+    if installed is None:
+      return set()
+    digests = {installed}
+    if self.interp.flags['debug']:
+      digests.add(object_digest('debug'))
+    return digests
+
   def is_stale(self, filename):
     '''
     Tells whether a cached file of this step is unusable.  The plan then
@@ -242,16 +327,17 @@ class Cpp2So(object):
     A .cpp file is stale when its format stamp is not the emitter's
     (source_is_stale; a file without a stamp is format 1).
 
-    A .so file is stale when its ABI stamp is missing or holds another digest
-    than the installed headers give.  It was compiled against another ABI.
-    The check reads the headers, not time stamps, so a new copy of the same
-    runtime keeps every object, and a copied cache keeps its objects.  An
-    installation without headers (runtime_digest gives None) cannot compile
-    anything, so its objects are trusted as they are.
+    A .so file is stale when its ABI stamp is missing or holds a digest this
+    step does not accept (accepted_digests): the object was compiled against
+    other headers or with the flags of another flavor.  The check reads the
+    headers, not time stamps, so a new copy of the same runtime keeps every
+    object, and a copied cache keeps its objects.  An installation without
+    headers (runtime_digest gives None) cannot compile anything, so its
+    objects are trusted as they are.
     '''
     if filename.endswith('.so'):
-      digest = runtime_digest()
-      return digest is not None and self.read_stamp(filename) != digest
+      accepted = self.accepted_digests()
+      return bool(accepted) and self.read_stamp(filename) not in accepted
     return source_is_stale(filename)
 
   @classmethod
@@ -268,16 +354,15 @@ class Cpp2So(object):
     except OSError:
       return None
 
-  @classmethod
-  def write_stamp(cls, sofile):
+  def write_stamp(self, sofile):
     '''
-    Records the digest of the installed headers beside ``sofile``.  Without
+    Records the stamp of this step (digest) beside ``sofile``.  Without
     headers there is no digest, and no stamp is written.
     '''
-    digest = runtime_digest()
+    digest = self.digest()
     if digest is None:
       return
-    stamp = cls.stampfile(sofile)
+    stamp = self.stampfile(sofile)
     tmp = '%s.%d.tmp' % (stamp, os.getpid())
     with filesys.remove_file_on_error(tmp):
       with open(tmp, 'w') as stream:
@@ -346,11 +431,8 @@ class Cpp2So(object):
     yield '-I%s' % os.path.realpath(config.installed_path('include'))
     yield '-fPIC'
     yield '-std=c++17'
-    if self.interp.flags['debug']:
-      yield '-O0'
-      yield '-g'
-    else:
-      yield '-O3'
+    for flag in flavor_flags(self.flavor):
+      yield flag
     for flag in os.environ.get('CXXFLAGS', '').split():
       yield flag
 
@@ -383,6 +465,8 @@ class Cpp2So(object):
     for flag in self._cxxflags():
       yield flag
     yield '-Wl,-eentry'
+    for flag in LINK_FLAGS:
+      yield flag
     yield file_in
     for sofilename in self._dependencies(file_in):
       yield sofilename

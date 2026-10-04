@@ -72,6 +72,15 @@ class IBackend(metaclass=abc.ABCMeta):
     '''
     return 0
 
+  def scheduler_counters_enabled(self):
+    '''
+    True when the runtime of this backend counts the serial steps, the
+    lifetimes of configurations, and the shared work of an evaluation
+    (Interpreter.stats reports them).  Only the C++ runtime built with
+    make COUNTERS=1 does.
+    '''
+    return False
+
   @abc.abstractproperty
   def load_module(self):
     '''Load the contents of a Curry module.'''

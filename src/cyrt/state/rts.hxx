@@ -66,11 +66,12 @@ namespace cyrt
   // outside it.  procD hands E_ROTATE outward until it reaches the target.
   // On the way out, each nested procD rotates its own queue when that queue
   // holds more than one configuration, so a nested sibling gets its turn as
-  // well.
+  // well.  A collection request (E_GC) comes after the rotation check, and
+  // every compression counts: so the rotation schedule is the same whether
+  // a collection is due or not, and the stress mode of the collector, which
+  // keeps the request set, rotates as a normal run does.
   inline tag_type RuntimeState::check_interrupts(tag_type tag)
   {
-    if(g_gc_collect)
-      return E_GC;
     if(!(++this->stepcount & 0xffff))
       for(Queue * Q: this->qstack)
         if(Q->size() > 1)
@@ -78,6 +79,8 @@ namespace cyrt
           this->rotate_target = Q;
           return E_ROTATE;
         }
+    if(g_gc_collect)
+      return E_GC;
     return tag;
   }
 
@@ -91,11 +94,49 @@ namespace cyrt
     for(Queue * Q: this->qstack)
       if(!Q->empty())
         ++Q->front()->steps;
+    #ifdef SPRITE_SCHEDULER_COUNTERS
+    if(this->qstack.front()->size() == 1)
+      ++this->counters.steps_serial;
+    if(this->qstack.size() > 1)
+      ++this->counters.steps_nested;
+    #endif
   }
 
+  #ifdef SPRITE_SCHEDULER_COUNTERS
+  // Records the end of configuration ``C``, the front of the current queue,
+  // with the steps it took.  A nested queue is a queue of a set function.
+  inline void RuntimeState::count_end(Configuration * C, ConfigurationEnd end)
+  {
+    this->counters.end_configuration(this->in_recursive_call(), end, C->steps);
+  }
+
+  // Counts a completed step of ``C`` on ``redex`` as shared work when
+  // another configuration created the redex.  A node without a creator was
+  // built outside the scheduler.
+  inline void RuntimeState::count_shared(Node * redex, Configuration * C)
+  {
+    size_t const creator = node_creator(redex);
+    if(creator && creator != C->serial)
+      ++this->counters.steps_shared;
+  }
+
+  // Names the configuration whose step runs, for the creator word of the
+  // nodes it allocates (see graph/memory.hpp), and restores the enclosing
+  // one on exit.  procD holds one for the whole run of its loop.
+  struct CreatorScope
+  {
+    CreatorScope() : saved(g_creator_serial) {}
+    ~CreatorScope() { g_creator_serial = this->saved; }
+    CreatorScope(CreatorScope const &) = delete;
+    CreatorScope & operator=(CreatorScope const &) = delete;
+    size_t saved;
+  };
+  #endif
+
   // Leaves a nested procD without a value.  allValues_step returns ``status``
-  // (E_UNWIND or E_ROTATE) to the enclosing evaluation, whose procD handles
-  // it.  The nested queue keeps its configurations and resumes later.
+  // (E_UNWIND, E_ROTATE, or E_GC) to the enclosing evaluation, whose procD
+  // handles it.  The nested queue keeps its configurations and resumes
+  // later.
   inline Expr RuntimeState::yield_control(tag_type status)
   {
     assert(this->in_recursive_call());

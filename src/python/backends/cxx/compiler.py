@@ -4,7 +4,6 @@ from ... import common, config, icurry
 from . import cyrtbindings as cyrt
 from ...utility import formatDocstring, strings, visitation
 from ...utility.showflags import showflags
-import collections.abc
 
 __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 
@@ -13,8 +12,12 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # none (Cpp2So.is_stale): such a file was written for another runtime, and the
 # runtime would read its static data with the wrong layout.  A file without a
 # stamp is format 1.  Raise the number when the generated code, or a layout it
-# depends on, changes.
-FORMAT_VERSION = 2
+# depends on, changes.  Format 3: the optimizer replaces calls of alias
+# functions (interpreter.optimize.inline_aliases), so a cached file of format
+# 2 is correct but slower.  Format 4: the bill of materials is plain data
+# (cyrt/bom.hpp; vEmitMetadata and vEmitModuleDefinition).  A file of format 3
+# defines a ModuleBOM object, which the loader no longer reads.
+FORMAT_VERSION = 4
 
 def compile(interp, imodule):
   compileM = CxxCompiler(interp, imodule)
@@ -158,47 +161,103 @@ class CxxCompiler(compiler.CompilerBase):
       )
 
   def vEmitMetadata(self, md, h_md):
-    yield 'static Metadata const %s = %s;' % (h_md, _cxxshow(md))
+    # A metadata object as plain data (cyrt/bom.hpp): an array of entries, in
+    # key order, and the record that names it.  The entries of an empty
+    # object are a null pointer.
+    if not md:
+      yield 'static bom::Metadata const %s = {nullptr, 0};' % h_md
+      return
+    h_entries = self.next_private_symbolname(compiler.MODULE_DATA, 'md')
+    self.symtab.insert(h_entries, compiler.MODULE_DATA, '<metadata entries>')
+    yield 'static bom::Entry const %s[] = {%s};' % (
+        h_entries, ', '.join(_bom_entry(key, md[key]) for key in sorted(md))
+      )
+    self.symtab.make_defined(h_entries)
+    yield 'static bom::Metadata const %s = {%s, %d};' % (
+        h_md, h_entries, len(md)
+      )
 
   def vEmitModuleDefinition(self, imodule, h_module):
+    # The module record _bom_ and its tables, as plain data (cyrt/bom.hpp).
+    # The loader finds the record by its name, checks its version, and
+    # decodes it.  A table comes before the table that points to it.
     cxx = renderer.PY_RENDERER
-    def _close(level, string):
-      return (2 * level + 1) * cxx.INDENT * ' ' + string
-    yield 'static ModuleBOM const %s{' % h_module
-    yield '    /*fullname */ %s' % _dquote(imodule.fullname)
-    yield '  , /*filename */ %s' % _dquote(imodule.filename)
-    yield '  , /*imports  */ %s' % _cxxshow(imodule.imports)
-    yield '  , /*metadata */ %s' % self.internMetadata(imodule.metadata)
-    yield '  , /*aliases  */ %s' % _cxxshow(imodule.aliases)
-    if not imodule.types:
-      yield '  , /*types    */ {}'
-    else:
-      yield '  , /*types    */ {'
-      types = imodule.types.values()
-      for prefix, itype in cxx.prettylist(types, level=1):
-        h_type = self.vGetSymbolName(itype, compiler.DATA_TYPE)
-        type_md = self.internMetadata(itype.metadata)
-        ctor_mds = tuple(
-            self.internMetadata(ictor.metadata)
-                for ictor in itype.constructors
+    lines = []
+
+    def table(ctype, suffix, descr, rows):
+      '''
+      Appends a static array of ``ctype`` that holds ``rows``.  Returns the
+      name of the array and its length; an empty table is null.
+      '''
+      rows = list(rows)
+      if not rows:
+        return 'nullptr', 0
+      h_table = self.next_private_symbolname(compiler.MODULE_DATA, suffix)
+      self.symtab.insert(h_table, compiler.MODULE_DATA, descr)
+      lines.append('static %s %s[] = {' % (ctype, h_table))
+      for prefix, row in cxx.prettylist(rows, level=0):
+        lines.append(prefix + row)
+      lines.append('  };')
+      self.symtab.make_defined(h_table)
+      return h_table, len(rows)
+
+    def with_length(name_and_length):
+      return '%s, %d' % name_and_length
+
+    imports = table(
+        'char const * const', 'imports', 'imports of %r' % imodule.fullname
+      , (_dquote(name) for name in imodule.imports)
+      )
+    h_md = self.internMetadata(imodule.metadata)
+    aliases = table(
+        'bom::Alias const', 'aliases', 'aliases of %r' % imodule.fullname
+      , (
+            '{%s, %s}' % (_dquote(k), _dquote(v))
+                for k, v in imodule.aliases.items()
           )
-        yield '%s{&%s, {%s}, &%s}' % (
-            prefix, type_md, ', '.join('&%s' % md for md in ctor_mds), h_type
-          )
-      yield _close(1, '}')
-    if not imodule.functions:
-      yield '  , /*functions*/ {}'
-    else:
-      yield '  , /*functions*/ {'
-      functions = imodule.functions.values()
-      for prefix, ifun in cxx.prettylist(functions, level=1):
-        vis = 'PRIVATE' if ifun.is_private else 'PUBLIC '
-        h_info = self.vGetSymbolName(ifun, compiler.INFO_TABLE)
-        h_md = self.internMetadata(ifun.metadata)
-        yield '%s{%s, &%s, &%s}' % (prefix, vis, h_md, h_info)
-      yield _close(1, '}')
-    yield _close(0, '};')
-    yield 'ModuleBOM const * _bom_ = &%s;' % h_module
+      )
+    type_rows = []
+    for itype in imodule.types.values():
+      h_type = self.vGetSymbolName(itype, compiler.DATA_TYPE)
+      type_md = self.internMetadata(itype.metadata)
+      ctor_mds = [
+          self.internMetadata(ictor.metadata) for ictor in itype.constructors
+        ]
+      ctors, _ = table(
+          'bom::Metadata const * const', 'ctors'
+        , 'constructor metadata of %r' % itype.fullname
+        , ('&%s' % md for md in ctor_mds)
+        )
+      type_rows.append('{&%s, %s, &%s}' % (type_md, ctors, h_type))
+    types = table(
+        'bom::Type const', 'types', 'types of %r' % imodule.fullname, type_rows
+      )
+    function_rows = []
+    for ifun in imodule.functions.values():
+      vis = 'PRIVATE' if ifun.is_private else 'PUBLIC '
+      h_info = self.vGetSymbolName(ifun, compiler.INFO_TABLE)
+      fun_md = self.internMetadata(ifun.metadata)
+      function_rows.append('{%s, &%s, &%s}' % (vis, fun_md, h_info))
+    functions = table(
+        'bom::Function const', 'functions'
+      , 'functions of %r' % imodule.fullname, function_rows
+      )
+    filename = 'nullptr' if imodule.filename is None \
+          else _dquote(imodule.filename)
+    # A const object at namespace scope has internal linkage unless it is
+    # declared extern; the loader looks the record up by name.
+    lines.append('extern bom::Module const _bom_;')
+    lines.append('bom::Module const _bom_ = {')
+    lines.append('    /*version  */ bom::VERSION')
+    lines.append('  , /*fullname */ %s' % _dquote(imodule.fullname))
+    lines.append('  , /*filename */ %s' % filename)
+    lines.append('  , /*imports  */ %s' % with_length(imports))
+    lines.append('  , /*metadata */ &%s' % h_md)
+    lines.append('  , /*aliases  */ %s' % with_length(aliases))
+    lines.append('  , /*types    */ %s' % with_length(types))
+    lines.append('  , /*functions*/ %s' % with_length(functions))
+    lines.append('  };')
+    return lines
 
   def vEmitModuleImport(self, imodule, h_module):
     return []
@@ -357,6 +416,28 @@ def _char_literal(char):
     return "U'%s'" % char
   return "U'\\x%x'" % codepoint
 
+def _bom_entry(key, value):
+  '''
+  One bom::Entry (cyrt/bom.hpp): the key, the kind, the number, and the text
+  of a metadata entry.  MDValue holds a string, an int, or a bool; another
+  value is an error here, not in the C++ compiler.
+  '''
+  if isinstance(value, bool):
+    return '{%s, bom::BOOLEAN, %d, nullptr}' % (_dquote(key), int(value))
+  elif isinstance(value, int):
+    if not -2 ** 31 <= value < 2 ** 31:
+      raise CompileError(
+          'metadata %r holds %r, which does not fit a C++ int' % (key, value)
+        )
+    return '{%s, bom::INTEGER, %d, nullptr}' % (_dquote(key), value)
+  elif isinstance(value, str):
+    return '{%s, bom::STRING, 0, %s}' % (_dquote(key), _dquote(value))
+  else:
+    raise CompileError(
+        'metadata %r holds a value of type %r; the C++ backend stores str, '
+        'int, and bool' % (key, type(value).__name__)
+      )
+
 @visitation.dispatch.on('arg')
 def _cxxshow(arg, use_char=False):
   assert False
@@ -375,16 +456,6 @@ def _cxxshow(string, use_char=False):
     return _char_literal(string)
   else:
     return _dquote(string)
-
-@_cxxshow.when(collections.abc.Mapping)
-def _cxxshow(mapping, use_char=False):
-  return '{%s}' % ', '.join(
-      '{%s, %s}' % (_cxxshow(k, use_char), _cxxshow(v, use_char)) for k,v in mapping.items()
-    )
-
-@_cxxshow.when(collections.abc.Sequence, no=str)
-def _cxxshow(sequence, use_char=False):
-  return '{%s}' % ', '.join(_cxxshow(part, use_char) for part in sequence)
 
 def write_module(
     target_object, stream, goal=None, section_headers=True, module_main=True
