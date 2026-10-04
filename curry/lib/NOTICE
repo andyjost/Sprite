@@ -31,7 +31,8 @@ Sprite's own module
 -------------------
 
 Control/SetFunctions.curry is part of Sprite and is not covered by the
-PAKCS license.
+PAKCS license.  It is covered by the BSD 3-Clause license in the LICENSE
+file at the root of the repository.
 
 Pinned build products
 ---------------------

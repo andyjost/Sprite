@@ -86,3 +86,10 @@ written the test, submit a pull request or send the diff by email.
 
 Contributions are welcome!  For more information, see README.contrib.
 
+
+5. License
+----------
+
+Sprite is distributed under the BSD 3-Clause License; see the LICENSE file.
+The vendored Curry library under curry/lib carries its own BSD license and
+notice.

@@ -72,6 +72,12 @@ test:
       SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec Smoke.curry | grep -x 42
 
 about:
+  license: BSD-3-Clause
+  license_file:
+    - LICENSE
+    - curry/lib/LICENSE
+    - curry/lib/NOTICE
+    - extern/pybind11/LICENSE
   home: https://github.com/andyjost/Sprite
   summary: Sprite, a compiler and runtime for the Curry language
   description: |
@@ -81,11 +87,3 @@ about:
     The Curry front end of PAKCS comes from the package curry-frontend.
   doc_url: https://andyjost.github.io/Sprite/
   dev_url: https://github.com/andyjost/Sprite
-  # The repository has no license file yet; add one and name it here before
-  # the package is published (see ../README.md).  The notices below cover
-  # the third-party parts that the package ships: the Curry library of PAKCS
-  # and the pybind11 headers compiled into the extension module.
-  license_file:
-    - curry/lib/LICENSE
-    - curry/lib/NOTICE
-    - extern/pybind11/LICENSE
