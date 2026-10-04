@@ -25,8 +25,10 @@ name=$(basename "$path")
 root=${SPRITE_WORKTREE_ROOT:-$HOME/.cache/sprite/worktrees}/$name
 
 git -C "$here" worktree add -b "$branch" "$path" "$start"
-# A worktree starts with empty submodule directories.
-git -C "$path" submodule update --init --recursive
+# A worktree starts with empty submodule directories.  Only pybind11 is
+# needed for the build; initializing it alone writes nothing to the
+# repository's config when the main tree has it registered already.
+git -C "$path" submodule update --init extern/pybind11
 mkdir -p "$root/install" "$root/object-root"
 ln -s "$root/install" "$path/install"
 ln -s "$root/object-root" "$path/object-root"
