@@ -202,6 +202,34 @@ class TestPrecompiledHeader(ToolchainTestCase):
     self.assertGreater(os.path.getmtime(path), old)
     self.assertTrue(pch.is_current())
 
+  def test_stale_members_are_removed(self):
+    '''
+    A compile removes the members of other flavors that are older than a
+    header, and keeps the current ones.  g++ takes the first member of the
+    directory whose options agree with the compilation, so a stale member
+    of an earlier runtime could serve a flavor whose own member g++ rejects
+    (a macro defined on the command line that the member was built
+    without).
+    '''
+    self.compile_module(7)
+    member, = self.members()
+    pch = toolchain.PrecompiledHeader(
+        self.root, config.cxx_tool()
+      , toolchain.Cpp2So(curry.getInterpreter())._cxxflags()
+      )
+    newest_header = max(os.path.getmtime(f) for f in pch.header_files())
+    stale = os.path.join(self.gch_dir, 'O3-000000000001.gch')
+    current = os.path.join(self.gch_dir, 'O0g-000000000002.gch')
+    for path, stamp in (stale, newest_header - 100), (current, time.time() + 5):
+      with open(path, 'w') as stream:
+        stream.write('not a precompiled header\n')
+      os.utime(path, (stamp, stamp))
+    self.compile_module(8)
+    self.assertEqual(
+        self.members(), sorted([member, os.path.basename(current)])
+      )
+    self.assertTrue(pch.is_current())
+
   def test_disabled(self):
     '''An empty SPRITE_CXX_PCH_ROOT compiles without the header.'''
     with binding(os.environ, 'SPRITE_CXX_PCH_ROOT', ''):

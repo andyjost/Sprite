@@ -855,6 +855,18 @@ namespace cyrt
     return g_seconds_collect + g_seconds_fill + g_seconds_fault;
   }
 
+  // The counters of the block heap's collector have no meaning here.
+  static GcCounters const g_no_counters;
+  GcCounters const & gc_counters() { return g_no_counters; }
+  GcCounters const & gc_last_collection() { return g_no_counters; }
+  size_t gc_num_old_nodes() { return 0; }
+  bool gc_write_counters_enabled() { return false; }
+  #ifdef SPRITE_GC_WRITE_COUNTERS
+  void gc_count_redex_write(Node const *) {}
+  void gc_count_write(Node const *) {}
+  void gc_count_slot_write(void const *) {}
+  #endif
+
   size_t gc_threshold() { return g_threshold; }
   size_t gc_growth() { return g_growth; }
   bool gc_stress() { return g_stress; }

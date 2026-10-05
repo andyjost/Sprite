@@ -1,7 +1,11 @@
 No Makefiles here.  graph/memory.cpp includes the files of this directory:
 blockheap.cpp, the node heap (size-class blocks with side bitmaps and an
 inline allocation fast path, see graph/memory.hpp), and wdgc.cpp, the
-mark-and-sweep collector over it.  leaky.cpp is an alternative that never
+mark-and-sweep collector over it.  block.hpp holds the layout of a block
+and the address arithmetic, which blockheap.cpp and the scheduler share:
+the scheduler tests the age of a redex inline for the counters of writes
+into old nodes (gc_count_redex_write_fast; make GC_WRITE_COUNTERS=1 builds
+them in).  The header is not installed.  leaky.cpp is an alternative that never
 frees.  mps.cpp is the Memory Pool System (the submodule extern/mps) as the
 heap and the collector, selected with make GC=mps: an experiment behind a
 gate, measured and documented in the dated TODO entry; its header describes

@@ -60,8 +60,10 @@ class Main(object):
       parser.add_argument( '--stats', action='store_true'
         , help='at exit, print one line of statistics on stderr: wall and '
                'CPU seconds, rewrite steps, forks, collections, peak RSS in '
-               'bytes, the seconds spent compiling and collecting, and the '
-               'functions swapped and compiles failed by tiered execution')
+               'bytes, the seconds spent compiling and collecting, the '
+               'functions swapped and compiles failed by tiered execution, '
+               'and the counters of the collector (the gc_ fields; see the '
+               'documentation)')
     if 's' in self.ARGUMENTS:
       try:
         sort_keys = sorted(pstats.Stats.sort_arg_dict_default.keys())

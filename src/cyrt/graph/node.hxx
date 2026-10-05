@@ -270,6 +270,7 @@ namespace cyrt
       Node * end = NodeU{node}.fwd->target;
       if(end->info->tag == T_FWD)
         end = *compress_fwd_chain(&slot);
+      gc_count_write(this);
       slot = end;
       node = end;
     }

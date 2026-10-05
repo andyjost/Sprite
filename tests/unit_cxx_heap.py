@@ -218,19 +218,32 @@ class TestInlineAllocation(cytest.TestCase):
   '''
   BENCHMARKS = os.path.join(HERE, 'data', 'curry', 'benchmarks')
 
-  def test_tak_allocates_inline(self):
+  def tak_disassembly(self):
+    '''
+    The disassembly of the compiled module Tak1.  The object must carry the
+    stamp of the installed runtime: a test process never compiles a stale
+    shared module (the prepare pass of the runner does).
+    '''
+    from curry.backends.cxx import toolchain
     curry.import_('Tak1', currypath=[self.BENCHMARKS] + curry.path)
     base = os.path.join(
         self.BENCHMARKS, '.curry', config.intermediate_subdir(), 'Tak1'
       )
     self.assertTrue(os.path.exists(base + '.so'), base)
+    self.assertEqual(
+        toolchain.Cpp2So.read_stamp(base + '.so'), toolchain.object_digest()
+      , 'the object of Tak1 is stale; run the prepare pass'
+      )
     proc = subprocess.run(
         ['objdump', '-d', '--no-show-raw-insn', base + '.so']
       , capture_output=True, text=True, check=True
       )
+    return proc.stdout
+
+  def test_tak_allocates_inline(self):
     refs = set()
     current = False
-    for line in proc.stdout.splitlines():
+    for line in self.tak_disassembly().splitlines():
       match = re.match(r'^[0-9a-f]+ <([^>]+)>:$', line)
       if match:
         current = match.group(1) == 'CyF4Tak13tak'
@@ -240,6 +253,22 @@ class TestInlineAllocation(cytest.TestCase):
           refs.add(match.group(1))
     called = sorted(r for r in refs if 'node_' in r)
     self.assertEqual(called, ['_ZN4cyrt11node_refillEm'], refs)
+
+  def test_tak_indexes_inline(self):
+    '''
+    The indexer (Variable::skip, indexing.hxx) is inline in the module, and
+    the counters of writes into old nodes leave no call in a module of the
+    default build: without SPRITE_GC_WRITE_COUNTERS they are empty inline
+    functions (memory.hpp).  A module of the instrumented build calls them.
+    '''
+    from curry.backends.cxx import cyrtbindings as cyrt
+    symbols = set(re.findall(r'<([^>@+]+)', self.tak_disassembly()))
+    hooks = sorted(s for s in symbols if 'gc_count' in s)
+    if cyrt.gc_write_counters_enabled():
+      self.assertTrue(hooks, symbols)
+    else:
+      self.assertEqual(hooks, [])
+      self.assertEqual(sorted(s for s in symbols if 'Variable4skip' in s), [])
 
 
 @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')

@@ -30,6 +30,7 @@ namespace
     {
       // A forward node is retargeted in place.  Node::forward_to rejects it
       // because a FwdSz node must keep its original size.
+      gc_count_write(source);
       NodeU{source}.fwd->target = target;
       return;
     }
@@ -53,6 +54,7 @@ namespace
       throw py::value_error(
           std::string("node ") + source->info->name + " is too small to forward"
         );
+    gc_count_write(source);
     source->forward_to(target);
   }
 
@@ -91,6 +93,7 @@ namespace
     EvaluationScope evaluation_scope;
     rts->set_goal(root);
     info->step(rts, rts->C());
+    gc_count_redex_write(root);
     rts->drop();
   }
 
@@ -118,6 +121,7 @@ namespace
       rts->set_goal(root);
     xid_type const xid0 = rts->istate.xidfactory;
     auto status = root->info->step(rts, rts->C());
+    gc_count_redex_write(root);
     if(status >= E_RESTART)
       rts->count_step();
     if(!own)
@@ -177,6 +181,27 @@ namespace
     size_t const before = gc_num_nodes();
     run_gc();
     return before - gc_num_nodes();
+  }
+
+  // The counters of the collector as a dict, in the order of the fields.
+  py::dict counters_dict(GcCounters const & c)
+  {
+    py::dict dict;
+    dict["roots_seconds"] = c.roots_seconds;
+    dict["trace_seconds"] = c.trace_seconds;
+    dict["sweep_seconds"] = c.sweep_seconds;
+    dict["registries_seconds"] = c.registries_seconds;
+    dict["marked"] = c.marked;
+    dict["marked_old"] = c.marked_old;
+    dict["marked_young"] = c.marked_young;
+    dict["configurations_pushed"] = c.configurations_pushed;
+    dict["queues_destroyed"] = c.queues_destroyed;
+    dict["configurations_destroyed"] = c.configurations_destroyed;
+    dict["old_redexes"] = c.old_redexes;
+    dict["old_slot_writes"] = c.old_slot_writes;
+    dict["old_nodes_written"] = c.old_nodes_written;
+    dict["old_blocks"] = c.old_blocks;
+    return dict;
   }
 
   // Runs a collection with the heap verifier.  Returns the problem found,
@@ -403,6 +428,7 @@ namespace cyrt { namespace python
                 throw py::index_error("node index out of range");
               if(self.info->format[pos] != 'p')
                 throw py::type_error("successor is not a node");
+              gc_count_write(&self);
               *self.successor(pos) = value;
             }
           )
@@ -483,6 +509,19 @@ namespace cyrt { namespace python
       , "Statistics of the collector by name; empty for wdgc.");
     mod.def("gc_seconds", &gc_seconds
       , "The time spent in collections, in seconds.");
+    mod.def("gc_counters", []() { return counters_dict(gc_counters()); }
+      , "The counters of the collector summed over the collections of the "
+        "process: the seconds of the phases, the nodes marked by age, the "
+        "configurations pushed, the queues and configurations destroyed, "
+        "and the writes into old nodes.");
+    mod.def("gc_last_collection"
+      , []() { return counters_dict(gc_last_collection()); }
+      , "The counters of the last collection.");
+    mod.def("gc_old_node_count", &gc_num_old_nodes
+      , "The number of old nodes: the nodes marked in the last collection.");
+    mod.def("gc_write_counters_enabled", &gc_write_counters_enabled
+      , "True when the runtime counts the writes into old nodes "
+        "(SPRITE_GC_WRITE_COUNTERS).");
     mod.def("gc_threshold", &gc_threshold
       , "The number of nodes at which the next collection runs.");
     mod.def("gc_set_threshold", &gc_set_threshold

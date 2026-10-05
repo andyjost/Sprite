@@ -20,16 +20,27 @@ class ICurryTestCase(cytest.TestCase):
 
 class TestStats(cytest.TestCase):
   '''
-  ``curry.stats`` and ``sprite-exec --stats``.  Both report the same ten
-  fields on both backends: wall and CPU seconds, rewrite steps, forks,
-  collections, peak RSS, compile seconds, collector seconds, the functions
-  swapped by tiered execution, and the background compiles that failed.  A
-  C++ runtime built with the scheduler counters (make COUNTERS=1) appends
-  the keys of stats.SCHEDULER_KEYS; unit_cxx_counters.py tests those.
+  ``curry.stats`` and ``sprite-exec --stats``.  Both report the same fields
+  on both backends: wall and CPU seconds, rewrite steps, forks, collections,
+  peak RSS, compile seconds, collector seconds, the functions swapped by
+  tiered execution, the background compiles that failed, and the fourteen
+  counters of the collector (the gc_ keys; unit_cxx_gc_counters.py tests
+  their values).  A C++ runtime built with the scheduler counters (make
+  COUNTERS=1) appends the keys of stats.SCHEDULER_KEYS; unit_cxx_counters.py
+  tests those.
   '''
   KEYS = (
       'wall', 'cpu', 'steps', 'forks', 'collections', 'peak_rss', 'compile'
     , 'gc_seconds', 'swapped', 'failed_compiles'
+    , 'gc_roots_seconds', 'gc_trace_seconds', 'gc_sweep_seconds'
+    , 'gc_registries_seconds', 'gc_marked', 'gc_marked_old', 'gc_marked_young'
+    , 'gc_configurations_pushed', 'gc_queues_destroyed'
+    , 'gc_configurations_destroyed', 'gc_old_redexes', 'gc_old_slot_writes'
+    , 'gc_old_nodes_written', 'gc_old_blocks'
+    )
+  GC_SECONDS = (
+      'gc_roots_seconds', 'gc_trace_seconds', 'gc_sweep_seconds'
+    , 'gc_registries_seconds'
     )
   TIMEOUT = 120
   # The C++ runtime keeps one entry per module name, so a module built in
@@ -50,22 +61,24 @@ class TestStats(cytest.TestCase):
 
   @staticmethod
   def extra_keys():
-    '''The keys after the ten: the scheduler counters, when the runtime has them.'''
+    '''The keys after KEYS: the scheduler counters, when the runtime has them.'''
     if curry.getInterpreter().backend.scheduler_counters_enabled():
       return statsmod.SCHEDULER_KEYS
     return ()
 
   def test_fields(self):
-    '''The ten fields, their types, and the key=value line.'''
+    '''The fields, their types, and the key=value line.'''
     stats = curry.stats()
     self.assertIsInstance(stats, statsmod.Stats)
     self.assertEqual(tuple(stats), self.KEYS + self.extra_keys())
     self.assertEqual(statsmod.KEYS, self.KEYS)
-    for key in 'wall', 'cpu', 'compile', 'gc_seconds':
+    self.assertEqual(statsmod.GC_KEYS, self.KEYS[10:])
+    for key in ('wall', 'cpu', 'compile', 'gc_seconds') + self.GC_SECONDS:
       self.assertIsInstance(stats[key], float, key)
       self.assertGreaterEqual(stats[key], 0.0, key)
-    for key in 'steps', 'forks', 'collections', 'peak_rss', 'swapped' \
-             , 'failed_compiles':
+    for key in self.KEYS:
+      if key in ('wall', 'cpu', 'compile', 'gc_seconds') + self.GC_SECONDS:
+        continue
       self.assertIsInstance(stats[key], int, key)
       self.assertGreaterEqual(stats[key], 0, key)
     self.assertGreater(stats['wall'], 0.0)
@@ -76,6 +89,8 @@ class TestStats(cytest.TestCase):
       self.assertEqual(stats['gc_seconds'], 0.0)
       self.assertEqual(stats['swapped'], 0)
       self.assertEqual(stats['failed_compiles'], 0)
+      for key in self.KEYS[10:]:
+        self.assertEqual(stats[key], 0, key)
     line = str(stats)
     self.assertRegex(
         line
@@ -193,7 +208,7 @@ class TestStats(cytest.TestCase):
 
   def test_sprite_exec_stats(self):
     '''
-    sprite-exec --stats prints the eight fields as the last line of stderr.
+    sprite-exec --stats prints the fields as the last line of stderr.
     The module has a committed ICurry cache, so no Curry front end runs.
     '''
     stats, stdout, rest = self.sprite_exec('--stats', '-m', 'mynot')

@@ -121,25 +121,42 @@ GC_FLAGS = {
   , 'mps': ['-DSPRITE_GC_MPS']
   }
 
-def gc_flags(gc=None):
+# The flag of the counters of writes into old nodes of the block heap (make
+# GC_WRITE_COUNTERS=1; see src/cyrt/graph/gc/wdgc.cpp).  Their sites in the
+# runtime headers (the indexer of indexing.hxx, Node::successor_node) are
+# empty inline functions without it, so a module is compiled with the
+# setting of the installed runtime.
+GC_WRITE_COUNTERS_FLAGS = ['-DSPRITE_GC_WRITE_COUNTERS']
+
+def gc_flags(gc=None, write_counters=None):
   '''
   The compiler flags of a collector of the runtime, by default the collector
-  of the installed runtime (config.cxx_gc).
+  of the installed runtime (config.cxx_gc), with the flag of the write
+  counters when ``write_counters`` is true, by default when the installed
+  runtime has them (config.cxx_gc_write_counters).  The counters belong to
+  the block heap: 'mps' never gets the flag.
   '''
   if gc is None:
     gc = config.cxx_gc()
-  return list(GC_FLAGS[gc])
+  if write_counters is None:
+    write_counters = config.cxx_gc_write_counters()
+  flags = list(GC_FLAGS[gc])
+  if gc == 'wdgc' and write_counters:
+    flags += GC_WRITE_COUNTERS_FLAGS
+  return flags
 
-def object_digest(flavor=None, include_dir=None, gc=None, prefix=None):
+def object_digest(flavor=None, include_dir=None, gc=None, prefix=None
+    , write_counters=None):
   '''
   The stamp of an object compiled now: a digest of the runtime headers
   (runtime_digest), of the flags of ``flavor``, by default the flavor of the
   installed runtime (config.cxx_flavor), of the flags of the collector
-  ``gc``, by default the installed one (config.cxx_gc), and of the real
-  path of the installation ``prefix``, by default the installed one.  So a
-  change to a header, to the flags of a flavor, or to the collector
-  compiles every object again, once.  The installation is part of the
-  stamp because a module links against the shared objects of its
+  ``gc`` and of its write counters, by default the installed ones
+  (config.cxx_gc, config.cxx_gc_write_counters), and of the real path of
+  the installation ``prefix``, by default the installed one.  So a change
+  to a header, to the flags of a flavor, to the collector, or to the write
+  counters compiles every object again, once.  The installation is part of
+  the stamp because a module links against the shared objects of its
   installation by absolute path: an object compiled under another
   installation of the same runtime would load that installation's Prelude
   beside this one.  The flags of the environment (CXXFLAGS) are not part
@@ -155,7 +172,7 @@ def object_digest(flavor=None, include_dir=None, gc=None, prefix=None):
   if prefix is None:
     prefix = config.prefix()
   digest = hashlib.sha256(headers.encode('utf-8'))
-  for flag in flavor_flags(flavor) + gc_flags(gc) + LINK_FLAGS:
+  for flag in flavor_flags(flavor) + gc_flags(gc, write_counters) + LINK_FLAGS:
     digest.update(b'\0')
     digest.update(flag.encode('utf-8'))
   digest.update(b'\0')
@@ -235,7 +252,11 @@ class PrecompiledHeader(object):
   A member is stale when it is older than any header, its sources.  The
   comparison uses modification times: make stage links the installed headers
   to the sources, and make install copies a header only when the source is
-  newer, so a build that changes no header keeps the member.
+  newer, so a build that changes no header keeps the member.  A stale member
+  of another flavor is removed when a flavor prepares its own (see
+  remove_stale_members): g++ never compares a member with the headers, and
+  it takes the first member of the directory whose options agree with the
+  compilation.
   When the directory cannot be written or the build fails, the toolchain logs
   one warning per root and compiles without the header.  The generated code
   is the same either way.
@@ -289,6 +310,7 @@ class PrecompiledHeader(object):
     if self.root in self._failed:
       return False
     if self.is_current():
+      self.remove_stale_members()
       return True
     try:
       self.build()
@@ -301,7 +323,36 @@ class PrecompiledHeader(object):
         , self.filename, exc
         )
       return False
+    self.remove_stale_members()
     return True
+
+  def remove_stale_members(self):
+    '''
+    Removes the other members of the directory that are older than a header.
+    g++ tries the members in the order of the directory and uses the first
+    one whose options agree with the compilation; it never compares a member
+    with the headers.  So when a compilation defines a macro that the
+    current member was built without (the macro of the write counters, or
+    of the Memory Pool System), g++ rejects that member and may take a stale
+    one of an earlier runtime, and the module is compiled against old
+    headers.  A flavor whose member is removed builds it again.  A member
+    that another process reads stays readable after the unlink.
+    '''
+    try:
+      newest = max(os.path.getmtime(f) for f in self.header_files())
+      names = os.listdir(self.directory)
+    except (OSError, ValueError):
+      return
+    for name in names:
+      path = os.path.join(self.directory, name)
+      if path == self.filename or not name.endswith('.gch'):
+        continue
+      try:
+        if os.path.getmtime(path) < newest:
+          logger.info('Removing the stale precompiled header %r', path)
+          os.unlink(path)
+      except OSError:
+        pass
 
   def build(self):
     '''Compiles the header into a temporary file, then moves it into place.'''

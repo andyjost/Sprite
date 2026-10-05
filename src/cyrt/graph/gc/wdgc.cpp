@@ -123,6 +123,26 @@
 // tests/README).  The hot path is unchanged: the flag is the one the
 // threshold sets.  gc_stress() reports the mode, and gc_num_collections()
 // counts the collections.
+//
+// Counters.  Every collection records the seconds of its phases (the roots
+// pushed, the trace, the block sweep, the registries), the nodes it marked,
+// old and young apart (see the ages in gc/blockheap.cpp), the
+// configurations it pushed as roots, the queues and the configurations the
+// registry sweep destroyed, and the writes into old nodes counted since the
+// last collection: the writes of a step into its redex (procS), the other
+// pointer writes into an existing node, the distinct old nodes written, and
+// the blocks touched.  The write counters cost a test per step and a call
+// at the slot sites, a tenth of the instructions of Tak1 (see the TODO
+// entry), so they are compiled in only under SPRITE_GC_WRITE_COUNTERS
+// (make GC_WRITE_COUNTERS=1), as empty inline functions otherwise
+// (memory.hpp); the macro reaches the generated modules through the ABI
+// stamp (curry.backends.cxx.toolchain).  The rest of the counters are
+// always on.  gc_counters() sums the records over the collections,
+// gc_last_collection() holds the last one, and sprite-exec --stats prints
+// the sums.  With SPRITE_GC_REPORT=1 in the environment, every collection
+// prints its record on the standard error stream, one line of key=value
+// pairs.  The timers cost a clock reading per queue pushed and a few per
+// collection, on the collector's paths alone.
 
 #include <algorithm>
 #include <chrono>
@@ -139,8 +159,6 @@
 #include <vector>
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/state/queue.hpp"
-
-// #define GC_REPORT
 
 // The next collection runs when the heap reaches this multiple of the
 // survivors of the last one.  Measured on the benchmarks (see TODO): 2 and
@@ -175,6 +193,23 @@ static size_t g_collections = 0;
 
 // The time spent in collections, in seconds.
 static double g_seconds = 0.0;
+
+// The counters of the collections (see the header of this file): the sums
+// over the collections, and the record of the last one, which the current
+// collection fills.
+static cyrt::GcCounters g_totals;
+static cyrt::GcCounters g_last;
+
+// The report of every collection on the standard error stream
+// (SPRITE_GC_REPORT=1).
+static bool g_report = false;
+
+using gc_clock = std::chrono::steady_clock;
+
+static inline double seconds_since(gc_clock::time_point start)
+{
+  return std::chrono::duration<double>(gc_clock::now() - start).count();
+}
 
 // A request to run the verifier at the next collection (gc_verify), and
 // the problem it found.
@@ -216,15 +251,17 @@ static size_t growth_from_environment()
   return GC_DEFAULT_GROWTH;
 }
 
-static bool stress_from_environment()
+// A flag of the environment: 0 or empty is off, 1 is on, and another value
+// is off with a warning.
+static bool flag_from_environment(char const * name, char const * what)
 {
-  char const * text = std::getenv("SPRITE_GC_STRESS");
+  char const * text = std::getenv(name);
   if(!text || !*text || std::strcmp(text, "0") == 0)
     return false;
   if(std::strcmp(text, "1") == 0)
     return true;
-  std::cerr << "SPRITE_GC_STRESS=" << text
-            << " is not 0 or 1; the stress mode is off" << std::endl;
+  std::cerr << name << "=" << text << " is not 0 or 1; " << what << " is off"
+            << std::endl;
   return false;
 }
 
@@ -234,7 +271,8 @@ static struct _Init
   {
     cyrt::g_threshold = g_threshold_floor = threshold_from_environment();
     g_growth = growth_from_environment();
-    g_stress = stress_from_environment();
+    g_stress = flag_from_environment("SPRITE_GC_STRESS", "the stress mode");
+    g_report = flag_from_environment("SPRITE_GC_REPORT", "the report");
     // In stress mode the first safepoint collects already.
     g_gc_collect = g_stress;
     cyrt::g_configuration_threshold = configuration_threshold(g_threshold_floor);
@@ -256,6 +294,8 @@ namespace cyrt
   size_t gc_num_allocations() { return g_allocations - unconsumed(); }
   size_t gc_num_collections() { return g_collections; }
   double gc_seconds() { return g_seconds; }
+  GcCounters const & gc_counters() { return g_totals; }
+  GcCounters const & gc_last_collection() { return g_last; }
   size_t gc_threshold() { return g_threshold; }
   size_t gc_growth() { return g_growth; }
   bool gc_stress() { return g_stress; }
@@ -343,8 +383,10 @@ namespace cyrt
   // constraints.  See the header of this file.
   static void push_queue_roots(std::vector<Node *> & stack, Queue * Q)
   {
+    auto const start = gc_clock::now();
     for(auto * C: *Q)
     {
+      ++g_last.configurations_pushed;
       if(C->root_storage)
         stack.push_back(C->root_storage);
       for(auto & pair: *C->bindings)
@@ -367,6 +409,7 @@ namespace cyrt
             push_freevar(stack, vid);
       }
     }
+    g_last.roots_seconds += seconds_since(start);
   }
 
   // The last queue and the last set accepted from a node.  The guards of
@@ -441,9 +484,6 @@ namespace cyrt
     g_visited_tables.clear();
     g_last_constraints = nullptr;
     clear_pushed();
-    #ifdef GC_REPORT
-    auto const t0 = std::chrono::steady_clock::now();
-    #endif
     for(auto * rts: g_rtslist)
     {
       for(auto * Q: rts->qstack)
@@ -452,22 +492,14 @@ namespace cyrt
         push_queue_roots(stack, Q);
       }
     }
-    #ifdef GC_REPORT
-    size_t vtable_entries = 0;
-    for(auto * istate: g_istates)
-      vtable_entries += istate->vtable.size();
-    auto const t1 = std::chrono::steady_clock::now();
-    (std::cerr << "roots=" << stack.size() << " vtable=" << vtable_entries
-               << " pyroots=" << g_roots.size()
-               << " rootsecs=" << std::chrono::duration<double>(t1 - t0).count()
-               << " ").flush();
-    #endif
+    auto const start = gc_clock::now();
     for(auto const & pair: g_roots)
       stack.push_back(pair.first);
     // In a nested evaluation, every node of an older block is a root.  See
     // the comment at the top of this file.
     if(nested)
       push_older_nodes(stack, g_floor_seq);
+    g_last.roots_seconds += seconds_since(start);
     while(!stack.empty())
     {
       Node * node = stack.back();
@@ -477,7 +509,11 @@ namespace cyrt
       // static object.
       if(outside_heap(node) || heap_marked(node))
         continue;
-      heap_mark(node);
+      ++g_last.marked;
+      if(heap_mark_and_age(node))
+        ++g_last.marked_old;
+      else
+        ++g_last.marked_young;
       if(g_verifying)
         g_verify_list.push_back(node);
       auto * info = node->info;
@@ -573,6 +609,8 @@ namespace cyrt
   // iteration stays valid.
   static void run_registry_sweep()
   {
+    // A queue destroys its configurations, which count themselves out.
+    size_t const configurations = g_num_configurations;
     for(auto p = g_queues.begin(); p != g_queues.end();)
     {
       Queue * queue = *p;
@@ -587,8 +625,10 @@ namespace cyrt
       {
         p = g_queues.erase(p);
         delete queue;
+        ++g_last.queues_destroyed;
       }
     }
+    g_last.configurations_destroyed += configurations - g_num_configurations;
     for(auto p = g_sets.begin(); p != g_sets.end();)
     {
       Set * set = *p;
@@ -625,34 +665,92 @@ namespace cyrt
   }
   #endif
 
-  #ifdef GC_REPORT
-  static std::string show_frac(float frac)
+  // Adds the record of a collection to the sums.
+  static void add_counters(GcCounters & sum, GcCounters const & record)
   {
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << frac;
-    return ss.str();
+    sum.roots_seconds += record.roots_seconds;
+    sum.trace_seconds += record.trace_seconds;
+    sum.sweep_seconds += record.sweep_seconds;
+    sum.registries_seconds += record.registries_seconds;
+    sum.marked += record.marked;
+    sum.marked_old += record.marked_old;
+    sum.marked_young += record.marked_young;
+    sum.configurations_pushed += record.configurations_pushed;
+    sum.queues_destroyed += record.queues_destroyed;
+    sum.configurations_destroyed += record.configurations_destroyed;
+    sum.old_redexes += record.old_redexes;
+    sum.old_slot_writes += record.old_slot_writes;
+    sum.old_nodes_written += record.old_nodes_written;
+    sum.old_blocks += record.old_blocks;
   }
-  #endif
+
+  // The line of SPRITE_GC_REPORT: the record of a collection as key=value
+  // pairs, with the state of the heap around it.
+  static void report_collection(
+      size_t nodes_before, size_t survivors, double seconds
+    )
+  {
+    GcCounters const & c = g_last;
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(6)
+       << "gc collection=" << g_collections
+       << " nested=" << (g_eval_depth > 1)
+       << " nodes=" << nodes_before
+       << " survivors=" << survivors
+       << " marked=" << c.marked
+       << " marked_old=" << c.marked_old
+       << " marked_young=" << c.marked_young
+       << " roots_seconds=" << c.roots_seconds
+       << " trace_seconds=" << c.trace_seconds
+       << " sweep_seconds=" << c.sweep_seconds
+       << " registries_seconds=" << c.registries_seconds
+       << " configurations_pushed=" << c.configurations_pushed
+       << " queues_destroyed=" << c.queues_destroyed
+       << " configurations_destroyed=" << c.configurations_destroyed
+       << " old_redexes=" << c.old_redexes
+       << " old_slot_writes=" << c.old_slot_writes
+       << " old_nodes_written=" << c.old_nodes_written
+       << " old_blocks=" << c.old_blocks
+       << " threshold=" << g_threshold
+       << " configurations=" << g_num_configurations
+       << " queues=" << g_queues.size()
+       << " sets=" << g_sets.size()
+       << " blocks=" << gc_num_blocks()
+       << " seconds=" << seconds
+       << "\n";
+    (std::cerr << ss.str()).flush();
+  }
 
   void run_gc()
   {
-    auto const start = std::chrono::steady_clock::now();
+    auto const start = gc_clock::now();
     bool const nested = g_eval_depth > 1;
-    #ifdef GC_REPORT
-    size_t const nodes_before = nodes_in_use();
-    (std::cerr << "GC " << nodes_before << "/" << g_threshold
-               << " blocks=" << gc_num_blocks() << " depth=" << g_eval_depth
-               << " ").flush();
-    #endif
+    size_t const nodes_before = g_report ? nodes_in_use() : 0;
     retire_runs();
     g_verifying = g_stress || g_verify_requested;
     g_verify_list.clear();
+    // The record of this collection.  The write counters of the interval
+    // come from the heap (gc/blockheap.cpp) and start over.
+    g_last = GcCounters();
+    g_last.old_redexes = g_old_redexes;
+    g_last.old_slot_writes = g_old_slot_writes;
+    g_old_redexes = g_old_slot_writes = 0;
+    auto const mark_start = gc_clock::now();
     run_mark_phase(nested);
+    // The roots pushed inside the trace (the queue of a SetEval node) are
+    // in roots_seconds; the rest of the mark phase is the trace.
+    g_last.trace_seconds = seconds_since(mark_start) - g_last.roots_seconds;
+    auto const tables_start = gc_clock::now();
     sweep_freevar_tables();
     sweep_generators();
+    g_last.registries_seconds += seconds_since(tables_start);
     if(g_verifying)
     {
-      std::string const problem = verify_heap(g_verify_requested);
+      // The stress mode checks the bitmaps of every block as well: an
+      // error of the sweep (an old bit kept on a free slot, a block pooled
+      // with a bit set) surfaces at the next collection, not at the end of
+      // a test that asks for it.
+      std::string const problem = verify_heap(true);
       g_verify_list.clear();
       g_verifying = false;
       if(g_verify_requested)
@@ -663,22 +761,14 @@ namespace cyrt
         std::abort();
       }
     }
-    #ifdef GC_REPORT
-    auto const marked = std::chrono::steady_clock::now();
-    #endif
+    auto const sweep_start = gc_clock::now();
     size_t const survivors = sweep_blocks(nested, g_floor_seq);
-    #ifdef GC_REPORT
-    auto const swept = std::chrono::steady_clock::now();
-    #endif
+    g_last.sweep_seconds = seconds_since(sweep_start);
+    g_last.old_nodes_written = g_old_nodes_written;
+    g_last.old_blocks = g_old_blocks;
+    auto const registries_start = gc_clock::now();
     run_registry_sweep();
-    #ifdef GC_REPORT
-    auto const done = std::chrono::steady_clock::now();
-    using fsec = std::chrono::duration<double>;
-    (std::cerr << show_frac(100.f * survivors / (float) std::max<size_t>(1, nodes_before))
-               << "% mark=" << fsec(marked - start).count()
-               << " sweep=" << fsec(swept - marked).count()
-               << " registries=" << fsec(done - swept).count() << " ").flush();
-    #endif
+    g_last.registries_seconds += seconds_since(registries_start);
     assert(live_configurations_are_queued());
     ++g_collections;
     g_threshold = std::max(g_threshold_floor, g_growth * survivors);
@@ -686,17 +776,11 @@ namespace cyrt
         configuration_threshold(g_threshold_floor)
       , g_growth * g_num_configurations
       );
-    g_seconds += std::chrono::duration<double>(
-        std::chrono::steady_clock::now() - start
-      ).count();
-    #ifdef GC_REPORT
-    (std::cerr << survivors << "/" << g_threshold
-               << " blocks=" << gc_num_blocks()
-               << " configurations=" << g_num_configurations
-               << " queues=" << g_queues.size()
-               << " sets=" << g_sets.size()
-               << " seconds=" << g_seconds << "\n").flush();
-    #endif
+    double const seconds = seconds_since(start);
+    g_seconds += seconds;
+    add_counters(g_totals, g_last);
+    if(g_report)
+      report_collection(nodes_before, survivors, seconds);
     // In stress mode the next safepoint collects again.
     g_gc_collect = g_stress;
     release_pending();

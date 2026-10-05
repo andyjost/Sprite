@@ -48,6 +48,9 @@ class IBackend(backends.IBackend):
   def gc_seconds(self):
     return cyrtbindings.gc_seconds()
 
+  def gc_counters(self):
+    return cyrtbindings.gc_counters()
+
   def scheduler_counters_enabled(self):
     return cyrtbindings.scheduler_counters_enabled()
 

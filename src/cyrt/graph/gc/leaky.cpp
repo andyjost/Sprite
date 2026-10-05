@@ -23,6 +23,16 @@ namespace cyrt
   size_t gc_num_allocations() { return 0; }
   size_t gc_num_collections() { return 0; }
   double gc_seconds() { return 0.0; }
+  static GcCounters const g_no_counters;
+  GcCounters const & gc_counters() { return g_no_counters; }
+  GcCounters const & gc_last_collection() { return g_no_counters; }
+  size_t gc_num_old_nodes() { return 0; }
+  bool gc_write_counters_enabled() { return false; }
+  #ifdef SPRITE_GC_WRITE_COUNTERS
+  void gc_count_redex_write(Node const *) {}
+  void gc_count_write(Node const *) {}
+  void gc_count_slot_write(void const *) {}
+  #endif
   size_t gc_threshold() { return NOLIMIT; }
   void gc_set_threshold(size_t) {}
   size_t gc_growth() { return 0; }

@@ -101,7 +101,7 @@ program, and after the error message when the run fails::
 
     sprite-exec --stats Peano.curry
     S (S O)
-    wall=0.129943 cpu=0.129125 steps=3 forks=0 collections=0 peak_rss=36773888 compile=0.000000 gc_seconds=0.000000 swapped=0 failed_compiles=0
+    wall=0.129943 cpu=0.129125 steps=3 forks=0 collections=0 peak_rss=36773888 compile=0.000000 gc_seconds=0.000000 swapped=0 failed_compiles=0 gc_roots_seconds=0.000000 gc_trace_seconds=0.000000 gc_sweep_seconds=0.000000 gc_registries_seconds=0.000000 gc_marked=0 gc_marked_old=0 gc_marked_young=0 gc_configurations_pushed=0 gc_queues_destroyed=0 gc_configurations_destroyed=0 gc_old_redexes=0 gc_old_slot_writes=0 gc_old_nodes_written=0 gc_old_blocks=0
 
 The fields are:
 
@@ -146,6 +146,48 @@ The fields are:
     stay interpreted, and the failure is logged once per module.  The Python
     backend reports 0.
 
+``gc_roots_seconds``, ``gc_trace_seconds``, ``gc_sweep_seconds``, ``gc_registries_seconds``
+    Seconds the collections of the node collector spent in each phase: the
+    roots (the configurations of the queues and the nodes Python holds),
+    the trace from the roots, the block sweep, and the registries (the
+    free-variable tables, the generator nodes, the queues and the sets).
+    The sum is below ``gc_seconds`` by the small fixed costs of a
+    collection and, in the stress mode, by the verifier.  The Python
+    backend reports 0.
+
+``gc_marked``, ``gc_marked_old``, ``gc_marked_young``
+    The nodes the collections marked: all of them, those that the collection
+    before had marked as well (old), and those allocated since (young).  The
+    old nodes are the live nodes a generational collector would not trace
+    in a minor collection.
+
+``gc_configurations_pushed``
+    The configurations whose roots the collections pushed.
+
+``gc_queues_destroyed``, ``gc_configurations_destroyed``
+    The queues of set functions that no root reached, destroyed by the
+    collections, and the configurations destroyed with them.  A
+    configuration that a fork or a drop freed is not counted.
+
+``gc_old_redexes``, ``gc_old_slot_writes``, ``gc_old_nodes_written``, ``gc_old_blocks``
+    The writes into old nodes between the collections, summed over the
+    intervals: the writes of a step into a redex that was old, the other
+    pointer writes into an old node (a forward chain shortened in a slot,
+    the generator of a free variable, the binding of a variable, the
+    string advance of ``writeFile``), the distinct old nodes written (a
+    loop that rewrites one old redex at every step counts one node and
+    many writes), and the blocks with such a write.  They are the input of
+    a write barrier that does not exist yet.  Only a runtime built with
+    them (``make GC_WRITE_COUNTERS=1``; they cost a tenth of the
+    instructions of a deterministic program) counts them; the default
+    build reports 0, as the Python backend does.  The setting changes the
+    runtime headers that generated code includes, so a module is compiled
+    with the setting of the installed runtime and compiled again when it
+    changes (the ABI stamp): touch ``Make.config`` before ``make
+    GC_WRITE_COUNTERS=1 stage`` and again before the plain ``make stage``.
+    ``SPRITE_GC_REPORT=1`` prints the counters of every collection (see
+    :doc:`EnvironmentVariables`).
+
 Seconds are printed with six decimals.  The same numbers are available in
 Python from :func:`curry.stats`, which returns a dict with these keys in this
 order; ``str`` of it gives the line above.
@@ -163,7 +205,7 @@ instrumented runtime costs about one to three percent more instructions and
 a word more per node; see the TODO entry for the measurements.
 
 With the counters, ``--stats`` appends these fields after
-``failed_compiles``, and
+``gc_old_blocks``, and
 :func:`curry.stats` adds the same keys:
 
 ``serial_steps``

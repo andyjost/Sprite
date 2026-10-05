@@ -8,14 +8,37 @@
 // steps of SLOT_GRAIN; see memory.hpp) after a header of DATA_OFFSET bytes.
 // The block of a node is the address of the node with the low bits masked
 // (block_of), and the slot of a node is its offset divided by the slot size,
-// by a reciprocal multiplication (slot_of).  The header keeps two bitmaps
-// with one bit per slot: ``alloc``, the slots that hold a node, and
-// ``mark``, the marks of the current collection.  So the mark bit leaves
-// the info pointer, and a collection reads and writes the bitmaps, not the
-// nodes.  A node larger than MAX_SMALL_BYTES gets a span of whole blocks of
-// its own, with the same header in the first block (kind BLOCK_LARGE), so
-// block_of and the bitmaps serve it too.  Memory taken from the system is
-// kept: an empty block goes to a pool and serves any size class next.
+// by a reciprocal multiplication (slot_of).  The header keeps three bitmaps
+// with one bit per slot: ``alloc``, the slots that hold a node, ``mark``,
+// the marks of the current collection, and ``old``, the marks of the last
+// one.  So the mark bit leaves the info pointer, and a collection reads and
+// writes the bitmaps, not the nodes.  A node larger than MAX_SMALL_BYTES
+// gets a span of whole blocks of its own, with the same header in the first
+// block (kind BLOCK_LARGE), so block_of and the bitmaps serve it too.
+// Memory taken from the system is kept: an empty block goes to a pool and
+// serves any size class next.  The layout of a block is in gc/block.hpp.
+//
+// Ages.  A node marked in the last collection is old; a node allocated
+// since is young.  The sweep copies ``mark`` into ``old`` before it clears
+// it, so ``old`` names the old nodes until the next sweep, and it sets the
+// flag ``young`` of a block that kept no node: every node in such a block
+// is young.  The collector counts the old and the young nodes it marks, and
+// a runtime built with SPRITE_GC_WRITE_COUNTERS counts the writes into old
+// nodes (gc_count_redex_write, gc_count_write, gc_count_slot_write; see
+// gc/wdgc.cpp) and keeps a fourth bitmap, ``dirty``, of the old slots
+// written since the last sweep: the distinct old nodes a write barrier
+// would have recorded.  The bitmaps are an input of those counters alone:
+// the mark phase traces every live node as before.
+//
+// The heap map.  A write into a slot whose node is not at hand gives the
+// counter a slot address, which may lie outside the heap: a field of a
+// Configuration, a local of generated code, a cell of an interpreter
+// frame.  A two-level bitmap over the address space tells whether an
+// address is inside a block of this heap: the high bits of the address
+// index a table of bitmaps, and each bitmap has a bit per BLOCK_BYTES of a
+// region of 4 GB (in_heap_map).  take_chunk sets the bits of its blocks;
+// large_reserve sets the bit of the first block of its span, the one with
+// the header, and free_large clears it.
 //
 // Allocation.  Each size class has a run of free slots, published in
 // g_alloc_runs for the inline fast path of node_reserve (memory.hpp).  When
@@ -84,76 +107,10 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include "cyrt/graph/gc/block.hpp"
 
 namespace cyrt
 {
-  static constexpr size_t BLOCK_BYTES = size_t(64) << 10;
-  static constexpr size_t CHUNK_BYTES = size_t(1) << 20;
-  static constexpr size_t BLOCKS_PER_CHUNK = CHUNK_BYTES / BLOCK_BYTES;
-  static constexpr size_t MAX_SLOTS = BLOCK_BYTES / MIN_SLOT_BYTES;
-  static constexpr size_t BITMAP_WORDS = MAX_SLOTS / 64;
-  static_assert(BLOCK_BYTES % MIN_SLOT_BYTES == 0, "");
-  static_assert(CHUNK_BYTES % BLOCK_BYTES == 0, "");
-  static_assert(MAX_SLOTS % 64 == 0, "");
-
-  enum BlockKind : uint32_t
-    { BLOCK_EMPTY = 0, BLOCK_SMALL = 1, BLOCK_LARGE = 2 };
-
-  struct Block
-  {
-    uint32_t kind;
-    uint32_t slot_bytes; // the size of a slot; of the node, for a large one
-    uint32_t slot_magic; // ceil(2^32 / slot_bytes); zero for a large node
-    uint32_t nslots;     // slots in the block; one for a large node
-    size_t   seq;        // the time the block left the pool (see above)
-    Block *  next;       // the next block of the pool or of a class list
-    uint32_t cursor;     // the first slot the lazy sweep has not examined
-    uint32_t spans;      // blocks in the span of a large node; one otherwise
-    #ifdef SPRITE_SCHEDULER_COUNTERS
-    size_t * creators;   // the creator of the node in each slot
-    #endif
-    uint64_t alloc[BITMAP_WORDS];
-    uint64_t mark[BITMAP_WORDS];
-  };
-
-  // The slots start here.  Every slot size is a multiple of the grain, so
-  // every slot is aligned to it.
-  static constexpr size_t DATA_OFFSET = (sizeof(Block) + 15) & ~size_t(15);
-  static_assert(DATA_OFFSET % 16 == 0, "");
-  static_assert((BLOCK_BYTES - DATA_OFFSET) / MIN_SLOT_BYTES <= MAX_SLOTS, "");
-  // The offset of a slot fits the reciprocal multiplication of slot_of.
-  static_assert(BLOCK_BYTES <= (size_t(1) << 16), "");
-
-  static inline char * block_data(Block * b)
-    { return (char *) b + DATA_OFFSET; }
-
-  // The words of a bitmap that cover the slots of a block.  The bits beyond
-  // the last slot are never set.
-  static inline size_t words_of(Block const * b)
-    { return (size_t(b->nslots) + 63) >> 6; }
-
-  static inline Block * block_of(void const * p)
-    { return (Block *) ((uintptr_t) p & ~(uintptr_t) (BLOCK_BYTES - 1)); }
-
-  // The slot of an address in its block.  Exact for a slot start: the
-  // offset is below 2^16 and the error of the reciprocal is below 2^-32 per
-  // byte.  For another address the result is the slot that holds it.
-  static inline uint32_t slot_of(Block const * b, void const * p)
-  {
-    char const * const data = (char const *) b + DATA_OFFSET;
-    uint32_t const offset = (uint32_t) ((char const *) p - data);
-    return (uint32_t) (((uint64_t) offset * b->slot_magic) >> 32);
-  }
-
-  static inline char * slot_address(Block * b, uint32_t i)
-    { return block_data(b) + size_t(i) * b->slot_bytes; }
-
-  static inline bool test_bit(uint64_t const * bits, uint32_t i)
-    { return (bits[i >> 6] >> (i & 63)) & 1; }
-
-  static inline void set_bit(uint64_t * bits, uint32_t i)
-    { bits[i >> 6] |= uint64_t(1) << (i & 63); }
-
   // Sets the bits from ``begin`` up to ``end``.
   static void set_bits(uint64_t * bits, uint32_t begin, uint32_t end)
   {
@@ -265,6 +222,59 @@ namespace cyrt
   size_t g_creator_serial = 0;
   #endif
 
+  // The heap map (see the header of this file).  A user address has 47
+  // bits; a region is the 4 GB that share the high 15 bits, and its bitmap
+  // has a bit per BLOCK_BYTES of it.  A region's bitmap is made when the
+  // first block of the region is taken, and never freed.
+  static constexpr unsigned HEAP_MAP_REGION_SHIFT = 32;
+  static constexpr unsigned HEAP_MAP_BLOCK_SHIFT = 16;
+  static_assert(BLOCK_BYTES == (size_t(1) << HEAP_MAP_BLOCK_SHIFT), "");
+  static constexpr size_t HEAP_MAP_REGIONS = size_t(1) << (47 - HEAP_MAP_REGION_SHIFT);
+  static constexpr size_t HEAP_MAP_WORDS
+      = (size_t(1) << (HEAP_MAP_REGION_SHIFT - HEAP_MAP_BLOCK_SHIFT)) / 64;
+  static uint64_t * g_heap_map[HEAP_MAP_REGIONS];
+
+  static inline bool in_heap_map(void const * p)
+  {
+    uintptr_t const a = (uintptr_t) p;
+    if(a >> 47)
+      return false;
+    uint64_t const * region = g_heap_map[a >> HEAP_MAP_REGION_SHIFT];
+    if(!region)
+      return false;
+    uintptr_t const i
+        = (a >> HEAP_MAP_BLOCK_SHIFT) & ((HEAP_MAP_WORDS << 6) - 1);
+    return (region[i >> 6] >> (i & 63)) & 1;
+  }
+
+  // Sets or clears the bits of the blocks from ``base`` over ``bytes``.
+  static void heap_map_set(void const * base, size_t bytes, bool value)
+  {
+    uintptr_t const first = (uintptr_t) base;
+    assert(first % BLOCK_BYTES == 0);
+    // The map covers the 47-bit user space.  A block above it (a host with
+    // five-level paging may hand one out) stays unmapped: in_heap_map
+    // answers false for it, and a slot write there goes uncounted.
+    if(first >> 47)
+      return;
+    for(uintptr_t a = first; a < first + bytes; a += BLOCK_BYTES)
+    {
+      uint64_t *& region = g_heap_map[a >> HEAP_MAP_REGION_SHIFT];
+      if(!region)
+      {
+        region = (uint64_t *) std::calloc(HEAP_MAP_WORDS, sizeof(uint64_t));
+        if(!region)
+          throw std::bad_alloc();
+      }
+      uintptr_t const i
+          = (a >> HEAP_MAP_BLOCK_SHIFT) & ((HEAP_MAP_WORDS << 6) - 1);
+      if(value)
+        region[i >> 6] |= uint64_t(1) << (i & 63);
+      else
+        region[i >> 6] &= ~(uint64_t(1) << (i & 63));
+    }
+  }
+
   static inline void set_current(SizeClass & cls, Block * b, size_t c)
   {
     if(!cls.active)
@@ -356,6 +366,7 @@ namespace cyrt
     try
     {
       add_range(mem, CHUNK_BYTES);
+      heap_map_set(mem, CHUNK_BYTES, true);
     }
     catch(...)
     {
@@ -390,12 +401,19 @@ namespace cyrt
     // The bitmaps of an empty block are clear: a new block is zeroed with
     // its chunk, and a block that became empty took its clear marks.
     assert(!any_bit(b->alloc, BITMAP_WORDS) && !any_bit(b->mark, BITMAP_WORDS));
+    assert(!any_bit(b->old, BITMAP_WORDS));
+    #ifdef SPRITE_GC_WRITE_COUNTERS
+    assert(!any_bit(b->dirty, BITMAP_WORDS));
+    #endif
     b->kind = BLOCK_SMALL;
     b->slot_bytes = cls.slot_bytes;
     b->slot_magic = cls.slot_magic;
     b->nslots = cls.nslots;
     b->cursor = 0;
     b->spans = 1;
+    // No node of it survived a collection: every node it gets is young.
+    b->young = 1;
+    b->touched = 0;
     #ifdef SPRITE_SCHEDULER_COUNTERS
     if(!b->creators)
     {
@@ -469,6 +487,8 @@ namespace cyrt
     try
     {
       add_range(mem, spans * BLOCK_BYTES);
+      // The first block of the span alone: the others have no header.
+      heap_map_set(mem, BLOCK_BYTES, true);
     }
     catch(...)
     {
@@ -484,6 +504,7 @@ namespace cyrt
     b->seq = ++g_heap.block_seq;
     b->cursor = 1;
     b->spans = (uint32_t) spans;
+    b->young = 1;
     b->alloc[0] = 1;
     #ifdef SPRITE_SCHEDULER_COUNTERS
     b->creators = (size_t *) std::malloc(sizeof(size_t));
@@ -503,6 +524,7 @@ namespace cyrt
   static void free_large(Block * b)
   {
     remove_range(b);
+    heap_map_set(b, BLOCK_BYTES, false);
     g_heap.large_bytes -= size_t(b->spans) * BLOCK_BYTES;
     #ifdef SPRITE_SCHEDULER_COUNTERS
     std::free(b->creators);
@@ -581,6 +603,85 @@ namespace cyrt
     set_bit(b->mark, slot_of(b, node));
   }
 
+  // Marks a node and tells whether it is old: marked in the last
+  // collection as well (see the header of this file).
+  static inline bool heap_mark_and_age(Node const * node)
+  {
+    Block * b = block_of(node);
+    uint32_t const i = slot_of(b, node);
+    set_bit(b->mark, i);
+    return test_bit(b->old, i);
+  }
+
+  // The counters of writes into old nodes.  See the header of this file
+  // and gc/wdgc.cpp, which reports them.  ``g_old_redexes`` and
+  // ``g_old_slot_writes`` count since the last collection; the sweep counts
+  // the old nodes written (the ``dirty`` bits) and the blocks touched since
+  // then in ``g_old_nodes_written`` and ``g_old_blocks``.  Without
+  // SPRITE_GC_WRITE_COUNTERS the functions are empty inline functions
+  // (memory.hpp) and the counts stay zero.
+  static size_t g_old_redexes = 0;
+  static size_t g_old_slot_writes = 0;
+  static size_t g_old_nodes_written = 0;
+  static size_t g_old_blocks = 0;
+
+  bool gc_write_counters_enabled()
+  {
+    #ifdef SPRITE_GC_WRITE_COUNTERS
+    return true;
+    #else
+    return false;
+    #endif
+  }
+
+  #ifdef SPRITE_GC_WRITE_COUNTERS
+  // Counts a write into slot ``i`` of block ``b`` when the slot is old.
+  static inline void count_old_write(Block * b, uint32_t i, size_t & counter)
+  {
+    if(test_bit(b->old, i))
+    {
+      ++counter;
+      set_bit(b->dirty, i);
+      b->touched = 1;
+    }
+  }
+
+  void gc_count_redex_write_slow(Node const * redex, Block * b)
+  {
+    count_old_write(b, slot_of(b, redex), g_old_redexes);
+  }
+
+  void gc_count_redex_write(Node const * redex)
+  {
+    gc_count_redex_write_fast(redex);
+  }
+
+  void gc_count_write(Node const * node)
+  {
+    // A pinned static object and a literal node are outside the heap.
+    if(is_pinned(*node->info) || in_literal_arena(node))
+      return;
+    Block * b = block_of(node);
+    if(b->young)
+      return;
+    count_old_write(b, slot_of(b, node), g_old_slot_writes);
+  }
+
+  void gc_count_slot_write(void const * slot)
+  {
+    if(!in_heap_map(slot))
+      return;
+    Block * b = block_of(slot);
+    if(b->young || b->kind == BLOCK_EMPTY)
+      return;
+    if((char const *) slot < block_data(b))
+      return;
+    uint32_t const i = slot_of(b, slot);
+    if(i < b->nslots)
+      count_old_write(b, i, g_old_slot_writes);
+  }
+  #endif
+
   // Gives the part of every run not yet consumed back to its block (the
   // ``alloc`` bits of a run are set when it is handed out) and empties the
   // runs, so that the bitmaps name every node and nothing else, and the
@@ -641,10 +742,14 @@ namespace cyrt
   }
 
   // Sweeps the blocks after a mark phase: counts the survivors, lets
-  // ``alloc`` take the marks, builds the pool and the class lists, and
-  // frees the spans of dead large nodes.  An older block (a nested
-  // collection) keeps its bitmap and is listed nowhere.  Returns the
-  // survivors.
+  // ``old`` and ``alloc`` take the marks, builds the pool and the class
+  // lists, and frees the spans of dead large nodes.  An older block (a
+  // nested collection) keeps its allocation bitmap and is listed nowhere;
+  // its marks, every node of it, become its old bits like any other's.
+  // Counts the blocks touched by a write into an old node since the last
+  // sweep (g_old_blocks) and, with the write counters, the old nodes
+  // written (g_old_nodes_written, the dirty bits), and clears both.
+  // Returns the survivors.
   static size_t sweep_blocks(bool nested, size_t floor_seq)
   {
     for(size_t c = 0; c < NUM_SIZE_CLASSES; ++c)
@@ -652,9 +757,21 @@ namespace cyrt
     g_heap.pool = nullptr;
     size_t survivors = 0;
     size_t kept = 0;
+    g_old_blocks = 0;
+    g_old_nodes_written = 0;
     for(size_t k = 0; k < g_heap.nblocks; ++k)
     {
       Block * b = g_heap.blocks[k];
+      if(b->touched)
+      {
+        ++g_old_blocks;
+        #ifdef SPRITE_GC_WRITE_COUNTERS
+        size_t const dirty_words = words_of(b);
+        g_old_nodes_written += popcount_words(b->dirty, dirty_words);
+        std::memset(b->dirty, 0, dirty_words * sizeof(uint64_t));
+        #endif
+        b->touched = 0;
+      }
       switch(b->kind)
       {
         case BLOCK_EMPTY:
@@ -667,6 +784,8 @@ namespace cyrt
           size_t const words = words_of(b);
           size_t const live = popcount_words(b->mark, words);
           survivors += live;
+          std::memcpy(b->old, b->mark, words * sizeof(uint64_t));
+          b->young = live == 0;
           if(is_older(b, nested, floor_seq))
           {
             std::memset(b->mark, 0, words * sizeof(uint64_t));
@@ -696,6 +815,8 @@ namespace cyrt
           if(b->mark[0] & 1)
           {
             b->mark[0] = 0;
+            b->old[0] = 1;
+            b->young = 0;
             ++survivors;
             g_heap.blocks[kept++] = b;
           }
@@ -725,11 +846,26 @@ namespace cyrt
   size_t gc_heap_bytes()
     { return g_heap.chunks * CHUNK_BYTES + g_heap.large_bytes; }
 
+  size_t gc_num_old_nodes()
+  {
+    size_t n = 0;
+    for(size_t k = 0; k < g_heap.nblocks; ++k)
+    {
+      Block * b = g_heap.blocks[k];
+      if(b->kind == BLOCK_SMALL)
+        n += popcount_words(b->old, words_of(b));
+      else if(b->kind == BLOCK_LARGE)
+        n += b->old[0] & 1;
+    }
+    return n;
+  }
+
   // The verifier.  See the header of this file.  It runs after a mark
   // phase, before the sweep.  The mark phase lists every node it marks in
   // g_verify_list while g_verifying is set, so the checks cost the marked
-  // nodes, not the heap.  The explicit request (gc_verify) checks the
-  // bitmaps of every block as well.
+  // nodes, not the heap.  The explicit request (gc_verify) and the stress
+  // mode check the bitmaps of every block as well, which costs a pass over
+  // the blocks, as the sweep does.
   static bool g_verifying = false;
   static std::vector<Node *> g_verify_list;
 
@@ -839,8 +975,9 @@ namespace cyrt
 
   // Checks the nodes the mark phase listed and the nodes Python holds.
   // With ``blocks`` the bitmaps of every block are checked as well: an empty
-  // block has no bit set, and the marks of a block are within its slots and
-  // its allocated bits.
+  // block has no bit set, the marks and the old bits of a block are within
+  // its slots and its allocated bits, and a dirty bit (the write counters)
+  // is on an old slot.
   static std::string verify_heap(bool blocks)
   {
     for(Node * node: g_verify_list)
@@ -862,17 +999,35 @@ namespace cyrt
       Block * b = g_heap.blocks[k];
       if(b->kind == BLOCK_EMPTY)
       {
-        if(any_bit(b->mark, BITMAP_WORDS) || any_bit(b->alloc, BITMAP_WORDS))
+        if(any_bit(b->mark, BITMAP_WORDS) || any_bit(b->alloc, BITMAP_WORDS)
+            || any_bit(b->old, BITMAP_WORDS))
           return describe("an empty block with a set bit", nullptr, b);
+        #ifdef SPRITE_GC_WRITE_COUNTERS
+        if(any_bit(b->dirty, BITMAP_WORDS))
+          return describe("an empty block with a set bit", nullptr, b);
+        #endif
         continue;
       }
       size_t const words = words_of(b);
       for(size_t w = 0; w < words; ++w)
+      {
         if(b->mark[w] & ~b->alloc[w])
           return describe("a mark on a free slot", nullptr, b);
+        if(b->old[w] & ~b->alloc[w])
+          return describe("an old bit on a free slot", nullptr, b);
+        #ifdef SPRITE_GC_WRITE_COUNTERS
+        if(b->dirty[w] & ~b->old[w])
+          return describe("a dirty bit on a slot that is not old", nullptr, b);
+        #endif
+      }
       if(any_bit(b->mark + words, BITMAP_WORDS - words)
-          || any_bit(b->alloc + words, BITMAP_WORDS - words))
+          || any_bit(b->alloc + words, BITMAP_WORDS - words)
+          || any_bit(b->old + words, BITMAP_WORDS - words))
         return describe("a bit beyond the last slot", nullptr, b);
+      #ifdef SPRITE_GC_WRITE_COUNTERS
+      if(any_bit(b->dirty + words, BITMAP_WORDS - words))
+        return describe("a bit beyond the last slot", nullptr, b);
+      #endif
     }
     return std::string();
   }
