@@ -505,7 +505,12 @@ class TestManifest(unittest.TestCase):
 
   def test_committed_manifest_loads(self):
     manifest = Manifest.load(testrunner.MANIFEST_FILE, missing_ok=False)
-    self.assertEqual(manifest.duration('func_eqconstr.py', 'py'), 323)
+    # The calibration run fills the durations and the peaks (README,
+    # section 10); the longest file of the suite has a duration and a
+    # peak on both backends.
+    for backend in testrunner.BACKENDS:
+      self.assertGreater(manifest.duration('func_eqconstr.py', backend), 0)
+      self.assertGreater(manifest.peak('func_eqconstr.py', backend), 0)
     for name, entries in manifest.files.items():
       self.assertTrue(name.startswith(('unit_', 'func_')), name)
       for backend, entry in entries.items():
