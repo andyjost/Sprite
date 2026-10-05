@@ -5,6 +5,10 @@ import os
 
 __all__ = ['load_module']
 
+# The keys of the optimizer passes in the metadata of a module (see
+# interpreter.optimize.default_optimizers).
+OPTIMIZER_PREFIX = 'cxx.opt.'
+
 def load_module(interp, sofile):
   assert sofile.endswith('.so')
   # Under tiered execution the tables of the modules the interpreter runs
@@ -22,6 +26,16 @@ def load_module(interp, sofile):
       % (shlib.info.fullname, sofile, registered)
       )
   bom = shlib.bom
+  # The metadata of the record carries the keys of the optimizer passes that
+  # ran on the module, so no pass runs again on a module without bodies
+  # (interpreter.optimize), as on the Python backend.  The merge key of the
+  # built-ins stays behind: the merge adds the exported built-ins, which the
+  # record does not list (toolchain.mergebuiltins).
+  metadata = {
+      key: value for key, value in bom.metadata.items()
+                 if key.startswith(OPTIMIZER_PREFIX)
+    }
+  metadata['cxx.shlib'] = shlib
   imodule = icurry_types.IModule.fromBOM(
       fullname  = bom.fullname
     , imports   = bom.imports
@@ -30,6 +44,6 @@ def load_module(interp, sofile):
     , mdkey     = 'cxx.material'
     , filename  = bom.filename
     , aliases   = bom.aliases
-    , metadata  = {'cxx.shlib': shlib}
+    , metadata  = metadata
     )
   return interp.import_(imodule)

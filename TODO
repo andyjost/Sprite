@@ -2729,11 +2729,12 @@
   next process compiled that stub into the installation; every file that
   loaded the Prelude failed with an undefined symbol until make stage
   rebuilt it.  Two hazards remain and are listed below.  The mixed mode
-  has a gap: an interpreted module that applies readFile of the compiled
-  Prelude to a nondeterministic name raises ValueError('bad Curry string')
+  had a gap: an interpreted module that applies readFile of the compiled
+  Prelude to a nondeterministic name raised ValueError('bad Curry string')
   where compiled code and a program interpreted whole raise the
-  nondeterminism error; an expected failure in unit_cxx_tiered.py records
-  it.  The tests that drive the compile steps set the flag to 'off' for
+  nondeterminism error; the entry on the saturation of apply chains (O1)
+  found the cause, a primitive that carried the name of its wrapper, and
+  closed it.  The tests that drive the compile steps set the flag to 'off' for
   themselves: unit_cxx_toolchain.py (per test, with the Prelude imported
   first), test_values, test_private_target_across_modules,
   test_linked_against_the_target_module, and
@@ -2822,8 +2823,7 @@
   flag after a header change; a plan with a stale verdict on an installed
   object writes into the installation, and a process that holds the
   compiled module of that name emits a stub (the generation step imports
-  the ICurry into the live module); the gap of the mixed mode above
-  (readFile of a nondeterministic name); a program shorter than its
+  the ICurry into the live module); a program shorter than its
   compile never gets an object under the default (a run that let the child
   finish at exit would give the next run compiled code, at the price of a
   compiler that outlives the process); the shim names the first
@@ -3188,3 +3188,188 @@
   stale (Cpp2So.is_stale could read the Prelude path it was linked
   against, or the stamp could digest the installation prefix), so a
   mirrored or copied tree recompiles instead of loading two runtimes.
+
+2026-10-05: O1, saturation of apply chains (#70)
+- The pass saturate_applies (interpreter/optimize.py; the analysis in
+  icurry/analysis/partials.py) runs before inline_aliases under the key
+  <backend>.opt.saturate_applies.  An apply whose head is known becomes
+  the call it builds.  A head is known when it is a partial application
+  (IFPCall, or ICPCall of a constructor), a call without arguments of a
+  nullary function whose body is one, or an apply whose head is known and
+  whose call is a partial application, followed through at most eight
+  nullary functions and applies (analysis.partial_head).  The last form is
+  the body of a nullary function the pass has not reached yet (g = k 1
+  with k = f defined after the use), so the result does not depend on the
+  order of the functions in the module.  A call of Prelude.$, the
+  Prelude's alias of apply (analysis.is_apply), is an apply to the pass,
+  which runs before inline_aliases.  A user alias of apply (app f x = f x)
+  is not: the source wrote the indirection, and a program may need it to
+  hand a known function value to the apply of the runtime, which the pass
+  would fold away (CxxPartial.curry does, for the shared function-value
+  node and the partials of 32 to 35 arguments; a let of a bare function
+  value does not survive the front end, so no variable can hold one).
+  inline_aliases makes an apply of such a call afterwards, on a head the
+  pass would have known.  The applies are rewritten
+  from the inside out, one at a time (analysis.saturate): an apply of a
+  partial that misses one argument is the saturated call (IFCall, or
+  ICCall), one of a partial that misses more is the longer partial, and a
+  saturated call is not a known head, so the applies after it stay; a
+  saturated call that is itself an apply (ap = apply, then ap f x) is
+  saturated again.  So one rule covers the exact, the under-saturated, and
+  the over-saturated chain.  The arguments a saturation copies from the
+  body of a nullary function are rewritten too.  The arity comes from
+  the symbol table of the module of the head and must agree with the
+  missing count of the partial: the runtime derives the missing count of a
+  partial with arguments from the arity (Node::create_partial), and a call
+  built from a partial that disagreed would have the wrong size.  A
+  variable head, a call with arguments (the method selectors applied to a
+  dictionary, 343 sites of the corpus), and a head held in a variable stay.
+  The body of a nullary function is copied into the use site, as its step
+  would build it there, once per use, so a choice in it stays one choice
+  per use.  Each nullary function records the partial it unfolds to under
+  all.unfolding as ICurry-JSON (analysis.UNFOLDING_KEY), so a module loaded
+  from its compiled form tells it to its importers.  When the copied body
+  names a symbol of a module the caller does not import, the module joins
+  the imports.  Prelude: 942 apply calls, 263 with a known head (134
+  whose head is a partial application or a nullary function, and the
+  applies above them in a chain), and 3 calls of $ with a known head (chr $
+  and lex $), become 679 apply calls, none with a known head, and no call
+  of $; 120 nullary functions record an unfolding (115 of functions, 5 of
+  constructors: userError = UserError, showChar, the pure and return of
+  Maybe and Either), 117 distinct texts.  The heads are the _impl#
+  methods that fall back to a class default (_impl#/=#Prelude.Eq#
+  Prelude.Int = _def#/=#Prelude.Eq _inst#Prelude.Eq#Prelude.Int).  In
+  Queens10, x /= q in safe was apply (apply (_impl#/= []) x) q, three
+  times, and is _def#/=#Prelude.Eq _inst#Eq#Int x q; isdivs of Primes
+  likewise, with _def#mod#Prelude.Integral inside.
+- Staleness: the format stamps went to 11 (C++) and 5 (Python), so make
+  stage and the first import write every cached module again, once (9 and
+  3, then 10 and 4, were earlier forms of the pass in the working tree,
+  never committed); a file of the old format is correct but slower, and
+  its record tells the modules that import it no unfoldings.  The key of a
+  pass changes no stamp by itself: a module compiled before the pass is
+  current by its ABI stamp and by its format, and would run as it was
+  compiled.
+- Found on the way, one: the C++ loader built the IModule of a shared
+  object with the metadata {cxx.shlib} alone, so the keys of the passes,
+  which the record carries, never reached the module, and every pass ran
+  again over the bodiless functions of every compiled module at every
+  import (five passes over the 1670 functions of the Prelude).  The loader
+  hands the keys of the passes on now (backends/cxx/loader.py), as the
+  Python backend does: the Prelude import takes 0.027 s in place of
+  0.055 s, and every program retires fewer instructions at start (Fib
+  0.92x).  Before the fix the new pass had added about 80 million
+  instructions to every process (Fib 1.03x), which the first measurement
+  showed.  The merge key cxx.is_merged stays behind: the merge adds the
+  exported primitives, which the record does not list (unit_prelude.py,
+  unit_inspect.py and unit_io_bind.py failed with it restored).
+- Found on the way, two: the record of a shared object names a function by
+  the name field of its table, and fourteen primitives of the runtime
+  carried the name of the Curry function that wraps them (showIntLiteral
+  for prim_showIntLiteral; the show and read literals, error, putChar,
+  readFile, writeFile, appendFile, ioError).  The two rows collided, in
+  Module::link and in IModule.fromBOM, and the primitive took the
+  wrapper's place in the symbol table of the loaded Prelude.  Compiled code
+  never noticed: it binds the wrapper by its C++ symbol.  The pass copies
+  _impl#showsPrec#Prelude.Show#Prelude.Int = showSigned _inst#Real#Int
+  (showString . showIntLiteral) into the modules that call showsPrec at
+  Int, and an interpreted module then named Prelude.showIntLiteral through
+  the symbol table and got the primitive, which shows its argument without
+  normalizing it: showsPrec 11 (-2.5) "" gave "(-apply (negate ...) (-2.5))"
+  (unit_show_float.py).  The primitives carry their Curry names now
+  (src/cyrt/currylib/prelude/{show,read,basic,io}.cpp); an unevaluated
+  application of one prints as prim_showIntLiteral x.  The same collision
+  was the "gap of the interpreter in the mixed mode" of the tiered entry
+  above: an interpreted module that applied readFile of the compiled
+  Prelude to a nondeterministic name reached prim_readFile, which raised
+  ValueError on the unevaluated name; it reaches the wrapper now, whose $##
+  raises the nondeterminism error, and test_nondet_io_argument_error in
+  unit_cxx_tiered.py is no longer an expected failure.  The loader asserts
+  for every module, the Prelude included, that the table, the record, and
+  the ICurry agree on the name of a function (interpreter/import_/load.py;
+  the Prelude was exempt, which let the collision through), so a new
+  collision fails at load.  The import of the Prelude from its ICurry
+  (interpret 'all', and the compile of the Prelude itself) then found one
+  more table with a name of its own: the table of nonstrictEq said
+  nonStrictEq (prelude/constr.cpp); it carries the Curry name now.  Tests:
+  TestFunctionNames in unit_cxx_bom.py (the fourteen pairs, no two rows of
+  the Prelude's record share a name, and every built-in of the Prelude
+  carries the Curry name it is registered under) and TestPrivateSymbols in
+  unit_optimize_applies.py.
+- Found in the review, one: IString had no _fields_, so icurry.json wrote
+  it with its full name and module and could not read it back, and an
+  unfolding that holds a string literal (replace_static_strings runs
+  before the pass: isVowel = flip elem "aeiou") raised TypeError at the
+  import of the module and of every importer of its compiled form.  The
+  Prelude has no such unfolding, so make stage and the suites did not see
+  it.  IString carries _fields_ = ('value',) as the other literals do, and
+  analysis.unfolding answers None for a text that does not read back, so a
+  bad record makes a head unknown and nothing more.  Two: the pass was not
+  a fixpoint.  A use before the definition kept its applies (main = g 2 3
+  before g = k 1 and k = f: when main was reached, the body of g was still
+  an apply), and the saturated call of one rule was not saturated again
+  (ap = apply; ap k 10 3 ended as apply (apply k 10) 3).  The analysis
+  understands an apply in head position and saturates a saturated call of
+  apply again, and the pass rewrites the copied arguments; see above.
+  Three: a chain through Prelude.$ stayed, and the acceptance count of the
+  Prelude test counted Prelude.apply alone, so it did not see the three
+  sites.  The pass treats a call of Prelude.$ as an apply, and the test
+  counts them.  A first form treated every alias of apply so, and four
+  tests of unit_cxx_partial.py lost their subject: app f x = f x of
+  CxxPartial.curry no longer reached the apply of the runtime with a
+  known function value (above).
+- Measured with the harness on the C++ backend, 3 repetitions, other work
+  on the machine, the deterministic columns deciding; the notebook of the
+  performance program keeps the table, the records, and the commands.
+  Steps: Queens10 54505073 to 44630642 (-18.1 percent), Primes 61364444 to
+  49108670 (-19.97 percent), Tak1, Fib, and Reverse unchanged.
+  Instructions: Queens10 0.79x, Primes 0.78x, Tak1 0.99x, Fib 0.92x,
+  Reverse 0.96x.  Collections: Queens10 54 to 38, Primes 64 to 47.  CPU
+  seconds, indicative: Queens10 1.81 to 1.49 s, Primes 2.19 to 1.79 s
+  (the final run; the run before the review changes gave 1.41 and 1.78 s
+  on the same steps and instructions, which the review left unchanged:
+  none of the five programs has a chain through $; one run between them
+  took 1.3 to 1.6 times the CPU seconds of either on every program, a
+  state of the machine).  The gate of the issue, 20 percent of
+  the steps, is missed by 1.9 points on Queens10 and by 0.03 points on
+  Primes: the pass removes the nullary function and the two applies of
+  each /= chain (3 of 13 steps per comparison, 9 of 46 per list element
+  of safe), and the rest of the chain, == d through the selector and the
+  dictionary, is a head with arguments, which O2 and O3 own (section 4.2
+  (b) and (c) of the plan).
+- Tests: unit_optimize_applies.py (25 tests on both backends, with the
+  helpers of unit_optimize.py): the analysis on hand-built ICurry (the
+  arity check, the depth bound of nullary functions and of applies in head
+  position, a cycle, metadata before body, constructors, an apply in head
+  position, ap = apply, $ as an alias of apply, the unfolding text of
+  every literal and a text that does not read back), the shapes of one
+  module (exact, under-saturated, over-saturated, nested, a nullary head
+  that unfolds to a partial with arguments, a variable head, a head with
+  arguments, a chain through a shared variable, constructor partials, the
+  recorded unfoldings), the shapes of a second module (a use before the
+  definitions, ap = apply, a chain through $, a user alias of $ that
+  stays, a string literal in an unfolding), values and steps against the
+  unoptimized program (the same text under another name, imported from
+  its ICurry object with the key of the pass set, so the pass does not
+  run), a choice in an argument of a collapsed chain (the values of the
+  uncollapsed program and no more: in the argument, in the copied body,
+  and through a shared variable), the unfolding across modules through
+  the metadata of a compiled module (a string literal included) and the
+  import join, the generated code of both backends, the installed Prelude
+  and its ICurry (no apply or $ with a known head remains, measured after
+  replace_static_strings and before alias inlining), the compiled Prelude
+  not optimized again (skipped under interpret all), and the chains of
+  Queens10 and Primes.  unit_cxx_partial.py reads the format stamp from
+  the emitter instead of spelling it.  The manifest has no entry for the
+  new file yet.
+- Left: a head that is a call with arguments (== d; 343 sites), a
+  variable head (146 sites; the applyN primitive of the plan), and a call
+  of a user alias of apply on a known head, which inline_aliases turns
+  into an apply after this pass (above).  Seen on
+  the way, not of this item: on the C++ backend under interpret 'off', a
+  module imported from its ICurry object gets tables without a step
+  (backends/cxx/materialize.py, create_function) and no object, and the
+  first evaluation of one of its functions ends in a segmentation fault
+  (a probe: import Top from toolchain.loadcurry, then curry.eval of its
+  main).  The tests import such a module for its shapes alone and take
+  the values from a module imported by name.

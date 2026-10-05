@@ -459,15 +459,16 @@ class TestPolicy(TieredTestCase):
     self.assertIsNotNone(getHandle(prelude).icurry.metadata.get('cxx.shlib'))
     self.assertFalse(cyrt.icurry_is_interpreted(prelude.map.info))
 
-  @unittest.expectedFailure
   @cytest.hardreset
   def test_nondet_io_argument_error(self):
     # An interpreted module that applies readFile of the compiled Prelude
-    # to a nondeterministic name must raise the nondeterminism error, as
+    # to a nondeterministic name raises the nondeterminism error, as
     # compiled code and a program interpreted whole (interpret:all) do.
-    # Today it raises ValueError('bad Curry string'): a gap of the ICurry
-    # interpreter in the mixed mode (see the dated TODO entry).  The compile
-    # is cancelled, so the module stays interpreted.
+    # It raised ValueError('bad Curry string') while the primitive
+    # prim_readFile carried the name of its wrapper, readFile, and took the
+    # wrapper's place in the symbol table of the loaded Prelude (see the
+    # dated TODO entry on the saturation of apply chains).  The compile is
+    # cancelled, so the module stays interpreted.
     M = self.fresh_module(
         'module %(name)s where\nmain :: IO String\n'
         'main = readFile ("a.txt" ? "b.txt")\n'

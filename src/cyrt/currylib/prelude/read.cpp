@@ -279,7 +279,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "readCharLiteral"
+    , /*name*/       "prim_readCharLiteral"
     , /*format*/     "p"
     , /*step*/       readCharLiteral_step
     , /*type*/       nullptr
@@ -290,7 +290,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "readFloatLiteral"
+    , /*name*/       "prim_readFloatLiteral"
     , /*format*/     "p"
     , /*step*/       readFloatLiteral_step
     , /*type*/       nullptr
@@ -301,7 +301,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "readNatLiteral"
+    , /*name*/       "prim_readNatLiteral"
     , /*format*/     "p"
     , /*step*/       readNatLiteral_step
     , /*type*/       nullptr
@@ -312,7 +312,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "readStringLiteral"
+    , /*name*/       "prim_readStringLiteral"
     , /*format*/     "p"
     , /*step*/       readStringLiteral_step
     , /*type*/       nullptr

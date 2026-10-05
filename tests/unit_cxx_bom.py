@@ -15,7 +15,8 @@ from curry import common, config, exceptions, icurry
 from curry.backends.cxx import compiler
 from curry.backends.cxx import cyrtbindings as cyrt
 from curry.objects.handle import getHandle
-import curry, os, re, shutil, subprocess, tempfile, unittest
+from curry.toolchain._loadcurry import loadjson
+import collections, curry, os, re, shutil, subprocess, tempfile, unittest
 
 # The undefined symbols a module of the old format imported for its metadata
 # maps and its ModuleBOM: the allocator, the hash table, and the string of
@@ -238,3 +239,93 @@ class TestPlainDataBOM(cytest.TestCase):
       compiler.compile(interp, module({'all.weird': 1.5}))
     with self.assertRaisesRegex(exceptions.CompileError, "'all.big'.*fit"):
       compiler.compile(interp, module({'all.big': 2 ** 31}))
+
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'cxx'
+  , 'the module format belongs to the C++ backend'
+  )
+class TestFunctionNames(cytest.TestCase):
+  '''
+  The record names a function by the name field of its table.  A primitive
+  of the runtime therefore carries its Curry name (prim_showIntLiteral), not
+  the name of the Curry function that wraps it (showIntLiteral x =
+  prim_showIntLiteral $## x): with the wrapper's name, the two rows of the
+  Prelude's record collided, the primitive took the wrapper's place in the
+  symbol table, and an interpreted module that named the wrapper called the
+  primitive on an argument the wrapper would have normalized first.
+  '''
+
+  WRAPPERS = [
+      'showCharLiteral', 'showFloatLiteral', 'showIntLiteral'
+    , 'showStringLiteral', 'readCharLiteral', 'readFloatLiteral'
+    , 'readNatLiteral', 'readStringLiteral', 'error', 'appendFile', 'ioError'
+    , 'putChar', 'readFile', 'writeFile'
+    ]
+
+  def test_wrapper_and_primitive_are_two_symbols(self):
+    interp = curry.getInterpreter()
+    imodule = getattr(interp.prelude, '.icurry')
+    shlib = imodule.metadata['cxx.shlib']
+    rows = {}
+    for _, _, info in shlib.bom.functions:
+      rows.setdefault(info.name, []).append(info)
+    for name in self.WRAPPERS:
+      prim = 'prim_' + name
+      self.assertEqual(len(rows[name]), 1, name)
+      self.assertEqual(len(rows[prim]), 1, prim)
+      wrapper = curry.symbol('Prelude.' + name).info
+      primitive = curry.symbol('Prelude.' + prim).info
+      self.assertEqual(wrapper.name, name)
+      self.assertEqual(primitive.name, prim)
+      self.assertIsNot(wrapper, primitive)
+      self.assertEqual(str(wrapper), str(rows[name][0]))
+
+  def test_wrapper_normalizes(self):
+    '''A module compiled from a string names the wrapper and gets its text.'''
+    goal = curry.compile(
+        '(showsPrec 11 (-2.5 :: Float) "", showsPrec 0 (-3 :: Int) "")', 'expr'
+      )
+    self.assertEqual(
+        list(curry.eval(goal, converter='topython')), [('(-2.5)', '-3')]
+      )
+
+  def test_no_two_rows_share_a_name(self):
+    '''
+    The loader keys the record by name, so two rows with one name collide,
+    whatever the names.  The loader asserts the same of every module when
+    it builds the symbol table (interpreter.import_.load).
+    '''
+    interp = curry.getInterpreter()
+    shlib = getattr(interp.prelude, '.icurry').metadata['cxx.shlib']
+    names = collections.Counter(info.name for _, _, info in shlib.bom.functions)
+    self.assertEqual([name for name, n in names.items() if n > 1], [])
+    self.assertGreater(len(names), 1000)
+    for name, symbol in getattr(interp.prelude, '.symbols').items():
+      info = getattr(symbol, 'info', None)
+      if info is not None:
+        self.assertEqual(info.name, name)
+
+  def test_builtin_tables_carry_the_curry_name(self):
+    '''
+    A built-in of the runtime answers to the Curry name it is registered
+    under (currylib/prelude.cpp), and its table carries that name.  The
+    loader asserts that the two agree when the Prelude is imported from
+    its ICurry: under interpret 'all', and in the compile of the Prelude
+    itself.  The table of nonstrictEq said nonStrictEq once.
+    '''
+    interp = curry.getInterpreter()
+    M = getHandle(interp.prelude).backend_handle
+    jsonfile = os.path.join(
+        config.system_curry_path(), '.curry', config.intermediate_subdir()
+      , 'Prelude.json.z'
+      )
+    imodule = loadjson(jsonfile)
+    builtins = []
+    for name in imodule.functions:
+      info = M.get_builtin_symbol(name)
+      if info is not None:
+        builtins.append(name)
+        self.assertEqual(info.name, name)
+    self.assertIn('nonstrictEq', builtins)
+    self.assertGreater(len(builtins), 50)

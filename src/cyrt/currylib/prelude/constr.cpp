@@ -267,7 +267,7 @@ extern "C"
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "nonStrictEq"
+    , /*name*/       "nonstrictEq"
     , /*format*/     "pp"
     , /*step*/       nonstrictEq_step
     , /*type*/       nullptr

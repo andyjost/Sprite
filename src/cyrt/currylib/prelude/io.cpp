@@ -284,7 +284,7 @@ extern "C"
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
     , /*flags*/      F_MONADIC | F_STATIC_OBJECT
-    , /*name*/       "appendFile"
+    , /*name*/       "prim_appendFile"
     , /*format*/     "pp"
     , /*step*/       appendFile_step
     , /*type*/       nullptr
@@ -328,7 +328,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_MONADIC | F_STATIC_OBJECT
-    , /*name*/       "ioError"
+    , /*name*/       "prim_ioError"
     , /*format*/     "p"
     , /*step*/       ioError_step
     , /*type*/       nullptr
@@ -339,7 +339,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_MONADIC | F_STATIC_OBJECT
-    , /*name*/       "putChar"
+    , /*name*/       "prim_putChar"
     , /*format*/     "p"
     , /*step*/       putChar_step
     , /*type*/       nullptr
@@ -350,7 +350,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_MONADIC | F_STATIC_OBJECT
-    , /*name*/       "readFile"
+    , /*name*/       "prim_readFile"
     , /*format*/     "p"
     , /*step*/       readFile_step
     , /*type*/       nullptr
@@ -386,7 +386,7 @@ extern "C"
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
     , /*flags*/      F_MONADIC | F_STATIC_OBJECT
-    , /*name*/       "writeFile"
+    , /*name*/       "prim_writeFile"
     , /*format*/     "pp"
     , /*step*/       writeFile_step
     , /*type*/       nullptr
