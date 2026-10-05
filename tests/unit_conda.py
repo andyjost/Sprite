@@ -403,7 +403,7 @@ class TestCondaRecipe(cytest.TestCase):
     result = run(['make', '-C', ROOT, '-n', 'overlay'])
     self.assertEqual(result.returncode, 0, result.stdout)
     if os.path.isfile(os.path.join(ROOT, archive)):
-      self.assertIn("tar xvzf %s --wildcards 'tests/*'" % archive, result.stdout)
+      self.assertIn("tar xvzf %s -m --wildcards 'tests/*'" % archive, result.stdout)
       # The extraction is followed by the prune and the interface copies.
       self.assertIn('overlay-prune', result.stdout)
       self.assertLess(
