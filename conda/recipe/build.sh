@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds Sprite into the conda prefix.  conda-build sets PREFIX, SRC_DIR,
-# PYTHON, SP_DIR, CC, CXX, and HOST.  See ../README.md.
+# PYTHON, SP_DIR, CC, CXX, HOST, and CPU_COUNT.  See ../README.md.
 set -euo pipefail
 
 # Sprite's installation tree has its own bin/python and bin/coverage links.
@@ -19,26 +19,51 @@ done
 # configure looks for the Boost headers under /usr.  BOOST names them.
 export BOOST="$PREFIX/include/boost"
 
+# The compiler that sprite-make runs during make install, when it compiles
+# the library for the C++ backend (the prebuild step of curry/Makefile).
+# That step drops the CFLAGS and CXXFLAGS of the environment, where the
+# activation script of the compiler put the include directory of the host
+# environment, so the compiler itself must name that directory: the Boost
+# headers are there.  make install links tools/cxx to this script; the link
+# is replaced below, and nothing in the package names the script.
+cxx_build="$SRC_DIR/conda-build-cxx"
+cat > "$cxx_build" <<CXX_BUILD_EOF
+#!/bin/sh
+exec "$CXX" -isystem "$PREFIX/include" "\$@"
+CXX_BUILD_EOF
+chmod 755 "$cxx_build"
+
 # Paths of the build tree must not reach the package.  The compilers record
 # the names of headers in assertions; map the tree to a relative name.
 export CFLAGS="${CFLAGS:-} -ffile-prefix-map=$SRC_DIR=."
 export CXXFLAGS="${CXXFLAGS:-} -ffile-prefix-map=$SRC_DIR=."
 
 # No PAKCS: the front end comes from the package curry-frontend, and the
-# pinned release names the intermediate directories.  No icurry.  The tool
-# links that this writes are replaced below.  Sprite writes compact JSON
-# itself; no jq.
+# pinned release names the intermediate directories.  No icurry, and no
+# ccache: the build runs once, and a ccache found on the build machine
+# would otherwise reach Make.config.  make runs the jobs conda-build grants
+# (CPU_COUNT); the Makefiles order the sub-makes, so a parallel build is
+# safe.  The tool links that this writes are replaced below.  Sprite writes
+# compact JSON itself; no jq.
 "$PYTHON" ./configure \
   --with-python="$PYTHON" \
   --with-cc="$CC" \
   --with-cxx="$CXX" \
-  --with-cxx-postinstall="$CXX" \
+  --with-cxx-postinstall="$cxx_build" \
+  --with-ccache='' \
   --with-pakcs='' \
   --with-curry-frontend="$PREFIX/bin/pakcs-frontend" \
-  --with-icurry=''
+  --with-icurry='' \
+  --jobs "${CPU_COUNT:-1}"
 
-# Serial: the recursive Makefiles link libcyrt.so from two places (the cyrt
-# tree and the extension module), which races under make -j.
+# make install builds the C++ runtime (libcyrt) and the extension module,
+# copies the Python package, the Curry library with its committed .icy and
+# .json.z files, the headers, and the sysconfig files.  It then runs the
+# front end over the library, so the package holds the FlatCurry interfaces,
+# and compiles the library for both backends (the prebuild step of
+# curry/Makefile), so the package holds the generated Python, the bytecode
+# caches, and the shared objects of every module Sprite can compile.  The
+# first program a user runs compiles nothing of the library.
 make install PREFIX="$SPRITE_HOME"
 
 # The static archive names its members by their paths in the build tree
@@ -46,9 +71,22 @@ make install PREFIX="$SPRITE_HOME"
 # library.  Leave it out of the package.
 rm -f "$SPRITE_HOME/lib/libcyrt.a"
 
+# The prebuild step precompiled cyrt/cyrt.hpp for the compiler of the build
+# (a member of about 70 MB, named after that compiler).  The compiler of the
+# environment cannot use it; the C++ backend builds its own member on the
+# first compile (curry.backends.cxx.toolchain.PrecompiledHeader).  Leave it
+# out.
+rm -rf "$SPRITE_HOME/include/cyrt/cyrt.hpp.gch"
+
 # make writes tools/ as absolute links into the build environments.  Replace
 # them with relative links into the prefix.  The C++ compiler gets a wrapper
-# that resolves the compiler at run time.
+# that picks the compiler at run time: SPRITE_CXX when set, else the
+# compiler of the environment.  An ambient CXX counts only when it names a
+# file of the environment, so that the compiler of another environment or
+# of the system does not compile against the headers and the runtime
+# library of this one.  Nothing in the environment sets CXX: cxx-compiler
+# brings gxx, which has no activation script.  The here-document is quoted;
+# @HOST@ is the one value filled in.
 # The version comes from the host Python; PY_VER of conda-build can name
 # the Python that runs conda-build instead.
 pyver=$("$PYTHON" -c 'import sys; print("%d.%d" % sys.version_info[:2])')
@@ -56,17 +94,34 @@ tools="$SPRITE_HOME/tools"
 rm -f "$tools"/*
 ln -s "../../../bin/python$pyver" "$tools/python"
 ln -s ../../../bin/pakcs-frontend "$tools/curry-frontend"
-cat > "$tools/cxx" <<CXX_EOF
+sed "s|@HOST@|$HOST|g" > "$tools/cxx" <<'CXX_EOF'
 #!/bin/sh
-# The C++ compiler for the code that Sprite generates at run time.
-# SPRITE_CXX names it; else CXX, which the activation script of the compiler
-# package sets; else the compiler of this environment.  The include
-# directory of the environment holds the Boost headers that the installed
-# headers of Sprite need; the activation script adds it too, this adds it
-# when the environment is not activated.
-here=\$(cd "\$(dirname "\$0")" && pwd)
-default="\$here/../../../bin/$HOST-g++"
-exec "\${SPRITE_CXX:-\${CXX:-\$default}}" -isystem "\$here/../../../include" "\$@"
+# The C++ compiler for the code that Sprite generates at run time.  The
+# generated code is compiled against the headers under opt/sprite/include
+# and linked against opt/sprite/lib/libcyrt.so of this environment, so the
+# compiler is the one of this environment, bin/@HOST@-g++, unless
+# SPRITE_CXX names another.  An ambient CXX counts only when it names a
+# file of this environment.  The include directory of the environment
+# holds the Boost headers that the installed headers of Sprite need;
+# -isystem names it, so the environment need not be activated.
+here=$(cd "$(dirname "$0")" && pwd -P)
+prefix=$(cd "$here/../../.." && pwd -P)
+cxx="$prefix/bin/@HOST@-g++"
+if [ -n "${SPRITE_CXX:-}" ]; then
+  cxx=$SPRITE_CXX
+elif [ -n "${CXX:-}" ]; then
+  case $CXX in
+    */*) found=$CXX ;;
+    *) found=$(command -v "$CXX" 2>/dev/null) || found= ;;
+  esac
+  if [ -n "$found" ] && [ -f "$found" ]; then
+    found=$(cd "$(dirname "$found")" && pwd -P)/$(basename "$found")
+    case $found in
+      "$prefix"/*) cxx=$found ;;
+    esac
+  fi
+fi
+exec "$cxx" -isystem "$prefix/include" "$@"
 CXX_EOF
 chmod 755 "$tools/cxx"
 
@@ -90,11 +145,12 @@ done
 # the extension module finds libcyrt.so through its run path.
 echo "../../../opt/sprite/python" > "$SP_DIR/sprite.pth"
 
-# The front end writes the FlatCurry of a library module the first time a
-# program imports it.  Compile a module that imports every library module
-# now, so that the package holds those files and the tree is not written at
-# run time for them.  This also runs the route from Curry to ICurry inside
-# the build environment.
+# A check of the tree as the package will install it: compile a module that
+# imports every library module through the relative tool links written
+# above.  The front end reads the installed interfaces (it rewrites a stale
+# one), and the translation to ICurry runs inside the build environment.
+# The module is compiled in a scratch directory; nothing is written into
+# the tree.
 export SPRITE_HOME PYTHONDONTWRITEBYTECODE=1
 warm=$(mktemp -d)
 {

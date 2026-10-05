@@ -77,12 +77,30 @@ class TestCondaRecipe(cytest.TestCase):
     # The tool links are relative; the compiler is resolved at run time.
     self.assertIn('ln -s "../../../bin/python$pyver" "$tools/python"', script)
     self.assertIn('\nmake install PREFIX="$SPRITE_HOME"\n', script)
-    self.assertNotIn('make -j"', script)
+    # A parallel build with the jobs conda-build grants; no ccache.
+    self.assertIn('--jobs "${CPU_COUNT:-1}"', script)
+    self.assertIn("--with-ccache=''", script)
+    # The prebuild step compiles with a wrapper in the build tree that names
+    # the include directory of the host environment.
+    self.assertIn('cxx_build="$SRC_DIR/conda-build-cxx"', script)
+    self.assertIn('--with-cxx-postinstall="$cxx_build"', script)
+    # The precompiled header of the build compiler stays out of the package.
+    self.assertIn('rm -rf "$SPRITE_HOME/include/cyrt/cyrt.hpp.gch"', script)
     self.assertIn('ln -s ../../../bin/pakcs-frontend "$tools/curry-frontend"', script)
     self.assertIn('SPRITE_CXX', script)
     self.assertIn('-isystem', script)
     meta_run = meta.split('  run:')[1]
     self.assertIn('libboost-headers', meta_run)
+    # conda relocates the compiled library modules at install time.
+    self.assertIn('detect_binary_files_with_prefix: true', meta)
+    # Each backend is tested through the launcher and through the module;
+    # the C++ tests check the products that only the C++ backend writes.
+    self.assertIn('python -m curry Smoke.curry | grep -x 42', meta)
+    self.assertIn(
+        'SPRITE_INTERPRETER_FLAGS=backend:cxx python -m curry Smoke.curry', meta
+      )
+    self.assertEqual(meta.count('test -s .curry/sprite-pakcs-3.4.1/Smoke.so &&'), 2)
+    self.assertEqual(meta.count('test -s .curry/sprite-pakcs-3.4.1/Smoke.so.abi'), 2)
     self.assertNotIn('$SRC_DIR/', script.split('-ffile-prefix-map=$SRC_DIR=.')[-1])
 
   def test_frontend_recipe(self):
@@ -183,13 +201,69 @@ class TestCondaRecipe(cytest.TestCase):
       self.assertIn('Neither the Curry front end nor icurry', result.stdout)
       self.assertIsNone(text)
 
-  def fake_tool(self, tmpdir, name, output):
-    '''Writes an executable script that prints ``output``.'''
+  def fake_tool(self, tmpdir, name, output, with_args=False):
+    '''
+    Writes an executable script that prints ``output``, followed by its
+    arguments if ``with_args``.
+    '''
     path = os.path.join(tmpdir, name)
     with open(path, 'w') as ostream:
-      ostream.write('#!/bin/sh\necho %s\n' % output)
+      ostream.write('#!/bin/sh\necho %s%s\n' % (output, ' "$@"' if with_args else ''))
     os.chmod(path, 0o755)
     return path
+
+  def test_cxx_wrapper(self):
+    '''
+    The tools/cxx wrapper of the package runs SPRITE_CXX when set, else the
+    compiler of the environment.  An ambient CXX counts only when it names a
+    file under the prefix of the wrapper.  The wrapper adds the include
+    directory of the environment.
+    '''
+    script = readfile(RECIPE, 'build.sh')
+    m = re.search(r"<<'CXX_EOF'\n(.*?)\nCXX_EOF\n", script, re.S)
+    self.assertIsNotNone(m)
+    text = m.group(1).replace('@HOST@', 'fake-host')
+    self.assertNotIn('@HOST@', text)
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      tmpdir = os.path.realpath(tmpdir)
+      prefix = os.path.join(tmpdir, 'env')
+      bindir = os.path.join(prefix, 'bin')
+      tools = os.path.join(prefix, 'opt', 'sprite', 'tools')
+      os.makedirs(bindir)
+      os.makedirs(tools)
+      wrapper = os.path.join(tools, 'cxx')
+      with open(wrapper, 'w') as ostream:
+        ostream.write(text + '\n')
+      os.chmod(wrapper, 0o755)
+      self.fake_tool(bindir, 'fake-host-g++', 'inside-default', with_args=True)
+      other = self.fake_tool(bindir, 'other-c++', 'inside-other', with_args=True)
+      outside = self.fake_tool(tmpdir, 'g++', 'outside', with_args=True)
+      isystem = ['-isystem', os.path.join(prefix, 'include'), '-c', 'x.cpp']
+      def compiler(**env):
+        result = run([wrapper, '-c', 'x.cpp'], env=dict(ENV, **env))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        return result.stdout.split()
+      # No variable: the compiler of the environment.
+      self.assertEqual(compiler(), ['inside-default'] + isystem)
+      # SPRITE_CXX wins.
+      self.assertEqual(compiler(SPRITE_CXX=outside, CXX=other), ['outside'] + isystem)
+      # CXX counts when it names a file under the prefix, by path or by name.
+      self.assertEqual(compiler(CXX=other), ['inside-other'] + isystem)
+      self.assertEqual(
+          compiler(CXX='other-c++', PATH=bindir + ':' + ENV['PATH'])
+        , ['inside-other'] + isystem
+        )
+      # A CXX outside the prefix, a name with flags, or a missing file does
+      # not.
+      self.assertEqual(compiler(CXX=outside), ['inside-default'] + isystem)
+      self.assertEqual(
+          compiler(CXX='g++', PATH=tmpdir + ':' + ENV['PATH'])
+        , ['inside-default'] + isystem
+        )
+      self.assertEqual(compiler(CXX='g++ -std=c++17'), ['inside-default'] + isystem)
+      self.assertEqual(
+          compiler(CXX=os.path.join(bindir, 'missing-c++')), ['inside-default'] + isystem
+        )
 
   def test_configure_frontend_version(self):
     '''

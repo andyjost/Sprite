@@ -4,3 +4,12 @@ c_stdlib:
   - sysroot
 c_stdlib_version:
   - "2.17"
+# The compiler of the build is the compiler of the run time.  The run
+# dependency cxx-compiler (2.0.0) brings GCC 15, and the C++ backend
+# compiles generated code with it against the headers and the runtime
+# library of this build.  One major version keeps one libstdc++ on both
+# sides.  Move both pins together with cxx-compiler.
+c_compiler_version:
+  - "15"
+cxx_compiler_version:
+  - "15"
