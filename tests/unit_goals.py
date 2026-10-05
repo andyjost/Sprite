@@ -315,24 +315,17 @@ class TestModuleGoals(cytest.TestCase):
 
   def test_application(self):
     '''
-    A symbol with dictionary parameters applied to arguments is an error
-    that names the alternatives; the literal would fill the dictionary slot
-    otherwise.  The dictionaries passed first, and raw_expr, work as before.
+    A symbol with dictionary parameters applied to arguments.  The typed
+    builder of curry.expr (item Y7) supplies the dictionaries, so the call
+    evaluates.  The dictionaries passed first, and raw_expr, work as before.
     '''
     M = self.M
     P = curry.import_('Prelude')
-    pattern = (
-        r"^cannot apply UnsignedGoals\.addOne :: Num a => a -> a to arguments: "
-        r"the symbol takes 1 class dictionary before its value parameters, "
-        r"and curry\.eval supplies them only for a goal without arguments; "
-        r"compile the call from text with curry\.compile\(\.\.\., mode='expr'\), "
-        r"with exprtype for its type, or pass the dictionaries first$"
-      )
-    for args in [(M.addOne, 1), ([M.addOne, 1],), (M.addOne, curry.expr(1))]:
-      with self.assertRaisesRegex(curry.CurryTypeError, pattern):
-        curry.eval(*args)
-    with self.assertRaisesRegex(curry.CurryTypeError, '2 class dictionaries'):
-      curry.eval(P.fromIntegral, 3)
+    self.assertEqual(values(M.addOne, 1), [2])
+    self.assertEqual(values([M.addOne, 1]), [2])
+    self.assertEqual(values(M.addOne, curry.expr(1)), [2])
+    self.assertEqual(values(M.addOne, 1.5), [2.5])
+    self.assertEqual(values(P.fromIntegral, 3), [3])
     num_int = curry.symbol('Prelude._inst#Prelude.Num#Prelude.Int')
     self.assertEqual(values(M.addOne, num_int, 1), [2])
     self.assertEqual(values([M.addOne, num_int, 1]), [2])
@@ -349,6 +342,36 @@ class TestModuleGoals(cytest.TestCase):
     # dictionaries, and the string form of a value still works.
     self.assertEqual(values(M.main15), [3])
     self.assertEqual(values(P.id, 1), [1])
+
+  def test_application_untyped(self):
+    '''
+    With the flag typed_expr off, a symbol with dictionary parameters
+    applied to arguments is an error that names the alternatives; the
+    literal would fill the dictionary slot otherwise.
+    '''
+    M = self.M
+    P = curry.import_('Prelude')
+    pattern = (
+        r"^cannot apply UnsignedGoals\.addOne :: Num a => a -> a to arguments: "
+        r"the symbol takes 1 class dictionary before its value parameters, "
+        r"and curry\.eval supplies them only for a goal without arguments; "
+        r"compile the call from text with curry\.compile\(\.\.\., mode='expr'\), "
+        r"with exprtype for its type, or pass the dictionaries first$"
+      )
+    flags = curry.getInterpreter().flags
+    flags['typed_expr'] = False
+    try:
+      for args in [(M.addOne, 1), ([M.addOne, 1],), (M.addOne, curry.expr(1))]:
+        with self.assertRaisesRegex(curry.CurryTypeError, pattern):
+          curry.eval(*args)
+      with self.assertRaisesRegex(curry.CurryTypeError, '2 class dictionaries'):
+        curry.eval(P.fromIntegral, 3)
+      num_int = curry.symbol('Prelude._inst#Prelude.Num#Prelude.Int')
+      self.assertEqual(values(M.addOne, num_int, 1), [2])
+      self.assertEqual(values(M.main15), [3])
+      self.assertEqual(values(P.id, 1), [1])
+    finally:
+      flags['typed_expr'] = True
 
   def test_unchanged_paths(self):
     '''Symbols without dictionaries, and arguments, go through expr as before.'''
@@ -655,6 +678,13 @@ class TestPrograms(cytest.TestCase):
     self.assertEqual(
         proc.stdout.splitlines()
       , ['Just 5', 'main14 :: Num a => Maybe a', '2']
+      )
+
+  def test_repl_command_prefixes(self):
+    '''A command may be given by any unambiguous prefix: :l, :e, :t, :q.'''
+    proc = self.repl(':l ' + MODULE_FILE, ':e 1+2', ':t 1+2', ':e main14', ':q')
+    self.assertEqual(
+        proc.stdout.splitlines(), ['3', '1+2 :: Num a => a', 'Just 5']
       )
 
   def test_repl_error(self):

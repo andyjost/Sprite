@@ -18,14 +18,6 @@ import curry
 curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from curry.lib import Deps
 
-def text(s):
-  '''Converts a Python str to a Curry String.
-
-  A Python str of length one converts to a Char, so pass every String as a
-  list of one-character strings.
-  '''
-  return list(s)
-
 # The package index: (name, version, requirements).  A requirement names a
 # package and the versions of it that satisfy the requirement.
 INDEX = [
@@ -39,13 +31,6 @@ INDEX = [
     ('http', 1, []),
     ('http', 2, []),
   ]
-
-def curry_index(index):
-  '''Converts the index to the Curry type Index, one text() per name.'''
-  return [
-      (text(name), version, [(text(dep), versions) for dep, versions in reqs])
-      for name, version, reqs in index
-    ]
 
 def parse_root(arg):
   '''Parses NAME=V1,V2 into (NAME, [V1, V2]).'''
@@ -72,11 +57,12 @@ def main(args):
     needs = ', '.join(format_requirement(req) for req in reqs)
     print('  %s %d%s' % (name, version, ' needs ' + needs if needs else ''))
   print('roots: ' + '  '.join(format_requirement(root) for root in roots))
-  # One call evaluates to every consistent plan.  converter='topython' turns
-  # each Curry plan into a Python list of (str, int) pairs.  The order of the
-  # values is not promised, so sort them.
-  curry_roots = [(text(name), allowed) for name, allowed in roots]
-  found = curry.eval(Deps.plans, curry_index(INDEX), curry_roots, converter='topython')
+  # One call evaluates to every consistent plan.  curry.eval converts the
+  # nested tuples, lists, strs and ints of the index and the roots by the
+  # parameter types of plans; converter='topython' turns each Curry plan
+  # into a Python list of (str, int) pairs.  The order of the values is not
+  # promised, so sort them.
+  found = curry.eval(Deps.plans, INDEX, roots, converter='topython')
   plans = sorted(found, key=versions)
   print('plans (%d):' % len(plans))
   for plan in plans:

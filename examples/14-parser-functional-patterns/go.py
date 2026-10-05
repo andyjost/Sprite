@@ -24,15 +24,10 @@ DEFAULT_INPUTS = [
     '2*(3+4',
   ]
 
-def text(s):
-  '''A Python str of length one converts to a Curry Char.  Pass every String
-  argument as a list of characters instead.'''
-  return list(s)
-
 def parses(s):
   '''Returns every parse tree of s.  Each tree is a Curry value.'''
   # The scheduler does not promise an order of the values, so sort them.
-  return sorted(curry.eval(Parser.expr, text(s)), key=str)
+  return sorted(curry.eval(Parser.expr, s), key=str)
 
 def value(tree):
   '''Passes a parse tree back to Curry and returns its value as an int.'''

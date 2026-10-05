@@ -96,6 +96,17 @@ are available:
     Events provide information about the state of the runtime system, such as
     the number of nodes created or steps performed.  If None or non-positive,
     this information is not reported.
+
+  * ``typed_expr`` (**True** | False)
+
+    Whether ``curry.expr`` types the expression it builds: the type schemes
+    of the symbols are unified, Python values convert by the expected type,
+    the class dictionaries are supplied, and a typing failure is an error
+    at construction (see curry.typecheck.builder).  With False,
+    ``curry.expr`` is the untyped builder of ``curry.raw_expr`` with the
+    free and choice markers as calls of Prelude.unknown and Prelude.?, and
+    the keyword exprtype is ignored.  The flag serves bisection and the
+    performance program.
 '''.format(config.default_backend())
 
 FLAG_INFO = {
@@ -113,6 +124,7 @@ FLAG_INFO = {
   , 'stack_limit'         : ({None, int}          , 4194304)
   , 'step_budget'         : ({None, int}          , 2048  )
   , 'telemetry_interval'  : ({None, float}        , None  )
+  , 'typed_expr'          : ( bool                , True  )
   }
 
 def get_default_flags():

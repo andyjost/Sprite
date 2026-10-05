@@ -20,11 +20,6 @@ DEFAULT_PUZZLES = [
     ['TWO', 'TWO', 'FOUR'],
   ]
 
-def text(s):
-  # A Python str of length one converts to a Curry Char, so pass every
-  # String argument as a list of characters.
-  return list(s)
-
 def check(words):
   '''Returns an error message if the solver cannot handle the puzzle.'''
   if len(words) < 2:
@@ -47,7 +42,7 @@ def solve(addends, result):
   # Each value of solveCrypt is one assignment, converted to a list of
   # (letter, digit) pairs.  The order of the values is not fixed, so sort.
   values = curry.eval(
-      Crypt.solveCrypt, [text(w) for w in addends], text(result)
+      Crypt.solveCrypt, addends, result
     , converter='topython'
     )
   solutions = []

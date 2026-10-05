@@ -183,7 +183,42 @@ Unit tests match the pattern unit_*.py.
     text goals, so the front end runs for texts the cache does not hold.
     Its module is data/curry/UnsignedGoals.curry.  On the Python backend
     it saves that module and runs the saved program from a temporary
-    directory.
+    directory.  It also pins the command prefixes of the REPL (:l, :e, :t,
+    :q): the handlers check the full command name, and commands.eval writes
+    the resolved name back.
+  - unit_typecheck.py tests the engine of the typed boundary
+    (curry.typecheck.engine) on both backends: unification, the Apply
+    rule, context reduction, the defaulting of the front end and of the
+    REPL, the exprtype parser, the error catalogue, and the reference
+    materializer.  Its module is data/curry/TypeCheck.curry, compiled on
+    the first run; it imports Data.Functor.Identity.  The eight cases of
+    the PAKCS REPL compare the engine's types and values with the goldens
+    of func_goal_defaulting.py under data/curry/goal_defaulting/, so the
+    file runs no oracle.
+  - unit_typed_expr.py tests the typed curry.expr on both backends: the
+    acceptance list of item Y7 (a method call routed through apply, show
+    over Maybe Int, exprtype, the errors at construction, read "5", a free
+    marker at a function type, a list of 10000 values and a tree of 10^4
+    applications, a value of curry.eval fed back, an iterator item that
+    does not convert), the conversion rules, the forms of the untyped
+    builder on the typed path, the walk that types a Curry node (also a
+    partial application, and the cap on the size of a type), the API
+    (typeof, describe with anchors and exprtype, the record of result
+    types, topython with exprtype, the keyword anchors of eval, the flag
+    typed_expr) and every line of the error catalogue.  It imports
+    UnsignedGoals and TypeCheck, the modules of unit_goals.py and
+    unit_typecheck.py, and Data.Functor.Identity, and compiles two texts
+    with the front end for the order of a context.  Two tests build a list
+    of 100001 nodes to reach the cap of the walk; they take a few seconds.
+  - Tests that call a Prelude primitive directly, without the $## of its
+    wrapper, must pass a string in normal form: a list of characters.  The
+    typed builder makes one lazy string node of a str on the Python
+    backend (unit_prelude.py, cells).
+  - unit_typecheck_serialize.py tests the serializer of the typed boundary
+    (curry.typecheck.serialize) on both backends without a front end: the
+    Curry literal of every Python value, the text of every kind of spec,
+    the parameters of the operands without text, the let of the free
+    markers and of the anchors, the annotations, and the entry points.
   - The exception is unit_examples.py.  It runs every example in a child
     process: about 40 s warm and about two minutes cold on one backend,
     because the first run compiles each Curry module and two examples compile
@@ -224,6 +259,29 @@ Functional tests match the pattern func_*.py:
     PAKCS.  The golden of a text goal records its text on its first line
     and is made again when the text changes.  IO goals stay out, because
     the oracle runs the REPL in safe mode.
+  - func_typed_expr.py pins the twins of the typed curry.expr against the
+    PAKCS REPL: per case a Python call and the equivalent Curry text with
+    the Python values written as Curry literals.  The corpus lives in the
+    file; the modules under data/curry/typed_expr/ are generated from it
+    (python func_typed_expr.py --write, from this directory, in the
+    environment of a test run, outside the sandbox) and committed with
+    their goldens.  The driver evaluates the Python call in place of the
+    goal and compares the values with the oracle modulo variable names and
+    float format; the type oracle compares the engine's undefaulted type of
+    the call with the type of the goal in the FlatCurry interface, a twin
+    with free markers compiled once more with the markers lifted to
+    parameters; the conversion rows of the design round-trip through
+    curry.compile(mode='expr').  TypeCorpus.curry holds goals with a type
+    but no comparable value (function values, types the table rejects,
+    IO); the driver skips it by its name.  The REPL of PAKCS refuses a
+    goal whose type names a type of a module the goal module imports,
+    such as Identity, so the newtype twins reach it through show,
+    runIdentity and ==, and a module-local newtype shows the erasure.
+    The raw text of the Float rows differs on the C++ backend until #34
+    is fixed; test_float_text is an expected failure there.  No goal
+    yields an empty string: Sprite prints a raw empty [Char] as [] and
+    PAKCS as "".  A regeneration changes the time stamp of a module, so
+    the driver remakes its goldens, about a second per goal.
 
 
 7. EDITOR INTEGRATION
@@ -557,7 +615,11 @@ writer (.json.z), the code generator (.py, .cpp), and the C++ compiler
 (.so).  Two files that write the same product at once can leave a torn
 file for a third to read.  The ICurry cache (SQLite, busy timeout 30 s),
 the bytecode cache, the ABI stamp, and the precompiled header are written
-atomically.  --prepare runs sprite-make over the shared pool (data/curry)
+atomically.  The ABI stamp of a shared object names the runtime headers,
+the flavor and the installation it was compiled under, so a product
+compiled under another SPRITE_HOME is compiled again here instead of
+loading the Prelude of that installation beside this one.  --prepare runs
+sprite-make over the shared pool (data/curry)
 and the corpus of each selected functional test, one directory and one
 process at a time, for each backend of the run, before any file starts.
 After it the parallel files only read the products.  Use it on a fresh

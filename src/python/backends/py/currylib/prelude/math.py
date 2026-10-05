@@ -1,4 +1,5 @@
 from ..... import inspect
+import math
 import operator as op
 
 __all__ = [
@@ -22,7 +23,12 @@ def prim_minusFloat(x, y):
   return y - x
 
 def prim_roundFloat(x):
-  return int(round(x))
+  # Half away from zero, as std::round of the C++ backend and PAKCS round;
+  # Python's round halves to even.
+  magnitude = math.floor(abs(x))
+  if abs(x) - magnitude >= 0.5:
+    magnitude += 1
+  return int(math.copysign(magnitude, x))
 
 def quotInt(x, y):
   return int(op.truediv(x, y))

@@ -3,7 +3,11 @@ Implements Interpreter.eval.
 '''
 
 from . import conversions
+from .. import expressions
+from ..toolchain.flat2icurry import flatcurry as fc
 from ..typecheck import goals
+
+IO = fc.prelude('IO')
 
 def eval(interp, *args, **kwds):
   '''
@@ -26,6 +30,11 @@ def eval(interp, *args, **kwds):
         Keyword-only argument specifying the converter to use when returning
         results.  The default is 'default'.  See
         :func:``curry.interpreter.conversions.getconverter``.
+    exprtype:
+        Keyword-only argument: the type of the goal in Curry syntax, passed
+        to ``Interpreter.expr``.
+    **kwds:
+        Any other keyword names an anchor, as in ``Interpreter.expr``.
 
   Raises:
     EvaluationError:
@@ -40,6 +49,20 @@ def eval(interp, *args, **kwds):
   convert = conversions.getconverter(
       converter if converter != 'default' else interp.flags['defaultconverter']
     )
+  goal = goals.make_goal(
+      interp, args, exprtype=kwds.pop('exprtype', None), anchors=kwds
+    )
+  if convert is conversions.topython:
+    # The static type of a goal the typed builder made, so that a value
+    # converts by its type: an empty [Char] is ''.  An IO goal yields its
+    # payload, so its type is the type under IO.
+    typeexpr = expressions.result_type(interp, goal.expr)
+    if isinstance(typeexpr, fc.TCons) and typeexpr.name == IO \
+        and len(typeexpr.args) == 1:
+      typeexpr = typeexpr.args[0]
+    if typeexpr is not None:
+      def convert(interp, value, typeexpr=typeexpr):
+        return conversions.topython(interp, value, exprtype=typeexpr)
   # The goal object hands its node to the runtime state and keeps no
   # reference to it; see Goal.evaluate.
-  return goals.make_goal(interp, args).evaluate(interp, convert)
+  return goal.evaluate(interp, convert)

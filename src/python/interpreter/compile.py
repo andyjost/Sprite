@@ -3,7 +3,9 @@ Implements Interpreter.compile.
 '''
 
 from ..backends.generic.eval import evaluator
-from .. import config, exceptions, icurry, inspect, objects, toolchain, utility
+from .. import (
+    config, exceptions, expressions, icurry, inspect, objects, toolchain, utility
+  )
 from ..objects import handle
 from ..typecheck import defaulting, goals, sigtable
 from ..utility.visitation import dispatch
@@ -195,7 +197,10 @@ def expression_goal(interp, func, string, freevars, moduleobj):
       raise exceptions.CompileError(str(err))
     dicts = goals.dictionaries(interp, defaulted)
   markers = [goals.free_marker() for _ in freevars]
-  expr = interp.expr(func, *dicts, *markers)
+  # The front end typed the text; the expression module is not in the
+  # registry, so the typed builder could not read its schemes.  The untyped
+  # builder keeps the markers as shared unknown nodes.
+  expr = expressions.untyped_expr(interp, func, *dicts, *markers)
   if inspect.isa_func(expr):
     evaluator.single_step(interp, expr)
   reported = goals.absent_from_result(scheme, nfree) if nfree else []
@@ -205,7 +210,9 @@ def expression_goal(interp, func, string, freevars, moduleobj):
   goals.register_lifted(
       interp, ctor, [freevars[i] for i in reported], scheme, string
     )
-  return interp.expr(ctor, (expr,) + tuple(markers[i] for i in reported))
+  return expressions.untyped_expr(
+      interp, ctor, (expr,) + tuple(markers[i] for i in reported)
+    )
 
 def expression_scheme(interp, string, imports=None):
   '''

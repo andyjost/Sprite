@@ -15,10 +15,11 @@ debugger.  A module follows the flavor of the installed runtime
 FLAVOR_FLAGS and Cpp2So.flavor.
 
 A compiled module stays valid as long as the runtime headers it was compiled
-against and the flags of its flavor do not change.  Cpp2So records a digest of
-both beside each shared object (the ABI stamp, <module>.so.abi) and compiles
-the module again when the installation gives another digest.  See
-runtime_digest, object_digest, and Cpp2So.is_stale.  A generated .cpp file
+against, the flags of its flavor and the installation it links against do not
+change.  Cpp2So records a digest of the three beside each shared object (the
+ABI stamp, <module>.so.abi) and compiles the module again when the
+installation gives another digest.  See runtime_digest, object_digest, and
+Cpp2So.is_stale.  A generated .cpp file
 carries a format stamp; Json2Cpp, which writes the file, refuses one of
 another format.  See Json2Cpp.is_stale.
 '''
@@ -129,14 +130,19 @@ def gc_flags(gc=None):
     gc = config.cxx_gc()
   return list(GC_FLAGS[gc])
 
-def object_digest(flavor=None, include_dir=None, gc=None):
+def object_digest(flavor=None, include_dir=None, gc=None, prefix=None):
   '''
   The stamp of an object compiled now: a digest of the runtime headers
   (runtime_digest), of the flags of ``flavor``, by default the flavor of the
-  installed runtime (config.cxx_flavor), and of the flags of the collector
-  ``gc``, by default the installed one (config.cxx_gc).  So a change to a
-  header, to the flags of a flavor, or to the collector compiles every
-  object again, once.  The flags of the environment (CXXFLAGS) are not part
+  installed runtime (config.cxx_flavor), of the flags of the collector
+  ``gc``, by default the installed one (config.cxx_gc), and of the real
+  path of the installation ``prefix``, by default the installed one.  So a
+  change to a header, to the flags of a flavor, or to the collector
+  compiles every object again, once.  The installation is part of the
+  stamp because a module links against the shared objects of its
+  installation by absolute path: an object compiled under another
+  installation of the same runtime would load that installation's Prelude
+  beside this one.  The flags of the environment (CXXFLAGS) are not part
   of it.
 
   Returns None when the tree holds no header (see runtime_digest).
@@ -146,10 +152,14 @@ def object_digest(flavor=None, include_dir=None, gc=None):
     return None
   if flavor is None:
     flavor = config.cxx_flavor()
+  if prefix is None:
+    prefix = config.prefix()
   digest = hashlib.sha256(headers.encode('utf-8'))
   for flag in flavor_flags(flavor) + gc_flags(gc) + LINK_FLAGS:
     digest.update(b'\0')
     digest.update(flag.encode('utf-8'))
+  digest.update(b'\0')
+  digest.update(os.path.realpath(prefix).encode('utf-8'))
   return digest.hexdigest()[:16]
 
 def extend_plan_skeleton(interp, skeleton):
@@ -365,11 +375,11 @@ class Cpp2So(object):
 
     A .so file is stale when its ABI stamp is missing or holds a digest this
     step does not accept (accepted_digests): the object was compiled against
-    other headers or with the flags of another flavor.  The check reads the
-    headers, not time stamps, so a new copy of the same runtime keeps every
-    object, and a copied cache keeps its objects.  An installation without
-    headers (runtime_digest gives None) cannot compile anything, so its
-    objects are trusted as they are.
+    other headers, with the flags of another flavor, or under another
+    installation.  The check reads the headers, not time stamps, so a new
+    copy of the same runtime keeps every object, and a copied cache keeps
+    its objects.  An installation without headers (runtime_digest gives
+    None) cannot compile anything, so its objects are trusted as they are.
     '''
     if filename.endswith('.so'):
       accepted = self.accepted_digests()

@@ -329,8 +329,53 @@ namespace cyrt { namespace python
     // it.
     py::class_<Node, RootHolder<Node>>(mod, "Node")
       .def_static("create", &Node_create, reference)
+      // A Curry string from a Python str, in one call: the list of Char
+      // nodes the step of _biString builds (build_curry_string), one node
+      // per code point, with the text taken by its length, so that a NUL
+      // inside the text is a character.  A biStringNode points at a buffer
+      // the runtime does not own: compiled code points its nodes at static
+      // literals, and a buffer owned by a node would need a finalizer in
+      // every collector and in the copier.  So the typed builder asks for
+      // the list the step would make.  With ``target``, the target is
+      // forwarded to the list and returned.
+      .def_static("create_string"
+          , [](py::str text, Node * target) -> Node *
+            {
+              Py_ssize_t size = 0;
+              char const * pos = PyUnicode_AsUTF8AndSize(text.ptr(), &size);
+              if(!pos)
+                throw py::error_already_set();
+              char const * const end = pos + size;
+              Node * head = nil();
+              Node ** tail = &head;
+              while(pos != end)
+              {
+                *tail = cons(char_(utf8_decode(pos, end)), nil());
+                tail = &NodeU{*tail}.cons->tail;
+              }
+              if(target)
+              {
+                forward_node(target, head);
+                return target;
+              }
+              return head;
+            }
+          , py::arg("text"), py::arg("target") = nullptr
+          , reference
+          )
       .def("forward_to", &forward_node)
       .def_readonly("info", &Node::info, reference_internal)
+      // The info table of the head of a partial application, or None.  The
+      // typed builder types such a value by the scheme of its head.
+      .def_property_readonly("partial_head"
+          , [](Node & self) -> InfoTable const *
+            {
+              if(!is_partial(*self.info))
+                return nullptr;
+              return NodeU{&self}.partapplic->head_info;
+            }
+          , reference
+          )
       .def("successor"
           , [](Node & self, index_type pos) -> Expr { return self.successor(pos); }
           )

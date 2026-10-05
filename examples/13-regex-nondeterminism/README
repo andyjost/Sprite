@@ -68,8 +68,8 @@ Regex.RE.  The function build turns each tuple into Curry data:
     curry.expr(getattr(Regex, tag), *args)
 
 The argument of Lit is a Python str of length one, which curry.expr turns
-into a Char.  For the same reason go.py passes every subject as a list of
-characters, text(subject).
+into a Char, the type the constructor expects.  A subject is a str of any
+length, which curry.eval turns into a String under the parameter type.
 
 The Python function match takes the first value of the goal and stops the
 search.  A goal with no value means False.  A failed guard is not an error.
@@ -143,9 +143,9 @@ about 40 characters on the Python backend.
 On the C++ backend the memory of grep grows fast with the length of the
 subject.  Measured with go.py 'ab*c' on a subject of x's: a peak of 0.9 GB
 at 100 characters and 1.7 GB at 120.  A subject of 130 characters fails in
-grep with MemoryError: std::bad_alloc under a 2 GiB address-space cap,
-before the recursion limit below is reached.
+grep with MemoryError: std::bad_alloc under a 2 GiB address-space cap.
 
-curry.expr builds a list by recursion, one element per level, so a subject
-longer than about 140 characters exceeds the Python recursion limit on either
-backend.
+curry.expr builds a String in one call (one node on the Python backend, the
+list of its characters on the C++ backend) and a list in a loop, so the length
+of a subject is bounded by memory and time, not by the Python recursion
+limit.

@@ -17,9 +17,12 @@ Merges to `master` happen at milestones.
   `src/python/typecheck/` is the typed boundary: the signature table reads
   the type schemes from the FlatCurry interfaces (`symbol.signature`),
   `defaulting.py` applies the table of the PAKCS REPL to the class
-  constraints of a goal, and `goals.py` builds the goal with its
-  dictionaries for `curry.eval`, `curry.compile(mode='expr')`, the REPL,
-  `sprite-exec -g` and saved modules.
+  constraints of a goal, `goals.py` builds the goal with its dictionaries
+  for `curry.eval`, `curry.compile(mode='expr')`, the REPL, `sprite-exec
+  -g` and saved modules, and the engine types a Python-built expression
+  (`engine`, `terms`, `unify`, `instances`, `exprtype`, `errors`), with
+  `builder.py` as the typed `curry.expr` over it and `serialize.py` as the
+  printer of a description as Curry text.
   `src/python/tools/icy/` is the REPL: `python -m curry.tools.icy`, with
   `:load`, `:eval`, `:type`, `:set` and `:quit`.
 - `src/cyrt/`: the C++ runtime library.
@@ -49,6 +52,14 @@ Merges to `master` happen at milestones.
   `configure --with-icurry` and selected with `SPRITE_CURRY2ICURRY=icurry`
   or `sprite-make --curry2icurry icurry`. Both routes must write
   byte-identical `.icy` files; `tests/README` describes the oracle.
+- `curry.expr` is typed (`src/python/typecheck/builder.py`): it reads the
+  schemes of the FlatCurry interfaces, unifies the arguments with the
+  parameter types, converts Python values by the expected type, defaults
+  the class constraints with the table of the PAKCS REPL and supplies the
+  dictionaries. A typing failure is a `CurryTypeError` at construction.
+  `curry.raw_expr` is the untyped builder; the flag `typed_expr` turns the
+  typing off for a whole interpreter. `curry.typeof`, `curry.typed` and
+  `curry.describe` complete the API.
 - Other tools: a C++ compiler (g++), GNU make, and Boost headers. jq is not
   needed: Sprite writes compact JSON itself. SWI-Prolog and Haskell Stack
   are needed to build PAKCS itself. GNU time (`/usr/bin/time`) is optional:
@@ -87,6 +98,10 @@ Merges to `master` happen at milestones.
   `auto`: the budget decides how many files run at once, up to the core
   count, on the caps of the calibrated `tests/manifest.json`; `-j 1` runs
   the files one at a time. The `func_*` tests need a PAKCS oracle.
+- `make -C docs html` builds the documentation into `object-root/docs/html`.
+  It needs a staged install: the Reference pages are generated from the
+  installed package, and the command-line pages from the installed tools.
+  `docs/source/REPL.rst` describes the REPL (`python -m curry.tools.icy`).
 - `configure --jobs auto --with-ccache` is the recommended developer setting.
   The parallel build passed its timed trial from a clean tree (see TODO),
   so the default of `--jobs` is `auto`; `--jobs 1` is a serial build.
@@ -119,8 +134,8 @@ Merges to `master` happen at milestones.
   defaults them as the PAKCS REPL does (`Num` to `Int`, `Fractional` to
   `Float`, `Monad` to `IO`, a lone `Data` to `Bool`) and rejects the rest
   with the REPL's sentence. `curry.eval` supplies the dictionaries of such
-  a goal evaluated alone; a call with arguments, `curry.eval(M.f, 1)`, is
-  an error until the typed builder lands: compile it from text. A text
+  a goal; a call with arguments, `curry.eval(M.f, 1)`, is typed like any
+  expression of `curry.expr`. A text
   goal of `curry.compile(mode='expr')` may end in `where x free`; its
   values then carry the bindings. `curry.save` needs a goal; pass
   `module_main=False` to save a module without a main program.
@@ -131,4 +146,8 @@ Merges to `master` happen at milestones.
   with `unittest.expectedFailure` instead of deleting the test.
 - `NOTES` and `TODO` are historical work logs. Verify a claim there before
   you act on it.
+- The modules under `tests/data/curry/typed_expr/` are generated from the
+  corpus in `tests/func_typed_expr.py`. Edit the corpus and run
+  `python func_typed_expr.py --write` from `tests/`; do not edit the
+  modules.
 - Keep commits free of machine-specific paths and environment details.

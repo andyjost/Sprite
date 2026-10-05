@@ -34,9 +34,8 @@ one guard.
 
 go.py reads the words from the command line and checks them in Python: upper
 case letters only, at most ten distinct letters.  It passes each word to Curry
-as a list of characters.  A Python string of length one converts to a Curry
-Char, so every string argument goes through the helper "text", which turns it
-into a list.
+as a Python str.  curry.expr converts a str by the type the parameter
+expects, a String, so a word of one letter is a String and not a Char.
 
 The call "curry.eval(Crypt.solveCrypt, addends, result, converter='topython')"
 returns an iterator.  Each item is one solution, converted to a list of

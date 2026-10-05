@@ -140,7 +140,10 @@ COMMANDS = {
   }
 
 def eval(name, *args):
-  '''Evaluate a command.'''
+  '''Evaluate a command.  The name may be any unambiguous prefix.'''
   name = resolve(name, COMMANDS.keys(), 'command')
+  if args:
+    # The handlers check the full name of the command.
+    args[0].command = name
   return COMMANDS[name](*args)
 

@@ -2601,3 +2601,260 @@
   follow.  The next bottleneck of the parallel build is the prebuild of the
   Curry library, which runs serially inside it: 41 of the 58.6 s of a
   parallel build without ccache.
+
+2026-10-05: typed boundary, stage 2 (epic #48)
+- Y6, the engine (issue #55).  Done: curry.typecheck.engine types one
+  Python-built expression over the schemes of the front end, Algorithm J
+  without levels: union-find variables (terms.Var), unification with an
+  occurs check and the rule for Prelude.Apply (unify.py), whnf folds an
+  Apply whose head became a constructor up to the declared arity of the
+  type and writes a saturated (->) as a function type, so return 5 is IO
+  Int; a nested ForallType is instantiated when reached.  A Problem walks
+  a tree of specs (App, Lit, Free, Known, List, Tuple, Iter, Typed) with
+  an explicit stack, the expected type flowing down; the predicates sit on
+  the variables and are reduced through the instances the moment a
+  variable is bound (instances.py: the instance map of the table, the
+  superclass closure from the _super#C#S selectors, so (Num a, Fractional
+  a) prints Fractional a).  solve applies the ambiguity rule of the front
+  end (a constrained variable absent from the result type and the
+  environment defaults to Int or Float when a class is numeric, else an
+  error with the front end's words), records the undefaulted scheme (what
+  :type prints: fromIntegral 3 :: Num a => a, show [] ambiguous), applies
+  the table of Y4 (default_scheme reused) until no predicate is left, and
+  resolves every predicate to a DictTerm (the _inst# partial application
+  with its context dictionaries); a free marker carries no constraint of
+  its own, gets the Data dictionary of its type when ground and the Bool
+  placeholder otherwise, and a function type is the catalogue's error.
+  Newtype constructors (TypeNew entries) are erased: Identity 5 builds 5,
+  a bare Identity builds id.  exprtype.py parses a monotype without a
+  context, resolves names through the loaded interfaces, reads synonyms
+  from the type lines of the .icurry beside the .fint (the front end
+  writes them expanded), and raises the catalogue's errors with columns,
+  declared arities and the interfaces searched.  errors.py holds the
+  catalogue of design section 7 as CurryTypeError subclasses with the
+  location, the symbol and both types; the undefaultable case stays Y4's
+  DefaultingError.  engine.materialize is the reference materializer
+  through raw_expr (dictionaries first, apply chains past the arity,
+  lists in a loop, one unknown node per marker), an explicit-stack walk:
+  a left-deep tree of 10^4 applications types in 0.13 s, solves in 0.25 s
+  and builds in 0.33 s on the Python backend.  Tests: unit_typecheck.py
+  (70 tests, both backends) with data/curry/TypeCheck.curry; the eight
+  PAKCS cases are compared with the goldens of func_goal_defaulting.py.
+  Left: read "5" raises the table's error with the oracle's sentence
+  while the design's example 2 shows an 'ambiguous type in' line (the
+  owner's call; see the review below); a literal under a type an earlier
+  argument fixed is a conversion error that names that argument, and a
+  nested literal under an expectation fixed above reports the missing
+  instance; spec_of recurses over nested Python lists while the phases
+  are iterative; zonk and the printer of a type are recursive, so a type
+  deeper than the recursion limit (a Python list nested 10^4 deep) fails
+  in solve.
+- Y7, the typed curry.expr (issue #56).  Done: curry.expr describes its
+  arguments as specs with an explicit stack, types them with the engine
+  (TypedProblem, a Problem with the builder's own specs: a Curry node typed
+  by a walk of its content, the wrappers fwd, set guard, constraints and
+  anchor, references, unboxed payloads, the group of the keyword anchors),
+  solves, and builds the nodes through make_node in a post-order walk: the
+  dictionaries first in scheme order as partial applications with one
+  missing argument, the arity of the symbol direct, the rest through
+  Prelude.apply, a partial application for fewer, newtype constructors
+  erased, literals at their resolved types (an int under Float is a Float,
+  under a user Num type the fromInt route), a str under [Char] one string
+  (the _biString node over the code points on the Python backend; on C++
+  the list the step would build, made natively by the new binding
+  Node.create_string, because the step unfolds the whole buffer at once
+  and an owned buffer would need a finalizer in every collector), lists
+  in a loop, iterators as generators whose items convert when demanded at
+  the element type fixed at construction (a mismatch is an EvaluationError
+  'cannot convert item X of the iterator at <location> to T', inside ? and
+  inside a set function alike), free markers as one shared unknown node
+  with the Data dictionary of their type (the Bool placeholder when
+  polymorphic), explicit dictionaries before the value arguments taken as
+  the dictionaries (the scheme then without its context), a lone symbol
+  without a scheme and a bare node built untyped (module.goal of a saved
+  module, raw graphs), and the result type recorded weakly by node identity
+  (the Python Node gained a __weakref__ slot).  The walk is iterative with
+  a memo per node, capped at 100000 nodes with the catalogue's error;
+  curry.typed(node, 'T') and the record of a node curry.expr returned skip
+  it.  API: exprtype= on expr and eval, curry.typed, curry.typeof (the
+  undefaulted scheme or the defaulted type of a node, a symbol, a
+  description or any argument), curry.describe (a Description, typed when
+  a consumer asks; the same description twice is one node),
+  curry.free(exprtype=), topython(value, exprtype=) threading the type
+  through lists and tuples so that an empty [Char] is '', and curry.eval
+  hands the recorded type of its goal to the converter.  The flag
+  typed_expr (default True) switches expr to the untyped builder, under
+  which goals.make_goal keeps the stage-1 check_application;
+  expressions.untyped_expr serves compile(mode='expr'), whose expression
+  module is not in the registry.  Costs, measured once on this machine:
+  curry.expr(Just 5) 70 us on the Python backend and 78 us on C++ against
+  7 to 10 us untyped; a list element 17 us (py) and 19.5 us (cxx) against
+  14 us; 55 percent of a call is Problem.solve (two scheme constructions
+  and the defaulting table), so an engine-side cache or a cheaper path for
+  a problem without live predicates would halve it; the item converter of
+  an iterator makes one builder and problem per item outside the five fast
+  paths, about 100 us per item.  Tests: unit_typed_expr.py (both
+  backends); testApply of unit_prelude.py and testConvertEmptyString of
+  unit_py_conversions.py rewritten without expectedFailure; unit_goals.py
+  expects the values the builder gives and pins the old check under the
+  flag; unit_sigtable.py pins that raw_expr reads no interface and expr
+  reads the Prelude's.  The report of the item blamed a runtime fault at
+  module unload for a segfault of unit_sigtable.py on the C++ backend and
+  for 321 literal nodes in unit_cxx_literals.py; both were stale shared
+  objects compiled under another installation (the review below).  Left:
+  the owner's word on the eager C++ string against the owned buffer of the
+  design; the cost of solve; eval forwards its keywords as anchors now, so
+  a misspelt keyword builds an unused anchor in silence.
+- Y8, twins and the engine oracle (issue #57).  Done:
+  curry.typecheck.serialize prints a spec tree as Curry text in two
+  passes with explicit stacks: operands without text (Curry nodes,
+  iterators, dictionaries) become the parameters p1, p2, one per node
+  identity; free markers become `let x1, x2 free in` or, lifted,
+  parameters, as the REPL lifts where x free; anchors become one
+  recursive let (a keyword anchor keeps its name when it is a free
+  identifier); Prelude names print unqualified, other names qualified,
+  the special constructors as syntax, operators infix with parentheses
+  by precedence, literals with Curry escapes, floats with a decimal
+  point, a one-character string as Char or String by the type the engine
+  resolved, a boxed literal over an unboxed payload as (3 :: Int), fail
+  as failed; None, set guards, constraints and 1-tuples have no text.
+  tests/func_typed_expr.py holds the corpus: the value twins in four
+  generated modules (literals and the conversion rows of design section
+  3.7, the library modules with seven twins whose leaves are values of
+  an earlier curry.eval or an iterator, free variables and anchors, a
+  module with a newtype, a Num instance, a class and unsigned bindings)
+  and 18 type-only goals in TypeCorpus.curry; the functional driver
+  evaluates the Python call in place of the goal against the goldens of
+  tests/oracle with zero value differences on both backends; the type
+  oracle compares the engine's undefaulted scheme with the .fint scheme
+  of the goal in a canonical form (zero differences; a twin with markers
+  compiled once more through the text route with the markers lifted);
+  the conversion rows round-trip through curry.compile(mode='expr'); the
+  committed modules must equal the serializer's output (python
+  func_typed_expr.py --write regenerates them).  Observed on the oracle:
+  PAKCS erases newtypes at run time as Sprite does (Box 5 prints 5), its
+  REPL wrapper rejects a goal whose type names Data.Functor.Identity.
+  Identity, so Identity 5 is reached through show, runIdentity, == and
+  fmap; function values print in the REPL's internal form; 1.0e+20 and
+  0.0 for a denormal; the Prelude of PAKCS 3 exports toInt; PAKCS 3.4.1
+  prints truncate 2.7 as 3 and properFraction 2.5 as (3,(-0.5)) while
+  both backends of Sprite truncate toward zero, so those two stay out of
+  the value twins.  Left: the error printer still uses engine.describe
+  with its depth cap (no hook); the empty string prints [] raw; the Float
+  rows pass under the driver's float standardization and test_float_text
+  pins the raw difference on C++ until #34 is fixed; an oracle script
+  that passes :add Data.Functor.Identity would let Identity 5 itself be a
+  value twin.
+- Y9, documentation and the example helpers (issue #58).  Done:
+  docs/source/REPL.rst, a page for the REPL (python -m curry.tools.icy)
+  with its line in index.rst: the commands :load, :eval, :type, :set and
+  :quit, the command-line form and its exit status, the defaulting of
+  :eval against the undefaulted :type, the oracle's sentence for toEnum 65
+  and the annotated fix toEnum 65 :: Char, the bindings of where-free
+  variables and the :type divergence (no lifting, on either system), the
+  IO rule (putStrLn "x" prints x then (), PAKCS prints x alone), the error
+  format.  Preface note [1] says type signatures are optional for goals and
+  names the table.  Quickstart replaces the undefined-behaviour warning on
+  curry.expr with the typed description (a method call, typeof, the error
+  at construction) and leaves the warning with raw_expr.  UsingTheAPI gains
+  the label building-expressions and the subsection Typed Expressions: the
+  scheme source, typeof in both modes, exprtype and curry.typed, the
+  conversion rules, the walk of a value with its cap, the one-call scope
+  of inference with the curry.describe form, the Data rule for free
+  variables, residuation of arithmetic on a free numeric variable beside
+  #37 (x + 1 =:= 3 suspends on both backends, a conjunction that binds x
+  succeeds in either order), the error lines as Python prints them,
+  raw_expr with the undefined-behaviour warning and the flag typed_expr;
+  the eval paragraph says curry.eval(M.addOne, 1) is typed like any
+  expression; the conversions section states the str/String rule and
+  topython's exprtype; the five subsections of Building Expressions use
+  the dash underline, which removes four heading-level errors of the build.
+  CurryPackage lists raw_expr, typeof and describe; EnvironmentVariables
+  describes typed_expr.  The helper text(s) = list(s) is gone from examples
+  12 to 18 and the inline list(name) from example 20, with the data
+  wrappers of 15 and 16, the string helper of 18 and the ''.join of 13 (the
+  typed eval returns '' for an empty String); the READMEs say that
+  curry.expr converts a str by the parameter type, and the README of 13 no
+  longer claims a recursion limit near 140 characters; every output is
+  unchanged on the C++ backend and unit_examples.py passes on both.  Found:
+  the command prefixes of the REPL (:e, :t, :l, :s, :q) failed with an
+  empty error, because each handler asserts the full command name while
+  resolve left the prefix in repl.command; commands.eval writes the
+  resolved name back (test_repl_command_prefixes in unit_goals.py).  The
+  design's one-call example curry.expr(plus, [plus, 1], 1.5) is ill-typed
+  (Num (a -> a)); the documented form goes through Prelude.apply.  Left:
+  the issue texts of #58 (the #39 comment, the #3 correction, the
+  method-application issue) await the owner's approval; examples 21 to 23
+  still pass names as list(name); the docs show floats through
+  converter='topython' because the C++ backend prints 1.0000000000000000;
+  the build's remaining ERROR lines are pre-existing (the sprite-exec
+  usage and three docstrings), and the duplicate-object warnings of the
+  Reference vary between runs.
+- Review of stage 2 (the findings on Y6 to Y9).  Fixed: the ABI stamp of
+  a compiled module (toolchain.object_digest) names the real path of the
+  installation beside the headers and the flags, because a module links
+  against the shared objects of its installation by absolute path; the
+  test products of a worktree compiled under another SPRITE_HOME loaded a
+  second Prelude.so beside the installed one, which was the segfault of
+  unit_sigtable.py after a reset and the 321 literal nodes of
+  unit_cxx_literals.py on the C++ backend, both gone once the stamp made
+  those objects stale (unit_cxx_toolchain.py test_digest; one more stage
+  compiles every object once).  The value walk types a partial
+  application by the scheme of its head and the arguments it holds (the
+  new binding Node.partial_head on C++), so apply (map not) 1 is refused
+  at construction instead of dumping core; a method without its
+  dictionaries stays an opaque leaf.  A one-character string under an
+  open type is a weak mark for Char, bound at the end of phase 1 when
+  nothing fixed it, so ['c', 'ab'] and 'c' ? 'ab' type as [String] in
+  either order, a type that only a list can fill (f a of fmap) makes it a
+  string (fmap ord 'a' is [97]), and a nullary type such as Int keeps the
+  message cannot convert 'a' to Int; four twins joined the corpus.  The
+  context of a scheme is printed in the front end's order, by the first
+  type variable then by the class, (Num a, Fractional b) => (a, b),
+  compared with expression_scheme.  The Python backend's round halves
+  away from zero, as std::round and PAKCS do (testRound).  Keyword anchors
+  are declared before any value is converted, so one may refer to a later
+  one, as with raw_expr.  The location of an error is built with a loop
+  and elided after eight positions, so a list nested 1500 deep reports a
+  CurryTypeError of a few hundred characters instead of a RecursionError.
+  curry.eval strips a top-level IO from the type it hands to topython, and
+  the untyped heuristic of topython joins a list only when its elements
+  are characters, so map fst over an iterator of pairs of strings returns
+  the strings.  The pattern of test_iterator_item_mismatch names
+  Prelude.reverse, where the iterator sits.  The error of the table for a
+  constraint on the element type of an iterator gains a line that names
+  curry.typed(iterator, '[T]').  occurs and free_vars visit a structural
+  node once, and the walk refuses a value whose type would print with more
+  than the cap's nodes (a pair nest that shares its node at every level),
+  so curry.typeof ends with ValueTooLargeError instead of a hang.  A
+  description carries its anchors into the expression that receives it
+  (the keys join the outer build; the problem gives every anchor a type
+  variable of its own, so a description typed twice starts afresh) and
+  keeps the keyword exprtype; describe refuses target.  The error of a
+  literal that fails through a missing instance names the argument that
+  fixed the type (argument 1 fixed a := Int (from Data.Maybe.fromJust
+  <value>)).  curry.eval forwards its other keywords to expr as anchors.
+  curry.typeof of a lone symbol without a scheme raises the no-scheme
+  error, while curry.expr still builds it untyped.  The Problem docstring
+  names curry.typecheck.errors in full, the one Sphinx warning of the
+  diff.  The docs say that a string is one node on the Python backend and
+  the list of its characters on C++, and the lazy exports of
+  curry.typecheck include the serializer.  Skipped: read "5" keeps the
+  table's wording (DefaultingError with the oracle's sentence) against
+  the 'ambiguous type in' line of design section 7 example 2, the owner's
+  decision between the design text and the code; the eager C++ string
+  against the owned buffer, the owner's decision as well.  Left for the
+  gated items: Y10 (specialization of a saturated method call to _impl#
+  and alias resolution, so a Python-built 1 + 2 prints plusInt 1 2; today
+  the selector route through apply costs the 70 us above and prints the
+  dictionary) behind a measured cost or the owner's wish; Y11 (the schemes
+  as metadata of the generated modules in place of the .fint reads, with
+  the format change of the ICurry interpreter, #31), which would also
+  retire the 11 ms index of the Prelude interface and the interface copies
+  beside the .icy; Y12 (the harness: corpus harvest, type-directed random
+  trees, leaf mutations, the CPU-time guard) after Y8, which would exercise
+  the engine beyond the hand-written twins; and the smaller leftovers
+  above: the depth of a type against the recursion limit, the cost of
+  solve, the error printer's depth cap, the empty string printed raw, the
+  truncate and properFraction divergence of PAKCS, and the issue texts of
+  #58.

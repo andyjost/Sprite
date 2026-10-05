@@ -16,14 +16,6 @@ import curry
 curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from curry.lib import Sched
 
-def text(s):
-  '''Converts a Python str to a Curry String.
-
-  A Python str of length one converts to a Char, so pass every String as a
-  list of one-character strings.
-  '''
-  return list(s)
-
 # The tasks: (name, duration, resource).  Two tasks that share a resource
 # cannot overlap.
 TASKS = [
@@ -50,10 +42,9 @@ def first_schedule(tasks, precedences, horizon):
   stops the search.  A horizon with no schedule yields zero values, which is
   not an error.
   '''
-  curry_tasks = [(text(name), duration, text(resource))
-                 for name, duration, resource in tasks]
-  curry_precedences = [(text(before), text(after)) for before, after in precedences]
-  values = curry.eval(Sched.schedule, curry_tasks, curry_precedences, horizon,
+  # curry.eval converts the tuples, lists, strs and ints by the parameter
+  # types of schedule.
+  values = curry.eval(Sched.schedule, tasks, precedences, horizon,
                       converter='topython')
   return next(values, None)
 

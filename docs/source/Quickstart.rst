@@ -217,12 +217,26 @@ Building Curry Expressions in Python
     >>> print(next(curry.eval(goal2)))
     S (S O)
 
-.. warning::
+:func:`curry.expr` types the expression before it builds it.  It reads the
+type of each symbol from the interface the front end wrote, converts each
+Python value by the type its position expects, and supplies the class
+dictionaries of overloaded functions.  So a class method can be called from
+Python, and a type error is reported when the expression is built, not
+when it is evaluated:
 
-  Since it bypasses the frontend, :func:`curry.expr` can produce ill-typed
-  expressions.  Its use represents a compromise between safety and practicality
-  (see :ref:`important-notes`).  Evaluating an ill-typed expression results in
-  undefined behavior, so use caution.
+    >>> plus = curry.symbol('Prelude.+')
+    >>> print(next(curry.eval(plus, 1, 2)))
+    3
+    >>> curry.typeof(curry.expr(plus, 1, 2))
+    'Num a => a'
+    >>> curry.expr(getattr(Prelude, 'not'), 1)
+    Traceback (most recent call last):
+      ...
+    curry.typecheck.errors.ConversionError: cannot convert 1 to Bool at argument 1 of Prelude.not :: Bool -> Bool
+
+See :ref:`typed-expressions` for the conversion rules.  The untyped builder
+:func:`curry.raw_expr` remains for the runtime and its tests; evaluating an
+ill-typed expression built with it results in undefined behavior.
 
 To build an expression containing a choice, use ``Prelude.?``:
 

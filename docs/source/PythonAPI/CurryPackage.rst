@@ -71,7 +71,13 @@ The top-level data and methods fall roughly into the following four categories:
 
         :func:`curry.eval`    : Evaluate a Curry goal.
 
-        :func:`curry.expr`    : Construct a Curry expression.
+        :func:`curry.expr`    : Construct a Curry expression, typed (see :ref:`typed-expressions`).
+
+        :func:`curry.raw_expr` : Construct a Curry expression without types.
+
+        :func:`curry.typeof`  : The type of an expression or of a symbol.
+
+        :func:`curry.describe` : Describe an expression, to be typed as a whole later.
 
 Package Structure
 =================
@@ -131,7 +137,9 @@ The contents of the ``curry`` package are documented in detail in the
 :mod:`curry.typecheck`
     The typed boundary between Python and Curry.  The signature table reads
     the type schemes of the loaded symbols from the FlatCurry interfaces
-    (``symbol.signature``, ``symbol.scheme``, ``interp.sigtable``).
+    (``symbol.signature``, ``symbol.scheme``, ``interp.sigtable``); the
+    defaulting table and the goals of :func:`curry.eval`; the engine and
+    the builder that type the expressions of :func:`curry.expr`.
 
 :mod:`curry.utility`
     General-purpose code.

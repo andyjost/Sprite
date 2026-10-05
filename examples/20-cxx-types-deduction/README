@@ -144,14 +144,14 @@ for int const*, where INT is curry.expr(CxxType.Fund, CxxLimits.Int).  A
 template parameter is the class of its name, cls('T'), and a function
 parameter is a pattern under ByValue, ByLRef or ByRRef: by_lref(const(T))
 is the parameter T const&.  A partial specialization is a Template with the
-names of its parameters: template(['T'], ptr(T)) is S<T*>.  A name is
-passed as a list of characters, because a str of length one, such as "T",
-would become a Char; a list of names is a list of such lists.  Python can
-make a free variable: curry.free() in a goal is one variable (Y1), and the
-typed builder (#56) will give it its type.  This driver keeps its free
-variables in Curry by choice: deduceCall makes one per template parameter,
-and the inverse questions of Deduction.curry declare one.  Python passes
-concrete types and patterns.
+names of its parameters: template(['T'], ptr(T)) is S<T*>.  A name is a
+Python str, which curry.expr converts by the type the constructor expects,
+a String, also for a name of one character such as "T"; a list of names is
+a list of such strings.  Python can make a free variable: curry.free() in a
+goal is one variable (Y1), and the typed builder gives it its type (#56).
+This driver keeps its free variables in Curry by choice: deduceCall makes
+one per template parameter, and the inverse questions of Deduction.curry
+declare one.  Python passes concrete types and patterns.
 
 Every goal returns a String, and the driver reads it with
 
