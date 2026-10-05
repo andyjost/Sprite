@@ -29,7 +29,14 @@ MODULE = 'UnsignedGoals'
 MODULE_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), 'data', 'curry', MODULE + '.curry'
   )
+LAST_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'data', 'curry', 'benchmarks'
+  , 'Last.curry'
+  )
 TIMEOUT = 300
+# The bound of the search under the stress mode of the collector; see
+# TestPrograms.test_repl_eval_under_stress.
+STRESS_TIMEOUT = 60
 IS_CXX = curry.flags['backend'] == 'cxx'
 
 def values(*args, **kwds):
@@ -590,9 +597,9 @@ class TestTextGoals(cytest.TestCase):
 class TestPrograms(cytest.TestCase):
   '''The REPL and sprite-exec, in child processes on the backend of this one.'''
 
-  def run_child(self, cmd, status=0, cwd=None, env=None):
+  def run_child(self, cmd, status=0, cwd=None, env=None, timeout=TIMEOUT):
     proc = subprocess.run(
-        ['timeout', str(TIMEOUT)] + cmd, capture_output=True, text=True
+        ['timeout', str(timeout)] + cmd, capture_output=True, text=True
       , cwd=cwd, env=env
       )
     self.assertEqual(
@@ -620,6 +627,28 @@ class TestPrograms(cytest.TestCase):
       , ['3', '1+2 :: Num a => a', '{xs=[1, 2]} True', 'x where x free :: Data a => a'
         , '_a', '[1.0000000000000000, 2.5000000000000000]' if IS_CXX else '[1.0, 2.5]']
       )
+
+  @unittest.skipUnless(IS_CXX, 'the stress mode belongs to the collector of the C++ backend')
+  def test_repl_eval_under_stress(self):
+    '''
+    :eval of a long search under the stress mode of the collector, within a
+    bound.  The REPL hands the expression to curry.eval and keeps no
+    reference to it, and the goal object drops its node when the evaluation
+    starts.  A reference to the root keeps the history of the search (the
+    choices pulled to the root with their failed alternatives) reachable,
+    every collection of the stress mode marks it, and the run grows with
+    the square of the length: on a 12-core machine, last of 3000 elements
+    took 26 s with the reference and 1 s without, and 8000 elements take
+    1 s without it and minutes with it.
+    '''
+    env = dict(os.environ, SPRITE_GC_STRESS='1')
+    proc = self.run_child(
+        [ sys.executable, '-m', 'curry.tools.icy', ':load', LAST_FILE
+        , ':eval', 'last (replicate 8000 True)', ':quit'
+        ]
+      , env=env, timeout=STRESS_TIMEOUT
+      )
+    self.assertEqual(proc.stdout, 'True\n')
 
   def test_repl_loaded_module(self):
     proc = self.repl(':load ' + MODULE_FILE, ':eval main14', ':type main14', ':eval addOne 1')

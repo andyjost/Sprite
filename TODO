@@ -2526,3 +2526,19 @@
   binding of every lifted variable, {x=x} x, so func_goal_defaulting.py
   drops from the golden the bindings of the variables Sprite leaves in the
   value before the comparison (drop_bindings); the goldens are unchanged.
+- The Goal object no longer roots the history of a search.  curry.eval
+  dropped its Goal after the merges, but the REPL's :eval, sprite-exec and
+  a saved module's default goal held the goal node in a local variable
+  through the evaluation, and the history (the choices pulled to the root
+  with their failed alternatives) stayed reachable from it: under
+  SPRITE_GC_STRESS=1 every collection marked it, and the run grew with the
+  square of the search.  Now Goal.evaluate hands the node to the runtime
+  state and keeps no reference to it (a second evaluation of the same Goal
+  is a ValueError; curry.eval makes a new Goal per call), the REPL passes
+  the compiled expression straight to curry.eval, and sprite-exec builds
+  the goal when the evaluation starts.  Measured through the REPL under the
+  stress mode: last (replicate 3000 True) took 26.5 s before and 1.0 s
+  after; 8000 elements 1.1 s after; Last through sprite-exec 2.5 s, as the
+  merge entry measured with the Goal dropped in curry.eval.
+  test_repl_eval_under_stress of unit_goals.py runs the REPL on 8000
+  elements under the stress mode within 60 s, on the C++ backend.

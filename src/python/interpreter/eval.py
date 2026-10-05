@@ -3,8 +3,6 @@ Implements Interpreter.eval.
 '''
 
 from . import conversions
-from ..utility.binding import binding
-from ..backends.generic.eval import evaluator
 from ..typecheck import goals
 
 def eval(interp, *args, **kwds):
@@ -42,6 +40,6 @@ def eval(interp, *args, **kwds):
   convert = conversions.getconverter(
       converter if converter != 'default' else interp.flags['defaultconverter']
     )
-  goal = goals.make_goal(interp, args)
-  results = evaluator.evaluate(interp, goal.raw_expr)
-  return goal.values(interp, results, convert)
+  # The goal object hands its node to the runtime state and keeps no
+  # reference to it; see Goal.evaluate.
+  return goals.make_goal(interp, args).evaluate(interp, convert)

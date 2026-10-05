@@ -111,20 +111,26 @@ class Main(object):
           )
         if args.goal is not None:
           symbol = curry.symbol(module.__name__ + '.' + args.goal)
-          goal = symbol
-          if self.goalscheme is not None and args.goal == self.default_goal:
-            goal = self.goal_from_scheme(symbol, self.goalscheme)
+          goalscheme = self.goalscheme if args.goal == self.default_goal else None
+          def goal():
+            # The expression is built when the evaluation starts and is not
+            # kept in a variable: a reference to the root of the goal keeps
+            # the history of the search reachable while the evaluation runs;
+            # see curry.typecheck.goals.Goal.evaluate.
+            if goalscheme is None:
+              return symbol
+            return self.goal_from_scheme(symbol, goalscheme)
           def doeval():
             logger.info('Evaluating %s', symbol.fullname)
             try:
               if args.time:
                 t0 = time.time()
-                for value in curry.eval(goal):
+                for value in curry.eval(goal()):
                   pass
                 t1 = time.time()
                 sys.stdout.write('%0.3f' % (t1 - t0))
               else:
-                for value in curry.eval(goal):
+                for value in curry.eval(goal()):
                   print(curry.show_value(value))
             except exceptions.EvaluationError as exc:
               sys.stderr.write('** %s **\n' % exc)

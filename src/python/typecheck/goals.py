@@ -23,6 +23,7 @@ returns a node (see :func:`lifted_goal`).
 '''
 
 from .. import exceptions, inspect
+from ..backends.generic.eval import evaluator
 from ..expressions import free as free_marker
 from ..objects import CurryNodeInfo
 from ..toolchain.flat2icurry import flatcurry as fc, terms
@@ -44,10 +45,11 @@ class Goal:
   An expression to evaluate.
 
   Attributes:
-    raw_expr:
-        The node to evaluate.  For a goal with reported free variables, the
-        constructor of the expression module (``compile.LIFTED_NAME``)
-        around the tuple of the value and the variables.
+    expr:
+        The node to evaluate, or None once the evaluation has started.  For
+        a goal with reported free variables, the constructor of the
+        expression module (``compile.LIFTED_NAME``) around the tuple of the
+        value and the variables.
     freevars:
         The names of the reported ``where ... free`` variables, in the order
         of the tuple.
@@ -56,33 +58,45 @@ class Goal:
     text:
         The text of the goal, or None.
   '''
-  __slots__ = ('raw_expr', 'freevars', 'scheme', 'text')
+  __slots__ = ('_expr', 'freevars', 'scheme', 'text')
 
-  def __init__(self, raw_expr, freevars=(), scheme=None, text=None):
-    self.raw_expr = raw_expr
+  def __init__(self, expr, freevars=(), scheme=None, text=None):
+    self._expr = expr
     self.freevars = tuple(freevars)
     self.scheme = scheme
     self.text = text
 
-  def values(self, interp, results, convert=None):
-    '''
-    The values of the goal from the results of its evaluation.  Each result
-    is converted with ``convert``; a goal with free variables yields
-    :class:`Bindings`.
+  @property
+  def expr(self):
+    return self._expr
 
-    The generator holds the names of the free variables and not the goal:
-    the goal node must not stay rooted from Python while the evaluation
-    runs.  The root of the configuration moves with the rewrites, but a
-    reference to the original node keeps every node of the search above
-    the live configurations reachable (the choices pulled to the root with
-    their failed alternatives), so the collector retains the history of the
-    evaluation and each collection marks it.  ``curry.eval`` drops its goal
-    object when it returns this generator.
+  def evaluate(self, interp, convert=None):
     '''
+    Starts the evaluation and returns the generator of the values.  Each
+    value is converted with ``convert``; a goal with reported free variables
+    yields :class:`Bindings`.
+
+    The goal hands its node to the runtime state and keeps no reference to
+    it.  The root of the configuration moves with the rewrites, but a
+    reference to the original node keeps every node of the search above the
+    live configurations reachable (the choices pulled to the root with their
+    failed alternatives), so a holder of the node roots the history of the
+    evaluation and each collection marks it.  The generator holds the names
+    of the free variables and not the node, so no caller roots the history
+    by holding a goal object through the evaluation.
+
+    Raises:
+      ValueError:
+          The goal was evaluated already.
+    '''
+    expr, self._expr = self._expr, None
+    if expr is None:
+      raise ValueError('the goal was evaluated already')
+    results = evaluator.evaluate(interp, expr)
     return _values(self.freevars, interp, results, convert)
 
   def __str__(self):
-    return str(self.raw_expr)
+    return '<evaluated>' if self._expr is None else str(self._expr)
 
   def __repr__(self):
     return '<curry goal %r with free variables %s>' % (

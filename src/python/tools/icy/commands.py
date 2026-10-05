@@ -41,8 +41,12 @@ def cmdEval(repl):
   '''
   assert repl.command == ':eval'
   if repl.args:
-    goal = curry.compile(' '.join(repl.args), mode='expr', imports=imports(repl))
-    values = iter(curry.eval(goal))
+    # The expression goes to curry.eval and is not kept here.  A reference
+    # to the root of the goal keeps the history of the search reachable
+    # while the evaluation runs; see curry.typecheck.goals.Goal.evaluate.
+    values = iter(curry.eval(
+        curry.compile(' '.join(repl.args), mode='expr', imports=imports(repl))
+      ))
     while True:
       try:
         value = next(values)
