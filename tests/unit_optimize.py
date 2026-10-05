@@ -192,6 +192,18 @@ class ModuleTestCase(cytest.TestCase):
     super().tearDown()
     shutil.rmtree(self.tmpdir, ignore_errors=True)
 
+  def compiled(self):
+    '''
+    Reloads the interpreter with the flag ``interpret`` off.  A test that
+    reads the generated code of a module, or needs a module loaded from its
+    compiled form, calls this first: under the default of the flag (tiered)
+    a module is interpreted and no code is generated for it.  The caller is
+    decorated with cytest.hardreset, which restores the default.
+    '''
+    curry.reload({'interpret': 'off'})
+    curry.path.insert(0, self.tmpdir)
+    self.currypath = list(curry.path)
+
   def write(self, stem, text):
     '''
     Writes a Curry module with a new name that starts with ``stem``.  The
@@ -368,12 +380,14 @@ class TestInlineAliases(ModuleTestCase):
       self.assertIn(target, calls)
     self.assertFalse([c for c in calls if c.startswith('Prelude._impl#')])
 
+  @cytest.hardreset
   def test_target_module_joins_the_imports(self):
     '''
     When the target lives in a module the caller does not import, the module
     joins the imports.  The alias is read from the metadata of a module
     loaded from its compiled form.
     '''
+    self.compiled()
     base = self.write('Base', '''
       g :: Int -> Int
       g x = x * 2
@@ -404,7 +418,10 @@ class TestInlineAliases(ModuleTestCase):
 class TestEvaluation(ModuleTestCase):
   '''Modules compiled by name: their values, their steps, their code.'''
 
+  @cytest.hardreset
   def test_values(self):
+    # The test reads the generated code.
+    self.compiled()
     name = self.write('Values', '''
       tak :: Int -> Int -> Int -> Int
       tak x y z = if x <= y then z
@@ -483,11 +500,13 @@ class TestEvaluation(ModuleTestCase):
       )
     self.assertEqual(list(curry.eval(module.q, converter='topython')), [()])
 
+  @cytest.hardreset
   def test_private_target_across_modules(self):
     '''
     A call from another module may end at a function that is private to the
     module of the alias.  Both backends resolve it.
     '''
+    self.compiled()
     private = self.write('Private', '''
       module %(name)s (f) where
       f :: Bool -> Int -> Int
@@ -507,8 +526,10 @@ class TestEvaluation(ModuleTestCase):
     self.assertIn(infotable_handle('%s.g' % private), text)
     self.assertNotIn(infotable_handle('%s.f' % private), text)
 
+  @cytest.hardreset
   def test_linked_against_the_target_module(self):
     '''The module of a target joins the imports; the code loads and links.'''
+    self.compiled()
     base = self.write('Base', '''
       g :: Int -> Int
       g x = x * 2

@@ -1,6 +1,7 @@
 from ..generic.eval import evaluator
 from ... import backends
-from . import compiler, cyrtbindings, fundamental_symbols, loader, materialize, toolchain
+from . import compiler, cyrtbindings, fundamental_symbols, loader, materialize
+from . import tiered, toolchain
 from ...objects.handle import getHandle
 
 class IBackend(backends.IBackend):
@@ -20,7 +21,24 @@ class IBackend(backends.IBackend):
     return interp._its
 
   def init_interpreter_state(self, interp):
+    # A new interpreter and a reset unload the modules whose compiles run in
+    # the background.
+    tiered.cancel()
     interp._its = cyrtbindings.InterpreterState()
+
+  def module_loaded(self, interp, moduleobj, currypath):
+    tiered.module_loaded(interp, moduleobj, currypath)
+
+  def before_evaluation(self, interp):
+    if tiered.enabled(interp):
+      tiered.poll(interp)
+
+  def after_evaluation(self, interp):
+    if tiered.enabled(interp):
+      tiered.poll(interp)
+
+  def tiered_counts(self):
+    return tiered.counts()
 
   def num_collections(self):
     return cyrtbindings.gc_collections()

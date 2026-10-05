@@ -7,6 +7,10 @@ __all__ = ['load_module']
 
 def load_module(interp, sofile):
   assert sofile.endswith('.so')
+  # Under tiered execution the tables of the modules the interpreter runs
+  # must be named before an object binds to them (see tiered.py).
+  from . import tiered
+  tiered.ensure_shims(interp)
   shlib = cyrt.SharedCurryModule(sofile)
   # The runtime keeps one registry entry per module name for as long as a
   # library of that name is loaded, and a second library joins the entry of

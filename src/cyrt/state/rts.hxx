@@ -1,5 +1,6 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/graph/memory.hpp"
+#include "cyrt/tiered.hpp"
 #include <cstdint>
 
 namespace cyrt
@@ -71,16 +72,22 @@ namespace cyrt
   // request (E_GC) comes after the rotation check, and every step counts: so
   // the rotation schedule is the same whether a collection is due or not,
   // and the stress mode of the collector, which keeps the request set,
-  // rotates as a normal run does.
+  // rotates as a normal run does.  The same safepoint applies the compiled
+  // objects that finished in the background (cyrt/tiered.hpp): a swap only
+  // writes step pointers, so the schedule is unchanged.
   inline tag_type RuntimeState::check_interrupts(tag_type tag)
   {
     if(!(++this->stepcount & 0xffff))
+    {
+      if(g_tiered_pending.load(std::memory_order_relaxed))
+        tiered_apply_pending(true);
       for(Queue * Q: this->qstack)
         if(Q->size() > 1)
         {
           this->rotate_target = Q;
           return E_ROTATE;
         }
+    }
     if(g_gc_collect)
       return E_GC;
     return tag;

@@ -295,6 +295,14 @@ namespace cyrt { namespace python
       .def_property_readonly("is_operator", &is_operator)
       .def("__repr__", &InfoTable::repr)
       .def("step", &InfoTable_step)
+      .def_property_readonly("address"
+        , [](InfoTable const & self) { return (uintptr_t) &self; }
+        , "The address of the table in the process (see "
+          "curry.backends.cxx.tiered).")
+      .def_property_readonly("has_step"
+        , [](InfoTable const & self) { return self.step != nullptr; }
+        , "Whether the table has a step function: compiled, interpreted, or "
+          "built in.")
       ;
 
     // Fundamental symbols.
@@ -461,6 +469,10 @@ namespace cyrt { namespace python
       .def_readonly("kind", &DataType::kind)
       .def_readonly("name", &DataType::name)
       .def_readonly("size", &DataType::size)
+      .def_property_readonly("address"
+        , [](DataType const & self) { return (uintptr_t) &self; }
+        , "The address of the type in the process (see "
+          "curry.backends.cxx.tiered).")
       ;
   }
 

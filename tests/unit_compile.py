@@ -118,10 +118,14 @@ class TestPyCompile(cytest.TestCase):
       curry.flags['backend'] != 'cxx'
     , 'the module registry belongs to the C++ backend'
     )
+  @cytest.with_flags(interpret='off')
   def testReusedModuleNameIsAnError(self):
     '''
     A second library under a live module name is refused.  The runtime would
-    otherwise resolve the new module to the code of the first one.
+    otherwise resolve the new module to the code of the first one.  Under
+    the default of the flag ``interpret`` (tiered) a module compiled from a
+    string is interpreted and makes no library; a module of the same name
+    made again takes the tables of the first back (unit_cxx_tiered.py).
     '''
     first = curry.compile('f :: Int\nf = 1', modulename='Dup')
     curry.reset()

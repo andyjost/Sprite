@@ -18,6 +18,10 @@ namespace cyrt { namespace python
       .def("get_builtin_symbol", &Module::get_builtin_symbol, reference)
       .def("get_builtin_type", &Module::get_builtin_type, reference)
       .def("link", &Module::link)
+      .def("keep_tables", &Module::keep_tables
+        , "Keeps the tables made at run time for the life of the process.")
+      .def_property_readonly("shlib", &Module::shlib
+        , "The compiled object linked to the module, or None.")
       .def_readonly("name", &Module::name)
       .def_static("find_or_create", &Module::find_or_create)
       .def_static("getall", &Module::getall)

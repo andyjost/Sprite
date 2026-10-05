@@ -2601,3 +2601,233 @@
   follow.  The next bottleneck of the parallel build is the prebuild of the
   Curry library, which runs serially inside it: 41 of the 58.6 s of a
   parallel build without ccache.
+
+2026-10-05: tiered execution (B3, issue #64)
+- Tiered execution on the C++ backend: the interpreter flag ``interpret``
+  gets the mode 'tiered', now the default.  A module without a current
+  object is interpreted at once, as under 'new' (Json2Cpp.ends_plan;
+  Cpp2So.ends_plan ends the plan at a generated .cpp without an object as
+  well, and loadcurry reads the JSON beside it, so a compile that was
+  cancelled leaves nothing in the path), a child process compiles it in the
+  background, and the runtime swaps the functions of the module to the
+  compiled code when the object is ready.  The pieces: backends/cxx/
+  tiered.py (the jobs, the shims, the policy, poll, wait, status, counts,
+  cancel), cyrt/tiered.hpp and tiered.cpp (a detached worker thread that
+  runs the commands of a job with posix_spawn, one job at a time in the
+  order the modules finished loading, and the swap on the evaluating
+  thread), Module::adopt, Module::keep_tables, SharedCurryModule with a
+  load path, and the bindings (tiered_submit, tiered_poll, tiered_results,
+  tiered_status, tiered_wait, tiered_cancel, tiered_build_shim,
+  tiered_load_shim; InfoTable.address, InfoTable.has_step,
+  DataType.address, Module.shlib).  The child runs sprite-make --so -z on
+  the source file with the search path of the import and interpret:off;
+  sprite-make sets interpret:off for the interpreter it makes, so an
+  explicit compile compiles under any mode, and so does the prebuild of
+  make stage.  The hooks: IBackend.module_loaded (the end of an import
+  registers the shim of the module and queues the job),
+  IBackend.before_evaluation and IBackend.after_evaluation
+  (Interpreter.eval applies the finished jobs before an evaluation, and the
+  goal applies and logs them when its values are exhausted); the scheduler
+  applies them at its periodic safepoint too (check_interrupts, every 65536
+  steps), so a running evaluation swaps in the middle: a step in flight
+  finishes on its bytecode, the next step of the function runs compiled.
+  Interpreter.stats and the --stats line gained the fields swapped (the
+  functions swapped) and failed_compiles.  Policy: an expression module, an
+  interactive module, and a module compiled from a string
+  (str2module.is_temporary) stay interpreted; a failed compile, shim, or
+  load leaves the module interpreted and is logged once per module, by the
+  next poll, at the end of the evaluation, or at exit; a reset, a reload,
+  and the exit of the process cancel the queue and kill the running child
+  (its own process group), so no compiler outlives the interpreter and a
+  short program never waits, and a program shorter than its compile ends
+  interpreted with no object written; the Prelude loads compiled from the
+  prebuilt object as before.
+- The swap and the one-table rule.  The runtime compares info tables by
+  address (graph/equality.cpp, RuntimeState::add_binding, inspect.isa), so
+  the compiled object must use the tables the interpreter made.  A compiled
+  object names its tables and types by ELF symbol, its own included
+  (R_X86_64_GLOB_DAT in the code, R_X86_64_64 in the bill of materials and
+  the constructor arrays), and the dynamic linker binds a reference to the
+  first definition in the global scope.  So tiered.py registers a shim per
+  module with tables made at run time when its load ends: g++ -shared
+  -nostdlib over an empty file with one --defsym per table and type, the
+  address of the object made at run time (21 ms), loaded RTLD_GLOBAL before
+  any object (a job carries every shim not yet loaded; the loader loads
+  them before an object it loads).  The dynamic initializer of a static
+  table of the object constructs it at the address its symbol resolves to,
+  so the load of the object writes the compiled step, the name, the format,
+  and the flags into the tables of the interpreter, and the object's own
+  copies stay blank.  The load is the swap; Module::adopt counts the
+  functions, takes the step of a function the initializers did not reach
+  from the step function's own symbol and clears its aux field, so a
+  swapped table looks the same on both paths, clears the static-object flag
+  the initializers wrote, and links the object.  Module keeps the tables it
+  made in owned lists; a module with tables made at run time, under an
+  interpreting mode, moves them to a process-wide kept registry when it is
+  cleared, with its object (the kept tables hold its steps), and a module
+  of the same name made later takes a kept table of the same tag and arity
+  back (create_infotable, create_type), so a shim stays valid across a
+  reload; a module loaded from its object has nothing to keep, and its
+  object goes with it.  A module whose tables changed shape after its shim
+  was made stays interpreted, and so do the modules that import it (their
+  objects would bind to the old tables), with one warning.  The review of
+  the first version found and this version fixed: (1) dlopen names a loaded
+  object by its path, so a file written over the path of a mapped object
+  (the kept object of an earlier incarnation) was never read and the swap
+  installed the old code; the swap probes with RTLD_NOLOAD and loads such a
+  file through a hard link of its own name beside it (a copy when the file
+  system refuses the link), removed once the object is mapped;
+  SharedCurryModule(sofilename, loadpath) records the canonical name and
+  takes over the registry entry of the module.  (2) Once dlopen ran, the
+  initializers have written the live tables, so no failure after the load
+  unmaps the object: the swap opens the object itself first and never
+  closes that handle on a failure path.  (3) A compiled object names the
+  objects of its imports as needed libraries, which the dynamic linker
+  mapped before the loader processed the imports, stale or not: an edited
+  import left a stale object mapped and two tables per symbol.  Cpp2So
+  .is_stale reads the imports of a .so from the generated file beside it
+  and imports them first; an object is loaded only when every import was
+  loaded from its object, else the module is interpreted (or compiled
+  again under 'off'), and its compile waits in the queue behind the
+  compile of the import.  (4) A result applied at a safepoint was never
+  logged in a process that evaluates once: the end of an evaluation and
+  the exit of the process now poll, and the stats line carries the counts.
+  (5) The shim of a module is registered when its load ends, not computed
+  for every module of the interpreter before an object loads, so a
+  half-loaded module (in the registry before its symbols) no longer logs
+  a spurious shape-change warning and consumes the once-key.  (6) The
+  kept-table rule keeps a module only when it has tables made at run time:
+  a module loaded from its object is freed with its registry entry as
+  under 'off'.  (7) A kept table keeps its step on both swap paths; the
+  revert to the interpreter in clear is gone.  Also found: the destructor
+  of a std::condition_variable blocks until its waiters left (glibc), so a
+  static one with the worker waiting on it hung the exit of every process
+  that queued a job; the state of the worker is a leaked singleton.  A job
+  popped before a cancel used to start anyway; a job's command starts
+  under the lock after a check of the generation.  DataType.flags is a
+  char in the bindings.  A re-import of a module whose C++ module is still
+  held found swapped tables with a step; the materializer attaches a body
+  to a table without a step only (InfoTable.has_step).
+- Found on the way to the default.  The runtime headers changed, so every
+  object compiled before (the test corpus included) was stale by its ABI
+  stamp.  Under 'off' a test process compiled such a module again in place;
+  under 'tiered' it interprets the module and the background compile dies
+  with the short process, so the tests that inspect the compiled object of
+  a corpus module (unit_cxx_bom, unit_cxx_literals, unit_cxx_partial,
+  unit_cxx_passthrough, unit_cxx_rewrite) fail until the prepare pass of
+  the runner (./run_tests --prepare) compiles the corpus; tests/README and
+  AGENTS.md say so.  A test that pins 'off' by a reload must import the
+  Prelude before it fakes a step of the toolchain: a new interpreter loads
+  the Prelude on first use, the plan of the installed Prelude then ran
+  under a mocked format stamp, took the installed .cpp for stale,
+  regenerated it from the module whose C++ tables were still the static
+  ones of the object (3448 extern declarations, no definition), and the
+  next process compiled that stub into the installation; every file that
+  loaded the Prelude failed with an undefined symbol until make stage
+  rebuilt it.  Two hazards remain and are listed below.  The mixed mode
+  has a gap: an interpreted module that applies readFile of the compiled
+  Prelude to a nondeterministic name raises ValueError('bad Curry string')
+  where compiled code and a program interpreted whole raise the
+  nondeterminism error; an expected failure in unit_cxx_tiered.py records
+  it.  The tests that drive the compile steps set the flag to 'off' for
+  themselves: unit_cxx_toolchain.py (per test, with the Prelude imported
+  first), test_values, test_private_target_across_modules,
+  test_linked_against_the_target_module, and
+  test_target_module_joins_the_imports of unit_optimize.py,
+  test_compile_time of unit_api.py, testReusedModuleNameIsAnError of
+  unit_compile.py, and test_module_in_a_package of unit_prebuild.py;
+  test_split_items of unit_benchmarks.py accepts the other flags of the
+  environment.
+- Measured on the final build (the machine carried another stream; load
+  average 6.8 to 8.6 during the runs; three repetitions each; the flag
+  interpret:off against the default).  Time after the front end, in
+  process: the import of a fresh module from its JSON with no object, Fib
+  0.592 to 0.723 s under off (json2cpp and g++) against 0.006 to 0.010 s
+  under the default, Peano 0.769 to 0.816 s against 0.010 to 0.013 s; the
+  first value of main then takes 0.302 to 0.307 s compiled against 0.332
+  to 0.340 s interpreted for Fib, 0.164 to 0.189 against 0.241 to 0.252
+  for Peano (the compile ends after the program).  The expression 1+2 in a
+  child Python (the probe of the harness), warm ICurry cache: curry.compile
+  0.380 to 0.414 s against 0.024 to 0.030 s, the first value 0.6 to 1.0 ms
+  in both.  The compile suite (./run_benchmarks -s compile -b cxx -r 3,
+  Fib Peano Last expression, wall seconds of the whole process, off against
+  the default, with the ratio of the instructions): warm Fib 1.008 ->
+  0.419 (0.44), Peano 1.240 -> 0.348 (0.36), Last 0.870 -> 0.333 (0.48),
+  expression 0.672 -> 0.337 (0.60); cold Fib 1.738 -> 1.107 (0.73), Peano
+  1.862 -> 1.207 (0.64), Last 1.555 -> 1.169 (0.77), expression 1.446 ->
+  1.072 (0.84); 8 of 8 items faster by wall and by instructions, the
+  counters equal.  sprite-exec -t --stats on a fresh copy, the front end
+  included, wall seconds off against the default: Fib 1.78 to 2.06 against
+  1.30 to 1.41 (eval 0.29 to 0.31 against 0.33 to 0.36), Peano 1.92 to
+  2.03 against 1.22 to 1.30 (eval 0.17 to 0.20 against 0.25 to 0.33), Tak1
+  3.18 to 3.55 against 3.14 to 3.26 (eval 1.80 to 1.83 against 1.86 to
+  1.89, swapped=6 in the stats line: the swap during the run); steps equal
+  in every pair (3500006, 1857970, 33629915).  The acceptance, under 50 ms
+  to the first value after the front end: met in the reading "the import
+  and the first step" (6 to 13 ms for a module, 24 to 30 ms for an
+  expression to its first value); the first value of a program is its
+  evaluation, and the interpreter takes 1.1 to 1.5 times the time of the
+  compiled code for it.  The suites: ./run_tests -j 4 --mem 6 --backend
+  cxx 'unit_*.py' 66 of 66 files, 0 failed (110 s; 68 of 68 with
+  --prepare, 190 s); --backend py unit_compile.py unit_api.py
+  unit_py_evaluation.py 3 of 3, 0 failed; unit_cxx_tiered.py and
+  unit_cxx_interp.py under SPRITE_GC_STRESS=1: 16 tests (one expected
+  failure) and 25 tests, ok.
+- Tests: unit_cxx_tiered.py (16 tests, one an expected failure): the swap
+  and its counts in tiered.status and curry.stats, the values and steps of
+  both tiers, one table per symbol (the same address before and after,
+  isa, == across the tiers), the swap between the values of one evaluation
+  and at a safepoint of a long loop (a skip when the compile outlasts the
+  loop), a fresh module that imports a fresh module, the tables and the
+  shim across a reload without a warning, an edited module after a reload
+  (the new code runs after the swap), an edited import with a current
+  dependent (the dependent is interpreted and both swap), a module
+  compiled from a string made again after a reset (the tables taken back,
+  the new value), the failure path with one warning and the stats field
+  (CXXFLAGS the compiler refuses), strings and expressions left alone, a
+  reset that cancels (both outcomes of the race), a compiled module that
+  loads compiled, sprite-make under the flag, a fresh program under
+  sprite-exec with the output and steps of the compiled run and no object
+  left behind, a failed compile reported once on the standard error of
+  sprite-exec with failed_compiles=1, and the expected failure of the
+  mixed mode.  Docs: flags.py, tests/README section 4, AGENTS.md, the
+  sprite-exec page (the two fields).
+- CI under the default.  The shards run each file with unittest discover
+  through .github/scripts/run-tests.sh on a fresh checkout, so no corpus
+  object exists when a run starts: the five files above failed on the C++
+  backend, and every other file ran interpreted.  The runner gained
+  --prepare-only (cli.prepare_pass_jobs, report.prepare_header): the
+  prepare pass alone, for the pool and the corpus of each selected
+  functional test, one process at a time, no test file; the exit status is
+  0 when every directory compiled whole, else 1 (under --prepare a failed
+  directory stays a note), and --list shows the directories.  run-tests.sh
+  collects the files of the shard first, runs the pass over them on the
+  C++ backend before its loop, in a group of its own, and fails the shard
+  when the pass fails; the py shard, and the flags interpret:all and
+  interpret:new (a test process never compiles under them), skip it.
+  Test: test_prepare_only of unit_runner.py (a stub pass with both
+  statuses, no test file runs, --list).  Verified with the objects of the
+  corpus removed: the script on unit_cxx_bom.py compiled the pool in the
+  pass (23 s) and the file passed, unit_cxx_rewrite.py found the products
+  current (0.5 s) and passed, unit_cxx_interp.py under
+  SPRITE_TEST_FLAGS=interpret:all ran without the pass and passed, and a
+  CXXFLAGS value the compiler refuses failed the pass and the shard before
+  the loop with the compiler's message in the group.
+- Left: the runner could run the prepare pass by itself on the C++ backend
+  when a corpus object is stale, so that the plain ./run_tests needs no
+  flag after a header change; a plan with a stale verdict on an installed
+  object writes into the installation, and a process that holds the
+  compiled module of that name emits a stub (the generation step imports
+  the ICurry into the live module); the gap of the mixed mode above
+  (readFile of a nondeterministic name); a program shorter than its
+  compile never gets an object under the default (a run that let the child
+  finish at exit would give the next run compiled code, at the price of a
+  compiler that outlives the process); the shim names the first
+  incarnation of a module name, so a re-import after a change of shape
+  stays interpreted with its dependents (a take-back of a kept table
+  regardless of shape would remove the limit); a swapped module keeps its
+  registry entry for the life of the process, so a later load of the same
+  name from another directory is refused; a module whose compile the exit
+  cancelled keeps its generated file and compiles from it next time; the
+  latency items are measured by hand here and not yet in the nightly
+  history; the Prelude's bytecode cache (B2) is still open.

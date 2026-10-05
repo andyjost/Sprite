@@ -12,6 +12,7 @@ from testrunner.scheduler import INTERRUPT_SIGNALS, Job, Scheduler, pick
 import io, json, os, re, shutil, signal, subprocess, sys, tempfile, threading, time
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from unittest import mock
 
 PYTHON = sys.executable
 MIB = 1024 ** 2
@@ -901,6 +902,66 @@ class TestCli(unittest.TestCase):
       status = cli.main(['--fast', '--manifest', manifest, 'unit_runner.py'])
     self.assertEqual(status, 0)
     self.assertIn('no file selected', out.getvalue())
+
+  def test_prepare_only(self):
+    '''
+    --prepare-only runs the prepare pass alone and exits with its status.
+    The pass is a stub, a small Python program with the status under test;
+    the test jobs are stubs that would write a marker, and none runs.
+    '''
+    self.assertFalse(cli.parse_args([]).prepare_only)
+    self.assertTrue(cli.parse_args(['--prepare-only']).prepare_only)
+    logdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, logdir, ignore_errors=True)
+    marker = os.path.join(logdir, 'a-test-file-ran')
+    calls = []
+    def pass_jobs(status):
+      def stub(args, names, backends, sprite_home):
+        calls.append((list(names), list(backends), args.logdir))
+        return [
+            Job(
+                'prepare data/curry', backend
+              , [PYTHON, '-c', 'import sys; sys.exit(%d)' % status]
+              , cap=GIB, timeout=60, exclusive=True
+              , logfile=os.path.join(logdir, backend, 'prepare-data-curry.log')
+              )
+            for backend in backends
+          ]
+      return stub
+    def test_job(filename, backend, sprite_home, manifest, timeout, _, env):
+      return Job(
+          filename, backend, [PYTHON, '-c', 'open(%r, "w").close()' % marker]
+        , cap=GIB, timeout=60
+        , logfile=os.path.join(logdir, backend, filename + '.log')
+        )
+    for status in (0, 1):
+      out = io.StringIO()
+      with mock.patch.object(cli, 'prepare_pass_jobs', pass_jobs(status)), \
+           mock.patch.object(cli, 'test_job', test_job), redirect_stdout(out):
+        result = cli.main([
+            '--prepare-only', '--backend', 'cxx', '--logdir', logdir
+          , 'unit_runner.py'
+          ])
+      self.assertEqual(result, status)
+      text = out.getvalue()
+      self.assertIn('runner: prepare pass, 1 directory on cxx', text)
+      self.assertRegex(
+          text, r'\[1/1\] %s\s+cxx\s+prepare data/curry'
+                % ('ok' if status == 0 else 'FAILED')
+        )
+      self.assertIn('1 of 1 run, %d failed' % status, text)
+    self.assertEqual(calls, [(['unit_runner.py'], ['cxx'], logdir)] * 2)
+    self.assertFalse(os.path.exists(marker))
+    # --list shows the directories of the pass and no test file.
+    out = io.StringIO()
+    with redirect_stdout(out):
+      result = cli.main(
+          ['--list', '--prepare-only', '--backend', 'cxx', 'unit_runner.py']
+        )
+    self.assertEqual(result, 0)
+    text = out.getvalue()
+    self.assertRegex(text, r'cxx\s+prepare data/curry\s.*prepare pass')
+    self.assertNotIn('unit_runner.py', text)
 
 
 class TestPrepare(unittest.TestCase):

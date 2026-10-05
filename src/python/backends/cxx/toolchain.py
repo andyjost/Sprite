@@ -193,10 +193,12 @@ class Json2Cpp(Json2TargetSource):
     compile.  Under the interpreter flag ``interpret`` set to 'new', a
     module that reached the JSON stage without a compiled object is
     interpreted by the runtime (cyrt/icurry.hpp; see materialize.py), so
-    this step and the C++ compiler do not run for it.  A module with a
-    current object never reaches this step: the object is the newest file.
+    this step and the C++ compiler do not run for it.  Under 'tiered' the
+    same holds, and the module is compiled in the background after its load
+    (see tiered.py).  A module with a current object never reaches this
+    step: the object is the newest file.
     '''
-    return self.interp.flags['interpret'] == 'new' \
+    return self.interp.flags['interpret'] in ('new', 'tiered') \
         and filename.endswith(('.json', '.json.z'))
 
   def is_stale(self, filename):
@@ -324,6 +326,19 @@ class Cpp2So(object):
   def __repr__(self):
     return 'cpp2so'
 
+  def ends_plan(self, filename):
+    '''
+    Tells whether the plan ends at ``filename``, a generated .cpp file this
+    step would compile.  Under the interpreter flag ``interpret`` set to
+    'tiered', a module with a generated file and no object (a background
+    compile that was cancelled) is interpreted from the JSON beside the
+    file, which loadcurry reads, and the background compile starts from the
+    generated file.  Without the JSON the plan goes on.
+    '''
+    return self.interp.flags['interpret'] == 'tiered' \
+        and filename.endswith('.cpp') \
+        and _loadcurry.json_beside(filename) is not None
+
   @property
   def flavor(self):
     '''
@@ -369,12 +384,48 @@ class Cpp2So(object):
     headers, not time stamps, so a new copy of the same runtime keeps every
     object, and a copied cache keeps its objects.  An installation without
     headers (runtime_digest gives None) cannot compile anything, so its
-    objects are trusted as they are.
+    objects are trusted as they are.  A .so file is stale as well when an
+    import of its module runs without an object (import_lacks_an_object).
     '''
     if filename.endswith('.so'):
       accepted = self.accepted_digests()
-      return bool(accepted) and self.read_stamp(filename) not in accepted
+      if accepted and self.read_stamp(filename) not in accepted:
+        return True
+      return self.import_lacks_an_object(filename)
     return source_is_stale(filename)
+
+  def import_lacks_an_object(self, sofile):
+    '''
+    Tells whether an import of the module of ``sofile`` runs without a
+    compiled object.  The imports are read from the generated file beside
+    the object and imported first.
+
+    The object names the objects of its imports as needed libraries (see
+    _dependencies), and the dynamic linker maps the file at each such path
+    before the loader processes the imports.  When an import was edited, that
+    file is stale: under the interpreter flag ``interpret`` the import is
+    interpreted from its ICurry, and its tables would exist twice.  So an
+    object is loaded only when every import was loaded from its object; a
+    module whose import is interpreted is interpreted too (or compiled
+    again, without the flag).  Without the generated file the imports are
+    not known, and the object is trusted.
+    '''
+    cppfile = _filenames.replacesuffix(sofile, '.cpp')
+    if not os.path.isfile(cppfile):
+      return False
+    try:
+      imports = self._importedModules(cppfile)
+    except exceptions.PrerequisiteError:
+      return False
+    for modulename in imports:
+      module = self.interp.import_(modulename)
+      if getHandle(module).sofilename is None:
+        logger.debug(
+            'The object %r is not loaded: its import %s has no object'
+          , sofile, modulename
+          )
+        return True
+    return False
 
   @classmethod
   def stampfile(cls, sofile):

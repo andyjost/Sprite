@@ -6,8 +6,17 @@ from ..utility import filesys
 from ..utility import filesys, formatDocstring
 import logging, os, shutil, tempfile, weakref
 
-__all__ = ['str2module']
+__all__ = ['is_temporary', 'str2module']
 logger = logging.getLogger(__name__)
+
+# The directories this module made for the modules compiled from strings in
+# this process.  Tiered execution leaves such a module interpreted (see
+# backends.cxx.tiered).
+_TEMPORARY_DIRS = set()
+
+def is_temporary(filename):
+  '''Tells whether ``filename`` lies in a directory str2module made.'''
+  return os.path.dirname(os.path.abspath(filename)) in _TEMPORARY_DIRS
 
 @formatDocstring(config.python_package_name())
 def str2module(
@@ -51,6 +60,7 @@ def str2module(
     parentdir = tempfile.gettempdir()
   moduledir = tempfile.mkdtemp(prefix='sprite-', dir=parentdir)
   logger.debug('Created directory %r for a dynamic Curry module', moduledir)
+  _TEMPORARY_DIRS.add(moduledir)
   try:
     curryfile = os.path.join(moduledir, modulename + '.curry')
     with open(curryfile, 'w', encoding='utf-8') as ostream:
@@ -78,4 +88,5 @@ def str2module(
 
 def _rmdir(moduledir):
   logger.debug('Removing Curry module directory: %r', moduledir)
+  _TEMPORARY_DIRS.discard(moduledir)
   shutil.rmtree(moduledir)

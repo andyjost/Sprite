@@ -4,7 +4,7 @@ from . import _filenames, _makecurry
 from ..utility import formatDocstring
 import logging, os, zlib
 
-__all__ = ['loadcurry', 'loadjson']
+__all__ = ['json_beside', 'loadcurry', 'loadjson']
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +39,25 @@ def loadcurry(plan, name, currypath=None, **kwds):
     return package
   elif filename.endswith('.json') or filename.endswith('.json.z'):
     return loadjson(filename)
+  elif filename.endswith('.cpp'):
+    # The plan ended at a generated file (Cpp2So.ends_plan of the C++
+    # backend, under tiered execution): the module is interpreted from the
+    # JSON beside it.
+    return loadjson(json_beside(filename))
   else:
     return plan.interp.load(filename)
+
+def json_beside(filename):
+  '''
+  The ICurry-JSON file beside a generated file (.cpp, .py): the zipped one
+  when it exists, else the plain one, else None.
+  '''
+  stem = os.path.splitext(filename)[0]
+  for suffix in '.json.z', '.json':
+    candidate = stem + suffix
+    if os.path.isfile(candidate):
+      return candidate
+  return None
 
 def loadjson(jsonfile):
   '''

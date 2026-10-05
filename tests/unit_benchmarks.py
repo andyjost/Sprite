@@ -793,7 +793,7 @@ class TestSuites(unittest.TestCase):
       , '-g', 'part4_2'
       ])
     self.assertEqual(env['CURRYPATH'], SPLITDIR + os.pathsep + CURRYDIR)
-    self.assertEqual(env['SPRITE_INTERPRETER_FLAGS'], 'backend:cxx')
+    self.assertTrue(env['SPRITE_INTERPRETER_FLAGS'].startswith('backend:cxx'))
     self.assertEqual(cwd, CURRYDIR)
     self.assertEqual(items[-1].command()[0][-2:], ['-g', 'part8_7'])
     self.assertEqual(items[5].warmup(), 2)

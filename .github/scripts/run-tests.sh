@@ -6,6 +6,14 @@
 # a matrix can spread the files over several runners.  SPRITE_TEST_FLAGS in
 # the environment adds interpreter flags to the backend flag, in the syntax
 # of SPRITE_INTERPRETER_FLAGS (for one, interpret:all).
+# On the C++ backend the prepare pass of the runner (./run_tests
+# --prepare-only; section 10 of tests/README) compiles the shared Curry
+# products that the files of the shard use, once, before the loop.  Under
+# the tiered default a test process interprets a module whose object is
+# missing and never compiles it: without the pass, the files that inspect a
+# compiled object fail on a fresh checkout, and the rest run interpreted.  A
+# failed pass fails the shard.  Under interpret:all and interpret:new a test
+# process never compiles, and the pass is skipped.
 set -uo pipefail
 backend=$1
 pattern=$2
@@ -28,13 +36,38 @@ mkdir -p "$(dirname "$SPRITE_CACHE_FILE")"
 # A diverging program fails with an allocation error instead of taking the
 # machine down.
 ulimit -v 6291456
-failed=()
+# The files of the shard: every n-th file of the pattern from the k-th.
+files=()
 index=0
 for file in $(ls $pattern | sort); do
   index=$((index + 1))
-  if [ $(( (index - 1) % n + 1 )) -ne "$k" ]; then
-    continue
+  if [ $(( (index - 1) % n + 1 )) -eq "$k" ]; then
+    files+=("$file")
   fi
+done
+case "$backend,$SPRITE_INTERPRETER_FLAGS," in
+  cxx,*,interpret:all,*|cxx,*,interpret:new,*) prepare=no ;;
+  cxx,*) prepare=yes ;;
+  *) prepare=no ;;
+esac
+if [ "$prepare" = yes ] && [ ${#files[@]} -gt 0 ]; then
+  echo "::group::$backend prepare pass"
+  start=$(date +%s)
+  if timeout 3600 "$SPRITE_HOME/bin/python" -B -m testrunner -v \
+       --backend "$backend" --prepare-only "${files[@]}"; then
+    status=ok
+  else
+    status=FAILED
+  fi
+  echo "$backend prepare pass $status $(( $(date +%s) - start ))s"
+  echo "::endgroup::"
+  if [ "$status" = FAILED ]; then
+    echo "::error::$backend prepare pass failed"
+    exit 1
+  fi
+fi
+failed=()
+for file in "${files[@]}"; do
   echo "::group::$backend $file"
   start=$(date +%s)
   if timeout 1800 "$SPRITE_HOME/bin/python" -B -m unittest discover "$PWD" "$file"; then

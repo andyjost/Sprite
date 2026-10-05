@@ -25,6 +25,24 @@ namespace cyrt
     void link(std::shared_ptr<SharedCurryModule> const &);
     void clear();
 
+    // Tiered execution (cyrt/tiered.hpp).  Links the compiled object of a
+    // module whose functions the interpreter runs, and gives every function
+    // in ``steps`` (the symbol of its step function in the object, and the
+    // table the interpreter made) the compiled step.  A table whose step is
+    // not the interpreter, and a symbol the object lacks, are skipped.
+    // Returns the number of functions that run compiled.  The shim of the
+    // module must be loaded first, so that the object binds its table
+    // references to the tables of this registry.
+    size_t adopt(
+        std::shared_ptr<SharedCurryModule> const &
+      , std::vector<std::pair<std::string, InfoTable const *>> const & steps
+      );
+    // The compiled object linked to this module, or null.
+    std::shared_ptr<SharedCurryModule> shlib() const;
+    // Keeps the tables made at run time for the life of the process (see
+    // clear).  The materializer calls this for a module it interprets.
+    void keep_tables();
+
     static void register_builtin_module(
         std::string const & name, TypeTable && types, SymbolTable && symbols
       );
