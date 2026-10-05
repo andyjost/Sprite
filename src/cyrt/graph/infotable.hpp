@@ -50,6 +50,10 @@ namespace cyrt
     char const *       format;
     stepfunc_type      step;
     DataType const *   type;
+    // Data of the step function.  Null for generated code and for the
+    // built-in steps.  An interpreted function (see cyrt/icurry.hpp) keeps
+    // its bytecode here, and its step is the interpreter.
+    void const *       aux = nullptr;
 
     std::string repr() const;
 

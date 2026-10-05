@@ -1,5 +1,5 @@
 '''
-The four suites and their measurement items.
+The suites and their measurement items.
 
 An item is one measurement: a command to run in a child process, the
 environment it runs in, and the way its numbers are read from its output.
@@ -21,16 +21,25 @@ import
 memory
     The throughput command with the collector on and, on the C++ backend,
     with the collector off (SPRITE_GC_THRESHOLD above any node count).
+split
+    A search program whole (the throughput command) and in parts: its
+    search space split by hand into 2, 4, and 8 independent subproblems,
+    each ``sprite-exec -t --stats -m PROGRAMSplit -g partK_I`` with the
+    split directory on CURRYPATH.  The programs are those with a module
+    under data/curry/benchmarks/split; the split command tabulates the
+    records.
 '''
 
 import fnmatch, glob, os, platform, shutil, subprocess, tempfile
-from . import BACKENDS, CURRYDIR, DISSERTATION, HERE, SUITES
+from . import BACKENDS, CURRYDIR, DISSERTATION, HERE, NIGHTLY, SPLITDIR
+from . import SUITES
 from . import measure, records
 
 __all__ = [
     'COLLECTOR_OFF', 'DEFAULT_REPEAT', 'EXPRESSION', 'IMPORT_ITEMS', 'Item'
-  , 'Settings', 'all_programs', 'build', 'candidates', 'select'
-  , 'set_backend_flag'
+  , 'SPLIT_PARTS', 'Settings', 'all_programs', 'build', 'candidates'
+  , 'nightly_items', 'select', 'set_backend_flag', 'split_programs'
+  , 'split_variants'
   ]
 
 PROBE = os.path.join(HERE, 'probe.py')
@@ -39,13 +48,29 @@ EXPRESSION = ('1+2', 'Int')
 # A node count that no program reaches: the collector never runs.
 COLLECTOR_OFF = '1000000000'
 IMPORT_ITEMS = ('python', 'import', 'prelude', 'hello')
-DEFAULT_REPEAT = {'throughput': 5, 'compile': 3, 'import': 5, 'memory': 1}
+# The part counts of the split suite.
+SPLIT_PARTS = (2, 4, 8)
+DEFAULT_REPEAT = {
+    'throughput': 5, 'compile': 3, 'import': 5, 'memory': 1, 'split': 3
+  }
 
 
 def all_programs():
   '''The top-level programs of the benchmark directory, sorted.'''
   files = sorted(glob.glob(os.path.join(CURRYDIR, '*.curry')))
   return [os.path.basename(f)[:-len('.curry')] for f in files]
+
+
+def split_programs():
+  '''The programs with a split module under the split directory, sorted.'''
+  suffix = 'Split.curry'
+  files = sorted(glob.glob(os.path.join(SPLITDIR, '*' + suffix)))
+  return [os.path.basename(f)[:-len(suffix)] for f in files]
+
+
+def split_variants():
+  '''The variants of the split suite: whole, then K/I for every part.'''
+  return ['whole'] + ['%d/%d' % (k, i) for k in SPLIT_PARTS for i in range(k)]
 
 
 def candidates(suite):
@@ -55,6 +80,8 @@ def candidates(suite):
   '''
   if suite == 'import':
     return list(IMPORT_ITEMS), list(IMPORT_ITEMS)
+  if suite == 'split':
+    return split_programs(), split_programs()
   programs = all_programs()
   default = [p for p in DISSERTATION if p in programs]
   if suite == 'compile':
@@ -62,14 +89,35 @@ def candidates(suite):
   return programs, default
 
 
-def select(suite, patterns):
+def nightly_items(suite):
+  '''
+  The items of ``suite`` that the nightly performance job measures: the
+  NIGHTLY programs, with the expression item in the compile suite; every
+  item of the import suite; the split programs of the split suite.
+  '''
+  if suite == 'import':
+    return list(IMPORT_ITEMS)
+  if suite == 'split':
+    return split_programs()
+  programs = all_programs()
+  names = [p for p in NIGHTLY if p in programs]
+  if suite == 'compile':
+    names.append('expression')
+  return names
+
+
+def select(suite, patterns, nightly=False):
   '''
   The programs of ``suite`` that match the shell-style ``patterns``, in the
-  order of the patterns; the default set without patterns.
+  order of the patterns; the default set without patterns.  With
+  ``nightly`` the items of the nightly job take the place of both the
+  candidates and the default set.
   '''
   if suite not in SUITES:
     raise ValueError('no suite %r' % suite)
   names, default = candidates(suite)
+  if nightly:
+    names = default = nightly_items(suite)
   if not patterns:
     return default
   selected = []
@@ -284,6 +332,39 @@ class MemoryItem(SpriteExecItem):
       self.extra_env = {'SPRITE_GC_THRESHOLD': COLLECTOR_OFF}
 
 
+class SplitItem(SpriteExecItem):
+  '''
+  The whole of a search program (the throughput command), or one part of
+  its search space split by hand: ``sprite-exec -t --stats -m PROGRAMSplit
+  -g partK_I``, with the split directory on CURRYPATH.  The variant names
+  the part: whole, or K/I for part I of K.
+  '''
+  suite = 'split'
+
+  def __init__(self, program, backend, settings, variant):
+    super().__init__(program, backend, settings)
+    self.variant = variant
+
+  @property
+  def part(self):
+    '''The part count and the index of a part; None for the whole.'''
+    if self.variant == 'whole':
+      return None
+    k, i = self.variant.split('/')
+    return int(k), int(i)
+
+  @property
+  def module(self):
+    return self.program if self.part is None else self.program + 'Split'
+
+  def command(self):
+    cmd, env, cwd = super().command()
+    if self.part is not None:
+      cmd += ['-g', 'part%d_%d' % self.part]
+      env['CURRYPATH'] = os.pathsep.join([SPLITDIR, CURRYDIR])
+    return cmd, env, cwd
+
+
 class CommandItem(Item):
   '''The Python of the installation with a one-line program.'''
   suite = 'import'
@@ -415,4 +496,7 @@ def build(suite, programs, backends, settings, workdir):
       elif suite == 'import':
         cls = HelloItem if program == 'hello' else CommandItem
         items.append(cls(program, backend, settings))
+      elif suite == 'split':
+        for variant in split_variants():
+          items.append(SplitItem(program, backend, settings, variant))
   return items

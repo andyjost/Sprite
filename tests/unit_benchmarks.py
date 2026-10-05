@@ -1,6 +1,7 @@
 '''
 Tests for the benchmark harness under lib/benchmarks: the child runner, the
-parsers, the records, the suites, and the run and compare commands.
+parsers, the records, the suites, and the run, compare, counters, split, and
+history commands.
 
 The smoke tests run the harness on Hello, whose outputs the warm-up run
 builds (or finds in the local cache), on the backend of this process, and
@@ -9,8 +10,11 @@ In a fresh checkout the file costs three calls of the Curry front end: Hello
 in the first warm-up, and Hello and the expression in the compile suite.
 '''
 import cytest # from ./lib; must be first
-from benchmarks import CURRYDIR, DISSERTATION, ROOTDIR
-from benchmarks import compare, counters, measure, records, run, suites
+from benchmarks import CURRYDIR, DISSERTATION, NIGHTLY, ROOTDIR
+from benchmarks import SPLITDIR
+from benchmarks import compare, counters, history, measure, records, run
+from benchmarks import split
+from benchmarks import suites
 from curry import config
 import contextlib, curry, io, json, os, shutil, sys, tempfile, unittest
 
@@ -176,6 +180,30 @@ class TestRecords(unittest.TestCase):
     self.assertEqual(records.median([4, 1, 3, 2]), 2.5)
     self.assertRaises(ValueError, records.median, [])
 
+  def test_committed_records(self):
+    '''
+    The record files under data/curry/benchmarks/results read and validate.
+    Each is named LABEL-SUITE.jsonl after the label and the suite of its
+    records, the README of the directory has a section for every label, and
+    no record names a path of the machine.
+    '''
+    results = os.path.join(CURRYDIR, 'results')
+    with open(os.path.join(results, 'README.md')) as stream:
+      readme = stream.read()
+    names = sorted(n for n in os.listdir(results) if n.endswith('.jsonl'))
+    self.assertTrue(names)
+    labels = set()
+    for name in names:
+      recs = records.read(os.path.join(results, name))
+      self.assertTrue(recs, name)
+      for rec in recs:
+        records.validate(rec)
+        self.assertEqual(name, '%s-%s.jsonl' % (rec['label'], rec['suite']))
+        self.assertNotIn('"/', json.dumps(rec), name)
+        labels.add(rec['label'])
+    for label in sorted(labels):
+      self.assertIn('\n## %s\n' % label, readme)
+
   @staticmethod
   def sample(wall, steps=5, status='ok', **fields):
     run = FakeRun(
@@ -330,6 +358,56 @@ class TestSuites(unittest.TestCase):
       )
     self.assertEqual(suites.select('import', []), list(suites.IMPORT_ITEMS))
 
+  def test_split_programs(self):
+    '''The programs with a split module, and the variants of the suite.'''
+    programs = suites.split_programs()
+    self.assertEqual(programs, ['PermSort', 'QueensSet', 'SearchQueens'])
+    for name in programs:
+      self.assertIn(name, DISSERTATION)
+      self.assertTrue(
+          os.path.isfile(os.path.join(SPLITDIR, name + 'Split.curry'))
+        )
+    self.assertEqual(suites.select('split', []), programs)
+    self.assertEqual(suites.select('split', ['Q*']), ['QueensSet'])
+    self.assertEqual(suites.SPLIT_PARTS, (2, 4, 8))
+    variants = suites.split_variants()
+    self.assertEqual(len(variants), 15)
+    self.assertEqual(variants[:4], ['whole', '2/0', '2/1', '4/0'])
+    self.assertEqual(variants[-1], '8/7')
+    # The split modules are not programs of the other suites.
+    self.assertNotIn('QueensSetSplit', suites.all_programs())
+
+  def test_nightly_items(self):
+    '''The fixed set of the nightly job, and --nightly.'''
+    self.assertEqual(len(NIGHTLY), 10)
+    self.assertEqual(len(set(NIGHTLY)), 10)
+    programs = suites.all_programs()
+    for name in NIGHTLY:
+      self.assertIn(name, programs)
+    self.assertEqual(suites.nightly_items('throughput'), list(NIGHTLY))
+    self.assertEqual(suites.nightly_items('memory'), list(NIGHTLY))
+    self.assertEqual(
+        suites.nightly_items('compile'), list(NIGHTLY) + ['expression']
+      )
+    self.assertEqual(suites.nightly_items('import'), list(suites.IMPORT_ITEMS))
+    self.assertEqual(suites.nightly_items('split'), suites.split_programs())
+    self.assertEqual(
+        suites.select('throughput', [], nightly=True), list(NIGHTLY)
+      )
+    self.assertEqual(
+        suites.select('compile', ['Q*'], nightly=True)
+      , ['Queens10', 'QueensSet', 'QueensSet9']
+      )
+    self.assertEqual(
+        suites.select('import', ['h*'], nightly=True), ['hello']
+      )
+    with self.assertRaisesRegex(
+        ValueError, "no program of the throughput suite matches 'Hello'"
+      ):
+      suites.select('throughput', ['Hello'], nightly=True)
+    # Without the flag nothing changes.
+    self.assertEqual(suites.select('throughput', []), list(DISSERTATION))
+
   def test_select(self):
     self.assertEqual(
         suites.select('throughput', ['Tak*'])
@@ -414,6 +492,39 @@ class TestSuites(unittest.TestCase):
     env = items[1].command()[1]
     self.assertEqual(env['SPRITE_GC_THRESHOLD'], suites.COLLECTOR_OFF)
     self.assertEqual(items[1].command()[0][1:], ['-t', '--stats', '-m', 'Fib'])
+
+  def test_split_items(self):
+    '''
+    The whole runs the command of the throughput suite; a part runs the
+    goal of the split module with the split directory on CURRYPATH.
+    '''
+    items = self.build('split', ['QueensSet'], ['cxx', 'py'])
+    self.assertEqual([item.key for item in items], [
+        ('split', 'QueensSet', backend, variant)
+            for backend in ['cxx', 'py']
+            for variant in suites.split_variants()
+      ])
+    whole = items[0]
+    self.assertIsNone(whole.part)
+    cmd, env, cwd = whole.command()
+    reference = suites.SpriteExecItem('QueensSet', 'cxx', self.settings)
+    self.assertEqual((cmd, env, cwd), reference.command())
+    part = items[5]
+    self.assertEqual(part.variant, '4/2')
+    self.assertEqual(part.part, (4, 2))
+    self.assertEqual(part.module, 'QueensSetSplit')
+    cmd, env, cwd = part.command()
+    self.assertEqual(cmd, [
+        self.settings.sprite_exec, '-t', '--stats', '-m', 'QueensSetSplit'
+      , '-g', 'part4_2'
+      ])
+    self.assertEqual(env['CURRYPATH'], SPLITDIR + os.pathsep + CURRYDIR)
+    self.assertEqual(env['SPRITE_INTERPRETER_FLAGS'], 'backend:cxx')
+    self.assertEqual(cwd, CURRYDIR)
+    self.assertEqual(items[-1].command()[0][-2:], ['-g', 'part8_7'])
+    self.assertEqual(items[5].warmup(), 2)
+    with self.assertRaisesRegex(ValueError, 'throughput suite only'):
+      self.build('split', ['QueensSet'], ['pakcs'])
 
   def test_compile_items(self):
     items = self.build('compile', ['Fib', 'expression'], ['py'])
@@ -551,8 +662,11 @@ class TestRunOptions(unittest.TestCase):
       ])
     self.assertEqual(args.repeat, 1)
     self.assertEqual(args.backend, ['py', 'cxx'])
+    self.assertEqual(run.parse_args(['-s', 'split']).repeat, 3)
     self.assertEqual(args.env, [('A', '1'), ('B', 'x=y')])
     self.assertEqual(args.program, ['Fib'])
+    self.assertFalse(args.nightly)
+    self.assertTrue(run.parse_args(['--nightly']).nightly)
     bad_options = [
         ['-r', '0'], ['-w', '-1'], ['--timeout', '0'], ['-e', 'novalue']
       , ['-b', 'c']
@@ -570,10 +684,22 @@ class TestRunOptions(unittest.TestCase):
     with contextlib.redirect_stdout(out):
       self.assertEqual(run.main(['-l', 'Tak?']), 0)
     self.assertEqual(out.getvalue().split(), ['Tak0', 'Tak1', 'Tak2'])
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+      self.assertEqual(run.main(['--list', '--nightly', '-s', 'compile']), 0)
+    self.assertEqual(out.getvalue().split(), list(NIGHTLY) + ['expression'])
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+      self.assertEqual(run.main(['-l', '--nightly', 'Tak?']), 0)
+    self.assertEqual(out.getvalue().split(), ['Tak1'])
     with self.assertRaisesRegex(
         SystemExit, "no program of the throughput suite matches 'Nope'"
       ):
       run.main(['Nope'])
+    with self.assertRaisesRegex(
+        SystemExit, "no program of the throughput suite matches 'Tak0'"
+      ):
+      run.main(['--nightly', 'Tak0'])
     with self.assertRaisesRegex(SystemExit, 'throughput suite only'):
       run.main(['-s', 'compile', '-b', 'pakcs', 'Hello'])
     with self.assertRaisesRegex(
@@ -639,6 +765,14 @@ class TestCompare(unittest.TestCase):
     # The last record of an item counts.
     latest = compare.latest([make_record('A', 1.0), make_record('A', 2.0)])
     self.assertEqual(latest[self.key('A')]['cpu'], 2.0)
+    # The summary counts the verdicts and the changed counters.
+    rows = [row(p) for p in 'ABCDEFGZ']
+    counts, line = compare.summary(rows, 'cpu', 0.1)
+    self.assertEqual(counts['same'], 3)
+    self.assertEqual(counts['slower'], 1)
+    self.assertEqual(counts['changed'], 1)
+    self.assertTrue(line.startswith('8 items: 3 same, 1 faster, 1 slower'))
+    self.assertTrue(line.endswith('(metric cpu, threshold 10%)'))
 
   def test_main(self):
     old = self.write('old.jsonl', self.old)
@@ -697,13 +831,14 @@ class TestCounters(unittest.TestCase):
     self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
 
   @staticmethod
-  def record(program, line, status='ok', backend='cxx'):
+  def record(program, line, status='ok', backend='cxx', variant=None):
     '''A record of one sample whose stderr holds the stats line.'''
     run = FakeRun(status=status, stdout='0.25', stderr=line + '\n')
     item = suites.SpriteExecItem(program, backend, None)
     sample = records.sample(run, item.parse(run))
+    suite = 'throughput' if variant is None else 'split'
     return records.summarize(
-        'throughput', program, backend, None, [sample], {}, commit='abc'
+        suite, program, backend, variant, [sample], {}, commit='abc'
       )
 
   def test_row(self):
@@ -737,6 +872,10 @@ class TestCounters(unittest.TestCase):
     self.assertEqual(row['steps'], 0)
     self.assertIsNone(row['serial'])
     self.assertEqual(row['configs'], 6)
+    # An item with a variant is named program:variant.
+    row = counters.row(self.record('E', COUNTERS_LINE, variant='4/1'))
+    self.assertEqual(row['program'], 'E:4/1')
+    self.assertEqual(row['steps'], 7)
 
   def test_main(self):
     '''The table, the CSV form, the backend filter, and the errors.'''
@@ -771,6 +910,343 @@ class TestCounters(unittest.TestCase):
       self.assertEqual(counters.main(['-b', 'pakcs', filename]), 1)
     with self.assertRaisesRegex(SystemExit, 'counters: '):
       counters.main([os.path.join(self.tmpdir, 'missing.jsonl')])
+
+
+class TestSplit(unittest.TestCase):
+  '''The split command on hand-made records.'''
+
+  def setUp(self):
+    self.tmpdir = tempfile.mkdtemp(prefix='sprite-benchmarks-test-')
+    self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+
+  @staticmethod
+  def record(program, variant, cpu, steps, forks, status='ok', backend='cxx'):
+    return make_record(
+        program, cpu, steps=steps, forks=forks, status=status, suite='split'
+      , backend=backend, variant=variant
+      )
+
+  def records(self):
+    '''
+    A: a complete split into two (bound 10/6, duplicated work 11/10), four
+    parts with one missing, and eight parts with one failed.  B on the
+    Python backend: a complete split into two.  A throughput record of A
+    is ignored.
+    '''
+    recs = [
+        self.record('A', 'whole', 10.0, 1000, 100)
+      , self.record('A', '2/0', 6.0, 700, 60)
+      , self.record('A', '2/1', 5.0, 500, 50)
+      , self.record('A', '4/0', 3.0, 300, 30)
+      , self.record('A', '4/1', 3.0, 300, 30)
+      , self.record('A', '4/2', 3.0, 300, 30)
+      ]
+    recs += [self.record('A', '8/%d' % i, 2.0, 200, 20) for i in range(7)]
+    recs.append(self.record('A', '8/7', 2.0, 200, 20, status='fail'))
+    recs += [
+        self.record('B', 'whole', 4.0, 400, 40, backend='py')
+      , self.record('B', '2/0', 4.0, 400, 40, backend='py')
+      , self.record('B', '2/1', 1.0, 100, 10, backend='py')
+      , make_record('A', 1.0)
+      ]
+    return recs
+
+  def test_part_of(self):
+    self.assertIsNone(split.part_of('whole'))
+    self.assertIsNone(split.part_of(None))
+    self.assertEqual(split.part_of('2/0'), (2, 0))
+    self.assertEqual(split.part_of('8/7'), (8, 7))
+
+  def test_rows(self):
+    '''The bound and the duplicated work of each split.'''
+    table = split.rows(self.records())
+    self.assertEqual(
+        [(r['program'], r['backend'], r['parts'], r['ok']) for r in table]
+      , [ ('A', 'cxx', 2, '2/2'), ('A', 'cxx', 4, '3/4')
+        , ('A', 'cxx', 8, '7/8'), ('B', 'py', 2, '2/2')
+        ]
+      )
+    two = table[0]
+    self.assertEqual(tuple(two)[:len(split.HEADINGS)], split.HEADINGS)
+    self.assertEqual(two['whole'], 10.0)
+    self.assertEqual(two['longest'], 6.0)
+    self.assertEqual(two['part'], '2/0')
+    self.assertAlmostEqual(two['bound'], 10 / 6)
+    self.assertAlmostEqual(two['dup'], 1.1)
+    self.assertEqual(two['whole_steps'], 1000)
+    self.assertAlmostEqual(two['bound_steps'], 1000 / 700)
+    self.assertAlmostEqual(two['dup_steps'], 1.2)
+    self.assertAlmostEqual(two['dup_forks'], 1.1)
+    self.assertEqual([v for v, _ in two['records']], ['2/0', '2/1'])
+    # A part missing or failed: the counts and dashes.
+    for row in table[1:3]:
+      self.assertTrue(all(row[h] is None for h in split.HEADINGS[4:]), row)
+    self.assertEqual([v for v, r in table[1]['records'] if r is None], ['4/3'])
+    self.assertEqual(table[2]['records'][7][1]['status'], 'fail')
+    b = table[3]
+    self.assertEqual(b['part'], '2/0')
+    self.assertEqual(b['bound'], 1.0)
+    self.assertAlmostEqual(b['dup'], 1.25)
+    # Another metric: the wall of make_record is twice the CPU, so the
+    # ratios are the same.  Without the metric the step columns stay.
+    table = split.rows(self.records(), 'wall')
+    self.assertEqual(table[0]['whole'], 20.0)
+    self.assertAlmostEqual(table[0]['bound'], 10 / 6)
+    table = split.rows(self.records(), 'eval_wall')
+    self.assertIsNone(table[0]['bound'])
+    self.assertIsNone(table[0]['dup'])
+    self.assertAlmostEqual(table[0]['bound_steps'], 1000 / 700)
+    # A whole that failed, or is missing: no aggregate.
+    recs = [
+        self.record('C', 'whole', 1.0, 10, 1, status='timeout')
+      , self.record('C', '2/0', 1.0, 5, 1), self.record('C', '2/1', 1.0, 5, 1)
+      ]
+    row, = split.rows(recs)
+    self.assertEqual(row['ok'], '2/2')
+    self.assertIsNone(row['bound'])
+    self.assertIsNone(row['dup_steps'])
+    row, = split.rows(recs[1:])
+    self.assertIsNone(row['bound'])
+    # The last record of an item counts.
+    recs = [
+        self.record('D', 'whole', 1.0, 10, 1)
+      , self.record('D', '2/0', 1.0, 5, 1), self.record('D', '2/1', 1.0, 5, 1)
+      , self.record('D', 'whole', 2.0, 20, 2)
+      ]
+    row, = split.rows(recs)
+    self.assertEqual(row['whole'], 2.0)
+    self.assertEqual(row['bound'], 2.0)
+    self.assertEqual(row['dup_steps'], 0.5)
+    self.assertEqual(split.rows([]), [])
+
+  def test_main(self):
+    '''The table, the parts, the backend filter, the CSV form, the errors.'''
+    filename = os.path.join(self.tmpdir, 'split.jsonl')
+    with open(filename, 'w') as stream:
+      for record in self.records():
+        records.write(stream, record)
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+      self.assertEqual(split.main([filename]), 0)
+    lines = out.getvalue().splitlines()
+    self.assertEqual(tuple(lines[0].split()), split.HEADINGS)
+    self.assertEqual(
+        lines[1].split()
+      , [ 'A', 'cxx', '2', '2/2', '10.000', '6.000', '2/0', '1.67', '1.10'
+        , '1000', '1.43', '1.20', '1.10'
+        ]
+      )
+    self.assertEqual(lines[2].split(), ['A', 'cxx', '4', '3/4'] + ['-'] * 9)
+    self.assertEqual(lines[3].split()[:4], ['A', 'cxx', '8', '7/8'])
+    self.assertEqual(lines[4].split()[:4], ['B', 'py', '2', '2/2'])
+    self.assertEqual(len(lines), 5)
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+      self.assertEqual(split.main(['--parts', '-b', 'cxx', filename]), 0)
+    lines = out.getvalue().splitlines()
+    self.assertEqual(lines[2].split(), ['2/0', '6.000', '700', '60', 'ok'])
+    self.assertEqual(lines[3].split(), ['2/1', '5.000', '500', '50', 'ok'])
+    self.assertEqual(lines[4].split()[:4], ['A', 'cxx', '4', '3/4'])
+    self.assertEqual(lines[8].split(), ['4/3', '-', '-', '-', 'missing'])
+    self.assertEqual(lines[-1].split(), ['8/7', '-', '-', '-', 'fail'])
+    self.assertEqual(len(lines), 1 + 3 + 5 + 9)
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+      self.assertEqual(
+          split.main(['--csv', '-m', 'wall', '-b', 'py', filename]), 0
+        )
+    lines = out.getvalue().splitlines()
+    self.assertEqual(lines[0], ','.join(split.HEADINGS))
+    self.assertEqual(
+        lines[1], 'B,py,2,2/2,8.000,8.000,2/0,1.00,1.25,400,1.00,1.25,1.25'
+      )
+    self.assertEqual(len(lines), 2)
+    # No complete split: status 1.
+    with contextlib.redirect_stdout(io.StringIO()):
+      self.assertEqual(split.main(['-b', 'pakcs', filename]), 1)
+    with self.assertRaisesRegex(SystemExit, 'split: '):
+      split.main([os.path.join(self.tmpdir, 'missing.jsonl')])
+    with contextlib.redirect_stderr(io.StringIO()):
+      self.assertRaises(SystemExit, split.parse_args, ['-m', 'rss', filename])
+
+
+class TestHistory(unittest.TestCase):
+  '''The history command on hand-made records.'''
+
+  def setUp(self):
+    self.tmpdir = tempfile.mkdtemp(prefix='sprite-benchmarks-test-')
+    self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+    self.first = [make_record('A', 1.0), make_record('B', 1.0, suite='import')]
+    self.second = [
+        make_record('A', 1.5, steps=6), make_record('B', 1.0, suite='import')
+      , make_record('C', 1.0)
+      ]
+
+  def write(self, name, recs):
+    filename = os.path.join(self.tmpdir, name)
+    with open(filename, 'w') as stream:
+      for record in recs:
+        records.write(stream, record)
+    return filename
+
+  def main(self, argv):
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+      status = history.main(argv)
+    return status, out.getvalue().splitlines()
+
+  @staticmethod
+  def table(lines):
+    '''The rows of the last block of a report, by program.'''
+    return {line.split()[1]: line.split() for line in lines}
+
+  def test_points(self):
+    '''A point has the fields of the page and nothing else.'''
+    record = make_record('Fib', 1.0)
+    point = history.point(record)
+    self.assertEqual(tuple(point), history.POINT_FIELDS)
+    self.assertEqual(point['cpu'], 1.0)
+    self.assertEqual(point['status'], 'ok')
+    self.assertEqual(point['steps'], 5)
+    self.assertNotIn('samples', point)
+    self.assertNotIn('meta', point)
+    # Sorted by suite (in the order of the suites), program, backend,
+    # variant, and date.
+    recs = [
+        make_record('B', 1.0, suite='import')
+      , make_record('A', 2.0, backend='py')
+      , make_record('A', 1.0, suite='memory', variant='collector=on')
+      , make_record('A', 1.0)
+      ]
+    pts = history.points(recs)
+    self.assertEqual(
+        [(p['suite'], p['program'], p['backend'], p['variant']) for p in pts]
+      , [ ('throughput', 'A', 'cxx', None), ('throughput', 'A', 'py', None)
+        , ('import', 'B', 'cxx', None), ('memory', 'A', 'cxx', 'collector=on')
+        ]
+      )
+
+  def test_main(self):
+    '''Two runs: the files of the history, and the second against the first.'''
+    d = os.path.join(self.tmpdir, 'history')
+    first = self.write('first.jsonl', self.first)
+    second = self.write('second.jsonl', self.second)
+    status, lines = self.main([d, first])
+    self.assertEqual(status, 0)
+    self.assertEqual(
+        lines[0], 'first.jsonl: 2 records against the previous run'
+      )
+    self.assertEqual(
+        lines[1].split()[:4], ['suite', 'program', 'backend', 'variant']
+      )
+    self.assertEqual(self.table(lines[2:4])['A'][7:], ['only-new', '-'])
+    self.assertEqual(self.table(lines[2:4])['B'][7:], ['only-new', '-'])
+    self.assertTrue(lines[-1].startswith(
+        '2 items: 0 same, 0 faster, 0 slower, 0 failed, 0 without the metric, '
+        '2 only in one file; 0 with changed counters'
+      ))
+    self.assertEqual(len(lines), 5)
+    self.assertEqual(
+        sorted(os.listdir(d)), ['README.md', 'points.json', 'records']
+      )
+    self.assertEqual(
+        sorted(os.listdir(os.path.join(d, 'records')))
+      , ['import.jsonl', 'throughput.jsonl']
+      )
+    self.assertEqual(
+        records.read(history.record_file(d, 'throughput')), [self.first[0]]
+      )
+    self.assertEqual(
+        records.read(history.record_file(d, 'import')), [self.first[1]]
+      )
+    readme = os.path.join(d, 'README.md')
+    with open(readme) as stream:
+      self.assertEqual(stream.read(), history.README)
+    points = os.path.join(d, 'points.json')
+    with open(points) as stream:
+      data = json.load(stream)
+    self.assertEqual(sorted(data), ['generated', 'points', 'schema'])
+    self.assertEqual(data['schema'], history.POINTS_SCHEMA)
+    self.assertRegex(data['generated'], r'^\d{4}-\d\d-\d\dT')
+    self.assertEqual(data['points'], history.points(self.first))
+    # The second run: A slower with changed steps, B the same, C new.
+    status, lines = self.main([d, second])
+    self.assertEqual(status, 0)
+    self.assertEqual(
+        lines[0], 'second.jsonl: 3 records against the previous run'
+      )
+    table = self.table(lines[2:5])
+    self.assertEqual(
+        table['A'][4:], ['1.0000', '1.5000', '1.50', 'slower', 'steps', '5->6']
+      )
+    self.assertEqual(
+        table['B'][4:], ['1.0000', '1.0000', '1.00', 'same', 'equal']
+      )
+    self.assertEqual(table['C'][7:], ['only-new', '-'])
+    self.assertTrue(lines[-1].startswith(
+        '3 items: 1 same, 0 faster, 1 slower, 0 failed, 0 without the metric, '
+        '1 only in one file; 1 with changed counters'
+      ))
+    self.assertEqual(
+        records.read(history.record_file(d, 'throughput'))
+      , [self.first[0], self.second[0], self.second[2]]
+      )
+    with open(points) as stream:
+      data = json.load(stream)
+    self.assertEqual(
+        [(p['program'], p['cpu']) for p in data['points']]
+      , [('A', 1.0), ('A', 1.5), ('C', 1.0), ('B', 1.0), ('B', 1.0)]
+      )
+    # Without a file the points are written again and the README is kept.
+    os.unlink(points)
+    with open(readme, 'w') as stream:
+      stream.write('kept\n')
+    status, lines = self.main([d])
+    self.assertEqual((status, lines), (0, []))
+    with open(points) as stream:
+      self.assertEqual(len(json.load(stream)['points']), 5)
+    with open(readme) as stream:
+      self.assertEqual(stream.read(), 'kept\n')
+
+  def test_options_and_errors(self):
+    '''Two files in one call, the metric and the threshold, the errors.'''
+    d = os.path.join(self.tmpdir, 'history')
+    first = self.write('first.jsonl', self.first)
+    second = self.write('second.jsonl', self.second)
+    # The wall of make_record is twice the CPU; A's ratio of 1.5 is the same
+    # at a threshold of 0.6.  The second file compares with the first.
+    status, lines = self.main(['-m', 'wall', '-t', '0.6', d, first, second])
+    self.assertEqual(status, 0)
+    self.assertEqual(
+        lines[0], 'first.jsonl: 2 records against the previous run'
+      )
+    start = lines.index('second.jsonl: 3 records against the previous run')
+    table = self.table(lines[start + 2:-1])
+    self.assertEqual(table['A'][4:8], ['2.0000', '3.0000', '1.50', 'same'])
+    self.assertTrue(lines[-1].endswith('(metric wall, threshold 60%)'))
+    self.assertEqual(
+        len(records.read(history.record_file(d, 'throughput'))), 3
+      )
+    # Errors: a missing file, a bad file, a bad threshold.
+    missing = os.path.join(self.tmpdir, 'missing.jsonl')
+    with self.assertRaisesRegex(SystemExit, 'history: '):
+      history.main([d, missing])
+    bad = os.path.join(self.tmpdir, 'bad.jsonl')
+    with open(bad, 'w') as stream:
+      stream.write('{}\n')
+    with self.assertRaisesRegex(SystemExit, 'line 1'):
+      history.main([d, bad])
+    with contextlib.redirect_stderr(io.StringIO()):
+      self.assertRaises(SystemExit, history.parse_args, ['-t', '-1', d])
+      self.assertRaises(SystemExit, history.parse_args, [])
+    # A history whose record file is bad fails before anything is written.
+    with open(history.record_file(d, 'import'), 'a') as stream:
+      stream.write('broken\n')
+    with self.assertRaisesRegex(SystemExit, 'import.jsonl, line 3'):
+      history.main([d, first])
+    self.assertEqual(
+        len(records.read(history.record_file(d, 'throughput'))), 3
+      )
 
 
 class TestSmoke(cytest.TestCase):
@@ -937,3 +1413,39 @@ class TestSmoke(cytest.TestCase):
     self.assertEqual(probe['stats']['steps'], expression['steps'])
     # The working directory of the harness is gone.
     self.assertEqual(self.workdirs(), before)
+
+  @unittest.skipUnless(
+      BACKEND == 'cxx', 'QueensSet takes a minute on the Python backend'
+    )
+  def test_split_suite(self):
+    '''QueensSet whole and in two parts, and the split command on them.'''
+    filename = self.filename('split.jsonl')
+    status, log = self.harness(
+        '-s', 'split', 'QueensSet', '--variant', 'whole', '--variant', '2/0'
+      , '--variant', '2/1', '-o', filename
+      )
+    self.assertEqual(status, 0, log)
+    recs = records.read(filename)
+    self.assertEqual(
+        [records.key(r) for r in recs]
+      , [('split', 'QueensSet', BACKEND, v) for v in ('whole', '2/0', '2/1')]
+      )
+    for record in recs:
+      self.assertEqual(record['status'], 'ok', record['error'])
+      self.assertGreater(record['steps'], 0)
+      self.assertGreater(record['forks'], 0)
+      self.assertGreater(record['eval_wall'], 0.0)
+    row, = split.rows(recs)
+    self.assertEqual(row['ok'], '2/2')
+    # Each part is a proper part of the search: fewer steps than the whole.
+    self.assertGreater(row['bound_steps'], 1.0)
+    self.assertGreater(row['bound'], 0.0)
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+      self.assertEqual(split.main(['--parts', filename]), 0)
+    lines = out.getvalue().splitlines()
+    self.assertEqual(lines[1].split()[:4], ['QueensSet', BACKEND, '2', '2/2'])
+    self.assertEqual(len(lines[1].split()), len(split.HEADINGS))
+    self.assertEqual(lines[2].split()[0], '2/0')
+    self.assertEqual(lines[3].split()[0], '2/1')
+    self.assertEqual(len(lines), 4)

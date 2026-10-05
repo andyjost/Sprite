@@ -25,6 +25,9 @@ class IBackend(backends.IBackend):
   def num_collections(self):
     return cyrtbindings.gc_collections()
 
+  def gc_seconds(self):
+    return cyrtbindings.gc_seconds()
+
   def scheduler_counters_enabled(self):
     return cyrtbindings.scheduler_counters_enabled()
 

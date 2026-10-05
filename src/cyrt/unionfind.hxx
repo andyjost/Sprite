@@ -21,6 +21,8 @@ namespace cyrt
 
   inline void UnionFind::unite(xid_type p, xid_type q)
   {
+    this->united.push_back(p);
+    this->united.push_back(q);
     xid_type i = this->root(p);
     xid_type j = this->root(q);
     this->increase_capacity(std::max(i, j));

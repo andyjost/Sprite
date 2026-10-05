@@ -36,17 +36,26 @@ static tag_type STEP_FUNCTION_NAME(RuntimeState * rts, Configuration * C)
     if(tagr < T_CTOR) return tagr;
     auto value = FUNC(NodeU{_1.target}.ARGFIELD->value, NodeU{_2.target}.ARGFIELD->value);
   #endif
+  // A boxed result is written into the redex: the result has the smallest
+  // node size, so it fits.  A Bool result is a pinned constructor, which is
+  // never copied into a redex (see Node::rewrite), so the redex is forwarded
+  // to it.
   if constexpr(std::is_same<decltype(value),bool>::value)
+  {
     _0->forward_to(value ? &True_Info : &False_Info);
+    return T_FWD;
+  }
   else if constexpr(std::is_same<decltype(value),unboxed_int_type>::value)
-    _0->forward_to(&Int_Info, value);
+    return _0->rewrite(&Int_Info, value);
   else if constexpr(std::is_same<decltype(value),unboxed_float_type>::value)
-    _0->forward_to(&Float_Info, value);
+    return _0->rewrite(&Float_Info, value);
   else if constexpr(std::is_same<decltype(value),unboxed_char_type>::value)
-    _0->forward_to(&Char_Info, value);
+    return _0->rewrite(&Char_Info, value);
   else
+  {
     assert(false);
-  return T_FWD;
+    return E_ERROR;
+  }
 }
 
 InfoTable const INFOTABLE_NAME {

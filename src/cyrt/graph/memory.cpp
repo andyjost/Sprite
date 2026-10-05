@@ -1,10 +1,14 @@
+#include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <cstdlib>
 #include "cyrt/graph/cursor.hpp"
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/state/queue.hpp"
 #include "cyrt/state/rts.hpp"
+#include <new>
 #include <set>
+#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -93,6 +97,37 @@ namespace cyrt
     assert(g_rtslist.count(rts) == 0);
   }
 
+  // The interpreter states alive.  The list is never destroyed: a state
+  // held by Python may be destroyed after the static objects of this
+  // library.
+  static std::vector<InterpreterState *> & g_istates
+      = *new std::vector<InterpreterState *>();
+
+  void gc_register_istate(InterpreterState * istate)
+  {
+    assert(istate);
+    assert(
+        std::find(g_istates.begin(), g_istates.end(), istate)
+        == g_istates.end()
+      );
+    g_istates.push_back(istate);
+  }
+
+  void gc_unregister_istate(InterpreterState * istate)
+  {
+    auto p = std::find(g_istates.begin(), g_istates.end(), istate);
+    if(p != g_istates.end())
+      g_istates.erase(p);
+  }
+
+  size_t gc_num_freevars()
+  {
+    size_t count = 0;
+    for(InterpreterState * istate: g_istates)
+      count += istate->vtable.size();
+    return count;
+  }
+
   void gc_add_root(Node * node)
   {
     assert(node);
@@ -118,6 +153,50 @@ namespace cyrt
   size_t gc_num_roots()
   {
     return g_roots.size();
+  }
+
+  // The arena of the literal nodes (see memory.hpp): one block, taken from
+  // malloc at the first request and never returned.  The pages are committed
+  // as they are touched.  The objects here are constant-initialized, so a
+  // literal node may be made during the static initialization of this
+  // library (the tables of builtins.cpp are).  In an instrumented build a
+  // literal node has no creator (node_creator answers zero by the address).
+  static char * g_literal_arena = nullptr;
+  static size_t g_literal_used = 0;
+  static size_t g_num_literals = 0;
+
+  // Whether ``p`` points into a block of the arena.  The mark phase of the
+  // collector asks this for every node it would mark.
+  static inline bool in_literal_arena(void const * p)
+  {
+    return (uintptr_t) p - (uintptr_t) g_literal_arena < g_literal_used;
+  }
+
+  Node * literal_reserve(size_t bytes)
+  {
+    bytes = round_up(bytes);
+    if(!g_literal_arena)
+    {
+      g_literal_arena = (char *) std::malloc(LITERAL_ARENA_BYTES);
+      if(!g_literal_arena)
+        throw std::bad_alloc();
+    }
+    if(LITERAL_ARENA_BYTES - g_literal_used < bytes)
+      throw std::runtime_error("the arena of the literal nodes is full");
+    char * addr = g_literal_arena + g_literal_used;
+    g_literal_used += bytes;
+    ++g_num_literals;
+    return (Node *) addr;
+  }
+
+  bool gc_is_literal(Node const * node)
+  {
+    return in_literal_arena(node);
+  }
+
+  size_t gc_num_literals()
+  {
+    return g_num_literals;
   }
 
   size_t gc_eval_depth()
@@ -184,9 +263,17 @@ namespace cyrt
   }
 }
 
-// Select one of these.  It should define cyrt::node_reserve and
-// cyrt::node_commit.
-// #include "cyrt/graph/gc/mps.cpp"
+// The heap and the collector.  gc/blockheap.cpp defines the heap behind
+// node_refill (the fast path is in memory.hpp), and gc/wdgc.cpp the
+// collector over it.  With make GC=mps (SPRITE_GC_MPS) gc/mps.cpp replaces
+// both: the Memory Pool System, a moving generational collector, as an
+// experiment behind a gate (see TODO).  gc/leaky.cpp is an alternative that
+// never frees.
+#ifdef SPRITE_GC_MPS
+#include "cyrt/graph/gc/mps.cpp"
+#else
 // #include "cyrt/graph/gc/leaky.cpp"
+#include "cyrt/graph/gc/blockheap.cpp"
 #include "cyrt/graph/gc/wdgc.cpp"
+#endif
 

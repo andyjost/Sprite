@@ -76,7 +76,10 @@ del value
 gc.collect()
 cyrt.gc_collect()
 after = cyrt.gc_node_count()
-assert after <= before - 2000, (before, after)
+# Each entry is a pair, a list cell, and a cons cell per character of the
+# shown number.  The Int and the Char nodes are the shared literal nodes
+# of the runtime, which stay (see unit_cxx_literals.py).
+assert after <= before - 1200, (before, after)
 print('collections', collections, 'nodes', before, after)
 ''' % (self.WALK, self.WALK))
     self.assertIn('collections', proc.stdout)
@@ -99,6 +102,42 @@ assert str(value) == text, str(value)
 assert str(goal) == goaltext, str(goal)
 assert curry.topython(next(curry.eval(value))) == [(1, 'a'), (2, 'b')]
 assert curry.topython(next(curry.eval(goal))) == 25
+''')
+
+  def test_copy_of_a_pinned_constructor(self):
+    '''
+    A pinned nullary constructor ([], (), True, False) has one node, the
+    static object, which the collector neither marks nor sweeps.  A copy of
+    it is the node itself, so the copy survives collections and a reuse of
+    the heap while Python holds it.  A heap copy with the same info table
+    was freed under its holder, and the verifier did not see it, because it
+    checks the marked nodes.
+    '''
+    self.run_child('''
+import copy
+raw = lambda e: getattr(e, 'raw_expr', e)
+copies = []
+for value in [[], (), True, False]:
+  node = raw(curry.raw_expr(value))
+  text = repr(node)
+  copies.append((node.copy(), text))
+  copies.append((copy.copy(node), text))
+  copies.append((node.__deepcopy__(), text))
+  for c, _ in copies[-3:]:
+    assert c.id() == node.id(), (repr(c), text)
+    assert cyrt.gc_root_count(c) >= 1
+before = cyrt.gc_node_count()
+cyrt.gc_collect()
+assert cyrt.gc_node_count() == before, (before, cyrt.gc_node_count())
+# Fill the slots a freed copy would have left behind.
+junk = [curry.raw_expr(i) for i in range(1000, 4000)]
+assert curry.topython(next(curry.eval(M.walk, 3000))) == 3000
+cyrt.gc_collect()
+for c, text in copies:
+  assert repr(c) == text, (repr(c), text)
+assert cyrt.gc_verify() is None
+assert curry.topython(next(curry.eval(copies[0][0]))) == []
+assert curry.topython(next(curry.eval(copies[6][0]))) is True
 ''')
 
   def test_roots_follow_wrappers(self):
@@ -126,17 +165,21 @@ assert cyrt.gc_root_count(None) == 0
 ''')
 
   @cytest.skipIfGcStress('the collector runs whatever the threshold says')
+  @cytest.skipUnlessGcBackend(
+      'wdgc', 'the threshold policy of the block heap'
+    )
   def test_short_lived_nodes_complete_under_1GiB(self):
     '''
-    A walk over a million list cells allocates about 1.5 GB of short-lived
-    nodes.  With the collector off (the old threshold of one billion nodes),
-    the child runs out of memory under a 1 GiB cap.  With the default
-    threshold it completes.
+    A walk over list cells allocates about 24 short-lived nodes per cell,
+    about 1.6 GB for three million cells in the block heap.  With the
+    collector off (the old threshold of one billion nodes), the child runs
+    out of memory under a 1 GiB cap.  With the default threshold a walk
+    over a million cells completes under the cap.
     '''
     self.run_child('''
 cyrt.gc_set_threshold(10 ** 9)
 try:
-  next(curry.eval(M.walk, 1000000))
+  next(curry.eval(M.walk, 3000000))
 except MemoryError:
   os._exit(42)
 os._exit(1)
@@ -206,6 +249,9 @@ assert cyrt.gc_eval_depth() == 0
 ''')
 
   @cytest.skipIfGcStress('a test of the threshold policy; 3000 pairs live')
+  @cytest.skipUnlessGcBackend(
+      'wdgc', 'the threshold policy of the block heap'
+    )
   def test_threshold_follows_the_survivors(self):
     '''
     After a collection the threshold is eight times the survivors, but not
@@ -230,9 +276,10 @@ assert cyrt.gc_threshold() == floor, cyrt.gc_threshold()
 
   def test_stats_report_collections(self):
     '''
-    curry.stats reports the collections of the process, the steps of the
-    evaluations, and the peak RSS.  The collections field follows
-    gc_collections before and after an evaluation that collects.
+    curry.stats reports the collections of the process and their seconds,
+    the steps of the evaluations, and the peak RSS.  The collections field
+    follows gc_collections, and gc_seconds follows gc_seconds, before and
+    after an evaluation that collects.
     '''
     proc = self.run_child('''
 cyrt.gc_set_threshold(1 << 14)
@@ -247,11 +294,16 @@ assert after['steps'] >= before['steps'] + 100000, (before, after)
 assert after['forks'] == before['forks'], (before, after)
 assert after['peak_rss'] >= before['peak_rss'] > 0, (before, after)
 assert after['cpu'] > before['cpu'], (before, after)
+assert after['gc_seconds'] > before['gc_seconds'] >= 0.0, (before, after)
+assert after['gc_seconds'] == cyrt.gc_seconds(), (after, cyrt.gc_seconds())
 print(after)
 ''')
     self.assertIn('collections', proc.stdout)
 
   @cytest.skipIfGcStress('a test of the growth policy; 3000 pairs live')
+  @cytest.skipUnlessGcBackend(
+      'wdgc', 'the threshold policy of the block heap'
+    )
   def test_growth(self):
     '''
     SPRITE_GC_GROWTH sets the growth factor when the runtime loads: after a
@@ -275,6 +327,9 @@ print('threshold', cyrt.gc_threshold() // live)
     self.assertEqual(proc.stdout.splitlines(), ['growth 8', 'threshold 8'])
     self.assertIn('SPRITE_GC_GROWTH=1', proc.stderr)
 
+  @cytest.skipUnlessGcBackend(
+      'wdgc', 'the threshold policy of the block heap'
+    )
   def test_threshold(self):
     '''
     SPRITE_GC_THRESHOLD sets the threshold when the runtime loads.  A bad
@@ -289,7 +344,8 @@ except ValueError:
   print('zero rejected')
 cyrt.gc_set_threshold(5000)
 print('threshold', cyrt.gc_threshold())
-print('depth', cyrt.gc_eval_depth(), 'reclaimed', type(cyrt.gc_collect()).__name__)
+print('depth', cyrt.gc_eval_depth()
+     , 'reclaimed', type(cyrt.gc_collect()).__name__)
 '''
     with mock.patch.dict(os.environ, {'SPRITE_GC_THRESHOLD': '12345'}):
       proc = self.run_child(code)
@@ -306,6 +362,9 @@ print('depth', cyrt.gc_eval_depth(), 'reclaimed', type(cyrt.gc_collect()).__name
 
 @unittest.skipIf(
     curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
+  )
+@cytest.skipUnlessGcBackend(
+    'wdgc', 'the counts of queues and sets are exact for the block heap'
   )
 class TestOwnership(ChildTests):
   '''
@@ -381,7 +440,8 @@ assert peak_queues < 2000, peak_queues
 assert peak_sets < 2000, peak_sets
 assert peak_configurations < 7 * 2000, peak_configurations
 assert settled() == (0, 0, 0), counts()
-print('collections', collections, 'peak', peak_configurations, peak_queues, peak_sets)
+print('collections', collections
+     , 'peak', peak_configurations, peak_queues, peak_sets)
 ''')
     self.assertIn('collections', proc.stdout)
 
@@ -464,6 +524,9 @@ assert settled() == (0, 0, 0), counts()
 
 @unittest.skipIf(
     curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
+  )
+@cytest.skipUnlessGcBackend(
+    'wdgc', 'the counts of queues and sets are exact for the block heap'
   )
 class TestStress(ChildTests):
   '''

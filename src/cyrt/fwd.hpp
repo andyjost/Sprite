@@ -43,6 +43,9 @@ namespace cyrt
   using std::size_t;
   using stepfunc_type = tag_type (*)(RuntimeState *, Configuration *);
   using generator_next_type = Node * (*)(void *);
+  // Takes or releases the reference a generator node owns (see
+  // biGeneratorNode in builtins.hpp).
+  using generator_hold_type = void (*)(void *);
   // A Char holds one Unicode code point.  Text crosses the boundary of the
   // runtime as UTF-8; see cyrt/utf8.hpp.
   using unboxed_char_type = char32_t;

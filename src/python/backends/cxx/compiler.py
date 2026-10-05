@@ -2,6 +2,7 @@ from ...exceptions import CompileError
 from ..generic import compiler, renderer
 from ... import common, config, icurry
 from . import cyrtbindings as cyrt
+from . import passthrough
 from ...utility import formatDocstring, strings, visitation
 from ...utility.showflags import showflags
 
@@ -16,8 +17,19 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # functions (interpreter.optimize.inline_aliases), so a cached file of format
 # 2 is correct but slower.  Format 4: the bill of materials is plain data
 # (cyrt/bom.hpp; vEmitMetadata and vEmitModuleDefinition).  A file of format 3
-# defines a ModuleBOM object, which the loader no longer reads.
-FORMAT_VERSION = 4
+# defines a ModuleBOM object, which the loader no longer reads.  Format 5: a
+# step writes its result into the redex when it fits (Node::rewrite,
+# vEmit_compileS_IReturn); a file of format 4 forwards every result, which is
+# correct but slower.  Format 6: a literal outside the tables of the runtime
+# is a node of the module, made once at load (literal_node,
+# internLiteralNode); a file of format 5 allocates such a literal on every
+# execution, which is correct but slower.  Format 7: an argument that a step
+# only passes on is a plain Node * (passthrough.py, vEmit_compileS_IVarDecl);
+# a file of format 6 builds a Variable for it, which is correct but slower.
+# Format 8: a partial application without arguments is a node of the module,
+# made once at load (partial_node, internPartialNode); a file of format 7
+# allocates one on every execution, which is correct but slower.
+FORMAT_VERSION = 8
 
 def compile(interp, imodule):
   compileM = CxxCompiler(interp, imodule)
@@ -37,6 +49,23 @@ def replace_singletons(f):
     return SINGLETONS.get(result, result)
   return emitter
 
+# The pinned nullary constructors, the info tables behind SINGLETONS.
+# Node::create returns the static object for one of these, and a step forwards
+# the redex to it.  A heap copy of a pinned node would never be marked by the
+# collector, so the generator never writes one into a redex (see
+# Node::rewrite in cyrt/graph/node.hxx).
+PINNED_INFOS = frozenset(key[len('Node::create(&'):-1] for key in SINGLETONS)
+
+# The size of the block of a node, in bytes, as the generated info tables
+# spell it: sizeof(Head) + sizeof(Arg[max(1, arity)]), one word each.  The
+# generator compares the block of a result with the block of the redex, so
+# that a result that fits is written into the redex (vEmit_compileS_IReturn).
+# InfoTable asserts that every block is at least this large.
+WORD = 8
+
+def alloc_size(arity):
+  return WORD * (1 + max(1, arity))
+
 class CxxCompiler(compiler.CompilerBase):
   CODE_TYPE = 'C++'
   EXCLUDED_METADATA = set(['cxx.material', 'cxx.shlib'])
@@ -46,6 +75,11 @@ class CxxCompiler(compiler.CompilerBase):
     self.cxxmodule = cyrt.Module.find_or_create(iroot.modulename) \
         if isinstance(iroot, icurry.IModule) \
         else None
+    # The size of the block of the redex of the step under compilation, and
+    # the variables of the step that are plain pointers.  See
+    # vEmitStepfuncHeader.
+    self.redex_alloc_size = None
+    self.plain_vars = frozenset()
 
   def vIsBuiltin(self, iobj):
     if self.cxxmodule is not None:
@@ -88,6 +122,10 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'extern DataType const %s;' % h_datatype
 
   def vEmitStepfuncHeader(self, ifun, h_stepfunc):
+    # The redex of this step is a node of the function's own info table,
+    # whose block vEmitFunctionInfotab sizes by the arity.
+    self.redex_alloc_size = alloc_size(ifun.arity)
+    self.plain_vars = passthrough.plain_variables(ifun)
     yield '/****** %s ******/' % ifun.fullname
     yield 'tag_type %s(RuntimeState * rts, Configuration * C)' % h_stepfunc
 
@@ -263,18 +301,44 @@ class CxxCompiler(compiler.CompilerBase):
     return []
 
   def vEmit_compileS_IVarDecl(self, vardecl, varname):
-    yield 'Variable %s;' % varname
+    # A variable that the step only passes on is a plain pointer; the rule
+    # is in passthrough.py.  It starts null: a recursive let builds a forward
+    # reference from a variable not yet assigned, and an unassigned Variable
+    # yields null as well (Variable::rvalue).  A variable that a case
+    # scrutinizes, or that is the base of a path or of a node assignment, is
+    # a Variable.
+    if vardecl.vid in self.plain_vars:
+      yield 'Node * %s = nullptr;' % varname
+    else:
+      yield 'Variable %s;' % varname
 
   def vEmit_compileS_IFreeDecl(self, vardecl, varname):
     yield 'auto %s = rts->freshvar();' % varname
 
   def vEmit_compileS_IVarAssign(self, assign, lhs, rhs):
-    if rhs.startswith('Node::create'):
+    if assign.vid in self.plain_vars:
+      # A plain pointer takes the rendered right side: the plain read of a
+      # successor (vEmit_compileE_IVarAccess), a new node, a literal, or
+      # another plain variable.
+      yield '%s = %s;' % (lhs, rhs)
+    elif isinstance(assign.expr, icurry.IVarAccess):
+      # A Variable takes the indexer, which records the path and the guards.
+      yield '%s = %s;' % (lhs, self.variableAccess(assign.expr))
+    elif rhs.startswith('Node::create'):
       tmpname = 'tmp%s' % lhs
       yield 'Node * %s = %s;' % (tmpname, rhs)
       yield '%s.target = %s;' % (lhs, tmpname)
     else:
       yield '%s = %s;' % (lhs, rhs)
+
+  def variableAccess(self, ivaraccess):
+    '''
+    The indexer of Variable for a path: one subscript per entry.
+    Variable::operator[] takes one index; a comma list such as _1[0,1] would
+    be the C++ comma operator.
+    '''
+    var = self.vEmit_compileE_IVar(ivaraccess.var)
+    return var + ''.join('[%s]' % i for i in ivaraccess.path)
 
   def vEmit_compileS_INodeAssign(self, assign, lhs, rhs):
     # Patch a forward reference of a recursive let.  Index to the parent of
@@ -291,8 +355,50 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'return _0->make_failure();'
 
   def vEmit_compileS_IReturn(self, iret, expr):
-    yield '_0->forward_to(%s);' % expr
-    yield 'return T_FWD;'
+    # The result is written into the redex when it fits the block of the
+    # redex (Node::rewrite), as the Python backend rewrites every result in
+    # place.  Otherwise the redex is forwarded to a new node.  A reference
+    # result is forwarded as well, unless it is a primitive value
+    # (Node::forward_or_copy).
+    if isinstance(iret.expr, (icurry.IVar, icurry.IVarAccess)):
+      yield 'return _0->forward_or_copy(%s);' % expr
+    elif self.resultFits(iret.expr):
+      if isinstance(iret.expr, icurry.ILit):
+        # A literal is a reference in ICurry, so the generic compiler rendered
+        # it as a new node (int_(0)).  The info table and the value go into
+        # the redex instead.
+        expr = self.compileE(iret.expr, primary=False)
+      yield 'return _0->rewrite(%s);' % expr
+    else:
+      yield '_0->forward_to(%s);' % expr
+      yield 'return T_FWD;'
+
+  def resultFits(self, expr):
+    '''
+    Whether the node that ``expr`` denotes fits the block of the redex.  A
+    pinned constructor never does (see PINNED_INFOS).  A partial application
+    and a value of another kind are forwarded.
+    '''
+    assert self.redex_alloc_size is not None
+    if isinstance(expr, icurry.IPartialCall):
+      return False
+    elif isinstance(expr, icurry.ICall):
+      # A call is saturated: one successor per argument.
+      if self.importSymbol(expr.symbolname) in PINNED_INFOS:
+        return False
+      size = alloc_size(len(expr.exprs))
+    elif isinstance(expr, icurry.IOr):
+      # The node is Prelude.? applied to both sides.
+      size = alloc_size(2)
+    else:
+      # A boxed literal or a string: a head and one word.
+      lit = expr.lit if isinstance(expr, icurry.ILit) else expr
+      if not isinstance(
+          lit, (icurry.IInt, icurry.IChar, icurry.IFloat, icurry.IString)
+        ):
+        return False
+      size = alloc_size(1)
+    return size <= self.redex_alloc_size
 
   def vEmit_compileS_ICaseCons(self, icase, h_datatype, varident):
     yield 'auto tag = rts->hnf(C, &%s, &%s);' % (varident, h_datatype)
@@ -334,9 +440,17 @@ class CxxCompiler(compiler.CompilerBase):
     return '_%s' % ivar.vid
 
   def vEmit_compileE_IVarAccess(self, ivaraccess, var):
-    # One subscript per path element.  Variable::operator[] takes one index;
-    # a comma list such as _1[0,1] would be the C++ comma operator.
-    return var + ''.join('[%s]' % i for i in ivaraccess.path)
+    # An access in an expression passes its value on (an argument, or the
+    # result of the step), so a path of one entry is read as a plain node: a
+    # successor of the redex through Node::successor_node, which keeps a set
+    # guard in the slot, and a successor of a Variable through
+    # Variable::successor_node, which wraps the value in the guards the
+    # Variable crossed.  A longer path takes the indexer.  An assignment to a
+    # Variable takes the indexer as well (vEmit_compileS_IVarAssign).
+    if len(ivaraccess.path) == 1:
+      arrow = '->' if ivaraccess.vid == 0 else '.'
+      return '%s%ssuccessor_node(%s)' % (var, arrow, ivaraccess.path[0])
+    return self.variableAccess(ivaraccess)
 
   LIT_CONSTRUCTOR = {
       'CyI7Prelude3Int'  : 'int_'
@@ -345,13 +459,54 @@ class CxxCompiler(compiler.CompilerBase):
     }
 
   def vEmit_compileE_ILiteral(self, iliteral, h_ctor, primary):
+    # A primary literal is a node.  The runtime keeps one node for each
+    # small integer and each ASCII character (int_ and char_ in
+    # cyrt/builtins.hpp return them), and the module keeps one node for each
+    # of its other literals (internLiteralNode).  So a step allocates nothing
+    # for a literal.  A non-primary literal is the info table and the value,
+    # for a rewrite of the redex.
     shown = _cxxshow(iliteral.value, use_char=True)
-    if primary:
+    if not primary:
+      return '&%s, Arg(%s)' % (h_ctor, shown)
+    elif self.isSmallValue(iliteral):
       return '%s(%s)' % (self.LIT_CONSTRUCTOR[h_ctor], shown)
     else:
-      # text = '&%s, Arg(%r)' % (h_ctor, iliteral.value)
-      # return 'Node::create(%s)' % text if primary else text
-      return '&%s, Arg(%s)' % (h_ctor, shown)
+      return self.internLiteralNode(h_ctor, shown)
+
+  def isSmallValue(self, iliteral):
+    '''
+    Whether the runtime keeps a shared node for the literal: an Int from
+    SMALL_INT_MIN to SMALL_INT_MAX or a Char up to SMALL_CHAR_MAX.
+    '''
+    if isinstance(iliteral, icurry.IInt):
+      return cyrt.SMALL_INT_MIN <= iliteral.value <= cyrt.SMALL_INT_MAX
+    elif isinstance(iliteral, icurry.IChar):
+      return ord(iliteral.value) <= cyrt.SMALL_CHAR_MAX
+    else:
+      return False
+
+  def internLiteralNode(self, h_ctor, shown):
+    '''
+    The symbol of the node of a literal of this module.  The node is made
+    when the module loads and lives as long as the process (literal_node in
+    cyrt/builtins.hpp).  One node serves every occurrence of the literal in
+    the module.  The key is the spelling: -0.0 and 0.0 are two literals.
+    '''
+    key = compiler.LITERAL_NODE, h_ctor, shown
+    existing = self.intern_store.get(key)
+    if existing is not None:
+      return existing
+    h_lit = self.next_private_symbolname(compiler.LITERAL_NODE)
+    self.symtab.insert(
+        h_lit, compiler.LITERAL_NODE, '<literal node: %s>' % shown
+      )
+    self.target_object['.strings'].append(
+        'static Node * const %s = literal_node(&%s, Arg(%s));'
+            % (h_lit, h_ctor, shown)
+      )
+    self.symtab.make_defined(h_lit)
+    self.intern_store[key] = h_lit
+    return h_lit
 
   def vEmit_compileE_IString(self, istring, h_string, primary):
     text = '&_biString_Info, Arg(%s)' % h_string
@@ -366,9 +521,39 @@ class CxxCompiler(compiler.CompilerBase):
     return 'Node::create(%s)' % text if primary else text
 
   def vEmit_compileE_IPartialCall(self, ipcall, h_info, args, primary):
+    # 'primary' intentionally ignored: a partial application is always a
+    # node.  One without arguments is a node of the module, made once at
+    # load (see internPartialNode); one with arguments is allocated with
+    # the arguments inline (Node::create_partial).
+    if not ipcall.exprs:
+      return self.internPartialNode(h_info, ipcall.missing)
     text = '&%s%s' % (h_info, ''.join(', ' + e for e in args))
-    # 'primary' intentionally ignored.
     return 'Node::create_partial(%s)' % text
+
+  def internPartialNode(self, h_info, missing):
+    '''
+    The symbol of the node of a partial application without arguments: the
+    symbol ``h_info`` as a value, as in ``map f xs``.  The node is made when
+    the module loads and lives as long as the process (partial_node in
+    cyrt/builtins.hpp); one node serves every occurrence in the module.  The
+    missing count is spelled, because the info table of a head of this
+    module is not yet initialized when the node is made.
+    '''
+    key = compiler.PARTIAL_NODE, h_info
+    existing = self.intern_store.get(key)
+    if existing is not None:
+      return existing
+    h_partial = self.next_private_symbolname(compiler.PARTIAL_NODE)
+    self.symtab.insert(
+        h_partial, compiler.PARTIAL_NODE, '<partial node: %s>' % h_info
+      )
+    self.target_object['.strings'].append(
+        'static Node * const %s = partial_node(&%s, %d);'
+            % (h_partial, h_info, missing)
+      )
+    self.symtab.make_defined(h_partial)
+    self.intern_store[key] = h_partial
+    return h_partial
 
   def vEmit_compileE_IOr(self, ior, lhs, rhs, primary):
     h_choice = self.importSymbol('Prelude.?')

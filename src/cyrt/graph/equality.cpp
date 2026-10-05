@@ -1,4 +1,5 @@
 #include "cyrt/graph/equality.hpp"
+#include "cyrt/graph/memory.hpp"
 #include "cyrt/inspect.hpp"
 #include <unordered_map>
 #include <unordered_set>
@@ -12,6 +13,9 @@ namespace
   struct GraphEquality
   {
     bool skipfwd;
+    // The memo is keyed by the addresses of the nodes: no node may move
+    // while the comparison runs.
+    GcClamp gc_clamp;
     std::unordered_map<void *, std::unordered_set<void *>> memo;
 
     using pending_type = std::vector<std::pair<Cursor, Cursor>>;
@@ -50,6 +54,10 @@ namespace
           return lhs.arg->ub_float == rhs.arg->ub_float;
         case 'c':
           return lhs.arg->ub_char == rhs.arg->ub_char;
+        // An unboxed pointer: the head of a partial application, or the set
+        // of a set guard.
+        case 'x':
+          return lhs.arg->blob == rhs.arg->blob;
       }
       assert(lhs.kind == 'p');
       auto && bucket = p==memo.end() ? memo[lhs.id()] : p->second;

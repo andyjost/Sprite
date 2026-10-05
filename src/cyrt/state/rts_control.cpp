@@ -48,8 +48,12 @@ namespace cyrt
     Residuals remaining;
     for(auto vid: C->residuals)
     {
-      Node * var = rts->vtable[vid];
-      if(rts->is_void(C, var))
+      // The collector keeps the variable of a residual while the
+      // configuration lives (see gc/wdgc.cpp).  A variable without a node
+      // cannot be bound, so the configuration keeps waiting on it.
+      Node * var = rts->get_freevar(vid);
+      assert(var);
+      if(!var || rts->is_void(C, var))
         remaining.insert(vid);
     }
     if(remaining.size() < C->residuals.size())

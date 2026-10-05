@@ -27,6 +27,7 @@ in a single environment.
    CommandLineInterface/index
    PythonAPI/index
    Reference/index
+   Performance
    CurryPrimer/index
    genindex
 

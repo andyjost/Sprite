@@ -33,6 +33,10 @@ namespace cyrt
     size_t const serial;
     // The mark of the current collection.  See gc/wdgc.cpp.
     bool marked = false;
+    // The SetEval nodes that refer to this queue, counted by the MPS back
+    // end (gc/mps.cpp), which destroys the queue when the last of them has
+    // died.  Unused by the default collector.
+    size_t seteval_refs = 0;
 
     using iterator = queue_type::iterator;
     using const_iterator = queue_type::const_iterator;

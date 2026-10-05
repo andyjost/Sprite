@@ -122,11 +122,15 @@ class TestPrecompiledHeader(ToolchainTestCase):
     return list(cpp2so._compileCommand(cpp, out))
 
   def test_builds_once_and_reuses(self):
-    '''The first compile builds the header.  Later compiles reuse it.'''
+    '''
+    The first compile builds the header.  Later compiles reuse it.  The
+    member is named for the flavor of the installed runtime.
+    '''
     self.compile_module(1)
     members = self.members()
     self.assertEqual(len(members), 1)
-    self.assertTrue(members[0].startswith('O3-'), members[0])
+    prefix = 'O3-' if config.cxx_flavor() == 'release' else 'O0g-'
+    self.assertTrue(members[0].startswith(prefix), members[0])
     self.assertTrue(members[0].endswith('.gch'), members[0])
     path = os.path.join(self.gch_dir, members[0])
     self.assertGreater(os.path.getsize(path), 1 << 20)

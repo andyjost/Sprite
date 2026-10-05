@@ -167,8 +167,9 @@ html_static_path = ['_static']
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
-# directly to the root of the documentation.
-#html_extra_path = []
+# directly to the root of the documentation.  extra/perf is the chart page
+# of the nightly performance job: plain HTML and JavaScript.
+html_extra_path = ['extra']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.

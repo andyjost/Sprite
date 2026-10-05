@@ -30,6 +30,15 @@ namespace cyrt
       );
 
     static std::shared_ptr<Module> find_or_create(std::string);
+    // The loaded module of that name, or null.
+    static std::shared_ptr<Module> find(std::string const &);
+    // The info table ``name`` of the loaded module ``modulename``, or null.
+    // The runtime looks a symbol of the Prelude up this way, so that it
+    // finds the table whether the Prelude came from its compiled library
+    // or was interpreted from its ICurry (cyrt/icurry.hpp).
+    static InfoTable const * find_symbol(
+        std::string const & modulename, std::string const & name
+      );
     static std::map<std::string, std::shared_ptr<Module>> getall();
 
     InfoTable const * create_infotable(

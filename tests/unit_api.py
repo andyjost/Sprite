@@ -20,13 +20,16 @@ class ICurryTestCase(cytest.TestCase):
 
 class TestStats(cytest.TestCase):
   '''
-  ``curry.stats`` and ``sprite-exec --stats``.  Both report the same seven
+  ``curry.stats`` and ``sprite-exec --stats``.  Both report the same eight
   fields on both backends: wall and CPU seconds, rewrite steps, forks,
-  collections, peak RSS, and compile seconds.  A C++ runtime built with the
-  scheduler counters (make COUNTERS=1) appends the keys of
-  stats.SCHEDULER_KEYS; unit_cxx_counters.py tests those.
+  collections, peak RSS, compile seconds, and collector seconds.  A C++
+  runtime built with the scheduler counters (make COUNTERS=1) appends the
+  keys of stats.SCHEDULER_KEYS; unit_cxx_counters.py tests those.
   '''
-  KEYS = ('wall', 'cpu', 'steps', 'forks', 'collections', 'peak_rss', 'compile')
+  KEYS = (
+      'wall', 'cpu', 'steps', 'forks', 'collections', 'peak_rss', 'compile'
+    , 'gc_seconds'
+    )
   TIMEOUT = 120
   # The C++ runtime keeps one entry per module name, so a module built in
   # this process gets a name of its own.
@@ -52,12 +55,12 @@ class TestStats(cytest.TestCase):
     return ()
 
   def test_fields(self):
-    '''The seven fields, their types, and the key=value line.'''
+    '''The eight fields, their types, and the key=value line.'''
     stats = curry.stats()
     self.assertIsInstance(stats, statsmod.Stats)
     self.assertEqual(tuple(stats), self.KEYS + self.extra_keys())
     self.assertEqual(statsmod.KEYS, self.KEYS)
-    for key in 'wall', 'cpu', 'compile':
+    for key in 'wall', 'cpu', 'compile', 'gc_seconds':
       self.assertIsInstance(stats[key], float, key)
       self.assertGreaterEqual(stats[key], 0.0, key)
     for key in 'steps', 'forks', 'collections', 'peak_rss':
@@ -68,6 +71,7 @@ class TestStats(cytest.TestCase):
     self.assertGreater(stats['peak_rss'], 0)
     if curry.flags['backend'] == 'py':
       self.assertEqual(stats['collections'], 0)
+      self.assertEqual(stats['gc_seconds'], 0.0)
     line = str(stats)
     self.assertRegex(
         line
@@ -183,7 +187,7 @@ class TestStats(cytest.TestCase):
 
   def test_sprite_exec_stats(self):
     '''
-    sprite-exec --stats prints the seven fields as the last line of stderr.
+    sprite-exec --stats prints the eight fields as the last line of stderr.
     The module has a committed ICurry cache, so no Curry front end runs.
     '''
     stats, stdout, rest = self.sprite_exec('--stats', '-m', 'mynot')

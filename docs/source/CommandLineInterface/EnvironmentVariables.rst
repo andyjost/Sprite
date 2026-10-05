@@ -22,7 +22,10 @@ The following are recognized:
 
 ``SPRITE_GC_THRESHOLD``
   The number of nodes at which the collector of the C++ backend runs.  The
-  default is 1048576, about 50 MB of nodes.  After a collection the
+  default is 1048576, about 30 MB of nodes in the block heap of the
+  runtime.  The allocator checks the count once per run of free slots, so
+  a collection comes within a few thousand nodes of the threshold.  After
+  a collection the
   threshold is eight times the survivors, but not less than the configured
   value, so the heap stays within eight times the live nodes.  The
   collector also runs when the live configurations of the scheduler reach
@@ -50,14 +53,29 @@ The following are recognized:
   every rewrite step of the outermost evaluation, and a nested set function
   hands the request outward.  A node that no root reaches is then reclaimed
   at the next step, so a missing root shows up at once, as a wrong value or
-  a crash.  The mode costs a collection per step.  It is meant for the test
-  suite (see ``tests/README``), not for a program.  The value ``0`` or an
+  a crash.  Every collection of the mode also runs the heap verifier, which
+  checks every live node, its successors, and every node Python holds
+  against the block heap and stops the process when the heap is
+  inconsistent.  The mode costs a
+  collection per step.  It is meant for the test suite (see
+  ``tests/README``), not for a program.  The value ``0`` or an
   empty value turns the mode off, which is the default; another value turns
   it off with a warning.  The value is read when the runtime library loads.
   The Python backend does not use it.  To run the unit tests in stress
   mode, say::
 
      SPRITE_GC_STRESS=1 SPRITE_INTERPRETER_FLAGS=backend:cxx ./run_tests 'unit_*.py'
+
+  A runtime built with the Memory Pool System (``make GC=mps``, an
+  experiment) reads the three variables above with another meaning:
+  ``SPRITE_GC_THRESHOLD`` runs a full collection every so many nodes in
+  addition to the collections MPS schedules itself (unset: none),
+  ``SPRITE_GC_GROWTH`` scales the configuration threshold after a full
+  collection, and ``SPRITE_GC_STRESS`` runs a full collection at every
+  safepoint, without a heap verifier.  ``SPRITE_GC_MPS_ARENA_MB`` (256),
+  ``SPRITE_GC_MPS_NURSERY_KB`` (8192), and ``SPRITE_GC_MPS_GEN1_KB`` (65536)
+  size its arena and its two generations.  See
+  ``src/cyrt/graph/gc/mps.cpp``.
 
 ``SPRITE_INTERPRETER_FLAGS``
   Overrides default flags in Sprite's Curry interpreter.  This can be set to a

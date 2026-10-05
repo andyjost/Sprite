@@ -101,7 +101,7 @@ program, and after the error message when the run fails::
 
     sprite-exec --stats Peano.curry
     S (S O)
-    wall=0.129943 cpu=0.129125 steps=3 forks=0 collections=0 peak_rss=36773888 compile=0.000000
+    wall=0.129943 cpu=0.129125 steps=3 forks=0 collections=0 peak_rss=36773888 compile=0.000000 gc_seconds=0.000000
 
 The fields are:
 
@@ -131,6 +131,10 @@ The fields are:
     end, the ICurry conversion, code generation, and the C++ compiler.  The
     field is 0 when every file was up to date.
 
+``gc_seconds``
+    Seconds the node collector of the C++ backend spent in its collections.
+    The Python backend reports 0.
+
 Seconds are printed with six decimals.  The same numbers are available in
 Python from :func:`curry.stats`, which returns a dict with these keys in this
 order; ``str`` of it gives the line above.
@@ -147,7 +151,7 @@ COUNTERS=1 stage`` and again before the plain ``make stage``.  The
 instrumented runtime costs about one to three percent more instructions and
 a word more per node; see the TODO entry for the measurements.
 
-With the counters, ``--stats`` appends these fields after ``compile``, and
+With the counters, ``--stats`` appends these fields after ``gc_seconds``, and
 :func:`curry.stats` adds the same keys:
 
 ``serial_steps``

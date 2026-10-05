@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprite performance history</title>
+<style>
+  :root {
+    color-scheme: light;
+    --plane: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --series: #2a78d6;
+    --critical: #d03b3b;
+    --good: #006300;
+    --border: rgba(11, 11, 11, 0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --plane: #0d0d0d;
+      --surface: #1a1a19;
+      --ink: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --series: #3987e5;
+      --critical: #d03b3b;
+      --good: #0ca30c;
+      --border: rgba(255, 255, 255, 0.10);
+    }
+  }
+  html {
+    background: var(--plane);
+    color: var(--ink);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  body { margin: 0 auto; max-width: 1240px; padding: 24px 20px 48px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+  h2 { font-size: 17px; font-weight: 600; margin: 0; }
+  h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 2px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    align-items: baseline;
+  }
+  p { margin: 4px 0; color: var(--ink-2); }
+  a { color: inherit; }
+  code { font-size: 12px; }
+  .lead { max-width: 72em; }
+  .legend { color: var(--muted); font-size: 12.5px; max-width: 72em; }
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    align-items: center;
+    margin: 14px 0 20px;
+  }
+  .filters label { color: var(--ink-2); }
+  select, button {
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--axis);
+    border-radius: 4px;
+    padding: 3px 8px;
+  }
+  select { margin-left: 6px; }
+  button { cursor: pointer; }
+  button[aria-expanded="true"] { border-color: var(--ink-2); }
+  #status { color: var(--muted); font-size: 13px; }
+  figure.suite {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 0 0 24px;
+    padding: 16px 18px 12px;
+  }
+  figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+  figcaption p { flex: 1 1 320px; }
+  .panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px 18px;
+  }
+  .panel-chart { width: 100%; height: auto; display: block; }
+  .panel-chart:focus-visible {
+    outline: 2px solid var(--series);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  .grid { stroke: var(--grid); stroke-width: 1; }
+  .axis { stroke: var(--axis); stroke-width: 1; }
+  .tick, .end-label, .empty {
+    fill: var(--muted);
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .end-label { fill: var(--ink-2); font-weight: 600; }
+  .line {
+    fill: none;
+    stroke: var(--series);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .lone, .end, .cursor-dot {
+    fill: var(--series);
+    stroke: var(--surface);
+    stroke-width: 2;
+  }
+  .changed { fill: var(--surface); stroke: var(--series); stroke-width: 1.5; }
+  .fail { stroke: var(--critical); stroke-width: 1.5; fill: none; }
+  .crosshair { stroke: var(--axis); stroke-width: 1; }
+  .hit { fill: transparent; cursor: crosshair; }
+  .delta, .note, .status { font-weight: 500; font-size: 12px; color: var(--ink-2); }
+  .delta.slower, .status.critical { color: var(--critical); }
+  .delta.faster { color: var(--good); }
+  .note { color: var(--muted); }
+  .table-view {
+    border-collapse: collapse;
+    margin-top: 14px;
+    width: 100%;
+    font-size: 13px;
+  }
+  .table-view caption { text-align: left; color: var(--ink-2); padding: 4px 0; }
+  .table-view th, .table-view td {
+    text-align: left;
+    padding: 4px 10px 4px 0;
+    border-bottom: 1px solid var(--grid);
+    vertical-align: top;
+  }
+  .table-view th { color: var(--muted); font-weight: 500; }
+  .table-view .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  #tooltip {
+    position: fixed;
+    z-index: 10;
+    max-width: 340px;
+    padding: 8px 10px;
+    background: var(--surface);
+    color: var(--ink-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+    font-size: 12.5px;
+    pointer-events: none;
+  }
+  #tooltip strong { color: var(--ink); font-size: 14px; }
+  #tooltip div { margin-top: 2px; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 12px; }
+  footer p { color: inherit; }
+  .empty { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sprite performance history</h1>
+  <p class="lead">The nightly performance job runs the benchmark harness of
+  Sprite on the C++ backend on a shared CI runner and appends the records to
+  the branch <code>perf-history</code> of the repository.  Timings from
+  shared runners are advisory: read the CPU seconds with the exact counters,
+  and take authoritative numbers from a quiet machine.</p>
+  <p class="legend">Each panel is one item.  The line is the chosen metric
+  over time and the number at its end is the last run.  A hollow marker:
+  the rewrite steps changed from the previous run, so the program or the
+  compiler changed.  A cross on the baseline: the run failed.  Hover a
+  panel, or focus it and use the arrow keys, for the date, the commit, the
+  counters, and the status.  The Table button lists the last run of every
+  item against the previous one.</p>
+  <div class="filters">
+    <label>Range
+      <select id="range">
+        <option value="all">whole history</option>
+        <option value="year">last year</option>
+        <option value="quarter">last 90 days</option>
+        <option value="month">last 30 days</option>
+      </select>
+    </label>
+    <label>Metric
+      <select id="metric">
+        <option value="default">suite default</option>
+        <option value="cpu">CPU seconds</option>
+        <option value="wall">wall seconds</option>
+        <option value="eval_wall">evaluation seconds</option>
+        <option value="compile">compile seconds</option>
+        <option value="peak_rss">peak RSS</option>
+        <option value="steps">rewrite steps</option>
+      </select>
+    </label>
+    <span id="status">Loading the history.</span>
+  </div>
+</header>
+<main id="charts"></main>
+<footer>
+  <p>Data: <a id="data-link" href="points.json">points.json</a>, written by
+  <code>tests/run_benchmarks history</code> of the nightly job.  Add
+  <code>?history=URL</code> to the address to read another file.</p>
+</footer>
+<div id="tooltip" role="tooltip" hidden></div>
+<script src="perf.js"></script>
+</body>
+</html>

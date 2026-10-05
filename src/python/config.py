@@ -166,8 +166,15 @@ ld_interpreter_path       = _Variable('ld_interpreter_path')
 # or 'debug'.  See cxx_flavor.
 _cxx_flavor               = _Variable('cxx_flavor')
 
+# The collector of the installed C++ runtime, as the build wrote it: 'wdgc'
+# or 'mps'.  See cxx_gc.
+_cxx_gc                   = _Variable('cxx_gc')
+
 # The flavors of the C++ runtime and of generated code.
 CXX_FLAVORS = 'release', 'debug'
+
+# The collectors of the C++ runtime (make GC=...).
+CXX_GCS = 'wdgc', 'mps'
 
 def cxx_flavor():
   '''
@@ -181,6 +188,18 @@ def cxx_flavor():
   if not os.path.exists(installed_path('sysconfig', 'cxx_flavor')):
     return 'release'
   return 'debug' if _cxx_flavor().strip() == 'debug' else 'release'
+
+def cxx_gc():
+  '''
+  The collector of the installed C++ runtime: 'wdgc', the block heap and the
+  mark-and-sweep collector of the tree, or 'mps' for a build with make
+  GC=mps, the Memory Pool System.  The C++ backend compiles generated
+  modules for the same collector (see curry.backends.cxx.toolchain.gc_flags).
+  An installation that names no collector is a wdgc build.
+  '''
+  if not os.path.exists(installed_path('sysconfig', 'cxx_gc')):
+    return 'wdgc'
+  return 'mps' if _cxx_gc().strip() == 'mps' else 'wdgc'
 
 
 def syslibs():

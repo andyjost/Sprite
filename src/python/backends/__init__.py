@@ -72,6 +72,14 @@ class IBackend(metaclass=abc.ABCMeta):
     '''
     return 0
 
+  def gc_seconds(self):
+    '''
+    The seconds the garbage collector of this backend has spent in its
+    collections in this process.  A backend without a collector of its own
+    answers zero.
+    '''
+    return 0.0
+
   def scheduler_counters_enabled(self):
     '''
     True when the runtime of this backend counts the serial steps, the

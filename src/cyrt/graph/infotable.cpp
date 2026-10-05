@@ -22,6 +22,16 @@ namespace cyrt
     assert(tag >= E_ERROR);
     // It must be possible to overwrite any function with a FWD node.
     assert((tag != T_FUNC) || alloc_size >= sizeof(FwdNode));
+    // The block of a node holds a word per successor, and one word at least.
+    // The generated code relies on this when it writes a result into the
+    // redex (Node::rewrite; see backends/cxx/compiler.py).  A pinned table
+    // is exempt: its static object is a head alone (Node0), and such a node
+    // is never a redex.  So is a pad table: a pad of one word fills the
+    // slack of a block.  Arg is a word; the union is incomplete here.
+    assert(
+        (flags & F_PINNED) || tag == T_PAD
+        || alloc_size >= sizeof(Head) + sizeof(void *) * (arity ? arity : 1)
+      );
     assert(name);
     assert(std::strlen(name));
     assert(format);

@@ -42,14 +42,18 @@ namespace cyrt
       if(this->update_fp(copy.get(), choice->cid, lr))
       {
         xid_type gid = copy->grp_id(choice->cid);
-        if(this->vtable.count(choice->cid))
+        // A choice with the id of a free variable is the generator of that
+        // variable.  The collector keeps a variable whose id a binding or a
+        // group of the configuration names (see gc/wdgc.cpp); an entry it
+        // dropped had neither, so the steps below would change nothing.
+        Node * x = this->get_freevar(choice->cid);
+        Node * y = x ? this->get_freevar(gid) : nullptr;
+        assert(!x || y);
+        if(x && y)
         {
           this->apply_binding(copy.get(), choice->cid);
           this->apply_binding(copy.get(), gid);
-          if(!this->constrain_equal(
-              copy.get(), this->get_freevar(choice->cid), this->get_freevar(gid)
-            , STRICT_CONSTRAINT
-            ))
+          if(!this->constrain_equal(copy.get(), x, y, STRICT_CONSTRAINT))
             return;
         }
         // walk_qstack

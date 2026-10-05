@@ -18,7 +18,10 @@ HEADINGS = (
   )
 EPILOG = '''
 Other commands: "compare OLD NEW" compares two record files (see
-"compare -h"); "list" lists the programs of a suite.  Records are JSON
+"compare -h"); "counters FILE" tabulates the scheduler counters of a record
+file; "split FILE" tabulates the records of the split suite; "history DIR
+FILE..." appends record files to the history of the nightly job (see
+"history -h"); "list" lists the programs of a suite.  Records are JSON
 Lines; the fields are documented in benchmarks/records.py.
 '''
 
@@ -68,12 +71,12 @@ def parse_args(argv):
   parser.add_argument(
       '--variant', action='append', default=None, metavar='NAME'
     , help='run the items of this variant only (cold, warm, collector=on, '
-           'collector=off); repeat for several'
+           'collector=off, whole, 2/0 ...); repeat for several'
     )
   parser.add_argument(
       '-r', '--repeat', type=int, default=None, metavar='N'
     , help='measured repetitions per item [default: throughput 5, compile 3, '
-           'import 5, memory 1]'
+           'import 5, memory 1, split 3]'
     )
   parser.add_argument(
       '-w', '--warmup', type=int, default=1, metavar='N'
@@ -112,6 +115,12 @@ def parse_args(argv):
   parser.add_argument(
       '-l', '--list', action='store_true'
     , help='list the programs of the suite and exit'
+    )
+  parser.add_argument(
+      '--nightly', action='store_true'
+    , help='run the fixed set of the nightly performance job: ten programs '
+           '(with the expression item in the compile suite), or every item '
+           'of the import suite; a PROGRAM pattern then selects among them'
     )
   args = parser.parse_args(argv)
   if args.backend is None:
@@ -162,7 +171,7 @@ def write_row(stream, record):
 def main(argv=None):
   args = parse_args(sys.argv[1:] if argv is None else argv)
   try:
-    programs = suites.select(args.suite, args.program)
+    programs = suites.select(args.suite, args.program, nightly=args.nightly)
   except ValueError as exc:
     sys.exit('run_benchmarks: %s' % exc)
   if args.list:

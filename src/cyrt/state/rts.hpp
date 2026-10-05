@@ -19,9 +19,28 @@
 
 namespace cyrt
 {
+  // The free-variable table: the node of a free variable by its id.  The
+  // runtime looks a variable up by id when it has no node at hand: the
+  // group of a variable (strict_constraints), a binding, a residual, and
+  // the choice of a generator at the root of a configuration (fork) name a
+  // variable by its id.  The table is weak: it is not a root of the
+  // collector, which drops an entry whose node is unreachable, unless a
+  // live configuration still names the id.  See gc/wdgc.cpp.
+  using vtable_type  = std::unordered_map<xid_type, Node*>;
+
+  // The state shared by the evaluations of one interpreter: the ids of the
+  // choices and the free variables, and the free-variable table.  The ids
+  // are unique per interpreter, so the table lives here and not in the
+  // runtime state of one evaluation: a nested evaluation (a Python
+  // callback) and a later evaluation of a value that holds a free variable
+  // find the variables of an earlier one.  The collector sweeps the tables
+  // of the registered states.
   struct InterpreterState : boost::noncopyable
   {
-    xid_type xidfactory = 0;
+    InterpreterState() { gc_register_istate(this); }
+    ~InterpreterState() { gc_unregister_istate(this); }
+    xid_type    xidfactory = 0;
+    vtable_type vtable;
   };
 
   // The set of a set function: the choices that escape it.  The guards of
@@ -51,7 +70,6 @@ namespace cyrt
   static constexpr size_t STACK_MARGIN = size_t(1) << 20;
 
   using qstack_type  = std::vector<Queue*>;
-  using vtable_type  = std::unordered_map<xid_type, Node*>;
 
   struct RuntimeState : boost::noncopyable
   {
@@ -67,12 +85,13 @@ namespace cyrt
     RuntimeState & operator=(RuntimeState &&) = delete;
 
     InterpreterState &     istate;
-    // ``stepcount`` counts the forward nodes compressed (about one per
-    // rewrite step) and paces the periodic rotation (check_interrupts) and
-    // the concurrent conjunction.  ``steps_total`` counts the rewrite steps
-    // taken (count_step).  ``forks_total`` counts the forks of a
-    // choice-rooted configuration (fork).  Python reads both totals for the
-    // statistics of a run (Interpreter.stats).
+    // ``stepcount`` counts the completed rewrite steps of the scheduler
+    // (procS) and paces the periodic rotation (check_interrupts) and the
+    // concurrent conjunction.  ``steps_total`` counts the rewrite steps taken
+    // (count_step), the steps outside the scheduler included.
+    // ``forks_total`` counts the forks of a choice-rooted configuration
+    // (fork).  Python reads both totals for the statistics of a run
+    // (Interpreter.stats).
     size_t                 stepcount = 0;
     size_t                 steps_total = 0;
     size_t                 forks_total = 0;
@@ -84,7 +103,6 @@ namespace cyrt
     // SetEval nodes of the set functions under evaluation.
     std::unique_ptr<Queue> root_queue;
     qstack_type            qstack;
-    vtable_type            vtable;
     SetFStrategy           setfunction_strategy;
     // C-stack guard.  An evaluation may use ``stack_room`` bytes of C stack
     // below ``stack_base``, the frame of the outermost procD.  ``stack_room``
@@ -175,6 +193,9 @@ namespace cyrt
 
     // rts_freevars:
     Node * freshvar();
+    // The node of a free variable by its id, or nullptr: the table has no
+    // entry for a variable the collector dropped, or for a node built
+    // outside the runtime (Node.create from Python).  See InterpreterState.
     Node * get_freevar(xid_type vid);
     Node * get_binding(Configuration *, xid_type vid);
     Node * get_binding(Configuration *, Node *);

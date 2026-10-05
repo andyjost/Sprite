@@ -167,7 +167,10 @@ ifdef VARS
     FILES_TO_UNINSTALL += $(VARS_INSTALL)
     install:: $(VARS_INSTALL)
     $(foreach var,$(VARS),$(eval $(call define_var_target,$(var))))
-    $(INSTALL_DIR)/% : %.var
+    # A value may come from Make.config or the command line (GC, for one),
+    # so the file is written again when Make.config changes, as the objects
+    # are compiled again then.
+    $(INSTALL_DIR)/% : %.var $(ROOT_DIR)/Make.config
 			@mkdir -p $(dir $@)
 			echo $(VAR_VALUE$<) > $@
   endif

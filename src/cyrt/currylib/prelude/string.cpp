@@ -4,14 +4,33 @@
 using namespace cyrt;
 
 static generator_next_type g_generator_next = nullptr;
+static generator_hold_type g_generator_acquire = nullptr;
+static generator_hold_type g_generator_release = nullptr;
 
 namespace cyrt
 {
   // The _cyrtbindings module in Python will call this.
-  void register_generator_funcs(generator_next_type generator_next)
+  void register_generator_funcs(
+      generator_next_type generator_next, generator_hold_type acquire
+    , generator_hold_type release
+    )
   {
     assert(generator_next);
     g_generator_next = generator_next;
+    g_generator_acquire = acquire;
+    g_generator_release = release;
+  }
+
+  void generator_acquire(void * data)
+  {
+    if(data && g_generator_acquire)
+      g_generator_acquire(data);
+  }
+
+  void generator_release(void * data)
+  {
+    if(data && g_generator_release)
+      g_generator_release(data);
   }
 }
 
@@ -39,8 +58,19 @@ static tag_type _biGenerator_step(RuntimeState * rts, Configuration * C)
 {
   Cursor _0 = C->cursor();
   biGeneratorNode * gen = NodeU{_0}.generator;
-  Node * next_item = g_generator_next(gen->data);
-  _0->forward_to(next_item ? cons(next_item, generator(gen->data)) : nil());
+  void * data = gen->data;
+  Node * next_item = g_generator_next(data);
+  if(next_item)
+  {
+    // The node of the rest of the list takes over the reference.
+    _0->forward_to(cons(next_item, generator(data)));
+    return T_FWD;
+  }
+  // The iterator is exhausted.  A forward node owns nothing, so the
+  // reference goes now.  The release may run Python code (the finalizer of
+  // a generator), so it comes after the rewrite.
+  _0->forward_to(nil());
+  generator_release(data);
   return T_FWD;
 }
 

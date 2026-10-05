@@ -88,4 +88,24 @@ namespace cyrt
 
   inline Variable Cursor::operator[](index_type pos) const
     { return Variable(*this, pos); }
+
+  // A successor of a variable that a step only passes on (a pattern variable
+  // of a case).  When this variable crossed no set guard and its target is a
+  // constructor (the case head-normalized it), the successor slot holds the
+  // whole value, and it is read as Node::successor_node reads a slot of the
+  // redex.  Otherwise the indexer runs as before: it crosses a forward node
+  // or a guard at the target, and rvalue wraps the successor in the guards
+  // crossed.  The generated code cannot tell the two cases apart, so the
+  // check is made here, at run time.
+  inline Node * Variable::successor_node(index_type pos) const
+  {
+    if(this->guards.empty())
+    {
+      assert(this->target.kind == 'p');
+      Node * node = *this->target;
+      if(node && node->info->tag >= T_CTOR)
+        return node->successor_node(pos);
+    }
+    return (*this)[pos].rvalue();
+  }
 }

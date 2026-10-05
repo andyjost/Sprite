@@ -77,6 +77,7 @@ namespace cyrt { inline namespace
     Queue * Qrhs = new Queue(seteval->set);
     seteval->queue->split(choice->cid, *Qrhs);
     Node * rhs_seteval = Node::create(seteval->info, seteval->set, Qrhs);
+    gc_register_seteval(rhs_seteval);
     Node * replacement = make_node<ChoiceNode>(
         choice->cid
       , Node::create(&allValues_Info, (Node *) seteval)
@@ -94,17 +95,12 @@ namespace cyrt { inline namespace
     if(status != T_CTOR)
       return status;
     PartApplicNode * partial = NodeU{_1.target}.partapplic;
+    assert(partial->info->type == &PartialS_Type);
     assert(partial->missing >= 1);
     Node * arg = _0->successor(1);
     if(!capture)
       arg = Node::create(&SetGuard_Info, nullptr, arg);
-    Node * replacement = Node::create(
-        &PartialS_Info
-      , partial->missing - 1
-      , partial->head_info
-      , cons(arg, partial->terms)
-      );
-    _0->forward_to(replacement);
+    _0->forward_to(Node::extend_partial(partial, arg));
     return T_FWD;
   }
 
@@ -118,11 +114,8 @@ namespace cyrt { inline namespace
   tag_type eagerApplyS_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
-    Node * partial = Node::create(
-        &PartApplic_Info
-      , 1
-      , &eagerApplyS_Info
-      , cons(_0->successor(0), Nil)
+    Node * partial = Node::create_partial(
+        &eagerApplyS_Info, _0->successor(0)
       );
     Node * replacement = Node::create(
         &applygnf_Info, partial, _0->successor(1)
@@ -154,6 +147,7 @@ namespace cyrt { inline namespace
     }
     Queue * new_queue = new Queue(new_set, goal);
     Node * seteval = Node::create(&SetEval_Info, new_set, new_queue);
+    gc_register_seteval(seteval);
     Node * allvalues = Node::create(&allValues_Info, seteval);
     Node * replacement = Node::create(&Values_Info, allvalues);
     _0->forward_to(replacement);
@@ -163,10 +157,12 @@ namespace cyrt { inline namespace
   tag_type exprS_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
+    // An encapsulated expression: no head, the expression as the one
+    // argument.
     Node * replacement = Node::create(
-        &PartialS_Info
+        partials_info(1)
       , Arg(ENCAPSULATED_EXPR)
-      , Arg(0)
+      , Arg((InfoTable const *) nullptr)
       , _0->successor(0)
       );
     _0->forward_to(replacement);
@@ -180,10 +176,12 @@ namespace cyrt { inline namespace
     auto status = rts->hnf(C, &_1);
     if(status != T_CTOR)
       return status;
-    assert(_1.target->info == &PartApplic_Info);
+    assert(_1.target->info->type == &PartApplic_Type);
     PartApplicNode * partapplic = NodeU{_1.target}.partapplic;
+    // The same contents under the table of the set functions: the formats
+    // of the two families agree for one number of arguments.
     Node * replacement = Node::create(
-        &PartialS_Info, partapplic->missing, partapplic->head_info, partapplic->terms
+        partials_info(partapplic->nargs()), _1.target->successors()
       );
     _0->forward_to(replacement);
     return T_FWD;
@@ -283,13 +281,15 @@ extern "C"
     , /*type*/       nullptr
     };
 
+  // The set-function partial application without arguments.  The tables
+  // for one or more arguments come from g_partials_infos.
   InfoTable const PartialS_Info{
       /*tag*/        T_CTOR
-    , /*arity*/      3
+    , /*arity*/      2
     , /*alloc_size*/ sizeof(PartApplicNode)
     , /*flags*/      F_PARTIAL_TYPE | F_STATIC_OBJECT
     , /*name*/       "PartialS"
-    , /*format*/     "ixp"
+    , /*format*/     "ix"
     , /*step*/       nullptr
     , /*type*/       &PartialS_Type
     };
@@ -417,6 +417,15 @@ extern "C"
 
   static InfoTable const * PartialS_Ctors[] = { &PartialS_Info };
   DataType const PartialS_Type { PartialS_Ctors, 1, 't', F_STATIC_OBJECT, "PartialS" };
+}
+
+namespace cyrt
+{
+  PartialInfoFamily g_partials_infos{{&PartialS_Info}, nullptr};
+}
+
+extern "C"
+{
 
   static InfoTable const * SetEval_Ctors[] = { &SetEval_Info };
   DataType const SetEval_Type { SetEval_Ctors, 1, 't', F_STATIC_OBJECT, "SetEval" };

@@ -97,7 +97,14 @@ class Maker(object):
 
   @property
   def done(self):
-    return self.current_position == len(self.plan)
+    position = self.current_position
+    if position == len(self.plan):
+      return True
+    # A step may end the plan at its input: the C++ backend interprets a
+    # module from its JSON instead of compiling it (see Json2Cpp.ends_plan).
+    step = self.plan.stages[position].step
+    ends_plan = getattr(step, 'ends_plan', None)
+    return ends_plan is not None and ends_plan(self.pipeline.currentfile)
 
   def make(self):
     if self.done:

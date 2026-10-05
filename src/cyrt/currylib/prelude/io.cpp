@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iterator>
 #include <sstream>
+#include <stdexcept>
 
 using namespace cyrt;
 
@@ -120,10 +121,13 @@ namespace cyrt
   {
     Cursor _0 = C->cursor();
     Variable _1 = _0[0];
-    InfoTable const * show_Info = SharedCurryModule::symbol(
-        "Prelude", "CyI7Prelude45__impl_hshow_hPrelude_dShow_hPrelude_dIOError"
+    // The show instance of IOError is defined in Curry; its table comes
+    // from the loaded Prelude, compiled or interpreted (Module::find_symbol).
+    InfoTable const * show_Info = Module::find_symbol(
+        "Prelude", "_impl#show#Prelude.Show#Prelude.IOError"
       );
-    assert(show_Info);
+    if(!show_Info)
+      throw std::logic_error("the Prelude is not loaded: no show for IOError");
     // (error2 err) $## (show err)
     Node * error_msg = Node::create(show_Info, _1);
     Node * lhs = Node::create_partial(&prim_error2_Info, _1.target);

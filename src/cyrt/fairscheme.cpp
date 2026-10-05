@@ -66,7 +66,6 @@ namespace cyrt
                            return this->release_value();
         case T_FWD     : compress_fwd_chain(C->root);
                          tag = inspect::tag_of(C->root);
-                         tag = this->check_interrupts(tag);
                          goto redoD;
         case T_CHOICE  : if(this->choice_escapes(C, obj_id(C->root)))
                            return Expr{C->root};
@@ -178,7 +177,6 @@ namespace cyrt
                          if(tag <= E_RESTART) goto redoN; else continue;
         case T_FWD     : compress_fwd_chain(scan->cursor());
                          tag = inspect::tag_of(scan->cursor());
-                         tag = this->check_interrupts(tag);
                          goto redoN;
         case T_CHOICE  : *root = this->pull_tab(C, root, scan->cursor());
                          return T_CHOICE;
@@ -222,10 +220,22 @@ namespace cyrt
     // step was interrupted (E_UNWIND, E_GC, E_ROTATE), suspended
     // (E_RESIDUAL), or raised an error (E_ERROR), and the redex is as it was.
     // The Python backend applies the same rule (see S in fairscheme.py).
+    //
+    // A completed step is the safepoint of the scheduler: the periodic
+    // rotation and a requested collection interrupt here (check_interrupts).
+    // The step rewrote its redex, most often in place, so the status is the
+    // tag of the result; the interrupt replaces it, and the caller finds the
+    // result in the graph when the configuration runs again.  Before the
+    // in-place rewrite every step left a forward node, and the check ran
+    // when a consumer compressed it.  E_RESTART passes unchanged: it tells
+    // every enclosing step that the root was replaced (replace_freevar), and
+    // each of them counts it on the way out; the next step checks.
     if(status >= E_RESTART)
     {
       this->count_step();
       SCHEDULER_COUNT_SHARED(redex, C);
+      if(status != E_RESTART)
+        status = this->check_interrupts(status);
     }
     return status;
   }
@@ -269,16 +279,20 @@ namespace cyrt
                        continue;
         case T_FWD   : compress_fwd_chain(inductive->target);
                        tag = inspect::tag_of(inductive->target);
-                       tag = this->check_interrupts(tag);
                        continue;
         case T_CHOICE: if(monadic)
                          return this->nondet_monad_error(C);
                        inductive->update_escape_sets(); // move this into pull_tab?
                        _0->forward_to(this->pull_tab(C, inductive));
                        return T_FWD;
+        // A step that rewrites the redex in place to another function node
+        // (a tail call) is followed by the step of that node under the same
+        // scan frame.
         case T_FUNC  : if(this->stack_exhausted()) return E_UNWIND;
                        C->scan.push(inductive);
-                       tag = this->procS(C);
+                       do
+                         tag = this->procS(C);
+                       while(tag == T_FUNC);
                        C->scan.pop();
                        continue;
         default      : return tag;

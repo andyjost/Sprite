@@ -867,6 +867,18 @@ endif
 ifeq ($(COUNTERS),1)
   CFLAGS   += -DSPRITE_SCHEDULER_COUNTERS
 endif
+# The collector of the C++ runtime (make GC=mps): the Memory Pool System
+# (the submodule extern/mps) in place of the block heap and the
+# mark-and-sweep collector of src/cyrt/graph/gc.  An experiment behind a
+# gate (see TODO); the default, wdgc, is the collector of the tree.  The
+# choice reaches the installation as sysconfig/cxx_gc, and the C++ backend
+# compiles generated modules with the same macro (see
+# curry.backends.cxx.toolchain).  The objects do not depend on this
+# variable: touch Make.config to switch.
+GC ?= wdgc
+ifeq ($(GC),mps)
+  CFLAGS   += -DSPRITE_GC_MPS -I$(ROOT_DIR)/extern/mps/code
+endif
 CXXFLAGS += $(CFLAGS) -std=c++17
 
 # PAKCS
@@ -966,8 +978,9 @@ ENABLE_PARSED_JSON_CACHE := {ENABLE_PARSED_JSON_CACHE}
 
 # MPS
 # ===
-# Download the Memory Pool System (MPS) from www.ravenbrook.com/project/mps.
-# MPS_HOME := /usr/local/src/mps
+# The Memory Pool System is the submodule extern/mps.  make GC=mps builds the
+# C++ runtime with it in place of the collector of the tree (see Make.config
+# and src/cyrt/graph/gc/mps.cpp).  Nothing here configures it.
 
 
 if __name__ == '__main__':

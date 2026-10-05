@@ -4,6 +4,7 @@
 #include "cyrt/currylib/prelude.hpp"
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/graph/infotable.hpp"
+#include "cyrt/icurry.hpp"
 #include "cyrt/module.hpp"
 #include <iostream>
 #include <unordered_map>
@@ -50,6 +51,22 @@ namespace cyrt
     auto handle = std::make_shared<Module>(name);
     slot = handle;
     return handle;
+  }
+
+  std::shared_ptr<Module> Module::find(std::string const & name)
+  {
+    auto p = g_modules.find(name);
+    if(p == g_modules.end())
+      return nullptr;
+    return p->second.lock();
+  }
+
+  InfoTable const * Module::find_symbol(
+      std::string const & modulename, std::string const & name
+    )
+  {
+    auto module = Module::find(modulename);
+    return module ? module->get_infotable(name) : nullptr;
   }
 
   std::map<std::string, std::shared_ptr<Module>> Module::getall()
@@ -107,16 +124,28 @@ namespace cyrt
     }
   }
 
+  // The tables made at run time are freed with the module, unless one of
+  // its functions is interpreted (cyrt/icurry.hpp).  The bytecode of an
+  // interpreted function names the tables and types of the modules it uses
+  // by pointer, so a module whose functions another module interprets must
+  // outlive that module.  Such tables are kept for the life of the process,
+  // as the static tables of a compiled module are kept with its library.
   void Module::clear()
   {
+    bool interpreted = false;
     for(auto & p_symbol: this->impl->symbols)
-      if(!is_static(*p_symbol.second))
-        delete[] (char *) p_symbol.second;
+      if(icurry_bytecode(p_symbol.second))
+        interpreted = true;
+    if(!interpreted)
+    {
+      for(auto & p_symbol: this->impl->symbols)
+        if(!is_static(*p_symbol.second))
+          delete[] (char *) p_symbol.second;
+      for(auto & p_type: this->impl->types)
+        if(!is_static(*p_type.second))
+          delete[] (char *) p_type.second;
+    }
     this->impl->symbols.clear();
-
-    for(auto & p_type: this->impl->types)
-      if(!is_static(*p_type.second))
-        delete[] (char *) p_type.second;
     this->impl->types.clear();
   }
 
@@ -147,6 +176,7 @@ namespace cyrt
     info->format     = format;
     info->step       = nullptr;
     info->type       = nullptr;
+    info->aux        = nullptr;
     std::strcpy(info_name, name.c_str());
     index_type i=0;
     for(; i<arity; ++i)

@@ -946,6 +946,9 @@
   flag.
 
 2026-10-04
+  The peak RSS values of the entries below come from the benchmark harness,
+  whose compare command prints bytes / 1048576 with the suffix M: the unit
+  is MiB where an entry says MB.
 - Scheduler counters (M4, issue #10).  The parallelism gate asks how much of
   the work of a program the queue could run in parallel, and nothing
   measured it.  Done: make COUNTERS=1 adds -DSPRITE_SCHEDULER_COUNTERS (like
@@ -1139,6 +1142,830 @@
   assertion on a guard of an enclosing set function at the root of a nested
   configuration; escape_all of the C++ Configuration is no longer set
   anywhere.
+- In-place rewrite on the C++ backend (T4, issue #23).  Every return of
+  generated code and every boxed primitive result did _0->forward_to(new
+  node): it allocated the result and left a forward node in the redex, and
+  every consumer compressed the chain and dispatched again.  The Python
+  backend rewrites in place (node.py rewrite) and forwards only a reference
+  result.  Done: Node::rewrite(info, args...) writes the info table and the
+  successors of the result into the redex and returns the tag of the result;
+  the arguments are read into locals before the first slot is written,
+  because an argument may be a successor of the redex (swap x y = (y, x)).
+  The generator (vEmit_compileS_IReturn) emits it when the block of the
+  result fits the block of the redex, both computed from the arities as the
+  info tables spell them (sizeof(Head) + sizeof(Arg[max(1, arity)]);
+  InfoTable asserts the lower bound), and _0->forward_to as before when the
+  result is larger, a partial application, or a pinned nullary constructor
+  (Nil, Unit, True, False, Fail: the collector takes a node with a pinned
+  info table for the static object and would never mark a heap copy).  A
+  literal result is written as its info table and value, not as a new node.
+  A reference result goes through Node::forward_or_copy: the redex is
+  forwarded to the node, unless the node is an Int, Char, or Float, whose
+  two words are copied (such a node is never rewritten, so a copy is as good
+  as the node).  The primitives of unboxed.def write their boxed result into
+  the redex; a Bool result is pinned and keeps the forward node.  apply
+  writes the function node of a completed partial application into the
+  redex when it fits (a function of up to two arguments;
+  Node::rewrite_from_partial shares its filler with from_partial).  The
+  rotation and collection cadence moved from the forward-chain compressions
+  (the T_FWD cases of procD, procN, and hnf) into procS: a completed step
+  counts and calls check_interrupts, so stepcount counts steps, the
+  rotation runs every 65536 steps, and the stress mode of the collector
+  collects after every step as before.  E_RESTART passes the check
+  unchanged: it is counted by every enclosing procS on its way out, and a
+  replacement by E_GC at the innermost level dropped those counts in stress
+  mode (queens of CxxGc.curry counted 3068 steps against 3500).  hnf follows
+  a chain of in-place tail calls under one scan frame (a do-while on
+  T_FUNC).  The step binding of the Python API (InfoTable.step) refuses a
+  node of another info table, because the step may write into the block.
+  Audit of cursors into the redex across a rewrite: hnf still forwards its
+  own results (a failure, a lifted constraint, a pull-tabbed choice), so
+  the check in _applyspecial (_0->info->tag == T_FWD) stands; the trace
+  prints the cursor of the slot that holds the redex, not a slot inside it,
+  and its "same expression" rule compares the address at the end of the
+  forward chain, which is the redex itself after an in-place rewrite; the
+  set-function steps keep forward_to (their results do not fit); the
+  counters build names the redex by its address, which an in-place rewrite
+  keeps.  FORMAT_VERSION 4 -> 5, so cached generated files are written
+  again once.  The collector counts the nodes allocated since the start
+  (gc_num_allocations, gc_allocation_count in the bindings), for the nodes
+  per step.  Found on the way: the overlay archive of this worktree was
+  extracted after the checkout, so the stale ICurry of five test modules
+  (CxxBom, CxxCounters, CxxGc, CxxScheduler, CxxVariable; the archive
+  predates their last change) was newer than their sources, and the
+  regenerated CxxGc lacked psort and escaped; the sources were touched so
+  the front end runs again.  Measured with the harness (C++ backend, three
+  repetitions, CPU seconds, before to after, ratio; steps equal unless
+  said): Tak1 2.61 to 2.48 (0.95), Fib 0.74 to 0.64 (0.86), Reverse 0.97 to
+  0.84 (0.87), Queens10 3.84 to 3.51 (0.91), PermSort 8.36 to 7.65 (0.92),
+  QueensSet 1.14 to 1.01 (0.89; steps 2152081 to 2152979 and forks 511413 to
+  511583, because the rotation now counts steps, not compressions; the 92
+  solutions equal those of the Python backend), Primes 5.60 to 4.70 (0.84).
+  Peak RSS (memory suite, collector on): Fib 233 MB to 170 MB, Reverse 100
+  MB to 84 MB, Tak1 and PermSort unchanged; collector off: Reverse 1060 MB
+  to 547 MB, PermSort 2299 MB to 1711 MB.  Nodes allocated per step
+  (collector counter over an evaluation through the API): Tak1 1.400 to
+  1.133 (-19 percent), Fib 2.143 to 1.429 (-33), Reverse 1.999 to 1.001
+  (-50), Queens10 1.816 to 1.398 (-23), Primes 2.066 to 1.599 (-23),
+  PermSort 2.701 to 2.542 (-6), QueensSet 1.895 to 1.824 (-4).  The
+  acceptance of the plan (Tak1 nodes per step -40 percent, Tak1, Fib, and
+  Reverse -25 percent CPU) is not met.  Tak1 after T3 allocates, per call
+  of tak that recurses, the case function (one slot larger than tak, so it
+  does not fit), the comparison, three calls, three differences, three
+  literals, and three boxed results; the rewrite removes the three boxed
+  results and the outer call, 14 to 11 nodes per recursing call (a base
+  call allocates two either way), and the literals are T5.
+  perf on Tak1 after the change: 22.9 G instructions at 2.42 per cycle; the
+  two generated steps take 40 percent (the hottest instructions store
+  Variable objects on the stack), node_reserve 18, the collector 8, hnf 7,
+  Variable::skip 6, Scan::push 4, compress_fwd_chain 0.5: the forward nodes
+  were cheap on Tak1 after T2, and the allocation of the call nodes, the
+  Variable objects, and the nested evaluation are what remains (T5, T6, G4).
+  Tests: unit_cxx_rewrite.py with data/curry/CxxRewrite.curry (the values
+  on both backends; one step at the root of a raw expression for each shape
+  of result: a tail call, a constructor, a larger result, a pinned result, a
+  nullary constructor of the program, a literal, a reference to a primitive
+  and to an expression, swapped and rotated arguments, apply; a walk by tail
+  calls allocates no node per element; the rotation and the collections
+  without forward nodes, in children; the generated code of each shape) and
+  data/cxx/rewrite_test.cpp (Node::rewrite with swapped successors, a
+  nullary result, a smaller result in a larger block and its copy,
+  forward_or_copy on a primitive, a pinned node, a function node, and
+  through a Variable, rewrite_from_partial; compiled with assertions).
+  Left: a result one slot larger than the redex, the lifted case of every
+  if and of every case on a literal (f args = f_COMPLEXCASE0 args
+  scrutinee), still forwards; one spare slot per function node would turn
+  that into a rewrite at eight bytes per function node.  A Bool result and
+  the other pinned constructors keep the forward node; the collector would
+  have to tell the static object apart by its address before a heap copy of
+  a pinned node is allowed.  A partial application as a result keeps the
+  forward node.  The nodes per step are not in --stats or in the harness
+  records.  The front end lowers a case on an Int literal to ==, so such a
+  case always costs the lifted function and a forward.
+- Literal and small-value tables on the C++ backend (T5).  Generated code
+  allocated a boxed literal on every execution of a step (Tak1 three per
+  recursing call, Fib two, the Prelude's length one per element).  Done: the
+  runtime keeps one node for each integer from -128 to 1023 and for each
+  ASCII character (g_small_ints and g_small_chars in builtins.hpp), made
+  when the library loads.  The literal nodes live in an arena of their own
+  (literal_reserve in graph/memory.hpp, one block of 16 MB committed as it
+  is touched), outside the heap of the collector: the mark phase skips them
+  by their address, and the sweep never sees them, so a collection costs
+  nothing for them.  A first version registered them as roots, which the
+  stress mode exposed: a collection on a heap of two live nodes took 4.9 us,
+  all of it for the 1,292 roots, and the walk of a million cells inside a
+  set function in unit_cxx_gc.py no longer finished in its 120 s.  int_ and
+  char_ return the shared node of a value in range and allocate otherwise;
+  float_ is unchanged.  The debug flavor asserts in Node::forward_to,
+  rewrite, forward_or_copy, and rewrite_from_partial that the node written
+  is not a literal node (gc_is_literal).  A literal
+  outside the tables is a node of its module: the generator
+  (internLiteralNode; symbol kind LITERAL_NODE, code L) defines
+  static Node * const CyL... = literal_node(info, value) once per spelling
+  in the .strings section, and the module makes the node when it loads.  A
+  literal inside the tables stays int_(1) or char_(U'a'), which the C++
+  compiler folds to a load from the table.  A literal that is the result of
+  a step is still written into the redex.  FORMAT_VERSION 5 -> 6.  Why one
+  node per value is safe: a node of a primitive value is never written (a
+  rewrite targets a redex and a forward a redex or a free variable;
+  forward_or_copy copies from the shared node into the redex), the bindings
+  compare primitive values by value (add_binding reads the value word
+  through obj_id), the repr form marks only a cycle with an ellipsis, and
+  the Python binding Node.forward_to now refuses a primitive value.  New in
+  the bindings: SMALL_INT_MIN, SMALL_INT_MAX, SMALL_CHAR_MAX, small_int,
+  small_char, gc_literal_count, gc_is_literal.  Found on the way: ICurry
+  spells a negative
+  literal as negate applied to a positive one, so generated code never
+  spells one.  Measured with the harness (C++ backend, three repetitions,
+  CPU seconds, before to after, ratio; steps and forks equal): Tak1 2.51 to
+  2.20 (0.87), Fib 0.66 to 0.61 (0.92), Reverse 0.86 to 0.87 (1.02),
+  Queens10 3.55 to 3.42 (0.96), PermSort 8.06 to 7.35 (0.91), QueensSet
+  1.06 to 0.99 (0.93), Primes 4.88 to 4.48 (0.92).  Nodes allocated per
+  step: Tak1 1.133 to 0.933 (-18 percent), Fib 1.429 to 1.143 (-20),
+  Queens10 1.398 to 1.364, QueensSet 1.824 to 1.814, Primes 1.599 to 1.565,
+  Reverse and PermSort unchanged.  Peak RSS with the collector off: Tak1
+  2292 to 1710 MB, Fib 302 to 232 MB; with the collector on, Fib 170 to 195
+  MB: its two collections fall later in the run (fewer nodes per step), so
+  more of the growing list is live and the adaptive threshold allows a
+  larger heap afterwards; with the threshold scaled by 0.8 the peak is 168
+  MB.  The other items are unchanged.  Tests: unit_cxx_literals.py with
+  data/curry/CxxLiterals.curry (the values and the show forms on both
+  backends; the bounds through the bindings; the successors of stepped
+  expressions are the shared nodes; one node per literal of a module; the
+  literal count after a module loads; the nodes survive collections; a
+  loop that spells literals allocates three nodes per iteration, not five;
+  the bindings refuse to forward a value; the generated code) and
+  data/cxx/literals_test.cpp (int_, char_, float_, build_curry_string,
+  literal_node and gc_is_literal across run_gc, forward_or_copy from a
+  shared node); the reclaim bound of test_value_survives_collections in
+  unit_cxx_gc.py now leaves out the Int and Char nodes of the table, which
+  are shared.  Left: the entries -128 to -1 serve only the runtime's own
+  calls; Node::create from Python allocates an Int node per call
+  (curry.expr(1) is a fresh node); a string literal stays a _biString node
+  per execution, because its step rewrites it into a list; the literal
+  nodes of a module are never freed, as modules are never unloaded; the
+  arena is one block, so a process with more literal nodes than it holds
+  (about a million) fails at the load of the module.
+- Plain pointers for pass-through arguments on the C++ backend (T6).  A step
+  built a Variable for every argument it read: the slot, the path from the
+  redex, and the set guards crossed; after T5 the hottest instructions of
+  the two steps of Tak1 stored those objects on the stack.  An argument that
+  the step only passes on to another call needs none of that: nothing
+  head-normalizes it from the step (the path), and the value it denotes is
+  the node in its slot (the guards).  Done: the generator reads such an
+  argument as a plain Node * (the rule is in backends/cxx/passthrough.py).
+  A variable is plain when it is declared by IVarDecl, assigned once from a
+  successor of the redex or of another variable with a path of one entry,
+  from a node the step builds, or from another plain variable, and every use
+  passes the value on: an argument of a call, of a partial application, or
+  of a choice, the expression of a return (forward_or_copy), or the right
+  side of the patch of a recursive let.  A variable that a case scrutinizes
+  keeps the Variable (hnf needs the path for the scan and the guards for the
+  escape set of a pull-tabbed choice); so do the base of a path and the base
+  of a node assignment; the two variables of a var-to-var assignment have
+  one kind.  The reads: Node::successor_node(i) (graph/node.hxx) gives the
+  node in slot i of the redex, skips a forward node there and shortens the
+  slot as the indexer does, and keeps a set guard in the slot, because the
+  redex is a function node, never a guard, so the slot holds the whole
+  guarded argument (the rvalue of a Variable built the guard again, one node
+  per use).  A successor of a Variable (a pattern variable) may lie under
+  the guards the Variable crossed, which the ICurry does not show, so
+  Variable::successor_node(pos) (graph/indexing.hxx) decides at run time:
+  the plain read when the Variable crossed no guard and its target is a
+  constructor, the indexer and rvalue otherwise.  A path of more than one
+  entry keeps the indexer.  A plain variable starts null (Node * _3 =
+  nullptr), as an unassigned Variable yields null: a recursive let builds a
+  forward reference from a variable not yet assigned (cyc in
+  CxxPassThrough.curry: _2 = Cons n _3 before _3 is assigned, then
+  _2.set_successor(1, _3)).  FORMAT_VERSION 6 -> 7.  Static evidence: the
+  step of tak in Tak1.so and fibgen in Fib.so call node_reserve,
+  node_commit, and compress_fwd_chain only; no smallvec_free, no Variable
+  destructor, no guarded_rvalue (objdump).  Measured with the harness (C++
+  backend, three repetitions, CPU seconds, before to after, ratio; steps,
+  forks, and peak RSS equal): Tak1 2.20 to 1.76 (0.80), Fib 0.64 to 0.58
+  (0.90), Reverse 0.88 to 0.67 (0.75), Queens10 3.47 to 3.04 (0.88),
+  PermSort 7.84 to 7.51 (0.96), QueensSet 1.06 to 1.06 (1.00), Primes 4.72
+  to 3.94 (0.84); the memory suite the same for every item.  Nodes per step
+  unchanged (QueensSet allocates two nodes fewer of 3.9 million: a shared
+  guard instead of a rebuilt one).  Tests: unit_cxx_passthrough.py with
+  data/curry/CxxPassThrough.curry (the values on both backends: arguments
+  in another order, an argument returned, passed to a partial application
+  and to both sides of a choice, a pattern variable, a slot that holds a
+  forward node, a recursive let, a free variable beside a plain one, and
+  set functions whose function passes its guarded argument on, into a call,
+  a second call, a constructor, and through a pattern match, with the
+  choice outside and inside; the analysis on hand-built ICurry; the
+  generated code of each shape; the call targets and the text of the steps
+  of tak and fibgen) and data/cxx/successor_node_test.cpp (the reads on
+  hand-built nodes: a chain of two links shortened, a guard kept, a null
+  slot, a variable with and without a guard, and one whose target became a
+  forward node).  Left: a path of two or more entries (none in the Prelude
+  or the benchmarks) keeps the indexer; the scrutinee of a case keeps the
+  Variable, so a step with a case still builds one (tak_COMPLEXCASE0,
+  isFib); an argument that is both passed on and scrutinized is a Variable
+  for both uses; an IVarAccess directly in an argument is read plain, but
+  no program of the suite produces one.
+- Flat partial applications on the C++ backend (T7).  A partial
+  application stored its arguments as a cons list: PartApplicNode held the
+  missing count, the head, and a terms list; create_partial built one cons
+  per argument, apply allocated a new PartApplic and a cons per added
+  argument, and from_partial walked the list.  Done: the arguments are
+  inline.  Slot 0 holds the missing count, slot 1 the info table of the
+  head, and the slots after them the arguments in call order, so a partial
+  application of n arguments has arity 2 + n and the format "ix" followed
+  by n times 'p'.  Each n has an info table of its own: PartApplic_Info is
+  the table without arguments, and partapplic_info(n) (PartialInfoFamily in
+  builtins.hpp, constant-initialized, the first 32 tables by index and the
+  rest by a map) makes the others on demand, with the name, flags, and type
+  of the base; PartialS has a family of its own (partials_info).  So the
+  collector, the copier, the equality, show, the walkers, and the bindings
+  read a partial application by its format like any node.  create_partial
+  is one allocation, from_partial and rewrite_from_partial copy the
+  argument words, apply on an incomplete application allocates one node
+  with one more argument (Node::extend_partial), applyS likewise, and set
+  copies the arguments under the other family.  A partial application
+  without arguments (a function used as a value, f in map f xs) is a node
+  of the module, made once at load in the arena of the literal nodes
+  (partial_node; internPartialNode in backends/cxx/compiler.py, symbol
+  kind PARTIAL_NODE, code P; the missing count is spelled, because the
+  info table of a head of the same module is not yet initialized when the
+  module's static objects are made); a step that spells one allocates
+  nothing, and the Prelude spells 303 of them.  FORMAT_VERSION 7 -> 8.
+  Found on the way: the equality compared an 'x' slot (the head of a
+  partial application, the set of a guard) as a node, so two partial
+  applications compared through the bindings dumped core; it compares the
+  pointers now.  The repr form writes the name of the head in place of its
+  address (<_PartApplic 1 plus3 <Int 1>>); the str form is unchanged.  The
+  binding single_step refuses a root that is not a function application (a
+  value has no step; it called a null pointer).  The binding forward_to
+  refuses a node of the arena.  Measured with the harness (C++ backend,
+  three repetitions, CPU seconds, before to after, ratio; steps, forks, and
+  peak RSS equal): Tak1 1.71 to 1.70 (1.00), Fib 0.57 to 0.59 (1.04),
+  Reverse 0.66 to 0.66 (0.99), Queens10 3.08 to 2.88 (0.94), PermSort 7.45
+  to 7.59 (1.02), QueensSet 1.07 to 1.05 (0.98), Primes 4.08 to 3.31
+  (0.81).  Two earlier runs of the same build, under a load of two to
+  three from another process, put PermSort at 8.58 and 7.87 and Queens10
+  at 2.98 and 3.00; PermSort and QueensSet execute no partial application
+  and allocate the same nodes.  Nodes allocated per step: Queens10 1.364 to
+  1.044 (-23 percent),
+  Primes 1.565 to 1.099 (-30), the others unchanged; Fib never evaluates
+  its + thunks (take and isFib walk the list), so no partial application
+  occurs in its steps, and the plan's target for it cannot be met by this
+  item.  Instructions retired (perf stat, the old and the new runtime built
+  one after the other, equal values and steps): Queens10 26.26 G to 25.51 G
+  (-2.8 percent; cycles -3 to -6), Primes 29.68 G to 27.97 G (-5.8; cycles
+  -16 to -17), PermSort 21.92 G and Tak1 17.87 G unchanged.  The
+  acceptance (Fib, Queens10, Primes 15 percent) is met for Primes only:
+  the allocation of a node costs about 45 instructions and a cache miss,
+  and Queens10 spends its time in hnf, the indexer, and the scheduler, not
+  in the 17.5 million nodes this item saves it.  Tests: unit_cxx_partial.py
+  with data/curry/CxxPartial.curry (the values on both backends: partial
+  applications of no, one, two, and 32 to 35 arguments completed by apply,
+  a constructor and a section as values, a function value applied twice,
+  set functions over them; the str forms and the equality on both
+  backends; on the C++ backend the slots and the info tables, apply
+  allocating one node and completing in place or in a new node, the repr
+  form, the copies, the shared node of a function value, a loop that
+  allocates nothing for it, the refusals of forward_to and single_step,
+  the values after many collections, the generated code) and
+  data/cxx/partial_test.cpp (the family, create_partial, extend_partial,
+  from_partial, rewrite_from_partial, materialize, the copier, the
+  equality, partial_node, the collector through the argument slots).
+  Left: the allocation of a partial application with arguments remains
+  one node per apply (apply (apply f a) b allocates the one-argument
+  application); a saturating apply of several arguments is a compiler
+  change.  The dictionary of a class method is rebuilt on every use
+  (_inst#Eq#Int () allocates the dictionary node; its method values are
+  shared now), which an optimizer pass on dictionary passing would remove.
+  A partial application without arguments made by the runtime or from
+  Python (Node::create_partial, curry.expr) is a heap node.  The repr
+  form of the C++ backend differs from the Python backend's, which shows
+  the head node (<_PartApplic 1 <plus3 <Int 1>>>).
+- Weak free-variable table and finalizers (G3).  The free-variable table
+  (RuntimeState::vtable) was a root of the collector and never shrank, so
+  every free variable and its generator stayed alive for the life of the
+  runtime state, and a lookup by id from another runtime state (a nested
+  evaluation started from a Python callback, or a value with a free variable
+  evaluated again) found nothing and crashed (status 139).  Done: the table
+  lives in the InterpreterState, the owner of the ids, which registers
+  itself with the collector; and it is weak: the mark phase pushes no entry
+  of it, and after the mark an entry whose node is unmarked is dropped
+  (sweep_freevar_tables in gc/wdgc.cpp).  A live configuration keeps the
+  variables it names by id, pushed with the queue that holds it
+  (push_queue_roots): its residuals (ready asks for them), the keys of its
+  bindings (fork applies a binding through the generator of the variable),
+  and the ids in its strict constraints (UnionFind::united records every id
+  passed to unite; the root of a group stands for the group and receives the
+  generator of a narrowed member at the fork).  Every other lookup starts
+  from a node in the graph.  A direct-mapped cache of the ids pushed in the
+  collection keeps the cost of the binding keys low (the configurations of
+  one queue name the same few variables).  get_freevar returns nullptr for a
+  missing entry, get_generator throws std::logic_error, and fork and ready
+  tolerate it.  The copiers share a free variable instead of copying it
+  (copy_node and GraphCopier in graph/copy.cpp), so one node stands for one
+  id: a copy with the same id narrowed apart from the variable, and a value
+  handed to Python held a node the runtime could not find; now (x, x) with x
+  free evaluates to 2 and 4 in a new runtime state.  Finalizers: a generator
+  node (a Python iterator as a Curry list) owns one reference to its
+  iterator; Node.create takes it (the Arg only borrows the object, the FIXME
+  leak is gone), a copy of the node takes one of its own, the step hands it
+  to the node of the rest or releases it when the iterator is exhausted,
+  and the sweep releases it for a node that dies unstepped, after the sweep
+  (release_pending), because a release may run Python code.  Audit of the
+  other foreign slots: a _biString node points into the static strings of a
+  module, or into the one message buffer of intern_message; the queue and
+  the set of a SetEval node go through the registries; nothing else owns a
+  resource.  sprite-exec --stats and curry.stats gain gc_seconds, the
+  seconds spent in collections, after compile.  Measured on the C++
+  backend: a program that narrows a million variables in sequence
+  (CxxFreeVars.narrowMany) runs under a 1 GiB cap with 107 MB peak RSS, 45
+  collections, and leaves no node and no table entry behind, the same as a
+  run of a hundred thousand; Last takes 0.59 s of CPU against 0.73 s (0.80)
+  with a peak RSS of 104 MB against 133 MB (0.78); the other nine programs
+  of the measured set (QueensSet9, QueensSet, PermSort, Tak1, Fib,
+  Queens10, Primes, ColormapFree, PaliFunPats) are within the noise band in
+  CPU and peak RSS, with equal counters.  QueensSet9's collector time did
+  not move (1.45 s before, 1.47 s after, median of three): that program
+  makes 43 free variables in all, so the table was not what its collections
+  marked; its live set is the configurations of the lazy set functions
+  consumed only in part (120335 configurations in 10212 queues at the
+  largest collection, 391384 nodes marked, 12.5 percent of the heap;
+  mark 0.165 s, sweep 0.034 s, registries 0.085 s, GC_REPORT build), and
+  the cost per collection is the roots of those configurations and the
+  destruction of the dead queues.  Tests: unit_cxx_freevars.py (a million
+  narrowings under a 1 GiB cap, the table between collections, the shared
+  variable of a value and its evaluation, stress mode against plain mode on
+  narrowing, binding, unification, a group whose root left the expression,
+  a configuration that wakes on a variable another one narrowed, and a
+  functional pattern; the finalizer of the generator nodes), unit_cxx_gc.py
+  and unit_api.py (gc_seconds).  Left: a free variable built from Python
+  (curry.free(), Node.create of _Free) is not in the table and has id 0
+  unless given one, so curry.free() inside a goal still gives wrong values;
+  intern_message keeps one message, so a second error overwrites the text
+  of an earlier _biString node; the Python backend keeps its strong table;
+  the dense vector of UnionFind is copied whole on the first unite of a
+  configuration, which makes a loop that unites two fresh variables per
+  step quadratic (uniteMany); the __deepcopy__ binding takes no memo
+  argument.  QueensSet9 needs cheaper configurations, not a smaller table:
+  a flat map for the bindings, pooled parts of a configuration, and a
+  cheaper destruction of a dead queue (G1, G4).
+- Block heap for the C++ runtime (G4, first milestone: the heap with the
+  existing mark phase; the conservative C stack scan is not done).  Every
+  node came from malloc or a free list through an out-of-line node_reserve
+  that pushed a 16-byte entry onto a global vector, and the sweep walked
+  that vector and touched every node for its mark bit in the info pointer.
+  Done: gc/blockheap.cpp.  Chunks of 1 MB from aligned_alloc are cut into
+  64 KB blocks; a block holds slots of one size class (16 to 512 bytes in
+  steps of 8) after a header with two side bitmaps, alloc (the slots that
+  hold a node) and mark; the block of a node is its address masked, the
+  slot a reciprocal multiplication; a larger node gets a span of its own
+  with the same header.  node_reserve is an inline fast path in
+  graph/memory.hpp (the run of free slots of the size class: a load, a
+  compare, an add, a store; the run array is a global of the runtime,
+  which a generated module reaches through one indirection), node_refill
+  finds the next run of zero alloc bits in the current block (a lazy
+  sweep), or takes a block from the class list, the pool of empty blocks,
+  or a new chunk; node_commit is inline true.  Counts of nodes and
+  allocations are kept per run.  The sweep visits blocks, not nodes: the
+  population count of the marks gives the survivors, alloc takes the marks,
+  an empty block goes to the pool, a dead span back to the system.  The
+  generator nodes are registered at creation (gc_register_generator), so
+  the finalizer sweep walks that list.  Nested evaluations: every block
+  records the time it left the pool (seq); gc_enter_evaluation records the
+  counter in O(1); at a nested collection every allocated slot of an older
+  block is a root, the block is not swept and not listed until the
+  outermost collection (a superset of the old floor rule, bounded by the
+  free room of the heap at the enter).  One ThreadHeap holds the runs, the
+  class lists, the pool, and the block list; a worker thread of the
+  parallel prototype gets one of its own.  The verifier (verify_heap) runs
+  after the mark phase in stress mode and on request (gc_verify in the
+  bindings): every marked node is a slot start of a known block (a sorted
+  table of the chunks and spans), its alloc bit is set, its info table is
+  sane, its alloc_size fits the slot, and every successor is null, a
+  literal, the static object of a pinned info table, or a marked slot
+  start; a request checks the bitmaps of every block as well.  The
+  instrumented build (COUNTERS=1) keeps the creator of a node in a table
+  beside its block, written by node_refill: that runtime never publishes a
+  run, so every allocation goes through it, and generated code is the same
+  in both builds (node_creator is a function now; literal nodes have no
+  prefix word any more).  The pushed-id cache of the free-variable roots is
+  stamped per collection instead of cleared (an 8 KB fill per collection
+  showed in stress mode), and retire_runs visits the classes with a block
+  only.  Bindings: gc_verify, gc_block_count, gc_heap_bytes.  Measured
+  with the harness (C++ backend, three repetitions, CPU seconds, before to
+  after, ratio; steps and forks equal): Tak1 1.71 to 1.29 (0.75), Fib 0.59
+  to 0.34 (0.58), Reverse 0.66 to 0.58 (0.88), Queens10 2.91 to 1.77
+  (0.61), PermSort 7.58 to 5.20 (0.69), QueensSet 1.05 to 0.76 (0.73),
+  QueensSet9 7.34 to 5.15 (0.70), Primes 3.30 to 2.24 (0.68).  Peak RSS
+  (memory suite, collector on / off, in MiB as compare prints it): Tak1 105
+  to 65 / 1710 to 962, Fib 195 to 115 / 232 to 131, Reverse 83 to 60 / 547
+  to 232, PermSort 466 to 312 / 1710 to 958, QueensSet 139 to 105 / 325 to
+  231, QueensSet9 395 to 321 / 1758 to 1228.  Nodes per step unchanged (Tak1
+  0.9333, Queens10
+  1.0437), values equal.  perf stat on Tak1: 16.18 G instructions at 3.28
+  per cycle, 8.8 M cache misses (17.87 G, 2.71, 15.4 M after T6).  Stress
+  mode: a collection on a heap of 5 live nodes costs 0.42 us (0.07 to 0.12
+  before), on 1704 live nodes 25 us, most of it the verifier; unit_cxx_gc
+  in stress mode takes 43 s (29 before), unit_cxx_freevars 68 s (37).
+  Tests: unit_cxx_heap.py with data/curry/CxxHeap.curry (a constructor of
+  70 fields, so its node is a span) and data/cxx/heap_test.cpp (consecutive
+  slots of one run, exact counts, the lazy sweep reusing the freed slots in
+  address order, a bounded heap over cycles of short-lived nodes, a span
+  kept and given back, the rule for nested evaluations through
+  EvaluationScope, the generator finalizer with the hooks registered, and
+  the verifier finding a successor in a freed slot); the exact counts, the
+  bounded heap of a walk, spans through collections, the verifier after
+  walks, set functions, and a callback evaluation and in stress mode, the
+  refusal inside an evaluation, and the step of tak calling node_refill and
+  neither node_reserve nor node_commit (objdump).  unit_cxx_gc.py: the
+  collector-off child of the 1 GiB test walks three million cells (a
+  million fit under the cap in the dense heap); unit_cxx_counters.py: the
+  expected fields include gc_seconds (the instrumented build was not run
+  since G3 added it).  Docs: the environment variables, tests/README, the
+  gc README.  Left: the conservative C stack scan (stage B of the memory
+  note), so a collection in a Python callback still treats every older
+  node as a root, and in a coarser way than before (the free slots of an
+  older block filled after the enter are roots too); the W7 clause of the
+  memory note, QueensSet9 with the collector on not slower than off, is
+  open: the entry above compares collector on before and after, and on
+  against off the collector costs 1.51 times the CPU (5.23 s against 3.46
+  s, memory suite, record phase2-2026-10-04) with 1.29 s in collections,
+  25 percent of the run, above the 15 percent trigger of W9 (cheaper
+  configurations, G1 and G4 follow-up); memory is never
+  given back to the system except the spans of large nodes (a chunk whose
+  16 blocks are all empty could be freed); the heap is one global object
+  reached by a global run array, not yet per thread; the stress mode is
+  slower by the verifier; blocks are 64 KB and the largest small slot 512
+  bytes, neither measured against alternatives.
+- MPS spike for Gate G (G5).  The 2023 draft of a Memory Pool System back
+  end (gc/mps.cpp) did not build, reused the runtime's Fwd info as the
+  collector's forwarding marker (unsound), had no valid cold end for its
+  stack root, no roots beyond the queues, and generations of 150 KB.  Done:
+  make GC=mps builds the runtime with the Memory Pool System of the
+  submodule extern/mps (release 1.118, one C object, the hot variety) in
+  place of gc/blockheap.cpp and gc/wdgc.cpp; the default stays wdgc.  The
+  choice reaches the installation as sysconfig/cxx_gc, the toolchain
+  compiles generated modules with -DSPRITE_GC_MPS, and the ABI stamp
+  includes the collector, so a switch recompiles every module once (touch
+  Make.config, as for COUNTERS; the sysconfig values depend on Make.config
+  now).  The back end: one AMC pool of two generations (8 MB and 64 MB by
+  default, SPRITE_GC_MPS_NURSERY_KB and SPRITE_GC_MPS_GEN1_KB), an object
+  format that reads the size of a node from its info table, forwarding and
+  padding objects of the collector's own (GcFwd, GcFwdSz, GcPad, GcPadSz),
+  and five roots: an exact root over every registered queue (the root, the
+  bindings, and the error of each configuration), an ambiguous root over
+  the scan cursors (interior pointers pin the spine), an ambiguous root
+  over the nodes Python holds (they never move), an exact root over the
+  free-variable tables, and the thread root with the top of the stack from
+  pthread_getattr_np as the cold end (the frames of a suspended step and of
+  an enclosing evaluation are found there, so a nested collection needs no
+  rule about older nodes).  The in-place writers of node.hxx (rewrite,
+  forward_or_copy) and rewrite_from_partial pad the slack of a larger block
+  with a pad object, because the format walks a segment object by object.
+  node_refill is the only allocation path (the runs stay empty); it commits
+  the object before the caller writes it and writes a pad object into it
+  first, so the heap is consistent at every moment (create_flat allocated
+  its fresh variables inside the window and makes them first now).  The
+  address-keyed algorithms (the graph copier, the equality, show, the
+  unique visitor) hold a GcClamp, which clamps the arena.  MPS schedules
+  its collections itself, incrementally, behind protection barriers; the
+  safepoint of the scheduler pumps its messages (finalization of generator
+  and SetEval nodes, which every creator registers now:
+  gc_register_seteval; a queue is destroyed when the last SetEval node that
+  refers to it has died) and runs a full collection in stress mode, from
+  Python, at SPRITE_GC_THRESHOLD allocations when set, and at the
+  configuration threshold.  A SIGSEGV handler installed on top of the MPS
+  handler counts the barrier faults and the time in them (gc_fault_count,
+  gc_backend_stats, gc_backend in the bindings).  Found on the way: MPS
+  scans every root at the flip and admits the ambiguous and the exact rank
+  there, so a root of the weak rank fails an assertion; the free-variable
+  table is a strong root under MPS, as before G3.  The sets of set
+  functions are not freed under MPS.  Measured with the harness (C++
+  backend, three repetitions, CPU seconds, the block heap of G4 to MPS,
+  ratio; steps and forks equal; each program in a fresh process): Tak1 1.30
+  to 2.85 (2.19), Queens10 1.74 to 2.72 (1.57), PermSort 5.13 to 14.21
+  (2.77), QueensSet9 5.10 to 19.41 (3.80), Primes 2.27 to 4.16 (1.83).
+  Peak RSS with the collector on: Tak1 65 to 44 MB, Queens10 60 to 69,
+  PermSort 312 to 830, QueensSet9 321 to 538, Primes 62 to 116.  The
+  collector's own statistics over one evaluation through the API, each in
+  a fresh process: Tak1 112 collections, 10 barrier faults, 0.91 s in the
+  allocation slow path (where MPS traces); Queens10 171 collections, 11
+  faults, 0.73 s; PermSort 106 collections, 8995 faults (0.07 s in the
+  handler), 9.6 s in the slow path, 722 MB committed, 427 MB of it spare;
+  QueensSet9 67 collections and one full one, 11810 faults (0.11 s), 9.0 s
+  in the slow path, 52413 clamps; Primes 212 collections, no fault, 1.6 s.
+  perf on Tak1: 44 percent of the samples in the kernel (the protection and
+  page traffic of the arena), 37 percent in the runtime library (MPS
+  included), 14 percent in the module; the nursery size moves nothing
+  (Tak1 2.85, 2.87, 2.83 s with 8, 32, 64 MB; Queens10 2.72, 3.20, 3.77).
+  A probe that ran the five programs in one process put Primes at 55 s:
+  the dead data of the earlier programs in the older generations is
+  rescanned by every nursery collection until a full collection comes.
+  Signals: with Python's faulthandler enabled at startup the MPS handler is
+  installed after it (at the first allocation) and takes the faults;
+  nothing is printed.  faulthandler.enable() after the first allocation
+  puts Python's handler in front; the test child of that case took no
+  fault, so the case is not exercised.  Near an address-space cap MPS
+  collects instead of failing: the out-of-memory child of
+  unit_cxx_runtime.py reaches 905 MB of RSS under a 1 GiB cap and does not
+  end in 60 s, where the block heap raises MemoryError at once.  Decision
+  (Gate G): MPS is not adopted.  The rule asked for 20 percent less CPU on
+  Tak1 and Queens10 and no loss on PermSort and QueensSet9; MPS costs 1.6
+  to 3.8 times the CPU on all five and 1.7 to 2.7 times the memory on the
+  search programs (QueensSet9 1.67, PermSort 2.66).  The block heap stays
+  the collector; the MPS back
+  end stays in the tree behind make GC=mps as the record of the spike.
+  Tests: unit_cxx_mps.py (the selection of the collector and the toolchain
+  flags on every build; under MPS: the values of programs that collect many
+  times, a node Python holds keeps its address, an explicit collection
+  reclaims a dropped value, the finalizer of the generator nodes, the queue
+  of a set function freed, a nested evaluation, the threshold, the fault
+  counter and the statistics, the stress mode, faulthandler at startup and
+  after the first allocation); the tests of the block heap, of its
+  threshold policy, of the exact counts of queues and sets, of the weak
+  free-variable table, and of the out-of-memory child skip under MPS
+  (cytest.skipUnlessGcBackend).  The unit suite passes on both builds.
+  Left: the inline allocation fast path of memory.hpp is not wired to the
+  MPS allocation point (every allocation is a call); the weak table, the
+  freeing of sets, and the scheduler counters are not supported under MPS;
+  gc_verify reports nothing there; the enable-after-allocation case of
+  faulthandler needs a child that provokes a barrier fault.
+- Process-split experiment for Gate Q1 (Q1, issue #29).  The
+  parallel-evaluation gate asks whether independent parts of a search, run
+  on separate workers, could pay: the speedup bound of a split by hand, and
+  the work the parts duplicate.  Done, with no runtime change: three
+  modules under tests/data/curry/benchmarks/split spell SearchQueens,
+  PermSort, and QueensSet whole and split into 2, 4, and 8 parts (the goals
+  main and part2_0 .. part8_7).  PermSortSplit fixes the first one, two, or
+  three binary choices of the search as the program makes them (the
+  insertions of 3, 4, and 5 into the growing permutation; insert forks
+  first at the back of the input): it spells the configuration after those
+  forks by hand and inserts the other elements on top as perm does.
+  SearchQueensSplit fixes the position of the first element: u is a list
+  of i free variables in place of the narrowed free list (the branch (_:_)
+  i times, then []); the eight positions go to the parts by position modulo
+  the count, joined by ?.  QueensSetSplit fixes the first element of the
+  permutation (the branch of ndinsert that puts j in front after 1 .. j-1
+  went behind: j : perm of the rest); the eight first elements go to the
+  parts likewise.  The parts of a split partition the permutations.  Every
+  function takes the size, so unit_split.py checks the partition at size 5
+  (120 permutations) and the solutions at size 6 (5 on the Python backend)
+  against the original modules.  The whole of each split module takes the
+  steps of the original (SearchQueensSplit 41373250, QueensSetSplit
+  2152979, PermSortSplit 12531155 against 12531154).  The harness got a
+  split suite (-s split: the whole as in the throughput suite, and every
+  part as sprite-exec -t --stats -m PROGRAMSplit -g partK_I in a process of
+  its own; the variants are whole and K/I; three repetitions by default)
+  and a split command (run_benchmarks split FILE: per program and part
+  count the speedup bound, the whole over the longest part, and the
+  duplicated work, the sum of the parts over the whole, by CPU seconds and
+  by steps and forks; --parts lists the parts; -m picks wall or eval_wall);
+  the counters command names an item with a variant program:variant.
+  Measured on the C++ backend (plain build, three repetitions, CPU seconds
+  of the whole process, which includes about 0.16 s for the start of the
+  process; steps exact; the machine had a load of 1.6 to 4 from another
+  process).  SearchQueens, whole 4.59 s, 41.37 M steps, 1.08 M forks: two
+  parts 3.25 and 3.02 s, bound 1.41 (by steps 1.62), duplicated work 1.22
+  by steps, 1.37 by CPU, 1.26 by forks; four parts 1.80, 1.60, 1.45, and
+  1.36 s, bound 2.55 (steps 3.15), duplication 1.22 by steps; eight parts
+  0.69 to 0.83 s and one disturbed sample of 1.26 s, bound 3.64 (steps
+  5.94, eval_wall 4.81), duplication 1.22 by steps.  The 22 percent are
+  the same at every count: a part evaluates permute xs under its own u,
+  which the whole shares between the alternatives of the narrowing.
+  PermSort, whole 4.71 s, 12.53 M steps, 1.59 M forks: two parts 2.68 and
+  2.05 s (6.96 and 5.57 M steps), bound 1.76 (steps 1.80), duplication 1.00
+  by steps and by forks; four parts 5.11, 1.85, 3.71, and 1.85 M steps,
+  bound 2.41 (steps 2.45), duplication 1.00; eight parts 4.49, 0.62, 1.24,
+  0.62, 3.10, 0.62, 1.24, and 0.62 M steps, bound 2.61 (steps 2.79),
+  duplication 1.00: nothing is duplicated, but the static split is
+  unbalanced, because the sub-tree in which 1 stays in front, the side of
+  the solution, holds most of the work.  QueensSet, whole 0.80 s, 2.15 M
+  steps, 0.51 M forks: two parts 1.080 and 1.078 M steps, bound 1.77
+  (steps 1.99, eval_wall 2.34); four parts 0.51 to 0.57 M steps, bound 2.12
+  (steps 3.81, eval_wall 4.28); eight parts 0.24 to 0.30 M steps, bound
+  2.98 (steps 7.20, eval_wall 9.56); duplication 1.00 by steps at every
+  count.  The CPU bound of QueensSet is the start of the process: a part
+  of eight evaluates in 0.05 to 0.06 s.  The cost per step falls in a part
+  (a smaller heap, fewer collections): the evaluation times of the parts
+  sum to 0.84 to 0.97 of the whole's for PermSort and 0.74 to 0.85 for
+  QueensSet.  The scheduler counters of the 30 programs on this tree (make
+  COUNTERS=1, one repetition; the records are in the measure directory of
+  the build tree): the 16 deterministic programs have a serial fraction of
+  1.000 and one configuration; the 12 search programs have 0.000 (RegExp
+  0.065, Half 0.002), a queue of up to 94135 configurations (PermSortPeano;
+  PermSort 94096, SearchQueens 85637, ColormapFree 27638, ColormapChoice
+  15208; Last 6, RegExp 8), median lifetimes of 0 to 8 steps (means 2.0 to
+  32.5), shared fractions from 0.163 (PermSortPeano) and 0.194
+  (SearchQueens) to 1.000 (ColormapChoice, ColormapFree), and failed
+  fractions from 0.002 (Half) to 0.654 (PermSortPeano); QueensSet runs
+  0.966 of its steps inside set functions.  PokerChoice and PokerFree do
+  not compile (currypp), as before.  The parts carry the fractions of
+  their whole (PermSort: 0.492 shared in every part): the shared counter
+  measures the sharing between the configurations inside a part, which
+  the split does not duplicate; what a split duplicates is the work above
+  its point.  The counters build costs 0.94 to 2.11 times the CPU of the
+  plain build on the 45 split items (40 slower, 5 the same; every
+  allocation goes through node_refill there), with equal steps and forks
+  on every item.  Decision (Gate Q1): go.  The rule asked for five
+  programs with a serial fraction below 0.5, or a split bound above 2 at
+  four parts for two programs; twelve programs have a serial fraction
+  below 0.07, and the bound at four parts is 2.55, 2.41, and 2.12 by CPU
+  (3.15, 2.45, and 3.81 by steps) for the three programs, with 0 to 22
+  percent duplicated work.  The go rests on the split bound, by steps
+  first: the CPU of a part includes the start of its process.  The clause
+  of the parallel-evaluation note that asks for a median configuration
+  lifetime that supports batching is not met (the medians are 0 to 8
+  steps), so Q2 and Q3 are judged by a design in which a worker owns a
+  subtree, with a dynamic split.  E6 continues with the independent-world
+  design (Q2, Q3), on the terms the numbers set: a worker must own a
+  subtree (a configuration lives a handful of steps, so a hand-over per
+  configuration cannot pay); the split must be dynamic, or deeper than the
+  first choices (the static eight parts of PermSort range from 0.62 M to
+  4.49 M steps); and the bounds assume no cost for the start of a worker,
+  the hand-over, or the merge of the values.  Tests: unit_split.py (the
+  partition of the permutations and of the solutions at a small size on
+  both backends; the goals), unit_benchmarks.py (the split programs and
+  variants, the items and their commands, the default repeat, the variant
+  in the counters table, the split command on hand-made records with a
+  part missing, a part failed, and the whole failed, and the smoke test of
+  QueensSet whole and in two parts on the C++ backend).  Docs: tests/README
+  (section 9), the benchmark README.  Left: the split is static and by
+  hand, for three programs; the parts run one after the other, so the
+  bound says nothing about the memory bandwidth of four processes at once;
+  the CPU of a part includes the start of its process (use the bound by
+  steps, or -m eval_wall, for a short program); the sample of SearchQueens
+  8/6 was disturbed by another process (its evaluation 0.91 s against 0.51
+  to 0.67 s of the other parts; the bound by steps does not depend on it);
+  the counters of the M4 entry were taken on the pre-Phase-2 tree, and the
+  shared fractions moved a little with the in-place rewrites (PermSortPeano
+  0.10 to 0.163, ColormapChoice 0.99 to 1.000).
+- Nightly performance job with history (M5, issue E1).  The harness had no
+  history: the baseline files under tests/data/curry/benchmarks/results
+  were the only records, and nothing ran the suites on a schedule.  Done:
+  the workflow .github/workflows/perf.yml runs on a schedule (05:17 UTC)
+  and on request, builds Sprite on an ubuntu-24.04 runner without ccache,
+  and runs three suites on the C++ backend through
+  .github/scripts/run-perf.sh: the throughput suite on a fixed set of ten
+  programs with three repetitions (NIGHTLY in lib/benchmarks/__init__.py:
+  Tak1, Fib, Reverse, Primes, Queens10, PermSort, SearchQueens, QueensSet,
+  QueensSet9, Last; the new --nightly option of run_benchmarks selects the
+  set, with the expression item in the compile suite and every item of
+  the import suite), the compile suite on the same programs (three
+  repetitions), and the import suite (five).  The records go to the branch
+  perf-history of the repository, written with the token of the workflow
+  (permissions: contents: write; no secret) by
+  .github/scripts/perf-history.sh, which fetches the branch into a
+  worktree (or starts it with an orphan worktree), runs the new history
+  command of the harness, commits, and pushes, three attempts when the
+  branch moved.  run_benchmarks history DIR FILE... appends the records to
+  records/SUITE.jsonl (a record file like any other, so compare reads it),
+  writes points.json (one compact object per record, derived from the
+  record files) and a README, and prints each new record against the
+  previous record of its item with the rows and the summary of the compare
+  command; the script puts that table in the step summary.  The job fails
+  on a failed run only, after the records are kept as an artifact and the
+  history is written; a slow run is never a failure.  The page
+  docs/source/extra/perf/index.html (perf/index.html of the built
+  documentation, through html_extra_path; linked from the new Performance
+  page) is plain HTML and JavaScript without a library: one figure per
+  suite made of small panels, one per item (ten or more series in one plot
+  would exceed the eight hues a categorical palette allows), each a single
+  line of the chosen metric over time with the last value at its end, a
+  hollow marker where the rewrite steps changed, a cross on the baseline
+  where a run failed, a crosshair with a readout (value, date, commit,
+  counters, status) on hover and on the arrow keys, a delta against the
+  previous run beyond the 10 percent band, and a table view; the metric
+  and the range are selectable.  On GitHub Pages the page reads
+  points.json from the perf-history branch through
+  raw.githubusercontent.com; elsewhere from a file beside itself, or from
+  the URL of ?history=.  Measured here (the commands of the job, the C++
+  backend, two runs one after the other on this tree, CPU seconds, the
+  counters equal on every item): throughput Tak1 1.297 -> 1.270, Fib 0.353
+  -> 0.339, Reverse 0.589 -> 0.581, Primes 2.190 -> 2.229, Queens10 1.740
+  -> 1.747, PermSort 5.067 -> 4.930, SearchQueens 4.776 -> 4.904, QueensSet
+  0.777 -> 0.770, QueensSet9 5.121 -> 5.086, Last 0.441 -> 0.420 (10 same);
+  the compile suite 22 items same (cold compiles 0.92 to 1.51 s, warm 0.48
+  to 1.01 s, the expression 0.80 s cold and 0.39 s warm); the import suite
+  4 same (python 0.025, import 0.10, prelude 0.16, hello 0.16 s).  The
+  three suites take 1m30, 1m11, and 3 s here.  Published twice through the
+  script to a bare repository made for the purpose: the first run started
+  the branch, the second appended 36 records and printed the ratios; the
+  page rendered the result under node (3 figures, 36 panels, 36 lines).
+  Tests: unit_benchmarks.py (the nightly set and --nightly, the summary of
+  compare, the history command: the files, the second run against the
+  first, two files in one call, the options, the errors),
+  unit_perf_history.py (the page under node on hand-made points and on
+  the baseline records: the figures, the panels, the lines, the deltas,
+  the changed counters, the failures, the escaping, the range, the data
+  URLs, the formats; the scripts: executable, parsable, and the publish
+  script end to end against a bare repository: the branch started, the
+  second run appended, a bad file changing nothing; the workflow and the
+  names shared between its parts; the docs).  Docs: tests/README section
+  9, the Performance page of the documentation, the README of the results
+  directory.  Left: a schedule runs on the default branch alone, so the
+  job runs once the workflow is there (a dispatch runs on any branch); the
+  page needs GitHub Pages enabled (the docs deploy) and a public
+  repository for the raw fetch; the page was rendered under node and not
+  looked at in a browser; the retry of a rejected push has no test; the
+  branch grows by one commit and one copy of the record files per night (a
+  squash keeps the files); the memory suite is not in the job.
+- ICurry interpreter prototype in the C++ runtime (B2, issue #31).  Every
+  module of the C++ backend went through g++ before it could run: a warm
+  compile of an expression paid 0.23 s of g++, a module compiled from a
+  string about 0.7 s, and the Python backend was the only evaluator that
+  needed no compiler.  Done: the runtime interprets a function from a
+  bytecode.  InfoTable gets a field aux, the data of the step (null for
+  generated code and the built-ins).  cyrt/icurry.hpp defines the machine:
+  registers (plain Node * for the arguments a step only passes on, the
+  rule of backends/cxx/passthrough.py), variables (Variable objects for
+  the scrutinees and the bases of paths), and an operand stack on which
+  the arguments of a node are collected; 25 opcodes in 32-bit units (the
+  loads and the indexer, copies, a fresh free variable, pushes, MAKE,
+  MAKE_PARTIAL, MAKE_STRING, the stores, SET_SUCC for a recursive let,
+  EXEMPT, RET_REF, RET_NODE, RET_STRING, CASE_CONS with a branch table by
+  tag, CASE_LIT with a value table).  cyrt/icurry.cpp is the one step
+  function of every interpreted function (icurry_step): it makes the calls
+  of the generated code (Node::successor_node, the indexer of Variable,
+  rts->hnf, Node::create, create_partial, and the in-place rewrite of the
+  redex when the result fits) and returns the same statuses, so compiled
+  and interpreted functions run on one scheduler, take the same steps, and
+  allocate the same nodes.  backends/cxx/bytecode.py emits the bytecode
+  from the ICurry of a function (compile_function), with a disassembler;
+  the constants of a function are the info tables and data types it names
+  and the values the runtime makes once (the literal nodes, a partial
+  application without arguments, the text of a string, the value set of a
+  literal case).  backends/cxx/materialize.py attaches the bytecode when
+  it materializes a function of a module imported from its ICurry
+  (icurry_attach in the bindings); a function of the module named before
+  the loader reaches it gets its table on demand.  The flag interpret
+  selects the mode: off (the default: g++ as before), new (a module
+  without a compiled object is interpreted from its JSON, the plan ends
+  there: Json2Cpp.ends_plan, Maker.done; a module with a current object is
+  loaded from it), all (every module is interpreted, the Prelude from its
+  JSON, the compiled objects unused).  A module whose functions are
+  interpreted keeps its tables for the life of the process (Module::clear),
+  because the bytecode of another module names them by pointer.  Found on
+  the way: the IOError constructors and the show instance of IOError were
+  looked up through the symbols of Prelude.so (dlsym), so a catch or an
+  I/O error dumped core when the Prelude was interpreted; the lookup goes
+  through the module registry now (Module::find_symbol), which serves both
+  forms.  Measured on the C++ backend (CPU seconds of the whole process
+  from sprite-exec --stats, median of three; the -t evaluation seconds in
+  parentheses; steps and forks equal in every mode): compiled, Tak1 1.31
+  (1.13), Fib 0.34 (0.17), PermSort 5.09 (4.89), QueensSet 0.80 (0.61),
+  Last 0.44 (0.27), ColormapFree 0.30 (0.16); interpret:new (the program
+  interpreted, the Prelude compiled): Tak1 1.87 (1.74), Fib 0.31 (0.18),
+  PermSort 5.34 (5.21), QueensSet 0.76 (0.62), Last 0.41 (0.28),
+  ColormapFree 0.32 (0.18); interpret:all (every module interpreted; the
+  process reads the ICurry of the Prelude and emits its bytecode first,
+  0.55 s: Hello 0.14 to 0.69 s): Tak1 2.43 (1.74), Fib 0.93 (0.25),
+  PermSort 5.83 (5.11), QueensSet 1.39 (0.61), Last 0.99 (0.29),
+  ColormapFree 0.90 (0.21).  So the interpreter costs at most 1.5 times
+  the compiled evaluation time (Tak1), and at most 2.7 times the compiled
+  process (Fib, where the fixed 0.55 s dominate); the acceptance asked for
+  at most 4.  The Python backend takes Tak1 282.8, Fib 29.7, PermSort
+  278.7, QueensSet 47.5, ColormapFree 16.5 s (Last fails there with status
+  135), 18 to 116 times the interpreted process; the acceptance asked for
+  8.  A warm compile of an expression to its
+  first value (probe.py with the ICurry cache warm) takes 0.019 to 0.020 s
+  under interpret:new against 0.23 to 0.25 s with g++; cold 0.43 against
+  0.67 s.  The compiled path is unchanged (compare: 5 same, counters
+  equal).  perf on Tak1 under interpret:all: icurry_step 32 percent, hnf 9,
+  Variable::skip 9, procS 5.5, the Python emitter of the Prelude 15; 29.6 G
+  instructions against 16.2 G compiled.  Tests: unit_cxx_interp.py with
+  data/curry/CxxInterp.curry (the emitter on hand-built ICurry: the plain
+  loads and the indexer, a case with and without every branch, literal
+  cases on Int, Char, and Float with the 64-bit words, the literals and
+  strings as constants, partial applications and choices, a free variable
+  and a recursive let, aliases and paths, an external body, the errors,
+  the disassembler, and the opcode table against the runtime; the values
+  of 46 goals of the module under interpret:all against the compiled code,
+  with every kind of statement and expression, free variables, narrowing,
+  set functions, functional patterns, IO, and strings; the loader under
+  new, all, and off; the refusals of icurry_attach; one step at the root of
+  a raw expression for each shape of result; Peano, Fib, and Last in
+  children in every mode with equal output and steps, and in the stress
+  mode of the collector).  The unit suite passes with the flag off (59
+  files); under interpret:all the functional suites setfunctions, kiel,
+  residuation, complete, examples, funpat, readshow, and io pass, and so do
+  the unit files of the Prelude, equality, expressions, inspection, IO
+  binding, the collector, the stack guard, the scheduler, the heap, the
+  free variables, the examples, and the Curry library.  Docs: the flag in
+  interpreter/flags.py, tests/README section 4.  Left: the tiered swap
+  (compile in the background and replace the step pointer) and a bytecode
+  cache for the Prelude (0.55 s per process under interpret:all; the
+  Python emitter and the JSON reader cost it); under interpret:new or all,
+  the tests that read a generated .cpp or .so, expect a compiled module, or
+  time the compile fail by design (unit_cxx_toolchain, unit_make,
+  unit_prebuild, unit_optimize, unit_compile, unit_api, unit_benchmarks,
+  and the generated-code tests of the unit_cxx_* files); a module object
+  held across curry.reload keeps its C++ module alive under the same name,
+  so a later import in another mode finds it (the tests drop their module
+  objects first); a plain variable is read through successor_node as in
+  the generated code, so the interpreter follows the compiled form in the
+  limits of passthrough.py; the interpreter is not wired to the Python
+  backend's debugging aids (no stepper); the Prelude's JSON is read with
+  the object hook on every import under interpret:all.
 
 2026-10-04: the C++ compile-time series (examples 20 to 23)
 - Four examples model the compile-time algorithms of a C++ compiler over

@@ -8,6 +8,7 @@ namespace cyrt { namespace python
   void register_exceptions(pybind11::module_);
   void register_fingerprint(pybind11::module_);
   void register_graph(pybind11::module_);
+  void register_icurry(pybind11::module_);
   void register_module(pybind11::module_);
 }}
 
@@ -19,5 +20,6 @@ PYBIND11_MODULE(_cyrtbindings, mod)
   cyrt::python::register_exceptions(mod);
   cyrt::python::register_fingerprint(mod);
   cyrt::python::register_graph(mod);
+  cyrt::python::register_icurry(mod);
   cyrt::python::register_module(mod);
 }

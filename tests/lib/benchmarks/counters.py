@@ -21,7 +21,8 @@ record file, with the fractions the parallel-evaluation gate asks for:
 The lifetimes are in steps: the median (exact below 1024, else the lower
 bound of a power-of-two bucket), the mean, and the largest.  The counters
 come from the first successful repetition.  An item without the counters
-shows dashes.
+shows dashes.  An item with a variant (the memory and the split suites) is
+named program:variant.
 '''
 
 import argparse, sys
@@ -89,6 +90,8 @@ def row(record):
   stats = counters_of(record)
   out = dict.fromkeys(HEADINGS)
   out['program'] = record['program']
+  if record['variant']:
+    out['program'] += ':' + record['variant']
   if stats is None:
     return out
   steps = stats['steps']
