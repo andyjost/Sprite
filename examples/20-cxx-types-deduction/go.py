@@ -17,7 +17,7 @@ curry.path.insert(0, HERE)
 from curry.lib import CxxLimits, CxxType, Deduction
 
 # The constructors of CxxType.Type, applied with curry.expr.  A class name is
-# passed as a list of characters: a str of length one would become a Char.
+# a Python str; curry.expr converts it to a String, the parameter type.
 def fund(name):
   return curry.expr(CxxType.Fund, getattr(CxxLimits, name))
 
@@ -40,7 +40,7 @@ def fun(result, params):
   return curry.expr(CxxType.Fun, result, params)
 
 def cls(name, args=()):
-  return curry.expr(CxxType.Class, list(name), list(args))
+  return curry.expr(CxxType.Class, name, list(args))
 
 # The function parameters of a template: by value (p), by lvalue reference
 # (p&) and by rvalue reference (p&&).
@@ -56,7 +56,7 @@ def by_rref(p):
 # A partial specialization of a class template S, with the names of its
 # template parameters: S<T const*> is template(['T'], ptr(const(T))).
 def template(names, pattern):
-  return curry.expr(CxxType.Template, [list(n) for n in names], pattern)
+  return curry.expr(CxxType.Template, list(names), pattern)
 
 VOID, CHAR, INT, LONG, DOUBLE = (
     fund('Void'), fund('Char'), fund('Int'), fund('Long'), fund('Double')
@@ -88,9 +88,9 @@ def call(name, names, params, args):
   the argument types of the call, and the deduction.
   '''
   return (
-      text(Deduction.signature, list(name), params)
+      text(Deduction.signature, name, params)
     , ', '.join(show(a) for a in args)
-    , text(Deduction.call, [list(n) for n in names], params, args)
+    , text(Deduction.call, list(names), params, args)
     )
 
 def ordering(specs, targets):
@@ -183,7 +183,7 @@ def main():
         % (depth, text(Deduction.inverseDecay, depth, ptr(INT))))
   depth = 1
   print('(d) the types of depth at most %d from which %s deduces T = int: %s'
-        % (depth, text(Deduction.signature, list('f'), const_ref)
+        % (depth, text(Deduction.signature, 'f', const_ref)
            , text(Deduction.inverseDeduction, depth, const_ref, INT)))
 
 if __name__ == '__main__':

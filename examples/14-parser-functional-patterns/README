@@ -45,13 +45,13 @@ There is no lexer.  The function eval computes the value of a tree.
 The driver go.py adds its own directory to curry.path and imports the module
 Parser.  For each input it calls
 
-    curry.eval(Parser.expr, text(s))
+    curry.eval(Parser.expr, s)
 
-The helper text converts a Python str to a list of characters.  A str of
-length one would convert to a Curry Char, not to a String.  The call is a
-generator of parse trees.  The driver collects the trees in a list and counts
-them.  One tree per input is evidence that the grammar is unambiguous.  An
-input with no parse yields an empty list, and the driver prints "no parse".
+curry.eval converts the Python str s by the type of the parameter, a
+String, also when s has one character.  The call is a generator of parse
+trees.  The driver collects the trees in a list and counts them.  One tree
+per input is evidence that the grammar is unambiguous.  An input with no
+parse yields an empty list, and the driver prints "no parse".
 
 A parse tree comes back as a Curry value.  Its str form prints the
 constructors, such as Add (Num 1) (Num 2).  The driver passes the tree back

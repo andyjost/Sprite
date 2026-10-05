@@ -826,6 +826,24 @@ class TestFlavor(ToolchainTestCase):
             self.prerequisite(name), self.cached_file(name, '.cpp')
           )
     self.assertFalse(self.cpp2so.is_stale(sofile))
+    # The digest names the installation by its real path: an object
+    # compiled under another one links against that installation's shared
+    # objects, so it is stale here.
+    elsewhere = os.path.join(self.tmpdir, 'elsewhere')
+    foreign = toolchain.object_digest(prefix=elsewhere)
+    self.assertRegex(foreign, r'^[0-9a-f]{16}$')
+    self.assertNotEqual(foreign, toolchain.object_digest())
+    self.assertEqual(
+        toolchain.object_digest(prefix=config.prefix()), toolchain.object_digest()
+      )
+    link = os.path.join(self.tmpdir, 'install-link')
+    os.symlink(os.path.realpath(config.prefix()), link)
+    self.assertEqual(toolchain.object_digest(prefix=link), toolchain.object_digest())
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write(foreign + '\n')
+    self.assertTrue(self.cpp2so.is_stale(sofile))
+    self.cpp2so.write_stamp(sofile)
+    self.assertFalse(self.cpp2so.is_stale(sofile))
 
   @unittest.skipIf(
       config.cxx_flavor() != 'release' or curry.flags['debug']

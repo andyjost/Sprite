@@ -1,11 +1,26 @@
+'''
+Building Curry expressions from Python.
+
+``expr`` is the typed builder: it types the expression over the schemes of
+the front end, converts Python values by the expected type, and supplies
+the class dictionaries (see :mod:`curry.typecheck.builder`).  ``raw_expr``
+is the untyped builder, which converts by the Python type alone and checks
+only the arity; it serves the runtime and the tests of the runtime.  The
+markers of this module (:class:`anchor`, :class:`choice`, :class:`cons`,
+:data:`fail`, :class:`free`, :data:`nil`, :class:`ref`, :class:`typed`,
+:class:`unboxed`) describe the parts of an expression that are no Python
+value.
+'''
+
 from . import backends, config, icurry, objects, utility
 from .exceptions import CurryTypeError
 from .utility import strings, visitation
 import collections.abc, itertools, numbers, weakref
 
 __all__ = [
-    'anchor', 'choice', 'cons', 'expr', 'fail', 'fwd', 'free', 'nil'
-  , 'raw_expr', 'ref', 'unboxed'
+    'anchor', 'choice', 'cons', 'describe', 'expr', 'fail', 'fwd', 'free'
+  , 'nil', 'raw_expr', 'ref', 'result_type', 'typed', 'typeof', 'unboxed'
+  , 'untyped_expr'
   ]
 
 class anchor(object):
@@ -96,17 +111,21 @@ class free(object):
   Used with :func:`expr` to place a free variable into a Curry expression.
 
   Through ``expr``, one marker is one variable.  The builder makes one node
-  for the marker, a call of ``Prelude.unknown``, and reuses it for every
-  occurrence of the marker, in that expression and in later ones.  The first
-  rewrite step on the node creates the variable with a fresh id and forwards
-  the node to it.  The node belongs to one interpreter state: ``curry.reset``
-  installs a new state, and the marker becomes a new variable there.
-  Through ``raw_expr``, every occurrence is a separate
-  ``Free`` node with the id ``vid``, 0 by default; that form serves the tests
-  of the runtime.
+  for the marker, a call of ``Prelude.unknown`` applied to the ``Data``
+  dictionary of its type, and reuses it for every occurrence of the marker,
+  in that expression and in later ones.  The first rewrite step on the node
+  creates the variable with a fresh id and forwards the node to it.  The
+  node belongs to one interpreter state: ``curry.reset`` installs a new
+  state, and the marker becomes a new variable there.  ``exprtype`` fixes
+  the type of the variable, in Curry syntax; without it the type comes from
+  the context, and a variable whose type stays polymorphic gets the
+  dictionary of ``Bool``, which ``unknown`` never reads.  Through
+  ``raw_expr``, every occurrence is a separate ``Free`` node with the id
+  ``vid``, 0 by default; that form serves the tests of the runtime.
   '''
-  def __init__(self, vid=0):
+  def __init__(self, vid=0, exprtype=None):
     self.vid = int(vid)
+    self.exprtype = exprtype
     # The shared node and a weak reference to the interpreter state it was
     # built under.  See ExpressionBuilder.unknown.
     self._node = None
@@ -148,29 +167,65 @@ class choice(object):
     self.lhs = lhs
     self.rhs = rhs
 
+class typed(object):
+  '''
+  Used with :func:`expr` to annotate a part of an expression with its type:
+  ``curry.typed(value, 'T')`` converts ``value`` at the type ``T``, in Curry
+  syntax, and unifies ``T`` with the type the context expects.  So
+  ``curry.typed('a', 'String')`` is the string ``"a"``, and
+  ``curry.typed(node, '[Int]')`` states the type of a large value instead of
+  a walk of its content.  ``raw_expr`` builds the value and ignores the
+  annotation.
+  '''
+  def __init__(self, value, exprtype):
+    self.value = value
+    self.exprtype = exprtype
+
 @utility.formatDocstring(config.python_package_name())
 def expr(interp, *args, **kwds):
   '''
   Builds a Curry expression.
 
-  The arguments specify the expression to build.  Each positional argument must
-  be directly convertible to Curry or describe a node.  The following direct
-  conversions are recognized:
+  The expression is typed before it is built (see
+  :mod:`{0}.typecheck.builder`): the type schemes of the symbols are read
+  from the FlatCurry interfaces of their modules, the arguments are unified
+  with the parameter types, the class constraints are defaulted with the
+  table of the PAKCS REPL, and the class dictionaries are supplied.  So
+  ``expr(curry.symbol('Prelude.+'), 1, 2)`` builds the call of the method
+  at ``Int``, and ``expr(P.show, [P.Just, 1])`` finds the ``Show`` instance
+  of ``Maybe Int``.  A typing failure raises :class:`CurryTypeError
+  <{0}.exceptions.CurryTypeError>` at construction; nothing is evaluated.
+  The flag ``typed_expr`` turns the typing off.
+
+  The arguments specify the expression to build.  Each positional argument
+  must be directly convertible to Curry or describe a node.  A Python value
+  converts by the type its position expects:
 
     * ``bool``:
       Converted to ``Prelude.Bool``.
+    * ``int``
+      ``Prelude.Int``; ``Prelude.Float`` under ``Float``; the ``fromInt``
+      conversion under another ``Num`` instance.
     * ``float``
       Converted to ``Prelude.Float``.
-    * ``int``
-      Converted to ``Prelude.Int``.
-    * ``iterator``
-      Lazily Converted to a Curry list.
-    * ``list``
-      Eagerly Converted to a Curry list.
     * ``str``
-      For strings of length one, ``Prelude.Char``.  Otherwise, ``[Prelude.Char]``.
+      Under ``[Char]`` one string of any length.  Elsewhere a string of
+      length one is a ``Prelude.Char``, and another string is ``[Char]``.
+    * ``list``
+      Converted to a Curry list, in a loop.  Every element takes the element
+      type, so ``[1, 2.5]`` is ``[Float]``.
     * ``tuple``
       Converted to a Curry tuple.
+    * ``iterator``
+      Lazily converted to a Curry list.  The element type is fixed when the
+      expression is built; an item that does not convert ends the
+      evaluation with an ``EvaluationError``.
+    * ``None``
+      An error that names the expected type.
+    * a Curry node
+      Typed by a walk of its content, up to 100000 nodes;
+      ``curry.typed(node, 'T')`` states the type instead.  A node alone
+      passes through untouched.
 
   Any (possibly nested) sequence whose first element is an instance of
   :class:`NodeInfo <{0}.objects.CurryNodeInfo>` specifies a node.  The remaining
@@ -180,12 +235,19 @@ def expr(interp, *args, **kwds):
 
       expr([Cons, 0, [Cons, 1, [Cons, 2, Nil]]])
 
+  Fewer arguments than the symbol takes give a partial application; more
+  arguments go through ``Prelude.apply`` when the result is a function.  A
+  symbol without a type scheme (a module without a FlatCurry interface, or
+  a built-in of Sprite's own Prelude) is built untyped when it stands
+  alone, as the goal of a saved module does, and is an error when it is
+  applied to arguments; :func:`typeof` refuses it either way.
+
   Several special symbols are provided.  See :class:`anchor`, :class:`choice`,
-  :class:`cons`, :data:`fail`, :class:`free`, :data:`nil`, :class:`ref`, and
-  :class:`unboxed`.  A :class:`free` marker becomes a call of
-  ``Prelude.unknown``, one node per marker, and a :class:`choice` marker a
-  call of ``Prelude.?``, so the runtime assigns the ids.  ``raw_expr`` builds
-  the raw ``Free`` and ``Choice`` nodes instead.
+  :class:`cons`, :data:`fail`, :class:`free`, :data:`nil`, :class:`ref`,
+  :class:`typed`, and :class:`unboxed`.  A :class:`free` marker becomes a
+  call of ``Prelude.unknown``, one node per marker, and a :class:`choice`
+  marker a call of ``Prelude.?``, so the runtime assigns the ids.
+  ``raw_expr`` builds the raw ``Free`` and ``Choice`` nodes instead.
 
   Args:
     interp:
@@ -196,23 +258,80 @@ def expr(interp, *args, **kwds):
         Keyword arguments specifying subexpressions that may be referenced via
         ``ref``.  Each keyword specifies the name of an anchor.  See the
         examples below.
+    exprtype:
+        Keyword-only argument.  The type of the expression in Curry syntax,
+        for example ``'Maybe Float'``.  Its type variables are rigid.
     target:
         Reserved keyword-only argument.  If a target is supplied, then it will
         be rewritten with the specified expression.  Otherwise a new node is
         created.
 
   Returns:
-    A Curry expression.
+    A Curry expression.  Its type is recorded, so :func:`typeof` answers for
+    it, and ``eval`` converts its values by it.
   '''
+  exprtype = kwds.pop('exprtype', None)
+  if interp.flags.get('typed_expr', True):
+    from .typecheck import builder
+    target = kwds.pop('target', None)
+    return builder.build(interp, args, kwds, exprtype=exprtype, target=target)
   return _build(interp, args, kwds, raw=False)
 
 def raw_expr(interp, *args, **kwds):
   '''
-  Equivalent to expr, except that a :class:`free` marker becomes a raw
+  The untyped builder.  Equivalent to :func:`expr` without the types: every
+  Python value converts by its Python type, only the arity of a symbol is
+  checked, no dictionary is supplied, a :class:`free` marker becomes a raw
   ``Free`` node with the id of the marker, a new node per occurrence, and a
   :class:`choice` marker a raw ``Choice`` node with the id of the marker.
+  An expression that is not well typed evaluates with undefined behaviour.
   '''
   return _build(interp, args, kwds, raw=True)
+
+def untyped_expr(interp, *args, **kwds):
+  '''
+  The untyped builder with the markers of :func:`expr`: a :class:`free`
+  marker is its shared ``unknown`` node and a :class:`choice` marker a call
+  of ``Prelude.?``.  This is :func:`expr` with the flag ``typed_expr`` off.
+  The interpreter uses it for the expressions it builds around compiled
+  code, whose types the front end checked.
+  '''
+  kwds.pop('exprtype', None)
+  return _build(interp, args, kwds, raw=False)
+
+def typeof(interp, e, defaulted=False):
+  '''
+  The type of an expression in Curry syntax.  Without ``defaulted`` the
+  undefaulted scheme, what ``:type`` prints: ``typeof(expr(plus, 1, 2))``
+  is ``Num a => a``.  With ``defaulted`` the type after the table of the
+  PAKCS REPL: ``Int``.  ``e`` is a node :func:`expr` returned, any other
+  Curry node (typed by its content), a symbol, a description of
+  :func:`describe`, or any argument :func:`expr` accepts.
+  '''
+  from .typecheck import builder
+  return builder.typeof(interp, e, defaulted)
+
+def describe(interp, *args, **kwds):
+  '''
+  The description of an expression: the arguments of :func:`expr` as a
+  tree, typed only when a consumer asks for its node.  The DSL builds
+  descriptions at every operator and types them once at the boundary, so
+  that an outer context fixes the types of the inner parts.  A description
+  is an argument of :func:`expr` and of ``eval``; ``str`` prints it in
+  Curry syntax; its method ``typeof`` gives its type.  The keyword
+  ``exprtype`` states the type of the description; the other keywords are
+  its anchors.  See :class:`Description <curry.typecheck.builder.Description>`.
+  '''
+  from .typecheck import builder
+  exprtype = kwds.pop('exprtype', None)
+  if 'target' in kwds:
+    raise TypeError('describe() takes no target; pass it to expr or to build')
+  return builder.Description(interp, args, kwds, exprtype=exprtype)
+
+def result_type(interp, node):
+  '''The defaulted type :func:`expr` recorded for a node, or None.'''
+  from .typecheck import builder
+  return builder.result_type(interp, node)
 
 def _build(interp, args, kwds, raw):
   builder = ExpressionBuilder(interp, raw=raw)
@@ -225,18 +344,43 @@ def _build(interp, args, kwds, raw):
   expr = builder(*args)
   return builder.fixrefs(expr)
 
+def fix_references(expr, brokenrefs, anchors):
+  '''
+  Replaces the placeholders of the references that were built before their
+  anchors.  ``brokenrefs`` maps the id of a placeholder to the key of its
+  anchor in ``anchors``.
+  '''
+  if brokenrefs:
+    from .backends.py.graph.walkexpr import walk
+    for state in walk(expr):
+      if isinstance(state.cursor, backends.Node):
+        key = brokenrefs.get(state.cursor.id())
+        if key is not None:
+          parent = state.parent
+          if parent is None:
+            # This is the trivial cycle a=a.
+            state.cursor.forward_to(state.cursor)
+          else:
+            parent.set_successor(state.realpath[-1], anchors[key])
+        else:
+          state.push()
+  return expr
+
 # The dictionary argument of Prelude.unknown.  The body of unknown declares a
-# free variable and returns it; it never reads the dictionary.  The builder
-# does not know the type of a marker, so the dictionary of Bool stands in.
+# free variable and returns it; it never reads the dictionary.  The untyped
+# builder does not know the type of a marker, so the dictionary of Bool
+# stands in.
 UNKNOWN_DICTIONARY = 'Prelude._inst#Prelude.Data#Prelude.Bool'
 
 class ExpressionBuilder(object):
   '''
-  Implementation of ``expr`` and ``raw_expr``.  With ``raw`` set, a free
-  marker becomes a raw ``Free`` node and a choice marker a raw ``Choice``
-  node, as the tests of the runtime expect.  Otherwise the markers become
-  calls of ``Prelude.unknown`` and ``Prelude.?``, so that the runtime assigns
-  the ids (see :class:`free` and :class:`choice`).
+  Implementation of ``raw_expr``, and of ``expr`` with the flag
+  ``typed_expr`` off.  With ``raw`` set, a free marker becomes a raw
+  ``Free`` node and a choice marker a raw ``Choice`` node, as the tests of
+  the runtime expect.  Otherwise the markers become calls of
+  ``Prelude.unknown`` and ``Prelude.?``, so that the runtime assigns the
+  ids (see :class:`free` and :class:`choice`).  A :class:`typed` marker
+  builds its value; the annotation is ignored.
   '''
   def __init__(self, interp, raw=False):
     self.interp = interp
@@ -250,22 +394,7 @@ class ExpressionBuilder(object):
     self.fsyms = self.interp.backend.fundamental_symbols
 
   def fixrefs(self, expr):
-    if self.brokenrefs:
-      # for state in expr.walk():
-      from .backends.py.graph.walkexpr import walk
-      for state in walk(expr):
-        if isinstance(state.cursor, backends.Node):
-          anchorname = self.brokenrefs.get(state.cursor.id())
-          if anchorname is not None:
-            parent = state.parent
-            if parent is None:
-              # This is the trivial cycle a=a.
-              state.cursor.forward_to(state.cursor)
-            else:
-              parent.set_successor(state.realpath[-1], self.anchors[anchorname])
-          else:
-            state.push()
-    return expr
+    return fix_references(expr, self.brokenrefs, self.anchors)
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
@@ -414,6 +543,12 @@ class ExpressionBuilder(object):
       raise ValueError("cannot rewrite a node to an unboxed value")
     return arg.value
 
+  @__call__.when(typed)
+  def __call__(self, arg, *trailing):
+    if trailing:
+      raise CurryTypeError('invalid arguments after %r' % 'typed')
+    return self(arg.value)
+
   @__call__.when(cons)
   def __call__(self, arg, *trailing):
     if trailing:
@@ -539,4 +674,3 @@ class ExpressionBuilder(object):
         getattr(self.prelude, '?'), self(arg.lhs), self(arg.rhs)
       , target=self.target
       )
-

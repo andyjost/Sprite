@@ -48,8 +48,8 @@ passes them to the Curry function schedule with the horizon.  curry.eval
 converts them with curry.expr: tuples become Curry tuples, lists become
 Curry lists, and ints become Curry Ints.
 
-A Python str of length one converts to a Char.  So the driver passes every
-name as a list of characters, through the helper text().
+A name is a Python str.  curry.expr converts it by the type the parameter
+expects, a String, also when the name has one character.
 
 One call,
 

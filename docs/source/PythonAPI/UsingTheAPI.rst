@@ -174,6 +174,8 @@ in another session with :func:`curry.load`:
                >>> interp = Interpreter()
                >>> interp.load('Fib.py')
 
+.. _building-expressions:
+
 Building Expressions
 ====================
 
@@ -210,21 +212,17 @@ is the answer:
     >>> print(next(curry.eval(curry.compile('(x, 1) where x free', mode='expr'))))
     (_a, 1)
 
-Simple Curry expressions can also be created directly in Python with
-``curry.expr``.  One might use this to improve performance, as it bypasses the
-Curry frontend.  Beware, however, that this approach performs neither type
-deduction or type validation.
-
-.. warning::
-
-   Use caution when building complex expressions with ``curry.expr``.
-   Evaluating an expression with type errors will result in undefined behavior.
+Curry expressions can also be created directly in Python with
+:func:`curry.expr`.  It bypasses the Curry front end, so it is fast, and it
+is typed: the expression is checked and converted before any node is built.
+:ref:`typed-expressions` below gives the rules.
 
 Built-in Conversions
-....................
+--------------------
 
-``curry.expr`` converts numbers, strings, Booleans, lists, and tuples to Curry.
-A few examples:
+``curry.expr`` converts numbers, strings, Booleans, lists, and tuples to Curry,
+each by the type its position expects (see :ref:`typed-expressions`).  A few
+examples:
 
     >>> curry.expr(1)
     <Int 1>
@@ -258,7 +256,7 @@ apply the ``str`` function or just print the value:
     1
     >>> print(curry.expr('a'))
     'a'
-    >>> print(curry.expr('hello'))
+    >>> print(next(curry.eval('hello')))
     "hello"
     >>> print(curry.expr([1]))
     [1]
@@ -266,10 +264,15 @@ apply the ``str`` function or just print the value:
     (1, 2)
 
 ``str`` format shows expressions in a more natural way, but discards
-information about whether data is boxed.
+information about whether data is boxed.  A string of several characters is
+built in one call: on the Python backend as one ``_biString`` node, which
+prints as ``_biString 'hello'`` until the first step unfolds it, and on the
+C++ backend as the list of its characters, made natively.  Neither form is
+bounded by the recursion limit.  The example above evaluates the string so
+that both backends print the same text.
 
 Symbolic Expressions
-....................
+--------------------
 
 Curry symbols are converted to expressions:
 
@@ -318,7 +321,7 @@ symbol:
   expression rather than a symbol.
 
 Graph-Like Expressions
-......................
+----------------------
 
 Named subexpressions can be created by passing keyword arguments.  This is
 necessary to create graph-like (as opposed to tree-like) expressions that
@@ -339,7 +342,7 @@ a subexpression more than once.  ``str`` format does not do this, so an attempt
 to print the previous expression would never terminate.
 
 Expression Modifiers
-....................
+--------------------
 
 In addition to ``curry.ref``, a few other helper functions and objects are
 provided.  To create a free variable, use ``curry.free``.  One marker is one
@@ -373,6 +376,233 @@ Use ``curry.cons`` and ``curry.nil`` to create cons-style lists:
     [1]
 
 
+.. _typed-expressions:
+
+Typed Expressions
+-----------------
+
+:func:`curry.expr` types an expression before it builds it.  The type
+scheme of each symbol comes from the FlatCurry interface of its module, the
+``signature`` shown above.  The arguments are unified with the parameter
+types.  The class constraints that remain are defaulted with the table of
+the PAKCS REPL (``Num`` to ``Int``, ``Fractional`` to ``Float``, ``Monad``
+to ``IO``, a lone ``Data`` to ``Bool``), and the class dictionaries are
+supplied.  So an overloaded function, and a class method, can be called
+from Python:
+
+    >>> plus = curry.symbol('Prelude.+')
+    >>> print(curry.expr(plus, 1, 2))
+    apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2
+    >>> next(curry.eval(plus, 1, 2, converter='topython'))
+    3
+    >>> next(curry.eval(plus, 1.5, 1, converter='topython'))
+    2.5
+    >>> next(curry.eval(Prelude.show, [Prelude.Just, 1], converter='topython'))
+    'Just 1'
+
+:func:`curry.typeof` gives the type of an expression, of a symbol, or of
+any argument ``curry.expr`` accepts: the inferred scheme before defaulting,
+which is what ``:type`` prints in the :ref:`REPL <repl>`, or the type after
+it:
+
+    >>> curry.typeof(curry.expr(plus, 1, 2))
+    'Num a => a'
+    >>> curry.typeof(curry.expr(plus, 1, 2), defaulted=True)
+    'Int'
+    >>> curry.typeof(plus)
+    'Num a => a -> a -> a'
+    >>> curry.typeof([1, 2.5])
+    'Fractional a => [a]'
+    >>> curry.typeof((1, 2.5))
+    '(Num a, Fractional b) => (a, b)'
+
+The context is printed in the order of the front end: by the first type
+variable of each constraint, then by the class.
+
+The keyword ``exprtype`` states the type of the whole expression in Curry
+syntax, and :class:`curry.typed` states the type of one part.  Both are
+unified with the inferred type:
+
+    >>> curry.typeof(curry.expr(Prelude.Just, 5, exprtype='Maybe Float'))
+    'Maybe Float'
+    >>> next(curry.eval(Prelude.read, '5', exprtype='Int', converter='topython'))
+    5
+    >>> curry.typeof(curry.typed(1, 'Float'))
+    'Float'
+
+**Conversion rules.**  A Python value converts by the type its position
+expects.  The Python type decides only where the expected type is a type
+variable.
+
+* ``bool`` converts to ``True`` or ``False``.  Any other value under
+  ``Bool`` is an error, so ``curry.expr(getattr(Prelude, 'not'), 1)`` is
+  rejected.
+* ``int`` converts to ``Int``; under ``Float`` to a ``Float``; under
+  another instance of ``Num`` through ``fromInt``.  Under a type variable
+  the variable gets the constraint ``Num`` and defaults to ``Int``.
+* ``float`` converts to ``Float``; under a type variable the variable gets
+  the constraint ``Fractional``.  A ``float`` under ``Int`` is an error, as
+  ``1.5 + (1 :: Int)`` is in Curry.
+* ``str`` converts to one string of any length under ``String``
+  (``[Char]``): ``'a'`` under ``String`` is ``"a"``, and ``''`` is the
+  empty string.  Under ``Char`` a ``str`` of length one converts to the
+  character.  Under a bare type variable the Python type decides: a ``str``
+  of length one is a ``Char``, and any other ``str`` is a ``String``;
+  ``curry.typed('a', 'String')`` makes the one-character string.  The
+  decision waits for the rest of the expression: another part that fixes
+  the variable to a list makes the one-character string a string too, so
+  ``['c', 'ab']`` is ``[String]`` in either order, and a type that only a
+  list can fill, such as the ``f a`` of ``fmap``, makes it a string as
+  well (``fmap ord 'a'`` is ``[97]``).  ``bytes`` convert as ``str``.
+* ``list`` converts to a Curry list.  Every element takes the element
+  type, and all elements unify before defaulting, so ``[1, 2.5]`` is
+  ``[Float]``, as in Curry.  A list is built in a loop, so the builder puts
+  no limit on its length.
+* ``tuple`` converts to a Curry tuple; ``()`` is the unit.  Curry has no
+  1-tuple, so a 1-tuple is an error.
+* An iterator converts to a lazy Curry list.  The element type is fixed
+  when the expression is built, by the context, by the other arguments or
+  by the defaulting table, never by an item.  So a class constraint that
+  only the items could resolve, as in ``map show`` over an iterator of
+  numbers, is an error; ``curry.typed(iterator, '[Int]')`` states the
+  element type.  An item that does not convert raises an
+  ``EvaluationError`` when it is demanded, which ends the evaluation,
+  inside ``?`` and inside a set function alike.
+* ``None`` is an error that names the expected type.  Under ``Maybe t``
+  the message suggests ``Prelude.Nothing``.
+* A Curry node is typed by its content; see below.
+* :class:`curry.free` is a free variable; see below.
+* :class:`curry.unboxed` is the unboxed payload of an ``Int``, ``Char``
+  or ``Float``.
+
+**Values of earlier evaluations.**  A Curry node that fills a parameter is
+typed by a walk of its content, to the leaves, not by its root alone.  The
+values :func:`curry.eval` yields are copies of the result, so this walk is
+what keeps a list of floats away from integer arithmetic:
+
+    >>> v = next(curry.eval(curry.expr([1.5, 2.5])))
+    >>> curry.typeof(v)
+    '[Float]'
+    >>> DL = curry.import_('Data.List')
+    >>> next(curry.eval(DL.sum, v, converter='topython'))
+    4.0
+
+A partial application is typed by the scheme of its head and the arguments
+it holds, so ``map not`` from an earlier evaluation has the type ``[Bool]
+-> [Bool]`` and ``apply`` refuses a number for it.  The walk stops at
+100000 nodes with an error, and refuses a value whose type would print
+with more than that many nodes (a value that shares one node between the
+components of a pair at every level has such a type).  State the type of
+a larger value with ``curry.typed(node, '[Float]')``, which skips the
+walk.  A node alone, or at the root of the expression, passes through
+untouched.
+
+**The scope of inference.**  One call of ``curry.expr`` is one inference
+scope.  The class constraints of the call are defaulted when it returns,
+and a later call does not reopen them:
+
+    >>> incr = curry.expr(plus, 1)
+    >>> curry.typeof(incr, defaulted=True)
+    'Int -> Int'
+    >>> curry.expr(Prelude.apply, incr, 1.5)
+    Traceback (most recent call last):
+      ...
+    curry.typecheck.errors.ConversionError: cannot convert 1.5 to Int at argument 2 of Prelude.apply :: (a -> b) -> a -> b
+
+To let the outer context decide, build the expression in one call, or
+build a description with :func:`curry.describe`, which is typed with the
+expression that receives it:
+
+    >>> next(curry.eval(Prelude.apply, [plus, 1], 1.5, converter='topython'))
+    2.5
+    >>> d = curry.describe(plus, 1)
+    >>> next(curry.eval(Prelude.apply, d, 1.5, converter='topython'))
+    2.5
+
+A description keeps the keyword anchors of its arguments and the keyword
+``exprtype``; every use of it is typed afresh, so one description serves
+several contexts.  A symbol without a type scheme (a module without a
+FlatCurry interface, or a built-in of Sprite's own Prelude) is built
+untyped when it stands alone, as the goal of a saved module is;
+:func:`curry.typeof` refuses it, and an application of it is an error
+that names ``raw_expr``.
+
+**Free variables.**  A :class:`curry.free` marker is one variable, as
+described above.  Its type comes from the context.  The marker carries no
+constraint of its own, so ``curry.eval(Prelude.id, x)`` gives ``_a`` with
+the type ``a``.  A consumer that needs ``Data``, such as ``=:=``, adds the
+constraint, and a lone ``Data`` constraint defaults to ``Bool``, as in
+PAKCS:
+
+    >>> x, y = curry.free(), curry.free()
+    >>> eq = getattr(Prelude, '=:=')
+    >>> curry.typeof(curry.expr(eq, x, y))
+    'Data a => Bool'
+    >>> print(next(curry.eval(eq, x, y)))
+    True
+
+``curry.free(exprtype='[Int]')`` fixes the type of a variable.  A free
+variable at a function type is an error at construction, because a free
+variable of Curry must have a ``Data`` type.
+
+Arithmetic on a free numeric variable does not narrow the variable.  A
+free variable of a built-in type that reaches a case suspends the
+evaluation, on both backends (issue #37), and the typed builder does not
+change that: ``x + 1 =:= 3`` suspends, while ``x =:= 3`` binds ``x``, and a
+conjunction in which another constraint binds ``x`` succeeds in either
+order:
+
+    >>> x = curry.free()
+    >>> next(curry.eval(eq, [plus, x, 1], 3))
+    Traceback (most recent call last):
+      ...
+    curry.exceptions.EvaluationSuspended: Evaluation Suspended!
+    >>> y = curry.free()
+    >>> conj = getattr(Prelude, '&')
+    >>> print(next(curry.eval(conj, [eq, y, 3], [eq, [plus, y, 1], 4])))
+    True
+
+**Errors.**  A typing failure raises :class:`CurryTypeError
+<curry.exceptions.CurryTypeError>` at construction; nothing is evaluated.
+The message names the symbol with its scheme, the argument, and the types:
+
+    >>> curry.expr(plus, 1, 'a')
+    Traceback (most recent call last):
+      ...
+    curry.typecheck.errors.MismatchError: type mismatch in argument 2 of Prelude.+ :: Num a => a -> a -> a
+      argument 1 fixed a := Int (from 1)
+      argument 2 has type Char (from 'a')
+    >>> curry.expr(Prelude.Just, 1, 2)
+    Traceback (most recent call last):
+      ...
+    curry.typecheck.errors.ArityError: Prelude.Just :: a -> Maybe a takes 1 argument, 2 given
+
+A class constraint that the table cannot default is an error with the
+sentence of the PAKCS REPL; ``exprtype`` resolves it:
+
+    >>> curry.expr(Prelude.read, '5')
+    Traceback (most recent call last):
+      ...
+    curry.typecheck.defaulting.DefaultingError: cannot handle the overloaded expression 'read "5"' of type Read a => a
+      Cannot handle arbitrary overloaded top-level expressions
+      add a type annotation (exprtype)
+
+**The untyped builder.**  :func:`curry.raw_expr` builds an expression
+without types.  It converts every Python value by its Python type, checks
+only the arity of a symbol, supplies no dictionary, and builds the raw
+``Free`` and ``Choice`` nodes with the identifiers of the markers.  It
+serves the runtime and its tests.
+
+.. warning::
+
+   :func:`curry.raw_expr` can produce an ill-typed expression.  Evaluating
+   an ill-typed expression results in undefined behavior.
+
+The interpreter flag ``typed_expr`` (``True`` by default) turns the typing
+of :func:`curry.expr` off for a whole interpreter; see
+:mod:`curry.interpreter.flags`.
+
+
 Evaluating Expressions
 ======================
 
@@ -389,12 +619,10 @@ computational steps it must to compute the next value.
 
 A function of a module without a type signature keeps its class
 constraints, which the front end turns into leading dictionary parameters.
-``curry.eval`` of such a symbol alone supplies the dictionaries after the
-defaulting described above, so ``main = Just 5`` evaluates to ``Just 5`` and
-not to a partial application.  A call with arguments,
-``curry.eval(M.addOne, 1)``, is an error until Sprite types expressions built
-in Python: compile the call from text,
-``curry.compile('addOne 1', mode='expr', imports=[M])``.
+``curry.eval`` supplies the dictionaries after the defaulting described
+above, so ``main = Just 5`` evaluates to ``Just 5`` and not to a partial
+application.  A call with arguments, ``curry.eval(M.addOne, 1)``, is typed
+like any expression of :func:`curry.expr`.
 
 By default, no conversions are performed.  That means the ``13`` returned above
 is a Curry integer rather than a Python integer.  We can see this by looking at
@@ -438,12 +666,20 @@ Curry expression to Python.
 Conversions to the following Python types are performed: ``bool``, ``float``,
 ``int``, ``list``, ``str``, ``tuple``.
 
-A Curry ``Char`` is a Unicode code point.  A Python ``str`` of length one
-converts to a ``Char``, and a longer one to a list of characters; both
-directions keep every code point.  The files that ``readFile``, ``writeFile``,
+A Curry ``Char`` is a Unicode code point.  A Python ``str`` converts to a
+``String`` where a ``String`` is expected and a ``str`` of length one to a
+``Char`` where a ``Char`` is expected (see :ref:`typed-expressions`); a
+``String`` converts back to a ``str``.  Both directions keep every code
+point.  The files that ``readFile``, ``writeFile``,
 and ``appendFile`` touch hold UTF-8 on both backends.  So do the standard
 streams of ``putChar`` and ``getChar`` on the C++ backend; on the Python
 backend they use the encoding of ``sys.stdout`` and ``sys.stdin``.
+
+:func:`curry.topython` takes an optional ``exprtype``, the static type of
+the value in Curry syntax, and threads it through lists and tuples, so an
+empty ``String`` converts to ``''``.  :func:`curry.eval` passes the type of
+the goal it built to the converter.  Without a type, an empty list converts
+to ``[]`` and a list of characters to a ``str``.
 
 :func:`curry.topython` prunes the recursion wherever it encounters a
 subexpression it cannot convert.  The reason for this potentially

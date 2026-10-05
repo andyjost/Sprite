@@ -116,6 +116,14 @@ The following are recognized:
 
      SPRITE_INTERPRETER_FLAGS=stack_limit:16777216 sprite-exec prog.curry
 
+  The ``typed_expr`` flag selects the typed builder of :func:`curry.expr`.
+  It is ``True`` by default.  With ``False``, ``curry.expr`` converts
+  Python values by their Python type alone and supplies no class
+  dictionaries, as :func:`curry.raw_expr` does, and ``exprtype`` is
+  ignored.  The flag serves bisection::
+
+     SPRITE_INTERPRETER_FLAGS=typed_expr:False install/bin/python script.py
+
 ``SPRITE_LOG_FILE``
   The file to which logging output is directed.  The default, ``-``, directs
   this to standard output.

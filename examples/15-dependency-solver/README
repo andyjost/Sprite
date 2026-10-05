@@ -42,8 +42,8 @@ nested data to the Curry function plans.  curry.eval converts it with
 curry.expr: tuples become Curry tuples, lists become Curry lists, and ints
 become Curry Ints.
 
-A Python str of length one converts to a Char.  So the driver passes every
-package name as a list of characters, through the helper text().
+A package name is a Python str.  curry.expr converts it by the type the
+parameter expects, a String, also when the name has one character.
 
 The roots come from the command line.  Each argument has the form
 NAME=V1,V2.  The default is app=1,2.

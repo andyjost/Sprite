@@ -26,6 +26,7 @@ in a single environment.
    Installation/Installation
    DeveloperSetup
    CommandLineInterface/index
+   REPL
    PythonAPI/index
    Reference/index
    Performance

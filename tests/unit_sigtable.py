@@ -264,13 +264,20 @@ class TestSchemes(cytest.TestCase):
     self.assertIsNone(curry.symbol('Prelude.' + lifted[0]).scheme)
 
   def test_bare_node(self):
-    '''``expr`` and ``eval`` of an untyped expression never read the table.'''
+    '''
+    ``raw_expr`` and ``eval`` of an untyped expression never read the table.
+    The typed ``expr`` (item Y7) reads the interface of the Prelude for the
+    scheme of ``not``.
+    '''
     interp = curry.getInterpreter()
     P = curry.import_('Prelude')
     self.assertEqual(interp.sigtable.modules(), [])
-    goal = curry.expr(curry.symbol('Prelude.not'), True)
+    goal = curry.raw_expr(curry.symbol('Prelude.not'), True)
     self.assertEqual(list(curry.eval(goal, converter='topython')), [False])
     self.assertEqual(interp.sigtable.modules(), [])
+    goal = curry.expr(curry.symbol('Prelude.not'), True)
+    self.assertEqual(interp.sigtable.modules(), ['Prelude'])
+    self.assertEqual(list(curry.eval(goal, converter='topython')), [False])
 
 
 class TestInstances(cytest.TestCase):

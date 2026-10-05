@@ -437,15 +437,20 @@ def check_application(args):
           % (scheme.fullname, scheme, n, 'dictionary' if n == 1 else 'dictionaries')
     )
 
-def make_goal(interp, args):
+def make_goal(interp, args, exprtype=None, anchors=None):
   '''
   The :class:`Goal` of the arguments of ``curry.eval``: a goal object as it
   is, the root of a compiled text with reported variables
   (:func:`lifted_goal`), a symbol with dictionary parameters applied to its
-  dictionaries, and anything else through ``interp.expr`` after
-  :func:`check_application`.
+  dictionaries, and anything else through ``interp.expr`` with
+  ``exprtype`` and the keyword ``anchors``.  The typed builder of
+  ``interp.expr`` supplies the dictionaries of a symbol applied to
+  arguments, and types a lone symbol under ``exprtype``; with the flag
+  ``typed_expr`` off, :func:`check_application` refuses a symbol applied to
+  arguments.
   '''
-  if len(args) == 1:
+  anchors = dict(anchors or {})
+  if len(args) == 1 and not anchors:
     arg = args[0]
     if isinstance(arg, Goal):
       return arg
@@ -454,11 +459,13 @@ def make_goal(interp, args):
       return goal
     if isinstance(arg, list) and len(arg) == 1:
       arg = arg[0]
-    expr = symbol_goal(interp, arg)
-    if expr is not None:
-      return Goal(expr)
-  check_application(args)
-  return Goal(interp.expr(*args))
+    if exprtype is None:
+      expr = symbol_goal(interp, arg)
+      if expr is not None:
+        return Goal(expr)
+  if not interp.flags.get('typed_expr', True):
+    check_application(args)
+  return Goal(interp.expr(*args, exprtype=exprtype, **anchors))
 
 # The scheme in a saved module
 # ============================

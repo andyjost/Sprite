@@ -140,15 +140,27 @@ class TestPyConversions(cytest.TestCase):
     self.assertEqual(repr(x), "<: <Char '\\228'> <: <Char '\\246'> <[]>>>")
     self.assertEqual(str(x), '"\\228\\246"')
 
-  @unittest.expectedFailure
   def testConvertEmptyString(self):
-    # An empty [Char] should convert to an empty Python string.  But the
-    # to-string conversion inspects the data (list) to determine type.  It
-    # really ought to ask Curry about the return type, but I'm not sure how to
-    # do that yet.  See conversions.py:192 (6/6/2018).
-    x = curry.raw_expr('')
-    y = curry.topython(x)
+    '''
+    An empty [Char] converts to an empty Python string when the static type
+    is known.  curry.expr records the type of the expression it builds, and
+    curry.eval hands that type to the converter; topython takes it as
+    exprtype.  Without a type the converter keeps its rule: a list of
+    characters is a string, and an empty list is a list.
+    '''
+    x = curry.expr('')
+    y, = curry.eval(x, converter='topython')
     self.assertIsInstance(y, str)
+    self.assertEqual(y, '')
+    self.assertEqual(curry.topython(curry.raw_expr(''), exprtype='[Char]'), '')
+    self.assertEqual(curry.topython(curry.raw_expr('')), [])
+    self.assertEqual(curry.topython(curry.raw_expr([]), exprtype='[Int]'), [])
+    self.assertEqual(curry.topython(curry.raw_expr(['a']), exprtype='[Int]'), ['a'])
+    self.assertEqual(curry.topython(curry.raw_expr(['a'])), 'a')
+    self.assertEqual(
+        curry.topython(curry.raw_expr(([], 1)), exprtype='([Char], Int)'), ('', 1)
+      )
+    self.assertEqual(curry.topython(curry.raw_expr(([], 1))), ([], 1))
 
   @cytest.with_flags(defaultconverter='topython')
   def testIteratorToPython(self):

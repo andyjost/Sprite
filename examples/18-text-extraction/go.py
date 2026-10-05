@@ -43,21 +43,12 @@ tag (_ ++ "<" ++ t ++ ">" ++ _) | '<' `notElem` t && '>' `notElem` t = t
 # The keys that field reads from every line.
 KEYS = ['status', 'host']
 
-def text(s):
-  '''A Python str of length one converts to a Curry Char.  Pass every String
-  argument as a list of characters instead.'''
-  return list(s)
-
-def string(value):
-  '''A Curry String comes back as a Python str, but an empty one comes back as
-  the empty list.'''
-  return value if isinstance(value, str) else ''.join(value)
-
 def matches(rule, *args):
   '''Every value of rule applied to args, as sorted Python strings.  The
-  scheduler does not promise an order of the values, so sort them.'''
+  scheduler does not promise an order of the values, so sort them.  The
+  converter turns each Curry String into a str, the empty String into ''.'''
   values = curry.eval(rule, *args, converter='topython')
-  return sorted(string(v) for v in values)
+  return sorted(values)
 
 def compile_rules(extra):
   '''Assembles the default rules and the extra ones into one Curry module and
@@ -106,10 +97,10 @@ def main(argv):
     row = {}
     for key in KEYS:
       # One space is appended so that the last field matches too.
-      row[key] = matches(Rules.field, text(key), text(line + ' '))
-    row['tags'] = matches(Rules.tag, text(line))
+      row[key] = matches(Rules.field, key, line + ' ')
+    row['tags'] = matches(Rules.tag, line)
     for name in extra:
-      row[name] = matches(getattr(Rules, name), text(line + ' '))
+      row[name] = matches(getattr(Rules, name), line + ' ')
     for column in columns:
       counters[column].update(row[column])
     rows.append((line, row))

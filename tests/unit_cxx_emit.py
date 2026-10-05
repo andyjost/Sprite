@@ -219,8 +219,11 @@ class TestHandBuilt(cytest.TestCase):
   @expected_failure_on_py
   def test_values(self):
     M = self.module()
+    # The module is built by hand and has no FlatCurry interface, so the
+    # typed builder cannot type the call: build it untyped.
     self.assertEqual(
-        list(curry.eval(M.boolVar, 7, converter='topython')), [7]
+        list(curry.eval(curry.raw_expr(M.boolVar, 7), converter='topython'))
+      , [7]
       )
     for name, value in HAND_VALUES.items():
       goal = getattr(M, name)

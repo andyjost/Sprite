@@ -30,11 +30,6 @@ CASES = [
     ('grep', '(cat|dog)s?', 'cats and dogs and a dog'),
   ]
 
-def text(s):
-  # A Python str of length one converts to a Curry Char, so pass every
-  # String argument as a list of characters.
-  return list(s)
-
 class PatternError(Exception):
   pass
 
@@ -116,7 +111,7 @@ def build(ast):
 
 def match(pattern, subject):
   '''True when the whole subject is a word of the pattern.'''
-  values = curry.eval(Regex.match, build(parse(pattern)), text(subject),
+  values = curry.eval(Regex.match, build(parse(pattern)), subject,
                       converter='topython')
   # A failed guard is not an error: the goal has no value.  One True is
   # enough, so take the first value and stop the search.
@@ -124,13 +119,13 @@ def match(pattern, subject):
 
 def grep(pattern, subject):
   '''Every hit of the pattern in the subject as (before, hit, after).'''
-  values = curry.eval(Regex.grep, build(parse(pattern)), text(subject),
+  values = curry.eval(Regex.grep, build(parse(pattern)), subject,
                       converter='topython')
-  # Each value is a tuple of three Curry Strings.  A non-empty String comes
-  # back as a str and the empty String as an empty list; ''.join accepts
-  # both.  A pattern such as a*a* derives one hit in several ways, and each
-  # derivation is one value, so a set keeps one copy of each hit.
-  hits = set(tuple(''.join(part) for part in value) for value in values)
+  # Each value is a tuple of three Curry Strings, which the converter turns
+  # into Python strings, the empty String into ''.  A pattern such as a*a*
+  # derives one hit in several ways, and each derivation is one value, so a
+  # set keeps one copy of each hit.
+  hits = set(tuple(value) for value in values)
   # The order of the values is not promised.  Sort by position, then length.
   return sorted(hits, key=lambda hit: (len(hit[0]), len(hit[1])))
 

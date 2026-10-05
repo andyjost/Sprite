@@ -36,18 +36,13 @@ TERMS = [
     ('var', 'y'),
   ]
 
-def text(s):
-  '''A Python str of length one converts to a Curry Char.  Pass every String
-  argument as a list of characters instead.'''
-  return list(s)
-
 def build(term):
   '''Converts a nested tuple into a Curry term of type Infer.Term.'''
   tag = term[0]
   if tag == 'var':
-    return curry.expr(Infer.Var, text(term[1]))
+    return curry.expr(Infer.Var, term[1])
   if tag == 'lam':
-    return curry.expr(Infer.Lam, text(term[1]), build(term[2]))
+    return curry.expr(Infer.Lam, term[1], build(term[2]))
   if tag == 'app':
     return curry.expr(Infer.App, build(term[1]), build(term[2]))
   if tag == 'lit':

@@ -3,6 +3,10 @@ from curry.backends.py.graph import Node, equality
 from curry import config, inspect
 import curry, cytest.step, sys, unittest
 
+def cells(e):
+  '''The expression with every string argument as a list of characters.'''
+  return [e[0]] + [list(a) if isinstance(a, str) else a for a in e[1:]]
+
 class TestPrelude(cytest.TestCase):
   @property
   def constrEq(self):
@@ -73,7 +77,10 @@ class TestPrelude(cytest.TestCase):
     self.assertEqual(e2s([Cons, T, [Cons, F, Nil]]), '[True, False]')
 
   def testLitParsers(self):
-    eval_ = lambda e: next(curry.eval(e, converter=None))
+    # The primitives are called without the $## of their Prelude wrappers,
+    # so the string must be in normal form already: a list of characters,
+    # not the lazy string node the typed builder makes of a str.
+    eval_ = lambda e: next(curry.eval(cells(e), converter=None))
     sym = lambda s: curry.symbol('Prelude.' + s)
     # Int
     self.assertEqual(eval_([sym('prim_readNatLiteral'), ['0']]), curry.raw_expr([(0, "")]))
@@ -114,7 +121,7 @@ class TestPrelude(cytest.TestCase):
     # should never occur because a lexer is used beforehand to ensure the input
     # is always valid.
     def assertNoGood(e):
-      values = list(curry.eval(e, converter=None))
+      values = list(curry.eval(cells(e), converter=None))
       self.assertTrue(values == [] or curry.topython(values[0][1]) == [])
     sym = lambda s: curry.symbol('Prelude.' + s)
 
@@ -149,19 +156,32 @@ class TestPrelude(cytest.TestCase):
     assertNoGood([sym('prim_readStringLiteral'), '''"\\x41\\66""xx'''])
     assertNoGood([sym('prim_readStringLiteral'), '''"\\\\ \\' \\" \\b \\f \\n \\r \\t \\v" tail'''])
 
-  @unittest.expectedFailure
   def testApply(self):
+    '''
+    A class method applied from Python.  Since Curry 3 a method is a
+    selector of arity 1 whose parameter is the dictionary, so the typed
+    builder supplies the dictionary of the instance and routes the value
+    arguments through apply: apply (apply (+ dict) 1) 2.
+    '''
     add = curry.symbol('Prelude.+')
     apply_ = curry.symbol('Prelude.apply')
     #
-    e = curry.raw_expr(apply_, [apply_, add, 1], 2)
-    self.assertEqual(str(e), 'apply (apply (_PartApplic 2 +) 1) 2')
-    self.assertEqual(next(curry.eval(e)), 3)
+    e = curry.expr(add, 1, 2)
+    self.assertEqual(
+        str(e), 'apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2'
+      )
+    self.assertEqual(list(curry.eval(e, converter='topython')), [3])
+    self.assertEqual(curry.typeof(e), 'Num a => a')
+    self.assertEqual(curry.typeof(e, defaulted=True), 'Int')
+    # The same expression spelled with apply.
+    e = curry.expr(apply_, [apply_, add, 1], 2)
+    self.assertEqual(list(curry.eval(e, converter='topython')), [3])
     #
-    incr = curry.raw_expr(add, 1)
-    self.assertEqual(str(incr), '_PartApplic 1 (+ 1)')
-    e = curry.raw_expr(apply_, incr, 6)
-    self.assertEqual(next(curry.eval(e)), 7)
+    incr = curry.expr(add, 1)
+    self.assertEqual(curry.typeof(incr, defaulted=True), 'Int -> Int')
+    self.assertEqual(str(incr), 'apply ((+) _inst#Prelude.Num#Prelude.Int) 1')
+    e = curry.expr(apply_, incr, 6)
+    self.assertEqual(list(curry.eval(e, converter='topython')), [7])
 
   def testFailed(self):
     failed = curry.symbol('Prelude.failed')
@@ -184,6 +204,17 @@ class TestPrelude(cytest.TestCase):
     self.assertEqual(list(curry.eval(ord_, curry.expr(chr_, 160))), [160])
     self.assertEqual(list(curry.eval(ord_, '\u00e4')), [228])
     self.assertEqual(list(curry.eval(ord_, '\U0001f600')), [0x1f600])
+
+  @cytest.with_flags(defaultconverter='topython')
+  def testRound(self):
+    '''round halves away from zero, as PAKCS and std::round do.'''
+    round_ = curry.symbol('Prelude.round')
+    cases = [
+        (2.5, 3), (-2.5, -3), (0.5, 1), (-0.5, -1), (1.5, 2), (3.5, 4)
+      , (2.4, 2), (-2.6, -3), (0.49999999999999994, 0), (1e15 + 0.5, 1000000000000001)
+      ]
+    for x, expected in cases:
+      self.assertEqual(list(curry.eval(round_, x)), [expected], x)
 
   @cytest.with_flags(defaultconverter='topython')
   def testChr(self):

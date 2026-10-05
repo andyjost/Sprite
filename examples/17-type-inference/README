@@ -58,11 +58,11 @@ Python is the front end and Curry is the core.  The driver go.py writes
 each term as nested tuples, for example ('lam', 'x', ('var', 'x')).  The
 function build maps a tuple to a Curry term with curry.expr:
 
-    curry.expr(Infer.Lam, text(x), build(b))
+    curry.expr(Infer.Lam, x, build(b))
 
 The inner call returns a Curry expression, and the outer call nests it in a
-new one.  The helper text converts a Python str to a list of characters.  A
-str of length one would convert to a Curry Char, not to a String.
+new one.  The name x is a Python str.  curry.expr converts it by the type
+the constructor expects, a String, also when the name has one character.
 
 The driver calls
 

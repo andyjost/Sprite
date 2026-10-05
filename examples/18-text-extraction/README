@@ -56,14 +56,14 @@ so the driver does not touch curry.path.
 
 Curry extracts, Python aggregates.  For each line the driver calls
 
-    curry.eval(Rules.field, text('status'), text(line + ' '), converter='topython')
+    curry.eval(Rules.field, 'status', line + ' ', converter='topython')
 
-The helper text converts a Python str to a list of characters.  A str of
-length one would convert to a Curry Char, not to a String.  The driver
-appends one space to the line, so the last field matches too.  The call is
-a generator of values.  The converter turns each Curry String into a Python
-str.  The driver sorts the values, because the scheduler does not promise an
-order, and counts them with collections.Counter.
+curry.eval converts each Python str by the type of its parameter, a String,
+also when the str has one character.  The driver appends one space to the
+line, so the last field matches too.  The call is a generator of values.
+The converter turns each Curry String into a Python str, the empty String
+into ''.  The driver sorts the values, because the scheduler does not
+promise an order, and counts them with collections.Counter.
 
 A compile error is not a Python Exception.  curry.CompileError derives from
 BaseException.  The driver catches it by name, reports a bad rule on stderr

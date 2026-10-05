@@ -42,6 +42,7 @@ __all__ = [
   # Methods of the global interpreter.
   , 'compile'
   , 'currytype'
+  , 'describe'
   , 'eval'
   , 'expr'
   , 'flags'
@@ -57,6 +58,7 @@ __all__ = [
   , 'symbol'
   , 'topython'
   , 'type'
+  , 'typeof'
 
   # Wrappers to control expression building.
   , 'choice'
@@ -65,6 +67,7 @@ __all__ = [
   , 'free'
   , 'nil'
   , 'ref'
+  , 'typed'
   , 'unboxed'
   ]
 
@@ -113,6 +116,7 @@ Places a list terminator into a Curry expression.
 :meta hide-value:
 '''
 ref     = _expressions.ref
+typed   = _expressions.typed
 unboxed = _expressions.unboxed
 del _expressions
 
@@ -124,6 +128,7 @@ _interpreter_ = interpreter.Interpreter(flags=_flags.getflags())
 
 compile = _interpreter_.compile
 currytype = _interpreter_.currytype
+describe = _interpreter_.describe
 eval = _interpreter_.eval
 expr = _interpreter_.expr
 flags = _interpreter_.flags
@@ -159,6 +164,7 @@ stats = _interpreter_.stats
 symbol = _interpreter_.symbol
 topython = _interpreter_.topython
 type = _interpreter_.type
+typeof = _interpreter_.typeof
 
 def getInterpreter():
   '''Get the global interpreter instance.'''

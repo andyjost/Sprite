@@ -7,8 +7,10 @@ import collections.abc, numbers, types
 class Node(object):
   '''A node in a Curry expression graph.'''
   # A node holds its info table and its successors, nothing else.  Without an
-  # instance dictionary a node is smaller and quicker to create.
-  __slots__ = ('info', 'successors')
+  # instance dictionary a node is smaller and quicker to create.  The weak
+  # reference slot serves the record of result types of the typed builder
+  # (typecheck.builder.TypeRecord), which must not outlive the node.
+  __slots__ = ('info', 'successors', '__weakref__')
 
   def __new__(cls, info, *args, target=None, partial_info=None, **kwds):
     if not isinstance(info, InfoTable):
