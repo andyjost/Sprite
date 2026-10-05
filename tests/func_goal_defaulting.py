@@ -16,11 +16,15 @@ directory:
   * TestTextGoals compiles a list of texts with curry.compile(mode='expr')
     without exprtype and compares the values with the goldens of the oracle,
     which evaluates the same text in the REPL.  A trailing "where x free" is
-    lifted to parameters on both sides.  The bindings are compared modulo
-    the names of the unbound variables: PAKCS names such a variable after
-    itself, {x=x} x, and Sprite prints {x=_a} _a.  Three texts are errors on
-    both sides: toEnum 65 and maxBound + 1 fail in the defaulting table,
-    show [] in the front end.
+    lifted to parameters on both sides.  PAKCS prints the binding of every
+    lifted variable, {x=x} x; Sprite reports a variable whose type is absent
+    from the result type and leaves the others in the value, _a, so the
+    bindings of those variables are dropped from the golden before the
+    comparison (drop_bindings).  The bindings are compared modulo the names
+    of the unbound variables: PAKCS names such a variable after itself,
+    {x=x, y=x} True, and Sprite prints {x=_a, y=_a} True.  Three texts are
+    errors on both sides: toEnum 65 and maxBound + 1 fail in the defaulting
+    table, show [] in the front end.
 
   * TestTypes compares the type the REPL prints for :type (tests/oracle_type)
     with the scheme Sprite prints, for every goal of defaulting.curry and for
@@ -122,6 +126,52 @@ def normalize_type(text):
   text = re.sub(r"(?<![%s.])[a-z][%s]*" % (_IDENT_CHARS, _IDENT_CHARS), rename, text)
   return re.sub(r'\s+', '', text)
 
+def drop_bindings(text, omitted):
+  '''
+  Removes from the values of the oracle, one per line, the bindings of the
+  variables in ``omitted``: the lifted variables that Sprite leaves in the
+  value.  A line whose bindings are all removed loses the braces.
+  '''
+  lines = []
+  for line in text.split('\n'):
+    if line.startswith('{'):
+      end = _closing_brace(line)
+      kept = [
+          entry for entry in _split_entries(line[1:end])
+                if entry.split('=', 1)[0].strip() not in omitted
+        ]
+      rest = line[end + 1:].lstrip()
+      line = '{%s} %s' % (', '.join(kept), rest) if kept else rest
+    lines.append(line)
+  return '\n'.join(lines)
+
+def _closing_brace(line):
+  '''The index of the brace that closes the one at the start of ``line``.'''
+  depth = 0
+  for i, c in enumerate(line):
+    if c in '{[(':
+      depth += 1
+    elif c in '}])':
+      depth -= 1
+      if depth == 0:
+        return i
+  raise ValueError('unbalanced bindings: %r' % line)
+
+def _split_entries(body):
+  '''The entries of a bindings block, split at its top-level commas.'''
+  entries = []
+  depth = start = 0
+  for i, c in enumerate(body):
+    if c in '[({':
+      depth += 1
+    elif c in '])}':
+      depth -= 1
+    elif c == ',' and depth == 0:
+      entries.append(body[start:i].strip())
+      start = i + 1
+  entries.append(body[start:].strip())
+  return entries
+
 def assertEqualModuloVariables(self, sprite, oracle_answer):
   '''
   Compares the cleaned answers of the driver modulo the names of the unbound
@@ -210,7 +260,10 @@ class TestTextGoals(cytest.TestCase):
     expected = golden(module, text, 'text.%s.au-gen' % name, text=text)
     _, names = goals.split_where_free(text)
     goal = curry.compile(text, mode='expr', imports=[module])
+    lifted = goals.lifted_goal(curry.getInterpreter(), goal)
+    reported = () if lifted is None else lifted.freevars
     observed = show_values(curry.eval(goal))
+    expected = drop_bindings(expected, set(names) - set(reported))
     self.assertEqual(
         normalize_values(observed, names), normalize_values(expected, names)
       , 'the values of %r differ:\n--- Sprite:\n%s--- oracle:\n%s'
@@ -305,6 +358,17 @@ class TestGoldens(cytest.TestCase):
   def setUp(self):
     super().setUp()
     curry.path[:] = [SOURCE_DIR] + curry.path
+
+  def test_drop_bindings(self):
+    '''The bindings of the variables Sprite leaves in the value are dropped.'''
+    self.assertEqual(drop_bindings('{x=x} x\n', {'x'}), 'x\n')
+    self.assertEqual(drop_bindings('{x=x, xs=xs} x', {'x'}), '{xs=xs} x')
+    self.assertEqual(drop_bindings('{x=(1,2), y=y} (x,y)', {'x', 'y'}), '(x,y)')
+    self.assertEqual(
+        drop_bindings('{xs=[1,2], ys=[]} True\n{xs=[], ys=[1,2]} True', {'x'})
+      , '{xs=[1,2], ys=[]} True\n{xs=[], ys=[1,2]} True'
+      )
+    self.assertEqual(drop_bindings('3', {'x'}), '3')
 
   @oracle.require
   def test_text_header(self):

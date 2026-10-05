@@ -35,8 +35,9 @@ def cmdEval(repl):
   '''
   Executes an :eval command.  Calls ``repl.action`` for each value.  The
   expression sees the loaded module.  A class constraint of the expression is
-  defaulted with the table of the PAKCS REPL; the variables of a trailing
-  ``where x free`` are reported with their bindings, as PAKCS prints them.
+  defaulted with the table of the PAKCS REPL; a variable of a trailing
+  ``where x free`` whose type is absent from the result type is reported
+  with its binding, as PAKCS prints it (see curry.typecheck.goals).
   '''
   assert repl.command == ':eval'
   if repl.args:

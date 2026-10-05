@@ -2488,3 +2488,41 @@
   test_apply_nf of unit_prelude.py fail, because compile(mode='expr')
   with a free variable returns a Goal, which interp.expr and
   cytest.step do not take, and its values are Bindings objects.
+
+2026-10-05: finishing the integration branch
+- compile(mode='expr') returns a node again.  After the typed branch a text
+  with a where-free clause gave a Goal object whose values were Bindings for
+  every lifted variable, which TestInstantiation of unit_py_runtime.py and
+  test_apply_nf of unit_prelude.py do not take: they build a free variable
+  with `x :: T where x free`.  The rule now: a lifted variable whose type is
+  absent from the result type of the expression cannot show in a value, so
+  its binding is reported (goals.absent_from_result compares the parameter
+  types of the scheme of compiled_expression with its result type); a
+  variable whose type occurs in the result type is left in the value, which
+  is the answer.  `xs ++ [3] =:= [1,2,3] where xs free` still gives
+  {xs=[1, 2]} True; `x where x free` gives _a, `(x, y) where x, y free`
+  gives (_a, _b), `head (x:xs) where x, xs free` gives {xs=_b} _a, and
+  `x =:= 1 where x free` gives {x=1} True.  The names travel with the node:
+  the expression module declares `data SpriteLiftedGoal a = SpriteLiftedGoal
+  a`, the root is that constructor around the tuple of the expression and
+  the reported variables, and curry.eval finds the names in a registry of
+  the interpreter keyed by the info table of the constructor
+  (goals.register_lifted and goals.lifted_goal; reset clears it).  A
+  constructor node is never rewritten, so the root is recognized after an
+  evaluation as before it; a first design keyed the registry by the call of
+  compiled_expression, which the first evaluation rewrote in place.  A side
+  table keyed by the node was not an option: the Python node has no weak
+  reference slot and the C++ wrapper hashes by value.  The Goal objects
+  stay inside curry.eval, the REPL and sprite-exec.  The derived Data
+  instance of the new data type exposed the ordering defect behind the known
+  failure of test_lambda_goal: the Python backend compiled an expression
+  module function by function while the module loaded, and a reference to a
+  function of the module loaded later (a lifted lambda, a derived method)
+  failed in importSymbol.  An expression module now loads with lazy
+  trampolines like any module and is compiled right after its load, before
+  it leaves the registry (Backend.compile_pending); test_lambda_goal passes
+  on both backends.  The lifted variable is a free marker whose first step
+  makes the variable, so test_apply_nf steps four times.  PAKCS prints the
+  binding of every lifted variable, {x=x} x, so func_goal_defaulting.py
+  drops from the golden the bindings of the variables Sprite leaves in the
+  value before the comparison (drop_bindings); the goldens are unchanged.

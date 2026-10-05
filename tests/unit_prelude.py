@@ -249,9 +249,11 @@ class TestPrelude(cytest.TestCase):
     cytest.step.step(interp, goal, num=2)
     self.assertEqual(goal, step2)
 
-    # Ensure results are ungrounded.
+    # Ensure results are ungrounded.  The lifted variable of the text route
+    # is a marker (curry.free) that its first step turns into the variable,
+    # so the variable costs one step of the four.
     freevar = interp.compile('id $!! (x::Int) where x free', mode='expr')
-    cytest.step.step(interp, freevar, num=3)
+    cytest.step.step(interp, freevar, num=4)
     freevar = inspect.fwd_chain_target(freevar)
     self.assertIsaFreevar(freevar)
 

@@ -190,11 +190,19 @@ expression.  A type with class constraints, such as ``Num a => a`` for
 ``Fractional`` to ``Float``, ``Monad`` to ``IO``, a lone ``Data`` to
 ``Bool``.  A constraint the table cannot handle is a ``CompileError`` with
 the sentence of the REPL.  A trailing ``where x, y free`` declares free
-variables, as in the REPL, and each value then comes with their bindings:
+variables, as in the REPL.  A variable whose type is absent from the result
+type cannot show in a value, so ``curry.eval`` reports its binding with each
+value, as the REPL of PAKCS prints it:
 
     >>> goal = curry.compile('xs ++ [3] =:= [1, 2, 3] where xs free', mode='expr')
     >>> print(next(curry.eval(goal)))
     {xs=[1, 2]} True
+
+A variable whose type occurs in the result type is left in the value, which
+is the answer:
+
+    >>> print(next(curry.eval(curry.compile('(x, 1) where x free', mode='expr'))))
+    (_a, 1)
 
 Simple Curry expressions can also be created directly in Python with
 ``curry.expr``.  One might use this to improve performance, as it bypasses the

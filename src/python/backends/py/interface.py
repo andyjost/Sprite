@@ -30,6 +30,9 @@ class IBackend(backends.IBackend):
   def find_or_create_internal_module(self, moduleobj):
     pass
 
+  def compile_pending(self, moduleobj):
+    materialize.compile_pending(moduleobj)
+
   @property
   def fundamental_symbols(self):
     return fundamental

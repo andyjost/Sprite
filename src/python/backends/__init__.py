@@ -56,6 +56,16 @@ class IBackend(metaclass=abc.ABCMeta):
   def find_or_create_internal_module(self, moduleobj):
     assert 0
 
+  def compile_pending(self, moduleobj):
+    '''
+    Compiles the functions of a loaded module whose compilation the backend
+    deferred, once every symbol of the module is registered.  The Python
+    backend compiles a step function on its first call; an expression module
+    (compile.compile_expression) leaves the registry of the interpreter after
+    this call, so its functions are compiled here.  A backend that compiles
+    whole modules ahead of time has nothing to do.
+    '''
+
   @abc.abstractproperty
   def fundamental_symbols(self):
     assert 0

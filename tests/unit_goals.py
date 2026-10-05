@@ -10,7 +10,10 @@ scheme.  One path serves ``curry.eval`` of a module function,
 ``curry.compile(mode='expr')`` without ``exprtype``, ``:eval`` and ``:type``
 of the REPL, ``sprite-exec -g``, and saved modules on the Python backend.
 The text route lifts the variables of a trailing ``where x free`` to
-parameters, as the REPL does, and reports their bindings.
+parameters, as the REPL does, and reports the bindings of the variables
+whose type is absent from the result type; a variable whose type occurs in
+the result type is left in the value.  ``compile(mode='expr')`` returns a
+node; the goal objects stay inside ``curry.eval``.
 '''
 import cytest # from ./lib; must be first
 from curry import config, inspect
@@ -418,13 +421,13 @@ class TestTextGoals(cytest.TestCase):
     root = inspect.fwd_chain_target(e)
     self.assertNotEqual(root.info.name, compilemod.COMPILED_NAME)
 
-  @(unittest.expectedFailure if not IS_CXX else (lambda f: f))
   def test_lambda_goal(self):
     '''
     A lambda is lifted; the binding has arity 0 and gives a function value.
-    Known failure on the Python backend, before this item: the expression
-    module is compiled eagerly, and importSymbol resolves the lifted lambda
-    through interp.symbol before loadSymbols has loaded it.
+    On the Python backend the expression module was compiled while it
+    loaded, and importSymbol resolved the lifted lambda through interp.symbol
+    before loadSymbols had loaded it; the module is now compiled after its
+    load (Backend.compile_pending).
     '''
     f = curry.compile('\\x -> x', mode='expr')
     value, = curry.eval(f)
@@ -439,13 +442,23 @@ class TestTextGoals(cytest.TestCase):
     self.assertEqual(self.compile_values('addOne 1.5', imports=[M]), [2.5])
 
   def test_where_free(self):
-    '''The variables of a trailing where ... free are lifted and reported.'''
+    '''
+    The variables of a trailing where ... free are lifted, and a variable
+    whose type is absent from the result type is reported.  compile returns
+    a node, the constructor of the expression module around the tuple of
+    the expression and the variable; curry.eval finds the names through
+    goals.lifted_goal, after an evaluation as before it.
+    '''
     goal = curry.compile('xs ++ [3] =:= [1,2,3] where xs free', mode='expr')
-    self.assertIsInstance(goal, Goal)
-    self.assertEqual(goal.freevars, ('xs',))
-    self.assertEqual(str(goal.scheme), '(Data a, Num a) => [a] -> Bool')
-    self.assertEqual(goal.text, 'xs ++ [3] =:= [1,2,3] where xs free')
-    self.assertIn('xs', repr(goal))
+    self.assertNotIsInstance(goal, Goal)
+    self.assertEqual(goal.info.name, compilemod.LIFTED_NAME)
+    self.assertTrue(inspect.isa_tuple(goal[0]))
+    lifted = goals.lifted_goal(curry.getInterpreter(), goal)
+    self.assertIsInstance(lifted, Goal)
+    self.assertEqual(lifted.freevars, ('xs',))
+    self.assertEqual(str(lifted.scheme), '(Data a, Num a) => [a] -> Bool')
+    self.assertEqual(lifted.text, 'xs ++ [3] =:= [1,2,3] where xs free')
+    self.assertIn('xs', repr(lifted))
     results = list(curry.eval(goal))
     self.assertEqual(len(results), 1)
     result, = results
@@ -462,14 +475,22 @@ class TestTextGoals(cytest.TestCase):
     self.assertNotEqual(values(goal)[0], Bindings(False, {'xs': [1, 2]}))
 
   def test_where_free_shapes(self):
-    '''The REPL's forms: a bare variable, two variables, a Data constraint.'''
+    '''
+    The REPL's forms.  A variable whose type occurs in the result type is
+    left in the value, bound or not; a variable whose type is absent from
+    the result type is reported, bound or not.
+    '''
     cases = [
-        ('xs ++ [3] =:= [1,2,3] &> xs where xs free', ['{xs=[1, 2]} [1, 2]'])
-      , ('x where x free', ['{x=_a} _a'])
-      , ('(x, y) where x, y free', ['{x=_a, y=_b} (_a, _b)'])
+        ('xs ++ [3] =:= [1,2,3] &> xs where xs free', ['[1, 2]'])
+      , ('x where x free', ['_a'])
+      , ('(x, y) where x, y free', ['(_a, _b)'])
+      , ("(x, 'a') where x free", ["(_a, 'a')"])
+      , ('[x, 1] where x free', ['[_a, 1]'])
+      , ('(x ? 1) where x free', ['_a', '1'])
       , ('x =:= y where x, y free', ['{x=_a, y=_a} True'])
       , ('x =:= 1 where x free', ['{x=1} True'])
-      , ("(x, 'a') where x free", ["{x=_a} (_a, 'a')"])
+      , ('fst (1, x) where x free', ['{x=_a} 1'])
+      , ('head (x:xs) where x, xs free', ['{xs=_b} _a'])
       , ('xs ++ ys =:= [1, 2] where xs, ys free'
         , ['{xs=[], ys=[1, 2]} True', '{xs=[1], ys=[2]} True', '{xs=[1, 2], ys=[]} True'])
       ]
@@ -477,12 +498,58 @@ class TestTextGoals(cytest.TestCase):
       with self.subTest(text=text):
         self.assertEqual(sorted(texts(curry.compile(text, mode='expr'))), sorted(expected))
 
+  def test_where_free_node(self):
+    '''
+    A variable in the result type: compile returns the stepped expression,
+    as for any text, and its value is the variable itself (the tests of the
+    runtime build their variables this way).  A reported variable: the root
+    is a tuple that curry.eval recognizes; a tuple built in Python is not a
+    goal, and the records go with the reset of the interpreter.
+    '''
+    interp = curry.getInterpreter()
+    e = curry.compile('x :: Int where x free', mode='expr')
+    self.assertNotIsInstance(e, Goal)
+    self.assertIsNone(goals.lifted_goal(interp, e))
+    x, = curry.eval(e)
+    self.assertTrue(inspect.isa_freevar(x))
+    e = curry.compile('x =:= 1 where x free', mode='expr')
+    self.assertIsNotNone(goals.lifted_goal(interp, e))
+    self.assertIsNone(goals.lifted_goal(interp, curry.expr((1, 2))))
+    self.assertIsNone(goals.lifted_goal(interp, 1))
+    self.assertTrue(interp._lifted_goals)
+    curry.reset()
+    self.assertEqual(interp._lifted_goals, {})
+
+  def test_absent_from_result(self):
+    '''The rule on schemes built by hand.'''
+    arrow = fc.FuncType
+    Int, Bool = tcons('Int'), tcons('Bool')
+    def absent(typeexpr, nfree):
+      return goals.absent_from_result(
+          scheme([], typeexpr, source_arity=nfree), nfree
+        )
+    self.assertEqual(absent(arrow(tcons('[]', Int), Bool), 1), [0])
+    self.assertEqual(absent(arrow(tvar(0), tvar(0)), 1), [])
+    self.assertEqual(
+        absent(arrow(tvar(0), arrow(tvar(1), tcons('(,)', tvar(0), tvar(1)))), 2), []
+      )
+    self.assertEqual(absent(arrow(tvar(0), arrow(tcons('[]', tvar(0)), tvar(0))), 2), [1])
+    self.assertEqual(absent(arrow(Int, tcons('[]', Int)), 1), [])
+    self.assertEqual(absent(arrow(tcons('[]', Int), Int), 1), [0])
+    self.assertEqual(absent(arrow(Int, arrow(Bool, Int)), 2), [1])
+    self.assertEqual(absent(Int, 0), [])
+    with self.assertRaises(curry.CurryTypeError):
+      absent(Int, 1)
+    self.assertTrue(goals.type_occurs(Int, arrow(Bool, tcons('[]', Int))))
+    self.assertFalse(goals.type_occurs(tcons('[]', Int), tcons('[]', tcons('[]', Bool))))
+
   def test_where_free_with_exprtype(self):
     '''With exprtype the clause stays a local declaration, as before.'''
     e = curry.compile(
         'xs ++ [3] =:= [1,2,3] &> xs where xs free', mode='expr', exprtype='[Int]'
       )
     self.assertNotIsInstance(e, Goal)
+    self.assertIsNone(goals.lifted_goal(curry.getInterpreter(), e))
     self.assertEqual(values(e), [[1, 2]])
 
   def test_split_where_free(self):
@@ -546,12 +613,12 @@ class TestPrograms(cytest.TestCase):
   def test_repl_eval_and_type(self):
     proc = self.repl(
         ':eval 1+2', ':type 1+2', ':eval xs ++ [3] =:= [1,2,3] where xs free'
-      , ':type x where x free', ':eval [1, 2.5]'
+      , ':type x where x free', ':eval x where x free', ':eval [1, 2.5]'
       )
     self.assertEqual(
         proc.stdout.splitlines()
       , ['3', '1+2 :: Num a => a', '{xs=[1, 2]} True', 'x where x free :: Data a => a'
-        , '[1.0000000000000000, 2.5000000000000000]' if IS_CXX else '[1.0, 2.5]']
+        , '_a', '[1.0000000000000000, 2.5000000000000000]' if IS_CXX else '[1.0, 2.5]']
       )
 
   def test_repl_loaded_module(self):

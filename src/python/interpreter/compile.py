@@ -13,6 +13,12 @@ __all__ = ['compile', 'expression_scheme']
 
 COMPILED_NAME = 'compiled_expression'
 
+# The constructor that an expression module with lifted free variables
+# declares, ``data SpriteLiftedGoal a = SpriteLiftedGoal a``.  It wraps the
+# tuple of the expression and the reported variables, so that curry.eval
+# recognizes the root (goals.lifted_goal) by a node that no rewrite replaces.
+LIFTED_NAME = 'SpriteLiftedGoal'
+
 # Numbers the anonymous modules: interactive modules (mode 'module' without a
 # name) and expression modules.  The counter belongs to the process, not to
 # the interpreter, so a name never repeats after reset() or reload().  The C++
@@ -58,9 +64,13 @@ def compile(
   Returns:
     In 'module' mode, a :class:`CurryModule <{0}.objects.CurryModule>`.  In
     'expr' mode, a Curry expression.  A text that ends in ``where x, y
-    free`` gives a :class:`Goal <{0}.typecheck.goals.Goal>` whose values
-    carry the bindings of the variables, as the REPL of PAKCS prints them;
-    with ``exprtype`` the clause stays a local declaration.
+    free`` declares free variables, as in the REPL.  A variable whose type
+    is absent from the result type of the expression cannot show in a
+    value, so ``curry.eval`` yields each value of such an expression with
+    its binding (:class:`Bindings <{0}.typecheck.goals.Bindings>`), as the
+    REPL of PAKCS prints it; a variable whose type occurs in the result type
+    is left in the value.  With ``exprtype`` the clause stays a local
+    declaration.
 
   Raises:
     CompileError:
@@ -93,10 +103,10 @@ def compile(
   elif mode == 'expr':
     if modulename is not None:
       raise ValueError('%r is only allowed in mode=%r', ('modulename', 'module'))
-    func, freevars = compile_expression(
+    func, freevars, moduleobj = compile_expression(
         interp, string, stmts, currypath, exprtype=exprtype
       )
-    return expression_goal(interp, func, string, freevars)
+    return expression_goal(interp, func, string, freevars, moduleobj)
   else:
     raise TypeError('expected mode %r or %r' % ('module', 'expr'))
 
@@ -108,13 +118,16 @@ def compile_expression(
   ``compiled_expression = <string>``.  With ``lift_freevars``, the variables
   of a trailing ``where x, y free`` become parameters of the binding, as
   the REPL of PAKCS does; with ``exprtype`` the text is compiled as written
-  under the signature.  Returns the symbol of the binding and the names of
-  the lifted variables.
+  under the signature.  A module with lifted variables declares the
+  constructor LIFTED_NAME.  Returns the symbol of the binding, the names of
+  the lifted variables, and the module.
   '''
   freevars = []
   if lift_freevars and not exprtype:
     string, freevars = goals.split_where_free(string)
   stmts = list(stmts)
+  if freevars:
+    stmts += ['data %s a = %s a' % (LIFTED_NAME, LIFTED_NAME)]
   if exprtype:
     stmts += ['%s :: %s' % (COMPILED_NAME, exprtype)]
   stmts += ['%s%s = %s' % (COMPILED_NAME, ''.join(' ' + v for v in freevars), string)]
@@ -125,6 +138,10 @@ def compile_expression(
     , keep_temp_files=interp.flags['keep_temp_files']
     , postmortem=interp.flags['postmortem']
     )
+  # The step functions of the module are compiled now, while the module is
+  # in the registry, where the compiled code resolves the symbols of the
+  # module by name (a lifted lambda, a derived instance method).
+  interp.backend.compile_pending(moduleobj)
   # The module leaves the registry, but it stays loaded until the
   # interpreter resets: the goal's graph refers to the module's code and
   # data (string literals, local functions), and nothing in the goal keeps
@@ -133,20 +150,29 @@ def compile_expression(
   # the process, so the modules cannot clash.
   del interp.modules[icur.name]
   interp._expression_modules.append(moduleobj)
-  return getattr(moduleobj, '.symbols')[COMPILED_NAME], freevars
+  return getattr(moduleobj, '.symbols')[COMPILED_NAME], freevars, moduleobj
 
-def expression_goal(interp, func, string, freevars):
+def expression_goal(interp, func, string, freevars, moduleobj):
   '''
-  The goal of a compiled expression.  The leading parameters of the binding
+  The expression of a compiled text.  The leading parameters of the binding
   are class dictionaries; the table of the PAKCS REPL defaults them.  The
   parameters after them are the lifted free variables, which get fresh
   variables.  A saturated call takes one rewrite step here, so the result
   looks like the expression and not like a call of the binding.
+
+  A lifted variable whose type is absent from the result type is reported
+  with its binding (``goals.absent_from_result``).  The expression is then
+  the constructor LIFTED_NAME of the module around the tuple of the call and
+  those variables, so that ``curry.eval`` recognizes the root
+  (``goals.lifted_goal``) and yields :class:`Bindings
+  <curry.typecheck.goals.Bindings>`; a constructor node survives the
+  rewrites of an evaluation, so the expression evaluates again.  A variable
+  whose type occurs in the result type is left in the value.
   '''
   nfree = len(freevars)
   dicts = []
   scheme = None
-  if func.info.arity > nfree:
+  if func.info.arity > nfree or nfree:
     try:
       scheme = interp.sigtable.lookup(func, required=True)
     except sigtable.InterfaceError as err:
@@ -158,6 +184,7 @@ def expression_goal(interp, func, string, freevars):
           'expression %r compiled to a function of %d value parameter(s); '
           'add a type annotation (exprtype)' % (string, scheme.source_arity)
         )
+  if func.info.arity > nfree:
     try:
       defaulted = defaulting.default_scheme(
           scheme, what='expression %r' % string
@@ -169,12 +196,16 @@ def expression_goal(interp, func, string, freevars):
     dicts = goals.dictionaries(interp, defaulted)
   markers = [goals.free_marker() for _ in freevars]
   expr = interp.expr(func, *dicts, *markers)
-  if freevars:
-    root = interp.expr((expr,) + tuple(markers))
-    return goals.Goal(root, freevars, scheme, string)
   if inspect.isa_func(expr):
     evaluator.single_step(interp, expr)
-  return expr
+  reported = goals.absent_from_result(scheme, nfree) if nfree else []
+  if not reported:
+    return expr
+  ctor, = getattr(moduleobj, '.types')[LIFTED_NAME].constructors
+  goals.register_lifted(
+      interp, ctor, [freevars[i] for i in reported], scheme, string
+    )
+  return interp.expr(ctor, (expr,) + tuple(markers[i] for i in reported))
 
 def expression_scheme(interp, string, imports=None):
   '''
@@ -186,7 +217,7 @@ def expression_scheme(interp, string, imports=None):
   stmts, currypath = getImportSpecForExpr(
       interp, [] if imports is None else imports
     )
-  func, _ = compile_expression(
+  func, _, _ = compile_expression(
       interp, string, stmts, currypath, lift_freevars=False
     )
   return interp.sigtable.lookup(func, required=True)

@@ -19,9 +19,10 @@ def eval(interp, *args, **kwds):
         as ``main = Just 5``, is applied to its dictionaries first: the
         constraints are defaulted with the table of the PAKCS REPL (see
         :mod:`curry.typecheck.defaulting`), so the goal evaluates to a value
-        and not to a partial application.  A goal of
-        ``curry.compile(mode='expr')`` with ``where x free`` variables yields
-        its values with the bindings of the variables
+        and not to a partial application.  An expression of
+        ``curry.compile(mode='expr')`` whose text declared ``where x free``
+        variables absent from its result type yields its values with the
+        bindings of those variables
         (:class:`curry.typecheck.goals.Bindings`).
     converter:
         Keyword-only argument specifying the converter to use when returning

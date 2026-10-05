@@ -2,7 +2,7 @@ from ...common import T_CTOR, T_FUNC
 from ..generic.compiler import DEFINED, STEP_FUNCTION
 from .graph.infotable import DataType, InfoTable
 from . import compiler
-from ... import config, icurry, objects
+from ... import icurry, objects
 from io import StringIO
 from ...utility import encoding, filesys, visitation
 import textwrap
@@ -51,14 +51,17 @@ class Materializer(object):
 
   @materializeEx.when(icurry.IFunction)
   def materializeEx(self, ifun):
-    # Compile interactive code right away.  Otherwise, if lazycompile is set,
-    # delay compilation until the function is actually used.  See InfoTable in
-    # interpreter/runtime.py.
+    # If lazycompile is set, delay compilation until the function is actually
+    # used.  The step function resolves the symbols it refers to by name, so
+    # a function compiled while its module loads must not refer to a function
+    # of the module loaded after it: a lambda lifted from the text of an
+    # expression, or a method derived for a data type of the module.  An
+    # expression module, which leaves the registry of the interpreter after
+    # its compilation, is compiled right after its load (compile_pending).
     trampoline = Trampoline(
         lambda: materializeStepfunc(self.interp, ifun)
       )
-    lazy = self.interp.flags['lazycompile'] and \
-        not config.is_expression_modname(ifun.modulename)
+    lazy = self.interp.flags['lazycompile']
     info = InfoTable(
         ifun.name
       , ifun.arity
@@ -70,6 +73,17 @@ class Materializer(object):
     if lazy:
       trampoline.slot = info, 'step'
     return info
+
+def compile_pending(moduleobj):
+  '''
+  Compiles every step function of ``moduleobj`` that was left to its first
+  call.  Every symbol of the module is registered, so a function may refer to
+  any function of the module.
+  '''
+  for symbol in getattr(moduleobj, '.symbols').values():
+    step = symbol.info.step
+    if isinstance(step, Trampoline):
+      step.materialize()
 
 def materializeStepfunc(interp, ifun):
   '''JIT-compiles a Python step function.'''

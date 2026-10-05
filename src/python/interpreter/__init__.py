@@ -158,6 +158,7 @@ class Interpreter(object):
     self.stderr = sys.stderr
     self.automodules = config.syslibs()
     self._expression_modules = [] # see compile.py, mode 'expr'
+    self._lifted_goals = {} # see typecheck.goals.register_lifted
     for name, module in list(self.modules.items()):
       module = getHandle(module)
       if not module.is_package and name != 'Prelude':

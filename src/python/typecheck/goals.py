@@ -12,24 +12,31 @@ dictionary.  Value parameters that remain give a function value.  No front
 end runs and no module is written.
 
 The text route lifts the variables of a trailing ``where x, y free`` to
-parameters of the compiled expression, as the REPL does, and the values of
-such a goal come back as :class:`Bindings`, printed the way PAKCS prints
-them: ``{xs=[1,2]} True``.
+parameters of the compiled expression, as the REPL does.  A lifted variable
+whose type is absent from the result type of the expression cannot show in a
+value, so the values of such a goal come back as :class:`Bindings` with the
+binding of every such variable, printed the way PAKCS prints them:
+``{xs=[1,2]} True``.  A variable whose type occurs in the result type is not
+reported: the value, with the variable in it, is the answer.  The goal
+objects of this module stay inside ``curry.eval``; ``compile(mode='expr')``
+returns a node (see :func:`lifted_goal`).
 '''
 
-from .. import exceptions
+from .. import exceptions, inspect
 from ..expressions import free as free_marker
 from ..objects import CurryNodeInfo
 from ..toolchain.flat2icurry import flatcurry as fc, terms
 from ..utility import readcurry as rc
 from .defaulting import DefaultingError, default_scheme
 from .sigtable import INST_PREFIX, PRELUDE, scheme_of_function
-import re
+import collections, re
 
 __all__ = [
-    'Bindings', 'Goal', 'check_application', 'dictionaries', 'defaulted_goal'
-  , 'flat_type_text', 'is_dictionary', 'make_goal', 'scheme_from_flat_text'
+    'Bindings', 'Goal', 'LiftedGoal', 'absent_from_result', 'check_application'
+  , 'dictionaries', 'defaulted_goal', 'flat_type_text', 'is_dictionary'
+  , 'lifted_goal', 'make_goal', 'register_lifted', 'scheme_from_flat_text'
   , 'split_tuple_text', 'split_where_free', 'symbol_goal', 'type_arity'
+  , 'type_occurs'
   ]
 
 class Goal:
@@ -38,10 +45,12 @@ class Goal:
 
   Attributes:
     raw_expr:
-        The node to evaluate.  For a goal with free variables, a tuple of the
-        value and the variables.
+        The node to evaluate.  For a goal with reported free variables, the
+        constructor of the expression module (``compile.LIFTED_NAME``)
+        around the tuple of the value and the variables.
     freevars:
-        The names of the lifted ``where ... free`` variables, in order.
+        The names of the reported ``where ... free`` variables, in the order
+        of the tuple.
     scheme:
         The scheme of the compiled expression, or None.
     text:
@@ -84,8 +93,8 @@ def _values(freevars, interp, results, convert):
   try:
     for result in results:
       if freevars:
-        parts = [result[i] for i in range(len(freevars) + 1)]
-        raw = result
+        raw = result[0]
+        parts = [raw[i] for i in range(len(freevars) + 1)]
         if convert is not None:
           parts = [convert(interp, part) for part in parts]
           raw = None
@@ -212,6 +221,74 @@ def _skip_char(text, i):
 # The text route
 # ==============
 _IDENT = r"[a-z_][A-Za-z0-9_']*"
+
+# The lifted variables of a compiled text that ``curry.eval`` reports: their
+# names in the order of the tuple, the scheme of the compiled expression, and
+# the text.  See ``register_lifted``.
+LiftedGoal = collections.namedtuple('LiftedGoal', 'freevars scheme text')
+
+def type_occurs(part, typeexpr):
+  '''Whether the type ``part`` occurs in the type ``typeexpr``.'''
+  if part == typeexpr:
+    return True
+  if isinstance(typeexpr, fc.FuncType):
+    return type_occurs(part, typeexpr.domain) or type_occurs(part, typeexpr.range)
+  if isinstance(typeexpr, fc.TCons):
+    return any(type_occurs(part, arg) for arg in typeexpr.args)
+  return False
+
+def absent_from_result(scheme, nfree):
+  '''
+  The indices of the lifted variables whose binding ``curry.eval`` reports.
+  ``scheme`` is the scheme of ``compiled_expression x1 ... xn = <text>``, so
+  its type without the dictionaries is ``t1 -> ... -> tn -> r``.  A variable
+  whose type occurs in the result type ``r`` can show in a value and is left
+  to the value; a variable whose type is absent from ``r`` cannot, and is
+  reported with its binding, as the REPL of PAKCS prints it.
+
+  Raises:
+    CurryTypeError:
+        The type has fewer than ``nfree`` parameters.
+  '''
+  typeexpr = scheme.typeexpr
+  domains = []
+  for _ in range(nfree):
+    if not isinstance(typeexpr, fc.FuncType):
+      raise exceptions.CurryTypeError(
+          '%s :: %s has fewer than %d parameters' % (scheme.fullname, scheme, nfree)
+        )
+    domains.append(typeexpr.domain)
+    typeexpr = typeexpr.range
+  return [
+      i for i, domain in enumerate(domains) if not type_occurs(domain, typeexpr)
+    ]
+
+def register_lifted(interp, ctor, freevars, scheme, text):
+  '''
+  Records the reported variables of a compiled text whose root is
+  ``ctor (expr, xi, ...)``: the constructor the expression module declares
+  (``compile.LIFTED_NAME``) around the tuple of the expression and the
+  variables of ``freevars``, in that order.  The record is keyed by the info
+  table of ``ctor``, which the module keeps alive until the interpreter
+  resets (``Interpreter._lifted_goals``); ``lifted_goal`` finds it from the
+  root.  A constructor node is never rewritten, so the root is recognized
+  after an evaluation as before it.
+  '''
+  interp._lifted_goals[id(ctor.info)] = LiftedGoal(tuple(freevars), scheme, text)
+
+def lifted_goal(interp, node):
+  '''
+  The :class:`Goal` of a node that ``compile(mode='expr')`` built for a text
+  with ``where ... free`` variables absent from its result type (see
+  ``register_lifted``), or None for any other argument.
+  '''
+  info = inspect.info_of(node)
+  if info is None:
+    return None
+  lifted = interp._lifted_goals.get(id(info))
+  if lifted is None:
+    return None
+  return Goal(node, lifted.freevars, lifted.scheme, lifted.text)
 _WHERE_FREE = re.compile(
     r'^(?P<expr>.*?)\s+where\s+(?P<vars>%s(?:\s*,\s*%s)*)\s+free\s*$'
         % (_IDENT, _IDENT)
@@ -346,13 +423,18 @@ def check_application(args):
 def make_goal(interp, args):
   '''
   The :class:`Goal` of the arguments of ``curry.eval``: a goal object as it
-  is, a symbol with dictionary parameters applied to its dictionaries, and
-  anything else through ``interp.expr`` after :func:`check_application`.
+  is, the root of a compiled text with reported variables
+  (:func:`lifted_goal`), a symbol with dictionary parameters applied to its
+  dictionaries, and anything else through ``interp.expr`` after
+  :func:`check_application`.
   '''
   if len(args) == 1:
     arg = args[0]
     if isinstance(arg, Goal):
       return arg
+    goal = lifted_goal(interp, arg)
+    if goal is not None:
+      return goal
     if isinstance(arg, list) and len(arg) == 1:
       arg = arg[0]
     expr = symbol_goal(interp, arg)
