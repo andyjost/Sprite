@@ -3,6 +3,7 @@ from curry import cache, config, exceptions, toolchain
 from curry.toolchain import _curry2icurry, _frontend, plans
 from curry.utility import binding
 import curry, os, shutil, subprocess, tarfile, tempfile, unittest
+from unittest import mock
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'curry')
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -55,6 +56,19 @@ class TestCurry2ICurry(cytest.TestCase):
     shutil.copy(os.path.join(DATA, relpath), dst)
     return dst
 
+  def without_cache(self):
+    '''
+    Turns the ICurry cache off for one test.  A hit in the cache writes the
+    ICurry and its copies of the interfaces, not the files of the front end
+    (section 1 of README), so a test of the front end's files runs without
+    it.
+    '''
+    patcher = mock.patch.dict(os.environ, {'SPRITE_CACHE_FILE': ''})
+    patcher.start()
+    self.addCleanup(patcher.stop)
+    cache.reset()
+    self.addCleanup(cache.reset)
+
   def convert(self, curryfile, currypath=(), **kwds):
     kwds.setdefault('curry2icurry', 'frontend')
     kwds.setdefault('quiet', True)
@@ -104,6 +118,7 @@ class TestCurry2ICurry(cytest.TestCase):
 
   def test_convert(self):
     '''The ICurry of a module is byte-identical to the file icurry wrote.'''
+    self.without_cache()
     for name in ['hello', 'Peano']:
       icy = oracle_icy('', name)
       if icy is None:
@@ -192,6 +207,7 @@ class TestCurry2ICurry(cytest.TestCase):
 
   def test_tool_selection(self):
     '''The tool comes from the keyword, the environment, or the configuration.'''
+    self.without_cache()
     with binding.binding(os.environ, 'SPRITE_CURRY2ICURRY', 'icurry'):
       self.assertEqual(config.curry2icurry_tool(), 'icurry')
       self.assertEqual(config.curry2icurry_tool('frontend'), 'frontend')
