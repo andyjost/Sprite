@@ -525,18 +525,29 @@ class Cpp2So(object):
     for flag in os.environ.get('CXXFLAGS', '').split():
       yield flag
 
+  def prepare_header(self):
+    '''
+    Builds the precompiled header when it is missing or stale.  Returns True
+    when g++ can use it, False when the header is disabled, no compiler is
+    installed, or the build failed (then the objects compile without it).
+    sprite-make --jobs calls this once before its children start, so that
+    the children do not each build the header.
+    '''
+    root = config.cxx_pch_root()
+    cxx = config.cxx_tool()
+    if root is None or cxx is None:
+      return False
+    return PrecompiledHeader(root, cxx, self._cxxflags()).prepare()
+
   def _pchflags(self):
     '''
     Prepares the precompiled header.  Yields the include flag that lets g++
     find it when it lives outside the installed include directory.
     '''
-    root = config.cxx_pch_root()
-    cxx = config.cxx_tool()
-    if root is None or cxx is None:
-      return
-    pch = PrecompiledHeader(root, cxx, self._cxxflags())
-    if pch.prepare() and root != config.installed_path('include'):
-      yield '-I%s' % root
+    if self.prepare_header():
+      root = config.cxx_pch_root()
+      if root != config.installed_path('include'):
+        yield '-I%s' % root
 
   def _compileCommand(self, file_in, file_out):
     cxx = config.cxx_tool()

@@ -1,8 +1,9 @@
 The curry files in this directory thoroughly test the equality constraint
-operator (=:=).  They can be run from the $root/tests directory with the
-following command:
+operator (=:=).  They run in several test files, one per group of programs
+(see func_eqconstr.py), from the $root/tests directory with the following
+command:
 
-    % ./run_tests func_eqconstr.py
+    % ./run_tests 'func_eqconstr*.py'
 
 Because there are so many tests, and because it takes a relatively long time
 (several seconds per test case) to generate the ICurry and golden results,

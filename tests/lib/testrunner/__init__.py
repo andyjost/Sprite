@@ -50,10 +50,25 @@ DEFAULT_JOBS = 'auto'
 DEFAULT_MEM_FRACTION = 0.6
 
 # The cap of a file is CAP_FACTOR times its manifest peak, at least MIN_CAP.
-# A file without a peak in the manifest gets DEFAULT_CAP.
+# A file without a peak in the manifest gets DEFAULT_CAP.  The floor covers
+# the toolchain that runs inside the test process on a cold tree (the
+# translation of FlatCurry, the JSON writer, the code generators), which a
+# warm measurement never saw.  The floor costs width where the budget
+# binds, because the budget sums the caps: a budget of 3.6 GB (60 percent
+# of 6 GB available) admits three files at the floor, where caps of twice
+# a 200 MB peak would admit nine.  On a 12-core machine with 23 GB the
+# core count binds first.
 CAP_FACTOR = 2
-MIN_CAP = 512 * MIB
+MIN_CAP = 1 * GIB
 DEFAULT_CAP = 2 * GIB
+
+# While a process of the Curry toolchain runs in the session of a file (the
+# front end, icurry or PAKCS on swipl, the C++ compiler: procs.TOOLS), the
+# cap of the file is at least TOOL_CAP.  icurry on swipl alone takes about
+# 1 GB, and whether it runs depends on the state of the tree, not on the
+# test.  The budget does not count the allowance (see section 10 of
+# tests/README).
+TOOL_CAP = 2 * GIB
 
 # The limit on the address space of a child (ulimit -v) is a backstop only.
 # It is the larger of BACKSTOP and BACKSTOP_FACTOR times the cap of the file,

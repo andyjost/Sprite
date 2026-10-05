@@ -56,6 +56,7 @@ class FunctionalTestCaseMetaclass(type):
     defs.setdefault('TTY'                , None)
     defs.setdefault('CREATES_FILE'       , None)
     defs['CURRYPATH']         = defs['CURRYPATH'].split(':') + [defs['SOURCE_DIR']] + curry.path
+    defs['FILE_PATTERN']      = file_patterns(defs['FILE_PATTERN'])
     defs['EXPECTED_FAILURE']  = compile_pattern(defs['EXPECTED_FAILURE'])
     defs['INTENDED_FAILURES'] = TSKeywords(defs['INTENDED_FAILURES'], (str, BaseException, tuple), None)
     defs['GOAL_PATTERN']      = compile_pattern(defs['GOAL_PATTERN'])
@@ -73,7 +74,7 @@ class FunctionalTestCaseMetaclass(type):
     defs['CREATES_FILE']      = TSKeywords(defs['CREATES_FILE']     , dict, None)
 
     # Create a test for every file under the source directory.
-    for cysrc in glob(defs['SOURCE_DIR'] + defs['FILE_PATTERN']):
+    for cysrc in source_files(defs['SOURCE_DIR'], defs['FILE_PATTERN']):
       testname = os.path.splitext(os.path.split(cysrc)[-1])[0]
       skipped = defs['SKIP'] and re.match(defs['SKIP'], testname)
       excluded = defs['RUN_ONLY'] and not re.match(defs['RUN_ONLY'], testname)
@@ -118,8 +119,11 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
         environment variable.  This is needed if the Curry programs use
         non-built-in libraries.  SOURCE_DIR is always added to CURRYPATH.
 
-      FILE_PATTERN [Optional, str (glob), default="[a-z]*.curry"
-        The pattern to use use when searching for Curry source files.
+      FILE_PATTERN [Optional, str or sequence of str (globs), default="[a-z]*.curry"
+        The pattern, or the patterns, that select the Curry source files.
+        A file is selected once, however many patterns match it.  Several
+        test files can share one corpus: each names a part of it, and
+        unit_func_parts.py checks that the parts cover the corpus once.
 
       GOAL_PATTERN [Optional, str (regex), default=r"(sprite_)?(goal|main)\d*$]"
         The pattern to use when searching for goals.  All functions matching
@@ -365,6 +369,22 @@ def value_arity(goal):
   '''
   scheme = goal.scheme
   return goal.info.arity if scheme is None else scheme.source_arity
+
+def file_patterns(arg):
+  '''The FILE_PATTERN of a test class as a tuple of globs.'''
+  if isinstance(arg, str):
+    return (arg,)
+  return tuple(arg)
+
+def source_files(source_dir, patterns):
+  '''
+  The Curry sources under ``source_dir`` that match any of ``patterns``,
+  sorted, each once.
+  '''
+  found = set()
+  for pattern in patterns:
+    found.update(glob(os.path.join(source_dir, pattern)))
+  return sorted(found)
 
 def compile_pattern(arg, exact=False):
   '''

@@ -3003,3 +3003,188 @@
   (pattern rules as functional patterns, set functions to collect the
   rules that make a target, an inverse query with a free variable), with
   Python owning the file system and the actions.
+
+2026-10-05: the velocity follow-ups (V5, the parallel prebuild, the runner)
+- V5 (#45): the heavy test files are split by topic, and the test counts
+  are unchanged on both backends.  func_eqconstr.py (767 programs) runs
+  in six files: the hand-written programs (prog, iprog, cprog, fprog; 128)
+  keep the old name, and the generated programs run by data type: a0 (180),
+  a0b0c0 in three parts of 150, 150 and 144 (numbers 000-149, 150-299,
+  300-443), and a2b1c0 (15).  func_math.py (218) runs in three: compare and
+  sort (67) keep the old name, intmath (74) and floatmath (77) get files of
+  their own.  unit_compile.py (11) splits into the compile API and its
+  errors (6), the module registry (3), and the compiled expressions (2).
+  unit_py_io.py (16) splits into the standard streams and the monadic flag
+  (7) and files and errors (9).  The driver change: FILE_PATTERN of
+  cytest.FunctionalTestCase takes a string or a list of globs; a source
+  that two globs match is listed once (functional.file_patterns,
+  functional.source_files).  unit_func_parts.py checks that the parts of
+  each split corpus are disjoint and cover it once, with one test per
+  source.  The runner knows the parts: CORPUS in prepare.py lists them,
+  the corpus rule of --changed selects func_<dir>*.py, and the toolchain
+  rule selects unit_compile*.py.  Measured on the warm tree, both backends,
+  with four other streams on the machine (load 3 to 6 on 12 cores): every
+  part takes 2.5 s or less; the manifest holds the 11 new entries and the
+  4 refreshed ones, and no file lost its entry.  The longest files of the
+  suite are unchanged: unit_examples.py (48 s, Python backend) and
+  unit_cxx_toolchain.py (22 s, C++ backend).  The numbers of the issue
+  (146, 118, 100 and 323 s) are cold-tree times: front-end calls with an
+  empty ICurry cache, and one C++ compile per corpus program, which CI pays
+  on every run.  Observed cold cost on the C++ backend: 0.47 s per object
+  (45 objects in 21.4 s), so the largest part (180 programs) is about 85 s
+  cold against 359 s observed for the whole corpus before the split.
+  Found on the way: a make stage into the staged install during a test run
+  replaced libcyrt.so under a running process, which crashed, and a missing
+  Prelude.so failed 130 tests; streams that share an install must not
+  rebuild it while tests run.
+- Parallel prebuild of the Curry library (sprite-make --jobs).  sprite-make
+  has a --jobs N option; auto is one job per processor.  It makes up to N
+  modules at once.  Each module is made by a child process that runs
+  sprite-make on that module alone.  The parent resolves the named modules
+  and the closure of their imports, keeps the modules whose files are
+  stale, and starts a child only when the children of its stale imports
+  have ended.  A module whose files are current gets no child; it passes
+  the jobs of its stale imports on to its importers.  The imports of a
+  module come from its source (the lenient scan of curry.cache, with the
+  implicit Prelude) or, without a source, from its JSON file; a cycle adds
+  no edge.  The order is needed because the interpreter compiles a stale
+  import on the spot when a module is imported, so two children would
+  write the files of one module.  A failed child stops its importers ('X
+  was not made because an import failed'); without -k no further child
+  starts, and the running ones end by themselves.  With -o the one named
+  module is made in the parent after its imports.  The output of a child
+  is written when it ends, so the lines of one module stay together.
+  Without --jobs, and with --jobs 1, the run is the serial loop as before.
+  curry/Makefile passes the job count of make to the C++ step alone
+  (PREBUILD_SO_FLAGS): PREBUILD_JOBS reads the -jN of MAKEFLAGS at recipe
+  time (while the makefiles are read, MAKEFLAGS carries -j without the
+  count), auto for a bare -j, else JOBS of Make.config, so make -C curry
+  install follows the configured width too; JOBS=1 keeps the serial run.
+  The ICurry and Python steps stay serial: 3.8 s and 1.5 s serial against
+  4.4 s and 1.9 s with 12 children.  Measured with four other streams on
+  the machine (1-minute load beside each number): the C++ step over the 13
+  modules on a scratch copy of the installation, alternating, serial 56.0
+  and 43.0 s against 31.0 and 33.8 s with 12 jobs (load 4 to 6); single
+  samples 37.7 against 26.0 s.  Prelude.so is one translation unit of 28.4
+  s (with the precompiled header) and bounds the step; the other twelve
+  modules take 0.5 to 2.6 s each.  Full builds in place: clean 44.7 s
+  before (load 3.4 to 3.9) against 39.0 s after (load 3.5 to 4.5), with
+  48.5 s (load up to 7.0) and 60.9 s (load 6.4) under heavier load; a
+  header change 36.9 and 32.8 s before against 31.9 and 31.7 s after (load
+  4 to 5), 39.9 and 37.7 s at load 9; a no-op stage and a touch of
+  node.hpp 6.1 to 6.4 s before and after.  The trees of the two codes
+  differ in the member name of the precompiled header, libcyrt.a (archive
+  order) and libcyrt.so alone.  Tests: TestJobs in unit_make.py (option,
+  child command, import scan, graph with a current import and a cycle,
+  imports first with the children recorded, width, serial path, failure
+  with and without -k, -o, the bytecode of a current module) and
+  test_prebuild_recipe_follows_the_job_count in unit_prebuild.py.  Next:
+  Cpp2So compiles with -c and links separately, so ccache hits the modules
+  and the Prelude compile overlaps the runtime build; the code generator
+  could split the Prelude into several units; the children of sprite-make
+  are outside the job server of make; the prepare pass of the test runner
+  could pass --jobs; CompilationPipeline.rst could mention the option.
+- The runner follow-ups.  Section 10 of tests/README was edited in place.
+  The rules decided: (1) Fast tier: --fast keeps the files below S seconds
+  on every backend of the run and the files without an entry, minus the
+  functional tests and the other files that compile a corpus of their own
+  (the files CORPUS in lib/testrunner/prepare.py names: unit_benchmarks.py,
+  unit_cxx_variable.py; selection.compiles_corpus).  The manifest measures
+  a warm tree; on a cold tree such a file first compiles its corpus (the
+  math corpus about 90 s on the C++ backend against 3 s warm).  Run them
+  by name: run_tests 'func_*.py'.  Tier sizes before and after: cxx 71 to
+  52 files, py 74 to 55, both 69 to 50.  (2) Cap: twice the manifest peak,
+  at least 1 GB (MIN_CAP; covers the toolchain inside the test process on
+  a cold tree; before: 512 MB).  While a process of the Curry toolchain
+  runs in the session (TOOLS in procs.py: the front end, icurry or PAKCS
+  on swipl, the C++ compiler and linker) the cap is at least 2 GB
+  (TOOL_CAP); icurry on swipl alone takes about 1 GB (unit_curry2icurry.py:
+  131 MB with a warm ICurry cache, 1042 MB cold).  The line of the file
+  notes the allowance; the manifest records the peak.  The budget counts
+  the manifest caps, not the allowance; the free 40 percent of
+  MemAvailable absorbs the compilers of a cold tree.  (3) Prepare pass:
+  advisory.  sprite-make runs with -k; a directory whose module failed
+  ends 'incomplete', not 'FAILED'; its line names the modules without a
+  product (the .py or .so under the directory sprite-make -S names) and
+  its log; one summary line follows the pass ('prepare: 37 modules in 1
+  directory on cxx, every product present'); the last line of the table
+  adds 'prepare: N of M incomplete'; the exit status ignores the pass.
+  (4) perf: a shell between perf and the command reports a signal death as
+  128 plus the signal, which the harness maps back; nothing is parsed from
+  perf's text (measure.py docstring).  (5) test_committed_manifest_loads
+  compares the shape of the manifest, not its numbers.  A cold copy of the
+  tree ran the fast tier of 52 files on cxx in 112.9 s at -j 2 --mem 4
+  (load 5 to 6).
+- The review of the three items, applied.  (1) Under the interpreter flag
+  interpret set to new or all, sprite-make --so ends at the JSON
+  (Json2Cpp.ends_plan), and the prepare pass looked for the .so alone: a
+  directory that did not end well listed every module as without a
+  product.  prepare.product_suffixes names the JSON as the product of the
+  C++ backend under those flags, read from the environment of the job
+  (test_products_under_interpret).  (2) The man page of --jobs said that
+  no two children write the files of one module; the order covers the
+  files sprite-make writes, and the interface files of the Curry front end
+  (.fint, .fcy) are the exception: the front end writes those of an import
+  on its own when they are missing (the docstring of toolchain/_frontend.py;
+  the staged install holds Prelude.fint though the repository commits
+  none), so two children whose modules import a module without them write
+  them at once.  The man page names the exception and --jobs 1 for the
+  front-end step of such a tree; the comment of curry/Makefile says why
+  the prebuild is safe: its ICurry is committed, so the children of the
+  C++ step never run the front end.  (3) perf_status read an exit status
+  of 255 as 'killed by signal 127'; now only a status that names a signal
+  of the machine (signal.valid_signals) reads as one, and 255 stays 255,
+  through the shim as well.  (4) This entry; the README and
+  selection.compiles_corpus named func_math.py (2 s warm, 90 s cold) where
+  the 90 s belong to the whole math corpus, now in three files of 1 s
+  each.  (5) The skip reason of test_writeFile_keeps_prefix_across_rotation
+  in unit_io_bind.py names unit_py_io_files.py, where the split moved the
+  test; unit_func_parts.py follows the pointer.  (6) The floor of the cap
+  costs width where the budget binds, because the budget sums the caps: a
+  budget of 3.6 GB admits three files at the floor against nine at twice a
+  200 MB peak (test_floor_costs_width_where_the_budget_binds); on the
+  calibration machine the core count binds first.  Named in __init__.py
+  and the README; the floor stays.  (7) sprite-make --jobs over a tree
+  without the precompiled header started N children that each built it;
+  the parent now builds it once before the first child starts
+  (Cpp2So.prepare_header, called by _prepare_shared for a plan that
+  compiles objects; test_header_is_built_before_the_children keeps the
+  header in a directory of its own).  (8) _buildplan ran outside the error
+  handler, so an error of the plan was a traceback; it runs inside it now,
+  'sprite-make: message' and status 1, with -k too
+  (test_plan_error_is_reported).  (9) Skipped: the 15 manifest entries of
+  the split files were measured under load 4 to 5 (0.5 to 2.5 s, peaks 32
+  to 159 MB, under the floor); they stay until the recalibration on a quiet
+  machine at the integration, as the calibration paragraph prescribes
+  after a split.  Changed outside the files the findings name:
+  src/python/backends/cxx/toolchain.py (prepare_header), curry/Makefile
+  (the comment), tests/lib/testrunner/selection.py (one docstring),
+  tests/unit_func_parts.py (the pointer test).
+  Verification of the three items with the review applied, through the
+  runner at -j 2 --mem 4 on both backends, with other work on the machine
+  (1-minute load 3 to 9 on 12 cores).  The unit suite without --prepare:
+  138 of 138 run in 494.7 s wall, 1 failed (unit_cxx_literals.py,
+  test_literal_count: 321 literal nodes where the generated text has 6)
+  and 2 crashed with signal 11 (unit_sigtable.py, unit_cxx_passthrough.py),
+  all on the C++ backend, and the three fail alone as well.  The cause is
+  the tree, not the code: the worktree was mirrored with the products of
+  the test corpora, and 312 of the 1193 compiled modules under
+  tests/data/curry had been compiled by another checkout; their shared
+  objects name the Prelude.so of that other installation by absolute path
+  (readelf -d: NEEDED), so a test process loads two Preludes.  The ABI
+  stamp does not see it: it digests the runtime headers and the flags, and
+  the headers are the same.  With those products set aside, every product
+  of the pool present after a prepare pass (95 modules in 2 directories,
+  every product present, 74.5 s), 138 of 138 run, 0 failed, wall 525.3 s;
+  the longest files: unit_examples.py 70.1 s on the Python backend and
+  unit_prebuild.py 41.0 s on the C++ backend.  The functional suite with
+  --prepare, outside the sandbox for the oracle: the pass remade the
+  corpora (1175 modules in 11 directories on cxx+py, every product
+  present; 100 s on the C++ backend, the math corpus 28.5 s and kiel
+  23.5 s), then 40 of 40 run, 0 failed, wall 186.2 s; the longest files:
+  func_flat2icurry.py 23.6 s on the Python backend and
+  func_goal_defaulting.py 22.1 s on the C++ backend.  Follow-up: a shared
+  object whose NEEDED entries name another installation should count as
+  stale (Cpp2So.is_stale could read the Prelude path it was linked
+  against, or the stamp could digest the installation prefix), so a
+  mirrored or copied tree recompiles instead of loading two runtimes.

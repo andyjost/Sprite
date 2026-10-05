@@ -35,11 +35,28 @@ include Make.include
 # and copied beside the products (see Make.include), so sprite-make finds the
 # pinned modules current.
 #
-# The step is one recipe and stays serial under make -j.  The modules are
-# not independent: every module imports the Prelude, and many import each
-# other.  sprite-make orders them within one process; two sprite-make
-# processes over the library would compile the shared imports at the same
-# time.  A parallel prebuild needs a job option in sprite-make itself.
+# The step is one recipe, and the modules are not independent targets:
+# every module imports the Prelude, and many import each other; the step
+# that compiles a module imports its imports, and compiles one whose files
+# are stale on the spot, so two make jobs over the library would compile a
+# shared import at the same time.  Instead, the C++ step runs sprite-make
+# --jobs, which compiles the modules in child processes, the imports of a
+# module before the module, and makes no child for a module whose files are
+# current.  The ICurry and Python steps stay serial: they take a few seconds
+# together, and a child process per module costs more than it saves there.
+# PREBUILD_JOBS is the count of this make: the -jN that MAKEFLAGS carries
+# into a sub-make (the root Makefile turns JOBS of Make.config into -j; a
+# bare -j is auto), else JOBS itself, so that make -C curry install follows
+# the configured width too.  JOBS=1 keeps the serial run.  The children of
+# sprite-make are outside the job server of make; the prebuild runs after
+# src is installed and nothing else runs beside it.  The Prelude bounds the
+# step: its shared object is one translation unit, and every other module
+# waits for it.  The order of sprite-make covers the files it writes, not
+# the interface files of the front end (.fint, .fcy), which the front end
+# writes for an import on its own when they are missing.  That hazard does
+# not arise here: the ICurry of every library module is committed and the
+# JSON step derives from it, so the children of the C++ step never run the
+# front end.
 #
 # Every module under lib/ (CURRYLIB_MODULES) gets its ICurry and JSON
 # (sprite-make --json), so no run of Sprite writes into the installation for
@@ -53,6 +70,12 @@ PREBUILD_ENV := env -u CURRYPATH -u CFLAGS -u CXXFLAGS \
 PREBUILD_CHECK = test -f $(CURRYLIB_INSTALL_SUBDIR)/Prelude$(1) \
                  || { echo "prebuild: $(CURRYLIB_INSTALL_SUBDIR)/Prelude$(1)" \
                            "was not written" >&2; exit 1; }
+# Expanded in the recipe: while the makefiles are read, MAKEFLAGS holds the
+# -j without its count.
+PREBUILD_JOBS = $(if $(filter -j%,$(MAKEFLAGS)),\
+                  $(or $(strip $(patsubst -j%,%,$(filter -j%,$(MAKEFLAGS)))),auto),\
+                  $(or $(strip $(JOBS)),1))
+PREBUILD_SO_FLAGS = --jobs $(strip $(PREBUILD_JOBS)) -zc
 .PHONY: prebuild
 prebuild: $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_FLAT_STAMP) $(CURRYLIB_INSTALL_IFACE)
 	@if [ ! -x $(PREFIX)/bin/sprite-make ]; then \
@@ -68,8 +91,8 @@ prebuild: $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_FLAT_STAMP) $(CURRYLIB_INSTALL_IF
 	  || exit 1; \
 	$(call PREBUILD_CHECK,.py); \
 	if [ -x $(PREFIX)/tools/cxx ]; then \
-	  echo $(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --so -zc $(CURRYLIB_PREBUILD_MODULES); \
-	  $(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --so -zc $(CURRYLIB_PREBUILD_MODULES) \
+	  echo $(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --so $(PREBUILD_SO_FLAGS) $(CURRYLIB_PREBUILD_MODULES); \
+	  $(PREBUILD_ENV) $(PREFIX)/bin/sprite-make --so $(PREBUILD_SO_FLAGS) $(CURRYLIB_PREBUILD_MODULES) \
 	    || exit 1; \
 	  $(call PREBUILD_CHECK,.so); \
 	  $(call PREBUILD_CHECK,.so.abi); \

@@ -1,9 +1,10 @@
-from .. import exceptions, config, getInterpreter, interpreter, toolchain, utility
+from .. import cache, exceptions, config, getInterpreter, interpreter, toolchain, utility
 from ..interpreter import flags as _flags
-from ..toolchain import plans
+from ..toolchain import plans, _filenames, _findcurry, _loadcurry
+from ..toolchain._makecurry import Maker, ToolchainContext
 from io import StringIO
 from .utility import handle_program_errors, unrst
-import argparse, os, pydoc, shutil, sys
+import argparse, os, pydoc, shutil, subprocess, sys, tempfile, time
 
 PROGRAM_NAME = 'sprite-make'
 __all__ = ['main']
@@ -65,6 +66,22 @@ FlatCurry; ``icurry`` runs the ``icurry`` program.  The default is the
 value of SPRITE_CURRY2ICURRY, else the choice made by ``configure``, else
 whichever tool is installed.
 
+The ``--jobs N`` option makes up to ``N`` modules at once.  Each module is
+made by a child process that runs this program on that module alone;
+``auto`` is one child per processor.  The imports of a module are made
+before the module, so no two children write the files that this program
+makes for one module (the ICurry, JSON, Python, C++ and shared-object
+files).  A module whose files are current gets no child.  The order does
+not cover the interface files of the Curry front end (``.fint``, ``.fcy``):
+the front end writes those of an import on its own when they are missing,
+so two children whose modules import one module without them write them at
+once.  Run the front-end step of such a tree (products copied without
+their interface files) with ``--jobs 1``.  Before the children start, this
+process builds the precompiled header of the C++ backend when it is
+missing, so the children find it.  The option covers the modules named on
+the command line and the modules they import.  The installation procedure
+passes the job count of ``make``.
+
 Environment Variables
 ---------------------
 
@@ -125,6 +142,9 @@ def main(program_name, argv):
   parser.add_argument('-g', '--goal'   , default=None, help='specifies the goal in --python mode')
   parser.add_argument('-i', '--icy'    , action='store_true', help='make ICY files')
   parser.add_argument('-j', '--json'   , action='store_true', help='make JSON files')
+  parser.add_argument(      '--jobs'   , default='1', metavar='N'
+    , help='make up to N modules at once, each in a child process (auto: one '
+           'per processor); the imports of a module are made first')
   parser.add_argument('-k', '--keep-going', action='store_true', help='keep working after an error')
   parser.add_argument('-M', '--man'    , action='store_true', help='show detailed usage')
   parser.add_argument('-o', '--output' , action='store', type=str, help='specify the output file')
@@ -157,6 +177,14 @@ def main(program_name, argv):
     return
   else:
     del args.subdir
+
+  jobs = parse_jobs(args.jobs)
+  if jobs is None:
+    sys.stderr.write(
+        program_name + ': --jobs should be a count or auto, not %r.\n' % args.jobs
+      )
+    sys.exit(1)
+  del args.jobs
 
   if len(args.names) > 1 and args.output:
     sys.stderr.write(program_name + ': -o,--output cannot be used with multiple input files.\n')
@@ -204,24 +232,40 @@ def main(program_name, argv):
                    {'backend': args.backend_name, 'interpret': 'off'}
                  )
              )
-  for name in args.names:
-    if name.endswith('.icy'):
-      # A committed ICurry file.  The JSON is written beside it, so the Curry
-      # library can be rebuilt without icurry.
+  with error_handler:
+    plan = _buildplan(interp, **kwds)
+  if error_handler.nerrors:
+    # With -k the handler reports the error and goes on; without a plan
+    # nothing can be made.
+    sys.exit(1)
+  if jobs > 1:
+    _make_parallel(program_name, plan, args, kwds, error_handler, jobs)
+  else:
+    for name in args.names:
       with error_handler:
-        _convert_icy(program_name, name, args)
-      continue
-    kwds['is_sourcefile'] = name.endswith('.curry')
-    with error_handler:
-      plan = _buildplan(interp, **kwds)
-      file_out = toolchain.makecurry(plan, name, config.currypath(), **kwds)
-      if args.py and file_out.endswith('.py'):
-        # A file that was current already may lack its bytecode cache (an
-        # installation from before the cache was written).
-        from ..backends.py.toolchain import ensure_bytecode
-        ensure_bytecode(file_out)
+        _make_one(program_name, plan, name, args, kwds)
   if error_handler.nerrors:
     sys.exit(1)
+
+def _make_one(program_name, plan, name, args, kwds):
+  '''Makes one named module, source file, or ICurry file in this process.'''
+  if name.endswith('.icy'):
+    # A committed ICurry file.  The JSON is written beside it, so the Curry
+    # library can be rebuilt without icurry.
+    _convert_icy(program_name, name, args)
+    return
+  kwds = dict(kwds, is_sourcefile=name.endswith('.curry'))
+  file_out = toolchain.makecurry(plan, name, config.currypath(), **kwds)
+  _ensure_bytecode(args, file_out)
+
+def _ensure_bytecode(args, file_out):
+  '''
+  Writes the bytecode cache of a Python file that was current already and
+  lacks it (an installation from before the cache was written).
+  '''
+  if args.py and file_out.endswith('.py'):
+    from ..backends.py.toolchain import ensure_bytecode
+    ensure_bytecode(file_out)
 
 def _convert_icy(program_name, name, args):
   '''
@@ -256,6 +300,270 @@ def _buildplan(interp, **kwds):
     if kwds.get(kw, False):
       plan_flags |= KEYWORDS[kw]
   return plans.makeplan(interp, plan_flags)
+
+def parse_jobs(text):
+  '''
+  The job count that ``--jobs`` names: a positive count, or ``auto`` for one
+  job per processor.  None for any other text.
+  '''
+  if text == 'auto':
+    return os.process_cpu_count() or 1
+  try:
+    count = int(text)
+  except ValueError:
+    return None
+  return count if count > 0 else None
+
+# The parallel run
+# ================
+# Under --jobs N the modules are made by child processes, each running this
+# program on one module.  The order follows the imports: the interpreter
+# imports the imports of a module before the module, and an import whose
+# files are stale is made on the spot (see curry.interpreter.import_).  So
+# two children that import one stale module would both write its files.
+# This process resolves the named modules and the closure of their imports
+# first, finds the modules whose files need work, and starts a child for one
+# of them only when the children of its stale imports have ended.
+
+class Job(object):
+  '''
+  A module of a parallel run: the argument that names it, its current file,
+  the jobs of the stale modules it imports (directly, or through imports
+  whose files are current), and the child that makes it.
+  '''
+  def __init__(self, arg, currentfile):
+    self.arg = arg
+    self.currentfile = currentfile
+    self.imports = []
+    self.proc = None
+    self.stdout = None
+    self.stderr = None
+
+  def __repr__(self):
+    return 'Job(%r)' % self.arg
+
+def imports_of(curryfile):
+  '''
+  The names of the modules that the module of ``curryfile`` imports, the
+  Prelude among them.  The names come from the source when it exists (a scan
+  of the import declarations; see curry.cache.SourceInfo), else from the
+  JSON file beside the products.  Nothing when neither exists.
+  '''
+  if os.path.isfile(curryfile):
+    with open(curryfile, 'rb') as stream:
+      names = cache.SourceInfo(curryfile, stream.read()).imports
+  else:
+    jsonfiles = [f for f in _filenames.jsonfilenames(curryfile) if os.path.isfile(f)]
+    if not jsonfiles:
+      return []
+    try:
+      names = list(_loadcurry.loadjson(jsonfiles[0]).imports)
+    except Exception:
+      # The child that makes the module reports the unreadable file.
+      return []
+  if 'Prelude' not in names and os.path.basename(curryfile) != 'Prelude.curry':
+    names.insert(0, 'Prelude')
+  return names
+
+def is_done(plan, currentfile):
+  '''Tells whether ``currentfile`` ends ``plan``, so that nothing is to be made.'''
+  return Maker(plan, ToolchainContext(currentfile=currentfile), None, None, {}).done
+
+class JobGraph(object):
+  '''
+  The jobs of a parallel run, in the order they were found: a module after
+  the modules it imports.
+  '''
+  def __init__(self, plan, currypath):
+    self.plan = plan
+    self.currypath = currypath
+    self.jobs = []
+    # By the Curry file of a visited module: its own job (None when its files
+    # are current, or while it is under visit), and the jobs an importer of
+    # the module waits for: its own job when its files are stale, else the
+    # jobs of its stale imports.  A module under visit has no job yet, so a
+    # cycle (an import declaration inside a comment, say) adds no edge.
+    self._own = {}
+    self._deps = {}
+
+  def add(self, arg, is_sourcefile=False):
+    '''
+    Adds the job of a named module and the jobs of its stale imports.
+    Returns the job, or None when the files of the module are current or
+    the name is a package, with the current file of the module.  Raises
+    what the lookup of the module raises.
+    '''
+    currentfile = _findcurry.currentfile(
+        self.plan, arg, self.currypath, is_sourcefile=is_sourcefile
+      )
+    return self._visit(arg, currentfile), currentfile
+
+  def _visit(self, arg, currentfile):
+    if os.path.isdir(currentfile):
+      return None
+    curryfile = _filenames.curryfilename(currentfile)
+    if curryfile in self._own:
+      return self._own[curryfile]
+    self._own[curryfile] = None
+    self._deps[curryfile] = []
+    waits = []
+    for name in imports_of(curryfile):
+      try:
+        imported = _findcurry.currentfile(self.plan, name, self.currypath)
+      except (exceptions.ModuleLookupError, exceptions.PrerequisiteError):
+        continue
+      if os.path.isdir(imported):
+        continue
+      self._visit(name, imported)
+      waits.extend(self._deps[_filenames.curryfilename(imported)])
+    waits = list(dict.fromkeys(waits))
+    if is_done(self.plan, currentfile):
+      self._deps[curryfile] = waits
+      return None
+    job = Job(arg, currentfile)
+    job.imports = waits
+    self.jobs.append(job)
+    self._own[curryfile] = job
+    self._deps[curryfile] = [job]
+    return job
+
+def child_command(args, job):
+  '''The command that makes the module of ``job`` in a child process.'''
+  cmd = [sys.executable, '-m', config.python_package_name() + '.tools.make']
+  for flag in [ 'compact', 'cxx', 'so', 'icy', 'json', 'keep_going', 'py'
+              , 'quiet', 'tidy', 'zip' ]:
+    if getattr(args, flag):
+      cmd.append('--' + flag.replace('_', '-'))
+  if args.curry2icurry:
+    cmd += ['--curry2icurry', args.curry2icurry]
+  if args.goal is not None:
+    cmd += ['--goal', args.goal]
+  cmd.append(job.arg)
+  return cmd
+
+def child_environment():
+  '''The environment of a child: this package in front of PYTHONPATH.'''
+  env = dict(os.environ)
+  root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+  path = env.get('PYTHONPATH', '')
+  env['PYTHONPATH'] = root + (os.pathsep + path if path else '')
+  return env
+
+def _make_parallel(program_name, plan, args, kwds, error_handler, jobs):
+  '''
+  Makes the named modules with up to ``jobs`` child processes.  An ICurry
+  file is converted in this process.  With -o, the one named module is made
+  in this process after its imports, as a serial run makes it.
+  '''
+  graph = JobGraph(plan, config.currypath())
+  deferred = []
+  for name in args.names:
+    with error_handler:
+      if name.endswith('.icy'):
+        _make_one(program_name, plan, name, args, kwds)
+        continue
+      job, currentfile = graph.add(name, is_sourcefile=name.endswith('.curry'))
+      if args.output:
+        deferred.append(name)
+        if job is not None:
+          graph.jobs.remove(job)
+      elif job is None:
+        _ensure_bytecode(args, currentfile)
+  if graph.jobs:
+    _prepare_shared(plan)
+  run_jobs(program_name, graph.jobs, jobs, args, error_handler)
+  if error_handler.nerrors and not args.keep_going:
+    return
+  for name in deferred:
+    with error_handler:
+      _make_one(program_name, plan, name, args, kwds)
+
+def _prepare_shared(plan):
+  '''
+  Builds, once in this process, what every child would otherwise build on
+  its own: the precompiled header of the C++ backend, when the plan compiles
+  objects and the header is missing or stale.  A child finds it current.
+  Without this, N children over a tree without the header compile it N
+  times (os.replace keeps the tree correct, so the cost is time alone).
+  '''
+  for stage in plan.stages:
+    prepare = getattr(stage.step, 'prepare_header', None)
+    if prepare is not None:
+      prepare()
+
+def run_jobs(program_name, jobs, width, args, error_handler, poll_interval=0.05):
+  '''
+  Runs the children of ``jobs``, at most ``width`` at once.  A job starts
+  when the jobs of its imports have ended well.  A job whose import failed
+  is not started, and counts as an error.  After an error no further job
+  starts unless -k was given; the running children end by themselves.  The
+  output of a child is written when it ends, so the lines of one module stay
+  together.
+  '''
+  pending = list(jobs)
+  running = []
+  finished = set()
+  failed = set()
+  stop = False
+  env = child_environment()
+  try:
+    while pending or running:
+      for job in list(pending):
+        if stop or len(running) >= width:
+          break
+        if any(dep in failed for dep in job.imports):
+          pending.remove(job)
+          failed.add(job)
+          error_handler.nerrors += 1
+          sys.stderr.write(
+              '%s: %s was not made because an import failed.\n'
+                  % (program_name, job.arg)
+            )
+        elif all(dep in finished for dep in job.imports):
+          pending.remove(job)
+          job.stdout = tempfile.TemporaryFile()
+          job.stderr = tempfile.TemporaryFile()
+          job.proc = subprocess.Popen(
+              child_command(args, job), stdin=subprocess.DEVNULL
+            , stdout=job.stdout, stderr=job.stderr, env=env
+            )
+          running.append(job)
+      if not running:
+        break
+      job = _wait_any(running, poll_interval)
+      running.remove(job)
+      _relay(job)
+      if job.proc.returncode == 0:
+        finished.add(job)
+      else:
+        failed.add(job)
+        error_handler.nerrors += 1
+        stop = not args.keep_going
+  except BaseException:
+    for job in running:
+      job.proc.terminate()
+    for job in running:
+      job.proc.wait()
+      _relay(job)
+    raise
+
+def _wait_any(running, poll_interval):
+  '''Waits for the first of the running children to end and returns its job.'''
+  while True:
+    for job in running:
+      if job.proc.poll() is not None:
+        return job
+    time.sleep(poll_interval)
+
+def _relay(job):
+  '''Writes the output of an ended child to the streams of this process.'''
+  for stream, out in [(job.stdout, sys.stdout), (job.stderr, sys.stderr)]:
+    stream.seek(0)
+    data = stream.read()
+    stream.close()
+    if data:
+      out.write(data.decode('utf-8', errors='replace'))
+      out.flush()
 
 if __name__ == '__main__':
   main(PROGRAM_NAME, sys.argv[1:])

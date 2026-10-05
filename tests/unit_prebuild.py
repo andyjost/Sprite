@@ -161,6 +161,43 @@ class TestStagedLibrary(cytest.TestCase):
                 ]:
       self.assertIn(name, unset)
 
+  def test_prebuild_recipe_follows_the_job_count(self):
+    '''
+    The C++ step of the prebuild recipe passes the job count of make to
+    sprite-make --jobs: the -jN that MAKEFLAGS carries, auto for a bare -j,
+    else JOBS of Make.config.  The ICurry and Python steps stay serial.
+    '''
+    make_program = shutil.which('make')
+    if make_program is None \
+        or not os.path.isfile(os.path.join(SOURCE_ROOT, 'Make.config')):
+      self.skipTest('no make, or the source tree is not configured')
+    env = dict(os.environ)
+    for name in ['MAKEFLAGS', 'MFLAGS', 'GNUMAKEFLAGS']:
+      env.pop(name, None)
+    def make(*args):
+      proc = subprocess.run(
+          [ make_program, '-C', os.path.join(SOURCE_ROOT, 'curry')
+          , 'PREFIX=/nonexistent/prefix' ] + list(args)
+        , capture_output=True, text=True, timeout=120, env=env
+        )
+      self.assertEqual(proc.returncode, 0, proc.stderr)
+      return proc.stdout
+    def flags(*args):
+      output = make('-s', 'print-PREBUILD_SO_FLAGS', *args)
+      match = re.search(r'PREBUILD_SO_FLAGS is a \w+ variable set to \[(.*)\]', output)
+      self.assertIsNotNone(match, output)
+      return match.group(1)
+    self.assertEqual(flags('-j3'), '--jobs 3 -zc')
+    self.assertEqual(flags('-j'), '--jobs auto -zc')
+    self.assertEqual(flags('JOBS=1'), '--jobs 1 -zc')
+    self.assertEqual(flags('JOBS='), '--jobs 1 -zc')
+    self.assertEqual(flags('-j2', 'JOBS=1'), '--jobs 2 -zc')
+    output = make('-n', 'prebuild', '-j3')
+    self.assertIn('sprite-make --so --jobs 3 -zc', output)
+    self.assertIn('sprite-make --json -zc', output)
+    self.assertIn('sprite-make --py -zc', output)
+    self.assertEqual(output.count('--jobs'), 2, output)
+
 class JsonModuleTestCase(cytest.TestCase):
   '''A temporary source directory of hand-written ICurry-JSON modules.'''
   # The C++ runtime keeps one entry per module name, so every module built in

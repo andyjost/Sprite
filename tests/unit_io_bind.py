@@ -118,7 +118,7 @@ class TestIOBind(IOBindTestCase):
 
   @unittest.skipIf(
       curry.flags['backend'] != 'cxx'
-    , 'unit_py_io covers the Python backend with a small step budget'
+    , 'unit_py_io_files covers the Python backend with a small step budget'
     )
   @cytest.with_flags(defaultconverter='topython')
   def test_writeFile_keeps_prefix_across_rotation(self):
