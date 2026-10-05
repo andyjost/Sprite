@@ -3444,3 +3444,34 @@
   solve, the error printer's depth cap, the empty string printed raw, the
   truncate and properFraction divergence of PAKCS, and the issue texts of
   #58.
+
+2026-10-05: the primitives' names and the symbol table of a compiled module
+
+- After the merge of stage 2, func_io's goal `error` failed on the C++
+  backend under the tiered default with "bad Curry string", on the tree
+  before the merge as well.  Cause: Module::link keys the symbol table of a
+  compiled module by the name of each info table, and fifteen primitives
+  behind externals carried the name of the Curry function that wraps them
+  (prim_error was shown as "error", prim_showIntLiteral as
+  "showIntLiteral", and so on).  So `Prelude.error`, looked up by name,
+  resolved to the primitive without the `$##` of the Curry function, and an
+  unevaluated (++) reached extract_string.  Only a caller that runs
+  interpreted meets it: compiled code links the function directly, and
+  under interpret:all the Prelude's tables are built from its ICurry with
+  the Curry names.  The lookup by name also serves Python-built
+  expressions, so curry.eval(P.error, <unevaluated message>) failed the
+  same way.  Fix: every prim_X table is named prim_X (its Curry name; the
+  name shows in a partial application and in traces, where PAKCS shows the
+  Curry name too); Module::link asserts that a name maps to one table; and
+  extract_string follows forward nodes, as Node::successor_node does, and
+  names the offending node in its error.  Tests: unit_prelude.py
+  TestErrorMessage (a module compiled from text raises the full message on
+  both backends; the primitives' names on the C++ backend); func_io passes
+  with the io corpus interpreted first; unit_cxx_tiered's
+  test_nondet_io_argument_error, the mixed-mode gap of the B3 entry above
+  (an interpreted module applying readFile of the compiled Prelude), passes
+  and lost its expected-failure mark: it was the same defect.
+- Two tests adjusted to the merged tree: func_typed_expr's Float-text test
+  lost its C++ expected-failure mark (#34 is fixed), and unit_cxx_emit
+  builds the goal of its hand-made module with raw_expr, because that
+  module has no FlatCurry interface for the typed builder.

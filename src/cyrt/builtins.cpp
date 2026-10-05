@@ -477,16 +477,31 @@ namespace cyrt
     assert(str);
     if(typetag(*str->info) == F_CSTRING_TYPE)
       return NodeU{str}.c_str->data;
+    // A normal form may hold forward nodes left by a rewrite in place;
+    // follow them, as Node::successor_node does.
+    auto const target = [](Node * node)
+    {
+      while(node->info->tag == T_FWD)
+        node = NodeU{node}.fwd->target;
+      return node;
+    };
     std::string out;
     while(true)
     {
+      str = target(str);
       switch(str->info->tag)
       {
-        case T_CONS: utf8_encode(out, NodeU{NodeU{str}.cons->head}.char_->value);
+        case T_CONS: utf8_encode(
+                         out, NodeU{target(NodeU{str}.cons->head)}.char_->value
+                       );
                      str = NodeU{str}.cons->tail;
                      break;
         case T_NIL:  return out;
-        default: throw std::invalid_argument("bad Curry string");
+        default:
+          throw std::invalid_argument(
+              std::string("bad Curry string: node ") + str->info->name
+            + " (tag " + std::to_string(str->info->tag) + ")"
+            );
       }
     }
   }

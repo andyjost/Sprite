@@ -87,7 +87,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "error"
+    , /*name*/       "prim_error"
     , /*format*/     "p"
     , /*step*/       error_step
     , /*type*/       nullptr
@@ -98,7 +98,7 @@ extern "C"
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "error2"
+    , /*name*/       "prim_error2"
     , /*format*/     "pp"
     , /*step*/       error2_step
     , /*type*/       nullptr

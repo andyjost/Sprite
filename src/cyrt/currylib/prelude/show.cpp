@@ -22,7 +22,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "showCharLiteral"
+    , /*name*/       "prim_showCharLiteral"
     , /*format*/     "p"
     , /*step*/       show_step
     , /*type*/       nullptr
@@ -33,7 +33,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "showFloatLiteral"
+    , /*name*/       "prim_showFloatLiteral"
     , /*format*/     "p"
     , /*step*/       show_step
     , /*type*/       nullptr
@@ -44,7 +44,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "showIntLiteral"
+    , /*name*/       "prim_showIntLiteral"
     , /*format*/     "p"
     , /*step*/       show_step
     , /*type*/       nullptr
@@ -55,7 +55,7 @@ extern "C"
     , /*arity*/      1
     , /*alloc_size*/ sizeof(Node1)
     , /*flags*/      F_STATIC_OBJECT
-    , /*name*/       "showStringLiteral"
+    , /*name*/       "prim_showStringLiteral"
     , /*format*/     "p"
     , /*step*/       show_step
     , /*type*/       nullptr

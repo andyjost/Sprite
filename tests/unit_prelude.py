@@ -358,3 +358,26 @@ class TestPrelude(cytest.TestCase):
     # ctor <=> free
     self.checkSatisfied([], unknown)
 
+
+
+class TestErrorMessage(cytest.TestCase):
+  '''The message of ``error`` reaches the runtime in normal form.'''
+
+  def test_error_message_is_normalized(self):
+    # A module that runs interpreted at first (the tiered default of the C++
+    # backend) resolves Prelude.error through the symbol table of the
+    # compiled Prelude.  The primitive behind prim_error carried the display
+    # name "error" and shadowed the function that normalizes the message, so
+    # an unevaluated (++) reached the runtime ("bad Curry string").
+    M = curry.compile('main = error ("A " ++ "b")', mode='module')
+    with self.assertRaisesRegex(curry.EvaluationError, r'^A b'):
+      list(curry.eval(M.main))
+
+  @unittest.skipUnless(curry.flags['backend'] == 'cxx', 'C++ symbol tables')
+  def test_primitives_carry_their_curry_names(self):
+    self.assertEqual(curry.symbol('Prelude.prim_error').info.name, 'prim_error')
+    self.assertEqual(curry.symbol('Prelude.error').info.name, 'error')
+    self.assertEqual(
+        curry.symbol('Prelude.prim_showIntLiteral').info.name
+      , 'prim_showIntLiteral'
+      )
