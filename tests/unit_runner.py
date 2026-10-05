@@ -766,7 +766,8 @@ class TestCli(unittest.TestCase):
   def test_defaults(self):
     args = cli.parse_args([])
     self.assertEqual(args.jobs, testrunner.DEFAULT_JOBS)
-    self.assertIn(testrunner.DEFAULT_JOBS, [1, 'auto'])
+    # The width without -j is auto since the calibration of the manifest.
+    self.assertEqual(testrunner.DEFAULT_JOBS, 'auto')
     self.assertEqual(args.timeout, testrunner.DEFAULT_TIMEOUT)
     self.assertIsNone(args.fast)
     self.assertIsNone(args.changed)
@@ -784,13 +785,16 @@ class TestCli(unittest.TestCase):
       self.assertRaises(SystemExit, cli.parse_args, ['-j', '0'])
 
   def test_default_width_may_be_auto(self):
-    '''The planned flip of DEFAULT_JOBS to 'auto' must not break the help.'''
+    '''The help reads the default width, a count or 'auto'.'''
     for jobs in (1, 4, 'auto'):
       args = cli.parse_args([], jobs=jobs)
       self.assertEqual(args.jobs, jobs)
       text = cli.build_parser(jobs).format_help()
       self.assertIn('[default: %s]' % jobs, text)
-      self.assertIn('%s at a time' % jobs, cli.epilog(jobs))
+      self.assertIn(
+          'up to the core count' if jobs == 'auto' else '%s at a time' % jobs
+        , cli.epilog(jobs)
+        )
     args = cli.parse_args(['-j', '2'], jobs='auto')
     self.assertEqual(args.jobs, 2)
 

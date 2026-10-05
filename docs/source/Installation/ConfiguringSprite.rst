@@ -83,7 +83,7 @@ Build options
 
 ``configure --jobs N`` sets the number of jobs that ``make`` runs at once.
 ``--jobs auto`` gives one job per processor, counted when ``make`` starts.
-The default is 1, a serial build.  ``configure`` writes the value to
+It is the default; ``--jobs 1`` is a serial build.  ``configure`` writes the value to
 ``Make.config`` as ``JOBS``, so ``make stage`` runs in parallel without
 ``-j``.  A ``-j`` on the ``make`` command line wins, and so does
 ``make JOBS=N``.

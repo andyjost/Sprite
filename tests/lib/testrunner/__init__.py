@@ -40,10 +40,11 @@ BACKENDS = ('py', 'cxx')
 MIB = 1024 ** 2
 GIB = 1024 ** 3
 
-# The width of a run without -j: how many files run at once.  One file at a
-# time until a calibration run on a quiet machine fills the manifest.  Then
-# the intended default is 'auto': the budget decides, up to the core count.
-DEFAULT_JOBS = 1
+# The width of a run without -j: how many files run at once.  'auto' lets
+# the budget decide, up to the core count, on the caps of the calibrated
+# manifest (the calibration of 2026-10-04; see the TODO).  A count runs that
+# many files at once; 1 runs them one at a time.
+DEFAULT_JOBS = 'auto'
 
 # The budget without --mem: this fraction of MemAvailable at the start.
 DEFAULT_MEM_FRACTION = 0.6

@@ -83,12 +83,13 @@ Merges to `master` happen at milestones.
   needs it). Add `--prepare` on a fresh checkout or after a change to the
   toolchain, so the shared Curry products are compiled before the files
   run in parallel. The output of each file is in
-  `tests/.cache/runner/<backend>/<file>.log`. The default width is 1
-  until `tests/manifest.json` is calibrated. The `func_*` tests need a
-  PAKCS oracle.
-- `configure --jobs auto --with-ccache` is the recommended developer setting
-  once the parallel build has passed its timed trial from a clean tree (see
-  TODO). Until then the default of `--jobs` is 1, a serial build.
+  `tests/.cache/runner/<backend>/<file>.log`. The default width is
+  `auto`: the budget decides how many files run at once, up to the core
+  count, on the caps of the calibrated `tests/manifest.json`; `-j 1` runs
+  the files one at a time. The `func_*` tests need a PAKCS oracle.
+- `configure --jobs auto --with-ccache` is the recommended developer setting.
+  The parallel build passed its timed trial from a clean tree (see TODO),
+  so the default of `--jobs` is `auto`; `--jobs 1` is a serial build.
   `make -jN stage` overrides the configured count for one run.
 - `scripts/setup-dev-machine.sh --prefix DIR` sets up a new machine: the
   apt packages (printed, never installed by the script), PAKCS, a conda

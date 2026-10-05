@@ -2589,3 +2589,12 @@
   ccache is under a minute: met.  The prebuild of the Curry library runs
   serially inside a parallel build and is the next bottleneck (41 of
   58.6 s).
+- The defaults flipped after the calibration: DEFAULT_JOBS is 'auto' in
+  tests/lib/testrunner/__init__.py (the budget decides the width, up to
+  the core count, on the caps of the calibrated manifest; -j 1 runs the
+  files one at a time) and in configure (one make job per processor;
+  --jobs 1 is a serial build).  tests/README, AGENTS.md, the configuration
+  page of the docs, the help texts and the tests that read the constants
+  follow.  The next bottleneck of the parallel build is the prebuild of the
+  Curry library, which runs serially inside it: 41 of the 58.6 s of a
+  parallel build without ccache.

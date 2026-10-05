@@ -22,10 +22,10 @@ PINNED_PAKCS_VERSION = '3.4.1'
 # FlatCurry, and the committed ICurry files and the oracle depend on it.
 PINNED_FRONTEND_VERSION = '2.0.0'
 # The number of jobs make runs at once when --jobs is not given: a count, or
-# 'auto' for one job per processor.  The serial build stays the default until
-# the parallel build is proven in a timed trial from a clean tree; then this
-# becomes 'auto'.  See the root Makefile.
-DEFAULT_JOBS = '1'
+# 'auto' for one job per processor.  The parallel build passed its timed
+# trial from a clean tree (issue #43; see the TODO), so 'auto' is the
+# default.  See the root Makefile.
+DEFAULT_JOBS = 'auto'
 
 class Tee(object):
   def __init__(self, stream):
@@ -184,7 +184,7 @@ def get_options():
   versions.add_argument('--with-python'         , type=str, metavar='python3', help='specifies the Python executable (env: PYTHON)')
 
   build = parser.add_argument_group('build arguments', 'Controls how make builds Sprite.')
-  build.add_argument('-j', '--jobs', type=jobs_type, metavar='N|auto', help='the number of jobs make runs at once: a count, or auto for one job per processor (default: %s, a serial build); a -j on the make command line wins' % DEFAULT_JOBS)
+  build.add_argument('-j', '--jobs', type=jobs_type, metavar='N|auto', help='the number of jobs make runs at once: a count, or auto for one job per processor (default: %s); 1 is a serial build; a -j on the make command line wins' % DEFAULT_JOBS)
 
   dev = parser.add_argument_group('development arguments', 'Enables features for Sprite developers.')
   dev.add_argument('--cache', type=str, metavar="['all'|'icurry'|'json']", help='enables caching; useful when the same Curry program will be run many times')

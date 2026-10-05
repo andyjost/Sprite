@@ -479,16 +479,16 @@ matches no test file, and 130 after Ctrl-C.
                     [--changed [REV]] [--prepare] [--update-manifest]
                     [--timeout S] [--list] [-v] [PATTERN ...]
 
-Without options every unit_*.py and func_*.py file runs, one at a time,
-on the backend of SPRITE_INTERPRETER_FLAGS.  The width is the constant
-DEFAULT_JOBS in lib/testrunner/__init__.py.  It is 1 until the calibration
-run described below; then the intended default is -j auto.  A PATTERN is
-a file name or a shell-style pattern of file names.  Several patterns
-select their union.  -v prints the output of every file.  With -v at width
-1 the output streams as it comes, and the file gets the standard input, so
-a breakpoint in a test works (the editor targets of the Makefile pass -v).
-Without -v the output goes to the log alone, and the file reads an empty
-standard input.
+Without options every unit_*.py and func_*.py file runs on the backend of
+SPRITE_INTERPRETER_FLAGS, at the width of -j auto: the budget described
+below decides how many files run at once, up to the core count.  The
+default is the constant DEFAULT_JOBS in lib/testrunner/__init__.py; -j 1
+runs the files one at a time.  A PATTERN is a file name or a shell-style
+pattern of file names.  Several patterns select their union.  -v prints
+the output of every file.  With -v at width 1 the output streams as it
+comes, and the file gets the standard input, so a breakpoint in a test
+works (the editor targets of the Makefile pass -v).  Without -v the output
+goes to the log alone, and the file reads an empty standard input.
 
 The manifest.  tests/manifest.json maps a file to a backend to its
 duration, its peak resident set, the counts of tests and failures, and

@@ -26,13 +26,15 @@ PREPARE_SECONDS_PER_MODULE = 60
 
 def epilog(jobs=DEFAULT_JOBS):
   '''The epilog of the help text; ``jobs`` is the default width.'''
+  width = 'as many at a time as the memory budget allows, up to the core ' \
+          'count' if jobs == 'auto' else '%s at a time' % jobs
   return '''
 Without options every unit_*.py and func_*.py file runs, one file per
-process, %(jobs)s at a time, on the backend of SPRITE_INTERPRETER_FLAGS (the
+process, %(width)s, on the backend of SPRITE_INTERPRETER_FLAGS (the
 Python backend by default).  A PATTERN is matched against the file names
 (shell style).  The output of each file goes to .cache/runner/<backend>/
 <file>.log.  See section 10 of README.
-''' % {'jobs': jobs}
+''' % {'width': width}
 
 def parse_jobs(text):
   '''"auto", or a positive count.'''
