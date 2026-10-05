@@ -810,7 +810,12 @@ class TestSelection(unittest.TestCase):
     self.assertEqual(names, ['func_kiel.py', 'func_math.py'])
     # A corpus without a functional test of its own.
     names, _, notes = self.selected(['tests/data/curry/benchmarks/Hello.curry'])
-    self.assertEqual(names, ['unit_benchmarks.py', 'unit_cxx_variable.py'])
+    self.assertEqual(
+        names
+      , [ 'unit_benchmarks.py', 'unit_cxx_heap.py', 'unit_cxx_passthrough.py'
+        , 'unit_cxx_variable.py'
+        ]
+      )
     self.assertIn('the benchmark programs', notes[0])
     names, _, _ = self.selected(['tests/data/curry/flat2icurry/Probe.curry'])
     self.assertEqual(

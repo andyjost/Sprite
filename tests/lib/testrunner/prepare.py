@@ -47,7 +47,11 @@ ANY = None
 # them (ANY for the pool).
 CORPUS = [
     ('data/curry', (), ANY)
-  , ('data/curry/benchmarks', (), ('unit_cxx_variable.py', 'unit_benchmarks.py'))
+  , ( 'data/curry/benchmarks', ()
+    , ( 'unit_benchmarks.py', 'unit_cxx_heap.py', 'unit_cxx_passthrough.py'
+      , 'unit_cxx_variable.py'
+      )
+    )
   , ( 'data/curry/eqconstr', ()
     , ( 'func_eqconstr.py', 'func_eqconstr_a0.py', 'func_eqconstr_a0b0c0_1.py'
       , 'func_eqconstr_a0b0c0_2.py', 'func_eqconstr_a0b0c0_3.py'

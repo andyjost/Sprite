@@ -48,7 +48,10 @@ RULES = [
   , ('conda/dev-environment.yml', ['unit_setup_script.py'], 'the setup script')
   , ('conda/*', ['unit_conda.py'], 'the conda recipes')
   , ( 'tests/data/curry/benchmarks/*'
-    , ['unit_benchmarks.py', 'unit_cxx_variable.py'], 'the benchmark programs'
+    , [ 'unit_benchmarks.py', 'unit_cxx_heap.py', 'unit_cxx_passthrough.py'
+      , 'unit_cxx_variable.py'
+      ]
+    , 'the benchmark programs'
     )
   , ( 'tests/data/curry/flat2icurry/*'
     , ['*flat2icurry*.py', '*curry2icurry*.py']
