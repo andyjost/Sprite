@@ -285,6 +285,8 @@
   and ignores -g on the command line; the saved program prints nothing where
   sprite-exec prints the value. examples/04-static-compile is a known failure
   in tests/unit_examples.py for this reason.
+  Fixed on 2026-10-05 (issue #35, the fix batch below): save without a goal
+  raises ValueError, and the saved program reads -g as sprite-exec does.
 - C++ backend: a set function that chooses among sub-terms of its own
   argument (set1 anyOf xs, set1 tails xs, set1 id x, set1 (\xs -> head xs ?
   last xs)) hits an assertion in procD or hnf (fairscheme.cpp) and aborts.
@@ -304,6 +306,8 @@
 - Residuation-style arithmetic over free Int variables (the sendMoreMoney
   program of the test data) suspends on the C++ backend and times out on the
   Python backend.
+  Fixed on 2026-10-05 (issue #37, below): the toolchain lacked the binding
+  optimization that PAKCS applies to every FlatCurry file.
 - inspect.getimpl raises ValueError on the C++ backend, and the per-function
   ICurry view prints only "exempt" for some functions (examples/03-inspect).
   Fixed on 2026-10-05 (the bug batch, below).
@@ -2354,7 +2358,8 @@
   lifted lambda before loadSymbols loads it (expected failure in
   unit_goals.py); str() of a function value whose head lives in an
   expression module fails in the same way after the module leaves the
-  registry; the saved program ignores -g (the metadata of Y11).
+  registry; the saved program ignored -g (the metadata of Y11) until the
+  fix batch of 2026-10-05 (issue #35: curry.__main__.SavedMain).
 - Y5, goal parity and type parity with the PAKCS REPL (issue #54).  The
   functional driver (tests/lib/cytest/testcase/functional.py) skipped
   every goal with a nonzero arity, so a goal without a signature whose
@@ -3475,3 +3480,232 @@
   lost its C++ expected-failure mark (#34 is fixed), and unit_cxx_emit
   builds the goal of its hand-made module with raw_expr, because that
   module has no FlatCurry interface for the typed builder.
+
+2026-10-05: residuation-style arithmetic over free Int variables (issue #37)
+- Diagnosis.  The sendMoreMoney program of the test data suspended on the
+  C++ backend and did not end within 120 s on the Python backend; PAKCS
+  prints the solution in 2.6 s.  The cause is not in the runtime.  PAKCS
+  runs the tool transbooleq over every FlatCurry file before it compiles
+  it (currytools/optimize/BindingOpt, called from compiler.pl under the
+  pakcsrc property bindingoptimization=fast): a Boolean equality whose
+  value is required to be True becomes constrEq.  The guard of main and
+  the guards of digit and nzdigit are such conditions.  Under PAKCS the
+  digit calls bind the letters and the store slots by constraint, and the
+  arithmetic conjuncts suspend on the unbound letters and resume as the
+  letters are bound.  With -Dbindingoptimization=no PAKCS reports
+  "Evaluation suspended" in 1 s, as the C++ backend did.  Sprite's
+  toolchain had no such pass.  The front end writes
+  _impl#==#Prelude.Eq#Prelude.Int, which is rigid (eqInt x y =
+  (prim_eqInt $# y) $# x), so vm == nzdigit 'M' suspended on vm for good,
+  and so did every other conjunct.  With =:= in place of == the C++
+  backend solved the program in 0.1 s before any change: the residuation
+  support of the runtime (the residuals of a configuration, ready() and
+  the rotation, concurrentAnd_step) was not at fault, and PAKCS, the
+  oracle, never ran the program as written either.  Facts of the probes:
+  under PAKCS, x == 3 and x == 'a' with x free suspend as values and bind
+  in a guard; a guard with an otherwise branch, an if-then-else, (||) in a
+  guard, (/=) in a guard, and id $ x == 3 suspend; (&&) in a guard, not
+  (x /= 3), solve (x == 3), (===), a polymorphic Eq dictionary, and a free
+  list bind; (x == 1) & (y == 2) as a value is True and (1 == 2) & True as
+  a value has no value, because (&) requires both arguments True whatever
+  its result is required to be; not ((x == 3) & (y == 4)) and not (solve
+  (x == 3)) as values suspend, and not (not ((x == 3) & (y == 4))) is
+  True.  Sprite gives the same seventeen answers on both backends after
+  the fix (tests/unit_flat2icurry_bindingopt.py, PARITY_RESULTS).
+- Fix.  curry.toolchain.flat2icurry.bindingopt is a port of the fast mode
+  of transbooleq: the walk over the rule with a required value (Any, AnyC,
+  or a constructor), caseArgType (the second branch False -> failed, or
+  the one live branch), the Prelude table of preludeBoolReqValues (&&,
+  not, ||, &, solve, &&>) with argumentTypesFor and lubAType, the three
+  shapes of an equality call (an instance method with its dictionaries
+  first, a class method under apply twice, a default instance method
+  under apply twice), the reduction of $ over a partial application, and
+  the rebuild of every rule that holds an equality.  The lattice is the
+  one of the analysis: the join of two different constructors is the set
+  of both (a frozenset), not AnyC, and a set requires nothing of the
+  arguments of a call below it.  The first port joined them to AnyC and
+  took the join path of the table under it, so not ((x == 3) & (y == 4))
+  and not (solve (x == 3)) as values gave False where PAKCS suspends; the
+  review of the batch found it.  translate and
+  translate_file take bindingopt=False; the build route
+  (_frontend.flat2icy) passes True; the oracle tests and the icurry route
+  do not, so the oracle stays what icurry wrote.  The command line has
+  --bindingopt.  The key of the ICurry cache covers the pass through the
+  digest of the port's sources.  A product written before the change is
+  reused until its source is newer (the chain keeps the filesys.newer
+  rule), so a module of the pool that needs the pass must lose its .icy
+  first, or its source must be touched; the review of the batch found the
+  pool product of sendMoreMoney in that state in the worktree of the
+  batch (it was made before the pass; sprite-exec -m sendMoreMoney
+  suspended), and a touch of the source made it again.  The overlay
+  archive holds no product of that module.  No test of the suite imports
+  it from the pool; the new tests compile their programs from text.
+- The Python backend, two defects.  Its primitives on unboxed values
+  (_unbox in backends/py/currylib/prelude/math.py) evaluated every
+  argument to hnf_or_free before they suspended, so vm == digit 'M' ran
+  the generator before it suspended on vm: ten configurations per letter,
+  their product for the program.  The C++ backend
+  (currylib/defs/unboxed.def) and PAKCS stop at the first free argument.
+  Four letters took 101 s on the Python backend and suspend at once now;
+  _unbox suspends at the first free argument, from the left.  With that
+  alone the puzzle still did not end there, and the first report of the
+  batch took it for a speed limit; the review found the cause: ($##)
+  (apply_gnf in backends/py/currylib/prelude/apply.py) counted a free
+  variable with a binding and no generator as a residual, and _make_ready
+  (rts_control.py) releases a configuration whose residual has a binding
+  at once, so the step suspended on the same variable again without end.
+  show x after x =:= (3 ? 4) spun at full load on the Python backend
+  (the C++ backend printed "3" and "4"), and the puzzle finished its
+  search (54,557 forks, the count of the C++ backend) and then spun in
+  the show of the first digit.  The step now suspends on the variables
+  without any information (rts.is_void: no generator, no binding, not
+  narrowed), the test of ensureNotFree.  The puzzle then takes about 7 s
+  on the Python backend.
+- Options not taken.  (1) Make == on Int narrow in the runtime: against
+  the semantics of Curry; x == 3 with x free suspends as a value under
+  PAKCS.  (2) Write the test program with =:=: hides the gap for every
+  program that relies on the default of PAKCS, the idiom last xs | xs ==
+  _ ++ [x] = x of the PAKCS manual among them.  (3) The full mode with the
+  required-values analysis of CASS: an interprocedural analysis over
+  FlatCurry, several hundred lines; the manual of PAKCS says the fast mode
+  is sufficient in most cases.  (4) Apply the pass to the FlatCurry file
+  on disk, as PAKCS does, so that the icurry route sees it too: needs a
+  FlatCurry writer (terms.showterm may serve) and a rewrite step before
+  icurry runs; then the overlay archive would carry the optimized files
+  and the two routes would agree again.  Open, with the committed ICurry
+  of the Curry library, which predates the pass.
+- Tests: tests/unit_flat2icurry_bindingopt.py, 28 tests on both backends.
+  TestPass: the pass on FlatCurry terms (the guard, both branch orders,
+  if-then-else kept, && and & in a guard, & as a value, && as a value
+  kept, || kept, not (/=), /= kept, solve, not over & and over solve as
+  values kept and not (not e) transformed, the lattice, $, the three call
+  shapes, a dictionary argument, === and /==, equivalence off, a let
+  binding, Free, Or and Typed, case_arg_type, the table, transform_prog),
+  the flag of translate, and --bindingopt on the FlatCurry of
+  sendMoreMoney.  TestRoute: one generator, two generators, the seventeen
+  shapes with the answers of PAKCS, and sendMoreMoney as written on both
+  backends (0.1 s on the C++ backend, about 7 s on the Python backend).
+  tests/unit_py_residuation.py, both backends, selected by the --changed
+  rule of the Python backend: TestSuspensionOrder (v == loopInt 0, v +
+  loopInt 0 == 1, and four letters under let-bound equalities suspend at
+  once) and TestGroundNormalForm (show x, show x ++ "!", and id $## x
+  after x =:= (3 ? 4), show x after x =:= y & y =:= 5, and show x after
+  x =:= y alone suspends).
+- Open.  The icurry route and the overlay archive lack the pass (option
+  4); AGENTS.md now says which settings tell the two routes apart.  A
+  product written before the pass is reused until its source is newer:
+  no mark of the translation that made an .icy file exists (the cache key
+  covers the pass, the chain on disk does not), and a mark cannot tell a
+  product of the old port from the pinned ICurry of the library, from an
+  extracted product of the overlay, and from a product of the icurry
+  route, which carry none.  A mark written from now on by the build route
+  (the digest of the route beside the .icy, as the interface files travel
+  with it) would cover the next change of the translation; left to a
+  decision.  The copy of the program under
+  tests/data/curry/benchmarks/failing was not run again.  The committed
+  ICurry of the Curry library predates the pass.
+- Verification, one file per process under prlimit --as 6 GB.
+  unit_flat2icurry_bindingopt.py: 28 tests OK on py (15 s, the puzzle
+  included) and on cxx (1.4 s).  unit_py_residuation.py: 3 tests OK on
+  both backends.  Unchanged files, before the review: unit_flat2icurry.py
+  68 OK (2 skipped), unit_curry2icurry.py 12 OK (1 skipped) on both
+  backends, unit_cache.py 28 OK, unit_py_constraints.py 4 skipped,
+  unit_py_evaluation.py 6 OK, func_residuation.py 7 OK on both backends.
+  PAKCS 3.4.1 on the three shapes of not as a value: notConcurrent and
+  notSolve suspend, notNotConcurrent is True; guardedConcurrent is (3,4).
+
+2026-10-05: the fix batch (issues #35, #37, #66) and its review
+- Three items fixed on branch wt/fixes, in one worktree, with a review of
+  the diff before the merge.  The entry of #37 (above) holds its details;
+  this entry holds the causes and fixes in short, the findings of the
+  review, and what remains.
+- #66, staleness by change time.  Cause: filesys.newer compared
+  os.path.getctime, the change time of the inode, and
+  _findcurry.currentfile starts a module from filesys.newest of its chain,
+  so a chmod, a rename, a hard link, or the prefix rewrite of conda decided
+  which product was newest; an installed .cpp could count as newer than
+  its .so with a matching ABI stamp, and the first import compiled the
+  module again.  Fix: newer compares st_mtime_ns; make overlay extracts
+  with tar -m, so the products (archived at 2000-01-01) are newer than the
+  sources of the checkout, and overlay-prune stays for the sources that
+  changed since the archive.  Tests: unit_findcurry.py (a chain whose
+  change times are reordered by chmod, and a real module built with the
+  plan of the backend, on both backends) and unit_cxx_toolchain.py (the
+  chain, not the object alone, set older than libcyrt).  Remains:
+  conda/README.md open question 3 (path-free generated sources); the kept
+  shipped object is an expectation until a package is installed under the
+  new rule (the README says so now); the test products copied into the
+  worktree have fresh times in arbitrary order, and the first run makes
+  them again, as before.
+- #37, residuation over free Int variables.  Cause: no binding
+  optimization in the toolchain (PAKCS applies transbooleq to every
+  FlatCurry file), and two defects of the Python backend, the order of the
+  suspension of a primitive and ($##) over a bound variable.  Fix: the pass
+  flat2icurry.bindingopt on the build route, _unbox suspends at the first
+  free argument, apply_gnf suspends on the void variables alone.  The
+  entry above has the details and what remains.
+- #35, curry.save without a goal.  Cause: save wrote a footer with
+  goal=None, and moduleMain of the saved program (src/python/__main__.py)
+  built its own argument list and never read sys.argv, so -g was ignored.
+  Fix: save without goal= raises ValueError (pass goal=NAME, or
+  module_main=False for a library; commit 1233abf8), and the saved program
+  runs curry.__main__.SavedMain, a Main with the switches igpstS: the
+  recorded goal is the default of -g and keeps its recorded scheme, another
+  goal gets its type from the module interface, -g '' runs nothing, --help
+  lists the switches, and -b, -m and a file argument are rejected with
+  status 2.  Tests: unit_goals.py TestSaveRefusals (both backends) and
+  TestSave.test_command_line (Python backend, compared with sprite-exec);
+  unit_examples.py runs 04-static-compile against expected.out on the
+  Python backend.  Remains: a goal other than the recorded one with class
+  constraints needs the module interface beside the recorded source path
+  (Y11 would close it); a legacy saved file with goal=None now honours -g
+  and runs nothing without it; the set of 04-static-compile stays {'py'}.
+- The review of the diff, seven findings, all applied.  (1) ($##) on the
+  Python backend (the entry of #37); the puzzle test runs on both backends
+  now.  (2) The lattice of the pass: the join of True and False is a set,
+  not AnyC.  (3) The pool product of sendMoreMoney made before the pass:
+  made again by a touch of its source; a general mark is open; the claim
+  of the finding that the overlay archive holds an unoptimized
+  sendMoreMoney.icy did not hold, the archive has no product of that
+  module.  (4) The tests of the Python backend moved to
+  unit_py_residuation.py, which the --changed rule of the backend selects.
+  (5) AGENTS.md names the two settings that tell the routes apart.  (6)
+  The entries of #35 in this file.  (7) conda/README.md states the kept
+  object as an expectation with its condition.
+- Verification through the runner (-j 2 --mem 4), both backends:
+  the named files on py (unit_goals.py 44 tests, unit_loadsave.py 4,
+  unit_flat2icurry_bindingopt.py 28, unit_py_residuation.py 3,
+  unit_findcurry.py 9, unit_examples.py 20): 6 of 6 OK; the same six and
+  unit_cxx_toolchain.py (32) on cxx: 7 of 7 OK; the fast tier on py: 59
+  of 59 OK; the fast tier on cxx: 56 files, 48 OK, 5 failed
+  (unit_cxx_stack.py 3 errors, unit_cxx_literals.py 1 failure,
+  unit_cxx_partial.py 1 error, unit_io_bind.py 7 errors, unit_inspect.py
+  2 failures) and 3 crashed (unit_cxx_scheduler.py, unit_cxx_bom.py,
+  unit_chars.py).  The eight fail the same way alone, and the same way
+  with the Python package of the base commit 966196bf on the runtime of
+  the worktree (a scratch copy of the package with the extension module
+  of the install; unit_io_bind.py gives the same seven errors there), and
+  unit_io_bind.py passes against the reference install of the head of
+  py314: the failures predate the batch, which changes no C++ file and no
+  file of the C++ backend, and sit in the runtime of the base commit or
+  in this install; the fast tier of the merged tree must run again.
+  Three symptoms: a module loaded from its shared object after a reload
+  of curry gives names that are not UTF-8 in IModule.fromBOM
+  (unit_io_bind.py, unit_cxx_stack.py); the process dumps core
+  (unit_chars.py in test_code_point_above_the_maximum, unit_cxx_bom.py in
+  test_generated_file, unit_cxx_scheduler.py); a corpus module is found
+  interpreted where the test expects its compiled object
+  (unit_inspect.py, unit_cxx_literals.py, unit_cxx_partial.py), the
+  condition of section 4 of tests/README when the prepare pass did not
+  run.  Single files, one process at a time: unit_flat2icurry.py 68 OK
+  (2 skipped) on py; unit_curry2icurry.py 12 OK (1 skipped) on both
+  backends.
+  --changed maps Makefile, src/python/__main__.py and
+  src/python/utility/filesys.py to every test file (paths unknown to
+  RULES), so its selection is the whole suite; the named files and the
+  fast tier ran instead.  unit_currylib.py did not run: it removes
+  products of the shared staged installation, which other streams use,
+  and only a comment changed there.  tests/manifest.json has no entries
+  for unit_flat2icurry_bindingopt.py and unit_py_residuation.py, and
+  unit_goals.py has 44 tests now (38 recorded): a calibration run on a
+  quiet machine adds them.

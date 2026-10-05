@@ -29,23 +29,32 @@ def getdir(name, mkdirs=False, access=os.O_RDWR):
 
 def newer(a, b):
   '''
-  Indicates whether file a is newer than file b.  Also returns true if b does
-  not exist.
+  Indicates whether file a is newer than file b: its modification time is
+  later.  Also returns true if b does not exist.
+
+  The change time of the inode does not count.  A chmod, a rename, a hard
+  link, or the prefix patch of a package manager moves it without a change
+  to the content, and in an order of its own.  The modification time keeps
+  the order in which the files were written, and a copy can preserve it.
   '''
   try:
-    t_b = os.path.getctime(b)
+    t_b = os.stat(b).st_mtime_ns
   except OSError:
     return True
   else:
     try:
-      t_a = os.path.getctime(a)
+      t_a = os.stat(a).st_mtime_ns
     except OSError:
       return False
     else:
       return t_a > t_b
 
 def newest(files):
-  '''Find the newest file from a collection of filenames.'''
+  '''
+  Find the newest file from a collection of filenames, by modification time
+  (see ``newer``).  Of two files with the same time, the later one in the
+  collection is taken.
+  '''
   assert files
   newest = files[0]
   for x in files[1:]:

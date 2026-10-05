@@ -56,13 +56,14 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
       or stream.
 
     goal:
-      The goal the saved program evaluates when it runs.  A program needs
-      one: without ``goal`` the call raises ``ValueError`` (issue #35).  To
-      save a module without a main program, for :func:`load`, pass
-      ``module_main=False``.  A goal with class constraints and no
-      signature is defaulted with the table of the PAKCS REPL at run time;
-      the file records its type, so it runs from any directory.  A goal the
-      table cannot default raises here, at save time.
+      The goal the saved program evaluates when it runs, unless ``-g`` on
+      its command line names another.  A program needs one: without
+      ``goal`` the call raises ``ValueError`` (issue #35).  To save a module
+      without a main program, for :func:`load`, pass ``module_main=False``.
+      A goal with class constraints and no signature is defaulted with the
+      table of the PAKCS REPL at run time; the file records its type, so it
+      runs from any directory.  A goal the table cannot default raises
+      here, at save time.
 
     kwds:
       Additional keyword arguments passed to ``IBackend.write_module``.

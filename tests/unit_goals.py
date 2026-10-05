@@ -9,6 +9,9 @@ applies the goal to one base instance per constraint, in the order of the
 scheme.  One path serves ``curry.eval`` of a module function,
 ``curry.compile(mode='expr')`` without ``exprtype``, ``:eval`` and ``:type``
 of the REPL, ``sprite-exec -g``, and saved modules on the Python backend.
+A saved program reads ``-g`` as ``sprite-exec`` does; the goal it was saved
+with is the default (issue #35).  ``curry.save`` without a goal raises on
+both backends.
 The text route lifts the variables of a trailing ``where x free`` to
 parameters, as the REPL does, and reports the bindings of the variables
 whose type is absent from the result type; a variable whose type occurs in
@@ -23,7 +26,7 @@ from curry.typecheck import defaulting, goals, sigtable
 from curry.typecheck.defaulting import DefaultingError, ORACLE_SENTENCE
 from curry.typecheck.goals import Bindings, Goal
 from io import StringIO
-import curry, os, re, subprocess, sys, tempfile, unittest
+import curry, os, re, shutil, subprocess, sys, tempfile, unittest
 
 MODULE = 'UnsignedGoals'
 MODULE_FILE = os.path.join(
@@ -704,25 +707,66 @@ class TestPrograms(cytest.TestCase):
     self.assertIn('Enum a => a', proc.stderr)
 
 
+class TestSaveRefusals(cytest.TestCase):
+  '''
+  What curry.save refuses, on both backends (issue #35).  A program needs a
+  goal, and a goal the table cannot default fails at save time.  Nothing is
+  written in either case.
+  '''
+
+  def setUp(self):
+    self.tmpdir = tempfile.mkdtemp(prefix='sprite-goals-')
+    self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+    self.M = curry.import_(MODULE)
+    self.filename = os.path.join(self.tmpdir, MODULE + '.py')
+
+  def test_without_goal(self):
+    '''save without a goal raises ValueError, to a file and to a string.'''
+    with self.assertRaisesRegex(ValueError, 'curry.save needs a goal'):
+      curry.save(self.M, self.filename)
+    self.assertFalse(os.path.exists(self.filename))
+    with self.assertRaisesRegex(ValueError, 'module_main=False'):
+      curry.save(self.M)
+    # A module without a main program is saved on both backends.
+    text = curry.save(self.M, module_main=False)
+    self.assertNotIn('moduleMain', text)
+    self.assertNotIn('entry()', text)
+
+  def test_undefaultable_goal(self):
+    '''save(goal='maxBound') raises at save time, with the sentence of the oracle.'''
+    with self.assertRaises(curry.CurryTypeError) as cm:
+      curry.save(self.M, self.filename, goal='main18')
+    self.assertIn('Bounded a => a', str(cm.exception))
+    self.assertIn(ORACLE_SENTENCE, str(cm.exception))
+    self.assertFalse(os.path.exists(self.filename))
+
+
 @unittest.skipIf(IS_CXX, 'curry.save writes C++ source on the C++ backend')
 class TestSave(cytest.TestCase):
   '''Saved modules on the Python backend.'''
 
   def setUp(self):
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-goals-')
-    self.addCleanup(lambda: __import__('shutil').rmtree(self.tmpdir, ignore_errors=True))
+    self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
     self.M = curry.import_(MODULE)
 
-  def run_saved(self, filename):
-    '''Runs a saved module from its own directory, without the search path.'''
+  def run_saved(self, filename, *argv, status=0):
+    '''
+    Runs a saved module from its own directory, without the search path, and
+    returns the completed process.  ``argv`` is its command line.
+    '''
     env = dict(os.environ)
     env.pop('CURRYPATH', None)
     proc = subprocess.run(
         ['timeout', str(TIMEOUT), sys.executable, os.path.basename(filename)]
+            + list(argv)
       , cwd=os.path.dirname(filename), env=env, capture_output=True, text=True
       )
-    self.assertEqual(proc.returncode, 0, proc.stderr)
-    return proc.stdout
+    self.assertEqual(
+        proc.returncode, status
+      , 'status %s; stdout:\n%s\nstderr:\n%s' % (proc.returncode, proc.stdout, proc.stderr)
+      )
+    return proc
 
   def test_constrained_goal(self):
     '''A saved module with a constrained goal runs from another directory.'''
@@ -736,12 +780,12 @@ class TestSave(cytest.TestCase):
     # The functions have bodies, not failing stubs (the defect behind the
     # known failure of examples/04-static-compile).
     self.assertLess(text.count('_0.rewrite(rts.Failure)'), 5)
-    self.assertEqual(self.run_saved(filename), 'Just 5\n')
+    self.assertEqual(self.run_saved(filename).stdout, 'Just 5\n')
 
   def test_io_goal(self):
     filename = os.path.join(self.tmpdir, MODULE + '.py')
     curry.save(self.M, filename, goal='main16')
-    self.assertEqual(self.run_saved(filename), '5\n')
+    self.assertEqual(self.run_saved(filename).stdout, '5\n')
 
   def test_signed_goal(self):
     '''A goal without dictionaries gets no scheme in the footer.'''
@@ -751,7 +795,45 @@ class TestSave(cytest.TestCase):
       text = stream.read()
     self.assertIn("goal='main33')", text)
     self.assertNotIn('goalscheme', text)
-    self.assertEqual(self.run_saved(filename), '7\n')
+    self.assertEqual(self.run_saved(filename).stdout, '7\n')
+
+  def test_command_line(self):
+    '''
+    The saved program reads its command line as sprite-exec does (issue
+    #35).  -g names the goal; the goal the module was saved with is the
+    default; the empty goal runs nothing; an unknown goal and a goal the
+    table cannot default are errors; the switches that do not apply to a
+    saved module are rejected.
+    '''
+    filename = os.path.join(self.tmpdir, MODULE + '.py')
+    curry.save(self.M, filename, goal='main14')
+    self.assertEqual(self.run_saved(filename).stdout, 'Just 5\n')
+    self.assertEqual(self.run_saved(filename, '-g', 'main14').stdout, 'Just 5\n')
+    # A signed goal, a constrained goal, and an IO goal print what
+    # sprite-exec prints.  The goals other than the recorded one get their
+    # types from the interface of the module, as under sprite-exec.
+    for goal, expected in [('main33', '7\n'), ('main15', '3\n'), ('main16', '5\n')]:
+      self.assertEqual(self.run_saved(filename, '-g', goal).stdout, expected)
+      proc = subprocess.run(
+          ['timeout', str(TIMEOUT), config.sprite_exec(), '-m', MODULE, '-g', goal]
+        , capture_output=True, text=True
+        )
+      self.assertEqual(proc.stdout, expected, proc.stderr)
+    self.assertEqual(self.run_saved(filename, '-g', '').stdout, '')
+    proc = self.run_saved(filename, '-g', 'nosuch', status=1)
+    self.assertEqual(proc.stdout, '')
+    self.assertIn("no symbol 'nosuch'", proc.stderr)
+    proc = self.run_saved(filename, '-g', 'main17', status=1)
+    self.assertEqual(proc.stdout, '')
+    self.assertIn('Enum a => a', proc.stderr)
+    self.assertIn(ORACLE_SENTENCE, proc.stderr)
+    proc = self.run_saved(filename, '--help')
+    self.assertIn('usage: %s.py' % MODULE, proc.stdout)
+    self.assertIn('-g', proc.stdout)
+    self.assertNotIn('NAME', proc.stdout)
+    # No file name, no backend switch: the file is the module.
+    self.run_saved(filename, 'extra', status=2)
+    self.run_saved(filename, '-b', 'cxx', status=2)
 
   def test_goal_from_scheme(self):
     '''The footer's scheme rebuilds the goal without an interface file.'''
@@ -765,20 +847,9 @@ class TestSave(cytest.TestCase):
     self.assertEqual(texts(goal), ['Just 5'])
     self.assertIs(Main.goal_from_scheme(self.M.main33, goals.flat_type_text(self.M.main33.scheme)), self.M.main33)
 
-  def test_refusals(self):
-    '''save(goal='maxBound') raises at save time; save without a goal raises.'''
+  def test_library(self):
+    '''module_main=False saves the module without a main program.'''
     filename = os.path.join(self.tmpdir, MODULE + '.py')
-    with self.assertRaises(curry.CurryTypeError) as cm:
-      curry.save(self.M, filename, goal='main18')
-    self.assertIn('Bounded a => a', str(cm.exception))
-    self.assertIn(ORACLE_SENTENCE, str(cm.exception))
-    self.assertFalse(os.path.exists(filename))
-    with self.assertRaisesRegex(ValueError, 'curry.save needs a goal'):
-      curry.save(self.M, filename)
-    self.assertFalse(os.path.exists(filename))
-    with self.assertRaisesRegex(ValueError, 'curry.save needs a goal'):
-      curry.save(self.M)
-    # A module without a main program is still saved and loaded.
     curry.save(self.M, filename, module_main=False)
     with open(filename, encoding='utf-8') as stream:
       self.assertNotIn('moduleMain', stream.read())

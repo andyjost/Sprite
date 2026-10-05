@@ -4,9 +4,46 @@ from curry.toolchain import plans
 from curry.utility import filesys
 from curry.utility.binding import binding
 import tempfile
-import curry, os, shutil, time, unittest
+import curry, gc, importlib, os, shutil, stat, time, unittest
 
 GENERATE_GOLDENS = False
+
+def reorder_ctimes(files):
+  '''
+  Moves the change times of ``files`` to now, one file after the other, so
+  that their order by change time is the order given.  Each file gets a
+  chmod to the mode it has, which moves the change time of the inode and
+  leaves the modification time alone, as the prefix patch of a package
+  manager does (issue #66).  A chmod is repeated until the clock moved past
+  the file before.  A file system that keeps the change time on such a
+  chmod skips the test.
+  '''
+  last = 0
+  for filename in files:
+    before = os.stat(filename)
+    mode = stat.S_IMODE(before.st_mode)
+    floor = max(last, before.st_ctime_ns)
+    for _ in range(500):
+      os.chmod(filename, mode)
+      after = os.stat(filename)
+      if after.st_ctime_ns > floor:
+        break
+      time.sleep(0.002)
+    else:
+      raise unittest.SkipTest(
+          'a chmod to the same mode keeps the change time of %r' % filename
+        )
+    assert after.st_mtime_ns == before.st_mtime_ns, filename
+    last = after.st_ctime_ns
+
+class RefusingStep(object):
+  '''A step of a plan that refuses the files named in ``stale``.'''
+  def __init__(self):
+    self.stale = set()
+  def is_stale(self, filename):
+    return os.path.basename(filename) in self.stale
+  def __call__(self, *args, **kwds):
+    raise AssertionError('no step runs')
 
 class TestFindCurry(cytest.TestCase):
   def test_findFile(self):
@@ -195,6 +232,31 @@ class TestFindCurry(cytest.TestCase):
     self.assertTrue(
         filesys.newer('data/curry/hello.curry', 'this_file_does_not_exist')
       )
+    # The modification time decides, not the change time of the inode
+    # (issue #66).  Of two files with the same time, newest takes the later
+    # one in the collection.
+    with tempfile.TemporaryDirectory() as tmpdir:
+      a = os.path.join(tmpdir, 'a')
+      b = os.path.join(tmpdir, 'b')
+      base = int(time.time()) - 100
+      for i, filename in enumerate([a, b]):
+        open(filename, 'w').close()
+        os.utime(filename, (base + i, base + i))
+      self.assertTrue(filesys.newer(b, a))
+      self.assertEqual(filesys.newest([a, b]), b)
+      self.assertEqual(filesys.newest([b, a]), b)
+      # Now a has the later change time and the earlier modification time.
+      reorder_ctimes([b, a])
+      self.assertGreater(os.stat(a).st_ctime_ns, os.stat(b).st_ctime_ns)
+      self.assertTrue(filesys.newer(b, a))
+      self.assertFalse(filesys.newer(a, b))
+      self.assertEqual(filesys.newest([a, b]), b)
+      self.assertEqual(filesys.newest([b, a]), b)
+      os.utime(a, (base + 1, base + 1))
+      self.assertFalse(filesys.newer(a, b))
+      self.assertFalse(filesys.newer(b, a))
+      self.assertEqual(filesys.newest([a, b]), b)
+      self.assertEqual(filesys.newest([b, a]), a)
 
   def test_refused_files(self):
     '''
@@ -253,3 +315,145 @@ class TestFindCurry(cytest.TestCase):
     time.sleep(0.01)
     os.utime(curryfile, None)
     self.assertEqual(current(), curryfile)
+
+  def test_change_times_do_not_count(self):
+    '''
+    currentfile judges the chain of a module by modification times.  The
+    change times of the inodes move with a chmod, a rename, or the prefix
+    patch of a package manager, in an order of their own (issue #66); here
+    they are put in the reverse order of the chain, the source last.  The
+    newest product by modification time is still the current file, a
+    refused object still goes, and an edited source still wins.
+    '''
+    json_step = RefusingStep()
+    plan = plans.Plan(None, 0, [
+        plans.Stage(['.curry'], object())
+      , plans.Stage(['.icy'], object())
+      , plans.Stage(['.json'], json_step)
+      , plans.Stage(['.so'], None)
+      ])
+    srcdir = os.path.join(self.tmpdir.name, 'reordered')
+    subdir = os.path.join(srcdir, '.curry', config.intermediate_subdir())
+    os.makedirs(subdir)
+    curryfile = os.path.join(srcdir, 'm.curry')
+    files = plan.filelist(curryfile)
+    self.assertEqual(len(files), 4)
+    base = int(time.time()) - 100
+    for i, filename in enumerate(files):
+      open(filename, 'w').close()
+      os.utime(filename, (base + i, base + i))
+    reorder_ctimes(list(reversed(files)))
+    ctimes = [os.stat(f).st_ctime_ns for f in files]
+    self.assertEqual(ctimes, sorted(ctimes, reverse=True))
+    self.assertEqual(
+        [os.stat(f).st_mtime_ns for f in files]
+      , [(base + i) * 10 ** 9 for i in range(4)]
+      )
+    current = lambda: toolchain.currentfile(
+        plan, curryfile, [], is_sourcefile=True
+      )
+    self.assertEqual(current(), files[3])
+    json_step.stale.add('m.so')
+    self.assertEqual(current(), files[2])
+    json_step.stale.clear()
+    self.assertEqual(current(), files[3])
+    # An edit writes the source: its modification time is now.
+    with open(curryfile, 'w') as stream:
+      stream.write('-- edited\n')
+    self.assertEqual(current(), curryfile)
+
+class TestReorderedChangeTimes(cytest.TestCase):
+  '''
+  The products of a module are judged by their modification times (issue
+  #66).  A package manager that writes its prefix into the installed files
+  of a module, as conda does, gives them their final change times in an
+  order of its own.  By change times it was a lottery whether the .cpp or
+  the .so of a module counted as newer, and a module whose ABI stamp was
+  accepted was compiled again at its first import.  Here the change times
+  of a built chain are put in the reverse order: the module is not made
+  again; an edited source is, through every step; and on the C++ backend an
+  object whose stamp differs is.
+  '''
+  NAME = 'ChangeTimes'
+
+  def setUp(self):
+    super().setUp()
+    if curry.flags['backend'] == 'cxx':
+      # The compile steps run in this process.  Under the default of the
+      # flag ``interpret`` (tiered) the plan of a module ends at its JSON
+      # and the object is compiled in the background; see
+      # unit_cxx_toolchain.  The cleanup restores the default.
+      curry.reload({'interpret': 'off'})
+      curry.import_('Prelude')
+      self.addCleanup(self.reload_curry)
+    self.plan = plans.makeplan(
+        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+      )
+    self.tmpdir = tempfile.mkdtemp(prefix='sprite-findcurry-')
+    self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+    self.srcdir = os.path.join(self.tmpdir, 'src')
+    os.mkdir(self.srcdir)
+    self.curryfile = os.path.join(self.srcdir, self.NAME + '.curry')
+
+  @staticmethod
+  def reload_curry():
+    importlib.reload(curry)
+    gc.collect()
+
+  def write_source(self, value):
+    with open(self.curryfile, 'w') as stream:
+      stream.write('goal :: Int\ngoal = %d\n' % value)
+
+  def currentfile(self):
+    return toolchain.currentfile(self.plan, self.NAME, [self.srcdir])
+
+  def make(self):
+    return toolchain.makecurry(self.plan, self.NAME, [self.srcdir])
+
+  def mtimes(self, files):
+    return [os.stat(f).st_mtime_ns for f in files]
+
+  def test_kept_under_reordered_change_times(self):
+    files = self.plan.filelist(self.curryfile)
+    self.assertEqual(files[0], self.curryfile)
+    self.assertGreaterEqual(len(files), 4)
+    self.write_source(1)
+    self.assertEqual(self.make(), files[-1])
+    for filename in files:
+      self.assertTrue(os.path.isfile(filename), filename)
+    built = self.mtimes(files)
+    self.assertEqual(built, sorted(built))
+    # The change times in the reverse order of the chain, the source last.
+    reorder_ctimes(list(reversed(files)))
+    self.assertEqual(self.mtimes(files), built)
+    ctimes = [os.stat(f).st_ctime_ns for f in files]
+    self.assertEqual(ctimes, sorted(ctimes, reverse=True))
+    # The module is current.  Nothing is made again.
+    self.assertEqual(self.currentfile(), files[-1])
+    self.assertEqual(self.make(), files[-1])
+    self.assertEqual(self.mtimes(files), built)
+    # An edited source is made again, through every step.
+    self.write_source(2)
+    if os.stat(self.curryfile).st_mtime_ns <= built[-1]:
+      # A coarse clock gave the edit the time of the last product.
+      later = built[-1] + 1
+      os.utime(self.curryfile, ns=(later, later))
+    self.assertEqual(self.currentfile(), self.curryfile)
+    self.assertEqual(self.make(), files[-1])
+    remade = self.mtimes(files)
+    for old, new, filename in zip(built, remade, files):
+      self.assertGreater(new, old, filename)
+    self.assertEqual(remade, sorted(remade))
+    self.assertEqual(self.currentfile(), files[-1])
+    module = curry.import_(self.NAME, currypath=[self.srcdir])
+    self.assertEqual(
+        list(curry.eval(module.goal, converter='topython')), [2]
+      )
+    if curry.flags['backend'] == 'cxx':
+      # An object whose ABI stamp differs goes, whatever the times say.
+      from curry.backends.cxx.toolchain import Cpp2So
+      self.assertTrue(files[-1].endswith('.so'))
+      with open(Cpp2So.stampfile(files[-1]), 'w') as stream:
+        stream.write('0123456789abcdef\n')
+      self.assertEqual(self.currentfile(), files[-2])
+      self.assertTrue(files[-2].endswith('.cpp'))

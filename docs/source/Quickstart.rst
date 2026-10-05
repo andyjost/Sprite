@@ -315,6 +315,10 @@ The file can be run as a standalone application:
     % ./Peano.py
     S (S O)
 
+The program reads its command line as ``sprite-exec`` does: ``-g NAME``
+evaluates another goal of the module, ``-g ''`` runs nothing, and
+``--help`` lists the switches.
+
 To import the compiled module into Python, either import is as a regular Python
 module or use :func:`curry.load`:
 

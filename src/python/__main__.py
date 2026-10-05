@@ -164,16 +164,40 @@ def main(program_name, argv=None):
   mainobj = Main(program_name)
   mainobj(argv)
 
+class SavedMain(Main):
+  '''
+  The main program of a module saved with ``curry.save``.  The file is the
+  module, and it belongs to the Python backend, so the switches -b and -m
+  and the argument NAME are absent.  The goal the module was saved with is
+  the default of -g.
+  '''
+  DESCRIPTION = \
+  '''
+  Run the Curry module {0}, saved with curry.save.  The goal named by -g is
+  evaluated; the default is the goal the module was saved with.
+  '''
+  ARGUMENTS = 'igpstS'
+
+  def parseArgs(self, argv):
+    args = super().parseArgs(argv)
+    args.NAME = self.module_name
+    args.module = True
+    return args
+
 def moduleMain(filename, module_name, goal=None, goalscheme=None):
   '''
-  Main program for a Curry module saved with ``curry.save``.  Runs the goal
-  the module was saved with; ``goalscheme`` is its FlatCurry type as text,
-  so that a goal with class constraints runs wherever the module lies.  The
-  command line of the saved program is not read.
+  Main program for a Curry module saved with ``curry.save``.  Reads the
+  command line of the saved program as ``sprite-exec`` does (issue #35): -g
+  names the goal, by default ``goal``, the goal the module was saved with;
+  ``goalscheme`` is the FlatCurry type of that goal as text, so that a goal
+  with class constraints runs wherever the module lies.  Another goal of -g
+  gets its type from the interface of the module, as under ``sprite-exec``.
   '''
-  if goal is not None:
-    mainobj = Main(filename, module_name, default_goal=goal, goalscheme=goalscheme)
-    mainobj(['-m', module_name, '-g', goal])
+  mainobj = SavedMain(
+      os.path.basename(filename), module_name, default_goal=goal
+    , goalscheme=goalscheme
+    )
+  mainobj(sys.argv[1:])
 
 if __name__ == '__main__':
   main(PROGRAM_NAME)

@@ -50,8 +50,13 @@ Merges to `master` happen at milestones.
   `curry.toolchain.flat2icurry`, a Python port of `icurry` 3.1.0, writes
   ICurry. The `icurry` program is an optional alternative, configured with
   `configure --with-icurry` and selected with `SPRITE_CURRY2ICURRY=icurry`
-  or `sprite-make --curry2icurry icurry`. Both routes must write
-  byte-identical `.icy` files; `tests/README` describes the oracle.
+  or `sprite-make --curry2icurry icurry`. The translation of the port is
+  byte-identical to the files of `icurry` on the oracle (`tests/README`
+  describes it). The build route differs from the `icurry` route in two
+  settings: it applies the binding optimization of PAKCS
+  (`flat2icurry.bindingopt`, which turns a Boolean equality that a
+  condition requires to be True into `constrEq`), and it runs with
+  `icurry_compat=False` (see `src/python/toolchain/_frontend.py`).
 - `curry.expr` is typed (`src/python/typecheck/builder.py`): it reads the
   schemes of the FlatCurry interfaces, unifies the arguments with the
   parameter types, converts Python values by the expected type, defaults

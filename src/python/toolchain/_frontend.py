@@ -13,6 +13,13 @@ interfaces of the imports beside their sources.  Then
 The command runs in the directory of the module and names the module by its
 file name, as ``icurry`` does, so the output lands in the same places.
 
+The translation runs with ``bindingopt=True``: the binding optimization of
+:mod:`curry.toolchain.flat2icurry.bindingopt` turns the Boolean equalities
+of the conditions into equational constraints, as the preprocessing of
+PAKCS does before it compiles a FlatCurry file.  A program that binds free
+variables through ``==`` in a guard then runs as it runs under PAKCS.  The
+``icurry`` route does not apply it; its ICurry is the program as written.
+
 The translation runs with ``icurry_compat=False``.  ``icurry`` 3.1.0 loses
 the bindings of a let or free declaration under a type annotation at the
 root of a rule, and the program then fails at run time.  The port looks
@@ -121,7 +128,9 @@ def flat2icy(fcyfile, file_out, searchdirs):
   The interfaces of the imports are searched under ``searchdirs``.
   '''
   finder = flat2icurry.InterfaceFinder(searchdirs, [config.frontend_subdir()])
-  iprog = flat2icurry.translate_file(fcyfile, finder, icurry_compat=False)
+  iprog = flat2icurry.translate_file(
+      fcyfile, finder, icurry_compat=False, bindingopt=True
+    )
   flat2icurry.write_icurry(iprog, file_out)
 
 def curry2icurry(file_in, file_out, currypath, quiet=False):

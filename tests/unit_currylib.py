@@ -166,9 +166,9 @@ class TestCurryLib(cytest.TestCase):
         productfile('Numeric', '.*')
       , os.path.join(os.path.dirname(productfile('Numeric', '.py')), '__pycache__', 'Numeric.*')
       ]
-    # The products in the order of the toolchain.  The staleness rule of the
-    # toolchain compares ctimes, which a copy cannot preserve, so each product
-    # is put back after the one it is made from.
+    # The products in the order of the toolchain.  copy2 keeps their
+    # modification times, which the staleness rule of the toolchain compares,
+    # and each product is put back after the one it is made from.
     order = ['.icy', '.json.z', '.py', '.pyc', '.cpp', '.so', '.so.abi']
     def rank(path):
       return next((i for i, s in enumerate(order) if path.endswith(s)), len(order))

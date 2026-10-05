@@ -29,11 +29,18 @@ def apply(rts, _0):
     yield graph.Node(term, *(term.successors+[arg]), partial=True)
 
 def apply_gnf(rts, _0):
-  '''Implements ($##).'''
+  '''
+  Implements ($##).  The argument is normalized as by ($!!), and the step
+  suspends on the free variables of the result that carry no information:
+  no generator, no binding, and not narrowed (``rts.is_void``, the test of
+  ``ensureNotFree``).  A variable with a binding is not a residual.  A
+  configuration suspended on such a variable is ready at once, because
+  ``ready`` releases a residual with a binding, and the step would suspend
+  on it again without end (``show x`` after ``x =:= (3 ? 4)``).
+  '''
   rv = _applyspecial(rts, _0, _normalize) # Apply ($!!).
   unbound = [
-      y for y in (x.target for x in graph.iterexpr(_0))
-          if inspect.isa_freevar(y) and not rts.has_generator(y)
+      y for y in (x.target for x in graph.iterexpr(_0)) if rts.is_void(y)
     ]
   if unbound:
     rts.suspend(unbound)
