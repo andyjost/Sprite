@@ -116,16 +116,20 @@ class Plan(object):
     '''
     Tells whether a step of this plan refuses ``filename``.  A step refuses a
     file through its ``is_stale`` method, when it has one; see ``Json2Cpp``
-    and ``Cpp2So`` of the C++ backend.  The step of the file's stage is asked.
-    The last stage has no step, so the step before it, which made the file,
-    answers for it.
+    and ``Cpp2So`` of the C++ backend and ``curry2icurry`` of the toolchain.
+    The step of the file's stage, which reads the file, is asked, and so is
+    the step before it, which made the file.  A step that answers for both
+    its input and its output tells them apart by the suffix.
     '''
     position = self.position(filename)
-    step = self.stages[position].step
-    if step is None and position:
-      step = self.stages[position - 1].step
-    is_stale = getattr(step, 'is_stale', None)
-    return is_stale is not None and bool(is_stale(filename))
+    steps = [self.stages[position].step]
+    if position:
+      steps.append(self.stages[position - 1].step)
+    for step in steps:
+      is_stale = getattr(step, 'is_stale', None)
+      if is_stale is not None and is_stale(filename):
+        return True
+    return False
 
   def position(self, filename):
     '''Gives the current position in the plan.'''

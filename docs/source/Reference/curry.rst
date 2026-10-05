@@ -19,6 +19,7 @@ Subpackages
    curry.objects
    curry.toolchain
    curry.tools
+   curry.typecheck
    curry.utility
 
 Submodules

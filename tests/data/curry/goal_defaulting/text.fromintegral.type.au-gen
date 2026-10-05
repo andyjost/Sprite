@@ -1,0 +1,2 @@
+!goal fromIntegral 3
+Num a => a

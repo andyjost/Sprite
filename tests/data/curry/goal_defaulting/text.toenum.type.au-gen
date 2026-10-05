@@ -1,0 +1,2 @@
+!goal toEnum 65
+Enum a => a

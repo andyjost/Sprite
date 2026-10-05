@@ -1,0 +1,5 @@
+!goal toEnum 65
+!error
+Overloaded type: Enum a => a
+Cannot handle arbitrary overloaded top-level expressions
+Hint: add type annotation to specialize the type

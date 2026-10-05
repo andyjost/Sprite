@@ -17,6 +17,13 @@ route from Curry to ICurry (see section 8), so the two routes never share an
 entry.  Set SPRITE_CACHE_FILE to the empty string to run without the cache,
 or delete the file to start over.
 
+An entry holds the ICurry of a module and the two interface files the front
+end wrote for it, M.fint and M.icurry.  A hit writes all three beside each
+other under .curry/sprite-<pakcs>/.  The key format is 3 since the interface
+files joined the entry; the rows of format 2 stay in their own table, unread.
+The first run after the change compiles each test module once more and fills
+the new table; delete .cache/icurry.db to drop the old rows.
+
 
 2. TEST CATEGORIES
 ------------------
@@ -105,6 +112,21 @@ system such as PAKCS or KiCS2.
 The oracles are configured through the 'oracle*' scripts in this directory.  To
 disable oracle-based tests, remove these or make them non-executable.
 
+The oracle evaluates a goal in the REPL of PAKCS, in safe mode, so a goal of
+an I/O type is refused.  The script `oracle_type` prints the type the REPL
+infers for an expression (its :type command) without the expression:
+
+        ./oracle_type Prelude '1+2'
+        Num a => a
+
+func_goal_defaulting.py compares it with the type Sprite prints.  A golden
+result (*.au-gen) that begins with the line "!error" records a goal the
+oracle rejected; lib/cytest/oracle.py describes when one is written.  A
+golden of a text goal of func_goal_defaulting.py carries the text on its
+first line, "!goal <text>", before the result.  The oracle scripts quote the
+goal, so a text with a shell glob character, such as 1 ? 2, reaches the REPL
+as written.
+
 
 6. TESTING GUIDELINES
 ---------------------
@@ -117,6 +139,16 @@ Unit tests match the pattern unit_*.py.
   - Unit tests are expected to run quickly, as they are part of the
     edit-build-test cycle.  Tests that take a long time to run do not belong in
     the unit test area.
+  - unit_sigtable.py compiles data/curry/SigTable.curry on its first run and
+    compiles one module from text with the ICurry cache off, so the front
+    end runs once per test run; the interface files it reads are the .fint
+    files beside the .icy.
+  - unit_goals.py runs the REPL (python -m curry.tools.icy) and sprite-exec
+    in child processes on the backend of the test process, and compiles
+    text goals, so the front end runs for texts the cache does not hold.
+    Its module is data/curry/UnsignedGoals.curry.  On the Python backend
+    it saves that module and runs the saved program from a temporary
+    directory.
   - The exception is unit_examples.py.  It runs every example in a child
     process: about 40 s warm and about two minutes cold on one backend,
     because the first run compiles each Curry module and two examples compile
@@ -135,6 +167,20 @@ Functional tests match the pattern func_*.py:
 		list-reversal program, it is reasonable to reverse a handful of elements,
 		not millions.  These tests are not stress tests and do not need to
 		explore the limits of the implementation.
+  - A goal without a type signature keeps its class constraints as leading
+    dictionary parameters.  The driver (lib/cytest/testcase/functional.py)
+    reads the number of value parameters from the type scheme of the goal
+    and runs every goal without value parameters; curry.eval supplies the
+    dictionaries, and the PAKCS REPL defaults the constraints the same way.
+    A goal with value parameters is skipped, as before.
+  - func_goal_defaulting.py pins the parity of goals and types with the
+    PAKCS REPL: the modules under data/curry/goal_defaulting/ through the
+    driver, a list of text goals through curry.compile(mode='expr'), and
+    the :type of the REPL through oracle_type.  The goldens are committed;
+    a change to defaulting.curry regenerates them all, about 80 runs of
+    PAKCS.  The golden of a text goal records its text on its first line
+    and is made again when the text changes.  IO goals stay out, because
+    the oracle runs the REPL in safe mode.
 
 
 7. EDITOR INTEGRATION
@@ -165,6 +211,12 @@ when configure was given --with-icurry.  To check files by hand, say, e.g.,
 
 The harness prints the first differing byte and the first differing subterm
 of each file that differs.
+
+`make overlay` extracts the test products and copies the interfaces of the
+front end, M.fint and M.icurry, beside each extracted .icy file (the target
+overlay-interfaces of the root Makefile): an .icy file without them is stale
+and would be made again at its first import.  The committed archive predates
+the copies; a rebuilt archive packs them.
 
 The archive is rebuilt with `make overlay-archive` at the root of the
 repository.  The rule packs the .fcy, .fint, .icurry, .icy, and .json.z files

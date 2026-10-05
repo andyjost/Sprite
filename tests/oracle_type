@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Prints the type of a Curry expression as the PAKCS REPL infers it: the
+# output of the :type command without the expression.  For example,
+#
+#     oracle_type Prelude '1+2'
+#
+# prints "Num a => a".  The module is loaded first, so the expression may use
+# its names.  The script exits with status 0 and prints the type on one line.
+# If PAKCS rejects the expression, the script prints the messages of PAKCS on
+# standard error and exits with its status.
+#
+# The REPL does not run in safe mode here: safe mode refuses :type.  Nothing
+# is evaluated, so an expression of an I/O type is allowed.
+
+if [ $# != 2 ]; then
+  echo 1>&2 "USAGE: `basename $0` currymodule expression"
+  exit 1
+fi
+
+set +e
+module="$1"
+expr="$2"
+if [ -n "$SPRITE_HOME" -a -e "$SPRITE_HOME/tools/pakcs" ]; then
+  pakcs="$SPRITE_HOME/tools/pakcs"
+else
+  pakcs=pakcs
+fi
+errfile=$(mktemp) || exit 1
+trap 'rm -f "$errfile"' EXIT
+output=$("$pakcs" --nocypm -q :load "$module" :type "$expr" :quit 2>"$errfile")
+status=$?
+if [ $status != 0 ]; then
+  cat 1>&2 "$errfile"
+  [ -n "$output" ] && echo 1>&2 "$output"
+  exit $status
+fi
+
+# The REPL prints "<expression> :: <type>".  Print the type alone.
+printf '%s\n' "${output#"$expr :: "}"

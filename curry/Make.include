@@ -15,7 +15,9 @@ include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Make.include
 # $(INSTALL_DIR)/A/B.curry.  Its products are installed as
 # $(INSTALL_DIR)/A/.curry/$(INTERMEDIATE_SUBDIR)/B.icy and B.json.z.  The
 # FlatCurry interfaces of every module are written by the front end into
-# $(INSTALL_DIR)/.curry/$(FRONTEND_SUBDIR)/A/B.fint; see below.
+# $(INSTALL_DIR)/.curry/$(FRONTEND_SUBDIR)/A/B.fint; see below.  A copy of
+# B.fint and of B.icurry is placed beside B.icy; see "The interface files
+# beside the products".
 CURRYLIB_ROOT := $(ROOT_DIR)/curry/lib
 CURRYLIB_NOTICES := LICENSE NOTICE
 
@@ -89,6 +91,22 @@ ifneq ($(strip $(CURRY_FRONTEND)),)
   CURRYLIB_FLAT_STAMP   := $(INSTALL_DIR)/$(CURRYLIB_FLAT_DIR)/Prelude.fint
 endif
 
+# The interface files beside the products
+# =======================================
+# The two interface files of a module travel with its ICurry (see
+# curry.cache): the step that writes an .icy file writes the .fint and the
+# .icurry beside it, and the readers of the types use those copies only.  A
+# committed .icy file is copied, not made, so the stage copies the interfaces
+# of every module from the front end's output above to the place beside its
+# .icy: A/B.fint goes to $(INSTALL_DIR)/A/.curry/$(INTERMEDIATE_SUBDIR)/B.fint.
+# The prebuild step (see Makefile) then finds every module current.  Without
+# a front end there are no interfaces, and nothing is copied.
+CURRYLIB_IFACE_SUFFIXES := .fint .icurry
+CURRYLIB_IFACE_FILES := $(foreach s,$(CURRYLIB_IFACE_SUFFIXES),$(CURRYLIB_SRC_FILES:.curry=$s))
+ifneq ($(strip $(CURRY_FRONTEND)),)
+  CURRYLIB_INSTALL_IFACE := $(foreach f,$(CURRYLIB_IFACE_FILES),$(call currylib_installed_product,$f))
+endif
+
 # The products of the prebuild step
 # =================================
 # The prebuild step (see Makefile) compiles the installed library for both
@@ -99,7 +117,7 @@ endif
 # <package>/.curry/$(INTERMEDIATE_SUBDIR)/.  The front end, when sprite-make
 # runs it on a module, writes the FlatCurry of that module under
 # <package>/.curry/$(FRONTEND_SUBDIR)/.  make uninstall removes them all.
-CURRYLIB_PRODUCT_SUFFIXES := .icy .json.z .py .cpp .so .so.abi
+CURRYLIB_PRODUCT_SUFFIXES := .icy .json.z .py .cpp .so .so.abi $(CURRYLIB_IFACE_SUFFIXES)
 CURRYLIB_INSTALL_PRODUCTS := \
     $(foreach s,$(CURRYLIB_PRODUCT_SUFFIXES),$(foreach f,$(CURRYLIB_SRC_FILES:.curry=$s), \
         $(call currylib_installed_product,$f))) \
@@ -132,7 +150,7 @@ currylib:: icy json
 interfaces:
 	$(call currylib_frontend,$(CURRYLIB_ROOT))
 
-install :: $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_FLAT_STAMP)
+install :: $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_FLAT_STAMP) $(CURRYLIB_INSTALL_IFACE)
 
 ifneq ($(strip $(CURRY_FRONTEND)),)
 $(CURRYLIB_FLAT_STAMP): $(CURRYLIB_INSTALL_SRC)
@@ -157,6 +175,18 @@ $(call currylib_installed_product,$1): $(CURRYLIB_ROOT)/$1
 endef
 $(foreach f,$(CURRYLIB_PINNED_ICY_FILES) $(CURRYLIB_PINNED_JSON_FILES), \
     $(eval $(call currylib_install_product_rule,$f)))
+
+# The interface files go beside the products.  They are side effects of the
+# front-end run that writes the stamp, so the stamp is the prerequisite.
+define currylib_install_interface_rule =
+$(call currylib_installed_product,$1): $(CURRYLIB_FLAT_STAMP)
+	@mkdir -p $$(dir $$@)
+	cp $(INSTALL_DIR)/$(CURRYLIB_FLAT_DIR)/$1 $$@
+endef
+ifneq ($(strip $(CURRY_FRONTEND)),)
+  $(foreach f,$(CURRYLIB_IFACE_FILES), \
+      $(eval $(call currylib_install_interface_rule,$f)))
+endif
 
 # A committed .icy file is kept, even when the Curry source has a newer time
 # stamp, unless SPRITE_REBUILD_ICY is set.  The JSON is derived from the .icy

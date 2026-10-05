@@ -1184,3 +1184,229 @@
   an IO value is not copied on the Python backend and so not counted; the
   typed builder of Y7 passes the Data dictionary of the resolved type to
   unknown.
+- Y2, the signature table (issue #51).  The front end writes the type of
+  every function and constructor into M.fint, after the dictionary
+  translation, and the translation to ICurry dropped it.  Done: the new
+  package curry.typecheck (src/python/typecheck/sigtable.py).  An Interface
+  indexes one .fint text by byte offset with one regular expression that
+  matches a quoted name first, so that a name such as "(,)" or an operator
+  never starts or ends an entry, and records the offset of every Func,
+  Type, TypeSyn, TypeNew, Cons and NewCons entry; an entry is decoded with
+  the FlatCurry reader (toolchain/flat2icurry/flatcurry.py) the first time
+  a symbol asks for it, its end found by a bracket scan that skips quoted
+  names.  A Scheme holds the quantified variables (the nested quantifier of
+  a class method merged in), the context recovered from the leading
+  dictionary parameters (() -> _Dict#C t), the type without them, the
+  FlatCurry arity, the number of dictionaries, and the FlatCurry type as
+  written.  A constructor's scheme comes from its Type or TypeNew entry.
+  The printer writes Curry syntax, Num a => a -> a -> a, with the variables
+  named by first occurrence, Apply as juxtaposition, and the names of the
+  Prelude and of the symbol's own module unqualified (show_scheme takes
+  module= and qualify=).  The instance map comes from the _inst#Class#Type
+  names of every loaded module, with the instance context from the type;
+  the special constructors stay unqualified in the key ([], (), (,), (->));
+  a name of another shape is an error that names curry-frontend 2.0.0, and
+  the first read of the Prelude interface checks that
+  _inst#Prelude.Num#Prelude.Int exists.  One SignatureTable per
+  interpreter, interp.sigtable, memoized per module object (weak keys, so
+  the modules of compile(mode='expr') are served while they live);
+  Interpreter.reset clears it; the parsed files stay in a process-wide
+  cache keyed by path, size and mtime (as interfaces.load_interface does),
+  purged of vanished files at reset.  The interface file is searched beside
+  the module's .icy under the directory of the source and under the module
+  root (Y3 writes that copy), then the front end's own copy under
+  <root>/.curry/pakcs-3.4.1/ (A/B.fint for A.B) and under the per-directory
+  layout.  Sprite's boxed literals Int, Char and Float get the nullary types
+  as their schemes; the other symbols of Sprite's own Prelude (IO, ->,
+  _biGenerator, _biString) and the lifted _CASE and _LET functions have no
+  scheme.  A missing scheme is None through CurryNodeInfo.scheme and
+  CurryNodeInfo.signature and an InterfaceError (a CurryTypeError) only
+  through SignatureTable.lookup(symbol, required=True): "no type for M.f:
+  no FlatCurry interface found; recompile M or use raw_expr".  expr and
+  eval never read the table.  Measured on this item (Python 3.14, one run
+  in unit_sigtable.py, logged at INFO): the index of Prelude.fint (410 KB,
+  1267 functions, 45 types, 49 constructors) 11 ms; the decode of one entry
+  0.1 to 0.4 ms; a cold lookup after reset 0.3 ms; a warm lookup 7 us; a
+  full parse of the same file 350 ms.  Tests: unit_sigtable.py (21 tests,
+  both backends): the schemes of +, show, fmap, >>=, =:=, ?, unknown, Just,
+  [] and _inst#Prelude.Show#[] against the printed form and against a full
+  parse; Data.List, Control.SetFunctions and Data.Functor.Identity through
+  curry.module; the index against a full parse on Data/Maybe.fint,
+  Data/List.fint and the test module tests/data/curry/SigTable.curry (a
+  class with a default, two instances, a newtype, two constraints, a
+  binding without a signature, a private function); a dynamic module
+  compiled with the cache off, then without its interface; the fundamental
+  symbols; the instance map; the front-end check; the printer; the reset.
+  Left: the start-up check runs at the first read of the Prelude interface,
+  not at Interpreter.__new__, so an interpreter that never types anything
+  never reads a file; the index costs 11 ms, not the 3 ms of the design's
+  probe, because it indexes the types and constructors too and skips every
+  quoted name; a dynamic module on a cache hit has no interface until Y3
+  lands; Y4 and Y6 take the scheme objects from symbol.scheme or
+  interp.sigtable.lookup, the instances from interp.sigtable.instance, and
+  the declared arity of a type from interp.sigtable.type_decl.
+- Y3, the interface files travel with the ICurry (issue #52).  The table of
+  Y2 read the front end's copy of M.fint under .curry/pakcs-3.4.1/, which
+  can belong to another version of the source after a hit of the ICurry
+  cache (a miss on text v1, a miss on text v2, then a hit on v1).  Done:
+  KEY_FORMAT 3 with the columns fint and icurry; the converter copies both
+  files beside the .icy on a miss (place_interfaces), the slot writes them
+  on a hit, renamed for an anonymous module (rename_module covers the
+  Curry-interface header); a missing file is an empty copy and a NULL row,
+  so an empty interface file means the front end wrote none; icurry_is_stale
+  makes an .icy without them stale, and Plan.is_stale asks the producing
+  step too; curry/Make.include stages the library's interfaces beside the
+  committed .icy; the icurry route was verified to write both files.  Tests:
+  unit_cache.py (miss, hit, hit after a miss on a reverted text, anonymous
+  rename, disabled cache, NULL row, old table, second process with zero
+  front-end runs), unit_curry2icurry.py (copies, icurry route, staleness,
+  installed library).  Left: the overlay archive does not yet carry the
+  copies beside the .icy (the review below adds the copies at extraction);
+  Y2's fallback to the front end's copy (dropped in the review below).
+- Y4, goals: defaulting with the PAKCS table and native dictionaries
+  (issue #53, fixes #39; #35 in its refuse-to-save form).  A goal without
+  a signature is a function whose leading parameters are class
+  dictionaries, so curry.eval(M.main14) with main14 = Just 5 came back as
+  a partial application.  Done: curry.typecheck.defaulting applies the
+  table of the PAKCS REPL (c2p.pl defaultQualType) to a scheme: Num and
+  Integral to Int, Fractional and Floating to Float, Monad and MonadFail to
+  IO; Data, Eq, Ord, Read and Show dropped on Int and Float, Enum on Int,
+  Monad on IO; a lone Data to Bool; anything else the oracle's sentence
+  "Cannot handle arbitrary overloaded top-level expressions" with the
+  inferred type and a hint.  Apply (T ..) a is folded up to the declared
+  arity of T, so return 5 is IO Int.  curry.typecheck.goals applies the
+  goal to one base instance per constraint, in the order of the scheme,
+  each the partial application of _inst#Class#Type to no argument
+  (interp.expr of the symbol); value parameters left over give a function
+  value; an IO goal runs during eval and make_value unwraps it (both
+  backends did that already).  One path: goals.make_goal in
+  Interpreter.eval (a lone function symbol with dictionary parameters),
+  compile(mode='expr') without exprtype (the arity check counts the value
+  parameters of the scheme; a text that cannot be defaulted is a
+  CompileError), :eval and the new :type of the REPL
+  (python -m curry.tools.icy, now installed by make; :load adds the
+  directory of the module to the path and both commands import the loaded
+  module), sprite-exec -g, and on the Python backend saved modules: save
+  refuses a goal the table cannot default and, without a goal, refuses to
+  write a program (pass module_main=False for a library); the footer gains
+  goalscheme=<FlatCurry type text> and moduleMain builds the goal from it,
+  so the saved program runs from any directory.  save also compiles from
+  the ICurry-JSON of a module whose loaded ICurry is a bill of materials
+  (IExempt bodies): the saved file had a failing stub for every function,
+  the known failure of examples/04-static-compile, now removed.  The text
+  route lifts a trailing "where x, y free" to parameters of
+  compiled_expression, as the REPL does (splitWhereFree), applies the
+  goal to fresh free variables, and evaluates the tuple of the value and
+  the variables; curry.eval yields Bindings objects that print as PAKCS
+  prints them, {xs=[1, 2]} True, with one naming of the unbound variables
+  across the parts; with exprtype the clause stays local.  compile.py also
+  adds the root of a file module to the search path of an expression that
+  imports it.  Tests: unit_goals.py (37 tests, both backends): the table
+  on hand-made schemes, the module tests/data/curry/UnsignedGoals.curry
+  (main14 .. main33, addOne), text goals, where-free goals, the REPL and
+  sprite-exec in child processes, save on the Python backend;
+  unit_compile.py testExprType checks values instead of the old errors;
+  unit_loadsave.py saves with module_main=False.  Left: curry.expr(M.main14)
+  alone still builds the partial application (the typed builder of Y7
+  takes it); pure (1, 'a') is an Applicative constraint, which the oracle
+  rejects too, so the design's IO unit case is an error case; a lambda
+  text goal (\x -> x) fails on the Python backend before this item: the
+  expression module is compiled eagerly and importSymbol resolves the
+  lifted lambda before loadSymbols loads it (expected failure in
+  unit_goals.py); str() of a function value whose head lives in an
+  expression module fails in the same way after the module leaves the
+  registry; the saved program ignores -g (the metadata of Y11).
+- Y5, goal parity and type parity with the PAKCS REPL (issue #54).  The
+  functional driver (tests/lib/cytest/testcase/functional.py) skipped
+  every goal with a nonzero arity, so a goal without a signature whose
+  type has a class constraint, which the front end gives a dictionary
+  parameter, was never compared with the oracle: the goals of #39.  Done:
+  the driver reads the number of value parameters from the scheme
+  (value_arity: the arity less the dictionaries, or the arity when the
+  goal has no scheme) and skips only goals with value parameters;
+  curry.eval supplies the dictionaries (Y4).  No goal of the existing
+  corpus changes status: of the 33 goals with a nonzero arity in the .fint
+  files of the ten functional suites, six take dictionaries (kiel) and
+  every one has a value parameter too.  cytest.oracle.divine passes the
+  goal to the oracle as one argument, so a text with spaces reaches the
+  REPL whole; it takes the script to run (script=) and records a failing
+  run as a golden that begins with "!error" when asked (record_errors=);
+  a run the time limit ended raises as before.  The script
+  tests/oracle_type runs the :type command of the REPL, outside safe
+  mode, which refuses :type, and prints the type alone.  The suite
+  tests/func_goal_defaulting.py (50 tests, both backends):
+  data/curry/goal_defaulting/defaulting.curry, sixteen unsigned goals
+  (the acceptance list, 1 ? 2, fmap, take 3 [1 ..], two free variables)
+  plus goal17 with a value parameter, which the driver skips, and
+  rejected.curry (toEnum 65, maxBound + 1) as an intended failure, both
+  through the driver; twenty text goals through curry.compile(mode='expr')
+  against the :eval of the REPL on the same text, five of them with a
+  where-free clause; the three errors (toEnum 65 and maxBound + 1 in the
+  table, show [] in the front end) against recorded oracle output, with
+  the overloaded type of the message compared; and the :type of the REPL
+  against goal.signature for the seventeen module goals and against
+  expression_scheme for the twenty-three texts.  Values are compared
+  modulo the names of the unbound variables (PAKCS prints a lifted
+  variable by its name, {x=x} x and {x=x, y=x} True, Sprite {x=_a} _a and
+  {x=_a, y=_a} True), the format of floats (the C++ backend prints
+  1.0000000000000000) and the order of the lines; types modulo the names
+  of the variables and whitespace (PAKCS prints (a,Char)).  The 79
+  goldens are committed; their generation took 90 s on the Python
+  backend, about one second per run of PAKCS; a C++ run with the goldens
+  in place takes 14 s.  Observed on the oracle: `id` prints as id, a
+  function value; an IO goal is refused in safe mode with "Only initial
+  expressions of non I/O type are allowed!", which keeps IO goals out of
+  the suite (unit_goals.py covers them); :type does not lift a where-free
+  clause on either side, so x =:= y where x, y free is a type error on
+  both while its evaluation agrees.  Left: Sprite's type comes from the
+  .fint, so the type parity shows that the reader and the printer agree
+  with the front end, not an independent inference (Y8 adds the engine's
+  types); tests/oracle.pakcs expands $goal unquoted, which the REPL joins
+  again, but a text with a shell glob character would be expanded;
+  func_examples.py and the other functional suites were not re-run here
+  (func_smap.py was).
+- Review of stage 1 (the findings on Y2 to Y5).  Fixed: scheme_of_function
+  collected the dictionaries before one nested quantifier only, so a class
+  method with its own constraints (round, truncate, ceiling, floor,
+  properFraction) kept its Integral dictionary in the type, RealFrac b =>
+  (() -> _Dict#Integral a) -> b -> a, with ndicts 1; the loop now collects
+  dictionaries past every quantifier, the context is (RealFrac a, Integral
+  b) in the order the symbol takes them, ndicts is 2 while the FlatCurry
+  arity stays 1, source_arity is clamped at zero, and unit_sigtable.py
+  checks that no function of the Prelude outside the lifted locals
+  (f._#lambdaN, f.g.N) keeps a dictionary domain in its type.  make overlay
+  now copies M.fint and M.icurry from .curry/pakcs-3.4.1/ beside each
+  extracted .icy (target overlay-interfaces, OVERLAY_DIR=): the committed
+  archive holds 1187 .icy files and no copies, so after an extraction every
+  test module was stale and converted again at its first import, which undid
+  the speed-up and replaced icurry's file with the port's;
+  unit_curry2icurry.py extracts two modules into a scratch directory and
+  runs the target.  tests/oracle.pakcs and oracle.kics2 quote the module and
+  the goal, so 1 ? 2 and 2 ^ 3 reach the REPL unexpanded
+  (func_goal_defaulting.py runs the script with a one-character file in the
+  working directory).  The golden of a text goal records its text on its
+  first line, "!goal <text>", and is made again when the text in TEXTS or
+  ERRORS changes; before, it followed the time stamp of defaulting.curry
+  alone; the 46 text goldens were regenerated with the header.
+  curry.eval(M.addOne, 1) built (addOne 1) with the literal in the
+  dictionary slot and no word; goals.check_application now raises a
+  CurryTypeError that names curry.compile(mode='expr'), exprtype and the
+  dictionaries-first form, for the positional and the list form; explicit
+  dictionaries (goals.is_dictionary: an _inst# symbol, a node of one, or a
+  list headed by one) and raw_expr pass as before.  The comment of pass 2 of
+  the table claimed the order of the context does not matter; it does for
+  [Enum a, Data a] (Bool) against [Data a, Enum a] (rejected, the order the
+  front end writes), now pinned in unit_goals.py. interface_candidates no
+  longer lists the front end's copy under .curry/pakcs-3.4.1/: with Y3 every
+  .icy has its copies, and the front end's copy can belong to another
+  version of the source after a hit. Y3's documentation was applied to
+  tests/README, AGENTS.md and this entry.  Left for stage 2 (the items of
+  the epic after Y5): the typed builder takes curry.expr of an unsigned goal
+  and curry.eval with arguments (today an error), the Data dictionary of
+  unknown and the =:= spelling of #33; an independent inference for the type
+  parity; the REPL page of the documentation; -g in saved programs; and the
+  items the reports left: the start-up check at the first read of the
+  Prelude interface, the 11 ms index, the lambda text goal and str() of a
+  function value from an expression module on the Python backend, the
+  Applicative case, an overlay archive rebuilt with the icurry route that
+  packs the copies, and the functional suites that were not re-run.

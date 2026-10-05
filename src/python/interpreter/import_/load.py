@@ -42,7 +42,10 @@ def loadSymbols(interp, itype, moduleobj):
   assert dt_impl.name == itype.name
   cy_ctors = []
   for ictor, ctorinfo in zip(itype.constructors, dt_impl.constructors):
-    cy_ctorobj = objects.CurryNodeInfo(ctorinfo, icurry=ictor, typename=itype.fullname)
+    cy_ctorobj = objects.CurryNodeInfo(
+        ctorinfo, icurry=ictor, typename=itype.fullname, interp=interp
+      , module=moduleobj
+      )
     assert cy_ctorobj.name == ictor.name == ctorinfo.name
     cy_ctors.append(cy_ctorobj)
     getattr(moduleobj, '.symbols')[cy_ctorobj.name] = cy_ctorobj
@@ -55,7 +58,7 @@ def loadSymbols(interp, itype, moduleobj):
 @loadSymbols.when(icurry.IFunction)
 def loadSymbols(interp, ifun, moduleobj):
   info = interp.backend.materialize(interp, ifun, moduleobj)
-  cy_fobj = objects.CurryNodeInfo(info, icurry=ifun)
+  cy_fobj = objects.CurryNodeInfo(info, icurry=ifun, interp=interp, module=moduleobj)
   assert (cy_fobj.name == info.name == ifun.name) or \
       moduleobj.__name__ == 'Prelude'
   getattr(moduleobj, '.symbols')[ifun.name] = cy_fobj

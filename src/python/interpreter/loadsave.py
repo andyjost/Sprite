@@ -1,4 +1,5 @@
-from .. import config, exceptions, icurry, inspect, utility
+from .. import config, exceptions, icurry, inspect, toolchain, utility
+from ..typecheck import defaulting, goals
 from ..utility.binding import binding
 from ..utility.strings import ensure_str
 from ..objects import handle
@@ -55,8 +56,13 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
       or stream.
 
     goal:
-      Indicates a goal to evaluate when running the module.  By default,
-      running the generated code imports the module but evaluates nothing.
+      The goal the saved program evaluates when it runs.  A program needs
+      one: without ``goal`` the call raises ``ValueError`` (issue #35).  To
+      save a module without a main program, for :func:`load`, pass
+      ``module_main=False``.  A goal with class constraints and no
+      signature is defaulted with the table of the PAKCS REPL at run time;
+      the file records its type, so it runs from any directory.  A goal the
+      table cannot default raises here, at save time.
 
     kwds:
       Additional keyword arguments passed to ``IBackend.write_module``.
@@ -72,8 +78,18 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
       )
   if goal is not None:
     goal = ensure_str(goal)
-    interp.symbol('%s.%s' % (icy.fullname, goal)) # Raises SymbolLookupError on failure
+    symbol = interp.symbol('%s.%s' % (icy.fullname, goal)) # Raises SymbolLookupError on failure
+    goalscheme = goal_scheme_text(interp, symbol)
+    if goalscheme is not None:
+      kwds['goalscheme'] = goalscheme
+  elif kwds.get('module_main', True):
+    raise ValueError(
+        'curry.save needs a goal: pass goal=NAME to name the goal the saved '
+        'program evaluates, or module_main=False to save a module without a '
+        'main program'
+      )
   h = handle.getHandle(interp.import_(icy))
+  icy = compilable_icurry(cymodule, h.icurry)
   if logger.isEnabledFor(logging.INFO):
     logger.info(
         'Saving Curry module %r to %r (%r type%s, %r symbol%s)'
@@ -82,7 +98,7 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
       , len(h.symbols), '' if len(h.symbols) == 1 else 's'
       )
   be = interp.backend
-  target_object = be.compile(interp, h.icurry)
+  target_object = be.compile(interp, icy)
   if isinstance(filename, str):
     with open(filename, 'w', encoding='utf-8') as stream:
       be.write_module(target_object, stream, goal=goal, **kwds)
@@ -94,3 +110,50 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
     stream = filename
     be.write_module(target_object, stream, goal=goal, **kwds)
 
+
+def goal_scheme_text(interp, symbol):
+  '''
+  The FlatCurry type of a goal as text for the footer of a saved module, or
+  None for a goal without dictionary parameters.  Applies the table of the
+  PAKCS REPL once, so that a goal the table cannot default fails here.
+
+  Raises:
+    CurryTypeError:
+        The goal has parameters but no type, or the table cannot default
+        its constraints.
+  '''
+  if symbol.info.arity == 0:
+    return None
+  scheme = interp.sigtable.lookup(symbol, required=True)
+  if not scheme.ndicts:
+    return None
+  defaulting.default_scheme(
+      scheme, type_arity=goals.type_arity(interp)
+    , hint='add a type signature to the goal'
+    )
+  return goals.flat_type_text(scheme)
+
+def compilable_icurry(cymodule, icy):
+  '''
+  The ICurry to compile for a saved module.  A module loaded from generated
+  code holds its bill of materials: every function body is ``IExempt`` and
+  the code lives in the metadata, so compiling it again would write a
+  failing stub for every function.  The ICurry with the bodies is read from
+  the JSON file of the module in that case.
+  '''
+  functions = list(icy.functions.values())
+  exempt = [
+      f for f in functions
+        if isinstance(getattr(f.body, 'block', None), icurry.IExempt)
+    ]
+  if not exempt:
+    return icy
+  jsonfile = inspect.getjsonfile(cymodule)
+  if jsonfile is None:
+    raise exceptions.CompileError(
+        'cannot save %s: %d of its %d functions have no ICurry body and no '
+        'ICurry-JSON file is found beside %r'
+            % (icy.fullname, len(exempt), len(functions), icy.filename)
+      )
+  logger.info('Reading the ICurry of %s from %s', icy.fullname, jsonfile)
+  return toolchain.loadjson(jsonfile)

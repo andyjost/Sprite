@@ -25,8 +25,9 @@ The script go.py imports the module and saves it:
 The saved file is a Python script that holds the generated code of the
 module.  The goal argument records the goal to evaluate.  When the script
 runs, it imports the Sprite runtime, loads the module, and prints every
-value of main.  Without the goal argument the script loads the module and
-runs nothing.
+value of main.  A program needs a goal: curry.save without one raises an
+error.  To save a module as a library for curry.load, pass
+module_main=False.
 
 The saved form belongs to one backend.  On the Python backend it is Python.
 On the C++ backend curry.save writes C++ source, so the example runs on the
@@ -57,12 +58,6 @@ The file expected.out holds the output that ./run is meant to produce:
     True
 
 The last line is the value of main.
-
-On the current Python backend the saved script prints nothing.  Every
-function in the saved file is a stub that fails, so main has no value.  The
-test tests/unit_examples.py lists this example as a known failure until
-curry.save is fixed.  The program itself is right: its goal main evaluates
-to True on both backends when the module is imported and evaluated directly.
 
 
 5. Limits

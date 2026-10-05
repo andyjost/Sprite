@@ -136,7 +136,10 @@ with Sprite, then you should not need these.
   reports about
   the program is cached as well; a failure of the environment is not, and
   neither is a missing module, because the key sees the Curry path only
-  through the source files found in it.
+  through the source files found in it.  An entry holds the ICurry of the
+  module and the two interface files the front end wrote for it (``.fint``
+  and ``.icurry``); a hit writes all three beside each other, so the types
+  of a module are at hand without a run of the front end.
 
   A file name turns the cache on.  The empty string turns caching off.  When
   the variable is not set, the installation decides: ``configure --cache

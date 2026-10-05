@@ -128,5 +128,10 @@ The contents of the ``curry`` package are documented in detail in the
     ``__main__.py`` file for ``curry``.  This, incidentally, means that running
     ``python -m curry`` from a command prompt is a synonym for :ref:`sprite-exec`.
 
+:mod:`curry.typecheck`
+    The typed boundary between Python and Curry.  The signature table reads
+    the type schemes of the loaded symbols from the FlatCurry interfaces
+    (``symbol.signature``, ``symbol.scheme``, ``interp.sigtable``).
+
 :mod:`curry.utility`
     General-purpose code.

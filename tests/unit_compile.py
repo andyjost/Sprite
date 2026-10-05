@@ -132,12 +132,10 @@ class TestPyCompile(cytest.TestCase):
   @cytest.check_expressions()
   def testExprType(self):
     '''Test the exprtype argument.'''
-    # 1+2
-    self.assertRaisesRegex(
-        curry.CompileError
-      , r'''expression '1\+2' requires a type annotation'''
-      , lambda: curry.compile('1+2', mode='expr')
-      )
+    # 1+2.  Without exprtype, the constraint Num a is defaulted to Int by the
+    # table of the PAKCS REPL (unit_goals.py), and the body passes the
+    # dictionary.
+    yield curry.compile('1+2', mode='expr'), None, None, None, [3]
     # The C++ backend represents the single rewrite step taken by
     # curry.compile(..., 'expr') as a forward node at the root; the Python
     # backend rewrites the root in place.  Compare the forward target so one
@@ -150,11 +148,7 @@ class TestPyCompile(cytest.TestCase):
            , [3]
 
     # 1 ? 2
-    self.assertRaisesRegex(
-        curry.CompileError
-      , r'''expression '1 \? 2' requires a type annotation'''
-      , lambda: curry.compile('1 ? 2', mode='expr')
-      )
+    yield curry.compile('1 ? 2', mode='expr'), None, None, None, [1, 2]
     e = curry.compile('1 ? 2', mode='expr', exprtype='Int')
     yield inspect.fwd_chain_target(e), None, '<? <Int 1> <Int 2>>', None, [1, 2]
 

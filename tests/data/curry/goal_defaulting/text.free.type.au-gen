@@ -1,0 +1,2 @@
+!goal x where x free
+Data a => a

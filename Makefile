@@ -92,7 +92,8 @@ OVERLAY_PRODUCTS := -name '*.fcy' -o -name '*.fint' -o -name '*.icurry' \
                     -o -name '*.icy' -o -name '*.json.z'
 OVERLAY_TAR_FLAGS := --sort=name --owner=0 --group=0 --numeric-owner \
                      --mtime='2000-01-01 00:00:00Z'
-.PHONY: overlay overlay-archive $(OVERLAY_ARCHIVE) $(OVERLAY_LIST_FILE)
+.PHONY: overlay overlay-archive overlay-interfaces $(OVERLAY_ARCHIVE) \
+        $(OVERLAY_LIST_FILE)
 $(OVERLAY_LIST_FILE):
 	$(MAKE) -C curry interfaces
 	find tests curry/lib -type f -path '*/.curry/*$(PAKCS_SUBDIR)/*' \
@@ -105,10 +106,33 @@ ifeq ($(shell [ -e $(OVERLAY_ARCHIVE) ]; echo $$?),1)
 overlay:
 else
 # Only the test products are extracted.  The library interfaces serve the
-# oracle tests, which extract the archive into a scratch directory.
+# oracle tests, which extract the archive into a scratch directory.  The
+# extraction is followed by overlay-interfaces: the step that writes an .icy
+# file writes M.fint and M.icurry beside it, and an .icy file without them
+# is stale and would be made again at its first import (see
+# icurry_is_stale in curry.toolchain._curry2icurry).
 overlay:
 	tar xvzf $(OVERLAY_ARCHIVE) --wildcards 'tests/*'
+	$(MAKE) overlay-interfaces OVERLAY_DIR=tests
 endif
+
+# Copies the interfaces of the front end beside every .icy file under
+# OVERLAY_DIR: .curry/$(FRONTEND_SUBDIR)/M.fint and M.icurry of a directory
+# go to .curry/$(INTERMEDIATE_SUBDIR)/ of the same directory.  The products
+# of the test programs use that flat layout; the products of one archive are
+# one consistent set, so the copies are sound.  A rebuilt archive packs the
+# copies too, and the rule then rewrites them with the same bytes.
+OVERLAY_DIR ?= tests
+overlay-interfaces:
+	@find $(OVERLAY_DIR) -type f -path '*/.curry/$(INTERMEDIATE_SUBDIR)/*.icy' | \
+	while read -r icy; do \
+	  fe="$$(dirname "$$(dirname "$$icy")")/$(FRONTEND_SUBDIR)/$$(basename "$$icy" .icy)"; \
+	  for suffix in fint icurry; do \
+	    if [ -f "$$fe.$$suffix" ]; then \
+	      cp -p "$$fe.$$suffix" "$${icy%.icy}.$$suffix" || exit 1; \
+	    fi; \
+	  done; \
+	done
 
 # Remove a directory.  If the path is a symlink, remove the contents of the
 # link target and keep the link.

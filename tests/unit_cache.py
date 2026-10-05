@@ -3,7 +3,7 @@ from cytest.logging import capture_log
 from import_blocker import with_import_blocked
 import curry
 from curry import cache, config, toolchain
-from curry.toolchain import _curry2icurry, _filenames, _system
+from curry.toolchain import _curry2icurry, _filenames, _frontend, _system
 from curry.utility.binding import binding
 from unittest import mock
 import contextlib, importlib, json, os, re, shutil, sqlite3, tempfile
@@ -13,9 +13,11 @@ SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 # A module with every kind of name the front end derives from the module
 # name: qualified names, instance and superclass functions, a default method,
 # local functions, and lambdas.  (An external function would need a runtime
-# implementation to load; the rename test covers that name by hand.)
+# implementation to load; the rename test covers that name by hand.)  The
+# type synonym reaches the Curry interface only.
 MODULE_TEXT = '''
 import Data.Maybe
+type Pair = (Int, Int)
 data T = A Int | B String
 instance Show T where
   show (A n) = "A" ++ show n
@@ -80,6 +82,27 @@ def icurry_text(module):
   with open(filename, encoding='utf-8') as stream:
     return stream.read()
 
+def interface_texts(module):
+  '''
+  The texts of the interface files beside the ICurry file of a module, by
+  suffix.
+  '''
+  found = files(_filenames.icurryfilename(module.__file__))
+  found.pop('.icy')
+  return found
+
+def files(icyfile):
+  '''
+  The texts of the ICurry file and of the interface files beside it, by
+  suffix.  A missing file is left out.
+  '''
+  found = {}
+  for suffix in ('.icy',) + cache.INTERFACE_SUFFIXES:
+    filename = icyfile[:-len('.icy')] + suffix
+    if os.path.exists(filename):
+      found[suffix] = cytest.readfile(filename)
+  return found
+
 def write(path, text):
   os.makedirs(os.path.dirname(path), exist_ok=True)
   with open(path, 'w', encoding='utf-8') as stream:
@@ -87,11 +110,11 @@ def write(path, text):
   return path
 
 def rows(cachefile):
-  '''The (key, name, text) rows of the ICurry cache.'''
+  '''The (key, name, text, fint, icurry) rows of the ICurry cache.'''
   db = sqlite3.connect(cachefile)
   try:
     return db.execute(
-        'SELECT key, name, text FROM [%s] ORDER BY created'
+        'SELECT key, name, text, fint, icurry FROM [%s] ORDER BY created'
             % cache.Curry2ICurryCache.TABLE
       ).fetchall()
   finally:
@@ -130,6 +153,45 @@ class TestRename(cytest.TestCase):
     # Renaming back gives the original text.
     self.assertEqual(cache.rename_module(renamed, new, old), text)
     self.assertIsNone(cache.icurry_modulename('not icurry'))
+
+  def test_rename_interfaces(self):
+    '''
+    The same rule renames a FlatCurry interface, where the name follows a
+    quote or a hash sign, and a Curry interface, which names its module in
+    the header only.  A module whose name extends the old one stays.
+    '''
+    old, new = 'sprite__interactive_3', 'sprite__expression_9'
+    other = old + '2'
+    fint = (
+        'Prog "%(m)s" ["Prelude","%(o)s"] [Type ("%(m)s","T") Public [] '
+        '[Cons ("%(m)s","A") 1 Public [TCons ("Prelude","Int") []]],'
+        'Type ("%(m)s","_Dict#Sized") Public [(0,KStar)] []] '
+        '[Func ("%(m)s","_inst#Prelude.Show#%(m)s.T") 1 Public (FuncType '
+        '(TCons ("Prelude","()") []) (TCons ("Prelude","_Dict#Show") '
+        '[TCons ("%(m)s","T") []])) (Rule [] (Var 0)),'
+        'Func ("%(m)s","_super#%(m)s.Pretty#Prelude.Show") 1 Public '
+        '(TCons ("%(o)s","U") []) (Rule [] (Var 0))] []\n'
+      )
+    icurry = (
+        'interface %(m)s where {\n'
+        'import Prelude;\n'
+        'import %(o)s;\n'
+        'type Pair = (Prelude.Int, Prelude.Int);\n'
+        'data T = A Prelude.Int;\n'
+        'f 1 :: %(o)s.U -> Prelude.Int;\n'
+        'instance Prelude.Show T {\n  show 1\n};\n'
+        'hiding data Prelude.Int\n}'
+      )
+    for template in [fint, icurry]:
+      text = template % {'m': old, 'o': other}
+      expected = template % {'m': new, 'o': other}
+      renamed = cache.rename_module(text, old, new)
+      self.assertEqual(renamed, expected)
+      self.assertEqual(cache.rename_module(renamed, new, old), text)
+    # The header alone names the module of a Curry interface: the word
+    # "interface" elsewhere is not a header.
+    text = 'import %s;\n-- interface %s where\n' % (old, old)
+    self.assertEqual(cache.rename_module(text, old, new), text)
 
   def test_anonymous_names(self):
     for name in ['sprite__interactive_0', 'sprite__expression_12']:
@@ -312,19 +374,41 @@ class TestSlot(cytest.TestCase):
     file_out = os.path.join(self.tmpdir, subdir, SUBDIR, name + '.icy')
     return cache.Curry2ICurryCache.Slot(file_in, file_out, **kwds)
 
+  @staticmethod
+  def products(name, version=''):
+    '''
+    The texts that stand for the output of the front end: the ICurry and the
+    two interface files, by suffix.
+    '''
+    return {
+        '.icy': '(IProg "%s" ["Prelude"] [] [])%s\n' % (name, version)
+      , '.fint': 'Prog "%s" ["Prelude"] [] [] []%s\n' % (name, version)
+      , '.icurry': 'interface %s where {\nimport Prelude%s\n}' % (name, version)
+      }
+
+  @staticmethod
+  def convert(slot, products):
+    '''Writes the products beside the output file of a slot and updates it.'''
+    for suffix, content in products.items():
+      write(slot.file_out[:-len('.icy')] + suffix, content)
+    slot.update()
+
   def test_miss_update_hit(self):
     stats = dict(cache.Curry2ICurryCache.stats)
     slot = self.slot('M')
     self.assertFalse(slot)
     self.assertFalse(os.path.exists(slot.file_out))
-    text = '(IProg "M" ["Prelude"] [] [])\n'
-    write(slot.file_out, text)
-    slot.update()
-    self.assertEqual([row[1:] for row in rows(self.cachefile)], [('M', text)])
-    # The same text in another directory is a hit: the file is written.
+    products = self.products('M')
+    self.convert(slot, products)
+    self.assertEqual(
+        [row[1:] for row in rows(self.cachefile)]
+      , [('M', products['.icy'], products['.fint'], products['.icurry'])]
+      )
+    # The same text in another directory is a hit: the three files are
+    # written beside each other.
     again = self.slot('M', subdir='other')
     self.assertTrue(again)
-    self.assertEqual(cytest.readfile(again.file_out), text)
+    self.assertEqual(files(again.file_out), products)
     self.assertEqual(
         cache.Curry2ICurryCache.stats
       , {'hit': stats['hit'] + 1, 'miss': stats['miss'] + 1}
@@ -332,20 +416,108 @@ class TestSlot(cytest.TestCase):
     # Another text is a miss.
     self.assertFalse(self.slot('M', text='f :: Int\nf = 2\n'))
 
+  def test_hit_after_a_miss_on_a_reverted_text(self):
+    '''
+    Two versions of a source miss in turn; the first version, restored, hits.
+    The files beside the ICurry are then the ones of the first version, while
+    the front end's own copy, written at the second miss, still holds the
+    second.  So a reader of the types must use the copies beside the ICurry.
+    '''
+    frontend_copy = os.path.join(
+        self.tmpdir, 'src', '.curry', config.frontend_subdir(), 'M.fint'
+      )
+    v1, v2 = self.products('M', ' -- v1'), self.products('M', ' -- v2')
+    slot = self.slot('M', text='f = 1\n')
+    self.assertFalse(slot)
+    self.convert(slot, v1)
+    write(frontend_copy, v1['.fint'])
+    slot = self.slot('M', text='f = 2\n')
+    self.assertFalse(slot)
+    self.convert(slot, v2)
+    write(frontend_copy, v2['.fint'])
+    self.assertEqual(files(slot.file_out), v2)
+    slot = self.slot('M', text='f = 1\n')
+    self.assertTrue(slot)
+    self.assertEqual(files(slot.file_out), v1)
+    self.assertEqual(cytest.readfile(frontend_copy), v2['.fint'])
+    self.assertEqual(len(rows(self.cachefile)), 2)
+
+  def test_missing_interface_is_null(self):
+    '''
+    An interface file that is missing or empty after a conversion is stored
+    as NULL.  A hit then writes an empty file in its place, over a stale copy
+    of another version, so a reader finds no type rather than a wrong one.
+    '''
+    slot = self.slot('M')
+    products = self.products('M')
+    self.convert(slot, {'.icy': products['.icy'], '.icurry': ''})
+    self.assertEqual(
+        [row[1:] for row in rows(self.cachefile)]
+      , [('M', products['.icy'], None, None)]
+      )
+    stale = os.path.join(self.tmpdir, 'other', SUBDIR, 'M.fint')
+    write(
+        stale
+      , 'Prog "M" ["Prelude"] [] [Func ("M","f") 0 Public (TVar 0) '
+        '(Rule [] (Var 0))] []\n'
+      )
+    again = self.slot('M', subdir='other')
+    self.assertTrue(again)
+    self.assertEqual(
+        files(again.file_out)
+      , {'.icy': products['.icy'], '.fint': '', '.icurry': ''}
+      )
+    # The empty files count as present: the ICurry is not made again.
+    self.assertFalse(_curry2icurry.icurry_is_stale(again.file_out))
+
+  def test_old_format_rows_stay(self):
+    '''The rows of an earlier key format stay in their own table, unread.'''
+    slot = self.slot('M')
+    old_table = 'curry2icurry_%d' % (cache.KEY_FORMAT - 1)
+    db = sqlite3.connect(self.cachefile)
+    with db:
+      db.execute(
+          'CREATE TABLE [%s](key TEXT PRIMARY KEY, name TEXT NOT NULL'
+          ', text TEXT NOT NULL, error TEXT, created REAL)' % old_table
+        )
+      db.execute(
+          'INSERT INTO [%s](key, name, text, created) VALUES(?, ?, ?, 0)'
+              % old_table
+        , (slot.key, 'M', '(IProg "M" ["Prelude"] [] [])\n')
+        )
+    db.close()
+    self.assertFalse(self.slot('M'))
+    self.convert(self.slot('M'), self.products('M'))
+    self.assertTrue(self.slot('M'))
+    db = sqlite3.connect(self.cachefile)
+    try:
+      self.assertEqual(
+          db.execute('SELECT name FROM [%s]' % old_table).fetchall(), [('M',)]
+        )
+    finally:
+      db.close()
+
   def test_anonymous_entry_is_renamed(self):
     text = (
         '(IProg "%(m)s" ["Prelude"] [] [(IFunction ("%(m)s","f",0) 0 Public []'
         ' (IFuncBody (IBlock [] [] (IReturn (ILit (IInt 1))))))])\n'
       )
+    fint = (
+        'Prog "%(m)s" ["Prelude"] [] [Func ("%(m)s","f") 0 Public '
+        '(TCons ("Prelude","Int") []) (Rule [] (Var 0))] []\n'
+      )
+    icurry = 'interface %(m)s where {\nimport Prelude;\nf 0 :: Prelude.Int\n}'
+    products = lambda name: {
+        '.icy': text % {'m': name}, '.fint': fint % {'m': name}
+      , '.icurry': icurry % {'m': name}
+      }
     slot = self.slot('sprite__interactive_3')
     self.assertFalse(slot)
-    write(slot.file_out, text % {'m': 'sprite__interactive_3'})
-    slot.update()
+    self.convert(slot, products('sprite__interactive_3'))
     other = self.slot('sprite__expression_9')
     self.assertTrue(other)
-    self.assertEqual(
-        cytest.readfile(other.file_out), text % {'m': 'sprite__expression_9'}
-      )
+    # The three files carry the new name.
+    self.assertEqual(files(other.file_out), products('sprite__expression_9'))
     # The stored row keeps the first name.
     self.assertEqual(rows(self.cachefile)[0][1], 'sprite__interactive_3')
 
@@ -555,14 +727,46 @@ class TestCompile(cytest.TestCase):
         first = curry.compile(MODULE_TEXT)
         self.assertEqual(len(calls), 1)
         text1 = icurry_text(first)
+        interfaces1 = interface_texts(first)
         second = curry.compile(MODULE_TEXT)
         self.assertEqual(len(calls), 1)
         text2 = icurry_text(second)
+        interfaces2 = interface_texts(second)
       self.assertNotEqual(first.__name__, second.__name__)
       self.assertEqual(cache.icurry_modulename(text2), second.__name__)
       self.assertNotIn(first.__name__, text2)
       self.assertEqual(
           text2, cache.rename_module(text1, first.__name__, second.__name__)
+        )
+      # The interface files travel with the ICurry.  On the miss they are
+      # copies of the front end's files; on the hit they come from the cache,
+      # renamed, and the front end wrote nothing for the second module.
+      self.assertEqual(sorted(interfaces1), sorted(cache.INTERFACE_SUFFIXES))
+      for suffix in cache.INTERFACE_SUFFIXES:
+        self.assertEqual(
+            interfaces1[suffix]
+          , cytest.readfile(_frontend.interfacefile(first.__file__, suffix))
+          )
+        self.assertEqual(
+            interfaces2[suffix]
+          , cache.rename_module(
+                interfaces1[suffix], first.__name__, second.__name__
+              )
+          )
+        self.assertFalse(
+            os.path.exists(_frontend.interfacefile(second.__file__, suffix))
+          )
+      self.assertTrue(
+          interfaces2['.fint'].startswith('Prog "%s" ' % second.__name__)
+        )
+      self.assertTrue(
+          interfaces2['.icurry'].startswith(
+              'interface %s where {' % second.__name__
+            )
+        )
+      # The type synonym of the module is in the Curry interface of the hit.
+      self.assertIn(
+          'type Pair = (Prelude.Int, Prelude.Int);', interfaces2['.icurry']
         )
       self.assertEqual(len(rows(cachefile)), 1)
       # The module from the cache runs.
@@ -574,7 +778,7 @@ class TestCompile(cytest.TestCase):
         self.assertEqual(len(calls), 1)
       self.assertEqual(len(rows(cachefile)), 2)
     # Without the cache the front end writes, for a third name, the text the
-    # rename gives.
+    # rename gives, and the interface files are copied beside the ICurry.
     with cache_file(enabled=False):
       with frontend_calls() as calls:
         fourth = curry.compile(MODULE_TEXT)
@@ -583,11 +787,18 @@ class TestCompile(cytest.TestCase):
           icurry_text(fourth)
         , cache.rename_module(text1, first.__name__, fourth.__name__)
         )
+      self.assertEqual(
+          interface_texts(fourth)
+        , { suffix: cache.rename_module(content, first.__name__, fourth.__name__)
+            for suffix, content in interfaces1.items()
+          }
+        )
 
   def test_second_process_compiles_nothing(self):
     '''
     A new process finds the module and the expression of this one in the
-    cache, under its own module names.
+    cache, under its own module names, and the type of the expression in the
+    interface beside its ICurry: no front end runs.
     '''
     with cache_file():
       with frontend_calls() as calls:
@@ -595,9 +806,9 @@ class TestCompile(cytest.TestCase):
         curry.compile('1 + 2', 'expr', exprtype='Int')
         self.assertEqual(len(calls), 2)
       code = '\n'.join([
-          'import curry, json'
+          'import curry, json, re'
         , 'from curry import cache, config'
-        , 'from curry.toolchain import _system'
+        , 'from curry.toolchain import _filenames, _system'
         , 'pexec = _system.pexec'
         , 'tools = [config.curry_frontend(), config.icurry_tool()]'
         , 'def checking_pexec(cmd, *args, **kwds):'
@@ -610,14 +821,61 @@ class TestCompile(cytest.TestCase):
         , 'values = [curry.topython(next(curry.eval([module.f, 3])))'
         , '         , curry.topython(next(curry.eval(expr)))]'
         , 'stats = cache.Curry2ICurryCache.stats'
-        , 'print(json.dumps([values, stats, module.__name__]))'
+        , 'exprmodule = curry.getInterpreter()._expression_modules[-1]'
+        , 'icy = _filenames.icurryfilename(exprmodule.__file__)'
+        , 'fint = open(cache.interface_filename(icy, ".fint")).read()'
+        , 'pattern = r\'Func \\("%s","compiled_expression"\\) 0 Public \\((.*?)\\) \\(Rule\''
+        , 'entry = re.search(pattern % exprmodule.__name__, fint)'
+        , 'icurry = open(cache.interface_filename(icy, ".icurry")).read()'
+        , 'print(json.dumps([values, stats, module.__name__, entry.group(1)'
+          ', icurry.splitlines()[0]]))'
         ])
       proc = cytest.run_in_subprocess(code, timeout=300)
       self.assertEqual(proc.returncode, 0, proc.stderr)
-      values, stats, name = json.loads(proc.stdout.strip().splitlines()[-1])
+      values, stats, name, exprtype, header = json.loads(
+          proc.stdout.strip().splitlines()[-1]
+        )
       self.assertEqual(values, [7, 3])
       self.assertEqual(stats, {'hit': 2, 'miss': 0})
       self.assertNotEqual(name, module.__name__)
+      self.assertEqual(exprtype, 'TCons ("Prelude","Int") []')
+      self.assertRegex(header, r'^interface sprite__expression_\d+ where \{$')
+
+  def test_route_without_interfaces_stores_null(self):
+    '''
+    A route that leaves no interface file gets an empty file beside the
+    ICurry and a NULL in the cache, with a warning.  The hit writes empty
+    files as well.  The pinned front end writes both files on both routes
+    (see unit_curry2icurry.py); this covers the fallback.
+    '''
+    if config.curry2icurry_tool() != 'frontend':
+      self.skipTest('the configured route is not the front end')
+    frontend_curry2icurry = _frontend.curry2icurry
+    def forgetful(file_in, file_out, currypath, quiet=False):
+      frontend_curry2icurry(file_in, file_out, currypath, quiet)
+      os.unlink(_frontend.interfacefile(file_in, '.fint'))
+    text = 'f :: Int\nf = 1\n'
+    with cache_file() as cachefile:
+      with mock.patch.object(_frontend, 'curry2icurry', forgetful):
+        with capture_log('curry.toolchain._curry2icurry') as log:
+          first = curry.compile(text)
+      log.checkMessages(self, warning='left no %s.fint' % first.__name__)
+      interfaces = interface_texts(first)
+      self.assertEqual(interfaces['.fint'], '')
+      self.assertTrue(interfaces['.icurry'].startswith('interface '))
+      self.assertEqual(
+          [row[3:] for row in rows(cachefile)], [(None, interfaces['.icurry'])]
+        )
+      with frontend_calls() as calls:
+        second = curry.compile(text)
+      self.assertEqual(calls, [])
+      self.assertEqual(interface_texts(second)['.fint'], '')
+      self.assertEqual(
+          interface_texts(second)['.icurry']
+        , cache.rename_module(
+              interfaces['.icurry'], first.__name__, second.__name__
+            )
+        )
 
   def test_expression_follows_its_dynamic_import(self):
     '''

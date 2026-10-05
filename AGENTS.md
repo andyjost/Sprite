@@ -14,6 +14,14 @@ Merges to `master` happen at milestones.
 ## Layout
 
 - `src/python/`: the `curry` Python package (interpreter, compiler, backends).
+  `src/python/typecheck/` is the typed boundary: the signature table reads
+  the type schemes from the FlatCurry interfaces (`symbol.signature`),
+  `defaulting.py` applies the table of the PAKCS REPL to the class
+  constraints of a goal, and `goals.py` builds the goal with its
+  dictionaries for `curry.eval`, `curry.compile(mode='expr')`, the REPL,
+  `sprite-exec -g` and saved modules.
+  `src/python/tools/icy/` is the REPL: `python -m curry.tools.icy`, with
+  `:load`, `:eval`, `:type`, `:set` and `:quit`.
 - `src/cyrt/`: the C++ runtime library.
 - `curry/`: the Curry library. `curry/lib/` holds a copy of the library of
   the pinned PAKCS, Sprite's own `Control.SetFunctions`, the license of the
@@ -71,8 +79,31 @@ Merges to `master` happen at milestones.
   `tests/.cache/icurry.db`, keyed by the source text, so a repeated run
   compiles only the Curry texts that changed. Set `SPRITE_CACHE_FILE=` (the
   empty string) to run without the cache.
+- The step that writes `M.icy` writes `M.fint` and `M.icurry` beside it, on
+  a cache miss (copies of the front end's files) and on a hit (from the
+  cache). Code that needs the type of a symbol reads those copies, never
+  the front end's own copy under `.curry/pakcs-3.4.1/`, which can belong to
+  another version of the source after a hit. An `.icy` without the two
+  files beside it is stale and is converted again. `make stage` copies the
+  interfaces of the installed library beside its `.icy` files, and
+  `make overlay` copies them beside the extracted test products. An empty
+  interface file means the front end wrote none.
+- A functional test runs every goal without value parameters; a goal
+  without a signature keeps its class constraints as dictionary parameters,
+  which the driver does not count. `func_goal_defaulting.py` pins goal and
+  type parity with the PAKCS REPL (`tests/oracle` and `tests/oracle_type`);
+  its goldens are committed.
 - `SPRITE_INTERPRETER_FLAGS=backend:cxx` selects the C++ backend. The
   Python backend is the default and suits only small programs.
+- A goal without a type signature keeps its class constraints. Sprite
+  defaults them as the PAKCS REPL does (`Num` to `Int`, `Fractional` to
+  `Float`, `Monad` to `IO`, a lone `Data` to `Bool`) and rejects the rest
+  with the REPL's sentence. `curry.eval` supplies the dictionaries of such
+  a goal evaluated alone; a call with arguments, `curry.eval(M.f, 1)`, is
+  an error until the typed builder lands: compile it from text. A text
+  goal of `curry.compile(mode='expr')` may end in `where x free`; its
+  values then carry the bindings. `curry.save` needs a goal; pass
+  `module_main=False` to save a module without a main program.
 
 ## Conventions
 

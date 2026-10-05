@@ -1,0 +1,2 @@
+!goal head (x:xs) where x, xs free
+{x=x, xs=xs} x

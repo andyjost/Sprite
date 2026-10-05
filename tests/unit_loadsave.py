@@ -10,9 +10,9 @@ class LoadSaveTestCase(cytest.TestCase):
     with tempfile.TemporaryDirectory() as tmpdir:
       Module = curry.import_(modulename)
 
-      # Save the module.
+      # Save the module as a library: no goal, so no main program.
       filename = os.path.join(tmpdir, 'Module.py')
-      curry.save(Module, filename)
+      curry.save(Module, filename, module_main=False)
 
       # Load the module.
       Module2 = curry.load(filename)

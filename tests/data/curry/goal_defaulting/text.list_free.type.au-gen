@@ -1,0 +1,2 @@
+!goal [x, 1] where x free
+(Data a, Num a) => [a]
