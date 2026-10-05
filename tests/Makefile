@@ -9,7 +9,8 @@
 # socat with readline adds history and line-editing features, which are useful
 # when interacting with tests.  For example, after importing cytest you can say
 # breakpoint() in the test code wherever you'd like to get an interactive
-# prompt.  With socat+readline useful features such as using the "up" and
+# prompt (run_tests -v at width 1 streams the output and hands the file the
+# terminal).  With socat+readline useful features such as using the "up" and
 # "down" arrow keys to browse command history are available.  On Debian, socat
 # must be built from source to enable readline.  The following commands were
 # tested on Ubuntu 16.04:
@@ -32,12 +33,12 @@ test:
 unit_*.py:
 	@if (( hash stdbuf 2>/dev/null )); \
 		then if (( hash socat 2>/dev/null )); \
-			then stdbuf -i0 -o0 -e0 socat readline,prompt='>>> ' exec:"./run_tests $@"; \
+			then stdbuf -i0 -o0 -e0 socat readline,prompt='>>> ' exec:"./run_tests -v $@"; \
 			else if (( hash rlwrap 2>/dev/null )); \
-				then stdbuf -i0 -o0 -e0 rlwrap ./run_tests $@; \
-				else stdbuf -i0 -o0 -e0 ./run_tests $@; \
+				then stdbuf -i0 -o0 -e0 rlwrap ./run_tests -v $@; \
+				else stdbuf -i0 -o0 -e0 ./run_tests -v $@; \
 				fi; \
 			fi; \
-		else ./run_tests $@; \
+		else ./run_tests -v $@; \
 		fi;
 

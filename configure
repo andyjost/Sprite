@@ -21,6 +21,11 @@ PINNED_PAKCS_VERSION = '3.4.1'
 # The Curry front end of the pinned PAKCS.  Another front end writes different
 # FlatCurry, and the committed ICurry files and the oracle depend on it.
 PINNED_FRONTEND_VERSION = '2.0.0'
+# The number of jobs make runs at once when --jobs is not given: a count, or
+# 'auto' for one job per processor.  The serial build stays the default until
+# the parallel build is proven in a timed trial from a clean tree; then this
+# becomes 'auto'.  See the root Makefile.
+DEFAULT_JOBS = '1'
 
 class Tee(object):
   def __init__(self, stream):
@@ -127,11 +132,25 @@ def abort_python():
   warn('If you are using a package manager, you might need to install one of the -dev packages.')
   abort()
 
+def jobs_type(value):
+  '''The argument of --jobs: a positive integer, as a string, or 'auto'.'''
+  if value == 'auto':
+    return value
+  try:
+    count = int(value)
+  except ValueError:
+    count = 0
+  if count < 1:
+    raise argparse.ArgumentTypeError(
+        'expected a positive integer or auto, got %r' % value
+      )
+  return str(count)
+
 def get_options():
   global OPTS
   parser = argparse.ArgumentParser(
       description='Configure Sprite Builds'
-    , usage='\n    configure [-Dfi] [--with...] [--install-prereqs[-only] [--yes] [--pip-nosudo]]'
+    , usage='\n    configure [-Dfi] [--with...] [--jobs N|auto] [--install-prereqs[-only] [--yes] [--pip-nosudo]]'
             '\n    configure [-Dfi] [--with...] --check-prereqs [--pip-nosudo]'
     )
 
@@ -155,6 +174,7 @@ def get_options():
       'absolute path, then PATH will be searched to find the program.'
     )
   versions.add_argument('--with-cc'             , type=str, metavar='gcc', help='specifies the C compiler (env: CC)')
+  versions.add_argument('--with-ccache'         , type=str, metavar='ccache', nargs='?', const='ccache', help='puts ccache in front of the compilers of the build and of the post-install compiler (env: CCACHE); the value names the program, by default ccache; an empty value leaves it out')
   versions.add_argument('--with-cxx'            , type=str, metavar='g++', help='specifies the C++ compiler (env: CXX)')
   versions.add_argument('--with-cxx-postinstall', type=str, metavar='g++', help='specifies the C++ compiler used after installation (env: CXX)')
   versions.add_argument('--with-curry-frontend' , type=str, metavar='pakcs-frontend', help='specifies the Curry front end (env: CURRY_FRONTEND); by default the one of PAKCS; an empty value leaves it out')
@@ -163,11 +183,16 @@ def get_options():
   versions.add_argument('--with-prolog'         , type=str, metavar='swipl', help='specifies the Prolog executable (env: PROLOG)')
   versions.add_argument('--with-python'         , type=str, metavar='python3', help='specifies the Python executable (env: PYTHON)')
 
+  build = parser.add_argument_group('build arguments', 'Controls how make builds Sprite.')
+  build.add_argument('-j', '--jobs', type=jobs_type, metavar='N|auto', help='the number of jobs make runs at once: a count, or auto for one job per processor (default: %s, a serial build); a -j on the make command line wins' % DEFAULT_JOBS)
+
   dev = parser.add_argument_group('development arguments', 'Enables features for Sprite developers.')
   dev.add_argument('--cache', type=str, metavar="['all'|'icurry'|'json']", help='enables caching; useful when the same Curry program will be run many times')
   dev.add_argument('--curry2icurry', type=str, choices=['frontend', 'icurry'], metavar="['frontend'|'icurry']", help='selects the route from Curry to ICurry: the Curry front end with the built-in translation (default) or icurry')
 
   OPTS = parser.parse_args()
+  if OPTS.jobs is None:
+    OPTS.jobs = DEFAULT_JOBS
   OPTS.write_config = not OPTS.check_prereqs and not OPTS.install_prereqs_only
   OPTS.install_prereqs = OPTS.install_prereqs or not OPTS.write_config
   if OPTS.cache not in [None, 'all', 'icurry', 'json']:
@@ -217,7 +242,9 @@ def main():
     settings = {
         'ENABLE_ICURRY_CACHE'     : int(OPTS.cache in ['all', 'icurry'])
       , 'ENABLE_PARSED_JSON_CACHE': int(OPTS.cache in ['all', 'json'])
+      , 'JOBS'                    : OPTS.jobs
       }
+    log('Selecting JOBS=%r' % OPTS.jobs)
     set_from_path(
         settings, 'PYTHON', 'python3', 'Python installation'
       , default=OPTS.with_python
@@ -234,6 +261,7 @@ def main():
       , install_steps=get_build_essential_install_steps
       , default=OPTS.with_cxx_postinstall
       )
+    set_ccache(settings)
     set_pakcs(settings)
     set_frontend(settings)
     set_icurry(settings)
@@ -521,6 +549,35 @@ def requested(option, variable_name):
   if option is not None:
     return option
   return os.environ.get(variable_name)
+
+def set_ccache(settings):
+  '''
+  Finds ccache when --with-ccache or CCACHE in the environment asks for it.
+  ccache then runs in front of the compilers of the build (see
+  src/Make.depends), and tools/cxx of the installation becomes a script that
+  runs ccache in front of the post-install compiler (see
+  src/export/tools/Makefile).  Without the option, or with an empty value,
+  the compilers run as they are.
+  '''
+  given = requested(OPTS.with_ccache, 'CCACHE')
+  if given is None:
+    log('ccache is not configured.  Pass --with-ccache to put it in front '
+        'of the compilers.')
+    settings['CCACHE'] = ''
+    return
+  if given == '':
+    log('ccache is left out by request.')
+    settings['CCACHE'] = ''
+    return
+  set_from_path(settings, 'CCACHE', 'ccache', 'ccache program'
+    , web='https://ccache.dev'
+    , install_steps=[
+          '# Install ccache.'
+        , 'sudo apt-get install ccache'
+        ]
+    , default=given
+    )
+  settings.setdefault('CCACHE', '')
 
 def set_frontend(settings):
   '''
@@ -837,6 +894,25 @@ CC  := {CC}
 CXX := {CXX}
 # Used to compile Curry for the 'cxx' backend.
 CXX_POSTINSTALL := {CXX_POSTINSTALL}
+
+# ccache (configure --with-ccache)
+# ================================
+# When set, ccache runs in front of CC and CXX when the build compiles an
+# object (see src/Make.depends), and tools/cxx of the installation is a
+# script that runs ccache in front of CXX_POSTINSTALL (see
+# src/export/tools/Makefile), so the code of the C++ backend compiles through
+# ccache as well.  ccache changes nothing in the output of the compiler, and
+# the ABI stamps of the compiled modules do not depend on it.  Empty: the
+# compilers run as they are.
+CCACHE := {CCACHE}
+
+# Parallel build (configure --jobs)
+# =================================
+# The number of jobs the top-level make runs at once: a count, or auto for
+# one job per processor, counted when make starts.  1 is a serial build.  The
+# root Makefile turns the value into -j; the sub-makes join its job server.
+# A -j on the make command line wins, and so does make JOBS=N.
+JOBS := {JOBS}
 
 # Build flavor
 # ============

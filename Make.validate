@@ -63,6 +63,13 @@ ifneq ($(NVALIDATE),1)
     $(error C++ compiler $(CXX) not found)
   endif
 
+  # ccache is optional (configure --with-ccache).  When set, it must run.
+  ifneq ($(strip $(CCACHE)),)
+    ifeq ($(shell [ -x "$(CCACHE)" ]; echo $$?),1)
+      $(error Not an executable: CCACHE=$(CCACHE)$nRerun ./configure, or clear CCACHE in Make.config.)
+    endif
+  endif
+
   # ifeq ($(shell [ -d $(MPS_HOME) ]; echo $$?),1)
   #   $(error Not a directory: MPS_HOME=$(MPS_HOME).  Please check your MPS installation.)
   # endif

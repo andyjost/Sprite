@@ -72,9 +72,28 @@ Merges to `master` happen at milestones.
   `.icy` unless you set `SPRITE_REBUILD_ICY=1`. After a change to the ICurry
   reader, regenerate the JSON: delete the `.json.z` files and run
   `make stage`.
-- `make test` runs the full suite. For the fast unit tests, run
-  `./run_tests 'unit_*.py'` from `tests/`. The `func_*` tests need a PAKCS
-  oracle.
+- `make test` runs the full suite through `tests/run_tests`, which runs
+  one process per test file under a memory watchdog (section 10 of
+  `tests/README`). Useful forms: `./run_tests 'unit_*.py'` for the unit
+  files; `./run_tests -j auto --backend both` for a parallel run of both
+  backends under the memory budget; `./run_tests --changed` for the files
+  that the working-tree changes touch; `./run_tests --fast` for the files
+  below five seconds; `./run_tests --list` to see a selection without a
+  run; `./run_tests -v FILE` to stream the output of one file (a breakpoint
+  needs it). Add `--prepare` on a fresh checkout or after a change to the
+  toolchain, so the shared Curry products are compiled before the files
+  run in parallel. The output of each file is in
+  `tests/.cache/runner/<backend>/<file>.log`. The default width is 1
+  until `tests/manifest.json` is calibrated. The `func_*` tests need a
+  PAKCS oracle.
+- `configure --jobs auto --with-ccache` is the recommended developer setting
+  once the parallel build has passed its timed trial from a clean tree (see
+  TODO). Until then the default of `--jobs` is 1, a serial build.
+  `make -jN stage` overrides the configured count for one run.
+- `scripts/setup-dev-machine.sh --prefix DIR` sets up a new machine: the
+  apt packages (printed, never installed by the script), PAKCS, a conda
+  environment, configure, `make stage`, and a smoke test. See the page
+  "Developer Setup" of the documentation.
 - The test drivers cache the output of the Curry front end in
   `tests/.cache/icurry.db`, keyed by the source text, so a repeated run
   compiles only the Curry texts that changed. Set `SPRITE_CACHE_FILE=` (the

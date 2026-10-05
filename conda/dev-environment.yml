@@ -1,0 +1,21 @@
+# The conda environment of a Sprite developer.  It holds only what Sprite
+# needs: Python 3.14, the packages the tests import, and Sphinx with its
+# theme for the docs.  scripts/setup-dev-machine.sh creates it under
+# PREFIX/conda/env with CONDA_PKGS_DIRS=PREFIX/conda/pkgs.  By hand:
+#
+#     conda env create -y -p PREFIX/conda/env -f conda/dev-environment.yml
+#
+# Python 3.14 is pinned: configure rejects older versions.  The other
+# packages float; configure checks that they import.
+name: sprite-dev
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.14.*
+  - pip
+  # Certain tests import numpy (configure: "for certain tests").
+  - numpy
+  # The docs: make -C docs html.
+  - sphinx
+  - sphinx_rtd_theme

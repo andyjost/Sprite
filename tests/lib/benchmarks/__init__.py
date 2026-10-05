@@ -21,10 +21,13 @@ options.  The modules:
 
     suites.py    The suites and the measurement items they consist of.
     measure.py   Runs one child process under a cap and a timeout and reads
-                 its numbers.
+                 its numbers; under perf as well, which counts the
+                 instructions.
     records.py   The record format, the medians, and the JSON Lines files.
     run.py       The command that runs a suite and writes the records.
-    compare.py   The command that compares two record files.
+    compare.py   The command that compares two record files, by CPU seconds
+                 or, with --deterministic, by the columns that do not
+                 depend on the load of the machine.
     counters.py  The command that tabulates the scheduler counters of a
                  record file (a runtime built with make COUNTERS=1).
     split.py     The command that tabulates the records of the split suite:

@@ -72,3 +72,9 @@ command line.
 				Modifying other files or adding new files necessitates a call to 'make
 				stage'.
 
+    - JOBS
+
+				The job count of the top-level make, from configure --jobs.  Say
+				`make JOBS=N stage` to use another count for one run.  A -j on the
+				command line wins over both.
+

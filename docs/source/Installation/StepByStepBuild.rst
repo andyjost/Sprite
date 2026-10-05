@@ -47,6 +47,8 @@ you can skip the previous two steps if you like.  Staging also compiles the
 Curry library for both backends into the installation, so that the first
 import compiles nothing.  Most of that time goes to the Prelude of the C++
 backend, about half a minute.  A stage that changes nothing skips it.
+``make stage`` runs with the job count of ``configure --jobs``.  Say
+``make -jN stage`` to use another count for one run.
 
 Step 5: Test (optional)
 .......................

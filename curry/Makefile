@@ -4,6 +4,13 @@ SUBMODULES :=
 PYTHONFILES :=
 include Make.include
 
+# The targets of this directory run one at a time, also under make -j.  The
+# install copies are cheap, and the other steps must not overlap: the front
+# end and sprite-make write products that several modules share (the
+# FlatCurry interfaces, the ICurry of the imports) when icy or json rebuilds
+# the pinned artifacts.
+.NOTPARALLEL:
+
 # Compile the installed Curry library for both backends, so that the first
 # import after a stage compiles nothing: the Python backend finds the
 # generated module and its bytecode cache, and the C++ backend finds the
@@ -27,6 +34,12 @@ include Make.include
 # written first, so the front end reads them instead of writing them again,
 # and copied beside the products (see Make.include), so sprite-make finds the
 # pinned modules current.
+#
+# The step is one recipe and stays serial under make -j.  The modules are
+# not independent: every module imports the Prelude, and many import each
+# other.  sprite-make orders them within one process; two sprite-make
+# processes over the library would compile the shared imports at the same
+# time.  A parallel prebuild needs a job option in sprite-make itself.
 #
 # Every module under lib/ (CURRYLIB_MODULES) gets its ICurry and JSON
 # (sprite-make --json), so no run of Sprite writes into the installation for
