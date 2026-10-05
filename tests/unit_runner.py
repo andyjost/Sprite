@@ -723,13 +723,17 @@ FILES = sorted([
     'func_flat2icurry.py', 'func_kiel.py', 'func_math.py', 'unit_api.py'
   , 'unit_benchmarks.py', 'unit_cache.py', 'unit_compile.py'
   , 'unit_curry2icurry.py', 'unit_currylib.py', 'unit_cxx_gc.py'
-  , 'unit_cxx_toolchain.py', 'unit_cxx_variable.py', 'unit_expr.py'
+  , 'unit_cxx_heap.py', 'unit_cxx_passthrough.py', 'unit_cxx_toolchain.py'
+  , 'unit_cxx_variable.py', 'unit_expr.py'
   , 'unit_flat2icurry.py', 'unit_icurry.py', 'unit_inspect.py'
   , 'unit_loadsave.py', 'unit_plan.py', 'unit_prebuild.py'
   , 'unit_py_conversions.py', 'unit_py_evaluation.py', 'unit_py_io.py'
   , 'unit_utility.py'
   ])
-CXX_FILES = ['unit_cxx_gc.py', 'unit_cxx_toolchain.py', 'unit_cxx_variable.py']
+CXX_FILES = [
+    'unit_cxx_gc.py', 'unit_cxx_heap.py', 'unit_cxx_passthrough.py'
+  , 'unit_cxx_toolchain.py', 'unit_cxx_variable.py'
+  ]
 TOOLCHAIN_FILES = [
     'func_flat2icurry.py', 'unit_cache.py', 'unit_compile.py'
   , 'unit_curry2icurry.py', 'unit_cxx_toolchain.py', 'unit_flat2icurry.py'
