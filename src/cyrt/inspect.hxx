@@ -128,6 +128,7 @@ namespace cyrt
 {
   inline Cursor & Cursor::skipfwd()
   {
+    gc_count_slot_write(this->arg);
     **this = *inspect::fwd_chain_target(*this);
     return *this;
   }

@@ -955,6 +955,27 @@ GC ?= wdgc
 ifeq ($(GC),mps)
   CFLAGS   += -DSPRITE_GC_MPS -I$(ROOT_DIR)/extern/mps/code
 endif
+# The counters of writes into old nodes (make GC_WRITE_COUNTERS=1 builds
+# them in): a test at every return of a step in the scheduler and at the
+# sites that write a pointer into an existing node, for the measurements
+# of the generational design (see src/cyrt/graph/gc/wdgc.cpp and the TODO
+# entry).  They cost a tenth of the instructions of Tak1, so the default
+# leaves them out: without the macro the sites are empty inline functions
+# that cost nothing.  Some sites are in the installed headers, so the
+# setting reaches the installation as sysconfig/cxx_gc_write_counters, and
+# the C++ backend compiles generated modules with the same macro, and again
+# when it changes (the ABI stamp; see curry.backends.cxx.toolchain).  The
+# counters belong to the block heap, so the setting has no effect under
+# GC=mps.  The objects of the runtime do not depend on this variable: touch
+# Make.config to switch.
+GC_WRITE_COUNTERS ?= 0
+CXX_GC_WRITE_COUNTERS := 0
+ifeq ($(GC),wdgc)
+  ifeq ($(GC_WRITE_COUNTERS),1)
+    CFLAGS   += -DSPRITE_GC_WRITE_COUNTERS
+    CXX_GC_WRITE_COUNTERS := 1
+  endif
+endif
 CXXFLAGS += $(CFLAGS) -std=c++17
 
 # PAKCS

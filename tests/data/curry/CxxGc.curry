@@ -106,3 +106,22 @@ countQueens n = length (sortValues (set1 queens n))
 -- configuration on the variable: the next steps bind it.
 groundOwn :: Int
 groundOwn = id $## (let x free in (x =:= 1) &> x)
+
+-- Programs for the counters of the collector (unit_cxx_gc_counters.py).
+
+-- Builds n thunks under a spine, forces the spine, then forces the thunks.
+-- With a low threshold the thunks survive a collection before they are
+-- stepped, so each of those steps writes an old redex.  The result is
+-- n + sum [2..n+1].
+thunks :: Int -> Int
+thunks n = let xs = map (+1) [1..n] in lenStrict 0 xs + sumStrict 0 xs
+
+-- The length and the sum by a tail call with a strict accumulator; those of
+-- the Prelude recurse as deep as the list is long.
+lenStrict :: Int -> [Int] -> Int
+lenStrict acc []     = acc
+lenStrict acc (_:xs) = (lenStrict $! acc + 1) xs
+
+sumStrict :: Int -> [Int] -> Int
+sumStrict acc []     = acc
+sumStrict acc (x:xs) = (sumStrict $! acc + x) xs

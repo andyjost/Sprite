@@ -73,6 +73,7 @@ namespace cyrt
     assert(slot->info->tag == T_FREE);
     if(has_generator(slot))
     {
+      gc_count_slot_write(slot.arg);
       *slot = this->get_generator(C, slot);
       assert(slot->info->tag == T_CHOICE);
       return T_CHOICE;
@@ -89,7 +90,9 @@ namespace cyrt
     {
       if(values->size)
       {
-        *slot = this->make_value_bindings(slot, values);
+        Node * bindings = this->make_value_bindings(slot, values);
+        gc_count_slot_write(slot.arg);
+        *slot = bindings;
         return slot->info->tag;
       }
       else
@@ -175,7 +178,9 @@ namespace cyrt
     Node * lhs = _clone_generator_rec(this, top_choice->lhs);
     Node * rhs = _clone_generator_rec(this, top_choice->rhs);
     xid_type vid = obj_id(unbound);
-    NodeU{unbound}.free->genexpr = choice(vid, lhs, rhs);
+    Node * cloned = choice(vid, lhs, rhs);
+    gc_count_write(unbound);
+    NodeU{unbound}.free->genexpr = cloned;
   }
 
   struct GeneratorMaker
@@ -220,6 +225,7 @@ namespace cyrt
     {
       GeneratorMaker maker(rts);
       Node * genexpr = maker.make(values, obj_id(freevar));
+      gc_count_write(freevar);
       NodeU{freevar}.free->genexpr = genexpr;
     }
     return NodeU{freevar}.free->genexpr;
@@ -240,6 +246,7 @@ namespace cyrt
     else
     {
       Node * genexpr = _make_generator(this, inductive->target, values);
+      gc_count_slot_write(inductive->target.arg);
       *inductive->target = genexpr;
       assert(genexpr->info->tag == T_CHOICE);
       return T_CHOICE;

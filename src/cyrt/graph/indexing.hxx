@@ -35,7 +35,10 @@ namespace cyrt
             if(end->info->tag == T_FWD)
               compress_fwd_chain(cur);
             else
+            {
+              gc_count_write(parent);
               *cur = end;
+            }
           }
           else
           {

@@ -119,6 +119,18 @@ class IBackend(metaclass=abc.ABCMeta):
     '''
     return 0.0
 
+  def gc_counters(self):
+    '''
+    The counters of the garbage collector of this backend, summed over its
+    collections in this process, as a dict keyed by the names in
+    stats.GC_COUNTERS (the seconds of the phases of a collection, the nodes
+    marked by age, the configurations pushed, the queues and configurations
+    destroyed, the writes into old nodes).  A backend without a collector
+    of its own answers an empty dict, which Interpreter.stats reports as
+    zeros.
+    '''
+    return {}
+
   def scheduler_counters_enabled(self):
     '''
     True when the runtime of this backend counts the serial steps, the

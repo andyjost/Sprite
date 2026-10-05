@@ -21,6 +21,10 @@ on:
         description: Run the interpreter tests and the functional suites with every module interpreted (interpret:all) as well
         type: boolean
         default: false
+      write_counters:
+        description: Build the C++ runtime with the counters of writes into old nodes (make GC_WRITE_COUNTERS=1) and run the tests of the collector on it as well
+        type: boolean
+        default: false
 
 env:
   PAKCS_VERSION: '3.4.1'
@@ -216,6 +220,95 @@ jobs:
         with:
           path: tests/.cache
           key: icurry-cache-cxx-stress-${{ github.sha }}-${{ github.run_id }}
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache -s | head -n 6
+
+  # The counters of writes into old nodes (make GC_WRITE_COUNTERS=1; see
+  # src/cyrt/graph/gc/wdgc.cpp and tests/README, section 4): the branches
+  # of unit_cxx_gc_counters.py and unit_cxx_heap.py that check the counts
+  # and the calls run on this build alone.  The job runs on request; it
+  # does not run on a push or on the schedule.  The steps are those of the
+  # stress job with the build variable; the caches are restored from the
+  # cxx jobs and saved under keys of this job.
+  write-counters:
+    name: cxx backend, write counters
+    if: github.event_name == 'workflow_dispatch' && inputs.write_counters
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make libboost-dev curl ccache binutils
+          swipl --version
+      - name: Put ccache in front of the compilers
+        run: |
+          mkdir -p "$HOME/ccache-bin"
+          for cc in gcc g++ cc c++; do ln -sf "$(command -v ccache)" "$HOME/ccache-bin/$cc"; done
+          printf '#!/bin/sh\nexec ccache g++ "$@"\n' > "$HOME/ccache-bin/sprite-cxx"
+          chmod +x "$HOME/ccache-bin/sprite-cxx"
+          echo "$HOME/ccache-bin" >> "$GITHUB_PATH"
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=500M" >> "$GITHUB_ENV"
+      - name: Restore the compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-cxx-write-counters-${{ github.sha }}
+          restore-keys: |
+            ccache-cxx-write-counters-
+            ccache-cxx-
+      - name: Restore the Curry toolchain
+        id: toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/pakcs-${{ env.PAKCS_VERSION }}
+            ~/.cpm
+            ~/.cpmrc
+          key: curry-toolchain-ubuntu-24.04-pakcs${{ env.PAKCS_VERSION }}-icurry${{ env.ICURRY_VERSION }}-v1
+      - name: Build the Curry toolchain
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        run: .github/scripts/install-curry-toolchain.sh
+      - name: Restore the ICurry cache
+        uses: actions/cache/restore@v4
+        with:
+          path: tests/.cache
+          key: icurry-cache-cxx-write-counters-${{ github.sha }}-${{ github.run_id }}
+          restore-keys: |
+            icurry-cache-cxx-write-counters-
+            icurry-cache-cxx-
+            icurry-cache-
+      - name: Install Python packages
+        run: python -m pip install --quiet numpy
+      - name: Configure and stage with the write counters
+        run: |
+          python ./configure \
+            --with-python="$(command -v python)" \
+            --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
+            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            --with-icurry="$HOME/.cpm/bin/icurry"
+          make GC_WRITE_COUNTERS=1 stage
+          test "$(cat install/sysconfig/cxx_gc_write_counters)" = 1
+      - name: Tests of the collector and the heap
+        run: .github/scripts/run-tests.sh cxx 'unit_cxx_[gh]*.py' 1/1
+      - name: Tests of the collector in the stress mode
+        env:
+          SPRITE_GC_STRESS: '1'
+        run: .github/scripts/run-tests.sh cxx 'unit_cxx_gc*.py' 1/1
+      - name: Save the ICurry cache
+        if: always() && hashFiles('tests/.cache/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: tests/.cache
+          key: icurry-cache-cxx-write-counters-${{ github.sha }}-${{ github.run_id }}
       - name: Compiler cache statistics
         if: always()
         run: ccache -s | head -n 6

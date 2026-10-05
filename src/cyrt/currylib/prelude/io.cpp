@@ -250,6 +250,7 @@ namespace cyrt
                            buf, utf8_encode(buf, NodeU{vChar.target}.char_->value)
                          );
                        if(!stream) goto return_error;
+                       gc_count_slot_write(vSpine.target.arg);
                        *vSpine.target = NodeU{vSpine.target}.cons->tail;
                        break;
         case T_NIL:    _0->forward_to(io(unit()));

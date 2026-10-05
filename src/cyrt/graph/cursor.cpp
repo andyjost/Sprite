@@ -169,6 +169,7 @@ namespace cyrt
     Node * node = this->target;
     assert(pos < node->info->arity);
     assert(node->info->format[pos] == 'p');
+    gc_count_write(node);
     node->successors()[pos] = value;
   }
 }

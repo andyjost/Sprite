@@ -193,6 +193,57 @@ namespace cyrt
   size_t gc_num_allocations();  // nodes allocated since the start
   size_t gc_num_collections();
   double gc_seconds();          // time spent in collections
+
+  // The counters of a collection (see gc/wdgc.cpp): the seconds of its
+  // phases, the nodes it marked by age (an old node was marked in the last
+  // collection as well; see gc/blockheap.cpp), the configurations it
+  // pushed as roots, the queues and the configurations its registry sweep
+  // destroyed, and the writes into old nodes counted since the last
+  // collection.  gc_counters() sums them over the collections of the
+  // process, and gc_last_collection() holds the record of the last one.
+  struct GcCounters
+  {
+    double roots_seconds = 0.0;      // the roots: configurations, Python
+    double trace_seconds = 0.0;      // the trace from the roots
+    double sweep_seconds = 0.0;      // the block sweep
+    double registries_seconds = 0.0; // tables, generators, queues, sets
+    size_t marked = 0;               // nodes marked
+    size_t marked_old = 0;           // ... marked in the last collection too
+    size_t marked_young = 0;         // ... allocated since
+    size_t configurations_pushed = 0;
+    size_t queues_destroyed = 0;
+    size_t configurations_destroyed = 0;
+    size_t old_redexes = 0;          // writes of a step into an old redex
+    size_t old_slot_writes = 0;      // other pointer writes into old nodes
+    size_t old_nodes_written = 0;    // distinct old nodes with such a write
+    size_t old_blocks = 0;           // blocks with such a write
+  };
+  GcCounters const & gc_counters();
+  GcCounters const & gc_last_collection();
+  size_t gc_num_old_nodes();       // nodes marked in the last collection
+
+  // The counters of writes into old nodes.  Every pointer store into a node
+  // that exists already is preceded by one of these: a step's write into
+  // its redex (gc_count_redex_write; the scheduler has an inline form in
+  // gc/block.hpp), a write into a node at hand (gc_count_write), or a write
+  // into a slot whose node is not at hand (gc_count_slot_write; the address
+  // may be outside the heap).  They count; nothing is recorded.  Only a
+  // runtime built with SPRITE_GC_WRITE_COUNTERS has them, which
+  // gc_write_counters_enabled() reports.  Without the macro they are empty
+  // inline functions: the sites cost nothing, and the indexer of
+  // indexing.hxx stays inline in generated code.  Some sites are in these
+  // headers, so a module is compiled with the macro of the installed
+  // runtime (see curry.backends.cxx.toolchain.gc_flags).
+  bool gc_write_counters_enabled();
+  #ifdef SPRITE_GC_WRITE_COUNTERS
+  void gc_count_redex_write(Node const *);
+  void gc_count_write(Node const *);
+  void gc_count_slot_write(void const * slot);
+  #else
+  inline void gc_count_redex_write(Node const *) {}
+  inline void gc_count_write(Node const *) {}
+  inline void gc_count_slot_write(void const *) {}
+  #endif
   size_t gc_threshold();
   void gc_set_threshold(size_t);
   size_t gc_growth();           // the growth factor of the adaptive policy

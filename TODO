@@ -3188,3 +3188,142 @@
   stale (Cpp2So.is_stale could read the Prelude path it was linked
   against, or the stamp could digest the installation prefix), so a
   mirrored or copied tree recompiles instead of loading two runtimes.
+2026-10-05: G7a, the age and phase counters of the collector (Gate 0, #81)
+- Stage 0 of the generational design (the perf-program note
+  gc-generational.md, section 7): counters instead of estimates.  Done:
+  (W0.1) every collection records the seconds of its phases (the roots:
+  the configurations of the queues and the nodes Python holds; the trace;
+  the block sweep; the registries: the free-variable tables, the
+  generators, the queues and sets destroyed with their configurations),
+  the nodes marked, the configurations pushed, and the queues and
+  configurations destroyed; gc_counters() sums them, gc_last_collection()
+  holds the last record, sprite-exec --stats and curry.stats print the
+  sums as fourteen gc_ keys after failed_compiles, and SPRITE_GC_REPORT=1
+  prints one key=value line per collection on stderr (it replaces the
+  compile-time GC_REPORT).  The timers cost a clock reading per queue
+  pushed and a few per collection.  (W0.2) The sweep copies the marks of
+  a collection into an ``old`` bitmap of the block header and sets a
+  ``young`` flag on a block that kept no node; the mark phase counts the
+  old and the young nodes it marks; the bitmap is an input of the
+  counters only, the trace is unchanged, and the verifier checks that the
+  old bits lie within the allocated slots, on an explicit request and in
+  the stress mode at every collection (a pass over the blocks, as the
+  sweep makes).  gc_old_node_count() reads the bitmap.  (W0.3) The
+  old-write counters: a test at every return of a step in procS (the
+  redex; inline, the young flag of the block first, the bit of the slot
+  second: src/cyrt/graph/gc/block.hpp, the layout of a block shared by
+  blockheap.cpp and the scheduler) and at the slot sites of the design
+  (the compressions of forward chains in Variable::skip,
+  Node::successor_node and compress_fwd_chain, the generator slot and the
+  bindings of a free variable, the string advance of writeFile,
+  Variable::set_successor, Cursor::skipfwd, and the forward_to,
+  set_successor and step entries of the bindings), counting the writes
+  into old nodes, the distinct old nodes written (a ``dirty`` bit per
+  slot, counted and cleared by the sweep: the unit a write barrier
+  records) and the blocks touched per interval; a slot whose node is not
+  at hand is looked up in a two-level heap map over the 47-bit address
+  space (in_heap_map, a bit per block; a block above that space stays
+  unmapped and uncounted), because the address may be a Configuration
+  field, a local, or an interpreter cell.  Compiled in under
+  SPRITE_GC_WRITE_COUNTERS (make GC_WRITE_COUNTERS=1); without the macro
+  the three hooks are empty inline functions, so the default build has
+  no call at the sites and the indexer stays inline in generated code.
+  Some sites are in the installed headers, so the setting reaches the
+  installation as sysconfig/cxx_gc_write_counters
+  (config.cxx_gc_write_counters) and the generated modules through the
+  compile flags and the ABI stamp (toolchain.gc_flags, object_digest):
+  a switch compiles the modules again.  The cost on Tak1 (perf stat
+  -e instructions:u, three runs per build within 0.01 percent, the
+  module compiled): the base install 16,271 M, the default build 16,259
+  M (-0.07 percent), the instrumented build 17,483 M, 7.45 percent over
+  the base, 36 instructions per step, over the one-percent budget of the
+  design: beside the redex test, every Bool result is a forward node to a
+  pinned constructor, and the case that consumes it compresses the
+  chain, so the slot sites run about once per tak call.  The first
+  version declared the hooks out of line in every build; the review
+  measured its default build at 17,097 M, 5.09 percent over the base,
+  because the empty calls made g++ outline Variable::skip in the module.
+  Found on the way: g++ takes the first precompiled-header member of
+  cyrt.hpp.gch/ whose options agree with the compilation and never
+  compares a member with the headers, so a compilation that defines a
+  macro the current member was built without (this one, or
+  SPRITE_GC_MPS) took a stale member of an earlier runtime, and the
+  module was compiled against old headers; PrecompiledHeader.prepare now
+  removes the stale members of the other flavors (remove_stale_members).
+  (W0.4) The runs, through the harness with the modules compiled, two
+  measured repetitions and one under perf, on a machine shared with four
+  other streams (the counters are deterministic; the seconds are
+  indicative): QueensSet9 at growth 8, 11 collections, 1.47 s in
+  collections, 134 ms each: registries 71 ms (53 percent; 58,128 queues
+  and 766,400 configurations destroyed per run, about 1 us each), roots
+  35 ms (26 percent; 147,578 configurations pushed per collection), trace
+  28 ms (21 percent; 268,009 nodes marked per collection), of which 16.6
+  percent old; per interval 151,504 distinct old nodes written (341
+  percent of the 44,379 old nodes marked at the next collection, 60
+  percent of the 268,009 nodes old during the interval: the frontier is
+  written and dies within it) by 224,555 old redex writes (a tail call
+  rewrites one old node per step; ReverseHO: 400,974 writes into 8
+  nodes) in 621 blocks.  SearchQueens: 20 collections, 1.02 s, 51 ms
+  each, trace 67 percent, 49.8 percent old, 129,700 old nodes written
+  per interval (67 percent of the old nodes marked, 34 percent of the
+  population), no dead queue.  PermSort 0.23 s (3.0 percent old),
+  QueensSet 0.11 s (9.7), Tak1 0.007 s (16.3), Queens10 0.013 s (78.6),
+  ReverseHO 0.05 s (15.0), Last 0.003 s (10.0).  The growth factors 2,
+  8, 16: QueensSet9 3.29, 1.47, 1.04 s in 29, 11, 6 collections, 60.1,
+  16.6, 11.9 percent old, the old nodes written 47, 341, 464 percent of
+  the old nodes marked and 29, 60, 62 percent of the old population, the
+  trace 30, 21, 17 percent of a collection, the registries phase 0.69 to
+  0.85 s per run at every factor (the per-run term of the design's
+  model, measured; the design estimated 0.45 s); SearchQueens 7.32,
+  1.02, 0.50 s in 75, 20, 10 collections, 83.8, 49.8, 30.6 percent old,
+  16, 67, 130 percent written, the trace 74, 67, 62 percent, no per-run
+  term (-0.01 s through growth 8 and 16) but a per-collection cost that
+  grows with the nodes marked (98 ms at growth 2 against 51 at 8).  Peak
+  RSS: QueensSet9 192, 323, 466 MiB; SearchQueens 191, 305, 470.  Gate 0
+  on QueensSet9, per growth factor: the old share passes at growth 2
+  (60.1 percent against 50) and fails at 8 and 16; the old nodes written
+  fail at every factor (47, 341, 464 percent against 25; 29 to 62
+  percent of the old population); the trace fails at every factor (30,
+  21, 17 percent against 40); the instrumented build costs 7.45 percent
+  of Tak1 against 1; the growth line of SearchQueens has no per-run term
+  (pass).  Verdict: no-go, on the trace share and the cost, not on the
+  old share; SearchQueens at growth 2 passes the three shape clauses (the
+  yardstick question of the design, open question 1).  G7b to G7f close;
+  G8 (the growth default: growth 16 takes 29 percent off QueensSet9's
+  collector and 50 percent off SearchQueens's, for 143 and 165 MiB) and
+  G9 (the destruction of dead queues, the largest term of QueensSet9, 0.7
+  to 0.85 s per run) open.  The tables, the commands and the load caveat
+  are in the perf-program note gc-stage0.md.  Tests:
+  unit_cxx_gc_counters.py (the toolchain flags and the ABI stamp of the
+  setting; the keys of the bindings, curry.stats and stats.GC_COUNTERS;
+  the phases, marks and pushed configurations of an evaluation that
+  collects; 2,000 abandoned set-function queues destroyed with their
+  configurations; the old bitmap equals the marks of the last collection
+  and the verifier accepts it; the writes into old nodes and the old
+  nodes written of CxxGc.thunks when the runtime counts them; the report
+  lines; the stress mode with the verifier; a nested collection from a
+  Python callback), with and without SPRITE_GC_STRESS=1, on both builds;
+  unit_cxx_heap.py pins the inline indexer and the absence of the hooks
+  in a module of the default build (test_tak_indexes_inline, which also
+  requires a current ABI stamp of the object); unit_cxx_toolchain.py
+  pins the removal of stale precompiled-header members; unit_api.py,
+  unit_cxx_counters.py and unit_cxx_mps.py pin the new keys and the
+  flags (the regex of test_keys in unit_cxx_counters.py lacked swapped
+  and failed_compiles).  Docs: the stats fields of sprite-exec and the
+  switch of the build, SPRITE_GC_REPORT on the environment page, the gc
+  README, tests/README section 4 (the write-counter build is manual; the
+  CI job "write-counters" runs its tests on request), the help text of
+  --stats.  The manifest entry of unit_cxx_gc_counters.py was taken on a
+  loaded machine.  Found on the way, not fixed: unit_io_bind.py's
+  test_readFile_nondet_name_is_an_error fails with "bad Curry string"
+  when IOBind runs interpreted under the tiered default while the
+  Prelude is compiled (a stale object right after a header change); it
+  passes compiled and under interpret:all, and it fails the same way
+  against the install of the base commit with the same stale stamp, so
+  it predates this item.  Left: the split of the 7.45 percent between
+  the redex test and the slot sites needs a third build; the heap map
+  (256 KB of pointers, a bitmap per 4 GB region) is kept by the heap in
+  every build and serves a conservative stack scan later; the
+  compressions of Bool results are a cost of their own (a forward node
+  per comparison) that an in-place write of a pinned constructor's
+  heap copy, or a boxed Bool, would remove.

@@ -77,6 +77,21 @@ The following are recognized:
   size its arena and its two generations.  See
   ``src/cyrt/graph/gc/mps.cpp``.
 
+``SPRITE_GC_REPORT``
+  With the value ``1``, every collection of the collector of the C++
+  backend prints one line of ``key=value`` pairs on the standard error
+  stream when it ends: its number, whether it ran inside a nested
+  evaluation, the nodes before it and the survivors, the nodes marked (old
+  and young apart), the seconds of its phases, the configurations pushed,
+  the queues and configurations destroyed, the writes into old nodes since
+  the collection before, the threshold it set, and the configurations,
+  queues, sets and blocks alive.  The fields are those of ``sprite-exec
+  --stats`` (``gc_marked`` and the others, without the prefix), per
+  collection instead of summed.  The value ``0`` or an empty value turns
+  the report off, which is the default; another value turns it off with a
+  warning.  The value is read when the runtime library loads.  The Python
+  backend does not use it.
+
 ``SPRITE_INTERPRETER_FLAGS``
   Overrides default flags in Sprite's Curry interpreter.  This can be set to a
   comma-separated list of colon-separated pairs (without spaces).

@@ -174,6 +174,21 @@ weak free-variable table, and of the out-of-memory child hold for the
 default collector alone and skip there (cytest.skipUnlessGcBackend);
 unit_cxx_mps.py tests the MPS back end.
 
+A runtime built with make GC_WRITE_COUNTERS=1 counts the writes into old
+nodes (the fields gc_old_redexes, gc_old_slot_writes, gc_old_nodes_written
+and gc_old_blocks of curry.stats; see src/cyrt/graph/gc/wdgc.cpp and the
+sprite-exec page of the documentation).  The default build has none of the
+code, and the push and nightly jobs of CI build the default, so the
+branches of unit_cxx_gc_counters.py that check the counts
+(test_writes_into_old_nodes, test_stress_mode) and the branch of
+test_tak_indexes_inline in unit_cxx_heap.py that expects the calls run on
+such a build alone: by hand, or through the job "write-counters" of
+.github/workflows/ci.yml on request (the input "write_counters").  On the
+default build those tests check that the counts are zero and that a
+compiled module has no call to the counters.  The macro is part of the ABI
+stamp, so the first run after a switch compiles the shared modules again
+(--prepare).
+
 
 5. ORACLE CONFIGURATION
 -----------------------

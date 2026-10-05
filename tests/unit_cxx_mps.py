@@ -35,7 +35,7 @@ class TestCollectorSelection(cytest.TestCase):
     ABI stamp tells the collectors apart.
     '''
     from curry.backends.cxx import toolchain
-    self.assertEqual(toolchain.gc_flags('wdgc'), [])
+    self.assertEqual(toolchain.gc_flags('wdgc', write_counters=False), [])
     self.assertEqual(toolchain.gc_flags('mps'), ['-DSPRITE_GC_MPS'])
     self.assertEqual(toolchain.gc_flags(), toolchain.gc_flags(config.cxx_gc()))
     self.assertEqual(

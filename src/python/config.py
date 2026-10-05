@@ -169,6 +169,10 @@ _cxx_flavor               = _Variable('cxx_flavor')
 # The collector of the installed C++ runtime, as the build wrote it: 'wdgc'
 # or 'mps'.  See cxx_gc.
 _cxx_gc                   = _Variable('cxx_gc')
+# Whether the installed C++ runtime counts the writes into old nodes (make
+# GC_WRITE_COUNTERS=1), as the build wrote it: 0 or 1.  See
+# cxx_gc_write_counters.
+_cxx_gc_write_counters    = _Variable('cxx_gc_write_counters', type=bool)
 
 # The flavors of the C++ runtime and of generated code.
 CXX_FLAVORS = 'release', 'debug'
@@ -200,6 +204,18 @@ def cxx_gc():
   if not os.path.exists(installed_path('sysconfig', 'cxx_gc')):
     return 'wdgc'
   return 'mps' if _cxx_gc().strip() == 'mps' else 'wdgc'
+
+def cxx_gc_write_counters():
+  '''
+  True when the installed C++ runtime counts the writes into old nodes (make
+  GC_WRITE_COUNTERS=1; see src/cyrt/graph/gc/wdgc.cpp).  Some of the counted
+  sites are in the runtime headers, so the C++ backend compiles generated
+  modules with the same macro (see curry.backends.cxx.toolchain.gc_flags).
+  An installation that names no value is a build without them.
+  '''
+  if not os.path.exists(installed_path('sysconfig', 'cxx_gc_write_counters')):
+    return False
+  return _cxx_gc_write_counters()
 
 
 def syslibs():

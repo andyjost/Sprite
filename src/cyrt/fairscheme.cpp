@@ -5,6 +5,13 @@
 #include "cyrt/state/rts.hpp"
 #include <iostream>
 
+#ifdef SPRITE_GC_WRITE_COUNTERS
+  #include "cyrt/graph/gc/block.hpp"
+  #define GC_COUNT_REDEX_WRITE(redex) gc_count_redex_write_fast(redex)
+#else
+  #define GC_COUNT_REDEX_WRITE(redex)
+#endif
+
 
 #ifdef SPRITE_TRACE_ENABLED
   #define TRACE_STEP_ENTER(cursor) \
@@ -208,13 +215,18 @@ namespace cyrt
   tag_type RuntimeState::procS(Configuration * C)
   {
     TRACE_STEP_ENTER(C->cursor())
-    #ifdef SPRITE_SCHEDULER_COUNTERS
+    #if defined(SPRITE_SCHEDULER_COUNTERS) || defined(SPRITE_GC_WRITE_COUNTERS)
     // The redex is rewritten in place, so its address names it after the
     // step as well.  A function node is never a pinned object.
     Node * const redex = C->cursor().arg->node;
     assert(!is_pinned(*redex->info));
     #endif
     auto status = C->cursor()->info->step(this, C);
+    // A step writes its result into its redex.  The counter of writes into
+    // old nodes (gc/wdgc.cpp) runs on every return: an interrupted step may
+    // have written too (writeFile advances its string in place before the
+    // next hnf).
+    GC_COUNT_REDEX_WRITE(redex);
     TRACE_STEP_EXIT(C->cursor())
     // Only a rewrite counts as a step.  A status below E_RESTART means the
     // step was interrupted (E_UNWIND, E_GC, E_ROTATE), suspended

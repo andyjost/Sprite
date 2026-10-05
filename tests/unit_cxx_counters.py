@@ -29,10 +29,14 @@ def raw_counters():
   return curry.getInterpreter()._evaluation_totals.scheduler
 
 def plain(stats):
-  '''The counts of a Stats object without the clocks and the sizes.'''
+  '''
+  The counts of a Stats object without the clocks, the sizes, and the
+  counters of the collector.
+  '''
   return {key: stats[key] for key in stats
                           if key not in ('wall', 'cpu', 'peak_rss', 'compile'
-                                        , 'gc_seconds')}
+                                        , 'gc_seconds')
+                          and not key.startswith('gc_')}
 
 
 class TestDerivations(unittest.TestCase):
@@ -146,7 +150,7 @@ class TestCounters(cytest.TestCase):
     return stats, outer
 
   def test_keys(self):
-    '''The fourteen keys follow the seven, in the line and in the dict.'''
+    '''The fourteen keys follow the others, in the line and in the dict.'''
     stats = curry.stats()
     self.assertEqual(tuple(stats), KEYS)
     self.assertTrue(curry.getInterpreter().backend.scheduler_counters_enabled())
@@ -154,7 +158,8 @@ class TestCounters(cytest.TestCase):
     self.assertRegex(
         line
       , r'^wall=\S+ cpu=\S+ steps=0 forks=0 collections=\d+ peak_rss=\d+'
-        r' compile=\S+ gc_seconds=\S+ serial_steps=0 nested_steps=0'
+        r' compile=\S+ gc_seconds=\S+ swapped=0 failed_compiles=0'
+        r'( gc_\w+=\S+){14} serial_steps=0 nested_steps=0'
         r' shared_steps=0'
         r' queue_max=0 configurations=0 failures=0 failed_steps=0'
         r' lifetime_median=0 lifetime_mean=0\.000000 lifetime_max=0'

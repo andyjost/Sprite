@@ -6,8 +6,9 @@ from .. import toolchain
 import os, resource, sys, time
 
 __all__ = [
-    'KEYS', 'SCHEDULER_KEYS', 'Stats', 'format_stats', 'histogram_median'
-  , 'peak_rss', 'scheduler_fields', 'stats'
+    'GC_COUNTERS', 'GC_KEYS', 'KEYS', 'SCHEDULER_KEYS', 'Stats'
+  , 'format_stats', 'histogram_median', 'peak_rss', 'scheduler_fields'
+  , 'stats'
   ]
 
 def _process_start():
@@ -35,10 +36,22 @@ _START = _process_start()
 # ru_maxrss is in kibibytes on Linux and in bytes on macOS.
 _RSS_UNIT = 1 if sys.platform == 'darwin' else 1024
 
+# The counters of the node collector of the C++ backend, summed over the
+# collections of the process (cyrtbindings.gc_counters; see
+# src/cyrt/graph/gc/wdgc.cpp).  Each is a key of the statistics with the
+# prefix gc_.
+GC_COUNTERS = (
+    'roots_seconds', 'trace_seconds', 'sweep_seconds', 'registries_seconds'
+  , 'marked', 'marked_old', 'marked_young', 'configurations_pushed'
+  , 'queues_destroyed', 'configurations_destroyed', 'old_redexes'
+  , 'old_slot_writes', 'old_nodes_written', 'old_blocks'
+  )
+GC_KEYS = tuple('gc_' + name for name in GC_COUNTERS)
+
 KEYS = (
     'wall', 'cpu', 'steps', 'forks', 'collections', 'peak_rss', 'compile'
   , 'gc_seconds', 'swapped', 'failed_compiles'
-  )
+  ) + GC_KEYS
 
 # The keys a C++ runtime built with the scheduler counters (make COUNTERS=1)
 # adds after KEYS.  See scheduler_fields.
@@ -201,6 +214,30 @@ def stats(interp):
         The background compiles of tiered execution that failed in this
         process; the modules stay interpreted.  The Python backend reports
         zero.
+    ``gc_roots_seconds``, ``gc_trace_seconds``, ``gc_sweep_seconds``,
+    ``gc_registries_seconds``
+        Seconds the collections of the node collector spent in each phase:
+        the roots (the configurations of the queues and the nodes Python
+        holds), the trace from the roots, the block sweep, and the
+        registries (the free-variable tables, the generator nodes, the
+        queues and the sets).  The verifier of the stress mode is in none
+        of them.  The Python backend reports zero.
+    ``gc_marked``, ``gc_marked_old``, ``gc_marked_young``
+        The nodes the collections marked: all, those marked in the
+        collection before as well (old), and those allocated since (young).
+    ``gc_configurations_pushed``
+        The configurations whose roots the collections pushed.
+    ``gc_queues_destroyed``, ``gc_configurations_destroyed``
+        The queues of set functions no root reached, destroyed by the
+        collections, and the configurations destroyed with them.
+    ``gc_old_redexes``, ``gc_old_slot_writes``, ``gc_old_nodes_written``,
+    ``gc_old_blocks``
+        The writes into old nodes between the collections: the writes of a
+        step into an old redex, the other pointer writes into an old node,
+        the distinct old nodes written, and the blocks with such a write,
+        summed over the intervals.  Only a runtime built with the write
+        counters (make GC_WRITE_COUNTERS=1) counts them; the default build
+        reports zero.
 
     A C++ runtime built with the scheduler counters (make COUNTERS=1) adds
     the keys of :data:`SCHEDULER_KEYS`; see :func:`scheduler_fields`.
@@ -219,6 +256,11 @@ def stats(interp):
     ]
   swapped, failed = interp.backend.tiered_counts()
   fields += [('swapped', swapped), ('failed_compiles', failed)]
+  counters = interp.backend.gc_counters()
+  fields += [
+      ('gc_' + name, counters.get(name, 0.0 if name.endswith('_seconds') else 0))
+      for name in GC_COUNTERS
+    ]
   if interp.backend.scheduler_counters_enabled():
     fields += scheduler_fields(totals.scheduler)
   return Stats(fields)

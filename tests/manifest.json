@@ -630,6 +630,24 @@
         "tests": 23
       }
     },
+    "unit_cxx_gc_counters.py": {
+      "cxx": {
+        "duration_s": 5.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 110,
+        "tests": 9
+      },
+      "py": {
+        "duration_s": 0.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 36,
+        "tests": 9
+      }
+    },
     "unit_cxx_heap.py": {
       "cxx": {
         "duration_s": 4.0,
