@@ -6,7 +6,8 @@ import os, re
 from . import MIB, TESTDIR
 
 __all__ = [
-    'format_status', 'header', 'parse_unittest', 'summary', 'tail'
+    'format_status', 'header', 'parse_unittest', 'prepare_header', 'summary'
+  , 'tail'
   ]
 
 RAN = re.compile(r'^Ran (\d+) tests? in ([\d.]+)s', re.MULTILINE)
@@ -58,6 +59,18 @@ def header(jobs, width, budget, timeout, logdir, available=None):
       'runner: %d file%s on %s, width %d, budget %s, timeout %g s, logs under %s'
     % ( files, '' if files == 1 else 's', '+'.join(backends), width, about
       , timeout, relative(logdir)
+      )
+    )
+
+def prepare_header(jobs, logdir):
+  '''The line printed before a run of the prepare pass alone.'''
+  backends = sorted(set(job.backend for job in jobs))
+  count = len(set(job.filename for job in jobs))
+  return (
+      'runner: prepare pass, %d director%s on %s, one process at a time, '
+      'logs under %s'
+    % ( count, 'y' if count == 1 else 'ies', '+'.join(backends)
+      , relative(logdir)
       )
     )
 

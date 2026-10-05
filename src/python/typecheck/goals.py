@@ -117,6 +117,9 @@ def _values(freevars, interp, results, convert):
         yield convert(interp, result)
       else:
         yield result
+    # The C++ backend applies the objects compiled in the background during
+    # the evaluation here (backends.cxx.tiered).
+    interp.backend.after_evaluation(interp)
   finally:
     # Closing this generator closes the evaluation, so that its counts
     # reach the totals of the interpreter now.

@@ -20,15 +20,16 @@ class ICurryTestCase(cytest.TestCase):
 
 class TestStats(cytest.TestCase):
   '''
-  ``curry.stats`` and ``sprite-exec --stats``.  Both report the same eight
+  ``curry.stats`` and ``sprite-exec --stats``.  Both report the same ten
   fields on both backends: wall and CPU seconds, rewrite steps, forks,
-  collections, peak RSS, compile seconds, and collector seconds.  A C++
-  runtime built with the scheduler counters (make COUNTERS=1) appends the
-  keys of stats.SCHEDULER_KEYS; unit_cxx_counters.py tests those.
+  collections, peak RSS, compile seconds, collector seconds, the functions
+  swapped by tiered execution, and the background compiles that failed.  A
+  C++ runtime built with the scheduler counters (make COUNTERS=1) appends
+  the keys of stats.SCHEDULER_KEYS; unit_cxx_counters.py tests those.
   '''
   KEYS = (
       'wall', 'cpu', 'steps', 'forks', 'collections', 'peak_rss', 'compile'
-    , 'gc_seconds'
+    , 'gc_seconds', 'swapped', 'failed_compiles'
     )
   TIMEOUT = 120
   # The C++ runtime keeps one entry per module name, so a module built in
@@ -49,13 +50,13 @@ class TestStats(cytest.TestCase):
 
   @staticmethod
   def extra_keys():
-    '''The keys after the seven: the scheduler counters, when the runtime has them.'''
+    '''The keys after the ten: the scheduler counters, when the runtime has them.'''
     if curry.getInterpreter().backend.scheduler_counters_enabled():
       return statsmod.SCHEDULER_KEYS
     return ()
 
   def test_fields(self):
-    '''The eight fields, their types, and the key=value line.'''
+    '''The ten fields, their types, and the key=value line.'''
     stats = curry.stats()
     self.assertIsInstance(stats, statsmod.Stats)
     self.assertEqual(tuple(stats), self.KEYS + self.extra_keys())
@@ -63,7 +64,8 @@ class TestStats(cytest.TestCase):
     for key in 'wall', 'cpu', 'compile', 'gc_seconds':
       self.assertIsInstance(stats[key], float, key)
       self.assertGreaterEqual(stats[key], 0.0, key)
-    for key in 'steps', 'forks', 'collections', 'peak_rss':
+    for key in 'steps', 'forks', 'collections', 'peak_rss', 'swapped' \
+             , 'failed_compiles':
       self.assertIsInstance(stats[key], int, key)
       self.assertGreaterEqual(stats[key], 0, key)
     self.assertGreater(stats['wall'], 0.0)
@@ -72,6 +74,8 @@ class TestStats(cytest.TestCase):
     if curry.flags['backend'] == 'py':
       self.assertEqual(stats['collections'], 0)
       self.assertEqual(stats['gc_seconds'], 0.0)
+      self.assertEqual(stats['swapped'], 0)
+      self.assertEqual(stats['failed_compiles'], 0)
     line = str(stats)
     self.assertRegex(
         line
@@ -140,12 +144,14 @@ class TestStats(cytest.TestCase):
     self.assertEqual(after['forks'], before['forks'])
     self.assertEqual(str(next(curry.eval(stepped))), 'False')
 
+  @cytest.with_flags(interpret='off')
   def test_compile_time(self):
     '''
     The compile field is the time spent in the steps of the toolchain.  A
     hand-written ICurry-JSON module costs the code generator, and on the C++
     backend the compiler; an import that finds every file current costs
-    nothing.
+    nothing.  Under the default of the flag ``interpret`` (tiered) the C++
+    backend interprets the module and no step runs, so the flag is off.
     '''
     tmpdir = tempfile.mkdtemp(prefix='sprite-stats-')
     self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)

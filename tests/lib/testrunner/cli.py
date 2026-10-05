@@ -16,7 +16,7 @@ from .scheduler import Job, Scheduler
 
 __all__ = [
     'backstop_prefix', 'environment', 'exit_status', 'main', 'parse_args'
-  , 'test_job'
+  , 'prepare_pass_jobs', 'test_job'
   ]
 
 # The cap of a directory of the prepare pass, and the seconds it may take
@@ -91,6 +91,11 @@ def build_parser(jobs=DEFAULT_JOBS):
       '--prepare', action='store_true'
     , help='first compile the shared Curry products, one directory at a '
            'time, so parallel files never write the same product at once'
+    )
+  parser.add_argument(
+      '--prepare-only', action='store_true'
+    , help='run the prepare pass alone, for the products the selection '
+           'uses, and exit with its status; no test file runs'
     )
   parser.add_argument(
       '--update-manifest', action='store_true'
@@ -202,6 +207,24 @@ def test_job(filename, backend, sprite_home, manifest, timeout, logdir, env):
     , hint=manifest.duration(filename, backend)
     )
 
+def prepare_pass_jobs(args, names, backends, sprite_home):
+  '''
+  The jobs of the prepare pass for the selected files ``names``: one per
+  directory and backend, with the environment of a child, a timeout that
+  grows with the count of modules, and the reason for --list.
+  '''
+  base = dict(os.environ)
+  jobs = prepare.jobs(
+      names, backends, sprite_home, base, args.logdir, cap=PREPARE_CAP
+    , timeout=None, prefix=backstop_prefix(PREPARE_CAP)
+    )
+  for job in jobs:
+    count = len(job.argv) - job.argv.index(prepare.TARGET[job.backend]) - 1
+    job.timeout = max(args.timeout, PREPARE_SECONDS_PER_MODULE * count)
+    job.env = environment(sprite_home, job.backend, base=job.env)
+    job.reasons = ['prepare pass']
+  return jobs
+
 def select(args, backends, manifest, files=None):
   '''
   The selection: a list of :class:`selection.Selected` and the notes that
@@ -293,7 +316,9 @@ def main(argv=None):
   names = [item.filename for item in selected]
   reasons = {item.filename: item.reasons for item in selected}
   envs = {backend: environment(sprite_home, backend) for backend in backends}
-  jobs = [
+  # Under --prepare-only the selection names the products to prepare, and
+  # no test file runs.
+  jobs = [] if args.prepare_only else [
       test_job(
           name, backend, sprite_home, manifest, args.timeout, args.logdir
         , envs[backend]
@@ -303,29 +328,27 @@ def main(argv=None):
   for job in jobs:
     job.reasons = reasons[job.filename]
   jobs.sort(key=lambda job: manifest.order_key(job.filename, job.backend))
-  width = procs.cpu_count() if args.jobs == 'auto' else args.jobs
+  if args.prepare_only:
+    # The pass runs one process at a time.
+    width = 1
+  else:
+    width = procs.cpu_count() if args.jobs == 'auto' else args.jobs
   budget, available = budget_of(args, width)
   prepare_jobs = []
-  if args.prepare:
-    base = dict(os.environ)
-    prepare_jobs = prepare.jobs(
-        names, backends, sprite_home, base, args.logdir, cap=PREPARE_CAP
-      , timeout=None, prefix=backstop_prefix(PREPARE_CAP)
-      )
-    for job in prepare_jobs:
-      count = len(job.argv) - job.argv.index(prepare.TARGET[job.backend]) - 1
-      job.timeout = max(args.timeout, PREPARE_SECONDS_PER_MODULE * count)
-      job.env = environment(sprite_home, job.backend, base=job.env)
-      job.reasons = ['prepare pass']
+  if args.prepare or args.prepare_only:
+    prepare_jobs = prepare_pass_jobs(args, names, backends, sprite_home)
   for line in notes:
     out.write('changed: %s\n' % line)
   if args.list:
     out.write(listing(prepare_jobs + jobs, manifest) + '\n')
     return 0
-  if not jobs:
+  if args.prepare_only:
+    out.write(report.prepare_header(prepare_jobs, args.logdir) + '\n')
+  elif not jobs:
     out.write('run_tests: no file selected\n')
     return 0
-  out.write(report.header(jobs, width, budget, args.timeout, args.logdir, available) + '\n')
+  else:
+    out.write(report.header(jobs, width, budget, args.timeout, args.logdir, available) + '\n')
   out.flush()
   total = len(prepare_jobs) + len(jobs)
   counter = itertools.count(1)
@@ -348,7 +371,7 @@ def main(argv=None):
     pre.run()
     interrupted = pre.interrupted
     wall += pre.wall
-  if not interrupted:
+  if jobs and not interrupted:
     sched = Scheduler(
         jobs, budget, width, on_finish=on_finish, echo=echo
       , inherit_stdin=echo
@@ -371,6 +394,10 @@ def main(argv=None):
         , report.relative(args.manifest)
         ))
   out.flush()
-  # A directory of the prepare pass that did not compile whole is a note in
-  # the table, not a failure: the test that needs the module reports it.
+  # Under --prepare the pass is a warm-up: a directory that did not compile
+  # whole is a note in the table, not a failure, and the test that needs the
+  # module reports it.  Under --prepare-only the pass is the run, and such a
+  # directory fails it.
+  if args.prepare_only:
+    return exit_status(prepare_jobs, interrupted)
   return exit_status(done, interrupted)

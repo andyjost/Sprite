@@ -31,7 +31,7 @@ are available:
 
     Trace computations.
 
-  * ``interpret`` (**'off'** | 'new' | 'all')
+  * ``interpret`` ('off' | 'new' | 'all' | **'tiered'**)
 
     How the C++ backend runs a module whose code is not compiled.  With
     'off', the toolchain compiles every module with the C++ compiler.  With
@@ -40,9 +40,15 @@ are available:
     interpreted by the ICurry interpreter of the runtime (cyrt/icurry.hpp)
     instead, and a module with a current object is loaded from it.  With
     'all', every module is interpreted, the Prelude included; the compiled
-    objects are not used.  The interpreter takes the same steps as compiled
-    code on the same runtime; it runs a few times slower, and it starts at
-    once.  The Python backend ignores this flag.
+    objects are not used.  With 'tiered', the default, a module without a
+    compiled object is interpreted at once, as under 'new', a child process
+    compiles it in the background, and the runtime swaps the functions of
+    the module to the compiled code when the object is ready, during a
+    running evaluation included (see curry.backends.cxx.tiered).  An
+    expression, an interactive module, and a module compiled from a string
+    stay interpreted.  The interpreter takes the same steps as compiled code
+    on the same runtime; it runs a few times slower, and it starts at once.
+    The Python backend ignores this flag.
 
   * ``keep_temp_files``  (True | **False** | <str>)
 
@@ -104,7 +110,7 @@ FLAG_INFO = {
     'backend'             : ({'cxx', 'py'}, config.default_backend())
   , 'debug'               : ( bool                , False )
   , 'defaultconverter'    : ({'topython', None}   , None  )
-  , 'interpret'           : ({'off', 'new', 'all'}, 'off' )
+  , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'tiered')
   , 'trace'               : ( bool                , False )
   , 'keep_temp_files'     : ((bool, str)          , False )
   , 'lazycompile'         : ( bool                , True  )

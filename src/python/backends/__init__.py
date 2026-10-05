@@ -66,6 +66,35 @@ class IBackend(metaclass=abc.ABCMeta):
     whole modules ahead of time has nothing to do.
     '''
 
+  def module_loaded(self, interp, moduleobj, currypath):
+    '''
+    Called when the import of a module ends, after the imports of the module
+    were imported and its symbols were loaded.  ``currypath`` is the search
+    path of the import.  The C++ backend queues the background compile of a
+    module it interprets (see backends.cxx.tiered).
+    '''
+
+  def before_evaluation(self, interp):
+    '''
+    Called when an evaluation is about to start.  The C++ backend applies the
+    compiled objects that finished in the background.
+    '''
+
+  def after_evaluation(self, interp):
+    '''
+    Called when the values of an evaluation are exhausted.  The C++ backend
+    applies and logs the compiled objects that finished during the
+    evaluation.
+    '''
+
+  def tiered_counts(self):
+    '''
+    The functions swapped to compiled code and the background compiles that
+    failed in this process (Interpreter.stats reports them).  A backend
+    without tiered execution answers zeros.
+    '''
+    return 0, 0
+
   @abc.abstractproperty
   def fundamental_symbols(self):
     assert 0

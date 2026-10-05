@@ -194,9 +194,15 @@ def main(program_name, argv):
       program_name
     , exit_status=None if args.keep_going else 1
     )
+  # An explicit compile compiles: under the interpreter flag interpret set to
+  # 'new' or 'tiered' the plan of an import ends at the JSON, and this
+  # program must still write the object (the background compile of tiered
+  # execution runs this program).
   interp = getInterpreter() if args.backend_name is None else \
            interpreter.Interpreter(
-               flags=_flags.getflags({'backend': args.backend_name})
+               flags=_flags.getflags(
+                   {'backend': args.backend_name, 'interpret': 'off'}
+                 )
              )
   for name in args.names:
     if name.endswith('.icy'):

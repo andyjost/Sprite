@@ -29,8 +29,8 @@ from curry.backends.cxx import compiler, toolchain
 from curry.toolchain import plans, _findcurry, makecurry
 from curry.utility.binding import binding, del_
 from unittest import mock
-import curry, itertools, json, logging, os, shutil, subprocess, tempfile, time
-import types, unittest, zlib
+import curry, gc, importlib, itertools, json, logging, os, shutil, subprocess
+import tempfile, time, types, unittest, zlib
 
 # A module with one goal that returns an integer.
 MODULE_JSON = (
@@ -50,6 +50,16 @@ class ToolchainTestCase(cytest.TestCase):
 
   def setUp(self):
     super().setUp()
+    # These tests drive the compile steps.  Under the default of the flag
+    # ``interpret`` (tiered) the plan of an import ends at the JSON and the
+    # module is interpreted, so the flag is off here; tearDown restores the
+    # default.  A test that reloads with flags of its own passes the flag
+    # as well.  The Prelude is imported now: a new interpreter loads it on
+    # first use, and a test that fakes a step of the toolchain (a format
+    # stamp that misreads, a missing compiler) must not plan the installed
+    # Prelude under the fake.
+    curry.reload({'interpret': 'off'})
+    curry.import_('Prelude')
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-toolchain-')
     self.srcdir = os.path.join(self.tmpdir, 'src')
     self.subdir = os.path.join(
@@ -59,6 +69,8 @@ class ToolchainTestCase(cytest.TestCase):
 
   def tearDown(self):
     super().tearDown()
+    importlib.reload(curry)
+    gc.collect()
     shutil.rmtree(self.tmpdir, ignore_errors=True)
 
   def write_json(self, value):
@@ -242,7 +254,7 @@ class TestPrecompiledHeader(ToolchainTestCase):
     self.assertEqual(self.members(), [])
     self.assertEqual(os.listdir(os.path.join(self.root, 'cyrt')), ['cyrt.hpp.gch'])
 
-  @cytest.with_flags(backend='cxx', debug=True)
+  @cytest.with_flags(backend='cxx', debug=True, interpret='off')
   def test_debug_flavor(self):
     '''The debug build gets a member of its own.'''
     module = self.compile_module(9)
@@ -842,7 +854,7 @@ class TestFlavor(ToolchainTestCase):
         self.cpp2so.accepted_digests(), {toolchain.object_digest('release')}
       )
 
-  @cytest.with_flags(backend='cxx', debug=True)
+  @cytest.with_flags(backend='cxx', debug=True, interpret='off')
   def test_debug_flag(self):
     '''
     Under the flag a module gets the debug flags and keeps its assertions,
@@ -884,7 +896,11 @@ class TestFlavor(ToolchainTestCase):
     sofile = self.cached_file(name, '.so')
     cppfile = self.cached_file(name, '.cpp')
     release = self.cpp2so
-    debug = toolchain.Cpp2So(types.SimpleNamespace(flags={'debug': True}))
+    # A step of the debug flavor on the interpreter of the session: the
+    # staleness check imports the imports of a module (import_lacks_an_object).
+    debug = toolchain.Cpp2So(types.SimpleNamespace(
+        flags={'debug': True}, import_=curry.getInterpreter().import_
+      ))
     self.assertEqual(release.flavor, 'release')
     self.assertEqual(debug.flavor, 'debug')
     # A release object serves both sessions.

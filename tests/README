@@ -116,17 +116,55 @@ runs the unit suite on the C++ backend in stress mode (job "stress" in
 The C++ backend can run a module without the C++ compiler: the runtime
 interprets the ICurry of the module from a bytecode (src/cyrt/icurry.hpp,
 curry.backends.cxx.bytecode).  The interpreter flag ``interpret`` selects
-it: 'new' interprets the modules without a compiled object, 'all' every
-module, the Prelude included.  To run the unit tests that way, say:
+how a module without a compiled object runs.  Its default, 'tiered',
+interprets the module at once, compiles it in the background in a child
+process (sprite-make --so), and swaps the functions of the module to the
+compiled code when the object is ready, also in the middle of a running
+evaluation (curry.backends.cxx.tiered, src/cyrt/tiered.hpp).  'new'
+interprets such a module and never compiles it, 'all' interprets every
+module, the Prelude included, and 'off' compiles every module with the C++
+compiler before it runs.  To run the unit tests under one of the other
+modes, say, for example:
 
         SPRITE_INTERPRETER_FLAGS=backend:cxx,interpret:all ./run_tests 'unit_*.py'
 
 The tests that read a generated .cpp or .so file, or expect the toolchain
-to compile, fail under the flag by design (see the dated TODO entry);
-unit_cxx_interp.py tests the interpreter.  The CI workflow runs
-unit_cxx_interp.py and the functional suites under interpret:all on request
-(the input "interpreter" of .github/workflows/ci.yml; the job passes the
-flag to run-tests.sh through SPRITE_TEST_FLAGS).
+to compile, set the flag to 'off' for themselves (unit_cxx_toolchain.py,
+and single tests of unit_optimize.py, unit_api.py, unit_compile.py, and
+unit_prebuild.py); they fail under 'new' and 'all' by design (see the dated
+TODO entries).  unit_cxx_interp.py tests the interpreter.  The CI workflow
+runs unit_cxx_interp.py and the functional suites under interpret:all on
+request (the input "interpreter" of .github/workflows/ci.yml; the job
+passes the flag to run-tests.sh through SPRITE_TEST_FLAGS).
+
+Under 'tiered', a module compiled from a string and an expression stay
+interpreted; a compiled object is loaded only when every import of its
+module was loaded from an object, else the module is interpreted too; a
+reset, a reload, and the exit of the process cancel the compiles in
+flight, so a test that writes a fresh module must wait for its compile
+(tiered.wait) before it removes the directory, and a short program under
+sprite-exec ends interpreted with no object written.  So a test process
+never compiles a shared corpus module whose object is missing or stale,
+and a test that inspects the compiled object of a corpus module
+(unit_cxx_bom.py, unit_cxx_literals.py, unit_cxx_partial.py,
+unit_cxx_passthrough.py, unit_cxx_rewrite.py) finds it interpreted until
+the object exists.  The prepare pass of the runner (--prepare, section 10)
+runs sprite-make, which always compiles; run it once after a make stage
+that changed a runtime header, which makes every object stale, and the
+files find the corpus compiled.  --prepare-only runs the pass alone and
+exits with its status; the CI script runs it before the files of a C++
+shard.  unit_cxx_tiered.py tests the mode: the swap and its statistics
+(tiered.status and the fields swapped and failed_compiles of curry.stats),
+the values and steps of both tiers, the swap between the values of one
+evaluation and at a safepoint of a long one, a module that imports a fresh
+module, the tables and the shim across a reload, an edited module and an
+edited import after a reload, a module compiled from a string made again
+after a reset, the failure path in the process and under sprite-exec, and a
+fresh program under sprite-exec.  One expected failure records a gap of the
+interpreter in the mixed mode: an interpreted module that applies readFile
+of the compiled Prelude to a nondeterministic name raises ValueError
+instead of the nondeterminism error (a program interpreted whole, and
+compiled code, raise the error).
 
 A runtime built with make GC=mps (the Memory Pool System, an experiment
 behind a gate; see src/cyrt/graph/gc/mps.cpp and the dated TODO entry)
@@ -476,8 +514,9 @@ status is 1 when a file failed, crashed, or was killed, 2 when a pattern
 matches no test file, and 130 after Ctrl-C.
 
         ./run_tests [-j N|auto] [--mem GB] [--backend py|cxx|both] [--fast [S]]
-                    [--changed [REV]] [--prepare] [--update-manifest]
-                    [--timeout S] [--list] [-v] [PATTERN ...]
+                    [--changed [REV]] [--prepare] [--prepare-only]
+                    [--update-manifest] [--timeout S] [--list] [-v]
+                    [PATTERN ...]
 
 Without options every unit_*.py and func_*.py file runs on the backend of
 SPRITE_INTERPRETER_FLAGS, at the width of -j auto: the budget described
@@ -567,6 +606,17 @@ module that fails to compile is a note in the log of the pass
 (.cache/runner/<backend>/prepare-<directory>.log), not a failure.  The
 examples under examples/ are not covered; unit_examples.py alone compiles
 them.
+
+--prepare-only runs the pass alone, for the pool and the corpus of each
+selected functional test, one process at a time, and exits with its
+status: 0 when every directory compiled whole, 1 when one did not, 130
+after an interrupt.  No test file runs; --list shows the directories.  The
+CI script (.github/scripts/run-tests.sh) runs it on the C++ backend before
+its loop over the files of a shard, each in a process of its own: a fresh
+checkout has no compiled objects, and under the tiered default a test
+process never compiles a shared corpus module (section 4).  A failed pass
+fails the shard.  The script skips the pass under interpret:all and
+interpret:new, the modes under which a test process never compiles.
 
 Calibration of a new machine.  On a quiet machine, run every file once
 per backend with --update-manifest at width 1:

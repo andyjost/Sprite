@@ -101,7 +101,7 @@ program, and after the error message when the run fails::
 
     sprite-exec --stats Peano.curry
     S (S O)
-    wall=0.129943 cpu=0.129125 steps=3 forks=0 collections=0 peak_rss=36773888 compile=0.000000 gc_seconds=0.000000
+    wall=0.129943 cpu=0.129125 steps=3 forks=0 collections=0 peak_rss=36773888 compile=0.000000 gc_seconds=0.000000 swapped=0 failed_compiles=0
 
 The fields are:
 
@@ -135,6 +135,17 @@ The fields are:
     Seconds the node collector of the C++ backend spent in its collections.
     The Python backend reports 0.
 
+``swapped``
+    The functions that tiered execution of the C++ backend swapped from the
+    interpreter to compiled code (the interpreter flag ``interpret``, by
+    default ``tiered``: a module without a compiled object is interpreted at
+    once and compiled in the background).  The Python backend reports 0.
+
+``failed_compiles``
+    The background compiles of tiered execution that failed; their modules
+    stay interpreted, and the failure is logged once per module.  The Python
+    backend reports 0.
+
 Seconds are printed with six decimals.  The same numbers are available in
 Python from :func:`curry.stats`, which returns a dict with these keys in this
 order; ``str`` of it gives the line above.
@@ -151,7 +162,8 @@ COUNTERS=1 stage`` and again before the plain ``make stage``.  The
 instrumented runtime costs about one to three percent more instructions and
 a word more per node; see the TODO entry for the measurements.
 
-With the counters, ``--stats`` appends these fields after ``gc_seconds``, and
+With the counters, ``--stats`` appends these fields after
+``failed_compiles``, and
 :func:`curry.stats` adds the same keys:
 
 ``serial_steps``

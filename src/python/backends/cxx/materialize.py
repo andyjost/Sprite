@@ -37,6 +37,10 @@ class Materializer(object):
     self.M = h.backend_handle
     self.imodule = h.icurry
     self.interpret = interp.flags['interpret'] != 'off'
+    if self.interpret:
+      # The bytecode of other modules, and a compiled object loaded over a
+      # shim (tiered.py), name the tables of this module by address.
+      self.M.keep_tables()
 
   def materialize(self, iobj):
     info = iobj.metadata.get('cxx.material')
@@ -74,7 +78,10 @@ class Materializer(object):
     info = self.M.get_infotable(ifun.name)
     if info is None:
       info = self.create_function(ifun)
-    if self.interpret and not cyrt.icurry_is_interpreted(info):
+    # A table with a step keeps it: the function of a module of this name
+    # that is still loaded, interpreted or swapped to compiled code (see
+    # tiered.py), runs as it did.
+    if self.interpret and not info.has_step:
       self.attach(ifun, info)
     return info
 

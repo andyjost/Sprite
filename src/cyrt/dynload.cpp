@@ -109,9 +109,15 @@ namespace cyrt
   }
 
   SharedLib::SharedLib(std::string const & sofilename)
+    : SharedLib(sofilename, sofilename)
+  {}
+
+  SharedLib::SharedLib(
+      std::string const & sofilename, std::string const & loadpath
+    )
     : _handle(nullptr), _sofilename(sofilename)
   {
-    this->_handle = dlopen(sofilename.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    this->_handle = dlopen(loadpath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
     if(!this->_handle)
     {
       char const * msg = dlerror();
@@ -134,6 +140,22 @@ namespace cyrt
   SharedCurryModule::SharedCurryModule(std::string const & sofilename)
     : SharedLib(sofilename), _info()
   {
+    this->init(false);
+  }
+
+  SharedCurryModule::SharedCurryModule(
+      std::string const & sofilename, std::string const & loadpath
+    )
+    : SharedLib(sofilename, loadpath), _info()
+  {
+    this->init(true);
+  }
+
+  // Reads the record of the module and registers the library.  With
+  // ``fresh`` the library never joins the entry of its name.
+  void SharedCurryModule::init(bool fresh)
+  {
+    std::string const & sofilename = this->sofilename();
     auto addr = dlsym(this->handle(), "_bom_");
     if(!addr)
     {
@@ -156,7 +178,7 @@ namespace cyrt
         );
 
     auto pinfo = registry.find(record->fullname);
-    if(pinfo != registry.end())
+    if(pinfo != registry.end() && !fresh)
       this->_info = pinfo->second.lock();
     if(!this->_info)
     {

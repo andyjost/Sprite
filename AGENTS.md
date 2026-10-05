@@ -80,9 +80,13 @@ Merges to `master` happen at milestones.
   that the working-tree changes touch; `./run_tests --fast` for the files
   below five seconds; `./run_tests --list` to see a selection without a
   run; `./run_tests -v FILE` to stream the output of one file (a breakpoint
-  needs it). Add `--prepare` on a fresh checkout or after a change to the
-  toolchain, so the shared Curry products are compiled before the files
-  run in parallel. The output of each file is in
+  needs it). Add `--prepare` on a fresh checkout, after a change to the
+  toolchain, and after a change to a runtime header (every compiled object
+  is stale then), so the shared Curry products are compiled before the
+  files run in parallel: under the tiered default a test process
+  interprets a stale module and never compiles it. `--prepare-only` runs
+  the pass alone and exits with its status; CI runs it before the files
+  of a C++ shard. The output of each file is in
   `tests/.cache/runner/<backend>/<file>.log`. The default width is
   `auto`: the budget decides how many files run at once, up to the core
   count, on the caps of the calibrated `tests/manifest.json`; `-j 1` runs
@@ -115,6 +119,15 @@ Merges to `master` happen at milestones.
   its goldens are committed.
 - `SPRITE_INTERPRETER_FLAGS=backend:cxx` selects the C++ backend. The
   Python backend is the default and suits only small programs.
+- The flag `interpret` of the C++ backend selects how a module without a
+  compiled object runs. The default, `tiered`, interprets it at once from
+  its ICurry, compiles it in the background (`sprite-make --so` in a child
+  process), and swaps the functions to the compiled code when the object
+  is ready (`curry.backends.cxx.tiered`, `src/cyrt/tiered.hpp`). `off`
+  compiles it with g++ first, `new` interprets it and never compiles it,
+  and `all` interprets every module. `sprite-make` and `make stage` always
+  compile. `tests/README` section 4 names the tests that set `off` for
+  themselves and the tests that fail under `new` and `all` by design.
 - A goal without a type signature keeps its class constraints. Sprite
   defaults them as the PAKCS REPL does (`Num` to `Int`, `Fractional` to
   `Float`, `Monad` to `IO`, a lone `Data` to `Bool`) and rejects the rest

@@ -222,17 +222,23 @@ class JsonModuleTestCase(cytest.TestCase):
       )
 
 class TestPackagedModule(JsonModuleTestCase):
+  @cytest.with_flags(interpret='off')
   def test_module_in_a_package(self):
     '''
     The step that writes the target source imports the package of the module
     before the module itself.  An import by name does this through the name
     prefixes; the import of the ICurry object did not, so sprite-make --py
-    Data.Maybe failed with KeyError.
+    Data.Maybe failed with KeyError.  The step runs with the flag
+    ``interpret`` off: under its default (tiered) the C++ backend ends the
+    plan at the JSON.
     '''
+    plan = plans.makeplan(
+        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+      )
     package = 'PrebuildPkg%d' % next(self.counter)
     name = self.write_json(6, package=package)
     suffix = curry.getInterpreter().backend.object_file_extension
-    target = makecurry(self.plan, name, [self.srcdir])
+    target = makecurry(plan, name, [self.srcdir])
     self.assertEqual(target, self.cached_file(name, suffix))
     self.assertIn(package, curry.modules)
     self.assertNotIn(name, curry.modules)

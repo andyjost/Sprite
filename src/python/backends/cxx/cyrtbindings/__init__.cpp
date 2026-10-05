@@ -10,6 +10,7 @@ namespace cyrt { namespace python
   void register_graph(pybind11::module_);
   void register_icurry(pybind11::module_);
   void register_module(pybind11::module_);
+  void register_tiered(pybind11::module_);
 }}
 
 PYBIND11_MODULE(_cyrtbindings, mod)
@@ -22,4 +23,5 @@ PYBIND11_MODULE(_cyrtbindings, mod)
   cyrt::python::register_graph(mod);
   cyrt::python::register_icurry(mod);
   cyrt::python::register_module(mod);
+  cyrt::python::register_tiered(mod);
 }

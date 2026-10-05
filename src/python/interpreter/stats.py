@@ -37,7 +37,7 @@ _RSS_UNIT = 1 if sys.platform == 'darwin' else 1024
 
 KEYS = (
     'wall', 'cpu', 'steps', 'forks', 'collections', 'peak_rss', 'compile'
-  , 'gc_seconds'
+  , 'gc_seconds', 'swapped', 'failed_compiles'
   )
 
 # The keys a C++ runtime built with the scheduler counters (make COUNTERS=1)
@@ -192,6 +192,15 @@ def stats(interp):
     ``gc_seconds``
         Seconds the node collector of the C++ backend spent in its
         collections.  The Python backend reports zero.
+    ``swapped``
+        The functions that tiered execution of the C++ backend swapped from
+        the interpreter to compiled code in this process (the interpreter
+        flag ``interpret`` set to 'tiered').  The Python backend reports
+        zero.
+    ``failed_compiles``
+        The background compiles of tiered execution that failed in this
+        process; the modules stay interpreted.  The Python backend reports
+        zero.
 
     A C++ runtime built with the scheduler counters (make COUNTERS=1) adds
     the keys of :data:`SCHEDULER_KEYS`; see :func:`scheduler_fields`.
@@ -208,6 +217,8 @@ def stats(interp):
     , ('compile', toolchain.compile_seconds())
     , ('gc_seconds', interp.backend.gc_seconds())
     ]
+  swapped, failed = interp.backend.tiered_counts()
+  fields += [('swapped', swapped), ('failed_compiles', failed)]
   if interp.backend.scheduler_counters_enabled():
     fields += scheduler_fields(totals.scheduler)
   return Stats(fields)

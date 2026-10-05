@@ -40,6 +40,9 @@ def eval(interp, *args, **kwds):
   convert = conversions.getconverter(
       converter if converter != 'default' else interp.flags['defaultconverter']
     )
+  # The C++ backend applies the objects compiled in the background here
+  # (backends.cxx.tiered).
+  interp.backend.before_evaluation(interp)
   # The goal object hands its node to the runtime state and keeps no
   # reference to it; see Goal.evaluate.
   return goals.make_goal(interp, args).evaluate(interp, convert)

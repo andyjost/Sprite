@@ -132,6 +132,9 @@ class ImportEx(object):
           if hasattr(moduleobj, name):
             raise ValueError("cannot alias previously defined name %r" % name)
           setattr(moduleobj, name, getattr(moduleobj, target))
+        self.interp.backend.module_loaded(
+            self.interp, moduleobj, self.currypath
+          )
         return self(tail, rv=moduleobj)
     else:
       moduleobj = self.interp.modules[imodule.fullname]

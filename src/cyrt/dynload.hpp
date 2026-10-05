@@ -63,6 +63,11 @@ namespace cyrt
   struct SharedLib
   {
     SharedLib(std::string const & sofilename);
+    // Opens the file ``loadpath`` and records ``sofilename`` as the name of
+    // the library.  Tiered execution loads a file written over the path of
+    // an object this process maps through a link of its own (see
+    // cyrt/tiered.hpp), and the library keeps the name the toolchain knows.
+    SharedLib(std::string const & sofilename, std::string const & loadpath);
     SharedLib(SharedLib const &)             = delete;
     SharedLib(SharedLib &&)                  = delete;
     SharedLib & operator=(SharedLib const &) = delete;
@@ -80,16 +85,23 @@ namespace cyrt
   // A loaded module.  The constructor opens the library, finds its record
   // _bom_ (cyrt/bom.hpp), refuses a record of another layout version, and
   // decodes it, unless a library of the same module name is loaded already:
-  // then the module joins the registry entry of that library.
+  // then the module joins the registry entry of that library.  The
+  // constructor with a load path (see SharedLib) never joins: its library
+  // gets an entry of its own, which takes the place of the entry of the
+  // name, so that the registry names the newest library of a module.
   struct SharedCurryModule : SharedLib
   {
     SharedCurryModule(std::string const & sofilename);
+    SharedCurryModule(
+        std::string const & sofilename, std::string const & loadpath
+      );
     SharedCurryModuleInfo const * info() const;
     ModuleBOM const * bom() const;
 
     static SharedCurryModuleInfo const * find(char const * module_fullname);
     static InfoTable const * symbol(char const * module_fullname, char const * symbolname);
   private:
+    void init(bool fresh);
     std::shared_ptr<SharedCurryModuleInfo const> _info;
   };
 }
