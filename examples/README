@@ -33,8 +33,9 @@ backend, and review the diff.
 
 The list below gives each directory, the backends it runs on, the title of
 its README, and what it teaches.  The numbers group the examples: 00 to 04
-tour the API, 10 to 19 are programs with a Python driver, and 20 onward
-are series that share a library.  The gaps are deliberate.
+tour the API, 10 to 19 are programs with a Python driver, 20 to 23 are a
+series that shares a library, and 24 onward are programs with a Python
+driver again.  The gaps are deliberate.
 
 00-run-curry-programs (py, cxx)
     Run Curry programs with sprite-exec.  Call-time choice; a program by
@@ -114,6 +115,12 @@ are series that share a library.  The gaps are deliberate.
     Member layout by search over a model of C++ types.  Non-determinism as
     member orders; set functions; a constraint as a guard; a reflection-like
     Python description.
+
+24-build-system (py, cxx)
+    A build system: the decisions of make as a relation.  A pattern rule as
+    a functional pattern; staleness over a table; the plan, the ready set
+    and the inverse query from one relation; ambiguity as a lint; a cycle
+    as a failure.
 
 Other files in this directory
 -----------------------------

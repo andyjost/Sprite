@@ -1,0 +1,328 @@
+A build system: the decisions of make as a relation
+===================================================
+
+Make executes, Sprite computes.  This example builds a toy C project: four
+sources, two headers, a static library of two objects, and a program.  The
+Curry module Build states what make knows as a relation between names: the
+pattern rules, what a target reads, what is stale, and in which order the
+stale targets go.  From that one relation it answers every question of a
+build: the plan, the targets that can run now, the targets a change touches,
+and the targets that two rules claim.  The Python driver go.py owns the
+world: it writes the files, scans the includes, reads the stamps, runs the
+recipes in a thread pool, and prints the status.  Curry never touches the
+file system.  Sprite itself builds with configure and GNU make; this example
+does not replace them, and its rules are not Sprite's.
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+Each question of a build is one function of Build.curry.  Each function
+states a relation and a policy.
+
+Which rule builds a target?  Each equation of rulesFor is one rule, and
+every equation that matches is one answer:
+
+    rulesFor _ (stem ++ ".o") =
+      (stem ++ ".o", [stem ++ ".c"], ["cc", "-c", "-o", stem ++ ".o", stem ++ ".c"])
+    rulesFor p t | t == lib = (lib, objs, "ar" : "rcs" : lib : objs)
+      where (lib, objs) = library p
+    rulesFor p t | t == prog = (prog, objs ++ [lib], "cc" : "-o" : prog : objs ++ [lib])
+      where ...
+    rulesFor p t | (t, ins, words) =:= anyOf (explicit p) = (t, ins, words)
+      where ins, words free
+
+The first equation is the pattern rule %.o: %.c of make.  Its functional
+pattern stem ++ ".o" matches every object name and binds the stem, so the
+rule names its source and its recipe from the stem.  The second and the
+third name their targets.  The last takes the explicit rules of the project,
+rules written for one target each: the free variables ins and words unify
+with the inputs and the recipe of every entry for the target, and each entry
+is one answer.  An explicit rule for a new name adds a target; one for a
+target of the project adds a second rule.  So "which rule builds this
+target" is a non-deterministic question.  The policy for a well-formed
+target is that the question has one answer.  The set function rulesOf
+collects the answers as a list,
+
+    rulesOf p t = sortValues (set2 rulesFor p t)
+
+and the rest of the module reads the rules through that list: no rule means
+a source or a header, one rule is the normal case, and two rules are the
+ambiguity below.
+
+What does a target read?  The relation inputs gives the direct inputs of a
+target: the inputs of its rule, each with the headers it includes, directly
+or through another header.  The includes come from a table that Python
+scanned.  A header that includes a header is followed through the table,
+and a list of the files seen stops a cycle of includes, as an include guard
+does.  A file that no rule builds reads nothing.
+
+What is stale?  The relation stale is over a table of stamps that Python
+supplies, a list of (file, stamp) pairs with one integer per file that
+exists.  A target is stale when it is missing, when it is older than an
+input, or when an input is stale:
+
+    stale p table = staleFrom p table []
+
+    staleFrom p table seen t
+      | t `elem` seen = False
+      | otherwise     = case lookup t table of
+          Nothing -> True
+          Just s  -> any (\i -> staleFrom p table (t : seen) i
+                                  || maybe False (s <) (lookup i table))
+                         (inputs p t)
+
+A missing file has no entry, so a source that is not there makes its object
+stale forever.  Curry compares stamps and nothing else.  The list seen holds
+the targets on the path from the question to this file: a target on its own
+path reads nothing more, so a cycle of rules does not send the question
+round for ever.
+
+What to build, and in which order?  The plan is the stale targets in
+dependency order: waves lays them out in layers, and a layer holds the stale
+targets whose stale inputs are all in earlier layers.  The policy is a
+topological order over the relation.  A cycle leaves targets that never
+enter a layer; the guard of layers fails then, and the plan has no value.  A
+cycle is a failure, not an error.  Each entry of the plan carries what the
+target reads and the words of its recipe.
+
+What can run now?  The ready set is the stale targets whose inputs are all
+up to date:
+
+    ready p table =
+      [t | t <- targets p, stale p table t, not (any (stale p table) (inputs p t))]
+
+The driver runs them in parallel, records the new stamps, and asks again.
+The scheduler of the build is this one line of Curry.
+
+What does a change touch?  The inverse query affected is the relation of
+inputs read backwards.  The target is the unknown, drawn from the targets
+with anyOf, and the guard asks whether it reads the file, directly or
+through another target:
+
+    affected p f | reads p t f = t
+      where t = anyOf (targets p)
+
+Each answer is one value.  The question "what rebuilds if shape.h changes"
+needs no second relation and no index from files to targets.  reads carries
+the list of the targets on its path, as stale does.
+
+Which targets do two rules claim?  The lint ambiguous lists every target
+whose rulesOf has more than one member.  Make has a tie-break rule for that
+case, which you have to remember: an explicit rule wins over a pattern rule,
+and among pattern rules the shortest stem wins, then the first rule in the
+makefile.  Here two rules for one target are two answers to one question,
+and the driver reports them and refuses to build.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+The driver go.py owns the world, and the README calls that the boundary.
+Python writes the project into a temporary directory, scans each file for
+quoted includes with a regular expression, reads the modification time of
+each file in nanoseconds as its stamp, runs the recipes, and serves the
+status.  Curry gets the project and the table as data and returns names and
+rules.  The IO surface of Sprite is small, and a build needs none of it:
+every decision is a function of the data Python has in hand.
+
+The project is a Curry record, built with the typed curry.expr:
+
+    curry.expr(Build.Project, sources, LIBRARY, PROGRAM, includes, explicit)
+
+The sources are a list of Python strs, the library and the program are
+(name, objects) tuples, the include table is a list of (file, headers)
+pairs, and the explicit rules are (target, inputs, words) triples.  A name
+is a Python str, which curry.expr converts by the type the constructor
+expects, a String, also for a name of one character.  The empty list of
+explicit rules converts under [Rule].  Python builds the record once per
+project and passes it to every goal.
+
+A deterministic goal has one value, and the driver reads it with
+
+    next(curry.eval(goal, *args, converter='topython'))
+
+The converter turns a list of rules into a list of tuples of lists of str.
+The plan is the exception: on a cycle it has no value, so the driver reads
+it with next(values, None) and reports the failure.  The inverse query is
+non-deterministic, and the driver collects its values with
+sorted(curry.eval(...)), because Curry promises no order.
+
+A build lints first: a target that two rules claim stops the build before
+the plan.  The build loop then asks Curry for the ready set, submits each
+new ready target to a concurrent.futures thread pool, waits for the first
+completion, and asks again with the new stamps.  The table it hands to
+Curry omits the targets whose recipes run or failed.  A compiler creates
+its output before it finishes, and a half-written object with a fresh stamp
+would read as up to date; a target that is missing to Curry is stale, and
+its dependents are not ready.  Python keeps the running set and the outcome
+of each recipe, and nothing of the dependency relation: no order, no count
+of pending inputs.  Run go.py with --trace to see each ready set on stderr.
+With --jobs 2 the library was ready while report.o and main.o were still
+running, because its two objects were done.  The waves in the output are
+the static picture of the same relation.
+
+The word cc in a recipe stands for the C compiler of the environment, CC or
+cc.  When no compiler and no ar are on the PATH, every recipe runs as a
+stand-in that writes a placeholder file in place of the target, so the
+example runs on a machine without a compiler and on CI.  The output is the
+same in both modes; the stand-in says so on stderr.  The status table and
+the plan print no stamps, no times, and no temporary paths, and the driver
+sorts what the thread pool returns.
+
+The option --serve PORT serves a status page with http.server from the
+standard library.  The page shows the status table, a build button, and a
+touch button, and /status.json gives the targets with their inputs and
+staleness, the plan, and the ready set as JSON.  Each request calls the same
+functions as the tested run.  A richer front end, with rich in the terminal
+or nicegui in the browser, would call them too; neither is needed, and the
+example does not depend on them.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script uses the C++ backend by default.  To pick a backend, set
+SPRITE_INTERPRETER_FLAGS in the environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+To see the ready set after each completion, or to change the width of the
+thread pool, pass --trace and --jobs to go.py:
+
+    ../../install/bin/python go.py --trace --jobs 2
+
+To serve the status page, run
+
+    ../../install/bin/python go.py --serve 8000
+
+and open http://127.0.0.1:8000/ in a browser.  Press Ctrl-C to stop it.
+The run script does not start the server.
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run.  The driver prints
+the project first, then five steps.  Step 1 is the full build:
+
+    1. full build
+    plan: 6 targets
+      vec.o     <- vec.c vec.h                cc -c -o vec.o vec.c
+      shape.o   <- shape.c shape.h vec.h      cc -c -o shape.o shape.c
+      report.o  <- report.c vec.h             cc -c -o report.o report.c
+      main.o    <- main.c shape.h vec.h       cc -c -o main.o main.c
+      libgeom.a <- vec.o shape.o              ar rcs libgeom.a vec.o shape.o
+      demo      <- main.o report.o libgeom.a  cc -o demo main.o report.o libgeom.a
+    waves: [vec.o shape.o report.o main.o] [libgeom.a] [demo]
+    built: demo libgeom.a main.o report.o shape.o vec.o
+
+Each object reads its source and the headers behind it: shape.o reads vec.h
+through shape.h.  The four objects form the first wave, the library the
+second, the program the third.  A status table follows, with one line per
+target.  Step 2 builds again, and the plan is "nothing to do".  Step 3
+touches shape.h:
+
+    3. touch shape.h
+    affected: demo libgeom.a main.o shape.o
+    ...
+    built: demo libgeom.a main.o shape.o
+    ...
+    rebuilt the affected set: yes
+
+The inverse query predicts the four targets that read shape.h, and the
+build then rebuilds exactly those.  vec.o and report.o stay up to date.
+Step 4 adds a second rule for main.o, and the lint stops the build:
+
+    4. a second rule for main.o
+    explicit:
+      main.o <- main.c  cc -c -O2 -o main.o main.c
+    ambiguous: main.o has 2 rules
+      main.o <- main.c  cc -c -O2 -o main.o main.c
+      main.o <- main.c  cc -c -o main.o main.c
+    refused: the build does not start
+
+Step 5 adds a rule that closes a cycle: the program writes a header that
+its own objects include.  The header is older than the program, so it is
+stale, and so is every target that reads it.  No layer can start, and the
+plan has no value:
+
+    5. a rule that closes a cycle
+    explicit:
+      shape.h <- demo  ./demo --emit-header shape.h
+    plan: no value (the rules have a cycle)
+    status:
+      vec.o      up to date
+      shape.o    stale
+      ...
+      shape.h    stale
+
+The output is identical on both backends, and with and without a C
+compiler.
+
+
+5. Limits
+---------
+
+Three warm runs of ./run took 0.42 s to 0.46 s on the C++ backend, and two
+took 8.3 s on the Python backend.  The Python backend answers a question in
+0.1 s to 0.7 s (the ready set on a built tree 0.4 s, the plan 0.7 s, the
+stale check of one target 0.2 s), and the run asks dozens of them, so the
+questions are nearly all of its time.  A first run, without products under
+.curry/, took 1.2 s on the C++ backend and 8.7 s on the Python backend, so
+the compile of the module is a small part of the run.  Without a C compiler
+the run took 0.35 s on the C++ backend.
+
+A name that a functional pattern produced carries its narrowing, and every
+later comparison of that name pays for it again.  A first version of this
+module had object as a functional pattern and read the rules from rulesFor
+directly.  Its plan after the touch did not finish in 120 s on either
+backend.  With a plain object and the rules still read from rulesFor the
+plan took 10 s on the C++ backend.  Read through the set function rulesOf,
+whose values are plain data, it takes 0.01 s.  So the functional pattern
+stays where it carries the meaning, in rulesFor, and the relation reads the
+rules as values.
+
+A stamp is an integer that Python computes, here the modification time in
+nanoseconds.  A target with the same stamp as an input is up to date, as
+in make.  The touch of step 3 waits until the header is newer than every
+other file of the project, so a file system with a coarse clock gives the
+same output after a pause of one tick.  A content hash is also an integer,
+but "older than" has no meaning for it; the relation would then ask whether
+the stamp differs from a recorded one.
+
+The waves are the static picture: a layer holds the targets that can run
+once the earlier layers are done.  The pool follows the dynamic ready set,
+so a target of the second wave may start while the first wave still runs.
+A target whose recipe fails stays stale, and its dependents are never
+ready; the status table shows them as stale.  A source that is missing
+makes its object stale forever in the same way.  The plan sees a cycle
+when a target of the cycle is stale, as in step 5; a cycle among targets
+that are up to date is nothing to do.  Make reports a cycle before it looks
+at a stamp; that check would be one more question, layers over every
+target.
+
+The toolchain choice stays out of this example on purpose.  The natural
+next rule, a choice of compiler for every target,
+
+    toolchain = "gcc" ? "clang"
+
+with set functions over the targets, is the shape of issue #61: a set
+function that starts while a variable is unbound and resumes under
+alternatives that narrowed it differently.  The fix in place covers a
+choice that is decided before the set function starts; the general case,
+the repair at the escape of the capsule, is open.  When it lands, the
+example can add the choice and let the lint report a project whose targets
+disagree on the toolchain.
+
+The project is a toy by design: a handful of sources, one library, one
+program.  The rules of Sprite's own Makefiles are not modelled, and Curry
+does not replace GNU make at scale.  A real project would read the sources
+of a directory, take the rules from a small file in place of the constants
+of go.py, and scan the includes with the compiler's own dependency output.
+The relation does not change; only the table that Python supplies grows.

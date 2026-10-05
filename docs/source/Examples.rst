@@ -329,3 +329,18 @@ A non-deterministic permutation yields every order of the members of a struct, a
 
 .. literalinclude:: ../../examples/23-cxx-types-layout/README
    :language: text
+
+A build system: the decisions of make as a relation
+---------------------------------------------------
+
+Directory ``examples/24-build-system``.  Backends: Python, C++.
+
+Curry states what make knows as one relation between names: a pattern rule as a functional pattern, what a target reads, and what is stale over a table of stamps that Python supplies.  From that relation it answers the plan, the targets that can run now, the targets a change touches, and the targets that two rules claim.  Python owns the world: it writes a toy C project, scans the includes, runs the recipes in a thread pool, and asks Curry for the ready set after each completion.
+
+.. code-block:: bash
+
+    cd examples/24-build-system
+    ./run
+
+.. literalinclude:: ../../examples/24-build-system/README
+   :language: text

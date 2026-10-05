@@ -53,6 +53,7 @@ EXAMPLES = {
   , '21-cxx-types-overloads'        : {'cxx'}
   , '22-cxx-types-trait-check'      : {'cxx'}
   , '23-cxx-types-layout'           : {'py', 'cxx'}
+  , '24-build-system'               : {'py', 'cxx'}
   }
 
 # Directories with a run script that the test does not run, and why.  Every
