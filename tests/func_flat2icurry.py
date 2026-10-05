@@ -8,6 +8,10 @@ DATA = os.path.join(HERE, 'data')
 
 # Where the FlatCurry interfaces of the library modules may be found on disk.
 LIBRARY_DIRS = [os.path.join(ROOT, 'curry', 'lib')]
+# The import directories of the corpora under tests/data/curry: a module
+# of the kiel corpus imports from kiel/lib (CURRYPATH of func_kiel.py), so
+# its FlatCurry resolves against that directory as well.
+CORPUS_IMPORT_DIRS = [os.path.join(DATA, 'curry', 'kiel', 'lib')]
 
 # The route through the front end looks through a type annotation at the root
 # of a rule, which icurry 3.1.0 does not (see curry.toolchain._frontend).  The
@@ -77,7 +81,10 @@ class TestWholeCorpus(cytest.TestCase):
           pairs.append((fcy, icy))
     if not pairs:
       self.skipTest('no front-end products under tests/data')
-    self.check_pairs(sorted(pairs), self.overlay.library_dirs() + LIBRARY_DIRS)
+    self.check_pairs(
+        sorted(pairs)
+      , self.overlay.library_dirs() + LIBRARY_DIRS + CORPUS_IMPORT_DIRS
+      )
 
   def test_cli_overlay(self):
     '''The --overlay option of the harness checks the same files.'''

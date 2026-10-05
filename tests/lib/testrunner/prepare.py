@@ -48,8 +48,10 @@ CORPUS = [
   , ('data/curry/smap', (), ('func_smap.py',))
   ]
 
-# Sources that must fail to compile.  A test checks the failure.
-EXCLUDE = {'badimport.curry'}
+# Sources that must fail to compile.  A test checks the failure: badimport
+# imports a module that does not exist; helloExternal declares an external
+# function that no backend resolves (unit_icurry.py).
+EXCLUDE = {'badimport.curry', 'helloExternal.curry'}
 
 # The target of sprite-make per backend.  Compact, zipped JSON is what an
 # import writes, so the products are the same files.
@@ -73,9 +75,12 @@ def modules(directory, testdir=TESTDIR):
     names = os.listdir(path)
   except FileNotFoundError:
     return []
+  # The product directory .curry ends with the suffix as well: only a file
+  # is a module.
   return sorted(
       os.path.join(directory, name) for name in names
           if name.endswith('.curry') and name not in EXCLUDE
+          and os.path.isfile(os.path.join(path, name))
     )
 
 def command(sprite_home, backend, files):
