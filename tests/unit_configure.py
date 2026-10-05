@@ -307,7 +307,8 @@ class TestMakeSide(cytest.TestCase):
     '''
     With CCACHE set, an object is compiled by ccache in front of the
     compiler; without it, by the compiler alone.  A what-if dry run (-W)
-    shows the command.
+    shows the command.  The tree may be configured with ccache, so the plain
+    case clears CCACHE on the command line.
     '''
     def compile_line(*args):
       result = make(
@@ -321,7 +322,8 @@ class TestMakeSide(cytest.TestCase):
         ]
       self.assertEqual(len(lines), 1, result.stdout)
       return lines[0]
-    self.assertTrue(compile_line().startswith(self.cxx + ' '))
+    line = compile_line('CCACHE=')
+    self.assertTrue(line.startswith(self.cxx + ' '), line)
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
       stub = write_stub_ccache(tmpdir)
       line = compile_line('CCACHE=' + stub)
