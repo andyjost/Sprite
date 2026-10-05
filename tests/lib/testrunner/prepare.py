@@ -48,10 +48,17 @@ CORPUS = [
   , ('data/curry/smap', (), ('func_smap.py',))
   ]
 
-# Sources that must fail to compile.  A test checks the failure: badimport
-# imports a module that does not exist; helloExternal declares an external
-# function that no backend resolves (unit_icurry.py).
-EXCLUDE = {'badimport.curry', 'helloExternal.curry'}
+# Sources that must fail to compile, or that need a tool the machine may
+# lack.  A test checks the failure: badimport imports a module that does
+# not exist; helloExternal declares an external function that no backend
+# resolves (unit_icurry.py).  PokerChoice and PokerFree of the benchmark
+# programs need the Curry preprocessor currypp (see
+# data/curry/benchmarks/results/README.md); the harness compiles them in
+# its warm-up and records the failure itself.
+EXCLUDE = {
+    'badimport.curry', 'helloExternal.curry', 'PokerChoice.curry'
+  , 'PokerFree.curry'
+  }
 
 # The target of sprite-make per backend.  Compact, zipped JSON is what an
 # import writes, so the products are the same files.
