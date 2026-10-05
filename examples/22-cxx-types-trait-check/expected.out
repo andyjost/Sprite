@@ -1,0 +1,16 @@
+% python go.py
+Every type of depth at most 2: 1245 types.
+scalar: is_scalar t == is_arithmetic t || is_pointer t || is_member_pointer t || is_null_pointer t
+  no counterexample among 1245 types
+fundamental: is_fundamental t == is_arithmetic t || is_void t || is_null_pointer t
+  no counterexample among 1245 types
+object: is_object t == is_scalar t || is_array t || is_class t
+  no counterexample among 1245 types
+category: exactly one primary type category holds for t, and the same one for t const and t volatile
+  no counterexample among 1245 types
+decay_twice: decay (decay t) == decay t
+  no counterexample among 1245 types
+cvref: remove_cvref (add_lvalue_reference t) == remove_cv t, for an object type t
+  no counterexample among 1245 types
+wrong_scalar: is_scalar_wrong t == is_arithmetic t || is_pointer t || is_member_pointer t || is_null_pointer t, where is_scalar_wrong forgets the pointers to members
+  191 counterexamples, the 5 simplest: Foo Foo::*, bool Foo::*, char Foo::*, double Foo::*, float Foo::*

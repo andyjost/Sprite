@@ -1,0 +1,180 @@
+Member layout by search over a model of C++ types
+=================================================
+
+This example lays out a struct and searches for the member order of the
+smallest size.  It closes the series of four that opens with
+20-cxx-types-deduction.  The README of that example describes the shared
+model under ../cxx and the motivation, a future integration with the Circle
+C++ compiler.  Python describes the struct, as a reflection would, and Curry
+lays it out and searches.
+
+The layout follows the Itanium C++ ABI for a standard-layout struct without
+bit-fields, base classes or virtual members.  Each member goes to the next
+offset that is a multiple of its alignment.  The alignment of the struct is
+the largest alignment of a member.  The size is the end of the last member
+rounded up to that alignment.  The sizes and alignments come from the LP64
+data model of CxxLimits.  The model is a simplification of the C++ type
+system: it has no bit-fields, no bases, no virtual members, no nested class
+members, no alignas and no packing pragmas.
+
+The module CxxLayout.curry under ../cxx holds the layout and the search.
+This directory holds the driver only.
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+Non-determinism as values.  The function perm builds one order of the
+members with insert.  Both rules of insert apply to a non-empty list, so each
+call is a choice.  An expression over perm means every order at once:
+
+    sizeOfOrder ss = (structSize (layoutSized order), order)
+      where order = perm ss
+
+One value of sizeOfOrder is the size of one order, paired with that order.
+The function has 720 values for six members.
+
+Set functions.  The set function set1 sizeOfOrder is the set of every such
+pair.  The search sorts the set by size, counts the run of the smallest size,
+and takes the first order of that run in the order of the member names:
+
+    bySize = sortValuesBy (\p q -> fst p <= fst q) pairs
+    best   = [order | (size, order) <- bySize, size == fst (head bySize)]
+    result = (length bySize, length best, layoutSized (minimum best))
+
+The sort compares sizes only.  The scheduler does not promise an order of the
+values across the backends, so minimum picks the order to print.  The names
+are unique, and minimum compares them first.
+
+Constraints as rules.  Scenario (c) keeps the member tag first.  The search
+is the same with one more rule, a guard on the generated order:
+
+    sizeOfOrderFirst first ss | nameOf (head order) == first = (size, order)
+      where (size, order) = sizeOfOrder ss
+
+An order with another member in front fails.  A failure is not a value, so
+the set function does not see it, and the set shrinks from 720 values to
+120.  The guard needs only the head of the order.  Laziness builds the head
+first, so an order that breaks the rule fails before the rest of it is built.
+
+In this struct the pin costs no bytes.  The members urgent, port and length
+fill the eight bytes behind tag, and both searches reach 24 bytes.  The pin
+costs orders: 2 of 120 reach 24 bytes, against 48 of 720.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+The driver go.py adds ../cxx to curry.path and imports CxxLimits, CxxType and
+CxxLayout from curry.lib.  The struct is a Python class whose annotations are
+its members:
+
+    class Packet:
+      tag: CHAR
+      stamp: DOUBLE
+      ...
+
+The dictionary Packet.__annotations__ keeps the declaration order.  That is
+the reflection of Python, and it stands in for the reflection of a compiler:
+Circle would hand over the members of the struct under compilation in the
+same shape.  Each type is a Curry expression built with curry.expr from the
+constructors of CxxType, for example
+
+    curry.expr(CxxType.Ptr, curry.expr(CxxType.Const, CHAR))
+
+for char const*.  The function members turns the annotations into a Python
+list of (name, type) pairs, and curry.eval converts it to a Curry list of
+tuples.  A name is passed as a list of characters, because a str of length
+one would become a Char.
+
+A layout comes back as nested tuples and lists.  The call
+
+    curry.eval(CxxLayout.layout, members, converter='topython')
+
+yields a Python tuple of the placed members, each a tuple of name, offset,
+size and padding, then the size, the alignment and the padding at the end.
+Python prints the table.  The type of each member goes through the Curry
+printer, curry.eval(CxxType.showCxx, t), so Python holds no knowledge of C++
+syntax.  The layout also goes back to Curry, to CxxLayout.padding, so the
+tuple converts both ways.  The names travel inside the tuples on purpose: a
+bare list of Curry strings comes back as one str, because the converter
+joins a list of strings.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script uses the C++ backend by default.  To pick a backend, set
+SPRITE_INTERPRETER_FLAGS in the environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+The first run also compiles CxxLayout.curry, and the two shared modules when
+no earlier example of the series has run.  The build products go to .curry/
+next to each source.
+
+To lay out another struct, edit the class Packet in go.py.  The member types
+may be fundamental types, pointers, references, arrays and pointers to
+members.  A member of a class type has no size in the model, so a struct with
+one has no layout, and the driver stops with StopIteration.
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run.  Scenario (a) prints
+the struct in declaration order, one row per member and one per hole:
+
+    (a) struct Packet in declaration order
+      offset  size  member
+           0     1  char         tag
+           1     7  (padding)
+           8     8  double       stamp
+          16     1  bool         urgent
+          17     3  (padding)
+          20     4  int          length
+          24     2  short        port
+          26     6  (padding)
+          32     8  char const*  payload
+      sizeof 40, alignof 8, padding 16
+
+Scenario (b) searches every order:
+
+    (b) the order of the smallest size
+      smallest sizeof 24, reached by 48 of 720 orders
+      the first of those orders: length, port, tag, urgent, payload, stamp
+
+Scenario (c) searches the orders with tag first:
+
+    (c) the order of the smallest size with tag first
+      smallest sizeof 24, reached by 2 of 120 orders
+      the first of those orders: tag, urgent, port, length, payload, stamp
+
+The table of the chosen order follows each summary.  The output is identical
+on both backends.
+
+
+5. Limits
+---------
+
+A warm run of ./run took 0.6 s on the C++ backend and 15 s on the Python
+backend.  The first run also compiles CxxLayout.curry.  It took 2.6 s on the
+C++ backend and 16 s on the Python backend, with the shared modules compiled
+by an earlier example.
+
+The number of orders is the factorial of the number of members.  A seventh
+member makes 5040 orders.  On the C++ backend the two searches then took
+4.4 s and 0.6 s.  On the Python backend the search with the pin took 20 s,
+and the search over every order hit the recursion limit of Python after
+200 s, in the sort of 5040 pairs.  On that backend a sort of 1000 elements
+works, a sort of 2000 and the length of a list of 5040 hit the same limit.
+Keep the Python backend at six members.
+
+The layout is the layout of a standard-layout struct.  A struct with a base
+class, a virtual function or a bit-field has another layout, and the model
+does not describe it.

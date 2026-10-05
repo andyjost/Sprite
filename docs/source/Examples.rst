@@ -254,3 +254,78 @@ A non-deterministic move and a bounded search give a shortest plan by iterative 
 
 .. literalinclude:: ../../examples/19-blocks-world-app/README
    :language: text
+
+C++ compile time
+================
+
+The examples 20 to 23 form a series.  They model the compile-time algorithms
+of a C++ compiler over one algebraic model of C++ types, the shared Curry
+modules under ``examples/cxx``: template argument deduction and the partial
+ordering of specializations, overload resolution, trait checking, and member
+layout.  A template parameter is a Curry free variable, search is
+non-determinism, and set functions collect the results.  The motivation is a
+future integration with the Circle C++ compiler, whose compile-time
+metaprogramming can run Python; Sprite would supply the search and the
+unification, and Circle the types.  The model is a simplification of the C++
+type system, and each README says what it leaves out.  The README of example
+20 introduces the series.
+
+Template argument deduction over a model of C++ types
+-----------------------------------------------------
+
+Directory ``examples/20-cxx-types-deduction``.  Backends: Python, C++.
+
+A template parameter is a free variable, and deduction is unification of the parameter pattern with the argument type.  A set function turns a failed deduction into an empty set, and the partial ordering of specializations is deduction again.  Python builds the C++ types and prints the answers.
+
+.. code-block:: bash
+
+    cd examples/20-cxx-types-deduction
+    ./run
+
+.. literalinclude:: ../../examples/20-cxx-types-deduction/README
+   :language: text
+
+Overload resolution over a model of C++ types
+---------------------------------------------
+
+Directory ``examples/21-cxx-types-overloads``.  Backends: C++.
+
+The conversions of the standard are non-deterministic rules, a candidate with an argument that no rule converts is not viable, and a set function collects the viable set with its ranks.  The inverse question finds every argument type up to a depth that makes a call ambiguous.  Python builds the overload sets, the class hierarchy and the calls.
+
+.. code-block:: bash
+
+    cd examples/21-cxx-types-overloads
+    ./run
+
+.. literalinclude:: ../../examples/21-cxx-types-overloads/README
+   :language: text
+
+Trait checking by narrowing over a model of C++ types
+-----------------------------------------------------
+
+Directory ``examples/22-cxx-types-trait-check``.  Backends: C++.
+
+A bounded generator enumerates every well-formed type of the model up to a depth, one per value, and narrowing with ``=:=`` binds an unknown type to each.  A set function collects the types for which a property of a trait is False, so an empty set is the verdict that the property holds.  One trait is wrong on purpose, and the search finds every counterexample.
+
+.. code-block:: bash
+
+    cd examples/22-cxx-types-trait-check
+    ./run
+
+.. literalinclude:: ../../examples/22-cxx-types-trait-check/README
+   :language: text
+
+Member layout by search over a model of C++ types
+-------------------------------------------------
+
+Directory ``examples/23-cxx-types-layout``.  Backends: Python, C++.
+
+A non-deterministic permutation yields every order of the members of a struct, a set function collects the size of each order, and a constraint on the order is one more guard.  Python describes the struct through the annotations of a class, as a reflection would, and prints the layout tables.
+
+.. code-block:: bash
+
+    cd examples/23-cxx-types-layout
+    ./run
+
+.. literalinclude:: ../../examples/23-cxx-types-layout/README
+   :language: text

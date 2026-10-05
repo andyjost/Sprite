@@ -8,7 +8,8 @@ compares the standard output of the child, decoded as UTF-8, with the text of
 expected.out.  Only the standard output is compared; the standard error is
 shown when a test fails.
 
-The file takes about 40 s warm and about two minutes cold on one backend.
+The file takes about a minute warm and about three minutes cold on one
+backend.
 The first run compiles the Curry module of each example, and two examples
 compile Curry text on every run.
 
@@ -48,6 +49,10 @@ EXAMPLES = {
   , '17-type-inference'             : {'py', 'cxx'}
   , '18-text-extraction'            : {'py', 'cxx'}
   , '19-blocks-world-app'           : {'py', 'cxx'}
+  , '20-cxx-types-deduction'        : {'py', 'cxx'}
+  , '21-cxx-types-overloads'        : {'cxx'}
+  , '22-cxx-types-trait-check'      : {'cxx'}
+  , '23-cxx-types-layout'           : {'py', 'cxx'}
   }
 
 # Directories with a run script that the test does not run, and why.  Every
@@ -70,6 +75,7 @@ REQUIRES = {}
 STRESS_EXCLUDED = {
     '11-sudoku': 'a search over a large live state'
   , '12-cryptarithm': 'a search over a large live state'
+  , '22-cxx-types-trait-check': 'seven searches over 1245 types, each a set function'
   }
 
 # Directory -> the reason its output is wrong.  The run of such an example

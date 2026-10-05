@@ -19,7 +19,8 @@ environment:
     SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
 
 The first run of an example also compiles its Curry module, which takes
-about 10 s.  The build products go to .curry/ next to the source.  A README
+about a second per module.  The build products go to .curry/ next to the
+source.  A README
 states what the example shows about functional logic programming, what it
 shows about calling Curry from Python, how to run it, the output to expect,
 and the sizes that keep the run short.
@@ -31,7 +32,9 @@ SPRITE_UPDATE_EXPECTED=1 ./run_tests unit_examples.py from tests/ once per
 backend, and review the diff.
 
 The list below gives each directory, the backends it runs on, the title of
-its README, and what it teaches.
+its README, and what it teaches.  The numbers group the examples: 00 to 04
+tour the API, 10 to 19 are programs with a Python driver, and 20 onward
+are series that share a library.  The gaps are deliberate.
 
 00-run-curry-programs (py, cxx)
     Run Curry programs with sprite-exec.  Call-time choice; a program by
@@ -93,8 +96,38 @@ its README, and what it teaches.
     Blocks World as a command-line application.  Search by iterative
     deepening; argparse; an http.server form.
 
-Peano.curry is the program of the Quickstart in the user guide.  Run it with
-sprite-exec from this directory.
+20-cxx-types-deduction (py, cxx)
+    Template argument deduction over a model of C++ types.  Free variables
+    as template parameters; deduction by unification; set functions; a
+    bounded generator for the inverse question.
+
+21-cxx-types-overloads (cxx)
+    Overload resolution over a model of C++ types.  Conversions as
+    non-deterministic rules; the viable set as a set function; the inverse
+    question with a free variable.
+
+22-cxx-types-trait-check (cxx)
+    Trait checking by narrowing over a model of C++ types.  A bounded
+    generator; narrowing with =:=; set functions collect counterexamples.
+
+23-cxx-types-layout (py, cxx)
+    Member layout by search over a model of C++ types.  Non-determinism as
+    member orders; set functions; a constraint as a guard; a reflection-like
+    Python description.
+
+Other files in this directory
+-----------------------------
+
+cxx/ holds the Curry modules that the examples 20 to 23 share: the
+algebraic model of C++ types with its traits, its printer and its
+generator (CxxType), the fundamental types and the tables of the LP64 data
+model (CxxLimits), overload resolution (CxxOverload), the trait check
+(CxxCheck) and the member layout (CxxLayout).  The directory has no run
+script, so the test does not run it.  The README of 20-cxx-types-deduction
+introduces the series.
+
+Peano.curry is the program of the Quickstart in the user guide.  Run it
+with sprite-exec from this directory.
 
 05-blocks-in-flask is an older Flask application.  It needs the Flask
 package, which is not part of the staged install, and a slow solver.

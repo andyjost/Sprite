@@ -1,0 +1,220 @@
+Trait checking by narrowing over a model of C++ types
+=====================================================
+
+This example is the third of the series that opens with
+20-cxx-types-deduction.  It checks the type traits of the shared library
+CxxType, under ../cxx, against definitions of the C++ standard.  A Curry
+generator enumerates every type of the model up to a depth.  A property is a
+Curry function from a type to Bool.  For each property, a search collects
+the types for which the property is False.  One trait is wrong on purpose,
+so that the output shows what a found counterexample looks like.
+
+The check is a bounded model check.  It covers the types up to the depth
+and the shapes that the generator builds, and nothing beyond them.  Section
+5 lists what it does not cover.
+
+The motivation of the series, an integration with the Circle C++ compiler,
+is explained in the README of example 20.  The model is a simplification of
+the C++ type system: it has no enumerations, unions, wide character types,
+qualified or noexcept functions, and no non-type template parameters.
+
+
+1. What the example shows about functional logic programming
+-------------------------------------------------------------
+
+A generator is a non-deterministic function.  The shared module
+CxxType.curry defines
+
+    anyType n = cvType True n ? refType n ? funType n
+
+The value of anyType n is any one type of depth at most n.  The depth of a
+type is the number of constructors on its longest path: int has depth 0,
+int const has depth 1, and int const* has depth 2.  Depth 0 holds the 17
+fundamental types and one class, Foo.  Each further level adds one type
+constructor to a type of the level before.  There are 18 types of depth at
+most 0, 194 of depth at most 1, and 1245 of depth at most 2.
+
+Categories exclude the ill-formed types.  The generator has one function
+per category of types, and each compound takes its operand from the
+categories that C++ allows there.  A pointer points to anything but a
+reference; a reference refers to anything but a reference or cv void; an
+array holds object types other than cv void; a function returns anything
+but an array or a function.  For example
+
+    refType n = if n < 1 then failed else LRef r ? RRef r
+      where r = memberType (n - 1)
+
+So a reference to a reference, a cv-qualified reference, an array of
+functions, or a function that returns an array is never a value of the
+generator.  The categories also keep the terms in normal form: const stays
+outside volatile, no qualifier repeats, and the qualifiers of an array go
+on its elements.  Every C++ type of the model appears exactly once, which
+makes the counts above exact.  The generator calls no trait, and the traits
+are what the check examines.
+
+The search is narrowing.  A counterexample of a property is
+
+    counterexample n name | t =:= anyType n && not (p t) = (depth t, showCxx t)
+      where (_, p) = property name
+            t free
+
+The free variable t is the unknown type.  The constraint t =:= anyType n
+binds it to one value of the generator in each branch of the search.  The
+property p then runs on a bound type.  A branch where the property holds
+fails, and a branch where it is False yields the type with its depth and
+its text in C++ syntax.
+
+A set function turns the search into data.  The expression
+
+    sortValues (set2 counterexample n name)
+
+is the sorted list of every counterexample, by depth and then by name, so
+the report prints the simplest ones.  An empty list is the verdict that
+the property holds.  The number of types is the number of values of the
+generator, counted by a set function as well:
+
+    countTypes n = foldValues (+) 0 (mapValues (\_ -> 1) (set1 anyType n))
+
+The properties put a definition of the standard beside a trait of the
+library.  For example, [basic.types.general] defines a scalar type as an
+arithmetic type, an enumeration, a pointer, a pointer to member, or
+std::nullptr_t, with or without cv-qualifiers.  The property is
+
+    propScalar t = is_scalar t == scalarByDefinition t
+
+where scalarByDefinition spells the list out in the primary traits.  The
+other properties are the definitions of the fundamental and the object
+types, the rule that exactly one primary type category holds for a type
+and the same one for its cv-qualified forms ([meta.unary.cat]), the
+idempotence of decay, and the identity remove_cvref (add_lvalue_reference t)
+== remove_cv t for object types.  The last property checks is_scalar_wrong,
+a copy of is_scalar that forgets the pointers to members.  It lives in
+CxxCheck, not in the library.  The search finds every pointer to member of
+the model as a counterexample.
+
+
+2. What the example shows about calling Curry from Python
+----------------------------------------------------------
+
+The example has no Curry module of its own.  The driver go.py adds ../cxx
+to curry.path and imports CxxCheck from curry.lib.  CxxCheck imports
+CxxType and CxxLimits, which the first run compiles as well.
+
+Python passes a depth and the names of the properties, and prints what
+comes back:
+
+    print(text(CxxCheck.header, depth))
+    for name in names:
+      print(text(CxxCheck.check, depth, list(name)))
+
+A name is passed as a list of characters, because a str of length one
+would convert to a Char.  The helper text reads the one value of a goal
+with converter='topython', which turns a Curry String into a str.  The
+whole report, the names, the statements and the counts, is composed in
+Curry.  Python holds the list of names and the loop.
+
+
+3. How to run
+-------------
+
+Run "make stage" from the root of the repository first.  Then run
+
+    ./run
+
+The run script uses the C++ backend by default.  To pick a backend, set
+SPRITE_INTERPRETER_FLAGS in the environment:
+
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+
+The first run also compiles the shared modules and CxxCheck.curry.  The
+build products go to .curry/ next to the sources, under ../cxx.
+
+To check another depth or a subset of the properties, pass them to go.py.
+Use the Python of the staged install.  For example, on the C++ backend:
+
+    SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py 1 scalar wrong_scalar
+
+The names are those of the table properties in CxxCheck.curry: scalar,
+fundamental, object, category, decay_twice, cvref and wrong_scalar.
+
+
+4. Expected output
+------------------
+
+The file expected.out holds the exact output of ./run.  The first line
+gives the size of the check:
+
+    Every type of depth at most 2: 1245 types.
+
+Each property then takes two lines: its name and statement, and the
+verdict.  Six properties hold:
+
+    scalar: is_scalar t == is_arithmetic t || is_pointer t || is_member_pointer t || is_null_pointer t
+      no counterexample among 1245 types
+
+The last property fails:
+
+    wrong_scalar: is_scalar_wrong t == ..., where is_scalar_wrong forgets the pointers to members
+      191 counterexamples, the 5 simplest: Foo Foo::*, bool Foo::*, char Foo::*, double Foo::*, float Foo::*
+
+The counterexamples are the pointers to members of depth at most 2.  The
+five shown are pointers to data members of depth 1, in the order of their
+names.  The type Foo Foo::* is a pointer to a member of type Foo in the
+class Foo.  No class can have such a member, but the type exists, and the
+generator does not know classes from the inside.
+
+
+5. Limits
+---------
+
+A warm run of ./run took 2.3 s on the C++ backend.  A cold run, which
+also compiles CxxCheck.curry, took 4.3 s.  The first run compiles the two
+shared modules as well, when they are not compiled yet.  The time goes to
+the traits: each one normalizes its argument, and a property calls up to 33
+of them for each of the 1245 types.  The generator itself is cheap.  It
+took 0.01 s to count the types of depth at most 2.
+
+The Python backend is too slow for the depth of the run script.  At depth
+2 the whole check took 114 s on it, with the same output.  The run script
+uses depth 2, so the test runs this example on the C++ backend only.  To
+try the Python backend, pass the depth 1 to go.py.
+
+Depth 3 has 7330 types.  On the C++ backend the count took 0.06 s, and the
+properties scalar and wrong_scalar together took 3.9 s at that depth, with
+1258 counterexamples for the wrong trait.  The cost of a search grows
+faster than the number of its values, so keep depth 3 for one property at
+a time.
+
+Bind the generator to a free variable before a property reads it.  An
+earlier version shared the expression anyType n between the guard and the
+result instead.  On the C++ backend, with a generator of 2230 types, the
+property scalar took three times longer that way, and the property
+decay_twice ran out of a 2 GB address space.  With the constraint
+t =:= anyType n the choice is made once, when t is bound.
+
+What the check does not cover:
+
+  * Types of depth 3 or more.  int const* const&, for example, has depth 4.
+  * The shapes outside the generator: the arrays have the bound 3 only, the
+    functions take one of three parameter lists, there is one class, and
+    there are no class templates, enumerations, unions, or wide character
+    types.  Member pointers point into the one class.
+  * The traits that no property uses: make_signed, make_unsigned, the
+    promotions, common_type, sizeof_ and alignof_, and the tables of
+    CxxLimits.
+  * A property that has no value for a type.  When a trait in a property
+    fails, the type is neither a pass nor a counterexample, and the report
+    does not notice.  The traits that the seven properties call are total:
+    at depth 2, every property has a value for every type, which a version
+    of the driver that collected every outcome confirmed.  That version
+    cost 0.5 s more per property on the C++ backend, so the example does
+    without it.  A property over a partial trait, such as make_signed,
+    needs it.
+  * A mistake that both sides of a property share.  Every trait normalizes
+    its argument with the same function norm, so a wrong normal form could
+    satisfy every property.  The generator is independent of norm, which is
+    why the count of types is a check of its own.
+  * The meaning of the traits in a real compiler.  The properties compare
+    the model with the text of the standard, not with the output of a C++
+    compiler.

@@ -1,0 +1,40 @@
+% python go.py
+(a) overloads f(int), f(long), f(double)
+  f(int)    viable: f(int) [exact], f(long) [conversion], f(double) [conversion]
+            result: f(int) [exact]
+  f(char)   viable: f(int) [promotion], f(long) [conversion], f(double) [conversion]
+            result: f(int) [promotion]
+  f(float)  viable: f(int) [conversion], f(long) [conversion], f(double) [promotion]
+            result: f(double) [promotion]
+  f(bool)   viable: f(int) [promotion], f(long) [conversion], f(double) [conversion]
+            result: f(int) [promotion]
+  f(int*)   viable: none
+            result: no viable function
+(b) overloads f(long), f(double)
+  f(int)    viable: f(long) [conversion], f(double) [conversion]
+            result: ambiguous: f(long), f(double)
+  f(float)  viable: f(long) [conversion], f(double) [promotion]
+            result: f(double) [promotion]
+(c) class Derived : Base; overloads g(void*), g(Base*), g(Derived*)
+  g(Derived*)        viable: g(void*) [conversion], g(Base*) [conversion], g(Derived*) [exact]
+                     result: g(Derived*) [exact]
+  g(std::nullptr_t)  viable: g(void*) [conversion], g(Base*) [conversion], g(Derived*) [conversion]
+                     result: ambiguous: g(void*), g(Base*), g(Derived*)
+  g(Derived const*)  viable: none
+                     result: no viable function
+(c) class Derived : Base; overloads k(int*), k(int const*), k(void*), k(Base*), k(bool)
+  k(Derived*)        viable: k(void*) [conversion], k(Base*) [conversion], k(bool) [conversion]
+                     result: k(Base*) [conversion]
+  k(int*)            viable: k(int*) [exact], k(int const*) [exact], k(void*) [conversion], k(bool) [conversion]
+                     result: k(int*) [exact]
+  k(std::nullptr_t)  viable: k(int*) [conversion], k(int const*) [conversion], k(void*) [conversion], k(Base*) [conversion]
+                     result: ambiguous: k(int*), k(int const*), k(void*), k(Base*)
+(c) overloads h(int const (&)[3]), h(int*)
+  h(int[3])        viable: h(int const (&)[3]) [exact], h(int*) [exact]
+                   result: ambiguous: h(int const (&)[3]), h(int*)
+  h(int const[3])  viable: h(int const (&)[3]) [exact]
+                   result: h(int const (&)[3]) [exact]
+  h(int[4])        viable: h(int*) [exact]
+                   result: h(int*) [exact]
+(d) the argument types of depth at most 2 that make the call ambiguous for f(long), f(double), f(int const*)
+  120 types; after the lvalue transformations, 12: bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, unsigned long, long long, unsigned long long, long double

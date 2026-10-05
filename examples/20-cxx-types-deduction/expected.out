@@ -1,0 +1,41 @@
+% python go.py
+(a) deduce T from the parameters of f and the argument types of a call
+  f(T const&)  int              T = int
+  f(T const&)  int const&       T = int
+  f(T const&)  int[3]           T = int[3]
+  f(T const&)  int const[3]     T = int[3]
+  f(T const&)  void (int)       T = void (int)
+  f(T&&)       int&             T = int&
+  f(T&&)       int&&            T = int
+  f(T&&)       int              T = int
+  f(T)         int const        T = int
+  f(T)         int const&       T = int
+  f(T)         int[3]           T = int*
+  f(T)         void (int)       T = void (*)(int)
+  f(T const*)  char*            T = char
+  f(T*)        int[3]           T = int
+  f(T, T)      int, double      no deduction
+  f(T, T)      int, int const&  T = int
+(b) deduce the template parameters from the parameters of g and the argument types of a call
+  g(pair<T, U*>, T)  pair<int, char*>, int   T = int, U = char
+  g(pair<T, U*>, T)  pair<int, char*>, long  no deduction
+  g(vector<T>)       vector<int const*>      T = int const*
+(c) the most specialized of S<T>, S<T*>, S<T const*> for S<...> with
+  int                unique: S<T>
+  int*               unique: S<T*>
+  int const*         unique: S<T const*>
+  char const* const  unique: S<T>
+(c) the most specialized of S<pair<T, int>>, S<pair<int, T>> for S<...> with
+  pair<int, int>    ambiguous: S<pair<T, int>>, S<pair<int, T>>
+  pair<char, int>   unique: S<pair<T, int>>
+  pair<char, char>  no match
+(c) the most specialized of S<T>, S<T*> for S<...> with
+  int*  unique: S<T*>
+(c) the most specialized of S<T&>, S<T const&> for S<...> with
+  int&        unique: S<T&>
+  int const&  unique: S<T const&>
+(c) the most specialized of S<vector<T>>, S<vector<T*>> for S<...> with
+  vector<int*>  unique: S<vector<T*>>
+  vector<int>   unique: S<vector<T>>
+(d) the types of depth at most 2 that decay to int*: int (&&)[3], int (&)[3], int*, int* const, int* volatile, int*&, int*&&, int[3]
+(d) the types of depth at most 1 from which f(T const&) deduces T = int: int, int const, int&, int&&

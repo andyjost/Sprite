@@ -1139,3 +1139,88 @@
   assertion on a guard of an enclosing set function at the root of a nested
   configuration; escape_all of the C++ Configuration is no longer set
   anywhere.
+
+2026-10-04: the C++ compile-time series (examples 20 to 23)
+- Four examples model the compile-time algorithms of a C++ compiler over
+  one algebraic model of C++ types, the shared modules under examples/cxx:
+  template argument deduction and the partial ordering of partial
+  specializations (20), overload resolution (21), a bounded check of the
+  traits against the standard (22) and member layout with a search for
+  the order of the smallest size (23).  Template parameters are free
+  variables, search is non-determinism, and set functions collect the
+  results.  The motivation is a future integration with the Circle C++
+  compiler, whose compile-time metaprogramming can run Python; Sprite
+  would supply the search and the unification, Circle the types.  The
+  model simplifies C++: no enumerations, unions, wide character types,
+  noexcept or ref-qualified functions, non-type template parameters,
+  user-defined conversions, templates in overload resolution,
+  argument-dependent lookup, member functions, default arguments, class
+  layout (a class has no size), base classes, bit-fields, alignas or
+  packing; deduction has no function-pointer or derived-to-base
+  conversions (the qualification conversion and forwarding references
+  were added to deduceCall when example 20 grew to 33 rows); reference
+  parameters are references to const, and to functions, only; common_type
+  covers the arithmetic types; the data model is LP64.  Each README lists
+  what its example leaves out.
+- Review of the series, applied: common_type<T, T> is decay_t<T>, not the
+  promoted type, and common_type decays its operands; deduce with the
+  pattern T const& takes the const off the argument too, so int const[3]
+  deduces T = int[3], and the rules of deduceRef no longer overlap;
+  std::nullptr_t does not convert to bool in a call, and the tie-breaker
+  of [over.ics.rank]/4.1 names pointers and pointers to members only; a
+  reference to const of array type, and a reference to a function, bind
+  an argument of that type directly, with no decay; sizeof of an array of
+  unknown bound has no value; the printer puts a space before a name or a
+  member-pointer declarator ("Foo* Foo::*", "char const* payload"); the
+  constructors of Choice are Chosen, Tied and NoMatch, so that a module
+  may import CxxType and CxxOverload together; the well-formed generator
+  of CxxCheck replaced the term generator of CxxType (every type once: 18,
+  194, 1245 and 7330 types at depths 0 to 3), which removed the duplicate
+  solutions of the inverse questions.
+- Generator shape and search cost (C++ backend): the guarded form of the
+  generator (build a compound, reject it when a guard on the operand
+  fails) made the search t =:= anyType n four times slower at depth 2 and
+  25 times slower at depth 3 (33 s instead of 1.4 s over 7330 types) than
+  the constructive form (one sub-generator per category, no rejected
+  alternative); example 20 on the Python backend went from 39 s to 7 s.  A
+  rejected alternative is a live branch of the search until its guard
+  fails, and the cost of a search grows faster than the number of its
+  branches.  Worth a note in the user guide on the narrowing idiom.
+- Defects met by the streams that wrote the examples, not fixed (the
+  suspension of (3) on the Python backend was reproduced here): (1, #59) C++
+  emitter: a case whose default branch body is a bare literal or a nullary
+  constructor (`_ -> False`) is let-lifted by the front end and the
+  emitter writes the literal into a cyrt::Variable, which does not
+  compile; the shared modules use explicit alternatives or calls in
+  default bodies.  (2, #60) Python backend: show of an Int inside a term that
+  =:= bound to a free variable does not finish, while arithmetic on it
+  works; CxxType.showNat prints the bound of an array by arithmetic.  (3, #61)
+  Both backends: a set function applied to a free variable that =:= bound
+  under a choice sees the binding of the first alternative in every branch
+  (t =:= (Fund Int ? Fund Char) &> sortValues (set1 id t) gives [Fund Int]
+  twice); example 21 forces the variable with $## first, which works on
+  the C++ backend; on the Python backend $## raises EvaluationSuspended
+  and $!! a ValueError inside the backend, so 21 runs on the C++ backend
+  only.  (4, #62) Python backend: length of a list of 5040 elements and sortBy
+  on 2000 elements raise RecursionError, so a set with more than about
+  1000 values cannot be sorted or counted there (example 23 keeps six
+  members).  (5, #63) Python backend: a point-free top-level definition (arity
+  0) cannot be applied to arguments from Python.  (6) Front end: a where
+  clause after a case expression whose alternatives share its indentation
+  is not attached to the equation.  (7) Collector stress mode: example 22
+  (seven set functions over 1245 types) does not finish in 300 s;
+  STRESS_EXCLUDED in unit_examples.py.
+- Follow-ups for the series: user-defined conversions and the ranking of
+  user-defined conversion sequences; templates in overload resolution
+  (deduceCall is the hook) and the preference for a non-template; the
+  reference bindings of [over.ics.ref] with value categories; the
+  ordering of function templates and non-deduced contexts in deduction; concepts, with constraint subsumption as a
+  partial order over conjunctions of atomic constraints, beside the
+  partial ordering of specializations; a Struct type with members, so
+  that nested aggregates get a layout, with alignas and packing; more
+  traits (remove_extent, remove_all_extents, remove_pointer,
+  is_bounded_array, ...) and properties over the partial traits with a
+  count of outcomes; a unit test file for the shared library (the scratch
+  drivers of the streams checked 101, 52 and 65 assertions); and a Circle
+  driver: a metaprogram that hands the types of the program under
+  compilation to the model and asks the questions of the series.
