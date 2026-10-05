@@ -1,7 +1,9 @@
 from ..generic.eval import evaluator
 from ... import backends
-from . import compiler, cyrtbindings, fundamental_symbols, loader, materialize
-from . import tiered, toolchain
+from . import (
+    compiler, cyrtbindings, fundamental_symbols, implementation, loader
+  , materialize, tiered, toolchain
+  )
 from ...objects.handle import getHandle
 
 class IBackend(backends.IBackend):
@@ -48,6 +50,9 @@ class IBackend(backends.IBackend):
 
   def scheduler_counters_enabled(self):
     return cyrtbindings.scheduler_counters_enabled()
+
+  def getimpl(self, symbol):
+    return implementation.getimpl(symbol)
 
   def find_or_create_internal_module(self, moduleobj):
     h = getHandle(moduleobj)

@@ -1,4 +1,4 @@
-from ....common import T_CHOICE, LEFT, RIGHT
+from ....common import T_CHOICE, T_FREE, LEFT, RIGHT, UNDETERMINED
 from copy import copy
 from ..eval import fairscheme
 from ...generic.currylib import setfunctions as generic_setfunctions
@@ -8,6 +8,10 @@ from .... import inspect
 
 NO_SID = -1            # an undetermined set ID.
 ENCAPSULATED_EXPR = -1 # indicates a partialS is an encapsulated expression.
+
+# The number of nodes _holds_private_state visits before it gives up.  The
+# C++ runtime has the same bound (currylib/setfunctions.cpp).
+PRIVATE_WALK_BUDGET = 64
 
 def allValues(rts, _0):
   # allValues a :: SetEval sid qid -> [a]
@@ -62,6 +66,54 @@ def captureS(rts, _0):
   # captureS :: PartialS (a -> b) -> a -> PartialS b
   return applyS(rts, _0, capture=True)
 
+def _holds_private_state(rts, root):
+  '''
+  Tells whether the current configuration holds private state for the
+  expression at ``root``: for a free variable of it, a binding, a narrowing
+  (the fingerprint, read through the queue stack), or a group with another
+  variable; for a choice of it, a decision.  That is the state the evaluator
+  puts into the expression through a private copy of the spine (the T_FREE
+  cases of N and hnf in fairscheme.py), and the state a fork of the nested
+  evaluation reads through the queue stack (rts_fingerprint.fork).  The walk
+  follows forward nodes and every node successor, so it crosses set guards,
+  partial applications, data, and the alternatives of an undecided choice.
+  It does not enter the generator of a free variable: the variable itself is
+  the test, and nothing below its generator is decided while the variable is
+  not.  It stops after PRIVATE_WALK_BUDGET nodes with the conservative
+  answer: a long argument counts as private.  So does a cyclic one.
+
+  When the outermost queue holds one configuration, no other configuration
+  reads the shared graph, and a later clone of this one starts with the
+  same state, so the answer is False without a walk: a deterministic program
+  never pays the walk and never loses the sharing of an application to the
+  bound.  Inside a set function the state read through the queue stack
+  depends on the enclosing configuration that runs the nested queue, so the
+  walk runs there.
+  '''
+  if not rts.in_recursive_call and len(rts.Q) == 1:
+    return False
+  Node = graph.Node
+  stack = [root]
+  budget = PRIVATE_WALK_BUDGET
+  while stack:
+    node = stack.pop()
+    if not isinstance(node, Node):
+      continue
+    if budget == 0:
+      return True
+    budget -= 1
+    tag = node.info.tag
+    if tag == T_FREE:
+      vid = node.successors[0]
+      gid = rts.grp_id(vid)
+      if vid != gid or rts.has_binding(gid) or rts.is_narrowed(gid):
+        return True
+      continue
+    if tag == T_CHOICE and rts.read_fp(node.successors[0]) != UNDETERMINED:
+      return True
+    stack.extend(node.successors)
+  return False
+
 def evalS(rts, _0):
   # evalS :: PartialS a -> Values a
   partapplic = rts.variable(_0, 0)
@@ -81,11 +133,27 @@ def evalS(rts, _0):
            ]
       )
   qid = rts.create_queue(sid, goal)
-  yield rts.setfunctions.Values
-  yield graph.Node(
+  allvalues = graph.Node(
       rts.setfunctions.allValues
     , graph.Node(rts.setfunctions.SetEval, sid, qid)
     )
+  # The nested evaluation reads the state of this configuration for the free
+  # variables and the choices of its goal (the fingerprint, through the queue
+  # stack), so its values depend on that state when this configuration
+  # bound, narrowed, or grouped such a variable, or decided such a choice.  A
+  # result that depends on the private state of a configuration never goes
+  # into the shared graph, where another configuration, with another binding
+  # of the variable or another side of the choice, would read it (issue
+  # #61).  It goes into a private copy of the spine, as the binding itself
+  # does (hnf), and the shared node stays an application for the other
+  # configurations.  E_RESTART tells the enclosing steps that the root was
+  # replaced.  The C++ runtime has the same rule (evalS_step).
+  if _holds_private_state(rts, term):
+    replacement = graph.Node(rts.setfunctions.Values, allvalues)
+    rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=replacement)
+    rts.restart()
+  yield rts.setfunctions.Values
+  yield allvalues
 
 def exprS(rts, _0):
   yield rts.setfunctions.PartialS

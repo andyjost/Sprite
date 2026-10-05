@@ -128,6 +128,16 @@ class IBackend(metaclass=abc.ABCMeta):
     '''
     return False
 
+  def getimpl(self, symbol):
+    '''
+    The implementation code of the step function of ``symbol`` (a
+    CurryNodeInfo) as text; see :func:`curry.inspect.getimpl`.  Raises
+    ValueError when the backend has no code for the symbol.
+    '''
+    raise ValueError(
+        'no implementation code available for %r' % symbol.fullname
+      )
+
   @abc.abstractproperty
   def load_module(self):
     '''Load the contents of a Curry module.'''

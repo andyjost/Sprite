@@ -3,7 +3,7 @@ from curry.expressions import free, unboxed
 from curry import backends, icurry, inspect
 from curry.common import T_CTOR
 from curry.interpreter import Interpreter
-import curry, types
+import curry, gc, types, unittest
 import cytest.expression_library
 
 def MAP(*args):
@@ -272,3 +272,105 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     curry.import_('Data.List')
     nub = inspect.getsymbol(Data, 'List.nub')
     self.assertEqual(nub.fullname, 'Data.List.nub')
+
+  def testGetICurry(self):
+    '''
+    A module loaded from its compiled code carries a bill of materials whose
+    functions have no body.  geticurry reads the ICurry of the module from
+    its file and finds a function there by name (issue #38).
+    '''
+    curry.path.insert(0, 'data/curry')
+    Peano = curry.import_('Peano')
+    bom = getattr(Peano, '.icurry')
+    self.assertIsInstance(Peano.add.icurry.body.block, icurry.IExempt)
+    imodule = inspect.geticurry(Peano)
+    self.assertIsInstance(imodule, icurry.IModule)
+    self.assertIsNot(imodule, bom)
+    self.assertEqual(imodule.fullname, 'Peano')
+    # The file is read once.
+    self.assertIs(inspect.geticurry(Peano), imodule)
+    add = inspect.geticurry(Peano.add)
+    self.assertIs(add, imodule.functions['add'])
+    self.assertNotIsInstance(add.body.block, icurry.IExempt)
+    self.assertIn('add:', str(add))
+    self.assertNotIn('exempt', str(add))
+    self.assertIn('exempt', str(Peano.add.icurry))
+    # A constructor and a type give their ICurry.
+    self.assertIs(inspect.geticurry(Peano.S), Peano.S.icurry)
+    Nat = curry.type('Peano.Nat')
+    self.assertIs(inspect.geticurry(Nat), Nat.icurry)
+    # A module compiled from a string.
+    M = curry.compile('f :: Int -> Int\nf x = x + 1')
+    f = inspect.geticurry(M.f)
+    self.assertIsInstance(f, icurry.IFunction)
+    self.assertNotIsInstance(f.body.block, icurry.IExempt)
+    self.assertIs(f, inspect.geticurry(M).functions['f'])
+
+  def testGetImpl(self):
+    '''
+    The code of a step function, on the backend of the session (issue #38).
+    '''
+    curry.path.insert(0, 'data/curry')
+    Peano = curry.import_('Peano')
+    code = inspect.getimpl(Peano.add)
+    self.assertIsInstance(code, str)
+    self.assertEqual(code, Peano.add.getimpl())
+    prim = curry.symbol('Prelude.prim_showFloatLiteral')
+    if curry.flags['backend'] == 'py':
+      self.assertRegex(code, r'(^|\n)def \w+\(rts, _0\):')
+      self.assertIn('Peano.add', code)
+      self.assertIn('prim_showFloatLiteral', inspect.getimpl(prim))
+    else:
+      lines = code.splitlines()
+      self.assertEqual(lines[0], '/****** Peano.add ******/')
+      self.assertEqual(
+          lines[1]
+        , 'tag_type CyF5Peano3add(RuntimeState * rts, Configuration * C)'
+        )
+      self.assertEqual(lines[-1], '}')
+      self.assertIn('rts->hnf(C, &_1, &CyD5Peano3Nat);', code)
+      self.assertNotIn('Peano.main', code)
+      self.assertRaisesRegex(
+          ValueError
+        , "no implementation code available for "
+          r"'Prelude.prim_showFloatLiteral': it is a built-in of the C\+\+ "
+          "runtime"
+        , lambda: inspect.getimpl(prim)
+        )
+    # A constructor has no code.
+    self.assertRaisesRegex(
+        ValueError, "no implementation code available for 'Peano.O'"
+      , lambda: inspect.getimpl(Peano.O)
+      )
+    self.assertRaisesRegex(
+        ValueError, "no implementation code available for 'Peano.O'"
+      , Peano.O.getimpl
+      )
+    self.assertRaises(TypeError, lambda: inspect.getimpl(42))
+
+  @unittest.skipUnless(
+      curry.flags['backend'] == 'cxx'
+    , 'the ICurry interpreter belongs to the C++ runtime'
+    )
+  @cytest.hardreset
+  def testGetImplInterpreted(self):
+    '''The bytecode of an interpreted function, with its constants.'''
+    gc.collect()
+    curry.reload({'backend': 'cxx', 'interpret': 'new'})
+    M = curry.compile(
+        'double :: Int -> Int\ndouble x = x + x\nmain :: Int\nmain = double 21'
+      , mode='module'
+      )
+    code = inspect.getimpl(M.double)
+    lines = code.splitlines()
+    self.assertEqual(lines[0], '/****** %s ******/' % M.double.fullname)
+    self.assertRegex(
+        lines[1]
+      , r'^bytecode: \d+ units, \d+ constants, \d+ registers, \d+ variables, '
+        r'stack \d+$'
+      )
+    self.assertRegex(lines[-1], r'^ *\d+ RET_NODE k0<plusInt> 2$')
+    code = inspect.getimpl(M.main)
+    self.assertIn("PUSH_CONST k0<('I', 21)>", code)
+    self.assertIn('RET_NODE k1<double> 1', code)
+    self.assertEqual(code, M.main.getimpl())

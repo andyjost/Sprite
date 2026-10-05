@@ -26,6 +26,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# The bytecode of every interpreted function, by full name, for
+# inspect.getimpl (implementation.py).  An interpreted table lives for the
+# life of the process (Module::clear keeps it), so its code is kept as long.
+BYTECODE = {}
+
 def materialize(interp, iobj, moduleobj):
   materializer = Materializer(interp, moduleobj)
   return materializer.materialize(iobj)
@@ -101,6 +106,7 @@ class Materializer(object):
     cyrt.icurry_attach(
         info, code.code, code.consts, code.nregs, code.nvars, code.nstack
       )
+    BYTECODE[ifun.fullname] = code
 
   # The resolver of the emitter (see bytecode.compile_function).
   def symbol(self, fullname):

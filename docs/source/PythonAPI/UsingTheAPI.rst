@@ -70,8 +70,14 @@ shows its context:
 
 To see the ICurry and generated backend code try the following commands:
 
-    >>> print(Peano.add.icurry)
+    >>> from curry import inspect
+    >>> print(inspect.geticurry(Peano.add))
     >>> print(Peano.add.getimpl())
+
+``inspect.geticurry`` reads the ICurry of a module loaded from its compiled
+code from the file beside it.  ``getimpl`` gives the generated Python
+function on the Python backend and the generated C++ function on the C++
+backend.
 
 .. tip::
     Use ``print`` when examining long strings with embedded newlines.
