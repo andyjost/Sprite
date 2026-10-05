@@ -60,26 +60,17 @@ class Goal:
     The values of the goal from the results of its evaluation.  Each result
     is converted with ``convert``; a goal with free variables yields
     :class:`Bindings`.
+
+    The generator holds the names of the free variables and not the goal:
+    the goal node must not stay rooted from Python while the evaluation
+    runs.  The root of the configuration moves with the rewrites, but a
+    reference to the original node keeps every node of the search above
+    the live configurations reachable (the choices pulled to the root with
+    their failed alternatives), so the collector retains the history of the
+    evaluation and each collection marks it.  ``curry.eval`` drops its goal
+    object when it returns this generator.
     '''
-    try:
-      for result in results:
-        if self.freevars:
-          parts = [result[i] for i in range(len(self.freevars) + 1)]
-          raw = result
-          if convert is not None:
-            parts = [convert(interp, part) for part in parts]
-            raw = None
-          yield Bindings(parts[0], zip(self.freevars, parts[1:]), raw)
-        elif convert is not None:
-          yield convert(interp, result)
-        else:
-          yield result
-    finally:
-      # Closing this generator closes the evaluation, so that its counts
-      # reach the totals of the interpreter now.
-      close = getattr(results, 'close', None)
-      if close is not None:
-        close()
+    return _values(self.freevars, interp, results, convert)
 
   def __str__(self):
     return str(self.raw_expr)
@@ -88,6 +79,27 @@ class Goal:
     return '<curry goal %r with free variables %s>' % (
         self.text, ', '.join(self.freevars)
       )
+
+def _values(freevars, interp, results, convert):
+  try:
+    for result in results:
+      if freevars:
+        parts = [result[i] for i in range(len(freevars) + 1)]
+        raw = result
+        if convert is not None:
+          parts = [convert(interp, part) for part in parts]
+          raw = None
+        yield Bindings(parts[0], zip(freevars, parts[1:]), raw)
+      elif convert is not None:
+        yield convert(interp, result)
+      else:
+        yield result
+  finally:
+    # Closing this generator closes the evaluation, so that its counts
+    # reach the totals of the interpreter now.
+    close = getattr(results, 'close', None)
+    if close is not None:
+      close()
 
 class Bindings:
   '''

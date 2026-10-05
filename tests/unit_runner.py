@@ -877,11 +877,16 @@ class TestCli(unittest.TestCase):
     with redirect_stdout(out), redirect_stderr(err):
       status = cli.main(['--list', 'unit_prelud.py'])
     self.assertEqual(status, 2)
-    # A selection that the fast tier empties is a legitimate outcome.
+    # A selection that the fast tier empties is a legitimate outcome.  The
+    # manifest names both backends: the run takes the backend of the
+    # environment, and a backend without an entry counts as fast.
     tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
     self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
     manifest = os.path.join(tmpdir, 'manifest.json')
-    Manifest({'unit_runner.py': {'py': {'duration_s': 100}}}, manifest).save()
+    Manifest(
+        {'unit_runner.py': {'py': {'duration_s': 100}, 'cxx': {'duration_s': 100}}}
+      , manifest
+      ).save()
     out = io.StringIO()
     with redirect_stdout(out):
       status = cli.main(['--fast', '--manifest', manifest, 'unit_runner.py'])

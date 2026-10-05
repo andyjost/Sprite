@@ -1827,8 +1827,9 @@ class TestHistory(unittest.TestCase):
     self.assertEqual(
         lines[1].split()[:4], ['suite', 'program', 'backend', 'variant']
       )
-    self.assertEqual(self.table(lines[2:4])['A'][7:], ['only-new', '-'])
-    self.assertEqual(self.table(lines[2:4])['B'][7:], ['only-new', '-'])
+    # The column instr is '-' for records without instructions.
+    self.assertEqual(self.table(lines[2:4])['A'][7:], ['-', 'only-new', '-'])
+    self.assertEqual(self.table(lines[2:4])['B'][7:], ['-', 'only-new', '-'])
     self.assertTrue(lines[-1].startswith(
         '2 items: 0 same, 0 faster, 0 slower, 0 failed, 0 without the metric, '
         '2 only in one file; 0 with changed counters'
@@ -1865,12 +1866,13 @@ class TestHistory(unittest.TestCase):
       )
     table = self.table(lines[2:5])
     self.assertEqual(
-        table['A'][4:], ['1.0000', '1.5000', '1.50', 'slower', 'steps', '5->6']
+        table['A'][4:]
+      , ['1.0000', '1.5000', '1.50', '-', 'slower', 'steps', '5->6', '(+20.0%)']
       )
     self.assertEqual(
-        table['B'][4:], ['1.0000', '1.0000', '1.00', 'same', 'equal']
+        table['B'][4:], ['1.0000', '1.0000', '1.00', '-', 'same', 'equal']
       )
-    self.assertEqual(table['C'][7:], ['only-new', '-'])
+    self.assertEqual(table['C'][7:], ['-', 'only-new', '-'])
     self.assertTrue(lines[-1].startswith(
         '3 items: 1 same, 0 faster, 1 slower, 0 failed, 0 without the metric, '
         '1 only in one file; 1 with changed counters'
@@ -1910,7 +1912,7 @@ class TestHistory(unittest.TestCase):
       )
     start = lines.index('second.jsonl: 3 records against the previous run')
     table = self.table(lines[start + 2:-1])
-    self.assertEqual(table['A'][4:8], ['2.0000', '3.0000', '1.50', 'same'])
+    self.assertEqual(table['A'][4:9], ['2.0000', '3.0000', '1.50', '-', 'same'])
     self.assertTrue(lines[-1].endswith('(metric wall, threshold 60%)'))
     self.assertEqual(
         len(records.read(history.record_file(d, 'throughput'))), 3

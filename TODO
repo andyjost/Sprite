@@ -2442,3 +2442,49 @@
   function value from an expression module on the Python backend, the
   Applicative case, an overlay archive rebuilt with the icurry route that
   packs the copies, and the functional suites that were not re-run.
+
+2026-10-04: integration of the three streams (wt/integrate)
+- Merged into one tree, in this order: py314 (the C++ compile-time series),
+  wt/phase2, wt/typed, wt/velocity.  Conflicts and their resolution: TODO
+  (every entry kept, in date order; the bullets of phase2 and velocity
+  continue the entry of the performance program); tests/README, AGENTS.md
+  and the docs (every side's paragraphs); rts.hpp (phase2's InterpreterState
+  with the weak table, and typed's external_freevars; register_freevars
+  declared beside freshvar); rts_freevars.cpp (the registration walk writes
+  to the table of the interpreter state, where phase2 moved it); copy.cpp
+  (phase2's GcClamp and typed's count of the free variables of a value; a
+  free variable is shared, not copied, under phase2, so the count moved to
+  the shared branch); string.cpp (the generator step registers the free
+  variables of its item and releases an exhausted iterator); graph.cpp (the
+  single-step binding counts the ids the step made, and the vtable property
+  reads the table of the interpreter state; test_counter of
+  unit_free_markers.py asks for the id of the raw node instead of the whole
+  table, which the evaluations of one interpreter now share);
+  tests/lib/benchmarks (velocity's schema 2 with phase2's split suite;
+  compare.summary takes the deterministic flag and serves main and
+  history.py; the records of both committed labels are schema 1); the
+  history tests of unit_benchmarks.py expect the instr column.
+- Fixed after the merges.  test_nothing_selected of unit_runner.py named
+  the Python backend alone in its manifest, so under backend:cxx the fast
+  tier selected the file and ran it (status 1); the manifest names both
+  backends.  test_stress_mode of unit_cxx_interp.py (Last under
+  interpret:all and SPRITE_GC_STRESS=1, 120 s) timed out: typed's
+  curry.eval kept its Goal object, and with it the Python wrapper of the
+  goal node, alive while the evaluation ran.  A root on the original goal
+  node keeps the choices pulled to the root, with their failed
+  alternatives, reachable: the history of the search, which grows with the
+  steps, so every collection of the stress mode marked it.  Last with 1000
+  elements under the stress mode took 1.9 s with the wrapper kept and 0.02
+  s without, on the phase2 build as on the merged one; Last through
+  sprite-exec ran out of the 120 s before the fix and takes 2.5 s after it.
+  Goal.values now returns a generator that holds the names of the free
+  variables and not the goal, so curry.eval drops the goal object when it
+  returns.  Left: a Goal object the caller holds through the evaluation
+  (the REPL, the default goal of a saved module, a user who keeps the
+  result of curry.compile(mode='expr')) still roots the history of its
+  search; a remedy on the runtime side is open.  Not of the merge, seen
+  on the Python backend with the typed build as with the merged one:
+  the five tests of TestInstantiation in unit_py_runtime.py and
+  test_apply_nf of unit_prelude.py fail, because compile(mode='expr')
+  with a free variable returns a Goal, which interp.expr and
+  cytest.step do not take, and its values are Bindings objects.
