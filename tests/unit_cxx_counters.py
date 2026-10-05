@@ -31,7 +31,8 @@ def raw_counters():
 def plain(stats):
   '''The counts of a Stats object without the clocks and the sizes.'''
   return {key: stats[key] for key in stats
-                          if key not in ('wall', 'cpu', 'peak_rss', 'compile')}
+                          if key not in ('wall', 'cpu', 'peak_rss', 'compile'
+                                        , 'gc_seconds')}
 
 
 class TestDerivations(unittest.TestCase):
@@ -153,7 +154,8 @@ class TestCounters(cytest.TestCase):
     self.assertRegex(
         line
       , r'^wall=\S+ cpu=\S+ steps=0 forks=0 collections=\d+ peak_rss=\d+'
-        r' compile=\S+ serial_steps=0 nested_steps=0 shared_steps=0'
+        r' compile=\S+ gc_seconds=\S+ serial_steps=0 nested_steps=0'
+        r' shared_steps=0'
         r' queue_max=0 configurations=0 failures=0 failed_steps=0'
         r' lifetime_median=0 lifetime_mean=0\.000000 lifetime_max=0'
         r' nested_configurations=0 nested_lifetime_median=0'

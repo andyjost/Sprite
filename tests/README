@@ -84,8 +84,12 @@ without the cap.  To change the cap, set SPRITE_TEST_MAX_VMEM_KB (in KiB, or
 
 The collector of the C++ backend has a stress mode.  With SPRITE_GC_STRESS=1
 it runs at every safepoint of the scheduler, after every rewrite step, so a
-missing root fails a test at once instead of once per million nodes.  To
-run the unit tests that way, say:
+missing root fails a test at once instead of once per million nodes.  Every
+collection of the mode also runs the heap verifier (src/cyrt/graph/gc/
+blockheap.cpp), which checks every live node and every node Python holds
+against the block heap and aborts the process on an inconsistency;
+cyrtbindings.gc_verify() runs one such check between evaluations and
+returns the problem found, or None.  To run the unit tests that way, say:
 
         SPRITE_GC_STRESS=1 SPRITE_INTERPRETER_FLAGS=backend:cxx ./run_tests 'unit_*.py'
 
@@ -93,6 +97,29 @@ A test whose child must grow a large live heap, recurse deeply, or run out
 of memory skips in that mode (cytest.skipIfGcStress).  The nightly CI job
 runs the unit suite on the C++ backend in stress mode (job "stress" in
 .github/workflows/ci.yml).
+
+The C++ backend can run a module without the C++ compiler: the runtime
+interprets the ICurry of the module from a bytecode (src/cyrt/icurry.hpp,
+curry.backends.cxx.bytecode).  The interpreter flag ``interpret`` selects
+it: 'new' interprets the modules without a compiled object, 'all' every
+module, the Prelude included.  To run the unit tests that way, say:
+
+        SPRITE_INTERPRETER_FLAGS=backend:cxx,interpret:all ./run_tests 'unit_*.py'
+
+The tests that read a generated .cpp or .so file, or expect the toolchain
+to compile, fail under the flag by design (see the dated TODO entry);
+unit_cxx_interp.py tests the interpreter.  The CI workflow runs
+unit_cxx_interp.py and the functional suites under interpret:all on request
+(the input "interpreter" of .github/workflows/ci.yml; the job passes the
+flag to run-tests.sh through SPRITE_TEST_FLAGS).
+
+A runtime built with make GC=mps (the Memory Pool System, an experiment
+behind a gate; see src/cyrt/graph/gc/mps.cpp and the dated TODO entry)
+names its collector in cytest.gc_backend().  The tests of the block heap,
+of its threshold policy, of the exact counts of queues and sets, of the
+weak free-variable table, and of the out-of-memory child hold for the
+default collector alone and skip there (cytest.skipUnlessGcBackend);
+unit_cxx_mps.py tests the MPS back end.
 
 
 5. ORACLE CONFIGURATION
@@ -201,6 +228,12 @@ for the programs of a suite.  The suites are selected with --suite (-s):
                     ("prelude"), and Hello end to end ("hello").
         memory      Peak memory of each program with the node collector on
                     and, on the C++ backend, off (SPRITE_GC_THRESHOLD).
+        split       Evaluates a search program whole and in parts: its
+                    search space split by hand into 2, 4, and 8 independent
+                    subproblems, each part in a process of its own
+                    (sprite-exec -t --stats -m PROGRAMSplit -g partK_I).
+                    The programs are those with a module under
+                    data/curry/benchmarks/split.
 
 Every measurement runs in a child process under a cap on its address space
 (--cap, default 6G) and a timeout (--timeout, default 600 seconds).  The
@@ -209,8 +242,8 @@ peak RSS of the child and its descendants comes from GNU time
 chain; without it the peak comes from wait4, which never reports a child
 below the size of the harness itself, and the record says so
 (meta.rss_source).  An item gets N measured repetitions (--repeat; the
-defaults are 5, 3, 5, and 1 for the four suites) after warm-up runs that are
-not recorded (--warmup, default 1).  The warm-up compiles a module on its
+defaults are 5, 3, 5, 1, and 3 for the five suites) after warm-up runs that
+are not recorded (--warmup, default 1).  The warm-up compiles a module on its
 first use, so the measured runs find the cached files.  --backend selects cxx
 (the default), py, or pakcs (throughput only); repeat it for several.  The
 backends and variants of one program run one after the other, so a drift of
@@ -262,3 +295,55 @@ say:
 An item measured on a plain runtime shows dashes.  unit_cxx_counters.py
 tests the counters; its tests of the values run on an instrumented runtime
 only.
+
+The split suite is the process-split experiment of the parallel-evaluation
+gate (see the dated TODO entry): what a design that runs independent parts
+of a search on separate workers could gain.  To tabulate its records, say:
+
+        ./run_benchmarks split FILE [-m METRIC] [--parts] [--csv]
+
+For every program and part count the row gives the speedup bound (the whole
+over the longest part, in CPU seconds by default; -m picks wall or
+eval_wall, the time of the evaluation alone), the duplicated work (the sum
+of the parts over the whole), and both again by rewrite steps, which are
+exact; --parts lists the parts below their row.  A row needs the whole and
+every part with status ok.  The split modules take the size of the problem;
+unit_split.py checks at a small size that the parts of a split partition the
+search space, and unit_benchmarks.py tests the suite and the command.
+
+The nightly performance job (.github/workflows/perf.yml) runs the harness
+on the C++ backend every night, and on request (workflow_dispatch): the
+throughput suite on a fixed set of ten programs with three repetitions,
+the compile suite on the same programs and the expression item, and the
+import suite.  The set is NIGHTLY in lib/benchmarks/__init__.py, and
+--nightly selects it, so the same measurement runs by hand:
+
+        ./run_benchmarks -s throughput --nightly -r 3 --timeout 300 -o t.jsonl
+
+The job appends the records to the branch perf-history of the repository
+with the token of the workflow (no secret), through the history command:
+
+        ./run_benchmarks history DIR FILE...
+
+DIR is a checkout of the branch.  records/SUITE.jsonl holds every record of
+a suite in the order of arrival (a record file like any other, so compare
+reads it), and points.json holds the points of the chart page, derived
+from the record files.  The command prints each new record against the
+previous record of its item, as compare does, before it appends; the job
+puts that table in the summary of the run.  .github/scripts/run-perf.sh
+runs the three suites, and .github/scripts/perf-history.sh fetches the
+branch into a worktree (or starts it), runs the command, commits, and
+pushes.  Timings from shared runners are advisory: the job never fails on
+a timing, only on a run that failed.  Read the CPU seconds with the
+counters, and take authoritative numbers from a quiet machine.
+
+The page docs/source/extra/perf/index.html (perf/index.html of the built
+documentation; plain HTML and JavaScript, no library) draws one figure per
+suite from points.json: a panel per item with the metric over time, the
+last value, a hollow marker where the steps changed, a cross where a run
+failed, a readout on hover, and a table view.  Served from GitHub Pages it
+reads the file from the perf-history branch (raw.githubusercontent.com);
+elsewhere it reads points.json beside itself, or the URL of ?history=.
+unit_perf_history.py tests the page under node, the scripts against a
+local remote, and the workflow; unit_benchmarks.py tests the history
+command and the nightly set.

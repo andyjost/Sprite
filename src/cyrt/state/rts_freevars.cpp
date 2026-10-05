@@ -4,9 +4,22 @@
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/state/configuration.hpp"
 #include "cyrt/state/rts.hpp"
+#include <stdexcept>
+#include <string>
 
 namespace cyrt
 {
+  // A lookup by id that found no node.  The collector keeps every variable a
+  // live configuration can still ask for (see gc/wdgc.cpp), so this is an
+  // error of the runtime, not of the program.
+  static std::logic_error missing_freevar(xid_type vid)
+  {
+    return std::logic_error(
+        "free variable " + std::to_string(vid)
+        + " is not in the free-variable table"
+      );
+  }
+
   Node * RuntimeState::get_binding(Configuration * C, xid_type vid)
   {
     auto p = C->bindings->find(vid);
@@ -16,11 +29,14 @@ namespace cyrt
   Node * RuntimeState::get_generator(Configuration * C, xid_type vid)
   {
     Node * x = this->get_freevar(vid);
-    assert(x);
+    if(!x)
+      throw missing_freevar(vid);
     if(!has_generator(x))
     {
       xid_type gid = C->grp_id(vid);
       Node * y = this->get_freevar(gid);
+      if(!y)
+        throw missing_freevar(gid);
       this->constrain_equal(C, x, y, STRICT_CONSTRAINT);
       assert(has_generator(x));
     }
@@ -90,7 +106,7 @@ namespace cyrt
   {
     xid_type vid = this->istate.xidfactory++;
     Node * x = free(vid);
-    this->vtable[vid] = x;
+    this->istate.vtable.emplace(vid, x);
     return x;
   }
 

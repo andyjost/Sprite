@@ -35,7 +35,10 @@ _START = _process_start()
 # ru_maxrss is in kibibytes on Linux and in bytes on macOS.
 _RSS_UNIT = 1 if sys.platform == 'darwin' else 1024
 
-KEYS = ('wall', 'cpu', 'steps', 'forks', 'collections', 'peak_rss', 'compile')
+KEYS = (
+    'wall', 'cpu', 'steps', 'forks', 'collections', 'peak_rss', 'compile'
+  , 'gc_seconds'
+  )
 
 # The keys a C++ runtime built with the scheduler counters (make COUNTERS=1)
 # adds after KEYS.  See scheduler_fields.
@@ -186,6 +189,9 @@ def stats(interp):
         Seconds this process spent in the steps of the toolchain: the Curry
         front end, the ICurry-JSON conversion, the code generator, and the
         C++ compiler.  Zero when every file was current.
+    ``gc_seconds``
+        Seconds the node collector of the C++ backend spent in its
+        collections.  The Python backend reports zero.
 
     A C++ runtime built with the scheduler counters (make COUNTERS=1) adds
     the keys of :data:`SCHEDULER_KEYS`; see :func:`scheduler_fields`.
@@ -200,6 +206,7 @@ def stats(interp):
     , ('collections', interp.backend.num_collections())
     , ('peak_rss', usage.ru_maxrss * _RSS_UNIT)
     , ('compile', toolchain.compile_seconds())
+    , ('gc_seconds', interp.backend.gc_seconds())
     ]
   if interp.backend.scheduler_counters_enabled():
     fields += scheduler_fields(totals.scheduler)

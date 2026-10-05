@@ -18,7 +18,9 @@ namespace cyrt
 
   inline Node * RuntimeState::get_freevar(xid_type vid)
   {
-    return this->vtable[vid];
+    vtable_type const & table = this->istate.vtable;
+    auto p = table.find(vid);
+    return p == table.end() ? nullptr : p->second;
   }
 
   inline Node * RuntimeState::get_generator(Configuration * C, Node * x)
@@ -60,16 +62,16 @@ namespace cyrt
     return used > this->stack_room;
   }
 
-  // Every 65536 forward nodes compressed (about one per rewrite step),
-  // requests a rotation.  The target is the outermost queue that holds more
-  // than one configuration, so a set function cannot starve the alternatives
-  // outside it.  procD hands E_ROTATE outward until it reaches the target.
-  // On the way out, each nested procD rotates its own queue when that queue
-  // holds more than one configuration, so a nested sibling gets its turn as
-  // well.  A collection request (E_GC) comes after the rotation check, and
-  // every compression counts: so the rotation schedule is the same whether
-  // a collection is due or not, and the stress mode of the collector, which
-  // keeps the request set, rotates as a normal run does.
+  // Every 65536 completed rewrite steps (procS), requests a rotation.  The
+  // target is the outermost queue that holds more than one configuration, so
+  // a set function cannot starve the alternatives outside it.  procD hands
+  // E_ROTATE outward until it reaches the target.  On the way out, each
+  // nested procD rotates its own queue when that queue holds more than one
+  // configuration, so a nested sibling gets its turn as well.  A collection
+  // request (E_GC) comes after the rotation check, and every step counts: so
+  // the rotation schedule is the same whether a collection is due or not,
+  // and the stress mode of the collector, which keeps the request set,
+  // rotates as a normal run does.
   inline tag_type RuntimeState::check_interrupts(tag_type tag)
   {
     if(!(++this->stepcount & 0xffff))

@@ -28,16 +28,20 @@ namespace cyrt { inline namespace
     if(tag != T_CTOR)
       return tag;
     PartApplicNode * partial = NodeU{_1.target}.partapplic;
+    assert(partial->info->type == &PartApplic_Type);
     Node * arg = _0->successor(1);
-    Node * replacement = partial->complete(arg)
-        ? Node::from_partial(partial, arg)
-        : Node::create(
-              &PartApplic_Info
-            , partial->missing - 1
-            , partial->head_info
-            , cons(arg, partial->terms)
-            );
-    _0->forward_to(replacement);
+    if(partial->complete(arg))
+    {
+      // The function node is written into the redex when it fits: a function
+      // of up to two arguments.  See Node::rewrite.
+      if(partial->head_info->alloc_size <= _0->info->alloc_size)
+        return _0->rewrite_from_partial(partial, arg);
+      _0->forward_to(Node::from_partial(partial, arg));
+      return T_FWD;
+    }
+    // One more argument: one node, with the arguments inline.  It never fits
+    // the redex (three words and the arguments against a head and two).
+    _0->forward_to(Node::extend_partial(partial, arg));
     return T_FWD;
   }
 

@@ -37,6 +37,18 @@ namespace
       throw py::value_error(
           std::string("cannot forward the shared node ") + source->info->name
         );
+    // A node of a primitive value may be one of the shared literal nodes
+    // (see builtins.hpp); no value is ever a redex.
+    if(is_primitive(*source->info))
+      throw py::value_error(
+          std::string("cannot forward a value of type ") + source->info->name
+        );
+    // Nor is a shared partial application (partial_node), or any other node
+    // of the arena.
+    if(gc_is_literal(source))
+      throw py::value_error(
+          std::string("cannot forward the shared node ") + source->info->name
+        );
     if(source->info->alloc_size < sizeof(FwdNode))
       throw py::value_error(
           std::string("node ") + source->info->name + " is too small to forward"
@@ -52,6 +64,10 @@ namespace
     Node * node = partial
         ? Node::create_partial(info, args.data(), args.size())
         : Node::create(info, args.data());
+    // A generator node owns a reference to its Python iterator (see
+    // biGeneratorNode in builtins.hpp).  The Arg only borrowed it.
+    if(!partial && info == &_biGenerator_Info && !args.empty())
+      generator_acquire((void *) args[0].blob);
     if(target)
     {
       forward_node(target, node);
@@ -63,6 +79,12 @@ namespace
 
   void InfoTable_step(InfoTable * info, RuntimeState * rts, Node * root)
   {
+    // A step may rewrite its redex in place, within the block of a node of
+    // its own info table.
+    if(!root || root->info != info)
+      throw py::value_error(
+          std::string("the node is not an application of ") + info->name
+        );
     // The step runs outside procD.  A set function inside it starts a
     // nested evaluation, whose collections must keep the nodes this step
     // holds.
@@ -82,6 +104,14 @@ namespace
   // step outside a search.
   void RuntimeState_single_step(RuntimeState * rts, Node * root)
   {
+    // Only a function node has a step.  A constructor, a value, or a
+    // forward node has none (a pinned constructor keeps its static object
+    // in that field), so the request is an error, not a call.
+    if(!root || root->info->tag != T_FUNC)
+      throw py::value_error(
+          std::string("cannot step a node that is not a function application: ")
+          + (root ? root->info->name : "null")
+        );
     EvaluationScope evaluation_scope;
     bool const own = !rts->Q()->empty() && rts->C()->root_storage == root;
     if(!own)
@@ -130,6 +160,16 @@ namespace
     return before - gc_num_nodes();
   }
 
+  // Runs a collection with the heap verifier.  Returns the problem found,
+  // or None.
+  py::object gc_verify_()
+  {
+    std::string const problem = gc_verify();
+    if(problem.empty())
+      return py::none();
+    return py::str(problem);
+  }
+
   // The Python str of length one for a code point.  Returns a new reference.
   py::handle char_to_python(unboxed_char_type cp)
   {
@@ -154,6 +194,20 @@ namespace
     // garbage collector.  So it is safe to extract the Node * and return it
     // this way.
     return value.ptr() ? py::cast<Node *>(value) : (Node *) nullptr;
+  }
+
+  // The reference a generator node owns (see biGeneratorNode in
+  // builtins.hpp).  The release may run Python code: the finalizer of a
+  // generator object.  The collector calls it after its sweep, with the
+  // interpreter lock held, as every entry into the runtime holds it.
+  void py_generator_acquire(void * data)
+  {
+    Py_INCREF((PyObject *) data);
+  }
+
+  void py_generator_release(void * data)
+  {
+    Py_DECREF((PyObject *) data);
   }
 }
 
@@ -196,7 +250,9 @@ namespace cyrt { namespace python
   void register_graph(pybind11::module_ mod)
   {
     // Tell the cyrt library how to interact with a Python iterator.
-    register_generator_funcs(&generator_next);
+    register_generator_funcs(
+        &generator_next, &py_generator_acquire, &py_generator_release
+      );
 
     py::class_<InfoTable>(mod, "InfoTable")
       .def_readonly("arity"   , &InfoTable::arity)
@@ -243,10 +299,9 @@ namespace cyrt { namespace python
             throw py::value_error("expected a string of length one");
           return Arg((unboxed_char_type) PyUnicode_ReadChar(str.ptr(), 0));
         }))
-      .def(py::init([](py::handle obj) {
-          obj.inc_ref(); // FIXME: leak
-          return Arg(obj.ptr());
-        }))
+      // An Arg borrows a Python object.  Node.create takes the reference a
+      // generator node owns (see Node_create).
+      .def(py::init([](py::handle obj) { return Arg(obj.ptr()); }))
       .def("__repr__", &Arg::repr)
       ;
 
@@ -294,14 +349,66 @@ namespace cyrt { namespace python
     // The collector.  See cyrt/graph/gc/wdgc.cpp.
     mod.def("gc_collect", &gc_collect
       , "Runs a collection between evaluations; returns the number of nodes reclaimed.");
+    mod.def("gc_verify", &gc_verify_
+      , "Runs a collection with the heap verifier between evaluations; "
+        "returns the first problem found, or None.");
+    mod.def("gc_block_count", &gc_num_blocks
+      , "The number of heap blocks that hold nodes, the spans of large nodes included.");
+    mod.def("gc_heap_bytes", &gc_heap_bytes
+      , "The bytes the node heap holds from the system, in use or pooled.");
     mod.def("gc_node_count", &gc_num_nodes
       , "The number of nodes allocated and not yet reclaimed.");
+    mod.def("gc_allocation_count", &gc_num_allocations
+      , "The number of nodes allocated since the start, reclaimed or not.");
     mod.def("gc_root_count", [](Node * node) { return node ? gc_root_count(node) : 0; }
       , "The number of registrations of a node as a root.");
     mod.def("gc_num_roots", &gc_num_roots
       , "The number of nodes registered as roots.");
+    mod.def("gc_literal_count", &gc_num_literals
+      , "The number of literal nodes: the tables of the small values and the "
+        "literals of the loaded modules.");
+    mod.def("gc_is_literal", [](Node * node) { return node && gc_is_literal(node); }
+      , "Whether a node is a literal node, which the collector never frees.");
+    mod.def("gc_freevar_count", &gc_num_freevars
+      , "The entries of the free-variable tables: the free variables the "
+        "collector keeps.");
+    mod.def("small_int"
+      , [](unboxed_int_type value) -> Node *
+        {
+          if(value < SMALL_INT_MIN || value > SMALL_INT_MAX)
+            throw py::value_error("not a small integer");
+          return g_small_ints[value - SMALL_INT_MIN];
+        }
+      , reference
+      , "The shared node of an integer from SMALL_INT_MIN to SMALL_INT_MAX.");
+    mod.def("small_char"
+      , [](py::str str) -> Node *
+        {
+          if(PyUnicode_GetLength(str.ptr()) != 1)
+            throw py::value_error("expected a string of length one");
+          auto const cp = (unboxed_char_type) PyUnicode_ReadChar(str.ptr(), 0);
+          if(cp > SMALL_CHAR_MAX)
+            throw py::value_error("not an ASCII character");
+          return g_small_chars[cp];
+        }
+      , reference
+      , "The shared node of a character up to SMALL_CHAR_MAX.");
     mod.def("gc_collections", &gc_num_collections
       , "The number of collections run so far.");
+    mod.def("gc_backend", &gc_backend_name
+      , "The collector of the runtime: 'wdgc' (the block heap and the "
+        "mark-and-sweep collector) or 'mps' (the Memory Pool System).");
+    mod.def("gc_fault_count", &gc_fault_count
+      , "The barrier faults the collector handled; zero for wdgc.");
+    mod.def("gc_backend_stats"
+      , []()
+        {
+          py::dict stats;
+          for(auto const & pair: gc_backend_stats())
+            stats[py::str(pair.first)] = pair.second;
+          return stats;
+        }
+      , "Statistics of the collector by name; empty for wdgc.");
     mod.def("gc_seconds", &gc_seconds
       , "The time spent in collections, in seconds.");
     mod.def("gc_threshold", &gc_threshold

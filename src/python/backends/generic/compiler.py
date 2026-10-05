@@ -9,8 +9,9 @@ __all__ = [
     'CompilerBase', 'SymbolTable', 'TargetObject'
   , 'decode', 'demangle', 'encode', 'mangle'
 
-  , 'CONSTRUCTOR_TABLE', 'DATA_TYPE', 'DEFINED', 'INFO_TABLE', 'MODULE_DATA'
-  , 'STEP_FUNCTION', 'STRING_DATA', 'UNDEFINED', 'VALUE_SET'
+  , 'CONSTRUCTOR_TABLE', 'DATA_TYPE', 'DEFINED', 'INFO_TABLE', 'LITERAL_NODE'
+  , 'MODULE_DATA', 'PARTIAL_NODE', 'STEP_FUNCTION', 'STRING_DATA', 'UNDEFINED'
+  , 'VALUE_SET'
   ]
 
 
@@ -26,6 +27,8 @@ VALUE_SET         = 'VALUE_SET'         # Case values (for narrowing).
 BUILTIN_FUNCTION  = 'BUILTIN_FUNCTION'  # A function provided by the execution environment.
 METADATA          = 'METADATA'          # A metadata object.
 MODULE_DATA       = 'MODULE_DATA'       # A table of the module definition.
+LITERAL_NODE      = 'LITERAL_NODE'      # A node of a literal, made at load.
+PARTIAL_NODE      = 'PARTIAL_NODE'      # A partial application without arguments, made at load.
 
 # Symbol status.
 DEFINED   = 'T'
@@ -74,7 +77,9 @@ KIND_CODE = {
   , CONSTRUCTOR_TABLE : 'C'
   , DATA_TYPE         : 'D'
   , INFO_TABLE        : 'I'
+  , LITERAL_NODE      : 'L'
   , METADATA          : 'Q'
+  , PARTIAL_NODE      : 'P'
   , MODULE_DATA       : 'T'
   , MODULE_DEF        : 'M'
   , STEP_FUNCTION     : 'F'
@@ -143,7 +148,7 @@ class TargetObject(object):
     , '.infotabs.link'  # InfoTable forward declarations.
     , '.datatypes.link' # Type definition forward declarations.
   ### Read-only data.
-    , '.strings'        # String literals.
+    , '.strings'        # String literals; literal nodes on the C++ backend.
     , '.valuesets'      # Value sets.
     , '.primitives'     # Primitive functions.
     , '.metadata'       # Metadata definitions.

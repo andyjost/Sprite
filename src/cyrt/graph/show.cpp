@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <ctype.h>
 #include "cyrt/builtins.hpp"
+#include "cyrt/graph/memory.hpp"
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/graph/node.hpp"
 #include "cyrt/graph/show.hpp"
@@ -65,6 +66,9 @@ namespace
   {
     ReprStringifier(std::ostream & os) : os(os) {}
     std::ostream & os;
+    // The memo is keyed by the addresses of the nodes: no node may move
+    // while the walk runs.
+    GcClamp gc_clamp;
     std::unordered_set<void *> memo;
 
     static void callback(void * static_data, void * id, Walk2 const *)
@@ -91,6 +95,26 @@ namespace
         void * id = cur.id();
         if(!this->memo.insert(id).second)
           this->os << "...";
+        else if(is_partial(*cur->info) && !NodeU{cur}.partapplic->is_encapsulated())
+        {
+          // A partial application: the missing count, the name of the head,
+          // and the arguments, <_PartApplic 1 f <Int 1>>.  The head is an
+          // info table (slot 1), which would otherwise show as an address.
+          auto const * partial = NodeU{cur}.partapplic;
+          this->os << '<' << cur->info->name << ' ' << partial->missing
+                   << ' ' << partial->head_info->name;
+          if(partial->nargs() == 0)
+          {
+            this->os << '>';
+            this->memo.erase(id);
+          }
+          else
+          {
+            walk.extend(id);
+            ++walk; // skip #missing
+            ++walk; // skip head_info
+          }
+        }
         else
         {
           // The repr form writes the bare symbol name, as the Python backend
@@ -141,6 +165,7 @@ namespace
     std::ostream * _os;
     SubstFreevars subst_freevars;
     ShowMonitor * monitor;
+    GcClamp gc_clamp; // the memo is keyed by the addresses of the nodes
     std::unordered_map<xid_type, std::string> tr; // free variable translations
     int nextid = 0;
     std::unordered_multiset<void *> memo;
@@ -243,8 +268,10 @@ namespace
     bool is_terminus(InfoTable const * info)
     {
       // Indicates whether to always show this type of node (as opposed to an
-      // elipsis) when a cycle occurs.
-      if(info->arity == 0)
+      // elipsis) when a cycle occurs.  A partial application without
+      // arguments has no node below it (its two slots are the missing count
+      // and the head), so it can be part of no cycle.
+      if(info->arity == 0 || (is_partial(*info) && info->arity == 2))
         return true;
       switch(typetag(*info))
       {
@@ -433,33 +460,40 @@ namespace
             continue;
           case F_PARTIAL_TYPE:
           {
+            // The arguments are the successors after the missing count and
+            // the head (see PartApplicNode in builtins.hpp).  The walk
+            // visits them under the '&' context: a space before each one,
+            // parentheses around a compound one, and ')' at the end.
             auto const * partial = NodeU{cur}.partapplic;
             if(partial->is_encapsulated())
               goto default_case;
-            if(partial->info == &PartialS_Info)
+            if(partial->info->type == &PartialS_Type)
             {
-              if(!disallow_parens)
-                os() << '(';
-              os() << partial->info->name << ' '
+              os() << '(' << partial->info->name << ' '
                  << partial->missing << " {";
               show_name(partial->head_info);
-              os() << "} " << partial->terms->repr();
-              if(!disallow_parens)
+              os() << '}';
+              if(partial->nargs() == 0)
                 os() << ')';
+              else
+              {
+                walk.extend(Context('&'));
+                ++walk; // skip #missing
+                ++walk; // skip head_info
+              }
             }
             else
             {
               // Match the Python backend: a partial application with
               // arguments is always written (f a b), even at the top level
               // or inside a list; one without arguments is written f.
-              if(partial->terms == Nil)
+              if(partial->nargs() == 0)
                 show_name(partial->head_info);
               else
               {
                 os() << '(';
                 show_name(partial->head_info);
-                this->push_reverse_order();
-                walk.extend(Context('^'));
+                walk.extend(Context('&'));
                 ++walk; // skip #missing
                 ++walk; // skip head_info
               }

@@ -1,2 +1,8 @@
-No Makefiles here.  The is just a (temporary) place to store different GC
-implementations, one of which will be included from memory.cpp.
+No Makefiles here.  graph/memory.cpp includes the files of this directory:
+blockheap.cpp, the node heap (size-class blocks with side bitmaps and an
+inline allocation fast path, see graph/memory.hpp), and wdgc.cpp, the
+mark-and-sweep collector over it.  leaky.cpp is an alternative that never
+frees.  mps.cpp is the Memory Pool System (the submodule extern/mps) as the
+heap and the collector, selected with make GC=mps: an experiment behind a
+gate, measured and documented in the dated TODO entry; its header describes
+the object format, the roots, and what it does not support.

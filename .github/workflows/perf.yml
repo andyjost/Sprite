@@ -1,0 +1,103 @@
+name: Performance
+
+# The nightly performance job: the benchmark harness on the C++ backend on
+# a fixed set of programs (run_benchmarks --nightly), the records appended
+# to the branch perf-history with the token of the workflow (no secret),
+# and each record compared with the previous one in the summary of the
+# run.  The numbers come from shared runners and are advisory: the job
+# never fails on a timing, only on a run that failed.  The page
+# perf/index.html of the documentation draws the history.  See
+# tests/README, section 9.
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+    inputs:
+      repeat:
+        description: Measured repetitions per item of the throughput suite
+        type: string
+        default: '3'
+      publish:
+        description: Append the records to the history branch
+        type: boolean
+        default: true
+
+# The token pushes the history branch; nothing else is written.
+permissions:
+  contents: write
+
+# One run writes the history at a time.
+concurrency:
+  group: perf-history
+  cancel-in-progress: false
+
+env:
+  PAKCS_VERSION: '3.4.1'
+  ICURRY_VERSION: '3.1.0'
+  LC_ALL: C.UTF-8
+  HISTORY_BRANCH: perf-history
+
+jobs:
+  perf:
+    name: nightly performance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      # GNU time gives the harness the peak memory of a run.  No ccache: a
+      # measurement job compiles with the plain compiler.
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make libboost-dev curl time
+          swipl --version
+      - name: Restore the Curry toolchain
+        id: toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/pakcs-${{ env.PAKCS_VERSION }}
+            ~/.cpm
+            ~/.cpmrc
+          key: curry-toolchain-ubuntu-24.04-pakcs${{ env.PAKCS_VERSION }}-icurry${{ env.ICURRY_VERSION }}-v1
+      - name: Build the Curry toolchain
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        run: .github/scripts/install-curry-toolchain.sh
+      - name: Install Python packages
+        run: python -m pip install --quiet numpy
+      - name: Configure and stage
+        run: |
+          python ./configure \
+            --with-python="$(command -v python)" \
+            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            --with-icurry=""
+          make stage
+      # A failed run fails the job at the end, after the records are kept
+      # and the history is written.
+      - name: Run the suites
+        id: measure
+        continue-on-error: true
+        env:
+          REPEAT: ${{ inputs.repeat || '3' }}
+        run: .github/scripts/run-perf.sh "$RUNNER_TEMP/perf" "nightly-${{ github.run_id }}"
+      - name: Keep the records
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-records-${{ github.run_id }}
+          path: ${{ runner.temp }}/perf/*.jsonl
+          retention-days: 90
+          if-no-files-found: warn
+      - name: Append the records to the history
+        if: github.event_name != 'workflow_dispatch' || inputs.publish
+        run: .github/scripts/perf-history.sh "$RUNNER_TEMP"/perf/*.jsonl
+      - name: Report a failed run
+        if: steps.measure.outcome == 'failure'
+        run: |
+          echo "::error::a run of the suites failed; see the step 'Run the suites'"
+          exit 1

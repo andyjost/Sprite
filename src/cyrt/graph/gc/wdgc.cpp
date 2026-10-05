@@ -1,23 +1,58 @@
-// The world's dumbest garbage collector.  The address and size of every node
-// allocated is stored in a vector.  When collection runs, it does a
-// mark-and-sweep pass over that list.  There are no generations and nothing
-// is moved.
+// The collector: mark and sweep over the block heap of gc/blockheap.cpp.
+// There are no generations and nothing is moved.
 //
-// Allocation.  Nodes of up to POOL_MAX bytes come from free lists, one per
-// size (a multiple of 8 bytes), and the sweep returns dead nodes to those
-// lists instead of to malloc.  That keeps the sweep cheap, and the next
-// allocations reuse adjacent addresses in runs, in the order the sweep
-// found them.  Measured on the PermSort benchmark, reuse through malloc
-// made the evaluation 75 percent slower after the first collection; the
-// free lists remove that.  Memory in the free lists is not returned to the
-// system.  Larger nodes use malloc and free.
+// Allocation.  Nodes live in blocks of one size class each (see
+// gc/blockheap.cpp).  node_reserve takes the next slot of the run of its
+// size class inline; node_refill finds the next run of free slots by the
+// ``alloc`` bitmap of a block (a lazy sweep), or takes a block.  The mark
+// bit of a node is in the ``mark`` bitmap of its block, so the mark phase
+// leaves the info pointer alone, and the sweep visits blocks, not nodes: it
+// counts the marks, hands the mark bitmap over as the allocation bitmap,
+// and puts an empty block into the pool.  Memory taken from the system is
+// kept for the next allocations.
 //
 // Roots.  The queues of every runtime state (the root, the bindings, and the
-// error value of each configuration), the free-variable tables, the nodes
-// registered with gc_add_root (the nodes Python holds), and the queue of
-// every SetEval node reached: a lazy set function keeps the alternatives it
-// has not produced yet in that queue, which is reachable only through the
-// node.
+// error value of each configuration, and the free variables it names by id,
+// see below), the nodes registered with gc_add_root (the nodes Python
+// holds), and the queue of every SetEval node reached: a lazy set function
+// keeps the alternatives it has not produced yet in that queue, which is
+// reachable only through the node.  The literal nodes (the tables of the
+// small integers and the ASCII characters, and the literals of the loaded
+// modules; see literal_reserve in graph/memory.cpp) are not in the heap of
+// this collector: the mark phase skips them by their address, and the sweep
+// never sees them.
+//
+// Free variables.  The free-variable table of an interpreter state
+// (InterpreterState::vtable, state/rts.hpp) maps the id of a free variable
+// to its node, for the places that name a variable by its id alone.  The
+// table is weak: it is not a root, and after the mark phase an entry whose
+// node is unmarked is dropped (sweep_freevar_tables).  So a variable and its
+// generator die with the expression that held them; before, the table kept
+// every variable ever made, with its generator, for the life of the
+// evaluation.  The ids a live configuration can still look up are pushed
+// with the queue that holds it (push_queue_roots): its residuals (a
+// suspended configuration asks for the variable each time it is tried,
+// RuntimeState::ready), the keys of its bindings (fork applies the binding
+// of a variable through the variable's generator), and the ids in its
+// strict constraints (the group of a variable is named by its root, which
+// stands for the group at the root of a configuration and receives the
+// generator of a narrowed member at the fork).  Every other lookup starts
+// from a free variable in the graph, which is marked, or from the choice of
+// a generator at the root of a configuration, whose variable the fork asks
+// for only to apply a binding or to unify a group.  The copiers share a
+// free variable instead of copying it (graph/copy.cpp), so one node stands
+// for one id.
+//
+// Finalizers.  A node that owns a foreign resource gives it back when it
+// dies: the queue and the set of a SetEval node through the registries
+// (next paragraph), and the Python iterator of a generator node through
+// generator_release (see biGeneratorNode in builtins.hpp).  Every creator
+// of a generator node registers it (gc_register_generator), and the sweep
+// walks that list: a dead node that is still a generator gives its
+// iterator back, and a node that was stepped (it is a forward node now, and
+// the node of the rest of the list took the iterator over) leaves the list.
+// The releases run last, when the heap is consistent again, because the
+// release of a Python object may run Python code.
 //
 // Queues and sets.  A queue owns its configurations (see state/queue.hpp).
 // The outermost queue of an evaluation belongs to its runtime state.  The
@@ -39,30 +74,32 @@
 // enclosing evaluation may hold nodes in C++ locals that no root reaches
 // (an expression built before a case, for example).  Those nodes were
 // allocated before the nested evaluation began.  So a nested collection
-// treats every node allocated before the innermost evaluation began as a
-// root and sweeps only the nodes allocated since.  See gc_enter_evaluation.
-// The price: the mark phase pushes and traces every older node, so such a
-// collection costs the whole heap and reclaims nothing from before the
-// nested evaluation began.  The scheduler of a set function therefore hands
-// the request outward (E_GC, see procD), and the outermost scheduler of
-// the state collects with no step of the state on the C stack.  Only an
-// evaluation started from a Python callback collects nested.  The precise
-// fix for that case is to make the suspended steps safe for collection, by
-// registering their Variable and Cursor locals as roots while a nested
-// evaluation runs.
+// treats every node of every block taken before the innermost evaluation
+// began as a root (an older block; see gc/blockheap.cpp) and sweeps only
+// the blocks taken since.  See gc_enter_evaluation.  The price: the mark
+// phase pushes and traces every older node, so such a collection costs the
+// whole heap and reclaims nothing from before the nested evaluation began.
+// The scheduler of a set function therefore hands the request outward
+// (E_GC, see procD), and the outermost scheduler of the state collects with
+// no step of the state on the C stack.  Only an evaluation started from a
+// Python callback collects nested.  The precise fix for that case is to
+// make the suspended steps safe for collection, by registering their
+// Variable and Cursor locals as roots while a nested evaluation runs, or by
+// a conservative scan of the C stack.
 //
 // Threshold.  A collection runs when the number of nodes reaches the
 // threshold.  The default is GC_DEFAULT_THRESHOLD; SPRITE_GC_THRESHOLD in
-// the environment overrides it, and gc_set_threshold at run time.  After a
-// collection the threshold is the growth factor times the survivors, but
-// not less than the configured value.  So the heap stays within the growth
-// factor times the live nodes, and the mark cost of a collection is
-// amortized over at least growth-1 times that many allocations.  A heap
-// that only grows, as in a program that retains everything it computes, is
-// marked once per factor of growth in size; the former policy, one doubling
-// of the threshold per collection, marked it once per doubling.  The
-// default growth factor is GC_DEFAULT_GROWTH; SPRITE_GC_GROWTH in the
-// environment overrides it.
+// the environment overrides it, and gc_set_threshold at run time.  The
+// allocator checks the count once per run of slots, not per node, so a
+// collection comes within one run of the threshold.  After a collection the
+// threshold is the growth factor times the survivors, but not less than the
+// configured value.  So the heap stays within the growth factor times the
+// live nodes, and the mark cost of a collection is amortized over at least
+// growth-1 times that many allocations.  A heap that only grows, as in a
+// program that retains everything it computes, is marked once per factor
+// of growth in size; the former policy, one doubling of the threshold per
+// collection, marked it once per doubling.  The default growth factor is
+// GC_DEFAULT_GROWTH; SPRITE_GC_GROWTH in the environment overrides it.
 //
 // A collection also runs when the live configurations reach the node
 // threshold divided by GC_CONFIGURATION_DIVISOR, with the same growth rule.
@@ -79,10 +116,13 @@
 // there (the outermost scheduler of the state), or hands the request
 // outward (a nested one).  A node that no root reaches is reclaimed at the
 // next step, so a missing root shows up at once as a wrong value or a
-// crash, instead of once per million nodes.  The mode costs a collection
-// per step and is meant for the test suite (see tests/README).  The hot
-// path is unchanged: the flag is the one the threshold sets.  gc_stress()
-// reports the mode, and gc_num_collections() counts the collections.
+// crash, instead of once per million nodes.  Every collection of the mode
+// runs the heap verifier after its mark phase (verify_heap in
+// gc/blockheap.cpp) and aborts the process when the heap is inconsistent.
+// The mode costs a collection per step and is meant for the test suite (see
+// tests/README).  The hot path is unchanged: the flag is the one the
+// threshold sets.  gc_stress() reports the mode, and gc_num_collections()
+// counts the collections.
 
 #include <algorithm>
 #include <chrono>
@@ -95,16 +135,12 @@
 #include <iomanip>
 #include <iostream>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/state/queue.hpp"
 
 // #define GC_REPORT
-
-// The number of live nodes at which the collector runs, unless the
-// environment says otherwise.  At about 50 bytes per node (the node, the
-// allocator's overhead, and the address entry), this is about 50 MB.
-#define GC_DEFAULT_THRESHOLD (size_t(1) << 20)
 
 // The next collection runs when the heap reaches this multiple of the
 // survivors of the last one.  Measured on the benchmarks (see TODO): 2 and
@@ -117,72 +153,10 @@
 // The live configurations at which a collection runs: the node threshold
 // divided by this.  See the header of this file.
 #define GC_CONFIGURATION_DIVISOR 8
-#define MARKBIT 0x8000000000000000
-#define INFO(node) ((InfoTable *)(((uintptr_t) node->info) & ~MARKBIT))
 
-// The block of one node: its address and its size, both of the whole block.
-// In an instrumented build (see below) the block starts with the creator
-// word, and the node follows it.
-struct Entry
-{
-  void * addr;
-  size_t bytes;
-};
-
-// The scheduler counters (cyrt/state/counters.hpp) ask which configuration
-// created a node.  An instrumented build keeps that in the word before every
-// node: node_reserve allocates NODE_PREFIX bytes more, writes the serial
-// number the scheduler set (g_creator_serial), and returns the address after
-// it.  The entries, the free lists, and malloc see the whole block.  A plain
-// build has no prefix, and the node is the block.
-#ifdef SPRITE_SCHEDULER_COUNTERS
-static constexpr size_t NODE_PREFIX = sizeof(size_t);
-#else
-static constexpr size_t NODE_PREFIX = 0;
-#endif
-
-static inline cyrt::Node * entry_node(Entry const & entry)
-  { return (cyrt::Node *) ((char *) entry.addr + NODE_PREFIX); }
-
-static std::vector<Entry> g_addr;
-
-// Nodes of up to this many bytes come from the free lists.
-static constexpr size_t POOL_MAX = 512;
-static void * g_freelist[POOL_MAX / 8 + 1];
-
-static inline size_t round_up(size_t bytes) { return (bytes + 7) & ~size_t(7); }
-
-static inline void * take_memory(size_t bytes)
-{
-  if(bytes <= POOL_MAX)
-  {
-    void *& head = g_freelist[bytes / 8];
-    if(head)
-    {
-      void * addr = head;
-      head = *(void **) addr;
-      return addr;
-    }
-  }
-  return std::malloc(bytes);
-}
-
-static inline void give_memory(void * addr, size_t bytes)
-{
-  if(bytes <= POOL_MAX)
-  {
-    void *& head = g_freelist[bytes / 8];
-    *(void **) addr = head;
-    head = addr;
-  }
-  else
-    std::free(addr);
-}
-
-// The number of live objects at which point GC should run.
-static size_t g_threshold = GC_DEFAULT_THRESHOLD;
-
-// The configured threshold.  The adaptive policy never goes below it.
+// The configured threshold.  The adaptive policy never goes below it.  The
+// threshold itself, g_threshold, is in gc/blockheap.cpp, where the allocator
+// reads it.
 static size_t g_threshold_floor = GC_DEFAULT_THRESHOLD;
 
 // The growth factor of the adaptive policy.  See the header of this file.
@@ -192,15 +166,20 @@ static size_t g_growth = GC_DEFAULT_GROWTH;
 // file.
 static bool g_stress = false;
 
-// The index in g_addr of the first node allocated by the innermost
-// evaluation.  A collection sweeps from here.  Zero outside an evaluation
-// and in an outermost one.
-static size_t g_sweep_floor = 0;
+// The block sequence number at the start of the innermost nested
+// evaluation: a block taken at or before it is older (see
+// gc/blockheap.cpp).  Meaningful when g_eval_depth is above one.
+static size_t g_floor_seq = 0;
 
 static size_t g_collections = 0;
 
 // The time spent in collections, in seconds.
 static double g_seconds = 0.0;
+
+// A request to run the verifier at the next collection (gc_verify), and
+// the problem it found.
+static bool g_verify_requested = false;
+static std::string g_verify_problem;
 
 static inline size_t configuration_threshold(size_t node_threshold)
 {
@@ -253,55 +232,28 @@ static struct _Init
 {
   _Init()
   {
-    g_threshold = g_threshold_floor = threshold_from_environment();
+    cyrt::g_threshold = g_threshold_floor = threshold_from_environment();
     g_growth = growth_from_environment();
     g_stress = stress_from_environment();
     // In stress mode the first safepoint collects already.
     g_gc_collect = g_stress;
     cyrt::g_configuration_threshold = configuration_threshold(g_threshold_floor);
-    // Reserve the address list up to 16 MB, so that it does not grow
-    // during the first collection cycle.
-    g_addr.reserve(std::min(g_threshold, size_t(1) << 20));
   }
 } _init;
 
 namespace cyrt
 {
-  #ifdef SPRITE_SCHEDULER_COUNTERS
-  size_t g_creator_serial = 0;
-  #endif
+  char const * gc_backend_name() { return "wdgc"; }
+  std::vector<std::pair<std::string, double>> gc_backend_stats() { return {}; }
+  size_t gc_fault_count() { return 0; }
+  // This collector never moves a node, and it reaches the queue of a set
+  // function through its SetEval nodes.  See graph/memory.hpp.
+  GcClamp::GcClamp() {}
+  GcClamp::~GcClamp() {}
+  void gc_register_seteval(Node *) {}
 
-  Node * node_reserve(size_t bytes)
-  {
-    bytes = round_up(bytes) + NODE_PREFIX;
-    void * addr = take_memory(bytes);
-    // Out of memory.  The exception leaves the step functions and the
-    // scheduler; pybind11 turns it into MemoryError.
-    if(!addr)
-      throw std::bad_alloc();
-    try
-    {
-      g_addr.push_back(Entry{addr, bytes});
-    }
-    catch(...)
-    {
-      give_memory(addr, bytes);
-      throw;
-    }
-    if(g_addr.size() >= g_threshold)
-      g_gc_collect = true;
-    #ifdef SPRITE_SCHEDULER_COUNTERS
-    *(size_t *) addr = g_creator_serial;
-    #endif
-    return (Node *) ((char *) addr + NODE_PREFIX);
-  }
-
-  bool node_commit(void * addr, size_t bytes)
-  {
-    return true;
-  }
-
-  size_t gc_num_nodes() { return g_addr.size(); }
+  size_t gc_num_nodes() { return nodes_in_use(); }
+  size_t gc_num_allocations() { return g_allocations - unconsumed(); }
   size_t gc_num_collections() { return g_collections; }
   double gc_seconds() { return g_seconds; }
   size_t gc_threshold() { return g_threshold; }
@@ -314,16 +266,17 @@ namespace cyrt
       throw std::invalid_argument("the collection threshold must be positive");
     g_threshold = g_threshold_floor = threshold;
     g_configuration_threshold = configuration_threshold(threshold);
-    if(g_addr.size() >= g_threshold
+    if(nodes_in_use() >= g_threshold
         || g_num_configurations >= g_configuration_threshold)
       g_gc_collect = true;
   }
 
   size_t gc_enter_evaluation()
   {
-    size_t const token = g_sweep_floor;
+    size_t const token = g_floor_seq;
     ++g_eval_depth;
-    g_sweep_floor = g_eval_depth == 1 ? 0 : g_addr.size();
+    // The blocks taken so far are older than this evaluation.
+    g_floor_seq = g_eval_depth == 1 ? 0 : g_heap.block_seq;
     return token;
   }
 
@@ -331,40 +284,63 @@ namespace cyrt
   {
     assert(g_eval_depth > 0);
     --g_eval_depth;
-    // A nested collection compacts the list from its own floor, which is
-    // not below the floor of the enclosing evaluation.  The token is valid.
-    g_sweep_floor = token;
+    g_floor_seq = token;
   }
 
-  static inline void mark(Node * node)
+  // The generator nodes alive, or dead since the last collection.  See the
+  // header of this file.  The list is never destroyed: a collection may
+  // run after the static objects of this library are gone.
+  static std::vector<Node *> & g_generators = *new std::vector<Node *>();
+
+  void gc_register_generator(Node * node)
   {
-    assert(!is_pinned(*INFO(node)));
-    uintptr_t ptr_value = (std::uintptr_t) node->info;
-    ptr_value |= MARKBIT;
-    node->info = (InfoTable *) ptr_value;
+    assert(node->info == &_biGenerator_Info);
+    g_generators.push_back(node);
   }
 
-  static inline void clear(Node * node)
+  // The strict constraints read in this collection.  The configurations of
+  // a fork share them (copy on write), so each table is read once; the
+  // last one seen is kept apart, because the configurations of one queue
+  // mostly share one table, and the check then costs no load from it.
+  static std::unordered_set<void const *> g_visited_tables;
+  static UnionFind const * g_last_constraints = nullptr;
+
+  // The ids pushed by push_freevar in this collection, in a direct-mapped
+  // cache: the configurations of one queue name the same few variables, so
+  // most ids repeat, and a repeated id costs no lookup in the tables.  An
+  // entry is valid when its stamp is the number of this collection, so the
+  // cache is never cleared (a clear per collection showed in the stress
+  // mode, where a collection runs per step).
+  static constexpr size_t PUSHED_CACHE = 1024;
+  static xid_type g_pushed[PUSHED_CACHE];
+  static size_t g_pushed_stamp[PUSHED_CACHE];
+  static size_t g_pushed_now = 0;
+
+  static void clear_pushed()
   {
-    assert(!is_pinned(*INFO(node)));
-    uintptr_t ptr_value = (std::uintptr_t) node->info;
-    ptr_value &= ~MARKBIT;
-    node->info = (InfoTable *) ptr_value;
+    ++g_pushed_now;
   }
 
-  static inline bool is_marked(Node * node)
+  // Pushes the node of free variable ``vid`` from every table that has it.
+  static inline void push_freevar(std::vector<Node *> & stack, xid_type vid)
   {
-    uintptr_t ptr_value = (std::uintptr_t) node->info;
-    return ptr_value & MARKBIT;
-  }
-
-  static inline bool is_marked_or_pinned(Node * node)
-  {
-    return is_marked(node) || is_pinned(*node->info);
+    size_t const index = vid % PUSHED_CACHE;
+    if(g_pushed_stamp[index] == g_pushed_now && g_pushed[index] == vid)
+      return;
+    g_pushed_stamp[index] = g_pushed_now;
+    g_pushed[index] = vid;
+    for(InterpreterState * istate: g_istates)
+    {
+      auto p = istate->vtable.find(vid);
+      if(p != istate->vtable.end())
+        stack.push_back(p->second);
+    }
   }
 
   // Pushes the nodes a queue holds: the root, the bindings, and the error
-  // value of each configuration.
+  // value of each configuration, and the free variables it names by id: its
+  // residuals, the keys of its bindings, and the ids in its strict
+  // constraints.  See the header of this file.
   static void push_queue_roots(std::vector<Node *> & stack, Queue * Q)
   {
     for(auto * C: *Q)
@@ -372,10 +348,24 @@ namespace cyrt
       if(C->root_storage)
         stack.push_back(C->root_storage);
       for(auto & pair: *C->bindings)
+      {
         if(pair.second)
           stack.push_back(pair.second);
+        push_freevar(stack, pair.first);
+      }
       if(C->error.first)
         stack.push_back(C->error.first);
+      for(xid_type vid: C->residuals)
+        push_freevar(stack, vid);
+      UnionFind const * constraints = C->strict_constraints.get();
+      if(constraints != g_last_constraints)
+      {
+        g_last_constraints = constraints;
+        if(!constraints->united.empty()
+            && g_visited_tables.insert(constraints).second)
+          for(xid_type vid: constraints->united)
+            push_freevar(stack, vid);
+      }
     }
   }
 
@@ -423,16 +413,23 @@ namespace cyrt
     Node * fast = node;
     while(true)
     {
-      if(INFO(fast)->tag != T_FWD) return fast;
+      if(fast->info->tag != T_FWD) return fast;
       fast = NodeU{fast}.fwd->target;
-      if(INFO(fast)->tag != T_FWD) return fast;
+      if(fast->info->tag != T_FWD) return fast;
       fast = NodeU{fast}.fwd->target;
       slow = NodeU{slow}.fwd->target;
       if(slow == fast) return nullptr;
     }
   }
 
-  static void run_mark_phase()
+  // Whether a node is outside the heap: the static object of a pinned info
+  // table, or a literal node.  Neither is marked or swept.
+  static inline bool outside_heap(Node const * node)
+  {
+    return is_pinned(*node->info) || in_literal_arena(node);
+  }
+
+  static void run_mark_phase(bool nested)
   {
     // The stack keeps its room between collections: in stress mode a
     // collection runs per step.
@@ -441,8 +438,10 @@ namespace cyrt
     stack.reserve(100000);
     g_last_queue = nullptr;
     g_last_set = nullptr;
+    g_visited_tables.clear();
+    g_last_constraints = nullptr;
+    clear_pushed();
     #ifdef GC_REPORT
-    size_t vtable_entries = 0, vtable_nodes = 0;
     auto const t0 = std::chrono::steady_clock::now();
     #endif
     for(auto * rts: g_rtslist)
@@ -452,37 +451,36 @@ namespace cyrt
         Q->marked = true;
         push_queue_roots(stack, Q);
       }
-      for(auto pair: rts->vtable)
-        if(pair.second)
-          stack.push_back(pair.second);
-      #ifdef GC_REPORT
-      vtable_entries += rts->vtable.size();
-      for(auto pair: rts->vtable)
-        if(pair.second) ++vtable_nodes;
-      #endif
     }
     #ifdef GC_REPORT
+    size_t vtable_entries = 0;
+    for(auto * istate: g_istates)
+      vtable_entries += istate->vtable.size();
     auto const t1 = std::chrono::steady_clock::now();
     (std::cerr << "roots=" << stack.size() << " vtable=" << vtable_entries
-               << "/" << vtable_nodes << " pyroots=" << g_roots.size()
+               << " pyroots=" << g_roots.size()
                << " rootsecs=" << std::chrono::duration<double>(t1 - t0).count()
                << " ").flush();
     #endif
     for(auto const & pair: g_roots)
       stack.push_back(pair.first);
-    // In a nested evaluation, every node allocated before it began is a
-    // root.  See the comment at the top of this file.
-    for(size_t i=0; i<g_sweep_floor; ++i)
-      stack.push_back(entry_node(g_addr[i]));
+    // In a nested evaluation, every node of an older block is a root.  See
+    // the comment at the top of this file.
+    if(nested)
+      push_older_nodes(stack, g_floor_seq);
     while(!stack.empty())
     {
       Node * node = stack.back();
       stack.pop_back();
-      if(is_marked_or_pinned(node))
+      // A literal node is outside this heap: it has no successors and is
+      // never marked or swept (see graph/memory.cpp).  So is a pinned
+      // static object.
+      if(outside_heap(node) || heap_marked(node))
         continue;
-      else
-        mark(node);
-      auto * info = INFO(node);
+      heap_mark(node);
+      if(g_verifying)
+        g_verify_list.push_back(node);
+      auto * info = node->info;
       if(info->tag == T_FWD)
       {
         // Point the node at the end of its chain, as compress_fwd_chain does
@@ -513,33 +511,57 @@ namespace cyrt
     }
   }
 
-  static void run_sweep_phase()
+  // Drops the entries of the free-variable tables whose node the mark phase
+  // did not reach.  Runs after the mark phase and before the sweep, which
+  // frees those nodes.  See the header of this file.
+  static void sweep_freevar_tables()
   {
-    // The nodes below the floor stay.  Clear their marks.
-    for(size_t i=0; i<g_sweep_floor; ++i)
+    for(InterpreterState * istate: g_istates)
     {
-      Node * node = entry_node(g_addr[i]);
-      if(is_marked(node))
-        clear(node);
-    }
-    auto p = g_addr.begin() + g_sweep_floor;
-    auto q = p;
-    auto const e = g_addr.end();
-    while(q != e)
-    {
-      Node * node = entry_node(*q);
-      if(is_marked(node))
+      vtable_type & table = istate->vtable;
+      for(auto p = table.begin(); p != table.end();)
       {
-        clear(node);
-        *p++ = *q++;
+        if(heap_marked(p->second))
+          ++p;
+        else
+          p = table.erase(p);
       }
+    }
+  }
+
+  // The Python iterators of the generator nodes the sweep freed.  They are
+  // released after the collection (release_pending).
+  static std::vector<void *> g_pending_releases;
+
+  // Releases the iterators of the generator nodes the sweep freed.  The list
+  // is taken first: a release may run Python code, which may start an
+  // evaluation and a nested collection.
+  static void release_pending()
+  {
+    if(g_pending_releases.empty())
+      return;
+    std::vector<void *> pending;
+    pending.swap(g_pending_releases);
+    for(void * data: pending)
+      generator_release(data);
+  }
+
+  // Walks the generator nodes: a dead generator gives its iterator back,
+  // and a node that is no longer a generator leaves the list.  Runs after
+  // the mark phase and before the sweep.  See the header of this file.
+  static void sweep_generators()
+  {
+    size_t kept = 0;
+    for(Node * node: g_generators)
+    {
+      if(node->info != &_biGenerator_Info)
+        continue;
+      if(heap_marked(node))
+        g_generators[kept++] = node;
       else
-      {
-        give_memory(q->addr, q->bytes);
-        ++q;
-      }
+        g_pending_releases.push_back(NodeU{node}.generator->data);
     }
-    g_addr.resize(p - g_addr.begin());
+    g_generators.resize(kept);
   }
 
   // Destroys the queues and the sets the mark phase did not reach, and
@@ -603,39 +625,7 @@ namespace cyrt
   }
   #endif
 
-  // static void show_nodes(bool show)
-  // {
-  //   for(auto entry: g_addr)
-  //   {
-  //     Node * node = (Node *) entry.addr;
-  //     char const m = is_marked(node) ? 'M' : 'u';
-  //     if(m == 'M') clear(node);
-  //     if(node->info->tag == T_FWD)
-  //       std::cerr << "    " << node << " " << m << " -> " << NodeU{node}.fwd->target;
-  //     else
-  //     {
-  //       std::cerr << "    " << node << " " << m << " ";
-  //       if(show)
-  //         std::cerr << node->str(PLAIN_FREEVARS);
-  //     }
-  //     if(m == 'M') mark(node);
-  //     std::cerr << std::endl;
-  //   }
-  // }
-
   #ifdef GC_REPORT
-  static size_t count_marks()
-  {
-    size_t n_marked = 0;
-    for(auto entry: g_addr)
-    {
-      Node * node = entry_node(entry);
-      if(is_marked(node))
-        n_marked++;
-    }
-    return n_marked;
-  }
-
   static std::string show_frac(float frac)
   {
     std::stringstream ss;
@@ -647,21 +637,36 @@ namespace cyrt
   void run_gc()
   {
     auto const start = std::chrono::steady_clock::now();
+    bool const nested = g_eval_depth > 1;
     #ifdef GC_REPORT
-    (std::cerr << "GC " << g_addr.size() << "/" << g_threshold
-               << " floor=" << g_sweep_floor << " depth=" << g_eval_depth
+    size_t const nodes_before = nodes_in_use();
+    (std::cerr << "GC " << nodes_before << "/" << g_threshold
+               << " blocks=" << gc_num_blocks() << " depth=" << g_eval_depth
                << " ").flush();
-    // show_nodes(true);
     #endif
-    run_mark_phase();
-    // show_nodes(false);
+    retire_runs();
+    g_verifying = g_stress || g_verify_requested;
+    g_verify_list.clear();
+    run_mark_phase(nested);
+    sweep_freevar_tables();
+    sweep_generators();
+    if(g_verifying)
+    {
+      std::string const problem = verify_heap(g_verify_requested);
+      g_verify_list.clear();
+      g_verifying = false;
+      if(g_verify_requested)
+        g_verify_problem = problem;
+      else if(!problem.empty())
+      {
+        std::cerr << "the heap verifier found " << problem << std::endl;
+        std::abort();
+      }
+    }
     #ifdef GC_REPORT
-    size_t n_marked = count_marks();
-    float frac_used = 100.f * n_marked / (float) g_addr.size();
-    (std::cerr << show_frac(frac_used) << "% ").flush();
     auto const marked = std::chrono::steady_clock::now();
     #endif
-    run_sweep_phase();
+    size_t const survivors = sweep_blocks(nested, g_floor_seq);
     #ifdef GC_REPORT
     auto const swept = std::chrono::steady_clock::now();
     #endif
@@ -669,13 +674,14 @@ namespace cyrt
     #ifdef GC_REPORT
     auto const done = std::chrono::steady_clock::now();
     using fsec = std::chrono::duration<double>;
-    (std::cerr << "mark=" << fsec(marked - start).count()
+    (std::cerr << show_frac(100.f * survivors / (float) std::max<size_t>(1, nodes_before))
+               << "% mark=" << fsec(marked - start).count()
                << " sweep=" << fsec(swept - marked).count()
                << " registries=" << fsec(done - swept).count() << " ").flush();
     #endif
     assert(live_configurations_are_queued());
     ++g_collections;
-    g_threshold = std::max(g_threshold_floor, g_growth * g_addr.size());
+    g_threshold = std::max(g_threshold_floor, g_growth * survivors);
     g_configuration_threshold = std::max(
         configuration_threshold(g_threshold_floor)
       , g_growth * g_num_configurations
@@ -684,7 +690,8 @@ namespace cyrt
         std::chrono::steady_clock::now() - start
       ).count();
     #ifdef GC_REPORT
-    (std::cerr << g_addr.size() << "/" << g_threshold
+    (std::cerr << survivors << "/" << g_threshold
+               << " blocks=" << gc_num_blocks()
                << " configurations=" << g_num_configurations
                << " queues=" << g_queues.size()
                << " sets=" << g_sets.size()
@@ -692,5 +699,27 @@ namespace cyrt
     #endif
     // In stress mode the next safepoint collects again.
     g_gc_collect = g_stress;
+    release_pending();
+  }
+
+  std::string gc_verify()
+  {
+    if(g_eval_depth != 0)
+      throw std::runtime_error(
+          "cannot run the collector while an evaluation is active"
+        );
+    g_verify_requested = true;
+    g_verify_problem.clear();
+    try
+    {
+      run_gc();
+    }
+    catch(...)
+    {
+      g_verify_requested = false;
+      throw;
+    }
+    g_verify_requested = false;
+    return g_verify_problem;
   }
 }

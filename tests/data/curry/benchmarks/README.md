@@ -3,7 +3,8 @@
 This directory holds the Curry programs used to benchmark Sprite.  Every
 top-level `*.curry` file defines a goal `main`.  The subdirectories
 (`completeness/`, `composite/`, `failing/`, `toofast/`) hold programs that are
-not part of the timed set.
+not part of the timed set; `split/` holds three search programs split by
+hand into parts for the split suite of the harness (below).
 
 ## Programs from the dissertation
 
@@ -98,6 +99,24 @@ row per program.  The sprite-exec page of the documentation describes the
 fields.  Sixteen of the thirty dissertation programs never fork, so their
 serial fraction is 1; the search programs fork at almost every step and
 their configurations live a few steps.
+
+## The process-split experiment
+
+The modules under `split/` are the inputs of the split suite
+(`./run_benchmarks -s split`), the process-split experiment of the
+parallel-evaluation gate.  Each spells the whole program and its search
+space split by hand into 2, 4, and 8 parts, as the goals `main` and
+`part2_0` .. `part8_7`; the harness runs the whole and every part in a
+process of its own, and `./run_benchmarks split FILE` tabulates the speedup
+bound (the whole over the longest part) and the duplicated work (the sum of
+the parts over the whole).  `PermSortSplit` fixes the first binary choices
+of the search (the insertions of 3, 4, and 5 into the growing permutation);
+`SearchQueensSplit` fixes the position of the first element (the length of
+the free list `u`); `QueensSetSplit` fixes the first element of the
+permutation (the branch of `ndinsert`).  The parts of a split partition the
+search space; `part n k i` and `permsPart n k i` take the size, and
+`tests/unit_split.py` checks the partition at a small size.  Section 9 of
+`tests/README` describes the suite and the command.
 
 ## The collector and the timings
 

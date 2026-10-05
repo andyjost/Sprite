@@ -1,5 +1,6 @@
 #pragma once
 #include <deque>
+#include "cyrt/graph/memory.hpp"
 #include "cyrt/graph/node.hpp"
 #include <unordered_set>
 #include <vector>
@@ -64,6 +65,9 @@ namespace cyrt
   {
     UniqueNodeVisitor(Node * root) : queue({root}) {}
     Node * next();
+    // Both tables hold the addresses of nodes: no node may move while the
+    // visitor lives (see GcClamp in graph/memory.hpp).
+    GcClamp gc_clamp;
     std::deque<Node*> queue;
     std::unordered_set<Node*> seen;
   };

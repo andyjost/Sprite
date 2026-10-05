@@ -1,4 +1,5 @@
 #pragma once
+#include "cyrt/builtins.hpp"
 #include "cyrt/graph/infotable.hpp"
 
 #define PartialS_Type        CyD7Control12SetFunctions8PartialS
@@ -50,5 +51,14 @@ extern "C"
   extern InfoTable const SetEval_Info;
   extern InfoTable const set_Info;
   extern InfoTable const Values_Info;
+}
+
+namespace cyrt
+{
+  // The family of Control.SetFunctions.PartialS: the layout of
+  // PartApplicNode under its own info tables (see builtins.hpp).
+  extern PartialInfoFamily g_partials_infos;
+  inline InfoTable const * partials_info(index_type nargs)
+    { return g_partials_infos.get(nargs); }
 }
 

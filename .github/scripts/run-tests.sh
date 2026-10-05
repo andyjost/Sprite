@@ -3,7 +3,9 @@
 # file, so that an abort in the C++ runtime fails one file and not the run.
 # Usage: run-tests.sh py|cxx 'unit_*.py' [k/n]
 # With k/n, only every n-th file starting at the k-th (1-based) runs, so that
-# a matrix can spread the files over several runners.
+# a matrix can spread the files over several runners.  SPRITE_TEST_FLAGS in
+# the environment adds interpreter flags to the backend flag, in the syntax
+# of SPRITE_INTERPRETER_FLAGS (for one, interpret:all).
 set -uo pipefail
 backend=$1
 pattern=$2
@@ -15,7 +17,8 @@ export SPRITE_HOME
 SPRITE_HOME="$(cd ../install && pwd)"
 export PYTHONPATH="$PWD/lib"
 export CURRYPATH="$PWD/data/curry"
-export SPRITE_INTERPRETER_FLAGS="backend:$backend"
+extra="${SPRITE_TEST_FLAGS:+,$SPRITE_TEST_FLAGS}"
+export SPRITE_INTERPRETER_FLAGS="backend:$backend$extra"
 export LC_ALL=C.UTF-8
 # The ICurry cache keeps the output of the Curry front end between runs; the
 # workflow restores and saves its directory.  The directory exists even when

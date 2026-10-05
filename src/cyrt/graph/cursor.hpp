@@ -88,6 +88,11 @@ namespace cyrt
     Variable(Node *, index_type, bool update_fwd_nodes=true); // indexing.hxx
     Variable operator[](index_type) const;                      // indexing.hxx
 
+    // The node that successor ``pos`` of the target denotes, for an argument
+    // that a step only passes on: what (*this)[pos].rvalue() yields, without
+    // the Variable when none is needed.  See indexing.hxx.
+    Node * successor_node(index_type pos) const;
+
     // The node this variable denotes, wrapped in any set guards crossed on
     // the way to it.  An unassigned variable yields nullptr.  Generated code
     // relies on this for a recursive let: a forward reference is built with a

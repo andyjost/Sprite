@@ -6,11 +6,11 @@ N repetitions of one measurement: a program on a backend in a suite, under a
 variant such as the state of a cache.  The fields, in order:
 
     schema       The number of this format: 1.
-    suite        throughput, compile, import, or memory.
+    suite        throughput, compile, import, memory, or split.
     program      The program, or the name of the item of the suite.
     backend      cxx, py, or pakcs.
-    variant      The variant of the item (cold, warm, collector=off), or
-                 None.
+    variant      The variant of the item (cold, warm, collector=off; whole
+                 or K/I in the split suite), or None.
     commit       The commit of the repository, with -dirty when the tree
                  has changes; None without git.
     date         The time of the run, UTC, ISO 8601.

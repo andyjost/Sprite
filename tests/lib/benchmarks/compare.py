@@ -11,7 +11,10 @@ change in the program or the compiler, not in the machine.
 import argparse, sys
 from . import records
 
-__all__ = ['COUNTERS', 'METRICS', 'VERDICTS', 'compare', 'main', 'parse_args']
+__all__ = [
+    'COUNTERS', 'METRICS', 'VERDICTS', 'compare', 'main', 'parse_args'
+  , 'summary'
+  ]
 
 METRICS = ('wall', 'cpu', 'eval_wall', 'eval_cpu', 'peak_rss', 'compile')
 COUNTERS = ('steps', 'forks')
@@ -126,6 +129,28 @@ def write_row(stream, row, metric):
     ) + '\n')
 
 
+def summary(rows, metric, threshold):
+  '''
+  The counts of the verdicts of ``rows`` by name, with 'changed' for the
+  rows whose counters differ, and the one-line summary that names them.
+  '''
+  counts = {verdict: 0 for verdict in VERDICTS}
+  for row in rows:
+    counts[row['verdict']] += 1
+  counts['changed'] = sum(1 for row in rows if row['counters'])
+  line = (
+      '%d items: %d same, %d faster, %d slower, %d failed, %d without the '
+      'metric, %d only in one file; %d with changed counters '
+      '(metric %s, threshold %d%%)' % (
+          len(rows), counts['same'], counts['faster'], counts['slower']
+        , counts['fail'], counts['no-metric']
+        , counts['only-old'] + counts['only-new'], counts['changed'], metric
+        , round(threshold * 100)
+        )
+    )
+  return counts, line
+
+
 def main(argv=None):
   args = parse_args(sys.argv[1:] if argv is None else argv)
   try:
@@ -142,22 +167,10 @@ def main(argv=None):
   out.write(COLUMNS % HEADINGS + '\n')
   for row in rows:
     write_row(out, row, args.metric)
-  counts = {verdict: 0 for verdict in VERDICTS}
-  for row in rows:
-    counts[row['verdict']] += 1
-  changed = sum(1 for row in rows if row['counters'])
-  out.write(
-      '%d items: %d same, %d faster, %d slower, %d failed, %d without the '
-      'metric, %d only in one file; %d with changed counters '
-      '(metric %s, threshold %d%%)\n' % (
-          len(rows), counts['same'], counts['faster'], counts['slower']
-        , counts['fail'], counts['no-metric']
-        , counts['only-old'] + counts['only-new'], changed, args.metric
-        , round(args.threshold * 100)
-        )
-    )
+  counts, line = summary(rows, args.metric, args.threshold)
+  out.write(line + '\n')
   out.flush()
-  if args.strict and (counts['slower'] or counts['fail'] or changed):
+  if args.strict and (counts['slower'] or counts['fail'] or counts['changed']):
     return 1
   return 0
 

@@ -3,9 +3,14 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/dynload.hpp"
 #include "cyrt/graph/node.hpp"
+#include "cyrt/module.hpp"
 #include "cyrt/utf8.hpp"
+#include <deque>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <unordered_map>
 
 using namespace cyrt;
 
@@ -183,13 +188,15 @@ extern "C"
     , /*type*/       &Char_Type
     };
 
+  // The partial application without arguments.  The tables for one or more
+  // arguments come from g_partapplic_infos (see builtins.hpp).
   InfoTable const PartApplic_Info{
       /*tag*/        T_CTOR
-    , /*arity*/      3
+    , /*arity*/      2
     , /*alloc_size*/ sizeof(PartApplicNode)
     , /*flags*/      F_PARTIAL_TYPE | F_STATIC_OBJECT
     , /*name*/       "_PartApplic"
-    , /*format*/     "ixp"
+    , /*format*/     "ix"
     , /*step*/       nullptr
     , /*type*/       &PartApplic_Type
     };
@@ -305,6 +312,45 @@ namespace cyrt
   Node * Nil = &Nil_Node_;
   Node * Unit = &Unit_Node_;
 
+  Node * g_small_ints[SMALL_INT_MAX - SMALL_INT_MIN + 1];
+  Node * g_small_chars[SMALL_CHAR_MAX + 1];
+
+  Node * literal_node(InfoTable const * info, Arg value)
+  {
+    assert(is_primitive(*info));
+    Node * node = literal_reserve(info->alloc_size);
+    RawNodeMemory mem{node};
+    *mem.info++ = info;
+    pack(mem, info->format, &value);
+    return node;
+  }
+
+  Node * partial_node(InfoTable const * head, unboxed_int_type missing)
+  {
+    assert(head);
+    assert(missing > 0);
+    Node * node = literal_reserve(PartApplic_Info.alloc_size);
+    RawNodeMemory mem{node};
+    *mem.info++ = &PartApplic_Info;
+    *mem.ub_int++ = missing;
+    *mem.ub_ptr++ = (void *) head;
+    return node;
+  }
+
+  // Fills the tables when the library loads.  The info tables above are
+  // initialized first (same translation unit), and the arena needs no
+  // initialization (see graph/memory.cpp).
+  static struct _LiteralTables
+  {
+    _LiteralTables()
+    {
+      for(unboxed_int_type i=SMALL_INT_MIN; i<=SMALL_INT_MAX; ++i)
+        g_small_ints[i - SMALL_INT_MIN] = literal_node(&Int_Info, Arg(i));
+      for(unboxed_char_type c=0; c<=SMALL_CHAR_MAX; ++c)
+        g_small_chars[c] = literal_node(&Char_Info, Arg(c));
+    }
+  } _literal_tables;
+
   InfoTable const * builtin_info(char kind)
   {
     switch(kind)
@@ -342,21 +388,79 @@ namespace cyrt
   Node * PartApplicNode::materialize(Node * arg) const
   {
     assert(this->complete(arg));
-    return this->is_encapsulated()
-      ? this->terms : Node::from_partial(this, arg);
+    if(this->is_encapsulated())
+    {
+      assert(this->nargs() == 1);
+      return this->args()[0];
+    }
+    return Node::from_partial(this, arg);
   }
 
+  PartialInfoFamily g_partapplic_infos{{&PartApplic_Info}, nullptr};
+
+  namespace
+  {
+    // The tables a family makes on demand.  A deque keeps the addresses of
+    // its elements, and the tables point into the formats.  The storage is
+    // never freed: a generated module may refer to a table for as long as
+    // the process runs.
+    struct PartialInfoStorage
+    {
+      std::deque<InfoTable> tables;
+      std::deque<std::string> formats;
+      std::unordered_map<index_type, InfoTable const *> large;
+    };
+  }
+
+  InfoTable const * PartialInfoFamily::make(index_type nargs)
+  {
+    InfoTable const * base = this->tables[0];
+    assert(base);
+    assert(base->arity == 2);
+    auto * store = (PartialInfoStorage *) this->storage;
+    if(!store)
+    {
+      store = new PartialInfoStorage;
+      this->storage = store;
+    }
+    if(nargs >= CACHED)
+    {
+      auto p = store->large.find(nargs);
+      if(p != store->large.end())
+        return p->second;
+    }
+    size_t const arity = size_t(nargs) + 2;
+    size_t const alloc_size = sizeof(Head) + arity * sizeof(Arg);
+    if(alloc_size > std::numeric_limits<index_type>::max())
+      throw std::length_error("too many arguments in a partial application");
+    std::string & format = store->formats.emplace_back("ix");
+    format.append(nargs, 'p');
+    InfoTable const & info = store->tables.emplace_back(
+        base->tag, (index_type) arity, (index_type) alloc_size, base->flags
+      , base->name, format.c_str(), base->step, base->type
+      );
+    if(nargs < CACHED)
+      this->tables[nargs] = &info;
+    else
+      store->large[nargs] = &info;
+    return &info;
+  }
+
+  // The constructors of IOError are defined in Curry, so their tables come
+  // from the loaded Prelude: the compiled library, or the tables made at
+  // run time when the Prelude is interpreted (see Module::find_symbol).
   InfoTable const * ioerror_info(IOErrorKind kind)
   {
     assert(((int) kind) >=0 && ((int) kind) < 4);
     static char const * symbol_names[] = {
-        "CyI7Prelude7IOError"
-      , "CyI7Prelude9UserError"
-      , "CyI7Prelude9FailError"
-      , "CyI7Prelude11NondetError"
+        "IOError", "UserError", "FailError", "NondetError"
       };
-    InfoTable const * info = SharedCurryModule::symbol("Prelude", symbol_names[kind]);
-    assert(info);
+    InfoTable const * info = Module::find_symbol("Prelude", symbol_names[kind]);
+    if(!info)
+      throw std::logic_error(
+          std::string("the Prelude is not loaded: no constructor ")
+          + symbol_names[kind]
+        );
     return info;
   }
 

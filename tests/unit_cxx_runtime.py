@@ -63,6 +63,10 @@ class TestCxxProcess(cytest.TestCase):
     curry.import_('CxxRuntime')
 
   @cytest.skipIfGcStress('the program keeps every node reachable')
+  @cytest.skipUnlessGcBackend(
+      'wdgc', 'near the address-space cap MPS collects instead of failing; '
+              'the child does not end in time'
+    )
   def test_out_of_memory_raises_MemoryError(self):
     '''
     An audit finding: when malloc failed, node allocation returned a null

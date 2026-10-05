@@ -1,5 +1,6 @@
 #include <cstring>
 #include "cyrt/builtins.hpp"
+#include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/graph/copy.hpp"
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/graph/node.hpp"
@@ -14,8 +15,31 @@ namespace cyrt
     return Expr{copy_node(*expr), 'p'};
   }
 
+  // A free variable is shared, not copied: one node stands for one id, the
+  // one in the free-variable table (see state/rts.hpp).  A copy with the
+  // same id would narrow apart from the variable, and a value handed to
+  // Python would hold a node the runtime cannot find by its id.  So is a
+  // pinned constructor ([], (), True, False, failed): its one node is the
+  // static object.  The collector tells that object by the flag of its info
+  // table and neither marks nor sweeps it, so a heap copy with the same
+  // table would be freed under its holder (see gc/wdgc.cpp).
+  static inline bool is_shared(Node * node)
+  {
+    return node->info->tag == T_FREE || is_pinned(*node->info);
+  }
+
+  // A copy of a generator node owns a reference of its own (see
+  // biGeneratorNode in builtins.hpp).
+  static inline void acquire_resource(Node * copy)
+  {
+    if(copy->info == &_biGenerator_Info)
+      generator_acquire(NodeU{copy}.generator->data);
+  }
+
   Node * copy_node(Node * node)
   {
+    if(is_shared(node))
+      return node;
     auto const alloc_size = node->info->alloc_size;
     Node * copy;
     do
@@ -23,6 +47,15 @@ namespace cyrt
       copy = node_reserve(alloc_size);
       std::memcpy(copy, node, alloc_size);
     } while(!node_commit(copy, alloc_size));
+    acquire_resource(copy);
+    // The copy is a new node of the heap: the collector must know a
+    // generator node to release its iterator, and a SetEval node to free
+    // its queue (the graph copier below makes its copies through
+    // Node::create, which registers them).
+    if(copy->info == &_biGenerator_Info)
+      gc_register_generator(copy);
+    else if(copy->info == &SetEval_Info)
+      gc_register_seteval(copy);
     return copy;
   }
 
@@ -80,6 +113,9 @@ namespace cyrt
       memo_type & memo;
       Set *       skipgrd;
       Skipper     skip;
+      // The memo is keyed by the addresses of the nodes: no node may move
+      // while the copier lives.
+      GcClamp     gc_clamp;
 
       // A node whose copy is under construction.  ``copy`` starts as a
       // shallow copy of ``node``.  The copies of the successors replace the
@@ -125,11 +161,17 @@ namespace cyrt
               continue;
             }
             Node * node = cur;
+            if(is_shared(node))
+            {
+              value = node;
+              break;
+            }
             index_type const arity = node->info->arity;
             Node * copy = Node::create(
                 node->info, arity ? node->successors() : nullptr
               );
             this->memo[node] = copy;
+            acquire_resource(copy);
             if(arity == 0)
             {
               value = copy;

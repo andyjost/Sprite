@@ -186,6 +186,23 @@ def skipIfGcStress(reason):
   '''Skips a test when the collector runs in stress mode.'''
   return unittest.skipIf(GC_STRESS, 'collector stress mode: ' + reason)
 
+def gc_backend():
+  '''
+  The collector of the installed C++ runtime: 'wdgc' or 'mps' (make GC=mps).
+  See config.cxx_gc.
+  '''
+  from curry import config
+  return config.cxx_gc()
+
+def skipUnlessGcBackend(name, reason):
+  '''
+  Skips a test unless the installed C++ runtime uses the collector ``name``.
+  The tests of the block heap and of its collector hold for 'wdgc' alone.
+  '''
+  return unittest.skipUnless(
+      gc_backend() == name, 'collector %s only: %s' % (name, reason)
+    )
+
 def json_module(name, value):
   '''
   The ICurry-JSON of a module ``name`` with one public function, ``goal``,

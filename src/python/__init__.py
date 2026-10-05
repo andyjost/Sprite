@@ -15,7 +15,8 @@ code, :func:`expr` to build Curry expressions, and :func:`eval` to evaluate
 them.  :data:`path` determines where Sprite searches for Curry code.  Loaded
 modules can be found under :data:`modules`.  Use :func:`topython` to convert
 Curry values to Python objects.  :func:`stats` reports the statistics of the
-run: time, rewrite steps, forks, collections, memory, and compile time.
+run: time, rewrite steps, forks, collections, memory, compile time, and
+collector time.
 
 Example:
 

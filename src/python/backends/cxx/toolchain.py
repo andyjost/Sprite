@@ -111,13 +111,33 @@ def flavor_flags(flavor):
   '''The compiler flags of a flavor of generated code: 'release' or 'debug'.'''
   return list(FLAVOR_FLAGS[flavor])
 
-def object_digest(flavor=None, include_dir=None):
+# The compiler flags of the collectors of the runtime (make GC=...).  The
+# inline writers of the runtime headers (Node::rewrite and the others in
+# node.hxx) differ under the Memory Pool System, so a module is compiled
+# with the macro of the installed collector.  See src/cyrt/graph/gc/mps.cpp.
+GC_FLAGS = {
+    'wdgc': []
+  , 'mps': ['-DSPRITE_GC_MPS']
+  }
+
+def gc_flags(gc=None):
+  '''
+  The compiler flags of a collector of the runtime, by default the collector
+  of the installed runtime (config.cxx_gc).
+  '''
+  if gc is None:
+    gc = config.cxx_gc()
+  return list(GC_FLAGS[gc])
+
+def object_digest(flavor=None, include_dir=None, gc=None):
   '''
   The stamp of an object compiled now: a digest of the runtime headers
-  (runtime_digest) and of the flags of ``flavor``, by default the flavor of
-  the installed runtime (config.cxx_flavor).  So a change to a header or to
-  the flags of a flavor compiles every object again, once.  The flags of the
-  environment (CXXFLAGS) are not part of it.
+  (runtime_digest), of the flags of ``flavor``, by default the flavor of the
+  installed runtime (config.cxx_flavor), and of the flags of the collector
+  ``gc``, by default the installed one (config.cxx_gc).  So a change to a
+  header, to the flags of a flavor, or to the collector compiles every
+  object again, once.  The flags of the environment (CXXFLAGS) are not part
+  of it.
 
   Returns None when the tree holds no header (see runtime_digest).
   '''
@@ -127,13 +147,17 @@ def object_digest(flavor=None, include_dir=None):
   if flavor is None:
     flavor = config.cxx_flavor()
   digest = hashlib.sha256(headers.encode('utf-8'))
-  for flag in flavor_flags(flavor) + LINK_FLAGS:
+  for flag in flavor_flags(flavor) + gc_flags(gc) + LINK_FLAGS:
     digest.update(b'\0')
     digest.update(flag.encode('utf-8'))
   return digest.hexdigest()[:16]
 
 def extend_plan_skeleton(interp, skeleton):
   assert interp is not None
+  if interp.flags['interpret'] == 'all':
+    # Every module is interpreted from its JSON (see Json2Cpp.ends_plan).
+    # The plan ends there, so a compiled object is never looked for.
+    return
   flag, suffixes, _ = skeleton[-1]
   skeleton[-1] = flag, suffixes, Json2Cpp(interp)
   skeleton.append((plans.MAKE_TARGET_OBJECT, ['.cpp'], Cpp2So(interp)))
@@ -162,6 +186,18 @@ def source_is_stale(file_in):
 class Json2Cpp(Json2TargetSource):
   NAME = 'json2cpp'
   SUFFIX = '.cpp'
+
+  def ends_plan(self, filename):
+    '''
+    Tells whether the plan ends at ``filename``, a JSON file this step would
+    compile.  Under the interpreter flag ``interpret`` set to 'new', a
+    module that reached the JSON stage without a compiled object is
+    interpreted by the runtime (cyrt/icurry.hpp; see materialize.py), so
+    this step and the C++ compiler do not run for it.  A module with a
+    current object never reaches this step: the object is the newest file.
+    '''
+    return self.interp.flags['interpret'] == 'new' \
+        and filename.endswith(('.json', '.json.z'))
 
   def is_stale(self, filename):
     '''
@@ -432,6 +468,8 @@ class Cpp2So(object):
     yield '-fPIC'
     yield '-std=c++17'
     for flag in flavor_flags(self.flavor):
+      yield flag
+    for flag in gc_flags():
       yield flag
     for flag in os.environ.get('CXXFLAGS', '').split():
       yield flag
