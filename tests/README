@@ -303,6 +303,14 @@ when configure was given --with-icurry.  To check files by hand, say, e.g.,
 The harness prints the first differing byte and the first differing subterm
 of each file that differs.
 
+The build route applies the binding optimization before the translation
+(curry.toolchain.flat2icurry.bindingopt): a Boolean equality required to be
+True, as in the condition of a rule, becomes constrEq, as the preprocessing
+of PAKCS makes it.  The oracle compares the translation alone: the files
+icurry wrote come from the FlatCurry as the front end wrote it, and the
+icurry route does not apply the pass.  unit_flat2icurry_bindingopt.py tests
+the pass and the programs that need it, such as sendMoreMoney.
+
 `make overlay` extracts the test products and copies the interfaces of the
 front end, M.fint and M.icurry, beside each extracted .icy file (the target
 overlay-interfaces of the root Makefile): an .icy file without them is stale
@@ -312,15 +320,16 @@ the copies; a rebuilt archive packs them.
 Between the two steps, the target overlay-prune removes the extracted
 products of every test source that git shows changed since the commit that
 last changed the archive, in a later commit or in the working tree.  The
-toolchain compares the change times of the inodes, and an extracted product
-is newer than its source by that measure whatever time the archive records,
-so a stale product would be read: CxxGc.curry changed after the archive was
-packed, and a fresh checkout followed by `make overlay` failed
-unit_cxx_gc.py on the old module.  The rule prints each file it removes;
-the front end makes the products again at the first import.  Without a git
-history (an exported tree) nothing is pruned, and the rule says so.
-OVERLAY_ROOT names the directory that holds an extracted tests/ tree, for a
-scratch extraction.
+extraction gives every product the time of the extraction (tar -m; the
+archive records one fixed time, 2000-01-01, for every member), so by the
+modification times the toolchain compares an extracted product is newer
+than its source whatever the source holds, and a stale product would be
+read: CxxGc.curry changed after the archive was packed, and a fresh
+checkout followed by `make overlay` failed unit_cxx_gc.py on the old
+module.  The rule prints each file it removes; the front end makes the
+products again at the first import.  Without a git history (an exported
+tree) nothing is pruned, and the rule says so.  OVERLAY_ROOT names the
+directory that holds an extracted tests/ tree, for a scratch extraction.
 
 The archive is rebuilt with `make overlay-archive` at the root of the
 repository.  The rule packs the .fcy, .fint, .icurry, .icy, and .json.z files

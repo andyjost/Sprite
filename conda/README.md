@@ -100,21 +100,30 @@ Python does not use that path to find or to validate a module.  The
 bytecode caches of the 13 generated library modules are stale after the
 install, because the text replacement changed their `.py` files: Python
 compiles such a module again on its first import and writes the cache
-again when it can (see open question 3).  And the C++ backend may compile
-a library module again on its first import.  The toolchain starts a module
-from the newest file of its chain (`.curry`, `.icy`, `.json.z`, `.cpp`,
-`.so`) by change time (`curry.toolchain._findcurry` with
-`filesys.newest`, which compares `ctime`), and conda gives the `.cpp`,
+again when it can (see open question 3).  And the C++ backend compiled a
+library module again on its first import until issue #66 was fixed.  The
+toolchain starts a module from the newest file of its chain (`.curry`,
+`.icy`, `.json.z`, `.cpp`, `.so`; `curry.toolchain._findcurry` with
+`filesys.newest`).  It compared change times, and conda gives the `.cpp`,
 `.py`, and `.so` it rewrote their final change times in an arbitrary
 order, about two seconds after the write.  When the `.cpp` of a module
-ends newer than its `.so`, the first import compiles the module again and
-writes the shared object and its stamp into `opt/sprite`, although the
-ABI stamp of the shipped object is accepted.  Observed on 2026-10-05: the
+ended newer than its `.so`, the first import compiled the module again and
+wrote the shared object and its stamp into `opt/sprite`, although the
+ABI stamp of the shipped object was accepted.  Observed on 2026-10-05: the
 environment made from the build of record compiled Prelude, Data.List,
 and Data.Maybe again on its first C++ run (34 s instead of 3 s), and
 later Data.Char on its first import, while it kept Data.Either, whose
 `.so` had the later change time; the environment made from the build
-before it kept Prelude, Data.List, and Data.Maybe.  See open question 3.
+before it kept Prelude, Data.List, and Data.Maybe.  The toolchain now
+compares modification times (issue #66).  The shipped object is then kept
+when the `.cpp` of the module keeps a modification time before the one of
+its `.so`: the rewrite of the install of record left the modification
+times in the order of the chain (`.cpp` before `.py` before `.so`, the
+sorted order of the paths).  An installer that rewrites the text files
+after the binaries would give the `.cpp` the later time, and the first
+import would compile the module again.  No package was rebuilt and
+installed under the new rule yet; the first install should confirm the
+expectation.  See open question 3.
 
 Dependencies:
 
@@ -376,16 +385,17 @@ pybind11.
    generators write the source path of a module relative to `SPRITE_HOME`,
    or leave it to the loader; then the generated files carry no prefix,
    `info/has_prefix` shrinks to the 13 shared objects, and the shipped
-   bytecode stays valid.  The third write is the shared object of a
+   bytecode stays valid.  The third write was the shared object of a
    library module whose `.cpp` got a later change time than its `.so` at
    install time (see "Relocation"): the first import on the C++ backend
-   compiles the module again, Prelude included (about 25 s).  The
-   recommendation above removes this write as well: with no prefix in the
-   generated files, conda rewrites the `.so` alone, and it ends the newest
-   file of its chain.  Until then, the toolchain could prefer an existing
-   `.so` whose ABI stamp it accepts over an older `.cpp`, or compare
-   modification times, which the rewrite of this install left in chain
-   order, instead of change times.
+   compiled the module again, Prelude included (about 25 s).  Issue #66
+   changed the measure: the toolchain compares modification times instead
+   of change times, and the rewrite of this install left those in chain
+   order, so the write is expected to be gone; an install under the new
+   rule has not confirmed it yet (see "Relocation").  The recommendation
+   above still helps here: with no prefix in the generated files, conda
+   rewrites the `.so` alone, and the order of the chain no longer depends
+   on the order in which the installer rewrites the files.
 4. The Python backend.  Keep both backends in one package while the Python
    backend is the default of the repository.  If the C++ backend becomes
    the default, `configure` needs an option for `DEFAULT_BACKEND`, and the

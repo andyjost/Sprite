@@ -78,6 +78,32 @@ byte-identical to the oracle.  The build route (``sprite-make`` and the
 import of a module) turns it off and looks through the annotation.  The
 option ``--no-icurry-compat`` of the command line does the same.
 
+The build route also applies the binding optimization before the
+translation (:mod:`curry.toolchain.flat2icurry.bindingopt`, the flag
+``bindingopt`` of :func:`curry.toolchain.flat2icurry.translate`, the option
+``--bindingopt`` of the command line).  PAKCS and KiCS2 run the tool
+``transbooleq`` over every FlatCurry file they compile (the property
+``bindingoptimization`` of PAKCS, ``fast`` by default), and the pass is a
+port of its fast mode.  A Boolean equality whose value is required to be
+True becomes the equational constraint ``constrEq``, which binds free
+variables where ``==`` on a primitive type suspends: ``f x | x == 3 = x``
+binds ``x``, and so does a conjunct of ``&&`` or ``&`` in a guard; an
+``if-then-else``, a guard with an ``otherwise`` branch, and ``||`` keep the
+Boolean equality.  A disequality under ``not`` becomes a negated
+constraint.  The pass also changes a program as PAKCS changes it: ``&``
+requires both arguments True whatever its result is required to be, so
+``(1 == 2) & True`` fails instead of being False.  The pass is what lets a
+program in the residuation style of ``sendMoreMoney`` (tests/data/curry)
+solve: without it the digit equalities suspend, under PAKCS as well
+(``pakcs -Dbindingoptimization=no``).  The oracle tests do not apply the
+pass, because the files ``icurry`` wrote come from the FlatCurry as the
+front end wrote it, and the ``icurry`` route does not apply it either: its
+ICurry is the program as written.  The pass reaches the modules the route
+translates; the committed ICurry of the Curry library predates it, and so
+does an ``.icy`` file written before the pass existed: the toolchain reuses
+a product until its source is newer, so touch the source of such a module
+to have it translated again.
+
 .. note::
    The PAKCS subdirectory may contain a file with extension ``.icurry``.  That
    file does `not` contain ICurry (it contains a Curry `interface`).

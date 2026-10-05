@@ -20,7 +20,10 @@ def currentfile(
   the ICurry file (suffix: .icy), the JSON file (suffix: .json or .json.z),
   and the files of the backend (suffix: .py; or .cpp and .so), less the files
   that a step of the plan refuses (see ``Plan.prune_stale``) and the files
-  made from them.
+  made from them.  The files are compared by modification time (see
+  ``filesys.newer``), so a step that moves the change times of the inodes
+  (a chmod, a rename, the prefix patch of a package manager) does not make
+  a product stale.
 
   Args:
     plan:

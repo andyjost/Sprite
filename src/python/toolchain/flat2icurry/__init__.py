@@ -6,6 +6,10 @@ reads the FlatCurry of a module and the FlatCurry interfaces of its imports,
 and it produces the ICurry term that ``icurry`` writes to a .icy file.  The
 passes run in this order:
 
+  0. The binding optimization (:mod:`bindingopt`), when the caller asks for
+     it: the Boolean equalities whose value is required to be True become
+     equational constraints, as the preprocessing of PAKCS makes them.  The
+     build route asks for it; the oracle tests do not.
   1. Newtype elimination (:mod:`elimnewtype`).
   2. Case completion against the data declarations of the module and its
      imports (:mod:`casecompletion`).
@@ -25,6 +29,7 @@ output stays byte-identical to the files ``icurry`` wrote.  The build route
 run.
 '''
 
+from .bindingopt import optimize_bindings
 from .casecompletion import complete_prog
 from .caselifting import lift_prog
 from .compiler import NameMaps, flat2icurry
@@ -36,11 +41,11 @@ from .terms import showterm
 
 __all__ = [
     'Flat2ICurryError', 'InterfaceFinder', 'load_flatcurry', 'load_interface'
-  , 'module_root', 'product_path', 'read_flatcurry', 'showterm', 'translate'
-  , 'translate_file', 'write_icurry'
+  , 'module_root', 'optimize_bindings', 'product_path', 'read_flatcurry'
+  , 'showterm', 'translate', 'translate_file', 'write_icurry'
   ]
 
-def translate(prog, interfaces, icurry_compat=True):
+def translate(prog, interfaces, icurry_compat=True, bindingopt=False):
   '''
   Translates a FlatCurry program to ICurry.
 
@@ -52,11 +57,16 @@ def translate(prog, interfaces, icurry_compat=True):
     icurry_compat:
         Whether to keep the output of ``icurry`` 3.1.0 for a type annotation
         at the root of a rule.  See :func:`compiler.to_iblock`.
+    bindingopt:
+        Whether to apply the binding optimization first.  See
+        :mod:`bindingopt`.
 
   Returns:
     The ICurry program, an ``IProg`` term.
   '''
   interfaces = list(interfaces)
+  if bindingopt:
+    prog = optimize_bindings(prog)
   prog = elim_newtype(interfaces, prog)
   datadecls = []
   for p in [prog] + interfaces:
@@ -66,14 +76,14 @@ def translate(prog, interfaces, icurry_compat=True):
   maps = NameMaps.build(prog, interfaces, clprog)
   return flat2icurry(maps, clprog, icurry_compat)
 
-def translate_file(fcyfile, finder, icurry_compat=True):
+def translate_file(fcyfile, finder, icurry_compat=True, bindingopt=False):
   '''
   Translates the FlatCurry file ``fcyfile``.  ``finder`` is an
   :class:`InterfaceFinder` that supplies the interfaces of the imports.
   '''
   prog = load_interface(fcyfile)
   interfaces = [finder.find(modname) for modname in prog.imports]
-  return translate(prog, interfaces, icurry_compat)
+  return translate(prog, interfaces, icurry_compat, bindingopt)
 
 def write_icurry(iprog, filename):
   '''Writes an ICurry program to a .icy file.'''

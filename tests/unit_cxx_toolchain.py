@@ -501,12 +501,17 @@ class TestAbiStamp(ToolchainTestCase):
       )
 
   def test_object_older_than_the_library_is_kept(self):
-    '''The age of the object against libcyrt.so does not matter.'''
+    '''
+    The age of the object against libcyrt.so does not matter.  The chain of
+    the module is set older than the library, in its own order, so the
+    object stays its newest file.
+    '''
     name = self.build(2)
     sofile = self.cached_file(name, '.so')
     old = os.path.getmtime(config.cyrt_lib()) - 100
-    for path in sofile, self.cpp2so.stampfile(sofile):
-      os.utime(path, (old, old))
+    for i, suffix in enumerate(['.json.z', '.cpp', '.so', '.so.abi']):
+      path = self.cached_file(name, suffix)
+      os.utime(path, (old + i, old + i))
     self.assertLess(
         os.path.getmtime(sofile), os.path.getmtime(config.cyrt_lib())
       )

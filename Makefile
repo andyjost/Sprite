@@ -144,6 +144,10 @@ overlay:
 else
 # Only the test products are extracted.  The library interfaces serve the
 # oracle tests, which extract the archive into a scratch directory.  The
+# archive records one fixed time for every member (2000-01-01), and the
+# toolchain compares modification times (see newer in curry.utility.filesys),
+# so tar -m gives each extracted file the time of the extraction: the
+# products are newer than the sources of the checkout and are read.  The
 # extraction is followed by overlay-prune, which removes the products of the
 # sources that changed since the archive was packed, and by
 # overlay-interfaces: the step that writes an .icy file writes M.fint and
@@ -151,7 +155,7 @@ else
 # made again at its first import (see icurry_is_stale in
 # curry.toolchain._curry2icurry).
 overlay:
-	tar xvzf $(OVERLAY_ARCHIVE) --wildcards 'tests/*'
+	tar xvzf $(OVERLAY_ARCHIVE) -m --wildcards 'tests/*'
 	$(MAKE) overlay-prune
 	$(MAKE) overlay-interfaces OVERLAY_DIR=tests
 endif
@@ -159,13 +163,14 @@ endif
 # Removes the extracted products of every test source that changed after
 # the archive was packed: the sources that git shows changed since the
 # commit that last changed the archive, in a later commit or in the working
-# tree.  The toolchain compares the change times of the inodes, and an
-# extracted product is newer than its source by that measure whatever the
-# archive records, so a stale product would be read.  The products of a
-# source lie beside it (D/.curry/*/M.*) or under an enclosing directory
-# (R/.curry/*/Sub/M.*); both layouts are searched.  Without a git history
-# nothing is pruned, and the rule says so.  OVERLAY_ROOT is the directory
-# that holds the extracted tests/ tree.
+# tree.  The extraction gives every product the time of the extraction (tar
+# -m, above), so by the modification times the toolchain compares an
+# extracted product is newer than its source whatever the source holds, and
+# a stale product would be read.  The products of a source lie beside it
+# (D/.curry/*/M.*) or under an enclosing directory (R/.curry/*/Sub/M.*);
+# both layouts are searched.  Without a git history nothing is pruned, and
+# the rule says so.  OVERLAY_ROOT is the directory that holds the extracted
+# tests/ tree.
 OVERLAY_ROOT ?= .
 overlay-prune:
 	@commit=$$(git log -1 --format=%H -- $(OVERLAY_ARCHIVE) 2>/dev/null); \

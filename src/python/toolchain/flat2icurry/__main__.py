@@ -38,6 +38,11 @@ def main(argv=None):
     , help='look through a type annotation at the root of a rule, which '
            'icurry 3.1.0 does not'
     )
+  parser.add_argument(
+      '--bindingopt', action='store_true'
+    , help='apply the binding optimization first, as the build route does: '
+           'a Boolean equality required to be True becomes constrEq'
+    )
   args = parser.parse_args(argv)
   prog = load_interface(args.fcyfile)
   location = product_path(args.fcyfile)
@@ -48,7 +53,8 @@ def main(argv=None):
   searchdirs = [module_root(args.fcyfile, prog.name)] + args.import_dir
   finder = InterfaceFinder(searchdirs, subdirs)
   iprog = translate(
-      prog, [finder.find(modname) for modname in prog.imports], args.icurry_compat
+      prog, [finder.find(modname) for modname in prog.imports]
+    , args.icurry_compat, args.bindingopt
     )
   if args.output == '-':
     sys.stdout.write(showterm(iprog))

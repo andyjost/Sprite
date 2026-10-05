@@ -31,15 +31,19 @@ def remInt(x, y):
   return x - y * quotInt(x, y)
 
 def _unbox(rts, _0):
-  args = [
-      rts.variable(_0, i).hnf_or_free()
-          for i in range(len(_0.successors))
-    ]
-  freevars = [arg for arg in args if inspect.isa_freevar(arg.target)]
-  if freevars:
-    rts.suspend(freevars)
-  else:
-    return (arg.unboxed_value for arg in args)
+  # The arguments are evaluated from the left, and the step suspends at the
+  # first free variable before it touches the arguments after it, as the
+  # C++ backend does (currylib/defs/unboxed.def) and as PAKCS does.  A
+  # generator in a later argument then does not run while the step cannot
+  # complete; that run forked the configuration once per alternative, and
+  # a conjunction of such steps forked their product before it suspended.
+  args = []
+  for i in range(len(_0.successors)):
+    arg = rts.variable(_0, i).hnf_or_free()
+    if inspect.isa_freevar(arg.target):
+      rts.suspend(arg.target)
+    args.append(arg)
+  return (arg.unboxed_value for arg in args)
 
 BOXER = {
     bool:  lambda rts, rv: [getattr(rts.prelude, 'True' if rv else 'False')]
