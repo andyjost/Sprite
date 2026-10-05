@@ -146,10 +146,12 @@ parameter is a pattern under ByValue, ByLRef or ByRRef: by_lref(const(T))
 is the parameter T const&.  A partial specialization is a Template with the
 names of its parameters: template(['T'], ptr(T)) is S<T*>.  A name is
 passed as a list of characters, because a str of length one, such as "T",
-would become a Char; a list of names is a list of such lists.  Free
-variables are not created in Python.  Every free variable lives in Curry:
-deduceCall makes one per template parameter, and the inverse questions of
-Deduction.curry declare one.  Python passes concrete types and patterns.
+would become a Char; a list of names is a list of such lists.  Python can
+make a free variable: curry.free() in a goal is one variable (Y1), and the
+typed builder (#56) will give it its type.  This driver keeps its free
+variables in Curry by choice: deduceCall makes one per template parameter,
+and the inverse questions of Deduction.curry declare one.  Python passes
+concrete types and patterns.
 
 Every goal returns a String, and the driver reads it with
 

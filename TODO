@@ -2168,9 +2168,12 @@
   traits (remove_extent, remove_all_extents, remove_pointer,
   is_bounded_array, ...) and properties over the partial traits with a
   count of outcomes; a unit test file for the shared library (the scratch
-  drivers of the streams checked 101, 52 and 65 assertions); and a Circle
+  drivers of the streams checked 101, 52 and 65 assertions); a Circle
   driver: a metaprogram that hands the types of the program under
-  compilation to the model and asks the questions of the series.
+  compilation to the model and asks the questions of the series; and,
+  after the typed builder (#56), the inverse questions of examples 20 and
+  21 can take a variable made in Python with curry.free() in place of the
+  variables their Curry modules declare.
 
 2026-10-04: typed boundary, stage 1 (epic #48)
 - Y1, free variables from Python (issue #50, fixes #33).  curry.free()

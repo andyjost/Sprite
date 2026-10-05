@@ -111,8 +111,10 @@ of tuples (derived, base).  curry.eval turns a Python tuple into a Curry
 tuple and a Python list into a Curry list, so the Curry goals receive
 values of the types [Candidate] and Hierarchy with no conversion code.  A
 name is passed as a list of characters: a str of length one, such as "f",
-would become a Char.  Free variables are not created in Python.  Every free
-variable lives in Overloads.curry, and Python passes concrete types.
+would become a Char.  Python can make a free variable: curry.free() in a
+goal is one variable (Y1), and the typed builder (#56) will give it its
+type.  This driver keeps its free variables in Overloads.curry by choice,
+and Python passes concrete types.
 
 Every goal returns a String, and the driver reads it with
 
