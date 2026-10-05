@@ -298,6 +298,62 @@ class TestCurry2ICurry(cytest.TestCase):
         self.assertEqual(content, readbytes(original), original)
         self.assertTrue(content, original)
 
+  def test_overlay_prune(self):
+    '''
+    make overlay-prune removes the extracted products of every test source
+    that changed since the commit that packed the archive, and keeps the
+    products of the others.  The sources come from git, so the test picks a
+    changed source with products in the archive, and skips when there is
+    none.
+    '''
+    archive = os.path.join(ROOT, 'overlay-%s.tgz' % config.frontend_subdir())
+    if not os.path.isfile(archive) or not os.path.isfile(os.path.join(ROOT, 'Make.config')):
+      self.skipTest('the source tree or the overlay archive is not available')
+    def git(*args):
+      proc = subprocess.run(
+          ['git', '-C', ROOT] + list(args), stdout=subprocess.PIPE
+        , stderr=subprocess.PIPE, text=True, timeout=120
+        )
+      return proc.stdout.split() if proc.returncode == 0 else None
+    commit = git('log', '-1', '--format=%H', '--', os.path.basename(archive))
+    if not commit:
+      self.skipTest('no git history of the archive')
+    changed = git('diff', '--name-only', commit[0], '--', 'tests/*.curry')
+    self.assertIsNotNone(changed)
+    changed = {os.path.relpath(name, 'tests') for name in changed}
+    with tarfile.open(archive) as tar:
+      members = [m for m in tar.getmembers() if m.name.startswith('tests/')]
+    # The stems of the pool with products in the archive, changed and not.
+    def stem(member):
+      parts = member.name.split('/')
+      if parts[:3] == ['tests', 'data', 'curry'] and parts[3] == '.curry' and len(parts) == 6:
+        return parts[5].split('.')[0]
+    stems = {stem(m) for m in members} - {None}
+    stale = sorted(s for s in stems if os.path.join('data', 'curry', s + '.curry') in changed)
+    kept = sorted(s for s in stems if os.path.join('data', 'curry', s + '.curry') not in changed)
+    if not stale or not kept:
+      self.skipTest('no changed source with products in the archive')
+    chosen = [m for m in members if stem(m) in (stale[0], kept[0])]
+    with tarfile.open(archive) as tar:
+      tar.extractall(self.tmpdir, members=chosen, filter='data')
+    def products(name):
+      return sorted(
+          os.path.join(dirpath, filename)
+              for dirpath, _, filenames in os.walk(self.tmpdir)
+              for filename in filenames if filename.split('.')[0] == name
+        )
+    self.assertTrue(products(stale[0]))
+    self.assertTrue(products(kept[0]))
+    result = subprocess.run(
+        ['make', '-C', ROOT, 'overlay-prune', 'OVERLAY_ROOT=' + self.tmpdir]
+      , env=MAKE_ENV, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+      , timeout=300
+      )
+    self.assertEqual(result.returncode, 0, result.stdout)
+    self.assertIn('rm ', result.stdout)
+    self.assertEqual(products(stale[0]), [])
+    self.assertTrue(products(kept[0]))
+
   def test_overlay_interfaces(self):
     '''
     make overlay-interfaces copies the interfaces of the front end beside

@@ -126,8 +126,8 @@ OVERLAY_PRODUCTS := -name '*.fcy' -o -name '*.fint' -o -name '*.icurry' \
                     -o -name '*.icy' -o -name '*.json.z'
 OVERLAY_TAR_FLAGS := --sort=name --owner=0 --group=0 --numeric-owner \
                      --mtime='2000-01-01 00:00:00Z'
-.PHONY: overlay overlay-archive overlay-interfaces $(OVERLAY_ARCHIVE) \
-        $(OVERLAY_LIST_FILE)
+.PHONY: overlay overlay-archive overlay-interfaces overlay-prune \
+        $(OVERLAY_ARCHIVE) $(OVERLAY_LIST_FILE)
 $(OVERLAY_LIST_FILE):
 	$(MAKE) -C curry interfaces
 	find tests curry/lib -type f -path '*/.curry/*$(PAKCS_SUBDIR)/*' \
@@ -141,14 +141,45 @@ overlay:
 else
 # Only the test products are extracted.  The library interfaces serve the
 # oracle tests, which extract the archive into a scratch directory.  The
-# extraction is followed by overlay-interfaces: the step that writes an .icy
-# file writes M.fint and M.icurry beside it, and an .icy file without them
-# is stale and would be made again at its first import (see
-# icurry_is_stale in curry.toolchain._curry2icurry).
+# extraction is followed by overlay-prune, which removes the products of the
+# sources that changed since the archive was packed, and by
+# overlay-interfaces: the step that writes an .icy file writes M.fint and
+# M.icurry beside it, and an .icy file without them is stale and would be
+# made again at its first import (see icurry_is_stale in
+# curry.toolchain._curry2icurry).
 overlay:
 	tar xvzf $(OVERLAY_ARCHIVE) --wildcards 'tests/*'
+	$(MAKE) overlay-prune
 	$(MAKE) overlay-interfaces OVERLAY_DIR=tests
 endif
+
+# Removes the extracted products of every test source that changed after
+# the archive was packed: the sources that git shows changed since the
+# commit that last changed the archive, in a later commit or in the working
+# tree.  The toolchain compares the change times of the inodes, and an
+# extracted product is newer than its source by that measure whatever the
+# archive records, so a stale product would be read.  The products of a
+# source lie beside it (D/.curry/*/M.*) or under an enclosing directory
+# (R/.curry/*/Sub/M.*); both layouts are searched.  Without a git history
+# nothing is pruned, and the rule says so.  OVERLAY_ROOT is the directory
+# that holds the extracted tests/ tree.
+OVERLAY_ROOT ?= .
+overlay-prune:
+	@commit=$$(git log -1 --format=%H -- $(OVERLAY_ARCHIVE) 2>/dev/null); \
+	if [ -z "$$commit" ]; then \
+	  echo "overlay-prune: no git history of $(OVERLAY_ARCHIVE); nothing pruned"; \
+	  exit 0; \
+	fi; \
+	git diff --name-only "$$commit" -- 'tests/*.curry' | while read -r src; do \
+	  dir=$$(dirname "$$src"); rel=$$(basename "$$src" .curry); \
+	  while :; do \
+	    for f in "$(OVERLAY_ROOT)/$$dir"/.curry/*/"$$rel".*; do \
+	      if [ -e "$$f" ]; then echo "rm $$f"; rm -f "$$f"; fi; \
+	    done; \
+	    case "$$dir" in tests|.) break;; esac; \
+	    rel="$$(basename "$$dir")/$$rel"; dir=$$(dirname "$$dir"); \
+	  done; \
+	done
 
 # Copies the interfaces of the front end beside every .icy file under
 # OVERLAY_DIR: .curry/$(FRONTEND_SUBDIR)/M.fint and M.icurry of a directory

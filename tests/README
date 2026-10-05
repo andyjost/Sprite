@@ -261,6 +261,19 @@ overlay-interfaces of the root Makefile): an .icy file without them is stale
 and would be made again at its first import.  The committed archive predates
 the copies; a rebuilt archive packs them.
 
+Between the two steps, the target overlay-prune removes the extracted
+products of every test source that git shows changed since the commit that
+last changed the archive, in a later commit or in the working tree.  The
+toolchain compares the change times of the inodes, and an extracted product
+is newer than its source by that measure whatever time the archive records,
+so a stale product would be read: CxxGc.curry changed after the archive was
+packed, and a fresh checkout followed by `make overlay` failed
+unit_cxx_gc.py on the old module.  The rule prints each file it removes;
+the front end makes the products again at the first import.  Without a git
+history (an exported tree) nothing is pruned, and the rule says so.
+OVERLAY_ROOT names the directory that holds an extracted tests/ tree, for a
+scratch extraction.
+
 The archive is rebuilt with `make overlay-archive` at the root of the
 repository.  The rule packs the .fcy, .fint, .icurry, .icy, and .json.z files
 under tests/ and the library interfaces that the front end writes under

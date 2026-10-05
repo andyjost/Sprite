@@ -919,8 +919,19 @@ class TestPrepare(unittest.TestCase):
     files = prepare.modules('data/curry')
     self.assertIn('data/curry/hello.curry', files)
     self.assertNotIn('data/curry/badimport.curry', files)
+    # The product directory ends with the suffix too, and helloExternal
+    # declares an external that no backend resolves.
+    self.assertNotIn('data/curry/.curry', files)
+    self.assertNotIn('data/curry/helloExternal.curry', files)
+    self.assertTrue(all(name.endswith('.curry') for name in files))
     self.assertEqual(files, sorted(files))
     self.assertEqual(prepare.modules('data/curry/nosuch'), [])
+    # The two programs that need the Curry preprocessor are left to the
+    # benchmark harness.
+    benchmarks = prepare.modules('data/curry/benchmarks')
+    self.assertIn('data/curry/benchmarks/Last.curry', benchmarks)
+    self.assertNotIn('data/curry/benchmarks/PokerChoice.curry', benchmarks)
+    self.assertNotIn('data/curry/benchmarks/PokerFree.curry', benchmarks)
 
   def test_jobs(self):
     env = {'CURRYPATH': '/pool', 'PATH': '/bin'}

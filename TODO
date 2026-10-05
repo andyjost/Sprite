@@ -2542,3 +2542,50 @@
   merge entry measured with the Goal dropped in curry.eval.
   test_repl_eval_under_stress of unit_goals.py runs the REPL on 8000
   elements under the stress mode within 60 s, on the C++ backend.
+- The verify agent's five commits (ced529a2, 12677dfe, 01341ecb, b1b77b17,
+  3eae7bcb).  Calibration of tests/manifest.json on a quiet 12-core, 23 GB
+  machine, every file once per backend at width 1 with --update-manifest:
+  the Python backend 446.8 s serial, the C++ backend 885.6 s serial on a
+  cold tree (the durations held the compile time of each corpus,
+  func_eqconstr.py 335 s) and 619 s on the warm tree, which the second
+  calibration recorded, for 154 files; the parallel trial of the whole
+  suite, -j auto --backend both, 123.1 s with 176 files ok and 4 known
+  failures.  Test-runner fixes found by the trials: the module list of the
+  prepare pass took the product directory .curry for a module and listed
+  helloExternal.curry, whose external no backend resolves (the list keeps
+  files alone; helloExternal joins badimport in EXCLUDE); the pass compiled
+  UseConc1 and UseConc2 of kiel, whose import ModConc lives in kiel/lib, so
+  the disk scan of func_flat2icurry.py resolves kiel/lib as well; the pass
+  failed on PokerChoice and PokerFree, which need currypp (both join
+  EXCLUDE; the benchmark harness compiles them in its warm-up); test_convert
+  and test_tool_selection of unit_curry2icurry.py run with the ICurry cache
+  off, because a hit never runs the front end whose files they check.
+  test_modules of unit_runner.py now pins the three exclusions.  The
+  overlay finding: a fresh checkout followed by make overlay failed
+  unit_cxx_gc.py, because CxxGc.curry changed after the archive was packed
+  (commit 64f715d1) and the toolchain took the extracted .fcy for current:
+  filesys.newer compares the change times of the inodes, and an extracted
+  file is newer than its source by that measure whatever time the archive
+  records (2000-01-01).  Fixed in the overlay rule rather than by a new
+  archive, because the .icy files of this tree come from the port and the
+  archive is the port's oracle (section 8 of tests/README): the new target
+  overlay-prune removes, after the extraction, the products of every test
+  source that git shows changed since the commit that last changed the
+  archive, in a later commit or in the working tree, in both product
+  layouts; without a git history it prunes nothing and says so.  Verified
+  on a scratch copy of the pool with the archive's products extracted:
+  unit_cxx_gc.py failed 7 tests with 1 error on the old module before the
+  prune and passed its 23 tests after it, with the .fcy made again;
+  test_overlay_prune of unit_curry2icurry.py picks a changed source from
+  git (CxxGc today) and an unchanged one and checks the rule on a scratch
+  extraction.  The build trials of issue #43 on the same machine: serial
+  from scratch 172.2 s; parallel (-j auto) without ccache 58.6 s, of which
+  the prebuild of the Curry library takes 41 s; with a cold ccache 77.3 s;
+  with a warm ccache 47.3 and 44.7 s; a no-op build 6.3 s; after a touch of
+  node.hpp 7.8 s with ccache and 20.7 s without.  Verdicts: the parallel
+  build takes 0.34 of the serial time, a third within noise, bounded by the
+  serial prebuild; the two trees are identical except the member order of
+  the archive and the name of the precompiled header; the second build with
+  ccache is under a minute: met.  The prebuild of the Curry library runs
+  serially inside a parallel build and is the next bottleneck (41 of
+  58.6 s).

@@ -330,6 +330,11 @@ class TestCondaRecipe(cytest.TestCase):
     self.assertEqual(result.returncode, 0, result.stdout)
     if os.path.isfile(os.path.join(ROOT, archive)):
       self.assertIn("tar xvzf %s --wildcards 'tests/*'" % archive, result.stdout)
+      # The extraction is followed by the prune and the interface copies.
+      self.assertIn('overlay-prune', result.stdout)
+      self.assertLess(
+          result.stdout.index('overlay-prune'), result.stdout.index('overlay-interfaces')
+        )
     else:
       self.assertNotIn('tar', result.stdout)
 
