@@ -33,6 +33,9 @@ class IBackend(backends.IBackend):
   def compile_pending(self, moduleobj):
     materialize.compile_pending(moduleobj)
 
+  def getimpl(self, symbol):
+    return materialize.getimpl(symbol)
+
   @property
   def fundamental_symbols(self):
     return fundamental

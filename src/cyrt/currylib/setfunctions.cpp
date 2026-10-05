@@ -5,6 +5,7 @@
 #include "cyrt/inspect.hpp"
 #include "cyrt/module.hpp"
 #include "cyrt/state/rts.hpp"
+#include <vector>
 
 using namespace cyrt;
 
@@ -124,6 +125,72 @@ namespace cyrt { inline namespace
     return T_FWD;
   }
 
+  // The number of nodes holds_private_state visits before it gives up.  The
+  // Python backend has the same bound (currylib/setfunctions.py).
+  static constexpr size_t PRIVATE_WALK_BUDGET = 64;
+
+  // Tells whether configuration C holds private state for the expression at
+  // ``root``: for a free variable of it, a binding, a narrowing (the
+  // fingerprint, read through the queue stack), or a group with another
+  // variable; for a choice of it, a decision.  That is the state
+  // replace_freevar puts into the expression through a private copy of the
+  // spine (rts_freevars.cpp), and the state a fork of the nested evaluation
+  // reads through the queue stack (rts_fingerprint.cpp).  The walk follows
+  // forward nodes and every pointer successor, so it crosses set guards,
+  // partial applications, data, and the alternatives of an undecided
+  // choice.  It does not enter the generator of a free variable: the
+  // variable itself is the test, and nothing below its generator is decided
+  // while the variable is not.  It stops after PRIVATE_WALK_BUDGET nodes
+  // with the conservative answer: a long argument counts as private.  So
+  // does a cyclic one.
+  //
+  // When the outermost queue holds one configuration, no other configuration
+  // reads the shared graph, and a later clone of this one starts with the
+  // same state, so the answer is false without a walk: a deterministic
+  // program never pays the walk and never loses the sharing of an
+  // application to the bound.  Inside a set function the state read through
+  // the queue stack depends on the enclosing configuration that runs the
+  // nested queue, so the walk runs there.
+  bool holds_private_state(
+      RuntimeState * rts, Configuration * C, Node * root
+    )
+  {
+    if(!rts->in_recursive_call() && rts->Q()->size() == 1)
+      return false;
+    std::vector<Node *> stack;
+    stack.push_back(root);
+    size_t budget = PRIVATE_WALK_BUDGET;
+    while(!stack.empty())
+    {
+      Node * node = stack.back();
+      stack.pop_back();
+      // A null successor exists between the creation of a recursive let and
+      // its patch (INodeAssign).
+      if(!node)
+        continue;
+      if(budget == 0)
+        return true;
+      --budget;
+      InfoTable const * info = node->info;
+      if(info->tag == T_FREE)
+      {
+        xid_type const vid = NodeU{node}.free->vid;
+        xid_type const gid = C->grp_id(vid);
+        if(vid != gid || C->has_binding(gid) || rts->is_narrowed(C, gid))
+          return true;
+        continue;
+      }
+      if(info->tag == T_CHOICE
+          && rts->read_fp(C, NodeU{node}.choice->cid) != UNDETERMINED)
+        return true;
+      Arg const * args = node->successors();
+      for(index_type i=0; i<info->arity; ++i)
+        if(info->format[i] == 'p')
+          stack.push_back(args[i].node);
+    }
+    return false;
+  }
+
   tag_type evalS_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
@@ -150,6 +217,22 @@ namespace cyrt { inline namespace
     gc_register_seteval(seteval);
     Node * allvalues = Node::create(&allValues_Info, seteval);
     Node * replacement = Node::create(&Values_Info, allvalues);
+    // The nested evaluation reads the state of this configuration for the
+    // free variables and the choices of its goal (the fingerprint, through
+    // the queue stack), so its values depend on that state when this
+    // configuration bound, narrowed, or grouped such a variable, or decided
+    // such a choice.  A result that depends on the private state of a
+    // configuration never goes into the shared graph, where another
+    // configuration, with another binding of the variable or another side
+    // of the choice, would read it (issue #61).  It goes into a private copy
+    // of the spine, as the binding itself does (replace_freevar), and the
+    // shared node stays an application for the other configurations.
+    // E_RESTART tells the enclosing steps that the root was replaced.
+    if(holds_private_state(rts, C, (Node *) partial))
+    {
+      *C->root = C->scan.copy_spine(C->root, replacement);
+      return E_RESTART;
+    }
     _0->forward_to(replacement);
     return T_FWD;
   }

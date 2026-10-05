@@ -5,7 +5,7 @@ from . import compiler
 from ... import icurry, objects
 from io import StringIO
 from ...utility import encoding, filesys, visitation
-import textwrap
+import inspect, textwrap
 
 def materialize(interp, iobj, moduleobj):
   materializer = Materializer(interp)
@@ -119,6 +119,28 @@ def materializeStepfunc(interp, ifun):
       stepfunc.source = source
       return stepfunc
   assert False
+
+def getimpl(symbol):
+  '''
+  The source of the step function of ``symbol``: the text of a step compiled
+  in this process, or the source of the function in the generated module or
+  in the library of built-ins.  A step left to its first call is compiled
+  now.  Raises ValueError when there is no step or no source.
+  '''
+  step = symbol.info.step
+  if isinstance(step, Trampoline):
+    step = step.materialize()
+  if step is not None:
+    source = getattr(step, 'source', None)
+    if source is not None:
+      return source
+    try:
+      return inspect.getsource(step)
+    except (OSError, TypeError):
+      pass
+  raise ValueError(
+      'no implementation code available for %r' % symbol.fullname
+    )
 
 class Trampoline(object):
   def __init__(self, callback, slot=None):

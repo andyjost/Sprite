@@ -1,7 +1,7 @@
 from . import exceptions, inspect
 from .interpreter import conversions
 from .utility import visitation
-import collections.abc, contextlib, itertools
+import collections.abc, contextlib, itertools, math
 
 class Stringifier(object):
   '''
@@ -148,6 +148,53 @@ SYMBOLIC_ESCAPES = {
   , ord('\''): '\\\''
   }
 
+def show_float(value):
+  '''
+  The text of a Float as PAKCS writes it, so that both backends print one
+  text (issue #34).
+
+  The digits are the shortest that read back to the same value, the digits
+  of ``repr``.  The point stands in the digits when the value is at least
+  1.0e-4 and either below 1.0e15 or not integral; otherwise the text is
+  d.ddde<exp>, where the exponent carries its sign and no padding, and a
+  lone digit gets ".0": 0.0001, 1.0e-5, 10000000.0, 1.0e+15, 1.0e+22.  An
+  integral value ends in ".0".  The infinities and NaN, which PAKCS cannot
+  make, are written Infinity, -Infinity, and NaN, as KiCS2 writes them.
+  The C++ runtime has the same rule in graph/show.cpp.
+  '''
+  if math.isnan(value):
+    return 'NaN'
+  sign = '-' if math.copysign(1.0, value) < 0 else ''
+  value = abs(value)
+  if math.isinf(value):
+    return sign + 'Infinity'
+  digits, decpt = _float_digits(value)
+  n = len(digits)
+  if digits == '0':
+    text = '0.0'
+  elif decpt <= -4 or (decpt > 15 and decpt >= n):
+    text = '%s.%se%+d' % (digits[0], digits[1:] or '0', decpt - 1)
+  elif decpt <= 0:
+    text = '0.' + '0' * -decpt + digits
+  elif decpt < n:
+    text = digits[:decpt] + '.' + digits[decpt:]
+  else:
+    text = digits + '0' * (decpt - n) + '.0'
+  return sign + text
+
+def _float_digits(value):
+  '''
+  The shortest digits of a non-negative finite float and the position of
+  its point: value = 0.<digits> * 10**decpt.  Zero gives ('0', 0).
+  '''
+  mantissa, _, exponent = repr(value).partition('e')
+  whole, _, fraction = mantissa.partition('.')
+  digits = whole + fraction
+  stripped = digits.lstrip('0')
+  decpt = len(whole) - (len(digits) - len(stripped)) + int(exponent or 0)
+  digits = stripped.rstrip('0')
+  return (digits, decpt) if digits else ('0', 0)
+
 def escape_char(char, quote):
   '''
   Writes one character as it appears in a literal delimited by ``quote``.
@@ -244,7 +291,7 @@ class LitNormalStringifier(Stringifier):
 
   @format.when(float)
   def format(self, lit, **kwds):
-    return ('(%r)' if lit<0 else '%r') % lit
+    return ('(%s)' if lit<0 else '%s') % show_float(lit)
 
   @format.when(str)
   def format(self, lit, **kwds):
@@ -268,7 +315,7 @@ class LitUnboxedStringifier(Stringifier):
 
   @format.when(float)
   def format(self, lit, **kwds):
-    return '%r#' % lit
+    return '%s#' % show_float(lit)
 
   @format.when(str)
   def format(self, lit, **kwds):

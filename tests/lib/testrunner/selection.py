@@ -61,6 +61,9 @@ RULES = [
     )
   , ('src/python/icurry/*', TOOLCHAIN + ['unit_icurry.py'], 'the ICurry reader')
   , ('src/python/expressions.py', API, 'the expression builder')
+  , ( 'src/python/show.py', ['unit_show_float.py', 'unit_goals.py']
+    , 'the show module'
+    )
   , ('src/python/interpreter/*', API + ['unit_loadsave.py'], 'the interpreter')
   , ('src/python/inspect/*', API + ['unit_inspect.py'], 'the inspection API')
   ]

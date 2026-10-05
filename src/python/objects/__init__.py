@@ -16,7 +16,7 @@ wrapped in handle.Handle.
 
 from ..common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .. import icurry
-import abc, inspect, os, types, weakref
+import abc, os, types, weakref
 
 __all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeInfo']
 
@@ -181,6 +181,16 @@ class CurryNodeInfo(object):
     return self.icurry.fullname
 
   @property
+  def interpreter(self):
+    '''The interpreter that loaded this symbol, or None.'''
+    return None if self._interp is None else self._interp()
+
+  @property
+  def module(self):
+    '''The module object that loaded this symbol, or None.'''
+    return None if self._module is None else self._module()
+
+  @property
   def scheme(self):
     '''
     The type scheme of this symbol, a :class:`Scheme
@@ -206,20 +216,12 @@ class CurryNodeInfo(object):
   # annotations.
 
   def getimpl(self):
-    '''Returns the implementation code of the step function, if available.'''
-    step = self.info.step
-    if step is not None:
-      try:
-        return getattr(step, 'source')
-      except AttributeError:
-        pass
-      try:
-        return inspect.getsource(step)
-      except (OSError, TypeError):
-        pass
-    raise ValueError(
-        'no implementation code available for %r' % self.fullname
-      )
+    '''
+    The implementation code of the step function as text.  See
+    :func:`curry.inspect.getimpl`.
+    '''
+    from .. import inspect
+    return inspect.getimpl(self)
 
   def __str__(self):
     return self.name

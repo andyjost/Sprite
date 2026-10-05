@@ -86,21 +86,25 @@ def N(rts, var, state):
           rts.lift_constraint(var, rewrite=var.root)
         return False
       elif tag == T_FREE:
-        # Path not relevant here.  We must clone the whole context.
+        # The variable is replaced through a private copy of the spine from
+        # the root of the configuration, as in hnf.  The path of the walk
+        # starts at var.root: the root of the configuration when D calls N,
+        # and the redex when a step normalizes its argument (($!!), ($##)).
+        # The path of the call stack runs from the root in both cases.
         if rts.has_binding(state.cursor):
           rts.telemetry._copyspine += 1
           binding = rts.get_binding(state.cursor)
-          rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=binding)
+          rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=binding)
           rts.restart()
         elif rts.is_narrowed(state.cursor):
           rts.telemetry._copyspine += 1
           gen = rts.get_generator(state.cursor)
-          rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=gen)
+          rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=gen)
           rts.restart()
         elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
           rts.telemetry._copyspine += 1
           x = rts.get_freevar(rts.grp_id(state.cursor))
-          rts.E = graph.utility.copy_spine(rts.E, state.realpath, end=x)
+          rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=x)
           rts.restart()
         break
       elif tag == T_FWD:
@@ -113,8 +117,12 @@ def N(rts, var, state):
         if var.is_root:
           rts.E = rts.pull_tab(var.root, state.cursor, state.realpath)
         else:
+          # The choice is at the cursor of the walk, below the argument the
+          # step normalizes, and the path runs from the redex, var.root.
           assert inspect.isa_func(var.root)
-          rts.pull_tab(var.root, var.target, var.realpath, rewrite=var.root)
+          rts.pull_tab(
+              var.root, state.cursor, state.realpath, rewrite=var.root
+            )
         return False
       elif tag == T_SETGRD:
         sid = state.cursor.successors[0]

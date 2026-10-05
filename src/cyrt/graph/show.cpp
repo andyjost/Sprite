@@ -1,6 +1,7 @@
 #include <algorithm>
-#include <boost/io/ios_state.hpp>
 #include <cassert>
+#include <charconv>
+#include <cmath>
 #include <cstdio>
 #include <ctype.h>
 #include "cyrt/builtins.hpp"
@@ -13,9 +14,9 @@
 #include "cyrt/utf8.hpp"
 #include <cstring>
 #include <functional>
-#include <iomanip>
 #include <iostream>
 #include <list>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -23,7 +24,66 @@
 namespace
 {
   using namespace cyrt;
-  static size_t constexpr FLOAT_PRECISION = 17;
+
+  // Writes a Float as PAKCS writes it, so that both backends print one text
+  // (issue #34).  The digits are the shortest that read back to the same
+  // value.  The point stands in the digits when the value is at least
+  // 1.0e-4 and either below 1.0e15 or not integral; otherwise the text is
+  // d.ddde<exp>, where the exponent carries its sign and no padding, and a
+  // lone digit gets ".0": 0.0001, 1.0e-5, 10000000.0, 1.0e+15, 1.0e+22.
+  // An integral value ends in ".0".  The infinities and NaN, which PAKCS
+  // cannot make, are written Infinity, -Infinity, and NaN, as KiCS2 writes
+  // them.  The Python backend has the same rule in show.show_float.
+  void show_float(std::ostream & os, unboxed_float_type value)
+  {
+    if(std::isnan(value))
+      { os << "NaN"; return; }
+    if(std::signbit(value))
+      { os << '-'; value = -value; }
+    if(std::isinf(value))
+      { os << "Infinity"; return; }
+    if(value == 0)
+      { os << "0.0"; return; }
+    // The shortest digits, from the scientific form d.ddde[+-]xx.
+    char buf[64];
+    auto const res = std::to_chars(
+        buf, buf + sizeof(buf), value, std::chars_format::scientific
+      );
+    assert(res.ec == std::errc());
+    std::string digits;
+    char const * p = buf;
+    for(; p != res.ptr && *p != 'e'; ++p)
+      if(*p != '.')
+        digits.push_back(*p);
+    assert(p != res.ptr);
+    ++p;
+    bool const negative_exponent = (*p == '-');
+    if(*p == '-' || *p == '+')
+      ++p;
+    int exp10 = 0;
+    std::from_chars(p, res.ptr, exp10);
+    if(negative_exponent)
+      exp10 = -exp10;
+    // value = 0.<digits> * 10^decpt
+    int const decpt = exp10 + 1;
+    int const n = digits.size();
+    if(decpt <= -4 || (decpt > 15 && decpt >= n))
+    {
+      os << digits[0] << '.';
+      if(n > 1)
+        os << digits.substr(1);
+      else
+        os << '0';
+      os << 'e' << (decpt - 1 < 0 ? '-' : '+')
+         << std::to_string(std::abs(decpt - 1));
+    }
+    else if(decpt <= 0)
+      os << "0." << std::string(-decpt, '0') << digits;
+    else if(decpt < n)
+      os << digits.substr(0, decpt) << '.' << digits.substr(decpt);
+    else
+      os << digits << std::string(decpt - n, '0') << ".0";
+  }
 
   static bool constexpr ESCAPE_DQ = true;
   static bool constexpr ESCAPE_SQ = false;
@@ -126,11 +186,7 @@ namespace
     }
 
     void show(unboxed_int_type value) { this->os << value; }
-    void show(unboxed_float_type value)
-    {
-      boost::io::ios_flags_saver raii(this->os);
-      this->os << std::showpoint << std::setprecision(FLOAT_PRECISION) << value;
-    }
+    void show(unboxed_float_type value) { show_float(this->os, value); }
     void show(unboxed_char_type value)
     {
       this->os << '\'';
@@ -550,12 +606,14 @@ namespace
 
     void show(unboxed_float_type value)
     {
-      boost::io::ios_flags_saver raii(this->os());
-      this->os() << std::showpoint << std::setprecision(FLOAT_PRECISION);
       if(value < 0)
-        this->os() << '(' << value << ')';
+      {
+        this->os() << '(';
+        show_float(this->os(), value);
+        this->os() << ')';
+      }
       else
-        this->os() << value;
+        show_float(this->os(), value);
     }
 
     void show(unboxed_char_type value)

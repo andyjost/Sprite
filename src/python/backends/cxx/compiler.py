@@ -324,12 +324,22 @@ class CxxCompiler(compiler.CompilerBase):
     elif isinstance(assign.expr, icurry.IVarAccess):
       # A Variable takes the indexer, which records the path and the guards.
       yield '%s = %s;' % (lhs, self.variableAccess(assign.expr))
-    elif rhs.startswith('Node::create'):
+    elif isinstance(assign.expr, icurry.IVar):
+      # An alias copies the Variable.  Both sides of an alias have one kind
+      # (passthrough.py), so the right side is a Variable as well.
+      yield '%s = %s;' % (lhs, rhs)
+    else:
+      # A node the step builds or names: a call, a partial application, a
+      # choice, a literal, or a string.  The Variable targets a cell of the
+      # frame that holds the node, with no path and no guard.  The decision
+      # rests on the kind of the expression, not on the rendered text: a
+      # pinned constructor (false_()), a literal of the tables (int_(2)), a
+      # literal node or a partial node of the module (CyL..., CyP...) are
+      # nodes as much as Node::create(...) is, and a Variable has no
+      # assignment from a Node * (issue #59).
       tmpname = 'tmp%s' % lhs
       yield 'Node * %s = %s;' % (tmpname, rhs)
       yield '%s.target = %s;' % (lhs, tmpname)
-    else:
-      yield '%s = %s;' % (lhs, rhs)
 
   def variableAccess(self, ivaraccess):
     '''

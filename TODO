@@ -295,15 +295,18 @@
   Free variables declared in Curry work.
 - show of a Float differs between the backends: "3.5" on the Python backend,
   "3.5000000000000000" on the C++ backend.
+  Fixed on 2026-10-05 (the bug batch, below).
 - Picking distinct items from a shrinking pool in a recursion (let d = anyOf
   pool in f (delete d pool) (d : acc)) emits its values and then aborts on the
   C++ backend and does not end on the Python backend; structural permutations
   (ndinsert) work.
+  Diagnosed on 2026-10-05 (the bug batch, below): a defect of the program.
 - Residuation-style arithmetic over free Int variables (the sendMoreMoney
   program of the test data) suspends on the C++ backend and times out on the
   Python backend.
 - inspect.getimpl raises ValueError on the C++ backend, and the per-function
   ICurry view prints only "exempt" for some functions (examples/03-inspect).
+  Fixed on 2026-10-05 (the bug batch, below).
 - A goal without a type signature can come back to Python unevaluated as a
   partial application when PAKCS gives it a class-constrained type.
 
@@ -2156,7 +2159,8 @@
   clause after a case expression whose alternatives share its indentation
   is not attached to the equation.  (7) Collector stress mode: example 22
   (seven set functions over 1245 types) does not finish in 300 s;
-  STRESS_EXCLUDED in unit_examples.py.
+  STRESS_EXCLUDED in unit_examples.py.  (1) and (3) fixed on 2026-10-05
+  (the bug batch, below).
 - Follow-ups for the series: user-defined conversions and the ranking of
   user-defined conversion sequences; templates in overload resolution
   (deduceCall is the hook) and the preference for a non-template; the
@@ -2601,3 +2605,171 @@
   follow.  The next bottleneck of the parallel build is the prebuild of the
   Curry library, which runs serially inside it: 41 of the 58.6 s of a
   parallel build without ccache.
+
+2026-10-05: the bug batch (issues #32, #34, #36, #38, #59, #61)
+- Set functions over a decided argument (#61).  `let t free in (t =:= (A ?
+  B)) &> [sortValues (set1 id t)]` gave [[A]] for both alternatives on both
+  backends.  Cause: the application of the set function sits below the
+  pull-tab of the constraint, so the alternatives share the node; the first
+  to reach it ran evalS once and wrote `Values (allValues (SetEval s q))`
+  into the shared graph.  The nested queue reads the fingerprint of the
+  enclosing configuration through the queue stack (read_fp and fork walk
+  qstack, rts_fingerprint.cpp), and choice_escapes (rts_setfunctions.cpp)
+  keeps a choice inside the capsule when an enclosing configuration has
+  made it, so the capsule pruned the generator of t to the side of the
+  first alternative and cached A in the shared allValues node, which the
+  second alternative read.  A choice the configuration decided before the
+  set function saw it had the same defect, in the argument (`let x = A ? B
+  in (x, sortValues (set1 id x))` gave (A, [A]) and (B, [A])) and in the
+  function position (set1 (constT x) 0).  Fix: evalS_step
+  (currylib/setfunctions.cpp) and evalS (backends/py/currylib/
+  setfunctions.py) walk the PartialS node before the rewrite
+  (holds_private_state, _holds_private_state): a free variable with a
+  binding, a narrowing, or a group, or a choice the configuration decided
+  (read_fp, through the queue stack), makes the step private, and the
+  replacement goes into a private copy of the spine from the root
+  (copy_spine and E_RESTART; rts.restart() on the Python backend), as
+  replace_freevar does for a binding; the shared node stays an application
+  for the other configurations, which make their own set and queue.  The
+  walk follows every pointer successor (calls, forward nodes, guards,
+  partial applications, data, the alternatives of an undecided choice),
+  does not enter the generator of a free variable (the variable is the
+  test: nothing below its generator is decided while it is not), and gives
+  up after 64 nodes with the conservative answer, private, which only loses
+  sharing.  When the outermost queue holds one configuration and no queue
+  encloses it, no other configuration reads the shared graph and a later
+  clone starts with the same state, so the step answers shared without a
+  walk: a deterministic program never pays the walk and never loses the
+  sharing of an application to the bound.  The second part of the issue,
+  `inner $## t` and `inner $!! t` on the Python backend (EvaluationSuspended
+  and a ValueError in the issue; a hang here): N (fairscheme.py) runs with
+  var.root = the redex when a step normalizes its argument ($!! and $##
+  through _applyspecial), but its T_FREE branches copied the spine from
+  rts.E along a path relative to var.root, which wrote the generator into
+  the wrong slot, and its non-root T_CHOICE branch pull-tabbed the start of
+  the walk instead of the choice at the cursor.  Fixed: the three copy_spine
+  calls take rts.C.realpath, as hnf does, and the pull-tab takes
+  state.cursor along state.realpath.  Tests: unit_setfunctions_bugs.py with
+  data/curry/SetFunctionsBugs.curry (TestBoundVariable: the example of the
+  issue, two set functions, the nested set function on the C++ backend,
+  $## and $!!, the decided choice in the argument and in the function
+  position, the walk behind a call, a forward node, a partial application
+  and a data structure, an 81-element argument beyond the bound with the
+  variable last, an 80-element one without a variable in a deterministic
+  program and under a decided choice).  PAKCS cannot check the goals here:
+  the pinned installation has no Control.SetFunctions (the setfunctions
+  package is not installed), and the goldens of func_setfunctions.py are
+  committed.  Relation to the dissertation (chapter 4, Figure 4.2, rule
+  SF.1): a choice in the escape set always pull-tabs out of the capsule,
+  and the two capsules it produces hold the alternatives themselves; no
+  rule reads the state of an enclosing configuration.  Sprite's Queue::split
+  leaves an undecided configuration in both queues without resolving the
+  choice, and compensates with the refusal in choice_escapes and the walk
+  of fork and read_fp through the queue stack; that refusal is where a
+  capsule stops being configuration-neutral while its values live in the
+  shared graph.  So the defect is an implementation deviation, not a flaw
+  in the mechanics, and the fix above is the runtime's own invariant (state
+  private to a configuration goes into a private spine, never into the
+  shared graph) applied one step earlier; it is exact at creation time
+  only.  Left, as test_narrowed_after_start (an expected failure on both
+  backends): a capsule that starts while the variable is unbound, is
+  consumed in part, and then resumes under alternatives that narrowed the
+  variable differently (`let vs = valuesOf (set2 pickOrCase A u) in (head
+  vs =:= A) &> ((u =:= (A ? B)) &> vs)` gives [A, A] twice; correct: [A, A]
+  and [A, B]).  The clean repair is at the escape: split resolves the
+  choice in the clones of the undecided configurations (LEFT in the kept
+  queue, RIGHT in the new one), choice_escapes escapes every choice of the
+  escape set that the nested configuration itself has not decided, and the
+  nested fork and read_fp no longer need the enclosing fingerprints for
+  those choices; the capsule becomes configuration-neutral and the
+  creation-time walk goes away.  It touches queue.cpp, rts_setfunctions.cpp,
+  rts_fingerprint.cpp, and allValues and filter_queue of the Python
+  backend, and needs the set-function corpus and QueensSet (a split for a
+  choice the outside decided produces a choice node the enclosing fork
+  prunes at once).  To decide first: a choice captured through the function
+  position (test_captured_argument of unit_cxx_scheduler.py, choiceCaptured
+  here) is in no escape set; today the nested fork prunes it by the
+  enclosing fingerprint, which gives (A, [A]) and (B, [B]) for
+  choiceCaptured, the call-time choice reading of the shared x.
+- Set functions whose values are sub-terms of the guarded argument (#32).
+  set1 anyOf [1,2,3], set1 tails [1,2,3] and set1 (\xs -> head xs ? last
+  xs) [1,2,3] asserted in procD or hnf on the C++ backend; the set guard at
+  the root (2026-10-04) fixed it.  No code change; TestSubtermValues of
+  unit_setfunctions_bugs.py pins the three forms on both backends.
+- The shrinking pool (#36).  assignN 2 [1,2,3] [] with `let d = anyOf pool
+  in ...` printed its six values, then aborted on the C++ backend
+  (std::bad_alloc under the cap) and ran on on the Python backend.  A
+  defect of the program: the rules `assignN 0 _ acc` and `assignN n pool
+  acc` overlap, the front end compiles them to a choice, and the second
+  rule at n = 0 recurses with n = -1, -2, ... without end, because nothing
+  forces anyOf [] on an empty pool.  PAKCS 3.4.1 prints the six values and
+  does not end either (60 s).  No runtime change; TestShrinkingPool pins
+  the six values and the end of the guarded program (`| n > 0`) and the
+  first six values of the program as written.  The issue should be closed
+  with that note.
+- show of a Float (#34).  The C++ backend printed 3.5 as 3.5000000000000000
+  (std::showpoint with 17 digits in graph/show.cpp) and the Python backend
+  used repr (1e+16, 1e-05, inf).  Both now follow PAKCS: the shortest
+  digits that read back; the point stays in the digits from 1.0e-4 up to
+  1.0e15 (or for a non-integral value), otherwise d.ddde<exp> with a signed
+  unpadded exponent; an integral value ends in .0; -0.0 keeps its sign;
+  Infinity, -Infinity and NaN (the spelling of KiCS2; PAKCS cannot make
+  them).  show_float in graph/show.cpp (std::to_chars) and in show.py (the
+  digits of repr); the unboxed branch of backends/py/currylib/prelude/
+  show.py uses it.  Tests: unit_show_float.py (37 values, nodes, the
+  Prelude's show, literals) on both backends; the REPL line of
+  unit_goals.py.  Left: the C++ repr of a negative Float is <Float -2.5>
+  where the Python backend's is <Float (-2.5)>; showsPrec 11 (-0.0) prints
+  (-0.0) in PAKCS and -0.0 here (x < 0 is False for -0.0); the front end
+  reads extreme literals inexactly (1.5e300, 5.0e-324,
+  123456789012345678.0), in PAKCS alike.
+- inspect.getimpl and geticurry (#38).  getimpl raised ValueError on the
+  C++ backend, because CurryNodeInfo.getimpl read the source of a Python
+  step.  Now the backend answers (IBackend.getimpl): the Python backend as
+  before, the C++ backend with the generated step function read from the
+  .cpp beside the shared object, or the disassembly of the bytecode under
+  the interpret flag (backends/cxx/implementation.py); a constructor, a
+  built-in, and a module without a product raise ValueError with the
+  reason.  geticurry of a function of a module loaded from its product
+  printed `exempt`, because the bill of materials (IModule.fromBOM) gives
+  every function an IExempt body; inspect.geticurry now reads the
+  ICurry-JSON file of the module once per module object and finds the
+  function there; the .icurry attribute stays the placeholder, which the
+  compiler and the type checker use.  Tests: testGetICurry, testGetImpl,
+  testGetImplInterpreted of unit_inspect.py.  Left: getimpl(module) on the
+  C++ backend emits a module whose .stepfuncs sections are empty
+  (pre-existing).
+- The C++ emitter (#59).  A cyrt::Variable assigned a bare literal or a
+  nullary constructor (`_2 = false_();`) did not compile:
+  vEmit_compileS_IVarAssign (backends/cxx/compiler.py) chose the cell form
+  by the rendered text (Node::create alone), and every other spelling fell
+  into `_N = <rhs>;`.  Since the pass-through change (T6) the lifted
+  default of the front end is a plain pointer, so the example of the issue
+  compiles at HEAD; the defect stayed reachable through hand-built ICurry.
+  Fixed by the kind of the expression: an IVarAccess takes the indexer, an
+  IVar copies the Variable, everything else takes the cell form; the output
+  of every module that compiled before is byte-identical (FORMAT_VERSION
+  stays 8).  Tests: unit_cxx_emit.py with CxxEmit.curry and the hand-built
+  module CxxEmitHand, written as ICurry-JSON.  Left: the Python backend
+  cannot scrutinize a Variable assigned a new node (vEmit_compileS_ICaseCons
+  calls .hnf on a raw Node), unreachable from the front end, an expected
+  failure there.
+- Review of the batch, applied: the decided-choice case of #61 (above); the
+  walk no longer enters generators and skips the deterministic case; tests
+  for the coverage of the walk; lines over 79 columns wrapped.  Not done:
+  the repair at the escape (the design above).  Seen on the way: the shared
+  objects a test pool caches under .curry link the Prelude.so of the
+  installation that compiled them, so a worktree built beside another
+  checkout can map two Preludes (unit_cxx_literals.test_literal_count,
+  unit_cxx_passthrough); ./run_tests --prepare in the worktree remakes
+  them.  Considered: a timer instead of the step count for the rotation.
+  Kept steps: the fairness of the scheme is defined in steps, a step count
+  keeps the schedule reproducible across machines (the interruption tests
+  of unit_cxx_scheduler.py scan 55 preamble lengths to hit the rotation
+  window), a deadline is checked at the same safepoint and costs the same
+  load and branch, and a queue of one configuration never rotates already;
+  an adaptive period in steps is the lever for deterministic
+  subcomputations.  A follow-up example: a toy build system in Curry
+  (pattern rules as functional patterns, set functions to collect the
+  rules that make a target, an inverse query with a free variable), with
+  Python owning the file system and the actions.

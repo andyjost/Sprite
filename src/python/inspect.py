@@ -304,18 +304,84 @@ def geticurryfile(moduleobj):
     return filename
 
 def geticurry(obj):
-  '''Gets the ICurry associated with a module or symbol.'''
+  '''
+  Gets the ICurry of a module, a type, or a symbol.
+
+  A module loaded from its compiled code carries a bill of materials: an
+  IModule whose functions have no body (``IModule.fromBOM``).  For such a
+  module, and for a function of it, the ICurry is read from the ICurry-JSON
+  file beside the module, and the function is found there by name.  The
+  file is read once per module object.  A module without the file gives
+  the bill of materials.
+  '''
+  if isinstance(obj, objects.CurryModule):
+    return _module_icurry(obj)
   icy = getattr(obj, '.icurry', None)
   icy = icy or getattr(obj, 'icurry', None)
+  if isinstance(obj, objects.CurryNodeInfo) and _is_placeholder(icy):
+    moduleobj = obj.module
+    if moduleobj is not None:
+      imodule = _module_icurry(moduleobj)
+      return imodule.functions.get(icy.name, icy)
   return icy
 
+def _is_placeholder(ifun):
+  '''Tells whether a function has the empty body of a bill of materials.'''
+  return isinstance(ifun, icurry.IFunction) and \
+      isinstance(getattr(ifun.body, 'block', None), icurry.IExempt)
+
+def _module_icurry(moduleobj):
+  '''
+  The ICurry of a module object.  A bill of materials is replaced by the
+  ICurry read from the ICurry-JSON file of the module, when there is one.
+  '''
+  icy = getattr(moduleobj, '.icurry')
+  if not isinstance(icy, icurry.IModule) or \
+      not any(_is_placeholder(f) for f in icy.functions.values()):
+    return icy
+  complete = getattr(moduleobj, '.icurry.complete', None)
+  if complete is None:
+    if getattr(moduleobj, '__file__', None) is None:
+      return icy
+    jsonfile = getjsonfile(moduleobj)
+    if jsonfile is None:
+      return icy
+    from . import toolchain
+    complete = toolchain.loadjson(jsonfile)
+    setattr(moduleobj, '.icurry.complete', complete)
+  return complete
+
 def getimpl(obj):
-  '''Gets the implementation of a module or symbol.'''
-  if hasattr(obj, 'getimpl'):
-    return obj.getimpl()
+  '''
+  Gets the implementation of a module or symbol as text.
+
+  For a module, the code the backend generates for it (see ``curry.save``).
+  For a function symbol, the code of its step function.  The Python backend
+  gives the generated Python function, or the Python source of a built-in.
+  The C++ backend gives the generated C++ function, read from the .cpp file
+  beside the compiled module, or the bytecode of an interpreted function
+  (flag ``interpret``) with its constants.
+
+  Raises:
+    ValueError:
+      No code is available: a constructor, a built-in of the C++ runtime, or
+      a function the backend made without a step.
+  '''
+  if isinstance(obj, objects.CurryNodeInfo):
+    interp = obj.interpreter
+    if interp is None:
+      raise ValueError(
+          'no implementation code available for %r' % obj.fullname
+        )
+    return interp.backend.getimpl(obj)
   elif isinstance(obj, objects.CurryModule):
     curry = __import__(__package__)
     return curry.save(obj, module_main=False)
+  elif hasattr(obj, 'getimpl'):
+    return obj.getimpl()
+  raise TypeError(
+      'cannot get the implementation of a %r object' % type(obj).__name__
+    )
 
 def getsymbol(moduleobj, symbolname):
   '''
