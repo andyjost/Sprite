@@ -59,8 +59,11 @@ def loadSymbols(interp, itype, moduleobj):
 def loadSymbols(interp, ifun, moduleobj):
   info = interp.backend.materialize(interp, ifun, moduleobj)
   cy_fobj = objects.CurryNodeInfo(info, icurry=ifun, interp=interp, module=moduleobj)
-  assert (cy_fobj.name == info.name == ifun.name) or \
-      moduleobj.__name__ == 'Prelude'
+  # The Prelude is not exempt: a primitive of the runtime that carried the
+  # name of its Curry wrapper took the wrapper's place here once (the dated
+  # TODO entry on the saturation of apply chains).
+  assert cy_fobj.name == info.name == ifun.name, \
+      (moduleobj.__name__, cy_fobj.name, info.name, ifun.name)
   getattr(moduleobj, '.symbols')[ifun.name] = cy_fobj
   if not ifun.is_private and encoding.isaCurryIdentifier(ifun.name):
     setattr(moduleobj, ifun.name, cy_fobj)

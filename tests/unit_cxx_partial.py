@@ -12,6 +12,7 @@ are in data/curry/CxxPartial.curry.
 '''
 import cytest # from ./lib; must be first
 from curry import common, config
+from curry.backends.cxx import compiler as cxx_compiler
 from curry.backends.generic.eval import evaluator
 from curry.objects.handle import getHandle
 import curry, os, shutil, subprocess, tempfile, unittest
@@ -303,7 +304,7 @@ print(cyrt.gc_collections() - before)
   def test_generated_code(self):
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']
     text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
-    self.assertIn('// FORMAT: 8', text)
+    self.assertIn('// FORMAT: %d' % cxx_compiler.FORMAT_VERSION, text)
     # One shared node per function value, made at load.
     self.assertEqual(
         text.count('= partial_node(&CyI10CxxPartial3inc, 1);'), 1

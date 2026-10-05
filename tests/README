@@ -130,9 +130,9 @@ modes, say, for example:
 
 The tests that read a generated .cpp or .so file, or expect the toolchain
 to compile, set the flag to 'off' for themselves (unit_cxx_toolchain.py,
-and single tests of unit_optimize.py, unit_api.py, unit_compile.py, and
-unit_prebuild.py); they fail under 'new' and 'all' by design (see the dated
-TODO entries).  unit_cxx_interp.py tests the interpreter.  The CI workflow
+and single tests of unit_optimize.py, unit_optimize_applies.py,
+unit_api.py, unit_compile.py, and unit_prebuild.py); they fail under 'new'
+and 'all' by design (see the dated TODO entries).  unit_cxx_interp.py tests the interpreter.  The CI workflow
 runs unit_cxx_interp.py and the functional suites under interpret:all on
 request (the input "interpreter" of .github/workflows/ci.yml; the job
 passes the flag to run-tests.sh through SPRITE_TEST_FLAGS).
@@ -160,11 +160,12 @@ evaluation and at a safepoint of a long one, a module that imports a fresh
 module, the tables and the shim across a reload, an edited module and an
 edited import after a reload, a module compiled from a string made again
 after a reset, the failure path in the process and under sprite-exec, and a
-fresh program under sprite-exec.  One expected failure records a gap of the
-interpreter in the mixed mode: an interpreted module that applies readFile
-of the compiled Prelude to a nondeterministic name raises ValueError
-instead of the nondeterminism error (a program interpreted whole, and
-compiled code, raise the error).
+fresh program under sprite-exec.  An interpreted module that applies
+readFile of the compiled Prelude to a nondeterministic name raises the
+nondeterminism error, as compiled code and a program interpreted whole do;
+it raised ValueError while the primitive prim_readFile carried the name of
+its wrapper and took its place in the symbol table (the dated TODO entry
+on the saturation of apply chains).
 
 A runtime built with make GC=mps (the Memory Pool System, an experiment
 behind a gate; see src/cyrt/graph/gc/mps.cpp and the dated TODO entry)
@@ -700,9 +701,11 @@ src/cyrt and the C++ backend select the unit_cxx files; the Python backend
 selects the unit_py files; the toolchain, curry/, and the ICurry reader
 select the compile, cache, toolchain, flat2icurry, curry2icurry, make, and
 prelude files, with unit_plan.py, unit_currylib.py and unit_prebuild.py,
-and unit_icurry.py respectively; expressions.py, the interpreter, and
-inspect select the expr, api, conversions, and evaluation files, with
-unit_loadsave.py and unit_inspect.py; a test file selects itself; a corpus
+and unit_icurry.py respectively; the ICurry analyses select
+unit_icurry.py and the optimizer files; expressions.py, the interpreter,
+and inspect select the expr, api, conversions, and evaluation files, with
+unit_loadsave.py and unit_inspect.py, and the optimizer selects the
+optimizer files besides; a test file selects itself; a corpus
 directory selects its functional test, data/curry/benchmarks selects
 unit_benchmarks.py and unit_cxx_variable.py, and data/curry/flat2icurry
 selects the files of the ICurry oracle; the benchmark harness, the runner,

@@ -65,10 +65,16 @@ RULES = [
   , ( 'curry/*', TOOLCHAIN + ['unit_currylib.py', 'unit_prebuild.py']
     , 'the Curry library'
     )
+  , ( 'src/python/icurry/analysis/*', ['unit_icurry.py', 'unit_optimize*.py']
+    , 'the ICurry analyses'
+    )
   , ('src/python/icurry/*', TOOLCHAIN + ['unit_icurry.py'], 'the ICurry reader')
   , ('src/python/expressions.py', API, 'the expression builder')
   , ( 'src/python/show.py', ['unit_show_float.py', 'unit_goals.py']
     , 'the show module'
+    )
+  , ( 'src/python/interpreter/optimize.py', API + ['unit_optimize*.py']
+    , 'the optimizer'
     )
   , ('src/python/interpreter/*', API + ['unit_loadsave.py'], 'the interpreter')
   , ('src/python/inspect/*', API + ['unit_inspect.py'], 'the inspection API')

@@ -12,8 +12,14 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # none, again from the JSON file (Json2Py.is_stale): the emitter has changed
 # what it writes since then.  A file without a stamp is format 1.  Raise the
 # number when the generated code changes.  Format 2: the optimizer replaces
-# calls of alias functions (interpreter.optimize.inline_aliases).
-FORMAT_VERSION = 2
+# calls of alias functions (interpreter.optimize.inline_aliases).  Format 5:
+# the optimizer collapses an apply chain on a known head into the call it
+# builds (interpreter.optimize.saturate_applies), a chain through Prelude.$
+# included, and records the unfolding of a nullary function in its metadata;
+# a file of format 2 is correct but slower, and it tells the modules that
+# import it no unfoldings.  Formats 3 and 4 were earlier forms of the same
+# pass in the working tree, never committed.
+FORMAT_VERSION = 5
 
 def compile(interp, iobj):
   compileM = PyCompiler(interp, iobj)

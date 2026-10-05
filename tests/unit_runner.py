@@ -726,7 +726,8 @@ FILES = sorted([
   , 'unit_cxx_heap.py', 'unit_cxx_passthrough.py', 'unit_cxx_toolchain.py'
   , 'unit_cxx_variable.py', 'unit_expr.py'
   , 'unit_flat2icurry.py', 'unit_icurry.py', 'unit_inspect.py'
-  , 'unit_loadsave.py', 'unit_plan.py', 'unit_prebuild.py'
+  , 'unit_loadsave.py', 'unit_optimize.py', 'unit_optimize_applies.py'
+  , 'unit_plan.py', 'unit_prebuild.py'
   , 'unit_py_conversions.py', 'unit_py_evaluation.py', 'unit_py_io.py'
   , 'unit_utility.py'
   ])
@@ -800,6 +801,15 @@ class TestSelection(unittest.TestCase):
     self.assertEqual(names, API_FILES)
     names, _, _ = self.selected(['src/python/interpreter/eval.py'])
     self.assertEqual(names, with_(API_FILES, 'unit_loadsave.py'))
+    names, _, _ = self.selected(['src/python/interpreter/optimize.py'])
+    self.assertEqual(
+        names, with_(API_FILES, 'unit_optimize.py', 'unit_optimize_applies.py')
+      )
+    names, _, _ = self.selected(['src/python/icurry/analysis/partials.py'])
+    self.assertEqual(
+        names
+      , ['unit_icurry.py', 'unit_optimize.py', 'unit_optimize_applies.py']
+      )
     names, _, _ = self.selected(['src/python/interpreter/loadsave.py'])
     self.assertIn('unit_loadsave.py', names)
     names, _, _ = self.selected(['src/python/inspect/__init__.py'])

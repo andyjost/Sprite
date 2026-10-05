@@ -28,8 +28,14 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # a file of format 6 builds a Variable for it, which is correct but slower.
 # Format 8: a partial application without arguments is a node of the module,
 # made once at load (partial_node, internPartialNode); a file of format 7
-# allocates one on every execution, which is correct but slower.
-FORMAT_VERSION = 8
+# allocates one on every execution, which is correct but slower.  Format 11:
+# the optimizer collapses an apply chain on a known head into the call it
+# builds (interpreter.optimize.saturate_applies), a chain through Prelude.$
+# included, and records the unfolding of a nullary function in its metadata;
+# a file of format 8 is correct but slower, and it tells the modules that
+# import it no unfoldings.  Formats 9 and 10 were earlier forms of the same
+# pass in the working tree, never committed.
+FORMAT_VERSION = 11
 
 def compile(interp, imodule):
   compileM = CxxCompiler(interp, imodule)

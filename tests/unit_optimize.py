@@ -14,6 +14,9 @@ ICurry object, which the passes change in place.  Values come from a module
 imported by name, whose generated code is cached beside its source.  No
 module is imported both ways: on the C++ backend a module imported from its
 ICurry object cannot be loaded from a shared object later.
+
+unit_optimize_applies.py tests the saturation of apply chains with the
+helpers of this file.
 '''
 import cytest # from ./lib; must be first
 from curry import common, config, icurry, toolchain

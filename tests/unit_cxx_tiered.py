@@ -462,7 +462,7 @@ class TestPolicy(TieredTestCase):
   @cytest.hardreset
   def test_nondet_io_argument_error(self):
     # An interpreted module that applies readFile of the compiled Prelude
-    # to a nondeterministic name must raise the nondeterminism error, as
+    # to a nondeterministic name raises the nondeterminism error, as
     # compiled code and a program interpreted whole (interpret:all) do.
     # It raised ValueError('bad Curry string') while the primitive behind
     # prim_readFile carried the display name "readFile" and shadowed the

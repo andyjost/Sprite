@@ -55,6 +55,11 @@ class IString(ISymbol):
   def __init__(self, value, **kwds):
     ISymbol.__init__(self, 'Prelude._PyString', **kwds)
     self.value = str(value)
+  # The JSON codec writes the fields and reads them back as keywords
+  # (icurry.json): the value alone, as for the other literals.
+  @property
+  def _fields_(self):
+    return 'value',
   @property
   def modulename(self):
     return 'Prelude'
