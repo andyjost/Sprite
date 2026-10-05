@@ -4033,3 +4033,75 @@
   (a probe: import Top from toolchain.loadcurry, then curry.eval of its
   main).  The tests import such a module for its shapes alone and take
   the values from a module imported by name.
+
+2026-10-05: example 24, a build system (the decisions of make as a relation)
+- examples/24-build-system, the opener of the talk narrative (the notes
+  of 2026-10-05) and the example of section 12.2 of the phase 3 plan.
+  Curry owns the decisions, Build.curry (about 150 lines): rulesFor is
+  one equation per rule, the pattern rule %.o: %.c as the functional
+  pattern stem ++ ".o", the library and the program by name, and the
+  explicit rules of the project through free variables and =:= over
+  anyOf; rulesOf collects the rules of a target with set2 and sortValues,
+  and the rest of the module reads the rules as plain data; inputs
+  follows the include table Python scanned through the headers with a
+  seen list; stale is a relation over a table of (file, stamp) pairs;
+  waves and layers are the topological order, a cycle fails the guard
+  and the plan has no value; ready is the one-line scheduler; affected
+  is the relation read backwards (t = anyOf (targets p) under the guard
+  reads p t f); ambiguous is the lint, a target with two rules.  An
+  explicit rule for a new name adds a target.  Python owns the world,
+  go.py: a four-source C project in a temporary directory, include
+  scanning by a regular expression, stamps as st_mtime_ns, a thread pool
+  that submits the ready set and asks Curry again after each completion
+  (Python keeps the running set and the outcome of each recipe), the
+  recipes through CC or cc and ar with a stand-in that writes placeholder
+  files when no compiler is on the PATH (the same stdout, a note on
+  stderr), --trace, --jobs, and --serve PORT with http.server and a JSON
+  endpoint.  The tested run: the full build, a build with nothing to do,
+  a touch of shape.h with the prediction of affected (the build rebuilds
+  exactly that set), a second rule for main.o (the lint stops the
+  build), and a rule that closes a cycle (the plan has no value).  The
+  docs page of the examples has its section; unit_examples.py runs it on
+  both backends.
+- Measured on this machine, under the 2 GB cap: warm ./run 0.42 to 0.46 s
+  on the C++ backend (three runs) and 8.3 s on the Python backend (two
+  runs); a first run from a copy without products, with the cache off,
+  1.2 s and 8.7 s; without a compiler on the PATH 0.35 s and 8.2 s.  The
+  Python backend answers a question in 0.1 to 0.7 s (the ready set on a
+  built tree 0.37 s, the plan 0.71 s, the stale check of one target
+  0.17 s; the C++ backend at most 0.03 s), and the run asks dozens of
+  them (the build loop asks for the ready set once per completion), which
+  is nearly all of its time.
+- Found while writing it: a name that a functional pattern produced
+  carries its narrowing into every later comparison.  A first version
+  with object as a functional pattern and the rules read from rulesFor
+  directly did not finish waves or plan within 120 s on either backend;
+  with a plain object and the rules still read from rulesFor, plan after
+  the touch took 10 s on the C++ backend for six targets; read through
+  the set function rulesOf, whose values are plain data, every question
+  takes at most 0.07 s on the C++ backend.  Whether the cost of a
+  narrowed name in a deep lazy context is an issue against the runtime
+  is open.
+- Review, applied: the table the build loop hands to Curry omits the
+  targets whose recipes run or failed (a compiler creates its output
+  before it finishes; a wrapper that created shape.o early made libgeom.a
+  ready and archived an empty object, and demo failed to link); stale
+  and reads carry a seen list, so a cycle through existing files ends in
+  the guard of layers instead of the stack limit (the first form hit the
+  4 MB stack limit on a built tree); the driver reads the plan
+  with next(values, None) and prints the failure; the lint gates
+  run_build; touch waits until the header is newer than every other file,
+  so the step does not depend on the clock of the file system; the
+  README has the five sections of the series and no date; the explicit
+  rules add targets.
+- Waits for #61: the toolchain choice, toolchain = "gcc" ? "clang" with
+  set functions over the targets, is the shape of the defect (a set
+  function that starts while a variable is unbound and resumes under
+  alternatives that narrowed it differently).  The fix of the bug batch
+  covers a choice decided before the set function starts; the repair at
+  the escape of the capsule is designed and not done.  When it lands, the
+  example adds the choice and lets the lint report a project whose
+  targets disagree on the toolchain.  Also open: a static cycle check
+  (layers over every target, as make reports a cycle before it looks at
+  a stamp) and a real project (the sources of a directory, the rules
+  from a file, the includes from the compiler's dependency output).

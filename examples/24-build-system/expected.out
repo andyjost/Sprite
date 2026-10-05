@@ -1,0 +1,72 @@
+% python go.py
+sources: vec.c shape.c report.c main.c
+headers: vec.h shape.h
+includes: main.c -> shape.h; report.c -> vec.h; shape.c -> shape.h; shape.h -> vec.h; vec.c -> vec.h
+targets: vec.o shape.o report.o main.o libgeom.a demo
+
+1. full build
+plan: 6 targets
+  vec.o     <- vec.c vec.h                cc -c -o vec.o vec.c
+  shape.o   <- shape.c shape.h vec.h      cc -c -o shape.o shape.c
+  report.o  <- report.c vec.h             cc -c -o report.o report.c
+  main.o    <- main.c shape.h vec.h       cc -c -o main.o main.c
+  libgeom.a <- vec.o shape.o              ar rcs libgeom.a vec.o shape.o
+  demo      <- main.o report.o libgeom.a  cc -o demo main.o report.o libgeom.a
+waves: [vec.o shape.o report.o main.o] [libgeom.a] [demo]
+built: demo libgeom.a main.o report.o shape.o vec.o
+status:
+  vec.o      built
+  shape.o    built
+  report.o   built
+  main.o     built
+  libgeom.a  built
+  demo       built
+
+2. build again
+plan: nothing to do
+status:
+  vec.o      up to date
+  shape.o    up to date
+  report.o   up to date
+  main.o     up to date
+  libgeom.a  up to date
+  demo       up to date
+
+3. touch shape.h
+affected: demo libgeom.a main.o shape.o
+plan: 4 targets
+  shape.o   <- shape.c shape.h vec.h      cc -c -o shape.o shape.c
+  main.o    <- main.c shape.h vec.h       cc -c -o main.o main.c
+  libgeom.a <- vec.o shape.o              ar rcs libgeom.a vec.o shape.o
+  demo      <- main.o report.o libgeom.a  cc -o demo main.o report.o libgeom.a
+waves: [shape.o main.o] [libgeom.a] [demo]
+built: demo libgeom.a main.o shape.o
+status:
+  vec.o      up to date
+  shape.o    built
+  report.o   up to date
+  main.o     built
+  libgeom.a  built
+  demo       built
+rebuilt the affected set: yes
+
+4. a second rule for main.o
+explicit:
+  main.o <- main.c  cc -c -O2 -o main.o main.c
+ambiguous: main.o has 2 rules
+  main.o <- main.c  cc -c -O2 -o main.o main.c
+  main.o <- main.c  cc -c -o main.o main.c
+refused: the build does not start
+
+5. a rule that closes a cycle
+explicit:
+  shape.h <- demo  ./demo --emit-header shape.h
+plan: no value (the rules have a cycle)
+status:
+  vec.o      up to date
+  shape.o    stale
+  report.o   up to date
+  main.o     stale
+  libgeom.a  stale
+  demo       stale
+  shape.h    stale
