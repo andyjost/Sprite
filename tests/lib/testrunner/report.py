@@ -79,7 +79,11 @@ COLUMNS = '%-28s %-4s %6s %8s %9s %8s  %s'
 HEADINGS = ('file', 'backend', 'tests', 'failures', 'duration', 'peak_mb', 'status')
 
 def summary(jobs, wall=None, interrupted=False):
-  '''The summary table and its last line, as text.'''
+  '''
+  The summary table and its last line, as text.  The counts of the last
+  line are of the test files; the advisory jobs (the prepare pass) add a
+  clause of their own when one of them did not end well.
+  '''
   lines = [COLUMNS % HEADINGS, COLUMNS % tuple('-' * len(h) for h in HEADINGS)]
   for job in jobs:
     lines.append(COLUMNS % (
@@ -89,6 +93,8 @@ def summary(jobs, wall=None, interrupted=False):
       , '-' if job.duration is None else '%.1f s' % job.duration
       , mb(job.peak), job.status
       ))
+  advisory = [job for job in jobs if job.advisory]
+  jobs = [job for job in jobs if not job.advisory]
   finished = [job for job in jobs if job.finished]
   failed = [job for job in finished if job.status == 'FAILED']
   killed = [job for job in finished if job.status.startswith('killed')]
@@ -105,6 +111,11 @@ def summary(jobs, wall=None, interrupted=False):
     parts.append('%d crashed' % len(other))
   if pending:
     parts.append('%d not run' % len(pending))
+  incomplete = [job for job in advisory if job.finished and not job.ok]
+  if incomplete:
+    parts.append(
+        'prepare: %d of %d incomplete' % (len(incomplete), len(advisory))
+      )
   if wall is not None:
     parts.append('wall %.1f s' % wall)
   if interrupted:

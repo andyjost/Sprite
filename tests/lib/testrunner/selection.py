@@ -3,17 +3,20 @@ Which files run.
 
 Patterns select by file name, as the drivers always did (shell-style, through
 fnmatch).  --fast keeps the files whose manifest duration is below a
-threshold, with the files that have no entry.  --changed maps the paths that
+threshold, with the files that have no entry, minus the files that compile
+a corpus of their own (compiles_corpus).  --changed maps the paths that
 changed since a revision to test files through RULES.  The selection always
 prints why a file is in it when the user asked for --changed or --list.
 '''
 
 import fnmatch, os, subprocess
 from . import TESTDIR, ROOTDIR
+from . import prepare
 
 __all__ = [
-    'EXCLUSIVE', 'IGNORED', 'RULES', 'Selected', 'changed_paths', 'fast_tier'
-  , 'match_patterns', 'select_changed', 'test_files'
+    'EXCLUSIVE', 'IGNORED', 'RULES', 'Selected', 'changed_paths'
+  , 'compiles_corpus', 'fast_tier', 'match_patterns', 'select_changed'
+  , 'test_files'
   ]
 
 # Files that must run alone: nothing else runs while one of them runs.
@@ -30,7 +33,7 @@ EXCLUSIVE = {
 # selects the changed test file itself.
 ALL = '*'
 TOOLCHAIN = [
-    'unit_compile.py', 'unit_cache.py', '*toolchain*.py', '*flat2icurry*.py'
+    'unit_compile*.py', 'unit_cache.py', '*toolchain*.py', '*flat2icurry*.py'
   , '*curry2icurry*.py', 'unit_make.py', 'unit_prelude.py'
   ]
 API = ['unit_expr.py', 'unit_api.py', '*conversions*.py', '*evaluation*.py']
@@ -51,7 +54,7 @@ RULES = [
     , ['*flat2icurry*.py', '*curry2icurry*.py']
     , 'the probe modules of the ICurry oracle'
     )
-  , ('tests/data/curry/*/*', ['func_{dir}.py'], 'the corpus of a functional test')
+  , ('tests/data/curry/*/*', ['func_{dir}*.py'], 'the corpus of a functional test')
   , ('src/cyrt/*', ['unit_cxx_*.py'], 'the C++ runtime')
   , ('src/python/backends/cxx/*', ['unit_cxx_*.py'], 'the C++ backend')
   , ('src/python/backends/py/*', ['unit_py_*.py'], 'the Python backend')
@@ -102,14 +105,28 @@ def match_patterns(files, patterns):
            if any(fnmatch.fnmatchcase(name, pat) for pat in patterns)
     ]
 
+def compiles_corpus(name):
+  '''
+  True for a file that compiles a corpus of Curry modules of its own on a
+  cold tree: every functional test, and the files that CORPUS in prepare.py
+  names.  The manifest measures warm trees, so the duration of such a file
+  does not predict a cold run: the math corpus (218 programs in three
+  files) takes about 90 s on the C++ backend after a rebuild, where the
+  entries of its files total 3 s.  The fast tier leaves these files out.
+  '''
+  return name.startswith('func_') or name in prepare.corpus_owners()
+
 def fast_tier(files, backends, manifest, threshold):
   '''
   The files whose manifest duration is below ``threshold`` seconds on every
-  backend of the run.  A backend without an entry counts as fast: the file
+  backend of the run, minus the files that compile a corpus of their own
+  (compiles_corpus).  A backend without an entry counts as fast: the file
   may be new.
   '''
   fast = []
   for name in files:
+    if compiles_corpus(name):
+      continue
     durations = [manifest.duration(name, backend) for backend in backends]
     if all(d is None or d < threshold for d in durations):
       fast.append(name)

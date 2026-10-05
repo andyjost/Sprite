@@ -23,17 +23,26 @@ other wrappers, so the count covers the command tree only.  perf costs a few
 milliseconds of CPU time per run, so a run under perf has wall and CPU
 seconds that are not comparable with a run without it; the harness counts
 the instructions in one more repetition after the measured ones and keeps
-the measured seconds free of perf.  perf stat exits with status 0 when the
-command died of a signal; it prints "COMMAND: Killed" (the description of
-strsignal) as its last line, which the harness reads back into the status.
+the measured seconds free of perf.
+
+perf stat exits with status 0 when its command died of a signal, and says
+so in text only.  So a shell runs between perf and the command
+(PERF_SHIM): it waits for the command and exits with its status, which is
+128 plus the signal number after a signal death, as every shell reports
+it.  perf returns that status, and the harness maps a status above 128
+back to the negative number that wait reports (perf_status).  Nothing is
+read from the text perf prints.  The shell costs about 0.2 million
+instructions, which the count includes; python -c pass retires about 600
+million.
 '''
 
 import json, os, re, shutil, signal, subprocess, sys, tempfile, time
 
 __all__ = [
-    'PERF_EVENT', 'Run', 'TIMEOUT_STATUS', 'gnu_time', 'instructions_source'
-  , 'parse_json', 'parse_pakcs', 'parse_perf', 'parse_stats', 'parse_time'
-  , 'perf', 'rss_source', 'run_command'
+    'PERF_EVENT', 'PERF_SHIM', 'Run', 'TIMEOUT_STATUS', 'gnu_time'
+  , 'instructions_source', 'parse_json', 'parse_pakcs', 'parse_perf'
+  , 'parse_stats', 'parse_time', 'perf', 'perf_status', 'rss_source'
+  , 'run_command'
   ]
 
 # The exit status of the timeout command when the child ran out of time.
@@ -44,6 +53,11 @@ RSS_UNIT = 1 if sys.platform == 'darwin' else 1024
 
 # The event that perf counts: instructions retired in user space.
 PERF_EVENT = 'instructions:u'
+
+# The shell between perf and the command: it runs the command, waits, and
+# exits with its status.  Two commands, so that no shell replaces itself
+# with the command (then perf would see the signal again, and hide it).
+PERF_SHIM = ['sh', '-c', '"$@"; exit $?', 'sh']
 
 # The first seven fields of sprite-exec --stats.  The collector seconds
 # (gc_seconds) and, on a runtime built with the scheduler counters, more
@@ -199,6 +213,7 @@ def run_command(cmd, env=None, cwd=None, timeout=600, cap=None, perf=None):
     handle, perffile = tempfile.mkstemp(prefix='perf-', suffix='.txt')
     os.close(handle)
     wrapper += [perf, 'stat', '-e', PERF_EVENT, '-x,', '-o', perffile, '--']
+    wrapper += PERF_SHIM
   command = list(cmd)
   cmd = wrapper + command
   try:
@@ -218,8 +233,8 @@ def run_command(cmd, env=None, cwd=None, timeout=600, cap=None, perf=None):
       out.seek(0)
       err.seek(0)
       stderr = err.read().decode('utf-8', 'replace')
-      if perf and returncode == 0:
-        returncode = _perf_signal(command[0], stderr) or 0
+      if perf:
+        returncode = perf_status(returncode)
       return Run(
           cmd, wall, usage, returncode
         , out.read().decode('utf-8', 'replace'), stderr
@@ -258,24 +273,19 @@ def _read_perf(perffile):
     return None
 
 
-def _perf_signal(argv0, stderr):
+def perf_status(returncode):
   '''
-  The signal that killed the command under perf, as the negative number
-  that wait reports, or None.  perf prints "ARGV0: DESCRIPTION" as its last
-  line, with the description of strsignal.
+  The status of a command run under perf, from the status of the chain.
+  The shell of PERF_SHIM reports a signal death as 128 plus the signal
+  number; that reads back as the negative number wait reports.  A command
+  that exits with such a status by itself reads the same, as in every
+  shell.  A status above 128 that names no signal of this machine (255,
+  say) stays as it is.  The status of the timeout command (TIMEOUT_STATUS)
+  is below 128.
   '''
-  lines = [line.strip() for line in stderr.splitlines() if line.strip()]
-  prefix = argv0 + ': '
-  if not lines or not lines[-1].startswith(prefix):
-    return None
-  description = lines[-1][len(prefix):]
-  for signum in sorted(signal.valid_signals()):
-    try:
-      if signal.strsignal(signum) == description:
-        return -int(signum)
-    except ValueError:
-      pass
-  return None
+  if 128 < returncode < 256 and returncode - 128 in signal.valid_signals():
+    return 128 - returncode
+  return returncode
 
 
 def _kill_session(pid):

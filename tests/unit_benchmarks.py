@@ -15,7 +15,7 @@ from benchmarks import SUITES
 from benchmarks import compare, counters, history, measure, records, run
 from benchmarks import split, suites
 from curry import config
-import contextlib, curry, io, json, os, shutil, socket, sys, tempfile
+import contextlib, curry, io, json, os, shutil, signal, socket, sys, tempfile
 import unittest
 
 BACKEND = curry.flags['backend']
@@ -246,9 +246,25 @@ class TestMeasure(unittest.TestCase):
   def test_run_under_perf(self):
     '''
     A run under perf counts the instructions of the command and its
-    descendants, keeps the exit status, and reads a signal back from the
-    line that perf prints.
+    descendants and keeps the exit status, also after a signal death, which
+    perf alone reports as text: the shell between perf and the command
+    turns it into a status.
     '''
+    # The status read-back needs no perf.
+    self.assertEqual(measure.perf_status(0), 0)
+    self.assertEqual(measure.perf_status(3), 3)
+    self.assertEqual(measure.perf_status(128), 128)
+    self.assertEqual(measure.perf_status(137), -9)
+    self.assertEqual(measure.perf_status(130), -2)
+    self.assertEqual(measure.perf_status(measure.TIMEOUT_STATUS), 124)
+    # Only a status that names a signal of this machine reads as one: 255
+    # (a C program that returns -1) stays 255.
+    self.assertEqual(measure.perf_status(129), -1)
+    top = max(signal.valid_signals())
+    self.assertEqual(measure.perf_status(128 + top), -top)
+    self.assertEqual(measure.perf_status(129 + top), 129 + top)
+    self.assertEqual(measure.perf_status(255), 255)
+    self.assertEqual(measure.PERF_SHIM[:2], ['sh', '-c'])
     perf = measure.perf()
     if perf is None:
       self.skipTest(measure.instructions_source())
@@ -261,14 +277,16 @@ class TestMeasure(unittest.TestCase):
     self.assertTrue(one.perf)
     self.assertGreater(one.instructions, 10 ** 6)
     self.assertEqual(perffiles(), before)
-    # perf wraps the command itself, inside the cap.
+    # perf wraps the shell and the command, inside the cap.
     at = one.cmd.index(perf)
     self.assertGreater(at, one.cmd.index('prlimit'))
     self.assertEqual(
         one.cmd[at + 1:at + 5], ['stat', '-e', 'instructions:u', '-x,']
       )
     self.assertEqual(one.cmd[at + 5], '-o')
-    self.assertEqual(one.cmd[at + 7:], ['--', PYTHON, '-c', 'pass'])
+    self.assertEqual(
+        one.cmd[at + 7:], ['--'] + measure.PERF_SHIM + [PYTHON, '-c', 'pass']
+      )
     # A grandchild is counted.
     code = 'import subprocess, sys; ' \
            'subprocess.run([sys.executable, "-c", "pass"])'
@@ -280,22 +298,27 @@ class TestMeasure(unittest.TestCase):
     self.assertEqual(run.status, 'fail')
     self.assertEqual(run.returncode, 3)
     self.assertIsNotNone(run.instructions)
-    # perf exits with 0 when the command died of a signal; the harness
-    # reads the signal from the last line of stderr.
+    # A signal death: perf exits with 0 after one; the shell exits with 128
+    # plus the signal, and the harness reads it back.  The command is a
+    # shell that kills itself, so the killed process is the command, not
+    # the shell of the harness.
     run = measure.run_command(
         ['sh', '-c', 'kill -9 $$'], timeout=TIMEOUT, cap=CAP, perf=perf
       )
     self.assertEqual(run.status, 'fail')
     self.assertEqual(run.returncode, -9)
     self.assertTrue(run.error.startswith('killed by signal 9'), run.error)
-    self.assertIsNone(measure._perf_signal('sh', 'sh: no such signal\n'))
-    self.assertIsNone(measure._perf_signal('sh', ''))
-    self.assertEqual(measure._perf_signal('a b', 'x\na b: Killed\n'), -9)
+    # A command that exits above 128 by itself reads as a signal, as in
+    # every shell.
+    run = self.run_python('import sys; sys.exit(130)', perf=perf)
+    self.assertEqual(run.returncode, -2)
+    run = self.run_python('import sys; sys.exit(255)', perf=perf)
+    self.assertEqual(run.status, 'fail')
+    self.assertEqual(run.returncode, 255)
     # A timeout is a timeout under perf as well.
     run = self.run_python('import time; time.sleep(60)', timeout=1, perf=perf)
     self.assertEqual(run.status, 'timeout')
     self.assertEqual(perffiles(), before)
-
 
 class TestRecords(unittest.TestCase):
   '''The record format.'''

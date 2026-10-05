@@ -80,7 +80,10 @@ def build_parser(jobs=DEFAULT_JOBS):
       '--fast', nargs='?', const=DEFAULT_FAST_SECONDS, type=float
     , default=None, metavar='S'
     , help='only the files below S seconds in the manifest, and the files '
-           'without an entry [S defaults to %g]' % DEFAULT_FAST_SECONDS
+           'without an entry; the functional tests and the other files '
+           'that compile a corpus of their own stay out, because the '
+           'manifest measures a warm tree [S defaults to %g]'
+           % DEFAULT_FAST_SECONDS
     )
   parser.add_argument(
       '--changed', nargs='?', const='HEAD', default=None, metavar='REV'
@@ -228,7 +231,9 @@ def select(args, backends, manifest, files=None):
       ))
     selected = [item for item in selected if item.filename in fast]
     for item in selected:
-      item.reasons.append('fast tier (below %g s, or no entry)' % args.fast)
+      item.reasons.append(
+          'fast tier (below %g s or no entry; compiles no corpus)' % args.fast
+        )
   return selected, notes
 
 def budget_of(args, width):
@@ -255,10 +260,13 @@ def listing(jobs, manifest):
   return '\n'.join(lines)
 
 def exit_status(jobs, interrupted=False):
-  '''130 after an interrupt, 1 when a job did not pass, else 0.'''
+  '''
+  130 after an interrupt, 1 when a job did not pass, else 0.  An advisory
+  job (the prepare pass) does not count.
+  '''
   if interrupted:
     return 130
-  return 0 if all(job.ok for job in jobs) else 1
+  return 0 if all(job.ok for job in jobs if not job.advisory) else 1
 
 def main(argv=None):
   args = parse_args(sys.argv[1:] if argv is None else argv)
@@ -308,9 +316,12 @@ def main(argv=None):
   prepare_jobs = []
   if args.prepare:
     base = dict(os.environ)
+    subdir = prepare.product_subdir(
+        sprite_home, environment(sprite_home, backends[0], base=base)
+      )
     prepare_jobs = prepare.jobs(
         names, backends, sprite_home, base, args.logdir, cap=PREPARE_CAP
-      , timeout=None, prefix=backstop_prefix(PREPARE_CAP)
+      , timeout=None, prefix=backstop_prefix(PREPARE_CAP), subdir=subdir
       )
     for job in prepare_jobs:
       count = len(job.argv) - job.argv.index(prepare.TARGET[job.backend]) - 1
@@ -338,7 +349,9 @@ def main(argv=None):
     out.write(report.format_status(job, next(counter), total) + '\n')
     if args.verbose and not echo:
       out.write(report.tail(job.logfile, 10 ** 6) + '\n')
-    elif not job.ok and not echo:
+    elif not job.ok and not job.advisory and not echo:
+      # An advisory job names what is missing on its line; its log is
+      # named there too.
       out.write(report.tail(job.logfile) + '\n')
     out.flush()
   interrupted = False
@@ -348,6 +361,8 @@ def main(argv=None):
     pre.run()
     interrupted = pre.interrupted
     wall += pre.wall
+    out.write(prepare.summary(prepare_jobs) + '\n')
+    out.flush()
   if not interrupted:
     sched = Scheduler(
         jobs, budget, width, on_finish=on_finish, echo=echo
@@ -373,4 +388,4 @@ def main(argv=None):
   out.flush()
   # A directory of the prepare pass that did not compile whole is a note in
   # the table, not a failure: the test that needs the module reports it.
-  return exit_status(done, interrupted)
+  return exit_status(prepare_jobs + done, interrupted)

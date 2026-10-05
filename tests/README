@@ -210,6 +210,16 @@ Functional tests match the pattern func_*.py:
 		list-reversal program, it is reasonable to reverse a handful of elements,
 		not millions.  These tests are not stress tests and do not need to
 		explore the limits of the implementation.
+  - A heavy corpus runs in several files.  FILE_PATTERN of the driver takes
+    one glob or a list of globs, and a source that two globs match is
+    listed once.  func_eqconstr.py (the 128 hand-written programs) shares
+    data/curry/eqconstr with five files of generated programs, by data
+    type (func_eqconstr_a0.py, three parts of a0b0c0, func_eqconstr_a2b1c0.py);
+    func_math.py (compare and sort) shares data/curry/math with
+    func_math_int.py and func_math_float.py.  unit_func_parts.py checks
+    that the parts of a corpus are disjoint and cover it once, one test per
+    source.  The runner knows the parts: CORPUS in lib/testrunner/prepare.py
+    lists them, and --changed selects func_<dir>*.py for a corpus directory.
   - A goal without a type signature keeps its class constraints as leading
     dictionary parameters.  The driver (lib/cytest/testcase/functional.py)
     reads the number of value parameters from the type scheme of the goal
@@ -497,11 +507,19 @@ runner reads two things from it.  The duration orders the files, longest
 first, and selects the fast tier; a file without a duration is assumed to
 take the median of the measured ones, so a measured heavy file starts
 before it.  The peak sets the cap of the file: twice the peak, at least
-512 MB.  A file without a peak gets 2 GB.  --update-manifest writes the
-values of the run: the latest duration and counts of a file that ended by
-itself with a unittest verdict, and the largest peak seen in any run.  The
-committed seed is sparse.  It holds the durations known from the logs and
-no peaks.
+1 GB.  The floor covers the part of the toolchain that runs inside the
+test process on a cold tree (the translation of FlatCurry, the JSON
+writer, the code generators), which a warm measurement never saw.  The
+floor costs width where the budget binds, because the budget sums the
+caps: a budget of 3.6 GB (60 percent of 6 GB available) admits three files
+at the floor, where caps of twice a 200 MB peak would admit nine.  On the
+calibration machine (12 cores, 23 GB) the core count binds first.  A file
+without a peak gets 2 GB.  --update-manifest writes the values of the run:
+the latest duration and counts of a file that ended by itself with a
+unittest verdict, and the largest peak seen in any run.  The durations
+and the peaks of the committed manifest are warm-tree numbers: the
+products of every module were current when they were measured, except
+the peaks that a cold calibration raised.
 
 The budget.  A watchdog thread polls every half second.  It walks /proc
 once, matches the session id of each running file in /proc/<pid>/stat,
@@ -513,8 +531,20 @@ do).  The processes of one poll are the roots of the next, so a process
 whose parent ended stays with its file.  The sum counts a page that two
 processes share once per process, so a peak is an upper bound; the caps
 come from peaks measured the same way.  A session over the cap of its file
-is killed with SIGKILL, and the file is reported as "killed: memory".  A
-file past --timeout (1800 s by default) is reported as "killed: timeout".
+is killed with SIGKILL, and the file is reported as "killed: memory".
+While a process of the Curry toolchain runs in the session (the front end,
+icurry or PAKCS on swipl, the C++ compiler and the linker: TOOLS in
+lib/testrunner/procs.py), the cap is at least 2 GB (TOOL_CAP).  icurry on
+swipl alone takes about 1 GB: unit_curry2icurry.py peaks at 131 MB when
+the ICurry cache holds its modules and at 1042 MB when it does not, and
+whether a tool runs depends on the state of the tree, not on the test.
+The line of the file notes the allowance ("over cap 1024 MB while swipl
+ran"), and the manifest records the peak, so the cap of the next run
+covers it.  The budget counts the caps of the manifest, not the
+allowance: on a cold tree many files compile at once, and the memory the
+budget leaves free (40 percent of MemAvailable, by default) absorbs their
+compilers.  A file past --timeout (1800 s by default) is reported as
+"killed: timeout".
 A kill reaches every process of the file, also the children that the
 timeout command moved to another process group.  The next file starts
 when the caps of the running files plus its own stay within --mem (60
@@ -532,24 +562,34 @@ files that did not run, and the status is 130.
 
 Selection.  --fast keeps the files whose manifest duration is below S
 seconds (5 by default) on every backend of the run; a backend without an
-entry counts as fast.  --changed REV maps the paths that differ from REV
-(HEAD by default, with the untracked files) to test files through RULES
-in lib/testrunner/selection.py: src/cyrt and the C++ backend select the
-unit_cxx files; the Python backend selects the unit_py files; the
-toolchain, curry/, and the ICurry reader select the compile, cache,
-toolchain, flat2icurry, curry2icurry, make, and prelude files, with
-unit_plan.py, unit_currylib.py and unit_prebuild.py, and unit_icurry.py
-respectively; expressions.py, the interpreter, and inspect select the
-expr, api, conversions, and evaluation files, with unit_loadsave.py and
-unit_inspect.py; a test file selects itself; a corpus directory selects
-its functional test, data/curry/benchmarks selects unit_benchmarks.py and
-unit_cxx_variable.py, and data/curry/flat2icurry selects the files of the
-ICurry oracle; the benchmark harness, the runner, and the setup script
-select their own tests; tests/lib selects everything; documentation
-selects nothing; an unknown path, and a rule whose test files do not
-exist, select everything.  The runner prints the mapping.  --list shows
-the selection with the manifest numbers, the caps, and the reasons, and
-exits.
+entry counts as fast.  The functional tests and the other files that
+compile a corpus of their own never enter the fast tier: the files that
+CORPUS in lib/testrunner/prepare.py names, today unit_benchmarks.py and
+unit_cxx_variable.py (selection.compiles_corpus).  The manifest measures a
+warm tree.  On a cold tree, after a fresh checkout or a rebuild of the
+runtime, such a file first compiles its corpus: the math corpus (218
+programs, in func_math.py, func_math_int.py and func_math_float.py since
+the split) takes about 90 s on the C++ backend where the entries of its
+three files total 3 s.  A unit file compiles at most a
+few modules of the shared pool; --prepare warms the pool first.  To run
+the functional tests, name them: run_tests 'func_*.py'.  --changed REV
+maps the paths that differ from REV (HEAD by default, with the untracked
+files) to test files through RULES in lib/testrunner/selection.py:
+src/cyrt and the C++ backend select the unit_cxx files; the Python backend
+selects the unit_py files; the toolchain, curry/, and the ICurry reader
+select the compile, cache, toolchain, flat2icurry, curry2icurry, make, and
+prelude files, with unit_plan.py, unit_currylib.py and unit_prebuild.py,
+and unit_icurry.py respectively; expressions.py, the interpreter, and
+inspect select the expr, api, conversions, and evaluation files, with
+unit_loadsave.py and unit_inspect.py; a test file selects itself; a corpus
+directory selects its functional test, data/curry/benchmarks selects
+unit_benchmarks.py and unit_cxx_variable.py, and data/curry/flat2icurry
+selects the files of the ICurry oracle; the benchmark harness, the runner,
+and the setup script select their own tests; tests/lib selects everything;
+documentation selects nothing; an unknown path, and a rule whose test
+files do not exist, select everything.  The runner prints the mapping.
+--list shows the selection with the manifest numbers, the caps, and the
+reasons, and exits.
 
 The prepare pass.  A product under a .curry directory is written in
 place by the front end (.fcy, .fint), the ICurry writer (.icy), the JSON
@@ -562,11 +602,22 @@ and the corpus of each selected functional test, one directory and one
 process at a time, for each backend of the run, before any file starts.
 After it the parallel files only read the products.  Use it on a fresh
 checkout, after a change to a source under data/curry, after a change to
-a code generator, and after make stage installed new runtime headers.  A
-module that fails to compile is a note in the log of the pass
-(.cache/runner/<backend>/prepare-<directory>.log), not a failure.  The
-examples under examples/ are not covered; unit_examples.py alone compiles
-them.
+a code generator, and after make stage installed new runtime headers.
+The pass is advisory.  sprite-make runs with -k, so a module that fails
+to compile does not stop the others.  The job of its directory ends
+"incomplete", not "FAILED": its line names the modules that have no
+product after the pass (the .py or the .so under the product directory,
+which sprite-make -S names; on the C++ backend under the interpreter flag
+interpret set to new or all, the JSON, where sprite-make --so ends because
+the runtime interprets the module) and its log
+(.cache/runner/<backend>/prepare-<directory>.log); one line after the
+pass sums it up ("prepare: 37 modules in 1 directory on cxx, every
+product present"); and the last line of the summary table adds
+"prepare: N of M incomplete".  The exit status of the run does not
+depend on the pass: the test that needs the module reports the failure
+in its own terms.  A failed compile that leaves an old product in place
+is not seen by the pass; that test reports it too.  The examples under
+examples/ are not covered; unit_examples.py alone compiles them.
 
 Calibration of a new machine.  On a quiet machine, run every file once
 per backend with --update-manifest at width 1:

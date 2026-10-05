@@ -14,6 +14,17 @@ and the children the tests start, even the ones that the ``timeout`` command
 moved to another process group, and the ones that started a session of
 their own (see procs.scan_sessions and procs.kill_session).
 
+The scan names the processes of a session.  While one of the Curry
+toolchain (procs.TOOLS: the front end, icurry or PAKCS on swipl, the C++
+compiler) runs in it, the cap of the job is at least ``tool_cap``
+(TOOL_CAP): those tools take up to a gigabyte on their own, and whether
+they run depends on the state of the tree, not on the test.  The job keeps
+the names of the tools it ran in ``tools``.
+
+An advisory job (the prepare pass) that ends with a nonzero status is
+``incomplete``, not ``FAILED``: it does not decide the exit status of the
+run (see cli.exit_status and report.summary).
+
 While the scheduler runs in the main thread, SIGINT, SIGTERM, and SIGHUP
 only set a flag, and the run loop raises KeyboardInterrupt at its next
 turn.  So an interrupt never lands inside the start of a job, where a
@@ -22,7 +33,7 @@ nothing.
 '''
 
 import os, signal, subprocess, sys, threading, time
-from . import POLL_SECONDS, MIB
+from . import POLL_SECONDS, MIB, TOOL_CAP
 from . import procs, report
 
 __all__ = ['INTERRUPT_SIGNALS', 'Job', 'Scheduler', 'Watchdog', 'pick']
@@ -38,7 +49,7 @@ class Job:
 
   def __init__(
       self, filename, backend, argv, cap, timeout, logfile, cwd=None, env=None
-    , exclusive=False, hint=None
+    , exclusive=False, hint=None, advisory=False
     ):
     self.filename = filename
     self.backend = backend
@@ -51,6 +62,8 @@ class Job:
     self.exclusive = exclusive
     # The manifest duration, for the order and the listing.
     self.hint = hint
+    # An advisory job reports, but does not decide the exit status.
+    self.advisory = advisory
     # The outcome.
     self.proc = None
     self.pid = None
@@ -67,6 +80,8 @@ class Job:
     # The pids of the job's processes at the last poll: the roots of the
     # next scan, so a process whose parent ended stays with the job.
     self.members = set()
+    # The names of the processes of the Curry toolchain seen in the session.
+    self.tools = set()
     self._pump = None
 
   def __repr__(self):
@@ -85,6 +100,9 @@ class Job:
   def record_peak(self, rss):
     if rss is not None and (self.peak is None or rss > self.peak):
       self.peak = rss
+
+  def on_finished(self):
+    '''Called once the outcome is known; a subclass may set the note.'''
 
 
 def pick(pending, running, budget, width):
@@ -116,14 +134,17 @@ def pick(pending, running, budget, width):
 class Watchdog(threading.Thread):
   '''
   Polls the sessions of the running jobs.  Records the peak of each and kills
-  a session over its cap or past its timeout.  The scheduler's lock covers
-  each tick, so a job is never reaped while the watchdog looks at it.
+  a session over its cap or past its timeout.  While a process of the Curry
+  toolchain runs in a session, the cap is at least ``tool_cap`` (None for
+  no allowance).  The scheduler's lock covers each tick, so a job is never
+  reaped while the watchdog looks at it.
   '''
 
-  def __init__(self, scheduler, poll=POLL_SECONDS):
+  def __init__(self, scheduler, poll=POLL_SECONDS, tool_cap=TOOL_CAP):
     super().__init__(name='watchdog', daemon=True)
     self.scheduler = scheduler
     self.poll = poll
+    self.tool_cap = tool_cap
     self.stopped = threading.Event()
 
   def run(self):
@@ -145,15 +166,27 @@ class Watchdog(threading.Thread):
       )
     now = time.monotonic() if now is None else now
     for job in running:
-      rss, pids = found[job.pid]
+      rss, pids, comms = found[job.pid]
       job.members = set(pids)
       job.record_peak(rss)
+      tools = procs.toolchain_in(comms.values())
+      job.tools.update(tools)
       if job.kill_reason is not None:
         continue
-      if job.cap is not None and rss > job.cap:
+      cap = job.cap
+      if cap is not None and tools and self.tool_cap is not None:
+        cap = max(cap, self.tool_cap)
+      if cap is not None and rss > cap:
         job.kill_reason = 'memory'
-        job.note = '%d MB > cap %d MB' % (round(rss / MIB), round(job.cap / MIB))
+        job.note = '%d MB > cap %d MB' % (round(rss / MIB), round(cap / MIB))
+        if cap != job.cap:
+          job.note += ' with %s running' % ', '.join(tools)
         procs.kill_session(job.pid, roots=job.members)
+      elif cap is not None and rss > job.cap and not job.note:
+        # Over the cap of the file, within the allowance of the toolchain.
+        job.note = 'over cap %d MB while %s ran' % (
+            round(job.cap / MIB), ', '.join(tools)
+          )
       elif job.timeout is not None and now - job.started > job.timeout:
         job.kill_reason = 'timeout'
         job.note = 'after %g s' % job.timeout
@@ -173,6 +206,9 @@ class Scheduler:
         How many jobs may run at once.
     poll:
         The seconds between two polls of the loop and of the watchdog.
+    tool_cap:
+        The least cap of a job while a process of the Curry toolchain runs
+        in its session (TOOL_CAP); None for no allowance.
     on_start, on_finish:
         Called with a job when it starts and when it finishes.
     echo:
@@ -184,8 +220,8 @@ class Scheduler:
   '''
 
   def __init__(
-      self, jobs, budget, width, poll=POLL_SECONDS, on_start=None
-    , on_finish=None, echo=False, inherit_stdin=False
+      self, jobs, budget, width, poll=POLL_SECONDS, tool_cap=TOOL_CAP
+    , on_start=None, on_finish=None, echo=False, inherit_stdin=False
     ):
     self.pending = list(jobs)
     self.running = []
@@ -193,6 +229,7 @@ class Scheduler:
     self.budget = budget
     self.width = max(1, width)
     self.poll = poll
+    self.tool_cap = tool_cap
     self.on_start = on_start
     self.on_finish = on_finish
     self.echo = echo
@@ -210,7 +247,7 @@ class Scheduler:
   def run(self):
     '''Runs every job.  Returns the jobs in the order they finished.'''
     start = time.monotonic()
-    watchdog = Watchdog(self, self.poll)
+    watchdog = Watchdog(self, self.poll, self.tool_cap)
     watchdog.start()
     saved = self._install_handlers()
     try:
@@ -368,12 +405,13 @@ class Scheduler:
     elif job.returncode == 0:
       job.status = 'ok'
     elif job.returncode > 0:
-      job.status = 'FAILED'
+      job.status = 'incomplete' if job.advisory else 'FAILED'
       if job.failures is None:
         job.note = 'exit status %d' % job.returncode
     else:
       job.status = 'crashed'
       job.note = 'signal %d' % -job.returncode
+    job.on_finished()
 
   def kill_all(self, reason):
     '''Kills every running job.  ``reason`` becomes its kill reason.'''

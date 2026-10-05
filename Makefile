@@ -19,7 +19,9 @@ include Make.include
 # and so does make JOBS=N.  The recipes below that run make say $(MAKE), so
 # the job server reaches them; a plain make in a recipe runs serially, with
 # a warning.  The order of the sub-makes under -j: src before curry (above),
-# and inside src, cyrt before python (src/Makefile).
+# and inside src, cyrt before python (src/Makefile).  The prebuild of the
+# Curry library (curry/Makefile) reads the -j of MAKEFLAGS and passes the
+# count to sprite-make --jobs, which makes the modules in child processes.
 ifeq ($(MAKELEVEL),0)
   ifeq ($(filter -j% --jobs%,$(MAKEFLAGS)),)
     ifeq ($(strip $(JOBS)),auto)
@@ -68,6 +70,7 @@ else
 	@echo "  * The scheduler counters of 'cxx' are disabled.  Say \`make <target> COUNTERS=1\` to enable."
 endif
 	@echo "  * Jobs: JOBS=$(or $(strip $(JOBS)),1) (configure --jobs N|auto).  A \`make -jN\` or \`make JOBS=N\` wins."
+	@echo "    The prebuild of the Curry library runs sprite-make --jobs with the same count."
 ifneq ($(strip $(CCACHE)),)
 	@echo "  * ccache: $(CCACHE) runs in front of the compilers (configure --with-ccache)."
 else
