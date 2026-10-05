@@ -116,11 +116,30 @@ namespace
     bool const own = !rts->Q()->empty() && rts->C()->root_storage == root;
     if(!own)
       rts->set_goal(root);
+    xid_type const xid0 = rts->istate.xidfactory;
     auto status = root->info->step(rts, rts->C());
     if(status >= E_RESTART)
       rts->count_step();
     if(!own)
       rts->drop();
+    // The variables the step created outlive this state.  Count them (the
+    // ids of the choices made by the step share the factory, so the count
+    // may exceed the variables), so that set_goal registers them when a
+    // later goal holds them.  The table itself is the weak table of the
+    // interpreter state, which the collector may sweep in the meantime.
+    rts->istate.external_freevars += rts->istate.xidfactory - xid0;
+  }
+
+  // The variable table as a dict from id to node, for the tests of the
+  // registration in set_goal.  The table is the weak table of the
+  // interpreter state (see state/rts.hpp).  The wrappers root the nodes
+  // while they live.
+  py::dict RuntimeState_vtable(RuntimeState & rts)
+  {
+    py::dict table;
+    for(auto const & entry: rts.istate.vtable)
+      table[py::int_(entry.first)] = py::cast(entry.second, reference);
+    return table;
   }
 
   template<typename T>
@@ -513,6 +532,10 @@ namespace cyrt { namespace python
   {
     py::class_<InterpreterState>(mod, "InterpreterState")
       .def(py::init<>())
+      .def_readwrite(
+          "external_freevars", &InterpreterState::external_freevars
+        , "The free variables made outside an evaluation; see state/rts.hpp."
+        )
       ;
 
     mod.def("scheduler_counters_enabled", &scheduler_counters_enabled
@@ -523,6 +546,8 @@ namespace cyrt { namespace python
       .def(py::init<InterpreterState &, Node *, bool, SetFStrategy, size_t>())
       .def_readonly("steps_total", &RuntimeState::steps_total)
       .def_readonly("forks_total", &RuntimeState::forks_total)
+      .def_property_readonly("vtable", &RuntimeState_vtable
+        , "The variable table as a dict from id to node.")
       .def("scheduler_counters", &RuntimeState_scheduler_counters
         , "The scheduler counters of this evaluation as a dict, or None in a "
           "plain build.")

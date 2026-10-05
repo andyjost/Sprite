@@ -1,10 +1,17 @@
 import cytest # from ./lib; must be first
-from curry import config, exceptions, toolchain
-from curry.toolchain import _curry2icurry, _frontend
+from curry import cache, config, exceptions, toolchain
+from curry.toolchain import _curry2icurry, _frontend, plans
 from curry.utility import binding
-import curry, os, shutil, subprocess, tempfile, unittest
+import curry, os, shutil, subprocess, tarfile, tempfile, unittest
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'curry')
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MAKE_ENV = {
+    'PATH': os.environ.get('PATH', '/usr/local/bin:/usr/bin:/bin')
+  , 'HOME': os.environ.get('HOME', '/')
+  , 'LC_ALL': 'C.UTF-8'
+  , 'TMPDIR': os.environ.get('TMPDIR', tempfile.gettempdir())
+  }
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 FE_SUBDIR = os.path.join('.curry', config.frontend_subdir())
 
@@ -16,6 +23,13 @@ def oracle_icy(directory, name):
 def readbytes(filename):
   with open(filename, 'rb') as istream:
     return istream.read()
+
+def interfaces_beside(icyfile):
+  '''The bytes of the interface files beside an ICurry file, by suffix.'''
+  return {
+      suffix: readbytes(cache.interface_filename(icyfile, suffix))
+          for suffix in cache.INTERFACE_SUFFIXES
+    }
 
 class TestCurry2ICurry(cytest.TestCase):
   '''
@@ -97,11 +111,19 @@ class TestCurry2ICurry(cytest.TestCase):
       curryfile = self.copy(name + '.curry')
       out = self.convert(curryfile)
       self.assertEqual(out, os.path.join(self.tmpdir, SUBDIR, name + '.icy'))
-      for suffix in ['.fcy', '.fint']:
+      for suffix in ['.fcy', '.fint', '.icurry']:
         self.assertTrue(os.path.isfile(
             os.path.join(self.tmpdir, FE_SUBDIR, name + suffix)
           ))
       self.assertEqual(readbytes(out), readbytes(icy))
+      # The interface files travel with the ICurry: the copies beside it are
+      # the files the front end wrote.
+      for suffix, content in interfaces_beside(out).items():
+        self.assertEqual(
+            content, readbytes(_frontend.interfacefile(curryfile, suffix))
+          )
+        self.assertTrue(content, suffix)
+      self.assertFalse(_curry2icurry.icurry_is_stale(out))
       # Again: no error, the same file.
       self.assertEqual(self.convert(curryfile, quiet=False), out)
       self.assertEqual(readbytes(out), readbytes(icy))
@@ -195,11 +217,131 @@ class TestCurry2ICurry(cytest.TestCase):
       with self.assertRaisesRegex(exceptions.CompileError, 'icurry is not configured'):
         converter.convert(curryfile, [])
     else:
-      # Both routes write the same file.
+      # Both routes write the same file, and the icurry route leaves the
+      # interface files of the same front end, which travel with the ICurry.
       icy = converter.convert(curryfile, [])
       text = readbytes(icy)
+      interfaces = interfaces_beside(icy)
+      for suffix, content in interfaces.items():
+        self.assertTrue(content, suffix)
+        self.assertEqual(
+            content, readbytes(_frontend.interfacefile(curryfile, suffix))
+          )
       os.unlink(icy)
       self.assertEqual(readbytes(self.convert(curryfile)), text)
+      self.assertEqual(interfaces_beside(icy), interfaces)
+
+  def test_stale_without_interfaces(self):
+    '''
+    An ICurry file without the interface files beside it is made again, with
+    or without a JSON step after it; an ICurry file without a source is not.
+    '''
+    curryfile = self.copy('hello.curry')
+    icy = self.convert(curryfile)
+    full = plans.makeplan(None, plans.MAKE_ICURRY | plans.MAKE_JSON)
+    icy_only = plans.makeplan(None, plans.MAKE_ICURRY)
+    current = lambda plan: toolchain.currentfile(
+        plan, curryfile, [], is_sourcefile=True
+      )
+    self.assertEqual(current(full), icy)
+    self.assertEqual(current(icy_only), icy)
+    fint = cache.interface_filename(icy, '.fint')
+    os.unlink(fint)
+    self.assertTrue(_curry2icurry.icurry_is_stale(icy))
+    self.assertEqual(current(full), curryfile)
+    self.assertEqual(current(icy_only), curryfile)
+    # The conversion restores the file.
+    self.assertEqual(self.convert(curryfile), icy)
+    self.assertTrue(os.path.isfile(fint))
+    self.assertEqual(current(full), icy)
+    # The source is never refused, and a file that is not an ICurry file is
+    # not asked about.
+    self.assertFalse(_curry2icurry.icurry_is_stale(curryfile))
+    self.assertFalse(_curry2icurry.icurry_is_stale(icy[:-4] + '.json'))
+    # Without a source, the ICurry file stands as it is.
+    os.unlink(fint)
+    os.unlink(curryfile)
+    self.assertFalse(_curry2icurry.icurry_is_stale(icy))
+    self.assertEqual(current(full), icy)
+
+  def test_installed_interfaces(self):
+    '''
+    The stage copies the interface files of every library module beside its
+    installed ICurry file; the copies are the front end's files.
+    '''
+    root = config.system_curry_path()
+    for name in config.syslibs():
+      parts = name.split('.')
+      icy = os.path.join(
+          root, *parts[:-1], SUBDIR, parts[-1] + '.icy'
+        )
+      self.assertTrue(os.path.isfile(icy), icy)
+      self.assertFalse(_curry2icurry.icurry_is_stale(icy), name)
+      for suffix, content in interfaces_beside(icy).items():
+        original = os.path.join(root, FE_SUBDIR, *parts) + suffix
+        self.assertEqual(content, readbytes(original), original)
+        self.assertTrue(content, original)
+
+  def test_overlay_interfaces(self):
+    '''
+    make overlay-interfaces copies the interfaces of the front end beside
+    every ICurry file of the extracted test products, so an extracted file
+    whose source exists is not stale.
+    '''
+    archive = os.path.join(ROOT, 'overlay-%s.tgz' % config.frontend_subdir())
+    if not os.path.isfile(archive) or not os.path.isfile(os.path.join(ROOT, 'Make.config')):
+      self.skipTest('the source tree or the overlay archive is not available')
+    prefix = 'tests/data/curry/.curry/'
+    with tarfile.open(archive) as tar:
+      members = [
+          m for m in tar.getmembers()
+            if m.name.startswith(prefix) and m.name[len(prefix):].count('/') == 1
+               and os.path.basename(m.name).split('.')[0] in ('Peano', 'hello')
+        ]
+      self.assertTrue(members)
+      tar.extractall(self.tmpdir, members=members, filter='data')
+    testsdir = os.path.join(self.tmpdir, 'tests')
+    icys = sorted(
+        os.path.join(dirpath, name)
+            for dirpath, _, names in os.walk(testsdir) for name in names
+            if name.endswith('.icy')
+      )
+    self.assertEqual(
+        [os.path.basename(icy) for icy in icys], ['Peano.icy', 'hello.icy']
+      )
+    for icy in icys:
+      for suffix in cache.INTERFACE_SUFFIXES:
+        self.assertFalse(os.path.exists(cache.interface_filename(icy, suffix)))
+    # With a source beside them, the extracted files are stale until the
+    # copies exist.
+    with open(os.path.join(testsdir, 'data', 'curry', 'Peano.curry'), 'w'):
+      pass
+    peano = os.path.join(testsdir, 'data', 'curry', SUBDIR, 'Peano.icy')
+    self.assertTrue(_curry2icurry.icurry_is_stale(peano))
+    result = subprocess.run(
+        ['make', '-C', ROOT, 'overlay-interfaces', 'OVERLAY_DIR=' + testsdir]
+      , env=MAKE_ENV, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+      , timeout=300
+      )
+    self.assertEqual(result.returncode, 0, result.stdout)
+    self.assertFalse(_curry2icurry.icurry_is_stale(peano))
+    for icy in icys:
+      stem = os.path.basename(icy)[:-len('.icy')]
+      for suffix, content in interfaces_beside(icy).items():
+        original = os.path.join(testsdir, 'data', 'curry', FE_SUBDIR, stem + suffix)
+        self.assertEqual(content, readbytes(original), original)
+        self.assertTrue(content, original)
+    # The copies are the only new files.
+    names = sorted(
+        name for _, _, names in os.walk(os.path.join(testsdir, 'data', 'curry', SUBDIR))
+             for name in names
+      )
+    self.assertEqual(
+        names
+      , [ 'Peano.fint', 'Peano.icurry', 'Peano.icy', 'Peano.json.z'
+        , 'hello.fint', 'hello.icurry', 'hello.icy', 'hello.json.z'
+        ]
+      )
 
   def test_sprite_make(self):
     '''sprite-make selects the tool with --curry2icurry.'''

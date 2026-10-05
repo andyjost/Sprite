@@ -130,7 +130,10 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
 
       PRINT_SKIPPED_GOALS [Optional, Bool, default=True]
         Indicates whether to print the names of goals that were skipped.  Only
-        goals with arity zero can be run.
+        goals without value parameters can be run.  The leading class
+        dictionaries of a goal without a type signature do not count: the
+        driver reads the number of value parameters from the type scheme of
+        the goal (see value_arity).
 
       RUN_ONLY [Optional, set or str, default=None]
         The opposite of SKIP.  Specifies the tests to run.  If RUN_ONLY and
@@ -202,15 +205,22 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
     return wrapper
 
   def iterate_goals(self, module):
+    '''
+    The goals of a module that can be run: those without value parameters.
+    A goal without a type signature keeps its class constraints as leading
+    dictionary parameters, which curry.eval supplies (see
+    curry.typecheck.goals); such a goal is run.
+    '''
     goals = [v for k,v in module.__dict__.items() if re.match(self.GOAL_PATTERN, k)]
-    num_tests_run = 0
     for goal in sorted(goals, key=lambda x: x.name):
-      if goal.info.arity and self.PRINT_SKIPPED_GOALS:
-        sys.stderr.write(
-            'skipping goal %s because its arity (%s) is not zero\n' % (
-                goal.info.name, goal.info.arity
-              )
-          )
+      arity = value_arity(goal)
+      if arity:
+        if self.PRINT_SKIPPED_GOALS:
+          sys.stderr.write(
+              'skipping goal %s because it has %s value parameter(s)\n' % (
+                  goal.info.name, arity
+                )
+            )
         continue
       yield goal
 
@@ -346,6 +356,15 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
     '''
     return curry.eval(goal)
 
+
+def value_arity(goal):
+  '''
+  The number of value parameters of a goal: its arity less the leading class
+  dictionaries, read from the type scheme of the goal.  A goal without a
+  scheme (no FlatCurry interface) counts every parameter.
+  '''
+  scheme = goal.scheme
+  return goal.info.arity if scheme is None else scheme.source_arity
 
 def compile_pattern(arg, exact=False):
   '''

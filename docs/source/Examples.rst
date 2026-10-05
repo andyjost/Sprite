@@ -95,7 +95,7 @@ Compile a Curry module to a Python script
 
 Directory ``examples/04-static-compile``.  Backends: Python.
 
-``curry.save`` writes the compiled module to a Python script with a goal, and the script runs the goal.  The test suite lists this example as a known failure until ``curry.save`` is fixed.
+``curry.save`` writes the compiled module to a Python script with a goal, and the script runs the goal.
 
 .. code-block:: bash
 

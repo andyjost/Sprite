@@ -1,0 +1,1 @@
+(Enum a, Num a) => [a]

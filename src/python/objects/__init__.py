@@ -162,10 +162,15 @@ class CurryNodeInfo(object):
   '''
   # This class wraps whatever info object is provided by the backend, providing
   # client interface.
-  def __init__(self, info, icurry=None, typename=None):
+  def __init__(self, info, icurry=None, typename=None, interp=None, module=None):
     self.info = info # Specific to the backend.
     self.icurry = icurry
     self.typename = typename
+    # The interpreter and the module that loaded the symbol, as weak
+    # references.  The scheme of the symbol comes from the signature table of
+    # the interpreter, which finds the interface through the module.
+    self._interp = None if interp is None else weakref.ref(interp)
+    self._module = None if module is None else weakref.ref(module)
 
   @property
   def name(self):
@@ -174,6 +179,27 @@ class CurryNodeInfo(object):
   @property
   def fullname(self):
     return self.icurry.fullname
+
+  @property
+  def scheme(self):
+    '''
+    The type scheme of this symbol, a :class:`Scheme
+    <curry.typecheck.Scheme>` read from the FlatCurry interface of its
+    module, or None when the symbol has none.  See :mod:`curry.typecheck`.
+    '''
+    interp = None if self._interp is None else self._interp()
+    if interp is None:
+      return None
+    return interp.sigtable.lookup(self)
+
+  @property
+  def signature(self):
+    '''
+    The type scheme of this symbol in Curry syntax, e.g.,
+    ``'Num a => a -> a -> a'``, or None when the symbol has none.
+    '''
+    scheme = self.scheme
+    return None if scheme is None else str(scheme)
 
   # TODO: add getsource to get the Curry source.  It will require an
   # enhancement to CMC and maybe FlatCurry to generate source range

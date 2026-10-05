@@ -56,6 +56,17 @@ These objects contain a wealth of information.  For example:
     'Peano.add'
     >>> Peano.add.info
     InfoTable(name='add', arity=2, tag=-1, _step=<not yet compiled>, format=None, typecheck=None, typedef=None, flags=0)
+    >>> Peano.add.signature
+    'Nat -> Nat -> Nat'
+
+The signature is the type scheme of the symbol in Curry syntax.  Sprite reads
+it from the FlatCurry interface that the front end wrote beside the module.
+``Peano.add.scheme`` is the same scheme as an object; see
+:mod:`curry.typecheck`.  A symbol of the Prelude with a class constraint
+shows its context:
+
+    >>> curry.symbol('Prelude.+').signature
+    'Num a => a -> a -> a'
 
 To see the ICurry and generated backend code try the following commands:
 
@@ -135,9 +146,11 @@ Writing Compiled Code to Disk
 Use :func:`curry.save` to write out compiled Curry.  For example, to save the
 compiled Fib module into a file ``Fib.py``, say:
 
-    >>> curry.save(Fib, 'Fib.py')
+    >>> curry.save(Fib, 'Fib.py', module_main=False)
 
-This can be loaded in another session with :func:`curry.load`:
+``module_main=False`` saves the module alone.  Without it the file is a
+program, and ``goal=`` must name the goal it evaluates.  This can be loaded
+in another session with :func:`curry.load`:
 
     >>> Fib = curry.load('Fib.py')
 
@@ -170,6 +183,18 @@ Note the following:
     - ``exprtype`` provides the type annotation of this expression.  See
       :ref:`important-notes`.
     - Adding ``Fib`` to the import list makes ``Fib.fib`` available.
+
+``exprtype`` is optional.  Without it the front end infers the type of the
+expression.  A type with class constraints, such as ``Num a => a`` for
+``1 + 2``, is defaulted as the REPL of PAKCS does: ``Num`` to ``Int``,
+``Fractional`` to ``Float``, ``Monad`` to ``IO``, a lone ``Data`` to
+``Bool``.  A constraint the table cannot handle is a ``CompileError`` with
+the sentence of the REPL.  A trailing ``where x, y free`` declares free
+variables, as in the REPL, and each value then comes with their bindings:
+
+    >>> goal = curry.compile('xs ++ [3] =:= [1, 2, 3] where xs free', mode='expr')
+    >>> print(next(curry.eval(goal)))
+    {xs=[1, 2]} True
 
 Simple Curry expressions can also be created directly in Python with
 ``curry.expr``.  One might use this to improve performance, as it bypasses the
@@ -303,19 +328,30 @@ Expression Modifiers
 ....................
 
 In addition to ``curry.ref``, a few other helper functions and objects are
-provided.  To create a free variable, use ``curry.free``:
+provided.  To create a free variable, use ``curry.free``.  One marker is one
+variable, also when it occurs several times or in several expressions.  The
+expression holds a call of ``Prelude.unknown``, and the first rewrite step
+turns it into the variable.  ``curry.reset()`` starts a new interpreter
+state, and the marker becomes a new variable there:
 
-    >>> print(curry.expr(curry.free()))
-    _0
+    >>> xs = curry.free()
+    >>> print(curry.expr(xs))
+    unknown _inst#Prelude.Data#Prelude.Bool
+    >>> print(next(curry.eval(xs)))
+    _a
 
-To create a non-deterministic choice, use ``curry.choice``:
+To create a non-deterministic choice, use ``curry.choice``.  The expression
+holds a call of ``Prelude.?``, and the first rewrite step turns it into a
+choice with a fresh identifier:
 
-    >>> curry.expr(curry.choice(1, 2))
-    <Choice 0 <Int 1> <Int 2>
+    >>> print(curry.expr(curry.choice(1, 2)))
+    (?) 1 2
+    >>> sorted(curry.eval(curry.choice(1, 2), converter='topython'))
+    [1, 2]
 
-The number immediately following ``Choice`` is the choice identifier.  This can
-be specified by providing three arguments to ``curry.choice``, or you can let
-the ``curry.expr`` assigned it for you.
+``curry.raw_expr`` builds the raw ``Free`` and ``Choice`` nodes instead, with
+the identifiers given to the markers.  That form serves the tests of the
+runtime.
 
 Use ``curry.cons`` and ``curry.nil`` to create cons-style lists:
 
@@ -336,6 +372,15 @@ To evaluate an expression pass it to ``curry.eval``.
 ``curry.eval`` returns a generator that yields one value with each invocation
 of ``next``.  The goal is evaluated lazily, so ``next`` performs only the
 computational steps it must to compute the next value.
+
+A function of a module without a type signature keeps its class
+constraints, which the front end turns into leading dictionary parameters.
+``curry.eval`` of such a symbol alone supplies the dictionaries after the
+defaulting described above, so ``main = Just 5`` evaluates to ``Just 5`` and
+not to a partial application.  A call with arguments,
+``curry.eval(M.addOne, 1)``, is an error until Sprite types expressions built
+in Python: compile the call from text,
+``curry.compile('addOne 1', mode='expr', imports=[M])``.
 
 By default, no conversions are performed.  That means the ``13`` returned above
 is a Curry integer rather than a Python integer.  We can see this by looking at

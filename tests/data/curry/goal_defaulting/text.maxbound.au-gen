@@ -1,0 +1,5 @@
+!goal maxBound + 1
+!error
+Overloaded type: (Bounded a, Num a) => a
+Cannot handle arbitrary overloaded top-level expressions
+Hint: add type annotation to specialize the type

@@ -3,12 +3,15 @@ Implements Interpreter.compile.
 '''
 
 from ..backends.generic.eval import evaluator
-from .. import config, exceptions, icurry, objects, toolchain, utility
+from .. import config, exceptions, icurry, inspect, objects, toolchain, utility
 from ..objects import handle
+from ..typecheck import defaulting, goals, sigtable
 from ..utility.visitation import dispatch
-import itertools, types
+import itertools, os, types
 
-__all__ = ['compile']
+__all__ = ['compile', 'expression_scheme']
+
+COMPILED_NAME = 'compiled_expression'
 
 # Numbers the anonymous modules: interactive modules (mode 'module' without a
 # name) and expression modules.  The counter belongs to the process, not to
@@ -42,7 +45,10 @@ def compile(
     exprtype:
         A string specifying the expression type. This is what would appear to
         the right of ``::`` in a Curry type annotation for the expression.
-        Used only in 'expr' mode.
+        Used only in 'expr' mode.  Without it, the class constraints of the
+        expression are defaulted with the table of the PAKCS REPL: ``Num``
+        to ``Int``, ``Fractional`` to ``Float``, ``Monad`` to ``IO``, a
+        lone ``Data`` to ``Bool``; see :mod:`{0}.typecheck.defaulting`.
     modulename:
         Specifies the module name.  Used only in 'module' mode.  If the name
         begins with an underscore, then it will not be placed in
@@ -51,7 +57,15 @@ def compile(
 
   Returns:
     In 'module' mode, a :class:`CurryModule <{0}.objects.CurryModule>`.  In
-    'expr' mode, a Curry expression.
+    'expr' mode, a Curry expression.  A text that ends in ``where x, y
+    free`` gives a :class:`Goal <{0}.typecheck.goals.Goal>` whose values
+    carry the bindings of the variables, as the REPL of PAKCS prints them;
+    with ``exprtype`` the clause stays a local declaration.
+
+  Raises:
+    CompileError:
+        The front end rejects the text, or, in 'expr' mode without
+        ``exprtype``, the table cannot default a class constraint.
   '''
   stmts, currypath = getImportSpecForExpr(
       interp, [] if imports is None else imports
@@ -79,34 +93,103 @@ def compile(
   elif mode == 'expr':
     if modulename is not None:
       raise ValueError('%r is only allowed in mode=%r', ('modulename', 'module'))
-    compiled_name = 'compiled_expression'
-    if exprtype:
-      stmts += ['%s :: %s' % (compiled_name, exprtype)]
-    stmts += ['%s = %s' % (compiled_name, string)]
-    curry_code = '\n'.join(stmts)
-    moduleobj, icur = toolchain.str2module(
-        interp, curry_code, currypath
-      , modulename=config.expression_modname(next(_module_counter))
-      , keep_temp_files=interp.flags['keep_temp_files']
-      , postmortem=interp.flags['postmortem']
+    func, freevars = compile_expression(
+        interp, string, stmts, currypath, exprtype=exprtype
       )
-    # The module leaves the registry, but it stays loaded until the
-    # interpreter resets: the goal's graph refers to the module's code and
-    # data (string literals, local functions), and nothing in the goal keeps
-    # the module alive.  On the C++ backend, an unloaded module leaves
-    # dangling pointers in any goal compiled from it.  The name is unique for
-    # the process, so the modules cannot clash.
-    del interp.modules[icur.name]
-    interp._expression_modules.append(moduleobj)
-    func = getattr(moduleobj, '.symbols')[compiled_name]
-    if func.info.arity > 0:
-      raise exceptions.CompileError(
-          'expression %r requires a type annotation' % string
-        )
-    expr = interp.expr(func)
-    return evaluator.single_step(interp, expr)
+    return expression_goal(interp, func, string, freevars)
   else:
     raise TypeError('expected mode %r or %r' % ('module', 'expr'))
+
+def compile_expression(
+    interp, string, stmts, currypath, exprtype=None, lift_freevars=True
+  ):
+  '''
+  Compiles a Curry expression into a module of its own, as the binding
+  ``compiled_expression = <string>``.  With ``lift_freevars``, the variables
+  of a trailing ``where x, y free`` become parameters of the binding, as
+  the REPL of PAKCS does; with ``exprtype`` the text is compiled as written
+  under the signature.  Returns the symbol of the binding and the names of
+  the lifted variables.
+  '''
+  freevars = []
+  if lift_freevars and not exprtype:
+    string, freevars = goals.split_where_free(string)
+  stmts = list(stmts)
+  if exprtype:
+    stmts += ['%s :: %s' % (COMPILED_NAME, exprtype)]
+  stmts += ['%s%s = %s' % (COMPILED_NAME, ''.join(' ' + v for v in freevars), string)]
+  curry_code = '\n'.join(stmts)
+  moduleobj, icur = toolchain.str2module(
+      interp, curry_code, currypath
+    , modulename=config.expression_modname(next(_module_counter))
+    , keep_temp_files=interp.flags['keep_temp_files']
+    , postmortem=interp.flags['postmortem']
+    )
+  # The module leaves the registry, but it stays loaded until the
+  # interpreter resets: the goal's graph refers to the module's code and
+  # data (string literals, local functions), and nothing in the goal keeps
+  # the module alive.  On the C++ backend, an unloaded module leaves
+  # dangling pointers in any goal compiled from it.  The name is unique for
+  # the process, so the modules cannot clash.
+  del interp.modules[icur.name]
+  interp._expression_modules.append(moduleobj)
+  return getattr(moduleobj, '.symbols')[COMPILED_NAME], freevars
+
+def expression_goal(interp, func, string, freevars):
+  '''
+  The goal of a compiled expression.  The leading parameters of the binding
+  are class dictionaries; the table of the PAKCS REPL defaults them.  The
+  parameters after them are the lifted free variables, which get fresh
+  variables.  A saturated call takes one rewrite step here, so the result
+  looks like the expression and not like a call of the binding.
+  '''
+  nfree = len(freevars)
+  dicts = []
+  scheme = None
+  if func.info.arity > nfree:
+    try:
+      scheme = interp.sigtable.lookup(func, required=True)
+    except sigtable.InterfaceError as err:
+      raise exceptions.CompileError(
+          'expression %r has parameters but no type: %s' % (string, err)
+        )
+    if scheme.source_arity != nfree:
+      raise exceptions.CompileError(
+          'expression %r compiled to a function of %d value parameter(s); '
+          'add a type annotation (exprtype)' % (string, scheme.source_arity)
+        )
+    try:
+      defaulted = defaulting.default_scheme(
+          scheme, what='expression %r' % string
+        , hint='add a type annotation (exprtype)'
+        , type_arity=goals.type_arity(interp)
+        )
+    except defaulting.DefaultingError as err:
+      raise exceptions.CompileError(str(err))
+    dicts = goals.dictionaries(interp, defaulted)
+  markers = [goals.free_marker() for _ in freevars]
+  expr = interp.expr(func, *dicts, *markers)
+  if freevars:
+    root = interp.expr((expr,) + tuple(markers))
+    return goals.Goal(root, freevars, scheme, string)
+  if inspect.isa_func(expr):
+    evaluator.single_step(interp, expr)
+  return expr
+
+def expression_scheme(interp, string, imports=None):
+  '''
+  The type scheme of a Curry expression, as the front end infers it for the
+  binding ``compiled_expression = <string>``, before any defaulting; what
+  ``:type`` prints in the REPL.  A trailing ``where x free`` stays a local
+  declaration, as in the ``:type`` of PAKCS.
+  '''
+  stmts, currypath = getImportSpecForExpr(
+      interp, [] if imports is None else imports
+    )
+  func, _ = compile_expression(
+      interp, string, stmts, currypath, lift_freevars=False
+    )
+  return interp.sigtable.lookup(func, required=True)
 
 def getImportSpecForExpr(interp, modules):
   '''
@@ -146,7 +229,16 @@ def _updateImports(interp, module, stmts, currypath):
   if module.__name__ != '_System':
     stmts.append('import ' + module.__name__)
     # If this is a dynamic module, add its directory to the search path.
-    tmpd = handle.Handle(module).icurry.metadata.get('all.tmpd', None)
+    h = handle.Handle(module)
+    tmpd = h.icurry.metadata.get('all.tmpd', None)
     if tmpd is not None:
       currypath.insert(0, tmpd)
+    elif not h.is_package and h.icurry.filename:
+      # A module loaded from a file outside the search path, e.g., by the
+      # :load command of the REPL: the front end must find its source.
+      root = sigtable.module_root(
+          os.path.dirname(os.path.abspath(h.icurry.filename)), h.fullname
+        )
+      if root not in currypath:
+        currypath.insert(0, root)
 

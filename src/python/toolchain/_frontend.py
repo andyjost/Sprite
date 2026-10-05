@@ -6,7 +6,9 @@ module ``M`` it writes ``M.fcy``, the interface ``M.fint``, and ``M.icurry``
 under ``.curry/<subdir>/`` beside the source, where ``<subdir>`` names the
 front end (see :func:`config.frontend_subdir`).  The same run writes the
 interfaces of the imports beside their sources.  Then
-:mod:`curry.toolchain.flat2icurry` translates the FlatCurry to ICurry.
+:mod:`curry.toolchain.flat2icurry` translates the FlatCurry to ICurry.  The
+``icurry`` program runs the same front end, so its run leaves the same files
+(see :func:`interfacefile`).
 
 The command runs in the directory of the module and names the module by its
 file name, as ``icurry`` does, so the output lands in the same places.
@@ -29,7 +31,7 @@ import logging, os, shlex
 
 __all__ = [
     'QUIET_FLAGS', 'command', 'curry2flat', 'curry2icurry', 'flat2icy'
-  , 'flatcurryfile', 'searchdirs'
+  , 'flatcurryfile', 'interfacefile', 'searchdirs'
   ]
 logger = logging.getLogger(__name__)
 
@@ -61,6 +63,15 @@ def flatcurryfile(file_in):
   return os.path.join(
       path, '.curry', config.frontend_subdir(), name[:-len('.curry')] + '.fcy'
     )
+
+def interfacefile(file_in, suffix):
+  '''
+  The interface file with ``suffix`` (``.fint`` or ``.icurry``; see
+  ``cache.INTERFACE_SUFFIXES``) that the front end writes for ``file_in``,
+  beside its FlatCurry file.
+  '''
+  fcyfile = flatcurryfile(file_in)
+  return fcyfile[:-len('.fcy')] + suffix
 
 def command(file_in, currypath, quiet=False):
   '''

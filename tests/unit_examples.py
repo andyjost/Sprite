@@ -82,11 +82,7 @@ STRESS_EXCLUDED = {
 # must still succeed; only the comparison with expected.out is an expected
 # failure until the defect is fixed.  SPRITE_UPDATE_EXPECTED does not rewrite
 # its expected.out.
-KNOWN_FAILURES = {
-    '04-static-compile':
-        'curry.save writes every step function as a Failure stub on the '
-        'Python backend, so the saved program prints nothing'
-  }
+KNOWN_FAILURES = {}
 
 class TestExamples(cytest.TestCase):
   '''Runs the run script of every example in a child and checks its stdout.'''

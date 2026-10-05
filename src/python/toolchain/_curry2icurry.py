@@ -4,7 +4,7 @@ from . import _filenames, _frontend, _system
 from ..utility import curryname, filesys
 import logging, os
 
-__all__ = ['curry2icurry']
+__all__ = ['curry2icurry', 'icurry_is_stale']
 logger = logging.getLogger(__name__)
 
 def curry2icurry(curryfile, currypath, **kwds):
@@ -24,6 +24,30 @@ def curry2icurry(curryfile, currypath, **kwds):
   '''
   return Curry2ICurryConverter(**kwds).convert(curryfile, currypath)
 
+def icurry_is_stale(filename):
+  '''
+  Tells whether an ICurry file must be made again: an interface file beside
+  it is missing (see ``cache.INTERFACE_SUFFIXES``), and its Curry source
+  exists, so a conversion can supply the file.  An ICurry file written before
+  the interface files travelled with it is in this state.  The plan asks
+  this of the ``.curry`` input of the step as well; a source is never
+  refused.
+  '''
+  if not filename.endswith('.icy'):
+    return False
+  if all(os.path.isfile(cache.interface_filename(filename, suffix))
+         for suffix in cache.INTERFACE_SUFFIXES):
+    return False
+  try:
+    curryfile = _filenames.curryfilename(filename)
+  except ValueError:
+    return False
+  return os.path.isfile(curryfile)
+
+# The plan asks the step that made an .icy file whether the file is usable;
+# see ``plans.Plan.is_stale``.
+curry2icurry.is_stale = icurry_is_stale
+
 class Curry2ICurryConverter(object):
   '''
   Converts Curry to ICurry, or takes the result from the ICurry cache.
@@ -37,6 +61,12 @@ class Curry2ICurryConverter(object):
   route, so an entry written by one route is never served to the other.  An
   error the front end reported about the program is taken from the cache
   too.
+
+  The two interface files of the module travel with its ICurry (see
+  ``cache.INTERFACE_SUFFIXES``).  Both routes run the front end, which writes
+  them beside the FlatCurry.  On a miss ``convert`` copies them to the places
+  beside the ICurry file (``place_interfaces``); on a hit the cache writes
+  them there.  Readers of the types use those copies only.
 
   Keywords:
     quiet:
@@ -86,6 +116,7 @@ class Curry2ICurryConverter(object):
               _system.pexec(cmd)
             else:
               _frontend.curry2icurry(file_in, file_out, currypath, self.quiet)
+            self.place_interfaces(file_in, file_out)
         except CompileError as err:
           if slot is not None:
             slot.update_error(err)
@@ -93,6 +124,28 @@ class Curry2ICurryConverter(object):
         if slot is not None:
           slot.update()
       return file_out
+
+  def place_interfaces(self, file_in, file_out):
+    '''
+    Copies the interface files the front end wrote for ``file_in`` (see
+    ``_frontend.interfacefile``) to the places beside ``file_out`` (see
+    ``cache.interface_filename``).  When the route left no such file, an
+    empty file takes its place, with a warning: the module then has no types,
+    and the empty file keeps the ICurry from being made again for it (see
+    ``icurry_is_stale``).
+    '''
+    for suffix in cache.INTERFACE_SUFFIXES:
+      source = _frontend.interfacefile(file_in, suffix)
+      try:
+        with open(source, 'rb') as stream:
+          content = stream.read()
+      except FileNotFoundError:
+        logger.warning(
+            'the %s route left no %s for %s; the module has no types'
+          , self.tool, os.path.basename(source), file_in
+          )
+        content = b''
+      cache.write_file(cache.interface_filename(file_out, suffix), content)
 
   def command(self, file_in, file_out, currypath):
     '''

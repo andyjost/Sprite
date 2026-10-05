@@ -5,6 +5,7 @@ Implements Interpreter.eval.
 from . import conversions
 from ..utility.binding import binding
 from ..backends.generic.eval import evaluator
+from ..typecheck import goals
 
 def eval(interp, *args, **kwds):
   '''
@@ -13,7 +14,15 @@ def eval(interp, *args, **kwds):
   Args:
     *args:
         Positional arguments that specify the goal.  These are passed to
-        ``Interpreter.expr``.
+        ``Interpreter.expr``.  One function symbol whose scheme has class
+        constraints and no value parameter, a goal without a signature such
+        as ``main = Just 5``, is applied to its dictionaries first: the
+        constraints are defaulted with the table of the PAKCS REPL (see
+        :mod:`curry.typecheck.defaulting`), so the goal evaluates to a value
+        and not to a partial application.  A goal of
+        ``curry.compile(mode='expr')`` with ``where x free`` variables yields
+        its values with the bindings of the variables
+        (:class:`curry.typecheck.goals.Bindings`).
     converter:
         Keyword-only argument specifying the converter to use when returning
         results.  The default is 'default'.  See
@@ -22,6 +31,8 @@ def eval(interp, *args, **kwds):
   Raises:
     EvaluationError:
         A Curry error occurred during evaluation.
+    CurryTypeError:
+        The table cannot default a class constraint of the goal.
 
   Returns:
     A generator producing the values of the specified Curry program.
@@ -30,9 +41,6 @@ def eval(interp, *args, **kwds):
   convert = conversions.getconverter(
       converter if converter != 'default' else interp.flags['defaultconverter']
     )
-  results = evaluator.evaluate(interp, interp.expr(*args))
-  if convert is None:
-    return results
-  else:
-    return (convert(interp, result) for result in results)
-
+  goal = goals.make_goal(interp, args)
+  results = evaluator.evaluate(interp, goal.raw_expr)
+  return goal.values(interp, results, convert)

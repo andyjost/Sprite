@@ -7,8 +7,10 @@ can be extremely slow depending on the Curry system used and its configuration.
 
 The Curry-to-ICurry cache is keyed by content, not by file name: an entry is
 found again from any directory and, for an anonymous module, under any module
-name.  An error the front end reports about the program is cached as well.
-See ``Curry2ICurryCache`` and ``icurry_cache_key``.
+name.  An entry holds the ICurry text of the module and the texts of the two
+interface files the front end wrote for it, which travel with the ICurry (see
+``INTERFACE_SUFFIXES``).  An error the front end reports about the program is
+cached as well.  See ``Curry2ICurryCache`` and ``icurry_cache_key``.
 
 Environment Variables:
 ----------------------
@@ -35,8 +37,9 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     'enabled', 'filename', 'icurry_cache_enabled', 'icurry_cache_key'
-  , 'import_closure', 'is_program_error', 'rename_in_message', 'rename_module'
-  , 'reset', 'Curry2ICurryCache', 'ParsedJsonCache'
+  , 'import_closure', 'interface_filename', 'is_program_error'
+  , 'rename_in_message', 'rename_module', 'reset', 'write_file'
+  , 'Curry2ICurryCache', 'INTERFACE_SUFFIXES', 'ParsedJsonCache'
   ]
 
 try:
@@ -140,9 +143,10 @@ def _getdb():
 # ---------------------------------------------------------------------------
 # The cache key of the Curry-to-ICurry conversion.
 
-# The format of the key and of the stored text.  Raise it when either changes;
+# The format of the key and of the stored row.  Raise it when either changes;
 # the entries of the old format are then left alone in their own table.
-KEY_FORMAT = 2
+# Format 3 added the texts of the two interface files to the row.
+KEY_FORMAT = 3
 
 # An import declaration.  The scan is lenient: a match inside a comment or a
 # string adds a module to the closure, which can only make the key more
@@ -303,6 +307,64 @@ def icurry_cache_key(curryfile, currypath=(), options=(), tool=None):
   return hasher.hexdigest()
 
 # ---------------------------------------------------------------------------
+# The interface files that travel with the ICurry.
+
+# The suffixes of the two interface files the Curry front end writes beside
+# the FlatCurry of a module: the FlatCurry interface, which holds the type of
+# every function and constructor, and the Curry interface, which holds the
+# type synonyms.  The step that writes the .icy file of a module writes a copy
+# of each beside it, and the cache stores both texts with the ICurry.  The
+# readers of the types use those copies only: after a cache hit, the front
+# end's own copy can belong to another version of the source.  An empty copy
+# records that the front end wrote no such file; the module then has no
+# types.
+INTERFACE_SUFFIXES = ('.fint', '.icurry')
+
+def interface_filename(icyfile, suffix):
+  '''The interface file with ``suffix`` beside the ICurry file ``icyfile``.'''
+  assert icyfile.endswith('.icy') and suffix in INTERFACE_SUFFIXES
+  return icyfile[:-len('.icy')] + suffix
+
+def _umask():
+  '''The file mode creation mask of the process.'''
+  mask = os.umask(0)
+  os.umask(mask)
+  return mask
+
+def write_file(filename, content):
+  '''
+  Writes ``content``, a text or bytes, to ``filename`` through a temporary
+  file in the same directory, so a reader never sees a partial file.  The
+  directory is created.  The file gets the mode a plain open would give it,
+  not the private mode of the temporary file.
+  '''
+  dirname = os.path.dirname(filename)
+  os.makedirs(dirname, exist_ok=True)
+  fd, tmpname = tempfile.mkstemp(dir=dirname, prefix='.icurry-', suffix='.tmp')
+  try:
+    if isinstance(content, bytes):
+      stream = os.fdopen(fd, 'wb')
+    else:
+      stream = os.fdopen(fd, 'w', encoding='utf-8')
+    with stream:
+      stream.write(content)
+    os.chmod(tmpname, 0o666 & ~_umask())
+    os.replace(tmpname, filename)
+  except BaseException:
+    if os.path.exists(tmpname):
+      os.unlink(tmpname)
+    raise
+
+def _read_interface(filename):
+  '''The text of an interface file, or None when it is missing or empty.'''
+  try:
+    with open(filename, encoding='utf-8') as stream:
+      text = stream.read()
+  except FileNotFoundError:
+    return None
+  return text or None
+
+# ---------------------------------------------------------------------------
 # The module name in an ICurry text.
 
 # The module name of an ICurry text, from its header: (IProg "name" ...
@@ -344,20 +406,27 @@ def icurry_modulename(text):
 
 def rename_module(text, old, new):
   '''
-  Renames the module of an ICurry text from ``old`` to ``new``.
+  Renames the module of an ICurry text, a FlatCurry interface (``.fint``), or
+  a Curry interface (``.icurry``) from ``old`` to ``new``.
 
-  The front end writes the module name into the ``IProg`` header, into
-  qualified names ``("module","name",n)``, into the module part of a generated
-  name such as ``_inst#Prelude.Show#module.T``, and into the name of an
-  external function ``"module.f"``.  In every case the name follows a double
-  quote or a hash sign, and a double quote or a dot follows it.  A string
-  literal of the program cannot match: ICurry spells it as a list of
-  characters.
+  In an ICurry text and in a FlatCurry interface the front end writes the
+  module name into the header (``IProg``, ``Prog``), into qualified names
+  ``("module","name",n)``, into the module part of a generated name such as
+  ``_inst#Prelude.Show#module.T``, and into the name of an external function
+  ``"module.f"``.  In every case the name follows a double quote or a hash
+  sign, and a double quote or a dot follows it.  A string literal of the
+  program cannot match: ICurry spells it as a list of characters, and an
+  interface holds no literal.  A Curry interface names its own module once,
+  in the header ``interface module where``; the names it declares are
+  unqualified, and the names of other modules are qualified by those modules.
 
   The caller must make sure that no other module named in the text has
   ``old`` plus a dot as a prefix.  Anonymous modules satisfy this.
   '''
-  pattern = re.compile(r'(?<=["#])%s(?=["\.])' % re.escape(old))
+  pattern = re.compile(
+      r'(?<=["#])%(old)s(?=["\.])|(?<=\Ainterface )%(old)s(?= where)'
+          % {'old': re.escape(old)}
+    )
   return pattern.sub(lambda match: new, text)
 
 # ---------------------------------------------------------------------------
@@ -367,10 +436,13 @@ class Curry2ICurryCache(object):
   Coordinates caching for the Curry -> ICurry conversion.
 
   The table ``curry2icurry_<format>`` of the cache file stores one row per key
-  (see ``icurry_cache_key``): the module name the front end wrote and the text
-  of the ICurry file, or, for a program the front end rejected, the module
-  name and the error text.  Counts of the hits and the misses of this process
-  are kept in ``stats``; a replayed error counts as a hit.
+  (see ``icurry_cache_key``): the module name the front end wrote, the text of
+  the ICurry file, and the texts of the two interface files beside it (the
+  columns ``fint`` and ``icurry``; see ``INTERFACE_SUFFIXES``), or, for a
+  program the front end rejected, the module name and the error text.  An
+  interface the front end did not write is NULL.  Counts of the hits and the
+  misses of this process are kept in ``stats``; a replayed error counts as a
+  hit.
   '''
   TABLE = 'curry2icurry_%d' % KEY_FORMAT
   stats = {'hit': 0, 'miss': 0}
@@ -379,13 +451,15 @@ class Curry2ICurryCache(object):
     '''
     Clients create an instance with a pair of file names indicating the input
     and output files.  The output file should be created or updated from the
-    input.  If the conversion is cached, it will be written to the second file
-    and this object will evaluate to True.  If a program error is cached, the
-    object evaluates to False and ``error`` holds the error text.  Otherwise,
-    the contents of the second file should be generated by other means, and,
-    afterwards, ``update`` should be called to tell the cache to read that
-    file and update its entry, or ``update_error`` with the exception of the
-    front end.
+    input.  If the conversion is cached, it will be written to the second file,
+    the interface files will be written beside it (see
+    ``interface_filename``; an empty file for a NULL column), and this object
+    will evaluate to True.  If a program error is cached, the object evaluates
+    to False and ``error`` holds the error text.  Otherwise, the contents of
+    the second file and of the interface files beside it should be generated
+    by other means, and, afterwards, ``update`` should be called to tell the
+    cache to read those files and update its entry, or ``update_error`` with
+    the exception of the front end.
     '''
     def __init__(self, file_in, file_out, currypath=(), options=(), tool=None):
       '''
@@ -420,14 +494,15 @@ class Curry2ICurryCache(object):
         self.db.execute(
             'CREATE TABLE IF NOT EXISTS [%s]('
             'key TEXT PRIMARY KEY, name TEXT NOT NULL, text TEXT NOT NULL'
-            ', error TEXT, created REAL)' % Curry2ICurryCache.TABLE
+            ', fint TEXT, icurry TEXT, error TEXT, created REAL)'
+                % Curry2ICurryCache.TABLE
           )
         self.db.commit()
         if must_force_update(file_in):
           logger.info('file %s is being forced to update', file_in)
           return
         row = self.db.execute(
-            'SELECT name, text, error FROM [%s] WHERE key=?'
+            'SELECT name, text, fint, icurry, error FROM [%s] WHERE key=?'
                 % Curry2ICurryCache.TABLE
           , (self.key,)
           ).fetchone()
@@ -438,7 +513,8 @@ class Curry2ICurryCache(object):
         Curry2ICurryCache.stats['miss'] += 1
         logger.info('ICurry cache miss for %s', self.modulename)
         return
-      name, text, error = row
+      name, text, fint, icurry, error = row
+      interfaces = dict(zip(INTERFACE_SUFFIXES, (fint, icurry)))
       if error is not None:
         if self.anonymous and name != self.modulename:
           error = rename_in_message(error, name, self.modulename)
@@ -457,13 +533,18 @@ class Curry2ICurryCache(object):
           return
         if name != self.modulename:
           text = rename_module(text, name, self.modulename)
+          interfaces = {
+              suffix: None if value is None
+                      else rename_module(value, name, self.modulename)
+                  for suffix, value in interfaces.items()
+            }
       elif name.rpartition('.')[2] != self.modulename:
         logger.warning(
             'ignoring a cache entry of module %r found under the key of %r'
           , name, self.modulename
           )
         return
-      self._write(text)
+      self._write(text, interfaces)
       self.found = True
       Curry2ICurryCache.stats['hit'] += 1
       logger.info('ICurry cache hit for %s', self.modulename)
@@ -471,24 +552,24 @@ class Curry2ICurryCache(object):
     def __bool__(self):
       return self.found
 
-    def _write(self, text):
-      '''Writes the ICurry text to the output file, through a temporary file.'''
-      dirname = os.path.dirname(self.file_out)
-      os.makedirs(dirname, exist_ok=True)
-      fd, tmpname = tempfile.mkstemp(
-          dir=dirname, prefix='.icurry-', suffix='.tmp'
-        )
-      try:
-        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
-          stream.write(text)
-        os.replace(tmpname, self.file_out)
-      except BaseException:
-        if os.path.exists(tmpname):
-          os.unlink(tmpname)
-        raise
+    def _write(self, text, interfaces):
+      '''
+      Writes the interface files beside the output file, an empty file for a
+      NULL column, and then the ICurry text to the output file.  Every write
+      goes through a temporary file.
+      '''
+      for suffix in INTERFACE_SUFFIXES:
+        write_file(
+            interface_filename(self.file_out, suffix), interfaces[suffix] or ''
+          )
+      write_file(self.file_out, text)
 
     def update(self):
-      '''Reads the output file and stores it under the key.'''
+      '''
+      Reads the output file and the interface files beside it, and stores them
+      under the key.  An interface file that is missing or empty is stored as
+      NULL.
+      '''
       assert not self.found
       if self.db is None or self.key is None:
         return
@@ -498,7 +579,11 @@ class Curry2ICurryCache(object):
       if name is None:
         logger.warning('not caching %s: no module name found', self.file_out)
         return
-      self._store(name, text, None)
+      interfaces = {
+          suffix: _read_interface(interface_filename(self.file_out, suffix))
+              for suffix in INTERFACE_SUFFIXES
+        }
+      self._store(name, text, None, interfaces)
 
     def update_error(self, err):
       '''
@@ -515,12 +600,17 @@ class Curry2ICurryCache(object):
         return
       self._store(self.modulename, '', stderr)
 
-    def _store(self, name, text, error):
+    def _store(self, name, text, error, interfaces=None):
+      interfaces = interfaces or {}
       try:
         self.db.execute(
-            'INSERT OR REPLACE INTO [%s](key, name, text, error, created) '
-            'VALUES(?, ?, ?, ?, ?)' % Curry2ICurryCache.TABLE
-          , (self.key, name, text, error, time.time())
+            'INSERT OR REPLACE INTO [%s]'
+            '(key, name, text, fint, icurry, error, created) '
+            'VALUES(?, ?, ?, ?, ?, ?, ?)' % Curry2ICurryCache.TABLE
+          , ( self.key, name, text
+            , interfaces.get('.fint'), interfaces.get('.icurry')
+            , error, time.time()
+            )
           )
         self.db.commit()
       except sqlite3.Error as err:

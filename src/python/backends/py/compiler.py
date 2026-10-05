@@ -276,7 +276,14 @@ def importable(obj):
 
 def write_module(
     target_object, stream, goal=None, section_headers=True, module_main=True
+  , goalscheme=None
   ):
+  '''
+  Writes a compiled module as Python.  With ``module_main``, the file ends
+  in a footer that evaluates ``goal`` when the file runs as a program;
+  ``goalscheme`` is the FlatCurry type of the goal as text, recorded so that
+  a goal with class constraints runs without its interface file.
+  '''
   render = renderer.PY_RENDERER.renderLines
   SECTIONS = (
       '.header'
@@ -307,8 +314,9 @@ def write_module(
   if module_main:
     stream.write('''if __name__ == '__main__':\n''')
     stream.write(  '  from %s import __main__\n' % config.python_package_name())
-    stream.write(  '  __main__.moduleMain(__file__, %r, goal=%r)\n' %
-              (target_object.unitname, goal)
+    scheme = '' if goalscheme is None else ', goalscheme=%r' % goalscheme
+    stream.write(  '  __main__.moduleMain(__file__, %r, goal=%r%s)\n' %
+              (target_object.unitname, goal, scheme)
       )
     stream.write('\n\n')
 

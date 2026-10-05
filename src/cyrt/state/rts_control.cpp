@@ -33,7 +33,13 @@ namespace cyrt
     // A top-level IO action yields its payload, as in the Python backend.
     if(root.kind == 'p' && root->info == &IO_Info)
       root = root->successor(0);
-    return copy_graph(root, SKIPFWD, this->S());
+    // The copies of the free variables of the value live outside this
+    // evaluation.  Count them, so that a later goal that holds the value is
+    // walked.  See InterpreterState::external_freevars.
+    size_t freevars = 0;
+    Expr value = copy_graph(root, SKIPFWD, this->S(), nullptr, &freevars);
+    this->istate.external_freevars += freevars;
+    return value;
   }
 
   static bool _make_ready(RuntimeState * rts, Configuration * C)
@@ -167,5 +173,8 @@ namespace cyrt
   void RuntimeState::set_goal(Node * goal)
   {
     this->prepend(Configuration::create(goal));
+    // See InterpreterState::external_freevars.
+    if(goal && this->istate.external_freevars)
+      this->register_freevars(goal);
   }
 }

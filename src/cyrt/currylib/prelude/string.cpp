@@ -62,6 +62,11 @@ static tag_type _biGenerator_step(RuntimeState * rts, Configuration * C)
   Node * next_item = g_generator_next(data);
   if(next_item)
   {
+    // The item is built now, after set_goal walked the goal.  A free variable
+    // made outside this evaluation (a curry.free marker used before) is new to
+    // the variable table.  See RuntimeState::register_freevars.
+    if(rts->istate.external_freevars)
+      rts->register_freevars(next_item);
     // The node of the rest of the list takes over the reference.
     _0->forward_to(cons(next_item, generator(data)));
     return T_FWD;

@@ -165,6 +165,10 @@ To build a goal, use :func:`curry.compile` with mode ``'expr'``:
     ...     'add (S O) (S O)', mode='expr', exprtype='Nat', imports=[Peano]
     ...   )
 
+``exprtype`` names the type of the expression.  Without it, the front end
+infers the type, and class constraints are defaulted as the REPL of PAKCS
+does: ``curry.compile('1 + 2', mode='expr')`` is a goal of type ``Int``.
+
 To evaluate the goal, use :func:`curry.eval`.
 
     >>> values = curry.eval(goal)
@@ -225,9 +229,14 @@ To build an expression containing a choice, use ``Prelude.?``:
     >>> print(curry.expr(getattr(Prelude, '?'), 1, 2))
     (?) 1 2
 
-To build an expression containing a free variable, use :class:`curry.free`:
+To build an expression containing a free variable, use :class:`curry.free`.
+One marker is one variable: the expression holds a call of
+``Prelude.unknown``, and the first rewrite step turns it into the variable.
 
-    >>> print(curry.expr(curry.free()))
+    >>> xs = curry.free()
+    >>> print(curry.expr(xs))
+    unknown _inst#Prelude.Data#Prelude.Bool
+    >>> print(next(curry.eval(xs)))
     _a
 
 To build a cons-style list, either use the symbols ``Prelude.:`` and
@@ -278,8 +287,13 @@ Use :func:`curry.save` to save compiled Curry code to a file:
 
 Use this to see how Sprite compiles Curry into Python.
 
-If a goal was provided, as shown above, the file can be run as a standalone
-application:
+The file is a program that evaluates the goal, so a goal is required.  A
+goal without a type signature keeps its class constraints; the file records
+its type, and the program defaults the constraints as the REPL of PAKCS
+does, in whatever directory it runs.  To save a module without a program,
+for :func:`curry.load`, pass ``module_main=False``.
+
+The file can be run as a standalone application:
 
 .. code-block:: bash
 

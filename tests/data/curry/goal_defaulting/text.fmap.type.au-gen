@@ -1,0 +1,2 @@
+!goal fmap (+1) (Just 1)
+Num a => Maybe a

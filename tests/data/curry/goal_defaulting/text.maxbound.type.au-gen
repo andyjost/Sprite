@@ -1,0 +1,2 @@
+!goal maxBound + 1
+(Bounded a, Num a) => a

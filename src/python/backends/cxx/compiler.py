@@ -644,7 +644,10 @@ def _cxxshow(string, use_char=False):
 
 def write_module(
     target_object, stream, goal=None, section_headers=True, module_main=True
+  , goalscheme=None
   ):
+  # goalscheme, the type of the goal, serves the footer of the Python
+  # backend; the entry point written here runs no goal.
   render = renderer.CXX_RENDERER.renderLines
   for section_name in compiler.TargetObject.SECTIONS:
     if section_headers:

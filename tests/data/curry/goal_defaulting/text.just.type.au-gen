@@ -1,0 +1,2 @@
+!goal Just 5
+Num a => Maybe a

@@ -315,7 +315,7 @@ def getimpl(obj):
     return obj.getimpl()
   elif isinstance(obj, objects.CurryModule):
     curry = __import__(__package__)
-    return curry.save(obj)
+    return curry.save(obj, module_main=False)
 
 def getsymbol(moduleobj, symbolname):
   '''

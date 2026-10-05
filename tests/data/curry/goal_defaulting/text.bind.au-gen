@@ -1,0 +1,2 @@
+!goal x =:= 1 &> True where x free
+{x=1} True

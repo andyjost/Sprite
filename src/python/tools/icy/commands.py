@@ -2,6 +2,7 @@ from . import options
 from .resolve import resolve
 import importlib, os, sys, traceback
 curry = importlib.import_module(__package__[:__package__.find('.')])
+_compile = importlib.import_module(curry.__name__ + '.interpreter.compile')
 
 __all__ = ['COMMANDS', 'eval']
 
@@ -21,12 +22,25 @@ def cmdLoad(repl):
   basename = os.path.basename(filename)
   modulename = os.path.splitext(basename)[0]
   repl.module = curry.import_(modulename, currypath=currypath)
+  # The expressions of :eval and :type import the loaded module, so the
+  # front end must find it.
+  if dirname not in curry.path:
+    curry.path.insert(0, dirname)
+
+def imports(repl):
+  '''The modules in scope at the prompt: the loaded module.'''
+  return [] if repl.module is None else [repl.module]
 
 def cmdEval(repl):
-  '''Executes an :eval command.  Calls ``repl.action`` for each value.'''
+  '''
+  Executes an :eval command.  Calls ``repl.action`` for each value.  The
+  expression sees the loaded module.  A class constraint of the expression is
+  defaulted with the table of the PAKCS REPL; the variables of a trailing
+  ``where x free`` are reported with their bindings, as PAKCS prints them.
+  '''
   assert repl.command == ':eval'
   if repl.args:
-    goal = curry.compile(' '.join(repl.args), mode='expr')
+    goal = curry.compile(' '.join(repl.args), mode='expr', imports=imports(repl))
     values = iter(curry.eval(goal))
     while True:
       try:
@@ -43,6 +57,22 @@ def cmdEval(repl):
         raise RuntimeError(msg)
       else:
         repl.action(repl, value)
+
+def cmdType(repl):
+  '''
+  Executes a :type command: prints the type of an expression as the front
+  end infers it, with its class context and before any defaulting, e.g.,
+  ``1+2 :: Num a => a``.
+  '''
+  assert repl.command == ':type'
+  if not repl.args:
+    raise ValueError("No argument provided to ':type'")
+  text = ' '.join(repl.args)
+  scheme = _compile.expression_scheme(
+      curry.getInterpreter(), text, imports=imports(repl)
+    )
+  module = None if repl.module is None else repl.module.__name__
+  print('%s :: %s' % (text, curry.typecheck.show_scheme(scheme, module=module)))
 
 def cmdSet(repl):
   '''Executes a :set command.  May update ``repl.options``.'''
@@ -99,6 +129,7 @@ def cmdQuit(repl):
 COMMANDS = {
     ':load' : cmdLoad
   , ':eval' : cmdEval
+  , ':type' : cmdType
   , ':set'  : cmdSet
   , ':quit' : cmdQuit
   }

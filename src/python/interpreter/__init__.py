@@ -7,7 +7,7 @@ instance has a separate copy of the settings and runtime.
 
 __all__ = ['Interpreter']
 
-from .. import backends, config, exceptions, icurry, utility
+from .. import backends, config, exceptions, icurry, typecheck, utility
 from ..backends.generic.eval import evaluator as _evaluator
 from . import flags as _flagmod, import_
 from ..objects.handle import getHandle
@@ -36,6 +36,8 @@ class Interpreter(object):
           The built-in Curry module ``Prelude``.
       :data:`setfunctions`
           The built-in Curry module ``Control.SetFunctions``.
+      :data:`sigtable`
+          The signature table: the type schemes of the loaded symbols.
 
     Methods:
       :meth:`compile`
@@ -78,6 +80,7 @@ class Interpreter(object):
     self._path = []
     # The steps and forks of the evaluations of this interpreter; see stats.
     self._evaluation_totals = _evaluator.EvaluationTotals()
+    self._sigtable = typecheck.SignatureTable(self)
     self.reset() # set remaining attributes.
     return self
 
@@ -130,15 +133,25 @@ class Interpreter(object):
       self.__setflib = self.module('Control.SetFunctions')
     return self.__setflib
 
+  @property
+  @utility.formatDocstring(config.python_package_name())
+  def sigtable(self):
+    '''
+    The signature table, a :class:`SignatureTable
+    <{0}.typecheck.SignatureTable>`: the type schemes of the loaded symbols,
+    read on demand from the FlatCurry interfaces.  :meth:`reset` clears it.
+    '''
+    return self._sigtable
+
   def reset(self):
     '''
     Soft-resets the interpreter.
 
     Clears loaded modules (except for the Prelude), restores I/O streams to
-    their defaults, resets the Curry path from the environment, and releases
-    the expression modules.  The names of anonymous modules are not reused;
-    see compile.py.  This is much faster than building a new interpreter,
-    which loads the Prelude.
+    their defaults, resets the Curry path from the environment, releases
+    the expression modules, and clears the signature table.  The names of
+    anonymous modules are not reused; see compile.py.  This is much faster
+    than building a new interpreter, which loads the Prelude.
     '''
     self.stdin = sys.stdin
     self.stdout = sys.stdout
@@ -151,6 +164,7 @@ class Interpreter(object):
         module.unlink(self)
     self.path[:] = config.currypath(reset=True)
     self.backend.init_interpreter_state(self)
+    self._sigtable.clear()
 
   def module(self, name):
     '''Look up a module by name.'''

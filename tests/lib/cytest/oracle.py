@@ -43,16 +43,32 @@ specified results.
 An abnormal exit status can also be specified by giving ORACLE_RESULT the
 result "!suspend" (without quotes).  In this case, the test only passes if
 Sprite's computation suspends (i.e., due to unsatisfied constraints).
+
+
+Recording Errors
+----------------
+A golden result that begins with the line "!error" records a run the oracle
+rejected, e.g., a goal whose class constraints the REPL cannot default.  The
+lines after it hold the output of the oracle.  ``divine`` writes such a
+result only when it is called with ``record_errors=True``; otherwise a
+failing oracle raises.
 '''
 
 from curry.utility import binding, filesys, strings
-import curry, glob, os, re, subprocess, unittest
+import curry, glob, os, re, subprocess, sys, unittest
 
-def oracle(flavor=None):
-  '''Gets the path to the oracle.  Returns None if there is no oracle.'''
+# The exit status of the ``timeout`` command when the time limit expires.
+TIMEOUT_STATUS = 124
+
+def oracle(flavor=None, name='oracle'):
+  '''
+  Gets the path to the oracle.  Returns None if there is no oracle.  ``name``
+  selects another script of the test directory, e.g., ``oracle_type``, which
+  prints the type of an expression (see func_goal_defaulting.py).
+  '''
   # Note: the CWD is assumed to be $root/tests.
   suffix = '.' + flavor if flavor is not None else ''
-  oracle = os.path.abspath('oracle' + suffix)
+  oracle = os.path.abspath(name + suffix)
   if os.path.isfile(oracle) and os.access(oracle, os.X_OK):
     return oracle
   else:
@@ -90,7 +106,10 @@ def require(f):
   '''Decorator that skips a test if the oracle is not present.'''
   return unittest.skipIf(oracle() is None, 'no oracle found')(f)
 
-def divine(module, goal, currypath, timeout=None, goldenfile=None):
+def divine(
+    module, goal, currypath, timeout=None, goldenfile=None, script=None
+  , record_errors=False
+  ):
   '''
   Invokes the oracle with a Curry goal to generate a golden result.
 
@@ -99,7 +118,9 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None):
   ``module``
       A ``CurryModule`` or module name.
   ``goal``
-      A goal object or name.
+      A goal object or name, or the text of an expression.  The text reaches
+      the oracle as one argument, so it may contain spaces, as in
+      ``x where x free``.
   ``currypath``
       The path to use for loading the module.
   ``timeout``
@@ -108,6 +129,15 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None):
   ``goldenfile``
       Specifies a file that contains this result.  If supplied, the file
       will be updated with the command output, if necessary.
+  ``script``
+      The oracle script to run.  By default, the ``oracle`` script of the
+      flavor the module names.
+  ``record_errors``
+      If true, a failing run of the oracle is recorded as a result that
+      begins with the line ``!error``, followed by the standard output and
+      the standard error of the oracle.  By default, a failing run raises
+      ``subprocess.CalledProcessError``.  A run the time limit ended raises
+      in either case.
 
   Returns:
   --------
@@ -125,13 +155,24 @@ def divine(module, goal, currypath, timeout=None, goldenfile=None):
   output = get_embedded_results(module, goal)
   if output is None:
     # Call the oracle.
-    oracle_ = oracle(flavor=get_flavor(module))
+    oracle_ = oracle(flavor=get_flavor(module)) if script is None else script
     assert oracle_
+    cmd = ['timeout', str(timeout)] if timeout else []
+    cmd += [oracle_, module.__name__, str(goal)]
     with binding.binding(os.environ, 'CURRYPATH', ':'.join(currypath)):
-      cmd = '%s %s %s' % (oracle_, module.__name__, goal)
-      if timeout:
-        cmd = 'timeout %s %s' % (timeout, cmd)
-      output = subprocess.check_output(cmd.split())
+      proc = subprocess.run(
+          cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+    timed_out = bool(timeout) and proc.returncode == TIMEOUT_STATUS
+    if proc.returncode == 0:
+      output = proc.stdout
+    elif record_errors and not timed_out:
+      output = b'!error\n' + proc.stdout + proc.stderr
+    else:
+      sys.stderr.write(strings.ensure_str(proc.stderr))
+      raise subprocess.CalledProcessError(
+          proc.returncode, cmd, proc.stdout, proc.stderr
+        )
 
   # Update the golden file or return the output.
   if goldenfile is not None:

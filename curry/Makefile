@@ -24,7 +24,9 @@ include Make.include
 # installs; the root Makefile orders curry after src.  An install of this
 # directory alone (as tests/unit_currylib.py runs it) has no sprite-make and
 # skips the step with a notice.  The FlatCurry interfaces of the library are
-# written first, so the front end reads them instead of writing them again.
+# written first, so the front end reads them instead of writing them again,
+# and copied beside the products (see Make.include), so sprite-make finds the
+# pinned modules current.
 #
 # Every module under lib/ (CURRYLIB_MODULES) gets its ICurry and JSON
 # (sprite-make --json), so no run of Sprite writes into the installation for
@@ -39,7 +41,7 @@ PREBUILD_CHECK = test -f $(CURRYLIB_INSTALL_SUBDIR)/Prelude$(1) \
                  || { echo "prebuild: $(CURRYLIB_INSTALL_SUBDIR)/Prelude$(1)" \
                            "was not written" >&2; exit 1; }
 .PHONY: prebuild
-prebuild: $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_FLAT_STAMP)
+prebuild: $(CURRYLIB_INSTALL_FILES) $(CURRYLIB_FLAT_STAMP) $(CURRYLIB_INSTALL_IFACE)
 	@if [ ! -x $(PREFIX)/bin/sprite-make ]; then \
 	  echo "Skipping the prebuild of the Curry library:" \
 	       "no sprite-make under $(PREFIX)/bin (install src first)."; \

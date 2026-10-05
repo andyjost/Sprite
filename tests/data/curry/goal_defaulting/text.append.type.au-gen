@@ -1,0 +1,2 @@
+!goal xs ++ ys =:= [1, 2] where xs, ys free
+Bool

@@ -1,0 +1,2 @@
+!goal (x, y) where x, y free
+{x=x, y=y} (x,y)

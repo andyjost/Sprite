@@ -7,7 +7,7 @@ from ....common import T_FUNC
 from ...generic.eval.control import (
     E_RESIDUAL, E_RESTART, E_STEPLIMIT, E_TERMINATE, E_UNWIND
   )
-from ..graph.copy import copygraph
+from ..graph.copy import GraphCopier, Skipper
 from .... import exceptions, inspect
 from .. import graph
 
@@ -226,7 +226,13 @@ def make_value(rts, arg=None, config=None):
   if inspect.isa(arg, rts.prelude.IO):
     return arg.successors[0]
   skipgrds = set([] if rts.sid is None else [rts.sid])
-  return copygraph(arg, skipfwd=True, skipgrds=skipgrds)
+  copier = GraphCopier(skipper=Skipper(skipfwd=True, skipgrds=skipgrds))
+  value = copier(arg)
+  # The copies of the free variables of the value live outside this
+  # evaluation.  Count them, so that a later goal that holds the value is
+  # walked.  See InterpreterState.external_freevars.
+  rts.istate.external_freevars += copier.freevars
+  return value
 
 def ready(rts):
   '''

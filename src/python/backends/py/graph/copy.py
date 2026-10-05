@@ -2,7 +2,7 @@
 Code to copy Curry expressions.
 '''
 
-from ....common import T_SETGRD, T_FWD
+from ....common import T_FREE, T_FWD, T_SETGRD
 from copy import copy
 from .... import inspect
 from . import node
@@ -22,6 +22,8 @@ class GraphCopier(object):
   '''
   def __init__(self, skipper=None):
     self.skipper = skipper
+    # The number of free variables copied.  See rts_control.make_value.
+    self.freevars = 0
 
   def __call__(self, expr, memo=None):
     '''
@@ -66,6 +68,8 @@ class GraphCopier(object):
         value = object.__new__(type(cur))
         value.info = cur.info
         value.successors = list(cur.successors)
+        if cur.info.tag == T_FREE:
+          self.freevars += 1
         memo[id(cur)] = value
         if keep is not None:
           keep.append(cur)

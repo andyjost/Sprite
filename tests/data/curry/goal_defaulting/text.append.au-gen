@@ -1,0 +1,4 @@
+!goal xs ++ ys =:= [1, 2] where xs, ys free
+{xs=[], ys=[1,2]} True
+{xs=[1], ys=[2]} True
+{xs=[1,2], ys=[]} True

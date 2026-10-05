@@ -16,10 +16,16 @@ class Main(object):
   evaluated.  Set CURRYPATH to control the search for Curry code.
   ''' % __package__
   ARGUMENTS = 'bimgpsntS'
-  def __init__(self, program_name, module_name=None, default_goal='main'):
+  def __init__(
+      self, program_name, module_name=None, default_goal='main', goalscheme=None
+    ):
     self.program_name = program_name
     self.module_name = module_name
     self.default_goal = default_goal
+    # The FlatCurry type of the default goal, as text, from the footer of a
+    # saved module (curry.save).  With it the goal needs no interface file
+    # at run time; see curry.typecheck.goals.
+    self.goalscheme = goalscheme
     self.parser = self.buildParser()
 
   def description(self):
@@ -104,9 +110,12 @@ class Main(object):
             args.NAME, curry.path, is_sourcefile=not args.module
           )
         if args.goal is not None:
-          goal = curry.symbol(module.__name__ + '.' + args.goal)
+          symbol = curry.symbol(module.__name__ + '.' + args.goal)
+          goal = symbol
+          if self.goalscheme is not None and args.goal == self.default_goal:
+            goal = self.goal_from_scheme(symbol, self.goalscheme)
           def doeval():
-            logger.info('Evaluating %s', goal.fullname)
+            logger.info('Evaluating %s', symbol.fullname)
             try:
               if args.time:
                 t0 = time.time()
@@ -129,16 +138,34 @@ class Main(object):
     if args.interact:
       code.interact(banner='In Curry module %s.' % module.__name__, local=module.__dict__)
 
+  @staticmethod
+  def goal_from_scheme(symbol, goalscheme):
+    '''
+    The goal expression of a symbol whose scheme the footer of a saved
+    module recorded: the symbol applied to the dictionaries of its defaulted
+    constraints, or the symbol itself when it has none.
+    '''
+    from .typecheck import goals
+    scheme = goals.scheme_from_flat_text(symbol, goalscheme)
+    if not scheme.ndicts:
+      return symbol
+    return goals.defaulted_goal(curry.getInterpreter(), symbol, scheme)
+
 def main(program_name, argv=None):
   '''Main program for Curry.'''
   argv = sys.argv[1:] if argv is None else argv
   mainobj = Main(program_name)
   mainobj(argv)
 
-def moduleMain(filename, module_name, goal=None):
-  '''Main program for a Curry module.'''
+def moduleMain(filename, module_name, goal=None, goalscheme=None):
+  '''
+  Main program for a Curry module saved with ``curry.save``.  Runs the goal
+  the module was saved with; ``goalscheme`` is its FlatCurry type as text,
+  so that a goal with class constraints runs wherever the module lies.  The
+  command line of the saved program is not read.
+  '''
   if goal is not None:
-    mainobj = Main(filename, module_name, default_goal=goal)
+    mainobj = Main(filename, module_name, default_goal=goal, goalscheme=goalscheme)
     mainobj(['-m', module_name, '-g', goal])
 
 if __name__ == '__main__':

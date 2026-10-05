@@ -12,7 +12,7 @@ from .... import inspect
 __all__ = [
     'clone_generator', 'freshvar_args', 'freshvar', 'get_generator'
   , 'get_freevar', 'has_generator', 'instantiate', 'is_nondet', 'is_narrowed'
-  , 'is_void', 'register_freevar'
+  , 'is_void', 'register_freevar', 'register_freevars'
   ]
 
 def clone_generator(rts, bound, unbound):
@@ -107,6 +107,33 @@ def register_freevar(rts, var):
   table so that it can be found later, if needed.
   '''
   rts.vtable[rts.obj_id(var)] = var
+
+def register_freevars(rts, root):
+  '''
+  Registers every free variable of the expression at ``root`` in the vtable.
+  A goal built outside this evaluation can hold variables that no table of
+  this state knows: a ``curry.free`` marker shared with an earlier goal,
+  whose node the step of ``Prelude.unknown`` forwarded to a free variable;
+  the result of the single rewrite step of a compiled expression; a raw
+  ``Free`` node of ``curry.raw_expr``; a value of an earlier evaluation.  The
+  item of a generator node is built during the evaluation, so its step walks
+  the item as well (prelude/string.py).  The walk is iterative with a
+  visited set, because a goal can be cyclic.  It follows forward nodes and
+  descends into every node successor: data, partial applications, set
+  guards, constraints, choices, and the generators of free variables.  The
+  C++ runtime has the same method.
+  '''
+  Node = graph.Node
+  stack = [root]
+  seen = set()
+  while stack:
+    node = stack.pop()
+    if not isinstance(node, Node) or id(node) in seen:
+      continue
+    seen.add(id(node))
+    if node.info.tag == T_FREE:
+      rts.register_freevar(node)
+    stack.extend(node.successors)
 
 def _create_generator(rts, ctors, vid=None, target=None):
   '''

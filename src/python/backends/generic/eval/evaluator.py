@@ -145,7 +145,10 @@ def single_step(interp, expr):
   Takes one rewrite step at the root of ``expr``, outside an evaluation, and
   returns ``expr``.  The runtime state of either backend counts the step as
   the step loop would (``RuntimeState.single_step``), and the totals of the
-  interpreter take it up like the steps of an evaluation.
+  interpreter take it up like the steps of an evaluation.  A free variable
+  the step creates (``let x free`` in a compiled expression) outlives the
+  state: the state counts it, so that ``set_goal`` of a later evaluation
+  registers it (``InterpreterState.external_freevars``).
   '''
   expr = getattr(expr, 'raw_expr', expr)
   evaluator = Evaluator(interp, expr)
