@@ -5342,3 +5342,141 @@
   PAKCS, which writes under /tmp and failed where /tmp was read-only
   ("No permission to create directory /tmp/pakcs_file_N"); with /tmp
   writable the file passes on both backends (53 tests each).
+2026-10-06: a functional pattern binds a free argument (=:<= against a free variable)
+- Symptom.  A function with a functional pattern, called with a free
+  variable in that argument position, gave no value on the C++ backend and
+  EvaluationSuspended on the Python backend, where PAKCS binds the
+  variable: with rule (stem ++ ".o") [stem ++ ".c"] = "cc", the goal
+  rule "vec.o" ins where ins free is {ins=["vec.c"]} "cc" in PAKCS 3.4.1.
+  The desugaring written out, rule7 (stem ++ ".o") ins | [stem ++ ".c"]
+  =:<= ins, failed the same way; the variable on the pattern side (rule8,
+  ins =:<= [stem ++ ".c"]) and the strict guard (rule1, ins =:= [...])
+  bound it, and the ground call rule "vec.o" ["vec.c"] answered.  The
+  owner met it on the pattern rule of example 24, through a set function
+  over a free variable created inside the function: an empty set.
+- Cause.  The front end matches the outer constructors of the argument
+  by cases, which narrow a free argument, and writes the functional
+  sub-patterns as one =:<= with the pattern on the left: rule_FREE1 is
+  cond ((stem ++ ".o", stem ++ ".c") =:<= (x, y)) "cc" with stem free.
+  So the step of =:<= meets a constructor or a primitive value on the
+  left and a free variable on the right.  nonstrictEq_step (constr.cpp)
+  narrowed the variable over the type of the left side without a guide,
+  rts->hnf(C, &rhs, lhs.target->info->type).  The type of Char, Int or
+  Float has one constructor, the value node, and instantiate made a
+  generator from it: Node::create_flat writes a fresh variable into the
+  one slot, which is unboxed, so the pattern 'v' met a Char node with a
+  pointer for its value, _equate_rec compared the two and failed, and no
+  alternative was left.  nonstrict_eq (constr.py) called
+  rhs.hnf(typedef=lhs.typedef) with no values, and hnf suspends a free
+  variable of a builtin type without values.  =:= had neither defect:
+  constrEq_step passes make_guides (the one value of a primitive, or the
+  type of a constructor) and constr_eq passes the value.
+- Fix.  nonstrictEq_step passes make_guides for a free right side, as
+  constrEq_step does: a free Char, Int or Float takes a value binding
+  (ValueBinding, as under =:=), and a free variable of a data type is
+  narrowed over the constructors of the type as before.  The codes with
+  an unboxed side are covered too: a free side against an unboxed value
+  takes the value (make_guides reads an unboxed cursor; its assert on
+  'p' is gone), and the one error left, an unboxed value against a node,
+  cannot occur, because the two sides of one =:<= have one
+  representation (the format of =:<= is "pp", and _equate_rec compares
+  the primitive types itself before it recurses); no test reaches it.  A
+  free left side (the NonStrictConstraint path) and two free variables
+  are unchanged.  nonstrict_eq passes the value of a builtin type to hnf,
+  as constr_eq does.  apply_binding, the other maker of =:<= nodes, puts
+  a generator on the left, whose head normal form is a constructor, so
+  its path is the same as before.
+- Tests.  tests/data/curry/FunPatFreeArg.curry: rule, rule7, rule8,
+  rule1, cand f t = (ins, f t ins) where ins free, count (xs ++ [0])
+  [length xs] over Int lists, wrap n (Just (n + 1)), double (Circle r)
+  (Rect (2 * r) (2 * r)) over a small data type, upper (c : _) (toUpper
+  c) over Char, each with a form that creates the variable inside;
+  FunPatFreeArgSet.curry reads those forms through set functions (set2
+  cand f t, set1 countC xs, ...), a module apart so that the PAKCS
+  oracle, which has no Control.SetFunctions here, loads the first.
+  unit_funpat_free_argument.py asks each goal as a text goal with where
+  ... free (the values carry the bindings), as the set-function form,
+  and as a ground call with a match and a mismatch; the expected values
+  are those of PAKCS 3.4.1 on every goal.  Before the fix: on the C++
+  backend 5 failures (every free-argument goal gave []) and 1 error, on
+  the Python backend 6 errors (EvaluationSuspended); after: 7 tests pass
+  on both.  The Char text goal: Sprite leaves ch in the value, because
+  Char occurs in the result type String (goals.absent_from_result), where
+  PAKCS prints {ch='V'} "upper"; the test asks (ch, upper "vec" ch) where
+  ch free and gets ('V', "upper").
+- Regression, through the runner (-j 2 --mem 4 --backend both):
+  unit_cxx_freevars.py, unit_cxx_scheduler.py, unit_cxx_mps.py,
+  unit_py_residuation.py, unit_funcpat_narrowed.py, unit_cxx_interp.py,
+  unit_funpat_free_argument.py and func_funpat.py, 16 of 16 ok;
+  unit_examples.py (examples 14 and 24 among them), 2 of 2 ok with 21
+  tests per backend; then every unit_cxx_*.py and unit_py_*.py file, 68
+  of 68 run with 6 failures on cxx, all the stale-object condition of
+  tests/README section 4 after the make stage of this fix (no cxx.shlib
+  in the metadata of a corpus module in unit_cxx_bom.py,
+  unit_cxx_literals.py, unit_cxx_partial.py, unit_cxx_passthrough.py and
+  unit_cxx_rewrite.py; the stamp of Tak1 in unit_cxx_heap.py), and 6 of
+  6 ok after sprite-make --so of those corpus modules.  The counts the
+  files pin (the forks of unit_funcpat_narrowed.py, the steps of
+  unit_cxx_freevars.py between the stress mode and the plain run) did
+  not change: those programs call their functional patterns with ground
+  arguments, where the path is the one of before.  The documentation
+  states no limit on a free argument of a functional pattern (grep
+  "functional pattern" in docs/source), so no page changed.
+- Review of 2026-10-06, applied.  (1) The corpus had only non-linear
+  patterns, so the plain desugaring, one =:<= without a tuple and without
+  a shared variable (for single (Just (id 3)) the front end matches Just
+  by a case and writes id 3 =:<= x for the sub-pattern), and the Float
+  branch of make_guides and of is_builtin_type had no test.
+  FunPatFreeArg.curry gained single (Just (id 3)) = "three"
+  with singleC, a CAF that creates the variable inside, and half n
+  (fromInt n / 2.0) = "half" with halfC; FunPatFreeArgSet.curry gained
+  singleS (set0) and halfS; the file gained test_linear and test_float.
+  PAKCS 3.4.1: single m where m free is {m=Just 3} "three", singleC is
+  (Just 3,"three"), half 3 x where x free is {x=1.5} "half", halfC 3 is
+  (1.5,"half"); single (Just 4), single Nothing and half 3 2.0 have no
+  value.  Sprite agrees on both backends.  (2) test_char pinned the
+  where-free display rule of goals.py, the text "upper" of the plain
+  goal, which unit_goals.py pins already; the plain goal now checks one
+  value that ends in "upper", and the pair pins the binding.  (3) The
+  narrowing of a free actual of a data type over every constructor (the
+  Left item below): no change.  The figures of the review, measured again
+  on the C++ backend in step mode with curry.stats: rule7 "vec.o" ins
+  where ins free 207 steps and 26 forks against 141 and 10 for the ground
+  call, rule1 the same 207 and 26, rule 195 and 26, wrap 3 m where m free
+  22 and 2 against 16 and 0, single m where m free 11 and 2 against 6 and
+  0; the Char and the Float path fork not at all ((ch, upper "vec" ch)
+  where ch free 132 steps, half 3 x where x free 37 against 33).  The
+  Python backend forks the same.  After the review the file has 9 tests,
+  ok on both backends.
+- Regression after the review, through the runner (-j 2 --mem 4
+  --backend both).  ./run_tests --changed selects every file (the two
+  corpus modules are unknown paths to its rules): 210 of 210 run in 617
+  s, 5 failed, none from the change.  func_goal_defaulting.py on both
+  backends: the PAKCS oracle could not write under /tmp, which was
+  read-only in that run; 53 tests ok per backend with /tmp writable.
+  unit_inspect.py on the C++ backend: the object of Peano was stale after
+  the make stage of the fix (testGetICurry and testGetImpl expect the
+  module loaded from its object); 27 tests ok after sprite-make --so
+  Peano.curry.  func_flat2icurry.py on both backends,
+  test_products_on_disk: the CxxInterp.fcy under
+  tests/data/curry/.curry/pakcs-3.4.1 of this tree had the equality of
+  hasDup unrewritten (==) where the .icy beside it has constrEq, the
+  state the docstring of the test names, and the main tree had the same
+  pair (its .icy of 2026-10-05, its .fcy of 2026-10-06); 6 tests ok per
+  backend after python -m curry.toolchain.flat2icurry.rewrite
+  CxxInterp.fcy ("1 equality replaced").  Then
+  unit_funpat_free_argument.py 2 of 2 ok (9 tests per backend),
+  unit_examples.py 2 of 2 ok (21 tests per backend), and ./run_tests
+  --fast --backend both 124 of 124 ok in 151 s.
+- Left.  A free variable of a data type is narrowed over every
+  constructor of the type and the wrong ones fail, where the rule of
+  Antoy and Hanus binds it to c x1..xn at once; =:= does the same, and a
+  direct binding would save the forks (the figures above are the before
+  numbers of such a change).  PAKCS prints the binding of rule8
+  unevaluated, {ins=["vec" ++ ".c"]}, Sprite prints {ins=["vec.c"]}.  The
+  where-free rule leaves a variable in the value when its type occurs in
+  the result type, where PAKCS reports it.  A module of the shared pool
+  under tests/data/curry is an unknown path to RULES of the runner
+  (tests/lib/testrunner/selection.py), so --changed selects every file
+  for this change.  What wrote the unrewritten CxxInterp.fcy of the main
+  tree on 2026-10-06 is not known.

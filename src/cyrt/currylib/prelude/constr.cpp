@@ -17,9 +17,18 @@ namespace cyrt { inline namespace
     }
   }
 
+  // The guides that narrow a free variable to the other side of a
+  // constraint: the one value of a primitive, boxed or unboxed, or the type
+  // of a constructor.
   void const * make_guides(ValueSet * vs, Cursor & cur)
   {
-    assert(cur.kind == 'p');
+    if(cur.kind != 'p')
+    {
+      vs->args = cur.arg;
+      vs->size = 1;
+      vs->kind = cur.kind;
+      return vs;
+    }
     switch(typetag(*cur->info))
     {
       case F_INT_TYPE:
@@ -169,41 +178,58 @@ namespace cyrt { inline namespace
     return T_FWD;
   }
 
+  // The step of =:<=.  The left side is the pattern, the right side the
+  // actual argument.  A free variable on the left takes the right side as a
+  // non-strict binding.  A free variable on the right is bound to the
+  // constructor or the value on the left, as =:= binds it: the narrowing is
+  // guided (make_guides), so a free Char, Int or Float gets the value.  An
+  // unguided narrowing over the type (the former code) made a Char node with
+  // no value for a primitive type, and the alternative died.
   tag_type nonstrictEq_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable lhs = _0[0];
     Variable rhs = _0[1];
+    // lhs:{0: boxed, 2: unboxed} + rhs:{0: boxed, 1: unboxed}
     auto tagl = inspect::tag_of(lhs.target);
     auto tagr = inspect::tag_of(rhs.target);
     auto code = ((tagl == T_UNBOXED) ? 2 : 0) + ((tagr == T_UNBOXED) ? 1 : 0);
-    switch(code)
+    ValueSet vs;
+    if(code == 3)
     {
-      case 1:
-      case 2: throw InstantiationError("=:<= cannot bind to an unboxed value");
-      case 3: _0->forward_to(
-                  ub_equals(lhs.target, rhs.target) ? True : Fail
-                );
-              return T_FWD;
-    }
-    tagl = rts->hnf_or_free(C, &lhs);
-    if(tagl == T_FREE)
-    {
-      _0->forward_to(
-            Node::create(
-                &NonStrictConstraint_Info
-              , True, pair(lhs.target, rhs.target)
-              )
-        );
+      _0->forward_to(ub_equals(lhs.target, rhs.target) ? True : Fail);
       return T_FWD;
     }
-    else if(tagl < T_CTOR)
-      return tagl;
-    tagr = rts->hnf_or_free(C, &rhs);
-    if(tagr == T_FREE)
-      return rts->hnf(C, &rhs, lhs.target->info->type);
-    else if(tagr < T_CTOR)
-      return tagr;
+    if(code != 2)
+    {
+      tagl = rts->hnf_or_free(C, &lhs);
+      if(tagl == T_FREE)
+      {
+        if(code == 1)
+          return rts->hnf(C, &lhs, make_guides(&vs, rhs.target));
+        _0->forward_to(
+              Node::create(
+                  &NonStrictConstraint_Info
+                , True, pair(lhs.target, rhs.target)
+                )
+          );
+        return T_FWD;
+      }
+      else if(tagl < T_CTOR)
+        return tagl;
+    }
+    if(code != 1)
+    {
+      tagr = rts->hnf_or_free(C, &rhs);
+      if(tagr == T_FREE)
+        return rts->hnf(C, &rhs, make_guides(&vs, lhs.target));
+      else if(tagr < T_CTOR)
+        return tagr;
+    }
+    // One side is an unboxed value and the other a node: the two sides of a
+    // constraint have one representation, so this does not occur.
+    if(code)
+      throw InstantiationError("=:<= cannot compare an unboxed value with a node");
     if(tagl != tagr)
       _0->forward_to(Fail);
     else
