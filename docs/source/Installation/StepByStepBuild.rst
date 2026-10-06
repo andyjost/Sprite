@@ -3,7 +3,7 @@
 Step-by-step build
 ------------------
 
-Use this method for more contol over the build process or to 
+Use this method for more control over the build process.
 
 Step 1: Initialize submodules
 .............................
@@ -24,7 +24,7 @@ To overlay the pre-built ICurry files of the test programs, say::
 If you plan to run the test suite, this step **saves several hours** by
 avoiding hundreds of Curry-to-ICurry conversions.  See :ref:`important-notes`.
 
-To use this, your version of PACKS must match one of the ``overlay*.tgz``
+To use this, your version of PAKCS must match one of the ``overlay*.tgz``
 files at the repository root.
 
 Step 3: Build objects and libraries

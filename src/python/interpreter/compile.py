@@ -75,7 +75,7 @@ def compile(
     declaration.
 
   Raises:
-    CompileError:
+    ~{0}.exceptions.CompileError:
         The front end rejects the text, or, in 'expr' mode without
         ``exprtype``, the table cannot default a class constraint.
   '''

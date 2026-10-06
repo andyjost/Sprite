@@ -13,14 +13,22 @@ run ``Peano.curry`` say::
     cd examples
     PATH=../install/bin:$PATH
     sprite-exec Peano.curry
+    S (S O)
 
 The ``PATH`` line is needed only if ``install/bin`` is not already on your
-PATH.  The remaining examples on this page assume it is.
+PATH.  The remaining examples on this page assume it is.  ``python -m
+curry`` under the Python of the installation is the same program.
 
 The default goal is ``main``.  To specify a different one, use the ``-g``
-option::
+option; ``-g ''`` loads the module and evaluates nothing::
 
     sprite-exec Peano.curry -g O
+    O
+
+The first run of a program also runs the Curry front end on its module.
+That takes a fraction of a second for a small module: ``Peano.curry``
+took 0.64 s on its first run and 0.17 s on the second, on the machine of
+this text.
 
 For detailed usage, say::
 
@@ -53,6 +61,20 @@ repository root with this command::
 
     CURRYPATH=examples/ sprite-exec -m Peano
 
+Interacting and timing
+======================
+
+The option ``-i`` or ``--interact`` opens a Python prompt after the goal
+ran, in the namespace of the loaded module.  The symbols of the module are
+names there (``add``, ``S``, ``O`` and ``main`` for ``Peano``), and
+``import curry`` reaches the API.  Without a module name, ``sprite-exec``
+opens the Python prompt at once; ``import curry`` there starts the
+interpreter.
+
+The option ``-t`` or ``--time`` suppresses the output of the program and
+prints the seconds of the evaluation instead, with no newline; ``--stats``
+(below) prints the counters of the whole run.
+
 Selecting a Backend
 ===================
 
@@ -60,14 +82,9 @@ Sprite has two backends.  The C++ backend is the default.  It runs a
 module interpreted until the compiled code is ready (the interpreter flag
 ``interpret``), so a program starts at once, and an installation without a
 C++ compiler runs every program; see :doc:`/Installation/WithoutCompiler`.
-The Python backend suits small programs.  It evaluates a nested step by a
-recursive Python call, about eight frames per element of a list under a
-function that is not tail recursive, such as ``length`` or ``sort``.  The
-flag ``recursion_limit`` (below) bounds the frames of one value, 262144 by
-default, so ``length`` of a list of about thirty thousand elements ends
-with ``RecursionError`` there; a larger limit costs about 4 KB of memory
-per nested element.  The C++ backend has no such limit below its
-``stack_limit`` (below).  To select the Python backend, set
+The Python backend suits small programs; its flag ``recursion_limit``
+bounds the depth of one value (see :ref:`the flags
+<sprite-interpreter-flags>`).  To select the Python backend, set
 ``SPRITE_INTERPRETER_FLAGS`` in the environment::
 
     SPRITE_INTERPRETER_FLAGS=backend:py sprite-exec prog.curry
@@ -87,40 +104,22 @@ for the other flags.
 Bounding One Alternative
 ========================
 
-Two flags keep one alternative from starving the others.  On the Python
-backend, ``step_budget`` sets the number of rewrite steps one alternative gets
-before the next one runs.  The default is 2048::
+Four interpreter flags bound one alternative, so that a diverging
+alternative cannot starve the others.  On the Python backend,
+``step_budget`` is the number of rewrite steps one alternative gets before
+the next one runs, and ``recursion_limit`` the number of Python frames one
+value may nest.  On the C++ backend, ``stack_limit`` is the number of
+bytes of C stack one evaluation may use.  ``rotation`` is the pace of the
+rotation of the queue: time mode, the default, or step mode, in which the
+order of the values of a search reproduces between runs.  :ref:`The entry
+SPRITE_INTERPRETER_FLAGS <sprite-interpreter-flags>` gives each flag with
+its default and its rule, and :ref:`interpreter-flags` tabulates them.
+Each flag is set in the environment::
 
     SPRITE_INTERPRETER_FLAGS=step_budget:65536 sprite-exec prog.curry
 
-``None`` disables the step-budget rotation.  Rotation on residuation and on
-Python stack overflow still occurs.  An alternative that overflows the Python
-stack runs again after the others.  When it overflows again without progress,
-it is dropped, and its error is reported after the others have run.
-``recursion_limit`` sets the number of Python frames one value may nest, the
-recursion limit of the interpreter while the value is computed.  The default
-is 262144, about thirty thousand elements of a list under ``length``::
-
-    SPRITE_INTERPRETER_FLAGS=recursion_limit:1048576 sprite-exec prog.curry
-
-On the C++ backend, ``stack_limit`` sets the number of bytes of C stack one
-evaluation may use.  The default is 4194304.  When an alternative reaches the
-limit, the other alternatives run.  An alternative that cannot proceed within
-the limit is dropped, and its error is reported after the others have run.
-``None`` disables the guard.  A limit larger than the stack of the thread is
-clamped to that stack, less a margin of 1 MiB.
-
-The C++ backend also rotates its queue of alternatives periodically, so a
-diverging alternative cannot starve the others.  The flag ``rotation``
-selects the pace.  In time mode, the default (``time:10ms``), a ticker
-thread sets one byte every quantum and the scheduler polls it after every
-completed step; a waiting alternative runs within a quantum whatever a step
-costs.  In step mode (``steps:65536``) the scheduler rotates every N
-completed steps; the schedule then depends on the program alone.  A
-deterministic subcomputation never rotates in either mode, but a
-non-deterministic goal may print its values in a different order from one
-run to the next in time mode.  For reproducible output of a search goal,
-pin step mode with the flag or with ``SPRITE_ROTATION``::
+To pin the order of the values of a search goal, set step mode with the
+flag or with ``SPRITE_ROTATION``::
 
     SPRITE_ROTATION=steps:65536 sprite-exec --backend cxx prog.curry
 
@@ -136,7 +135,7 @@ program, and after the error message when the run fails::
 
     sprite-exec --stats Peano.curry
     S (S O)
-    wall=0.129943 cpu=0.129125 steps=3 forks=0 collections=0 peak_rss=36773888 compile=0.000000 gc_seconds=0.000000 swapped=0 failed_compiles=0 gc_roots_seconds=0.000000 gc_trace_seconds=0.000000 gc_sweep_seconds=0.000000 gc_registries_seconds=0.000000 gc_marked=0 gc_marked_old=0 gc_marked_young=0 gc_configurations_pushed=0 gc_queues_destroyed=0 gc_configurations_destroyed=0 gc_old_redexes=0 gc_old_slot_writes=0 gc_old_nodes_written=0 gc_old_blocks=0
+    wall=0.169667 cpu=0.160349 steps=3 forks=0 collections=0 peak_rss=37085184 compile=0.000000 gc_seconds=0.000000 swapped=0 failed_compiles=0 gc_roots_seconds=0.000000 gc_trace_seconds=0.000000 gc_sweep_seconds=0.000000 gc_registries_seconds=0.000000 gc_marked=0 gc_marked_old=0 gc_marked_young=0 gc_configurations_pushed=0 gc_queues_destroyed=0 gc_configurations_destroyed=0 gc_old_redexes=0 gc_old_slot_writes=0 gc_old_nodes_written=0 gc_old_blocks=0
 
 The fields are:
 
@@ -277,8 +276,7 @@ With the counters, ``--stats`` appends these fields after
     steps; above, it is the lower bound of the power-of-two bucket that
     holds it.
 
-``nested_configurations``, ``nested_lifetime_median``,
-``nested_lifetime_mean``, ``nested_lifetime_max``
+``nested_configurations``, ``nested_lifetime_median``, ``nested_lifetime_mean``, ``nested_lifetime_max``
     The same for the configurations of the queues of set functions.
 
 The counters are per evaluation and summed over the evaluations of the

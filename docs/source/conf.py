@@ -42,10 +42,18 @@ extensions = [
 
 autodoc_preserve_defaults = True
 autosummary_generate = True
+# Every object is described once, in the module that defines it.  A module
+# with __all__ documents the names it lists, imported ones included (the
+# curry package itself); a module without __all__ documents the names it
+# defines.  The option imported-members documented every import of every
+# module, so the classes of curry.icurry.types were described three times
+# and io.StringIO once.
 autodoc_default_options = {
     'members': True
-  , 'imported-members': True
   }
+# The "Attributes:" section of a class docstring becomes a field list.  As
+# attribute directives it described each slot of the class a second time.
+napoleon_use_ivar = True
 
 # Make sure the target is unique
 autosectionlabel_prefix_document = True
@@ -163,7 +171,7 @@ html_theme_options = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied

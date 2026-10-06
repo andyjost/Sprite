@@ -2,7 +2,7 @@
 The ICurry optimizer.
 
 The passes run when a module is loaded, before its symbols are materialized
-(interpreter.import_.load): after the ICurry was read, and before either
+(``interpreter.import_.load``): after the ICurry was read, and before either
 backend generates code.  A module loaded from its compiled form carries the
 keys of the passes that ran on it in its metadata and is not optimized again.
 '''

@@ -92,11 +92,15 @@ The following are recognized:
   warning.  The value is read when the runtime library loads.  The Python
   backend does not use it.
 
+.. _sprite-interpreter-flags:
+
 ``SPRITE_INTERPRETER_FLAGS``
   Overrides default flags in Sprite's Curry interpreter.  This can be set to a
-  comma-separated list of colon-separated pairs (without spaces).
+  comma-separated list of colon-separated pairs (without spaces).  An item
+  splits at its first colon, so ``rotation:time:10ms`` is one item.
 
-  See the :mod:`list of flags <curry.interpreter.flags>` for details.
+  See the :mod:`list of flags <curry.interpreter.flags>` for details, and
+  :ref:`interpreter-flags` for the table with the defaults.
 
   For example, to have Sprite generate debug code and print execution traces,
   set the following::
@@ -293,3 +297,94 @@ with Sprite, then you should not need these.
   :ref:`sprite-exec` and :ref:`sprite-make` normally report unexpected errors
   tersely.  Enabling this allows one to see the full stack trace when Sprite
   fails.  Set this to the value ``1`` to enable debugging.
+
+``SPRITE_DISABLE_SYSLIB_CHECKS``
+  When the variable is set, Sprite skips the check of the system libraries,
+  the Prelude and the other modules of ``curry/`` in the installation.  The
+  check finds each of them on the Curry path and confirms that no file
+  earlier on the path shadows it.  Without the variable a missing or
+  shadowed system library ends the process with a message that names the
+  paths.
+
+``SPRITE_ENABLE_BREAKPOINT``
+  When the variable is set, ``import curry`` installs a ``breakpoint``
+  hook of Sprite's own (``sys.breakpointhook``), an interactive prompt in
+  the frame of the call, and the built-in ``pdbtrace``, which starts PDB.
+  For the development of Sprite itself.
+
+``SPRITE_FORCE_RECOMPILE_CXX``
+  When the variable is set, the C++ backend leaves the generated C++ file
+  and the shared object of a module out of the prerequisites it compares,
+  so every module is generated and compiled again whatever their times
+  say.
+
+``SPRITE_WORKTREE_ROOT``
+  The directory under which ``scripts/new-worktree.sh`` puts the install
+  and object trees of a new git worktree; the default is
+  ``~/.cache/sprite/worktrees``.
+
+Test Variables
+--------------
+
+The test runner (``tests/run_tests``; section 10 of ``tests/README``) sets
+the environment of every test file: ``SPRITE_HOME``, ``SPRITE_CACHE_FILE``
+(``tests/.cache/icurry.db``), ``SPRITE_INTERPRETER_FLAGS`` (the backend of
+the run), and ``SPRITE_ROTATION=steps:65536`` unless the environment of
+the run names a mode.  Three variables address the tests themselves:
+
+``SPRITE_TEST_MAX_VMEM_KB``
+  The cap on the address space of a test process, in KiB, or
+  ``unlimited``.  The runner keeps the cap as a backstop behind its
+  memory budget (6 GB, or three times the cap of the file, whichever is
+  larger); the other drivers under ``tests/`` cap every process at 6 GiB.
+
+``SPRITE_TEST_FLAGS``
+  Interpreter flags that the CI script ``.github/scripts/run-tests.sh``
+  appends to ``SPRITE_INTERPRETER_FLAGS`` for the files of a shard; the
+  nightly job runs the suites under ``interpret:all`` and
+  ``interpret:off`` through it.
+
+``SPRITE_UPDATE_EXPECTED``
+  With the value ``1``, ``tests/unit_examples.py`` writes the output of
+  each run script of ``examples/`` to its ``expected.out`` instead of
+  comparing with it; run it once per backend and review the diff.
+
+Build Variables
+---------------
+
+These are variables of ``make``, read when Sprite is built.  ``Make.config``
+describes them beside the settings of ``configure``.
+
+``SPRITE_REBUILD_ICY``
+  ``make stage`` derives the JSON of a library module from its committed
+  ``.icy`` file and never translates the module again.  With
+  ``SPRITE_REBUILD_ICY=1`` it runs the front end and the translation again
+  and writes a new ``.icy``; the committed files are pinned artifacts of
+  the front end of PAKCS 3.4.1 and of ``icurry`` 3.1.0, so this is a
+  deliberate step.
+
+``DEBUG=1``
+  The debug flavor of the runtime: the assertions on, no optimization.
+  The C++ backend compiles the modules of an interpreter whose flag
+  ``debug`` is set in the same flavor.
+
+``TRACE=1``
+  Computation tracing in the C++ runtime (``SPRITE_TRACE_ENABLED``).
+
+``COUNTERS=1``
+  The scheduler counters of the C++ runtime (``SPRITE_SCHEDULER_COUNTERS``),
+  reported by ``sprite-exec --stats``; see :ref:`sprite-exec`.
+
+``GC=mps``
+  The Memory Pool System in place of the default collector, an experiment
+  behind a gate; the ``SPRITE_GC_*`` variables above change their meaning
+  under it.
+
+``GC_WRITE_COUNTERS=1``
+  The counters of the writes into old nodes (``SPRITE_GC_WRITE_COUNTERS``),
+  the four ``gc_old_*`` fields of ``--stats``.  They are part of the ABI
+  stamp, so a switch compiles every module again.
+
+``JOBS=N``, ``PREFIX=DIR``
+  The job count of the build (``configure --jobs``) and the directory of
+  ``make install``.

@@ -32,12 +32,15 @@ Important Notes
     they are built; see :ref:`typed-expressions`.
 
 
-[2] Have patience when compiling.
-    Sprite relies on an external program to convert Curry source code into an
-    intermediate representation called ICurry.  This is typically the slowest
-    step by far in the compilation process, requiring several seconds even for
-    trivial programs.  Although this greatly affects compilation times, it does
-    not affect the performance of programs compiled by Sprite.
+[2] The front end runs once per change.
+    Sprite relies on an external program, the Curry front end of PAKCS, to
+    convert Curry source code into FlatCurry, from which it writes an
+    intermediate representation called ICurry.  The front end is the
+    slowest step of the compilation: a fraction of a second for a small
+    module (0.6 s for ``Peano``), seconds for a large one, and nothing when
+    the files are current.  It does not affect the performance of programs
+    compiled by Sprite.  On the C++ backend a module runs interpreted at
+    once, and its compilation to native code happens in the background.
 
 
 Acknowledgements

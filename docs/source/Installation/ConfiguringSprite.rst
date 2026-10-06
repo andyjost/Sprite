@@ -34,6 +34,11 @@ These options are summarized in the following table:
 +---------------------------+----------------+--------------------+---------------------------------+
 | ``--with-cxx``            | CXX            | ``g++``            | Selects the C++ compiler        |
 +---------------------------+----------------+--------------------+---------------------------------+
+| ``--with-cxx-postinstall``| CXX            | ``g++``            | Selects the C++ compiler that   |
+|                           |                |                    | the installation uses to        |
+|                           |                |                    | compile Curry modules           |
+|                           |                |                    | (``tools/cxx``)                 |
++---------------------------+----------------+--------------------+---------------------------------+
 | ``--with-curry-frontend`` | CURRY_FRONTEND | ``pakcs-frontend`` | Selects the Curry front end.    |
 |                           |                | of PAKCS           | Both routes need it.            |
 +---------------------------+----------------+--------------------+---------------------------------+
@@ -45,8 +50,22 @@ These options are summarized in the following table:
 +---------------------------+----------------+--------------------+---------------------------------+
 | ``--with-prolog``         | PROLOG         | ``swipl``          | Selects Prolog                  |
 +---------------------------+----------------+--------------------+---------------------------------+
-| ``--with-python``         | PYTHON         | ``python``         | Selects Python                  |
+| ``--with-python``         | PYTHON         | ``python3``        | Selects Python                  |
 +---------------------------+----------------+--------------------+---------------------------------+
+
+The other options of ``configure`` fall into three groups.  The
+prerequisite options check or install the external programs:
+``--check-prereqs`` lists what is missing, ``--install-prereqs`` installs
+it and configures, ``--install-prereqs-only`` installs it alone, ``-y`` or
+``--yes`` skips the confirmation, and ``--pip-nosudo`` is accepted for
+compatibility.  ``-D`` or ``--doc`` adds the prerequisites of the
+documentation to the check, ``-f`` or ``--fast`` skips the expensive
+checks, and ``-i`` or ``--interactive`` asks for each setting.  The build
+options, ``--jobs`` and ``--with-default-backend``, are described under
+`Build options`_.  The development options are ``--cache``, which turns
+the caches of the toolchain on (``all``, ``icurry`` or ``json``; see
+``SPRITE_CACHE_FILE`` under :doc:`/CommandLineInterface/EnvironmentVariables`),
+and ``--curry2icurry``, which selects the route from Curry to ICurry.
 
 Sprite translates Curry to ICurry in three steps: the Curry front end of
 PAKCS writes FlatCurry, the binding optimization rewrites that file in

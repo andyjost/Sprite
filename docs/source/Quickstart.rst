@@ -151,12 +151,12 @@ Not all Curry symbols are valid Python identifiers.  Use ``getattr`` to access
 these:
 
     >>> getattr(Prelude, '++')
-    <curry function 'Prelude.++'>
+    <curry function '++'>
 
 You may also find symbols by their full names using :func:`curry.symbol`:
 
     >>> curry.symbol('Prelude.++')
-    <curry function 'Prelude.++'>
+    <curry function '++'>
 
 
 Building and Evaluating Goals
@@ -170,7 +170,8 @@ To build a goal, use :func:`curry.compile` with mode ``'expr'``:
 
 ``exprtype`` names the type of the expression.  Without it, the front end
 infers the type, and class constraints are defaulted as the REPL of PAKCS
-does: ``curry.compile('1 + 2', mode='expr')`` is a goal of type ``Int``.
+does: ``curry.compile('1 + 2', mode='expr')`` evaluates to the ``Int``
+``3``.
 
 To evaluate the goal, use :func:`curry.eval`.
 
@@ -298,11 +299,17 @@ generated:
 Saving Compiled Curry
 ---------------------
 
-Use :func:`curry.save` to save compiled Curry code to a file:
+:func:`curry.save` writes the generated code of a module in the form of
+the backend.  On the Python backend the form is a Python file.  Start
+Python with ``SPRITE_INTERPRETER_FLAGS=backend:py install/bin/python`` and
+say:
 
     >>> curry.save(Peano, 'Peano.py', goal='main')
 
-Use this to see how Sprite compiles Curry into Python.
+Use this to see how Sprite compiles Curry into Python.  On the C++
+backend the same call writes C++ source, which :func:`curry.load` cannot
+load; the C++ backend loads the shared object that ``sprite-make --so``
+writes (see :ref:`sprite-make`).
 
 The file is a program that evaluates the goal, so a goal is required.  A
 goal without a type signature keeps its class constraints; the file records
@@ -310,20 +317,19 @@ its type, and the program defaults the constraints as the REPL of PAKCS
 does, in whatever directory it runs.  To save a module without a program,
 for :func:`curry.load`, pass ``module_main=False``.
 
-The file can be run as a standalone application:
+The file runs under the Python of the installation:
 
 .. code-block:: bash
 
-    % chmod +x Peano.py
-    % ./Peano.py
+    % install/bin/python Peano.py
     S (S O)
 
 The program reads its command line as ``sprite-exec`` does: ``-g NAME``
 evaluates another goal of the module, ``-g ''`` runs nothing, and
 ``--help`` lists the switches.
 
-To import the compiled module into Python, either import is as a regular Python
-module or use :func:`curry.load`:
+To import the compiled module into Python on the Python backend, either
+import it as a regular Python module or use :func:`curry.load`:
 
     >>> import sys
     >>> sys.path.insert(0, '.')
@@ -333,7 +339,8 @@ or
 
     >>> Peano = curry.load('Peano.py')
 
-Both methods add ``Peano`` to :data:`curry.modules`.
+Both methods add ``Peano`` to :data:`curry.modules`.  Example 04 of
+:doc:`Examples` runs the whole round trip.
 
 .. _Python Tutorial: https://docs.python.org/3/tutorial/
 
