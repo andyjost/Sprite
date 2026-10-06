@@ -1,72 +1,107 @@
-% python go.py
-sources: vec.c shape.c report.c main.c
-headers: vec.h shape.h
-includes: main.c -> shape.h; report.c -> vec.h; shape.c -> shape.h; shape.h -> vec.h; vec.c -> vec.h
-targets: vec.o shape.o report.o main.o libgeom.a demo
-
-1. full build
+1. the full build
+% python make.py -C project
 plan: 6 targets
-  vec.o     <- vec.c vec.h                cc -c -o vec.o vec.c
-  shape.o   <- shape.c shape.h vec.h      cc -c -o shape.o shape.c
-  report.o  <- report.c vec.h             cc -c -o report.o report.c
-  main.o    <- main.c shape.h vec.h       cc -c -o main.o main.c
+  main.o    <- main.c shape.h vec.h       cc -O2 -Wall -c main.c -o main.o
+  report.o  <- report.c vec.h             cc -O2 -Wall -c report.c -o report.o
+  vec.o     <- vec.c vec.h                cc -O2 -Wall -c vec.c -o vec.o
+  shape.o   <- shape.c shape.h vec.h      cc -O2 -Wall -c shape.c -o shape.o
   libgeom.a <- vec.o shape.o              ar rcs libgeom.a vec.o shape.o
   demo      <- main.o report.o libgeom.a  cc -o demo main.o report.o libgeom.a
-waves: [vec.o shape.o report.o main.o] [libgeom.a] [demo]
+waves: [main.o report.o vec.o shape.o] [libgeom.a] [demo]
 built: demo libgeom.a main.o report.o shape.o vec.o
 status:
+  main.o     built
+  report.o   built
   vec.o      built
   shape.o    built
-  report.o   built
-  main.o     built
   libgeom.a  built
   demo       built
 
 2. build again
+% python make.py -C project
 plan: nothing to do
 status:
+  main.o     up to date
+  report.o   up to date
   vec.o      up to date
   shape.o    up to date
-  report.o   up to date
-  main.o     up to date
   libgeom.a  up to date
   demo       up to date
 
-3. touch shape.h
+3. touch shape.h: the inverse query predicts the rebuild
+% python make.py -C project --touch shape.h --affected shape.h
 affected: demo libgeom.a main.o shape.o
 plan: 4 targets
-  shape.o   <- shape.c shape.h vec.h      cc -c -o shape.o shape.c
-  main.o    <- main.c shape.h vec.h       cc -c -o main.o main.c
+  main.o    <- main.c shape.h vec.h       cc -O2 -Wall -c main.c -o main.o
+  shape.o   <- shape.c shape.h vec.h      cc -O2 -Wall -c shape.c -o shape.o
   libgeom.a <- vec.o shape.o              ar rcs libgeom.a vec.o shape.o
   demo      <- main.o report.o libgeom.a  cc -o demo main.o report.o libgeom.a
-waves: [shape.o main.o] [libgeom.a] [demo]
+waves: [main.o shape.o] [libgeom.a] [demo]
 built: demo libgeom.a main.o shape.o
 status:
+  main.o     built
+  report.o   up to date
   vec.o      up to date
   shape.o    built
-  report.o   up to date
-  main.o     built
   libgeom.a  built
   demo       built
-rebuilt the affected set: yes
 
-4. a second rule for main.o
-explicit:
-  main.o <- main.c  cc -c -O2 -o main.o main.c
+4. a second rule for main.o: the lint
+% python make.py -C project -f Makefile_ambiguous.curry
 ambiguous: main.o has 2 rules
-  main.o <- main.c  cc -c -O2 -o main.o main.c
-  main.o <- main.c  cc -c -o main.o main.c
+  main.o <- main.c  cc -O2 -Wall -c main.c -o main.o
+  main.o <- main.c  cc -O3 -c main.c -o main.o
 refused: the build does not start
+exit status 2
 
-5. a rule that closes a cycle
-explicit:
-  shape.h <- demo  ./demo --emit-header shape.h
+5. the compiler left open, in a fresh copy: one plan per compiler
+% python make.py -C fresh -f Makefile_toolchain.curry -n
+makefile gcc:
+plan: 6 targets
+  main.o    <- main.c shape.h vec.h       gcc -O2 -Wall -c main.c -o main.o
+  report.o  <- report.c vec.h             gcc -O2 -Wall -c report.c -o report.o
+  vec.o     <- vec.c vec.h                gcc -O2 -Wall -c vec.c -o vec.o
+  shape.o   <- shape.c shape.h vec.h      gcc -O2 -Wall -c shape.c -o shape.o
+  libgeom.a <- vec.o shape.o              ar rcs libgeom.a vec.o shape.o
+  demo      <- main.o report.o libgeom.a  gcc -o demo main.o report.o libgeom.a
+waves: [main.o report.o vec.o shape.o] [libgeom.a] [demo]
+makefile clang:
+plan: 6 targets
+  main.o    <- main.c shape.h vec.h       clang -O2 -Wall -c main.c -o main.o
+  report.o  <- report.c vec.h             clang -O2 -Wall -c report.c -o report.o
+  vec.o     <- vec.c vec.h                clang -O2 -Wall -c vec.c -o vec.o
+  shape.o   <- shape.c shape.h vec.h      clang -O2 -Wall -c shape.c -o shape.o
+  libgeom.a <- vec.o shape.o              ar rcs libgeom.a vec.o shape.o
+  demo      <- main.o report.o libgeom.a  clang -o demo main.o report.o libgeom.a
+waves: [main.o report.o vec.o shape.o] [libgeom.a] [demo]
+
+6. the compiler as a choice inside the rules: every use picks on its own
+% python make.py -C fresh -f Makefile_choice.curry -n
+ambiguous: demo has 2 rules
+  demo <- main.o report.o libgeom.a  clang -o demo main.o report.o libgeom.a
+  demo <- main.o report.o libgeom.a  gcc -o demo main.o report.o libgeom.a
+ambiguous: main.o has 2 rules
+  main.o <- main.c  clang -O2 -Wall -c main.c -o main.o
+  main.o <- main.c  gcc -O2 -Wall -c main.c -o main.o
+ambiguous: report.o has 2 rules
+  report.o <- report.c  clang -O2 -Wall -c report.c -o report.o
+  report.o <- report.c  gcc -O2 -Wall -c report.c -o report.o
+ambiguous: shape.o has 2 rules
+  shape.o <- shape.c  clang -O2 -Wall -c shape.c -o shape.o
+  shape.o <- shape.c  gcc -O2 -Wall -c shape.c -o shape.o
+ambiguous: vec.o has 2 rules
+  vec.o <- vec.c  clang -O2 -Wall -c vec.c -o vec.o
+  vec.o <- vec.c  gcc -O2 -Wall -c vec.c -o vec.o
+refused: the build does not start
+exit status 2
+
+7. a rule that closes a cycle: the plan has no value
+% python make.py -C fresh -f Makefile_cycle.curry -n
 plan: no value (the rules have a cycle)
-status:
-  vec.o      up to date
-  shape.o    stale
-  report.o   up to date
-  main.o     stale
-  libgeom.a  stale
-  demo       stale
-  shape.h    stale
+exit status 2
+
+8. a source that is missing: no rule to make it
+% python make.py -C incomplete
+no rule to make vec.c, needed by vec.o
+refused: the build does not start
+exit status 2

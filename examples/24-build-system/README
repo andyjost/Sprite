@@ -1,96 +1,194 @@
-A build system: the decisions of make as a relation
-===================================================
+A makefile in Curry
+===================
 
 Make executes, Sprite computes.  This example builds a toy C project: four
-sources, two headers, a static library of two objects, and a program.  The
-Curry module Build states what make knows as a relation between names: the
-pattern rules, what a target reads, what is stale, and in which order the
-stale targets go.  From that one relation it answers every question of a
-build: the plan, the targets that can run now, the targets a change touches,
-and the targets that two rules claim.  The Python driver go.py owns the
-world: it writes the files, scans the includes, reads the stamps, runs the
-recipes in a thread pool, and prints the status.  Curry never touches the
-file system.  Sprite itself builds with configure and GNU make; this example
-does not replace them, and its rules are not Sprite's.
+sources, two headers, a static library of two objects, and a program.  Its
+makefile is a Curry module beside the sources, project/Makefile.curry.  The
+variables of the makefile are definitions, and each equation of the function
+rule is a rule.  The library Make.curry asks the questions of make over that
+function: what a target reads, what is stale, what to build and in which
+order, what can run now, what a change touches, which targets two rules
+claim, and which sources are missing.  The driver make.py owns the world: it
+scans the includes, reads the stamps of the files, runs the commands in a
+thread pool, and prints the status.  Nothing in make.py names a file of the
+project.  The include scan is its one piece of knowledge of the language, so
+the driver is generic for a C project.  Sprite itself builds with configure
+and GNU make; this example does not replace them, and its rules are not
+Sprite's.
 
 
 1. What the example shows about functional logic programming
 -------------------------------------------------------------
 
-Each question of a build is one function of Build.curry.  Each function
+The makefile.  This is project/Makefile.curry, with its comments shortened:
+
+    module Makefile where
+
+    import Make
+
+    -- The variables.
+    cc :: String
+    cc = "cc"
+
+    cflags :: String
+    cflags = "-O2 -Wall"
+
+    ar :: String
+    ar = "ar"
+
+    library :: Target
+    library = "libgeom.a"
+
+    program :: Target
+    program = "demo"
+
+    libobjs, mainobjs :: [Target]
+    libobjs  = ["vec.o", "shape.o"]
+    mainobjs = ["main.o", "report.o"]
+
+    -- The default goal.
+    goal :: Target
+    goal = program
+
+    -- The rules.
+    rule :: Target -> Rule
+    rule t@(stem ++ ".o") =
+      Rule t [stem ++ ".c"]
+           (cc ++ " " ++ cflags ++ " -c " ++ stem ++ ".c -o " ++ t)
+    rule t | t == library =
+      Rule t libobjs (ar ++ " rcs " ++ t ++ " " ++ unwords libobjs)
+    rule t | t == program =
+      Rule t ins (cc ++ " -o " ++ t ++ " " ++ unwords ins)
+      where ins = mainobjs ++ [library]
+    rule "main.o" = Rule "main.o" ["shape.h"] ""
+
+A rule is a value of the type Rule of the library: the target, its
+prerequisites, and its command, one line as a makefile writes it.  A
+makefile is a function from a target to its rule, and every equation that
+matches a target is one answer.  The first equation is the pattern rule
+%.o: %.c of make.  Its functional pattern stem ++ ".o" matches every object
+name and binds the stem, so the rule names its source and its command from
+the stem.  The as-pattern t@(...) names the whole target, as $@ does.  The
+next two equations name their targets through the variables; the parameter
+t stands where make writes $@, and ins where it writes $^.  The last
+equation has no command: it is a prerequisite line, main.o: shape.h.  The
+scanner of the driver finds that include as well; the line shows the form.
+
+What a feature of a makefile maps to:
+
+  * A variable, CC = cc, is a definition, cc = "cc".  Make writes CC;
+    Curry keeps an uppercase name for a constructor, so the definition is
+    lowercase.  The flags are one string, as in make.  A makefile that
+    keeps them as a list joins them with unwords.
+  * A pattern rule, %.o: %.c, is an equation with a functional pattern.
+  * An explicit rule is an equation with a literal target or a guard on a
+    variable.
+  * A prerequisite line, main.o: shape.h, is a rule with the empty command.
+    The library merges the prerequisites of every rule of a target, as
+    make does, and takes the command from the rule that has one.
+  * The automatic variables $@, $^, $< and $* are plain variables: the
+    name t, the list ins, the source stem ++ ".c", the bound stem.
+  * The automatic dependencies that make reads from the .d files of the
+    compiler are a table that the driver scans: the headers each file
+    includes.
+  * make -n is the plan.  make -j is the ready set.  make CC=clang is a
+    parameter of the rules, bound once per makefile (the toolchain, below).
+  * The tie-break of make among several rules for one target is a lint
+    here: the build does not start.
+  * The stop of make on a source that is missing, "No rule to make
+    target", is a question of the build, asked before the plan.
+
+Not covered: phony targets, chains of pattern rules, VPATH, recursive make,
+the built-in implicit rules of make, order-only prerequisites, and a target
+without a command, which make rebuilds by doing nothing.  A name with no
+rule, or with prerequisite lines only, is a source here.
+
+Each question of a build is one function of Make.curry.  Each function
 states a relation and a policy.
 
-Which rule builds a target?  Each equation of rulesFor is one rule, and
-every equation that matches is one answer:
+Which rules does a target have?  The set function rulesOf collects every
+answer of the makefile as a list:
 
-    rulesFor _ (stem ++ ".o") =
-      (stem ++ ".o", [stem ++ ".c"], ["cc", "-c", "-o", stem ++ ".o", stem ++ ".c"])
-    rulesFor p t | t == lib = (lib, objs, "ar" : "rcs" : lib : objs)
-      where (lib, objs) = library p
-    rulesFor p t | t == prog = (prog, objs ++ [lib], "cc" : "-o" : prog : objs ++ [lib])
-      where ...
-    rulesFor p t | (t, ins, words) =:= anyOf (explicit p) = (t, ins, words)
-      where ins, words free
+    rulesOf :: Makefile -> Target -> [Rule]
+    rulesOf mk t = sortValues (set1 mk t)
 
-The first equation is the pattern rule %.o: %.c of make.  Its functional
-pattern stem ++ ".o" matches every object name and binds the stem, so the
-rule names its source and its recipe from the stem.  The second and the
-third name their targets.  The last takes the explicit rules of the project,
-rules written for one target each: the free variables ins and words unify
-with the inputs and the recipe of every entry for the target, and each entry
-is one answer.  An explicit rule for a new name adds a target; one for a
-target of the project adds a second rule.  So "which rule builds this
-target" is a non-deterministic question.  The policy for a well-formed
-target is that the question has one answer.  The set function rulesOf
-collects the answers as a list,
+No rule means a source, one rule with a command is the normal case, and two
+rules with commands are the ambiguity below.  Everything else in the library
+reads the rules through this list, for a reason that is a finding of this
+example (#86).  A name that a functional pattern produced carries its
+narrowing, and every later comparison of that name pays for it again.  A
+first version of the engine read the rules from the pattern rule directly;
+its plan over six targets took 10 s on the C++ backend.  Read through the
+set function, whose values are plain data, the plan takes 0.01 s.  So the
+functional pattern stays where it carries the meaning, in the makefile, and
+the relation reads the rules as values.
 
-    rulesOf p t = sortValues (set2 rulesFor p t)
+The build.  make reads a makefile into its database before it builds
+(make -p prints it).  The library does the same: build reads the makefile
+once, from the goal down, into the rules of every name of the build, with
+the automatic dependencies beside them:
 
-and the rest of the module reads the rules through that list: no rule means
-a source or a header, one rule is the normal case, and two rules are the
-ambiguity below.
+    build :: Makefile -> Includes -> Target -> Build
+    build mk inc goal = Build inc (reverse (snd (visit ([], []) goal)))
+      where
+        visit (seen, done) t
+          | t `elem` seen = (seen, done)
+          | otherwise     = (seen', (t, rs) : done')
+          where rs = rulesOf mk t
+                (seen', done') = foldl visit (t : seen, done) (inputsOf inc rs)
+
+The names of the build are the goal, what it reads, what that reads, and so
+on.  A name comes after what it reads, a name with no rule is a source, and
+the list seen stops a cycle of rules.  The targets are the names with a
+command.  Every question below reads the build and never the makefile.  The
+makefile is read once per build, through twelve set functions here, and the
+driver shares one build across its questions (section 2).
 
 What does a target read?  The relation inputs gives the direct inputs of a
-target: the inputs of its rule, each with the headers it includes, directly
-or through another header.  The includes come from a table that Python
-scanned.  A header that includes a header is followed through the table,
-and a list of the files seen stops a cycle of includes, as an include guard
-does.  A file that no rule builds reads nothing.
+target: the prerequisites of every rule of it, each with the headers it
+includes, directly or through another header.  The includes come from the
+table that the driver scanned.  A header that includes a header is followed
+through the table, and a list of the files seen stops a cycle of includes,
+as an include guard does.  A source reads nothing.
 
-What is stale?  The relation stale is over a table of stamps that Python
+What is stale?  The relation stale is over a table of stamps that the driver
 supplies, a list of (file, stamp) pairs with one integer per file that
 exists.  A target is stale when it is missing, when it is older than an
 input, or when an input is stale:
 
-    stale p table = staleFrom p table []
+    stale b table = staleFrom b table []
 
-    staleFrom p table seen t
+    staleFrom b table seen t
       | t `elem` seen = False
       | otherwise     = case lookup t table of
           Nothing -> True
-          Just s  -> any (\i -> staleFrom p table (t : seen) i
+          Just s  -> any (\i -> staleFrom b table (t : seen) i
                                   || maybe False (s <) (lookup i table))
-                         (inputs p t)
+                         (inputs b t)
 
-A missing file has no entry, so a source that is not there makes its object
-stale forever.  Curry compares stamps and nothing else.  The list seen holds
-the targets on the path from the question to this file: a target on its own
-path reads nothing more, so a cycle of rules does not send the question
-round for ever.
+A missing file has no entry, so a missing target is stale.  Curry compares
+stamps and nothing else.  The list seen holds the targets on the path from
+the question to this file: a target on its own path reads nothing more, so
+a cycle of rules does not send the question round for ever.
 
 What to build, and in which order?  The plan is the stale targets in
 dependency order: waves lays them out in layers, and a layer holds the stale
 targets whose stale inputs are all in earlier layers.  The policy is a
 topological order over the relation.  A cycle leaves targets that never
 enter a layer; the guard of layers fails then, and the plan has no value.  A
-cycle is a failure, not an error.  Each entry of the plan carries what the
-target reads and the words of its recipe.
+cycle is a failure, not an error.  The makefile project/Makefile_cycle.curry
+adds one rule, shape.h <- demo, and the plan of a fresh copy has no value
+(step 7 of the output).  Make drops a circular dependency with a warning and
+builds on; here the question has no answer, and the driver says so.  Each
+entry of the plan is a Rule again: the target, what it reads, and its
+command.
 
 What can run now?  The ready set is the stale targets whose inputs are all
 up to date:
 
-    ready p table =
-      [t | t <- targets p, stale p table t, not (any (stale p table) (inputs p t))]
+    ready b table =
+      [ t | t <- targets b, stale b table t
+          , not (any (stale b table) (inputs b t)) ]
 
 The driver runs them in parallel, records the new stamps, and asks again.
 The scheduler of the build is this one line of Curry.
@@ -100,83 +198,199 @@ inputs read backwards.  The target is the unknown, drawn from the targets
 with anyOf, and the guard asks whether it reads the file, directly or
 through another target:
 
-    affected p f | reads p t f = t
-      where t = anyOf (targets p)
+    affected b f | reads b t f = t
+      where t = anyOf (targets b)
 
 Each answer is one value.  The question "what rebuilds if shape.h changes"
-needs no second relation and no index from files to targets.  reads carries
-the list of the targets on its path, as stale does.
+needs no second relation and no index from files to targets.
 
-Which targets do two rules claim?  The lint ambiguous lists every target
-whose rulesOf has more than one member.  Make has a tie-break rule for that
-case, which you have to remember: an explicit rule wins over a pattern rule,
-and among pattern rules the shortest stem wins, then the first rule in the
-makefile.  Here two rules for one target are two answers to one question,
-and the driver reports them and refuses to build.
+Which targets do two rules claim?  The lint ambiguous lists the rules with
+a command of every target that has more than one.  Make has a tie-break rule
+for that case, which you have to remember: an explicit rule wins over a
+pattern rule, and among pattern rules the shortest stem wins, then the first
+rule in the makefile.  Here two rules for one target are two answers to one
+question, and the driver reports them and refuses to build.  The makefile
+project/Makefile_ambiguous.curry imports the makefile and adds one rule:
+
+    rule t = Makefile.rule t
+    rule "main.o" = Rule "main.o" ["main.c"] (cc ++ " -O3 -c main.c -o main.o")
+
+Both equations match main.o, so main.o has two rules with a command.
+
+Which sources are missing?  A source is a name without a command, and a
+missing source has no stamp, so nothing can make it.  Make stops before it
+builds: "No rule to make target 'vec.c', needed by 'vec.o'".  The question
+missing lists each such source with the targets that read it:
+
+    missing b table =
+      [ (s, [t | t <- targets b, s `elem` inputs b t])
+      | s <- names b, s `notElem` targets b, s `notElem` map fst table ]
+
+The driver asks it before the plan, beside the lint, and refuses to build
+(step 8 of the output).
+
+The toolchain, and what call-time choice means for a makefile.  A makefile
+that can use gcc or clang is the natural next rule, and it is where the
+semantics of a choice shows.  Three forms were measured.
+
+The first is the choice inside the rules, project/Makefile_choice.curry:
+
+    cc :: String
+    cc = "gcc" ? "clang"
+
+    rule t@(stem ++ ".o") =
+      Rule t [stem ++ ".c"]
+           (cc ++ " " ++ cflags ++ " -c " ++ stem ++ ".c -o " ++ t)
+
+A nullary definition is a function of no arguments.  Every use of it is a
+new evaluation and a new choice, so every rule that reads cc picks a
+compiler on its own.  The set function that collects the rules of a target
+finds two rules for every target that reads cc, and the lint reports the
+five of them (step 6 of the output).  Call-time choice shares the value of
+a variable; it does not share a definition across its uses.
+
+The second binds the compiler once.  rulesWith :: String -> Target -> Rule
+takes it as a parameter, and one application rulesWith tc serves every rule
+of the build.  Decided before the first set function starts, by a guard
+tc =:= ("gcc" ? "clang") on a free variable or by a let that seq forces, the
+choice gives one value per compiler for each question, consistent across
+the rules (measured on the rules of two targets: two values, one compiler
+each).  A plain let, let mk = rulesWith ("gcc" ? "clang") in ..., shares mk
+across the questions as well.  But its choice reaches the first set
+function undecided, inside the function that the set function applies, and
+Sprite encapsulates a choice it meets that way: both compilers land in one
+set, and the lint reports them.  That is the captured choice of #61, the
+reading that Sprite's tests pin today.  The forms that decide the choice
+first do not depend on that reading.  The form that works is also the form
+that costs.  Every set function of the build meets the decided choice
+again, and the price grows with the depth of the question.  Measured on the
+C++ backend with the let and seq form: the names of the build 0.05 s, the
+targets 0.5 s, the ready set 0.9 s, the waves not finished within a budget
+of 60 s for the whole probe.  With the guard form: the names 0.12 s, the
+targets 1.3 s, the waves not finished either.  On the Python backend the
+names alone took 5.7 s and 11.9 s.  A choice between two whole makefiles,
+rulesWith "gcc" ? rulesWith "clang", ran out of memory under the 2 GB cap
+on the C++ backend in the names of the build.  This is the shape of #86
+again, a narrowed node met again in a deep lazy context, and it is recorded
+in TODO.
+
+The third form is the one the example uses, project/Makefile_toolchain.curry:
+
+    toolchains :: [String]
+    toolchains = ["gcc", "clang"]
+
+    rulesWith :: String -> Target -> Rule
+    rulesWith cc t@(stem ++ ".o") = ...
+    rulesWith _  t | t == library = Makefile.rule t
+    rulesWith cc t | t == program = ...
+
+    makefiles :: [(String, Makefile)]
+    makefiles = [(cc, rulesWith cc) | cc <- toolchains]
+
+The compiler is a parameter of the rules, bound once per makefile, and the
+makefile lists one makefile per compiler.  The driver plans each of them
+(step 5 of the output: two plans, one compiler each) and builds with the
+first whose programs are on the PATH.  The lesson for a makefile is where
+the choice lives.  A choice inside a rule is a choice per rule.  A choice
+bound once is a choice per build, which is what "CC = gcc or clang" means.
+And in Sprite today a choice that the questions of a build must meet again
+is better bound by the driver than left to the runtime.
 
 
 2. What the example shows about calling Curry from Python
 ----------------------------------------------------------
 
-The driver go.py owns the world, and the README calls that the boundary.
-Python writes the project into a temporary directory, scans each file for
-quoted includes with a regular expression, reads the modification time of
-each file in nanoseconds as its stamp, runs the recipes, and serves the
-status.  Curry gets the project and the table as data and returns names and
-rules.  The IO surface of Sprite is small, and a build needs none of it:
-every decision is a function of the data Python has in hand.
+The driver make.py is generic for a C project.  It reads
 
-The project is a Curry record, built with the typed curry.expr:
+    python make.py [-f FILE] [-C DIR] [-j N] [-n] [--touch FILE]
+                   [--affected FILE] [--trace] [GOAL]
+    python make.py [-f FILE] [-C DIR] [-j N] --serve PORT
 
-    curry.expr(Build.Project, sources, LIBRARY, PROGRAM, includes, explicit)
+as make does: -C names the project directory, -f the makefile in it
+(Makefile.curry by default), -n prints the plan and stops, -j sets the width
+of the thread pool, and GOAL the target, with the definition goal of the
+makefile as the default.  --touch FILE gives a file a stamp newer than every
+other file of the build before anything else, and --affected FILE prints the
+targets that read the file.  --trace prints each ready set to stderr.
 
-The sources are a list of Python strs, the library and the program are
-(name, objects) tuples, the include table is a list of (file, headers)
-pairs, and the explicit rules are (target, inputs, words) triples.  A name
-is a Python str, which curry.expr converts by the type the constructor
-expects, a String, also for a name of one character.  The empty list of
-explicit rules converts under [Rule].  Python builds the record once per
-project and passes it to every goal.
+The makefile is a Curry module.  make.py puts its directory on curry.path
+and imports it with curry.import_, so a makefile may import the modules
+beside it, as the variants import Makefile.  The module exports rule, a
+function, and the driver passes it to Curry as a value: a symbol with fewer
+arguments than it takes is a partial application in curry.expr, and a
+nullary symbol a call.  A module may export makefiles instead, a list of
+named makefiles; the converter returns each as a Curry node, which the
+driver passes on unchanged.
+
+One build, many questions.  The driver builds the Curry value of the build
+once,
+
+    self.build = curry.expr(Make.build, rule, world.includes(), goal)
+
+and passes the same node to every goal.  A node passes through curry.expr
+untouched, and the first goal that needs the rules evaluates them in place,
+so the makefile is read once per process: twelve set functions, 0.01 s on
+the C++ backend and 0.2 s on the Python backend.  The table of stamps is a
+separate argument, because it changes after every command.
 
 A deterministic goal has one value, and the driver reads it with
 
-    next(curry.eval(goal, *args, converter='topython'))
+    next(curry.eval(goal, *args, converter='topython'), None)
 
-The converter turns a list of rules into a list of tuples of lists of str.
-The plan is the exception: on a cycle it has no value, so the driver reads
-it with next(values, None) and reports the failure.  The inverse query is
-non-deterministic, and the driver collects its values with
-sorted(curry.eval(...)), because Curry promises no order.
+The converter turns a list of names into a list of str and a table into a
+list of tuples.  A Rule is a data type of the library, which the converter
+leaves as a Curry node, so the driver reads a list of rules through
+Make.rows, which turns each rule into a tuple of a String, a list of
+Strings and a String:
 
-A build lints first: a target that two rules claim stops the build before
-the plan.  The build loop then asks Curry for the ready set, submits each
-new ready target to a concurrent.futures thread pool, waits for the first
-completion, and asks again with the new stamps.  The table it hands to
-Curry omits the targets whose recipes run or failed.  A compiler creates
-its output before it finishes, and a half-written object with a fresh stamp
-would read as up to date; a target that is missing to Curry is stale, and
-its dependents are not ready.  Python keeps the running set and the outcome
-of each recipe, and nothing of the dependency relation: no order, no count
-of pending inputs.  Run go.py with --trace to see each ready set on stderr.
-With --jobs 2 the library was ready while report.o and main.o were still
-running, because its two objects were done.  The waves in the output are
-the static picture of the same relation.
+    curry.eval(
+        Make.rows, curry.expr(Make.plan, build, table), converter='topython'
+      )
 
-The word cc in a recipe stands for the C compiler of the environment, CC or
-cc.  When no compiler and no ar are on the PATH, every recipe runs as a
-stand-in that writes a placeholder file in place of the target, so the
-example runs on a machine without a compiler and on CI.  The output is the
-same in both modes; the stand-in says so on stderr.  The status table and
-the plan print no stamps, no times, and no temporary paths, and the driver
-sorts what the thread pool returns.
+The plan has no value on a cycle, and the driver reads None then and reports
+the failure.  The inverse query is non-deterministic, and the driver
+collects its values with sorted(curry.eval(...)), because Curry promises no
+order.
+
+The world.  Python scans each .c and .h file of the directory for quoted
+includes with a regular expression, reads the modification time of each
+file of the build in nanoseconds as its stamp, runs the commands, and serves
+the status.  Curry gets the includes and the table as data and returns
+names and rules.  The IO surface of Sprite is small, and a build needs none
+of it: every decision is a function of the data Python has in hand.
+
+A build lints first.  A target that two rules claim, or a source that is
+missing, stops the build before the plan.  The build loop then asks Curry
+for the ready set, submits each new ready target to a concurrent.futures
+thread pool, waits for the first completion, and asks again with the new
+stamps.  The table it hands to Curry omits the targets whose commands run
+or failed.  A compiler creates its output before it finishes, and a
+half-written object with a fresh stamp would read as up to date; a target
+that is missing to Curry is stale, and its dependents are not ready.
+Python keeps the running set and the outcome of each command, and nothing
+of the dependency relation: no order, no count of pending inputs.  Run
+make.py with --trace to see each ready set on stderr.  With -j 2 the
+library was ready while report.o and main.o were still running, because
+its two objects were done.  The waves in the output are the static picture
+of the same relation.
+
+A command runs as one process in the project directory, without a shell.
+The driver splits the line into words as a shell would (shlex), so a quoted
+argument stays one word.  When a program of the plan is not on the PATH,
+every command runs as a stand-in that writes a placeholder file in place of
+the target, so the example runs on a machine without a compiler and on CI.
+The output is the same in both modes; the stand-in says so on stderr.  The
+status table and the plan print no stamps, no times, and no temporary
+paths, and the driver sorts what the thread pool returns.  The exit status
+is that of make: 2 when the build does not start, when a command fails, or
+when a target of the plan never ran, and 0 otherwise.
 
 The option --serve PORT serves a status page with http.server from the
 standard library.  The page shows the status table, a build button, and a
 touch button, and /status.json gives the targets with their inputs and
-staleness, the plan, and the ready set as JSON.  Each request calls the same
-functions as the tested run.  A richer front end, with rich in the terminal
-or nicegui in the browser, would call them too; neither is needed, and the
-example does not depend on them.
+staleness, the plan, and the ready set as JSON.  Each request reads the
+makefile against the current state of the directory and calls the same
+functions as the tested run.
 
 
 3. How to run
@@ -192,14 +406,22 @@ SPRITE_INTERPRETER_FLAGS in the environment:
     SPRITE_INTERPRETER_FLAGS=backend:py ./run
     SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
 
-To see the ready set after each completion, or to change the width of the
-thread pool, pass --trace and --jobs to go.py:
+The script copies the sources of project/ into three temporary directories,
+one of them without vec.c, and links the makefiles into each copy, so that
+Sprite compiles each makefile once, into project/.curry, and the build
+leaves nothing in the repository.  It runs make.py eight times there.
 
-    ../../install/bin/python go.py --trace --jobs 2
+To build in project/ itself, run make.py from this directory:
 
-To serve the status page, run
+    ../../install/bin/python make.py -C project
+    ../../install/bin/python make.py -C project -n
+    ../../install/bin/python make.py -C project --trace -j 2
+    ../../install/bin/python make.py -C project -f Makefile_toolchain.curry -n
 
-    ../../install/bin/python go.py --serve 8000
+and remove the objects, the library and the program afterwards.  To serve
+the status page, run
+
+    ../../install/bin/python make.py -C project --serve 8000
 
 and open http://127.0.0.1:8000/ in a browser.  Press Ctrl-C to stop it.
 The run script does not start the server.
@@ -208,59 +430,92 @@ The run script does not start the server.
 4. Expected output
 ------------------
 
-The file expected.out holds the exact output of ./run.  The driver prints
-the project first, then five steps.  Step 1 is the full build:
+The file expected.out holds the exact output of ./run.  Step 1 is the full
+build:
 
-    1. full build
+    1. the full build
+    % python make.py -C project
     plan: 6 targets
-      vec.o     <- vec.c vec.h                cc -c -o vec.o vec.c
-      shape.o   <- shape.c shape.h vec.h      cc -c -o shape.o shape.c
-      report.o  <- report.c vec.h             cc -c -o report.o report.c
-      main.o    <- main.c shape.h vec.h       cc -c -o main.o main.c
+      main.o    <- main.c shape.h vec.h       cc -O2 -Wall -c main.c -o main.o
+      report.o  <- report.c vec.h             cc -O2 -Wall -c report.c -o report.o
+      vec.o     <- vec.c vec.h                cc -O2 -Wall -c vec.c -o vec.o
+      shape.o   <- shape.c shape.h vec.h      cc -O2 -Wall -c shape.c -o shape.o
       libgeom.a <- vec.o shape.o              ar rcs libgeom.a vec.o shape.o
       demo      <- main.o report.o libgeom.a  cc -o demo main.o report.o libgeom.a
-    waves: [vec.o shape.o report.o main.o] [libgeom.a] [demo]
+    waves: [main.o report.o vec.o shape.o] [libgeom.a] [demo]
     built: demo libgeom.a main.o report.o shape.o vec.o
 
 Each object reads its source and the headers behind it: shape.o reads vec.h
-through shape.h.  The four objects form the first wave, the library the
-second, the program the third.  A status table follows, with one line per
-target.  Step 2 builds again, and the plan is "nothing to do".  Step 3
-touches shape.h:
+through shape.h.  The targets come in the order of the build, from the goal
+down, each after what it reads.  The four objects form the first wave, the
+library the second, the program the third.  A status table follows, with
+one line per target.  Step 2 builds again, and the plan is "nothing to do".
+Step 3 touches shape.h:
 
-    3. touch shape.h
+    3. touch shape.h: the inverse query predicts the rebuild
+    % python make.py -C project --touch shape.h --affected shape.h
     affected: demo libgeom.a main.o shape.o
+    plan: 4 targets
     ...
     built: demo libgeom.a main.o shape.o
-    ...
-    rebuilt the affected set: yes
 
 The inverse query predicts the four targets that read shape.h, and the
 build then rebuilds exactly those.  vec.o and report.o stay up to date.
-Step 4 adds a second rule for main.o, and the lint stops the build:
+Step 4 reads the makefile with the second rule for main.o, and the lint
+stops the build:
 
-    4. a second rule for main.o
-    explicit:
-      main.o <- main.c  cc -c -O2 -o main.o main.c
+    4. a second rule for main.o: the lint
+    % python make.py -C project -f Makefile_ambiguous.curry
     ambiguous: main.o has 2 rules
-      main.o <- main.c  cc -c -O2 -o main.o main.c
-      main.o <- main.c  cc -c -o main.o main.c
+      main.o <- main.c  cc -O2 -Wall -c main.c -o main.o
+      main.o <- main.c  cc -O3 -c main.c -o main.o
     refused: the build does not start
+    exit status 2
 
-Step 5 adds a rule that closes a cycle: the program writes a header that
-its own objects include.  The header is older than the program, so it is
-stale, and so is every target that reads it.  No layer can start, and the
-plan has no value:
+The exit status is 2, as make's is on an error; the run script prints it.
+Step 5 plans the toolchain makefile in a fresh copy, where everything is
+stale, and prints one plan per compiler:
 
-    5. a rule that closes a cycle
-    explicit:
-      shape.h <- demo  ./demo --emit-header shape.h
+    5. the compiler left open, in a fresh copy: one plan per compiler
+    % python make.py -C fresh -f Makefile_toolchain.curry -n
+    makefile gcc:
+    plan: 6 targets
+      main.o    <- main.c shape.h vec.h       gcc -O2 -Wall -c main.c -o main.o
+    ...
+    makefile clang:
+    plan: 6 targets
+      main.o    <- main.c shape.h vec.h       clang -O2 -Wall -c main.c -o main.o
+    ...
+
+Step 6 plans the makefile with the choice inside the rules, and the lint
+reports two rules for each of the five targets that read cc:
+
+    6. the compiler as a choice inside the rules: every use picks on its own
+    % python make.py -C fresh -f Makefile_choice.curry -n
+    ambiguous: demo has 2 rules
+      demo <- main.o report.o libgeom.a  clang -o demo main.o report.o libgeom.a
+      demo <- main.o report.o libgeom.a  gcc -o demo main.o report.o libgeom.a
+    ambiguous: main.o has 2 rules
+    ...
+    refused: the build does not start
+    exit status 2
+
+Step 7 plans the makefile with the rule that closes a cycle, in the fresh
+copy, where every target of the cycle is stale:
+
+    7. a rule that closes a cycle: the plan has no value
+    % python make.py -C fresh -f Makefile_cycle.curry -n
     plan: no value (the rules have a cycle)
-    status:
-      vec.o      up to date
-      shape.o    stale
-      ...
-      shape.h    stale
+    exit status 2
+
+Step 8 builds the copy without vec.c, and the build stops before the plan,
+as make stops:
+
+    8. a source that is missing: no rule to make it
+    % python make.py -C incomplete
+    no rule to make vec.c, needed by vec.o
+    refused: the build does not start
+    exit status 2
 
 The output is identical on both backends, and with and without a C
 compiler.
@@ -269,60 +524,61 @@ compiler.
 5. Limits
 ---------
 
-Three warm runs of ./run took 0.42 s to 0.46 s on the C++ backend, and two
-took 8.3 s on the Python backend.  The Python backend answers a question in
-0.1 s to 0.7 s (the ready set on a built tree 0.4 s, the plan 0.7 s, the
-stale check of one target 0.2 s), and the run asks dozens of them, so the
-questions are nearly all of its time.  A first run, without products under
-.curry/, took 1.2 s on the C++ backend and 8.7 s on the Python backend, so
-the compile of the module is a small part of the run.  Without a C compiler
-the run took 0.35 s on the C++ backend.
+Warm runs of ./run took 2.7 s on the C++ backend (three runs, 2.68 s to
+2.79 s) and 11 s on the Python backend (two runs, 10.8 s and 11.1 s).  A
+first run, which also converts the library and the five makefiles to
+ICurry, took 6.2 s on the C++ backend.  Without a C compiler the run took
+2.7 s on the C++ backend.  The run starts eight processes.  One process
+with -n takes 0.3 s on the C++ backend and 1.0 s on the Python backend; the
+import of curry and the library is 0.2 s of that, and the questions of the
+plan are the rest.
+
+Those times are with every Curry module interpreted on the C++ backend.
+The runtime compiles a module in the background and kills that compile when
+the process ends, and a make.py process ends first, so neither a makefile
+nor the library gets its object from a run.  The command
+
+    ../../install/bin/sprite-make --so Make.curry
+
+writes the object of the library in 1.7 s; with it the run took 2.3 s (two
+runs, 2.28 s and 2.34 s).
 
 A name that a functional pattern produced carries its narrowing, and every
-later comparison of that name pays for it again.  A first version of this
-module had object as a functional pattern and read the rules from rulesFor
-directly.  Its plan after the touch did not finish in 120 s on either
-backend.  With a plain object and the rules still read from rulesFor the
-plan took 10 s on the C++ backend.  Read through the set function rulesOf,
-whose values are plain data, it takes 0.01 s.  So the functional pattern
-stays where it carries the meaning, in rulesFor, and the relation reads the
-rules as values.
+later comparison of that name pays for it again (#86).  A first version of
+the engine read the rules from the pattern rule directly.  Its plan after
+the touch did not finish in 120 s on either backend with the object name as
+a functional pattern, and took 10 s on the C++ backend with a plain object
+name.  Read through the set function rulesOf, whose values are plain data,
+it takes 0.01 s.  A makefile that carries a choice shows the same shape at
+the next level up, with the numbers of section 1: the questions of the build
+meet the decided choice again in every set function, and the plan did not
+finish within the budget of the probe.  The example binds the choice as a
+list of makefiles for that reason.
 
 A stamp is an integer that Python computes, here the modification time in
-nanoseconds.  A target with the same stamp as an input is up to date, as
-in make.  The touch of step 3 waits until the header is newer than every
-other file of the project, so a file system with a coarse clock gives the
-same output after a pause of one tick.  A content hash is also an integer,
-but "older than" has no meaning for it; the relation would then ask whether
-the stamp differs from a recorded one.
+nanoseconds.  A target with the same stamp as an input is up to date, as in
+make.  --touch waits until the file is newer than every other file of the
+build, so a file system with a coarse clock gives the same output after a
+pause of one tick.  A content hash is also an integer, but "older than" has
+no meaning for it; the relation would then ask whether the stamp differs
+from a recorded one.
 
 The waves are the static picture: a layer holds the targets that can run
 once the earlier layers are done.  The pool follows the dynamic ready set,
 so a target of the second wave may start while the first wave still runs.
-A target whose recipe fails stays stale, and its dependents are never
-ready; the status table shows them as stale.  A source that is missing
-makes its object stale forever in the same way.  The plan sees a cycle
-when a target of the cycle is stale, as in step 5; a cycle among targets
-that are up to date is nothing to do.  Make reports a cycle before it looks
-at a stamp; that check would be one more question, layers over every
-target.
-
-The toolchain choice stays out of this example on purpose.  The natural
-next rule, a choice of compiler for every target,
-
-    toolchain = "gcc" ? "clang"
-
-with set functions over the targets, is the shape of issue #61: a set
-function that starts while a variable is unbound and resumes under
-alternatives that narrowed it differently.  The fix in place covers a
-choice that is decided before the set function starts; the general case,
-the repair at the escape of the capsule, is open.  When it lands, the
-example can add the choice and let the lint report a project whose targets
-disagree on the toolchain.
+A target whose command fails stays stale, and its dependents are never
+ready; the status table shows them as stale, and the exit status is 2.  A
+command that writes no output counts as run, as in make, but its target is
+still missing: the dependents never become ready, and the exit status is 2.
+A source that is missing stops the build before the plan, with exit status
+2 (step 8).  The plan sees a cycle when a
+target of the cycle is stale; a cycle among targets that are up to date is
+nothing to do.  Make reports a cycle before it looks at a stamp; that check
+would be one more question, layers over every target.
 
 The project is a toy by design: a handful of sources, one library, one
 program.  The rules of Sprite's own Makefiles are not modelled, and Curry
-does not replace GNU make at scale.  A real project would read the sources
-of a directory, take the rules from a small file in place of the constants
-of go.py, and scan the includes with the compiler's own dependency output.
-The relation does not change; only the table that Python supplies grows.
+does not replace GNU make at scale.  A real project would scan the includes
+with the compiler's own dependency output and would need the features that
+section 1 lists as not covered.  The relation does not change; only the
+table that Python supplies grows.
