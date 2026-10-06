@@ -94,7 +94,12 @@ def nonstrict_eq(rts, _0):
   Implements =:<=.
 
   This follows "Declarative Programming with Function Patterns," Antoy and
-  Hanus, LOPSTR 2005, pg. 16.
+  Hanus, LOPSTR 2005, pg. 16.  The left side is the pattern, the right side
+  the actual argument.  A free variable on the left takes the right side as
+  a non-strict binding.  A free variable on the right is bound to the
+  constructor or the value on the left, as =:= binds it: a builtin type
+  passes its one value to hnf, so a free Char, Int or Float gets the value
+  instead of a suspension.
   '''
   lhs = rts.variable(_0, 0)
   rhs = rts.variable(_0, 1)
@@ -109,7 +114,9 @@ def nonstrict_eq(rts, _0):
       assert inspect.is_data(lhs.target)
       rhs = rhs.hnf_or_free()
       if rhs.info.tag == T_FREE:
-        rhs.hnf(typedef=lhs.typedef)
+        values = [lhs.unboxed_value] if rts.is_builtin_type(lhs.typedef) else None
+        _1 = rts.variable(_0, 1)
+        _1.hnf(lhs.typedef, values)
       else:
         assert inspect.is_data(rhs.target)
         if lhs.info.tag == rhs.info.tag:
