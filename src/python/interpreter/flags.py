@@ -68,6 +68,20 @@ are available:
     When compiling a string of Curry code fails, copy the generated code to the
     current working directory for post-mortem analysis.
 
+  * ``recursion_limit`` (**262144** | <int> | None)
+
+    The number of Python frames the Python backend lets one value nest: the
+    recursion limit of the interpreter while a value is computed.  The
+    backend evaluates a nested step by a recursive Python call, about eight
+    frames per element of a list under a function that is not tail
+    recursive, such as ``length`` or ``sort``, so the default covers a list
+    of about thirty thousand elements.  An alternative that reaches the
+    limit is handled as under ``step_budget``: it runs again after the
+    others and is dropped when it overflows again without progress.  A
+    larger limit costs memory, about 4 KB per nested element.  None leaves
+    the limit of the interpreter as it is.  The C++ backend ignores this
+    flag; see ``stack_limit``.
+
   * ``rotation`` (**'time:10ms'** | 'time:<N>ms' | 'steps:<N>')
 
     How the C++ backend paces the rotation of its queue of alternatives.  The
@@ -153,6 +167,7 @@ FLAG_INFO = {
   , 'keep_temp_files'     : ((bool, str)          , False )
   , 'lazycompile'         : ( bool                , True  )
   , 'postmortem'          : ( bool                , False )
+  , 'recursion_limit'     : ({None, int}          , 1 << 18)
   , 'rotation'            : ( str                 , 'time:10ms')
   , 'setfunction_strategy': ({'eager', 'lazy'}    , 'lazy')
   , 'stack_limit'         : ({None, int}          , 4194304)

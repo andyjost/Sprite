@@ -66,6 +66,17 @@ FlatCurry; ``icurry`` runs the ``icurry`` program.  The default is the
 value of SPRITE_CURRY2ICURRY, else the choice made by ``configure``, else
 whichever tool is installed.
 
+The ``--rewrite-flat`` option runs the step from Curry to ICurry of every
+named module again, whether or not its files are current, without the
+ICurry cache: the front end (which leaves a current FlatCurry file as it
+is), the binding optimization, which rewrites the FlatCurry file in place
+when it replaces an equality (``curry.toolchain.flat2icurry.bindingopt``),
+and the translation.  The later steps follow as usual from the new ICurry
+file.  Use it on a module whose products were made before the FlatCurry
+file was rewritten, so that the file on disk and the products agree; the
+module must have its source.  The option runs the modules in this process
+(``--jobs 1``).
+
 The ``--jobs N`` option makes up to ``N`` modules at once.  Each module is
 made by a child process that runs this program on that module alone;
 ``auto`` is one child per processor.  The imports of a module are made
@@ -150,6 +161,10 @@ def main(program_name, argv):
   parser.add_argument('-o', '--output' , action='store', type=str, help='specify the output file')
   parser.add_argument('-p', '--py', '--python', action='store_true', help='make Python files')
   parser.add_argument('-q', '--quiet'  , action='store_true', help='work quietly')
+  parser.add_argument(      '--rewrite-flat', action='store_true'
+    , help='run the step from Curry to ICurry again, current or not: the '
+           'front end, the rewrite of the FlatCurry file by the binding '
+           'optimization, and the translation (needs the source; --jobs 1)')
   parser.add_argument('-S', '--subdir' , action='store_true'
     , help='print the subdirectory to which output files are written then exit')
   parser.add_argument('-t', '--tidy'   , action='store_true'
@@ -188,6 +203,9 @@ def main(program_name, argv):
 
   if len(args.names) > 1 and args.output:
     sys.stderr.write(program_name + ': -o,--output cannot be used with multiple input files.\n')
+    sys.exit(1)
+  if args.rewrite_flat and jobs > 1:
+    sys.stderr.write(program_name + ': --rewrite-flat runs the modules in this process; use --jobs 1.\n')
     sys.exit(1)
   if not any([args.icy, args.json, args.py, args.cxx, args.so]):
     sys.stderr.write(
@@ -255,8 +273,26 @@ def _make_one(program_name, plan, name, args, kwds):
     _convert_icy(program_name, name, args)
     return
   kwds = dict(kwds, is_sourcefile=name.endswith('.curry'))
+  if args.rewrite_flat:
+    _rewrite_flat(plan, name, kwds)
   file_out = toolchain.makecurry(plan, name, config.currypath(), **kwds)
   _ensure_bytecode(args, file_out)
+
+def _rewrite_flat(plan, name, kwds):
+  '''
+  Runs the step from Curry to ICurry of a module again, from its source and
+  without the ICurry cache (see --rewrite-flat).  The ICurry file written
+  here is then the newest file of the module, and makecurry goes on from
+  it.  A module without a source, or a package, is an error.
+  '''
+  currypath = config.currypath()
+  currentfile = _findcurry.currentfile(plan, name, currypath, **kwds)
+  curryfile = None if os.path.isdir(currentfile) else _filenames.curryfilename(currentfile)
+  if curryfile is None or not os.path.isfile(curryfile):
+    raise exceptions.CompileError(
+        '--rewrite-flat needs the Curry source of %s.' % name
+      )
+  toolchain.curry2icurry(curryfile, currypath, **dict(kwds, use_cache=False))
 
 def _ensure_bytecode(args, file_out):
   '''

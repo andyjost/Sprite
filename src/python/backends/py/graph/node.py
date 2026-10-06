@@ -26,9 +26,11 @@ class Node(object):
 
   @staticmethod
   def create_partial_applic(cls, info, *args, target=None, partial_info=None):
+    # new_node checks the count first: too many arguments raise TypeError,
+    # as on the C++ backend.
+    partexpr = new_node(cls, info, *args, partial=True)
     missing = info.arity - len(args)
     assert missing > 0
-    partexpr = new_node(cls, info, *args, partial=True)
     return Node(partial_info, missing, partexpr, target=target)
 
   def __str__(self):

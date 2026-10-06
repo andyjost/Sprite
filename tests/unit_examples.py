@@ -50,7 +50,7 @@ EXAMPLES = {
   , '18-text-extraction'            : {'py', 'cxx'}
   , '19-blocks-world-app'           : {'py', 'cxx'}
   , '20-cxx-types-deduction'        : {'py', 'cxx'}
-  , '21-cxx-types-overloads'        : {'cxx'}
+  , '21-cxx-types-overloads'        : {'py', 'cxx'}
   , '22-cxx-types-trait-check'      : {'cxx'}
   , '23-cxx-types-layout'           : {'py', 'cxx'}
   , '24-build-system'               : {'py', 'cxx'}

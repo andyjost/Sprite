@@ -45,18 +45,25 @@ Merges to `master` happen at milestones.
   is optional at build time: `configure --with-pakcs ''` with
   `--with-curry-frontend PATH` builds without it, and the pinned release
   then names the intermediate directories.
-- Curry is translated to ICurry in two steps: the front end
-  (`bin/pakcs-frontend` of PAKCS) writes FlatCurry, and
-  `curry.toolchain.flat2icurry`, a Python port of `icurry` 3.1.0, writes
-  ICurry. The `icurry` program is an optional alternative, configured with
-  `configure --with-icurry` and selected with `SPRITE_CURRY2ICURRY=icurry`
-  or `sprite-make --curry2icurry icurry`. The translation of the port is
+- Curry is translated to ICurry in three steps: the front end
+  (`bin/pakcs-frontend` of PAKCS) writes FlatCurry; the binding
+  optimization of PAKCS (`flat2icurry.bindingopt`, which turns a Boolean
+  equality that a condition requires to be True into `constrEq`) rewrites
+  the `.fcy` file in place when it replaces an equality, as PAKCS does
+  before any compiler reads the file; and `curry.toolchain.flat2icurry`, a
+  Python port of `icurry` 3.1.0, writes ICurry. The `icurry` program is an
+  optional alternative for the last step, configured with `configure
+  --with-icurry` and selected with `SPRITE_CURRY2ICURRY=icurry` or
+  `sprite-make --curry2icurry icurry`; it reads the rewritten file too, so
+  both routes write the same `.icy`. The translation of the port is
   byte-identical to the files of `icurry` on the oracle (`tests/README`
-  describes it). The build route differs from the `icurry` route in two
-  settings: it applies the binding optimization of PAKCS
-  (`flat2icurry.bindingopt`, which turns a Boolean equality that a
-  condition requires to be True into `constrEq`), and it runs with
-  `icurry_compat=False` (see `src/python/toolchain/_frontend.py`).
+  describes it). The route of the port differs from the `icurry` route in
+  one setting, `icurry_compat=False` (see
+  `src/python/toolchain/_frontend.py`). A `.fcy` written before the
+  rewrite existed stays as it is until the front end writes it again;
+  `sprite-make --rewrite-flat M` runs the step again, and
+  `python -m curry.toolchain.flat2icurry.rewrite M.fcy` rewrites the file
+  alone.
 - `curry.expr` is typed (`src/python/typecheck/builder.py`): it reads the
   schemes of the FlatCurry interfaces, unifies the arguments with the
   parameter types, converts Python values by the expected type, defaults

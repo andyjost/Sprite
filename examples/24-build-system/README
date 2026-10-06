@@ -286,7 +286,14 @@ backend.  With a plain object and the rules still read from rulesFor the
 plan took 10 s on the C++ backend.  Read through the set function rulesOf,
 whose values are plain data, it takes 0.01 s.  So the functional pattern
 stays where it carries the meaning, in rulesFor, and the relation reads the
-rules as values.
+rules as values.  Evaluating a rule to normal form with $## would not help:
+a binding is private to one alternative of the search, so a read of a bound
+variable copies the spine of the evaluation and restarts, and the normal
+form lives in that private copy; the next reader of the shared name starts
+over.  The capsule of a set function resolves the variables once, and its
+values leave it as plain data.  One name compared 200 times took 222141
+rewrite steps through the pattern rule, 180362 with $## on its result, and
+14723 through a set function (tests/unit_funcpat_narrowed.py).
 
 A stamp is an integer that Python computes, here the modification time in
 nanoseconds.  A target with the same stamp as an input is up to date, as

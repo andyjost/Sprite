@@ -7,25 +7,30 @@ property bindingoptimization, fast by default): a Boolean equality whose
 value is required to be True becomes an equational constraint.  The
 sendMoreMoney program of the test data binds its digits through (==) in a
 guard, and PAKCS solves it for that reason alone; with
--Dbindingoptimization=no PAKCS suspends, as Sprite did.  The build route
-applies the same pass now.  The expected values of the programs below were
-taken from PAKCS 3.4.1 with its default settings.
+-Dbindingoptimization=no PAKCS suspends, as Sprite did.  Both routes from
+Curry to ICurry apply the same pass now, to the FlatCurry file in place, as
+PAKCS does.  The expected values of the programs below were taken from
+PAKCS 3.4.1 with its default settings.
 
-TestPass checks the pass on FlatCurry terms.  TestRoute compiles Curry text
-through the build route and evaluates it on the backend of the run.  The two
-defects of the Python backend found with the program, in the order of the
-suspension of a primitive and in ($##) over a bound variable, are tested in
-unit_py_residuation.py.
+TestPass checks the pass on FlatCurry terms.  TestRewrite checks the pass
+over a FlatCurry file (optimize_file, the command line of rewrite, and the
+option --bindingopt of the translation's command line, which leaves the
+file alone).  TestRoute compiles Curry text through the build route and
+evaluates it on the backend of the run.  The two defects of the Python
+backend found with the program, in the order of the suspension of a
+primitive and in ($##) over a bound variable, are tested in
+unit_py_residuation.py.  unit_curry2icurry.py checks that the two routes
+write the same ICurry for the program.
 '''
 import cytest # from ./lib; must be first
 from curry.exceptions import EvaluationSuspended
-from curry.toolchain import flat2icurry as f2i
+from curry.toolchain import _frontend, flat2icurry as f2i
 from curry.toolchain.flat2icurry import __main__ as cli
 from curry.toolchain.flat2icurry import (
-    bindingopt as bo, flatcurry as fc, icurrytypes as ic, terms
+    bindingopt as bo, flatcurry as fc, icurrytypes as ic, rewrite, terms
   )
 from curry import config
-import curry, glob, os, shutil, tempfile, unittest
+import contextlib, curry, io, os, shutil, subprocess, sys, tempfile, unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -320,6 +325,16 @@ class TestPass(cytest.TestCase):
     p = prog(g, ext)
     self.assertEqual(bo.transform_prog(p), (p, 0))
     self.assertIs(bo.optimize_bindings(p), p)
+    # A program whose equalities all stay is rebuilt by transform_prog, with
+    # the count zero, and optimize_bindings gives it back as it is: the file
+    # is written only when an equality was replaced, as transbooleq writes
+    # it, so its $ stays as written then.
+    p = prog(h)
+    rebuilt, n = bo.transform_prog(p)
+    self.assertEqual(n, 0)
+    self.assertIsNot(rebuilt, p)
+    self.assertEqual(rebuilt.functions[0].rule.body, th.rule.body)
+    self.assertIs(bo.optimize_bindings(p), p)
 
   def test_translate_flag(self):
     '''translate applies the pass on request only.'''
@@ -333,36 +348,6 @@ class TestPass(cytest.TestCase):
       }
     self.assertIn(P('constrEq'), names(f2i.translate(p, [PRELUDE], bindingopt=True)))
     self.assertNotIn(P('constrEq'), names(f2i.translate(p, [PRELUDE])))
-
-  def test_cli(self):
-    '''--bindingopt on the FlatCurry of the sendMoreMoney program.'''
-    pattern = os.path.join(DATA, '.curry', '*', 'sendMoreMoney.fcy')
-    found = sorted(glob.glob(pattern))
-    if not found:
-      self.skipTest('sendMoreMoney.fcy is not in the test corpus')
-    fcyfile = found[0]
-    tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
-    try:
-      texts = {}
-      for flag in (), ('--bindingopt',):
-        out = os.path.join(tmpdir, 'sendMoreMoney.icy')
-        argv = list(flag) + ['-o', out, fcyfile]
-        for directory in LIBRARY_DIRS:
-          argv[:0] = ['-i', directory]
-        try:
-          self.assertEqual(cli.main(argv), 0)
-        except f2i.Flat2ICurryError as e:
-          if 'no FlatCurry interface' in str(e):
-            self.skipTest(str(e).splitlines()[0])
-          raise
-        with open(out, 'r', encoding='utf-8', newline='') as istream:
-          texts[flag] = istream.read()
-    finally:
-      shutil.rmtree(tmpdir)
-    self.assertNotIn('constrEq', texts[()])
-    self.assertIn('constrEq', texts[('--bindingopt',)])
-    # Every (==) of the program sits in the guard: none is left.
-    self.assertNotIn('_impl#==#', texts[('--bindingopt',)])
 
 def flat_icurry_calls(iobj):
   '''The IFCall nodes of an ICurry term of the port.'''
@@ -378,6 +363,131 @@ def flat_icurry_calls(iobj):
         walk(arg)
   walk(iobj)
   return found
+
+# FlatCurry files
+# ===============
+class TestRewrite(cytest.TestCase):
+  '''
+  The pass over the FlatCurry file of a module, as the routes apply it after
+  the front end.  The files come from the front end, in a scratch directory.
+  '''
+
+  @classmethod
+  def setUpClass(cls):
+    super().setUpClass()
+    if config.curry_frontend() is None:
+      raise unittest.SkipTest('the Curry front end is not configured')
+
+  def setUp(self):
+    super().setUp()
+    self.tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, self.tmpdir, True)
+
+  def fresh_flatcurry(self, name):
+    '''The FlatCurry of a test module as the front end writes it.'''
+    curryfile = os.path.join(self.tmpdir, name + '.curry')
+    shutil.copy(os.path.join(DATA, name + '.curry'), curryfile)
+    return _frontend.curry2flat(curryfile, [], quiet=True)
+
+  @staticmethod
+  def snapshot(filename):
+    '''The bytes and the modification time of a file.'''
+    with open(filename, 'rb') as istream:
+      return istream.read(), os.stat(filename).st_mtime_ns
+
+  def test_optimize_file(self):
+    '''
+    The file is written again when an equality was replaced: the optimized
+    program, in the format of the front end.  A second run replaces nothing
+    and leaves the file alone, time included.
+    '''
+    fcy = self.fresh_flatcurry('sendMoreMoney')
+    before, _ = self.snapshot(fcy)
+    self.assertNotIn(b'constrEq', before)
+    self.assertEqual(bo.optimize_file(fcy), 15)
+    after, mtime = self.snapshot(fcy)
+    self.assertEqual(after.count(b'constrEq'), 15)
+    # Every (==) of the program sits in a guard: none is left.
+    self.assertNotIn(b'_impl#==#', after)
+    self.assertTrue(after.startswith(b'Prog "sendMoreMoney" ["Prelude"] '))
+    self.assertFalse(after.endswith(b'\n'))
+    prog = fc.load(fcy)
+    self.assertEqual(fc.show(prog).encode('utf-8'), after)
+    self.assertEqual(prog, bo.optimize_bindings(fc.read(before.decode('utf-8'))))
+    self.assertEqual(bo.optimize_file(fcy), 0)
+    self.assertEqual(self.snapshot(fcy), (after, mtime))
+    self.assertEqual(
+        sorted(os.listdir(os.path.dirname(fcy)))
+      , ['sendMoreMoney.fcy', 'sendMoreMoney.fint', 'sendMoreMoney.icurry']
+      )
+
+  def test_file_without_a_replacement(self):
+    '''A file in which nothing is replaced keeps its bytes and its time.'''
+    fcy = self.fresh_flatcurry('hello')
+    before = self.snapshot(fcy)
+    self.assertEqual(bo.optimize_file(fcy), 0)
+    self.assertEqual(self.snapshot(fcy), before)
+    # Without equivalence only === and /== are replaced: nothing in a
+    # program of ==.
+    fcy = self.fresh_flatcurry('sendMoreMoney')
+    before = self.snapshot(fcy)
+    self.assertEqual(bo.optimize_file(fcy, equivalence=False), 0)
+    self.assertEqual(self.snapshot(fcy), before)
+
+  def test_rewrite_command(self):
+    '''python -m curry.toolchain.flat2icurry.rewrite rewrites files in place.'''
+    smm = self.fresh_flatcurry('sendMoreMoney')
+    hello = self.fresh_flatcurry('hello')
+    stdout = io.StringIO()
+    with contextlib.redirect_stdout(stdout):
+      self.assertEqual(rewrite.main([smm, hello]), 0)
+    self.assertEqual(
+        stdout.getvalue()
+      , '%s: 15 equalities replaced\n%s: unchanged\n' % (smm, hello)
+      )
+    self.assertEqual(self.snapshot(smm)[0].count(b'constrEq'), 15)
+    stdout = io.StringIO()
+    with contextlib.redirect_stdout(stdout):
+      self.assertEqual(rewrite.main(['-q', smm]), 0)
+      self.assertEqual(rewrite.main(['--strict', hello]), 0)
+    self.assertEqual(stdout.getvalue(), '%s: unchanged\n' % hello)
+    # The module runs from the command line, without a warning.
+    proc = subprocess.run(
+        [sys.executable, '-m', 'curry.toolchain.flat2icurry.rewrite', hello]
+      , stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=120
+      )
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    self.assertEqual(proc.stdout, '%s: unchanged\n' % hello)
+    self.assertEqual(proc.stderr, '')
+
+  def test_translation_option(self):
+    '''
+    --bindingopt of the translation's command line applies the pass to the
+    program in memory, and leaves the file as it is.
+    '''
+    fcyfile = self.fresh_flatcurry('sendMoreMoney')
+    before = self.snapshot(fcyfile)
+    texts = {}
+    for flag in (), ('--bindingopt',):
+      out = os.path.join(self.tmpdir, 'sendMoreMoney.icy')
+      argv = list(flag) + ['-o', out, fcyfile]
+      for directory in LIBRARY_DIRS:
+        argv[:0] = ['-i', directory]
+      self.assertEqual(cli.main(argv), 0)
+      with open(out, 'r', encoding='utf-8', newline='') as istream:
+        texts[flag] = istream.read()
+    self.assertNotIn('constrEq', texts[()])
+    self.assertIn('constrEq', texts[('--bindingopt',)])
+    self.assertNotIn('_impl#==#', texts[('--bindingopt',)])
+    self.assertEqual(self.snapshot(fcyfile), before)
+    # The rewritten file translates to the text of the option.
+    self.assertEqual(bo.optimize_file(fcyfile), 15)
+    argv = ['-o', out, fcyfile]
+    for directory in LIBRARY_DIRS:
+      argv[:0] = ['-i', directory]
+    self.assertEqual(cli.main(argv), 0)
+    with open(out, 'r', encoding='utf-8', newline='') as istream:
+      self.assertEqual(istream.read(), texts[('--bindingopt',)])
 
 # Curry programs
 # ==============

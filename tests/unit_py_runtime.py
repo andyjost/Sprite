@@ -41,9 +41,11 @@ class TestPyRuntime(cytest.TestCase):
     self.assertRaisesRegex(curry.CurryIndexError, r"not 'str'", lambda: n['foo'])
     self.assertRaisesRegex(curry.CurryIndexError, r"not 'float'", lambda: n[1.])
 
+    # A constructor applied to a surplus is refused by the builder (issue
+    # #63), with the sentence of the typed builder.
     self.assertRaisesRegex(
-        TypeError
-      , r"cannot construct 'Int' \(arity=1\), with 2 args"
+        curry.CurryTypeError
+      , r"^Int takes 1 argument, 2 given$"
       , lambda: interp.raw_expr(prelude.Int, 1, 2)
       )
     self.assertRaisesRegex(

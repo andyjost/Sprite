@@ -149,6 +149,32 @@ This pattern uses the list append function, ``++``, to build any list
 containing a pair with the supplied key.  When this rule matches, ``find``
 evaluates to the corresponding value.
 
+.. note::
+   The variables that a functional pattern binds stay in the result.  A
+   rule such as ``source (stem ++ ".o") = stem ++ ".c"`` returns a list of
+   narrowed variables, and every later use of that name resolves them
+   again: a binding is private to one alternative of the search, so the
+   runtime copies the spine of the evaluation from its root to the variable
+   and restarts.  The cost is paid at every comparison of the name and grows
+   with the depth of the context.  Evaluating the result to normal form with
+   ``$##`` does not remove it: the normal form lives in the private copy,
+   and the next reader of the shared name starts over.  To get plain data,
+   read the result through a set function::
+
+       source :: String -> String
+       source (stem ++ ".o") = stem ++ ".c"
+
+       sourceOf :: String -> String
+       sourceOf t = case sortValues (set1 source t) of [s] -> s
+
+   The capsule of the set function resolves the variables once, and its
+   values leave it as plain data.  One name compared 200 times took 222141
+   rewrite steps through ``source``, 180362 with ``$##`` on the result,
+   and 14723 through ``sourceOf`` on the C++ backend; the forks of the
+   first two grew with the comparisons and those of the third stayed at
+   the match (``tests/unit_funcpat_narrowed.py``).  The build system of
+   example 24 reads its rules this way.
+
 
 Other Constructs
 ----------------

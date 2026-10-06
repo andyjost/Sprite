@@ -1,3 +1,4 @@
+from .....common import T_FREE
 from ..... import inspect
 from ... import graph
 from ...eval import fairscheme
@@ -30,22 +31,48 @@ def apply(rts, _0):
 
 def apply_gnf(rts, _0):
   '''
-  Implements ($##).  The argument is normalized as by ($!!), and the step
-  suspends on the free variables of the result that carry no information:
-  no generator, no binding, and not narrowed (``rts.is_void``, the test of
-  ``ensureNotFree``).  A variable with a binding is not a residual.  A
-  configuration suspended on such a variable is ready at once, because
-  ``ready`` releases a residual with a binding, and the step would suspend
-  on it again without end (``show x`` after ``x =:= (3 ? 4)``).
+  Implements ($##).  The argument is normalized as by ($!!).  When the
+  normalization completed, the step suspends on the free variables of the
+  normal form that have no generator, as the C++ runtime does
+  (applygnf_step in currylib/prelude/apply.cpp).  A variable with a binding
+  is gone from the normal form, because N put the binding into the
+  expression; a variable with a generator carries information.  So a
+  configuration suspended here waits for a variable that another one can
+  still bind, and ready() releases it then (show x after x =:= (3 ? 4)).
+
+  The check runs over the normal form and enters no generator.  A check
+  over the argument before its normalization walked the generators of the
+  narrowed variables as well, where the fresh variables of the branches
+  this configuration did not take have no information and never get any,
+  so the step suspended for good on them: scenario (d) of example 21 on
+  the Python backend.
   '''
-  rv = _applyspecial(rts, _0, _normalize) # Apply ($!!).
+  replacement = list(_applyspecial(rts, _0, _normalize)) # Apply ($!!).
   unbound = [
-      y for y in (x.target for x in graph.iterexpr(_0)) if rts.is_void(y)
+      node for node in _nodes_outside_generators(replacement[2].target)
+          if inspect.isa_freevar(node) and not rts.has_generator(node)
     ]
   if unbound:
     rts.suspend(unbound)
   else:
-    return rv
+    return replacement
+
+def _nodes_outside_generators(root):
+  '''
+  The nodes of an expression, each once, without the generators of its free
+  variables.  The successors of a free variable are its id and its
+  generator; the walk reads neither.
+  '''
+  stack = [root]
+  seen = set()
+  while stack:
+    node = stack.pop()
+    if not isinstance(node, graph.Node) or id(node) in seen:
+      continue
+    seen.add(id(node))
+    yield node
+    if node.info.tag != T_FREE:
+      stack.extend(node.successors)
 
 def apply_hnf(rts, _0):
   '''Implements ($!).'''

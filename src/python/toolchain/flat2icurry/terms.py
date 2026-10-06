@@ -1,19 +1,23 @@
 '''
-Term classes for the FlatCurry and ICurry data, and a writer that prints a
-term as the ``showTerm`` of PAKCS does.
+Term classes for the FlatCurry and ICurry data, and two writers: one prints a
+term as the ``showTerm`` of PAKCS does, the other as the ``show`` of Haskell
+does.
 
 A Curry data value is a constructor application (:class:`Term`), a tuple, a
 list, a string (``str``), a character (:class:`Char`), an integer, or a
-float.  The writer follows the Prolog ``show_term`` of the PAKCS runtime,
-which wrote every committed .icy file.
+float.  :func:`showterm` follows the Prolog ``show_term`` of the PAKCS
+runtime, which wrote every committed .icy file.  :func:`showhaskell` follows
+the derived ``Show`` instances of Haskell, which the Curry front end uses to
+write a FlatCurry file; a file read and shown again is byte-identical.
 '''
 
 from ...utility import maxrecursion
 import math
 
 __all__ = [
-    'Char', 'Term', 'constructor', 'show_char', 'show_float', 'show_string'
-  , 'show_term_char', 'showterm'
+    'Char', 'Term', 'constructor', 'show_char', 'show_float'
+  , 'show_haskell_char', 'show_haskell_float', 'show_haskell_string'
+  , 'show_lit_char', 'show_string', 'show_term_char', 'showhaskell', 'showterm'
   ]
 
 class Char(str):
@@ -123,19 +127,13 @@ def show_string(s):
     return '[]'
   return '"%s"' % ''.join(show_term_char(ord(c)) for c in s)
 
-def show_float(f):
+def float_digits(f):
   '''
-  A float as SWI-Prolog prints it.  The digits are the shortest that read
-  back to the same value.  The text has a decimal point.  An exponent is
-  used when the point falls more than three places before the digits or
-  more than 15 places after them.  A negative float is in parentheses.
+  The shortest decimal digits that read back to the float ``f``, with the
+  position of the decimal point: ``abs(f)`` is ``0.<digits>`` times ten to
+  the power of the position.  Zero gives ``('0', 1)``.  The sign is left out.
   '''
-  if not math.isfinite(f):
-    raise ValueError('cannot show %r as a Curry float' % (f,))
-  text = repr(float(f))
-  sign = ''
-  if text.startswith('-'):
-    sign, text = '-', text[1:]
+  text = repr(abs(float(f)))
   mantissa, _, exponent = text.partition('e')
   exponent = int(exponent) if exponent else 0
   whole, _, fraction = mantissa.partition('.')
@@ -146,6 +144,19 @@ def show_float(f):
   digits = stripped.rstrip('0')
   if not digits:
     digits, decpt = '0', 1
+  return digits, decpt
+
+def show_float(f):
+  '''
+  A float as SWI-Prolog prints it.  The digits are the shortest that read
+  back to the same value.  The text has a decimal point.  An exponent is
+  used when the point falls more than three places before the digits or
+  more than 15 places after them.  A negative float is in parentheses.
+  '''
+  if not math.isfinite(f):
+    raise ValueError('cannot show %r as a Curry float' % (f,))
+  sign = '-' if math.copysign(1.0, f) < 0 else ''
+  digits, decpt = float_digits(f)
   if decpt <= 0:
     if decpt <= -4:
       body = '%s.%se%d' % (digits[0], digits[1:] or '0', decpt - 1)
@@ -194,6 +205,142 @@ def _show(x, emit):
       if i:
         emit(',')
       _show(arg, emit)
+    emit(close)
+  else:
+    raise TypeError('cannot show %r' % (x,))
+
+# The Haskell writer
+# ==================
+# The names of the ASCII control characters, asciiTab of GHC.Show.  Seven of
+# them have a letter escape instead (\a, \b, \t, \n, \v, \f, \r), and
+# the space is written as itself.
+_ASCII_NAMES = [
+    'NUL', 'SOH', 'STX', 'ETX', 'EOT', 'ENQ', 'ACK', 'BEL', 'BS', 'HT', 'LF'
+  , 'VT', 'FF', 'CR', 'SO', 'SI', 'DLE', 'DC1', 'DC2', 'DC3', 'DC4', 'NAK'
+  , 'SYN', 'ETB', 'CAN', 'EM', 'SUB', 'ESC', 'FS', 'GS', 'RS', 'US', 'SP'
+  ]
+_LETTER_ESCAPES = {
+    7: '\\a', 8: '\\b', 9: '\\t', 10: '\\n', 11: '\\v', 12: '\\f', 13: '\\r'
+  }
+
+def show_lit_char(code):
+  '''
+  The text of one character inside a Haskell string or character literal,
+  ``showLitChar`` of GHC.Show, and the guard the text needs against the next
+  character: ``'0'`` after a decimal escape, which must not run into a digit,
+  ``'H'`` after ``\\SO``, else None.  The writer of a string puts ``\\&``
+  between the two.  The double quote is not escaped here.
+  '''
+  if code > 127:
+    return '\\%d' % code, '0'
+  if code == 127:
+    return '\\DEL', None
+  if code == 92:
+    return '\\\\', None
+  if code >= 32:
+    return chr(code), None
+  if code in _LETTER_ESCAPES:
+    return _LETTER_ESCAPES[code], None
+  if code == 14:
+    return '\\SO', 'H'
+  return '\\' + _ASCII_NAMES[code], None
+
+def show_haskell_char(c):
+  '''A Haskell character literal.  The quote is escaped; the double quote is not.'''
+  code = ord(c)
+  if code == 39:
+    return "'\\''"
+  return "'%s'" % show_lit_char(code)[0]
+
+def show_haskell_string(s):
+  '''
+  A Haskell string literal, ``showList`` of ``Char``: the double quote is
+  escaped, and ``\\&`` separates a decimal escape from a digit and ``\\SO``
+  from an ``H``.  The empty string is ``""``.
+  '''
+  parts = ['"']
+  guard = None
+  for c in s:
+    if guard == '0' and c in '0123456789' or guard == 'H' and c == 'H':
+      parts.append('\\&')
+    if c == '"':
+      text, guard = '\\"', None
+    else:
+      text, guard = show_lit_char(ord(c))
+    parts.append(text)
+  parts.append('"')
+  return ''.join(parts)
+
+def show_haskell_float(f):
+  '''
+  A float as the ``show`` of Haskell prints a ``Double``.  The digits are the
+  shortest that read back to the same value.  A value from 0.1 up to but not
+  including ten million is written with a decimal point and at least one
+  digit after it; any other value is written as one digit, a point, the
+  other digits, and the exponent after ``e``.  A negative float has a minus
+  sign and no parentheses; the caller adds them where Haskell does.
+  '''
+  if math.isnan(f):
+    return 'NaN'
+  if math.isinf(f):
+    return 'Infinity' if f > 0 else '-Infinity'
+  sign = '-' if math.copysign(1.0, f) < 0 else ''
+  digits, decpt = float_digits(f)
+  if f == 0:
+    digits, decpt = '0', 0
+  if decpt < 0 or decpt > 7:
+    body = '%s.%se%d' % (digits[0], digits[1:] or '0', decpt - 1)
+  elif decpt <= 0:
+    body = '0.%s%s' % ('0' * -decpt, digits)
+  else:
+    whole = digits[:decpt] + '0' * (decpt - len(digits))
+    body = '%s.%s' % (whole, digits[decpt:] or '0')
+  return sign + body
+
+def showhaskell(term):
+  '''
+  Prints a term as the ``show`` of Haskell does with the derived ``Show``
+  instances: the format of the FlatCurry files of the Curry front end.  A
+  constructor with arguments is in parentheses when it is an argument; a
+  negative number is in parentheses when it is an argument; the elements of
+  a list and of a tuple are not.  There is no newline.
+  '''
+  parts = []
+  with maxrecursion():
+    _show_haskell(term, 0, parts.append)
+  return ''.join(parts)
+
+def _show_haskell(x, prec, emit):
+  if isinstance(x, Term):
+    if not x._args_:
+      emit(x._name_)
+    else:
+      if prec > 10:
+        emit('(')
+      emit(x._name_)
+      for arg in x._args_:
+        emit(' ')
+        _show_haskell(arg, 11, emit)
+      if prec > 10:
+        emit(')')
+  elif isinstance(x, Char):
+    emit(show_haskell_char(x))
+  elif isinstance(x, str):
+    emit(show_haskell_string(x))
+  elif isinstance(x, bool):
+    raise TypeError('cannot show %r' % (x,))
+  elif isinstance(x, int):
+    emit('(%d)' % x if x < 0 and prec > 6 else str(x))
+  elif isinstance(x, float):
+    text = show_haskell_float(x)
+    emit('(%s)' % text if text.startswith('-') and prec > 6 else text)
+  elif isinstance(x, (tuple, list)):
+    open_, close = '()' if isinstance(x, tuple) else '[]'
+    emit(open_)
+    for i, arg in enumerate(x):
+      if i:
+        emit(',')
+      _show_haskell(arg, 0, emit)
     emit(close)
   else:
     raise TypeError('cannot show %r' % (x,))

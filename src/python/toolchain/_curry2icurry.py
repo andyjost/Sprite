@@ -55,7 +55,13 @@ class Curry2ICurryConverter(object):
   Two routes do the conversion.  ``frontend`` runs the Curry front end to
   produce FlatCurry and then the built-in translation
   :mod:`curry.toolchain.flat2icurry`.  ``icurry`` runs the ``icurry``
-  program.  :func:`config.curry2icurry_tool` picks the route.
+  program.  :func:`config.curry2icurry_tool` picks the route.  Both routes
+  run the front end first and apply the binding optimization to its
+  FlatCurry file in place (``_frontend.optimize_flatcurry``), as PAKCS does
+  before any compiler reads the file; the ``icurry`` program then runs the
+  front end again, which finds its files current and leaves the rewritten
+  one as it is, and translates the optimized program.  So the two routes
+  write the same ICurry for a module with a required Boolean equality.
 
   The cache (see ``curry.cache``) is keyed by the source text and by the
   route, so an entry written by one route is never served to the other.  An
@@ -112,6 +118,8 @@ class Curry2ICurryConverter(object):
         try:
           with filesys.remove_file_on_error(file_out):
             if self.tool == 'icurry':
+              fcyfile = _frontend.curry2flat(file_in, currypath, self.quiet)
+              _frontend.optimize_flatcurry(fcyfile)
               logger.debug('Command: %s', ' '.join(cmd))
               _system.pexec(cmd)
             else:
@@ -152,7 +160,9 @@ class Curry2ICurryConverter(object):
     The command line of the route: the icurry program, or the Curry front
     end, which the built-in translation follows in this process.  A message
     about a failure names this command.  A route whose program is not
-    configured raises CompileError.
+    configured raises CompileError.  The ``icurry`` route needs the front
+    end as well, which it runs first (see ``convert``); a missing one is
+    reported here, before any program runs.
     '''
     if self.tool == 'icurry':
       icurry = config.icurry_tool()
@@ -160,6 +170,12 @@ class Curry2ICurryConverter(object):
         raise CompileError(
             'icurry is not configured; rerun configure with --with-icurry, or '
             'set SPRITE_CURRY2ICURRY=frontend to use the Curry front end'
+          )
+      if config.curry_frontend() is None:
+        raise CompileError(
+            'the icurry route needs the Curry front end as well: it runs the '
+            'front end first and rewrites its FlatCurry file before icurry '
+            'reads it; rerun configure with --with-curry-frontend'
           )
       # '--optvardecls' try to use this
       cmd = [icurry] + list(self.OPTIONS)

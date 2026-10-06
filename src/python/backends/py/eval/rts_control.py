@@ -261,17 +261,23 @@ def _make_ready(rts, config):
   '''
   Attempt to make ready the specified configuration.  A configuration is ready
   if it has no residuals, or if there exists some residual with a binding or
-  generator.
+  generator in that configuration.
   '''
   n = len(config.residuals)
   if n:
+    # The information is read from this configuration, not from the head of
+    # the queue: a binding is private to the configuration that made it.  A
+    # test against the head released a configuration behind it on the
+    # strength of the head's binding, and the released step suspended again
+    # at once, without end.  The C++ runtime passes the configuration too
+    # (_make_ready in rts_control.cpp).
     config.residuals = set(
-        vid for vid in config.residuals if rts.is_void(rts.vtable[vid])
+        vid for vid in config.residuals
+            if rts.is_void(rts.vtable[vid], config)
       )
     return len(config.residuals) < n
   else:
     return True
-  return not n or len(config.residuals) < n
 
 def release_value(rts):
   '''

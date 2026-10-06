@@ -35,7 +35,7 @@ These options are summarized in the following table:
 | ``--with-cxx``            | CXX            | ``g++``            | Selects the C++ compiler        |
 +---------------------------+----------------+--------------------+---------------------------------+
 | ``--with-curry-frontend`` | CURRY_FRONTEND | ``pakcs-frontend`` | Selects the Curry front end.    |
-|                           |                | of PAKCS           | An empty value leaves it out.   |
+|                           |                | of PAKCS           | Both routes need it.            |
 +---------------------------+----------------+--------------------+---------------------------------+
 | ``--with-icurry``         | ICURRY         | none               | Selects icurry, the alternative |
 |                           |                |                    | route to ICurry (optional)      |
@@ -48,13 +48,15 @@ These options are summarized in the following table:
 | ``--with-python``         | PYTHON         | ``python``         | Selects Python                  |
 +---------------------------+----------------+--------------------+---------------------------------+
 
-Sprite translates Curry to ICurry in two steps: the Curry front end of PAKCS
-writes FlatCurry, and Sprite's own code translates that to ICurry.  The
-``icurry`` program of the Curry Package Manager does the same work and is
-kept as an alternative.  ``configure`` records it only when you pass
-``--with-icurry``.  The option ``--curry2icurry`` names the route Sprite uses
-by default; the environment variable ``SPRITE_CURRY2ICURRY`` overrides that
-choice at run time.
+Sprite translates Curry to ICurry in three steps: the Curry front end of
+PAKCS writes FlatCurry, the binding optimization rewrites that file in
+place, and Sprite's own code translates it to ICurry.  The ``icurry``
+program of the Curry Package Manager does the last step as well and is kept
+as an alternative; it needs the front end too, which Sprite runs first.
+``configure`` records ``icurry`` only when you pass ``--with-icurry``.  The
+option ``--curry2icurry`` names the route Sprite uses by default; the
+environment variable ``SPRITE_CURRY2ICURRY`` overrides that choice at run
+time.
 
 PAKCS itself is optional.  Sprite needs its front end, which
 ``--with-curry-frontend`` can name directly, and the functional tests use

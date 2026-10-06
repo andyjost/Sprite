@@ -251,6 +251,21 @@ class TestConfigureOptions(ConfigureTestCase):
     self.assertIn('Install ccache', result.stdout)
     self.assertIsNone(text)
 
+  def test_front_end_required_with_icurry(self):
+    '''
+    Both routes from Curry to ICurry run the front end (the icurry route
+    rewrites its FlatCurry file before icurry reads it), so configure
+    refuses a front end left out, also when icurry is given.
+    '''
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      result, text = self.configure(
+          tmpdir, '--with-curry-frontend=', '--with-icurry=' + sys.executable
+        )
+    self.assertNotEqual(result.returncode, 0, result.stdout)
+    self.assertIn('The Curry front end is not configured.', result.stdout)
+    self.assertIn('Both routes from Curry to ICurry run it', result.stdout)
+    self.assertIsNone(text)
+
 class TestMakeSide(cytest.TestCase):
   '''
   The Makefiles under the settings of Make.config: the job count, the
