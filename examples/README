@@ -117,10 +117,11 @@ driver again.  The gaps are deliberate.
     Python description.
 
 24-build-system (py, cxx)
-    A build system: the decisions of make as a relation.  A pattern rule as
-    a functional pattern; staleness over a table; the plan, the ready set
-    and the inverse query from one relation; ambiguity as a lint; a cycle
-    as a failure.
+    A makefile in Curry.  Variables as definitions; a pattern rule as a
+    functional pattern; the rules of a target as a set function; the plan,
+    the ready set and the inverse query from one relation; ambiguity as a
+    lint; a cycle as a failure; a missing source as a question; a driver
+    for C projects that runs the commands.
 
 Other files in this directory
 -----------------------------

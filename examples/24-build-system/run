@@ -1,5 +1,6 @@
 #!/bin/bash
-# Runs the example. Set SPRITE_INTERPRETER_FLAGS=backend:py|cxx to choose the backend.
+# Runs the example in temporary copies of project/.  Set
+# SPRITE_INTERPRETER_FLAGS=backend:py|cxx to choose the backend.
 set -euo pipefail
 cd "$(dirname "$0")"
 : "${SPRITE_HOME:=$(cd ../.. && pwd)/install}"
@@ -7,5 +8,50 @@ export SPRITE_HOME
 export SPRITE_INTERPRETER_FLAGS="${SPRITE_INTERPRETER_FLAGS:-backend:cxx}"
 export LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
 unset CURRYPATH
-echo '% python go.py'
-"$SPRITE_HOME/bin/python" go.py
+here=$PWD
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+# A copy of the project: the sources and the headers, and links to the
+# makefiles, so that Sprite compiles each makefile once, into project/.curry.
+copy() {
+  mkdir "$work/$1"
+  cp project/*.c project/*.h "$work/$1"
+  ln -s "$here"/project/*.curry "$work/$1"
+}
+
+# Runs make.py in a copy and reports a non-zero exit status.
+make_py() {
+  echo "% python make.py $*"
+  "$SPRITE_HOME/bin/python" "$here/make.py" "$@" || echo "exit status $?"
+}
+
+copy project
+copy fresh
+copy incomplete
+rm "$work/incomplete/vec.c"
+cd "$work"
+
+echo '1. the full build'
+make_py -C project
+echo
+echo '2. build again'
+make_py -C project
+echo
+echo '3. touch shape.h: the inverse query predicts the rebuild'
+make_py -C project --touch shape.h --affected shape.h
+echo
+echo '4. a second rule for main.o: the lint'
+make_py -C project -f Makefile_ambiguous.curry
+echo
+echo '5. the compiler left open, in a fresh copy: one plan per compiler'
+make_py -C fresh -f Makefile_toolchain.curry -n
+echo
+echo '6. the compiler as a choice inside the rules: every use picks on its own'
+make_py -C fresh -f Makefile_choice.curry -n
+echo
+echo '7. a rule that closes a cycle: the plan has no value'
+make_py -C fresh -f Makefile_cycle.curry -n
+echo
+echo '8. a source that is missing: no rule to make it'
+make_py -C incomplete

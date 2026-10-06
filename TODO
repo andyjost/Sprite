@@ -4108,6 +4108,141 @@
   (layers over every target, as make reports a cycle before it looks at
   a stamp) and a real project (the sources of a directory, the rules
   from a file, the includes from the compiler's dependency output).
+2026-10-06: example 24 restructured, the makefile is the Curry script
+- The owner's correction of 2026-10-06: the example was expected to write
+  something makefile-like in Curry (CC = ..., object (stem ++ ".o") = ...,
+  a small library imported, a makefile drop-in), and Build.curry with the
+  project as a Python record did not show it.  examples/24-build-system is
+  now three parts.  Make.curry, the library: data Rule = Rule Target
+  [Target] [String] (an empty command is a prerequisite line), a makefile
+  is a function Target -> Rule, rulesOf mk t = sortValues (set1 mk t)
+  collects the rules of a target (the #86 note stays), build reads the
+  makefile once from the goal down into the rules of every name of the
+  build with the includes beside them (the database of make), and the
+  questions read the build: inputs (the merged prerequisites with the
+  headers through the include table), stale over the stamp table, waves
+  and plan (a cycle fails the guard), ready, affected (anyOf over the
+  targets under the guard reads), ambiguous (the rules with a command of
+  a target that has more than one), rows for the driver.
+  project/Makefile.curry, the makefile in the owner's shape: cc, cflags,
+  ar, library, program, the object lists and goal as definitions, the
+  pattern rule as the functional pattern rule (stem ++ ".o") = Rule ...,
+  the library and the program as guarded equations with t as $@, one
+  prerequisite line without a command; project/Makefile_ambiguous.curry
+  imports it and adds a second rule with a command for main.o;
+  project/Makefile_toolchain.curry binds the compiler as a parameter of
+  the rules and lists makefiles = [(cc, rules cc) | cc <- toolchains];
+  project/Makefile_choice.curry has cc = "gcc" ? "clang" inside the rules.
+  The four C sources and two headers are real files in project/.  make.py
+  is generic: -f, -C, -j, -n, --touch, --affected, --trace, --serve, GOAL;
+  it imports the makefile from its directory (realpath, so a linked
+  makefile compiles beside the original), passes rule as a function value,
+  builds one Curry value of the build per process and shares it across
+  the questions, scans the includes, reads st_mtime_ns, runs the ready set
+  in a thread pool, prints the plan, the waves and the status, with the
+  stand-in when a program of the plan is not on the PATH; a module may
+  export makefiles, a list of named makefiles, and the driver plans each
+  and builds with the first whose programs are on the PATH.  The run
+  script copies the sources into a temporary directory, links the
+  makefiles, and runs six steps: the full build, nothing to do, the touch
+  of shape.h with --affected, the lint, the toolchain plans, the lint on
+  the per-use choice.  README, examples/README and Examples.rst follow;
+  unit_examples.py keeps 24 on both backends.
+- Measured, under the 2 GB cap: warm ./run 1.89 to 1.95 s on the C++
+  backend (four runs) and 7.5 to 7.6 s on the Python backend; a first run
+  with the four makefile modules unconverted 4.5 s; without a compiler on
+  the PATH 1.8 s; these with every module interpreted on the C++ backend;
+  with the object of Make that sprite-make --so writes in 1.7 s, 1.6 s
+  (two runs).  The questions of one process take 0.11 s on the C++
+  backend and about 1 s
+  on the Python backend (the read of the makefile 0.23 s, the plan
+  0.35 s); the old design asked them per question at 0.1 to 0.7 s each.
+  unit_examples.py: 21 tests on the C++ backend (2 skipped, 24 in 1.9 s)
+  and on the Python backend (4 skipped, 24 in 7.5 s).
+- Found: a module name with a hyphen is refused (ModuleLookupError), so
+  the variants are Makefile_ambiguous and Makefile_toolchain.  A make.py
+  process ends before the background compile of its makefile, which the
+  runtime kills at exit, so the makefile modules and Make run interpreted
+  on the C++ backend in a run of the demo; an object that a longer probe
+  process had left without its ABI stamp did not load (the same 1.9 s as
+  interpreted); the object with its stamp saves 0.3 s per run.
+- Found, the cost of a makefile that carries a choice (the shape of #86
+  one level up, and of the captured choice of #61).  The forms measured,
+  on the design with the database and a fresh build per question:
+  (a) rules ("gcc" ? "clang") built by curry.expr, or a plain let, or
+  rule = rules "gcc" ? rules "clang" met first inside set1: the choice is
+  encapsulated and both compilers land in one set (one merged plan; the
+  lint fires), by the captured-choice reading of the #61 entry.
+  (b) decided before the first set function, by a guard tc =:= toolchain
+  on a free variable or by let tc = toolchain in tc `seq` rules tc: the
+  right values (two consistent plans on the rules of two targets, 0.01 s),
+  but every set function of the build meets the decided choice again:
+  C++ backend, let and seq: names 0.05 s, targets 0.5 s, ambiguous 0.7 s,
+  ready 0.9 to 1.4 s, waves not within the 60 s budget; guard: names
+  0.12 s, targets 1.26 s, ambiguous 1.34 s, waves not within 60 s;
+  Python backend: names 5.7 s (let and seq) and 11.9 s (guard), then the
+  timeout.  rule = rules "gcc" ? rules "clang" with the choice decided
+  first: std::bad_alloc under the 2 GB cap in names on the C++ backend;
+  ready 4.7 s and waves not within 60 s on the Python backend.  On the
+  first design, which asked the makefile per question: stale 0.06 s and
+  ready 0.12 s, waves and plan not within 40 s on the C++ backend.
+  (c) the per-use choice cc = "gcc" ? "clang" inside the rules: two rules
+  for each of the five targets that read cc, 0.1 s on the C++ backend and
+  0.3 s on the Python backend; this is step 6 of the demo.
+  The example binds the compiler as a parameter and lists the makefiles
+  (step 5: both plans in 0.6 s on either backend).  Open: whether a
+  decided choice met again by a set function can take its side without a
+  private copy of the spine, so that the bound-once form of (b) costs
+  what the list costs.
+- Review of 2026-10-06, applied.  The command of a Rule is one String, as
+  a makefile writes it (data Rule = Rule Target [Target] String; the empty
+  string is a prerequisite line); the variables are strings (cflags =
+  "-O2 -Wall"), and the pattern rule is the owner's line with an
+  as-pattern for $@: rule t@(stem ++ ".o") = Rule t [stem ++ ".c"] (cc ++
+  " " ++ cflags ++ " -c " ++ stem ++ ".c -o " ++ t); the driver splits a
+  command with shlex.split, still without a shell.  A missing source
+  stops the build before the plan, as make does: Make.missing :: Build ->
+  Table -> [(Target, [Target])] lists the sources without a stamp with
+  the targets that read them, and the driver prints "no rule to make
+  vec.c, needed by vec.o" beside the lint and exits 2 (before: the other
+  objects were built, vec.o and its dependents stayed stale, exit status
+  0).  Every error of the driver exits 2 through stop(), as make does
+  (SystemExit(str) exited 1), and --touch of a missing file is such an
+  error.  A target of the plan that never ran makes the exit status 2: a
+  command that writes no output counts as run, as in make, but its
+  dependents never become ready (probed: x built, y stale, exit 2).
+  Makefile_toolchain.rules is rulesWith, so a module that imports Make
+  and the makefile unqualified has no ambiguous name.  The run has eight
+  steps: 7 plans Makefile_cycle.curry (shape.h <- demo) in the fresh
+  copy, "plan: no value (the rules have a cycle)", exit 2, so the index
+  entry "a cycle as a failure" has its step again; 8 builds a copy
+  without vec.c.  README: "read once per build"; the excerpt "with its
+  comments shortened"; the plain-let paragraph says what Sprite does with
+  the captured choice (#61) and no longer calls the merged set the
+  meaning of the form; the long sentences are split; the mapping says why
+  CC is cc (an uppercase name is a constructor); the driver is "generic
+  for a C project", the include scan being its one piece of knowledge of
+  the language, in the README, examples/README and Examples.rst.  GNU
+  make 4.3 checked on a two-line makefile: a missing source prints "No
+  rule to make target 'vec.c', needed by 'main.o'.  Stop." and exits 2;
+  a cycle prints "Circular shape.h <- demo dependency dropped." and the
+  build goes on with exit 0; an unknown goal exits 2.
+- Measured after the review, under the 2 GB cap, with a load average of
+  about 2.7 on the 12 cores from other work: the eight-step ./run 2.68 to
+  2.79 s warm on the C++ backend (three runs), 10.8 and 11.1 s on the
+  Python backend, 6.2 s cold on the C++ backend (the library and the five
+  makefiles converted), 2.7 s without a compiler on the PATH (placeholder
+  files, stdout identical); sprite-make --so Make.curry 1.66 s, and the
+  run with the object 2.28 and 2.34 s (the object was removed again).
+  With a load average of 5 to 7 the same warm run took 5.2 to 5.5 s on
+  the C++ backend and 11.9 s on the Python backend.  unit_examples.py:
+  21 tests on the C++ backend (2 skipped, 24 in 2.7 s) and on the Python
+  backend (4 skipped, 24 in 11.2 s); ./run_tests --changed -j 1 --mem 3
+  --backend both: 2 of 2 ok.  The status page smoke-tested again after
+  the change (/status.json, ?build=1, ?touch=shape.h).
+- Left: a static cycle check (layers over every target, as make reports a
+  cycle before it looks at a stamp); phony targets and a target without a
+  command; a real include scan from the compiler's dependency output.
 2026-10-05: set functions, the repair at the escape (#61, the general case)
 - The defect left by the bug batch: a set function that starts while its
   free variable is unbound, is consumed in part, and resumes under
