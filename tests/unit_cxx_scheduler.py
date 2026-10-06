@@ -186,16 +186,20 @@ class TestInterruptedStep(cytest.TestCase):
   @cytest.skipIfGcStress('a collection at every step hides the rotation path')
   def test_rotation_inside_the_constraint(self):
     '''
-    The periodic rotation (once per 65536 forward nodes) lands inside the
-    grouped constraint for some length of the preamble.  The lengths scanned
-    cover one period in steps shorter than the window, so one of them hits.
-    The set function then resumes with the residual of the group still
-    recorded, and must give its value.
+    The periodic rotation lands inside the grouped constraint for some
+    length of the preamble.  The lengths scanned cover one period in steps
+    shorter than the window, so one of them hits.  The set function then
+    resumes with the residual of the group still recorded, and must give its
+    value.  The scan pins the cadence of 65536 completed steps, so the child
+    forces step mode whatever SPRITE_ROTATION says (see
+    unit_cxx_rotation.py for the modes).
     '''
     goals = [
         ('rotated', (self.DEPTH, k, 5000)) for k in range(60, 3400, 60)
       ]
-    code = CHILD % {'flags': {'backend': 'cxx'}, 'goals': goals}
+    code = CHILD % {
+        'flags': {'backend': 'cxx', 'rotation': 'steps:65536'}, 'goals': goals
+      }
     proc = cytest.run_in_subprocess(code, TIMEOUT, address_space=ADDRESS_SPACE)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     lines = proc.stdout.splitlines()

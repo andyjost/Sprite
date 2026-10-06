@@ -17,6 +17,7 @@ from benchmarks import split, suites
 from curry import config
 import contextlib, curry, io, json, os, shutil, signal, socket, sys, tempfile
 import unittest
+from unittest import mock
 
 BACKEND = curry.flags['backend']
 PYTHON = sys.executable
@@ -741,6 +742,25 @@ class TestSuites(unittest.TestCase):
     self.assertEqual(env['PYTHONIOENCODING'], 'utf-8')
     self.assertTrue(env['SPRITE_INTERPRETER_FLAGS'].startswith('backend:cxx'))
     self.assertEqual(env['PATH'], os.environ['PATH'])
+    # The rotation in step mode, so that the counters reproduce; -e and the
+    # environment of the run win.
+    with mock.patch.dict(os.environ):
+      os.environ.pop('SPRITE_ROTATION', None)
+      env = self.settings.environment('cxx')
+      self.assertEqual(env['SPRITE_ROTATION'], 'steps:65536')
+      os.environ['SPRITE_ROTATION'] = 'time:10ms'
+      env = self.settings.environment('cxx')
+      self.assertEqual(env['SPRITE_ROTATION'], 'time:10ms')
+      # An empty value counts as unset.
+      os.environ['SPRITE_ROTATION'] = ''
+      env = self.settings.environment('cxx')
+      self.assertEqual(env['SPRITE_ROTATION'], 'steps:65536')
+    timed = suites.Settings(
+        '/nonexistent/home', env={'SPRITE_ROTATION': 'time:20ms'}
+      )
+    self.assertEqual(timed.environment('cxx')['SPRITE_ROTATION'], 'time:20ms')
+    empty = suites.Settings('/nonexistent/home', env={'SPRITE_ROTATION': ''})
+    self.assertEqual(empty.environment('cxx')['SPRITE_ROTATION'], 'steps:65536')
     env = self.settings.environment('pakcs')
     self.assertEqual(
         env.get('SPRITE_INTERPRETER_FLAGS')
@@ -2191,11 +2211,17 @@ class TestSmoke(cytest.TestCase):
       BACKEND == 'cxx', 'QueensSet takes a minute on the Python backend'
     )
   def test_split_suite(self):
-    '''QueensSet whole and in two parts, and the split command on them.'''
+    '''
+    QueensSet whole and in two parts, and the split command on them.  The
+    rows compare the steps of the parts with the whole, so the harness runs
+    in step mode whatever SPRITE_ROTATION says: in time mode the counters
+    of a search differ between the measured repetition and the one under
+    perf, and the record holds None for them, with a warning of the harness.
+    '''
     filename = self.filename('split.jsonl')
     status, log = self.harness(
         '-s', 'split', 'QueensSet', '--variant', 'whole', '--variant', '2/0'
-      , '--variant', '2/1', '-o', filename
+      , '--variant', '2/1', '-o', filename, '-e', 'SPRITE_ROTATION=steps:65536'
       )
     self.assertEqual(status, 0, log)
     recs = records.read(filename)

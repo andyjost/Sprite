@@ -148,6 +148,12 @@ Merges to `master` happen at milestones.
   and `all` interprets every module. `sprite-make` and `make stage` always
   compile. `tests/README` section 4 names the tests that set `off` for
   themselves and the tests that fail under `new` and `all` by design.
+- The C++ backend rotates its queue of alternatives in time mode by
+  default (`SPRITE_ROTATION=time:10ms`, a ticker thread, the interpreter
+  flag `rotation`) and in step mode (`steps:65536`) under the test runner,
+  the benchmark harness and CI, where the exact counters and the order of
+  the values of a search must reproduce; the Python backend keeps its
+  `step_budget`.
 - A goal without a type signature keeps its class constraints. Sprite
   defaults them as the PAKCS REPL does (`Num` to `Int`, `Fractional` to
   `Float`, `Monad` to `IO`, a lone `Data` to `Bool`) and rejects the rest

@@ -35,6 +35,14 @@ namespace cyrt
     // in a nested evaluation keeps every node allocated before this point.
     EvaluationScope evaluation_scope;
 
+    // In time mode the ticker runs while the outermost procD of the state is
+    // on the C stack (cyrt/ticker.hpp).  A nested procD (a set function)
+    // runs inside that scope.
+    TickerScope ticker_scope(
+        this->rotation_steps == TIME_MODE && !this->in_recursive_call()
+      , this->rotation_quantum_ns
+      );
+
     #ifdef SPRITE_SCHEDULER_COUNTERS
     // The nodes a step allocates carry the serial number of the stepped
     // configuration; the enclosing one is restored when this scheduler

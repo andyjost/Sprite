@@ -4335,3 +4335,189 @@
   percent of its instructions, and the rule of the review adds a walk over
   the enclosing fingerprints at every nested fork of an encapsulated
   choice (0.7 percent more, above).
+
+2026-10-05: rotation by a ticker (K1, #68) and the deterministic mode (K2, #69)
+- The C++ backend rotates its queue of alternatives in one of two modes,
+  selected by the interpreter flag ``rotation`` (flags.py) and by the
+  environment variable SPRITE_ROTATION, which sets the flag below
+  SPRITE_INTERPRETER_FLAGS (whose items now split at their first colon, so
+  rotation:time:10ms is one item).  The forms are time:<N><unit> (s, ms,
+  us, ns; a decimal is fine) and steps:<N>; both numbers lie between 1 and
+  2**63, so that the runtime can hold them (a larger step count failed at
+  the first evaluation with a TypeError of pybind11 before the review);
+  other text is a ValueError when the interpreter is made
+  (flags.parse_rotation, flags.check_flags in Interpreter.__new__), so a
+  typo in the variable fails the tool at once with the sentence.  An empty
+  SPRITE_ROTATION counts as unset everywhere: the interpreter takes its
+  default, and cytest, the runner (cli.environment), the harness
+  (Settings.environment) and run-tests.sh set step mode over it (they kept
+  an empty value before the review, so SPRITE_ROTATION= ran the tests in
+  time mode without a word).  Default: time:10ms for the tools
+  (sprite-exec, the REPL, curry.eval, python -m curry).  Step mode,
+  steps:65536, is set through the environment by the test runner (so
+  SPRITE_ROTATION=time:10ms runs a file in time mode), by cytest before
+  the first import of curry (a file run by hand with unittest discover is
+  in step mode too), by the benchmark harness (-e SPRITE_ROTATION=time:10ms
+  measures time mode), by run-tests.sh (ci.yml's test script) and by the
+  env block of perf.yml.  The Python backend keeps its step budget and
+  ignores the flag; the docs say so.
+- The design as built (cyrt/ticker.hpp, ticker.cpp).  One atomic byte
+  g_tick.  A detached thread named cyrt-ticker sets it every quantum with
+  a relaxed store; its state (mutex, condition variable, the count of the
+  evaluations in time mode on the C stack, the started flag, the quantum,
+  the tick count) is a leaked singleton, for the reason the B3 entry
+  records (the destructor of a condition variable blocks until its waiters
+  left, and a static one hung the exit).  The thread touches g_tick and
+  that state alone and ends with the process.  RuntimeState carries the
+  cadence (rotation_steps, 0 for time mode; rotation_next;
+  rotation_quantum_ns), passed from the flags through the RuntimeStateBase
+  constructor like stack_limit; the constructor refuses time mode with a
+  quantum of zero (std::invalid_argument, a ValueError in Python), and so
+  does ticker_enter, because a thread with no quantum would never release
+  its mutex (the Python side always passes at least one nanosecond; the
+  guard is for the constructor itself).  check_interrupts: stepcount
+  increments in both modes (the concurrent conjunction reads it as its
+  progress marker, constr.cpp); in step mode the check is stepcount ==
+  rotation_next, then rotation_next += rotation_steps, which reproduces
+  the cadence of the mask of today exactly and admits any count; in time
+  mode it is a relaxed load of g_tick, cleared when set; the slow path is
+  today's: the pending swaps of tiered execution, then the scan of qstack
+  for the outermost queue with more than one configuration (E_ROTATE); the
+  collection check follows as before.  The outermost procD of a state
+  holds a TickerScope in time mode: ticker_enter counts the evaluation and
+  starts the thread when the state has none (under the mutex;
+  pthread_atfork is registered there once) or wakes it when it is parked;
+  a nested procD (a set function) is inside the scope; the count drops at
+  exit without a lock.  The thread parks (cv.wait) when it finds the count
+  zero at a tick, so an idle host has no wakeups; it sets the tick only
+  while the count is positive.  A notify happens only when the thread is
+  parked, so a goal with many values costs one uncontended lock per value
+  and no context switch of the thread.  When std::thread throws (EAGAIN
+  under RLIMIT_NPROC, ENOMEM), ticker_enter takes the count back and
+  throws a std::runtime_error that names the ticker and step mode
+  ("cannot start the ticker thread of time mode (...); set the rotation to
+  step mode, for example SPRITE_ROTATION=steps:65536"), so the next
+  evaluation tries again; before the review the count stayed at one, and
+  every later evaluation of the process ran without a thread and without
+  a rotation after one bare "Resource temporarily unavailable".  Fork:
+  the child handler of pthread_atfork gives the child a fresh state (no
+  thread, the count of the evaluations in flight carried over, the byte
+  clear); the first evaluation entered in the child starts a ticker of
+  its own whatever the count, because the state has none (before the
+  review only a count of zero started it, so an evaluation entered while
+  one carried over from the fork was still in flight, a Python callback
+  inside a step that evaluates, ran without a ticker); an evaluation in
+  flight at the fork runs in the child without a ticker until then.  A
+  host that evaluates in time mode is multi-threaded, so Python warns on a
+  later os.fork; the docs say so, and that step mode starts no thread.
+  The hook the native workers of family W poll: ticker_due() (and
+  ticker_clear()).  The bindings gained ticker_status() (started, parked,
+  active, ticks, quantum_ns) and, for the tests, ticker_enter(quantum_ns)
+  and ticker_leave(), which do what the outermost scheduler does on entry
+  and exit.  The host-interrupt check at the safepoint (open question 7 of
+  the plan) is not in: an unwind from the safepoint through generated code
+  and the nested schedulers needs its own design.
+- Gate K, measured on this machine after the review (12 cores, other
+  users' processes, the C++ backend, interpret:off, three repetitions,
+  the deterministic columns decide; the tables with the commands are in
+  the notebook, perf-program/k-measurement.md):
+  the harness, instructions of time mode over step mode: Tak1 16242.9 M
+  over 16174.8 M (+0.42 percent), Queens10 18109.8 M over 18019.5 M
+  (+0.50), PermSort 18592.9 M over 18557.9 M (+0.19); compare
+  --deterministic says "same" for all three with the counters equal (Tak1
+  33629915 steps, Queens10 44630642, PermSort 12531076 steps and 1588167
+  forks, in both modes), and the CPU seconds of this pair agree within
+  three percent (~cpu 0.99, 1.03, 1.00; the first pair, measured during a
+  load of the machine, had shown 1.33 to 1.50).  Against the HEAD build
+  (the install of the branch at 4e21df99, its own compiled objects of the
+  three programs, perf stat -e instructions:u on sprite-exec -t --stats,
+  three repetitions each, the modes alternating): HEAD 16071.0 M, step
+  mode 16172.0 M (+0.63 percent), time mode 16239.3 M (+1.05) on Tak1;
+  17882.9, 18015.6 (+0.74), 18105.5 (+1.24) on Queens10; 18516.7, 18554.5
+  (+0.20), 18588.5 (+0.39) on PermSort; the counters equal in all three.
+  Per completed step that is 3.0 instructions more in step mode and 5.0
+  more in time mode (5.7 on PermSort, whose 500 ticks each scan a long
+  qstack).  So time mode is not cheaper than HEAD: the design's "a load
+  and a branch replace an increment, a mask, and a branch" did not come
+  true, because the increment of stepcount stays for the conjunction and
+  the test of the mode was added; the time-mode path is HEAD's increment,
+  then a load of rotation_steps, a test and a branch, then a load of the
+  address of g_tick through the GOT, a load of the byte, a test and a
+  branch, then the collection check (objdump of the staged libcyrt.so).
+  The CPU seconds show none of it: the nine perf stat runs per program
+  lie within three percent of each other with no order between HEAD and
+  the two modes (Tak1 1.23 to 1.31 s, Queens10 1.38 to 1.47 s, PermSort
+  4.98 to 5.27 s); the ticker shows as about 100 context switches per
+  second (129 to 148 on the 1.3 s programs, 517 to 547 on PermSort).  Two
+  ways to take instructions back were left for a later pass: a hidden
+  alias of g_tick for the hot path inside libcyrt (the exported byte stays
+  for the native workers and the bindings, which include the header), one
+  load per step; and the progress marker of the conjunction on
+  steps_total, which would free time mode of the increment, three loads
+  and stores per step, but changes when a conjunction suspends after a
+  step inside hnf.  Latency of fair (loop 0 ? 42) in time mode, 20 probes
+  with the thread parked before each: min 10.6, median 10.6, max 16.4 ms;
+  in a child of os.fork, 10 probes: 10.6, 10.7, 16.4 ms; all within three
+  quanta (step mode takes 4 ms for its 65536 steps).  Idle: after an
+  evaluation the thread parks within a quantum, and over two seconds its
+  ticks and its context switches do not move (the test reads
+  /proc/self/task).  A goal with 40320 values (perm [1..8]) costs the same
+  wall and CPU seconds in both modes (0.14 to 0.15 s, the first
+  measurement); the extra voluntary context switches are the ticks.
+- Tests.  unit_cxx_rotation.py (20 tests; the Python backend runs the
+  setting tests and skips the rest with the reason): the setting parses
+  (both forms, the units, the bounds, the errors), the default is time
+  mode and a child without the variable gets it, an empty variable counts
+  as unset for the interpreter and for cytest, the precedence of
+  SPRITE_ROTATION, SPRITE_INTERPRETER_FLAGS and the flags of a reload, a
+  bad value is an error when the interpreter is made and fails the import
+  of curry in a child with the sentence; step mode gives the counters of
+  today (countQueens 8 of CxxGc: 2180142 steps and 511409 forks; psort 8:
+  17093 and 1636; measured on the build before the change), repeats them,
+  never starts the thread, and rotates after 65536 or 1000 steps as set;
+  time mode yields 42 for fair of CxxRewrite within a generous bound (the
+  test says why; the measured latency is above), the thread parks after
+  an evaluation and a parked thread moves neither its ticks nor its
+  context switches (voluntary and involuntary, from /proc/self/task) over
+  two seconds (the count is taken once two reads a few milliseconds apart
+  agree, because the thread shows parked before its wait blocks), a child
+  of os.fork starts a ticker of its own and yields fair's value (the
+  forked child sets an alarm so a regression cannot leave a spinning
+  process behind the timeout), a child forked while an evaluation is in
+  flight (ticker_enter in the parent) starts the ticker at its first
+  evaluation although the carried-over count is positive, a thread that
+  cannot start (RLIMIT_NPROC set to one after the imports, the modules
+  interpreted so no compile forks; the test skips where the limit is not
+  enforced) fails the evaluation with the sentence twice over and leaves
+  the count at zero and step mode working, a zero quantum is a ValueError
+  of the constructor and of ticker_enter, and a deterministic evaluation
+  takes the same steps in both modes; and the rotation tests of
+  unit_cxx_rewrite.py and unit_cxx_stack.py run in a child under each mode
+  (8 tests per mode).  The two tests that pin the cadence force step mode
+  themselves: test_rotation_inside_the_constraint of unit_cxx_scheduler.py
+  and test_writeFile_keeps_prefix_across_rotation of unit_io_bind.py;
+  test_split_suite of unit_benchmarks.py runs its harness in step mode,
+  because its rows compare the counters of QueensSet, which differ between
+  the measured repetition and the one under perf in time mode (the record
+  then holds None, and the test failed under SPRITE_ROTATION=time:10ms
+  until the review).  unit_runner.py and unit_benchmarks.py check the
+  variable in the child environments, the empty value included.  Runs
+  after the review: unit_cxx_rotation.py alone, 20 tests ok; the six
+  files unit_cxx_rotation, unit_cxx_rewrite, unit_cxx_stack,
+  unit_cxx_scheduler, unit_io_bind and unit_benchmarks through the runner
+  under SPRITE_ROTATION=steps:65536 and under time:10ms, 6 of 6 each (140
+  tests); the unit suite on the C++ backend, 81 of 81 files, 0 failed,
+  wall 122.2 s; the fast tier on the Python backend (./run_tests --fast
+  --backend py), 65 of 65 files, 0 failed, wall 48.7 s.  Docs:
+  EnvironmentVariables.rst (SPRITE_ROTATION and the flag, the thread and
+  os.fork, the empty value), sprite-exec.rst, REPL.rst, tests/README
+  sections 4, 9 and 10, the harness README, AGENTS.md, flags.py.
+- Left: the host-interrupt check (Ctrl-C into a long C++ evaluation,
+  open question 7); a manifest entry for unit_cxx_rotation.py (the
+  runner assumes the median duration); a sprite-exec option for the mode
+  (the flag and the variable serve today); the quantum is one per process
+  (the last evaluation that entered sets it; two interpreters with
+  different quanta share the thread); the instructions per step above
+  HEAD (the two options above); a newer baseline of the nightly set with
+  the instructions column (the Phase 2 record has none, and its Queens10
+  and PermSort counts predate the O1 pass and the #61 repair).

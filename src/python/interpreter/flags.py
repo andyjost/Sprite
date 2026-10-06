@@ -65,6 +65,30 @@ are available:
     When compiling a string of Curry code fails, copy the generated code to the
     current working directory for post-mortem analysis.
 
+  * ``rotation`` (**'time:10ms'** | 'time:<N>ms' | 'steps:<N>')
+
+    How the C++ backend paces the rotation of its queue of alternatives.  The
+    scheduler rotates at a safepoint, after a completed rewrite step, so a
+    diverging alternative cannot starve the others.  In time mode
+    (``time:10ms``, the default; the unit may be ``s``, ``ms``, ``us`` or
+    ``ns``) a ticker thread sets one byte every quantum and the safepoint
+    polls it: the latency of a waiting alternative is bounded by the quantum
+    whatever a step costs.  In step mode (``steps:65536``) the safepoint
+    counts the steps and rotates every N of them: the schedule depends on
+    the program alone, so the exact steps and forks of a search, and the
+    order of its values, reproduce between runs.  A deterministic
+    subcomputation never rotates in either mode, because a queue of one
+    configuration has nothing to rotate; but in time mode two runs of a
+    non-deterministic goal may print their values in a different order.
+    Time mode starts its thread at the first evaluation, so a host that
+    forks after an evaluation is multi-threaded (Python warns on
+    ``os.fork``); the forked child starts a ticker of its own at its first
+    evaluation.  Step mode starts no thread.  The environment variable
+    SPRITE_ROTATION sets the flag below SPRITE_INTERPRETER_FLAGS (an empty
+    value counts as unset); the test runner, the benchmark harness and the
+    CI jobs set ``steps:65536`` through it.  The Python backend keeps its
+    ``step_budget`` and ignores this flag.
+
   * ``setfunction_strategy`` (**'lazy'** | 'eager')
 
     Indicates how to evaluate set functions.  If 'lazy', then set guards are
@@ -93,8 +117,8 @@ are available:
     it is dropped, and its RecursionError is reported after the other
     alternatives have run.  None disables the step-budget rotation.  Rotation
     on residuation and on Python stack overflow still occurs.  The C++
-    backend rotates after every 65536 forward nodes it compresses (about one
-    per rewrite step) and ignores this flag.
+    backend paces its rotation with the flag ``rotation`` and ignores this
+    flag.
 
   * ``telemetry_interval`` (**None** | <number>)
 
@@ -126,6 +150,7 @@ FLAG_INFO = {
   , 'keep_temp_files'     : ((bool, str)          , False )
   , 'lazycompile'         : ( bool                , True  )
   , 'postmortem'          : ( bool                , False )
+  , 'rotation'            : ( str                 , 'time:10ms')
   , 'setfunction_strategy': ({'eager', 'lazy'}    , 'lazy')
   , 'stack_limit'         : ({None, int}          , 4194304)
   , 'step_budget'         : ({None, int}          , 2048  )
@@ -136,6 +161,49 @@ FLAG_INFO = {
 def get_default_flags():
   '''Returns the default flag values.'''
   return {flag: default for flag,(_,default) in FLAG_INFO.items()}
+
+# The units of the quantum of time mode, in nanoseconds.
+_TIME_UNITS = {'s': 10**9, 'ms': 10**6, 'us': 10**3, 'ns': 1}
+
+def parse_rotation(text):
+  '''
+  Parses a value of the flag ``rotation``: ``time:<N><unit>`` with a unit of
+  s, ms, us or ns, or ``steps:<N>``.  Returns ``('time', nanoseconds)`` or
+  ``('steps', count)``; both numbers are positive integers below 2**63, so
+  that the runtime can hold them.  Raises ValueError for other text.
+  '''
+  error = ValueError(
+      'bad rotation setting %r: expected time:<N>ms or steps:<N>' % (text,)
+    )
+  if not isinstance(text, str):
+    raise error
+  mode, _, value = text.strip().partition(':')
+  mode, value = mode.strip(), value.strip()
+  if mode == 'steps':
+    if not value.isdigit() or not (1 <= int(value) < 2 ** 63):
+      raise error
+    return 'steps', int(value)
+  if mode == 'time':
+    for unit, scale in sorted(_TIME_UNITS.items(), key=lambda u: -len(u[0])):
+      if value.endswith(unit):
+        number = value[:-len(unit)].strip()
+        try:
+          quantum = float(number) * scale
+        except ValueError:
+          raise error from None
+        # At least one nanosecond, finite, and within a 64-bit count.
+        if not number or not (1 <= quantum < 2 ** 63):
+          raise error
+        return 'time', int(round(quantum))
+  raise error
+
+def check_flags(flags):
+  '''
+  Raises ValueError for a flag value that cannot be used: today the flag
+  ``rotation``.  The other flags are checked when they are converted.
+  '''
+  if 'rotation' in flags:
+    parse_rotation(flags['rotation'])
 
 def _show(valspec): # pragma no cover
   if isinstance(valspec, str):
@@ -235,11 +303,13 @@ def getflags(flags={}, weakflags={}):
 
   Reads flags from the environment variable SPRITE_INTERPRETER_FLAGS,
   interprets them as Python values, and then combines them with the ones
-  supplied to this function.
+  supplied to this function.  The environment variable SPRITE_ROTATION sets
+  the flag ``rotation`` alone; an empty value counts as unset.
 
   The precedence order is as follows:
 
-      ``flags`` > SPRITE_INTERPRETER_FLAGS > ``weakflags`` > defaults
+      ``flags`` > SPRITE_INTERPRETER_FLAGS > SPRITE_ROTATION > ``weakflags``
+      > defaults
 
   Args:
     flags:
@@ -253,11 +323,16 @@ def getflags(flags={}, weakflags={}):
   '''
   flags_out = {}
   flags_out.update(weakflags)
+  rotation = os.environ.get('SPRITE_ROTATION')
+  if rotation:
+    flags_out['rotation'] = rotation
   envflags = os.environ.get('SPRITE_INTERPRETER_FLAGS')
   if envflags: # pragma: no cover
+    # A value may hold a colon of its own (rotation:time:10ms), so an item
+    # splits at its first colon only.
     flags_out.update({
         flag: converted for e in envflags.split(',')
-                        for flag, given in [e.split(':')]
+                        for flag, given in [e.split(':', 1)]
                         for converted in [_flagval(flag, given, flags_out)]
                         if converted is not NotImplemented
       })

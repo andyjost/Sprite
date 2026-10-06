@@ -3,6 +3,7 @@
 #include "cyrt/fwd.hpp"
 #include "cyrt/state/configuration.hpp"
 #include "cyrt/state/queue.hpp"
+#include <cstdint>
 #include <initializer_list>
 #include <memory>
 #include <string>
@@ -78,6 +79,14 @@ namespace cyrt
   // error path.  See RuntimeState::set_stack_base.
   static constexpr size_t STACK_MARGIN = size_t(1) << 20;
 
+  // The rotation cadence (see check_interrupts and cyrt/ticker.hpp).  Zero
+  // steps select time mode, whose quantum is in nanoseconds.  The defaults
+  // are those of the interpreter flag ``rotation``: time:10ms, and
+  // steps:65536 for its step mode.
+  static constexpr size_t   TIME_MODE = 0;
+  static constexpr size_t   DEFAULT_ROTATION_STEPS = 65536;
+  static constexpr uint64_t DEFAULT_QUANTUM_NS = 10000000;
+
   using qstack_type  = std::vector<Queue*>;
 
   struct RuntimeState : boost::noncopyable
@@ -86,6 +95,8 @@ namespace cyrt
         InterpreterState & istate, Node * goal, bool trace=false
       , SetFStrategy setfunction_strategy = SETF_LAZY
       , size_t stack_limit = DEFAULT_STACK_LIMIT
+      , size_t rotation_steps = TIME_MODE
+      , uint64_t rotation_quantum_ns = DEFAULT_QUANTUM_NS
       );
     ~RuntimeState();
     RuntimeState(RuntimeState const &) = delete;
@@ -95,15 +106,25 @@ namespace cyrt
 
     InterpreterState &     istate;
     // ``stepcount`` counts the completed rewrite steps of the scheduler
-    // (procS) and paces the periodic rotation (check_interrupts) and the
-    // concurrent conjunction.  ``steps_total`` counts the rewrite steps taken
-    // (count_step), the steps outside the scheduler included.
+    // (procS); it paces the periodic rotation in step mode
+    // (check_interrupts) and shows the progress of the concurrent
+    // conjunction in both modes.  ``steps_total`` counts the rewrite steps
+    // taken (count_step), the steps outside the scheduler included.
     // ``forks_total`` counts the forks of a choice-rooted configuration
     // (fork).  Python reads both totals for the statistics of a run
     // (Interpreter.stats).
     size_t                 stepcount = 0;
     size_t                 steps_total = 0;
     size_t                 forks_total = 0;
+    // The rotation cadence of this evaluation (see check_interrupts).  In
+    // step mode ``rotation_steps`` is the number of completed steps between
+    // two rotation checks and ``rotation_next`` the value of ``stepcount``
+    // at the next check.  In time mode ``rotation_steps`` is TIME_MODE, and
+    // the ticker sets g_tick every ``rotation_quantum_ns`` nanoseconds
+    // while the outermost procD of the state runs (cyrt/ticker.hpp).
+    size_t                 rotation_steps;
+    size_t                 rotation_next;
+    uint64_t               rotation_quantum_ns;
     // The error of an alternative dropped at the stack limit.  procD raises
     // it when the outermost queue is empty.  See unwind.
     std::string            deferred_error;

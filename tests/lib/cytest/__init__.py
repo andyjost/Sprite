@@ -1,3 +1,13 @@
+# The rotation of the C++ backend in step mode for every test file, however
+# it is run (the runner and the CI script set the same default): the exact
+# counters and the order of the values of a search then reproduce.  A value
+# in the environment wins, so SPRITE_ROTATION=time:10ms runs a file in time
+# mode; an empty value counts as unset, as it does for the interpreter.  The
+# variable must be set before the first import of curry.
+import os
+if not os.environ.get('SPRITE_ROTATION'):
+  os.environ['SPRITE_ROTATION'] = 'steps:65536'
+
 from .checkers import check_expressions, check_indexing, check_predicate
 import builtins
 import contextlib

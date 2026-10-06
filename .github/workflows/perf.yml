@@ -37,6 +37,10 @@ env:
   ICURRY_VERSION: '3.1.0'
   LC_ALL: C.UTF-8
   HISTORY_BRANCH: perf-history
+  # The rotation of the C++ backend in step mode, so that the counters
+  # steps and forks of a record reproduce exactly (the harness sets the
+  # same default; see the flag "rotation" in curry.interpreter.flags).
+  SPRITE_ROTATION: steps:65536
 
 jobs:
   perf:

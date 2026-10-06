@@ -155,13 +155,23 @@ def prepend_path(entry, value):
     return ':'.join(parts)
   return ':'.join([entry] + parts)
 
+# The rotation mode of the test files: step mode, so that the exact counters
+# and the order of the values of a search reproduce between runs (the flag
+# ``rotation`` in curry.interpreter.flags).  A value in the environment of
+# the run wins, so SPRITE_ROTATION=time:10ms runs a file in time mode; an
+# empty value counts as unset, as it does for the interpreter.
+STEP_MODE = 'steps:65536'
+
 def environment(sprite_home, backend, base=None):
   '''
   The environment of a child: what the shell driver always set, with the
-  backend in SPRITE_INTERPRETER_FLAGS.
+  backend in SPRITE_INTERPRETER_FLAGS and the rotation in step mode unless
+  the environment names a mode.
   '''
   env = dict(os.environ if base is None else base)
   env['SPRITE_HOME'] = sprite_home
+  if not env.get('SPRITE_ROTATION'):
+    env['SPRITE_ROTATION'] = STEP_MODE
   env['PYTHONPATH'] = prepend_path(
       os.path.join(TESTDIR, 'lib'), env.get('PYTHONPATH')
     )
