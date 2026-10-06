@@ -5,10 +5,16 @@ The records go to standard output, or to the file of -o (appended); the
 progress table goes to standard error.  When perf is available, every item
 whose measured repetitions succeeded gets one more repetition under perf,
 which counts the instructions (see measure.py); --no-perf leaves it out.
+An item that cannot run on this machine (Item.unavailable: a tool of the
+applications suite is missing) is skipped: its row says why, and no record
+is written.  A run that times out ends the repetitions of its item, so a
+program past the limit costs one timeout, not one per repetition; the
+record holds that sample.
 '''
 
 import argparse, os, shutil, sys, tempfile
-from . import BACKENDS, CURRYDIR, DEFAULT_SPRITE_HOME, ROOTDIR, SUITES
+from . import BACKENDS, CURRYDIR, DEFAULT_SPRITE_HOME, OPPONENTS, ROOTDIR
+from . import SUITES
 from . import measure, records, suites
 
 __all__ = ['main', 'parse_args', 'parse_cap']
@@ -68,18 +74,21 @@ def parse_args(argv):
     , help='the suite to run [default: throughput]'
     )
   parser.add_argument(
-      '-b', '--backend', action='append', choices=BACKENDS, default=None
-    , help='backend to measure; repeat for several [default: cxx]'
+      '-b', '--backend', action='append', choices=BACKENDS + OPPONENTS
+    , default=None
+    , help='backend to measure; repeat for several; resolvelib, python and '
+           'clang are the opponents of the applications suite [default: '
+           'cxx; in the applications suite cxx, py, resolvelib, python]'
     )
   parser.add_argument(
       '--variant', action='append', default=None, metavar='NAME'
     , help='run the items of this variant only (cold, warm, collector=on, '
-           'collector=off, whole, 2/0 ...); repeat for several'
+           'collector=off, whole, 2/0, 50/solvable ...); repeat for several'
     )
   parser.add_argument(
       '-r', '--repeat', type=int, default=None, metavar='N'
     , help='measured repetitions per item [default: throughput 5, compile 3, '
-           'import 5, memory 1, split 3]'
+           'import 5, memory 1, split 3, applications 3]'
     )
   parser.add_argument(
       '-w', '--warmup', type=int, default=1, metavar='N'
@@ -127,12 +136,13 @@ def parse_args(argv):
   parser.add_argument(
       '--nightly', action='store_true'
     , help='run the fixed set of the nightly performance job: ten programs '
-           '(with the expression item in the compile suite), or every item '
-           'of the import suite; a PROGRAM pattern then selects among them'
+           '(with the expression item in the compile suite), every item of '
+           'the import suite, or the applications at the sizes of the job; '
+           'a PROGRAM pattern then selects among them'
     )
   args = parser.parse_args(argv)
   if args.backend is None:
-    args.backend = ['cxx']
+    args.backend = suites.default_backends(args.suite)
   if args.repeat is None:
     args.repeat = suites.DEFAULT_REPEAT[args.suite]
   if args.repeat < 1:
@@ -181,15 +191,33 @@ def write_row(stream, record):
   stream.flush()
 
 
+def write_skip(stream, item, reason):
+  '''The row of an item that cannot run on this machine.'''
+  stream.write(COLUMNS % (
+      item.suite, item.program[:16], item.backend, item.variant or '-'
+    , '-', '-', '-', '-', '-', '-', 'skipped'
+    ) + '\n')
+  stream.write('    %s\n' % reason)
+  stream.flush()
+
+
 def measure_item(item, repeat, perf):
   '''
   The samples of one item: the warm-up runs (not returned), the measured
   repetitions, and, with ``perf`` and when every measured repetition
-  succeeded, one repetition under perf.
+  succeeded, one repetition under perf.  A run that times out ends the
+  item: a warm-up that timed out is the one sample, and no repetition
+  follows a measured one that timed out.
   '''
   for _ in range(item.warmup()):
-    item.measure()
-  samples = [item.measure() for _ in range(repeat)]
+    sample = item.measure()
+    if sample['status'] == 'timeout':
+      return [sample]
+  samples = []
+  for _ in range(repeat):
+    samples.append(item.measure())
+    if samples[-1]['status'] == 'timeout':
+      break
   if perf and all(s['status'] == 'ok' for s in samples):
     samples.append(item.measure(perf=True))
   return samples
@@ -224,6 +252,7 @@ def main(argv=None):
     try:
       items = suites.build(
           args.suite, programs, args.backend, settings, workdir
+        , nightly=args.nightly
         )
     except ValueError as exc:
       sys.exit('run_benchmarks: %s' % exc)
@@ -251,6 +280,10 @@ def main(argv=None):
     failures = 0
     try:
       for item in items:
+        reason = item.unavailable()
+        if reason:
+          write_skip(log, item, reason)
+          continue
         samples = measure_item(item, args.repeat, perf)
         record = records.summarize(
             item.suite, item.program, item.backend, item.variant, samples

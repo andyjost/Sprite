@@ -19,7 +19,7 @@ curry.path.insert(0, HERE)
 from curry.lib import CxxLimits, CxxType, Overloads
 
 # The constructors of CxxType.Type, applied with curry.expr.  A class name is
-# passed as a list of characters: a str of length one would become a Char.
+# a Python str; curry.expr converts it to a String, the parameter type.
 def fund(name):
   return curry.expr(CxxType.Fund, getattr(CxxLimits, name))
 
@@ -36,7 +36,7 @@ def arr(t, n):
   return curry.expr(CxxType.Arr, t, n)
 
 def cls(name):
-  return curry.expr(CxxType.Class, list(name), [])
+  return curry.expr(CxxType.Class, name, [])
 
 VOID, BOOL, CHAR, INT = fund('Void'), fund('Bool'), fund('Char'), fund('Int')
 LONG, FLOAT, DOUBLE, NULLPTR = fund('Long'), fund('Float'), fund('Double'), fund('NullptrT')
@@ -44,12 +44,12 @@ BASE, DERIVED = cls('Base'), cls('Derived')
 
 # A class hierarchy is a list of (derived, base) pairs.  An overload set is a
 # list of candidates (name, [parameter types]).  curry.eval turns a Python
-# tuple into a Curry tuple and a Python list into a Curry list.  The names
-# are lists of characters for the same reason as the class names above.
-HIERARCHY = [(list('Derived'), list('Base'))]
+# tuple into a Curry tuple, a Python list into a Curry list, and a str into
+# a String, by the types the goal expects.
+HIERARCHY = [('Derived', 'Base')]
 
 def candidate(name, *params):
-  return (list(name), list(params))
+  return (name, list(params))
 
 def text(goal, *args):
   '''The one value of a goal that returns a String, as a str.'''

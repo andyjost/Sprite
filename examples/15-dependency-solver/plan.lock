@@ -1,0 +1,18 @@
+[[package]]
+name = "app"
+version = 1
+dependencies = ["web 2", "db 2"]
+
+[[package]]
+name = "db"
+version = 2
+dependencies = ["http 1"]
+
+[[package]]
+name = "http"
+version = 1
+
+[[package]]
+name = "web"
+version = 2
+dependencies = ["http 1"]

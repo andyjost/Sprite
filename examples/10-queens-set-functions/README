@@ -87,7 +87,8 @@ prints "n=3: 0 solutions" and no board.
 
 The run script uses n = 4, 5, 6, so the Python backend finishes in a few
 seconds.  A warm run of ./run took 0.2 s on the C++ backend and 2 s on the
-Python backend.  The first run also compiles the module.  It took about 10 s.
+Python backend.  The first run also compiles the module.  It took about a
+second more.
 
 Larger boards: n = 7 has 40 solutions and n = 8 has 92.  On the C++ backend
 n = 8 took 1.3 s.  On the Python backend n = 7 took 8 s and n = 8 took 48 s.

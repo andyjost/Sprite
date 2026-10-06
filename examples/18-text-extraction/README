@@ -129,10 +129,11 @@ count twice, because each occurrence of a tag is one match.
 5. Limits
 ---------
 
-The compile of the rules costs about 8 s on every run.  The module is built
-in a temporary directory, so there is no cache.  A run of ./run took 9 s on
-the C++ backend and 16 s on the Python backend, compile included.  On the
-C++ backend one call of field on a 70-character line took less than 0.1 s.
+The compile of the rules costs about half a second on every run.  The
+module is built in a temporary directory, so there is no cache.  A run of
+./run took 0.8 s on the C++ backend and 8 s on the Python backend, compile
+included.  On the C++ backend one call of field on a 70-character line
+took less than 0.1 s.
 
 On the Python backend the cost of field grows with the square of the line
 length.  The variable k occurs as a parameter and inside the pattern.  The

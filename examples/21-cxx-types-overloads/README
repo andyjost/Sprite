@@ -111,11 +111,11 @@ list of tuples (name, [parameter types]), and a class hierarchy is a list
 of tuples (derived, base).  curry.eval turns a Python tuple into a Curry
 tuple and a Python list into a Curry list, so the Curry goals receive
 values of the types [Candidate] and Hierarchy with no conversion code.  A
-name is passed as a list of characters: a str of length one, such as "f",
-would become a Char.  Python can make a free variable: curry.free() in a
-goal is one variable (Y1), and the typed builder (#56) will give it its
-type.  This driver keeps its free variables in Overloads.curry by choice,
-and Python passes concrete types.
+name is a Python str, which curry.expr converts by the type the goal
+expects, a String, also for a name of one character such as "f".  Python
+can make a free variable: curry.free() in a goal is one variable (Y1), and
+the typed builder (#56) will give it its type.  This driver keeps its free
+variables in Overloads.curry by choice, and Python passes concrete types.
 
 Every goal returns a String, and the driver reads it with
 
@@ -217,16 +217,17 @@ one.
 5. Limits
 ---------
 
-A warm run of ./run took 2.6 s on the C++ backend.  The first run also
-compiles the modules.  CxxOverload.curry and Overloads.curry took 4 s; the
-two shared modules of example 20 add about 7 s when they are not compiled
-yet.  On the Python backend a run took 25 s: 7 s for the scenarios (a)
-to (c) and the rest for (d).  Scenario (d) once stopped there with
-"Evaluation Suspended": the step of $## checked its residuals before the
-normalization and walked the generators of the narrowed type, where the
-fresh variables of the branches the alternative had not taken never get a
-value.  The step checks the normal form now, as the C++ runtime does, and
-the test suite runs this example on both backends.
+A warm run of ./run took 1.0 s on the C++ backend.  The first run also
+compiles the modules: about a second more for CxxOverload.curry and
+Overloads.curry, and about 2 s more for the two shared modules of example
+20 when they are not compiled yet.  On the Python backend a run took 23 s:
+7 s for the scenarios (a) to (c) and the rest for (d).  Scenario (d) once
+stopped there with "Evaluation Suspended": the step of $## checked its
+residuals before the normalization and walked the generators of the
+narrowed type, where the fresh variables of the branches the alternative
+had not taken never get a value.  The step checks the normal form now, as
+the C++ runtime does, and the test suite runs this example on both
+backends.
 
 Scenario (d) evaluates the type to normal form with $## before the question
 sees it, for speed.  The set function gives the same answer for the
@@ -245,6 +246,13 @@ depth 2 exceeded 2 GB of memory on the Python backend.
 The generator grows by a factor of six per level of depth.  Depth 2 has
 1245 types, and scenario (d) over them took 0.3 s on the C++ backend; depth
 3 has 7330 types.
+
+A measurement of this example against other implementations belongs in
+the benchmark harness, not here.  The applications suite of the harness
+(tests/README, section 9) resolves a thousand distinct calls with
+Overloads.resultLine against a plain-Python implementation of the same
+ranking.  The benchmark record of this example is
+tests/data/curry/benchmarks/results/apps-2026-10-06-applications.jsonl.
 
 The model leaves out:
 

@@ -2,9 +2,10 @@
 Regular expressions by non-determinism.
 
 Python parses a small pattern syntax into Curry data of type Regex.RE and
-calls two Curry functions on it.  match tests whether a whole subject is a
-word of the pattern.  grep finds every substring of the subject that is a
-word of the pattern.
+calls three Curry functions on it.  sem generates the words of the pattern,
+one per value.  match tests whether a whole subject is a word of the
+pattern.  grep finds every substring of the subject that is a word of the
+pattern.
 
 Pattern syntax: a character stands for itself, . is any character, | is
 alternation, * + ? repeat the item before them, and parentheses group.  A
@@ -12,7 +13,9 @@ backslash makes the next character literal.
 
 Usage: python go.py                  (runs the built-in cases)
        python go.py PATTERN SUBJECT  (runs match and grep on one pair)
+       python go.py --words PATTERN [N]  (the first N words, 10 by default)
 '''
+import itertools
 import os
 import sys
 import curry
@@ -22,12 +25,13 @@ curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from curry.lib import Regex
 
 CASES = [
+    ('words', '(cat|dog)s?', None),
     ('match', 'ab*c', 'abbbc'),
     ('match', 'a.c', 'axc'),
     ('match', 'a.c', 'abbc'),
-    ('grep', 'ab*c', 'xxxxxxxxxxxxxxxabbbcyyyyyyyyyyyyyyyyyyyyy'),
+    ('grep', 'ab*c', 'xxxxxxxabbbcyyyyyyyy'),
     ('grep', 'a+b?', 'zzaaabzz'),
-    ('grep', '(cat|dog)s?', 'cats and dogs and a dog'),
+    ('grep', '(cat|dog)s?', 'cats, dogs and a dog'),
   ]
 
 class PatternError(Exception):
@@ -109,6 +113,20 @@ def build(ast):
   args = [build(arg) if isinstance(arg, tuple) else arg for arg in args]
   return curry.expr(getattr(Regex, tag), *args)
 
+def words(pattern):
+  '''Every word of a star-free pattern, sorted.'''
+  values = curry.eval(Regex.sem, build(parse(pattern)), converter='topython')
+  # Each value is one word.  The order of the values is not promised, so
+  # sort them.  A pattern with a star has infinitely many words, and a word
+  # of a pattern with . holds a free character, which the converter rejects;
+  # first_words shows both without the converter.
+  return sorted(values)
+
+def first_words(pattern, count):
+  '''The first count words of any pattern, in Curry syntax.'''
+  values = curry.eval(Regex.sem, build(parse(pattern)))
+  return [str(value) for value in itertools.islice(values, count)]
+
 def match(pattern, subject):
   '''True when the whole subject is a word of the pattern.'''
   values = curry.eval(Regex.match, build(parse(pattern)), subject,
@@ -129,6 +147,9 @@ def grep(pattern, subject):
   # The order of the values is not promised.  Sort by position, then length.
   return sorted(hits, key=lambda hit: (len(hit[0]), len(hit[1])))
 
+def show_words(pattern, subject=None):
+  print('words %s: %s' % (pattern, ' '.join(words(pattern))))
+
 def show_match(pattern, subject):
   print('match %s %s: %s' % (pattern, subject, match(pattern, subject)))
 
@@ -139,7 +160,18 @@ def show_grep(pattern, subject):
   for before, hit, after in hits:
     print('  %s[%s]%s' % (before, hit, after))
 
+SHOW = {'words': show_words, 'match': show_match, 'grep': show_grep}
+
 def main(argv):
+  if len(argv) in (3, 4) and argv[1] == '--words':
+    count = int(argv[3]) if len(argv) == 4 else 10
+    try:
+      for word in first_words(argv[2], count):
+        print(word)
+    except PatternError as error:
+      sys.stderr.write('go.py: %s\n' % error)
+      return 1
+    return 0
   if len(argv) == 3:
     cases = [('match',) + tuple(argv[1:]), ('grep',) + tuple(argv[1:])]
   elif len(argv) == 1:
@@ -149,7 +181,7 @@ def main(argv):
     return 2
   try:
     for kind, pattern, subject in cases:
-      (show_match if kind == 'match' else show_grep)(pattern, subject)
+      SHOW[kind](pattern, subject)
   except PatternError as error:
     sys.stderr.write('go.py: %s\n' % error)
     return 1

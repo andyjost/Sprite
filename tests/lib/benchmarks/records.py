@@ -7,11 +7,14 @@ variant such as the state of a cache.  The fields, in order:
 
     schema       The number of this format: 2.  Schema 1 lacked the field
                  instructions; see below.
-    suite        throughput, compile, import, memory, or split.
+    suite        throughput, compile, import, memory, split, or
+                 applications.
     program      The program, or the name of the item of the suite.
-    backend      cxx, py, or pakcs.
+    backend      cxx, py, or pakcs; in the applications suite also an
+                 opponent: resolvelib, python, or clang.
     variant      The variant of the item (cold, warm, collector=off; whole
-                 or K/I in the split suite), or None.
+                 or K/I in the split suite; SIZE/CASE in the dependency
+                 item of the applications suite), or None.
     commit       The commit of the repository, with -dirty when the tree
                  has changes; None without git.
     date         The time of the run, UTC, ISO 8601.
@@ -69,7 +72,7 @@ machine() reads both namings.
 '''
 
 import datetime, json, os, platform, subprocess
-from . import BACKENDS, SUITES
+from . import BACKENDS, OPPONENTS, SUITES
 
 __all__ = [
     'ADDED', 'COUNTERS', 'FIELDS', 'MEDIANS', 'SCHEMA', 'SCHEMAS', 'STATUSES'
@@ -258,7 +261,9 @@ def validate(record):
       raise ValueError('field %r is missing' % name)
     if not isinstance(record[name], types) or isinstance(record[name], bool):
       raise ValueError('field %r has a bad value: %r' % (name, record[name]))
-  legal_values = ('suite', SUITES), ('backend', BACKENDS), ('status', STATUSES)
+  legal_values = (
+      ('suite', SUITES), ('backend', BACKENDS + OPPONENTS), ('status', STATUSES)
+    )
   for name, legal in legal_values:
     if record[name] not in legal:
       raise ValueError('field %r has a bad value: %r' % (name, record[name]))

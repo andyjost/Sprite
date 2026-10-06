@@ -160,7 +160,7 @@ Regular expressions by non-determinism
 
 Directory ``examples/13-regex-nondeterminism``.  Backends: Python, C++.
 
-A function returns one word of the language of a pattern, and every word is one value; matching is unification with the subject.  Python parses the pattern syntax into Curry data and lists every hit of a search.
+A function returns one word of the language of a pattern, and every word is one value, so the function generates the words; matching is unification with the subject.  Python parses the pattern syntax into Curry data, lists the words of a star-free pattern, and lists every hit of a search.
 
 .. code-block:: bash
 
@@ -190,7 +190,7 @@ A package dependency solver
 
 Directory ``examples/15-dependency-solver``.  Backends: Python, C++.
 
-A plan assigns each package one of its versions, and a guard keeps the consistent plans.  The package index is nested Python data, and Python picks the newest plan.
+A plan picks a version for every package that the roots reach, and a search over the candidates, newest first, finds the consistent plans.  A set function pins the preferred plan, and a failure is explained.  The index is nested Python data, and the output is a lockfile.
 
 .. code-block:: bash
 

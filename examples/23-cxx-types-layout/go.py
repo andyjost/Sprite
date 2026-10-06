@@ -41,9 +41,8 @@ class Packet:
   payload: ptr(const(CHAR))
 
 def members(struct):
-  '''The members of a struct as a list of (name, type) pairs.  A name is
-  passed as a list of characters: a str of length one would become a Char.'''
-  return [(list(name), ty) for name, ty in struct.__annotations__.items()]
+  '''The members of a struct as a list of (name, type) pairs.'''
+  return list(struct.__annotations__.items())
 
 def value(goal, *args):
   '''The one value of a goal, converted to Python.'''
@@ -92,7 +91,7 @@ def main():
   # first.
   first = list(struct.__annotations__)[0]
   print('(c) the order of the smallest size with %s first' % first)
-  print_search(struct, value(CxxLayout.smallestWithFirst, list(first), ms))
+  print_search(struct, value(CxxLayout.smallestWithFirst, first, ms))
 
 if __name__ == '__main__':
   main()

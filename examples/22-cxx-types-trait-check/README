@@ -105,13 +105,14 @@ comes back:
 
     print(text(CxxCheck.header, depth))
     for name in names:
-      print(text(CxxCheck.check, depth, list(name)))
+      print(text(CxxCheck.check, depth, name))
 
-A name is passed as a list of characters, because a str of length one
-would convert to a Char.  The helper text reads the one value of a goal
-with converter='topython', which turns a Curry String into a str.  The
-whole report, the names, the statements and the counts, is composed in
-Curry.  Python holds the list of names and the loop.
+A name is a Python str, which curry.expr converts by the type of the
+parameter, a String, also for a name of one character.  The helper text
+reads the one value of a goal with converter='topython', which turns a
+Curry String into a str.  The whole report, the names, the statements and
+the counts, is composed in Curry.  Python holds the list of names and the
+loop.
 
 
 3. How to run

@@ -33,9 +33,8 @@ backend, and review the diff.
 
 The list below gives each directory, the backends it runs on, the title of
 its README, and what it teaches.  The numbers group the examples: 00 to 04
-tour the API, 10 to 19 are programs with a Python driver, 20 to 23 are a
-series that shares a library, and 24 onward are programs with a Python
-driver again.  The gaps are deliberate.
+tour the API, 10 to 19 and 24 are programs with a Python driver, and 20 to
+23 are a series over one shared library.  The gaps are deliberate.
 
 00-run-curry-programs (py, cxx)
     Run Curry programs with sprite-exec.  Call-time choice; a program by
@@ -71,15 +70,17 @@ driver again.  The gaps are deliberate.
 
 13-regex-nondeterminism (py, cxx)
     Regular expressions by non-determinism.  A semantics as a function;
-    matching by unification; free variables.
+    the words of a pattern as values; matching by unification; free
+    variables.
 
 14-parser-functional-patterns (py, cxx)
     An expression parser from functional patterns.  Functional patterns
     split the input; failure prunes parses.
 
 15-dependency-solver (py, cxx)
-    A package dependency solver.  Generate and test over nested Python
-    data.
+    A package dependency solver.  Resolution as a search over Python data;
+    the preference as the order of the candidates; the preferred plan
+    pinned by a set function; a failure explained; a lockfile.
 
 16-scheduling (py, cxx)
     Scheduling tasks fed from Python data.  Constraints as guards;
@@ -102,7 +103,7 @@ driver again.  The gaps are deliberate.
     as template parameters; deduction by unification; set functions; a
     bounded generator for the inverse question.
 
-21-cxx-types-overloads (cxx)
+21-cxx-types-overloads (py, cxx)
     Overload resolution over a model of C++ types.  Conversions as
     non-deterministic rules; the viable set as a set function; the inverse
     question with a free variable.

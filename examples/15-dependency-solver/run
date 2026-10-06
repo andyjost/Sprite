@@ -7,5 +7,17 @@ export SPRITE_HOME
 export SPRITE_INTERPRETER_FLAGS="${SPRITE_INTERPRETER_FLAGS:-backend:cxx}"
 export LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
 unset CURRYPATH
-echo '% python go.py'
-"$SPRITE_HOME/bin/python" go.py
+
+# Runs go.py and reports a non-zero exit status.
+go() {
+  echo "% python go.py $*"
+  "$SPRITE_HOME/bin/python" go.py "$@" || echo "exit status $?"
+}
+
+go --index
+go app=2
+go --yank web=3
+go --lock plan.lock
+go app=1 cli=1
+go app=5
+go tls=1

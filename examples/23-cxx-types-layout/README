@@ -84,8 +84,8 @@ constructors of CxxType, for example
 
 for char const*.  The function members turns the annotations into a Python
 list of (name, type) pairs, and curry.eval converts it to a Curry list of
-tuples.  A name is passed as a list of characters, because a str of length
-one would become a Char.
+tuples.  A name is a Python str, which curry.expr converts by the type the
+tuple expects, a String, also for a name of one character.
 
 A layout comes back as nested tuples and lists.  The call
 
@@ -96,9 +96,8 @@ size and padding, then the size, the alignment and the padding at the end.
 Python prints the table.  The type of each member goes through the Curry
 printer, curry.eval(CxxType.showCxx, t), so Python holds no knowledge of C++
 syntax.  The layout also goes back to Curry, to CxxLayout.padding, so the
-tuple converts both ways.  The names travel inside the tuples on purpose: a
-bare list of Curry strings comes back as one str, because the converter
-joins a list of strings.
+tuple converts both ways.  The converter turns a Curry String into a str
+inside a tuple or a list alike, and the empty String into ''.
 
 
 3. How to run

@@ -38,6 +38,11 @@ options.  The modules:
                  each record with the previous one of its item, and writes
                  the points of the chart page.
     probe.py     The child program of the expression item.
+    apps/        The applications suite: the generated package indexes
+                 (depindex.py), the child programs of the dependency item
+                 (dependency.py) and of the overloads item (overloads.py,
+                 clangprobe.py), and the plain-Python overload resolution
+                 (cxxoverload.py).
 '''
 
 import os
@@ -48,10 +53,17 @@ ROOTDIR = os.path.dirname(TESTDIR)
 CURRYDIR = os.path.join(TESTDIR, 'data', 'curry', 'benchmarks')
 # The search programs split by hand for the split suite.
 SPLITDIR = os.path.join(CURRYDIR, 'split')
+# The child programs of the applications suite, and the examples they run.
+APPDIR = os.path.join(HERE, 'apps')
+EXAMPLESDIR = os.path.join(ROOTDIR, 'examples')
 DEFAULT_SPRITE_HOME = os.path.join(ROOTDIR, 'install')
 
-SUITES = ('throughput', 'compile', 'import', 'memory', 'split')
+SUITES = ('throughput', 'compile', 'import', 'memory', 'split', 'applications')
 BACKENDS = ('cxx', 'py', 'pakcs')
+# The opponents of the applications suite, measured as backends of their
+# items: the resolver of pip (resolvelib) against the dependency item, a
+# plain-Python implementation and clang against the overloads item.
+OPPONENTS = ('resolvelib', 'python', 'clang')
 
 # The programs of Chapter 7 of the dissertation.  The README of the benchmark
 # directory maps the names of the figures to the files.

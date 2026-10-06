@@ -103,7 +103,8 @@ identical on both backends.
 
 The number of splits grows with the length of the input.  A warm run of
 ./run took 0.2 s on the C++ backend and 1.7 s on the Python backend.  The
-first run on the C++ backend also compiles the module.  It took 11 s.
+first run on the C++ backend also compiles the module.  It took about a
+second.
 
 Longer inputs: an expression of 29 characters took 0.3 s on the C++ backend
 and 5 s on the Python backend.  One of 44 characters took 2 s on the C++

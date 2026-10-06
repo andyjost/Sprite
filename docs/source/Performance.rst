@@ -125,7 +125,11 @@ Nightly history
 A scheduled GitHub Actions job (``.github/workflows/perf.yml``) runs the
 harness every night on the C++ backend.  It runs the throughput suite on a
 fixed set of ten programs with three repetitions, the compile suite on the
-same programs and the expression item, and the import suite.  The same
+same programs and the expression item, the import suite, and the
+applications suite: two programs of the examples against the tools of their
+trade (the dependency solver of example 15 against resolvelib, the resolver
+of pip, and the overload resolution of example 21 against a plain-Python
+implementation of the same ranking).  The same
 measurement runs by hand with ``tests/run_benchmarks --nightly``.  The job
 appends the records to the branch ``perf-history`` of the repository with
 the command ``run_benchmarks history DIR FILE...`` and compares each record

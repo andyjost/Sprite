@@ -313,7 +313,7 @@ identical on both backends.
 A warm run of ./run took 0.6 s on the C++ backend and 16 s on the Python
 backend.  The Python backend spends the time in scenario (d) and in the
 goals, one per row and one per printed type.  The first run also compiles
-the three modules; it took 10 s on the C++ backend.
+the three modules; it took about 3 s more on the C++ backend.
 
 The generator grows by a factor of six per level of depth.  Depth 0 holds
 the 17 fundamental types and one class; depth 1 has 194 types, depth 2 has

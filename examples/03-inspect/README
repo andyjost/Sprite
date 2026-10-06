@@ -89,6 +89,6 @@ converted predecessor for I.
 ---------
 
 A warm run of ./run took 0.4 s.  The first run also compiles the module
-with the Curry front end, which takes several seconds more.  Only the first
+with the Curry front end, which takes about half a second more.  Only the first
 line of the generated code is part of expected.out, so a change of the
 generated code does not change the expected output.

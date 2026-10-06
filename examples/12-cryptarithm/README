@@ -86,8 +86,8 @@ The file expected.out holds this output.  The test tests/unit_examples.py runs
 5. Limits
 ---------
 
-On the C++ backend the run takes about 3 s after the first compile.  The first
-run also compiles Crypt.curry and takes about 13 s.  SEND + MORE = MONEY needs
+On the C++ backend the run takes about 1 s after the first compile.  The first
+run also compiles Crypt.curry and takes about 2 s.  SEND + MORE = MONEY needs
 less than 1 GB of memory; the test runs the example under a 2 GB cap.
 
 Puzzles with up to ten distinct letters and three addends ran in about 2 s,
