@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/state/queue.hpp"
@@ -69,6 +70,13 @@ namespace cyrt
     this->items.pop_front();
   }
 
+  // Whether C made choice ``cid``: its own fingerprint, read as read_fp
+  // reads it, through the group.
+  static ChoiceState decision(Configuration const * C, xid_type cid)
+  {
+    return C->fingerprint.test(C->grp_id(cid));
+  }
+
   Configuration * Queue::clone_front()
   {
     Configuration * C = this->items.front();
@@ -82,6 +90,12 @@ namespace cyrt
     return C;
   }
 
+  bool Queue::decided(xid_type cid) const
+  {
+    return std::find(this->decisions.begin(), this->decisions.end(), cid)
+        != this->decisions.end();
+  }
+
   void Queue::split(xid_type cid, Queue & rhs)
   {
     assert(rhs.empty());
@@ -89,7 +103,7 @@ namespace cyrt
     std::vector<Configuration *> shared;
     for(Configuration * C: this->items)
     {
-      switch(C->fingerprint.test(cid))
+      switch(decision(C, cid))
       {
         case LEFT:         keep.push_back(C);
                            break;
@@ -101,11 +115,16 @@ namespace cyrt
                            break;
       }
     }
+    std::vector<xid_type> decisions = this->decisions;
+    decisions.push_back(cid);
+    std::vector<xid_type> rhs_decisions = decisions;
     // Nothing below throws.
     this->items.swap(keep);
     rhs.items.swap(move);
     this->count = this->items.size();
     rhs.count = rhs.items.size();
+    this->decisions.swap(decisions);
+    rhs.decisions.swap(rhs_decisions);
     for(Configuration * C: shared)
       ++C->holders;
   }

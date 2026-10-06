@@ -22,11 +22,11 @@ namespace cyrt
   using Residuals = std::unordered_set<xid_type>;
 
   // A configuration belongs to the queues that hold it (see queue.hpp): one
-  // queue, except after the split of a set function's queue on a choice
-  // that escapes it, which puts every configuration that has not made the
-  // choice into both queues.  A queue clones a shared configuration before
-  // it evaluates it, and the last queue to let go of a configuration
-  // destroys it.  The collector counts the live configurations: for the
+  // queue, except after the escape of a choice from a set function, which
+  // puts every configuration that has not made the choice into both queues
+  // of the split.  A queue clones a shared configuration before it
+  // evaluates it, and the last queue to let go of a configuration destroys
+  // it.  The collector counts the live configurations: for the
   // leak checks of the tests, and to run a collection when they pile up in
   // the queues of set functions consumed only in part (see gc/wdgc.cpp).
   struct Configuration : boost::noncopyable

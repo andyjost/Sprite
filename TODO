@@ -4033,3 +4033,234 @@
   (a probe: import Top from toolchain.loadcurry, then curry.eval of its
   main).  The tests import such a module for its shapes alone and take
   the values from a module imported by name.
+
+2026-10-05: set functions, the repair at the escape (#61, the general case)
+- The defect left by the bug batch: a set function that starts while its
+  free variable is unbound, is consumed in part, and resumes under
+  alternatives that narrowed the variable differently shared the SetEval
+  node and its queue; the nested queue read the fingerprint of the
+  alternative that resumed it first (choice_escapes refused the escape of a
+  choice an enclosing configuration had made, and the nested fork pruned it
+  by that fingerprint), and the shared allValues node kept that value for
+  the other alternative: narrowedAfterStart gave [A, A] twice.
+- The repair, on both backends, is rule SF.1 of the dissertation (chapter
+  4, Figure 4.2) at the escape.  A choice of an escape set always leaves
+  the capsule: choice_escapes (rts_setfunctions.cpp, rts_setfunctions.py)
+  reads no enclosing fingerprint any more, and no fingerprint at all; it
+  escapes a choice that is in the escape set of the current set or of an
+  enclosing set, unless the queue has escaped it before.  The split
+  (Queue::split, split_queue) keeps a configuration that made the choice
+  LEFT, moves one that made it RIGHT, keeps one that has not made it in
+  both queues, as before, and records the choice in both queues
+  (Queue::decisions, Queue.decisions), so a configuration meets it a second
+  time without an escape: it forks, and the fork reads the side from its
+  own fingerprint or, through the walk of the queue stack, from the
+  enclosing configuration, which runs this queue because it decided the
+  choice that way (the queue of a side is reachable through that side of
+  the escaped choice alone).  The escaped choice is a node of the shared
+  graph like any pull-tabbed choice: an enclosing configuration that has
+  not decided it forks on it, and one that has prunes it.  A configuration
+  that has decided it (itself, or an enclosing one did: read_fp) takes its
+  side at once through a private copy of its spine and E_RESTART
+  (allValues_step, allValues), as a binding goes into an expression; the
+  fork would prune the choice node to the same side, but it sends the
+  configuration to the back of its queue, and a search with many
+  alternatives then advances them in lockstep with every capsule alive.
+  The review of this entry (below) bounded that fast path: a configuration
+  takes the side at once only when it owns the decision.  The capsule
+  writes nothing into the shared graph that depends on the configuration
+  that runs it; the walk of fork and read_fp through the queue stack stays,
+  and it prunes by an enclosing decision only in a queue that an escape of
+  the choice has bound to that side.
+- Decided first, the captured choice (test_captured_argument of
+  unit_cxx_scheduler.py, choiceCaptured of unit_setfunctions_bugs.py): the
+  call-time choice reading stays.  A choice captured through the function
+  position (set1 (constT x) 0 with x = A ? B) is in no escape set; the
+  dissertation's SF.1 reads the escape set of the capsule alone, and a
+  captured occurrence is unboxed, so the rule encapsulates it; Sprite's
+  nested fork prunes it by the fingerprint of the enclosing configuration
+  when that configuration decided it before the capsule reached it, which
+  gives (A, [A]) and (B, [B]), and encapsulates it otherwise.  The goldens
+  of applyS.curry (from KiCS2) pin the same reading: an argument applied
+  with $< is encapsulated (goal1, goal4, goal30), and a captured occurrence
+  follows the guarded one of the same choice (goal10, goal11).  PAKCS
+  cannot check these goals: the pinned installation has no setfunctions
+  package.  nestedCapture is the other half: the inner function captures
+  the argument of the outer set function, so the choice is in the escape
+  set of the outer set alone; SF.1 read literally keeps it in the inner
+  capsule ([[1, 2]]), which puts the non-determinism of the outer argument
+  inside a value of the outer set function.  A choice of the escape set of
+  an enclosing set came through the guard of an argument of that set
+  function, so it is from outside that capsule and from outside every
+  capsule nested in it: choice_escapes reads the escape sets of the
+  enclosing sets as well, and nestedCapture gives [[1]] and [[2]]; the
+  expected-failure mark of test_captured_argument is gone.  goal10 of
+  applyS.curry decided the last detail: a configuration that decided an
+  escape-set choice itself (through the captured occurrence, before the
+  guarded one put the choice into the escape set) still escapes it, and the
+  split sorts it to its side; a refusal kept the two sides of the argument
+  in one set.
+- The creation-time walk (holds_private_state, _holds_private_state) stays
+  unchanged.  The captured shapes need it: without the private copy the
+  shared capsule of choiceCaptured or viaPartial keeps the values of the
+  configuration that created it.  The guarded shapes (boundVar, choiceArg)
+  no longer need it: their choice escapes, and a variable the capsule
+  returns is resolved by each reader of the value; there the copy only
+  loses the sharing of the capsule.  The walk could skip the guarded
+  subtrees; not done, because the shapes that stay shared are exactly the
+  ones the escape then has to handle, and the gain is one capsule per
+  alternative in programs that narrow an argument before the set function
+  sees it.
+- Two forms were measured and rejected on the way (QueensSet9, C++
+  backend, one repetition, the HEAD build 8be3209c of the same machine
+  as the reference: 12146105 steps, 2979683 forks, 11 collections,
+  766038 configurations destroyed, 58100 queues destroyed, 18.17 G
+  instructions, 338 MB peak).  A split that clones every undecided
+  configuration at once, LEFT in the kept queue and RIGHT in the new one:
+  923263 configurations destroyed, 461 MB, instructions +6.2 percent; the
+  clones of the side nobody runs are the cost, where the lazy clone at the
+  step (unshare_front) never paid for them.  A lazy split that writes the
+  side into the fingerprint of the clone: steps 12146105 to 12328580 in
+  its first form (a configuration cloned by one queue stayed undecided in
+  the other, which held it alone and escaped the choice again), and with
+  that fixed through a count of the decisions applied, 19.67 G
+  instructions (+8.3 percent) and 413 MB: the writes of a sparse id into
+  every nested fingerprint, which the walk made unnecessary in the first
+  place.  The final form writes nothing: the queue records the choice,
+  choice_escapes looks it up (a vector of the escaped choices of the
+  lineage, 36 entries at most here).
+- Measured with the harness (C++ backend, one repetition, other work on
+  the machine, after against the HEAD build): QueensSet 2152241 steps,
+  511428 forks, 3 collections; QueensSet9 12146105, 2979683, 11; PermSort
+  12531076, 1588167, 9: all three equal before and after, the
+  configurations and queues destroyed equal (QueensSet 95535 and 8911,
+  QueensSet9 766038 and 58100), the outputs byte-equal.  Instructions:
+  QueensSet9 18.17 G to 18.55 G (+2.1 percent: the lookup of the escape
+  rule at every nested fork of an escaped choice, and the second escape
+  set it reads), PermSort 18.517 G to 18.514 G, QueensSet 3.62 G against
+  a baseline count that included the background compile of the module
+  (6.29 G; the runs after range from 3.62 to 3.75 G).  Peak RSS: QueensSet9
+  338 to 346 MB.  CPU seconds vary with the load of the shared machine
+  (PermSort 5.5 to 6.9 s on equal instructions).  Against the committed
+  Phase 2 record HEAD itself differs (QueensSet 2152979 steps there, the
+  O1 pass of this date and the tiered default); the repair moves no
+  counter of the three programs: QueensSet meets every choice of its
+  argument inside the capsule before the outside decides it, so every
+  escape is a fork of the outside as before.
+- Tests: test_narrowed_after_start lost its expected-failure mark;
+  TestResumedCapsule of unit_setfunctions_bugs.py (SetFunctionsBugs.curry)
+  on both backends: the variable inside a list, a choice of the argument
+  decided after the start, two capsules over one variable, a nested set
+  function whose inner capsule is in the value of the outer and outlives
+  it, a set function inside the argument of a set function, and the escape
+  of a choice the outside has not decided; test_captured_argument of
+  unit_cxx_scheduler.py passes on the C++ backend (the Python backend
+  still asserts on a guard of an enclosing set at the root, the known
+  failure).  Run on both backends: unit_setfunctions_bugs.py (18 tests),
+  unit_cxx_scheduler.py (8), func_setfunctions.py (39), unit_cxx_partial,
+  unit_cxx_gc, unit_cxx_counters, unit_cxx_variable, unit_cxx_passthrough,
+  unit_cxx_stack, unit_cxx_heap (after the prepare pass of the benchmark
+  corpus, whose objects a header change makes stale), unit_py_fairness,
+  unit_py_copy, unit_cxx_interp, unit_cxx_gc_counters, func_kiel,
+  unit_examples; the two set-function files in the stress mode of the
+  collector.  No configuration is written by a split any more, so the
+  comments of queue.hpp and configuration.hpp describe the sharing again.
+- Example 21: the $## of scenario (d) is no longer a workaround for the
+  defect, and the example without it gives the right output on the C++
+  backend; but it took 88.7 s against 2.6 s with the operator, and the
+  Python backend exceeded 2 GB in scenario (d).  A narrowed variable costs
+  inside a capsule: every choice of its generator, and of the generators
+  of its parts, escapes when the question needs it, one split and one
+  restart each, in every candidate.  Measured on the C++ backend: one type
+  takes 1472 steps and 81 forks through the normal form and 91618 steps
+  and 14825 forks through the variable; scenario (d) at depth 1 425202
+  steps and 14825 forks (0.08 s) against 117757458 steps and 18849188
+  forks (22 s), at depth 2 1813436 and 104371 (0.24 s) against 422177995
+  and 67730131 (94 s, 444 MB).  The operator stays, with the reason in the
+  source and the README.  With the operator the Python backend runs the
+  scenarios (a) to (c) in 7 s and then suspends in (d), so the backend set
+  of the example in unit_examples.py stays the C++ backend alone.
+- Review of the entry, applied.  (1) The repair above left two leaks of
+  the same class, both found with probes on both backends.  A captured
+  choice decided after the start (`let x = A ? B in let vs = valuesOf
+  (set2 pickOrCall A (constT x)) in (head vs =:= A) &> (x, vs)` with
+  `pickOrCall z f = z ? f 0`) gave (A, [A, A]) and (B, [A, A]): the choice
+  is in no escape set, so the nested fork pruned it by the fingerprint of
+  the alternative that ran the capsule first, inside the capsule both
+  alternatives share, and update_fp writes nothing into the nested
+  fingerprint when the walk decided.  The same with a captured variable
+  ([A, A] twice) and with the captured occurrence before the guarded one
+  (`pickOrBoth z f y = [z] ? [f 0, y]`: (B, [[A], [A, B]]), the captured
+  element from the A world).  And a guarded shape two levels deep: an
+  outer capsule alive and shared whose configuration consumes the second
+  value of an inner capsule over the variable after the outside narrowed
+  it (`inner3 y = let ws = valuesOf (set2 pickOrCase A y) in head ws ?
+  (ws !! 1)`, `set1 inner3 u`) gave [A, A] twice: the escape from the
+  inner capsule reached the configuration of the outer one, and the fast
+  path took the side that read_fp found in the outside through the walk,
+  into the private spine of a configuration that both alternatives of the
+  outside share.  Two rules close them, on both backends.  choice_escapes
+  escapes a choice in no escape set as well when an enclosing
+  configuration has decided it (the walk over the enclosing fronts, the
+  fingerprint of the nested configuration itself unread); a choice no
+  enclosing configuration decided is encapsulated as before.  And the fast
+  path of allValues_step and allValues takes the side at once only when
+  the configuration owns the decision (RuntimeState::owns_decision,
+  owns_decision): it made the choice itself, or its queue was split on the
+  choice (Queue::decided).  A side that an enclosing configuration alone
+  decided is not taken: the choice node stays, reaches the root of the
+  configuration, and escapes in turn, up to the configuration that decided
+  it, so every capsule between them is split and each world runs its own
+  side.  The invariant that results: the walk of fork and read_fp prunes
+  by an enclosing decision only in a queue that an escape of the choice
+  has bound to that side.  The call-time reading of the captured shapes
+  holds (choiceCaptured, goal10 and goal11 of applyS.curry), and the
+  creation-time copy of holds_private_state stays: for a captured choice
+  decided before the start it is the cheaper path, one capsule per
+  alternative instead of a split and a restart per choice.  Tests in
+  TestResumedCapsule: the captured choice, the captured variable, the
+  captured occurrence before the guarded one, and the outer capsule alive
+  over the variable and over a choice.  (2) The enclosing-set escape rule
+  had its only test in a class the Python backend skips; nestedCaptureCase
+  of CxxScheduler.curry (the capture under a case, so the guard of the
+  outer set is below the root) is the shape both backends run, in
+  TestSetGuardRoot.  (3) The comment of fork said the walk reads nothing
+  for an escape-set choice; it reads it after the split, which the split
+  relies on: reworded.  (4) The for header of choice_escapes was over 79
+  columns: wrapped.  (5) The factor in Overloads.curry (275) did not match
+  the measured steps (117757458 against 425202, 277): the comment says
+  about 280 and quotes the counts.  (6) rts.hpp declared filter_queue
+  without a definition since the Python twin became split_queue: removed.
+- Measured after the review (C++ backend, one repetition, the same
+  machine, after the prepare pass of the runner, which compiled 1236
+  modules in 12 directories after the header change): QueensSet 2152241
+  steps, 511428 forks, 3 collections; QueensSet9 12146105, 2979683, 11;
+  PermSort 12531076, 1588167, 9: equal to the HEAD build's, and the
+  outputs byte-equal to the HEAD build's; against the committed Phase 2
+  record the counters stay within the tolerance, as HEAD's do (that record
+  has no instructions).  Instructions: QueensSet 3.64 G (the HEAD record's
+  6.29 G counted the background compile); QueensSet9 18.67 G against
+  18.17 G at HEAD, +2.8 percent, of which 0.7 is the review's walk over
+  the enclosing fingerprints at every nested fork of an encapsulated
+  choice (18.55 G before the review); PermSort 18.52 G against 18.52 G.
+  Peak RSS of QueensSet9 346 MB (HEAD 338).  Tests: unit_setfunctions_bugs
+  22 tests per backend (4 new), unit_cxx_scheduler 9 (1 new),
+  func_setfunctions 39, the two unit files in the stress mode of the
+  collector, unit_examples 20 per backend, and the unit suite through the
+  runner on both backends at width 2: 160 file runs, 1949 tests, one
+  failure, test_imports of unit_curry2icurry.py on the Python backend
+  (the interface of an import missing from a fresh copy), which passed
+  on the C++ backend in the same run and alone on the Python backend
+  afterwards: a test of the toolchain that depends on the order of the
+  files, not on the runtime.
+- Left: the suspension of the Python backend in scenario (d) of example
+  21 with the operator (a residual of $## inside the set function over
+  anyType; the simple shapes, forced and forcedStrict, pass); the cost of
+  a narrowed variable inside a capsule (above): the escape of each
+  generator choice could prune in place when the enclosing configuration
+  decided it and the capsule is private, but the runtime cannot tell a
+  private capsule from a shared one; the walk of holds_private_state could
+  skip the guarded subtrees; the escape rule's lookup costs QueensSet9 two
+  percent of its instructions, and the rule of the review adds a walk over
+  the enclosing fingerprints at every nested fork of an encapsulated
+  choice (0.7 percent more, above).

@@ -70,22 +70,48 @@ namespace cyrt { inline namespace
     }
     choice = NodeU{value.arg.node}.choice;
     assert(seteval->queue->front()->root == (Node *) choice);
-    // The choice escapes the set function.  The queue splits on it: the
+    // The choice escapes the set function (rule SF.1), whatever this
+    // configuration decided: nothing of the configuration that runs the
+    // capsule goes into the capsule.  The queue splits on the choice: the
     // configurations that made it LEFT stay, those that made it RIGHT move
-    // to a new queue, and a configuration that has not made it is in both
-    // (a queue clones it before it steps it).  The new queue belongs to its
-    // SetEval node; see queue.hpp.
+    // to a new queue, and one that has not made it is in both, which record
+    // the choice (Queue::split).  The redex becomes the choice between the
+    // two capsules, a node of the shared graph like any pull-tabbed choice:
+    // a configuration that has not decided the choice forks on it, and one
+    // that decided it prunes it.  So two configurations that share the
+    // capsule, with different decisions, each get their side (issue #61).
+    // The new queue belongs to its SetEval node; see queue.hpp.
     Queue * Qrhs = new Queue(seteval->set);
     seteval->queue->split(choice->cid, *Qrhs);
     Node * rhs_seteval = Node::create(seteval->info, seteval->set, Qrhs);
     gc_register_seteval(rhs_seteval);
+    Node * lhs_view = Node::create(&allValues_Info, (Node *) seteval);
+    Node * rhs_view = Node::create(&allValues_Info, rhs_seteval);
     Node * replacement = make_node<ChoiceNode>(
-        choice->cid
-      , Node::create(&allValues_Info, (Node *) seteval)
-      , Node::create(&allValues_Info, rhs_seteval)
+        choice->cid, lhs_view, rhs_view
       );
     _0->forward_to(replacement);
-    return T_FWD;
+    // When this configuration owns the decision of the choice
+    // (owns_decision: it made the choice, or its queue is bound to the
+    // side), it takes its side at once, through a private copy of the
+    // spine, as a binding goes into the expression (replace_freevar);
+    // E_RESTART tells the enclosing steps that the root was replaced.  The
+    // fork would prune the choice node to the same side, but it sends the
+    // configuration to the back of its queue, and a search with many
+    // alternatives then advances them in lockstep, with every capsule alive
+    // at once.  When the choice is undecided here, or an enclosing
+    // configuration alone decided it (read_fp walks the queue stack), the
+    // choice node stays: in the second case this configuration may be in a
+    // capsule that enclosing configurations with different decisions share,
+    // so it takes no side; the node reaches its root and escapes in turn
+    // (choice_escapes), up to the configuration that decided it.
+    ChoiceState const lr = rts->read_fp(C, choice->cid);
+    if(lr == UNDETERMINED || !rts->owns_decision(C, choice->cid))
+      return T_FWD;
+    *C->root = C->scan.copy_spine(
+        C->root, lr == LEFT ? lhs_view : rhs_view
+      );
+    return E_RESTART;
   }
 
   tag_type _applyS(RuntimeState * rts, Configuration * C, bool capture)
@@ -228,6 +254,18 @@ namespace cyrt { inline namespace
     // of the spine, as the binding itself does (replace_freevar), and the
     // shared node stays an application for the other configurations.
     // E_RESTART tells the enclosing steps that the root was replaced.
+    //
+    // The copy is taken for the state the goal captures outside its
+    // guards: a decided choice or a narrowed variable in the function
+    // position (set1 (constT x) 0).  The escape would handle such a choice
+    // too (choice_escapes: a choice an enclosing configuration decided
+    // escapes), at the cost of a split and a restart per choice; the
+    // private capsule forks on it in place.  A choice or a variable under
+    // a guard, an argument, needs no copy: its choice escapes the capsule
+    // (rule SF.1, allValues_step) and the choice node is pruned by each
+    // configuration, and a variable the capsule returns is resolved by each
+    // configuration that reads the value.  The walk takes the copy in both
+    // cases, which only loses the sharing of the capsule.
     if(holds_private_state(rts, C, (Node *) partial))
     {
       *C->root = C->scan.copy_spine(C->root, replacement);

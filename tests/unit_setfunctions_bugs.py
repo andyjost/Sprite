@@ -9,16 +9,29 @@ first alternative to reach it rewrote the shared node into a SetEval whose
 nested queue read the bindings of that alternative, and the second found the
 values in the shared graph.  A choice the configuration decided before the
 set function saw it, in the argument or in the function position, had the
-same defect.  The step that creates the SetEval now rewrites through a
-private copy of the spine when the application holds a variable that the
+same defect.  The step that creates the SetEval rewrites through a private
+copy of the spine when the application holds a variable that the
 configuration bound, narrowed, or grouped, or a choice that it decided, as
 the step that puts a binding into an expression does (evalS_step in
 currylib/setfunctions.cpp, evalS in backends/py/currylib/setfunctions.py).
-The rule covers a variable bound, or a choice decided, before the set
-function starts.  A set function that starts before the variable is
-narrowed, and is consumed in part on each side of the narrowing, still
-shares its queue between the alternatives: a known failure on both backends
-(test_narrowed_after_start).
+That rule covers the state the configuration holds when the set function
+starts.  The general case is the escape (rule SF.1 of the dissertation): a
+choice of the escape set always leaves the capsule, whatever the enclosing
+configurations decided, and the split of the queue puts a configuration
+that made the choice on its side, keeps one that has not made it in both
+queues, and records the choice in both, so that no configuration escapes
+it twice (choice_escapes and Queue::split of the C++ runtime,
+choice_escapes and split_queue of the Python backend).  So a capsule that
+starts before the variable is narrowed, is consumed in part, and resumes
+under alternatives that narrowed the variable differently gives each
+alternative its side (test_narrowed_after_start and TestResumedCapsule).
+Two more rules keep a configuration from writing the side of a choice that
+the outside decided into state the alternatives share: a choice in no escape
+set that an enclosing configuration decided, a captured occurrence, escapes
+as well, and a configuration takes the side of an escaped choice at once
+only when it owns the decision (owns_decision): it made the choice, or its
+queue was split on it.  Otherwise the choice node escapes in turn, up to the
+configuration that decided it.
 
 Issue #32: a set function whose values are sub-terms of its guarded argument
 put the guard at the root of the nested configuration, where the C++
@@ -134,18 +147,15 @@ class TestBoundVariable(cytest.TestCase):
         'forced': ['[[A]]', '[[B]]'], 'forcedStrict': ['[[A]]', '[[B]]']
       })
 
-  @unittest.expectedFailure
   def test_narrowed_after_start(self):
     '''
     The set function starts while the variable is unbound, so the two
     alternatives of the constraint that narrows it afterwards share the
-    SetEval node and its queue.  The nested queue reads the fingerprint of
-    the alternative that resumes it first, and the shared allValues node
-    keeps that value for the other.  Expected [A, A] and [A, B]; both
-    backends give [A, A] twice.  The creation-time rule does not cover it.
-    A fix needs the escape of rule SF.1 of the dissertation, under which a
-    choice in the escape set always leaves the capsule, or a private copy of
-    the queue when a nested queue resumes under another configuration.
+    SetEval node and its queue.  The choice of the generator of the variable
+    escapes the capsule under either alternative, and each prunes the
+    escaped choice to its side.  Before the repair at the escape the nested
+    queue read the fingerprint of the alternative that resumed it first, and
+    the shared allValues node kept that value for the other: [A, A] twice.
     '''
     results = run_child(self, goals('narrowedAfterStart'))
     self.assertEqual(
@@ -189,6 +199,103 @@ class TestBoundVariable(cytest.TestCase):
         'longArg': ['[[A]]', '[[B]]']
       , 'longPlain': ['[A]']
       , 'longPlainChoice': ['(A, [A])', '(B, [A])']
+      })
+
+
+class TestResumedCapsule(cytest.TestCase):
+  '''
+  The repair at the escape (rule SF.1).  Every capsule starts before the
+  choice or the variable is decided, gives its first value, and resumes
+  under the alternatives that decided it.  The escaped choice is a node of
+  the shared graph, and each alternative prunes it to its side.  The first
+  six shapes decide a guarded argument; the captured shapes decide a choice
+  of the function position, in no escape set; the last keeps the outer of
+  two capsules alive across the decision.
+  '''
+  @classmethod
+  def setUpClass(cls):
+    curry.import_('SetFunctionsBugs')
+
+  def test_variable_in_data(self):
+    '''The variable inside a list; the second value is the variable itself.'''
+    results = run_child(self, goals('narrowedInData'))
+    self.assertEqual(results, {'narrowedInData': ['[A, A]', '[A, B]']})
+
+  def test_choice_decided_after_start(self):
+    '''A choice of the argument that the outside decides after the start.'''
+    results = run_child(self, goals('choiceAfterStart'))
+    self.assertEqual(
+        results, {'choiceAfterStart': ['(A, [A, A])', '(B, [A, B])']}
+      )
+
+  def test_two_capsules_over_one_variable(self):
+    results = run_child(self, goals('twoCapsules'))
+    self.assertEqual(
+        results, {'twoCapsules': ['([A, A], [B, A])', '([A, B], [B, B])']}
+      )
+
+  def test_nested_set_function(self):
+    '''
+    The inner capsule is in the value of the outer set function, so the
+    enclosing configuration runs it after the outer capsule is gone.
+    '''
+    results = run_child(self, goals('nestedAfterStart'))
+    self.assertEqual(results, {'nestedAfterStart': ['[[A, A]]', '[[A, B]]']})
+
+  def test_set_function_in_argument(self):
+    '''The inner set function is the argument of the outer one.'''
+    results = run_child(self, goals('argAfterStart'))
+    self.assertEqual(results, {'argAfterStart': ['[[A, A]]', '[[A, B]]']})
+
+  def test_escape_of_undecided_choice(self):
+    '''The outside has not decided the choice: it forks on the escape.'''
+    results = run_child(self, goals('escapeUndecided'))
+    self.assertEqual(results, {'escapeUndecided': ['[A, A]', '[A, B]']})
+
+  def test_captured_choice_decided_after_start(self):
+    '''
+    The choice comes through the function position, so it is in no escape
+    set, and the outside decides it after the start.  A choice an enclosing
+    configuration decided escapes too (choice_escapes); a fork would prune
+    it inside the capsule that both alternatives share, and the second got
+    the value of the first: (B, [A, A]) before the rule.
+    '''
+    results = run_child(self, goals('capturedChoiceAfterStart'))
+    self.assertEqual(
+        results, {'capturedChoiceAfterStart': ['(A, [A, A])', '(B, [A, B])']}
+      )
+
+  def test_captured_variable_narrowed_after_start(self):
+    '''The same with a free variable: [A, A] twice before the rule.'''
+    results = run_child(self, goals('capturedVarAfterStart'))
+    self.assertEqual(
+        results, {'capturedVarAfterStart': ['[A, A]', '[A, B]']}
+      )
+
+  def test_captured_then_guarded(self):
+    '''
+    The captured occurrence is reached before the guarded one.  Before the
+    rule the captured element came from the first alternative and the
+    guarded one from the second: (B, [[A], [A, B]]).
+    '''
+    results = run_child(self, goals('capturedThenGuarded'))
+    self.assertEqual(
+        results
+      , {'capturedThenGuarded': ['(A, [[A], [A, A]])', '(B, [[A], [B, B]])']}
+      )
+
+  def test_outer_capsule_alive(self):
+    '''
+    The escape from the inner capsule reaches a configuration of the outer
+    capsule, which both alternatives share.  That configuration owns no
+    decision of the choice (owns_decision), so it escapes the choice in
+    turn instead of taking the side of the alternative that runs it.
+    Before the test both alternatives got [A, A].
+    '''
+    results = run_child(self, goals('nestedAlive', 'nestedAliveChoice'))
+    self.assertEqual(results, {
+        'nestedAlive': ['[A, A]', '[A, B]']
+      , 'nestedAliveChoice': ['(A, [A, A])', '(B, [A, B])']
       })
 
 

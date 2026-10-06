@@ -228,7 +228,7 @@ namespace cyrt
     void push_queue(Queue *, TraceOpt=TRACE);
     void pop_queue(TraceOpt=TRACE);
     bool choice_escapes(Configuration *, xid_type);
-    void filter_queue(Queue *, xid_type, ChoiceState);
+    bool owns_decision(Configuration *, xid_type);
     bool in_recursive_call() const;
   private:
     #ifdef SPRITE_TRACE_ENABLED
