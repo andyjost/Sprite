@@ -19,8 +19,10 @@ the installation:
     Prelude>
 
 The prompt names the loaded module.  The Prelude is loaded at the start.
-To use the C++ backend, set ``SPRITE_INTERPRETER_FLAGS=backend:cxx`` in the
-environment; see :doc:`CommandLineInterface/EnvironmentVariables`.
+The REPL runs on the default backend of the installation, the C++ backend.
+To use the Python backend, set ``SPRITE_INTERPRETER_FLAGS=backend:py`` in
+the environment (see :doc:`CommandLineInterface/EnvironmentVariables`) or
+say ``:set backend py`` at the prompt.
 
 On the C++ backend the REPL runs in time mode by default: the scheduler
 rotates its alternatives every 10 ms of wall time, so a diverging
@@ -31,7 +33,7 @@ step mode, where the schedule depends on the expression alone:
 
 .. code-block:: bash
 
-    % SPRITE_ROTATION=steps:65536 SPRITE_INTERPRETER_FLAGS=backend:cxx install/bin/python -m curry.tools.icy
+    % SPRITE_ROTATION=steps:65536 install/bin/python -m curry.tools.icy
 
 Commands of the REPL
 ====================
@@ -54,10 +56,14 @@ be any unambiguous prefix, for example ``:e`` for ``:eval`` and ``:t`` for
     Prints the type of the expression as the front end infers it, with its
     class context and before any defaulting: ``1+2 :: Num a => a``.
 
-``:set [+|-]OPTION``
+``:set OPTION VALUE``, ``:set [+|-]OPTION``
     Sets an option.  ``:set`` alone lists the options and their state.
-    ``:set +internal-error-details`` adds the Python traceback to the
-    report of an error during an evaluation.
+    ``:set backend py`` or ``:set backend cxx`` switches the session to
+    that backend: the interpreter is reloaded and the module is loaded
+    again.  If that load fails, the session stays on the new backend with
+    the Prelude at the prompt, and the next ``:load`` or ``:set backend``
+    loads the module again.  ``:set +internal-error-details`` adds the
+    Python traceback to the report of an error during an evaluation.
 
 ``:quit``
     Exits.

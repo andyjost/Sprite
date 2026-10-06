@@ -43,8 +43,9 @@ export CXXFLAGS="${CXXFLAGS:-} -ffile-prefix-map=$SRC_DIR=."
 # ccache: the build runs once, and a ccache found on the build machine
 # would otherwise reach Make.config.  make runs the jobs conda-build grants
 # (CPU_COUNT); the Makefiles order the sub-makes, so a parallel build is
-# safe.  The tool links that this writes are replaced below.  Sprite writes
-# compact JSON itself; no jq.
+# safe.  The C++ backend is the default of the package (the default of
+# configure, passed here so that the recipe says so).  The tool links that
+# this writes are replaced below.  Sprite writes compact JSON itself; no jq.
 "$PYTHON" ./configure \
   --with-python="$PYTHON" \
   --with-cc="$CC" \
@@ -54,6 +55,7 @@ export CXXFLAGS="${CXXFLAGS:-} -ffile-prefix-map=$SRC_DIR=."
   --with-pakcs='' \
   --with-curry-frontend="$PREFIX/bin/pakcs-frontend" \
   --with-icurry='' \
+  --with-default-backend=cxx \
   --jobs "${CPU_COUNT:-1}"
 
 # make install builds the C++ runtime (libcyrt) and the extension module,

@@ -1065,6 +1065,50 @@ class TestCli(unittest.TestCase):
     args = cli.parse_args(['-j', '2'], jobs='auto')
     self.assertEqual(args.jobs, 2)
 
+  def test_installed_backend(self):
+    '''
+    The backend of a run that names none: the default of the installation
+    (sysconfig/default_backend, which configure --with-default-backend
+    writes), else the constant of the runner.  The listing of such a run
+    shows it.
+    '''
+    tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
+    home = stub_installation(tmpdir)
+    self.assertEqual(cli.installed_backend(home), testrunner.DEFAULT_BACKEND)
+    self.assertEqual(testrunner.DEFAULT_BACKEND, 'cxx')
+    os.makedirs(os.path.join(home, 'sysconfig'))
+    sysconfig = os.path.join(home, 'sysconfig', 'default_backend')
+    for value, expected in [
+        ('py\n', 'py'), ('cxx', 'cxx'), ('', testrunner.DEFAULT_BACKEND)
+      , ('llvm\n', testrunner.DEFAULT_BACKEND)
+      ]:
+      with open(sysconfig, 'w') as stream:
+        stream.write(value)
+      self.assertEqual(cli.installed_backend(home), expected, value)
+    env = {k: v for k, v in os.environ.items() if k != 'SPRITE_INTERPRETER_FLAGS'}
+    env['SPRITE_HOME'] = home
+    for value in 'py', 'cxx':
+      with open(sysconfig, 'w') as stream:
+        stream.write(value + '\n')
+      out = io.StringIO()
+      with mock.patch.dict(os.environ, env, clear=True), redirect_stdout(out):
+        status = cli.main(['--list', 'unit_runner.py'])
+      self.assertEqual(status, 0)
+      self.assertRegex(out.getvalue(), r'(?m)^%s\s+unit_runner\.py' % value)
+      # The flag wins over the installation.
+      env['SPRITE_INTERPRETER_FLAGS'] = 'backend:' + ('cxx' if value == 'py' else 'py')
+      out = io.StringIO()
+      with mock.patch.dict(os.environ, env, clear=True), redirect_stdout(out):
+        status = cli.main(['--list', 'unit_runner.py'])
+      del env['SPRITE_INTERPRETER_FLAGS']
+      self.assertEqual(status, 0)
+      self.assertNotRegex(out.getvalue(), r'(?m)^%s\s+unit_runner\.py' % value)
+    # The real installation records a backend.
+    sprite_home = os.environ.get('SPRITE_HOME')
+    if sprite_home:
+      self.assertIn(cli.installed_backend(sprite_home), testrunner.BACKENDS)
+
   def test_flags(self):
     self.assertEqual(cli.flag_backend('backend:cxx'), 'cxx')
     self.assertEqual(cli.flag_backend('debug:1,backend:py'), 'py')
@@ -1500,7 +1544,11 @@ class TestPrepare(unittest.TestCase):
       with open(os.path.join(pool, name), 'w'):
         pass
     logdir = os.path.join(tmpdir, 'logs')
+    # The job reads the interpreter flags of its environment: under
+    # interpret:new or interpret:all it expects the JSON of a module, which
+    # the stand-in does not write.  The pass under test is the plain one.
     env = dict(os.environ)
+    env.pop('SPRITE_INTERPRETER_FLAGS', None)
     def run(backends):
       jobs = prepare.jobs(
           ['unit_x.py'], backends, home, env, logdir, cap=GIB, timeout=60

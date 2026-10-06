@@ -1,7 +1,7 @@
 '''
 Tests for configure and the build settings it writes into Make.config: the
-job count of make (--jobs) and ccache in front of the compilers
-(--with-ccache).
+job count of make (--jobs), ccache in front of the compilers
+(--with-ccache), and the default backend (--with-default-backend).
 
 configure runs as a copy in a scratch directory, so the staged installation
 of this tree stays as it is.  The make side is checked without a build: dry
@@ -45,6 +45,12 @@ def make_config_value(text, name):
 def default_jobs():
   '''The default of --jobs, as configure defines it.'''
   m = re.search(r"^DEFAULT_JOBS = '([^']*)'", readfile(CONFIGURE), re.M)
+  assert m is not None
+  return m.group(1)
+
+def default_backend():
+  '''The default of --with-default-backend, as configure defines it.'''
+  m = re.search(r"^DEFAULT_BACKEND = '([^']*)'", readfile(CONFIGURE), re.M)
   assert m is not None
   return m.group(1)
 
@@ -115,16 +121,21 @@ class ConfigureTestCase(cytest.TestCase):
     return result, text
 
 class TestConfigureOptions(ConfigureTestCase):
-  '''The options --jobs and --with-ccache and the lines they write.'''
+  '''
+  The options --jobs, --with-ccache and --with-default-backend and the lines
+  they write.
+  '''
 
   def test_help(self):
-    '''configure -h documents the two options.'''
+    '''configure -h documents the three options.'''
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
       result = run([sys.executable, CONFIGURE, '-h'], cwd=tmpdir)
     self.assertEqual(result.returncode, 0, result.stdout)
     self.assertIn('--jobs N|auto', result.stdout)
     self.assertIn('--with-ccache', result.stdout)
     self.assertIn('default: %s' % default_jobs(), result.stdout)
+    self.assertIn('--with-default-backend py|cxx', result.stdout)
+    self.assertIn('default: %s' % default_backend(), result.stdout)
 
   def test_defaults(self):
     '''
@@ -137,8 +148,11 @@ class TestConfigureOptions(ConfigureTestCase):
     self.assertIn('Configuration succeeded', result.stdout)
     self.assertEqual(make_config_value(text, 'JOBS'), default_jobs())
     self.assertEqual(make_config_value(text, 'CCACHE'), '')
+    self.assertEqual(make_config_value(text, 'DEFAULT_BACKEND'), default_backend())
+    self.assertEqual(default_backend(), 'cxx')
     self.assertIn('# Parallel build (configure --jobs)', text)
     self.assertIn('# ccache (configure --with-ccache)', text)
+    self.assertIn('# The default backend (configure --with-default-backend)', text)
     # The compilers are not touched by the option.
     self.assertEqual(make_config_value(text, 'CXX'), self.cxx)
     self.assertEqual(make_config_value(text, 'CXX_POSTINSTALL'), self.cxx_postinstall)
@@ -161,6 +175,30 @@ class TestConfigureOptions(ConfigureTestCase):
         self.assertEqual(result.returncode, 2, (value, result.stdout))
         self.assertIn('expected a positive integer or auto', result.stdout)
         self.assertIsNone(text, value)
+
+  def test_with_default_backend(self):
+    '''
+    --with-default-backend takes py or cxx and writes DEFAULT_BACKEND; another
+    word is refused at once.  The value reaches the installation as
+    sysconfig/default_backend (src/export/sysconfig/default_backend.var).
+    '''
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      for value in 'py', 'cxx':
+        result, text = self.configure(tmpdir, '--with-default-backend=' + value)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(make_config_value(text, 'DEFAULT_BACKEND'), value)
+      for value in 'llvm', 'PY', '':
+        result, text = self.configure(tmpdir, '--with-default-backend=' + value)
+        self.assertEqual(result.returncode, 2, (value, result.stdout))
+        self.assertIn('invalid choice', result.stdout)
+        self.assertIsNone(text, value)
+    var = readfile(ROOT, 'src', 'export', 'sysconfig', 'default_backend.var')
+    self.assertEqual(var.strip(), '$(DEFAULT_BACKEND)')
+    # The staged installation of this tree records the value of its
+    # Make.config.
+    self.assertEqual(
+        config.default_backend(), make_config_value(readfile(MAKE_CONFIG), 'DEFAULT_BACKEND')
+      )
 
   def test_with_ccache(self):
     '''

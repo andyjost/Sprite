@@ -93,14 +93,23 @@ class TestCondaRecipe(cytest.TestCase):
     self.assertIn('libboost-headers', meta_run)
     # conda relocates the compiled library modules at install time.
     self.assertIn('detect_binary_files_with_prefix: true', meta)
-    # Each backend is tested through the launcher and through the module;
-    # the C++ tests check the products that only the C++ backend writes.
-    self.assertIn('python -m curry Smoke.curry | grep -x 42', meta)
+    # The C++ backend is the default of the package.
+    self.assertIn('--with-default-backend=cxx', script)
+    # Each backend is tested through the launcher and through the module:
+    # the default backend without a flag, the Python backend by flag; the
+    # compiler of the environment through sprite-make, which writes the
+    # object and its stamp.  No test names backend:cxx.
+    self.assertIn('      sprite-exec Smoke.curry | grep -x 42', meta)
+    self.assertIn('      python -m curry Smoke.curry | grep -x 42', meta)
+    self.assertIn('SPRITE_INTERPRETER_FLAGS=backend:py sprite-exec Smoke.curry', meta)
     self.assertIn(
-        'SPRITE_INTERPRETER_FLAGS=backend:cxx python -m curry Smoke.curry', meta
+        'SPRITE_INTERPRETER_FLAGS=backend:py python -m curry Smoke.curry', meta
       )
-    self.assertEqual(meta.count('test -s .curry/sprite-pakcs-3.4.1/Smoke.so &&'), 2)
-    self.assertEqual(meta.count('test -s .curry/sprite-pakcs-3.4.1/Smoke.so.abi'), 2)
+    self.assertNotIn('backend:cxx', meta)
+    self.assertIn('sprite-make --so Smoke.curry &&', meta)
+    self.assertEqual(meta.count('test -s .curry/sprite-pakcs-3.4.1/Smoke.so &&'), 1)
+    self.assertEqual(meta.count('test -s .curry/sprite-pakcs-3.4.1/Smoke.so.abi'), 1)
+    self.assertEqual(meta.count('test -s .curry/sprite-pakcs-3.4.1/Smoke.py'), 1)
     self.assertNotIn('$SRC_DIR/', script.split('-ffile-prefix-map=$SRC_DIR=.')[-1])
 
   def test_frontend_recipe(self):

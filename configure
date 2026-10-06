@@ -26,6 +26,12 @@ PINNED_FRONTEND_VERSION = '2.0.0'
 # trial from a clean tree (issue #43; see the TODO), so 'auto' is the
 # default.  See the root Makefile.
 DEFAULT_JOBS = 'auto'
+# The backend Sprite uses when no flag names one (configure
+# --with-default-backend): the C++ backend.  The Python backend is selected
+# with the interpreter flag backend:py; it suits small programs.  See the
+# flag backend in curry.interpreter.flags and the TODO entry on issue #82.
+DEFAULT_BACKEND = 'cxx'
+BACKENDS = ('py', 'cxx')
 
 class Tee(object):
   def __init__(self, stream):
@@ -185,6 +191,7 @@ def get_options():
 
   build = parser.add_argument_group('build arguments', 'Controls how make builds Sprite.')
   build.add_argument('-j', '--jobs', type=jobs_type, metavar='N|auto', help='the number of jobs make runs at once: a count, or auto for one job per processor (default: %s); 1 is a serial build; a -j on the make command line wins' % DEFAULT_JOBS)
+  build.add_argument('--with-default-backend', type=str, choices=BACKENDS, metavar='py|cxx', help='the backend Sprite uses when no flag names one: cxx or py (default: %s); the interpreter flag backend selects the other one for a run' % DEFAULT_BACKEND)
 
   dev = parser.add_argument_group('development arguments', 'Enables features for Sprite developers.')
   dev.add_argument('--cache', type=str, metavar="['all'|'icurry'|'json']", help='enables caching; useful when the same Curry program will be run many times')
@@ -193,6 +200,8 @@ def get_options():
   OPTS = parser.parse_args()
   if OPTS.jobs is None:
     OPTS.jobs = DEFAULT_JOBS
+  if OPTS.with_default_backend is None:
+    OPTS.with_default_backend = DEFAULT_BACKEND
   OPTS.write_config = not OPTS.check_prereqs and not OPTS.install_prereqs_only
   OPTS.install_prereqs = OPTS.install_prereqs or not OPTS.write_config
   if OPTS.cache not in [None, 'all', 'icurry', 'json']:
@@ -243,8 +252,10 @@ def main():
         'ENABLE_ICURRY_CACHE'     : int(OPTS.cache in ['all', 'icurry'])
       , 'ENABLE_PARSED_JSON_CACHE': int(OPTS.cache in ['all', 'json'])
       , 'JOBS'                    : OPTS.jobs
+      , 'DEFAULT_BACKEND'         : OPTS.with_default_backend
       }
     log('Selecting JOBS=%r' % OPTS.jobs)
+    log('Selecting DEFAULT_BACKEND=%r' % OPTS.with_default_backend)
     set_from_path(
         settings, 'PYTHON', 'python3', 'Python installation'
       , default=OPTS.with_python
@@ -1023,9 +1034,15 @@ HAVE_PYTHON_sphinx  := {HAVE_PYTHON_sphinx}
 # The name of the top-level Python package, e.g., curry in 'import curry'.
 PYTHON_PACKAGE_NAME := curry
 
-# The name of the backed used by default.  Must match one of the subpackages
-# under src/python/backends.
-DEFAULT_BACKEND := py
+# The default backend (configure --with-default-backend)
+# ======================================================
+# The backend Sprite uses when no flag names one: cxx, the C++ backend, or
+# py, the Python backend.  The value reaches the installation as
+# sysconfig/default_backend, where curry.interpreter.flags reads the default
+# of the flag backend; SPRITE_INTERPRETER_FLAGS=backend:NAME and
+# sprite-exec -b select the other one for a run.  Must match one of the
+# subpackages under src/python/backends.
+DEFAULT_BACKEND := {DEFAULT_BACKEND}
 
 # Caching (development feature)
 # =============================

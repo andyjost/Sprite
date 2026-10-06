@@ -545,23 +545,33 @@ class TestWorkflow(unittest.TestCase):
 
   def test_interpreter_job(self):
     '''
-    The CI workflow runs the interpreter tests and the functional suites
-    with every module interpreted on request (the input ``interpreter``),
-    through the extra flags of run-tests.sh.
+    The CI workflow runs the unit and functional suites under interpret:all
+    and under interpret:off on the nightly schedule and on request (the
+    input ``interpreter``), one job per mode, through the extra flags of
+    run-tests.sh (issue #82: the month of the removal gate).
     '''
     ci = read(os.path.join(WORKFLOWS, 'ci.yml'))
     self.assertIn('      interpreter:\n', ci)
     self.assertIn("inputs.interpreter", ci)
-    self.assertIn('  interpreter:\n    name: cxx backend, interpreter', ci)
-    self.assertIn('SPRITE_TEST_FLAGS: interpret:all', ci)
-    self.assertIn("run-tests.sh cxx 'unit_cxx_interp.py' 1/1", ci)
-    self.assertIn("run-tests.sh cxx 'func_*.py' 1/1", ci)
-    # The push jobs are unchanged: the job runs on request only.
-    job = ci[ci.index('  interpreter:\n'):ci.index('  docs:\n')]
     self.assertIn(
-        "if: github.event_name == 'workflow_dispatch' && inputs.interpreter"
+        '  interpreter:\n    name: cxx backend, interpret:${{ matrix.mode }}', ci
+      )
+    job = ci[ci.index('  interpreter:\n'):ci.index('  docs:\n')]
+    self.assertIn("mode: ['all', 'off']", job)
+    self.assertIn('SPRITE_TEST_FLAGS: interpret:${{ matrix.mode }}', job)
+    self.assertIn("run-tests.sh cxx 'unit_*.py' 1/1", job)
+    self.assertIn("run-tests.sh cxx 'func_*.py' 1/1", job)
+    self.assertNotIn('unit_cxx_interp.py', job)
+    # The job runs on the schedule and on request; the push jobs are
+    # unchanged.
+    self.assertIn(
+        "if: github.event_name == 'schedule' || "
+        "(github.event_name == 'workflow_dispatch' && inputs.interpreter)"
       , job
       )
+    # The cache keys of the two jobs differ by the mode.
+    self.assertIn('ccache-cxx-interpreter-${{ matrix.mode }}-', job)
+    self.assertIn('icurry-cache-cxx-interpreter-${{ matrix.mode }}-', job)
     script = read(os.path.join(SCRIPTS, 'run-tests.sh'))
     self.assertIn('${SPRITE_TEST_FLAGS:+,$SPRITE_TEST_FLAGS}', script)
     # The expansion the script uses, with the variable unset, empty, and set.

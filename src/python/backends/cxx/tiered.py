@@ -299,6 +299,39 @@ def _blocked_import(interp, imodule):
       pending.extend(getHandle(moduleobj).icurry.imports)
   return None
 
+def _prelude_compiled(interp):
+  '''Tells whether the Prelude of ``interp`` was loaded from its object.'''
+  prelude = interp.modules.get('Prelude')
+  return prelude is not None \
+      and getHandle(prelude).icurry.metadata.get('cxx.shlib') is not None
+
+def _current_source(imodule):
+  '''
+  Tells whether a current generated file (.cpp) lies beside the ICurry of
+  ``imodule``.  Under the flag set to 'new' such a module is compiled from
+  that file, not interpreted (toolchain.Json2Cpp.ends_plan), which fails
+  without a compiler.
+  '''
+  from . import toolchain
+  cppfile = _filenames.replacesuffix(
+      _filenames.icurryfilename(imodule.filename), '.cpp'
+    )
+  return os.path.isfile(cppfile) and not toolchain.source_is_stale(cppfile)
+
+def _interpreter_setting(interp, imodule):
+  '''
+  The setting of the flag ``interpret`` that the notice of a missing
+  compiler names: the one that selects the interpreter without a compile.
+  'all' never compiles.  'new' keeps the compiled library, so the bytecode
+  of the Prelude costs nothing, but it compiles a module whose object is
+  stale and whose generated file is current; so it is named only where the
+  Prelude loaded from its object and ``imodule`` has no current generated
+  file.
+  '''
+  if _prelude_compiled(interp) and not _current_source(imodule):
+    return 'new'
+  return 'all'
+
 def module_loaded(interp, moduleobj, currypath):
   '''
   Called when the import of a module ends (IBackend.module_loaded).
@@ -339,11 +372,19 @@ def submit(interp, moduleobj, currypath):
     return False
   cxx = config.cxx_tool()
   if cxx is None:
-    if 'nocxx' not in _state.warned:
-      _state.warned.add('nocxx')
-      logger.info(
-          'no C++ compiler is installed; the modules stay interpreted'
-        )
+    # The notice of an installation without a compiler: once per process,
+    # at the first module that stays interpreted for the lack of one.  It
+    # names the setting of the flag that selects the interpreter without a
+    # compile (_interpreter_setting; the page "Installing and running
+    # without a C++ compiler" of the documentation).
+    _warn_once(
+        'nocxx'
+      , 'no C++ compiler is installed at %s; module %r and the modules after '
+        'it run interpreted (add interpret:%s to SPRITE_INTERPRETER_FLAGS to '
+        'select the interpreter without this notice)'
+      , config.installed_path('tools', 'cxx'), name
+      , _interpreter_setting(interp, imodule)
+      )
     return False
   shim = _state.shims.get(name)
   if shim is None or shim.blocked:

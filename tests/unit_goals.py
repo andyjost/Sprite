@@ -26,6 +26,7 @@ from curry.typecheck import defaulting, goals, sigtable
 from curry.typecheck.defaulting import DefaultingError, ORACLE_SENTENCE
 from curry.typecheck.goals import Bindings, Goal
 from io import StringIO
+from unittest import mock
 import curry, os, re, shutil, subprocess, sys, tempfile, unittest
 
 MODULE = 'UnsignedGoals'
@@ -683,6 +684,26 @@ class TestPrograms(cytest.TestCase):
       , ['Just 5', 'main14 :: Num a => Maybe a', '2']
       )
 
+  def test_repl_set_backend(self):
+    '''
+    :set lists the backend of the session; :set backend NAME reloads the
+    interpreter with that backend and loads the module again; an unknown
+    name is refused.
+    '''
+    this = 'cxx' if IS_CXX else 'py'
+    other = 'py' if IS_CXX else 'cxx'
+    proc = self.repl(
+        ':load ' + MODULE_FILE, ':set', ':set backend ' + other, ':set'
+      , ':eval main14'
+      )
+    self.assertEqual(proc.stdout.splitlines(), ['Just 5'])
+    before = proc.stderr.index("backend : %r" % this)
+    after = proc.stderr.index("backend : %r" % other)
+    self.assertLess(before, after)
+    self.assertRegex(proc.stderr, r'backend\s+- The backend of the session')
+    proc = self.repl(':set backend llvm', status=1)
+    self.assertIn("Invalid backend: 'llvm'", proc.stderr)
+
   def test_repl_command_prefixes(self):
     '''A command may be given by any unambiguous prefix: :l, :e, :t, :q.'''
     proc = self.repl(':l ' + MODULE_FILE, ':e 1+2', ':t 1+2', ':e main14', ':q')
@@ -705,6 +726,54 @@ class TestPrograms(cytest.TestCase):
     self.assertEqual(proc.stdout, '')
     self.assertIn(ORACLE_SENTENCE, proc.stderr)
     self.assertIn('Enum a => a', proc.stderr)
+
+
+class TestReplSession(cytest.TestCase):
+  '''
+  The state of a REPL session across :set backend, in this process.  The
+  reload of the interpreter is stubbed, so the backend of this process
+  stays; the loads are real.
+  '''
+
+  def setUp(self):
+    from curry.tools.icy import commands, repl
+    self.commands, self.repl_module = commands, repl
+    path = curry.path
+    self.addCleanup(path.__setitem__, slice(None), list(path))
+
+  def test_set_backend_state(self):
+    '''
+    A switch whose load of the module fails leaves the session on the new
+    backend: the option says so, the Prelude is at the prompt, the argument
+    of the :load is kept for a switch back, and the command in flight is
+    untouched.  A switch whose load succeeds shows the module again.
+    '''
+    this = curry.flags['backend']
+    other = 'py' if IS_CXX else 'cxx'
+    repl = self.repl_module.REPL([':load', MODULE_FILE])
+    self.assertEqual(repl.module.__name__, MODULE)
+    self.assertEqual(repl.options['backend'], this)
+    real_import = curry.import_
+    def failing_import(name, *args, **kwds):
+      if name == MODULE:
+        raise ImportError('no %s on this backend' % name)
+      return real_import(name, *args, **kwds)
+    repl.command, repl.args = ':set', ['backend', other]
+    with mock.patch.object(curry, 'reload') as reload:
+      with mock.patch.object(curry, 'import_', side_effect=failing_import):
+        with self.assertRaisesRegex(ImportError, 'no %s' % MODULE):
+          self.commands.eval(':set', repl)
+    reload.assert_called_once_with({'backend': other})
+    self.assertEqual(repl.options['backend'], other)
+    self.assertEqual(repl.module.__name__, 'Prelude')
+    self.assertEqual(repl.loaded, MODULE_FILE)
+    self.assertEqual((repl.command, repl.args), (':set', ['backend', other]))
+    with mock.patch.object(curry, 'reload') as reload:
+      repl.options['backend'] = this
+    reload.assert_called_once_with({'backend': this})
+    self.assertEqual(repl.options['backend'], this)
+    self.assertEqual(repl.module.__name__, MODULE)
+    self.assertEqual(repl.loaded, MODULE_FILE)
 
 
 class TestSaveRefusals(cytest.TestCase):

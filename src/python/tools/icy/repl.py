@@ -1,6 +1,7 @@
 from . import commands
 from . import options
-import sys
+import importlib, sys
+curry = importlib.import_module(__package__[:__package__.find('.')])
 
 __all__ = ['REPL']
 
@@ -29,8 +30,10 @@ class REPL(object):
     self.command = None
     self.args = None
     self.module = None
+    # The argument of the last :load, for switch_backend.
+    self.loaded = None
     self.action = kwds.pop('action', cls.defaultaction)
-    self.options = options.Options()
+    self.options = options.Options(self)
     return self
 
   @trap(fatal=True)
@@ -88,6 +91,29 @@ class REPL(object):
       return
     else:
       commands.eval(self.command, self)
+
+  def switch_backend(self, backend):
+    '''
+    Reloads the interpreter with ``backend`` (the setter of the option
+    backend), records the backend in the options, and loads the module of
+    the session again, so that the prompt and the expressions see the new
+    interpreter.  A reload replaces the Curry path; the load puts the
+    directory of the module back.  When that load fails, the session stays
+    on the new backend with the Prelude at the prompt, keeps the argument
+    of the last :load for a switch back, and reports the error.
+    '''
+    curry.reload({'backend': backend})
+    self.options.values['backend'] = backend
+    loaded = self.loaded
+    if loaded is None:
+      return
+    try:
+      commands.load(self, loaded)
+    except BaseException:
+      # The module object of the session belongs to the old interpreter.
+      commands.load(self, 'Prelude')
+      self.loaded = loaded
+      raise
 
   def defaultaction(self, value):
     '''The default handler for values.'''

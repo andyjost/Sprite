@@ -56,16 +56,22 @@ repository root with this command::
 Selecting a Backend
 ===================
 
-Sprite has two backends.  The Python backend is the default.  It suits small
-programs.  The C++ backend is faster and suits larger programs.  To select
-it, set ``SPRITE_INTERPRETER_FLAGS`` in the environment::
+Sprite has two backends.  The C++ backend is the default.  It runs a
+module interpreted until the compiled code is ready (the interpreter flag
+``interpret``), so a program starts at once, and an installation without a
+C++ compiler runs every program; see :doc:`/Installation/WithoutCompiler`.
+The Python backend suits small programs.  To select it, set
+``SPRITE_INTERPRETER_FLAGS`` in the environment::
 
-    SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
+    SPRITE_INTERPRETER_FLAGS=backend:py sprite-exec prog.curry
 
 The ``--backend`` option selects the backend without the environment variable
 and overrides a ``backend`` flag set there::
 
-    sprite-exec --backend cxx prog.curry
+    sprite-exec --backend py prog.curry
+
+The help of ``sprite-exec -h`` names the default of the installation, which
+``configure --with-default-backend`` sets.
 
 See
 :ref:`Environment Variables <CommandLineInterface/EnvironmentVariables:Environment Variables>`
@@ -271,15 +277,17 @@ benchmark harness keeps the fields of every run and tabulates them with
 Profiling
 =========
 
-When using the Python backend, it is possible to run a Curry program under
-Python's ``cProfile`` profiler.  To do so, simply add the ``-p`` or
-``--profile`` option on the command line.  To change the sort key, use
-``--psort``.  The available keys are listed by ``sprite-exec -h``.
+The option ``-p`` or ``--profile`` runs a Curry program under Python's
+``cProfile`` profiler.  It is meaningful on the Python backend alone, where
+the rewrite steps are Python functions.  On the C++ backend the steps run
+outside Python, so the profile shows the driver and not the program;
+``--stats`` reports the counters of that backend.  To change the sort key,
+use ``--psort``.  The available keys are listed by ``sprite-exec -h``.
 
-To run ``Peano.curry`` under the profiler and sort the results by the number of
-calls, say::
+To run ``Peano.curry`` on the Python backend under the profiler and sort
+the results by the number of calls, say::
 
-    sprite-exec Peano.curry --profile --psort=calls
+    sprite-exec -b py Peano.curry --profile --psort=calls
 
 Generating Traces
 =================

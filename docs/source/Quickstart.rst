@@ -71,12 +71,15 @@ directory.  If ``install/bin`` is not on your PATH, give the relative path:
 Sprite runs goal ``main`` by default.  You can use ``-g`` to specify a
 different one.
 
-The Python backend is the default.  It suits small programs.  To select the
-C++ backend, set ``SPRITE_INTERPRETER_FLAGS`` in the environment:
+The C++ backend is the default.  It runs a module interpreted until the
+compiled code is ready, so an installation without a C++ compiler runs
+every program (see :doc:`Installation/WithoutCompiler`).  The Python
+backend suits small programs.  To select it, set
+``SPRITE_INTERPRETER_FLAGS`` in the environment:
 
 .. code-block:: bash
 
-    % SPRITE_INTERPRETER_FLAGS=backend:cxx ../install/bin/sprite-exec Peano.curry
+    % SPRITE_INTERPRETER_FLAGS=backend:py ../install/bin/sprite-exec Peano.curry
     S (S O)
 
 The other subdirectories of ``examples/`` hold larger examples.  Each has a

@@ -70,7 +70,9 @@ test:
     - sprite-exec --help
     - sprite-make --help
     - python -c "import curry; print(curry.config.prefix())"
-    # The Python backend, through the launcher and through the module.
+    # The C++ backend, the default, through the launcher and through the
+    # module.  Under its tiered mode a short program runs interpreted and
+    # its background compile is cancelled at exit, so no object is checked.
     - >-
       d=$(mktemp -d) && cd "$d" &&
       printf 'main :: Int\nmain = 6 * 7\n' > Smoke.curry &&
@@ -79,22 +81,28 @@ test:
       d=$(mktemp -d) && cd "$d" &&
       printf 'main :: Int\nmain = 6 * 7\n' > Smoke.curry &&
       python -m curry Smoke.curry | grep -x 42
-    # The C++ backend compiles the program with the compiler of the
-    # environment (cxx-compiler), the precompiled header of the runtime
-    # first.  The shared object and its ABI stamp beside the program show
-    # that the C++ backend ran; the Python backend writes neither.
+    # The compiler of the environment (cxx-compiler): sprite-make compiles
+    # the program, the precompiled header of the runtime first.  The shared
+    # object and its ABI stamp beside the program show that the compile
+    # ran, and the program then runs from the object.
     - >-
       d=$(mktemp -d) && cd "$d" &&
       printf 'main :: Int\nmain = 6 * 7\n' > Smoke.curry &&
-      SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec Smoke.curry | grep -x 42 &&
+      sprite-make --so Smoke.curry &&
       test -s .curry/sprite-pakcs-3.4.1/Smoke.so &&
-      test -s .curry/sprite-pakcs-3.4.1/Smoke.so.abi
+      test -s .curry/sprite-pakcs-3.4.1/Smoke.so.abi &&
+      sprite-exec Smoke.curry | grep -x 42
+    # The Python backend, by flag, through the launcher and through the
+    # module.  It writes the generated Python beside the program.
     - >-
       d=$(mktemp -d) && cd "$d" &&
       printf 'main :: Int\nmain = 6 * 7\n' > Smoke.curry &&
-      SPRITE_INTERPRETER_FLAGS=backend:cxx python -m curry Smoke.curry | grep -x 42 &&
-      test -s .curry/sprite-pakcs-3.4.1/Smoke.so &&
-      test -s .curry/sprite-pakcs-3.4.1/Smoke.so.abi
+      SPRITE_INTERPRETER_FLAGS=backend:py sprite-exec Smoke.curry | grep -x 42 &&
+      test -s .curry/sprite-pakcs-3.4.1/Smoke.py
+    - >-
+      d=$(mktemp -d) && cd "$d" &&
+      printf 'main :: Int\nmain = 6 * 7\n' > Smoke.curry &&
+      SPRITE_INTERPRETER_FLAGS=backend:py python -m curry Smoke.curry | grep -x 42
 
 about:
   license: BSD-3-Clause

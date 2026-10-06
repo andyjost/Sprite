@@ -168,12 +168,17 @@ times of the install can still make it compile one again; see
 
 Tests (`meta.yaml`): the launchers, `import curry`, and one program on each
 backend through `sprite-exec` and through `python -m curry`.  The library
-comes compiled, so each test compiles the one module it writes.  The two
-C++ tests check that the shared object and the ABI stamp of the program
-exist beside it (`.curry/sprite-pakcs-3.4.1/Smoke.so` and `Smoke.so.abi`),
-which the Python backend does not write; the first of them also builds the
-precompiled header of the runtime for the compiler of the environment.
-The test step took 8 s.
+comes compiled.  The C++ backend is the default: under its tiered mode a
+short program runs interpreted and its background compile is cancelled at
+exit, so the two default-backend tests check the value alone.  A third test
+compiles the program with `sprite-make --so` and checks that the shared
+object and the ABI stamp exist beside it (`.curry/sprite-pakcs-3.4.1/
+Smoke.so` and `Smoke.so.abi`), which shows that the compiler of the
+environment works; it also builds the precompiled header of the runtime
+for that compiler.  The two Python-backend tests select the backend with
+`SPRITE_INTERPRETER_FLAGS=backend:py`.  The test step of the build of
+2026-10-05, with the Python backend as the default of that tree, took 8 s;
+the recipe of this text has not been built yet.
 
 Package contents (the build of 2026-10-05): 682 files, 2.2 MB compressed,
 19 MB installed.
@@ -277,13 +282,17 @@ the environment, with a program `Smoke.curry` whose goal `main` has several
 values:
 
     /path/to/env/bin/sprite-exec Smoke.curry
-    SPRITE_INTERPRETER_FLAGS=backend:cxx /path/to/env/bin/sprite-exec Smoke.curry
+    SPRITE_INTERPRETER_FLAGS=backend:py /path/to/env/bin/sprite-exec Smoke.curry
     /path/to/env/bin/python -m curry Smoke.curry
     /path/to/env/bin/python -c 'import curry; from curry.lib import Prelude; print(next(curry.eval(curry.expr(Prelude.length, [1, 2, 3]))))'
 
 The times of that test on 2026-10-05, each command in a scrubbed
 environment (`env -i`, no `SPRITE_HOME`, no `CXX`), the first run in a
-fresh directory and the second run beside its products:
+fresh directory and the second run beside its products.  The Python
+backend was the default of that build, and the C++ backend compiled the
+program before it ran (the interpreter flag `interpret` was `off`); under
+the tiered default of today a short program ends interpreted, before its
+compile:
 
 | Command                                   | Backend | First run | Second run |
 |-------------------------------------------|---------|----------:|-----------:|
@@ -335,10 +344,14 @@ the owner; the next section gives a recommendation for each.
 1. The front end is a separate package, `curry-frontend`, repackaged from
    the PAKCS binary distribution.  It is neither bundled into `sprite` nor
    downloaded at run time.
-2. Both backends are in one package.  The Python backend is the default
-   (`DEFAULT_BACKEND` in `Make.config`, as `configure` writes it), and
-   `cxx-compiler` is a run dependency, so the C++ backend works after one
-   `conda create`.
+2. Both backends are in one package.  The C++ backend is the default
+   (`DEFAULT_BACKEND` in `Make.config`; `build.sh` passes
+   `--with-default-backend=cxx` to `configure`, which is also its default),
+   and `cxx-compiler` is a run dependency, so the C++ backend compiles the
+   generated code after one `conda create`.  Without the compiler the C++
+   backend runs every module interpreted and prints one notice per process
+   (the page "Installing and running without a C++ compiler" of the
+   documentation).
 3. The front end is pinned exactly: `curry-frontend 2.0.0.*`, the front end
    of PAKCS 3.4.1.
 4. The compiler of the build is GCC 15, the major version that
@@ -363,12 +376,24 @@ pybind11.
    platform needs a build of the front end from source (GHC, Stack resolver
    lts-16.9).
 2. The compiler at run time.  Keep `cxx-compiler` as a run dependency for
-   now: the first user must get a working C++ backend from one command.
-   Later, split the package: `sprite` with the Python backend and the ICurry
-   interpreter of the C++ runtime (the interpreter flag `interpret`), and a
-   metapackage `sprite-cxx` that adds `cxx-compiler`.  A system compiler
-   should stay out: the generated code must see the libstdc++ headers of a
-   compiler that matches the runtime library of the environment.
+   now: the first user must get compiled code from one command.  Later,
+   split the package: `sprite` with the C++ runtime, its ICurry interpreter
+   (the interpreter flag `interpret`) and the compiled library objects,
+   which runs without a compiler, and a metapackage `sprite-cxx` that adds
+   `cxx-compiler` for the background compile of the user's modules.  The
+   split is a follow-up of the packaging issue #1; stage 2 of issue #82
+   (the compiler-free mode) documented the behaviour and did not split the
+   package.  One fact for the split: the ABI stamp of a compiled module
+   (`.so.abi`) digests the real path of the installation prefix (issue #82,
+   the audit's finding on objects under another prefix), so an environment
+   whose prefix differs from the build prefix finds the shipped library
+   objects stale.  With `cxx-compiler` the first import compiles the
+   library again into `opt/sprite`; without it, every module runs
+   interpreted and one notice says so.  A probe of 2026-10-06 with an
+   installation served under another path showed both; a conda build under
+   the new rule has not been tested.  A system compiler should stay out:
+   the generated code must see the libstdc++ headers of a compiler that
+   matches the runtime library of the environment.
 3. Writes into the package at run time.  The library comes compiled, so a
    program writes its own products beside its source.  Three writes remain
    under `opt/sprite`.  The first C++ compile writes the precompiled header
@@ -396,10 +421,12 @@ pybind11.
    above still helps here: with no prefix in the generated files, conda
    rewrites the `.so` alone, and the order of the chain no longer depends
    on the order in which the installer rewrites the files.
-4. The Python backend.  Keep both backends in one package while the Python
-   backend is the default of the repository.  If the C++ backend becomes
-   the default, `configure` needs an option for `DEFAULT_BACKEND`, and the
-   recipe passes it.
+4. The Python backend.  The C++ backend is the default of the repository
+   since issue #82; `configure --with-default-backend` sets
+   `DEFAULT_BACKEND`, and `build.sh` passes `cxx`.  Keep both backends in
+   one package until the Python backend is removed (the removal gate of
+   issue #82); the Python backend is selected with the interpreter flag
+   `backend:py`.
 5. The pin of PAKCS 3.4.1.  Keep the exact pin: the committed ICurry files
    and the oracle depend on the FlatCurry of front end 2.0.0.  When a new
    PAKCS is adopted, `curry-frontend` gets a new version and the pin in

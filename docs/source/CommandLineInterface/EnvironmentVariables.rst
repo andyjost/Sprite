@@ -103,11 +103,19 @@ The following are recognized:
 
      SPRITE_INTERPRETER_FLAGS=trace:True,debug:True
 
-  The ``backend`` flag selects the backend.  The Python backend (``py``) is
-  the default.  It suits small programs.  To run a program with the C++
-  backend, say::
+  The ``backend`` flag selects the backend.  The C++ backend (``cxx``) is
+  the default of an installation (``configure --with-default-backend``).
+  The Python backend (``py``) suits small programs.  To run a program with
+  it, say::
 
-     SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
+     SPRITE_INTERPRETER_FLAGS=backend:py sprite-exec prog.curry
+
+  The ``interpret`` flag selects how the C++ backend runs a module without
+  a compiled object: ``tiered`` (the default) interprets it and compiles it
+  in the background, ``new`` interprets it and never compiles it, ``all``
+  interprets every module, and ``off`` compiles every module first.  An
+  installation without a C++ compiler runs under the default with one
+  notice; see :doc:`/Installation/WithoutCompiler`.
 
   The ``step_budget`` flag sets the number of rewrite steps the Python backend
   gives one alternative before it moves to the next.  The default is 2048.

@@ -48,10 +48,12 @@ class TestPlainDataBOM(cytest.TestCase):
     module = curry.import_('CxxBom')
     return module, shlib_of(module)
 
+  @cytest.skipIfInterpreted('the test reads the compiled object of CxxBom')
   def test_value(self):
     module, _ = self.load()
     self.assertEqual(list(curry.eval(module.main, converter='topython')), [9])
 
+  @cytest.skipIfInterpreted('the test reads the compiled object of CxxBom')
   def test_decoded_bom(self):
     '''The loader decodes every table of the record.'''
     module, shlib = self.load()
@@ -90,6 +92,7 @@ class TestPlainDataBOM(cytest.TestCase):
     self.assertEqual(infos['+++'].arity, 2)
     self.assertEqual(infos['main'].arity, 0)
 
+  @cytest.skipIfInterpreted('the test reads the compiled object of CxxBom')
   def test_generated_file(self):
     '''The emitter writes the record and its tables as plain data.'''
     _, shlib = self.load()
@@ -128,6 +131,7 @@ class TestPlainDataBOM(cytest.TestCase):
     self.assertIsNone(re.search(r'^static Metadata const', text, re.M))
     self.assertNotIn('std::', text)
 
+  @cytest.skipIfInterpreted('the test reads the compiled object of CxxBom')
   def test_object_builds_nothing_at_load(self):
     '''
     The object of a module imports no allocator, hash table, or string of the
@@ -263,10 +267,23 @@ class TestFunctionNames(cytest.TestCase):
     , 'putChar', 'readFile', 'writeFile'
     ]
 
-  def test_wrapper_and_primitive_are_two_symbols(self):
+  def prelude_shlib(self):
+    '''
+    The compiled object of the Prelude.  The test skips when the Prelude is
+    interpreted from its ICurry: under interpret:all, and under the other
+    modes while its object is missing or stale.
+    '''
     interp = curry.getInterpreter()
-    imodule = getattr(interp.prelude, '.icurry')
-    shlib = imodule.metadata['cxx.shlib']
+    shlib = getattr(interp.prelude, '.icurry').metadata.get('cxx.shlib')
+    if shlib is None:
+      self.skipTest(
+          'interpret:%s: the Prelude is interpreted from its ICurry'
+          % curry.flags['interpret']
+        )
+    return shlib
+
+  def test_wrapper_and_primitive_are_two_symbols(self):
+    shlib = self.prelude_shlib()
     rows = {}
     for _, _, info in shlib.bom.functions:
       rows.setdefault(info.name, []).append(info)
@@ -297,7 +314,7 @@ class TestFunctionNames(cytest.TestCase):
     it builds the symbol table (interpreter.import_.load).
     '''
     interp = curry.getInterpreter()
-    shlib = getattr(interp.prelude, '.icurry').metadata['cxx.shlib']
+    shlib = self.prelude_shlib()
     names = collections.Counter(info.name for _, _, info in shlib.bom.functions)
     self.assertEqual([name for name, n in names.items() if n > 1], [])
     self.assertGreater(len(names), 1000)

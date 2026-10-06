@@ -170,6 +170,7 @@ class TestAnalysis(cytest.TestCase):
 @unittest.skipIf(
     curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
   )
+@cytest.skipIfInterpreted('the tests read the generated code of CxxPassThrough')
 class TestGeneratedCode(cytest.TestCase):
   '''The generator applies the rule to each shape of use.'''
   @classmethod

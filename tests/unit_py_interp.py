@@ -11,6 +11,11 @@ from cytest import bootstrap
 from glob import glob
 import curry, os, shutil, unittest
 
+# The tests drive the Python backend whatever the backend of the session.  A
+# fresh Interpreter takes the configured default backend, the C++ backend
+# since issue #82, so the flags name the Python backend.
+PY = {'backend': 'py'}
+
 class TestPyInterp(cytest.TestCase):
   '''Tests for the pure-Python Curry interpreter.'''
   @classmethod
@@ -29,7 +34,7 @@ class TestPyInterp(cytest.TestCase):
 
   def testImportICurry(self):
     icur = self.EXAMPLE
-    interp = Interpreter()
+    interp = Interpreter(flags=PY)
     example = interp.import_(icur)
     self.assertEqual(set(interp.modules.keys()), set(['example', 'Prelude']))
     self.assertFalse(set('A B f g main'.split()) - set(dir(example)))
@@ -63,7 +68,7 @@ class TestPyInterp(cytest.TestCase):
   def testImportFile(self):
     # Ignore the data/curry path added by cytest.TestCase.
     with binding(os.environ, 'CURRYPATH', del_):
-      interp = Interpreter()
+      interp = Interpreter(flags=PY)
     self.assertRaises(Exception, lambda: interp.import_('helloInt'))
     #
     interp.path.insert(0, 'data/curry')
@@ -74,7 +79,7 @@ class TestPyInterp(cytest.TestCase):
   def testImportTimeStamp(self):
     def myeval(tempd, srcfile):
       '''Copy srcfile to tempd and evaluate it in a fresh interpreter.'''
-      interp = Interpreter()
+      interp = Interpreter(flags=PY)
       interp.path.insert(0, tempd)
       tgtfile = os.path.join(tempd, 'test.curry')
       if srcfile is None:
@@ -118,7 +123,7 @@ class TestPyInterp(cytest.TestCase):
     reset keeps the count.  Every evaluation of the interpreter is counted,
     also one through a value generator that is never exhausted.
     '''
-    interp = Interpreter()
+    interp = Interpreter(flags=PY)
     self.assertEqual(interp.stats()['steps'], 0)
     self.assertEqual(interp.stats()['forks'], 0)
     choice = lambda: curry.choice(True, False)
@@ -128,7 +133,7 @@ class TestPyInterp(cytest.TestCase):
     self.assertGreater(stats['steps'], 0)
     self.assertEqual(stats['forks'], 1)
     self.assertEqual(curry.stats()['forks'], 0)
-    other = Interpreter()
+    other = Interpreter(flags=PY)
     self.assertEqual(other.stats()['steps'], 0)
     self.assertEqual(other.stats()['forks'], 0)
     interp.reset()
@@ -145,7 +150,7 @@ class TestPyInterp(cytest.TestCase):
 
   def testCoverage(self):
     '''Tests to get complete line coverage.'''
-    interp = Interpreter()
+    interp = Interpreter(flags=PY)
     # Run interp.eval with a literal as input (not Node).
     self.assertEqual(list(interp.eval(1)), [interp.raw_expr(1)])
 
@@ -157,10 +162,10 @@ class TestPyInterp(cytest.TestCase):
   @cytest.with_flags(defaultconverter='topython')
   def testEvalValues(self):
     '''Evaluate constructor goals.'''
-    interp_debug = Interpreter(flags={'debug':True})
+    interp_debug = Interpreter(flags=dict(PY, debug=True))
     self.checkEvalValues(interp_debug)
     #
-    interp_nodebug = Interpreter(flags={'debug':False})
+    interp_nodebug = Interpreter(flags=dict(PY, debug=False))
     self.checkEvalValues(interp_nodebug)
 
 

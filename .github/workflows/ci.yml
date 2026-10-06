@@ -18,7 +18,7 @@ on:
         type: boolean
         default: false
       interpreter:
-        description: Run the interpreter tests and the functional suites with every module interpreted (interpret:all) as well
+        description: Run the unit and functional suites of the C++ backend with every module interpreted (interpret:all) and with every module compiled (interpret:off) as well
         type: boolean
         default: false
       write_counters:
@@ -38,9 +38,10 @@ jobs:
     timeout-minutes: 150
     strategy:
       fail-fast: false
-      # The py job builds the default configuration, without icurry.  The
-      # cxx jobs configure icurry too, so that the tests compare both routes
-      # from Curry to ICurry.
+      # The C++ backend is the default of a build; run-tests.sh names the
+      # backend of each shard.  The py job runs the Python backend on a
+      # build without icurry.  The cxx jobs configure icurry too, so that
+      # the tests compare both routes from Curry to ICurry.
       matrix:
         include:
           - { backend: py, shard: '1/1', icurry: '' }
@@ -313,20 +314,29 @@ jobs:
         if: always()
         run: ccache -s | head -n 6
 
-  # The interpreter of the C++ runtime (the interpreter flag interpret:all;
-  # see curry.interpreter.flags): every module is interpreted from its
-  # ICurry, the Prelude included, and the compiled objects are not used.
-  # The job runs the interpreter tests and the functional suites on request
-  # only.  The whole unit suite is not run: the tests that read a generated
-  # file, expect a compiled module, or time the compile fail by design in
-  # this mode (see the dated TODO entry on the interpreter).  The steps are
-  # those of the stress job; run-tests.sh adds the flags of SPRITE_TEST_FLAGS
-  # to the backend flag.
+  # The other modes of the interpreter flag interpret of the C++ backend
+  # (see curry.interpreter.flags).  Under interpret:all every module is
+  # interpreted from its ICurry, the Prelude included, and the compiled
+  # objects are not used; under interpret:off every module is compiled with
+  # g++ before it runs.  The job runs the whole unit suite and the
+  # functional suites in each mode, on the nightly schedule and on request:
+  # the removal gate of the Python backend (issue #82) asks for a month of
+  # green nightly runs under off, tiered (the shards above) and all.  The
+  # tests that read a compiled object skip under all
+  # (cytest.skipIfInterpreted; section 4 of tests/README).  The steps are
+  # those of the stress job; run-tests.sh adds the flags of
+  # SPRITE_TEST_FLAGS to the backend flag, and runs the prepare pass under
+  # off.
   interpreter:
-    name: cxx backend, interpreter
-    if: github.event_name == 'workflow_dispatch' && inputs.interpreter
+    name: cxx backend, interpret:${{ matrix.mode }}
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.interpreter)
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        # Quoted: a bare off is a Boolean in YAML.
+        mode: ['all', 'off']
     steps:
       - uses: actions/checkout@v4
         with:
@@ -352,9 +362,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-cxx-interpreter-${{ github.sha }}
+          key: ccache-cxx-interpreter-${{ matrix.mode }}-${{ github.sha }}
           restore-keys: |
-            ccache-cxx-interpreter-
+            ccache-cxx-interpreter-${{ matrix.mode }}-
             ccache-cxx-
       - name: Restore the Curry toolchain
         id: toolchain
@@ -372,9 +382,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: tests/.cache
-          key: icurry-cache-cxx-interpreter-${{ github.sha }}-${{ github.run_id }}
+          key: icurry-cache-cxx-interpreter-${{ matrix.mode }}-${{ github.sha }}-${{ github.run_id }}
           restore-keys: |
-            icurry-cache-cxx-interpreter-
+            icurry-cache-cxx-interpreter-${{ matrix.mode }}-
             icurry-cache-cxx-
             icurry-cache-
       - name: Install Python packages
@@ -387,20 +397,20 @@ jobs:
             --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
             --with-icurry="$HOME/.cpm/bin/icurry"
           make stage
-      - name: Interpreter tests with every module interpreted
+      - name: Unit tests under interpret:${{ matrix.mode }}
         env:
-          SPRITE_TEST_FLAGS: interpret:all
-        run: .github/scripts/run-tests.sh cxx 'unit_cxx_interp.py' 1/1
-      - name: Functional tests with every module interpreted
+          SPRITE_TEST_FLAGS: interpret:${{ matrix.mode }}
+        run: .github/scripts/run-tests.sh cxx 'unit_*.py' 1/1
+      - name: Functional tests under interpret:${{ matrix.mode }}
         env:
-          SPRITE_TEST_FLAGS: interpret:all
+          SPRITE_TEST_FLAGS: interpret:${{ matrix.mode }}
         run: .github/scripts/run-tests.sh cxx 'func_*.py' 1/1
       - name: Save the ICurry cache
         if: always() && hashFiles('tests/.cache/**') != ''
         uses: actions/cache/save@v4
         with:
           path: tests/.cache
-          key: icurry-cache-cxx-interpreter-${{ github.sha }}-${{ github.run_id }}
+          key: icurry-cache-cxx-interpreter-${{ matrix.mode }}-${{ github.sha }}-${{ github.run_id }}
       - name: Compiler cache statistics
         if: always()
         run: ccache -s | head -n 6
