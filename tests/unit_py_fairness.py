@@ -18,16 +18,19 @@ programs are in data/curry/StackGuard.curry.
 import cytest # from ./lib; must be first
 import curry, unittest
 
+# The tests run under a recursion limit of 16384 frames (the flag
+# recursion_limit; the default is 262144), so a short list overflows it.
+FLAGS = {'defaultconverter': 'topython', 'recursion_limit': 1 << 14}
+
 @unittest.skipIf(
     curry.flags['backend'] != 'py'
   , 'the step budget and RecursionError rotation belong to the Python backend'
   )
 class TestPyFairness(cytest.TestCase):
-  # ``length`` nests one evaluation inside another for every list element.
-  # The evaluator raises the recursion limit to 16384 frames, so the list must
-  # be long to overflow it.  The evaluation stops at the overflow depth, so a
-  # larger N adds headroom, not much time: a deep test takes about 5 seconds
-  # on the Python backend.
+  # ``length`` nests one evaluation inside another for every list element,
+  # about eight frames each, so the list must be long to overflow the limit.
+  # The evaluation stops at the overflow depth, so a larger N adds headroom,
+  # not much time: a deep test takes about 5 seconds on the Python backend.
   N = 10000
   TIMEOUT = 60
 
@@ -35,7 +38,7 @@ class TestPyFairness(cytest.TestCase):
   def setUpClass(cls):
     curry.import_('StackGuard')
 
-  @cytest.with_flags(defaultconverter='topython')
+  @cytest.with_flags(**FLAGS)
   @cytest.timeout(TIMEOUT)
   def test_deep_alternatives_do_not_spin(self):
     '''
@@ -50,7 +53,7 @@ class TestPyFairness(cytest.TestCase):
     with self.assertRaises(RecursionError):
       list(curry.eval(goal))
 
-  @cytest.with_flags(defaultconverter='topython')
+  @cytest.with_flags(**FLAGS)
   @cytest.timeout(TIMEOUT)
   def test_three_deep_alternatives_do_not_spin(self):
     '''
@@ -66,7 +69,7 @@ class TestPyFairness(cytest.TestCase):
     with self.assertRaises(RecursionError):
       list(curry.eval(goal))
 
-  @cytest.with_flags(defaultconverter='topython')
+  @cytest.with_flags(**FLAGS)
   @cytest.timeout(TIMEOUT)
   def test_deep_alternative_does_not_starve_others(self):
     goal = curry.compile(
@@ -77,7 +80,7 @@ class TestPyFairness(cytest.TestCase):
     with self.assertRaises(RecursionError):
       next(values)
 
-  @cytest.with_flags(defaultconverter='topython', step_budget=None)
+  @cytest.with_flags(**FLAGS, step_budget=None)
   @cytest.timeout(TIMEOUT)
   def test_deep_alternative_does_not_starve_others_without_budget(self):
     # The stack-overflow rotation does not depend on the step budget.
@@ -89,7 +92,7 @@ class TestPyFairness(cytest.TestCase):
     with self.assertRaises(RecursionError):
       next(values)
 
-  @cytest.with_flags(defaultconverter='topython')
+  @cytest.with_flags(**FLAGS)
   @cytest.timeout(TIMEOUT)
   def test_stuck_alternative_keeps_finite_one(self):
     '''
@@ -105,7 +108,7 @@ class TestPyFairness(cytest.TestCase):
     with self.assertRaises(RecursionError):
       next(values)
 
-  @cytest.with_flags(defaultconverter='topython')
+  @cytest.with_flags(**FLAGS)
   @cytest.timeout(TIMEOUT)
   def test_overflow_inside_setfunction(self):
     '''
@@ -119,7 +122,7 @@ class TestPyFairness(cytest.TestCase):
     with self.assertRaises(RecursionError):
       next(values)
 
-  @cytest.with_flags(defaultconverter='topython', step_budget=256)
+  @cytest.with_flags(**FLAGS, step_budget=256)
   @cytest.timeout(TIMEOUT)
   def test_setfunction_keeps_step_budget(self):
     '''
@@ -141,7 +144,7 @@ class TestPyFairness(cytest.TestCase):
     values = curry.eval(SF.main)
     self.assertEqual(next(values), 1)
 
-  @cytest.with_flags(defaultconverter='topython', step_budget=256)
+  @cytest.with_flags(**FLAGS, step_budget=256)
   @cytest.timeout(TIMEOUT)
   def test_diverging_setfunction_does_not_starve_others(self):
     '''
@@ -163,7 +166,7 @@ class TestPyFairness(cytest.TestCase):
     values = curry.eval(SF.main)
     self.assertEqual(next(values), 1)
 
-  @cytest.with_flags(defaultconverter='topython', step_budget=1)
+  @cytest.with_flags(**FLAGS, step_budget=1)
   @cytest.timeout(TIMEOUT)
   def test_nested_queue_rotates_in_place(self):
     '''

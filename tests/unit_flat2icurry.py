@@ -5,11 +5,11 @@ from curry.toolchain.flat2icurry import (
   , icurrytypes as ic, interfaces, terms
   )
 from curry.toolchain.flat2icurry import __main__ as cli
-from curry.utility import readcurry
+from curry.utility import maxrecursion, readcurry
 from curry.utility.readcurry import lex
 from curry import config
 import flat2icurry_oracle as oracle
-import contextlib, glob, io, os, shutil, tempfile, unittest
+import contextlib, glob, io, math, os, shutil, tempfile, unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -352,6 +352,132 @@ class TestWriter(cytest.TestCase):
     text = terms.showterm(deep)
     self.assertTrue(text.startswith('(ICCall ("Prelude",":",1) [(ILit (IInt 2999)),'))
     self.assertTrue(text.endswith('(ILit (IInt 0))' + '])' * 3000))
+
+class TestHaskellWriter(cytest.TestCase):
+  '''
+  Tests the writer in the format of the front end, the show of Haskell: the
+  escapes of showLitChar and showLitString, the numbers of showsPrec and
+  showFloat, and the parentheses of the derived instances.  The reader of
+  readcurry reads every text back.
+  '''
+
+  def test_chars(self):
+    cases = [
+        (0, r"'\NUL'"), (1, r"'\SOH'"), (7, r"'\a'"), (8, r"'\b'"), (9, r"'\t'")
+      , (10, r"'\n'"), (11, r"'\v'"), (12, r"'\f'"), (13, r"'\r'"), (14, r"'\SO'")
+      , (15, r"'\SI'"), (27, r"'\ESC'"), (31, r"'\US'"), (32, "' '"), (34, "'\"'")
+      , (39, r"'\''"), (92, r"'\\'"), (65, "'A'"), (126, "'~'"), (127, r"'\DEL'")
+      , (128, r"'\128'"), (160, r"'\160'"), (228, r"'\228'"), (955, r"'\955'")
+      , (0x1f600, r"'\128512'")
+      ]
+    for code, expected in cases:
+      self.assertEqual(terms.show_haskell_char(terms.Char(chr(code))), expected, code)
+      self.assertEqual(terms.showhaskell(terms.Char(chr(code))), expected, code)
+      self.assertEqual(readcurry.parse(expected), chr(code), code)
+
+  def test_strings(self):
+    cases = [
+        ('', '""'), ('abc', '"abc"'), ('a"b', r'"a\"b"'), ("it's", '"it\'s"')
+      , ('a\\b', r'"a\\b"'), ('\0\x1b\n\t', r'"\NUL\ESC\n\t"')
+      , ('\xe4\x7f', r'"\228\DEL"')
+        # The empty escape keeps a decimal escape from a digit and \SO from
+        # an H; nothing else needs it.
+      , ('\xe41', r'"\228\&1"'), ('\xe4a', r'"\228a"'), ('\x0eH', r'"\SO\&H"')
+      , ('\x0eh', r'"\SOh"'), ('\x01H', r'"\SOHH"'), ('\x7f1', r'"\DEL1"')
+      , ('\U0001f6001', r'"\128512\&1"')
+      ]
+    for value, expected in cases:
+      self.assertEqual(terms.show_haskell_string(value), expected, value)
+      self.assertEqual(terms.showhaskell(value), expected, value)
+      self.assertEqual(readcurry.parse(expected), value, value)
+
+  def test_ints(self):
+    self.assertEqual(terms.showhaskell(0), '0')
+    self.assertEqual(terms.showhaskell(42), '42')
+    self.assertEqual(terms.showhaskell(-42), '-42')
+    self.assertEqual(terms.showhaskell(2**70), str(2**70))
+    # A negative argument is in parentheses; a negative element is not.
+    self.assertEqual(terms.showhaskell(fc.Intc(-1)), 'Intc (-1)')
+    self.assertEqual(terms.showhaskell(fc.Intc(1)), 'Intc 1')
+    self.assertEqual(terms.showhaskell([-1, 2]), '[-1,2]')
+    self.assertEqual(terms.showhaskell((-1, 2)), '(-1,2)')
+
+  def test_floats(self):
+    # The expected texts are what show gives for a Double under GHC.
+    cases = [
+        (1.0e-5, '1.0e-5'), (1.0e22, '1.0e22'), (1.234567890123457e17, '1.234567890123457e17')
+      , (0.1, '0.1'), (1.0e21, '1.0e21'), (1.0e15, '1.0e15'), (1.5e15, '1.5e15')
+      , (100.0, '100.0'), (1.5e300, '1.5e300'), (5.0e-324, '5.0e-324')
+      , (0.000123, '1.23e-4'), (1.0e-4, '1.0e-4'), (0.001, '1.0e-3'), (0.01, '1.0e-2')
+      , (1.0e7, '1.0e7'), (9999999.0, '9999999.0'), (12345678.9, '1.23456789e7')
+      , (1.0e100, '1.0e100'), (-2.5, '-2.5'), (0.0, '0.0'), (-0.0, '-0.0')
+      , (1.0e-7, '1.0e-7'), (3.0e-10, '3.0e-10'), (1.1, '1.1'), (3.14, '3.14')
+      , (0.25, '0.25'), (123456.789, '123456.789'), (1.0, '1.0'), (-1.0e-5, '-1.0e-5')
+      , (10.9, '10.9'), (0.5, '0.5'), (1.9999999999999987e-300, '1.9999999999999987e-300')
+      , (float('inf'), 'Infinity'), (float('-inf'), '-Infinity')
+      ]
+    for value, expected in cases:
+      self.assertEqual(terms.show_haskell_float(value), expected, value)
+      self.assertEqual(terms.showhaskell(value), expected, value)
+      if math.isfinite(value):
+        self.assertEqual(readcurry.parse(expected), value, value)
+    self.assertEqual(terms.show_haskell_float(float('nan')), 'NaN')
+    self.assertEqual(terms.showhaskell(fc.Floatc(-0.5)), 'Floatc (-0.5)')
+    self.assertEqual(terms.showhaskell(fc.Floatc(0.5)), 'Floatc 0.5')
+    self.assertEqual(terms.showhaskell([-0.5]), '[-0.5]')
+
+  def test_terms(self):
+    self.assertEqual(terms.showhaskell(fc.Public), 'Public')
+    self.assertEqual(terms.showhaskell(fc.Var(1)), 'Var 1')
+    self.assertEqual(terms.showhaskell(fc.Lit(fc.Intc(-1))), 'Lit (Intc (-1))')
+    self.assertEqual(
+        terms.showhaskell(fcall(M('f'), fc.Var(1), fc.Lit(fc.Charc(terms.Char('x')))))
+      , '''Comb FuncCall ("M","f") [Var 1,Lit (Charc 'x')]'''
+      )
+    self.assertEqual(
+        terms.showhaskell(fc.Let([(2, fc.Lit(fc.Intc(3)))], fc.Var(2)))
+      , 'Let [(2,Lit (Intc 3))] (Var 2)'
+      )
+    self.assertEqual(
+        terms.showhaskell(fc.Type(M('T'), fc.Public, [(0, fc.KStar)], []))
+      , 'Type ("M","T") Public [(0,KStar)] []'
+      )
+    self.assertEqual(terms.showhaskell(fc.KArrow(fc.KStar, fc.KStar)), 'KArrow KStar KStar')
+    self.assertEqual(terms.showhaskell([]), '[]')
+    self.assertEqual(terms.showhaskell(()), '()')
+    self.assertEqual(terms.showhaskell(fc.Prog('M', [], [], [], [])), 'Prog "M" [] [] [] []')
+    self.assertEqual(fc.show(fc.Prog('M', [], [], [], [])), 'Prog "M" [] [] [] []')
+    self.assertRaises(TypeError, terms.showhaskell, True)
+    self.assertRaises(TypeError, terms.showhaskell, object())
+
+  def test_round_trip_on_disk(self):
+    '''A file of the front end under the test data, read and shown again.'''
+    checked = 0
+    for name in ['Peano', 'hello', 'Chars']:
+      fcyfile = corpus_fcy(name)
+      if fcyfile is None:
+        continue
+      with open(fcyfile, 'r', encoding='utf-8', newline='') as istream:
+        text = istream.read()
+      if not text.startswith('Prog '):
+        continue  # PAKCS rewrote the file in its own format.
+      self.assertEqual(fc.show(fc.read(text)), text, fcyfile)
+      checked += 1
+    if not checked:
+      self.skipTest('no FlatCurry file of the front end in the test corpus')
+
+  def test_deep_term(self):
+    '''A deep term, such as a long string literal, needs a raised recursion limit.'''
+    deep = ccall(P('[]'))
+    for i in range(3000):
+      deep = ccall(P(':'), fc.Lit(fc.Intc(i)), deep)
+    text = terms.showhaskell(deep)
+    self.assertTrue(text.startswith(
+        'Comb ConsCall ("Prelude",":") [Lit (Intc 2999),Comb ConsCall ("Prelude",":") [Lit (Intc 2998),'
+      ))
+    self.assertTrue(text.endswith('Comb ConsCall ("Prelude","[]") []' + ']' * 3000))
+    with maxrecursion():
+      self.assertTrue(fc.read(text) == deep)
 
 class TestElimNewtype(cytest.TestCase):
   '''Tests newtype elimination.'''
@@ -1232,6 +1358,46 @@ class TestProbes(OverlayTestCase):
       self.assertEqual(cli.main(argv), 0)
       with open(out, 'r', encoding='utf-8', newline='') as istream:
         self.assertIn('(IFreeDecl 2)', istream.read())
+    finally:
+      shutil.rmtree(tmpdir)
+
+class TestFlatCurryWriter(OverlayTestCase):
+  '''
+  The writer of FlatCurry files against the archive: the text of the front
+  end, read and shown again, is the same text.  The sample, the probes, and
+  the library modules of the archive; the whole archive and the products on
+  disk run in func_flat2icurry.py.
+  '''
+
+  def test_round_trip(self):
+    modules = TestSample.SAMPLE + TestProbes.PROBES
+    files = [self.overlay.fcy(d, n) for d, n in modules]
+    files += [fcy for fcy, _ in self.overlay.library_pairs()]
+    self.assertGreaterEqual(len(files), len(modules) + 8)
+    for fcy in files:
+      with self.subTest(file=os.path.relpath(fcy, self.overlay.directory)):
+        with open(fcy, 'r', encoding='utf-8', newline='') as istream:
+          text = istream.read()
+        self.assertTrue(text.startswith('Prog '))
+        self.assertFalse(text.endswith('\n'))
+        shown = fc.show(fc.read(text))
+        if shown != text:
+          self.fail(oracle.first_difference(text, shown))
+
+  def test_write(self):
+    '''write puts the same bytes into a file, in the place of the file.'''
+    fcy = self.overlay.fcy('flat2icurry', 'Literals')
+    prog = fc.load(fcy)
+    tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    try:
+      out = os.path.join(tmpdir, 'Literals.fcy')
+      with open(out, 'w') as ostream:
+        ostream.write('old')
+      fc.write(prog, out)
+      with open(out, 'rb') as a, open(fcy, 'rb') as b:
+        self.assertEqual(a.read(), b.read())
+      self.assertEqual(os.listdir(tmpdir), ['Literals.fcy'])
+      self.assertEqual(fc.load(out), prog)
     finally:
       shutil.rmtree(tmpdir)
 

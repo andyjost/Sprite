@@ -216,9 +216,11 @@ class TestKey(cytest.TestCase):
   def test_route_is_part_of_the_key(self):
     '''
     The key names the route from Curry to ICurry and carries the digest of
-    its program; for the front end the digest covers the flags and the
-    sources of the built-in translation too.  So an entry written by one
-    route is never served to the other.
+    its program and of the front-end flags; for the front end the digest
+    covers the sources of the built-in translation too, for icurry the
+    sources of the rewrite of the FlatCurry file.  So an entry written by
+    one route is never served to the other, and new flags make a new key on
+    either route.
     '''
     text = 'f :: Int\nf = 1\n'
     programs = {
@@ -250,6 +252,15 @@ class TestKey(cytest.TestCase):
       self.assertNotEqual(cache.frontend_digest('frontend'), digests['frontend'])
     cache.reset()
     self.assertEqual(cache.frontend_digest('frontend'), digests['frontend'])
+    # The icurry route translates the file that Sprite's run of the front
+    # end wrote with the flags, so its digest covers them too.
+    if programs['icurry'] is None:
+      self.skipTest('icurry is not configured')
+    cache.reset()
+    with mock.patch.object(config, 'frontend_flags', return_value='--other'):
+      self.assertNotEqual(cache.frontend_digest('icurry'), digests['icurry'])
+    cache.reset()
+    self.assertEqual(cache.frontend_digest('icurry'), digests['icurry'])
 
   def test_anonymous_name_is_not_part_of_the_key(self):
     text = 'f :: Int\nf = 1\n'

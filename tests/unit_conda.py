@@ -198,7 +198,7 @@ class TestCondaRecipe(cytest.TestCase):
           tmpdir, '--with-pakcs=', '--with-curry-frontend='
         )
       self.assertNotEqual(result.returncode, 0)
-      self.assertIn('Neither the Curry front end nor icurry', result.stdout)
+      self.assertIn('The Curry front end is not configured.', result.stdout)
       self.assertIsNone(text)
 
   def fake_tool(self, tmpdir, name, output, with_args=False):
@@ -308,16 +308,28 @@ class TestCondaRecipe(cytest.TestCase):
         )
       self.assertEqual(result.returncode, 0, result.stdout)
       self.assertEqual(make_config_value(text, 'CURRY2ICURRY_TOOL'), 'frontend')
-      # Without the front end, icurry is required and is the default route.
+      # With the front end, icurry is recorded and is the route requested.
+      icurry = self.fake_tool(tmpdir, 'icurry', 'icurry')
+      result, text = self.configure(
+          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend
+        , '--with-icurry=' + icurry, '--curry2icurry', 'icurry'
+        )
+      self.assertEqual(result.returncode, 0, result.stdout)
+      self.assertEqual(make_config_value(text, 'CURRY_FRONTEND'), frontend)
+      self.assertEqual(make_config_value(text, 'ICURRY_EXECUTABLE'), icurry)
+      self.assertEqual(make_config_value(text, 'CURRY2ICURRY_TOOL'), 'icurry')
+    # icurry alone is not a route: both routes run the front end (the icurry
+    # route rewrites its FlatCurry file before icurry reads it).  A fresh
+    # directory: no Make.config of an earlier run is left to read.
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
       icurry = self.fake_tool(tmpdir, 'icurry', 'icurry')
       result, text = self.configure(
           tmpdir, '--with-pakcs=', '--with-curry-frontend='
         , '--with-icurry=' + icurry
         )
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertEqual(make_config_value(text, 'CURRY_FRONTEND'), '')
-      self.assertEqual(make_config_value(text, 'ICURRY_EXECUTABLE'), icurry)
-      self.assertEqual(make_config_value(text, 'CURRY2ICURRY_TOOL'), 'icurry')
+      self.assertNotEqual(result.returncode, 0)
+      self.assertIn('Both routes from Curry to ICurry run it', result.stdout)
+      self.assertIsNone(text)
 
   def test_make_without_pakcs(self):
     '''

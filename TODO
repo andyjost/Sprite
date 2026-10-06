@@ -4521,3 +4521,344 @@
   HEAD (the two options above); a newer baseline of the nightly set with
   the instructions column (the Phase 2 record has none, and its Queens10
   and PermSort counts predate the O1 pass and the #61 repair).
+
+2026-10-06: the binding optimization rewrites the FlatCurry file (#85)
+- Cause.  Since 1b554fd1 the build route applied the pass in memory
+  (translate_file(..., bindingopt=True)) while the icurry route and the
+  oracle translated the file as the front end wrote it: the two routes
+  wrote different .icy files for a module with a required Boolean
+  equality, and the on-disk oracle check accepted a product of the build
+  route only through a second translation (accept_build_route, 4e21df99).
+  PAKCS applies the optimization to the FlatCurry file itself:
+  preprocessFcyFile in compiler.pl runs BindingOpt, which writes M.fcy_OPT
+  and renames it over M.fcy when an equality was replaced.
+- Fix.  A FlatCurry writer in the format of the front end, the show of
+  Haskell (terms.showhaskell; flatcurry.show and flatcurry.write).  The
+  PAKCS writer showterm does not serve: the front end writes Prog "M" ...
+  without the outer parentheses, "" for the empty string, the ASCII names
+  \NUL to \DEL and \SO\&H in a string, and 1.0e7 for a float.  The writer
+  round-trips every .fcy of the corpus byte for byte, the 1260 files
+  under tests/data and the 1210 files of the archive, the library
+  included, on its first run; func_flat2icurry.py pins it
+  (test_writer_round_trip), and unit_flat2icurry.py tests the escapes,
+  the numbers and the parentheses (TestHaskellWriter) and the sample, the
+  probes and the library modules of the archive (TestFlatCurryWriter).
+  The rewrite step, bindingopt.optimize_file: both routes run it after
+  the front end and before the translation (_frontend.curry2icurry; the
+  icurry branch of Curry2ICurryConverter.convert runs the front end and
+  the rewrite before the icurry program, whose own front-end run finds
+  its files current and leaves the rewritten file alone, checked by the
+  time of the file).  The file is written again when the pass replaced
+  an equality, as transbooleq writes it; a rule whose equalities all stay
+  is rebuilt (its $ reduced) only then, so optimize_bindings returns the
+  program itself when the count is zero (the Prelude is such a program:
+  no replacement, a rebuilt rule).  The translation runs with
+  bindingopt=False on both routes, with icurry_compat as before.  The
+  pass is idempotent over the archive: a second run replaces nothing and
+  gives the same program, and the optimized program survives the writer
+  and the reader (test_rewrite_is_idempotent).  The cache digest of the
+  icurry route covers the sources of the pass (cache.REWRITE_SOURCES).
+- Decisions.  --bindingopt of python -m curry.toolchain.flat2icurry stays
+  the in-memory pass: it translates a file the routes have not rewritten
+  as the routes would, and leaves the file alone.  Two hand runs:
+  python -m curry.toolchain.flat2icurry.rewrite M.fcy... rewrites
+  FlatCurry files in place (a module of its own, so python -m gives no
+  warning about a module the package imported), and sprite-make
+  --rewrite-flat M runs the step from Curry to ICurry again, current or
+  not, without the ICurry cache (a hit writes no FlatCurry), and makes
+  the ICurry and the later products from the rewritten file; it runs in
+  this process (--jobs 1) and needs the source.
+- The oracle.  test_products_on_disk runs without the fallback;
+  accept_build_route is gone.  Before the change, with the fallback off,
+  two of the 1258 pairs on disk in this worktree differed, CxxInterp and
+  CxxScheduler: an .icy of the in-memory pass beside the front end's
+  .fcy.  No product differed through icurry_compat alone, so no fallback
+  for that setting is kept.  The hand run rewrote the two files (one
+  equality each), and the check passes.  The pass changes 7 of the 1260
+  files under tests/data (CxxInterp, CxxScheduler, atableNoflex,
+  sendMoreMoney with 15 equalities, BFSvsPar, RegExp,
+  poker_four_of_a_kind) and some files of the archive.
+- What stays as it is.  The committed ICurry of the Curry library
+  predates the pass and is not regenerated: make stage derives the JSON
+  from the committed .icy and never translates a library module unless
+  SPRITE_REBUILD_ICY=1; that run would now rewrite the library's .fcy
+  under curry/lib/.curry and translate the optimized program.  The
+  archive's .fcy files are the front end's and pair with the .icy files
+  icurry wrote from them; a rebuilt archive packs rewritten .fcy files
+  with icurry's translation of them.  A product written before this
+  change keeps its .fcy as the front end wrote it until the source is
+  newer (the front end then writes the file again and the route rewrites
+  it) or a hand run rewrites it; an .icy of the pre-pass era is remade
+  only by sprite-make --rewrite-flat or a newer source.  In this worktree
+  the .fcy and the .icy of sendMoreMoney under tests/data are both
+  unoptimized (made before the pass) and stay so; the test compiles the
+  program from text.  A .fcy that PAKCS rewrote in place (the oracle
+  runs PAKCS on the test modules, and its BindingOpt writes the showTerm
+  format) is not the front end's text: the reader reads it, the pass
+  finds nothing to replace, and the round-trip test leaves such a file
+  out; the corpus holds none today.
+- Verification, one file per process under prlimit --as 6 GB, both
+  backends: unit_flat2icurry.py 77 OK (2 skipped),
+  unit_flat2icurry_bindingopt.py 31 OK, unit_curry2icurry.py 15 OK (the
+  icurry route is configured in this install, so its test ran: both
+  routes write the same bytes for sendMoreMoney, 15 constrEq),
+  func_flat2icurry.py 6 OK, unit_py_residuation.py 3 OK.  The probes:
+  the writer over the 2470 files of the corpus and the archive, none
+  differ; the icurry route on a fresh copy of sendMoreMoney gives the
+  bytes of the port and leaves the rewritten .fcy with its time;
+  sprite-make --rewrite-flat --json over a module whose .fcy was put
+  back to the front end's text rewrites the .fcy and the .icy and writes
+  the JSON, and refuses --jobs 2 and a module without a source.
+  tests/manifest.json has no entry for unit_flat2icurry_bindingopt.py;
+  unit_curry2icurry.py has 15 tests now (11 recorded) and takes about
+  25 s more for the test of the icurry route.
+- Open.  Pairs of other worktrees and machines made in the in-memory era
+  differ in test_products_on_disk until the hand run; the docstring of
+  the test names the two commands.  The archive is not rebuilt here, and
+  the library is not regenerated here.
+- Review follow-ups.  The icurry route needs the front end as well now (it
+  runs it first and rewrites its FlatCurry file), so a missing front end
+  is reported by Curry2ICurryConverter.command before any program runs,
+  with the real requirement, and _frontend.command no longer recommends
+  the icurry route in its message.  configure requires the front end
+  whatever --with-icurry says (set_frontend; set_curry2icurry_tool aborts
+  with the reason when it is left out), and the configure page says so.
+  The digest of the icurry route covers the front-end flags too
+  (cache.frontend_digest): the file icurry translates is the one Sprite's
+  run of the front end wrote with them (icurry finds it current), so a
+  change of CURRY_FRONTEND_FLAGS changed the output of the route under an
+  unchanged key.  Tests: test_tool_selection of unit_curry2icurry.py (both
+  messages, the front end mocked away), test_front_end_required_with_icurry
+  of unit_configure.py, and test_route_is_part_of_the_key of unit_cache.py
+  (the icurry branch when icurry is configured).
+
+2026-10-06: potholes (#63, #86, example 21 on the Python backend, #62)
+- #63, a point-free definition applied to arguments from Python.  Cause:
+  the untyped builder (ExpressionBuilder in expressions.py, behind raw_expr
+  and expr with typed_expr off) counted the arguments against the arity
+  alone: fewer gave a partial application, more went to make_node as they
+  were, where the Python backend raised TypeError and the C++ binding
+  dropped the surplus in silence (Node_create handed the vector to
+  Node::create, which packs by the format string and never counts).  The
+  typed builder of Y7 already folds apply over the surplus, so
+  curry.eval(M.norm, 3) and curry.expr gave 7 on both backends before the
+  change; raw_expr gave TypeError on the Python backend and the partial
+  application norm on the C++ backend.  Fix: the untyped builder applies
+  the head to its arity and folds Prelude.apply over the rest, one node
+  per argument, the target on the last, as the typed builder does; a
+  symbol that is not a function applied to a surplus raises
+  CurryTypeError with the sentence of the typed builder, without the
+  scheme ("Just takes 1 argument, 2 given", where the typed builder says
+  "Just :: a -> Maybe a takes 1 argument, 2 given"; the review found the
+  two builders with two sentences for one mistake); Node_create checks the
+  count against the arity, equal or
+  below it for a partial application, and raises TypeError with the
+  message of the Python backend; create_partial_applic of the Python
+  backend runs the count check before its assertion, so a partial
+  application with too many arguments raises TypeError on both backends.
+  Tests: TestSurplusArguments of unit_expr.py on both backends (norm =
+  (+ 1) . (* 2) through raw_expr, expr and eval; twice applied once and
+  twice; a constructor with a surplus through both builders; make_node
+  with two, zero and one too many arguments).  The docstring of raw_expr
+  names the rule.
+- #86, a name produced by a functional pattern stays narrowed.  Measured
+  with sprite-exec --stats on the C++ backend, step mode, a module with
+  source (stem ++ ".o") = stem ++ ".c", the same read through a set
+  function (sourceS t = case sortValues (set1 source t) of [s] -> s), and
+  the same with the result evaluated to normal form (sourceN t = id $##
+  source t).  One comparison: 151, 148 and 168 steps, 8 forks each.  One
+  name compared 200 times (the name shared, the comparisons not): 222141
+  steps and 1202 forks through source, 14723 steps and 8 forks through
+  sourceS, 180362 steps and 1202 forks through sourceN.  nub over 49
+  names: 944283 steps and 9800 forks, 28308 and 392, 1048653 and 14210.
+  The list of distinct names read twice: 1889471 and 19796, 29094 and
+  392, 1705647 and 28616.  The Python backend forks the same (1202
+  against 8) and takes 2.36 s against 0.27 s for the 200 comparisons; it
+  counts a rewrite alone (15484 against 15503 steps).  Cause: a binding
+  and a narrowing are private to the configuration that made them, so a
+  read of a bound variable, or of a narrowed one, copies the spine of the
+  configuration from its root to the variable with the binding or the
+  decided generator in the copy and restarts the evaluation from the root
+  (replace_freevar and Scan::copy_spine of the C++ runtime; N and hnf of
+  fairscheme.py).  The restart repeats the steps of every function on the
+  spine, and procS counts each (the inflated steps); a decided generator
+  choice met again is pull-tabbed and forked to its one side (the
+  forks).  Nothing of the copy goes back into the shared graph: the next
+  reader of the shared name starts over.  The pattern variables of a
+  functional pattern are exactly such variables: the front end writes
+  source x = cond ((stem ++ ".o") =:<= x) (stem ++ ".c") with stem free,
+  =:<= narrows stem by its generator and binds each character, and the
+  result holds them.  $## does not help, because its normal form lives in
+  the private spine as well.  A set function helps, because the capsule
+  has its own queue and root: the spine copies stay inside it, its
+  configuration reaches a value in which every variable is resolved, and
+  allValues_step writes that value in place as plain data.  Options and
+  cost.  (1) Write the binding into the shared graph when the
+  configuration owns the node: unsound without an ownership test, and an
+  epoch stamp per node does not give one, because an in-place rewrite of a
+  shared redex publishes a young node to every configuration.  (2) A
+  per-configuration map from a copied spine node to its private copy,
+  consulted at every descent, so a second reference to a copied node
+  within one configuration finds the copy: restores sharing and removes
+  the repeated normalization, but not the copy per read; a flag bit per
+  node to make the test cheap, copy-on-write of the map at a fork, and
+  the collector's view of the map: several days.  (3) A ground copy of a
+  rule's result once a functional pattern matched: a change of
+  strictness (the result may hold an infinite or undefined part) and the
+  copy would still be private to the configuration.  (4) The idiom: read
+  the result through a set function.  Taken: (4), with the measured
+  reason in the primer (CurryPrimer/Syntax.rst, the note under functional
+  patterns), in section 5 of the README of example 24, and in
+  tests/unit_funcpat_narrowed.py, both backends: the same values by every
+  route, the forks of the direct route and of the $## route growing with
+  the comparisons, those of the set-function route staying at the match,
+  and on the C++ backend the steps of the direct route above five times
+  the steps of the set-function route.  A runtime change that removes the
+  cost flips the assertions on the direct route, which is the point of
+  the test.  Open: option (2) is the runtime work if the cost matters
+  beyond the idiom.  (5) The review proposed the shortcut of the #61 fix
+  (holds_private_state): when the outermost queue holds one configuration
+  and no queue encloses it, write the binding, the generator and the
+  chosen side of a decided choice in place instead of copy_spine and a
+  restart.  Measured on the Python backend with the evaluator patched in
+  a probe (N and hnf of fairscheme.py: the write goes to the slot of the
+  parent at the cursor, under the condition and with no set guard on the
+  path; the tree is unchanged), module of unit_funcpat_narrowed.py: many
+  through source 15483 steps, 1202 forks, 2.22 s before; 15483 steps, 7
+  forks, 0.52 s with the shortcut; 15502 steps, 8 forks, 0.13 s through
+  sourceS.  distinct: 324 forks, 0.09 s before; 62 forks, 0.05 s with
+  the shortcut; 72 forks, 0.02 s through the set function.  The values
+  are unchanged.  The forks go, but the binding is still resolved at
+  every read: 1201 writes for the 200 comparisons, because hnf meets the
+  bound character at the slot of the redex (eqChar x 'a'), which is
+  private to the comparison, while the holder of x, the cons cell of the
+  name, keeps the variable; the configuration owns the binding, not the
+  node.  Forwarding the variable node and the decided choice node
+  themselves (a second variant of the probe) brings the writes down to
+  12 and leaves the time at 0.54 s: the rest is the non-strict
+  constraints that =:<= left in the data, lifted to the root (a spine
+  copy) at every read; the set function leaves plain data.  Besides, a
+  forwarded variable breaks the invariant that the variable table maps a
+  vid to a free variable node (get_freevar, is_void, constrain_equal),
+  and every in-place publication of configuration state is visible to a
+  later evaluation of a shared subexpression (the #61 shortcut shares
+  that property).  So (5) removes the forks and four fifths of the time
+  on the Python backend and stops short of the set-function route; the
+  C++ runtime (replace_freevar and the choice path of hnf) was not
+  changed, and the idiom stays.
+- Example 21, scenario (d) on the Python backend.  Cause: apply_gnf, the
+  step of $## (backends/py/currylib/prelude/apply.py), checked for
+  residuals before the normalization ran: _applyspecial is a generator,
+  and its body, the normalization, ran only when Node consumed it after
+  the check; the check walked the argument as it stood, through the
+  logical successors of a Variable, which include the generator of a free
+  variable, and counted every void variable it met.  In scenario (d) the
+  argument was the narrowed type variable t, and the walk went through
+  its generator into the Class branch this alternative had not taken,
+  down to the generator of the name string and the tail variable of its
+  cons branch, which no alternative ever bound (the path, printed from the
+  suspended capsule: COMPLEXCASE0[0] / _Free[1] / _Choice[2] x3 /
+  Class[1] / _Free[1] / _Choice[1] / :[1]); every configuration of the
+  capsule suspended on that variable, and ready() raised
+  EvaluationSuspended out of the nested queue.  Fix: the step runs the
+  normalization first (the list of the generator), then walks the normal
+  form without entering a generator and suspends on the free variables
+  without a generator, the rule of applygnf_step in the C++ runtime.
+  Result: depth 1 gives "60 types; after the lvalue transformations, 12:
+  ..." on the Python backend; ./run with backend:py takes 24.7 s and
+  matches expected.out; the backend set of the example in
+  unit_examples.py is {'py', 'cxx'}, and sections 3 and 5 of its README
+  say so.  Test: TestNormalFormOfNarrowedVariable of
+  unit_py_residuation.py on both backends ($## over a variable narrowed
+  to a value with a String field, alone and inside a set function, and
+  the free-name shape that gives its value and then suspends on both
+  backends, as the C++ backend did before).  The review doubted that the
+  reduced shapes pin the defect, after an earlier claim that they pass
+  with the old step too.  Measured again with the committed apply.py
+  loaded beside the tree and its apply_gnf installed as the step of $##:
+  pick 1, picks and the new pickFirst 1 did not end within 20 s on the
+  Python backend, before and after the ready() fix below; with the new
+  step each ends at once.  So the shapes do pin the defect.  pickFirst,
+  added to NARROWED, reaches the step with the bare narrowed variable, the
+  condition of the entry: ($##) comes first, suspends on the free
+  variable, and the narrowing in the other conjunct of (&) wakes it.
+- ready() of the Python backend read the head of the queue.  _make_ready
+  filtered the residuals of a configuration with rts.is_void and no
+  configuration, so has_binding and is_narrowed read rts.C, the blocked
+  head, for every configuration behind it.  A configuration behind a head
+  that held a binding of its residual was released, its step suspended
+  again at once, and the two took turns without end:
+  ((v =:= 1) &> (u + 1)) ? (v + 1) with u, v free spun at full load
+  (timeout at 40 s) where the C++ runtime, whose _make_ready passes the
+  configuration, suspends at once.  Fix: is_void gets the configuration.
+  Test: TestReleaseReadsTheWaitingConfiguration of unit_py_residuation.py,
+  both orders of the alternatives, both backends.
+- #62, list functions over about a thousand elements on the Python
+  backend.  The recursion is not in hnf alone: a step function, generated
+  or built in, calls hnf on its inductive argument from the middle of its
+  body, and hnf calls the step of that redex: length [1..2000] ends in
+  RecursionError with 16386 frames, eight per element (step_tracer, S,
+  the step of plusInt, apply_unboxed, _unbox, hnf_or_free twice, hnf).
+  An iterative evaluator would have every step hand its demand back to a
+  driver and resume after it, a rewrite of the generated code and of the
+  built-in steps: not under a day.  The first decision of this entry
+  left the limit of 16384 frames and documented it, with the reason that
+  the chain re-enters C at every step and the C stack bounds it.  The
+  review measured otherwise, and the measurement was repeated: with
+  generate_values under a limit of ten million frames, on the main thread
+  with its 8 MB stack and under prlimit --as 2 GB, length over 10000
+  elements passes in 0.6 s (76 MB peak), 40000 in 2.8 s (175 MB), 160000
+  in 10.8 s (575 MB, 1.28 million frames); sort over 10000 passes in
+  8.5 s under 131072 frames already; the C stack bounded none of them.
+  The depth needed is the eight frames per element: 10000 pass and 16000
+  fail under 131072; 20000 pass and 32000 fail under 262144.  Decision
+  taken instead: the flag recursion_limit of the Python backend, the
+  recursion limit of the interpreter while a value is computed
+  (generate_values), 262144 by default (about thirty thousand elements
+  under length, 175 MB at the limit, about 4 KB per nested element), an
+  int or None (the limit of the interpreter stays); the C++ backend
+  ignores it, as the Python backend ignores stack_limit.  An alternative
+  that reaches the limit is handled as before (overflow rotation and the
+  drop of a stuck one).  unit_py_fairness.py sets 1 << 14 for its tests,
+  so its lists of ten thousand elements still overflow in about a second
+  (6 s for the file, as before).  tests/unit_long_lists.py now passes
+  length and sort over ten thousand elements on both backends (py 6.3 s,
+  the sort is 5 s of it) and pins the flag: under 1 << 14 the same length
+  raises RecursionError and a thousand elements pass.  Docs: the flag in
+  interpreter/flags.py, the sprite-exec page (Selecting a Backend and
+  Bounding One Alternative) and the EnvironmentVariables page; the
+  C-stack sentence is withdrawn.  The issue gets no comment from this
+  stream (approval needed); the text is in the report.
+- Found on the way: after the make stage of this change, unit_cxx_partial
+  and unit_cxx_literals found CxxPartial and CxxLiterals interpreted (the
+  objects of the pool older than libcyrt.so, the condition of section 4
+  of tests/README); sprite-make --so CxxPartial CxxLiterals and both pass.
+- Verification, one file per process under prlimit --as 6 GB, step mode.
+  Both backends: unit_expr.py 28 OK (cxx 2 skipped),
+  unit_funcpat_narrowed.py 2 OK (py 10.6 s, cxx 0.7 s),
+  unit_py_residuation.py 5 OK, unit_long_lists.py (py 1 expected
+  failure, cxx 2 OK), unit_setfunctions_bugs.py 22, unit_prelude.py 17.
+  C++ backend: unit_typed_expr.py 55, unit_api.py 9, unit_goals.py 46,
+  unit_cxx_partial.py 18, unit_cxx_literals.py 11 OK.  Python backend:
+  unit_typed_expr.py 55, unit_api.py 9, unit_goals.py 46,
+  unit_py_evaluation.py 6, unit_flat2icurry_bindingopt.py 31,
+  unit_py_constraints.py 4 skipped, unit_examples.py test_21 (22.3 s)
+  OK.  Example 21 ./run on the Python backend: 24.7 s, output equal to
+  expected.out.
+- Verification of the review round, one file per process under prlimit
+  --as 6 GB, step mode.  Both backends: unit_py_residuation.py 6 OK,
+  unit_expr.py 28 OK (cxx 2 skipped), unit_long_lists.py 3 OK (cxx 1
+  skipped), unit_curry2icurry.py 15 OK (25 s each).  Python backend:
+  unit_py_fairness.py 9 OK (6.2 s), unit_cache.py 28 OK, unit_configure.py
+  13 OK.  The probes: tests/unit_py_residuation.py's blockedBehindHead
+  spun on the Python backend before the ready() fix (timeout 40 s) and
+  suspends at once after it; the old $## step did not end within 20 s on
+  pick, pickFirst and picksFirst.  Through the runner (-j 2 --mem 4, both
+  backends): the prepare pass on cxx 12 of 12 (530 s); the named and the
+  new files 26 of 26; the unit suite 166 of 166 run with two files to
+  update: unit_conda.py expected the old configure sentence and the icurry
+  route without the front end (both cases now expect the new sentence;
+  icurry with the front end and --curry2icurry icurry is the configured
+  case), and test_coverage of unit_py_runtime.py expected the TypeError of
+  make_node for raw_expr(Int, 1, 2), which the #63 change turned into the
+  CurryTypeError of the builder.

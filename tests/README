@@ -404,13 +404,38 @@ when configure was given --with-icurry.  To check files by hand, say, e.g.,
 The harness prints the first differing byte and the first differing subterm
 of each file that differs.
 
-The build route applies the binding optimization before the translation
-(curry.toolchain.flat2icurry.bindingopt): a Boolean equality required to be
-True, as in the condition of a rule, becomes constrEq, as the preprocessing
-of PAKCS makes it.  The oracle compares the translation alone: the files
-icurry wrote come from the FlatCurry as the front end wrote it, and the
-icurry route does not apply the pass.  unit_flat2icurry_bindingopt.py tests
-the pass and the programs that need it, such as sendMoreMoney.
+Both routes apply the binding optimization to the FlatCurry file before the
+translation (curry.toolchain.flat2icurry.bindingopt): a Boolean equality
+required to be True, as in the condition of a rule, becomes constrEq, as
+the preprocessing of PAKCS makes it.  The pass rewrites M.fcy in place when
+it replaces an equality, in the format of the front end, and leaves the
+file alone otherwise; a second run over a rewritten file changes nothing.
+The writer (flat2icurry.flatcurry.write) reproduces the text of the front
+end: a file of the front end read and written again is byte-identical,
+which func_flat2icurry.py checks over the whole archive and the products on
+disk, with the idempotence of the pass.  The icurry program reads the
+rewritten file as well, so the two routes write the same .icy file.
+
+The oracle compares the translation alone, without the pass.  The .fcy
+files of the archive are the front end's and pair with the .icy files
+icurry wrote from them.  A product on disk pairs with the rewritten .fcy
+beside it, so the plain translation of the file on disk is the .icy on disk
+for either route (test_products_on_disk of func_flat2icurry.py).  A pair
+made before the routes rewrote the file, an unoptimized .fcy beside an .icy
+of the former in-memory pass, differs there.  Rewrite the file by hand:
+
+        python -m curry.toolchain.flat2icurry.rewrite M.fcy...
+
+rewrites FlatCurry files in place, and sprite-make --rewrite-flat M runs the
+step of a module again, current or not, and makes the ICurry from the
+rewritten file.  The option --bindingopt of python -m
+curry.toolchain.flat2icurry applies the pass to the program in memory and
+leaves the file alone.  unit_flat2icurry_bindingopt.py tests the pass, the
+rewrite, and the programs that need it, such as sendMoreMoney;
+unit_curry2icurry.py checks that both routes write the same .icy for it.
+A rebuilt archive packs rewritten .fcy files with the .icy files icurry
+wrote from them: the pass is checked against the answers of PAKCS, not
+against icurry, and the translation stays checked against icurry.
 
 `make overlay` extracts the test products and copies the interfaces of the
 front end, M.fint and M.icurry, beside each extracted .icy file (the target

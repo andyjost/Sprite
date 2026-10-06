@@ -95,18 +95,13 @@ def make_finder(fcyfile, prog, importdirs=(), subdirs=None):
              + system_curry_path()
   return f2i.InterfaceFinder(searchdirs, subdirs)
 
-def check_file(
-    fcyfile, importdirs=(), subdirs=None, icyfile=None, accept_build_route=False
-  ):
+def check_file(fcyfile, importdirs=(), subdirs=None, icyfile=None):
   '''
-  Runs the port on one file and compares the text with the oracle.
-
-  With ``accept_build_route``, a file that differs is translated once more
-  with the settings of the build route (``icurry_compat=False`` and the
-  binding optimization), and is equal when that text matches: the products
-  under the test data that an import wrote come from the build route, and
-  the binding optimization moves a required Boolean equality to
-  ``constrEq`` (section 8 of the README of the tests).
+  Runs the port on one file and compares the text with the oracle.  The
+  translation applies no pass of its own: the routes rewrite the FlatCurry
+  file before they translate it (section 8 of the README of the tests), so
+  a product of either route pairs with the file beside it as the archive
+  pairs with the files of icurry.
   '''
   start = time.time()
   if icyfile is None:
@@ -129,19 +124,6 @@ def check_file(
     expected = istream.read()
   if actual == expected:
     return Result(fcyfile, icyfile, EQUAL, '', time.time() - start)
-  if accept_build_route:
-    try:
-      built = f2i.showterm(
-          f2i.translate(prog, interfaces, icurry_compat=False, bindingopt=True)
-        )
-    except BaseException as e:
-      if isinstance(e, KeyboardInterrupt):
-        raise
-      built = None
-    if built == expected:
-      return Result(
-          fcyfile, icyfile, EQUAL, 'equal to the build route', time.time() - start
-        )
   return Result(
       fcyfile, icyfile, DIFFERENT, first_difference(expected, actual)
     , time.time() - start
@@ -156,12 +138,9 @@ def check(fcyfiles, importdirs=(), subdirs=None, icyfiles=None):
           for fcy, icy in zip(fcyfiles, icyfiles)
     ]
 
-def check_pairs(pairs, importdirs=(), subdirs=None, accept_build_route=False):
+def check_pairs(pairs, importdirs=(), subdirs=None):
   '''Runs :func:`check_file` on each ``(fcy, icy)`` pair.'''
-  return [
-      check_file(fcy, importdirs, subdirs, icy, accept_build_route)
-          for fcy, icy in pairs
-    ]
+  return [check_file(fcy, importdirs, subdirs, icy) for fcy, icy in pairs]
 
 def summarize(results):
   '''The counts of equal, different, and failed results.'''
@@ -238,6 +217,13 @@ class Overlay:
           if icy:
             pairs.append((fcy, icy))
     return sorted(pairs)
+
+  def fcys(self):
+    '''Every ``.fcy`` of the archive, the library included, sorted.'''
+    fcys = []
+    for dirpath, _, files in os.walk(self.directory):
+      fcys.extend(os.path.join(dirpath, fn) for fn in files if fn.endswith('.fcy'))
+    return sorted(fcys)
 
   def test_icys(self):
     '''Every ``.icy`` of a test program, sorted.'''

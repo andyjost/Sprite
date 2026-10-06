@@ -1,14 +1,18 @@
 '''
-The FlatCurry data types and a reader for .fcy and .fint files.
+The FlatCurry data types, a reader for .fcy and .fint files, and a writer.
 
 The types follow ``FlatCurry.Types`` of the Curry package ``flatcurry``.  A
 qualified name is a pair ``(module, name)``.  Lists stay Python lists.  The
-reader decodes the output of :func:`curry.utility.readcurry.parse`.
+reader decodes the output of :func:`curry.utility.readcurry.parse`.  The
+writer prints a program as the Curry front end does (:func:`terms.showhaskell`),
+so a program read from a file of the front end and written again gives the
+same bytes.
 '''
 
 from .errors import Flat2ICurryError
-from .terms import Char, Term, constructor
+from .terms import Char, Term, constructor, showhaskell
 from ...utility import maxrecursion, readcurry as rc
+import os
 
 __all__ = [
     'Prog', 'Type', 'TypeSyn', 'TypeNew', 'Cons', 'NewCons'
@@ -22,7 +26,7 @@ __all__ = [
   , 'Expr', 'Literal', 'TypeDecl', 'TypeExpr', 'RuleDecl', 'PatternDecl'
   , 'CombType', 'CaseType', 'Visibility', 'Kind', 'Fixity'
   , 'CONSTRUCTORS', 'all_vars', 'data_decls_of', 'decode', 'load', 'prelude'
-  , 'read'
+  , 'read', 'show', 'write'
   ]
 
 CONSTRUCTORS = {}
@@ -107,6 +111,25 @@ def load(filename):
   '''Reads a FlatCurry program (or interface) from a file.'''
   with open(filename, 'r', encoding='utf-8') as istream:
     return read(istream.read())
+
+def show(prog):
+  '''
+  The text of a FlatCurry program (or interface) as the front end writes it:
+  the ``show`` of Haskell, on one line, without a newline at the end.
+  '''
+  return showhaskell(prog)
+
+def write(prog, filename):
+  '''
+  Writes a FlatCurry program to a file in the format of the front end.  The
+  text goes to a file beside the target first, which then takes the place of
+  the target, so a reader never sees a partial file.
+  '''
+  text = show(prog)
+  tmpname = filename + '.tmp%d' % os.getpid()
+  with open(tmpname, 'w', encoding='utf-8', newline='') as ostream:
+    ostream.write(text)
+  os.replace(tmpname, filename)
 
 def decode(rcdata):
   '''Converts the ``readcurry`` representation into FlatCurry terms.'''

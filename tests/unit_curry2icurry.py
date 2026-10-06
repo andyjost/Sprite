@@ -2,6 +2,7 @@ import cytest # from ./lib; must be first
 from curry import cache, config, exceptions, toolchain
 from curry.toolchain import _curry2icurry, _frontend, plans
 from curry.utility import binding
+import flat2icurry_oracle as oracle
 import curry, os, shutil, subprocess, tarfile, tempfile, unittest
 from unittest import mock
 
@@ -232,6 +233,20 @@ class TestCurry2ICurry(cytest.TestCase):
     converter = _curry2icurry.Curry2ICurryConverter(curry2icurry='icurry')
     self.assertEqual(converter.tool, 'icurry')
     curryfile = self.copy('hello.curry')
+    # Both routes need the front end: the icurry route runs it first and
+    # rewrites its FlatCurry file.  The messages name the real requirement
+    # before any program runs.
+    icyfile = os.path.join(self.tmpdir, 'hello.icy')
+    with mock.patch.object(config, 'curry_frontend', return_value=None):
+      with self.assertRaisesRegex(
+          exceptions.CompileError, 'not configured; rerun configure with --with-curry-frontend'
+        ):
+        _frontend.command(curryfile, [])
+      with mock.patch.object(config, 'icurry_tool', return_value='/no/such/icurry'):
+        with self.assertRaisesRegex(
+            exceptions.CompileError, 'the icurry route needs the Curry front end as well'
+          ):
+          converter.command(curryfile, icyfile, [])
     if config.icurry_tool() is None:
       with self.assertRaisesRegex(exceptions.CompileError, 'icurry is not configured'):
         converter.convert(curryfile, [])
@@ -249,6 +264,57 @@ class TestCurry2ICurry(cytest.TestCase):
       os.unlink(icy)
       self.assertEqual(readbytes(self.convert(curryfile)), text)
       self.assertEqual(interfaces_beside(icy), interfaces)
+
+  def test_binding_optimization(self):
+    '''
+    The route rewrites the FlatCurry file of the module in place before the
+    translation (the binding optimization of PAKCS): the file on disk is the
+    optimized program, the ICurry is its plain translation, and the oracle
+    harness finds the two equal.  A second conversion changes neither.
+    '''
+    self.without_cache()
+    curryfile = self.copy('sendMoreMoney.curry')
+    icy = self.convert(curryfile)
+    fcy = _frontend.flatcurryfile(curryfile)
+    fcytext, icytext = readbytes(fcy), readbytes(icy)
+    self.assertTrue(fcytext.startswith(b'Prog "sendMoreMoney" '))
+    self.assertEqual(fcytext.count(b'constrEq'), 15)
+    self.assertNotIn(b'_impl#==#', fcytext)
+    self.assertEqual(icytext.count(b'constrEq'), 15)
+    result = oracle.check_file(fcy, icyfile=icy)
+    self.assertEqual(result.status, oracle.EQUAL, result.detail)
+    mtime = os.stat(fcy).st_mtime_ns
+    self.assertEqual(self.convert(curryfile), icy)
+    self.assertEqual(os.stat(fcy).st_mtime_ns, mtime)
+    self.assertEqual(readbytes(icy), icytext)
+    # A module in which nothing is replaced keeps the bytes of the front end.
+    hello = self.copy('hello.curry')
+    other = os.path.join(self.tmpdir, 'other', 'hello.curry')
+    os.makedirs(os.path.dirname(other))
+    shutil.copy(hello, other)
+    self.convert(hello)
+    self.assertEqual(
+        readbytes(_frontend.flatcurryfile(hello))
+      , readbytes(_frontend.curry2flat(other, [], quiet=True))
+      )
+
+  def test_binding_optimization_icurry(self):
+    '''
+    The icurry route runs the front end and the rewrite first, so the icurry
+    program reads the optimized file and writes the same ICurry as the route
+    through the port.
+    '''
+    if config.icurry_tool() is None:
+      self.skipTest('icurry is not configured')
+    self.without_cache()
+    port = readbytes(self.convert(self.copy('sendMoreMoney.curry')))
+    other = os.path.join(self.tmpdir, 'other', 'sendMoreMoney.curry')
+    os.makedirs(os.path.dirname(other))
+    shutil.copy(os.path.join(DATA, 'sendMoreMoney.curry'), other)
+    icy = self.convert(other, curry2icurry='icurry')
+    self.assertEqual(readbytes(icy), port)
+    self.assertEqual(readbytes(_frontend.flatcurryfile(other)).count(b'constrEq'), 15)
+    self.assertFalse(_curry2icurry.icurry_is_stale(icy))
 
   def test_stale_without_interfaces(self):
     '''
@@ -435,3 +501,53 @@ class TestCurry2ICurry(cytest.TestCase):
         )
     usage = subprocess.check_output([makeprg, '-h']).decode('utf-8')
     self.assertIn('--curry2icurry', usage)
+    self.assertIn('--rewrite-flat', usage)
+
+  def test_sprite_make_rewrite_flat(self):
+    '''
+    sprite-make --rewrite-flat runs the step from Curry to ICurry again,
+    current or not: a FlatCurry file written before the routes rewrote it
+    gets the pass, and the ICurry is made from it.
+    '''
+    makeprg = os.path.join(os.environ['SPRITE_HOME'], 'bin', 'sprite-make')
+    # The children run without the ICurry cache: a hit writes no FlatCurry.
+    env = dict(os.environ, SPRITE_CACHE_FILE='')
+    def make(*args):
+      return subprocess.run(
+          [makeprg] + list(args), env=env, stdout=subprocess.PIPE
+        , stderr=subprocess.PIPE, text=True, timeout=300
+        )
+    curryfile = self.copy('sendMoreMoney.curry')
+    fcy = _frontend.flatcurryfile(curryfile)
+    icy = os.path.join(self.tmpdir, SUBDIR, 'sendMoreMoney.icy')
+    self.assertEqual(make('--icy', curryfile).returncode, 0)
+    optimized, icytext = readbytes(fcy), readbytes(icy)
+    self.assertIn(b'constrEq', optimized)
+    # The front end's text takes the place of the file, as a product of an
+    # older toolchain would be.  A plain run finds the module current and
+    # leaves it; --rewrite-flat rewrites the file and the ICurry.
+    older = os.path.join(self.tmpdir, 'older', 'sendMoreMoney.curry')
+    os.makedirs(os.path.dirname(older))
+    shutil.copy(curryfile, older)
+    unoptimized = readbytes(_frontend.curry2flat(older, [], quiet=True))
+    self.assertNotIn(b'constrEq', unoptimized)
+    with open(fcy, 'wb') as ostream:
+      ostream.write(unoptimized)
+    mtime = os.stat(icy).st_mtime_ns
+    self.assertEqual(make('--icy', curryfile).returncode, 0)
+    self.assertEqual(readbytes(fcy), unoptimized)
+    self.assertEqual(os.stat(icy).st_mtime_ns, mtime)
+    proc = make('--rewrite-flat', '--json', curryfile)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    self.assertEqual(readbytes(fcy), optimized)
+    self.assertEqual(readbytes(icy), icytext)
+    self.assertGreater(os.stat(icy).st_mtime_ns, mtime)
+    self.assertTrue(os.path.isfile(icy[:-4] + '.json'))
+    # The option runs the modules in this process, and needs the source.
+    proc = make('--rewrite-flat', '--icy', '--jobs', '2', curryfile)
+    self.assertEqual(proc.returncode, 1)
+    self.assertIn('--jobs 1', proc.stderr)
+    os.unlink(curryfile)
+    proc = make('--rewrite-flat', '--icy', curryfile)
+    self.assertEqual(proc.returncode, 1)
+    self.assertIn('needs the Curry source', proc.stderr)

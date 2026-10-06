@@ -1,5 +1,6 @@
 '''
-The binding optimization, a FlatCurry-to-FlatCurry pass of the build route.
+The binding optimization, a FlatCurry-to-FlatCurry pass over the FlatCurry
+file of a module.
 
 PAKCS and KiCS2 run the tool ``transbooleq`` over every FlatCurry file they
 compile (the property ``bindingoptimization`` of PAKCS, ``fast`` by
@@ -35,10 +36,26 @@ required to be.  An equivalence ``==`` is replaced on the assumption that
 the ``Eq`` instance defines equality; the tool of PAKCS makes the same
 assumption.
 
-:func:`optimize_bindings` is the entry point.  The build route
-(:mod:`curry.toolchain._frontend`) applies it before the translation to
-ICurry; the oracle tests of the translation do not, because the files
-``icurry`` wrote come from the FlatCurry as the front end wrote it.
+:func:`optimize_file` applies the pass to a FlatCurry file in place, as
+PAKCS does before any compiler reads the file (``preprocessFcyFile`` of its
+compiler): the file is written again when the pass replaced an equality, and
+left as it is otherwise.  Both routes from Curry to ICurry
+(:mod:`curry.toolchain._frontend` and the ``icurry`` program, see
+:mod:`curry.toolchain._curry2icurry`) run it after the front end and before
+the translation, so the ``.fcy`` file on disk is the optimized program and
+the two routes translate the same text.  The pass is idempotent: over an
+optimized program it replaces nothing and writes nothing.
+:func:`optimize_bindings` is the pass on a program in memory; the oracle
+tests of the translation never apply it, because the files ``icurry`` wrote
+for the oracle come from the FlatCurry as the front end wrote it.
+
+The command line of :mod:`rewrite` rewrites FlatCurry files by hand::
+
+    python -m curry.toolchain.flat2icurry.rewrite [-q] M.fcy...
+
+The products made from the file before (the ICurry and what follows it)
+are not touched by it; ``sprite-make --rewrite-flat`` runs the step of a
+module again and makes them from the rewritten file.
 '''
 
 from . import flatcurry as fc
@@ -47,8 +64,8 @@ import functools
 __all__ = [
     'ANY', 'ANYC', 'FAILED', 'PRELUDE_REQUIRED_VALUES', 'case_arg_type'
   , 'constructors', 'contains_equality', 'equality_operands', 'lub'
-  , 'optimize_bindings', 'required_argument_values', 'transform_exp'
-  , 'transform_func', 'transform_prog'
+  , 'optimize_bindings', 'optimize_file', 'required_argument_values'
+  , 'transform_exp', 'transform_func', 'transform_prog'
   ]
 
 # The abstract values of the required-values analysis (AType of the
@@ -324,6 +341,24 @@ def transform_prog(prog, equivalence=True):
     ), total
 
 def optimize_bindings(prog, equivalence=True):
-  '''Applies the binding optimization to a FlatCurry program.'''
-  prog, _ = transform_prog(prog, equivalence)
-  return prog
+  '''
+  Applies the binding optimization to a FlatCurry program.  Returns the
+  transformed program when an equality was replaced, else ``prog`` itself:
+  transbooleq writes a file only then, so a rule whose equalities all stay
+  is rebuilt (its ``$`` reduced) only in a program that is transformed.
+  '''
+  newprog, n = transform_prog(prog, equivalence)
+  return newprog if n else prog
+
+def optimize_file(fcyfile, equivalence=True):
+  '''
+  Applies the binding optimization to the FlatCurry file ``fcyfile`` in
+  place.  The file is written again, in the format of the front end, when
+  the pass replaced an equality; else it is left as it is, with its time.
+  Returns the number of equalities replaced.
+  '''
+  prog = fc.load(fcyfile)
+  newprog, n = transform_prog(prog, equivalence)
+  if n:
+    fc.write(newprog, fcyfile)
+  return n

@@ -7,6 +7,12 @@ The interfaces of the imports are searched under the root directory of the
 module and the ``-i`` directories, in the ``.curry`` subdirectories named by
 ``-s``.  Without ``-s``, the subdirectory of ``.curry`` that holds ``M.fcy``
 is used.
+
+``--bindingopt`` applies the binding optimization to the program in memory
+before the translation and leaves ``M.fcy`` as it is: the ICurry of a
+FlatCurry file the routes have not rewritten yet, without a change to the
+file.  To rewrite the file itself, as the routes do, run
+``python -m curry.toolchain.flat2icurry.rewrite M.fcy``.
 '''
 
 from . import (
@@ -40,8 +46,10 @@ def main(argv=None):
     )
   parser.add_argument(
       '--bindingopt', action='store_true'
-    , help='apply the binding optimization first, as the build route does: '
-           'a Boolean equality required to be True becomes constrEq'
+    , help='apply the binding optimization to the program in memory first: '
+           'a Boolean equality required to be True becomes constrEq; the '
+           'file is not touched (the routes rewrite it instead, see '
+           'curry.toolchain.flat2icurry.bindingopt)'
     )
   args = parser.parse_args(argv)
   prog = load_interface(args.fcyfile)

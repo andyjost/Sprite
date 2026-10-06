@@ -57,8 +57,15 @@ Selecting a Backend
 ===================
 
 Sprite has two backends.  The Python backend is the default.  It suits small
-programs.  The C++ backend is faster and suits larger programs.  To select
-it, set ``SPRITE_INTERPRETER_FLAGS`` in the environment::
+programs.  The C++ backend is faster and suits larger programs.  The Python
+backend evaluates a nested step by a recursive Python call, about eight
+frames per element of a list under a function that is not tail recursive,
+such as ``length`` or ``sort``.  The flag ``recursion_limit`` (below) bounds
+the frames of one value, 262144 by default, so ``length`` of a list of about
+thirty thousand elements ends with ``RecursionError`` there; a larger limit
+costs about 4 KB of memory per nested element.  The C++ backend has no such
+limit below its ``stack_limit`` (below).  To select it, set
+``SPRITE_INTERPRETER_FLAGS`` in the environment::
 
     SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
 
@@ -84,6 +91,11 @@ before the next one runs.  The default is 2048::
 Python stack overflow still occurs.  An alternative that overflows the Python
 stack runs again after the others.  When it overflows again without progress,
 it is dropped, and its error is reported after the others have run.
+``recursion_limit`` sets the number of Python frames one value may nest, the
+recursion limit of the interpreter while the value is computed.  The default
+is 262144, about thirty thousand elements of a list under ``length``::
+
+    SPRITE_INTERPRETER_FLAGS=recursion_limit:1048576 sprite-exec prog.curry
 
 On the C++ backend, ``stack_limit`` sets the number of bytes of C stack one
 evaluation may use.  The default is 4194304.  When an alternative reaches the

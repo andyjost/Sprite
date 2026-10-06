@@ -4,7 +4,7 @@ from . import configuration
 from .. import graph
 from .... import inspect
 from ....utility import maxrecursion
-import itertools
+import itertools, sys
 
 __all__ = ['InterpreterState', 'RuntimeState']
 
@@ -81,6 +81,8 @@ class RuntimeState(object):
     self.stepcounter = stepcounter.StepCounter()
     # The step budget of a configuration.  See rts_control.count_step.
     self.step_budget = interp.flags['step_budget']
+    # The number of Python frames one value may nest.  See generate_values.
+    self.recursion_limit = interp.flags['recursion_limit']
     # The error of an alternative dropped at the stack limit.  D raises it
     # when the outermost queue is empty.  See rts_control.overflow.
     self.deferred_error = None
@@ -156,13 +158,14 @@ class RuntimeState(object):
     Generate the values of the goal.
 
     The evaluator nests one Python call per level of a deep expression, so
-    each value is computed under a raised recursion limit (see
-    utility.maxrecursion).  The limit is restored between values.
+    each value is computed under a raised recursion limit, the flag
+    ``recursion_limit`` (see utility.maxrecursion).  The limit is restored
+    between values.  With the flag None the limit of the interpreter stays.
     '''
     from .fairscheme import D
     values = D(self)
     while True:
-      with maxrecursion():
+      with maxrecursion(self.recursion_limit or sys.getrecursionlimit()):
         try:
           value = next(values)
         except StopIteration:

@@ -179,10 +179,13 @@ def _sourceinfo(path):
 # The sources of the built-in translation from FlatCurry to ICurry
 # (curry.toolchain.flat2icurry).  They are part of the digest of the
 # front-end route: a change to the translation changes the ICurry as a new
-# front end would.
+# front end would.  The icurry route runs the binding optimization over the
+# FlatCurry file before the icurry program reads it, so the sources of that
+# pass (REWRITE_SOURCES) are part of its digest too.
 PORT_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), 'toolchain', 'flat2icurry'
   )
+REWRITE_SOURCES = ['bindingopt.py', 'flatcurry.py', 'terms.py']
 
 def _digest_file(hasher, path):
   with open(path, 'rb') as stream:
@@ -193,12 +196,17 @@ def frontend_digest(tool=None):
   '''
   A digest of the route from Curry to ICurry named by ``tool`` (see
   ``config.curry2icurry_tool``; the configured route by default).  For
-  ``icurry`` it covers the name of the route and the content of the
-  ``icurry`` program.  For ``frontend`` it covers the name, the content of
-  the Curry front end, the front-end flags, and the sources of the built-in
-  translation.  So a new front end, new flags, or a change to the translation
-  makes a new key, and an entry written by one route is never served to the
-  other.  The empty string when the program of the route is missing.
+  ``icurry`` it covers the name of the route, the content of the ``icurry``
+  program, the front-end flags, and the sources of the binding
+  optimization, which rewrites the FlatCurry file before the program reads
+  it.  For ``frontend`` it covers the name, the content of the Curry front
+  end, the flags, and the sources of the built-in translation.  The flags
+  are in both digests: both routes translate the FlatCurry file that
+  Sprite's own run of the front end wrote with them (the ``icurry`` program
+  finds that file current and leaves it).  So a new front end, new flags,
+  or a change to the translation makes a new key, and an entry written by
+  one route is never served to the other.  The empty string when the
+  program of the route is missing.
   '''
   if tool is None:
     tool = config.curry2icurry_tool()
@@ -214,12 +222,14 @@ def frontend_digest(tool=None):
       if program is None:
         raise OSError('the %s route is not configured' % tool)
       _digest_file(hasher, os.path.realpath(program))
+      hasher.update(config.frontend_flags().encode('utf-8') + b'\0')
       if tool == 'frontend':
-        hasher.update(config.frontend_flags().encode('utf-8') + b'\0')
-        for name in sorted(os.listdir(PORT_DIR)):
-          if name.endswith('.py'):
-            hasher.update(name.encode('utf-8') + b'\0')
-            _digest_file(hasher, os.path.join(PORT_DIR, name))
+        sources = [n for n in sorted(os.listdir(PORT_DIR)) if n.endswith('.py')]
+      else:
+        sources = REWRITE_SOURCES
+      for name in sources:
+        hasher.update(name.encode('utf-8') + b'\0')
+        _digest_file(hasher, os.path.join(PORT_DIR, name))
       digest = hasher.hexdigest()
     except OSError as err:
       logger.debug('cannot read the Curry front end: %s', err)

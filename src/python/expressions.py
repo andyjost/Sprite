@@ -13,6 +13,7 @@ value.
 '''
 
 from . import backends, config, icurry, objects, utility
+from .common import T_FUNC
 from .exceptions import CurryTypeError
 from .utility import strings, visitation
 import collections.abc, itertools, numbers, weakref
@@ -284,7 +285,11 @@ def raw_expr(interp, *args, **kwds):
   checked, no dictionary is supplied, a :class:`free` marker becomes a raw
   ``Free`` node with the id of the marker, a new node per occurrence, and a
   :class:`choice` marker a raw ``Choice`` node with the id of the marker.
-  An expression that is not well typed evaluates with undefined behaviour.
+  Fewer arguments than the arity of a symbol give a partial application; a
+  function applied to more goes through ``Prelude.apply``, one node per
+  surplus argument, as a point-free definition needs; a constructor applied
+  to more is an error.  An expression that is not well typed evaluates with
+  undefined behaviour.
   '''
   return _build(interp, args, kwds, raw=True)
 
@@ -520,12 +525,34 @@ class ExpressionBuilder(object):
 
   @__call__.when((objects.CurryNodeInfo, backends.InfoTable))
   def __call__(self, ti, *args):
-    missing =  getattr(ti, 'info', ti).arity - len(args)
-    partial_info = self.fsyms.PartApplic if missing > 0 else None
-    return self._mknode(
-        ti, *map(lambda s: self(s), args), target=self.target
-      , partial_info=partial_info
-      )
+    info = getattr(ti, 'info', ti)
+    arity = info.arity
+    if len(args) <= arity:
+      partial_info = self.fsyms.PartApplic if len(args) < arity else None
+      return self._mknode(
+          ti, *map(lambda s: self(s), args), target=self.target
+        , partial_info=partial_info
+        )
+    # More arguments than the arity.  A function may return a function, as a
+    # point-free definition does, so the surplus goes through Prelude.apply,
+    # one node per argument, as the typed builder does.  A constructor
+    # returns data: the application is an error here, not at the node.
+    if info.tag != T_FUNC:
+      # The sentence of the typed builder (typecheck.errors.ArityError)
+      # without the scheme: this builder knows the arity alone.
+      raise CurryTypeError(
+          '%s takes %d argument%s, %d given'
+              % (info.name, arity, '' if arity == 1 else 's', len(args))
+        )
+    head, rest = args[:arity], args[arity:]
+    apply_ = self.prelude.apply
+    node = self._mknode(ti, *map(lambda s: self(s), head))
+    for i, extra in enumerate(rest):
+      node = self._mknode(
+          apply_, node, self(extra)
+        , target=self.target if i == len(rest) - 1 else None
+        )
+    return node
 
   @__call__.when(backends.Node)
   def __call__(self, node, *trailing):

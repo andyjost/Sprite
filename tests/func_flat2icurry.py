@@ -1,5 +1,7 @@
 import cytest # from ./lib; must be first
 import flat2icurry_oracle as oracle
+from curry.toolchain.flat2icurry import bindingopt as bo, flatcurry as fc
+from curry.utility import maxrecursion
 import contextlib, io, os, re, shutil, tempfile, unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -41,11 +43,21 @@ class TestWholeCorpus(cytest.TestCase):
     shutil.rmtree(cls.tmpdir, ignore_errors=True)
     super().tearDownClass()
 
-  def check_pairs(self, pairs, importdirs, accept_build_route=False):
-    results = oracle.check_pairs(
-        pairs, importdirs, accept_build_route=accept_build_route
-      )
+  def check_pairs(self, pairs, importdirs):
+    results = oracle.check_pairs(pairs, importdirs)
     self.assertEqual(oracle.summarize(results), (len(pairs), 0, 0), oracle.report(results))
+
+  def on_disk_fcys(self):
+    '''Every FlatCurry file of the front end under tests/data, sorted.'''
+    fcys = []
+    for dirpath, _, files in os.walk(DATA):
+      for fn in files:
+        if fn.endswith('.fcy'):
+          fcy = os.path.join(dirpath, fn)
+          location = oracle.f2i.product_path(fcy)
+          if location is not None and location[1] == self.overlay.subdir:
+            fcys.append(fcy)
+    return sorted(fcys)
 
   def test_library(self):
     '''The committed .icy files of the library.'''
@@ -67,30 +79,74 @@ class TestWholeCorpus(cytest.TestCase):
   def test_products_on_disk(self):
     '''
     The products under tests/data on this machine.  They come from the
-    archive, or from an import on this machine, which translates with the
-    settings of the build route (the binding optimization among them); a
-    product of the build route is equal when the port reproduces it with
-    those settings.
+    archive, or from an import on this machine, whose route rewrote the
+    FlatCurry file before the translation (section 8 of the README), so
+    the plain translation of the file on disk is the ICurry beside it.  A
+    pair made before the routes rewrote the file differs; rewrite the file
+    (python -m curry.toolchain.flat2icurry.rewrite) or run sprite-make
+    --rewrite-flat on the module.
     '''
     pairs = []
-    for dirpath, _, files in os.walk(DATA):
-      for fn in files:
-        if not fn.endswith('.fcy') or fn[:-len('.fcy')] in ROUTE_DIFFERS:
-          continue
-        fcy = os.path.join(dirpath, fn)
-        location = oracle.f2i.product_path(fcy)
-        if location is None or location[1] != self.overlay.subdir:
-          continue
-        icy = oracle.expected_icy(fcy)
-        if icy:
-          pairs.append((fcy, icy))
+    for fcy in self.on_disk_fcys():
+      if os.path.basename(fcy)[:-len('.fcy')] in ROUTE_DIFFERS:
+        continue
+      icy = oracle.expected_icy(fcy)
+      if icy:
+        pairs.append((fcy, icy))
     if not pairs:
       self.skipTest('no front-end products under tests/data')
     self.check_pairs(
-        sorted(pairs)
-      , self.overlay.library_dirs() + LIBRARY_DIRS + CORPUS_IMPORT_DIRS
-      , accept_build_route=True
+        pairs, self.overlay.library_dirs() + LIBRARY_DIRS + CORPUS_IMPORT_DIRS
       )
+
+  def test_writer_round_trip(self):
+    '''
+    The FlatCurry writer reproduces the front end's text byte for byte:
+    every .fcy of the archive, the library included, and every one under
+    tests/data that the front end wrote.  A file PAKCS rewrote (its
+    preprocessing writes the showTerm format) is not the front end's text
+    and is left out; there is none in the archive.
+    '''
+    archive = self.overlay.fcys()
+    self.assertGreater(len(archive), 1200)
+    checked = skipped = 0
+    for fcy in archive + self.on_disk_fcys():
+      with open(fcy, 'r', encoding='utf-8', newline='') as istream:
+        text = istream.read()
+      if not text.startswith('Prog '):
+        self.assertFalse(fcy.startswith(self.overlay.directory), fcy)
+        skipped += 1
+        continue
+      shown = fc.show(fc.read(text))
+      if shown != text:
+        self.fail('%s\n%s' % (fcy, oracle.first_difference(text, shown)))
+      checked += 1
+    self.assertGreaterEqual(checked, len(archive))
+
+  def test_rewrite_is_idempotent(self):
+    '''
+    The binding optimization over an optimized program replaces nothing and
+    gives the program back, and the optimized program survives the writer
+    and the reader: the second run of a route over a rewritten file changes
+    nothing.  Every .fcy of the archive, some of which the pass changes.
+    '''
+    changed = []
+    for fcy in self.overlay.fcys():
+      prog = fc.load(fcy)
+      once, n = bo.transform_prog(prog)
+      twice, m = bo.transform_prog(once)
+      self.assertEqual(m, 0, fcy)
+      # A deep term (a long string literal) compares below the default
+      # recursion limit.
+      with maxrecursion():
+        self.assertTrue(twice == once, fcy)
+        if n:
+          changed.append(os.path.basename(fcy))
+          self.assertTrue(fc.read(fc.show(once)) == once, fcy)
+          self.assertIsNot(bo.optimize_bindings(prog), prog)
+        else:
+          self.assertIs(bo.optimize_bindings(prog), prog)
+    self.assertTrue(changed, 'no module of the archive has a required equality')
 
   def test_cli_overlay(self):
     '''The --overlay option of the harness checks the same files.'''

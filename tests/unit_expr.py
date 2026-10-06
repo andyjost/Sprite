@@ -253,3 +253,79 @@ class TestExpr(cytest.TestCase):
            , '<(,,) <Int 5> <: <Int 5> <[]>> <Just <[]>>>'
 
 
+
+
+class TestSurplusArguments(cytest.TestCase):
+  '''
+  A symbol applied to more arguments than its arity (issue #63).  A function
+  may return a function, as a point-free definition does: the surplus goes
+  through Prelude.apply in the untyped builder, as it does in the typed one.
+  A constructor applied to a surplus is an error, and so is a node made with
+  a count other than the arity, on both backends.
+  '''
+  @classmethod
+  def setUpClass(cls):
+    cls.M = curry.compile(
+        '''
+        norm :: Int -> Int
+        norm = (+ 1) . (* 2)
+
+        twice :: (a -> a) -> a -> a
+        twice f = f . f
+        '''
+      , modulename='PointFree63'
+      )
+
+  def values(self, *args):
+    return list(curry.eval(*args, converter='topython'))
+
+  def test_point_free(self):
+    M = self.M
+    e = curry.raw_expr(M.norm, 3)
+    self.assertEqual(str(e), 'apply norm 3')
+    self.assertEqual(self.values(e), [7])
+    e = curry.raw_expr(M.twice, M.norm, 3)
+    self.assertEqual(str(e), 'apply (twice norm) 3')
+    self.assertEqual(self.values(e), [15])
+    # Two surplus arguments: one apply per argument.
+    e = curry.raw_expr(M.twice, M.twice, M.norm, 3)
+    self.assertEqual(str(e), 'apply (apply (twice twice) norm) 3')
+    self.assertEqual(self.values(e), [63])
+    # The typed builder, and so curry.eval, take the same route.
+    self.assertEqual(str(curry.expr(M.norm, 3)), 'apply norm 3')
+    self.assertEqual(self.values(M.norm, 3), [7])
+    self.assertEqual(self.values(M.twice, M.norm, 3), [15])
+
+  def test_constructor_surplus(self):
+    '''Both builders refuse the surplus with one sentence form.'''
+    P = curry.import_('Prelude')
+    with self.assertRaises(CurryTypeError) as cm:
+      curry.raw_expr(P.Just, 1, 2)
+    self.assertEqual(str(cm.exception), 'Just takes 1 argument, 2 given')
+    with self.assertRaisesRegex(CurryTypeError, 'takes 1 argument, 2 given'):
+      curry.expr(P.Just, 1, 2)
+    with self.assertRaises(CurryTypeError) as cm:
+      curry.raw_expr(P.Nothing, 1)
+    self.assertEqual(str(cm.exception), 'Nothing takes 0 arguments, 1 given')
+
+  def test_node_count(self):
+    '''A node is made with the count of its arity, on both backends.'''
+    P = curry.import_('Prelude')
+    backend = curry.getInterpreter().backend
+    make = backend.make_node
+    partial = backend.fundamental_symbols.PartApplic
+    one = curry.raw_expr(1)
+    with self.assertRaisesRegex(
+        TypeError, r"cannot construct 'Just' \(arity=1\), with 2 args"
+      ):
+      make(P.Just, one, one)
+    with self.assertRaisesRegex(
+        TypeError, r"cannot construct 'Just' \(arity=1\), with 0 args"
+      ):
+      make(P.Just)
+    with self.assertRaisesRegex(
+        TypeError, r"cannot curry 'Just' \(arity=1\), with 1 arg"
+      ):
+      make(P.Just, one, partial_info=partial)
+    self.assertEqual(str(make(P.Just, one)), 'Just 1')
+    self.assertEqual(str(make(P.Just, partial_info=partial)), 'Just')

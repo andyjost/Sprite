@@ -120,6 +120,17 @@ The following are recognized:
 
      SPRITE_INTERPRETER_FLAGS=step_budget:65536 sprite-exec prog.curry
 
+  The ``recursion_limit`` flag sets the number of Python frames the Python
+  backend lets one value nest, the recursion limit of the interpreter while
+  the value is computed.  The default is 262144.  The backend nests about
+  eight frames per element of a list under a function that is not tail
+  recursive, such as ``length`` or ``sort``, so the default covers a list of
+  about thirty thousand elements; a larger limit costs about 4 KB of memory
+  per nested element.  ``None`` leaves the limit of the interpreter as it
+  is.  To raise the limit, say::
+
+     SPRITE_INTERPRETER_FLAGS=recursion_limit:1048576 sprite-exec prog.curry
+
   The ``stack_limit`` flag sets the number of bytes of C stack the C++ backend
   lets one evaluation use.  The default is 4194304.  When an alternative
   reaches the limit, the backend unwinds to the scheduler and runs the other
@@ -254,10 +265,11 @@ with Sprite, then you should not need these.
 ``SPRITE_CURRY2ICURRY``
   Names the route from Curry to ICurry.  ``frontend`` runs the Curry front
   end and then Sprite's own translation from FlatCurry
-  (:mod:`curry.toolchain.flat2icurry`).  ``icurry`` runs the ``icurry``
-  program, when ``configure`` was given ``--with-icurry``.  The default is
-  the choice made by ``configure`` (option ``--curry2icurry``), else the
-  front end when it is installed.  Both routes write the same files.
+  (:mod:`curry.toolchain.flat2icurry`).  ``icurry`` runs the Curry front
+  end, then the ``icurry`` program, when ``configure`` was given
+  ``--with-icurry``; both routes need the front end.  The default is the
+  choice made by ``configure`` (option ``--curry2icurry``), else the front
+  end.  Both routes write the same files.
 
 ``SPRITE_CXX_PCH_ROOT``
   The directory under which the C++ backend keeps the precompiled form of the

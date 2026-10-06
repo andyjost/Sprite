@@ -13,12 +13,16 @@ interfaces of the imports beside their sources.  Then
 The command runs in the directory of the module and names the module by its
 file name, as ``icurry`` does, so the output lands in the same places.
 
-The translation runs with ``bindingopt=True``: the binding optimization of
-:mod:`curry.toolchain.flat2icurry.bindingopt` turns the Boolean equalities
-of the conditions into equational constraints, as the preprocessing of
-PAKCS does before it compiles a FlatCurry file.  A program that binds free
-variables through ``==`` in a guard then runs as it runs under PAKCS.  The
-``icurry`` route does not apply it; its ICurry is the program as written.
+Between the two steps the binding optimization of
+:mod:`curry.toolchain.flat2icurry.bindingopt` rewrites ``M.fcy`` in place
+(:func:`optimize_flatcurry`): the Boolean equalities of the conditions
+become equational constraints, as the preprocessing of PAKCS makes them
+before it compiles a FlatCurry file.  A program that binds free variables
+through ``==`` in a guard then runs as it runs under PAKCS.  A file in which
+the pass replaces nothing keeps its bytes and its time.  The ``icurry``
+route runs the same two steps before the ``icurry`` program, so the file
+both routes translate is the optimized one, and the translation itself runs
+without the pass (``bindingopt=False``).
 
 The translation runs with ``icurry_compat=False``.  ``icurry`` 3.1.0 loses
 the bindings of a let or free declaration under a type annotation at the
@@ -38,7 +42,7 @@ import logging, os, shlex
 
 __all__ = [
     'QUIET_FLAGS', 'command', 'curry2flat', 'curry2icurry', 'flat2icy'
-  , 'flatcurryfile', 'interfacefile', 'searchdirs'
+  , 'flatcurryfile', 'interfacefile', 'optimize_flatcurry', 'searchdirs'
   ]
 logger = logging.getLogger(__name__)
 
@@ -85,12 +89,12 @@ def command(file_in, currypath, quiet=False):
   The front-end command line for the Curry file ``file_in``.  The output
   directory is relative, so it is resolved against the directory of each
   module the front end compiles.  A front end that is not configured raises
-  ``CompileError``.
+  ``CompileError``; both routes need it (see ``_curry2icurry``).
   '''
   if config.curry_frontend() is None:
     raise CompileError(
-        'the Curry front end is not configured; rerun configure, or set '
-        'SPRITE_CURRY2ICURRY=icurry to use icurry'
+        'the Curry front end is not configured; rerun configure with '
+        '--with-curry-frontend'
       )
   name = os.path.basename(file_in)
   assert name.endswith('.curry')
@@ -122,20 +126,33 @@ def curry2flat(file_in, currypath, quiet=False):
     raise CompileError('the front end did not write %s' % fcyfile)
   return fcyfile
 
+def optimize_flatcurry(fcyfile):
+  '''
+  Applies the binding optimization to the FlatCurry file in place, as PAKCS
+  does before any compiler reads it.  Returns the number of equalities
+  replaced; the file is written again only when that is not zero.
+  '''
+  n = flat2icurry.optimize_file(fcyfile)
+  if n:
+    logger.debug('Rewrote %s: %d equalities replaced by constrEq', fcyfile, n)
+  return n
+
 def flat2icy(fcyfile, file_out, searchdirs):
   '''
   Translates the FlatCurry file ``fcyfile`` to ICurry and writes ``file_out``.
-  The interfaces of the imports are searched under ``searchdirs``.
+  The interfaces of the imports are searched under ``searchdirs``.  The
+  translation applies no pass of its own: the file is the optimized program
+  (see :func:`optimize_flatcurry`).
   '''
   finder = flat2icurry.InterfaceFinder(searchdirs, [config.frontend_subdir()])
-  iprog = flat2icurry.translate_file(
-      fcyfile, finder, icurry_compat=False, bindingopt=True
-    )
+  iprog = flat2icurry.translate_file(fcyfile, finder, icurry_compat=False)
   flat2icurry.write_icurry(iprog, file_out)
 
 def curry2icurry(file_in, file_out, currypath, quiet=False):
   '''
-  Converts the Curry file ``file_in`` to the ICurry file ``file_out``.
+  Converts the Curry file ``file_in`` to the ICurry file ``file_out``: the
+  front end, the rewrite of its FlatCurry file, and the translation.
   '''
   fcyfile = curry2flat(file_in, currypath, quiet)
+  optimize_flatcurry(fcyfile)
   flat2icy(fcyfile, file_out, searchdirs(file_in, currypath))

@@ -582,7 +582,9 @@ def set_ccache(settings):
 def set_frontend(settings):
   '''
   Finds the Curry front end.  By default it is the pakcs-frontend of the
-  selected PAKCS.  It is required unless icurry was requested instead.
+  selected PAKCS.  It is required: both routes from Curry to ICurry run it
+  (the icurry route runs it first and rewrites its FlatCurry file before
+  icurry reads it; see curry.toolchain._curry2icurry).
   '''
   given = requested(OPTS.with_curry_frontend, 'CURRY_FRONTEND')
   if given == '':
@@ -595,19 +597,17 @@ def set_frontend(settings):
     candidate = os.path.join(bindir, 'pakcs-frontend')
     if os.path.exists(candidate):
       default = candidate
-  icurry_requested = bool(requested(OPTS.with_icurry, 'ICURRY'))
   set_from_path(settings, 'CURRY_FRONTEND', 'pakcs-frontend', 'Curry front end'
     , web='https://www.curry-lang.org/pakcs/'
     , hint='the front end comes with PAKCS, as bin/pakcs-frontend'
     , default=default
-    , required=not icurry_requested
     )
   settings.setdefault('CURRY_FRONTEND', '')
 
 def set_icurry(settings):
   '''
-  Finds icurry.  It is optional when the Curry front end was found: it is
-  configured only when requested.  Without the front end it is required.
+  Finds icurry.  It is optional: it is configured only when requested, and
+  the Curry front end is required with it (see set_frontend).
   '''
   given = requested(OPTS.with_icurry, 'ICURRY')
   if given == '':
@@ -709,8 +709,10 @@ def set_curry2icurry_tool(settings):
     warn('--curry2icurry=%s was requested, but that tool is not configured.' % tool)
     if not OPTS.check_prereqs:
       abort()
-  if not tool and not OPTS.check_prereqs:
-    warn('Neither the Curry front end nor icurry is configured.')
+  if not frontend and not OPTS.check_prereqs:
+    warn('The Curry front end is not configured.  Both routes from Curry to '
+         'ICurry run it: the icurry route rewrites its FlatCurry file before '
+         'icurry reads it.')
     abort()
   commit(settings, 'CURRY2ICURRY_TOOL', tool)
 

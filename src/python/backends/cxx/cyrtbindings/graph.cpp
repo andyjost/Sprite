@@ -64,6 +64,19 @@ namespace
     , Node * target, bool partial
     )
   {
+    // The count must match the arity, or be below it for a partial
+    // application.  Node::create packs the arguments by the format of the
+    // table and never counts them, so a surplus would be dropped in silence
+    // and a shortfall read past the vector.  The message is the one the
+    // Python backend raises.
+    size_t const nargs = args.size();
+    if(partial ? nargs >= info->arity : nargs != info->arity)
+      throw py::type_error(
+          std::string("cannot ") + (partial ? "curry" : "construct") + " '"
+            + info->name + "' (arity=" + std::to_string(info->arity)
+            + "), with " + std::to_string(nargs)
+            + (nargs == 1 ? " arg" : " args")
+        );
     Node * node = partial
         ? Node::create_partial(info, args.data(), args.size())
         : Node::create(info, args.data());

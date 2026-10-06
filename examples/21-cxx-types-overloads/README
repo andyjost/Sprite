@@ -134,10 +134,11 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend.  The Python backend runs the
-scenarios (a) to (c) but not (d); see section 5.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
+The run script uses the C++ backend by default.  The Python backend runs
+every scenario as well, in about ten times the time (section 5).  To pick
+a backend, set SPRITE_INTERPRETER_FLAGS in the environment:
 
+    SPRITE_INTERPRETER_FLAGS=backend:py ./run
     SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
 
 The first run also compiles the three shared modules and Overloads.curry.
@@ -219,9 +220,13 @@ one.
 A warm run of ./run took 2.6 s on the C++ backend.  The first run also
 compiles the modules.  CxxOverload.curry and Overloads.curry took 4 s; the
 two shared modules of example 20 add about 7 s when they are not compiled
-yet.  On the Python backend the scenarios (a) to (c) took 7 s, and scenario
-(d) stopped with "Evaluation Suspended", so the test suite runs this example
-on the C++ backend only.
+yet.  On the Python backend a run took 25 s: 7 s for the scenarios (a)
+to (c) and the rest for (d).  Scenario (d) once stopped there with
+"Evaluation Suspended": the step of $## checked its residuals before the
+normalization and walked the generators of the narrowed type, where the
+fresh variables of the branches the alternative had not taken never get a
+value.  The step checks the normal form now, as the C++ runtime does, and
+the test suite runs this example on both backends.
 
 Scenario (d) evaluates the type to normal form with $## before the question
 sees it, for speed.  The set function gives the same answer for the
