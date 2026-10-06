@@ -41,8 +41,10 @@ class TestWholeCorpus(cytest.TestCase):
     shutil.rmtree(cls.tmpdir, ignore_errors=True)
     super().tearDownClass()
 
-  def check_pairs(self, pairs, importdirs):
-    results = oracle.check_pairs(pairs, importdirs)
+  def check_pairs(self, pairs, importdirs, accept_build_route=False):
+    results = oracle.check_pairs(
+        pairs, importdirs, accept_build_route=accept_build_route
+      )
     self.assertEqual(oracle.summarize(results), (len(pairs), 0, 0), oracle.report(results))
 
   def test_library(self):
@@ -65,7 +67,10 @@ class TestWholeCorpus(cytest.TestCase):
   def test_products_on_disk(self):
     '''
     The products under tests/data on this machine.  They come from the
-    archive or from earlier test runs with the pinned tools.
+    archive, or from an import on this machine, which translates with the
+    settings of the build route (the binding optimization among them); a
+    product of the build route is equal when the port reproduces it with
+    those settings.
     '''
     pairs = []
     for dirpath, _, files in os.walk(DATA):
@@ -84,6 +89,7 @@ class TestWholeCorpus(cytest.TestCase):
     self.check_pairs(
         sorted(pairs)
       , self.overlay.library_dirs() + LIBRARY_DIRS + CORPUS_IMPORT_DIRS
+      , accept_build_route=True
       )
 
   def test_cli_overlay(self):

@@ -145,6 +145,9 @@ class TestCurry2ICurry(cytest.TestCase):
 
   def test_imports(self):
     '''The interfaces of the imports come from the same front-end run.'''
+    # The test reads a file only the front end writes; a hit in the ICurry
+    # cache writes the ICurry and its copies of the interfaces instead.
+    self.without_cache()
     deep_icy = oracle_icy(os.path.join('flat2icurry', 'Sub'), 'Deep')
     classes_icy = oracle_icy('flat2icurry', 'Classes')
     if deep_icy is None or classes_icy is None:

@@ -95,8 +95,19 @@ def make_finder(fcyfile, prog, importdirs=(), subdirs=None):
              + system_curry_path()
   return f2i.InterfaceFinder(searchdirs, subdirs)
 
-def check_file(fcyfile, importdirs=(), subdirs=None, icyfile=None):
-  '''Runs the port on one file and compares the text with the oracle.'''
+def check_file(
+    fcyfile, importdirs=(), subdirs=None, icyfile=None, accept_build_route=False
+  ):
+  '''
+  Runs the port on one file and compares the text with the oracle.
+
+  With ``accept_build_route``, a file that differs is translated once more
+  with the settings of the build route (``icurry_compat=False`` and the
+  binding optimization), and is equal when that text matches: the products
+  under the test data that an import wrote come from the build route, and
+  the binding optimization moves a required Boolean equality to
+  ``constrEq`` (section 8 of the README of the tests).
+  '''
   start = time.time()
   if icyfile is None:
     icyfile = expected_icy(fcyfile)
@@ -105,8 +116,8 @@ def check_file(fcyfile, importdirs=(), subdirs=None, icyfile=None):
   try:
     prog = f2i.load_interface(fcyfile)
     finder = make_finder(fcyfile, prog, importdirs, subdirs)
-    iprog = f2i.translate(prog, [finder.find(m) for m in prog.imports])
-    actual = f2i.showterm(iprog)
+    interfaces = [finder.find(m) for m in prog.imports]
+    actual = f2i.showterm(f2i.translate(prog, interfaces))
   except BaseException as e:
     if isinstance(e, KeyboardInterrupt):
       raise
@@ -118,6 +129,19 @@ def check_file(fcyfile, importdirs=(), subdirs=None, icyfile=None):
     expected = istream.read()
   if actual == expected:
     return Result(fcyfile, icyfile, EQUAL, '', time.time() - start)
+  if accept_build_route:
+    try:
+      built = f2i.showterm(
+          f2i.translate(prog, interfaces, icurry_compat=False, bindingopt=True)
+        )
+    except BaseException as e:
+      if isinstance(e, KeyboardInterrupt):
+        raise
+      built = None
+    if built == expected:
+      return Result(
+          fcyfile, icyfile, EQUAL, 'equal to the build route', time.time() - start
+        )
   return Result(
       fcyfile, icyfile, DIFFERENT, first_difference(expected, actual)
     , time.time() - start
@@ -132,9 +156,12 @@ def check(fcyfiles, importdirs=(), subdirs=None, icyfiles=None):
           for fcy, icy in zip(fcyfiles, icyfiles)
     ]
 
-def check_pairs(pairs, importdirs=(), subdirs=None):
+def check_pairs(pairs, importdirs=(), subdirs=None, accept_build_route=False):
   '''Runs :func:`check_file` on each ``(fcy, icy)`` pair.'''
-  return [check_file(fcy, importdirs, subdirs, icy) for fcy, icy in pairs]
+  return [
+      check_file(fcy, importdirs, subdirs, icy, accept_build_route)
+          for fcy, icy in pairs
+    ]
 
 def summarize(results):
   '''The counts of equal, different, and failed results.'''
