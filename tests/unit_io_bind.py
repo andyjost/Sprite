@@ -120,15 +120,17 @@ class TestIOBind(IOBindTestCase):
       curry.flags['backend'] != 'cxx'
     , 'unit_py_io_files covers the Python backend with a small step budget'
     )
-  @cytest.with_flags(defaultconverter='topython')
+  @cytest.with_flags(defaultconverter='topython', rotation='steps:65536')
   def test_writeFile_keeps_prefix_across_rotation(self):
     '''
     An audit finding: the C++ writeFile opened the file in write mode on
     every entry of its step function.  When the scheduler rotated the queue
     in the middle of a write, the re-entry truncated the file and the prefix
-    was lost.  The C++ backend rotates after every 65536 forward nodes it
-    compresses (about one per rewrite step), so two long writes in parallel
-    alternatives interrupt each other several times.
+    was lost.  In step mode the C++ backend rotates after every 65536
+    completed steps, so two long writes in parallel alternatives interrupt
+    each other several times.  The test forces step mode: in time mode a
+    rotation lands inside the write only by chance (see
+    unit_cxx_rotation.py for the modes).
     '''
     n = 40000
     with fresh_directory():

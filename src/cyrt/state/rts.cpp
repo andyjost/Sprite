@@ -3,6 +3,7 @@
 #include "cyrt/trace.hpp"
 #include <cstdint>
 #include <pthread.h>
+#include <stdexcept>
 #include <sys/resource.h>
 
 namespace cyrt
@@ -37,10 +38,20 @@ namespace cyrt
   RuntimeState::RuntimeState(
       InterpreterState & istate, Node * goal, bool trace
     , SetFStrategy setfunction_strategy, size_t stack_limit
+    , size_t rotation_steps, uint64_t rotation_quantum_ns
     )
-    : istate(istate), root_queue(new Queue())
+    : istate(istate), rotation_steps(rotation_steps)
+    , rotation_next(rotation_steps), rotation_quantum_ns(rotation_quantum_ns)
+    , root_queue(new Queue())
     , setfunction_strategy(setfunction_strategy), stack_limit(stack_limit)
   {
+    // Time mode needs a quantum: a ticker with none would never release its
+    // mutex (cyrt/ticker.hpp).  The Python side guarantees one; this guards
+    // the constructor itself.
+    if(rotation_steps == TIME_MODE && rotation_quantum_ns == 0)
+      throw std::invalid_argument(
+          "the rotation in time mode needs a quantum above zero nanoseconds"
+        );
     this->push_queue(this->root_queue.get(), NOTRACE);
     this->set_goal(goal);
 		#ifdef SPRITE_TRACE_ENABLED

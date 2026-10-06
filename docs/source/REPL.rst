@@ -22,6 +22,17 @@ The prompt names the loaded module.  The Prelude is loaded at the start.
 To use the C++ backend, set ``SPRITE_INTERPRETER_FLAGS=backend:cxx`` in the
 environment; see :doc:`CommandLineInterface/EnvironmentVariables`.
 
+On the C++ backend the REPL runs in time mode by default: the scheduler
+rotates its alternatives every 10 ms of wall time, so a diverging
+alternative beside a value costs a quantum, not a count of steps.  The
+values of a non-deterministic expression may then come in a different
+order from one evaluation to the next.  To pin the order, start the REPL in
+step mode, where the schedule depends on the expression alone:
+
+.. code-block:: bash
+
+    % SPRITE_ROTATION=steps:65536 SPRITE_INTERPRETER_FLAGS=backend:cxx install/bin/python -m curry.tools.icy
+
 Commands of the REPL
 ====================
 

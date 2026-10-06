@@ -1082,6 +1082,17 @@ class TestCli(unittest.TestCase):
     env = cli.environment('/sprite', 'cxx', base)
     self.assertEqual(env['SPRITE_HOME'], '/sprite')
     self.assertEqual(env['SPRITE_INTERPRETER_FLAGS'], 'backend:cxx')
+    # The rotation of the C++ backend in step mode; a value of the
+    # environment of the run wins.
+    self.assertEqual(env['SPRITE_ROTATION'], 'steps:65536')
+    self.assertNotIn('SPRITE_ROTATION', base)
+    timed = cli.environment(
+        '/sprite', 'cxx', dict(base, SPRITE_ROTATION='time:10ms')
+      )
+    self.assertEqual(timed['SPRITE_ROTATION'], 'time:10ms')
+    # An empty value counts as unset.
+    empty = cli.environment('/sprite', 'cxx', dict(base, SPRITE_ROTATION=''))
+    self.assertEqual(empty['SPRITE_ROTATION'], 'steps:65536')
     self.assertEqual(
         env['CURRYPATH']
       , os.path.join(testrunner.TESTDIR, 'data', 'curry') + ':/extra'

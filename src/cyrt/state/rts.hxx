@@ -1,5 +1,6 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/graph/memory.hpp"
+#include "cyrt/ticker.hpp"
 #include "cyrt/tiered.hpp"
 #include <cstdint>
 
@@ -63,21 +64,41 @@ namespace cyrt
     return used > this->stack_room;
   }
 
-  // Every 65536 completed rewrite steps (procS), requests a rotation.  The
-  // target is the outermost queue that holds more than one configuration, so
-  // a set function cannot starve the alternatives outside it.  procD hands
-  // E_ROTATE outward until it reaches the target.  On the way out, each
-  // nested procD rotates its own queue when that queue holds more than one
-  // configuration, so a nested sibling gets its turn as well.  A collection
-  // request (E_GC) comes after the rotation check, and every step counts: so
-  // the rotation schedule is the same whether a collection is due or not,
-  // and the stress mode of the collector, which keeps the request set,
-  // rotates as a normal run does.  The same safepoint applies the compiled
-  // objects that finished in the background (cyrt/tiered.hpp): a swap only
-  // writes step pointers, so the schedule is unchanged.
+  // The safepoint after a completed rewrite step (procS).  Periodically it
+  // requests a rotation.  In step mode the period is ``rotation_steps``
+  // completed steps (65536 by default), so the schedule depends on the
+  // program alone; in time mode it is the quantum of the ticker, which sets
+  // g_tick (cyrt/ticker.hpp), and the check is a load of the byte and a
+  // branch.  Both modes keep the increment of ``stepcount``, which the
+  // concurrent conjunction reads, and the test of the mode.  The
+  // target is the outermost queue that holds more than one configuration,
+  // so a set function cannot starve the alternatives outside it.  procD
+  // hands E_ROTATE outward until it reaches the target.  On the way out,
+  // each nested procD rotates its own queue when that queue holds more than
+  // one configuration, so a nested sibling gets its turn as well.  A
+  // collection request (E_GC) comes after the rotation check, and every
+  // step counts: so the rotation schedule is the same whether a collection
+  // is due or not, and the stress mode of the collector, which keeps the
+  // request set, rotates as a normal run does.  The same safepoint applies
+  // the compiled objects that finished in the background (cyrt/tiered.hpp):
+  // a swap only writes step pointers, so the schedule is unchanged.
   inline tag_type RuntimeState::check_interrupts(tag_type tag)
   {
-    if(!(++this->stepcount & 0xffff))
+    ++this->stepcount;
+    bool due;
+    if(this->rotation_steps != TIME_MODE)
+    {
+      due = this->stepcount == this->rotation_next;
+      if(due)
+        this->rotation_next += this->rotation_steps;
+    }
+    else
+    {
+      due = ticker_due();
+      if(due)
+        ticker_clear();
+    }
+    if(due)
     {
       if(g_tiered_pending.load(std::memory_order_relaxed))
         tiered_apply_pending(true);

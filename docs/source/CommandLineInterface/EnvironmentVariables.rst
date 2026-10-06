@@ -131,6 +131,28 @@ The following are recognized:
 
      SPRITE_INTERPRETER_FLAGS=stack_limit:16777216 sprite-exec prog.curry
 
+  The ``rotation`` flag selects how the C++ backend paces the rotation of
+  its queue of alternatives.  The scheduler rotates at a safepoint, after a
+  completed rewrite step, so a diverging alternative cannot starve the
+  others.  In time mode, the default (``time:10ms``), a ticker thread sets
+  one byte every quantum and the safepoint polls it; the latency of a
+  waiting alternative is bounded by the quantum whatever a step costs.  In
+  step mode (``steps:65536``) the safepoint counts the steps and rotates
+  every N of them; the schedule then depends on the program alone, so the
+  exact steps and forks of a search and the order of its values reproduce
+  between runs.  A deterministic subcomputation never rotates in either
+  mode.  In time mode two runs of a non-deterministic goal may print their
+  values in a different order; to pin the order, set step mode::
+
+     SPRITE_INTERPRETER_FLAGS=backend:cxx,rotation:steps:65536 sprite-exec prog.curry
+
+  Time mode starts its thread at the first evaluation, so a host that forks
+  after an evaluation is multi-threaded, and Python warns on ``os.fork`` in
+  such a process; the forked child starts a ticker of its own at its first
+  evaluation.  Step mode starts no thread.  ``SPRITE_ROTATION`` (below)
+  sets the same flag alone.  The Python backend keeps its ``step_budget``
+  and ignores the flag.
+
   The ``typed_expr`` flag selects the typed builder of :func:`curry.expr`.
   It is ``True`` by default.  With ``False``, ``curry.expr`` converts
   Python values by their Python type alone and supplies no class
@@ -154,6 +176,22 @@ The following are recognized:
   - ``DEBUG``    Log detailed information about everything.
 
   Each of these includes all output from levels listed above it.
+
+``SPRITE_ROTATION``
+  The rotation mode of the C++ backend: ``time:10ms`` (time mode, the
+  default; the unit may be ``s``, ``ms``, ``us`` or ``ns``) or
+  ``steps:65536`` (step mode).  It sets the interpreter flag ``rotation``
+  (above) below ``SPRITE_INTERPRETER_FLAGS``.  The test runner, the
+  benchmark harness and the CI jobs set ``steps:65536`` through it, so
+  that the counters of a run and the outputs of the tests reproduce; a
+  value in the environment of a run wins.  An empty value counts as
+  unset.  Other text is an error when the interpreter starts.  Time mode
+  starts a thread at the first evaluation, so a host that forks after an
+  evaluation is multi-threaded (Python warns on ``os.fork``); the forked
+  child rotates with a ticker of its own.  Step mode starts no thread.  To
+  run a search goal with the order of its values pinned, say::
+
+     SPRITE_ROTATION=steps:65536 SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
 
 Development Variables
 ---------------------

@@ -8,6 +8,7 @@
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/graph/node.hpp"
 #include "cyrt/state/rts.hpp"
+#include "cyrt/ticker.hpp"
 #include "cyrt/utf8.hpp"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
@@ -532,6 +533,33 @@ namespace cyrt { namespace python
       , "True when the collector runs at every safepoint (SPRITE_GC_STRESS=1).");
     mod.def("gc_eval_depth", &gc_eval_depth
       , "The number of evaluations on the C stack.");
+    // The ticker of time mode (cyrt/ticker.hpp), for the tests.
+    mod.def("ticker_status"
+      , []()
+        {
+          TickerStatus const status = ticker_status();
+          py::dict out;
+          out["started"] = status.started;
+          out["parked"] = status.parked;
+          out["active"] = status.active;
+          out["ticks"] = status.ticks;
+          out["quantum_ns"] = status.quantum_ns;
+          return out;
+        }
+      , "The state of the ticker thread of time mode: started (the thread "
+        "exists in this process), parked (it waits for an evaluation), "
+        "active (the evaluations in time mode on the C stack), ticks (the "
+        "ticks set since the start of the process), and quantum_ns.");
+    // The count of the evaluations in time mode, for the tests: what the
+    // outermost scheduler of such an evaluation does on entry and exit.
+    mod.def("ticker_enter", &ticker_enter, py::arg("quantum_ns")
+      , "Counts an evaluation in time mode on the C stack, as the outermost "
+        "scheduler of such an evaluation does: the first one starts the "
+        "ticker thread or wakes it.  For the tests; every call needs a "
+        "ticker_leave.  A quantum of zero is a ValueError; a thread that "
+        "cannot start is a RuntimeError, and the count is unchanged.");
+    mod.def("ticker_leave", &ticker_leave
+      , "Ends the count of a ticker_enter.");
     // The objects of the scheduler, for leak checks.  See state/queue.hpp.
     mod.def("gc_configuration_count", &gc_num_configurations
       , "The number of configurations alive, in every queue of every evaluation.");
@@ -639,7 +667,13 @@ namespace cyrt { namespace python
         "(make COUNTERS=1).");
 
     py::class_<RuntimeState>(mod, "RuntimeStateBase")
-      .def(py::init<InterpreterState &, Node *, bool, SetFStrategy, size_t>())
+      // The last two arguments are the rotation cadence: the completed steps
+      // between two rotation checks (0 selects time mode) and the quantum
+      // of time mode in nanoseconds.  See cyrt/ticker.hpp.
+      .def(py::init<
+          InterpreterState &, Node *, bool, SetFStrategy, size_t, size_t
+        , uint64_t
+        >())
       .def_readonly("steps_total", &RuntimeState::steps_total)
       .def_readonly("forks_total", &RuntimeState::forks_total)
       .def_property_readonly("vtable", &RuntimeState_vtable

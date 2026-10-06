@@ -28,6 +28,11 @@ export CURRYPATH="$PWD/data/curry"
 extra="${SPRITE_TEST_FLAGS:+,$SPRITE_TEST_FLAGS}"
 export SPRITE_INTERPRETER_FLAGS="backend:$backend$extra"
 export LC_ALL=C.UTF-8
+# The rotation of the C++ backend in step mode, as the test runner sets it:
+# the exact counters and the order of the values of a search then reproduce
+# (the flag "rotation" in curry.interpreter.flags).  A value set by the job
+# wins; an empty value counts as unset.
+export SPRITE_ROTATION="${SPRITE_ROTATION:-steps:65536}"
 # The ICurry cache keeps the output of the Curry front end between runs; the
 # workflow restores and saves its directory.  The directory exists even when
 # no test compiles Curry, so the save step has something to save.

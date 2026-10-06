@@ -1,6 +1,7 @@
 '''Python bindings for libcyrt.so.'''
 from ._cyrtbindings import *
 from ...generic.eval import trace
+from ....interpreter import flags as _flags
 from .... import exceptions
 from . import fingerprint
 from ... import InfoTable as _backends_InfoTable
@@ -32,9 +33,14 @@ class RuntimeState(RuntimeStateBase):
         _SETF_STRATEGY[interp.flags['setfunction_strategy']]
     limit = interp.flags['stack_limit']
     self.stack_limit = NOLIMIT if limit is None else int(limit)
+    # The rotation cadence (see cyrt/ticker.hpp): zero steps select time
+    # mode with the quantum in nanoseconds.
+    mode, value = _flags.parse_rotation(interp.flags['rotation'])
+    self.rotation_steps = value if mode == 'steps' else 0
+    self.rotation_quantum_ns = value if mode == 'time' else 0
     RuntimeStateBase.__init__(
         self, istate, goal, self.tracing, self.setfunction_strategy
-      , self.stack_limit
+      , self.stack_limit, self.rotation_steps, self.rotation_quantum_ns
       )
 
   def generate_values(self):

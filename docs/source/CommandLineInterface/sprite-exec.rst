@@ -92,6 +92,23 @@ the limit is dropped, and its error is reported after the others have run.
 ``None`` disables the guard.  A limit larger than the stack of the thread is
 clamped to that stack, less a margin of 1 MiB.
 
+The C++ backend also rotates its queue of alternatives periodically, so a
+diverging alternative cannot starve the others.  The flag ``rotation``
+selects the pace.  In time mode, the default (``time:10ms``), a ticker
+thread sets one byte every quantum and the scheduler polls it after every
+completed step; a waiting alternative runs within a quantum whatever a step
+costs.  In step mode (``steps:65536``) the scheduler rotates every N
+completed steps; the schedule then depends on the program alone.  A
+deterministic subcomputation never rotates in either mode, but a
+non-deterministic goal may print its values in a different order from one
+run to the next in time mode.  For reproducible output of a search goal,
+pin step mode with the flag or with ``SPRITE_ROTATION``::
+
+    SPRITE_ROTATION=steps:65536 sprite-exec --backend cxx prog.curry
+
+The test runner and the benchmark harness set step mode themselves, so
+the counters of ``--stats`` reproduce exactly between their runs.
+
 Run Statistics
 ==============
 

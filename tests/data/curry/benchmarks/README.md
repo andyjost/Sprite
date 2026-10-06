@@ -87,6 +87,15 @@ times, the start-up times, and the peak memory.  Section 9 of `tests/README`
 describes the suites, the records, and the comparison.  The harness is the
 package `tests/lib/benchmarks`.
 
+The harness runs the C++ backend in step mode (`SPRITE_ROTATION=steps:65536`
+in the environment of every run): the scheduler rotates its alternatives
+every 65536 completed steps, so the counters `steps` and `forks` of a record
+reproduce exactly.  The tools default to time mode, where a ticker thread
+paces the rotation on wall time (10 ms); a run by hand in time mode may
+report other counters for a search program.  To measure time mode with the
+harness, say `-e SPRITE_ROTATION=time:10ms`; to time one program by hand as
+the harness does, set `SPRITE_ROTATION=steps:65536`.
+
 ## Scheduler counters
 
 A runtime built with `make COUNTERS=1` reports, in the `--stats` line, how

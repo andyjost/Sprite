@@ -167,6 +167,33 @@ it raised ValueError while the primitive prim_readFile carried the name of
 its wrapper and took its place in the symbol table (the dated TODO entry
 on the saturation of apply chains).
 
+The C++ backend rotates its queue of alternatives in one of two modes (the
+interpreter flag ``rotation``; src/cyrt/ticker.hpp).  In time mode, the
+default of the tools (time:10ms), a ticker thread sets one byte every
+quantum and the scheduler polls it after every completed step.  In step
+mode (steps:65536) the scheduler rotates every N completed steps, so the
+exact steps and forks of a search and the order of its values reproduce
+between runs.  The test files run in step mode: cytest sets
+SPRITE_ROTATION=steps:65536 before the first import of curry unless the
+environment names a mode (an empty value counts as unset), and the runner
+(section 10) and the CI script set the same default in the environment of
+every file.  To run a file in time mode, say:
+
+        SPRITE_ROTATION=time:10ms ./run_tests unit_cxx_stack.py
+
+The rotation tests of unit_cxx_rewrite.py and unit_cxx_stack.py hold in
+both modes: they need a rotation, not a cadence.  Two tests pin the
+cadence of 65536 steps and force step mode themselves whatever the
+environment says: test_rotation_inside_the_constraint of
+unit_cxx_scheduler.py (a scan of preamble lengths over one period) and
+test_writeFile_keeps_prefix_across_rotation of unit_io_bind.py (a
+rotation inside a write); test_split_suite of unit_benchmarks.py runs its
+harness in step mode, because its rows compare the counters of a search
+(section 9).  unit_cxx_rotation.py tests the setting, both
+modes, the ticker thread (it parks while no evaluation runs, and a child
+of os.fork starts one of its own), and runs the rotation tests of the two
+files under each mode.
+
 A runtime built with make GC=mps (the Memory Pool System, an experiment
 behind a gate; see src/cyrt/graph/gc/mps.cpp and the dated TODO entry)
 names its collector in cytest.gc_backend().  The tests of the block heap,
@@ -493,6 +520,15 @@ instructions in millions (instr_m).  perf needs kernel.perf_event_paranoid
 at 2 or below, or the capability CAP_PERFMON; a virtual machine needs a
 virtual PMU.
 
+Every run of the harness on a Sprite backend has the rotation of the C++
+backend in step mode (SPRITE_ROTATION=steps:65536 in the environment of the
+child, unless the environment of the harness or -e names a mode; an empty
+value counts as unset), so that the counters steps and forks of a record
+reproduce exactly: in time mode, the default of the tools, a rotation
+lands on wall time and moves the counters of a search program.  To
+measure time mode, say ``-e SPRITE_ROTATION=time:10ms``.  The nightly job
+sets step mode in its workflow as well.
+
 To compare two record files, say:
 
         ./run_benchmarks compare OLD NEW [-m METRIC] [-t FRACTION] [--strict]
@@ -615,12 +651,18 @@ Without options every unit_*.py and func_*.py file runs on the backend of
 SPRITE_INTERPRETER_FLAGS, at the width of -j auto: the budget described
 below decides how many files run at once, up to the core count.  The
 default is the constant DEFAULT_JOBS in lib/testrunner/__init__.py; -j 1
-runs the files one at a time.  A PATTERN is a file name or a shell-style
-pattern of file names.  Several patterns select their union.  -v prints
-the output of every file.  With -v at width 1 the output streams as it
-comes, and the file gets the standard input, so a breakpoint in a test
-works (the editor targets of the Makefile pass -v).  Without -v the output
-goes to the log alone, and the file reads an empty standard input.
+runs the files one at a time.  The environment of a file names the
+installation (SPRITE_HOME), the test library and the Curry pool
+(PYTHONPATH, CURRYPATH), the ICurry cache (SPRITE_CACHE_FILE), the backend
+(SPRITE_INTERPRETER_FLAGS), and the rotation mode of the C++ backend
+(SPRITE_ROTATION=steps:65536 unless the environment of the run names a
+mode; an empty value counts as unset; section 4).  A PATTERN is a file
+name or a shell-style pattern of file names.  Several patterns select
+their union.  -v prints the output of every file.  With -v at width 1 the
+output streams as it comes, and the file gets the standard input, so a
+breakpoint in a test works (the editor targets of the Makefile pass -v).
+Without -v the output goes to the log alone, and the file reads an empty
+standard input.
 
 The manifest.  tests/manifest.json maps a file to a backend to its
 duration, its peak resident set, the counts of tests and failures, and

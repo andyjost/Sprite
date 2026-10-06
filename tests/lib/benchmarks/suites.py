@@ -131,6 +131,9 @@ def select(suite, patterns, nightly=False):
   return selected
 
 
+# The rotation mode of a measured run; see Settings.environment.
+STEP_MODE = 'steps:65536'
+
 def set_backend_flag(flags, backend):
   '''SPRITE_INTERPRETER_FLAGS with the backend set and the other flags kept.'''
   kept = [
@@ -176,7 +179,10 @@ class Settings:
     '''
     The environment of a child: the variables of the harness over the
     inherited ones.  The backend flag is set; other interpreter flags of
-    the environment are kept.
+    the environment are kept.  The rotation of the C++ backend is in step
+    mode unless the environment or -e names a mode (an empty value counts
+    as unset), so that the counters steps and forks reproduce between
+    records (the flag ``rotation`` in curry.interpreter.flags).
     '''
     env = dict(os.environ)
     env.update(self.env)
@@ -186,6 +192,8 @@ class Settings:
       env['SPRITE_INTERPRETER_FLAGS'] = set_backend_flag(
           env.get('SPRITE_INTERPRETER_FLAGS'), backend
         )
+      if not env.get('SPRITE_ROTATION'):
+        env['SPRITE_ROTATION'] = STEP_MODE
     env.update(extra)
     return env
 

@@ -75,6 +75,7 @@ class Interpreter(object):
         , ', '.join(map(repr, bad_flags))
         ))
     self._flags.update(flags)
+    _flagmod.check_flags(self._flags)
     self._backend = backends.IBackend(self._flags['backend'])
     self._modules = {}
     self._path = []
