@@ -66,4 +66,4 @@ The last line is the value of main.
 ---------
 
 A warm run of ./run took 0.8 s.  The first run also compiles the module
-with the Curry front end, which takes several seconds more.
+with the Curry front end, which takes about half a second more.

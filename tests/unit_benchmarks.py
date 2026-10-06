@@ -10,12 +10,14 @@ In a fresh checkout the file costs three calls of the Curry front end: Hello
 in the first warm-up, and Hello and the expression in the compile suite.
 '''
 import cytest # from ./lib; must be first
-from benchmarks import CURRYDIR, DISSERTATION, NIGHTLY, ROOTDIR, SPLITDIR
-from benchmarks import SUITES
+from benchmarks import APPDIR, CURRYDIR, DISSERTATION, NIGHTLY, OPPONENTS
+from benchmarks import ROOTDIR, SPLITDIR, SUITES
 from benchmarks import compare, counters, history, measure, records, run
 from benchmarks import split, suites
+from benchmarks.apps import clangprobe, cxxoverload, depindex, overloads
 from curry import config
-import contextlib, curry, io, json, os, shutil, signal, socket, sys, tempfile
+import contextlib, curry, importlib.util, io, json, os, shutil, signal, socket
+import subprocess, sys, tempfile
 import unittest
 from unittest import mock
 
@@ -1017,6 +1019,505 @@ class TestSuites(unittest.TestCase):
       )
 
 
+class TestApplications(unittest.TestCase):
+  '''
+  The applications suite: its items and their commands, the generated
+  indexes, the plain-Python overload resolution, and the child programs
+  that need no Curry.
+  '''
+
+  def setUp(self):
+    self.settings = suites.Settings('/nonexistent/home', timeout=7, cap=123)
+    self.workdir = tempfile.mkdtemp(prefix='sprite-benchmarks-test-')
+    self.addCleanup(shutil.rmtree, self.workdir, ignore_errors=True)
+
+  def build(self, programs, backends, nightly=False, settings=None):
+    return suites.build(
+        'applications', programs, backends, settings or self.settings
+      , self.workdir, nightly=nightly
+      )
+
+  def test_candidates(self):
+    self.assertIn('applications', SUITES)
+    self.assertEqual(OPPONENTS, ('resolvelib', 'python', 'clang'))
+    self.assertEqual(
+        suites.candidates('applications')
+      , (['dependency', 'overloads'], ['dependency', 'overloads'])
+      )
+    self.assertEqual(
+        suites.nightly_items('applications'), ['dependency', 'overloads']
+      )
+    self.assertEqual(
+        suites.select('applications', []), ['dependency', 'overloads']
+      )
+    self.assertEqual(suites.select('applications', ['dep*']), ['dependency'])
+    self.assertEqual(
+        suites.select('applications', ['o*'], nightly=True), ['overloads']
+      )
+    with self.assertRaisesRegex(
+        ValueError, "no program of the applications suite matches 'Fib'"
+      ):
+      suites.select('applications', ['Fib'])
+    self.assertEqual(
+        suites.default_backends('applications')
+      , ['cxx', 'py', 'resolvelib', 'python']
+      )
+    self.assertEqual(suites.default_backends('throughput'), ['cxx'])
+    self.assertEqual(suites.DEFAULT_REPEAT['applications'], 3)
+    self.assertEqual(suites.OPPONENTS_OF['dependency'], ('resolvelib',))
+    self.assertEqual(suites.OPPONENTS_OF['overloads'], ('python', 'clang'))
+
+  def test_sizes(self):
+    '''The sizes of the dependency item by backend, and the nightly sizes.'''
+    self.assertEqual(suites.DEPENDENCY_SIZES, (10, 20, 50, 100, 200, 800))
+    self.assertEqual(suites.SPRITE_DEPENDENCY_SIZES, (10, 20, 50, 100))
+    self.assertEqual(suites.NIGHTLY_DEPENDENCY_SIZES, (10, 20, 50))
+    self.assertEqual(suites.dependency_sizes('cxx'), [10, 20, 50, 100])
+    self.assertEqual(suites.dependency_sizes('py'), [10, 20, 50, 100])
+    self.assertEqual(
+        suites.dependency_sizes('resolvelib'), [10, 20, 50, 100, 200, 800]
+      )
+    self.assertEqual(suites.dependency_sizes('cxx', nightly=True), [10, 20, 50])
+    self.assertEqual(
+        suites.dependency_sizes('resolvelib', nightly=True), [10, 20, 50]
+      )
+    self.assertEqual(
+        suites.dependency_variants('cxx')[:3]
+      , ['10/solvable', '10/unsolvable', '20/solvable']
+      )
+    self.assertEqual(len(suites.dependency_variants('resolvelib')), 12)
+
+  def test_items(self):
+    '''
+    The items of the suite: the backends of one size and case follow each
+    other; an opponent runs the items it opposes only; the commands run
+    the child programs under apps/ with the Python of the installation.
+    '''
+    backends = ['cxx', 'py', 'resolvelib', 'python', 'clang']
+    items = self.build(['dependency', 'overloads'], backends)
+    keys = [item.key for item in items]
+    self.assertEqual(keys[:4], [
+        ('applications', 'dependency', 'cxx', '10/solvable')
+      , ('applications', 'dependency', 'py', '10/solvable')
+      , ('applications', 'dependency', 'resolvelib', '10/solvable')
+      , ('applications', 'dependency', 'cxx', '10/unsolvable')
+      ])
+    # Beyond 100 packages the opponent runs alone.
+    self.assertIn(
+        ('applications', 'dependency', 'resolvelib', '800/unsolvable'), keys
+      )
+    self.assertNotIn(
+        ('applications', 'dependency', 'cxx', '200/solvable'), keys
+      )
+    self.assertEqual(keys[-4:], [
+        ('applications', 'overloads', 'cxx', None)
+      , ('applications', 'overloads', 'py', None)
+      , ('applications', 'overloads', 'python', None)
+      , ('applications', 'overloads', 'clang', None)
+      ])
+    self.assertEqual(len(items), 4 * 2 * 3 + 2 * 2 + 4)
+    cmd, env, cwd = items[0].command()
+    self.assertEqual(cmd, [
+        self.settings.python, suites.DEPENDENCY, 'sprite', '10', 'solvable'
+      ])
+    self.assertEqual(cwd, APPDIR)
+    self.assertTrue(os.path.isfile(suites.DEPENDENCY))
+    self.assertEqual(env['SPRITE_HOME'], '/nonexistent/home')
+    self.assertTrue(env['SPRITE_INTERPRETER_FLAGS'].startswith('backend:cxx'))
+    self.assertIn('interpret:off', env['SPRITE_INTERPRETER_FLAGS'])
+    self.assertEqual(env['SPRITE_ROTATION'], 'steps:65536')
+    cmd, env, cwd = items[2].command()
+    self.assertEqual(cmd[1:], [suites.DEPENDENCY, 'resolvelib', '10', 'solvable'])
+    self.assertEqual(
+        env.get('SPRITE_INTERPRETER_FLAGS')
+      , os.environ.get('SPRITE_INTERPRETER_FLAGS')
+      )
+    item = next(i for i in items if i.key[2:] == ('py', '100/unsolvable'))
+    self.assertEqual(item.size, 100)
+    self.assertEqual(item.case, 'unsolvable')
+    self.assertEqual(item.command()[0][2:], ['sprite', '100', 'unsolvable'])
+    self.assertTrue(
+        item.command()[1]['SPRITE_INTERPRETER_FLAGS'].startswith('backend:py')
+      )
+    cmd, env, cwd = items[-4].command()
+    self.assertEqual(cmd[1:], [suites.OVERLOADS, 'sprite', '1000'])
+    self.assertEqual(
+        items[-2].command()[0][1:], [suites.OVERLOADS, 'python', '1000']
+      )
+    self.assertEqual(items[-1].command()[0][1:], [suites.CLANGPROBE, '1000'])
+    for name in suites.OVERLOADS, suites.CLANGPROBE:
+      self.assertTrue(os.path.isfile(name))
+    self.assertEqual(items[0].warmup(), 1)
+    # The nightly sizes.
+    items = self.build(['dependency'], ['cxx', 'resolvelib'], nightly=True)
+    self.assertEqual(sorted(set(item.size for item in items)), [10, 20, 50])
+    self.assertEqual(len(items), 12)
+    # An opponent outside its suite, and PAKCS inside it.
+    with self.assertRaisesRegex(ValueError, 'applications suite only'):
+      suites.build(
+          'throughput', ['Fib'], ['python'], self.settings, self.workdir
+        )
+    with self.assertRaisesRegex(ValueError, 'throughput suite only'):
+      self.build(['overloads'], ['pakcs'])
+    # The environment of the run names the interpreter mode.
+    with mock.patch.dict(
+        os.environ, {'SPRITE_INTERPRETER_FLAGS': 'interpret:all'}
+      ):
+      env = self.build(['overloads'], ['cxx'])[0].command()[1]
+    self.assertEqual(
+        env['SPRITE_INTERPRETER_FLAGS'], 'backend:cxx,interpret:all'
+      )
+    self.assertEqual(
+        suites.set_interpret_flag('backend:py', 'off'), 'backend:py,interpret:off'
+      )
+    self.assertEqual(suites.set_interpret_flag('', 'off'), 'interpret:off')
+    self.assertEqual(
+        suites.set_interpret_flag('backend:py,interpret:new', 'off')
+      , 'backend:py,interpret:new'
+      )
+
+  def test_parse(self):
+    '''The items read the JSON object of their child program.'''
+    item = suites.DependencyItem('cxx', self.settings, 20, 'solvable')
+    probe = {
+        'side': 'sprite', 'size': 20, 'case': 'solvable', 'solve': 0.25
+      , 'found': True, 'plan': 'app 1'
+      , 'stats': {'steps': 7, 'forks': 2, 'collections': 1}
+      }
+    fields = item.parse(FakeRun(stdout='noise\n' + json.dumps(probe) + '\n'))
+    self.assertEqual(fields['eval_wall'], 0.25)
+    self.assertEqual(fields['steps'], 7)
+    self.assertEqual(fields['forks'], 2)
+    self.assertEqual(fields['collections'], 1)
+    self.assertEqual(fields['extra'], {'probe': probe})
+    item = suites.DependencyItem('resolvelib', self.settings, 20, 'solvable')
+    fields = item.parse(FakeRun(stdout=json.dumps({'solve': 0.001}) + '\n'))
+    self.assertEqual(fields['eval_wall'], 0.001)
+    self.assertIsNone(fields['steps'])
+    self.assertEqual(item.parse(FakeRun(stdout='no json\n')), {})
+    item = suites.OverloadsItem('python', self.settings)
+    self.assertEqual(
+        item.parse(FakeRun(stdout='{"solve": 2.0}'))['eval_wall'], 2.0
+      )
+
+  def test_unavailable(self):
+    '''An opponent whose tool is missing says so; the others run.'''
+    items = self.build(
+        ['dependency', 'overloads'], ['cxx', 'resolvelib', 'python', 'clang']
+      )
+    by_backend = {item.backend: item for item in items}
+    self.assertIsNone(by_backend['cxx'].unavailable())
+    self.assertIsNone(by_backend['python'].unavailable())
+    # No Python at /nonexistent/home: resolvelib cannot be imported.
+    self.assertIn(
+        'resolvelib is not importable', by_backend['resolvelib'].unavailable()
+      )
+    self.assertFalse(self.settings.has_resolvelib())
+    with mock.patch.object(suites.shutil, 'which', return_value=None):
+      self.assertEqual(
+          by_backend['clang'].unavailable(), 'clang++ is not on PATH'
+        )
+    with mock.patch.object(
+        suites.shutil, 'which', return_value='/usr/bin/clang++'
+      ):
+      self.assertIsNone(by_backend['clang'].unavailable())
+    self.assertIsNone(
+        suites.SpriteExecItem('Fib', 'cxx', self.settings).unavailable()
+      )
+
+  def test_skipped_item(self):
+    '''
+    The run command skips an item that cannot run: a row says why, no
+    record is written, and the status is not a failure.
+    '''
+    filename = os.path.join(self.workdir, 'skip.jsonl')
+    log = io.StringIO()
+    with mock.patch.object(suites.shutil, 'which', return_value=None):
+      with contextlib.redirect_stderr(log):
+        status = run.main([
+            '-s', 'applications', '-b', 'clang', '--sprite-home'
+          , config.prefix(), '-o', filename, 'overloads'
+          ])
+    self.assertEqual(status, 0)
+    self.assertIn('skipped', log.getvalue())
+    self.assertIn('clang++ is not on PATH', log.getvalue())
+    self.assertEqual(records.read(filename), [])
+    with self.assertRaisesRegex(SystemExit, 'applications suite only'):
+      run.main(['-s', 'import', '-b', 'python', 'hello'])
+
+  def test_index_generator(self):
+    '''
+    The generated indexes: the same from one seed, the shape of example 15,
+    every package required by an earlier one, a plan in the solvable case
+    and none in the unsolvable case, by a depth-first search over the
+    closure of the root.
+    '''
+    def solve(index, roots):
+      versions = {}
+      requires = {}
+      for name, version, reqs in index:
+        versions.setdefault(name, []).append(version)
+        requires[name, version] = reqs
+      def search(pending, plan):
+        if not pending:
+          return plan
+        (name, (lo, hi)), rest = pending[0], pending[1:]
+        if name in plan:
+          return search(rest, plan) if lo <= plan[name] <= hi else None
+        for v in versions.get(name, ()):
+          if lo <= v <= hi:
+            found = search(requires[name, v] + rest, dict(plan, **{name: v}))
+            if found is not None:
+              return found
+        return None
+      return search(list(roots), {})
+    for size in 3, 5, 10, 20, 50:
+      index, roots = depindex.make_index(size)
+      again, _ = depindex.make_index(size)
+      self.assertEqual(index, again)
+      self.assertEqual(roots[0][0], 'app')
+      names = []
+      for name, version, reqs in index:
+        if name not in names:
+          names.append(name)
+        self.assertIsInstance(version, int)
+        for dep, (lo, hi) in reqs:
+          self.assertIn(dep, [n for n, _, _ in index])
+          self.assertLessEqual(lo, hi)
+      self.assertEqual(len(names), size)
+      self.assertEqual(names[1], 'pkg001')
+      # The versions of a package are listed newest first.
+      for name in names:
+        listed = [v for n, v, _ in index if n == name]
+        self.assertEqual(listed, sorted(listed, reverse=True))
+        self.assertLessEqual(len(listed), depindex.MAX_VERSIONS)
+      # Every package is required by a version of an earlier package.
+      for j, name in enumerate(names[1:], 1):
+        self.assertTrue(any(
+            dep == name
+                for n, _, reqs in index if names.index(n) < j
+                for dep, _ in reqs
+          ), name)
+      plan = solve(index, roots)
+      self.assertIsNotNone(plan, size)
+      closure = depindex.closure(index, plan, roots)
+      self.assertEqual(closure[0], 'app')
+      self.assertEqual(set(closure), set(plan))
+      line = depindex.digest(index, plan, roots)
+      self.assertTrue(line.startswith('app '))
+      self.assertEqual(depindex.parse_plan(line), plan)
+      # The plan holds; without a needed package, or with a version the
+      # index lacks, it does not.
+      self.assertTrue(depindex.holds(index, plan, roots))
+      self.assertFalse(depindex.holds(index, dict(plan, app=99), roots))
+      missing = dict(plan)
+      del missing[closure[-1]]
+      self.assertFalse(depindex.holds(index, missing, roots))
+      index, roots = depindex.make_index(size, unsolvable=True)
+      self.assertIsNone(solve(index, roots), size)
+    # A version of the index outside the range of a requirement.
+    index = [('app', 1, [('lib', (1, 1))]), ('lib', 2, []), ('lib', 1, [])]
+    roots = [('app', (1, 1))]
+    self.assertTrue(depindex.holds(index, {'app': 1, 'lib': 1}, roots))
+    self.assertFalse(depindex.holds(index, {'app': 1, 'lib': 2}, roots))
+    self.assertFalse(depindex.holds(index, {'app': 1}, roots))
+    self.assertFalse(depindex.holds(index, {'app': 2, 'lib': 1}, roots))
+    self.assertEqual(
+        depindex.parse_plan('app 1, lib 2'), {'app': 1, 'lib': 2}
+      )
+    self.assertRaises(ValueError, depindex.make_index, 1)
+    self.assertRaises(ValueError, depindex.make_index, 2, True)
+    self.assertEqual(len(depindex.make_index(2)[0]), len(set(
+        name for name, _, _ in depindex.make_index(2)[0]
+      )) + sum(
+        len([v for n, v, _ in depindex.make_index(2)[0] if n == name]) - 1
+            for name in ('app', 'pkg001')
+      ))
+    index, roots = depindex.make_index(20, seed=1)
+    self.assertNotEqual(index, depindex.make_index(20)[0])
+
+  def test_overload_resolution(self):
+    '''
+    The plain-Python ranking gives the answers of example 21 on the
+    scenarios of its expected output.
+    '''
+    fund, const, ptr, cls = (
+        overloads.fund, overloads.const, overloads.ptr, overloads.cls
+      )
+    INT, LONG, DOUBLE, CHAR, FLOAT, BOOL, VOID, NULLPTR = (
+        fund('Int'), fund('Long'), fund('Double'), fund('Char'), fund('Float')
+      , fund('Bool'), fund('Void'), fund('NullptrT')
+      )
+    BASE, DERIVED = cls('Base'), cls('Derived')
+    H = [('Derived', 'Base')]
+    resolve = cxxoverload.resolve
+    f3 = [('f', [INT]), ('f', [LONG]), ('f', [DOUBLE])]
+    self.assertEqual(resolve([], f3, [INT]), 'f(int) [exact]')
+    self.assertEqual(resolve([], f3, [CHAR]), 'f(int) [promotion]')
+    self.assertEqual(resolve([], f3, [FLOAT]), 'f(double) [promotion]')
+    self.assertEqual(resolve([], f3, [BOOL]), 'f(int) [promotion]')
+    self.assertEqual(resolve([], f3, [ptr(INT)]), 'no viable function')
+    f2 = [('f', [LONG]), ('f', [DOUBLE])]
+    self.assertEqual(resolve([], f2, [INT]), 'ambiguous: f(long), f(double)')
+    self.assertEqual(resolve([], f2, [FLOAT]), 'f(double) [promotion]')
+    g3 = [('g', [ptr(VOID)]), ('g', [ptr(BASE)]), ('g', [ptr(DERIVED)])]
+    self.assertEqual(resolve(H, g3, [ptr(DERIVED)]), 'g(Derived*) [exact]')
+    self.assertEqual(
+        resolve(H, g3, [NULLPTR]), 'ambiguous: g(void*), g(Base*), g(Derived*)'
+      )
+    self.assertEqual(
+        resolve(H, g3, [ptr(const(DERIVED))]), 'no viable function'
+      )
+    k5 = [
+        ('k', [ptr(INT)]), ('k', [ptr(const(INT))]), ('k', [ptr(VOID)])
+      , ('k', [ptr(BASE)]), ('k', [BOOL])
+      ]
+    self.assertEqual(resolve(H, k5, [ptr(DERIVED)]), 'k(Base*) [conversion]')
+    self.assertEqual(resolve(H, k5, [ptr(INT)]), 'k(int*) [exact]')
+    self.assertEqual(
+        resolve(H, k5, [NULLPTR])
+      , 'ambiguous: k(int*), k(int const*), k(void*), k(Base*)'
+      )
+    # Two arguments, top-level const, and the printer.
+    self.assertEqual(
+        resolve(H, overloads.CANDIDATES, [const(INT), INT])
+      , 'f(int, int) [exact, exact]'
+      )
+    self.assertEqual(cxxoverload.show_cxx(ptr(const(INT))), 'int const*')
+    self.assertEqual(cxxoverload.show_cxx(const(ptr(INT))), 'int* const')
+    self.assertEqual(cxxoverload.show_cxx(ptr(ptr(CHAR))), 'char**')
+    self.assertEqual(cxxoverload.show_cxx(ptr(const(BASE))), 'Base const*')
+    self.assertEqual(cxxoverload.show_cxx(NULLPTR), 'std::nullptr_t')
+    self.assertEqual(
+        cxxoverload.show_candidate(('f', [ptr(VOID), BOOL])), 'f(void*, bool)'
+      )
+
+  def test_overload_workload(self):
+    '''The workload: 32 types, N distinct calls in a fixed order.'''
+    self.assertEqual(len(overloads.POOL), 32)
+    self.assertEqual(len(set(overloads.POOL)), 32)
+    calls = overloads.calls(1000)
+    self.assertEqual(len(calls), 1000)
+    self.assertEqual(len(set(tuple(c) for c in calls)), 1000)
+    self.assertEqual(calls, overloads.calls(1000))
+    self.assertEqual(overloads.calls(3), calls[:3])
+    self.assertRaises(ValueError, overloads.calls, 1025)
+    self.assertEqual(len(overloads.CANDIDATES), 8)
+    self.assertEqual(overloads.DEFAULT_CALLS, suites.OVERLOAD_CALLS)
+    # The Python side of the child program.
+    proc = subprocess.run(
+        [sys.executable, suites.OVERLOADS, 'python', '40']
+      , capture_output=True, text=True, timeout=120
+      )
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    report = json.loads(proc.stdout)
+    self.assertEqual(report['side'], 'python')
+    self.assertEqual(report['calls'], 40)
+    self.assertGreater(report['solve'], 0.0)
+    self.assertAlmostEqual(report['per_call'], report['solve'] / 40)
+    self.assertEqual(sum(report['outcomes'].values()), 40)
+    self.assertEqual(len(report['digest']), 16)
+
+  def test_dependency_child(self):
+    '''
+    The resolvelib side of the child program: the plan of a solvable
+    index, none for an unsolvable one; without the package the program
+    says so and exits with status 3.
+    '''
+    def child(*args):
+      return subprocess.run(
+          [sys.executable, suites.DEPENDENCY] + list(args)
+        , capture_output=True, text=True, timeout=120
+        )
+    proc = child()
+    self.assertEqual(proc.returncode, 1)
+    self.assertIn('usage', proc.stderr)
+    if importlib.util.find_spec('resolvelib') is None:
+      proc = child('resolvelib', '10', 'solvable')
+      self.assertEqual(proc.returncode, 3)
+      report = json.loads(proc.stdout)
+      self.assertEqual(
+          report['error'], 'resolvelib is not importable by this Python'
+        )
+      self.skipTest('resolvelib is not importable by this Python')
+    proc = child('resolvelib', '20', 'solvable')
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    report = json.loads(proc.stdout)
+    self.assertEqual(
+        [report[k] for k in ('side', 'size', 'case', 'found')]
+      , ['resolvelib', 20, 'solvable', True]
+      )
+    self.assertTrue(report['plan'].startswith('app '))
+    self.assertEqual(report['closure'], len(report['plan'].split(', ')))
+    self.assertGreater(report['solve'], 0.0)
+    self.assertTrue(report['resolvelib'])
+    proc = child('resolvelib', '20', 'unsolvable')
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    report = json.loads(proc.stdout)
+    self.assertFalse(report['found'])
+    self.assertIsNone(report['plan'])
+
+  def test_clang_probe(self):
+    '''
+    The translation unit of the clang opponent, the reading of a trace,
+    and the exit without clang++.  The unit holds a unique call, an
+    ambiguous call and a call without a viable function, each an
+    instantiation of the variable template whose requirement is
+    dependent, so that the last two are not errors.
+    '''
+    fund, const, ptr = overloads.fund, overloads.const, overloads.ptr
+    calls = [
+        [fund('Int'), fund('Int')], [fund('Float'), fund('Float')]
+      , [fund('NullptrT'), fund('NullptrT')]
+      ]
+    outcomes = [
+        cxxoverload.resolve(overloads.HIERARCHY, overloads.CANDIDATES, args)
+            for args in calls
+      ]
+    self.assertEqual(outcomes[0], 'f(int, int) [exact, exact]')
+    self.assertTrue(outcomes[1].startswith('ambiguous: '))
+    self.assertEqual(outcomes[2], 'no viable function')
+    text = clangprobe.unit(calls)
+    self.assertIn('struct Derived : Base {};', text)
+    self.assertIn('void f(int const*, char);', text)
+    self.assertIn(
+        'template<class A, class B> constexpr bool call = '
+        'requires (A a, B b) { f(a, b); };'
+      , text
+      )
+    self.assertIn('constexpr bool c0 = call<int, int>;', text)
+    self.assertIn('constexpr bool c1 = call<float, float>;', text)
+    self.assertIn(
+        'constexpr bool c2 = call<decltype(nullptr), decltype(nullptr)>;'
+      , text
+      )
+    self.assertEqual(text.count(' = call<'), 3)
+    self.assertNotIn('extern', text)
+    baseline = clangprobe.unit([])
+    self.assertEqual(baseline.count('requires'), 1)
+    self.assertEqual(baseline.count('call<'), 0)
+    self.assertEqual(
+        clangprobe.unit(overloads.calls(1000)).count(' = call<'), 1000
+      )
+    trace = {
+        'traceEvents': [
+            {'name': 'Other', 'dur': 1}, {'name': 'Frontend', 'dur': 2500000}
+          ]
+      }
+    self.assertEqual(clangprobe.frontend_seconds(trace), 2.5)
+    self.assertRaises(
+        ValueError, clangprobe.frontend_seconds, {'traceEvents': []}
+      )
+    proc = subprocess.run(
+        [sys.executable, suites.CLANGPROBE, '5'], capture_output=True
+      , text=True, timeout=120, env=dict(os.environ, PATH='')
+      )
+    self.assertEqual(proc.returncode, 3, proc.stderr)
+    report = json.loads(proc.stdout)
+    self.assertEqual(report['error'], 'clang++ is not on PATH')
+    self.assertEqual(report['calls'], 5)
+
+
 class TestRunOptions(unittest.TestCase):
   '''The command line of the run command.'''
 
@@ -1047,6 +1548,12 @@ class TestRunOptions(unittest.TestCase):
     self.assertEqual(args.repeat, 1)
     self.assertEqual(args.backend, ['py', 'cxx'])
     self.assertEqual(run.parse_args(['-s', 'split']).repeat, 3)
+    args_apps = run.parse_args(['-s', 'applications'])
+    self.assertEqual(args_apps.backend, ['cxx', 'py', 'resolvelib', 'python'])
+    self.assertEqual(args_apps.repeat, 3)
+    self.assertEqual(
+        run.parse_args(['-s', 'applications', '-b', 'clang']).backend, ['clang']
+      )
     self.assertEqual(args.env, [('A', '1'), ('B', 'x=y')])
     self.assertEqual(args.program, ['Fib'])
     self.assertFalse(args.nightly)
@@ -1092,6 +1599,19 @@ class TestRunOptions(unittest.TestCase):
     item = Item([], warmups=0)
     run.measure_item(item, 1, '/p')
     self.assertEqual(item.calls, [False, True])
+    # A timeout ends the item: in the warm-up, that one sample; in a
+    # measured repetition, no further one.
+    item = Item(['timeout'])
+    samples = run.measure_item(item, 3, '/p')
+    self.assertEqual(item.calls, [False])
+    self.assertEqual([s['status'] for s in samples], ['timeout'])
+    item = Item(['ok', 'ok', 'timeout', 'ok'])
+    samples = run.measure_item(item, 3, '/p')
+    self.assertEqual(item.calls, [False, False, False])
+    self.assertEqual([s['status'] for s in samples], ['ok', 'timeout'])
+    record = records.summarize('throughput', 'P', 'cxx', None, samples, {})
+    self.assertEqual(record['status'], 'timeout')
+    self.assertEqual(record['repeat'], 2)
 
   def test_list_and_errors(self):
     out = io.StringIO()
@@ -2248,3 +2768,173 @@ class TestSmoke(cytest.TestCase):
     self.assertEqual(lines[2].split()[0], '2/0')
     self.assertEqual(lines[3].split()[0], '2/1')
     self.assertEqual(len(lines), 4)
+
+
+class TestApplicationsSmoke(cytest.TestCase):
+  '''
+  The applications suite end to end on the backend of this process: the
+  dependency item at ten packages against resolvelib, when the Python of
+  the installation imports it, and the overloads item on a few calls
+  against the plain-Python ranking.  The first run compiles the modules of
+  examples 15 and 21 (interpret:off).
+  '''
+
+  def setUp(self):
+    self.tmpdir = tempfile.mkdtemp(prefix='sprite-benchmarks-test-')
+    self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+
+  def harness(self, *args):
+    log = io.StringIO()
+    argv = [
+        '-s', 'applications', '-r', '1', '--timeout', str(TIMEOUT), '--cap'
+      , str(CAP), '--sprite-home', config.prefix(), '--no-perf'
+      ] + list(args)
+    with contextlib.redirect_stderr(log):
+      status = run.main(argv)
+    return status, log.getvalue()
+
+  def test_dependency(self):
+    filename = os.path.join(self.tmpdir, 'dependency.jsonl')
+    status, log = self.harness(
+        '-b', BACKEND, '-b', 'resolvelib', '--variant', '10/solvable'
+      , '--variant', '10/unsolvable', '-o', filename, 'dependency'
+      )
+    self.assertEqual(status, 0, log)
+    recs = records.read(filename)
+    settings = suites.Settings(config.prefix())
+    if settings.has_resolvelib():
+      self.assertEqual([r['backend'] for r in recs], [BACKEND, 'resolvelib'] * 2)
+      self.assertNotIn('skipped', log)
+    else:
+      self.assertEqual([r['backend'] for r in recs], [BACKEND] * 2)
+      self.assertIn('skipped', log)
+      self.assertIn('resolvelib is not importable', log)
+    plans = {}
+    for record in recs:
+      self.assertEqual(record['suite'], 'applications')
+      self.assertEqual(record['program'], 'dependency')
+      self.assertEqual(record['status'], 'ok', record['error'])
+      self.assertGreater(record['eval_wall'], 0.0)
+      self.assertLess(record['eval_wall'], record['wall'])
+      probe = record['samples'][0]['extra']['probe']
+      self.assertEqual(probe['size'], 10)
+      self.assertEqual(probe['found'], record['variant'] == '10/solvable')
+      if record['backend'] == 'resolvelib':
+        self.assertIsNone(record['steps'])
+        self.assertTrue(probe['resolvelib'])
+      else:
+        self.assertGreater(record['steps'], 0)
+        self.assertGreater(record['forks'], 0)
+        self.assertEqual(probe['side'], 'sprite')
+      plans.setdefault(record['variant'], set()).add(probe['plan'])
+    # The two sides find the same plan at this size.
+    self.assertEqual(len(plans['10/solvable']), 1)
+    self.assertEqual(plans['10/unsolvable'], {None})
+
+  def test_overloads(self):
+    filename = os.path.join(self.tmpdir, 'overloads.jsonl')
+    with mock.patch.object(suites, 'OVERLOAD_CALLS', 25):
+      status, log = self.harness(
+          '-b', BACKEND, '-b', 'python', '-o', filename, 'overloads'
+        )
+    self.assertEqual(status, 0, log)
+    sprite, python = records.read(filename)
+    self.assertEqual(records.key(sprite), ('applications', 'overloads', BACKEND, None))
+    self.assertEqual(records.key(python), ('applications', 'overloads', 'python', None))
+    for record in sprite, python:
+      self.assertEqual(record['status'], 'ok', record['error'])
+      self.assertGreater(record['eval_wall'], 0.0)
+      probe = record['samples'][0]['extra']['probe']
+      self.assertEqual(probe['calls'], 25)
+      self.assertEqual(sum(probe['outcomes'].values()), 25)
+    first, second = [r['samples'][0]['extra']['probe'] for r in (sprite, python)]
+    self.assertTrue(first['agree'], first.get('difference'))
+    self.assertEqual(first['digest'], second['digest'])
+    self.assertGreater(sprite['steps'], 0)
+    self.assertIsNone(python['steps'])
+
+
+class TestCommittedApplications(unittest.TestCase):
+  '''The committed record of the applications suite, and compare on it.'''
+
+  def record_files(self):
+    results = os.path.join(CURRYDIR, 'results')
+    return sorted(
+        os.path.join(results, name) for name in os.listdir(results)
+            if name.endswith('-applications.jsonl')
+      )
+
+  def test_record(self):
+    files = self.record_files()
+    self.assertTrue(files)
+    for filename in files:
+      recs = records.read(filename)
+      keys = [records.key(r) for r in recs]
+      self.assertEqual(len(keys), len(set(keys)))
+      backends = set(r['backend'] for r in recs)
+      self.assertIn('cxx', backends)
+      self.assertIn('resolvelib', backends)
+      self.assertIn('python', backends)
+      for record in recs:
+        self.assertEqual(record['suite'], 'applications')
+        self.assertIn(record['program'], suites.APPLICATIONS)
+        probe = record['samples'][0]['extra'].get('probe')
+        if record['status'] == 'ok':
+          self.assertIsNotNone(probe)
+          self.assertGreater(record['eval_wall'], 0.0)
+        if record['program'] == 'overloads' and record['status'] == 'ok' \
+            and record['backend'] in ('cxx', 'py'):
+          self.assertTrue(probe['agree'])
+      # The opponent answers every size; the Sprite backends the sizes
+      # that end, and a timeout is recorded as such.
+      sizes = lambda backend: sorted(set(
+          int(r['variant'].split('/')[0]) for r in recs
+              if r['program'] == 'dependency' and r['backend'] == backend
+        ))
+      self.assertEqual(sizes('resolvelib'), list(suites.DEPENDENCY_SIZES))
+      self.assertEqual(sizes('cxx'), list(suites.SPRITE_DEPENDENCY_SIZES))
+      # The sides agree on whether a plan exists, and every plan holds on
+      # the index it was found on.  The plans themselves agree only when
+      # the orders of the two searches agree (dependency.py): at 10 and 20
+      # packages in this record, not at 50.
+      plans = {}
+      for record in recs:
+        if record['program'] != 'dependency' or record['status'] != 'ok':
+          continue
+        probe = record['samples'][0]['extra']['probe']
+        size, case = record['variant'].split('/')
+        self.assertEqual(
+            probe['found'], case == 'solvable', record['variant']
+          )
+        if probe['found']:
+          index, roots = depindex.make_index(int(size))
+          self.assertTrue(
+              depindex.holds(index, depindex.parse_plan(probe['plan']), roots)
+            , (record['backend'], record['variant'])
+            )
+          plans.setdefault(int(size), {})[record['backend']] = probe['plan']
+      for size, found in plans.items():
+        if 'cxx' in found and 'py' in found:
+          self.assertEqual(found['cxx'], found['py'], size)
+        if 'cxx' in found and 'resolvelib' in found:
+          self.assertEqual(
+              found['cxx'] == found['resolvelib'], size in (10, 20), size
+            )
+      # The compare command on the record against itself: every item the
+      # same, every counter equal, in both modes.  A Sprite backend past
+      # the timeout at a size is a failed item, which --strict reports.
+      failed = sum(1 for r in recs if r['status'] != 'ok')
+      out = io.StringIO()
+      with contextlib.redirect_stdout(out):
+        status = compare.main(['--strict', filename, filename])
+      self.assertEqual(status, 1 if failed else 0)
+      text = out.getvalue()
+      self.assertIn('0 slower', text)
+      self.assertIn('%d failed' % failed, text)
+      self.assertIn('0 with changed counters', text)
+      self.assertNotIn('machines differ', text)
+      out = io.StringIO()
+      with contextlib.redirect_stdout(out):
+        status = compare.main(['--deterministic', filename, filename])
+      self.assertEqual(status, 0)
+      self.assertIn('applications', out.getvalue())

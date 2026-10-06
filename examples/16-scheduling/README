@@ -117,5 +117,5 @@ tasks did not finish in 45 s on the Python backend and ran out of memory
 under a 2 GB cap on the C++ backend.
 
 A warm run of ./run took 0.5 s on the Python backend and 0.2 s on the C++
-backend.  The first run also compiles the module.  It took about 10 s on
-each backend.
+backend.  The first run also compiles the module.  It took about a second
+on each backend.

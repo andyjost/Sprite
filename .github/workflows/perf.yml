@@ -1,13 +1,13 @@
 name: Performance
 
 # The nightly performance job: the benchmark harness on the C++ backend on
-# a fixed set of programs (run_benchmarks --nightly), the records appended
-# to the branch perf-history with the token of the workflow (no secret),
-# and each record compared with the previous one in the summary of the
-# run.  The numbers come from shared runners and are advisory: the job
-# never fails on a timing, only on a run that failed.  The page
-# perf/index.html of the documentation draws the history.  See
-# tests/README, section 9.
+# a fixed set of programs (run_benchmarks --nightly) and the applications
+# suite against its opponents, the records appended to the branch
+# perf-history with the token of the workflow (no secret), and each record
+# compared with the previous one in the summary of the run.  The numbers
+# come from shared runners and are advisory: the job never fails on a
+# timing, only on a run that failed.  The page perf/index.html of the
+# documentation draws the history.  See tests/README, section 9.
 
 on:
   schedule:
@@ -73,8 +73,10 @@ jobs:
       - name: Build the Curry toolchain
         if: steps.toolchain.outputs.cache-hit != 'true'
         run: .github/scripts/install-curry-toolchain.sh
+      # resolvelib is the opponent of the dependency item of the
+      # applications suite; without it the harness skips that item.
       - name: Install Python packages
-        run: python -m pip install --quiet numpy
+        run: python -m pip install --quiet numpy resolvelib
       - name: Configure and stage
         run: |
           python ./configure \

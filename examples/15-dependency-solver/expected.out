@@ -1,18 +1,112 @@
-% python go.py
+% python go.py --index
 index:
-  app 1 needs web 2|3, db 1|2
+  app 1 needs web 2..3, db 1..2
   app 2 needs web 3, db 2
   web 1 needs http 1
-  web 2 needs http 1|2
+  web 2 needs http 1..2
   web 3 needs http 2
   db 1
   db 2 needs http 1
   http 1
   http 2
-roots: app 1|2
-plans (4):
-  app 1  web 2  db 1  http 1
-  app 1  web 2  db 1  http 2
-  app 1  web 2  db 2  http 1
-  app 1  web 3  db 1  http 2
-newest: app 1  web 3  db 1  http 2
+  cli 1 needs web 1
+roots: app 1..2
+plan: app 1, web 3, http 2, db 1
+[[package]]
+name = "app"
+version = 1
+dependencies = ["web 3", "db 1"]
+
+[[package]]
+name = "db"
+version = 1
+
+[[package]]
+name = "http"
+version = 2
+
+[[package]]
+name = "web"
+version = 3
+dependencies = ["http 2"]
+
+% python go.py app=2
+roots: app 2
+no plan
+a plan exists without any one of these requirements:
+  app 2 needs web 3
+  app 2 needs db 2
+  web 3 needs http 2
+  db 2 needs http 1
+every branch of the search ends in a conflict:
+  app 2 > db 2 needs http 1, but app 2 > web 3 picked http 2
+exit status 1
+% python go.py --yank web=3
+roots: app 1..2
+yanked: web 3
+plan: app 1, web 2, http 2, db 1
+[[package]]
+name = "app"
+version = 1
+dependencies = ["web 2", "db 1"]
+
+[[package]]
+name = "db"
+version = 1
+
+[[package]]
+name = "http"
+version = 2
+
+[[package]]
+name = "web"
+version = 2
+dependencies = ["http 2"]
+
+% python go.py --lock plan.lock
+roots: app 1..2
+locked: app 1, db 2, http 1, web 2
+plan: app 1, web 2, http 1, db 2
+[[package]]
+name = "app"
+version = 1
+dependencies = ["web 2", "db 2"]
+
+[[package]]
+name = "db"
+version = 2
+dependencies = ["http 1"]
+
+[[package]]
+name = "http"
+version = 1
+
+[[package]]
+name = "web"
+version = 2
+dependencies = ["http 1"]
+
+% python go.py app=1 cli=1
+roots: app 1, cli 1
+no plan
+a plan exists without any one of these requirements:
+  the root app 1
+  the root cli 1
+  app 1 needs web 2..3
+  cli 1 needs web 1
+every branch of the search ends in a conflict:
+  app 1 > db 2 needs http 1, but app 1 > web 2 picked http 2
+  app 1 > db 2 needs http 1, but app 1 > web 3 picked http 2
+  cli 1 needs web 1, but app 1 picked web 2
+  cli 1 needs web 1, but app 1 picked web 3
+exit status 1
+% python go.py app=5
+roots: app 5
+no plan
+every branch of the search ends in a conflict:
+  the roots need app 5, and the index has no such version
+exit status 1
+% python go.py tls=1
+roots: tls 1
+no such package: tls
+exit status 2

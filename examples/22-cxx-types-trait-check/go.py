@@ -30,9 +30,9 @@ def text(goal, *args):
 def main(depth, names):
   print(text(CxxCheck.header, depth))
   for name in names:
-    # A name is passed as a list of characters: a str of length one would
-    # become a Char.
-    print(text(CxxCheck.check, depth, list(name)))
+    # A name is a Python str; curry.expr converts it to a String, the
+    # parameter type, also for a name of one character.
+    print(text(CxxCheck.check, depth, name))
 
 if __name__ == '__main__':
   args = sys.argv[1:]

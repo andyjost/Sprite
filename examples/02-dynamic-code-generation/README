@@ -76,7 +76,7 @@ The output is identical on both backends.
 5. Limits
 ---------
 
-Each call of curry.compile runs the Curry front end, which costs about 7 s.
-The script compiles twice on every run, so ./run took 15 s on the Python
-backend and 16 s on the C++ backend.  Code compiled from a string is not
-cached between runs.
+Each call of curry.compile runs the Curry front end, which costs about a
+third of a second.  The script compiles twice on every run, so ./run took
+0.8 s on each backend.  Code compiled from a string is not cached between
+runs.

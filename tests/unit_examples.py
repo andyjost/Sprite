@@ -8,10 +8,9 @@ compares the standard output of the child, decoded as UTF-8, with the text of
 expected.out.  Only the standard output is compared; the standard error is
 shown when a test fails.
 
-The file takes about a minute warm and about three minutes cold on one
-backend.
-The first run compiles the Curry module of each example, and two examples
-compile Curry text on every run.
+The file takes about 15 s warm and 30 s cold on the C++ backend, and about
+90 s on the Python backend.  The first run compiles the Curry module of each
+example, and two examples compile Curry text on every run.
 
 To regenerate the expected output after a deliberate change, run
 

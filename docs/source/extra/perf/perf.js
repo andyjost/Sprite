@@ -13,7 +13,7 @@
 'use strict';
 
 var BRANCH = 'perf-history';
-var SUITES = ['throughput', 'compile', 'import', 'memory', 'split'];
+var SUITES = ['throughput', 'compile', 'import', 'memory', 'split', 'applications'];
 var METRICS = {
     cpu: {label: 'CPU seconds', unit: 's'}
   , wall: {label: 'wall seconds', unit: 's'}
@@ -23,7 +23,7 @@ var METRICS = {
   , steps: {label: 'rewrite steps', unit: ''}
   };
 // The metric of a suite when the page says "suite default".
-var DEFAULT_METRIC = {memory: 'peak_rss'};
+var DEFAULT_METRIC = {memory: 'peak_rss', applications: 'eval_wall'};
 // The ranges of the page in days; 0 is the whole history.
 var RANGES = {all: 0, year: 365, quarter: 90, month: 30};
 // The noise band of the compare command.

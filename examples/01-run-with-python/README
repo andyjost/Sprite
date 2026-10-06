@@ -71,4 +71,4 @@ The output is identical on both backends.
 
 A warm run of ./run took 0.4 s on the Python backend and 0.2 s on the C++
 backend.  The first run also compiles the module with the Curry front end,
-which takes several seconds more.
+which takes about half a second more.

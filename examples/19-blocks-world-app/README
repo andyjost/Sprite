@@ -161,5 +161,5 @@ blocks, ABCDE// to //ABCDE, ran out of memory under a 2 GB cap on the C++
 backend after 16 s.  So keep the Python backend at three blocks and the
 C++ backend at four.
 
-The first run also compiles the module.  The front end took about 10 s,
-and the C++ compile took about 2 s more.
+The first run also compiles the module, which took about half a second
+more.

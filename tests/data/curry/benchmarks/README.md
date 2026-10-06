@@ -83,9 +83,14 @@ record per program:
     ./run_benchmarks compare cxx.jsonl later.jsonl
 
 Other suites (`-s compile`, `-s import`, `-s memory`) measure the compile
-times, the start-up times, and the peak memory.  Section 9 of `tests/README`
-describes the suites, the records, and the comparison.  The harness is the
-package `tests/lib/benchmarks`.
+times, the start-up times, and the peak memory.  The suite `-s applications`
+measures two programs of the examples against the tools of their trade: the
+dependency solver of example 15 against resolvelib, the resolver of pip, on
+generated package indexes, and the overload resolution of example 21
+against a plain-Python implementation of the same ranking; its records are
+under `results/`.  Section 9 of `tests/README` describes the suites, the
+records, and the comparison.  The harness is the package
+`tests/lib/benchmarks`.
 
 The harness runs the C++ backend in step mode (`SPRITE_ROTATION=steps:65536`
 in the environment of every run): the scheduler rotates its alternatives

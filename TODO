@@ -5158,3 +5158,97 @@
   case), and test_coverage of unit_py_runtime.py expected the TypeError of
   make_node for raw_expr(Int, 1, 2), which the #63 change turned into the
   CurryTypeError of the builder.
+
+2026-10-06: the review pass over examples 13 and 15 and the applications suite
+- The committed record of the applications suite is complete,
+  tests/data/curry/benchmarks/results/apps-2026-10-06-applications.jsonl,
+  31 records.  The partial file of the first attempt (13 records, the
+  dependency item at 10 to 50 packages, no overloads item) was replaced:
+  the command of results/README.md (-r 3, --timeout 600, --cap 4G, the
+  label apps-2026-10-06, resolvelib from a virtual environment on
+  PYTHONPATH, under prlimit --as 4 GB) ran through resolvelib 800/solvable
+  in 97 minutes, then reached the wall-clock limit of its session during
+  resolvelib 800/unsolvable; the overloads item and that item ran after it
+  into the same file.  Numbers: cxx 0.083 s against resolvelib 0.38 ms at
+  10 packages, 2.0 s against 1.2 ms at 50, timeouts at 100 on both Sprite
+  backends; py 5.6 s at 10, 463 s at 50; resolvelib under 10 ms at every
+  size and case but 50/unsolvable (30 ms) and 800/unsolvable, where it
+  raises ResolutionTooDeep at its bound of a million rounds 430 to 470 s
+  into each run, a failed item in the record; overloads cxx 2.08 s per
+  1000 calls, py 80 s, plain Python 28 ms, the answers equal on every
+  side.  results/README.md describes the
+  record; its load note says that the other stream and the test runs of
+  this pass kept the load average between 2 and 8 (the py seconds at 10
+  and 20 packages came out 4 to 80 percent above the interrupted run at
+  load 2).  TestCommittedApplications expects this record: a Sprite
+  backend past the timeout at a size is a timeout record, which compare
+  --strict reports as a failed item, so the test expects status 1 from the
+  strict compare when the file holds one and checks the text ("0 slower",
+  "N failed", "0 with changed counters"); it checks that the two sides
+  agree on whether a plan exists, that every plan holds on its index
+  (depindex.holds), that the plans of cxx and py agree, and that the plans
+  of cxx and resolvelib agree at 10 and 20 packages and differ at 50; it
+  reads the probe of an item only when its status is ok.
+- The overloads item built the eight candidates of the overload set on
+  every call inside the measured time, where the Python side read a
+  constant and the driver of example 21 builds a set once for several
+  calls.  overloads.py builds the overload set and the hierarchy once
+  before the clock starts; the terms of the two arguments of a call stay
+  inside the time.  The C++ backend went from 6.25 s to 2.08 s per 1000
+  calls at the same 8.67 million steps: the difference was the
+  construction of 16 terms per call in Python.  tests/README section 9
+  and the docstrings of suites.py and overloads.py say so.
+- The clang probe wrote "constexpr bool cN = requires { f(aI, aJ); };" at
+  namespace scope: a requirement that is not dependent and fails makes the
+  program ill-formed, and the workload has ambiguous calls and calls
+  without a viable function.  The unit declares "template<class A, class
+  B> constexpr bool call = requires (A a, B b) { f(a, b); };" and one
+  instantiation call<A, B> per call; the argument variables are gone.
+  Checked with g++ 13.3 -std=c++20 -fsyntax-only, the compiler at hand:
+  the unit of 1000 calls and the baseline compile, the old form fails
+  ("call of overloaded f(float&, float&) is ambiguous"), and 200
+  static_asserts of the viability of the instantiations against the
+  plain-Python ranking hold.  clang++ is not installed on this machine, so
+  the clang path itself is untested; the unit test holds a unique, an
+  ambiguous and a non-viable call.
+- The resolvelib provider orders the open requirements as the example
+  provider of resolvelib does (the package with the fewest candidates
+  first) and resolvelib backjumps, where Deps.preferred takes the demands
+  in the order it meets them.  Observed at 50 packages, solvable: the two
+  sides find different plans (21 packages in the closure of the plan of
+  cxx, 25 in resolvelib's; pkg022 2 against pkg022 3); at 10 and 20 the
+  same plan.  The docstrings of dependency.py and depindex.py,
+  tests/README section 9 and results/README.md say so.  depindex gained
+  holds and parse_plan, with tests.  The docstring of depindex described
+  the old example 15 (a version for every package of the index); both
+  sides assign a version to the closure.
+- Example 15: a conflict at a root demand read "the roots needs app 5";
+  the verb agrees now ("the roots need app 5, and the index has no such
+  version"), and ./run runs that case as the sixth of its seven runs,
+  pinned in expected.out.  README 15 names the applications suite as
+  present and points to the record; README 21 points to it too.
+- Example 13: the README names the 40-character subject of the .*b.*
+  measurement (25 x's, b, 9 x's, b, 4 x's; 440 hits, every substring with
+  a b) with the times observed on it: 0.4 s on the C++ backend (68 MB)
+  and 14 s on the Python backend.
+- Rewraps: two paragraphs of README 21, one of README 18, the comment of
+  perf.yml, the dependency paragraph of tests/README section 9.
+- Verification.  Examples 13 and 15 by ./run on both backends under
+  prlimit --as 2 GB and timeout 120: 13 took 0.18 s on cxx and 1.1 s on
+  py, equal to expected.out; 15 took 1.7 s and 3.3 s, identical on both
+  backends, the new block pinned.  Through the runner (-j 2 --mem 4, both
+  backends): unit_examples.py 21 tests OK on each backend (py 132 s under
+  load, 85 s later; cxx 22 s and 12 s); the final ./run_tests --changed
+  after the record landed, 10 of 10 files on both backends in 99 s:
+  unit_benchmarks.py 73 tests on each backend (TestCommittedApplications
+  on the complete record among them), unit_examples.py 21, unit_cxx_heap.py
+  10, unit_cxx_passthrough.py 18, unit_cxx_variable.py 5.  By hand:
+  the applications, options, suites and records classes of
+  unit_benchmarks.py (43 tests) on cxx, the two smoke tests on py (32 s),
+  unit_perf_history.py 10 OK (4 skipped).  A dry run of ./run_tests
+  --changed during the record run found unit_cxx_heap.py and
+  unit_cxx_passthrough.py failing on the C++ backend on a stale Tak1.so
+  and an interpreted CxxPassThrough (objects compiled under another
+  installation; the tiered default never recompiles them in a test
+  process); ./run_tests --prepare-only --backend cxx over data/curry and
+  data/curry/benchmarks (64 s) fixed both.

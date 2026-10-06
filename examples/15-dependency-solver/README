@@ -1,61 +1,154 @@
 A package dependency solver
 ===========================
 
-This example picks a version of every package in a small package index.  A
-plan is consistent when it meets the root requirements and the requirements
-of every version it picks.  The program states what a consistent plan is.
-The runtime finds all of them.
+This example resolves the dependencies of a package.  An index lists the
+versions of every package with their requirements, and a requirement names a
+package and a range of its versions.  A plan picks one version for every
+package that the roots reach.  The program states the relation: a plan is
+consistent when the version it picks for a package meets every requirement
+of that package which the plan reaches.  The policy, newest first with the
+versions of a lockfile preferred, is a second function over the same search.
+The output is a lockfile.  When no plan exists, the program says which
+requirement breaks the plan and where the search fails.
 
 
 1. What the example shows about functional logic programming
 -------------------------------------------------------------
 
-Non-determinism as values.  The plan in
+The relation is a search.  The function solveFrom keeps the demands still to
+meet, in order, and the versions chosen so far:
 
-    plan = [ (p, anyOf (versionsOf idx p)) | p <- packages idx ]
+    solveFrom _   _      _    []                 plan = plan
+    solveFrom idx yanked lock ((p, r) : pending) plan =
+      case lookup p plan of
+        Just v  -> if inRange r v then solveFrom idx yanked lock pending plan
+                                  else failed
+        Nothing -> solveFrom idx yanked lock (requires idx (p, v) ++ pending)
+                                             (plan ++ [(p, v)])
+      where
+        v = anyOf (candidates idx yanked lock (p, r))
 
-assigns each package anyOf its versions.  The call anyOf xs is a choice
-among the elements of xs.  So the one expression plan means every
-assignment at once.
+A demand on a package that is in the plan is a test: the chosen version
+meets it, or the branch fails.  A demand on a new package is a choice: anyOf
+picks one of its candidates, and the requirements of that version come next.
+The call anyOf [] fails, so a package without a candidate ends the branch
+too.  Every value of solve is a consistent plan of the roots, and the
+function has no loop, no backtracking code and no search state.  The runtime
+does the search.
 
-Lazy generate and test.  The guard
+The plan holds the closure of the roots and nothing else.  The index has a
+package cli, whose one version needs web 1.  The root app does not reach
+cli, so no plan of app mentions it, and the requirement of cli does not
+constrain web.  A plan over the whole index would pick a version of cli as
+well, and app and cli would then have no plan together.  The step with the
+roots app 1 and cli 1 shows that case.
 
-    all (holds plan) roots && all (depsHold idx plan) plan
+The preference is the order of the candidates:
 
-keeps the assignments that meet the roots and the requirements of every
-chosen version.  A failed guard is not an error.  It produces no value.  The
-function plans has no loop, no backtracking code, and no search state.  The
-runtime does the search.
+    candidates idx yanked lock (p, (lo, hi)) = locked ++ fresh
+      where
+        versions = [ v | (q, v, _) <- idx, q == p, lo <= v, v <= hi ]
+        locked   = [ v | v <- versions, (p, v) `elem` lock ]
+        fresh    = [ v | v <- sortBy (>=) versions, v `notElem` locked
+                       , (p, v) `notElem` yanked || lo == hi ]
 
-A conflict.  Version 2 of app needs web 3, and web 3 needs http 2.  Version
-2 of app also needs db 2, and db 2 needs http 1.  No plan holds both, so no
-plan picks app 2.  The program does not say so anywhere.  The result follows
-from the requirements.
+The version of the lockfile comes first, then the others newest first.  A
+yanked version is a candidate only when the lockfile names it or the range
+pins it, which is the rule of pip for a yanked release.
+
+A depth-first search over the candidates in that order finds the preferred
+plan first.  Sprite does not search depth first.  Its scheduler is fair: a
+choice at the root of a configuration replaces it by two configurations at
+the back of the queue, and the front of the queue runs on.  The branches of
+solve advance in turns, and the first value of solve is the branch that
+finishes first, not the first branch in the order of the candidates.  The
+order of the values is not promised, and it differs between the backends.
+The example pins the plan with a second function:
+
+    preferredFrom idx yanked lock ((p, r) : pending) plan =
+      case lookup p plan of
+        Just v  -> if inRange r v
+                     then preferredFrom idx yanked lock pending plan
+                     else failed
+        Nothing -> preferredFrom idx yanked lock
+                     (requires idx (p, chosen) ++ pending)
+                     (plan ++ [(p, chosen)])
+      where
+        chosen = head [ c | c <- candidates idx yanked lock (p, r)
+                          , leavesAPlan c ]
+        leavesAPlan c = notEmpty (set5 solveFrom idx yanked lock
+                                       (requires idx (p, c) ++ pending)
+                                       (plan ++ [(p, c)]))
+
+Every choice takes the first candidate that still leaves a plan.  The
+lookahead is a set function: set5 solveFrom encapsulates the search from the
+state after the candidate, and notEmpty asks whether that search has a
+value.  The function preferred has no choice of its own, so it has one value
+or none, in whatever order the scheduler runs the branches inside the set
+function.  Its value is, by definition, the plan that a depth-first search
+over the candidates in order finds first.  Section 5 gives the cost.
+
+A failure is the absence of a value.  The roots app 2 have no plan: app 2
+needs web 3 and db 2, web 3 needs http 2, and db 2 needs http 1.  Nothing in
+the program says so; the branch that picks http 2 for web 3 fails at the
+demand of db 2.  Two more functions explain a failure.  The function
+conflict runs the search of solve with the requirer beside every demand and
+every choice, and returns the first violation of a branch instead of
+failing there:
+
+    conflictFrom idx yanked lock (((p, r), by) : pending) plan =
+      case lookup p plan of
+        Just (v, by') -> if inRange r v
+                           then conflictFrom idx yanked lock pending plan
+                           else (((p, r), by), [(v, by')], trace)
+        ...
+
+A branch that reaches a plan has no violation and fails in conflict.  So
+when the roots have no plan, the values of conflict are the ends of every
+branch of the search, and the driver prints each one as a sentence.  The
+function solvable is the set function of solve under notEmpty.  The driver
+deletes one requirement of the index at a time and asks it whether a plan
+exists without that requirement.  The requirements whose deletion restores a
+plan are the ones that break it.
+
+A root that the index does not know is a mistake in the question, not a
+plan that does not exist.  The function unknown lists such roots, and the
+driver asks it before the search, so that "no such package" and "no plan"
+differ.
 
 
 2. What the example shows about calling Curry from Python
 ----------------------------------------------------------
 
-The index is Python data: a list of (name, version, requirements) tuples.
-Each requirement is a (name, versions) tuple.  The driver go.py passes this
-nested data to the Curry function plans.  curry.eval converts it with
-curry.expr: tuples become Curry tuples, lists become Curry lists, and ints
-become Curry Ints.
+The index is Python data: a list of (name, version, requirements) tuples,
+and a requirement is a (name, (low, high)) tuple.  The roots have the same
+shape as the requirements.  The yanked versions and the lockfile are lists
+of (name, version) pairs.  One call,
 
-A package name is a Python str.  curry.expr converts it by the type the
-parameter expects, a String, also when the name has one character.
+    curry.eval(Deps.preferred, INDEX, yanked, lock, roots,
+               converter='topython')
 
-The roots come from the command line.  Each argument has the form
-NAME=V1,V2.  The default is app=1,2.
+passes all of it to Curry.  curry.expr converts each argument by the type of
+its parameter: tuples become Curry tuples, lists become Curry lists, ints
+become Ints, and a str becomes a String, also when the name has one
+character.  An empty Python list becomes an empty list of the parameter
+type.  The converter turns the plan into a Python list of (str, int) pairs.
+preferred is deterministic, so the generator has one value or none, and
+next(..., None) reads it.
 
-One call,
+The values of conflict are nested tuples of strings, ints and lists, and the
+converter turns each one into Python data.  The driver iterates over the
+values, which is the collection of the set, turns each one into a sentence,
+and prints the sentences sorted and once each, because several branches end
+in the same violation.
 
-    curry.eval(Deps.plans, index, roots, converter='topython')
-
-is a generator of consistent plans.  The converter turns each Curry plan
-into a Python list of (str, int) pairs.  The scheduler does not promise an
-order of the values across the backends, so the driver sorts the plans.  It
-then picks the newest plan in Python with max.
+Python owns the question and the files.  The driver parses the roots, the
+yank list and the lockfile from the command line, prints the plan as a
+lockfile in TOML, and reads a lockfile back with tomllib from the standard
+library.  The deletion loop of the explanation is Python too: it builds each
+variant of the index and asks Curry one question per variant, solvable.
+Curry decides, Python asks.  The exit status is 0 with a plan, 1 without
+one, and 2 for a root that the index does not know.
 
 
 3. How to run
@@ -71,50 +164,123 @@ SPRITE_INTERPRETER_FLAGS in the environment:
     SPRITE_INTERPRETER_FLAGS=backend:py ./run
     SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
 
-To try other roots, pass them to go.py.  Use the Python of the staged
-install.  For example, on the Python backend:
+To ask other questions, pass them to go.py.  Use the Python of the staged
+install.  A root is NAME=V or NAME=LO..HI, --yank NAME=V marks a version of
+the index as yanked, --lock FILE prefers the versions of a lockfile that an
+earlier run printed, and --index prints the index first.  For example:
 
-    SPRITE_INTERPRETER_FLAGS=backend:py ../../install/bin/python go.py app=2
-    SPRITE_INTERPRETER_FLAGS=backend:py ../../install/bin/python go.py web=1,2
+    ../../install/bin/python go.py --index
+    ../../install/bin/python go.py app=2
+    ../../install/bin/python go.py --yank web=3 app=1
+    ../../install/bin/python go.py --lock plan.lock > new.lock
+
+To change the index, edit INDEX at the top of go.py.
 
 
 4. Expected output
 ------------------
 
-The file expected.out holds the exact output of ./run.  The driver prints
-the index and the roots first.  Then it prints the plans:
+The file expected.out holds the exact output of ./run, which runs go.py
+seven times.  The first run prints the index, the roots and the preferred
+plan of app 1..2, as one line and as a lockfile:
 
-    plans (4):
-      app 1  web 2  db 1  http 1
-      app 1  web 2  db 1  http 2
-      app 1  web 2  db 2  http 1
-      app 1  web 3  db 1  http 2
-    newest: app 1  web 3  db 1  http 2
+    roots: app 1..2
+    plan: app 1, web 3, http 2, db 1
+    [[package]]
+    name = "app"
+    version = 1
+    dependencies = ["web 3", "db 1"]
+    ...
 
-Every plan picks app 1, because app 2 has the conflict described above.
+app 2 is the newest version of app, and it has no plan, so the plan takes
+app 1.  web 3 is the newest version that app 1 accepts, and it needs http 2.
+db 2 needs http 1, so the plan takes db 1.  The second run asks for app 2:
+
+    roots: app 2
+    no plan
+    a plan exists without any one of these requirements:
+      app 2 needs web 3
+      app 2 needs db 2
+      web 3 needs http 2
+      db 2 needs http 1
+    every branch of the search ends in a conflict:
+      app 2 > db 2 needs http 1, but app 2 > web 3 picked http 2
+    exit status 1
+
+The four requirements form the conflict: without any one of them a plan
+exists.  The search has one branch, because every choice has one candidate,
+and the branch fails at the demand of db 2.  The third run marks web 3 as
+yanked, and the plan takes web 2.  The fourth run reads plan.lock, an older
+lockfile with web 2, http 1 and db 2.  Those versions still satisfy the
+roots, so the plan keeps them all:
+
+    locked: app 1, db 2, http 1, web 2
+    plan: app 1, web 2, http 1, db 2
+
+The fifth run asks for app 1 and cli 1 together.  cli 1 needs web 1 and
+app 1 needs web 2 or 3, so the six branches of the search all end in a
+conflict, four distinct ones.  The sixth run asks for a version that the
+index does not have.  No deletion of a requirement restores a plan, and
+the one branch of the search fails at the demand of the roots:
+
+    roots: app 5
+    no plan
+    every branch of the search ends in a conflict:
+      the roots need app 5, and the index has no such version
+    exit status 1
+
+The seventh run asks for a package that the index does not know:
+
+    roots: tls 1
+    no such package: tls
+    exit status 2
+
 The output is identical on both backends.
-
-With the root app=2 the driver prints
-
-    plans (0):
-    newest: none
 
 
 5. Limits
 ---------
 
-A plan assigns a version to every package in the index, used or not.  The
-guard forces one choice at a time.  It rejects a partial plan as soon as one
-choice breaks a requirement.  So the work depends on how early the
-requirements prune.  In the worst case nothing prunes, and the work grows
-with the product of the version counts.
+A warm run of ./run, seven processes, took 1.7 s on the C++ backend and
+3.3 s on the Python backend.  The first run also compiles the module, which
+adds about a second.
 
-The index here has nine versions of four packages, or 24 assignments.  A
-warm run of ./run took 0.4 s on the Python backend and 0.2 s on the C++
-backend.  The first run also compiles the module.  It took about 10 s on
-each backend.
+The cost is the fair search.  The scheduler advances the branches of solve
+in turns, so the first plan arrives when every branch has advanced that
+far: on a chain of seven packages with four versions each and no conflict,
+16384 plans, the first value of solve took 0.9 s on the C++ backend, where a
+depth-first resolver takes seven steps.  The set function is evaluated
+lazily, and notEmpty stops at the first value, so the lookahead of preferred
+costs one such search per candidate it tries, over the branches below that
+candidate alone.  preferred took 0.3 s on that chain, and 5 s with 255 MB on
+a chain of eight packages with five versions, 390625 plans, where the first
+value of solve took 13 s.  On the Python backend the chain of six packages
+with four versions took 25 s for the first value of solve and 13 s for
+preferred.  A measurement of this cost against another resolver belongs
+in the benchmark harness, not here: an example runs in seconds and is
+pinned by its expected.out.  The applications suite of the harness
+(tests/README, section 9) asks this solver and resolvelib, the resolver
+of pip, for a plan of generated indexes of growing size.  The benchmark
+record of this example is
+tests/data/curry/benchmarks/results/apps-2026-10-06-applications.jsonl.
 
-Measured worst case, with three versions of every package and no
-requirements: seven packages, or 2187 plans, took 2.6 s on the Python
-backend.  Nine packages, or 19683 plans, took 1.4 s on the C++ backend.
-Keep the Python backend at seven packages or fewer to stay well under 30 s.
+What other resolvers do that this example does not:
+
+  * resolvelib, the resolver of pip, lets its provider order the open
+    requirements as well as the candidates, so that the package with the
+    fewest candidates is resolved first, and it backjumps to the cause of a
+    conflict instead of trying the alternatives in between.  This example
+    resolves the demands in the order it meets them and lets the scheduler
+    try every branch.
+  * PubGrub, the resolver of Dart, Cargo and uv, learns an incompatibility
+    from every conflict and never meets the same conflict twice.  It
+    explains a failure as a derivation of incompatibilities.  Here a
+    conflict that recurs in many branches is met again in every branch, and
+    the explanation names the first violation of each branch and the
+    requirements whose deletion restores a plan.
+  * Both work with version sets, pre-releases and semantic versions.  A
+    version here is an Int, and a range is one closed interval.
+
+Out of scope: features and extras, platform conditions, optional
+dependencies, several versions of one package in one plan, and the sources
+and hashes of a lockfile.

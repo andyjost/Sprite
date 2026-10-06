@@ -1,9 +1,10 @@
 % python go.py
+words (cat|dog)s?: cat cats dog dogs
 match ab*c abbbc: True
 match a.c axc: True
 match a.c abbc: False
-grep ab*c in xxxxxxxxxxxxxxxabbbcyyyyyyyyyyyyyyyyyyyyy: 1 hit
-  xxxxxxxxxxxxxxx[abbbc]yyyyyyyyyyyyyyyyyyyyy
+grep ab*c in xxxxxxxabbbcyyyyyyyy: 1 hit
+  xxxxxxx[abbbc]yyyyyyyy
 grep a+b? in zzaaabzz: 9 hits
   zz[a]aabzz
   zz[aa]abzz
@@ -14,9 +15,9 @@ grep a+b? in zzaaabzz: 9 hits
   zza[aab]zz
   zzaa[a]bzz
   zzaa[ab]zz
-grep (cat|dog)s? in cats and dogs and a dog: 5 hits
-  [cat]s and dogs and a dog
-  [cats] and dogs and a dog
-  cats and [dog]s and a dog
-  cats and [dogs] and a dog
-  cats and dogs and a [dog]
+grep (cat|dog)s? in cats, dogs and a dog: 5 hits
+  [cat]s, dogs and a dog
+  [cats], dogs and a dog
+  cats, [dog]s and a dog
+  cats, [dogs] and a dog
+  cats, dogs and a [dog]

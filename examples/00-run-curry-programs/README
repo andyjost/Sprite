@@ -69,4 +69,4 @@ The output is identical on both backends.
 
 The program is tiny.  A warm run of ./run took about 1 s on the Python
 backend and 0.4 s on the C++ backend.  The first run also compiles the
-program with the Curry front end, which takes several seconds more.
+program with the Curry front end, which takes about half a second more.

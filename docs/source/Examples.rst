@@ -155,7 +155,7 @@ Regular expressions by non-determinism
 
 Directory ``examples/13-regex-nondeterminism``.  Backends: Python, C++.
 
-A function returns one word of the language of a pattern, and every word is one value; matching is unification with the subject.  Python parses the pattern syntax into Curry data and lists every hit of a search.
+A function returns one word of the language of a pattern, and every word is one value, so the function generates the words; matching is unification with the subject.  Python parses the pattern syntax into Curry data, lists the words of a star-free pattern, and lists every hit of a search.
 
 .. code-block:: bash
 
@@ -185,7 +185,7 @@ A package dependency solver
 
 Directory ``examples/15-dependency-solver``.  Backends: Python, C++.
 
-A plan assigns each package one of its versions, and a guard keeps the consistent plans.  The package index is nested Python data, and Python picks the newest plan.
+A plan picks a version for every package that the roots reach, and a search over the candidates, newest first, finds the consistent plans.  A set function pins the preferred plan, and a failure is explained.  The index is nested Python data, and the output is a lockfile.
 
 .. code-block:: bash
 
@@ -288,7 +288,7 @@ A template parameter is a free variable, and deduction is unification of the par
 Overload resolution over a model of C++ types
 ---------------------------------------------
 
-Directory ``examples/21-cxx-types-overloads``.  Backends: C++.
+Directory ``examples/21-cxx-types-overloads``.  Backends: Python, C++.
 
 The conversions of the standard are non-deterministic rules, a candidate with an argument that no rule converts is not viable, and a set function collects the viable set with its ranks.  The inverse question finds every argument type up to a depth that makes a call ambiguous.  Python builds the overload sets, the class hierarchy and the calls.
 
