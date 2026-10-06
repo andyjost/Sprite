@@ -10,7 +10,10 @@ are available:
 
   * ``backend`` ({0!r})
 
-    The name of the backend used to compile and run Curry.
+    The name of the backend used to compile and run Curry: 'cxx', the C++
+    backend, or 'py', the Python backend, which suits small programs.  The
+    default is the one configure recorded (--with-default-backend;
+    sysconfig/default_backend of the installation).
 
   * ``debug`` (True | **False**)
 

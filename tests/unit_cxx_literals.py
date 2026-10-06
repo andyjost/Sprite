@@ -179,6 +179,7 @@ class TestTables(cytest.TestCase):
       items.append(head)
     return items
 
+  @cytest.skipIfInterpreted('the test reads the generated code of CxxLiterals')
   def test_literal_count(self):
     '''
     The tables are full when the bindings load, and a module adds one node
@@ -258,6 +259,7 @@ print('collections', collections)
     self.assertEqual(str(one), '1')
     self.assertEqual(str(cyrt.small_int(1)), '1')
 
+  @cytest.skipIfInterpreted('the test reads the generated code of CxxLiterals')
   def test_generated_code(self):
     '''
     The generator spells a small literal as a table lookup and any other

@@ -196,6 +196,28 @@ def skipIfGcStress(reason):
   '''Skips a test when the collector runs in stress mode.'''
   return unittest.skipIf(GC_STRESS, 'collector stress mode: ' + reason)
 
+def interpret_mode():
+  '''
+  The value of the interpreter flag ``interpret`` of this session on the C++
+  backend, or None on the Python backend, which ignores the flag.
+  '''
+  import curry
+  if curry.flags['backend'] != 'cxx':
+    return None
+  return curry.flags['interpret']
+
+def skipIfInterpreted(reason):
+  '''
+  Skips a test under the interpreter flag ``interpret`` set to 'new' or 'all'
+  on the C++ backend.  A module loaded in those modes has no compiled object,
+  and the test reads one.  Under 'tiered' the object exists once the prepare
+  pass of the runner compiled the corpus (section 4 of README).
+  '''
+  mode = interpret_mode()
+  return unittest.skipIf(
+      mode in ('new', 'all'), 'interpret:%s: %s' % (mode, reason)
+    )
+
 def gc_backend():
   '''
   The collector of the installed C++ runtime: 'wdgc' or 'mps' (make GC=mps).

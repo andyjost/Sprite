@@ -11,11 +11,12 @@ module to a temporary directory, so every import starts without an object.
 import cytest # from ./lib; must be first
 from cytest.logging import capture_log
 from curry import common, config, inspect
-from curry.backends.cxx import cyrtbindings as cyrt, tiered
+from curry.backends.cxx import compiler, cyrtbindings as cyrt, tiered
 from curry.objects.handle import getHandle
 from curry.utility.binding import binding
 import curry, gc, itertools, logging, os, shutil, subprocess, tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BENCHMARKS = os.path.join(HERE, 'data', 'curry', 'benchmarks')
@@ -560,3 +561,102 @@ class TestPrograms(cytest.TestCase):
     stats = stderr.strip().splitlines()[-1]
     self.assertIn(' swapped=0 ', stats)
     self.assertIn(' failed_compiles=1', stats)
+
+
+class TestNoCompiler(TieredTestCase):
+  '''
+  An installation without a C++ compiler (config.cxx_tool() is None): a
+  fresh module stays interpreted, no object is written, and one notice names
+  the first such module, once per process, with the setting of the flag
+  that selects the interpreter without a compile.  interpret:new and
+  interpret:all select the behaviour without the notice.
+  '''
+  def setUp(self):
+    super().setUp()
+    # The notice is once per process; each test starts afresh.
+    tiered._state.warned.discard('nocxx')
+    self.addCleanup(tiered._state.warned.discard, 'nocxx')
+
+  def run_without_compiler(self):
+    '''
+    Imports two fresh modules with the compiler patched away and evaluates
+    a goal of each.  Returns the modules and the warnings logged.
+    '''
+    with mock.patch.object(config, 'cxx_tool', return_value=None):
+      with capture_log('curry.backends.cxx.tiered') as log:
+        M = self.fresh_module()
+        self.assertEqual(next(curry.eval(M.total, 3, converter='topython')), 20)
+        N = self.fresh_module()
+        self.assertEqual(next(curry.eval(N.total, 2, converter='topython')), 8)
+    self.assertTrue(cyrt.icurry_is_interpreted(M.total.info))
+    self.assertTrue(cyrt.icurry_is_interpreted(N.total.info))
+    tiered.wait(10)
+    self.assertFalse(os.path.exists(self.sofile(M.__name__)))
+    self.assertFalse(os.path.exists(self.sofile(N.__name__)))
+    return M, N, log.data[logging.WARNING]
+
+  def test_notice_once(self):
+    M, N, warnings = self.run_without_compiler()
+    self.assertEqual(len(warnings), 1, warnings)
+    notice, = warnings
+    self.assertIn('no C++ compiler is installed at', notice)
+    self.assertIn(config.installed_path('tools', 'cxx'), notice)
+    self.assertIn('module %r and the modules after it run interpreted' % M.__name__, notice)
+    self.assertNotIn(N.__name__, notice)
+    # The setting named: new where the Prelude loaded from its object (a
+    # fresh module has no generated file), else all.  The flag is added to
+    # the variable, not set in place of it.
+    setting = 'new' if tiered._prelude_compiled(curry.getInterpreter()) else 'all'
+    self.assertIn(
+        'add interpret:%s to SPRITE_INTERPRETER_FLAGS' % setting, notice
+      )
+    self.assertNotIn('SPRITE_INTERPRETER_FLAGS=', notice)
+    self.assertEqual(notice.count('\n'), 0)
+    # A third module in the same process adds no second notice.
+    with mock.patch.object(config, 'cxx_tool', return_value=None):
+      with capture_log('curry.backends.cxx.tiered') as log:
+        self.fresh_module()
+    self.assertEqual(log.data[logging.WARNING], [])
+
+  def test_notice_setting(self):
+    '''
+    The setting the notice names.  interpret:new where the Prelude loaded
+    from its object and the module has no current generated file: it keeps
+    the compiled library.  interpret:all where the Prelude is interpreted
+    (the library objects are stale, and new would compile them) or a
+    current generated file lies beside the module (new would compile it).
+    '''
+    interp = curry.getInterpreter()
+    with mock.patch.object(config, 'cxx_tool', return_value=None):
+      with capture_log('curry.backends.cxx.tiered'):
+        M = self.fresh_module()
+    imodule = getHandle(M).icurry
+    self.assertFalse(tiered._current_source(imodule))
+    compiled = tiered._prelude_compiled(interp)
+    self.assertEqual(
+        tiered._interpreter_setting(interp, imodule)
+      , 'new' if compiled else 'all'
+      )
+    with mock.patch.object(tiered, '_prelude_compiled', return_value=False):
+      self.assertEqual(tiered._interpreter_setting(interp, imodule), 'all')
+    cppfile = os.path.join(
+        self.tmpdir, '.curry', config.intermediate_subdir(), M.__name__ + '.cpp'
+      )
+    with mock.patch.object(tiered, '_prelude_compiled', return_value=True):
+      # A generated file of the current format is compiled under new.
+      with open(cppfile, 'w') as stream:
+        stream.write('// FORMAT: %d\n' % compiler.FORMAT_VERSION)
+      self.assertTrue(tiered._current_source(imodule))
+      self.assertEqual(tiered._interpreter_setting(interp, imodule), 'all')
+      # A generated file of another format is stale: interpreted under new.
+      with open(cppfile, 'w') as stream:
+        stream.write('// FORMAT: %d\n' % (compiler.FORMAT_VERSION + 1))
+      self.assertFalse(tiered._current_source(imodule))
+      self.assertEqual(tiered._interpreter_setting(interp, imodule), 'new')
+
+  def test_flag_silences_the_notice(self):
+    for mode in 'new', 'all':
+      self.switch(mode)
+      tiered._state.warned.discard('nocxx')
+      M, N, warnings = self.run_without_compiler()
+      self.assertEqual(warnings, [], mode)

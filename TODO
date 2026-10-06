@@ -1965,7 +1965,10 @@
   the tests that read a generated .cpp or .so, expect a compiled module, or
   time the compile fail by design (unit_cxx_toolchain, unit_make,
   unit_prebuild, unit_optimize, unit_compile, unit_api, unit_benchmarks,
-  and the generated-code tests of the unit_cxx_* files); a module object
+  and the generated-code tests of the unit_cxx_* files) [corrected in the
+  entry of 2026-10-06 on issue #82: those files pin interpret:off for
+  themselves and pass under every mode; the tests that read a compiled
+  object skip under new and all]; a module object
   held across curry.reload keeps its C++ module alive under the same name,
   so a later import in another mode finds it (the tests drop their module
   objects first); a plain variable is read through successor_node as in
@@ -4521,3 +4524,162 @@
   HEAD (the two options above); a newer baseline of the nightly set with
   the instructions column (the Phase 2 record has none, and its Queens10
   and PermSort counts predate the O1 pass and the #61 repair).
+
+2026-10-06: the C++ backend is the default, the compiler-free notice, the nightly interpreter jobs (B4, #82, stages 1 to 4)
+- The cheap bundle of the audit (C1 to C3).  cytest.skipIfInterpreted
+  skips a test under interpret:new and interpret:all on the C++ backend; a
+  module loaded in those modes has no compiled object.  It marks the
+  tests that read one: four tests of TestPlainDataBOM in unit_cxx_bom.py
+  (the two Prelude-object tests of TestFunctionNames skip at run time
+  instead, when the Prelude is interpreted; see the review below),
+  test_literal_count and test_generated_code of unit_cxx_literals.py,
+  test_generated_code of unit_cxx_partial.py and of unit_cxx_rewrite.py,
+  TestGeneratedCode of unit_cxx_passthrough.py, and testGetICurry and
+  testGetImpl of unit_inspect.py.  test_advisory_pass of unit_runner.py
+  strips SPRITE_INTERPRETER_FLAGS from the environment of its stub pass
+  (the job read interpret:all from it and expected a JSON product).
+  tests/README section 4 names the right sets now: the files that pin
+  interpret:off for themselves pass under every mode (unit_cxx_toolchain,
+  unit_make, and single tests of unit_api, unit_compile_modules,
+  unit_findcurry, unit_optimize, unit_prebuild; unit_optimize_applies
+  pins new for one test and skips one under all); the entry of
+  2026-10-04 on B2 above carries a correction note.
+- Stage 3, the default.  configure --with-default-backend {py,cxx}
+  (DEFAULT_BACKEND = 'cxx' beside DEFAULT_JOBS) writes DEFAULT_BACKEND
+  of Make.config, which reaches sysconfig/default_backend and the default
+  of the flag backend.  The test runner falls back to the installed
+  default (cli.installed_backend reads the sysconfig file; the constant
+  DEFAULT_BACKEND of the package is the last resort), and its --backend
+  help says so.  sprite-exec -b and python -m curry read the default from
+  the flags already and show [default: cxx].  The REPL gained the option
+  backend of :set: the listing shows the backend of the session, and
+  :set backend NAME reloads the interpreter and loads the module again
+  (REPL.switch_backend; :load records its argument).  Docs: README,
+  Quickstart, sprite-exec, EnvironmentVariables (with the interpret
+  flag), MajorFeatures (the LLVM backend text replaced by the C++
+  backend), CompilationPipeline, REPL, the READMEs and run scripts of
+  examples 03 and 04 (they select backend:py and say why), AGENTS.md,
+  conda/README.md, and the recipe: build.sh passes
+  --with-default-backend=cxx, and the tests run the default backend
+  without a flag (the value alone: a short program under tiered ends
+  interpreted), the compiler of the environment through sprite-make --so
+  (the object and the stamp), and the Python backend by flag (its .py
+  product).  The CI matrix keeps the py shard; run-tests.sh names the
+  backend of every shard, so the flip changed nothing there.
+- Found on the way.  Interpreter(flags) starts from the defaults, not
+  from the environment, so the fresh interpreters of unit_py_conversions.py,
+  unit_py_interp.py and unit_py_runtime.py had run on the Python backend
+  whatever the backend of the session, and ran on the C++ backend after
+  the flip: a Node compared with True raises TypeError in the bindings
+  (no __ne__ for a Python value), Prelude._Failure is a symbol of the
+  Python backend alone, and a module of a known name imported from a new
+  source by a new interpreter kept the old code.  The three files name
+  backend:py for their fresh interpreters now.  No other test, and
+  nothing under src/python but sprite-make, which merges the environment
+  flags, builds a fresh interpreter.
+- Stage 2, compiler-free.  The notice: once per process, a WARNING of
+  curry.backends.cxx.tiered at the first module that stays interpreted
+  because config.cxx_tool() is None, with the setting that silences it.
+  Probes with the staged install served under another path (a directory
+  of symlinks without tools/cxx; SPRITE_DISABLE_SYSLIB_CHECKS=1, because
+  the system-library check refuses the symlinked library): under tiered
+  the notice named the Prelude and the program gave its value, 1001 in
+  1.28 s; the ABI stamp digests the real path of the installation prefix
+  (toolchain.object_digest, the repair of C6 of the audit), so every
+  library object of a moved installation is stale.  interpret:new failed
+  with the CompileError on Prelude.cpp: a stale object is compiled, and
+  the mode suits an installation in place alone.  interpret:all ran
+  with no message; interpret:off failed with the CompileError that names
+  the remedy.  So the notice names the setting that selects the
+  interpreter without a compile (tiered._interpreter_setting, after the
+  review): interpret:new where the Prelude loaded from its object and no
+  current generated file lies beside the module, because that setting
+  keeps the compiled library (the Prelude's bytecode costs 0.3 to 0.55 s
+  per process otherwise), and interpret:all, which never compiles, where
+  the Prelude is interpreted or a current .cpp lies beside the module,
+  since new compiles such a module.  The docs page
+  Installation/WithoutCompiler.rst says the same.  conda/README.md
+  records the split of the package as a
+  follow-up of #1, not done here, and the relocation fact: an
+  environment whose prefix differs from the build prefix finds the
+  shipped library objects stale.
+- Stage 4, the nightly.  The interpreter job of ci.yml runs on the
+  schedule and on dispatch, one job per mode ('all' and 'off', quoted:
+  a bare off is a Boolean in YAML), the whole unit suite and the
+  functional suites each; the cache keys carry the mode.  The month of
+  the removal gate starts with the first nightly run after the merge.
+  The pull-request jobs are unchanged.
+- Tests: unit_configure.py (the help, the default, both values, the
+  refusals, the sysconfig var, the staged value), unit_runner.py
+  (installed_backend on a stub installation, the listing with and
+  without the flag), unit_cxx_tiered.py TestNoCompiler (cxx_tool patched
+  to None: two fresh modules interpreted, no object, one notice naming
+  the first; no second notice; none under new and all), unit_goals.py
+  test_repl_set_backend (the listing before and after the switch, the
+  value on the other backend, the refusal), unit_conda.py (the recipe
+  tests), unit_perf_history.py test_interpreter_job (the nightly jobs).
+- Review of the diff: nine findings, all applied.  run_tests --help: the
+  epilog names the default backend of the installation beside
+  SPRITE_INTERPRETER_FLAGS, as the --backend help does.  The configure
+  page (Installation/ConfiguringSprite.rst) documents
+  --with-default-backend under "Build options": Make.config,
+  sysconfig/default_backend, and the flag that selects the other backend
+  for a run; the option table stays a table of the external programs.
+  The profiling section of the sprite-exec page selects the Python
+  backend (-b py) and says why: a probe of -p on the C++ backend showed
+  5335 calls led by the next of the bindings and no step function; on
+  the Python backend, 2.2 million calls led by fairscheme.S.
+  tests/README and this entry drop unit_optimize_applies.py from the
+  files that pin off (it pins new for one test and skips one under all),
+  and the correction note is under 2026-10-04.  The notice says "add
+  interpret:NAME to SPRITE_INTERPRETER_FLAGS", so the other flags of the
+  variable stay, and names the setting by the rule above
+  (tiered._interpreter_setting); test_notice_setting pins both branches,
+  and the docs page quotes the new text.  :set backend records the
+  backend after the reload and before the load of the module
+  (REPL.switch_backend; the load is commands.load, a local call, so the
+  :set in flight keeps its command and arguments); when that load
+  fails, the Prelude is loaded for the prompt, the argument of the :load
+  stays for a switch back, and the error is reported (REPL.rst says so;
+  TestReplSession of unit_goals.py stubs curry.reload and tests the
+  state).  The two Prelude-object tests of unit_cxx_bom.py skip at run
+  time when the metadata of the Prelude has no cxx.shlib, so they run
+  under new, where the Prelude loads compiled (unit_cxx_bom.py: 0 skips
+  under tiered, 4 under new, 6 under all).  The three over-long lines of
+  the rewrapped paragraphs are wrapped at the width of their files.
+- Results on this machine (another stream at -j 2 beside the runs;
+  the install rebuilt by configure and make stage, 78 s):
+  SPRITE_INTERPRETER_FLAGS=backend:cxx,interpret:all ./run_tests -j 2
+  --mem 4 'unit_*.py': 81 of 81 run, 0 failed, wall 313.8 s (the first
+  run found the five files above and the stale workflow test; 0 after
+  the fixes); interpret:new on the eleven files that read objects or
+  build interpreters: 11 of 11, 0 failed, 18.5 s; the unit suite on
+  both backends with --prepare (unit_examples.py included): 162 of 162
+  run, 0 failed, wall 443.5 s; the functional suites on both backends
+  against the oracle: 42 of 42 run, 0 failed, wall 80.5 s; make -C docs
+  html: finished, the new page rendered, and every warning predates this
+  entry (the docstrings of stats and materialize, the duplicate object
+  descriptions, the two-line term at the scheduler counters of the
+  sprite-exec page, the target "fair scheme", _static).  After the
+  review (configure and make stage again, 44 s): the unit suite on both
+  backends with --prepare, 162 of 162 run, 0 failed, wall 388.0 s; the
+  unit suite on cxx under interpret:all, 81 of 81 run, 0 failed, wall
+  324.8 s; the functional suites on both backends against the oracle,
+  42 of 42 run, 0 failed, wall 70.2 s; the single files unit_cxx_tiered.py
+  (19 tests), unit_runner.py (65), unit_goals.py (48 on each backend),
+  unit_cxx_bom.py (10 under tiered, new and all); make -C docs html
+  finished with the same 142 warnings, and the four edited pages render;
+  sprite-exec --stats and python -m curry without -b on a fresh module
+  print 1001 through the C++ backend (products .json.z, no .py, no .so);
+  ci.yml parses with the interpreter matrix all and off.
+- Left.  Stage 4 of the issue, the py shard to the nightly, after a
+  month of green nightly runs under all and off, so that the default
+  backend keeps a pull-request job at every moment; stage 5, the hidden
+  flag for the Python backend, and the decision on curry.save and
+  curry.load (a C++ form, or retired with the backend: example 04 and
+  three doc pages follow) and on the stepper (cytest.step); stage 6 at
+  the gate, #62 and the py-only expected failures.  Also: a Node
+  compared with a Python value raises TypeError in the C++ bindings
+  where the Python backend answers False; the manifest has no rows for
+  the new tests; the conda recipe of this text has not been built; the
+  notice under SPRITE_LOG_LEVEL=ERROR is silent, as every WARNING is.

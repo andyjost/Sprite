@@ -273,6 +273,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     nub = inspect.getsymbol(Data, 'List.nub')
     self.assertEqual(nub.fullname, 'Data.List.nub')
 
+  @cytest.skipIfInterpreted('the test expects a module loaded from its object')
   def testGetICurry(self):
     '''
     A module loaded from its compiled code carries a bill of materials whose
@@ -306,6 +307,9 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     self.assertNotIsInstance(f.body.block, icurry.IExempt)
     self.assertIs(f, inspect.geticurry(M).functions['f'])
 
+  @cytest.skipIfInterpreted(
+      'the test expects compiled code; testGetImplInterpreted covers the bytecode'
+    )
   def testGetImpl(self):
     '''
     The code of a step function, on the backend of the session (issue #38).

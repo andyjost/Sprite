@@ -10,6 +10,11 @@ try:
 except ImportError:
   np = None
 
+# The tests drive the Python backend whatever the backend of the session.  A
+# fresh Interpreter takes the configured default backend, the C++ backend
+# since issue #82, so the flags name the Python backend.
+PY = {'backend': 'py'}
+
 class TestPyConversions(cytest.TestCase):
   '''Tests conversions between Python and Curry.'''
   @classmethod
@@ -24,7 +29,7 @@ class TestPyConversions(cytest.TestCase):
 
   def testExpressionBuilding(self):
     '''Use Interpreter.expr to build expressions.'''
-    interp = Interpreter()
+    interp = Interpreter(flags=PY)
 
     # Int.
     one = interp.raw_expr(1)
@@ -70,7 +75,7 @@ class TestPyConversions(cytest.TestCase):
 
   def testToPython(self):
     '''Test the conversions from Curry to Python.'''
-    interp = Interpreter(flags={'defaultconverter':'topython'})
+    interp = Interpreter(flags=dict(PY, defaultconverter='topython'))
     # Bool
     x = interp.raw_expr(True)
     self.assertNotEqual(x, True)
@@ -130,7 +135,7 @@ class TestPyConversions(cytest.TestCase):
 
   def testUnicodeRoundTrip(self):
     '''A Char is a code point, so any Python string converts and back.'''
-    interp = Interpreter()
+    interp = Interpreter(flags=PY)
     for text in ['\u00e4', '\u00e4\u00f6\u00fc', '\U0001f600', 'a\u00a0b']:
       x = interp.raw_expr(text)
       self.assertEqual(interp.topython(x), text)
@@ -177,7 +182,7 @@ class TestPyConversions(cytest.TestCase):
     self.assertEqual(list(curry.eval(goal)), [[0,2,4]])
 
   def testTypesToPython(self):
-    interp = Interpreter()
+    interp = Interpreter(flags=PY)
     self.assertEqual(interp.currytype(int), interp.type('Prelude.Int'))
     self.assertEqual(interp.currytype(float), interp.type('Prelude.Float'))
     self.assertEqual(interp.currytype(str), interp.type('Prelude.Char'))

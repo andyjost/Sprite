@@ -301,6 +301,7 @@ print(cyrt.gc_collections() - before)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertGreaterEqual(int(proc.stdout), 4)
 
+  @cytest.skipIfInterpreted('the test reads the generated code of CxxPartial')
   def test_generated_code(self):
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']
     text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')

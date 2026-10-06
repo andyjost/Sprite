@@ -4,7 +4,7 @@ import importlib, os, sys, traceback
 curry = importlib.import_module(__package__[:__package__.find('.')])
 _compile = importlib.import_module(curry.__name__ + '.interpreter.compile')
 
-__all__ = ['COMMANDS', 'eval']
+__all__ = ['COMMANDS', 'eval', 'load']
 
 def cmdLoad(repl):
   '''Executes a :load command.  Sets ``repl.module``.'''
@@ -16,12 +16,21 @@ def cmdLoad(repl):
       raise ValueError("Too many arguments provided to ':load'")
     else:
       raise ValueError("No argument provided to ':load'")
+  load(repl, arg)
+
+def load(repl, arg):
+  '''
+  Loads the module that the file name or module name ``arg`` names, as
+  :load does.  Sets ``repl.module`` and ``repl.loaded``.
+  '''
   filename = os.path.abspath(arg)
   dirname = os.path.dirname(filename)
   currypath = [dirname] + curry.path
   basename = os.path.basename(filename)
   modulename = os.path.splitext(basename)[0]
   repl.module = curry.import_(modulename, currypath=currypath)
+  # The argument, so that a switch of the backend can load the module again.
+  repl.loaded = arg
   # The expressions of :eval and :type import the loaded module, so the
   # front end must find it.
   if dirname not in curry.path:
@@ -116,7 +125,7 @@ def cmdSet(repl):
         else:
           valueopts.append((name, value))
       print(' '.join(boolopts), file=sys.stderr)
-      w = max([len(item[0]) for item in valueopts] or [0]) # FIXME: remove "or [0]" when a valueopt exists
+      w = max((len(name) for name, _ in valueopts), default=0)
       for name,value in valueopts:
         print(name.ljust(w), ':', repr(value), file=sys.stderr)
       return

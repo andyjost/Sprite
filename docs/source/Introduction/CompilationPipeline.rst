@@ -150,18 +150,18 @@ manipulate it from Python scripts.
 Sprite IR to Target IR
 ----------------------
 
-The target IR depends on the backend selected.  The Python backend, for
-instance, generates Python, whereas the LLVM backend generates LLVM IR.  This
-stage performs a straight-line translation of Sprite IR to target IR.
+The target IR depends on the backend selected.  The C++ backend generates
+C++, and the Python backend generates Python.  This stage performs a
+straight-line translation of Sprite IR to target IR.
 
 
 Target IR to Executable Code
 ----------------------------
 
 Depending on the backend, additional conversions may be performed to produce
-executable code.  LLVM IR is at this stage converted into assembly and then
-machine-executable binary code.  The Python backend, on the other hand,
-requires nothing because Python can be run directly under an interpreter.
+executable code.  The C++ backend compiles the generated C++ into a shared
+object (below).  The Python backend requires nothing because Python can be
+run directly under an interpreter.
 Sprite writes the bytecode cache of a generated Python file beside it, under
 ``__pycache__``, when it writes the file, and loads the file through
 ``importlib``.  A file without a current cache, such as one from an older
@@ -184,10 +184,13 @@ result beside the installed headers.  See ``SPRITE_CXX_PCH_ROOT`` under
 ``make stage`` and ``make install`` compile the Curry library for both
 backends into the installation, with ``sprite-make --py`` and ``sprite-make
 --so`` (see :ref:`sprite-make`).  So the first import after an installation
-compiles nothing, and an installation serves on a machine without a C++
-compiler for programs that need no other compiled module.  When the
-installation itself has no C++ compiler, the C++ part of this step is
-skipped, and the C++ backend compiles the library on first use.
+compiles nothing of the library.  Under the default of the interpreter flag
+``interpret``, ``tiered``, a module without a current object runs
+interpreted from its ICurry at once, a child process compiles it in the
+background, and the runtime swaps the functions of the module to the
+compiled code when the object is ready.  On a machine without a C++
+compiler the module stays interpreted and no object is written; see
+:doc:`/Installation/WithoutCompiler`.
 
 
 .. _FlatCurry: https://cpm.curry-lang.org/pkgs/flatcurry.html

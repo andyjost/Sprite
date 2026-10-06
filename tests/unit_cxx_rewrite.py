@@ -193,6 +193,7 @@ print(value, cyrt.gc_collections() - before)
     self.assertEqual(value, '42')
     self.assertGreaterEqual(int(collections), 2)
 
+  @cytest.skipIfInterpreted('the test reads the generated code of CxxRewrite')
   def test_generated_code(self):
     '''The generator applies the rule to each shape of result.'''
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']

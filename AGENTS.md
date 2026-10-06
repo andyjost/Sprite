@@ -137,8 +137,14 @@ Merges to `master` happen at milestones.
   which the driver does not count. `func_goal_defaulting.py` pins goal and
   type parity with the PAKCS REPL (`tests/oracle` and `tests/oracle_type`);
   its goldens are committed.
-- `SPRITE_INTERPRETER_FLAGS=backend:cxx` selects the C++ backend. The
-  Python backend is the default and suits only small programs.
+- The C++ backend is the default (`configure --with-default-backend`,
+  `DEFAULT_BACKEND` in `Make.config`, `sysconfig/default_backend` of the
+  installation; the test runner falls back to it).
+  `SPRITE_INTERPRETER_FLAGS=backend:py` selects the Python backend, which
+  suits only small programs. An installation without a C++ compiler runs
+  the C++ backend interpreted under the tiered default and prints one
+  notice per process (the page "Installing and running without a C++
+  compiler" of the documentation).
 - The flag `interpret` of the C++ backend selects how a module without a
   compiled object runs. The default, `tiered`, interprets it at once from
   its ICurry, compiles it in the background (`sprite-make --so` in a child

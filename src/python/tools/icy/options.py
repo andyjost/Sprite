@@ -1,5 +1,8 @@
 from .resolve import resolve
-import collections
+import collections, importlib
+curry = importlib.import_module(__package__[:__package__.find('.')])
+
+BACKENDS = ('py', 'cxx')
 
 class OptionSpec(collections.namedtuple(
     '_OptionSpec', ('name', 'type', 'default', 'argnames', 'setter', 'doc')
@@ -32,21 +35,44 @@ class OptionSpec(collections.namedtuple(
     return self.type is bool
 
 
+def set_backend(inst, value):
+  '''
+  The setter of the option ``backend``: reloads the interpreter with the
+  backend and loads the module of the session again (REPL.switch_backend,
+  which records the value once the interpreter runs on the backend).
+  '''
+  value = str(value)
+  if value not in BACKENDS:
+    raise ValueError(
+        'Invalid backend: %r.  Expected one of %s.'
+      % (value, ', '.join(repr(b) for b in BACKENDS))
+      )
+  if inst.repl is None:
+    inst.values['backend'] = value
+  else:
+    inst.repl.switch_backend(value)
+
+
 class Options(object):
   OPTIONS = {
       name: OptionSpec(name, *args) for name,args in {
-          'internal-error-details' : (bool, False, [], None,
+          'backend' : (str, None, ['py|cxx'], set_backend,
+              'The backend of the session, py or cxx.  Setting it reloads '
+              'the interpreter and the loaded module.')
+        , 'internal-error-details' : (bool, False, [], None,
               'Show detailed information about internal errors.')
         }.items()
     }
-  W1 = 1 + max(
-      len(option.type.__name__) + len(' '.join(option.argnames))
-          for option in OPTIONS.values()
-    )
-  def __init__(self):
+  W1 = 1 + max(len(name) for name in OPTIONS)
+  def __init__(self, repl=None):
+    # The REPL that owns the options, for the setters that act on the
+    # session; None in a bare Options object.
+    self.repl = repl
     self.values = {
         option.name: option.default for option in self.OPTIONS.values()
       }
+    # The backend of the interpreter at the start of the session.
+    self.values['backend'] = curry.flags['backend']
   def __setitem__(self, name, value):
     name = resolve(name, self.OPTIONS.keys(), 'option')
     self.OPTIONS[name].setter(self, value)

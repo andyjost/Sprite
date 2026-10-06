@@ -14,6 +14,11 @@ import curry.backends.py.currylib.prelude
 import curry, os, unittest
 import cytest.step
 
+# The tests drive the Python backend whatever the backend of the session.  A
+# fresh Interpreter takes the configured default backend, the C++ backend
+# since issue #82, so the flags name the Python backend.
+PY = {'backend': 'py'}
+
 class TestPyRuntime(cytest.TestCase):
   '''Tests for the Python runtime functions.'''
   @classmethod
@@ -26,7 +31,7 @@ class TestPyRuntime(cytest.TestCase):
 
   def test_coverage(self):
     '''Tests to improve line coverage.'''
-    interp = interpreter.Interpreter()
+    interp = interpreter.Interpreter(flags=PY)
     prelude = interp.prelude
     self.assertEqual(prelude.head.name, 'head')
     self.assertEqual(str(prelude.head.info), "Info for 'head'")
@@ -62,10 +67,10 @@ class TestPyRuntime(cytest.TestCase):
     the behavior when a special symbol is uncovered while normalizing a
     constructor.
     '''
-    interp_debug = interpreter.Interpreter(flags={'debug':True})
+    interp_debug = interpreter.Interpreter(flags=dict(PY, debug=True))
     self.checkNormalization(interp_debug)
     #
-    interp_nodebug = interpreter.Interpreter(flags={'debug':False})
+    interp_nodebug = interpreter.Interpreter(flags=dict(PY, debug=False))
     self.checkNormalization(interp_nodebug)
 
   def checkNormalization(self, interp):
@@ -311,7 +316,7 @@ class TestPyRuntime(cytest.TestCase):
 class TestInstantiation(cytest.TestCase):
   def setUp(self):
     super(TestInstantiation, self).setUp()
-    self.interp = interpreter.Interpreter()
+    self.interp = interpreter.Interpreter(flags=PY)
 
   def e(self, typename, imports=None):
     x, = list(self.interp.eval(self.interp.compile(

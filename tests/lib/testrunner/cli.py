@@ -6,9 +6,9 @@ and the exit status.
 
 import argparse, itertools, os, resource, shutil, sys
 from . import (
-    BACKENDS, BACKSTOP, BACKSTOP_FACTOR, DEFAULT_CAP, DEFAULT_FAST_SECONDS
-  , DEFAULT_JOBS, DEFAULT_MEM_FRACTION, DEFAULT_SPRITE_HOME, DEFAULT_TIMEOUT
-  , GIB, LOGDIR, MANIFEST_FILE, TESTDIR
+    BACKENDS, BACKSTOP, BACKSTOP_FACTOR, DEFAULT_BACKEND, DEFAULT_CAP
+  , DEFAULT_FAST_SECONDS, DEFAULT_JOBS, DEFAULT_MEM_FRACTION
+  , DEFAULT_SPRITE_HOME, DEFAULT_TIMEOUT, GIB, LOGDIR, MANIFEST_FILE, TESTDIR
   )
 from . import prepare, procs, report, selection
 from .manifest import Manifest
@@ -30,10 +30,11 @@ def epilog(jobs=DEFAULT_JOBS):
           'count' if jobs == 'auto' else '%s at a time' % jobs
   return '''
 Without options every unit_*.py and func_*.py file runs, one file per
-process, %(width)s, on the backend of SPRITE_INTERPRETER_FLAGS (the
-Python backend by default).  A PATTERN is matched against the file names
-(shell style).  The output of each file goes to .cache/runner/<backend>/
-<file>.log.  See section 10 of README.
+process, %(width)s, on the backend of SPRITE_INTERPRETER_FLAGS, else on
+the default backend of the installation (sysconfig/default_backend).  A
+PATTERN is matched against the file names (shell style).  The output of
+each file goes to .cache/runner/<backend>/<file>.log.  See section 10 of
+README.
 ''' % {'width': width}
 
 def parse_jobs(text):
@@ -74,7 +75,7 @@ def build_parser(jobs=DEFAULT_JOBS):
   parser.add_argument(
       '--backend', choices=BACKENDS + ('both',), default=None
     , help='the backend, or both [default: from SPRITE_INTERPRETER_FLAGS, '
-           'else py]'
+           'else the default backend of the installation]'
     )
   parser.add_argument(
       '--fast', nargs='?', const=DEFAULT_FAST_SECONDS, type=float
@@ -130,6 +131,20 @@ def build_parser(jobs=DEFAULT_JOBS):
 
 def parse_args(argv, jobs=DEFAULT_JOBS):
   return build_parser(jobs).parse_args(argv)
+
+def installed_backend(sprite_home):
+  '''
+  The default backend of the installation: the value of
+  sysconfig/default_backend, which configure --with-default-backend writes;
+  DEFAULT_BACKEND when the installation has no such file or the file names
+  no backend.
+  '''
+  try:
+    with open(os.path.join(sprite_home, 'sysconfig', 'default_backend')) as stream:
+      value = stream.read().strip()
+  except OSError:
+    return DEFAULT_BACKEND
+  return value if value in BACKENDS else DEFAULT_BACKEND
 
 def flag_backend(flags):
   '''The backend named in a SPRITE_INTERPRETER_FLAGS value, or None.'''
@@ -324,7 +339,10 @@ def main(argv=None):
   elif args.backend:
     backends = [args.backend]
   else:
-    backends = [flag_backend(os.environ.get('SPRITE_INTERPRETER_FLAGS')) or 'py']
+    backends = [
+        flag_backend(os.environ.get('SPRITE_INTERPRETER_FLAGS'))
+        or installed_backend(sprite_home)
+      ]
   manifest = Manifest.load(args.manifest)
   files = selection.test_files()
   if args.pattern and args.changed is None \
