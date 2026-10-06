@@ -31,11 +31,14 @@ resultLine h cands args = showResolution (resolve h cands args)
 -- one value.
 --
 -- The operator $## evaluates t to normal form before the question sees it.
--- The question runs a set function, and a set function must get the value
--- of t, not the variable: in this version of Sprite a set function applied
--- to a variable that a choice bound sees the binding of the first
--- alternative in every branch, and a choice inside the argument multiplies
--- the work of the set function.
+-- The question runs a set function over t, and the set function gives the
+-- right answer for the variable as well: the choices that bound t escape
+-- it, one per alternative.  But each escape costs a split of the capsule
+-- and a restart of the computation around it, for every choice of the
+-- generator of t and of its parts, in every candidate: at depth 1 the
+-- search takes about 280 times the rewrite steps of the search over the
+-- normal form (118 million against 425 thousand).  See section 5 of the
+-- README.
 ambiguousArg :: Int -> [Candidate] -> Type
 ambiguousArg n cands
   | t =:= anyType n && (ambiguousCall cands $## t) = t

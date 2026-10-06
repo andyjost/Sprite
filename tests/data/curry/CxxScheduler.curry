@@ -52,8 +52,9 @@ nested = sortValues (set1 inner (1 ? 2))
 
 -- The inner function captures the argument of the outer one instead of
 -- receiving it as its own argument.  The argument carries the guard of the
--- outer set function only, so the inner set function encapsulates the
--- choice (a known limitation of both backends).
+-- outer set function only; its choice joins the escape set of the outer
+-- set and escapes both set functions, because a choice of the escape set
+-- of an enclosing set is non-determinism from outside the inner one too.
 constant :: Int -> Int -> Int
 constant x _ = x
 
@@ -62,6 +63,18 @@ captured x = sortValues (set1 (constant x) 0)
 
 nestedCapture :: [[Int]]
 nestedCapture = sortValues (set1 captured (1 ? 2))
+
+-- The same capture with a case on the argument, so the guard of the outer
+-- set function is not at the root of the inner configuration: the shape
+-- the Python backend runs as well.
+constantCase :: Int -> Int -> Int
+constantCase x _ = case x of { 1 -> 1; 2 -> 2 }
+
+capturedCase :: Int -> [Int]
+capturedCase x = sortValues (set1 (constantCase x) 0)
+
+nestedCaptureCase :: [[Int]]
+nestedCaptureCase = sortValues (set1 capturedCase (1 ? 2))
 
 -- Programs for the interrupted step (TestInterruptedStep).
 

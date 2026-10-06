@@ -107,9 +107,9 @@ longPlainChoice = (A ? B, sortValues (set1 last longPlainList))
 
 -- A set function that starts while u is unbound: its first value is forced
 -- before a constraint narrows u, and its second value needs u.  The two
--- alternatives of the constraint share the SetEval node and its queue, and
--- the nested queue reads the fingerprint of the alternative that resumes it
--- first.  A known failure of both backends; see unit_setfunctions_bugs.py.
+-- alternatives of the constraint share the SetEval node and its queue.
+-- The choice of the generator of u escapes the capsule (rule SF.1), and
+-- each alternative prunes it to its side; see unit_setfunctions_bugs.py.
 pickOrCase :: T -> T -> T
 pickOrCase x y = x ? (case y of { A -> A; B -> B })
 
@@ -117,6 +117,104 @@ narrowedAfterStart :: [T]
 narrowedAfterStart = let u free in
   let vs = valuesOf (set2 pickOrCase A u) in
   (head vs =:= A) &> ((u =:= (A ? B)) &> vs)
+
+-- The shapes of the repair at the escape (TestResumedCapsule).  Every
+-- capsule below starts before the choice or the variable is decided, gives
+-- its first value, and resumes under the alternatives.
+
+-- The variable inside a data structure: the second value is the variable
+-- at the root of the capsule.
+pickOrHead :: T -> [T] -> T
+pickOrHead x ys = x ? head ys
+
+narrowedInData :: [T]
+narrowedInData = let u free in
+  let vs = valuesOf (set2 pickOrHead A [u]) in
+  (head vs =:= A) &> ((u =:= (A ? B)) &> vs)
+
+-- A choice of the argument decided outside after the capsule started: the
+-- first component of the pair decides x, and the second value needs x.
+choiceAfterStart :: (T, [T])
+choiceAfterStart = let x = A ? B in
+  let vs = valuesOf (set2 pickOrCase A x) in
+  (head vs =:= A) &> (x, vs)
+
+-- Two capsules over one variable, both consumed in part before the
+-- constraint narrows it.
+twoCapsules :: ([T], [T])
+twoCapsules = let u free in
+  let vs = valuesOf (set2 pickOrCase A u)
+      ws = valuesOf (set2 pickOrCase B u)
+  in (head vs =:= A) &> (head ws =:= B) &> ((u =:= (A ? B)) &> (vs, ws))
+
+-- A nested set function.  The inner capsule, over the variable, is in the
+-- value of the outer set function and outlives it.
+inner2 :: T -> [T]
+inner2 y = valuesOf (set2 pickOrCase A y)
+
+nestedAfterStart :: [[T]]
+nestedAfterStart = let u free in
+  let vs = valuesOf (set1 inner2 u) in
+  (head (head vs) =:= A) &> ((u =:= (A ? B)) &> vs)
+
+-- A set function inside the argument of a set function, the inner one over
+-- the variable.
+argAfterStart :: [[T]]
+argAfterStart = let u free in
+  let vs = valuesOf (set1 id (valuesOf (set2 pickOrCase A u))) in
+  (head (head vs) =:= A) &> ((u =:= (A ? B)) &> vs)
+
+-- The escape of a choice the outside has not decided: the second value
+-- needs the choice of the argument, and the outside forks on it.
+escapeUndecided :: [T]
+escapeUndecided = let vs = valuesOf (set2 pickOrCase A (A ? B)) in
+  (head vs =:= A) &> vs
+
+-- The captured shapes: the choice or the variable comes through the
+-- function position, not through a guarded argument, so it is in no escape
+-- set.  The outside decides it after the capsule started, and the capsule
+-- gives each alternative the value of its side, as the call-time reading
+-- of choiceCaptured does (a choice an enclosing configuration decided
+-- escapes too; see choice_escapes).
+pickOrCall :: T -> (Int -> T) -> T
+pickOrCall z f = z ? f 0
+
+capturedChoiceAfterStart :: (T, [T])
+capturedChoiceAfterStart = let x = A ? B in
+  let vs = valuesOf (set2 pickOrCall A (constT x)) in
+  (head vs =:= A) &> (x, vs)
+
+capturedVarAfterStart :: [T]
+capturedVarAfterStart = let u free in
+  let vs = valuesOf (set2 pickOrCall A (constT u)) in
+  (head vs =:= A) &> ((u =:= (A ? B)) &> vs)
+
+-- The captured occurrence of x is reached before the guarded one.
+pickOrBoth :: T -> (Int -> T) -> T -> [T]
+pickOrBoth z f y = [z] ? [f 0, y]
+
+capturedThenGuarded :: (T, [[T]])
+capturedThenGuarded = let x = A ? B in
+  let vs = valuesOf (set3 pickOrBoth A (constT x) x) in
+  (head vs =:= [A]) &> (x, vs)
+
+-- The outer capsule stays alive and shared: its second value consumes the
+-- second value of the inner capsule, over the variable or the choice,
+-- after the outside decided it.  The escape from the inner capsule reaches
+-- a configuration of the outer one, which must not take a side read from
+-- the outside: it escapes the choice in turn (owns_decision).
+inner3 :: T -> T
+inner3 y = let ws = valuesOf (set2 pickOrCase A y) in head ws ? (ws !! 1)
+
+nestedAlive :: [T]
+nestedAlive = let u free in
+  let vs = valuesOf (set1 inner3 u) in
+  (head vs =:= A) &> ((u =:= (A ? B)) &> vs)
+
+nestedAliveChoice :: (T, [T])
+nestedAliveChoice = let x = A ? B in
+  let vs = valuesOf (set1 inner3 x) in
+  (head vs =:= A) &> (x, vs)
 
 -- Issue #32.  The values of the set function are sub-terms of its guarded
 -- argument, so the guard reaches the root of the nested configuration.

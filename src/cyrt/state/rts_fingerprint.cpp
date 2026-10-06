@@ -56,7 +56,16 @@ namespace cyrt
           if(!this->constrain_equal(copy.get(), x, y, STRICT_CONSTRAINT))
             return;
         }
-        // walk_qstack
+        // The enclosing configurations prune the alternatives of a nested
+        // fork (walk_qstack).  A choice that no enclosing configuration
+        // decided is encapsulated: both alternatives stay.  A choice that
+        // an enclosing configuration decided, or that is in an escape set,
+        // escaped from this queue before it forks here (choice_escapes),
+        // and the split bound the queue to one side (Queue::decisions): the
+        // walk prunes the other alternative, to the side of the enclosing
+        // configuration that runs this queue.  So the walk reads an
+        // enclosing decision only for a choice whose escape split this
+        // queue.
         if(!is_consistent(copy->fingerprint, choice->cid, lr))
           return;
         if(!is_consistent(copy->fingerprint, gid, lr))
@@ -108,7 +117,9 @@ namespace cyrt
     auto lr = C->fingerprint.test(gid);
     if(lr == UNDETERMINED)
     {
-      // walk_qstack:
+      // walk_qstack: a nested configuration starts with an empty
+      // fingerprint and reads the decisions of the enclosing configurations
+      // for the choices it did not decide itself (see fork).
       for(auto p=this->qstack.rbegin()+1, e=this->qstack.rend(); p!=e; ++p)
       {
         lr = (*p)->front()->fingerprint.test(gid);

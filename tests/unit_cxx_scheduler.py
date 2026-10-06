@@ -83,6 +83,18 @@ class TestSetGuardRoot(cytest.TestCase):
     results = run_child(self, [('freeId', ())])
     self.assertEqual(results, {'freeId': ['[_a]']})
 
+  def test_captured_argument_under_case(self):
+    '''
+    The inner function captures the argument of the outer set function and
+    scrutinizes it, so the guard of the outer set is below the root of the
+    inner configuration.  The choice is in the escape set of the outer set
+    alone and escapes both set functions (choice_escapes); both backends
+    run this shape.  TestNestedSetGuard has the shape with the guard at the
+    root.
+    '''
+    results = run_child(self, [('nestedCaptureCase', ())])
+    self.assertEqual(results, {'nestedCaptureCase': ['[[1]]', '[[2]]']})
+
 
 @unittest.skipIf(
     curry.flags['backend'] != 'cxx'
@@ -105,13 +117,14 @@ class TestNestedSetGuard(cytest.TestCase):
         results, {'nestedPlain': ['[[1]]'], 'nested': ['[[1]]', '[[2]]']}
       )
 
-  @unittest.expectedFailure
   def test_captured_argument(self):
     '''
     The inner function captures the argument of the outer set function, so
     the argument carries the guard of the outer set only.  The choice
-    belongs to the argument of the outer set function and must escape both;
-    the inner set function encapsulates it instead and gives one value.
+    belongs to the argument of the outer set function and escapes both: a
+    choice of the escape set of an enclosing set escapes the inner capsule
+    too (choice_escapes).  Before that rule the inner set function
+    encapsulated it and gave one value, [[1, 2]].
     '''
     results = run_child(self, [('nestedCapture', ())])
     self.assertEqual(results, {'nestedCapture': ['[[1]]', '[[2]]']})

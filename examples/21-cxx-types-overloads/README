@@ -92,8 +92,9 @@ anyType n is every type of depth at most n, one per value.  The first
 equation binds the unknown t to one of them.  The second equation is the
 question.  Each solution is one value, and a set function collects them.
 The operator $## evaluates the type to normal form before the question sees
-it.  The question runs a set function, and a set function must get the
-value of t, not the variable.  Section 5 says why.
+it.  The question runs a set function, and the set function would give the
+right answer for the variable t as well; the normal form saves the work
+that the variable costs.  Section 5 says how much.
 
 
 2. What the example shows about calling Curry from Python
@@ -215,21 +216,26 @@ one.
 5. Limits
 ---------
 
-A warm run of ./run took 0.6 s on the C++ backend.  The first run also
+A warm run of ./run took 2.6 s on the C++ backend.  The first run also
 compiles the modules.  CxxOverload.curry and Overloads.curry took 4 s; the
 two shared modules of example 20 add about 7 s when they are not compiled
-yet.  On the Python backend the scenarios (a) to (c) took 4 s, and scenario
+yet.  On the Python backend the scenarios (a) to (c) took 7 s, and scenario
 (d) stopped with "Evaluation Suspended", so the test suite runs this example
 on the C++ backend only.
 
-Scenario (d) depends on a detail of Sprite.  A set function applied to a
-free variable that a choice bound sees, in every branch, the binding of
-the first branch.  So the type is evaluated to normal form with $## before
-the set function runs.  On the C++ backend that works.  On the Python
-backend $## suspends on such a variable, and $!! fails with an internal
-error.  Without the forcing, a choice inside the argument of a set function
-also multiplies the work: the search of scenario (d) at depth 1 took 5 s
-instead of 0.06 s.
+Scenario (d) evaluates the type to normal form with $## before the question
+sees it, for speed.  The set function gives the same answer for the
+variable t: the choices that bound t escape the set function, one per
+alternative.  But a narrowed variable costs.  Every choice of the generator
+of t, and of the generators of its parts, escapes the capsule when the
+question needs it, and each escape splits the capsule and restarts the
+computation around it, in every candidate.  Measured on the C++ backend:
+the question for one type, int*, takes 1472 rewrite steps and 81 forks
+through the normal form and 91618 steps and 14825 forks through the
+variable; scenario (d) at depth 1 takes 0.08 s (425 thousand steps)
+through the normal form and 22 s (118 million steps) through the variable,
+and at depth 2 0.24 s against 94 s.  Through the variable the search of
+depth 2 exceeded 2 GB of memory on the Python backend.
 
 The generator grows by a factor of six per level of depth.  Depth 2 has
 1245 types, and scenario (d) over them took 0.3 s on the C++ backend; depth
