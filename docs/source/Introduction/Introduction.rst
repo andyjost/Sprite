@@ -12,7 +12,7 @@ the amount of memory available.
 `Haskell`_.  Despite superficial similarities, Curry delivers a big
 semantic punch, as it unifies disparate aspects of two of the foremost
 programming paradigms.  From `Functional Programming`_ it acquires first-class,
-higher-order, pure functions; strict (a.k.a., lazy) evaluation order; partial
+higher-order, pure functions; non-strict (lazy) evaluation order; partial
 application; immutable data; and pattern matching.  From `Logic Programming`_
 it gains non-determinism, logic variables, and disjunctive control flow.
 
@@ -83,6 +83,7 @@ to begin using it.
    ProjectLayout
    CompilationPipeline
 
+.. _Fair Scheme: https://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf
 .. _Curry: https://www.curry-lang.org/
 .. _Haskell: https://www.haskell.org/
 .. _Curry Homepage: https://www.curry-lang.org/

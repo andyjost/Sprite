@@ -12,10 +12,10 @@ An :class:`Interpreter <curry.interpreter.Interpreter>` represents one instance
 of a Curry system.  It coordinates interactions between the API and the various
 subsystems so that Curry code can be compiled, imported, and evaluated.
 
-Each interpreter has a private copy of the :mod:`configuration flags
-<curry.interpreter.flags>`, Curry search path, list of imported modules, and
-more.  It also has a reference to a `Context Object`_, which implements the
-backend for whichever target architecture was chosen.
+Each interpreter has a private copy of the :ref:`configuration flags
+<interpreter-flags>`, Curry search path, list of imported modules,
+signature table, and more.  It also has a reference to a `Backend
+Object`_, which implements the backend for whichever target was chosen.
 
 The Global Interpreter
 ----------------------
@@ -27,73 +27,97 @@ objects.  So, for example, :func:`curry.import_` is a method that imports a
 Curry module into the global interpreter and :func:`curry.eval` evaluates an
 expression according to its settings.
 
+A new interpreter, ``Interpreter(flags={...})``, starts from the default
+flags, not from the environment variable ``SPRITE_INTERPRETER_FLAGS``; the
+global interpreter reads the variable.
 
-Context Object
+
+Backend Object
 ==============
 
-A :class:`Context <curry.context.Context>` mediates interactions between an
-interpreter and backend.  Each context is a singleton with respect to the
-backend it represents, which implies that if multiple interpreters target the
-same backend, they share one context object.
+An :class:`IBackend <curry.backends.IBackend>` mediates interactions between
+an interpreter and a backend.  Each backend has one instance, which every
+interpreter that targets that backend shares; the object is stateless, and
+the state of an interpreter lives in an interpreter state the backend
+attaches to it.  The two backends are ``curry.backends.cxx``, the C++
+backend, and ``curry.backends.py``, the Python backend; each implements the
+interface in its module ``interface``.
 
 A backend implements the target-specific aspects of compilation and evaluation.
-The context defines an abstract interface to the backend that includes the
-following:
+The interface includes the following:
 
-  * **Compiler**
+  * **Compilation**
 
-    :class:`Compiler <curry.context.Compiler>` provides an abstract interface
-    to a target-specific IR and related functions.  Key members include the
-    following:
+      - ``compile``:
+        Converts ICurry to the IR of the backend: generated C++ text, or
+        a generated Python module.
 
-      - :func:`IR <curry.context.Compiler.IR>`:
-        A class that represents the target-specific IR.
+      - ``materialize``:
+        Converts IR to runnable code: the functions of a module.
 
-      - :func:`compile <curry.context.Compiler.compile>`:
-        A function that compiles ICurry to IR.
+      - ``write_module``, ``load_module``, ``object_file_extension``:
+        The form of a module on disk, which :func:`curry.save` writes and
+        :func:`curry.load` reads: a ``.py`` file on the Python backend, a
+        ``.so`` file on the C++ backend.
 
-      - :func:`materialize <curry.context.Compiler.materialize>`:
-        A function that converts IR to runnable code.
+      - ``extend_plan_skeleton``:
+        The steps the backend adds to the compilation pipeline of
+        :ref:`sprite-make <sprite-make>`.
 
-      - :func:`render <curry.context.Compiler.render>`:
-        A function that converts IR to a string or bytes.
+      - ``compile_pending``, ``module_loaded``:
+        The hooks of a load.  The C++ backend queues the background
+        compile of a module it interprets in ``module_loaded`` (tiered
+        execution; see :mod:`curry.backends.cxx.tiered`).
 
-  * **Runtime**
+  * **Evaluation**
 
-    :class:`Runtime <curry.context.Runtime>` provides an abstract interface to
-    target-specific classes and functions used to evaluate Curry.  Key member
-    include the following:
+      - ``make_node``:
+        Creates one node of a Curry expression graph.
 
-      - :func:`Node <curry.context.Runtime.Node>`:
-        A class that represents a Curry expression graph.
+      - ``create_evaluation_rts``:
+        Creates the runtime state of one evaluation.
 
-      - :func:`InfoTable <curry.context.Runtime.InfoTable>`:
-        A class containing compiler-generated information about a symbol.
+      - ``before_evaluation``, ``after_evaluation``:
+        The hooks around an evaluation.  The C++ backend applies the
+        objects that finished compiling in the background.
 
-      - :func:`evaluate <curry.context.Runtime.evaluate>`:
-        A function to evaluate a Curry expression.
+      - ``lookup_builtin_module``, ``fundamental_symbols``:
+        The implementations of the external declarations of the built-in
+        Curry modules, and the symbols every backend provides.
 
-      - :func:`lookup_builtin_module <curry.context.Runtime.lookup_builtin_module>`:
-        A function to find implementations of external declarations in built-in
-        Curry modules.
+  * **Statistics and inspection**
 
+      - ``num_collections``, ``gc_seconds``, ``gc_counters``,
+        ``tiered_counts``, ``scheduler_counters_enabled``:
+        What :func:`curry.stats` reports.  A backend without a collector
+        of its own answers zeros.
+
+      - ``getimpl``:
+        The generated code of a symbol, for :func:`curry.inspect.getimpl`.
 
   * **Runtime State**
 
     Data associated with the evaluation of a Curry expression.  Each call to
     :func:`curry.interpreter.Interpreter.eval` gives rise to a new, unique
-    ``RuntimeState``.  This way, any number of evaluations can occur
+    runtime state.  This way, any number of evaluations can occur
     concurrently without interfering with one another.
 
     This captures the relevant state of the interpreter that
     requested evaluation (such as its configuration flags), and houses the
-    necessary data structures, such as the the Fair Scheme Work Queue.
-
+    necessary data structures, such as the work queue of the Fair Scheme.
 
   * **Interpreter State**
 
-    The backend defines a data class to be attached to each interpreter
-    instance to track backend-specific information.  For example, this may
-    track the choice and free variable IDs used to ensure that no two
-    expressions created by the same interpreter have overlaping ones.
+    The backend attaches a state object to each interpreter to track
+    backend-specific information, such as the identifiers of choices and
+    free variables, so that no two expressions created by the same
+    interpreter share one.  :func:`curry.reset` installs a new state.
 
+The two backends share one scheduler design, the Fair Scheme.  A queue
+holds the configurations, each an alternative of the computation with its
+fingerprint of the choices it made.  A step rewrites one redex; a choice
+at the root forks the configuration; a free variable that reaches a case
+suspends it.  The C++ backend runs the scheduler in the runtime library
+``libcyrt`` (``src/cyrt``), with compiled step functions or the bytecode
+of its ICurry interpreter; the Python backend runs it in Python
+(:mod:`curry.backends.py.eval`).

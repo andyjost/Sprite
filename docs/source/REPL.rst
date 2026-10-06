@@ -35,6 +35,9 @@ step mode, where the schedule depends on the expression alone:
 
     % SPRITE_ROTATION=steps:65536 install/bin/python -m curry.tools.icy
 
+The REPL has no command-line options of its own; ``-h`` is an illegal
+argument.  The interpreter flags come from the environment.
+
 Commands of the REPL
 ====================
 
@@ -45,8 +48,13 @@ be any unambiguous prefix, for example ``:e`` for ``:eval`` and ``:t`` for
 
 ``:load FILE``
     Compiles and imports the Curry module in ``FILE`` and adds its
-    directory to :data:`curry.path`.  The prompt names the module, and the
-    expressions of ``:eval`` and ``:type`` see its symbols.
+    directory to :data:`curry.path`.  The prompt names the module.  The
+    expressions of ``:eval`` and ``:type`` see the symbols of that module
+    and of the Prelude, and nothing else: the imports of the module are
+    not in scope at the prompt, and no command imports another module.
+    To use a function of a library at the prompt, define a wrapper in the
+    loaded module, or re-export the library from it (``module M (module
+    M, module Control.SetFunctions) where``).
 
 ``:eval EXPR``
     Compiles the expression, evaluates it, and prints each value on a line
@@ -58,12 +66,25 @@ be any unambiguous prefix, for example ``:e`` for ``:eval`` and ``:t`` for
 
 ``:set OPTION VALUE``, ``:set [+|-]OPTION``
     Sets an option.  ``:set`` alone lists the options and their state.
-    ``:set backend py`` or ``:set backend cxx`` switches the session to
-    that backend: the interpreter is reloaded and the module is loaded
-    again.  If that load fails, the session stays on the new backend with
-    the Prelude at the prompt, and the next ``:load`` or ``:set backend``
-    loads the module again.  ``:set +internal-error-details`` adds the
-    Python traceback to the report of an error during an evaluation.
+    The options are:
+
+    ``backend``
+        The backend of the session, ``py`` or ``cxx``.  ``:set backend
+        py`` or ``:set backend cxx`` switches the session to that backend:
+        the interpreter is reloaded and the module is loaded again.  If
+        that load fails, the session stays on the new backend with the
+        Prelude at the prompt, and the next ``:load`` or ``:set backend``
+        loads the module again.
+
+    ``internal-error-details``
+        A Boolean option.  ``:set +internal-error-details`` adds the
+        Python traceback to the report of an error during an evaluation;
+        ``:set -internal-error-details`` removes it again.
+
+    The other settings of the interpreter, such as ``rotation`` and
+    ``interpret``, are not options of ``:set``; they come from
+    ``SPRITE_INTERPRETER_FLAGS`` and ``SPRITE_ROTATION`` in the
+    environment when the REPL starts.
 
 ``:quit``
     Exits.
@@ -78,6 +99,42 @@ and the loop continues.
     % install/bin/python -m curry.tools.icy :load Goals.curry :eval main14 :quit
     Just 5
 
+A session with a module
+=======================
+
+The transcript below is the part of one session on the C++ backend that
+lists the options, loads a module and switches the backend.
+``Goals.curry`` holds ``double x = x + x`` and ``main14 = Just 5``.  The
+sections that follow quote the other exchanges of the same session.
+
+.. code-block:: text
+
+    Prelude> 1 ? 2
+    1
+    2
+    Prelude> :set
+    Usage:
+        :set <option> <value>
+        :set [+/-]<option>        (Boolean options only)
+
+    Options for ":set" command:
+        backend                  - The backend of the session, py or cxx.  Setting it reloads the interpreter and the loaded module.
+        internal-error-details   - Show detailed information about internal errors.
+
+    Current settings:
+    -internal-error-details
+    backend : 'cxx'
+    Prelude> :load Goals.curry
+    Goals> double 21
+    42
+    Goals> :t double 21
+    double 21 :: Num a => a
+    Goals> :set backend py
+    Goals> 1 ? 2
+    1
+    2
+    Goals> :quit
+
 Defaulting in the REPL
 ======================
 
@@ -85,7 +142,8 @@ An expression without a type annotation keeps the class constraints the
 front end inferred.  ``:type`` prints them.  ``:eval`` defaults them with
 the table of the PAKCS REPL: ``Num`` and ``Integral`` to ``Int``,
 ``Fractional`` and ``Floating`` to ``Float``, ``Monad`` to ``IO``, and a
-lone ``Data`` to ``Bool``.
+lone ``Data`` to ``Bool`` (the whole table is under
+:ref:`goal-defaulting`).
 
 .. code-block:: text
 
@@ -178,4 +236,27 @@ Errors in the REPL
 An error prints ``**** ERROR ****`` and its message on the standard error.
 A compile error shows the command line of the front end and its report.
 An error during an evaluation says so; ``:set +internal-error-details``
-adds the Python traceback.
+adds the Python traceback.  On the command line, an error ends the REPL
+with the status 1:
+
+.. code-block:: bash
+
+    % install/bin/python -m curry.tools.icy :eval 'toEnum 65' :quit
+    **** ERROR ****
+    cannot handle the overloaded expression 'toEnum 65' of type Enum a => a
+      Cannot handle arbitrary overloaded top-level expressions
+      add a type annotation (exprtype)
+    % echo $?
+    1
+
+Limits of the REPL
+==================
+
+* The prompt sees the loaded module and the Prelude alone.  No command
+  imports another module; see ``:load`` above for the two ways around it.
+* The REPL has no command-line options.  The interpreter flags, among them
+  ``rotation`` and ``interpret``, come from the environment, and ``:set``
+  has the two options listed above.
+* ``:type`` keeps the variables of a trailing ``where x free`` in the
+  expression, so a type that depends on them alone is ambiguous there,
+  while ``:eval`` of the same text prints the bindings.

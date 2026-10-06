@@ -5158,3 +5158,187 @@
   case), and test_coverage of unit_py_runtime.py expected the TypeError of
   make_node for raw_expr(Int, 1, 2), which the #63 change turned into the
   CurryTypeError of the builder.
+
+2026-10-06: the docs pass for the milestone (worktree wt/docs)
+- The build.  make -C docs html at 28f3bf5b finished with 131 WARNING
+  lines and 11 ERROR lines; after this pass it finishes with 0 and 0.  The
+  causes and the fixes: (1) autodoc_default_options had imported-members,
+  so every import of every module was described, the classes of
+  curry.icurry.types three times (the package, curry.icurry.types and the
+  defining module) and io.StringIO once, with its malformed docstring; the
+  option is gone, and a module with __all__ (the curry package itself)
+  still documents the names it lists.  (2) The "Attributes:" section of a
+  class docstring became attribute directives, which described each slot
+  of a class with __slots__ a second time (Scheme, Instance, Pred, Goal,
+  Bindings, Defaulting, Spec, Var, the Variable of the Python backend);
+  napoleon_use_ivar = True renders the section as a field list.  (3) The
+  Reference tree excludes curry.backends.llvm, three empty __init__.py
+  files (build-api.bash passes the exclude pattern to apidoc).  (4) The
+  two-line terms of a definition list in the sprite-exec page and in the
+  docstrings of stats.stats and stats.scheduler_fields are one line each
+  (the two ERROR lines of the page and the six of the docstrings).  (5)
+  The docstring of interpreter/optimize.py quoted interpreter.import_.load
+  without backticks, a reference target in RST.  (6) The Raises sections
+  of compile.compile and eval.eval name ~curry.exceptions.CompileError and
+  ~curry.exceptions.EvaluationError, because the C++ materializer and the
+  C++ bindings define classes of the same names (four ambiguous
+  cross-references).  (7) The Introduction had no target for `Fair
+  Scheme`_ (targets are per document).  (8) html_static_path named a
+  directory that does not exist.  No warning remains.
+- The pages.  PythonAPI/UsingTheAPI.rst: every output taken from a session
+  on the C++ backend (the reprs of symbols and types are unqualified,
+  <curry constructor 'S'>; inspect.types gives a dict of unqualified
+  names; a type has no module(); getimpl gives the bytecode of an
+  interpreted module); save and load described by backend (the Python
+  form on the Python backend, C++ source and a .so on the C++ backend; a
+  saved program runs under install/bin/python, it has no interpreter
+  line); the goal and the multi-valued examples made consistent (fib3,
+  Fib.main, print(value)); the error catalogue with one example per class
+  (MismatchError, ConversionError with the None line for Maybe,
+  AmbiguousTypeError, DefaultingError, NoInstanceError, FreeFunctionError,
+  ArityError, ValueTooLargeError, the five ExprTypeError subclasses,
+  InterfaceError), the whole defaulting table, the converters and the flag
+  defaultconverter, the markers (one free marker is one variable, two
+  choice markers are two choices), the bindings of where-free values as
+  Bindings objects, the item error of an iterator, the limits.
+  CurryPackage.rst: the top-level names complete (typeof, describe,
+  topython, show_value, the markers), the flag table with the defaults of
+  flags.py, curry.context removed (no such module), curry.expressions and
+  curry.typecheck added.  Architecture.rst: the Context object replaced by
+  IBackend as backends/__init__.py defines it.  REPL.rst: the two options
+  of :set as the code has them (backend, internal-error-details) and a
+  transcript of a real session; rotation and interpret are not :set
+  options.  sprite-exec.rst: -i, -t, python -m curry, the first-run time
+  (0.64 s for Peano), the --stats line of a real run.  sprite-make.rst:
+  the commented LLVM block removed, the saved program run under the
+  installed Python; the man text of tools/make.py (a docstring) names
+  sprite-make --icy in its examples instead of curry-make --icurry.
+  EnvironmentVariables.rst: SPRITE_DISABLE_SYSLIB_CHECKS,
+  SPRITE_ENABLE_BREAKPOINT, SPRITE_FORCE_RECOMPILE_CXX,
+  SPRITE_WORKTREE_ROOT, the test variables (SPRITE_TEST_MAX_VMEM_KB,
+  SPRITE_TEST_FLAGS, SPRITE_UPDATE_EXPECTED) and the build variables
+  (SPRITE_REBUILD_ICY, DEBUG, TRACE, COUNTERS, GC, GC_WRITE_COUNTERS,
+  JOBS, PREFIX).  ConfiguringSprite.rst: --with-cxx-postinstall in the
+  table, the default of --with-python is python3, the other option groups
+  named.  Status.rst, new and linked from the index: the pinned front
+  end, the two backends and the retirement plan of #82, the interpreter
+  modes, the typed boundary, the records by label and file, the known
+  limits, what is experimental, the milestone and the epics by number.
+  Performance.rst: the harness commands, the two records by label with
+  the Phase 2 throughput table from the committed file, the step costs
+  from the dated entries, the nightly job, no claim against other
+  compilers.  CurryPrimer/Semantics.rst, which was an empty outline:
+  choices, call-time choice, overlapping rules, free variables,
+  functional patterns, set functions with the escape rule of #61, every
+  value from a run.  CurryPrimer/Syntax.rst: the patterns of isNull in
+  parentheses, the store as a type synonym, find with its Data constraint
+  (the front end rejects the signature without it), the two values of a
+  duplicate key.  Introduction: non-strict, not strict.  Quickstart: the
+  reprs, the save section by backend, the saved program under the
+  installed Python.  Preface note [2]: the front end takes a fraction of a
+  second for a small module, not several seconds.  Examples.rst: example
+  21 runs on both backends (unit_examples.py), the first run of an example
+  measured (0.56 s), the reason the scripts of 03 and 04 pick the Python
+  backend.  BuildingDocumentation.rst: the guide is published at
+  andyjost.github.io/Sprite (HTTP 200 checked), and the local build needs
+  the staged install.  ProjectLayout: scripts/, TODO and NOTES.
+  StepByStepBuild: the truncated sentence and PACKS.
+- Verified by running: the API session scripts (api/session1.py,
+  errors.py, errors2.py, quickstart.py, semantics.py in the scratch
+  directory), the REPL with the transcript's lines on stdin and with
+  commands on the command line, sprite-exec with -g O, -g '', -m, -i, -t,
+  --stats and no module, sprite-make --so, curry.save and curry.load on
+  both backends, the first and second run of example 01 from a copy
+  without products, and the unit files unit_api.py, unit_compile.py,
+  unit_make.py and unit_inspect.py on both backends through the runner
+  (-j 2 --mem 4): 8 of 8 run; unit_inspect.py on cxx failed twice at first
+  because the pool module Peano had no compiled object in this worktree
+  (the condition of tests/README section 4), and passed after sprite-make
+  --so tests/data/curry/Peano.curry, 27 tests.
+- What the code must change for a page to be true, or what a page now
+  says instead: curry.typeof of the goal of compile(mode='expr') without
+  exprtype reports a bare type variable ('a'), because the front end built
+  the node and no type is recorded for it; the page says so, and a record
+  of the defaulted type of a text goal would let it say 'Int'.  The
+  interactive prompt of sprite-exec without a module binds no name curry
+  (__main__.py passes {'__package__': curry} as the namespace), although
+  the help says the prompt starts "in module 'curry'"; the page says to
+  import curry there.  A saved program has no interpreter line, so the
+  old chmod +x form fails under sh; the pages run it under the installed
+  Python.  curry.save on the C++ backend writes C++ source that
+  curry.load refuses (it expects .so); the pages describe the forms by
+  backend, and the decision on save and load for the C++ backend stays
+  with #82.  The REPL has no -h and no :set option for rotation or
+  interpret.  Outside docs/ and not changed here: examples/README lists
+  21-cxx-types-overloads as cxx alone while unit_examples.py and the README
+  of the example run it on both backends; raw_expr(plus, choice, choice)
+  evaluated ends the process (a dictionary-less + ; the warning on the
+  page covers it); a stray directory curry/.curry/fe-test that a timing
+  probe of the front end wrote into the staged install was removed.
+- Open.  The Reference pages of the C++ bindings (_cyrtbindings, an
+  extension module) are not generated, so the classes it defines appear
+  nowhere; the Semantics page is short and has no section on residuation
+  beyond the free-variable rule; the docs show the C++ backend's outputs,
+  and a run of the same scripts on the Python backend would give the
+  differences page by page.
+- The review of the pass, applied the same day.  (1) Status.rst no longer
+  enumerates the open issues of the milestone: #62, #63 and #85 had closed
+  by the time of the review (gh: open 9, closed 3), and the list would rot
+  with every closed issue; the page names the milestone and the epics, as
+  a list, and points to the milestone page.  (2) The set-function examples
+  of the Semantics primer are definitions of the module (main1 to main5),
+  because the prompt of the REPL sees the loaded module and the Prelude
+  alone: commands.imports() returns the loaded module, so `sortValues
+  (set1 f 1)` at the prompt of a module that imports Control.SetFunctions
+  fails in the front end with "`sortValues' is undefined", while the
+  definitions give [1, 2]; [1, 2] [5, 6]; [1] [2]; (1, [1, 2]) (2, [2,
+  3]); True (run at the prompt).  REPL.rst states the scope rule under
+  :load with the two ways around it, a wrapper in the loaded module and a
+  re-export (module M (module M, module Control.SetFunctions) where),
+  both run, and ends with a section "Limits of the REPL".  (3)
+  CompileError, EvaluationError and InstantiationError derive from
+  BaseException, so `except Exception` does not catch them, while
+  CurryTypeError is a TypeError (run: neither CompileError nor
+  EvaluationSuspended is caught by `except Exception`); UsingTheAPI.rst
+  says so at the CompileError example, at the EvaluationError paragraph
+  and at the head of the error catalogue, and CurryPackage.rst at its
+  errors paragraph.  Whether the hierarchy should move under Exception is
+  a code decision, not made here.  (4) The rule and the default of
+  recursion_limit, step_budget, stack_limit and rotation have one prose
+  description, the entry SPRITE_INTERPRETER_FLAGS of
+  EnvironmentVariables.rst (label sprite-interpreter-flags), beside the
+  table of CurryPackage.rst and the docstrings of flags.py; the copies in
+  sprite-exec.rst (Selecting a Backend, Bounding One Alternative),
+  UsingTheAPI.rst (Limits) and Status.rst (Known limits) are one sentence
+  and a cross-reference each.  (5) The long sentences are split: the str
+  conversion bullet, the five ExprTypeError subclasses, the suites and the
+  step costs of Performance.rst and the epics are lists; a scan of the
+  added prose finds no sentence above 40 words outside a table and a
+  quoted error message (28 before).  (6) The UnknownTypeConstructorError
+  line quotes the session of the page, run in the page's order: "searched
+  the interfaces of Prelude, Peano, Data.Maybe, Data.List, Fib".  (7)
+  BuildingDocumentation.rst: Sphinx keeps the output of a vanished source
+  and make -C docs html has no clean step, so make -C docs clean comes
+  before make -C docs html after a change to the set of Reference pages;
+  a clean build here removed the three stale curry.backends.llvm pages.
+  (8) Status.rst: the ICurry cache is off by default outside the test
+  drivers, and configure --cache turns it on.  (9) REPL.rst shows each
+  exchange once: the transcript keeps the option listing, the load of a
+  module and the backend switch, and the sections keep the rest.
+- The build and the tests after the review.  A clean build (make -C docs
+  clean, then make -C docs html) finishes with 0 WARNING and 0 ERROR
+  lines in 18 s.  Through the runner (-j 2 --mem 4 --backend both):
+  --fast ran 122 of 122 files with 4 failures at first (unit_cxx_bom.py,
+  unit_cxx_literals.py, unit_cxx_partial.py and unit_cxx_rewrite.py on
+  cxx: no cxx.shlib in the metadata of a corpus module, which tiered
+  execution interpreted because this fresh worktree had never run the
+  prepare pass; the condition of tests/README section 4 for those files,
+  not an effect of the docstring edits).  After ./run_tests
+  --prepare-only (1236 modules in 12 directories, every product present,
+  610 s) --fast ran 122 of 122 with 0 failures (220 s).  --changed selects
+  every file, because src/python/tools/make.py maps to no test: 208 of
+  208 ran with 2 failures, func_goal_defaulting.py on both backends,
+  whose two oracle tests (test_text_header, test_glob_characters) run
+  PAKCS, which writes under /tmp and failed where /tmp was read-only
+  ("No permission to create directory /tmp/pakcs_file_N"); with /tmp
+  writable the file passes on both backends (53 tests each).

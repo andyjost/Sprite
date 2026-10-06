@@ -147,8 +147,7 @@ def scheduler_fields(counters):
       The steps from the creation of a configuration of the outermost queue
       to its end by a value, a failure, or a fork.  The median is exact below
       1024 steps; above, it is the lower bound of a power-of-two bucket.
-  ``nested_configurations``, ``nested_lifetime_median``,
-  ``nested_lifetime_mean``, ``nested_lifetime_max``
+  ``nested_configurations``, ``nested_lifetime_median``, ``nested_lifetime_mean``, ``nested_lifetime_max``
       The same for the configurations of the queues of set functions, which
       end by a value, a failure, or a fork.
   '''
@@ -214,8 +213,7 @@ def stats(interp):
         The background compiles of tiered execution that failed in this
         process; the modules stay interpreted.  The Python backend reports
         zero.
-    ``gc_roots_seconds``, ``gc_trace_seconds``, ``gc_sweep_seconds``,
-    ``gc_registries_seconds``
+    ``gc_roots_seconds``, ``gc_trace_seconds``, ``gc_sweep_seconds``, ``gc_registries_seconds``
         Seconds the collections of the node collector spent in each phase:
         the roots (the configurations of the queues and the nodes Python
         holds), the trace from the roots, the block sweep, and the
@@ -230,8 +228,7 @@ def stats(interp):
     ``gc_queues_destroyed``, ``gc_configurations_destroyed``
         The queues of set functions no root reached, destroyed by the
         collections, and the configurations destroyed with them.
-    ``gc_old_redexes``, ``gc_old_slot_writes``, ``gc_old_nodes_written``,
-    ``gc_old_blocks``
+    ``gc_old_redexes``, ``gc_old_slot_writes``, ``gc_old_nodes_written``, ``gc_old_blocks``
         The writes into old nodes between the collections: the writes of a
         step into an old redex, the other pointer writes into an old node,
         the distinct old nodes written, and the blocks with such a write,

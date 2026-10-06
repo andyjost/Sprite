@@ -15,17 +15,22 @@ the example directory:
     cd examples/10-queens-set-functions
     ./run
 
-A run script uses the C++ backend by default unless the example runs on the
-Python backend only.  To pick a backend, set ``SPRITE_INTERPRETER_FLAGS`` in
-the environment:
+A run script uses the C++ backend by default.  The scripts of examples 03
+and 04 set the Python backend, because those examples run on it only:
+example 03 prints the generated Python of a function, and example 04 saves
+a module in the Python form.  To pick a backend for the others, set
+``SPRITE_INTERPRETER_FLAGS`` in the environment:
 
 .. code-block:: bash
 
     SPRITE_INTERPRETER_FLAGS=backend:py ./run
 
-The first run of an example also compiles its Curry module, which takes about
-10 s.  The test ``tests/unit_examples.py`` runs every example on the backends
-it declares and compares the output with ``expected.out``.
+The first run of an example also runs the Curry front end on its module.
+That takes a fraction of a second per module: example 01 took 0.56 s on
+its first run and 0.15 s on the second, on the machine of this text.  The
+test ``tests/unit_examples.py`` runs every example on the backends it
+declares and compares the output with ``expected.out``; the backends named
+below are the ones of that test.
 
 The sections below name each example, its backends, and its idea, and quote
 its README.
@@ -288,7 +293,7 @@ A template parameter is a free variable, and deduction is unification of the par
 Overload resolution over a model of C++ types
 ---------------------------------------------
 
-Directory ``examples/21-cxx-types-overloads``.  Backends: C++.
+Directory ``examples/21-cxx-types-overloads``.  Backends: Python, C++.
 
 The conversions of the standard are non-deterministic rules, a candidate with an argument that no rule converts is not viable, and a set function collects the viable set with its ranks.  The inverse question finds every argument type up to a depth that makes a call ambiguous.  Python builds the overload sets, the class hierarchy and the calls.
 

@@ -121,9 +121,9 @@ is a simplification.)
 To illustrate, we can write write a function ``isNull`` that indicates whether
 a ``Binary`` argument has any digits at all::
 
-    isNull Null = True
-    isNull I _  = False
-    isNull O _  = False
+    isNull Null  = True
+    isNull (I _) = False
+    isNull (O _) = False
 
 .. note::
    ``_`` is a placeholder for an anonymous variable.
@@ -140,14 +140,22 @@ The following example implements a data store as a list of key-value pairs.
 Function ``find`` uses a functional pattern to select all values with a given
 key::
 
-    data Data a = [(String, a)]
+    type Store a = [(String, a)]
 
-    find :: String -> Data -> a
-    find key (_ ++ (key, value) ++ _) = value
+    find :: Data a => String -> Store a -> a
+    find key (_ ++ [(key, value)] ++ _) = value
 
 This pattern uses the list append function, ``++``, to build any list
 containing a pair with the supplied key.  When this rule matches, ``find``
-evaluates to the corresponding value.
+evaluates to the corresponding value; with two pairs under the key, it has
+two values::
+
+    find "b" [("a", 1), ("b", 2), ("c", 3)]   -- 2
+    find "b" [("a", 1), ("b", 2), ("b", 3)]   -- 2, 3
+
+The constraint ``Data a`` is required: the match unifies the pattern with
+the argument, and the front end of PAKCS 3.4.1 rejects the signature
+without it.
 
 .. note::
    The variables that a functional pattern binds stay in the result.  A

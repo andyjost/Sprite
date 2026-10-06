@@ -114,11 +114,11 @@ found by searching CURRYPATH.  The output is placed at
 ``<dir>/.curry/{intermediate_subdir}/A.icy``, where ``<dir>`` is the directory
 containing ``A.curry``::
 
-    % curry-make --icurry A.curry
+    % sprite-make --icy A.curry
 
 The following creates a compacted, zipped JSON file::
 
-    % curry-make --json -czt /path/to/A.curry
+    % sprite-make --json -czt /path/to/A.curry
 
 The output is written to ``/path/to/.curry/{intermediate_subdir}/A.json.z``.
 The intermediate file ``/path/to/.curry/{intermediate_subdir}/A.icy`` will be
@@ -127,7 +127,7 @@ removed unless it was up-to-date prior to the command running.
 The following compiles the Curry code in ``A.curry`` to a Python script named
 ``A.py`` that evaluates ``'A.main'``::
 
-    % curry-make --py A.curry -g main -o A.py
+    % sprite-make --py A.curry -g main -o A.py
 
 '''.format(
     intermediate_subdir=config.intermediate_subdir()

@@ -3,9 +3,10 @@
 Welcome to the Sprite documentation!
 ------------------------------------
 
-Sprite is a Python-based implementation of the Functional-Logic Programming
-language Curry.  It combines Functional, Logic, and Imperative programming
-in a single environment.
+Sprite is an implementation of the Functional-Logic Programming language
+Curry with a Python API.  It combines Functional, Logic, and Imperative
+programming in a single environment.  :doc:`Status` says what Sprite is
+today.
 
 **Learn More**
 
@@ -20,6 +21,7 @@ in a single environment.
    :caption: Contents
 
    Preface
+   Status
    Quickstart
    Examples
    Introduction/Introduction

@@ -37,9 +37,9 @@ def eval(interp, *args, **kwds):
         Any other keyword names an anchor, as in ``Interpreter.expr``.
 
   Raises:
-    EvaluationError:
+    ~curry.exceptions.EvaluationError:
         A Curry error occurred during evaluation.
-    CurryTypeError:
+    ~curry.exceptions.CurryTypeError:
         The table cannot default a class constraint of the goal.
 
   Returns:
