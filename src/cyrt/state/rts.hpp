@@ -1,5 +1,4 @@
 #pragma once
-#include "boost/utility.hpp"
 #include "cyrt/fwd.hpp"
 #include "cyrt/state/configuration.hpp"
 #include "cyrt/state/queue.hpp"
@@ -36,10 +35,12 @@ namespace cyrt
   // callback) and a later evaluation of a value that holds a free variable
   // find the variables of an earlier one.  The collector sweeps the tables
   // of the registered states.
-  struct InterpreterState : boost::noncopyable
+  struct InterpreterState
   {
     InterpreterState() { gc_register_istate(this); }
     ~InterpreterState() { gc_unregister_istate(this); }
+    InterpreterState(InterpreterState const &) = delete;
+    InterpreterState & operator=(InterpreterState const &) = delete;
     xid_type    xidfactory = 0;
     vtable_type vtable;
     // The free variables made outside an evaluation of this interpreter:
@@ -57,10 +58,12 @@ namespace cyrt
   // the arguments, the SetEval nodes, and the queues of the set function
   // point to it.  The collector frees it when none of them reaches it any
   // more; see gc/wdgc.cpp.
-  struct Set : boost::noncopyable
+  struct Set
   {
     Set() { gc_register_set(this); }
     ~Set() { gc_unregister_set(this); }
+    Set(Set const &) = delete;
+    Set & operator=(Set const &) = delete;
     std::unordered_set<xid_type> escape_set;
     // The mark of the current collection.
     bool marked = false;
@@ -89,7 +92,7 @@ namespace cyrt
 
   using qstack_type  = std::vector<Queue*>;
 
-  struct RuntimeState : boost::noncopyable
+  struct RuntimeState
   {
     RuntimeState(
         InterpreterState & istate, Node * goal, bool trace=false

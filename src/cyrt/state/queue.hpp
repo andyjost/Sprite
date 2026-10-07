@@ -1,5 +1,4 @@
 #pragma once
-#include "boost/utility.hpp"
 #include "cyrt/fwd.hpp"
 #include "cyrt/state/configuration.hpp"
 #include <deque>
@@ -23,10 +22,12 @@ namespace cyrt
   // node shares the queue, so the collector frees it: every queue registers
   // itself (gc_register_queue), the mark phase marks the queues it reaches,
   // and the sweep destroys the rest.  See gc/wdgc.cpp.
-  struct Queue : boost::noncopyable
+  struct Queue
   {
     Queue(Set * set=nullptr, Node * root=nullptr);
     ~Queue();
+    Queue(Queue const &) = delete;
+    Queue & operator=(Queue const &) = delete;
 
     Set * set;
     // The serial number of the queue, unique in the process.  The trace keys

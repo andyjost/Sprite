@@ -51,7 +51,7 @@ endef
 
 # Compiler flags
 # ==============
-CFLAGS   += -I$(ROOT_DIR)/src -I$(BOOST_HOME)/include -I$(PYTHON_INCLUDE_PATH) \
+CFLAGS   += -I$(ROOT_DIR)/src -I$(PYTHON_INCLUDE_PATH) \
             -I$(ROOT_DIR)/extern/pybind11/include
 
 # Recursion

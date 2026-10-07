@@ -4,7 +4,34 @@
 
 namespace cyrt { namespace fingerprints
 {
-  boost::pool<> branch_pool(sizeof(Branch));
+  BranchPool branch_pool(sizeof(Branch));
+
+  BranchPool::BranchPool(size_t chunk_size, size_t first_count)
+    : m_chunk_size(chunk_size), m_next_count(first_count)
+  {
+    // A free chunk holds the link of the free list, and the chunks of a
+    // block follow each other, so a chunk is a whole number of pointers.
+    size_t const unit = sizeof(void *);
+    if(m_chunk_size < unit) m_chunk_size = unit;
+    m_chunk_size = (m_chunk_size + unit - 1) / unit * unit;
+  }
+
+  BranchPool::~BranchPool()
+  {
+    for(void * block: m_blocks)
+      ::operator delete(block);
+  }
+
+  void BranchPool::refill()
+  {
+    size_t const count = m_next_count;
+    m_next_count *= 2;
+    char * block = static_cast<char *>(::operator new(count * m_chunk_size));
+    m_blocks.push_back(block);
+    // Thread the chunks onto the free list, the first chunk at the head.
+    for(size_t i=count; i-- > 0;)
+      this->free(block + i * m_chunk_size);
+  }
 
   #if defined(USE_FP_CACHE) && defined(FP_CACHE_DIAGNOSTICS)
   size_t cache_tries;

@@ -186,7 +186,7 @@ def get_options():
   versions.add_argument('--with-curry-frontend' , type=str, metavar='pakcs-frontend', help='specifies the Curry front end (env: CURRY_FRONTEND); by default the one of PAKCS; an empty value leaves it out')
   versions.add_argument('--with-icurry'         , type=str, metavar='icurry', help='specifies the icurry executable (env: ICURRY); optional when the front end is found; an empty value leaves it out')
   versions.add_argument('--with-pakcs'          , type=str, metavar='pakcs', help='specifies the PAKCS executable (env: PAKCS); optional when the front end is named; an empty value leaves it out')
-  versions.add_argument('--with-prolog'         , type=str, metavar='swipl', help='specifies the Prolog executable (env: PROLOG)')
+  versions.add_argument('--with-prolog'         , type=str, metavar='swipl', help='specifies the Prolog executable that builds PAKCS when configure installs it (env: PROLOG); Sprite itself runs no Prolog')
   versions.add_argument('--with-python'         , type=str, metavar='python3', help='specifies the Python executable (env: PYTHON)')
 
   build = parser.add_argument_group('build arguments', 'Controls how make builds Sprite.')
@@ -276,15 +276,6 @@ def main():
     set_pakcs(settings)
     set_frontend(settings)
     set_icurry(settings)
-    set_from_path(settings, 'BOOST', 'boost', 'Boost libraries'
-      , web='https://www.boost.org'
-      , install_steps=[
-            '# Install Boost.'
-          , 'sudo apt-get install libboost-all-dev'
-          ]
-      , path=['/usr/local/include', '/usr/include']
-      , validation=[readabledir]
-      )
 
     if 'PYTHON' in settings:
       say('*** Checking Python')
@@ -617,17 +608,19 @@ def set_frontend(settings):
 
 def set_icurry(settings):
   '''
-  Finds icurry.  It is optional: it is configured only when requested, and
-  the Curry front end is required with it (see set_frontend).
+  Finds icurry.  It is optional: it is configured only when --with-icurry or
+  ICURRY asks for it, and the Curry front end is required with it (see
+  set_frontend).  Without a request it is not looked for, so a missing
+  front end is reported as the one missing prerequisite.
   '''
   given = requested(OPTS.with_icurry, 'ICURRY')
   if given == '':
     log('icurry is left out by request.')
     settings['ICURRY'] = ''
     return
-  if given is None and settings.get('CURRY_FRONTEND'):
-    log('icurry is not needed: the Curry front end was found.  Pass '
-        '--with-icurry to configure it as the alternative.')
+  if given is None:
+    log('icurry is not configured.  Pass --with-icurry to configure it as '
+        'the alternative route from Curry to ICurry.')
     settings['ICURRY'] = ''
     return
   set_from_path(settings, 'ICURRY', 'icurry', 'icurry executable'
@@ -832,14 +825,6 @@ def prereq_make():
     , allow_interact=False
     )
 
-def prereq_sqlite3():
-  set_from_path(None, None, 'sqlite3', 'sqlite3 program'
-    , install_steps=[
-          '# Install SQLITE.'
-        , 'sudo apt-get install sqlite'
-        ]
-    )
-
 def prereq_tar():
   set_from_path(None, None, 'tar', 'tar program', allow_interact=False)
 
@@ -883,8 +868,9 @@ def get_pakcs_install_steps(settings=None):
 
 def get_icurry_install_steps(settings=None):
   cypm = prereq_cypm(settings)
-  prereq_sqlite3()
   yield '# Install icurry.'
+  yield '# cypm, the Curry Package Manager, keeps its package index in'
+  yield '# SQLite and needs the sqlite3 program (apt package sqlite3).'
   if cypm is None:
     yield '# PAKCS must be found first.  cypm is installed with PAKCS.'
     yield '# After PAKCS is installed, rerun configure.'

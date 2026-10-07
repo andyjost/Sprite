@@ -1,5 +1,4 @@
 #pragma once
-#include "boost/utility.hpp"
 #include <cassert>
 #include "cyrt/builtins.hpp"
 #include "cyrt/fingerprint.hpp"
@@ -29,7 +28,7 @@ namespace cyrt
   // it.  The collector counts the live configurations: for the
   // leak checks of the tests, and to run a collection when they pile up in
   // the queues of set functions consumed only in part (see gc/wdgc.cpp).
-  struct Configuration : boost::noncopyable
+  struct Configuration
   {
     Configuration(Node * root=nullptr)
       : root_storage(root)
@@ -51,6 +50,10 @@ namespace cyrt
     { gc_configuration_created(); }
 
     ~Configuration() { gc_configuration_destroyed(); }
+
+    // A configuration is cloned (clone), never copied.
+    Configuration(Configuration const &) = delete;
+    Configuration & operator=(Configuration const &) = delete;
 
     // Configurations come and go with every fork, so their blocks come from
     // a free list of the runtime instead of malloc (see configuration.cpp).

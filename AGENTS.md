@@ -77,10 +77,13 @@ Merges to `master` happen at milestones.
   `curry.raw_expr` is the untyped builder; the flag `typed_expr` turns the
   typing off for a whole interpreter. `curry.typeof`, `curry.typed` and
   `curry.describe` complete the API.
-- Other tools: a C++ compiler (g++), GNU make, and Boost headers. jq is not
-  needed: Sprite writes compact JSON itself. SWI-Prolog and Haskell Stack
-  are needed to build PAKCS itself. GNU time (`/usr/bin/time`) is optional:
-  the benchmark harness uses it for the peak memory of a run.
+- Other tools: a C++ compiler (g++), GNU make, and binutils (`ar`). The
+  C++ runtime uses the C++17 standard library alone: Boost is not needed.
+  jq is not needed: Sprite writes compact JSON itself. SWI-Prolog runs
+  PAKCS, the test oracle, and the build of its saved states; Haskell Stack
+  builds PAKCS from source; Sprite itself needs neither. GNU time
+  (`/usr/bin/time`) is optional: the benchmark harness uses it for the peak
+  memory of a run.
 - Sprite needs no GPU.
 - `configure` and the Makefiles honour `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
   and `LDFLAGS` from the environment, so build in a clean environment when

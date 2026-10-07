@@ -445,3 +445,88 @@ class TestWorktreeScript(cytest.TestCase):
     self.assertIn('cp "$here/Make.config" "$path/Make.config"', text)
     self.assertIn('JOBS', text)
     self.assertIn('CCACHE', text)
+
+class TestDependencies(ConfigureTestCase):
+  '''
+  The dependencies that the cleanup of 2026-10-07 dropped stay dropped: the
+  Boost headers of the C++ runtime, the sqlite3 program (a prerequisite of
+  cypm, not of Sprite), and the search for icurry when nobody asked for it.
+  '''
+
+  def check_prereqs(self, tmpdir, *args, env):
+    '''
+    Runs a copy of configure --check-prereqs with the compilers and the
+    Python of this tree, and nothing else on the command line but ``args``.
+    '''
+    script = os.path.join(tmpdir, 'configure')
+    if not os.path.exists(script):
+      shutil.copy(CONFIGURE, script)
+    cmd = [
+        sys.executable, script, '-f', '--check-prereqs'
+      , '--with-python=' + sys.executable
+      , '--with-cc=' + self.cc
+      , '--with-cxx=' + self.cxx
+      , '--with-cxx-postinstall=' + self.cxx_postinstall
+      ] + list(args)
+    return run(cmd, cwd=tmpdir, env=env)
+
+  def test_missing_front_end_alone(self):
+    '''
+    Without PAKCS and without a front end on PATH, the front end is the one
+    missing prerequisite: icurry is not looked for unless --with-icurry asks
+    for it, and the sqlite3 program, a prerequisite of cypm, is not checked.
+    '''
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      emptybin = os.path.join(tmpdir, 'emptybin')
+      os.mkdir(emptybin)
+      env = dict(ENV, PATH=emptybin, HOME=tmpdir)
+      result = self.check_prereqs(tmpdir, '--with-pakcs=', env=env)
+    self.assertEqual(result.returncode, 0, result.stdout)
+    self.assertIn('Missing: pakcs-frontend\n', result.stdout)
+    self.assertIn('Found 1 problem.', result.stdout)
+    for word in ['sqlite3', 'icurry executable', 'Boost']:
+      self.assertNotIn(word, result.stdout)
+
+  def test_icurry_requested_and_missing(self):
+    '''
+    When --with-icurry names a program that PATH lacks, the check reports
+    icurry with its installation steps.  The steps note that cypm needs the
+    sqlite3 program; the program is not a prerequisite of Sprite.
+    '''
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      emptybin = os.path.join(tmpdir, 'emptybin')
+      os.mkdir(emptybin)
+      env = dict(ENV, PATH=emptybin, HOME=tmpdir)
+      result = self.check_prereqs(
+          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + self.frontend
+        , '--with-icurry=icurry', env=env
+        )
+    self.assertEqual(result.returncode, 0, result.stdout)
+    self.assertIn('Missing: icurry\n', result.stdout)
+    self.assertIn('Found 1 problem.', result.stdout)
+    self.assertIn('needs the sqlite3 program', result.stdout)
+    self.assertNotIn('sqlite3 program\' is', result.stdout)
+
+  def test_no_boost(self):
+    '''
+    The C++ runtime includes no Boost header, configure does not look for
+    Boost, and the compiler flags of the build name no Boost directory.
+    '''
+    cyrt = os.path.join(ROOT, 'src', 'cyrt')
+    for dirpath, dirnames, filenames in os.walk(cyrt):
+      for name in filenames:
+        if name.endswith(('.hpp', '.hxx', '.h', '.cpp', '.def')):
+          text = readfile(dirpath, name)
+          self.assertNotIn('boost', text, os.path.join(dirpath, name))
+    self.assertNotIn('BOOST', readfile(CONFIGURE))
+    self.assertNotIn('BOOST', readfile(ROOT, 'Make.include'))
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      result = run([sys.executable, CONFIGURE, '-h'], cwd=tmpdir)
+    self.assertEqual(result.returncode, 0, result.stdout)
+    self.assertNotIn('Boost', result.stdout)
+    if shutil.which('make', path=ENV['PATH']) is not None:
+      result = make('-s', 'NVALIDATE=1', 'print-CFLAGS', cwd=ROOT)
+      self.assertEqual(result.returncode, 0, result.stdout)
+      flags = result.stdout.split('set to [')[-1].split(']')[0].split()
+      self.assertNotIn('-I/include', flags)
+      self.assertFalse([f for f in flags if 'boost' in f.lower()], flags)

@@ -60,18 +60,22 @@
 // #define FP_CACHE_DIAGNOSTICS
 
 #include <cassert>
-#include "boost/integer.hpp"
-#include "boost/integer/static_log2.hpp"
-#include "boost/pool/pool.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <vector>
 #include "cyrt/fwd.hpp"
 
 namespace cyrt
 {
+  // The base-2 logarithm of a power of two, at compile time.
+  constexpr size_t static_log2(size_t n)
+    { return n <= 1 ? 0 : 1 + static_log2(n >> 1); }
+
   // Each bit block contains however many choices fit into one pointer (each
   // choice requires two bits).  On x86_64, for instance, there are 32 choices
   // per block.
   size_t constexpr FP_BLOCK_SIZE = sizeof(void*)*8/2;
-  size_t constexpr FP_BLOCK_SHIFT = boost::static_log2<FP_BLOCK_SIZE>::value;
+  size_t constexpr FP_BLOCK_SHIFT = static_log2(FP_BLOCK_SIZE);
   size_t constexpr FP_BLOCK_MASK = FP_BLOCK_SIZE-1;
 
   // Each branch has four successors.  FP_BRANCH_SHIFT can be tuned.
@@ -86,16 +90,59 @@ namespace cyrt
   {
     struct Branch;
 
+    // The signed integer type of exactly Bits bits.
+    template<size_t Bits> struct exact_int;
+    template<> struct exact_int<8>  { using type = std::int8_t; };
+    template<> struct exact_int<16> { using type = std::int16_t; };
+    template<> struct exact_int<32> { using type = std::int32_t; };
+    template<> struct exact_int<64> { using type = std::int64_t; };
+
+    // A pool of chunks of one size, for the branches.  A freed chunk goes
+    // on a free list and is handed out first.  When the list is empty, the
+    // pool allocates a block of chunks, twice as many as the last time, and
+    // keeps it until the pool is destroyed.  Not thread-safe: the
+    // fingerprints of an interpreter are used by one thread at a time.
+    class BranchPool
+    {
+    public:
+      explicit BranchPool(size_t chunk_size, size_t first_count=32);
+      ~BranchPool();
+      BranchPool(BranchPool const &) = delete;
+      BranchPool & operator=(BranchPool const &) = delete;
+
+      void * malloc()
+      {
+        if(!m_free) refill();
+        void * chunk = m_free;
+        m_free = *static_cast<void **>(chunk);
+        return chunk;
+      }
+
+      void free(void * chunk)
+      {
+        *static_cast<void **>(chunk) = m_free;
+        m_free = chunk;
+      }
+
+    private:
+      void refill();
+
+      size_t              m_chunk_size;
+      size_t              m_next_count;
+      void *              m_free = nullptr;
+      std::vector<void *> m_blocks;
+    };
+
     // The pool used to allocate branches.
-    extern boost::pool<> branch_pool;
+    extern BranchPool branch_pool;
 
     // Stores FP_BLOCK_SIZE bits of fingerprint data.  If the @p used bit is set,
     // then the corresponding choice is made.  If so, then @p lr indicates
     // whether that choice is left or right.
     struct Block
     {
-      boost::int_t<FP_BLOCK_SIZE>::exact used = 0;
-      boost::int_t<FP_BLOCK_SIZE>::exact lr = 0;
+      exact_int<FP_BLOCK_SIZE>::type used = 0;
+      exact_int<FP_BLOCK_SIZE>::type lr = 0;
     };
 
     // Holds either a branch or block (leaf).
@@ -147,6 +194,11 @@ namespace cyrt
       void * operator new(size_t sz) { return branch_pool.malloc(); }
       void operator delete(void * px) { branch_pool.free(px); }
     };
+    // The pool aligns its chunks for pointers; a branch needs no more.
+    static_assert(
+        alignof(Branch) <= alignof(void *)
+      , "a branch needs more alignment than the pool gives"
+      );
 
     #if defined(USE_FP_CACHE) && defined(FP_CACHE_DIAGNOSTICS)
     extern size_t cache_tries;
