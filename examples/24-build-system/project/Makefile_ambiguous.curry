@@ -1,20 +1,31 @@
--- The makefile of the project with one rule more: a second rule with a
--- command for main.o.  The lint of the driver reports the target and the
--- build does not start.  Make would pick one of the two rules by its
--- tie-break order.
-
 module Makefile_ambiguous where
 
-import Make
-import Makefile (cc)
-import qualified Makefile
+CC = "cc"
+AR = "ar"
+DEBUG = "0"
+WITH_PLOT = ""
+CFLAGS = if DEBUG == "1" then "-O0 -g -Wall" else "-O2 -Wall"
+CPPFLAGS = if WITH_PLOT /= "" then "-DWITH_PLOT" else ""
 
--- The default goal of the makefile.
-goal :: Target
-goal = Makefile.goal
+goal = "demo"
 
--- Every rule of the makefile, and one more for main.o.  Both equations
--- match main.o, so main.o has two rules with a command.
-rule :: Target -> Rule
-rule t = Makefile.rule t
-rule "main.o" = Rule "main.o" ["main.c"] (cc ++ " -O3 -c main.c -o main.o")
+-- %.o: %.c
+rule (stem ++ ".o") [stem ++ ".c"] = "$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@"
+-- libgeom.a: vec.o shape.o
+rule "libgeom.a" ["vec.o", "shape.o"] = "$(AR) rcs $@ $^"
+-- ifdef WITH_PLOT
+-- libgeom.a: plot.o
+-- endif
+rule "libgeom.a" ["plot.o"] | WITH_PLOT /= "" = ""
+-- demo: main.o report.o libgeom.a
+rule "demo" ["main.o", "report.o", "libgeom.a"] = "$(CC) -o $@ $^"
+-- main.o: main.c
+rule "main.o" ["main.c"] = "$(CC) -O3 -c $< -o $@"
+
+depends "main.c"   = "shape.h"
+depends "main.c"   = "vec.h"
+depends "shape.c"  = "shape.h"
+depends "shape.h"  = "vec.h"
+depends "vec.c"    = "vec.h"
+depends "report.c" = "vec.h"
+depends "plot.c"   = "shape.h"
