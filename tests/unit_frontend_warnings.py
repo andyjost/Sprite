@@ -139,6 +139,10 @@ class TestFrontendWarnings(cytest.TestCase):
 
   def test_compile_warns_once(self):
     '''curry.compile reports the warning once; a quiet process reports nothing.'''
+    # A private cache: the runner shares one cache file between the processes
+    # of the two backends, and a hit on the text compiled by the other process
+    # runs no front end and warns no more.
+    self.with_cache(os.path.join(self.tmpdir, 'cache.db'))
     with capture_log('curry.toolchain._frontend') as log:
       M = curry.compile(OVERLAP % 'OverlapText', modulename='OverlapText')
     records = warnings_of(log)
