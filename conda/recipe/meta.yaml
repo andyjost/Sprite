@@ -2,8 +2,9 @@
 # ../README.md for the layout of the package, the second recipe that
 # provides the Curry front end, and the open questions.
 #
-# Keep the version equal to the VERSION file at the repository root.
-{% set version = "0.9" %}
+# The version is the VERSION file at the repository root, read at render
+# time (open question 10 of ../README.md).
+{% set version = load_file_regex(load_file="../../VERSION", regex_pattern="(\S+)", from_recipe_dir=True).group(1) %}
 
 package:
   name: sprite
@@ -25,13 +26,17 @@ build:
   rpaths:
     - lib
     - opt/sprite/lib
-  # The compiled library modules under opt/sprite/curry name the build
-  # prefix: the shared objects name the modules they import by absolute
-  # path (their NEEDED entries; see curry.backends.cxx.toolchain.Cpp2So),
-  # and the generated Python and C++ name the Curry source.  conda-build
-  # records them in info/has_prefix, and conda writes the prefix of the
-  # environment into them at install time.  The binary case is the default
-  # on Linux; it is spelled out because the package depends on it.
+  # Of the files under opt/sprite/curry, the shared objects of the compiled
+  # library modules alone name the build prefix: an object names the
+  # modules it imports by absolute path (its NEEDED entries; see
+  # curry.backends.cxx.toolchain.Cpp2So).  conda-build records them in
+  # info/has_prefix as binary files, and conda writes the prefix of the
+  # environment into them at install time.  The generated Python and C++
+  # files name their sources relative to the installation (step 9 of
+  # build.sh; "Relocation" in ../README.md), so no text file of the
+  # package holds the prefix; a test below checks that.  The binary case
+  # is the default on Linux; it is spelled out because the package depends
+  # on it.
   detect_binary_files_with_prefix: true
 
 requirements:
@@ -42,9 +47,6 @@ requirements:
     - make
   host:
     - python 3.14.*
-    # Header-only use: boost/integer, boost/io, boost/pool,
-    # boost/preprocessor, and boost/utility (grep src/cyrt for boost/).
-    - libboost-headers
     # configure checks the front end, and make install runs it over the
     # Curry library so that the package holds the FlatCurry of the library.
     - curry-frontend 2.0.0.*
@@ -55,12 +57,12 @@ requirements:
     # exact front end, so the pin is exact.
     - curry-frontend 2.0.0.*
     # The C++ backend compiles the code it generates at run time against the
-    # installed headers, which include Boost.  The metapackage brings the
-    # compiler of the platform; tools/cxx resolves it at run time (see
-    # build.sh).  conda_build_config.yaml pins the compiler of the build to
-    # the same major version.
+    # installed headers, which need the C++17 standard library alone (no
+    # Boost).  The metapackage brings the compiler of the platform;
+    # tools/cxx resolves it at run time (see build.sh).
+    # conda_build_config.yaml pins the compiler of the build to the same
+    # major version.
     - cxx-compiler
-    - libboost-headers
 
 test:
   # The commands with a Curry program are block scalars: a plain YAML scalar
@@ -84,14 +86,28 @@ test:
     # The compiler of the environment (cxx-compiler): sprite-make compiles
     # the program, the precompiled header of the runtime first.  The shared
     # object and its ABI stamp beside the program show that the compile
-    # ran, and the program then runs from the object.
+    # ran, and the program then runs from the object.  The header went to
+    # the cache directory of the user, not into the package: the tree lies
+    # in a conda prefix (config.cxx_pch_root).
     - >-
       d=$(mktemp -d) && cd "$d" &&
       printf 'main :: Int\nmain = 6 * 7\n' > Smoke.curry &&
       sprite-make --so Smoke.curry &&
       test -s .curry/sprite-pakcs-3.4.1/Smoke.so &&
       test -s .curry/sprite-pakcs-3.4.1/Smoke.so.abi &&
-      sprite-exec Smoke.curry | grep -x 42
+      sprite-exec Smoke.curry | grep -x 42 &&
+      test ! -e "$PREFIX/opt/sprite/include/cyrt/cyrt.hpp.gch" &&
+      test -d "${XDG_CACHE_HOME:-$HOME/.cache}/sprite/pch"
+    # The generated files of the library name their sources relative to
+    # the installation, so no file of the package but the shared objects
+    # holds the prefix (see "Relocation" in ../README.md), and the module
+    # objects resolve the names against the installation.
+    - >-
+      test -z "$(grep -rlF "$PREFIX" "$PREFIX/opt/sprite/curry" --include='*.py' --include='*.cpp')"
+    - >-
+      python -c "import curry, os; from curry.lib import Prelude;
+      assert Prelude.__file__ == os.path.join(curry.config.prefix(), 'curry', 'Prelude.curry'), Prelude.__file__;
+      print(curry.typeof(Prelude.length))" | grep -x '\[a\] -> Int'
     # The Python backend, by flag, through the launcher and through the
     # module.  It writes the generated Python beside the program.
     - >-

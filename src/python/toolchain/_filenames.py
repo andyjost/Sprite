@@ -4,7 +4,10 @@ from ..backends import IBackend
 from .. import config
 import logging, os
 
-__all__ = ['curryfilename', 'icurryfilename', 'jsonfilenames', 'replacesuffix']
+__all__ = [
+    'curryfilename', 'icurryfilename', 'installed_relpath', 'jsonfilenames'
+  , 'replacesuffix'
+  ]
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
 KNOWN_SUFFIXES = set(['.py', '.json', '.json.z', '.icy', '.icy.z', '.cpp', '.so'])
@@ -31,6 +34,28 @@ def curryfilename(filename):
           )
     else:
       raise ValueError('bad suffix for %s' % filename)
+
+def installed_relpath(filename):
+  '''
+  The path of ``filename`` relative to the installation (SPRITE_HOME) when
+  the file lies under it, by the spelling of the two paths or by their real
+  paths; else None.  The code generators name the source of a library
+  module this way, and the loaders of the backends resolve the name against
+  the installation of the process (config.installed_path).  So a generated
+  file of the library carries no path of the machine, and a package manager
+  that relocates an installation rewrites nothing in it.
+  '''
+  if not filename:
+    return None
+  prefix = config.prefix()
+  for root, name in [
+      (prefix, filename)
+    , (os.path.realpath(prefix), os.path.realpath(filename))
+    ]:
+    root = root.rstrip(os.sep)
+    if name.startswith(root + os.sep):
+      return os.path.relpath(name, root)
+  return None
 
 def icurryfilename(filename):
   '''Gets the ICurry file name associated with a Curry file.'''

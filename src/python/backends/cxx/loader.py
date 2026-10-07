@@ -1,5 +1,5 @@
 from ...icurry import types as icurry_types
-from ... import exceptions
+from ... import config, exceptions
 from . import cyrtbindings as cyrt
 import os
 
@@ -36,13 +36,18 @@ def load_module(interp, sofile):
                  if key.startswith(OPTIMIZER_PREFIX)
     }
   metadata['cxx.shlib'] = shlib
+  # The record names a source under the installation relative to SPRITE_HOME
+  # (see compiler._source_file_name).
+  filename = bom.filename
+  if filename is not None and not os.path.isabs(filename):
+    filename = config.installed_path(filename)
   imodule = icurry_types.IModule.fromBOM(
       fullname  = bom.fullname
     , imports   = bom.imports
     , types     = bom.types
     , functions = bom.functions
     , mdkey     = 'cxx.material'
-    , filename  = bom.filename
+    , filename  = filename
     , aliases   = bom.aliases
     , metadata  = metadata
     )

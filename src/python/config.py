@@ -257,15 +257,67 @@ def cxx_pch_root():
   The directory under which the C++ backend keeps its precompiled header.
   Returns None when the header is disabled.
 
-  By default the header lives beside the installed headers, where the C++
-  compiler finds it with no extra flag.  SPRITE_CXX_PCH_ROOT names another
-  directory.  Set it to the empty string to compile without the header.
+  SPRITE_CXX_PCH_ROOT names the directory.  Set it to the empty string to
+  compile without the header.  Without the variable the header lives beside
+  the installed headers, where the C++ compiler finds it with no extra flag,
+  unless the installation is a package: its include directory cannot be
+  written, or it lies in a conda environment (see in_conda_prefix).  Then
+  the header goes to the cache directory of the user (see cxx_pch_cache_dir),
+  so that nothing is written into the package at run time.
   '''
   root = os.environ.get('SPRITE_CXX_PCH_ROOT')
-  if root is None:
-    return installed_path('include')
-  root = root.strip()
-  return os.path.abspath(root) if root else None
+  if root is not None:
+    root = root.strip()
+    return os.path.abspath(root) if root else None
+  include = installed_path('include')
+  if os.access(include, os.W_OK) and not in_conda_prefix(include):
+    return include
+  return cxx_pch_cache_dir()
+
+def in_conda_prefix(path):
+  '''
+  Tells whether ``path`` lies in a conda environment: a directory with a
+  ``conda-meta`` entry is the path or one of its parents, by real path.  A
+  conda package must not be written at run time; conda does not track the
+  files, and they stay behind when the package is removed.
+  '''
+  path = os.path.realpath(path)
+  while True:
+    if os.path.isdir(os.path.join(path, 'conda-meta')):
+      return True
+    parent = os.path.dirname(path)
+    if parent == path:
+      return False
+    path = parent
+
+def user_cache_dir():
+  '''
+  The cache directory of the user for Sprite: ``$XDG_CACHE_HOME/sprite``, or
+  ``~/.cache/sprite``.  Nothing creates it here.
+  '''
+  base = os.environ.get('XDG_CACHE_HOME', '').strip()
+  if not base:
+    base = os.path.join(os.path.expanduser('~'), '.cache')
+  return os.path.join(base, 'sprite')
+
+def installation_key():
+  '''
+  A short digest of the real path of the installation.  It names the files
+  of this installation in a directory that several installations share.
+  '''
+  import hashlib
+  real = os.path.realpath(prefix()).encode('utf-8')
+  return hashlib.sha256(real).hexdigest()[:16]
+
+def cxx_pch_cache_dir():
+  '''
+  The root of the precompiled header in the cache directory of the user:
+  ``<user_cache_dir>/pch/<installation_key>``.  Each installation gets a
+  directory of its own, because the toolchain removes the stale members of
+  the directory it uses (PrecompiledHeader.remove_stale_members), and the
+  members of two installations would otherwise remove each other.
+  '''
+  return os.path.join(user_cache_dir(), 'pch', installation_key())
 
 # The path to system Curry files, such as the Prelude.  This is appended to
 # whatever the user might supply via the CURRYPATH environment variable.

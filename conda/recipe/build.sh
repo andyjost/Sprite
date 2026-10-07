@@ -16,22 +16,12 @@ for link in install object-root; do
   fi
 done
 
-# configure looks for the Boost headers under /usr.  BOOST names them.
-export BOOST="$PREFIX/include/boost"
-
-# The compiler that sprite-make runs during make install, when it compiles
-# the library for the C++ backend (the prebuild step of curry/Makefile).
-# That step drops the CFLAGS and CXXFLAGS of the environment, where the
-# activation script of the compiler put the include directory of the host
-# environment, so the compiler itself must name that directory: the Boost
-# headers are there.  make install links tools/cxx to this script; the link
-# is replaced below, and nothing in the package names the script.
-cxx_build="$SRC_DIR/conda-build-cxx"
-cat > "$cxx_build" <<CXX_BUILD_EOF
-#!/bin/sh
-exec "$CXX" -isystem "$PREFIX/include" "\$@"
-CXX_BUILD_EOF
-chmod 755 "$cxx_build"
+# The precompiled header of the prebuild step goes to a cache directory in
+# the build tree: the tree under $PREFIX lies in a conda prefix, so the C++
+# backend writes the header under $XDG_CACHE_HOME/sprite (see
+# config.cxx_pch_root), and nothing of the build reaches the home directory
+# of the user.
+export XDG_CACHE_HOME="$SRC_DIR/cache"
 
 # Paths of the build tree must not reach the package.  The compilers record
 # the names of headers in assertions; map the tree to a relative name.
@@ -50,7 +40,7 @@ export CXXFLAGS="${CXXFLAGS:-} -ffile-prefix-map=$SRC_DIR=."
   --with-python="$PYTHON" \
   --with-cc="$CC" \
   --with-cxx="$CXX" \
-  --with-cxx-postinstall="$cxx_build" \
+  --with-cxx-postinstall="$CXX" \
   --with-ccache='' \
   --with-pakcs='' \
   --with-curry-frontend="$PREFIX/bin/pakcs-frontend" \
@@ -74,11 +64,12 @@ make install PREFIX="$SPRITE_HOME"
 rm -f "$SPRITE_HOME/lib/libcyrt.a"
 
 # The prebuild step precompiled cyrt/cyrt.hpp for the compiler of the build
-# (a member of about 70 MB, named after that compiler).  The compiler of the
-# environment cannot use it; the C++ backend builds its own member on the
-# first compile (curry.backends.cxx.toolchain.PrecompiledHeader).  Leave it
-# out.
-rm -rf "$SPRITE_HOME/include/cyrt/cyrt.hpp.gch"
+# (a member of about 70 MB, named after that compiler).  The tree lies in a
+# conda prefix, so the C++ backend put the member into the cache directory
+# named above, not into the tree (config.cxx_pch_root).  The compiler of
+# the environment cannot use it anyway; the C++ backend builds its own
+# member on the first compile, in the cache directory of the user.
+test ! -e "$SPRITE_HOME/include/cyrt/cyrt.hpp.gch"
 
 # make writes tools/ as absolute links into the build environments.  Replace
 # them with relative links into the prefix.  The C++ compiler gets a wrapper
@@ -103,10 +94,10 @@ sed "s|@HOST@|$HOST|g" > "$tools/cxx" <<'CXX_EOF'
 # and linked against opt/sprite/lib/libcyrt.so of this environment, so the
 # compiler is the one of this environment, bin/@HOST@-g++, unless
 # SPRITE_CXX names another.  An ambient CXX counts only when it names a
-# file of this environment.  The include directory of the environment
-# holds the Boost headers that the installed headers of Sprite need;
-# -isystem names it, so the environment need not be activated.
-here=$(cd "$(dirname "$0")" && pwd -P)
+# file of this environment.  The installed headers of Sprite need no
+# header of the environment (the runtime uses the C++17 standard library
+# alone), so the environment need not be activated.
+here=$(dirname "$(readlink -f "$0")")
 prefix=$(cd "$here/../../.." && pwd -P)
 cxx="$prefix/bin/@HOST@-g++"
 if [ -n "${SPRITE_CXX:-}" ]; then
@@ -123,18 +114,19 @@ elif [ -n "${CXX:-}" ]; then
     esac
   fi
 fi
-exec "$cxx" -isystem "$prefix/include" "$@"
+exec "$cxx" "$@"
 CXX_EOF
 chmod 755 "$tools/cxx"
 
 # The launchers.  Each one sets SPRITE_HOME from its own location and runs
-# the script of the same name in the tree.
+# the script of the same name in the tree.  The location is the real path
+# of the launcher, so a link to the launcher from another directory works.
 mkdir -p "$PREFIX/bin"
 for name in sprite-exec sprite-make; do
   cat > "$PREFIX/bin/$name" <<LAUNCHER_EOF
 #!/bin/sh
 # Runs $name from the Sprite tree under opt/sprite.
-here=\$(cd "\$(dirname "\$0")" && pwd)
+here=\$(dirname "\$(readlink -f "\$0")")
 SPRITE_HOME=\$(cd "\$here/../opt/sprite" && pwd)
 export SPRITE_HOME
 exec "\$SPRITE_HOME/bin/$name" "\$@"

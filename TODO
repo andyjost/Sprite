@@ -6408,3 +6408,406 @@
   alone.  tests/manifest.json has no entry for unit_frontend_warnings.py
   and unit_setfunctions_bindings.py (a calibration run adds them).  The
   issues get no comment from this stream.
+
+2026-10-07: the dependency cleanup (worktree wt/conda, the dependency lane of #1)
+- The inventory.  Every tool and library that configure, the Makefiles,
+  the Python package and the C++ runtime need, from configure's checks,
+  Make.include, the include lines of src/cyrt, the imports of src/python,
+  the apt list of scripts/setup-dev-machine.sh, conda/dev-environment.yml,
+  the recipes, and the Installing and Developer Setup pages.  B is build
+  time, R is run time; req is required, opt is optional.
+
+    dependency                     when  need  what needs it                              verdict
+    Python 3.14 + pyconfig.h       B R   req   configure; the pybind11 extension; the      keep
+                                               package (json, mmap, zlib of the stdlib)
+    g++                            B R   req B the runtime and the bindings; the C++       keep
+                                         opt R backend compiles generated code (without
+                                               one, every module runs interpreted)
+    gcc                            B     req   configure's CC; .c sources under GC=mps     keep
+    GNU make, ar (binutils),       B     req   the build; flock guards the archive;        keep
+    flock, realpath, nproc                     realpath in Make.rules and sprite-invoke
+    pakcs-frontend 2.0.0           B R   req   Curry to FlatCurry: the library interfaces  keep (pinned)
+    (PAKCS 3.4.1)                              at make stage, every compile at run time
+    pybind11 (extern/pybind11)     B     req   the bindings of the runtime                 keep
+    Boost headers (integer,        B R   req   fingerprint.hpp (int_t, static_log2,        drop: replaced
+    pool, utility, preprocessor)               pool), the noncopyable base of the state    (below)
+                                               headers, two .def files; the generated
+                                               code includes the headers at run time
+    PAKCS (pakcs on SWI-Prolog)    B     opt   the oracle of the func tests; --with-pakcs  keep, optional
+                                               '' builds without it
+    SWI-Prolog                     -     -     runs pakcs and builds the saved states of   not Sprite's:
+                                               the PAKCS binary distribution              the docs say so
+    Haskell Stack                  -     -     builds PAKCS from source                    not Sprite's:
+                                                                                           the docs say so
+    icurry 3.1.0 (cypm)            B R   opt   the alternative route to ICurry             keep; looked for
+                                               (--with-icurry, SPRITE_CURRY2ICURRY)        on request only
+    sqlite3 program                -     -     cypm keeps its index in SQLite; nothing     drop the check
+                                               of Sprite runs it (the cache uses the
+                                               sqlite3 module of the stdlib)
+    ccache                         B R   opt   --with-ccache: the build and tools/cxx      keep, optional
+    jq                             -     -     nothing: gone since #16 (verified)          gone
+    curl or wget, tar              -     opt   the PAKCS install steps of configure and    keep, optional
+                                               the setup script download PAKCS
+    git                            B     opt   make's default goal (submodules, overlay-   keep
+                                               prune); the setup script
+    tree, rsync                    -     opt   make MANIFEST; make -C docs install         keep, unchecked
+    stdbuf, socat, rlwrap          -     opt   the editor targets of tests/Makefile        keep, unchecked
+    numpy                          R     opt   certain tests (configure: recommended)      keep, optional
+    sphinx, sphinx_rtd_theme       B     opt   make -C docs html (configure -D)            keep, optional
+    sqlite3 module (stdlib)        R     opt   the ICurry cache (curry.cache, guarded)     keep, optional
+    GNU time (/usr/bin/time)       R     opt   the peak memory of a benchmark run          keep, optional
+    perf (linux-tools)             -     opt   profiling; the apt list of the setup script keep, optional
+    libgmp                         R     req   pakcs-frontend's own library, not Sprite's  not Sprite's
+
+- Boost dropped from the C++ runtime.  Five uses, each replaced by the
+  standard library or a few lines: boost::static_log2 by a constexpr
+  function (fingerprint.hpp); boost::int_t<N>::exact by the trait
+  fingerprints::exact_int<N> over <cstdint> (the same type, int32_t, so
+  the layout of Block and the static_assert of Node are unchanged);
+  boost::pool<> by fingerprints::BranchPool, a free list over blocks of
+  chunks of one size that doubles the block at each refill, as
+  boost::pool did (std::pmr::unsynchronized_pool_resource would serve,
+  but it finds the pool by size and the chunk by bitmap on every call,
+  and the branches are allocated at every copy-on-write of a shared
+  fingerprint, so the local pool keeps the O(1) push and pop; it uses the
+  throwing ::operator new, where boost::pool returned null); the
+  boost::noncopyable base of Configuration, Queue, InterpreterState, Set
+  and RuntimeState by deleted copy members (RuntimeState already had
+  them; an empty base occupies no storage under the Itanium ABI, so no
+  layout changes); and BOOST_PP_CAT, BOOST_PP_STRINGIZE and
+  BOOST_PP_TUPLE_ELEM in currylib/defs/not_used.def and unboxed.def by
+  local macros with the one indirection each needs (APPLY expands the
+  tuple before the element macro sees it; the preprocessed names, the
+  strings and sizeof(Node2) are the ones Boost.PP produced).  Gone with
+  it: the Boost check of configure (it looked under /usr/include and
+  /usr/local/include and wrote nothing into Make.config), the flag
+  -I$(BOOST_HOME)/include of Make.include (BOOST_HOME was never defined,
+  so the flag was -I/include), the commented Boost blocks of
+  Make.validate, libboost-dev in the apt lists of the setup script, its
+  test and the CI workflows, and the Boost sentences of the docs and
+  AGENTS.md.  The runtime headers changed, so the ABI stamp of every
+  compiled module changed; make stage compiled the library again.
+- The sqlite3 program.  configure checked for it as a prerequisite of
+  icurry: cypm, the Curry Package Manager, keeps its package index in
+  SQLite and needs the executable (its manual says so).  Nothing of
+  Sprite runs it; the ICurry cache uses the sqlite3 module of the
+  standard library (curry.cache, guarded by a try).  The check is gone;
+  the installation steps of icurry note the need (the old step named the
+  apt package sqlite, which does not exist; it is sqlite3).
+- icurry is looked for only on request.  Before, a configure that found
+  no front end looked for icurry as well and reported it missing, with
+  the sqlite3 program behind it, although the icurry route needs the
+  front end too (set_curry2icurry_tool aborts without it).  Now
+  --with-icurry or ICURRY asks for it; otherwise it is not configured and
+  not reported.  The prerequisite check in a clean environment on this
+  machine (PATH=/usr/local/bin:/usr/bin:/bin, the project Python) went
+  from "Missing: pakcs, pakcs-frontend, sqlite3, icurry.  Found 4
+  problems." to "Missing: pakcs, pakcs-frontend.  Found 2 problems."; with
+  the tools of Make.config it says "Found 0 problems." before and after.
+- Kept, and said plainly in the docs (ConfiguringSprite, Software
+  Compatibility, Developer Setup, AGENTS.md): SWI-Prolog runs pakcs, the
+  test oracle, and builds the saved states of the binary distribution;
+  Haskell Stack builds PAKCS from source; Sprite needs neither, it runs
+  the front end binary.  The help of --with-prolog says the option serves
+  the PAKCS build alone.  GNU time stays optional.  jq was already gone.
+- For the package agent (conda/ is theirs): recipe/meta.yaml can drop
+  libboost-headers from host and run, with the comment that names the
+  Boost headers; build.sh can drop the export BOOST (configure reads no
+  such variable now) and the -isystem "$PREFIX/include" of the build
+  wrapper and of tools/cxx, which existed for the Boost headers (the
+  generated code includes the runtime headers of opt/sprite/include
+  alone); tests/unit_conda.py then drops its two libboost-headers
+  assertions and the '-isystem' assertion; conda/README.md its Boost
+  rows and sentences.  Open question 5 (one source of truth for the pin):
+  the recipes can read configure at render time with the jinja function
+  conda-build already provides, as the version now reads the VERSION
+  file: {% set frontend_version = load_file_regex(load_file=
+  "../../configure", regex_pattern="PINNED_FRONTEND_VERSION = '([^']+)'",
+  from_recipe_dir=True).group(1) %} in recipe/meta.yaml, then
+  "curry-frontend {{ frontend_version }}.*" in host and run; and the same
+  two lines for PINNED_PAKCS_VERSION and PINNED_FRONTEND_VERSION in
+  curry-frontend/meta.yaml, whose version and pakcs_version are the same
+  two pins.  Copies that stay: PAKCS_VERSION and ICURRY_VERSION of
+  scripts/setup-dev-machine.sh (its PAKCS step runs before a checkout
+  exists), the PAKCS_VERSION of ci.yml and the CI script, and the
+  literals of tests/unit_conda.py and tests/unit_setup_script.py.
+- Not changed: the ABI stamp (toolchain.object_digest) still digests the
+  real path of the installation prefix, so shipped objects count as stale
+  under another prefix (open question 2 of conda/README.md); a change
+  there is the owner's.
+- Tests, on this machine in the clean environment (env -i with PATH=
+  /usr/local/bin:/usr/bin:/bin, HOME, LC_ALL=C.UTF-8, TMPDIR).  A first
+  pass under the login shell, whose conda toolchain exports CXXFLAGS, gave
+  two false failures in the precompiled-header names of
+  unit_cxx_toolchain.py (O3O2 for O3) and was discarded.  configure
+  --check-prereqs before and after: above.  ./configure with the options
+  of Make.config: 6.9 s, the icurry check included.  make stage from the
+  emptied install and object trees, through ccache with -j4: 1 min 35 s,
+  exit 0; the one compiler warning (module.cpp:147, an unused variable)
+  predates this change; the library was compiled again under the new ABI
+  digest (aa0df224b6c19ac9; the stamps of the shared test pool held
+  9df6714a6d1d4f67 from the build of the morning).  Through the runner
+  (-j 2 --mem 4 --backend both): unit_configure.py 17 OK on both backends
+  (three new tests: the missing front end reported alone, icurry
+  requested and missing with the cypm note, and no Boost in src/cyrt,
+  configure, Make.include and the CFLAGS of make), unit_setup_script.py
+  16 OK on both, unit_fingerprint.py 3 OK on both, unit_cxx_toolchain.py
+  33 OK on cxx; unit_conda.py 1 failure on both: test_sprite_recipe
+  expects the rm -rf of the precompiled header that the package agent's
+  build.sh no longer has (their change in progress; their file).  The
+  fast tier, 130 file-backend pairs: 125 OK; the five files that failed on
+  cxx (unit_cxx_literals.py, unit_cxx_partial.py, unit_cxx_rewrite.py and
+  unit_cxx_bom.py, 'cxx.shlib' missing from the metadata of an interpreted
+  module; unit_inspect.py, bytecode where compiled code was expected)
+  read the stale objects of the shared pool under the tiered default, the
+  case --prepare exists for after a header change; with --prepare (43
+  modules of data/curry, 28 s on cxx) all five pass on both backends.  A
+  standalone exercise of BranchPool (1000 distinct pointer-aligned chunks,
+  the freed chunk handed out first, a fingerprint grown to depth 3 with
+  copy-on-write and a move) passed.  make -C docs html: 32 s, 0 warnings,
+  0 errors; the regenerated configure-usage.rst carries the new
+  --with-prolog text.
+- Other files changed, outside the files of this lane: .github/workflows/
+  ci.yml and perf.yml (libboost-dev out of six apt lines; CI then checks
+  that no Boost include comes back), and tests/unit_setup_script.py (its
+  apt list).  Done the same day: the whole suite ran under the new headers
+  with --prepare on both backends in the review pass of the two lanes (216
+  file-backend pairs; see the end of the next entry), libboost-headers is
+  out of conda/, and tests/unit_conda.py checks the recipe without it.
+2026-10-07: the conda package installs and runs clean (worktree wt/conda, the package lane of #1)
+- The build.  Both recipes built with conda-build 26.9.1 through the new
+  script conda/build-packages.sh, from an export of HEAD f9ce8077 with the
+  uncommitted files of this lane as overlays (a development build), the
+  PAKCS archive from the source cache, CPU_COUNT=4, prlimit --as 16 GB,
+  timeout 3600.  curry-frontend-2.0.0-pakcs341_0.conda: 1,499,173 bytes,
+  2 min 19 s.  sprite-0.9-py314hc388cfb_0.conda: 2,747,197 bytes, 713
+  files, 27 MB installed, 7 min 23 s from the environments to the end of
+  its tests (the test step 1 min 1 s); the whole script 10 min 19 s.
+  info/has_prefix holds 12 binary entries, the shared objects of the 12
+  library modules with imports (the NEEDED paths); no text file names the
+  build prefix.  The build of record is the second build of the day, from
+  the working tree of both lanes (every changed path of git status as an
+  overlay): it carries the dependency cleanup, so libboost-headers is out
+  of the recipe and no header of the package includes Boost;
+  sprite-0.9-py314hc388cfb_0.conda 2,747,127 bytes, 713 files, 12 binary
+  has_prefix entries, 4 min 57 s with the test step 48 s; its environment
+  (python 3.14.8, gxx 15.3.0, libstdcxx 16.2.0, sysroot_linux-64 2.39, no
+  Boost package) gave the same environment test within 0.3 s: import
+  0.11 s, the first import of the Prelude 1.86 s interpreted and 0.13 s
+  from the object later, sprite-exec 2.43 s then 2.02 s on cxx, 0.91 s
+  then 0.20 s on py, sprite-make --so 30.9 s, both examples as expected,
+  the same three objects written, the bytecode caches valid.
+- The environment test (conda create from the local channel: sprite,
+  python=3.14; the environment resolved python 3.14.8, gxx 15.3.0 through
+  cxx-compiler 2.0.0, libstdcxx 16.2.0, sysroot_linux-64 2.39, gmp 6.3.0,
+  curry-frontend 2.0.0 pakcs341_0).  Each command in a scrubbed
+  environment with the bin of the environment on PATH, no SPRITE_HOME, no
+  CXX, XDG_CACHE_HOME in a scratch directory: import curry 0.10 s; the
+  first import of the Prelude on the C++ backend 1.66 s, interpreted, the
+  shipped object stale (below), a later import 0.18 s from the object the
+  background compile wrote; sprite-make --icy of a module that imports
+  every library module 0.73 s; sprite-exec of a two-value program that
+  imports Data.List 2.31 s then 1.68 s on cxx, 0.75 s then 0.20 s on py;
+  python -m curry 2.33 s (cxx), 0.18 s (py); interpret:all 2.29 s;
+  sprite-make --so 31.7 s (the stale Prelude, Data.List and Data.Maybe
+  compiled first, the precompiled header built in the cache directory,
+  80 MB) and the program then 0.2 s from its object; examples 10 and 24
+  through their run scripts from copies outside the repository with
+  SPRITE_HOME=<env>/opt/sprite (the scripts default to the install of a
+  checkout), 0.77 s and 11.9 s, both outputs equal to expected.out; go.py
+  and make.py through the Python of the environment with no SPRITE_HOME.
+  The dynamic loader: the Python of the environment and the compiled
+  program both name /lib64/ld-linux-x86-64.so.2, the sysconfig value.
+- The writes.  Under opt/sprite after the runs: the objects and stamps of
+  Prelude, Data.List and Data.Maybe (the stale-object recompile, open
+  question 2) and the object of Control.SetFunctions without its stamp
+  (the background compile of example 10, cancelled at exit).  Nothing
+  else: the precompiled header went to $XDG_CACHE_HOME/sprite/pch/<key>,
+  the 13 bytecode caches of the library and the 181 of the package were
+  valid (bytecode_is_current on every file; conda keeps the modification
+  times), and Python wrote its own lib/python3.14/__pycache__/
+  _sysconfigdata pyc.  Probe in a second fresh environment with the 13
+  ABI stamps rewritten to the digest of that environment, which is what
+  the proposal of open question 2 gives: the first import of the Prelude
+  0.20 s from the shipped object, sprite-exec 0.69 s then 0.18 s,
+  sprite-make --so 3.4 s, nothing written under opt/sprite.
+- The ABI stamp (open question 2), not changed, proposed.  object_digest
+  digests the real path of the installation prefix (the repair of C6 of
+  the audit of #82), so the shipped objects are stale under every
+  environment prefix.  The condition of the lane for a change was "small,
+  every existing test green": unit_cxx_toolchain.py TestFlavor.test_digest
+  asserts that the digest changes with the prefix and equals a 16-digit
+  hex string, so no relocatable form keeps that test as it is.  Proposal
+  in conda/README.md: the stamp carries the real path of the installation
+  as text beside the digest of the headers and the flags; conda-build then
+  lists the stamps in info/has_prefix as text, conda rewrites them with the
+  NEEDED entries, is_stale compares the text with the real path, a copy by
+  hand stays stale, a relocated package keeps its objects (the measured
+  gain: 1.66 s to 0.20 s on the first import, 31.7 s to 3.4 s on the first
+  sprite-make --so, no write).
+- Decided within the lane (conda/README.md records each).  Open question
+  3: config.cxx_pch_root puts the precompiled header into
+  $XDG_CACHE_HOME/sprite/pch/<key> (else ~/.cache/sprite/pch/<key>; the key
+  a digest of the real path of the installation, one directory per
+  installation because remove_stale_members would otherwise cross
+  installations) when the installed include directory cannot be written or
+  lies in a conda environment (a conda-meta directory above it);
+  SPRITE_CXX_PCH_ROOT stays the override.  The generated files of the
+  library name their sources relative to the installation:
+  _filenames.installed_relpath, the Python emitter writes
+  filename=curry.config.installed_path('curry/Prelude.curry'), the C++
+  emitter writes "curry/Prelude.curry" into the module record and the
+  loader resolves it; a source outside the installation keeps its absolute
+  path; the format stamps did not change (the old files load as before).
+  Question 10: meta.yaml reads VERSION at render time (load_file_regex).
+  Question 11: the source of the recipe is the export of a commit through
+  build-packages.sh (git archive of HEAD and of the pybind11 submodule;
+  --overlay for uncommitted work; --dry-run, --export-only, --skip-frontend,
+  --pakcs-archive into the source cache, --memory-limit, --timeout; the
+  plan names the passed proxy variables without their values).  Questions
+  13 and 14: documented facts with a test of the dynamic loader path
+  (unit_conda.py test_ld_interpreter_path reads the PT_INTERP of the
+  Python of the installation).  Question 6: conda-forge offers gxx 16.2.0
+  but cxx-compiler 2.0.0 pins gxx 15.*, so no environment holds both; a
+  probe with SPRITE_CXX from a gxx 16 environment compiled the program in
+  4.5 s and ran it with the libstdcxx 16.2.0 of the environment; the member
+  name of the precompiled header digests the wrapper, not the compiler
+  behind it, so two SPRITE_CXX compilers share a member and g++ ignores the
+  wrong one.  The launchers and tools/cxx resolve their own location with
+  readlink -f, so a link to a launcher works.  The dependency cleanup of
+  the other lane: libboost-headers is out of host and run, the build
+  wrapper with -isystem is gone, --with-cxx-postinstall is the compiler of
+  the build, tools/cxx adds no flag.
+- Files of the lane: conda/README.md, conda/recipe/meta.yaml,
+  conda/recipe/build.sh, conda/build-packages.sh (new), tests/unit_conda.py
+  (19 tests: the build script's dry run and export, the launcher, the
+  header rule, the dynamic loader path, the relocatable generated files),
+  src/python/config.py, src/python/backends/cxx/compiler.py, loader.py,
+  src/python/backends/py/compiler.py.  Outside the files of the lane:
+  src/python/toolchain/_filenames.py (installed_relpath) and
+  docs/source/CommandLineInterface/EnvironmentVariables.rst (the rule of
+  SPRITE_CXX_PCH_ROOT).  Verified on a private export of HEAD with the
+  lane's files (the shared tree's runtime was mid-edit by the other lane),
+  one file per process: unit_conda.py 19 OK on both backends (two tests
+  skip outside a git checkout), unit_cxx_toolchain.py 33 OK,
+  unit_cxx_tiered.py 20 OK, unit_cxx_bom.py 10 OK after sprite-make --so
+  of its pool module (a cold tree interprets it under tiered),
+  unit_findcurry.py 9 OK both, unit_sigtable.py 22 OK, unit_loadsave.py 4
+  OK, unit_goals.py 48 OK both, unit_make.py 18 (1 error: the pool product
+  hello.icy of a cold tree), unit_prebuild.py 17 OK both, unit_currylib.py
+  10 OK both, unit_examples.py 22 OK both, unit_inspect.py 27 (the two
+  known failures on cxx of the 2026-10-05 entry).  Left for the owner: the
+  stamp proposal and the split of the package (question 2); the channel
+  and the list "What remains before publication" of conda/README.md (the
+  front end feedstock, the compiler pin, macOS and Windows, the oracle,
+  pip, the notices of the front end, the sysroot pin, a build without
+  overlays from a commit that holds this work).  The shared staged install
+  of the worktree lost the generated products of the 13 library modules
+  (removed for a regeneration whose make stage failed in src/cyrt while
+  the other lane edited it); the next make stage writes them again.
+- The review findings, applied on 2026-10-07 (the seven findings of the
+  review of both lanes; each confirmed by a reading of the code and by a
+  run).  (1) A read-only installation.  The shipped library objects are
+  stale under every environment prefix (open question 2), so sprite-make
+  --so of any program compiles the Prelude again, and when opt/sprite
+  cannot be written it failed with a bare "[Errno 13] Permission denied"
+  on Prelude.so.abi (the review's probe; the environment of the third
+  build with its directories made read-only); and in a writable
+  environment the recompile changes six conda-tracked files (Prelude,
+  Data.List, Data.Maybe, .so and .so.abi; a hand comparison with the
+  sha256_in_prefix of conda-meta), so the entry above understated the
+  fact as a start-up cost.  Done: Cpp2So.__call__ checks that the
+  directory of its object can be written before the old stamp goes, and
+  raises a CompileError that names the directory, the state of the object
+  there (none, no stamp, stale) and the way out (make the directory
+  writable, or sprite-exec, whose tiered default interprets a module
+  without a current object); the stamp of a stale object stays as it is;
+  otherwise nothing changes (the compile failed at the first write
+  before).  Test: unit_conda.py test_compile_into_read_only_directory
+  (cxx, the three states).  conda/README.md states both facts
+  ("Relocation", decision 6, open question 2, item 11 of the list before
+  publication).  A fallback to the interpreter inside sprite-make would be
+  a design change: left to the owner with the stamp proposal.
+  (2) The precompiled header of the test step of conda-build went under
+  ~/.cache/sprite/pch/<key> of the builder, 151 MB in two keys after the
+  two builds of the morning.  build-packages.sh passes
+  XDG_CACHE_HOME=BUILD_ROOT/cache in its scrubbed environment and prints
+  it in the plan (test_dry_run asserts it); the third build wrote its
+  member (74 MB) under BUILD_ROOT/cache and nothing new under
+  ~/.cache/sprite.  The two members of the morning are still there (outside
+  the directories of the lane; the owner's to remove).  The growth of the
+  cache (one directory per installation, none collected) is stated in
+  conda/README.md ("The compiler", open question 3) and in
+  EnvironmentVariables.rst.
+  (3) The comment of meta.yaml above detect_binary_files_with_prefix said
+  that the generated Python and C++ name the Curry source.  Rewritten: the
+  shared objects alone name the prefix, the text files name their sources
+  relative to the installation (step 9), and a test of the recipe checks
+  that.
+  (4) conda/README.md said that the bytecode caches record the build
+  prefix.  The shipped .pyc files record prefix-relative paths
+  (co_filename opt/sprite/python/curry/config.py; none of the 194 caches
+  of the environment holds an absolute path).  It said that the first
+  import writes the recompiled objects.  A short process cancels the
+  background compile at exit and writes nothing; sprite-make --so, and a
+  process that outlives the compile, write them.  Both corrected (the
+  table of the environment test, "Relocation", decision 6, open question
+  3).
+  (5) build-packages.sh accepted --overlay conda/.. (the plan: rm -rf of
+  the whole export, cp -a of the whole working tree) and .. (rm -rf of the
+  src directory of the build root).  The path is normalized with realpath
+  -m --relative-to, and ., .. and ../* are refused; an absolute path is
+  refused as before; conda/./recipe becomes conda/recipe.  Test:
+  test_overlay_paths (six refused paths, an absolute path, a missing file,
+  a path with . and .. components).
+  (6) The artifact records the build root and the channel of this machine
+  (info/recipe/meta.yaml: the path of the export and a comment;
+  info/about.json: the URL of the local channel; info/has_prefix: the
+  placeholder under BUILD_ROOT/bld, as every conda package) although the
+  recipes name no path.  Item 10 of the list before publication: a neutral
+  path or a CI feedstock, and an inspection of info/recipe and
+  info/about.json (conda build --no-include-recipe leaves the recipe out).
+  (7) unit_conda.py pinned VERSION to 0.9.  It checks the shape of the
+  value now, and that the regex of the recipe reads the same value.
+- The third build of the day, the build of record, and its environment.
+  build-packages.sh --skip-frontend --memory-limit 16 --jobs 4 with every
+  changed path of git status as an overlay, outside the sandbox (/tmp):
+  sprite-0.9-py314hc388cfb_0.conda 2,791,180 bytes, 713 files, 12 binary
+  has_prefix entries and no text entry, conda-build 3 min 44 s with the
+  test step (CPU time 1 min 41 s for the build, 27 s for the tests), the
+  script 3 min 59 s.  Against the second build 222 files differ in
+  content (the 13 objects and their stamps, which digest the build prefix;
+  the 194 bytecode caches, which record the modification times of their
+  sources; toolchain.py and its cache, the one change of size, 1,929
+  bytes), and the archive is 44,053 bytes larger.  conda create of
+  sprite-final from the local channel (5 s; every package cached):
+  python 3.14.8, gxx 15.3.0, libstdcxx 16.2.0, sysroot_linux-64 2.39,
+  gmp 6.3.0, curry-frontend 2.0.0 pakcs341_0.  The environment test, each
+  command under env -i with the bin of the environment on PATH: import
+  0.10 s; the first import of the Prelude 1.69 s, interpreted;
+  sprite-exec 2.32 s on cxx and 0.64 s on py, and the three short runs
+  wrote nothing under the environment; with the directories of opt/sprite
+  read-only, sprite-make --so exit 1 in 0.7 s with the new message,
+  sprite-exec 1.8 s twice, no file of the package changed; writable again,
+  sprite-make --so 30.9 s and the six files, then sprite-exec 0.17 s and
+  the Prelude 0.14 s from the new object; the 13 caches of the library and
+  the 181 of the package valid, none of the 194 with an absolute path; the
+  header 71 MB under $XDG_CACHE_HOME/sprite/pch/<key>; nothing new under
+  ~/.cache/sprite; opt/sprite 26 MB on disk.  The shared staged install
+  of the worktree holds the products of the library again (the make stage
+  of the dependency lane; the stamps carry the current digest
+  aa0df224b6c19ac9).
+- Verification of the review pass: make stage 6.7 s (nothing to rebuild;
+  the Python sources are linked); unit_conda.py 21 tests OK on cxx and on
+  py (one skip on py: the C++ toolchain test), one process at a time;
+  make -C docs html 16.5 s, 0 warnings, 0 errors.  Through the runner at
+  -j 2 --mem 4 on both backends: ./run_tests --prepare --changed selected
+  every file (configure, Make.include and config.py changed: "an unknown
+  path changed" maps to everything), 24 prepare directories and 216
+  file-backend pairs, 2,608 tests, 16 min 48 s; 2 pairs failed inside the
+  sandbox, func_goal_defaulting.py on cxx and on py, because the oracle
+  (pakcs on swipl) creates /tmp/pakcs_file_<pid> and the sandbox mounts
+  /tmp read-only; the same file outside the sandbox: 2 of 2 OK in 10.7 s.
+  The fast tier: 130 of 130 OK, 159 s (the stale-pool failures of the
+  morning do not return: the pool was prepared under the current digest).
+  unit_conda.py through the runner: 21 OK on cxx and 21 OK on py.

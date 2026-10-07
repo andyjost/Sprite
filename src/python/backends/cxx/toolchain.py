@@ -648,6 +648,28 @@ class Cpp2So(object):
         % (file_in, self.format_version(file_in), compiler.FORMAT_VERSION)
         )
     file_out = _filenames.replacesuffix(file_in, '.so')
+    directory = os.path.dirname(os.path.abspath(file_out))
+    if not os.access(directory, os.W_OK):
+      # The first write would fail with a bare "permission denied".  Name
+      # the cause instead.  The common case is a read-only installation
+      # whose shipped object is stale here: its stamp names another
+      # installation or runtime (see object_digest).
+      stamp = self.read_stamp(file_out)
+      if not os.path.isfile(file_out):
+        state = 'no object exists there'
+      elif stamp is None:
+        state = 'the object there has no ABI stamp'
+      elif stamp in self.accepted_digests():
+        state = 'the object there is current, but a compile was asked for'
+      else:
+        state = 'the object there is stale (its ABI stamp names another ' \
+                'installation or runtime)'
+      raise exceptions.CompileError(
+          'cannot compile %r: the directory %r cannot be written, and %s.  '
+          'Make the directory writable, or run the program with sprite-exec, '
+          'whose tiered default interprets a module without a current object.'
+        % (file_in, directory, state)
+        )
     logger.info('Compiling %r', file_out)
     cmd = list(self._compileCommand(file_in, file_out))
     logger.debug('Command: %s', ' '.join(cmd))
