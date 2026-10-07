@@ -228,6 +228,9 @@ namespace cyrt
     // entry for a variable the collector dropped, or for a node built
     // outside the runtime (Node.create from Python).  See InterpreterState.
     Node * get_freevar(xid_type vid);
+    // The binding of a variable: the configuration's own, or that of the
+    // nearest enclosing configuration, read through the queue stack as
+    // read_fp reads the decisions; nullptr when none has one.
     Node * get_binding(Configuration *, xid_type vid);
     Node * get_binding(Configuration *, Node *);
     Node * get_generator(Configuration *, xid_type vid);

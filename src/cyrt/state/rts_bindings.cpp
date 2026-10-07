@@ -20,14 +20,24 @@ namespace cyrt
     }
   }
 
+  // Applies the binding of variable ``id`` to configuration C, whose root is
+  // an alternative of the generator of the variable (fork): the root e
+  // becomes (generator =:<= binding) &> e, so the side of the generator
+  // agrees with the binding.  The binding is consumed.  The constraint
+  // carries it into the variables of the generator, and a configuration
+  // that forks on the generator again applies nothing.  Applied at every
+  // fork, the constraint pull-tabbed the same generator to the root, the
+  // fork applied the binding once more, and so on without end (issue #97).
+  // The Python backend has the same step (rts_bindings.apply_binding).
   void RuntimeState::apply_binding(Configuration * C, xid_type id)
   {
     if(C->has_binding(id))
     {
       Node * genexpr = this->get_generator(C, id);
-      Node * binding = this->get_binding(C, id);
+      Node * binding = C->bindings->at(id);
       Node * eq = Node::create(&nonstrictEq_Info, genexpr, binding);
       *C->root = Node::create(&seq_Info, eq, C->root);
+      write(C->bindings).erase(id);
     }
   }
 

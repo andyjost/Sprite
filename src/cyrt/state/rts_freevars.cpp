@@ -23,10 +23,32 @@ namespace cyrt
       );
   }
 
+  // The binding of variable ``vid`` for configuration C: its own, or the one
+  // of the nearest enclosing configuration that bound the variable, read
+  // through the queue stack as read_fp reads the decisions (walk_qstack).  A
+  // nested configuration, the capsule of a set function, starts with an
+  // empty binding map, and a variable of its goal that the enclosing
+  // configuration bound keeps its binding there.  Without the walk the
+  // capsule took such a variable for unbound: it bound the variable anew, to
+  // the other side of its comparison, or narrowed it, and the enclosing
+  // configuration then met the generator of a variable it had bound (issue
+  // #97).  The key in an enclosing map is the group id of the variable in
+  // that configuration.  The writers (add_binding, apply_binding,
+  // update_binding) use the map of the configuration alone.
   Node * RuntimeState::get_binding(Configuration * C, xid_type vid)
   {
     auto p = C->bindings->find(vid);
-    return p == C->bindings->end() ? nullptr : p->second;
+    if(p != C->bindings->end())
+      return p->second;
+    for(auto q=this->qstack.rbegin()+1, e=this->qstack.rend(); q!=e; ++q)
+    {
+      Configuration * outer = (*q)->front();
+      BindingMap const & bindings = *outer->bindings;
+      auto r = bindings.find(outer->grp_id(vid));
+      if(r != bindings.end())
+        return r->second;
+    }
+    return nullptr;
   }
 
   Node * RuntimeState::get_generator(Configuration * C, xid_type vid)
@@ -261,7 +283,7 @@ namespace cyrt
     {
       xid_type vid = obj_id(freevar);
       xid_type gid = C->grp_id(vid);
-      if(!C->has_binding(gid) && !this->is_narrowed(C, gid))
+      if(!this->get_binding(C, gid) && !this->is_narrowed(C, gid))
         return true;
     }
     return false;

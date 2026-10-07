@@ -156,9 +156,9 @@ namespace cyrt { inline namespace
   static constexpr size_t PRIVATE_WALK_BUDGET = 64;
 
   // Tells whether configuration C holds private state for the expression at
-  // ``root``: for a free variable of it, a binding, a narrowing (the
-  // fingerprint, read through the queue stack), or a group with another
-  // variable; for a choice of it, a decision.  That is the state
+  // ``root``: for a free variable of it, a binding or a narrowing (both read
+  // through the queue stack: get_binding and read_fp), or a group with
+  // another variable; for a choice of it, a decision.  That is the state
   // replace_freevar puts into the expression through a private copy of the
   // spine (rts_freevars.cpp), and the state a fork of the nested evaluation
   // reads through the queue stack (rts_fingerprint.cpp).  The walk follows
@@ -202,7 +202,7 @@ namespace cyrt { inline namespace
       {
         xid_type const vid = NodeU{node}.free->vid;
         xid_type const gid = C->grp_id(vid);
-        if(vid != gid || C->has_binding(gid) || rts->is_narrowed(C, gid))
+        if(vid != gid || rts->get_binding(C, gid) || rts->is_narrowed(C, gid))
           return true;
         continue;
       }
