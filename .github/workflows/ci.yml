@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, py314]
+    # A lane branch (wt/*) runs the same checks when it is pushed, so CI
+    # overlaps the local verification of its merge instead of following it.
+    branches: [master, py314, 'wt/**']
   pull_request:
     branches: [master]
   schedule:
