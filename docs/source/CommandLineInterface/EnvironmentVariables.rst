@@ -47,6 +47,26 @@ The following are recognized:
   as many collections.  The value must be at least 2 and is read when the
   runtime library loads.
 
+  The default stays at 8 by a measurement of the memory suite of the
+  benchmarks at 8, 12 and 16 (the dated TODO entry on G8, issue #83).  The
+  factor touches a program only when the survivors of a collection exceed
+  the threshold divided by the factor (131,072 nodes at growth 8 and
+  65,536 at growth 16, with the default threshold), or when the live
+  configurations exceed one eighth of that number, since the
+  configuration threshold follows the same rule.  18 of the 29 programs
+  measured kept their collections and their nodes marked exactly at every
+  factor.  On the search programs with a live set near 300 MiB the trade
+  is proportional, as the policy makes it.  Growth 16 halves the
+  collections and the nodes marked (QueensSet9 11 to 6 collections,
+  SearchQueens 19 to 10, PermSort 9 to 5).  It cuts the seconds of the
+  collector by a quarter to a half, which is 1 to 8 percent of the CPU
+  time of those programs and 1 to 3 percent of their instructions.  It
+  costs 43 to 53 percent more peak RSS (QueensSet9 330 to 473 MiB,
+  SearchQueens 307 to 465 MiB, PermSort 314 to 481 MiB), and the bound of
+  the heap becomes sixteen times the live nodes in place of eight.  A
+  user with memory to spare buys the saving with ``SPRITE_GC_GROWTH=16``.
+  Growth 12 sits halfway on both sides of the trade.
+
 ``SPRITE_GC_STRESS``
   The stress mode of the collector of the C++ backend.  With the value
   ``1``, the collector runs at every safepoint of the scheduler: after
