@@ -71,7 +71,8 @@ named module again, whether or not its files are current, without the
 ICurry cache: the front end (which leaves a current FlatCurry file as it
 is), the binding optimization, which rewrites the FlatCurry file in place
 when it replaces an equality (``curry.toolchain.flat2icurry.bindingopt``),
-and the translation.  The later steps follow as usual from the new ICurry
+and the translation.  The option implies ``--icy``, so it stands alone;
+the later steps of another target follow as usual from the new ICurry
 file.  Use it on a module whose products were made before the FlatCurry
 file was rewritten, so that the file on disk and the products agree; the
 module must have its source.  The option runs the modules in this process
@@ -105,6 +106,11 @@ Environment Variables
     SPRITE_LOG_LEVEL
         adjusts logging output.  Values are CRITICAL, ERROR,
         WARNING (default), INFO, and DEBUG.
+
+    SPRITE_FRONTEND_WARNINGS
+        set to 0 silences the warnings of the Curry front end (overlapping
+        rules), which a run otherwise reports once per module through the
+        log at the WARNING level.  ``-q`` silences them too.
 
 Examples
 --------
@@ -164,7 +170,8 @@ def main(program_name, argv):
   parser.add_argument(      '--rewrite-flat', action='store_true'
     , help='run the step from Curry to ICurry again, current or not: the '
            'front end, the rewrite of the FlatCurry file by the binding '
-           'optimization, and the translation (needs the source; --jobs 1)')
+           'optimization, and the translation (implies --icy; needs the '
+           'source; --jobs 1)')
   parser.add_argument('-S', '--subdir' , action='store_true'
     , help='print the subdirectory to which output files are written then exit')
   parser.add_argument('-t', '--tidy'   , action='store_true'
@@ -207,6 +214,9 @@ def main(program_name, argv):
   if args.rewrite_flat and jobs > 1:
     sys.stderr.write(program_name + ': --rewrite-flat runs the modules in this process; use --jobs 1.\n')
     sys.exit(1)
+  if args.rewrite_flat:
+    # The option is the step from Curry to ICurry; it needs no other target.
+    args.icy = True
   if not any([args.icy, args.json, args.py, args.cxx, args.so]):
     sys.stderr.write(
         program_name + ': at least one of (-i,--icy) or (-j,--json) or --cxx or '

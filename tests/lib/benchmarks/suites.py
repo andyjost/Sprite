@@ -278,6 +278,11 @@ class Settings:
         )
       if not env.get('SPRITE_ROTATION'):
         env['SPRITE_ROTATION'] = STEP_MODE
+      # The warnings of the Curry front end off (overlapping rules; see
+      # curry.toolchain._frontend): a cold run compiles, a warm one does
+      # not, and the output of a record should not tell them apart.
+      if not env.get('SPRITE_FRONTEND_WARNINGS'):
+        env['SPRITE_FRONTEND_WARNINGS'] = '0'
     env.update(extra)
     return env
 

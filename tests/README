@@ -427,21 +427,45 @@ which func_flat2icurry.py checks over the whole archive and the products on
 disk, with the idempotence of the pass.  The icurry program reads the
 rewritten file as well, so the two routes write the same .icy file.
 
+A run of the front end on M compiles more than M: an import whose files
+are missing, older than its source, or older than the interface of one of
+its own imports is compiled again, and its .fcy, .fint and .icurry are
+written again in the text of the front end (a make stage that writes the
+interfaces of the library anew makes every module of a tree such an import
+at its next contact).  The ICurry of such an import is current by the rule
+of the toolchain, so nothing translates it again.  So the rewrite covers
+every FlatCurry file a run wrote, the module's and those of such imports
+(_frontend.curry2flat; issue #99), and the pair beside each other agree.
+A test that needs the text of the front end passes rewrite=False.
+
 The oracle compares the translation alone, without the pass.  The .fcy
 files of the archive are the front end's and pair with the .icy files
 icurry wrote from them.  A product on disk pairs with the rewritten .fcy
 beside it, so the plain translation of the file on disk is the .icy on disk
-for either route (test_products_on_disk of func_flat2icurry.py).  A pair
-made before the routes rewrote the file, an unoptimized .fcy beside an .icy
-of the former in-memory pass, differs there.  Rewrite the file by hand:
+for either route (test_products_on_disk of func_flat2icurry.py).  One
+writer outside the toolchain leaves a file in the text of the front end:
+the PAKCS oracle (the scripts oracle and oracle_type).  Its :load runs the
+front end, which compiles the stale modules of the chain, and its :eval
+runs the front end once more for the goal with the targets --acy --flat,
+which compiles every module without an .acy file again; the binding
+optimization of PAKCS runs over the modules it compiles to Prolog, not
+over those files.  The on-disk check accepts such a file when the pass
+over it in memory translates to the .icy beside it (the keyword
+accept_unrewritten of flat2icurry_oracle.check_file; the result carries
+the mark unrewritten, and the test reports how many pairs needed it); the
+archive is checked without it.  TestUnrewrittenFile of the same file pins
+the acceptance on a pair of its own.  A pair made before the routes
+rewrote the file, an unoptimized .fcy beside an .icy of the former
+in-memory pass, differs either way.  Rewrite the file by hand:
 
         python -m curry.toolchain.flat2icurry.rewrite M.fcy...
 
 rewrites FlatCurry files in place, and sprite-make --rewrite-flat M runs the
 step of a module again, current or not, and makes the ICurry from the
-rewritten file.  The option --bindingopt of python -m
-curry.toolchain.flat2icurry applies the pass to the program in memory and
-leaves the file alone.  unit_flat2icurry_bindingopt.py tests the pass, the
+rewritten file (the option implies --icy and stands alone).  The option
+--bindingopt of python -m curry.toolchain.flat2icurry applies the pass to
+the program in memory and leaves the file alone.
+unit_flat2icurry_bindingopt.py tests the pass, the
 rewrite, and the programs that need it, such as sendMoreMoney;
 unit_curry2icurry.py checks that both routes write the same .icy for it.
 A rebuilt archive packs rewritten .fcy files with the .icy files icurry
@@ -750,9 +774,13 @@ default is the constant DEFAULT_JOBS in lib/testrunner/__init__.py; -j 1
 runs the files one at a time.  The environment of a file names the
 installation (SPRITE_HOME), the test library and the Curry pool
 (PYTHONPATH, CURRYPATH), the ICurry cache (SPRITE_CACHE_FILE), the backend
-(SPRITE_INTERPRETER_FLAGS), and the rotation mode of the C++ backend
+(SPRITE_INTERPRETER_FLAGS), the rotation mode of the C++ backend
 (SPRITE_ROTATION=steps:65536 unless the environment of the run names a
-mode; an empty value counts as unset; section 4).  A PATTERN is a file
+mode; an empty value counts as unset; section 4), and the warnings of the
+Curry front end off (SPRITE_FRONTEND_WARNINGS=0 unless the environment
+sets the variable; cytest sets the same default in a file run by hand, so
+a run compiles a module with or without a word on its overlapping rules
+alike; curry.toolchain._frontend).  A PATTERN is a file
 name or a shell-style pattern of file names.  Several patterns select
 their union.  -v prints the output of every file.  With -v at width 1 the
 output streams as it comes, and the file gets the standard input, so a
@@ -846,7 +874,12 @@ unit_loadsave.py and unit_inspect.py, and the optimizer selects the
 optimizer files besides; a test file selects itself; a corpus
 directory selects its functional test, data/curry/benchmarks selects
 unit_benchmarks.py and unit_cxx_variable.py, and data/curry/flat2icurry
-selects the files of the ICurry oracle; the benchmark harness, the runner,
+selects the files of the ICurry oracle; a module of the shared pool,
+data/curry/M.curry, selects the test files whose text names M or a module
+of the pool that imports M (by the import lines, through other modules of
+the pool), with func_flat2icurry.py, which checks the products of every
+module of the pool, and everything when no file names M or an importer
+(the mapping says so); the benchmark harness, the runner,
 and the setup script select their own tests; tests/lib selects everything;
 documentation selects nothing; an unknown path, and a rule whose test
 files do not exist, select everything.  The runner prints the mapping.

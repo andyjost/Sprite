@@ -180,13 +180,18 @@ STEP_MODE = 'steps:65536'
 def environment(sprite_home, backend, base=None):
   '''
   The environment of a child: what the shell driver always set, with the
-  backend in SPRITE_INTERPRETER_FLAGS and the rotation in step mode unless
-  the environment names a mode.
+  backend in SPRITE_INTERPRETER_FLAGS, the rotation in step mode unless
+  the environment names a mode, and the warnings of the front end off
+  unless the environment says otherwise.
   '''
   env = dict(os.environ if base is None else base)
   env['SPRITE_HOME'] = sprite_home
   if not env.get('SPRITE_ROTATION'):
     env['SPRITE_ROTATION'] = STEP_MODE
+  # The warnings of the Curry front end off (curry.toolchain._frontend), so
+  # the output of a file does not depend on which products it makes.
+  if not env.get('SPRITE_FRONTEND_WARNINGS'):
+    env['SPRITE_FRONTEND_WARNINGS'] = '0'
   env['PYTHONPATH'] = prepend_path(
       os.path.join(TESTDIR, 'lib'), env.get('PYTHONPATH')
     )

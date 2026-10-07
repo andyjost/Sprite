@@ -20,7 +20,12 @@ environment:
 
 The first run of an example also compiles its Curry module, which takes
 about a second per module.  The build products go to .curry/ next to the
-source.  A README
+source.  The Curry front end warns on a function whose rules overlap, and
+Sprite reports the warning on the standard error stream when it compiles
+the module.  In several examples the rules overlap by design: ndinsert in
+Queens builds a permutation by a choice.  The run scripts of those examples
+set SPRITE_FRONTEND_WARNINGS=0 unless the environment sets the variable,
+so a first run prints no warning; set it to 1 to see them.  A README
 states what the example shows about functional logic programming, what it
 shows about calling Curry from Python, how to run it, the output to expect,
 and the sizes that keep the run short.

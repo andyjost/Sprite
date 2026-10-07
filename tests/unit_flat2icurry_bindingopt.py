@@ -384,10 +384,13 @@ class TestRewrite(cytest.TestCase):
     self.addCleanup(shutil.rmtree, self.tmpdir, True)
 
   def fresh_flatcurry(self, name):
-    '''The FlatCurry of a test module as the front end writes it.'''
+    '''
+    The FlatCurry of a test module as the front end writes it, without the
+    rewrite that a run of the routes applies to every file it wrote.
+    '''
     curryfile = os.path.join(self.tmpdir, name + '.curry')
     shutil.copy(os.path.join(DATA, name + '.curry'), curryfile)
-    return _frontend.curry2flat(curryfile, [], quiet=True)
+    return _frontend.curry2flat(curryfile, [], quiet=True, rewrite=False)
 
   @staticmethod
   def snapshot(filename):

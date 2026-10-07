@@ -2,7 +2,9 @@ import cytest # from ./lib; must be first
 import flat2icurry_oracle as oracle
 from curry.toolchain.flat2icurry import bindingopt as bo, flatcurry as fc
 from curry.utility import maxrecursion
-import contextlib, io, os, re, shutil, tempfile, unittest
+from curry import config, toolchain
+from curry.toolchain import _frontend, _system
+import contextlib, io, os, re, shutil, sys, tempfile, unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -79,12 +81,27 @@ class TestWholeCorpus(cytest.TestCase):
   def test_products_on_disk(self):
     '''
     The products under tests/data on this machine.  They come from the
-    archive, or from an import on this machine, whose route rewrote the
-    FlatCurry file before the translation (section 8 of the README), so
-    the plain translation of the file on disk is the ICurry beside it.  A
-    pair made before the routes rewrote the file differs; rewrite the file
-    (python -m curry.toolchain.flat2icurry.rewrite) or run sprite-make
-    --rewrite-flat on the module.
+    archive, or from an import on this machine, whose route rewrote every
+    FlatCurry file its run of the front end wrote before the translation
+    (section 8 of the README), so the plain translation of the file on
+    disk is the ICurry beside it.
+
+    One writer outside the toolchain leaves a FlatCurry file in the text
+    of the front end: the PAKCS oracle (tests/oracle, tests/oracle_type).
+    Its ``:load M`` runs the front end, which compiles every module of the
+    chain whose files are stale for it (an import whose interface is older
+    than the interface of one of its own imports among them), and its
+    ``:eval`` runs the front end once more, for the goal, with the targets
+    ``--acy --flat``, which compiles every module without an ``.acy`` file
+    again.  The binding optimization of PAKCS runs over the modules it
+    compiles to Prolog, not over those files.  So the check accepts such a
+    file when the pass over it in memory translates to the ICurry beside
+    it (accept_unrewritten of flat2icurry_oracle.check_file), and reports
+    how many pairs needed it.  A pair that differs either way is a product
+    made before the routes rewrote the file, or a real difference; rewrite
+    the module (sprite-make --rewrite-flat M) or the file alone (python -m
+    curry.toolchain.flat2icurry.rewrite M.fcy).  TestUnrewrittenFile pins
+    the acceptance on a pair of its own.
     '''
     pairs = []
     for fcy in self.on_disk_fcys():
@@ -95,9 +112,21 @@ class TestWholeCorpus(cytest.TestCase):
         pairs.append((fcy, icy))
     if not pairs:
       self.skipTest('no front-end products under tests/data')
-    self.check_pairs(
+    results = oracle.check_pairs(
         pairs, self.overlay.library_dirs() + LIBRARY_DIRS + CORPUS_IMPORT_DIRS
+      , accept_unrewritten=True
       )
+    self.assertEqual(
+        oracle.summarize(results), (len(pairs), 0, 0), oracle.report(results)
+      )
+    unrewritten = [r.fcyfile for r in results if r.unrewritten]
+    if unrewritten:
+      sys.stderr.write(
+          '\n%d of %d FlatCurry files on disk are in the text of the front '
+          'end beside an ICurry file of the rewritten program (a writer '
+          'outside the toolchain, such as the PAKCS oracle, wrote them):\n  %s\n'
+              % (len(unrewritten), len(pairs), '\n  '.join(unrewritten))
+        )
 
   def test_writer_round_trip(self):
     '''
@@ -157,3 +186,104 @@ class TestWholeCorpus(cytest.TestCase):
     self.assertEqual(status, 0, stdout.getvalue())
     last = stdout.getvalue().strip().splitlines()[-1]
     self.assertEqual(last, 'equal %d / different 0 / failed 0' % expected)
+
+
+class TestUnrewrittenFile(cytest.TestCase):
+  '''
+  The on-disk check over a pair that a writer outside the toolchain leaves:
+  a FlatCurry file in the text of the front end beside an ICurry file of
+  the rewritten program.  The pair is made here, in a scratch directory,
+  as the PAKCS oracle makes one (see test_products_on_disk): the route
+  converts the module, then a plain run of the front end writes the
+  FlatCurry file again without the rewrite.
+  '''
+
+  @classmethod
+  def setUpClass(cls):
+    super().setUpClass()
+    if config.curry_frontend() is None:
+      raise unittest.SkipTest('the Curry front end is not configured')
+
+  def setUp(self):
+    super().setUp()
+    self.tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, self.tmpdir, True)
+
+  def test_unrewritten_file_beside_rewritten_icurry(self):
+    curryfile = os.path.join(self.tmpdir, 'Guard.curry')
+    with open(curryfile, 'w', encoding='utf-8') as ostream:
+      ostream.write(
+          'module Guard where\n'
+          'f :: Int -> Int\n'
+          'f x | x == 3 = x\n'
+          'main :: Int\n'
+          'main = f y where y free\n'
+        )
+    icy = toolchain.curry2icurry(curryfile, [], use_cache=False, quiet=True)
+    fcy = _frontend.flatcurryfile(curryfile)
+    with open(fcy, 'rb') as istream:
+      rewritten = istream.read()
+    self.assertIn(b'constrEq', rewritten)
+    self.assertEqual(oracle.check_file(fcy, icyfile=icy).status, oracle.EQUAL)
+    # A writer outside the toolchain: the front end alone, as PAKCS runs it.
+    os.unlink(fcy)
+    _system.pexec(
+        _frontend.command(curryfile, [], quiet=True), cwd=self.tmpdir
+      )
+    with open(fcy, 'rb') as istream:
+      unrewritten = istream.read()
+    self.assertNotIn(b'constrEq', unrewritten)
+    plain = oracle.check_file(fcy, icyfile=icy)
+    self.assertEqual(plain.status, oracle.DIFFERENT)
+    self.assertFalse(plain.unrewritten)
+    accepted = oracle.check_file(fcy, icyfile=icy, accept_unrewritten=True)
+    self.assertEqual(accepted.status, oracle.EQUAL, accepted.detail)
+    self.assertTrue(accepted.unrewritten)
+    self.assertIn('unrewritten', accepted.detail)
+    # The check leaves the file as it is; check_pairs takes the keyword too.
+    with open(fcy, 'rb') as istream:
+      self.assertEqual(istream.read(), unrewritten)
+    results = oracle.check_pairs([(fcy, icy)], accept_unrewritten=True)
+    self.assertEqual(oracle.summarize(results), (1, 0, 0))
+    # A corrupted oracle: the pass changes the program, but the optimized
+    # program does not translate to this ICurry file, so the pair stays
+    # DIFFERENT (the case of a file the pass leaves as it is follows).
+    with open(icy, 'r', encoding='utf-8', newline='') as istream:
+      text = istream.read()
+    other = os.path.join(self.tmpdir, 'other.icy')
+    with open(other, 'w', encoding='utf-8', newline='') as ostream:
+      ostream.write(text.replace('constrEq', 'constrEQ'))
+    corrupted = oracle.check_file(fcy, icyfile=other, accept_unrewritten=True)
+    self.assertEqual(corrupted.status, oracle.DIFFERENT)
+    self.assertFalse(corrupted.unrewritten)
+
+  def test_pass_that_changes_nothing(self):
+    '''
+    A FlatCurry file the pass leaves as it is (no required equality) beside
+    an ICurry file that differs: the acceptance does not apply, and the
+    pair is DIFFERENT with ``unrewritten`` False.
+    '''
+    curryfile = os.path.join(self.tmpdir, 'Plain.curry')
+    with open(curryfile, 'w', encoding='utf-8') as ostream:
+      ostream.write(
+          'module Plain where\n'
+          'f :: Int -> Int\n'
+          'f x = x + 1\n'
+          'main :: Int\n'
+          'main = f 3\n'
+        )
+    icy = toolchain.curry2icurry(curryfile, [], use_cache=False, quiet=True)
+    fcy = _frontend.flatcurryfile(curryfile)
+    prog = fc.load(fcy)
+    self.assertIs(bo.optimize_bindings(prog), prog)
+    self.assertEqual(oracle.check_file(fcy, icyfile=icy).status, oracle.EQUAL)
+    with open(icy, 'r', encoding='utf-8', newline='') as istream:
+      text = istream.read()
+    self.assertIn('"Plain"', text)
+    other = os.path.join(self.tmpdir, 'other.icy')
+    with open(other, 'w', encoding='utf-8', newline='') as ostream:
+      ostream.write(text.replace('"Plain"', '"Plane"'))
+    for accept in False, True:
+      result = oracle.check_file(fcy, icyfile=other, accept_unrewritten=accept)
+      self.assertEqual(result.status, oracle.DIFFERENT)
+      self.assertFalse(result.unrewritten)

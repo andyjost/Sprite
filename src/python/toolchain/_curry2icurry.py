@@ -56,12 +56,14 @@ class Curry2ICurryConverter(object):
   produce FlatCurry and then the built-in translation
   :mod:`curry.toolchain.flat2icurry`.  ``icurry`` runs the ``icurry``
   program.  :func:`config.curry2icurry_tool` picks the route.  Both routes
-  run the front end first and apply the binding optimization to its
-  FlatCurry file in place (``_frontend.optimize_flatcurry``), as PAKCS does
-  before any compiler reads the file; the ``icurry`` program then runs the
+  run the front end first (``_frontend.curry2flat``), which applies the
+  binding optimization in place to every FlatCurry file the run wrote, the
+  module's and those of the imports the run compiled again, as PAKCS does
+  before any compiler reads a file; the ``icurry`` program then runs the
   front end again, which finds its files current and leaves the rewritten
-  one as it is, and translates the optimized program.  So the two routes
-  write the same ICurry for a module with a required Boolean equality.
+  ones as they are, and translates the optimized program.  So the two
+  routes write the same ICurry for a module with a required Boolean
+  equality.
 
   The cache (see ``curry.cache``) is keyed by the source text and by the
   route, so an entry written by one route is never served to the other.  An
@@ -76,7 +78,10 @@ class Curry2ICurryConverter(object):
 
   Keywords:
     quiet:
-        Whether to silence the messages of the tool.
+        Whether to silence the messages of the tool, the warnings of the
+        front end among them (``_frontend.report_warnings``; the
+        environment variable SPRITE_FRONTEND_WARNINGS silences those for a
+        whole process).
     use_cache:
         Whether to use the ICurry cache.  True by default.  The cache must
         also be enabled (``cache.icurry_cache_enabled``).
@@ -118,8 +123,7 @@ class Curry2ICurryConverter(object):
         try:
           with filesys.remove_file_on_error(file_out):
             if self.tool == 'icurry':
-              fcyfile = _frontend.curry2flat(file_in, currypath, self.quiet)
-              _frontend.optimize_flatcurry(fcyfile)
+              _frontend.curry2flat(file_in, currypath, self.quiet)
               logger.debug('Command: %s', ' '.join(cmd))
               _system.pexec(cmd)
             else:

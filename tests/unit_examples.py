@@ -20,7 +20,7 @@ once per backend that the example declares, and review the diff.  The file
 must come out the same on every backend of the example.
 '''
 import cytest # from ./lib; must be first
-import curry, importlib.util, os, subprocess, sys, time, unittest
+import ast, curry, importlib.util, os, subprocess, sys, time, unittest
 
 EXAMPLES_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'examples')
@@ -209,3 +209,49 @@ def _make_tests(name):
 for _name in sorted(EXAMPLES):
   for _test in _make_tests(_name):
     setattr(TestExamples, _test.__name__, _test)
+
+
+def function_of(relpath, name):
+  '''
+  The function ``name`` of a Python file under examples/, compiled from its
+  definition alone.  A driver imports curry and its Curry module when it is
+  imported; a function of it that uses neither is tested without that.
+  '''
+  path = os.path.join(EXAMPLES_DIR, relpath)
+  with open(path, encoding='utf-8') as stream:
+    tree = ast.parse(stream.read(), path)
+  for node in tree.body:
+    if isinstance(node, ast.FunctionDef) and node.name == name:
+      namespace = {}
+      exec(compile(ast.Module(body=[node], type_ignores=[]), path, 'exec'), namespace)
+      return namespace[name]
+  raise AssertionError('%s defines no function %s' % (relpath, name))
+
+
+class TestBuildSystemDriver(cytest.TestCase):
+  '''The lint lines of the driver of 24-build-system (make.py).'''
+
+  def test_show_recipes(self):
+    '''
+    One line per target whose recipe has several values: the recipes after
+    the count when the line fits in the width, else the count alone.  The
+    recipes of the example are compiler command lines, so expected.out
+    takes the second branch alone; the first is checked here.
+    '''
+    show_recipes = function_of('24-build-system/make.py', 'show_recipes')
+    short = 't has 2 recipes: a | b'
+    self.assertEqual(show_recipes('t', ['a', 'b']), short)
+    self.assertEqual(
+        show_recipes('t', ['a', 'b', 'c']), 't has 3 recipes: a | b | c'
+      )
+    # A line of exactly the width fits; one column more does not.
+    self.assertEqual(show_recipes('t', ['a', 'b'], width=len(short)), short)
+    self.assertEqual(
+        show_recipes('t', ['a', 'b'], width=len(short) - 1), 't has 2 recipes'
+      )
+    # The two recipes of main.o in step 7 of the example: 94 columns.
+    recipes = [
+        'cc -O2 -Wall -c main.c -o main.o', 'cc -g -O0 -Wall -c main.c -o main.o'
+      ]
+    self.assertEqual(show_recipes('main.o', recipes), 'main.o has 2 recipes')
+    self.assertEqual(show_recipes('main.o', recipes, width=94)[:22], 'main.o has 2 recipes: ')

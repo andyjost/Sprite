@@ -63,7 +63,12 @@ Merges to `master` happen at milestones.
   rewrite existed stays as it is until the front end writes it again;
   `sprite-make --rewrite-flat M` runs the step again, and
   `python -m curry.toolchain.flat2icurry.rewrite M.fcy` rewrites the file
-  alone.
+  alone. A run of the front end rewrites every `.fcy` it wrote, those of
+  the imports it compiled again included. The front end's warning on
+  overlapping rules is reported once per module through the log at the
+  WARNING level; `SPRITE_FRONTEND_WARNINGS=0` silences it, and the test
+  runner, the test library, the benchmark harness and the run scripts of
+  the examples whose rules overlap by design set it.
 - `curry.expr` is typed (`src/python/typecheck/builder.py`): it reads the
   schemes of the FlatCurry interfaces, unifies the arguments with the
   parameter types, converts Python values by the expected type, defaults
