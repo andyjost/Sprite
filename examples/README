@@ -118,11 +118,12 @@ tour the API, 10 to 19 and 24 are programs with a Python driver, and 20 to
     Python description.
 
 24-build-system (py, cxx)
-    A makefile in Curry.  Variables as definitions; a pattern rule as a
-    functional pattern; the rules of a target as a set function; the plan,
-    the ready set and the inverse query from one relation; ambiguity as a
-    lint; a cycle as a failure; a missing source as a question; a driver
-    for C projects that runs the commands.
+    A makefile in Curry.  Variables as definitions with the names of make;
+    a rule as an equation of a relation with the inputs in the head; the
+    pattern rule as a functional pattern; a condition as an if or a guard,
+    reached from the command line; the header edges as a relation; the
+    plan, the ready set and the inverse query from the relations; three
+    lints; a driver that runs the recipes.
 
 Other files in this directory
 -----------------------------

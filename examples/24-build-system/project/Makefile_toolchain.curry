@@ -1,35 +1,29 @@
--- The makefile of the project with the compiler left open: gcc or clang.
--- The compiler is a parameter of the rules, bound once per makefile, so one
--- compiler governs every rule of a plan, and the build has one plan per
--- compiler.  The driver prints both plans with -n and builds with the first
--- compiler on the PATH.
-
 module Makefile_toolchain where
 
-import Make
-import Makefile (cflags, library, program, mainobjs)
-import qualified Makefile
+CC = "gcc" ? "clang"
+AR = "ar"
+DEBUG = "0"
+WITH_PLOT = ""
+CFLAGS = if DEBUG == "1" then "-O0 -g -Wall" else "-O2 -Wall"
+CPPFLAGS = if WITH_PLOT /= "" then "-DWITH_PLOT" else ""
 
--- The default goal of the makefile.
-goal :: Target
-goal = Makefile.goal
+goal = "demo"
 
--- The compilers that can build the project.
-toolchains :: [String]
-toolchains = ["gcc", "clang"]
+-- %.o: %.c
+rule (stem ++ ".o") [stem ++ ".c"] = "$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@"
+-- libgeom.a: vec.o shape.o
+rule "libgeom.a" ["vec.o", "shape.o"] = "$(AR) rcs $@ $^"
+-- ifdef WITH_PLOT
+-- libgeom.a: plot.o
+-- endif
+rule "libgeom.a" ["plot.o"] | WITH_PLOT /= "" = ""
+-- demo: main.o report.o libgeom.a
+rule "demo" ["main.o", "report.o", "libgeom.a"] = "$(CC) -o $@ $^"
 
--- The rules, with the compiler as a parameter.  The library rule does not
--- use it and comes from the makefile.
-rulesWith :: String -> Target -> Rule
-rulesWith cc t@(stem ++ ".o") =
-  Rule t [stem ++ ".c"]
-       (cc ++ " " ++ cflags ++ " -c " ++ stem ++ ".c -o " ++ t)
-rulesWith _  t | t == library = Makefile.rule t
-rulesWith cc t | t == program =
-  Rule t ins (cc ++ " -o " ++ t ++ " " ++ unwords ins)
-  where ins = mainobjs ++ [library]
-
--- One makefile per compiler.  The README says why the compiler is a list
--- here and not a choice, "gcc" ? "clang".
-makefiles :: [(String, Makefile)]
-makefiles = [(cc, rulesWith cc) | cc <- toolchains]
+depends "main.c"   = "shape.h"
+depends "main.c"   = "vec.h"
+depends "shape.c"  = "shape.h"
+depends "shape.h"  = "vec.h"
+depends "vec.c"    = "vec.h"
+depends "report.c" = "vec.h"
+depends "plot.c"   = "shape.h"

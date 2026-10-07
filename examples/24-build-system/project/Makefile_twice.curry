@@ -1,10 +1,11 @@
-module Makefile_cycle where
+module Makefile_twice where
 
 CC = "cc"
 AR = "ar"
 DEBUG = "0"
 WITH_PLOT = ""
 CFLAGS = if DEBUG == "1" then "-O0 -g -Wall" else "-O2 -Wall"
+CFLAGS = "-O2 -Wall -g"
 CPPFLAGS = if WITH_PLOT /= "" then "-DWITH_PLOT" else ""
 
 goal = "demo"
@@ -19,8 +20,6 @@ rule "libgeom.a" ["vec.o", "shape.o"] = "$(AR) rcs $@ $^"
 rule "libgeom.a" ["plot.o"] | WITH_PLOT /= "" = ""
 -- demo: main.o report.o libgeom.a
 rule "demo" ["main.o", "report.o", "libgeom.a"] = "$(CC) -o $@ $^"
--- shape.h: demo
-rule "shape.h" ["demo"] = "./demo --emit-header shape.h"
 
 depends "main.c"   = "shape.h"
 depends "main.c"   = "vec.h"

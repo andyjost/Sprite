@@ -2,4 +2,5 @@
 #define VEC_H
 struct vec { double x, y; };
 double vec_cross(struct vec a, struct vec b);
+void report(const char *label, struct vec v);
 #endif

@@ -5573,3 +5573,119 @@
   (tests/lib/testrunner/selection.py), so --changed selects every file
   for this change.  What wrote the unrewritten CxxInterp.fcy of the main
   tree on 2026-10-06 is not known.
+
+2026-10-06: example 24 rewritten, the rules in the head (worktree wt/ex24c)
+- The shape.  The makefile of examples/24-build-system is a plain Curry
+  module without imports or type signatures.  The variables are
+  definitions with the uppercase names of make (CC = "cc", DEBUG = "0",
+  CFLAGS = if DEBUG == "1" then ... else ...), which the pinned front end
+  accepts.  A rule is an equation of the relation rule target inputs =
+  recipe, with the inputs in the head: the pattern rule is the non-linear
+  functional pattern rule (stem ++ ".o") [stem ++ ".c"] = "...", a
+  conditional rule is a guard, rule "libgeom.a" ["plot.o"] | WITH_PLOT /=
+  "" = "", and the header edges are the relation depends, one equation
+  per edge.  The library asks the relation with the inputs free,
+  candidate rule t = (ins, rule t ins) where ins free, through set2, and
+  both backends bind the inputs (the fix of #98 on this branch).  The
+  interpolator of Make.curry expands $@, $<, $^ and $(NAME) from the
+  table the driver passes; $(NAME) is strict, anyOf over the entries of
+  the name, so a name with two entries is two recipes and a name without
+  one is no recipe.  The lints: ambiguous, missing, and the recipes of
+  each target (two values or none, with Make.undefined naming the
+  variables without a value).  Make.noDepends serves a makefile without
+  the relation; Prelude.failed in its place fails the whole build.  The
+  include scanner of the driver is gone.  The driver substitutes every
+  NAME=value of its command line into the text of the makefile (the
+  first line that starts with NAME and = is replaced, other such lines
+  are dropped, a missing one is appended), writes the text under
+  .curry/overrides/<sha1 of the text> beside the real makefile, puts
+  that directory first on curry.path and imports the module from there;
+  a second run with the same assignments finds the products (import
+  1.06 s cold, 0.17 s warm in the probe).  The variables are read by
+  introspection: dir(module), curry.typeof(symbol) in ('String',
+  '[Char]'), every value of curry.eval(symbol, converter='topython');
+  dir lists the module's own symbols only, so the variant makefiles are
+  full copies with one change each (an import-based variant would hide
+  its variables from the introspection).  The table goes to Make.build
+  and into the environment of every recipe.  Each recipe is printed when
+  it starts, as make prints it; the status table, the stand-in for a
+  missing compiler and --serve are gone; -j defaults to 1, as in make.
+- The toy.  C only: main.c, vec.c, shape.c, report.c (the report.cpp of
+  the design prototype turned into C), the optional plot.c, vec.h and
+  shape.h.  main.c includes shape.h and vec.h, plot.c includes shape.h,
+  so every edge of depends is a real include (cc -MM agrees).  WITH_PLOT=1
+  adds plot.o to the library and -DWITH_PLOT to CPPFLAGS, and the program
+  prints plot: (0,0) (4,0) (0,3) as its third line.
+- The oracle.  GNU make 4.3, make -rn in a clean environment (env -i) on
+  a Makefile of the same rules in the scratch directory:
+  identical lines in the default world (6, the double space of the empty
+  $(CPPFLAGS) included), with DEBUG=1, with WITH_PLOT=1 (7, ar rcs
+  libgeom.a vec.o shape.o plot.o: the library puts the inputs of the rule
+  with the recipe before the prerequisite lines for this), and after
+  touch shape.h (4).  Make's behaviour on the lint cases, for the README:
+  two explicit recipes, "warning: overriding recipe for target" and the
+  last wins; an explicit rule beside the pattern rule wins in silence;
+  CFLAGS assigned twice, the last in silence; $(LDFLAG) undefined,
+  nothing in silence; a missing vec.c without a prerequisite line for
+  vec.o, "No rule to make target 'vec.o', needed by 'libgeom.a'.  Stop.";
+  with the line vec.o: vec.h make counts vec.o as made and prints the ar
+  line; the cycle, "Circular shape.h <- demo dependency dropped." and the
+  build goes on.
+- The run.  Ten steps, eleven make.py processes and two runs of demo:
+  the build from scratch with the program's output, nothing to do, touch
+  shape.h with --affected and the rebuild, DEBUG=1 -n in a fresh copy,
+  WITH_PLOT=1 built in a fresh copy with the third line, the ambiguity
+  lint (Makefile_ambiguous.curry), the recipe lint (Makefile_twice.curry,
+  CFLAGS twice), the toolchain (Makefile_toolchain.curry, CC = "gcc" ?
+  "clang": the recipe lint on five targets, then CC=clang -n in a fresh
+  copy), the cycle (Makefile_cycle.curry -n), the missing source.
+  Makefile_choice.curry is gone.  The undefined $(NAME) case has no step;
+  checked by hand on both backends in a scratch copy: "no recipe for
+  demo: $(LDFLAG) is undefined", exit 2.  Also by hand: a makefile
+  without depends plans with Make.noDepends; CC=false gives "failed:
+  main.o report.o shape.o vec.o" and exit 2; -j 4 prints the recipes in
+  the same order as -j 1 (the trace shows the ready sets).
+- Times and tests.  ./run on the C++ backend: 10.3 s cold (the library,
+  five makefiles and three substituted copies converted), 4.8 s and 6.9 s
+  warm; on the Python backend 19.4 s cold, 15.5 s and 16.8 s warm; the
+  output identical on both backends, expected.out regenerated.
+  tests/unit_examples.py: C++ backend 21 tests OK in 37 s (24-build-system
+  6.1 s), Python backend 21 tests OK in 99 s (16.0 s).  A second run of
+  the file after the README and driver edits: 21 OK on both backends,
+  28.7 s and 127 s.  The direct runs after the last line wraps matched
+  expected.out on both backends, 6.1 s and 18.4 s.  The other lane
+  shared the machine.
+- Review pass, the same day.  Applied: the output of a recipe is shown
+  when it completes, stdout to stdout and stderr to stderr (before, the
+  driver captured both and showed stderr on failure only, as the driver
+  before the rewrite did, so a warning of cc on a compile that succeeded
+  was lost); a program that cannot start is a failed recipe with the
+  status 127 and the error of the system on stderr, not a traceback from
+  the thread pool; $< expands to nothing on a rule without inputs, as in
+  make (before, head [] left the recipe without a value and the lint
+  printed "no recipe for X:  are undefined"); the driver prints "no
+  recipe for X" when the recipe has no value and no $(NAME) is undefined;
+  the README says that /= is not-equal, that a command-line assignment
+  drops the other assignments of NAME, and that make's "No rule to make
+  target 'vec.o'" holds without a prerequisite line for vec.o, where the
+  .d-style line vec.o: vec.h makes make -rn plan the ar line and the
+  build fail at ar (GNU make 4.3 again, env -i).  Not applied: the
+  toolchain step stays as adapted (CC = "gcc" ? "clang" is the recipe
+  lint, then CC=clang on the command line); a set of plans from ? would
+  need one variable table per value, and the introspection cannot tell ?
+  from a variable defined twice, which the decided lint refuses; the
+  owner decides the form, and the 15 lines of that lint stay until then.
+  expected.out is unchanged: the toy's recipes print nothing on success
+  (cc -Wall on every flag set of the run, checked by hand), and ./run
+  matched it on both backends (8.9 s cxx, 24.8 s py, the other lane on
+  the machine).  tests/unit_examples.py: 21 OK on cxx (30 s) and on py
+  (153 s); run_tests --changed --backend both: 2 of 2 ok.
+- Left.  GitHub still lists #98 as open though the fix is on py314.  The
+  front end warns on the makefile (overlapping rules of rule and depends,
+  no type signatures, a nullary with two equations in Makefile_twice) and
+  Sprite's import is quiet, so a reader never sees the warnings; the
+  set-function lints say what fires.  A command-line assignment replaces
+  one line, so an assignment that spans lines in a makefile would leave
+  its continuation behind.  The override cache under
+  project/.curry/overrides grows by one directory per distinct
+  substituted text and is never pruned.

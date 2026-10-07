@@ -1,33 +1,29 @@
 '''
 A driver for a makefile written in Curry.
 
-The makefile is a Curry module beside the sources of a project.  It defines
-rule, a function from a target to its rule, and goal, the default goal; the
-library Make.curry beside this script asks the questions of make over that
-function.  A makefile may define makefiles instead of rule, a list of named
-makefiles, as a toolchain matrix does.  This driver owns the world: it scans
-the includes of the sources, reads the stamps of the files, runs the commands
-in a thread pool, and prints the plan, the waves and a status table.  Nothing
-here names a file of the project.  The include scan is the one piece of
-knowledge of the language: the driver is generic for a C project.
+The makefile is a Curry module beside the sources of a project.  Its
+variables are definitions with the uppercase names of make, CC = "cc".  The
+relation rule gives a target its inputs and its recipe, one equation per
+rule of make.  The relation depends gives a file a header it includes, one
+equation per edge.  The definition goal names the default goal.  The library
+Make.curry beside this script answers the questions of make over the two
+relations.  This driver owns the world: it substitutes the assignments of
+its command line into the makefile, reads the variables and the stamps of
+the files, runs the recipes, and prints the plan.  Nothing here names a file
+of the project or a language.
 
 Usage: python make.py [-f FILE] [-C DIR] [-j N] [-n] [--touch FILE]
-                      [--affected FILE] [--trace] [GOAL]
-       python make.py [-f FILE] [-C DIR] [-j N] --serve PORT
+                      [--affected FILE] [--trace] [GOAL] [NAME=value ...]
 '''
 import argparse
 import concurrent.futures
-import html
-import http.server
-import json
+import hashlib
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import time
-import urllib.parse
 import curry
 
 # Find Make.curry, the library, next to this script, whatever the working
@@ -36,12 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 curry.path.insert(0, HERE)
 from curry.lib import Make
 
-# The include scan: the quoted includes of a C file.  Make reads the same
-# list from the .d files of the compiler.
-INCLUDE = re.compile(r'^\s*#\s*include\s*"([^"]+)"', re.MULTILINE)
-SCANNED = ('.c', '.h')
-
-JOBS = 4  # the default width of the thread pool; make's default is 1
+STRING = ('String', '[Char]')  # the type String, as curry.typeof prints it
 
 def stop(message):
   '''Prints an error and exits with the status 2 of make.'''
@@ -57,17 +48,31 @@ def answers(goal, *args):
   '''Every value of a goal, sorted.  Curry promises no order.'''
   return sorted(curry.eval(goal, *args, converter='topython'))
 
-def rules(goal, *args):
-  '''The value of a goal whose value is a list of rules, as a list of
-  (target, inputs, command) tuples, or None.  Make.rows turns the rules into
-  tuples, which the converter knows.'''
-  return ask(Make.rows, curry.expr(goal, *args))
+def literal(value):
+  '''A Python string as a Curry string literal.'''
+  return '"%s"' % value.replace('\\', '\\\\').replace('"', '\\"')
 
-def load_makefile(path):
+def override(text, name, value):
+  '''The text of a makefile with the assignment of NAME replaced by
+  NAME = "value", as make replaces a variable of the file with one from its
+  command line.  A line that starts with NAME and = is the assignment.  The
+  first is replaced and any other is dropped.  A file without one gets the
+  line at its end.'''
+  line = '%s = %s' % (name, literal(value))
+  pattern = re.compile(r'^%s[ \t]*=' % re.escape(name))
+  lines = text.split('\n')
+  found = [i for i, text_line in enumerate(lines) if pattern.match(text_line)]
+  if not found:
+    return text.rstrip('\n') + '\n' + line + '\n'
+  lines[found[0]] = line
+  return '\n'.join(l for i, l in enumerate(lines) if i not in found[1:])
+
+def load_makefile(path, overrides):
   '''Imports the makefile as a Curry module.  Its directory goes on the Curry
-  path first, so the module finds the modules beside it.  A link to a
-  makefile is read at its target, so the compiled form lives beside the
-  original.'''
+  path first, so the module finds the modules beside it.  With overrides,
+  the substituted text goes to .curry/overrides/HASH beside the makefile,
+  and the module is imported from there; a second run with the same
+  overrides finds the compiled products of the first.'''
   if not os.path.isfile(path):
     stop('no makefile %s' % path)
   directory, filename = os.path.split(os.path.realpath(path))
@@ -75,37 +80,50 @@ def load_makefile(path):
   if suffix != '.curry':
     stop('%s: a makefile is a .curry file' % path)
   curry.path.insert(0, directory)
+  if overrides:
+    with open(path, encoding='utf-8') as stream:
+      text = stream.read()
+    for name, value in overrides.items():
+      text = override(text, name, value)
+    digest = hashlib.sha1(text.encode('utf-8')).hexdigest()[:16]
+    cache = os.path.join(directory, '.curry', 'overrides', digest)
+    copy = os.path.join(cache, filename)
+    if not os.path.exists(copy):
+      os.makedirs(cache, exist_ok=True)
+      with open(copy + '.%d' % os.getpid(), 'w', encoding='utf-8') as stream:
+        stream.write(text)
+      os.replace(copy + '.%d' % os.getpid(), copy)
+    curry.path.insert(0, cache)
   return curry.import_(stem)
 
-def makefiles(module):
-  '''The makefiles of the module as (name, rule function) pairs: rule alone,
-  with the empty name, or the entries of makefiles.'''
-  if hasattr(module, 'makefiles'):
-    return ask(module.makefiles)
-  if hasattr(module, 'rule'):
-    return [('', module.rule)]
-  stop('the makefile defines neither rule nor makefiles')
+def variables(module):
+  '''The table of the variables of a makefile: every definition whose name
+  starts with an uppercase letter and whose type is String, with each of
+  its values.  A definition with two values gives two rows.'''
+  table = []
+  for name in sorted(dir(module)):
+    if not name[:1].isupper():
+      continue
+    symbol = getattr(module, name)
+    try:
+      if curry.typeof(symbol) not in STRING:
+        continue
+    except Exception:
+      continue
+    values = curry.eval(symbol, converter='topython')
+    table.extend((name, value) for value in values)
+  return table
 
 class World:
   '''The files of the project in one directory, and what Python knows about
-  them: their includes and their stamps.  Curry sees the stamps as a table
-  and never touches a file.'''
+  them: their stamps.  Curry sees the stamps as a table and never touches a
+  file.'''
 
   def __init__(self, root):
     self.root = root
 
   def path(self, name):
     return os.path.join(self.root, name)
-
-  def includes(self):
-    '''(file, headers) for each C source and header of the directory, by
-    the regular expression: the automatic dependencies of make.'''
-    table = []
-    for name in sorted(os.listdir(self.root)):
-      if name.endswith(SCANNED):
-        with open(self.path(name), encoding='utf-8', errors='replace') as stream:
-          table.append((name, INCLUDE.findall(stream.read())))
-    return table
 
   def stamps(self, names):
     '''The stamps of the files that exist: the modification time in
@@ -132,58 +150,19 @@ class World:
         return
       time.sleep(0.01)
 
-def programs(plan):
-  '''The programs the commands of a plan run: the first word of each.'''
-  return sorted(set(shlex.split(command)[0] for target, inputs, command in plan))
-
-def missing(plan):
-  '''The programs of a plan that are not on the PATH.'''
-  return [p for p in programs(plan) if not shutil.which(p)]
-
-class Runner:
-  '''Runs the commands in the project directory, each as one process without
-  a shell, split into words as a shell would split them.  When a program of
-  the plan is not on the PATH, every command runs as a stand-in that writes a
-  placeholder file in place of the target, so the example runs on a machine
-  without a compiler.  The output is the same.'''
-
-  def __init__(self, world, plan):
-    self.world = world
-    absent = missing(plan)
-    self.real = not absent
-    if absent:
-      print('note: %s not on the PATH; the commands write placeholder files'
-            % ', '.join(absent), file=sys.stderr)
-
-  def run(self, target, inputs, command):
-    '''Runs one command and returns its status.'''
-    if not self.real:
-      with open(self.world.path(target), 'w') as stream:
-        stream.write(
-            'placeholder for %s from %s\n' % (target, ' '.join(inputs))
-          )
-      return 0
-    proc = subprocess.run(
-        shlex.split(command), cwd=self.world.root, capture_output=True, text=True
-      )
-    if proc.returncode:
-      sys.stderr.write(proc.stderr)
-    return proc.returncode
-
 class Build:
-  '''One build: a makefile read from the goal down, with the automatic
-  dependencies, in one Curry value that every question shares.  Curry answers
-  the questions; the build loop runs the commands.'''
+  '''One build: a makefile read from the goal down into one Curry value that
+  every question shares.  Curry answers the questions; the build loop runs
+  the recipes.'''
 
-  def __init__(self, name, rule, world, goal, jobs, trace):
-    self.name = name
+  def __init__(self, module, table, world, goal, jobs, trace):
     self.world = world
-    self.goal = goal
     self.jobs = jobs
     self.trace = trace
-    self.build = curry.expr(Make.build, rule, world.includes(), goal)
+    depends = getattr(module, 'depends', Make.noDepends)
+    self.build = curry.expr(Make.build, module.rule, depends, table, goal)
     # The names of the build: the goal, what it reads, and so on.  The
-    # targets are the names with a command; the rest are sources.
+    # targets are the names with a recipe; the rest are sources.
     self.names = ask(Make.names, self.build)
     self.targets = ask(Make.targets, self.build)
 
@@ -195,17 +174,26 @@ class Build:
   def ambiguous(self):
     '''The targets that two rules claim, each with its rules.'''
     groups = {}
-    for rule in rules(Make.ambiguous, self.build):
-      groups.setdefault(rule[0], []).append(rule)
+    for row in ask(Make.ambiguous, self.build):
+      groups.setdefault(row[0], []).append(row)
     return groups
 
   def missing(self):
     '''The sources that do not exist, each with the targets that read it.'''
     return ask(Make.missing, self.build, self.table())
 
+  def recipes(self, target):
+    '''Every value of the recipe of a target.'''
+    return ask(Make.recipes, self.build, target)
+
+  def undefined(self, target):
+    '''The variables of the recipe of a target that the makefile does not
+    define.'''
+    return ask(Make.undefined, self.build, target)
+
   def plan(self):
     '''The plan, or None on a cycle in the rules.'''
-    return rules(Make.plan, self.build, self.table())
+    return ask(Make.plan, self.build, self.table())
 
   def waves(self):
     return ask(Make.waves, self.build, self.table())
@@ -213,26 +201,20 @@ class Build:
   def ready(self, omit):
     return ask(Make.ready, self.build, self.table(omit))
 
-  def stale(self, target, omit=()):
-    return ask(Make.stale, self.build, self.table(omit), target)
-
-  def inputs(self, target):
-    return ask(Make.inputs, self.build, target)
-
   def affected(self, name):
     return answers(Make.affected, self.build, name)
 
-  def run(self, plan):
+  def run(self, plan, env, out):
     '''Builds what is stale.  Curry names the targets that can run now; the
-    thread pool runs their commands; after each completion the loop asks
+    thread pool runs their recipes; after each completion the loop asks
     again.  Python holds no dependency and no order.  The table it hands to
-    Curry omits the targets whose commands run or failed: a compiler creates
+    Curry omits the targets whose recipes run or failed: a compiler creates
     its output before it finishes, and a target that is missing to Curry is
-    stale, so its dependents are not ready.  Returns the targets whose
-    command ran, in the order of completion, and the targets whose command
+    stale, so its dependents are not ready.  Each recipe is printed when it
+    starts, as make prints it, and its output follows when it completes.
+    Returns the targets whose recipe ran and the targets whose recipe
     failed.'''
-    recipes = {target: (inputs, command) for target, inputs, command in plan}
-    runner = Runner(self.world, plan)
+    recipes = {target: recipe for target, needs, recipe in plan}
     built, failed, running = [], [], {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=self.jobs) as pool:
       while True:
@@ -241,62 +223,82 @@ class Build:
         for target in ready:
           if target in running or target in built or target in failed:
             continue
-          inputs, command = recipes[target]
-          running[target] = pool.submit(runner.run, target, inputs, command)
+          out(recipes[target])
+          running[target] = pool.submit(self.execute, recipes[target], env)
         if not running:
           break
         done, _ = concurrent.futures.wait(
             running.values(), return_when=concurrent.futures.FIRST_COMPLETED
           )
         for target in [t for t, future in running.items() if future in done]:
-          status = running.pop(target).result()
+          status, stdout, stderr = running.pop(target).result()
+          sys.stdout.write(stdout)
+          sys.stdout.flush()
+          sys.stderr.write(stderr)
+          sys.stderr.flush()
           self.trace('done: %s (status %d)' % (target, status))
           (built if status == 0 else failed).append(target)
     return built, failed
 
-  def status(self, built, failed):
-    '''One line per target: built, failed, up to date, or stale.'''
-    rows = []
-    for target in self.targets:
-      if target in built:
-        state = 'built'
-      elif target in failed:
-        state = 'failed'
-      elif self.stale(target, omit=failed):
-        state = 'stale'
-      else:
-        state = 'up to date'
-      rows.append((target, state))
-    return rows
+  def execute(self, recipe, env):
+    '''Runs one recipe in the project directory, as one process without a
+    shell, split into words as a shell would split them, with the variables
+    of the makefile in its environment.  Its output is captured, so that
+    the recipes of one wave do not interleave, and the loop prints it when
+    the recipe completes.  Returns the status, the standard output and the
+    standard error.  A program that cannot start is the status 127 of the
+    shell, with the error of the system as the standard error.'''
+    words = shlex.split(recipe)
+    try:
+      proc = subprocess.run(
+          words, cwd=self.world.root, env=env, capture_output=True, text=True
+        )
+    except OSError as error:
+      return 127, '', '%s: %s\n' % (words[0], error.strerror)
+    return proc.returncode, proc.stdout, proc.stderr
 
-def show_rules(rules, out):
-  '''Prints rules as rows: the target, its inputs, and its command.'''
-  rows = [(target, ' '.join(inputs), command) for target, inputs, command in rules]
+def show_rows(rows, out):
+  '''Prints rules as rows: the target, what it reads, and its recipe.'''
+  rows = [(target, ' '.join(needs), recipe) for target, needs, recipe in rows]
   widths = [max([len(row[i]) for row in rows], default=0) for i in range(2)]
-  for target, inputs, command in rows:
-    out('  %-*s <- %-*s  %s' % (widths[0], target, widths[1], inputs, command))
+  for target, needs, recipe in rows:
+    out('  %-*s <- %-*s  %s' % (widths[0], target, widths[1], needs, recipe))
 
-def show_status(build, built, failed, out):
-  out('status:')
-  width = max(len(target) for target in build.targets)
-  for target, state in build.status(built, failed):
-    out('  %-*s  %s' % (width, target, state))
-
-def show_plan(build, out):
-  '''Lints, then prints the plan and the waves.  Returns the plan, or None
-  when the build must not start: a target that two rules claim, a source
-  that is missing, or a cycle in the rules, which leaves the plan without a
-  value.'''
+def lint(build, out):
+  '''Prints what stops a build before its plan: a target that two rules
+  claim, a source that is missing, and a target whose recipe has two values
+  or none.  Returns True when the build may start.'''
   groups = build.ambiguous()
   for target, claims in sorted(groups.items()):
     out('ambiguous: %s has %d rules' % (target, len(claims)))
-    show_rules(claims, out)
+    show_rows(claims, out)
   lost = build.missing()
   for source, needed in lost:
     out('no rule to make %s, needed by %s' % (source, ' '.join(needed)))
-  if groups or lost:
-    out('refused: the build does not start')
-    return None
+  faulty = []
+  for target in build.targets:
+    if target in groups:
+      continue
+    recipes = build.recipes(target)
+    if len(recipes) == 1:
+      continue
+    faulty.append(target)
+    if recipes:
+      out('%s has %d recipes' % (target, len(recipes)))
+      for recipe in recipes:
+        out('  ' + recipe)
+    else:
+      names = ['$(%s)' % name for name in build.undefined(target)]
+      if names:
+        out('no recipe for %s: %s %s undefined' % (
+            target, ' '.join(names), 'is' if len(names) == 1 else 'are'))
+      else:
+        out('no recipe for %s' % target)
+  return not (groups or lost or faulty)
+
+def show_plan(build, out):
+  '''Prints the plan and the waves.  Returns the plan, or None when the
+  rules have a cycle, which leaves the plan without a value.'''
   plan = build.plan()
   if plan is None:
     out('plan: no value (the rules have a cycle)')
@@ -304,115 +306,29 @@ def show_plan(build, out):
     out('plan: nothing to do')
   else:
     out('plan: %d target%s' % (len(plan), '' if len(plan) == 1 else 's'))
-    show_rules(plan, out)
+    show_rows(plan, out)
     out('waves: ' + ' '.join('[%s]' % ' '.join(w) for w in build.waves()))
   return plan
 
-def make(builds, dry_run, out):
-  '''Prints the plan of every makefile, builds with one of them, and prints
-  what was built and the status.  With several makefiles the build takes the
-  first whose programs are on the PATH, or the first.  Returns the exit
-  status: 2 when a build does not start, a command fails, or a target of the
-  plan stays stale, as make does.'''
-  plans = []
-  for build in builds:
-    if build.name:
-      out('makefile %s:' % build.name)
-    plans.append(show_plan(build, out))
-  usable = [(b, p) for b, p in zip(builds, plans) if p is not None]
-  if len(usable) < len(builds):
+def make(build, dry_run, env, out):
+  '''Lints, plans, and builds.  Returns the exit status: 2 when the build
+  does not start, a recipe fails, or a target of the plan stays stale, as
+  make does.'''
+  if not lint(build, out):
+    out('refused: the build does not start')
     return 2
-  if dry_run:
+  plan = show_plan(build, out)
+  if plan is None:
+    return 2
+  if dry_run or not plan:
     return 0
-  build, plan = next(
-      ((b, p) for b, p in usable if not missing(p)), usable[0]
-    )
-  if build.name:
-    out('build with %s' % build.name)
-  built, failed = build.run(plan) if plan else ([], [])
-  if built:
-    # The pool returns the targets in the order of completion; sort them.
-    out('built: ' + ' '.join(sorted(built)))
+  built, failed = build.run(plan, env, out)
   if failed:
     out('failed: ' + ' '.join(sorted(failed)))
-  show_status(build, built, failed, out)
   # A target of the plan that never ran is one whose inputs never came up
-  # to date: a command that wrote no output leaves its dependents stale.
-  left = [t for t, inputs, command in plan if t not in built + failed]
+  # to date: a recipe that wrote no output leaves its dependents stale.
+  left = [t for t, needs, recipe in plan if t not in built + failed]
   return 2 if failed or left else 0
-
-PAGE = '''<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>make</title></head>
-<body>
-<h1>make</h1>
-<form method="get">
-  <button name="build" value="1">build</button>
-  touch <select name="touch"><option value=""></option>%(options)s</select>
-  <button>touch</button>
-  <a href="/status.json">status.json</a>
-</form>
-<pre>%(report)s</pre>
-</body></html>
-'''
-
-def status_json(build):
-  '''The state of a build as JSON: the targets with their inputs and
-  staleness, the plan, and the ready set.'''
-  return {
-      'targets': [
-          { 'name': target
-          , 'inputs': build.inputs(target)
-          , 'stale': build.stale(target)
-          }
-          for target in build.targets
-        ]
-    , 'plan': build.plan()
-    , 'ready': build.ready(omit=())
-    }
-
-def serve(port, new_builds):
-  '''Serves a status page on the local host.  A request can touch a file or
-  build; /status.json gives the state of the first makefile as JSON.
-  new_builds() reads the makefiles against the current directory.'''
-  class Handler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-      url = urllib.parse.urlparse(self.path)
-      query = urllib.parse.parse_qs(url.query)
-      builds = new_builds()
-      first = builds[0]
-      if url.path == '/status.json':
-        self.reply(json.dumps(status_json(first), indent=1), 'application/json')
-        return
-      lines = []
-      touched = query.get('touch', [''])[0]
-      if touched in first.names:
-        first.world.touch(touched, first.names)
-        lines.append('touched %s' % touched)
-        lines.append('affected: ' + ' '.join(first.affected(touched)))
-      if query.get('build'):
-        make(builds, False, lines.append)
-      if not lines:
-        show_status(first, [], [], lines.append)
-      options = ''.join('<option>%s</option>' % name for name in first.names)
-      page = PAGE % dict(options=options, report=html.escape('\n'.join(lines)))
-      self.reply(page, 'text/html; charset=utf-8')
-
-    def reply(self, text, content_type):
-      data = text.encode('utf-8')
-      self.send_response(200)
-      self.send_header('Content-Type', content_type)
-      self.send_header('Content-Length', str(len(data)))
-      self.end_headers()
-      self.wfile.write(data)
-
-  server = http.server.HTTPServer(('127.0.0.1', port), Handler)
-  print('serving on http://127.0.0.1:%d/  (press Ctrl-C to stop)'
-        % server.server_port)
-  sys.stdout.flush()
-  try:
-    server.serve_forever()
-  except KeyboardInterrupt:
-    pass
 
 def main(argv=None):
   parser = argparse.ArgumentParser(
@@ -427,8 +343,8 @@ def main(argv=None):
     , help='the project directory (default: the working directory)'
     )
   parser.add_argument(
-      '-j', '--jobs', type=int, default=JOBS, metavar='N'
-    , help='the width of the thread pool (default: %(default)s)'
+      '-j', '--jobs', type=int, default=1, metavar='N'
+    , help='the number of recipes that run at once (default: %(default)s)'
     )
   parser.add_argument(
       '-n', '--dry-run', action='store_true'
@@ -448,47 +364,46 @@ def main(argv=None):
     , help='print each ready set and each completion to stderr'
     )
   parser.add_argument(
-      '--serve', type=int, metavar='PORT'
-    , help='serve a status page on this port of the local host'
-    )
-  parser.add_argument(
-      'goal', nargs='?'
-    , help='the target to build (default: goal of the makefile)'
+      'words', nargs='*', metavar='GOAL|NAME=value'
+    , help='the target to build (default: goal of the makefile), and '
+           'assignments that replace those of the makefile'
     )
   args = parser.parse_args(argv)
   if args.trace:
     trace = lambda line: print(line, file=sys.stderr, flush=True)
   else:
     trace = lambda line: None
+  out = lambda line: print(line, flush=True)
+  goals = [word for word in args.words if '=' not in word]
+  overrides = dict(word.split('=', 1) for word in args.words if '=' in word)
+  if len(goals) > 1:
+    stop('one goal at a time: %s' % ' '.join(goals))
   world = World(os.path.abspath(args.directory))
-  module = load_makefile(os.path.join(world.root, args.file))
-  goal = args.goal
-  if goal is None:
-    if not hasattr(module, 'goal'):
-      stop('no goal: pass GOAL or define goal in the makefile')
+  module = load_makefile(os.path.join(world.root, args.file), overrides)
+  if not hasattr(module, 'rule'):
+    stop('the makefile defines no rule')
+  table = variables(module)
+  if goals:
+    goal = goals[0]
+  elif hasattr(module, 'goal'):
     goal = ask(module.goal)
-  new_builds = lambda: [
-      Build(name, rule, world, goal, args.jobs, trace)
-          for name, rule in makefiles(module)
-    ]
-  if args.serve is not None:
-    serve(args.serve, new_builds)
-    return 0
-  builds = new_builds()
-  first = builds[0]
-  if goal not in first.targets:
+  else:
+    stop('no goal: pass GOAL or define goal in the makefile')
+  build = Build(module, table, world, goal, args.jobs, trace)
+  if goal not in build.targets:
     if os.path.exists(world.path(goal)):
-      print('%s is up to date' % goal)
+      out('%s is up to date' % goal)
       return 0
     stop('no rule to make %s' % goal)
-  out = lambda line: print(line, flush=True)
   if args.touch:
     if not os.path.exists(world.path(args.touch)):
       stop('no file %s' % args.touch)
-    world.touch(args.touch, first.names)
+    world.touch(args.touch, build.names)
   if args.affected:
-    out('affected: ' + ' '.join(first.affected(args.affected)))
-  return make(builds, args.dry_run, out)
+    out('affected: ' + (' '.join(build.affected(args.affected)) or '(none)'))
+  env = dict(os.environ)
+  env.update(table)
+  return make(build, args.dry_run, env, out)
 
 if __name__ == '__main__':
   sys.exit(main())

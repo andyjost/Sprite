@@ -20,38 +20,55 @@ copy() {
   ln -s "$here"/project/*.curry "$work/$1"
 }
 
-# Runs make.py in a copy and reports a non-zero exit status.
+# Runs make.py in a copy, prints its command line first, and reports a
+# non-zero exit status.
 make_py() {
   echo "% python make.py $*"
   "$SPRITE_HOME/bin/python" "$here/make.py" "$@" || echo "exit status $?"
 }
 
+# Runs the program of a copy, and prints its command line first.
+demo() {
+  echo "% $1/demo"
+  "$work/$1/demo"
+}
+
 copy project
+copy plot
 copy fresh
 copy incomplete
 rm "$work/incomplete/vec.c"
 cd "$work"
 
-echo '1. the full build'
+echo '1. the build from scratch'
+make_py -C project
+demo project
+echo
+echo '2. build again: nothing to do'
 make_py -C project
 echo
-echo '2. build again'
-make_py -C project
-echo
-echo '3. touch shape.h: the inverse query predicts the rebuild'
+echo '3. touch shape.h: the inverse query, then the rebuild'
 make_py -C project --touch shape.h --affected shape.h
 echo
-echo '4. a second rule for main.o: the lint'
+echo '4. DEBUG=1: the command line replaces the assignment, and the recipes change'
+make_py -C fresh DEBUG=1 -n
+echo
+echo '5. WITH_PLOT=1: plot.o joins the library, the define, one line more'
+make_py -C plot WITH_PLOT=1
+demo plot
+echo
+echo '6. a second rule with a recipe for main.o: the ambiguity lint'
 make_py -C project -f Makefile_ambiguous.curry
 echo
-echo '5. the compiler left open, in a fresh copy: one plan per compiler'
-make_py -C fresh -f Makefile_toolchain.curry -n
+echo '7. CFLAGS defined twice: two values, two recipes, the recipe lint'
+make_py -C project -f Makefile_twice.curry
 echo
-echo '6. the compiler as a choice inside the rules: every use picks on its own'
-make_py -C fresh -f Makefile_choice.curry -n
+echo '8. the compiler as a choice, CC = "gcc" ? "clang": two answers, and the command line decides'
+make_py -C project -f Makefile_toolchain.curry -n
+make_py -C fresh -f Makefile_toolchain.curry CC=clang -n
 echo
-echo '7. a rule that closes a cycle: the plan has no value'
+echo '9. a rule that closes a cycle: the plan has no value'
 make_py -C fresh -f Makefile_cycle.curry -n
 echo
-echo '8. a source that is missing: no rule to make it'
+echo '10. a source that is missing: no rule to make it'
 make_py -C incomplete
