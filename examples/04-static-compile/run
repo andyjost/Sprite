@@ -8,6 +8,11 @@ export SPRITE_HOME
 export SPRITE_INTERPRETER_FLAGS=backend:py
 export LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
 unset CURRYPATH
+# The rules of aux in wildcard_matching overlap by design: the choice is the
+# program.  The warning of the Curry front end on overlapping rules is
+# noise here, so the script turns it off unless the environment sets
+# the variable.
+export SPRITE_FRONTEND_WARNINGS="${SPRITE_FRONTEND_WARNINGS:-0}"
 echo '% python go.py'
 "$SPRITE_HOME/bin/python" go.py
 echo '% python wildcard_matching.py'

@@ -27,12 +27,14 @@ def makeOutputDir(file_out):
     if e.errno != errno.EEXIST:
       raise
 
-def pexec(cmd, cwd=None):
+def pexec(cmd, cwd=None, with_stderr=False):
   '''
   Invokes the given command and returns its stdout as a string.  ``cwd`` is
-  the working directory of the command.  A command that fails raises
-  CompileError; the exception carries the command, the exit status, and the
-  standard error text as ``command``, ``returncode``, and ``stderr``.
+  the working directory of the command.  With ``with_stderr`` the result is
+  the pair of the stdout and the stderr texts: the warnings of a tool that
+  succeeded.  A command that fails raises CompileError; the exception
+  carries the command, the exit status, and the standard error text as
+  ``command``, ``returncode``, and ``stderr``.
   '''
   child = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, cwd=cwd)
 
@@ -57,7 +59,7 @@ def pexec(cmd, cwd=None):
     err.returncode = retcode
     err.stderr = stderr
     raise err
-  return stdout
+  return (stdout, stderr) if with_stderr else stdout
 
 def pexec_message(cmd, stderr):
   '''The message of the CompileError raised for a failed command.'''

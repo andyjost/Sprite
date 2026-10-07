@@ -6020,3 +6020,391 @@
   thunk growth of Fib (above); the size of the record (a smaller encoding
   than the ICurry-JSON, or a record limited to what an importer can reach
   with a literal constructor).
+
+2026-10-07: a set function over a variable a functional pattern bound (#97),
+  and the measurement of #86 after it
+- Symptom (the issue, filed at 15:14 PDT on 2026-10-06 from the exploration
+  of example 24).  Module Probe2: g (s ++ ".c") = length s, inner x =
+  sortValues (set1 g x), direct (s ++ ".o") = length (inner (s ++ ".c")),
+  main4 = [direct "vec.o"]: std::bad_alloc after six seconds at the 2 GB
+  cap on the C++ backend, where the Python backend answers [1].  On this
+  branch (d54c092b) the module answers on both backends: main3 and main4
+  give [1] in 0.3 s (297 and 285 steps, 29 forks), in step mode and in
+  time mode, under interpret:new and interpret:all, and with inline_budget
+  0.  The fix of #98 (321111e7, merged an hour after the issue was filed)
+  changed the path a Char bound outside the capsule takes inside it, and
+  hid the symptom for this module.  The two defects behind it stayed, and
+  other shapes reach them on this branch.
+- Cause one: the capsule does not see the bindings of the enclosing
+  configuration.  A binding is private to the configuration that made it
+  (Configuration::bindings).  The capsule of a set function is a nested
+  configuration with an empty map, and get_binding read that map alone,
+  where the decisions of the enclosing configurations are read through the
+  queue stack (read_fp, walk_qstack), and where the comments of evalS_step
+  and holds_private_state describe the values of the nested evaluation as
+  depending on the bindings of the configuration that runs it.  So a
+  variable of the
+  argument that the enclosing configuration bound looked unbound inside
+  the capsule.  Against a literal, a Char or an Int was bound anew, to the
+  literal, and the comparison held whatever the outer value: with endsInC
+  (t ++ "c") = length t and outerChar (s ++ ".o") = sortValues (set1
+  endsInC s), outerChar "cx.o" gave [1] on both backends (PAKCS 3.4.1 on
+  the plain goal: no value).  Against a constructor, a list was narrowed:
+  instantiate put a generator on the shared variable node, the choice
+  escaped (its id joined the escape set through the guard), and the
+  enclosing configuration, which never decided it, forked on it.
+- Cause two: fork applies a binding without end.  A choice with the id of a
+  variable is the generator of that variable, and fork applies the binding
+  of the variable to each alternative, (generator =:<= binding) &> e
+  (apply_binding), so that the side agrees with the binding.  The
+  constraint pull-tabs the same generator node to the root, the
+  configuration forks on it again, update_fp finds its side already in the
+  fingerprint and says yes, apply_binding wraps the root again, and so on:
+  one configuration clone, two pull-tabs and the wrap per round, no step
+  ever completes the alternative.  The docstring of the Python step says
+  "Pop a binding ... That binding will be removed from the table"; neither
+  implementation removed it.  The Python step named the symbol
+  rts.prelude.nonstrictEq, which the Prelude handle does not expose (the
+  function is private), so it raised AttributeError whenever it ran: the
+  Python backend never applied a binding at a fork.  Before #98 the
+  unguided narrowing of a bound Char inside the capsule made such a
+  generator (the garbage Char of the #98 entry), which is the route the
+  module of the issue took to the loop (read from the code of e52ece9d,
+  not run).
+- Measured on this branch before the fix, sprite-exec --stats, step mode,
+  prlimit 2 GB, timeout 120.  endsIn0 (ys ++ [0]) = length ys and
+  outerList (id xs) = sortValues (set1 endsIn0 xs): outerList [1, 2, 0]
+  std::bad_alloc after 4.8 s at 1.86 GB, 20734141 steps, 6911375 forks, 3
+  collections; outerTail (id (x : xs)) = sortValues (set1 endsIn0 xs) on
+  the same list: 7.9 s, 1.95 GB, 30086332 steps, 10028771 forks; outerInt
+  (id (x : xs)) = sortValues (set1 endsIn5 (x : xs)) with endsIn5 (ys ++
+  [5]) = length ys, on [3, 5] and on [5, 3]: the same counts as outerTail.
+  Without a set function, sibling = (x =:<= [1, 2] &> (length x ? 7)) ?
+  len0 x where x free (len0 by two rules): the C++ backend prints 7, 1, 0
+  and dies on the alternative that reads x (20734140 steps, 6911380
+  forks); the Python backend raises on every one of these goals ("module
+  'Prelude' has no attribute 'nonstrictEq'").  outerChar "cx.o": [1] on
+  both backends.
+- The fix, on both backends.  (1) get_binding reads through the queue
+  stack as read_fp does: the map of the configuration, then the map of the
+  front configuration of each enclosing queue, under the group id of the
+  variable in that configuration (RuntimeState::get_binding in
+  rts_freevars.cpp; get_binding and has_binding of rts_bindings.py through
+  _find_binding).  is_void and holds_private_state read through it, so a
+  nested configuration that waits on a variable the outside bound is
+  ready, and a capsule whose goal holds such a variable is private.  The
+  writers (add_binding, apply_binding, update_binding) use the map of the
+  configuration alone.  (2) apply_binding consumes the binding it applies
+  (write(C->bindings).erase; del config.bindings.write[gid]): the
+  constraint carries it into the variables of the generator, and a
+  configuration that forks on the generator again applies nothing.  The
+  Python step names the symbol through rts.symbol('Prelude.nonstrictEq').
+  After the fix every goal above gives the value of the oracle on both
+  backends in about 0.2 s: outerList [2] (84 steps, 7 forks), outerTail
+  [1], outerInt [1] and [], sibling 0, 1, 2, 7, outerChar "cx.o" [] and
+  "xc.o" [1]; the module of the issue [3], [4], [1], [1] (main3 270 steps
+  and 24 forks on the C++ backend, 297 and 29 before: the capsule reads
+  the bindings of the stem instead of binding its characters anew).
+- Tests: tests/unit_setfunctions_bindings.py over
+  tests/data/curry/SetFunctionsBindings.curry, five tests on both
+  backends, the children under prlimit 1 GB and timeout 120 (a regression
+  spins inside C++): the four goals of the issue, the bound Char with its
+  plain goals, the bound Int field and tail, the bound list in both forms,
+  and the sibling alternatives.  The expected values are those of PAKCS
+  3.4.1 on the plain goals (plainChar "cx.o" no value, "xc.o" 1; the list
+  goals 2 and 1; sibling 2, 7, 0, 1 through len0, since a case on the free
+  variable suspends in PAKCS, where a rule narrows).  Two tests more after
+  the review: test_private_capsule (the bound character read by a case
+  and by a comparison inside a private capsule, with the plain goals), and
+  test_shared_capsule, a known failure (unittest.expectedFailure) on both
+  backends, which asserts the values of the plain goals for the three
+  shared shapes of the item left below.
+- #86 after #97.  The shape of unit_funcpat_narrowed.py measured again with
+  curry.stats on both backends (one, many and distinct through source,
+  sourceS and sourceN): every count equal before and after the fix.  C++:
+  many 219524 steps and 1202 forks through source, 12102 and 8 through
+  sourceS, 177745 and 1202 through sourceN; distinct 9529/324, 1690/72,
+  10231/450; one 145, 138, 162 steps, 8 forks each.  Python: many 12867,
+  12882, 13468 steps with 1202, 8, 1202 forks; distinct 1333/324, 1504/72,
+  1594/450.  The cause of #97 was not a resolution the capsule performs
+  once; it was the read of the enclosing bindings and the loop at the
+  fork, both outside the restart per read of #86 (one configuration, its
+  own bindings, copy_spine from the root at every read).  So the check the
+  plan asked for does not apply, and nothing changed for #86: the idiom
+  and the pinned counters stay; the options of the entry of 2026-10-06
+  stand.
+- Left, the owner's item.  A capsule shared by enclosing configurations
+  that bind a variable of its argument differently after the capsule
+  started: the first configuration that runs the capsule puts its binding
+  into the private spine of the nested configuration (copy_spine and
+  E_RESTART, as for its own binding), the value goes into the shared
+  allValues node, and the other configuration reads a value made with the
+  first's binding.  Measured with the shapes of section 5 of the test
+  module, on both backends, on this build and on the build of d54c092b:
+  gCase c = 0 ? hCase c with hCase a case on c, gEq with a comparison
+  c == 'a', the capsule started by select while c is free, then (c =:<=
+  'a' ? c =:<= 'b') &> selectValue rest.  Before this change both shared
+  goals suspended ("Evaluation Suspended!"); after it both alternatives
+  give (0, 1), where the plain goals give (0, 1) and (0, 2) (PAKCS 3.4.1
+  agrees).  So for these shapes the change replaces a suspension by a
+  wrong value in the sharing configuration.  The functional-pattern shape
+  (gPat s = 0 ? endsInA s, s bound to "xa" or "xb" after the start) died
+  before the change, in the loop of cause two on the C++ backend and in
+  the AttributeError on the Python backend, and gives (0, 1) twice after
+  it, where the plain goal gives (0, 1) alone.  The private shapes (c
+  bound before the capsule starts) suspended before the change and give
+  the values of the plain goals after it.  The escape of #61 does not
+  cover the shared capsule: a binding has no choice node to escape.  Two
+  routes.  (a) The
+  pre-#98 route made sound: the capsule does not read an enclosing
+  binding of a data type; it narrows the variable, the generator choice
+  escapes, and the enclosing fork applies the binding once (the fixed
+  apply_binding); sound for a shared capsule, one split and one restart
+  per bound variable the capsule meets, and no route for a Char, an Int
+  or a Float, which have no generator (a ValueBinding is a constraint, not
+  a choice; a choice over it needs the machinery of get_generator and
+  constrain_equal).  (b) An ownership test for the capsule (private or
+  shared), which the runtime lacks (the entry of #61): a private capsule
+  reads the bindings as now, a shared one takes route (a).  The walk of
+  this entry is the rule of the dissertation's comments made true for the
+  private capsule, which holds_private_state makes of every capsule whose
+  argument holds a bound variable at creation; a clone made after the
+  creation shares the spine, so it holds the same capsule.
+- Verification.  The new file alone on both backends (5 tests, 2.8 s on
+  cxx, 1.5 s on py).  Through the runner (-j 2 --mem 4 --backend both,
+  with --prepare after the header change: 201 modules in 5 directories,
+  every product present): unit_setfunctions_bindings.py,
+  unit_setfunctions_bugs.py, unit_cxx_scheduler.py, func_setfunctions.py,
+  unit_funcpat_narrowed.py, unit_funpat_free_argument.py,
+  unit_cxx_freevars.py, unit_py_residuation.py, unit_cxx_interp.py,
+  unit_cxx_mps.py, func_funpat.py, unit_examples.py, unit_cxx_gc.py,
+  unit_cxx_counters.py, unit_cxx_variable.py, unit_cxx_passthrough.py,
+  unit_cxx_stack.py, unit_cxx_heap.py, unit_py_fairness.py,
+  unit_py_copy.py, unit_cxx_gc_counters.py, func_kiel.py,
+  unit_cxx_partial.py, unit_cxx_literals.py, unit_cxx_bom.py,
+  unit_cxx_rewrite.py and unit_inspect.py: 54 of 54 run, 0 failed, wall
+  286 s.  The pinned counters of unit_funcpat_narrowed.py and the steps of
+  unit_cxx_freevars.py did not move.  In the stress mode of the collector
+  on the C++ backend: unit_setfunctions_bindings.py 5 tests and
+  unit_setfunctions_bugs.py 22 tests (1 skipped) pass.  Not done:
+  tests/manifest.json has no entry for the new file (a calibration run on
+  a quiet machine adds it); the issue gets no comment from this stream.
+
+2026-10-07: the bug batch, #99 and #96, and the lint lines of example 24 (worktree wt/bugs)
+- #99, a FlatCurry file written again beside an up-to-date .icy.  The
+  writer, found with a probe of the front end (A imports B imports C, B
+  with a required equality): a run of the front end on a module compiles
+  an import again when the interface (.icurry) of the import is older
+  than the interface of one of its own imports, or than its source, or
+  when its files are missing; a touch of C.icurry alone does it, a touch
+  of C.fint does not.  The run writes the .fcy, .fint and .icurry of the
+  import in the text of the front end; the ICurry of the import is
+  current by the rule of the toolchain (its source did not change), so
+  nothing translates it again; and the route rewrote the file of the
+  named module alone.  The main tree shows the mechanism: the install's
+  Prelude.icurry was written by a make stage at 10:20 on 2026-10-06,
+  CxxInterp.fint and .icurry at 15:26 (a run of the front end on a module
+  that imports CxxInterp; unit_cxx_interp.py compiles one from text), the
+  .icy of 2026-10-05 untouched, and the hand rewrite of 16:28 changed the
+  .fcy alone.  So a make stage that writes the interfaces of the library
+  anew makes every module of a tree such an import at its next contact.
+  A second writer, outside the toolchain: the PAKCS oracle.  :load M runs
+  the front end, which compiles the stale modules of the chain, and :eval
+  runs it once more, for the goal, with --acy --flat (parseProgram and
+  writeAndParseExpression of c2p.pl), which compiles every module without
+  an .acy file again, after BindingOpt rewrote the modules it compiled to
+  Prolog: in the probe B.fcy was the text of the front end, without
+  constrEq, after :load A :eval main.  No .acy file is under tests/data
+  in this worktree or in the main tree, so the oracle wrote no pool
+  module there of late.
+  The fix.  _frontend.curry2flat takes the stamps (size, time) of the
+  .fcy files under .curry/<subdir>/ of every search directory but the
+  system library before the run (42 files in the pool, 22 in the library)
+  and rewrites every file that is new or changed after it: the module's
+  and those of the imports the run compiled again.  A file of an import
+  that cannot be read is reported through the log and left; the module's
+  own file raises as before.  rewrite=False gives the text of the front
+  end to the tests that need it (fresh_flatcurry of
+  unit_flat2icurry_bindingopt.py, two tests of unit_curry2icurry.py).
+  Both routes go through it; the icurry branch of the converter lost its
+  own call of optimize_flatcurry.  The on-disk check:
+  flat2icurry_oracle.check_file takes accept_unrewritten; a pair that
+  differs is tried once more with the pass over the program in memory,
+  and when the pass changes the program and the optimized program
+  translates to the .icy, the result is EQUAL with the mark unrewritten
+  and a detail.  test_products_on_disk of func_flat2icurry.py passes it,
+  names the PAKCS oracle in its docstring as the writer, and prints the
+  files that needed it (none in this worktree); the archive is checked
+  without it.  Tests: test_import_compiled_again_is_rewritten of
+  unit_curry2icurry.py (the A/B/C scenario through the route: the file of
+  B keeps constrEq and pairs with its .icy; with rewrite=False the pair
+  differs; flatcurry_dirs leaves the system library out), and
+  TestUnrewrittenFile of func_flat2icurry.py (the pair of a foreign
+  writer, made with the front end alone: DIFFERENT without the keyword,
+  EQUAL and marked with it, the file untouched, a real difference stays
+  one).  The two usability points: sprite-make --rewrite-flat implies
+  --icy and stands alone (the sentence of AGENTS.md holds now; the man
+  text and the help say so); run_tests --changed maps
+  tests/data/curry/M.curry to the test files whose text names M as a
+  word (selection.files_naming; NAMED in RULES), and to everything when
+  none does, with the note "no test file names the module M; selects
+  everything" (unit_runner.py tests both); on this tree the other lane's
+  SetFunctionsBindings.curry maps to unit_setfunctions_bindings.py alone.
+- #99, options not taken, for the owner.  (B) Translate an import the
+  run compiled again at once and write its .icy when the text differs:
+  closes the pre-pass pair too, but a step then writes the product of
+  another module, and under the icurry route the import would get a
+  product of the port.  (C) An .icy is stale when the .fcy beside it is
+  newer: the extraction of the archive (tar -m) gives a pair an arbitrary
+  order, and every archived module would be made again at first import.
+  (D) An .icy is stale when the .fcy beside it has constrEq and the .icy
+  has not: cheap and sound, remakes a pre-pass .icy after a hand rewrite
+  without --rewrite-flat; no pair seen needs it.  What changes for a
+  pre-pass .icy (the archive's, made by icurry from the text of the front
+  end): when the front end compiles such a module again as an import, its
+  .fcy gets the rewrite and the pair differs in test_products_on_disk
+  until sprite-make --rewrite-flat, where before the change the pair
+  agreed on the pre-pass program.  No module of the pool whose file the
+  pass changes is imported by another today (the pass changes 7 of the
+  1260 files under tests/data; CxxInterp's .icy is post-pass).  Also
+  left: src/python/tools/make.py is an unknown path to RULES and selects
+  everything.
+- #96, the warning on overlapping rules.  The front end prints its
+  warnings on stderr in blocks (file:line:col-line:col Warning:, the
+  text indented, a blank line between blocks); -W none -W overlapping
+  keeps the overlap warning alone (--no-overlap-warn did not silence it
+  in the probe, --no-warn does); _system.pexec dropped the stderr of a
+  run that succeeded, so no warning reached anyone whatever the flags.
+  PAKCS shows the warning by default (parseProgram of c2p.pl;
+  warnoverlapping=yes in pakcsrc.default).  The fix: pexec(with_stderr)
+  returns the pair; command() adds WARNING_FLAGS (--no-verb -W none -W
+  overlapping) unless the caller asked for quiet or
+  SPRITE_FRONTEND_WARNINGS says off (0, off, no, false; an empty value
+  counts as unset), else QUIET_FLAGS as before; curry2flat groups the
+  blocks by source file (warnings_by_file) and logs one record per module
+  at the WARNING level through the logger of _frontend ("the Curry front
+  end warns on module M (path):" and the text of the front end), which
+  the basicConfig of curry.config shows on stderr by default with its
+  time stamp.  A module compiled from its products or from the ICurry
+  cache runs no front end and warns no more; a run that compiles an
+  import again warns on it again.  The other warnings (non-exhaustive
+  patterns, missing signatures, unused bindings) stay quiet.  The suites:
+  cytest, the runner (cli.environment) and the benchmark harness
+  (Settings.environment) set SPRITE_FRONTEND_WARNINGS=0 unless the
+  environment sets it; the prepare pass runs sprite-make -q anyway; the
+  CI script needs no change, cytest covers every file.  Example 24:
+  make.py sets the variable to 0 before it imports curry, because the
+  rules of a makefile overlap by design, so ./run shows no warning and
+  expected.out does not change for #96; the other examples show the
+  warning on stderr on a cold run, which unit_examples.py does not
+  compare.  Tests: unit_frontend_warnings.py (the parser and the
+  grouping; curry.import_ warns once with the module name and not on the
+  non-exhaustive function, then from the products and from the cache not
+  at all; curry.compile once and a quiet process not at all; sprite-make
+  once on stderr, a second run, -q and the variable not at all; the
+  default of cytest in a child process); test_command of
+  unit_curry2icurry.py pins the flags.  A first version of the test
+  evaluated build 3 with build 0 = []; build n = n : build (n - 1), the
+  trap of #36: the second alternative of build 0 is infinite, the
+  conversion to Python never ended, and the file ran for nine minutes
+  under the 6 GB cap before it was stopped; the program has a guard now.
+- Example 24: the recipe lint prints one line per target (show_recipes
+  of make.py): the recipes after the count when the line fits in 79
+  columns, else the count alone, so steps 7 and 8 print four and five
+  lines where they printed twelve and fifteen; the ambiguity lint of step
+  6 (one target with its two rules) is unchanged.  expected.out was
+  regenerated from ./run on both backends (6.4 s on cxx, 17.1 s on py,
+  identical, one line of stderr each from time); the README quotes the
+  new lines.  The toolchain step (CC = "gcc" ? "clang" refused by the
+  recipe lint, then CC=clang on the command line) stays as the owner
+  decided.
+- The review findings, applied on 2026-10-07.  (1) The shared capsule of
+  the #97 entry: measured on both installs and corrected there; the test
+  file gets test_private_capsule and the known failure test_shared_capsule
+  (see that entry).  (2) The warning on overlapping rules in the examples.
+  A cold sprite-make --icy over a copy of every example directory, with
+  SPRITE_FRONTEND_WARNINGS=1 and without the ICurry cache, warns in seven
+  directories besides the makefiles of example 24: 04-static-compile (aux
+  of wildcard_matching), 05-blocks-in-flask (move of solver),
+  10-queens-set-functions (ndinsert of Queens), 12-cryptarithm (ndinsert
+  of Crypt), 14-parser-functional-patterns (expr of Parser),
+  19-blocks-world-app (move of Blocks) and cxx (insert of CxxLayout,
+  constReferee of CxxOverload, which examples 23 and 21 import).  The
+  decision, the one example 24 took: the rules overlap by design, the
+  choice is the program, so the run scripts of those eight examples
+  export SPRITE_FRONTEND_WARNINGS="${SPRITE_FRONTEND_WARNINGS:-0}" (an
+  empty value counts as unset) with a comment that names the function,
+  and the README of the examples, AGENTS.md and the page of the
+  environment variables say so; the variable set to 1 in the environment
+  shows the warnings again.  Checked with a cold run of the seven scripts
+  the test runs, in a copy of examples/ without products: status 0, an
+  empty standard error, the standard output equal to expected.out; the
+  same cold run of 10-queens with the variable 1 prints the one record.
+  The default of the variable and expected.out do not change.  (3) The
+  NAMED rule of --changed selected the files whose text names the module
+  alone, so a change to a module of the pool no longer selected
+  test_products_on_disk of func_flat2icurry.py, which pairs the products
+  of every module of the pool from a directory listing, nor a file that
+  reaches the module through an importing module.  Now the rule follows
+  the import lines of the pool (selection.pool_importers: import M,
+  import qualified M, import M (f), import M as N, through other modules
+  of the pool), selects the files that name the module or an importer,
+  and adds the files of POOL_CHECKS (func_flat2icurry.py) with their own
+  reason; a module that no file names, importers included, still selects
+  everything.  select_changed takes pooldir; unit_runner.py tests the
+  chain Deep imports PeanoUser imports Peano on a pool of its own, the
+  module without an importer, the importer nobody names, and the real
+  pair FunPatFreeArgSet imports FunPatFreeArg; section 10 of tests/README
+  says it.  On this tree SetFunctionsBindings.curry maps to
+  func_flat2icurry.py and unit_setfunctions_bindings.py.  (4) The inline
+  branch of show_recipes (the recipes after the count when the line fits
+  in 79 columns) appeared in no output and no test: the recipes of the
+  example are compiler command lines.  unit_examples.py gets
+  TestBuildSystemDriver.test_show_recipes, which compiles the function
+  from the source of make.py alone (function_of; the driver imports curry
+  and the library Make when it is imported) and checks both branches, the
+  inclusive width, and the two recipes of main.o of step 7 (94 columns).
+  The steps of the example stay as they are.  (5) The comment on the last
+  assertion of test_unrewritten_file_beside_rewritten_icurry described a
+  file the pass leaves as it is, where the assertion checks a corrupted
+  oracle (the pass changes Guard.fcy; the .icy with constrEq renamed does
+  not match).  The comment says so now, and TestUnrewrittenFile gets
+  test_pass_that_changes_nothing: a module without a required equality,
+  whose pass gives the program back (assertIs), beside an .icy with the
+  module name changed, is DIFFERENT with unrewritten False, with and
+  without accept_unrewritten; the branch "optimized is not prog" of
+  check_file is covered on both sides.
+- Verification, one file per process under prlimit --as 6 GB, the
+  commands of the task.  C++ backend: unit_curry2icurry.py 16 OK,
+  unit_flat2icurry_bindingopt.py 31 OK, unit_frontend_warnings.py 5 OK,
+  unit_runner.py 65 OK, unit_make.py 18 OK (1 skipped), unit_cache.py 28
+  OK, func_flat2icurry.py 7 OK (41 s; no pair needed the acceptance).
+  Python backend: func_flat2icurry.py 7 OK (29 s), unit_frontend_warnings.py
+  5 OK, unit_curry2icurry.py 16 OK, unit_flat2icurry_bindingopt.py 31 OK.
+  unit_examples.py: 21 OK on cxx (2 skipped, 35 s) and 21 OK on py (3
+  skipped, 137 s).  ./run_tests --changed --list maps the changed paths
+  as section 10 of tests/README says; tests/lib/cytest/__init__.py selects
+  everything.  The whole suite through the runner (-j 2 --mem 4 --backend
+  both --prepare, without unit_currylib.py, which removes products of
+  the shared install) was started and reached job 42 of 238 with every
+  file ok but func_goal_defaulting.py on cxx, whose PAKCS oracle could
+  not write under /tmp (read-only in the sandbox of the session; the
+  entry of #98 saw the same); the run was cut short by the end of the
+  session and must run again, func_goal_defaulting.py outside the
+  sandbox.
+- Left.  The full regression run.  After the findings were applied, the
+  edited files passed one at a time under prlimit --as 6 GB:
+  unit_setfunctions_bindings.py 7 tests OK with 1 expected failure on the
+  C++ backend (2.6 s) and on the Python backend (1.7 s); unit_runner.py
+  TestSelection 11 OK; unit_examples.py TestBuildSystemDriver 1 OK;
+  func_flat2icurry.py TestUnrewrittenFile 2 OK (C++ backend).  The whole
+  suite through the runner (-j 2 --mem 4 --backend both --prepare, every
+  unit and func file but unit_currylib.py) was started: the prepare pass
+  compiled 1239 modules in 12 directories on both backends with every
+  product present, and the first file (unit_cxx_toolchain.py on the C++
+  backend, 33 tests, 36.5 s) was ok when the session ended at job 25 of
+  238.  The run must be made again, with the func files that use the
+  PAKCS oracle outside the sandbox, the fast tier, and unit_currylib.py
+  alone.  tests/manifest.json has no entry for unit_frontend_warnings.py
+  and unit_setfunctions_bindings.py (a calibration run adds them).  The
+  issues get no comment from this stream.

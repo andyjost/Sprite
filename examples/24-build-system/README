@@ -361,11 +361,14 @@ has two values:
     7. CFLAGS defined twice: two values, two recipes, the recipe lint
     % python make.py -C project -f Makefile_twice.curry
     main.o has 2 recipes
-      cc  -O2 -Wall -c main.c -o main.o
-      cc  -O2 -Wall -g -c main.c -o main.o
-    ...
+    report.o has 2 recipes
+    vec.o has 2 recipes
+    shape.o has 2 recipes
     refused: the build does not start
     exit status 2
+
+The lint prints one line per target: the recipes themselves when they fit
+in 79 columns, else their count, as here.
 
 Makefile_toolchain.curry writes CC = "gcc" ? "clang".  The choice is two
 answers, so the same lint refuses, and the command line decides:
@@ -373,9 +376,10 @@ answers, so the same lint refuses, and the command line decides:
     8. the compiler as a choice, CC = "gcc" ? "clang": two answers, and the command line decides
     % python make.py -C project -f Makefile_toolchain.curry -n
     main.o has 2 recipes
-      clang  -O2 -Wall -c main.c -o main.o
-      gcc  -O2 -Wall -c main.c -o main.o
     ...
+    demo has 2 recipes
+    refused: the build does not start
+    exit status 2
     % python make.py -C fresh -f Makefile_toolchain.curry CC=clang -n
     plan: 6 targets
       main.o    <- main.c shape.h vec.h       clang  -O2 -Wall -c main.c -o main.o

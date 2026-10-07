@@ -20,6 +20,24 @@ The following are recognized:
   finds the tree from its own location, so ``import curry`` works with the
   package directory on ``PYTHONPATH``.
 
+``SPRITE_FRONTEND_WARNINGS``
+  The Curry front end warns on overlapping rules ("Function f is
+  potentially non-deterministic due to overlapping rules"), under which
+  ``build 0 = ...; build n = ...`` compiles to a choice whose second
+  alternative is infinite.  A run of the front end (an import, a compile
+  from text, ``sprite-make``) reports that warning once per module
+  through the log at the WARNING level, with the text of the front end;
+  the other warnings of the front end stay quiet.  The value ``0`` (or
+  ``off``, ``no``, ``false``) silences the warnings for the process; any
+  other value, or none, leaves them on, and an empty value counts as
+  unset.  ``sprite-make -q`` silences them as well.  The test runner, the
+  test library and the benchmark harness set the variable to ``0``, so
+  the output of a suite does not depend on which modules a run compiles;
+  the run scripts of the examples whose rules overlap by design set it
+  too.  To compile a program without the warnings, say::
+
+     SPRITE_FRONTEND_WARNINGS=0 sprite-make --so prog.curry
+
 ``SPRITE_GC_THRESHOLD``
   The number of nodes at which the collector of the C++ backend runs.  The
   default is 1048576, about 30 MB of nodes in the block heap of the
@@ -349,8 +367,9 @@ Test Variables
 The test runner (``tests/run_tests``; section 10 of ``tests/README``) sets
 the environment of every test file: ``SPRITE_HOME``, ``SPRITE_CACHE_FILE``
 (``tests/.cache/icurry.db``), ``SPRITE_INTERPRETER_FLAGS`` (the backend of
-the run), and ``SPRITE_ROTATION=steps:65536`` unless the environment of
-the run names a mode.  Three variables address the tests themselves:
+the run), ``SPRITE_ROTATION=steps:65536`` unless the environment of the
+run names a mode, and ``SPRITE_FRONTEND_WARNINGS=0`` unless the environment
+sets it.  Three variables address the tests themselves:
 
 ``SPRITE_TEST_MAX_VMEM_KB``
   The cap on the address space of a test process, in KiB, or

@@ -3,7 +3,7 @@ from curry import cache, config, exceptions, toolchain
 from curry.toolchain import _curry2icurry, _frontend, plans
 from curry.utility import binding
 import flat2icurry_oracle as oracle
-import curry, os, shutil, subprocess, tarfile, tempfile, unittest
+import curry, os, shutil, subprocess, tarfile, tempfile, time, unittest
 from unittest import mock
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'curry')
@@ -91,13 +91,19 @@ class TestCurry2ICurry(cytest.TestCase):
     '''The command line: --flat, the output directory, the flags, -i, name.'''
     curryfile = os.path.join(self.tmpdir, 'Sub', 'Deep.curry')
     moduledir = os.path.dirname(curryfile)
-    cmd = _frontend.command(curryfile, ['/x', self.tmpdir, '/x'])
+    with mock.patch.dict(os.environ, {_frontend.WARNINGS_VARIABLE: '1'}):
+      cmd = _frontend.command(curryfile, ['/x', self.tmpdir, '/x'])
     self.assertEqual(cmd[0], config.curry_frontend())
     self.assertEqual(cmd[1:4], ['--flat', '-o', FE_SUBDIR])
+    # A run that reports adds the options of the warning on overlapping
+    # rules alone, after the output directory (issue #96).
+    warn = _frontend.WARNING_FLAGS
+    self.assertEqual(cmd[4:4 + len(warn)], warn)
     flags = config.frontend_flags().split()
-    self.assertEqual(cmd[4:4 + len(flags)], flags)
+    start = 4 + len(warn)
+    self.assertEqual(cmd[start:start + len(flags)], flags)
     self.assertTrue(any(f.startswith('-D__PAKCS__=') for f in flags))
-    dirs = cmd[4 + len(flags):-1]
+    dirs = cmd[start + len(flags):-1]
     self.assertEqual(dirs[::2], ['-i'] * (len(dirs) // 2))
     self.assertEqual(
         dirs[1::2], [moduledir, '/x', self.tmpdir, config.system_curry_path()]
@@ -106,6 +112,14 @@ class TestCurry2ICurry(cytest.TestCase):
     # Quiet mode adds the options icurry uses, after the output directory.
     quiet = _frontend.command(curryfile, [], quiet=True)
     self.assertEqual(quiet[4:7], _frontend.QUIET_FLAGS)
+    # SPRITE_FRONTEND_WARNINGS=0 makes every command quiet; the test
+    # library sets it for the suite.
+    with mock.patch.dict(os.environ, {_frontend.WARNINGS_VARIABLE: '0'}):
+      self.assertFalse(_frontend.frontend_warnings())
+      self.assertEqual(_frontend.command(curryfile, [])[4:7], _frontend.QUIET_FLAGS)
+    for value in '1', 'on', '':
+      with mock.patch.dict(os.environ, {_frontend.WARNINGS_VARIABLE: value}):
+        self.assertTrue(_frontend.frontend_warnings(), repr(value))
     # The FlatCurry file lands beside the source.
     self.assertEqual(
         _frontend.flatcurryfile(curryfile)
@@ -529,7 +543,9 @@ class TestCurry2ICurry(cytest.TestCase):
     older = os.path.join(self.tmpdir, 'older', 'sendMoreMoney.curry')
     os.makedirs(os.path.dirname(older))
     shutil.copy(curryfile, older)
-    unoptimized = readbytes(_frontend.curry2flat(older, [], quiet=True))
+    unoptimized = readbytes(
+        _frontend.curry2flat(older, [], quiet=True, rewrite=False)
+      )
     self.assertNotIn(b'constrEq', unoptimized)
     with open(fcy, 'wb') as ostream:
       ostream.write(unoptimized)
@@ -543,6 +559,15 @@ class TestCurry2ICurry(cytest.TestCase):
     self.assertEqual(readbytes(icy), icytext)
     self.assertGreater(os.stat(icy).st_mtime_ns, mtime)
     self.assertTrue(os.path.isfile(icy[:-4] + '.json'))
+    # The option stands alone: it is the step from Curry to ICurry (#99).
+    with open(fcy, 'wb') as ostream:
+      ostream.write(unoptimized)
+    mtime = os.stat(icy).st_mtime_ns
+    proc = make('--rewrite-flat', curryfile)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    self.assertEqual(readbytes(fcy), optimized)
+    self.assertEqual(readbytes(icy), icytext)
+    self.assertGreater(os.stat(icy).st_mtime_ns, mtime)
     # The option runs the modules in this process, and needs the source.
     proc = make('--rewrite-flat', '--icy', '--jobs', '2', curryfile)
     self.assertEqual(proc.returncode, 1)
@@ -551,3 +576,49 @@ class TestCurry2ICurry(cytest.TestCase):
     proc = make('--rewrite-flat', '--icy', curryfile)
     self.assertEqual(proc.returncode, 1)
     self.assertIn('needs the Curry source', proc.stderr)
+
+  def test_import_compiled_again_is_rewritten(self):
+    '''
+    A run of the front end on a module compiles an import again when the
+    interface of the import is older than the interface of one of its own
+    imports, and writes the FlatCurry of the import in its own text.  The
+    route rewrites every FlatCurry file the run wrote, so the file of the
+    import keeps the pass and pairs with the ICurry beside it (issue #99).
+    '''
+    self.without_cache()
+    def write(name, text):
+      path = os.path.join(self.tmpdir, name + '.curry')
+      with open(path, 'w', encoding='utf-8') as ostream:
+        ostream.write(text)
+      return path
+    write('ImpC', 'module ImpC where\nc :: Int\nc = 1\n')
+    impb = write(
+        'ImpB', 'module ImpB where\nimport ImpC\nf :: Int -> Int\nf x | x == c = x\n'
+      )
+    impa = write('ImpA', 'module ImpA where\nimport ImpB\nmain :: Int\nmain = f 1\n')
+    icy_b = self.convert(impb, [self.tmpdir])
+    fcy_b = _frontend.flatcurryfile(impb)
+    rewritten = readbytes(fcy_b)
+    self.assertEqual(rewritten.count(b'constrEq'), 1)
+    # The interface of ImpC gets a newer time than the interface of ImpB:
+    # the front end then compiles ImpB again in the run on ImpA.
+    time.sleep(0.01)
+    os.utime(_frontend.interfacefile(os.path.join(self.tmpdir, 'ImpC.curry'), '.icurry'))
+    stamp = os.stat(fcy_b).st_mtime_ns
+    self.convert(impa, [self.tmpdir])
+    self.assertNotEqual(os.stat(fcy_b).st_mtime_ns, stamp, 'the front end did not compile ImpB again')
+    self.assertEqual(readbytes(fcy_b), rewritten)
+    result = oracle.check_file(fcy_b, [self.tmpdir], icyfile=icy_b)
+    self.assertEqual(result.status, oracle.EQUAL, result.detail)
+    # Without the rewrite the run leaves the text of the front end.
+    os.utime(_frontend.interfacefile(os.path.join(self.tmpdir, 'ImpC.curry'), '.icurry'))
+    _frontend.curry2flat(impa, [self.tmpdir], quiet=True, rewrite=False)
+    self.assertNotIn(b'constrEq', readbytes(fcy_b))
+    self.assertEqual(
+        oracle.check_file(fcy_b, [self.tmpdir], icyfile=icy_b).status
+      , oracle.DIFFERENT
+      )
+    # The rewrite reaches the directories of the Curry path, not the
+    # system library (flatcurry_dirs).
+    dirs = _frontend.flatcurry_dirs(impa, [self.tmpdir, config.system_curry_path()])
+    self.assertEqual(dirs, [os.path.join(self.tmpdir, FE_SUBDIR)])

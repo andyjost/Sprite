@@ -7,6 +7,12 @@
 import os
 if not os.environ.get('SPRITE_ROTATION'):
   os.environ['SPRITE_ROTATION'] = 'steps:65536'
+# The warnings of the Curry front end (overlapping rules) off for every test
+# file, as the runner and the benchmark harness set it, so the output of a
+# suite does not change with the state of the products; a test of the
+# warnings sets the variable itself (curry.toolchain._frontend).
+if not os.environ.get('SPRITE_FRONTEND_WARNINGS'):
+  os.environ['SPRITE_FRONTEND_WARNINGS'] = '0'
 
 from .checkers import check_expressions, check_indexing, check_predicate
 import builtins

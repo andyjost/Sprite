@@ -9,14 +9,14 @@ changed since a revision to test files through RULES.  The selection always
 prints why a file is in it when the user asked for --changed or --list.
 '''
 
-import fnmatch, os, subprocess
+import fnmatch, os, re, subprocess
 from . import TESTDIR, ROOTDIR
 from . import prepare
 
 __all__ = [
-    'EXCLUSIVE', 'IGNORED', 'RULES', 'Selected', 'changed_paths'
-  , 'compiles_corpus', 'fast_tier', 'match_patterns', 'select_changed'
-  , 'test_files'
+    'EXCLUSIVE', 'IGNORED', 'NAMED', 'POOL', 'POOL_CHECKS', 'RULES', 'Selected'
+  , 'changed_paths', 'compiles_corpus', 'fast_tier', 'files_naming'
+  , 'match_patterns', 'pool_importers', 'select_changed', 'test_files'
   ]
 
 # Files that must run alone: nothing else runs while one of them runs.
@@ -30,8 +30,23 @@ EXCLUSIVE = {
 # the selection prints.  The first rule whose path glob matches decides.  A
 # path that no rule matches selects everything, and so does a rule whose
 # globs match no test file: the policy for the unknown.  'tests/*.py'
-# selects the changed test file itself.
+# selects the changed test file itself.  NAMED in the place of the globs
+# selects the test files whose text names the module of the changed source
+# or a module of the pool that imports it (files_naming, pool_importers),
+# with the files of POOL_CHECKS: the shared pool under tests/data/curry has
+# no test of its own, a module there is named by the files that use it,
+# and a file may reach it through an importing module.
 ALL = '*'
+NAMED = object()
+# The shared pool of Curry modules, whose import lines a NAMED rule reads.
+POOL = os.path.join(TESTDIR, 'data', 'curry')
+# The test files that check the products of every module of the pool
+# (test_products_on_disk of func_flat2icurry.py pairs each FlatCurry file
+# with the ICurry beside it); a NAMED match selects them too.
+POOL_CHECKS = ['func_flat2icurry.py']
+# An import line of a Curry module: import M, import qualified M, import M
+# (f), import M as N.
+IMPORT = re.compile(r'^import\s+(?:qualified\s+)?([\w.]+)', re.M)
 TOOLCHAIN = [
     'unit_compile*.py', 'unit_cache.py', '*toolchain*.py', '*flat2icurry*.py'
   , '*curry2icurry*.py', 'unit_make.py', 'unit_prelude.py'
@@ -58,6 +73,7 @@ RULES = [
     , 'the probe modules of the ICurry oracle'
     )
   , ('tests/data/curry/*/*', ['func_{dir}*.py'], 'the corpus of a functional test')
+  , ('tests/data/curry/*.curry', NAMED, 'the test files that name the module')
   , ('src/cyrt/*', ['unit_cxx_*.py'], 'the C++ runtime')
   , ('src/python/backends/cxx/*', ['unit_cxx_*.py'], 'the C++ backend')
   , ('src/python/backends/py/*', ['unit_py_*.py'], 'the Python backend')
@@ -171,11 +187,60 @@ def _rule_for(path):
       return globs, reason
   return None
 
-def select_changed(paths, files):
+def files_naming(module, files, testdir=TESTDIR):
+  '''
+  The test files among ``files`` whose text names ``module`` as a word, in
+  the order of ``files``.  A file that cannot be read names nothing.
+  '''
+  pattern = re.compile(r'(?<![\w.])%s(?![\w])' % re.escape(module))
+  named = []
+  for name in files:
+    try:
+      with open(os.path.join(testdir, name), 'r', encoding='utf-8') as stream:
+        text = stream.read()
+    except (OSError, UnicodeDecodeError):
+      continue
+    if pattern.search(text):
+      named.append(name)
+  return named
+
+def pool_importers(module, pooldir=POOL):
+  '''
+  The modules of the pool under ``pooldir`` that import ``module``, directly
+  or through another module of the pool, sorted.  A file that cannot be
+  read imports nothing; a missing directory holds no module.
+  '''
+  try:
+    names = os.listdir(pooldir)
+  except OSError:
+    return []
+  imports = {}
+  for name in names:
+    if not name.endswith('.curry'):
+      continue
+    try:
+      with open(os.path.join(pooldir, name), 'r', encoding='utf-8') as stream:
+        text = stream.read()
+    except (OSError, UnicodeDecodeError):
+      continue
+    imports[name[:-len('.curry')]] = set(IMPORT.findall(text))
+  found = set()
+  frontier = [module]
+  while frontier:
+    target = frontier.pop()
+    for name, imported in imports.items():
+      if target in imported and name not in found:
+        found.add(name)
+        frontier.append(name)
+  return sorted(found)
+
+def select_changed(paths, files, testdir=TESTDIR, pooldir=POOL):
   '''
   Maps changed paths to test files.  Returns a pair: the list of
   :class:`Selected` in the order of ``files``, and the list of lines that
-  explain the mapping, one per path.
+  explain the mapping, one per path.  ``testdir`` holds the test files,
+  which a NAMED rule reads, and ``pooldir`` the modules of the shared pool,
+  whose import lines it reads.
   '''
   reasons = {}
   notes = []
@@ -195,6 +260,27 @@ def select_changed(paths, files):
       continue
     globs, reason = rule
     parts = path.split('/')
+    if globs is NAMED:
+      module = parts[-1][:-len('.curry')]
+      importers = pool_importers(module, pooldir)
+      naming = set()
+      for name in [module] + importers:
+        naming.update(files_naming(name, files, testdir))
+      if not naming:
+        add(files, 'no test file names the module %s of %s' % (module, path))
+        notes.append(
+            '%s: no test file names the module %s; selects everything'
+          % (path, module)
+          )
+        continue
+      if importers:
+        reason = '%s or an importer (%s)' % (reason, ' '.join(importers))
+      checks = match_patterns(files, POOL_CHECKS)
+      add([name for name in files if name in naming], '%s (%s)' % (reason, path))
+      add(checks, 'the check of the products of the pool (%s)' % path)
+      chosen = [name for name in files if name in naming or name in checks]
+      notes.append('%s: %s -> %s' % (path, reason, _names(chosen, files)))
+      continue
     context = {
         'name': parts[-1]
       , 'dir': parts[3] if len(parts) > 3 else ''

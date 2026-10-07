@@ -81,37 +81,19 @@ exit status 2
 7. CFLAGS defined twice: two values, two recipes, the recipe lint
 % python make.py -C project -f Makefile_twice.curry
 main.o has 2 recipes
-  cc  -O2 -Wall -c main.c -o main.o
-  cc  -O2 -Wall -g -c main.c -o main.o
 report.o has 2 recipes
-  cc  -O2 -Wall -c report.c -o report.o
-  cc  -O2 -Wall -g -c report.c -o report.o
 vec.o has 2 recipes
-  cc  -O2 -Wall -c vec.c -o vec.o
-  cc  -O2 -Wall -g -c vec.c -o vec.o
 shape.o has 2 recipes
-  cc  -O2 -Wall -c shape.c -o shape.o
-  cc  -O2 -Wall -g -c shape.c -o shape.o
 refused: the build does not start
 exit status 2
 
 8. the compiler as a choice, CC = "gcc" ? "clang": two answers, and the command line decides
 % python make.py -C project -f Makefile_toolchain.curry -n
 main.o has 2 recipes
-  clang  -O2 -Wall -c main.c -o main.o
-  gcc  -O2 -Wall -c main.c -o main.o
 report.o has 2 recipes
-  clang  -O2 -Wall -c report.c -o report.o
-  gcc  -O2 -Wall -c report.c -o report.o
 vec.o has 2 recipes
-  clang  -O2 -Wall -c vec.c -o vec.o
-  gcc  -O2 -Wall -c vec.c -o vec.o
 shape.o has 2 recipes
-  clang  -O2 -Wall -c shape.c -o shape.o
-  gcc  -O2 -Wall -c shape.c -o shape.o
 demo has 2 recipes
-  clang -o demo main.o report.o libgeom.a
-  gcc -o demo main.o report.o libgeom.a
 refused: the build does not start
 exit status 2
 % python make.py -C fresh -f Makefile_toolchain.curry CC=clang -n

@@ -51,13 +51,19 @@ ROOT = os.path.dirname(TESTS)
 EQUAL, DIFFERENT, FAILED = 'equal', 'different', 'failed'
 
 class Result:
-  '''The outcome for one file.'''
-  def __init__(self, fcyfile, icyfile, status, detail='', seconds=0.0):
+  '''
+  The outcome for one file.  ``unrewritten`` is set when the file was found
+  equal through the binding optimization (see ``check_file``).
+  '''
+  def __init__(
+      self, fcyfile, icyfile, status, detail='', seconds=0.0, unrewritten=False
+    ):
     self.fcyfile = fcyfile
     self.icyfile = icyfile
     self.status = status
     self.detail = detail
     self.seconds = seconds
+    self.unrewritten = unrewritten
 
   def __repr__(self):
     return 'Result(%r, %r, %r)' % (self.fcyfile, self.icyfile, self.status)
@@ -95,13 +101,24 @@ def make_finder(fcyfile, prog, importdirs=(), subdirs=None):
              + system_curry_path()
   return f2i.InterfaceFinder(searchdirs, subdirs)
 
-def check_file(fcyfile, importdirs=(), subdirs=None, icyfile=None):
+def check_file(
+    fcyfile, importdirs=(), subdirs=None, icyfile=None, accept_unrewritten=False
+  ):
   '''
   Runs the port on one file and compares the text with the oracle.  The
   translation applies no pass of its own: the routes rewrite the FlatCurry
   file before they translate it (section 8 of the README of the tests), so
   a product of either route pairs with the file beside it as the archive
   pairs with the files of icurry.
+
+  With ``accept_unrewritten`` a file that differs is tried once more as the
+  routes would translate it: the binding optimization runs over the program
+  in memory, and when the pass changes it and the optimized program
+  translates to the oracle, the result is EQUAL with ``unrewritten`` set.
+  That is the state of a FlatCurry file that a writer outside the toolchain
+  left in the text of the front end beside an ICurry file of the rewritten
+  program (the PAKCS oracle does; see test_products_on_disk of
+  func_flat2icurry.py).  The file on disk is not touched.
   '''
   start = time.time()
   if icyfile is None:
@@ -124,23 +141,40 @@ def check_file(fcyfile, importdirs=(), subdirs=None, icyfile=None):
     expected = istream.read()
   if actual == expected:
     return Result(fcyfile, icyfile, EQUAL, '', time.time() - start)
+  if accept_unrewritten:
+    optimized = f2i.optimize_bindings(prog)
+    if optimized is not prog:
+      try:
+        rewritten = f2i.showterm(f2i.translate(optimized, interfaces))
+      except Exception:
+        # The plain difference below is the report.
+        rewritten = None
+      if rewritten == expected:
+        return Result(
+            fcyfile, icyfile, EQUAL
+          , 'equal after the binding optimization: the FlatCurry file is '
+            'the text of the front end, unrewritten'
+          , time.time() - start, unrewritten=True
+          )
   return Result(
       fcyfile, icyfile, DIFFERENT, first_difference(expected, actual)
     , time.time() - start
     )
 
-def check(fcyfiles, importdirs=(), subdirs=None, icyfiles=None):
+def check(fcyfiles, importdirs=(), subdirs=None, icyfiles=None, **kwds):
   '''Runs :func:`check_file` on each file.  Returns the list of results.'''
   if icyfiles is None:
     icyfiles = [None] * len(fcyfiles)
   return [
-      check_file(fcy, importdirs, subdirs, icy)
+      check_file(fcy, importdirs, subdirs, icy, **kwds)
           for fcy, icy in zip(fcyfiles, icyfiles)
     ]
 
-def check_pairs(pairs, importdirs=(), subdirs=None):
+def check_pairs(pairs, importdirs=(), subdirs=None, **kwds):
   '''Runs :func:`check_file` on each ``(fcy, icy)`` pair.'''
-  return [check_file(fcy, importdirs, subdirs, icy) for fcy, icy in pairs]
+  return [
+      check_file(fcy, importdirs, subdirs, icy, **kwds) for fcy, icy in pairs
+    ]
 
 def summarize(results):
   '''The counts of equal, different, and failed results.'''

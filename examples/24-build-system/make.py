@@ -24,6 +24,13 @@ import shlex
 import subprocess
 import sys
 import time
+
+# The rules of a makefile overlap by design: rule and depends are relations
+# with one equation per rule of make.  The warning of the Curry front end on
+# overlapping rules is noise here, so the driver turns it off before Sprite
+# starts, unless the environment says otherwise.
+if not os.environ.get('SPRITE_FRONTEND_WARNINGS'):
+  os.environ['SPRITE_FRONTEND_WARNINGS'] = '0'
 import curry
 
 # Find Make.curry, the library, next to this script, whatever the working
@@ -264,6 +271,14 @@ def show_rows(rows, out):
   for target, needs, recipe in rows:
     out('  %-*s <- %-*s  %s' % (widths[0], target, widths[1], needs, recipe))
 
+def show_recipes(target, recipes, width=79):
+  '''One line for a target whose recipe has several values: the recipes,
+  when they fit in the width, else their count.'''
+  line = '%s has %d recipes: %s' % (target, len(recipes), ' | '.join(recipes))
+  if len(line) <= width:
+    return line
+  return '%s has %d recipes' % (target, len(recipes))
+
 def lint(build, out):
   '''Prints what stops a build before its plan: a target that two rules
   claim, a source that is missing, and a target whose recipe has two values
@@ -284,9 +299,7 @@ def lint(build, out):
       continue
     faulty.append(target)
     if recipes:
-      out('%s has %d recipes' % (target, len(recipes)))
-      for recipe in recipes:
-        out('  ' + recipe)
+      out(show_recipes(target, recipes))
     else:
       names = ['$(%s)' % name for name in build.undefined(target)]
       if names:

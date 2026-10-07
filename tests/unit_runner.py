@@ -836,6 +836,125 @@ class TestSelection(unittest.TestCase):
         names
       , ['func_flat2icurry.py', 'unit_curry2icurry.py', 'unit_flat2icurry.py']
       )
+    # A module of the shared pool selects the test files that name it or a
+    # module of the pool that imports it, with the check of the products of
+    # the pool; a module that no test file names selects everything (issue
+    # #99).
+    tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
+    texts = {
+        'unit_api.py': "M = curry.import_('Peano')\n"
+      , 'unit_expr.py': "import PeanoExtra\n# the Peano-style numbers\n"
+      , 'unit_inspect.py': "x = M.Peano.S\n"
+      , 'unit_cache.py': "name = 'hello'\n"
+      , 'unit_loadsave.py': "M = curry.import_('Deep')\n"
+      }
+    for name, text in texts.items():
+      with open(os.path.join(tmpdir, name), 'w', encoding='utf-8') as stream:
+        stream.write(text)
+    self.assertEqual(
+        selection.files_naming('Peano', FILES, tmpdir)
+      , ['unit_api.py', 'unit_expr.py']
+      )
+    # The pool: Deep imports PeanoUser, which imports Peano; Other imports
+    # Prelude alone, and Lone is imported by nobody.
+    pool = os.path.join(tmpdir, 'pool')
+    os.mkdir(pool)
+    modules = {
+        'Peano': 'module Peano where\ndata Nat = O | S Nat\n'
+      , 'PeanoUser': 'module PeanoUser where\nimport qualified Peano\nx = 1\n'
+      , 'Deep': 'module Deep where\nimport PeanoUser (x)\nimport Lone as L\n'
+      , 'Other': 'import Prelude hiding (not)\ny = 2\n'
+      , 'Lone': 'z = 3\n'
+      }
+    for name, text in modules.items():
+      with open(os.path.join(pool, name + '.curry'), 'w', encoding='utf-8') as stream:
+        stream.write(text)
+    self.assertEqual(selection.pool_importers('Peano', pool), ['Deep', 'PeanoUser'])
+    self.assertEqual(selection.pool_importers('Lone', pool), ['Deep'])
+    self.assertEqual(selection.pool_importers('Deep', pool), [])
+    self.assertEqual(selection.pool_importers('Peano', os.path.join(pool, 'none')), [])
+    self.assertEqual(selection.POOL_CHECKS, ['func_flat2icurry.py'])
+    # Peano is named by two files; Deep, an importer through PeanoUser, by a
+    # third; the check of the products joins them.
+    selected, notes = selection.select_changed(
+        ['tests/data/curry/Peano.curry'], FILES, testdir=tmpdir, pooldir=pool
+      )
+    self.assertEqual(
+        [item.filename for item in selected]
+      , ['func_flat2icurry.py', 'unit_api.py', 'unit_expr.py', 'unit_loadsave.py']
+      )
+    self.assertEqual(
+        notes
+      , [ 'tests/data/curry/Peano.curry: the test files that name the module'
+          ' or an importer (Deep PeanoUser) -> func_flat2icurry.py unit_api.py'
+          ' unit_expr.py unit_loadsave.py'
+        ]
+      )
+    self.assertEqual(
+        selected[0].reasons
+      , ['the check of the products of the pool (tests/data/curry/Peano.curry)']
+      )
+    self.assertEqual(
+        selected[1].reasons
+      , [ 'the test files that name the module or an importer (Deep PeanoUser)'
+          ' (tests/data/curry/Peano.curry)'
+        ]
+      )
+    self.assertEqual(selected[3].reasons, selected[1].reasons)
+    # A module without an importer: the files that name it and the check.
+    selected, notes = selection.select_changed(
+        ['tests/data/curry/Deep.curry'], FILES, testdir=tmpdir, pooldir=pool
+      )
+    self.assertEqual(
+        [item.filename for item in selected]
+      , ['func_flat2icurry.py', 'unit_loadsave.py']
+      )
+    self.assertEqual(
+        notes
+      , [ 'tests/data/curry/Deep.curry: the test files that name the module'
+          ' -> func_flat2icurry.py unit_loadsave.py'
+        ]
+      )
+    self.assertIn(
+        'the test files that name the module (tests/data/curry/Deep.curry)'
+      , selected[1].reasons
+      )
+    # An importer that no test file names adds nothing; a module that
+    # nobody names, with or without importers, selects everything.
+    selected, notes = selection.select_changed(
+        ['tests/data/curry/Lone.curry'], FILES, testdir=tmpdir, pooldir=pool
+      )
+    self.assertEqual(
+        [item.filename for item in selected]
+      , ['func_flat2icurry.py', 'unit_loadsave.py']
+      )
+    selected, notes = selection.select_changed(
+        ['tests/data/curry/Other.curry'], FILES, testdir=tmpdir, pooldir=pool
+      )
+    self.assertEqual([item.filename for item in selected], FILES)
+    self.assertIn('no test file names the module Other; selects everything', notes[0])
+    selected, notes = selection.select_changed(
+        ['tests/data/curry/Nobody.curry'], FILES, testdir=tmpdir, pooldir=pool
+      )
+    self.assertEqual([item.filename for item in selected], FILES)
+    self.assertEqual(
+        notes
+      , [ 'tests/data/curry/Nobody.curry: no test file names the module '
+          'Nobody; selects everything'
+        ]
+      )
+    self.assertIn(
+        'no test file names the module Nobody of tests/data/curry/Nobody.curry'
+      , selected[0].reasons
+      )
+    # The real pool: the test of the C++ interpreter names its module, and
+    # FunPatFreeArgSet imports FunPatFreeArg.
+    self.assertIn(
+        'unit_cxx_interp.py'
+      , selection.files_naming('CxxInterp', selection.test_files())
+      )
+    self.assertIn('FunPatFreeArgSet', selection.pool_importers('FunPatFreeArg'))
     # A rule whose globs match no file: the policy for the unknown.
     names, selected, notes = self.selected(['tests/data/curry/nosuch/x.curry'])
     self.assertEqual(names, FILES)
