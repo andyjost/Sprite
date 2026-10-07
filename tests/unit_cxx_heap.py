@@ -97,19 +97,20 @@ assert cyrt.gc_verify() is None
   @cytest.skipIfGcStress('a test of the threshold policy')
   def test_heap_stays_bounded(self):
     '''
-    A walk over a million cells allocates about 24 million short-lived
-    nodes.  The heap holds about one collection cycle of them and reuses
-    its blocks: a second walk takes no new memory.
+    A walk over two million cells allocates about 14 million short-lived
+    nodes (7 per cell; 24 before the optimizer inlined the comparison of
+    enumFromTo).  The heap holds about one collection cycle of them and
+    reuses its blocks: a second walk takes no new memory.
     '''
     proc = self.run_child('''
-assert curry.topython(next(curry.eval(G.walk, 1000000))) == 1000000
+assert curry.topython(next(curry.eval(G.walk, 2000000))) == 2000000
 heap = cyrt.gc_heap_bytes()
 collections = cyrt.gc_collections()
 assert collections > 10, collections
 # The threshold is 2^20 nodes of at most 32 bytes in this program, plus
 # the run in progress of each size class and the bitmaps.
 assert heap <= 48 * CHUNK_BYTES, heap
-assert curry.topython(next(curry.eval(G.walk, 1000000))) == 1000000
+assert curry.topython(next(curry.eval(G.walk, 2000000))) == 2000000
 assert cyrt.gc_heap_bytes() == heap, (heap, cyrt.gc_heap_bytes())
 cyrt.gc_collect()
 print('heap_mb', heap / 2.0 ** 20, 'blocks', cyrt.gc_block_count()

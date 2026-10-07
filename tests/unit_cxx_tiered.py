@@ -65,6 +65,21 @@ choices :: Int -> Int
 choices n = area (mk n) ? total n ? loop n
 '''
 
+# A call the inliner would replace by its body: with the inliner off, viaCall
+# costs one rewrite step more than direct.
+BUDGET_MODULE = '''
+module %(name)s where
+
+s :: Int -> Int -> Int
+s x y = y + x
+
+direct :: Int
+direct = 1 + 2
+
+viaCall :: Int
+viaCall = s 1 2
+'''
+
 def steps():
   '''The rewrite steps taken by the evaluations of the interpreter.'''
   return curry.getInterpreter()._evaluation_totals.steps
@@ -80,15 +95,15 @@ class TieredTestCase(cytest.TestCase):
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-tiered-test-')
     self.switch('tiered')
 
-  def switch(self, mode):
+  def switch(self, mode, **flags):
     '''
-    Reloads the interpreter with the flag ``interpret`` set to ``mode`` and
-    puts the source directory on its path: the imports of a module are
-    found through the path of the interpreter.  The caller drops its module
-    objects first (see unit_cxx_interp.switch).
+    Reloads the interpreter with the flag ``interpret`` set to ``mode``, and
+    ``flags``, and puts the source directory on its path: the imports of a
+    module are found through the path of the interpreter.  The caller drops
+    its module objects first (see unit_cxx_interp.switch).
     '''
     gc.collect()
-    curry.reload({'backend': 'cxx', 'interpret': mode})
+    curry.reload(dict(flags, backend='cxx', interpret=mode))
     # The old interpreter is garbage now; its modules go before a module of
     # the same name is made again.
     gc.collect()
@@ -479,6 +494,58 @@ class TestPolicy(TieredTestCase):
     with self.assertRaises(curry.EvaluationError) as cm:
       list(curry.eval(M.main))
     self.assertIn('non-determinism', str(cm.exception))
+
+  @cytest.hardreset
+  def test_budget_reaches_the_child(self):
+    '''
+    The background compile runs under the inline budget of the interpreter
+    (the flag inline_budget), so the code it swaps in is the code the
+    interpreter ran: with the inliner off, a call costs the same steps
+    before and after the swap.  It did not, and the swap replaced the code
+    of a module interpreted with the inliner off by code compiled under
+    the default budget.
+    '''
+    self.switch('tiered', inline_budget=0)
+    self.assertEqual(curry.flags['inline_budget'], 0)
+    env = dict(
+        item.split('=', 1)
+          for item in tiered._environment(curry.getInterpreter())
+      )
+    self.assertIn(
+        'inline_budget:0', env['SPRITE_INTERPRETER_FLAGS'].split(',')
+      )
+    M = self.fresh_module(BUDGET_MODULE)
+    self.assertTrue(cyrt.icurry_is_interpreted(M.viaCall.info))
+    n0 = steps()
+    self.assertEqual(self.py(M.direct), 3)
+    direct = steps() - n0
+    n0 = steps()
+    self.assertEqual(self.py(M.viaCall), 3)
+    interpreted = steps() - n0
+    self.assertEqual(interpreted, direct + 1)
+    self.wait()
+    self.assertFalse(cyrt.icurry_is_interpreted(M.viaCall.info))
+    n0 = steps()
+    self.assertEqual(self.py(M.viaCall), 3)
+    self.assertEqual(steps() - n0, interpreted)
+    # Under the default budget the call is inlined on both tiers.
+    self.switch('tiered')
+    env = dict(
+        item.split('=', 1)
+          for item in tiered._environment(curry.getInterpreter())
+      )
+    self.assertIn(
+        'inline_budget:4', env['SPRITE_INTERPRETER_FLAGS'].split(',')
+      )
+    N = self.fresh_module(BUDGET_MODULE)
+    n0 = steps()
+    self.assertEqual(self.py(N.viaCall), 3)
+    self.assertEqual(steps() - n0, direct)
+    self.wait()
+    self.assertFalse(cyrt.icurry_is_interpreted(N.viaCall.info))
+    n0 = steps()
+    self.assertEqual(self.py(N.viaCall), 3)
+    self.assertEqual(steps() - n0, direct)
 
   def test_sprite_make_compiles(self):
     # An explicit compile writes the object under the flag.

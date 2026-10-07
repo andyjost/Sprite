@@ -150,12 +150,15 @@ def _warn_once(key, message, *args):
 def _environment(interp, currypath=None):
   '''
   The environment of the child: the flags of a compile, and the search path
-  of the import.
+  of the import.  The child compiles under the inline budget of the
+  interpreter, so the code it swaps in is the code the interpreter ran.
   '''
   env = dict(os.environ)
-  env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:off,debug:%s' % (
-      'true' if interp.flags['debug'] else 'false'
-    )
+  env['SPRITE_INTERPRETER_FLAGS'] = \
+      'backend:cxx,interpret:off,debug:%s,inline_budget:%d' % (
+          'true' if interp.flags['debug'] else 'false'
+        , interp.flags['inline_budget']
+        )
   if currypath is not None:
     env['CURRYPATH'] = ':'.join(curryname.makeCurryPath(currypath))
   return ['%s=%s' % item for item in env.items()]

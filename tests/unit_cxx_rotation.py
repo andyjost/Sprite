@@ -239,18 +239,20 @@ class TestStepMode(cytest.TestCase):
   def test_counters_of_a_search(self):
     '''
     The counters of a search program under the cadence of 65536 steps, as
-    they were before time mode existed.  countQueens 8 crosses 33 rotation
+    they were before time mode existed.  countQueens 8 crosses 32 rotation
     periods with queues of several configurations inside its set functions;
     its steps and forks moved when the cadence last moved (the T4 entry of
-    the TODO).  psort 8 ends within one period.
+    the TODO) and when the inliner landed (the O2 and O3 entry: fewer
+    steps, so the rotations fall elsewhere and the forks move with them).
+    psort 8 ends within one period.
     '''
     G = curry.import_('CxxGc')
     values, steps, forks = self.steps_and_forks(G.psort, 8)
     self.assertEqual(values, [[1, 2, 3, 4, 5, 6, 7, 8]])
-    self.assertEqual((steps, forks), (17093, 1636))
+    self.assertEqual((steps, forks), (16929, 1636))
     values, steps, forks = self.steps_and_forks(G.countQueens, 8)
     self.assertEqual(values, [92])
-    self.assertEqual((steps, forks), (2180142, 511409))
+    self.assertEqual((steps, forks), (2112920, 511484))
 
   @cytest.with_flags(rotation=STEP_MODE)
   def test_counters_repeat(self):

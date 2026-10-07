@@ -358,9 +358,12 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     )
   @cytest.hardreset
   def testGetImplInterpreted(self):
-    '''The bytecode of an interpreted function, with its constants.'''
+    '''
+    The bytecode of an interpreted function, with its constants.  The
+    inliner is off: main would build the sum in place of the call.
+    '''
     gc.collect()
-    curry.reload({'backend': 'cxx', 'interpret': 'new'})
+    curry.reload({'backend': 'cxx', 'interpret': 'new', 'inline_budget': 0})
     M = curry.compile(
         'double :: Int -> Int\ndouble x = x + x\nmain :: Int\nmain = double 21'
       , mode='module'

@@ -34,8 +34,12 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # included, and records the unfolding of a nullary function in its metadata;
 # a file of format 8 is correct but slower, and it tells the modules that
 # import it no unfoldings.  Formats 9 and 10 were earlier forms of the same
-# pass in the working tree, never committed.
-FORMAT_VERSION = 11
+# pass in the working tree, never committed.  Format 12: the optimizer
+# inlines calls of small non-recursive functions and calls of a single-case
+# function on a known constructor (interpreter.optimize.inline_calls), and
+# records the body of such a function in its metadata; a file of format 11
+# is correct but slower, and it tells the modules that import it no bodies.
+FORMAT_VERSION = 12
 
 def compile(interp, imodule):
   compileM = CxxCompiler(interp, imodule)
@@ -86,6 +90,7 @@ class CxxCompiler(compiler.CompilerBase):
     # vEmitStepfuncHeader.
     self.redex_alloc_size = None
     self.plain_vars = frozenset()
+    self.free_vars = frozenset()
 
   def vIsBuiltin(self, iobj):
     if self.cxxmodule is not None:
@@ -132,6 +137,7 @@ class CxxCompiler(compiler.CompilerBase):
     # whose block vEmitFunctionInfotab sizes by the arity.
     self.redex_alloc_size = alloc_size(ifun.arity)
     self.plain_vars = passthrough.plain_variables(ifun)
+    self.free_vars = passthrough.free_variables(ifun)
     yield '/****** %s ******/' % ifun.fullname
     yield 'tag_type %s(RuntimeState * rts, Configuration * C)' % h_stepfunc
 
@@ -330,9 +336,12 @@ class CxxCompiler(compiler.CompilerBase):
     elif isinstance(assign.expr, icurry.IVarAccess):
       # A Variable takes the indexer, which records the path and the guards.
       yield '%s = %s;' % (lhs, self.variableAccess(assign.expr))
-    elif isinstance(assign.expr, icurry.IVar):
+    elif isinstance(assign.expr, icurry.IVar) \
+        and assign.expr.vid not in self.free_vars:
       # An alias copies the Variable.  Both sides of an alias have one kind
-      # (passthrough.py), so the right side is a Variable as well.
+      # (passthrough.py), so the right side is a Variable as well.  A free
+      # variable on the right side is a plain pointer to a node the step
+      # built, and takes the path below.
       yield '%s = %s;' % (lhs, rhs)
     else:
       # A node the step builds or names: a call, a partial application, a

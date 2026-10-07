@@ -5435,3 +5435,334 @@
   installation; the tiered default never recompiles them in a test
   process); ./run_tests --prepare-only --backend cxx over data/curry and
   data/curry/benchmarks (64 s) fixed both.
+
+2026-10-06: G8, the growth factor of the collector (#83)
+- The knob.  The collector of the default build (make GC=wdgc;
+  graph/memory.cpp includes gc/blockheap.cpp and gc/wdgc.cpp unless
+  SPRITE_GC_MPS is defined) sets its node threshold after a collection to
+  the growth factor times the survivors, not below the configured
+  threshold (2^20 nodes), and its configuration threshold to the factor
+  times the live configurations, not below one eighth of the configured
+  threshold.  So the heap stays within the factor times the live nodes,
+  and the mark cost per allocation is 1 over the factor minus 1.
+  GC_DEFAULT_GROWTH is 8; SPRITE_GC_GROWTH overrides it when the runtime
+  loads.  gc/mps.cpp (make GC=mps, the experiment behind a gate) replaces
+  both files in a build and never links into the default one; its
+  g_growth (8, floor 2) reads the same variable and scales the
+  configuration threshold after a full collection alone, since MPS
+  schedules its own collections.  So the two defaults are one knob for
+  the configuration threshold only.
+- Measured: the memory suite of the harness (run_benchmarks -s memory
+  --variant collector=on -b cxx -r 3 -w 1 --cap 4G --timeout 600 -e
+  SPRITE_GC_GROWTH=N -e SPRITE_INTERPRETER_FLAGS=interpret:off, the 28
+  dissertation programs that compile on this machine, PokerChoice and
+  PokerFree need currypp, plus QueensSet9) at growth 8, 12 and 16: three
+  measured repetitions after a warm-up and one under perf for the
+  instructions, the modules compiled by sprite-make --so first, one
+  harness invocation per factor and one program at a time, on a machine
+  shared with two other lanes (load average 1.9 to 4.1).  Collections,
+  nodes marked and steps are exact and agree between the repetitions; the
+  instructions are the one perf repetition of each item, deterministic
+  within the tolerance of the compare tool (1 percent); the seconds are
+  indicative.  The factor touches a program only when the survivors of a
+  collection times the factor exceed the threshold floor (131,072
+  survivors at growth 8, 65,536 at 16), or when the live configurations
+  times the factor exceed one eighth of the floor, since the
+  configuration threshold follows the same rule: 18 of the 29 programs
+  kept their collections and their nodes marked exactly at every factor,
+  with the same peak RSS, among them Queens10 (38 collections), Primes
+  (47), Tak1 (30), Psort (283) and Quicksort (96); Horseman and QueensSet
+  kept their collections, and QueensSet, below the node floor, moved its
+  nodes marked by 4 percent and its peak RSS by 8 percent through the
+  configuration threshold.  On the nine others the trade is proportional,
+  as the policy makes it.  Growth 16 against 8:
+  collections QueensSet9 11 to 6, SearchQueens 19 to 10, PermSort 9 to
+  5, PermSortPeano 10 to 5, SearchMAC 78 to 60, Hamming 4 to 3, Fib,
+  ReverseBuiltin and ReverseHO 2 to 1; nodes marked -50 percent on the
+  four search programs, -29 on SearchMAC, -85 on the two Reverse
+  programs; the collector's seconds QueensSet9 1.363 to 1.044 (-23
+  percent; the destruction of its dead queues is a per-run term, G9),
+  SearchQueens 0.890 to 0.494 (-44), PermSort 0.169 to 0.083 (-51),
+  PermSortPeano 0.194 to 0.103 (-47), SearchMAC 0.609 to 0.447 (-27),
+  which is 1 to 8 percent of the CPU of those programs; the
+  instructions -3 percent on QueensSet9 and SearchQueens, -2 on
+  PermSort, -1 on PermSortPeano, SearchMAC and Hamming, -6 on Fib, -10 on
+  ReverseBuiltin and ReverseHO, 22 programs the same within 1 percent
+  (compare --deterministic); the CPU seconds within the noise (QueensSet9
+  0.95, SearchQueens 1.00, PermSort 1.03).  Peak RSS +43 to +53 percent
+  on the four programs with a live set near 300 MiB (QueensSet9 330 to
+  473 MiB, SearchQueens 307 to 465, PermSort 314 to 481, PermSortPeano
+  307 to 468), SearchMAC 66 to 88, Hamming 159 to 168; over the suite the
+  sum of the peaks 3557 to 4254 MiB (+20 percent) for 52 percent fewer
+  nodes marked (40.6 M to 19.3 M) and 33 percent fewer collector seconds
+  (3.79 to 2.55 s).  Growth 12 sits halfway on both sides: -30 percent
+  nodes marked, -21 percent collector seconds, +8 percent RSS in sum
+  (+22 to +29 on the four large programs).
+- Repeated at the end for the two factors that decide, 8 and 16 (the
+  records -rerun2 and, for QueensSet9 alone, -rerun3 in g8-records/).
+  The other lane of the worktree had put its optimizer pass into the
+  shared install meanwhile, so the steps of 28 programs changed between
+  the first run and the repeat (Queens10 44,630,642 to 34,164,285,
+  SearchQueens 39,256,210 to 35,529,964), and the repeat is a second
+  observation of the trade on that state, both factors on the same
+  steps; a first repeat failed on a module of that lane that the install
+  did not link yet, and one repetition of QueensSet9 at growth 16 died
+  with SIGBUS when a product was rewritten under it, so QueensSet9 ran
+  alone once more.  The exact columns agree with the first run
+  (collections PermSort 9 to 5, PermSortPeano 10 to 5, SearchMAC 78 to
+  60, QueensSet9 11 to 6, SearchQueens 19 to 9 on its new steps; nodes
+  marked -50 to -53 percent on the four search programs; the
+  instruction ratios within half a percent of the first run), the
+  collector seconds of growth 16 against 8 are 0.68 on QueensSet9 (1.555
+  to 1.059 s), 0.51 on SearchQueens, 0.54 on PermSort, 0.62 on
+  PermSortPeano and 0.84 on SearchMAC, and the peak RSS is +43 to +52
+  percent on the four large programs (QueensSet9 333 to 477 MiB).  The
+  CPU seconds do not follow the instructions (PermSort 1.17 and
+  PermSortPeano 1.22 on 2 and 1 percent fewer instructions, QueensSet9
+  alone 0.85 on 2.7 percent fewer; the load average 3.5 to 7.0): they
+  are indicative, the exact columns decide.
+- Decision: the default stays at 8.  The work saved and the memory added
+  are the same proportion on every program the factor touches, so no
+  factor is a free gain; growth 16 buys half the marking work with half
+  again the peak RSS of the programs that use the most memory, and it
+  doubles the bound the design states (the heap within the growth factor
+  times the live nodes); the saving is 1 to 3 percent of the instructions
+  of a run, and the 18 programs below the floor gain nothing at any
+  factor; the counters of every nightly record stay where they are.  A
+  user with memory to spare buys the saving with SPRITE_GC_GROWTH=16.
+  Docs: the SPRITE_GC_GROWTH entry of the environment variables page and
+  the collector section of the benchmark README state the measured
+  trade, and name the configuration threshold as the second path by
+  which the factor touches a program (the review of 2026-10-06 found the
+  first text stated the node floor alone).  No code and no test changed;
+  unit_cxx_gc.py pins the default (test_growth,
+  test_threshold_follows_the_survivors): 23 tests OK on the C++ backend.
+  The table, the records, the commands and the load are in the
+  perf-program note g8-growth.md and g8-records/ of the notebook.
+- Left: the per-run term of QueensSet9 (G9); a benchmark with an old,
+  retained live set, where the factor would trade differently (design
+  open question 2); the Poker programs need currypp on the machine to
+  join the suite.
+
+2026-10-06: O2 and O3, the inliner and the known constructor (#71, #72)
+- The pass inline_calls (interpreter/optimize.py; the analysis in
+  icurry/analysis/inlining.py) runs between saturate_applies and
+  inline_aliases under the key <backend>.opt.inline_calls.  Two rules
+  rewrite a saturated call in place, from the inside out, and the result
+  is rewritten again (to the depth MAX_DEPTH, 16; the dictionary chain
+  takes about five): a call of a non-recursive function whose body is an
+  expression of at most inline_budget nodes (a new interpreter flag,
+  default 4, 0 turns the pass off; the budget counts the nodes a body
+  builds, calls, partial applications, constructors, choices and
+  literals, a variable counts nothing) is replaced by the body; a call
+  g (K a b) of a non-recursive function whose body is one case on that
+  parameter, with a branch for K, is replaced by the body of the branch
+  (a branch of at most CASE_LIMIT, 32, nodes), with the fields for the
+  pattern variables.  An apply whose head the rewrites expose is
+  saturated with analysis.saturate.  The sharing rule (plan 4.3): an
+  argument, a field, the whole constructor (when the branch uses the
+  parameter as a whole), or a local of the body that is used more than
+  once is bound first to a fresh variable of the caller's block (IVarDecl
+  and IVarAssign, inserted before the statement), so that it is built
+  once; one used once is written at its use; one not used is dropped; a
+  variable, a literal and a static string are written at every use.  A
+  free variable of the body is a fresh IFreeDecl of the caller's block
+  (one per call site, as one per call before; unknown inlines to a fresh
+  free variable).  A choice in the body is one choice per call site, as
+  one call per site.  A body may bind locals (a let that is not
+  recursive); a body with a recursive let (INodeAssign) is neither
+  inlined nor rewritten (the patch names a path of a built node).  A body
+  with a case, other than the one case of the second rule, a branch with
+  a nested case or an exempt, a path of two entries, and a variable the
+  body does not bind are not shapes (analysis.body_shape); the case at a
+  return position is O4's.  An alias function keeps its body, so
+  inline_aliases records its target as before; its callers get the alias
+  inlined (one node), then the target.  A call of a user alias of apply
+  (app f x = f x) stays, as it stays for saturate_applies: the source
+  wrote the indirection, and unit_cxx_partial.py needs it to hand a known
+  function value to the apply of the runtime (the first form inlined app
+  and saturated the chain, and four tests there lost their subject).
+- The body that replaces a call is the body as it was before the pass
+  rewrote the callee (analysis.inline_shape copies it when first asked,
+  which the pass does before it rewrites a function), after O1: the inner
+  calls are then rewritten where the arguments are known.  So x /= y on
+  Int resolves: _def#/= inlines to not (apply (apply (== d) x) y), ==
+  to ==._#lambda (apply d ()), the apply saturates to _inst#Eq#Int (),
+  the known-constructor rule gives the dictionary, ==._#lambda selects
+  _impl#==, the applies saturate, and _impl#== inlines to eqInt x y;
+  mod x n /= 0 resolves likewise through _def#mod, its local pair,
+  divMod, _impl#divMod (the pair (divInt, modInt)) and the selector of
+  the second component, to not (eqInt (modInt x n) 0).  Non-recursive
+  means not on a cycle of saturated calls within the module (Tarjan over
+  IFCall edges; a cycle cannot cross modules); a partial application is
+  a value and makes no edge, since the dictionary of an instance names
+  its methods and a method that falls back to a class default names the
+  dictionary, and the chain needs both inlined.
+- Each function records the body a call of it is replaced by under
+  all.inline_body as ICurry-JSON (the whole IFuncBody), when the function
+  is public, non-recursive and within the limits (RECORD_LIMIT 8 for an
+  expression body, CASE_LIMIT 32 for a branch), or when it is private and
+  a recorded body of the module names it, in a call or in a partial
+  application (analysis.recorded_functions): the selector behind a class
+  method and the lambda behind . are private, and the chain needs them.
+  So a module loaded from its compiled form, which has no bodies, still
+  tells its small functions to its importers; both backends carry the
+  metadata in their records (the C++ loader hands the keys and the
+  metadata on since O1).  The Prelude records 1246 of its 1670 functions
+  (664 expression bodies, 582 single-case bodies, 1.04 MB of text in
+  Prelude.so and Prelude.py); the record is what the warm expression
+  compile pays for (+4.5 ms).  A copied body that names a symbol of a
+  module the caller does not import makes the module join the imports.
+- Staleness: the format stamps went to 12 (C++) and 6 (Python), so make
+  stage and the first import write every cached module again, once; a
+  file of format 11 or 5 is correct but slower, and its record tells the
+  modules that import it no bodies.  Found on the way: the product
+  directory keeps a product whose stamp is current whatever version of a
+  pass wrote it, so the background compiles of the tiered mode during the
+  work on the pass left objects of intermediate forms in the install and
+  in the benchmark directory, which the first two measurements of the
+  table measured; the products were deleted and compiled again.
+- Found on the way, two: the C++ emitter could not assign a free variable
+  to a Variable (_1 = _2 with _2 a Node * from rts->freshvar()), a shape
+  the front end never wrote and the inlining of unknown into a let
+  writes ($1 <- freeVal with freeVal = x where x free).  passthrough.py
+  no longer lets a free variable on the right side force a Variable on
+  the left side (a plain left side copies the pointer), and the emitter
+  gives a Variable on the left side the node through its target, as for
+  a node the step builds (passthrough.free_variables; compiler.free_vars).
+  The bytecode and the Python emitters handled the shape.
+- Measured with the harness on the C++ backend, 3 repetitions, perf, other
+  work on the machine, the deterministic columns deciding; the notebook of
+  the performance program keeps the table, the records and the commands
+  (o2o3-measurement.md).  Steps: Queens10 44630642 to 17706900 (-60.3
+  percent; 0.325x of the Phase 2 record), Primes 49108670 to 14383977
+  (-70.7 percent; 0.234x of the record), Tak1 unchanged, Fib unchanged,
+  Reverse 8407963 to 8407940 (the nullary functions two, four and nat16
+  inlined into one another).  Instructions: Queens10 0.52x, Primes 0.36x,
+  Tak1 1.00x, Fib 1.04x, Reverse 1.01x.  Collections: Queens10 38 to 17,
+  Primes 47 to 9.  CPU seconds, indicative, at a load average twice the
+  baseline's: Queens10 1.47 to 0.84 s, Primes 1.74 to 0.70 s.  Fib's
+  instructions rise 3.6 percent on equal steps: fibgen adds through a
+  dictionary parameter, and isFib never forces the sum, so the selector
+  + d (one node) inlined to +._#lambda (apply d ()) (three nodes) costs
+  two nodes per element and saves no step; a refinement that inlines a
+  body larger than the call only when the rewrite makes progress would
+  spare Fib and keep the chains, at the price of the budget rule as the
+  plan states it (four 10 with four x = (x + 1, 2) would stay a call); the
+  owner decides.  Gate O after O2 and O3: steps Queens10 at most 0.5x
+  and Primes at most 0.4x met, instructions Queens10 and Primes at most
+  0.8x met, the latency within 10 ms met, Tak1 and Fib at most 0.8x wait
+  for O4 (nothing of O2 or O3 touches their hot loops).  The counters of
+  the nightly record change (a compare of the nightly set against the
+  Phase 2 record, one repetition, steps and forks): Queens10 54505073 to
+  17706900, Primes 61364444 to 14383977, Reverse 8407963 to 8407940,
+  SearchQueens 41373250 to 34001063 with the forks 1084883 to 1084670,
+  QueensSet 2152979 to 2089740 with the forks 511583 to 511430, QueensSet9
+  12143480 to 11784795 with the forks 2979048 to 2978740, PermSort
+  12531154 to 12530839 (forks equal), Last 3100017 to 3100015 (forks
+  equal); Tak1 and Fib equal.  The forks of a search move because the
+  rotations fall elsewhere when the steps change.
+- Tests: unit_optimize_inline.py (31 tests on both backends, with the
+  helpers of unit_optimize.py): the analysis on hand-built ICurry (the
+  node count, the expression and the single-case shapes, the shapes that
+  are not, the recursion test with a partial application of the function
+  itself and a call into another module, the shape from the metadata and
+  from a text that does not read back, the copy of the body, the inliner
+  with the sharing rule and the budget, two variables bound to one
+  parameter, the known-constructor rule with a shared field, a whole used
+  once and twice, a dropped field and a constructor without a branch); the
+  shapes of a module (the budget boundary at four and five nodes, a
+  recursive function and a mutually recursive pair left alone, a choice, a
+  call and a variable as the argument, a choice in the body, a free
+  variable, a dropped argument, a local used twice and once, the recorded
+  bodies, a private function recorded when a recorded body names it); the
+  single-case shapes (a choice in a field, literal fields, a field used
+  once, an unused field, the whole parameter used once and twice, the
+  lifted inner case of a function of two patterns, a constructor of the
+  Prelude); values against the unoptimized program on both backends (the
+  same text under another name, imported from its ICurry object with the
+  key of the pass set), the flag at 0, the steps saved, the generated code
+  of the backend under interpret off; the bodies across modules through
+  the metadata of a compiled module and the import join; the chain (x /= y
+  to not (eqInt x y), mod to modInt, not True to False, no apply, _def#,
+  _inst# or _impl# left; three steps for not (eqInt 1 2)); the installed
+  Prelude and its ICurry (no apply with a known head remains after the
+  passes, so no nullary _impl# that unfolds to a partial sits in a
+  saturable position; every _inst# function recorded; the class default
+  inlines the selector); the chains of Queens10 and Primes.
+  unit_optimize.py's icurry_of leaves the inliner off unless asked (the
+  tests of the earlier passes read the structure it rewrites), its
+  compiled() takes flags, and the alias tests that read the code or the
+  steps run with inline_budget 0, as does the cross-module test of
+  unit_optimize_applies.py.
+- Suites: the unit suite on both backends (86 files each) and the oracle
+  suites (21 files each) pass.  func_flat2icurry.py found a FlatCurry
+  product of the pool written before the binding optimization rewrote
+  such files (CxxInterp.fcy, from the setup of the worktree, with no
+  constrEq); sprite-make --rewrite-flat --json CxxInterp brought it up to
+  date, and the test passes.  Five unit files of the C++ backend changed for
+  the reason the passes exist: unit_cxx_gc.py and unit_cxx_heap.py pinned
+  the walk over [1..n] at about 24 nodes per cell, and a cell costs 7 now
+  that the comparison of enumFromTo resolves (the walks are longer: eight
+  million cells in place of three to run out of memory under 1 GiB, two
+  million in place of one for more than ten collections);
+  unit_cxx_rotation.py pins the counters of psort 8 (17093 to 16929
+  steps) and countQueens 8 (2180142 to 2112920 steps, forks 511409 to
+  511484: the rotations fall elsewhere); unit_inspect.py reads the
+  bytecode of main = double 21 with inline_budget 0; unit_cxx_partial.py
+  passes with the alias rule above.  The products of the pool and of the
+  benchmark directory were deleted and compiled again where background
+  compiles of intermediate forms of the pass had written them.
+- Found in the review (2026-10-06), one: the background compile of the
+  tiered mode ran under the default budget whatever the interpreter's.
+  tiered._environment handed the child backend, interpret and debug
+  alone, so a module interpreted with inline_budget 0 was swapped to code
+  compiled with the inliner on (a probe: s 1 2 with s x y = y + x cost 3
+  steps before tiered.wait and 2 after it), and the flag that serves
+  bisection was defeated under the default mode; test_steps of
+  unit_optimize.py raced the compile of its module.  The child gets the
+  budget of the interpreter (inline_budget:N in its flags), the flag's
+  text says so, test_budget_reaches_the_child of unit_cxx_tiered.py pins
+  the steps of a call before and after the swap at budget 0 and at the
+  default, and test_steps of unit_optimize.py runs under interpret 'new'
+  as the steps tests of the other optimizer files do.  Two: a body that
+  binds two variables to one parameter ($1 <- $0[0]; $2 <- $0[0], a shape
+  _block_parts accepts and the front end does not write today: none of
+  the 3190 functions of the installed library and the test pool has it)
+  defeated the sharing rule: each variable was bound alone with its own
+  use count, so both x = (x, x') on the argument f 1 placed the one call
+  object at both uses, and a choice there would have been built twice;
+  the whole of a single-case body named through a second variable placed
+  the field expressions inside the whole and at their own uses besides.
+  The inliner binds the variables of one parameter, or of one field,
+  together, with their uses counted together (Inliner.bind takes the
+  variables; _by_index groups them), as the fields of a branch were
+  counted; test_two_variables_one_parameter of unit_optimize_inline.py
+  pins the expression and the single-case form.  No library product
+  changes, since no function has the shape.  Three: the results README
+  of the benchmarks still said that a compare against the Phase 2 record
+  expects equal counters; it names the eight programs whose counters O2
+  and O3 moved.  Four: the entry above counted 29 tests in
+  unit_optimize_inline.py where the file had 30 (test_alias_of_apply
+  joined after the count), and the Python backend had not run the final
+  file; both backends ran it (31 tests with the new one).  After the
+  review changes, through the runner (-j 2 --mem 4): the --changed
+  selection on both backends (42 files, 84 jobs), the eleven unit files
+  named above with unit_cxx_interp.py, unit_expr.py, unit_prelude.py,
+  unit_benchmarks.py, unit_cxx_heap.py, the collector files and
+  unit_cxx_tiered.py on both backends (22 jobs), the oracle suites on
+  both backends (21 files each, outside the sandbox of the session) and
+  the fast tier on both backends (62 files, 124 jobs) pass whole.  The
+  pass changed, so the five programs were compiled and measured again
+  (after-review.jsonl in the notebook): steps, forks and collections
+  equal to the table above on every program and the instructions within
+  0.01 percent (compare --deterministic: 5 same, no counter changed); the
+  nightly counters equal to the record of this entry on all ten programs;
+  the warm expression compile 21.1 ms (base 18.9 ms), its instructions
+  as in the first run.
+- Left: a single-use let of a constructor at the argument of a
+  single-case function (let p = (a, b) in snd p); the case at a return
+  position (O4); a dictionary that arrives as a parameter (Y10); the
+  thunk growth of Fib (above); the size of the record (a smaller encoding
+  than the ICurry-JSON, or a record limited to what an importer can reach
+  with a literal constructor).
