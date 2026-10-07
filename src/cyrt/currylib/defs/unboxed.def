@@ -1,17 +1,27 @@
 // Note: no include guards desired.
-#include <boost/preprocessor/cat.hpp>
-#include <boost/preprocessor/stringize.hpp>
-#include <boost/preprocessor/tuple/elem.hpp>
 #include <type_traits>
 
 #ifndef UBSPEC
 #error "Define UBSPEC as a 4-tuple of NAME, FUNC, ARITY, ARGFIELD"
 #endif
 
-#define NAME     BOOST_PP_TUPLE_ELEM(0, UBSPEC)
-#define FUNC     BOOST_PP_TUPLE_ELEM(1, UBSPEC)
-#define ARITY    BOOST_PP_TUPLE_ELEM(2, UBSPEC)
-#define ARGFIELD BOOST_PP_TUPLE_ELEM(3, UBSPEC)
+// The preprocessor helpers.  APPLY expands the tuple before the element
+// macro sees it; CAT and STRINGIZE expand their argument before the paste
+// and the stringize.  They are undefined at the end with the rest.
+#define CYRT_DEF_APPLY(macro, args) macro args
+#define CYRT_DEF_ELEM0(a, b, c, d) a
+#define CYRT_DEF_ELEM1(a, b, c, d) b
+#define CYRT_DEF_ELEM2(a, b, c, d) c
+#define CYRT_DEF_ELEM3(a, b, c, d) d
+#define CYRT_DEF_CAT(a, b) CYRT_DEF_CAT_I(a, b)
+#define CYRT_DEF_CAT_I(a, b) a ## b
+#define CYRT_DEF_STRINGIZE(a) CYRT_DEF_STRINGIZE_I(a)
+#define CYRT_DEF_STRINGIZE_I(a) #a
+
+#define NAME     CYRT_DEF_APPLY(CYRT_DEF_ELEM0, UBSPEC)
+#define FUNC     CYRT_DEF_APPLY(CYRT_DEF_ELEM1, UBSPEC)
+#define ARITY    CYRT_DEF_APPLY(CYRT_DEF_ELEM2, UBSPEC)
+#define ARGFIELD CYRT_DEF_APPLY(CYRT_DEF_ELEM3, UBSPEC)
 
 #if ARITY != 1
   #if ARITY != 2
@@ -19,8 +29,8 @@
   #endif
 #endif
 
-#define STEP_FUNCTION_NAME  BOOST_PP_CAT(NAME, _step)
-#define INFOTABLE_NAME      BOOST_PP_CAT(NAME, _Info)
+#define STEP_FUNCTION_NAME  CYRT_DEF_CAT(NAME, _step)
+#define INFOTABLE_NAME      CYRT_DEF_CAT(NAME, _Info)
 
 static tag_type STEP_FUNCTION_NAME(RuntimeState * rts, Configuration * C)
 {
@@ -61,9 +71,9 @@ static tag_type STEP_FUNCTION_NAME(RuntimeState * rts, Configuration * C)
 InfoTable const INFOTABLE_NAME {
     /*tag*/        T_FUNC
   , /*arity*/      ARITY
-  , /*alloc_size*/ sizeof(BOOST_PP_CAT(Node, ARITY))
+  , /*alloc_size*/ sizeof(CYRT_DEF_CAT(Node, ARITY))
   , /*flags*/      F_STATIC_OBJECT
-  , /*name*/       BOOST_PP_STRINGIZE(NAME)
+  , /*name*/       CYRT_DEF_STRINGIZE(NAME)
 #if ARITY == 1
   , /*format*/     "p"
 #else
@@ -75,6 +85,15 @@ InfoTable const INFOTABLE_NAME {
 
 #undef ARGFIELD
 #undef ARITY
+#undef CYRT_DEF_APPLY
+#undef CYRT_DEF_CAT
+#undef CYRT_DEF_CAT_I
+#undef CYRT_DEF_ELEM0
+#undef CYRT_DEF_ELEM1
+#undef CYRT_DEF_ELEM2
+#undef CYRT_DEF_ELEM3
+#undef CYRT_DEF_STRINGIZE
+#undef CYRT_DEF_STRINGIZE_I
 #undef UBSPEC
 #undef FUNC
 #undef INFOTABLE_NAME

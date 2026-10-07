@@ -128,20 +128,4 @@ ifneq ($(NVALIDATE),1)
   ifeq ($(shell [ -e $(PYTHON_LIBRARY_PATH)/$(PYTHON_LIBRARY_NAME) ]; echo $$?),1)
     $(error Python library not found at $(PYTHON_LIBRARY_PATH)/$(PYTHON_LIBRARY_NAME)$nPYTHON_LIBRARY_PATH=$(PYTHON_LIBRARY_PATH)$nPYTHON_LIBRARY_NAME=$(PYTHON_LIBRARY_NAME))
   endif
-
-  # ifeq ($(shell [ -d $(BOOST_HOME) ]; echo $$?),1)
-  #   $(error Not a directory: BOOST_HOME=$(BOOST_HOME).  Please check your Boost installation.)
-  # endif
-
-  # ifeq ($(shell [ -d $(BOOST_INCLUDE_PATH) ]; echo $$?),1)
-  #   $(error Not a directory: BOOST_INCLUDE_PATH=$(BOOST_INCLUDE_PATH).  Please check your Boost installation.)
-  # endif
-
-  # ifeq ($(shell [ -d $(BOOST_LIBRARY_PATH) ]; echo $$?),1)
-  #   $(error Not a directory: BOOST_LIBRARY_PATH=$(BOOST_LIBRARY_PATH).  Please check your Boost installation.)
-  # endif
-
-  # ifeq ($(shell [ -e $(BOOST_LIBRARY_PATH)/lib$(BOOST_PYTHON_LIBRARY).so ]; echo $$?),1)
-  #   $(error Boost.Python library not found at $(BOOST_LIBRARY_PATH)/lib$(BOOST_PYTHON_LIBRARY).so$nBOOST_LIBRARY_PATH=$(BOOST_LIBRARY_PATH)$nBOOST_PYTHON_LIBRARY=$(BOOST_PYTHON_LIBRARY))
-  # endif
 endif

@@ -137,6 +137,15 @@ The setting for development work is::
 Checking Prerequisites
 ----------------------
 
+Sprite needs few programs.  At build time: Python 3.14 with its development
+files, a C++ compiler (``g++``) with GNU make and binutils, and the Curry
+front end of PAKCS 3.4.1, ``bin/pakcs-frontend``.  At run time: the same
+Python, the front end, and, for the C++ backend, the compiler.  The C++
+runtime uses the C++17 standard library alone; Boost is not needed.
+Optional: ``ccache``, ``icurry``, PAKCS as the oracle of the functional
+tests (it runs on SWI-Prolog), ``numpy`` for certain tests, Sphinx for the
+documentation, and GNU time for the benchmark harness.
+
 Once you have determined your configuration options, check the prerequisites::
 
     ./configure [your-config-options...] --check-prereqs
@@ -161,11 +170,15 @@ To install these yourself, follow the instructions at the links below:
         source.  Be sure to install the -dev package: install ``python3.14``
         `AND` ``python3.14-dev``.
   * `PAKCS 3.4.1 <https://www.curry-lang.org/pakcs/>`__
-      - Prerequisites for PAKCS are:
-          - `Haskell stack <https://docs.haskellstack.org/en/stable/install_and_upgrade>`__
-          - Prolog (`SWI <https://www.swi-prolog.org/download/stable>`__ or `SICStus <https://sicstus.sics.se/download4.html>`__)
       - The binary distribution includes the Curry front end,
-        ``bin/pakcs-frontend``.
+        ``bin/pakcs-frontend``, the one program of PAKCS that Sprite runs.
+      - Prolog (`SWI <https://www.swi-prolog.org/download/stable>`__ or
+        `SICStus <https://sicstus.sics.se/download4.html>`__) runs
+        ``pakcs`` itself: the build of the saved states of the binary
+        distribution, and the test oracle.  Sprite runs no Prolog.
+      - `Haskell stack <https://docs.haskellstack.org/en/stable/install_and_upgrade>`__
+        builds PAKCS from source.  The binary distribution does not need
+        it, and neither does Sprite.
   * Optional: `ICurry Compiler 3.1.0 <https://cpm.curry-lang.org/pkgs/icurry.html>`__,
     the alternative route from Curry to ICurry.
 

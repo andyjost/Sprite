@@ -7,7 +7,8 @@ Sprite was developed and tested with the following software:
 - Ubuntu Linux 24.04 LTS
 - Python 3.14
 - PAKCS 3.4.1, with the Curry front end 2.0.0 that it ships
-- SWI-Prolog 9.0.4
+- SWI-Prolog 9.0.4, which runs PAKCS (the test oracle); Sprite itself runs
+  no Prolog
 - g++ 13.3
 - GNU Make 4.3
 - pybind11 v3.1.0

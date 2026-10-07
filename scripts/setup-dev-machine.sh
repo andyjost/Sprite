@@ -43,9 +43,12 @@ CPM_TAR_URL=https://cpm.curry-lang.org/PACKAGES
 REPO_URL_DEFAULT=https://github.com/andyjost/Sprite.git
 # The PATH of the clean environment for configure, make, and the tests.
 CLEAN_PATH=${SPRITE_SETUP_CLEAN_PATH:-/usr/local/bin:/usr/bin:/bin}
-# The apt packages.  perf comes from the linux-tools packages, which depend
-# on the kernel; see perf_packages.
-APT_PACKAGES=(git swi-prolog-nox g++ make libboost-dev curl ccache time)
+# The apt packages.  swi-prolog-nox serves PAKCS alone: the build of its
+# saved states and the test oracle pakcs; Sprite itself runs no Prolog.
+# time is GNU time, which the benchmark harness uses for the peak memory
+# of a run.  perf comes from the linux-tools packages, which depend on the
+# kernel; see perf_packages.
+APT_PACKAGES=(git swi-prolog-nox g++ make curl ccache time)
 NSTEPS=9
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)

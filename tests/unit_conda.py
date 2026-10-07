@@ -1,6 +1,9 @@
 import cytest # from ./lib; must be first
-from curry import config
-import os, re, shutil, subprocess, sys, tempfile, unittest
+from curry import config, exceptions
+from curry.utility.binding import binding, del_
+from unittest import mock
+import curry, hashlib, os, re, shutil, struct, subprocess, sys, tempfile
+import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 CONDA = os.path.join(ROOT, 'conda')
@@ -24,6 +27,39 @@ def run(cmd, **kwds):
   kwds.setdefault('text', True)
   kwds.setdefault('timeout', 600)
   return subprocess.run(cmd, **kwds)
+
+def heredoc(script, tag):
+  '''The text of the here-document ``tag`` of a shell script.'''
+  m = re.search(r"<<'?%s'?\n(.*?)\n%s\n" % (tag, tag), script, re.S)
+  assert m is not None, tag
+  return m.group(1)
+
+def launcher_text(name):
+  '''
+  The launcher ``name`` as build.sh writes it: the here-document with the
+  name filled in and the escaped dollar signs restored.
+  '''
+  text = heredoc(readfile(RECIPE, 'build.sh'), 'LAUNCHER_EOF')
+  return text.replace('$name', name).replace('\\$', '$') + '\n'
+
+def elf_interpreter(path):
+  '''The dynamic loader an ELF64 program names (PT_INTERP), or None.'''
+  with open(path, 'rb') as stream:
+    header = stream.read(64)
+    if header[:4] != b'\x7fELF' or header[4] != 2:
+      return None
+    order = '<' if header[5] == 1 else '>'
+    phoff, = struct.unpack_from(order + 'Q', header, 0x20)
+    phentsize, phnum = struct.unpack_from(order + 'HH', header, 0x36)
+    for i in range(phnum):
+      stream.seek(phoff + i * phentsize)
+      p_type, _, p_offset, _, _, p_filesz = struct.unpack_from(
+          order + 'IIQQQQ', stream.read(56), 0
+        )
+      if p_type == 3:
+        stream.seek(p_offset)
+        return stream.read(p_filesz).rstrip(b'\0').decode()
+  return None
 
 def make_config_value(text, name):
   '''The value of a variable in a Make.config text.'''
@@ -62,7 +98,8 @@ class TestCondaRecipe(cytest.TestCase):
     for dep in ['python 3.14.*', 'curry-frontend 2.0.0.*', 'cxx-compiler']:
       self.assertIn(dep, meta)
     self.assertIn("{{ compiler('cxx') }}", meta)
-    self.assertIn('libboost-headers', meta)
+    # The runtime needs no Boost (the dependency cleanup of 2026-10-07).
+    self.assertNotIn('libboost', meta)
     self.assertIn('opt/sprite/lib', meta)
     for notice in ['curry/lib/LICENSE', 'curry/lib/NOTICE', 'extern/pybind11/LICENSE']:
       self.assertIn(notice, meta)
@@ -80,17 +117,40 @@ class TestCondaRecipe(cytest.TestCase):
     # A parallel build with the jobs conda-build grants; no ccache.
     self.assertIn('--jobs "${CPU_COUNT:-1}"', script)
     self.assertIn("--with-ccache=''", script)
-    # The prebuild step compiles with a wrapper in the build tree that names
-    # the include directory of the host environment.
-    self.assertIn('cxx_build="$SRC_DIR/conda-build-cxx"', script)
-    self.assertIn('--with-cxx-postinstall="$cxx_build"', script)
-    # The precompiled header of the build compiler stays out of the package.
-    self.assertIn('rm -rf "$SPRITE_HOME/include/cyrt/cyrt.hpp.gch"', script)
+    # The prebuild step compiles with the compiler of the build.
+    self.assertIn('--with-cxx-postinstall="$CXX"', script)
+    # The precompiled header of the build compiler goes to a cache directory
+    # in the build tree, and the package holds none.
+    self.assertIn('export XDG_CACHE_HOME="$SRC_DIR/cache"', script)
+    self.assertIn('test ! -e "$SPRITE_HOME/include/cyrt/cyrt.hpp.gch"', script)
+    # The launchers and the wrapper resolve their own location, so a link
+    # to a launcher from another directory works.
+    self.assertEqual(script.count('$(readlink -f "$0")'), 1)
+    self.assertEqual(script.count('\\$(readlink -f "\\$0")'), 1)
+    # The version is the VERSION file of the repository.
+    self.assertIn('load_file_regex(load_file="../../VERSION"', meta)
+    self.assertNotIn('set version = "', meta)
+    # The file holds one version string; the regex of the recipe reads it
+    # as conda render would.  The literal is not pinned here: a version
+    # bump must not fail this test.
+    version = readfile(ROOT, 'VERSION').strip()
+    self.assertRegex(version, r'^\d[\w.]*$')
+    pattern = re.search(r'regex_pattern="([^"]+)"', meta).group(1)
+    self.assertEqual(re.search(pattern, readfile(ROOT, 'VERSION')).group(1), version)
+    # The tests of the package check the writes: no header in the tree, no
+    # prefix in a generated file, and the resolved source of the Prelude.
+    self.assertIn('test ! -e "$PREFIX/opt/sprite/include/cyrt/cyrt.hpp.gch"', meta)
+    self.assertIn('test -d "${XDG_CACHE_HOME:-$HOME/.cache}/sprite/pch"', meta)
+    self.assertIn(
+        "grep -rlF \"$PREFIX\" \"$PREFIX/opt/sprite/curry\" --include='*.py' --include='*.cpp'"
+      , meta
+      )
+    self.assertIn("os.path.join(curry.config.prefix(), 'curry', 'Prelude.curry')", meta)
     self.assertIn('ln -s ../../../bin/pakcs-frontend "$tools/curry-frontend"', script)
     self.assertIn('SPRITE_CXX', script)
-    self.assertIn('-isystem', script)
-    meta_run = meta.split('  run:')[1]
-    self.assertIn('libboost-headers', meta_run)
+    # No Boost variable and no include flag for it in the build.
+    self.assertNotIn('-isystem', script)
+    self.assertNotIn('boost', script.lower())
     # conda relocates the compiled library modules at install time.
     self.assertIn('detect_binary_files_with_prefix: true', meta)
     # The C++ backend is the default of the package.
@@ -137,7 +197,9 @@ class TestCondaRecipe(cytest.TestCase):
     text = readfile(CONDA, 'README.md')
     for topic in [
         'curry-frontend', 'opt/sprite', 'macOS', 'Windows', 'compiler'
-      , 'LICENSE', 'Nothing here is published'
+      , 'LICENSE', 'Nothing here is published', 'build-packages.sh'
+      , 'XDG_CACHE_HOME', 'has_prefix', 'ld_interpreter_path', 'sysroot'
+      , 'before publication'
       ]:
       self.assertIn(topic, text)
 
@@ -225,8 +287,7 @@ class TestCondaRecipe(cytest.TestCase):
     '''
     The tools/cxx wrapper of the package runs SPRITE_CXX when set, else the
     compiler of the environment.  An ambient CXX counts only when it names a
-    file under the prefix of the wrapper.  The wrapper adds the include
-    directory of the environment.
+    file under the prefix of the wrapper.  The wrapper adds no flag.
     '''
     script = readfile(RECIPE, 'build.sh')
     m = re.search(r"<<'CXX_EOF'\n(.*?)\nCXX_EOF\n", script, re.S)
@@ -247,31 +308,31 @@ class TestCondaRecipe(cytest.TestCase):
       self.fake_tool(bindir, 'fake-host-g++', 'inside-default', with_args=True)
       other = self.fake_tool(bindir, 'other-c++', 'inside-other', with_args=True)
       outside = self.fake_tool(tmpdir, 'g++', 'outside', with_args=True)
-      isystem = ['-isystem', os.path.join(prefix, 'include'), '-c', 'x.cpp']
+      args = ['-c', 'x.cpp']  # the arguments of the call, as they are
       def compiler(**env):
         result = run([wrapper, '-c', 'x.cpp'], env=dict(ENV, **env))
         self.assertEqual(result.returncode, 0, result.stdout)
         return result.stdout.split()
       # No variable: the compiler of the environment.
-      self.assertEqual(compiler(), ['inside-default'] + isystem)
+      self.assertEqual(compiler(), ['inside-default'] + args)
       # SPRITE_CXX wins.
-      self.assertEqual(compiler(SPRITE_CXX=outside, CXX=other), ['outside'] + isystem)
+      self.assertEqual(compiler(SPRITE_CXX=outside, CXX=other), ['outside'] + args)
       # CXX counts when it names a file under the prefix, by path or by name.
-      self.assertEqual(compiler(CXX=other), ['inside-other'] + isystem)
+      self.assertEqual(compiler(CXX=other), ['inside-other'] + args)
       self.assertEqual(
           compiler(CXX='other-c++', PATH=bindir + ':' + ENV['PATH'])
-        , ['inside-other'] + isystem
+        , ['inside-other'] + args
         )
       # A CXX outside the prefix, a name with flags, or a missing file does
       # not.
-      self.assertEqual(compiler(CXX=outside), ['inside-default'] + isystem)
+      self.assertEqual(compiler(CXX=outside), ['inside-default'] + args)
       self.assertEqual(
           compiler(CXX='g++', PATH=tmpdir + ':' + ENV['PATH'])
-        , ['inside-default'] + isystem
+        , ['inside-default'] + args
         )
-      self.assertEqual(compiler(CXX='g++ -std=c++17'), ['inside-default'] + isystem)
+      self.assertEqual(compiler(CXX='g++ -std=c++17'), ['inside-default'] + args)
       self.assertEqual(
-          compiler(CXX=os.path.join(bindir, 'missing-c++')), ['inside-default'] + isystem
+          compiler(CXX=os.path.join(bindir, 'missing-c++')), ['inside-default'] + args
         )
 
   def test_configure_frontend_version(self):
@@ -454,3 +515,368 @@ class TestCondaRecipe(cytest.TestCase):
       )
     self.assertNotEqual(result.returncode, 0)
     self.assertIn('SPRITE_HOME is not a directory', result.stdout)
+
+class TestBuildScript(cytest.TestCase):
+  '''
+  conda/build-packages.sh builds the two packages from an export of a
+  commit, so that an uncommitted file never ships.  These tests run its dry
+  run and its export; conda is not needed.
+  '''
+  SCRIPT = os.path.join(CONDA, 'build-packages.sh')
+
+  def script(self, *args, **env):
+    return run([self.SCRIPT] + list(args), env=dict(ENV, **env))
+
+  def need_git(self):
+    '''The plan and the export read the commit; skip outside a checkout.'''
+    if run(['git', '-C', ROOT, 'rev-parse', 'HEAD']).returncode != 0:
+      raise unittest.SkipTest('not a git checkout')
+
+  def test_help_and_errors(self):
+    result = self.script('--help')
+    self.assertEqual(result.returncode, 0, result.stdout)
+    for option in [
+        '--build-root DIR', '--channel DIR', '--conda PATH', '--rev REV'
+      , '--overlay PATH', '--jobs N', '--pakcs-archive FILE'
+      , '--memory-limit GB', '--timeout SEC', '--skip-frontend'
+      , '--export-only', '--dry-run'
+      ]:
+      self.assertIn(option, result.stdout)
+    result = self.script('--dry-run')
+    self.assertNotEqual(result.returncode, 0)
+    self.assertIn('--build-root is required', result.stdout)
+    result = self.script('--build-root', ENV['TMPDIR'], '--bogus')
+    self.assertNotEqual(result.returncode, 0)
+    self.assertIn('unknown option --bogus', result.stdout)
+
+  def test_dry_run(self):
+    '''
+    The plan: the export of HEAD and of the pybind11 submodule, the source
+    cache entry of the PAKCS archive under the name conda-build uses, the
+    scrubbed environment, the limits, and the two conda builds with the
+    local channel first.  The values of the passed variables stay out of
+    the plan: a proxy variable can hold a credential.
+    '''
+    self.need_git()
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      archive = os.path.join(tmpdir, 'pakcs-3.4.1-amd64-Linux.tar.gz')
+      result = self.script(
+          '--build-root', tmpdir, '--dry-run', '--pakcs-archive', archive
+        , '--memory-limit', '16', '--jobs', '3', '--timeout', '1234'
+        , '--conda', '/opt/conda/bin/conda', '--overlay', 'conda'
+        , HTTP_PROXY='http://user:secret-token@proxy.example:3128'
+        , CONDA_PKGS_DIRS=os.path.join(tmpdir, 'pkgs')
+        )
+      self.assertEqual(result.returncode, 0, result.stdout)
+      out = result.stdout
+      self.assertFalse(os.path.exists(os.path.join(tmpdir, 'src')))
+      self.assertIn('git -C %s archive --format=tar HEAD | tar -x -C ' % ROOT, out)
+      self.assertIn('/extern/pybind11 archive --format=tar ', out)
+      self.assertIn('%% cp -a %s/conda ' % ROOT, out)
+      sha256 = re.search(
+          r'sha256: ([0-9a-f]{64})', readfile(FRONTEND_RECIPE, 'meta.yaml')
+        ).group(1)
+      self.assertIn(
+          'src_cache/pakcs-3.4.1-amd64-Linux_%s.tar.gz' % sha256[:10], out
+        )
+      self.assertIn('env -i PATH=', out)
+      # The precompiled header of the test step goes under the build root,
+      # not under the home directory of the builder.
+      self.assertIn('CPU_COUNT=3 XDG_CACHE_HOME=%s/cache [' % tmpdir, out)
+      self.assertIn('HTTP_PROXY', out)
+      self.assertIn('CONDA_PKGS_DIRS', out)
+      self.assertNotIn('secret-token', out)
+      self.assertIn(
+          'prlimit --as=%d timeout 1234 /opt/conda/bin/conda build' % (16 << 30), out
+        )
+      builds = [line for line in out.splitlines() if 'conda build' in line]
+      self.assertEqual(len(builds), 2)
+      self.assertIn('/conda/curry-frontend --croot %s/bld' % tmpdir, builds[0])
+      self.assertIn('/conda/recipe --croot %s/bld' % tmpdir, builds[1])
+      for line in builds:
+        self.assertIn('--output-folder %s/channel' % tmpdir, line)
+        self.assertIn(
+            '--override-channels -c file://%s/channel -c conda-forge' % tmpdir, line
+          )
+        self.assertIn('--no-anaconda-upload', line)
+      # --skip-frontend drops the first build; --channel moves the channel.
+      result = self.script(
+          '--build-root', tmpdir, '--dry-run', '--skip-frontend'
+        , '--channel', os.path.join(tmpdir, 'out')
+        )
+      self.assertEqual(result.returncode, 0, result.stdout)
+      builds = [line for line in result.stdout.splitlines() if 'conda build' in line]
+      self.assertEqual(len(builds), 1)
+      self.assertIn('/conda/recipe ', builds[0])
+      self.assertIn('--output-folder %s/out' % tmpdir, builds[0])
+      self.assertIn('timeout 3600 conda build', builds[0])
+      self.assertNotIn('prlimit', builds[0])
+
+  def test_overlay_paths(self):
+    '''
+    An overlay path is normalized, and a path that leaves the repository or
+    names it is refused: "conda/.." would otherwise replace the whole export
+    with the working tree, and ".." the whole src directory of the build
+    root.
+    '''
+    self.need_git()
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      def plan(path):
+        return self.script(
+            '--build-root', tmpdir, '--dry-run', '--skip-frontend'
+          , '--overlay', path
+          )
+      for path in ['conda/..', '..', '.', '', 'conda/../..', 'tests/../..']:
+        result = plan(path)
+        self.assertNotEqual(result.returncode, 0, path)
+        self.assertIn('leaves the repository or names it', result.stdout, path)
+        # Nothing is planned after the export.
+        self.assertNotIn('rm -rf', result.stdout.split('tar -x -C')[-1], path)
+      result = plan('/etc/passwd')
+      self.assertNotEqual(result.returncode, 0)
+      self.assertIn('a path relative to the repository is needed', result.stdout)
+      result = plan('no/such/file')
+      self.assertNotEqual(result.returncode, 0)
+      self.assertIn('no such file in the working tree', result.stdout)
+      # A path with . and .. components names the file it resolves to.
+      result = plan('tests/../conda/./recipe/build.sh')
+      self.assertEqual(result.returncode, 0, result.stdout)
+      self.assertIn('%% cp -a %s/conda/recipe/build.sh ' % ROOT, result.stdout)
+      self.assertNotIn('/./', result.stdout)
+      self.assertNotIn('/../', result.stdout)
+
+  def test_export(self):
+    '''
+    The export holds the tracked files of HEAD and the pybind11 headers,
+    and nothing of the working tree that is not committed, unless an
+    overlay names it.
+    '''
+    self.need_git()
+    pybind11 = os.path.join(ROOT, 'extern', 'pybind11', 'include', 'pybind11', 'pybind11.h')
+    if not os.path.isfile(pybind11):
+      raise unittest.SkipTest('the pybind11 submodule is absent')
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      result = self.script(
+          '--build-root', tmpdir, '--export-only', '--overlay', 'tests/unit_conda.py'
+        )
+      self.assertEqual(result.returncode, 0, result.stdout)
+      exports = os.listdir(os.path.join(tmpdir, 'src'))
+      self.assertEqual(len(exports), 1)
+      self.assertRegex(exports[0], r'^sprite-[0-9a-f]{7,}$')
+      src = os.path.join(tmpdir, 'src', exports[0])
+      for name in [
+          'VERSION', 'configure', 'conda/recipe/meta.yaml', 'conda/recipe/build.sh'
+        , 'conda/curry-frontend/meta.yaml'
+        , 'extern/pybind11/include/pybind11/pybind11.h'
+        , 'src/python/config.py', 'curry/lib/Prelude.curry', 'tests/unit_conda.py'
+        ]:
+        self.assertTrue(os.path.isfile(os.path.join(src, name)), name)
+      # The overlay is the file of the working tree.
+      self.assertEqual(
+          readfile(src, 'tests', 'unit_conda.py')
+        , readfile(ROOT, 'tests', 'unit_conda.py')
+        )
+      # Nothing of the working tree that git does not track: the staging
+      # links, the configuration, the repository itself.
+      for name in ['.git', 'install', 'object-root', 'Make.config', 'configure.log']:
+        self.assertFalse(os.path.lexists(os.path.join(src, name)), name)
+      self.assertFalse(os.path.exists(os.path.join(tmpdir, 'bld')))
+
+class TestPackageRules(cytest.TestCase):
+  '''
+  The rules of the code that make the package install clean: nothing is
+  written into the package at run time, and the generated files of the
+  library name no path of the build machine.
+  '''
+
+  def test_pch_root_rule(self):
+    '''
+    The precompiled header lives beside the installed headers, unless the
+    include directory cannot be written or the installation lies in a conda
+    environment; then it goes to a cache directory of the user, one
+    directory per installation.  SPRITE_CXX_PCH_ROOT wins over the rule.
+    '''
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      tmpdir = os.path.realpath(tmpdir)
+      plain = os.path.join(tmpdir, 'plain')
+      env = os.path.join(tmpdir, 'env')
+      packaged = os.path.join(env, 'opt', 'sprite')
+      cache = os.path.join(tmpdir, 'cache')
+      os.makedirs(os.path.join(plain, 'include'))
+      os.makedirs(os.path.join(env, 'conda-meta'))
+      os.makedirs(os.path.join(packaged, 'include'))
+      with binding(os.environ, 'SPRITE_CXX_PCH_ROOT', del_), \
+           binding(os.environ, 'XDG_CACHE_HOME', cache):
+        self.assertEqual(config.user_cache_dir(), os.path.join(cache, 'sprite'))
+        with binding(os.environ, 'SPRITE_HOME', plain):
+          self.assertFalse(config.in_conda_prefix(os.path.join(plain, 'include')))
+          self.assertEqual(config.cxx_pch_root(), os.path.join(plain, 'include'))
+          # An include directory that cannot be written.
+          with mock.patch.object(os, 'access', lambda path, mode: False):
+            self.assertEqual(config.cxx_pch_root(), config.cxx_pch_cache_dir())
+        with binding(os.environ, 'SPRITE_HOME', packaged):
+          self.assertTrue(config.in_conda_prefix(os.path.join(packaged, 'include')))
+          self.assertTrue(config.in_conda_prefix(env))
+          key = hashlib.sha256(packaged.encode('utf-8')).hexdigest()[:16]
+          self.assertEqual(config.installation_key(), key)
+          self.assertEqual(
+              config.cxx_pch_root(), os.path.join(cache, 'sprite', 'pch', key)
+            )
+          # Two installations get two directories.
+          with binding(os.environ, 'SPRITE_HOME', plain):
+            self.assertNotEqual(config.installation_key(), key)
+          # The variable wins; the empty value disables the header.
+          with binding(os.environ, 'SPRITE_CXX_PCH_ROOT', tmpdir):
+            self.assertEqual(config.cxx_pch_root(), tmpdir)
+          with binding(os.environ, 'SPRITE_CXX_PCH_ROOT', ''):
+            self.assertIsNone(config.cxx_pch_root())
+      # Without XDG_CACHE_HOME the cache is under the home directory.
+      for value in [del_, '']:
+        with binding(os.environ, 'XDG_CACHE_HOME', value), \
+             binding(os.environ, 'HOME', tmpdir):
+          self.assertEqual(
+              config.user_cache_dir(), os.path.join(tmpdir, '.cache', 'sprite')
+            )
+
+  def test_compile_into_read_only_directory(self):
+    '''
+    The compile step of the C++ backend names the cause when the directory
+    of its object cannot be written, instead of the error of the first
+    write.  The case: a read-only installation of the package, whose
+    shipped library objects are stale under it (open question 2 of
+    conda/README.md), so that sprite-make --so of any program compiles the
+    Prelude again and fails.
+    '''
+    if curry.flags['backend'] != 'cxx':
+      raise unittest.SkipTest('the C++ toolchain')
+    if os.geteuid() == 0:
+      raise unittest.SkipTest('root writes everywhere')
+    from curry.backends.cxx import toolchain
+    from curry.backends.cxx import compiler as cxxcompiler
+    step = toolchain.Cpp2So(curry.getInterpreter())
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      cppfile = os.path.join(tmpdir, 'M.cpp')
+      sofile = os.path.join(tmpdir, 'M.so')
+      with open(cppfile, 'w') as ostream:
+        ostream.write('// FORMAT: %d\n// IMPORTS: \n' % cxxcompiler.FORMAT_VERSION)
+      def compile_fails(state):
+        os.chmod(tmpdir, 0o555)
+        try:
+          with self.assertRaises(exceptions.CompileError) as context:
+            step(cppfile, config.currypath())
+        finally:
+          os.chmod(tmpdir, 0o755)
+        message = str(context.exception)
+        self.assertIn('the directory %r cannot be written' % tmpdir, message)
+        self.assertIn(state, message)
+        self.assertIn('sprite-exec', message)
+        self.assertFalse(os.path.exists(sofile) and os.path.getsize(sofile) > 1)
+      # No object; an object without a stamp; a stale object.
+      compile_fails('no object exists there')
+      open(sofile, 'w').close()
+      compile_fails('the object there has no ABI stamp')
+      with open(step.stampfile(sofile), 'w') as ostream:
+        ostream.write('0123456789abcdef\n')
+      compile_fails('names another installation or runtime')
+      # The stamp of a stale object is left as it is: nothing was written.
+      self.assertEqual(step.read_stamp(sofile), '0123456789abcdef')
+
+  def test_launcher(self):
+    '''
+    A launcher of the package sets SPRITE_HOME from its own real location,
+    so a link to it from another directory works, and runs the script of
+    the same name in the tree.
+    '''
+    text = launcher_text('sprite-exec')
+    self.assertNotIn('$name', text)
+    self.assertNotIn('\\$', text)
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      tmpdir = os.path.realpath(tmpdir)
+      prefix = os.path.join(tmpdir, 'env')
+      bindir = os.path.join(prefix, 'bin')
+      home = os.path.join(prefix, 'opt', 'sprite')
+      os.makedirs(bindir)
+      os.makedirs(os.path.join(home, 'bin'))
+      launcher = os.path.join(bindir, 'sprite-exec')
+      with open(launcher, 'w') as ostream:
+        ostream.write(text)
+      os.chmod(launcher, 0o755)
+      target = os.path.join(home, 'bin', 'sprite-exec')
+      with open(target, 'w') as ostream:
+        ostream.write('#!/bin/sh\necho "$SPRITE_HOME" "$@"\n')
+      os.chmod(target, 0o755)
+      elsewhere = os.path.join(tmpdir, 'elsewhere')
+      os.makedirs(elsewhere)
+      link = os.path.join(elsewhere, 'sprite-exec')
+      os.symlink(launcher, link)
+      for program in [launcher, link]:
+        for env in [ENV, dict(ENV, SPRITE_HOME='/nonexistent')]:
+          result = run([program, 'Smoke.curry', '-x'], env=env, cwd=elsewhere)
+          self.assertEqual(result.returncode, 0, result.stdout)
+          self.assertEqual(result.stdout, '%s Smoke.curry -x\n' % home)
+
+  def test_ld_interpreter_path(self):
+    '''
+    The sysconfig value ld_interpreter_path is the dynamic loader of this
+    machine: the one the Python of the installation names, and a file that
+    exists.  The C++ backend writes it into the shared object of a program
+    with a main goal (open question 13 of conda/README.md).
+    '''
+    path = config.ld_interpreter_path()
+    self.assertTrue(os.path.isabs(path), path)
+    self.assertTrue(os.path.exists(path), path)
+    python = os.path.realpath(sys.executable)
+    interpreter = elf_interpreter(python)
+    if interpreter is None:
+      raise unittest.SkipTest('%s is not an ELF64 program' % python)
+    self.assertEqual(interpreter, path)
+
+  def test_generated_files_name_no_prefix(self):
+    '''
+    A generated file of a library module names its source relative to the
+    installation, and the module object resolves the name, so the package
+    holds no path of the build machine and its bytecode caches stay valid
+    after a relocation.  A module outside the installation keeps its path.
+    '''
+    from curry.toolchain import _filenames
+    from curry.lib import Prelude
+    home = config.prefix()
+    relative = os.path.join('curry', 'Prelude.curry')
+    source = os.path.join(home, relative)
+    self.assertEqual(_filenames.installed_relpath(source), relative)
+    self.assertEqual(
+        _filenames.installed_relpath(os.path.join(os.path.realpath(home), relative))
+      , relative
+      )
+    self.assertIsNone(
+        _filenames.installed_relpath(os.path.join(os.sep, 'nonexistent', 'M.curry'))
+      )
+    self.assertIsNone(_filenames.installed_relpath(None))
+    self.assertIsNone(_filenames.installed_relpath(home + '-other' + os.sep + 'M.curry'))
+    # The module object names the absolute path, so its interface is found.
+    self.assertEqual(os.path.realpath(Prelude.__file__), os.path.realpath(source))
+    self.assertEqual(str(curry.typeof(Prelude.length)), '[a] -> Int')
+    # The generated file of the library carries the relative name, and no
+    # path of the installation.
+    text = curry.save(Prelude, module_main=False)
+    if 'IModule.fromBOM' in text:
+      self.assertIn(
+          "filename=curry.config.installed_path('curry/Prelude.curry')", text
+        )
+    else:
+      self.assertIn('/*filename */ "curry/Prelude.curry"', text)
+    self.assertNotIn(home, text)
+    self.assertNotIn(os.path.realpath(home), text)
+    subdir = os.path.join(home, 'curry', '.curry', config.intermediate_subdir())
+    for name in ['Prelude.py', 'Prelude.cpp']:
+      path = os.path.join(subdir, name)
+      if os.path.isfile(path):
+        product = readfile(path)
+        self.assertNotIn(home, product)
+        self.assertNotIn(os.path.realpath(home), product)
+    # A module outside the installation keeps its absolute path: one
+    # compiled from text, whose source lies in a temporary directory.
+    Probe = curry.compile('main :: Int\nmain = 1\n', modulename='CondaProbe')
+    self.assertTrue(os.path.isabs(Probe.__file__), Probe.__file__)
+    self.assertIsNone(_filenames.installed_relpath(Probe.__file__))
+    self.assertIn(Probe.__file__, curry.save(Probe, module_main=False))

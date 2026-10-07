@@ -292,8 +292,10 @@ class CxxCompiler(compiler.CompilerBase):
         'bom::Function const', 'functions'
       , 'functions of %r' % imodule.fullname, function_rows
       )
+    # A source under the installation is named relative to SPRITE_HOME; the
+    # loader resolves the name (see toolchain._filenames.installed_relpath).
     filename = 'nullptr' if imodule.filename is None \
-          else _dquote(imodule.filename)
+          else _dquote(_source_file_name(imodule.filename))
     # A const object at namespace scope has internal linkage unless it is
     # declared extern; the loader looks the record up by name.
     lines.append('extern bom::Module const _bom_;')
@@ -593,6 +595,16 @@ _CXX_ESCAPES = {
   , ord('\r'): '\\r'
   , ord('\t'): '\\t'
   }
+
+def _source_file_name(filename):
+  '''
+  The name of the source file of a module for the record of the module: the
+  path relative to the installation for a file under it, else the path as
+  it is.
+  '''
+  from ...toolchain import _filenames
+  relpath = _filenames.installed_relpath(filename)
+  return filename if relpath is None else relpath
 
 def _dquote(string):
   '''

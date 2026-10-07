@@ -325,10 +325,17 @@ with Sprite, then you should not need these.
   The directory under which the C++ backend keeps the precompiled form of the
   runtime header that every generated module includes.  The default is the
   ``include`` directory of the installation, where the compiler finds it
-  without an extra flag.  Name another directory when the installation is
-  read-only.  Set the variable to the empty string to compile without the
-  precompiled header.  The header is built again when it is older than any
-  header file.
+  without an extra flag.  When that directory cannot be written, or when the
+  installation lies in a conda environment (a directory with a ``conda-meta``
+  entry above it), the default is a directory of the user's cache instead:
+  ``$XDG_CACHE_HOME/sprite/pch/<key>``, or ``~/.cache/sprite/pch/<key>``,
+  where the key is a digest of the real path of the installation.  So a
+  package is not written at run time.  The cache keeps one directory of
+  about 70 MB per installation and removes none of them; the directory
+  ``pch`` may be deleted at any time, and the header is built again on the
+  next compile.  Set the variable to the empty string to compile without
+  the precompiled header.  The header is built again when it is older than
+  any header file.
 
 ``SPRITE_DEBUG``
   Enables debugging for Sprite internal errors.  The command-line tools

@@ -36,11 +36,14 @@ The script runs nine steps in this order.
    it found.  ``--jobs auto`` stays ``auto``: ``make`` counts the
    processors when it starts, so no count of this machine enters
    ``Make.config``.
-2. apt packages.  Checks ``git swi-prolog-nox g++ make libboost-dev curl
-   ccache time`` and the ``linux-tools`` packages of the running kernel,
-   which provide ``perf``.  A missing package stops the script.  The
-   printed command installs the missing ones.  ``--skip-apt`` skips the
-   check on a system without dpkg.
+2. apt packages.  Checks ``git swi-prolog-nox g++ make curl ccache time``
+   and the ``linux-tools`` packages of the running kernel, which provide
+   ``perf``.  SWI-Prolog serves PAKCS alone: the build of its saved states
+   in step 3 and the test oracle ``pakcs``.  Sprite itself runs no Prolog,
+   and its C++ runtime needs no Boost.  ``time`` is GNU time, which the
+   benchmark harness uses for the peak memory of a run.  A missing package
+   stops the script.  The printed command installs the missing ones.
+   ``--skip-apt`` skips the check on a system without dpkg.
 3. PAKCS 3.4.1.  Downloads the binary archive from curry-lang.org into
    ``PREFIX/downloads`` and verifies its SHA-256.  The hash is the one of
    ``conda/curry-frontend/meta.yaml``.  The archive unpacks to

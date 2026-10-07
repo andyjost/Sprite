@@ -26,8 +26,8 @@ PAKCS_URL = 'https://www.curry-lang.org/pakcs/download/pakcs-3.4.1-amd64-Linux.t
 PAKCS_SHA256 = 'd17d8b3c30564200d5f4ee3a4ee9882fbca5ed66b77b9317050e1f71ba955db2'
 CLEAN_ENV = 'env -i PATH=/usr/local/bin:/usr/bin:/bin HOME='
 APT_PACKAGES = [
-    'git', 'swi-prolog-nox', 'g++', 'make', 'libboost-dev', 'curl', 'ccache'
-  , 'time', 'linux-tools-common'
+    'git', 'swi-prolog-nox', 'g++', 'make', 'curl', 'ccache', 'time'
+  , 'linux-tools-common'
   ]
 
 # The stand-ins.  dpkg-query answers "installed" for every package unless a

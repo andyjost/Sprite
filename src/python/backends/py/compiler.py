@@ -25,6 +25,20 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # slower, and it tells the modules that import it no bodies.
 FORMAT_VERSION = 6
 
+def source_file_expr(filename):
+  '''
+  The Python expression that names the source file of a module in the
+  generated file.  A file under the installation is named relative to
+  SPRITE_HOME and resolved when the generated file loads, so the file
+  carries no path of the machine (see toolchain._filenames.installed_relpath).
+  Another file is named as it is.
+  '''
+  from ...toolchain import _filenames
+  relpath = _filenames.installed_relpath(filename)
+  if relpath is None:
+    return repr(filename)
+  return 'curry.config.installed_path(%r)' % relpath
+
 def compile(interp, iobj):
   compileM = PyCompiler(interp, iobj)
   return compileM.compile()
@@ -146,7 +160,7 @@ class PyCompiler(compiler.CompilerBase):
       return (2 * level + 1) * py.INDENT * ' ' + string
     yield '%s = IModule.fromBOM(' % h_module
     yield '    fullname=%r' % imodule.fullname
-    yield '  , filename=%r' % imodule.filename
+    yield '  , filename=%s' % source_file_expr(imodule.filename)
     yield '  , imports=%s'  % repr(imodule.imports)
     yield '  , metadata=%s' % self.internMetadata(imodule.metadata)
     yield '  , mdkey=%r'    % 'py.material'

@@ -60,7 +60,7 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make libboost-dev curl ccache
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make curl ccache
           swipl --version
       # The C++ backend compiles the shared test modules with g++ in the
       # prepare pass of run-tests.sh, and the fresh modules of the tests at
@@ -163,7 +163,7 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make libboost-dev curl ccache
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make curl ccache
           swipl --version
       - name: Put ccache in front of the compilers
         run: |
@@ -249,7 +249,7 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make libboost-dev curl ccache binutils
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make curl ccache binutils
           swipl --version
       - name: Put ccache in front of the compilers
         run: |
@@ -349,7 +349,7 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make libboost-dev curl ccache
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make curl ccache
           swipl --version
       - name: Put ccache in front of the compilers
         run: |
@@ -431,7 +431,7 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make libboost-dev curl
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make curl
       - name: Restore the Curry toolchain
         id: toolchain
         uses: actions/cache@v4
