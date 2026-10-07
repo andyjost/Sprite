@@ -166,6 +166,10 @@ Flag                         Default                What it changes
 ``typed_expr``               ``True``               Whether :func:`curry.expr` types the expression it
                                                     builds.  ``False`` makes it the untyped builder with
                                                     the markers of ``expr``.
+``inline_budget``            ``4``                  The largest function body, in nodes built, that the
+                                                    optimizer inlines at a call; a call of a single-case
+                                                    function on a constructor becomes the branch.  ``0``
+                                                    turns both rules off.
 ``defaultconverter``         ``None``               The converter of :func:`curry.eval` when the call
                                                     names none: ``None`` or ``'topython'``.
 ``setfunction_strategy``     ``'lazy'``             How set functions evaluate: ``'lazy'`` with set

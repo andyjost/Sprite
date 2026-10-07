@@ -10,13 +10,15 @@ from ..icurry import analysis, types, visit
 from .. import common, inspect, utility
 import sys
 
-__all__ = ['inline_aliases', 'optimize', 'saturate_applies']
+__all__ = ['inline_aliases', 'inline_calls', 'optimize', 'saturate_applies']
 
 # Each optimizer is called once per function of the module, as
 # optimizer(interp, ifun, imodule), in this order.  inline_aliases runs last.
 # The monadic analysis then sees the call graph as the front end wrote it.
 # saturate_applies runs before inline_aliases: a chain it collapses into a
-# saturated call of an alias is then a call of the target.
+# saturated call of an alias is then a call of the target.  inline_calls runs
+# between them: it sees the saturated calls, saturates the chains its own
+# rewrites expose, and the bodies it copies in get their aliases replaced.
 default_optimizers = [
     ('%s.opt.set_monadic_metadata'
         , lambda interp, ifun, imodule:
@@ -31,10 +33,18 @@ default_optimizers = [
   , ('%s.opt.saturate_applies'
         , lambda interp, ifun, imodule: saturate_applies(interp, ifun, imodule)
         )
+  , ('%s.opt.inline_calls'
+        , lambda interp, ifun, imodule: inline_calls(interp, ifun, imodule)
+        )
   , ('%s.opt.inline_aliases'
         , lambda interp, ifun, imodule: inline_aliases(interp, ifun, imodule)
         )
   ]
+
+# The flag that sets the budget of inline_calls, and the budget when an
+# interpreter has no such flag (a fixture).
+INLINE_BUDGET_FLAG = 'inline_budget'
+DEFAULT_INLINE_BUDGET = 4
 
 # The function that applies a function value to one argument.
 APPLY = analysis.APPLY
@@ -143,6 +153,85 @@ def saturate_applies(interp, ifun, imodule, modules=None):
       ifun.update_metadata(
           {analysis.UNFOLDING_KEY: analysis.unfolding_text(partial)}
         )
+
+def join_imports(imodule, symbolnames, modules):
+  '''
+  Adds to the imports of ``imodule`` the module of every symbol of
+  ``symbolnames`` that is loaded and that the module does not import yet, so
+  that the generated code links against it.
+  '''
+  imports = set(imodule.imports)
+  for symbolname in sorted(symbolnames):
+    symbol = analysis.lookup_symbol(symbolname, modules)
+    modulename = None if symbol is None else symbol.modulename
+    if modulename is not None and modulename != imodule.fullname \
+        and modulename not in imports:
+      imports.add(modulename)
+      imodule.imports = imodule.imports + (modulename,)
+
+def inline_calls(interp, ifun, imodule, modules=None, budget=None):
+  '''
+  Replace a call of a small function by its body, and a call of a
+  single-case function on a known constructor by the branch.
+
+  The rules are in analysis.inlining.  A saturated call of a non-recursive
+  function whose body is an expression of at most ``budget`` nodes (the flag
+  ``inline_budget``; 4 by default; 0 turns the pass off) is replaced by the
+  body.  A saturated call ``g (K a b)`` of a non-recursive function whose
+  body is one case on that parameter, with a branch for ``K``, is replaced by
+  the body of the branch, with the fields for the pattern variables.  Every
+  argument, field, or local expression that the body uses more than once is
+  bound first to a fresh variable of the caller's block, so that it is built
+  once (call-time choice); a variable, a literal, or a static string is
+  written at every use; an expression used once is written there; one that
+  is not used is dropped.  A free variable of the body is a fresh free
+  variable of the caller's block.  An ``apply`` whose head the rewrites
+  expose is saturated as saturate_applies does.  The result of a rewrite is
+  rewritten again, so a chain of small functions resolves to its end: after
+  saturation, inlining, the known-constructor rule and the alias pass,
+  ``x /= y`` on Int is ``not (eqInt x y)``.  An alias function keeps its
+  body, so that inline_aliases records its target as before.
+
+  The body that replaces a call is the body of the callee as it was before
+  this pass rewrote it (analysis.inline_shape), with the saturation of apply
+  chains applied: the inner calls are then rewritten where the arguments are
+  known.  A function with a case in its body, other than the one case of the
+  second rule, is not inlined here; the plan leaves the case at a return
+  position to the un-lifting pass.  A body with a recursive let is neither
+  inlined nor rewritten.  The budget counts the nodes a body builds: calls,
+  partial applications, constructors, choices, and literals.
+
+  When a copied body names a symbol of a module that this module does not
+  import, the module joins the imports.  Afterwards the body of the function
+  is recorded under analysis.INLINE_KEY as ICurry-JSON when the function is
+  public, non-recursive, and has one of the two shapes within the limit
+  (analysis.RECORD_LIMIT for an expression, analysis.CASE_LIMIT for a
+  branch), or when it is private and a recorded body of the module calls it
+  (analysis.recorded_functions): the selector behind a class method is
+  private, and the chain needs it.  So a module loaded from its compiled
+  form, which has no bodies, still tells its small functions to the modules
+  that import it.  Non-recursive means not on a cycle of saturated calls: a
+  partial application is a value, so a dictionary and its methods are both
+  inlined (analysis.inlining).
+  '''
+  if modules is None:
+    modules = interp.modules
+  if budget is None:
+    budget = interp.flags.get(INLINE_BUDGET_FLAG, DEFAULT_INLINE_BUDGET)
+  inliner = analysis.Inliner(modules, budget)
+  if analysis.alias_target_of_body(ifun) is None:
+    inliner.rewrite(ifun)
+    if inliner.symbols:
+      join_imports(imodule, inliner.symbols, modules)
+  else:
+    # An alias keeps its body: inline_aliases records its target, and a
+    # caller of the alias gets the alias inlined, then the target.
+    analysis.inline_shape(ifun)
+  if ifun.fullname in analysis.recorded_functions(imodule, modules):
+    shape = analysis.inline_shape(ifun)
+    ifun.update_metadata(
+        {analysis.INLINE_KEY: analysis.inline_body_text(shape.body)}
+      )
 
 def inline_aliases(interp, ifun, imodule):
   '''

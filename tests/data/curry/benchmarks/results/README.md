@@ -49,7 +49,16 @@ of every program. Phase 2 changed the counters of QueensSet alone: steps
 2152081 to 2152979 and forks 511413 to 511583, because the in-place rewrite
 (T4) moved the rotation cadence of the scheduler from the forward-chain
 compressions to the completed steps. A later compare against this record
-expects equal counters.
+expected equal counters until O2 and O3 of Phase 3 (the inliner and the
+known-constructor rule; the dated TODO entry of 2026-10-06) changed the
+steps of eight of the ten programs: Queens10 54505073 to 17706900, Primes
+61364444 to 14383977, SearchQueens 41373250 to 34001063 (forks 1084883 to
+1084670), QueensSet 2152979 to 2089740 (forks 511583 to 511430), QueensSet9
+12143480 to 11784795 (forks 2979048 to 2978740), PermSort 12531154 to
+12530839, Reverse 8407963 to 8407940, and Last 3100017 to 3100015; Tak1 and
+Fib are equal. A compare against this record expects those counters now;
+the forks of a search move with the steps because the rotations fall
+elsewhere.
 
 ## apps-2026-10-06
 

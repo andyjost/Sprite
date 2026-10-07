@@ -146,6 +146,27 @@ collector off, set a threshold that no program reaches:
     SPRITE_GC_THRESHOLD=1000000000 CURRYPATH=tests/data/curry/benchmarks \
     SPRITE_INTERPRETER_FLAGS=backend:cxx install/bin/sprite-exec -t -m PermSort
 
+The growth factor (`SPRITE_GC_GROWTH`, default 8) sets the interval between
+collections: after a collection the next one runs when the heap reaches the
+factor times the survivors, not before the threshold.  The memory suite at 8,
+12 and 16 (the dated TODO entry on G8, issue #83) measured the trade.  The
+factor touches a program only when the survivors of a collection exceed the
+threshold divided by the factor, or when the live configurations exceed one
+eighth of that number (the configuration threshold follows the same rule), so
+18 of the 29 programs measured kept their collections and their nodes marked
+exactly.  On the search programs with a live set near 300 MiB, growth 16
+halves the collections and the nodes marked (QueensSet9 11 to 6, SearchQueens
+19 to 10, PermSort 9 to 5, PermSortPeano 10 to 5), cuts the seconds of the
+collector by a quarter to a half (1 to 8 percent of their CPU time, 1 to 3
+percent of their instructions), and raises the peak RSS by 43 to 53 percent
+(QueensSet9 330 to 473 MiB).  The default stays at 8: the saving is a few
+percent of a run, the cost is half again the memory of the programs that use
+the most, and the bound of the heap, eight times the live nodes, would
+double.  To buy the saving with memory, set the factor:
+
+    SPRITE_GC_GROWTH=16 CURRYPATH=tests/data/curry/benchmarks \
+    SPRITE_INTERPRETER_FLAGS=backend:cxx install/bin/sprite-exec -t --stats -m QueensSet9
+
 ## Running the programs with PAKCS or KiCS2
 
 Ten programs import `Control.SetFunctions`:

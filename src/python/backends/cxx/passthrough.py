@@ -25,7 +25,11 @@ A variable that a case scrutinizes keeps the Variable: hnf needs the path for
 the scan and the guards for the escape set of a pull-tabbed choice.  So does
 the base of a successor path (the path continues from its target and its
 guards) and the base of a node assignment (set_successor).  Two variables of
-a var-to-var assignment have one kind: both plain, or both Variables.
+a var-to-var assignment have one kind: both plain, or both Variables.  A free
+variable on the right side is a plain pointer and forces nothing on the left
+side: a plain left side copies the pointer, and a Variable takes the node
+as it takes a node the step builds (the optimizer inlines ``unknown`` to a
+fresh free variable; see curry.icurry.analysis.inlining).
 
 Why the guard rule holds.  The redex of a step is a function node, never a
 set guard, so a slot of the redex holds the whole guarded argument, and a
@@ -36,7 +40,25 @@ when it crossed any.  A path of more than one entry stays a Variable.
 '''
 from ... import icurry
 
-__all__ = ['plain_variables']
+__all__ = ['free_variables', 'plain_variables']
+
+def free_variables(ifun):
+  '''
+  The free variables of ``ifun`` (IFreeDecl), as a frozen set of variable
+  ids.  Each is a plain pointer to a fresh free variable.
+  '''
+  found = set()
+  def visit(stmt):
+    if isinstance(stmt, icurry.IBlock):
+      for decl in stmt.vardecls:
+        if isinstance(decl, icurry.IFreeDecl):
+          found.add(decl.vid)
+      visit(stmt.stmt)
+    elif isinstance(stmt, icurry.ICase):
+      for branch in stmt.branches:
+        visit(branch.block)
+  visit(getattr(ifun.body, 'block', None))
+  return frozenset(found)
 
 def plain_variables(ifun):
   '''
@@ -106,7 +128,9 @@ class _Uses(object):
           self.stmt(item)
       self.stmt(stmt.stmt)
     elif isinstance(stmt, icurry.IFreeDecl):
-      self.bound.add(stmt.vid)
+      # A plain pointer already; not declared by IVarDecl, so never in the
+      # result, and no constraint on a variable assigned from it.
+      pass
     elif isinstance(stmt, icurry.IVarDecl):
       self.declared.add(stmt.vid)
     elif isinstance(stmt, icurry.IVarAssign):

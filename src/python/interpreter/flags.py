@@ -34,6 +34,21 @@ are available:
 
     Trace computations.
 
+  * ``inline_budget`` (**4** | <int>)
+
+    The largest function body, in nodes built, that the optimizer inlines at
+    a saturated call (curry.interpreter.optimize.inline_calls).  A call of a
+    non-recursive function whose body is an expression of at most this many
+    calls, constructors, choices, and literals is replaced by the body, with
+    every argument expression built once (call-time choice).  The same pass
+    replaces a call of a single-case function on a constructor argument by
+    the branch of that constructor, up to a fixed limit of its own.  0 turns
+    both rules off.  The compiled form of a module records the keys of the
+    passes, not the budget, so a module compiled under one budget runs as it
+    was compiled under another; the background compile of the tiered mode
+    runs under the budget of the interpreter.  The flag serves bisection and
+    the performance program.
+
   * ``interpret`` ('off' | 'new' | 'all' | **'tiered'**)
 
     How the C++ backend runs a module whose code is not compiled.  With
@@ -162,6 +177,7 @@ FLAG_INFO = {
     'backend'             : ({'cxx', 'py'}, config.default_backend())
   , 'debug'               : ( bool                , False )
   , 'defaultconverter'    : ({'topython', None}   , None  )
+  , 'inline_budget'       : ( int                 , 4     )
   , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'tiered')
   , 'trace'               : ( bool                , False )
   , 'keep_temp_files'     : ((bool, str)          , False )

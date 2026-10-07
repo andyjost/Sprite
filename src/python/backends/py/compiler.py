@@ -18,8 +18,12 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # included, and records the unfolding of a nullary function in its metadata;
 # a file of format 2 is correct but slower, and it tells the modules that
 # import it no unfoldings.  Formats 3 and 4 were earlier forms of the same
-# pass in the working tree, never committed.
-FORMAT_VERSION = 5
+# pass in the working tree, never committed.  Format 6: the optimizer inlines
+# calls of small non-recursive functions and calls of a single-case function
+# on a known constructor (interpreter.optimize.inline_calls), and records the
+# body of such a function in its metadata; a file of format 5 is correct but
+# slower, and it tells the modules that import it no bodies.
+FORMAT_VERSION = 6
 
 def compile(interp, iobj):
   compileM = PyCompiler(interp, iobj)

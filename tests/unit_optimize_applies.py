@@ -509,22 +509,19 @@ class ApplyTestCase(ModuleTestCase):
   def unoptimized(self, name):
     '''
     Imports the module ``name`` from its ICurry object with the key of the
-    pass set, so the pass does not run on it.  Returns the module object.
+    pass set, so the pass does not run on it, and the key of the inliner,
+    which saturates a known head as well.  Returns the module object.
     '''
     imodule = self.load_icurry(name)
-    imodule.update_metadata({passkey(): True})
+    imodule.update_metadata({
+        passkey(): True, '%s.opt.inline_calls' % curry.flags['backend']: True
+      })
     module = curry.import_(imodule, currypath=self.currypath)
     self.assertTrue(applies(imodule), 'the unoptimized form keeps its applies')
     return module
 
   def values(self, module, goal):
     return list(curry.eval(getattr(module, goal), converter='topython'))
-
-  def reload(self, **flags):
-    '''Reloads the interpreter with ``flags``; the caller is hardreset.'''
-    curry.reload(flags)
-    curry.path.insert(0, self.tmpdir)
-    self.currypath = list(curry.path)
 
 
 class TestSaturateApplies(ApplyTestCase):
@@ -705,9 +702,10 @@ class TestSaturateApplies(ApplyTestCase):
     '''
     A nullary function of a module loaded from its compiled form is known
     through its metadata.  When the partial names a function of a module the
-    caller does not import, the module joins the imports.
+    caller does not import, the module joins the imports.  The inliner is
+    off: it would inline f into main.
     '''
-    self.compiled()
+    self.compiled(inline_budget=0)
     base = self.write('Base', '''
       f :: Int -> Int -> Int
       f x y = x * 10 + y
@@ -789,9 +787,10 @@ class TestEvaluation(ApplyTestCase):
     A collapsed chain of two applies on a nullary function saves three
     rewrite steps: the function and the two applies.  Under the C++ backend
     the modules stay interpreted, so no background compile swaps the code
-    of the unoptimized module.
+    of the unoptimized module.  The inliner is off: it would save the step
+    of f as well.
     '''
-    self.reload(interpret='new')
+    self.reload(interpret='new', inline_budget=0)
     optimized = self.import_(self.write('Chains', CHAINS))
     unoptimized = self.unoptimized(self.write('Chains', CHAINS))
     def steps(module, goal):

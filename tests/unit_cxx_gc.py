@@ -170,16 +170,17 @@ assert cyrt.gc_root_count(None) == 0
     )
   def test_short_lived_nodes_complete_under_1GiB(self):
     '''
-    A walk over list cells allocates about 24 short-lived nodes per cell,
-    about 1.6 GB for three million cells in the block heap.  With the
-    collector off (the old threshold of one billion nodes), the child runs
-    out of memory under a 1 GiB cap.  With the default threshold a walk
-    over a million cells completes under the cap.
+    A walk over list cells allocates about 7 short-lived nodes per cell
+    (24 before the optimizer inlined the comparison of enumFromTo), about
+    1.8 GB for eight million cells in the block heap.  With the collector
+    off (the old threshold of one billion nodes), the child runs out of
+    memory under a 1 GiB cap.  With the default threshold a walk over a
+    million cells completes under the cap.
     '''
     self.run_child('''
 cyrt.gc_set_threshold(10 ** 9)
 try:
-  next(curry.eval(M.walk, 3000000))
+  next(curry.eval(M.walk, 8000000))
 except MemoryError:
   os._exit(42)
 os._exit(1)

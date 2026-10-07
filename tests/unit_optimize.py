@@ -16,7 +16,7 @@ module is imported both ways: on the C++ backend a module imported from its
 ICurry object cannot be loaded from a shared object later.
 
 unit_optimize_applies.py tests the saturation of apply chains with the
-helpers of this file.
+helpers of this file, and unit_optimize_inline.py the inliner.
 '''
 import cytest # from ./lib; must be first
 from curry import common, config, icurry, toolchain
@@ -195,15 +195,20 @@ class ModuleTestCase(cytest.TestCase):
     super().tearDown()
     shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-  def compiled(self):
+  def compiled(self, **flags):
     '''
-    Reloads the interpreter with the flag ``interpret`` off.  A test that
-    reads the generated code of a module, or needs a module loaded from its
-    compiled form, calls this first: under the default of the flag (tiered)
-    a module is interpreted and no code is generated for it.  The caller is
-    decorated with cytest.hardreset, which restores the default.
+    Reloads the interpreter with the flag ``interpret`` off, and ``flags``.
+    A test that reads the generated code of a module, or needs a module
+    loaded from its compiled form, calls this first: under the default of
+    the flag (tiered) a module is interpreted and no code is generated for
+    it.  The caller is decorated with cytest.hardreset, which restores the
+    default.
     '''
-    curry.reload({'interpret': 'off'})
+    self.reload(interpret='off', **flags)
+
+  def reload(self, **flags):
+    '''Reloads the interpreter with ``flags``; the caller is hardreset.'''
+    curry.reload(flags)
     curry.path.insert(0, self.tmpdir)
     self.currypath = list(curry.path)
 
@@ -224,13 +229,19 @@ class ModuleTestCase(cytest.TestCase):
       )
     return toolchain.loadcurry(plan, name, self.currypath)
 
-  def icurry_of(self, name):
+  def icurry_of(self, name, inline=False):
     '''
     The ICurry of the module ``name`` after the passes ran.  The module is
     imported from its ICurry object, so the passes change that object in
-    place.  Its code is not written to a file.
+    place.  Its code is not written to a file.  The inliner (inline_calls)
+    does not run unless ``inline`` is set: the tests of the earlier passes
+    read the structure it would rewrite.
     '''
     imodule = self.load_icurry(name)
+    if not inline:
+      imodule.update_metadata({
+          '%s.opt.inline_calls' % curry.flags['backend']: True
+        })
     curry.import_(imodule, currypath=self.currypath)
     return imodule
 
@@ -388,9 +399,10 @@ class TestInlineAliases(ModuleTestCase):
     '''
     When the target lives in a module the caller does not import, the module
     joins the imports.  The alias is read from the metadata of a module
-    loaded from its compiled form.
+    loaded from its compiled form.  The inliner is off: it would inline the
+    alias and its target into main.
     '''
-    self.compiled()
+    self.compiled(inline_budget=0)
     base = self.write('Base', '''
       g :: Int -> Int
       g x = x * 2
@@ -461,8 +473,15 @@ class TestEvaluation(ModuleTestCase):
       ]:
       self.assertNotIn(infotable_handle(alias), text)
 
+  @cytest.hardreset
   def test_steps(self):
-    '''A call through an alias costs the steps of a direct call.'''
+    '''
+    A call through an alias costs the steps of a direct call.  The inliner
+    is off: it would inline s, which is not an alias, as well.  Under the
+    C++ backend the modules stay interpreted, so no background compile
+    swaps the code of the module.
+    '''
+    self.reload(inline_budget=0, interpret='new')
     name = self.write('Steps', '''
       f :: Int -> Int -> Int
       f x y = x + y
@@ -507,9 +526,10 @@ class TestEvaluation(ModuleTestCase):
   def test_private_target_across_modules(self):
     '''
     A call from another module may end at a function that is private to the
-    module of the alias.  Both backends resolve it.
+    module of the alias.  Both backends resolve it.  The inliner is off: it
+    would inline g into main.
     '''
-    self.compiled()
+    self.compiled(inline_budget=0)
     private = self.write('Private', '''
       module %(name)s (f) where
       f :: Bool -> Int -> Int
@@ -531,8 +551,11 @@ class TestEvaluation(ModuleTestCase):
 
   @cytest.hardreset
   def test_linked_against_the_target_module(self):
-    '''The module of a target joins the imports; the code loads and links.'''
-    self.compiled()
+    '''
+    The module of a target joins the imports; the code loads and links.  The
+    inliner is off: it would inline g into main.
+    '''
+    self.compiled(inline_budget=0)
     base = self.write('Base', '''
       g :: Int -> Int
       g x = x * 2
