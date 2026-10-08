@@ -36,6 +36,14 @@ pass is idempotent, and the pair beside each other agree again.  (Issue
 #99; a ``make stage`` that writes the interfaces of the library anew makes
 every module of a tree such an import at its next contact.)
 
+An ICurry file translated before the rewrite existed pairs with a FlatCurry
+file that still holds the equalities.  Such a pair is stale by the rule of
+the toolchain (:func:`_curry2icurry.translated_before_rewrite`), and the
+route runs again at the first import of the module.  ``ROUTE_VERSION``
+names the steps of this module in the key of the ICurry cache
+(:func:`cache.icurry_cache_key`), so an entry of a route without a step is
+never served.  (Issue #101.)
+
 The front end warns on overlapping rules ("Function f is potentially
 non-deterministic due to overlapping rules"), the shape under which
 ``build 0 = ...; build n = ...`` compiles to a choice with an infinite
@@ -65,13 +73,23 @@ from ..utility import curryname
 import logging, os, re, shlex
 
 __all__ = [
-    'QUIET_FLAGS', 'WARNINGS_VARIABLE', 'WARNING_FLAGS', 'command'
-  , 'curry2flat', 'curry2icurry', 'flat2icy', 'flatcurry_dirs'
+    'QUIET_FLAGS', 'ROUTE_VERSION', 'WARNINGS_VARIABLE', 'WARNING_FLAGS'
+  , 'command', 'curry2flat', 'curry2icurry', 'flat2icy', 'flatcurry_dirs'
   , 'flatcurryfile', 'frontend_warnings', 'interfacefile'
   , 'optimize_flatcurry', 'report_warnings', 'searchdirs'
   , 'warnings_by_file', 'written_flatcurry'
   ]
 logger = logging.getLogger(__name__)
+
+# The version of the steps between the front end and the translation: what
+# changes the ICurry of a module without a change to the programs or the
+# sources of the route.  It is part of the key of the ICurry cache
+# (cache.icurry_cache_key), so a bump makes every entry miss once.  Bump it
+# when a step joins the route or changes what it writes.
+#   1: the binding optimization rewrites the FlatCurry file in place, the
+#      module's own and those of the imports the run compiled again (#85,
+#      #99).  The version joined the key with #101.
+ROUTE_VERSION = 1
 
 # The options that silence the front end.  They are the ones icurry passes in
 # quiet mode.

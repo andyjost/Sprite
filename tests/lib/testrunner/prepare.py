@@ -28,6 +28,16 @@ selected functional test (CORPUS).  The examples under examples/ are left
 to unit_examples.py, which alone compiles them; the scheduler never runs the
 two backends of one file at once.
 
+A tree made before the binding optimization rewrote the FlatCurry files,
+or one that holds the products of the overlay archive, has ICurry files
+translated before the rewrite.  The toolchain counts them as stale (issue
+#101), so the pass translates them again, in one go for the whole corpus.
+sprite-make prints how many it made again, and the line of the directory
+and the summary say so ("2 pre-rewrite pairs translated again").  When the
+ICurry cache of the drivers held the entry of such a module, the cache
+wrote its ICurry and the FlatCurry file stayed as it was; the lines then
+say so too ("1 pre-rewrite pair from the ICurry cache").
+
 After the pass the runner prunes its own product cache
 (:func:`prune_product_cache`): the cache under tests/.cache/products, which
 the runner sets unless the environment names a directory, keeps the entries
@@ -43,9 +53,10 @@ from .scheduler import Job
 
 __all__ = [
     'CACHE_LINE', 'CORPUS', 'DEFAULT_PRODUCT_CACHE', 'EXCLUDE', 'JSON_PRODUCTS'
-  , 'PRODUCT', 'PRUNE', 'PrepareJob', 'cache_counts', 'corpus_owners'
-  , 'directories', 'interpret_flag', 'jobs', 'modules', 'product_subdir'
-  , 'product_suffixes', 'prune_product_cache', 'summary'
+  , 'PRODUCT', 'PRUNE', 'REWRITE_LINE', 'PrepareJob', 'cache_counts'
+  , 'corpus_owners', 'directories', 'interpret_flag', 'jobs', 'modules'
+  , 'product_subdir', 'product_suffixes', 'prune_product_cache'
+  , 'rewrite_counts', 'summary'
   ]
 
 # The product cache of a run unless the environment names one
@@ -114,6 +125,44 @@ def cache_counts(text):
       sum(int(restored) for restored, _ in found)
     , sum(int(stored) for _, stored in found)
     )
+
+# The line sprite-make prints at the end of a run that made a pre-rewrite
+# pair again (curry.tools.make.rewrite_line; issue #101).
+REWRITE_LINE = re.compile(
+    r'^\S+: pre-rewrite pairs: (?P<refreshed>\d+) translated again'
+    r'(?:, (?P<served>\d+) from the ICurry cache)?$'
+  , re.MULTILINE
+  )
+
+def rewrite_counts(text):
+  '''
+  The numbers of pre-rewrite pairs that the output ``text`` of sprite-make
+  reports, summed over its lines: the pairs translated again and the pairs
+  the ICurry cache served, as a pair.  None when the text holds no such
+  line.
+  '''
+  found = REWRITE_LINE.findall(text)
+  if not found:
+    return None
+  return (
+      sum(int(refreshed) for refreshed, _ in found)
+    , sum(int(served or 0) for _, served in found)
+    )
+
+def _pairs(refreshed, served=0):
+  '''The clauses about the pre-rewrite pairs, for a note or the summary.'''
+  parts = []
+  if refreshed:
+    parts.append(
+        '%d pre-rewrite pair%s translated again'
+            % (refreshed, '' if refreshed == 1 else 's')
+      )
+  if served:
+    parts.append(
+        '%d pre-rewrite pair%s from the ICurry cache'
+            % (served, '' if served == 1 else 's')
+      )
+  return parts
 
 # Every file may use the pool.
 ANY = None
@@ -284,6 +333,11 @@ class PrepareJob(Job):
     # nothing about the cache.
     self.restored = None
     self.stored = None
+    # The pre-rewrite pairs the run translated again and those the ICurry
+    # cache served (rewrite_counts); None when the log says nothing about
+    # them.
+    self.refreshed = None
+    self.served = None
 
   @property
   def flags(self):
@@ -323,16 +377,23 @@ class PrepareJob(Job):
       ]
 
   def read_cache_counts(self):
-    '''Reads the counts of the product cache from the log (cache_counts).'''
+    '''
+    Reads the counts of the product cache (cache_counts) and of the
+    pre-rewrite pairs (rewrite_counts) from the log.
+    '''
     if not self.logfile:
       return
     try:
       with open(self.logfile, 'r', errors='replace') as stream:
-        found = cache_counts(stream.read())
+        text = stream.read()
     except OSError:
       return
+    found = cache_counts(text)
     if found is not None:
       self.restored, self.stored = found
+    found = rewrite_counts(text)
+    if found is not None:
+      self.refreshed, self.served = found
 
   def on_finished(self):
     self.read_cache_counts()
@@ -341,6 +402,7 @@ class PrepareJob(Job):
       details.append(
           '%d of %d from the product cache' % (self.restored, len(self.modules))
         )
+    details.extend(_pairs(self.refreshed or 0, self.served or 0))
     if self.status != 'ok':
       missing = self.missing()
       if missing is None:
@@ -375,6 +437,10 @@ def summary(jobs):
   restored = sum(job.restored or 0 for job in jobs)
   if restored:
     head += ', %d from the product cache' % restored
+  refreshed = sum(job.refreshed or 0 for job in jobs)
+  served = sum(job.served or 0 for job in jobs)
+  for part in _pairs(refreshed, served):
+    head += ', ' + part
   missing = []
   unknown = []
   for job in jobs:

@@ -1,6 +1,8 @@
 from .. import cache, exceptions, config, getInterpreter, interpreter, toolchain, utility
 from ..interpreter import flags as _flags
-from ..toolchain import plans, _filenames, _findcurry, _loadcurry, _productcache
+from ..toolchain import (
+    plans, _curry2icurry, _filenames, _findcurry, _loadcurry, _productcache
+  )
 from ..toolchain._makecurry import Maker, ToolchainContext
 from io import StringIO
 from .utility import handle_program_errors, unrst
@@ -107,6 +109,25 @@ or stored a product this program prints one line with the two counts,
 ``sprite-make: product cache: N restored, M stored``, unless ``-q`` was
 given; under ``--jobs`` the counts of the children are summed.  See the
 page on environment variables.
+
+Products made before the binding rewrite.  The ICurry file of a module
+counts as stale when the FlatCurry file of the front end beside the source
+holds a Boolean equality the binding optimization replaces and neither
+file holds ``constrEq``: a pair translated before the routes rewrote the
+file, from an older tree or from the overlay archive of the tests
+(``curry.toolchain._curry2icurry.translated_before_rewrite``).  The step
+from Curry to ICurry runs again for such a module, as for a changed
+source: the front end leaves the current file, the pass rewrites it, and
+the translation follows.  At the end of a run that made such a module
+again this program prints ``sprite-make: pre-rewrite pairs: N translated
+again``, unless ``-q`` was given; under ``--jobs`` the counts of the
+children are summed.  When the ICurry cache held the entry of the module
+(the test drivers keep one), the cache writes the ICurry file and the
+FlatCurry file stays as it was; the line then ends in ``, M from the
+ICurry cache``, and ``--rewrite-flat`` rewrites the file when it must
+agree.  The modules of the Curry library are not judged; their ICurry is
+committed.  A FlatCurry file larger than 256 KB, or one that cannot be
+written again, is not judged either, with a warning.
 
 Environment Variables
 ---------------------
@@ -288,7 +309,8 @@ def main(program_name, argv):
     # nothing can be made.
     sys.exit(1)
   _productcache.reset_counts()
-  counts = {'restored': 0, 'stored': 0}
+  _curry2icurry.reset_counts()
+  counts = {'restored': 0, 'stored': 0, 'refreshed': 0, 'served': 0}
   if jobs > 1:
     _make_parallel(program_name, plan, args, kwds, error_handler, jobs, counts)
   else:
@@ -296,6 +318,7 @@ def main(program_name, argv):
       with error_handler:
         _make_one(program_name, plan, name, args, kwds)
   report_cache(program_name, args, counts)
+  report_rewrites(program_name, args, counts)
   if error_handler.nerrors:
     sys.exit(1)
 
@@ -328,6 +351,43 @@ def report_cache(program_name, args, counts):
   if args.quiet and not args.child:
     return
   sys.stdout.write(cache_line(program_name, total) + '\n')
+  sys.stdout.flush()
+
+# The line about the pairs made before the binding rewrite that a run made
+# again (see the manual): the pairs translated again, and the pairs the
+# ICurry cache served (the clause appears when there was one).  A child of
+# --jobs prints it for its parent, as it prints the line about the product
+# cache.
+REWRITE_LINE = re.compile(
+    r'^(?P<program>\S+): pre-rewrite pairs: (?P<refreshed>\d+) translated again'
+    r'(?:, (?P<served>\d+) from the ICurry cache)?$'
+  )
+
+def rewrite_line(program_name, refreshed, served=0):
+  '''
+  The line that reports ``refreshed`` pre-rewrite pairs translated again
+  and ``served`` pairs the ICurry cache served.
+  '''
+  line = '%s: pre-rewrite pairs: %d translated again' % (program_name, refreshed)
+  if served:
+    line += ', %d from the ICurry cache' % served
+  return line
+
+def report_rewrites(program_name, args, counts):
+  '''
+  Prints the line about the pre-rewrite pairs when this run made one again:
+  the counts of this process (``_curry2icurry.pairs_refreshed`` and
+  ``pairs_served``) plus ``counts['refreshed']`` and ``counts['served']``,
+  those of the children.  Quiet under -q, unless this process is a child
+  of --jobs, whose parent reads the line.
+  '''
+  refreshed = _curry2icurry.pairs_refreshed() + counts.get('refreshed', 0)
+  served = _curry2icurry.pairs_served() + counts.get('served', 0)
+  if not (refreshed or served):
+    return
+  if args.quiet and not args.child:
+    return
+  sys.stdout.write(rewrite_line(program_name, refreshed, served) + '\n')
   sys.stdout.flush()
 
 def _make_one(program_name, plan, name, args, kwds):
@@ -604,8 +664,9 @@ def run_jobs(
   is not started, and counts as an error.  After an error no further job
   starts unless -k was given; the running children end by themselves.  The
   output of a child is written when it ends, so the lines of one module stay
-  together, less its line about the product cache, whose counts are summed
-  into ``counts`` (a dict; see report_cache).
+  together, less its lines about the product cache and about the
+  pre-rewrite pairs, whose counts are summed into ``counts`` (a dict; see
+  report_cache and report_rewrites).
   '''
   pending = list(jobs)
   running = []
@@ -665,8 +726,9 @@ def _wait_any(running, poll_interval):
 def _relay(job, counts=None):
   '''
   Writes the output of an ended child to the streams of this process.  The
-  line of the child about the product cache (cache_line) is taken out and
-  its counts are added to ``counts`` when a dict is given.
+  lines of the child about the product cache (cache_line) and about the
+  pre-rewrite pairs (rewrite_line) are taken out and their counts are added
+  to ``counts`` when a dict is given.
   '''
   for stream, out in [(job.stdout, sys.stdout), (job.stderr, sys.stderr)]:
     stream.seek(0)
@@ -680,8 +742,13 @@ def _relay(job, counts=None):
         if m:
           counts['restored'] += int(m.group('restored'))
           counts['stored'] += int(m.group('stored'))
-        else:
-          lines.append(line)
+          continue
+        m = REWRITE_LINE.match(line.rstrip('\n'))
+        if m:
+          counts['refreshed'] = counts.get('refreshed', 0) + int(m.group('refreshed'))
+          counts['served'] = counts.get('served', 0) + int(m.group('served') or 0)
+          continue
+        lines.append(line)
       text = ''.join(lines)
     if text:
       out.write(text)
