@@ -139,7 +139,17 @@ returns the problem found, or None.  To run the unit tests that way, say:
         SPRITE_GC_STRESS=1 SPRITE_INTERPRETER_FLAGS=backend:cxx ./run_tests 'unit_*.py'
 
 A test whose child must grow a large live heap, recurse deeply, or run out
-of memory skips in that mode (cytest.skipIfGcStress).  The nightly CI job
+of memory skips in that mode (cytest.skipIfGcStress).  The tests that skip
+or shrink there, each with its reason beside it: the examples in
+STRESS_EXCLUDED of unit_examples.py (11, 12, 20, 21, 22 and 23, each a
+search over a large live state); unit_long_lists.py and unit_cxx_literals.py
+(two thousand elements); unit_cxx_rotation.py (the countQueens 8 half of
+test_counters_of_a_search skipped, test_counters_repeat on a board of six);
+the walks of unit_cxx_gc.py and unit_cxx_heap.py (shorter); and single
+tests of unit_cxx_stack.py, unit_cxx_runtime.py, unit_cxx_gc.py,
+unit_cxx_heap.py, unit_cxx_rewrite.py, unit_cxx_scheduler.py and
+unit_cxx_gc_counters.py (deep recursions, tests of the threshold and growth
+policies, and tests that the mode makes moot).  The nightly CI job
 runs the unit suite on the C++ backend in stress mode (job "stress" in
 .github/workflows/ci.yml).
 
@@ -162,16 +172,25 @@ The tests that drive the compile steps, or read a file the compiler wrote
 for them, set the flag to 'off' for themselves and pass under every mode
 (unit_cxx_toolchain.py, unit_make.py, and single tests of unit_api.py,
 unit_compile_modules.py, unit_findcurry.py, unit_optimize.py, and
-unit_prebuild.py; unit_optimize_applies.py pins 'new' for one test and
-skips one under 'all').  The tests that read the compiled object of a
-corpus module (the five files named below) and the two tests of
-unit_inspect.py that expect a module loaded from its object (testGetICurry,
-testGetImpl) skip under 'new' and 'all' (cytest.skipIfInterpreted), as the
-generated-code tests of unit_cxx_emit.py skip whenever the flag is not
-'off'.  The two tests of unit_cxx_bom.py that read the object of the
-Prelude skip when the Prelude is interpreted: under 'all', and under the
-other modes while its object is missing or stale.  So the unit suite
-passes whole under 'all' (issue #82).  unit_cxx_interp.py tests the
+unit_prebuild.py).  unit_optimize_applies.py and unit_optimize_inline.py
+pin 'new' for their steps tests, and unit_optimize_applies.py skips one
+test under 'all'.  Their tests of values evaluate the unoptimized form of
+a module, imported from its ICurry object: under 'off' such a module has
+no code (a function made at run time gets no step and no bytecode;
+backends/cxx/materialize.py) and the C++ backend cannot run it, so under
+'off' those tests reload the interpreter under 'new' before that half
+(ModuleTestCase.interpretable of unit_optimize.py).  The tests
+that read the compiled object of a corpus module (the files named below,
+with TestInlineAllocation of unit_cxx_heap.py and TestStepFunctions of
+unit_cxx_passthrough.py, which read the objects of Tak1 and Fib under
+data/curry/benchmarks) and the two tests of unit_inspect.py that expect a
+module loaded from its object (testGetICurry, testGetImpl) skip under
+'new' and 'all' (cytest.skipIfInterpreted), as the generated-code tests
+of unit_cxx_emit.py skip whenever the flag is not 'off'.  The two tests
+of unit_cxx_bom.py that read the object of the Prelude skip when
+the Prelude is interpreted: under 'all', and under the other modes
+while its object is missing or stale.  So the unit suite passes whole
+under 'all' (issue #82).  unit_cxx_interp.py tests the
 interpreter.  The nightly job "interpreter" of .github/workflows/ci.yml
 runs the unit and functional suites under interpret:all and under
 interpret:off; a workflow_dispatch with the input "interpreter" runs it on
@@ -187,13 +206,14 @@ flight, so a test that writes a fresh module must wait for its compile
 sprite-exec ends interpreted with no object written.  So a test process
 never compiles a shared corpus module whose object is missing or stale,
 and a test that inspects the compiled object of a corpus module
-(unit_cxx_bom.py, unit_cxx_literals.py, unit_cxx_partial.py,
-unit_cxx_passthrough.py, unit_cxx_rewrite.py) finds it interpreted until
-the object exists.  The prepare pass of the runner (--prepare, section 10)
-runs sprite-make, which always compiles; run it once after a make stage
-that changed a runtime header, which makes every object stale, and the
-files find the corpus compiled.  --prepare-only runs the pass alone and
-exits with its status; the CI script runs it before the files of a C++
+(unit_cxx_bom.py, unit_cxx_heap.py, unit_cxx_literals.py,
+unit_cxx_partial.py, unit_cxx_passthrough.py, unit_cxx_rewrite.py)
+finds it interpreted until the object exists.  The prepare pass of
+the runner (--prepare, section 10) runs sprite-make, which always
+compiles; run it once after a make stage that changed a runtime
+header, which makes every object stale, and the files find the
+corpus compiled.  --prepare-only runs the pass alone and exits with
+its status; the CI script runs it before the files of a C++
 shard.  unit_cxx_tiered.py tests the mode: the swap and its statistics
 (tiered.status and the fields swapped and failed_compiles of curry.stats),
 the values and steps of both tiers, the swap between the values of one
@@ -1007,8 +1027,18 @@ directories"); an installation without a digest prunes nothing.  The exit
 status of the run does not
 depend on the pass: the test that needs the module reports the failure
 in its own terms.  A failed compile that leaves an old product in place
-is not seen by the pass; that test reports it too.  The examples under
-examples/ are not covered; unit_examples.py alone compiles them.
+is not seen by the pass; that test reports it too.  A module whose
+source names a preprocessor the machine lacks cannot be made from its
+source: poker_four_of_a_kind under data/curry/smap names currypp in its
+pragma OPTIONS_CYMAKE -F --pgmF=currypp.  make overlay, run after make
+stage, supplies its FlatCurry and ICurry (section 8); the pass then makes
+the module from them without the front end, and no line names it.
+Without them the front end runs currypp and fails, and the module is
+without a product as any other: the pass fails, and the line of the
+directory adds the cause when the log shows it ("poker_four_of_a_kind.curry
+needs currypp, which the PATH lacks; make overlay after make stage
+supplies its products").  The examples under examples/ are not covered;
+unit_examples.py alone compiles them.
 
 --prepare-only runs the pass alone, for the pool and the corpus of each
 selected functional test, one process at a time, and exits with its
@@ -1018,8 +1048,16 @@ CI script (.github/scripts/run-tests.sh) runs it on the C++ backend before
 its loop over the files of a shard, each in a process of its own: a fresh
 checkout has no compiled objects, and under the tiered default a test
 process never compiles a shared corpus module (section 4).  A failed pass
-fails the shard.  The script skips the pass under interpret:all and
-interpret:new, the modes under which a test process never compiles.
+fails the shard.  The workflow extracts the overlay archive (make overlay)
+after make stage in every job that runs tests: the products are then newer
+than the interfaces of the installed library, so the front end leaves them
+alone, and the pass makes poker_four_of_a_kind of smap from its archived
+FlatCurry without currypp, which the runner lacks (above).  The checkout
+fetches the whole history for it: overlay-prune compares the sources with
+the commit that packed the archive, and a shallow clone would prune
+nothing.
+The script skips the pass under interpret:all and interpret:new, the
+modes under which a test process never compiles.
 
 Calibration of a new machine.  On a quiet machine, run every file once
 per backend with --update-manifest at width 1:

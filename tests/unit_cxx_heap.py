@@ -211,11 +211,14 @@ else:
     config.cxx_flavor() == 'release' and not curry.flags['debug']
   , 'the debug flavor compiles generated code without inlining'
   )
+@cytest.skipIfInterpreted('the tests read the compiled object of Tak1')
 class TestInlineAllocation(cytest.TestCase):
   '''
   The allocation fast path is inline in generated code: the step of tak
   calls node_refill and neither node_reserve nor node_commit.  The release
-  flavor alone inlines it (make DEBUG=1 compiles at -O0).
+  flavor alone inlines it (make DEBUG=1 compiles at -O0).  Under
+  interpret:new and interpret:all no object of Tak1 is made, so the tests
+  skip there.
   '''
   BENCHMARKS = os.path.join(HERE, 'data', 'curry', 'benchmarks')
 

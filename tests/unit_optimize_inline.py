@@ -22,7 +22,9 @@ optimized structure (icurry_of with inline=True), and a module imported by
 name gives values.  The unoptimized form of a program is the same text under
 another name, imported from its ICurry object with the key of the pass set,
 which the framework reads as "this pass ran".  Every test of values compares
-the optimized program with the unoptimized one, on both backends.
+the optimized program with the unoptimized one, on both backends; under
+interpret 'off' the unoptimized one runs under 'new'
+(ModuleTestCase.interpretable).
 '''
 import cytest # from ./lib; must be first
 from curry import config, icurry, toolchain
@@ -527,10 +529,17 @@ class InlineTestCase(ModuleTestCase):
     return list(curry.eval(getattr(module, goal), converter='topython'))
 
   def check_values(self, stem, text, values):
+    '''
+    The values of the optimized program, imported by name, and of the
+    unoptimized one, imported from its ICurry object, against ``values``.
+    The caller is hardreset (interpretable).
+    '''
     optimized = self.import_(self.write(stem, text))
-    unoptimized = self.unoptimized(self.write(stem, text))
     for goal, expected in values.items():
       self.assertCountEqual(self.values(optimized, goal), expected, goal)
+    self.interpretable()
+    unoptimized = self.unoptimized(self.write(stem, text))
+    for goal, expected in values.items():
       self.assertCountEqual(self.values(unoptimized, goal), expected, goal)
 
 
@@ -810,9 +819,11 @@ class TestCaseShapes(InlineTestCase):
 class TestEvaluation(InlineTestCase):
   '''Values and steps of the optimized program against the unoptimized one.'''
 
+  @cytest.hardreset
   def test_values(self):
     self.check_values('Inline', INLINE, INLINE_VALUES)
 
+  @cytest.hardreset
   def test_case_values(self):
     self.check_values('Cases', CASES, CASE_VALUES)
 
@@ -1024,6 +1035,7 @@ class TestChain(InlineTestCase):
     for part in '_def#', '_inst#', '_impl#', 'Prelude.$':
       self.assertFalse([c for c in calls if part in c], part)
 
+  @cytest.hardreset
   def test_values(self):
     self.check_values('Chain', CHAIN, CHAIN_VALUES)
 

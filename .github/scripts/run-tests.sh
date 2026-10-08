@@ -12,8 +12,11 @@
 # the tiered default a test process interprets a module whose object is
 # missing and never compiles it: without the pass, the files that inspect a
 # compiled object fail on a fresh checkout, and the rest run interpreted.  A
-# failed pass fails the shard.  Under interpret:all and interpret:new a test
-# process never compiles, and the pass is skipped.
+# failed pass fails the shard.  The workflow extracts the overlay archive
+# after the stage: the pass makes the module whose preprocessor the runner
+# lacks (poker_four_of_a_kind of smap, currypp) from its archived FlatCurry.
+# Under interpret:all and interpret:new a test process never compiles, and
+# the pass is skipped.
 set -uo pipefail
 backend=$1
 pattern=$2

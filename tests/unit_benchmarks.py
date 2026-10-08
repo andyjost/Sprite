@@ -1116,29 +1116,36 @@ class TestApplications(unittest.TestCase):
       , ('applications', 'overloads', 'clang', None)
       ])
     self.assertEqual(len(items), 4 * 2 * 3 + 2 * 2 + 4)
-    cmd, env, cwd = items[0].command()
-    self.assertEqual(cmd, [
-        self.settings.python, suites.DEPENDENCY, 'sprite', '10', 'solvable'
-      ])
-    self.assertEqual(cwd, APPDIR)
-    self.assertTrue(os.path.isfile(suites.DEPENDENCY))
-    self.assertEqual(env['SPRITE_HOME'], '/nonexistent/home')
-    self.assertTrue(env['SPRITE_INTERPRETER_FLAGS'].startswith('backend:cxx'))
-    self.assertIn('interpret:off', env['SPRITE_INTERPRETER_FLAGS'])
-    self.assertEqual(env['SPRITE_ROTATION'], 'steps:65536')
-    cmd, env, cwd = items[2].command()
-    self.assertEqual(cmd[1:], [suites.DEPENDENCY, 'resolvelib', '10', 'solvable'])
-    self.assertEqual(
-        env.get('SPRITE_INTERPRETER_FLAGS')
-      , os.environ.get('SPRITE_INTERPRETER_FLAGS')
-      )
-    item = next(i for i in items if i.key[2:] == ('py', '100/unsolvable'))
-    self.assertEqual(item.size, 100)
-    self.assertEqual(item.case, 'unsolvable')
-    self.assertEqual(item.command()[0][2:], ['sprite', '100', 'unsolvable'])
-    self.assertTrue(
-        item.command()[1]['SPRITE_INTERPRETER_FLAGS'].startswith('backend:py')
-      )
+    # A command reads the environment when it is built.  The checks below
+    # run in one that names no interpreter mode, so the item adds
+    # interpret:off; the mode of the environment wins (the end of the test).
+    with mock.patch.dict(
+        os.environ, {'SPRITE_INTERPRETER_FLAGS': 'backend:cxx'}
+      ):
+      cmd, env, cwd = items[0].command()
+      self.assertEqual(cmd, [
+          self.settings.python, suites.DEPENDENCY, 'sprite', '10', 'solvable'
+        ])
+      self.assertEqual(cwd, APPDIR)
+      self.assertTrue(os.path.isfile(suites.DEPENDENCY))
+      self.assertEqual(env['SPRITE_HOME'], '/nonexistent/home')
+      self.assertEqual(
+          env['SPRITE_INTERPRETER_FLAGS'], 'backend:cxx,interpret:off'
+        )
+      self.assertEqual(env['SPRITE_ROTATION'], 'steps:65536')
+      cmd, env, cwd = items[2].command()
+      self.assertEqual(
+          cmd[1:], [suites.DEPENDENCY, 'resolvelib', '10', 'solvable']
+        )
+      self.assertEqual(env.get('SPRITE_INTERPRETER_FLAGS'), 'backend:cxx')
+      item = next(i for i in items if i.key[2:] == ('py', '100/unsolvable'))
+      self.assertEqual(item.size, 100)
+      self.assertEqual(item.case, 'unsolvable')
+      self.assertEqual(item.command()[0][2:], ['sprite', '100', 'unsolvable'])
+      self.assertEqual(
+          item.command()[1]['SPRITE_INTERPRETER_FLAGS']
+        , 'backend:py,interpret:off'
+        )
     cmd, env, cwd = items[-4].command()
     self.assertEqual(cmd[1:], [suites.OVERLOADS, 'sprite', '1000'])
     self.assertEqual(
@@ -2737,11 +2744,16 @@ class TestSmoke(cytest.TestCase):
     in step mode whatever SPRITE_ROTATION says: in time mode the counters
     of a search differ between the measured repetition and the one under
     perf, and the record holds None for them, with a warning of the harness.
+    The child inherits the environment, so the stress mode of the collector
+    is turned off for it: QueensSet 8 is a search of two million steps, and
+    a collection at every step exceeds the timeout of the test (section 4
+    of the README; a value of 0 is off without a warning).
     '''
     filename = self.filename('split.jsonl')
     status, log = self.harness(
         '-s', 'split', 'QueensSet', '--variant', 'whole', '--variant', '2/0'
       , '--variant', '2/1', '-o', filename, '-e', 'SPRITE_ROTATION=steps:65536'
+      , '-e', 'SPRITE_GC_STRESS=0'
       )
     self.assertEqual(status, 0, log)
     recs = records.read(filename)

@@ -237,11 +237,16 @@ class TestGeneratedCode(cytest.TestCase):
     curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
   )
 @unittest.skipIf(shutil.which('objdump') is None, 'objdump is not installed')
+@cytest.skipIfInterpreted(
+    'the tests read the objects and the generated code of Tak1 and Fib'
+  )
 class TestStepFunctions(cytest.TestCase):
   '''
   The steps of tak and fibgen build no Variable: their code refers to none
   of the functions a Variable brings in (the release of its inline storage,
-  the guarded rvalue), and the generated text declares none.
+  the guarded rvalue), and the generated text declares none.  Under
+  interpret:new and interpret:all no object of the two modules is made, so
+  the tests skip there.
   '''
   BENCHMARKS = os.path.join(HERE, 'data', 'curry', 'benchmarks')
   # The release of the inline storage, the constructor and destructor of
