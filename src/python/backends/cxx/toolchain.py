@@ -16,19 +16,24 @@ FLAVOR_FLAGS and Cpp2So.flavor.
 
 A compiled module stays valid as long as the runtime headers it was compiled
 against, the flags of its flavor and the installation it links against do not
-change.  Cpp2So records a digest of the three beside each shared object (the
-ABI stamp, <module>.so.abi) and compiles the module again when the
-installation gives another digest.  See runtime_digest, object_digest, and
-Cpp2So.is_stale.  A generated .cpp file
-carries a format stamp; Json2Cpp, which writes the file, refuses one of
+change.  Cpp2So records the first two as a digest and the third as text
+beside each shared object (the ABI stamp, <module>.so.abi) and compiles the
+module again when the installation gives another digest or another path.
+See runtime_digest, object_digest, and Cpp2So.is_stale.  A generated .cpp
+file carries a format stamp; Json2Cpp, which writes the file, refuses one of
 another format.  See Json2Cpp.is_stale.
+
+A compile stores its products in the product cache, and a plan places the
+cached products of a module instead of generating and compiling it when the
+cache holds them.  See Cpp2So.restore, Cpp2So.store and
+curry.toolchain._productcache.
 '''
 from ..generic.toolchain import Json2TargetSource
 from . import compiler
 from ... import config, exceptions
 from ...objects.handle import getHandle
 from ...utility import curryname, filesys
-from ...toolchain import plans, _filenames, _loadcurry, _system
+from ...toolchain import plans, _filenames, _loadcurry, _makecurry, _productcache, _system
 import functools, hashlib, itertools, logging, os, re
 
 logger = logging.getLogger(__name__)
@@ -145,22 +150,27 @@ def gc_flags(gc=None, write_counters=None):
     flags += GC_WRITE_COUNTERS_FLAGS
   return flags
 
-def object_digest(flavor=None, include_dir=None, gc=None, prefix=None
-    , write_counters=None):
+def object_digest(flavor=None, include_dir=None, gc=None, write_counters=None):
   '''
-  The stamp of an object compiled now: a digest of the runtime headers
-  (runtime_digest), of the flags of ``flavor``, by default the flavor of the
-  installed runtime (config.cxx_flavor), of the flags of the collector
-  ``gc`` and of its write counters, by default the installed ones
-  (config.cxx_gc, config.cxx_gc_write_counters), and of the real path of
-  the installation ``prefix``, by default the installed one.  So a change
-  to a header, to the flags of a flavor, to the collector, or to the write
-  counters compiles every object again, once.  The installation is part of
-  the stamp because a module links against the shared objects of its
-  installation by absolute path: an object compiled under another
-  installation of the same runtime would load that installation's Prelude
-  beside this one.  The flags of the environment (CXXFLAGS) are not part
-  of it.
+  The digest of the ABI stamp of an object compiled now: a digest of the
+  runtime headers (runtime_digest), of the flags of ``flavor``, by default
+  the flavor of the installed runtime (config.cxx_flavor), of the flags of
+  the collector ``gc`` and of its write counters, by default the installed
+  ones (config.cxx_gc, config.cxx_gc_write_counters), of the link flags, of
+  the compiler the runtime was built with (config.cxx_compiler: its version
+  and target, as the build recorded them in sysconfig/cxx_compiler) and of
+  the format of the generated code (compiler.FORMAT_VERSION).  So a change
+  to a header, to the flags of a flavor, to the collector, to the write
+  counters, to the compiler of the build or to the format compiles every
+  object again, once.  The digest covers what decides whether an object
+  fits a runtime, and nothing of where the runtime is installed: two
+  installations of one runtime give one digest, so the product cache can
+  serve both, and a package relocated by its manager keeps its objects.
+  The installation is the second line of the stamp, as text (see Cpp2So).
+  The compiler enters through the record of the build, not through a probe
+  of the compiler at hand: an installation without a compiler computes the
+  digest of its shipped objects all the same.  The flags of the environment
+  (CXXFLAGS) are not part of the digest.
 
   Returns None when the tree holds no header (see runtime_digest).
   '''
@@ -169,14 +179,75 @@ def object_digest(flavor=None, include_dir=None, gc=None, prefix=None
     return None
   if flavor is None:
     flavor = config.cxx_flavor()
-  if prefix is None:
-    prefix = config.prefix()
   digest = hashlib.sha256(headers.encode('utf-8'))
   for flag in flavor_flags(flavor) + gc_flags(gc, write_counters) + LINK_FLAGS:
     digest.update(b'\0')
     digest.update(flag.encode('utf-8'))
-  digest.update(b'\0')
-  digest.update(os.path.realpath(prefix).encode('utf-8'))
+  digest.update(b'\0compiler ')
+  digest.update(config.cxx_compiler().encode('utf-8'))
+  digest.update(b'\0format %d' % compiler.FORMAT_VERSION)
+  return digest.hexdigest()[:16]
+
+def installation_path():
+  '''
+  The real path of the installation: the text of the second line of an ABI
+  stamp.  A module links against the shared objects of its installation by
+  absolute path, so an object compiled under another installation of the
+  same runtime would load that installation's Prelude beside this one; the
+  stamp names the installation, and an object whose stamp names another is
+  stale (Cpp2So.is_stale).
+  '''
+  return os.path.realpath(config.prefix())
+
+# The sources of the code generator of this backend, whose change changes the
+# generated code: the emitter and its helpers in this directory, the generic
+# emitter, the optimizer with its analyses, which rewrite the ICurry before
+# the emitter reads it, and the readers of the ICurry on the way from the
+# .icy file to the emitter (the ICurry types and their JSON reader, the
+# loader and the JSON writer of the toolchain).  A directory stands for its
+# Python files.  They are part of the key of the product cache (see
+# Cpp2So.product_facts): the format stamp of a generated file names its
+# layout, which changes less often than the code, and the cache must not
+# serve the code of one tree to another tree whose generator differs.
+GENERATOR_SOURCES = [
+    os.path.join('backends', 'cxx', 'compiler.py')
+  , os.path.join('backends', 'cxx', 'materialize.py')
+  , os.path.join('backends', 'cxx', 'passthrough.py')
+  , os.path.join('backends', 'generic', 'compiler.py')
+  , os.path.join('backends', 'generic', 'renderer.py')
+  , os.path.join('interpreter', 'optimize.py')
+  , os.path.join('icurry')
+  , os.path.join('icurry', 'analysis')
+  , os.path.join('icurry', 'types')
+  , os.path.join('toolchain', '_icurry2json.py')
+  , os.path.join('toolchain', '_loadcurry.py')
+  ]
+
+def generator_files():
+  '''The files of GENERATOR_SOURCES, relative to the package, sorted.'''
+  package = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+  for relpath in GENERATOR_SOURCES:
+    path = os.path.join(package, relpath)
+    if os.path.isdir(path):
+      for name in sorted(os.listdir(path)):
+        if name.endswith('.py'):
+          yield os.path.join(relpath, name), os.path.join(path, name)
+    else:
+      yield relpath, path
+
+@functools.lru_cache(maxsize=None)
+def generator_digest():
+  '''A digest of the files of GENERATOR_SOURCES, cached for the life of the process.'''
+  digest = hashlib.sha256()
+  for relpath, path in generator_files():
+    digest.update(relpath.encode('utf-8'))
+    digest.update(b'\0')
+    try:
+      with open(path, 'rb') as stream:
+        digest.update(stream.read())
+    except FileNotFoundError:
+      pass
+    digest.update(b'\0')
   return digest.hexdigest()[:16]
 
 def extend_plan_skeleton(interp, skeleton):
@@ -375,9 +446,26 @@ class Cpp2So(object):
   '''
   Compiles a generated .cpp file into a shared object, in the flavor of the
   installed runtime or, under the interpreter flag ``debug``, in the debug
-  flavor (see flavor).  Each object gets an ABI stamp: a file beside it that
-  holds the digest of the runtime headers and of the flavor flags the object
-  was compiled with (object_digest).  See is_stale.
+  flavor (see flavor).  Each object gets an ABI stamp, a text file beside it
+  (<module>.so.abi) of two lines::
+
+      <digest>
+      <installation>
+
+  The first line is the digest of the runtime headers and of the flags the
+  object was compiled with (object_digest), 16 hex digits.  The second line
+  is the real path of the installation the object was compiled under
+  (installation_path): the object names the shared objects of that
+  installation in its NEEDED entries.  An object is current when the
+  digest is accepted (accepted_digests) and the path is the installation of
+  the process (is_stale).  So a copy of an installation made by hand keeps
+  objects that name the original and compiles them again, and a package
+  whose manager rewrites the path at install time (conda lists the stamps
+  in info/has_prefix as text files) keeps its objects.  A stamp of one
+  line, written before the path joined it, is stale.
+
+  A compile stores its products in the product cache (store), and the plan
+  places the cached products of a module instead of a compile (restore).
   '''
   STAMP_SUFFIX = '.abi'
 
@@ -439,22 +527,38 @@ class Cpp2So(object):
     A .cpp file is stale when its format stamp is not the emitter's
     (source_is_stale; a file without a stamp is format 1).
 
-    A .so file is stale when its ABI stamp is missing or holds a digest this
-    step does not accept (accepted_digests): the object was compiled against
-    other headers, with the flags of another flavor, or under another
-    installation.  The check reads the headers, not time stamps, so a new
-    copy of the same runtime keeps every object, and a copied cache keeps
-    its objects.  An installation without headers (runtime_digest gives
-    None) cannot compile anything, so its objects are trusted as they are.
-    A .so file is stale as well when an import of its module runs without
-    an object (import_lacks_an_object).
+    A .so file is stale when its ABI stamp is missing, holds a digest this
+    step does not accept (accepted_digests), or names another installation
+    (stamp_is_current): the object was compiled against other headers, with
+    the flags of another flavor, or under another installation.  The check
+    reads the headers, not time stamps, so a new copy of the same runtime
+    keeps every object, and a relocated package keeps its objects.  An
+    installation without headers (runtime_digest gives None) cannot compile
+    anything, so its objects are trusted as they are.  A .so file is stale
+    as well when an import of its module runs without an object
+    (import_lacks_an_object).
     '''
     if filename.endswith('.so'):
-      accepted = self.accepted_digests()
-      if accepted and self.read_stamp(filename) not in accepted:
+      if not self.stamp_is_current(filename):
         return True
       return self.import_lacks_an_object(filename)
     return source_is_stale(filename)
+
+  def stamp_is_current(self, sofile):
+    '''
+    Tells whether the ABI stamp of ``sofile`` holds a digest this step
+    accepts and names this installation.  The paths are compared as real
+    paths, so a stamp that spells the installation through a link (the
+    prefix a package manager wrote) names it all the same.  True without
+    a digest to compare (an installation without headers).
+    '''
+    accepted = self.accepted_digests()
+    if not accepted:
+      return True
+    digest, path = self.read_stamp_lines(sofile)
+    if digest not in accepted or path is None:
+      return False
+    return os.path.realpath(path) == installation_path()
 
   def import_lacks_an_object(self, sofile):
     '''
@@ -495,18 +599,31 @@ class Cpp2So(object):
     return sofile + cls.STAMP_SUFFIX
 
   @classmethod
-  def read_stamp(cls, sofile):
-    '''The digest recorded in the ABI stamp of ``sofile``, or None.'''
+  def read_stamp_lines(cls, sofile):
+    '''
+    The two lines of the ABI stamp of ``sofile``: the digest and the real
+    path of the installation.  A missing line is None; so is each of a
+    missing stamp.
+    '''
     try:
       with open(cls.stampfile(sofile), 'r') as stream:
-        return stream.read().strip()
+        lines = stream.read().splitlines()
     except OSError:
-      return None
+      return None, None
+    lines = [line.strip() for line in lines[:2]]
+    lines += [None] * (2 - len(lines))
+    return lines[0] or None, lines[1] or None
+
+  @classmethod
+  def read_stamp(cls, sofile):
+    '''The digest recorded in the ABI stamp of ``sofile``, or None.'''
+    return cls.read_stamp_lines(sofile)[0]
 
   def write_stamp(self, sofile):
     '''
-    Records the stamp of this step (digest) beside ``sofile``.  Without
-    headers there is no digest, and no stamp is written.
+    Records the stamp of this step beside ``sofile``: its digest and the
+    real path of this installation (see the class).  Without headers there
+    is no digest, and no stamp is written.
     '''
     digest = self.digest()
     if digest is None:
@@ -515,7 +632,7 @@ class Cpp2So(object):
     tmp = '%s.%d.tmp' % (stamp, os.getpid())
     with filesys.remove_file_on_error(tmp):
       with open(tmp, 'w') as stream:
-        stream.write(digest + '\n')
+        stream.write('%s\n%s\n' % (digest, installation_path()))
       os.replace(tmp, stamp)
 
   @classmethod
@@ -659,7 +776,7 @@ class Cpp2So(object):
         state = 'no object exists there'
       elif stamp is None:
         state = 'the object there has no ABI stamp'
-      elif stamp in self.accepted_digests():
+      elif self.stamp_is_current(file_out):
         state = 'the object there is current, but a compile was asked for'
       else:
         state = 'the object there is stale (its ABI stamp names another ' \
@@ -676,8 +793,165 @@ class Cpp2So(object):
     # The old stamp goes before the compiler runs.  An object without a stamp
     # is stale, so a compile that stops between the compiler and the new
     # stamp (a kill, a time limit) leaves nothing a later process would trust
-    # under the old digest.
+    # under the old digest.  The old object goes too: it may be a hard link
+    # into the product cache, which must not be written into (the linker
+    # writes a new file as well; this makes sure of it).
     self.remove_stamp(file_out)
+    try:
+      os.unlink(file_out)
+    except FileNotFoundError:
+      pass
     _system.pexec(cmd)
     self.write_stamp(file_out)
+    self.store(file_in, file_out, currypath)
     return file_out
+
+  # The product cache
+  # =================
+  # The products of a compile (the generated file, the object and its stamp)
+  # are stored under the digest of the stamp and a key of the facts that
+  # decide them (product_facts, product_key), and the plan asks this step to
+  # place the cached products of a module before each step
+  # (plans.Plan.restore, _makecurry.Maker.make).  See
+  # curry.toolchain._productcache.
+
+  PRODUCT_SUFFIXES = ('.cpp', '.so')
+
+  def product_facts(self, curryfile):
+    '''
+    The facts, as strings, that decide the generated code and the object of
+    a module beyond its source chain: the key of the product cache digests
+    them (see _productcache.product_key).  In order: the format of the
+    generated code (compiler.FORMAT_VERSION) and the digest of the sources
+    of the code generator (generator_digest); the keys of the optimizer
+    passes and the inline budget of the interpreter, which shape the code;
+    the intermediate directory and the route from Curry to ICurry
+    (cache.frontend_digest), which decide the ICurry of a source; the real
+    path of the installation, which the object names in its NEEDED entries;
+    and the real path of the directory of the source, which the object
+    names in its record and in the NEEDED entries of the modules beside
+    it.  The two paths keep an object of one tree out of another tree,
+    where the dynamic linker would map the imports of the first tree
+    beside those of the second; they leave the key once the generated code
+    and the link name no absolute path (the dated TODO entry of 2026-10-07
+    on the product cache names that change).
+    '''
+    from ...interpreter import optimize
+    from ... import cache
+    flags = self.interp.flags
+    return [
+        'format %d' % compiler.FORMAT_VERSION
+      , 'generator ' + generator_digest()
+      , 'optimizers ' + ' '.join(key for key, _ in optimize.default_optimizers)
+      , 'inline_budget %d' % flags['inline_budget']
+      , 'subdir ' + config.intermediate_subdir()
+      , 'frontend ' + cache.frontend_digest()
+      , 'installation ' + installation_path()
+      , 'source ' + os.path.realpath(os.path.dirname(os.path.abspath(curryfile)))
+      ]
+
+  def product_key(self, filename, currypath):
+    '''
+    The key of the product cache for the module of ``filename``, a file of
+    its chain (see _productcache.product_key), or None when the module has
+    no text to digest.
+    '''
+    curryfile = _filenames.curryfilename(filename)
+    return _productcache.product_key(
+        curryfile, currypath, self.product_facts(curryfile)
+      )
+
+  def restore(self, file_in, currypath):
+    '''
+    Places the cached products of the module of ``file_in``, a current JSON
+    or generated file of the module, beside it: the generated file, the
+    object, and a stamp for this installation.  Returns the object, or None
+    when the cache is off or holds no entry, when the module is excluded
+    (_productcache.excluded), when a recompile is forced
+    (SPRITE_FORCE_RECOMPILE_CXX), when the directory cannot be written, or
+    when an import of the module runs without an object
+    (import_lacks_an_object): the object stays in place for a later plan,
+    which finds it current once the import has its object, but the module
+    is not loaded from it now.  Nothing is placed under the interpreter
+    flag ``interpret`` set to 'new' either: that mode interprets a module
+    without a current object and never compiles it (Json2Cpp.ends_plan),
+    and a cached object would make the module compiled after all.  The
+    placement counts on the compile clock.
+    '''
+    if not file_in.endswith(('.json', '.json.z', '.cpp')):
+      return None
+    if not _productcache.enabled() or config.force_recompile_cxx():
+      return None
+    if self.interp.flags['interpret'] == 'new':
+      return None
+    if _productcache.excluded(_filenames.curryfilename(file_in)):
+      return None
+    digest = self.digest()
+    if digest is None:
+      return None
+    sofile = _filenames.replacesuffix(file_in, '.so')
+    directory = os.path.dirname(os.path.abspath(sofile))
+    if not os.access(directory, os.W_OK):
+      return None
+    try:
+      key = self.product_key(file_in, currypath)
+    except OSError as exc:
+      logger.debug('No product cache key for %r (%s)', file_in, exc)
+      return None
+    if key is None:
+      return None
+    names = [
+        os.path.basename(_filenames.replacesuffix(file_in, suffix))
+        for suffix in self.PRODUCT_SUFFIXES
+      ]
+    if _productcache.lookup(digest, key, names) is None:
+      return None
+    with _makecurry.compile_clock:
+      try:
+        placed = _productcache.restore(digest, key, directory, names)
+      except OSError as exc:
+        logger.warning(
+            'cannot restore %r from the product cache (%s); it is compiled'
+          , sofile, exc
+          )
+        return None
+      if placed is None:
+        return None
+      self.write_stamp(sofile)
+    logger.info('Restored %r from the product cache', sofile)
+    if self.import_lacks_an_object(sofile):
+      return None
+    return sofile
+
+  def store(self, cppfile, sofile, currypath):
+    '''
+    Stores the products of a compile in the product cache: the generated
+    file, the object and its stamp.  Nothing when the cache is off.  A
+    cache that cannot be written is logged once and left alone.
+    '''
+    if not _productcache.enabled():
+      return
+    if _productcache.excluded(_filenames.curryfilename(cppfile)):
+      return
+    digest = self.digest()
+    if digest is None:
+      return
+    try:
+      key = self.product_key(cppfile, currypath)
+      if key is None:
+        return
+      _productcache.store(digest, key, [cppfile, sofile, self.stampfile(sofile)])
+    except OSError as exc:
+      if 'store' not in self._warned:
+        self._warned.add('store')
+        logger.warning(
+            'cannot store %r in the product cache at %r (%s); set '
+            'SPRITE_PRODUCT_CACHE to a writable directory, or to the empty '
+            'string to turn the cache off'
+          , sofile, _productcache.root(), exc
+          )
+      return
+    logger.debug('Stored %r in the product cache', sofile)
+
+  # The warnings this process logged once about the cache.
+  _warned = set()

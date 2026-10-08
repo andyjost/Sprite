@@ -13,6 +13,17 @@ if not os.environ.get('SPRITE_ROTATION'):
 # warnings sets the variable itself (curry.toolchain._frontend).
 if not os.environ.get('SPRITE_FRONTEND_WARNINGS'):
   os.environ['SPRITE_FRONTEND_WARNINGS'] = '0'
+# The product cache of the C++ backend under tests/.cache, as the runner
+# sets it, so a file run by hand writes nothing under the cache directory of
+# the user.  A value in the environment wins; the empty string turns the
+# cache off.
+os.environ.setdefault(
+    'SPRITE_PRODUCT_CACHE'
+  , os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+      , '.cache', 'products'
+      )
+  )
 
 from .checkers import check_expressions, check_indexing, check_predicate
 import builtins

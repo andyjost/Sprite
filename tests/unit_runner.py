@@ -727,7 +727,7 @@ FILES = sorted([
   , 'unit_cxx_variable.py', 'unit_expr.py'
   , 'unit_flat2icurry.py', 'unit_icurry.py', 'unit_inspect.py'
   , 'unit_loadsave.py', 'unit_optimize.py', 'unit_optimize_applies.py'
-  , 'unit_plan.py', 'unit_prebuild.py'
+  , 'unit_plan.py', 'unit_prebuild.py', 'unit_product_cache.py'
   , 'unit_py_conversions.py', 'unit_py_evaluation.py', 'unit_py_io.py'
   , 'unit_utility.py'
   ])
@@ -738,6 +738,7 @@ CXX_FILES = [
 TOOLCHAIN_FILES = [
     'func_flat2icurry.py', 'unit_cache.py', 'unit_compile.py'
   , 'unit_curry2icurry.py', 'unit_cxx_toolchain.py', 'unit_flat2icurry.py'
+  , 'unit_product_cache.py'
   ]
 API_FILES = [
     'unit_api.py', 'unit_expr.py', 'unit_py_conversions.py'
@@ -1267,6 +1268,19 @@ class TestCli(unittest.TestCase):
       , os.path.join(testrunner.TESTDIR, '.cache', 'icurry.db')
       )
     self.assertNotIn('SPRITE_CACHE_FILE', base)
+    # The product cache beside the ICurry cache; a value of the environment
+    # of the run wins, the empty string included (it turns the cache off).
+    self.assertEqual(
+        env['SPRITE_PRODUCT_CACHE']
+      , os.path.join(testrunner.TESTDIR, '.cache', 'products')
+      )
+    self.assertNotIn('SPRITE_PRODUCT_CACHE', base)
+    shared = cli.environment(
+        '/sprite', 'cxx', dict(base, SPRITE_PRODUCT_CACHE='/shared/products')
+      )
+    self.assertEqual(shared['SPRITE_PRODUCT_CACHE'], '/shared/products')
+    off = cli.environment('/sprite', 'cxx', dict(base, SPRITE_PRODUCT_CACHE=''))
+    self.assertEqual(off['SPRITE_PRODUCT_CACHE'], '')
 
   def test_backstop(self):
     self.assertEqual(cli.backstop_prefix(GIB, setting='unlimited'), [])
@@ -1515,14 +1529,15 @@ class TestPrepare(unittest.TestCase):
       , ['prepare data/curry', 'prepare data/curry/kiel'] * 2
       )
     kiel = jobs[1]
+    # Without -q: the line of sprite-make about the product cache must
+    # reach the log (cache_counts).
     self.assertEqual(
-        kiel.argv[:8]
-      , [ 'prlimit', '--as=1', '/sprite/bin/sprite-make', '-k', '-q', '-c'
-        , '-z', '--so'
-        ]
+        kiel.argv[:7]
+      , ['prlimit', '--as=1', '/sprite/bin/sprite-make', '-k', '-c', '-z', '--so']
       )
+    self.assertNotIn('-q', kiel.argv)
     self.assertTrue(
-        all(name.startswith('data/curry/kiel/') for name in kiel.argv[8:])
+        all(name.startswith('data/curry/kiel/') for name in kiel.argv[7:])
       )
     self.assertEqual(kiel.env['CURRYPATH'], ':'.join([
         os.path.join(testrunner.TESTDIR, 'data/curry/kiel/lib')
@@ -1530,10 +1545,10 @@ class TestPrepare(unittest.TestCase):
       ]))
     self.assertTrue(kiel.exclusive)
     self.assertEqual(kiel.logfile, '/logs/cxx/prepare-data-curry-kiel.log')
-    self.assertEqual(jobs[3].argv[7], '--py')
+    self.assertEqual(jobs[3].argv[6], '--py')
     # The modules of the job and their products, per backend.
     self.assertEqual(kiel.directory, 'data/curry/kiel')
-    self.assertEqual(kiel.modules, kiel.argv[8:])
+    self.assertEqual(kiel.modules, kiel.argv[7:])
     self.assertIn('data/curry/kiel/UseConc1.curry', kiel.modules)
     self.assertEqual(
         kiel.product('data/curry/kiel/UseConc1.curry')
@@ -1631,6 +1646,121 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(unknown.products('data/curry/a.curry'), [])
     self.assertIsNone(unknown.product('data/curry/a.curry'))
     self.assertIsNone(unknown.missing())
+
+  def test_prune_product_cache(self):
+    '''
+    After the pass the runner prunes its own product cache: the digest
+    directories of other runtimes go, the ones of the installed runtime
+    stay.  A cache the environment named, a cache turned off and a cache
+    that does not exist are left alone.
+    '''
+    sprite_home = os.environ.get('SPRITE_HOME')
+    if not sprite_home:
+      self.skipTest('needs SPRITE_HOME')
+    python = os.path.join(sprite_home, 'bin', 'python')
+    proc = subprocess.run(
+        [ python, '-B', '-c'
+        , 'from curry.backends.cxx import toolchain\n'
+          'print(toolchain.object_digest() or "")'
+        ]
+      , capture_output=True, text=True, timeout=120
+      )
+    current = proc.stdout.strip()
+    if proc.returncode != 0 or not current:
+      self.skipTest('the installation has no runtime headers')
+    tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
+    root = os.path.join(tmpdir, 'products')
+    for digest in current, 'fedcba9876543210':
+      os.makedirs(os.path.join(root, digest, 'a' * 64))
+    env = dict(os.environ, SPRITE_PRODUCT_CACHE=root)
+    # Another cache than the runner's own: left alone.
+    self.assertIsNone(prepare.prune_product_cache(sprite_home, env))
+    self.assertIsNone(
+        prepare.prune_product_cache(sprite_home, dict(env, SPRITE_PRODUCT_CACHE=''))
+      )
+    with mock.patch.object(prepare, 'DEFAULT_PRODUCT_CACHE', root):
+      self.assertEqual(prepare.prune_product_cache(sprite_home, env), (1, 0))
+      self.assertEqual(os.listdir(root), [current])
+      self.assertEqual(prepare.prune_product_cache(sprite_home, env), (0, 0))
+      shutil.rmtree(root)
+      self.assertIsNone(prepare.prune_product_cache(sprite_home, env))
+    self.assertEqual(
+        prepare.DEFAULT_PRODUCT_CACHE
+      , os.path.join(testrunner.TESTDIR, '.cache', 'products')
+      )
+
+  def test_cache_counts(self):
+    '''
+    The pass reads the line of sprite-make about the product cache from
+    the log of a job: its note and the summary line say how many products
+    came from the cache.  Without the line nothing is said.
+    '''
+    self.assertIsNone(prepare.cache_counts(''))
+    self.assertIsNone(prepare.cache_counts('sprite-make: product cache: x\n'))
+    text = 'made A\nsprite-make: product cache: 37 restored, 6 stored\n'
+    self.assertEqual(prepare.cache_counts(text), (37, 6))
+    # Several lines (a parallel run that relayed the lines of its children).
+    text += 'sprite-make: product cache: 1 restored, 0 stored\n'
+    self.assertEqual(prepare.cache_counts(text), (38, 6))
+    tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
+    testdir = os.path.join(tmpdir, 'tests')
+    pool = os.path.join(testdir, 'data', 'curry')
+    os.makedirs(pool)
+    for name in 'a.curry', 'b.curry', 'c.curry':
+      open(os.path.join(pool, name), 'w').close()
+    def job(logtext):
+      logfile = os.path.join(tmpdir, 'prepare-%d.log' % len(os.listdir(tmpdir)))
+      with open(logfile, 'w') as stream:
+        stream.write(logtext)
+      made = prepare.jobs(
+          ['unit_x.py'], ['cxx'], '/sprite', {}, '/logs', cap=GIB, timeout=None
+        , testdir=testdir, subdir='.curry/x'
+        )[0]
+      made.logfile = logfile
+      made.status = 'ok'
+      made.finished = True
+      return made
+    quiet = job('made a\n')
+    quiet.on_finished()
+    self.assertIsNone(quiet.restored)
+    self.assertEqual(quiet.note, '')
+    warm = job('sprite-make: product cache: 2 restored, 1 stored\n')
+    warm.on_finished()
+    self.assertEqual((warm.restored, warm.stored), (2, 1))
+    self.assertEqual(warm.note, '2 of 3 from the product cache')
+    # A directory that did not end well keeps both details.
+    partial = job('sprite-make: product cache: 1 restored, 0 stored\n')
+    partial.status = 'incomplete'
+    partial.note = 'exit status 1'
+    partial.on_finished()
+    self.assertEqual(
+        partial.note
+      , 'exit status 1; 1 of 3 from the product cache; 3 of 3 modules without '
+        'a product: a.curry, b.curry, c.curry'
+      )
+    # Each job here stands for one directory, so two jobs count as two.
+    self.assertEqual(
+        prepare.summary([warm])
+      , 'prepare: 3 modules in 1 directory on cxx, 2 from the product cache, '
+        'every product present'
+      )
+    self.assertEqual(
+        prepare.summary([quiet]), 'prepare: 3 modules in 1 directory on cxx, '
+        'every product present'
+      )
+    self.assertEqual(
+        prepare.summary([quiet, warm])
+      , 'prepare: 6 modules in 2 directories on cxx, 2 from the product cache, '
+        'every product present'
+      )
+    self.assertTrue(
+        prepare.summary([warm, partial]).startswith(
+            'prepare: 6 modules in 2 directories on cxx, 3 from the product '
+            'cache; 3 without a product: '
+          )
+      )
 
   def test_product_subdir(self):
     tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))

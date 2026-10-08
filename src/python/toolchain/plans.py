@@ -131,6 +131,23 @@ class Plan(object):
         return True
     return False
 
+  def restore(self, filename, currypath):
+    '''
+    Asks the step that makes the final product of this plan to place a
+    cached copy of the products of the module of ``filename`` beside its
+    files (the product cache; see ``Cpp2So.restore`` of the C++ backend).
+    Returns the file placed, or None when the step has no ``restore``
+    method, the cache is off, or the cache holds no entry.  ``Maker.make``
+    asks before each step, so a module whose products are cached is neither
+    generated nor compiled.
+    '''
+    if len(self.stages) < 2:
+      return None
+    restore = getattr(self.stages[-2].step, 'restore', None)
+    if restore is None:
+      return None
+    return restore(filename, currypath)
+
   def position(self, filename):
     '''Gives the current position in the plan.'''
     for i,(suffixes,_) in enumerate(self.stages):

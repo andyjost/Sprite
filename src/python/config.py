@@ -319,6 +319,44 @@ def cxx_pch_cache_dir():
   '''
   return os.path.join(user_cache_dir(), 'pch', installation_key())
 
+def cxx_compiler(cached=[]):
+  '''
+  The compiler the installed C++ runtime was built with, as the build
+  recorded it in sysconfig/cxx_compiler: the version and the target of
+  CXX_POSTINSTALL (``g++ -dumpfullversion`` and ``-dumpmachine``), one
+  line.  The ABI stamp of a compiled module digests it
+  (curry.backends.cxx.toolchain.object_digest), so a runtime built with
+  another compiler compiles every module again.  The empty string for an
+  installation that names no compiler: one staged before the record
+  existed, or one configured without a compiler.  Read once per process,
+  as the other tools are.
+  '''
+  if not cached:
+    filename = installed_path('sysconfig', 'cxx_compiler')
+    if os.path.exists(filename):
+      with open(filename) as stream:
+        cached.append(' '.join(stream.read().split()))
+    else:
+      cached.append('')
+  return cached[0]
+
+def product_cache_dir():
+  '''
+  The root of the product cache (curry.toolchain._productcache), where the
+  C++ backend keeps a copy of each shared object it compiles, with the
+  generated C++ and the ABI stamp, so that a product compiled once is not
+  compiled again by another tree of the same user, or by the same tree after
+  its products were removed.  Returns None when the cache is off.
+
+  SPRITE_PRODUCT_CACHE names the directory.  Without the variable, or with
+  the empty string, the cache is off: every product is compiled in place,
+  as before the cache existed.  The test runner and the worktree script
+  name a directory of their own; a developer who wants one across trees
+  names it, for instance ``<user_cache_dir>/products``.
+  '''
+  root = os.environ.get('SPRITE_PRODUCT_CACHE', '').strip()
+  return os.path.abspath(root) if root else None
+
 # The path to system Curry files, such as the Prelude.  This is appended to
 # whatever the user might supply via the CURRYPATH environment variable.
 def system_curry_path():

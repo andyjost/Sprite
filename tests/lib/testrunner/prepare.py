@@ -27,17 +27,93 @@ The pass covers the shared pool (tests/data/curry) and the corpus of each
 selected functional test (CORPUS).  The examples under examples/ are left
 to unit_examples.py, which alone compiles them; the scheduler never runs the
 two backends of one file at once.
+
+After the pass the runner prunes its own product cache
+(:func:`prune_product_cache`): the cache under tests/.cache/products, which
+the runner sets unless the environment names a directory, keeps the entries
+of the installed runtime alone, so the directory (and the CI cache entry
+that carries it) does not grow with every change to the runtime headers.  A
+cache the environment named is left alone: it may serve other
+installations.
 '''
 
-import os, subprocess
+import os, re, subprocess
 from . import TESTDIR
 from .scheduler import Job
 
 __all__ = [
-    'CORPUS', 'EXCLUDE', 'JSON_PRODUCTS', 'PRODUCT', 'PrepareJob'
-  , 'corpus_owners', 'directories', 'interpret_flag', 'jobs', 'modules'
-  , 'product_subdir', 'product_suffixes', 'summary'
+    'CACHE_LINE', 'CORPUS', 'DEFAULT_PRODUCT_CACHE', 'EXCLUDE', 'JSON_PRODUCTS'
+  , 'PRODUCT', 'PRUNE', 'PrepareJob', 'cache_counts', 'corpus_owners'
+  , 'directories', 'interpret_flag', 'jobs', 'modules', 'product_subdir'
+  , 'product_suffixes', 'prune_product_cache', 'summary'
   ]
+
+# The product cache of a run unless the environment names one
+# (cli.environment).  The runner prunes this one and no other.
+DEFAULT_PRODUCT_CACHE = os.path.join(TESTDIR, '.cache', 'products')
+
+# The program that prunes the product cache, run in the Python of the
+# installation: it keeps the digests of the installed runtime, the release
+# and the debug flavor, and prints the two counts of _productcache.prune
+# (nothing goes when the installation has no digest: no headers).
+PRUNE = '''
+from curry.backends.cxx import toolchain
+from curry.toolchain import _productcache
+keep = {toolchain.object_digest(), toolchain.object_digest('debug')}
+print(*_productcache.prune(keep))
+'''
+
+def prune_product_cache(sprite_home, env):
+  '''
+  Prunes the product cache of the run when it is the runner's own
+  (DEFAULT_PRODUCT_CACHE in ``env``): the digest directories of other
+  runtimes and the leftovers of an interrupted store go (PRUNE;
+  _productcache.prune).  Returns the pair of counts, or None when the
+  cache is another one, is off, or the program failed.
+  '''
+  root = env.get('SPRITE_PRODUCT_CACHE')
+  if not root or os.path.abspath(root) != DEFAULT_PRODUCT_CACHE:
+    return None
+  if not os.path.isdir(root):
+    return None
+  python = os.path.join(sprite_home, 'bin', 'python')
+  try:
+    proc = subprocess.run(
+        [python, '-B', '-c', PRUNE], capture_output=True, text=True, env=env
+      , timeout=300
+      )
+  except (OSError, subprocess.TimeoutExpired):
+    return None
+  if proc.returncode != 0:
+    return None
+  try:
+    digests, temporaries = proc.stdout.split()
+    return int(digests), int(temporaries)
+  except ValueError:
+    return None
+
+# The line sprite-make prints at the end of a run that restored a product
+# from the product cache or stored one there (curry.tools.make.cache_line).
+# The pass runs sprite-make without -q, so the line reaches the log, and the
+# job reads its counts from there.
+CACHE_LINE = re.compile(
+    r'^\S+: product cache: (?P<restored>\d+) restored, (?P<stored>\d+) stored$'
+  , re.MULTILINE
+  )
+
+def cache_counts(text):
+  '''
+  The counts of the product cache in the output ``text`` of sprite-make:
+  the products restored and the products stored, summed over its lines.
+  None when the text holds no such line.
+  '''
+  found = CACHE_LINE.findall(text)
+  if not found:
+    return None
+  return (
+      sum(int(restored) for restored, _ in found)
+    , sum(int(stored) for _, stored in found)
+    )
 
 # Every file may use the pool.
 ANY = None
@@ -172,9 +248,14 @@ def modules(directory, testdir=TESTDIR):
     )
 
 def command(sprite_home, backend, files):
-  '''The sprite-make command that makes ``files`` for ``backend``.'''
+  '''
+  The sprite-make command that makes ``files`` for ``backend``.  Without
+  -q: the line about the product cache must reach the log (cache_counts),
+  and the warnings of the front end are off through the environment of the
+  run (SPRITE_FRONTEND_WARNINGS; cli.environment).
+  '''
   make = os.path.join(sprite_home, 'bin', 'sprite-make')
-  return [make, '-k', '-q', '-c', '-z', TARGET[backend]] + list(files)
+  return [make, '-k', '-c', '-z', TARGET[backend]] + list(files)
 
 def _names(modules, limit=6):
   '''The base names of some modules, the first ``limit`` of them.'''
@@ -198,6 +279,11 @@ class PrepareJob(Job):
     self.modules = list(modules)
     self.subdir = subdir
     self.testdir = testdir
+    # The products restored from the product cache and stored there, read
+    # from the log after the run (cache_counts); None when the log says
+    # nothing about the cache.
+    self.restored = None
+    self.stored = None
 
   @property
   def flags(self):
@@ -236,19 +322,38 @@ class PrepareJob(Job):
                if not any(os.path.isfile(f) for f in self.products(module))
       ]
 
-  def on_finished(self):
-    if self.status == 'ok':
+  def read_cache_counts(self):
+    '''Reads the counts of the product cache from the log (cache_counts).'''
+    if not self.logfile:
       return
-    missing = self.missing()
-    if missing is None:
-      detail = 'see the log'
-    elif not missing:
-      detail = 'every product is present'
-    else:
-      detail = '%d of %d modules without a product: %s' % (
-          len(missing), len(self.modules), _names(missing)
+    try:
+      with open(self.logfile, 'r', errors='replace') as stream:
+        found = cache_counts(stream.read())
+    except OSError:
+      return
+    if found is not None:
+      self.restored, self.stored = found
+
+  def on_finished(self):
+    self.read_cache_counts()
+    details = []
+    if self.restored:
+      details.append(
+          '%d of %d from the product cache' % (self.restored, len(self.modules))
         )
-    self.note = '%s; %s' % (self.note, detail) if self.note else detail
+    if self.status != 'ok':
+      missing = self.missing()
+      if missing is None:
+        details.append('see the log')
+      elif not missing:
+        details.append('every product is present')
+      else:
+        details.append('%d of %d modules without a product: %s' % (
+            len(missing), len(self.modules), _names(missing)
+          ))
+    if details:
+      detail = '; '.join(details)
+      self.note = '%s; %s' % (self.note, detail) if self.note else detail
 
 def summary(jobs):
   '''
@@ -267,6 +372,9 @@ def summary(jobs):
       modules, '' if modules == 1 else 's', len(first)
     , 'y' if len(first) == 1 else 'ies', '+'.join(backends)
     )
+  restored = sum(job.restored or 0 for job in jobs)
+  if restored:
+    head += ', %d from the product cache' % restored
   missing = []
   unknown = []
   for job in jobs:

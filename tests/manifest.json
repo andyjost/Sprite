@@ -1278,6 +1278,24 @@
         "tests": 14
       }
     },
+    "unit_product_cache.py": {
+      "cxx": {
+        "duration_s": 10.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 175,
+        "tests": 28
+      },
+      "py": {
+        "duration_s": 0.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 38,
+        "tests": 28
+      }
+    },
     "unit_proptree.py": {
       "cxx": {
         "duration_s": 0.5,

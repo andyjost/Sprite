@@ -23,6 +23,11 @@ done
 # of the user.
 export XDG_CACHE_HOME="$SRC_DIR/cache"
 
+# The product cache of the C++ backend off: the build compiles its own
+# library objects, and the package holds files, not hard links into a cache
+# (SPRITE_PRODUCT_CACHE; the empty string turns the cache off).
+export SPRITE_PRODUCT_CACHE=
+
 # Paths of the build tree must not reach the package.  The compilers record
 # the names of headers in assertions; map the tree to a relative name.
 export CFLAGS="${CFLAGS:-} -ffile-prefix-map=$SRC_DIR=."

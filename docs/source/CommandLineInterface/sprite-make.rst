@@ -111,8 +111,14 @@ source, and needs the C++ compiler that Sprite was configured with::
 
     sprite-make --so Peano.curry
 
-The object is written to ``.curry/sprite-pakcs-<ver>/Peano.so``, beside a
-record of the runtime headers it was compiled against (``Peano.so.abi``).
+The object is written to ``.curry/sprite-pakcs-<ver>/Peano.so``, beside its
+ABI stamp (``Peano.so.abi``): a digest of the runtime headers, the flags
+it was compiled with, the compiler of the build and the format of the
+generated code, and the real path of the installation.  The compile
+also stores the object, the C++ source and the stamp in the product cache,
+from which a later compile of the same module under the same conditions
+places them instead of running the compiler (``SPRITE_PRODUCT_CACHE``; see
+:ref:`CommandLineInterface/EnvironmentVariables:Development Variables`).
 The installation uses ``--py`` and ``--so`` to compile the Curry library for
 both backends, so that the first import after ``make stage`` compiles
 nothing.

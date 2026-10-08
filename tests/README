@@ -28,6 +28,22 @@ files joined the entry; the rows of format 2 stay in their own table, unread.
 The first run after the change compiles each test module once more and fills
 the new table; delete .cache/icurry.db to drop the old rows.
 
+The C++ backend keeps a second cache, the product cache, under
+`.cache/products` (environment variable SPRITE_PRODUCT_CACHE; the runner and
+cytest set it unless the environment names a directory, and the empty string
+turns it off).  A compile stores the shared object of a module, its ABI
+stamp and the generated C++ there, keyed by the stamp and by the texts of
+the module (its source, its ICurry and its JSON) and of its imports, and a
+later compile of the same module places them from there instead of running
+g++: a pool whose compiled products were removed comes back in under a
+second (section 10).  The key names the installation and the directory of
+the source, which an object names in its NEEDED entries and in its record,
+so the cache serves one tree.  Under interpret:new nothing is placed (the
+mode never compiles).  After its prepare pass the runner prunes this cache
+and no other: the digest directories of other runtimes go, so the directory
+does not grow with every change to the runtime headers (the CI cache entry
+carries it).  Both directories under .cache may be deleted at any time.
+
 
 2. TEST CATEGORIES
 ------------------
@@ -912,7 +928,18 @@ the runtime interprets the module) and its log
 (.cache/runner/<backend>/prepare-<directory>.log); one line after the
 pass sums it up ("prepare: 37 modules in 1 directory on cxx, every
 product present"); and the last line of the summary table adds
-"prepare: N of M incomplete".  The exit status of the run does not
+"prepare: N of M incomplete".  sprite-make stores the products it compiles
+in the product cache (section 1) and places the cached products of a
+module instead of a compile; its line about the counts reaches the log of
+the directory (the pass runs it without -q), and the line of the directory
+and the summary say how many products came from the cache ("43 of 43 from
+the product cache").  After the pass the runner prunes the cache when it
+is the runner's own (.cache/products, not a directory the environment
+named): the digest directories of other runtimes and the leftovers of an
+interrupted store go, and a line says so when something went ("prepare:
+product cache pruned: 1 digest directory of other runtimes, 0 temporary
+directories"); an installation without a digest prunes nothing.  The exit
+status of the run does not
 depend on the pass: the test that needs the module reports the failure
 in its own terms.  A failed compile that leaves an old product in place
 is not seen by the pass; that test reports it too.  The examples under

@@ -9,9 +9,30 @@
 # not fill up.  Make.config is copied from this tree, so no configure run is
 # needed.  The script runs `make stage` in the worktree; run it under a clean
 # environment if a conda toolchain is active.  Afterwards it copies the
-# compiled caches of the Curry library and of the test corpus, so the worktree
-# does not recompile them.  The copies are made after the build, so they are
-# newer than the worktree's runtime library and count as up to date.
+# products of the front end from the product directories of the test corpus
+# (the ICurry, the JSON and the interfaces), so the worktree does not run
+# the front end again.  The copies get the time of the copy, not the time
+# of the original (tar -m): the sources of the fresh checkout are newer
+# than the originals, and a copy with the old time would count as stale
+# and send every module through the front end again.  The JSON files are
+# touched after the copy, so each one is newer than its ICurry file.
+#
+# The generated code of both backends is not copied.  The generated Python
+# (and its bytecode) names the source of the tree it was made in, and the
+# Python backend writes it again in a moment.  The compiled products of the
+# C++ backend (the generated C++, the shared object and its ABI stamp) are
+# not copied either: the stamp of a copied object names the installation it
+# was compiled under, and so do the NEEDED entries of the object, so the
+# copy would be stale here.  The prepare pass
+# of the test runner compiles them (tests/run_tests --prepare-only) and
+# stores them in the product cache (SPRITE_PRODUCT_CACHE), which serves this
+# worktree afterwards; the key of the cache names the installation and the
+# source directory, so the products of the main tree are not served to the
+# worktree (the dated TODO entry of 2026-10-07 on the product cache names
+# the change that would let two trees share them).  With
+# SPRITE_WORKTREE_PREPARE=1 the pass runs at the end of this script, on the
+# C++ backend; it takes minutes on a cold tree and needs the Curry front
+# end.
 set -euo pipefail
 if [ $# -lt 2 ]; then
   echo "usage: $0 <path> <branch> [<start-point>]" >&2
@@ -42,11 +63,21 @@ if [ -e "$here/CLAUDE.local.md" ]; then
   cp -P "$here/CLAUDE.local.md" "$path/CLAUDE.local.md"
 fi
 make -C "$path" stage
+# The generated code of both backends stays behind (see above).
+exclude=(
+  --exclude='*.cpp' --exclude='*.so' --exclude='*.so.abi'
+  --exclude='*.py' --exclude='*.pyc' --exclude='__pycache__'
+)
 (
   cd "$here"
   find curry tests/data -type d -name .curry | while read -r dir; do
-    mkdir -p "$path/$(dirname "$dir")"
-    cp -r "$dir" "$path/$dir"
+    mkdir -p "$path/$dir"
+    tar -C "$dir" -cf - "${exclude[@]}" . | tar -C "$path/$dir" -xmf -
+    find "$path/$dir" -name '*.json.z' -exec touch {} +
   done
 )
+if [ "${SPRITE_WORKTREE_PREPARE:-}" = 1 ]; then
+  echo "compiling the shared Curry products of the test pool (the prepare pass)"
+  (cd "$path/tests" && ./run_tests --prepare-only --backend cxx)
+fi
 echo "worktree ready: $path (branch $branch, build under $root)"

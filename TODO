@@ -6811,3 +6811,297 @@
   The fast tier: 130 of 130 OK, 159 s (the stale-pool failures of the
   morning do not return: the pool was prepared under the current digest).
   unit_conda.py through the runner: 21 OK on cxx and 21 OK on py.
+
+2026-10-07: the ABI stamp names the installation as text, and the product cache (worktree wt/cache, issue #100)
+- The stamp.  object_digest no longer digests the real path of the
+  installation prefix.  The digest covers what decides whether an object
+  fits a runtime: the runtime headers (runtime_digest), the flags of the
+  flavor and of the collector with its write counters, the link flags,
+  the compiler of the build and the format of the generated code (the
+  last two since the review of the item, below).  The stamp file
+  <module>.so.abi has two lines now: the digest, 16 hex digits, and the
+  real path of the installation (installation_path).  Cpp2So.is_stale
+  accepts an object when the digest is one of accepted_digests and the
+  second line, as a real path, is the installation of the process
+  (stamp_is_current); a stamp of one line, the old form, is stale.  So a
+  copy of an installation made by hand stays stale (its stamps name the
+  original, whose shared objects its objects link against), a package
+  whose manager rewrote the text keeps its objects (conda-build lists a
+  text file that holds the prefix in info/has_prefix by itself; the next
+  build of the conda package must show 12 binary and 13 text entries,
+  and the build prefix must be a real path for conda-build to find it in
+  the stamps), and two installations of one runtime give one digest,
+  which the product cache keys on.  The format is documented on the
+  class Cpp2So.  Consequence: every compiled product is compiled once
+  more after this lands (the prepare pass and make stage do it); the 43
+  modules of the pool of this worktree took 26.5 s with ccache disabled.
+  Tests (unit_cxx_toolchain.py, 36 OK on cxx): TestAbiStamp.
+  test_stamp_lines (the reader; a stamp of one line, blank space, a third
+  line), test_relocated_object_is_kept (the text rewritten, also through
+  a link: no compile), test_hand_copy_is_stale (the right digest with
+  another path: compiled again, with a stamp of this installation);
+  TestFlavor.test_digest asserts now that the digest does not change
+  with the prefix and that the text decides.  conda/README.md closes
+  open question 2 for the stamp (the split of the package stays open),
+  meta.yaml says that the stamps are text entries, build.sh turns the
+  product cache off for the build.  The docs: CompilationPipeline,
+  WithoutCompiler, sprite-make, the environment variables.
+- The cache.  curry.toolchain._productcache; the root is
+  SPRITE_PRODUCT_CACHE (config.product_cache_dir): by default
+  $XDG_CACHE_HOME/sprite/products or ~/.cache/sprite/products; the empty
+  string turns it off, and off is the behaviour before the cache.  An
+  entry is <root>/<digest>/<key>/ with <Module>.cpp, <Module>.so and
+  <Module>.so.abi.  The digest is the first line of the stamp.  The key
+  (_productcache.product_key, KEY_FORMAT 2 since the review below) digests, in order: the
+  format of the key; the name of the module (the generated code and the
+  symbols of the object carry it; the math corpus holds pairs of modules
+  with one text, intmath065 and intmath073 among them, which shared an
+  entry and missed in turn until the name joined the key); the facts of
+  the backend (Cpp2So.product_facts):
+  the format version of the generated code (compiler.FORMAT_VERSION), a
+  digest of the sources of the code generator (the C++ emitter and its
+  helpers, the generic emitter, the optimizer and the ICurry analyses:
+  GENERATOR_SOURCES), the keys of the optimizer passes, the inline budget
+  of the interpreter, the intermediate directory, the digest of the route
+  from Curry to ICurry (cache.frontend_digest), the real path of the
+  installation (the second line of the stamp) and the real path of the
+  directory of the source; and the chain digest: the module's own texts
+  (the Curry source, the ICurry file and the JSON, each one that exists;
+  since the review below) and the name and the text of every module it imports,
+  transitively, found in the Curry path or in the library of the
+  installation (the Prelude is implicit).  These are the facts that
+  decide staleness today (the stamp, the format stamp of the .cpp, the
+  texts of the chain) plus the facts that shape the generated code.  The
+  two paths are in the key because an object names them: its record
+  names the source (relative to the installation for a library module,
+  absolute otherwise), and its NEEDED entries name the objects of its
+  imports by absolute path (readelf -d of Numeric.so of the install:
+  .../install/curry/.curry/sprite-pakcs-3.4.1/Prelude.so and two more).
+  An object of another tree restored here would make the dynamic linker
+  map that tree's Prelude beside this one (finding C6 of the audit of
+  #82).  So the cache serves one tree: the same tree after its products
+  were removed, after an edit and its revert, after a branch switch and
+  back.  A second worktree gets no entry of the first, and the
+  acceptance of #100 (the prepare pass of a second worktree in under a
+  minute) is out of reach under the risk line of the item.  What would
+  let two trees share, the owner's decision (the link and the record are
+  the runtime's design): the link line names the imports by SONAME (the
+  full module name) instead of by path, with the imports loaded before
+  the module as the loader does today, and the record of a source
+  outside the installation names it relative to the object; a new
+  FORMAT_VERSION; then 'installation' and 'source' leave product_facts
+  (one line each) and KEY_FORMAT goes to 2.  Where the cache is used:
+  Maker.make asks the plan before each step (Plan.restore, the step
+  before the last, Cpp2So.restore) to place the cached products of the
+  module, also before a step that would end the plan at its input, so
+  the first import of a module under tiered places its object and loads
+  the module compiled instead of interpreting it; Cpp2So.__call__ stores
+  after a compile (Cpp2So.store).  sprite-make, the background compile of
+  tiered (sprite-make --so in a child) and the prepare pass all go
+  through Maker.  A module in the temporary directory of the system, or
+  made by str2module, is never cached (excluded); SPRITE_FORCE_RECOMPILE_CXX
+  skips the restore; a restore refuses a directory that cannot be
+  written and a module whose import runs without an object.
+  Concurrency: a store writes into a temporary directory beside the
+  entry and renames it into place; a writer that finds the entry removes
+  its own files; a restore places each file through a temporary name and
+  a rename.  The shared object is hard-linked both ways when the cache
+  and the product directory lie on one file system (Cpp2So.__call__
+  unlinks the old object before the compiler runs, so a link into the
+  cache is never written into; the generated file and the stamp are
+  copied, because the emitter writes in place; a refused link falls back
+  to a copy).  The restored files get modification times later than
+  every file of the module, in the order of the chain, so the object is
+  the newest file.  sprite-make prints "sprite-make: product cache: N
+  restored, M stored" at the end of a run that did either, not under -q;
+  its --jobs children print the line for the parent (--child), which
+  sums them.  The prepare pass runs sprite-make without -q and reads the
+  line from the log: the line of a directory says "43 of 43 from the
+  product cache" and the summary line counts them.  The runner and
+  cytest set SPRITE_PRODUCT_CACHE to tests/.cache/products unless the
+  environment names it (the empty string included), beside the ICurry
+  cache, so a test run writes nothing under the cache directory of the
+  user and the restored objects are hard links.  scripts/new-worktree.sh
+  no longer copies the C++ products of the main tree (stale in the
+  worktree by the stamp and by the NEEDED entries, before this change as
+  well); with SPRITE_WORKTREE_PREPARE=1 it ends with the prepare pass.
+- Measurements, this worktree, CCACHE_DISABLE=1, env -i, one process at a
+  time (ccache would not have helped: its statistics of this host show 5
+  percent of the compiler calls cacheable, the precompiled header keeps
+  the rest out).  The prepare pass of the pool (43 modules, data/curry)
+  with every object stale (the stamps of the old form) and the cache
+  empty: 26.5 s, 43 stored, 4.6 MB in the cache.  The products of the pool
+  moved aside and the pass again: 0.5 s, 43 of 43 from the product cache
+  (0.70 s for the whole run_tests).  The cold pass over the corpora, in
+  chunks: math (218 modules) 48.5 s, eqconstr (767) 278.6 s, the other
+  nine directories (254 modules with the warm pool) 105.6 s; about 7 min
+  40 s for the 1,239 modules of the pool and the corpora, 1,236 entries,
+  74 MB (the compiled products of tests/data are 1,242 objects, 42 MB).
+  Every product of tests/data moved aside and the pass over everything:
+  23.0 s, 1,208 of 1,239 from the product cache; the 31 others were
+  compiled, and the reason was the defect above: pairs of modules with
+  one text in math and io (intmath065 and intmath073, compare56 and
+  compare57, getChar_catch2 and getChar_error2, ...) shared a key, so the
+  entry held the files of one name and the other missed, compiled, and
+  replaced the entry.  With the name in the key: the pool, math and io
+  (284 modules) cold 85.5 s (284 stored), moved aside and the pass again
+  3.0 s, 284 of 284 from the product cache (math alone 1.0 s for 218).
+  The first import of a pool module under tiered with its products aside:
+  Chars 0.061 s from the cache, loaded from the object (restored 1);
+  0.037 s with the object present; 0.067 s interpreted with the cache off
+  (no object written by the short process); CxxBom 0.059 s, 0.036 s,
+  0.057 s; the Prelude from the installed object 0.032 s (import curry
+  itself 0.07 s).  So for a small module the restore costs about 25 ms
+  over a present object and saves the compile (0.2 to 0.6 s here, more
+  for a large module) and the interpreted steps.
+- Tests.  tests/unit_product_cache.py, 24 tests, on both backends (12 of
+  the compile step skip on py): the root and the empty string, the
+  default under XDG_CACHE_HOME and under the home directory, the
+  excluded directories; the chain digest and the closure (an import
+  changed, the module changed, a copy of the directory gives the same
+  chain, an import the path does not hold, a module without a source
+  from its ICurry or JSON); the key over the facts; the store, the
+  lookup and the restore with stand-in files (the hard link, the copy
+  across file systems, a refused link, the replace without a write into
+  the old inode, the second store of a key, the race of two writers with
+  the other writer simulated between the write and the rename, an
+  unwritable root); the compile step: a compile stores, a second make
+  restores (no compiler, the stamp of this installation, the object the
+  newest file, the compile clock counts the restore), a stale object is
+  replaced from the cache, a miss on a changed source, on another digest
+  and in another directory, the cache off, a forced recompile, an
+  excluded module, an unwritable cache logged once, the first import
+  under tiered from the cache, the lines of sprite-make (serial and
+  --jobs 2).  unit_runner.py: test_cache_counts (the counts from the log,
+  the note and the summary) and test_environment (the default of the
+  cache, a value of the environment, the empty string).  Verified in this
+  worktree through the runner at -j 1 on both backends (env -i, one file
+  at a time, the sandbox of the agent on except for the functional tests,
+  whose oracle writes under /tmp): the toolchain files (unit_cxx_toolchain,
+  unit_product_cache, unit_runner, unit_make, unit_findcurry,
+  unit_prebuild, unit_cxx_tiered, unit_conda, unit_plan, unit_cache,
+  unit_loadsave, unit_cxx_bom) 24 of 24 pairs OK in 223 s after the fixes
+  of the attempt (see below); the fast tier 54 + 78 pairs OK (173 s and
+  260 s); the slow files (unit_examples, unit_equality, unit_configure,
+  unit_curry2icurry, unit_currylib, unit_split, unit_py_fairness,
+  func_flat2icurry, unit_benchmarks, unit_cxx_freevars,
+  unit_cxx_gc_counters, unit_cxx_gc, unit_cxx_interp, unit_flat2icurry,
+  unit_goals) 14 + 16 pairs OK (276 s and 185 s); the functional tests
+  20 + 22 pairs OK (88 s and 46 s); make -C docs html built without a
+  warning.  The attempt that the credits of the
+  account interrupted left five failures, repaired here: the closure of
+  the key did not see the Prelude unless the caller's path held the
+  library (import_closure searches the library of the installation now;
+  the first import under tiered missed its own entry because the import
+  passes curry.path and the test passed the source directory alone); the
+  store hard-linked the generated file (a link would carry the next
+  generation into the entry; the .so alone is linked); the log capture of
+  a test used an attribute the helper lacks; and the summary expectation
+  of test_cache_counts counted two jobs of one directory as one.  Added
+  here: the module name in the key (above), the real-path comparison of
+  the stamp's text, the copy when a link is refused, the default of the
+  runner and of cytest, and the tests of each.
+- The review of the item (the same day), applied.  (1) The key missed
+  the content of the ICurry and of the JSON: a JSON written again from
+  the same source (after a change to the ICurry reader, a pinned .icy
+  replaced, sprite-make --rewrite-flat) was served the old object; a
+  probe showed the goal of a module give its old value after its JSON
+  changed.  The chain digests the source, the .icy and the JSON of the
+  module now, each one that exists (_module_texts), GENERATOR_SOURCES
+  names the ICurry reader (icurry/, icurry/types/) and the loader and
+  JSON writer of the toolchain, and KEY_FORMAT is 2 (the entries of
+  format 1 are never found; the runner's prune removes them with the
+  digest directory of the old stamp).  Tests: TestKey.test_texts_in_the_chain,
+  TestCompile.test_miss_on_a_changed_json.  (2) Under interpret:new a
+  warm cache placed the object of a module at the JSON stage, against
+  section 4 of tests/README ("new ... never compiles it"): Cpp2So.restore
+  places nothing under new now (test_interpret_new_does_not_restore); the
+  mode keeps its documented meaning, and the owner may open it to the
+  cache later (one line).  (3) The CI cache entry of tests/.cache carries
+  the product cache, one digest directory per header change, never
+  pruned: _productcache.prune(keep) removes the digest directories not
+  kept and the leftovers of an interrupted store older than an hour,
+  with nothing removed when the installation has no digest; the runner
+  calls it after its prepare pass on its own cache alone
+  (tests/.cache/products, not a directory the environment named:
+  prepare.prune_product_cache, in the Python of the installation), and
+  prints a line when something went.  The pass in CI with a warm cache
+  is not measured (no CI run from this worktree); the entry is saved
+  after every run as before.  (4) run_tests --changed selects
+  unit_product_cache.py for a change to the toolchain (TOOLCHAIN of
+  selection.py), and the manifest has its entry (--update-manifest, 28
+  tests, 10.5 s on cxx, 0.5 s on py).  (5) scripts/new-worktree.sh
+  copies the products of the front end alone now: the generated Python
+  and its bytecode name the source of the main tree as the C++ did, and
+  the Python backend writes them again in a moment.  (6) The owner's
+  decision names the compiler and the format version in the digest, and
+  both were missing: object_digest digests config.cxx_compiler(), the
+  record of the build in sysconfig/cxx_compiler (a new .var under
+  src/export/sysconfig: the version and the target of CXX_POSTINSTALL,
+  "13.3.0 x86_64-linux-gnu" here; empty for an installation configured
+  without a compiler), and compiler.FORMAT_VERSION.  The record, not a
+  probe of the compiler at hand, so that an installation without a
+  compiler (the conda package without cxx-compiler) computes the digest
+  of its shipped objects; the record ships with the package.  The record
+  is read once per process (a test that moves the prefix keeps the
+  digest, as it should: two installations of one runtime give one
+  digest).  TestFlavor.test_digest asserts both.  (7) The default of the
+  cache (on, under the cache directory of the user) differs from the
+  words of the issue ("optional; unset means today's behaviour"): left
+  to the owner; the docs say how the directory grows and that it may be
+  deleted.  Consequence of (6): every object compiled once more; make
+  stage recompiled the library in 31 s, the prepare pass of the pool (43
+  modules, cache cold for the new digest) took 44.6 s, the pass again
+  0.5 s with every product present.  Verified through the runner under
+  env -i (the conda CXXFLAGS of the login shell make the two
+  precompiled-header tests of unit_cxx_toolchain.py fail by their member
+  names, O3O2; not a defect of the change): unit_product_cache.py 28 OK
+  on cxx and py, unit_cxx_toolchain.py 36 OK on both, unit_runner.py 67
+  OK on both, unit_conda.py 21 OK on both.
+- What remains.  The sharing between trees (above).  The conda build
+  with the stamp change: not made; question 2 of conda/README.md names
+  what it must show, and the build must now ship sysconfig/cxx_compiler
+  (it does: every sysconfig file is installed).  The prepare pass in CI
+  with a warm product cache: not measured.  The default of the cache
+  (point 7 above).  A cache the environment names is never pruned; the
+  directory may be deleted at any time.
+- The suite stage (the same day), every run under env -i through the
+  runner, one command at a time.  The cxx prepare pass of every corpus in
+  one command, cache cold for the new digest: 456.2 s wall for 1,239
+  modules (eqconstr 289.6 s, math 53.0 s, benchmarks 38.0 s), 1,197
+  stored.  The py prepare pass over the corpora: 12.0 s, every product
+  present.  The full suite at -j 2 --mem 4 on both backends in four
+  chunks: unit_[a-c] 62 of 62 OK (236 s), unit_[d-o] 50 of 50 OK (175 s),
+  unit_[p-z] 64 of 64 OK (121 s), func_* 42 of 42 OK (65 s, the sandbox
+  off for the oracle); --changed selects every file (the harness changed),
+  so these chunks are its run.  The five files of the item at -j 2 on
+  both: 10 of 10 OK (112 s).  --fast on both: 130 of 130 OK (180 s).  The
+  full suite at -j 1 on both backends, the long run that was left: 354 s,
+  337 s, 320 s and 137 s, 218 of 218 OK, about 19 min.  The second
+  worktree (scripts/new-worktree.sh, the diff applied to it, the cache
+  warm): the make stage of its library stored 13, restored 0; its prepare
+  pass of every corpus stored every module and took 752 s, longer than a
+  cold pass here, because the copies of the front end's products kept the
+  time of the originals (tar keeps it; cp -r, which the script used before
+  this item, did not) and the sources of the fresh checkout were newer, so
+  every module went through the front end again, and the module of smap
+  that needs currypp failed under a PATH without PAKCS.  Fixed: the copy
+  takes the time of the copy (tar -xm) and the JSON files are touched
+  after it, so each is newer than its ICurry; the worktree made again
+  showed the front end's copies newer than the sources and its make stage
+  restored the 13 library objects of the earlier worktree of the same
+  path (the key names the path, not the tree).  Its prepare pass then
+  took 231.1 s with 652 of 1,239 from the product cache: the 587 others
+  missed because the ICurry the front end wrote in the first worktree
+  carries constrEq (the binding optimization rewrote the .fcy) while the
+  ICurry copied from this tree, which came from the ICurry cache keyed by
+  the source text, does not (sendMoreMoney.icy of this tree and of the
+  main tree hold no constrEq; the two cache entries differ in eqInt
+  against constrEq).  The product cache is right to tell them apart; the
+  ICurry cache of the tests serving a pre-rewrite translation is a
+  separate matter for the owner.  So the acceptance of #100 stays unmet
+  for a worktree at a new path (a miss by construction, above), and a
+  worktree made again at the same path is served.  The measurements left
+  about 1,250 entries of the probe worktrees under tests/.cache/products
+  (155 MB in all); the runner's prune keeps them because they share the
+  digest; the directory may be deleted.

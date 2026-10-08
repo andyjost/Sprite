@@ -217,10 +217,20 @@ used to post-process Python code into a more efficient form.
 
 The C++ backend compiles each generated module with ``g++`` into a shared
 object the first time the module is used, and again when the runtime headers
-change.  Each object records a digest of the installed headers it was compiled
-against in a file beside it (``<module>.so.abi``).  An object whose record
-differs from the installed headers is compiled again; a new copy of the same
-runtime keeps every object.  Every module includes the header ``cyrt/cyrt.hpp``,
+change.  Each object records a digest of the installed headers, of the
+flags it was compiled with, of the compiler the runtime was built with and
+of the format of the generated code, and the real path of the installation
+it was compiled under, in a file beside it (``<module>.so.abi``, the ABI
+stamp).  An
+object whose digest differs from the installed headers, or whose path is not
+this installation, is compiled again; a new copy of the same runtime keeps
+every object, and a package whose manager rewrote the path at install time
+keeps its objects.  A compile also stores the object, the generated C++ and
+the stamp in the product cache, and a later compile of the same module under
+the same conditions places them from there instead of running the compiler;
+see ``SPRITE_PRODUCT_CACHE`` under
+:ref:`CommandLineInterface/EnvironmentVariables:Development Variables`.
+Every module includes the header ``cyrt/cyrt.hpp``,
 and parsing that header is most of the compile time of a small module.  So the
 backend precompiles the header once per set of compiler flags and keeps the
 result beside the installed headers.  See ``SPRITE_CXX_PCH_ROOT`` under
